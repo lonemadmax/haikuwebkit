@@ -64,13 +64,13 @@ public:
 
     float contentLogicalLeft() const { return line().lineBoxLeft() + line().contentLogicalOffset(); }
     float contentLogicalRight() const { return contentLogicalLeft() + line().contentLogicalWidth(); }
-    float y() const { return lineBoxTop(); }
-    float logicalHeight() const { return lineBoxBottom() - lineBoxTop(); }
     bool isHorizontal() const { return line().isHorizontal(); }
     FontBaseline baselineType() const { return line().baselineType(); }
 
     const RenderBlockFlow& containingBlock() const { return m_inlineContent->containingBlock(); }
-    const LegacyRootInlineBox* legacyRootInlineBox() const { return nullptr; }
+
+    RenderFragmentContainer* containingFragment() const { return nullptr; }
+    bool isFirstAfterPageBreak() const { return false; }
 
     void traverseNext()
     {

@@ -248,7 +248,7 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
     , m_captureOrigin(SecurityOrigin::createUnique())
 #endif
 #if ENABLE(VIDEO)
-    , m_videoFrameObjectHeap(RemoteVideoFrameObjectHeap::create(*this))
+    , m_videoFrameObjectHeap(RemoteVideoFrameObjectHeap::create(m_connection.get()))
 #endif
 #if PLATFORM(COCOA) && USE(LIBWEBRTC)
     , m_libWebRTCCodecsProxy(LibWebRTCCodecsProxy::create(*this))
@@ -287,9 +287,6 @@ GPUConnectionToWebProcess::~GPUConnectionToWebProcess()
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     m_sampleBufferDisplayLayerManager->close();
 #endif
-#if PLATFORM(COCOA) && USE(LIBWEBRTC)
-    m_libWebRTCCodecsProxy->close();
-#endif
 
     --gObjectCountForTesting;
 }
@@ -309,7 +306,7 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
     }
 #endif
 #if ENABLE(VIDEO)
-    m_videoFrameObjectHeap.reset();
+    m_videoFrameObjectHeap->close();
 #endif
     // RemoteRenderingBackend objects ref their GPUConnectionToWebProcess so we need to make sure
     // to break the reference cycle by destroying them.
@@ -324,7 +321,9 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
         WCContentBufferManager::singleton().removeAllContentBuffersForProcess(webProcessIdentifier);
     });
 #endif
-
+#if PLATFORM(COCOA) && USE(LIBWEBRTC)
+    m_libWebRTCCodecsProxy = nullptr;
+#endif
     gpuProcess().connectionToWebProcessClosed(connection);
     gpuProcess().removeGPUConnectionToWebProcess(*this); // May destroy |this|.
 }

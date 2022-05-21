@@ -1,3 +1,310 @@
+2022-03-12  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt FALLBACK_PLATFORM_NAME in place of FALLBACK_PLATFORM
+        https://bugs.webkit.org/show_bug.cgi?id=237809
+
+        Reviewed by Per Arne Vollan.
+
+        * Configurations/SDKVariant.xcconfig:
+
+2022-03-10  Michael Saboff  <msaboff@apple.com>
+
+        Catalyst JavaScriptCore, WebCore, WebKitLegacy, and WebKit shouldn't be copied to the Secondary Path
+        https://bugs.webkit.org/show_bug.cgi?id=237748
+
+        Reviewed by Mark Lam.
+
+        Updated the configuration to exclude copying Catalyst build products to the secondary path.
+
+        * Configurations/WebInspectorUIFramework.xcconfig:
+
+2022-03-10  Lauro Moura  <lmoura@igalia.com>
+
+        Add context.roundRect support to OffScreenCanvas
+        https://bugs.webkit.org/show_bug.cgi?id=232780
+        <rdar://problem/85366210>
+
+        Reviewed by Darin Adler.
+
+        * UserInterface/Models/Recording.js:
+        (WI.Recording.displayNameForSwizzleType): Added name for DOMPointInit.
+        Proper support for it should come with bug233255.
+
+2022-03-10  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: Styles Panel: CSS variable completions should be provided even without a query
+        https://bugs.webkit.org/show_bug.cgi?id=237679
+        <rdar://problem/90059628>
+
+        Reviewed by Patrick Angle.
+
+        Return the list of all available completion suggestions if `WI.CSSCompletions` is configured to allow empty
+        prefix search. This was already the case for classic autocompletion with prefix matching, but was missing
+        for fuzzy matching.
+
+        * UserInterface/Models/CSSCompletions.js:
+        (WI.CSSCompletions.prototype.executeQuery):
+
+2022-03-08  Adrian Perez de Castro  <aperez@igalia.com> and Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Web Inspector: make it possible to use the remote inspector from other browsers
+        https://bugs.webkit.org/show_bug.cgi?id=237601
+
+        Reviewed by Michael Catanzaro.
+
+        Add Base/BrowserInspectorFrontendHost.js to be used when inspector is run and InspectorFrontendHost is not
+        defined in window. This new file is only included in the inspector sources for GTK and WPE ports.
+
+        * CMakeLists.txt:
+        * PlatformWPE: Added
+        * PlatformGTK:
+        * Scripts/combine-resources.pl: Add --input-script-name to be able to skip individual scripts too.
+        * Scripts/copy-user-interface-resources.pl: If inspector frontend host should not be included, remove the script
+        from generated files.
+        * UserInterface/Base/BrowserInspectorFrontendHost.js: Added.
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get supportsShowCertificate):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get isRemote):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get inspectionLevel):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get debuggableInfo):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get port):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get platform):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get platformVersionName):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get supportsDiagnosticLogging):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.get supportsWebExtensions):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.connect):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.loaded):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.closeWindow):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.reopen):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.reset):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.bringToFront):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.inspectedURLChanged):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.showCertificate):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.setZoomFactor):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.zoomFactor):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.setForcedAppearance):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.userInterfaceLayoutDirection):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.supportsDockSide):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.requestDockSide):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.setAttachedWindowHeight):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.setAttachedWindowWidth):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.setSheetRect):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.startWindowDrag):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.moveWindowBy):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.copyText):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.killText):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.openURLExternally):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.canSave):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.save):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.append):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.close):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.showContextMenu):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.dispatchEventAsContextMenuEvent):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.sendMessageToBackend):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.unbufferedLog):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.isUnderTest):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.isExperimentalBuild):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.beep):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.inspectInspector):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.isBeingInspected):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.setAllowsInspectingInspector):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.logDiagnosticEvent):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.didShowExtensionTab):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.didHideExtensionTab):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.didNavigateExtensionTab):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.inspectedPageDidNavigate):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.evaluateScriptInExtensionTab):
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype._sendPendingMessagesToBackendIfNeeded):
+        * UserInterface/Base/Main.js:
+        (WI.loaded): Connect the inspector host if needed.
+        * UserInterface/Main.html: Add Base/BrowserInspectorFrontendHost.js.
+
+2022-03-02  Michael Saboff  <msaboff@apple.com>
+
+        Copy WebKit frameworks and XPC processes to Secondary Path
+        https://bugs.webkit.org/show_bug.cgi?id=237394
+
+        Reviewed by Saam Barati.
+
+        Added build configuration variables and scripts to copy the built Framework to the SYSTEM_SECONDARY_CONTENT_PATH
+        when it is set.
+
+        * Configurations/WebInspectorUIFramework.xcconfig:
+        * Scripts/copy-frameworks-to-secondary-path.sh: Added.
+        * WebInspectorUI.xcodeproj/project.pbxproj:
+
+2022-03-01  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: add a switch to control whether breakpoint evaluations (condition, ignore count, actions) are also affected by script blackboxing
+        https://bugs.webkit.org/show_bug.cgi?id=235274
+
+        Reviewed by Patrick Angle.
+
+        Being able to defer breakpoint evaluations until the next actual pause can sometimes be far
+        more useful than doing the breakpoint evaluations at the breakpoint's original location.
+
+        As an example, configuring the All Events breakpoint with a `console.trace()` action and
+        auto-continue enabled would not provide much useful information without also blackboxing
+        breakpoint evaluations as the original pause location of the All Events breakpoint is on the
+        first line of the event handler, meaning that if the script containing the event handler is
+        blackboxed then the `console.trace()` would still only show that location even though the
+        Sources Tab would show the first line of code outside of that script (due to the blackbox).
+        Being able to also blackbox breakpoint evaluations would instead cause the `console.trace()`
+        action to have the same output as the Sources Tab, since it's evaluation would be deferred
+        until execution actually paused, which is further inside the event handler
+
+        * UserInterface/Base/Setting.js:
+        * UserInterface/Controllers/DebuggerManager.js:
+        (WI.DebuggerManager.supportsBlackboxingBreakpointEvaluations): Added.
+        (WI.DebuggerManager.prototype.async initializeTarget):
+        (WI.DebuggerManager.prototype._setBlackboxBreakpointEvaluations): Added.
+        (WI.DebuggerManager.prototype._handleBlackboxBreakpointEvaluationsChange): Added.
+        Create a global `WI.Setting` for this feature and handle changes from the code below.
+
+        * UserInterface/Views/BlackboxSettingsView.js:
+        (WI.BlackboxSettingsView.prototype.initialLayout):
+        * UserInterface/Views/BlackboxSettingsView.css:
+        (.settings-view.blackbox > p > label): Added.
+        (.settings-view.blackbox > p > label > input): Added.
+        (.settings-view.blackbox > p > label > span): Added.
+        Add a checkbox and explanation of this new feature in the Blackbox pane of the Settings Tab.
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+2022-02-28  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: [Flexbox] Add options to show each area's CSS `order` and/or DOM index in the parent flex container
+        https://bugs.webkit.org/show_bug.cgi?id=237215
+
+        Reviewed by Patrick Angle.
+
+        This will help developers better understand how CSS `order` and the DOM index of each flex
+        item interact and result in what's eventually rendered.
+
+        * UserInterface/Base/Setting.js:
+        Add global `WI.Setting` for `flexOverlayShowOrderNumbers`.
+
+        * UserInterface/Models/DOMNode.js:
+        (WI.DOMNode.prototype.set layoutContextType): Added.
+        (WI.DOMNode.prototype.showLayoutOverlay): Added.
+        (WI.DOMNode.prototype.hideLayoutOverlay): Added.
+        (WI.DOMNode.prototype._handleLayoutOverlaySettingChanged): Renamed from `_handleGridLayoutOverlaySettingChanged`.
+        Listen for changes to the above `WI.Setting` and include the value when invoking `DOM.showFlexOverlay`.
+
+        * UserInterface/Views/CSSFlexNodeOverlayListSection.js:
+        (WI.CSSFlexNodeOverlayListSection.prototype.initialLayout): Added.
+        Add UI for the above `WI.Setting`.
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+        * UserInterface/Views/CSSGridNodeOverlayListSection.js:
+        (WI.CSSGridNodeOverlayListSection.prototype.initialLayout):
+        Drive-by: Adjust a `WI.UIString` to avoid possible future clashing.
+
+2022-02-28  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: add `IterableWeakSet`
+        https://bugs.webkit.org/show_bug.cgi?id=237141
+
+        Reviewed by Patrick Angle.
+
+        This allows clients to have a way to have an iterable collection that doesn't keep the
+        objects in the collection alive. We cannot just use `WeakSet` as it's not iterable (the
+        former) or `Array`/`Set` as it keeps the objects alive (the latter).
+
+        `IterableWeakSet` is a combination of:
+        - a `Set` of `WeakRef` for each object, which gives us iterability with order preserved
+        - a `WeakMap` of each object mapping to the wrapper `WeakRef` in the `Set` (see below)
+        - a `FinalizationRegistry` to remove the wrapper `WeakRef` when the object is destroyed
+
+        * UserInterface/Base/IterableWeakSet.js: Added.
+        (IterableWeakSet):
+        (IterableWeakSet.prototype.get size):
+        (IterableWeakSet.prototype.has):
+        (IterableWeakSet.prototype.add):
+        (IterableWeakSet.prototype.delete):
+        (IterableWeakSet.prototype.take):
+        (IterableWeakSet.prototype.clear):
+        (IterableWeakSet.prototype.keys):
+        (IterableWeakSet.prototype.values):
+        (IterableWeakSet.prototype.Symbol.iterator):
+        (IterableWeakSet.prototype.copy):
+        (IterableWeakSet.prototype.toJSON):
+        (IterableWeakSet.prototype.get _finalizationRegistry):
+        We could just have a `Set`/`Array` of `WeakRef`, but that would require iterating the entire
+        array to find the `WeakRef` that matches the given object, which is less efficient.
+
+        * UserInterface/Controllers/GridOverlayConfigurationDiagnosticEventRecorder.js:
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder):
+        Don't keep `WI.DOMNode` that are `layoutOverlayShowing` alive in order to record diagnostics.
+
+        * UserInterface/Main.html:
+        * UserInterface/Test.html:
+
+2022-02-24  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: merge WI.OverlayManager into WI.DOMNode
+        https://bugs.webkit.org/show_bug.cgi?id=236533
+
+        Reviewed by Patrick Angle.
+
+        There's really nothing substantial about `WI.OverlayManager` that requires it to exist. All
+        of the methods, members, etc. can be moved to `WI.DOMNode`, resulting in clearer calling
+        code (since callers currently have to provide a `WI.DOMNode` to `WI.OverlayManager` methods)
+        and fewer collections (e.g. it's no longer necessary to have a "list of nodes showing a grid
+        overlay").
+
+        * UserInterface/Controllers/OverlayManager.js: Removed.
+        * UserInterface/Main.html:
+        * UserInterface/Base/Main.js:
+        (WI.loaded):
+
+        * UserInterface/Models/DOMNode.js:
+        (WI.DOMNode):
+        (WI.DOMNode.resetDefaultLayoutOverlayConfiguration): Added.
+        (WI.DOMNode.prototype.get layoutOverlayShowing): moved from `WI.OverlayManager.protytpe.hasVisibleOverlay`.
+        (WI.DOMNode.prototype.set layoutContextType):
+        (WI.DOMNode.prototype.showLayoutOverlay): moved from `WI.OverlayManager.protytpe.showOverlay`.
+        (WI.DOMNode.prototype.hideLayoutOverlay): moved from `WI.OverlayManager.protytpe.hideOverlay`.
+        (WI.DOMNode.prototype.get layoutOverlayColor): moved from `WI.OverlayManager.protytpe.getColorForNode`.
+        (WI.DOMNode.prototype.set layoutOverlayColor): moved from `WI.OverlayManager.protytpe.setColorForNode`.
+
+        * UserInterface/Controllers/DOMManager.js:
+        (WI.DOMManager.prototype._mainResourceDidChange):
+        Reset the index of the next default color to use for the next grid/flex DOM node.
+
+        * UserInterface/Views/DOMTreeElement.js:
+        (WI.DOMTreeElement.prototype.onattach):
+        (WI.DOMTreeElement.prototype.ondetach):
+        (WI.DOMTreeElement.prototype._layoutBadgeClicked):
+        (WI.DOMTreeElement.prototype._updateLayoutBadgeStatus):
+        (WI.DOMTreeElement.prototype._handleLayoutContextTypeChanged):
+        * UserInterface/Views/NodeOverlayListSection.js:
+        (WI.NodeOverlayListSection.prototype.attached):
+        (WI.NodeOverlayListSection.prototype.detached):
+        (WI.NodeOverlayListSection.prototype.layout):
+        (WI.NodeOverlayListSection.prototype._handleOverlayStateChanged):
+        (WI.NodeOverlayListSection.prototype._handleToggleAllCheckboxChanged):
+        (WI.NodeOverlayListSection.prototype._updateToggleAllCheckbox):
+        * UserInterface/Controllers/GridOverlayConfigurationDiagnosticEventRecorder.js:
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder):
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype.setup):
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype.teardown):
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype._handleGridOverlayShown):
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype._handleGridOverlayHidden):
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype._sampleCurrentOverlayConfiguration):
+        * UserInterface/Controllers/GridOverlayDiagnosticEventRecorder.js:
+        (WI.GridOverlayDiagnosticEventRecorder):
+        (WI.GridOverlayDiagnosticEventRecorder.prototype.setup):
+        (WI.GridOverlayDiagnosticEventRecorder.prototype.teardown):
+        (WI.GridOverlayDiagnosticEventRecorder.prototype._handleGridOverlayShown):
+        Adopt the above changes:
+         - Replace `WI.OverlayManager.Event.*` with `WI.DOMNode.Event.*` (and `event.data.domNode`
+           with `event.target`).
+         - Replace `WI.overlayManager.*(domNode[, ...])` with `domNode.*([...])`.
+         - Directly query `WI.settings.gridOverlay*.value` instead of getting them from the `data`
+           in `WI.DOMNode.Event.LayoutOverlayShown` (formerly `WI.OverlayManager.Event.OverlayShown`).
+
 2022-02-18  Robert Jenner  <Jenner@apple.com>
 
         Unreviewed, reverting r290149.

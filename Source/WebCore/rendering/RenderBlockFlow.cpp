@@ -501,7 +501,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
     LayoutUnit repaintLogicalBottom;
     LayoutUnit maxFloatLogicalBottom;
     const RenderStyle& styleToUse = style();
-    {
+    do {
         LayoutStateMaintainer statePusher(*this, locationOffset(), hasTransform() || hasReflection() || styleToUse.isFlippedBlocksWritingMode(), pageLogicalHeight, pageLogicalHeightChanged);
 
         preparePaginationBeforeBlockLayout(relayoutChildren);
@@ -531,13 +531,18 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
             layoutInlineChildren(relayoutChildren, repaintLogicalTop, repaintLogicalBottom);
         else
             layoutBlockChildren(relayoutChildren, maxFloatLogicalBottom);
-    }
+        // Expand our intrinsic height to encompass floats.
+        LayoutUnit toAdd = borderAndPaddingAfter() + scrollbarLogicalHeight();
+        if (lowestFloatLogicalBottom() > (logicalHeight() - toAdd) && createsNewFormattingContext())
+            setLogicalHeight(lowestFloatLogicalBottom() + toAdd);
+        if (shouldBreakAtLineToAvoidWidow()) {
+            setEverHadLayout(true);
+            continue;
+        }
+        break;
+    } while (true);
 
-    // Expand our intrinsic height to encompass floats.
-    LayoutUnit toAdd = borderAndPaddingAfter() + scrollbarLogicalHeight();
-    if (lowestFloatLogicalBottom() > (logicalHeight() - toAdd) && createsNewFormattingContext())
-        setLogicalHeight(lowestFloatLogicalBottom() + toAdd);
-    if (relayoutForPagination() || relayoutToAvoidWidows()) {
+    if (relayoutForPagination()) {
         ASSERT(!shouldBreakAtLineToAvoidWidow());
         return;
     }
@@ -554,7 +559,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
     updateLogicalHeight();
     LayoutUnit newHeight = logicalHeight();
     {
-        // FIXME: This could be removed once relayoutForPagination()/relayoutToAvoidWidows() either stop recursing or we manage to
+        // FIXME: This could be removed once relayoutForPagination() either stop recursing or we manage to
         // re-order them.
         LayoutStateMaintainer statePusher(*this, locationOffset(), hasTransform() || hasReflection() || styleToUse.isFlippedBlocksWritingMode(), pageLogicalHeight, pageLogicalHeightChanged);
 
@@ -1727,16 +1732,6 @@ void RenderBlockFlow::clearShouldBreakAtLineToAvoidWidow() const
         return;
 
     rareBlockFlowData()->m_lineBreakToAvoidWidow = -1;
-}
-
-bool RenderBlockFlow::relayoutToAvoidWidows()
-{
-    if (!shouldBreakAtLineToAvoidWidow())
-        return false;
-
-    setEverHadLayout(true);
-    layoutBlock(false);
-    return true;
 }
 
 bool RenderBlockFlow::hasNextPage(LayoutUnit logicalOffset, PageBoundaryRule pageBoundaryRule) const
@@ -3336,18 +3331,19 @@ RenderText* RenderBlockFlow::findClosestTextAtAbsolutePoint(const FloatPoint& po
     // Only check the gaps between the root line boxes. We deliberately ignore overflow because
     // experience has shown that hit tests on an exploded text node can fail when within the
     // overflow fragment.
-    for (auto current = InlineIterator::firstLineFor(blockFlow), last = InlineIterator::lastLineFor(blockFlow); current && current != last; current.traverseNext()) {
-        float currentBottom = current->y() + current->logicalHeight();
-        if (localPoint.y() < currentBottom)
-            return nullptr;
-        
-        auto next = current->next();
-        float nextTop = next->y();
-        if (localPoint.y() < nextTop) {
-            auto run = current->closestRunForLogicalLeftPosition(localPoint.x());
-            if (run && is<RenderText>(run->renderer()))
-                return const_cast<RenderText*>(&downcast<RenderText>(run->renderer()));
+    auto previousRootInlineBoxBottom = std::optional<float> { };
+    for (auto box = InlineIterator::firstRootInlineBoxFor(blockFlow); box; box.traverseNextInlineBox()) {
+        if (previousRootInlineBoxBottom) {
+            if (localPoint.y() < *previousRootInlineBoxBottom)
+                return nullptr;
+
+            if (localPoint.y() > *previousRootInlineBoxBottom && localPoint.y() < box->logicalTop()) {
+                auto run = box->line()->closestRunForLogicalLeftPosition(localPoint.x());
+                if (run && is<RenderText>(run->renderer()))
+                    return const_cast<RenderText*>(&downcast<RenderText>(run->renderer()));
+            }
         }
+        previousRootInlineBoxBottom = box->logicalBottom();
     }
     return nullptr;
 }
@@ -3369,7 +3365,7 @@ VisiblePosition RenderBlockFlow::positionForPointWithInlineChildren(const Layout
     InlineIterator::LineIterator firstLineWithChildren;
     InlineIterator::LineIterator lastLineWithChildren;
     for (auto line = firstLine; line; line.traverseNext()) {
-        if (fragment && line->legacyRootInlineBox() && line->legacyRootInlineBox()->containingFragment() != fragment)
+        if (fragment && line->containingFragment() != fragment)
             continue;
 
         if (!line->firstLeafBox())
@@ -3377,7 +3373,7 @@ VisiblePosition RenderBlockFlow::positionForPointWithInlineChildren(const Layout
         if (!firstLineWithChildren)
             firstLineWithChildren = line;
 
-        if (!linesAreFlipped && line->legacyRootInlineBox() && line->legacyRootInlineBox()->isFirstAfterPageBreak()
+        if (!linesAreFlipped && line->isFirstAfterPageBreak()
             && (pointInLogicalContents.y() < line->lineBoxTop() || (blocksAreFlipped && pointInLogicalContents.y() == line->lineBoxTop())))
             break;
 
@@ -3390,7 +3386,7 @@ VisiblePosition RenderBlockFlow::positionForPointWithInlineChildren(const Layout
                 while (nextLineWithChildren && !nextLineWithChildren->firstLeafBox())
                     nextLineWithChildren.traverseNext();
 
-                if (nextLineWithChildren && nextLineWithChildren->legacyRootInlineBox() && nextLineWithChildren->legacyRootInlineBox()->isFirstAfterPageBreak()
+                if (nextLineWithChildren && nextLineWithChildren->isFirstAfterPageBreak()
                     && (pointInLogicalContents.y() > nextLineWithChildren->lineBoxTop() || (!blocksAreFlipped && pointInLogicalContents.y() == nextLineWithChildren->lineBoxTop())))
                     continue;
             }
@@ -3461,9 +3457,13 @@ void RenderBlockFlow::addFocusRingRectsForInlineChildren(Vector<LayoutRect>& rec
     for (auto box = InlineIterator::firstRootInlineBoxFor(*this); box; box.traverseNextInlineBox()) {
         auto line = box->line();
         // FIXME: This is mixing physical and logical coordinates.
-        LayoutUnit top = std::max(line->top(), LayoutUnit(box->rect().y()));
-        LayoutUnit bottom = std::min(line->bottom(), LayoutUnit(box->rect().maxY()));
-        LayoutRect rect { LayoutUnit(additionalOffset.x() + box->rect().x()), additionalOffset.y() + top, LayoutUnit(box->rect().width()), bottom - top };
+        auto unflippedVisualRect = box->visualRectIgnoringBlockDirection();
+        auto top = std::max(line->top(), LayoutUnit { unflippedVisualRect.y() });
+        auto bottom = std::min(line->bottom(), LayoutUnit { unflippedVisualRect.maxY() });
+        auto rect = LayoutRect { LayoutUnit { additionalOffset.x() + unflippedVisualRect.x() }
+            , additionalOffset.y() + top
+            , LayoutUnit { unflippedVisualRect.width() }
+            , bottom - top };
         if (!rect.isEmpty())
             rects.append(rect);
     }
@@ -3584,6 +3584,7 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
     }
 
     auto& layoutFormattingContextLineLayout = *this->modernLineLayout();
+    layoutFormattingContextLineLayout.updateFormattingRootGeometryAndInvalidate();
 
     for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
         auto& renderer = *walker.current();
@@ -3597,6 +3598,24 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
             auto& replaced = downcast<RenderReplaced>(renderer);
             replaced.layoutIfNeeded();
             layoutFormattingContextLineLayout.updateReplacedDimensions(replaced);
+            continue;
+        }
+        if (is<RenderTable>(renderer)) {
+            auto& inlineTable = downcast<RenderTable>(renderer);
+            inlineTable.layoutIfNeeded();
+            layoutFormattingContextLineLayout.updateInlineTableDimensions(inlineTable);
+            continue;
+        }
+        if (is<RenderListMarker>(renderer)) {
+            auto& marker = downcast<RenderListMarker>(renderer);
+            marker.layoutIfNeeded();
+            layoutFormattingContextLineLayout.updateListMarkerDimensions(marker);
+            continue;
+        }
+        if (is<RenderListItem>(renderer)) {
+            auto& listItem = downcast<RenderListItem>(renderer);
+            listItem.layoutIfNeeded();
+            layoutFormattingContextLineLayout.updateListItemDimensions(listItem);
             continue;
         }
         if (is<RenderBlock>(renderer)) {
@@ -4083,7 +4102,7 @@ void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogical
 {
     // "The inline-axis intrinsic sizes of the principal box are determined as if the element had no content."
     // https://drafts.csswg.org/css-contain-3/#containment-inline-size
-    if (style().effectiveContainment().contains(Containment::InlineSize))
+    if (shouldApplyInlineSizeContainment(*this))
         return;
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)

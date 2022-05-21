@@ -46,15 +46,6 @@ ServiceWorkerRegistrationKey ServiceWorkerRegistrationKey::emptyKey()
     return { };
 }
 
-unsigned ServiceWorkerRegistrationKey::hash() const
-{
-    unsigned hashes[2];
-    hashes[0] = SecurityOriginDataHash::hash(m_topOrigin);
-    hashes[1] = StringHash::hash(m_scope.string());
-
-    return StringHasher::hashMemory(hashes, sizeof(hashes));
-}
-
 bool ServiceWorkerRegistrationKey::operator==(const ServiceWorkerRegistrationKey& other) const
 {
     return m_topOrigin == other.m_topOrigin && m_scope == other.m_scope;
@@ -123,7 +114,7 @@ std::optional<ServiceWorkerRegistrationKey> ServiceWorkerRegistrationKey::fromDa
             return std::nullopt;
     }
 
-    auto scope = URL { URL(), key.substring(third + 1) };
+    URL scope { key.substring(third + 1) };
     if (!scope.isValid())
         return std::nullopt;
 

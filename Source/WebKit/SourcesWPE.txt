@@ -42,7 +42,6 @@ NetworkProcess/soup/NetworkDataTaskSoup.cpp
 NetworkProcess/soup/NetworkProcessMainSoup.cpp
 NetworkProcess/soup/NetworkProcessSoup.cpp
 NetworkProcess/soup/NetworkSessionSoup.cpp
-NetworkProcess/soup/RemoteNetworkingContextSoup.cpp
 NetworkProcess/soup/WebKitDirectoryInputStream.cpp
 NetworkProcess/soup/WebSocketTaskSoup.cpp
 
@@ -206,6 +205,9 @@ UIProcess/glib/WebPageProxyGLib.cpp
 UIProcess/glib/WebProcessPoolGLib.cpp
 UIProcess/glib/WebProcessProxyGLib.cpp
 UIProcess/glib/WebsiteDataStoreGLib.cpp @no-unify
+
+UIProcess/Inspector/glib/RemoteInspectorClient.cpp
+UIProcess/Inspector/glib/RemoteInspectorHTTPServer.cpp
 
 UIProcess/Launcher/glib/ProcessLauncherGLib.cpp
 UIProcess/Launcher/glib/BubblewrapLauncher.cpp

@@ -67,11 +67,9 @@ Vector<ContentFilter::Type>& ContentFilter::types()
 
 std::unique_ptr<ContentFilter> ContentFilter::create(ContentFilterClient& client)
 {
-    Container filters;
-    for (auto& type : types()) {
-        auto filter = type.create();
-        filters.append(WTFMove(filter));
-    }
+    auto filters = types().map([](auto& type) {
+        return type.create();
+    });
 
     if (filters.isEmpty())
         return nullptr;
@@ -345,7 +343,7 @@ void ContentFilter::handleProvisionalLoadFailure(const ResourceError& error)
     RefPtr<FragmentedSharedBuffer> replacementData { m_blockingContentFilter->replacementData() };
     ResourceResponse response { URL(), "text/html"_s, static_cast<long long>(replacementData->size()), "UTF-8"_s };
     SubstituteData substituteData { WTFMove(replacementData), error.failingURL(), response, SubstituteData::SessionHistoryVisibility::Hidden };
-    SetForScope<bool> loadingBlockedPage { m_isLoadingBlockedPage, true };
+    SetForScope loadingBlockedPage { m_isLoadingBlockedPage, true };
     m_client.handleProvisionalLoadFailureFromContentFilter(blockedPageURL(), substituteData);
 }
 

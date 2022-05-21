@@ -250,7 +250,7 @@ private:
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat) const final;
 #endif
 #if ENABLE(WEBGL)
-    RefPtr<WebCore::GraphicsContextGL> createGraphicsContextGL(const WebCore::GraphicsContextGLAttributes&, WebCore::PlatformDisplayID hostWindowDisplayID) const final;
+    RefPtr<WebCore::GraphicsContextGL> createGraphicsContextGL(const WebCore::GraphicsContextGLAttributes&) const final;
 #endif
 
     RefPtr<PAL::WebGPU::GPU> createGPUForWebGPU() const final;
@@ -306,9 +306,9 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
-    void elementDidFocus(WebCore::Element&) final;
+    void elementDidFocus(WebCore::Element&, const WebCore::FocusOptions&) final;
     void elementDidBlur(WebCore::Element&) final;
-    void elementDidRefocus(WebCore::Element&) final;
+    void elementDidRefocus(WebCore::Element&, const WebCore::FocusOptions&) final;
     void focusedElementDidChangeInputMode(WebCore::Element&, WebCore::InputMode) final;
 
     void makeFirstResponder() final;

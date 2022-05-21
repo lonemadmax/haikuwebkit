@@ -93,9 +93,7 @@ public:
     void cacheFont(Ref<WebCore::Font>&&);
     void deleteAllFonts();
     void releaseRemoteResource(WebCore::RenderingResourceIdentifier);
-    void markSurfacesVolatile(Vector<WebCore::RenderingResourceIdentifier>&&, CompletionHandler<void(Vector<WebCore::RenderingResourceIdentifier>&& inUseBufferIdentifiers)>&&);
-
-    WebCore::VolatilityState markSurfaceNonVolatile(WebCore::RenderingResourceIdentifier);
+    void markSurfacesVolatile(Vector<WebCore::RenderingResourceIdentifier>&&, CompletionHandler<void(bool madeAllVolatile)>&&);
 
     struct BufferSet {
         RefPtr<WebCore::ImageBuffer> front;
@@ -105,9 +103,9 @@ public:
     
     struct SwapBuffersResult {
         BufferSet buffers;
-        bool frontBufferWasEmpty { false };
+        SwapBuffersDisplayRequirement displayRequirement;
     };
-    SwapBuffersResult swapToValidFrontBuffer(const BufferSet&);
+    SwapBuffersResult prepareBuffersForDisplay(const BufferSet&, bool supportsPartialRepaint, bool hasEmptyDirtyRegion);
 
     void finalizeRenderingUpdate();
     RenderingUpdateID renderingUpdateID() const { return m_renderingUpdateID; }

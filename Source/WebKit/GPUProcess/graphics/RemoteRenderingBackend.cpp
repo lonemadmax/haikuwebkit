@@ -40,6 +40,7 @@
 #include "RemoteRenderingBackendCreationParameters.h"
 #include "RemoteRenderingBackendMessages.h"
 #include "RemoteRenderingBackendProxyMessages.h"
+#include "SwapBuffersDisplayRequirement.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/HTMLCanvasElement.h>
 #include <wtf/CheckedArithmetic.h>
@@ -398,29 +399,46 @@ static std::optional<ImageBufferBackendHandle> handleFromBuffer(WebCore::ImageBu
     return std::nullopt;
 }
 
-void RemoteRenderingBackend::markSurfaceNonVolatile(WebCore::RenderingResourceIdentifier identifier, CompletionHandler<void(std::optional<ImageBufferBackendHandle> backendHandle, bool bufferWasEmpty)>&& completionHandler)
-{
-    auto imageBuffer = m_remoteResourceCache.cachedImageBuffer({ identifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
-    if (!imageBuffer) {
-        completionHandler({ }, false);
-        return;
-    }
-
-    auto backendHandle = handleFromBuffer(*imageBuffer);
-    auto previousState = imageBuffer->setNonVolatile();
-    completionHandler(WTFMove(backendHandle), previousState == VolatilityState::Empty);
-}
-
-// This is the GPU Process version of RemoteLayerBackingStore::swapToValidFrontBuffer().
-void RemoteRenderingBackend::swapToValidFrontBuffer(const BufferIdentifierSet& bufferSet, CompletionHandler<void(const BufferIdentifierSet& swappedBufferSet, std::optional<ImageBufferBackendHandle>&& frontBufferHandle, bool frontBufferWasEmpty)>&& completionHandler)
+// This is the GPU Process version of RemoteLayerBackingStore::prepareBuffers().
+void RemoteRenderingBackend::prepareBuffersForDisplay(const BufferIdentifierSet& bufferSet, bool supportsPartialRepaint, bool hasEmptyDirtyRegion, CompletionHandler<void(const BufferIdentifierSet& swappedBufferSet, std::optional<ImageBufferBackendHandle>&& frontBufferHandle, SwapBuffersDisplayRequirement prepareResult)>&& completionHandler)
 {
     auto fetchBuffer = [&](std::optional<RenderingResourceIdentifier> identifier) -> ImageBuffer* {
         return identifier ? m_remoteResourceCache.cachedImageBuffer({ *identifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }) : nullptr;
     };
 
+    auto bufferIdentifer = [](ImageBuffer* buffer) -> std::optional<RenderingResourceIdentifier> {
+        if (!buffer)
+            return std::nullopt;
+        return buffer->renderingResourceIdentifier();
+    };
+
     auto frontBuffer = fetchBuffer(bufferSet.front);
     auto backBuffer = fetchBuffer(bufferSet.back);
     auto secondaryBackBuffer = fetchBuffer(bufferSet.secondaryBack);
+
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "GPU Process: RemoteRenderingBackend::prepareBuffersForDisplay - front "
+        << bufferSet.front << " (in-use " << (frontBuffer && frontBuffer->isInUse()) << ") "
+        << bufferSet.back << " (in-use " << (backBuffer && backBuffer->isInUse()) << ") "
+        << bufferSet.secondaryBack << " (in-use " << (secondaryBackBuffer && secondaryBackBuffer->isInUse()) << ") ");
+
+    bool needsFullDisplay = false;
+
+    if (frontBuffer) {
+        auto previousState = frontBuffer->setNonVolatile();
+        if (previousState == SetNonVolatileResult::Empty)
+            needsFullDisplay = true;
+    }
+
+    if (frontBuffer && !needsFullDisplay && hasEmptyDirtyRegion) {
+        // No swap necessary, but we do need to return the front buffer handle.
+        auto frontBufferHandle = handleFromBuffer(*frontBuffer);
+        auto resultBufferSet = BufferIdentifierSet { bufferIdentifer(frontBuffer), bufferIdentifer(backBuffer), bufferIdentifer(secondaryBackBuffer) };
+        completionHandler(resultBufferSet, WTFMove(frontBufferHandle), SwapBuffersDisplayRequirement::NeedsNoDisplay);
+        return;
+    }
+    
+    if (!frontBuffer || !supportsPartialRepaint)
+        needsFullDisplay = true;
 
     if (!backBuffer || backBuffer->isInUse()) {
         std::swap(backBuffer, secondaryBackBuffer);
@@ -435,23 +453,25 @@ void RemoteRenderingBackend::swapToValidFrontBuffer(const BufferIdentifierSet& b
     std::swap(frontBuffer, backBuffer);
 
     std::optional<ImageBufferBackendHandle> frontBufferHandle;
-    bool frontBufferWasEmpty = false;
     if (frontBuffer) {
         auto previousState = frontBuffer->setNonVolatile();
-        frontBufferWasEmpty = previousState == VolatilityState::Empty;
+        if (previousState == SetNonVolatileResult::Empty)
+            needsFullDisplay = true;
+
         frontBufferHandle = handleFromBuffer(*frontBuffer);
     }
 
-    auto bufferIdentifer = [](ImageBuffer* buffer) -> std::optional<RenderingResourceIdentifier> {
-        if (!buffer)
-            return std::nullopt;
-        return buffer->renderingResourceIdentifier();
-    };
+    auto resultBufferSet = BufferIdentifierSet { bufferIdentifer(frontBuffer), bufferIdentifer(backBuffer), bufferIdentifer(secondaryBackBuffer) };
 
-    completionHandler({ bufferIdentifer(frontBuffer), bufferIdentifer(backBuffer), bufferIdentifer(secondaryBackBuffer) }, WTFMove(frontBufferHandle), frontBufferWasEmpty);
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "GPU Process: prepareBuffersForDisplay - swapped from ["
+        << bufferSet.front << ", " << bufferSet.back << ", " << bufferSet.secondaryBack << "] to ["
+        << resultBufferSet.front << ", " << resultBufferSet.back << ", " << resultBufferSet.secondaryBack << "]");
+
+    auto displayRequirement = needsFullDisplay ? SwapBuffersDisplayRequirement::NeedsFullDisplay : SwapBuffersDisplayRequirement::NeedsNormalDisplay;
+    completionHandler(resultBufferSet, WTFMove(frontBufferHandle), displayRequirement);
 }
 
-void RemoteRenderingBackend::markSurfacesVolatile(const Vector<WebCore::RenderingResourceIdentifier>& identifiers, CompletionHandler<void(const Vector<WebCore::RenderingResourceIdentifier>& inUseBufferIdentifiers)>&& completionHandler)
+void RemoteRenderingBackend::markSurfacesVolatile(const Vector<WebCore::RenderingResourceIdentifier>& identifiers, CompletionHandler<void(const Vector<WebCore::RenderingResourceIdentifier>& markedVolatileBufferIdentifiers)>&& completionHandler)
 {
     LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "GPU Process: RemoteRenderingBackend::markSurfacesVolatile " << identifiers);
 
@@ -460,19 +480,19 @@ void RemoteRenderingBackend::markSurfacesVolatile(const Vector<WebCore::Renderin
         return imageBuffer.setVolatile();
     };
 
-    Vector<WebCore::RenderingResourceIdentifier> inUseBufferIdentifiers;
+    Vector<WebCore::RenderingResourceIdentifier> markedVolatileBufferIdentifiers;
     for (auto identifier : identifiers) {
         auto imageBuffer = m_remoteResourceCache.cachedImageBuffer({ identifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
         if (imageBuffer) {
-            if (!makeVolatile(*imageBuffer))
-                inUseBufferIdentifiers.append(identifier);
+            if (makeVolatile(*imageBuffer))
+                markedVolatileBufferIdentifiers.append(identifier);
         } else
             LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << " failed to find ImageBuffer for identifier " << identifier);
     }
 
-    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "GPU Process: markSurfacesVolatile - in-use surfaces " << inUseBufferIdentifiers);
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "GPU Process: markSurfacesVolatile - surfaces marked volatile " << markedVolatileBufferIdentifiers);
 
-    completionHandler(inUseBufferIdentifiers);
+    completionHandler(markedVolatileBufferIdentifiers);
 }
 
 void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID renderingUpdateID)

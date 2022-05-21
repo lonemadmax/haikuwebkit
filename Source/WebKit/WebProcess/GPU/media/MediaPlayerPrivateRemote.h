@@ -350,7 +350,7 @@ private:
 #endif
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    std::unique_ptr<WebCore::LegacyCDMSession> createSession(const String&, WebCore::LegacyCDMSessionClient*) final;
+    std::unique_ptr<WebCore::LegacyCDMSession> createSession(const String&, WebCore::LegacyCDMSessionClient&) final;
     void setCDM(WebCore::LegacyCDM*) final;
     void setCDMSession(WebCore::LegacyCDMSession*) final;
     void keyAdded() final;
@@ -411,6 +411,8 @@ private:
     std::optional<WebCore::VideoFrameMetadata> videoFrameMetadata() final;
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
+
+    void playerContentBoxRectChanged(const WebCore::LayoutRect&) final;
 
 #if PLATFORM(COCOA)
     void pushVideoFrameMetadata(WebCore::VideoFrameMetadata&&, RetainPtr<CVPixelBufferRef>&&);

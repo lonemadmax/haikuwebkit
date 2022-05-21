@@ -50,6 +50,9 @@ WI.LayoutDirection = {
 
 WI.loaded = function()
 {
+    if (InspectorFrontendHost.connect)
+        InspectorFrontendHost.connect();
+
     // Register observers for events from the InspectorBackend.
     if (InspectorBackend.registerAnimationDispatcher)
         InspectorBackend.registerAnimationDispatcher(WI.AnimationObserver);
@@ -127,7 +130,6 @@ WI.loaded = function()
         WI.domDebuggerManager = new WI.DOMDebuggerManager,
         WI.canvasManager = new WI.CanvasManager,
         WI.animationManager = new WI.AnimationManager,
-        WI.overlayManager = new WI.OverlayManager,
     ];
 
     // Register for events.

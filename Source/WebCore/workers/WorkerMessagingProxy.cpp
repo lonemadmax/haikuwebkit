@@ -104,7 +104,7 @@ void WorkerMessagingProxy::postMessageToWorkerObject(MessageWithMessagePorts&& m
             return;
 
         auto ports = MessagePort::entanglePorts(context, WTFMove(message.transferredPorts));
-        ActiveDOMObject::queueTaskToDispatchEvent(*workerObject, TaskSource::PostedMessageQueue, MessageEvent::create(WTFMove(ports), message.message.releaseNonNull()));
+        ActiveDOMObject::queueTaskToDispatchEvent(*workerObject, TaskSource::PostedMessageQueue, MessageEvent::create(message.message.releaseNonNull(), { }, { }, std::nullopt, WTFMove(ports)));
     });
 }
 
@@ -124,7 +124,7 @@ void WorkerMessagingProxy::postMessageToWorkerGlobalScope(MessageWithMessagePort
         ASSERT_WITH_SECURITY_IMPLICATION(scriptContext.isWorkerGlobalScope());
         auto& context = static_cast<DedicatedWorkerGlobalScope&>(scriptContext);
         auto ports = MessagePort::entanglePorts(scriptContext, WTFMove(message.transferredPorts));
-        context.dispatchEvent(MessageEvent::create(WTFMove(ports), message.message.releaseNonNull()));
+        context.dispatchEvent(MessageEvent::create(message.message.releaseNonNull(), { }, { }, std::nullopt, WTFMove(ports)));
         context.thread().workerObjectProxy().confirmMessageFromWorkerObject(context.hasPendingActivity());
     });
 }
@@ -213,9 +213,9 @@ void WorkerMessagingProxy::postExceptionToWorkerObject(const String& errorMessag
 
 void WorkerMessagingProxy::postMessageToDebugger(const String& message)
 {
-    RunLoop::main().dispatch([this, protectedThis = Ref { *this }, message = message.isolatedCopy()] {
+    RunLoop::main().dispatch([this, protectedThis = Ref { *this }, message = message.isolatedCopy()]() mutable {
         if (!m_mayBeDestroyed)
-            m_inspectorProxy->sendMessageFromWorkerToFrontend(message);
+            m_inspectorProxy->sendMessageFromWorkerToFrontend(WTFMove(message));
     });
 }
 

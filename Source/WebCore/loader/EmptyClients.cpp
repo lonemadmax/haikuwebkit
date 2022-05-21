@@ -110,6 +110,7 @@ class EmptyBackForwardClient final : public BackForwardClient {
     RefPtr<HistoryItem> itemAtIndex(int) final { return nullptr; }
     unsigned backListCount() const final { return 0; }
     unsigned forwardListCount() const final { return 0; }
+    bool containsItem(const HistoryItem&) const final { return false; }
     void close() final { }
 };
 
@@ -485,9 +486,9 @@ class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
         unsigned length() final { return 0; }
         String key(unsigned) final { return { }; }
         String item(const String&) final { return { }; }
-        void setItem(Frame*, const String&, const String&, bool&) final { }
-        void removeItem(Frame*, const String&) final { }
-        void clear(Frame*) final { }
+        void setItem(Frame&, const String&, const String&, bool&) final { }
+        void removeItem(Frame&, const String&) final { }
+        void clear(Frame&) final { }
         bool contains(const String&) final { return false; }
         StorageType storageType() const final { return StorageType::Local; }
         size_t memoryBytesUsedByCache() final { return 0; }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,27 +25,37 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
+#import <wtf/Vector.h>
 
 namespace WebGPU {
+
+class BindGroupLayout;
 
 class PipelineLayout : public RefCounted<PipelineLayout> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<PipelineLayout> create()
+    static Ref<PipelineLayout> create(Vector<Ref<BindGroupLayout>>&& bindGroupLayouts)
     {
-        return adoptRef(*new PipelineLayout());
+        return adoptRef(*new PipelineLayout(WTFMove(bindGroupLayouts)));
     }
 
     ~PipelineLayout();
 
     void setLabel(const char*);
 
+    bool operator==(const PipelineLayout&) const;
+    bool operator!=(const PipelineLayout&) const;
+
+    size_t numberOfBindGroupLayouts() const { return m_bindGroupLayouts.size(); }
+    const BindGroupLayout& bindGroupLayout(size_t i) const { return m_bindGroupLayouts[i]; }
+
 private:
-    PipelineLayout();
+    PipelineLayout(Vector<Ref<BindGroupLayout>>&&);
+
+    const Vector<Ref<BindGroupLayout>> m_bindGroupLayouts;
 };
 
 } // namespace WebGPU

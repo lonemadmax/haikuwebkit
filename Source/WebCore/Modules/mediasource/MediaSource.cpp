@@ -324,8 +324,8 @@ ExceptionOr<void> MediaSource::clearLiveSeekableRange()
 
 const MediaTime& MediaSource::currentTimeFudgeFactor()
 {
-    // Allow hasCurrentTime() to be off by as much as 100ms.
-    static NeverDestroyed<MediaTime> fudgeFactor(1, 10);
+    // Allow hasCurrentTime() to be off by as much as the length of two 24fps video frames
+    static NeverDestroyed<MediaTime> fudgeFactor(2002, 24000);
     return fudgeFactor;
 }
 
@@ -1051,10 +1051,9 @@ void MediaSource::onReadyStateChange(ReadyState oldState, ReadyState newState)
 
 Vector<PlatformTimeRanges> MediaSource::activeRanges() const
 {
-    Vector<PlatformTimeRanges> activeRanges;
-    for (auto& sourceBuffer : *m_activeSourceBuffers)
-        activeRanges.append(sourceBuffer->bufferedInternal().ranges());
-    return activeRanges;
+    return WTF::map(*m_activeSourceBuffers, [](auto& sourceBuffer) {
+        return sourceBuffer->bufferedInternal().ranges();
+    });
 }
 
 ExceptionOr<Ref<SourceBufferPrivate>> MediaSource::createSourceBufferPrivate(const ContentType& incomingType)

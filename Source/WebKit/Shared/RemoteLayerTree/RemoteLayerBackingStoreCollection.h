@@ -33,6 +33,8 @@
 
 namespace WebCore {
 class ImageBuffer;
+class ThreadSafeImageBufferFlusher;
+enum class SetNonVolatileResult : uint8_t;
 }
 
 namespace WebKit {
@@ -40,6 +42,8 @@ namespace WebKit {
 class RemoteLayerBackingStore;
 class RemoteLayerTreeContext;
 class RemoteLayerTreeTransaction;
+
+enum class SwapBuffersDisplayRequirement : uint8_t;
 
 class RemoteLayerBackingStoreCollection : public CanMakeWeakPtr<RemoteLayerBackingStoreCollection> {
     WTF_MAKE_NONCOPYABLE(RemoteLayerBackingStoreCollection);
@@ -55,12 +59,13 @@ public:
     bool backingStoreWillBeDisplayed(RemoteLayerBackingStore&);
     void backingStoreBecameUnreachable(RemoteLayerBackingStore&);
     
-    virtual void makeFrontBufferNonVolatile(RemoteLayerBackingStore&);
-    virtual void swapToValidFrontBuffer(RemoteLayerBackingStore&);
+    virtual SwapBuffersDisplayRequirement prepareBackingStoreBuffers(RemoteLayerBackingStore&);
+
+    void paintReachableBackingStoreContents();
 
     void willFlushLayers();
     void willCommitLayerTree(RemoteLayerTreeTransaction&);
-    void didFlushLayers();
+    Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> didFlushLayers(RemoteLayerTreeTransaction&);
 
     virtual void tryMarkAllBackingStoreVolatile(CompletionHandler<void(bool)>&&);
 
@@ -83,6 +88,7 @@ private:
     bool markBackingStoreVolatile(RemoteLayerBackingStore&, OptionSet<VolatilityMarkingBehavior> = { }, MonotonicTime = { });
     bool markAllBackingStoreVolatile(OptionSet<VolatilityMarkingBehavior> liveBackingStoreMarkingBehavior, OptionSet<VolatilityMarkingBehavior> unparentedBackingStoreMarkingBehavior);
 
+    bool updateUnreachableBackingStores();
     void volatilityTimerFired();
 
 protected:

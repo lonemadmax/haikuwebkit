@@ -43,8 +43,7 @@ private:
     
     RemoteRenderingBackendProxy& remoteRenderingBackendProxy();
 
-    void makeFrontBufferNonVolatile(RemoteLayerBackingStore&) final;
-    void swapToValidFrontBuffer(RemoteLayerBackingStore&) final;
+    SwapBuffersDisplayRequirement prepareBackingStoreBuffers(RemoteLayerBackingStore&) final;
 
     bool collectBackingStoreBufferIdentifiersToMarkVolatile(RemoteLayerBackingStore&, OptionSet<VolatilityMarkingBehavior>, MonotonicTime now, Vector<WebCore::RenderingResourceIdentifier>&);
 

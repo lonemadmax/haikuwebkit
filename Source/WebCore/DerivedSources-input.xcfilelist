@@ -579,8 +579,8 @@ $(PROJECT_DIR)/Modules/permissions/PermissionStatus.idl
 $(PROJECT_DIR)/Modules/permissions/Permissions.idl
 $(PROJECT_DIR)/Modules/pictureinpicture/Document+PictureInPicture.idl
 $(PROJECT_DIR)/Modules/pictureinpicture/DocumentOrShadowRoot+PictureInPicture.idl
-$(PROJECT_DIR)/Modules/pictureinpicture/EnterPictureInPictureEvent.idl
 $(PROJECT_DIR)/Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl
+$(PROJECT_DIR)/Modules/pictureinpicture/PictureInPictureEvent.idl
 $(PROJECT_DIR)/Modules/pictureinpicture/PictureInPictureWindow.idl
 $(PROJECT_DIR)/Modules/push-api/PushEncryptionKeyName.idl
 $(PROJECT_DIR)/Modules/push-api/PushEvent.idl
@@ -608,7 +608,11 @@ $(PROJECT_DIR)/Modules/speech/SpeechRecognitionEvent.idl
 $(PROJECT_DIR)/Modules/speech/SpeechRecognitionResult.idl
 $(PROJECT_DIR)/Modules/speech/SpeechRecognitionResultList.idl
 $(PROJECT_DIR)/Modules/speech/SpeechSynthesis.idl
+$(PROJECT_DIR)/Modules/speech/SpeechSynthesisErrorCode.idl
+$(PROJECT_DIR)/Modules/speech/SpeechSynthesisErrorEvent.idl
+$(PROJECT_DIR)/Modules/speech/SpeechSynthesisErrorEventInit.idl
 $(PROJECT_DIR)/Modules/speech/SpeechSynthesisEvent.idl
+$(PROJECT_DIR)/Modules/speech/SpeechSynthesisEventInit.idl
 $(PROJECT_DIR)/Modules/speech/SpeechSynthesisUtterance.idl
 $(PROJECT_DIR)/Modules/speech/SpeechSynthesisVoice.idl
 $(PROJECT_DIR)/Modules/storage/StorageManager.idl
@@ -747,6 +751,7 @@ $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialCreationOptions.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialDescriptor.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialRequestOptions.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialType.idl
+$(PROJECT_DIR)/Modules/webauthn/ResidentKeyRequirement.idl
 $(PROJECT_DIR)/Modules/webauthn/UserVerificationRequirement.idl
 $(PROJECT_DIR)/Modules/webcodecs/VideoColorPrimaries.idl
 $(PROJECT_DIR)/Modules/webcodecs/VideoColorSpace.idl

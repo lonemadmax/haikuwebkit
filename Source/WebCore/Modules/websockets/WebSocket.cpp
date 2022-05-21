@@ -43,6 +43,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "InspectorInstrumentation.h"
 #include "Logging.h"
 #include "MessageEvent.h"
 #include "MixedContentChecker.h"
@@ -223,7 +224,7 @@ void WebSocket::failAsynchronously()
 ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& protocols)
 {
     LOG(Network, "WebSocket %p connect() url='%s'", this, url.utf8().data());
-    m_url = URL(URL(), url);
+    m_url = URL { url };
 
     ASSERT(scriptExecutionContext());
     auto& context = *scriptExecutionContext();
@@ -342,15 +343,18 @@ ExceptionOr<void> WebSocket::send(const String& message)
     LOG(Network, "WebSocket %p send() Sending String '%s'", this, message.utf8().data());
     if (m_state == CONNECTING)
         return Exception { InvalidStateError };
+    auto utf8 = message.utf8(StrictConversionReplacingUnpairedSurrogatesWithFFFD);
     // No exception is raised if the connection was once established but has subsequently been closed.
     if (m_state == CLOSING || m_state == CLOSED) {
-        size_t payloadSize = message.utf8().length();
+        size_t payloadSize = utf8.length();
         m_bufferedAmountAfterClose = saturateAdd(m_bufferedAmountAfterClose, payloadSize);
         m_bufferedAmountAfterClose = saturateAdd(m_bufferedAmountAfterClose, getFramingOverhead(payloadSize));
         return { };
     }
+    // FIXME: WebSocketChannel also has a m_bufferedAmount. Remove that one. This one is the correct one accessed by JS.
+    m_bufferedAmount = saturateAdd(m_bufferedAmount, utf8.length());
     ASSERT(m_channel);
-    m_channel->send(message);
+    m_channel->send(WTFMove(utf8));
     return { };
 }
 
@@ -365,6 +369,7 @@ ExceptionOr<void> WebSocket::send(ArrayBuffer& binaryData)
         m_bufferedAmountAfterClose = saturateAdd(m_bufferedAmountAfterClose, getFramingOverhead(payloadSize));
         return { };
     }
+    m_bufferedAmount = saturateAdd(m_bufferedAmount, binaryData.byteLength());
     ASSERT(m_channel);
     m_channel->send(binaryData, 0, binaryData.byteLength());
     return { };
@@ -382,6 +387,7 @@ ExceptionOr<void> WebSocket::send(ArrayBufferView& arrayBufferView)
         m_bufferedAmountAfterClose = saturateAdd(m_bufferedAmountAfterClose, getFramingOverhead(payloadSize));
         return { };
     }
+    m_bufferedAmount = saturateAdd(m_bufferedAmount, arrayBufferView.byteLength());
     ASSERT(m_channel);
     m_channel->send(*arrayBufferView.unsharedBuffer(), arrayBufferView.byteOffset(), arrayBufferView.byteLength());
     return { };
@@ -398,6 +404,7 @@ ExceptionOr<void> WebSocket::send(Blob& binaryData)
         m_bufferedAmountAfterClose = saturateAdd(m_bufferedAmountAfterClose, getFramingOverhead(payloadSize));
         return { };
     }
+    m_bufferedAmount = saturateAdd(m_bufferedAmount, binaryData.size());
     ASSERT(m_channel);
     m_channel->send(binaryData);
     return { };
@@ -559,14 +566,21 @@ void WebSocket::didConnect()
     });
 }
 
-void WebSocket::didReceiveMessage(const String& msg)
+void WebSocket::didReceiveMessage(String&& message)
 {
-    LOG(Network, "WebSocket %p didReceiveMessage() Text message '%s'", this, msg.utf8().data());
-    queueTaskKeepingObjectAlive(*this, TaskSource::WebSocket, [this, msg] {
+    LOG(Network, "WebSocket %p didReceiveMessage() Text message '%s'", this, message.utf8().data());
+    queueTaskKeepingObjectAlive(*this, TaskSource::WebSocket, [this, message = WTFMove(message)]() mutable {
         if (m_state != OPEN)
             return;
+
+        if (UNLIKELY(InspectorInstrumentation::hasFrontends())) {
+            if (auto* inspector = m_channel->channelInspector()) {
+                auto utf8Message = message.utf8();
+                inspector->didReceiveWebSocketFrame(WebSocketChannelInspector::createFrame(utf8Message.dataAsUInt8Ptr(), utf8Message.length(), WebSocketFrame::OpCode::OpCodeText));
+            }
+        }
         ASSERT(scriptExecutionContext());
-        dispatchEvent(MessageEvent::create(msg, SecurityOrigin::create(m_url)->toString()));
+        dispatchEvent(MessageEvent::create(WTFMove(message), SecurityOrigin::create(m_url)->toString()));
     });
 }
 
@@ -576,6 +590,12 @@ void WebSocket::didReceiveBinaryData(Vector<uint8_t>&& binaryData)
     queueTaskKeepingObjectAlive(*this, TaskSource::WebSocket, [this, binaryData = WTFMove(binaryData)]() mutable {
         if (m_state != OPEN)
             return;
+
+        if (UNLIKELY(InspectorInstrumentation::hasFrontends())) {
+            if (auto* inspector = m_channel->channelInspector())
+                inspector->didReceiveWebSocketFrame(WebSocketChannelInspector::createFrame(binaryData.data(), binaryData.size(), WebSocketFrame::OpCode::OpCodeBinary));
+        }
+
         switch (m_binaryType) {
         case BinaryType::Blob:
             // FIXME: We just received the data from NetworkProcess, and are sending it back. This is inefficient.
@@ -588,14 +608,20 @@ void WebSocket::didReceiveBinaryData(Vector<uint8_t>&& binaryData)
     });
 }
 
-void WebSocket::didReceiveMessageError()
+void WebSocket::didReceiveMessageError(String&& reason)
 {
     LOG(Network, "WebSocket %p didReceiveErrorMessage()", this);
-    queueTaskKeepingObjectAlive(*this, TaskSource::WebSocket, [this] {
+    queueTaskKeepingObjectAlive(*this, TaskSource::WebSocket, [this, reason = WTFMove(reason)] {
         if (m_state == CLOSED)
             return;
         m_state = CLOSED;
         ASSERT(scriptExecutionContext());
+
+        if (UNLIKELY(InspectorInstrumentation::hasFrontends())) {
+            if (auto* inspector = m_channel->channelInspector())
+                inspector->didReceiveWebSocketFrameError(reason);
+        }
+
         // FIXME: As per https://html.spec.whatwg.org/multipage/web-sockets.html#feedback-from-the-protocol:concept-websocket-closed, we should synchronously fire a close event.
         dispatchErrorEventIfNeeded();
     });
@@ -625,6 +651,14 @@ void WebSocket::didClose(unsigned unhandledBufferedAmount, ClosingHandshakeCompl
     queueTaskKeepingObjectAlive(*this, TaskSource::WebSocket, [this, unhandledBufferedAmount, closingHandshakeCompletion, code, reason] {
         if (!m_channel)
             return;
+
+        if (UNLIKELY(InspectorInstrumentation::hasFrontends())) {
+            if (auto* inspector = m_channel->channelInspector()) {
+                WebSocketFrame closingFrame(WebSocketFrame::OpCodeClose, true, false, false);
+                inspector->didReceiveWebSocketFrame(closingFrame);
+                inspector->didCloseWebSocket();
+            }
+        }
 
         bool wasClean = m_state == CLOSING && !unhandledBufferedAmount && closingHandshakeCompletion == ClosingHandshakeComplete && code != WebSocketChannel::CloseEventCodeAbnormalClosure;
         m_state = CLOSED;

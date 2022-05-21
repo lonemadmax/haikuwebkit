@@ -133,16 +133,6 @@ ALWAYS_INLINE void JIT::appendCallWithExceptionCheck(Address function)
     exceptionCheck();
 }
 
-#if OS(WINDOWS) && CPU(X86_64)
-ALWAYS_INLINE MacroAssembler::Call JIT::appendCallWithExceptionCheckAndSlowPathReturnType(const FunctionPtr<CFunctionPtrTag> function)
-{
-    updateTopCallFrame();
-    MacroAssembler::Call call = appendCallWithSlowPathReturnType(function);
-    exceptionCheck();
-    return call;
-}
-#endif
-
 ALWAYS_INLINE MacroAssembler::Call JIT::appendCallWithCallFrameRollbackOnException(const FunctionPtr<CFunctionPtrTag> function)
 {
     updateTopCallFrame(); // The callee is responsible for setting topCallFrame to their caller
@@ -230,7 +220,7 @@ inline MacroAssembler::Label JIT::fastPathResumePoint() const
     if (iter != m_fastPathResumeLabels.end())
         return iter->value;
     // Next instruction in sequence
-    const Instruction* currentInstruction = m_unlinkedCodeBlock->instructions().at(m_bytecodeIndex).ptr();
+    const auto* currentInstruction = m_unlinkedCodeBlock->instructions().at(m_bytecodeIndex).ptr();
     return m_labels[m_bytecodeIndex.offset() + currentInstruction->size()];
 }
 
@@ -442,7 +432,7 @@ ALWAYS_INLINE void JIT::emitJumpSlowCaseIfNotJSCell(JSValueRegs jsReg, VirtualRe
         emitJumpSlowCaseIfNotJSCell(jsReg);
 }
 
-ALWAYS_INLINE int JIT::jumpTarget(const Instruction* instruction, int target)
+ALWAYS_INLINE int JIT::jumpTarget(const JSInstruction* instruction, int target)
 {
     if (target)
         return target;

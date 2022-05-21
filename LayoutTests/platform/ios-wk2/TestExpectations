@@ -839,7 +839,6 @@ fast/text/indic.html [ Failure Pass ]
 fast/text/justified-selection-at-edge.html [ Failure Pass ]
 fast/text/justified-selection.html [ Failure Pass ]
 fast/text/justify-ideograph-leading-expansion.html [ Failure Pass ]
-fast/text/khmer-lao-font.html [ Failure Pass ]
 fast/text/large-text-composed-char.html [ Failure Pass ]
 fast/text/letter-spacing-negative-opacity.html [ Failure Pass ]
 fast/text/line-breaks-after-white-space.html [ Failure Pass ]
@@ -2021,10 +2020,12 @@ webkit.org/b/223586 webgl/conformance/extensions/khr-parallel-shader-compile.htm
 
 webkit.org/b/214955 fast/parser/xml-colon-entity.html [ Failure ]
 
+webkit.org/b/223750 [ Debug ] security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.html [ Pass Crash ]
+
 webkit.org/b/155196 security/contentSecurityPolicy/video-with-file-url-allowed-by-media-src-star-with-AllowContentSecurityPolicySourceStarToMatchAnyProtocol-enabled.html [ Pass ImageOnlyFailure ]
 webkit.org/b/155196 security/contentSecurityPolicy/video-with-file-url-allowed-by-media-src-star.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/227273 fast/css-custom-paint/out-of-memory-while-adding-worklet-module.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
+webkit.org/b/227273 fast/css-custom-paint/out-of-memory-while-adding-worklet-module.html [ Pass Failure Timeout DumpJSConsoleLogInStdErr ]
 
 webkit.org/b/226598 animations/leak-document-with-css-animation.html [ Pass Failure ]
 
@@ -2077,7 +2078,7 @@ webkit.org/b/231264 fast/events/ios/rotation/layout-viewport-during-rotation.htm
 
 webkit.org/b/231269 fast/events/ios/rotation/safari-like-rotation.html [ Failure ]
 
-webkit.org/b/231266 [ Release ] fast/events/ios/rotation/layout-viewport-during-safari-type-rotation.html [ Pass Failure ]
+webkit.org/b/231266 fast/events/ios/rotation/layout-viewport-during-safari-type-rotation.html [ Pass Failure ]
 
 webkit.org/b/231315 fast/events/ios/rotation/safe-area-insets-during-safari-type-rotation.html [ Pass Timeout Failure ]
 
@@ -2152,10 +2153,10 @@ webkit.org/b/231612 imported/blink/fast/dom/importNode-cdata.html [ Pass Timeout
 
 webkit.org/b/231610 applicationmanifest/developer-warnings.html [ Pass Timeout ]
 
-webkit.org/b/231619 editing/pasteboard/dom-paste/dom-paste-confirmation.html [ Pass Timeout ]
+webkit.org/b/231619 editing/pasteboard/dom-paste/dom-paste-confirmation.html [ Pass Failure Timeout ]
 webkit.org/b/231619 editing/pasteboard/dom-paste/dom-paste-consecutive-confirmations.html [ Pass Timeout Failure ]
 webkit.org/b/231619 [ Debug ] editing/pasteboard/dom-paste/dom-paste-rejection.html [ Pass Timeout ]
-webkit.org/b/231619 editing/pasteboard/dom-paste/dom-paste-requires-user-gesture.html [ Pass Timeout ]
+webkit.org/b/231619 editing/pasteboard/dom-paste/dom-paste-requires-user-gesture.html [ Pass Failure Timeout ]
 
 webkit.org/b/231622 fast/events/ios/rotation/orientationchange-event-listener-on.body.html [ Pass Timeout ]
 webkit.org/b/231622 fast/events/ios/rotation/do-not-shrink-to-fit-content-after-rotation.html [ Pass Timeout ]
@@ -2196,7 +2197,7 @@ imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination-
 
 # See webkit.org/b/233498 for context on this pointerevents tests
 imported/w3c/web-platform-tests/pointerevents [ Skip ]
-pointerevents/mouse [ Failure ]
+webkit.org/b/237348 pointerevents/mouse [ Skip ]
 
 # webkit.org/b/234410 Multiple semantics web-platform-tests have become flaky after r286944
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_allow_downloads.tentative.html [ DumpJSConsoleLogInStdErr Pass Failure ]
@@ -2204,12 +2205,16 @@ imported/w3c/web-platform-tests/html/semantics/text-level-semantics/the-a-elemen
 http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Pass Failure ]
 
 # Test failures from turning GPU Process on by default
-webkit.org/b/234536 webgl/2.0.0/conformance/reading/read-pixels-test.html
-webkit.org/b/234536 webgl/many-contexts-access-after-loss.html
-webkit.org/b/234536 webgl/many-contexts.html
-webkit.org/b/234536 webgl/max-active-contexts-console-warning.html
-webkit.org/b/234536 webgl/max-active-contexts-gc.html
-webkit.org/b/234536 webgl/max-active-contexts-oldest-context-lost.html
-webkit.org/b/234536 webxr/high-performance.html
-webkit.org/b/234536 webgl/max-active-contexts-webglcontextlost-prevent-default.html [ Timeout ]
+webkit.org/b/234536 webxr/high-performance.html [ Failure ]
 webkit.org/b/234536 webgl/1.0.3/conformance/state/gl-object-get-calls.html [ Timeout ]
+
+# webkit.org/b/237346 REGRESSION(r290539): [ iOS ] 2X http/wpt/webauthn/public-key-credential-create-failure-local (layout-tests) are constant text failures
+http/wpt/webauthn/public-key-credential-create-failure-local.https.html [ Pass Failure ]
+http/wpt/webauthn/public-key-credential-create-failure-local-silent.https.html [ Pass Failure ]
+
+# rdar://86037417 WindowServer returned not alive with context:,unresponsive work processor(s)
+http/tests/model/model-document.html [ Skip ]
+http/tests/model/model-document-interactive.html [ Skip ]
+accessibility/model-element-attributes.html [ Skip ]
+
+webkit.org/b/237358 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-margin-005.html [ Failure ]

@@ -197,11 +197,9 @@ static void writeSVGStrokePaintingResource(TextStream& ts, const RenderElement& 
     SVGLengthContext lengthContext(&shape);
     double dashOffset = lengthContext.valueForLength(svgStyle.strokeDashOffset());
     double strokeWidth = lengthContext.valueForLength(style.strokeWidth());
-    const auto& dashes = svgStyle.strokeDashArray();
-
-    DashArray dashArray;
-    for (auto& length : dashes)
-        dashArray.append(length.value(lengthContext));
+    auto dashArray = svgStyle.strokeDashArray().map([&](auto& length) -> DashArrayElement {
+        return length.value(lengthContext);
+    });
 
     writeIfNotDefault(ts, "opacity", svgStyle.strokeOpacity(), 1.0f);
     writeIfNotDefault(ts, "stroke width", strokeWidth, 1.0);
@@ -244,7 +242,7 @@ static void writeStyle(TextStream& ts, const RenderElement& renderer)
     }
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
-    else if (is<LegacyRenderSVGShape>(renderer)) {
+    else if (is<RenderSVGShape>(renderer)) {
         const auto& shape = downcast<RenderSVGShape>(renderer);
 
         Color fallbackColor;
@@ -439,8 +437,13 @@ static void writeChildren(TextStream& ts, const RenderElement& parent, OptionSet
 {
     TextStream::IndentScope indentScope(ts);
 
-    for (const auto& child : childrenOfType<RenderObject>(parent))
+    for (const auto& child : childrenOfType<RenderObject>(parent)) {
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (parent.document().settings().layerBasedSVGEngineEnabled() && child.hasLayer())
+            continue;
+#endif
         write(ts, child, behavior);
+    }
 }
 
 static inline void writeCommonGradientProperties(TextStream& ts, SVGSpreadMethodType spreadMethod, const AffineTransform& gradientTransform, SVGUnitTypes::SVGUnitType gradientUnits)

@@ -37,6 +37,7 @@
 #import "NetworkProcess.h"
 #import "NetworkSessionCreationParameters.h"
 #import "PrivateRelayed.h"
+#import "WKURLSessionTaskDelegate.h"
 #import "WebPageNetworkParameters.h"
 #import "WebSocketTask.h"
 #import <Foundation/NSURLSession.h>
@@ -744,7 +745,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             auto* networkDataTask = [self existingTask:task];
             if (networkDataTask) {
                 NSURLProtectionSpace *protectionSpace = challenge.protectionSpace;
-                networkDataTask->didNegotiateModernTLS(URL(URL(), makeString(String(protectionSpace.protocol), "://", String(protectionSpace.host), ':', protectionSpace.port)));
+                networkDataTask->didNegotiateModernTLS(URL { makeString(String(protectionSpace.protocol), "://", String(protectionSpace.host), ':', protectionSpace.port) });
             }
             auto decisionHandler = makeBlockPtr([weakSelf = WeakObjCPtr<WKNetworkSessionDelegate>(self), sessionCocoa = WeakPtr { sessionCocoa }, completionHandler = makeBlockPtr(completionHandler), taskIdentifier, networkDataTask = RefPtr { networkDataTask }, negotiatedLegacyTLS](NSURLAuthenticationChallenge *challenge, OSStatus trustResult) mutable {
                 auto strongSelf = weakSelf.get();
@@ -930,7 +931,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         NSURLSessionTaskTransactionMetrics *metrics = taskMetrics.transactionMetrics.lastObject;
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
-        auto privateRelayed = metrics._privacyStance == nw_connection_privacy_stance_proxied ? PrivateRelayed::Yes : PrivateRelayed::No;
+        auto privateRelayed = metrics._privacyStance == nw_connection_privacy_stance_direct ? PrivateRelayed::No : PrivateRelayed::Yes;
 #else
         auto privateRelayed = PrivateRelayed::No;
 #endif
@@ -1694,7 +1695,7 @@ DMFWebsitePolicyMonitor *NetworkSessionCocoa::deviceManagementPolicyMonitor()
 }
 
 #if HAVE(NSURLSESSION_WEBSOCKET)
-std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageProxyIdentifier webPageProxyID, NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin)
+std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageProxyIdentifier webPageProxyID, NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed)
 {
     ASSERT(!request.hasHTTPHeaderField(WebCore::HTTPHeaderName::SecWebSocketProtocol));
     auto nsRequest = retainPtr(request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
@@ -1760,14 +1761,30 @@ void NetworkSessionCocoa::addWebPageNetworkParameters(WebPageProxyIdentifier pag
     m_attributedBundleIdentifierFromPageIdentifiers.add(pageID, parameters.attributedBundleIdentifier());
 }
 
-void NetworkSessionCocoa::requestResource(WebPageProxyIdentifier pageID, WebCore::ResourceRequest&& request, CompletionHandler<void(const IPC::DataReference&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&& completionHandler)
+void NetworkSessionCocoa::dataTaskWithRequest(WebPageProxyIdentifier pageID, WebCore::ResourceRequest&& request, CompletionHandler<void(DataTaskIdentifier)>&& completionHandler)
 {
-    auto session = sessionWrapperForTask(pageID, request, WebCore::StoredCredentialsPolicy::Use, std::nullopt).session;
+    auto identifier = DataTaskIdentifier::generate();
     auto nsRequest = request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
-    auto completionBlock = makeBlockPtr([completionHandler = WTFMove(completionHandler)] (NSData *data, NSURLResponse *response, NSError *error) mutable {
-        completionHandler(IPC::DataReference { static_cast<const uint8_t*>(data.bytes), data.length }, WebCore::ResourceResponse { response }, WebCore::ResourceError { error });
-    });
-    [[session dataTaskWithRequest:nsRequest completionHandler:completionBlock.get()] resume];
+    auto session = sessionWrapperForTask(pageID, request, WebCore::StoredCredentialsPolicy::Use, std::nullopt).session;
+    auto task = [session dataTaskWithRequest:nsRequest];
+    auto delegate = adoptNS([[WKURLSessionTaskDelegate alloc] initWithIdentifier:identifier session:*this]);
+#if HAVE(NSURLSESSION_TASK_DELEGATE)
+    task.delegate = delegate.get();
+#endif
+    auto addResult = m_dataTasksForAPI.add(identifier, task);
+    RELEASE_ASSERT(addResult.isNewEntry);
+    [task resume];
+    completionHandler(identifier);
+}
+
+void NetworkSessionCocoa::cancelDataTask(DataTaskIdentifier identifier)
+{
+    [m_dataTasksForAPI.take(identifier) cancel];
+}
+
+void NetworkSessionCocoa::removeDataTask(DataTaskIdentifier identifier)
+{
+    m_dataTasksForAPI.remove(identifier);
 }
 
 void NetworkSessionCocoa::removeWebPageNetworkParameters(WebPageProxyIdentifier pageID)

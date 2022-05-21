@@ -59,6 +59,7 @@ Interpolate = properties.Interpolate
 GITHUB_URL = 'https://github.com/'
 GITHUB_PROJECTS = ['WebKit/WebKit']
 HASH_LENGTH_TO_DISPLAY = 8
+DEFAULT_BRANCH = 'main'
 
 
 class BufferLogHeaderObserver(logobserver.BufferLogObserver):
@@ -139,6 +140,9 @@ class GitHubMixin(object):
     addURLs = False
     pr_open_states = ['open']
     pr_closed_states = ['closed']
+    BLOCKED_LABEL = 'merging-blocked'
+    MERGE_QUEUE_LABEL = 'merge-queue'
+    FAST_MERGE_QUEUE_LABEL = 'fast-merge-queue'
 
     def fetch_data_from_url_with_authentication(self, url):
         response = None
@@ -158,7 +162,7 @@ class GitHubMixin(object):
             return None
         return response
 
-    def get_pr_json(self, pr_number, repository_url=None):
+    def get_pr_json(self, pr_number, repository_url=None, retry=0):
         api_url = GitHub.api_url(repository_url)
         if not api_url:
             return None
@@ -167,14 +171,23 @@ class GitHubMixin(object):
         content = self.fetch_data_from_url_with_authentication(pr_url)
         if not content:
             return None
-        try:
-            pr_json = content.json()
-        except Exception as e:
-            print('Failed to get pull request data from {}, error: {}'.format(pr_url, e))
-            return None
-        if not pr_json or len(pr_json) == 0:
-            return None
-        return pr_json
+
+        for attempt in range(retry + 1):
+            try:
+                pr_json = content.json()
+                if pr_json and len(pr_json):
+                    return pr_json
+            except Exception as e:
+                self._addToLog('stdio', 'Failed to get pull request data from {}, error: {}'.format(pr_url, e))
+            
+            self._addToLog('stdio', 'Unable to fetch pull request {}.\n'.format(pr_number))
+            if attempt > retry:
+                return None
+            wait_for = (index + 1) * 15
+            self._addToLog('stdio', 'Backing off for {} seconds before retrying.\n'.format(wait_for))
+            time.sleep(wait_for)
+
+        return None
 
     def _is_pr_closed(self, pr_json):
         if not pr_json or not pr_json.get('state'):
@@ -191,16 +204,53 @@ class GitHubMixin(object):
             return -1
         return 0 if pr_sha == self.getProperty('github.head.sha', '?') else 1
 
+    def _is_pr_blocked(self, pr_json):
+        for label in (pr_json or {}).get('labels', {}):
+            if label.get('name', '') == self.BLOCKED_LABEL:
+                return 1
+        return 0
+
+    def _is_pr_in_merge_queue(self, pr_json):
+        for label in (pr_json or {}).get('labels', {}):
+            if label.get('name', '') in (self.MERGE_QUEUE_LABEL, self.FAST_MERGE_QUEUE_LABEL):
+                return 1
+        return 0
+
     def should_send_email_for_pr(self, pr_number):
         pr_json = self.get_pr_json(pr_number)
         if not pr_json:
-            self._addToLog('stdio', 'Unable to fetch PR #{}\n'.format(pr_number))
             return True
 
         if 1 == self._is_hash_outdated(pr_json):
             self._addToLog('stdio', 'Skipping email since hash {} on PR #{} is outdated\n'.format(
                 self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY], pr_number,
             ))
+            return False
+        return True
+
+    def modify_label(self, pr_number, label, repository_url=None, action='add'):
+        api_url = GitHub.api_url(repository_url)
+        if not api_url:
+            return False
+        if action not in ('add', 'delete'):
+            self._addToLog('stdio', "'{}' is not a valid label modifcation action".format(action))
+            return False
+
+        pr_label_url = '{}/issues/{}/labels'.format(api_url, pr_number)
+        try:
+            username, access_token = GitHub.credentials()
+            auth = HTTPBasicAuth(username, access_token) if username and access_token else None
+            response = requests.request(
+                'POST' if action == 'add' else 'DELETE',
+                pr_label_url, timeout=60, auth=auth,
+                headers=dict(Accept='application/vnd.github.v3+json'),
+                json=dict(labels=[label]),
+            )
+            if response.status_code // 100 != 2:
+                self._addToLog('stdio', "Unable to {} '{}' label on PR {}. Unexpected response code from GitHub: {}".format(action, label, pr_number, response.status_code))
+                return False
+        except Exception as e:
+            self._addToLog('stdio', "Error in {}ing '{}' label on PR {}".format(action, label, pr_number))
             return False
         return True
 
@@ -509,7 +559,7 @@ class ShowIdentifier(shell.ShellCommand):
         if match:
             identifier = match.group(1)
             if identifier:
-                identifier = identifier.replace('master', 'main')
+                identifier = identifier.replace('master', DEFAULT_BRANCH)
             self.setProperty('identifier', identifier)
             ews_revision = self.getProperty('ews_revision')
             if ews_revision:
@@ -666,7 +716,7 @@ class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
 
         remote = self.getProperty('github.head.repo.full_name', 'origin').split('/')[0]
         project = self.getProperty('github.head.repo.full_name', self.getProperty('project'))
-        pr_branch = self.getProperty('github.head.ref', 'main')
+        pr_branch = self.getProperty('github.head.ref', DEFAULT_BRANCH)
         base_hash = self.getProperty('github.base.sha')
         rebase_target_hash = self.getProperty('ews_revision') or self.getProperty('got_revision')
 
@@ -1184,11 +1234,20 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
     flunkOnFailure = True
     haltOnFailure = True
 
-    def __init__(self, verifyObsolete=True, verifyBugClosed=True, verifyReviewDenied=True, addURLs=True, verifycqplus=False):
+    def __init__(
+        self,
+        verifyObsolete=True,
+        verifyBugClosed=True,
+        verifyReviewDenied=True,
+        addURLs=True,
+        verifycqplus=False,
+        verifyMergeQueue=False,
+    ):
         self.verifyObsolete = verifyObsolete
         self.verifyBugClosed = verifyBugClosed
         self.verifyReviewDenied = verifyReviewDenied
         self.verifycqplus = verifycqplus
+        self.verifyMergeQueue = verifyMergeQueue
         self.addURLs = addURLs
         buildstep.BuildStep.__init__(self)
 
@@ -1237,6 +1296,8 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
         if self.verifycqplus and patch_id:
             self._addToLog('stdio', 'Change is in commit queue.\n')
             self._addToLog('stdio', 'Change has been reviewed.\n')
+        if self.verifyMergeQueue and pr_number:
+            self._addToLog('stdio', 'Change is in merge queue.\n')
         self.finished(SUCCESS)
         return None
 
@@ -1278,10 +1339,7 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
             return False
 
         repository_url = self.getProperty('repository', '')
-
-        pr_json = self.get_pr_json(pr_number, repository_url)
-        if not pr_json:
-            self._addToLog('stdio', 'Unable to fetch pull request {}.\n'.format(pr_number))
+        pr_json = self.get_pr_json(pr_number, repository_url, retry=3)
 
         pr_closed = self._is_pr_closed(pr_json) if self.verifyBugClosed else 0
         if pr_closed == 1:
@@ -1293,7 +1351,17 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
             self.skip_build('Hash {} on PR {} is outdated'.format(self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY], pr_number))
             return False
 
-        if obsolete == -1 or pr_closed == -1:
+        blocked = self._is_pr_blocked(pr_json) if self.verifyReviewDenied else 0
+        if blocked == 1:
+            self.skip_build("PR {} has been marked as '{}'".format(pr_number, self.BLOCKED_LABEL))
+            return False
+
+        merge_queue = self._is_pr_in_merge_queue(pr_json) if self.verifyMergeQueue else 1
+        if merge_queue == 0:
+            self.skip_build("PR {} does not have a merge queue label".format(pr_number))
+            return False
+
+        if -1 in (obsolete, pr_closed, blocked, merge_queue):
             self.finished(WARNINGS)
             return False
 
@@ -1434,6 +1502,47 @@ class SetCommitQueueMinusFlagOnPatch(buildstep.BuildStep, BugzillaMixin):
 
     def doStepIf(self, step):
         return self.getProperty('patch_id', False)
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+
+class BlockPullRequest(buildstep.BuildStep, GitHubMixin):
+    name = 'block-pull-request'
+
+    @defer.inlineCallbacks
+    def _addToLog(self, logName, message):
+        try:
+            log = self.getLog(logName)
+        except KeyError:
+            log = yield self.addLog(logName)
+        log.addStdout(message)
+
+    def start(self):
+        pr_number = self.getProperty('github.number', '')
+        build_finish_summary = self.getProperty('build_finish_summary', None)
+
+        rc = SKIPPED
+        if CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME:
+            rc = SUCCESS if self.modify_label(pr_number, self.BLOCKED_LABEL, repository_url=self.getProperty('repository', '')) else FAILURE
+        self.finished(rc)
+        if build_finish_summary:
+            self.build.buildFinished([build_finish_summary], FAILURE)
+        return None
+
+    def getResultSummary(self):
+        if self.results == SUCCESS:
+            return {'step': "Added '' label pull request".format(self.BLOCKED_LABEL)}
+        elif self.results == SKIPPED:
+            return buildstep.BuildStep.getResultSummary(self)
+        return {'step': "Failed to add '{}' label to pull request".format(self.BLOCKED_LABEL)}
+
+    def doStepIf(self, step):
+        return self.getProperty('github.number')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
 
 
 class RemoveFlagsOnPatch(buildstep.BuildStep, BugzillaMixin):
@@ -2117,13 +2226,14 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
         self.finished(FAILURE)
         self.setProperty('build_finish_summary', message)
 
-        # FIXME: Need a cq- equivalent for GitHub
         if patch_id:
             if self.getProperty('buildername', '').lower() == 'commit-queue':
                 self.setProperty('bugzilla_comment_text', message)
                 self.build.addStepsAfterCurrentStep([CommentOnBug(), SetCommitQueueMinusFlagOnPatch()])
             else:
                 self.build.addStepsAfterCurrentStep([SetCommitQueueMinusFlagOnPatch()])
+        else:
+            self.build.addStepsAfterCurrentStep([BlockPullRequest()])
 
     @defer.inlineCallbacks
     def getResults(self, name):
@@ -2599,7 +2709,7 @@ class RunWebKitTests(shell.Test):
     test_failures_log_name = 'test-failures'
     ENABLE_GUARD_MALLOC = False
     EXIT_AFTER_FAILURES = '30'
-    command = ['python', 'Tools/Scripts/run-webkit-tests',
+    command = ['python3', 'Tools/Scripts/run-webkit-tests',
                '--no-build',
                '--no-show-results',
                '--no-new-test-results',
@@ -2947,7 +3057,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
             self.setProperty('bugzilla_comment_text', message)
             self.build.addStepsAfterCurrentStep([CommentOnBug(), SetCommitQueueMinusFlagOnPatch()])
         else:
-            self.build.addStepsAfterCurrentStep([SetCommitQueueMinusFlagOnPatch()])
+            self.build.addStepsAfterCurrentStep([SetCommitQueueMinusFlagOnPatch(), BlockPullRequest()])
         return defer.succeed(None)
 
     def report_pre_existing_failures(self, clean_tree_failures, flaky_failures):
@@ -4021,7 +4131,7 @@ class CleanGitRepo(steps.ShellSequence, ShellMixin):
     flunkOnFailure = False
     logEnviron = False
 
-    def __init__(self, default_branch='main', remote='origin', **kwargs):
+    def __init__(self, default_branch=DEFAULT_BRANCH, remote='origin', **kwargs):
         super(CleanGitRepo, self).__init__(timeout=5 * 60, **kwargs)
         self.default_branch = default_branch
         self.git_remote = remote

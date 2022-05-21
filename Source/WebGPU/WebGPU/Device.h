@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Function.h>
 #import <wtf/Ref.h>
@@ -53,31 +52,28 @@ class Queue;
 class Device : public RefCounted<Device> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<Device> create()
-    {
-        return adoptRef(*new Device());
-    }
+    static RefPtr<Device> create(id<MTLDevice>);
 
     ~Device();
 
-    RefPtr<BindGroup> createBindGroup(const WGPUBindGroupDescriptor*);
-    RefPtr<BindGroupLayout> createBindGroupLayout(const WGPUBindGroupLayoutDescriptor*);
-    RefPtr<Buffer> createBuffer(const WGPUBufferDescriptor*);
-    RefPtr<CommandEncoder> createCommandEncoder(const WGPUCommandEncoderDescriptor*);
-    RefPtr<ComputePipeline> createComputePipeline(const WGPUComputePipelineDescriptor*);
-    void createComputePipelineAsync(const WGPUComputePipelineDescriptor*, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<ComputePipeline>&&, const char* message)>&& callback);
-    RefPtr<PipelineLayout> createPipelineLayout(const WGPUPipelineLayoutDescriptor*);
-    RefPtr<QuerySet> createQuerySet(const WGPUQuerySetDescriptor*);
-    RefPtr<RenderBundleEncoder> createRenderBundleEncoder(const WGPURenderBundleEncoderDescriptor*);
-    RefPtr<RenderPipeline> createRenderPipeline(const WGPURenderPipelineDescriptor*);
-    void createRenderPipelineAsync(const WGPURenderPipelineDescriptor*, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<RenderPipeline>&&, const char* message)>&& callback);
-    RefPtr<Sampler> createSampler(const WGPUSamplerDescriptor*);
-    RefPtr<ShaderModule> createShaderModule(const WGPUShaderModuleDescriptor*);
-    RefPtr<SwapChain> createSwapChain(const Surface&, const WGPUSwapChainDescriptor*);
-    RefPtr<Texture> createTexture(const WGPUTextureDescriptor*);
+    RefPtr<BindGroup> createBindGroup(const WGPUBindGroupDescriptor&);
+    RefPtr<BindGroupLayout> createBindGroupLayout(const WGPUBindGroupLayoutDescriptor&);
+    RefPtr<Buffer> createBuffer(const WGPUBufferDescriptor&);
+    RefPtr<CommandEncoder> createCommandEncoder(const WGPUCommandEncoderDescriptor&);
+    RefPtr<ComputePipeline> createComputePipeline(const WGPUComputePipelineDescriptor&);
+    void createComputePipelineAsync(const WGPUComputePipelineDescriptor&, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<ComputePipeline>&&, const char* message)>&& callback);
+    RefPtr<PipelineLayout> createPipelineLayout(const WGPUPipelineLayoutDescriptor&);
+    RefPtr<QuerySet> createQuerySet(const WGPUQuerySetDescriptor&);
+    RefPtr<RenderBundleEncoder> createRenderBundleEncoder(const WGPURenderBundleEncoderDescriptor&);
+    RefPtr<RenderPipeline> createRenderPipeline(const WGPURenderPipelineDescriptor&);
+    void createRenderPipelineAsync(const WGPURenderPipelineDescriptor&, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<RenderPipeline>&&, const char* message)>&& callback);
+    RefPtr<Sampler> createSampler(const WGPUSamplerDescriptor&);
+    RefPtr<ShaderModule> createShaderModule(const WGPUShaderModuleDescriptor&);
+    RefPtr<SwapChain> createSwapChain(const Surface&, const WGPUSwapChainDescriptor&);
+    RefPtr<Texture> createTexture(const WGPUTextureDescriptor&);
     void destroy();
     size_t enumerateFeatures(WGPUFeatureName* features);
-    bool getLimits(WGPUSupportedLimits*);
+    bool getLimits(WGPUSupportedLimits&);
     RefPtr<Queue> getQueue();
     bool hasFeature(WGPUFeatureName);
     bool popErrorScope(WTF::Function<void(WGPUErrorType, const char*)>&& callback);
@@ -87,7 +83,10 @@ public:
     void setLabel(const char*);
 
 private:
-    Device();
+    Device(id<MTLDevice>, Ref<Queue>&&);
+
+    id<MTLDevice> m_device { nil };
+    Ref<Queue> m_defaultQueue;
 };
 
 } // namespace WebGPU

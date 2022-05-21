@@ -363,6 +363,7 @@ void FrameView::willBeDestroyed()
 {
     setHasHorizontalScrollbar(false);
     setHasVerticalScrollbar(false);
+    m_scrollCorner = nullptr;
 }
 
 void FrameView::recalculateScrollbarOverlayStyle()
@@ -2580,7 +2581,7 @@ void FrameView::applyRecursivelyWithVisibleRect(const Function<void(FrameView& f
     apply(*this, visibleRect);
 
     // Recursive call for subframes. We cache the current FrameView's windowClipRect to avoid recomputing it for every subframe.
-    SetForScope<IntRect*> windowClipRectCache(m_cachedWindowClipRect, &windowClipRect);
+    SetForScope windowClipRectCache(m_cachedWindowClipRect, &windowClipRect);
     for (Frame* childFrame = frame().tree().firstChild(); childFrame; childFrame = childFrame->tree().nextSibling()) {
         if (auto* childView = childFrame->view())
             childView->applyRecursivelyWithVisibleRect(apply);
@@ -2722,8 +2723,14 @@ bool FrameView::requestScrollPositionUpdate(const ScrollPosition& position, Scro
     LOG_WITH_STREAM(Scrolling, stream << "FrameView::requestScrollPositionUpdate " << position);
 
 #if ENABLE(ASYNC_SCROLLING)
-    if (TiledBacking* tiledBacking = this->tiledBacking())
-        tiledBacking->prepopulateRect(FloatRect(position, visibleContentRect().size()));
+    if (TiledBacking* tiledBacking = this->tiledBacking()) {
+#if PLATFORM(IOS_FAMILY)
+        auto contentSize = exposedContentRect().size();
+#else
+        auto contentSize = visibleContentRect().size();
+#endif
+        tiledBacking->prepopulateRect(FloatRect(position, contentSize));
+    }
 #endif
 
 #if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
@@ -3337,7 +3344,7 @@ void FrameView::updateEmbeddedObject(RenderEmbeddedObject& embeddedObject)
 
 bool FrameView::updateEmbeddedObjects()
 {
-    SetForScope<bool> inUpdateEmbeddedObjects(m_inUpdateEmbeddedObjects, true);
+    SetForScope inUpdateEmbeddedObjects(m_inUpdateEmbeddedObjects, true);
     if (layoutContext().isLayoutNested() || !m_embeddedObjectsToUpdate || m_embeddedObjectsToUpdate->isEmpty())
         return true;
 
@@ -3542,7 +3549,7 @@ void FrameView::autoSizeIfEnabled()
     if (!firstChild)
         return;
 
-    SetForScope<bool> changeInAutoSize(m_inAutoSize, true);
+    SetForScope changeInAutoSize(m_inAutoSize, true);
     if (layoutContext().subtreeLayoutRoot())
         layoutContext().convertSubtreeLayoutToFullLayout();
 
@@ -4119,7 +4126,7 @@ void FrameView::updateScrollCorner()
         }
     }
 
-    if (!cornerStyle)
+    if (!cornerStyle || !renderer)
         m_scrollCorner = nullptr;
     else {
         if (!m_scrollCorner) {
@@ -4541,6 +4548,8 @@ void FrameView::updateLayoutAndStyleIfNeededRecursive()
         return descendantsDeque.first().ptr();
     };
 
+    Style::Scope::QueryContainerUpdateContext queryContainerUpdateContext;
+
     for (unsigned i = 0; i < maxUpdatePasses; ++i) {
         bool didWork = false;
         DescendantsDeque deque;
@@ -4549,7 +4558,7 @@ void FrameView::updateLayoutAndStyleIfNeededRecursive()
                 didWork = true;
             if (view->needsLayout()) {
                 view->layoutContext().layout();
-                view->frame().document()->styleScope().updateQueryContainerState();
+                view->frame().document()->styleScope().updateQueryContainerState(queryContainerUpdateContext);
                 didWork = true;
             }
         }

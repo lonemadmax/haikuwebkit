@@ -152,7 +152,7 @@ private:
     void clearMockMediaDevices();
     void removeMockMediaDevice(const String& persistentId);
     void resetMockMediaDevices();
-    void setMockCameraIsInterrupted(bool);
+    void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
     bool setCaptureAttributionString(const String&);
 #endif
 #if HAVE(SC_CONTENT_SHARING_SESSION)
@@ -190,6 +190,10 @@ private:
 
 #if HAVE(SCREEN_CAPTURE_KIT)
     void setUseScreenCaptureKit(bool);
+#endif
+
+#if HAVE(AVCONTENTKEYSPECIFIER)
+    void setSampleBufferContentKeySessionSupportEnabled(bool);
 #endif
 
 #if ENABLE(CFPREFS_DIRECT_MODE)
@@ -257,6 +261,10 @@ private:
 #if HAVE(SCREEN_CAPTURE_KIT)
     bool m_useScreenCaptureKit { false };
 #endif
+#if HAVE(AVCONTENTKEYSPECIFIER)
+    bool m_sampleBufferContentKeySessionSupportEnabled { false };
+#endif
+
 };
 
 } // namespace WebKit

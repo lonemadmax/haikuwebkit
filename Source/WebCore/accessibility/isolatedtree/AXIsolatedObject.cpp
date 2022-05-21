@@ -86,7 +86,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::IsAttachment, object.isAttachment());
     setProperty(AXPropertyName::IsBusy, object.isBusy());
     setProperty(AXPropertyName::IsButton, object.isButton());
-    setProperty(AXPropertyName::IsChecked, object.isChecked());
     setProperty(AXPropertyName::IsCollapsed, object.isCollapsed());
     setProperty(AXPropertyName::IsControl, object.isControl());
     setProperty(AXPropertyName::IsDescriptionList, object.isDescriptionList());
@@ -131,7 +130,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::IsSlider, object.isSlider());
     setProperty(AXPropertyName::IsStyleFormatGroup, object.isStyleFormatGroup());
     setProperty(AXPropertyName::IsTextControl, object.isTextControl());
-    setProperty(AXPropertyName::IsTree, object.isTree());
     setProperty(AXPropertyName::IsUnorderedList, object.isUnorderedList());
     setProperty(AXPropertyName::IsUnvisited, object.isUnvisited());
     setProperty(AXPropertyName::IsValueAutofillAvailable, object.isValueAutofillAvailable());
@@ -158,7 +156,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::ValidationMessage, object.validationMessage().isolatedCopy());
     setProperty(AXPropertyName::BlockquoteLevel, object.blockquoteLevel());
     setProperty(AXPropertyName::HeadingLevel, object.headingLevel());
-    setProperty(AXPropertyName::AccessibilityButtonState, static_cast<int>(object.checkboxOrRadioValue()));
     setProperty(AXPropertyName::ValueDescription, object.valueDescription().isolatedCopy());
     setProperty(AXPropertyName::ValueForRange, object.valueForRange());
     setProperty(AXPropertyName::MaxValueForRange, object.maxValueForRange());
@@ -232,9 +229,14 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::IsKeyboardFocusable, object.isKeyboardFocusable());
     setObjectProperty(AXPropertyName::NextSibling, object.nextSibling());
     setObjectProperty(AXPropertyName::PreviousSibling, object.previousSibling());
-    setProperty(AXPropertyName::SupportsCheckedState, object.supportsCheckedState());
     setProperty(AXPropertyName::BrailleRoleDescription, object.brailleRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::BrailleLabel, object.brailleLabel().isolatedCopy());
+
+    if (object.supportsCheckedState()) {
+        setProperty(AXPropertyName::SupportsCheckedState, true);
+        setProperty(AXPropertyName::IsChecked, object.isChecked());
+        setProperty(AXPropertyName::ButtonState, object.checkboxOrRadioValue());
+    }
 
     if (object.isTable()) {
         setProperty(AXPropertyName::IsTable, true);
@@ -282,8 +284,23 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
         setObjectProperty(AXPropertyName::DisclosedByRow, object.disclosedByRow());
     }
 
-    if (object.isTreeItem())
+    if (object.isTreeItem()) {
+        setProperty(AXPropertyName::IsTreeItem, true);
+
+        AccessibilityChildrenVector ariaTreeItemContent;
+        object.ariaTreeItemContent(ariaTreeItemContent);
+        setObjectVectorProperty(AXPropertyName::ARIATreeItemContent, ariaTreeItemContent);
+
         setObjectVectorProperty(AXPropertyName::DisclosedRows, object.disclosedRows());
+    }
+
+    if (object.isTree()) {
+        setProperty(AXPropertyName::IsTree, true);
+
+        AccessibilityChildrenVector ariaTreeRows;
+        object.ariaTreeRows(ariaTreeRows);
+        setObjectVectorProperty(AXPropertyName::ARIATreeRows, ariaTreeRows);
+    }
 
     if (object.isTextControl())
         setProperty(AXPropertyName::TextLength, object.textLength());
@@ -311,14 +328,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     AccessibilityChildrenVector tabChildren;
     object.tabChildren(tabChildren);
     setObjectVectorProperty(AXPropertyName::TabChildren, tabChildren);
-
-    AccessibilityChildrenVector ariaTreeRows;
-    object.ariaTreeRows(ariaTreeRows);
-    setObjectVectorProperty(AXPropertyName::ARIATreeRows, ariaTreeRows);
-
-    AccessibilityChildrenVector ariaTreeItemContent;
-    object.ariaTreeItemContent(ariaTreeItemContent);
-    setObjectVectorProperty(AXPropertyName::ARIATreeItemContent, ariaTreeItemContent);
 
     AccessibilityChildrenVector linkedUIElements;
     object.linkedUIElements(linkedUIElements);
@@ -960,16 +969,8 @@ int AXIsolatedObject::intAttributeValue(AXPropertyName propertyName) const
 template<typename T>
 T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
 {
-    auto typedValue = [&propertyName, this] () {
-        auto value = m_propertyMap.get(propertyName);
-        return WTF::switchOn(value,
-            [] (T& typedValue) -> T { return typedValue; },
-            [] (auto&) { return T(); }
-        );
-    };
-
     if (m_propertyMap.contains(propertyName))
-        return typedValue();
+        return propertyValue<T>(propertyName);
 
     Accessibility::performFunctionOnMainThread([&propertyName, this] () {
         auto* axObject = associatedAXObject();
@@ -1008,7 +1009,7 @@ T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
         setProperty(propertyName, WTFMove(value));
     });
 
-    return typedValue();
+    return propertyValue<T>(propertyName);
 }
 
 void AXIsolatedObject::fillChildrenVectorForProperty(AXPropertyName propertyName, AccessibilityChildrenVector& children) const
@@ -2216,48 +2217,6 @@ ScrollView* AXIsolatedObject::scrollViewAncestor() const
 {
     ASSERT_NOT_REACHED();
     return nullptr;
-}
-
-void AXIsolatedObject::addChildren()
-{
-    ASSERT_NOT_REACHED();
-}
-
-void AXIsolatedObject::addChild(AXCoreObject*, DescendIfIgnored)
-{
-    ASSERT_NOT_REACHED();
-}
-
-void AXIsolatedObject::insertChild(AXCoreObject*, unsigned, DescendIfIgnored)
-{
-    ASSERT_NOT_REACHED();
-}
-
-bool AXIsolatedObject::canHaveChildren() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-void AXIsolatedObject::setNeedsToUpdateChildren()
-{
-    ASSERT_NOT_REACHED();
-}
-
-void AXIsolatedObject::setNeedsToUpdateSubtree()
-{
-    ASSERT_NOT_REACHED();
-}
-
-void AXIsolatedObject::clearChildren()
-{
-    ASSERT_NOT_REACHED();
-}
-
-bool AXIsolatedObject::needsToUpdateChildren() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
 }
 
 bool AXIsolatedObject::shouldFocusActiveDescendant() const

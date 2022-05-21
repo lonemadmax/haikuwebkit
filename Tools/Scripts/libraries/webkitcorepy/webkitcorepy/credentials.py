@@ -29,7 +29,7 @@ from webkitcorepy import Environment, OutputCapture, Terminal, string_utils
 _cache = dict()
 
 
-def credentials(url, required=True, name=None, prompt=None, key_name='password', validater=None, retry=3):
+def credentials(url, required=True, name=None, prompt=None, key_name='password', validater=None, retry=3, save_in_keyring=None):
     global _cache
 
     name = name or url.split('/')[2].replace('.', '_')
@@ -65,12 +65,14 @@ def credentials(url, required=True, name=None, prompt=None, key_name='password',
             if not username and required:
                 if not sys.stderr.isatty() or not sys.stdin.isatty():
                     raise OSError('No tty to prompt user for username')
+                if prompt and callable(prompt):
+                    prompt = prompt()
                 sys.stderr.write("Authentication required to use {}\n".format(prompt or name))
                 sys.stderr.write('Username: ')
                 username = Terminal.input()
                 username_prompted = True
 
-        if not key:
+        if not key and username:
             try:
                 if keyring and not attempt:
                     key = keyring.get_password(url, username)
@@ -100,10 +102,10 @@ def credentials(url, required=True, name=None, prompt=None, key_name='password',
         sys.exit(1)
 
     if keyring and (username_prompted or key_prompted):
-        if Terminal.choose(
+        if save_in_keyring or (save_in_keyring is None and Terminal.choose(
             'Store username and {} in system keyring for {}?'.format(key_name, url),
             default='Yes',
-        ) == 'Yes':
+        ) == 'Yes'):
             sys.stderr.write('Storing credentials...\n')
             keyring.set_password(url, 'username', username)
             keyring.set_password(url, username, key)

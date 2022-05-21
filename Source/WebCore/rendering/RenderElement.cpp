@@ -117,7 +117,6 @@ inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyl
     , m_hasContinuationChainNode(false)
     , m_isContinuation(false)
     , m_isFirstLetter(false)
-    , m_hasValidCachedFirstLineStyle(false)
     , m_renderBlockHasMarginBeforeQuirk(false)
     , m_renderBlockHasMarginAfterQuirk(false)
     , m_renderBlockShouldForceRelayoutChildren(false)
@@ -224,62 +223,21 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
     return nullptr;
 }
 
-std::unique_ptr<RenderStyle> RenderElement::computeFirstLineStyle() const
-{
-    ASSERT(view().usesFirstLineRules());
-
-    RenderElement& rendererForFirstLineStyle = isBeforeOrAfterContent() ? *parent() : const_cast<RenderElement&>(*this);
-
-    if (rendererForFirstLineStyle.isRenderBlockFlow() || rendererForFirstLineStyle.isRenderButton()) {
-        RenderBlock* firstLineBlock = rendererForFirstLineStyle.firstLineBlock();
-        if (!firstLineBlock)
-            return nullptr;
-        auto* firstLineStyle = firstLineBlock->getCachedPseudoStyle(PseudoId::FirstLine, &style());
-        if (!firstLineStyle)
-            return nullptr;
-        return RenderStyle::clonePtr(*firstLineStyle);
-    }
-
-    if (!rendererForFirstLineStyle.isRenderInline())
-        return nullptr;
-
-    auto& parentStyle = rendererForFirstLineStyle.parent()->firstLineStyle();
-    if (&parentStyle == &rendererForFirstLineStyle.parent()->style())
-        return nullptr;
-
-    if (rendererForFirstLineStyle.isAnonymous()) {
-        auto* textRendererWithDisplayContentsParent = RenderText::findByDisplayContentsInlineWrapperCandidate(rendererForFirstLineStyle);
-        if (!textRendererWithDisplayContentsParent)
-            return nullptr;
-        auto* composedTreeParentElement = textRendererWithDisplayContentsParent->textNode()->parentElementInComposedTree();
-        if (!composedTreeParentElement)
-            return nullptr;
-
-        auto style = composedTreeParentElement->styleResolver().styleForElement(*composedTreeParentElement, { &parentStyle }).renderStyle;
-        ASSERT(style->display() == DisplayType::Contents);
-
-        // We act as if there was an unstyled <span> around the text node. Only styling happens via inheritance.
-        auto firstLineStyle = RenderStyle::createPtr();
-        firstLineStyle->inheritFrom(*style);
-        return firstLineStyle;
-    }
-
-    return rendererForFirstLineStyle.element()->styleResolver().styleForElement(*element(), { &parentStyle }).renderStyle;
-}
-
 const RenderStyle& RenderElement::firstLineStyle() const
 {
-    if (!view().usesFirstLineRules())
+    // FIXME: It would be better to just set anonymous block first-line styles correctly.
+    if (isAnonymousBlock()) {
+        if (!previousInFlowSibling()) {
+            if (auto* firstLineStyle = parent()->style().getCachedPseudoStyle(PseudoId::FirstLine))
+                return *firstLineStyle;
+        }
         return style();
-
-    if (!m_hasValidCachedFirstLineStyle) {
-        auto firstLineStyle = computeFirstLineStyle();
-        if (firstLineStyle || hasRareData())
-            const_cast<RenderElement&>(*this).ensureRareData().cachedFirstLineStyle = WTFMove(firstLineStyle);
-        m_hasValidCachedFirstLineStyle = true;
     }
 
-    return (hasRareData() && rareData().cachedFirstLineStyle) ? *rareData().cachedFirstLineStyle : style();
+    if (auto* firstLineStyle = style().getCachedPseudoStyle(PseudoId::FirstLine))
+        return *firstLineStyle;
+
+    return style();
 }
 
 StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, OptionSet<StyleDifferenceContextSensitiveProperty> contextSensitiveProperties) const
@@ -720,6 +678,8 @@ void RenderElement::removeLayers(RenderLayer* parentLayer)
 void RenderElement::moveLayers(RenderLayer* oldParent, RenderLayer& newParent)
 {
     if (hasLayer()) {
+        if (isInTopLayerOrBackdrop(style(), element()))
+            return;
         RenderLayer* layer = downcast<RenderLayerModelObject>(*this).layer();
         ASSERT(oldParent == layer->parent());
         if (oldParent)
@@ -803,16 +763,6 @@ static inline bool rendererHasBackground(const RenderElement* renderer)
     return renderer && renderer->hasBackground();
 }
 
-void RenderElement::invalidateCachedFirstLineStyle()
-{
-    if (!m_hasValidCachedFirstLineStyle)
-        return;
-    m_hasValidCachedFirstLineStyle = false;
-    // Invalidate the subtree as descendant's first line style may depend on ancestor's.
-    for (auto& descendant : descendantsOfType<RenderElement>(*this))
-        descendant.m_hasValidCachedFirstLineStyle = false;
-}
-
 void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
 {
     ASSERT(settings().shouldAllowUserInstalledFonts() || newStyle.fontDescription().shouldAllowUserInstalledFonts() == AllowUserInstalledFonts::No);
@@ -844,9 +794,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         }
 
         auto needsInvalidateEventRegion = [&] {
-            if (m_style.effectiveInert() != newStyle.effectiveInert())
-                return true;
-            if (m_style.pointerEvents() != newStyle.pointerEvents())
+            if (m_style.effectivePointerEvents() != newStyle.effectivePointerEvents())
                 return true;
 #if ENABLE(TOUCH_ACTION_REGIONS)
             if (m_style.effectiveTouchActions() != newStyle.effectiveTouchActions())
@@ -855,8 +803,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             if (m_style.eventListenerRegionTypes() != newStyle.eventListenerRegionTypes())
                 return true;
 #if ENABLE(EDITABLE_REGION)
-            bool wasEditable = m_style.userModify() != UserModify::ReadOnly;
-            bool isEditable = newStyle.userModify() != UserModify::ReadOnly;
+            bool wasEditable = m_style.effectiveUserModify() != UserModify::ReadOnly;
+            bool isEditable = newStyle.effectiveUserModify() != UserModify::ReadOnly;
             if (wasEditable != isEditable)
                 return page().shouldBuildEditableRegion();
 #endif
@@ -885,9 +833,6 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             clearPositionedState();
         }
 
-        if (newStyle.hasPseudoStyle(PseudoId::FirstLine) || oldStyle->hasPseudoStyle(PseudoId::FirstLine))
-            invalidateCachedFirstLineStyle();
-
         setHorizontalWritingMode(true);
         setHasVisibleBoxDecorations(false);
         setHasNonVisibleOverflow(false);
@@ -905,7 +850,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
     }
 
     bool newStyleSlowScroll = false;
-    if (newStyle.hasFixedBackgroundImage() && !settings().fixedBackgroundsPaintRelativeToDocument()) {
+    if (newStyle.hasAnyFixedBackground() && !settings().fixedBackgroundsPaintRelativeToDocument()) {
         newStyleSlowScroll = true;
         bool drawsRootBackground = isDocumentElementRenderer() || (isBody() && !rendererHasBackground(document().documentElement()->renderer()));
         if (drawsRootBackground && newStyle.hasEntirelyFixedBackground() && view().compositor().supportsFixedRootBackgroundCompositing())
@@ -1054,7 +999,7 @@ void RenderElement::willBeDestroyed()
     if (!renderTreeBeingDestroyed() && element())
         document().contentChangeObserver().rendererWillBeDestroyed(*element());
 #endif
-    if (m_style.hasFixedBackgroundImage() && !settings().fixedBackgroundsPaintRelativeToDocument())
+    if (m_style.hasAnyFixedBackground() && !settings().fixedBackgroundsPaintRelativeToDocument())
         view().frameView().removeSlowRepaintObject(*this);
 
     unregisterForVisibleInViewportCallback();
@@ -1536,7 +1481,7 @@ Color RenderElement::selectionColor(CSSPropertyID colorProperty) const
 {
     // If the element is unselectable, or we are only painting the selection,
     // don't override the foreground color with the selection foreground color.
-    if (style().userSelectIncludingInert() == UserSelect::None
+    if (style().effectiveUserSelect() == UserSelect::None
         || (view().frameView().paintBehavior().containsAny({ PaintBehavior::SelectionOnly, PaintBehavior::SelectionAndBackgroundsOnly })))
         return Color();
 
@@ -1591,7 +1536,7 @@ Color RenderElement::selectionEmphasisMarkColor() const
 
 Color RenderElement::selectionBackgroundColor() const
 {
-    if (style().userSelectIncludingInert() == UserSelect::None)
+    if (style().effectiveUserSelect() == UserSelect::None)
         return Color();
 
     if (frame().selection().shouldShowBlockCursor() && frame().selection().isCaret())

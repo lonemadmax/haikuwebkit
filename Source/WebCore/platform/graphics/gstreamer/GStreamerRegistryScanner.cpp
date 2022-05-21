@@ -330,11 +330,11 @@ void GStreamerRegistryScanner::initializeDecoders(const GStreamerRegistryScanner
         m_decoderMimeTypeSet.add(AtomString("video/x-m4v"));
     }
 
-    Vector<String> av1DecodersDisallowedList { "av1dec"_s };
-    if ((matroskaSupported || isContainerTypeSupported(Configuration::Decoding, "video/mp4")) && factories.hasElementForMediaType(ElementFactories::Type::VideoDecoder, "video/x-av1", ElementFactories::CheckHardwareClassifier::No, std::make_optional(WTFMove(av1DecodersDisallowedList)))) {
-        m_decoderCodecMap.add(AtomString("av01*"), false);
-        m_decoderCodecMap.add(AtomString("av1"), false);
-        m_decoderCodecMap.add(AtomString("x-av1"), false);
+    auto av1DecoderAvailable = factories.hasElementForMediaType(ElementFactories::Type::VideoDecoder, "video/x-av1", ElementFactories::CheckHardwareClassifier::Yes);
+    if ((matroskaSupported || isContainerTypeSupported(Configuration::Decoding, "video/mp4")) && av1DecoderAvailable) {
+        m_decoderCodecMap.add(AtomString("av01*"), av1DecoderAvailable.isUsingHardware);
+        m_decoderCodecMap.add(AtomString("av1"), av1DecoderAvailable.isUsingHardware);
+        m_decoderCodecMap.add(AtomString("x-av1"), av1DecoderAvailable.isUsingHardware);
     }
 
     if (m_isMediaSource)
@@ -480,6 +480,7 @@ void GStreamerRegistryScanner::initializeEncoders(const GStreamerRegistryScanner
 
     auto h264EncoderAvailable = factories.hasElementForMediaType(ElementFactories::Type::VideoEncoder, "video/x-h264, profile=(string){ constrained-baseline, baseline, high }", ElementFactories::CheckHardwareClassifier::Yes);
     if (h264EncoderAvailable) {
+        m_encoderCodecMap.add(AtomString("h264"), h264EncoderAvailable.isUsingHardware);
         m_encoderCodecMap.add(AtomString("x-h264"), h264EncoderAvailable.isUsingHardware);
         m_encoderCodecMap.add(AtomString("avc*"), h264EncoderAvailable.isUsingHardware);
         m_encoderCodecMap.add(AtomString("mp4v*"), h264EncoderAvailable.isUsingHardware);

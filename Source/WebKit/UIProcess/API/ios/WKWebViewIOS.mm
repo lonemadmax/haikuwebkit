@@ -35,6 +35,7 @@
 #import "RemoteLayerTreeScrollingPerformanceData.h"
 #import "RemoteLayerTreeViews.h"
 #import "RemoteScrollingCoordinatorProxy.h"
+#import "ScrollingTreeScrollingNodeDelegateIOS.h"
 #import "TapHandlingResult.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewGestureController.h"
@@ -864,6 +865,8 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     [_scrollView setMinimumZoomScale:layerTreeTransaction.minimumScaleFactor()];
     [_scrollView setMaximumZoomScale:layerTreeTransaction.maximumScaleFactor()];
     [_scrollView _setZoomEnabledInternal:layerTreeTransaction.allowsUserScaling()];
+    auto rootNode = _page->scrollingCoordinatorProxy()->rootNode();
+    WebKit::ScrollingTreeScrollingNodeDelegateIOS::updateScrollViewForOverscrollBehavior(_scrollView.get(), rootNode->horizontalOverscrollBehavior(), rootNode->verticalOverscrollBehavior(), WebKit::ScrollingTreeScrollingNodeDelegateIOS::AllowOverscrollToPreventScrollPropagation::No);
 
     bool hasDockedInputView = !CGRectIsEmpty(_inputViewBoundsInWindow);
     bool isZoomed = layerTreeTransaction.pageScaleFactor() > layerTreeTransaction.initialScaleFactor();
@@ -1538,8 +1541,6 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
         [self _dispatchSetDeviceOrientation:[self _deviceOrientation]];
     _page->activityStateDidChange(WebCore::ActivityState::allFlags());
     _page->webViewDidMoveToWindow();
-
-    [_contentView setUpAdditionalMenuControllerActions];
 }
 
 - (void)_setOpaqueInternal:(BOOL)opaque
@@ -2013,12 +2014,17 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
             if (!strongSelf)
                 return;
 
-            for (auto resizeAssertion : std::exchange(strongSelf->_resizeAssertions, { }))
-                [resizeAssertion _invalidate];
+            [strongSelf _invalidateResizeAssertions];
         }).get()];
     }
 
-    _resizeAssertions.append(adoptNS([windowScene _holdLiveResizeSnapshotForReason:reason]));
+    _resizeAssertions.append(retainPtr([windowScene _holdLiveResizeSnapshotForReason:reason]));
+}
+
+- (void)_invalidateResizeAssertions
+{
+    for (auto resizeAssertion : std::exchange(_resizeAssertions, { }))
+        [resizeAssertion _invalidate];
 }
 
 #endif // HAVE(MAC_CATALYST_LIVE_RESIZE)
@@ -2485,7 +2491,7 @@ static int32_t activeOrientation(WKWebView *webView)
 
     if (adjustScrollView) {
         CGFloat bottomInsetBeforeAdjustment = [_scrollView contentInset].bottom;
-        SetForScope<BOOL> insetAdjustmentGuard(_currentlyAdjustingScrollViewInsetsForKeyboard, YES);
+        SetForScope insetAdjustmentGuard(_currentlyAdjustingScrollViewInsetsForKeyboard, YES);
         [_scrollView _adjustForAutomaticKeyboardInfo:keyboardInfo animated:YES lastAdjustment:&_lastAdjustmentForScroller];
         CGFloat bottomInsetAfterAdjustment = [_scrollView contentInset].bottom;
         // FIXME: This "total bottom content inset adjustment" mechanism hasn't worked since iOS 11, since -_adjustForAutomaticKeyboardInfo:animated:lastAdjustment:
@@ -2697,6 +2703,14 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
         _page->setUserInterfaceLayoutDirection(toUserInterfaceLayoutDirection(contentAttribute));
 }
 
+- (void)buildMenuWithBuilder:(id <UIMenuBuilder>)builder
+{
+    if (self.usesStandardContentView)
+        [_contentView buildMenuForWebViewWithBuilder:builder];
+
+    [super buildMenuWithBuilder:builder];
+}
+
 @end
 
 @implementation WKWebView (WKPrivateIOS)
@@ -2727,7 +2741,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     if (!measurement)
         return nil;
 
-    auto destinationURL = URL(URL(), makeString("https://", measurement->pcm.destinationSite().registrableDomain.string()));
+    URL destinationURL { makeString("https://", measurement->pcm.destinationSite().registrableDomain.string()) };
     return adoptNS([[UIEventAttribution alloc] initWithSourceIdentifier:measurement->pcm.sourceID().id destinationURL:destinationURL sourceDescription:measurement->sourceDescription purchaser:measurement->purchaser]).autorelease();
 #else
     return nil;
@@ -3558,9 +3572,18 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
     return nil;
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(_UITextSearchDocumentIdentifier)document
 {
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [_contentView offsetFromPosition:from toPosition:toPosition inDocument:document];
+    ALLOW_DEPRECATED_DECLARATIONS_END
+}
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
+
+- (NSComparisonResult)compareFoundRange:(UITextRange *)fromRange toRange:(UITextRange *)toRange inDocument:(_UITextSearchDocumentIdentifier)document
+{
+    return [_contentView compareFoundRange:fromRange toRange:toRange inDocument:document];
 }
 
 - (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(_UITextSearchOptions *)options resultAggregator:(id<_UITextSearchAggregator>)aggregator

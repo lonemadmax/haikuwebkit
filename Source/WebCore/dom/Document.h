@@ -1673,6 +1673,10 @@ public:
 
     void createNewIdentifier();
 
+    WEBCORE_EXPORT bool hasElementWithPendingUserAgentShadowTreeUpdate(Element&) const;
+    void addElementWithPendingUserAgentShadowTreeUpdate(Element&);
+    WEBCORE_EXPORT void removeElementWithPendingUserAgentShadowTreeUpdate(Element&);
+
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };
     WEBCORE_EXPORT Document(Frame*, const Settings&, const URL&, DocumentClasses = { }, unsigned constructionFlags = 0, ScriptExecutionContextIdentifier = { });
@@ -1965,7 +1969,6 @@ private:
     WeakHashSet<HTMLImageElement> m_dynamicMediaQueryDependentImages;
 
     Vector<WeakPtr<IntersectionObserver>> m_intersectionObservers;
-    Vector<WeakPtr<IntersectionObserver>> m_intersectionObserversWithPendingNotifications;
     Timer m_intersectionObserversInitialUpdateTimer;
     // This is only non-null when this document is an explicit root.
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
@@ -2264,6 +2267,8 @@ private:
     std::unique_ptr<ModalContainerObserver> m_modalContainerObserver;
 
     Vector<Function<void()>> m_whenIsVisibleHandlers;
+
+    WeakHashSet<Element> m_elementsWithPendingUserAgentShadowTreeUpdates;
 };
 
 Element* eventTargetElementForDocument(Document*);

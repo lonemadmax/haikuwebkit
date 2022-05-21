@@ -570,7 +570,19 @@ LayoutRect RenderInline::linesVisualOverflowBoundingBoxInFragment(const RenderFr
 LayoutRect RenderInline::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
 {
     // Only first-letter renderers are allowed in here during layout. They mutate the tree triggering repaints.
-    ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled() || style().styleType() == PseudoId::FirstLetter || hasSelfPaintingLayer());
+#ifndef NDEBUG
+    auto insideSelfPaintingInlineBox = [&] {
+        if (hasSelfPaintingLayer())
+            return true;
+        auto* containingBlock = this->containingBlock();
+        for (auto* ancestor = this->parent(); ancestor && ancestor != containingBlock; ancestor = ancestor->parent()) {
+            if (ancestor->hasSelfPaintingLayer())
+                return true;
+        }
+        return false;
+    };
+    ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled() || style().styleType() == PseudoId::FirstLetter || insideSelfPaintingInlineBox());
+#endif
 
     auto knownEmpty = [&] {
         if (firstLineBox())
@@ -677,7 +689,7 @@ std::optional<LayoutRect> RenderInline::computeVisibleRectInContainer(const Layo
     adjustedRect.setLocation(topLeft);
     if (localContainer->hasNonVisibleOverflow()) {
         // FIXME: Respect the value of context.options.
-        SetForScope<OptionSet<VisibleRectContextOption>> change(context.options, context.options | VisibleRectContextOption::ApplyCompositedContainerScrolls);
+        SetForScope change(context.options, context.options | VisibleRectContextOption::ApplyCompositedContainerScrolls);
         bool isEmpty = !downcast<RenderBox>(*localContainer).applyCachedClipAndScrollPosition(adjustedRect, container, context);
         if (isEmpty) {
             if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
@@ -965,7 +977,7 @@ void RenderInline::paintOutline(PaintInfo& paintInfo, const LayoutPoint& paintOf
         LayoutUnit top = std::max(line->top(), LayoutUnit(box->logicalTop()));
         LayoutUnit bottom = std::min(line->bottom(), LayoutUnit(box->logicalBottom()));
         // FIXME: This is mixing physical and logical coordinates.
-        rects.append({ LayoutUnit(box->rect().x()), top, LayoutUnit(box->logicalWidth()), bottom - top });
+        rects.append({ LayoutUnit(box->visualRectIgnoringBlockDirection().x()), top, LayoutUnit(box->logicalWidth()), bottom - top });
     }
     rects.append(LayoutRect());
 

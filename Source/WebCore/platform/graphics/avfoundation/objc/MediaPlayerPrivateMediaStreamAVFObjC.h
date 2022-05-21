@@ -163,6 +163,7 @@ private:
     void setBufferingPolicy(MediaPlayer::BufferingPolicy) override;
     void audioOutputDeviceChanged() final;
     std::optional<VideoFrameMetadata> videoFrameMetadata() final;
+    void setResourceOwner(const ProcessIdentity&) final { ASSERT_NOT_REACHED(); }
 
     MediaPlayer::ReadyState currentReadyState();
     void updateReadyState();
@@ -286,6 +287,7 @@ private:
     uint64_t m_sampleCount { 0 };
     uint64_t m_lastVideoFrameMetadataSampleCount { 0 };
     Seconds m_presentationTime { 0 };
+    FloatSize m_videoFrameSize;
     VideoSampleMetadata m_sampleMetadata;
 };
     

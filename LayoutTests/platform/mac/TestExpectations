@@ -115,7 +115,6 @@ model-element/model-element-interactive-dragging.html [ Skip ]
 accessibility/aria-checkbox-sends-notification.html
 accessibility/aria-switch-sends-notification.html
 accessibility/combo-box-collapsed-selection-changed.html
-accessibility/children-changed-sends-notification.html
 accessibility/multiselect-list-reports-active-option.html
 
 # Need to implement AccessibilityUIElement::clearSelectedChildren()
@@ -1304,9 +1303,6 @@ imported/w3c/web-platform-tests/fetch/api/basic/request-headers.any.html [ Failu
 # <rdar://problem/33731086>
 media/modern-media-controls/time-labels-support/elapsed-time.html [ Skip ]
 
-# <rdar://problem/33850189>
-http/tests/websocket/tests/hybi/deflate-frame-parameter.html [ Failure ]
-
 webkit.org/b/177323 imported/w3c/web-platform-tests/fetch/security/embedded-credentials.tentative.sub.html [ Pass Failure ]
 
 webkit.org/b/177388 inspector/canvas/shaderProgram-add-remove-webgl.html [ Pass Failure ]
@@ -1415,8 +1411,6 @@ webkit.org/b/189680 platform/mac/media/audio-session-category-video-paused.html 
 
 webkit.org/b/195466 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/ready-states/autoplay.html [ Pass Failure ]
 webkit.org/b/195466 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/error-codes/error.html [ Pass Failure ]
-
-http/tests/websocket/tests/hybi/handshake-ok-with-legacy-sec-websocket-response-headers.html [ Pass Failure ]
 
 webkit.org/b/195466 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/sizes/parse-a-sizes-attribute-width-1000px.html [ Pass Failure ]
 
@@ -2008,7 +2002,6 @@ webkit.org/b/222425 [ BigSur+ ] http/tests/media/hls/hls-hdr-switch.html [ Timeo
 
 # These tests fail in Mac due to subpixel differences for the marker position
 imported/w3c/web-platform-tests/css/css-lists/list-style-type-string-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-lists/list-style-type-string-004.html [ ImageOnlyFailure ]
 
 webkit.org/b/217461 [ Mojave+ ] imported/w3c/web-platform-tests/css/css-masking/clip-path/svg-clipPath.svg [ Skip ]
 
@@ -2088,24 +2081,8 @@ webkit.org/b/222692 inspector/page/empty-or-missing-resources.html [ Pass Timeou
 [ Debug arm64 ] svg/W3C-SVG-1.1/paths-data-03-f.svg [ Failure ]
 
 # webkit.org/b/223043 the following tests have issues only on Apple Silicon
-[ arm64 ] webrtc/concurrentVideoPlayback2.html [ Pass Timeout ]
-[ arm64 ] webrtc/concurrentVideoPlayback.html [ Pass Timeout ]
-[ arm64 ] webrtc/multi-video.html [ Pass Timeout ]
-[ arm64 ] webrtc/h265.html [ Pass Timeout ]
-[ arm64 ] webrtc/video-setDirection.html [ Pass Timeout ]
-[ arm64 ] webrtc/video-rotation.html [ Pass Timeout ]
-[ arm64 ] webrtc/video-rotation-no-cvo.html [ Pass Timeout ]
-[ arm64 ] webrtc/video-sframe.html [ Pass Timeout ]
-[ arm64 ] webrtc/video.html [ Pass Timeout ]
-[ arm64 ] webrtc/video-with-data-channel.html [ Pass Timeout ]
-[ arm64 ] webrtc/video-unmute.html [ Pass Timeout ]
-[ arm64 ] webrtc/vp9-profile2.html [ Skip ]
 [ arm64 ] webrtc/captureCanvas-webrtc-software-h264-high.html [ Pass Failure ]
-#These two are failing on intel as well for ews
 webrtc/h264-baseline.html  [ Failure Timeout ]
-webrtc/video-stats.html [ Pass Failure ]
-
-webkit.org/b/223043 [ BigSur ] webrtc/multi-audio.html [ Pass Failure ]
 
 webkit.org/b/223259 [ arm64 ] webgl/2.0.0/conformance2/textures/misc/tex-mipmap-levels.html [ Failure ]
 
@@ -2193,8 +2170,6 @@ webkit.org/b/225425 [ Debug ] webgl/1.0.3/conformance/glsl/misc/expression-list-
 # See https://webkit.org/b/120081 for why this is one expectation.
 webkit.org/b/225523 webrtc/direction-change.html [ Pass Timeout Failure ]
 
-webkit.org/b/22525 webrtc/video-replace-muted-track.html [ Pass Failure ]
-
 webkit.org/b/225528 [ arm64 ] http/wpt/fetch/fetch-response-body-stop-in-worker.html [ Pass Crash ]
 
 webkit.org/b/225258 [ arm64 ] js/dom/Promise-reject-large-string.html [ Pass Failure ]
@@ -2275,8 +2250,6 @@ webkit.org/b/228311 imported/w3c/web-platform-tests/css/css-scoping/css-scoping-
 #rdar://82053210 ([Guard-Malloc] imported/w3c/web-platform-tests/mathml/relations/html5-tree/display-2.html is a flaky failure)
 imported/w3c/web-platform-tests/mathml/relations/html5-tree/display-2.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/229244 imported/w3c/web-platform-tests/IndexedDB/key-generators/reading-autoincrement-indexes-cursors.any.worker.html [ Pass Crash ]
-
 webkit.org/b/229291 imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/revoked-blob-print.html [ Pass ImageOnlyFailure ]
 
 #rdar://82146367 ([Mac, iOS Release] imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html is a flaky failure) imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html [ Pass Failure ] 
@@ -2296,8 +2269,6 @@ webkit.org/b/228642 imported/w3c/web-platform-tests/html/cross-origin-opener-pol
 
 webkit.org/b/229517 imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpSynchronizationSource-captureTimestamp.html [ Pass Failure ]
 webkit.org/b/229517 imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpSynchronizationSource-senderCaptureTimeOffset.html [ Pass Failure ]
-
-webkit.org/b/230116 imported/w3c/web-platform-tests/webrtc-extensions/transfer-datachannel.html [ Pass Failure ]
 
 # accent-color is currently only supported on Cocoa platforms
 fast/css/accent-color/checkbox.html [ Pass ]
@@ -2357,6 +2328,9 @@ webkit.org/b/189448 [ Mojave Catalina ] fast/text/osaka-synthetic-bold.html [ Sk
 
 webkit.org/b/230327 imported/w3c/web-platform-tests/css/css-transforms/crashtests/transform-marquee-resize-div-image-001.html [ Pass Failure ]
 
+# 'transform-box' support is broken for composited elements.
+webkit.org/b/237553 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-box-will-change-transform-layer.html [ ImageOnlyFailure ]
+
 # rdar://83591040
 [ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup-input.html [ Crash ]
 [ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup-inside-selection.html [ Crash ]
@@ -2402,7 +2376,11 @@ webkit.org/b/231757 [ BigSur ] inspector/canvas/updateShader-webgl.html [ Pass F
 
 webkit.org/b/231924 inspector/css/modify-css-property.html [ Pass Failure ]
 
+webkit.org/b/237172 imported/w3c/web-platform-tests/speech-api/SpeechSynthesis-speak-twice.html [ Pass Failure Crash ]
+
 webkit.org/b/233047 inspector/page/setShowPaintRects.html [ Pass Failure ]
+
+webkit.org/b/237680 imported/w3c/web-platform-tests/service-workers/service-worker/partitioned-service-worker-matchAll.tentative.https.html [ Pass Failure ]
 
 # Plugins
 # FIXME: Remove these tests.
@@ -2439,3 +2417,5 @@ fast/text/font-lookup-dot-prefix-case-sensitive.html [ Pass ]
 
 # Was in LayoutTests/Expectations, now only happening on Mac
 imported/w3c/web-platform-tests/xhr/event-timeout-order.any.worker.html [ Failure ]
+
+webkit.org/b/237166 [ BigSur+ ] webgl/pending/conformance/textures/misc/tex-image-video-repeated.html [ Pass Timeout ]

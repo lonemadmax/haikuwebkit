@@ -157,6 +157,7 @@ struct WebPreferencesStore;
 struct WebsiteData;
 struct WebsiteDataStoreParameters;
 
+enum class RemoteWorkerType : bool;
 enum class WebsiteDataType : uint32_t;
 
 #if PLATFORM(IOS_FAMILY)
@@ -352,7 +353,6 @@ public:
     void unblockServicesRequiredByAccessibility(const Vector<SandboxExtension::Handle>&);
 #if ENABLE(CFPREFS_DIRECT_MODE)
     void notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue);
-    void unblockPreferenceService(Vector<SandboxExtension::Handle>&&);
 #endif
     void powerSourceDidChange(bool);
 #endif
@@ -410,7 +410,7 @@ private:
     void platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&&);
 
     void prewarmGlobally();
-    void prewarmWithDomainInformation(const WebCore::PrewarmInformation&);
+    void prewarmWithDomainInformation(WebCore::PrewarmInformation&&);
 
 #if USE(OS_STATE)
     RetainPtr<NSDictionary> additionalStateForDiagnosticReport() const final;
@@ -470,10 +470,7 @@ private:
     void gamepadDisconnected(unsigned index);
 #endif
 
-    void establishSharedWorkerContextConnectionToNetworkProcess(PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, WebCore::RegistrableDomain&&, RemoteWorkerInitializationData&&, CompletionHandler<void()>&&);
-#if ENABLE(SERVICE_WORKER)
-    void establishServiceWorkerContextConnectionToNetworkProcess(PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, RemoteWorkerInitializationData&&, CompletionHandler<void()>&&);
-#endif
+    void establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType, PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, RemoteWorkerInitializationData&&, CompletionHandler<void()>&&);
 
     void fetchWebsiteData(OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData&&)>&&);
     void deleteWebsiteData(OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
@@ -511,7 +508,7 @@ private:
     bool shouldTerminate() override;
     void terminate() override;
 
-#if USE(APPKIT)
+#if USE(APPKIT) || PLATFORM(GTK) || PLATFORM(WPE)
     void stopRunLoop() override;
 #endif
 

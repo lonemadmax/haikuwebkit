@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +26,20 @@
 #import "config.h"
 #import "Buffer.h"
 
-#import "WebGPUExt.h"
+#import "Device.h"
 
 namespace WebGPU {
 
-Buffer::Buffer() = default;
+RefPtr<Buffer> Device::createBuffer(const WGPUBufferDescriptor& descriptor)
+{
+    UNUSED_PARAM(descriptor);
+    return Buffer::create(nil);
+}
+
+Buffer::Buffer(id<MTLBuffer> buffer)
+    : m_buffer(buffer)
+{
+}
 
 Buffer::~Buffer() = default;
 
@@ -66,7 +75,7 @@ void Buffer::unmap()
 
 void Buffer::setLabel(const char* label)
 {
-    UNUSED_PARAM(label);
+    m_buffer.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
 }
 
 } // namespace WebGPU
@@ -95,6 +104,13 @@ void wgpuBufferMapAsync(WGPUBuffer buffer, WGPUMapModeFlags mode, size_t offset,
 {
     buffer->buffer->mapAsync(mode, offset, size, [callback, userdata] (WGPUBufferMapAsyncStatus status) {
         callback(status, userdata);
+    });
+}
+
+void wgpuBufferMapAsyncWithBlock(WGPUBuffer buffer, WGPUMapModeFlags mode, size_t offset, size_t size, WGPUBufferMapBlockCallback callback)
+{
+    buffer->buffer->mapAsync(mode, offset, size, [callback] (WGPUBufferMapAsyncStatus status) {
+        callback(status);
     });
 }
 

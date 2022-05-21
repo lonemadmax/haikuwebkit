@@ -48,6 +48,7 @@
 #endif
 
 OBJC_CLASS DDScannerResult;
+OBJC_CLASS VKCImageAnalysis;
 
 namespace WebCore {
 
@@ -737,8 +738,9 @@ public:
     void setMediaElementRestrictions(HTMLMediaElement&, StringView restrictionsString);
     ExceptionOr<void> postRemoteControlCommand(const String&, float argument);
     void activeAudioRouteDidChange(bool shouldPause);
-    bool elementIsBlockingDisplaySleep(HTMLMediaElement&) const;
-    bool isPlayerVisibleInViewport(HTMLMediaElement&) const;
+    bool elementIsBlockingDisplaySleep(const HTMLMediaElement&) const;
+    bool isPlayerVisibleInViewport(const HTMLMediaElement&) const;
+    bool isPlayerMuted(const HTMLMediaElement&) const;
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -871,6 +873,7 @@ public:
     void observeMediaStreamTrack(MediaStreamTrack&);
     using TrackFramePromise = DOMPromiseDeferred<IDLInterface<ImageData>>;
     void grabNextMediaStreamTrackFrame(TrackFramePromise&&);
+    void mediaStreamTrackVideoFrameRotation(DOMPromiseDeferred<IDLShort>&&);
     void delayMediaStreamTrackSamples(MediaStreamTrack&, float);
     void setMediaStreamTrackMuted(MediaStreamTrack&, bool);
     void removeMediaStreamTrack(MediaStream&, MediaStreamTrack&);
@@ -1278,6 +1281,10 @@ private:
     ExceptionOr<RenderedDocumentMarker*> markerAt(Node&, const String& markerType, unsigned index);
     ExceptionOr<ScrollableArea*> scrollableAreaForNode(Node*) const;
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    static RetainPtr<VKCImageAnalysis> fakeImageAnalysisResultForTesting(const Vector<ImageOverlayLine>&);
+#endif
+
 #if ENABLE(DATA_DETECTION)
     static DDScannerResult *fakeDataDetectorResultForTesting();
 #endif
@@ -1295,6 +1302,7 @@ private:
     unsigned long m_trackAudioSampleCount { 0 };
     RefPtr<RealtimeMediaSource> m_trackSource;
     std::unique_ptr<TrackFramePromise> m_nextTrackFramePromise;
+    int m_trackVideoRotation { 0 };
 #endif
 #if ENABLE(MEDIA_SESSION)
     std::unique_ptr<ArtworkImageLoader> m_artworkLoader;

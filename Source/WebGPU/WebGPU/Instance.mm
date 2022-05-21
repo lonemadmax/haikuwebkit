@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,31 +28,128 @@
 
 #import "Adapter.h"
 #import "Surface.h"
-#import "WebGPUExt.h"
 #import <cstring>
 #import <wtf/StdLibExtras.h>
 
 namespace WebGPU {
 
-Instance::Instance() = default;
+static constexpr NSString *runLoopMode = @"kCFRunLoopWebGPUMode";
+
+RefPtr<Instance> Instance::create(const WGPUInstanceDescriptor& descriptor)
+{
+    if (descriptor.nextInChain)
+        return nullptr;
+
+    NSRunLoop *runLoop = NSRunLoop.currentRunLoop;
+    if (!runLoop)
+        return nullptr;
+
+    return adoptRef(*new Instance(runLoop));
+}
+
+Instance::Instance(NSRunLoop *runLoop)
+    : m_runLoop(runLoop)
+{
+}
 
 Instance::~Instance() = default;
 
-RefPtr<Surface> Instance::createSurface(const WGPUSurfaceDescriptor* descriptor)
+RefPtr<Surface> Instance::createSurface(const WGPUSurfaceDescriptor& descriptor)
 {
+    // FIXME: Implement this.
     UNUSED_PARAM(descriptor);
     return Surface::create();
 }
 
 void Instance::processEvents()
 {
+    // NSRunLoops are not thread-safe, but then again neither is WebGPU.
+    // If the caller does all the necessary synchronization themselves, this will be safe.
+    // In that situation, we have to make sure we're using the run loop we were created on,
+    // so tasks that were queued up on one thread actually get executed here, even if
+    // this is executing on a different thread.
+    BOOL result;
+    do {
+        result = [m_runLoop runMode:runLoopMode beforeDate:[NSDate date]];
+    } while (result);
 }
 
-void Instance::requestAdapter(const WGPURequestAdapterOptions* options, WTF::Function<void(WGPURequestAdapterStatus, Ref<Adapter>&&, const char*)>&& callback)
+static NSArray<id<MTLDevice>> *sortedDevices(NSArray<id<MTLDevice>> *devices, WGPUPowerPreference powerPreference)
 {
-    UNUSED_PARAM(options);
-    UNUSED_PARAM(callback);
-    callback(WGPURequestAdapterStatus_Unavailable, Adapter::create(), "Adapter");
+    switch (powerPreference) {
+    case WGPUPowerPreference_Undefined:
+        return devices;
+    case WGPUPowerPreference_LowPower:
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+        return [devices sortedArrayWithOptions:NSSortStable usingComparator:^NSComparisonResult (id<MTLDevice> obj1, id<MTLDevice> obj2)
+        {
+            if (obj1.lowPower == obj2.lowPower)
+                return NSOrderedSame;
+            if (obj1.lowPower)
+                return NSOrderedAscending;
+            return NSOrderedDescending;
+        }];
+#else
+        return devices;
+#endif
+    case WGPUPowerPreference_HighPerformance:
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+        return [devices sortedArrayWithOptions:NSSortStable usingComparator:^NSComparisonResult (id<MTLDevice> obj1, id<MTLDevice> obj2)
+        {
+            if (obj1.lowPower == obj2.lowPower)
+                return NSOrderedSame;
+            if (obj1.lowPower)
+                return NSOrderedDescending;
+            return NSOrderedAscending;
+        }];
+#else
+        return devices;
+#endif
+    default:
+        return nil;
+    }
+}
+
+void Instance::requestAdapter(const WGPURequestAdapterOptions& options, WTF::Function<void(WGPURequestAdapterStatus, RefPtr<Adapter>&&, const char*)>&& callback)
+{
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    NSArray<id<MTLDevice>> *devices = MTLCopyAllDevices();
+#else
+    NSMutableArray<id<MTLDevice>> *devices = [NSMutableArray array];
+    if (id<MTLDevice> device = MTLCreateSystemDefaultDevice())
+        [devices addObject:device];
+#endif
+
+    // FIXME: Deal with options.compatibleSurface.
+
+    auto sortedDevices = WebGPU::sortedDevices(devices, options.powerPreference);
+
+    if (options.nextInChain) {
+        callback(WGPURequestAdapterStatus_Error, nullptr, "Unknown descriptor type");
+        return;
+    }
+
+    if (options.forceFallbackAdapter) {
+        callback(WGPURequestAdapterStatus_Unavailable, nullptr, "No adapters present");
+        return;
+    }
+
+    if (!sortedDevices) {
+        callback(WGPURequestAdapterStatus_Error, nullptr, "Unknown power preference");
+        return;
+    }
+
+    if (!sortedDevices.count) {
+        callback(WGPURequestAdapterStatus_Unavailable, nullptr, "No adapters present");
+        return;
+    }
+
+    if (!sortedDevices[0]) {
+        callback(WGPURequestAdapterStatus_Error, nullptr, "Adapter is internally null");
+        return;
+    }
+
+    callback(WGPURequestAdapterStatus_Success, Adapter::create(sortedDevices[0]), nullptr);
 }
 
 } // namespace WebGPU
@@ -64,13 +161,12 @@ void wgpuInstanceRelease(WGPUInstance instance)
 
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor)
 {
-    UNUSED_PARAM(descriptor);
-    return new WGPUInstanceImpl { WebGPU::Instance::create() };
+    auto result = WebGPU::Instance::create(*descriptor);
+    return result ? new WGPUInstanceImpl { result.releaseNonNull() } : nullptr;
 }
 
-WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
+WGPUProc wgpuGetProcAddress(WGPUDevice, const char* procName)
 {
-    UNUSED_PARAM(device);
     // FIXME: Use gperf to make this faster.
     // FIXME: Generate this at build time
     if (!strcmp(procName, "wgpuAdapterEnumerateFeatures"))
@@ -83,6 +179,8 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
         return reinterpret_cast<WGPUProc>(&wgpuAdapterHasFeature);
     if (!strcmp(procName, "wgpuAdapterRequestDevice"))
         return reinterpret_cast<WGPUProc>(&wgpuAdapterRequestDevice);
+    if (!strcmp(procName, "wgpuAdapterRequestDeviceWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuAdapterRequestDeviceWithBlock);
     if (!strcmp(procName, "wgpuBufferDestroy"))
         return reinterpret_cast<WGPUProc>(&wgpuBufferDestroy);
     if (!strcmp(procName, "wgpuBufferGetConstMappedRange"))
@@ -91,6 +189,8 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
         return reinterpret_cast<WGPUProc>(&wgpuBufferGetMappedRange);
     if (!strcmp(procName, "wgpuBufferMapAsync"))
         return reinterpret_cast<WGPUProc>(&wgpuBufferMapAsync);
+    if (!strcmp(procName, "wgpuBufferMapAsyncWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuBufferMapAsyncWithBlock);
     if (!strcmp(procName, "wgpuBufferUnmap"))
         return reinterpret_cast<WGPUProc>(&wgpuBufferUnmap);
     if (!strcmp(procName, "wgpuCommandEncoderBeginComputePass"))
@@ -157,6 +257,8 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
         return reinterpret_cast<WGPUProc>(&wgpuDeviceCreateComputePipeline);
     if (!strcmp(procName, "wgpuDeviceCreateComputePipelineAsync"))
         return reinterpret_cast<WGPUProc>(&wgpuDeviceCreateComputePipelineAsync);
+    if (!strcmp(procName, "wgpuDeviceCreateComputePipelineAsyncWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuDeviceCreateComputePipelineAsyncWithBlock);
     if (!strcmp(procName, "wgpuDeviceCreatePipelineLayout"))
         return reinterpret_cast<WGPUProc>(&wgpuDeviceCreatePipelineLayout);
     if (!strcmp(procName, "wgpuDeviceCreateQuerySet"))
@@ -167,6 +269,8 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
         return reinterpret_cast<WGPUProc>(&wgpuDeviceCreateRenderPipeline);
     if (!strcmp(procName, "wgpuDeviceCreateRenderPipelineAsync"))
         return reinterpret_cast<WGPUProc>(&wgpuDeviceCreateRenderPipelineAsync);
+    if (!strcmp(procName, "wgpuDeviceCreateRenderPipelineAsyncWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuDeviceCreateRenderPipelineAsyncWithBlock);
     if (!strcmp(procName, "wgpuDeviceCreateSampler"))
         return reinterpret_cast<WGPUProc>(&wgpuDeviceCreateSampler);
     if (!strcmp(procName, "wgpuDeviceCreateShaderModule"))
@@ -187,12 +291,18 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
         return reinterpret_cast<WGPUProc>(&wgpuDeviceHasFeature);
     if (!strcmp(procName, "wgpuDevicePopErrorScope"))
         return reinterpret_cast<WGPUProc>(&wgpuDevicePopErrorScope);
+    if (!strcmp(procName, "wgpuDevicePopErrorScopeWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuDevicePopErrorScopeWithBlock);
     if (!strcmp(procName, "wgpuDevicePushErrorScope"))
         return reinterpret_cast<WGPUProc>(&wgpuDevicePushErrorScope);
     if (!strcmp(procName, "wgpuDeviceSetDeviceLostCallback"))
         return reinterpret_cast<WGPUProc>(&wgpuDeviceSetDeviceLostCallback);
+    if (!strcmp(procName, "wgpuDeviceSetDeviceLostCallbackWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuDeviceSetDeviceLostCallbackWithBlock);
     if (!strcmp(procName, "wgpuDeviceSetUncapturedErrorCallback"))
         return reinterpret_cast<WGPUProc>(&wgpuDeviceSetUncapturedErrorCallback);
+    if (!strcmp(procName, "wgpuDeviceSetUncapturedErrorCallbackWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuDeviceSetUncapturedErrorCallbackWithBlock);
     if (!strcmp(procName, "wgpuGetProcAddress"))
         return reinterpret_cast<WGPUProc>(&wgpuGetProcAddress);
     if (!strcmp(procName, "wgpuInstanceCreateSurface"))
@@ -201,10 +311,14 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
         return reinterpret_cast<WGPUProc>(&wgpuInstanceProcessEvents);
     if (!strcmp(procName, "wgpuInstanceRequestAdapter"))
         return reinterpret_cast<WGPUProc>(&wgpuInstanceRequestAdapter);
+    if (!strcmp(procName, "wgpuInstanceRequestAdapterWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuInstanceRequestAdapterWithBlock);
     if (!strcmp(procName, "wgpuQuerySetDestroy"))
         return reinterpret_cast<WGPUProc>(&wgpuQuerySetDestroy);
     if (!strcmp(procName, "wgpuQueueOnSubmittedWorkDone"))
         return reinterpret_cast<WGPUProc>(&wgpuQueueOnSubmittedWorkDone);
+    if (!strcmp(procName, "wgpuQueueOnSubmittedWorkDoneWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuQueueOnSubmittedWorkDoneWithBlock);
     if (!strcmp(procName, "wgpuQueueSubmit"))
         return reinterpret_cast<WGPUProc>(&wgpuQueueSubmit);
     if (!strcmp(procName, "wgpuQueueWriteBuffer"))
@@ -283,6 +397,8 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
         return reinterpret_cast<WGPUProc>(&wgpuRenderPipelineSetLabel);
     if (!strcmp(procName, "wgpuShaderModuleGetCompilationInfo"))
         return reinterpret_cast<WGPUProc>(&wgpuShaderModuleGetCompilationInfo);
+    if (!strcmp(procName, "wgpuShaderModuleGetCompilationInfoWithBlock"))
+        return reinterpret_cast<WGPUProc>(&wgpuShaderModuleGetCompilationInfoWithBlock);
     if (!strcmp(procName, "wgpuShaderModuleSetLabel"))
         return reinterpret_cast<WGPUProc>(&wgpuShaderModuleSetLabel);
     if (!strcmp(procName, "wgpuSurfaceGetPreferredFormat"))
@@ -300,7 +416,7 @@ WGPUProc wgpuGetProcAddress(WGPUDevice device, const char* procName)
 
 WGPUSurface wgpuInstanceCreateSurface(WGPUInstance instance, const WGPUSurfaceDescriptor* descriptor)
 {
-    auto result = instance->instance->createSurface(descriptor);
+    auto result = instance->instance->createSurface(*descriptor);
     return result ? new WGPUSurfaceImpl { result.releaseNonNull() } : nullptr;
 }
 
@@ -311,8 +427,14 @@ void wgpuInstanceProcessEvents(WGPUInstance instance)
 
 void wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterOptions* options, WGPURequestAdapterCallback callback, void* userdata)
 {
-    instance->instance->requestAdapter(options, [callback, userdata] (WGPURequestAdapterStatus status, Ref<WebGPU::Adapter>&& adapter, const char* message) {
-        callback(status, new WGPUAdapterImpl { WTFMove(adapter) }, message, userdata);
+    instance->instance->requestAdapter(*options, [callback, userdata] (WGPURequestAdapterStatus status, RefPtr<WebGPU::Adapter>&& adapter, const char* message) {
+        callback(status, adapter ? new WGPUAdapterImpl { adapter.releaseNonNull() } : nullptr, message, userdata);
     });
 }
 
+void wgpuInstanceRequestAdapterWithBlock(WGPUInstance instance, WGPURequestAdapterOptions const * options, WGPURequestAdapterBlockCallback callback)
+{
+    instance->instance->requestAdapter(*options, [callback] (WGPURequestAdapterStatus status, RefPtr<WebGPU::Adapter>&& adapter, const char* message) {
+        callback(status, adapter ? new WGPUAdapterImpl { adapter.releaseNonNull() } : nullptr, message);
+    });
+}

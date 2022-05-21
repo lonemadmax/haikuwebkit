@@ -31,6 +31,9 @@
 #include "StreamConnectionEncoder.h"
 #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
 #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
+#include <WebCore/ApplePayButtonSystemImage.h>
+#include <WebCore/ApplePayLogoSystemImage.h>
+#include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/BlobPart.h>
 #include <WebCore/CacheQueryOptions.h>
@@ -84,6 +87,7 @@
 #include <WebCore/ServiceWorkerData.h>
 #include <WebCore/ShareData.h>
 #include <WebCore/SharedBuffer.h>
+#include <WebCore/SystemImage.h>
 #include <WebCore/TextCheckerClient.h>
 #include <WebCore/TextIndicator.h>
 #include <WebCore/TimingFunction.h>
@@ -3175,6 +3179,52 @@ std::optional<WebCore::ScriptBuffer> ArgumentCoder<WebCore::ScriptBuffer>::decod
     return WebCore::ScriptBuffer { WTFMove(buffer) };
 }
 
+template<typename Encoder>
+void ArgumentCoder<Ref<SystemImage>>::encode(Encoder& encoder, const Ref<SystemImage>& systemImage)
+{
+    encoder << systemImage->systemImageType();
+
+    switch (systemImage->systemImageType()) {
+#if ENABLE(APPLE_PAY)
+    case SystemImageType::ApplePayButton:
+        downcast<ApplePayButtonSystemImage>(systemImage.get()).encode(encoder);
+        return;
+
+    case SystemImageType::ApplePayLogo:
+        downcast<ApplePayLogoSystemImage>(systemImage.get()).encode(encoder);
+        return;
+#endif
+    }
+
+    ASSERT_NOT_REACHED();
+}
+
+template
+void ArgumentCoder<Ref<SystemImage>>::encode<Encoder>(Encoder&, const Ref<SystemImage>&);
+template
+void ArgumentCoder<Ref<SystemImage>>::encode<StreamConnectionEncoder>(StreamConnectionEncoder&, const Ref<SystemImage>&);
+
+std::optional<Ref<SystemImage>> ArgumentCoder<Ref<SystemImage>>::decode(Decoder& decoder)
+{
+    std::optional<SystemImageType> systemImageType;
+    decoder >> systemImageType;
+    if (!systemImageType)
+        return std::nullopt;
+
+    switch (*systemImageType) {
+#if ENABLE(APPLE_PAY)
+    case SystemImageType::ApplePayButton:
+        return ApplePayButtonSystemImage::decode(decoder);
+
+    case SystemImageType::ApplePayLogo:
+        return ApplePayLogoSystemImage::decode(decoder);
+#endif
+    }
+
+    ASSERT_NOT_REACHED();
+    return std::nullopt;
+}
+
 #if ENABLE(ENCRYPTED_MEDIA)
 void ArgumentCoder<WebCore::CDMInstanceSession::Message>::encode(Encoder& encoder, const WebCore::CDMInstanceSession::Message& message)
 {
@@ -3199,61 +3249,6 @@ std::optional<WebCore::CDMInstanceSession::Message>  ArgumentCoder<WebCore::CDMI
 #endif // ENABLE(ENCRYPTED_MEDIA)
 
 #if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
-void ArgumentCoder<WebCore::GraphicsContextGLAttributes>::encode(Encoder& encoder, const WebCore::GraphicsContextGLAttributes& attributes)
-{
-    encoder << attributes.alpha;
-    encoder << attributes.depth;
-    encoder << attributes.stencil;
-    encoder << attributes.antialias;
-    encoder << attributes.premultipliedAlpha;
-    encoder << attributes.preserveDrawingBuffer;
-    encoder << attributes.failIfMajorPerformanceCaveat;
-    encoder << attributes.powerPreference;
-    encoder << attributes.shareResources;
-    encoder << attributes.webGLVersion;
-    encoder << attributes.noExtensions;
-    encoder << attributes.devicePixelRatio;
-    encoder << attributes.initialPowerPreference;
-#if ENABLE(WEBXR)
-    encoder << attributes.xrCompatible;
-#endif
-}
-
-std::optional<WebCore::GraphicsContextGLAttributes> ArgumentCoder<WebCore::GraphicsContextGLAttributes>::decode(Decoder& decoder)
-{
-    GraphicsContextGLAttributes attributes;
-    if (!decoder.decode(attributes.alpha))
-        return std::nullopt;
-    if (!decoder.decode(attributes.depth))
-        return std::nullopt;
-    if (!decoder.decode(attributes.stencil))
-        return std::nullopt;
-    if (!decoder.decode(attributes.antialias))
-        return std::nullopt;
-    if (!decoder.decode(attributes.premultipliedAlpha))
-        return std::nullopt;
-    if (!decoder.decode(attributes.preserveDrawingBuffer))
-        return std::nullopt;
-    if (!decoder.decode(attributes.failIfMajorPerformanceCaveat))
-        return std::nullopt;
-    if (!decoder.decode(attributes.powerPreference))
-        return std::nullopt;
-    if (!decoder.decode(attributes.shareResources))
-        return std::nullopt;
-    if (!decoder.decode(attributes.webGLVersion))
-        return std::nullopt;
-    if (!decoder.decode(attributes.noExtensions))
-        return std::nullopt;
-    if (!decoder.decode(attributes.devicePixelRatio))
-        return std::nullopt;
-    if (!decoder.decode(attributes.initialPowerPreference))
-        return std::nullopt;
-#if ENABLE(WEBXR)
-    if (!decoder.decode(attributes.xrCompatible))
-        return std::nullopt;
-#endif
-    return attributes;
-}
 
 template<typename Encoder>
 void ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo>::encode(Encoder& encoder, const WebCore::GraphicsContextGL::ActiveInfo& activeInfo)

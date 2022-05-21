@@ -35,6 +35,7 @@
 #import "EditorState.h"
 #import "FontInfo.h"
 #import "FrameInfoData.h"
+#import "ImageAnalysisUtilities.h"
 #import "InsertTextOptions.h"
 #import "MenuUtilities.h"
 #import "NativeWebKeyboardEvent.h"
@@ -44,7 +45,6 @@
 #import "RemoteLayerTreeHost.h"
 #import "StringUtilities.h"
 #import "TextChecker.h"
-#import "TextRecognitionUtilities.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKQuickLookPreviewController.h"
 #import "WKSharingServicePickerDelegate.h"
@@ -515,12 +515,11 @@ void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu,
         [nsMenu insertItem:nsItem.get() atIndex:i];
     }
     NSWindow *window = pageClient().platformWindow();
-    auto windowNumber = [window windowNumber];
     auto location = [window convertRectFromScreen: { contextMenu.point, NSZeroSize }].origin;
-    NSEvent* event = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown location:location modifierFlags:0 timestamp:0 windowNumber:windowNumber context:0 eventNumber:0 clickCount:1 pressure:1];
+    auto event = createSyntheticEventForContextMenu(location);
 
-    auto view = [pageClient().platformWindow() contentView];
-    [NSMenu popUpContextMenu:nsMenu.get() withEvent:event forView:view];
+    auto view = window.contentView;
+    [NSMenu popUpContextMenu:nsMenu.get() withEvent:event.get() forView:view];
 
     if (auto selectedMenuItem = [menuTarget selectedMenuItem]) {
         NSInteger tag = selectedMenuItem.tag;
@@ -605,11 +604,16 @@ NSWindow *WebPageProxy::paymentCoordinatorPresentingWindow(const WebPaymentCoord
 
 #if ENABLE(CONTEXT_MENUS)
 
-NSMenu *WebPageProxy::platformActiveContextMenu() const
+NSMenu *WebPageProxy::activeContextMenu() const
 {
     if (m_activeContextMenu)
         return m_activeContextMenu->platformMenu();
     return nil;
+}
+
+RetainPtr<NSEvent> WebPageProxy::createSyntheticEventForContextMenu(FloatPoint location) const
+{
+    return [NSEvent mouseEventWithType:NSEventTypeRightMouseUp location:location modifierFlags:0 timestamp:0 windowNumber:pageClient().platformWindow().windowNumber context:nil eventNumber:0 clickCount:0 pressure:0];
 }
 
 void WebPageProxy::platformDidSelectItemFromActiveContextMenu(const WebContextMenuItemData& item)
@@ -734,7 +738,7 @@ void WebPageProxy::handleContextMenuQuickLookImage(QuickLookPreviewActivity acti
     if (!result.imageBitmap)
         return;
 
-    showImageInQuickLookPreviewPanel(*result.imageBitmap, result.toolTipText, URL { URL { }, result.absoluteImageURL }, activity);
+    showImageInQuickLookPreviewPanel(*result.imageBitmap, result.toolTipText, URL { result.absoluteImageURL }, activity);
 }
 
 void WebPageProxy::showImageInQuickLookPreviewPanel(ShareableBitmap& imageBitmap, const String& tooltip, const URL& imageURL, QuickLookPreviewActivity activity)

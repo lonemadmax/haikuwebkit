@@ -196,6 +196,7 @@ static Expected<Trigger, std::error_code> loadTrigger(const JSON::Object& ruleOb
     if (auto error = checkCondition("if-frame-url"_s, getStringList, ActionCondition::IfFrameURL))
         return makeUnexpected(error);
 
+    trigger.checkValidity();
     return trigger;
 }
 
@@ -209,7 +210,7 @@ bool isValidCSSSelector(const String& selector)
     return !!parser.parseSelector(selector);
 }
 
-static std::optional<Expected<Action, std::error_code>> loadAction(const JSON::Object& ruleObject)
+static std::optional<Expected<Action, std::error_code>> loadAction(const JSON::Object& ruleObject, const String& urlFilter)
 {
     auto actionObject = ruleObject.getObject("action");
     if (!actionObject)
@@ -240,7 +241,7 @@ static std::optional<Expected<Action, std::error_code>> loadAction(const JSON::O
         return Action { NotifyAction { { WTFMove(notification) } } };
     }
     if (actionType == "redirect") {
-        auto action = RedirectAction::parse(*actionObject);
+        auto action = RedirectAction::parse(*actionObject, urlFilter);
         if (!action)
             return makeUnexpected(action.error());
         return Action { RedirectAction { WTFMove(*action) } };
@@ -260,7 +261,7 @@ static std::optional<Expected<ContentExtensionRule, std::error_code>> loadRule(c
     if (!trigger.has_value())
         return makeUnexpected(trigger.error());
 
-    auto action = loadAction(ruleObject);
+    auto action = loadAction(ruleObject, trigger->urlFilter);
     if (!action)
         return std::nullopt;
     if (!action->has_value())

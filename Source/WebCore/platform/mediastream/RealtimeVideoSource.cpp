@@ -36,7 +36,7 @@
 namespace WebCore {
 
 RealtimeVideoSource::RealtimeVideoSource(Ref<RealtimeVideoCaptureSource>&& source, bool shouldUseIOSurface)
-    : RealtimeMediaSource(Type::Video, String { source->name() }, String { source->persistentID() }, String { source->deviceIDHashSalt() })
+    : RealtimeMediaSource(Type::Video, String { source->name() }, String { source->persistentID() }, String { source->deviceIDHashSalt() }, source->pageIdentifier())
     , m_source(WTFMove(source))
 #if PLATFORM(COCOA)
     , m_shouldUseIOSurface(shouldUseIOSurface)
@@ -78,6 +78,12 @@ void RealtimeVideoSource::stopProducingData()
     m_source->stop();
 }
 
+void RealtimeVideoSource::endProducingData()
+{
+    m_source->removeVideoSampleObserver(*this);
+    m_source->requestToEnd(*this);
+}
+
 bool RealtimeVideoSource::supportsSizeAndFrameRate(std::optional<int> width, std::optional<int> height, std::optional<double> frameRate)
 {
     return m_source->supportsSizeAndFrameRate(width, height, frameRate);
@@ -95,12 +101,15 @@ void RealtimeVideoSource::setSizeAndFrameRate(std::optional<int> width, std::opt
     ASSERT(sourceSize.height());
     ASSERT(sourceSize.width());
 
+    auto* currentPreset = m_source->currentPreset();
+    auto intrinsicSize = currentPreset ? currentPreset->size : sourceSize;
+
     if (!width)
-        width = sourceSize.width() * height.value() / sourceSize.height();
+        width = intrinsicSize.width() * height.value() / intrinsicSize.height();
     m_currentSettings.setWidth(*width);
 
     if (!height)
-        height = sourceSize.height() * width.value() / sourceSize.width();
+        height = intrinsicSize.height() * width.value() / intrinsicSize.width();
     m_currentSettings.setHeight(*height);
 
     if (frameRate)
@@ -145,11 +154,6 @@ bool RealtimeVideoSource::preventSourceFromStopping()
     return hasObserverPreventingStopping;
 }
 
-void RealtimeVideoSource::requestToEnd(RealtimeMediaSource::Observer&)
-{
-    m_source->requestToEnd(*this);
-}
-
 void RealtimeVideoSource::stopBeingObserved()
 {
     m_source->requestToEnd(*this);
@@ -172,7 +176,7 @@ RefPtr<MediaSample> RealtimeVideoSource::adaptVideoSample(MediaSample& sample)
 {
     if (sample.platformSample().type != PlatformSample::CMSampleBufferType) {
         // FIXME: Support more efficiently downsampling of remote video frames by downsampling in GPUProcess.
-        auto newSample = MediaSampleAVFObjC::createImageSample(sample.pixelBuffer(), sample.videoRotation(), sample.videoMirrored(), sample.presentationTime(), { });
+        auto newSample = MediaSampleAVFObjC::createFromPixelBuffer(sample.pixelBuffer(), sample.videoRotation(), sample.videoMirrored(), sample.presentationTime(), { });
         if (!newSample)
             return nullptr;
         return adaptVideoSample(*newSample);

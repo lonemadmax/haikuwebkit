@@ -133,7 +133,9 @@ public:
     WEBCORE_EXPORT ~TemporarySelectionChange();
 
 private:
-    void setSelection(const VisibleSelection&);
+    enum class IsTemporarySelection { No, Yes };
+
+    void setSelection(const VisibleSelection&, IsTemporarySelection);
 
     RefPtr<Document> m_document;
     OptionSet<TemporarySelectionOption> m_options;
@@ -535,10 +537,10 @@ public:
     void takeFindStringFromSelection();
     WEBCORE_EXPORT void replaceSelectionWithAttributedString(NSAttributedString *, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
     WEBCORE_EXPORT void readSelectionFromPasteboard(const String& pasteboardName);
+    WEBCORE_EXPORT void replaceNodeFromPasteboard(Node&, const String& pasteboardName);
 #endif
 
 #if PLATFORM(MAC)
-    WEBCORE_EXPORT void replaceNodeFromPasteboard(Node*, const String& pasteboardName);
     WEBCORE_EXPORT RefPtr<SharedBuffer> dataSelectionForPasteboard(const String& pasteboardName);
 #endif
 

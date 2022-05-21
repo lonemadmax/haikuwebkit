@@ -394,7 +394,7 @@ void WebInspectorUIProxy::toggleElementSelection()
 bool WebInspectorUIProxy::isMainOrTestInspectorPage(const URL& url)
 {
     // Use URL so we can compare the paths and protocols.
-    URL mainPageURL(URL(), WebInspectorUIProxy::inspectorPageURL());
+    URL mainPageURL { WebInspectorUIProxy::inspectorPageURL() };
     if (url.protocol() == mainPageURL.protocol() && PAL::decodeURLEscapeSequences(url.path()) == PAL::decodeURLEscapeSequences(mainPageURL.path()))
         return true;
 
@@ -403,7 +403,7 @@ bool WebInspectorUIProxy::isMainOrTestInspectorPage(const URL& url)
     if (testPageURLString.isNull())
         return false;
 
-    URL testPageURL(URL(), testPageURLString);
+    URL testPageURL { testPageURLString };
     return url.protocol() == testPageURL.protocol() && PAL::decodeURLEscapeSequences(url.path()) == PAL::decodeURLEscapeSequences(testPageURL.path());
 }
 
@@ -489,7 +489,7 @@ void WebInspectorUIProxy::openLocalInspectorFrontend(bool canAttach, bool underT
     if (!m_inspectorPage)
         return;
 
-    m_inspectorPage->loadRequest(URL(URL(), m_underTest ? WebInspectorUIProxy::inspectorTestPageURL() : WebInspectorUIProxy::inspectorPageURL()));
+    m_inspectorPage->loadRequest(URL { m_underTest ? WebInspectorUIProxy::inspectorTestPageURL() : WebInspectorUIProxy::inspectorPageURL() });
 }
 
 void WebInspectorUIProxy::open()
@@ -500,7 +500,7 @@ void WebInspectorUIProxy::open()
     if (!m_inspectorPage)
         return;
 
-    SetForScope<bool> isOpening(m_isOpening, true);
+    SetForScope isOpening(m_isOpening, true);
 
     m_isVisible = true;
     m_inspectorPage->send(Messages::WebInspectorUI::SetIsVisible(m_isVisible));
@@ -527,7 +527,7 @@ void WebInspectorUIProxy::closeFrontendPageAndWindow()
     if (m_closing)
         return;
     
-    SetForScope<bool> reentrancyProtector(m_closing, true);
+    SetForScope reentrancyProtector(m_closing, true);
     
     // Notify WebKit client when a local inspector closes so it can clear _WKInspectorDelegate and perform other cleanup.
     if (m_inspectedPage)

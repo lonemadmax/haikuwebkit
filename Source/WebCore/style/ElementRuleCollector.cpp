@@ -29,6 +29,7 @@
 #include "config.h"
 #include "ElementRuleCollector.h"
 
+#include "CSSKeyframeRule.h"
 #include "CSSRuleList.h"
 #include "CSSSelector.h"
 #include "CSSValueKeywords.h"
@@ -485,10 +486,8 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         if (m_selectorMatchingState && m_selectorMatchingState->selectorFilter.fastRejectSelector(ruleData.descendantSelectorIdentifierHashes()))
             continue;
 
-        if (auto* containerQuery = matchRequest.ruleSet.containerQueryFor(ruleData)) {
-            if (!containerQueryMatches(*containerQuery))
-                continue;
-        }
+        if (matchRequest.ruleSet.hasContainerQueries() && !containerQueriesMatch(matchRequest.ruleSet.containerQueriesFor(ruleData)))
+            continue;
 
         auto& rule = ruleData.styleRule();
 
@@ -505,10 +504,18 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
     }
 }
 
-bool ElementRuleCollector::containerQueryMatches(const FilteredContainerQuery& query)
+bool ElementRuleCollector::containerQueriesMatch(const Vector<const FilteredContainerQuery*>& queries)
 {
-    ContainerQueryEvaluator evaluator(element(), m_pseudoElementRequest.pseudoId , m_selectorMatchingState);
-    return evaluator.evaluate(query);
+    if (queries.isEmpty())
+        return true;
+
+    // "Style rules defined on an element inside multiple nested container queries apply when all of the wrapping container queries are true for that element."
+    ContainerQueryEvaluator evaluator(element(), m_pseudoElementRequest.pseudoId, m_selectorMatchingState);
+    for (auto* query : queries) {
+        if (!evaluator.evaluate(*query))
+            return false;
+    }
+    return true;
 }
 
 static inline bool compareRules(MatchedRule r1, MatchedRule r2)
@@ -641,6 +648,12 @@ void ElementRuleCollector::addMatchedProperties(MatchedProperties&& matchedPrope
     m_result.isCacheable = computeIsCacheable();
 
     declarationsForOrigin(m_result, declarationOrigin).append(WTFMove(matchedProperties));
+}
+
+void ElementRuleCollector::addAuthorKeyframeRules(const StyleRuleKeyframe& keyframe)
+{
+    ASSERT(m_result.authorDeclarations.isEmpty());
+    m_result.authorDeclarations.append({ &keyframe.properties(), SelectorChecker::MatchAll, propertyAllowlistForPseudoId(m_pseudoElementRequest.pseudoId) });
 }
 
 }

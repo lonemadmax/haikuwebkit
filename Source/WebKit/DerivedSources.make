@@ -124,7 +124,6 @@ endif
 MESSAGE_RECEIVERS = \
 	NetworkProcess/NetworkBroadcastChannelRegistry \
 	NetworkProcess/NetworkConnectionToWebProcess \
-	NetworkProcess/IndexedDB/WebIDBServer \
 	NetworkProcess/NetworkContentRuleListManager \
 	NetworkProcess/WebStorage/StorageManagerSet \
 	NetworkProcess/cache/CacheStorageEngineConnection \
@@ -151,12 +150,13 @@ MESSAGE_RECEIVERS = \
 	Shared/Authentication/AuthenticationManager \
 	Shared/Notifications/NotificationManagerMessageHandler \
 	Shared/WebConnection \
+	Shared/IPCStreamTester \
+	Shared/IPCStreamTesterProxy \
 	Shared/IPCTester \
 	UIProcess/WebFullScreenManagerProxy \
 	UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy \
 	UIProcess/GPU/GPUProcessProxy \
 	UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy \
-	UIProcess/WebAuthentication/WebAuthnProcessProxy \
 	UIProcess/WebPasteboardProxy \
 	UIProcess/UserContent/WebUserContentControllerProxy \
 	UIProcess/Inspector/WebInspectorUIProxy \
@@ -316,6 +316,7 @@ GENERATE_MESSAGE_RECEIVER_SCRIPTS = \
     $(WebKit2)/Scripts/webkit/messages.py \
     $(WebKit2)/Scripts/webkit/model.py \
     $(WebKit2)/Scripts/webkit/parser.py \
+    $(WebKit2)/DerivedSources.make \
 #
 
 FRAMEWORK_FLAGS := $(shell echo $(BUILT_PRODUCTS_DIR) $(FRAMEWORK_SEARCH_PATHS) $(SYSTEM_FRAMEWORK_SEARCH_PATHS) | perl -e 'print "-F " . join(" -F ", split(" ", <>));')

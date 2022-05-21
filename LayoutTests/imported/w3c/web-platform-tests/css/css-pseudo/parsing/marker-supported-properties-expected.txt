@@ -2,7 +2,7 @@
 PASS Property font value 'italic small-caps 900 expanded 25px / 50px Ahem' in ::marker
 PASS Property font-family value 'Ahem' in ::marker
 PASS Property font-feature-settings value '"smcp"' in ::marker
-FAIL Property font-kerning value 'none' in ::marker assert_equals: expected "none" but got "auto"
+PASS Property font-kerning value 'none' in ::marker
 PASS Property font-size value '25px' in ::marker
 FAIL Property font-size-adjust value '1' in ::marker assert_true: font-size-adjust doesn't seem to be supported in the computed style expected true got false
 PASS Property font-stretch value 'expanded' in ::marker
@@ -49,15 +49,15 @@ PASS Property text-transform value 'uppercase' in ::marker
 PASS Property word-break value 'break-word' in ::marker
 PASS Property word-spacing value '10px' in ::marker
 PASS Property text-decoration-skip-ink value 'none' in ::marker
-FAIL Property text-emphasis value 'dot rgb(0, 255, 0)' in ::marker assert_equals: expected "dot rgb(0, 255, 0)" but got ""
+PASS Property text-emphasis value 'dot rgb(0, 255, 0)' in ::marker
 PASS Property text-emphasis-color value 'rgb(0, 255, 0)' in ::marker
 PASS Property text-emphasis-position value 'under left' in ::marker
-FAIL Property text-emphasis-style value 'dot' in ::marker assert_equals: expected "dot" but got "filled dot"
+PASS Property text-emphasis-style value 'dot' in ::marker
 PASS Property text-shadow value 'rgb(0, 255, 0) 1px 2px 3px' in ::marker
 PASS Property display value 'none' in ::marker
 PASS Property position value 'absolute' in ::marker
 PASS Property float value 'right' in ::marker
-FAIL Property list-style value 'inside url('foo') decimal' in ::marker assert_equals: expected "outside none disc" but got "disc outside none"
+PASS Property list-style value 'inside url('foo') decimal' in ::marker
 PASS Property list-style-image value 'url('foo')' in ::marker
 PASS Property list-style-position value 'inside' in ::marker
 PASS Property list-style-type value 'decimal' in ::marker

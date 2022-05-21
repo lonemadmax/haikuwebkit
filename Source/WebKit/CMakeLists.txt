@@ -193,8 +193,6 @@ set(WebKit_MESSAGES_IN_FILES
 
     NetworkProcess/Cookies/WebCookieManager
 
-    NetworkProcess/IndexedDB/WebIDBServer
-
     NetworkProcess/NetworkBroadcastChannelRegistry
     NetworkProcess/NetworkConnectionToWebProcess
     NetworkProcess/NetworkContentRuleListManager
@@ -223,6 +221,8 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/webrtc/RTCDataChannelRemoteManagerProxy
 
     Shared/AuxiliaryProcess
+    Shared/IPCStreamTester
+    Shared/IPCStreamTesterProxy
     Shared/IPCTester
     Shared/WebConnection
 

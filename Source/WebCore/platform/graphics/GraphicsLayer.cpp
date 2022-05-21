@@ -143,6 +143,7 @@ GraphicsLayer::GraphicsLayer(Type type, GraphicsLayerClient& layerClient)
     , m_contentsRectClipsDescendants(false)
     , m_acceleratesDrawing(false)
     , m_usesDisplayListDrawing(false)
+    , m_allowsTiling(true)
     , m_appliesPageScale(false)
     , m_showDebugBorder(false)
     , m_showRepaintCounter(false)
@@ -710,37 +711,6 @@ int GraphicsLayer::validateFilterOperations(const KeyframeValueList& valueList)
     return firstIndex;
 }
 
-static inline const TransformOperations& operationsAt(const KeyframeValueList& valueList, size_t index)
-{
-    return static_cast<const TransformAnimationValue&>(valueList.at(index)).value();
-}
-
-// A sequence of keyframes with a list of transforms can be represented without matrix interpolation
-// if each transform is compatible with all other transforms at the same index in other keyframes.
-// Two transforms are compatible if they share a primitive defined by the CSS Transforms Level 2
-// specification. For instance, the shared primitive of a translateX and translate3D operation is
-// TransformOperation::TRANSLATE_3D. This function returns true if the TransformOperations in each
-// keyframe share a primitive operation type and stores the compatible OperationTypes in
-// sharedPrimitives. If the keyframes do not share a list of compatible primitives, false is
-// returned.
-bool GraphicsLayer::getSharedPrimitivesForTransformKeyframes(const KeyframeValueList& valueList, Vector<TransformOperation::OperationType>& sharedPrimitives)
-{
-    ASSERT(animatedPropertyIsTransformOrRelated(valueList.property()));
-
-    if (valueList.size() < 2)
-        return false;
-
-    sharedPrimitives.clear();
-    sharedPrimitives.reserveInitialCapacity(operationsAt(valueList, 0).size());
-
-    for (size_t i = 0; i < valueList.size(); ++i) {
-        if (!operationsAt(valueList, i).updateSharedPrimitives(sharedPrimitives))
-            return false;
-    }
-
-    return true;
-}
-
 double GraphicsLayer::backingStoreMemoryEstimate() const
 {
     if (!drawsContent())
@@ -763,11 +733,9 @@ void GraphicsLayer::addRepaintRect(const FloatRect& repaintRect)
     FloatRect largestRepaintRect(FloatPoint(), m_size);
     largestRepaintRect.intersect(repaintRect);
     RepaintMap::iterator repaintIt = repaintRectMap().find(this);
-    if (repaintIt == repaintRectMap().end()) {
-        Vector<FloatRect> repaintRects;
-        repaintRects.append(largestRepaintRect);
-        repaintRectMap().set(this, repaintRects);
-    } else {
+    if (repaintIt == repaintRectMap().end())
+        repaintRectMap().set(this, Vector { WTFMove(largestRepaintRect) });
+    else {
         Vector<FloatRect>& repaintRects = repaintIt->value;
         repaintRects.append(largestRepaintRect);
     }

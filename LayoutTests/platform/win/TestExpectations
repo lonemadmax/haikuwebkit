@@ -475,6 +475,8 @@ accessibility/ancestor-computation.html [ Skip ]
 
 # Missing AccessibilityUIElement::uiElementForSearchPredicate implementation.
 accessibility/table-search-traversal.html [ Skip ]
+accessibility/dynamically-changing-iframe-remains-accessible.html [ Skip ]
+accessibility/ignore-modals-without-any-content.html [ Skip ]
 
 # TODO Conic gradients
 http/wpt/css/css-images-4/conic-gradient-parsing.html [ Skip ]
@@ -643,6 +645,9 @@ fast/viewport/ [ Skip ]
 # highlight API
 highlight/ [ Skip ]
 http/wpt/css/css-highlight-api/ [ Skip ]
+
+# Scroll to Text Fragment
+http/wpt/html/dom/scroll-to-text-fragment/ [ Skip ]
 
 # Pre-HMTL5 parser quirks only apply to the mac port for now.
 fast/parser/pre-html5-parser-quirks.html [ Skip ]
@@ -927,6 +932,9 @@ webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-ru
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-shorthand-001.xht [ Skip ]
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-span-all-block-sibling-003.xht [ Skip ]
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-span-all-margin-nested-firstchild-001.xht [ Skip ]
+
+# 'transform-box' support is broken for composited elements.
+webkit.org/b/237553 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-box-will-change-transform-layer.html [ ImageOnlyFailure ]
 
 # TODO EXIF-resolution is not supported
 imported/w3c/web-platform-tests/density-size-correction/ [ Skip ]
@@ -1546,7 +1554,6 @@ webkit.org/b/149177 accessibility/ax-value-with-search.html [ Skip ]
 # Accessibility tests for notifications that don't exist or aren't needed on Mac OS X (or Windows)
 accessibility/aria-checkbox-sends-notification.html [ Skip ]
 accessibility/combo-box-collapsed-selection-changed.html [ Skip ]
-accessibility/children-changed-sends-notification.html [ Skip ]
 accessibility/menu-list-sends-change-notification.html [ Skip ]
 accessibility/multiselect-list-reports-active-option.html [ Skip ]
 
@@ -3295,7 +3302,6 @@ http/tests/security/isolatedWorld/number-prototype.html [ Failure Pass ]
 http/tests/security/local-video-src-from-remote.html [ Failure Pass Crash ]
 http/tests/security/video-cross-origin-caching.html [ Crash Failure Timeout Pass ]
 http/tests/security/video-poster-cross-origin-crash2.html [ Crash Failure Pass ]
-http/tests/websocket/tests/hybi/deflate-frame-parameter.html [ Failure ]
 security/contentSecurityPolicy/worker-inherits-blocks-eval.html [ Failure Pass ]
 storage/indexeddb/database-close-private.html [ Failure Pass ]
 security/contentSecurityPolicy/video-with-file-url-allowed-by-media-src-star-with-AllowContentSecurityPolicySourceStarToMatchAnyProtocol-enabled.html [ ImageOnlyFailure Pass Crash ]
@@ -3470,6 +3476,7 @@ js/regress-141098.html [ Failure ]
 pageoverlay/overlay-installation.html [ Failure ]
 pageoverlay/overlay-large-document-scrolled.html [ Failure ]
 pageoverlay/overlay-large-document.html [ Failure ]
+security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.html [ Failure ]
 storage/indexeddb/modern/blob-cursor.html [ Failure ]
 streams/readable-byte-stream-controller.html [ Failure ]
 streams/readable-byte-stream-controller-worker.html [ Failure ]
@@ -4919,6 +4926,10 @@ accessibility/selected-state-changed-notifications.html [ Skip ]
 accessibility/element-line-rects-and-text.html [ Skip ]
 accessibility/dialog-properties.html [ Skip ]
 
+# Missing AccessibilityUIElement::attributedStringForRange implementation
+accessibility/native-text-control-attributed-string.html [ Skip ]
+accessibility/svg-font-face.html [ Skip ]
+
 webkit.org/b/229247 http/tests/fetch/keepalive-fetch-2.html [ Pass Failure ]
 
 webkit.org/b/229372 http/tests/websocket/tests/hybi/inspector/send-and-recieve-debugger.html [ Skip ]
@@ -5002,3 +5013,9 @@ http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Fail
 http/tests/push-api/subscribe-default-permissions.html [ Failure ]
 http/tests/push-api/subscribe-deny-permissions.html [ Failure ]
 http/tests/push-api/subscribe-grant-permissions.html [ Failure ]
+
+# webkit.org/b/237344 [ Win ] 4X imported/mozilla/svg/blend(layout-tests) are constant Image Only Failures
+imported/mozilla/svg/blend-color.svg [ Skip ]
+imported/mozilla/svg/blend-hard-light.svg [ Skip ]
+imported/mozilla/svg/blend-hue.svg [ Skip ]
+imported/mozilla/svg/blend-luminosity.svg [ Skip ]

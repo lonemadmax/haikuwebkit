@@ -131,6 +131,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/airplay/PlaybackTargetClientContextIdentifier.h
 
+    Modules/applepay/ApplePayButtonSystemImage.h
+    Modules/applepay/ApplePayLogoSystemImage.h
     Modules/applepay/ApplePaySessionPaymentRequest.h
     Modules/applepay/Payment.h
     Modules/applepay/PaymentContact.h
@@ -297,6 +299,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/permissions/PermissionName.h
     Modules/permissions/PermissionObserver.h
     Modules/permissions/PermissionState.h
+
+    Modules/plugins/PluginReplacement.h
+    Modules/plugins/YouTubePluginReplacement.h
 
     Modules/push-api/PushCrypto.h
     Modules/push-api/PushDatabase.h
@@ -480,6 +485,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/ScriptWrappableInlines.h
     bindings/js/SerializedScriptValue.h
     bindings/js/StringAdaptors.h
+    bindings/js/WebAssemblyCachedScriptSourceProvider.h
+    bindings/js/WebAssemblyScriptSourceCode.h
     bindings/js/WebCoreJITOperations.h
     bindings/js/WebCoreTypedArrayController.h
     bindings/js/WindowProxy.h
@@ -1130,7 +1137,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PageConfiguration.h
     page/PageConsoleClient.h
     page/PageGroup.h
-    page/PageIdentifier.h
     page/PageInlines.h
     page/PageOverlay.h
     page/PageOverlayController.h
@@ -1287,6 +1293,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PODInterval.h
     platform/PODIntervalTree.h
     platform/PODRedBlackTree.h
+    platform/PageIdentifier.h
     platform/Pasteboard.h
     platform/PasteboardContext.h
     platform/PasteboardCustomData.h
@@ -1511,7 +1518,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/IntPoint.h
     platform/graphics/IntPointHash.h
     platform/graphics/IntRect.h
-    platform/graphics/IntRectExtent.h
     platform/graphics/IntRectHash.h
     platform/graphics/IntSize.h
     platform/graphics/IntSizeHash.h
@@ -1558,7 +1564,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformVideoTrackConfiguration.h
     platform/graphics/PlatformVideoTransferCharacteristics.h
     platform/graphics/Region.h
-    platform/graphics/RemoteVideoSample.h
     platform/graphics/RenderingResourceIdentifier.h
     platform/graphics/RenderingMode.h
     platform/graphics/RoundedRect.h
@@ -1567,6 +1572,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/SourceBufferPrivateClient.h
     platform/graphics/SourceImage.h
     platform/graphics/StringTruncator.h
+    platform/graphics/SystemImage.h
     platform/graphics/TabSize.h
     platform/graphics/TextRun.h
     platform/graphics/TextTrackRepresentation.h
@@ -1652,7 +1658,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/opengl/ExtensionsGLOpenGLCommon.h
     platform/graphics/opengl/ExtensionsGLOpenGLES.h
     platform/graphics/opengl/GraphicsContextGLOpenGL.h
-    platform/graphics/opengl/GraphicsContextGLOpenGLManager.h
     platform/graphics/opengl/TemporaryOpenGLSetting.h
 
     platform/graphics/opentype/OpenTypeMathData.h

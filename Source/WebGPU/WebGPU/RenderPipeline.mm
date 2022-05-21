@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,23 +27,38 @@
 #import "RenderPipeline.h"
 
 #import "BindGroupLayout.h"
-#import "WebGPUExt.h"
+#import "Device.h"
 
 namespace WebGPU {
 
-RenderPipeline::RenderPipeline() = default;
+RefPtr<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescriptor& descriptor)
+{
+    UNUSED_PARAM(descriptor);
+    return RenderPipeline::create(nil);
+}
+
+void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<RenderPipeline>&&, const char* message)>&& callback)
+{
+    UNUSED_PARAM(descriptor);
+    UNUSED_PARAM(callback);
+}
+
+RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState)
+    : m_renderPipelineState(renderPipelineState)
+{
+}
 
 RenderPipeline::~RenderPipeline() = default;
 
 Ref<BindGroupLayout> RenderPipeline::getBindGroupLayout(uint32_t groupIndex)
 {
     UNUSED_PARAM(groupIndex);
-    return BindGroupLayout::create();
+    return BindGroupLayout::create(nil, nil, nil);
 }
 
-void RenderPipeline::setLabel(const char* label)
+void RenderPipeline::setLabel(const char*)
 {
-    UNUSED_PARAM(label);
+    // MTLRenderPipelineState's labels are read-only.
 }
 
 } // namespace WebGPU
@@ -62,4 +77,3 @@ void wgpuRenderPipelineSetLabel(WGPURenderPipeline renderPipeline, const char* l
 {
     renderPipeline->renderPipeline->setLabel(label);
 }
-

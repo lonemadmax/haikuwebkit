@@ -218,7 +218,7 @@ private:
     String validationMessage() const override { return stringAttributeValue(AXPropertyName::ValidationMessage); }
     unsigned blockquoteLevel() const override { return unsignedAttributeValue(AXPropertyName::BlockquoteLevel); }
     unsigned headingLevel() const override { return unsignedAttributeValue(AXPropertyName::HeadingLevel); }
-    AccessibilityButtonState checkboxOrRadioValue() const override { return static_cast<AccessibilityButtonState>(intAttributeValue(AXPropertyName::AccessibilityButtonState)); }
+    AccessibilityButtonState checkboxOrRadioValue() const override { return propertyValue<AccessibilityButtonState>(AXPropertyName::ButtonState); }
     String valueDescription() const override { return stringAttributeValue(AXPropertyName::ValueDescription); }
     float valueForRange() const override { return floatAttributeValue(AXPropertyName::ValueForRange); }
     float maxValueForRange() const override { return floatAttributeValue(AXPropertyName::MaxValueForRange); }
@@ -612,14 +612,6 @@ private:
     Document* topDocument() const override;
     ScrollView* scrollView() const override;
     ScrollView* scrollViewAncestor() const override;
-    void addChildren() override;
-    void addChild(AXCoreObject*, DescendIfIgnored = DescendIfIgnored::Yes) override;
-    void insertChild(AXCoreObject*, unsigned, DescendIfIgnored = DescendIfIgnored::Yes) override;
-    bool canHaveChildren() const override;
-    void setNeedsToUpdateChildren() override;
-    void setNeedsToUpdateSubtree() override;
-    void clearChildren() override;
-    bool needsToUpdateChildren() const override;
     void detachFromParent() override;
     bool shouldFocusActiveDescendant() const override;
     AXCoreObject* activeDescendant() const override;
@@ -692,6 +684,16 @@ private:
     PlatformWidget m_platformWidget;
 #endif
 };
+
+template<typename T>
+inline T AXIsolatedObject::propertyValue(AXPropertyName propertyName) const
+{
+    auto value = m_propertyMap.get(propertyName);
+    return WTF::switchOn(value,
+        [] (T& typedValue) -> T { return typedValue; },
+        [] (auto&) { return T(); }
+    );
+}
 
 } // namespace WebCore
 

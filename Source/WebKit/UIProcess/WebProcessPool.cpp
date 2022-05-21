@@ -45,16 +45,17 @@
 #include "GamepadData.h"
 #include "HighPerformanceGraphicsUsageSampler.h"
 #include "LegacyGlobalSettings.h"
-#include "LogInitialization.h"
 #include "Logging.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessMessages.h"
 #include "NetworkProcessProxy.h"
 #include "PerActivityStateCPUUsageSampler.h"
+#include "RemoteWorkerType.h"
 #include "SandboxExtension.h"
 #include "TextChecker.h"
 #include "UIGamepad.h"
 #include "UIGamepadProvider.h"
+#include "UIProcessLogInitialization.h"
 #include "WKContextPrivate.h"
 #include "WebAutomationSession.h"
 #include "WebBackForwardCache.h"
@@ -84,7 +85,6 @@
 #include "WebsiteDataStoreParameters.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <WebCore/ApplicationCacheStorage.h>
-#include <WebCore/LogInitialization.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/PlatformScreen.h>
@@ -96,7 +96,6 @@
 #include <WebCore/RuntimeApplicationChecks.h>
 #include <pal/SessionID.h>
 #include <wtf/CallbackAggregator.h>
-#include <wtf/LogInitialization.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessPrivilege.h>
@@ -268,9 +267,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     resolvePathsForSandboxExtensions();
 
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
-    WTF::logChannels().initializeLogChannelsIfNecessary();
-    WebCore::logChannels().initializeLogChannelsIfNecessary();
-    WebKit::logChannels().initializeLogChannelsIfNecessary();
+    UIProcess::initializeLoggingIfNecessary();
 #endif // !LOG_DISABLED || !RELEASE_LOG_DISABLED
 
 #ifndef NDEBUG
@@ -328,8 +325,15 @@ WebProcessPool::~WebProcessPool()
         process->shutDown();
     }
 
-    if (processPools().isEmpty() && !!NetworkProcessProxy::defaultNetworkProcess())
-        NetworkProcessProxy::defaultNetworkProcess() = nullptr;
+    if (processPools().isEmpty()) {
+        WebsiteDataStore::forEachWebsiteDataStore([](auto& websiteDataStore) {
+            websiteDataStore.removeNetworkProcessReference();
+        });
+        if (auto& networkProcess = NetworkProcessProxy::defaultNetworkProcess()) {
+            ASSERT(networkProcess->hasOneRef());
+            networkProcess = nullptr;
+        }
+    }
 }
 
 void WebProcessPool::initializeClient(const WKContextClientBase* client)
@@ -525,33 +529,45 @@ void WebProcessPool::getWebAuthnProcessConnection(WebProcessProxy& webProcessPro
 
 bool WebProcessPool::s_useSeparateServiceWorkerProcess = false;
 
-#if ENABLE(SERVICE_WORKER)
-void WebProcessPool::establishServiceWorkerContextConnectionToNetworkProcess(RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType workerType, RegistrableDomain&& registrableDomain, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
     auto* websiteDataStore = WebsiteDataStore::existingDataStoreForSessionID(sessionID);
     if (!websiteDataStore)
         websiteDataStore = WebsiteDataStore::defaultDataStore().ptr();
     if (!processPools().size())
-        static NeverDestroyed<Ref<WebProcessPool>> serviceWorkerProcessPool(WebProcessPool::create(API::ProcessPoolConfiguration::create().get()));
+        static NeverDestroyed<Ref<WebProcessPool>> remoteWorkerProcessPool(WebProcessPool::create(API::ProcessPoolConfiguration::create().get()));
 
-    // Arbitrarily choose the first process pool to host the service worker process.
-    auto* processPool = processPools()[0];
+    RefPtr<WebProcessProxy> requestingProcess = requestingProcessIdentifier ? WebProcessProxy::processForIdentifier(*requestingProcessIdentifier) : nullptr;
+    WebProcessPool* processPool = requestingProcess ? &requestingProcess->processPool() : processPools()[0];
     ASSERT(processPool);
 
-    WebProcessProxy* serviceWorkerProcessProxy { nullptr };
+    WebProcessProxy* remoteWorkerProcessProxy { nullptr };
+
+    auto useProcessForRemoteWorkers = [&](WebProcessProxy& process) {
+        remoteWorkerProcessProxy = &process;
+        process.enableRemoteWorkers(workerType, processPool->userContentControllerIdentifierForRemoteWorkers());
+        if (process.isInProcessCache()) {
+            processPool->webProcessCache().removeProcess(process, WebProcessCache::ShouldShutDownProcess::No);
+            ASSERT(!process.isInProcessCache());
+        }
+    };
 
     if (serviceWorkerPageIdentifier) {
+        ASSERT(workerType == RemoteWorkerType::ServiceWorker);
         // This is a service worker for a service worker page so we need to make sure we use use the page's WebProcess for the service worker.
-        if ((serviceWorkerProcessProxy = WebProcessProxy::processForIdentifier(serviceWorkerPageIdentifier->processIdentifier()))) {
-            serviceWorkerProcessProxy->enableRemoteWorkers(RemoteWorkerType::ServiceWorker, processPool->userContentControllerIdentifierForRemoteWorkers());
-            if (serviceWorkerProcessProxy->isInProcessCache()) {
-                processPool->webProcessCache().removeProcess(*serviceWorkerProcessProxy, WebProcessCache::ShouldShutDownProcess::No);
-                ASSERT(!serviceWorkerProcessProxy->isInProcessCache());
-            }
-        }
+        if (RefPtr process = WebProcessProxy::processForIdentifier(serviceWorkerPageIdentifier->processIdentifier()))
+            useProcessForRemoteWorkers(*process);
     }
 
-    if (!serviceWorkerProcessProxy && !s_useSeparateServiceWorkerProcess) {
+    bool shouldUseSeparateRemoteWorkerProcess = workerType == RemoteWorkerType::ServiceWorker && s_useSeparateServiceWorkerProcess;
+
+    // Prioritize the requesting WebProcess for running the service worker.
+    if (!remoteWorkerProcessProxy && !shouldUseSeparateRemoteWorkerProcess && requestingProcess) {
+        if (&requestingProcess->websiteDataStore() == websiteDataStore && requestingProcess->isMatchingRegistrableDomain(registrableDomain))
+            useProcessForRemoteWorkers(*requestingProcess);
+    }
+
+    if (!remoteWorkerProcessProxy && !shouldUseSeparateRemoteWorkerProcess) {
         for (auto& process : processPool->m_processes) {
             if (process.ptr() == processPool->m_prewarmedProcess.get() || process->isDummyProcessProxy())
                 continue;
@@ -560,93 +576,36 @@ void WebProcessPool::establishServiceWorkerContextConnectionToNetworkProcess(Reg
             if (!process->isMatchingRegistrableDomain(registrableDomain))
                 continue;
 
-            serviceWorkerProcessProxy = process.ptr();
-            serviceWorkerProcessProxy->enableRemoteWorkers(RemoteWorkerType::ServiceWorker, processPool->userContentControllerIdentifierForRemoteWorkers());
+            useProcessForRemoteWorkers(process);
 
-            if (serviceWorkerProcessProxy->isInProcessCache()) {
-                processPool->webProcessCache().removeProcess(*serviceWorkerProcessProxy, WebProcessCache::ShouldShutDownProcess::No);
-                ASSERT(!serviceWorkerProcessProxy->isInProcessCache());
-            }
-
-            WEBPROCESSPOOL_RELEASE_LOG_STATIC(ServiceWorker, "establishServiceWorkerContextConnectionToNetworkProcess reusing an existing web process (process=%p, PID=%d)", serviceWorkerProcessProxy, serviceWorkerProcessProxy->processIdentifier());
+            WEBPROCESSPOOL_RELEASE_LOG_STATIC(ServiceWorker, "establishRemoteWorkerContextConnectionToNetworkProcess reusing an existing web process (process=%p, workerType=%{public}s, PID=%d)", remoteWorkerProcessProxy, workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared", remoteWorkerProcessProxy->processIdentifier());
             break;
         }
     }
 
-    if (!serviceWorkerProcessProxy) {
-        auto newProcessProxy = WebProcessProxy::createForRemoteWorkers(RemoteWorkerType::ServiceWorker, *processPool, RegistrableDomain  { registrableDomain }, *websiteDataStore);
-        serviceWorkerProcessProxy = newProcessProxy.ptr();
+    if (!remoteWorkerProcessProxy) {
+        auto newProcessProxy = WebProcessProxy::createForRemoteWorkers(workerType, *processPool, RegistrableDomain  { registrableDomain }, *websiteDataStore);
+        remoteWorkerProcessProxy = newProcessProxy.ptr();
 
-        WEBPROCESSPOOL_RELEASE_LOG_STATIC(ServiceWorker, "establishServiceWorkerContextConnectionToNetworkProcess creating a new service worker process (proces=%p, PID=%d)", serviceWorkerProcessProxy, serviceWorkerProcessProxy->processIdentifier());
+        WEBPROCESSPOOL_RELEASE_LOG_STATIC(ServiceWorker, "establishRemoteWorkerContextConnectionToNetworkProcess creating a new service worker process (process=%p, workerType=%{public}s, PID=%d)", remoteWorkerProcessProxy, workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared", remoteWorkerProcessProxy->processIdentifier());
 
         processPool->initializeNewWebProcess(newProcessProxy, websiteDataStore);
         processPool->m_processes.append(WTFMove(newProcessProxy));
     }
 
-    remoteWorkerProcesses().add(*serviceWorkerProcessProxy);
+    remoteWorkerProcesses().add(*remoteWorkerProcessProxy);
 
-    auto preferencesStore = processPool->m_remoteWorkerPreferences ? processPool->m_remoteWorkerPreferences.value() : processPool->m_defaultPageGroup->preferences().store();
-    serviceWorkerProcessProxy->establishServiceWorkerContext(preferencesStore, registrableDomain, serviceWorkerPageIdentifier, WTFMove(completionHandler));
+    auto& preferencesStore = processPool->m_remoteWorkerPreferences ? processPool->m_remoteWorkerPreferences.value() : processPool->m_defaultPageGroup->preferences().store();
+    remoteWorkerProcessProxy->establishRemoteWorkerContext(workerType, preferencesStore, registrableDomain, serviceWorkerPageIdentifier, WTFMove(completionHandler));
+
     if (!processPool->m_remoteWorkerUserAgent.isNull())
-        serviceWorkerProcessProxy->setRemoteWorkerUserAgent(processPool->m_remoteWorkerUserAgent);
+        remoteWorkerProcessProxy->setRemoteWorkerUserAgent(processPool->m_remoteWorkerUserAgent);
 }
-#endif
 
 void WebProcessPool::removeFromRemoteWorkerProcesses(WebProcessProxy& process)
 {
     ASSERT(remoteWorkerProcesses().contains(process));
     remoteWorkerProcesses().remove(process);
-}
-
-void WebProcessPool::establishSharedWorkerContextConnectionToNetworkProcess(WebCore::RegistrableDomain&& registrableDomain, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
-{
-    auto* websiteDataStore = WebsiteDataStore::existingDataStoreForSessionID(sessionID);
-    if (!websiteDataStore)
-        websiteDataStore = WebsiteDataStore::defaultDataStore().ptr();
-    if (!processPools().size())
-        static NeverDestroyed<Ref<WebProcessPool>> sharedWorkerProcessPool(WebProcessPool::create(API::ProcessPoolConfiguration::create().get()));
-
-    // Arbitrarily choose the first process pool to host the shared worker process.
-    auto* processPool = processPools()[0];
-    ASSERT(processPool);
-
-    WebProcessProxy* sharedWorkerProcessProxy { nullptr };
-
-    for (auto& process : processPool->m_processes) {
-        if (process.ptr() == processPool->m_prewarmedProcess.get() || process->isDummyProcessProxy())
-            continue;
-        if (&process->websiteDataStore() != websiteDataStore)
-            continue;
-        if (!process->isMatchingRegistrableDomain(registrableDomain))
-            continue;
-
-        sharedWorkerProcessProxy = process.ptr();
-        sharedWorkerProcessProxy->enableRemoteWorkers(RemoteWorkerType::SharedWorker, processPool->userContentControllerIdentifierForRemoteWorkers());
-
-        if (sharedWorkerProcessProxy->isInProcessCache()) {
-            processPool->webProcessCache().removeProcess(*sharedWorkerProcessProxy, WebProcessCache::ShouldShutDownProcess::No);
-            ASSERT(!sharedWorkerProcessProxy->isInProcessCache());
-        }
-
-        WEBPROCESSPOOL_RELEASE_LOG_STATIC(SharedWorker, "establishSharedWorkerContextConnectionToNetworkProcess reusing an existing web process (process=%p, PID=%d)", sharedWorkerProcessProxy, sharedWorkerProcessProxy->processIdentifier());
-        break;
-    }
-
-    if (!sharedWorkerProcessProxy) {
-        auto newProcessProxy = WebProcessProxy::createForRemoteWorkers(RemoteWorkerType::SharedWorker, *processPool, RegistrableDomain  { registrableDomain }, *websiteDataStore);
-        sharedWorkerProcessProxy = newProcessProxy.ptr();
-
-        WEBPROCESSPOOL_RELEASE_LOG_STATIC(SharedWorker, "establishSharedWorkerContextConnectionToNetworkProcess creating a new service worker process (process=%p, PID=%d)", sharedWorkerProcessProxy, sharedWorkerProcessProxy->processIdentifier());
-
-        processPool->initializeNewWebProcess(newProcessProxy, websiteDataStore);
-        processPool->m_processes.append(WTFMove(newProcessProxy));
-    }
-
-    remoteWorkerProcesses().add(*sharedWorkerProcessProxy);
-
-    sharedWorkerProcessProxy->establishSharedWorkerContext(processPool->m_remoteWorkerPreferences ? processPool->m_remoteWorkerPreferences.value() : processPool->m_defaultPageGroup->preferences().store(), registrableDomain, WTFMove(completionHandler));
-    if (!processPool->m_remoteWorkerUserAgent.isNull())
-        sharedWorkerProcessProxy->setRemoteWorkerUserAgent(processPool->m_remoteWorkerUserAgent);
 }
 
 void WebProcessPool::windowServerConnectionStateChanged()
@@ -849,10 +808,9 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
             parameters.injectedBundlePathExtensionHandle = WTFMove(*handle);
     }
 
-    for (auto& path : m_resolvedPaths.additionalWebProcessSandboxExtensionPaths) {
-        if (auto handle =  SandboxExtension::createHandleWithoutResolvingPath(path, SandboxExtension::Type::ReadOnly))
-            parameters.additionalSandboxExtensionHandles.append(WTFMove(*handle));
-    }
+    parameters.additionalSandboxExtensionHandles = WTF::compactMap(m_resolvedPaths.additionalWebProcessSandboxExtensionPaths, [](auto& path) {
+        return SandboxExtension::createHandleWithoutResolvingPath(path, SandboxExtension::Type::ReadOnly);
+    });
 
 #if PLATFORM(IOS_FAMILY)
     setJavaScriptConfigurationFileEnabledFromDefaults();
@@ -993,7 +951,7 @@ void WebProcessPool::disableProcessTermination()
 
 bool WebProcessPool::shouldTerminate(WebProcessProxy& process)
 {
-    ASSERT(m_processes.contains(process));
+    ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == &process; }));
 
     if (!m_processTerminationEnabled || m_configuration->alwaysKeepAndReuseSwappedProcesses())
         return false;
@@ -1003,7 +961,7 @@ bool WebProcessPool::shouldTerminate(WebProcessProxy& process)
 
 void WebProcessPool::processDidFinishLaunching(WebProcessProxy& process)
 {
-    ASSERT(m_processes.contains(process));
+    ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == &process; }));
 
     if (!m_visitedLinksPopulated) {
         populateVisitedLinks();
@@ -1035,7 +993,7 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy& process)
 
 void WebProcessPool::disconnectProcess(WebProcessProxy& process)
 {
-    ASSERT(m_processes.contains(process));
+    ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == &process; }));
 
     if (m_prewarmedProcess == &process) {
         ASSERT(m_prewarmedProcess->isPrewarmed());
@@ -1056,7 +1014,7 @@ void WebProcessPool::disconnectProcess(WebProcessProxy& process)
 
     supplement<WebGeolocationManagerProxy>()->webProcessIsGoingAway(process);
 
-    m_processes.removeFirst(process);
+    m_processes.removeFirstMatching([&](auto& item) { return item.ptr() == &process; });
 
 #if ENABLE(GAMEPAD)
     if (m_processesUsingGamepads.contains(process))
@@ -1070,14 +1028,14 @@ Ref<WebProcessProxy> WebProcessPool::processForRegistrableDomain(WebsiteDataStor
 {
     if (!registrableDomain.isEmpty()) {
         if (auto process = webProcessCache().takeProcess(registrableDomain, websiteDataStore, captivePortalMode)) {
-            ASSERT(m_processes.contains(*process));
+            ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
             return process.releaseNonNull();
         }
 
         // Check if we have a suspended page for the given registrable domain and use its process if we do, for performance reasons.
         if (auto process = SuspendedPageProxy::findReusableSuspendedPageProcess(*this, registrableDomain, websiteDataStore, captivePortalMode)) {
             WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForRegistrableDomain: Using WebProcess from a SuspendedPage (process=%p, PID=%i)", process.get(), process->processIdentifier());
-            ASSERT(m_processes.contains(*process));
+            ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
             return process.releaseNonNull();
         }
     }
@@ -1086,7 +1044,7 @@ Ref<WebProcessProxy> WebProcessPool::processForRegistrableDomain(WebsiteDataStor
         WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForRegistrableDomain: Using prewarmed process (process=%p, PID=%i)", process.get(), process->processIdentifier());
         if (!registrableDomain.isEmpty())
             tryPrewarmWithDomainInformation(*process, registrableDomain);
-        ASSERT(m_processes.contains(*process));
+        ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
         return process.releaseNonNull();
     }
 
@@ -1251,7 +1209,7 @@ DownloadProxy& WebProcessPool::download(WebsiteDataStore& dataStore, WebPageProx
     // Request's firstPartyForCookies will be used as Original URL of the download request.
     // We set the value to top level document's URL.
     if (initiatingPage) {
-        URL initiatingPageURL = URL { URL { }, initiatingPage->pageLoadState().url() };
+        URL initiatingPageURL = URL { initiatingPage->pageLoadState().url() };
         updatedRequest.setFirstPartyForCookies(initiatingPageURL);
         updatedRequest.setIsSameSite(areRegistrableDomainsEqual(initiatingPageURL, request.url()));
         if (!updatedRequest.hasHTTPHeaderField(HTTPHeaderName::UserAgent))
@@ -1870,14 +1828,9 @@ void WebProcessPool::removeProcessFromOriginCacheSet(WebProcessProxy& process)
     LOG(ProcessSwapping, "(ProcessSwapping) Removing process with pid %i from the origin cache set", process.processIdentifier());
 
     // FIXME: This can be very inefficient as the number of remembered origins and processes grows
-    Vector<WebCore::RegistrableDomain> registrableDomainsToRemove;
-    for (auto entry : m_swappedProcessesPerRegistrableDomain) {
-        if (entry.value == &process)
-            registrableDomainsToRemove.append(entry.key);
-    }
-
-    for (auto& registrableDomain : registrableDomainsToRemove)
-        m_swappedProcessesPerRegistrableDomain.remove(registrableDomain);
+    m_swappedProcessesPerRegistrableDomain.removeIf([&](auto& entry) {
+        return entry.value == &process;
+    });
 }
 
 void WebProcessPool::processForNavigation(WebPageProxy& page, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& sourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::CaptivePortalMode captivePortalMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, const String&)>&& completionHandler)
@@ -1978,12 +1931,12 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
 
     URL sourceURL;
     if (page.isPageOpenedByDOMShowingInitialEmptyDocument() && !navigation.requesterOrigin().isEmpty())
-        sourceURL = URL { URL(), navigation.requesterOrigin().toString() };
+        sourceURL = URL { navigation.requesterOrigin().toString() };
     else
         sourceURL = pageSourceURL;
 
     if (sourceURL.isEmpty() && page.configuration().relatedPage()) {
-        sourceURL = URL { { }, page.configuration().relatedPage()->pageLoadState().url() };
+        sourceURL = URL { page.configuration().relatedPage()->pageLoadState().url() };
         WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForNavigationInternal: Using related page's URL as source URL for process swap decision (page=%p)", page.configuration().relatedPage());
     }
 

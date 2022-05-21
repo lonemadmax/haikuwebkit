@@ -53,6 +53,7 @@
 #include "ThunkGenerator.h"
 #include "VMTraps.h"
 #include "WasmContext.h"
+#include <variant>
 #include <wtf/BumpPointerAllocator.h>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/Deque.h>
@@ -161,7 +162,14 @@ class Signature;
 }
 
 struct EntryFrame;
-struct Instruction;
+
+template<typename> struct BaseInstruction;
+struct JSOpcodeTraits;
+struct WasmOpcodeTraits;
+using JSInstruction = BaseInstruction<JSOpcodeTraits>;
+using WasmInstruction = BaseInstruction<WasmOpcodeTraits>;
+
+using JSOrWasmInstruction = std::variant<const JSInstruction*, const WasmInstruction*>;
 
 class QueuedTask {
     WTF_MAKE_NONCOPYABLE(QueuedTask);
@@ -604,8 +612,6 @@ public:
         return OBJECT_OFFSETOF(VM, heap) + OBJECT_OFFSETOF(Heap, m_mutatorShouldBeFenced);
     }
 
-    void restorePreviousException(Exception* exception) { setException(exception); }
-
     void clearLastException() { m_lastException = nullptr; }
 
     CallFrame** addressOfCallFrameForCatch() { return &callFrameForCatch; }
@@ -669,7 +675,7 @@ public:
     CallFrame* callFrameForCatch;
     CalleeBits calleeForWasmCatch;
     void* targetMachinePCForThrow;
-    const Instruction* targetInterpreterPCForThrow;
+    JSOrWasmInstruction targetInterpreterPCForThrow;
     uint32_t osrExitIndex;
     void* osrExitJumpDestination;
     RegExp* m_executingRegExp { nullptr };
@@ -733,7 +739,7 @@ public:
     RTTraceList* m_rtTraceList;
 #endif
 
-    void resetDateCache() { dateCache.reset(); }
+    void resetDateCacheIfNecessary() { dateCache.resetIfNecessary(); }
 
     RegExpCache* regExpCache() { return m_regExpCache; }
 #if ENABLE(REGEXP_TRACING)
@@ -830,34 +836,9 @@ public:
 
     static void setCrashOnVMCreation(bool);
 
-    class DeferExceptionScope {
-    public:
-        DeferExceptionScope(VM& vm)
-            : m_vm(vm)
-            , m_exceptionWasSet(vm.m_exception)
-            , m_savedException(vm.m_exception, nullptr)
-            , m_savedLastException(vm.m_lastException, nullptr)
-        {
-            if (m_exceptionWasSet)
-                m_vm.traps().clearTrapBit(VMTraps::NeedExceptionHandling);
-        }
-
-        ~DeferExceptionScope()
-        {
-            if (m_exceptionWasSet)
-                m_vm.traps().setTrapBit(VMTraps::NeedExceptionHandling);
-        }
-
-    private:
-        VM& m_vm;
-        bool m_exceptionWasSet;
-        SetForScope<Exception*> m_savedException;
-        SetForScope<Exception*> m_savedLastException;
-    };
-
-    void addLoopHintExecutionCounter(const Instruction*);
-    uintptr_t* getLoopHintExecutionCounter(const Instruction*);
-    void removeLoopHintExecutionCounter(const Instruction*);
+    void addLoopHintExecutionCounter(const JSInstruction*);
+    uintptr_t* getLoopHintExecutionCounter(const JSInstruction*);
+    void removeLoopHintExecutionCounter(const JSInstruction*);
 
     ALWAYS_INLINE void writeBarrier(const JSCell* from) { heap.writeBarrier(from); }
     ALWAYS_INLINE void writeBarrier(const JSCell* from, JSValue to) { heap.writeBarrier(from, to); }
@@ -879,8 +860,6 @@ public:
 #endif
 
 private:
-    friend class LLIntOffsetsExtractor;
-
     VM(VMType, HeapType, WTF::RunLoop* = nullptr, bool* success = nullptr);
     static VM*& sharedInstanceInternal();
     void createNativeThunk();
@@ -1000,7 +979,7 @@ private:
     bool m_executionForbiddenOnTermination { false };
 
     Lock m_loopHintExecutionCountLock;
-    HashMap<const Instruction*, std::pair<unsigned, std::unique_ptr<uintptr_t>>> m_loopHintExecutionCounts;
+    HashMap<const JSInstruction*, std::pair<unsigned, std::unique_ptr<uintptr_t>>> m_loopHintExecutionCounts;
 
 #if ENABLE(DFG_DOES_GC_VALIDATION)
     DoesGCCheck m_doesGC;
@@ -1009,12 +988,13 @@ private:
     VM* m_prev; // Required by DoublyLinkedListNode.
     VM* m_next; // Required by DoublyLinkedListNode.
 
-    // Friends for exception checking purpose only.
     friend class Heap;
-    friend class CatchScope;
-    friend class ExceptionScope;
+    friend class CatchScope; // Friend for exception checking purpose only.
+    friend class ExceptionScope; // Friend for exception checking purpose only.
     friend class JSDollarVMHelper;
-    friend class ThrowScope;
+    friend class LLIntOffsetsExtractor;
+    friend class SuspendExceptionScope;
+    friend class ThrowScope; // Friend for exception checking purpose only.
     friend class VMTraps;
     friend class WTF::DoublyLinkedListNode<VM>;
 };

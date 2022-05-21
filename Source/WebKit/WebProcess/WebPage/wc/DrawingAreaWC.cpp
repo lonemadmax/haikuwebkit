@@ -174,6 +174,7 @@ void DrawingAreaWC::scroll(const IntRect& scrollRect, const IntSize& scrollDelta
 void DrawingAreaWC::forceRepaintAsync(WebPage&, CompletionHandler<void()>&& completionHandler)
 {
     m_forceRepaintCompletionHandler = WTFMove(completionHandler);
+    m_isForceRepaintCompletionHandlerDeferred = m_waitDidUpdate;
     setNeedsDisplay();
 }
 
@@ -192,9 +193,11 @@ static void flushLayerImageBuffers(WCUpateInfo& info)
 {
     for (auto& layerInfo : info.changedLayers) {
         if (layerInfo.changes & WCLayerChange::Background) {
-            if (auto image = layerInfo.backingStore.imageBuffer()) {
-                if (auto flusher = image->createFlusher())
-                    flusher->flush();
+            for (auto& tileUpdate : layerInfo.tileUpdate) {
+                if (auto image = tileUpdate.backingStore.imageBuffer()) {
+                    if (auto flusher = image->createFlusher())
+                        flusher->flush();
+                }
             }
         }
     }
@@ -215,7 +218,7 @@ void DrawingAreaWC::updateRendering()
     // This function is not reentrant, e.g. a rAF callback may force repaint.
     if (m_inUpdateRendering)
         return;
-    SetForScope<bool> change(m_inUpdateRendering, true);
+    SetForScope change(m_inUpdateRendering, true);
 
     ASSERT(!m_waitDidUpdate);
     m_waitDidUpdate = true;
@@ -250,7 +253,9 @@ void DrawingAreaWC::sendUpdateAC()
         RunLoop::main().dispatch([this, weakThis = WTFMove(weakThis), stateID, updateInfo = WTFMove(updateInfo)]() mutable {
             if (!weakThis)
                 return;
-            m_remoteWCLayerTreeHostProxy->update(WTFMove(updateInfo), [this, stateID](std::optional<UpdateInfo> updateInfo) {
+            m_remoteWCLayerTreeHostProxy->update(WTFMove(updateInfo), [this, weakThis = WTFMove(weakThis), stateID](std::optional<UpdateInfo> updateInfo) {
+                if (!weakThis)
+                    return;
                 if (updateInfo && stateID == m_backingStoreStateID) {
                     send(Messages::DrawingAreaProxy::Update(m_backingStoreStateID, WTFMove(*updateInfo)));
                     return;
@@ -367,8 +372,12 @@ RefPtr<ImageBuffer> DrawingAreaWC::createImageBuffer(FloatSize size)
 void DrawingAreaWC::didUpdate()
 {
     m_waitDidUpdate = false;
-    if (m_forceRepaintCompletionHandler)
-        m_forceRepaintCompletionHandler();
+    if (m_forceRepaintCompletionHandler) {
+        if (m_isForceRepaintCompletionHandlerDeferred)
+            m_isForceRepaintCompletionHandlerDeferred = false;
+        else
+            m_forceRepaintCompletionHandler();
+    }
     if (m_hasDeferredRenderingUpdate) {
         m_hasDeferredRenderingUpdate = false;
         triggerRenderingUpdate();

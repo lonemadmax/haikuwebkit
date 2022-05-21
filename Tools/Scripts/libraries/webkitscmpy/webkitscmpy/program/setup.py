@@ -37,7 +37,7 @@ class Setup(Command):
     @classmethod
     def github(cls, args, repository, additional_setup=None, **kwargs):
         log.info('Saving GitHub credentials in system credential store...')
-        username, access_token = repository.credentials(required=True)
+        username, access_token = repository.credentials(required=True, validate=True, save_in_keyring=True)
         log.info('GitHub credentials saved via Keyring!')
 
         # Any additional setup passed to main
@@ -118,10 +118,10 @@ class Setup(Command):
         else:
             log.info("Set git user name to '{}' for this repository".format(name))
 
-        if os.path.isfile(os.path.join(repository.path, local.Git.PROJECT_CONFIG_PATH)):
+        if repository.metadata and os.path.isfile(os.path.join(repository.metadata, local.Git.GIT_CONFIG_EXTENSION)):
             log.info('Adding project git config to repository config...')
             result += run(
-                [local.Git.executable(), 'config', 'include.path', os.path.join('..', local.Git.PROJECT_CONFIG_PATH)],
+                [local.Git.executable(), 'config', 'include.path', os.path.join('..', os.path.basename(repository.metadata), local.Git.GIT_CONFIG_EXTENSION)],
                 capture_output=True, cwd=repository.root_path,
             ).returncode
             log.info('Added project git config to repository config!')
@@ -251,7 +251,7 @@ class Setup(Command):
         if code:
             return result
 
-        username, _ = rmt.credentials(required=True, validate=True)
+        username, _ = rmt.credentials(required=True, validate=True, save_in_keyring=True)
         log.info("Adding forked remote as '{}' and 'fork'...".format(username))
         url = repository.url()
 
@@ -302,8 +302,26 @@ class Setup(Command):
     @classmethod
     def main(cls, args, repository, **kwargs):
         if isinstance(repository, local.Git):
+            if 'true' != repository.config().get('webkitscmpy.setup', ''):
+                info_url = 'https://github.com/WebKit/WebKit/wiki/Git-Config#Configuration-Options'
+                print('For detailed information about the options configured by this script, please see:\n{}'.format(info_url))
+                if not args.defaults and Terminal.choose("Would you like to open this URL in your browser?", default='Yes') == 'Yes':
+                    if not Terminal.open_url(info_url):
+                        sys.stderr.write("Failed to open '{}' in the browser, continuing\n".format(info_url))
+                print('\n')
+
             result = cls.git(args, repository, **kwargs)
-            print('Setup failed' if result else 'Setup succeeded!')
+
+            if result:
+                print('Setup failed')
+            else:
+                print('Setup succeeded!')
+                run(
+                    [local.Git.executable(), 'config', 'webkitscmpy.setup', 'true'],
+                    capture_output=True,
+                    cwd=repository.root_path,
+                )
+
             return result
 
         if isinstance(repository, remote.GitHub):

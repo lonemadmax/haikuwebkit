@@ -67,6 +67,7 @@
 #import <WebCore/HistoryController.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/IOSurface.h>
+#import <WebCore/ImageDecoderCG.h>
 #import <WebCore/LocalizedDeviceModel.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/LogInitialization.h>
@@ -168,15 +169,6 @@
 // FIXME: This is only for binary compatibility with versions of UIKit in macOS 11 that are missing the change in <rdar://problem/68524148>.
 SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, UIKit, _UIApplicationCatalystRequestViewServiceIdiomAndScaleFactor, void, (UIUserInterfaceIdiom idiom, CGFloat scaleFactor), (idiom, scaleFactor))
-#endif
-
-SOFT_LINK_FRAMEWORK(CoreServices)
-SOFT_LINK_CLASS(CoreServices, _LSDService)
-SOFT_LINK_CLASS(CoreServices, _LSDOpenService)
-
-#if HAVE(CMPHOTO_TILE_DECODER_AVAILABLE)
-SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(CMPhoto)
-SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, CMPhoto, CMPhotoIsTileDecoderAvailable, Boolean, (CMVideoCodecType decoder), (decoder))
 #endif
 
 #define RELEASE_LOG_SESSION_ID (m_sessionID ? m_sessionID->toUInt64() : 0)
@@ -298,11 +290,14 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC)
-    SandboxExtension::consumePermanently(parameters.videoDecoderExtensionHandles);
-#elif USE(APPLE_INTERNAL_SDK)
-    if (parameters.restrictImageAndVideoDecoders)
-        restrictImageAndVideoDecoders();
+    SandboxExtension::consumePermanently(parameters.trustdExtensionHandle);
 #endif // PLATFORM(MAC)
+#if USE(APPLE_INTERNAL_SDK)
+    if (parameters.restrictImageAndVideoDecoders) {
+        ImageDecoderCG::enableRestrictedDecoding();
+        restrictImageAndVideoDecoders();
+    }
+#endif
 #endif // HAVE(VIDEO_RESTRICTED_DECODING)
 
     // Disable NSURLCache.
@@ -1156,12 +1151,6 @@ void WebProcess::handlePreferenceChange(const String& domain, const String& key,
 void WebProcess::notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue)
 {
     preferenceDidUpdate(domain, key, encodedValue);
-}
-
-void WebProcess::unblockPreferenceService(Vector<SandboxExtension::Handle>&& handleArray)
-{
-    SandboxExtension::consumePermanently(handleArray);
-    _CFPrefsSetDirectModeEnabled(false);
 }
 #endif
 

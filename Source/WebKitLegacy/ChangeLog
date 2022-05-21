@@ -1,3 +1,87 @@
+2022-03-08  Chris Dumez  <cdumez@apple.com>
+
+        Optimize further the passing of data across threads
+        https://bugs.webkit.org/show_bug.cgi?id=237568
+
+        Reviewed by Geoffrey Garen.
+
+        Optimize further the passing of data across threads by leveraging more broadly the optimized
+        versions of isolatedCopy() on r-value references.
+
+        * Storage/InProcessIDBServer.cpp:
+        (InProcessIDBServer::didGetAllDatabaseNamesAndVersions):
+        * Storage/InProcessIDBServer.h:
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::deleteOrigin):
+
+2022-03-08  Sihui Liu  <sihui_liu@apple.com>
+
+        Disable CFURLCache in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=237575
+
+        Reviewed by Geoffrey Garen.
+
+        * WebCoreSupport/NetworkStorageSessionMap.cpp:
+        (NetworkStorageSessionMap::ensureSession):
+
+2022-03-07  Chris Dumez  <cdumez@apple.com>
+
+        Optimize the passing of data across threads
+        https://bugs.webkit.org/show_bug.cgi?id=237502
+
+        Reviewed by Geoff Garen.
+
+        Add more isolatedCopy() overloads that work on r-value references when the implementation
+        can be optimized. Also call isolatedCopy() / crossThreadCopy() on a r-value reference
+        whenever possible to leverage these optimizations.
+
+        * Storage/InProcessIDBServer.cpp:
+        (InProcessIDBServer::didGetAllDatabaseNamesAndVersions):
+
+2022-03-02  Michael Saboff  <msaboff@apple.com>
+
+        Copy WebKit frameworks and XPC processes to Secondary Path
+        https://bugs.webkit.org/show_bug.cgi?id=237394
+
+        Reviewed by Saam Barati.
+
+        Added build configuration variables and scripts to copy the built Framework to the SYSTEM_SECONDARY_CONTENT_PATH
+        when it is set.
+
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        * scripts/copy-frameworks-to-secondary-path.sh: Added.
+
+2022-03-01  Alex Christensen  <achristensen@webkit.org>
+
+        [AppleWin] Start using Visual Studio 2022
+        https://bugs.webkit.org/show_bug.cgi?id=234933
+
+        Reviewed by Maciej Stachowiak.
+
+        * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+
+2022-02-22  Chris Dumez  <cdumez@apple.com>
+
+        Avoid having to iterate the whole frame tree(s) every time we need to dispatch storage events
+        https://bugs.webkit.org/show_bug.cgi?id=236985
+
+        Reviewed by Darin Adler.
+
+        Avoid having to iterate the whole frame tree(s) every time we need to dispatch storage events,
+        by keeping track of window objects interested in storage events. A Window object is interested
+        in storage events if both of the following conditions is true:
+        1. It has a Storage object (either localStorage or sessionStorage)
+        2. It has a storage event listener registered.
+
+        This patch also refactors the code so that we share more logic between WebKit1 and WebKit2.
+
+        * Storage/StorageAreaImpl.cpp:
+        (WebKit::StorageAreaImpl::setItem):
+        (WebKit::StorageAreaImpl::removeItem):
+        (WebKit::StorageAreaImpl::clear):
+        (WebKit::StorageAreaImpl::dispatchStorageEvent):
+        * Storage/StorageAreaImpl.h:
+
 2022-02-19  Chris Dumez  <cdumez@apple.com>
 
         Optimize DOM storage event dispatch

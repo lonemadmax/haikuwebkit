@@ -320,6 +320,8 @@ public:
 
     static String updateSecurityDiscCharacters(const RenderStyle&, String&&);
 
+    virtual bool hasLineIfEmpty() const;
+
 protected:
     RenderFragmentedFlow* locateEnclosingFragmentedFlow() const override;
     void willBeDestroyed() override;
@@ -369,8 +371,6 @@ protected:
     void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
-    virtual bool hasLineIfEmpty() const;
-    
     virtual bool canPerformSimplifiedLayout() const;
     bool simplifiedLayout();
     virtual void simplifiedNormalFlowLayout();
@@ -383,9 +383,6 @@ public:
     
     // Adjust from painting offsets to the local coords of this renderer
     void offsetForContents(LayoutPoint&) const;
-    // Obtains the nearest enclosing block (including this block) that contributes a first-line style to our inline
-    // children.
-    RenderBlock* firstLineBlock() const override;
 
     enum FieldsetFindLegendOption { FieldsetIgnoreFloatingOrOutOfFlow, FieldsetIncludeFloatingOrOutOfFlow };
     RenderBox* findFieldsetLegend(FieldsetFindLegendOption = FieldsetIgnoreFloatingOrOutOfFlow) const;

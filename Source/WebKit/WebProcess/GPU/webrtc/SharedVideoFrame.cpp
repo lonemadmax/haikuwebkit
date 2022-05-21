@@ -29,8 +29,21 @@
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA) && ENABLE(VIDEO)
 
 #include "Logging.h"
+#include "RemoteVideoFrameObjectHeap.h"
+#include "RemoteVideoFrameProxy.h"
+#include <WebCore/CVUtilities.h>
+#include <WebCore/IOSurface.h>
+#include <WebCore/MediaSampleAVFObjC.h>
 #include <WebCore/SharedVideoFrameInfo.h>
+#include <WebCore/VideoFrameLibWebRTC.h>
 #include <wtf/Scope.h>
+
+#if USE(LIBWEBRTC)
+#include <webrtc/sdk/WebKit/WebKitUtilities.h>
+#endif
+
+#include <pal/cf/CoreMediaSoftLink.h>
+#include <WebCore/CoreVideoSoftLink.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -80,23 +93,67 @@ bool SharedVideoFrameWriter::prepareWriting(const SharedVideoFrameInfo& info, co
     return true;
 }
 
-bool SharedVideoFrameWriter::write(CVPixelBufferRef pixelBuffer, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
+std::optional<SharedVideoFrame> SharedVideoFrameWriter::write(MediaSample& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
 {
+    auto buffer = writeBuffer(frame, newSemaphoreCallback, newMemoryCallback);
+    if (!buffer)
+        return { };
+    return SharedVideoFrame { frame.presentationTime(), frame.videoMirrored(), frame.videoRotation(), WTFMove(*buffer) };
+}
+
+std::optional<SharedVideoFrame::Buffer> SharedVideoFrameWriter::writeBuffer(MediaSample& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
+{
+    if (is<RemoteVideoFrameProxy>(frame))
+        return downcast<RemoteVideoFrameProxy>(frame).newReadReference();
+
+#if USE(LIBWEBRTC)
+    if (is<VideoFrameLibWebRTC>(frame))
+        return writeBuffer(*downcast<VideoFrameLibWebRTC>(frame).buffer(), newSemaphoreCallback, newMemoryCallback);
+#endif
+
+    return writeBuffer(frame.pixelBuffer(), newSemaphoreCallback, newMemoryCallback);
+}
+
+std::optional<SharedVideoFrame::Buffer> SharedVideoFrameWriter::writeBuffer(CVPixelBufferRef pixelBuffer, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback, bool canUseIOSurface)
+{
+    if (!pixelBuffer)
+        return { };
+
+    if (canUseIOSurface) {
+        if (auto surface = CVPixelBufferGetIOSurface(pixelBuffer))
+            return MachSendRight::adopt(IOSurfaceCreateMachPort(surface));
+    }
+
     auto info = SharedVideoFrameInfo::fromCVPixelBuffer(pixelBuffer);
     if (!prepareWriting(info, newSemaphoreCallback, newMemoryCallback))
-        return false;
+        return { };
 
-    return info.writePixelBuffer(pixelBuffer, static_cast<uint8_t*>(m_storage->data()));
+    if (!info.writePixelBuffer(pixelBuffer, static_cast<uint8_t*>(m_storage->data())))
+        return { };
+    return nullptr;
 }
 
 #if USE(LIBWEBRTC)
-bool SharedVideoFrameWriter::write(const webrtc::VideoFrame& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
+std::optional<SharedVideoFrame::Buffer> SharedVideoFrameWriter::writeBuffer(const webrtc::VideoFrame& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
 {
-    auto info = SharedVideoFrameInfo::fromVideoFrame(frame);
-    if (!prepareWriting(info, newSemaphoreCallback, newMemoryCallback))
-        return false;
+    if (auto* provider = webrtc::videoFrameBufferProvider(frame))
+        return writeBuffer(*static_cast<VideoFrame*>(provider), newSemaphoreCallback, newMemoryCallback);
 
-    return info.writeVideoFrame(frame, static_cast<uint8_t*>(m_storage->data()));
+    if (auto pixelBuffer = adoptCF(webrtc::pixelBufferFromFrame(frame)))
+        return writeBuffer(pixelBuffer.get(), newSemaphoreCallback, newMemoryCallback);
+
+    return writeBuffer(*frame.video_frame_buffer(), newSemaphoreCallback, newMemoryCallback);
+}
+
+std::optional<SharedVideoFrame::Buffer> SharedVideoFrameWriter::writeBuffer(webrtc::VideoFrameBuffer& frameBuffer, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
+{
+    auto info = SharedVideoFrameInfo::fromVideoFrameBuffer(frameBuffer);
+    if (!prepareWriting(info, newSemaphoreCallback, newMemoryCallback))
+        return { };
+
+    if (!info.writeVideoFrameBuffer(frameBuffer, static_cast<uint8_t*>(m_storage->data())))
+        return { };
+    return nullptr;
 }
 #endif
 
@@ -106,7 +163,16 @@ void SharedVideoFrameWriter::disable()
     m_semaphore->signal();
 }
 
-RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::read()
+SharedVideoFrameReader::SharedVideoFrameReader(RefPtr<RemoteVideoFrameObjectHeap>&& objectHeap, const ProcessIdentity& resourceOwner, UseIOSurfaceBufferPool useIOSurfaceBufferPool)
+    : m_objectHeap(WTFMove(objectHeap))
+    , m_resourceOwner(resourceOwner)
+    , m_useIOSurfaceBufferPool(useIOSurfaceBufferPool)
+{
+}
+
+SharedVideoFrameReader::SharedVideoFrameReader() = default;
+
+RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBufferFromSharedMemory()
 {
     if (!m_storage)
         return { };
@@ -126,7 +192,50 @@ RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::read()
     if (m_storage->size() < info->storageSize())
         return { };
 
-    return info->createPixelBufferFromMemory(data + SharedVideoFrameInfoEncodingLength, pixelBufferPool(*info));
+    auto result = info->createPixelBufferFromMemory(data + SharedVideoFrameInfoEncodingLength, pixelBufferPool(*info));
+    if (result && m_resourceOwner && m_useIOSurfaceBufferPool == UseIOSurfaceBufferPool::Yes)
+        setOwnershipIdentityForCVPixelBuffer(result.get(), m_resourceOwner);
+    return result;
+}
+
+RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBuffer(SharedVideoFrame::Buffer&& buffer)
+{
+    return switchOn(WTFMove(buffer),
+    [this](RemoteVideoFrameReadReference&& reference) -> RetainPtr<CVPixelBufferRef> {
+        ASSERT(m_objectHeap);
+        if (!m_objectHeap)
+            return nullptr;
+
+        auto sample = m_objectHeap->get(WTFMove(reference));
+        if (!sample)
+            return nullptr;
+        ASSERT(sample->pixelBuffer());
+        return sample->pixelBuffer();
+    } , [](MachSendRight&& sendRight) -> RetainPtr<CVPixelBufferRef> {
+        auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(sendRight), DestinationColorSpace::SRGB());
+        if (!surface)
+            return nullptr;
+        return WebCore::createCVPixelBuffer(surface->surface()).value_or(nullptr);
+    }, [this](std::nullptr_t representation) -> RetainPtr<CVPixelBufferRef> {
+        return readBufferFromSharedMemory();
+    }, [this](IntSize size) -> RetainPtr<CVPixelBufferRef> {
+        if (m_blackFrameSize != size) {
+            m_blackFrameSize = size;
+            m_blackFrame = WebCore::createBlackPixelBuffer(m_blackFrameSize.width(), m_blackFrameSize.height(), m_useIOSurfaceBufferPool == UseIOSurfaceBufferPool::Yes);
+            if (m_resourceOwner && m_useIOSurfaceBufferPool == UseIOSurfaceBufferPool::Yes)
+                setOwnershipIdentityForCVPixelBuffer(m_blackFrame.get(), m_resourceOwner);
+        }
+        return m_blackFrame.get();
+    });
+}
+
+RefPtr<MediaSample> SharedVideoFrameReader::read(SharedVideoFrame&& sharedVideoFrame)
+{
+    auto pixelBuffer = readBuffer(WTFMove(sharedVideoFrame.buffer));
+    if (!pixelBuffer)
+        return nullptr;
+
+    return MediaSampleAVFObjC::createFromPixelBuffer(WTFMove(pixelBuffer), sharedVideoFrame.rotation, sharedVideoFrame.mirrored, sharedVideoFrame.time);
 }
 
 CVPixelBufferPoolRef SharedVideoFrameReader::pixelBufferPool(const SharedVideoFrameInfo& info)

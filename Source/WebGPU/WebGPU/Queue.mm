@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,13 @@
 
 #import "Buffer.h"
 #import "CommandBuffer.h"
-#import "WebGPUExt.h"
 
 namespace WebGPU {
 
-Queue::Queue() = default;
+Queue::Queue(id<MTLCommandQueue> commandQueue)
+    : m_commandQueue(commandQueue)
+{
+}
 
 Queue::~Queue() = default;
 
@@ -55,7 +57,7 @@ void Queue::writeBuffer(const Buffer& buffer, uint64_t bufferOffset, const void*
     UNUSED_PARAM(size);
 }
 
-void Queue::writeTexture(const WGPUImageCopyTexture* destination, const void* data, size_t dataSize, const WGPUTextureDataLayout* dataLayout, const WGPUExtent3D* writeSize)
+void Queue::writeTexture(const WGPUImageCopyTexture& destination, const void* data, size_t dataSize, const WGPUTextureDataLayout& dataLayout, const WGPUExtent3D& writeSize)
 {
     UNUSED_PARAM(destination);
     UNUSED_PARAM(data);
@@ -66,7 +68,7 @@ void Queue::writeTexture(const WGPUImageCopyTexture* destination, const void* da
 
 void Queue::setLabel(const char* label)
 {
-    UNUSED_PARAM(label);
+    m_commandQueue.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
 }
 
 } // namespace WebGPU
@@ -80,6 +82,13 @@ void wgpuQueueOnSubmittedWorkDone(WGPUQueue queue, uint64_t signalValue, WGPUQue
 {
     queue->queue->onSubmittedWorkDone(signalValue, [callback, userdata] (WGPUQueueWorkDoneStatus status) {
         callback(status, userdata);
+    });
+}
+
+void wgpuQueueOnSubmittedWorkDoneWithBlock(WGPUQueue queue, uint64_t signalValue, WGPUQueueWorkDoneBlockCallback callback)
+{
+    queue->queue->onSubmittedWorkDone(signalValue, [callback] (WGPUQueueWorkDoneStatus status) {
+        callback(status);
     });
 }
 
@@ -98,11 +107,10 @@ void wgpuQueueWriteBuffer(WGPUQueue queue, WGPUBuffer buffer, uint64_t bufferOff
 
 void wgpuQueueWriteTexture(WGPUQueue queue, const WGPUImageCopyTexture* destination, const void* data, size_t dataSize, const WGPUTextureDataLayout* dataLayout, const WGPUExtent3D* writeSize)
 {
-    queue->queue->writeTexture(destination, data, dataSize, dataLayout, writeSize);
+    queue->queue->writeTexture(*destination, data, dataSize, *dataLayout, *writeSize);
 }
 
 void wgpuQueueSetLabel(WGPUQueue queue, const char* label)
 {
     queue->queue->setLabel(label);
 }
-

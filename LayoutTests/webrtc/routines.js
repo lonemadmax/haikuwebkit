@@ -150,9 +150,16 @@ function waitFor(duration)
     return new Promise((resolve) => setTimeout(resolve, duration));
 }
 
-function waitForVideoSize(video, width, height, count)
+async function waitForVideoSize(video, width, height, count)
 {
-    if (video.videoWidth === width && video.videoHeight === height)
+    if (video.requestVideoFrameCallback) {
+        const frameMetadata = await new Promise(resolve => video.requestVideoFrameCallback((now, metadata) => {
+            resolve(metadata);
+        }));
+
+        if (frameMetadata.width === width && frameMetadata.height === height)
+            return Promise.resolve("video has expected size");
+    } else if (video.videoWidth === width && video.videoHeight === height)
         return Promise.resolve("video has expected size");
 
     if (count === undefined)
@@ -160,9 +167,8 @@ function waitForVideoSize(video, width, height, count)
     if (++count > 20)
         return Promise.reject("waitForVideoSize timed out, expected " + width + "x"+ height + " but got " + video.videoWidth + "x" + video.videoHeight);
 
-    return waitFor(100).then(() => {
-        return waitForVideoSize(video, width, height, count);
-    });
+    await waitFor(100);
+    return waitForVideoSize(video, width, height, count);
 }
 
 async function doHumAnalysis(stream, expected)
@@ -207,15 +213,15 @@ async function checkVideoBlack(expected, canvas, video, errorMessage, counter)
         return Promise.resolve();
 
     if (counter === undefined)
-        counter = 0;
-    if (counter > 400) {
+        counter = 400;
+    if (counter === 0) {
         if (!errorMessage)
             errorMessage = "checkVideoBlack timed out expecting " + expected;
         return Promise.reject(errorMessage);
     }
 
     await waitFor(50);
-    return checkVideoBlack(expected, canvas, video, errorMessage, ++counter);
+    return checkVideoBlack(expected, canvas, video, errorMessage, --counter);
 }
 
 function setCodec(sdp, codec)

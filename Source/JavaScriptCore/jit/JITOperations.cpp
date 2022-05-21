@@ -125,7 +125,7 @@ static JSValue getWrappedValue(JSGlobalObject* globalObject, JSGlobalObject* tar
         RELEASE_AND_RETURN(scope, value);
 
     if (value.isCallable(vm))
-        RELEASE_AND_RETURN(scope, JSRemoteFunction::create(vm, targetGlobalObject, static_cast<JSObject*>(value.asCell())));
+        RELEASE_AND_RETURN(scope, JSRemoteFunction::tryCreate(targetGlobalObject, vm, static_cast<JSObject*>(value.asCell())));
 
     throwTypeError(globalObject, scope, "value passing between realms must be callable or primitive");
     return jsUndefined();
@@ -140,10 +140,8 @@ JSC_DEFINE_JIT_OPERATION(operationGetWrappedValueForTarget, EncodedJSValue, (JSR
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
     ASSERT(isRemoteFunction(vm, callee));
 
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
     JSGlobalObject* targetGlobalObject = callee->targetFunction()->globalObject();
-    RELEASE_AND_RETURN(scope, JSValue::encode(getWrappedValue(globalObject, targetGlobalObject, JSValue::decode(encodedValue))));
+    return JSValue::encode(getWrappedValue(globalObject, targetGlobalObject, JSValue::decode(encodedValue)));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationGetWrappedValueForCaller, EncodedJSValue, (JSRemoteFunction* callee, EncodedJSValue encodedValue))
@@ -2827,7 +2825,7 @@ JSC_DEFINE_JIT_OPERATION(operationSwitchStringWithUnknownKeyType, char*, (JSGlob
     return reinterpret_cast<char*>(result);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationResolveScopeForBaseline, EncodedJSValue, (JSGlobalObject* globalObject, const Instruction* pc))
+JSC_DEFINE_JIT_OPERATION(operationResolveScopeForBaseline, EncodedJSValue, (JSGlobalObject* globalObject, const JSInstruction* pc))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
@@ -2879,7 +2877,7 @@ JSC_DEFINE_JIT_OPERATION(operationResolveScopeForBaseline, EncodedJSValue, (JSGl
     return JSValue::encode(resolvedScope);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationGetFromScope, EncodedJSValue, (JSGlobalObject* globalObject, const Instruction* pc))
+JSC_DEFINE_JIT_OPERATION(operationGetFromScope, EncodedJSValue, (JSGlobalObject* globalObject, const JSInstruction* pc))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
@@ -2921,7 +2919,7 @@ JSC_DEFINE_JIT_OPERATION(operationGetFromScope, EncodedJSValue, (JSGlobalObject*
     })));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationPutToScope, void, (JSGlobalObject* globalObject, const Instruction* pc))
+JSC_DEFINE_JIT_OPERATION(operationPutToScope, void, (JSGlobalObject* globalObject, const JSInstruction* pc))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);

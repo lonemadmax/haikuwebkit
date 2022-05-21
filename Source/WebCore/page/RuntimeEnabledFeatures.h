@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -162,13 +162,6 @@ public:
     void setReadableByteStreamAPIEnabled(bool isEnabled) { m_isReadableByteStreamAPIEnabled = isEnabled; }
     bool readableByteStreamAPIEnabled() const { return m_isReadableByteStreamAPIEnabled; }
 
-#if ENABLE(SERVICE_WORKER)
-    bool pushAPIEnabled() const { return m_pushAPIEnabled; }
-    void setPushAPIEnabled(bool isEnabled) { m_pushAPIEnabled = isEnabled; }
-    bool serviceWorkerEnabled() const { return m_serviceWorkerEnabled; }
-    void setServiceWorkerEnabled(bool isEnabled) { m_serviceWorkerEnabled = isEnabled; }
-#endif
-
     void setCSSDisplayContentsAXSupportEnabled(bool isEnabled) { m_CSSDisplayContentsAXSupportEnabled = isEnabled; }
     bool cssDisplayContentsAXSupportEnabled() const { return m_CSSDisplayContentsAXSupportEnabled; }
 
@@ -207,7 +200,10 @@ public:
     void setIsAccessibilityIsolatedTreeEnabled(bool isEnabled) { m_accessibilityIsolatedTree = isEnabled; }
     bool isAccessibilityIsolatedTreeEnabled() const { return m_accessibilityIsolatedTree; }
 #endif
-    
+
+    void setArePDFImagesEnabled(bool isEnabled) { m_arePDFImagesEnabled = isEnabled; }
+    bool arePDFImagesEnabled() const { return m_arePDFImagesEnabled; }
+
 #if HAVE(INCREMENTAL_PDF_APIS)
     void setIncrementalPDFLoadingEnabled(bool isEnabled) { m_incrementalPDFLoadingEnabled = isEnabled; }
     bool incrementalPDFLoadingEnabled() const { return m_incrementalPDFLoadingEnabled; }
@@ -246,6 +242,11 @@ public:
 #if ENABLE(MEDIA_SOURCE) && (HAVE(AVSAMPLEBUFFERVIDEOOUTPUT) || USE(GSTREAMER))
     WEBCORE_EXPORT void setMediaSourceInlinePaintingEnabled(bool);
     bool mediaSourceInlinePaintingEnabled() const { return m_mediaSourceInlinePaintingEnabled; }
+#endif
+
+#if HAVE(AVCONTENTKEYSPECIFIER)
+    WEBCORE_EXPORT void setSampleBufferContentKeySessionSupportEnabled(bool);
+    bool sampleBufferContentKeySessionSupportEnabled() const { return m_sampleBufferContentKeySessionSupportEnabled; }
 #endif
 
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
@@ -332,11 +333,6 @@ private:
 
     bool m_isReadableByteStreamAPIEnabled { false };
 
-#if ENABLE(SERVICE_WORKER)
-    bool m_pushAPIEnabled { false };
-    bool m_serviceWorkerEnabled { false };
-#endif
-
     bool m_CSSDisplayContentsAXSupportEnabled { false };
     bool m_CSSLogicalEnabled { false };
 
@@ -365,6 +361,8 @@ private:
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     bool m_accessibilityIsolatedTree { false };
 #endif
+
+    bool m_arePDFImagesEnabled { true };
 
 #if HAVE(INCREMENTAL_PDF_APIS)
     bool m_incrementalPDFLoadingEnabled { false };
@@ -396,6 +394,10 @@ private:
 
 #if ENABLE(MEDIA_SOURCE) && (HAVE(AVSAMPLEBUFFERVIDEOOUTPUT) || USE(GSTREAMER))
     bool m_mediaSourceInlinePaintingEnabled { false };
+#endif
+
+#if HAVE(AVCONTENTKEYSPECIFIER)
+    bool m_sampleBufferContentKeySessionSupportEnabled { false };
 #endif
 
 #if ENABLE(BUILT_IN_NOTIFICATIONS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,11 +30,13 @@
 #import "Buffer.h"
 #import "ComputePipeline.h"
 #import "QuerySet.h"
-#import "WebGPUExt.h"
 
 namespace WebGPU {
 
-ComputePassEncoder::ComputePassEncoder() = default;
+ComputePassEncoder::ComputePassEncoder(id<MTLComputeCommandEncoder> computeCommandEncoder)
+    : m_computeCommandEncoder(computeCommandEncoder)
+{
+}
 
 ComputePassEncoder::~ComputePassEncoder() = default;
 
@@ -94,7 +96,7 @@ void ComputePassEncoder::setPipeline(const ComputePipeline& pipeline)
 
 void ComputePassEncoder::setLabel(const char* label)
 {
-    UNUSED_PARAM(label);
+    m_computeCommandEncoder.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
 }
 
 } // namespace WebGPU

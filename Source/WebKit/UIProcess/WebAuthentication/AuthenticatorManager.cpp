@@ -198,7 +198,7 @@ void AuthenticatorManager::cancelRequest(const PageIdentifier& pageID, const std
 {
     if (!m_pendingCompletionHandler)
         return;
-    if (auto pendingFrameID = m_pendingRequestData.frameID) {
+    if (auto pendingFrameID = m_pendingRequestData.globalFrameID) {
         if (pendingFrameID->pageID != pageID)
             return;
         if (frameID && frameID != pendingFrameID->frameID)
@@ -416,11 +416,11 @@ void AuthenticatorManager::startDiscovery(const TransportSet& transports)
 {
     ASSERT(RunLoop::isMain());
     ASSERT(m_services.isEmpty() && transports.size() <= maxTransportNumber);
-    for (auto& transport : transports) {
+    m_services = WTF::map(transports, [this](auto& transport) {
         auto service = createService(transport, *this);
         service->startDiscovery();
-        m_services.append(WTFMove(service));
-    }
+        return service;
+    });
 }
 
 void AuthenticatorManager::initTimeOutTimer()
@@ -447,8 +447,8 @@ void AuthenticatorManager::runPanel()
     auto* page = m_pendingRequestData.page.get();
     if (!page)
         return;
-    ASSERT(m_pendingRequestData.frameID && page->webPageID() == m_pendingRequestData.frameID->pageID);
-    auto* frame = page->process().webFrame(m_pendingRequestData.frameID->frameID);
+    ASSERT(m_pendingRequestData.globalFrameID && page->webPageID() == m_pendingRequestData.globalFrameID->pageID);
+    auto* frame = page->process().webFrame(m_pendingRequestData.globalFrameID->frameID);
     if (!frame)
         return;
 

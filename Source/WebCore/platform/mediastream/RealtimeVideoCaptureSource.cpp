@@ -31,30 +31,17 @@
 #include "Logging.h"
 #include "RealtimeMediaSourceCenter.h"
 #include "RealtimeMediaSourceSettings.h"
-#include "RemoteVideoSample.h"
 #include <wtf/JSONValues.h>
 
 namespace WebCore {
 
-RealtimeVideoCaptureSource::RealtimeVideoCaptureSource(String&& name, String&& id, String&& hashSalt)
-    : RealtimeMediaSource(Type::Video, WTFMove(name), WTFMove(id), WTFMove(hashSalt))
+RealtimeVideoCaptureSource::RealtimeVideoCaptureSource(String&& name, String&& id, String&& hashSalt, PageIdentifier pageIdentifier)
+    : RealtimeMediaSource(Type::Video, WTFMove(name), WTFMove(id), WTFMove(hashSalt), pageIdentifier)
 {
 }
 
 RealtimeVideoCaptureSource::~RealtimeVideoCaptureSource()
 {
-#if PLATFORM(IOS_FAMILY)
-    RealtimeMediaSourceCenter::singleton().videoCaptureFactory().unsetActiveSource(*this);
-#endif
-}
-
-void RealtimeVideoCaptureSource::prepareToProduceData()
-{
-    ASSERT(frameRate());
-
-#if PLATFORM(IOS_FAMILY)
-    RealtimeMediaSourceCenter::singleton().videoCaptureFactory().setActiveSource(*this);
-#endif
 }
 
 const Vector<Ref<VideoPreset>>& RealtimeVideoCaptureSource::presets()
@@ -75,11 +62,9 @@ Vector<VideoPresetData> RealtimeVideoCaptureSource::presetsData()
 
 void RealtimeVideoCaptureSource::setSupportedPresets(Vector<VideoPresetData>&& presetData)
 {
-    Vector<Ref<VideoPreset>> presets;
-
-    for (auto& data : presetData)
-        presets.append(VideoPreset::create(WTFMove(data)));
-
+    auto presets = WTF::map(WTFMove(presetData), [](auto&& data) {
+        return VideoPreset::create(WTFMove(data));
+    });
     setSupportedPresets(WTFMove(presets));
 }
 
@@ -372,6 +357,7 @@ void RealtimeVideoCaptureSource::setSizeAndFrameRate(std::optional<int> width, s
             return;
     }
 
+    m_currentPreset = match->encodingPreset;
     setFrameRateWithPreset(match->requestedFrameRate, match->encodingPreset);
 
     if (!match->requestedSize.isEmpty())
@@ -415,6 +401,7 @@ void RealtimeVideoCaptureSource::clientUpdatedSizeAndFrameRate(std::optional<int
     if (!match)
         return;
 
+    m_currentPreset = match->encodingPreset;
     setFrameRateWithPreset(match->requestedFrameRate, match->encodingPreset);
     setSize(match->encodingPreset->size);
     setFrameRate(match->requestedFrameRate);

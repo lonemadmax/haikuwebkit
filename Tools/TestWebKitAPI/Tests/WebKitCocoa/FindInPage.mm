@@ -329,6 +329,30 @@ TEST(WebKit, FindTextInImageOverlay)
 
 #if HAVE(UIFINDINTERACTION)
 
+@interface TestScrollViewDelegate : NSObject<UIScrollViewDelegate>  {
+    @public bool _finishedScrolling;
+}
+@end
+
+@implementation TestScrollViewDelegate
+
+- (instancetype)init
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _finishedScrolling = false;
+
+    return self;
+}
+
+- (void)scrollViewDidEndScrollingAnimation:(UIScrollView *)scrollView
+{
+    _finishedScrolling = true;
+}
+
+@end
+
 @interface TestTextSearchOptions : NSObject
 @property (nonatomic) _UITextSearchMatchMethod wordMatchMethod;
 @property (nonatomic) NSStringCompareOptions stringCompareOptions;
@@ -340,14 +364,14 @@ TEST(WebKit, FindTextInImageOverlay)
 @interface TestSearchAggregator : NSObject <_UITextSearchAggregator>
 
 @property (readonly) NSUInteger count;
-@property (nonatomic, readonly) NSArray<UITextRange *> *foundRanges;
+@property (nonatomic, readonly) NSOrderedSet<UITextRange *> *allFoundRanges;
 
 - (instancetype)initWithCompletionHandler:(dispatch_block_t)completionHandler;
 
 @end
 
 @implementation TestSearchAggregator {
-    RetainPtr<NSMutableArray<UITextRange *>> _foundRanges;
+    RetainPtr<NSMutableOrderedSet<UITextRange *>> _foundRanges;
     BlockPtr<void()> _completionHandler;
 }
 
@@ -356,7 +380,7 @@ TEST(WebKit, FindTextInImageOverlay)
     if (!(self = [super init]))
         return nil;
 
-    _foundRanges = adoptNS([[NSMutableArray alloc] init]);
+    _foundRanges = adoptNS([[NSMutableOrderedSet alloc] init]);
     _completionHandler = makeBlockPtr(completionHandler);
 
     return self;
@@ -373,9 +397,19 @@ TEST(WebKit, FindTextInImageOverlay)
         _completionHandler();
 }
 
-- (NSArray<UITextRange *>*)foundRanges
+- (NSOrderedSet<UITextRange *> *)allFoundRanges
 {
     return _foundRanges.get();
+}
+
+- (void)invalidateFoundRange:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document
+{
+    [_foundRanges removeObject:range];
+}
+
+- (void)invalidate
+{
+    [_foundRanges removeAllObjects];
 }
 
 - (NSUInteger)count
@@ -400,7 +434,7 @@ static void testPerformTextSearchWithQueryStringInWebView(WKWebView *webView, NS
     EXPECT_EQ([aggregator count], expectedMatches);
 }
 
-static RetainPtr<NSArray<UITextRange *>> textRangesForQueryString(WKWebView *webView, NSString *query)
+static RetainPtr<NSOrderedSet<UITextRange *>> textRangesForQueryString(WKWebView *webView, NSString *query)
 {
     __block bool finishedSearching = false;
     auto aggregator = adoptNS([[TestSearchAggregator alloc] initWithCompletionHandler:^{
@@ -413,7 +447,7 @@ static RetainPtr<NSArray<UITextRange *>> textRangesForQueryString(WKWebView *web
 
     TestWebKitAPI::Util::run(&finishedSearching);
 
-    return adoptNS([[aggregator foundRanges] copy]);
+    return adoptNS([[aggregator allFoundRanges] copy]);
 }
 
 TEST(WebKit, FindInPage)
@@ -480,6 +514,32 @@ TEST(WebKit, FindInPageFullWord)
     testPerformTextSearchWithQueryStringInWebView(webView.get(), @"Birth", searchOptions.get(), 0UL);
 }
 
+TEST(WebKit, FindAndReplace)
+{
+    NSString *originalContent = @"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+    NSString *searchString = @"dolor";
+    NSString *replacementString = @"colour";
+    NSString *replacedContent = [originalContent stringByReplacingOccurrencesOfString:searchString withString:replacementString];
+
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    [webView _setFindInteractionEnabled:YES];
+    [webView synchronouslyLoadHTMLString:[NSString stringWithFormat:@"<p>%@</p>", originalContent]];
+
+    auto ranges = textRangesForQueryString(webView.get(), searchString);
+
+    [webView _setEditable:NO];
+    for (UITextRange *range in [ranges reverseObjectEnumerator])
+        [[[webView _findInteraction] searchableObject] replaceFoundTextInRange:range inDocument:nil withText:replacementString];
+
+    EXPECT_WK_STREQ(originalContent, [webView stringByEvaluatingJavaScript:@"document.body.innerText"]);
+
+    [webView _setEditable:YES];
+    for (UITextRange *range in [ranges reverseObjectEnumerator])
+        [[[webView _findInteraction] searchableObject] replaceFoundTextInRange:range inDocument:nil withText:replacementString];
+
+    EXPECT_WK_STREQ(replacedContent, [webView stringByEvaluatingJavaScript:@"document.body.innerText"]);
+}
+
 TEST(WebKit, FindInteraction)
 {
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 200, 200)]);
@@ -523,6 +583,22 @@ TEST(WebKit, RequestRectForFoundTextRange)
         done = true;
     }];
     TestWebKitAPI::Util::run(&done);
+}
+
+TEST(WebKit, ScrollToFoundRangeWithExistingSelection)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 200, 200)]);
+    [webView synchronouslyLoadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><div contenteditable><p>Top</p><p style='margin-top: 800px'>Bottom</p></div>"];
+    [webView objectByEvaluatingJavaScript:@"let p = document.querySelector('p'); document.getSelection().setBaseAndExtent(p, 0, p, 1)"];
+
+    auto scrollViewDelegate = adoptNS([[TestScrollViewDelegate alloc] init]);
+    [webView scrollView].delegate = scrollViewDelegate.get();
+
+    auto ranges = textRangesForQueryString(webView.get(), @"Bottom");
+    [webView scrollRangeToVisible:[ranges firstObject] inDocument:nil];
+
+    TestWebKitAPI::Util::run(&scrollViewDelegate->_finishedScrolling);
+    EXPECT_TRUE(CGPointEqualToPoint([webView scrollView].contentOffset, CGPointMake(0, 664)));
 }
 
 #endif // HAVE(UIFINDINTERACTION)

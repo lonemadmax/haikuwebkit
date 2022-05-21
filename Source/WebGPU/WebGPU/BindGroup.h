@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
@@ -35,17 +34,25 @@ namespace WebGPU {
 class BindGroup : public RefCounted<BindGroup> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<BindGroup> create()
+    static Ref<BindGroup> create(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer)
     {
-        return adoptRef(*new BindGroup());
+        return adoptRef(*new BindGroup(vertexArgumentBuffer, fragmentArgumentBuffer, computeArgumentBuffer));
     }
 
     ~BindGroup();
 
     void setLabel(const char*);
 
+    id<MTLBuffer> vertexArgumentBuffer() const { return m_vertexArgumentBuffer; }
+    id<MTLBuffer> fragmentArgumentBuffer() const { return m_fragmentArgumentBuffer; }
+    id<MTLBuffer> computeArgumentBuffer() const { return m_computeArgumentBuffer; }
+
 private:
-    BindGroup();
+    BindGroup(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer);
+
+    id<MTLBuffer> m_vertexArgumentBuffer { nil };
+    id<MTLBuffer> m_fragmentArgumentBuffer { nil };
+    id<MTLBuffer> m_computeArgumentBuffer { nil };
 };
 
 } // namespace WebGPU

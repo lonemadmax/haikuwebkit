@@ -49,6 +49,7 @@
 #include "RemoteMediaEngineConfigurationFactory.h"
 #include "RemoteRemoteCommandListener.h"
 #include "RemoteWebLockRegistry.h"
+#include "RemoteWorkerType.h"
 #include "SpeechRecognitionRealtimeMediaSourceManager.h"
 #include "StorageAreaMap.h"
 #include "UserData.h"
@@ -257,6 +258,7 @@ namespace WebKit {
 using namespace JSC;
 using namespace WebCore;
 
+#if !PLATFORM(GTK) && !PLATFORM(WPE)
 NO_RETURN static void callExit(IPC::Connection*)
 {
 #if OS(WINDOWS)
@@ -266,6 +268,7 @@ NO_RETURN static void callExit(IPC::Connection*)
     _exit(EXIT_SUCCESS);
 #endif
 }
+#endif
 
 WebProcess& WebProcess::singleton()
 {
@@ -359,9 +362,13 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 {
     AuxiliaryProcess::initializeConnection(connection);
 
+// Do not call exit in background queue for GTK and WPE because we need to ensure
+// atexit handlers are called in the main thread to cleanup resources like EGL displays.
+#if !PLATFORM(GTK) && !PLATFORM(WPE)
     // We call _exit() directly from the background queue in case the main thread is unresponsive
     // and AuxiliaryProcess::didClose() does not get called.
     connection->setDidCloseOnConnectionWorkQueueCallback(callExit);
+#endif
 
 #if !PLATFORM(GTK) && !PLATFORM(WPE) && !ENABLE(IPC_TESTING_API)
     connection->setShouldExitOnSyncMessageSendFailure(true);
@@ -554,6 +561,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     ScriptExecutionContext::setCrossOriginMode(parameters.crossOriginMode);
     m_isCaptivePortalModeEnabled = parameters.isCaptivePortalModeEnabled;
+    RuntimeEnabledFeatures::sharedFeatures().setArePDFImagesEnabled(!m_isCaptivePortalModeEnabled);
 
 #if ENABLE(SERVICE_CONTROLS)
     setEnabledServices(parameters.hasImageServices, parameters.hasSelectionServices, parameters.hasRichContentServices);
@@ -687,9 +695,9 @@ void WebProcess::prewarmGlobally()
     WebCore::ProcessWarming::prewarmGlobally();
 }
 
-void WebProcess::prewarmWithDomainInformation(const WebCore::PrewarmInformation& prewarmInformation)
+void WebProcess::prewarmWithDomainInformation(WebCore::PrewarmInformation&& prewarmInformation)
 {
-    WebCore::ProcessWarming::prewarmWithInformation(prewarmInformation);
+    WebCore::ProcessWarming::prewarmWithInformation(WTFMove(prewarmInformation));
 }
 
 void WebProcess::registerURLSchemeAsEmptyDocument(const String& urlScheme)
@@ -1452,8 +1460,10 @@ void WebProcess::fetchWebsiteData(OptionSet<WebsiteDataType> websiteDataTypes, C
 {
     WebsiteData websiteData;
     if (websiteDataTypes.contains(WebsiteDataType::MemoryCache)) {
-        for (auto& origin : MemoryCache::singleton().originsWithCache(sessionID()))
-            websiteData.entries.append(WebsiteData::Entry { origin->data(), WebsiteDataType::MemoryCache, 0 });
+        auto origins = MemoryCache::singleton().originsWithCache(sessionID());
+        websiteData.entries = WTF::map(origins, [](auto& origin) {
+            return WebsiteData::Entry { origin->data(), WebsiteDataType::MemoryCache, 0 };
+        });
     }
     completionHandler(WTFMove(websiteData));
 }
@@ -1530,7 +1540,7 @@ void WebProcess::pageActivityStateDidChange(PageIdentifier, OptionSet<WebCore::A
 void WebProcess::prepareToSuspend(bool isSuspensionImminent, CompletionHandler<void()>&& completionHandler)
 {
     WEBPROCESS_RELEASE_LOG(ProcessSuspension, "prepareToSuspend: isSuspensionImminent=%d", isSuspensionImminent);
-    SetForScope<bool> suspensionScope(m_isSuspending, true);
+    SetForScope suspensionScope(m_isSuspending, true);
     m_processIsSuspended = true;
 
     flushResourceLoadStatistics();
@@ -1918,27 +1928,27 @@ LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
     return *m_libWebRTCNetwork;
 }
 
-void WebProcess::establishSharedWorkerContextConnectionToNetworkProcess(PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, RemoteWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
+void WebProcess::establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType workerType, PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, RemoteWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
 {
-    // We are in the Shared Worker context process and the call below establishes our connection to the Network Process
-    // by calling ensureNetworkProcessConnection. SharedWorkerContextManager needs to use the same underlying IPC::Connection as the
+    // We are in the Remote Worker context process and the call below establishes our connection to the Network Process
+    // by calling ensureNetworkProcessConnection. SWContextManager / SharedWorkerContextManager need to use the same underlying IPC::Connection as the
     // NetworkProcessConnection for synchronization purposes.
     auto& ipcConnection = ensureNetworkProcessConnection().connection();
-    SharedWorkerContextManager::singleton().setConnection(makeUnique<WebSharedWorkerContextManagerConnection>(ipcConnection, WTFMove(registrableDomain), pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
-    SharedWorkerContextManager::singleton().connection()->establishConnection(WTFMove(completionHandler));
+    switch (workerType) {
+    case RemoteWorkerType::ServiceWorker:
+#if ENABLE(SERVICE_WORKER)
+        SWContextManager::singleton().setConnection(makeUnique<WebSWContextManagerConnection>(ipcConnection, WTFMove(registrableDomain), serviceWorkerPageIdentifier, pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
+        SWContextManager::singleton().connection()->establishConnection(WTFMove(completionHandler));
+#endif
+        break;
+    case RemoteWorkerType::SharedWorker:
+        SharedWorkerContextManager::singleton().setConnection(makeUnique<WebSharedWorkerContextManagerConnection>(ipcConnection, WTFMove(registrableDomain), pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
+        SharedWorkerContextManager::singleton().connection()->establishConnection(WTFMove(completionHandler));
+        break;
+    }
 }
 
 #if ENABLE(SERVICE_WORKER)
-void WebProcess::establishServiceWorkerContextConnectionToNetworkProcess(PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, RemoteWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
-{
-    // We are in the Service Worker context process and the call below establishes our connection to the Network Process
-    // by calling ensureNetworkProcessConnection. SWContextManager needs to use the same underlying IPC::Connection as the
-    // NetworkProcessConnection for synchronization purposes.
-    auto& ipcConnection = ensureNetworkProcessConnection().connection();
-    SWContextManager::singleton().setConnection(makeUnique<WebSWContextManagerConnection>(ipcConnection, WTFMove(registrableDomain), serviceWorkerPageIdentifier, pageGroupID, webPageProxyID, pageID, store, WTFMove(initializationData)));
-    SWContextManager::singleton().connection()->establishConnection(WTFMove(completionHandler));
-}
-
 void WebProcess::addServiceWorkerRegistration(WebCore::ServiceWorkerRegistrationIdentifier identifier)
 {
     m_swRegistrationCounts.add(identifier);

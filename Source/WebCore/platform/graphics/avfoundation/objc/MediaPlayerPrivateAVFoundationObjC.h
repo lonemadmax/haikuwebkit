@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -269,7 +269,7 @@ private:
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     void keyAdded() final;
-    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient*) final;
+    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient&) final;
 #endif
 
     String languageOfPrimaryAudioTrack() const final;
@@ -348,6 +348,8 @@ private:
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
     std::optional<VideoFrameMetadata> videoFrameMetadata() final { return std::exchange(m_videoFrameMetadata, { }); }
+    void setResourceOwner(const ProcessIdentity& resourceOwner) final { m_resourceOwner = resourceOwner; }
+
     void checkNewVideoFrameMetadata();
 
     std::optional<bool> allTracksArePlayable() const;
@@ -427,7 +429,8 @@ private:
     FloatSize m_cachedPresentationSize;
     MediaTime m_cachedDuration;
     mutable MediaPlayer::CurrentTimeDidChangeCallback m_currentTimeDidChangeCallback;
-    mutable MediaTime m_cachedCurrentMediaTime;
+    mutable MediaTime m_cachedCurrentMediaTime { -1, 1, 0 };
+    mutable MediaTime m_lastPeriodicObserverMediaTime;
     mutable std::optional<WallTime> m_wallClockAtCachedCurrentTime;
     mutable int m_timeControlStatusAtCachedCurrentTime { 0 };
     mutable double m_requestedRateAtCachedCurrentTime { 0 };
@@ -472,6 +475,7 @@ private:
     mutable std::optional<NSTimeInterval> m_cachedLiveUpdateInterval;
     std::unique_ptr<Observer<void()>> m_currentImageChangedObserver;
     std::unique_ptr<Observer<void()>> m_waitForVideoOutputMediaDataWillChangeObserver;
+    ProcessIdentity m_resourceOwner;
 };
 
 }

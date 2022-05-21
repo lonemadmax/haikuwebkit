@@ -28,6 +28,7 @@ NetworkProcess/cocoa/NetworkActivityTrackerCocoa.mm
 NetworkProcess/cocoa/NetworkDataTaskCocoa.mm
 NetworkProcess/cocoa/NetworkProcessCocoa.mm
 NetworkProcess/cocoa/NetworkSessionCocoa.mm
+NetworkProcess/cocoa/WKURLSessionTaskDelegate.mm
 
 NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp
 
@@ -53,7 +54,6 @@ NetworkProcess/ios/NetworkConnectionToWebProcessIOS.mm
 NetworkProcess/ios/NetworkProcessIOS.mm
 
 NetworkProcess/mac/NetworkProcessMac.mm
-NetworkProcess/mac/RemoteNetworkingContext.mm
 
 NetworkProcess/webrtc/LibWebRTCSocketClient.cpp
 NetworkProcess/webrtc/NetworkRTCMonitor.cpp
@@ -84,11 +84,11 @@ Platform/classifier/cocoa/ResourceLoadStatisticsClassifierCocoa.cpp
 Platform/classifier/ResourceLoadStatisticsClassifier.cpp
 
 Platform/cocoa/CocoaImage.mm
+Platform/cocoa/ImageAnalysisUtilities.mm
 Platform/cocoa/LayerHostingContext.mm
 Platform/cocoa/PaymentAuthorizationPresenter.mm
 Platform/cocoa/PaymentAuthorizationViewController.mm
 Platform/cocoa/SharedMemoryCocoa.cpp
-Platform/cocoa/TextRecognitionUtilities.mm
 Platform/cocoa/WKCrashReporter.mm
 Platform/cocoa/WKPaymentAuthorizationDelegate.mm
 Platform/cocoa/WebKitAdditions.mm @no-unify
@@ -279,6 +279,7 @@ UIProcess/API/Cocoa/_WKAutomationSessionConfiguration.mm
 UIProcess/API/Cocoa/_WKContentRuleListAction.mm
 UIProcess/API/Cocoa/_WKContextMenuElementInfo.mm
 UIProcess/API/Cocoa/_WKCustomHeaderFields.mm @no-unify
+UIProcess/API/Cocoa/_WKDataTask.mm
 UIProcess/API/Cocoa/_WKDownload.mm
 UIProcess/API/Cocoa/_WKElementAction.mm
 UIProcess/API/Cocoa/_WKErrorRecoveryAttempting.mm
@@ -423,6 +424,7 @@ UIProcess/Cocoa/SessionStateCoding.mm
 UIProcess/Cocoa/SystemPreviewControllerCocoa.mm
 UIProcess/Cocoa/TextCheckingController.mm
 UIProcess/Cocoa/UIDelegate.mm
+UIProcess/Cocoa/UIProcessLogInitializationCocoa.mm
 UIProcess/Cocoa/UIRemoteObjectRegistry.cpp
 UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp
 UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm
@@ -616,7 +618,6 @@ WebProcess/ApplePay/cocoa/WebPaymentCoordinatorCocoa.mm
 WebProcess/cocoa/PlaybackSessionManager.mm
 WebProcess/cocoa/RemoteCaptureSampleManager.cpp
 WebProcess/cocoa/RemoteRealtimeAudioSource.cpp
-WebProcess/cocoa/RemoteRealtimeDisplaySource.cpp
 WebProcess/cocoa/RemoteRealtimeMediaSourceProxy.cpp
 WebProcess/cocoa/RemoteRealtimeVideoSource.cpp
 WebProcess/cocoa/UserMediaCaptureManager.cpp

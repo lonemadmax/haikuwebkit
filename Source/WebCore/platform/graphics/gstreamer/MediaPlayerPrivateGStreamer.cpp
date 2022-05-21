@@ -288,7 +288,7 @@ void MediaPlayerPrivateGStreamer::registerMediaEngine(MediaEngineRegistrar regis
 
 void MediaPlayerPrivateGStreamer::load(const String& urlString)
 {
-    URL url(URL(), urlString);
+    URL url { urlString };
     if (url.protocolIsAbout()) {
         loadingFailed(MediaPlayer::NetworkState::FormatError, MediaPlayer::ReadyState::HaveNothing, true);
         return;
@@ -921,7 +921,7 @@ void MediaPlayerPrivateGStreamer::setPlaybinURL(const URL& url)
     if (url.isLocalFile())
         cleanURLString = cleanURLString.substring(0, url.pathEnd());
 
-    m_url = URL(URL(), cleanURLString);
+    m_url = URL { cleanURLString };
     GST_INFO_OBJECT(pipeline(), "Load %s", m_url.string().utf8().data());
     g_object_set(m_pipeline.get(), "uri", m_url.string().utf8().data(), nullptr);
 }
@@ -1718,6 +1718,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
             || g_error_matches(err.get(), GST_STREAM_ERROR, GST_STREAM_ERROR_WRONG_TYPE)
             || g_error_matches(err.get(), GST_STREAM_ERROR, GST_STREAM_ERROR_FAILED)
             || g_error_matches(err.get(), GST_CORE_ERROR, GST_CORE_ERROR_MISSING_PLUGIN)
+            || g_error_matches(err.get(), GST_CORE_ERROR, GST_CORE_ERROR_PAD)
             || g_error_matches(err.get(), GST_RESOURCE_ERROR, GST_RESOURCE_ERROR_NOT_FOUND))
             error = MediaPlayer::NetworkState::FormatError;
         else if (g_error_matches(err.get(), GST_STREAM_ERROR, GST_STREAM_ERROR_TYPE_NOT_FOUND)) {
@@ -1862,7 +1863,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
         else if (gst_structure_has_name(structure, "http-headers")) {
             GST_DEBUG_OBJECT(pipeline(), "Processing HTTP headers: %" GST_PTR_FORMAT, structure);
             if (const char* uri = gst_structure_get_string(structure, "uri")) {
-                URL url(URL(), uri);
+                URL url { uri };
                 m_origins.add(SecurityOrigin::create(url));
 
                 if (url != m_url) {
@@ -2447,7 +2448,7 @@ bool MediaPlayerPrivateGStreamer::loadNextLocation()
 
         GUniqueOutPtr<gchar> playbinUrlStr;
         g_object_get(m_pipeline.get(), "current-uri", &playbinUrlStr.outPtr(), nullptr);
-        URL playbinUrl(URL(), playbinUrlStr.get());
+        URL playbinUrl { playbinUrlStr.get() };
 
         if (playbinUrl == newUrl) {
             GST_DEBUG_OBJECT(pipeline(), "Playbin already handled redirection.");

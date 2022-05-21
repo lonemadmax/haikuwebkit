@@ -736,6 +736,23 @@ void SWServer::contextConnectionCreated(SWServerToContextConnection& contextConn
     }
 }
 
+void SWServer::forEachServiceWorker(const Function<bool(const SWServerWorker&)>& apply) const
+{
+    for (auto& worker : m_runningOrTerminatingWorkers.values()) {
+        if (!apply(worker))
+            break;
+    }
+}
+
+void SWServer::terminateContextConnectionWhenPossible(const RegistrableDomain& registrableDomain, ProcessIdentifier processIdentifier)
+{
+    auto* contextConnection = contextConnectionForRegistrableDomain(registrableDomain);
+    if (!contextConnection || contextConnection->webProcessIdentifier() != processIdentifier)
+        return;
+
+    contextConnection->terminateWhenPossible();
+}
+
 void SWServer::installContextData(const ServiceWorkerContextData& data)
 {
     ASSERT_WITH_MESSAGE(!data.loadedFromDisk, "Workers we just read from disk should only be launched as needed");
@@ -1036,7 +1053,9 @@ void SWServer::unregisterServiceWorkerClient(const ClientOrigin& clientOrigin, S
 
             m_clientIdentifiersPerOrigin.remove(clientOrigin);
         });
-        iterator->value.terminateServiceWorkersTimer->startOneShot(m_isProcessTerminationDelayEnabled && !MemoryPressureHandler::singleton().isUnderMemoryPressure() && !didUnregister ? defaultTerminationDelay : 0_s);
+        auto* contextConnection = contextConnectionForRegistrableDomain(clientRegistrableDomain);
+        bool shouldContextConnectionBeTerminatedWhenPossible = contextConnection && contextConnection->shouldTerminateWhenPossible();
+        iterator->value.terminateServiceWorkersTimer->startOneShot(m_isProcessTerminationDelayEnabled && !MemoryPressureHandler::singleton().isUnderMemoryPressure() && !shouldContextConnectionBeTerminatedWhenPossible && !didUnregister ? defaultTerminationDelay : 0_s);
     }
 
     // If the app-bound value changed after this client was removed, we know it was the only app-bound
@@ -1177,8 +1196,14 @@ void SWServer::createContextConnection(const RegistrableDomain& registrableDomai
 
     RELEASE_LOG(ServiceWorker, "SWServer::createContextConnection will create a connection");
 
+    std::optional<ProcessIdentifier> requestingProcessIdentifier;
+    if (auto it = m_clientsByRegistrableDomain.find(registrableDomain); it != m_clientsByRegistrableDomain.end()) {
+        if (!it->value.isEmpty())
+            requestingProcessIdentifier = it->value.begin()->processIdentifier();
+    }
+
     m_pendingConnectionDomains.add(registrableDomain);
-    m_createContextConnectionCallback(registrableDomain, serviceWorkerPageIdentifier, [this, weakThis = WeakPtr { *this }, registrableDomain, serviceWorkerPageIdentifier] {
+    m_createContextConnectionCallback(registrableDomain, requestingProcessIdentifier, serviceWorkerPageIdentifier, [this, weakThis = WeakPtr { *this }, registrableDomain, serviceWorkerPageIdentifier] {
         if (!weakThis)
             return;
 

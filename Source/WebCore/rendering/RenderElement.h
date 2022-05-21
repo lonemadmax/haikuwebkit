@@ -159,13 +159,10 @@ public:
 
     bool visibleToHitTesting(std::optional<HitTestRequest> hitTestRequest = std::nullopt) const
     {
-        if (style().effectiveInert())
-            return false;
-
         if (style().visibility() != Visibility::Visible)
             return false;
 
-        if ((!hitTestRequest || !hitTestRequest->ignoreCSSPointerEventsProperty()) && style().pointerEvents() == PointerEvents::None)
+        if ((!hitTestRequest || !hitTestRequest->ignoreCSSPointerEventsProperty()) && style().effectivePointerEvents() == PointerEvents::None)
             return false;
 
         return true;
@@ -354,8 +351,6 @@ private:
     void updateShapeImage(const ShapeValue*, const ShapeValue*);
 
     StyleDifference adjustStyleDifference(StyleDifference, OptionSet<StyleDifferenceContextSensitiveProperty>) const;
-    std::unique_ptr<RenderStyle> computeFirstLineStyle() const;
-    void invalidateCachedFirstLineStyle();
 
     bool canDestroyDecodedData() final { return !isVisibleInViewport(); }
     VisibleInViewportState imageFrameAvailable(CachedImage&, ImageAnimatingState, const IntRect* changeRect) final;
@@ -384,7 +379,6 @@ private:
     unsigned m_hasContinuationChainNode : 1;
     unsigned m_isContinuation : 1;
     unsigned m_isFirstLetter : 1;
-    mutable unsigned m_hasValidCachedFirstLineStyle : 1;
 
     unsigned m_renderBlockHasMarginBeforeQuirk : 1;
     unsigned m_renderBlockHasMarginAfterQuirk : 1;

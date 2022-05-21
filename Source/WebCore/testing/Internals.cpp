@@ -853,7 +853,7 @@ String Internals::blobInternalURL(const Blob& blob)
 
 void Internals::isBlobInternalURLRegistered(const String& url, DOMPromiseDeferred<IDLBoolean>&& promise)
 {
-    promise.resolve(!!ThreadableBlobRegistry::blobSize(URL { { }, url }));
+    promise.resolve(!!ThreadableBlobRegistry::blobSize(URL { url }));
 }
 
 bool Internals::isSharingStyleSheetContents(HTMLLinkElement& a, HTMLLinkElement& b)
@@ -1254,6 +1254,10 @@ Node* Internals::ensureUserAgentShadowRoot(Element& host)
 
 Node* Internals::shadowRoot(Element& host)
 {
+    if (host.document().hasElementWithPendingUserAgentShadowTreeUpdate(host)) {
+        host.updateUserAgentShadowTree();
+        host.document().removeElementWithPendingUserAgentShadowTreeUpdate(host);
+    }
     return host.shadowRoot();
 }
 
@@ -3841,14 +3845,14 @@ ExceptionOr<String> Internals::getCurrentCursorInfo()
 
 Ref<ArrayBuffer> Internals::serializeObject(const RefPtr<SerializedScriptValue>& value) const
 {
-    auto& bytes = value->data();
+    auto& bytes = value->wireBytes();
     return ArrayBuffer::create(bytes.data(), bytes.size());
 }
 
 Ref<SerializedScriptValue> Internals::deserializeBuffer(ArrayBuffer& buffer) const
 {
     Vector<uint8_t> bytes { static_cast<const uint8_t*>(buffer.data()), buffer.byteLength() };
-    return SerializedScriptValue::adopt(WTFMove(bytes));
+    return SerializedScriptValue::createFromWireBytes(WTFMove(bytes));
 }
 
 bool Internals::isFromCurrentWorld(JSC::JSValue value) const
@@ -4490,17 +4494,22 @@ void Internals::activeAudioRouteDidChange(bool shouldPause)
 #endif
 }
 
-bool Internals::elementIsBlockingDisplaySleep(HTMLMediaElement& element) const
+bool Internals::elementIsBlockingDisplaySleep(const HTMLMediaElement& element) const
 {
     return element.isDisablingSleep();
 }
 
-bool Internals::isPlayerVisibleInViewport(HTMLMediaElement& element) const
+bool Internals::isPlayerVisibleInViewport(const HTMLMediaElement& element) const
 {
     auto player = element.player();
     return player && player->isVisibleInViewport();
 }
 
+bool Internals::isPlayerMuted(const HTMLMediaElement& element) const
+{
+    auto player = element.player();
+    return player && player->muted();
+}
 #endif // ENABLE(VIDEO)
 
 #if ENABLE(WEB_AUDIO)
@@ -5501,6 +5510,7 @@ void Internals::observeMediaStreamTrack(MediaStreamTrack& track)
 {
     stopObservingRealtimeMediaSource();
 
+    m_trackVideoRotation = -1;
     m_trackSource = &track.source();
     m_trackSource->addObserver(*this);
     switch (m_trackSource->type()) {
@@ -5523,12 +5533,18 @@ void Internals::grabNextMediaStreamTrackFrame(TrackFramePromise&& promise)
     m_nextTrackFramePromise = makeUnique<TrackFramePromise>(WTFMove(promise));
 }
 
+void Internals::mediaStreamTrackVideoFrameRotation(DOMPromiseDeferred<IDLShort>&& promise)
+{
+    promise.resolve(m_trackVideoRotation);
+}
+
 void Internals::videoSampleAvailable(MediaSample& sample, VideoSampleMetadata)
 {
     callOnMainThread([this, weakThis = WeakPtr { *this }, sample = Ref { sample }] {
         if (!weakThis)
             return;
         m_trackVideoSampleCount++;
+        m_trackVideoRotation = static_cast<int>(sample->videoRotation());
         if (!m_nextTrackFramePromise)
             return;
 
@@ -5688,7 +5704,7 @@ void Internals::sendH2Ping(String url, DOMPromiseDeferred<IDLDouble>&& promise)
         return;
     }
 
-    frame->loader().client().sendH2Ping(URL(URL(), url), [promise = WTFMove(promise)] (Expected<Seconds, ResourceError>&& result) mutable {
+    frame->loader().client().sendH2Ping(URL { url }, [promise = WTFMove(promise)] (Expected<Seconds, ResourceError>&& result) mutable {
         if (result.has_value())
             promise.resolve(result.value().value());
         else
@@ -5876,6 +5892,9 @@ void Internals::installImageOverlay(Element& element, Vector<ImageOverlayLine>&&
         , blocks.map([] (auto& block) {
             return TextRecognitionBlockData { block.text, getQuad(block) };
         })
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+        , fakeImageAnalysisResultForTesting(lines)
+#endif
     });
 #else
     UNUSED_PARAM(blocks);

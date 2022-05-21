@@ -160,8 +160,9 @@ std::unique_ptr<MediaPlayerPrivateInterface> RemoteMediaPlayerManager::createRem
     proxyConfiguration.isVideo = player->isVideoPlayer();
 
 #if ENABLE(AVF_CAPTIONS)
-    for (const auto& track : player->outOfBandTrackSources())
-        proxyConfiguration.outOfBandTrackData.append(track->data());
+    proxyConfiguration.outOfBandTrackData = player->outOfBandTrackSources().map([](auto& track) {
+        return track->data();
+    });
 #endif
 
     auto documentSecurityOrigin = player->documentSecurityOrigin();
@@ -172,6 +173,7 @@ std::unique_ptr<MediaPlayerPrivateInterface> RemoteMediaPlayerManager::createRem
     proxyConfiguration.allowedMediaVideoCodecIDs = player->allowedMediaVideoCodecIDs();
     proxyConfiguration.allowedMediaAudioCodecIDs = player->allowedMediaAudioCodecIDs();
     proxyConfiguration.allowedMediaCaptionFormatTypes = player->allowedMediaCaptionFormatTypes();
+    proxyConfiguration.playerContentBoxRect = player->playerContentBoxRect();
 
     auto identifier = MediaPlayerIdentifier::generate();
     gpuProcessConnection().connection().send(Messages::RemoteMediaPlayerManagerProxy::CreateMediaPlayer(identifier, remoteEngineIdentifier, proxyConfiguration), 0);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,11 +31,13 @@
 #import "QuerySet.h"
 #import "RenderBundle.h"
 #import "RenderPipeline.h"
-#import "WebGPUExt.h"
 
 namespace WebGPU {
 
-RenderPassEncoder::RenderPassEncoder() = default;
+RenderPassEncoder::RenderPassEncoder(id<MTLRenderCommandEncoder> renderCommandEncoder)
+    : m_renderCommandEncoder(renderCommandEncoder)
+{
+}
 
 RenderPassEncoder::~RenderPassEncoder() = default;
 
@@ -122,7 +124,7 @@ void RenderPassEncoder::setBindGroup(uint32_t groupIndex, const BindGroup& group
     UNUSED_PARAM(dynamicOffsets);
 }
 
-void RenderPassEncoder::setBlendConstant(const WGPUColor* color)
+void RenderPassEncoder::setBlendConstant(const WGPUColor& color)
 {
     UNUSED_PARAM(color);
 }
@@ -173,7 +175,7 @@ void RenderPassEncoder::setViewport(float x, float y, float width, float height,
 
 void RenderPassEncoder::setLabel(const char* label)
 {
-    UNUSED_PARAM(label);
+    m_renderCommandEncoder.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
 }
 
 } // namespace WebGPU
@@ -258,7 +260,7 @@ void wgpuRenderPassEncoderSetBindGroup(WGPURenderPassEncoder renderPassEncoder, 
 
 void wgpuRenderPassEncoderSetBlendConstant(WGPURenderPassEncoder renderPassEncoder, const WGPUColor* color)
 {
-    renderPassEncoder->renderPassEncoder->setBlendConstant(color);
+    renderPassEncoder->renderPassEncoder->setBlendConstant(*color);
 }
 
 void wgpuRenderPassEncoderSetIndexBuffer(WGPURenderPassEncoder renderPassEncoder, WGPUBuffer buffer, WGPUIndexFormat format, uint64_t offset, uint64_t size)

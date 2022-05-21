@@ -31,10 +31,9 @@
 
 namespace WebCore {
 
-#if USE(AVFOUNDATION)
+#if USE(AVFOUNDATION) && PLATFORM(COCOA)
 class VideoFrameCV;
 #endif
-
 
 // A class representing a video frame from a decoder, capture source, or similar.
 // FIXME: Currently for implementation purposes inherts from MediaSample until capture code
@@ -52,10 +51,15 @@ public:
     WEBCORE_EXPORT PlatformSample::Type platformSampleType() const final;
 
     virtual bool isRemoteProxy() const { return false; }
+    virtual bool isLibWebRTC() const { return false; }
 #if USE(AVFOUNDATION)
     virtual bool isCV() const { return false; }
-    virtual RefPtr<WebCore::VideoFrameCV> asVideoFrameCV() = 0;
+#if PLATFORM(COCOA)
+    WEBCORE_EXPORT virtual RefPtr<VideoFrameCV> asVideoFrameCV();
 #endif
+#endif
+
+    void initializeCharacteristics(MediaTime presentationTime, bool isMirrored, VideoRotation);
 
 protected:
     WEBCORE_EXPORT VideoFrame(MediaTime presentationTime, bool isMirrored, VideoRotation);
@@ -72,11 +76,8 @@ private:
     WEBCORE_EXPORT size_t sizeInBytes() const final;
     WEBCORE_EXPORT void offsetTimestampsBy(const MediaTime&) final;
     WEBCORE_EXPORT void setTimestamps(const MediaTime&, const MediaTime&) final;
-    WEBCORE_EXPORT bool isDivisable() const final;
-    WEBCORE_EXPORT std::pair<RefPtr<MediaSample>, RefPtr<MediaSample>> divide(const MediaTime& presentationTime, UseEndTime = UseEndTime::DoNotUse) final;
     WEBCORE_EXPORT Ref<WebCore::MediaSample> createNonDisplayingCopy() const final;
     WEBCORE_EXPORT SampleFlags flags() const final;
-    WEBCORE_EXPORT std::optional<ByteRange> byteRange() const final;
     WEBCORE_EXPORT void dump(PrintStream&) const final;
 };
 

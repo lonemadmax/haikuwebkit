@@ -351,9 +351,9 @@ void GPUProcess::resetMockMediaDevices()
     MockRealtimeMediaSourceCenter::resetDevices();
 }
 
-void GPUProcess::setMockCameraIsInterrupted(bool isInterrupted)
+void GPUProcess::setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
 {
-    MockRealtimeMediaSourceCenter::setMockCameraIsInterrupted(isInterrupted);
+    MockRealtimeMediaSourceCenter::setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
 }
 #endif // ENABLE(MEDIA_STREAM)
 
@@ -528,6 +528,16 @@ void GPUProcess::setUseScreenCaptureKit(bool use)
         return;
     m_useScreenCaptureKit = use;
     WebCore::ScreenCaptureKitCaptureSource::setEnabled(m_useScreenCaptureKit);
+}
+#endif
+
+#if HAVE(AVCONTENTKEYSPECIFIER)
+void GPUProcess::setSampleBufferContentKeySessionSupportEnabled(bool enabled)
+{
+    if (m_sampleBufferContentKeySessionSupportEnabled == enabled)
+        return;
+    m_sampleBufferContentKeySessionSupportEnabled = enabled;
+    MediaSessionManagerCocoa::setSampleBufferContentKeySessionSupportEnabled(enabled);
 }
 #endif
 

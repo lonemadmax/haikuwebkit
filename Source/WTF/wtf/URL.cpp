@@ -64,7 +64,12 @@ void URL::invalidate()
 
 URL::URL(const URL& base, const String& relative, const URLTextEncoding* encoding)
 {
-    *this = URLParser(relative, base, encoding).result();
+    *this = URLParser(String { relative },  base, encoding).result();
+}
+
+URL::URL(String&& absoluteURL, const URLTextEncoding* encoding)
+{
+    *this = URLParser(WTFMove(absoluteURL), URL(), encoding).result();
 }
 
 static bool shouldTrimFromURL(UChar character)
@@ -82,7 +87,7 @@ URL URL::isolatedCopy() const &
 
 URL URL::isolatedCopy() &&
 {
-    URL result = *this;
+    URL result { WTFMove(*this) };
     result.m_string = WTFMove(result.m_string).isolatedCopy();
     return result;
 }
@@ -235,7 +240,7 @@ StringView URL::fragmentIdentifier() const
 
 URL URL::truncatedForUseAsBase() const
 {
-    return URL(URL(), m_string.left(m_pathAfterLastSlash));
+    return URL(m_string.left(m_pathAfterLastSlash));
 }
 
 #if !USE(CF)
@@ -571,9 +576,9 @@ static String percentEncodeCharacters(const StringType& input, bool(*shouldEncod
         return input;
 }
 
-void URL::parse(const String& string)
+void URL::parse(String&& string)
 {
-    *this = URLParser(string).result();
+    *this = URLParser(WTFMove(string)).result();
 }
 
 void URL::remove(unsigned start, unsigned length)
@@ -583,9 +588,9 @@ void URL::remove(unsigned start, unsigned length)
     ASSERT(start < m_string.length());
     ASSERT(length <= m_string.length() - start);
 
-    auto stringAfterRemoval = WTFMove(m_string);
+    auto stringAfterRemoval = std::exchange(m_string, { });
     stringAfterRemoval.remove(start, length);
-    parse(stringAfterRemoval);
+    parse(WTFMove(stringAfterRemoval));
 }
 
 void URL::setUser(StringView newUser)
@@ -892,7 +897,7 @@ const URL& aboutBlankURL()
     static LazyNeverDestroyed<URL> staticBlankURL;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [&] {
-        staticBlankURL.construct(URL(), &aboutBlankString);
+        staticBlankURL.construct(&aboutBlankString);
     });
     return staticBlankURL;
 }
@@ -903,7 +908,7 @@ const URL& aboutSrcDocURL()
     static LazyNeverDestroyed<URL> staticSrcDocURL;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [&] {
-        staticSrcDocURL.construct(URL(), &aboutSrcDocString);
+        staticSrcDocURL.construct(&aboutSrcDocString);
     });
     return staticSrcDocURL;
 }
@@ -1054,12 +1059,12 @@ String URL::stringCenterEllipsizedToLength(unsigned length) const
 
 URL URL::fakeURLWithRelativePart(StringView relativePart)
 {
-    return URL(URL(), makeString("webkit-fake-url://", createVersion4UUIDString(), '/', relativePart));
+    return URL(makeString("webkit-fake-url://", createVersion4UUIDString(), '/', relativePart));
 }
 
 URL URL::fileURLWithFileSystemPath(StringView path)
 {
-    return URL(URL(), makeString(
+    return URL(makeString(
         "file://",
         path.startsWith('/') ? "" : "/",
         escapePathWithoutCopying(path)

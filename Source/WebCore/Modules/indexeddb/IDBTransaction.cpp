@@ -121,12 +121,8 @@ Ref<DOMStringList> IDBTransaction::objectStoreNames() const
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(m_database->originThread()));
 
-    const Vector<String> names = isVersionChange() ? m_database->info().objectStoreNames() : m_info.objectStores();
-
-    Ref<DOMStringList> objectStoreNames = DOMStringList::create();
-    for (auto& name : names)
-        objectStoreNames->append(name);
-
+    auto names = isVersionChange() ? m_database->info().objectStoreNames() : m_info.objectStores();
+    auto objectStoreNames = DOMStringList::create(WTFMove(names));
     objectStoreNames->sort();
     return objectStoreNames;
 }
@@ -936,7 +932,7 @@ Ref<IDBRequest> IDBTransaction::requestGetAllObjectStoreRecords(IDBObjectStore& 
     LOG(IndexedDBOperations, "IDB get all object store records operation: %s", getAllRecordsData.loggingString().utf8().data());
     scheduleOperation(IDBClient::TransactionOperationImpl::create(*this, request.get(), [protectedThis = Ref { *this }, request] (const auto& result) {
         protectedThis->didGetAllRecordsOnServer(request.get(), result);
-    }, [protectedThis = Ref { *this }, getAllRecordsData = getAllRecordsData.isolatedCopy()] (auto& operation) {
+    }, [protectedThis = Ref { *this }, getAllRecordsData = WTFMove(getAllRecordsData).isolatedCopy()] (auto& operation) {
         protectedThis->getAllRecordsOnServer(operation, getAllRecordsData);
     }));
 
@@ -958,7 +954,7 @@ Ref<IDBRequest> IDBTransaction::requestGetAllIndexRecords(IDBIndex& index, const
     LOG(IndexedDBOperations, "IDB get all index records operation: %s", getAllRecordsData.loggingString().utf8().data());
     scheduleOperation(IDBClient::TransactionOperationImpl::create(*this, request.get(), [protectedThis = Ref { *this }, request] (const auto& result) {
         protectedThis->didGetAllRecordsOnServer(request.get(), result);
-    }, [protectedThis = Ref { *this }, getAllRecordsData = getAllRecordsData.isolatedCopy()] (auto& operation) {
+    }, [protectedThis = Ref { *this }, getAllRecordsData = WTFMove(getAllRecordsData).isolatedCopy()] (auto& operation) {
         protectedThis->getAllRecordsOnServer(operation, getAllRecordsData);
     }));
 

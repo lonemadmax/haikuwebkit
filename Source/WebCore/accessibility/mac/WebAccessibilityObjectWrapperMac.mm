@@ -524,21 +524,28 @@ extern "C" AXUIElementRef NSAccessibilityCreateAXUIElementRef(id element);
 
 @implementation WebAccessibilityObjectWrapper
 
-- (void)unregisterUniqueIdForUIElement
-{
-    ASSERT(isMainThread());
-    NSAccessibilityUnregisterUniqueIdForUIElement(self);
-}
-
 - (void)detach
 {
-    // Send unregisterUniqueIdForUIElement unconditionally because if it is
-    // ever accidentally not done (via other bugs in our AX implementation) you
-    // end up with a crash like <rdar://problem/4273149>.  It is safe and not
-    // expensive to send even if the object is not registered.
-    [self unregisterUniqueIdForUIElement];
+    ASSERT(isMainThread());
+
+    // If the IsolatedObject is initialized, do not UnregisterUniqueIdForUIElement here because the wrapper may be in the middle of serving a request on the AX thread.
+    // The IsolatedObject is capable to tend to some requests after the live object is gone.
+    // In regular mode, UnregisterUniqueIdForUIElement immediately.
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (!m_isolatedObjectInitialized)
+#endif
+        NSAccessibilityUnregisterUniqueIdForUIElement(self);
+
     [super detach];
 }
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+- (void)detachIsolatedObject:(AccessibilityDetachmentType)detachmentType
+{
+    NSAccessibilityUnregisterUniqueIdForUIElement(self);
+    [super detachIsolatedObject:detachmentType];
+}
+#endif
 
 - (id)attachmentView
 {
@@ -768,31 +775,6 @@ static RetainPtr<AXTextMarkerRef> previousTextMarkerForCharacterOffset(AXObjectC
     return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData.value(), sizeof(textMarkerData.value())));
 }
 
-// When modifying attributed strings, the range can come from a source which may provide faulty information (e.g. the spell checker).
-// To protect against such cases the range should be validated before adding or removing attributes.
-static BOOL AXAttributedStringRangeIsValid(NSAttributedString *attrString, NSRange range)
-{
-    return (range.location < [attrString length] && NSMaxRange(range) <= [attrString length]);
-}
-
-static void AXAttributeStringSetFont(NSMutableAttributedString *attrString, NSString *attribute, CTFontRef font, NSRange range)
-{
-    if (!AXAttributedStringRangeIsValid(attrString, range))
-        return;
-
-    if (font) {
-        NSDictionary *dictionary = @{
-            NSAccessibilityFontNameKey: (__bridge NSString *)adoptCF(CTFontCopyPostScriptName(font)).get(),
-            NSAccessibilityFontFamilyKey: (__bridge NSString *)adoptCF(CTFontCopyFamilyName(font)).get(),
-            NSAccessibilityVisibleNameKey: (__bridge NSString *)adoptCF(CTFontCopyDisplayName(font)).get(),
-            NSAccessibilityFontSizeKey: @(CTFontGetSize(font)),
-        };
-        [attrString addAttribute:attribute value:dictionary range:range];
-    } else
-        [attrString removeAttribute:attribute range:range];
-    
-}
-
 static void AXAttributeStringSetColor(NSMutableAttributedString* attrString, NSString* attribute, NSColor* color, NSRange range)
 {
     if (!AXAttributedStringRangeIsValid(attrString, range))
@@ -821,10 +803,10 @@ static void AXAttributeStringSetNumber(NSMutableAttributedString* attrString, NS
 static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, RenderObject* renderer, NSRange range)
 {
     const RenderStyle& style = renderer->style();
-    
+
     // set basic font info
-    AXAttributeStringSetFont(attrString, NSAccessibilityFontTextAttribute, style.fontCascade().primaryFont().getCTFont(), range);
-    
+    AXAttributedStringSetFont(attrString, style.fontCascade().primaryFont().getCTFont(), range);
+
     // set basic colors
     AXAttributeStringSetColor(attrString, NSAccessibilityForegroundColorTextAttribute, cocoaColor(style.visitedDependentColor(CSSPropertyColor)).get(), range);
     AXAttributeStringSetColor(attrString, NSAccessibilityBackgroundColorTextAttribute, cocoaColor(style.visitedDependentColor(CSSPropertyBackgroundColor)).get(), range);
@@ -1023,7 +1005,7 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
 #endif
         [attrString removeAttribute:NSAccessibilityMisspelledTextAttribute range:attrStringRange];
     }
-    
+
     // set new attributes
     AXAttributeStringSetStyle(attrString, renderer, attrStringRange);
     AXAttributeStringSetHeadingLevel(attrString, renderer, attrStringRange);

@@ -35,7 +35,10 @@
 #include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderLineBreak.h"
+#include "RenderListItem.h"
+#include "RenderListMarker.h"
 #include "RenderMultiColumnFlow.h"
+#include "RenderTable.h"
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "RuntimeEnabledFeatures.h"
@@ -194,6 +197,9 @@ static void printReason(AvoidanceReason reason, TextStream& stream)
     case AvoidanceReason::BoxDecorationBreakClone:
         stream << "webkit-box-decoration-break: clone";
         break;
+    case AvoidanceReason::FlowIsUnsupportedListItem:
+        stream << "list item with text-indent";
+        break;
     default:
         break;
     }
@@ -208,78 +214,69 @@ static void printReasons(OptionSet<AvoidanceReason> reasons, TextStream& stream)
     }
 }
 
-static void printTextForSubtree(const RenderObject& renderer, unsigned& charactersLeft, TextStream& stream)
+static void printTextForSubtree(const RenderElement& renderer, unsigned& charactersLeft, TextStream& stream)
 {
-    if (!charactersLeft)
-        return;
-    if (is<RenderText>(renderer)) {
-        String text = downcast<RenderText>(renderer).text();
-        text = text.stripWhiteSpace();
-        unsigned len = std::min(charactersLeft, text.length());
-        stream << text.left(len);
-        charactersLeft -= len;
-        return;
+    for (auto& child : childrenOfType<RenderObject>(downcast<RenderElement>(renderer))) {
+        if (is<RenderText>(child)) {
+            String text = downcast<RenderText>(child).text();
+            text = text.stripWhiteSpace();
+            auto len = std::min(charactersLeft, text.length());
+            stream << text.left(len);
+            charactersLeft -= len;
+            continue;
+        }
+        printTextForSubtree(downcast<RenderElement>(child), charactersLeft, stream);
     }
-    if (!is<RenderElement>(renderer))
-        return;
-    for (const auto* child = downcast<RenderElement>(renderer).firstChild(); child; child = child->nextSibling())
-        printTextForSubtree(*child, charactersLeft, stream);
 }
 
-static unsigned textLengthForSubtree(const RenderObject& renderer)
+static unsigned contentLengthForSubtreeStayWithinBlockFlow(const RenderElement& renderer)
 {
-    if (is<RenderText>(renderer))
-        return downcast<RenderText>(renderer).text().length();
-    if (!is<RenderElement>(renderer))
-        return 0;
     unsigned textLength = 0;
-    for (const auto* child = downcast<RenderElement>(renderer).firstChild(); child; child = child->nextSibling())
-        textLength += textLengthForSubtree(*child);
+    for (auto& child : childrenOfType<RenderObject>(renderer)) {
+        if (is<RenderBlockFlow>(child)) {
+            // Do not descend into nested RenderBlockFlow.
+            continue;
+        }
+        if (is<RenderText>(child)) {
+            textLength += downcast<RenderText>(child).text().length();
+            continue;
+        }
+        textLength += contentLengthForSubtreeStayWithinBlockFlow(downcast<RenderElement>(child));
+    }
     return textLength;
 }
 
-static void collectNonEmptyLeafRenderBlockFlows(const RenderObject& renderer, HashSet<const RenderBlockFlow*>& leafRenderers)
+static unsigned contentLengthForBlockFlow(const RenderBlockFlow& blockFlow)
 {
-    if (is<RenderText>(renderer)) {
-        if (!downcast<RenderText>(renderer).text().length())
-            return;
-        // Find RenderBlockFlow ancestor.
-        for (const auto* current = renderer.parent(); current; current = current->parent()) {
-            if (!is<RenderBlockFlow>(current))
-                continue;
-            leafRenderers.add(downcast<RenderBlockFlow>(current));
-            break;
-        }
-        return;
-    }
-    if (!is<RenderElement>(renderer))
-        return;
-    for (const auto* child = downcast<RenderElement>(renderer).firstChild(); child; child = child->nextSibling())
-        collectNonEmptyLeafRenderBlockFlows(*child, leafRenderers);
+    return contentLengthForSubtreeStayWithinBlockFlow(blockFlow);
 }
 
-static void collectNonEmptyLeafRenderBlockFlowsForCurrentPage(HashSet<const RenderBlockFlow*>& leafRenderers)
+static Vector<const RenderBlockFlow*> collectRenderBlockFlowsForCurrentPage()
 {
+    Vector<const RenderBlockFlow*> renderFlows;
     for (const auto* document : Document::allDocuments()) {
         if (!document->renderView() || document->backForwardCacheState() != Document::NotInBackForwardCache)
             continue;
         if (!document->isHTMLDocument() && !document->isXHTMLDocument())
             continue;
-        collectNonEmptyLeafRenderBlockFlows(*document->renderView(), leafRenderers);
+        for (auto& descendant : descendantsOfType<RenderBlockFlow>(*document->renderView())) {
+            if (descendant.childrenInline())
+                renderFlows.append(&descendant);
+        }
     }
+    return renderFlows;
 }
 
 static void printModernLineLayoutBlockList(void)
 {
-    HashSet<const RenderBlockFlow*> leafRenderers;
-    collectNonEmptyLeafRenderBlockFlowsForCurrentPage(leafRenderers);
-    if (!leafRenderers.size()) {
+    auto renderBlockFlows = collectRenderBlockFlowsForCurrentPage();
+    if (!renderBlockFlows.size()) {
         WTFLogAlways("No text found in this document\n");
         return;
     }
     TextStream stream;
     stream << "---------------------------------------------------\n";
-    for (const auto* flow : leafRenderers) {
+    for (auto* flow : renderBlockFlows) {
         auto reasons = canUseForLineLayoutWithReason(*flow, IncludeReasons::All);
         if (reasons.isEmpty())
             continue;
@@ -288,7 +285,7 @@ static void printModernLineLayoutBlockList(void)
         printTextForSubtree(*flow, printedLength, stream);
         for (;printedLength > 0; --printedLength)
             stream << " ";
-        stream << "\"(" << textLengthForSubtree(*flow) << "):";
+        stream << "\"(" << contentLengthForBlockFlow(*flow) << "):";
         printReasons(reasons, stream);
         stream << "\n";
     }
@@ -298,9 +295,8 @@ static void printModernLineLayoutBlockList(void)
 
 static void printModernLineLayoutCoverage(void)
 {
-    HashSet<const RenderBlockFlow*> leafRenderers;
-    collectNonEmptyLeafRenderBlockFlowsForCurrentPage(leafRenderers);
-    if (!leafRenderers.size()) {
+    auto renderBlockFlows = collectRenderBlockFlowsForCurrentPage();
+    if (!renderBlockFlows.size()) {
         WTFLogAlways("No text found in this document\n");
         return;
     }
@@ -311,8 +307,8 @@ static void printModernLineLayoutCoverage(void)
     unsigned numberOfUnsupportedLeafBlocks = 0;
     unsigned supportedButForcedToLineLayoutTextLength = 0;
     unsigned numberOfSupportedButForcedToLineLayoutLeafBlocks = 0;
-    for (const auto* flow : leafRenderers) {
-        auto flowLength = textLengthForSubtree(*flow);
+    for (auto* flow : renderBlockFlows) {
+        auto flowLength = contentLengthForBlockFlow(*flow);
         textLength += flowLength;
         auto reasons = canUseForLineLayoutWithReason(*flow, IncludeReasons::All);
         if (reasons.isEmpty()) {
@@ -322,6 +318,8 @@ static void printModernLineLayoutCoverage(void)
             }
             continue;
         }
+        if (reasons.contains(AvoidanceReason::FlowDoesNotEstablishInlineFormattingContext))
+            continue;
         ++numberOfUnsupportedLeafBlocks;
         unsupportedTextLength += flowLength;
         for (auto reason : reasons) {
@@ -337,7 +335,7 @@ static void printModernLineLayoutCoverage(void)
     } else
         stream << "Modern line layout coverage: " << (float)(textLength - unsupportedTextLength) / (float)textLength * 100 << "%";
     stream << "\n\n";
-    stream << "Number of blocks: total(" <<  leafRenderers.size() << ") legacy(" << numberOfUnsupportedLeafBlocks << ")\nContent length: total(" <<
+    stream << "Number of blocks: total(" <<  renderBlockFlows.size() << ") legacy(" << numberOfUnsupportedLeafBlocks << ")\nContent length: total(" <<
         textLength << ") legacy(" << unsupportedTextLength << ")\n";
     for (const auto& reasonEntry : flowStatistics) {
         printReason(static_cast<AvoidanceReason>(reasonEntry.key), stream);
@@ -409,7 +407,7 @@ static OptionSet<AvoidanceReason> canUseForStyle(const RenderElement& renderer, 
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasOverflowNotVisible, reasons, includeReasons);
     if (style.textOverflow() == TextOverflow::Ellipsis)
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasTextOverflow, reasons, includeReasons);
-    if (style.writingMode() == WritingMode::RightToLeft || style.writingMode() == WritingMode::BottomToTop)
+    if (style.writingMode() == WritingMode::BottomToTop)
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasUnsupportedWritingMode, reasons, includeReasons);
     if (style.textEmphasisFill() != TextEmphasisFill::Filled || style.textEmphasisMark() != TextEmphasisMark::None)
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasTextEmphasisFillOrMark, reasons, includeReasons);
@@ -469,7 +467,7 @@ static OptionSet<AvoidanceReason> canUseForRenderInlineChild(const RenderInline&
     return reasons;
 }
 
-static OptionSet<AvoidanceReason> canUseForChild(const RenderBlockFlow& flow, const RenderObject& child, IncludeReasons includeReasons)
+static OptionSet<AvoidanceReason> canUseForChild(const RenderObject& child, IncludeReasons includeReasons)
 {
     OptionSet<AvoidanceReason> reasons;
 
@@ -478,11 +476,6 @@ static OptionSet<AvoidanceReason> canUseForChild(const RenderBlockFlow& flow, co
             SET_REASON_AND_RETURN_IF_NEEDED(FlowTextIsRenderCounter, reasons, includeReasons);
 
         return reasons;
-    }
-
-    if (flow.containsFloats()) {
-        // Non-text content may stretch the line and we don't yet have support for dynamic float avoiding (as the line grows).
-        SET_REASON_AND_RETURN_IF_NEEDED(FlowHasUnsupportedFloat, reasons, includeReasons);
     }
 
     if (is<RenderLineBreak>(child))
@@ -510,6 +503,22 @@ static OptionSet<AvoidanceReason> canUseForChild(const RenderBlockFlow& flow, co
         return reasons;
     }
 
+    if (is<RenderListItem>(child)) {
+        if (child.style().textIndent().value() || !child.style().isHorizontalWritingMode() || !child.style().isLeftToRightDirection() || child.isPositioned() || child.isFloating())
+            SET_REASON_AND_RETURN_IF_NEEDED(FlowIsUnsupportedListItem, reasons, includeReasons);
+        return reasons;
+    }
+
+    if (is<RenderListMarker>(child) && is<RenderListItem>(child.parent()) && !is<RenderListMarker>(child.nextSibling()))
+        return reasons;
+
+    if (is<RenderTable>(child)) {
+        auto& table = downcast<RenderTable>(child);
+        if (!table.isInline() || table.isPositioned() || !table.style().isHorizontalWritingMode())
+            SET_REASON_AND_RETURN_IF_NEEDED(ChildBoxIsFloatingOrPositioned, reasons, includeReasons)
+        return reasons;
+    }
+
     if (is<RenderBlockFlow>(child)) {
         auto& block = downcast<RenderBlockFlow>(child);
         if (!block.isReplacedOrInlineBlock() || !block.isInline())
@@ -528,8 +537,12 @@ static OptionSet<AvoidanceReason> canUseForChild(const RenderBlockFlow& flow, co
         return reasons;
     }
 
-    if (is<RenderInline>(child))
-        return canUseForRenderInlineChild(downcast<RenderInline>(child), includeReasons);
+    if (is<RenderInline>(child)) {
+        auto renderInlineReasons = canUseForRenderInlineChild(downcast<RenderInline>(child), includeReasons);
+        if (renderInlineReasons)
+            ADD_REASONS_AND_RETURN_IF_NEEDED(renderInlineReasons, reasons, includeReasons);
+        return reasons;
+    }
 
     SET_REASON_AND_RETURN_IF_NEEDED(FlowHasNonSupportedChild, reasons, includeReasons);
     return reasons;
@@ -580,6 +593,8 @@ OptionSet<AvoidanceReason> canUseForLineLayoutWithReason(const RenderBlockFlow& 
     }
     if (flow.isRubyText() || flow.isRubyBase())
         SET_REASON_AND_RETURN_IF_NEEDED(ContentIsRuby, reasons, includeReasons);
+    if (is<RenderListItem>(flow) && (flow.style().textIndent().value() || !flow.style().isHorizontalWritingMode() || !flow.style().isLeftToRightDirection() || flow.isPositioned() || flow.isFloating()))
+        SET_REASON_AND_RETURN_IF_NEEDED(FlowIsUnsupportedListItem, reasons, includeReasons);
     if (!flow.style().hangingPunctuation().isEmpty())
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasHangingPunctuation, reasons, includeReasons);
 
@@ -594,7 +609,7 @@ OptionSet<AvoidanceReason> canUseForLineLayoutWithReason(const RenderBlockFlow& 
     // The <blockflow><inline>#text</inline></blockflow> case is also popular and should be relatively easy to cover.
     auto hasSeenInlineBox = false;
     for (auto walker = InlineWalker(flow); !walker.atEnd(); walker.advance()) {
-        if (auto childReasons = canUseForChild(flow, *walker.current(), includeReasons))
+        if (auto childReasons = canUseForChild(*walker.current(), includeReasons))
             ADD_REASONS_AND_RETURN_IF_NEEDED(childReasons, reasons, includeReasons);
         hasSeenInlineBox = hasSeenInlineBox || is<RenderInline>(*walker.current());
     }

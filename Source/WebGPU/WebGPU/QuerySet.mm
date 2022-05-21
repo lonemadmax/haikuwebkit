@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +26,20 @@
 #import "config.h"
 #import "QuerySet.h"
 
-#import "WebGPUExt.h"
+#import "Device.h"
 
 namespace WebGPU {
 
-QuerySet::QuerySet() = default;
+RefPtr<QuerySet> Device::createQuerySet(const WGPUQuerySetDescriptor& descriptor)
+{
+    UNUSED_PARAM(descriptor);
+    return QuerySet::create(nil);
+}
+
+QuerySet::QuerySet(id<MTLCounterSampleBuffer> counterSampleBuffer)
+    : m_counterSampleBuffer(counterSampleBuffer)
+{
+}
 
 QuerySet::~QuerySet() = default;
 
@@ -38,9 +47,9 @@ void QuerySet::destroy()
 {
 }
 
-void QuerySet::setLabel(const char* label)
+void QuerySet::setLabel(const char*)
 {
-    UNUSED_PARAM(label);
+    // MTLCounterSampleBuffer's labels are read-only.
 }
 
 } // namespace WebGPU

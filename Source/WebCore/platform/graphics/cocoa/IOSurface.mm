@@ -28,7 +28,6 @@
 
 #import "DestinationColorSpace.h"
 #import "GraphicsContextCG.h"
-#import "GraphicsContextGL.h"
 #import "HostWindow.h"
 #import "IOSurfacePool.h"
 #import "ImageBuffer.h"
@@ -293,7 +292,11 @@ size_t IOSurface::bytesPerRowAlignment()
         // See https://developer.apple.com/documentation/iosurface/1419453-iosurfacegetpropertyalignment?language=objc
         // This likely means that the sandbox is blocking access to the IOSurface IOKit class,
         // and that IOSurface::bytesPerRowAlignment() has been called before IOSurface::setBytesPerRowAlignment.
-        RELEASE_ASSERT(alignment > 1);
+        if (alignment <= 1) {
+            RELEASE_LOG_ERROR(Layers, "Sandbox does not allow IOSurface IOKit access.");
+            // 64 bytes is currently the alignment on all platforms.
+            alignment = 64;
+        }
     }
     return alignment;
 }
@@ -385,12 +388,12 @@ GraphicsContext& IOSurface::ensureGraphicsContext()
     return *m_graphicsContext;
 }
 
-VolatilityState IOSurface::state() const
+SetNonVolatileResult IOSurface::state() const
 {
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
     ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
-    return previousState == kIOSurfacePurgeableEmpty ? VolatilityState::Empty : VolatilityState::Valid;
+    return previousState == kIOSurfacePurgeableEmpty ? SetNonVolatileResult::Empty : SetNonVolatileResult::Valid;
 }
 
 IOSurfaceSeed IOSurface::seed() const
@@ -406,16 +409,16 @@ bool IOSurface::isVolatile() const
     return previousState != kIOSurfacePurgeableNonVolatile;
 }
 
-VolatilityState IOSurface::setVolatile(bool isVolatile)
+SetNonVolatileResult IOSurface::setVolatile(bool isVolatile)
 {
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), isVolatile ? kIOSurfacePurgeableVolatile : kIOSurfacePurgeableNonVolatile, &previousState);
     ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
 
     if (previousState == kIOSurfacePurgeableEmpty)
-        return VolatilityState::Empty;
+        return SetNonVolatileResult::Empty;
 
-    return VolatilityState::Valid;
+    return SetNonVolatileResult::Valid;
 }
 
 IOSurface::Format IOSurface::format() const
@@ -591,13 +594,13 @@ TextStream& operator<<(TextStream& ts, IOSurface::Format format)
     return ts;
 }
 
-static TextStream& operator<<(TextStream& ts, VolatilityState state)
+static TextStream& operator<<(TextStream& ts, SetNonVolatileResult state)
 {
     switch (state) {
-    case VolatilityState::Valid:
+    case SetNonVolatileResult::Valid:
         ts << "valid";
         break;
-    case VolatilityState::Empty:
+    case SetNonVolatileResult::Empty:
         ts << "empty";
         break;
     }

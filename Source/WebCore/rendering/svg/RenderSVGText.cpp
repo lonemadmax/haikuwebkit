@@ -404,7 +404,7 @@ void RenderSVGText::layout()
 
 bool RenderSVGText::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
-    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_TEXT_HITTESTING, request, style().pointerEvents());
+    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_TEXT_HITTESTING, request, style().effectivePointerEvents());
     bool isVisible = (style().visibility() == Visibility::Visible);
     if (isVisible || !hitRules.requireVisible) {
         if ((hitRules.canHitStroke && (style().svgStyle().hasStroke() || !hitRules.requireStroke))
@@ -486,13 +486,6 @@ FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
         textShadow->adjustRectForShadow(repaintRect);
 
     return repaintRect;
-}
-
-// Fix for <rdar://problem/8048875>. We should not render :first-line CSS Style
-// in a SVG text element context.
-RenderBlock* RenderSVGText::firstLineBlock() const
-{
-    return 0;
 }
 
 }

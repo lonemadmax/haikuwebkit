@@ -1,3 +1,753 @@
+2022-03-12  Tim Horton  <timothy_horton@apple.com>
+
+        Fail the build if Internal or Experimental web preferences are missing human readable names
+        https://bugs.webkit.org/show_bug.cgi?id=237813
+
+        Reviewed by Alex Christensen.
+
+        * Scripts/GeneratePreferences.rb:
+        Ensure that all preferences that expose human readable strings to the
+        API client actually have such a name.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+        Add one missing human readable preference name.
+
+2022-03-12  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt FALLBACK_PLATFORM_NAME in place of FALLBACK_PLATFORM
+        https://bugs.webkit.org/show_bug.cgi?id=237809
+
+        Reviewed by Per Arne Vollan.
+
+        * Configurations/SDKVariant.xcconfig:
+
+2022-03-11  Chris Dumez  <cdumez@apple.com>
+
+        IPC thread's QOS should match the sending thread's QOS when calling sendSync()
+        https://bugs.webkit.org/show_bug.cgi?id=237800
+        <rdar://problem/90061548>
+
+        Reviewed by Geoffrey Garen.
+
+        Add function to get the QoS of the current thread.
+
+        * wtf/Threading.cpp:
+        (WTF::toQOS):
+        (WTF::Thread::currentThreadQOS):
+        * wtf/Threading.h:
+
+2022-03-11  Elliott Williams  <emw@apple.com>
+
+        [Xcode] "Nest Headers" script phases copy headers incorrectly on Catalyst
+        https://bugs.webkit.org/show_bug.cgi?id=237793
+
+        Reviewed by Alexey Proskuryakov.
+
+        SDK_VARIANT needs to be passed into the nested `xcodebuild` invocation that these script
+        phases run. Pass WK_USE_ALTERNATE_FRAMEWORKS_DIR=NO to prevent the default behavior where
+        Catalyst content is installed to /System/iOSSupport, as this causes headers to be copied to
+        WebKitBuild/Release/System/iOSSupport/...
+
+        This script phases only run under the legacy build system, so they do not affect production
+        builds. https://commits.webkit.org/247656@main provides more context on this hack (tl;dr
+        it's a temporary workaround for the XCBuild migration).
+
+        * WTF.xcodeproj/project.pbxproj:
+
+2022-03-10  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Add a unit tests to check the remote inspector HTTP server
+        https://bugs.webkit.org/show_bug.cgi?id=237708
+
+        Reviewed by Michael Catanzaro.
+
+        * wtf/glib/SocketConnection.h: Export close().
+
+2022-03-10  Youenn Fablet  <youenn@apple.com>
+
+        Enable Permissions API by default on Cocoa ports
+        https://bugs.webkit.org/show_bug.cgi?id=237699
+
+        Reviewed by Brent Fulgham.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-03-10  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Add initial support for PDF documents using PDF.js
+        https://bugs.webkit.org/show_bug.cgi?id=237513
+
+        Reviewed by Michael Catanzaro.
+
+        Enable PDF.js for GTK and WPE ports.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-08  Robin Morisset  <rmorisset@apple.com>
+
+        [WTF] LikelyDenseUnsignedIntegerSet::add can cause a reindexing of the entire bit vector with every call in the worst case
+        https://bugs.webkit.org/show_bug.cgi?id=236997
+
+        Reviewed by Saam Barati.
+
+        This problem was found while investigating https://bugs.webkit.org/show_bug.cgi?id=236269.
+
+        LikelyDenseUnsignedIntegerSet has two forms: either as a HashSet (if sparse) or as a BitVector representing numbers above some value m_min (if sufficiently dense).
+        This is a massive memory win in most situations (>4x in practice for register allocation in JS2, >20x on some pathological webpages).
+        But it means that when adding a value below m_min to a set in BitVector shape, we have to rebuild the whole set, which takes a time proportional to the time of the set.
+        So if building a set by repeatedly adding decreasing values (like in https://bugs.webkit.org/show_bug.cgi?id=236269 where we add 10000, then 9999, then 9998, etc..), we have some awful performance.
+
+        In this patch I improve this situation in two ways:
+        - First I always round down m_min to the next multiple of 64. This means that when adding contiguous values like above we only re-index once every 64 adds.
+        - It then allows me to do the reindexing by simple memcpy instead of costly iteration of all the set bits, since they are now always at the same offset within the words of the BitVector.
+
+        On an M1 MBP, on testair:: testZDefOfSpillSlotWithOffsetNeedingToBeMaterializedInARegister, with n=5000, in release mode, measuring just the time spent building the interference graph:
+        Before this patch: 107 s
+        After this patch: 77 ms (note the different unit, it is not a typo!)
+
+        Unfortunately, it does not seem to significantly improve the time spent in LikelyDenseUnsignedIntgerSet::add in JetStream2,
+        probably because the pattern of always adding a value just before the minimum is quite pathological/rare.
+        I still think it is worth landing, as we don't know what code out there may hit this performance problem.
+
+        * wtf/BitVector.cpp:
+        (WTF::BitVector::shiftRightByMultipleOf64):
+        (WTF::BitVector::resizeOutOfLine):
+        * wtf/BitVector.h:
+        * wtf/LikelyDenseUnsignedIntegerSet.h:
+        (WTF::LikelyDenseUnsignedIntegerSet::add):
+        (WTF::LikelyDenseUnsignedIntegerSet::validate const):
+        (WTF::LikelyDenseUnsignedIntegerSet::transitionToBitVector):
+
+2022-03-08  Alex Christensen  <achristensen@webkit.org>
+
+        Fix Windows debug build
+        https://bugs.webkit.org/show_bug.cgi?id=237617
+
+        Reviewed by Fujii Hironori.
+
+        MSVC's linker is limited to generating 4GB libraries.
+        Currently, I'm seeing WebCore.lib be 3.9GB and some bots are failing to link debug builds.
+        More source unification reduces WebCore.lib's size to 3.3GB.
+
+        * Scripts/generate-unified-source-bundles.rb:
+
+2022-03-08  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Speech Synthesis no longer returning list of voices in macOS 12.3
+        https://bugs.webkit.org/show_bug.cgi?id=237584
+        <rdar://problem/89952347>
+
+        Reviewed by Andres Gonzalez.
+
+        The minimum macOS version was meant to be 13 and above, but we started including 12.x releases inadvertently.
+
+        * wtf/PlatformHave.h:
+
+2022-03-08  Youenn Fablet  <youenn@apple.com>
+
+        Add a preference to mute video capture in case audio capture gets interrupted
+        https://bugs.webkit.org/show_bug.cgi?id=237524
+        <rdar://78421282>
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-08  Sihui Liu  <sihui_liu@apple.com>
+
+        Add early return for empty path in makeAllDirectories
+        https://bugs.webkit.org/show_bug.cgi?id=237540
+        rdar://89901536
+
+        Reviewed by Chris Dumez.
+
+        * wtf/posix/FileSystemPOSIX.cpp:
+        (WTF::FileSystemImpl::makeAllDirectories):
+
+2022-03-07  Per Arne Vollan  <pvollan@apple.com>
+
+        Preconnecting after process swap is a page load time improvement on some devices
+        https://bugs.webkit.org/show_bug.cgi?id=237055
+        <rdar://problem/89638872>
+
+        Reviewed by Geoffrey Garen.
+
+        Add ENABLE guard for this behavior.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2022-03-07  Chris Dumez  <cdumez@apple.com>
+
+        Optimize the passing of data across threads
+        https://bugs.webkit.org/show_bug.cgi?id=237502
+
+        Reviewed by Geoff Garen.
+
+        Drop isolatedCopy() on Vector since CrossThreadCopier already has logic to
+        isolate-copy a Vector. The logic in CrossThreadCopier has the benefit of
+        working on types that do not implement isolatedCopy() (e.g. a Vector of
+        std::optional or a Vector of std::variant).
+
+        Improve the CrossThreadCopier to optimize the case where crossThreadCopy()
+        is called on a r-value reference in more cases. In particular, the logic
+        for Vector, HashSet, HashMap, std::pair, std::variant was improved. I
+        also added API test coverage for those.
+
+        The API tests also found a bug where crossThreadCopy() was incorrectly
+        moving the source when called on a std::variant that was not a r-value
+        reference. This bug is fixed in this patch too.
+
+        * wtf/CrossThreadCopier.h:
+        * wtf/Vector.h:
+        (WTF::Malloc>::isolatedCopy const): Deleted.
+        (WTF::Malloc>::isolatedCopy): Deleted.
+        * wtf/mac/FileSystemMac.mm:
+        (WTF::FileSystem::setMetadataURL):
+
+2022-03-04  Sihui Liu  <sihui_liu@apple.com>
+
+        Add null check for path in makeAllDirectories
+        https://bugs.webkit.org/show_bug.cgi?id=237477
+
+        Reviewed by Darin Adler.
+
+        * wtf/posix/FileSystemPOSIX.cpp:
+        (WTF::FileSystemImpl::makeAllDirectories):
+
+2022-03-04  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [iOS] Books ASSERTs upon opening a book with a debug build of WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=237445
+        <rdar://problem/89776531>
+
+        Reviewed by Alex Christensen.
+
+        makeSafeToUseMemoryMapForPath() runs an ASSERT() that it was successful.
+        However, it's not always successful, so this ASSERT() was getting hit when
+        trying to open a book in Books. So, this patch makes the function return a
+        bool to indicate success, and updates callers to do something sensible if
+        it failed.
+
+        Test: FileSystemTest.makeSafeToUseMemoryMapForPath
+
+        * wtf/FileSystem.cpp:
+        (WTF::FileSystemImpl::makeSafeToUseMemoryMapForPath):
+        (WTF::FileSystemImpl::mapToFile):
+        * wtf/FileSystem.h:
+        * wtf/cocoa/FileSystemCocoa.mm:
+        (WTF::FileSystemImpl::makeSafeToUseMemoryMapForPath):
+
+2022-03-04  Chris Dumez  <cdumez@apple.com>
+
+        URL's isolatedCopy() optimization when called on a r-value reference doesn't work
+        https://bugs.webkit.org/show_bug.cgi?id=237481
+
+        Reviewed by Geoffrey Garen.
+
+        URL has an isolatedCopy() implementation that attempts to optimize the case where
+        it is called on a r-value reference. The idea is to rely on the String's
+        isolatedCopy() implementation which is optimized when called on a r-value reference.
+
+        Note that there are some specific conditions under which the String implementation
+        is able to avoid the copy (see String::isSafeToSendToAnotherThread()).
+        Namely, the StringImpl's refcount needs to be 1 and it cannot be backed by an
+        AtomStringImpl.
+
+        The issue was that URL::isolatedCopy() would first copy the URL, which would copy
+        its m_string and thus bump its refcount. As a result, m_string's refcount could
+        never be 1 and the optimization could never kick in.
+
+        * wtf/URL.cpp:
+        (WTF::URL::isolatedCopy):
+
+2022-03-02  Alex Christensen  <achristensen@webkit.org>
+
+        Add SPI _WKDataTask
+        https://bugs.webkit.org/show_bug.cgi?id=237234
+
+        Reviewed by Tim Horton.
+
+        * wtf/PlatformHave.h:
+
+2022-03-01  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        WTF::SentinelLinkedList::iterator should have operator++ for range-for loop
+        https://bugs.webkit.org/show_bug.cgi?id=237265
+
+        Reviewed by Yusuke Suzuki.
+
+        SentinelLinkedList had three problems.
+        1. Even though it has begin() and end(), using SentinelLinkedList
+           with range-for loop resulted in a broken node because
+           iterator::operator++ didn't work as expected.
+        2. If I used a SentinelLinkedList in a movable type, the sentinel
+           pointer gets stale after moving the object. move-ctor should be deleted.
+        3. It didn't have const_iterator.
+
+        * wtf/OrderMaker.h:
+        (WTF::OrderMaker::iterator::iterator):
+        (WTF::OrderMaker::iterator::operator*):
+        (WTF::OrderMaker::iterator::operator++):
+        (WTF::OrderMaker::iterator::operator== const):
+        * wtf/SentinelLinkedList.h:
+        (WTF::BasicRawSentinelNode::prev const):
+        (WTF::BasicRawSentinelNode::next const):
+        (WTF::SentinelLinkedList::BaseIterator::BaseIterator):
+        (WTF::SentinelLinkedList::BaseIterator::operator* const):
+        (WTF::SentinelLinkedList::BaseIterator::operator-> const):
+        (WTF::SentinelLinkedList::BaseIterator::operator++):
+        (WTF::SentinelLinkedList::BaseIterator::operator--):
+        (WTF::SentinelLinkedList::BaseIterator::operator== const):
+        (WTF::SentinelLinkedList::BaseIterator::operator!= const):
+        (WTF::SentinelLinkedList::forEach):
+        (WTF::RawNode>::begin):
+        (WTF::RawNode>::end):
+        (WTF::RawNode>::begin const):
+        (WTF::RawNode>::end const):
+        (WTF::BasicRawSentinelNode::prev): Deleted.
+        (WTF::BasicRawSentinelNode::next): Deleted.
+
+2022-03-01  Youenn Fablet  <youenn@apple.com>
+
+        Enable WebRTCRemoteVideoFrameEnabled by default on Cocoa ports
+        https://bugs.webkit.org/show_bug.cgi?id=237201
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-01  Alex Christensen  <achristensen@webkit.org>
+
+        [AppleWin] Start using Visual Studio 2022
+        https://bugs.webkit.org/show_bug.cgi?id=234933
+
+        Reviewed by Maciej Stachowiak.
+
+        * WTF.vcxproj/WTF.proj:
+
+2022-03-01  Geza Lore  <glore@igalia.com>
+
+        [JSC] Port EXTRA_CTI_THUNKS to all platforms
+        https://bugs.webkit.org/show_bug.cgi?id=233822
+
+        Reviewed by Saam Barati.
+
+        * wtf/PlatformEnable.h:
+        Remove EXTRA_CTI_THUNKS define (now always on on all platforms)
+
+2022-02-28  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Adopt -streamDataParser:didProvideContentKeySpecifier:forTrackID: delegate callback
+        https://bugs.webkit.org/show_bug.cgi?id=236109
+        <rdar://problem/88785844>
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-28  Tim Nguyen  <ntim@apple.com>
+
+        Enable inert attribute feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=235668
+
+        Reviewed by Darin Adler.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-27  Chris Dumez  <cdumez@apple.com>
+
+        Omit template parameter for SetForScope<> variables
+        https://bugs.webkit.org/show_bug.cgi?id=237258
+
+        Reviewed by Darin Adler.
+
+        * wtf/RefCounter.h:
+        (WTF::RefCounter<T>::Count::deref):
+
+2022-02-26  Chris Dumez  <cdumez@apple.com>
+
+        Drop Ref<>'s operator==() as it is a bit ambiguous / confusing
+        https://bugs.webkit.org/show_bug.cgi?id=237231
+
+        Reviewed by Darin Adler.
+
+        Drop Ref<>'s operator==() as it is a bit ambiguous / confusing. Some people expect it to compare
+        pointers while other expect it to compare the values we hold references to.
+        It seems best to omit this operator and be explicit at call sites.
+
+        * wtf/Ref.h:
+        (WTF::operator==): Deleted.
+        (WTF::operator!=): Deleted.
+        * wtf/Vector.h:
+        (WTF::Vector::containsIf const):
+
+2022-02-25  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Add missing header build rule for Scripts/Preferences/*
+        https://bugs.webkit.org/show_bug.cgi?id=237129
+
+        Reviewed by Alexey Proskuryakov.
+
+        Relands "[XCBuild] WTF's SPI dependencies are copied via a folder reference and do not emit
+        task outputs".
+
+        r290452 missed adding a build rule which would copy $SRCROOT/Scripts/Preferences/* to
+        /usr/local/include/wtf/Scripts/Preferences, and caused clean builds to start failing. Fix by
+        adding the needed build rule.
+
+        * Configurations/Base.xcconfig: 
+        * Configurations/WTF.xcconfig:
+        * Configurations/icu.xcconfig:
+        * WTF.xcodeproj/project.pbxproj:
+
+2022-02-24  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, reverting r290452.
+
+        Caused failues with clean builds
+
+        Reverted changeset:
+
+        "[XCBuild] WTF's SPI dependencies are copied via a folder
+        reference and do not emit task outputs"
+        https://bugs.webkit.org/show_bug.cgi?id=237129
+        https://commits.webkit.org/r290452
+
+2022-02-24  Devin Rousso  <drousso@apple.com>
+
+        REGRESSION(r290436): fix build failures
+        https://bugs.webkit.org/show_bug.cgi?id=237149
+
+        Reviewed by Tim Horton.
+
+        * wtf/PlatformHave.h:
+        Rename `HAVE_PASSKIT_UI` to `HAVE_PASSKIT_MODULARIZATION` so that it also involes `PassKitCore`.
+
+2022-02-24  Megan Gardner  <megan_gardner@apple.com>
+
+        Add percent decoding to Scroll to Text Fragment parsing.
+        https://bugs.webkit.org/show_bug.cgi?id=236818
+
+        Reviewed by Chris Dumez.
+
+        Expose bits of URL parser to allow percent decoding elsewhere.
+
+        * wtf/URLParser.h:
+
+2022-02-24  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] WTF's SPI dependencies are copied via a folder reference and do not emit task outputs
+        https://bugs.webkit.org/show_bug.cgi?id=237129
+
+        Reviewed by Alexey Proskuryakov.
+
+        In https://bugs.webkit.org/show_bug.cgi?id=235744, a folder reference was used to copy
+        headers from `spi/`, but the build system needs explicit file references for all headers to
+        infer discovered dependency relationships for incremental builds. Add spi/ headers directly
+        to WTF.xcodeproj.
+
+        We now have a method for using build rules to make a native Headers phase nest headers
+        according to their source directories. Use it here and delete the per-directory Copy Files
+        phases.
+
+        WTF's unicode headers--used only by external builders--are copied to a different include
+        directory, so for organization simplicity, add a separate target to WTF.xcodeproj to track
+        them. This target is effectively headers-only as it has no source files.
+
+        * Configurations/Base.xcconfig: Copy WK_WHICH_BUILD_SYSTEM settings from other projects.
+        * Configurations/WTF.xcconfig: Set header folder paths.
+        * Configurations/icu.xcconfig: Copied from Source/WTF/Configurations/WTF.xcconfig.
+        * WTF.xcodeproj/project.pbxproj: Add icu target, add spi headers, add build rules.
+
+2022-02-24  Don Olmstead  <don.olmstead@sony.com>
+
+        Fix debug build of WorkQueueGeneric after r290418
+        https://bugs.webkit.org/show_bug.cgi?id=237143
+
+        Unreviewed build fix.
+
+        Correct the method signature of WorkQueue::assertIsCurrent in WorkQueueGeneric.cpp.
+
+        * wtf/generic/WorkQueueGeneric.cpp:
+        (WTF::WorkQueue::assertIsCurrent const):
+        (WTF::WorkQueue::assertIsCurrent): Deleted.
+
+2022-02-24  Devin Rousso  <drousso@apple.com>
+
+        [Apple Pay] switch from `PassKit/*` to `PassKit[Core,UI]/*`
+        https://bugs.webkit.org/show_bug.cgi?id=237091
+        <rdar://problem/81085862>
+
+        Reviewed by Tim Horton.
+
+        * wtf/PlatformHave.h:
+
+2022-02-24  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. Fix compile warnings when asserts are disabled after r290418
+
+        * wtf/Threading.h:
+        (WTF::WTF_ASSERTS_ACQUIRED_CAPABILITY):
+        * wtf/WorkQueue.h:
+        (WTF::WTF_ASSERTS_ACQUIRED_CAPABILITY):
+
+2022-02-24  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Thread safety analysis to assert "code is run sequentially" is not useful when code is mainly run with WorkQueues
+        https://bugs.webkit.org/show_bug.cgi?id=236832
+
+        Reviewed by Antti Koivisto.
+
+        Thread safety analysis is not useful when code is mainly run with WorkQueues.
+        WorkQueue runnables might run in arbitrary thread, but still serially in a specific
+        "work queue". Thus current ThreadAssertion produces false assertions.
+
+        Make Thread and WorkQueue hold "is current" capability. This means the
+        `assertIsCurrent(thread/workQueue)` can establish that the caller holds the capabity,
+        e.g. that the caller is running in the particular thread or work queue.
+
+        Tested by new API tests.
+
+        * wtf/Threading.h:
+        (WTF::WTF_ASSERTS_ACQUIRED_CAPABILITY):
+        * wtf/WorkQueue.h:
+        (WTF::WTF_ASSERTS_ACQUIRED_CAPABILITY):
+        * wtf/cocoa/WorkQueueCocoa.cpp:
+        (WTF::WorkQueueBase::platformInitialize):
+        (WTF::WorkQueue::assertIsCurrent const):
+        (WTF::currentSequenceID):
+        * wtf/generic/WorkQueueGeneric.cpp:
+        (WTF::WorkQueueBase::platformInitialize):
+        (WTF::WorkQueue::assertIsCurrent):
+        (WTF::currentSequenceID):
+
+2022-02-24  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        REGRESSION(r289683): [GTK][WPE] Scrolling with the mouse wheel doesn't work in twitter after r289683
+        https://bugs.webkit.org/show_bug.cgi?id=237093
+
+        Reviewed by Carlos Garcia Campos.
+ 
+        Turn off by default for wpe/gtk and windows to investigate issue.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-24  Chris Dumez  <cdumez@apple.com>
+
+        Small optimizations to TinyLRUCache
+        https://bugs.webkit.org/show_bug.cgi?id=237117
+
+        Reviewed by Darin Adler.
+
+        Small optimizations to TinyLRUCache:
+        - When trying to find an entry in the cache, start from the end of the vector
+          since this is where the most recent entries are.
+        - Use reverseFind() instead of a for loop to simplify the code a bit
+        - Use Vector::uncheckedAppend() instead of Vector::append() to bypass capacity
+          checks given that the vector has an inline capacity that is the size of the
+          cache (vector capacity never grows or shrinks).
+
+        * wtf/TinyLRUCache.h:
+        (WTF::TinyLRUCache::get):
+
+2022-02-23  Chris Dumez  <cdumez@apple.com>
+
+        Adopt more widely the new URL constructor that takes in a String
+        https://bugs.webkit.org/show_bug.cgi?id=237099
+
+        Reviewed by Darin Adler.
+
+        * wtf/URL.cpp:
+        (WTF::aboutBlankURL):
+        (WTF::aboutSrcDocURL):
+
+2022-02-23  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Thread safety analysis macros are confusing for non-Lock use-cases
+        https://bugs.webkit.org/show_bug.cgi?id=237022
+
+        Reviewed by Chris Dumez.
+
+        Thread safety analysis proves that a capability is acquired or not acquired.
+        Change the semantics of thread safety analysis application in WebKit:
+          Before, we had only one capability, "lock".
+          After, we have arbitrary amount of capabilities, one of which is "lock".
+
+        Add thread safety analysis macros to support non-Lock use-cases better.
+
+        Non-lock use-case:
+        Before:
+          class WTF_CAPABILITY_LOCK ThreadAssertion { ... };
+          "WTF::ThreadAssertion is obviously not a lock but we use the lock capability machinery to obtain the analysis support.
+           It behaves like the lock capability and can be acquired."
+
+        After:
+          class WTF_CAPABILITY("is current") ThreadAssertion { ... };
+          "WTF::ThreadAssertion has a capability called 'is current' that can be acquired."
+
+        The documentation string "lock", "is current" will appear in the compile error messages to clarify the
+        violations.
+
+        * wtf/ThreadAssertions.h:
+        (WTF::WTF_ASSERTS_ACQUIRED_CAPABILITY):
+        * wtf/ThreadSafetyAnalysis.h:
+
+2022-02-22  Chris Dumez  <cdumez@apple.com>
+
+        Add a URL constructor that takes a String
+        https://bugs.webkit.org/show_bug.cgi?id=237068
+
+        Reviewed by Darin Adler.
+
+        Add a URL constructor that takes a String to simplify our code base a bit.
+
+        * wtf/URL.cpp:
+        (WTF::URL::truncatedForUseAsBase const):
+        (WTF::URL::fakeURLWithRelativePart):
+        (WTF::URL::fileURLWithFileSystemPath):
+        * wtf/URL.h:
+        (WTF::URL::URL):
+        (WTF::URL::decode):
+
+2022-02-22  Chris Dumez  <cdumez@apple.com>
+
+        Drop StringHasher::hashMemory() and use the modern Hasher instead
+        https://bugs.webkit.org/show_bug.cgi?id=237049
+
+        Reviewed by Sam Weinig and Darin Adler.
+
+        * wtf/SchedulePair.h:
+        (WTF::SchedulePairHash::hash):
+        * wtf/UUID.cpp:
+        (WTF::UUID::hash const): Deleted.
+        * wtf/UUID.h:
+        (WTF::UUID::isHashTableDeletedValue const):
+        (WTF::add):
+        (WTF::UUIDHash::hash):
+        * wtf/text/StringHasher.h:
+        (WTF::StringHasher::hashMemory): Deleted.
+
+2022-02-22  Elliott Williams  <emw@apple.com>
+
+        Replace legacy-build-copy-nested-headers.py with an xcodebuild invocation
+        https://bugs.webkit.org/show_bug.cgi?id=237011
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Scripts/legacy-build-copy-nested-headers.py: Removed.
+        * WTF.xcodeproj/project.pbxproj: Remove reference to legacy-build-copy-nested-headers.py.
+
+2022-02-22  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        Ruby ERB.new compatibility fix
+        https://bugs.webkit.org/show_bug.cgi?id=237035
+
+        Reviewed by Fujii Hironori.
+
+        ERB.new has changed its calling convention in newer ruby versions.
+        This was exposed by https://commits.webkit.org/247450@main, which
+        tried to silence the warning emitted by newer ruby versions.
+        Unfortunately, this resulted in failures with older ruby versions
+        (e.g.
+        https://build.webkit.org/#/builders/46/builds/11387/steps/8/logs/stdio).
+
+        Use the compatibility hack suggested by RuboCop to get this working
+        across ruby versions (without any warnings).
+
+        * Scripts/GeneratePreferences.rb:
+
+2022-02-22  Chris Dumez  <cdumez@apple.com>
+
+        Clean up / optimize even more call sites constructing vectors
+        https://bugs.webkit.org/show_bug.cgi?id=236852
+
+        Reviewed by Darin Adler.
+
+        * wtf/WorkQueue.cpp:
+        (WTF::ConcurrentWorkQueue::apply):
+        * wtf/cf/LanguageCF.cpp:
+        (WTF::platformUserPreferredLanguages):
+
+2022-02-22  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Initial MediaRecorder implementation
+        https://bugs.webkit.org/show_bug.cgi?id=236558
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml: Enable MediaRecorder if it was
+        enabled at build time in GStreamer ports.
+
+2022-02-22  Chris Dumez  <cdumez@apple.com>
+
+        Move service worker and push API preference from RuntimeEnabledFeatures to Settings
+        https://bugs.webkit.org/show_bug.cgi?id=236989
+
+        Reviewed by Youenn Fablet.
+
+        Move service worker and push API preference from RuntimeEnabledFeatures to Settings, since RuntimeEnabledFeatures is deprecated.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-22  Asumu Takikawa  <asumu@igalia.com>
+
+        Initial support for Wasm/ESM-integration in the WebCore module loader
+        https://bugs.webkit.org/show_bug.cgi?id=236268
+
+        Reviewed by Yusuke Suzuki.
+
+        Add preference flag for Wasm/ESM Integration.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-21  Robin Morisset  <rmorisset@apple.com>
+
+        [JSC] Format the output of --reportTotalPhaseTimes=1 more nicely
+        https://bugs.webkit.org/show_bug.cgi?id=237005
+
+        Reviewed by Saam Barati.
+
+        Add FixedWidthDouble, which allows easily printing a double with some whitespace to pad it out if it is smaller than expected.
+        Its design roughly follows RawPointer which similarly allows special formatting of a kind of number.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/FixedWidthDouble.h: Added.
+        (WTF::FixedWidthDouble::FixedWidthDouble):
+        (WTF::FixedWidthDouble::value const):
+        (WTF::FixedWidthDouble::width const):
+        (WTF::FixedWidthDouble::precision const):
+        * wtf/PrintStream.cpp:
+        (WTF::printInternal):
+        * wtf/PrintStream.h:
+
+2022-02-21  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] Adjust some behaviors around the "Markup Image" action in the callout bar
+        https://bugs.webkit.org/show_bug.cgi?id=236980
+
+        Reviewed by Aditya Keerthi.
+
+        Add a WebKit internal feature flag to control whether or not the "Markup Image" and related "Copy Cropped Image"
+        menu items should be enabled on iOS and macOS. This enables us to test these features in API and layout tests
+        without requiring the corresponding system feature flag to be enabled.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Temporal.PlainDate should validate input range
+        https://bugs.webkit.org/show_bug.cgi?id=236936
+
+        Reviewed by Darin Adler.
+
+        Add code to allow dataLog(Int128).
+
+        * wtf/Int128.cpp:
+        (WTF::printInternal):
+        * wtf/Int128.h:
+
 2022-02-18  Devin Rousso  <drousso@apple.com>
 
         [iOS] Safari can sometimes hang while printing due to sync IPC

@@ -44,6 +44,18 @@
 
 namespace WebCore {
 
+static inline MediaTime roundTowardsTimeScaleWithRoundingMargin(const MediaTime& time, uint32_t timeScale, const MediaTime& roundingMargin)
+{
+    while (true) {
+        MediaTime roundedTime = time.toTimeScale(timeScale);
+        if (abs(roundedTime - time) < roundingMargin || timeScale >= MediaTime::MaximumTimeScale)
+            return roundedTime;
+
+        if (!WTF::safeMultiply(timeScale, 2, timeScale) || timeScale > MediaTime::MaximumTimeScale)
+            timeScale = MediaTime::MaximumTimeScale;
+    }
+};
+
 // Do not enqueue samples spanning a significant unbuffered gap.
 // NOTE: one second is somewhat arbitrary. MediaSource::monitorSourceBuffers() is run
 // on the playbackTimer, which is effectively every 350ms. Allowing > 350ms gap between
@@ -216,10 +228,9 @@ void SourceBufferPrivate::bufferedSamplesForTrackId(const AtomString& trackId, C
     if (!trackBuffer)
         completionHandler({ });
 
-    Vector<String> sampleDescriptions;
-    for (auto& pair : trackBuffer->samples.decodeOrder())
-        sampleDescriptions.append(toString(*pair.second));
-
+    auto sampleDescriptions = WTF::map(trackBuffer->samples.decodeOrder(), [](auto& entry) {
+        return toString(*entry.second);
+    });
     completionHandler(WTFMove(sampleDescriptions));
 }
 
@@ -399,7 +410,7 @@ void SourceBufferPrivate::reenqueueMediaForTime(TrackBuffer& trackBuffer, const 
         || (currentSamplePTSIterator->first - time) > timeFudgeFactor())
         return;
 
-    // Seach backward for the previous sync sample.
+    // Search backward for the previous sync sample.
     DecodeOrderSampleMap::KeyType decodeKey(currentSamplePTSIterator->second->decodeTime(), currentSamplePTSIterator->second->presentationTime());
     auto currentSampleDTSIterator = trackBuffer.samples.decodeOrder().findSampleWithDecodeKey(decodeKey);
     ASSERT(currentSampleDTSIterator != trackBuffer.samples.decodeOrder().end());
@@ -507,7 +518,7 @@ static PlatformTimeRanges removeSamplesFromTrackBuffer(const DecodeOrderSampleMa
                 additionalErasedRanges.add(previousSample.presentationTime() + previousSample.duration(), erasedStart);
         }
 
-        auto endIterator = trackBuffer.samples.presentationOrder().findSampleStartingOnOrAfterPresentationTime(erasedEnd);
+        auto endIterator = trackBuffer.samples.presentationOrder().findSampleStartingAfterPresentationTime(erasedStart);
         if (endIterator == trackBuffer.samples.presentationOrder().end())
             additionalErasedRanges.add(erasedEnd, MediaTime::positiveInfiniteTime());
         else {
@@ -560,7 +571,9 @@ void SourceBufferPrivate::removeCodedFrames(const MediaTime& start, const MediaT
             RefPtr<MediaSample> sample = sampleIterator->second;
             if (!sample->isDivisable())
                 return;
-            std::pair<RefPtr<MediaSample>, RefPtr<MediaSample>> replacementSamples = sample->divide(time);
+            MediaTime microsecond(1, 1000000);
+            MediaTime roundedTime = roundTowardsTimeScaleWithRoundingMargin(time, sample->presentationTime().timeScale(), microsecond);
+            std::pair<RefPtr<MediaSample>, RefPtr<MediaSample>> replacementSamples = sample->divide(roundedTime);
             if (!replacementSamples.first || !replacementSamples.second)
                 return;
             DEBUG_LOG(LOGIDENTIFIER, "splitting sample ", *sample, " into ", *replacementSamples.first, " and ", *replacementSamples.second);
@@ -927,17 +940,6 @@ void SourceBufferPrivate::didReceiveSample(Ref<MediaSample>&& originalSample)
 
         MediaTime microsecond(1, 1000000);
 
-        auto roundTowardsTimeScaleWithRoundingMargin = [] (const MediaTime& time, uint32_t timeScale, const MediaTime& roundingMargin) {
-            while (true) {
-                MediaTime roundedTime = time.toTimeScale(timeScale);
-                if (abs(roundedTime - time) < roundingMargin || timeScale >= MediaTime::MaximumTimeScale)
-                    return roundedTime;
-
-                if (!WTF::safeMultiply(timeScale, 2, timeScale) || timeScale > MediaTime::MaximumTimeScale)
-                    timeScale = MediaTime::MaximumTimeScale;
-            }
-        };
-
         // 1.4 If timestampOffset is not 0, then run the following steps:
         if (m_timestampOffset) {
             if (!trackBuffer.roundedTimestampOffset.isValid() || presentationTimestamp.timeScale() != trackBuffer.lastFrameTimescale) {
@@ -1171,6 +1173,9 @@ void SourceBufferPrivate::didReceiveSample(Ref<MediaSample>&& originalSample)
                 MediaTime highestBufferedTime = trackBuffer.buffered.maximumBufferedTime();
                 MediaTime eraseBeginTime = trackBuffer.highestPresentationTimestamp;
                 MediaTime eraseEndTime = frameEndTimestamp - contiguousFrameTolerance;
+
+                if (eraseEndTime <= eraseBeginTime)
+                    break;
 
                 PresentationOrderSampleMap::iterator_range range;
                 if (highestBufferedTime - trackBuffer.highestPresentationTimestamp < trackBuffer.lastFrameDuration) {

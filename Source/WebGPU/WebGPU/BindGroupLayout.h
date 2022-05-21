@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
@@ -35,17 +34,27 @@ namespace WebGPU {
 class BindGroupLayout : public RefCounted<BindGroupLayout> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<BindGroupLayout> create()
+    static Ref<BindGroupLayout> create(id<MTLArgumentEncoder> vertexArgumentEncoder, id<MTLArgumentEncoder> fragmentArgumentEncoder, id<MTLArgumentEncoder> computeArgumentEncoder)
     {
-        return adoptRef(*new BindGroupLayout());
+        return adoptRef(*new BindGroupLayout(vertexArgumentEncoder, fragmentArgumentEncoder, computeArgumentEncoder));
     }
 
     ~BindGroupLayout();
 
     void setLabel(const char*);
 
+    NSUInteger encodedLength() const;
+
+    id<MTLArgumentEncoder> vertexArgumentEncoder() const { return m_vertexArgumentEncoder; }
+    id<MTLArgumentEncoder> fragmentArgumentEncoder() const { return m_fragmentArgumentEncoder; }
+    id<MTLArgumentEncoder> computeArgumentEncoder() const { return m_computeArgumentEncoder; }
+
 private:
-    BindGroupLayout();
+    BindGroupLayout(id<MTLArgumentEncoder> vertexArgumentEncoder, id<MTLArgumentEncoder> fragmentArgumentEncoder, id<MTLArgumentEncoder> computeArgumentEncoder);
+
+    id<MTLArgumentEncoder> m_vertexArgumentEncoder { nil };
+    id<MTLArgumentEncoder> m_fragmentArgumentEncoder { nil };
+    id<MTLArgumentEncoder> m_computeArgumentEncoder { nil };
 };
 
 } // namespace WebGPU

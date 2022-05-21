@@ -92,6 +92,7 @@ public:
     virtual bool shouldStartTimer(Frame&) { return true; }
     virtual void didStartTimer(Frame&, Timer&) { }
     virtual void didStopTimer(Frame&, NewLoadInProgress) { }
+    virtual bool targetIsCurrentFrame() const { return true; }
 
     double delay() const { return m_delay; }
     LockHistory lockHistory() const { return m_lockHistory; }
@@ -264,17 +265,21 @@ public:
 
 class ScheduledHistoryNavigation : public ScheduledNavigation {
 public:
-    explicit ScheduledHistoryNavigation(int historySteps)
+    explicit ScheduledHistoryNavigation(Ref<HistoryItem>&& historyItem)
         : ScheduledNavigation(0, LockHistory::No, LockBackForwardList::No, false, true)
-        , m_historySteps(historySteps)
+        , m_historyItem(WTFMove(historyItem))
     {
     }
 
     void fire(Frame& frame) override
     {
+        // If the destination HistoryItem is no longer in the back/forward list, then we don't proceed.
+        if (!frame.page()->backForward().containsItem(m_historyItem))
+            return;
+
         UserGestureIndicator gestureIndicator(userGestureToForward());
 
-        if (!m_historySteps) {
+        if (frame.page()->backForward().currentItem() == m_historyItem.ptr()) {
             // Special case for go(0) from a frame -> reload only the frame
             // To follow Firefox and IE's behavior, history reload can only navigate the self frame.
             frame.loader().changeLocation(frame.document()->url(), selfTargetFrameName(), 0, ReferrerPolicy::EmptyString, shouldOpenExternalURLs());
@@ -283,14 +288,14 @@ public:
         
         // go(i!=0) from a frame navigates into the history of the frame only,
         // in both IE and NS (but not in Mozilla). We can't easily do that.
-        frame.page()->backForward().goBackOrForward(m_historySteps);
+        frame.page()->goToItem(m_historyItem, FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No);
     }
 
 private:
-    int m_historySteps;
+    Ref<HistoryItem> m_historyItem;
 };
 
-class ScheduledFormSubmission : public ScheduledNavigation {
+class ScheduledFormSubmission final : public ScheduledNavigation {
 public:
     ScheduledFormSubmission(Ref<FormSubmission>&& submission, LockBackForwardList lockBackForwardList, bool duringLoad)
         : ScheduledNavigation(0, submission->lockHistory(), lockBackForwardList, duringLoad, true, submission->state().sourceDocument().shouldOpenExternalURLsPolicyToPropagate())
@@ -298,7 +303,7 @@ public:
     {
     }
 
-    void fire(Frame& frame) override
+    void fire(Frame& frame) final
     {
         if (m_submission->wasCancelled())
             return;
@@ -323,7 +328,7 @@ public:
         frame.loader().loadFrameRequest(WTFMove(frameLoadRequest), m_submission->event(), m_submission->takeState());
     }
 
-    void didStartTimer(Frame& frame, Timer& timer) override
+    void didStartTimer(Frame& frame, Timer& timer) final
     {
         if (m_haveToldClient)
             return;
@@ -333,7 +338,7 @@ public:
         frame.loader().clientRedirected(m_submission->requestURL(), delay(), WallTime::now() + timer.nextFireInterval(), lockBackForwardList());
     }
 
-    void didStopTimer(Frame& frame, NewLoadInProgress newLoadInProgress) override
+    void didStopTimer(Frame& frame, NewLoadInProgress newLoadInProgress) final
     {
         if (!m_haveToldClient)
             return;
@@ -345,6 +350,14 @@ public:
         // gesture state will sometimes be set and sometimes not within
         // dispatchDidCancelClientRedirect().
         frame.loader().clientRedirectCancelledOrFinished(newLoadInProgress);
+    }
+
+    bool targetIsCurrentFrame() const final
+    {
+        // For form submissions, we normally resolve the target frame before scheduling the submission on the
+        // NavigationScheduler. However, if the target is _blank, we schedule the submission on the submitter's
+        // frame and only create the new frame when actually starting the navigation.
+        return !isBlankTargetFrameName(m_submission->target());
     }
 
 private:
@@ -395,7 +408,7 @@ bool NavigationScheduler::redirectScheduledDuringLoad()
 
 bool NavigationScheduler::locationChangePending()
 {
-    return m_redirect && m_redirect->isLocationChange();
+    return m_redirect && m_redirect->isLocationChange() && m_redirect->targetIsCurrentFrame();
 }
 
 void NavigationScheduler::clear()
@@ -546,8 +559,14 @@ void NavigationScheduler::scheduleHistoryNavigation(int steps)
         return;
     }
 
+    auto historyItem = backForward.itemAtIndex(steps);
+    if (!historyItem) {
+        cancel();
+        return;
+    }
+
     // In all other cases, schedule the history traversal to occur asynchronously.
-    schedule(makeUnique<ScheduledHistoryNavigation>(steps));
+    schedule(makeUnique<ScheduledHistoryNavigation>(historyItem.releaseNonNull()));
 }
 
 void NavigationScheduler::schedulePageBlock(Document& originDocument)

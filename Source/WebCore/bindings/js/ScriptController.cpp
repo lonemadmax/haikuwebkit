@@ -59,6 +59,7 @@
 #include "WebCoreJITOperations.h"
 #include "WebCoreJSClientData.h"
 #include "runtime_root.h"
+#include <JavaScriptCore/AbstractModuleRecord.h>
 #include <JavaScriptCore/Debugger.h>
 #include <JavaScriptCore/Heap.h>
 #include <JavaScriptCore/InitializeThreading.h>
@@ -72,6 +73,7 @@
 #include <JavaScriptCore/ScriptCallStack.h>
 #include <JavaScriptCore/StrongInlines.h>
 #include <JavaScriptCore/WeakGCMapInlines.h>
+#include <JavaScriptCore/WebAssemblyModuleRecord.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SharedTask.h>
 #include <wtf/Threading.h>
@@ -141,8 +143,8 @@ ValueOrException ScriptController::evaluateInWorld(const ScriptSourceCode& sourc
     auto& proxy = jsWindowProxy(world);
     auto& globalObject = *proxy.window();
 
-    Ref<Frame> protector(m_frame);
-    SetForScope<const URL*> sourceURLScope(m_sourceURL, &sourceURL);
+    Ref protector { m_frame };
+    SetForScope sourceURLScope(m_sourceURL, &sourceURL);
 
     InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL.string(), sourceCode.startLine(), sourceCode.startColumn());
 
@@ -230,26 +232,37 @@ JSC::JSValue ScriptController::linkAndEvaluateModuleScript(LoadableModuleScript&
     return linkAndEvaluateModuleScriptInWorld(moduleScript, mainThreadNormalWorld());
 }
 
-JSC::JSValue ScriptController::evaluateModule(const URL& sourceURL, JSModuleRecord& moduleRecord, DOMWrapperWorld& world, JSC::JSValue awaitedValue, JSC::JSValue resumeMode)
+JSC::JSValue ScriptController::evaluateModule(const URL& sourceURL, AbstractModuleRecord& moduleRecord, DOMWrapperWorld& world, JSC::JSValue awaitedValue, JSC::JSValue resumeMode)
 {
-    JSLockHolder lock(world.vm());
-
-    const auto& jsSourceCode = moduleRecord.sourceCode();
+    JSC::VM& vm = world.vm();
+    JSLockHolder lock(vm);
 
     auto& proxy = jsWindowProxy(world);
     auto& lexicalGlobalObject = *proxy.window();
 
-    Ref<Frame> protector(m_frame);
-    SetForScope<const URL*> sourceURLScope(m_sourceURL, &sourceURL);
+    Ref protector { m_frame };
+    SetForScope sourceURLScope(m_sourceURL, &sourceURL);
 
-    InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL.string(), jsSourceCode.firstLine().oneBasedInt(), jsSourceCode.startColumn().oneBasedInt());
+#if ENABLE(WEBASSEMBLY)
+    const bool isWasmModule = moduleRecord.inherits<WebAssemblyModuleRecord>(vm);
+#else
+    constexpr bool isWasmModule = false;
+#endif
+    if (isWasmModule) {
+        // FIXME: Provide better inspector support for Wasm scripts.
+        InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL.string(), 1, 1);
+    } else {
+        auto* jsModuleRecord = jsDynamicCast<JSModuleRecord*>(vm, &moduleRecord);
+        const auto& jsSourceCode = jsModuleRecord->sourceCode();
+        InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL.string(), jsSourceCode.firstLine().oneBasedInt(), jsSourceCode.startColumn().oneBasedInt());
+    }
     auto returnValue = moduleRecord.evaluate(&lexicalGlobalObject, awaitedValue, resumeMode);
     InspectorInstrumentation::didEvaluateScript(m_frame);
 
     return returnValue;
 }
 
-JSC::JSValue ScriptController::evaluateModule(const URL& sourceURL, JSModuleRecord& moduleRecord, JSC::JSValue awaitedValue, JSC::JSValue resumeMode)
+JSC::JSValue ScriptController::evaluateModule(const URL& sourceURL, AbstractModuleRecord& moduleRecord, JSC::JSValue awaitedValue, JSC::JSValue resumeMode)
 {
     return evaluateModule(sourceURL, moduleRecord, mainThreadNormalWorld(), awaitedValue, resumeMode);
 }
@@ -393,12 +406,12 @@ TextPosition ScriptController::eventHandlerPosition() const
     return TextPosition();
 }
 
-void ScriptController::enableEval()
+void ScriptController::enableEval(bool enable, const String& errorMessage)
 {
     auto* jsWindowProxy = windowProxy().existingJSWindowProxy(mainThreadNormalWorld());
     if (!jsWindowProxy)
         return;
-    jsWindowProxy->window()->setEvalEnabled(true);
+    jsWindowProxy->window()->setEvalEnabled(enable, errorMessage);
 }
 
 void ScriptController::enableWebAssembly()
@@ -641,8 +654,8 @@ ValueOrException ScriptController::callInWorld(RunJavaScriptParameters&& paramet
 
     const URL& sourceURL = jsSourceCode.provider()->sourceOrigin().url();
 
-    Ref<Frame> protector(m_frame);
-    SetForScope<const URL*> sourceURLScope(m_sourceURL, &sourceURL);
+    Ref protector { m_frame };
+    SetForScope sourceURLScope(m_sourceURL, &sourceURL);
 
     InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL.string(), sourceCode.startLine(), sourceCode.startColumn());
 
@@ -781,7 +794,7 @@ void ScriptController::executeJavaScriptURL(const URL& url, RefPtr<SecurityOrigi
     if (requesterSecurityOrigin && !requesterSecurityOrigin->isSameOriginDomain(m_frame.document()->securityOrigin()))
         return;
 
-    if (!m_frame.page() || !m_frame.document()->contentSecurityPolicy()->allowJavaScriptURLs(m_frame.document()->url().string(), eventHandlerPosition().m_line, url.string()))
+    if (!m_frame.page() || !m_frame.document()->contentSecurityPolicy()->allowJavaScriptURLs(m_frame.document()->url().string(), eventHandlerPosition().m_line, url.string(), nullptr))
         return;
 
     // We need to hold onto the Frame here because executing script can
@@ -825,7 +838,7 @@ void ScriptController::executeJavaScriptURL(const URL& url, RefPtr<SecurityOrigi
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=200523
         // The only reason we do a nestable save/restore of this flag here is because we sometimes nest javascript: url loads as
         // some will load synchronously. We'd like to remove those synchronous loads and then change this.
-        SetForScope<bool> willBeReplaced(m_willReplaceWithResultOfExecutingJavascriptURL, true);
+        SetForScope willBeReplaced(m_willReplaceWithResultOfExecutingJavascriptURL, true);
 
         // DocumentWriter::replaceDocumentWithResultOfExecutingJavascriptURL can cause the DocumentLoader to get deref'ed and possible destroyed,
         // so protect it with a RefPtr.

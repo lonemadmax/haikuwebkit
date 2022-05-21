@@ -221,7 +221,7 @@ void Chrome::runModal() const
 
     // JavaScript that runs within the nested event loop must not be run in the context of the
     // script that called showModalDialog. Null out entryScope to break the connection.
-    SetForScope<JSC::VMEntryScope*> entryScopeNullifier { m_page.mainFrame().document()->vm().entryScope, nullptr };
+    SetForScope entryScopeNullifier { m_page.mainFrame().document()->vm().entryScope, nullptr };
 
     TimerBase::fireTimersInNestedEventLoop();
     m_client.runModal();
@@ -542,7 +542,7 @@ RefPtr<ImageBuffer> Chrome::createImageBuffer(const FloatSize& size, RenderingMo
 #if ENABLE(WEBGL)
 RefPtr<GraphicsContextGL> Chrome::createGraphicsContextGL(const GraphicsContextGLAttributes& attributes) const
 {
-    return m_client.createGraphicsContextGL(attributes, displayID());
+    return m_client.createGraphicsContextGL(attributes);
 }
 #endif
 

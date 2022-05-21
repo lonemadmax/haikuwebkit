@@ -112,6 +112,7 @@
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
+#include <algorithm>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -132,11 +133,6 @@ AccessibilityRenderObject::AccessibilityRenderObject(RenderObject* renderer)
 AccessibilityRenderObject::~AccessibilityRenderObject()
 {
     ASSERT(isDetached());
-}
-
-void AccessibilityRenderObject::init()
-{
-    AccessibilityNodeObject::init();
 }
 
 Ref<AccessibilityRenderObject> AccessibilityRenderObject::create(RenderObject* renderer)
@@ -527,7 +523,23 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
     
     return nullptr;
 }
-    
+
+AXCoreObject* AccessibilityRenderObject::parentObjectUnignored() const
+{
+#if USE(ATSPI)
+    // Expose markers that are not direct children of a list item too.
+    if (m_renderer && m_renderer->isListMarker()) {
+        if (auto* listItem = ancestorsOfType<RenderListItem>(*m_renderer).first()) {
+            AccessibilityObject* parent = axObjectCache()->getOrCreate(listItem);
+            if (downcast<AccessibilityRenderObject>(*parent).markerRenderer() == m_renderer)
+                return parent;
+        }
+    }
+#endif
+
+    return AccessibilityNodeObject::parentObjectUnignored();
+}
+
 bool AccessibilityRenderObject::isAttachment() const
 {
     RenderBoxModelObject* renderer = renderBoxModelObject();
@@ -2097,21 +2109,23 @@ VisiblePositionRange AccessibilityRenderObject::visiblePositionRangeForLine(unsi
     selection.modify(FrameSelection::AlterationExtend, SelectionDirection::Right, TextGranularity::LineBoundary);
     return selection.selection();
 }
-    
+
 VisiblePosition AccessibilityRenderObject::visiblePositionForIndex(int index) const
 {
     if (!m_renderer)
-        return VisiblePosition();
+        return { };
 
-    if (isNativeTextControl())
-        return downcast<RenderTextControl>(*m_renderer).textFormControlElement().visiblePositionForIndex(index);
+    if (isNativeTextControl()) {
+        auto& textControl = downcast<RenderTextControl>(*m_renderer).textFormControlElement();
+        return textControl.visiblePositionForIndex(std::clamp(index, 0, static_cast<int>(textControl.value().length())));
+    }
 
     if (!allowsTextRanges() && !is<RenderText>(*m_renderer))
-        return VisiblePosition();
-    
+        return { };
+
     Node* node = m_renderer->node();
     if (!node)
-        return VisiblePosition();
+        return { };
 
 #if USE(ATSPI)
     // We need to consider replaced elements for GTK, as they will be presented with the 'object replacement character' (0xFFFC).
@@ -2120,7 +2134,7 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForIndex(int index) co
     return visiblePositionForIndexUsingCharacterIterator(*node, index);
 #endif
 }
-    
+
 int AccessibilityRenderObject::indexForVisiblePosition(const VisiblePosition& position) const
 {
     if (!m_renderer)
@@ -3236,7 +3250,23 @@ void AccessibilityRenderObject::addHiddenChildren()
         insertionIndex += (m_children.size() - previousSize);
     }
 }
-    
+
+#if USE(ATSPI)
+RenderObject* AccessibilityRenderObject::markerRenderer() const
+{
+    if (accessibilityIsIgnored() || !isListItem() || !m_renderer || !m_renderer->isListItem())
+        return nullptr;
+
+    return downcast<RenderListItem>(*m_renderer).markerRenderer();
+}
+
+void AccessibilityRenderObject::addListItemMarker()
+{
+    if (auto* marker = markerRenderer())
+        insertChild(axObjectCache()->getOrCreate(marker), 0);
+}
+#endif
+
 void AccessibilityRenderObject::updateRoleAfterChildrenCreation()
 {
     AXTRACE("AccessibilityRenderObject::updateRoleAfterChildrenCreation");
@@ -3269,10 +3299,18 @@ void AccessibilityRenderObject::addChildren()
     
     if (!canHaveChildren())
         return;
-    
-    for (RefPtr<AccessibilityObject> obj = firstChild(); obj; obj = obj->nextSibling())
-        addChild(obj.get());
-    
+
+    auto addChildIfNeeded = [this](AccessibilityObject& object) {
+#if USE(ATSPI)
+        if (object.renderer()->isListMarker())
+            return;
+#endif
+        addChild(&object);
+    };
+
+    for (RefPtr<AccessibilityObject> object = firstChild(); object; object = object->nextSibling())
+        addChildIfNeeded(*object);
+
     m_subtreeDirty = false;
     
     addHiddenChildren();
@@ -3281,6 +3319,9 @@ void AccessibilityRenderObject::addChildren()
     addTextFieldChildren();
     addCanvasChildren();
     addRemoteSVGChildren();
+#if USE(ATSPI)
+    addListItemMarker();
+#endif
 
 #if PLATFORM(COCOA)
     updateAttachmentViewParents();

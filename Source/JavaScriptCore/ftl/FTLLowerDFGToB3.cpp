@@ -16274,7 +16274,7 @@ IGNORE_CLANG_WARNINGS_END
 
         CodeBlock* baselineCodeBlock = m_graph.baselineCodeBlockFor(m_origin.semantic);
         BytecodeIndex bytecodeIndex = m_origin.semantic.bytecodeIndex();
-        const Instruction* instruction = baselineCodeBlock->instructions().at(bytecodeIndex.offset()).ptr();
+        const auto* instruction = baselineCodeBlock->instructions().at(bytecodeIndex.offset()).ptr();
         VM* vm = &this->vm();
         uintptr_t* ptr = vm->getLoopHintExecutionCounter(instruction);
 
@@ -20710,7 +20710,9 @@ IGNORE_CLANG_WARNINGS_END
             ExitValue exitValue = exitValueForAvailability(arguments, map, availability);
             if (exitValue.hasIndexInStackmapLocations())
                 exitValue.adjustStackmapLocationsIndexByOffset(offsetOfExitArgumentsInStackmapLocations);
+IGNORE_GCC_WARNINGS_BEGIN("stringop-overflow")
             exitDescriptor->m_values[i] = exitValue;
+IGNORE_GCC_WARNINGS_END
         }
         
         for (auto heapPair : availabilityMap.m_heap) {

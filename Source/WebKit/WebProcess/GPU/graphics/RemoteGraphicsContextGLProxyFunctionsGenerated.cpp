@@ -686,7 +686,8 @@ String RemoteGraphicsContextGLProxy::getShaderInfoLog(PlatformGLObject arg0)
 
 void RemoteGraphicsContextGLProxy::getShaderPrecisionFormat(GCGLenum shaderType, GCGLenum precisionType, GCGLSpan<GCGLint, 2> range, GCGLint* precision)
 {
-    IPC::ArrayReference<int32_t, 2> rangeReply { { } };
+    constexpr std::array<int32_t, 2> rangeReplyEmpty { };
+    IPC::ArrayReference<int32_t, 2> rangeReply { rangeReplyEmpty };
     int32_t precisionReply = { };
     if (!isContextLost()) {
         auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::GetShaderPrecisionFormat(shaderType, precisionType), Messages::RemoteGraphicsContextGL::GetShaderPrecisionFormat::Reply(rangeReply, precisionReply));
@@ -1322,27 +1323,6 @@ void RemoteGraphicsContextGLProxy::bufferSubData(GCGLenum target, GCGLintptr off
 {
     if (!isContextLost()) {
         auto sendResult = send(Messages::RemoteGraphicsContextGL::BufferSubData(target, static_cast<uint64_t>(offset), IPC::ArrayReference<uint8_t>(reinterpret_cast<const uint8_t*>(data.data), data.bufSize)));
-        if (!sendResult)
-            markContextLost();
-    }
-}
-
-void RemoteGraphicsContextGLProxy::readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLSpan<GCGLvoid> data)
-{
-    IPC::ArrayReference<uint8_t> dataReply;
-    if (!isContextLost()) {
-        auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::ReadnPixels0(x, y, width, height, format, type, data.bufSize), Messages::RemoteGraphicsContextGL::ReadnPixels0::Reply(dataReply));
-        if (!sendResult)
-            markContextLost();
-        else
-            memcpy(data.data, dataReply.data(), data.bufSize * sizeof(uint8_t));
-    }
-}
-
-void RemoteGraphicsContextGLProxy::readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLintptr offset)
-{
-    if (!isContextLost()) {
-        auto sendResult = send(Messages::RemoteGraphicsContextGL::ReadnPixels1(x, y, width, height, format, type, static_cast<uint64_t>(offset)));
         if (!sendResult)
             markContextLost();
     }

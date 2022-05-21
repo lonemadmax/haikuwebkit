@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if USE(ANGLE) && USE(NICOSIA)
+#include <wtf/Noncopyable.h>
 
 struct gbm_device;
 
@@ -48,5 +48,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // USE(ANGLE) && USE(NICOSIA)

@@ -16,6 +16,7 @@
 # plugins can be searched, and they define the following variables if
 # found:
 #
+#  gstreamer-allocators: GSTREAMER_ALLOCATORS_INCLUDE_DIRS and GSTREAMER_ALLOCATORS_LIBRARIES
 #  gstreamer-app:        GSTREAMER_APP_INCLUDE_DIRS and GSTREAMER_APP_LIBRARIES
 #  gstreamer-audio:      GSTREAMER_AUDIO_INCLUDE_DIRS and GSTREAMER_AUDIO_LIBRARIES
 #  gstreamer-fft:        GSTREAMER_FFT_INCLUDE_DIRS and GSTREAMER_FFT_LIBRARIES
@@ -26,6 +27,7 @@
 #  gstreamer-video:      GSTREAMER_VIDEO_INCLUDE_DIRS and GSTREAMER_VIDEO_LIBRARIES
 #  gstreamer-codecparser:GSTREAMER_CODECPARSERS_INCLUDE_DIRS and GSTREAMER_CODECPARSERS_LIBRARIES
 #  gstreamer-full:       GSTREAMER_FULL_INCLUDE_DIRS and GSTREAMER_FULL_LIBRARIES
+#  gstreamer-transcoder: GSTREAMER_TRANSCODER_INCLUDE_DIRS and GSTREAMER_TRANSCODER_LIBRARIES
 #
 # Copyright (C) 2012 Raphael Kubo da Costa <rakuco@webkit.org>
 #
@@ -97,6 +99,7 @@ FIND_GSTREAMER_COMPONENT(GSTREAMER_FULL gstreamer-full-1.0>=1.17.0 gstreamer-ful
 # 2. Find GStreamer plugins
 # -------------------------
 
+FIND_GSTREAMER_COMPONENT(GSTREAMER_ALLOCATORS gstreamer-allocators-1.0 gstallocators-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_APP gstreamer-app-1.0 gstapp-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_AUDIO gstreamer-audio-1.0 gstaudio-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_FFT gstreamer-fft-1.0 gstfft-1.0)
@@ -106,6 +109,7 @@ FIND_GSTREAMER_COMPONENT(GSTREAMER_PBUTILS gstreamer-pbutils-1.0 gstpbutils-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_TAG gstreamer-tag-1.0 gsttag-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_VIDEO gstreamer-video-1.0 gstvideo-1.0)
 FIND_GSTREAMER_COMPONENT(GSTREAMER_CODECPARSERS gstreamer-codecparsers-1.0 gstcodecparsers-1.0)
+FIND_GSTREAMER_COMPONENT(GSTREAMER_TRANSCODER gstreamer-transcoder-1.0 gsttranscoder-1.0)
 
 # ------------------------------------------------
 # 3. Process the COMPONENTS passed to FIND_PACKAGE
@@ -124,6 +128,8 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(GStreamer REQUIRED_VARS _GSTREAMER_REQUIRED_VA
                                             VERSION_VAR   GSTREAMER_VERSION)
 
 mark_as_advanced(
+    GSTREAMER_ALLOCATORS_INCLUDE_DIRS
+    GSTREAMER_ALLOCATORS_LIBRARIES
     GSTREAMER_APP_INCLUDE_DIRS
     GSTREAMER_APP_LIBRARIES
     GSTREAMER_AUDIO_INCLUDE_DIRS

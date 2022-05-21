@@ -381,7 +381,7 @@ public:
     // This is different from the asynchronous MediaKeyError.
     enum MediaKeyException { NoError, InvalidPlayerState, KeySystemNotSupported };
 
-    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient*);
+    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient&);
     void setCDM(LegacyCDM*);
     void setCDMSession(LegacyCDMSession*);
     void keyAdded();
@@ -694,6 +694,8 @@ public:
     std::optional<VideoFrameMetadata> videoFrameMetadata();
     void startVideoFrameMetadataGathering();
     void stopVideoFrameMetadataGathering();
+
+    void playerContentBoxRectChanged(const LayoutRect&);
 
 private:
     MediaPlayer(MediaPlayerClient&);

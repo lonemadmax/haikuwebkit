@@ -150,6 +150,12 @@ if (COMPILER_IS_GCC_OR_CLANG)
         WEBKIT_PREPEND_GLOBAL_CXX_FLAGS(-Wno-stringop-overread)
     endif ()
 
+    # -Wodr trips over our bindings integrity feature when LTO is enabled.
+    # https://bugs.webkit.org/show_bug.cgi?id=229867
+    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        WEBKIT_PREPEND_GLOBAL_CXX_FLAGS(-Wno-odr)
+    endif ()
+
     # -Wexpansion-to-defined produces false positives with GCC but not Clang
     # https://bugs.webkit.org/show_bug.cgi?id=167643#c13
     if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -272,7 +278,7 @@ endif ()
 macro(DETERMINE_GCC_SYSTEM_INCLUDE_DIRS _lang _compiler _flags _result)
     file(WRITE "${CMAKE_BINARY_DIR}/CMakeFiles/dummy" "\n")
     separate_arguments(_buildFlags UNIX_COMMAND "${_flags}")
-    execute_process(COMMAND ${_compiler} ${_buildFlags} -v -E -x ${_lang} -dD dummy
+    execute_process(COMMAND ${CMAKE_COMMAND} -E env LANG=C ${_compiler} ${_buildFlags} -v -E -x ${_lang} -dD dummy
                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/CMakeFiles OUTPUT_QUIET
                     ERROR_VARIABLE _gccOutput)
     file(REMOVE "${CMAKE_BINARY_DIR}/CMakeFiles/dummy")

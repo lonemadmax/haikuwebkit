@@ -184,6 +184,7 @@ WI.DebugSetting = class DebugSetting extends WI.Setting
 };
 
 WI.settings = {
+    blackboxBreakpointEvaluations: new WI.Setting("blackbox-breakpoint-evaluations", false),
     canvasRecordingAutoCaptureEnabled: new WI.Setting("canvas-recording-auto-capture-enabled", false),
     canvasRecordingAutoCaptureFrameCount: new WI.Setting("canvas-recording-auto-capture-frame-count", 1),
     consoleAutoExpandTrace: new WI.Setting("console-auto-expand-trace", true),
@@ -196,6 +197,7 @@ WI.settings = {
     enableControlFlowProfiler: new WI.Setting("enable-control-flow-profiler", false),
     enableElementsTabIndependentStylesDetailsSidebarPanel: new WI.Setting("elements-tab-independent-styles-details-panel", true),
     enableLineWrapping: new WI.Setting("enable-line-wrapping", true),
+    flexOverlayShowOrderNumbers: new WI.Setting("flex-overlay-show-order-numbers", false),
     frontendAppearance: new WI.Setting("frontend-appearance", "system"),
     gridOverlayShowAreaNames: new WI.Setting("grid-overlay-show-area-names", false),
     gridOverlayShowExtendedGridLines: new WI.Setting("grid-overlay-show-extended-grid-lines", false),

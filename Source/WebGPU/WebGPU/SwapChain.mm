@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,17 @@
 #import "config.h"
 #import "SwapChain.h"
 
+#import "Device.h"
 #import "TextureView.h"
-#import "WebGPUExt.h"
 
 namespace WebGPU {
+
+RefPtr<SwapChain> Device::createSwapChain(const Surface& surface, const WGPUSwapChainDescriptor& descriptor)
+{
+    UNUSED_PARAM(surface);
+    UNUSED_PARAM(descriptor);
+    return SwapChain::create();
+}
 
 SwapChain::SwapChain() = default;
 
@@ -37,7 +44,7 @@ SwapChain::~SwapChain() = default;
 
 Ref<TextureView> SwapChain::getCurrentTextureView()
 {
-    return TextureView::create();
+    return TextureView::create(nil);
 }
 
 void SwapChain::present()
@@ -60,4 +67,3 @@ void wgpuSwapChainPresent(WGPUSwapChain swapChain)
 {
     swapChain->swapChain->present();
 }
-

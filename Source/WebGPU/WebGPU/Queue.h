@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Function.h>
 #import <wtf/Ref.h>
@@ -40,9 +39,9 @@ class CommandBuffer;
 class Queue : public RefCounted<Queue> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<Queue> create()
+    static Ref<Queue> create(id<MTLCommandQueue> commandQueue)
     {
-        return adoptRef(*new Queue());
+        return adoptRef(*new Queue(commandQueue));
     }
 
     ~Queue();
@@ -50,11 +49,13 @@ public:
     void onSubmittedWorkDone(uint64_t signalValue, WTF::Function<void(WGPUQueueWorkDoneStatus)>&& callback);
     void submit(Vector<std::reference_wrapper<const CommandBuffer>>&& commands);
     void writeBuffer(const Buffer&, uint64_t bufferOffset, const void* data, size_t);
-    void writeTexture(const WGPUImageCopyTexture* destination, const void* data, size_t dataSize, const WGPUTextureDataLayout*, const WGPUExtent3D* writeSize);
+    void writeTexture(const WGPUImageCopyTexture& destination, const void* data, size_t dataSize, const WGPUTextureDataLayout&, const WGPUExtent3D& writeSize);
     void setLabel(const char*);
 
 private:
-    Queue();
+    Queue(id<MTLCommandQueue>);
+
+    id<MTLCommandQueue> m_commandQueue { nil };
 };
 
 } // namespace WebGPU

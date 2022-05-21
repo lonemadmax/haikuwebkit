@@ -378,7 +378,7 @@ public:
     bool needsStyleInvalidation() const;
 
     bool hasValidStyle() const;
-    bool isVisibleWithoutResolvingFullStyle() const;
+    bool isFocusableWithoutResolvingFullStyle() const;
 
     // Methods for indicating the style is affected by dynamic updates (e.g., children changing, our position changing in our sibling list, etc.)
     bool styleAffectedByEmpty() const { return hasStyleFlag(NodeStyleFlag::StyleAffectedByEmpty); }
@@ -574,7 +574,7 @@ public:
     // FIXME: Consider changing signature to accept Element* because all callers perform copyRef().
     void dispatchFocusInEventIfNeeded(RefPtr<Element>&& oldFocusedElement);
     void dispatchFocusOutEventIfNeeded(RefPtr<Element>&& newFocusedElement);
-    virtual void dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection);
+    virtual void dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions&);
     virtual void dispatchBlurEvent(RefPtr<Element>&& newFocusedElement);
     void dispatchWebKitImageReadyEventForTesting();
 
@@ -663,6 +663,8 @@ public:
 
     bool hasDuplicateAttribute() const { return m_hasDuplicateAttribute; };
     void setHasDuplicateAttribute(bool hasDuplicateAttribute) { m_hasDuplicateAttribute = hasDuplicateAttribute; };
+
+    virtual void updateUserAgentShadowTree() { }
 
 protected:
     Element(const QualifiedName&, Document&, ConstructionType);

@@ -49,6 +49,7 @@ namespace WebCore {
 
 class Event;
 class RegisteredEventListener;
+class ScriptExecutionContext;
 
 class InspectorDOMDebuggerAgent : public InspectorAgentBase, public Inspector::DOMDebuggerBackendDispatcherHandler, public Inspector::InspectorDebuggerAgent::Listener {
     WTF_MAKE_NONCOPYABLE(InspectorDOMDebuggerAgent);
@@ -76,8 +77,8 @@ public:
     virtual void mainFrameNavigated();
     void willSendXMLHttpRequest(const String& url);
     void willFetch(const String& url);
-    void willHandleEvent(Event&, const RegisteredEventListener&);
-    void didHandleEvent(Event&, const RegisteredEventListener&);
+    void willHandleEvent(ScriptExecutionContext&, Event&, const RegisteredEventListener&);
+    void didHandleEvent(ScriptExecutionContext&, Event&, const RegisteredEventListener&);
     void willFireTimer(bool oneShot);
     void didFireTimer(bool oneShot);
 

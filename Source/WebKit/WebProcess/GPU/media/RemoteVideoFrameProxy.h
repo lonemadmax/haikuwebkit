@@ -78,10 +78,9 @@ public:
     ~RemoteVideoFrameProxy() final;
 
     RemoteVideoFrameIdentifier identifier() const;
-    RemoteVideoFrameWriteReference write() const;
-    RemoteVideoFrameReadReference read() const;
+    RemoteVideoFrameReadReference newReadReference() const;
 
-    WebCore::IntSize size() const;
+    WebCore::IntSize size() const { return m_size; }
 
     // WebCore::VideoFrame overrides.
     WebCore::FloatSize presentationSize() const final { return m_size; }
@@ -89,11 +88,11 @@ public:
     bool isRemoteProxy() const final { return true; }
 #if PLATFORM(COCOA)
     CVPixelBufferRef pixelBuffer() const final;
-    RefPtr<WebCore::VideoFrameCV> asVideoFrameCV() final;
 #endif
 
 private:
     RemoteVideoFrameProxy(IPC::Connection&, RemoteVideoFrameObjectHeapProxy&, Properties&&);
+    static inline Seconds defaultTimeout = 10_s;
 
     const Ref<IPC::Connection> m_connection;
     RemoteVideoFrameReferenceTracker m_referenceTracker;

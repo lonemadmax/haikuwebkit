@@ -91,6 +91,7 @@ MediaStreamTrack::MediaStreamTrack(ScriptExecutionContext& context, Ref<MediaStr
     if (!isCaptureTrack())
         return;
 
+    m_isInterrupted = m_private->source().interrupted();
     allCaptureTracks().add(this);
 
     if (m_private->hasAudio())
@@ -469,59 +470,45 @@ MediaProducerMediaStateFlags MediaStreamTrack::captureState(Document& document)
     return state;
 }
 
-#if PLATFORM(IOS_FAMILY)
-static bool isSourceCapturingForTrackInDocument(RealtimeMediaSource& source, Document& document)
-{
-    for (auto* track : allCaptureTracks()) {
-        if (track->document() != &document || track->ended())
-            continue;
-
-        if (track->source().isSameAs(source))
-            return true;
-    }
-    return false;
-}
-#endif
-
 void MediaStreamTrack::updateCaptureAccordingToMutedState(Document& document)
 {
-#if PLATFORM(IOS_FAMILY)
-    auto* page = document.page();
-    if (!page)
-        return;
-
-    auto* activeAudioSource = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().activeSource();
-    if (activeAudioSource && isSourceCapturingForTrackInDocument(*activeAudioSource, document)) {
-        bool pageMuted = page->mutedState().contains(MediaProducerMutedState::AudioCaptureIsMuted);
-        activeAudioSource->setMuted(pageMuted || (document.hidden() && document.settings().interruptAudioOnPageVisibilityChangeEnabled()));
-    }
-
-    auto* activeVideoSource = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().activeSource();
-    if (activeVideoSource && isSourceCapturingForTrackInDocument(*activeVideoSource, document)) {
-        bool pageMuted = page->mutedState().contains(MediaProducerMutedState::VideoCaptureIsMuted);
-        activeVideoSource->setMuted(pageMuted || document.hidden());
-    }
-#else
     for (auto* captureTrack : allCaptureTracks()) {
         if (captureTrack->document() == &document && !captureTrack->ended())
             captureTrack->updateToPageMutedState();
     }
-#endif
+}
+
+static void updateVideoCaptureAccordingMicrophoneInterruption(Document& document, bool isMicrophoneInterrupted)
+{
+    auto* page = document.page();
+    for (auto* captureTrack : allCaptureTracks()) {
+        if (!captureTrack->document() || captureTrack->document()->page() != page)
+            continue;
+        auto& source = captureTrack->source();
+        if (!source.isEnded() && source.type() == RealtimeMediaSource::Type::Video)
+            source.setMuted(isMicrophoneInterrupted);
+    }
 }
 
 void MediaStreamTrack::updateToPageMutedState()
 {
     ASSERT(isCaptureTrack());
-    auto* page = document()->page();
+    auto& document = *this->document();
+    auto* page = document.page();
     if (!page)
         return;
 
     switch (source().deviceType()) {
     case CaptureDevice::DeviceType::Microphone:
-        m_private->setMuted(page->mutedState().contains(MediaProducerMutedState::AudioCaptureIsMuted));
+        m_private->setMuted(page->mutedState().contains(MediaProducerMutedState::AudioCaptureIsMuted)
+            || (document.hidden() && document.settings().interruptAudioOnPageVisibilityChangeEnabled()));
         break;
     case CaptureDevice::DeviceType::Camera:
-        m_private->setMuted(page->mutedState().contains(MediaProducerMutedState::VideoCaptureIsMuted));
+        m_private->setMuted(page->mutedState().contains(MediaProducerMutedState::VideoCaptureIsMuted)
+#if PLATFORM(IOS_FAMILY)
+            || document.hidden()
+#endif
+        );
         break;
     case CaptureDevice::DeviceType::Screen:
     case CaptureDevice::DeviceType::Window:
@@ -612,7 +599,8 @@ void MediaStreamTrack::trackEnded(MediaStreamTrackPrivate&)
     
 void MediaStreamTrack::trackMutedChanged(MediaStreamTrackPrivate&)
 {
-    if (scriptExecutionContext()->activeDOMObjectsAreStopped() || m_ended)
+    auto* document = this->document();
+    if (document->activeDOMObjectsAreStopped() || m_ended)
         return;
 
     queueTaskKeepingObjectAlive(*this, TaskSource::Networking, [this, muted = m_private->muted()] {
@@ -622,6 +610,11 @@ void MediaStreamTrack::trackMutedChanged(MediaStreamTrackPrivate&)
         dispatchEvent(Event::create(muted ? eventNames().muteEvent : eventNames().unmuteEvent, Event::CanBubble::No, Event::IsCancelable::No));
     });
     configureTrackRendering();
+
+    bool wasInterrupted = m_isInterrupted;
+    m_isInterrupted = m_private->source().interrupted();
+    if (wasInterrupted != m_isInterrupted && m_private->source().type() == RealtimeMediaSource::Type::Audio && document->settings().muteCameraOnMicrophoneInterruptionEnabled())
+        updateVideoCaptureAccordingMicrophoneInterruption(*document, m_isInterrupted);
 }
 
 void MediaStreamTrack::trackSettingsChanged(MediaStreamTrackPrivate&)

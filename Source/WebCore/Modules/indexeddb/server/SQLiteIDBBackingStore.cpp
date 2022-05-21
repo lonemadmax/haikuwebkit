@@ -1886,7 +1886,7 @@ IDBError SQLiteIDBBackingStore::updateOneIndexForAddRecord(IDBObjectStoreInfo& o
 
         IndexKey indexKey;
         generateIndexKeyForValue(globalObject, info, jsValue, indexKey, objectStoreInfo.keyPath(), key);
-        resultIndexKey = indexKey.isolatedCopy();
+        resultIndexKey = WTFMove(indexKey).isolatedCopy();
     });
 
     if (!resultIndexKey)
@@ -2836,6 +2836,12 @@ bool SQLiteIDBBackingStore::hasTransaction(const IDBResourceIdentifier& transact
 {
     ASSERT(isMainThread());
     return m_transactions.contains(transactionIdentifier);
+}
+
+void SQLiteIDBBackingStore::handleLowMemoryWarning()
+{
+    if (m_sqliteDB)
+        m_sqliteDB->releaseMemory();
 }
 
 #undef TABLE_SCHEMA_PREFIX

@@ -145,6 +145,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/mediarecorder"
     "${WEBCORE_DIR}/platform/mediastream"
     "${WEBCORE_DIR}/platform/mediastream/libwebrtc"
+    "${WEBCORE_DIR}/platform/mediarecorder"
     "${WEBCORE_DIR}/platform/mock"
     "${WEBCORE_DIR}/platform/mock/mediasource"
     "${WEBCORE_DIR}/platform/network"
@@ -516,8 +517,8 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/pictureinpicture/Document+PictureInPicture.idl
     Modules/pictureinpicture/DocumentOrShadowRoot+PictureInPicture.idl
-    Modules/pictureinpicture/EnterPictureInPictureEvent.idl
     Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl
+    Modules/pictureinpicture/PictureInPictureEvent.idl
     Modules/pictureinpicture/PictureInPictureWindow.idl
 
     Modules/push-api/PushEncryptionKeyName.idl
@@ -668,6 +669,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webauthn/PublicKeyCredentialDescriptor.idl
     Modules/webauthn/PublicKeyCredentialRequestOptions.idl
     Modules/webauthn/PublicKeyCredentialType.idl
+    Modules/webauthn/ResidentKeyRequirement.idl
     Modules/webauthn/UserVerificationRequirement.idl
 
     Modules/webcodecs/VideoColorPrimaries.idl

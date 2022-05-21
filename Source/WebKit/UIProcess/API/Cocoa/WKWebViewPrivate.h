@@ -122,6 +122,7 @@ typedef NS_OPTIONS(NSUInteger, _WKRectEdge) {
 @class WKFrameInfo;
 @class WKWebpagePreferences;
 @class _WKApplicationManifest;
+@class _WKDataTask;
 @class _WKFrameHandle;
 @class _WKFrameTreeNode;
 @class _WKHitTestResult;
@@ -365,8 +366,6 @@ for this property.
 
 - (void)_getProcessDisplayNameWithCompletionHandler:(void (^)(NSString *))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
-- (void)_grantAccessToPreferenceService WK_API_AVAILABLE(macos(11.0), ios(14.0));
-
 - (void)_serviceWorkersEnabled:(void(^)(BOOL))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)_clearServiceWorkerEntitlementOverride:(void (^)(void))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
@@ -427,7 +426,7 @@ for this property.
 
 - (void)_startImageAnalysis:(NSString *)identifier WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
-- (void)_requestResource:(NSURLRequest *)request completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_dataTaskWithRequest:(NSURLRequest *)request completionHandler:(void(^)(_WKDataTask *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 typedef NS_ENUM(NSInteger, WKDisplayCaptureState) {
     WKDisplayCaptureStateNone,

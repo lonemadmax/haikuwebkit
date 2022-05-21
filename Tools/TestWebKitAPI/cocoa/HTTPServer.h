@@ -50,6 +50,7 @@ public:
     HTTPServer(Function<void(Connection)>&&, Protocol = Protocol::Http);
     ~HTTPServer();
     uint16_t port() const;
+    String origin() const;
     NSURLRequest *request(const String& path = "/"_str) const;
     NSURLRequest *requestWithLocalhost(const String& path = "/"_str) const;
     size_t totalRequests() const;
@@ -78,7 +79,7 @@ class Connection {
 public:
     void send(String&&, CompletionHandler<void()>&& = nullptr) const;
     void send(Vector<uint8_t>&&, CompletionHandler<void()>&& = nullptr) const;
-    void send(RetainPtr<dispatch_data_t>&&, CompletionHandler<void()>&& = nullptr) const;
+    void sendAndReportError(Vector<uint8_t>&&, CompletionHandler<void(bool)>&&) const;
     void receiveBytes(CompletionHandler<void(Vector<uint8_t>&&)>&&, size_t minimumSize = 1) const;
     void receiveHTTPRequest(CompletionHandler<void(Vector<char>&&)>&&, Vector<char>&& buffer = { }) const;
     void webSocketHandshake(CompletionHandler<void()>&& = { });
@@ -89,6 +90,8 @@ private:
     friend class HTTPServer;
     Connection(nw_connection_t connection)
         : m_connection(connection) { }
+
+    void send(RetainPtr<dispatch_data_t>&&, CompletionHandler<void(bool)>&&) const;
 
     RetainPtr<nw_connection_t> m_connection;
 };

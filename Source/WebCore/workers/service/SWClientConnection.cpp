@@ -92,30 +92,31 @@ bool SWClientConnection::postTaskForJob(ServiceWorkerJobIdentifier jobIdentifier
     return isPosted;
 }
 
-void SWClientConnection::jobRejectedInServer(ServiceWorkerJobIdentifier jobIdentifier, const ExceptionData& exceptionData)
+void SWClientConnection::jobRejectedInServer(ServiceWorkerJobIdentifier jobIdentifier, ExceptionData&& exceptionData)
 {
-    postTaskForJob(jobIdentifier, IsJobComplete::Yes, [exceptionData = exceptionData.isolatedCopy()] (auto& job) {
-        job.failedWithException(exceptionData.toException());
+    postTaskForJob(jobIdentifier, IsJobComplete::Yes, [exceptionData = WTFMove(exceptionData).isolatedCopy()] (auto& job) mutable {
+        job.failedWithException(WTFMove(exceptionData).toException());
     });
 }
 
 void SWClientConnection::registrationJobResolvedInServer(ServiceWorkerJobIdentifier jobIdentifier, ServiceWorkerRegistrationData&& registrationData, ShouldNotifyWhenResolved shouldNotifyWhenResolved)
 {
-    bool isPosted = postTaskForJob(jobIdentifier, IsJobComplete::Yes, [registrationData = registrationData.isolatedCopy(), shouldNotifyWhenResolved] (auto& job) mutable {
+    auto registrationKey = registrationData.key;
+    bool isPosted = postTaskForJob(jobIdentifier, IsJobComplete::Yes, [registrationData = WTFMove(registrationData).isolatedCopy(), shouldNotifyWhenResolved] (auto& job) mutable {
         job.resolvedWithRegistration(WTFMove(registrationData), shouldNotifyWhenResolved);
     });
 
     if (!isPosted && shouldNotifyWhenResolved == ShouldNotifyWhenResolved::Yes)
-        didResolveRegistrationPromise(registrationData.key);
+        didResolveRegistrationPromise(registrationKey);
 }
 
-void SWClientConnection::startScriptFetchForServer(ServiceWorkerJobIdentifier jobIdentifier, const ServiceWorkerRegistrationKey& registrationKey, FetchOptions::Cache cachePolicy)
+void SWClientConnection::startScriptFetchForServer(ServiceWorkerJobIdentifier jobIdentifier, ServiceWorkerRegistrationKey&& registrationKey, FetchOptions::Cache cachePolicy)
 {
     bool isPosted = postTaskForJob(jobIdentifier, IsJobComplete::No, [cachePolicy] (auto& job) {
         job.startScriptFetch(cachePolicy);
     });
     if (!isPosted)
-        finishFetchingScriptInServer({ serverConnectionIdentifier(), jobIdentifier }, registrationKey, workerFetchError(ResourceError { errorDomainWebKitInternal, 0, { }, makeString("Failed to fetch script for service worker with scope ", registrationKey.scope().string()) }));
+        finishFetchingScriptInServer({ serverConnectionIdentifier(), jobIdentifier }, WTFMove(registrationKey), workerFetchError(ResourceError { errorDomainWebKitInternal, 0, { }, makeString("Failed to fetch script for service worker with scope ", registrationKey.scope().string()) }));
 }
 
 

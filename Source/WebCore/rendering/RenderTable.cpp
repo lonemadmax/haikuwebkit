@@ -597,7 +597,7 @@ void RenderTable::layout()
     if (sectionMoved && paginated) {
         // FIXME: Table layout should always stabilize even when section moves (see webkit.org/b/174412).
         if (m_recursiveSectionMovedWithPaginationLevel < sectionCount) {
-            SetForScope<unsigned> recursiveSectionMovedWithPaginationLevel(m_recursiveSectionMovedWithPaginationLevel, m_recursiveSectionMovedWithPaginationLevel + 1);
+            SetForScope recursiveSectionMovedWithPaginationLevel(m_recursiveSectionMovedWithPaginationLevel, m_recursiveSectionMovedWithPaginationLevel + 1);
             markForPaginationRelayoutIfNeeded();
             layoutIfNeeded();
         } else
@@ -926,12 +926,7 @@ RenderTableCol* RenderTable::firstColumn() const
     for (auto& child : childrenOfType<RenderObject>(*this)) {
         if (is<RenderTableCol>(child))
             return &const_cast<RenderTableCol&>(downcast<RenderTableCol>(child));
-
-        // We allow only table-captions before columns or column-groups.
-        if (!is<RenderTableCaption>(child))
-            return nullptr;
     }
-
     return nullptr;
 }
 
@@ -1489,11 +1484,6 @@ RenderTableCell* RenderTable::cellAfter(const RenderTableCell* cell) const
     if (effCol >= numEffCols())
         return nullptr;
     return cell->section()->primaryCellAt(cell->rowIndex(), effCol);
-}
-
-RenderBlock* RenderTable::firstLineBlock() const
-{
-    return nullptr;
 }
 
 LayoutUnit RenderTable::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const

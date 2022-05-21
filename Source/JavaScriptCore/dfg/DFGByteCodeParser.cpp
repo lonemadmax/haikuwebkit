@@ -182,9 +182,9 @@ private:
         Node* callTarget, int argumentCountIncludingThis, int registerOffset, CallLinkStatus,
         SpeculatedType prediction, ECMAMode = ECMAMode::strict());
     template<typename CallOp>
-    Terminality handleCall(const Instruction* pc, NodeType op, CallMode, BytecodeIndex osrExitIndex);
+    Terminality handleCall(const JSInstruction* pc, NodeType op, CallMode, BytecodeIndex osrExitIndex);
     template<typename CallOp>
-    Terminality handleVarargsCall(const Instruction* pc, NodeType op, CallMode);
+    Terminality handleVarargsCall(const JSInstruction* pc, NodeType op, CallMode);
     void emitFunctionChecks(CallVariant, Node* callTarget, VirtualRegister thisArgumnt);
     void emitArgumentPhantoms(int registerOffset, int argumentCountIncludingThis);
     Node* getArgumentCount();
@@ -246,7 +246,7 @@ private:
     Node* store(Node* base, unsigned identifier, const PutByVariant&, Node* value);
 
     template<typename Op>
-    void parseGetById(const Instruction*);
+    void parseGetById(const JSInstruction*);
     void simplifyGetByStatus(Node* base, GetByStatus&);
     void handleGetById(
         VirtualRegister destination, SpeculatedType, Node* base, CacheableIdentifier, unsigned identifierNumber, GetByStatus, AccessType, BytecodeIndex osrExitIndex);
@@ -474,7 +474,7 @@ private:
     Node* setLocalOrTmp(const CodeOrigin& semanticOrigin, Operand operand, Node* value, SetMode setMode = NormalSet)
     {
         ASSERT(operand.isTmp() || operand.isLocal());
-        SetForScope<CodeOrigin> originChange(m_currentSemanticOrigin, semanticOrigin);
+        SetForScope originChange(m_currentSemanticOrigin, semanticOrigin);
 
         if (operand.isTmp() && static_cast<unsigned>(operand.value()) >= m_numTmps) {
             if (inlineCallFrame())
@@ -532,7 +532,7 @@ private:
     }
     Node* setArgument(const CodeOrigin& semanticOrigin, Operand operand, Node* value, SetMode setMode = NormalSet)
     {
-        SetForScope<CodeOrigin> originChange(m_currentSemanticOrigin, semanticOrigin);
+        SetForScope originChange(m_currentSemanticOrigin, semanticOrigin);
 
         VirtualRegister reg = operand.virtualRegister();
         unsigned argument = reg.toArgument();
@@ -1254,10 +1254,10 @@ private:
         Node* m_value { nullptr };
         SetMode m_setMode;
     };
-    
+
     Vector<DelayedSetLocal, 2> m_setLocalQueue;
 
-    const Instruction* m_currentInstruction;
+    const JSInstruction* m_currentInstruction;
     bool m_hasDebuggerEnabled;
     bool m_hasAnyForceOSRExits { false };
 };
@@ -1310,7 +1310,7 @@ void ByteCodeParser::addJumpTo(unsigned bytecodeIndex)
 }
 
 template<typename CallOp>
-ByteCodeParser::Terminality ByteCodeParser::handleCall(const Instruction* pc, NodeType op, CallMode callMode, BytecodeIndex osrExitIndex)
+ByteCodeParser::Terminality ByteCodeParser::handleCall(const JSInstruction* pc, NodeType op, CallMode callMode, BytecodeIndex osrExitIndex)
 {
     auto bytecode = pc->as<CallOp>();
     Node* callTarget = get(calleeFor(bytecode, m_currentIndex.checkpoint()));
@@ -1369,7 +1369,7 @@ ByteCodeParser::Terminality ByteCodeParser::handleCall(
 }
 
 template<typename CallOp>
-ByteCodeParser::Terminality ByteCodeParser::handleVarargsCall(const Instruction* pc, NodeType op, CallMode callMode)
+ByteCodeParser::Terminality ByteCodeParser::handleVarargsCall(const JSInstruction* pc, NodeType op, CallMode callMode)
 {
     auto bytecode = pc->as<CallOp>();
     int firstFreeReg = bytecode.m_firstFree.offset();
@@ -1467,6 +1467,11 @@ bool ByteCodeParser::handleRecursiveTailCall(Node* callTargetNode, CallVariant c
     if (UNLIKELY(!Options::optimizeRecursiveTailCalls()))
         return false;
 
+    // This optimisation brings more performance if it only runs in FTL, probably because it interferes with tier-up.
+    // See https://bugs.webkit.org/show_bug.cgi?id=178389 for details.
+    if (!isFTL(m_graph.m_plan.mode()))
+        return false;
+
     auto targetExecutable = callVariant.executable();
     InlineStackEntry* stackEntry = m_inlineStackTop;
     do {
@@ -1488,18 +1493,15 @@ bool ByteCodeParser::handleRecursiveTailCall(Node* callTargetNode, CallVariant c
             // a good target to jump into.
             if (callFrame->isVarargs())
                 continue;
+            // If an InlineCallFrame is not a closure, it was optimized using a constant callee.
+            // Check if this is the same callee that we are dealing with.
+            if (!callFrame->isClosureCall && callFrame->calleeConstant() != callVariant.function())
+                continue;
         } else {
             // We are in the machine code entry (i.e. the original caller).
             // If we have more arguments than the number of parameters to the function, it is not clear where we could put them on the stack.
             if (static_cast<unsigned>(argumentCountIncludingThis) > m_codeBlock->numParameters())
                 return false;
-        }
-
-        // If an InlineCallFrame is not a closure, it was optimized using a constant callee.
-        // Check if this is the same callee that we try to inline here.
-        if (stackEntry->m_inlineCallFrame && !stackEntry->m_inlineCallFrame->isClosureCall) {
-            if (stackEntry->m_inlineCallFrame->calleeConstant() != callVariant.function())
-                continue;
         }
 
         // We must add some check that the profiling information was correct and the target of this call is what we thought.
@@ -1508,11 +1510,11 @@ bool ByteCodeParser::handleRecursiveTailCall(Node* callTargetNode, CallVariant c
         flushForTerminal();
 
         // We must set the callee to the right value
-        if (stackEntry->m_inlineCallFrame) {
-            if (stackEntry->m_inlineCallFrame->isClosureCall)
-                setDirect(remapOperand(stackEntry->m_inlineCallFrame, CallFrameSlot::callee), callTargetNode, NormalSet);
-        } else
+        if (!stackEntry->m_inlineCallFrame)
             addToGraph(SetCallee, callTargetNode);
+        else if (stackEntry->m_inlineCallFrame->isClosureCall)
+            setDirect(remapOperand(stackEntry->m_inlineCallFrame, CallFrameSlot::callee), callTargetNode, NormalSet);
+
 
         // We must set the arguments to the right values
         if (!stackEntry->m_inlineCallFrame)
@@ -1535,21 +1537,21 @@ bool ByteCodeParser::handleRecursiveTailCall(Node* callTargetNode, CallVariant c
         BytecodeIndex oldIndex = m_currentIndex;
         auto oldStackTop = m_inlineStackTop;
         m_inlineStackTop = stackEntry;
-        m_currentIndex = BytecodeIndex(opcodeLengths[op_enter]);
+        static_assert(OpcodeIDWidthBySize<JSOpcodeTraits, OpcodeSize::Wide32>::opcodeIDSize == 1);
+        m_currentIndex = BytecodeIndex(opcodeLengths[op_enter] + 1);
         m_exitOK = true;
         processSetLocalQueue();
         m_currentIndex = oldIndex;
         m_inlineStackTop = oldStackTop;
         m_exitOK = false;
 
-        BasicBlock** entryBlockPtr = tryBinarySearch<BasicBlock*, BytecodeIndex>(stackEntry->m_blockLinkingTargets, stackEntry->m_blockLinkingTargets.size(), BytecodeIndex(opcodeLengths[op_enter]), getBytecodeBeginForBlock);
+        BasicBlock** entryBlockPtr = tryBinarySearch<BasicBlock*, BytecodeIndex>(stackEntry->m_blockLinkingTargets, stackEntry->m_blockLinkingTargets.size(), BytecodeIndex(opcodeLengths[op_enter] + 1), getBytecodeBeginForBlock);
         RELEASE_ASSERT(entryBlockPtr);
         addJumpTo(*entryBlockPtr);
         return true;
         // It would be unsound to jump over a non-tail call: the "tail" call is not really a tail call in that case.
     } while (stackEntry->m_inlineCallFrame && stackEntry->m_inlineCallFrame->kind == InlineCallFrame::TailCall && (stackEntry = stackEntry->m_caller));
 
-    // The tail call was not recursive
     return false;
 }
 
@@ -1654,7 +1656,7 @@ unsigned ByteCodeParser::inliningCost(CallVariant callee, int argumentCountInclu
 template<typename ChecksFunctor>
 void ByteCodeParser::inlineCall(Node* callTargetNode, Operand result, CallVariant callee, int registerOffset, int argumentCountIncludingThis, InlineCallFrame::Kind kind, BasicBlock* continuationBlock, const ChecksFunctor& insertChecks)
 {
-    const Instruction* savedCurrentInstruction = m_currentInstruction;
+    const JSInstruction* savedCurrentInstruction = m_currentInstruction;
     CodeSpecializationKind specializationKind = InlineCallFrame::specializationKindFor(kind);
 
     CodeBlock* codeBlock = callee.functionExecutable()->baselineCodeBlockFor(specializationKind);
@@ -5345,7 +5347,7 @@ void ByteCodeParser::clearCaches()
 }
 
 template<typename Op>
-void ByteCodeParser::parseGetById(const Instruction* currentInstruction)
+void ByteCodeParser::parseGetById(const JSInstruction* currentInstruction)
 {
     auto bytecode = currentInstruction->as<Op>();
     SpeculatedType prediction = getPrediction();
@@ -5471,12 +5473,12 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 addJumpTo(m_currentIndex.offset());
             return;
         }
-        
+
         // Switch on the current bytecode opcode.
-        const Instruction* currentInstruction = instructions.at(m_currentIndex).ptr();
+        const JSInstruction* currentInstruction = instructions.at(m_currentIndex).ptr();
         m_currentInstruction = currentInstruction; // Some methods want to use this, and we'd rather not thread it through calls.
         OpcodeID opcodeID = currentInstruction->opcodeID();
-        
+
         VERBOSE_LOG("    parsing ", currentCodeOrigin(), ": ", opcodeID, "\n");
         
         if (UNLIKELY(m_graph.compilation())) {
@@ -6502,7 +6504,6 @@ void ByteCodeParser::parseBlock(unsigned limit)
                         addToGraph(CheckIsConstant, OpInfo(frozen), property);
                     } else if (auto* string = property->dynamicCastConstant<JSString*>(*m_vm)) {
                         auto* impl = string->tryGetValueImpl();
-                        ASSERT(impl); // FIXME: rdar://83902782
                         if (impl && impl->isAtom() && !parseIndex(*const_cast<StringImpl*>(impl))) {
                             uid = bitwise_cast<UniquedStringImpl*>(impl);
                             propertyCell = string;
@@ -8801,8 +8802,8 @@ void ByteCodeParser::parseCodeBlock()
         dataLogLn();
         codeBlock->baselineVersion()->dumpBytecode();
     }
-    
-    Vector<InstructionStream::Offset, 32> jumpTargets;
+
+    Vector<JSInstructionStream::Offset, 32> jumpTargets;
     computePreciseJumpTargets(codeBlock, jumpTargets);
     if (UNLIKELY(Options::dumpBytecodeAtDFGTime())) {
         dataLog("Jump targets: ");
@@ -8899,7 +8900,6 @@ void ByteCodeParser::handlePutByVal(Bytecode bytecode, BytecodeIndex osrExitInde
                 addToGraph(CheckIsConstant, OpInfo(frozen), property);
             } else if (auto* string = property->dynamicCastConstant<JSString*>(*m_vm)) {
                 auto* impl = string->tryGetValueImpl();
-                ASSERT(impl); // FIXME: rdar://83902782
                 if (impl && impl->isAtom() && !parseIndex(*const_cast<StringImpl*>(impl))) {
                     uid = bitwise_cast<UniquedStringImpl*>(impl);
                     propertyCell = string;

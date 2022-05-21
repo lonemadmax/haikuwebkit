@@ -1089,7 +1089,7 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
     }
     
     ASSERT(!hasRunningProcess());
-    auto registrableDomain = m_backForwardList->currentItem() ? RegistrableDomain { URL(URL(), m_backForwardList->currentItem()->url()) } : RegistrableDomain { };
+    auto registrableDomain = m_backForwardList->currentItem() ? RegistrableDomain { URL { m_backForwardList->currentItem()->url() } } : RegistrableDomain { };
     launchProcess(registrableDomain, ProcessLaunchReason::Crash);
 
     if (!m_backForwardList->currentItem()) {
@@ -1465,7 +1465,7 @@ RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, cons
     if (!hasRunningProcess())
         launchProcess({ }, ProcessLaunchReason::InitialProcess);
 
-    URL fileURL = URL(URL(), fileURLString);
+    URL fileURL { fileURLString };
     if (!fileURL.isLocalFile()) {
         WEBPAGEPROXY_RELEASE_LOG(Loading, "loadFile: file is not local");
         return nullptr;
@@ -1475,7 +1475,7 @@ RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, cons
     if (resourceDirectoryURLString.isNull())
         resourceDirectoryURL = URL({ }, "file:///"_s);
     else {
-        resourceDirectoryURL = URL(URL(), resourceDirectoryURLString);
+        resourceDirectoryURL = URL { resourceDirectoryURLString };
         if (!resourceDirectoryURL.isLocalFile()) {
             WEBPAGEPROXY_RELEASE_LOG(Loading, "loadFile: resource URL is not local");
             return nullptr;
@@ -1716,7 +1716,7 @@ void WebPageProxy::navigateToPDFLinkWithSimulatedClick(const String& urlString, 
         return;
 
     if (!hasRunningProcess())
-        launchProcess(RegistrableDomain { URL(URL(), urlString) }, ProcessLaunchReason::InitialProcess);
+        launchProcess(RegistrableDomain { URL { urlString } }, ProcessLaunchReason::InitialProcess);
 
     send(Messages::WebPage::NavigateToPDFLinkWithSimulatedClick(urlString, documentPoint, screenPoint));
     m_process->startResponsivenessTimer();
@@ -1756,7 +1756,7 @@ RefPtr<API::Navigation> WebPageProxy::reload(OptionSet<WebCore::ReloadOption> op
     String url = currentURL();
     if (!url.isEmpty()) {
         // We may not have an extension yet if back/forward list was reinstated after a WebProcess crash or a browser relaunch
-        maybeInitializeSandboxExtensionHandle(m_process, URL(URL(), url), currentResourceDirectoryURL(), sandboxExtensionHandle);
+        maybeInitializeSandboxExtensionHandle(m_process, URL { url }, currentResourceDirectoryURL(), sandboxExtensionHandle);
     }
 
     if (!hasRunningProcess())
@@ -1840,7 +1840,7 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListItem
     }
 
     if (!hasRunningProcess()) {
-        launchProcess(RegistrableDomain { URL(URL(), item.url()) }, ProcessLaunchReason::InitialProcess);
+        launchProcess(RegistrableDomain { URL { item.url() } }, ProcessLaunchReason::InitialProcess);
 
         if (&item != m_backForwardList->currentItem())
             m_backForwardList->goToItem(item);
@@ -1903,6 +1903,9 @@ bool WebPageProxy::shouldKeepCurrentBackForwardListItemInList(WebBackForwardList
 bool WebPageProxy::canShowMIMEType(const String& mimeType)
 {
     if (MIMETypeRegistry::canShowMIMEType(mimeType))
+        return true;
+
+    if (m_preferences->pdfJSViewerEnabled() && MIMETypeRegistry::isPDFMIMEType(mimeType))
         return true;
 
 #if PLATFORM(COCOA)
@@ -2729,10 +2732,10 @@ void WebPageProxy::didPerformDragControllerAction(std::optional<WebCore::DragOpe
 }
 
 #if PLATFORM(GTK)
-void WebPageProxy::startDrag(SelectionData&& selectionData, OptionSet<WebCore::DragOperation> dragOperationMask, const ShareableBitmap::Handle& dragImageHandle)
+void WebPageProxy::startDrag(SelectionData&& selectionData, OptionSet<WebCore::DragOperation> dragOperationMask, const ShareableBitmap::Handle& dragImageHandle, IntPoint&& dragImageHotspot)
 {
     RefPtr<ShareableBitmap> dragImage = !dragImageHandle.isNull() ? ShareableBitmap::create(dragImageHandle) : nullptr;
-    pageClient().startDrag(WTFMove(selectionData), dragOperationMask, WTFMove(dragImage));
+    pageClient().startDrag(WTFMove(selectionData), dragOperationMask, WTFMove(dragImage), WTFMove(dragImageHotspot));
 
     didStartDrag();
 }
@@ -3464,7 +3467,7 @@ void WebPageProxy::receivedNavigationPolicyDecision(PolicyAction policyAction, A
     }
 
     Ref<WebProcessProxy> sourceProcess = process();
-    URL sourceURL = URL { URL(), pageLoadState().url() };
+    URL sourceURL { pageLoadState().url() };
     if (auto* provisionalPage = provisionalPageProxy()) {
         if (provisionalPage->navigationID() == navigation->navigationID()) {
             sourceProcess = provisionalPage->process();
@@ -3512,7 +3515,7 @@ void WebPageProxy::receivedNavigationPolicyDecision(PolicyAction policyAction, A
         } else {
             auto item = navigation->reloadItem() ? navigation->reloadItem() : navigation->targetItem();
             if (policyAction == PolicyAction::Use && item) {
-                auto fullURL = URL { URL(), item->url() };
+                URL fullURL { item->url() };
                 if (fullURL.protocolIs("file"_s)) {
                     SandboxExtension::Handle sandboxExtensionHandle;
                     maybeInitializeSandboxExtensionHandle(processForNavigation.get(), fullURL, item->resourceDirectoryURL(), sandboxExtensionHandle);
@@ -3804,7 +3807,7 @@ SessionState WebPageProxy::sessionState(WTF::Function<bool (WebBackForwardListIt
         provisionalURLString = m_pageLoadState.provisionalURL();
 
     if (!provisionalURLString.isEmpty())
-        sessionState.provisionalURL = URL(URL(), provisionalURLString);
+        sessionState.provisionalURL = URL { provisionalURLString };
 
     sessionState.renderTreeSize = renderTreeSize();
     sessionState.isAppInitiated = m_lastNavigationWasAppInitiated;
@@ -4296,6 +4299,11 @@ void WebPageProxy::findTextRangesForStringMatches(const String& string, OptionSe
     sendWithAsyncReply(Messages::WebPage::FindTextRangesForStringMatches(string, options, maxMatchCount), WTFMove(callbackFunction));
 }
 
+void WebPageProxy::replaceFoundTextRangeWithString(const WebFoundTextRange& range, const String& string)
+{
+    send(Messages::WebPage::ReplaceFoundTextRangeWithString(range, string));
+}
+
 void WebPageProxy::decorateTextRangeWithStyle(const WebFoundTextRange& range, FindDecorationStyle style)
 {
     send(Messages::WebPage::DecorateTextRangeWithStyle(range, style));
@@ -4394,7 +4402,7 @@ void WebPageProxy::runJavaScriptInFrameInScriptWorld(RunJavaScriptParameters&& p
             return callbackFunction(makeUnexpected(WTFMove(*details)));
         if (dataReference.empty())
             return callbackFunction({ nullptr });
-        callbackFunction({ API::SerializedScriptValue::adopt(Vector(dataReference)).ptr() });
+        callbackFunction({ API::SerializedScriptValue::createFromWireBytes(Vector(dataReference)).ptr() });
     });
 }
 
@@ -4899,7 +4907,7 @@ static OptionSet<CrossSiteNavigationDataTransfer::Flag> checkIfNavigationContain
     if (!currentURL.query().isEmpty() || !currentURL.fragmentIdentifier().isEmpty())
         navigationDataTransfer.add(CrossSiteNavigationDataTransfer::Flag::DestinationLinkDecoration);
 
-    URL referrerURL { URL(), currentRequest.httpReferrer() };
+    URL referrerURL { currentRequest.httpReferrer() };
     if (!referrerURL.query().isEmpty() || !referrerURL.fragmentIdentifier().isEmpty())
         navigationDataTransfer.add(CrossSiteNavigationDataTransfer::Flag::ReferrerLinkDecoration);
 
@@ -4927,7 +4935,7 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
         auto navigationDataTransfer = checkIfNavigationContainsDataTransfer(requesterOrigin, currentRequest);
         if (!navigationDataTransfer.isEmpty()) {
             RegistrableDomain currentDomain { currentRequest.url() };
-            URL requesterURL { URL(), requesterOrigin.toString() };
+            URL requesterURL { requesterOrigin.toString() };
             if (!currentDomain.matches(requesterURL))
                 m_websiteDataStore->networkProcess().didCommitCrossSiteLoadWithDataTransfer(m_websiteDataStore->sessionID(), RegistrableDomain { requesterURL }, currentDomain, navigationDataTransfer, m_identifier, m_webPageID);
         }
@@ -5358,7 +5366,7 @@ void WebPageProxy::decidePolicyForNavigationActionAsyncShared(Ref<WebProcessProx
 // https://html.spec.whatwg.org/#hand-off-to-external-software
 static bool frameSandboxAllowsOpeningExternalCustomProtocols(SandboxFlags sandboxFlags, bool hasUserGesture)
 {
-    if (!(sandboxFlags & SandboxPopups) || !(sandboxFlags & SandboxTopNavigation))
+    if (!(sandboxFlags & SandboxPopups) || !(sandboxFlags & SandboxTopNavigation) || !(sandboxFlags & SandboxTopNavigationToCustomProtocols))
         return true;
 
     return !(sandboxFlags & SandboxTopNavigationByUserActivation) && hasUserGesture;
@@ -5562,7 +5570,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     auto wasPotentiallyInitiatedByUser = navigation->isLoadedWithNavigationShared() || userInitiatedActivity;
     if (!sessionID().isEphemeral())
-        logFrameNavigation(frame, URL(URL(), m_pageLoadState.url()), request, redirectResponse.url(), wasPotentiallyInitiatedByUser);
+        logFrameNavigation(frame, URL { m_pageLoadState.url() }, request, redirectResponse.url(), wasPotentiallyInitiatedByUser);
 #endif
 
     if (m_policyClient)
@@ -5749,6 +5757,9 @@ void WebPageProxy::triggerBrowsingContextGroupSwitchForNavigation(uint64_t navig
     else
         processForNavigation = m_process->processPool().processForRegistrableDomain(websiteDataStore(), responseDomain, m_process->captivePortalMode());
 
+    // Tell committed process to stop loading since we're going to do the provisional load in a provisional page now.
+    if (!m_provisionalPage)
+        send(Messages::WebPage::StopLoadingDueToProcessSwap());
     continueNavigationInNewProcess(*navigation, nullptr, processForNavigation.releaseNonNull(), ProcessSwapRequestedByClient::No, ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted, nullptr, existingNetworkResourceLoadIdentifierToResume);
     completionHandler(true);
 }
@@ -6462,9 +6473,9 @@ void WebPageProxy::downloadRequest(WebCore::ResourceRequest&& request, Completio
     download.setDidStartCallback(WTFMove(completionHandler));
 }
 
-void WebPageProxy::requestResource(WebCore::ResourceRequest&& request, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&& completionHandler)
+void WebPageProxy::dataTaskWithRequest(WebCore::ResourceRequest&& request, CompletionHandler<void(API::DataTask&)>&& completionHandler)
 {
-    websiteDataStore().networkProcess().requestResource(identifier(), sessionID(), WTFMove(request), WTFMove(completionHandler));
+    websiteDataStore().networkProcess().dataTaskWithRequest(*this, sessionID(), WTFMove(request), WTFMove(completionHandler));
 }
 
 void WebPageProxy::didChangeContentSize(const IntSize& size)
@@ -7131,7 +7142,7 @@ void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item)
     }
 
     if (downloadInfo) {
-        auto& download = m_process->processPool().download(m_websiteDataStore, this, URL(URL(), downloadInfo->url), downloadInfo->suggestedFilename);
+        auto& download = m_process->processPool().download(m_websiteDataStore, this, URL { downloadInfo->url }, downloadInfo->suggestedFilename);
         download.setDidStartCallback([this, weakThis = WeakPtr { *this }] (auto* download) {
             if (!weakThis || !download)
                 return;
@@ -7190,13 +7201,13 @@ bool WebPageProxy::didChooseFilesForOpenPanelWithImageTranscoding(const Vector<S
     auto transcodingUTI = WebCore::UTIFromMIMEType(transcodingMIMEType);
     auto transcodingExtension = WebCore::MIMETypeRegistry::preferredExtensionForMIMEType(transcodingMIMEType);
 
-    sharedImageTranscodingQueue().dispatch([this, protectedThis = Ref { *this }, fileURLs = fileURLs.isolatedCopy(), transcodingURLs = transcodingURLs.isolatedCopy(), transcodingUTI = transcodingUTI.isolatedCopy(), transcodingExtension = transcodingExtension.isolatedCopy()]() mutable {
+    sharedImageTranscodingQueue().dispatch([this, protectedThis = Ref { *this }, fileURLs = crossThreadCopy(fileURLs), transcodingURLs = crossThreadCopy(WTFMove(transcodingURLs)), transcodingUTI = WTFMove(transcodingUTI).isolatedCopy(), transcodingExtension = WTFMove(transcodingExtension).isolatedCopy()]() mutable {
         ASSERT(!RunLoop::isMain());
 
         auto transcodedURLs = transcodeImages(transcodingURLs, transcodingUTI, transcodingExtension);
         ASSERT(transcodingURLs.size() == transcodedURLs.size());
 
-        RunLoop::main().dispatch([this, protectedThis = WTFMove(protectedThis), fileURLs = fileURLs.isolatedCopy(), transcodedURLs = transcodedURLs.isolatedCopy()]() {
+        RunLoop::main().dispatch([this, protectedThis = WTFMove(protectedThis), fileURLs = crossThreadCopy(WTFMove(fileURLs)), transcodedURLs = crossThreadCopy(WTFMove(transcodedURLs))]() {
 #if ENABLE(SANDBOX_EXTENSIONS)
             Vector<String> sandboxExtensionFiles;
             for (size_t i = 0, size = fileURLs.size(); i < size; ++i)
@@ -8524,7 +8535,7 @@ void WebPageProxy::makeStorageSpaceRequest(FrameIdentifier frameID, const String
     MESSAGE_CHECK(m_process, frame);
 
     auto originData = SecurityOriginData::fromDatabaseIdentifier(originIdentifier);
-    if (originData != SecurityOriginData::fromURL(URL { { }, currentURL() })) {
+    if (originData != SecurityOriginData::fromURL(URL { currentURL() })) {
         completionHandler(currentQuota);
         return;
     }
@@ -10485,7 +10496,7 @@ void WebPageProxy::updateCurrentModifierState()
 
 bool WebPageProxy::checkURLReceivedFromCurrentOrPreviousWebProcess(WebProcessProxy& process, const String& urlString)
 {
-    return checkURLReceivedFromCurrentOrPreviousWebProcess(process, URL(URL(), urlString));
+    return checkURLReceivedFromCurrentOrPreviousWebProcess(process, URL { urlString });
 }
 
 bool WebPageProxy::checkURLReceivedFromCurrentOrPreviousWebProcess(WebProcessProxy& process, const URL& url)
@@ -10874,9 +10885,9 @@ void WebPageProxy::setOrientationForMediaCapture(uint64_t orientation)
 }
 
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
-void WebPageProxy::setMockCameraIsInterrupted(bool isInterrupted)
+void WebPageProxy::setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
 {
-    send(Messages::WebPage::SetMockCameraIsInterrupted(isInterrupted));
+    send(Messages::WebPage::SetMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted));
 }
 #endif
 
@@ -10988,12 +10999,12 @@ WebCore::CaptureSourceOrError WebPageProxy::createRealtimeMediaSourceForSpeechRe
         return CaptureSourceOrError { "No device is available for capture" };
 
     if (preferences().captureAudioInGPUProcessEnabled())
-        return CaptureSourceOrError { SpeechRecognitionRemoteRealtimeMediaSource::create(m_process->ensureSpeechRecognitionRemoteRealtimeMediaSourceManager(), *captureDevice) };
+        return CaptureSourceOrError { SpeechRecognitionRemoteRealtimeMediaSource::create(m_process->ensureSpeechRecognitionRemoteRealtimeMediaSourceManager(), *captureDevice, m_webPageID) };
 
 #if PLATFORM(IOS_FAMILY)
-    return CaptureSourceOrError { SpeechRecognitionRemoteRealtimeMediaSource::create(m_process->ensureSpeechRecognitionRemoteRealtimeMediaSourceManager(), *captureDevice) };
+    return CaptureSourceOrError { SpeechRecognitionRemoteRealtimeMediaSource::create(m_process->ensureSpeechRecognitionRemoteRealtimeMediaSourceManager(), *captureDevice, m_webPageID) };
 #else
-    return SpeechRecognitionCaptureSource::createRealtimeMediaSource(*captureDevice);
+    return SpeechRecognitionCaptureSource::createRealtimeMediaSource(*captureDevice, m_webPageID);
 #endif
 }
 

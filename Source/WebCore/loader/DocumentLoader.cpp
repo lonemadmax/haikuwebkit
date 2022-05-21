@@ -562,7 +562,7 @@ ScriptExecutionContextIdentifier DocumentLoader::resultingClientId() const
 
 void DocumentLoader::matchRegistration(const URL& url, SWClientConnection::RegistrationCallback&& callback)
 {
-    auto shouldTryLoadingThroughServiceWorker = !frameLoader()->isReloadingFromOrigin() && m_frame->page() && RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && url.protocolIsInHTTPFamily();
+    auto shouldTryLoadingThroughServiceWorker = !frameLoader()->isReloadingFromOrigin() && m_frame->page() && m_frame->settings().serviceWorkersEnabled() && url.protocolIsInHTTPFamily();
     if (!shouldTryLoadingThroughServiceWorker) {
         callback(std::nullopt);
         return;
@@ -849,7 +849,7 @@ void DocumentLoader::stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 static URL microsoftTeamsRedirectURL()
 {
-    return URL(URL(), "https://www.microsoft.com/en-us/microsoft-365/microsoft-teams/");
+    return URL { "https://www.microsoft.com/en-us/microsoft-365/microsoft-teams/"_str };
 }
 #endif
 
@@ -882,7 +882,7 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && response.source() == ResourceResponse::Source::MemoryCache) {
+    if (m_frame && m_frame->settings().serviceWorkersEnabled() && response.source() == ResourceResponse::Source::MemoryCache) {
         matchRegistration(response.url(), [this, protectedThis = Ref { *this }, response, completionHandler = WTFMove(completionHandler)](auto&& registrationData) mutable {
             if (!m_mainDocumentError.isNull() || !m_frame) {
                 completionHandler();
@@ -1235,7 +1235,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
             document.setBaseURLOverride(m_archive->mainResource()->url());
 #endif
 #if ENABLE(SERVICE_WORKER)
-        if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled()) {
+        if (m_frame && m_frame->settings().serviceWorkersEnabled()) {
             if (!document.securityOrigin().isUnique()) {
                 if (m_serviceWorkerRegistrationData && m_serviceWorkerRegistrationData->activeWorker) {
                     document.setActiveServiceWorker(ServiceWorker::getOrCreate(document, WTFMove(m_serviceWorkerRegistrationData->activeWorker.value())));
@@ -2092,7 +2092,7 @@ void DocumentLoader::startLoadingMainResource()
 void DocumentLoader::unregisterReservedServiceWorkerClient()
 {
 #if ENABLE(SERVICE_WORKER)
-    if (!m_resultingClientId || !RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled())
+    if (!m_resultingClientId)
         return;
 
     auto& serviceWorkerConnection = ServiceWorkerProvider::singleton().serviceWorkerConnection();
@@ -2117,7 +2117,7 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
         CachingPolicy::AllowCaching);
 
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled()) {
+    if (m_frame && m_frame->settings().serviceWorkersEnabled()) {
         // The main navigation load will trigger the registration of the client.
         if (m_resultingClientId)
             scriptExecutionContextIdentifierToLoaderMap().remove(m_resultingClientId);
@@ -2441,7 +2441,7 @@ ResourceError DocumentLoader::handleContentFilterDidBlock(ContentFilterUnblockHa
 {
     unblockHandler.setUnreachableURL(documentURL());
     if (!unblockRequestDeniedScript.isEmpty() && frame()) {
-        unblockHandler.wrapWithDecisionHandler([scriptController = WeakPtr { frame()->script() }, script = unblockRequestDeniedScript.isolatedCopy()](bool unblocked) {
+        unblockHandler.wrapWithDecisionHandler([scriptController = WeakPtr { frame()->script() }, script = WTFMove(unblockRequestDeniedScript).isolatedCopy()](bool unblocked) {
             if (!unblocked && scriptController)
                 scriptController->executeScriptIgnoringException(script);
         });

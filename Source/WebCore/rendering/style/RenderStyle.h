@@ -25,6 +25,7 @@
 #pragma once
 
 #include "AnimationList.h"
+#include "ApplePayButtonSystemImage.h"
 #include "BorderValue.h"
 #include "CSSLineBoxContainValue.h"
 #include "CSSPrimitiveValue.h"
@@ -151,6 +152,7 @@ public:
     static std::unique_ptr<RenderStyle> createPtr();
 
     static RenderStyle clone(const RenderStyle&);
+    static RenderStyle cloneIncludingPseudoElements(const RenderStyle&);
     static std::unique_ptr<RenderStyle> clonePtr(const RenderStyle&);
 
     static RenderStyle createAnonymousStyleWithDisplay(const RenderStyle& parentStyle, DisplayType);
@@ -210,11 +212,11 @@ public:
     bool hasMarginBeforeQuirk() const { return marginBefore().hasQuirk(); }
     bool hasMarginAfterQuirk() const { return marginAfter().hasQuirk(); }
 
-    bool hasBackgroundImage() const { return m_backgroundData->background->hasImage(); }
-    bool hasFixedBackgroundImage() const { return m_backgroundData->background->hasFixedImage(); }
+    bool hasBackgroundImage() const { return backgroundLayers().hasImage(); }
+    bool hasAnyFixedBackground() const { return backgroundLayers().hasImageWithAttachment(FillAttachment::FixedBackground); }
 
     bool hasEntirelyFixedBackground() const;
-    bool hasAnyLocalBackground() const;
+    bool hasAnyLocalBackground() const { return backgroundLayers().hasImageWithAttachment(FillAttachment::LocalBackground); }
 
     bool hasAppearance() const { return appearance() != NoControlPart; }
     bool hasEffectiveAppearance() const { return effectiveAppearance() != NoControlPart; }
@@ -426,6 +428,7 @@ public:
     const LengthSize& backgroundSizeLength() const { return m_backgroundData->background->sizeLength(); }
     FillLayer& ensureBackgroundLayers() { return m_backgroundData.access().background.access(); }
     const FillLayer& backgroundLayers() const { return m_backgroundData->background; }
+    BlendMode backgroundBlendMode() const { return static_cast<BlendMode>(m_backgroundData->background->blendMode()); }
 
     StyleImage* maskImage() const { return m_rareNonInheritedData->mask->image(); }
     FillRepeat maskRepeatX() const { return static_cast<FillRepeat>(m_rareNonInheritedData->mask->repeatX()); }
@@ -614,9 +617,10 @@ public:
     int marqueeLoopCount() const { return m_rareNonInheritedData->marquee->loops; }
     MarqueeBehavior marqueeBehavior() const { return static_cast<MarqueeBehavior>(m_rareNonInheritedData->marquee->behavior); }
     MarqueeDirection marqueeDirection() const { return static_cast<MarqueeDirection>(m_rareNonInheritedData->marquee->direction); }
+    UserModify effectiveUserModify() const { return effectiveInert() ? UserModify::ReadOnly : userModify(); }
     UserModify userModify() const { return static_cast<UserModify>(m_rareInheritedData->userModify); }
     UserDrag userDrag() const { return static_cast<UserDrag>(m_rareNonInheritedData->userDrag); }
-    UserSelect userSelectIncludingInert() const { return effectiveInert() ? UserSelect::None : userSelect(); }
+    UserSelect effectiveUserSelect() const { return effectiveInert() ? UserSelect::None : userSelect(); }
     UserSelect userSelect() const { return static_cast<UserSelect>(m_rareInheritedData->userSelect); }
     TextOverflow textOverflow() const { return static_cast<TextOverflow>(m_rareNonInheritedData->textOverflow); }
     WordBreak wordBreak() const { return static_cast<WordBreak>(m_rareInheritedData->wordBreak); }
@@ -713,6 +717,7 @@ public:
     LineAlign lineAlign() const { return static_cast<LineAlign>(m_rareInheritedData->lineAlign); }
 
     PointerEvents pointerEvents() const { return static_cast<PointerEvents>(m_inheritedFlags.pointerEvents); }
+    PointerEvents effectivePointerEvents() const { return effectiveInert() ? PointerEvents::None : pointerEvents(); }
     const AnimationList* animations() const { return m_rareNonInheritedData->animations.get(); }
     const AnimationList* transitions() const { return m_rareNonInheritedData->transitions.get(); }
 
@@ -911,6 +916,7 @@ public:
     void setBackgroundOrigin(FillBox fillBox) { SET_NESTED_VAR(m_backgroundData, background, m_origin, static_cast<unsigned>(fillBox)); SET_NESTED_VAR(m_backgroundData, background, m_originSet, true); }
     void setBackgroundRepeatX(FillRepeat fillRepeat) { SET_NESTED_VAR(m_backgroundData, background, m_repeatX, static_cast<unsigned>(fillRepeat)); SET_NESTED_VAR(m_backgroundData, background, m_repeatXSet, true); }
     void setBackgroundRepeatY(FillRepeat fillRepeat) { SET_NESTED_VAR(m_backgroundData, background, m_repeatY, static_cast<unsigned>(fillRepeat)); SET_NESTED_VAR(m_backgroundData, background, m_repeatYSet, true); }
+    void setBackgroundBlendMode(BlendMode blendMode) { SET_NESTED_VAR(m_backgroundData, background, m_blendMode, static_cast<unsigned>(blendMode)); SET_NESTED_VAR(m_backgroundData, background, m_blendModeSet, true); }
 
     void setBorderImage(const NinePieceImage& b) { SET_VAR(m_surroundData, border.m_image, b); }
     void setBorderImageSource(RefPtr<StyleImage>&&);
@@ -1050,6 +1056,9 @@ public:
     void setMaskBoxImageSource(RefPtr<StyleImage>&& v) { m_rareNonInheritedData.access().maskBoxImage.setImage(WTFMove(v)); }
     void setMaskXPosition(Length&& length) { SET_NESTED_VAR(m_rareNonInheritedData, mask, m_xPosition, WTFMove(length)); }
     void setMaskYPosition(Length&& length) { SET_NESTED_VAR(m_rareNonInheritedData, mask, m_yPosition, WTFMove(length)); }
+    void setMaskRepeatX(FillRepeat fillRepeat) { SET_NESTED_VAR(m_rareNonInheritedData, mask, m_repeatX, static_cast<unsigned>(fillRepeat)); SET_NESTED_VAR(m_rareNonInheritedData, mask, m_repeatXSet, true); }
+    void setMaskRepeatY(FillRepeat fillRepeat) { SET_NESTED_VAR(m_rareNonInheritedData, mask, m_repeatY, static_cast<unsigned>(fillRepeat)); SET_NESTED_VAR(m_rareNonInheritedData, mask, m_repeatYSet, true); }
+
     void setMaskSize(LengthSize size) { SET_NESTED_VAR(m_rareNonInheritedData, mask, m_sizeLength, WTFMove(size)); }
 
     void setBorderCollapse(BorderCollapse collapse) { m_inheritedFlags.borderCollapse = static_cast<unsigned>(collapse); }
@@ -2471,6 +2480,11 @@ inline void RenderStyle::setBoxReflect(RefPtr<StyleReflection>&& reflect)
 inline bool pseudoElementRendererIsNeeded(const RenderStyle* style)
 {
     return style && style->display() != DisplayType::None && style->contentData();
+}
+
+inline bool generatesBox(const RenderStyle& style)
+{
+    return style.display() != DisplayType::None && style.display() != DisplayType::Contents;
 }
 
 } // namespace WebCore

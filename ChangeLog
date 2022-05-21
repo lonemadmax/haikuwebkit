@@ -1,3 +1,260 @@
+2022-03-11  Elliott Williams  <emw@apple.com>
+
+        Makefile.shared: Rename WORKSPACE to WORKSPACE_PATH and allow overrides
+        https://bugs.webkit.org/show_bug.cgi?id=237746
+
+        Reviewed by Alexey Proskuryakov.
+
+        This permits Make-based workflows which build out of a different workspace, e.g. a workspace
+        that includes WebKitAdditions.
+
+        WORKSPACE_PATH was chosen as a new name for parity with SCRIPTS_PATH and to avoid confusion
+        with USE_WORKSPACE.
+
+        Refactors Makefile.shared a bit to prevent SCHEME or WORKSPACE_PATH being set without
+        USE_WORKSPACE from breaking the build.
+
+        * Makefile.shared:
+
+2022-03-08  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Support multiple metadata locations
+        https://bugs.webkit.org/show_bug.cgi?id=237395
+        <rdar://problem/89715863>
+
+        Reviewed by Dewei Zhu.
+
+        * metadata/git_config_extension: Renamed from metadata/project_config.
+        * metadata/project_config: Renamed to metadata/git_config_extension.
+
+2022-03-10  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Fix GeneratedSources dependency validation errors
+        https://bugs.webkit.org/show_bug.cgi?id=237490
+
+        Reviewed by Alexey Proskuryakov.
+
+        Fixes miscellanous targets which were not specifying their task outputs correctly.
+
+        For easier dependency validation testing, Make builds now recognize a VALIDATE_DEPENDENCIES
+        setting. Building with VALIDATE_DEPENDENCIES=YES or VALIDATE_DEPENDENCIES=YES_ERROR passes
+        the setting to xcodebuild and sets a magic xattr on the build directory so that product
+        files in it are validated.
+
+        * Makefile.shared:
+
+2022-03-07  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        Update Basuke Suzuki's status to reviewer
+        https://bugs.webkit.org/show_bug.cgi?id=237545
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2022-03-07  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitbugspy] Allow creation of new issues
+        https://bugs.webkit.org/show_bug.cgi?id=237123
+        <rdar://problem/89388181>
+
+        Reviewed by Dewei Zhu.
+
+        * metadata/trackers.json: Define project.
+
+2022-03-03  Dan Glastonbury  <djg@apple.com>
+
+        Add Dan Glastonbury's name to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=237453
+
+        Reviewed by Alan Bujtas.
+
+        * metadata/contributors.json:
+
+2022-03-03  Anjali Kumar  <anjalik_22@apple.com>
+
+        Add myself (Anjali Kumar) to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=237449
+
+        Reviewed by Patrick Angle.
+
+        * metadata/contributors.json: Added myself.
+
+2022-03-01  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Sync personal fork by default
+        https://bugs.webkit.org/show_bug.cgi?id=237324
+        <rdar://problem/89618617>
+
+        Reviewed by Dewei Zhu.
+
+        * metadata/project_config: Add webkitscmpy.update-fork option.
+
+2022-03-02  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Build failure with libstdc++ (>= 6) when cross-compiling (fatal error: stdlib.h: No such file or directory)
+        https://bugs.webkit.org/show_bug.cgi?id=161697
+        <rdar://problem/89613152>
+
+        Reviewed by Carlos Garcia Campos.
+
+        * Source/cmake/WebKitCompilerFlags.cmake: Go through CMake instead of the plain "env"
+        program for the sake of portability.
+
+2022-03-01  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Build failure with libstdc++ (>= 6) when cross-compiling (fatal error: stdlib.h: No such file or directory)
+        https://bugs.webkit.org/show_bug.cgi?id=161697
+
+        Reviewed by Carlos Garcia Campos.
+
+        * Source/cmake/WebKitCompilerFlags.cmake: Set LANG=C in compiler invocation to ensure its
+        output is consistent and the checks are independent from the system locale configuration.
+
+2022-03-01  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [CMake] Disabling ENABLE_WEBCORE is ignored when cmake configuration runs again.
+        https://bugs.webkit.org/show_bug.cgi?id=237170
+
+        Reviewed by Fujii Hironori.
+
+        CMake variables which has chance to set from outside should be cached in CMake configuration cache.
+        Unless cacheing, the result of building the generated project is not consisitent because the other
+        configuration may run while building.
+
+        To make it complete, I've changed ENABLE_JAVASCRIPTCORE, ENABLE_WEBCORE and ENABLE_WEBKIT to `option()`
+        which is stored in cached and reused while building even if the confuguration runs again.
+
+        * Source/cmake/OptionsPlayStation.cmake:
+        * Source/cmake/WebKitCommon.cmake:
+
+2022-02-28  Brandon Stewart  <brandonstewart@apple.com>
+
+        Add Brandon Stewart's name to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=237288
+
+        Reviewed by Saam Barati.
+
+        Add Brandon Stewart's name to contributors.json
+
+        * metadata/contributors.json:
+
+2022-02-28  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        -Wodr warning spam caused by ENABLE(BINDING_INTEGRITY)
+        https://bugs.webkit.org/show_bug.cgi?id=229867
+        <rdar://problem/82975115>
+
+        Reviewed by Carlos Garcia Campos.
+
+        Build WebKit with -Wno-odr. This warning is not salvagable, and it's impossible to suppress
+        locally.
+
+        * Source/cmake/WebKitCompilerFlags.cmake:
+
+ 2022-02-24  Matt Woodrow  <mattwoodrow@apple.com>
+
+         Unreviewed, update my (Matt Woodrow) status to committer.
+
+         * metadata/contributors.json:
+
+2022-02-25  Zan Dobersek  <zdobersek@igalia.com>
+
+        [GTK][WPE] Uncouple libgbm, libdrm dependencies from ANGLE functionality
+        https://bugs.webkit.org/show_bug.cgi?id=237199
+
+        Reviewed by Chris Lord.
+
+        For both GTK and WPE, unconditionally search for the libgbm and libdrm
+        dependencies as they will also be needed outside of ANGLE functionality.
+        USE_ANGLE is defined along with USE_NICOSIA, but still only if the
+        relevant option was enabled.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-02-25  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. [GTK] Bump version numbers
+
+        * Source/cmake/OptionsGTK.cmake:
+
+2022-02-24  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Explain visit children and opaque roots in Introduction.md
+        https://bugs.webkit.org/show_bug.cgi?id=236894
+
+        Reviewed by Saam Barati.
+
+        Added the descriptions of visit children and opaque roots
+        as well as how to add IDL files.
+
+        * Introduction.md:
+
+2022-02-23  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Don't automatically use the ../Internal/WebKit workspace
+        https://bugs.webkit.org/show_bug.cgi?id=237115
+
+        Reviewed by Alexey Proskuryakov.
+
+        When the USE_WORKSPACE=YES Make flag was added in https://commits.webkit.org/246232@main, we
+        configured Make to automatically use the workspace at ../Internal/WebKit/WebKit.xcworkspace,
+        if it was available. The idea was to make it easier for workspace builds to automatically
+        detect dependencies needed by folks at Apple, like WebKitAdditions.
+
+        In practice, this has made workspace builds silently rely on code from outside of the WebKit
+        repo, and it's unintuitive since non-workspace Make builds do not do this.
+
+        * Makefile.shared:
+
+2022-02-23  W.D. Xiong  <wdx@apple.com>
+
+        Add wdx's Github username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=237106
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2022-02-23  Zan Dobersek  <zdobersek@igalia.com>
+
+        [GStreamer] Add WebKitDMABufVideoSink
+        https://bugs.webkit.org/show_bug.cgi?id=236883
+
+        Reviewed by Philippe Normand.
+
+        * Source/cmake/FindGStreamer.cmake:
+        Also search for gstreamer-allocators-1.0, produce the relevant variables
+        containing include directories and cflags.
+
+2022-02-22  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Initial MediaRecorder implementation
+        https://bugs.webkit.org/show_bug.cgi?id=236558
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        Enable MediaRecorder support if GStreamer >= 1.20 is available.
+
+        * Source/cmake/FindGStreamer.cmake:
+        * Source/cmake/GStreamerChecks.cmake:
+        * Source/cmake/GStreamerDefinitions.cmake:
+        * Source/cmake/GStreamerDependencies.cmake:
+
+2022-02-21  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] ANGLE: make USE_ANGLE_WEBGL build option public
+        https://bugs.webkit.org/show_bug.cgi?id=236962
+
+        Reviewed by Chris Lord.
+
+        Since it introduces new dependencies, the build option should be public and a fatal error message should be
+        shown when the option is enabled and any for the dependencies is missing.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
 2022-02-20  Brandon Stewart  <brandonstewart@apple.com>
 
         Generate compile_commands.json on macOS Builds

@@ -133,14 +133,11 @@ webkit.org/b/223862 accessibility/gtk/text-for-range-simple.html [ Failure ]
 webkit.org/b/223862 accessibility/gtk/text-for-range-table-cells.html [ Failure ]
 webkit.org/b/223862 accessibility/gtk/text-for-range-with-link.html [ Failure ]
 accessibility/model-element-attributes.html [ Skip ]
+accessibility/dropdown-value.html [ Skip ]
 
 # Tests failing with ATSPI implementation.
-webkit.org/b/235941 accessibility/gtk/nested-block-element-children.html [ Failure ]
-webkit.org/b/235941 accessibility/gtk/no-notification-for-unrendered-iframe-children.html [ Failure ]
-webkit.org/b/235941 accessibility/gtk/spans.html [ Failure ]
 webkit.org/b/235941 accessibility/gtk/text-at-offset-embedded-objects.html [ Failure ]
 webkit.org/b/235941 accessibility/gtk/text-at-offset-special-chars.html [ Failure ]
-webkit.org/b/235941 accessibility/gtk/xml-roles-exposed.html [ Failure ]
 webkit.org/b/235941 accessibility/gtk/caret-offsets.html [ Timeout ]
 
 # canvas
@@ -198,6 +195,9 @@ webkit.org/b/208988 webxr [ Skip ]
 
 # Crash on EWS bot.
 webrtc/vp8-then-h264-gpu-process-crash.html [ Skip ]
+
+# This test introduces flakiness due to issues with resetting WebPreferences.
+webkit.org/b/237181 fast/forms/validation-message-minimum-font-size.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End of Triaged Expectations
@@ -1601,8 +1601,6 @@ webkit.org/b/168427 fast/scrolling/rtl-scrollbars-overflow-contents.html [ Image
 
 webkit.org/b/168552 fast/text/hyphenate-locale.html [ Failure ]
 
-webkit.org/b/171598 accessibility/gtk/menu-list-unfocused-notifications.html [ Failure ]
-
 webkit.org/b/172270 fast/text/font-interstitial-invisible-width-while-loading.html [ Failure ]
 
 webkit.org/b/172271 fast/text/softbank-emoji.html [ Failure ]
@@ -1864,6 +1862,7 @@ webkit.org/b/160119 fast/repaint/selection-gap-flipped-fixed-child.html [ Failur
 #////////////////////////////////////////////////////////////////////////////////////////
 
 accessibility/dialog-properties.html [ Skip ]
+accessibility/native-text-control-attributed-string.html [ Skip ]
 
 # These tests require platform support.
 media/media-allowed-codecs.html
@@ -1883,3 +1882,6 @@ http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Fail
 http/tests/push-api/subscribe-default-permissions.html [ Failure ]
 http/tests/push-api/subscribe-deny-permissions.html [ Failure ]
 http/tests/push-api/subscribe-grant-permissions.html [ Failure ]
+
+# Ftp code is disabled in gtk port
+http/tests/misc/ftp-eplf-directory.py [ Skip ]

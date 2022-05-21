@@ -173,9 +173,6 @@ public:
 
     // Creates a scope where this object will assert on calls to setNeedsLayout().
     class SetLayoutNeededForbiddenScope;
-
-    // Obtains the nearest enclosing block (including this block) that contributes a first-line style to our inline children.
-    virtual RenderBlock* firstLineBlock() const;
     
     // RenderObject tree manipulation
     //////////////////////////////////////////
@@ -331,6 +328,7 @@ public:
     virtual bool isSVGContainer() const { return false; }
     virtual bool isLegacySVGContainer() const { return false; }
     virtual bool isSVGTransformableContainer() const { return false; }
+    virtual bool isLegacySVGTransformableContainer() const { return false; }
     virtual bool isSVGViewportContainer() const { return false; }
     virtual bool isSVGGradientStop() const { return false; }
     virtual bool isSVGHiddenContainer() const { return false; }
@@ -451,7 +449,8 @@ public:
     bool hasPotentiallyScrollableOverflow() const;
 
     bool hasTransformRelatedProperty() const { return m_bitfields.hasTransformRelatedProperty(); } // Transform, perspective or transform-style: preserve-3d.
-    bool hasTransform() const { return hasTransformRelatedProperty() && (style().hasTransform() || style().translate() || style().scale() || style().rotate() || style().offsetPath()); }
+    bool hasTransform() const { return hasTransformRelatedProperty() && (style().hasTransform() || style().translate() || style().scale() || style().rotate()); }
+    bool hasTransformOrPespective() const { return hasTransformRelatedProperty() && (hasTransform() || style().hasPerspective()); }
 
     inline bool preservesNewline() const;
 
@@ -946,7 +945,6 @@ private:
         ADD_BOOLEAN_BITFIELD(paintContainmentApplies, PaintContainmentApplies);
 
         // From RenderElement
-        std::unique_ptr<RenderStyle> cachedFirstLineStyle;
         std::unique_ptr<ReferencedSVGResources> referencedSVGResources;
         WeakPtr<RenderBlockFlow> backdropRenderer;
     };
@@ -1212,6 +1210,7 @@ void printGraphicsLayerTreeForLiveDocuments();
 
 bool shouldApplyLayoutContainment(const RenderObject&);
 bool shouldApplySizeContainment(const RenderObject&);
+bool shouldApplyInlineSizeContainment(const RenderObject&);
 bool shouldApplyStyleContainment(const RenderObject&);
 bool shouldApplyPaintContainment(const RenderObject&);
 bool shouldApplyAnyContainment(const RenderObject&);

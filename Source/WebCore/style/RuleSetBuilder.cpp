@@ -113,7 +113,7 @@ void RuleSetBuilder::addChildRules(const Vector<RefPtr<StyleRuleBase>>& rules)
             auto& containerRule = downcast<StyleRuleContainer>(*rule);
             auto previousContainerQueryIdentifier = m_currentContainerQueryIdentifier;
             if (m_ruleSet) {
-                m_ruleSet->m_containerQueries.append({ containerRule.filteredQuery(), previousContainerQueryIdentifier });
+                m_ruleSet->m_containerQueries.append({ containerRule, previousContainerQueryIdentifier });
                 m_currentContainerQueryIdentifier = m_ruleSet->m_containerQueries.size();
             }
             addChildRules(containerRule.childRules());
@@ -378,8 +378,9 @@ void RuleSetBuilder::MediaQueryCollector::pop(const MediaQuerySet* set)
 
     if (!dynamicContextStack.last().affectedRulePositions.isEmpty() || !collectDynamic) {
         RuleSet::DynamicMediaQueryRules rules;
+        rules.mediaQuerySets.reserveCapacity(rules.mediaQuerySets.size() + dynamicContextStack.size());
         for (auto& context : dynamicContextStack)
-            rules.mediaQuerySets.append(context.set.get());
+            rules.mediaQuerySets.uncheckedAppend(context.set.get());
 
         if (collectDynamic) {
             rules.affectedRulePositions.appendVector(dynamicContextStack.last().affectedRulePositions);

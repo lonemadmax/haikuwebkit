@@ -372,8 +372,10 @@ Vector<SecurityOriginData> DatabaseTracker::origins()
 
     Vector<SecurityOriginData> origins;
     int stepResult;
-    while ((stepResult = statement->step()) == SQLITE_ROW)
-        origins.append(SecurityOriginData::fromDatabaseIdentifier(statement->columnText(0))->isolatedCopy());
+    while ((stepResult = statement->step()) == SQLITE_ROW) {
+        if (auto origin = SecurityOriginData::fromDatabaseIdentifier(statement->columnText(0)))
+            origins.append(WTFMove(origin).value().isolatedCopy());
+    }
     origins.shrinkToFit();
 
     if (stepResult != SQLITE_DONE)
@@ -537,18 +539,17 @@ void DatabaseTracker::addOpenDatabase(Database& database)
         m_openDatabaseMap = makeUnique<DatabaseOriginMap>();
 
     auto origin = database.securityOrigin();
-
     auto* nameMap = m_openDatabaseMap->get(origin);
     if (!nameMap) {
         nameMap = new DatabaseNameMap;
-        m_openDatabaseMap->add(origin.isolatedCopy(), nameMap);
+        m_openDatabaseMap->add(WTFMove(origin).isolatedCopy(), nameMap);
     }
 
     String name = database.stringIdentifierIsolatedCopy();
     auto* databaseSet = nameMap->get(name);
     if (!databaseSet) {
         databaseSet = new DatabaseSet;
-        nameMap->set(name.isolatedCopy(), databaseSet);
+        nameMap->set(WTFMove(name).isolatedCopy(), databaseSet);
     }
 
     databaseSet->add(&database);
@@ -595,29 +596,20 @@ void DatabaseTracker::removeOpenDatabase(Database& database)
     delete nameMap;
 }
 
-RefPtr<OriginLock> DatabaseTracker::originLockFor(const SecurityOriginData& origin)
+Ref<OriginLock> DatabaseTracker::originLockFor(const SecurityOriginData& origin)
 {
     Locker lockDatabase { m_databaseGuard };
-    String databaseIdentifier = origin.databaseIdentifier();
 
     // The originLockMap is accessed from multiple DatabaseThreads since
     // different script contexts can be writing to different databases from
     // the same origin. Hence, the databaseIdentifier key needs to be an
     // isolated copy. An isolated copy gives us a value whose refCounting is
     // thread-safe, since our copy is guarded by the m_databaseGuard mutex.
-    databaseIdentifier = databaseIdentifier.isolatedCopy();
+    String databaseIdentifier = origin.databaseIdentifier().isolatedCopy();
 
-    OriginLockMap::AddResult addResult =
-        m_originLockMap.add(databaseIdentifier, RefPtr<OriginLock>());
-    if (!addResult.isNewEntry)
-        return addResult.iterator->value;
-
-    String path = originPath(origin);
-    RefPtr<OriginLock> lock = adoptRef(*new OriginLock(path));
-    ASSERT(lock);
-    addResult.iterator->value = lock;
-
-    return lock;
+    return m_originLockMap.ensure(databaseIdentifier, [&] {
+        return OriginLock::create(originPath(origin));
+    }).iterator->value;
 }
 
 void DatabaseTracker::deleteOriginLockFor(const SecurityOriginData& origin)

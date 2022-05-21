@@ -376,6 +376,11 @@ const char* HTTPServer::scheme() const
     return scheme;
 }
 
+String HTTPServer::origin() const
+{
+    return [NSString stringWithFormat:@"%s://127.0.0.1:%d", scheme(), port()];
+}
+
 NSURLRequest *HTTPServer::request(const String& path) const
 {
     return [NSURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%s://127.0.0.1:%d%@", scheme(), port(), path.createCFString().get()]]];
@@ -414,19 +419,30 @@ void Connection::receiveHTTPRequest(CompletionHandler<void(Vector<char>&&)>&& co
 
 void Connection::send(String&& message, CompletionHandler<void()>&& completionHandler) const
 {
-    send(dataFromString(WTFMove(message)), WTFMove(completionHandler));
+    send(dataFromString(WTFMove(message)), [completionHandler = WTFMove(completionHandler)] (bool) mutable {
+        if (completionHandler)
+            completionHandler();
+    });
 }
 
 void Connection::send(Vector<uint8_t>&& message, CompletionHandler<void()>&& completionHandler) const
 {
+    send(dataFromVector(WTFMove(message)), [completionHandler = WTFMove(completionHandler)] (bool) mutable {
+        if (completionHandler)
+            completionHandler();
+    });
+}
+
+void Connection::sendAndReportError(Vector<uint8_t>&& message, CompletionHandler<void(bool)>&& completionHandler) const
+{
     send(dataFromVector(WTFMove(message)), WTFMove(completionHandler));
 }
 
-void Connection::send(RetainPtr<dispatch_data_t>&& message, CompletionHandler<void()>&& completionHandler) const
+void Connection::send(RetainPtr<dispatch_data_t>&& message, CompletionHandler<void(bool)>&& completionHandler) const
 {
     nw_connection_send(m_connection.get(), message.get(), NW_CONNECTION_DEFAULT_MESSAGE_CONTEXT, true, makeBlockPtr([completionHandler = WTFMove(completionHandler)](nw_error_t error) mutable {
         if (completionHandler)
-            completionHandler();
+            completionHandler(!!error);
     }).get());
 }
 

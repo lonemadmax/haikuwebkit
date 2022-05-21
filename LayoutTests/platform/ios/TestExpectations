@@ -1324,6 +1324,8 @@ webkit.org/b/137572 scrollbars/scrollbar-drag-thumb-with-large-content.html [ Fa
 webkit.org/b/137572 scrollbars/scrollbar-selectors.html [ Failure ]
 scrollbars/scrolling-by-page-on-keyboard-spacebar.html [ Failure ]
 
+webkit.org/b/237150 fast/events/autoscroll-in-iframe-body.html [ Pass Failure ]
+
 # These tests require an OpenType MATH font on the Apple bots.
 webkit.org/b/160161 mathml/opentype/vertical.html [ Skip ]
 webkit.org/b/160161 mathml/opentype/large-operators.html [ Skip ]
@@ -2098,9 +2100,12 @@ accessibility/aria-sort-changed-notification.html [ Pass ]
 webkit.org/b/150366 accessibility/aria-table-attributes.html [ Pass ]
 
 accessibility/table-search-traversal.html [ Pass ]
+accessibility/dynamically-changing-iframe-remains-accessible.html [ Pass ]
+accessibility/ignore-modals-without-any-content.html [ Pass ]
 
 accessibility/selected-state-changed-notifications.html [ Pass ]
 accessibility/element-line-rects-and-text.html [ Pass ]
+accessibility/svg-font-face.html [ Pass ]
 
 # Enable "attachment element" test for iOS
 accessibility/attachment-element.html [ Pass ]
@@ -2167,7 +2172,6 @@ imported/blink/fast/pagination/div-x-vertical-lr-rtl.html [ ImageOnlyFailure ]
 imported/blink/fast/pagination/viewport-x-vertical-lr-ltr.html [ ImageOnlyFailure ]
 imported/blink/fast/pagination/viewport-x-vertical-lr-rtl.html [ ImageOnlyFailure ]
 fast/multicol/newmulticol/hide-box-vertical-lr.html [ ImageOnlyFailure ]
-fast/writing-mode/vertical-align-flexbox-baseline.html [ ImageOnlyFailure ]
 
 # Failing tests related to picture element
 webkit.org/b/152141 fast/picture/image-picture-1x.html [ Skip ]
@@ -2361,7 +2365,7 @@ media/video-volume.html [ Failure ]
 
 media/W3C/audio/canPlayType/canPlayType_supported_but_no_codecs_parameter_1.html [ Failure ]
 
-media/video-seek-to-current-time.html [ Failure ]
+media/video-seek-to-current-time.html [ Failure Pass ]
 
 imported/w3c/web-platform-tests/dom/events/scrolling [ Pass ]
 
@@ -2633,8 +2637,6 @@ fast/text/text-indent-inside-float.html [ ImageOnlyFailure ]
 http/tests/multipart/load-last-non-html-frame.py [ Failure  ]
 
 webkit.org/b/177366 http/tests/security/frameNavigation/sandbox-ALLOWED-top-navigation-with-user-gesture-1.html [ Pass Timeout ]
-
-webkit.org/b/211509 platform/ios/mediastream/audio-muted-in-background-tab-gpu-process.html [ Failure ]
 
 webkit.org/b/177395 fast/mediastream/RTCPeerConnection-overloaded-operations.html [ Pass Failure ]
 fast/mediastream/getUserMedia-webaudio.html [ Pass Failure ]
@@ -2984,6 +2986,9 @@ fast/canvas/set-colors.html [ Failure ]
 
 webkit.org/b/202958 css3/filters/svg-blur-filter-clipped.html [ ImageOnlyFailure ]
 
+# 'transform-box' support is broken for composited elements.
+webkit.org/b/237553 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-box-will-change-transform-layer.html [ ImageOnlyFailure ]
+
 webkit.org/b/203305 imported/w3c/web-platform-tests/css/css-transitions/properties-value-001.html [ Pass Failure ]
 webkit.org/b/203305 [ Debug ] imported/w3c/web-platform-tests/css/css-transitions/properties-value-inherit-001.html [ Pass Failure ]
 webkit.org/b/203356 [ Debug ] imported/w3c/web-platform-tests/css/css-transitions/properties-value-003.html [ Pass Failure ]
@@ -3232,8 +3237,9 @@ http/wpt/mediarecorder/pause-recording.html [ Pass Crash ]
 # rdar://80383672 ([ iOS15 ] accessibility/misspelling-range.html is failing)
 webkit.org/b/231261 accessibility/misspelling-range.html  [ Failure ]
 
-# rdar://80392337 ([ iOS15 ] fast/text/international/system-language/navigator-language/navigator-language-ru.html is a constant failure)
+# Behavior of navigator-language-ru changed in iOS 15.
 fast/text/international/system-language/navigator-language/navigator-language-ru.html [ Failure ]
+fast/text/international/system-language/navigator-language/navigator-language-ru-2.html [ Pass ]
 
 # Canvas tests that pass with some fuzz
 imported/w3c/web-platform-tests/html/canvas/element/manual/compositing/canvas_compositing_globalcompositeoperation_001.htm [ ImageOnlyFailure ]
@@ -3271,6 +3277,8 @@ webkit.org/b/222844 fast/canvas/webgl/match-page-color-space.html [ Pass ImageOn
 webkit.org/b/222844 imported/blink/compositing/draws-content/webgl-simple-background.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/222239 webgl/conformance/extensions/khr-parallel-shader-compile.html [ Skip ]
+
+webkit.org/b/237174 editing/pasteboard/dom-paste/dom-paste-same-origin.html [ Pass Failure Timeout ]
 
 fast/text/line-break-with-locale.html [ ImageOnlyFailure ]
 
@@ -3382,6 +3390,10 @@ webkit.org/b/229584 animations/fill-mode-forwards.html [ Pass Failure ]
 # rdar://82190832 ([ iOS15 ] editing/caret/ios/caret-in-overflow-area.html is failing)
 [ Debug ] editing/caret/ios/caret-in-overflow-area.html [ Pass Timeout Failure ]
 
+webkit.org/b/237220 imported/w3c/web-platform-tests/svg/coordinate-systems/abspos.html [ Pass Failure ]
+
+webkit.org/b/237218 fast/layers/parent-clipping-overflow-is-overwritten-by-child-clipping.html [ Pass Failure ]
+
 webkit.org/b/229832 [ Release ] imported/w3c/web-platform-tests/beacon/beacon-redirect.https.window.html [ Pass Failure ]
 
 # rdar://83207621 ([ BigSur wk2 Release ] 2 fast/canvas/ tests are flaky failing (230366))
@@ -3392,6 +3404,17 @@ fast/canvas/canvas-blending-text.html [ Pass Failure ]
 model-element/model-element-camera.html [ Skip ]
 model-element/model-element-interactive-dragging.html [ Skip ]
 
+# webkit.org/b/232384 these are flaky failures on iOS
+fast/hidpi/image-srcset-simple-1x.html [ Pass Failure ]
+fast/hidpi/image-srcset-simple-in-variable-1x.html [ Pass Failure ]
+fast/hidpi/pdf-image-scaled.html [ Pass Failure ]
+
+webkit.org/b/201982 These are flaky failures on iOS
+fast/images/exif-orientation-svg-feimage.html [ Pass Failure ]
+fast/images/exif-orientation-background-image-repeat.html [ Pass Failure ]
+fast/images/image-orientation-dynamic-from-image.html [ Pass Failure ]
+fast/images/image-orientation-none.html [ Pass Failure ]
+
 # These tests require the design system ui fonts to be installed.
 fast/text/design-system-ui-11.html [ Pass ]
 fast/text/design-system-ui-12.html [ Pass ]
@@ -3399,6 +3422,12 @@ fast/text/design-system-ui-13.html [ Pass ]
 fast/text/design-system-ui-14.html [ Pass ]
 fast/text/design-system-ui-15.html [ Pass ]
 fast/text/design-system-ui-16.html [ Pass ]
+
+webkit.org/b/237680 imported/w3c/web-platform-tests/service-workers/service-worker/partitioned-service-worker-matchAll.tentative.https.html [ Pass Failure ]
+
+# webkit.org/b/237603 
+imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-allowed.sub.html [ Pass Failure ]
+imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-blocked.sub.html [ Pass Failure ]
 
 webkit.org/b/159755 fast/text/emoji-num-glyphs.html [ Pass ]
 
@@ -3486,3 +3515,15 @@ pointerevents/mouse/pointer-event-basic-properties.html [ Timeout ]
 imported/w3c/web-platform-tests/workers/semantics/multiple-workers/004.html [ Failure Pass ]
 [ Release ] perf/nested-combined-selectors.html [ Failure ]
 webkit.org/b/236496 fast/mediastream/captureStream/canvas3d.html [ Timeout ]
+
+webkit.org/b/237295 fast/mediastream/video-rotation-gpu-process-crash.html [ Pass Crash ]
+
+webkit.org/b/236930 accessibility/ios-simulator/aria-details.html [ Crash Pass ]
+webkit.org/b/236794 editing/spelling/editing-word-with-marker-2.html [ Pass Crash ]
+
+webkit.org/b/237159 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-049.html [ Pass Crash ]
+
+webkit.org/b/237108 http/tests/websocket/tests/hybi/extensions.html [ Pass ]
+
+webkit.org/b/237433 editing/pasteboard/4076267-3.html [ Timeout Pass Failure ]
+webkit.org/b/237433 editing/pasteboard/paste-and-sanitize.html [ Timeout Pass Failure ]

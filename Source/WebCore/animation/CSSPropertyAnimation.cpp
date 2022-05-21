@@ -43,6 +43,7 @@
 #include "CalculationValue.h"
 #include "ColorBlending.h"
 #include "ContentData.h"
+#include "CounterDirectives.h"
 #include "FloatConversion.h"
 #include "FontCascade.h"
 #include "FontSelectionAlgorithm.h"
@@ -56,6 +57,7 @@
 #include "MatrixTransformOperation.h"
 #include "OffsetRotation.h"
 #include "PathOperation.h"
+#include "QuotesData.h"
 #include "RenderBox.h"
 #include "RenderStyle.h"
 #include "StyleCachedImage.h"
@@ -164,16 +166,12 @@ static inline TransformOperations blendFunc(const TransformOperations& from, con
     if (context.compositeOperation == CompositeOperation::Add) {
         ASSERT(context.progress == 1.0);
         TransformOperations resultOperations;
-        for (auto operation : from.operations())
-            resultOperations.operations().append(operation);
-        for (auto operation : to.operations())
-            resultOperations.operations().append(operation);
+        resultOperations.operations().appendVector(from.operations());
+        resultOperations.operations().appendVector(to.operations());
         return resultOperations;
     }
     auto boxSize = is<RenderBox>(context.client->renderer()) ? downcast<RenderBox>(*context.client->renderer()).borderBoxRect().size() : LayoutSize();
-    if (context.client->transformFunctionListsMatch())
-        return to.blendByMatchingOperations(from, context, boxSize);
-    return to.blendByUsingMatrixInterpolation(from, context, boxSize);
+    return to.blend(from, context, boxSize, context.client->transformFunctionListPrefix());
 }
 
 static RefPtr<ScaleTransformOperation> blendFunc(ScaleTransformOperation* from, ScaleTransformOperation* to, const CSSPropertyBlendingContext& context)
@@ -732,7 +730,7 @@ private:
 };
 
 template <typename T>
-class DiscretePropertyWrapper final : public PropertyWrapperGetter<T> {
+class DiscretePropertyWrapper : public PropertyWrapperGetter<T> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     DiscretePropertyWrapper(CSSPropertyID property, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T))
@@ -741,7 +739,7 @@ public:
     {
     }
 
-    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const final
+    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const override
     {
         ASSERT(!context.progress || context.progress == 1.0);
         (destination.*this->m_setter)(this->value(context.progress ? to : from));
@@ -1904,6 +1902,42 @@ private:
 #endif
 };
 
+template <typename T>
+class DiscreteFillLayerPropertyWrapper final : public FillLayerAnimationPropertyWrapperBase {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    DiscreteFillLayerPropertyWrapper(CSSPropertyID property, T (FillLayer::*getter)() const, void (FillLayer::*setter)(T))
+        : FillLayerAnimationPropertyWrapperBase(property)
+        , m_getter(getter)
+        , m_setter(setter)
+    {
+    }
+
+private:
+    bool equals(const FillLayer* a, const FillLayer* b) const final
+    {
+        return (a->*m_getter)() == (b->*m_getter)();
+    }
+
+    bool canInterpolate(const FillLayer*, const FillLayer*) const final { return false; }
+
+#if !LOG_DISABLED
+    void logBlend(const FillLayer* destination, const FillLayer* from, const FillLayer* to, double progress) const final
+    {
+        LOG_WITH_STREAM(Animations, stream << "  blending " << getPropertyName(this->property()) << " from " << (from->*m_getter)() << " to " << (to->*m_getter)() << " at " << TextStream::FormatNumberRespectingIntegers(progress) << " -> " << (destination->*m_getter)());
+    }
+#endif
+
+    void blend(FillLayer* destination, const FillLayer* from, const FillLayer* to, const CSSPropertyBlendingContext& context) const final
+    {
+        ASSERT(!context.progress || context.progress == 1.0);
+        (destination->*m_setter)(((context.progress ? to : from)->*m_getter)());
+    }
+
+    T (FillLayer::*m_getter)() const;
+    void (FillLayer::*m_setter)(T);
+};
+
 class FillLayersPropertyWrapper final : public AnimationPropertyWrapperBase {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -1932,6 +1966,18 @@ public:
         case CSSPropertyBackgroundImage:
         case CSSPropertyMaskImage:
             m_fillLayerPropertyWrapper = makeUnique<FillLayerStyleImagePropertyWrapper>(property, &FillLayer::image, &FillLayer::setImage);
+            break;
+        case CSSPropertyMaskClip:
+            m_fillLayerPropertyWrapper = makeUnique<DiscreteFillLayerPropertyWrapper<FillBox>>(property, &FillLayer::clip, &FillLayer::setClip);
+            break;
+        case CSSPropertyMaskOrigin:
+            m_fillLayerPropertyWrapper = makeUnique<DiscreteFillLayerPropertyWrapper<FillBox>>(property, &FillLayer::origin, &FillLayer::setOrigin);
+            break;
+        case CSSPropertyMaskComposite:
+            m_fillLayerPropertyWrapper = makeUnique<DiscreteFillLayerPropertyWrapper<CompositeOperator>>(property, &FillLayer::composite, &FillLayer::setComposite);
+            break;
+        case CSSPropertyMaskMode:
+            m_fillLayerPropertyWrapper = makeUnique<DiscreteFillLayerPropertyWrapper<MaskMode>>(property, &FillLayer::maskMode, &FillLayer::setMaskMode);
             break;
         default:
             break;
@@ -2125,9 +2171,9 @@ private:
                 return true;
 
             if (!fromColor.isValid())
-                fromColor = Color();
+                fromColor = a.color();
             if (!toColor.isValid())
-                toColor = Color();
+                toColor = b.color();
 
             return fromColor == toColor;
         }
@@ -2136,8 +2182,11 @@ private:
 
     void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const final
     {
-        if ((from.*m_paintTypeGetter)() != SVGPaintType::RGBColor
-            || (to.*m_paintTypeGetter)() != SVGPaintType::RGBColor)
+        auto isValidPaintType = [](SVGPaintType paintType) {
+            return paintType == SVGPaintType::RGBColor || paintType == SVGPaintType::CurrentColor;
+        };
+
+        if (!isValidPaintType((from.*m_paintTypeGetter)()) || !isValidPaintType((to.*m_paintTypeGetter)()))
             return;
 
         Color fromColor = (from.*m_getter)();
@@ -2147,9 +2196,9 @@ private:
             return;
 
         if (!fromColor.isValid())
-            fromColor = Color();
+            fromColor = from.color();
         if (!toColor.isValid())
-            toColor = Color();
+            toColor = to.color();
         (destination.*m_setter)(blendFunc(fromColor, toColor, context));
     }
 
@@ -2469,6 +2518,396 @@ public:
     }
 };
 
+class TextEmphasisStyleWrapper final : public DiscretePropertyWrapper<TextEmphasisMark> {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    TextEmphasisStyleWrapper()
+        : DiscretePropertyWrapper<TextEmphasisMark>(CSSPropertyTextEmphasisStyle, &RenderStyle::textEmphasisMark, &RenderStyle::setTextEmphasisMark)
+    {
+    }
+
+private:
+    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const final
+    {
+        destination.setTextEmphasisFill((context.progress > 0.5 ? to : from).textEmphasisFill());
+        DiscretePropertyWrapper::blend(destination, from, to, context);
+    }
+};
+
+class DiscreteFontDescriptionWrapper : public AnimationPropertyWrapperBase {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    DiscreteFontDescriptionWrapper(CSSPropertyID property)
+        : AnimationPropertyWrapperBase(property)
+    {
+    }
+
+protected:
+    virtual bool propertiesInFontDescriptionAreEqual(const FontCascadeDescription&, const FontCascadeDescription&) const { return false; }
+    virtual void setPropertiesInFontDescription(const FontCascadeDescription&, FontCascadeDescription&) const { }
+
+private:
+    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const override { return false; }
+
+    bool equals(const RenderStyle& a, const RenderStyle& b) const override
+    {
+        return propertiesInFontDescriptionAreEqual(a.fontDescription(), b.fontDescription());
+    }
+
+    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const override
+    {
+        ASSERT(!context.progress || context.progress == 1.0);
+        FontSelector* currentFontSelector = destination.fontCascade().fontSelector();
+        auto destinationDescription = destination.fontDescription();
+        auto& sourceDescription = (context.progress ? to : from).fontDescription();
+        setPropertiesInFontDescription(sourceDescription, destinationDescription);
+        destination.setFontDescription(WTFMove(destinationDescription));
+        destination.fontCascade().update(currentFontSelector);
+    }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle&, const RenderStyle&, const RenderStyle&, double) const override
+    {
+    }
+#endif
+};
+
+template <typename T>
+class DiscreteFontDescriptionTypedWrapper : public DiscreteFontDescriptionWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    DiscreteFontDescriptionTypedWrapper(CSSPropertyID property, T (FontCascadeDescription::*getter)() const, void (FontCascadeDescription::*setter)(T))
+        : DiscreteFontDescriptionWrapper(property)
+        , m_getter(getter)
+        , m_setter(setter)
+    {
+    }
+
+private:
+    bool propertiesInFontDescriptionAreEqual(const FontCascadeDescription& a, const FontCascadeDescription& b) const override
+    {
+        return this->value(a) == this->value(b);
+    }
+
+    void setPropertiesInFontDescription(const FontCascadeDescription& source, FontCascadeDescription& destination) const override
+    {
+        (destination.*this->m_setter)(this->value(source));
+    }
+
+    T value(const FontCascadeDescription& description) const
+    {
+        return (description.*this->m_getter)();
+    }
+
+    T (FontCascadeDescription::*m_getter)() const;
+    void (FontCascadeDescription::*m_setter)(T);
+};
+
+class FontFamilyWrapper final : public DiscreteFontDescriptionWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    FontFamilyWrapper()
+        : DiscreteFontDescriptionWrapper(CSSPropertyFontFamily)
+    {
+    }
+
+private:
+    bool propertiesInFontDescriptionAreEqual(const FontCascadeDescription& a, const FontCascadeDescription& b) const override
+    {
+        return a.families() == b.families();
+    }
+
+    void setPropertiesInFontDescription(const FontCascadeDescription& source, FontCascadeDescription& destination) const override
+    {
+        destination.setFamilies(source.families());
+    }
+};
+
+class CounterWrapper final : public AnimationPropertyWrapperBase {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    CounterWrapper(CSSPropertyID property)
+        : AnimationPropertyWrapperBase(property)
+    {
+        ASSERT(property == CSSPropertyCounterIncrement || property == CSSPropertyCounterReset);
+    }
+
+    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const override { return false; }
+
+    bool equals(const RenderStyle& a, const RenderStyle& b) const final
+    {
+        auto* aCounterDirectives = a.counterDirectives();
+        auto* bCounterDirectives = b.counterDirectives();
+
+        if (!aCounterDirectives && !bCounterDirectives)
+            return true;
+        if (aCounterDirectives && bCounterDirectives) {
+            if (aCounterDirectives->size() != bCounterDirectives->size())
+                return false;
+            for (auto& [key, aDirective] : *aCounterDirectives) {
+                auto it = bCounterDirectives->find(key);
+                if (it == bCounterDirectives->end())
+                    return false;
+                auto& bDirective = it->value;
+                if ((property() == CSSPropertyCounterIncrement && aDirective.incrementValue != bDirective.incrementValue)
+                    || (property() == CSSPropertyCounterReset && aDirective.resetValue != bDirective.resetValue))
+                    return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle&, const RenderStyle&, const RenderStyle&, double progress) const final
+    {
+        LOG_WITH_STREAM(Animations, stream << " blending " << getPropertyName(property()) << " at " << TextStream::FormatNumberRespectingIntegers(progress) << ".");
+    }
+#endif
+
+    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const final
+    {
+        ASSERT(context.isDiscrete);
+        ASSERT(!context.progress || context.progress == 1);
+
+        // Clear all existing values in the existing set of directives.
+        if (destination.counterDirectives()) {
+            for (auto& [key, directive] : destination.accessCounterDirectives()) {
+                if (property() == CSSPropertyCounterIncrement)
+                    directive.incrementValue = std::nullopt;
+                else
+                    directive.resetValue = std::nullopt;
+            }
+        }
+
+        auto& style = context.progress ? to : from;
+        if (!style.counterDirectives())
+            return;
+
+        auto& targetDirectives = destination.accessCounterDirectives();
+        for (auto& [key, directive] : *style.counterDirectives()) {
+            auto updateDirective = [&](CounterDirectives& target, const CounterDirectives& source) {
+                if (property() == CSSPropertyCounterIncrement)
+                    target.incrementValue = source.incrementValue;
+                else
+                    target.resetValue = source.resetValue;
+            };
+            auto it = targetDirectives.find(key);
+            if (it == targetDirectives.end())
+                updateDirective(targetDirectives.add(key, CounterDirectives { }).iterator->value, directive);
+            else
+                updateDirective(it->value, directive);
+        }
+    }
+};
+
+class FontFeatureSettingsWrapper final : public DiscreteFontDescriptionWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    FontFeatureSettingsWrapper()
+        : DiscreteFontDescriptionWrapper(CSSPropertyFontFeatureSettings)
+    {
+    }
+
+private:
+    bool propertiesInFontDescriptionAreEqual(const FontCascadeDescription& a, const FontCascadeDescription& b) const override
+    {
+        return a.featureSettings() == b.featureSettings();
+    }
+
+    void setPropertiesInFontDescription(const FontCascadeDescription& source, FontCascadeDescription& destination) const override
+    {
+        destination.setFeatureSettings(FontFeatureSettings(source.featureSettings()));
+    }
+};
+
+class FontVariantEastAsianWrapper final : public DiscreteFontDescriptionWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    FontVariantEastAsianWrapper()
+        : DiscreteFontDescriptionWrapper(CSSPropertyFontVariantEastAsian)
+    {
+    }
+
+private:
+    bool propertiesInFontDescriptionAreEqual(const FontCascadeDescription& a, const FontCascadeDescription& b) const override
+    {
+        return a.variantEastAsianVariant() == b.variantEastAsianVariant()
+            && a.variantEastAsianWidth() == b.variantEastAsianWidth()
+            && a.variantEastAsianRuby() == b.variantEastAsianRuby();
+    }
+
+    void setPropertiesInFontDescription(const FontCascadeDescription& source, FontCascadeDescription& destination) const override
+    {
+        destination.setVariantEastAsianVariant(source.variantEastAsianVariant());
+        destination.setVariantEastAsianWidth(source.variantEastAsianWidth());
+        destination.setVariantEastAsianRuby(source.variantEastAsianRuby());
+    }
+};
+
+class FontVariantLigaturesWrapper final : public DiscreteFontDescriptionWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    FontVariantLigaturesWrapper()
+        : DiscreteFontDescriptionWrapper(CSSPropertyFontVariantLigatures)
+    {
+    }
+
+private:
+    bool propertiesInFontDescriptionAreEqual(const FontCascadeDescription& a, const FontCascadeDescription& b) const override
+    {
+        return a.variantCommonLigatures() == b.variantCommonLigatures()
+            && a.variantDiscretionaryLigatures() == b.variantDiscretionaryLigatures()
+            && a.variantHistoricalLigatures() == b.variantHistoricalLigatures()
+            && a.variantContextualAlternates() == b.variantContextualAlternates();
+    }
+
+    void setPropertiesInFontDescription(const FontCascadeDescription& source, FontCascadeDescription& destination) const override
+    {
+        destination.setVariantCommonLigatures(source.variantCommonLigatures());
+        destination.setVariantDiscretionaryLigatures(source.variantDiscretionaryLigatures());
+        destination.setVariantHistoricalLigatures(source.variantHistoricalLigatures());
+        destination.setVariantContextualAlternates(source.variantContextualAlternates());
+    }
+};
+
+class GridTemplateAreasWrapper final : public AnimationPropertyWrapperBase {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    GridTemplateAreasWrapper()
+        : AnimationPropertyWrapperBase(CSSPropertyGridTemplateAreas)
+    {
+    }
+
+    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const override { return false; }
+
+    bool equals(const RenderStyle& a, const RenderStyle& b) const final
+    {
+        return a.implicitNamedGridColumnLines() == b.implicitNamedGridColumnLines()
+            && a.implicitNamedGridRowLines() == b.implicitNamedGridRowLines()
+            && a.namedGridArea() == b.namedGridArea()
+            && a.namedGridAreaRowCount() == b.namedGridAreaRowCount()
+            && a.namedGridAreaColumnCount() == b.namedGridAreaColumnCount();
+    }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle&, const RenderStyle&, const RenderStyle&, double progress) const final
+    {
+        LOG_WITH_STREAM(Animations, stream << " blending " << getPropertyName(property()) << " at " << TextStream::FormatNumberRespectingIntegers(progress) << ".");
+    }
+#endif
+
+    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const final
+    {
+        ASSERT(context.isDiscrete);
+        ASSERT(!context.progress || context.progress == 1);
+
+        auto& source = context.progress ? to : from;
+        destination.setImplicitNamedGridColumnLines(source.implicitNamedGridColumnLines());
+        destination.setImplicitNamedGridRowLines(source.implicitNamedGridRowLines());
+        destination.setNamedGridArea(source.namedGridArea());
+        destination.setNamedGridAreaRowCount(source.namedGridAreaRowCount());
+        destination.setNamedGridAreaColumnCount(source.namedGridAreaColumnCount());
+    }
+};
+
+class FontVariantNumericWrapper final : public DiscreteFontDescriptionWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    FontVariantNumericWrapper()
+        : DiscreteFontDescriptionWrapper(CSSPropertyFontVariantNumeric)
+    {
+    }
+
+private:
+    bool propertiesInFontDescriptionAreEqual(const FontCascadeDescription& a, const FontCascadeDescription& b) const override
+    {
+        return a.variantNumericFigure() == b.variantNumericFigure()
+            && a.variantNumericSpacing() == b.variantNumericSpacing()
+            && a.variantNumericFraction() == b.variantNumericFraction()
+            && a.variantNumericOrdinal() == b.variantNumericOrdinal()
+            && a.variantNumericSlashedZero() == b.variantNumericSlashedZero();
+    }
+
+    void setPropertiesInFontDescription(const FontCascadeDescription& source, FontCascadeDescription& destination) const override
+    {
+        destination.setVariantNumericFigure(source.variantNumericFigure());
+        destination.setVariantNumericSpacing(source.variantNumericSpacing());
+        destination.setVariantNumericFraction(source.variantNumericFraction());
+        destination.setVariantNumericOrdinal(source.variantNumericOrdinal());
+        destination.setVariantNumericSlashedZero(source.variantNumericSlashedZero());
+    }
+};
+
+class QuotesWrapper final : public AnimationPropertyWrapperBase {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    QuotesWrapper()
+        : AnimationPropertyWrapperBase(CSSPropertyQuotes)
+    {
+    }
+
+private:
+    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const override { return false; }
+
+    bool equals(const RenderStyle& a, const RenderStyle& b) const override
+    {
+        return a.quotes() == b.quotes();
+    }
+
+    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const override
+    {
+        ASSERT(!context.progress || context.progress == 1.0);
+        destination.setQuotes((context.progress ? to : from).quotes());
+    }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle&, const RenderStyle&, const RenderStyle&, double) const override
+    {
+    }
+#endif
+};
+
+template <typename T>
+class DiscreteSVGPropertyWrapper final : public AnimationPropertyWrapperBase {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    DiscreteSVGPropertyWrapper(CSSPropertyID property, T (SVGRenderStyle::*getter)() const, void (SVGRenderStyle::*setter)(T))
+        : AnimationPropertyWrapperBase(property)
+        , m_getter(getter)
+        , m_setter(setter)
+    {
+    }
+
+private:
+    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const final { return false; }
+
+    bool equals(const RenderStyle& a, const RenderStyle& b) const override
+    {
+        return this->value(a) == this->value(b);
+    }
+
+    void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const override
+    {
+        ASSERT(!context.progress || context.progress == 1.0);
+        (destination.accessSVGStyle().*this->m_setter)(this->value(context.progress ? to : from));
+    }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle&, const RenderStyle&, const RenderStyle&, double) const override
+    {
+    }
+#endif
+
+    T value(const RenderStyle& style) const
+    {
+        return (style.svgStyle().*this->m_getter)();
+    }
+
+    T (SVGRenderStyle::*m_getter)() const;
+    void (SVGRenderStyle::*m_setter)(T);
+};
+
 class CSSPropertyAnimationWrapperMap final {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -2506,15 +2945,15 @@ private:
     CSSPropertyAnimationWrapperMap();
     ~CSSPropertyAnimationWrapperMap() = delete;
 
-    unsigned char& indexFromPropertyID(CSSPropertyID propertyID)
+    unsigned short& indexFromPropertyID(CSSPropertyID propertyID)
     {
         return m_propertyToIdMap[propertyID - firstCSSProperty];
     }
 
     Vector<std::unique_ptr<AnimationPropertyWrapperBase>> m_propertyWrappers;
-    unsigned char m_propertyToIdMap[numCSSProperties];
+    unsigned short m_propertyToIdMap[numCSSProperties];
 
-    static const unsigned char cInvalidPropertyWrapperIndex = UCHAR_MAX;
+    static const unsigned short cInvalidPropertyWrapperIndex = std::numeric_limits<unsigned short>::max();
 
     friend class WTF::NeverDestroyed<CSSPropertyAnimationWrapperMap>;
 };
@@ -2576,9 +3015,16 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new FillLayersPropertyWrapper(CSSPropertyBackgroundSize, &RenderStyle::backgroundLayers, &RenderStyle::ensureBackgroundLayers),
         new FillLayersPropertyWrapper(CSSPropertyWebkitBackgroundSize, &RenderStyle::backgroundLayers, &RenderStyle::ensureBackgroundLayers),
 
+        new FillLayersPropertyWrapper(CSSPropertyMaskClip, &RenderStyle::maskLayers, &RenderStyle::ensureMaskLayers),
+        new FillLayersPropertyWrapper(CSSPropertyMaskComposite, &RenderStyle::maskLayers, &RenderStyle::ensureMaskLayers),
+        new FillLayersPropertyWrapper(CSSPropertyMaskMode, &RenderStyle::maskLayers, &RenderStyle::ensureMaskLayers),
+        new FillLayersPropertyWrapper(CSSPropertyMaskOrigin, &RenderStyle::maskLayers, &RenderStyle::ensureMaskLayers),
         new FillLayersPropertyWrapper(CSSPropertyWebkitMaskPositionX, &RenderStyle::maskLayers, &RenderStyle::ensureMaskLayers),
         new FillLayersPropertyWrapper(CSSPropertyWebkitMaskPositionY, &RenderStyle::maskLayers, &RenderStyle::ensureMaskLayers),
         new FillLayersPropertyWrapper(CSSPropertyMaskSize, &RenderStyle::maskLayers, &RenderStyle::ensureMaskLayers),
+
+        new DiscretePropertyWrapper<FillRepeat>(CSSPropertyMaskRepeatX, &RenderStyle::maskRepeatX, &RenderStyle::setMaskRepeatX),
+        new DiscretePropertyWrapper<FillRepeat>(CSSPropertyMaskRepeatY, &RenderStyle::maskRepeatY, &RenderStyle::setMaskRepeatY),
 
         new LengthPointPropertyWrapper(CSSPropertyObjectPosition, &RenderStyle::objectPosition, &RenderStyle::setObjectPosition),
 
@@ -2684,7 +3130,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new PropertyWrapperFontStyle(),
         new PropertyWrapper<TextDecorationThickness>(CSSPropertyTextDecorationThickness, &RenderStyle::textDecorationThickness, &RenderStyle::setTextDecorationThickness),
         new PropertyWrapper<TextUnderlineOffset>(CSSPropertyTextUnderlineOffset, &RenderStyle::textUnderlineOffset, &RenderStyle::setTextUnderlineOffset),
-        new PropertyWrapperVisitedAffectedColor(CSSPropertyTextDecorationColor, &RenderStyle::textDecorationColor, &RenderStyle::setTextDecorationColor, &RenderStyle::visitedLinkTextDecorationColor, &RenderStyle::setVisitedLinkTextDecorationColor),
+        new PropertyWrapperVisitedAffectedColor(CSSPropertyTextDecorationColor, MaybeInvalidColor, &RenderStyle::textDecorationColor, &RenderStyle::setTextDecorationColor, &RenderStyle::visitedLinkTextDecorationColor, &RenderStyle::setVisitedLinkTextDecorationColor),
 
         new LengthPropertyWrapper(CSSPropertyFlexBasis, &RenderStyle::flexBasis, &RenderStyle::setFlexBasis, { LengthPropertyWrapper::Flags::IsLengthPercentage, LengthPropertyWrapper::Flags::NegativeLengthsAreInvalid }),
         new FloatPropertyWrapper(CSSPropertyFlexGrow, &RenderStyle::flexGrow, &RenderStyle::setFlexGrow, FloatPropertyWrapper::ValueRange::NonNegative),
@@ -2745,6 +3191,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<const StyleContentAlignmentData&>(CSSPropertyJustifyContent, &RenderStyle::justifyContent, &RenderStyle::setJustifyContent),
         new DiscretePropertyWrapper<const StyleSelfAlignmentData&>(CSSPropertyJustifyItems, &RenderStyle::justifyItems, &RenderStyle::setJustifyItems),
         new DiscretePropertyWrapper<const StyleSelfAlignmentData&>(CSSPropertyJustifySelf, &RenderStyle::justifySelf, &RenderStyle::setJustifySelf),
+        new DiscretePropertyWrapper<LineBreak>(CSSPropertyLineBreak, &RenderStyle::lineBreak, &RenderStyle::setLineBreak),
         new DiscretePropertyWrapper<ListStylePosition>(CSSPropertyListStylePosition, &RenderStyle::listStylePosition, &RenderStyle::setListStylePosition),
         new DiscretePropertyWrapper<ListStyleType>(CSSPropertyListStyleType, &RenderStyle::listStyleType, &RenderStyle::setListStyleType),
         new DiscretePropertyWrapper<ObjectFit>(CSSPropertyObjectFit, &RenderStyle::objectFit, &RenderStyle::setObjectFit),
@@ -2764,8 +3211,9 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<TextAlignMode>(CSSPropertyTextAlign, &RenderStyle::textAlign, &RenderStyle::setTextAlign),
         new DiscretePropertyWrapper<OptionSet<TextDecorationLine>>(CSSPropertyTextDecorationLine, &RenderStyle::textDecoration, &RenderStyle::setTextDecoration),
         new DiscretePropertyWrapper<TextDecorationStyle>(CSSPropertyTextDecorationStyle, &RenderStyle::textDecorationStyle, &RenderStyle::setTextDecorationStyle),
-        new DiscretePropertyWrapper<const Color&>(CSSPropertyTextEmphasisColor, &RenderStyle::textEmphasisColor, &RenderStyle::setTextEmphasisColor),
+        new PropertyWrapperVisitedAffectedColor(CSSPropertyTextEmphasisColor, MaybeInvalidColor, &RenderStyle::textEmphasisColor, &RenderStyle::setTextEmphasisColor, &RenderStyle::visitedLinkTextEmphasisColor, &RenderStyle::setVisitedLinkTextEmphasisColor),
         new DiscretePropertyWrapper<OptionSet<TextEmphasisPosition>>(CSSPropertyTextEmphasisPosition, &RenderStyle::textEmphasisPosition, &RenderStyle::setTextEmphasisPosition),
+        new TextEmphasisStyleWrapper,
         new DiscretePropertyWrapper<TextOverflow>(CSSPropertyTextOverflow, &RenderStyle::textOverflow, &RenderStyle::setTextOverflow),
         new DiscretePropertyWrapper<OptionSet<TouchAction>>(CSSPropertyTouchAction, &RenderStyle::touchActions, &RenderStyle::setTouchActions),
         new DiscretePropertyWrapper<TextTransform>(CSSPropertyTextTransform, &RenderStyle::textTransform, &RenderStyle::setTextTransform),
@@ -2780,6 +3228,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
 #if ENABLE(CSS_COMPOSITING)
         new DiscretePropertyWrapper<Isolation>(CSSPropertyIsolation, &RenderStyle::isolation, &RenderStyle::setIsolation),
         new DiscretePropertyWrapper<BlendMode>(CSSPropertyMixBlendMode, &RenderStyle::blendMode, &RenderStyle::setBlendMode),
+        new DiscretePropertyWrapper<BlendMode>(CSSPropertyBackgroundBlendMode, &RenderStyle::backgroundBlendMode, &RenderStyle::setBackgroundBlendMode),
 #endif
         new PropertyWrapperAspectRatio,
         new DiscretePropertyWrapper<FontPalette>(CSSPropertyFontPalette, &RenderStyle::fontPalette, &RenderStyle::setFontPalette),
@@ -2789,7 +3238,38 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new LengthPointOrAutoPropertyWrapper(CSSPropertyOffsetPosition, &RenderStyle::offsetPosition, &RenderStyle::setOffsetPosition),
         new LengthPointOrAutoPropertyWrapper(CSSPropertyOffsetAnchor, &RenderStyle::offsetAnchor, &RenderStyle::setOffsetAnchor),
         new PropertyWrapperContent,
-        new OffsetRotatePropertyWrapper(CSSPropertyOffsetRotate, &RenderStyle::offsetRotate, &RenderStyle::setOffsetRotate)
+        new OffsetRotatePropertyWrapper(CSSPropertyOffsetRotate, &RenderStyle::offsetRotate, &RenderStyle::setOffsetRotate),
+        new DiscretePropertyWrapper<TextDecorationSkipInk>(CSSPropertyTextDecorationSkipInk, &RenderStyle::textDecorationSkipInk, &RenderStyle::setTextDecorationSkipInk),
+        new DiscreteSVGPropertyWrapper<ColorInterpolation>(CSSPropertyColorInterpolation, &SVGRenderStyle::colorInterpolation, &SVGRenderStyle::setColorInterpolation),
+        new DiscreteFontDescriptionTypedWrapper<Kerning>(CSSPropertyFontKerning, &FontCascadeDescription::kerning, &FontCascadeDescription::setKerning),
+        new FontFeatureSettingsWrapper,
+        new FontFamilyWrapper,
+        new DiscreteSVGPropertyWrapper<WindRule>(CSSPropertyClipRule, &SVGRenderStyle::clipRule, &SVGRenderStyle::setClipRule),
+        new DiscreteSVGPropertyWrapper<ColorInterpolation>(CSSPropertyColorInterpolationFilters, &SVGRenderStyle::colorInterpolationFilters, &SVGRenderStyle::setColorInterpolationFilters),
+        new DiscreteSVGPropertyWrapper<DominantBaseline>(CSSPropertyDominantBaseline, &SVGRenderStyle::dominantBaseline, &SVGRenderStyle::setDominantBaseline),
+        new CounterWrapper(CSSPropertyCounterIncrement),
+        new CounterWrapper(CSSPropertyCounterReset),
+        new DiscreteSVGPropertyWrapper<WindRule>(CSSPropertyFillRule, &SVGRenderStyle::fillRule, &SVGRenderStyle::setFillRule),
+        new DiscreteFontDescriptionTypedWrapper<FontSynthesis>(CSSPropertyFontSynthesis, &FontCascadeDescription::fontSynthesis, &FontCascadeDescription::setFontSynthesis),
+        new DiscreteFontDescriptionTypedWrapper<FontVariantAlternates>(CSSPropertyFontVariantAlternates, &FontCascadeDescription::variantAlternates, &FontCascadeDescription::setVariantAlternates),
+        new FontVariantEastAsianWrapper,
+        new FontVariantLigaturesWrapper,
+        new FontVariantNumericWrapper,
+        new DiscreteFontDescriptionTypedWrapper<FontVariantPosition>(CSSPropertyFontVariantPosition, &FontCascadeDescription::variantPosition, &FontCascadeDescription::setVariantPosition),
+        new DiscreteFontDescriptionTypedWrapper<FontVariantCaps>(CSSPropertyFontVariantCaps, &FontCascadeDescription::variantCaps, &FontCascadeDescription::setVariantCaps),
+        new GridTemplateAreasWrapper,
+        new QuotesWrapper,
+        new DiscretePropertyWrapper<bool>(CSSPropertyScrollBehavior, &RenderStyle::useSmoothScrolling, &RenderStyle::setUseSmoothScrolling),
+        new DiscreteFontDescriptionTypedWrapper<TextRenderingMode>(CSSPropertyTextRendering, &FontCascadeDescription::textRenderingMode, &FontCascadeDescription::setTextRenderingMode),
+        new DiscreteSVGPropertyWrapper<MaskType>(CSSPropertyMaskType, &SVGRenderStyle::maskType, &SVGRenderStyle::setMaskType),
+        new DiscretePropertyWrapper<LineCap>(CSSPropertyStrokeLinecap, &RenderStyle::capStyle, &RenderStyle::setCapStyle),
+        new DiscretePropertyWrapper<LineJoin>(CSSPropertyStrokeLinejoin, &RenderStyle::joinStyle, &RenderStyle::setJoinStyle),
+        new DiscreteSVGPropertyWrapper<TextAnchor>(CSSPropertyTextAnchor, &SVGRenderStyle::textAnchor, &SVGRenderStyle::setTextAnchor),
+        new DiscreteSVGPropertyWrapper<VectorEffect>(CSSPropertyVectorEffect, &SVGRenderStyle::vectorEffect, &SVGRenderStyle::setVectorEffect),
+        new DiscreteSVGPropertyWrapper<ShapeRendering>(CSSPropertyShapeRendering, &SVGRenderStyle::shapeRendering, &SVGRenderStyle::setShapeRendering),
+        new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerEnd, &SVGRenderStyle::markerEndResource, &SVGRenderStyle::setMarkerEndResource),
+        new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerMid, &SVGRenderStyle::markerMidResource, &SVGRenderStyle::setMarkerMidResource),
+        new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerStart, &SVGRenderStyle::markerStartResource, &SVGRenderStyle::setMarkerStartResource)
     };
     const unsigned animatableLonghandPropertiesCount = WTF_ARRAY_LENGTH(animatableLonghandPropertyWrappers);
 
@@ -2802,6 +3282,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         CSSPropertyWebkitMask, // for mask-position
         CSSPropertyMaskPosition,
         CSSPropertyWebkitMaskPosition,
+        CSSPropertyMaskRepeat,
         CSSPropertyBorderTop, CSSPropertyBorderRight, CSSPropertyBorderBottom, CSSPropertyBorderLeft,
         CSSPropertyBorderColor,
         CSSPropertyBorderRadius,
@@ -2821,7 +3302,9 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         CSSPropertyWebkitBorderRadius,
         CSSPropertyTransformOrigin,
         CSSPropertyPerspectiveOrigin,
-        CSSPropertyOffset
+        CSSPropertyOffset,
+        CSSPropertyTextEmphasis,
+        CSSPropertyFontVariant
     };
     const unsigned animatableShorthandPropertiesCount = WTF_ARRAY_LENGTH(animatableShorthandProperties);
 
@@ -2838,7 +3321,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
     for (int i = 0; i < numCSSProperties; ++i)
         m_propertyToIdMap[i] = cInvalidPropertyWrapperIndex;
 
-    COMPILE_ASSERT(animatableLonghandPropertiesCount + animatableShorthandPropertiesCount < UCHAR_MAX, numberOfAnimatablePropertiesMustBeLessThanUCharMax);
+    COMPILE_ASSERT(animatableLonghandPropertiesCount + animatableShorthandPropertiesCount < std::numeric_limits<unsigned short>::max(), numberOfAnimatablePropertiesMustBeLessThanUShrtMax);
     m_propertyWrappers.reserveInitialCapacity(animatableLonghandPropertiesCount + animatableShorthandPropertiesCount);
 
     // First we put the non-shorthand property wrappers into the map, so the shorthand-building

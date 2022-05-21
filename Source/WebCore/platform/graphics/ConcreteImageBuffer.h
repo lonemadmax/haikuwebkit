@@ -196,6 +196,7 @@ protected:
 
     void drawConsuming(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options) override
     {
+        ASSERT(&destContext != &context());
         if (auto* backend = ensureBackendCreated()) {
             flushDrawingContext();
             backend->drawConsuming(destContext, destRect, srcRect, options);
@@ -297,11 +298,24 @@ protected:
         return true; // Just claim we succeedded.
     }
 
-    VolatilityState setNonVolatile() override
+    SetNonVolatileResult setNonVolatile() override
     {
         if (auto* backend = ensureBackendCreated())
             return backend->setNonVolatile();
-        return VolatilityState::Valid;
+        return SetNonVolatileResult::Valid;
+    }
+
+    VolatilityState volatilityState() const final
+    {
+        if (auto* backend = ensureBackendCreated())
+            return backend->volatilityState();
+        return VolatilityState::NonVolatile;
+    }
+
+    void setVolatilityState(VolatilityState volatilityState) final
+    {
+        if (auto* backend = ensureBackendCreated())
+            backend->setVolatilityState(volatilityState);
     }
 
     std::unique_ptr<ThreadSafeImageBufferFlusher> createFlusher() override

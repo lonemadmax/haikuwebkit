@@ -363,9 +363,9 @@ void Connection::addMessageReceiveQueue(MessageReceiveQueue& receiveQueue, Recei
     m_receiveQueues.add(receiveQueue, receiverName, destinationID);
 }
 
-void Connection::addWorkQueueMessageReceiver(ReceiverName receiverName, WorkQueue& workQueue, WorkQueueMessageReceiver* receiver, uint64_t destinationID)
+void Connection::addWorkQueueMessageReceiver(ReceiverName receiverName, WorkQueue& workQueue, WorkQueueMessageReceiver& receiver, uint64_t destinationID)
 {
-    auto receiveQueue = makeUnique<WorkQueueMessageReceiverQueue>(workQueue, *receiver);
+    auto receiveQueue = makeUnique<WorkQueueMessageReceiverQueue>(workQueue, receiver);
     Locker incomingMessagesLocker { m_incomingMessagesLock };
     enqueueMatchingMessagesToMessageReceiveQueue(*receiveQueue, receiverName, destinationID);
     m_receiveQueues.add(WTFMove(receiveQueue), receiverName, destinationID);
@@ -652,7 +652,10 @@ std::unique_ptr<Decoder> Connection::sendSyncMessage(SyncRequestID syncRequestID
         encoder->setShouldMaintainOrderingWithAsyncMessages();
 
     auto messageName = encoder->messageName();
-    sendMessage(WTFMove(encoder), sendOptions);
+
+    // Since sync IPC is blocking the current thread, make sure we use the same priority for the IPC sending thread
+    // as the current thread.
+    sendMessage(WTFMove(encoder), sendOptions, Thread::currentThreadQOS());
 
     // Then wait for a reply. Waiting for a reply could involve dispatching incoming sync messages, so
     // keep an extra reference to the connection here in case it's invalidated.

@@ -1,3 +1,171 @@
+2022-03-12  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt FALLBACK_PLATFORM_NAME in place of FALLBACK_PLATFORM
+        https://bugs.webkit.org/show_bug.cgi?id=237809
+
+        Reviewed by Per Arne Vollan.
+
+        * Configurations/SDKVariant.xcconfig:
+
+2022-03-11  Elliott Williams  <emw@apple.com>
+
+        [Xcode] "Nest Headers" script phases copy headers incorrectly on Catalyst
+        https://bugs.webkit.org/show_bug.cgi?id=237793
+
+        Reviewed by Alexey Proskuryakov.
+
+        * PAL.xcodeproj/project.pbxproj:
+
+2022-03-08  Jean-Yves Avenard  <jya@apple.com>
+
+        Split SourceBufferParserWebM and have platform agnostic WebMParser
+        https://bugs.webkit.org/show_bug.cgi?id=237472
+        rdar://problem/89810969
+
+        Reviewed by Eric Carlson.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h: Method CMSampleBufferCreateReady wasn't soft-linked.
+
+2022-03-08  Peng Liu  <peng.liu6@apple.com>
+
+        [iOS] Flash media controls when a fullscreen video resets its source
+        https://bugs.webkit.org/show_bug.cgi?id=237493
+
+        Reviewed by Jer Noble.
+
+        * pal/spi/cocoa/AVKitSPI.h:
+
+2022-03-07  Jean-Yves Avenard  <jya@apple.com>
+
+        MediaTime::invalidTime() conversion to CMTime incorrectly creates a valid time.
+        https://bugs.webkit.org/show_bug.cgi?id=237473
+        rdar://problem/89814921
+
+        Reviewed by Jer Noble.
+
+        Fly-by fix: macro definition to access method
+        AVOutputContextOutputDevicesDidChangeNotification was incorrect.
+
+        * pal/avfoundation/MediaTimeAVFoundation.cpp:
+        (PAL::toCMTime): Ensure that if the converted time was invalid. The
+        flag is carried accross.
+        * pal/cocoa/AVFoundationSoftLink.h:
+
+2022-03-02  Dan Glastonbury  <djg@apple.com>
+
+        [WebGPU] Implement GPUDeviceDescriptor.requiredLimits
+        https://bugs.webkit.org/show_bug.cgi?id=232741
+        <rdar://problem/85325316>
+
+        Reviewed by Myles C. Maxfield.
+
+        Implement IDL bindings for requiredLimits attribute of
+        GPUDeviceDescriptor.
+
+        * pal/graphics/WebGPU/WebGPUDeviceDescriptor.h:
+
+2022-03-01  Alex Christensen  <achristensen@webkit.org>
+
+        If the main resource was loaded over private relay, load all sub resources over private relay
+        https://bugs.webkit.org/show_bug.cgi?id=237296
+
+        Reviewed by Geoffrey Garen.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2022-02-24  Devin Rousso  <drousso@apple.com>
+
+        REGRESSION(r290436): fix build failures
+        https://bugs.webkit.org/show_bug.cgi?id=237149
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cocoa/PassKitSPI.h:
+        * pal/spi/cocoa/PassKitInstallmentsSPI.h:
+        Undo some of the changes in r290436 by re-adding the old `#import` pre-r290436 when we do
+        not have PassKit modularization (i.e. `HAVE(PASSKIT_MODULARIZATION)`). This way, the code
+        is the same as it was for older releases.
+
+        * pal/cocoa/PassKitSoftLink.h:
+        * pal/cocoa/PassKitSoftLink.mm:
+        Declare some `#define` for convenience (and so that if we need to change from `PassKitCore`
+        in the future we don't have to change any callsites).
+
+2022-02-24  Devin Rousso  <drousso@apple.com>
+
+        [Apple Pay] switch from `PassKit/*` to `PassKit[Core,UI]/*`
+        https://bugs.webkit.org/show_bug.cgi?id=237091
+        <rdar://problem/81085862>
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cocoa/PassKitSPI.h:
+        * pal/spi/cocoa/PassKitInstallmentsSPI.h:
+        * pal/cocoa/PassKitSoftLink.h:
+        * pal/cocoa/PassKitSoftLink.mm:
+
+2022-02-22  Elliott Williams  <emw@apple.com>
+
+        Replace legacy-build-copy-nested-headers.py with an xcodebuild invocation.
+        https://bugs.webkit.org/show_bug.cgi?id=237011
+
+        Reviewed by Alexey Proskuryakov.
+
+        r290260 added a script to approximate how XCBuild copies headers to nested directories, for
+        use in legacy builds. Instead of that script, invoke `xcodebuild -UseNewBuildSystem=YES`
+        directly to copy nested headers to the build products directory. By taking the same
+        header-copying codepath, legacy builds can handle header edge cases (e.g. multiple headers
+        with the same basename) exactly as XCBuild does.
+
+        The child xcodebuild process saves incremental data to TARGET_TEMP_DIR, so it can rebuild
+        incrementally without clobbering the legacy build system's incremental data.
+
+        Apple production builds do not use the legacy build system, so this change is
+        engineering-only.
+
+        * PAL.xcodeproj/project.pbxproj:
+
+2022-02-21  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Fix build
+        https://bugs.webkit.org/show_bug.cgi?id=237008
+
+        Unreviewed.
+
+        If you add a header to PAL that WebKit needs to #include, you'd better mark the header as Private.
+
+        * PAL.xcodeproj/project.pbxproj:
+
+2022-02-21  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Use native build phases to copy PAL's headers
+        https://bugs.webkit.org/show_bug.cgi?id=236683
+
+        Reviewed by Alexey Proskuryakov.
+
+        Replaces the "Copy PAL Headers" script with a native Headers phase. Xcode copies the headers
+        to a flattened directory, but we hack around this using build rules. This is a different
+        approach than we took with WTF <https://bugs.webkit.org/show_bug.cgi?id=235744> but could be
+        replicated there to remove the one-build-phase-per-directory boilerplate.
+
+        The idea is that we have one build rule for each "depth" of headers: Build rule "pal/*.h" is
+        depth 1 and matches headers like "pal/FileSizeFormatter.h", buld rule "pal/*/*.h" is depth 2
+        and matches headers like "pal/text/EncodingTables.h", etc.
+
+        Each rule uses build setting macros to determine the header's relative path within
+        /usr/local/include/pal, and copies it there. Having one build rule per depth level is hacky,
+        but it's superior to adding 23 copy file phases. In the future, we'll simplify this with
+        <rdar://88771729>.
+
+        The legacy build system doesn't support running build rules on headers. To compensate,
+        legacy builds copy to a separate directory, /usr/local/include/pal_flattened. A script phase
+        that runs after the native Headers phase copies these flattened headers into the right place.
+
+        * Configurations/CopyPALHeaders.xcconfig: Removed.
+        * Configurations/PAL.xcconfig: Header settings, notably PRIVATE_HEADERS_FOLDER_PATH.
+        * PAL.xcodeproj/project.pbxproj: Remove target, add phases, set header attrs.
+
 2022-02-18  Robert Jenner  <Jenner@apple.com>
 
         Unreviewed, reverting r290149.

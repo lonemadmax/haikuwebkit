@@ -40,8 +40,6 @@ class RemoteRenderingBackendProxy;
 class RemoteDisplayListRecorderProxy : public WebCore::DisplayList::Recorder {
 public:
     RemoteDisplayListRecorderProxy(WebCore::ImageBuffer&, RemoteRenderingBackendProxy&, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&, WebCore::DrawGlyphsRecorder::DeconstructDrawGlyphs = WebCore::DrawGlyphsRecorder::DeconstructDrawGlyphs::Yes);
-    RemoteDisplayListRecorderProxy(RemoteDisplayListRecorderProxy& parent, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform& initialCTM);
-
     ~RemoteDisplayListRecorderProxy() = default;
 
     void resetNeedsFlush() { m_needsFlush = false; }
@@ -91,6 +89,7 @@ private:
     void recordDrawGlyphs(const WebCore::Font&, const WebCore::GlyphBufferGlyph*, const WebCore::GlyphBufferAdvance*, unsigned count, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
     void recordDrawImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
     void recordDrawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatSize& imageSize, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
+    void recordDrawSystemImage(WebCore::SystemImage&, const WebCore::FloatRect&);
     void recordDrawPattern(WebCore::RenderingResourceIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, const WebCore::ImagePaintingOptions& = { }) final;
     void recordBeginTransparencyLayer(float) final;
     void recordEndTransparencyLayer() final;
@@ -138,9 +137,9 @@ private:
     bool recordResourceUse(const WebCore::SourceImage&) final;
     bool recordResourceUse(WebCore::Font&) final;
 
-    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace&, WebCore::RenderingMode, WebCore::RenderingMethod) const final;
-    RefPtr<WebCore::ImageBuffer> createCompatibleImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace& = WebCore::DestinationColorSpace::SRGB(), WebCore::RenderingMethod = WebCore::RenderingMethod::Default) const final;
-    RefPtr<WebCore::ImageBuffer> createCompatibleImageBuffer(const WebCore::FloatRect&, const WebCore::DestinationColorSpace& = WebCore::DestinationColorSpace::SRGB(), WebCore::RenderingMethod = WebCore::RenderingMethod::Default) const final;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, float resolutionScale, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMode>, std::optional<WebCore::RenderingMethod>) const final;
+    RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
+    RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatRect&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
 
     WebCore::RenderingResourceIdentifier m_destinationBufferIdentifier;
     WeakPtr<WebCore::ImageBuffer> m_imageBuffer;

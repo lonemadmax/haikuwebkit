@@ -28,6 +28,10 @@
 #include <optional>
 #include <wtf/EnumTraits.h>
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 enum class TextRenderingMode : uint8_t {
@@ -82,6 +86,8 @@ const unsigned FontSynthesisWidth = 3;
 enum class FontVariantLigatures : uint8_t { Normal, Yes, No };
 enum class FontVariantPosition : uint8_t { Normal, Subscript, Superscript };
 
+WTF::TextStream& operator<<(WTF::TextStream&, FontVariantPosition);
+
 enum class FontVariantCaps : uint8_t {
     Normal,
     Small,
@@ -91,6 +97,8 @@ enum class FontVariantCaps : uint8_t {
     Unicase,
     Titling
 };
+
+WTF::TextStream& operator<<(WTF::TextStream&, FontVariantCaps);
 
 enum class FontVariantNumericFigure : uint8_t {
     Normal,
@@ -113,6 +121,8 @@ enum class FontVariantNumericFraction : uint8_t {
 enum class FontVariantNumericOrdinal : bool { Normal, Yes };
 enum class FontVariantNumericSlashedZero : bool { Normal, Yes };
 enum class FontVariantAlternates : bool { Normal, HistoricalForms };
+
+WTF::TextStream& operator<<(WTF::TextStream&, FontVariantAlternates);
 
 enum class FontVariantEastAsianVariant : uint8_t {
     Normal,
@@ -579,6 +589,8 @@ enum class Kerning : uint8_t {
     Normal,
     NoShift
 };
+
+WTF::TextStream& operator<<(WTF::TextStream&, Kerning);
 
 enum class FontOpticalSizing : uint8_t {
     Enabled,

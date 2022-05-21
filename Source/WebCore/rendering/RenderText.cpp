@@ -312,7 +312,7 @@ String RenderText::originalText() const
 void RenderText::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accumulatedOffset) const
 {
     for (auto& run : InlineIterator::textBoxesFor(*this)) {
-        auto rect = run.rect();
+        auto rect = run.visualRectIgnoringBlockDirection();
         rects.append(enclosingIntRect(FloatRect(accumulatedOffset + rect.location(), rect.size())));
     }
 }
@@ -341,7 +341,7 @@ void RenderText::collectSelectionGeometries(Vector<SelectionGeometry>& rects, un
                 continue;
         }
 
-        if (run->line()->legacyRootInlineBox() && run->line()->legacyRootInlineBox()->isFirstAfterPageBreak()) {
+        if (run->line()->isFirstAfterPageBreak()) {
             if (run->isHorizontal())
                 rect.shiftYEdgeTo(run->line()->lineBoxTop());
             else
@@ -395,7 +395,7 @@ static FloatRect boundariesForTextRun(const InlineIterator::TextBox& run)
     if (is<SVGInlineTextBox>(run.legacyInlineBox()))
         return downcast<SVGInlineTextBox>(*run.legacyInlineBox()).calculateBoundaries();
 
-    return run.rect();
+    return run.visualRectIgnoringBlockDirection();
 }
 
 static IntRect ellipsisRectForTextRun(const InlineIterator::TextBox& run, unsigned start, unsigned end)
@@ -470,7 +470,7 @@ static FloatRect localQuadForTextRun(const InlineIterator::TextBox& run, unsigne
     if (useSelectionHeight)
         return boxSelectionRect;
 
-    auto rect = run.rect();
+    auto rect = run.visualRectIgnoringBlockDirection();
     if (run.isHorizontal()) {
         boxSelectionRect.setHeight(rect.height());
         boxSelectionRect.setY(rect.y());
@@ -682,8 +682,8 @@ VisiblePosition RenderText::positionForPoint(const LayoutPoint& point, const Ren
             if (pointBlockDirection < bottom || (blocksAreFlipped && pointBlockDirection == bottom)) {
                 ShouldAffinityBeDownstream shouldAffinityBeDownstream;
 #if PLATFORM(IOS_FAMILY)
-                if (pointLineDirection != run->logicalLeft() && point.x() < run->rect().x() + run->logicalWidth()) {
-                    int half = run->rect().x() + run->logicalWidth() / 2;
+                if (pointLineDirection != run->logicalLeft() && point.x() < run->visualRectIgnoringBlockDirection().x() + run->logicalWidth()) {
+                    int half = run->visualRectIgnoringBlockDirection().x() + run->logicalWidth() / 2;
                     auto affinity = point.x() < half ? Affinity::Downstream : Affinity::Upstream;
                     return createVisiblePosition(run->offsetForPosition(pointLineDirection) + run->start(), affinity);
                 }
@@ -1275,7 +1275,7 @@ IntPoint RenderText::firstRunLocation() const
     auto first = InlineIterator::firstTextBoxFor(*this);
     if (!first)
         return { };
-    return IntPoint(first->rect().location());
+    return IntPoint(first->visualRectIgnoringBlockDirection().location());
 }
 
 void RenderText::setSelectionState(HighlightState state)
@@ -1577,13 +1577,13 @@ float RenderText::width(unsigned from, unsigned len, const FontCascade& f, float
 
 IntRect RenderText::linesBoundingBox() const
 {
-    auto first = InlineIterator::firstTextBoxFor(*this);
-    if (!first)
+    auto firstTextBox = InlineIterator::firstTextBoxFor(*this);
+    if (!firstTextBox)
         return { };
 
-    auto boundingBox = first->rect();
-    for (auto box = first; ++box;)
-        boundingBox.uniteEvenIfEmpty(box->rect());
+    auto boundingBox = firstTextBox->visualRectIgnoringBlockDirection();
+    for (auto textBox = firstTextBox; ++textBox;)
+        boundingBox.uniteEvenIfEmpty(textBox->visualRectIgnoringBlockDirection());
 
     return enclosingIntRect(boundingBox);
 }
@@ -1819,20 +1819,6 @@ void RenderText::setInlineWrapperForDisplayContents(RenderInline* wrapper)
     }
     inlineWrapperForDisplayContentsMap().add(this, wrapper);
     m_hasInlineWrapperForDisplayContents = true;
-}
-
-RenderText* RenderText::findByDisplayContentsInlineWrapperCandidate(RenderElement& renderer)
-{
-    auto* firstChild = renderer.firstChild();
-    if (!is<RenderText>(firstChild))
-        return nullptr;
-    auto& textRenderer = downcast<RenderText>(*firstChild);
-    if (textRenderer.inlineWrapperForDisplayContents() != &renderer)
-        return nullptr;
-    ASSERT(textRenderer.textNode());
-    ASSERT(renderer.firstChild() == renderer.lastChild());
-    return &textRenderer;
-
 }
 
 } // namespace WebCore

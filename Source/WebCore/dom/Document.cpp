@@ -818,6 +818,20 @@ void Document::commonTeardown()
 
     m_documentFragmentForInnerOuterHTML = nullptr;
 
+    auto intersectionObservers = m_intersectionObservers;
+    for (auto& intersectionObserver : intersectionObservers) {
+        if (intersectionObserver)
+            intersectionObserver->disconnect();
+    }
+
+    auto resizeObservers = m_resizeObservers;
+    for (auto& resizeObserver : resizeObservers) {
+        if (resizeObserver)
+            resizeObserver->disconnect();
+    }
+
+    scriptRunner().clearPendingScripts();
+
     if (m_highlightRegister)
         m_highlightRegister->clear();
     if (m_fragmentHighlightRegister)
@@ -1726,16 +1740,28 @@ void Document::setTitle(const String& title)
         if (m_titleElement)
             m_titleElement->setTextContent(title);
     } else if (is<HTMLElement>(element)) {
+        std::optional<String> oldTitle;
         if (!m_titleElement) {
             RefPtr headElement = head();
             if (!headElement)
                 return;
             m_titleElement = HTMLTitleElement::create(HTMLNames::titleTag, *this);
             headElement->appendChild(*m_titleElement);
+        } else
+            oldTitle = m_titleElement->textContent();
+
+        // appendChild above may have run scripts which removed m_titleElement.
+        if (!m_titleElement)
+            return;
+    
+        m_titleElement->setTextContent(title);
+        auto* textManipulationController = textManipulationControllerIfExists();
+        if (UNLIKELY(textManipulationController)) {
+            if (!oldTitle)
+                textManipulationController->didAddOrCreateRendererForNode(*m_titleElement);
+            else if (*oldTitle != title)
+                textManipulationController->didUpdateContentForNode(*m_titleElement);
         }
-        // appendChild above may have ran scripts which removed m_titleElement.
-        if (m_titleElement)
-            m_titleElement->setTextContent(title);
     }
 }
 
@@ -1977,7 +2003,7 @@ void Document::updateRenderTree(std::unique_ptr<const Style::Update> styleUpdate
 
     Style::PostResolutionCallbackDisabler callbackDisabler(*this);
     {
-        SetForScope<bool> inRenderTreeUpdate(m_inRenderTreeUpdate, true);
+        SetForScope inRenderTreeUpdate(m_inRenderTreeUpdate, true);
         {
             RenderTreeUpdater updater(*this, callbackDisabler);
             updater.commit(WTFMove(styleUpdate));
@@ -2005,14 +2031,17 @@ void Document::resolveStyle(ResolveStyleType type)
 
     RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
 
-    // FIXME: Do this update per tree scope.
-    if (auto* extensions = m_svgExtensions.get()) {
-        auto elements = copyToVectorOf<Ref<SVGUseElement>>(extensions->useElementsWithPendingShadowTreeUpdate());
-        // We can't clear m_svgUseElements here because updateShadowTree may end up executing arbitrary scripts
-        // which may insert new SVG use elements or remove existing ones inside sync IPC via ImageLoader::updateFromElement.
-        for (auto& element : elements)
-            element->updateShadowTree();
-    }
+    // FIXME: Do this user agent shadow tree update per tree scope.
+
+    // We can't clear m_elementsWithPendingUserAgentShadowTreeUpdates here
+    // because SVGUseElement::updateUserAgentShadowTree may end up executing
+    // arbitrary scripts which may insert new SVG use elements or remove
+    // existing ones inside sync IPC via ImageLoader::updateFromElement.
+    //
+    // Instead, it is the responsibility of updateUserAgentShadowTree to
+    // remove the element.
+    for (auto& element : copyToVectorOf<Ref<Element>>(m_elementsWithPendingUserAgentShadowTreeUpdates))
+        element->updateUserAgentShadowTree();
 
     // FIXME: We should update style on our ancestor chain before proceeding, however doing so at
     // the time this comment was originally written caused several tests to crash.
@@ -2208,8 +2237,15 @@ void Document::updateLayout()
 
     frameView->layoutContext().layout();
 
-    if (styleScope().updateQueryContainerState())
-        updateLayout();
+    Style::Scope::QueryContainerUpdateContext queryContainerUpdateContext;
+    while (styleScope().updateQueryContainerState(queryContainerUpdateContext)) {
+        updateStyleIfNeeded();
+
+        if (!frameView->layoutContext().needsLayout())
+            break;
+
+        frameView->layoutContext().layout();
+    }
 }
 
 void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks runPostLayoutTasks)
@@ -2238,7 +2274,7 @@ std::unique_ptr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets
     ASSERT(pseudoElementSpecifier == PseudoId::None || parentStyle);
     ASSERT(Style::postResolutionCallbacksAreSuspended());
 
-    SetForScope<bool> change(m_ignorePendingStylesheets, true);
+    SetForScope change(m_ignorePendingStylesheets, true);
     auto& resolver = element.styleResolver();
 
     if (pseudoElementSpecifier != PseudoId::None)
@@ -2313,7 +2349,12 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, DimensionsChe
             
             previousBox = currentBox;
             currentBox = downcast<RenderBox>(currRenderer);
-            
+
+            if (currentBox->style().containerType() != ContainerType::None) {
+                requireFullLayout = true;
+                break;
+            }
+
             // If a box needs layout for itself or if a box has changed children and sizes its width to
             // its content, then require a full layout.
             if (currentBox->selfNeedsLayout() ||
@@ -2348,9 +2389,9 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, DimensionsChe
     
     StackStats::LayoutCheckPoint layoutCheckPoint;
 
-    // Only do a layout if changes have occurred that make it necessary.      
-    if (requireFullLayout && frameView && renderView() && (frameView->layoutContext().isLayoutPending() || renderView()->needsLayout()))
-        frameView->layoutContext().layout();
+    // Only do a layout if changes have occurred that make it necessary.
+    if (requireFullLayout)
+        updateLayout();
     
     return requireFullLayout;
 }
@@ -2534,7 +2575,7 @@ void Document::destroyRenderTree()
     // Prevent Widget tree changes from committing until the RenderView is dead and gone.
     WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
 
-    SetForScope<bool> change(m_renderTreeBeingDestroyed, true);
+    SetForScope change(m_renderTreeBeingDestroyed, true);
 
     if (this == &topDocument())
         clearAXObjectCache();
@@ -4698,7 +4739,7 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
         }
 
         // Dispatch the focus event and let the node do any other focus related activities (important for text fields)
-        m_focusedElement->dispatchFocusEvent(oldFocusedElement.copyRef(), options.direction);
+        m_focusedElement->dispatchFocusEvent(oldFocusedElement.copyRef(), options);
 
         if (m_focusedElement != newFocusedElement) {
             // handler shifted focus
@@ -5336,10 +5377,10 @@ String Document::referrer()
     if (DeprecatedGlobalSettings::resourceLoadStatisticsEnabled() && frame()) {
         auto referrerStr = frame()->loader().referrer();
         if (!referrerStr.isEmpty()) {
-            URL referrerURL { URL(), referrerStr };
+            URL referrerURL { referrerStr };
             RegistrableDomain referrerRegistrableDomain { referrerURL };
             if (!referrerRegistrableDomain.matches(securityOrigin().data())) {
-                m_referrerOverride = URL(URL(), referrerURL.protocolHostAndPort()).string();
+                m_referrerOverride = URL { referrerURL.protocolHostAndPort() }.string();
                 return m_referrerOverride;
             }
         }
@@ -5648,7 +5689,7 @@ void Document::suspend(ReasonForSuspension reason)
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && reason == ReasonForSuspension::BackForwardCache)
+    if (settings().serviceWorkersEnabled() && reason == ReasonForSuspension::BackForwardCache)
         setServiceWorkerConnection(nullptr);
 #endif
 
@@ -5693,7 +5734,7 @@ void Document::resume(ReasonForSuspension reason)
     m_isSuspended = false;
 
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && reason == ReasonForSuspension::BackForwardCache)
+    if (settings().serviceWorkersEnabled() && reason == ReasonForSuspension::BackForwardCache)
         setServiceWorkerConnection(&ServiceWorkerProvider::singleton().serviceWorkerConnection());
 #endif
 }
@@ -6170,7 +6211,7 @@ void Document::finishedParsing()
     m_cachedResourceLoader->clearPreloads(CachedResourceLoader::ClearPreloadsMode::ClearSpeculativePreloads);
 
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled()) {
+    if (settings().serviceWorkersEnabled()) {
         // Stop queuing service worker client messages now that the DOMContentLoaded event has been fired.
         if (RefPtr serviceWorkerContainer = this->serviceWorkerContainer())
             serviceWorkerContainer->startMessages();
@@ -6248,7 +6289,7 @@ void Document::initSecurityContext()
         // This can occur via document.implementation.createDocument().
         setCookieURL(URL({ }, emptyString()));
         setSecurityOriginPolicy(SecurityOriginPolicy::create(SecurityOrigin::createUnique()));
-        setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { { }, emptyString() }, *this));
+        setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { emptyString() }, *this));
         return;
     }
 
@@ -8456,7 +8497,7 @@ void Document::wasLoadedWithDataTransferFromPrevalentResource()
 
 void Document::downgradeReferrerToRegistrableDomain()
 {
-    URL referrerURL { { }, referrer() };
+    URL referrerURL { referrer() };
     if (referrerURL.isEmpty())
         return;
 
@@ -8512,7 +8553,10 @@ Vector<RefPtr<WebAnimation>> Document::getAnimations()
 Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const Function<bool(Element&)>& function)
 {
     // For the list of animations to be current, we need to account for any pending CSS changes,
-    // such as updates to CSS Animations and CSS Transitions.
+    // such as updates to CSS Animations and CSS Transitions. This requires updating layout as
+    // well since resolving layout-dependent media queries could yield animations.
+    if (RefPtr owner = ownerElement())
+        owner->document().updateLayout();
     updateStyleIfNeeded();
 
     Vector<RefPtr<WebAnimation>> animations;
@@ -8777,7 +8821,7 @@ bool Document::hitTest(const HitTestRequest& request, const HitTestLocation& loc
         return false;
 
 #if ASSERT_ENABLED
-    SetForScope<bool> hitTestRestorer { m_inHitTesting, true };
+    SetForScope hitTestRestorer { m_inHitTesting, true };
 #endif
 
     auto& frameView = renderView()->frameView();
@@ -9072,6 +9116,25 @@ std::optional<PAL::SessionID> Document::sessionID() const
         return page->sessionID();
 
     return std::nullopt;
+}
+
+void Document::addElementWithPendingUserAgentShadowTreeUpdate(Element& element)
+{
+    ASSERT(&element.document() == this);
+    auto result = m_elementsWithPendingUserAgentShadowTreeUpdates.add(element);
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(result.isNewEntry);
+}
+
+void Document::removeElementWithPendingUserAgentShadowTreeUpdate(Element& element)
+{
+    ASSERT(&element.document() == this);
+    m_elementsWithPendingUserAgentShadowTreeUpdates.remove(element);
+    // FIXME: Assert that element was in m_elementsWithPendingUserAgentShadowTreeUpdates once re-entrancy to update style and layout have been removed.
+}
+
+bool Document::hasElementWithPendingUserAgentShadowTreeUpdate(Element& element) const
+{
+    return m_elementsWithPendingUserAgentShadowTreeUpdates.contains(element);
 }
 
 } // namespace WebCore

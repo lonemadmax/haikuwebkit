@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,47 @@
 #import "config.h"
 #import "PipelineLayout.h"
 
-#import "WebGPUExt.h"
+#import "BindGroupLayout.h"
+#import "Device.h"
 
 namespace WebGPU {
 
-PipelineLayout::PipelineLayout() = default;
+RefPtr<PipelineLayout> Device::createPipelineLayout(const WGPUPipelineLayoutDescriptor& descriptor)
+{
+    if (descriptor.nextInChain)
+        return nullptr;
+
+    Vector<Ref<BindGroupLayout>> bindGroupLayouts;
+    bindGroupLayouts.reserveInitialCapacity(descriptor.bindGroupLayoutCount);
+    for (uint32_t i = 0; i < descriptor.bindGroupLayoutCount; ++i) {
+        const auto* bindGroupLayout = descriptor.bindGroupLayouts[i];
+        bindGroupLayouts.uncheckedAppend(bindGroupLayout->bindGroupLayout);
+    }
+    return PipelineLayout::create(WTFMove(bindGroupLayouts));
+}
+
+PipelineLayout::PipelineLayout(Vector<Ref<BindGroupLayout>>&& bindGroupLayouts)
+    : m_bindGroupLayouts(WTFMove(bindGroupLayouts))
+{
+}
 
 PipelineLayout::~PipelineLayout() = default;
 
-void PipelineLayout::setLabel(const char* label)
+void PipelineLayout::setLabel(const char*)
 {
-    UNUSED_PARAM(label);
+    // There is no Metal object that represents a pipeline layout.
+}
+
+bool PipelineLayout::operator==(const PipelineLayout& other) const
+{
+    UNUSED_PARAM(other);
+    // FIXME: Implement this
+    return false;
+}
+
+bool PipelineLayout::operator!=(const PipelineLayout& other) const
+{
+    return !(*this == other);
 }
 
 }

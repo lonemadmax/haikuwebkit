@@ -42,7 +42,6 @@ NetworkProcess/soup/NetworkDataTaskSoup.cpp
 NetworkProcess/soup/NetworkProcessMainSoup.cpp
 NetworkProcess/soup/NetworkProcessSoup.cpp
 NetworkProcess/soup/NetworkSessionSoup.cpp
-NetworkProcess/soup/RemoteNetworkingContextSoup.cpp
 NetworkProcess/soup/WebKitDirectoryInputStream.cpp
 NetworkProcess/soup/WebSocketTaskSoup.cpp
 
@@ -226,6 +225,7 @@ UIProcess/Gamepad/manette/UIGamepadProviderManette.cpp
 UIProcess/geoclue/GeoclueGeolocationProvider.cpp
 
 UIProcess/Inspector/glib/RemoteInspectorClient.cpp
+UIProcess/Inspector/glib/RemoteInspectorHTTPServer.cpp
 
 UIProcess/Inspector/gtk/RemoteWebInspectorUIProxyGtk.cpp
 UIProcess/Inspector/gtk/WebInspectorUIProxyGtk.cpp

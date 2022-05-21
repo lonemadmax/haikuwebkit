@@ -64,7 +64,6 @@ enum class AXPropertyName : uint16_t {
     AXRowCount,
     AXRowIndex,
     AccessKey,
-    AccessibilityButtonState,
     AccessibilityDescription,
     AccessibilityText,
     ActionVerb,
@@ -73,6 +72,7 @@ enum class AXPropertyName : uint16_t {
     BlockquoteLevel,
     BrailleLabel,
     BrailleRoleDescription,
+    ButtonState,
     CanHaveSelectedChildren,
     CanSetExpandedAttribute,
     CanSetFocusAttribute,
@@ -315,7 +315,7 @@ enum class AXPropertyName : uint16_t {
     WebArea,
 };
 
-using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, OptionSet<SpeakAs>, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>>;
+using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, AccessibilityButtonState, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, OptionSet<SpeakAs>, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>>;
 using AXPropertyMap = HashMap<AXPropertyName, AXPropertyValueVariant, IntHash<AXPropertyName>, WTF::StrongEnumHashTraits<AXPropertyName>>;
 
 struct AXPropertyChange {
@@ -419,8 +419,7 @@ private:
     Vector<std::pair<AXID, Vector<AXID>>> m_pendingChildrenUpdates WTF_GUARDED_BY_LOCK(m_changeLogLock);
     AXID m_pendingFocusedNodeID WTF_GUARDED_BY_LOCK(m_changeLogLock);
     AXID m_focusedNodeID;
-    double m_pendingLoadingProgress WTF_GUARDED_BY_LOCK(m_changeLogLock) { 0 };
-    double m_loadingProgress { 0 };
+    std::atomic<double> m_loadingProgress { 0 };
     Lock m_changeLogLock;
 };
 

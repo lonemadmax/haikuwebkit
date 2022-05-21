@@ -81,7 +81,7 @@ URL SecurityOrigin::extractInnerURL(const URL& url)
 {
     // FIXME: Update this callsite to use the innerURL member function when
     // we finish implementing it.
-    return { URL(), PAL::decodeURLEscapeSequences(url.path()) };
+    return URL { PAL::decodeURLEscapeSequences(url.path()) };
 }
 
 static RefPtr<SecurityOrigin> getCachedOrigin(const URL& url)
@@ -121,6 +121,7 @@ static bool shouldTreatAsUniqueOrigin(const URL& url)
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
         || url.protocolIs("resource")
+        || url.protocolIs("webkit-pdfjs-viewer")
 #endif
         || url.protocolIs("blob"))
         return false;
@@ -590,13 +591,13 @@ bool serializedOriginsMatch(const SecurityOrigin* origin1, const SecurityOrigin*
 
 Ref<SecurityOrigin> SecurityOrigin::createFromString(const String& originString)
 {
-    return SecurityOrigin::create(URL(URL(), originString));
+    return SecurityOrigin::create(URL { originString });
 }
 
 Ref<SecurityOrigin> SecurityOrigin::create(const String& protocol, const String& host, std::optional<uint16_t> port)
 {
     String decodedHost = PAL::decodeURLEscapeSequences(host);
-    auto origin = create(URL(URL(), protocol + "://" + host + "/"));
+    auto origin = create(URL { protocol + "://" + host + "/" });
     if (port && !WTF::isDefaultPortForProtocol(*port, protocol))
         origin->m_data.port = port;
     return origin;

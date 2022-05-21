@@ -214,14 +214,14 @@ void WebChromeClient::unfocus()
 
 #if PLATFORM(COCOA)
 
-void WebChromeClient::elementDidFocus(Element& element)
+void WebChromeClient::elementDidFocus(Element& element, const FocusOptions& options)
 {
-    m_page.elementDidFocus(element);
+    m_page.elementDidFocus(element, options);
 }
 
-void WebChromeClient::elementDidRefocus(Element& element)
+void WebChromeClient::elementDidRefocus(Element& element, const FocusOptions& options)
 {
-    m_page.elementDidRefocus(element);
+    m_page.elementDidRefocus(element, options);
 }
 
 void WebChromeClient::elementDidBlur(Element& element)
@@ -941,7 +941,7 @@ RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, Re
 #endif
 
 #if ENABLE(WEBGL)
-RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const GraphicsContextGLAttributes& attributes, PlatformDisplayID) const
+RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const GraphicsContextGLAttributes& attributes) const
 {
 #if ENABLE(GPU_PROCESS) && (PLATFORM(COCOA) || PLATFORM(WIN))
     if (WebProcess::singleton().shouldUseRemoteRenderingForWebGL())

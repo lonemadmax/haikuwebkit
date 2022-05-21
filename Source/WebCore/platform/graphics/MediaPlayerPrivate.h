@@ -31,6 +31,7 @@
 #include "MediaPlayerIdentifier.h"
 #include "NativeImage.h"
 #include "PlatformTimeRanges.h"
+#include "ProcessIdentity.h"
 #include "VideoFrame.h"
 #include <optional>
 #include <wtf/CompletionHandler.h>
@@ -246,7 +247,7 @@ public:
 #endif
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    virtual std::unique_ptr<LegacyCDMSession> createSession(const String&, LegacyCDMSessionClient*) { return nullptr; }
+    virtual std::unique_ptr<LegacyCDMSession> createSession(const String&, LegacyCDMSessionClient&) { return nullptr; }
     virtual void setCDM(LegacyCDM*) { }
     virtual void setCDMSession(LegacyCDMSession*) { }
     virtual void keyAdded() { }
@@ -324,6 +325,10 @@ public:
     virtual std::optional<VideoFrameMetadata> videoFrameMetadata() { return { }; }
     virtual void startVideoFrameMetadataGathering() { }
     virtual void stopVideoFrameMetadataGathering() { }
+
+    virtual void playerContentBoxRectChanged(const LayoutRect&) { }
+
+    virtual void setResourceOwner(const ProcessIdentity&) { }
 };
 
 }

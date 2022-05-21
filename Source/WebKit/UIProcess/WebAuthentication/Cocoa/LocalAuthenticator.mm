@@ -154,12 +154,11 @@ static std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCre
         }
         auto& responseMap = decodedResponse->getMap();
 
+        RefPtr<ArrayBuffer> userHandle;
         auto it = responseMap.find(CBOR(fido::kEntityIdMapKey));
-        if (it == responseMap.end() || !it->second.isByteString()) {
-            ASSERT_NOT_REACHED();
-            return std::nullopt;
+        if (it != responseMap.end() && it->second.isByteString()) {
+            userHandle = toArrayBuffer(it->second.getByteString());
         }
-        auto& userHandle = it->second.getByteString();
 
         it = responseMap.find(CBOR(fido::kEntityNameMapKey));
         if (it == responseMap.end() || !it->second.isString()) {
@@ -168,7 +167,7 @@ static std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCre
         }
         auto& username = it->second.getString();
 
-        auto response = AuthenticatorAssertionResponse::create(toArrayBuffer(attributes[(id)kSecAttrApplicationLabel]), toArrayBuffer(userHandle), String(username), (__bridge SecAccessControlRef)attributes[(id)kSecAttrAccessControl], AuthenticatorAttachment::Platform);
+        auto response = AuthenticatorAssertionResponse::create(toArrayBuffer(attributes[(id)kSecAttrApplicationLabel]), WTFMove(userHandle), String(username), (__bridge SecAccessControlRef)attributes[(id)kSecAttrAccessControl], AuthenticatorAttachment::Platform);
 
         auto group = groupForAttributes(attributes);
         if (!group.isNull())
@@ -250,7 +249,11 @@ void LocalAuthenticator::makeCredential()
                 else
                     weakThis->receiveException({ NotAllowedError, "This request has been cancelled by the user."_s });
             };
-            observer()->decidePolicyForLocalAuthenticator(WTFMove(callback));
+            // Similar to below, consent has already been given.
+            if (webAuthenticationModernEnabled())
+                callback(LocalAuthenticatorPolicy::Allow);
+            else
+                observer()->decidePolicyForLocalAuthenticator(WTFMove(callback));
             return;
         }
     }
@@ -466,7 +469,9 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(Vector<uint8_t>&& c
     auto& creationOptions = std::get<PublicKeyCredentialCreationOptions>(requestData().options);
 
     if (error) {
-        receiveException({ UnknownError, makeString("Couldn't attest: ", String(error.localizedDescription)) });
+        LOG_ERROR("Couldn't attest: %s", String(error.localizedDescription).utf8().data());
+        auto attestationObject = buildAttestationObject(WTFMove(authData), "", { }, AttestationConveyancePreference::None);
+        receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform));
         return;
     }
     // Attestation Certificate and Attestation Issuing CA

@@ -96,6 +96,12 @@ public:
         return isSubgrid(ForColumns);
     }
     bool isSubgridInParentDirection(GridTrackSizingDirection parentDirection) const;
+
+    // Returns true if this grid is inheriting subgridded tracks for
+    // the given direction from the specified ancestor. This handles
+    // nested subgrids, where ancestor may not be our direct parent.
+    bool isSubgridOf(GridTrackSizingDirection, const RenderGrid& ancestor);
+
     bool mayBeSubgridExcludingAbsPos(GridTrackSizingDirection) const;
 
     const Grid& currentGrid() const
@@ -167,8 +173,6 @@ private:
     void layoutGridItems();
     void populateGridPositionsForDirection(GridTrackSizingDirection);
 
-    LayoutUnit resolveAutoStartGridPosition(GridTrackSizingDirection) const;
-    LayoutUnit resolveAutoEndGridPosition(GridTrackSizingDirection) const;
     LayoutUnit gridAreaBreadthForOutOfFlowChild(const RenderBox&, GridTrackSizingDirection);
     LayoutUnit logicalOffsetForOutOfFlowChild(const RenderBox&, GridTrackSizingDirection, LayoutUnit) const;
     void gridAreaPositionForOutOfFlowChild(const RenderBox&, GridTrackSizingDirection, LayoutUnit& start, LayoutUnit& end) const;
@@ -212,7 +216,6 @@ private:
     unsigned nonCollapsedTracks(GridTrackSizingDirection) const;
     unsigned numTracks(GridTrackSizingDirection, const Grid&) const;
 
-    LayoutUnit translateOutOfFlowRTLCoordinate(const RenderBox&, LayoutUnit) const;
     LayoutUnit translateRTLCoordinate(LayoutUnit) const;
 
     bool shouldResetLogicalHeightBeforeLayout() const override { return true; }

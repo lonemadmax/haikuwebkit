@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Matt Lilek <webkit@mattlilek.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -717,7 +717,7 @@ void InspectorFrontendHost::didNavigateExtensionTab(const String& extensionID, c
     if (!m_client)
         return;
     
-    m_client->didNavigateExtensionTab(extensionID, extensionTabID, { URL(), newURLString });
+    m_client->didNavigateExtensionTab(extensionID, extensionTabID, URL { newURLString });
 }
 
 void InspectorFrontendHost::inspectedPageDidNavigate(const String& newURLString)
@@ -725,7 +725,7 @@ void InspectorFrontendHost::inspectedPageDidNavigate(const String& newURLString)
     if (!m_client)
         return;
     
-    m_client->inspectedPageDidNavigate({ URL(), newURLString });
+    m_client->inspectedPageDidNavigate(URL { newURLString });
 }
 
 ExceptionOr<JSC::JSValue> InspectorFrontendHost::evaluateScriptInExtensionTab(HTMLIFrameElement& extensionFrameElement, const String& scriptSource)
@@ -740,7 +740,7 @@ ExceptionOr<JSC::JSValue> InspectorFrontendHost::evaluateScriptInExtensionTab(HT
     if (!frameGlobalObject)
         return Exception { InvalidStateError, "Unable to find global object for <iframe>"_s };
 
-    JSC::SuspendExceptionScope scope(&frameGlobalObject->vm());
+    JSC::SuspendExceptionScope scope(frameGlobalObject->vm());
     ValueOrException result = frame->script().evaluateInWorld(ScriptSourceCode(scriptSource), mainThreadNormalWorld());
     
     if (!result)

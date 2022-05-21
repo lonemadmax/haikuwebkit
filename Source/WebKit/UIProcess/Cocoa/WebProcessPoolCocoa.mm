@@ -113,6 +113,10 @@
 #import "WKStylusDeviceObserver.h"
 #endif
 
+#if __has_include(<AVKit/AVKitPictureInPictureController.h>)
+#import <AVKit/AVKitPictureInPictureController.h>
+#endif
+
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 #include <WebCore/CaptionUserPreferencesMediaAF.h>
 #include <WebCore/MediaAccessibilitySoftLink.h>
@@ -229,7 +233,7 @@ void WebProcessPool::setMediaAccessibilityPreferences(WebProcessProxy& process)
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [weakProcess = WeakPtr { process }] {
         auto captionDisplayMode = WebCore::CaptionUserPreferencesMediaAF::platformCaptionDisplayMode();
         auto preferredLanguages = WebCore::CaptionUserPreferencesMediaAF::platformPreferredLanguages();
-        callOnMainRunLoop([weakProcess, captionDisplayMode, preferredLanguages = WTFMove(preferredLanguages).isolatedCopy()] {
+        callOnMainRunLoop([weakProcess, captionDisplayMode, preferredLanguages = crossThreadCopy(WTFMove(preferredLanguages))] {
             if (weakProcess)
                 weakProcess->send(Messages::WebProcess::SetMediaAccessibilityPreferences(captionDisplayMode, preferredLanguages), 0);
         });
@@ -416,7 +420,11 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if PLATFORM(IOS_FAMILY)
     parameters.currentUserInterfaceIdiomIsSmallScreen = currentUserInterfaceIdiomIsSmallScreen();
-    parameters.supportsPictureInPicture = supportsPictureInPicture();
+#if ENABLE(VIDEO_PRESENTATION_MODE) && __has_include(<AVKit/AVKitPictureInPictureController.h>)
+    parameters.supportsPictureInPicture = [AVPictureInPictureController isPictureInPictureSupported];
+#else
+    parameters.supportsPictureInPicture = false;
+#endif
     parameters.cssValueToSystemColorMap = RenderThemeIOS::cssValueToSystemColorMap();
     parameters.focusRingColor = RenderThemeIOS::systemFocusRingColor();
     parameters.localizedDeviceModel = localizedDeviceModel();
@@ -437,8 +445,11 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC)
-    if (MacApplication::isAppleMail())
-        parameters.videoDecoderExtensionHandles = SandboxExtension::createHandlesForMachLookup({ "com.apple.coremedia.videodecoder"_s, "com.apple.trustd.agent"_s }, std::nullopt);
+    if (MacApplication::isAppleMail()) {
+        if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
+            parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
+        parameters.restrictImageAndVideoDecoders = true;
+    }
 #else
     parameters.restrictImageAndVideoDecoders = IOSApplication::isMobileMail() || IOSApplication::isMailCompositionService();
 #endif // PLATFORM(MAC)
@@ -624,7 +635,7 @@ void WebProcessPool::remoteWebInspectorEnabledCallback(CFNotificationCenterRef, 
 }
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(COCOA)
 void WebProcessPool::captivePortalModeConfigUpdateCallback(CFNotificationCenterRef, void* observer, CFStringRef, const void*, CFDictionaryRef)
 {
     if (auto pool = extractWebProcessPool(observer))
@@ -745,7 +756,7 @@ void WebProcessPool::registerNotificationObservers()
         sendToAllProcesses(Messages::WebProcess::PowerSourceDidChange(hasAC));
     });
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(COCOA)
     addCFNotificationObserver(captivePortalModeConfigUpdateCallback, (__bridge CFStringRef)WKCaptivePortalModeContainerConfigurationChangedNotification);
 #endif
 
@@ -793,7 +804,7 @@ void WebProcessPool::unregisterNotificationObservers()
 
     m_powerSourceNotifier = nullptr;
     
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(COCOA)
     removeCFNotificationObserver((__bridge CFStringRef)WKCaptivePortalModeContainerConfigurationChangedNotification);
 #endif
 
@@ -813,7 +824,7 @@ void WebProcessPool::unregisterNotificationObservers()
 
 bool WebProcessPool::isURLKnownHSTSHost(const String& urlString) const
 {
-    RetainPtr<CFURLRef> url = URL(URL(), urlString).createCFURL();
+    RetainPtr<CFURLRef> url = URL { urlString }.createCFURL();
 
     return _CFNetworkIsKnownHSTSHostWithSession(url.get(), nullptr);
 }

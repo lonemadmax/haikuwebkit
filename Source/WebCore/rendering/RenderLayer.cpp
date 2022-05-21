@@ -1359,25 +1359,20 @@ TransformationMatrix RenderLayer::currentTransform(OptionSet<RenderStyle::Transf
 
     auto& renderBox = downcast<RenderBox>(renderer());
 
-    if (auto styleable = Styleable::fromRenderer(renderer())) {
-        if (styleable->isRunningAcceleratedTransformAnimation()) {
-            TransformationMatrix currTransform;
-            std::unique_ptr<RenderStyle> style = renderer().animatedStyle();
-            FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(style->transformBox())), renderBox.document().deviceScaleFactor());
-            style->applyTransform(currTransform, pixelSnappedBorderRect, options);
-            makeMatrixRenderable(currTransform, canRender3DTransforms());
-            return currTransform;
-        }
-    }
+    // m_transform includes transform-origin and is affected by the choice of the transform-box.
+    // Therefore we can only use the cached m_transform, if the animation doesn't alter transform-box or excludes transform-origin.
 
-    // m_transform includes transform-origin, so we need to recompute the transform here.
-    if (!options.contains(RenderStyle::TransformOperationOption::TransformOrigin)) {
-        TransformationMatrix currTransform;
-        std::unique_ptr<RenderStyle> style = renderer().animatedStyle();
-        FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(style->transformBox())), renderBox.document().deviceScaleFactor());
-        renderBox.style().applyTransform(currTransform, pixelSnappedBorderRect, RenderStyle::individualTransformOperations);
-        makeMatrixRenderable(currTransform, canRender3DTransforms());
-        return currTransform;
+    // Query the animatedStyle() to obtain the current transformation, when accelerated transform animations are running.
+    auto styleable = Styleable::fromRenderer(renderBox);
+    if ((styleable && styleable->isRunningAcceleratedTransformAnimation()) || !options.contains(RenderStyle::TransformOperationOption::TransformOrigin)) {
+        std::unique_ptr<RenderStyle> animatedStyle = renderBox.animatedStyle();
+        auto pixelSnappedBorderRect = snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(animatedStyle->transformBox())), renderBox.document().deviceScaleFactor());
+
+        TransformationMatrix transform;
+        animatedStyle->applyTransform(transform, pixelSnappedBorderRect, options);
+
+        makeMatrixRenderable(transform, canRender3DTransforms());
+        return transform;
     }
 
     return *m_transform;
@@ -1963,8 +1958,10 @@ void RenderLayer::setBackingProviderLayer(RenderLayer* backingProvider)
     if (backingProvider == m_backingProviderLayer)
         return;
 
-    if (!renderer().renderTreeBeingDestroyed())
+    if (!renderer().renderTreeBeingDestroyed()) {
         clearClipRectsIncludingDescendants();
+        clearRepaintRects();
+    }
 
     m_backingProviderLayer = backingProvider;
 }
@@ -2051,7 +2048,7 @@ void RenderLayer::setFilterBackendNeedsRepaintingInRect(const LayoutRect& rect)
         return;
     
     LayoutRect rectForRepaint = rect;
-    rectForRepaint += filterOutsets();
+    rectForRepaint.expand(toLayoutBoxExtent(filterOutsets()));
 
     m_filters->expandDirtySourceRect(rectForRepaint);
     
@@ -2209,7 +2206,7 @@ static LayoutRect transparencyClipBox(const RenderLayer& layer, const RenderLaye
         // paints unfragmented.
         LayoutRect clipRect = layer.boundingBox(&layer);
         expandClipRectForDescendantsAndReflection(clipRect, layer, &layer, transparencyBehavior, paintBehavior);
-        clipRect += layer.filterOutsets();
+        clipRect.expand(toLayoutBoxExtent(layer.filterOutsets()));
         LayoutRect result = transform.mapRect(clipRect);
         if (!paginationLayer)
             return result;
@@ -2225,7 +2222,7 @@ static LayoutRect transparencyClipBox(const RenderLayer& layer, const RenderLaye
     
     LayoutRect clipRect = layer.boundingBox(rootLayer, layer.offsetFromAncestor(rootLayer), transparencyBehavior == HitTestingTransparencyClipBox ? RenderLayer::UseFragmentBoxesIncludingCompositing : RenderLayer::UseFragmentBoxesExcludingCompositing);
     expandClipRectForDescendantsAndReflection(clipRect, layer, rootLayer, transparencyBehavior, paintBehavior);
-    clipRect += layer.filterOutsets();
+    clipRect.expand(toLayoutBoxExtent(layer.filterOutsets()));
 
     return clipRect;
 }
@@ -2664,24 +2661,26 @@ LayoutRect RenderLayer::getRectToExpose(const LayoutRect& visibleRect, const Lay
     }
 
     // Determine the appropriate X behavior.
-    ScrollAlignment::Behavior scrollX;
+    ScrollAlignment::Behavior scrollX = alignX.getHiddenBehavior();
     LayoutRect exposeRectX(exposeRect.x(), visibleRect.y(), exposeRect.width(), visibleRect.height());
-    LayoutUnit intersectWidth = intersection(visibleRect, exposeRectX).width();
-    if (intersectWidth == exposeRect.width() || (alignX.legacyHorizontalVisibilityThresholdEnabled() && intersectWidth >= MIN_INTERSECT_FOR_REVEAL)) {
-        // If the rectangle is fully visible, use the specified visible behavior.
-        // If the rectangle is partially visible, but over a certain threshold,
-        // then treat it as fully visible to avoid unnecessary horizontal scrolling
-        scrollX = alignX.getVisibleBehavior();
-    } else if (intersectWidth == visibleRect.width()) {
-        // If the rect is bigger than the visible area, don't bother trying to center. Other alignments will work.
-        scrollX = alignX.getVisibleBehavior();
-        if (scrollX == ScrollAlignment::Behavior::AlignCenter)
-            scrollX = ScrollAlignment::Behavior::NoScroll;
-    } else if (intersectWidth > 0)
-        // If the rectangle is partially visible, but not above the minimum threshold, use the specified partial behavior
-        scrollX = alignX.getPartialBehavior();
-    else
-        scrollX = alignX.getHiddenBehavior();
+    LayoutRect intersectRect = intersection(visibleRect, exposeRectX);
+    if (!intersectRect.isEmpty()) {
+        LayoutUnit intersectWidth = intersectRect.width();
+        if (intersectWidth == exposeRect.width() || (alignX.legacyHorizontalVisibilityThresholdEnabled() && intersectWidth >= MIN_INTERSECT_FOR_REVEAL)) {
+            // If the rectangle is fully visible, use the specified visible behavior.
+            // If the rectangle is partially visible, but over a certain threshold,
+            // then treat it as fully visible to avoid unnecessary horizontal scrolling
+            scrollX = alignX.getVisibleBehavior();
+        } else if (intersectWidth == visibleRect.width()) {
+            // If the rect is bigger than the visible area, don't bother trying to center. Other alignments will work.
+            scrollX = alignX.getVisibleBehavior();
+            if (scrollX == ScrollAlignment::Behavior::AlignCenter)
+                scrollX = ScrollAlignment::Behavior::NoScroll;
+        } else if (intersectWidth > 0) {
+            // If the rectangle is partially visible, but not above the minimum threshold, use the specified partial behavior
+            scrollX = alignX.getPartialBehavior();
+        }
+    }
     // If we're trying to align to the closest edge, and the exposeRect is further right
     // than the visibleRect, and not bigger than the visible area, then align with the right.
     if (scrollX == ScrollAlignment::Behavior::AlignToClosestEdge && exposeRect.maxX() > visibleRect.maxX() && exposeRect.width() < visibleRect.width())
@@ -2699,22 +2698,24 @@ LayoutRect RenderLayer::getRectToExpose(const LayoutRect& visibleRect, const Lay
         x = exposeRect.x();
 
     // Determine the appropriate Y behavior.
-    ScrollAlignment::Behavior scrollY;
+    ScrollAlignment::Behavior scrollY = alignY.getHiddenBehavior();
     LayoutRect exposeRectY(visibleRect.x(), exposeRect.y(), visibleRect.width(), exposeRect.height());
-    LayoutUnit intersectHeight = intersection(visibleRect, exposeRectY).height();
-    if (intersectHeight == exposeRect.height())
-        // If the rectangle is fully visible, use the specified visible behavior.
-        scrollY = alignY.getVisibleBehavior();
-    else if (intersectHeight == visibleRect.height()) {
-        // If the rect is bigger than the visible area, don't bother trying to center. Other alignments will work.
-        scrollY = alignY.getVisibleBehavior();
-        if (scrollY == ScrollAlignment::Behavior::AlignCenter)
-            scrollY = ScrollAlignment::Behavior::NoScroll;
-    } else if (intersectHeight > 0)
-        // If the rectangle is partially visible, use the specified partial behavior
-        scrollY = alignY.getPartialBehavior();
-    else
-        scrollY = alignY.getHiddenBehavior();
+    intersectRect = intersection(visibleRect, exposeRectY);
+    if (!intersectRect.isEmpty()) {
+        LayoutUnit intersectHeight = intersectRect.height();
+        if (intersectHeight == exposeRect.height()) {
+            // If the rectangle is fully visible, use the specified visible behavior.
+            scrollY = alignY.getVisibleBehavior();
+        } else if (intersectHeight == visibleRect.height()) {
+            // If the rect is bigger than the visible area, don't bother trying to center. Other alignments will work.
+            scrollY = alignY.getVisibleBehavior();
+            if (scrollY == ScrollAlignment::Behavior::AlignCenter)
+                scrollY = ScrollAlignment::Behavior::NoScroll;
+        } else if (intersectHeight > 0) {
+            // If the rectangle is partially visible, use the specified partial behavior
+            scrollY = alignY.getPartialBehavior();
+        }
+    }
     // If we're trying to align to the closest edge, and the exposeRect is further down
     // than the visibleRect, and not bigger than the visible area, then align with the bottom.
     if (scrollY == ScrollAlignment::Behavior::AlignToClosestEdge && exposeRect.maxY() > visibleRect.maxY() && exposeRect.height() < visibleRect.height())
@@ -3029,7 +3030,7 @@ static inline bool shouldDoSoftwarePaint(const RenderLayer* layer, bool painting
 {
     return paintingReflection && !layer->has3DTransform();
 }
-    
+
 static inline bool shouldSuppressPaintingLayer(RenderLayer* layer)
 {
     if (layer->renderer().style().isNotFinal() && !layer->isRenderViewLayer() && !layer->renderer().isDocumentElementRenderer())
@@ -5099,7 +5100,7 @@ LayoutRect RenderLayer::calculateLayerBounds(const RenderLayer* ancestorLayer, c
         computeLayersUnion(*childLayer);
 
     if (flags.contains(IncludeFilterOutsets) || (flags.contains(IncludePaintedFilterOutsets) && paintsWithFilters()))
-        unionBounds += filterOutsets();
+        unionBounds.expand(toLayoutBoxExtent(filterOutsets()));
 
     if ((flags & IncludeSelfTransform) && paintsWithTransform(PaintBehavior::Normal)) {
         TransformationMatrix* affineTrans = transform();
@@ -5308,7 +5309,8 @@ void RenderLayer::setBackingNeedsRepaintInRect(const LayoutRect& r, GraphicsLaye
 // Since we're only painting non-composited layers, we know that they all share the same repaintContainer.
 void RenderLayer::repaintIncludingNonCompositingDescendants(RenderLayerModelObject* repaintContainer)
 {
-    renderer().repaintUsingContainer(repaintContainer, renderer().clippedOverflowRectForRepaint(repaintContainer));
+    auto clippedOverflowRect = m_repaintRectsValid ? m_repaintRects.clippedOverflowRect : renderer().clippedOverflowRectForRepaint(repaintContainer);
+    renderer().repaintUsingContainer(repaintContainer, clippedOverflowRect);
 
     for (RenderLayer* curr = firstChild(); curr; curr = curr->nextSibling()) {
         if (!curr->isComposited())
@@ -5376,7 +5378,7 @@ static void determineNonLayerDescendantsPaintedContent(const RenderElement& rend
             if (!renderText.hasRenderedText())
                 continue;
 
-            if (renderer.style().userSelectIncludingInert() != UserSelect::None)
+            if (renderer.style().effectiveUserSelect() != UserSelect::None)
                 request.setHasPaintedContent();
 
             if (!renderText.text().isAllSpecialCharacters<isHTMLSpace>()) {

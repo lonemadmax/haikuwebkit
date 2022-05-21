@@ -27,12 +27,10 @@
 #include "AuxiliaryProcessProxy.h"
 
 #include "AuxiliaryProcessMessages.h"
-#include "LogInitialization.h"
 #include "Logging.h"
+#include "UIProcessLogInitialization.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
-#include <WebCore/LogInitialization.h>
-#include <wtf/LogInitialization.h>
 #include <wtf/RunLoop.h>
 
 #if PLATFORM(COCOA)
@@ -272,11 +270,6 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher*, IPC::Connection
             IPC::addAsyncReplyHandler(*connection(), pendingMessage.asyncReplyInfo->second, WTFMove(pendingMessage.asyncReplyInfo->first));
         m_connection->sendMessage(WTFMove(pendingMessage.encoder), pendingMessage.sendOptions);
     }
-
-    if (m_shouldStartResponsivenessTimerWhenLaunched) {
-        auto useLazyStop = *std::exchange(m_shouldStartResponsivenessTimerWhenLaunched, std::nullopt);
-        startResponsivenessTimer(useLazyStop);
-    }
 }
 
 void AuxiliaryProcessProxy::replyToPendingMessages()
@@ -365,10 +358,18 @@ void AuxiliaryProcessProxy::stopResponsivenessTimer()
     responsivenessTimer().stop();
 }
 
+void AuxiliaryProcessProxy::beginResponsivenessChecks()
+{
+    m_didBeginResponsivenessChecks = true;
+    if (m_delayedResponsivenessCheck)
+        startResponsivenessTimer(*std::exchange(m_delayedResponsivenessCheck, std::nullopt));
+}
+
 void AuxiliaryProcessProxy::startResponsivenessTimer(UseLazyStop useLazyStop)
 {
-    if (isLaunching()) {
-        m_shouldStartResponsivenessTimerWhenLaunched = useLazyStop;
+    if (!m_didBeginResponsivenessChecks) {
+        if (!m_delayedResponsivenessCheck)
+            m_delayedResponsivenessCheck = useLazyStop;
         return;
     }
 
@@ -408,9 +409,9 @@ AuxiliaryProcessCreationParameters AuxiliaryProcessProxy::auxiliaryProcessParame
 {
     AuxiliaryProcessCreationParameters parameters;
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
-    parameters.wtfLoggingChannels = WTF::logLevelString();
-    parameters.webCoreLoggingChannels = WebCore::logLevelString();
-    parameters.webKitLoggingChannels = WebKit::logLevelString();
+    parameters.wtfLoggingChannels = UIProcess::wtfLogLevelString();
+    parameters.webCoreLoggingChannels = UIProcess::webCoreLogLevelString();
+    parameters.webKitLoggingChannels = UIProcess::webKitLogLevelString();
 #endif
     return parameters;
 }

@@ -52,14 +52,6 @@ RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(ImageBuffer& imag
 {
 }
 
-RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteDisplayListRecorderProxy& parent, const FloatRect& initialClip, const AffineTransform& initialCTM)
-    : DisplayList::Recorder(parent, { }, initialClip, initialCTM)
-    , m_destinationBufferIdentifier(parent.m_destinationBufferIdentifier)
-    , m_imageBuffer(parent.m_imageBuffer)
-    , m_renderingBackend(parent.m_renderingBackend)
-{
-}
-
 void RemoteDisplayListRecorderProxy::convertToLuminanceMask()
 {
     send(Messages::RemoteDisplayListRecorder::ConvertToLuminanceMask());
@@ -201,6 +193,11 @@ void RemoteDisplayListRecorderProxy::recordDrawImageBuffer(ImageBuffer& imageBuf
 void RemoteDisplayListRecorderProxy::recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     send(Messages::RemoteDisplayListRecorder::DrawNativeImage(imageIdentifier, imageSize, destRect, srcRect, options));
+}
+
+void RemoteDisplayListRecorderProxy::recordDrawSystemImage(SystemImage& systemImage, const FloatRect& destinationRect)
+{
+    send(Messages::RemoteDisplayListRecorder::DrawSystemImage(systemImage, destinationRect));
 }
 
 void RemoteDisplayListRecorderProxy::recordDrawPattern(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& transform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
@@ -442,29 +439,29 @@ void RemoteDisplayListRecorderProxy::flushContext(GraphicsContextFlushIdentifier
     send(Messages::RemoteDisplayListRecorder::FlushContext(identifier));
 }
 
-RefPtr<ImageBuffer> RemoteDisplayListRecorderProxy::createImageBuffer(const FloatSize& size, const DestinationColorSpace& colorSpace, RenderingMode renderingMode, RenderingMethod renderingMethod) const
+RefPtr<ImageBuffer> RemoteDisplayListRecorderProxy::createImageBuffer(const FloatSize& size, float resolutionScale, const DestinationColorSpace& colorSpace, std::optional<RenderingMode> renderingMode, std::optional<RenderingMethod> renderingMethod) const
 {
     if (UNLIKELY(!m_renderingBackend)) {
         ASSERT_NOT_REACHED();
         return nullptr;
     }
 
-    if (renderingMethod != RenderingMethod::Default)
-        return Recorder::createImageBuffer(size, colorSpace, renderingMode, renderingMethod);
+    if (renderingMethod)
+        return Recorder::createImageBuffer(size, resolutionScale, colorSpace, renderingMode, renderingMethod);
 
-    return m_renderingBackend->createImageBuffer(size, renderingMode, 1, colorSpace, PixelFormat::BGRA8);
+    return m_renderingBackend->createImageBuffer(size, renderingMode.value_or(this->renderingMode()), resolutionScale, colorSpace, PixelFormat::BGRA8);
 }
 
-RefPtr<ImageBuffer> RemoteDisplayListRecorderProxy::createCompatibleImageBuffer(const FloatSize& size, const DestinationColorSpace& colorSpace, RenderingMethod renderingMethod) const
+RefPtr<ImageBuffer> RemoteDisplayListRecorderProxy::createAlignedImageBuffer(const FloatSize& size, const DestinationColorSpace& colorSpace, std::optional<RenderingMethod> renderingMethod) const
 {
-    auto renderingMode = renderingMethod == RenderingMethod::Default ? this->renderingMode() : RenderingMode::Unaccelerated;
-    return GraphicsContext::createImageBuffer(size, scaleFactor(), colorSpace, renderingMode, renderingMethod);
+    auto renderingMode = !renderingMethod ? this->renderingMode() : RenderingMode::Unaccelerated;
+    return GraphicsContext::createScaledImageBuffer(size, scaleFactor(), colorSpace, renderingMode, renderingMethod);
 }
 
-RefPtr<ImageBuffer> RemoteDisplayListRecorderProxy::createCompatibleImageBuffer(const FloatRect& rect, const DestinationColorSpace& colorSpace, RenderingMethod renderingMethod) const
+RefPtr<ImageBuffer> RemoteDisplayListRecorderProxy::createAlignedImageBuffer(const FloatRect& rect, const DestinationColorSpace& colorSpace, std::optional<RenderingMethod> renderingMethod) const
 {
-    auto renderingMode = renderingMethod == RenderingMethod::Default ? this->renderingMode() : RenderingMode::Unaccelerated;
-    return GraphicsContext::createImageBuffer(rect, scaleFactor(), colorSpace, renderingMode, renderingMethod);
+    auto renderingMode = !renderingMethod ? this->renderingMode() : RenderingMode::Unaccelerated;
+    return GraphicsContext::createScaledImageBuffer(rect, scaleFactor(), colorSpace, renderingMode, renderingMethod);
 }
 
 } // namespace WebCore

@@ -125,12 +125,12 @@ void HTMLTextFormControlElement::setHovered(bool over, Style::InvalidationScope 
     updatePlaceholderVisibility();
 }
 
-void HTMLTextFormControlElement::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection direction)
+void HTMLTextFormControlElement::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions& options)
 {
     if (supportsPlaceholder())
         updatePlaceholderVisibility();
-    handleFocusEvent(oldFocusedElement.get(), direction);
-    HTMLFormControlElementWithState::dispatchFocusEvent(WTFMove(oldFocusedElement), direction);
+    handleFocusEvent(oldFocusedElement.get(), options.direction);
+    HTMLFormControlElementWithState::dispatchFocusEvent(WTFMove(oldFocusedElement), options);
 }
 
 void HTMLTextFormControlElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
@@ -157,7 +157,9 @@ void HTMLTextFormControlElement::forwardEvent(Event& event)
 {
     if (event.type() == eventNames().blurEvent || event.type() == eventNames().focusEvent)
         return;
-    innerTextElement()->defaultEventHandler(event);
+
+    if (auto innerText = innerTextElement())
+        innerText->defaultEventHandler(event);
 }
 
 static bool isNotLineBreak(UChar ch) { return ch != newlineCharacter && ch != carriageReturn; }
@@ -306,10 +308,11 @@ void HTMLTextFormControlElement::setSelectionRange(int start, int end, TextField
     if (!isTextField())
         return;
 
-    end = std::max(end, 0);
-    start = std::min(std::max(start, 0), end);
+    // Clamps to the current value length.
+    end = std::clamp(end, 0, clampTo<int>(innerTextValue().length()));
+    start = std::clamp(start, 0, end);
 
-    auto innerText = innerTextElement();
+    auto innerText = innerTextElementCreatingShadowSubtreeIfNeeded();
     bool hasFocus = document().focusedElement() == this;
     if (!hasFocus && innerText) {
         if (!isConnected()) {
@@ -369,6 +372,7 @@ int HTMLTextFormControlElement::indexForVisiblePosition(const VisiblePosition& p
 
 VisiblePosition HTMLTextFormControlElement::visiblePositionForIndex(int index) const
 {
+    ASSERT(innerTextElement());
     VisiblePosition position = positionForIndex(innerTextElement().get(), index);
     ASSERT(indexForVisiblePosition(position) == index);
     return position;
@@ -587,7 +591,7 @@ static String innerTextValueFrom(TextControlInnerTextElement& innerText)
 void HTMLTextFormControlElement::setInnerTextValue(const String& value)
 {
     LayoutDisallowedScope layoutDisallowedScope(LayoutDisallowedScope::Reason::PerformanceOptimization);
-    auto innerText = innerTextElement();
+    auto innerText = innerTextElementCreatingShadowSubtreeIfNeeded();
     if (!innerText)
         return;
 

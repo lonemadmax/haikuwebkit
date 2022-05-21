@@ -1,3 +1,117 @@
+2022-03-14  Elliott Williams  <emw@apple.com>
+
+        Reland "[XCBuild] libwebrtc's headers are copied via rsync and do not emit task outputs"
+        https://bugs.webkit.org/show_bug.cgi?id=237112
+
+        Reviewed by Alexey Proskuryakov.
+
+        r290966 had a bad xcconfig setting in libabsl.xcconfig, which prevented absl's headers from
+        being copied to the right location, causing build failures. Fix this setting and reland.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/libabsl.xcconfig: s/PREFIX/PATH/g to fix settings.
+        * Configurations/libwebrtc.xcconfig:
+        * libwebrtc.xcodeproj/project.pbxproj:
+
+2022-03-12  Jean-Yves Avenard  <jya@apple.com>
+
+        Safari produces scrambled output for some webm videos with vp8 codec.
+        https://bugs.webkit.org/show_bug.cgi?id=236754
+        rdar://80869041
+
+        Reviewed by Eric Carlson.
+
+        * Source/webrtc/sdk/WebKit/WebKitDecoderReceiver.cpp:
+        (webrtc::WebKitDecoderReceiver::decoderFailed): Tell CoreMedia if a frame
+        was silently dropped by the decoder.
+
+2022-03-12  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt FALLBACK_PLATFORM_NAME in place of FALLBACK_PLATFORM
+        https://bugs.webkit.org/show_bug.cgi?id=237809
+
+        Reviewed by Per Arne Vollan.
+
+        * Configurations/SDKVariant.xcconfig:
+
+2022-03-10  Michael Saboff  <msaboff@apple.com>
+
+        Catalyst JavaScriptCore, WebCore, WebKitLegacy, and WebKit shouldn't be copied to the Secondary Path
+        https://bugs.webkit.org/show_bug.cgi?id=237748
+
+        Reviewed by Mark Lam.
+
+        Updated the configuration to exclude copying Catalyst build products to the secondary path.
+
+        * Configurations/libwebrtc.xcconfig:
+
+2022-03-09  Youenn Fablet  <youenn@apple.com>
+
+        Allow to pass webrtc video frame buffers through RealtimeMediaSource based pipelines
+        https://bugs.webkit.org/show_bug.cgi?id=236131
+        <rdar://problem/88805580>
+
+        Reviewed by Eric Carlson.
+
+        Update routines to take VideoFrameBuffer instead of VideoFrame.
+        Fix bugs in handling of YUV conversion libwebrtc routines.
+
+        * Configurations/libwebrtc.iOS.exp:
+        * Configurations/libwebrtc.iOSsim.exp:
+        * Configurations/libwebrtc.mac.exp:
+        * Source/webrtc/sdk/WebKit/WebKitUtilities.h:
+        * Source/webrtc/sdk/WebKit/WebKitUtilities.mm:
+
+2022-03-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r290966.
+
+        Broke ews and make
+
+        Reverted changeset:
+
+        "[XCBuild] libwebrtc's headers are copied via rsync and do not
+        emit task outputs"
+        https://bugs.webkit.org/show_bug.cgi?id=237112
+        https://commits.webkit.org/r290966
+
+2022-03-07  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] libwebrtc's headers are copied via rsync and do not emit task outputs
+        https://bugs.webkit.org/show_bug.cgi?id=237112
+
+        Reviewed by Alexey Proskuryakov.
+
+        Reconfigure the Xcode project to copy libwebrtc's headers natively, using the same approach
+        as https://commits.webkit.org/247585@main and https://commits.webkit.org/247656@main.
+
+        Add a target for absl's headers, so that they can be copied and configured separately from
+        webrtc's headers. This target does not have any source files, so it is effectively
+        headers-only.
+
+        libwebrtc.xcodeproj is very messy and doesn't always align with the on-disk representation
+        of the project's sources, but I have combed through all the source directories to ensure
+        that all headers which aren't obviously testing or non-Mac-related are included.
+
+        * Configurations/Base.xcconfig: Copy WK_WHICH_BUILD_SYSTEM from other projects.
+        * Configurations/libabsl.xcconfig: Added.
+        * Configurations/libwebrtc.xcconfig: Set header-related build settings.
+        * libwebrtc.xcodeproj/project.pbxproj: Tons of header additions and visibility changes.
+
+2022-03-02  Michael Saboff  <msaboff@apple.com>
+
+        Copy WebKit frameworks and XPC processes to Secondary Path
+        https://bugs.webkit.org/show_bug.cgi?id=237394
+
+        Reviewed by Saam Barati.
+
+        Added build configuration variables and scripts to copy the built Framework to the SYSTEM_SECONDARY_CONTENT_PATH
+        when it is set.
+
+        * Configurations/libwebrtc.xcconfig:
+        * Scripts/copy-frameworks-to-secondary-path.sh: Added.
+        * libwebrtc.xcodeproj/project.pbxproj:
+
 2022-02-18  Robert Jenner  <Jenner@apple.com>
 
         Unreviewed, reverting r290149.

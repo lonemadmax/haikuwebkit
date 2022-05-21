@@ -31,8 +31,6 @@
 
 #if ENABLE(WEBGL) && USE(TEXTURE_MAPPER)
 
-#include "GraphicsContextGLOpenGLManager.h"
-#include "GraphicsLayerContentsDisplayDelegate.h"
 #include "PixelBuffer.h"
 #include "TextureMapperGCGLPlatformLayer.h"
 #include <wtf/Deque.h>
@@ -56,6 +54,7 @@
 #include "NicosiaGCGLANGLELayer.h"
 #else
 #include "NicosiaGCGLLayer.h"
+#include "PlatformLayerDisplayDelegate.h"
 #endif
 #endif
 
@@ -73,39 +72,11 @@
 
 namespace WebCore {
 
-namespace {
-
-class PlatformLayerDisplayDelegate final : public GraphicsLayerContentsDisplayDelegate {
-public:
-    static Ref<PlatformLayerDisplayDelegate> create(PlatformLayer* platformLayer)
-    {
-        return adoptRef(*new PlatformLayerDisplayDelegate(platformLayer));
-    }
-
-    // GraphicsLayerContentsDisplayDelegate overrides.
-    PlatformLayer* platformLayer() const final
-    {
-        return m_platformLayer;
-    }
-
-private:
-    PlatformLayerDisplayDelegate(PlatformLayer* platformLayer)
-        : m_platformLayer(platformLayer)
-    {
-    }
-
-    PlatformLayer* m_platformLayer;
-};
-
-}
-
 RefPtr<GraphicsContextGLTextureMapper> GraphicsContextGLTextureMapper::create(GraphicsContextGLAttributes&& attributes)
 {
     auto context = adoptRef(*new GraphicsContextGLTextureMapper(WTFMove(attributes)));
-#if USE(ANGLE)
     if (!context->initialize())
         return nullptr;
-#endif
     return context;
 }
 
@@ -113,17 +84,12 @@ GraphicsContextGLTextureMapper::~GraphicsContextGLTextureMapper() = default;
 
 GraphicsContextGLTextureMapper::GraphicsContextGLTextureMapper(GraphicsContextGLAttributes&& attributes)
     : GraphicsContextGLTextureMapperBase(WTFMove(attributes))
-#if USE(NICOSIA)
-    , m_layerContentsDisplayDelegate(PlatformLayerDisplayDelegate::create(&m_nicosiaLayer->contentLayer()))
-#else
-    , m_layerContentsDisplayDelegate(PlatformLayerDisplayDelegate::create(m_texmapLayer.get()))
-#endif
 {
 }
 
 RefPtr<GraphicsLayerContentsDisplayDelegate> GraphicsContextGLTextureMapper::layerContentsDisplayDelegate()
 {
-    return m_layerContentsDisplayDelegate.ptr();
+    return m_layerContentsDisplayDelegate;
 }
 
 RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes)
@@ -139,11 +105,6 @@ RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContex
     if (!success)
         return nullptr;
 
-    // Make space for the incoming context if we're full.
-    GraphicsContextGLOpenGLManager::sharedManager().recycleContextIfNecessary();
-    if (GraphicsContextGLOpenGLManager::sharedManager().hasTooManyContexts())
-        return nullptr;
-
     // Create the GraphicsContextGLOpenGL object first in order to establist a current context on this thread.
     auto context = GraphicsContextGLTextureMapper::create(GraphicsContextGLAttributes { attributes });
     if (!context)
@@ -153,9 +114,6 @@ RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContex
     if (attributes.webGLVersion == GraphicsContextGLWebGLVersion::WebGL2 && !epoxy_is_desktop_gl() && epoxy_gl_version() < 30)
         return nullptr;
 #endif
-
-    GraphicsContextGLOpenGLManager::sharedManager().addContext(context.get());
-
     return context;
 }
 
@@ -189,6 +147,15 @@ bool GraphicsContextGLTextureMapper::copyTextureFromMedia(MediaPlayer& player, P
 #else
     return player.copyVideoTextureToPlatformTexture(this, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY);
 #endif
+}
+#endif
+
+#if USE(NICOSIA) && !USE(ANGLE)
+bool GraphicsContextGLTextureMapper::platformInitialize()
+{
+    m_layerContentsDisplayDelegate = PlatformLayerDisplayDelegate::create(&m_nicosiaLayer->contentLayer());
+
+    return true;
 }
 #endif
 

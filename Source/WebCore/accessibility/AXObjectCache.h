@@ -467,6 +467,7 @@ private:
     void handleAriaRoleChanged(Node*);
     void handleAriaExpandedChange(Node*);
     void handleFocusedUIElementChanged(Node* oldFocusedNode, Node* newFocusedNode);
+    void handleMenuListValueChanged(Element&);
 
     // aria-modal or modal <dialog> related
     bool isModalElement(Element&) const;
@@ -474,6 +475,7 @@ private:
     Element* currentModalNode();
     bool isNodeVisible(Node*) const;
     void handleModalChange(Element&);
+    bool modalElementHasAccessibleContent(Element&);
 
     Document& m_document;
     const std::optional<PageIdentifier> m_pageID; // constant for object's lifetime.

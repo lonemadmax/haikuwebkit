@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Function.h>
 #import <wtf/Ref.h>
@@ -43,9 +42,9 @@ class RenderPipeline;
 class RenderPassEncoder : public RefCounted<RenderPassEncoder> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RenderPassEncoder> create()
+    static Ref<RenderPassEncoder> create(id<MTLRenderCommandEncoder> renderCommandEncoder)
     {
-        return adoptRef(*new RenderPassEncoder());
+        return adoptRef(*new RenderPassEncoder(renderCommandEncoder));
     }
 
     ~RenderPassEncoder();
@@ -64,7 +63,7 @@ public:
     void popDebugGroup();
     void pushDebugGroup(const char* groupLabel);
     void setBindGroup(uint32_t groupIndex, const BindGroup&, uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets);
-    void setBlendConstant(const WGPUColor*);
+    void setBlendConstant(const WGPUColor&);
     void setIndexBuffer(const Buffer&, WGPUIndexFormat, uint64_t offset, uint64_t size);
     void setPipeline(const RenderPipeline&);
     void setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
@@ -74,7 +73,9 @@ public:
     void setLabel(const char*);
 
 private:
-    RenderPassEncoder();
+    RenderPassEncoder(id<MTLRenderCommandEncoder>);
+
+    id<MTLRenderCommandEncoder> m_renderCommandEncoder { nil };
 };
 
 } // namespace WebGPU

@@ -54,13 +54,6 @@ typedef void *EGLImage;
 
 namespace WebCore {
 
-class ExtensionsGL;
-class GLContext;
-class HostWindow;
-class ImageBuffer;
-class MediaPlayer;
-class PixelBuffer;
-
 #if USE(TEXTURE_MAPPER)
 class TextureMapperGCGLPlatformLayer;
 #endif
@@ -365,17 +358,10 @@ public:
     std::optional<PixelBuffer> readRenderingResultsForPainting();
     std::optional<PixelBuffer> readCompositedResultsForPainting();
 
-    constexpr static GCGLNativeDisplayType defaultDisplay = gcGLDefaultDisplay;
-#if PLATFORM(COCOA)
-    constexpr static GCGLNativeDisplayType defaultOpenGLDisplay = static_cast<GCGLNativeDisplayType>(-1);
-    static_assert(defaultDisplay != defaultOpenGLDisplay);
-#endif
-
 protected:
     GraphicsContextGLANGLE(GraphicsContextGLAttributes);
 
     // Called once by all the public entry points that eventually call OpenGL.
-    // Called once by all the public entry points of ExtensionsGL that eventually call OpenGL.
     bool makeContextCurrent() WARN_UNUSED_RETURN;
 
     // Initializes the instance. Returns false if the instance should not be used.
@@ -453,21 +439,23 @@ protected:
     ScopedGLFence m_frameCompletionFences[maxPendingFrames];
     GraphicsContextGLState m_state;
 
-#if PLATFORM(COCOA)
-    // FIXME: Move these to GraphicsContextGLCocoa.
-    GraphicsContextGLIOSurfaceSwapChain m_swapChain;
     GCGLDisplay m_displayObj { nullptr };
     GCGLContext m_contextObj { nullptr };
     GCGLConfig m_configObj { nullptr };
+
+#if PLATFORM(COCOA)
+    // FIXME: Move these to GraphicsContextGLCocoa.
+    GraphicsContextGLIOSurfaceSwapChain m_swapChain;
     // Backing store for the the buffer which is eventually used for display.
     // When preserveDrawingBuffer == false, this is the drawing buffer backing store.
     // When preserveDrawingBuffer == true, this is blitted to during display prepare.
     std::unique_ptr<IOSurface> m_displayBufferBacking;
     void* m_displayBufferPbuffer { nullptr };
-#endif
-#if USE(COORDINATED_GRAPHICS)
+#elif USE(TEXTURE_MAPPER)
     GCGLuint m_compositorTexture { 0 };
+#if USE(COORDINATED_GRAPHICS)
     GCGLuint m_intermediateTexture { 0 };
+#endif
 #endif
 #if USE(NICOSIA)
     std::unique_ptr<Nicosia::GCGLANGLELayer> m_nicosiaLayer;

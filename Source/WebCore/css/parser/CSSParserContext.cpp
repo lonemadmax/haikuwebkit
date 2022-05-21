@@ -244,6 +244,8 @@ bool CSSParserContext::isPropertyRuntimeDisabled(CSSPropertyID property) const
     case CSSPropertyScale:
         return !individualTransformPropertiesEnabled;
     case CSSPropertyOverscrollBehavior:
+    case CSSPropertyOverscrollBehaviorBlock:
+    case CSSPropertyOverscrollBehaviorInline:
     case CSSPropertyOverscrollBehaviorX:
     case CSSPropertyOverscrollBehaviorY:
         return !overscrollBehaviorEnabled;
@@ -270,7 +272,7 @@ ResolvedURL CSSParserContext::completeURL(const String& string) const
             return { };
 
         if (CSSValue::isCSSLocalURL(string))
-            return { string, { URL(), string } };
+            return { string, URL { string } };
 
         if (charset.isEmpty())
             return { string, { baseURL, string } };

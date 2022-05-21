@@ -31,7 +31,10 @@
 #include "HTMLSpanElement.h"
 #include "RenderAncestorIterator.h"
 #include "RenderBlock.h"
+#include "RenderInline.h"
 #include "RenderObject.h"
+#include "RenderTableCell.h"
+#include "RenderText.h"
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include <glib/gi18n-lib.h>
@@ -1223,6 +1226,10 @@ std::optional<unsigned> AccessibilityObjectAtspi::effectiveRole() const
         return Atspi::Role::PasswordText;
 
     switch (m_coreObject->roleValue()) {
+    case AccessibilityRole::Form:
+        if (m_coreObject->ariaRoleAttribute() != AccessibilityRole::Unknown)
+            return Atspi::Role::Landmark;
+        break;
     case AccessibilityRole::ListMarker: {
         auto* renderer = m_coreObject->renderer();
         return renderer && renderer->isImage() ? Atspi::Role::Image : Atspi::Role::Text;
@@ -1310,6 +1317,8 @@ String AccessibilityObjectAtspi::effectiveRoleName() const
         return "subscript";
     case Atspi::Role::Superscript:
         return "superscript";
+    case Atspi::Role::Landmark:
+        return "landmark";
     default:
         break;
     }
@@ -1363,6 +1372,8 @@ const char* AccessibilityObjectAtspi::effectiveLocalizedRoleName() const
         return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Subscript);
     case Atspi::Role::Superscript:
         return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Superscript);
+    case Atspi::Role::Landmark:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::LandmarkMain);
     default:
         break;
     }
@@ -1454,6 +1465,15 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     if (roleValue() == AccessibilityRole::Paragraph) {
         auto child = childrenOfType<RenderBlock>(downcast<RenderElement>(*renderObject)).first();
         return child ? AccessibilityObjectInclusion::IncludeObject : AccessibilityObjectInclusion::DefaultBehavior;
+    }
+
+    // We always want to include table cells (layout and CSS) that have rendered text content.
+    if (is<RenderTableCell>(renderObject)) {
+        for (const auto& child : childrenOfType<RenderObject>(downcast<RenderElement>(*renderObject))) {
+            if (is<RenderInline>(child) || is<RenderText>(child) || is<HTMLSpanElement>(child.node()))
+                return AccessibilityObjectInclusion::IncludeObject;
+        }
+        return AccessibilityObjectInclusion::DefaultBehavior;
     }
 
     if (renderObject->isAnonymousBlock()) {

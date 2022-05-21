@@ -76,7 +76,7 @@ namespace WebKit {
 
 using namespace WebCore;
 
-RemoteMediaPlayerProxy::RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy& manager, MediaPlayerIdentifier identifier, Ref<IPC::Connection>&& connection, MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, RemoteMediaPlayerProxyConfiguration&& configuration, RemoteVideoFrameObjectHeap& videoFrameObjectHeap)
+RemoteMediaPlayerProxy::RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy& manager, MediaPlayerIdentifier identifier, Ref<IPC::Connection>&& connection, MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, RemoteMediaPlayerProxyConfiguration&& configuration, RemoteVideoFrameObjectHeap& videoFrameObjectHeap, const WebCore::ProcessIdentity& resourceOwner)
     : m_id(identifier)
     , m_webProcessConnection(WTFMove(connection))
     , m_manager(manager)
@@ -91,7 +91,10 @@ RemoteMediaPlayerProxy::RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy& ma
 {
     m_typesRequiringHardwareSupport = m_configuration.mediaContentTypesRequiringHardwareSupport;
     m_renderingCanBeAccelerated = m_configuration.renderingCanBeAccelerated;
+    m_playerContentBoxRect = m_configuration.playerContentBoxRect;
     m_player = MediaPlayer::create(*this, m_engineIdentifier);
+    if (auto* playerPrivate = m_player->playerPrivate())
+        playerPrivate->setResourceOwner(resourceOwner);
 }
 
 RemoteMediaPlayerProxy::~RemoteMediaPlayerProxy()
@@ -476,6 +479,11 @@ const String& RemoteMediaPlayerProxy::mediaPlayerMediaCacheDirectory() const
     return m_manager->gpuConnectionToWebProcess()->mediaCacheDirectory();
 }
 
+LayoutRect RemoteMediaPlayerProxy::mediaPlayerContentBoxRect() const
+{
+    return m_playerContentBoxRect;
+}
+
 const Vector<WebCore::ContentType>& RemoteMediaPlayerProxy::mediaContentTypesRequiringHardwareSupport() const
 {
     return m_typesRequiringHardwareSupport;
@@ -805,11 +813,9 @@ bool RemoteMediaPlayerProxy::doesHaveAttribute(const AtomString&, AtomString*) c
 #if ENABLE(AVF_CAPTIONS)
 Vector<RefPtr<PlatformTextTrack>> RemoteMediaPlayerProxy::outOfBandTrackSources()
 {
-    Vector<RefPtr<PlatformTextTrack>> sources;
-    for (auto& data : m_configuration.outOfBandTrackData)
-        sources.append(PlatformTextTrack::create(WTFMove(data)));
-    
-    return sources;
+    return WTF::map(m_configuration.outOfBandTrackData, [](auto& data) -> RefPtr<PlatformTextTrack> {
+        return PlatformTextTrack::create(WTFMove(data));
+    });
 }
 
 #endif
@@ -881,12 +887,8 @@ void RemoteMediaPlayerProxy::videoFrameForCurrentTimeIfChanged(CompletionHandler
     if (m_videoFrameForCurrentTime != videoFrame) {
         m_videoFrameForCurrentTime = videoFrame;
         changed = true;
-        if (videoFrame) {
-            auto write = RemoteVideoFrameWriteReference::generateForAdd();
-            auto newFrameReference = write.retiredReference();
-            result = RemoteVideoFrameProxy::properties(WTFMove(newFrameReference), *videoFrame);
-            m_videoFrameObjectHeap->retire(WTFMove(write), WTFMove(videoFrame), std::nullopt);
-        }
+        if (videoFrame)
+            result = m_videoFrameObjectHeap->add(videoFrame.releaseNonNull());
     }
     completionHandler(WTFMove(result), changed);
 }
@@ -1131,6 +1133,11 @@ void RemoteMediaPlayerProxy::stopVideoFrameMetadataGathering()
 {
     if (m_player)
         m_player->startVideoFrameMetadataGathering();
+}
+
+void RemoteMediaPlayerProxy::playerContentBoxRectChanged(const WebCore::LayoutRect& contentRect)
+{
+    m_playerContentBoxRect = contentRect;
 }
 
 #if !RELEASE_LOG_DISABLED

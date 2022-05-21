@@ -28,6 +28,7 @@
 #include "FontBaseline.h"
 #include "InlineIteratorLineLegacyPath.h"
 #include "InlineIteratorLineModernPath.h"
+#include "RenderBlockFlow.h"
 #include <variant>
 
 namespace WebCore {
@@ -52,23 +53,27 @@ public:
 
     LayoutUnit top() const;
     LayoutUnit bottom() const;
+
+    LayoutUnit lineBoxTop() const;
+    LayoutUnit lineBoxBottom() const;
+    LayoutUnit lineBoxHeight() const { return lineBoxBottom() - lineBoxTop(); }
+
     LayoutUnit selectionTop() const;
     LayoutUnit selectionTopForHitTesting() const;
     LayoutUnit selectionBottom() const;
     LayoutUnit selectionHeight() const;
+
+    LayoutRect selectionLogicalRect() const;
+    LayoutRect selectionPhysicalRect() const;
+
     LayoutUnit selectionTopAdjustedForPrecedingBlock() const;
     LayoutUnit selectionHeightAdjustedForPrecedingBlock() const;
-    LayoutUnit lineBoxTop() const;
-    LayoutUnit lineBoxBottom() const;
 
-    LayoutRect selectionRect() const;
     RenderObject::HighlightState selectionState() const;
 
-    float y() const;
     float contentLogicalLeft() const;
     float contentLogicalRight() const;
     float contentLogicalWidth() const;
-    float logicalHeight() const;
 
     int blockDirectionPointInLine() const;
 
@@ -77,7 +82,10 @@ public:
     FontBaseline baselineType() const;
 
     const RenderBlockFlow& containingBlock() const;
-    const LegacyRootInlineBox* legacyRootInlineBox() const;
+
+    // FIXME: We may move these multi-column bits to some dedicated structures.
+    RenderFragmentContainer* containingFragment() const;
+    bool isFirstAfterPageBreak() const;
 
     bool isFirst() const;
 
@@ -191,16 +199,18 @@ inline LayoutUnit Line::lineBoxBottom() const
     });
 }
 
-inline LayoutRect Line::selectionRect() const
+inline LayoutRect Line::selectionLogicalRect() const
 {
     return { LayoutPoint { contentLogicalLeft(), selectionTop() }, LayoutPoint { contentLogicalRight(), selectionBottom() } };
 }
 
-inline float Line::y() const
+inline LayoutRect Line::selectionPhysicalRect() const
 {
-    return WTF::switchOn(m_pathVariant, [](const auto& path) {
-        return path.y();
-    });
+    auto physicalRect = selectionLogicalRect();
+    if (!isHorizontal())
+        physicalRect = physicalRect.transposedRect();
+    containingBlock().flipForWritingMode(physicalRect);
+    return physicalRect;
 }
 
 inline float Line::contentLogicalLeft() const
@@ -220,13 +230,6 @@ inline float Line::contentLogicalRight() const
 inline float Line::contentLogicalWidth() const
 {
     return contentLogicalRight() - contentLogicalLeft();
-}
-
-inline float Line::logicalHeight() const
-{
-    return WTF::switchOn(m_pathVariant, [](const auto& path) {
-        return path.logicalHeight();
-    });
 }
 
 inline bool Line::isHorizontal() const
@@ -250,10 +253,17 @@ inline const RenderBlockFlow& Line::containingBlock() const
     });
 }
 
-inline const LegacyRootInlineBox* Line::legacyRootInlineBox() const
+inline RenderFragmentContainer* Line::containingFragment() const
 {
     return WTF::switchOn(m_pathVariant, [](const auto& path) {
-        return path.legacyRootInlineBox();
+        return path.containingFragment();
+    });
+}
+
+inline bool Line::isFirstAfterPageBreak() const
+{
+    return WTF::switchOn(m_pathVariant, [](const auto& path) {
+        return path.isFirstAfterPageBreak();
     });
 }
 

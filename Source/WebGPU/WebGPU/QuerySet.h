@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
@@ -35,9 +34,9 @@ namespace WebGPU {
 class QuerySet : public RefCounted<QuerySet> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<QuerySet> create()
+    static Ref<QuerySet> create(id<MTLCounterSampleBuffer> counterSampleBuffer)
     {
-        return adoptRef(*new QuerySet());
+        return adoptRef(*new QuerySet(counterSampleBuffer));
     }
 
     ~QuerySet();
@@ -45,8 +44,12 @@ public:
     void destroy();
     void setLabel(const char*);
 
+    id<MTLCounterSampleBuffer> counterSampleBuffer() const { return m_counterSampleBuffer; }
+
 private:
-    QuerySet();
+    QuerySet(id<MTLCounterSampleBuffer>);
+
+    id<MTLCounterSampleBuffer> m_counterSampleBuffer { nil };
 };
 
 } // namespace WebGPU

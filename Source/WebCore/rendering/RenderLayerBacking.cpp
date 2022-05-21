@@ -1108,7 +1108,7 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
         if (element->usesPlatformLayer())
             m_graphicsLayer->setContentsToPlatformLayer(element->platformLayer(), GraphicsLayer::ContentsLayerPurpose::Model);
         else if (auto model = element->model())
-            m_graphicsLayer->setContentsToModel(WTFMove(model));
+            m_graphicsLayer->setContentsToModel(WTFMove(model), element->isInteractive() ? GraphicsLayer::ModelInteraction::Enabled : GraphicsLayer::ModelInteraction::Disabled);
 
         layerConfigChanged = true;
     }
@@ -1956,9 +1956,7 @@ void RenderLayerBacking::connectClippingStackLayers(LayerAncestorClippingStack& 
     auto& clippingEntryStack = clippingStack.stack();
     for (unsigned i = 0; i < clippingEntryStack.size() - 1; ++i) {
         auto& entry = clippingEntryStack.at(i);
-        Vector<Ref<GraphicsLayer>> children;
-        children.append(*clippingEntryStack.at(i + 1).clippingLayer);
-        entry.clippingLayer->setChildren(WTFMove(children));
+        entry.clippingLayer->setChildren({ Ref { *clippingEntryStack.at(i + 1).clippingLayer } });
     }
 
     clippingEntryStack.last().clippingLayer->removeAllChildren();
@@ -2127,9 +2125,10 @@ bool RenderLayerBacking::updateOverflowControlsLayers(bool needsHorizontalScroll
 
         if (needLayer) {
             layer = createGraphicsLayer(layerName);
-            if (drawsContent)
+            if (drawsContent) {
                 layer->setAllowsBackingStoreDetaching(false);
-            else {
+                layer->setAllowsTiling(false);
+            } else {
                 layer->setPaintingPhase({ });
                 layer->setDrawsContent(false);
             }
@@ -3325,7 +3324,7 @@ static RefPtr<Pattern> patternForDescription(PatternDescription description, Flo
 {
     const FloatSize tileSize { 32, 18 };
 
-    auto imageBuffer = destContext.createCompatibleImageBuffer(tileSize);
+    auto imageBuffer = destContext.createAlignedImageBuffer(tileSize);
     if (!imageBuffer)
         return nullptr;
 

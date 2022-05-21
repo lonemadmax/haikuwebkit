@@ -525,7 +525,8 @@ public:
     virtual void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) { }
     virtual void setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&&, ContentsLayerPurpose);
 #if ENABLE(MODEL_ELEMENT)
-    virtual void setContentsToModel(RefPtr<Model>&&) { }
+    enum class ModelInteraction : uint8_t { Enabled, Disabled };
+    virtual void setContentsToModel(RefPtr<Model>&&, ModelInteraction) { }
     virtual PlatformLayerID contentsLayerIDForModel() const { return 0; }
 #endif
     virtual bool usesContentsLayer() const { return false; }
@@ -588,6 +589,9 @@ public:
     // Whether this layer can throw away backing store to save memory. False for layers that can be revealed by async scrolling.
     virtual void setAllowsBackingStoreDetaching(bool) { }
     virtual bool allowsBackingStoreDetaching() const { return true; }
+
+    virtual void setAllowsTiling(bool allowsTiling) { m_allowsTiling = allowsTiling; }
+    virtual bool allowsTiling() const { return m_allowsTiling; }
 
     virtual void deviceOrPageScaleFactorChanged() { }
     WEBCORE_EXPORT void noteDeviceOrPageScaleFactorChangedIncludingDescendants();
@@ -664,11 +668,6 @@ protected:
     // Given a KeyframeValueList containing filterOperations, return true if the operations are valid.
     static int validateFilterOperations(const KeyframeValueList&);
 
-    // Given a list of TransformAnimationValues keyframes, place a list of primitive operations which can
-    // represent the transform functions of every keyframe in the sharedPrimitives out parameter and return
-    // true. If the keyframes do not share compatible functions, return false.
-    static bool getSharedPrimitivesForTransformKeyframes(const KeyframeValueList&, Vector<TransformOperation::OperationType>& sharedPrimitives);
-
     virtual bool shouldRepaintOnSizeChange() const { return drawsContent(); }
 
     void removeFromParentInternal();
@@ -743,6 +742,7 @@ protected:
     bool m_contentsRectClipsDescendants : 1;
     bool m_acceleratesDrawing : 1;
     bool m_usesDisplayListDrawing : 1;
+    bool m_allowsTiling : 1;
     bool m_appliesPageScale : 1; // Set for the layer which has the page scale applied to it.
     bool m_showDebugBorder : 1;
     bool m_showRepaintCounter : 1;

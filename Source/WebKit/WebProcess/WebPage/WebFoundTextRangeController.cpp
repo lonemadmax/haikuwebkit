@@ -85,6 +85,27 @@ void WebFoundTextRangeController::findTextRangesForStringMatches(const String& s
     completionHandler(WTFMove(foundTextRanges));
 }
 
+void WebFoundTextRangeController::replaceFoundTextRangeWithString(const WebFoundTextRange& range, const String& string)
+{
+    auto simpleRange = simpleRangeFromFoundTextRange(range);
+    if (!simpleRange)
+        return;
+
+    RefPtr document = documentForFoundTextRange(range);
+    if (!document)
+        return;
+
+    RefPtr frame = document->frame();
+    if (!frame)
+        return;
+
+    WebCore::VisibleSelection visibleSelection(*simpleRange);
+    OptionSet temporarySelectionOptions { WebCore::TemporarySelectionOption::DoNotSetFocus, WebCore::TemporarySelectionOption::IgnoreSelectionChanges };
+    WebCore::TemporarySelectionChange selectionChange(*document, visibleSelection, temporarySelectionOptions);
+
+    frame->editor().replaceSelectionWithText(string, WebCore::Editor::SelectReplacement::Yes, WebCore::Editor::SmartReplace::No, WebCore::EditAction::InsertReplacement);
+}
+
 void WebFoundTextRangeController::decorateTextRangeWithStyle(const WebFoundTextRange& range, FindDecorationStyle style)
 {
     auto simpleRange = simpleRangeFromFoundTextRange(range);
@@ -248,11 +269,10 @@ void WebFoundTextRangeController::drawRect(WebCore::PageOverlay&, WebCore::Graph
         auto textBoundingRectInRootViewCoordinates = m_textIndicator->textBoundingRectInRootViewCoordinates();
         auto textRectsInBoundingRectCoordinates = m_textIndicator->textRectsInBoundingRectCoordinates();
 
-        Vector<WebCore::FloatRect> textRectsInRootViewCoordinates;
-        for (auto rect : textRectsInBoundingRectCoordinates) {
+        auto textRectsInRootViewCoordinates = textRectsInBoundingRectCoordinates.map([&](auto rect) {
             rect.moveBy(textBoundingRectInRootViewCoordinates.location());
-            textRectsInRootViewCoordinates.append(rect);
-        }
+            return rect;
+        });
 
         auto paths = WebCore::PathUtilities::pathsWithShrinkWrappedRects(textRectsInRootViewCoordinates, indicatorRadius);
 

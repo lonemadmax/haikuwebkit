@@ -156,6 +156,18 @@ using namespace Inspector;
 
 static const Seconds defaultTransientActivationDuration { 2_s };
 
+static WeakHashSet<DOMWindow>& windowsInterestedInStorageEvents()
+{
+    static MainThreadNeverDestroyed<WeakHashSet<DOMWindow>> set;
+    return set;
+}
+
+void DOMWindow::forEachWindowInterestedInStorageEvents(const Function<void(DOMWindow&)>& apply)
+{
+    for (auto& window : copyToVectorOf<Ref<DOMWindow>>(windowsInterestedInStorageEvents()))
+        apply(window);
+}
+
 static std::optional<Seconds>& transientActivationDurationOverrideForTesting()
 {
     static NeverDestroyed<std::optional<Seconds>> overrideForTesting;
@@ -442,6 +454,8 @@ DOMWindow::~DOMWindow()
 #endif
 
     removeLanguageChangeObserver(this);
+
+    windowsInterestedInStorageEvents().remove(*this);
 }
 
 RefPtr<MediaQueryList> DOMWindow::matchMedia(const String& media)
@@ -499,6 +513,8 @@ void DOMWindow::willDetachDocumentFromFrame()
     if (m_performance)
         m_performance->clearResourceTimings();
 
+    windowsInterestedInStorageEvents().remove(*this);
+
     JSDOMWindowBase::fireFrameClearedWatchpointsForWindow(this);
     InspectorInstrumentation::frameWindowDiscarded(*frame(), this);
 }
@@ -540,7 +556,7 @@ void DOMWindow::resetUnlessSuspendedForDocumentSuspension()
 
 void DOMWindow::suspendForBackForwardCache()
 {
-    SetForScope<bool> isSuspendingObservers(m_isSuspendingObservers, true);
+    SetForScope isSuspendingObservers(m_isSuspendingObservers, true);
     RELEASE_ASSERT(frame());
 
     for (auto* observer : copyToVector(m_observers)) {
@@ -832,6 +848,8 @@ ExceptionOr<Storage*> DOMWindow::sessionStorage()
 
     auto storageArea = page->sessionStorage()->storageArea(document->securityOrigin());
     m_sessionStorage = Storage::create(*this, WTFMove(storageArea));
+    if (hasEventListeners(eventNames().storageEvent))
+        windowsInterestedInStorageEvents().add(*this);
     return m_sessionStorage.get();
 }
 
@@ -866,6 +884,8 @@ ExceptionOr<Storage*> DOMWindow::localStorage()
 
     auto storageArea = page->storageNamespaceProvider().localStorageArea(*document);
     m_localStorage = Storage::create(*this, WTFMove(storageArea));
+    if (hasEventListeners(eventNames().storageEvent))
+        windowsInterestedInStorageEvents().add(*this);
     return m_localStorage.get();
 }
 
@@ -943,7 +963,7 @@ ExceptionOr<void> DOMWindow::postMessage(JSC::JSGlobalObject& lexicalGlobalObjec
         UserGestureIndicator userGestureIndicator(userGestureToForward);
         InspectorInstrumentation::willDispatchPostMessage(frame, postMessageIdentifier);
 
-        auto event = MessageEvent::create(MessagePort::entanglePorts(*document(), WTFMove(message.transferredPorts)), message.message.releaseNonNull(), sourceOrigin, { }, incumbentWindowProxy ? std::make_optional(MessageEventSource(WTFMove(incumbentWindowProxy))) : std::nullopt);
+        auto event = MessageEvent::create(message.message.releaseNonNull(), sourceOrigin, { }, incumbentWindowProxy ? std::make_optional(MessageEventSource(WTFMove(incumbentWindowProxy))) : std::nullopt, MessagePort::entanglePorts(*document(), WTFMove(message.transferredPorts)));
         dispatchEvent(event);
 
         InspectorInstrumentation::didDispatchPostMessage(frame, postMessageIdentifier);
@@ -2399,6 +2419,10 @@ void DOMWindow::setLocation(DOMWindow& activeWindow, const URL& completedURL, Se
     if (isInsecureScriptAccess(activeWindow, completedURL.string()))
         return;
 
+    // Check the CSP of the embedder to determine if we allow execution of javascript: URLs via child frame navigation.
+    if (completedURL.protocolIsJavaScript() && frameElement() && !frameElement()->document().contentSecurityPolicy()->allowJavaScriptURLs(aboutBlankURL().string(), { }, completedURL.string(), frameElement()))
+        return;
+
     // We want a new history item if we are processing a user gesture.
     LockHistory lockHistory = (locking != LockHistoryBasedOnGestureState || !UserGestureIndicator::processingUserGesture()) ? LockHistory::Yes : LockHistory::No;
     LockBackForwardList lockBackForwardList = (locking != LockHistoryBasedOnGestureState) ? LockBackForwardList::Yes : LockBackForwardList::No;
@@ -2562,8 +2586,8 @@ ExceptionOr<RefPtr<WindowProxy>> DOMWindow::open(DOMWindow& activeWindow, DOMWin
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (RefPtr document = this->document()) {
         if (document->settings().needsSiteSpecificQuirks() && urlStringToOpen == Quirks::BBCRadioPlayerURLString()) {
-            auto radioPlayerDomain = RegistrableDomain(URL(URL(), Quirks::staticRadioPlayerURLString()));
-            auto BBCDomain = RegistrableDomain(URL(URL(), Quirks::BBCRadioPlayerURLString()));
+            auto radioPlayerDomain = RegistrableDomain(URL { Quirks::staticRadioPlayerURLString() });
+            auto BBCDomain = RegistrableDomain(URL { Quirks::BBCRadioPlayerURLString() });
             if (!ResourceLoadObserver::shared().hasCrossPageStorageAccess(radioPlayerDomain, BBCDomain))
                 return RefPtr<WindowProxy> { nullptr };
         }
@@ -2649,6 +2673,9 @@ ExceptionOr<RefPtr<WindowProxy>> DOMWindow::open(DOMWindow& activeWindow, DOMWin
 
 void DOMWindow::showModalDialog(const String& urlString, const String& dialogFeaturesString, DOMWindow& activeWindow, DOMWindow& firstWindow, const Function<void(DOMWindow&)>& prepareDialogFunction)
 {
+    if (RefPtr document = this->document())
+        document->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "showModalDialog() is deprecated and will be removed. Please use the <dialog> element instead."_s);
+
     if (!isCurrentlyDisplayedInFrame())
         return;
     if (!activeWindow.frame())
@@ -2695,6 +2722,16 @@ Frame* DOMWindow::frame() const
 {
     auto* document = this->document();
     return document ? document->frame() : nullptr;
+}
+
+void DOMWindow::eventListenersDidChange()
+{
+    if (m_localStorage || m_sessionStorage) {
+        if (hasEventListeners(eventNames().storageEvent))
+            windowsInterestedInStorageEvents().add(*this);
+        else
+            windowsInterestedInStorageEvents().remove(*this);
+    }
 }
 
 } // namespace WebCore

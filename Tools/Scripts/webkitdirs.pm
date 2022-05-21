@@ -342,6 +342,15 @@ sub setBaseProductDir($)
     ($baseProductDir) = @_;
 }
 
+sub setCreatedByXcodeBuildSystem
+{
+    determineBaseProductDir();
+    make_path($baseProductDir);
+    # This attribute is needed to support VALIDATE_DEPENDENCIES and other diagnostics.
+    my @xattr = ("xattr", "-w", "com.apple.xcode.CreatedByBuildSystem", "true", $baseProductDir);
+    system(@xattr) == 0 or die "xattr failed: $?";
+}
+
 sub determineConfiguration
 {
     return if defined $configuration;
@@ -779,7 +788,7 @@ sub visualStudioInstallDirVSWhere
 {
     my $vswhere = File::Spec->catdir(programFilesPathX86(), "Microsoft Visual Studio", "Installer", "vswhere.exe");
     return unless -e $vswhere;
-    open(my $handle, "-|", $vswhere, qw(-nologo -latest -requires Microsoft.Component.MSBuild -property installationPath)) || return;
+    open(my $handle, "-|", $vswhere, qw(-nologo -latest -requires Microsoft.Component.MSBuild -property installationPath -products *)) || return;
     my $vsWhereOut = <$handle>;
     $vsWhereOut =~ s/\r?\n//;
     return $vsWhereOut;

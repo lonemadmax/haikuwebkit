@@ -491,11 +491,6 @@ RenderBox* RenderObject::enclosingScrollableContainerForSnapping() const
     return document().documentElement() ? document().documentElement()->renderBox() : nullptr;
 }
 
-RenderBlock* RenderObject::firstLineBlock() const
-{
-    return nullptr;
-}
-
 static inline bool objectIsRelayoutBoundary(const RenderElement* object)
 {
     // FIXME: In future it may be possible to broaden these conditions in order to improve performance.
@@ -2249,7 +2244,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     for (auto& node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
         auto renderer = node.renderer();
         // Only ask leaf render objects for their line box rects.
-        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelectIncludingInert() != UserSelect::None) {
+        if (renderer && !renderer->firstChildSlow() && renderer->style().effectiveUserSelect() != UserSelect::None) {
             bool isStartNode = renderer->node() == range.start.container.ptr();
             bool isEndNode = renderer->node() == range.end.container.ptr();
             if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())
@@ -2606,6 +2601,11 @@ bool WebCore::shouldApplyLayoutContainment(const WebCore::RenderObject& renderer
 bool WebCore::shouldApplySizeContainment(const WebCore::RenderObject& renderer)
 {
     return renderer.style().containsSize() && (!renderer.isInline() || renderer.isAtomicInlineLevelBox()) && !renderer.isRubyText() && (!renderer.isTablePart() || renderer.isTableCaption()) && !renderer.isTable();
+}
+
+bool WebCore::shouldApplyInlineSizeContainment(const WebCore::RenderObject& renderer)
+{
+    return renderer.style().effectiveContainment().contains(Containment::InlineSize) && (!renderer.isInline() || renderer.isAtomicInlineLevelBox()) && !renderer.isRubyText() && (!renderer.isTablePart() || renderer.isTableCaption()) && !renderer.isTable();
 }
 
 bool WebCore::shouldApplyStyleContainment(const WebCore::RenderObject& renderer)

@@ -735,17 +735,17 @@ Vector<String> Element::getAttributeNames() const
 
 bool Element::isFocusable() const
 {
-    if (!isConnected() || !supportsFocus() || deprecatedIsInert())
+    if (!isConnected() || !supportsFocus())
         return false;
 
     if (!renderer()) {
         // Elements in canvas fallback content are not rendered, but they are allowed to be
         // focusable as long as their canvas is displayed and visible.
         if (auto* canvas = ancestorsOfType<HTMLCanvasElement>(*this).first())
-            return canvas->isVisibleWithoutResolvingFullStyle();
+            return canvas->isFocusableWithoutResolvingFullStyle();
     }
 
-    return isVisibleWithoutResolvingFullStyle();
+    return isFocusableWithoutResolvingFullStyle();
 }
 
 bool Element::isUserActionElementInActiveChain() const
@@ -3073,7 +3073,7 @@ void Element::focus(const FocusOptions& options)
     Ref document { this->document() };
     if (document->focusedElement() == this) {
         if (document->page())
-            document->page()->chrome().client().elementDidRefocus(*this);
+            document->page()->chrome().client().elementDidRefocus(*this, options);
         return;
     }
 
@@ -3091,7 +3091,7 @@ void Element::focus(const FocusOptions& options)
         RefPtr currentlyFocusedElement = document->focusedElement();
         if (root->containsIncludingShadowDOM(currentlyFocusedElement.get())) {
             if (document->page())
-                document->page()->chrome().client().elementDidRefocus(*currentlyFocusedElement);
+                document->page()->chrome().client().elementDidRefocus(*currentlyFocusedElement, options);
             return;
         }
 
@@ -3208,10 +3208,10 @@ void Element::dispatchFocusOutEventIfNeeded(RefPtr<Element>&& newFocusedElement)
     dispatchScopedEvent(FocusEvent::create(eventNames().focusoutEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(newFocusedElement)));
 }
 
-void Element::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection)
+void Element::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions& options)
 {
     if (auto* page = document().page())
-        page->chrome().client().elementDidFocus(*this);
+        page->chrome().client().elementDidFocus(*this, options);
     dispatchEvent(FocusEvent::create(eventNames().focusEvent, Event::CanBubble::No, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(oldFocusedElement)));
 }
 
@@ -3253,7 +3253,10 @@ bool Element::dispatchMouseForceWillBegin()
 void Element::enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventInit&& eventInit)
 {
     document().eventLoop().queueTask(TaskSource::DOMManipulation, [this, protectedThis = Ref { *this }, event = SecurityPolicyViolationEvent::create(eventNames().securitypolicyviolationEvent, WTFMove(eventInit), Event::IsTrusted::Yes)] {
-        dispatchEvent(event);
+        if (!isConnected())
+            document().dispatchEvent(event);
+        else
+            dispatchEvent(event);
     });
 }
 
@@ -3555,11 +3558,10 @@ bool Element::hasValidStyle() const
     return true;
 }
 
-bool Element::isVisibleWithoutResolvingFullStyle() const
+bool Element::isFocusableWithoutResolvingFullStyle() const
 {
-
     if (renderStyle() || hasValidStyle())
-        return renderStyle() && renderStyle()->visibility() == Visibility::Visible;
+        return renderStyle() && renderStyle()->visibility() == Visibility::Visible && !renderStyle()->effectiveInert();
 
     auto computedStyleForElement = [](Element& element) -> const RenderStyle* {
         auto* style = element.hasNodeFlag(NodeFlag::IsComputedStyleInvalidFlag) ? nullptr : element.existingComputedStyle();
@@ -3574,7 +3576,7 @@ bool Element::isVisibleWithoutResolvingFullStyle() const
     if (style->display() == DisplayType::None || style->display() == DisplayType::Contents)
         return false;
 
-    if (style->visibility() != Visibility::Visible)
+    if (style->visibility() != Visibility::Visible || style->effectiveInert())
         return false;
 
     for (auto& element : composedTreeAncestors(const_cast<Element&>(*this))) {
@@ -4686,6 +4688,7 @@ Element* Element::findAnchorElementForLink(String& outAnchorName)
 ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlobalObject, JSC::Strong<JSC::JSObject>&& keyframes, std::optional<std::variant<double, KeyframeAnimationOptions>>&& options)
 {
     String id = "";
+    std::optional<RefPtr<AnimationTimeline>> timeline;
     std::variant<FramesPerSecond, AnimationFrameRatePreset> frameRate = AnimationFrameRatePreset::Auto;
     std::optional<std::variant<double, KeyframeEffectOptions>> keyframeEffectOptions;
     if (options) {
@@ -4697,6 +4700,7 @@ ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlob
             auto keyframeEffectOptions = std::get<KeyframeAnimationOptions>(optionsValue);
             id = keyframeEffectOptions.id;
             frameRate = keyframeEffectOptions.frameRate;
+            timeline = keyframeEffectOptions.timeline;
             keyframeEffectOptionsVariant = WTFMove(keyframeEffectOptions);
         }
         keyframeEffectOptions = keyframeEffectOptionsVariant;
@@ -4708,6 +4712,8 @@ ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlob
 
     auto animation = WebAnimation::create(document(), &keyframeEffectResult.returnValue().get());
     animation->setId(id);
+    if (timeline)
+        animation->setTimeline(timeline->get());
     animation->setBindingsFrameRate(WTFMove(frameRate));
 
     auto animationPlayResult = animation->play();
@@ -4729,8 +4735,11 @@ Vector<RefPtr<WebAnimation>> Element::getAnimations(std::optional<GetAnimationsO
     }
 
     // For the list of animations to be current, we need to account for any pending CSS changes,
-    // such as updates to CSS Animations and CSS Transitions.
+    // such as updates to CSS Animations and CSS Transitions. This requires updating layout as
+    // well since resolving layout-dependent media queries could yield animations.
     // FIXME: We might be able to use ComputedStyleExtractor which is more optimized.
+    if (RefPtr owner = document().ownerElement())
+        owner->document().updateLayout();
     document().updateStyleIfNeeded();
 
     Vector<RefPtr<WebAnimation>> animations;

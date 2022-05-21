@@ -334,6 +334,7 @@ namespace JSC {
         using OpcodeID = ::JSC::OpcodeID;
         using OpNop = ::JSC::OpNop;
         using CodeBlock = std::unique_ptr<UnlinkedCodeBlockGenerator>;
+        using InstructionType = JSInstruction;
         static constexpr OpcodeID opcodeForDisablingOptimizations = op_end;
     };
 
@@ -468,7 +469,7 @@ namespace JSC {
 
         void emitNode(RegisterID* dst, StatementNode* n)
         {
-            SetForScope<bool> tailPositionPoisoner(m_inTailPosition, false);
+            SetForScope tailPositionPoisoner(m_inTailPosition, false);
             return emitNodeInTailPosition(dst, n);
         }
 
@@ -502,7 +503,7 @@ namespace JSC {
 
         RegisterID* emitNode(RegisterID* dst, ExpressionNode* n)
         {
-            SetForScope<bool> tailPositionPoisoner(m_inTailPosition, false);
+            SetForScope tailPositionPoisoner(m_inTailPosition, false);
             return emitNodeInTailPosition(dst, n);
         }
 
@@ -1090,7 +1091,7 @@ namespace JSC {
         void allocateAndEmitScope();
 
         template<typename JumpOp>
-        void setTargetForJumpInstruction(InstructionStream::MutableRef&, int target);
+        void setTargetForJumpInstruction(JSInstructionStream::MutableRef&, int target);
 
         using BigIntMapEntry = std::tuple<UniquedStringImpl*, uint8_t, bool>;
 
@@ -1188,7 +1189,7 @@ namespace JSC {
         JSValue addBigIntConstant(const Identifier&, uint8_t radix, bool sign);
         RegisterID* addTemplateObjectConstant(Ref<TemplateObjectDescriptor>&&, int);
 
-        const InstructionStream& instructions() const { return m_writer; }
+        const JSInstructionStreamWriter& instructions() const { return m_writer; }
 
         RegisterID* emitThrowExpressionTooDeepException();
 
@@ -1204,7 +1205,7 @@ namespace JSC {
         void restoreTDZStack(const PreservedTDZStack&);
 
         template<typename Func>
-        void withWriter(InstructionStreamWriter& writer, const Func& fn)
+        void withWriter(JSInstructionStreamWriter& writer, const Func& fn)
         {
             auto prevLastOpcodeID = m_lastOpcodeID;
             auto prevLastInstruction = m_lastInstruction;

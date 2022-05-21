@@ -697,7 +697,7 @@ void MediaPlayer::setBufferingPolicy(BufferingPolicy policy)
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
-std::unique_ptr<LegacyCDMSession> MediaPlayer::createSession(const String& keySystem, LegacyCDMSessionClient* client)
+std::unique_ptr<LegacyCDMSession> MediaPlayer::createSession(const String& keySystem, LegacyCDMSessionClient& client)
 {
     return m_private->createSession(keySystem, client);
 }
@@ -1781,6 +1781,11 @@ void MediaPlayer::stopVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = false;
     m_private->stopVideoFrameMetadataGathering();
+}
+
+void MediaPlayer::playerContentBoxRectChanged(const LayoutRect& rect)
+{
+    m_private->playerContentBoxRectChanged(rect);
 }
 
 #if PLATFORM(COCOA)

@@ -116,6 +116,7 @@ const TestFeatures& TestOptions::defaults()
             { "OffscreenCanvasEnabled", true },
             { "OffscreenCanvasInWorkersEnabled", true },
             { "PageVisibilityBasedProcessSuppressionEnabled", false },
+            { "PdfJSViewerEnabled", false },
             { "PluginsEnabled", true },
             { "RequiresUserGestureForAudioPlayback", false },
             { "RequiresUserGestureForMediaPlayback", false },
@@ -127,7 +128,7 @@ const TestFeatures& TestOptions::defaults()
             { "TextAutosizingUsesIdempotentMode", false },
             { "UsesBackForwardCache", false },
             { "WebAuthenticationEnabled", true },
-            { "WebRTCRemoteVideoFrameEnabled", false },
+            { "WebRTCRemoteVideoFrameEnabled", true },
             { "WebRTCMDNSICECandidatesEnabled", false },
             { "XSSAuditorEnabled", false },
 #if PLATFORM(IOS_FAMILY_SIMULATOR)

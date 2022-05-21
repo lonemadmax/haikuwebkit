@@ -30,12 +30,12 @@
 
 namespace WebCore {
 
-inline void SVGElement::invalidateSVGAttributes()
+inline void SVGElement::setAnimatedSVGAttributesAreDirty()
 {
     ensureUniqueElementData().setAnimatedSVGAttributesAreDirty(true);
 }
 
-inline void SVGElement::invalidateSVGPresentationalHintStyle()
+inline void SVGElement::setPresentationalHintStyleIsDirty()
 {
     ensureUniqueElementData().setPresentationalHintStyleIsDirty(true);
     // Trigger style recalculation for "elements as resource" (e.g. referenced by feImage).
@@ -47,7 +47,7 @@ struct SVGAttributeHashTranslator {
     {
         if (key.hasPrefix()) {
             QualifiedNameComponents components = { nullAtom().impl(), key.localName().impl(), key.namespaceURI().impl() };
-            return hashComponents(components);
+            return computeHash(components);
         }
         return DefaultHash<QualifiedName>::hash(key);
     }

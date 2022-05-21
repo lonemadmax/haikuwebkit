@@ -26,6 +26,7 @@
 #import "config.h"
 #import "WKWebViewInternal.h"
 
+#import "APIDataTask.h"
 #import "APIFormClient.h"
 #import "APIFrameTreeNode.h"
 #import "APIPageConfiguration.h"
@@ -99,6 +100,7 @@
 #import "_WKActivatedElementInfoInternal.h"
 #import "_WKAppHighlightDelegate.h"
 #import "_WKAppHighlightInternal.h"
+#import "_WKDataTaskInternal.h"
 #import "_WKDiagnosticLoggingDelegate.h"
 #import "_WKFindDelegate.h"
 #import "_WKFrameHandleInternal.h"
@@ -649,6 +651,10 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     CFNotificationCenterRemoveObserver(CFNotificationCenterGetDarwinNotifyCenter(), (__bridge const void *)(self), (__bridge CFStringRef)notificationName.get(), nullptr);
 #endif
 
+#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+    [self _invalidateResizeAssertions];
+#endif
+
     [super dealloc];
 }
 
@@ -1124,7 +1130,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
             break;
         }
 
-        argumentsMap->set(key, serializedValue->internalRepresentation().toWireBytes());
+        argumentsMap->set(key, serializedValue->internalRepresentation().wireBytes());
     }
 
     if (errorMessage && handler) {
@@ -2220,12 +2226,10 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 #endif
 }
 
-- (void)_requestResource:(NSURLRequest *)request completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))completionHandler
+- (void)_dataTaskWithRequest:(NSURLRequest *)request completionHandler:(void(^)(_WKDataTask *))completionHandler
 {
-    _page->requestResource(request, [completionHandler = makeBlockPtr(completionHandler)] (Ref<WebCore::SharedBuffer>&& buffer, WebCore::ResourceResponse&& response, WebCore::ResourceError&& error) {
-        if (error.isNull())
-            return completionHandler(buffer->createNSData().get(), response.nsURLResponse(), nil);
-        completionHandler(nil, nil, error.nsError());
+    _page->dataTaskWithRequest(request, [completionHandler = makeBlockPtr(completionHandler)] (Ref<API::DataTask>&& task) {
+        completionHandler(wrapper(task));
     });
 }
 
@@ -3295,7 +3299,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 
 - (void)_serviceWorkersEnabled:(void(^)(BOOL))completionHandler
 {
-    auto enabled = [_configuration preferences]->_preferences.get()->serviceWorkersEnabled() || WebCore::RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled();
+    auto enabled = [_configuration preferences]->_preferences.get()->serviceWorkersEnabled();
     completionHandler(enabled);
 }
 
@@ -3568,13 +3572,6 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 #else
     return 0;
 #endif
-}
-
-- (void)_grantAccessToPreferenceService
-{
-    THROW_IF_SUSPENDED;
-    if (_page)
-        _page->grantAccessToPreferenceService();
 }
 
 #pragma mark - scrollPerformanceData

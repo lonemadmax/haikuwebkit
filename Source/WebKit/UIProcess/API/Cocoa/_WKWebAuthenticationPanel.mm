@@ -276,22 +276,21 @@ static RetainPtr<NSArray> getAllLocalAuthenticatorCredentialsImpl(NSString *acce
         }
         auto& username = it->second.getString();
 
-        it = responseMap.find(cbor::CBORValue(fido::kEntityIdMapKey));
-        if (it == responseMap.end() || !it->second.isByteString()) {
-            ASSERT_NOT_REACHED();
-            return nullptr;
-        }
-        auto& userHandle = it->second.getByteString();
-
         auto credential = adoptNS([[NSMutableDictionary alloc] initWithObjectsAndKeys:
             username, _WKLocalAuthenticatorCredentialNameKey,
             attributes[bridge_cast(kSecAttrApplicationLabel)], _WKLocalAuthenticatorCredentialIDKey,
             attributes[bridge_cast(kSecAttrLabel)], _WKLocalAuthenticatorCredentialRelyingPartyIDKey,
             attributes[bridge_cast(kSecAttrModificationDate)], _WKLocalAuthenticatorCredentialLastModificationDateKey,
             attributes[bridge_cast(kSecAttrCreationDate)], _WKLocalAuthenticatorCredentialCreationDateKey,
-            adoptNS([[NSData alloc] initWithBytes:userHandle.data() length:userHandle.size()]).get(), _WKLocalAuthenticatorCredentialUserHandleKey,
             nil
         ]);
+        it = responseMap.find(cbor::CBORValue(fido::kEntityIdMapKey));
+        if (it != responseMap.end() && it->second.isByteString()) {
+            auto& userHandle = it->second.getByteString();
+            [credential setObject:adoptNS([[NSData alloc] initWithBytes:userHandle.data() length:userHandle.size()]).get() forKey:_WKLocalAuthenticatorCredentialUserHandleKey];
+        } else
+            [credential setObject:[NSNull null] forKey:_WKLocalAuthenticatorCredentialUserHandleKey];
+
         updateCredentialIfNecessary(credential.get(), attributes);
 
         it = responseMap.find(cbor::CBORValue(fido::kDisplayNameMapKey));
@@ -736,10 +735,28 @@ static WebCore::UserVerificationRequirement userVerification(_WKUserVerification
     }
 }
 
+static std::optional<WebCore::ResidentKeyRequirement> toWebCore(_WKResidentKeyRequirement uv)
+{
+    switch (uv) {
+    case _WKResidentKeyRequirementNotPresent:
+        return std::nullopt;
+    case _WKResidentKeyRequirementRequired:
+        return WebCore::ResidentKeyRequirement::Required;
+    case _WKResidentKeyRequirementPreferred:
+        return WebCore::ResidentKeyRequirement::Preferred;
+    case _WKResidentKeyRequirementDiscouraged:
+        return WebCore::ResidentKeyRequirement::Discouraged;
+    default:
+        ASSERT_NOT_REACHED();
+        return WebCore::ResidentKeyRequirement::Preferred;
+    }
+}
+
 static WebCore::PublicKeyCredentialCreationOptions::AuthenticatorSelectionCriteria authenticatorSelectionCriteria(_WKAuthenticatorSelectionCriteria *authenticatorSelection)
 {
     WebCore::PublicKeyCredentialCreationOptions::AuthenticatorSelectionCriteria result;
     result.authenticatorAttachment = authenticatorAttachment(authenticatorSelection.authenticatorAttachment);
+    result.residentKey = toWebCore(authenticatorSelection.residentKey);
     result.requireResidentKey = authenticatorSelection.requireResidentKey;
     result.userVerification = userVerification(authenticatorSelection.userVerification);
 
@@ -823,7 +840,7 @@ static RetainPtr<_WKAuthenticatorAttestationResponse> wkAuthenticatorAttestation
             handler(nil, [NSError errorWithDomain:WKErrorDomain code:exception.code userInfo:@{ NSLocalizedDescriptionKey: exception.message }]);
         });
     };
-    _panel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt }, WTFMove(callback));
+    _panel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
 #endif
 }
 
@@ -837,7 +854,7 @@ static RetainPtr<_WKAuthenticatorAttestationResponse> wkAuthenticatorAttestation
             handler(nil, [NSError errorWithDomain:WKErrorDomain code:exception.code userInfo:@{ NSLocalizedDescriptionKey: exception.message }]);
         });
     };
-    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt }, WTFMove(callback));
+    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
 #endif
 }
 
@@ -887,7 +904,7 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
             handler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
         });
     };
-    _panel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt }, WTFMove(callback));
+    _panel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
 #endif
 }
 
@@ -901,7 +918,7 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
             handler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
         });
     };
-    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt }, WTFMove(callback));
+    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
 #endif
 }
 
@@ -931,7 +948,7 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
 #if ENABLE(WEB_AUTHN)
     auto hash = produceClientDataJsonHash(clientDataJSON);
 
-    auto encodedVector = fido::encodeMakeCredenitalRequestAsCBOR(hash, [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], coreUserVerificationAvailability(userVerificationAvailability), std::nullopt);
+    auto encodedVector = fido::encodeMakeCredenitalRequestAsCBOR(hash, [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], coreUserVerificationAvailability(userVerificationAvailability), fido::AuthenticatorSupportedOptions::ResidentKeyAvailability::kSupported, std::nullopt);
     encodedCommand = adoptNS([[NSData alloc] initWithBytes:encodedVector.data() length:encodedVector.size()]);
 #endif
 
@@ -956,7 +973,7 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
 {
     RetainPtr<NSData> encodedCommand;
 #if ENABLE(WEB_AUTHN)
-    auto encodedVector = fido::encodeMakeCredenitalRequestAsCBOR(vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], coreUserVerificationAvailability(userVerificationAvailability), std::nullopt);
+    auto encodedVector = fido::encodeMakeCredenitalRequestAsCBOR(vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], coreUserVerificationAvailability(userVerificationAvailability), fido::AuthenticatorSupportedOptions::ResidentKeyAvailability::kSupported, std::nullopt);
     encodedCommand = adoptNS([[NSData alloc] initWithBytes:encodedVector.data() length:encodedVector.size()]);
 #endif
 

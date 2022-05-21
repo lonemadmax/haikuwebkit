@@ -32,7 +32,6 @@
 #include "WebAuthnProcessConnectionInfo.h"
 #include "WebAuthnProcessCreationParameters.h"
 #include "WebAuthnProcessMessages.h"
-#include "WebAuthnProcessProxyMessages.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebProcessMessages.h"
@@ -162,6 +161,8 @@ void WebAuthnProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Co
     if (xpc_connection_t connection = this->connection()->xpcConnection())
         m_throttler.didConnectToProcess(xpc_connection_get_pid(connection));
 #endif
+
+    beginResponsivenessChecks();
 }
 
 void WebAuthnProcessProxy::updateProcessAssertion()

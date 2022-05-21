@@ -35,6 +35,7 @@
 #include "RTCDecoderIdentifier.h"
 #include "RTCEncoderIdentifier.h"
 #include "RemoteVideoFrameIdentifier.h"
+#include "RemoteVideoFrameProxy.h"
 #include "SharedVideoFrame.h"
 #include <WebCore/PixelBufferConformerCV.h>
 #include <map>
@@ -48,10 +49,6 @@ using CVPixelBufferPoolRef = struct __CVPixelBufferPool*;
 namespace IPC {
 class Connection;
 class Decoder;
-}
-
-namespace WebCore {
-class RemoteVideoSample;
 }
 
 namespace webrtc {
@@ -107,6 +104,7 @@ public:
         Lock encodedImageCallbackLock;
         RefPtr<IPC::Connection> connection;
         SharedVideoFrameWriter sharedVideoFrameWriter;
+        bool hasSentInitialEncodeRates { false };
     };
 
     Encoder* createEncoder(Type, const std::map<std::string, std::string>&);
@@ -131,7 +129,9 @@ private:
     void gpuProcessConnectionMayNoLongerBeNeeded();
 
     void failedDecoding(RTCDecoderIdentifier);
-    void completedDecoding(RTCDecoderIdentifier, uint32_t timeStamp, WebCore::RemoteVideoSample&&, std::optional<RemoteVideoFrameIdentifier>);
+    void completedDecoding(RTCDecoderIdentifier, uint32_t timeStamp, uint32_t timeStampNs, RemoteVideoFrameProxy::Properties&&);
+    // FIXME: Will be removed once RemoteVideoFrameProxy providers are the only ones sending data.
+    void completedDecodingCV(RTCDecoderIdentifier, uint32_t timeStamp, uint32_t timeStampNs, RetainPtr<CVPixelBufferRef>&&);
     void completedEncoding(RTCEncoderIdentifier, IPC::DataReference&&, const webrtc::WebKitEncodedFrameInfo&);
     RetainPtr<CVPixelBufferRef> convertToBGRA(CVPixelBufferRef);
 
@@ -141,12 +141,19 @@ private:
     // GPUProcessConnection::Client
     void gpuProcessConnectionDidClose(GPUProcessConnection&);
 
-private:
-    HashMap<RTCDecoderIdentifier, std::unique_ptr<Decoder>> m_decoders;
-    HashSet<RTCDecoderIdentifier> m_decodingErrors;
+    IPC::Connection* encoderConnection(Encoder&) WTF_REQUIRES_LOCK(m_encodersConnectionLock);
+    void setEncoderConnection(Encoder&, RefPtr<IPC::Connection>&&) WTF_REQUIRES_LOCK(m_encodersConnectionLock);
+    IPC::Connection* decoderConnection(Decoder&) WTF_REQUIRES_LOCK(m_connectionLock);
+    void setDecoderConnection(Decoder&, RefPtr<IPC::Connection>&&) WTF_REQUIRES_LOCK(m_connectionLock);
 
-    Lock m_encodersLock;
-    HashMap<RTCEncoderIdentifier, std::unique_ptr<Encoder>> m_encoders;
+    template<typename Buffer> bool copySharedVideoFrame(LibWebRTCCodecs::Encoder&, IPC::Connection&, Buffer&&);
+    WorkQueue& workQueue() const { return m_queue; }
+
+private:
+    HashMap<RTCDecoderIdentifier, std::unique_ptr<Decoder>> m_decoders WTF_GUARDED_BY_CAPABILITY(workQueue());
+
+    Lock m_encodersConnectionLock;
+    HashMap<RTCEncoderIdentifier, std::unique_ptr<Encoder>> m_encoders WTF_GUARDED_BY_CAPABILITY(workQueue());
 
     std::atomic<bool> m_needsGPUProcessConnection;
 

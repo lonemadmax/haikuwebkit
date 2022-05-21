@@ -26,6 +26,10 @@
 #include "config.h"
 #include "VideoFrame.h"
 
+#if PLATFORM(COCOA)
+#include "VideoFrameCV.h"
+#endif
+
 #if ENABLE(VIDEO)
 
 namespace WebCore {
@@ -98,18 +102,6 @@ void VideoFrame::setTimestamps(const MediaTime&, const MediaTime&)
     ASSERT_NOT_REACHED();
 }
 
-bool VideoFrame::isDivisable() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-std::pair<RefPtr<WebCore::MediaSample>, RefPtr<WebCore::MediaSample>> VideoFrame::divide(const MediaTime&, UseEndTime)
-{
-    ASSERT_NOT_REACHED();
-    return { nullptr, nullptr };
-}
-
 Ref<WebCore::MediaSample> VideoFrame::createNonDisplayingCopy() const
 {
     CRASH();
@@ -120,16 +112,27 @@ MediaSample::SampleFlags VideoFrame::flags() const
     return MediaSample::SampleFlags::None;
 }
 
-std::optional<MediaSample::ByteRange> VideoFrame::byteRange() const
-{
-    // FIXME: Remove from the base class.
-    ASSERT_NOT_REACHED();
-    return std::nullopt;
-}
-
 void VideoFrame::dump(PrintStream&) const
 {
 }
+
+void VideoFrame::initializeCharacteristics(MediaTime presentationTime, bool isMirrored, VideoRotation rotation)
+{
+    const_cast<MediaTime&>(m_presentationTime) = presentationTime;
+    const_cast<bool&>(m_isMirrored) = isMirrored;
+    const_cast<VideoRotation&>(m_rotation) = rotation;
+}
+
+#if PLATFORM(COCOA)
+RefPtr<VideoFrameCV> VideoFrame::asVideoFrameCV()
+{
+    auto buffer = pixelBuffer();
+    if (!buffer)
+        return nullptr;
+
+    return VideoFrameCV::create(presentationTime(), videoMirrored(), videoRotation(), buffer);
+}
+#endif
 
 }
 

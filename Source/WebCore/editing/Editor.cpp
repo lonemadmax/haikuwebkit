@@ -230,14 +230,14 @@ TemporarySelectionChange::TemporarySelectionChange(Document& document, std::opti
 
     if (temporarySelection) {
         m_selectionToRestore = document.selection().selection();
-        setSelection(temporarySelection.value());
+        setSelection(temporarySelection.value(), IsTemporarySelection::Yes);
     }
 }
 
 TemporarySelectionChange::~TemporarySelectionChange()
 {
     if (m_selectionToRestore)
-        setSelection(m_selectionToRestore.value());
+        setSelection(m_selectionToRestore.value(), IsTemporarySelection::No);
 
     if (m_options & TemporarySelectionOption::IgnoreSelectionChanges) {
         auto revealSelection = m_options & TemporarySelectionOption::RevealSelection ? Editor::RevealSelection::Yes : Editor::RevealSelection::No;
@@ -250,19 +250,23 @@ TemporarySelectionChange::~TemporarySelectionChange()
 #endif
 }
 
-void TemporarySelectionChange::setSelection(const VisibleSelection& selection)
+void TemporarySelectionChange::setSelection(const VisibleSelection& selection, IsTemporarySelection isTemporarySelection)
 {
     auto options = FrameSelection::defaultSetSelectionOptions();
     if (m_options & TemporarySelectionOption::DoNotSetFocus)
         options.add(FrameSelection::DoNotSetFocus);
-    if (m_options & TemporarySelectionOption::RevealSelection)
-        options.add(FrameSelection::RevealSelection);
-    if (m_options & TemporarySelectionOption::DelegateMainFrameScroll)
-        options.add(FrameSelection::DelegateMainFrameScroll);
-    if (m_options & TemporarySelectionOption::SmoothScroll)
-        options.add(FrameSelection::SmoothScroll);
-    if (m_options & TemporarySelectionOption::RevealSelectionBounds)
-        options.add(FrameSelection::RevealSelectionBounds);
+
+    if (isTemporarySelection == IsTemporarySelection::Yes) {
+        if (m_options & TemporarySelectionOption::RevealSelection)
+            options.add(FrameSelection::RevealSelection);
+        if (m_options & TemporarySelectionOption::DelegateMainFrameScroll)
+            options.add(FrameSelection::DelegateMainFrameScroll);
+        if (m_options & TemporarySelectionOption::SmoothScroll)
+            options.add(FrameSelection::SmoothScroll);
+        if (m_options & TemporarySelectionOption::RevealSelectionBounds)
+            options.add(FrameSelection::RevealSelectionBounds);
+    }
+
     m_document->selection().setSelection(selection, options);
 }
 
@@ -1380,7 +1384,7 @@ bool Editor::insertParagraphSeparatorInQuotedContent()
 
 void Editor::cut(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 {
-    SetForScope<bool> copyScope { m_copyingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
+    SetForScope copyScope { m_copyingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
     if (tryDHTMLCut())
         return; // DHTML did the whole operation
     if (!canCut()) {
@@ -1393,7 +1397,7 @@ void Editor::cut(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 
 void Editor::copy(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 {
-    SetForScope<bool> copyScope { m_copyingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
+    SetForScope copyScope { m_copyingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
     if (tryDHTMLCopy())
         return; // DHTML did the whole operation
     if (!canCopy()) {
@@ -1406,7 +1410,7 @@ void Editor::copy(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 
 void Editor::copyFont(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 {
-    SetForScope<bool> copyScope { m_copyingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
+    SetForScope copyScope { m_copyingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
     if (tryDHTMLCopy())
         return; // DHTML did the whole operation
     if (!canCopy()) {
@@ -1485,7 +1489,7 @@ void Editor::paste(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 
 void Editor::paste(Pasteboard& pasteboard, FromMenuOrKeyBinding fromMenuOrKeyBinding)
 {
-    SetForScope<bool> pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
+    SetForScope pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
 
     if (!dispatchClipboardEvent(findEventTargetFromSelection(), ClipboardEventKind::Paste))
         return; // DHTML did the whole operation
@@ -1501,7 +1505,7 @@ void Editor::paste(Pasteboard& pasteboard, FromMenuOrKeyBinding fromMenuOrKeyBin
 
 void Editor::pasteAsPlainText(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 {
-    SetForScope<bool> pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
+    SetForScope pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
 
     if (!dispatchClipboardEvent(findEventTargetFromSelection(), ClipboardEventKind::PasteAsPlainText))
         return;
@@ -1513,7 +1517,7 @@ void Editor::pasteAsPlainText(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 
 void Editor::pasteAsQuotation(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 {
-    SetForScope<bool> pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
+    SetForScope pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
 
     if (!dispatchClipboardEvent(findEventTargetFromSelection(), ClipboardEventKind::PasteAsQuotation))
         return;
@@ -1530,7 +1534,7 @@ void Editor::pasteAsQuotation(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 
 void Editor::pasteFont(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 {
-    SetForScope<bool> pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
+    SetForScope pasteScope { m_pastingFromMenuOrKeyBinding, fromMenuOrKeyBinding == FromMenuOrKeyBinding::Yes };
 
     if (!dispatchClipboardEvent(findEventTargetFromSelection(), ClipboardEventKind::PasteFont))
         return;

@@ -1984,9 +1984,9 @@ template<typename Func>
 void Workers::broadcast(const Func& func)
 {
     Locker locker { m_lock };
-    for (Worker* worker = m_workers.begin(); worker != m_workers.end(); worker = worker->next()) {
-        if (worker != &Worker::current())
-            func(locker, *worker);
+    for (Worker& worker : m_workers) {
+        if (&worker != &Worker::current())
+            func(locker, worker);
     }
     m_condition.notifyAll();
 }
@@ -2130,7 +2130,7 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarAgentStart, (JSGlobalObject* globalObject
     
     Thread::create(
         "JSC Agent",
-        [sourceCode = sourceCode.isolatedCopy(), workerPath = workerPath.isolatedCopy(), &didStartLock, &didStartCondition, &didStart] () {
+        [sourceCode = WTFMove(sourceCode).isolatedCopy(), workerPath = WTFMove(workerPath).isolatedCopy(), &didStartLock, &didStartCondition, &didStart] () {
             CommandLine commandLine(CommandLine::CommandLineForWorkers);
             commandLine.m_interactive = false;
             runJSC(

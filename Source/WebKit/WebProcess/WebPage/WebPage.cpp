@@ -1011,7 +1011,7 @@ void WebPage::updateThrottleState()
         m_userActivity.start();
 
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled()) {
+    if (m_page && m_page->settings().serviceWorkersEnabled()) {
         RunLoop::main().dispatch([isThrottleable] {
             WebServiceWorkerProvider::singleton().updateThrottleState(isThrottleable);
         });
@@ -1759,7 +1759,7 @@ void WebPage::loadData(LoadParameters&& loadParameters)
     if (loadParameters.baseURLString.isEmpty())
         baseURL = aboutBlankURL();
     else {
-        baseURL = URL(URL(), loadParameters.baseURLString);
+        baseURL = URL { loadParameters.baseURLString };
         if (baseURL.isValid() && !baseURL.protocolIsInHTTPFamily())
             LegacySchemeRegistry::registerURLSchemeAsHandledBySchemeHandler(baseURL.protocol().toString());
     }
@@ -1775,9 +1775,9 @@ void WebPage::loadAlternateHTML(LoadParameters&& loadParameters)
 {
     platformDidReceiveLoadParameters(loadParameters);
 
-    URL baseURL = loadParameters.baseURLString.isEmpty() ? aboutBlankURL() : URL(URL(), loadParameters.baseURLString);
-    URL unreachableURL = loadParameters.unreachableURLString.isEmpty() ? URL() : URL(URL(), loadParameters.unreachableURLString);
-    URL provisionalLoadErrorURL = loadParameters.provisionalLoadErrorURLString.isEmpty() ? URL() : URL(URL(), loadParameters.provisionalLoadErrorURLString);
+    URL baseURL = loadParameters.baseURLString.isEmpty() ? aboutBlankURL() : URL { loadParameters.baseURLString };
+    URL unreachableURL = loadParameters.unreachableURLString.isEmpty() ? URL() : URL { loadParameters.unreachableURLString };
+    URL provisionalLoadErrorURL = loadParameters.provisionalLoadErrorURLString.isEmpty() ? URL() : URL { loadParameters.provisionalLoadErrorURLString };
     auto sharedBuffer = SharedBuffer::create(loadParameters.data.data(), loadParameters.data.size());
     m_mainFrame->coreFrame()->loader().setProvisionalLoadErrorBeingHandledURL(provisionalLoadErrorURL);
 
@@ -1832,6 +1832,12 @@ void WebPage::stopLoading()
     Ref coreFrame = *m_mainFrame->coreFrame();
     m_page->userInputBridge().stopLoadingFrame(coreFrame.get());
     coreFrame->loader().completePageTransitionIfNeeded();
+}
+
+void WebPage::stopLoadingDueToProcessSwap()
+{
+    SetForScope isStoppingLoadingDueToProcessSwap(m_isStoppingLoadingDueToProcessSwap, true);
+    stopLoading();
 }
 
 bool WebPage::defersLoading() const
@@ -3010,7 +3016,7 @@ static bool handleMouseEvent(const WebMouseEvent& mouseEvent, WebPage* page)
 
 void WebPage::mouseEvent(const WebMouseEvent& mouseEvent, std::optional<Vector<SandboxExtension::Handle>>&& sandboxExtensions)
 {
-    SetForScope<bool> userIsInteractingChange { m_userIsInteracting, true };
+    SetForScope userIsInteractingChange { m_userIsInteracting, true };
 
     m_userActivity.impulse();
 
@@ -3031,7 +3037,7 @@ void WebPage::mouseEvent(const WebMouseEvent& mouseEvent, std::optional<Vector<S
         return;
     }
 
-    Vector<RefPtr<SandboxExtension>> mouseEventSandboxExtensions;
+    Vector<Ref<SandboxExtension>> mouseEventSandboxExtensions;
     if (sandboxExtensions)
         mouseEventSandboxExtensions = consumeSandboxExtensions(WTFMove(*sandboxExtensions));
 
@@ -3102,7 +3108,7 @@ static bool handleKeyEvent(const WebKeyboardEvent& keyboardEvent, Page* page)
 
 void WebPage::keyEvent(const WebKeyboardEvent& keyboardEvent)
 {
-    SetForScope<bool> userIsInteractingChange { m_userIsInteracting, true };
+    SetForScope userIsInteractingChange { m_userIsInteracting, true };
 
     m_userActivity.impulse();
 
@@ -3172,7 +3178,7 @@ void WebPage::restoreSessionInternal(const Vector<BackForwardListItemState>& ite
 {
     // Since we're merely restoring HistoryItems from the UIProcess, there is no need to send HistoryItem update notifications back to the UIProcess.
     // Also, with process-swap on navigation, these updates may actually overwrite important state in the UIProcess such as the scroll position.
-    SetForScope<void (*)(WebCore::HistoryItem&)> bypassHistoryItemUpdateNotifications(WebCore::notifyHistoryItemChanged, [](WebCore::HistoryItem&){});
+    SetForScope bypassHistoryItemUpdateNotifications(WebCore::notifyHistoryItemChanged, [](WebCore::HistoryItem&) { });
     for (const auto& itemState : itemStates) {
         auto historyItem = toHistoryItem(itemState);
         historyItem->setWasRestoredFromSession(restoredByAPIRequest == WasRestoredByAPIRequest::Yes);
@@ -3229,7 +3235,7 @@ static bool handleTouchEvent(const WebTouchEvent& touchEvent, Page* page)
 #if ENABLE(IOS_TOUCH_EVENTS)
 bool WebPage::dispatchTouchEvent(const WebTouchEvent& touchEvent)
 {
-    SetForScope<bool> userIsInteractingChange { m_userIsInteracting, true };
+    SetForScope userIsInteractingChange { m_userIsInteracting, true };
     m_lastInteractionLocation = touchEvent.position();
     CurrentEvent currentEvent(touchEvent);
     bool handled = handleTouchEvent(touchEvent, m_page.get());
@@ -3453,7 +3459,7 @@ void WebPage::setInitialFocus(bool forward, bool isKeyboardEventValid, const Web
     if (!m_page)
         return completionHandler();
 
-    SetForScope<bool> userIsInteractingChange { m_userIsInteracting, true };
+    SetForScope userIsInteractingChange { m_userIsInteracting, true };
 
     CheckedRef focusController { m_page->focusController() };
     Ref frame = focusController->focusedOrMainFrame();
@@ -3525,7 +3531,7 @@ void WebPage::setActivityState(OptionSet<ActivityState::Flag> activityState, Act
 
     ASSERT_WITH_MESSAGE(m_page, "setActivityState called on %" PRIu64 " but WebCore page was null", identifier().toUInt64());
     if (m_page) {
-        SetForScope<OptionSet<ActivityState::Flag>> currentlyChangingActivityState { m_lastActivityStateChanges, changed };
+        SetForScope currentlyChangingActivityState { m_lastActivityStateChanges, changed };
         m_page->setActivityState(activityState);
     }
     
@@ -3765,7 +3771,7 @@ void WebPage::runJavaScript(WebFrame* frame, RunJavaScriptParameters&& parameter
 
         IPC::DataReference dataReference;
         if (serializedResultValue)
-            dataReference = serializedResultValue->data();
+            dataReference = serializedResultValue->wireBytes();
 
         std::optional<ExceptionDetails> details;
         if (!result)
@@ -3901,7 +3907,7 @@ void WebPage::getResourceDataFromFrame(FrameIdentifier frameID, const String& re
 {
     RefPtr<FragmentedSharedBuffer> buffer;
     if (auto* frame = WebProcess::singleton().webFrame(frameID)) {
-        URL resourceURL(URL(), resourceURLString);
+        URL resourceURL { resourceURLString };
         buffer = resourceDataForFrame(frame->coreFrame(), resourceURL);
     }
 
@@ -4014,7 +4020,7 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     if (store.getBoolValueForKey(WebPreferencesKey::serviceWorkersEnabledKey())) {
         ASSERT(parentProcessHasServiceWorkerEntitlement() || shouldAllowServiceWorkersForAppBoundViews);
         if (!parentProcessHasServiceWorkerEntitlement() && !shouldAllowServiceWorkersForAppBoundViews)
-            RuntimeEnabledFeatures::sharedFeatures().setServiceWorkerEnabled(false);
+            settings.setServiceWorkersEnabled(false);
     }
 #endif
 
@@ -4721,6 +4727,11 @@ void WebPage::findTextRangesForStringMatches(const String& string, OptionSet<Fin
     foundTextRangeController().findTextRangesForStringMatches(string, options, maxMatchCount, WTFMove(completionHandler));
 }
 
+void WebPage::replaceFoundTextRangeWithString(const WebFoundTextRange& range, const String& string)
+{
+    foundTextRangeController().replaceFoundTextRangeWithString(range, string);
+}
+
 void WebPage::decorateTextRangeWithStyle(const WebFoundTextRange& range, WebKit::FindDecorationStyle style)
 {
     foundTextRangeController().decorateTextRangeWithStyle(range, style);
@@ -4903,9 +4914,9 @@ void WebPage::setOrientationForMediaCapture(uint64_t rotation)
     });
 }
 
-void WebPage::setMockCameraIsInterrupted(bool isInterrupted)
+void WebPage::setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
 {
-    MockRealtimeMediaSourceCenter::setMockCameraIsInterrupted(isInterrupted);
+    MockRealtimeMediaSourceCenter::setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
 }
 #endif // USE(GSTREAMER)
 
@@ -5912,7 +5923,7 @@ void WebPage::insertTextAsync(const String& text, const EditingRange& replacemen
     bool replacesText = false;
     if (replacementEditingRange.location != notFound) {
         if (auto replacementRange = EditingRange::toRange(frame, replacementEditingRange, options.editingRangeIsRelativeTo)) {
-            SetForScope<bool> isSelectingTextWhileInsertingAsynchronously(m_isSelectingTextWhileInsertingAsynchronously, options.suppressSelectionUpdate);
+            SetForScope isSelectingTextWhileInsertingAsynchronously(m_isSelectingTextWhileInsertingAsynchronously, options.suppressSelectionUpdate);
             frame->selection().setSelection(VisibleSelection(*replacementRange));
             replacesText = replacementEditingRange.length;
         }
@@ -6068,14 +6079,25 @@ void WebPage::didChangeContents()
     sendEditorStateUpdate();
 }
 
-void WebPage::didChangeOverflowScrollPosition()
+void WebPage::didScrollSelection()
 {
     didChangeSelectionOrOverflowScrollPosition();
 }
 
-void WebPage::didChangeSelection()
+void WebPage::didChangeSelection(Frame& frame)
 {
     didChangeSelectionOrOverflowScrollPosition();
+
+#if PLATFORM(IOS_FAMILY)
+    if (!m_sendAutocorrectionContextAfterFocusingElement)
+        return;
+
+    if (UNLIKELY(!frame.document() || !frame.document()->hasLivingRenderTree() || frame.selection().isNone()))
+        return;
+
+    m_sendAutocorrectionContextAfterFocusingElement = false;
+    preemptivelySendAutocorrectionContext();
+#endif // PLATFORM(IOS_FAMILY)
 }
 
 void WebPage::didChangeSelectionOrOverflowScrollPosition()
@@ -6132,6 +6154,7 @@ void WebPage::resetFocusedElementForFrame(WebFrame* frame)
 
     if (frame->isMainFrame() || m_focusedElement->document().frame() == frame->coreFrame()) {
 #if PLATFORM(IOS_FAMILY)
+        m_sendAutocorrectionContextAfterFocusingElement = false;
         send(Messages::WebPageProxy::ElementDidBlur());
 #elif PLATFORM(MAC)
         send(Messages::WebPageProxy::SetEditableElementIsFocused(false));
@@ -6140,9 +6163,9 @@ void WebPage::resetFocusedElementForFrame(WebFrame* frame)
     }
 }
 
-void WebPage::elementDidRefocus(WebCore::Element& element)
+void WebPage::elementDidRefocus(Element& element, const FocusOptions& options)
 {
-    elementDidFocus(element);
+    elementDidFocus(element, options);
 
     if (m_userIsInteracting)
         scheduleFullEditorStateUpdate();
@@ -6165,7 +6188,7 @@ static bool isTextFormControlOrEditableContent(const WebCore::Element& element)
     return is<HTMLTextFormControlElement>(element) || element.hasEditableStyle();
 }
 
-void WebPage::elementDidFocus(WebCore::Element& element)
+void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
 {
     if (!shouldDispatchUpdateAfterFocusingElement(element)) {
         updateInputContextAfterBlurringAndRefocusingElementIfNeeded(element);
@@ -6184,6 +6207,8 @@ void WebPage::elementDidFocus(WebCore::Element& element)
         if (element.document().fullscreenManager().isFullscreen())
             element.document().fullscreenManager().cancelFullscreen();
 #endif
+        if (m_userIsInteracting || m_keyboardIsAttached)
+            m_sendAutocorrectionContextAfterFocusingElement = true;
 
         auto information = focusedElementInformation();
         if (!information)
@@ -6193,6 +6218,7 @@ void WebPage::elementDidFocus(WebCore::Element& element)
 
         m_formClient->willBeginInputSession(this, &element, WebFrame::fromCoreFrame(*element.document().frame()), m_userIsInteracting, userData);
 
+        information->preventScroll = options.preventScroll;
         send(Messages::WebPageProxy::ElementDidFocus(information.value(), m_userIsInteracting, m_recentlyBlurredElement, m_lastActivityStateChanges, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 #elif PLATFORM(MAC)
         // FIXME: This can be unified with the iOS code above by bringing ElementDidFocus to macOS.
@@ -6218,6 +6244,9 @@ void WebPage::elementDidBlur(WebCore::Element& element)
             protectedThis->m_recentlyBlurredElement = nullptr;
         });
         m_hasPendingInputContextUpdateAfterBlurringAndRefocusingElement = false;
+#if PLATFORM(IOS_FAMILY)
+        m_sendAutocorrectionContextAfterFocusingElement = false;
+#endif
     }
 }
 
@@ -6427,6 +6456,9 @@ bool WebPage::canShowMIMEType(const String& mimeType, const Function<bool(const 
     if (pluginsSupport(mimeType, PluginData::OnlyApplicationPlugins))
         return true;
 
+    if (m_page->settings().pdfJSViewerEnabled() && MIMETypeRegistry::isPDFMIMEType(mimeType))
+        return true;
+
     return false;
 }
 
@@ -6532,6 +6564,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     m_didUpdateRenderingAfterCommittingLoad = false;
 
 #if PLATFORM(IOS_FAMILY)
+    m_sendAutocorrectionContextAfterFocusingElement = false;
     m_hasReceivedVisibleContentRectsAfterDidCommitLoad = false;
     m_hasRestoredExposedContentRectAfterDidCommitLoad = false;
     m_lastTransactionIDWithScaleChange = firstTransactionIDAfterDidCommitLoad;
@@ -7316,10 +7349,10 @@ void WebPage::speakingErrorOccurred()
         observer->speakingErrorOccurred();
 }
 
-void WebPage::boundaryEventOccurred(bool wordBoundary, unsigned charIndex)
+void WebPage::boundaryEventOccurred(bool wordBoundary, unsigned charIndex, unsigned charLength)
 {
     if (auto observer = corePage()->speechSynthesisClient()->observer())
-        observer->boundaryEventOccurred(wordBoundary, charIndex);
+        observer->boundaryEventOccurred(wordBoundary, charIndex, charLength);
 }
 
 void WebPage::voicesDidChange()
@@ -7857,21 +7890,19 @@ RemoteRenderingBackendProxy& WebPage::ensureRemoteRenderingBackendProxy()
 }
 #endif
 
-Vector<RefPtr<SandboxExtension>> WebPage::consumeSandboxExtensions(Vector<SandboxExtension::Handle>&& sandboxExtensions)
+Vector<Ref<SandboxExtension>> WebPage::consumeSandboxExtensions(Vector<SandboxExtension::Handle>&& sandboxExtensions)
 {
-    Vector<RefPtr<SandboxExtension>> dragSandboxExtensions;
-    for (auto& sandboxExtension : sandboxExtensions) {
+    return WTF::compactMap(WTFMove(sandboxExtensions), [](auto&& sandboxExtension) -> RefPtr<SandboxExtension> {
         auto extension = SandboxExtension::create(WTFMove(sandboxExtension));
         if (!extension)
-            continue;
+            return nullptr;
         bool ok = extension->consume();
         ASSERT_UNUSED(ok, ok);
-        dragSandboxExtensions.append(WTFMove(extension));
-    }
-    return dragSandboxExtensions;
+        return extension;
+    });
 }
 
-void WebPage::revokeSandboxExtensions(Vector<RefPtr<SandboxExtension>>& sandboxExtensions)
+void WebPage::revokeSandboxExtensions(Vector<Ref<SandboxExtension>>& sandboxExtensions)
 {
     for (auto& sandboxExtension : sandboxExtensions)
         sandboxExtension->revoke();
@@ -7881,8 +7912,8 @@ void WebPage::revokeSandboxExtensions(Vector<RefPtr<SandboxExtension>>& sandboxE
 #if ENABLE(APP_HIGHLIGHTS)
 bool WebPage::createAppHighlightInSelectedRange(WebCore::CreateNewGroupForHighlight createNewGroup, WebCore::HighlightRequestOriginatedInApp requestOriginatedInApp)
 {
-    SetForScope<WebCore::CreateNewGroupForHighlight> highlightIsNewGroupScope { m_highlightIsNewGroup, createNewGroup };
-    SetForScope<WebCore::HighlightRequestOriginatedInApp> highlightRequestOriginScope { m_highlightRequestOriginatedInApp, requestOriginatedInApp };
+    SetForScope highlightIsNewGroupScope { m_highlightIsNewGroup, createNewGroup };
+    SetForScope highlightRequestOriginScope { m_highlightRequestOriginatedInApp, requestOriginatedInApp };
 
     RefPtr document = CheckedRef(m_page->focusController())->focusedOrMainFrame().document();
 

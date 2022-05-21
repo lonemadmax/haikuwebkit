@@ -64,12 +64,12 @@ class MediaStreamPrivate;
 class OrientationNotifier;
 class PlatformAudioData;
 class RealtimeMediaSourceSettings;
-class RemoteVideoSample;
 
 struct CaptureSourceOrError;
 
 class WEBCORE_EXPORT RealtimeMediaSource
     : public ThreadSafeRefCounted<RealtimeMediaSource, WTF::DestructionThread::MainRunLoop>
+    , public CanMakeWeakPtr<RealtimeMediaSource>
 #if !RELEASE_LOG_DISABLED
     , public LoggerHelper
 #endif
@@ -125,6 +125,7 @@ public:
     virtual bool isProducingData() const;
     void start();
     void stop();
+    void endImmediatly() { end(nullptr); }
     virtual void requestToEnd(Observer& callingObserver);
     bool isEnded() const { return m_isEnded; }
 
@@ -222,8 +223,10 @@ public:
 
     virtual bool setShouldApplyRotation(bool) { return false; }
 
+    PageIdentifier pageIdentifier() const { return m_pageIdentifier; }
+
 protected:
-    RealtimeMediaSource(Type, String&& name, String&& deviceID = { }, String&& hashSalt = { });
+    RealtimeMediaSource(Type, String&& name, String&& deviceID = { }, String&& hashSalt = { }, PageIdentifier = { });
 
     void scheduleDeferredTask(Function<void()>&&);
 
@@ -259,6 +262,7 @@ protected:
 private:
     virtual void startProducingData() { }
     virtual void stopProducingData() { }
+    virtual void endProducingData() { stop(); }
     virtual void settingsDidChange(OptionSet<RealtimeMediaSourceSettings::Flag>) { }
 
     virtual void stopBeingObserved() { stop(); }
@@ -274,6 +278,7 @@ private:
     unsigned m_frameCount { 0 };
 #endif
 
+    PageIdentifier m_pageIdentifier;
     String m_idHashSalt;
     String m_hashedID;
     String m_persistentID;

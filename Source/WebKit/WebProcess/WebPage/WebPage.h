@@ -643,6 +643,7 @@ public:
 
     void stopLoading();
     void stopLoadingFrame(WebCore::FrameIdentifier);
+    void stopLoadingDueToProcessSwap();
     bool defersLoading() const;
     void setDefersLoading(bool deferLoading);
 
@@ -733,8 +734,8 @@ public:
     MediaKeySystemPermissionRequestManager& mediaKeySystemPermissionRequestManager() { return m_mediaKeySystemPermissionRequestManager; }
 #endif
 
-    void elementDidFocus(WebCore::Element&);
-    void elementDidRefocus(WebCore::Element&);
+    void elementDidFocus(WebCore::Element&, const WebCore::FocusOptions&);
+    void elementDidRefocus(WebCore::Element&, const WebCore::FocusOptions&);
     void elementDidBlur(WebCore::Element&);
     void focusedElementDidChangeInputMode(WebCore::Element&, WebCore::InputMode);
     void resetFocusedElementForFrame(WebFrame*);
@@ -823,7 +824,7 @@ public:
     void autofillLoginCredentials(const String&, const String&);
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
     void setFocusedElementSelectedIndex(const WebCore::ElementContext&, uint32_t index, bool allowMultipleSelection);
-    void setIsShowingInputViewForFocusedElement(bool);
+    void setIsShowingInputViewForFocusedElement(bool showingInputView) { m_isShowingInputViewForFocusedElement = showingInputView; }
     bool isShowingInputViewForFocusedElement() const { return m_isShowingInputViewForFocusedElement; }
     void updateSelectionAppearance();
     void getSelectionContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
@@ -933,7 +934,8 @@ public:
 #endif
 
     void didApplyStyle();
-    void didChangeSelection();
+    void didScrollSelection();
+    void didChangeSelection(WebCore::Frame&);
     void didChangeOverflowScrollPosition();
     void didChangeContents();
     void discardedComposition();
@@ -967,7 +969,10 @@ public:
     bool performNonEditingBehaviorForSelector(const String&, WebCore::KeyboardEvent*);
 
     void insertDictatedTextAsync(const String& text, const EditingRange& replacementRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, InsertTextOptions&&);
-#endif
+    void addDictationAlternative(const String& text, WebCore::DictationContext, CompletionHandler<void(bool)>&&);
+    void dictationAlternativesAtSelection(CompletionHandler<void(Vector<WebCore::DictationContext>&&)>&&);
+    void clearDictationAlternatives(Vector<WebCore::DictationContext>&&);
+#endif // PLATFORM(COCOA)
 
 #if PLATFORM(MAC)
     void attributedSubstringForCharacterRangeAsync(const EditingRange&, CompletionHandler<void(const WebCore::AttributedString&, const EditingRange&)>&&);
@@ -990,6 +995,8 @@ public:
 
     void performDictionaryLookupForSelection(WebCore::Frame&, const WebCore::VisibleSelection&, WebCore::TextIndicatorPresentationTransition);
 #endif
+
+    bool isStoppingLoadingDueToProcessSwap() const { return m_isStoppingLoadingDueToProcessSwap; }
 
     bool isSmartInsertDeleteEnabled();
     void setSmartInsertDeleteEnabled(bool);
@@ -1240,7 +1247,7 @@ public:
 #endif
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
     void setOrientationForMediaCapture(uint64_t rotation);
-    void setMockCameraIsInterrupted(bool);
+    void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
 #endif
 
     void addUserScript(String&& source, InjectedBundleScriptWorld&, WebCore::UserContentInjectedFrames, WebCore::UserScriptInjectionTime);
@@ -1789,6 +1796,7 @@ private:
     void hideFindIndicator();
 
     void findTextRangesForStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&&);
+    void replaceFoundTextRangeWithString(const WebFoundTextRange&, const String&);
     void decorateTextRangeWithStyle(const WebFoundTextRange&, WebKit::FindDecorationStyle);
     void scrollTextRangeToVisible(const WebFoundTextRange&);
     void clearAllDecoratedFoundText();
@@ -1923,7 +1931,7 @@ private:
 
 #if ENABLE(SPEECH_SYNTHESIS)
     void speakingErrorOccurred();
-    void boundaryEventOccurred(bool wordBoundary, unsigned charIndex);
+    void boundaryEventOccurred(bool wordBoundary, unsigned charIndex, unsigned charLength);
     void voicesDidChange();
 #endif
 
@@ -1969,8 +1977,8 @@ private:
 
     void platformDidScalePage();
 
-    Vector<RefPtr<SandboxExtension>> consumeSandboxExtensions(Vector<SandboxExtension::Handle>&&);
-    void revokeSandboxExtensions(Vector<RefPtr<SandboxExtension>>& sandboxExtensions);
+    Vector<Ref<SandboxExtension>> consumeSandboxExtensions(Vector<SandboxExtension::Handle>&&);
+    void revokeSandboxExtensions(Vector<Ref<SandboxExtension>>& sandboxExtensions);
 
     void setSelectionRange(const WebCore::IntPoint&, WebCore::TextGranularity, bool);
     
@@ -2311,7 +2319,8 @@ private:
 
     CompletionHandler<void(InteractionInformationAtPosition&&)> m_pendingSynchronousPositionInformationReply;
     std::optional<std::pair<TransactionID, double>> m_lastLayerTreeTransactionIdAndPageScaleBeforeScalingPage;
-#endif
+    bool m_sendAutocorrectionContextAfterFocusingElement { false };
+#endif // PLATFORM(IOS_FAMILY)
 
     WebCore::Timer m_layerVolatilityTimer;
     Seconds m_layerVolatilityTimerInterval;
@@ -2412,6 +2421,7 @@ private:
     bool m_canUseCredentialStorage { true };
 
     bool m_didUpdateRenderingAfterCommittingLoad { false };
+    bool m_isStoppingLoadingDueToProcessSwap { false };
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     bool m_useARKitForModel { false };

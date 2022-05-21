@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,26 @@
 #import "config.h"
 #import "Sampler.h"
 
-#import "WebGPUExt.h"
+#import "Device.h"
 
 namespace WebGPU {
 
-Sampler::Sampler() = default;
+RefPtr<Sampler> Device::createSampler(const WGPUSamplerDescriptor& descriptor)
+{
+    UNUSED_PARAM(descriptor);
+    return Sampler::create(nil);
+}
+
+Sampler::Sampler(id<MTLSamplerState> samplerState)
+    : m_samplerState(samplerState)
+{
+}
 
 Sampler::~Sampler() = default;
 
-void Sampler::setLabel(const char* label)
+void Sampler::setLabel(const char*)
 {
-    UNUSED_PARAM(label);
+    // MTLRenderPipelineState's labels are read-only.
 }
 
 }

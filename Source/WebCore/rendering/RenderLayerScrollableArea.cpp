@@ -379,9 +379,23 @@ void RenderLayerScrollableArea::scrollTo(const ScrollPosition& position)
         requiresRepaint = m_layer.backing()->needsRepaintOnCompositedScroll();
     }
 
+    auto isScrolledBy = [](RenderObject& renderer, RenderLayer& scrollableLayer) {
+        auto layer = renderer.enclosingLayer();
+        return layer && layer->ancestorLayerIsInContainingBlockChain(scrollableLayer);
+    };
+
     // Just schedule a full repaint of our object.
-    if (requiresRepaint)
+    if (requiresRepaint) {
         renderer.repaintUsingContainer(repaintContainer, rectForRepaint);
+
+        // We also have to repaint any descendant composited layers that have fixed backgrounds.
+        if (auto slowRepaintObjects = view.frameView().slowRepaintObjects()) {
+            for (auto& renderer : *slowRepaintObjects) {
+                if (isScrolledBy(renderer, m_layer))
+                    renderer.repaint();
+            }
+        }
+    }
 
     // Schedule the scroll and scroll-related DOM events.
     if (Element* element = renderer.element())
@@ -1178,7 +1192,7 @@ void RenderLayerScrollableArea::updateScrollbarsAfterLayout()
 
         if (renderer.style().overflowX() == Overflow::Auto || renderer.style().overflowY() == Overflow::Auto) {
             if (!m_inOverflowRelayout) {
-                SetForScope<bool> inOverflowRelayoutScope(m_inOverflowRelayout, true);
+                SetForScope inOverflowRelayoutScope(m_inOverflowRelayout, true);
                 renderer.setNeedsLayout(MarkOnlyThis);
                 if (is<RenderBlock>(renderer)) {
                     auto& block = downcast<RenderBlock>(renderer);
@@ -1540,6 +1554,11 @@ bool RenderLayerScrollableArea::isScrollSnapInProgress() const
         return scrollAnimator->isScrollSnapInProgress();
 
     return false;
+}
+
+bool RenderLayerScrollableArea::scrollAnimatorEnabled() const
+{
+    return m_layer.page().settings().scrollAnimatorEnabled();
 }
 
 void RenderLayerScrollableArea::paintOverlayScrollbars(GraphicsContext& context, const LayoutRect& damageRect, OptionSet<PaintBehavior> paintBehavior, RenderObject* subtreePaintRoot)

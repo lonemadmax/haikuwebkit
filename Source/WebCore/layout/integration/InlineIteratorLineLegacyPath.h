@@ -51,15 +51,15 @@ public:
     LayoutUnit lineBoxTop() const { return m_rootInlineBox->lineBoxTop(); }
     LayoutUnit lineBoxBottom() const { return m_rootInlineBox->lineBoxBottom(); }
 
-    float y() const { return m_rootInlineBox->y(); }
     float contentLogicalLeft() const { return m_rootInlineBox->logicalLeft(); }
     float contentLogicalRight() const { return m_rootInlineBox->logicalRight(); }
-    float logicalHeight() const { return m_rootInlineBox->logicalHeight(); }
     bool isHorizontal() const { return m_rootInlineBox->isHorizontal(); }
     FontBaseline baselineType() const { return m_rootInlineBox->baselineType(); }
 
     const RenderBlockFlow& containingBlock() const { return m_rootInlineBox->blockFlow(); }
-    const LegacyRootInlineBox* legacyRootInlineBox() const { return m_rootInlineBox; }
+
+    RenderFragmentContainer* containingFragment() const { return m_rootInlineBox->containingFragment(); }
+    bool isFirstAfterPageBreak() const { return m_rootInlineBox->isFirstAfterPageBreak(); }
 
     void traverseNext()
     {

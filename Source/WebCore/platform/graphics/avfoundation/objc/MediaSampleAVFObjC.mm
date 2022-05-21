@@ -26,8 +26,10 @@
 #import "config.h"
 #import "MediaSampleAVFObjC.h"
 
+#import "CVUtilities.h"
 #import "PixelBuffer.h"
 #import "PixelBufferConformerCV.h"
+#import "ProcessIdentity.h"
 #import "VideoFrameCV.h"
 #import <JavaScriptCore/JSCInlines.h>
 #import <JavaScriptCore/TypedArrayInlines.h>
@@ -73,7 +75,7 @@ MediaSampleAVFObjC::MediaSampleAVFObjC(CMSampleBufferRef sample, VideoRotation r
 
 MediaSampleAVFObjC::~MediaSampleAVFObjC() = default;
 
-RefPtr<MediaSampleAVFObjC> MediaSampleAVFObjC::createImageSample(PixelBuffer&& pixelBuffer)
+RefPtr<MediaSampleAVFObjC> MediaSampleAVFObjC::createFromPixelBuffer(PixelBuffer&& pixelBuffer)
 {
     auto size = pixelBuffer.size();
     auto width = size.width();
@@ -96,10 +98,10 @@ RefPtr<MediaSampleAVFObjC> MediaSampleAVFObjC::createImageSample(PixelBuffer&& p
         return nullptr;
     }
     ASSERT_UNUSED(status, !status);
-    return createImageSample(WTFMove(cvPixelBuffer), VideoRotation::None, false);
+    return createFromPixelBuffer(WTFMove(cvPixelBuffer), VideoRotation::None, false);
 }
 
-RefPtr<MediaSampleAVFObjC> MediaSampleAVFObjC::createImageSample(RetainPtr<CVPixelBufferRef>&& pixelBuffer, VideoRotation rotation, bool mirrored, MediaTime presentationTime, MediaTime decodingTime)
+RefPtr<MediaSampleAVFObjC> MediaSampleAVFObjC::createFromPixelBuffer(RetainPtr<CVPixelBufferRef>&& pixelBuffer, VideoRotation rotation, bool mirrored, MediaTime presentationTime, MediaTime decodingTime)
 {
     CMVideoFormatDescriptionRef formatDescriptionRaw = nullptr;
     auto status = PAL::CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, pixelBuffer.get(), &formatDescriptionRaw);
@@ -241,11 +243,6 @@ FloatSize MediaSampleAVFObjC::presentationSize() const
         return FloatSize();
     
     return FloatSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(formatDescription, true, true));
-}
-
-void MediaSampleAVFObjC::dump(PrintStream& out) const
-{
-    out.print("{PTS(", presentationTime(), "), DTS(", decodeTime(), "), duration(", duration(), "), flags(", (int)flags(), "), presentationSize(", presentationSize().width(), "x", presentationSize().height(), ")}");
 }
 
 void MediaSampleAVFObjC::offsetTimestampsBy(const MediaTime& offset)
@@ -508,47 +505,17 @@ RetainPtr<CMSampleBufferRef> MediaSampleAVFObjC::cloneSampleBufferAndSetAsDispla
     return adoptCF(newSampleBuffer);
 }
 
-static CFStringRef byteRangeOffsetAttachmentKey()
-{
-    static CFStringRef key = CFSTR("WebKitMediaSampleByteRangeOffset");
-    return key;
-}
-
-std::optional<MediaSample::ByteRange> MediaSampleAVFObjC::byteRange() const
-{
-    return byteRangeForAttachment(byteRangeOffsetAttachmentKey());
-}
-
-void MediaSampleAVFObjC::setByteRangeOffset(size_t byteOffset)
-{
-    int64_t checkedOffset = CheckedInt64(byteOffset);
-    auto offsetNumber = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &checkedOffset));
-    PAL::CMSetAttachment(m_sample.get(), byteRangeOffsetAttachmentKey(), offsetNumber.get(), kCMAttachmentMode_ShouldPropagate);
-}
-
-std::optional<MediaSample::ByteRange> MediaSampleAVFObjC::byteRangeForAttachment(CFStringRef key) const
-{
-    auto byteOffsetCF = dynamic_cf_cast<CFNumberRef>(PAL::CMGetAttachment(m_sample.get(), key, nullptr));
-    if (!byteOffsetCF)
-        return std::nullopt;
-
-    int64_t byteOffset = 0;
-    if (!CFNumberGetValue(byteOffsetCF, kCFNumberSInt64Type, &byteOffset))
-        return std::nullopt;
-
-    CMItemCount sizeArrayEntries = 0;
-    PAL::CMSampleBufferGetSampleSizeArray(m_sample.get(), 0, nullptr, &sizeArrayEntries);
-    if (sizeArrayEntries != 1)
-        return std::nullopt;
-
-    size_t singleSizeEntry = 0;
-    PAL::CMSampleBufferGetSampleSizeArray(m_sample.get(), 1, &singleSizeEntry, nullptr);
-    return { { CheckedSize(byteOffset), singleSizeEntry } };
-}
-
 CVPixelBufferRef MediaSampleAVFObjC::pixelBuffer() const
 {
     return static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(m_sample.get()));
+}
+
+void MediaSampleAVFObjC::setOwnershipIdentity(const ProcessIdentity& resourceOwner)
+{
+    ASSERT(resourceOwner);
+    auto buffer = pixelBuffer();
+    ASSERT(buffer);
+    setOwnershipIdentityForCVPixelBuffer(buffer, resourceOwner);
 }
 
 }

@@ -257,8 +257,8 @@ Modules/permissions/NavigatorPermissions.cpp
 Modules/permissions/PermissionStatus.cpp
 Modules/permissions/Permissions.cpp
 Modules/pictureinpicture/DocumentPictureInPicture.cpp
-Modules/pictureinpicture/EnterPictureInPictureEvent.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
+Modules/pictureinpicture/PictureInPictureEvent.cpp
 Modules/pictureinpicture/PictureInPictureWindow.cpp
 Modules/push-api/PushCrypto.cpp
 Modules/push-api/PushDatabase.cpp
@@ -285,6 +285,7 @@ Modules/speech/SpeechRecognitionCaptureSourceImpl.cpp
 Modules/speech/SpeechRecognizer.cpp
 Modules/speech/DOMWindowSpeechSynthesis.cpp
 Modules/speech/SpeechSynthesis.cpp
+Modules/speech/SpeechSynthesisErrorEvent.cpp
 Modules/speech/SpeechSynthesisEvent.cpp
 Modules/speech/SpeechSynthesisUtterance.cpp
 Modules/speech/SpeechSynthesisVoice.cpp
@@ -971,7 +972,6 @@ dom/EventNames.cpp
 dom/EventPath.cpp
 dom/EventTarget.cpp
 dom/EventTargetConcrete.cpp
-dom/ExceptionData.cpp
 dom/ExtensionStyleSheets.cpp
 dom/FocusEvent.cpp
 dom/FormDataEvent.cpp
@@ -1717,6 +1717,7 @@ page/BarProp.cpp
 page/Base64Utilities.cpp
 page/CaptionUserPreferences.cpp
 page/Chrome.cpp
+page/ChromeClient.cpp
 page/ContextMenuContext.cpp
 page/ContextMenuController.cpp
 page/Crypto.cpp
@@ -2081,7 +2082,6 @@ platform/graphics/PixelBufferFormat.cpp
 platform/graphics/PixelFormat.cpp
 platform/graphics/PlatformTimeRanges.cpp
 platform/graphics/Region.cpp
-platform/graphics/RemoteVideoSample.cpp
 platform/graphics/RoundedRect.cpp
 platform/graphics/ShadowBlur.cpp
 platform/graphics/SourceBufferPrivate.cpp
@@ -2160,7 +2160,6 @@ platform/graphics/iso/ISOSchemeInformationBox.cpp
 platform/graphics/iso/ISOSchemeTypeBox.cpp
 platform/graphics/iso/ISOTrackEncryptionBox.cpp
 platform/graphics/iso/ISOVTTCue.cpp
-platform/graphics/opengl/GraphicsContextGLOpenGLManager.cpp
 platform/graphics/opentype/OpenTypeMathData.cpp
 platform/graphics/transforms/AffineTransform.cpp
 platform/graphics/transforms/Matrix3DTransformOperation.cpp
@@ -2191,7 +2190,6 @@ platform/mediastream/RealtimeIncomingAudioSource.cpp
 platform/mediastream/RealtimeIncomingVideoSource.cpp
 platform/mediastream/RealtimeMediaSource.cpp
 platform/mediastream/RealtimeMediaSourceCenter.cpp
-platform/mediastream/RealtimeMediaSourceFactory.cpp
 platform/mediastream/RealtimeMediaSourceSettings.cpp
 platform/mediastream/RealtimeMediaSourceSupportedConstraints.cpp
 platform/mediastream/RealtimeOutgoingAudioSource.cpp
@@ -2200,6 +2198,7 @@ platform/mediastream/RealtimeVideoCaptureSource.cpp
 platform/mediastream/RealtimeVideoSource.cpp
 platform/mediastream/libwebrtc/LibWebRTCDTMFSenderBackend.cpp
 platform/mediastream/libwebrtc/LibWebRTCProvider.cpp
+platform/mediastream/libwebrtc/VideoFrameLibWebRTC.cpp
 platform/mock/DeviceOrientationClientMock.cpp
 platform/mock/GeolocationClientMock.cpp
 platform/mock/MediaEngineConfigurationFactoryMock.cpp
@@ -2265,6 +2264,7 @@ platform/text/PlatformLocale.cpp
 platform/text/QuotedPrintable.cpp
 platform/text/SegmentedString.cpp
 platform/text/TextBoundaries.cpp
+platform/text/TextFlags.cpp
 platform/xr/openxr/OpenXRInput.cpp
 platform/xr/openxr/OpenXRInputSource.cpp
 platform/xr/openxr/OpenXRInstance.cpp
@@ -2481,6 +2481,7 @@ rendering/svg/LegacyRenderSVGModelObject.cpp
 rendering/svg/LegacyRenderSVGRect.cpp
 rendering/svg/LegacyRenderSVGRoot.cpp
 rendering/svg/LegacyRenderSVGShape.cpp
+rendering/svg/LegacyRenderSVGTransformableContainer.cpp
 rendering/svg/RenderSVGBlock.cpp
 rendering/svg/RenderSVGContainer.cpp
 rendering/svg/RenderSVGEllipse.cpp
@@ -3114,7 +3115,6 @@ JSEffectTiming.cpp
 JSElement.cpp
 JSElementCSSInlineStyle.cpp
 JSEndingType.cpp
-JSEnterPictureInPictureEvent.cpp
 JSErrorCallback.cpp
 JSErrorEvent.cpp
 JSEvent.cpp
@@ -3593,6 +3593,7 @@ JSPermissionName.cpp
 JSPermissionState.cpp
 JSPermissionStatus.cpp
 JSPermissions.cpp
+JSPictureInPictureEvent.cpp
 JSPictureInPictureWindow.cpp
 JSPlaybackDirection.cpp
 JSPointerEvent.cpp
@@ -3700,6 +3701,7 @@ JSRemotePlayback.cpp
 JSRemotePlaybackAvailabilityCallback.cpp
 JSRequestAnimationFrameCallback.cpp
 JSRequestCookieConsentOptions.cpp
+JSResidentKeyRequirement.cpp
 JSResizeObserver.cpp
 JSResizeObserverBoxOptions.cpp
 JSResizeObserverCallback.cpp

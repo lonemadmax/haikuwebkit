@@ -3,32 +3,32 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 51;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		0F4680A914BA7FD900BFE272 /* LLInt Offsets */ = {
+		0F4680A914BA7FD900BFE272 /* (Legacy) LLInt Offsets */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 0F4680AC14BA7FD900BFE272 /* Build configuration list for PBXAggregateTarget "LLInt Offsets" */;
+			buildConfigurationList = 0F4680AC14BA7FD900BFE272 /* Build configuration list for PBXAggregateTarget "(Legacy) LLInt Offsets" */;
 			buildPhases = (
-				0F4680AA14BA7FD900BFE272 /* Generate Derived Sources */,
+				0F4680AA14BA7FD900BFE272 /* (Legacy) Generate Derived Sources */,
 			);
 			dependencies = (
 				14BD68992151916D0050DAFF /* PBXTargetDependency */,
 			);
-			name = "LLInt Offsets";
+			name = "(Legacy) LLInt Offsets";
 			productName = "Derived Sources";
 		};
-		14BD688F215191450050DAFF /* LLInt Settings */ = {
+		14BD688F215191450050DAFF /* (Legacy) LLInt Settings */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 14BD6893215191450050DAFF /* Build configuration list for PBXAggregateTarget "LLInt Settings" */;
+			buildConfigurationList = 14BD6893215191450050DAFF /* Build configuration list for PBXAggregateTarget "(Legacy) LLInt Settings" */;
 			buildPhases = (
-				14BD6892215191450050DAFF /* Generate Derived Sources */,
+				14BD6892215191450050DAFF /* (Legacy) Generate Derived Sources */,
 			);
 			dependencies = (
 				14BD6890215191450050DAFF /* PBXTargetDependency */,
 			);
-			name = "LLInt Settings";
+			name = "(Legacy) LLInt Settings";
 			productName = "Derived Sources";
 		};
 		5325BDBF21DFF2B100A0DEE1 /* Apply Configuration to XCFileLists */ = {
@@ -73,18 +73,18 @@
 			name = "Test Tools";
 			productName = "Test Tools";
 		};
-		65788A9D18B409EB00C189FF /* Offline Assembler */ = {
+		65788A9D18B409EB00C189FF /* (Legacy) Offline Assembler */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 65788AA218B409EB00C189FF /* Build configuration list for PBXAggregateTarget "Offline Assembler" */;
+			buildConfigurationList = 65788AA218B409EB00C189FF /* Build configuration list for PBXAggregateTarget "(Legacy) Offline Assembler" */;
 			buildPhases = (
 				DDE9930C278D083D00F60D26 /* Product Dependencies */,
-				65788AA018B409EB00C189FF /* Offline Assemble */,
+				65788AA018B409EB00C189FF /* (Legacy) Offline Assemble */,
 			);
 			dependencies = (
 				65244BD318ECB5000010B708 /* PBXTargetDependency */,
 				65788A9E18B409EB00C189FF /* PBXTargetDependency */,
 			);
-			name = "Offline Assembler";
+			name = "(Legacy) Offline Assembler";
 			productName = "Offline Assembler";
 		};
 		65FB3F6609D11E9100F49DEB /* Derived Sources */ = {
@@ -324,7 +324,6 @@
 		0F44A7B420BF68D90022B171 /* TerminatedCodeOrigin.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F44A7A820BF685E0022B171 /* TerminatedCodeOrigin.h */; };
 		0F4570391BE44C910062A629 /* AirEliminateDeadCode.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F4570371BE44C910062A629 /* AirEliminateDeadCode.h */; };
 		0F45703D1BE45F0A0062A629 /* AirReportUsedRegisters.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F45703B1BE45F0A0062A629 /* AirReportUsedRegisters.h */; };
-		0F4570411BE584CA0062A629 /* B3TimingScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F45703F1BE584CA0062A629 /* B3TimingScope.h */; };
 		0F46808214BA572D00BFE272 /* JITExceptions.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F46808014BA572700BFE272 /* JITExceptions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0F4680A314BA7F8D00BFE272 /* LLIntExceptions.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F46809E14BA7F8200BFE272 /* LLIntExceptions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0F4680A514BA7F8D00BFE272 /* LLIntSlowPaths.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F4680A014BA7F8200BFE272 /* LLIntSlowPaths.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -858,7 +857,7 @@
 		33B2A54722653481005A0F79 /* B3ValueInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FEC84FB1BDACDAC0080FF74 /* B3ValueInlines.h */; };
 		33B2A548226543BF005A0F79 /* FTLLowerDFGToB3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FEA0A04170513DB00BB722C /* FTLLowerDFGToB3.cpp */; };
 		37AAC093279F1BFC00D64842 /* WasmBranchHintsSectionParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 37AAC092279F124200D64842 /* WasmBranchHintsSectionParser.h */; };
-		37AAC094279F1C0500D64842 /* WasmBranchHints.h in Headers */ = {isa = PBXBuildFile; fileRef = 37AAC091279F124200D64842 /* WasmBranchHints.h */; };
+		37AAC094279F1C0500D64842 /* WasmBranchHints.h in Headers */ = {isa = PBXBuildFile; fileRef = 37AAC091279F124200D64842 /* WasmBranchHints.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		37C738D21EDB56E4003F2B0B /* ParseInt.h in Headers */ = {isa = PBXBuildFile; fileRef = 37C738D11EDB5672003F2B0B /* ParseInt.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		412952771D2CF6BC00E78B89 /* builtins_generate_internals_wrapper_header.py in Headers */ = {isa = PBXBuildFile; fileRef = 412952731D2CF6AC00E78B89 /* builtins_generate_internals_wrapper_header.py */; settings = {ATTRIBUTES = (Private, ); }; };
 		412952781D2CF6BC00E78B89 /* builtins_generate_internals_wrapper_implementation.py in Headers */ = {isa = PBXBuildFile; fileRef = 412952741D2CF6AC00E78B89 /* builtins_generate_internals_wrapper_implementation.py */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1121,7 +1120,7 @@
 		53D41EC923C0081A00AE984B /* IterationModeMetadata.h in Headers */ = {isa = PBXBuildFile; fileRef = 53D41EC823C0081000AE984B /* IterationModeMetadata.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		53D444DC1DAF08AB00B92784 /* B3WasmAddressValue.h in Headers */ = {isa = PBXBuildFile; fileRef = 53D444DB1DAF08AB00B92784 /* B3WasmAddressValue.h */; };
 		53E1F8F82154715A0001DDBC /* JSValuePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 53E1F8F7215471490001DDBC /* JSValuePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		53E777E41E92E265007CBEC4 /* WasmModuleInformation.h in Headers */ = {isa = PBXBuildFile; fileRef = 53E777E21E92E265007CBEC4 /* WasmModuleInformation.h */; };
+		53E777E41E92E265007CBEC4 /* WasmModuleInformation.h in Headers */ = {isa = PBXBuildFile; fileRef = 53E777E21E92E265007CBEC4 /* WasmModuleInformation.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		53E9E0AC1EAE83DF00FEE251 /* WasmMachineThreads.h in Headers */ = {isa = PBXBuildFile; fileRef = 53E9E0AA1EAE83DE00FEE251 /* WasmMachineThreads.h */; };
 		53E9E0AF1EAEC45700FEE251 /* WasmTierUpCount.h in Headers */ = {isa = PBXBuildFile; fileRef = 53E9E0AE1EAEC45700FEE251 /* WasmTierUpCount.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		53EAFE2F208DFAB4007D524B /* testapi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 531D4E191F59CDD200EC836C /* testapi.cpp */; };
@@ -1204,6 +1203,7 @@
 		72131BFA26587EF2007114CF /* JITPlanStage.h in Headers */ = {isa = PBXBuildFile; fileRef = 72131BF626587EF2007114CF /* JITPlanStage.h */; };
 		72131BFC26587EFA007114CF /* JITWorklistInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 72131BFB26587EFA007114CF /* JITWorklistInlines.h */; };
 		723998F7265DBCDB0057867F /* BaselineJITPlan.h in Headers */ = {isa = PBXBuildFile; fileRef = 723998F5265DBCDB0057867F /* BaselineJITPlan.h */; };
+		724000F7282DBCDB1057867F /* BaselineJITRegisters.h in Headers */ = {isa = PBXBuildFile; fileRef = 724009F5278DBCDB0057867F /* BaselineJITRegisters.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		726B91B026581653008E6F82 /* JITWorklistThread.h in Headers */ = {isa = PBXBuildFile; fileRef = 726B91A826581652008E6F82 /* JITWorklistThread.h */; };
 		726B91B326581653008E6F82 /* JITCompilationMode.h in Headers */ = {isa = PBXBuildFile; fileRef = 726B91AB26581653008E6F82 /* JITCompilationMode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		726B91B726581653008E6F82 /* JITPlan.h in Headers */ = {isa = PBXBuildFile; fileRef = 726B91AF26581653008E6F82 /* JITPlan.h */; };
@@ -1651,7 +1651,7 @@
 		AD412B341E7B2E9E008AF157 /* WasmContext.h in Headers */ = {isa = PBXBuildFile; fileRef = AD412B321E7B2E8A008AF157 /* WasmContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		AD4252511E5D0E14009D2A97 /* FullCodeOrigin.h in Headers */ = {isa = PBXBuildFile; fileRef = AD4252501E5D0DEB009D2A97 /* FullCodeOrigin.h */; };
 		AD4937C41DDBE6140077C807 /* AbstractModuleRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = AD4937C21DDBE60A0077C807 /* AbstractModuleRecord.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		AD4937C81DDD0AAE0077C807 /* WebAssemblyModuleRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = AD4937C61DDCDCF00077C807 /* WebAssemblyModuleRecord.h */; };
+		AD4937C81DDD0AAE0077C807 /* WebAssemblyModuleRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = AD4937C61DDCDCF00077C807 /* WebAssemblyModuleRecord.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		AD4937D41DDD27DE0077C807 /* WebAssemblyFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = AD4937CA1DDD27340077C807 /* WebAssemblyFunction.h */; };
 		AD4B1DFA1DF244E20071AE32 /* WasmBinding.h in Headers */ = {isa = PBXBuildFile; fileRef = AD4B1DF81DF244D70071AE32 /* WasmBinding.h */; };
 		AD5B416F1EBAFB77008EFA43 /* WasmName.h in Headers */ = {isa = PBXBuildFile; fileRef = AD5B416E1EBAFB65008EFA43 /* WasmName.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1829,6 +1829,9 @@
 		DCF3D56D1CD29476003D5C65 /* LazyPropertyInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = DCF3D5681CD29468003D5C65 /* LazyPropertyInlines.h */; };
 		DCFDFBD91D1F5D9B00FE3D72 /* B3BottomProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = DCFDFBD71D1F5D9800FE3D72 /* B3BottomProvider.h */; };
 		DCFDFBDA1D1F5D9E00FE3D72 /* B3TypeMap.h in Headers */ = {isa = PBXBuildFile; fileRef = DCFDFBD81D1F5D9800FE3D72 /* B3TypeMap.h */; };
+		DD41FA8627CDAD3200394D95 /* LowLevelInterpreter.asm in Sources */ = {isa = PBXBuildFile; fileRef = 86A054461556451B00445157 /* LowLevelInterpreter.asm */; };
+		DD41FA8727CDAD4300394D95 /* LowLevelInterpreter.asm in Sources */ = {isa = PBXBuildFile; fileRef = 86A054461556451B00445157 /* LowLevelInterpreter.asm */; };
+		DD41FA8927CDDDEF00394D95 /* LowLevelInterpreter.asm in Sources */ = {isa = PBXBuildFile; fileRef = 86A054461556451B00445157 /* LowLevelInterpreter.asm */; };
 		DDB04F41278E569A008D3678 /* libWTF.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 1498CAD3214656C400710879 /* libWTF.a */; };
 		DDB04F42278E56A2008D3678 /* libWTF.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1498CAD3214656C400710879 /* libWTF.a */; };
 		DDE99310278D087D00F60D26 /* libWebKitAdditions.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = DDE9930E278D086600F60D26 /* libWebKitAdditions.a */; };
@@ -2158,6 +2161,56 @@
 			);
 			script = "exec \"${SRCROOT}/Scripts/postprocess-header-rule\"\n";
 		};
+		DD41FA7D27CDA6FE00394D95 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			dependencyFile = "$(TARGET_TEMP_DIR)/$(INPUT_FILE_BASE).d";
+			filePatterns = "*.asm";
+			fileType = pattern.proxy;
+			inputFiles = (
+				"$(BUILT_PRODUCTS_DIR)/JSCLLIntOffsetsExtractor",
+				"$(SRCROOT)/offlineasm",
+			);
+			isEditable = 1;
+			outputFiles = (
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/JavaScriptCore/LLIntAssembly.h",
+			);
+			runOncePerArchitecture = 0;
+			script = "OFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\ncd \"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"\n\n/usr/bin/env ruby JavaScriptCore/offlineasm/asm.rb \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" \"${INPUT_FILE_PATH}\" \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\" \"${BUILD_VARIANTS}\" ${OFFLINEASM_ARGS} --depfile=\"${TARGET_TEMP_DIR}/${INPUT_FILE_BASE}.d\"\n";
+		};
+		DD41FA7E27CDA89D00394D95 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			dependencyFile = "$(TARGET_TEMP_DIR)/$(INPUT_FILE_BASE).d";
+			filePatterns = "*.asm";
+			fileType = pattern.proxy;
+			inputFiles = (
+				"$(BUILT_PRODUCTS_DIR)/JSCLLIntSettingsExtractor",
+				"$(SRCROOT)/offlineasm",
+			);
+			isEditable = 1;
+			outputFiles = (
+				"$(BUILT_PRODUCTS_DIR)/LLIntOffsets/$(ARCHS)/LLIntDesiredOffsets.h",
+			);
+			runOncePerArchitecture = 0;
+			script = "set -e\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\n/usr/bin/env ruby \"${SRCROOT}/offlineasm/generate_offset_extractor.rb\" \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" \"${INPUT_FILE_PATH}\"  \"${BUILT_PRODUCTS_DIR}/JSCLLIntSettingsExtractor\" \"${SCRIPT_OUTPUT_FILE_0}\" \"${ARCHS} C_LOOP\" \"${BUILD_VARIANTS}\" ${OFFLINEASM_ARGS} --depfile=\"${TARGET_TEMP_DIR}/${INPUT_FILE_BASE}.d\"\n\n";
+		};
+		DD41FA8127CDAA5400394D95 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			dependencyFile = "$(TARGET_TEMP_DIR)/$(INPUT_FILE_BASE).d";
+			filePatterns = "*.asm";
+			fileType = pattern.proxy;
+			inputFiles = (
+				"$(SRCROOT)/offlineasm",
+			);
+			isEditable = 1;
+			outputFiles = (
+				"$(BUILT_PRODUCTS_DIR)/LLIntOffsets/$(ARCHS)/LLIntDesiredSettings.h",
+			);
+			runOncePerArchitecture = 0;
+			script = "set -e\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\n/usr/bin/env ruby \"${SRCROOT}/offlineasm/generate_settings_extractor.rb\" \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" \"${INPUT_FILE_PATH}\" \"${SCRIPT_OUTPUT_FILE_0}\" \"${ARCHS} C_LOOP\" ${OFFLINEASM_ARGS} --depfile=\"${TARGET_TEMP_DIR}/${INPUT_FILE_BASE}.d\"\n";
+		};
 /* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2371,13 +2424,6 @@
 			remoteGlobalIDString = 65FB3F6609D11E9100F49DEB;
 			remoteInfo = "Derived Sources";
 		};
-		65788AAC18B40A7B00C189FF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 65788A9D18B409EB00C189FF;
-			remoteInfo = "Offline Assembler";
-		};
 		65FB3F7D09D11EF300F49DEB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
@@ -2398,6 +2444,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 932F5B3E0822A1C700736975;
 			remoteInfo = "JavaScriptCore (Upgraded)";
+		};
+		DD41FA8A27CDE1C400394D95 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65788A9D18B409EB00C189FF;
+			remoteInfo = "(Legacy) Offline Assembler";
 		};
 		FE533CAE1F217EC60016A1FE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2766,7 +2819,6 @@
 		0F4570371BE44C910062A629 /* AirEliminateDeadCode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AirEliminateDeadCode.h; path = b3/air/AirEliminateDeadCode.h; sourceTree = "<group>"; };
 		0F45703A1BE45F0A0062A629 /* AirReportUsedRegisters.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AirReportUsedRegisters.cpp; path = b3/air/AirReportUsedRegisters.cpp; sourceTree = "<group>"; };
 		0F45703B1BE45F0A0062A629 /* AirReportUsedRegisters.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AirReportUsedRegisters.h; path = b3/air/AirReportUsedRegisters.h; sourceTree = "<group>"; };
-		0F45703F1BE584CA0062A629 /* B3TimingScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = B3TimingScope.h; path = b3/B3TimingScope.h; sourceTree = "<group>"; };
 		0F46807F14BA572700BFE272 /* JITExceptions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JITExceptions.cpp; sourceTree = "<group>"; };
 		0F46808014BA572700BFE272 /* JITExceptions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JITExceptions.h; sourceTree = "<group>"; };
 		0F46809D14BA7F8200BFE272 /* LLIntExceptions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = LLIntExceptions.cpp; path = llint/LLIntExceptions.cpp; sourceTree = "<group>"; };
@@ -4246,6 +4298,7 @@
 		72131BFB26587EFA007114CF /* JITWorklistInlines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JITWorklistInlines.h; sourceTree = "<group>"; };
 		723998F5265DBCDB0057867F /* BaselineJITPlan.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BaselineJITPlan.h; sourceTree = "<group>"; };
 		723998F6265DBCDB0057867F /* BaselineJITPlan.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BaselineJITPlan.cpp; sourceTree = "<group>"; };
+		724009F5278DBCDB0057867F /* BaselineJITRegisters.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BaselineJITRegisters.h; sourceTree = "<group>"; };
 		726B91A826581652008E6F82 /* JITWorklistThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JITWorklistThread.h; sourceTree = "<group>"; };
 		726B91AA26581653008E6F82 /* JITPlan.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JITPlan.cpp; sourceTree = "<group>"; };
 		726B91AB26581653008E6F82 /* JITCompilationMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JITCompilationMode.h; sourceTree = "<group>"; };
@@ -6235,7 +6288,6 @@
 				0FEC84EE1BDACDAC0080FF74 /* B3SwitchCase.h */,
 				0FEC84EF1BDACDAC0080FF74 /* B3SwitchValue.cpp */,
 				0FEC84F01BDACDAC0080FF74 /* B3SwitchValue.h */,
-				0F45703F1BE584CA0062A629 /* B3TimingScope.h */,
 				0FEC84F11BDACDAC0080FF74 /* B3Type.cpp */,
 				0FEC84F21BDACDAC0080FF74 /* B3Type.h */,
 				DCFDFBD81D1F5D9800FE3D72 /* B3TypeMap.h */,
@@ -6496,6 +6548,7 @@
 				52DD000626E039B30054E408 /* BaselineJITCode.h */,
 				723998F6265DBCDB0057867F /* BaselineJITPlan.cpp */,
 				723998F5265DBCDB0057867F /* BaselineJITPlan.h */,
+				724009F5278DBCDB0057867F /* BaselineJITRegisters.h */,
 				0F64B26F1A784BAF006E4E66 /* BinarySwitch.cpp */,
 				0F64B2701A784BAF006E4E66 /* BinarySwitch.h */,
 				65B8392D1BACA9D30044E824 /* CachedRecovery.cpp */,
@@ -9826,7 +9879,6 @@
 				0FEC85361BDACDAC0080FF74 /* B3SuccessorCollection.h in Headers */,
 				0FEC85381BDACDAC0080FF74 /* B3SwitchCase.h in Headers */,
 				0FEC853A1BDACDAC0080FF74 /* B3SwitchValue.h in Headers */,
-				0F4570411BE584CA0062A629 /* B3TimingScope.h in Headers */,
 				0FEC853C1BDACDAC0080FF74 /* B3Type.h in Headers */,
 				DCFDFBDA1D1F5D9E00FE3D72 /* B3TypeMap.h in Headers */,
 				0FEC853E1BDACDAC0080FF74 /* B3UpsilonValue.h in Headers */,
@@ -9845,6 +9897,7 @@
 				0F2C63B21E60AE4700C13839 /* B3Width.h in Headers */,
 				52DD000826E039B90054E408 /* BaselineJITCode.h in Headers */,
 				723998F7265DBCDB0057867F /* BaselineJITPlan.h in Headers */,
+				724000F7282DBCDB1057867F /* BaselineJITRegisters.h in Headers */,
 				52678F8F1A031009006A306D /* BasicBlockLocation.h in Headers */,
 				147B83AC0E6DB8C9004775A4 /* BatchedTransitionOptimizer.h in Headers */,
 				E35E89FD25C50F870071EE1E /* BigInt64Array.h in Headers */,
@@ -11417,6 +11470,7 @@
 				0FF922C614F46B130041A24E /* Frameworks */,
 			);
 			buildRules = (
+				DD41FA7E27CDA89D00394D95 /* PBXBuildRule */,
 			);
 			dependencies = (
 				14CFB10923035F1300F0048C /* PBXTargetDependency */,
@@ -11475,6 +11529,7 @@
 				14BD6888215191310050DAFF /* Frameworks */,
 			);
 			buildRules = (
+				DD41FA8127CDAA5400394D95 /* PBXBuildRule */,
 			);
 			dependencies = (
 				14CFB10723035F0F00F0048C /* PBXTargetDependency */,
@@ -11556,12 +11611,14 @@
 				1A02D9A81B34A882000D1522 /* Add Symlink in /System/Library/PrivateFrameworks */,
 				53609F9021DFFA9C008FA60A /* Check .xcfilelists */,
 				6577FFC6276AC8D20011AEC8 /* Create Symlink to Alt Root Path */,
+				6517571427C9860C00D9FE40 /* Copy Frameworks to Secondary Path */,
 			);
 			buildRules = (
+				DD41FA7D27CDA6FE00394D95 /* PBXBuildRule */,
 				535E08C222545AC800DF00CA /* PBXBuildRule */,
 			);
 			dependencies = (
-				65788AAD18B40A7B00C189FF /* PBXTargetDependency */,
+				DD41FA8B27CDE1C400394D95 /* PBXTargetDependency */,
 				65FB3F7E09D11EF300F49DEB /* PBXTargetDependency */,
 				53B4BD141F68C2AA00D2BEA3 /* PBXTargetDependency */,
 			);
@@ -11640,11 +11697,11 @@
 				932F5BE30822A1C700736975 /* All */,
 				932F5B3E0822A1C700736975 /* JavaScriptCore */,
 				65FB3F6609D11E9100F49DEB /* Derived Sources */,
-				14BD688F215191450050DAFF /* LLInt Settings */,
+				14BD688F215191450050DAFF /* (Legacy) LLInt Settings */,
 				14BD6881215191310050DAFF /* JSCLLIntSettingsExtractor */,
-				0F4680A914BA7FD900BFE272 /* LLInt Offsets */,
+				0F4680A914BA7FD900BFE272 /* (Legacy) LLInt Offsets */,
 				0FF922C314F46B130041A24E /* JSCLLIntOffsetsExtractor */,
-				65788A9D18B409EB00C189FF /* Offline Assembler */,
+				65788A9D18B409EB00C189FF /* (Legacy) Offline Assembler */,
 				53B4BD041F68AF8900D2BEA3 /* Generate Unified Sources */,
 				E1AC2E2720F7B94C00B0897D /* Unlock Keychain */,
 				1412111F0A48793C00480255 /* minidom */,
@@ -11675,33 +11732,33 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		0F4680AA14BA7FD900BFE272 /* Generate Derived Sources */ = {
+		0F4680AA14BA7FD900BFE272 /* (Legacy) Generate Derived Sources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Generate Derived Sources";
+			name = "(Legacy) Generate Derived Sources";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}\"\n\n/usr/bin/env ruby \"${SRCROOT}/offlineasm/generate_offset_extractor.rb\" \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" \"${SRCROOT}/llint/LowLevelInterpreter.asm\"  \"${BUILT_PRODUCTS_DIR}/JSCLLIntSettingsExtractor\" \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}/LLIntDesiredOffsets.h\" \"${ARCHS} C_LOOP\" \"${BUILD_VARIANTS}\" ${OFFLINEASM_ARGS}\n";
+			shellScript = "[ \"${WK_USE_NEW_BUILD_SYSTEM}\" = \"YES\" ] && exit 0\nset -e\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}\"\n\n/usr/bin/env ruby \"${SRCROOT}/offlineasm/generate_offset_extractor.rb\" \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" \"${SRCROOT}/llint/LowLevelInterpreter.asm\"  \"${BUILT_PRODUCTS_DIR}/JSCLLIntSettingsExtractor\" \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}/LLIntDesiredOffsets.h\" \"${ARCHS} C_LOOP\" \"${BUILD_VARIANTS}\" ${OFFLINEASM_ARGS}\n";
 		};
-		14BD6892215191450050DAFF /* Generate Derived Sources */ = {
+		14BD6892215191450050DAFF /* (Legacy) Generate Derived Sources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Generate Derived Sources";
+			name = "(Legacy) Generate Derived Sources";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}\"\n\n/usr/bin/env ruby \"${SRCROOT}/offlineasm/generate_settings_extractor.rb\" \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" \"${SRCROOT}/llint/LowLevelInterpreter.asm\" \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}/LLIntDesiredSettings.h\" \"${ARCHS} C_LOOP\" ${OFFLINEASM_ARGS}\n";
+			shellScript = "[ \"${WK_USE_NEW_BUILD_SYSTEM}\" = \"YES\" ] && exit 0\nset -e\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}\"\n\n/usr/bin/env ruby \"${SRCROOT}/offlineasm/generate_settings_extractor.rb\" \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" \"${SRCROOT}/llint/LowLevelInterpreter.asm\" \"${BUILT_PRODUCTS_DIR}/LLIntOffsets/${ARCHS}/LLIntDesiredSettings.h\" \"${ARCHS} C_LOOP\" ${OFFLINEASM_ARGS}\n";
 		};
 		1A02D9A81B34A882000D1522 /* Add Symlink in /System/Library/PrivateFrameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -11715,7 +11772,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [[ ${FALLBACK_PLATFORM:-$PLATFORM_NAME} != \"iphoneos\" ]]; then\n    exit 0\nfi\n\nif [[ ! -d \"${INSTALL_ROOT}/${SYSTEM_LIBRARY_DIR}/PrivateFrameworks\" ]]; then\n    mkdir -p \"${INSTALL_ROOT}/${SYSTEM_LIBRARY_DIR}/PrivateFrameworks\"\nfi\n\nln -s -h -f ../Frameworks/JavaScriptCore.framework \"${INSTALL_ROOT}/${SYSTEM_LIBRARY_DIR}/PrivateFrameworks/JavaScriptCore.framework\"\n";
+			shellScript = "if [[ ${FALLBACK_PLATFORM_NAME:-$PLATFORM_NAME} != \"iphoneos\" ]]; then\n    exit 0\nfi\n\nif [[ ! -d \"${INSTALL_ROOT}/${SYSTEM_LIBRARY_DIR}/PrivateFrameworks\" ]]; then\n    mkdir -p \"${INSTALL_ROOT}/${SYSTEM_LIBRARY_DIR}/PrivateFrameworks\"\nfi\n\nln -s -h -f ../Frameworks/JavaScriptCore.framework \"${INSTALL_ROOT}/${SYSTEM_LIBRARY_DIR}/PrivateFrameworks/JavaScriptCore.framework\"\n";
 		};
 		3713F014142905240036387F /* Check For Inappropriate Objective-C Class Names */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -11922,6 +11979,24 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\n# Skip for Production builds.\nif [[ ${CONFIGURATION:=Debug} == \"Production\" ]]; then\n    exit\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${JAVASCRIPTCORE_HELPERS_DIR}\"\nditto \"${BUILT_PRODUCTS_DIR}/jsc\" \"${BUILT_PRODUCTS_DIR}/${JAVASCRIPTCORE_HELPERS_DIR}/jsc\"\n";
 		};
+		6517571427C9860C00D9FE40 /* Copy Frameworks to Secondary Path */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Frameworks to Secondary Path";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "export FRAMEWORKS_TO_COPY_TO_SECONDARY_PATH=\"JavaScriptCore\"\n\"${SRCROOT}/Scripts/copy-frameworks-to-secondary-path.sh\"\n";
+		};
 		6577FFC6276AC8D20011AEC8 /* Create Symlink to Alt Root Path */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -11940,19 +12015,19 @@
 			shellPath = /bin/zsh;
 			shellScript = "\"${SRCROOT}/Scripts/create-symlink-to-altroot.sh\"\n";
 		};
-		65788AA018B409EB00C189FF /* Offline Assemble */ = {
+		65788AA018B409EB00C189FF /* (Legacy) Offline Assemble */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Offline Assemble";
+			name = "(Legacy) Offline Assemble";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [[ \"${ACTION}\" == \"installhdrs\" ]]; then\n    exit 0\nfi\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\ncd \"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"\n\n/usr/bin/env ruby JavaScriptCore/offlineasm/asm.rb \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" JavaScriptCore/llint/LowLevelInterpreter.asm \"${BUILT_PRODUCTS_DIR}/JSCLLIntOffsetsExtractor\" LLIntAssembly.h \"${BUILD_VARIANTS}\" ${OFFLINEASM_ARGS} || exit 1\n";
+			shellScript = "[ \"${WK_USE_NEW_BUILD_SYSTEM}\" = \"YES\" ] && exit 0\n\nif [[ \"${ACTION}\" == \"installhdrs\" ]]; then\n    exit 0\nfi\n\nOFFLINEASM_ARGS=\"\"\nif [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    OFFLINEASM_ARGS=\"${OFFLINEASM_ARGS} --webkit-additions-path=${WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH}\"\nfi\n\ncd \"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\"\n\n/usr/bin/env ruby JavaScriptCore/offlineasm/asm.rb \"-I${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore\" JavaScriptCore/llint/LowLevelInterpreter.asm \"${BUILT_PRODUCTS_DIR}/JSCLLIntOffsetsExtractor\" LLIntAssembly.h \"${BUILD_VARIANTS}\" ${OFFLINEASM_ARGS} || exit 1\n";
 		};
 		65FB3F6509D11E9100F49DEB /* Generate Derived Sources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -12085,6 +12160,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				0FF922D414F46B410041A24E /* LLIntOffsetsExtractor.cpp in Sources */,
+				DD41FA8727CDAD4300394D95 /* LowLevelInterpreter.asm in Sources */,
+				DD41FA8727CDAD4300394D95 /* LowLevelInterpreter.asm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -12132,6 +12209,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				14BD689D215191C10050DAFF /* LLIntSettingsExtractor.cpp in Sources */,
+				DD41FA8627CDAD3200394D95 /* LowLevelInterpreter.asm in Sources */,
+				DD41FA8627CDAD3200394D95 /* LowLevelInterpreter.asm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -12175,6 +12254,8 @@
 				E30873E7272559410053B601 /* IntlPluralRules.cpp in Sources */,
 				A3EE8543262514B000FC9B8D /* IntlWorkaround.cpp in Sources */,
 				E38E8790254B978400F6F9E4 /* JSDateMath.cpp in Sources */,
+				DD41FA8927CDDDEF00394D95 /* LowLevelInterpreter.asm in Sources */,
+				DD41FA8927CDDDEF00394D95 /* LowLevelInterpreter.asm in Sources */,
 				536B319E1F735F160037FC33 /* LowLevelInterpreter.cpp in Sources */,
 				DFBC2CA625E6D5B90081BDD1 /* SymbolStubsForSafariCompatibility.mm in Sources */,
 				536B319A1F735E780037FC33 /* UnifiedSource1-mm.mm in Sources */,
@@ -12398,7 +12479,7 @@
 		};
 		0FF922D314F46B2F0041A24E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0F4680A914BA7FD900BFE272 /* LLInt Offsets */;
+			target = 0F4680A914BA7FD900BFE272 /* (Legacy) LLInt Offsets */;
 			targetProxy = 0FF922D214F46B2F0041A24E /* PBXContainerItemProxy */;
 		};
 		14BD6882215191310050DAFF /* PBXTargetDependency */ = {
@@ -12418,7 +12499,7 @@
 		};
 		14BD689B215191740050DAFF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 14BD688F215191450050DAFF /* LLInt Settings */;
+			target = 14BD688F215191450050DAFF /* (Legacy) LLInt Settings */;
 			targetProxy = 14BD689A215191740050DAFF /* PBXContainerItemProxy */;
 		};
 		14CFB10023035EF300F0048C /* PBXTargetDependency */ = {
@@ -12531,11 +12612,6 @@
 			target = 65FB3F6609D11E9100F49DEB /* Derived Sources */;
 			targetProxy = 65788AAA18B40A3B00C189FF /* PBXContainerItemProxy */;
 		};
-		65788AAD18B40A7B00C189FF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 65788A9D18B409EB00C189FF /* Offline Assembler */;
-			targetProxy = 65788AAC18B40A7B00C189FF /* PBXContainerItemProxy */;
-		};
 		65FB3F7E09D11EF300F49DEB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 65FB3F6609D11E9100F49DEB /* Derived Sources */;
@@ -12550,6 +12626,11 @@
 			isa = PBXTargetDependency;
 			target = 932F5B3E0822A1C700736975 /* JavaScriptCore */;
 			targetProxy = 932F5BE60822A1C700736975 /* PBXContainerItemProxy */;
+		};
+		DD41FA8B27CDE1C400394D95 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65788A9D18B409EB00C189FF /* (Legacy) Offline Assembler */;
+			targetProxy = DD41FA8A27CDE1C400394D95 /* PBXContainerItemProxy */;
 		};
 		FE533CAF1F217EC60016A1FE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -13250,7 +13331,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0F4680AC14BA7FD900BFE272 /* Build configuration list for PBXAggregateTarget "LLInt Offsets" */ = {
+		0F4680AC14BA7FD900BFE272 /* Build configuration list for PBXAggregateTarget "(Legacy) LLInt Offsets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0F4680AD14BA7FD900BFE272 /* Debug */,
@@ -13382,7 +13463,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
 		};
-		14BD6893215191450050DAFF /* Build configuration list for PBXAggregateTarget "LLInt Settings" */ = {
+		14BD6893215191450050DAFF /* Build configuration list for PBXAggregateTarget "(Legacy) LLInt Settings" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				14BD6894215191450050DAFF /* Debug */,
@@ -13459,7 +13540,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
 		};
-		65788AA218B409EB00C189FF /* Build configuration list for PBXAggregateTarget "Offline Assembler" */ = {
+		65788AA218B409EB00C189FF /* Build configuration list for PBXAggregateTarget "(Legacy) Offline Assembler" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				65788AA318B409EB00C189FF /* Debug */,

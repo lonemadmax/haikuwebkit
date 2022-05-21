@@ -28,6 +28,7 @@
 #include "MIMETypeRegistry.h"
 
 #include "MediaPlayer.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ThreadGlobalData.h"
 #include <wtf/FixedVector.h>
 #include <wtf/HashMap.h>
@@ -520,6 +521,11 @@ bool MIMETypeRegistry::isSupportedJavaScriptMIMEType(const String& mimeType)
     return supportedJavaScriptMIMETypes.contains(mimeType);
 }
 
+bool MIMETypeRegistry::isSupportedWebAssemblyMIMEType(const String& mimeType)
+{
+    return equalLettersIgnoringASCIICase(mimeType, "application/wasm");
+}
+
 bool MIMETypeRegistry::isSupportedStyleSheetMIMEType(const String& mimeType)
 {
     return equalLettersIgnoringASCIICase(mimeType, "text/css");
@@ -688,7 +694,7 @@ bool MIMETypeRegistry::canShowMIMEType(const String& mimeType)
 #endif
 
 #if ENABLE(MODEL_ELEMENT)
-    if (isSupportedModelMIMEType(mimeType))
+    if (isSupportedModelMIMEType(mimeType) && RuntimeEnabledFeatures::sharedFeatures().modelDocumentEnabled())
         return true;
 #endif
 

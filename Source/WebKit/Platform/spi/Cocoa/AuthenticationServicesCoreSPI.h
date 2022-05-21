@@ -167,6 +167,8 @@ typedef NS_ENUM(NSUInteger, ASCPublicKeyCredentialKind) {
 
 @property (nonatomic, nullable, readonly, copy) NSArray<ASCPublicKeyCredentialDescriptor *> *allowedCredentials;
 
+@property (nonatomic, nullable, copy) NSString *destinationSiteForCrossSiteAssertion;
+
 @end
 
 
@@ -221,7 +223,7 @@ typedef NS_OPTIONS(NSUInteger, ASCCredentialRequestTypes) {
 
 @property (nonatomic, readonly, copy) NSString *name;
 @property (nonatomic, readonly, copy) NSString *displayName;
-@property (nonatomic, readonly, copy) NSData *userHandle;
+@property (nonatomic, readonly, nullable, copy) NSData *userHandle;
 @property (nonatomic, readonly) BOOL isRegistrationRequest;
 
 + (instancetype)new NS_UNAVAILABLE;
@@ -233,6 +235,13 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
     ASCredentialRequestStyleModal,
     ASCredentialRequestStyleAutoFill,
 };
+
+@class ASCGlobalFrameIdentifier;
+
+@interface ASCGlobalFrameIdentifier : NSObject <NSSecureCoding>
+@property (nonatomic, copy) NSNumber *webPageID;
+@property (nonatomic, copy) NSNumber *webFrameID;
+@end
 
 @interface ASCCredentialRequestContext : NSObject <NSSecureCoding>
 
@@ -252,6 +261,7 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 
 @property (nonatomic) ASCredentialRequestStyle requestStyle;
 
+@property (nonatomic, nullable, copy) ASCGlobalFrameIdentifier *globalFrameID;
 @end
 
 @protocol ASCCredentialProtocol <NSObject, NSSecureCoding>
@@ -330,6 +340,8 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 
 - (void)performAutoFillAuthorizationRequestsForContext:(ASCCredentialRequestContext *)context withCompletionHandler:(void (^)(id <ASCCredentialProtocol> _Nullable credential, NSError * _Nullable error))completionHandler;
 #endif
+
+- (void)cancelCurrentRequest;
 
 @end
 

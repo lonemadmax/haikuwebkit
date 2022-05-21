@@ -125,7 +125,8 @@ public:
     NetworkProcessProxy& networkProcess() const;
     NetworkProcessProxy& networkProcess();
     NetworkProcessProxy* networkProcessIfExists() { return m_networkProcess.get(); }
-
+    void removeNetworkProcessReference();
+    
     static WebsiteDataStore* existingDataStoreForSessionID(PAL::SessionID);
 
     bool isPersistent() const { return !m_sessionID.isEphemeral(); }
@@ -158,7 +159,6 @@ public:
     uint64_t perOriginStorageQuota() const { return m_resolvedConfiguration->perOriginStorageQuota(); }
     uint64_t perThirdPartyOriginStorageQuota() const;
     const String& cacheStorageDirectory() const { return m_resolvedConfiguration->cacheStorageDirectory(); }
-    const String& generalStorageDirectory() const { return m_resolvedConfiguration->generalStorageDirectory(); }
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&&);
@@ -253,10 +253,11 @@ public:
     const String& resolvedDatabaseDirectory() const { return m_resolvedConfiguration->webSQLDatabaseDirectory(); }
     const String& resolvedJavaScriptConfigurationDirectory() const { return m_resolvedConfiguration->javaScriptConfigurationDirectory(); }
     const String& resolvedCookieStorageFile() const { return m_resolvedConfiguration->cookieStorageFile(); }
-    const String& resolvedIndexedDatabaseDirectory() const { return m_resolvedConfiguration->indexedDBDatabaseDirectory(); }
+    const String& resolvedIndexedDBDatabaseDirectory() const { return m_resolvedConfiguration->indexedDBDatabaseDirectory(); }
     const String& resolvedServiceWorkerRegistrationDirectory() const { return m_resolvedConfiguration->serviceWorkerRegistrationDirectory(); }
     const String& resolvedResourceLoadStatisticsDirectory() const { return m_resolvedConfiguration->resourceLoadStatisticsDirectory(); }
     const String& resolvedHSTSStorageDirectory() const { return m_resolvedConfiguration->hstsStorageDirectory(); }
+    const String& resolvedGeneralStorageDirectory() const { return m_resolvedConfiguration->generalStorageDirectory(); }
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     const String& resolvedModelElementCacheDirectory() const { return m_resolvedConfiguration->modelElementCacheDirectory(); }
 #endif
@@ -352,6 +353,7 @@ public:
     static WTF::String defaultJavaScriptConfigurationDirectory();
     static bool http3Enabled();
     static constexpr uint64_t defaultPerOriginQuota() { return 1000 * MB; }
+    static bool defaultShouldUseCustomStoragePaths();
 
     void resetQuota(CompletionHandler<void()>&&);
     void clearStorage(CompletionHandler<void()>&&);

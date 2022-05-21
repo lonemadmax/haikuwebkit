@@ -31,11 +31,11 @@
 #import "APIAttachment.h"
 #import "APIContextMenuClient.h"
 #import "CocoaImage.h"
+#import "ImageAnalysisUtilities.h"
 #import "MenuUtilities.h"
 #import "PageClientImplMac.h"
 #import "ServicesController.h"
 #import "ShareableBitmap.h"
-#import "TextRecognitionUtilities.h"
 #import "WKMenuItemIdentifiersPrivate.h"
 #import "WKSharingServicePickerDelegate.h"
 #import "WebContextMenuItem.h"
@@ -263,15 +263,12 @@ void WebContextMenuProxyMac::setupServicesMenu()
     [[WKSharingServicePickerDelegate sharedSharingServicePickerDelegate] setSourceFrame:imageRect];
     [[WKSharingServicePickerDelegate sharedSharingServicePickerDelegate] setAttachmentID:m_context.controlledImageAttachmentID()];
 
-    if ([picker respondsToSelector:@selector(standardShareMenuItem)])
-        m_menu = adoptNS([[[picker standardShareMenuItem] menu] copy]);
-    else
-        m_menu = adoptNS([[picker menu] copy]);
+    m_menu = adoptNS([[picker menu] copy]);
 
     if (!hasControlledImage)
         [m_menu setShowsStateColumn:YES];
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    else if (isImageAnalysisMarkupSystemFeatureEnabled()) {
+    else if (page()->preferences().imageAnalysisMarkupEnabled()) {
         auto markupImageItem = adoptNS([[NSMenuItem alloc] initWithTitle:contextMenuItemTitleMarkupImage() action:@selector(markupImage) keyEquivalent:@""]);
         [markupImageItem setImage:[NSImage imageWithSystemSymbolName:@"person.fill.viewfinder" accessibilityDescription:contextMenuItemTitleMarkupImage()]];
         [markupImageItem setTarget:WKSharingServicePickerDelegate.sharedSharingServicePickerDelegate];
@@ -416,6 +413,7 @@ void WebContextMenuProxyMac::getShareMenuItem(CompletionHandler<void(NSMenuItem 
     auto sharingServicePicker = adoptNS([[NSSharingServicePicker alloc] initWithItems:items.get()]);
     if ([sharingServicePicker respondsToSelector:@selector(standardShareMenuItem)]) {
         NSMenuItem *shareMenuItem = [sharingServicePicker standardShareMenuItem];
+        [shareMenuItem setRepresentedObject:sharingServicePicker.get()];
         shareMenuItem.identifier = _WKMenuItemIdentifierShareMenu;
         completionHandler(shareMenuItem);
         return;
@@ -622,7 +620,7 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
     ASSERT(m_context.webHitTestResultData());
     auto hitTestData = m_context.webHitTestResultData().value();
     
-    auto imageURL = URL { URL { }, hitTestData.absoluteImageURL };
+    auto imageURL = URL { hitTestData.absoluteImageURL };
     auto imageBitmap = hitTestData.imageBitmap;
 
     auto sparseMenuItems = retainPtr([NSPointerArray strongObjectsPointerArray]);
@@ -768,8 +766,8 @@ void WebContextMenuProxyMac::showContextMenuWithItems(Vector<Ref<WebContextMenuI
 
     auto webView = m_webView.get();
     NSPoint menuLocation = [webView convertPoint:m_context.menuLocation() toView:nil];
-    NSEvent *event = [NSEvent mouseEventWithType:NSEventTypeRightMouseUp location:menuLocation modifierFlags:0 timestamp:0 windowNumber:[webView window].windowNumber context:nil eventNumber:0 clickCount:0 pressure:0];
-    [NSMenu popUpContextMenu:m_menu.get() withEvent:event forView:webView.get()];
+    auto event = page()->createSyntheticEventForContextMenu(menuLocation);
+    [NSMenu popUpContextMenu:m_menu.get() withEvent:event.get() forView:webView.get()];
 }
 
 void WebContextMenuProxyMac::useContextMenuItems(Vector<Ref<WebContextMenuItem>>&& items)

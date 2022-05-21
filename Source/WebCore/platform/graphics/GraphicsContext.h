@@ -91,6 +91,7 @@ class MediaPlayer;
 class RoundedRect;
 class GraphicsContextGL;
 class Path;
+class SystemImage;
 class TextRun;
 class TransformationMatrix;
 
@@ -422,13 +423,17 @@ public:
 
     IntSize compatibleImageBufferSize(const FloatSize&) const;
 
-    WEBCORE_EXPORT RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, RenderingMethod = RenderingMethod::Default) const;
-    WEBCORE_EXPORT RefPtr<ImageBuffer> createImageBuffer(const FloatRect&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, RenderingMethod = RenderingMethod::Default) const;
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, float resolutionScale = 1, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt) const;
 
-    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createCompatibleImageBuffer(const FloatSize&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), RenderingMethod = RenderingMethod::Default) const;
-    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createCompatibleImageBuffer(const FloatRect&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), RenderingMethod = RenderingMethod::Default) const;
+    WEBCORE_EXPORT RefPtr<ImageBuffer> createScaledImageBuffer(const FloatSize&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt) const;
+    WEBCORE_EXPORT RefPtr<ImageBuffer> createScaledImageBuffer(const FloatRect&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt) const;
+
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createAlignedImageBuffer(const FloatSize&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMethod> = std::nullopt) const;
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createAlignedImageBuffer(const FloatRect&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMethod> = std::nullopt) const;
 
     virtual void drawNativeImage(NativeImage&, const FloatSize& selfSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& = { }) = 0;
+
+    WEBCORE_EXPORT virtual void drawSystemImage(SystemImage&, const FloatRect&);
 
     WEBCORE_EXPORT ImageDrawResult drawImage(Image&, const FloatPoint& destination, const ImagePaintingOptions& = { ImageOrientation::FromImage });
     WEBCORE_EXPORT ImageDrawResult drawImage(Image&, const FloatRect& destination, const ImagePaintingOptions& = { ImageOrientation::FromImage });
@@ -552,8 +557,6 @@ private:
 protected:
     void fillEllipseAsPath(const FloatRect&);
     void strokeEllipseAsPath(const FloatRect&);
-
-    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, const DestinationColorSpace&, RenderingMode, RenderingMethod) const;
 
     FloatRect computeLineBoundsAndAntialiasingModeForText(const FloatRect&, bool printing, Color&);
 

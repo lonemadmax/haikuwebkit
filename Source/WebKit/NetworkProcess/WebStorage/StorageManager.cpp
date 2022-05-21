@@ -100,8 +100,8 @@ HashSet<SecurityOriginData> StorageManager::getSessionStorageOriginsCrossThreadC
 
     HashSet<SecurityOriginData> origins;
     for (const auto& sessionStorageNamespace : m_sessionStorageNamespaces.values()) {
-        for (auto& origin : sessionStorageNamespace->origins())
-            origins.add(crossThreadCopy(origin));
+        for (auto&& origin : sessionStorageNamespace->origins())
+            origins.add(crossThreadCopy(WTFMove(origin)));
     }
 
     return origins;
@@ -131,18 +131,18 @@ HashSet<SecurityOriginData> StorageManager::getLocalStorageOriginsCrossThreadCop
 
     HashSet<SecurityOriginData> origins;
     if (m_localStorageDatabaseTracker) {
-    for (auto& origin : m_localStorageDatabaseTracker->origins())
-        origins.add(origin.isolatedCopy());
+    for (auto&& origin : m_localStorageDatabaseTracker->origins())
+        origins.add(WTFMove(origin).isolatedCopy());
     } else {
         for (const auto& localStorageNameSpace : m_localStorageNamespaces.values()) {
-            for (auto& origin : localStorageNameSpace->ephemeralOrigins())
-                origins.add(origin.isolatedCopy());
+            for (auto&& origin : localStorageNameSpace->ephemeralOrigins())
+                origins.add(WTFMove(origin).isolatedCopy());
         }
     }
 
     for (auto& transientLocalStorageNamespace : m_transientLocalStorageNamespaces.values()) {
-        for (auto& origin : transientLocalStorageNamespace->origins())
-            origins.add(origin.isolatedCopy());
+        for (auto&& origin : transientLocalStorageNamespace->origins())
+            origins.add(WTFMove(origin).isolatedCopy());
     }
 
     return origins;
@@ -295,20 +295,14 @@ Vector<StorageAreaIdentifier> StorageManager::allStorageAreaIdentifiers() const
     ASSERT(!RunLoop::isMain());
 
     Vector<StorageAreaIdentifier> identifiers;
-    for (const auto& localStorageNamespace : m_localStorageNamespaces.values()) {
-        for (auto key : localStorageNamespace->storageAreaIdentifiers())
-            identifiers.append(key);
-    }
+    for (auto& localStorageNamespace : m_localStorageNamespaces.values())
+        identifiers.appendVector(localStorageNamespace->storageAreaIdentifiers());
 
-    for (const auto& trasientLocalStorageNamespace : m_transientLocalStorageNamespaces.values()) {
-        for (auto key : trasientLocalStorageNamespace->storageAreaIdentifiers())
-            identifiers.append(key);
-    }
+    for (auto& trasientLocalStorageNamespace : m_transientLocalStorageNamespaces.values())
+        identifiers.appendVector(trasientLocalStorageNamespace->storageAreaIdentifiers());
 
-    for (const auto& sessionStorageNamespace : m_sessionStorageNamespaces.values()) {
-        for (auto key : sessionStorageNamespace->storageAreaIdentifiers())
-            identifiers.append(key);
-    }
+    for (auto& sessionStorageNamespace : m_sessionStorageNamespaces.values())
+        identifiers.appendVector(sessionStorageNamespace->storageAreaIdentifiers());
 
     return identifiers;
 }

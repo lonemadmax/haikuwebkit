@@ -142,6 +142,8 @@ public:
 
     void removeNetworkWebsiteData(std::optional<WallTime>, std::optional<HashSet<WebCore::RegistrableDomain>>&&, CompletionHandler<void()>&&) override;
 
+    void removeDataTask(DataTaskIdentifier);
+
 private:
     void invalidateAndCancel() override;
     void clearCredentials() override;
@@ -157,12 +159,13 @@ private:
     void clearAlternativeServices(WallTime) override;
 
 #if HAVE(NSURLSESSION_WEBSOCKET)
-    std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&) final;
+    std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool hadMainFrameMainResourcePrivateRelayed) final;
     void addWebSocketTask(WebPageProxyIdentifier, WebSocketTask&) final;
     void removeWebSocketTask(SessionSet&, WebSocketTask&) final;
 #endif
 
-    void requestResource(WebPageProxyIdentifier, WebCore::ResourceRequest&&, CompletionHandler<void(const IPC::DataReference&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&&) final;
+    void dataTaskWithRequest(WebPageProxyIdentifier, WebCore::ResourceRequest&&, CompletionHandler<void(DataTaskIdentifier)>&&) final;
+    void cancelDataTask(DataTaskIdentifier) final;
     void addWebPageNetworkParameters(WebPageProxyIdentifier, WebPageNetworkParameters&&) final;
     void removeWebPageNetworkParameters(WebPageProxyIdentifier) final;
     size_t countNonDefaultSessionSets() const final;
@@ -188,6 +191,7 @@ private:
     bool m_fastServerTrustEvaluationEnabled { false };
     String m_dataConnectionServiceType;
     bool m_preventsSystemHTTPProxyAuthentication { false };
+    HashMap<DataTaskIdentifier, RetainPtr<NSURLSessionDataTask>> m_dataTasksForAPI;
 };
 
 } // namespace WebKit

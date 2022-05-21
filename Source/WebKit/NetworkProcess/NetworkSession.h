@@ -27,6 +27,7 @@
 
 #include "AppPrivacyReport.h"
 #include "DataReference.h"
+#include "DataTaskIdentifier.h"
 #include "NavigatingToAppBoundDomain.h"
 #include "NetworkNotificationManager.h"
 #include "NetworkResourceLoadIdentifier.h"
@@ -76,7 +77,6 @@ class NetworkResourceLoader;
 class NetworkSocketChannel;
 class NetworkStorageManager;
 class ServiceWorkerFetchTask;
-class WebIDBServer;
 class WebPageNetworkParameters;
 class WebResourceLoadStatisticsStore;
 class WebSharedWorkerServer;
@@ -123,7 +123,7 @@ public:
     void setResourceLoadStatisticsEnabled(bool);
     bool isResourceLoadStatisticsEnabled() const;
     void notifyResourceLoadStatisticsProcessed();
-    void deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, bool shouldNotifyPage, CompletionHandler<void(const HashSet<WebCore::RegistrableDomain>&)>&&);
+    void deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, bool shouldNotifyPage, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
     void registrableDomainsWithWebsiteData(OptionSet<WebsiteDataType>, bool shouldNotifyPage, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
     void logDiagnosticMessageWithValue(const String& message, const String& description, unsigned value, unsigned significantFigures, WebCore::ShouldSample);
     bool enableResourceLoadStatisticsLogTestingEvent() const { return m_enableResourceLoadStatisticsLogTestingEvent; }
@@ -178,7 +178,7 @@ public:
     PrefetchCache& prefetchCache() { return m_prefetchCache; }
     void clearPrefetchCache() { m_prefetchCache.clear(); }
 
-    virtual std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&);
+    virtual std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool hadMainFrameMainResourcePrivateRelayed);
     virtual void removeWebSocketTask(SessionSet&, WebSocketTask&) { }
     virtual void addWebSocketTask(WebPageProxyIdentifier, WebSocketTask&) { }
 
@@ -207,16 +207,12 @@ public:
     void unregisterSWServerConnection(WebSWServerConnection&);
 
     bool hasServiceWorkerDatabasePath() const;
-
-    void addServiceWorkerSession(bool processTerminationDelayEnabled, String&& serviceWorkerRegistrationDirectory, const SandboxExtension::Handle&);
 #endif
 
     WebSharedWorkerServer* sharedWorkerServer() { return m_sharedWorkerServer.get(); }
     WebSharedWorkerServer& ensureSharedWorkerServer();
 
-    NetworkStorageManager* storageManager() { return m_storageManager.get(); }
-    void addStorageManagerSession(const String& generalStoragePath, SandboxExtension::Handle& generalStoragePathHandle, const String& localStoragePath, SandboxExtension::Handle& localStoragePathHandle, const String& idbStoragePath, SandboxExtension::Handle& idbStoragePathHandle, const String& cacheStoragePath, uint64_t defaultOriginQuota, uint64_t defaultThirdPartyQuota, bool shouldUseCustomStoragePaths);
-
+    NetworkStorageManager& storageManager() { return m_storageManager.get(); }
     CacheStorage::Engine* cacheEngine() { return m_cacheEngine.get(); }
     void ensureCacheEngine(Function<void(CacheStorage::Engine&)>&&);
     void clearCacheEngine();
@@ -232,7 +228,8 @@ public:
 
     virtual void removeNetworkWebsiteData(std::optional<WallTime>, std::optional<HashSet<WebCore::RegistrableDomain>>&&, CompletionHandler<void()>&& completionHandler) { completionHandler(); }
 
-    virtual void requestResource(WebPageProxyIdentifier, WebCore::ResourceRequest&&, CompletionHandler<void(const IPC::DataReference&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&&) { }
+    virtual void dataTaskWithRequest(WebPageProxyIdentifier, WebCore::ResourceRequest&&, CompletionHandler<void(DataTaskIdentifier)>&&) { }
+    virtual void cancelDataTask(DataTaskIdentifier) { }
     virtual void addWebPageNetworkParameters(WebPageProxyIdentifier, WebPageNetworkParameters&&) { }
     virtual void removeWebPageNetworkParameters(WebPageProxyIdentifier) { }
     virtual size_t countNonDefaultSessionSets() const { return 0; }
@@ -318,7 +315,7 @@ protected:
 #endif
     std::unique_ptr<WebSharedWorkerServer> m_sharedWorkerServer;
 
-    RefPtr<NetworkStorageManager> m_storageManager;
+    Ref<NetworkStorageManager> m_storageManager;
     RefPtr<CacheStorage::Engine> m_cacheEngine;
     Vector<Function<void(CacheStorage::Engine&)>> m_cacheStorageParametersCallbacks;
 

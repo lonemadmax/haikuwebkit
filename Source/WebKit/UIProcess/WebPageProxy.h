@@ -201,6 +201,7 @@ namespace API {
 class Attachment;
 class ContentWorld;
 class ContextMenuClient;
+class DataTask;
 class DestinationColorSpace;
 class Error;
 class FindClient;
@@ -972,6 +973,10 @@ public:
     void insertTextAsync(const String&, const EditingRange& replacementRange, InsertTextOptions&&);
     void insertDictatedTextAsync(const String&, const EditingRange& replacementRange, const Vector<WebCore::TextAlternativeWithRange>&, InsertTextOptions&&);
 
+    void addDictationAlternative(WebCore::TextAlternativeWithRange&&);
+    void dictationAlternativesAtSelection(CompletionHandler<void(Vector<WebCore::DictationContext>&&)>&&);
+    void clearDictationAlternatives(Vector<WebCore::DictationContext>&&);
+
 #if USE(DICTATION_ALTERNATIVES)
     NSTextAlternatives *platformDictationAlternatives(WebCore::DictationContext);
 #endif
@@ -1221,6 +1226,7 @@ public:
     void didFindStringMatches(const String&, const Vector<Vector<WebCore::IntRect>>& matchRects, int32_t firstIndexAfterSelection);
 
     void findTextRangesForStringMatches(const String&, OptionSet<FindOptions>, unsigned maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&&);
+    void replaceFoundTextRangeWithString(const WebFoundTextRange&, const String&);
     void decorateTextRangeWithStyle(const WebFoundTextRange&, FindDecorationStyle);
     void scrollTextRangeToVisible(const WebFoundTextRange&);
     void clearAllDecoratedFoundText();
@@ -1287,7 +1293,7 @@ public:
         const String& title, const String& url, const String& visibleURL, const SharedMemory::IPCHandle& archiveHandle, const String& originIdentifier);
 #endif
 #if PLATFORM(GTK)
-    void startDrag(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, const ShareableBitmap::Handle& dragImage);
+    void startDrag(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, const ShareableBitmap::Handle& dragImage, WebCore::IntPoint&& dragImageHotspot);
 #endif
 #endif
 
@@ -1386,7 +1392,7 @@ public:
     void handleDownloadRequest(DownloadProxy&);
     void resumeDownload(const API::Data& resumeData, const String& path, CompletionHandler<void(DownloadProxy*)>&&);
     void downloadRequest(WebCore::ResourceRequest&&, CompletionHandler<void(DownloadProxy*)>&&);
-    void requestResource(WebCore::ResourceRequest&&, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&&);
+    void dataTaskWithRequest(WebCore::ResourceRequest&&, CompletionHandler<void(API::DataTask&)>&&);
 
     void advanceToNextMisspelling(bool startBeforeSelection);
     void changeSpellingToWord(const String& word);
@@ -1890,7 +1896,7 @@ public:
     void setOrientationForMediaCapture(uint64_t);
 
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
-    void setMockCameraIsInterrupted(bool);
+    void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
 #endif
 
     bool isHandlingPreventableTouchStart() const { return m_handlingPreventableTouchStartCount; }
@@ -1902,10 +1908,6 @@ public:
     void grantAccessToAssetServices();
     void revokeAccessToAssetServices();
     void switchFromStaticFontRegistryToUserFontRegistry();
-
-#if PLATFORM(COCOA)
-    void grantAccessToPreferenceService();
-#endif
 
     void setIsTakingSnapshotsForApplicationSuspension(bool);
     void setNeedsDOMWindowResizeEvent();
@@ -1931,7 +1933,8 @@ public:
 #endif
 
 #if PLATFORM(MAC)
-    NSMenu *platformActiveContextMenu() const;
+    NSMenu *activeContextMenu() const;
+    RetainPtr<NSEvent> createSyntheticEventForContextMenu(WebCore::FloatPoint) const;
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
@@ -2586,7 +2589,7 @@ private:
     void didPauseSpeaking(WebCore::PlatformSpeechSynthesisUtterance&) final;
     void didResumeSpeaking(WebCore::PlatformSpeechSynthesisUtterance&) final;
     void speakingErrorOccurred(WebCore::PlatformSpeechSynthesisUtterance&) final;
-    void boundaryEventOccurred(WebCore::PlatformSpeechSynthesisUtterance&, WebCore::SpeechBoundary, unsigned charIndex) final;
+    void boundaryEventOccurred(WebCore::PlatformSpeechSynthesisUtterance&, WebCore::SpeechBoundary, unsigned charIndex, unsigned charLength) final;
     void voicesDidChange() final;
 
     struct SpeechSynthesisData;

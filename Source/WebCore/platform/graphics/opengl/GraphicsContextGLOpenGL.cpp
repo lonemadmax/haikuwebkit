@@ -34,7 +34,6 @@
 #include "ANGLEWebKitBridge.h"
 #include "GLContext.h"
 #include "GraphicsContext.h"
-#include "GraphicsContextGLOpenGLManager.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
 #include "IntSize.h"
@@ -251,7 +250,6 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
 
 GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
 {
-    GraphicsContextGLOpenGLManager::sharedManager().removeContext(this);
     bool success = makeContextCurrent();
     ASSERT_UNUSED(success, success);
     if (m_texture)
@@ -288,6 +286,11 @@ GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
     if (m_vao)
         deleteVertexArray(m_vao);
 #endif
+}
+
+bool GraphicsContextGLOpenGL::initialize()
+{
+    return platformInitialize();
 }
 
 bool GraphicsContextGLOpenGL::makeContextCurrent()

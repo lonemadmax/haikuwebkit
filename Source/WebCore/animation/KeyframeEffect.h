@@ -116,7 +116,7 @@ public:
     IterationCompositeOperation iterationComposite() const { return m_iterationCompositeOperation; }
     void setIterationComposite(IterationCompositeOperation iterationCompositeOperation) { m_iterationCompositeOperation = iterationCompositeOperation; }
     CompositeOperation composite() const { return m_compositeOperation; }
-    void setComposite(CompositeOperation compositeOperation) { m_compositeOperation = compositeOperation; }
+    void setComposite(CompositeOperation);
     CompositeOperation bindingsComposite() const;
     void setBindingsComposite(CompositeOperation);
 
@@ -126,7 +126,7 @@ public:
 
     void animationTimingDidChange();
     void transformRelatedPropertyDidChange();
-    void propertyAffectingLogicalPropertiesDidChange(RenderStyle&, const Style::ResolutionContext&);
+    void propertyAffectingKeyframeResolutionDidChange(RenderStyle&, const Style::ResolutionContext&);
     OptionSet<AcceleratedActionApplicationResult> applyPendingAcceleratedActions();
 
     void willChangeRenderer();
@@ -140,7 +140,14 @@ public:
     bool isAboutToRunAccelerated() const { return m_acceleratedPropertiesState != AcceleratedProperties::None && m_lastRecordedAcceleratedAction != AcceleratedAction::Stop; }
 
     bool filterFunctionListsMatch() const override { return m_filterFunctionListsMatch; }
-    bool transformFunctionListsMatch() const override { return m_transformFunctionListsMatch; }
+
+    // The CoreAnimation animation code can only use direct function interpolation when all keyframes share the same
+    // prefix of shared transform function primitives, whereas software animations simply calls blend(...) which can do
+    // direct interpolation based on the function list of any two particular keyframes. The prefix serves as a way to
+    // make sure that the results of blend(...) can be made to return the same results as rendered by the hardware
+    // animation code.
+    std::optional<unsigned> transformFunctionListPrefix() const override { return (!preventsAcceleration()) ? std::optional<unsigned>(m_transformFunctionListsMatchPrefix) : std::nullopt; }
+
 #if ENABLE(FILTERS_LEVEL_2)
     bool backdropFilterFunctionListsMatch() const override { return m_backdropFilterFunctionListsMatch; }
 #endif
@@ -149,6 +156,7 @@ public:
     void computeDeclarativeAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext&);
     const KeyframeList& blendingKeyframes() const { return m_blendingKeyframes; }
     const HashSet<CSSPropertyID>& animatedProperties();
+    const HashSet<CSSPropertyID>& inheritedProperties() const { return m_inheritedProperties; }
     bool animatesProperty(CSSPropertyID) const;
 
     bool computeExtentOfTransformAnimation(LayoutRect&) const;
@@ -227,6 +235,7 @@ private:
 
     KeyframeList m_blendingKeyframes { emptyString() };
     HashSet<CSSPropertyID> m_animatedProperties;
+    HashSet<CSSPropertyID> m_inheritedProperties;
     Vector<ParsedKeyframe> m_parsedKeyframes;
     Vector<AcceleratedAction> m_pendingAcceleratedActions;
     RefPtr<Element> m_target;
@@ -241,7 +250,7 @@ private:
     RunningAccelerated m_runningAccelerated;
     bool m_needsForcedLayout { false };
     bool m_triggersStackingContext { false };
-    bool m_transformFunctionListsMatch { false };
+    size_t m_transformFunctionListsMatchPrefix { 0 };
     bool m_filterFunctionListsMatch { false };
 #if ENABLE(FILTERS_LEVEL_2)
     bool m_backdropFilterFunctionListsMatch { false };

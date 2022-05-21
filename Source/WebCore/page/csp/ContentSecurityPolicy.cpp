@@ -172,7 +172,7 @@ ContentSecurityPolicyResponseHeaders ContentSecurityPolicy::responseHeaders() co
 
 void ContentSecurityPolicy::didReceiveHeaders(const ContentSecurityPolicyResponseHeaders& headers, String&& referrer, ReportParsingErrors reportParsingErrors)
 {
-    SetForScope<bool> isReportingEnabled(m_isReportingEnabled, reportParsingErrors == ReportParsingErrors::Yes);
+    SetForScope isReportingEnabled(m_isReportingEnabled, reportParsingErrors == ReportParsingErrors::Yes);
     for (auto& header : headers.m_headers)
         didReceiveHeader(header.first, header.second, ContentSecurityPolicy::PolicyFrom::HTTPHeader, String { });
     m_referrer = WTFMove(referrer);
@@ -181,7 +181,7 @@ void ContentSecurityPolicy::didReceiveHeaders(const ContentSecurityPolicyRespons
 
 void ContentSecurityPolicy::didReceiveHeaders(const ContentSecurityPolicy& other, ReportParsingErrors reportParsingErrors)
 {
-    SetForScope<bool> isReportingEnabled(m_isReportingEnabled, reportParsingErrors == ReportParsingErrors::Yes);
+    SetForScope isReportingEnabled(m_isReportingEnabled, reportParsingErrors == ReportParsingErrors::Yes);
     for (auto& policy : other.m_policies)
         didReceiveHeader(policy->header(), policy->headerType(), ContentSecurityPolicy::PolicyFrom::HTTPHeader, String { });
     m_referrer = other.m_referrer;
@@ -343,18 +343,12 @@ bool ContentSecurityPolicy::allPoliciesAllow(ViolatedDirectiveCallback&& callbac
 static Vector<ResourceCryptographicDigest> parseSubResourceIntegrityIntoDigests(const String& subResourceIntegrity)
 {
     auto encodedDigests = parseIntegrityMetadata(subResourceIntegrity);
-    Vector<ResourceCryptographicDigest> decodedDigests;
-
-    if (!encodedDigests.has_value())
+    if (!encodedDigests)
         return { };
 
-    for (const auto& encodedDigest : encodedDigests.value()) {
-        auto decodedDigest = decodeEncodedResourceCryptographicDigest(encodedDigest);
-        if (decodedDigest.has_value())
-            decodedDigests.append(decodedDigest.value());
-        }
-
-    return decodedDigests;
+    return WTF::compactMap(*encodedDigests, [](auto& encodedDigest) {
+        return decodeEncodedResourceCryptographicDigest(encodedDigest);
+    });
 }
 
 static Vector<ContentSecurityPolicyHash> generateHashesForContent(const StringView content, OptionSet<ContentSecurityPolicyHashAlgorithm> algorithms)
@@ -369,14 +363,12 @@ static Vector<ContentSecurityPolicyHash> generateHashesForContent(const StringVi
     return hashes;
 }
 
-bool ContentSecurityPolicy::allowJavaScriptURLs(const String& contextURL, const OrdinalNumber& contextLine, const String& source, bool overrideContentSecurityPolicy) const
+bool ContentSecurityPolicy::allowJavaScriptURLs(const String& contextURL, const OrdinalNumber& contextLine, const String& source, Element* element) const
 {
-    if (overrideContentSecurityPolicy)
-        return true;
     bool didNotifyInspector = false;
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
         String consoleMessage = consoleMessageForViolation(violatedDirective, URL(), "Refused to execute a script", "its hash or 'unsafe-inline'");
-        reportViolation(violatedDirective, "inline"_s, consoleMessage, contextURL, source, TextPosition(contextLine, OrdinalNumber()));
+        reportViolation(violatedDirective, "inline"_s, consoleMessage, contextURL, source, TextPosition(contextLine, OrdinalNumber()), URL(), nullptr, element);
         if (!didNotifyInspector && violatedDirective.directiveList().isReportOnly()) {
             reportBlockedScriptExecutionToInspector(violatedDirective.text());
             didNotifyInspector = true;
@@ -605,7 +597,7 @@ bool ContentSecurityPolicy::allowResourceFromSource(const URL& url, RedirectResp
     const auto& blockedURL = !preRedirectURL.isNull() ? preRedirectURL : url;
     TextPosition sourcePosition(OrdinalNumber::beforeFirst(), OrdinalNumber());
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
-        String consoleMessage = consoleMessageForViolation(violatedDirective, blockedURL, "Refused to load");
+        String consoleMessage = consoleMessageForViolation(violatedDirective, url, "Refused to load");
         reportViolation(violatedDirective, blockedURL.string(), consoleMessage, sourceURL, StringView(), sourcePosition);
     };
     return allPoliciesAllow(WTFMove(handleViolatedDirective), resourcePredicate, url, redirectResponseReceived == RedirectResponseReceived::Yes);
@@ -620,7 +612,7 @@ bool ContentSecurityPolicy::allowWorkerFromSource(const URL& url, RedirectRespon
     const auto& blockedURL = !preRedirectURL.isNull() ? preRedirectURL : url;
     TextPosition sourcePosition(OrdinalNumber::beforeFirst(), OrdinalNumber());
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
-        auto consoleMessage = consoleMessageForViolation(violatedDirective, blockedURL, "Refused to load");
+        auto consoleMessage = consoleMessageForViolation(violatedDirective, url, "Refused to load");
         reportViolation(violatedDirective, blockedURL.string(), consoleMessage, sourceURL, StringView(), sourcePosition);
     };
 
@@ -638,7 +630,7 @@ bool ContentSecurityPolicy::allowScriptFromSource(const URL& url, RedirectRespon
     const auto& blockedURL = !preRedirectURL.isNull() ? preRedirectURL : url;
     TextPosition sourcePosition(OrdinalNumber::beforeFirst(), OrdinalNumber());
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
-        String consoleMessage = consoleMessageForViolation(violatedDirective, blockedURL, "Refused to load");
+        String consoleMessage = consoleMessageForViolation(violatedDirective, url, "Refused to load");
         reportViolation(violatedDirective, blockedURL.string(), consoleMessage, sourceURL, StringView(), sourcePosition);
     };
 
@@ -660,7 +652,7 @@ bool ContentSecurityPolicy::allowStyleFromSource(const URL& url, RedirectRespons
     const auto& blockedURL = !preRedirectURL.isNull() ? preRedirectURL : url;
     TextPosition sourcePosition(OrdinalNumber::beforeFirst(), OrdinalNumber());
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
-        String consoleMessage = consoleMessageForViolation(violatedDirective, blockedURL, "Refused to load");
+        String consoleMessage = consoleMessageForViolation(violatedDirective, url, "Refused to load");
         reportViolation(violatedDirective, blockedURL.string(), consoleMessage, sourceURL, StringView(), sourcePosition);
     };
 
@@ -775,7 +767,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
         blockedURI = blockedURLString;
     else {
         // If there is a redirect then we use the pre-redirect URL: https://www.w3.org/TR/CSP3/#security-violation-reports.
-        blockedURI = createURLForReporting(preRedirectURL.isNull() ? URL(URL(), blockedURLString) : preRedirectURL, effectiveViolatedDirective);
+        blockedURI = createURLForReporting(preRedirectURL.isNull() ? URL { blockedURLString } : preRedirectURL, effectiveViolatedDirective);
     }
 
     info.documentURI = m_documentURL ? m_documentURL.value().strippedForUseAsReferrer() : blockedURI;
@@ -799,7 +791,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
         auto stack = createScriptCallStack(JSExecState::currentState(), 2);
         auto* callFrame = stack->firstNonNativeCallFrame();
         if (callFrame && callFrame->lineNumber()) {
-            info.sourceFile = createURLForReporting(URL { URL { }, callFrame->sourceURL() }, effectiveViolatedDirective);
+            info.sourceFile = createURLForReporting(URL { callFrame->sourceURL() }, effectiveViolatedDirective);
             info.lineNumber = callFrame->lineNumber();
             info.columnNumber = callFrame->columnNumber();
         }
@@ -824,6 +816,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
     violationEventInit.columnNumber = info.columnNumber;
     violationEventInit.sample = info.sample;
     violationEventInit.bubbles = true;
+    violationEventInit.composed = true;
     if (m_client)
         m_client->enqueueSecurityPolicyViolationEvent(WTFMove(violationEventInit));
     else {

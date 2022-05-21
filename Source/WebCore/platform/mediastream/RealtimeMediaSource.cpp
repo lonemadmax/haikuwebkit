@@ -48,8 +48,9 @@
 
 namespace WebCore {
 
-RealtimeMediaSource::RealtimeMediaSource(Type type, String&& name, String&& deviceID, String&& hashSalt)
-    : m_idHashSalt(WTFMove(hashSalt))
+RealtimeMediaSource::RealtimeMediaSource(Type type, String&& name, String&& deviceID, String&& hashSalt, PageIdentifier pageIdentifier)
+    : m_pageIdentifier(pageIdentifier)
+    , m_idHashSalt(WTFMove(hashSalt))
     , m_persistentID(WTFMove(deviceID))
     , m_type(type)
     , m_name(WTFMove(name))
@@ -277,7 +278,7 @@ void RealtimeMediaSource::end(Observer* callingObserver)
 
     Ref protectedThis { *this };
 
-    stop();
+    endProducingData();
     m_isEnded = true;
     hasEnded();
 
@@ -292,11 +293,7 @@ void RealtimeMediaSource::captureFailed()
     ERROR_LOG_IF(m_logger, LOGIDENTIFIER);
 
     m_captureDidFailed = true;
-
-    stop();
-    forEachObserver([](auto& observer) {
-        observer.sourceStopped();
-    });
+    end();
 }
 
 bool RealtimeMediaSource::supportsSizeAndFrameRate(std::optional<int>, std::optional<int>, std::optional<double>)

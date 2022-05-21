@@ -371,6 +371,7 @@ void RenderLayerCompositor::BackingSharingState::issuePendingRepaints()
 {
     for (auto& layer : m_layersPendingRepaint) {
         LOG_WITH_STREAM(Compositing, stream << "Issuing postponed repaint of layer " << &layer);
+        layer.computeRepaintRectsIncludingDescendants();
         layer.compositor().repaintOnCompositingChange(layer);
     }
     
@@ -605,7 +606,7 @@ void RenderLayerCompositor::flushPendingLayerChanges(bool isFlushRoot)
 
     ASSERT(!m_flushingLayers);
     {
-        SetForScope<bool> flushingLayersScope(m_flushingLayers, true);
+        SetForScope flushingLayersScope(m_flushingLayers, true);
 
         if (auto* rootLayer = rootGraphicsLayer()) {
 #if ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)
@@ -1491,9 +1492,7 @@ void RenderLayerCompositor::adjustOverflowScrollbarContainerLayers(RenderLayer& 
             overflowBacking->ensureOverflowControlsHostLayerAncestorClippingStack(&stackingContextLayer);
 
         if (auto* overflowControlsAncestorClippingStack = overflowBacking->overflowControlsHostLayerAncestorClippingStack()) {
-            Vector<Ref<GraphicsLayer>> children;
-            children.append(*overflowContainerLayer);
-            overflowControlsAncestorClippingStack->lastClippingLayer()->setChildren(WTFMove(children));
+            overflowControlsAncestorClippingStack->lastClippingLayer()->setChildren({ Ref { *overflowContainerLayer } });
             overflowContainerLayer = overflowControlsAncestorClippingStack->firstClippingLayer();
         }
 
@@ -1731,7 +1730,7 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
 
     if (diff >= StyleDifference::RecompositeLayer) {
         if (layer.isComposited()) {
-            bool hitTestingStateChanged = oldStyle && (oldStyle->pointerEvents() != newStyle.pointerEvents() || oldStyle->effectiveInert() != newStyle.effectiveInert());
+            bool hitTestingStateChanged = oldStyle && (oldStyle->effectivePointerEvents() != newStyle.effectivePointerEvents());
             if (is<RenderWidget>(layer.renderer()) || hitTestingStateChanged) {
                 // For RenderWidgets this is necessary to get iframe layers hooked up in response to scheduleInvalidateStyleAndLayerComposition().
                 layer.setNeedsCompositingConfigurationUpdate();
@@ -1793,8 +1792,12 @@ bool RenderLayerCompositor::updateBacking(RenderLayer& layer, RequiresCompositin
         requiresCompositingForPosition(rendererForCompositingTests(layer), layer, queryData);
     }
 
+    auto repaintTargetsSharedBacking = [&](RenderLayer& layer) {
+        return backingSharingState && layerRepaintTargetsBackingSharingLayer(layer, *backingSharingState);
+    };
+    
     auto repaintLayer = [&](RenderLayer& layer) {
-        if (backingSharingState && layerRepaintTargetsBackingSharingLayer(layer, *backingSharingState)) {
+        if (repaintTargetsSharedBacking(layer)) {
             LOG_WITH_STREAM(Compositing, stream << "Layer " << &layer << " needs to repaint into potential backing-sharing layer, postponing repaint");
             backingSharingState->addLayerNeedingRepaint(layer);
         } else
@@ -1855,10 +1858,12 @@ bool RenderLayerCompositor::updateBacking(RenderLayer& layer, RequiresCompositin
             layerChanged = true;
 
             // This layer and all of its descendants have cached repaints rects that are relative to
-            // the repaint container, so change when compositing changes; we need to update them here.
-            layer.computeRepaintRectsIncludingDescendants();
+            // the repaint container, so change when compositing changes; we need to update them here,
+            // as long as shared backing isn't going to change our repaint container.
+            if (!repaintTargetsSharedBacking(layer))
+                layer.computeRepaintRectsIncludingDescendants();
 
-            // If we need to repaint, do so now that we've removed the backing
+            // If we need to repaint, do so now that we've removed the backing.
             repaintLayer(layer);
         }
     }
@@ -3442,7 +3447,7 @@ ScrollPositioningBehavior RenderLayerCompositor::layerScrollBehahaviorRelativeTo
 static void collectStationaryLayerRelatedOverflowNodes(const RenderLayer& layer, const RenderLayer&, Vector<ScrollingNodeID>& scrollingNodes)
 {
     ASSERT(layer.isComposited());
-    
+
     auto appendOverflowLayerNodeID = [&scrollingNodes] (const RenderLayer& overflowLayer) {
         ASSERT(overflowLayer.isComposited());
         auto scrollingNodeID = overflowLayer.backing()->scrollingNodeIDForRole(ScrollCoordinationRole::Scrolling);
@@ -3457,6 +3462,9 @@ static void collectStationaryLayerRelatedOverflowNodes(const RenderLayer& layer,
     traverseAncestorLayers(layer, [&](const RenderLayer& ancestorLayer, bool isContainingBlockChain, bool isPaintOrderAncestor) {
         seenPaintOrderAncestor |= isPaintOrderAncestor;
         if (isContainingBlockChain && isPaintOrderAncestor)
+            return AncestorTraversal::Stop;
+
+        if (!ancestorLayer.isComposited())
             return AncestorTraversal::Stop;
 
         if (seenPaintOrderAncestor && !isContainingBlockChain && ancestorLayer.hasCompositedScrollableOverflow())
@@ -4030,6 +4038,7 @@ void RenderLayerCompositor::updateOverflowControlsLayers()
         if (!m_layerForHorizontalScrollbar) {
             m_layerForHorizontalScrollbar = GraphicsLayer::create(graphicsLayerFactory(), *this);
             m_layerForHorizontalScrollbar->setAllowsBackingStoreDetaching(false);
+            m_layerForHorizontalScrollbar->setAllowsTiling(false);
             m_layerForHorizontalScrollbar->setShowDebugBorder(m_showDebugBorders);
             m_layerForHorizontalScrollbar->setName(MAKE_STATIC_STRING_IMPL("horizontal scrollbar container"));
 #if PLATFORM(COCOA) && USE(CA)
@@ -4051,6 +4060,7 @@ void RenderLayerCompositor::updateOverflowControlsLayers()
         if (!m_layerForVerticalScrollbar) {
             m_layerForVerticalScrollbar = GraphicsLayer::create(graphicsLayerFactory(), *this);
             m_layerForVerticalScrollbar->setAllowsBackingStoreDetaching(false);
+            m_layerForVerticalScrollbar->setAllowsTiling(false);
             m_layerForVerticalScrollbar->setShowDebugBorder(m_showDebugBorders);
             m_layerForVerticalScrollbar->setName(MAKE_STATIC_STRING_IMPL("vertical scrollbar container"));
 #if PLATFORM(COCOA) && USE(CA)

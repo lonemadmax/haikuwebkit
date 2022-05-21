@@ -267,7 +267,7 @@ class FlatpakObject:
         try:
             self.flatpak("remote-ls", remote, gather_output=True)
         except subprocess.CalledProcessError as error:
-            if error.output.lower().find("key expired"):
+            if error.output.lower().find(b"key expired"):
                 Console.message("WebKit SDK GPG key expired, synchronizing with remote")
                 with tempfile.NamedTemporaryFile() as tmpfile:
                     fd = urlopen(WEBKIT_SDK_GPG_PUBKEY_URL)
@@ -691,7 +691,7 @@ class WebkitFlatpak:
         command = [os.path.join(gst_dir, 'gst-env.py'), '--builddir', gst_builddir, '--srcdir', gst_dir, "--only-environment"]
         gst_env = run_sanitized(command, gather_output=True)
         allowlist = ("LD_LIBRARY_PATH", "PATH", "PKG_CONFIG_PATH")
-        nopathlist = ("GST_DEBUG", "GST_VERSION", "GST_ENV")
+        nopathlist = ("GST_DEBUG", "GST_VERSION", "GST_ENV", "GST_TRACERS")
         env = {}
         for line in [line for line in gst_env.splitlines() if not line.startswith("export")]:
             tokens = line.split("=")
@@ -757,7 +757,7 @@ class WebkitFlatpak:
         sandbox_build_path = os.path.join(SANDBOX_SOURCE_ROOT, BUILD_ROOT_DIR_NAME, self.build_type)
         sandbox_environment = {
             "TEST_RUNNER_INJECTED_BUNDLE_FILENAME": os.path.join(sandbox_build_path, "lib/libTestRunnerInjectedBundle.so"),
-            "PATH": "/usr/lib/sdk/llvm12/bin:/usr/bin:/usr/lib/sdk/rust/bin/",
+            "PATH": "/usr/lib/sdk/llvm13/bin:/usr/bin:/usr/lib/sdk/rust/bin/",
         }
 
         if not args:
@@ -1223,7 +1223,7 @@ class WebkitFlatpak:
         packages = [self.runtime, self.sdk]
         packages.append(FlatpakPackage('org.webkit.Sdk.Debug', SDK_BRANCH,
                                        self.sdk_repo, arch))
-        packages.append(FlatpakPackage("org.freedesktop.Sdk.Extension.llvm12", SDK_BRANCH,
+        packages.append(FlatpakPackage("org.freedesktop.Sdk.Extension.llvm13", SDK_BRANCH,
                                        self.flathub_repo, arch))
         packages.append(FlatpakPackage("org.freedesktop.Platform.GL.default", SDK_BRANCH,
                                        self.flathub_repo, arch))

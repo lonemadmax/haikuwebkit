@@ -466,7 +466,7 @@ void WebKitWebViewClient::handleDownloadRequest(WKWPE::View&, DownloadProxy& dow
 void WebKitWebViewClient::frameDisplayed(WKWPE::View&)
 {
     {
-        SetForScope<bool> inFrameDisplayedGuard(m_webView->priv->inFrameDisplayed, true);
+        SetForScope inFrameDisplayedGuard(m_webView->priv->inFrameDisplayed, true);
         for (const auto& callback : m_webView->priv->frameDisplayedCallbacks) {
             if (!m_webView->priv->frameDisplayedCallbacksToRemove.contains(callback.id))
                 callback.callback(m_webView, callback.userData);
@@ -3120,7 +3120,7 @@ void webkit_web_view_load_alternate_html(WebKitWebView* webView, const gchar* co
     g_return_if_fail(content);
     g_return_if_fail(contentURI);
 
-    getPage(webView).loadAlternateHTML({ reinterpret_cast<const uint8_t*>(content), content ? strlen(content) : 0 }, "UTF-8"_s, URL(URL(), String::fromUTF8(baseURI)), URL(URL(), String::fromUTF8(contentURI)));
+    getPage(webView).loadAlternateHTML({ reinterpret_cast<const uint8_t*>(content), content ? strlen(content) : 0 }, "UTF-8"_s, URL { String::fromUTF8(baseURI) }, URL { String::fromUTF8(contentURI) });
 }
 
 /**

@@ -151,7 +151,6 @@ fast/multicol/multicol-with-child-renderLayer-for-input.html [ Pass ]
 
 # permessage-deflate WebSocket extension.
 http/tests/websocket/tests/hybi/imported/blink/permessage-deflate-comp-bit-onoff.html [ Pass ]
-http/tests/websocket/tests/hybi/imported/blink/permessage-deflate-invalid-parameter.html [ Pass ]
 http/tests/websocket/tests/hybi/imported/blink/permessage-deflate-parameter.html [ Pass ]
 http/tests/websocket/tests/hybi/imported/blink/permessage-deflate-set-bfinal.html [ Pass ]
 http/tests/websocket/tests/hybi/imported/blink/permessage-deflate-split-frames.html [ Pass ]
@@ -332,6 +331,8 @@ fast/css/accent-color/text.html [ Pass ]
 # Accessibility-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
 
+accessibility/svg-font-face.html [ Skip ]
+
 # Need to implement AccessibilityUIElement::hasDocumentRoleAncestor(), AccessibilityUIElement::hasWebApplicationAncestor(),
 # AccessibilityUIElement::isInDescriptionListDetail(), AccessibilityUIElement::isInDescriptionListTerm(), and
 # AccessibilityUIElement::isInCell().
@@ -342,6 +343,8 @@ accessibility/focusable-div.html [ Skip ]
 
 # Missing AccessibilityUIElement::uiElementForSearchPredicate implementation.
 accessibility/table-search-traversal.html [ Skip ]
+accessibility/dynamically-changing-iframe-remains-accessible.html [ Skip ]
+accessibility/ignore-modals-without-any-content.html [ Skip ]
 
 webkit.org/b/212805 accessibility/svg-text.html [ Failure ]
 
@@ -411,11 +414,6 @@ webkit.org/b/232249 accessibility/video-element-url-attribute.html [ Failure ]
 webkit.org/b/232255 accessibility/math-has-non-presentational-children.html [ Failure ]
 
 webkit.org/b/232256 accessibility/auto-fill-crash.html [ Timeout ]
-
-# Tests failing with ATSPI implementation.
-webkit.org/b/235941 accessibility/children-changed-sends-notification.html [ Failure ]
-webkit.org/b/235941 accessibility/generated-content-with-display-table-crash.html [ Failure ]
-webkit.org/b/235941 accessibility/select-element-at-index.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Accessibility-related bugs
@@ -644,6 +642,9 @@ webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/perspecti
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/dynamic-fixed-pos-cb-change.html [ ImageOnlyFailure ]
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/perspective-transforms-equivalence.html [ ImageOnlyFailure ]
 
+# 'transform-box' support is broken for composited elements.
+webkit.org/b/237553 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-box-will-change-transform-layer.html [ ImageOnlyFailure ]
+
 webkit.org/b/227231 imported/w3c/web-platform-tests/css/css-counter-styles/arabic-indic/css3-counter-styles-101.html [ ImageOnlyFailure ]
 webkit.org/b/227231 imported/w3c/web-platform-tests/css/css-counter-styles/arabic-indic/css3-counter-styles-102.html [ ImageOnlyFailure ]
 webkit.org/b/227231 imported/w3c/web-platform-tests/css/css-counter-styles/arabic-indic/css3-counter-styles-103.html [ ImageOnlyFailure ]
@@ -785,9 +786,24 @@ webkit.org/b/221445 fast/text/international/system-language/jp-circled.html [ Sk
 # GStreamer-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
 
+webkit.org/b/213699 http/wpt/mediarecorder/mimeType.html [ Failure ]
+webkit.org/b/213699 http/wpt/mediarecorder/mute-tracks.html [ Failure ]
+webkit.org/b/213699 http/wpt/mediarecorder/video-rotation.html [ Failure ]
+webkit.org/b/213699 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-mimetype.html [ Timeout ]
+webkit.org/b/213699 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-no-sink.https.html [ Failure ]
+webkit.org/b/213699 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-peerconnection.https.html [ Failure ]
+webkit.org/b/213699 http/wpt/mediarecorder/set-srcObject-MediaStream-Blob.html [ Pass Failure ]
+# Our WebRTC encoder doesn't support high h.264 profile yet.
+webkit.org/b/213699 http/wpt/mediarecorder/MediaRecorder-video-h264-profiles.html [ Failure ]
+# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1017
+webkit.org/b/213699 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-bitrate.https.html [ Pass Crash ]
+
 webkit.org/b/230415 fast/mediastream/RTCPeerConnection-iceconnectionstatechange-event.html [ Timeout ]
 webkit.org/b/79203 fast/mediastream/RTCRtpSender-replaceTrack.html [ Failure ]
 webkit.org/b/187603 fast/mediastream/media-stream-track-source-failure.html [ Timeout Failure Pass ]
+fast/mediastream/media-stream-video-track-interrupted-from-audio.html [ Failure ]
+fast/mediastream/media-stream-track-interrupted.html [ Failure ]
+fast/mediastream/track-ended-while-muted.html [ Failure ]
 
 webkit.org/b/223508 imported/w3c/web-platform-tests/mediacapture-streams/MediaStream-MediaElement-srcObject.https.html [ Failure Pass ]
 
@@ -890,6 +906,8 @@ webkit.org/b/234084 media/track/audio-track-configuration.html [ Failure ]
 # low, probably because we would need a playing pipeline to have better average
 # bitrate estimation.
 webkit.org/b/234084 media/track/video-track-configuration.html [ Failure ]
+
+webkit.org/b/237256 media/video-src-blob-perf.html [ Timeout Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of GStreamer-related bugs
@@ -1020,33 +1038,6 @@ webkit.org/b/221311 [ Debug ] imported/w3c/web-platform-tests/html/canvas/offscr
 
 # Failing since r277543.
 webkit.org/b/225870 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-and-stroke-styles/2d.gradient.conic.worker.html [ Failure ]
-
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.1.radius.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.1.radius.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.2.radii.1.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.2.radii.1.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.2.radii.2.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.2.radii.2.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.3.radii.1.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.3.radii.1.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.3.radii.2.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.3.radii.2.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.3.radii.3.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.3.radii.3.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.1.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.1.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.2.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.2.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.3.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.3.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.4.dompointinit.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.4.radii.4.dompointinit.worker.html [ Missing Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.radius.none.html [ Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.radius.none.worker.html [ Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.radius.toomany.html [ Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.radius.toomany.worker.html [ Failure ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.radius.negative.html [ Missing ]
-webkit.org/b/232780 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.roundrect.radius.negative.worker.html [ Missing ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of OffscreenCanvas-related bugs
@@ -1382,6 +1373,7 @@ webkit.org/b/218318 fast/canvas/webgl/webgl-clear-composited-notshowing.html [ F
 webkit.org/b/219251 fast/canvas/webgl/getIndexedParameter-crash.html [ Failure ]
 
 webkit.org/b/172812 fast/canvas/webgl/lose-context-on-status-failure.html [ Skip ]
+webkit.org/b/172812 webgl/lose-context-after-context-lost.html [ Failure ]
 
 webkit.org/b/223624 webgl/conformance/extensions/khr-parallel-shader-compile.html [ Skip ]
 
@@ -1398,6 +1390,18 @@ webkit.org/b/229051 webgl/1.0.x/conformance/misc/invalid-passed-params.html [ Fa
 
 webkit.org/b/229052 webgl/1.0.x/conformance/textures/misc/texture-corner-case-videos.html [ Failure ]
 
+webkit.org/b/169917 webgl/1.0.3/conformance/context/context-lost-restored.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.3/conformance/extensions/oes-texture-half-float.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.3/conformance/extensions/webgl-compressed-texture-s3tc.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.3/conformance/extensions/webgl-compressed-texture-size-limit.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.3/conformance/misc/webgl-specific.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.3/conformance/renderbuffers/framebuffer-object-attachment.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.3/conformance/rendering/point-no-attributes.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.3/conformance/textures/texture-copying-feedback-loops.html [ Failure ]
+
+# Not applicable.
+webgl/webgl-via-metal-flag-on.html [ Skip ]
+webgl/webgl-via-metal-flag-off.html [ Skip ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WebGL-related bugs
@@ -1645,11 +1649,6 @@ fast/events/webkit-media-key-events-constructor.html [ Skip ]
 http/tests/media/now-playing-info-private-browsing.html [ Skip ]
 http/tests/media/now-playing-info.html [ Skip ]
 
-# MediaRecorder is not currently implemented
-http/wpt/mediarecorder [ Skip ]
-imported/w3c/web-platform-tests/mediacapture-record [ Skip ]
-fast/mediacapturefromelement/CanvasCaptureMediaStream-offscreencanvas.html [ Skip ]
-
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-content-rendering-rules/canvas-update-with-border-object-fit.html [ Pass ]
 
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/reset-algorithm-rendering.html [ Pass ]
@@ -1860,6 +1859,7 @@ webkit.org/b/193623 accessibility/set-selected-editable.html [ Skip ]
 # No support for GPUProcess yet
 fast/mediastream/captureInGPUProcess.html [ Skip ]
 fast/mediastream/video-rotation-gpu-process-crash.html [ Skip ]
+http/wpt/mediarecorder/MediaRecorder-AV-audio-video-dataavailable-gpuprocess.html [ Skip ]
 
 # Payment Request
 imported/w3c/web-platform-tests/payment-request [ Skip ]
@@ -1882,6 +1882,7 @@ webkit.org/b/166536 fast/canvas/webgl/shader-mix-with-bool.html [ Skip ]
 webkit.org/b/166536 fast/canvas/webgl/shader-vec-array-deref-no-crash.html [ Skip ]
 webkit.org/b/166536 fast/canvas/webgl/shader-with-reserved-keyword.html [ Skip ]
 webkit.org/b/166536 webgl/pending/conformance/glsl/misc/shader-with-reserved-words-2.html [ Skip ]
+webkit.org/b/166536 webgl/webgl-allow-shared.html [ Failure ]
 
 # LFC (LayoutFormatingContext is disabled by default).
 fast/layoutformattingcontext/ [ Skip ]
@@ -2307,7 +2308,6 @@ webkit.org/b/206528 imported/w3c/web-platform-tests/remote-playback/idlharness.w
 webkit.org/b/206528 imported/w3c/web-platform-tests/remote-playback/watch-availability-initial-callback.html [ Failure ]
 
 webkit.org/b/206586 imported/w3c/web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-from-serviceworker.https.html [ Failure ]
-webkit.org/b/206588 fast/history/page-cache-media-recorder.html [ Failure ]
 webkit.org/b/206005 fast/box-shadow/inset-box-shadow.html [ ImageOnlyFailure ]
 webkit.org/b/234529 fast/box-shadow/hidpi-box-shadow-inset-on-subpixel-position.html [ ImageOnlyFailure ]
 webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/011.html [ Failure ]
@@ -2709,6 +2709,11 @@ webkit.org/b/233047 inspector/page/setShowPaintRects.html [ Skip ]
 # setMockCameraOrientation seems to fail.
 webkit.org/b/235396 fast/mediastream/getUserMedia-to-canvas-1.html [ Failure ]
 webkit.org/b/235396 fast/mediastream/getUserMedia-to-canvas-2.html [ Failure ]
+
+# WebSocket tests failing after Python 3 transition
+webkit.org/b/237108 http/tests/websocket/tests/hybi/handshake-ok-with-legacy-sec-websocket-response-headers.html [ Failure ]
+webkit.org/b/237108 http/tests/websocket/tests/hybi/imported/blink/permessage-deflate-invalid-parameter.html [ Failure ]
+webkit.org/b/237108 http/tests/websocket/tests/hybi/simple-wss.html [ Failure ]
 
 # End: Common failures between GTK and WPE.
 

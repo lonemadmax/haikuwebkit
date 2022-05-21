@@ -52,7 +52,11 @@ class TestSetup(testing.PathTestCase):
                 path=self.path,
             ))
 
-        self.assertEqual(captured.stdout.getvalue(), "Create a private fork of 'WebKit' belonging to 'username' ([Yes]/No): \nSetup succeeded!\n")
+        self.assertEqual(
+            captured.stdout.getvalue(),
+            "Create a private fork of 'WebKit' belonging to 'username' ([Yes]/No): \n"
+            'Setup succeeded!\n',
+        )
         self.assertEqual(captured.stderr.getvalue(), '')
         self.assertEqual(
             captured.root.log.getvalue(),
@@ -80,7 +84,12 @@ Created a private fork of 'WebKit' belonging to 'username'!
             self.assertEqual('auto', config.get('color.branch', ''))
             self.assertEqual('true', config.get('pull.rebase', ''))
 
-        self.assertEqual(captured.stdout.getvalue(), 'Setup succeeded!\n')
+        self.assertEqual(
+            captured.stdout.getvalue(),
+            'For detailed information about the options configured by this script, please see:\n'
+            'https://github.com/WebKit/WebKit/wiki/Git-Config#Configuration-Options\n\n\n'
+            'Setup succeeded!\n',
+        )
         self.assertEqual(captured.stderr.getvalue(), '')
         self.assertEqual(
             captured.root.log.getvalue(),
@@ -100,7 +109,7 @@ Using the default git editor for this repository
     def test_github_checkout(self):
         self.maxDiff = None
         with OutputCapture(level=logging.INFO) as captured, mocks.remote.GitHub() as remote, \
-            MockTerminal.input('n', 'committer@webkit.org', 'n', 'Committer', 'n', 'overwrite', 'disabled', '1', 'y', 'y'), \
+            MockTerminal.input('n', 'n', 'committer@webkit.org', 'n', 'Committer', 'n', 'overwrite', 'disabled', '1', 'y', 'y'), \
             mocks.local.Git(self.path, remote='https://{}.git'.format(remote.remote)) as repo, \
             wkmocks.Environment(EMAIL_ADDRESS=''):
 
@@ -120,7 +129,12 @@ Using the default git editor for this repository
         programs = ['default'] + [p.name for p in Editor.programs()]
         self.assertEqual(
             captured.stdout.getvalue(),
-            '''Set 'tapple@webkit.org' as the git user email for this repository ([Yes]/No): 
+            '''For detailed information about the options configured by this script, please see:
+https://github.com/WebKit/WebKit/wiki/Git-Config#Configuration-Options
+Would you like to open this URL in your browser? ([Yes]/No): 
+
+
+Set 'tapple@webkit.org' as the git user email for this repository ([Yes]/No): 
 Enter git user email for this repository: 
 Set 'Tim Apple' as the git user name for this repository ([Yes]/No): 
 Enter git user name for this repository: 

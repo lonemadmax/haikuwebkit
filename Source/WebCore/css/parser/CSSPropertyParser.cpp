@@ -4347,6 +4347,8 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
         if (!m_context.scrollBehaviorEnabled)
             return nullptr;
         return consumeScrollBehavior(m_range);
+    case CSSPropertyOverscrollBehaviorBlock:
+    case CSSPropertyOverscrollBehaviorInline:
     case CSSPropertyOverscrollBehaviorX:
     case CSSPropertyOverscrollBehaviorY:
         if (!m_context.overscrollBehaviorEnabled)
@@ -4471,7 +4473,6 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
         if (!m_context.colorFilterEnabled)
             return nullptr;
         return consumeFilter(m_range, m_context, AllowedFilterFunctions::ColorFilters);
-    case CSSPropertyTextDecoration:
     case CSSPropertyWebkitTextDecorationsInEffect:
     case CSSPropertyTextDecorationLine:
         return consumeTextDecorationLine(m_range);
@@ -6283,7 +6284,13 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumeAnimationShorthand(animationShorthandForParsing(), important);
     case CSSPropertyTransition:
         return consumeAnimationShorthand(transitionShorthandForParsing(), important);
-    case CSSPropertyTextDecoration:
+    case CSSPropertyTextDecoration: {
+        auto line = consumeTextDecorationLine(m_range);
+        if (!line || !m_range.atEnd())
+            return false;
+        addProperty(CSSPropertyTextDecorationLine, property, line.releaseNonNull(), important);
+        return true;
+    }
     case CSSPropertyWebkitTextDecoration:
         // FIXME-NEWPARSER: We need to unprefix -line/-style/-color ASAP and get rid
         // of -webkit-text-decoration completely.
@@ -6387,6 +6394,13 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
     case CSSPropertyColumnRule:
         return consumeShorthandGreedily(columnRuleShorthand(), important);
     case CSSPropertyListStyle:
+        if (m_range.peek().id() == CSSValueNone) {
+            auto& valuePool = CSSValuePool::singleton();
+            addProperty(CSSPropertyListStylePosition, CSSPropertyListStyle, valuePool.createImplicitInitialValue(), important);
+            addProperty(CSSPropertyListStyleImage, CSSPropertyListStyle, valuePool.createImplicitInitialValue(), important);
+            addProperty(CSSPropertyListStyleType, CSSPropertyListStyle, valuePool.createIdentifierValue(CSSValueNone), important);
+            return true;
+        }
         return consumeShorthandGreedily(listStyleShorthand(), important);
     case CSSPropertyBorderRadius:
     case CSSPropertyWebkitBorderRadius: {

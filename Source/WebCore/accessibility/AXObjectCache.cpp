@@ -269,6 +269,31 @@ void AXObjectCache::findModalNodes()
     m_modalNodesInitialized = true;
 }
 
+bool AXObjectCache::modalElementHasAccessibleContent(Element& element)
+{
+    // Unless you're trying to compute the new modal node, determining whether an element
+    // has accessible content is as easy as !getOrCreate(element)->children().isEmpty().
+    // So don't call this method on anything besides modal elements.
+    ASSERT(isModalElement(element));
+
+    // Because computing any object's children() is dependent on whether a modal is on the page,
+    // we'll need to walk the DOM and find non-ignored AX objects manually.
+    Vector<Node*> nodeStack = { element.firstChild() };
+    while (!nodeStack.isEmpty()) {
+        for (auto* node = nodeStack.takeLast(); node; node = node->nextSibling()) {
+            if (auto* axObject = getOrCreate(node)) {
+                if (!axObject->computeAccessibilityIsIgnored())
+                    return true;
+            }
+
+            // Don't descend into subtrees for non-visible nodes.
+            if (isNodeVisible(node))
+                nodeStack.append(node->firstChild());
+        }
+    }
+    return false;
+}
+
 Element* AXObjectCache::currentModalNode()
 {
     // There might be multiple modal dialog nodes.
@@ -288,14 +313,20 @@ Element* AXObjectCache::currentModalNode()
     RefPtr<Element> focusedElement = document().focusedElement();
     RefPtr<Element> lastVisible;
     for (auto& element : m_modalElementsSet) {
-        if (isNodeVisible(element)) {
-            if (focusedElement && focusedElement->isDescendantOf(element)) {
-                m_currentModalElement = element;
-                break;
-            }
+        // Elements in m_modalElementsSet may have become un-modal since we added them, but not yet removed
+        // as part of the asynchronous m_deferredModalChangedList handling. Skip these.
+        if (!element || !isModalElement(*element))
+            continue;
 
-            lastVisible = element;
+        // To avoid trapping users in an empty modal, skip any non-visible element, or any element without accessible content.
+        if (!isNodeVisible(element) || !modalElementHasAccessibleContent(*element))
+            continue;
+
+        if (focusedElement && focusedElement->isDescendantOf(element)) {
+            m_currentModalElement = element;
+            break;
         }
+        lastVisible = element;
     }
 
     if (!m_currentModalElement)
@@ -952,6 +983,7 @@ void AXObjectCache::textChanged(AccessibilityObject* object)
 
     if (!object)
         return;
+    Ref<AccessibilityObject> protectedObject(*object);
 
     // If this element supports ARIA live regions, or is part of a region with an ARIA editable role,
     // then notify the AT of changes.
@@ -3249,7 +3281,7 @@ void AXObjectCache::performDeferredCacheUpdate()
     AXTRACE("AXObjectCache::performDeferredCacheUpdate");
     if (m_performingDeferredCacheUpdate)
         return;
-    SetForScope<bool> performingDeferredCacheUpdate(m_performingDeferredCacheUpdate, true);
+    SetForScope performingDeferredCacheUpdate(m_performingDeferredCacheUpdate, true);
 
     for (auto* nodeChild : m_deferredChildrenChangedNodeList) {
         handleMenuOpened(nodeChild);
@@ -3297,14 +3329,27 @@ void AXObjectCache::performDeferredCacheUpdate()
     });
     m_deferredModalChangedList.clear();
 
-    m_deferredMenuListChange.forEach([this] (auto& deferredMenuListChangeElement) {
-        postNotification(&deferredMenuListChangeElement, AXObjectCache::AXMenuListValueChanged);
+    m_deferredMenuListChange.forEach([this] (auto& element) {
+        handleMenuListValueChanged(element);
     });
     m_deferredMenuListChange.clear();
-    
+
     platformPerformDeferredCacheUpdate();
 }
-    
+
+void AXObjectCache::handleMenuListValueChanged(Element& element)
+{
+    RefPtr<AccessibilityObject> object = get(&element);
+    if (!object)
+        return;
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    updateIsolatedTree(*object, AXMenuListValueChanged);
+#endif
+
+    postPlatformNotification(object.get(), AXMenuListValueChanged);
+}
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 // FIXME: should be added to WTF::Vector.
 template<typename T, typename F>
@@ -3355,6 +3400,9 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         case AXCheckedStateChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsChecked);
             break;
+        case AXCurrentStateChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::CurrentValue);
+            break;
         case AXDisabledStateChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::CanSetFocusAttribute);
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsEnabled);
@@ -3367,6 +3415,7 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
             break;
         case AXActiveDescendantChanged:
         case AXAriaRoleChanged:
+        case AXMenuListValueChanged:
         case AXSelectedChildrenChanged:
         case AXValueChanged: {
             bool needsUpdate = appendIfNotContainsMatching(filteredNotifications, notification, [&notification] (const std::pair<RefPtr<AXCoreObject>, AXNotification>& note) {

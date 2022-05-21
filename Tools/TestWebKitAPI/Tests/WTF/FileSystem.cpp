@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Canon Inc. All rights reserved.
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -485,6 +485,11 @@ TEST_F(FileSystemTest, makeAllDirectories)
     EXPECT_EQ(FileSystem::fileType(subFolderPath), FileSystem::FileType::Directory);
     EXPECT_TRUE(FileSystem::deleteNonEmptyDirectory(tempEmptyFolderPath()));
     EXPECT_FALSE(FileSystem::fileExists(subFolderPath));
+    String invalidFolderPath;
+    invalidFolderPath.append('\0');
+    invalidFolderPath.append('a');
+    EXPECT_FALSE(FileSystem::makeAllDirectories(invalidFolderPath));
+    EXPECT_FALSE(FileSystem::makeAllDirectories(emptyString()));
 }
 
 TEST_F(FileSystemTest, volumeFreeSpace)
@@ -830,6 +835,18 @@ TEST_F(FileSystemTest, readEntireFile)
     EXPECT_TRUE(buffer);
     auto contents = String::adopt(WTFMove(buffer.value()));
     EXPECT_STREQ(contents.utf8().data(), FileSystemTestData);
+}
+
+TEST_F(FileSystemTest, makeSafeToUseMemoryMapForPath)
+{
+    EXPECT_TRUE(FileSystem::makeSafeToUseMemoryMapForPath(tempFilePath()));
+    auto result = FileSystem::makeSafeToUseMemoryMapForPath(String("Thisisnotarealfile", String::ConstructFromLiteral));
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
+    // NSFileProtectionKey only actually means anything on-device.
+    EXPECT_FALSE(result);
+#else
+    EXPECT_TRUE(result);
+#endif
 }
 
 } // namespace TestWebKitAPI

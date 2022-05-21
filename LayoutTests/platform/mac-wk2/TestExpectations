@@ -43,6 +43,7 @@ fast/media/mq-prefers-contrast-live-update.html [ Pass ]
 fast/media/mq-prefers-contrast.html [ Pass ]
 
 fast/repaint/background-attachment-local-scroll.html [ Pass ]
+fast/repaint/background-attachment-fixed-in-composited-scroll.html [ Pass ]
 fast/scrolling/unfocusing-page-while-keyboard-scrolling.html [ Pass ]
 
 http/tests/ssl/applepay [ Pass ]
@@ -114,6 +115,8 @@ fast/animation/request-animation-frame-in-two-pages.html [ Pass ]
 
 fast/forms/file/entries-api/image-transcode-open-panel.html [ Pass ]
 fast/forms/file/entries-api/image-no-transcode-open-panel.html [ Pass ]
+fast/forms/file/entries-api/pages-jpeg-open-panel.html [ Pass ]
+fast/forms/file/entries-api/pdf-jpeg-open-panel.html [ Pass ]
 
 storage/indexeddb/database-transaction-cycle.html [ Pass ]
 
@@ -1489,11 +1492,9 @@ webkit.org/b/227639 [ BigSur Release ] fast/history/visited-href-mutation.html [
 # rdar://80342948 ([ Monterey wk2 ] http/tests/websocket/tests/hybi/bufferedAmount-after-close-in-busy.html is a Flaky failure)
 [ Monterey ] http/tests/websocket/tests/hybi/bufferedAmount-after-close-in-busy.html [ Pass Failure ]
 
-# rdar://80340405 ([ Monterey wk2 Release ] http/tests/media/video-webm-stall.html is a constant timeout)
-[ Monterey ] http/tests/media/video-webm-stall.html [ Timeout ]
-
-# rdar://80335706 (REGRESSION: [ Monterey wk2 ] fast/text/international/system-language/navigator-language/navigator-language-ru.html [ Failure ])
-[ Monterey ] fast/text/international/system-language/navigator-language/navigator-language-ru.html [ Failure ]
+# Behavior of navigator-language-ru changed in Monterey
+[ Monterey+ ] fast/text/international/system-language/navigator-language/navigator-language-ru.html [ Failure ]
+[ BigSur Catalina Mojave ] fast/text/international/system-language/navigator-language/navigator-language-ru-2.html [ Failure ]
 
 webkit.org/b/227776 [ BigSur Release arm64 ] scrollbars/corner-resizer-window-inactive.html [ Pass ImageOnlyFailure ]
 
@@ -1631,8 +1632,6 @@ webkit.org/b/228209 fast/speechrecognition/start-recognition-after-gum.html [ Pa
 
 webkit.org/b/230070 media/track/track-cue-css.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/230012 [ BigSur ] http/tests/fetch/redirectmode-and-preload.html [ Pass Failure ]
-
 webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/network/fetch-response-body.html [ Pass Failure ]
 webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/network/intercept-request-properties.html [ Pass Failure ]
 webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/network/intercept-request-with-response.html [ Pass Failure ]
@@ -1672,6 +1671,10 @@ platform/mac-wk2/plugins/destroy-during-async-npp-new.html [ Skip ]
 
 webkit.org/b/232492 [ BigSur Debug ] webrtc/video-receivers.html [ Pass Crash ]
 
+webkit.org/b/236328 [ Monterey ] webaudio/decode-audio-data-webm-vorbis.html [ Failure ]
+
+webkit.org/b/236788 [ Monterey ] http/tests/media/video-webm-stall.html [ Failure ]
+
 webkit.org/b/232497 [ BigSur Debug ] media/media-source/media-source-istypesupported-case-sensitive.html [ Pass Crash ]
 
 webkit.org/b/235681 [ Release ]  imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage.html [ Pass Failure ]
@@ -1685,6 +1688,12 @@ http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.
 
 # rdar://86037417 WindowServer returned not alive with context:,unresponsive work processor(s)
 [ Monterey+ ] http/tests/model/model-document.html [ Skip ]
+[ Monterey+ ] http/tests/model/model-document-interactive.html [ Skip ]
+[ Monterey+ ] accessibility/model-element-attributes.html [ Skip ]
 
 # Captured WebGL to another context2d or WebGL not implemented yet.
 webkit.org/b/236496 fast/mediastream/captureStream/canvas3d.html [ Timeout ]
+
+webkit.org/b/237095 imported/w3c/web-platform-tests/workers/semantics/multiple-workers/004.html [ Pass Failure ]
+
+webkit.org/b/237165 [ BigSur+ Debug ] imported/w3c/web-platform-tests/html/webappapis/dynamic-markup-insertion/opening-the-input-stream/quirks.window.html [ Pass Crash ]

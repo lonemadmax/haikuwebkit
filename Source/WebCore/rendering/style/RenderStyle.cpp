@@ -111,6 +111,20 @@ RenderStyle RenderStyle::clone(const RenderStyle& style)
     return RenderStyle(style, Clone);
 }
 
+RenderStyle RenderStyle::cloneIncludingPseudoElements(const RenderStyle& style)
+{
+    auto newStyle = RenderStyle(style, Clone);
+
+    if (!style.m_cachedPseudoStyles)
+        return newStyle;
+
+    for (auto& pseudoElementStyle : *style.m_cachedPseudoStyles) {
+        auto clone = makeUnique<RenderStyle>(cloneIncludingPseudoElements(*pseudoElementStyle));
+        newStyle.addCachedPseudoStyle(WTFMove(clone));
+    }
+    return newStyle;
+}
+
 std::unique_ptr<RenderStyle> RenderStyle::clonePtr(const RenderStyle& style)
 {
     return makeUnique<RenderStyle>(style, Clone);
@@ -391,9 +405,6 @@ RenderStyle* RenderStyle::getCachedPseudoStyle(PseudoId pid) const
     if (!m_cachedPseudoStyles || !m_cachedPseudoStyles->size())
         return nullptr;
 
-    if (styleType() != PseudoId::None) 
-        return nullptr;
-
     for (auto& pseudoStyle : *m_cachedPseudoStyles) {
         if (pseudoStyle->styleType() == pid)
             return pseudoStyle.get();
@@ -640,8 +651,12 @@ inline bool RenderStyle::changeAffectsVisualOverflow(const RenderStyle& other) c
         return visualOverflowForDecorations(*this, { }) != visualOverflowForDecorations(other, { });
     }
 
-    if (hasOutlineInVisualOverflow() != other.hasOutlineInVisualOverflow())
+    auto hasOutlineInVisualOverflow = this->hasOutlineInVisualOverflow();
+    auto otherHasOutlineInVisualOverflow = other.hasOutlineInVisualOverflow();
+    if (hasOutlineInVisualOverflow != otherHasOutlineInVisualOverflow
+        || (hasOutlineInVisualOverflow && otherHasOutlineInVisualOverflow && outlineSize() != other.outlineSize()))
         return true;
+
     return false;
 }
 
@@ -1669,15 +1684,6 @@ static bool allLayersAreFixed(const FillLayer& layers)
 bool RenderStyle::hasEntirelyFixedBackground() const
 {
     return allLayersAreFixed(backgroundLayers());
-}
-
-bool RenderStyle::hasAnyLocalBackground() const
-{
-    for (auto* layer = &backgroundLayers(); layer; layer = layer->next()) {
-        if (layer->image() && layer->attachment() == FillAttachment::LocalBackground)
-            return true;
-    }
-    return false;
 }
 
 const CounterDirectiveMap* RenderStyle::counterDirectives() const

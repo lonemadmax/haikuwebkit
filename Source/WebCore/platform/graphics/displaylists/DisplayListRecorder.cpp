@@ -48,12 +48,6 @@ Recorder::Recorder(const GraphicsContextState& state, const FloatRect& initialCl
     m_stateStack.append({ state, initialCTM, initialCTM.mapRect(initialClip) });
 }
 
-Recorder::Recorder(Recorder& parent, const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM)
-    : m_drawGlyphsRecorder(*this, parent.m_drawGlyphsRecorder.deconstructDrawGlyphs())
-{
-    m_stateStack.append({ state, initialCTM, initialCTM.mapRect(initialClip) });
-}
-
 Recorder::~Recorder()
 {
     ASSERT(m_stateStack.size() == 1); // If this fires, it indicates mismatched save/restore.
@@ -200,6 +194,11 @@ void Recorder::drawNativeImage(NativeImage& image, const FloatSize& imageSize, c
     appendStateChangeItemIfNecessary();
     recordResourceUse(image);
     recordDrawNativeImage(image.renderingResourceIdentifier(), imageSize, destRect, srcRect, options);
+}
+
+void Recorder::drawSystemImage(SystemImage& systemImage, const FloatRect& destinationRect)
+{
+    recordDrawSystemImage(systemImage, destinationRect);
 }
 
 void Recorder::drawPattern(NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
@@ -498,12 +497,9 @@ void Recorder::clipToImageBuffer(ImageBuffer& imageBuffer, const FloatRect& dest
     recordClipToImageBuffer(imageBuffer, destRect);
 }
 
-RefPtr<ImageBuffer> Recorder::createImageBuffer(const FloatSize& size, const DestinationColorSpace& colorSpace, RenderingMode renderingMode, RenderingMethod renderingMethod) const
+RefPtr<ImageBuffer> Recorder::createImageBuffer(const FloatSize& size, float resolutionScale, const DestinationColorSpace& colorSpace, std::optional<RenderingMode> renderingMode, std::optional<RenderingMethod> renderingMethod) const
 {
-    if (renderingMethod == RenderingMethod::Default)
-        renderingMethod = RenderingMethod::DisplayList;
-
-    return GraphicsContext::createImageBuffer(size, colorSpace, renderingMode, renderingMethod);
+    return GraphicsContext::createImageBuffer(size, resolutionScale, colorSpace, renderingMode, renderingMethod.value_or(RenderingMethod::DisplayList));
 }
 
 #if ENABLE(VIDEO)

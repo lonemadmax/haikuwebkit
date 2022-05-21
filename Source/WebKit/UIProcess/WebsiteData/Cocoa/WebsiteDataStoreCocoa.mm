@@ -32,6 +32,7 @@
 #import "SandboxUtilities.h"
 #import "StorageManager.h"
 #import "WebFramePolicyListenerProxy.h"
+#import "WebPreferencesDefaultValues.h"
 #import "WebPreferencesKeys.h"
 #import "WebProcessProxy.h"
 #import "WebResourceLoadStatisticsStore.h"
@@ -157,9 +158,9 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
 #endif
     // FIXME: Remove these once Safari adopts _WKWebsiteDataStoreConfiguration.httpProxy and .httpsProxy.
     if (!httpProxy.isValid() && (isSafari || isMiniBrowser))
-        httpProxy = URL(URL(), [defaults stringForKey:(NSString *)WebKit2HTTPProxyDefaultsKey]);
+        httpProxy = URL { [defaults stringForKey:(NSString *)WebKit2HTTPProxyDefaultsKey] };
     if (!httpsProxy.isValid() && (isSafari || isMiniBrowser))
-        httpsProxy = URL(URL(), [defaults stringForKey:(NSString *)WebKit2HTTPSProxyDefaultsKey]);
+        httpsProxy = URL { [defaults stringForKey:(NSString *)WebKit2HTTPSProxyDefaultsKey] };
 
 #if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
     bool http3Enabled = WebsiteDataStore::http3Enabled();
@@ -499,7 +500,7 @@ void WebsiteDataStore::initializeAppBoundDomains(ForceReinitialization forceRein
                     }
                 }
 
-                URL url { URL(), data };
+                URL url { data };
                 if (url.protocol().isEmpty())
                     url.setProtocol("https");
                 if (!url.isValid())
@@ -614,6 +615,12 @@ void WebsiteDataStore::reinitializeAppBoundDomains()
 bool WebsiteDataStore::networkProcessHasEntitlementForTesting(const String& entitlement)
 {
     return WTF::hasEntitlement(networkProcess().connection()->xpcConnection(), entitlement.utf8().data());
+}
+
+bool WebsiteDataStore::defaultShouldUseCustomStoragePaths()
+{
+    static const bool useGeneralStorageDirectory = isFeatureFlagEnabled("general_directory_for_storage"_s);
+    return !useGeneralStorageDirectory;
 }
 
 }

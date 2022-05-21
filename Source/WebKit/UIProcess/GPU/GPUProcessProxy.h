@@ -86,7 +86,7 @@ public:
     void clearMockMediaDevices();
     void removeMockMediaDevice(const String&);
     void resetMockMediaDevices();
-    void setMockCameraIsInterrupted(bool);
+    void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
     void updateSandboxAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture);
 #endif
 
@@ -181,6 +181,10 @@ private:
 
 #if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
     bool m_hasEnabledMediaSourceInlinePainting { false };
+#endif
+
+#if HAVE(AVCONTENTKEYSPECIFIER)
+    bool m_hasEnabledSampleBufferContentKeySessionSupport { false };
 #endif
 
 #if HAVE(SCREEN_CAPTURE_KIT)

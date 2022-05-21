@@ -34,16 +34,14 @@
 #include "RemoteVideoFrameIdentifier.h"
 #include "SharedMemory.h"
 #include "SharedVideoFrame.h"
-#include <wtf/Lock.h>
+#include <WebCore/ProcessIdentity.h>
+#include <atomic>
+#include <wtf/ThreadAssertions.h>
 
 namespace IPC {
 class Connection;
 class Decoder;
 class Semaphore;
-}
-
-namespace WebCore {
-class RemoteVideoSample;
 }
 
 namespace webrtc {
@@ -55,20 +53,22 @@ namespace WebKit {
 
 class GPUConnectionToWebProcess;
 class RemoteVideoFrameObjectHeap;
+struct SharedVideoFrame;
 class SharedVideoFrameReader;
 
-class LibWebRTCCodecsProxy : public IPC::Connection::ThreadMessageReceiverRefCounted {
+class LibWebRTCCodecsProxy final : public IPC::Connection::ThreadMessageReceiverRefCounted {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<LibWebRTCCodecsProxy> create(GPUConnectionToWebProcess& process) { return adoptRef(*new LibWebRTCCodecsProxy(process)); }
+    static Ref<LibWebRTCCodecsProxy> create(GPUConnectionToWebProcess&);
     ~LibWebRTCCodecsProxy();
-
-    void close();
-
+    void stopListeningForIPC(Ref<LibWebRTCCodecsProxy>&& refFromConnection);
     bool allowsExitUnderMemoryPressure() const;
 
 private:
     explicit LibWebRTCCodecsProxy(GPUConnectionToWebProcess&);
+    void initialize();
+    auto createDecoderCallback(RTCDecoderIdentifier, bool useRemoteFrames);
+    WorkQueue& workQueue() const { return m_queue; }
 
     // IPC::Connection::ThreadMessageReceiver
     void dispatchToThread(Function<void()>&&) final;
@@ -85,25 +85,25 @@ private:
     void createEncoder(RTCEncoderIdentifier, const String&, const Vector<std::pair<String, String>>&, bool useLowLatency);
     void releaseEncoder(RTCEncoderIdentifier);
     void initializeEncoder(RTCEncoderIdentifier, uint16_t width, uint16_t height, unsigned startBitrate, unsigned maxBitrate, unsigned minBitrate, uint32_t maxFramerate);
-    void encodeFrame(RTCEncoderIdentifier, WebCore::RemoteVideoSample&&, uint32_t timeStamp, bool shouldEncodeAsKeyFrame, std::optional<RemoteVideoFrameReadReference>);
+    void encodeFrame(RTCEncoderIdentifier, SharedVideoFrame&&, uint32_t timeStamp, bool shouldEncodeAsKeyFrame);
     void setEncodeRates(RTCEncoderIdentifier, uint32_t bitRate, uint32_t frameRate);
     void setSharedVideoFrameSemaphore(RTCEncoderIdentifier, IPC::Semaphore&&);
     void setSharedVideoFrameMemory(RTCEncoderIdentifier, const SharedMemory::IPCHandle&);
     void setRTCLoggingLevel(WTFLogLevel);
 
-    GPUConnectionToWebProcess& m_gpuConnectionToWebProcess;
-
     struct Encoder {
         webrtc::LocalEncoder webrtcEncoder { nullptr };
         std::unique_ptr<SharedVideoFrameReader> frameReader;
     };
-    Encoder* findEncoderWithoutLock(RTCEncoderIdentifier);
+    Encoder* findEncoder(RTCEncoderIdentifier) WTF_REQUIRES_CAPABILITY(workQueue());
 
-    mutable Lock m_lock;
-    HashMap<RTCDecoderIdentifier, webrtc::LocalDecoder> m_decoders WTF_GUARDED_BY_LOCK(m_lock); // Only modified on the libWebRTCCodecsQueue but may get accessed from the main thread.
-    HashMap<RTCEncoderIdentifier, Encoder> m_encoders WTF_GUARDED_BY_LOCK(m_lock); // Only modified on the libWebRTCCodecsQueue but may get accessed from the main thread.
+    Ref<IPC::Connection> m_connection;
     Ref<WorkQueue> m_queue;
     Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
+    WebCore::ProcessIdentity m_resourceOwner;
+    HashMap<RTCDecoderIdentifier, webrtc::LocalDecoder> m_decoders WTF_GUARDED_BY_CAPABILITY(workQueue());
+    HashMap<RTCEncoderIdentifier, Encoder> m_encoders WTF_GUARDED_BY_CAPABILITY(workQueue());
+    std::atomic<bool> m_hasEncodersOrDecoders { false };
 };
 
 }

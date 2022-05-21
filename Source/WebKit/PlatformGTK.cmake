@@ -1,4 +1,5 @@
 include(InspectorGResources.cmake)
+include(PdfJSGResources.cmake)
 
 set(WebKit_OUTPUT_NAME webkit2gtk-${WEBKITGTK_API_VERSION})
 set(WebProcess_OUTPUT_NAME WebKitWebProcess)
@@ -53,6 +54,8 @@ list(APPEND WebKit_MESSAGES_IN_FILES
 
 list(APPEND WebKit_DERIVED_SOURCES
     ${WebKit2Gtk_DERIVED_SOURCES_DIR}/InspectorGResourceBundle.c
+    ${WebKit2Gtk_DERIVED_SOURCES_DIR}/PdfJSGResourceBundle.c
+    ${WebKit2Gtk_DERIVED_SOURCES_DIR}/PdfJSGResourceBundleExtras.c
     ${WebKit2Gtk_DERIVED_SOURCES_DIR}/WebKitDirectoryInputStreamData.cpp
     ${WebKit2Gtk_DERIVED_SOURCES_DIR}/WebKitResourcesGResourceBundle.c
 
@@ -560,6 +563,7 @@ add_custom_command(
 )
 
 WEBKIT_BUILD_INSPECTOR_GRESOURCES(${WebKit2Gtk_DERIVED_SOURCES_DIR})
+WEBKIT_BUILD_PDFJS_GRESOURCES(${WebKit2Gtk_DERIVED_SOURCES_DIR})
 
 set(WebKitResources "")
 list(APPEND WebKitResources "<file alias=\"css/gtk-theme.css\">gtk-theme.css</file>\n")
@@ -670,11 +674,12 @@ if (ENABLE_INTROSPECTION)
         set(GIR_SOURCES_TOP_DIRS "--sources-top-dirs=${CMAKE_BINARY_DIR}")
     endif ()
 
-    add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
+    # This is a target and not a command because it's used to build another .gir
+    # and a .typelib, which would trigger two racy parallel builds when using command
+    add_custom_target(WebKit2-${WEBKITGTK_API_VERSION}-gir
         DEPENDS WebKit
         DEPENDS ${CMAKE_BINARY_DIR}/JavaScriptCore-${WEBKITGTK_API_VERSION}.gir
-        COMMAND CC=${CMAKE_C_COMPILER} CFLAGS=-Wno-deprecated-declarations LDFLAGS=
+        COMMAND CC=${CMAKE_C_COMPILER} CFLAGS="-Wno-deprecated-declarations ${CMAKE_C_FLAGS}" LDFLAGS=
             ${LOADER_LIBRARY_PATH_VAR}="${INTROSPECTION_ADDITIONAL_LIBRARY_PATH}"
             ${INTROSPECTION_SCANNER}
             --quiet
@@ -719,8 +724,8 @@ if (ENABLE_INTROSPECTION)
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.gir
         DEPENDS ${CMAKE_BINARY_DIR}/JavaScriptCore-${WEBKITGTK_API_VERSION}.gir
-        DEPENDS ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
-        COMMAND CC=${CMAKE_C_COMPILER} CFLAGS=-Wno-deprecated-declarations
+        DEPENDS WebKit2-${WEBKITGTK_API_VERSION}-gir
+        COMMAND CC=${CMAKE_C_COMPILER} CFLAGS="-Wno-deprecated-declarations ${CMAKE_C_FLAGS}"
             LDFLAGS="${INTROSPECTION_ADDITIONAL_LDFLAGS}"
             ${LOADER_LIBRARY_PATH_VAR}="${INTROSPECTION_ADDITIONAL_LIBRARY_PATH}"
             ${INTROSPECTION_SCANNER}
@@ -781,7 +786,7 @@ if (ENABLE_INTROSPECTION)
 
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.typelib
-        DEPENDS ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
+        DEPENDS WebKit2-${WEBKITGTK_API_VERSION}-gir
         COMMAND ${INTROSPECTION_COMPILER} --includedir=${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir -o ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.typelib
     )
 

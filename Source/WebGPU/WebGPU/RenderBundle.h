@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
@@ -35,17 +34,21 @@ namespace WebGPU {
 class RenderBundle : public RefCounted<RenderBundle> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RenderBundle> create()
+    static Ref<RenderBundle> create(id<MTLIndirectCommandBuffer> indirectCommandBuffer)
     {
-        return adoptRef(*new RenderBundle());
+        return adoptRef(*new RenderBundle(indirectCommandBuffer));
     }
 
     ~RenderBundle();
 
     void setLabel(const char*);
 
+    id<MTLIndirectCommandBuffer> indirectCommandBuffer() const { return m_indirectCommandBuffer; }
+
 private:
-    RenderBundle();
+    RenderBundle(id<MTLIndirectCommandBuffer>);
+
+    id<MTLIndirectCommandBuffer> m_indirectCommandBuffer { nil };
 };
 
 } // namespace WebGPU

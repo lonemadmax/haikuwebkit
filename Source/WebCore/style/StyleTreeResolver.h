@@ -65,10 +65,12 @@ private:
     enum class QueryContainerAction : uint8_t { None, Continue, Layout };
     QueryContainerAction updateQueryContainer(Element&, const RenderStyle&);
 
-    ElementUpdates resolveElement(Element&);
+    enum class DescendantsToResolve : uint8_t { None, ChildrenWithExplicitInherit, Children, All };
+    std::pair<ElementUpdate, DescendantsToResolve> resolveElement(Element&);
 
     static ElementUpdate createAnimatedElementUpdate(std::unique_ptr<RenderStyle>, const Styleable&, Change, const ResolutionContext&);
-    std::optional<ElementUpdate> resolvePseudoStyle(Element&, const ElementUpdate&, PseudoId);
+    std::optional<ElementUpdate> resolvePseudoElement(Element&, PseudoId, const ElementUpdate&);
+    std::unique_ptr<RenderStyle> resolveInheritedFirstLinePseudoElement(Element&, const ElementUpdate&);
 
     struct Scope : RefCounted<Scope> {
         WTF_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(TreeResolverScope);
@@ -89,6 +91,7 @@ private:
         Change change { Change::None };
         DescendantsToResolve descendantsToResolve { DescendantsToResolve::None };
         bool didPushScope { false };
+        bool resolvedFirstBoxGeneratingChild { false };
 
         Parent(Document&);
         Parent(Element&, const RenderStyle&, Change, DescendantsToResolve);
@@ -105,8 +108,14 @@ private:
     void popParent();
     void popParentsToDepth(unsigned depth);
 
+    static DescendantsToResolve computeDescendantsToResolve(Change, Validity, DescendantsToResolve);
+    static bool shouldResolveElement(const Element&, DescendantsToResolve);
+    static void resetDescendantStyleRelations(Element&, DescendantsToResolve);
+
     ResolutionContext makeResolutionContext();
     ResolutionContext makeResolutionContextForPseudoElement(const ElementUpdate&);
+    std::optional<ResolutionContext> makeResolutionContextForInheritedFirstLine(const ElementUpdate&, const RenderStyle& inheritStyle);
+    const Parent* boxGeneratingParent() const;
     const RenderStyle* parentBoxStyle() const;
     const RenderStyle* parentBoxStyleForPseudoElement(const ElementUpdate&) const;
 

@@ -35,6 +35,7 @@
 #include "Logging.h"
 #include "NotificationManagerMessageHandlerMessages.h"
 #include "ProvisionalPageProxy.h"
+#include "RemoteWorkerType.h"
 #include "ServiceWorkerNotificationHandler.h"
 #include "SpeechRecognitionPermissionRequest.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManager.h"
@@ -161,7 +162,7 @@ static WebProcessProxy::WebPageProxyMap& globalPageMap()
 void WebProcessProxy::forWebPagesWithOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, const Function<void(WebPageProxy&)>& callback)
 {
     for (auto* page : globalPageMap().values()) {
-        if (page->sessionID() != sessionID || SecurityOriginData::fromURL(URL { { }, page->currentURL() }) != origin)
+        if (page->sessionID() != sessionID || SecurityOriginData::fromURL(URL { page->currentURL() }) != origin)
             continue;
         callback(*page);
     }
@@ -682,7 +683,7 @@ void WebProcessProxy::didDestroyWebUserContentControllerProxy(WebUserContentCont
 
 void WebProcessProxy::assumeReadAccessToBaseURL(WebPageProxy& page, const String& urlString)
 {
-    URL url(URL(), urlString);
+    URL url { urlString };
     if (!url.isLocalFile())
         return;
 
@@ -747,10 +748,10 @@ bool WebProcessProxy::checkURLReceivedFromWebProcess(const URL& url, CheckBackFo
     if (checkBackForwardList == CheckBackForwardList::Yes) {
         String path = url.fileSystemPath();
         for (auto& item : WebBackForwardListItem::allItems().values()) {
-            URL itemURL(URL(), item->url());
+            URL itemURL { item->url() };
             if (itemURL.isLocalFile() && itemURL.fileSystemPath() == path)
                 return true;
-            URL itemOriginalURL(URL(), item->originalURL());
+            URL itemOriginalURL { item->originalURL() };
             if (itemOriginalURL.isLocalFile() && itemOriginalURL.fileSystemPath() == path)
                 return true;
         }
@@ -936,8 +937,9 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
 
     // There is a nested transaction in WebPageProxy::resetStateAfterProcessExited() that we don't want to commit before the client call below (dispatchProcessDidTerminate).
     Vector<PageLoadState::Transaction> pageLoadStateTransactions;
+    pageLoadStateTransactions.reserveInitialCapacity(pages.size());
     for (auto& page : pages) {
-        pageLoadStateTransactions.append(page->pageLoadState().transaction());
+        pageLoadStateTransactions.uncheckedAppend(page->pageLoadState().transaction());
         page->resetStateAfterProcessTermination(reason);
     }
 
@@ -991,7 +993,8 @@ void WebProcessProxy::didBecomeUnresponsive()
     // If the web process becomes unresponsive and only runs service/shared workers, kill it ourselves since there are no native clients to do it.
     if (isRunningWorkers() && m_pageMap.isEmpty()) {
         WEBPROCESSPROXY_RELEASE_LOG_ERROR(PerformanceLogging, "didBecomeUnresponsive: Terminating worker-only web process because it is unresponsive");
-        disableRemoteWorkers({ RemoteWorkerType::ServiceWorker, RemoteWorkerType::SharedWorker });
+        disableRemoteWorkers(RemoteWorkerType::ServiceWorker);
+        disableRemoteWorkers(RemoteWorkerType::SharedWorker);
         terminate();
     }
 }
@@ -1069,6 +1072,8 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
     enableRemoteInspectorIfNeeded();
 #endif
 #endif
+
+    beginResponsivenessChecks();
 }
 
 WebFrameProxy* WebProcessProxy::webFrame(FrameIdentifier frameID) const
@@ -1686,9 +1691,10 @@ void WebProcessProxy::didStartProvisionalLoadForMainFrame(const URL& url)
 
     auto registrableDomain = WebCore::RegistrableDomain { url };
     if (m_registrableDomain && *m_registrableDomain != registrableDomain) {
-#if ENABLE(SERVICE_WORKER)
-        disableRemoteWorkers(RemoteWorkerType::ServiceWorker);
-#endif
+        if (isRunningServiceWorkers())
+            websiteDataStore().networkProcess().terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType::ServiceWorker, websiteDataStore().sessionID(), *m_registrableDomain, coreProcessIdentifier());
+        if (isRunningSharedWorkers())
+            websiteDataStore().networkProcess().terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType::SharedWorker, websiteDataStore().sessionID(), *m_registrableDomain, coreProcessIdentifier());
 
         // Null out registrable domain since this process has now been used for several domains.
         m_registrableDomain = WebCore::RegistrableDomain { };
@@ -1855,18 +1861,17 @@ void WebProcessProxy::endBackgroundActivityForFullscreenInput()
 
 #endif
 
-#if ENABLE(SERVICE_WORKER)
-void WebProcessProxy::establishServiceWorkerContext(const WebPreferencesStore& store, const RegistrableDomain& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&& completionHandler)
+void WebProcessProxy::establishRemoteWorkerContext(RemoteWorkerType workerType, const WebPreferencesStore& store, const RegistrableDomain& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&& completionHandler)
 {
-    WEBPROCESSPROXY_RELEASE_LOG(Loading, "establishServiceWorkerContext: Started");
+    WEBPROCESSPROXY_RELEASE_LOG(Loading, "establishRemoteWorkerContext: Started (workerType=%{public}s)", workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared");
     markProcessAsRecentlyUsed();
-    sendWithAsyncReply(Messages::WebProcess::EstablishServiceWorkerContextConnectionToNetworkProcess { processPool().defaultPageGroup().pageGroupID(), m_serviceWorkerInformation->remoteWorkerPageProxyID, m_serviceWorkerInformation->remoteWorkerPageID, store, registrableDomain, serviceWorkerPageIdentifier, m_serviceWorkerInformation->initializationData }, [this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+    auto& remoteWorkerInformation = workerType == RemoteWorkerType::ServiceWorker ? m_serviceWorkerInformation : m_sharedWorkerInformation;
+    sendWithAsyncReply(Messages::WebProcess::EstablishRemoteWorkerContextConnectionToNetworkProcess { workerType, processPool().defaultPageGroup().pageGroupID(), remoteWorkerInformation->remoteWorkerPageProxyID, remoteWorkerInformation->remoteWorkerPageID, store, registrableDomain, serviceWorkerPageIdentifier, remoteWorkerInformation->initializationData }, [this, weakThis = WeakPtr { *this }, workerType, completionHandler = WTFMove(completionHandler)]() mutable {
         if (weakThis)
-            WEBPROCESSPROXY_RELEASE_LOG(Loading, "establishServiceWorkerContext: Finished");
+            WEBPROCESSPROXY_RELEASE_LOG(Loading, "establishRemoteWorkerContext: Finished (workerType=%{public}s)", workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared");
         completionHandler();
     }, 0);
 }
-#endif
 
 void WebProcessProxy::setRemoteWorkerUserAgent(const String& userAgent)
 {
@@ -1925,17 +1930,6 @@ void WebProcessProxy::updateRemoteWorkerProcessAssertion(RemoteWorkerType worker
     workerInformation->activity = nullptr;
 }
 
-void WebProcessProxy::establishSharedWorkerContext(const WebPreferencesStore& store, const RegistrableDomain& registrableDomain, CompletionHandler<void()>&& completionHandler)
-{
-    WEBPROCESSPROXY_RELEASE_LOG(SharedWorker, "establishSharedWorkerContext: Started");
-    markProcessAsRecentlyUsed();
-    sendWithAsyncReply(Messages::WebProcess::EstablishSharedWorkerContextConnectionToNetworkProcess { processPool().defaultPageGroup().pageGroupID(), m_sharedWorkerInformation->remoteWorkerPageProxyID, m_sharedWorkerInformation->remoteWorkerPageID, store, registrableDomain, m_sharedWorkerInformation->initializationData }, [this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
-        if (weakThis)
-            WEBPROCESSPROXY_RELEASE_LOG(SharedWorker, "establishSharedWorkerContext: Finished");
-        completionHandler();
-    }, 0);
-}
-
 void WebProcessProxy::registerRemoteWorkerClientProcess(RemoteWorkerType workerType, WebProcessProxy& proxy)
 {
     auto& workerInformation = workerType == RemoteWorkerType::SharedWorker ? m_sharedWorkerInformation : m_serviceWorkerInformation;
@@ -1991,36 +1985,35 @@ void WebProcessProxy::endServiceWorkerBackgroundProcessing()
 }
 #endif // ENABLE(SERVICE_WORKER)
 
-void WebProcessProxy::disableRemoteWorkers(OptionSet<RemoteWorkerType> workerType)
+void WebProcessProxy::disableRemoteWorkers(RemoteWorkerType workerType)
 {
-    ASSERT(!workerType.isEmpty());
-
-    bool didChange = false;
-    if (workerType.contains(RemoteWorkerType::ServiceWorker) && m_serviceWorkerInformation) {
-        removeMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_serviceWorkerInformation->remoteWorkerPageID);
-        m_serviceWorkerInformation = { };
-        didChange = true;
-    }
-    if (workerType.contains(RemoteWorkerType::SharedWorker) && m_sharedWorkerInformation) {
-        m_sharedWorkerInformation = { };
-        didChange = true;
-    }
-    if (!didChange)
+    auto& remoteWorkerInformation = workerType == RemoteWorkerType::ServiceWorker ? m_serviceWorkerInformation : m_sharedWorkerInformation;
+    if (!remoteWorkerInformation)
         return;
 
-    WEBPROCESSPROXY_RELEASE_LOG(Process, "disableWorkers: Disabling workers (SharedWorkers=%d, ServiceWorkers=%d)", workerType.contains(RemoteWorkerType::SharedWorker), workerType.contains(RemoteWorkerType::ServiceWorker));
+#if ENABLE(SERVICE_WORKER)
+    if (workerType == RemoteWorkerType::ServiceWorker)
+        removeMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_serviceWorkerInformation->remoteWorkerPageID);
+#endif
+    remoteWorkerInformation = { };
+
+    WEBPROCESSPROXY_RELEASE_LOG(Process, "disableWorkers: Disabling workers (workerType=%{public}s)", workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared");
 
     updateBackgroundResponsivenessTimer();
 
     if (!isRunningWorkers())
         processPool().removeFromRemoteWorkerProcesses(*this);
 
+    switch (workerType) {
+    case RemoteWorkerType::ServiceWorker:
 #if ENABLE(SERVICE_WORKER)
-    if (workerType.contains(RemoteWorkerType::ServiceWorker))
         send(Messages::WebSWContextManagerConnection::Close { }, 0);
 #endif
-    if (workerType.contains(RemoteWorkerType::SharedWorker))
+        break;
+    case RemoteWorkerType::SharedWorker:
         send(Messages::WebSharedWorkerContextManagerConnection::Close { }, 0);
+        break;
+    }
 
     maybeShutDown();
 }
@@ -2060,8 +2053,10 @@ void WebProcessProxy::enableRemoteWorkers(RemoteWorkerType workerType, const Use
         { }
     };
 
+#if ENABLE(SERVICE_WORKER)
     if (workerType == RemoteWorkerType::ServiceWorker)
         addMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_serviceWorkerInformation->remoteWorkerPageID, ServiceWorkerNotificationHandler::singleton());
+#endif
 
     updateBackgroundResponsivenessTimer();
 

@@ -42,7 +42,8 @@ public:
 
     WEBCORE_EXPORT IDBDatabaseIdentifier(const String& databaseName, SecurityOriginData&& openingOrigin, SecurityOriginData&& mainFrameOrigin, bool isTransient = false);
 
-    IDBDatabaseIdentifier isolatedCopy() const;
+    IDBDatabaseIdentifier isolatedCopy() const &;
+    IDBDatabaseIdentifier isolatedCopy() &&;
 
     bool isHashTableDeletedValue() const
     {
@@ -70,7 +71,7 @@ public:
     bool isTransient() const { return m_isTransient; }
 
     String databaseDirectoryRelativeToRoot(const String& rootDirectory, const String& versionString="v1") const;
-    WEBCORE_EXPORT static String databaseDirectoryRelativeToRoot(const SecurityOriginData& topLevelOrigin, const SecurityOriginData& openingOrigin, const String& rootDirectory, const String& versionString);
+    WEBCORE_EXPORT static String databaseDirectoryRelativeToRoot(const ClientOrigin&, const String& rootDirectory, const String& versionString);
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<IDBDatabaseIdentifier> decode(Decoder&);

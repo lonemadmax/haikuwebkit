@@ -26,53 +26,50 @@
 #pragma once
 
 #if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
-#include "RemoteVideoFrameIdentifier.h"
+#include "Connection.h"
+#include "RemoteVideoFrameProxy.h"
 #include "ThreadSafeObjectHeap.h"
 #include <WebCore/MediaSample.h>
-#include <wtf/ThreadAssertions.h>
 
 #if PLATFORM(COCOA)
 #include "SharedVideoFrame.h"
 #endif
 
 namespace WebKit {
-class GPUConnectionToWebProcess;
 
-// Holds references to all VideoFrame instances that are mapped from Web process to GPU process two processes.
-// As currently there is no special state for RemoteVideoFrame, the object heap stores VideoFrame instances (MediaSample).
-// As currently there is no RemoteVideoFrame, responsible for dispatching the VideoFrame methods to the objects.
-// Consume thread is the thread that uses the VideoFrame. For GPUP this is the media player thread, the main thread.
-// FIXME: currently VideoFrame instances are MediaSample instances.
-class RemoteVideoFrameObjectHeap final : public ThreadSafeObjectHeap<RemoteVideoFrameIdentifier, RefPtr<WebCore::MediaSample>>, private IPC::MessageReceiver {
+// Holds references to all VideoFrame instances that are mapped from GPU process to Web process.
+class RemoteVideoFrameObjectHeap final : public IPC::Connection::WorkQueueMessageReceiver {
 public:
-    static Ref<RemoteVideoFrameObjectHeap> create(GPUConnectionToWebProcess&);
+    static Ref<RemoteVideoFrameObjectHeap> create(Ref<IPC::Connection>&&);
     ~RemoteVideoFrameObjectHeap();
 
-    RemoteVideoFrameIdentifier createRemoteVideoFrame(Ref<WebCore::MediaSample>&&);
+    void close();
+    RemoteVideoFrameProxy::Properties add(Ref<WebCore::MediaSample>&&);
+    RefPtr<WebCore::MediaSample> get(RemoteVideoFrameReadReference&& read) { return m_heap.retire(WTFMove(read), 0_s); }
 
-    void stopListeningForIPC(Ref<RemoteVideoFrameObjectHeap>&& refFromConnection);
+    void stopListeningForIPC(Ref<RemoteVideoFrameObjectHeap>&&) { close(); }
 
 private:
-    RemoteVideoFrameObjectHeap(GPUConnectionToWebProcess&);
+    explicit RemoteVideoFrameObjectHeap(Ref<IPC::Connection>&&);
 
     // IPC::MessageReceiver overrides.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
+    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
 
     // Messages.
     void releaseVideoFrame(RemoteVideoFrameWriteReference&&);
 #if PLATFORM(COCOA)
-    void getVideoFrameBuffer(RemoteVideoFrameReadReference&&);
+    void getVideoFrameBuffer(RemoteVideoFrameReadReference&&, bool canSendIOSurface);
+    void pixelBuffer(RemoteVideoFrameReadReference&&, CompletionHandler<void(RetainPtr<CVPixelBufferRef>)>&&);
 #endif
 
-    GPUConnectionToWebProcess* m_gpuConnectionToWebProcess WTF_GUARDED_BY_LOCK(m_consumeThread);
     const Ref<IPC::Connection> m_connection;
-    ThreadAssertion m_consumeThread NO_UNIQUE_ADDRESS;
+    ThreadSafeObjectHeap<RemoteVideoFrameIdentifier, RefPtr<WebCore::MediaSample>> m_heap;
 #if PLATFORM(COCOA)
     SharedVideoFrameWriter m_sharedVideoFrameWriter;
 #endif
+    bool m_isClosed { false };
 };
-
-
 
 }
 #endif

@@ -35,6 +35,7 @@
 #import "MockAppBundleRegistry.h"
 
 #import <WebCore/PushPermissionState.h>
+#import <WebCore/SecurityOriginData.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/HexNumber.h>
@@ -118,6 +119,11 @@ ARGUMENTS(URL)
 REPLY(const Expected<uint8_t, WebCore::ExceptionData>&)
 END
 
+FUNCTION(incrementSilentPushCount)
+ARGUMENTS(WebCore::SecurityOriginData)
+REPLY(unsigned)
+END
+
 #undef FUNCTION
 #undef ARGUMENTS
 #undef REPLY
@@ -194,6 +200,13 @@ WebPushD::EncodedMessage getPushSubscription::encodeReply(const Expected<std::op
 }
 
 WebPushD::EncodedMessage getPushPermissionState::encodeReply(const Expected<uint8_t, WebCore::ExceptionData>& reply)
+{
+    WebKit::Daemon::Encoder encoder;
+    encoder << reply;
+    return encoder.takeBuffer();
+}
+
+WebPushD::EncodedMessage incrementSilentPushCount::encodeReply(unsigned reply)
 {
     WebKit::Daemon::Encoder encoder;
     encoder << reply;
@@ -283,20 +296,17 @@ void Daemon::runAfterStartingPushService(Function<void()>&& function)
     function();
 }
 
-void Daemon::broadcastDebugMessage(JSC::MessageLevel messageLevel, const String& message)
+void Daemon::broadcastDebugMessage(const String& message)
 {
-    auto dictionary = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
-    xpc_dictionary_set_uint64(dictionary.get(), protocolDebugMessageLevelKey, static_cast<uint64_t>(messageLevel));
-    xpc_dictionary_set_string(dictionary.get(), protocolDebugMessageKey, message.utf8().data());
     for (auto& iterator : m_connectionMap) {
         if (iterator.value->debugModeIsEnabled())
-            xpc_connection_send_message(iterator.key, dictionary.get());
+            iterator.value->sendDebugMessage(message);
     }
 }
 
 void Daemon::broadcastAllConnectionIdentities()
 {
-    broadcastDebugMessage((JSC::MessageLevel)4, "===\nCurrent connections:");
+    broadcastDebugMessage("===\nCurrent connections:");
 
     auto connections = copyToVector(m_connectionMap.values());
     std::sort(connections.begin(), connections.end(), [] (const Ref<ClientConnection>& a, const Ref<ClientConnection>& b) {
@@ -305,7 +315,7 @@ void Daemon::broadcastAllConnectionIdentities()
 
     for (auto& iterator : connections)
         iterator->broadcastDebugMessage("");
-    broadcastDebugMessage((JSC::MessageLevel)4, "===");
+    broadcastDebugMessage("===");
 }
 
 void Daemon::connectionEventHandler(xpc_object_t request)
@@ -329,7 +339,7 @@ void Daemon::connectionEventHandler(xpc_object_t request)
 
 void Daemon::connectionAdded(xpc_connection_t connection)
 {
-    broadcastDebugMessage((JSC::MessageLevel)0, makeString("New connection: 0x", hex(reinterpret_cast<uint64_t>(connection), WTF::HexConversionMode::Lowercase)));
+    broadcastDebugMessage(makeString("New connection: 0x", hex(reinterpret_cast<uint64_t>(connection), WTF::HexConversionMode::Lowercase)));
 
     RELEASE_ASSERT(!m_connectionMap.contains(connection));
     m_connectionMap.set(connection, ClientConnection::create(connection));
@@ -401,6 +411,9 @@ void Daemon::decodeAndHandleMessage(xpc_connection_t connection, MessageType mes
         break;
     case MessageType::GetPushPermissionState:
         handleWebPushDMessageWithReply<MessageInfo::getPushPermissionState>(clientConnection, encodedMessage, WTFMove(replySender));
+        break;
+    case MessageType::IncrementSilentPushCount:
+        handleWebPushDMessageWithReply<MessageInfo::incrementSilentPushCount>(clientConnection, encodedMessage, WTFMove(replySender));
         break;
     }
 }
@@ -539,7 +552,7 @@ void Daemon::handleIncomingPush(const String& bundleIdentifier, WebKit::WebPushM
 void Daemon::notifyClientPushMessageIsAvailable(const String& clientCodeSigningIdentifier)
 {
 #if PLATFORM(MAC)
-    CFArrayRef urls = (__bridge CFArrayRef)@[ [NSURL URLWithString:@"webkit-app-launch://1"] ];
+    CFArrayRef urls = (__bridge CFArrayRef)@[ [NSURL URLWithString:@"x-webkit-app-launch://1"] ];
     CFStringRef identifier = (__bridge CFStringRef)((NSString *)clientCodeSigningIdentifier);
 
     CFDictionaryRef options = (__bridge CFDictionaryRef)@{
@@ -626,6 +639,18 @@ void Daemon::getPushPermissionState(ClientConnection* connection, const URL& sco
     // in WebProcess. However, we've left this stub in for now because there is a chance that we
     // will move the permission check into webpushd when supporting other platforms.
     replySender(static_cast<uint8_t>(WebCore::PushPermissionState::Denied));
+}
+
+void Daemon::incrementSilentPushCount(ClientConnection* connection, const WebCore::SecurityOriginData& securityOrigin, CompletionHandler<void(unsigned)>&& replySender)
+{
+    runAfterStartingPushService([this, bundleIdentifier = connection->hostAppCodeSigningIdentifier(), securityOrigin = securityOrigin.toString(), replySender = WTFMove(replySender)]() mutable {
+        if (!m_pushService) {
+            replySender(0);
+            return;
+        }
+
+        m_pushService->incrementSilentPushCount(bundleIdentifier, securityOrigin, WTFMove(replySender));
+    });
 }
 
 ClientConnection* Daemon::toClientConnection(xpc_connection_t connection)

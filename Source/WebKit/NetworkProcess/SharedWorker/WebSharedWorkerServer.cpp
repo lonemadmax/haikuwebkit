@@ -30,6 +30,7 @@
 #include "NetworkProcess.h"
 #include "NetworkProcessProxyMessages.h"
 #include "NetworkSession.h"
+#include "RemoteWorkerType.h"
 #include "WebSharedWorker.h"
 #include "WebSharedWorkerServerConnection.h"
 #include "WebSharedWorkerServerToContextConnection.h"
@@ -112,7 +113,7 @@ void WebSharedWorkerServer::didFinishFetchingSharedWorkerScript(WebSharedWorker&
         contextConnection->launchSharedWorker(sharedWorker);
         return;
     }
-    createContextConnection(sharedWorker.registrableDomain());
+    createContextConnection(sharedWorker.registrableDomain(), sharedWorker.firstSharedWorkerObjectProcess());
 }
 
 bool WebSharedWorkerServer::needsContextConnectionForRegistrableDomain(const WebCore::RegistrableDomain& registrableDomain) const
@@ -124,7 +125,7 @@ bool WebSharedWorkerServer::needsContextConnectionForRegistrableDomain(const Web
     return false;
 }
 
-void WebSharedWorkerServer::createContextConnection(const WebCore::RegistrableDomain& registrableDomain)
+void WebSharedWorkerServer::createContextConnection(const WebCore::RegistrableDomain& registrableDomain, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier)
 {
     ASSERT(!m_contextConnections.contains(registrableDomain));
     if (m_pendingContextConnectionDomains.contains(registrableDomain))
@@ -133,7 +134,7 @@ void WebSharedWorkerServer::createContextConnection(const WebCore::RegistrableDo
     RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::createContextConnection will create a connection");
 
     m_pendingContextConnectionDomains.add(registrableDomain);
-    m_session.networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::EstablishSharedWorkerContextConnectionToNetworkProcess { registrableDomain, m_session.sessionID() }, [this, weakThis = WeakPtr { *this }, registrableDomain] {
+    m_session.networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::EstablishRemoteWorkerContextConnectionToNetworkProcess { RemoteWorkerType::SharedWorker, registrableDomain, requestingProcessIdentifier, std::nullopt, m_session.sessionID() }, [this, weakThis = WeakPtr { *this }, registrableDomain, requestingProcessIdentifier] {
         if (!weakThis)
             return;
 
@@ -145,7 +146,7 @@ void WebSharedWorkerServer::createContextConnection(const WebCore::RegistrableDo
             return;
 
         if (needsContextConnectionForRegistrableDomain(registrableDomain))
-            createContextConnection(registrableDomain);
+            createContextConnection(registrableDomain, requestingProcessIdentifier);
     }, 0);
 }
 
@@ -170,8 +171,10 @@ void WebSharedWorkerServer::removeContextConnection(WebSharedWorkerServerToConte
 
     m_contextConnections.remove(registrableDomain);
 
-    if (contextConnection.hasSharedWorkerObjects())
-        createContextConnection(registrableDomain);
+    if (auto& sharedWorkerObjects = contextConnection.sharedWorkerObjects(); !sharedWorkerObjects.isEmpty()) {
+        auto requestingProcessIdentifier = sharedWorkerObjects.begin()->key;
+        createContextConnection(registrableDomain, requestingProcessIdentifier);
+    }
 }
 
 void WebSharedWorkerServer::contextConnectionCreated(WebSharedWorkerServerToContextConnection& contextConnection)
@@ -209,14 +212,8 @@ void WebSharedWorkerServer::shutDownSharedWorker(const WebCore::SharedWorkerKey&
     if (!sharedWorker)
         return;
 
-    auto* contextConnection = sharedWorker->contextConnection();
-    if (!contextConnection)
-        return;
-
-    contextConnection->terminateSharedWorker(*sharedWorker);
-
-    if (!contextConnection->hasSharedWorkerObjects())
-        contextConnection->connectionIsNoLongerNeeded();
+    if (auto* contextConnection = sharedWorker->contextConnection())
+        contextConnection->terminateSharedWorker(*sharedWorker);
 }
 
 void WebSharedWorkerServer::addConnection(std::unique_ptr<WebSharedWorkerServerConnection>&& connection)
@@ -260,6 +257,16 @@ void WebSharedWorkerServer::postExceptionToWorkerObject(WebCore::SharedWorkerIde
         if (auto* serverConnection = m_connections.get(sharedWorkerObjectIdentifier.processIdentifier()))
             serverConnection->postExceptionToWorkerObject(sharedWorkerObjectIdentifier, errorMessage, lineNumber, columnNumber, sourceURL);
     });
+}
+
+void WebSharedWorkerServer::terminateContextConnectionWhenPossible(const WebCore::RegistrableDomain& registrableDomain, WebCore::ProcessIdentifier processIdentifier)
+{
+    auto* contextConnection = contextConnectionForRegistrableDomain(registrableDomain);
+    RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::terminateContextConnectionWhenPossible: processIdentifier=%" PRIu64 ", contextConnection=%p", processIdentifier.toUInt64(), contextConnection);
+    if (!contextConnection || contextConnection->webProcessIdentifier() != processIdentifier)
+        return;
+
+    contextConnection->terminateWhenPossible();
 }
 
 } // namespace WebKit

@@ -407,14 +407,10 @@ bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& conne
     return false;
 }
 
-void NetworkConnectionToWebProcess::updateQuotaBasedOnSpaceUsageForTesting(const ClientOrigin& origin)
+void NetworkConnectionToWebProcess::updateQuotaBasedOnSpaceUsageForTesting(ClientOrigin&& origin)
 {
-    auto* session = m_networkProcess->networkSession(sessionID());
-    if (!session)
-        return;
-
-    if (auto* storageManager = session->storageManager())
-        storageManager->resetQuotaUpdatedBasedOnUsageForTesting(origin);
+    if (auto* session = m_networkProcess->networkSession(sessionID()))
+        session->storageManager().resetQuotaUpdatedBasedOnUsageForTesting(WTFMove(origin));
 }
 
 void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
@@ -491,10 +487,10 @@ void NetworkConnectionToWebProcess::createSocketStream(URL&& url, String cachePa
     m_networkSocketStreams.add(identifier, NetworkSocketStream::create(m_networkProcess.get(), WTFMove(url), m_sessionID, cachePartition, identifier, m_connection, WTFMove(token), acceptInsecureCertificates));
 }
 
-void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier,  WebPageProxyIdentifier webPageProxyID, const ClientOrigin& clientOrigin)
+void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier,  WebPageProxyIdentifier webPageProxyID, const ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed)
 {
     ASSERT(!m_networkSocketChannels.contains(identifier));
-    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, clientOrigin))
+    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, clientOrigin, hadMainFrameMainResourcePrivateRelayed))
         m_networkSocketChannels.add(identifier, WTFMove(channel));
 }
 
@@ -696,7 +692,7 @@ void NetworkConnectionToWebProcess::sendH2Ping(NetworkResourceLoadParameters&& p
         return completionHandler(makeUnexpected(internalError(parameters.request.url())));
 
     URL url = parameters.request.url();
-    auto* task = new PreconnectTask(*networkSession, WTFMove(parameters), [] (const ResourceError&) { });
+    auto* task = new PreconnectTask(*networkSession, WTFMove(parameters), [] (const ResourceError&, const WebCore::NetworkLoadMetrics&) { });
     task->setH2PingCallback(url, WTFMove(completionHandler));
     task->start();
 #else
@@ -726,7 +722,7 @@ void NetworkConnectionToWebProcess::preconnectTo(std::optional<WebCore::Resource
 #if ENABLE(SERVER_PRECONNECT)
     auto* session = networkSession();
     if (session && session->allowsServerPreconnect()) {
-        (new PreconnectTask(*session, WTFMove(loadParameters), [completionHandler = WTFMove(completionHandler)] (const ResourceError& error) {
+        (new PreconnectTask(*session, WTFMove(loadParameters), [completionHandler = WTFMove(completionHandler)] (const ResourceError& error, const WebCore::NetworkLoadMetrics&) {
             completionHandler(error);
         }))->start();
         return;
@@ -1003,10 +999,9 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
         for (auto& file : fileReferences)
             file->revokeFileAccess();
 
-        if (auto* session = networkSession()) {
-            if (auto* storageManager = session->storageManager())
-                storageManager->registerTemporaryBlobFilePaths(m_connection, filePaths);
-        }
+        if (auto* session = networkSession())
+            session->storageManager().registerTemporaryBlobFilePaths(m_connection, filePaths);
+
         completionHandler(WTFMove(filePaths));
     });
 }
@@ -1040,11 +1035,11 @@ void NetworkConnectionToWebProcess::removeStorageAccessForFrame(FrameIdentifier 
         storageSession->removeStorageAccessForFrame(frameID, pageID);
 }
 
-void NetworkConnectionToWebProcess::logUserInteraction(const RegistrableDomain& domain)
+void NetworkConnectionToWebProcess::logUserInteraction(RegistrableDomain&& domain)
 {
     if (auto* networkSession = this->networkSession()) {
         if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->logUserInteraction(domain, [] { });
+            resourceLoadStatistics->logUserInteraction(WTFMove(domain), [] { });
     }
 }
 
@@ -1063,11 +1058,11 @@ void NetworkConnectionToWebProcess::resourceLoadStatisticsUpdated(Vector<Resourc
     completionHandler();
 }
 
-void NetworkConnectionToWebProcess::hasStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, CompletionHandler<void(bool)>&& completionHandler)
+void NetworkConnectionToWebProcess::hasStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, CompletionHandler<void(bool)>&& completionHandler)
 {
     if (auto* networkSession = this->networkSession()) {
         if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->hasStorageAccess(subFrameDomain, topFrameDomain, frameID, pageID, WTFMove(completionHandler));
+            resourceLoadStatistics->hasStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, WTFMove(completionHandler));
             return;
         } else {
             storageSession()->hasCookies(subFrameDomain, WTFMove(completionHandler));
@@ -1078,11 +1073,11 @@ void NetworkConnectionToWebProcess::hasStorageAccess(const RegistrableDomain& su
     completionHandler(false);
 }
 
-void NetworkConnectionToWebProcess::requestStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier webPageID, WebPageProxyIdentifier webPageProxyID, StorageAccessScope scope, CompletionHandler<void(WebCore::RequestStorageAccessResult result)>&& completionHandler)
+void NetworkConnectionToWebProcess::requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, FrameIdentifier frameID, PageIdentifier webPageID, WebPageProxyIdentifier webPageProxyID, StorageAccessScope scope, CompletionHandler<void(WebCore::RequestStorageAccessResult result)>&& completionHandler)
 {
     if (auto* networkSession = this->networkSession()) {
         if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->requestStorageAccess(subFrameDomain, topFrameDomain, frameID, webPageID, webPageProxyID, scope, WTFMove(completionHandler));
+            resourceLoadStatistics->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, webPageID, webPageProxyID, scope, WTFMove(completionHandler));
             return;
         }
     }

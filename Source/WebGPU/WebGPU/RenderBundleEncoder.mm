@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,13 +28,22 @@
 
 #import "BindGroup.h"
 #import "Buffer.h"
+#import "Device.h"
 #import "RenderBundle.h"
 #import "RenderPipeline.h"
-#import "WebGPUExt.h"
 
 namespace WebGPU {
 
-RenderBundleEncoder::RenderBundleEncoder() = default;
+RefPtr<RenderBundleEncoder> Device::createRenderBundleEncoder(const WGPURenderBundleEncoderDescriptor& descriptor)
+{
+    UNUSED_PARAM(descriptor);
+    return RenderBundleEncoder::create(nil);
+}
+
+RenderBundleEncoder::RenderBundleEncoder(id<MTLIndirectCommandBuffer> indirectCommandBuffer)
+    : m_indirectCommandBuffer(indirectCommandBuffer)
+{
+}
 
 RenderBundleEncoder::~RenderBundleEncoder() = default;
 
@@ -67,10 +76,10 @@ void RenderBundleEncoder::drawIndirect(const Buffer& indirectBuffer, uint64_t in
     UNUSED_PARAM(indirectOffset);
 }
 
-RefPtr<RenderBundle> RenderBundleEncoder::finish(const WGPURenderBundleDescriptor* descriptor)
+RefPtr<RenderBundle> RenderBundleEncoder::finish(const WGPURenderBundleDescriptor& descriptor)
 {
     UNUSED_PARAM(descriptor);
-    return RenderBundle::create();
+    return RenderBundle::create(nil);
 }
 
 void RenderBundleEncoder::insertDebugMarker(const char* markerLabel)
@@ -119,7 +128,7 @@ void RenderBundleEncoder::setVertexBuffer(uint32_t slot, const Buffer& buffer, u
 
 void RenderBundleEncoder::setLabel(const char* label)
 {
-    UNUSED_PARAM(label);
+    m_indirectCommandBuffer.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
 }
 
 } // namespace WebGPU
@@ -151,7 +160,7 @@ void wgpuRenderBundleEncoderDrawIndirect(WGPURenderBundleEncoder renderBundleEnc
 
 WGPURenderBundle wgpuRenderBundleEncoderFinish(WGPURenderBundleEncoder renderBundleEncoder, const WGPURenderBundleDescriptor* descriptor)
 {
-    auto result = renderBundleEncoder->renderBundleEncoder->finish(descriptor);
+    auto result = renderBundleEncoder->renderBundleEncoder->finish(*descriptor);
     return result ? new WGPURenderBundleImpl { result.releaseNonNull() } : nullptr;
 }
 

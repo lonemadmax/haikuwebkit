@@ -222,9 +222,21 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateBeforeChildren(const Scro
         m_scrollLayer = static_cast<CALayer*>(scrollingStateNode.scrollContainerLayer());
 }
 
+void ScrollingTreeScrollingNodeDelegateIOS::updateScrollViewForOverscrollBehavior(UIScrollView *scrollView, const WebCore::OverscrollBehavior horizontalOverscrollBehavior, WebCore::OverscrollBehavior verticalOverscrollBehavior, AllowOverscrollToPreventScrollPropagation allowPropogation)
+{
+    scrollView.bouncesHorizontally = horizontalOverscrollBehavior != OverscrollBehavior::None;
+    scrollView.bouncesVertically = verticalOverscrollBehavior != OverscrollBehavior::None;
+    if (allowPropogation == AllowOverscrollToPreventScrollPropagation::Yes) {
+#if HAVE(UIKIT_OVERSCROLL_BEHAVIOR_SUPPORT)
+        scrollView._allowsParentToBeginHorizontally = horizontalOverscrollBehavior == OverscrollBehavior::Auto;
+        scrollView._allowsParentToBeginVertically = verticalOverscrollBehavior == OverscrollBehavior::Auto;
+#endif
+    }
+}
+
 void ScrollingTreeScrollingNodeDelegateIOS::commitStateAfterChildren(const ScrollingStateScrollingNode& scrollingStateNode)
 {
-    SetForScope<bool> updatingChange(m_updatingFromStateNode, true);
+    SetForScope updatingChange(m_updatingFromStateNode, true);
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)
         || scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::TotalContentsSize)
@@ -252,15 +264,10 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateAfterChildren(const Scrol
             scrollView.contentSize = scrollingStateNode.reachableContentsSize();
             recomputeInsets = true;
         }
-#if HAVE(UIKIT_OVERSCROLL_BEHAVIOR_SUPPORT)
         if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollableAreaParams)) {
             auto params = scrollingStateNode.scrollableAreaParameters();
-            scrollView.bouncesHorizontally = params.horizontalOverscrollBehavior != OverscrollBehavior::None;
-            scrollView.bouncesVertically = params.verticalOverscrollBehavior != OverscrollBehavior::None;
-            scrollView._allowsParentToBeginHorizontally = params.horizontalOverscrollBehavior == OverscrollBehavior::Auto;
-            scrollView._allowsParentToBeginVertically = params.verticalOverscrollBehavior == OverscrollBehavior::Auto;
+            updateScrollViewForOverscrollBehavior(scrollView, params.horizontalOverscrollBehavior, params.verticalOverscrollBehavior, AllowOverscrollToPreventScrollPropagation::Yes);
         }
-#endif
         if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollOrigin))
             recomputeInsets = true;
 

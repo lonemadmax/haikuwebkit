@@ -60,7 +60,13 @@ AuxiliaryProcess::~AuxiliaryProcess()
 
 void AuxiliaryProcess::didClose(IPC::Connection&)
 {
+// Stop the run loop for GTK and WPE to ensure a normal exit, since we need
+// atexit handlers to be called to cleanup resources like EGL displays.
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    stopRunLoop();
+#else
     _exit(EXIT_SUCCESS);
+#endif
 }
 
 void AuxiliaryProcess::initialize(const AuxiliaryProcessInitializationParameters& parameters)
@@ -274,12 +280,6 @@ void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageNa
 void AuxiliaryProcess::didReceiveMemoryPressureEvent(bool isCritical)
 {
     MemoryPressureHandler::singleton().triggerMemoryPressureEvent(isCritical);
-}
-#endif
-
-#if !PLATFORM(MAC)
-static void applySandboxProfileForDaemon(const String&, const String&)
-{
 }
 #endif
 

@@ -634,9 +634,9 @@ void HTMLSelectElement::saveLastSelection()
         return;
     }
 
-    m_lastOnChangeSelection.clear();
-    for (auto& element : listItems())
-        m_lastOnChangeSelection.append(is<HTMLOptionElement>(*element) && downcast<HTMLOptionElement>(*element).selected());
+    m_lastOnChangeSelection = listItems().map([](auto& element) {
+        return is<HTMLOptionElement>(*element) && downcast<HTMLOptionElement>(*element).selected();
+    });
 }
 
 void HTMLSelectElement::setActiveSelectionAnchorIndex(int index)
@@ -645,10 +645,9 @@ void HTMLSelectElement::setActiveSelectionAnchorIndex(int index)
 
     // Cache the selection state so we can restore the old selection as the new
     // selection pivots around this anchor index.
-    m_cachedStateForActiveSelection.clear();
-
-    for (auto& element : listItems())
-        m_cachedStateForActiveSelection.append(is<HTMLOptionElement>(*element) && downcast<HTMLOptionElement>(*element).selected());
+    m_cachedStateForActiveSelection = listItems().map([](auto& element) {
+        return is<HTMLOptionElement>(*element) && downcast<HTMLOptionElement>(*element).selected();
+    });
 }
 
 void HTMLSelectElement::setActiveSelectionEndIndex(int index)
@@ -950,13 +949,13 @@ int HTMLSelectElement::listToOptionIndex(int listIndex) const
     return optionIndex;
 }
 
-void HTMLSelectElement::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection direction)
+void HTMLSelectElement::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions& options)
 {
     // Save the selection so it can be compared to the new selection when
     // dispatching change events during blur event dispatch.
     if (usesMenuList())
         saveLastSelection();
-    HTMLFormControlElementWithState::dispatchFocusEvent(WTFMove(oldFocusedElement), direction);
+    HTMLFormControlElementWithState::dispatchFocusEvent(WTFMove(oldFocusedElement), options);
 }
 
 void HTMLSelectElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)

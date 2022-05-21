@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
@@ -38,19 +37,23 @@ class TextureView;
 class Texture : public RefCounted<Texture> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<Texture> create()
+    static Ref<Texture> create(id<MTLTexture> texture)
     {
-        return adoptRef(*new Texture());
+        return adoptRef(*new Texture(texture));
     }
 
     ~Texture();
 
-    RefPtr<TextureView> createView(const WGPUTextureViewDescriptor*);
+    RefPtr<TextureView> createView(const WGPUTextureViewDescriptor&);
     void destroy();
     void setLabel(const char*);
 
+    id<MTLTexture> texture() const { return m_texture; }
+
 private:
-    Texture();
+    Texture(id<MTLTexture>);
+
+    id<MTLTexture> m_texture { nil };
 };
 
 } // namespace WebGPU

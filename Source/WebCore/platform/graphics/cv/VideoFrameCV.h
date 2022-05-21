@@ -40,7 +40,7 @@ public:
     WEBCORE_EXPORT static Ref<VideoFrameCV> create(MediaTime presentationTime, bool isMirrored, VideoRotation, RetainPtr<CVPixelBufferRef>&&);
     WEBCORE_EXPORT ~VideoFrameCV();
 
-    CVPixelBufferRef pixelBuffer() const { return m_pixelBuffer.get(); }
+    CVPixelBufferRef pixelBuffer() const final { return m_pixelBuffer.get(); }
     ImageOrientation orientation() const;
 
     template<typename Encoder> void encode(Encoder&) const;
@@ -49,6 +49,7 @@ public:
     // VideoFrame overrides.
     WEBCORE_EXPORT WebCore::FloatSize presentationSize() const final;
     WEBCORE_EXPORT uint32_t videoPixelFormat() const final;
+    WEBCORE_EXPORT void setOwnershipIdentity(const ProcessIdentity&) final;
     bool isCV() const final { return true; }
     WEBCORE_EXPORT RefPtr<WebCore::VideoFrameCV> asVideoFrameCV() final;
 

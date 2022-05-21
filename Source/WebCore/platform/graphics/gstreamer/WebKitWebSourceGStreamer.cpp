@@ -644,7 +644,7 @@ static void webKitWebSrcMakeRequest(WebKitWebSrc* src, DataMutexLocker<WebKitWeb
     ASSERT(members->requestedPosition != members->stopPosition);
 
     GST_DEBUG_OBJECT(src, "Posting task to request R%u %s requestedPosition=%" G_GUINT64_FORMAT " stopPosition=%" G_GUINT64_FORMAT, members->requestNumber, priv->originalURI.data(), members->requestedPosition, members->stopPosition);
-    URL url = URL(URL(), priv->originalURI.data());
+    URL url { priv->originalURI.data() };
 
     ResourceRequest request(url);
     request.setAllowCookies(true);
@@ -877,8 +877,7 @@ const gchar* const* webKitWebSrcGetProtocols(GType)
 
 static URL convertPlaybinURI(const char* uriString)
 {
-    URL url(URL(), uriString);
-    return url;
+    return URL { uriString };
 }
 
 static gchar* webKitWebSrcGetUri(GstURIHandler* handler)
