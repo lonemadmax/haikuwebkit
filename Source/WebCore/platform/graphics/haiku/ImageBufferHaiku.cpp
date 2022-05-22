@@ -99,7 +99,8 @@ WTF::RefPtr<WebCore::NativeImage> ImageBufferHaikuSurfaceBackend::copyNativeImag
 
 
 std::unique_ptr<ImageBufferHaikuSurfaceBackend>
-ImageBufferHaikuSurfaceBackend::create(const ImageBufferBackend::Parameters& parameters, const WebCore::HostWindow*)
+ImageBufferHaikuSurfaceBackend::create(const ImageBufferBackend::Parameters& parameters,
+    const ImageBuffer::CreationContext&)
 {
     IntSize backendSize = calculateBackendSize(parameters);
     if (backendSize.isEmpty())
@@ -114,7 +115,7 @@ std::unique_ptr<ImageBufferHaikuSurfaceBackend>
 ImageBufferHaikuSurfaceBackend::create(const ImageBufferBackend::Parameters& parameters,
     const GraphicsContext&)
 {
-    return create(parameters, NULL);
+    return create(parameters, ImageBuffer::CreationContext(nullptr, nullptr));
 }
 
 
