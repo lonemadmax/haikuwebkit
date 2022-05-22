@@ -64,10 +64,10 @@ GraphicsContextHaiku::~GraphicsContextHaiku()
 // Draws a filled rectangle with a stroked border.
 void GraphicsContextHaiku::drawRect(const FloatRect& rect, float borderThickness)
 {
-    if (m_state.fillPattern)
+    if (m_state.fillBrush().pattern())
         notImplemented();
-    else if (m_state.fillGradient) {
-        m_state.fillGradient->fill(*this, rect);
+    else if (m_state.fillBrush().gradient()) {
+        m_state.fillBrush().gradient()->fill(*this, rect);
     } else
         m_view->FillRect(rect, B_SOLID_LOW);
 
@@ -127,12 +127,12 @@ void GraphicsContextHaiku::drawLine(const FloatPoint& point1, const FloatPoint& 
 // This method is only used to draw the little circles used in lists.
 void GraphicsContextHaiku::drawEllipse(const FloatRect& rect)
 {
-    if (m_state.fillPattern || m_state.fillGradient || fillColor().isVisible()) {
+    if (m_state.fillBrush().pattern() || m_state.fillBrush().gradient() || fillColor().isVisible()) {
 //        TODO: What's this shadow business?
-        if (m_state.fillPattern)
+        if (m_state.fillBrush().pattern())
             notImplemented();
-        else if (m_state.fillGradient) {
-            const BGradient& gradient = m_state.fillGradient->getHaikuGradient();
+        else if (m_state.fillBrush().gradient()) {
+            const BGradient& gradient = m_state.fillBrush().gradient()->getHaikuGradient();
             m_view->FillEllipse(rect, gradient);
         } else
             m_view->FillEllipse(rect, B_SOLID_LOW);
@@ -161,9 +161,9 @@ void GraphicsContextHaiku::strokePath(const Path& path)
 
     // TODO: stroke the shadow (cf shadowAndStrokeCurrentCairoPath)
 
-    if (m_state.strokePattern)
+    if (m_state.strokeBrush().pattern())
         notImplemented();
-    else if (m_state.strokeGradient) {
+    else if (m_state.strokeBrush().gradient()) {
         notImplemented();
 //      BGradient* gradient = m_state.strokeGradient->platformGradient();
 //      m_view->StrokeShape(shape(), *gradient);
@@ -272,11 +272,11 @@ void GraphicsContextHaiku::fillPath(const Path& path)
     // TODO: Render the shadow (cf shadowAndFillCurrentCairoPath)
     drawing_mode mode = m_view->DrawingMode();
 
-    if (m_state.fillPattern)
+    if (m_state.fillBrush().pattern())
         notImplemented();
-    else if (m_state.fillGradient) {
+    else if (m_state.fillBrush().gradient()) {
         m_view->SetDrawingMode(B_OP_ALPHA);
-        const BGradient& gradient = m_state.fillGradient->getHaikuGradient();
+        const BGradient& gradient = m_state.fillBrush().gradient()->getHaikuGradient();
         m_view->FillShape(path.platformPath(), gradient);
     } else {
         if (m_view->HighColor().alpha < 255)
@@ -552,7 +552,7 @@ void GraphicsContextHaiku::setCTM(const AffineTransform& transform)
     m_view->SetTransform(transform);
 }
 
-void GraphicsContextHaiku::didUpdateState(const GraphicsContextState& state, GraphicsContextState::StateChangeFlags flags)
+void GraphicsContextHaiku::didUpdateState(GraphicsContextState& state)
 {
 #if 0
         StrokeGradientChange                    = 1 << 0,
@@ -560,18 +560,18 @@ void GraphicsContextHaiku::didUpdateState(const GraphicsContextState& state, Gra
         FillGradientChange // Handled directly in drawing operations
         FillPatternChange                       = 1 << 3,
 #endif
-    if (flags & GraphicsContextState::StrokeThicknessChange)
-        m_view->SetPenSize(state.strokeThickness);
-    if (flags & GraphicsContextState::StrokeColorChange
-        || flags & GraphicsContextState::AlphaChange) {
-        rgb_color color = state.strokeColor;
+    if (state.changes().contains(GraphicsContextState::Change::StrokeThickness))
+        m_view->SetPenSize(state.strokeThickness());
+    if (state.changes().contains(GraphicsContextState::Change::StrokeBrush)
+        || state.changes().contains(GraphicsContextState::Change::Alpha)) {
+        rgb_color color = state.strokeBrush().color();
         // FIXME the alpha is only applied to plain colors, not bitmaps, gradients,
         // or anything else. Support should be moved to app_server using the trick
         // mentionned here: http://permalink.gmane.org/gmane.comp.graphics.agg/2241
-        color.alpha *= state.alpha;
+        color.alpha *= state.alpha();
         m_view->SetHighColor(color);
     }
-    if (flags & GraphicsContextState::StrokeStyleChange) {
+    if (state.changes().contains(GraphicsContextState::Change::StrokeStyle)) {
         switch (strokeStyle()) {
             case DoubleStroke:
             case WavyStroke:
@@ -596,24 +596,24 @@ void GraphicsContextHaiku::didUpdateState(const GraphicsContextState& state, Gra
                 break;
         }
     }
-    if (flags & GraphicsContextState::FillColorChange
-        || flags & GraphicsContextState::AlphaChange) {
-        rgb_color color = state.fillColor;
+    if (state.changes().contains(GraphicsContextState::Change::FillBrush)
+        || state.changes().contains(GraphicsContextState::Change::Alpha)) {
+        rgb_color color = state.fillBrush().color();
         // FIXME the alpha is only applied to plain colors, not bitmaps, gradients,
         // or anything else. Support should be moved to app_server using the trick
         // mentionned here: http://permalink.gmane.org/gmane.comp.graphics.agg/2241
-        color.alpha *= state.alpha;
+        color.alpha *= state.alpha();
 
         m_view->SetLowColor(color);
     }
-    if (flags & GraphicsContextState::FillRuleChange)
+    if (state.changes().contains(GraphicsContextState::Change::FillRule))
         m_view->SetFillRule(fillRule() == WindRule::NonZero ? B_NONZERO : B_EVEN_ODD);
 #if 0
         ShadowChange                            = 1 << 9,
         ShadowsIgnoreTransformsChange           = 1 << 10,
         AlphaChange                             = 1 << 11,
 #endif
-    if (flags & GraphicsContextState::CompositeOperationChange) {
+    if (state.changes().contains(GraphicsContextState::Change::CompositeMode)) {
         drawing_mode mode = B_OP_ALPHA;
         alpha_function blending_mode = B_ALPHA_COMPOSITE;
         switch (compositeOperation()) {
@@ -661,7 +661,7 @@ void GraphicsContextHaiku::didUpdateState(const GraphicsContextState& state, Gra
                 break;
             default:
                 fprintf(stderr, "GraphicsContext::setCompositeOperation: Unsupported composite operation %s\n",
-                        compositeOperatorName(compositeOperation(), blendModeOperation()).utf8().data());
+                        compositeOperatorName(compositeMode().operation, compositeMode().blendMode).utf8().data());
         }
         m_view->SetDrawingMode(mode);
 
@@ -678,6 +678,8 @@ void GraphicsContextHaiku::didUpdateState(const GraphicsContextState& state, Gra
         ImageInterpolationQualityChange // Handled in drawNativeImage
         UseDarkAppearanceChange                 = 1 << 20,
 #endif
+
+    state.didApplyChanges();
 }
 
 #if ENABLE(3D_RENDERING) && USE(TEXTURE_MAPPER)

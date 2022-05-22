@@ -411,7 +411,7 @@ String MIMETypeRegistry::mimeTypeForPath(StringView path)
     // have a mime type file attribute.
     // If this is a local path, get an entry while also resolving symbolic
     // links and get the mime type info.
-    BString localPath(path);
+    BString localPath(path.utf8().data());
     if (localPath.FindFirst("file://") == 0 && localPath.Length() > 7) {
         BEntry entry(localPath.String() + 7, true);
         if (entry.Exists()) {

@@ -64,7 +64,7 @@ static const ExtensionMap extensionMap[] = {
     { 0, 0 }
 };
 
-String MIMETypeRegistry::mimeTypeForExtension(const String& ext)
+String MIMETypeRegistry::mimeTypeForExtension(const StringView ext)
 {
     String str = ext.convertToASCIILowercase();
 

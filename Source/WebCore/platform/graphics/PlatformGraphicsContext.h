@@ -41,6 +41,9 @@ namespace WebCore {
 class GraphicsContextCairo;
 }
 using PlatformGraphicsContext = WebCore::GraphicsContextCairo;
+#elif USE(HAIKU)
+#include <View.h>
+using PlatformGraphicsContext = BView;
 #else
 using PlatformGraphicsContext = void;
 #endif
