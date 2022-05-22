@@ -112,6 +112,20 @@ std::optional<ServiceWorkerClientData> SWServer::serviceWorkerClientWithOriginBy
     return clientIterator->value;
 }
 
+std::optional<ServiceWorkerClientData> SWServer::topLevelServiceWorkerClientFromPageIdentifier(const ClientOrigin& clientOrigin, PageIdentifier pageIdentifier) const
+{
+    auto iterator = m_clientIdentifiersPerOrigin.find(clientOrigin);
+    if (iterator == m_clientIdentifiersPerOrigin.end())
+        return { };
+
+    for (auto clientIdentifier : iterator->value.identifiers) {
+        auto clientIterator = m_clientsById.find(clientIdentifier);
+        if (clientIterator->value->frameType == ServiceWorkerClientFrameType::TopLevel && clientIterator->value->pageIdentifier == pageIdentifier)
+            return clientIterator->value;
+    }
+    return { };
+}
+
 String SWServer::serviceWorkerClientUserAgent(const ClientOrigin& clientOrigin) const
 {
     auto iterator = m_clientIdentifiersPerOrigin.find(clientOrigin);
@@ -496,7 +510,7 @@ void SWServer::startScriptFetch(const ServiceWorkerJobData& jobData, SWServerReg
         auto topOrigin = jobData.topOrigin.securityOrigin();
         auto origin = SecurityOrigin::create(jobData.scriptURL);
 
-        request.setDomainForCachePartition(topOrigin->domainForCachePartition());
+        request.setDomainForCachePartition(jobData.domainForCachePartition);
         request.setAllowCookies(true);
         request.setFirstPartyForCookies(originURL(topOrigin));
 
@@ -1075,6 +1089,14 @@ void SWServer::unregisterServiceWorkerClient(const ClientOrigin& clientOrigin, S
         registration->removeClientUsingRegistration(clientIdentifier);
 
     m_clientToControllingRegistration.remove(registrationIterator);
+}
+
+std::optional<ServiceWorkerRegistrationIdentifier> SWServer::clientIdentifierToControllingRegistration(ScriptExecutionContextIdentifier clientIdentifier) const
+{
+    auto registrationIterator = m_clientToControllingRegistration.find(clientIdentifier);
+    if (registrationIterator == m_clientToControllingRegistration.end())
+        return { };
+    return registrationIterator->value;
 }
 
 SWServer::ShouldDelayRemoval SWServer::removeContextConnectionIfPossible(const RegistrableDomain& domain)

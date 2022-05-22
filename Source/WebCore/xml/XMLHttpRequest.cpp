@@ -180,18 +180,21 @@ ExceptionOr<Document*> XMLHttpRequest::responseXML()
             || (isHTML && responseType() == ResponseType::EmptyString)) {
             m_responseDocument = nullptr;
         } else {
+            RefPtr<Document> responseDocument;
             if (isHTML)
-                m_responseDocument = HTMLDocument::create(nullptr, context.settings(), m_response.url(), { });
+                responseDocument = HTMLDocument::create(nullptr, context.settings(), m_response.url(), { });
             else
-                m_responseDocument = XMLDocument::create(nullptr, context.settings(), m_response.url());
-            m_responseDocument->overrideLastModified(m_response.lastModified());
-            m_responseDocument->setContextDocument(context);
-            m_responseDocument->setSecurityOriginPolicy(context.securityOriginPolicy());
-            m_responseDocument->overrideMIMEType(mimeType);
-            m_responseDocument->setContent(m_responseBuilder.toStringPreserveCapacity());
+                responseDocument = XMLDocument::create(nullptr, context.settings(), m_response.url());
+            responseDocument->overrideLastModified(m_response.lastModified());
+            responseDocument->setContextDocument(context);
+            responseDocument->setSecurityOriginPolicy(context.securityOriginPolicy());
+            responseDocument->overrideMIMEType(mimeType);
+            responseDocument->setContent(m_responseBuilder.toStringPreserveCapacity());
 
-            if (!m_responseDocument->wellFormed())
+            if (!responseDocument->wellFormed())
                 m_responseDocument = nullptr;
+            else
+                m_responseDocument = WTFMove(responseDocument);
         }
         m_createdDocument = true;
     }
@@ -991,9 +994,9 @@ static inline bool shouldDecodeResponse(XMLHttpRequest::ResponseType type)
 // https://xhr.spec.whatwg.org/#final-charset
 PAL::TextEncoding XMLHttpRequest::finalResponseCharset() const
 {
-    String label = m_responseEncoding;
+    StringView label = m_responseEncoding;
 
-    String overrideResponseCharset = extractCharsetFromMediaType(m_mimeTypeOverride);
+    StringView overrideResponseCharset = extractCharsetFromMediaType(label);
     if (!overrideResponseCharset.isEmpty())
         label = overrideResponseCharset;
 
@@ -1043,7 +1046,7 @@ void XMLHttpRequest::didReceiveData(const SharedBuffer& buffer)
         changeState(HEADERS_RECEIVED);
 
     if (!m_mimeTypeOverride.isEmpty())
-        m_responseEncoding = extractCharsetFromMediaType(m_mimeTypeOverride);
+        m_responseEncoding = extractCharsetFromMediaType(m_mimeTypeOverride).toString();
     if (m_responseEncoding.isEmpty())
         m_responseEncoding = m_response.textEncodingName();
 

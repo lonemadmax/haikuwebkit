@@ -352,13 +352,14 @@ std::optional<PixelBuffer> GraphicsContextGLOpenGL::readCompositedResults()
     return readRenderingResults();
 }
 
-void GraphicsContextGLOpenGL::validateDepthStencil(const char* packedDepthStencilExtension)
+void GraphicsContextGLOpenGL::validateDepthStencil(ASCIILiteral packedDepthStencilExtension)
 {
     auto attrs = contextAttributes();
 
     if (attrs.stencil) {
-        if (supportsExtension(packedDepthStencilExtension)) {
-            ensureExtensionEnabled(packedDepthStencilExtension);
+        String packedDepthStencilExtensionString { packedDepthStencilExtension };
+        if (supportsExtension(packedDepthStencilExtensionString)) {
+            ensureExtensionEnabled(packedDepthStencilExtensionString);
             // Force depth if stencil is true.
             attrs.depth = true;
         } else
@@ -1345,7 +1346,7 @@ String GraphicsContextGLOpenGL::getString(GCGLenum name)
     if (!makeContextCurrent())
         return String();
 
-    return String(reinterpret_cast<const char*>(::glGetString(name)));
+    return String::fromLatin1(reinterpret_cast<const char*>(::glGetString(name)));
 }
 
 void GraphicsContextGLOpenGL::hint(GCGLenum target, GCGLenum mode)

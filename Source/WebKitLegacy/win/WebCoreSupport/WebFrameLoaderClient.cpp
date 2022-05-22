@@ -750,7 +750,7 @@ ResourceError WebFrameLoaderClient::cancelledError(const ResourceRequest& reques
 {
     // FIXME: Need ChickenCat to include CFNetwork/CFURLError.h to get these values
     // Alternatively, we could create our own error domain/codes.
-    return ResourceError(String(WebURLErrorDomain), -999, request.url(), String("Cancelled"));
+    return ResourceError(String(WebURLErrorDomain), -999, request.url(), String("Cancelled"_s));
 }
 
 ResourceError WebFrameLoaderClient::blockedError(const ResourceRequest& request) const
@@ -780,7 +780,7 @@ ResourceError WebFrameLoaderClient::cannotShowMIMETypeError(const ResourceRespon
 
 ResourceError WebFrameLoaderClient::fileDoesNotExistError(const ResourceResponse& response) const
 {
-    return ResourceError(String(WebURLErrorDomain), -1100, response.url(), String("File does not exist."));
+    return ResourceError(String(WebURLErrorDomain), -1100, response.url(), String("File does not exist."_s));
 }
 
 ResourceError WebFrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse& response) const
@@ -814,13 +814,13 @@ bool WebFrameLoaderClient::canShowMIMETypeAsHTML(const String& mimeType) const
     return m_webFrame->webView()->canShowMIMETypeAsHTML(mimeType);
 }
 
-bool WebFrameLoaderClient::representationExistsForURLScheme(const String& /*URLScheme*/) const
+bool WebFrameLoaderClient::representationExistsForURLScheme(StringView /*URLScheme*/) const
 {
     notImplemented();
     return false;
 }
 
-String WebFrameLoaderClient::generatedMIMETypeForURLScheme(const String& /*URLScheme*/) const
+String WebFrameLoaderClient::generatedMIMETypeForURLScheme(StringView /*URLScheme*/) const
 {
     notImplemented();
     ASSERT_NOT_REACHED();

@@ -320,7 +320,7 @@ CurlHandle::~CurlHandle()
 
 const String CurlHandle::errorDescription(CURLcode errorCode)
 {
-    return String(curl_easy_strerror(errorCode));
+    return String::fromLatin1(curl_easy_strerror(errorCode));
 }
 
 void CurlHandle::enableSSLForHost(const String& host)
@@ -429,26 +429,23 @@ void CurlHandle::appendRequestHeaders(const HTTPHeaderMap& headers)
 
 void CurlHandle::appendRequestHeader(const String& name, const String& value)
 {
-    String header(name);
+    String header;
 
     if (value.isEmpty()) {
         // Insert the ; to tell curl that this header has an empty value.
-        header.append(";");
+        header = makeString(name, ';');
     } else {
-        header.append(": ");
-        header.append(value);
+        header = makeString(name, ": ", value);
     }
 
-    appendRequestHeader(header);
+    appendRequestHeader(WTFMove(header));
 }
 
 void CurlHandle::removeRequestHeader(const String& name)
 {
     // Add a header with no content, the internally used header will get disabled. 
-    String header(name);
-    header.append(":");
-
-    appendRequestHeader(header);
+    auto header = makeString(name, ':');
+    appendRequestHeader(WTFMove(header));
 }
 
 void CurlHandle::appendRequestHeader(const String& header)
@@ -894,7 +891,7 @@ void CurlHandle::addExtraNetworkLoadMetrics(NetworkLoadMetrics& networkLoadMetri
     additionalMetrics->responseHeaderBytesReceived = responseHeaderSize;
 
     if (ip) {
-        additionalMetrics->remoteAddress = String(ip);
+        additionalMetrics->remoteAddress = String::fromLatin1(ip);
         if (port)
             additionalMetrics->remoteAddress.append(":" + String::number(port));
     }

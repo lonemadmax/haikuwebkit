@@ -72,8 +72,7 @@ class GitHub(Base, mocks.Requests):
             '{}_TOKEN'.format(prefix): 'token',
         })
 
-        if not labels:
-            self.labels = self.DEFAULT_LABELS
+        self.labels = labels or self.DEFAULT_LABELS
 
     def __enter__(self):
         self._environment.__enter__()
@@ -122,14 +121,14 @@ class GitHub(Base, mocks.Requests):
             )
         issue = self.issues[id]
         if data:
-            if self.users.get(data.get('assignees', [None])[0]):
+            if data.get('assignees') and self.users.get(data.get('assignees', [None])[0]):
                 issue['assignee'] = self.users[data['assignees'][0]]
             if data.get('state') == 'opened':
                 issue['opened'] = True
             if data.get('state') == 'closed':
                 issue['opened'] = False
 
-            if data.get('labels'):
+            if data.get('labels', None) is not None:
                 issue['labels'] = []
                 issue['component'] = None
                 issue['version'] = None

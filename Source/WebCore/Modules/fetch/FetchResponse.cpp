@@ -133,7 +133,7 @@ ExceptionOr<Ref<FetchResponse>> FetchResponse::create(ScriptExecutionContext& co
     r->m_contentType = contentType;
     auto mimeType = extractMIMETypeFromMediaType(contentType);
     r->m_internalResponse.setMimeType(mimeType.isEmpty() ? defaultMIMEType() : mimeType);
-    r->m_internalResponse.setTextEncodingName(extractCharsetFromMediaType(contentType));
+    r->m_internalResponse.setTextEncodingName(extractCharsetFromMediaType(contentType).toString());
 
     r->m_internalResponse.setHTTPStatusCode(status);
     r->m_internalResponse.setHTTPStatusText(statusText);
@@ -538,8 +538,12 @@ ResourceResponse FetchResponse::resourceResponse() const
 
     if (headers().guard() != FetchHeaders::Guard::Immutable) {
         // FIXME: Add a setHTTPHeaderFields on ResourceResponseBase.
-        for (auto& header : headers().internalHeaders())
-            response.setHTTPHeaderField(header.key, header.value);
+        for (auto& header : headers().internalHeaders()) {
+            if (header.keyAsHTTPHeaderName)
+                response.setHTTPHeaderField(*header.keyAsHTTPHeaderName, header.value);
+            else
+                response.setUncommonHTTPHeaderField(header.key, header.value);
+        }
     }
 
     return response;

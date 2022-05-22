@@ -337,15 +337,32 @@ void WebSWContextManagerConnection::matchAllCompleted(uint64_t requestIdentifier
         callback(WTFMove(clientsData));
 }
 
-void WebSWContextManagerConnection::openWindow(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, const String& url, CompletionHandler<void(std::optional<WebCore::PageIdentifier>&&)>&& callback)
+void WebSWContextManagerConnection::openWindow(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, const URL& url, OpenWindowCallback&& callback)
 {
-    m_connectionToNetworkProcess->sendWithAsyncReply(Messages::WebSWServerToContextConnection::OpenWindow { serviceWorkerIdentifier, url }, WTFMove(callback));
+    m_connectionToNetworkProcess->sendWithAsyncReply(Messages::WebSWServerToContextConnection::OpenWindow { serviceWorkerIdentifier, url }, [callback = WTFMove(callback)] (auto&& result) mutable {
+        if (!result.has_value()) {
+            callback(result.error().toException());
+            return;
+        }
+        callback(WTFMove(result.value()));
+    });
 }
 
 void WebSWContextManagerConnection::claim(ServiceWorkerIdentifier serviceWorkerIdentifier, CompletionHandler<void(ExceptionOr<void>&&)>&& callback)
 {
     m_connectionToNetworkProcess->sendWithAsyncReply(Messages::WebSWServerToContextConnection::Claim { serviceWorkerIdentifier }, [callback = WTFMove(callback)](auto&& result) mutable {
         callback(result ? result->toException() : ExceptionOr<void> { });
+    });
+}
+
+void WebSWContextManagerConnection::navigate(ScriptExecutionContextIdentifier clientIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, const URL& url, NavigateCallback&& callback)
+{
+    m_connectionToNetworkProcess->sendWithAsyncReply(Messages::WebSWServerToContextConnection::Navigate { clientIdentifier, serviceWorkerIdentifier, url }, [callback = WTFMove(callback)](auto&& result) mutable {
+        if (!result.has_value()) {
+            callback(WTFMove(result).error().toException());
+            return;
+        }
+        callback(WTFMove(result).value());
     });
 }
 

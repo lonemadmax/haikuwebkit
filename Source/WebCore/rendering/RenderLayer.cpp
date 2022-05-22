@@ -552,6 +552,9 @@ static bool canCreateStackingContext(const RenderLayer& layer)
 {
     auto& renderer = layer.renderer();
     return renderer.hasTransformRelatedProperty()
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        || renderer.hasSVGTransform()
+#endif
         || renderer.hasClipPath()
         || renderer.hasFilter()
         || renderer.hasMask()
@@ -1296,21 +1299,25 @@ void RenderLayer::dirtyAncestorChainHasBlendingDescendants()
 }
 #endif
 
-static inline LayoutRect computeReferenceRectFromBox(const RenderBox& box, CSSBoxType boxType, const LayoutSize& offsetFromRoot)
+FloatRect RenderLayer::referenceBoxRectForClipPath(CSSBoxType boxType, const LayoutSize& offsetFromRoot, const LayoutRect& rootRelativeBounds) const
 {
-    auto referenceBox = box.referenceBox(boxType);
-    referenceBox.move(offsetFromRoot);
-    return referenceBox;
-}
+    // FIXME: [LBSE] Upstream clipping support for SVG.
 
-static inline LayoutRect computeReferenceBox(const RenderObject& renderer, CSSBoxType boxType, const LayoutSize& offsetFromRoot, const LayoutRect& rootRelativeBounds)
-{
     // FIXME: Support different reference boxes for inline content.
     // https://bugs.webkit.org/show_bug.cgi?id=129047
-    if (!renderer.isBox())
+    if (!renderer().isBox())
         return rootRelativeBounds;
-    
-    return computeReferenceRectFromBox(downcast<RenderBox>(renderer), boxType, offsetFromRoot);
+
+    auto referenceBoxRect = renderer().referenceBoxRect(boxType);
+    referenceBoxRect.move(offsetFromRoot);
+    return referenceBoxRect;
+}
+
+void RenderLayer::updateTransformFromStyle(TransformationMatrix& transform, const RenderStyle& style, OptionSet<RenderStyle::TransformOperationOption> options) const
+{
+    auto referenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().transformReferenceBoxRect(style), renderer());
+    renderer().applyTransform(transform, style, referenceBoxRect, options);
+    makeMatrixRenderable(transform, canRender3DTransforms());
 }
 
 void RenderLayer::updateTransform()
@@ -1332,13 +1339,13 @@ void RenderLayer::updateTransform()
     if (hasTransform) {
         m_transform->makeIdentity();
 
-        // FIXME: [LBSE] Upstream reference box computation for RenderSVGModelObject derived renderers
-        FloatRect referenceBox;
-        if (is<RenderBox>(renderer()))
-            referenceBox = snapRectToDevicePixels(downcast<RenderBox>(renderer()).referenceBox(transformBoxToCSSBoxType(renderer().style().transformBox())), renderer().document().deviceScaleFactor());
+        if (auto pathOperation = renderer().style().offsetPath(); pathOperation && is<BoxPathOperation>(pathOperation)) {
+            auto& boxPathOperation = downcast<BoxPathOperation>(*pathOperation);
+            auto pathReferenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().referenceBoxRect(boxPathOperation.referenceBox()), renderer());
+            boxPathOperation.setPathForReferenceRect(FloatRoundedRect { pathReferenceBoxRect });
+        }
 
-        renderer().applyTransform(*m_transform, referenceBox);
-        makeMatrixRenderable(*m_transform, canRender3DTransforms());
+        updateTransformFromStyle(*m_transform, renderer().style(), RenderStyle::allTransformOperations);
     }
 
     if (had3DTransform != has3DTransform()) {
@@ -1353,25 +1360,16 @@ TransformationMatrix RenderLayer::currentTransform(OptionSet<RenderStyle::Transf
     if (!m_transform)
         return { };
 
-    // FIXME: [LBSE] Upstream transform support for RenderSVGModelObject derived renderers
-    if (!is<RenderBox>(renderer()))
-        return { };
-
-    auto& renderBox = downcast<RenderBox>(renderer());
-
     // m_transform includes transform-origin and is affected by the choice of the transform-box.
     // Therefore we can only use the cached m_transform, if the animation doesn't alter transform-box or excludes transform-origin.
 
     // Query the animatedStyle() to obtain the current transformation, when accelerated transform animations are running.
-    auto styleable = Styleable::fromRenderer(renderBox);
+    auto styleable = Styleable::fromRenderer(renderer());
     if ((styleable && styleable->isRunningAcceleratedTransformAnimation()) || !options.contains(RenderStyle::TransformOperationOption::TransformOrigin)) {
-        std::unique_ptr<RenderStyle> animatedStyle = renderBox.animatedStyle();
-        auto pixelSnappedBorderRect = snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(animatedStyle->transformBox())), renderBox.document().deviceScaleFactor());
+        std::unique_ptr<RenderStyle> animatedStyle = renderer().animatedStyle();
 
         TransformationMatrix transform;
-        animatedStyle->applyTransform(transform, pixelSnappedBorderRect, options);
-
-        makeMatrixRenderable(transform, canRender3DTransforms());
+        updateTransformFromStyle(transform, *animatedStyle, options);
         return transform;
     }
 
@@ -1800,12 +1798,10 @@ TransformationMatrix RenderLayer::perspectiveTransform(const LayoutRect& layerRe
     if (!style.hasPerspective())
         return { };
 
-    auto deviceScaleFactor = renderBox.document().deviceScaleFactor();
-    auto referenceBox = renderBox.referenceBox(transformBoxToCSSBoxType(style.transformBox()));
-    auto pixelSnappedReferenceBox = snapRectToDevicePixels(referenceBox, deviceScaleFactor);
-    auto snappedLayerRect = snapRectToDevicePixels(layerRect, deviceScaleFactor);
+    auto referenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().transformReferenceBoxRect(style), renderer());
+    auto snappedLayerRect = snapRectToDevicePixelsIfNeeded(layerRect, renderer());
 
-    auto perspectiveOrigin = pixelSnappedReferenceBox.location() - toFloatSize(snappedLayerRect.location()) + floatPointForLengthPoint(style.perspectiveOrigin(), pixelSnappedReferenceBox.size());
+    auto perspectiveOrigin = referenceBoxRect.location() - toFloatSize(snappedLayerRect.location()) + floatPointForLengthPoint(style.perspectiveOrigin(), referenceBoxRect.size());
 
     // A perspective origin of 0,0 makes the vanishing point in the center of the element.
     // We want it to be in the top-left, so subtract half the height and width.
@@ -1823,6 +1819,7 @@ FloatPoint RenderLayer::perspectiveOrigin() const
 {
     if (!renderer().hasTransformRelatedProperty())
         return { };
+    // FIXME: This uses the wrong, transform-box unaware, geometry.
     return floatPointForLengthPoint(renderer().style().perspectiveOrigin(), rendererBorderBoxRect().size());
 }
 
@@ -2747,6 +2744,17 @@ bool RenderLayer::canResize() const
     return (renderer().hasNonVisibleOverflow() || renderer().isRenderIFrame()) && renderer().style().resize() != Resize::None;
 }
 
+LayoutSize RenderLayer::minimumSizeForResizing(float zoomFactor) const
+{
+    // Use the resizer size as the strict minimum size
+    auto resizerRect = overflowControlsRects().resizer;
+    LayoutUnit minWidth = minimumValueForLength(renderer().style().minWidth(), renderer().containingBlock()->width());
+    LayoutUnit minHeight = minimumValueForLength(renderer().style().minHeight(), renderer().containingBlock()->height());
+    minWidth = std::max(LayoutUnit(minWidth / zoomFactor), LayoutUnit(resizerRect.width()));
+    minHeight = std::max(LayoutUnit(minHeight / zoomFactor), LayoutUnit(resizerRect.height()));
+    return LayoutSize(minWidth, minHeight);
+}
+
 void RenderLayer::resize(const PlatformMouseEvent& evt, const LayoutSize& oldOffset)
 {
     // FIXME: This should be possible on generated content but is not right now.
@@ -2770,18 +2778,16 @@ void RenderLayer::resize(const PlatformMouseEvent& evt, const LayoutSize& oldOff
     LayoutSize newOffset = offsetFromResizeCorner(localPoint);
     newOffset.setWidth(newOffset.width() / zoomFactor);
     newOffset.setHeight(newOffset.height() / zoomFactor);
-    
+
     LayoutSize currentSize = LayoutSize(renderer->width() / zoomFactor, renderer->height() / zoomFactor);
-    LayoutSize minimumSize = element->minimumSizeForResizing().shrunkTo(currentSize);
-    element->setMinimumSizeForResizing(minimumSize);
-    
+
     LayoutSize adjustedOldOffset = LayoutSize(oldOffset.width() / zoomFactor, oldOffset.height() / zoomFactor);
     if (renderer->shouldPlaceVerticalScrollbarOnLeft()) {
         newOffset.setWidth(-newOffset.width());
         adjustedOldOffset.setWidth(-adjustedOldOffset.width());
     }
-    
-    LayoutSize difference = (currentSize + newOffset - adjustedOldOffset).expandedTo(minimumSize) - currentSize;
+
+    LayoutSize difference = (currentSize + newOffset - adjustedOldOffset).expandedTo(minimumSizeForResizing(zoomFactor)) - currentSize;
 
     StyledElement* styledElement = downcast<StyledElement>(element);
     bool isBoxSizingBorder = renderer->style().boxSizing() == BoxSizing::BorderBox;
@@ -3210,32 +3216,18 @@ bool RenderLayer::setupFontSubpixelQuantization(GraphicsContext& context, bool& 
 std::pair<Path, WindRule> RenderLayer::computeClipPath(const LayoutSize& offsetFromRoot, const LayoutRect& rootRelativeBoundsForNonBoxes) const
 {
     const RenderStyle& style = renderer().style();
-    float deviceScaleFactor = renderer().document().deviceScaleFactor();
 
     if (is<ShapePathOperation>(*style.clipPath())) {
         auto& clipPath = downcast<ShapePathOperation>(*style.clipPath());
-
-        LayoutRect referenceBox;
-        if (is<RenderBox>(renderer())) {
-            referenceBox = downcast<RenderBox>(renderer()).referenceBox(clipPath.referenceBox());
-            referenceBox.move(offsetFromRoot);
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-        } else if (is<RenderSVGModelObject>(renderer())) {
-            // FIXME: [LBSE] Upstream clipping support for RenderSVGModelObject derived renderers
-#endif
-        } else {
-            // Reference box for inlines is not well defined: https://github.com/w3c/csswg-drafts/issues/6383
-            referenceBox = rootRelativeBoundsForNonBoxes;
-        }
-
-        auto snappedReferenceBox = snapRectToDevicePixels(referenceBox, deviceScaleFactor);
-        return { clipPath.pathForReferenceRect(snappedReferenceBox), clipPath.windRule() };
+        auto referenceBoxRect = referenceBoxRectForClipPath(clipPath.referenceBox(), offsetFromRoot, rootRelativeBoundsForNonBoxes);
+        auto snappedReferenceBoxRect = snapRectToDevicePixelsIfNeeded(referenceBoxRect, renderer());
+        return { clipPath.pathForReferenceRect(snappedReferenceBoxRect), clipPath.windRule() };
     }
 
     if (is<BoxPathOperation>(*style.clipPath()) && is<RenderBox>(renderer())) {
         auto& clipPath = downcast<BoxPathOperation>(*style.clipPath());
 
-        auto shapeRect = computeRoundedRectForBoxShape(clipPath.referenceBox(), downcast<RenderBox>(renderer())).pixelSnappedRoundedRectForPainting(deviceScaleFactor);
+        auto shapeRect = computeRoundedRectForBoxShape(clipPath.referenceBox(), downcast<RenderBox>(renderer())).pixelSnappedRoundedRectForPainting(renderer().document().deviceScaleFactor());
         shapeRect.move(offsetFromRoot);
 
         return { clipPath.pathForReferenceRect(shapeRect), WindRule::NonZero };
@@ -3270,17 +3262,16 @@ void RenderLayer::setupClipPath(GraphicsContext& context, GraphicsContextStateSa
         if (auto* clipperRenderer = renderer().ensureReferencedSVGResources().referencedClipperRenderer(renderer().document(), referenceClipPathOperation)) {
             // Use the border box as the reference box, even though this is not clearly specified: https://github.com/w3c/csswg-drafts/issues/5786.
             // clippedContentBounds is used as the reference box for inlines, which is also poorly specified: https://github.com/w3c/csswg-drafts/issues/6383.
-            auto referenceBox = computeReferenceBox(renderer(), CSSBoxType::BorderBox, offsetFromRoot, clippedContentBounds);
-            auto snappedReferenceBox = snapRectToDevicePixels(referenceBox, renderer().document().deviceScaleFactor());
+            auto referenceBox = referenceBoxRectForClipPath(CSSBoxType::BorderBox, offsetFromRoot, clippedContentBounds);
+            auto snappedReferenceBox = snapRectToDevicePixelsIfNeeded(referenceBox, renderer());
             auto offset = snappedReferenceBox.location();
 
-            auto snappedClippingBounds = snapRectToDevicePixels(clippedContentBounds, renderer().document().deviceScaleFactor());
+            auto snappedClippingBounds = snapRectToDevicePixelsIfNeeded(clippedContentBounds, renderer());
             snappedClippingBounds.moveBy(-offset);
 
             stateSaver.save();
             context.translate(offset);
-            FloatRect clipPathReferenceBox { { }, referenceBox.size() };
-            clipperRenderer->applyClippingToContext(context, renderer(), clipPathReferenceBox, snappedClippingBounds, renderer().style().effectiveZoom());
+            clipperRenderer->applyClippingToContext(context, renderer(), { { }, referenceBox.size() }, snappedClippingBounds, renderer().style().effectiveZoom());
             context.translate(-offset);
         }
     }
@@ -3297,7 +3288,7 @@ RenderLayerFilters* RenderLayer::filtersForPainting(GraphicsContext& context, Op
     if (!paintsWithFilters())
         return nullptr;
 
-    if (m_filters && m_filters->filter())
+    if (m_filters)
         return m_filters.get();
 
     return nullptr;
@@ -5578,8 +5569,10 @@ void RenderLayer::createReflection()
 
 void RenderLayer::removeReflection()
 {
-    if (!m_reflection->renderTreeBeingDestroyed())
-        m_reflection->removeLayers(this);
+    if (!m_reflection->renderTreeBeingDestroyed()) {
+        if (auto* layer = m_reflection->layer())
+            removeChild(*layer);
+    }
 
     m_reflection->setParent(nullptr);
     m_reflection = nullptr;
@@ -5702,7 +5695,7 @@ void RenderLayer::updateFilterPaintingStrategy()
         // Don't delete the whole filter info here, because we might use it
         // for loading SVG reference filter files.
         if (m_filters)
-            m_filters->setFilter(nullptr);
+            m_filters->clearFilter();
 
         // Early-return only if we *don't* have reference filters.
         // For reference filters, we still want the FilterEffect graph built
@@ -5712,13 +5705,14 @@ void RenderLayer::updateFilterPaintingStrategy()
     }
     
     ensureLayerFilters();
-    m_filters->buildFilter(renderer(), page().deviceScaleFactor(), renderer().page().acceleratedFiltersEnabled() ? RenderingMode::Accelerated : RenderingMode::Unaccelerated);
+    m_filters->setRenderingMode(renderer().page().acceleratedFiltersEnabled() ? RenderingMode::Accelerated : RenderingMode::Unaccelerated);
+    m_filters->setFilterScale({ page().deviceScaleFactor(), page().deviceScaleFactor() });
 }
 
 IntOutsets RenderLayer::filterOutsets() const
 {
     if (m_filters)
-        return m_filters->filter() ? m_filters->filter()->outsets() : IntOutsets();
+        return m_filters->calculateOutsets(renderer(), localBoundingBox());
     return renderer().style().filterOutsets();
 }
 

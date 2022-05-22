@@ -80,13 +80,10 @@ public:
     // Construct a string with UTF-16 data, from a null-terminated source.
     WTF_EXPORT_PRIVATE String(const UChar*);
 
-    // Construct a string with latin1 data.
+    // Construct a string with Latin-1 data.
     WTF_EXPORT_PRIVATE String(const LChar* characters, unsigned length);
     WTF_EXPORT_PRIVATE String(const char* characters, unsigned length);
-
-    // Construct a string with latin1 data, from a null-terminated source.
-    WTF_EXPORT_PRIVATE String(const LChar* characters);
-    WTF_EXPORT_PRIVATE String(const char* characters);
+    ALWAYS_INLINE static String fromLatin1(const char* characters) { return String { characters }; }
 
     // Construct a string referencing an existing StringImpl.
     String(StringImpl&);
@@ -353,6 +350,9 @@ private:
     template<bool allowEmptyEntries> void splitInternal(UChar separator, const SplitFunctor&) const;
     template<bool allowEmptyEntries> Vector<String> splitInternal(UChar separator) const;
     template<bool allowEmptyEntries> Vector<String> splitInternal(StringView separator) const;
+
+    // This is intentionally private. Use fromLatin1() / fromUTF8() / String(ASCIILiteral) instead.
+    WTF_EXPORT_PRIVATE explicit String(const char* characters);
 
     RefPtr<StringImpl> m_impl;
 };

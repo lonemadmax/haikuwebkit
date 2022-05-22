@@ -96,6 +96,12 @@ void WebsiteDataStore::allowWebsiteDataRecordsForAllOrigins()
     allowsWebsiteDataRecordsForAllOrigins = true;
 }
 
+static HashMap<String, PAL::SessionID>& activeGeneralStorageDirectories()
+{
+    static MainThreadNeverDestroyed<HashMap<String, PAL::SessionID>> directoryToSessionMap;
+    return directoryToSessionMap;
+}
+
 static HashMap<PAL::SessionID, WebsiteDataStore*>& allDataStores()
 {
     RELEASE_ASSERT(isUIThread());
@@ -139,6 +145,11 @@ WebsiteDataStore::WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&& configur
     platformInitialize();
 
     ASSERT(RunLoop::isMain());
+
+    if (auto directory = m_configuration->generalStorageDirectory(); isPersistent() && !directory.isEmpty()) {
+        if (!activeGeneralStorageDirectories().add(directory, m_sessionID).isNewEntry)
+            RELEASE_LOG_FAULT(Storage, "GeneralStorageDirectory for session %" PRIu64 " is already in use by session %" PRIu64, m_sessionID.toUInt64(), activeGeneralStorageDirectories().get(directory).toUInt64());
+    }
 }
 
 WebsiteDataStore::~WebsiteDataStore()
@@ -149,8 +160,11 @@ WebsiteDataStore::~WebsiteDataStore()
     platformDestroy();
 
     ASSERT(allDataStores().get(m_sessionID) == this);
+    if (auto generalStorageDirectory = m_configuration->generalStorageDirectory(); isPersistent() && !generalStorageDirectory.isEmpty())
+        activeGeneralStorageDirectories().remove(generalStorageDirectory);
     allDataStores().remove(m_sessionID);
-    networkProcess().removeSession(*this);
+    if (m_networkProcess)
+        m_networkProcess->removeSession(*this);
 #if ENABLE(GPU_PROCESS)
     if (auto* gpuProcessProxy = GPUProcessProxy::singletonIfCreated())
         gpuProcessProxy->removeSession(m_sessionID);
@@ -2121,18 +2135,8 @@ void WebsiteDataStore::openWindowFromServiceWorker(const String& urlString, cons
             return;
         }
 
-        auto innerCallback = [pageID = newPage->identifier(), callback = WTFMove(callback)] (bool success) mutable {
-            auto* newPage = WebProcessProxy::webPage(pageID);
-            if (!newPage || !success) {
-                callback(std::nullopt);
-                return;
-            }
-
-            callback(newPage->webPageID());
-        };
-
 #if ENABLE(SERVICE_WORKER)
-        newPage->setServiceWorkerOpenWindowCompletionCallback(WTFMove(innerCallback));
+        newPage->setServiceWorkerOpenWindowCompletionCallback(WTFMove(callback));
 #endif
     };
 

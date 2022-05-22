@@ -22,15 +22,14 @@
 
 import logging
 import os
-import sys
 import time
 import unittest
 
 from mock import patch
-from webkitbugspy import Tracker, User, bugzilla, radar, mocks as bmocks
-from webkitcorepy import OutputCapture, testing, log as wcplog
+from webkitbugspy import Tracker, bugzilla, github, radar, mocks as bmocks
+from webkitcorepy import OutputCapture, testing
 from webkitcorepy.mocks import Terminal as MockTerminal, Environment
-from webkitscmpy import Contributor, Commit, PullRequest, local, program, mocks, remote, log as wsplog
+from webkitscmpy import Contributor, Commit, PullRequest, local, program, mocks, remote
 
 
 class TestPullRequest(unittest.TestCase):
@@ -395,7 +394,9 @@ Rebased 'eng/pr-branch' on 'main!'
         )
 
     def test_github_update(self):
-        with mocks.remote.GitHub() as remote, mocks.local.Git(self.path, remote='https://{}'.format(remote.remote)) as repo, mocks.local.Svn():
+        with mocks.remote.GitHub(labels={
+            'merging-blocked': dict(color='c005E5', description='Applied to prevent a change from being merged'),
+        }) as remote, mocks.local.Git(self.path, remote='https://{}'.format(remote.remote)) as repo, mocks.local.Svn():
             with OutputCapture():
                 repo.staged['added.txt'] = 'added'
                 self.assertEqual(0, program.main(
@@ -403,12 +404,18 @@ Rebased 'eng/pr-branch' on 'main!'
                     path=self.path,
                 ))
 
+            github_tracker = github.Tracker('https://{}'.format(remote.remote))
+            self.assertEqual(github_tracker.issue(1).labels, [])
+            github_tracker.issue(1).set_labels(['merging-blocked'])
+
             with OutputCapture(level=logging.INFO) as captured:
                 repo.staged['added.txt'] = 'diff'
                 self.assertEqual(0, program.main(
                     args=('pull-request', '-v', '--no-history'),
                     path=self.path,
                 ))
+
+            self.assertEqual(github_tracker.issue(1).labels, [])
 
         self.assertEqual(
             captured.stdout.getvalue(),
@@ -424,6 +431,8 @@ Rebased 'eng/pr-branch' on 'main!'
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
+                "Checking PR labels for 'merging-blocked'...",
+                "Removing 'merging-blocked' from PR 1...",
                 "Pushing 'eng/pr-branch' to 'fork'...",
                 "Syncing 'main' to remote 'fork'",
                 "Updating pull-request for 'eng/pr-branch'...",
@@ -461,6 +470,7 @@ Rebased 'eng/pr-branch' on 'main!'
                 "Rebased 'eng/pr-branch' on 'main!'",
                 '    Found 1 commit...',
                 '    Found 2 commits...',
+                "Checking PR labels for 'merging-blocked'...",
                 "Pushing 'eng/pr-branch' to 'fork'...",
                 "Syncing 'main' to remote 'fork'",
                 "Updating pull-request for 'eng/pr-branch'...",
@@ -504,6 +514,7 @@ Rebased 'eng/pr-branch' on 'main!'
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
+                "Checking PR labels for 'merging-blocked'...",
                 "Pushing 'eng/pr-branch' to 'fork'...",
                 "Syncing 'main' to remote 'fork'",
                 "Updating pull-request for 'eng/pr-branch'...",
@@ -511,9 +522,9 @@ Rebased 'eng/pr-branch' on 'main!'
         )
 
     def test_github_bugzilla(self):
-        with OutputCapture(level=logging.INFO) as captured, mocks.remote.GitHub() as remote, bmocks.Bugzilla(
+        with OutputCapture(level=logging.INFO) as captured, mocks.remote.GitHub(projects=bmocks.PROJECTS) as remote, bmocks.Bugzilla(
             self.BUGZILLA.split('://')[-1],
-            issues=bmocks.ISSUES,
+            projects=bmocks.PROJECTS, issues=bmocks.ISSUES,
             environment=Environment(
                 BUGS_EXAMPLE_COM_USERNAME='tcontributor@example.com',
                 BUGS_EXAMPLE_COM_PASSWORD='password',
@@ -539,6 +550,10 @@ Rebased 'eng/pr-branch' on 'main!'
                 Tracker.instance().issue(1).comments[-1].content,
                 'Pull request: https://github.example.com/WebKit/WebKit/pull/1',
             )
+            gh_issue = github.Tracker('https://github.example.com/WebKit/WebKit').issue(1)
+            self.assertEqual(gh_issue.project, 'WebKit')
+            self.assertEqual(gh_issue.component, 'Text')
+            self.assertEqual(gh_issue.version, 'Other')
 
         self.assertEqual(
             captured.stdout.getvalue(),
@@ -560,6 +575,8 @@ Rebased 'eng/pr-branch' on 'main!'
                 "Creating pull-request for 'eng/pr-branch'...",
                 'Checking issue assignee...',
                 'Checking for pull request link in associated issue...',
+                'Syncing PR labels with issue component...',
+                'Synced PR labels with issue component!',
             ],
         )
 
@@ -614,6 +631,8 @@ Rebased 'eng/pr-branch' on 'main!'
                 "Creating pull-request for 'eng/pr-branch'...",
                 'Checking issue assignee...',
                 'Checking for pull request link in associated issue...',
+                'Syncing PR labels with issue component...',
+                'No label syncing required',
             ],
         )
 

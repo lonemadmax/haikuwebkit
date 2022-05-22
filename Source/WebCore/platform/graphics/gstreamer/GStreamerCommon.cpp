@@ -85,6 +85,24 @@ GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTempl
     return pad;
 }
 
+#if !GST_CHECK_VERSION(1, 18, 0)
+void webkitGstVideoFormatInfoComponent(const GstVideoFormatInfo* info, guint plane, gint components[GST_VIDEO_MAX_COMPONENTS])
+{
+    guint c, i = 0;
+
+    /* Reverse mapping of info->plane. */
+    for (c = 0; c < GST_VIDEO_FORMAT_INFO_N_COMPONENTS(info); c++) {
+        if (GST_VIDEO_FORMAT_INFO_PLANE(info, c) == plane) {
+            components[i] = c;
+            i++;
+        }
+    }
+
+    for (c = i; c < GST_VIDEO_MAX_COMPONENTS; c++)
+        components[c] = -1;
+}
+#endif
+
 #if ENABLE(VIDEO)
 bool getVideoSizeAndFormatFromCaps(const GstCaps* caps, WebCore::IntSize& size, GstVideoFormat& format, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride)
 {
@@ -613,7 +631,7 @@ static gboolean parseGstStructureValue(GQuark fieldId, const GValue* value, gpoi
 {
     if (auto jsonValue = gstStructureValueToJSON(value)) {
         auto* object = reinterpret_cast<JSON::Object*>(userData);
-        object->setValue(g_quark_to_string(fieldId), jsonValue->releaseNonNull());
+        object->setValue(String::fromLatin1(g_quark_to_string(fieldId)), jsonValue->releaseNonNull());
     }
     return TRUE;
 }

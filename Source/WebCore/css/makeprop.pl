@@ -359,6 +359,14 @@ sub sortByDescendingPriorityAndName
     if (!!$nameIsHighPriority{$a} > !!$nameIsHighPriority{$b}) {
         return -1;
     }
+    # Defer names with a related property to the back
+    if (!!$relatedProperty{$a} < !!$relatedProperty{$b}) {
+        return -1;
+    }
+    if (!!$relatedProperty{$a} > !!$relatedProperty{$b}) {
+        return 1;
+    }
+    # Sort sunken names at the end of their priority bucket
     if (!!$namePriorityShouldSink{$a} < !!$namePriorityShouldSink{$b}) {
         return -1;
     }
@@ -564,7 +572,7 @@ String getJSPropertyName(CSSPropertyID id)
         *resultPointer++ = character;
     }
     *resultPointer = '\\0';
-    return String(result);
+    return String::fromLatin1(result);
 }
 
 static const bool isInheritedPropertyTable[numCSSProperties + $numPredefinedProperties] = {
@@ -587,23 +595,42 @@ bool CSSProperty::isInheritedProperty(CSSPropertyID id)
     ASSERT(id != CSSPropertyInvalid);
     return isInheritedPropertyTable[id];
 }
-    
-CSSPropertyID getRelatedPropertyId(CSSPropertyID id)
+
+EOF
+
+if (%relatedProperty) {
+    print GPERF << "EOF";
+CSSPropertyID getRelatedPropertyId(const CSSPropertyID id)
 {
     switch (id) {
 EOF
-for my $name (@names) {
-    if (!$relatedProperty{$name}) {
-        next;
+    for my $name (@names) {
+        if (!$relatedProperty{$name}) {
+            next;
+        }
+        my $related = $relatedProperty{$name};
+        die "Property $name has an unknown related property: $related\n" if !exists($nameToId{$related});
+        die "High priority property $name can't have a related property: $related\n" if $nameIsHighPriority{$name};
+        die "Shorthand property $name can't have a related property: $related\n" if exists $propertiesWithStyleBuilderOptions{$name}{"longhands"};
+        die "Property $name can't have itself as a related property\n" if $related eq $name;
+        die "Property $name has $related as a related property, but it's not reciprocal\n" if $relatedProperty{$related} ne $name;
+        print GPERF "    case CSSPropertyID::CSSProperty" . $nameToId{$name} . ":\n";
+        print GPERF "        return CSSPropertyID::CSSProperty" . $nameToId{$related} . ";\n";
     }
-    print GPERF "    case CSSPropertyID::CSSProperty" . $nameToId{$name} . ":\n";
-    print GPERF "        return CSSPropertyID::CSSProperty" . $nameToId{$relatedProperty{$name}} . ";\n";
-}
-        
-print GPERF << "EOF";
+    print GPERF << "EOF";
     default:
         return CSSPropertyID::CSSPropertyInvalid;
     }
+EOF
+} else {
+    print GPERF << "EOF";
+CSSPropertyID getRelatedPropertyId(const CSSPropertyID)
+{
+    return CSSPropertyID::CSSPropertyInvalid;
+EOF
+}
+
+print GPERF << "EOF";
 }
 
 Vector<String> CSSProperty::aliasesForProperty(CSSPropertyID id)
@@ -815,9 +842,24 @@ EOF
 my $first = $numPredefinedProperties;
 my $i = $numPredefinedProperties;
 my $maxLen = 0;
+my $firstHighPriorityPropertyName;
 my $lastHighPriorityPropertyName;
+my $firstLowPriorityPropertyName;
+my $lastLowPriorityPropertyName;
+my $firstDeferredPropertyName;
+my $lastDeferredPropertyName;
 foreach my $name (@names) {
-  $lastHighPriorityPropertyName = $name if $nameIsHighPriority{$name}; # Assumes that @names is sorted by descending priorities.
+  # Assumes that @names is sorted by descending priorities.
+  if ($nameIsHighPriority{$name}) {
+    $firstHighPriorityPropertyName = $name if !$firstHighPriorityPropertyName;
+    $lastHighPriorityPropertyName = $name;
+  } elsif (!$relatedProperty{$name}) {
+    $firstLowPriorityPropertyName = $name if !$firstLowPriorityPropertyName;
+    $lastLowPriorityPropertyName = $name;
+  } else {
+    $firstDeferredPropertyName = $name if !$firstDeferredPropertyName;
+    $lastDeferredPropertyName = $name;
+  }
   print HEADER "    CSSProperty" . $nameToId{$name} . " = " . $i . ",\n";
   $i = $i + 1;
   if (length($name) > $maxLen) {
@@ -832,7 +874,12 @@ print HEADER "const int firstCSSProperty = $first;\n";
 print HEADER "const int numCSSProperties = $num;\n";
 print HEADER "const int lastCSSProperty = $last;\n";
 print HEADER "const size_t maxCSSPropertyNameLength = $maxLen;\n";
-print HEADER "const CSSPropertyID lastHighPriorityProperty = CSSProperty" . $nameToId{$lastHighPriorityPropertyName} . ";\n\n";
+print HEADER "const CSSPropertyID firstHighPriorityProperty = CSSProperty" . $nameToId{$firstHighPriorityPropertyName} . ";\n";
+print HEADER "const CSSPropertyID lastHighPriorityProperty = CSSProperty" . $nameToId{$lastHighPriorityPropertyName} . ";\n";
+print HEADER "const CSSPropertyID firstLowPriorityProperty = CSSProperty" . $nameToId{$firstLowPriorityPropertyName} . ";\n";
+print HEADER "const CSSPropertyID lastLowPriorityProperty = CSSProperty" . $nameToId{$lastLowPriorityPropertyName} . ";\n";
+print HEADER "const CSSPropertyID firstDeferredProperty = CSSProperty" . $nameToId{$firstDeferredPropertyName} . ";\n";
+print HEADER "const CSSPropertyID lastDeferredProperty = CSSProperty" . $nameToId{$lastDeferredPropertyName} . ";\n\n";
 
 print HEADER "static const CSSPropertyID computedPropertyIDs[] = {\n";
 my $numComputedPropertyIDs = 0;

@@ -82,12 +82,13 @@ private:
     void matchAll(WebCore::ServiceWorkerIdentifier, const WebCore::ServiceWorkerClientQueryOptions&, WebCore::ServiceWorkerClientsMatchAllCallback&&) final;
     void claim(WebCore::ServiceWorkerIdentifier, CompletionHandler<void(WebCore::ExceptionOr<void>&&)>&&) final;
     void focus(WebCore::ScriptExecutionContextIdentifier, CompletionHandler<void(std::optional<WebCore::ServiceWorkerClientData>&&)>&&) final;
+    void navigate(WebCore::ScriptExecutionContextIdentifier, WebCore::ServiceWorkerIdentifier, const URL&, NavigateCallback&&) final;
     void skipWaiting(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&) final;
     void setScriptResource(WebCore::ServiceWorkerIdentifier, const URL&, const WebCore::ServiceWorkerContextData::ImportedScript&) final;
     bool isThrottleable() const final;
     void didFailHeartBeatCheck(WebCore::ServiceWorkerIdentifier) final;
     void setAsInspected(WebCore::ServiceWorkerIdentifier, bool) final;
-    void openWindow(WebCore::ServiceWorkerIdentifier, const String& url, CompletionHandler<void(std::optional<WebCore::PageIdentifier>&&)>&&) final;
+    void openWindow(WebCore::ServiceWorkerIdentifier, const URL&, OpenWindowCallback&&) final;
 
     // IPC messages.
     void serviceWorkerStarted(std::optional<WebCore::ServiceWorkerJobDataIdentifier>, WebCore::ServiceWorkerIdentifier, bool doesHandleFetch) final;

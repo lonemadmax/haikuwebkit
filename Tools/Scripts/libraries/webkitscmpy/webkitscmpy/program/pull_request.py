@@ -36,6 +36,7 @@ class PullRequest(Command):
     name = 'pull-request'
     aliases = ['pr', 'pfr', 'upload']
     help = 'Push the current checkout state as a pull-request'
+    BLOCKED_LABEL = 'merging-blocked'
 
     @classmethod
     def parser(cls, parser, loggers=None):
@@ -169,11 +170,35 @@ class PullRequest(Command):
         else:
             branch_point = Branch.branch_point(repository)
 
-        rmt = repository.remote(name=source_remote)
-        if not rmt:
+        remote_repo = repository.remote(name=source_remote)
+        if not remote_repo:
             sys.stderr.write("'{}' doesn't have a recognized remote\n".format(repository.root_path))
             return 1
-        target = 'fork' if isinstance(rmt, remote.GitHub) else source_remote
+
+        existing_pr = None
+        if remote_repo.pull_requests:
+            for pr in remote_repo.pull_requests.find(opened=None, head=repository.branch):
+                existing_pr = pr
+                if existing_pr.opened:
+                    break
+            if existing_pr and not existing_pr.opened and not args.defaults and (args.defaults is False or Terminal.choose(
+                    "'{}' is already associated with '{}', which is closed.\nWould you like to create a new pull-request?".format(
+                        repository.branch, existing_pr,
+                    ), default='No',
+            ) == 'Yes'):
+                existing_pr = None
+
+        # Remove "merging-blocked" label
+        if existing_pr and existing_pr._metadata and existing_pr._metadata.get('issue'):
+            log.info("Checking PR labels for '{}'...".format(cls.BLOCKED_LABEL))
+            pr_issue = existing_pr._metadata['issue']
+            labels = pr_issue.labels
+            if cls.BLOCKED_LABEL in labels:
+                log.info("Removing '{}' from PR {}...".format(cls.BLOCKED_LABEL, existing_pr.number))
+                labels.remove(cls.BLOCKED_LABEL)
+                pr_issue.set_labels([])
+
+        target = 'fork' if isinstance(remote_repo, remote.GitHub) else source_remote
         log.info("Pushing '{}' to '{}'...".format(repository.branch, target))
         if run([repository.executable(), 'push', '-f', target, repository.branch], cwd=repository.root_path).returncode:
             sys.stderr.write("Failed to push '{}' to '{}' (alias of '{}')\n".format(repository.branch, target, repository.url(name=target)))
@@ -202,24 +227,13 @@ class PullRequest(Command):
             ], cwd=repository.root_path).returncode:
                 sys.stderr.write("Failed to create and push '{}' to '{}'\n".format(history_branch, target))
 
-        if not rmt.pull_requests:
-            sys.stderr.write("'{}' cannot generate pull-requests\n".format(rmt.url))
+        if not remote_repo.pull_requests:
+            sys.stderr.write("'{}' cannot generate pull-requests\n".format(remote_repo.url))
             return 1
-        if args.draft and not rmt.pull_requests.SUPPORTS_DRAFTS:
-            sys.stderr.write("'{}' does not support draft pull requests, aborting\n".format(rmt.url))
+        if args.draft and not remote_repo.pull_requests.SUPPORTS_DRAFTS:
+            sys.stderr.write("'{}' does not support draft pull requests, aborting\n".format(remote_repo.url))
             return 1
 
-        existing_pr = None
-        for pr in rmt.pull_requests.find(opened=None, head=repository.branch):
-            existing_pr = pr
-            if existing_pr.opened:
-                break
-        if existing_pr and not existing_pr.opened and not args.defaults and (args.defaults is False or Terminal.choose(
-            "'{}' is already associated with '{}', which is closed.\nWould you like to create a new pull-request?".format(
-                repository.branch, existing_pr,
-            ), default='No',
-        ) == 'Yes'):
-            existing_pr = None
         commits = list(repository.commits(begin=dict(hash=branch_point.hash), end=dict(branch=repository.branch)))
 
         issue = None
@@ -230,7 +244,7 @@ class PullRequest(Command):
 
         if existing_pr:
             log.info("Updating pull-request for '{}'...".format(repository.branch))
-            pr = rmt.pull_requests.update(
+            pr = remote_repo.pull_requests.update(
                 pull_request=existing_pr,
                 title=cls.title_for(commits),
                 commits=commits,
@@ -245,7 +259,7 @@ class PullRequest(Command):
             print("Updated '{}'!".format(pr))
         else:
             log.info("Creating pull-request for '{}'...".format(repository.branch))
-            pr = rmt.pull_requests.create(
+            pr = remote_repo.pull_requests.create(
                 title=cls.title_for(commits),
                 commits=commits,
                 base=branch_point.branch,
@@ -269,6 +283,22 @@ class PullRequest(Command):
                 else:
                     issue.open(why='Re-opening for pull request {}'.format(pr.url))
                 print('Posted pull request link to {}'.format(issue.link))
+
+        if issue and pr._metadata and pr._metadata.get('issue'):
+            log.info('Syncing PR labels with issue component...')
+            pr_issue = pr._metadata['issue']
+            project = pr_issue.tracker.name
+            component = issue.component
+            if pr_issue.component == component or component not in pr_issue.tracker.projects.get(project, {}).get('components', {}):
+                component = None
+            version = issue.version
+            if pr_issue.version == version or version not in pr_issue.tracker.projects.get(project, {}).get('versions', []):
+                version = None
+            if component or version:
+                pr_issue.set_component(component=component, version=version)
+                log.info('Synced PR labels with issue component!')
+            else:
+                log.info('No label syncing required')
 
         if pr.url:
             print(pr.url)

@@ -96,7 +96,7 @@ String formatLocalizedString(const char* format, ...)
 	return formatted;
 #else
     notImplemented();
-    return format;
+    return String::fromUTF8(format);
 #endif
 }
 #endif

@@ -232,7 +232,7 @@ JSInternalPromise* JSModuleLoader::requestImportModule(JSGlobalObject* globalObj
     ASSERT(callData.type != CallData::Type::None);
 
     MarkedArgumentBuffer arguments;
-    arguments.append(jsString(vm, moduleKey.impl()));
+    arguments.append(jsString(vm, String { moduleKey.impl() }));
     arguments.append(parameters);
     arguments.append(scriptFetcher);
     ASSERT(!arguments.hasOverflowed());
@@ -257,7 +257,7 @@ JSInternalPromise* JSModuleLoader::importModule(JSGlobalObject* globalObject, JS
     RETURN_IF_EXCEPTION(scope, promise->rejectWithCaughtException(globalObject, scope));
 
     scope.release();
-    promise->reject(globalObject, createError(globalObject, makeString("Could not import the module '", moduleNameString, "'.")));
+    promise->reject(globalObject, createError(globalObject, makeString("Could not import the module '", WTFMove(moduleNameString), "'.")));
     return promise;
 }
 
@@ -398,7 +398,7 @@ JSC_DEFINE_HOST_FUNCTION(moduleLoaderRequestedModules, (JSGlobalObject* globalOb
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     size_t i = 0;
     for (auto& key : moduleRecord->requestedModules()) {
-        result->putDirectIndex(globalObject, i++, jsString(vm, key.get()));
+        result->putDirectIndex(globalObject, i++, jsString(vm, String { key.get() }));
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
     }
     return JSValue::encode(result);

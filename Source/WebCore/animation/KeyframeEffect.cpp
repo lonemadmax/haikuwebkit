@@ -443,7 +443,7 @@ static inline ExceptionOr<void> processPropertyIndexedKeyframes(JSGlobalObject& 
 
     // 8. If easings is an empty sequence, let it be a sequence of length one containing the single value “linear”, i.e. « "linear" ».
     if (easings.isEmpty())
-        easings.append("linear");
+        easings.append("linear"_s);
 
     // 9. If easings has fewer items than property keyframes, repeat the elements in easings successively starting from the beginning of the list until easings has as many
     //    items as property keyframes.
@@ -536,7 +536,7 @@ ExceptionOr<Ref<KeyframeEffect>> KeyframeEffect::create(JSGlobalObject& lexicalG
     return keyframeEffect;
 }
 
-ExceptionOr<Ref<KeyframeEffect>> KeyframeEffect::create(Ref<KeyframeEffect>&& source)
+Ref<KeyframeEffect> KeyframeEffect::create(Ref<KeyframeEffect>&& source)
 {
     auto keyframeEffect = adoptRef(*new KeyframeEffect(nullptr, PseudoId::None));
     keyframeEffect->copyPropertiesFromSource(WTFMove(source));
@@ -585,7 +585,7 @@ void KeyframeEffect::copyPropertiesFromSource(Ref<KeyframeEffect>&& source)
     setIterationDuration(source->iterationDuration());
     updateStaticTimingProperties();
 
-    KeyframeList keyframeList("keyframe-effect-" + createVersion4UUIDString());
+    KeyframeList keyframeList("keyframe-effect-" + createVersion4UUIDStringWeak());
     keyframeList.copyKeyframes(source->m_blendingKeyframes);
     setBlendingKeyframes(keyframeList);
 }
@@ -811,7 +811,7 @@ void KeyframeEffect::updateBlendingKeyframes(RenderStyle& elementStyle, const St
     if (!m_blendingKeyframes.isEmpty() || !m_target)
         return;
 
-    KeyframeList keyframeList("keyframe-effect-" + createVersion4UUIDString());
+    KeyframeList keyframeList("keyframe-effect-" + createVersion4UUIDStringWeak());
     auto& styleResolver = m_target->styleResolver();
 
     for (auto& keyframe : m_parsedKeyframes) {
@@ -1037,7 +1037,7 @@ void KeyframeEffect::computeCSSTransitionBlendingKeyframes(const RenderStyle* ol
     if (m_target)
         Style::loadPendingResources(*toStyle, *document(), m_target.get());
 
-    KeyframeList keyframeList("keyframe-effect-" + createVersion4UUIDString());
+    KeyframeList keyframeList("keyframe-effect-" + createVersion4UUIDStringWeak());
     keyframeList.addProperty(property);
 
     KeyframeValue fromKeyframeValue(0, RenderStyle::clonePtr(*oldStyle));

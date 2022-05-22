@@ -164,19 +164,20 @@ void WebSWServerConnection::updateWorkerStateInClient(ServiceWorkerIdentifier wo
     send(Messages::WebSWClientConnection::UpdateWorkerState(worker, state));
 }
 
-void WebSWServerConnection::controlClient(const Vector<RefPtr<SecurityOrigin>>& frameAncestorOrigins, ScriptExecutionContextIdentifier clientIdentifier, SWServerRegistration& registration, const ResourceRequest& request)
+void WebSWServerConnection::controlClient(const NetworkResourceLoadParameters& parameters, SWServerRegistration& registration, const ResourceRequest& request)
 {
+    auto clientIdentifier = *parameters.options.clientIdentifier;
     // As per step 12 of https://w3c.github.io/ServiceWorker/#on-fetch-request-algorithm, the active service worker should be controlling the document.
-    // We register a temporary service worker client using the identifier provided by DocumentLoader and notify DocumentLoader about it.
-    // If notification is successful, DocumentLoader will unregister the temporary service worker client just after the document is created and registered as a client.
+    // We register the service worker client using the identifier provided by DocumentLoader and notify DocumentLoader about it.
+    // If notification is successful, DocumentLoader is responsible to unregister the service worker client as needed.
     sendWithAsyncReply(Messages::WebSWClientConnection::SetDocumentIsControlled { clientIdentifier, registration.data() }, [weakThis = WeakPtr { *this }, this, clientIdentifier](bool isSuccess) {
         if (!weakThis || isSuccess)
             return;
         unregisterServiceWorkerClient(clientIdentifier);
     });
 
-    auto ancestorOrigins = map(frameAncestorOrigins, [](auto& origin) { return origin->toString(); });
-    ServiceWorkerClientData data { clientIdentifier, ServiceWorkerClientType::Window, ServiceWorkerClientFrameType::None, request.url(), { }, request.isAppInitiated() ? WebCore::LastNavigationWasAppInitiated::Yes : WebCore::LastNavigationWasAppInitiated::No, false, false, 0, WTFMove(ancestorOrigins) };
+    auto ancestorOrigins = map(parameters.frameAncestorOrigins, [](auto& origin) { return origin->toString(); });
+    ServiceWorkerClientData data { clientIdentifier, ServiceWorkerClientType::Window, ServiceWorkerClientFrameType::None, request.url(), parameters.webPageID, parameters.webFrameID, request.isAppInitiated() ? WebCore::LastNavigationWasAppInitiated::Yes : WebCore::LastNavigationWasAppInitiated::No, false, false, 0, WTFMove(ancestorOrigins) };
     registerServiceWorkerClient(SecurityOriginData { registration.key().topOrigin() }, WTFMove(data), registration.identifier(), request.httpUserAgent());
 }
 
@@ -201,8 +202,9 @@ std::unique_ptr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(N
             return nullptr;
 
         serviceWorkerRegistrationIdentifier = registration->identifier();
-        controlClient(loader.parameters().frameAncestorOrigins, *loader.parameters().options.clientIdentifier, *registration, request);
+        controlClient(loader.parameters(), *registration, request);
         loader.setResultingClientIdentifier(loader.parameters().options.clientIdentifier->toString());
+        loader.setServiceWorkerRegistration(*registration);
     } else {
         if (!loader.parameters().serviceWorkerRegistrationIdentifier)
             return nullptr;
@@ -663,6 +665,11 @@ void WebSWServerConnection::getNavigationPreloadState(WebCore::ServiceWorkerRegi
 void WebSWServerConnection::focusServiceWorkerClient(WebCore::ScriptExecutionContextIdentifier clientIdentifier, CompletionHandler<void(std::optional<ServiceWorkerClientData>&&)>&& callback)
 {
     sendWithAsyncReply(Messages::WebSWClientConnection::FocusServiceWorkerClient { clientIdentifier }, WTFMove(callback));
+}
+
+void WebSWServerConnection::transferServiceWorkerLoadToNewWebProcess(NetworkResourceLoader& loader, WebCore::SWServerRegistration& registration)
+{
+    controlClient(loader.parameters(), registration, loader.originalRequest());
 }
 
 } // namespace WebKit

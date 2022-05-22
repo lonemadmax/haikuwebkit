@@ -117,7 +117,7 @@ void linkMonomorphicCall(
     ASSERT(owner);
 
     ASSERT(!callLinkInfo.isLinked());
-    callLinkInfo.setMonomorphicCallee(vm, owner, callee, codePtr);
+    callLinkInfo.setMonomorphicCallee(vm, owner, callee, calleeCodeBlock, codePtr);
     callLinkInfo.setLastSeenCallee(vm, owner, callee);
 
     if (shouldDumpDisassemblyFor(callerCodeBlock))
@@ -163,7 +163,10 @@ void unlinkCall(VM& vm, CallLinkInfo& callLinkInfo)
 {
     dataLogLnIf(Options::dumpDisassembly(), "Unlinking CallLinkInfo: ", RawPointer(&callLinkInfo));
     
-    revertCall(vm, callLinkInfo, vm.getCTILinkCall().retagged<JITStubRoutinePtrTag>());
+    if (UNLIKELY(!Options::useLLIntICs() && callLinkInfo.type() == CallLinkInfo::Type::Baseline))
+        revertCall(vm, callLinkInfo, vm.getCTIVirtualCall(callLinkInfo.callMode()));
+    else
+        revertCall(vm, callLinkInfo, vm.getCTILinkCall().retagged<JITStubRoutinePtrTag>());
 }
 
 MacroAssemblerCodePtr<JSEntryPtrTag> jsToWasmICCodePtr(VM& vm, CodeSpecializationKind kind, JSObject* callee)
@@ -1564,7 +1567,7 @@ void linkDirectCall(
     if (shouldDumpDisassemblyFor(callerCodeBlock))
         dataLog("Linking call in ", FullCodeOrigin(callerCodeBlock, callLinkInfo.codeOrigin()), " to ", pointerDump(calleeCodeBlock), ", entrypoint at ", codePtr, "\n");
 
-    callLinkInfo.setDirectCallTarget(CodeLocationLabel<JSEntryPtrTag>(codePtr));
+    callLinkInfo.setDirectCallTarget(jsCast<FunctionCodeBlock*>(calleeCodeBlock), CodeLocationLabel<JSEntryPtrTag>(codePtr));
 
     if (calleeCodeBlock)
         calleeCodeBlock->linkIncomingCall(callFrame, &callLinkInfo);
@@ -1726,10 +1729,28 @@ void linkPolymorphicCall(JSGlobalObject* globalObject, CallFrame* callFrame, Cal
     bool isDataIC = callLinkInfo.isDataIC();
     CCallHelpers stubJit(callerCodeBlock);
 
-    std::unique_ptr<CallFrameShuffler> frameShuffler;
-    if (callLinkInfo.frameShuffleData()) {
-        ASSERT(callLinkInfo.isTailCall());
-        frameShuffler = makeUnique<CallFrameShuffler>(stubJit, *callLinkInfo.frameShuffleData());
+    std::optional<CallFrameShuffler> frameShuffler;
+    switch (callLinkInfo.type()) {
+    case CallLinkInfo::Type::Baseline: {
+        auto* instruction = callerCodeBlock->instructionAt(callLinkInfo.codeOrigin().bytecodeIndex());
+        if (instruction->opcodeID() == op_tail_call) {
+            auto bytecode = instruction->as<OpTailCall>();
+            CallFrameShuffleData shuffleData = CallFrameShuffleData::createForBaselineOrLLIntTailCall(bytecode, callerCodeBlock->numParameters());
+            frameShuffler.emplace(stubJit, shuffleData);
+        }
+        break;
+    }
+    case CallLinkInfo::Type::Optimizing: {
+        auto& optimizingCallLinkInfo = static_cast<OptimizingCallLinkInfo&>(callLinkInfo);
+        if (optimizingCallLinkInfo.frameShuffleData()) {
+            ASSERT(callLinkInfo.isTailCall());
+            frameShuffler.emplace(stubJit, *optimizingCallLinkInfo.frameShuffleData());
+        }
+        break;
+    }
+    }
+
+    if (frameShuffler) {
 #if USE(JSVALUE32_64)
         // We would have already checked that the callee is a cell, and we can
         // use the additional register this buys us.
@@ -1787,7 +1808,8 @@ void linkPolymorphicCall(JSGlobalObject* globalObject, CallFrame* callFrame, Cal
     while (binarySwitch.advance(stubJit)) {
         size_t caseIndex = binarySwitch.caseIndex();
         
-        CallVariant variant = callCases[caseIndex].variant();
+        PolymorphicCallCase& callCase = callCases[caseIndex];
+        CallVariant variant = callCase.variant();
         
         MacroAssemblerCodePtr<JSEntryPtrTag> codePtr;
         if (variant.executable()) {
@@ -1810,14 +1832,23 @@ void linkPolymorphicCall(JSGlobalObject* globalObject, CallFrame* callFrame, Cal
         bool needsDoneJump = false;
         if (frameShuffler) {
             CallFrameShuffler(stubJit, frameShuffler->snapshot()).prepareForTailCall();
+            if (callCase.codeBlock())
+                stubJit.storePtr(CCallHelpers::TrustedImmPtr(callCase.codeBlock()), CCallHelpers::calleeFrameCodeBlockBeforeTailCall());
             calls[caseIndex].call = stubJit.nearTailCall();
         } else if (callLinkInfo.isTailCall()) {
             stubJit.prepareForTailCallSlow();
+            if (callCase.codeBlock())
+                stubJit.storePtr(CCallHelpers::TrustedImmPtr(callCase.codeBlock()), CCallHelpers::calleeFrameCodeBlockBeforeTailCall());
             calls[caseIndex].call = stubJit.nearTailCall();
         } else {
-            if (isDataIC)
+            ASSERT(!callLinkInfo.isTailCall());
+            if (isDataIC) {
+                if (callCase.codeBlock())
+                    stubJit.storePtr(CCallHelpers::TrustedImmPtr(callCase.codeBlock()), CCallHelpers::calleeFrameCodeBlockBeforeTailCall());
                 calls[caseIndex].call = stubJit.nearTailCall();
-            else {
+            } else {
+                if (callCase.codeBlock())
+                    stubJit.storePtr(CCallHelpers::TrustedImmPtr(callCase.codeBlock()), CCallHelpers::calleeFrameCodeBlockBeforeCall());
                 calls[caseIndex].call = stubJit.nearCall();
                 needsDoneJump = true;
             }
@@ -1895,17 +1926,8 @@ void linkPolymorphicCall(JSGlobalObject* globalObject, CallFrame* callFrame, Cal
     }
     
     RELEASE_ASSERT(callCases.size() == calls.size());
-    for (CallToCodePtr callToCodePtr : calls) {
-#if CPU(ARM_THUMB2)
-        // Tail call special-casing ensures proper linking on ARM Thumb2, where a tail call jumps to an address
-        // with a non-decorated bottom bit but a normal call calls an address with a decorated bottom bit.
-        bool isTailCall = callToCodePtr.call.isFlagSet(CCallHelpers::Call::Tail);
-        void* target = isTailCall ? callToCodePtr.codePtr.dataLocation() : callToCodePtr.codePtr.executableAddress();
-        patchBuffer.link(callToCodePtr.call, FunctionPtr<JSEntryPtrTag>(MacroAssemblerCodePtr<JSEntryPtrTag>::createFromExecutableAddress(target)));
-#else
+    for (CallToCodePtr callToCodePtr : calls)
         patchBuffer.link(callToCodePtr.call, FunctionPtr<JSEntryPtrTag>(callToCodePtr.codePtr));
-#endif
-    }
 
     if (!done.empty()) {
         ASSERT(!isDataIC);

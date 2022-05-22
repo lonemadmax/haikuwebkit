@@ -215,7 +215,7 @@ static NEVER_INLINE void substituteBackreferencesSlow(StringBuilder& result, Str
                 continue;
 
             unsigned nameLength = closingBracket - i - 2;
-            unsigned backrefIndex = reg->subpatternForName(replacement.substring(i + 2, nameLength).toString());
+            unsigned backrefIndex = reg->subpatternForName(replacement.substring(i + 2, nameLength));
 
             if (!backrefIndex || backrefIndex > reg->numSubpatterns()) {
                 backrefStart = 0;
@@ -709,7 +709,7 @@ JSC_DEFINE_JIT_OPERATION(operationStringProtoFuncReplaceRegExpEmptyStr, JSCell*,
         RETURN_IF_EXCEPTION(scope, nullptr);
         String source = thisValue->value(globalObject);
         RETURN_IF_EXCEPTION(scope, nullptr);
-        RELEASE_AND_RETURN(scope, removeUsingRegExpSearch(vm, globalObject, thisValue, source, regExp));
+        RELEASE_AND_RETURN(scope, removeUsingRegExpSearch(vm, globalObject, thisValue, WTFMove(source), regExp));
     }
 
     CallData callData;
@@ -1484,7 +1484,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToLowerCase, (JSGlobalObject* globalObje
     String lowercasedString = s.convertToLowercaseWithoutLocale();
     if (lowercasedString.impl() == s.impl())
         return JSValue::encode(sVal);
-    RELEASE_AND_RETURN(scope, JSValue::encode(jsString(vm, lowercasedString)));
+    RELEASE_AND_RETURN(scope, JSValue::encode(jsString(vm, WTFMove(lowercasedString))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToUpperCase, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -1502,7 +1502,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToUpperCase, (JSGlobalObject* globalObje
     String uppercasedString = s.convertToUppercaseWithoutLocale();
     if (uppercasedString.impl() == s.impl())
         return JSValue::encode(sVal);
-    RELEASE_AND_RETURN(scope, JSValue::encode(jsString(vm, uppercasedString)));
+    RELEASE_AND_RETURN(scope, JSValue::encode(jsString(vm, WTFMove(uppercasedString))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncLocaleCompare, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -1621,10 +1621,10 @@ static EncodedJSValue toLocaleCase(JSGlobalObject* globalObject, CallFrame* call
     auto convertCase = mode == CaseConversionMode::Lower ? u_strToLower : u_strToUpper;
     auto status = callBufferProducingFunction(convertCase, buffer, StringView { s }.upconvertedCharacters().get(), s.length(), locale.utf8().data());
     if (U_FAILURE(status))
-        return throwVMTypeError(globalObject, scope, String { u_errorName(status) });
+        return throwVMTypeError(globalObject, scope, String::fromLatin1(u_errorName(status)));
 
     // 18. Return L.
-    RELEASE_AND_RETURN(scope, JSValue::encode(jsString(vm, String(buffer))));
+    RELEASE_AND_RETURN(scope, JSValue::encode(jsString(vm, String { buffer })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToLocaleLowerCase, (JSGlobalObject* globalObject, CallFrame* callFrame))

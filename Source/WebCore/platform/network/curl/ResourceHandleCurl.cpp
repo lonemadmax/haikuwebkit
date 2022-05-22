@@ -462,7 +462,7 @@ void ResourceHandle::willSendRequest()
     newRequest.setURL(newURL);
 
     if (shouldRedirectAsGET(newRequest, crossOrigin)) {
-        newRequest.setHTTPMethod("GET");
+        newRequest.setHTTPMethod("GET"_s);
         newRequest.setHTTPBody(nullptr);
         newRequest.clearHTTPContentType();
     }
@@ -538,14 +538,14 @@ void ResourceHandle::handleDataURL()
         mediaType = "text/plain"_s;
 
     String mimeType = extractMIMETypeFromMediaType(mediaType);
-    String charset = extractCharsetFromMediaType(mediaType);
+    StringView charset = extractCharsetFromMediaType(mediaType);
 
     if (charset.isEmpty())
         charset = "US-ASCII"_s;
 
     ResourceResponse response;
     response.setMimeType(mimeType);
-    response.setTextEncodingName(charset);
+    response.setTextEncodingName(charset.toString());
     response.setURL(d->m_firstRequest.url());
 
     if (base64) {

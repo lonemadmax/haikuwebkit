@@ -214,11 +214,11 @@ String IntlLocale::keywordValue(ASCIILiteral key, bool isBoolean) const
     }
     ASSERT(U_SUCCESS(status));
     if (isBoolean)
-        return String(buffer.data());
+        return String::fromLatin1(buffer.data());
     const char* value = uloc_toUnicodeLocaleType(key.characters(), buffer.data());
     if (!value)
         return nullString();
-    String result(value);
+    auto result = String::fromLatin1(value);
     if (result == "true"_s)
         return emptyString();
     return result;
@@ -691,7 +691,7 @@ JSArray* IntlLocale::numberingSystems(JSGlobalObject* globalObject)
         throwTypeError(globalObject, scope, "invalid locale"_s);
         return nullptr;
     }
-    elements.append(unumsys_getName(numberingSystem.get()));
+    elements.append(String::fromLatin1(unumsys_getName(numberingSystem.get())));
 
     RELEASE_AND_RETURN(scope, createArrayFromStringVector(globalObject, WTFMove(elements)));
 }
@@ -743,16 +743,16 @@ JSObject* IntlLocale::textInfo(JSGlobalObject* globalObject)
     switch (layout) {
     default:
     case ULOC_LAYOUT_LTR:
-        layoutString = jsString(vm, "ltr"_s);
+        layoutString = jsNontrivialString(vm, "ltr"_s);
         break;
     case ULOC_LAYOUT_RTL:
-        layoutString = jsString(vm, "rtl"_s);
+        layoutString = jsNontrivialString(vm, "rtl"_s);
         break;
     case ULOC_LAYOUT_TTB:
-        layoutString = jsString(vm, "ttb"_s);
+        layoutString = jsNontrivialString(vm, "ttb"_s);
         break;
     case ULOC_LAYOUT_BTT:
-        layoutString = jsString(vm, "btt"_s);
+        layoutString = jsNontrivialString(vm, "btt"_s);
         break;
     }
 

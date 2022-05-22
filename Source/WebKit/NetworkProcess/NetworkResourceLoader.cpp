@@ -576,13 +576,21 @@ std::optional<NetworkLoadMetrics> NetworkResourceLoader::computeResponseMetrics(
     return networkLoadMetrics;
 }
 
-void NetworkResourceLoader::transferToNewWebProcess(NetworkConnectionToWebProcess& newConnection, WebCore::ResourceLoaderIdentifier newCoreIdentifier)
+void NetworkResourceLoader::transferToNewWebProcess(NetworkConnectionToWebProcess& newConnection, const NetworkResourceLoadParameters& parameters)
 {
     m_connection = newConnection;
-    m_parameters.identifier = newCoreIdentifier;
+    m_parameters.identifier = parameters.identifier;
+    m_parameters.webPageProxyID = parameters.webPageProxyID;
+    m_parameters.webPageID = parameters.webPageID;
+    m_parameters.webFrameID = parameters.webFrameID;
+    m_parameters.options.clientIdentifier = parameters.options.clientIdentifier;
 
 #if ENABLE(SERVICE_WORKER)
     ASSERT(m_responseCompletionHandler || m_cacheEntryWaitingForContinueDidReceiveResponse || m_serviceWorkerFetchTask);
+    if (m_serviceWorkerRegistration) {
+        if (auto* swConnection = newConnection.swConnection())
+            swConnection->transferServiceWorkerLoadToNewWebProcess(*this, *m_serviceWorkerRegistration);
+    }
 #else
     ASSERT(m_responseCompletionHandler || m_cacheEntryWaitingForContinueDidReceiveResponse);
 #endif
@@ -784,8 +792,13 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
         if (validationSucceeded) {
             m_cacheEntryForValidation = m_cache->update(originalRequest(), *m_cacheEntryForValidation, m_response, m_privateRelayed);
             // If the request was conditional then this revalidation was not triggered by the network cache and we pass the 304 response to WebCore.
-            if (originalRequest().isConditional())
+            if (originalRequest().isConditional()) {
+                // Add CORP header to the 304 response if previously set to avoid being blocked by load checker due to COEP.
+                auto crossOriginResourcePolicy = m_cacheEntryForValidation->response().httpHeaderField(HTTPHeaderName::CrossOriginResourcePolicy);
+                if (!crossOriginResourcePolicy.isEmpty())
+                    m_response.setHTTPHeaderField(HTTPHeaderName::CrossOriginResourcePolicy, crossOriginResourcePolicy);
                 m_cacheEntryForValidation = nullptr;
+            }
         } else
             m_cacheEntryForValidation = nullptr;
     }
@@ -1208,6 +1221,7 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
 
 #if ENABLE(SERVICE_WORKER)
     if (parameters().options.mode == FetchOptions::Mode::Navigate) {
+        m_serviceWorkerRegistration = { };
         if (auto serviceWorkerFetchTask = m_connection->createFetchTask(*this, newRequest)) {
             LOADER_RELEASE_LOG("continueWillSendRequest: Created a ServiceWorkerFetchTask to handle the redirect (fetchIdentifier=%" PRIu64 ")", serviceWorkerFetchTask->fetchIdentifier().toUInt64());
             m_networkLoad = nullptr;

@@ -549,7 +549,7 @@ static inline NinePieceImage blendFunc(const NinePieceImage& from, const NinePie
 
     // FIXME (74112): Support transitioning between NinePieceImages that differ by more than image content.
 
-    if (from.imageSlices() != to.imageSlices() || from.borderSlices() != to.borderSlices() || from.outset() != to.outset() || from.fill() != to.fill() || from.horizontalRule() != to.horizontalRule() || from.verticalRule() != to.verticalRule())
+    if (from.imageSlices() != to.imageSlices() || from.borderSlices() != to.borderSlices() || from.outset() != to.outset() || from.fill() != to.fill() || from.overridesBorderWidths() != to.overridesBorderWidths() || from.horizontalRule() != to.horizontalRule() || from.verticalRule() != to.verticalRule())
         return to;
 
     if (auto* renderer = context.client->renderer()) {
@@ -558,7 +558,7 @@ static inline NinePieceImage blendFunc(const NinePieceImage& from, const NinePie
     }
 
     return NinePieceImage(blendFunc(from.image(), to.image(), context),
-        from.imageSlices(), from.fill(), from.borderSlices(), from.outset(), from.horizontalRule(), from.verticalRule());
+        from.imageSlices(), from.fill(), from.borderSlices(), from.overridesBorderWidths(), from.outset(), from.horizontalRule(), from.verticalRule());
 }
 
 #if ENABLE(VARIATION_FONTS)
@@ -609,9 +609,128 @@ static inline OffsetRotation blendFunc(const OffsetRotation& from, const OffsetR
     return OffsetRotation(from.hasAuto(), clampTo<float>(blend(from.angle(), to.angle(), context)));
 }
 
+static inline bool canInterpolate(const GridTrackList& from, const GridTrackList& to)
+{
+    if (from.size() != to.size())
+        return false;
+
+    size_t i = 0;
+    auto visitor = WTF::makeVisitor([&](const GridTrackSize&) {
+        return std::holds_alternative<GridTrackSize>(to[i]);
+    }, [&](const Vector<String>&) {
+        return std::holds_alternative<Vector<String>>(to[i]);
+    }, [&](const GridTrackEntryRepeat& repeat) {
+        if (!std::holds_alternative<GridTrackEntryRepeat>(to[i]))
+            return false;
+        const auto& toEntry = std::get<GridTrackEntryRepeat>(to[i]);
+        return repeat.repeats == toEntry.repeats && repeat.list.size() == toEntry.list.size();
+    }, [&](const GridTrackEntryAutoRepeat& repeat) {
+        return false;
+        if (!std::holds_alternative<GridTrackEntryAutoRepeat>(to[i]))
+            return false;
+        const auto& toEntry = std::get<GridTrackEntryAutoRepeat>(to[i]);
+        return repeat.type == toEntry.type && repeat.list.size() == toEntry.list.size();
+    }, [&](const GridTrackEntrySubgrid&) {
+        return false;
+    });
+
+    for (i = 0; i < from.size(); i++) {
+        if (!std::visit(visitor, from[i]))
+            return false;
+    }
+
+    return true;
+}
+
+static inline GridLength blendFunc(const GridLength& from, const GridLength& to, const CSSPropertyBlendingContext& context)
+{
+    if (from.isFlex() != to.isFlex())
+        return context.progress < 0.5 ? from : to;
+
+    if (from.isFlex())
+        return GridLength(blend(from.flex(), to.flex(), context));
+
+    return GridLength(blendFunc(from.length(), to.length(), context));
+}
+
+static inline GridTrackSize blendFunc(const GridTrackSize& from, const GridTrackSize& to, const CSSPropertyBlendingContext& context)
+{
+    if (from.type() != to.type())
+        return context.progress < 0.5 ? from : to;
+
+    if (from.type() == LengthTrackSizing) {
+        auto length = blendFunc(from.minTrackBreadth(), to.minTrackBreadth(), context);
+        return GridTrackSize(length, LengthTrackSizing);
+    }
+    if (from.type() == MinMaxTrackSizing) {
+        auto minTrackBreadth = blendFunc(from.minTrackBreadth(), to.minTrackBreadth(), context);
+        auto maxTrackBreadth = blendFunc(from.maxTrackBreadth(), to.maxTrackBreadth(), context);
+        return GridTrackSize(minTrackBreadth, maxTrackBreadth);
+    }
+
+    auto fitContentBreadth = blendFunc(from.fitContentTrackBreadth(), to.fitContentTrackBreadth(), context);
+    return GridTrackSize(fitContentBreadth, FitContentTrackSizing);
+}
+
+static inline RepeatTrackList blendFunc(const RepeatTrackList& from, const RepeatTrackList& to, const CSSPropertyBlendingContext& context)
+{
+    RepeatTrackList result;
+    size_t i = 0;
+
+    auto visitor = WTF::makeVisitor([&](const GridTrackSize& size) {
+        result.append(blendFunc(size, std::get<GridTrackSize>(to[i]), context));
+    }, [&](const Vector<String>& names) {
+        if (context.progress < 0.5)
+            result.append(names);
+        else {
+            const Vector<String>& toNames = std::get<Vector<String>>(to[i]);
+            result.append(toNames);
+        }
+    });
+
+    for (i = 0; i < from.size(); i++)
+        std::visit(visitor, from[i]);
+
+    return result;
+}
+
 static inline GridTrackList blendFunc(const GridTrackList& from, const GridTrackList& to, const CSSPropertyBlendingContext& context)
 {
-    return context.progress < 0.5 ? from : to;
+    if (!canInterpolate(from, to))
+        return context.progress < 0.5 ? from : to;
+
+    GridTrackList result;
+    size_t i = 0;
+
+    auto visitor = WTF::makeVisitor([&](const GridTrackSize& size) {
+        result.append(blendFunc(size, std::get<GridTrackSize>(to[i]), context));
+    }, [&](const Vector<String>& names) {
+        if (context.progress < 0.5)
+            result.append(names);
+        else {
+            const Vector<String>& toNames = std::get<Vector<String>>(to[i]);
+            result.append(toNames);
+        }
+    }, [&](const GridTrackEntryRepeat& repeatFrom) {
+        const auto& repeatTo = std::get<GridTrackEntryRepeat>(to[i]);
+        GridTrackEntryRepeat repeatResult;
+        repeatResult.repeats = repeatFrom.repeats;
+        repeatResult.list = blendFunc(repeatFrom.list, repeatTo.list, context);
+        result.append(WTFMove(repeatResult));
+    }, [&](const GridTrackEntryAutoRepeat& repeatFrom) {
+        const auto& repeatTo = std::get<GridTrackEntryAutoRepeat>(to[i]);
+        GridTrackEntryAutoRepeat repeatResult;
+        repeatResult.type = repeatFrom.type;
+        repeatResult.list = blendFunc(repeatFrom.list, repeatTo.list, context);
+        result.append(WTFMove(repeatResult));
+    }, [&](const GridTrackEntrySubgrid&) {
+    });
+
+
+    for (i = 0; i < from.size(); i++)
+        std::visit(visitor, from[i]);
+
+    return result;
 }
 
 class AnimationPropertyWrapperBase {
@@ -770,9 +889,9 @@ private:
         (destination.*m_setter)(blendFunc(this->value(from), this->value(to), context));
     }
 
-    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const final
+    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
     {
-        return false;
+        return WebCore::canInterpolate(this->value(from), this->value(to));
     }
 };
 
@@ -971,6 +1090,7 @@ public:
         IsLengthPercentage      = 1 << 0,
         UsesFillKeyword         = 1 << 1,
         AllowsNegativeValues    = 1 << 2,
+        MayOverrideBorderWidths = 1 << 3,
     };
     LengthBoxPropertyWrapper(CSSPropertyID property, const LengthBox& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(LengthBox&&), OptionSet<Flags> flags = { })
         : PropertyWrapperGetter<const LengthBox&>(property, getter)
@@ -984,9 +1104,19 @@ public:
         if (m_flags.contains(Flags::UsesFillKeyword) && from.borderImage().fill() != to.borderImage().fill())
             return false;
 
+        bool isLengthPercentage = m_flags.contains(Flags::IsLengthPercentage);
+
+        if (m_flags.contains(Flags::MayOverrideBorderWidths)) {
+            bool overridesBorderWidths = from.borderImage().overridesBorderWidths();
+            if (overridesBorderWidths != to.borderImage().overridesBorderWidths())
+                return false;
+            // Even if this property accepts <length-percentage>, border widths can only be a <length>.
+            if (overridesBorderWidths)
+                isLengthPercentage = false;
+        }
+
         auto& fromLengthBox = value(from);
         auto& toLengthBox = value(to);
-        bool isLengthPercentage = m_flags.contains(Flags::IsLengthPercentage);
         return canInterpolateLengths(fromLengthBox.top(), toLengthBox.top(), isLengthPercentage)
             && canInterpolateLengths(fromLengthBox.right(), toLengthBox.right(), isLengthPercentage)
             && canInterpolateLengths(fromLengthBox.bottom(), toLengthBox.bottom(), isLengthPercentage)
@@ -997,6 +1127,8 @@ public:
     {
         if (m_flags.contains(Flags::UsesFillKeyword))
             destination.setBorderImageSliceFill((!context.progress || !context.isDiscrete ? from : to).borderImage().fill());
+        if (m_flags.contains(Flags::MayOverrideBorderWidths))
+            destination.setBorderImageWidthOverridesBorderWidths((!context.progress || !context.isDiscrete ? from : to).borderImage().overridesBorderWidths());
         if (context.isDiscrete) {
             // It is important we have this non-interpolated shortcut because certain CSS properties
             // represented as a LengthBox, such as border-image-slice, don't know how to deal with
@@ -2961,7 +3093,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
 
         new StyleImagePropertyWrapper(CSSPropertyBorderImageSource, &RenderStyle::borderImageSource, &RenderStyle::setBorderImageSource),
         new LengthBoxPropertyWrapper(CSSPropertyBorderImageSlice, &RenderStyle::borderImageSlices, &RenderStyle::setBorderImageSlices, { LengthBoxPropertyWrapper::Flags::UsesFillKeyword }),
-        new LengthBoxPropertyWrapper(CSSPropertyBorderImageWidth, &RenderStyle::borderImageWidth, &RenderStyle::setBorderImageWidth, { LengthBoxPropertyWrapper::Flags::IsLengthPercentage }),
+        new LengthBoxPropertyWrapper(CSSPropertyBorderImageWidth, &RenderStyle::borderImageWidth, &RenderStyle::setBorderImageWidth, { LengthBoxPropertyWrapper::Flags::IsLengthPercentage, LengthBoxPropertyWrapper::Flags::MayOverrideBorderWidths }),
         new LengthBoxPropertyWrapper(CSSPropertyBorderImageOutset, &RenderStyle::borderImageOutset, &RenderStyle::setBorderImageOutset),
 
         new StyleImagePropertyWrapper(CSSPropertyWebkitMaskBoxImageSource, &RenderStyle::maskBoxImageSource, &RenderStyle::setMaskBoxImageSource),
@@ -3310,16 +3442,23 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         // When adding a new property, you should make sure it belongs in this list
         // or provide a wrapper for it above. If you are adding to this list but the
         // property should be animatable, make sure to file a bug.
+#if ENABLE(DARK_MODE_CSS)
         case CSSPropertyColorScheme:
+#endif
         case CSSPropertyDirection:
         case CSSPropertyDisplay:
+#if ENABLE(VARIATION_FONTS)
         case CSSPropertyFontOpticalSizing:
+#endif
         case CSSPropertyTextOrientation:
         case CSSPropertyWritingMode:
         case CSSPropertyWebkitFontSmoothing:
         case CSSPropertyWebkitLocale:
         case CSSPropertyWebkitTextOrientation:
+#if ENABLE(TEXT_AUTOSIZING)
         case CSSPropertyWebkitTextSizeAdjust:
+        case CSSPropertyInternalTextAutosizingStatus:
+#endif
         case CSSPropertyWebkitTextZoom:
         case CSSPropertyAdditiveSymbols:
         case CSSPropertyAlignmentBaseline:
@@ -3443,9 +3582,10 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyUnicodeRange:
         case CSSPropertyWillChange:
         case CSSPropertyWordWrap:
+#if ENABLE(APPLE_PAY)
         case CSSPropertyApplePayButtonStyle:
         case CSSPropertyApplePayButtonType:
-        case CSSPropertyInternalTextAutosizingStatus:
+#endif
         case CSSPropertyWebkitBackgroundClip:
         case CSSPropertyWebkitBackgroundOrigin:
         case CSSPropertyWebkitBorderImage:
@@ -3463,7 +3603,9 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyWebkitColumnBreakBefore:
         case CSSPropertyWebkitColumnBreakInside:
         case CSSPropertyWebkitColumnProgression:
+#if ENABLE(CURSOR_VISIBILITY)
         case CSSPropertyWebkitCursorVisibility:
+#endif
         case CSSPropertyWebkitFontSizeDelta:
         case CSSPropertyWebkitHyphenateCharacter:
         case CSSPropertyWebkitHyphenateLimitAfter:
@@ -3489,13 +3631,22 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyWebkitMaskComposite:
         case CSSPropertyWebkitMaskSourceType:
         case CSSPropertyWebkitNbspMode:
+#if ENABLE(OVERFLOW_SCROLLING_TOUCH)
+        case CSSPropertyWebkitOverflowScrolling:
+#endif
         case CSSPropertyWebkitRtlOrdering:
+#if ENABLE(TOUCH_EVENTS)
+        case CSSPropertyWebkitTapHighlightColor:
+#endif
         case CSSPropertyWebkitTextCombine:
         case CSSPropertyWebkitTextDecoration:
         case CSSPropertyWebkitTextDecorationsInEffect:
         case CSSPropertyWebkitTextSecurity:
         case CSSPropertyWebkitTextStroke:
         case CSSPropertyWebkitTextStrokeWidth:
+#if PLATFORM(IOS_FAMILY)
+        case CSSPropertyWebkitTouchCallout:
+#endif
         case CSSPropertyWebkitTransformStyle:
         case CSSPropertyWebkitUserDrag:
         case CSSPropertyWebkitUserModify:

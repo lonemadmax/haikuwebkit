@@ -375,7 +375,6 @@ private:
         void ignoreWordInSpellDocument(const String&) final { }
         void learnWord(const String&) final { }
         void checkSpellingOfString(StringView, int*, int*) final { }
-        String getAutoCorrectSuggestionForMisspelledWord(const String&) final { return { }; }
         void checkGrammarOfString(StringView, Vector<GrammarDetail>&, int*, int*) final { }
 
 #if USE(UNIFIED_TEXT_CHECKING)
@@ -953,12 +952,12 @@ bool EmptyFrameLoaderClient::canShowMIMETypeAsHTML(const String&) const
     return false;
 }
 
-bool EmptyFrameLoaderClient::representationExistsForURLScheme(const String&) const
+bool EmptyFrameLoaderClient::representationExistsForURLScheme(StringView) const
 {
     return false;
 }
 
-String EmptyFrameLoaderClient::generatedMIMETypeForURLScheme(const String&) const
+String EmptyFrameLoaderClient::generatedMIMETypeForURLScheme(StringView) const
 {
     return emptyString();
 }

@@ -1,3 +1,147 @@
+2022-04-08  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Avoid targeting 32-bit iOS and Mac architectures
+        https://bugs.webkit.org/show_bug.cgi?id=238971
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-04-08  Elliott Williams  <emw@apple.com>
+
+        Unreviewed, reverting r292591.
+
+        Causing spurious EWS errors
+
+        Reverted changeset:
+
+        "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        https://commits.webkit.org/r292591
+
+2022-04-07  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Enable dependency validation by default
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-04-07  Chris Dumez  <cdumez@apple.com>
+
+        Replace deprecated String(const char*) with String::fromLatin1() in more places
+        https://bugs.webkit.org/show_bug.cgi?id=238925
+
+        Reviewed by Darin Adler.
+
+        * History/HistoryPropertyList.mm:
+        (HistoryPropertyListWriter::HistoryPropertyListWriter):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView coreCommandByName:]):
+
+2022-04-07  Chris Dumez  <cdumez@apple.com>
+
+        Drop unused EditorClient::getAutoCorrectSuggestionForMisspelledWord()
+        https://bugs.webkit.org/show_bug.cgi?id=238897
+
+        Reviewed by Wenson Hsieh.
+
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::getAutoCorrectSuggestionForMisspelledWord): Deleted.
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::getAutoCorrectSuggestionForMisspelledWord): Deleted.
+
+2022-04-06  Chris Dumez  <cdumez@apple.com>
+
+        Drop unnecessary ExceptionOr<> return types
+        https://bugs.webkit.org/show_bug.cgi?id=238876
+
+        Reviewed by Alex Christensen.
+
+        Drop unnecessary ExceptionOr<> return types as they may cause unnecessary branching at runtime.
+
+        * DOM/DOMMediaList.mm:
+        (-[DOMMediaList setMediaText:]):
+
+2022-04-06  Chris Dumez  <cdumez@apple.com>
+
+        Reduce number of conversions from StringView to String
+        https://bugs.webkit.org/show_bug.cgi?id=238841
+
+        Reviewed by Geoffrey Garen.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::representationExistsForURLScheme const):
+        (WebFrameLoaderClient::generatedMIMETypeForURLScheme const):
+
+2022-04-06  Simon Fraser  <simon.fraser@apple.com>
+
+        Unify the two ImageBuffer::create() functions, passing RenderingPurpose everywhere
+        https://bugs.webkit.org/show_bug.cgi?id=238851
+
+        Reviewed by Said Abou-Hallawa.
+
+        I need to extend RenderingPurpose flags to distinguish layer backing store buffers from
+        other kinds of buffers. Before doing so, collapse the two ImageBuffer::create() functions
+        together by combining RenderingMode and ShouldUseDisplayList into OptionSet<ImageBufferOptions>,
+        and passing RenderingPurpose everywhere.
+        
+        Always passing RenderingPurpose is revealing, because it finds call sites in the
+        web process that can trigger accelerated buffers (e.g. webkit.org/b/238846).
+
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (WebContextMenuClient::imageForCurrentSharingServicePickerItem):
+
+2022-04-05  Chris Dumez  <cdumez@apple.com>
+
+        Mark String(const char*) constructor as explicit
+        https://bugs.webkit.org/show_bug.cgi?id=238693
+
+        Reviewed by Geoffrey Garen.
+
+        * DOM/DOM.mm:
+        (-[DOMHTMLLinkElement _mediaQueryMatches]):
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::getAutoCorrectSuggestionForMisspelledWord):
+        * WebView/WebDataSource.mm:
+        (-[WebDataSource _setOverrideTextEncodingName:]):
+        * WebView/WebView.mm:
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+
+2022-04-05  Tim Horton  <timothy_horton@apple.com>
+
+        Remove system feature flags implementation
+        https://bugs.webkit.org/show_bug.cgi?id=238791
+
+        Reviewed by Megan Gardner.
+
+        * WebView/WebPreferencesDefaultValues.h:
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::isFeatureFlagEnabled): Deleted.
+
+2022-04-04  Tim Horton  <timothy_horton@apple.com>
+
+        Remove VP8/9 and WebM-related system feature flags
+        https://bugs.webkit.org/show_bug.cgi?id=238757
+
+        Reviewed by Eric Carlson.
+
+        * WebView/WebPreferencesDefaultValues.h:
+
+2022-04-04  Tim Horton  <timothy_horton@apple.com>
+
+        Remove the incremental_pdf system feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=238754
+
+        Reviewed by Wenson Hsieh.
+
+        * WebView/WebPreferencesDefaultValues.mm:
+        * WebView/WebPreferencesDefaultValues.h:
+        (WebKit::defaultIncrementalPDFEnabled): Deleted.
+
 2022-04-04  Elliott Williams  <emw@apple.com>
 
         [XCBuild] WebKitLegacy's "Migrated headers" script does not emit task information

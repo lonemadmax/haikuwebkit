@@ -277,6 +277,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionCreateBigInt32);
 static JSC_DECLARE_HOST_FUNCTION(functionUseBigInt32);
 static JSC_DECLARE_HOST_FUNCTION(functionIsBigInt32);
 static JSC_DECLARE_HOST_FUNCTION(functionIsHeapBigInt);
+static JSC_DECLARE_HOST_FUNCTION(functionCreateNonRopeNonAtomString);
 
 static JSC_DECLARE_HOST_FUNCTION(functionPrintStdOut);
 static JSC_DECLARE_HOST_FUNCTION(functionPrintStdErr);
@@ -591,6 +592,8 @@ private:
         addFunction(vm, "useBigInt32"_s, functionUseBigInt32, 0);
         addFunction(vm, "isBigInt32"_s, functionIsBigInt32, 1);
         addFunction(vm, "isHeapBigInt"_s, functionIsHeapBigInt, 1);
+
+        addFunction(vm, "createNonRopeNonAtomString"_s, functionCreateNonRopeNonAtomString, 1);
 
         addFunction(vm, "dumpTypesForAllVariables"_s, functionDumpTypesForAllVariables , 0);
 
@@ -1096,7 +1099,7 @@ private:
             return { };
         const char* cachePath = Options::diskCachePath();
         String filename = FileSystem::encodeForFileName(FileSystem::lastComponentOfPathIgnoringTrailingSlash(sourceOrigin().url().fileSystemPath()));
-        return FileSystem::pathByAppendingComponent(cachePath, makeString(source().toString().hash(), '-', filename, ".bytecode-cache"));
+        return FileSystem::pathByAppendingComponent(cachePath, makeString(source().hash(), '-', filename, ".bytecode-cache"));
     }
 
     void loadBytecode() const
@@ -1847,7 +1850,7 @@ JSC_DEFINE_HOST_FUNCTION(functionReadline, (JSGlobalObject* globalObject, CallFr
         line.append(c);
     }
     line.append('\0');
-    return JSValue::encode(jsString(globalObject->vm(), String { line.data() }));
+    return JSValue::encode(jsString(globalObject->vm(), String::fromLatin1(line.data())));
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionPreciseTime, (JSGlobalObject*, CallFrame*))
@@ -2648,6 +2651,29 @@ JSC_DEFINE_HOST_FUNCTION(functionIsHeapBigInt, (JSGlobalObject*, CallFrame* call
     return JSValue::encode(jsBoolean(callFrame->argument(0).isHeapBigInt()));
 }
 
+JSC_DEFINE_HOST_FUNCTION(functionCreateNonRopeNonAtomString, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    String source = callFrame->argument(0).toWTFString(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (source.isEmpty() || source.length() == 1)
+        return throwVMTypeError(globalObject, scope, "empty / one-length string can be always atom string"_s);
+
+    if (source.impl()->isAtom()) {
+        if (source.is8Bit())
+            source = StringImpl::create(source.characters8(), source.length());
+        else
+            source = StringImpl::create(source.characters16(), source.length());
+    }
+
+    RELEASE_ASSERT(!source.impl()->isAtom());
+
+    return JSValue::encode(jsString(vm, WTFMove(source)));
+}
+
 JSC_DEFINE_HOST_FUNCTION(functionCheckModuleSyntax, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
@@ -2813,9 +2839,9 @@ JSC_DEFINE_HOST_FUNCTION(functionWebAssemblyMemoryMode, (JSGlobalObject* globalO
 
     if (JSObject* object = callFrame->argument(0).getObject()) {
         if (auto* memory = jsDynamicCast<JSWebAssemblyMemory*>(vm, object))
-            return JSValue::encode(jsString(vm, String { makeString(memory->memory().mode()) }));
+            return JSValue::encode(jsString(vm, String::fromLatin1(makeString(memory->memory().mode()))));
         if (auto* instance = jsDynamicCast<JSWebAssemblyInstance*>(vm, object))
-            return JSValue::encode(jsString(vm, String { makeString(instance->memoryMode()) }));
+            return JSValue::encode(jsString(vm, String::fromLatin1(makeString(instance->memoryMode()))));
     }
 
     return throwVMTypeError(globalObject, scope, "WebAssemblyMemoryMode expects either a WebAssembly.Memory or WebAssembly.Instance"_s);
@@ -3183,7 +3209,7 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
         JSInternalPromise* promise = nullptr;
         bool isModule = options.m_module || scripts[i].scriptType == Script::ScriptType::Module;
         if (scripts[i].codeSource == Script::CodeSource::File) {
-            fileName = String { scripts[i].argument };
+            fileName = String::fromLatin1(scripts[i].argument);
             if (scripts[i].strictMode == Script::StrictMode::Strict)
                 scriptBuffer.append("\"use strict\";\n", strlen("\"use strict\";\n"));
 
@@ -3430,7 +3456,7 @@ void CommandLine::parseArguments(int argc, char** argv)
             if (++i == argc)
                 printUsageStatement();
             Options::setOption("useProfiler=1");
-            m_profilerOutput = String { argv[i] };
+            m_profilerOutput = String::fromLatin1(argv[i]);
             continue;
         }
         if (!strcmp(arg, "-m")) {
@@ -3550,7 +3576,7 @@ void CommandLine::parseArguments(int argc, char** argv)
 
         static const unsigned exceptionStrLength = strlen("--exception=");
         if (!strncmp(arg, "--exception=", exceptionStrLength)) {
-            m_uncaughtExceptionName = String(arg + exceptionStrLength);
+            m_uncaughtExceptionName = String::fromLatin1(arg + exceptionStrLength);
             continue;
         }
 
@@ -3581,7 +3607,7 @@ void CommandLine::parseArguments(int argc, char** argv)
         m_interactive = true;
 
     for (; i < argc; ++i)
-        m_arguments.append(argv[i]);
+        m_arguments.append(String::fromLatin1(argv[i]));
 
     if (dumpOptionsLevel != JSC::Options::DumpLevel::None) {
         const char* optionsTitle = (dumpOptionsLevel == JSC::Options::DumpLevel::Overridden)

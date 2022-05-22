@@ -42,21 +42,24 @@
 #include "StreamMessageReceiver.h"
 #include "StreamServerConnection.h"
 #include <WebCore/ColorSpace.h>
-#include <WebCore/DisplayList.h>
-#include <WebCore/DisplayListItems.h>
-#include <WebCore/DisplayListReplayer.h>
+#include <WebCore/DisplayListItemBufferIdentifier.h>
+#include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ProcessIdentity.h>
 #include <wtf/WeakPtr.h>
 
-namespace WebCore {
+namespace WTF {
+enum class Critical : bool;
+enum class Synchronous : bool;
+}
 
+namespace WebCore {
 class DestinationColorSpace;
 class FloatSize;
+class MediaPlayer;
 class NativeImage;
 
 enum class RenderingMode : bool;
-
 }
 
 namespace IPC {
@@ -95,6 +98,13 @@ public:
     IPC::StreamServerConnection& streamConnection() const { return m_streamConnection.get(); }
     void performWithMediaPlayerOnMainThread(WebCore::MediaPlayerIdentifier, Function<void(WebCore::MediaPlayer&)>&&);
 
+    void lowMemoryHandler(WTF::Critical, WTF::Synchronous);
+
+    void willDestroyImageBuffer(WebCore::ImageBuffer&);
+#if HAVE(IOSURFACE)
+    WebCore::IOSurfacePool& ioSurfacePool() const { return *m_ioSurfacePool; }
+#endif
+
 private:
     RemoteRenderingBackend(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&, IPC::StreamConnectionBuffer&&);
     void startListeningForIPC();
@@ -107,7 +117,7 @@ private:
     uint64_t messageSenderDestinationID() const override;
 
     // Messages to be received.
-    void createImageBuffer(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, WebCore::RenderingResourceIdentifier);
+    void createImageBuffer(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, WebCore::RenderingResourceIdentifier);
     void getPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier, WebCore::PixelBufferFormat&&, WebCore::IntRect&& srcRect, CompletionHandler<void()>&&);
     void getPixelBufferForImageBufferWithNewMemory(WebCore::RenderingResourceIdentifier, SharedMemory::IPCHandle&&, WebCore::PixelBufferFormat&& destinationFormat, WebCore::IntRect&& srcRect, CompletionHandler<void()>&&);
     void destroyGetPixelBufferSharedMemory();
@@ -125,7 +135,7 @@ private:
     void prepareBuffersForDisplay(Vector<PrepareBackingStoreBuffersInputData> swapBuffersInput, CompletionHandler<void(const Vector<PrepareBackingStoreBuffersOutputData>&)>&&);
 
     // Received messages translated to use QualifiedRenderingResourceIdentifier.
-    void createImageBufferWithQualifiedIdentifier(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, QualifiedRenderingResourceIdentifier);
+    void createImageBufferWithQualifiedIdentifier(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, QualifiedRenderingResourceIdentifier);
     void getDataURLForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, WebCore::PreserveResolution, QualifiedRenderingResourceIdentifier, CompletionHandler<void(String&&)>&&);
     void getDataForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, QualifiedRenderingResourceIdentifier, CompletionHandler<void(Vector<uint8_t>&&)>&&);
     void getShareableBitmapForImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, WebCore::PreserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
@@ -144,6 +154,9 @@ private:
     RenderingBackendIdentifier m_renderingBackendIdentifier;
     RefPtr<SharedMemory> m_getPixelBufferSharedMemory;
     ScopedRenderingResourcesRequest m_renderingResourcesRequest;
+#if HAVE(IOSURFACE)
+    std::unique_ptr<WebCore::IOSurfacePool> m_ioSurfacePool;
+#endif
 
     Lock m_remoteDisplayListsLock;
     bool m_canRegisterRemoteDisplayLists WTF_GUARDED_BY_LOCK(m_remoteDisplayListsLock) { false };

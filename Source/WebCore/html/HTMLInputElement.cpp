@@ -992,9 +992,8 @@ void HTMLInputElement::setIndeterminate(bool newValue)
     if (indeterminate() == newValue)
         return;
 
+    Style::PseudoClassChangeInvalidation indeterminateInvalidation(*this, CSSSelector::PseudoClassIndeterminate, newValue);
     m_isIndeterminate = newValue;
-
-    invalidateStyleForSubtree();
 
     if (renderer() && renderer()->style().hasEffectiveAppearance())
         renderer()->theme().stateChanged(*renderer(), ControlStates::States::Checked);
@@ -1163,9 +1162,10 @@ void HTMLInputElement::setValueFromRenderer(const String& value)
 
 void HTMLInputElement::willDispatchEvent(Event& event, InputElementClickState& state)
 {
-    if (event.type() == eventNames().textInputEvent && m_inputType->shouldSubmitImplicitly(event))
+    auto& eventNames = WebCore::eventNames();
+    if (event.type() == eventNames.textInputEvent && m_inputType->shouldSubmitImplicitly(event))
         event.stopPropagation();
-    if (event.type() == eventNames().clickEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() == LeftButton) {
+    if (event.type() == eventNames.clickEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() == LeftButton) {
         m_inputType->willDispatchClick(state);
         state.stateful = true;
     }
@@ -1406,8 +1406,8 @@ void HTMLInputElement::setAutoFilled(bool autoFilled)
     if (autoFilled == m_isAutoFilled)
         return;
 
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassAutofill, autoFilled);
     m_isAutoFilled = autoFilled;
-    invalidateStyleForSubtree();
 }
 
 void HTMLInputElement::setAutoFilledAndViewable(bool autoFilledAndViewable)
@@ -1415,8 +1415,8 @@ void HTMLInputElement::setAutoFilledAndViewable(bool autoFilledAndViewable)
     if (autoFilledAndViewable == m_isAutoFilledAndViewable)
         return;
 
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassAutofillStrongPasswordViewable, autoFilledAndViewable);
     m_isAutoFilledAndViewable = autoFilledAndViewable;
-    invalidateStyleForSubtree();
 }
 
 void HTMLInputElement::setAutoFilledAndObscured(bool autoFilledAndObscured)
@@ -1424,8 +1424,8 @@ void HTMLInputElement::setAutoFilledAndObscured(bool autoFilledAndObscured)
     if (autoFilledAndObscured == m_isAutoFilledAndObscured)
         return;
 
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassAutofillAndObscured, autoFilledAndObscured);
     m_isAutoFilledAndObscured = autoFilledAndObscured;
-    invalidateStyleForSubtree();
 }
 
 void HTMLInputElement::setShowAutoFillButton(AutoFillButtonType autoFillButtonType)
@@ -1911,8 +1911,6 @@ void HTMLInputElement::maxLengthAttributeChanged(const AtomString& newValue)
     if (oldEffectiveMaxLength != effectiveMaxLength())
         updateValueIfNeeded();
 
-    // FIXME: Do we really need to do this if the effective maxLength has not changed?
-    invalidateStyleForSubtree();
     updateValidity();
 }
 
@@ -1923,8 +1921,6 @@ void HTMLInputElement::minLengthAttributeChanged(const AtomString& newValue)
     if (oldMinLength != minLength())
         updateValueIfNeeded();
 
-    // FIXME: Do we really need to do this if the effective minLength has not changed?
-    invalidateStyleForSubtree();
     updateValidity();
 }
 

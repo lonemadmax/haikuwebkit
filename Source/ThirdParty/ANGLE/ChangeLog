@@ -1,3 +1,99 @@
+2022-04-08  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Avoid targeting 32-bit iOS and Mac architectures
+        https://bugs.webkit.org/show_bug.cgi?id=238971
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-04-08  Jonathan Bedard  <jbedard@apple.com>
+
+        [iOS 15.4] Fix embedded device build
+        https://bugs.webkit.org/show_bug.cgi?id=239012
+        <rdar://problem/91495761>
+
+        Reviewed by Ryan Haddad.
+
+        * Configurations/Base.xcconfig: Allow AdHoc codesigning.
+
+2022-04-08  Elliott Williams  <emw@apple.com>
+
+        Unreviewed, reverting r292591.
+
+        Causing spurious EWS errors
+
+        Reverted changeset:
+
+        "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        https://commits.webkit.org/r292591
+
+2022-04-07  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Enable dependency validation by default
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-04-05  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        ANGLE changes.diff contains differences that are from stale files or unneeded
+        https://bugs.webkit.org/show_bug.cgi?id=238798
+
+        Unreviewed, verifiable by running the script.
+
+        Unneeded changes in changes.diff should be excluded:
+         - ChangeLog files
+         - WebKit specific build scripts
+         - Diff to removed .jar files
+
+        Stale changes should be updated from the upstream, should be synced from upstream:
+         - .gitignore entry from some old path
+         - Wrong file names in DEQP test expectations, renamed in upstream
+         - Unused EnvironmentVariable.h that is not present in upstream anymore
+
+        * .gitignore:
+        * ANGLE.xcodeproj/project.pbxproj:
+        * changes.diff:
+        * src/compiler/translator/TranslatorMetalDirect/EnvironmentVariable.h: Removed.
+        * src/tests/deqp_support/deqp_egl_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_egl_TestExpectations.
+        * src/tests/deqp_support/deqp_gles2_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_gles2_TestExpectations.
+        * src/tests/deqp_support/deqp_gles31_rotate_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_gles31_rotate_TestExpectations.
+        * src/tests/deqp_support/deqp_gles31_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_gles31_TestExpectations.
+        * src/tests/deqp_support/deqp_gles3_rotate_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_gles3_rotate_TestExpectations.
+        * src/tests/deqp_support/deqp_gles3_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_gles3_TestExpectations.
+        * src/tests/deqp_support/deqp_khr_gles2_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_khr_gles2_TestExpectations.
+        * src/tests/deqp_support/deqp_khr_gles31_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_khr_gles31_TestExpectations.
+        * src/tests/deqp_support/deqp_khr_gles32_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_khr_gles32_TestExpectations.
+        * src/tests/deqp_support/deqp_khr_gles3_TestExpectations: Renamed from Source/ThirdParty/ANGLE/src/tests/deqp_support/deqp_khr_gles3_TestExpectations.
+
+2022-04-05  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        update-angle output varies unpredictably due to blob hash abbreviation
+        https://bugs.webkit.org/show_bug.cgi?id=238793
+
+        Reviewed by Antti Koivisto.
+
+        Update the diff to contain unabbreviated blob hash values. These are more
+        predictable for all developers.
+
+        * changes.diff:
+
+2022-04-05  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Update ANGLE changes.diff after "Roll ANGLE to 2022-03-31 (fe28a4295af087ee82b8f629b67176b95019af6d)"
+        https://bugs.webkit.org/show_bug.cgi?id=238794
+
+        Unreviewed, verifiable by running the script.
+
+        Update the diff, turns out it was not up-to-date.
+
+        * changes.diff:
+
 2022-04-04  Kenneth Russell  <kbr@chromium.org>
 
         Roll ANGLE to 2022-03-31 (fe28a4295af087ee82b8f629b67176b95019af6d)

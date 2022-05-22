@@ -158,7 +158,7 @@ static PAL::TextEncoding encodingFromAcceptCharset(const String& acceptCharset, 
     String normalizedAcceptCharset = acceptCharset;
     normalizedAcceptCharset.replace(',', ' ');
 
-    for (auto& charset : normalizedAcceptCharset.split(' ')) {
+    for (auto charset : StringView { normalizedAcceptCharset }.split(' ')) {
         PAL::TextEncoding encoding(charset);
         if (encoding.isValid())
             return encoding;
@@ -221,7 +221,7 @@ Ref<FormSubmission> FormSubmission::create(HTMLFormElement& form, HTMLFormContro
 
     if (isMultiPartForm) {
         formData = FormData::createMultiPart(domFormData);
-        boundary = String { formData->boundary().data() };
+        boundary = String::fromLatin1(formData->boundary().data());
     } else {
         formData = FormData::create(domFormData, attributes.method() == Method::Get ? FormData::FormURLEncoded : FormData::parseEncodingType(encodingType));
         if (copiedAttributes.method() == Method::Post && isMailtoForm) {

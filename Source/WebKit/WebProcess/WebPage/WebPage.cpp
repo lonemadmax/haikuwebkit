@@ -3852,7 +3852,7 @@ void WebPage::runJavaScript(WebFrame* frame, RunJavaScriptParameters&& parameter
     if (frame->shouldEnableInAppBrowserPrivacyProtections()) {
         completionHandler({ }, ExceptionDetails { "Unable to execute JavaScript in a frame that is not in an app-bound domain"_s, 0, 0, ExceptionDetails::Type::AppBoundDomain });
         if (auto* document = m_page->mainFrame().document())
-            document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "Ignoring user script injection for non-app bound domain.");
+            document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "Ignoring user script injection for non-app bound domain."_s);
         WEBPAGE_RELEASE_LOG_ERROR(Loading, "runJavaScript: Ignoring user script injection for non app-bound domain");
         return;
     }
@@ -5871,7 +5871,7 @@ void WebPage::runModal()
 
 bool WebPage::canHandleRequest(const WebCore::ResourceRequest& request)
 {
-    if (LegacySchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(request.url().protocol().toStringWithoutCopying()))
+    if (LegacySchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(request.url().protocol()))
         return true;
 
     if (request.url().protocolIsBlob())
@@ -6437,6 +6437,22 @@ void WebPage::canceledComposition()
 void WebPage::interactionRegions(FloatRect rectInContentCoordinates, CompletionHandler<void(Vector<InteractionRegion>)>&& completionHandler)
 {
     completionHandler(WebCore::interactionRegions(*m_page, rectInContentCoordinates));
+}
+
+void WebPage::navigateServiceWorkerClient(ScriptExecutionContextIdentifier documentIdentifier, const URL& url, CompletionHandler<void(bool)>&& callback)
+{
+#if ENABLE(SERVICE_WORKER)
+    RefPtr document = Document::allDocumentsMap().get(documentIdentifier);
+    if (!document) {
+        callback(false);
+        return;
+    }
+    document->navigateFromServiceWorker(url, WTFMove(callback));
+#else
+    UNUSED_PARAM(documentIdentifier);
+    UNUSED_PARAM(url);
+    callback(false);
+#endif
 }
 
 void WebPage::setAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScroller)
@@ -7204,9 +7220,9 @@ void WebPage::setUseIconLoadingClient(bool useIconLoadingClient)
     static_cast<WebFrameLoaderClient&>(corePage()->mainFrame().loader().client()).setUseIconLoadingClient(useIconLoadingClient);
 }
 
-WebURLSchemeHandlerProxy* WebPage::urlSchemeHandlerForScheme(const String& scheme)
+WebURLSchemeHandlerProxy* WebPage::urlSchemeHandlerForScheme(StringView scheme)
 {
-    return m_schemeToURLSchemeHandlerProxyMap.get(scheme);
+    return m_schemeToURLSchemeHandlerProxyMap.get<StringViewHashTranslator>(scheme);
 }
 
 void WebPage::stopAllURLSchemeTasks()
@@ -7289,37 +7305,6 @@ void WebPage::setIsSuspended(bool suspended)
     WebProcess::singleton().sendPrewarmInformation(mainWebFrame().url());
 
     suspendForProcessSwap();
-}
-
-void WebPage::frameBecameRemote(FrameIdentifier frameID, GlobalFrameIdentifier&& remoteFrameIdentifier, GlobalWindowIdentifier&& remoteWindowIdentifier)
-{
-    RefPtr<WebFrame> frame = WebProcess::singleton().webFrame(frameID);
-    if (!frame)
-        return;
-
-    if (frame->page() != this)
-        return;
-
-    auto* coreFrame = frame->coreFrame();
-    auto* previousWindow = coreFrame->window();
-    if (!previousWindow)
-        return;
-
-    auto remoteFrame = RemoteFrame::create(WTFMove(remoteFrameIdentifier));
-    auto remoteWindow = RemoteDOMWindow::create(remoteFrame.copyRef(), WTFMove(remoteWindowIdentifier));
-
-    remoteFrame->setOpener(frame->coreFrame()->loader().opener());
-
-    auto jsWindowProxies = frame->coreFrame()->windowProxy().releaseJSWindowProxies();
-    remoteFrame->windowProxy().setJSWindowProxies(WTFMove(jsWindowProxies));
-    remoteFrame->windowProxy().setDOMWindow(remoteWindow.ptr());
-
-    coreFrame->setView(nullptr);
-    coreFrame->willDetachPage();
-    coreFrame->detachFromPage();
-
-    if (frame->isMainFrame())
-        close();
 }
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
@@ -8080,11 +8065,6 @@ void WebPage::createMediaSessionCoordinator(const String& identifier, Completion
 
     m_page->setMediaSessionCoordinator(RemoteMediaSessionCoordinator::create(*this, identifier));
     completionHandler(true);
-}
-
-void WebPage::invalidateMediaSessionCoordinator()
-{
-    m_page->invalidateMediaSessionCoordinator();
 }
 #endif
 

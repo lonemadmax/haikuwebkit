@@ -1104,7 +1104,7 @@ static void sizeWebViewForCurrentTest()
 
 static String findFontFallback(const char* pathOrUrl)
 {
-    String pathToFontFallback = FileSystem::parentPath(pathOrUrl);
+    String pathToFontFallback = FileSystem::parentPath(String::fromUTF8(pathOrUrl));
 
     wchar_t fullPath[_MAX_PATH];
     if (!_wfullpath(fullPath, pathToFontFallback.wideCharacters().data(), _MAX_PATH))
@@ -1115,7 +1115,7 @@ static String findFontFallback(const char* pathOrUrl)
 
     String pathToCheck = fullPath;
 
-    static const String layoutTests = "LayoutTests";
+    static const String layoutTests = "LayoutTests"_s;
 
     // Find the layout test root on the current path:
     size_t location = pathToCheck.find(layoutTests);
@@ -1174,13 +1174,9 @@ static void removeFontFallbackIfPresent(const String& fontFallbackPath)
 static bool handleControlCommand(const char* command)
 {
     if (!strcmp("#CHECK FOR ABANDONED DOCUMENTS", command)) {
-        // DumpRenderTree does not support checking for abandonded documents.
-        String result("\n");
-        printf("Content-Type: text/plain\n");
-        printf("Content-Length: %u\n", result.length());
-        fwrite(result.utf8().data(), 1, result.length(), stdout);
-        printf("#EOF\n");
-        fprintf(stderr, "#EOF\n");
+        // DumpRenderTree does not support checking for abandoned documents.
+        fputs("Content-Type: text/plain\nContent-Length: 1\n\n#EOF\n", stdout);
+        fputs("#EOF\n", stderr);
         fflush(stdout);
         fflush(stderr);
         return true;

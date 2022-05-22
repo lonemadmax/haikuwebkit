@@ -101,8 +101,8 @@ AsyncFrameScrollingEnabled:
       default: false
     WebKit:
       "USE(NICOSIA)": true
-      "PLATFORM(IOS_FAMILY)": true
-      default: WebKit::defaultAsyncFrameScrollingEnabled()
+      "PLATFORM(COCOA)": true
+      default: false
     WebCore:
       default: false
 
@@ -117,8 +117,8 @@ AsyncOverflowScrollingEnabled:
       default: false
     WebKit:
       "USE(NICOSIA)": true
-      "PLATFORM(IOS_FAMILY)": true
-      default: WebKit::defaultAsyncFrameScrollingEnabled()
+      "PLATFORM(COCOA)": true
+      default: false
     WebCore:
       default: false
 
@@ -198,7 +198,8 @@ CaptureVideoInGPUProcessEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: WebKit::defaultCaptureVideoInGPUProcessEnabled()
+      "ENABLE(GPU_PROCESS_BY_DEFAULT)": true
+      default: false
 
 CaptureVideoInUIProcessEnabled:
   type: bool
@@ -666,16 +667,6 @@ MuteCameraOnMicrophoneInterruptionEnabled:
     WebCore:
       default: false
 
-NPAPIPlugInsEnabledForTestingInWebKitLegacy:
-  type: bool
-  humanReadableName: "NPAPI Plug-Ins Enabled In WebKitLegacy"
-  humanReadableDescription: "Enable NPAPI Plug-Ins for testing"
-  webcoreBinding: none
-  exposed: [ WebKitLegacy ]
-  defaultValue:
-    WebKitLegacy:
-      default: false
-
 NotificationEventEnabled:
   type: bool
   humanReadableName: "NotificationEvent support"
@@ -978,7 +969,9 @@ UseGPUProcessForCanvasRenderingEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: defaultUseGPUProcessForCanvasRenderingEnabled()
+      "ENABLE(GPU_PROCESS_BY_DEFAULT)": true
+      "PLATFORM(WIN)": true
+      default: false
 
 UseGPUProcessForMediaEnabled:
   type: bool
@@ -989,7 +982,8 @@ UseGPUProcessForMediaEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: WebKit::defaultUseGPUProcessForMediaEnabled()
+      "ENABLE(GPU_PROCESS_BY_DEFAULT)": true
+      default: false
 
 UseGeneralDirectoryForStorage:
   type: bool
@@ -1096,7 +1090,8 @@ WebRTCPlatformCodecsInGPUProcessEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: WebKit::defaultWebRTCCodecsInGPUProcess()
+      "ENABLE(GPU_PROCESS_BY_DEFAULT)": true
+      default: false
     WebCore:
       default: false
 

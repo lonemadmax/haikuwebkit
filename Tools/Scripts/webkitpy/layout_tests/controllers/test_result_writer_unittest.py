@@ -54,3 +54,24 @@ class TestResultWriterTest(unittest.TestCase):
         test_result_writer.write_test_result(host.filesystem, ImageDiffTestPort(host), port.results_directory(), test_name,
                                              driver_output1, driver_output2, failures)
         self.assertEqual([0], used_tolerance_values)
+
+    def test_output_filename(self):
+        host = MockHost()
+        port = TestPort(host)
+        fs = host.filesystem
+        writer = test_result_writer.TestResultWriter(fs, port, port.results_directory(), 'require-corp-revalidated-images.https.html')
+        self.assertEqual(writer.output_filename('-diff.txt'), fs.join(port.results_directory(), 'require-corp-revalidated-images.https-diff.txt'))
+
+    def test_output_filename_variant(self):
+        host = MockHost()
+        port = TestPort(host)
+        fs = host.filesystem
+        writer = test_result_writer.TestResultWriter(fs, port, port.results_directory(), 'template_test/pbkdf2.https.any.worker.html?1-1000')
+        self.assertEqual(fs.join(port.results_directory(), 'template_test/pbkdf2.https.any.worker_1-1000-diff.txt'), writer.output_filename('-diff.txt'))
+
+    def test_output_filename_variant(self):
+        host = MockHost()
+        port = TestPort(host)
+        fs = host.filesystem
+        writer = test_result_writer.TestResultWriter(fs, port, port.results_directory(), 'template_test2/pbkdf2.https.any.html?1-1000')
+        self.assertEqual(fs.join(port.results_directory(), 'template_test2/pbkdf2.https.any_1-1000-diff.txt'), writer.output_filename('-diff.txt'))

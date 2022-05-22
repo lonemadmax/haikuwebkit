@@ -250,9 +250,9 @@ static String stringForSSLProtocol(SSLProtocol protocol)
     case kTLSProtocol13:
         return "TLS 1.3"_s;
     case kSSLProtocolAll:
-        return "All";
+        return "All"_s;
     case kSSLProtocolUnknown:
-        return "Unknown";
+        return "Unknown"_s;
     case kTLSProtocolMaxSupported:
     default:
         ASSERT_NOT_REACHED();
@@ -1168,12 +1168,12 @@ static RetainPtr<NSDictionary> proxyDictionary(const URL& httpProxy, const URL& 
 
     auto dictionary = adoptNS([[NSMutableDictionary alloc] init]);
     if (httpProxy.isValid()) {
-        [dictionary setObject:httpProxy.host().toString() forKey:(NSString *)kCFStreamPropertyHTTPProxyHost];
+        [dictionary setObject:httpProxy.host().createNSString().get() forKey:(NSString *)kCFStreamPropertyHTTPProxyHost];
         if (auto port = httpProxy.port())
             [dictionary setObject:@(*port) forKey:(NSString *)kCFStreamPropertyHTTPProxyPort];
     }
     if (httpsProxy.isValid()) {
-        [dictionary setObject:httpsProxy.host().toString() forKey:(NSString *)kCFStreamPropertyHTTPSProxyHost];
+        [dictionary setObject:httpsProxy.host().createNSString().get() forKey:(NSString *)kCFStreamPropertyHTTPSProxyHost];
         if (auto port = httpsProxy.port())
             [dictionary setObject:@(*port) forKey:(NSString *)kCFStreamPropertyHTTPSProxyPort];
     }
@@ -1713,17 +1713,6 @@ std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageP
     appPrivacyReportTestingData().didLoadAppInitiatedRequest(nsRequest.get().attribution == NSURLRequestAttributionDeveloper);
 #endif
 
-    // FIXME: This function can make up to 3 copies of a request.
-    // Reduce that to one if the protocol is null, the request isn't app initiated,
-    // or the main frame main resource was private relayed, then set all properties
-    // on the one copy.
-    if (hadMainFrameMainResourcePrivateRelayed || request.url().host() == clientOrigin.topOrigin.host) {
-        RetainPtr<NSMutableURLRequest> mutableRequest = adoptNS([nsRequest.get() mutableCopy]);
-        if ([mutableRequest respondsToSelector:@selector(_setPrivacyProxyFailClosedForUnreachableNonMainHosts:)])
-            [mutableRequest _setPrivacyProxyFailClosedForUnreachableNonMainHosts:YES];
-        nsRequest = WTFMove(mutableRequest);
-    }
-
     auto& sessionSet = sessionSetForPage(webPageProxyID);
     RetainPtr<NSURLSessionWebSocketTask> task = [sessionSet.sessionWithCredentialStorage.session webSocketTaskWithRequest:nsRequest.get()];
     
@@ -1935,7 +1924,7 @@ void NetworkSessionCocoa::removeNetworkWebsiteData(std::optional<WallTime> modif
     }
 
     if (isActingOnBehalfOfAFullWebBrowser(bundleID))
-        bundleID = "com.apple.mobilesafari";
+        bundleID = "com.apple.mobilesafari"_s;
 
     NSDictionary *options = @{
         (id)getkSymptomAnalyticsServiceDomainTrackingClearHistoryKey(): @{

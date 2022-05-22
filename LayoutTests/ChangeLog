@@ -1,3 +1,802 @@
+2022-04-11  Matteo Flores  <matteo_flores@apple.com>
+
+        [ Mac ] http/tests/media/modern-media-controls/macos-fullscreen-media-controls/macos-fullscreen-media-controls-live-broadcast.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=239091
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-04-11  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey wk2 ] 4 http/tests/inspector/paymentrequest/* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238908
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations: Fixed expectations due to wk2 expectation
+
+2022-04-11  Jer Noble  <jer.noble@apple.com>
+
+        REGRESSION(r292051-r292022): [ iOS ] media/video-object-fit.html is a constant image failure
+        https://bugs.webkit.org/show_bug.cgi?id=238634
+        <rdar://problem/91125776>
+
+        Reviewed by Eric Carlson.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-11  Matteo Flores  <matteo_flores@apple.com>
+
+        webgl/2.0.0/conformance2/glsl3/bool-type-cast-bug-uint-ivec-uvec.html crashes
+        https://bugs.webkit.org/show_bug.cgi?id=237840
+
+        Unreviewed test gardening.
+
+        * platform/mac/TestExpectations:
+
+2022-04-11  Youenn Fablet  <youenn@apple.com>
+
+        Expose more ServiceWorker interfaces to workers
+        https://bugs.webkit.org/show_bug.cgi?id=238992
+
+        Reviewed by Chris Dumez.
+
+        * http/wpt/service-workers/resources/serviceworker-in-sharedworker.js: Added.
+        * http/wpt/service-workers/resources/serviceworker-in-worker.js: Added.
+        * http/wpt/service-workers/serviceworker-in-dedicatedworker.https-expected.txt: Added.
+        * http/wpt/service-workers/serviceworker-in-dedicatedworker.https.html: Added.
+        * http/wpt/service-workers/serviceworker-in-sharedworker.https-expected.txt: Added.
+        * http/wpt/service-workers/serviceworker-in-sharedworker.https.html: Added.
+        * platform/mac-wk1/imported/w3c/web-platform-tests/notifications/idlharness.https.any.worker-expected.txt:
+
+2022-04-11  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey wk2 ] 4 http/tests/inspector/paymentrequest/* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238908
+
+        Unreviewed test gardening.
+
+        * TestExpectations:
+
+2022-04-11  Andres Gonzalez  <andresg_22@apple.com>
+
+        Rewrite accessibility/table-modification-crash.html to test that the AX tree reflects the changes made to the table rows.
+        https://bugs.webkit.org/show_bug.cgi?id=239013
+        <rdar://problem/91498453>
+
+        Reviewed by Darin Adler.
+
+        Renamed and rewrote this test to actually test more than just that it
+        doesn't crash. Now we check that the AX tree reflects the changes of
+        adding and removing table rows.
+
+        * accessibility/table-add-remove-row-expected.txt: Added.
+        * accessibility/table-add-remove-row.html: Added.
+        * accessibility/table-modification-crash-expected.txt: Removed.
+        * accessibility/table-modification-crash.html: Removed.
+        * platform/glib/accessibility/table-add-remove-row-expected.txt:
+        * platform/win/TestExpectations:
+
+2022-04-10  Tyler Wilcock  <tyler_w@apple.com>
+
+        Fix accessibility/aria-invalid.html in isolated tree mode
+        https://bugs.webkit.org/show_bug.cgi?id=238978
+
+        Reviewed by Chris Fleizach.
+
+        * accessibility/aria-invalid-expected.txt:
+        * accessibility/aria-invalid.html:
+        Rewrite to call `debug` only once at the end of the test. Also made
+        this test use accessibleElementById instead of
+        accessibilityController.focusedElement.
+        * resources/accessibility-helper.js:
+        Add new `expect` function, which is like the more ubiquitous
+        `shouldBe` from js-test.js, but returns the output as a string instead
+        of calling `debug` to output to a console DOM element.
+
+2022-04-09  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WKTR] Reset minimum font size WKPreference between tests
+        https://bugs.webkit.org/show_bug.cgi?id=239027
+        <rdar://problem/88938768>
+
+        Reviewed by Chris Dumez.
+
+        Remove unnecessary ephemeral session.
+
+        * fast/forms/visual-hebrew-text-field.html:
+
+2022-04-09  Alan Bujtas  <zalan@apple.com>
+
+        REGRESSION (Safari 15.4): Focused element doesn't render outline when it has an underline
+        https://bugs.webkit.org/show_bug.cgi?id=238998
+        <rdar://problem/91484512>
+
+        Reviewed by Antti Koivisto.
+
+        * fast/repaint/incorrect-outline-repaint-expected.txt: Added.
+        * fast/repaint/incorrect-outline-repaint.html: Added.
+        * fast/text/simple-line-layout-text-stroke-width.html: now we produce a slightly different (more accurate)
+        vertical repaint range. However this test is about moving the content horizontally, so let's make this
+        test more robust by focusing on the horizontal part. 
+
+2022-04-08  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey wk2 ] 4 http/tests/inspector/paymentrequest/* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238908
+
+        Unreviewed test rebaslining.
+
+        * http/tests/inspector/paymentrequest/payment-request-internal-properties.https-expected.txt:
+        * http/tests/paymentrequest/payment-address-attributes-and-toJSON-method.https-expected.txt:
+        * http/tests/paymentrequest/payment-request-change-shipping-option.https-expected.txt:
+        * http/tests/paymentrequest/payment-response-retry-method.https-expected.txt:
+
+2022-04-08  Matteo Flores  <matteo_flores@apple.com>
+
+        Unreviewed, reverting r292521.
+
+        This broke the test further.
+
+        Reverted changeset:
+
+        "[ Mac ] accessibility/mac/expanded-notification.html is a
+        flaky text failure"
+        https://bugs.webkit.org/show_bug.cgi?id=238830
+        https://commits.webkit.org/r292521
+
+2022-04-08  Alan Bujtas  <zalan@apple.com>
+
+        imported/blink/fast/multicol/vertical-lr/float-content-break.html is a constant failure
+        https://bugs.webkit.org/show_bug.cgi?id=239002
+
+        Unreviewed.
+
+        * platform/mac/TestExpectations:
+
+2022-04-08  Alan Bujtas  <zalan@apple.com>
+
+        Do not use std::numeric_limits<float>::min() as the initial value to collect max values for glyph overflow
+        https://bugs.webkit.org/show_bug.cgi?id=238334
+
+        Reviewed by Simon Fraser.
+
+        * platform/ios/fast/block/lineboxcontain/glyphs-expected.txt:
+        * platform/ios/fast/css-generated-content/initial-letter-basic-expected.txt:
+        * platform/ios/fast/css-generated-content/initial-letter-border-padding-expected.txt:
+        * platform/ios/fast/css-generated-content/initial-letter-raised-expected.txt:
+        * platform/ios/fast/css-generated-content/initial-letter-sunken-expected.txt:
+        * platform/ios/mathml/opentype/opentype-stretchy-expected.txt:
+        * platform/ios/mathml/presentation/roots-expected.txt:
+        * platform/mac/fast/block/lineboxcontain/glyphs-expected.txt:
+        * platform/mac/fast/css-generated-content/initial-letter-basic-expected.txt:
+        * platform/mac/fast/css-generated-content/initial-letter-border-padding-expected.txt:
+        * platform/mac/fast/css-generated-content/initial-letter-raised-expected.txt:
+        * platform/mac/fast/css-generated-content/initial-letter-sunken-expected.txt:
+        * platform/mac/mathml/opentype/opentype-stretchy-expected.txt:
+        * platform/mac/mathml/presentation/roots-expected.txt:
+
+2022-04-08  Alan Bujtas  <zalan@apple.com>
+
+        [ iOS EWS ] fast/layers/parent-clipping-overflow-is-overwritten-by-child-clipping.html is a flaky image failure.
+        https://bugs.webkit.org/show_bug.cgi?id=237218
+        <rdar://problem/89484834>
+
+        Unreviewed.
+
+        * fast/layers/parent-clipping-overflow-is-overwritten-by-child-clipping-expected.html:
+        * fast/layers/parent-clipping-overflow-is-overwritten-by-child-clipping.html: Change font family to Ahem.
+
+2022-04-08  Andres Gonzalez  <andresg_22@apple.com>
+
+        Fix for accessibility/table-sections.html in isolated tree mode.
+        https://bugs.webkit.org/show_bug.cgi?id=238970
+        <rdar://problem/91451873>
+
+        Reviewed by Chris Fleizach.
+
+        Fixed this test in ITM by splitting the test into two smaller, faster
+        tests:
+        accessibility/table-multiple-tbodies.html
+        accessibility/table-thead-tfoot.html
+        In addition, the new tests write to the console only once after all the
+        accessibility calls are made.
+
+        * TestExpectations: Removed the old test marked as Slow.
+        * accessibility/resources/table-helper.js: Added.
+        (tableProperties): Helper function used in several tests.
+        * accessibility/table-attributes.html:
+        * accessibility/table-multiple-tbodies-expected.txt: Copied from LayoutTests/accessibility/table-sections-expected.txt.
+        * accessibility/table-multiple-tbodies.html: Added.
+        * accessibility/table-sections.html: Removed.
+        * accessibility/table-thead-tfoot-expected.txt: Added.
+        * accessibility/table-thead-tfoot.html: Added.
+        * platform/glib/accessibility/table-multiple-tbodies-expected.txt: Renamed from LayoutTests/accessibility/table-sections-expected.txt.
+        * platform/glib/accessibility/table-sections-expected.txt: Removed.
+        * platform/glib/accessibility/table-thead-tfoot-expected.txt: Added.
+        * platform/win/TestExpectations:
+        * platform/wincairo-wk1/TestExpectations:
+        * platform/wincairo/TestExpectations:
+
+2022-04-08  Andres Gonzalez  <andresg_22@apple.com>
+
+        Fix for accessibility/roles-table-and-cell.html in isolated tree mode.
+        https://bugs.webkit.org/show_bug.cgi?id=238936
+        <rdar://problem/91414958>
+
+        Reviewed by Chris Fleizach.
+
+        Fixes this test in isolated tree mode by not writing to the console
+        until the end of the test.
+
+        * accessibility/roles-table-and-cell-expected.txt:
+        * accessibility/roles-table-and-cell.html:
+
+2022-04-08  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Incorrect CORP/COEP check in 304 responses
+        https://bugs.webkit.org/show_bug.cgi?id=238238
+        <rdar://problem/90706510>
+
+        Reviewed by Youenn Fablet.
+
+        Mark some tests with DumpJSConsoleLogInStdErr modifier.
+
+        * TestExpectations:
+
+2022-04-07  Matteo Flores  <matteo_flores@apple.com>
+
+        [ iOS EWS ] css3/background/background-repeat-round-auto2.html is a image failure
+        https://bugs.webkit.org/show_bug.cgi?id=238965
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-07  Matteo Flores  <matteo_flores@apple.com>
+
+        [ iOS EWS ] fast/attachment/attachment-disabled-rendering.html is a text missing failure
+        https://bugs.webkit.org/show_bug.cgi?id=238960
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-07  Devin Rousso  <drousso@apple.com>
+
+        [GPU Process] Test failures in forms
+        https://bugs.webkit.org/show_bug.cgi?id=236927
+        <rdar://problem/89196867>
+
+        Unreviewed, fix test failures and adjust related expectations.
+
+        * fast/forms/autofocus-readonly-attribute.html:
+        This test appeared to be failing because it ended before the `"focus"` event had a chance
+        to fire. Make the test async by delaying its completion until after a `requestAnimationFrame`
+        which should be enough time for the `"focus"` event to be dispatched (and handled).
+
+        * fast/forms/input-text-autofocus.html:
+        * fast/forms/input-text-autofocus-expected.txt:
+        Slightly rework this test to manually tell the `testRunner` to `waitUntilDone`, as for some
+        reason the `js-test-{pre,post}` test harness seems to somehow not output the `PASS` messages
+        while still finishing the test (i.e. not a timeout).
+
+        * platform/ios-simulator-wk2/TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+        * platform/ipad/TestExpectations:
+        Remove non-skipped expectations for:
+        - fast/forms/ios/choose-select-option.html
+        - fast/forms/autofocus-readonly-attribute.html
+        - fast/forms/input-text-autofocus.html
+        Note that `fast/forms/ios/choose-select-option.html` is still skipped on iPad, because there
+        is already a `platform/ipad/fast/forms/choose-select-option.html` specifically to test iPad.
+
+2022-04-07  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX ITM: ARIATreeItemContent, ARIATreeRows, and DisclosedRows properties need to be updated after dynamic page changes
+        https://bugs.webkit.org/show_bug.cgi?id=238844
+
+        Reviewed by Chris Fleizach.
+
+        * accessibility/mac/tree-properties-update-after-dynamic-change-expected.txt: Added.
+        * accessibility/mac/tree-properties-update-after-dynamic-change.html: Added.
+
+2022-04-07  Alan Bujtas  <zalan@apple.com>
+
+        Unreviewed test gardening.
+
+        * imported/blink/fast/multicol/vertical-lr/float-content-break-expected.html:
+        .html is rendered using the legacy codepath while -expected.html is renderer using the modern codepath.
+        In case of fractional pixel values, they sometimes produce different final baselines due to (unintentional) implicit flooring in legacy line layout.
+        While most of these intentional/unintentional floors/ceils are matched (with FIXMEs) in the modern line layout, some would make the line layout
+        codebase a lot more complicated. These type of bugs are mostly not visible to the user anyway ever since we have stopped swapping between modern
+        and legacy line layout dynamically (e.g. on selection).
+        * imported/blink/fast/multicol/vertical-lr/float-content-break.html:
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios/TestExpectations:
+
+2022-04-07  Tim Nguyen  <ntim@apple.com>
+
+        [CSS resize property] Correct minimum size computation to allow resizing below initial size
+        https://bugs.webkit.org/show_bug.cgi?id=135335
+
+        Reviewed by Simon Fraser.
+
+        Tests ported from the Chromium changeset: https://chromium-review.googlesource.com/c/chromium/src/+/545395/
+        They've been tweaked to:
+        - not rely on <textarea>
+        - use WPT harness instead of Chrome specific methods
+        - use async functions instead of callbacks
+
+        * fast/css/resize-above-min-size-and-below-initial-size-expected.txt: Added.
+        * fast/css/resize-above-min-size-and-below-initial-size.html: Added.
+        * fast/css/resize-below-min-intrinsic-size-large-scrollbars-expected.txt: Added.
+        * fast/css/resize-below-min-intrinsic-size-large-scrollbars.html: Added.
+        * fast/css/resize-below-min-intrinsic-size-expected.txt: Added.
+        * fast/css/resize-below-min-intrinsic-size.html: Added.
+        * fast/css/resize-below-min-size-expected.txt: Added.
+        * fast/css/resize-below-min-size-zoomed-expected.txt: Added.
+        * fast/css/resize-below-min-size-zoomed.html: Added.
+        * fast/css/resize-below-min-size.html: Added.
+        * fast/css/resize-orthogonal-containing-block-expected.txt: Added.
+        * fast/css/resize-orthogonal-containing-block.html: Added.
+
+2022-04-07  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r292419): [ iOS EWS ] imported/w3c/web-platform-tests/css/selectors/invalidation/user-action-pseudo-classes-in-has.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238954
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-07  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r290770): [ Mac wk2 ] imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-050.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238033
+
+        Unreviewed test gardening
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-07  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey ] fast/text/khmer-lao-font.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238917
+
+        Unreviewed test gardening
+
+        * platform/mac/TestExpectations:
+
+2022-04-07  Kate Cheney  <katherine_cheney@apple.com>
+
+        [ BigSur wk1 ] printing/css2.1/page-break-after-000.html is a flaky failure (231102)
+        https://bugs.webkit.org/show_bug.cgi?id=231102
+        <rdar://problem/83781666>
+
+        Unreviewed. Fixing expectations for a no-longer-flaky test.
+
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-07  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Adjust and refactor some UA styles and logic for injecting Live Text
+        https://bugs.webkit.org/show_bug.cgi?id=238912
+        rdar://91383570
+
+        Reviewed by Aditya Keerthi.
+
+        Add a layout test to exercise "block"-style Live Text injection, in the case where the injected text contains
+        newlines. The resulting selected text should preserve the newline.
+
+        * fast/images/text-recognition/image-overlay-block-with-newlines-expected.txt: Added.
+        * fast/images/text-recognition/image-overlay-block-with-newlines.html: Added.
+
+2022-04-07  Alan Bujtas  <zalan@apple.com>
+
+        Fix the expected failure type.
+
+        Unreviewed.
+
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-07  Alan Bujtas  <zalan@apple.com>
+
+        A float avoider should never take a vertical position where a float is present even when its used width is zero
+        https://bugs.webkit.org/show_bug.cgi?id=238895
+
+        Reviewed by Antti Koivisto.
+
+        * TestExpectations: inline-size-bfc-floats.html: never produced correct rendering, the red box just happened to be hidden (which made this test pass).
+        * fast/block/float/float-avoider-with-zero-width-expected.html: Added.
+        * fast/block/float/float-avoider-with-zero-width.html: Added.
+
+2022-04-07  Tim Nguyen  <ntim@apple.com>
+
+        [:has() pseudo-class] Support invalidation for :autofill pseudo class
+        https://bugs.webkit.org/show_bug.cgi?id=238899
+
+        Reviewed by Antti Koivisto.
+
+        * fast/forms/input-autofilled-expected.txt:
+        * fast/forms/input-autofilled.html:
+
+2022-04-06  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        NBSP characters drawn in fonts that don't support the space character turn into boxes
+        https://bugs.webkit.org/show_bug.cgi?id=238836
+        <rdar://problem/91130503>
+
+        Reviewed by Alan Bujtas.
+
+        * fast/text/nbsp-no-space-expected.html: Added.
+        * fast/text/nbsp-no-space.html: Added.
+        * fast/text/resources/Ahem-nbsp-no-space.ttf: Added. Supports NBSP but not space.
+        * fast/text/resources/Ahem-visible-tab-and-space.ttf: Added. Has visible glyphs for tab and space.
+
+2022-04-06  Andres Gonzalez  <andresg_22@apple.com>
+
+        [ Mac ] accessibility/mac/expanded-notification.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238830
+        rdar://91313419
+
+        Reviewed by Chris Fleizach.
+
+        Fixes the flakiness by checking the number of notifications received in
+        the same async block where the changes are occuring. This now passes
+        with no flakiness in both isolated tree mode on and off.
+
+        * accessibility/mac/expanded-notification-expected.txt:
+        * accessibility/mac/expanded-notification.html:
+        * platform/mac/TestExpectations:
+
+2022-04-06  J Pascoe  <j_pascoe@apple.com>
+
+        Fix expected, actual links for variant-based imported wpt tests
+        https://bugs.webkit.org/show_bug.cgi?id=238832
+        rdar://problem/91313891
+
+        Reviewed by Brent Fulgham.
+
+        The changes to LayoutTests/fast/harness/results.html were wiped when
+        preparing https://bugs.webkit.org/show_bug.cgi?id=231544, causing the
+        links not to match. This patch fixes it.
+
+        * fast/harness/results.html:
+
+2022-04-06  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey ] fast/text/khmer-lao-font.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238917
+
+        Unreviewed test rebasline.
+
+        * platform/mac/fast/text/khmer-lao-font-expected.txt:
+
+2022-04-06  Matteo Flores  <matteo_flores@apple.com>
+
+        [ Mac , iOS Debug ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/resource-popup.https.html is a flaky failure.
+        https://bugs.webkit.org/show_bug.cgi?id=228127
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/TestExpectations:Fixed typo
+        * platform/mac-wk2/TestExpectations:Fixed typo
+
+2022-04-06  Jonathan Bedard  <jbedard@apple.com>
+
+        Remove Mojave references in TestExpectations
+        https://bugs.webkit.org/show_bug.cgi?id=238890
+        <rdar://problem/91375011>
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations: Remove Mojave references.
+        * platform/mac-wk2/TestExpectations: Ditto.
+        * platform/mac/TestExpectations: Ditto.
+
+2022-04-06  Jonathan Bedard  <jbedard@apple.com>
+
+        Remove Catalina references in TestExpectations
+        https://bugs.webkit.org/show_bug.cgi?id=238886
+        <rdar://problem/91373532>
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations: Remove Catalina references.
+        * platform/mac-wk2/TestExpectations: Ditto.
+        * platform/mac/TestExpectations: Ditto.
+
+2022-04-06  J Pascoe  <j_pascoe@apple.com>
+
+        pbkdf2.https.any.worker.html fails on WPE, GTK2 ports
+        https://bugs.webkit.org/show_bug.cgi?id=238885
+
+        Unreviewed test gardening.
+
+        * platform/gtk/TestExpectations:
+        * platform/wpe/TestExpectations:
+
+2022-04-06  Robert Jenner  <Jenner@apple.com>
+
+        [ Monterey wk2 Release ] imported/w3c/web-platform-tests/css/css-text/white-space/pre-wrap-012.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=238880
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations: Marked expectations as [ Pass ImageOnlyFailure ] while test is reviewed.
+
+2022-04-06  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] Text filled with pattern sometimes draw with incorrect color
+        https://bugs.webkit.org/show_bug.cgi?id=236924
+        rdar://89196811
+
+        Reviewed by Myles C. Maxfield.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-06  Oriol Brufau  <obrufau@igalia.com>
+
+        [css] Turn -webkit-border-image into a shorthand
+        https://bugs.webkit.org/show_bug.cgi?id=237487
+
+        Reviewed by Antti Koivisto.
+
+        Update tests to take into account that '-webkit-border-image' is a shorthand.
+
+        * fast/borders/border-image-legacy-expected.txt: Added.
+        * fast/borders/border-image-legacy.html: Added.
+        * fast/css/border-image-style-length-expected.txt:
+        * fast/css/border-image-style-length.html:
+        * fast/css/getComputedStyle/computed-style-expected.txt:
+        * fast/css/getComputedStyle/computed-style-without-renderer-expected.txt:
+        * fast/css/getComputedStyle/resources/property-names.js:
+        * fast/css/image-set-parsing-expected.txt:
+        * fast/css/image-set-parsing.html:
+        * fast/css/uri-token-parsing-expected.txt:
+        * fast/css/uri-token-parsing.html:
+        * platform/gtk/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * platform/ios/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/ios/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * platform/wpe/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/wpe/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * svg/css/getComputedStyle-basic-expected.txt:
+
+2022-04-06  Alan Bujtas  <zalan@apple.com>
+
+        [CSS-Contain] Grid layout should take "contain: inline-size" into account when computing the grid item's logical width
+        https://bugs.webkit.org/show_bug.cgi?id=238850
+
+        Reviewed by Antti Koivisto.
+
+        * TestExpectations:
+
+2022-04-06  Oriol Brufau  <obrufau@igalia.com>
+
+        [css] Turn -webkit-text-orientation into a legacy shorthand
+        https://bugs.webkit.org/show_bug.cgi?id=238356
+
+        Reviewed by Antti Koivisto.
+
+        * fast/text/text-orientation-parse-competition-expected.txt:
+        * fast/text/text-orientation-parse-competition.html:
+        Check that if a stylesheet specifies both -webkit-text-orientation and
+        text-orientation for the same element, the last specified one wins.
+
+        * fast/text/text-orientation-parse-stylesheet-expected.txt:
+        * fast/text/text-orientation-parse-stylesheet.html:
+        Check that only -webkit-text-orientation accepts `sideways-right`, and
+        that it's mapped to `sideways` at parse time.
+
+2022-04-06  Youenn Fablet  <youenn@apple.com>
+
+        Implement ServiceWorkerWindowClient.navigate
+        https://bugs.webkit.org/show_bug.cgi?id=238738
+
+        Reviewed by Chris Dumez.
+
+        * http/wpt/service-workers/navigate-iframes-window-client.https-expected.txt: Added.
+        * http/wpt/service-workers/navigate-iframes-window-client.https.html: Added.
+        * http/wpt/service-workers/navigate-window-client-worker.js: Added.
+        * platform/glib/TestExpectations:
+        * platform/glib/imported/w3c/web-platform-tests/service-workers/service-worker/windowclient-navigate.https-expected.txt: Removed.
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-05  Ada Chan  <adachan@apple.com>
+
+        [WebXR] Add a new enum type to represent session features
+        https://bugs.webkit.org/show_bug.cgi?id=238837
+
+        Reviewed by Dean Jackson.
+
+        Test listing "hand-tracking" as an optional feature while the device does not
+        support it allows the session to be created.
+        Test listing "hand-tracking" as a required feature while the device does not
+        support it would not create the session.
+
+        * http/wpt/webxr/resources/webxr_test_constants_single_view.js:
+        * http/wpt/webxr/xrDevice_requestSession_hand_tracking_feature.https-expected.txt: Added.
+        * http/wpt/webxr/xrDevice_requestSession_hand_tracking_feature.https.html: Added.
+
+2022-04-05  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Support transitions/animations on grid-template-columns|rows
+        https://bugs.webkit.org/show_bug.cgi?id=204580
+
+        Reviewed by Antoine Quint.
+
+        * TestExpectations:
+
+2022-04-05  Matteo Flores  <matteo_flores@apple.com>
+
+        [ Mac ] accessibility/mac/expanded-notification.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238830
+
+        Unreviewed test gardening.
+
+        * platform/mac/TestExpectations:
+
+2022-04-05  Tim Nguyen  <ntim@apple.com>
+
+        Re-import css/selectors WPT
+        https://bugs.webkit.org/show_bug.cgi?id=238820
+
+        Reviewed by Simon Fraser.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/ef2b67e4a79e8f8d37556533e6dc715d2c692a78
+
+        * TestExpectations:
+
+2022-04-05  Alan Bujtas  <zalan@apple.com>
+
+        [CSS-Contain] Flex layout should take "contain: inline-size" into account when computing the flex item's logical width
+        https://bugs.webkit.org/show_bug.cgi?id=238805
+
+        Reviewed by Antti Koivisto.
+
+        * TestExpectations:
+
+2022-04-05  Matteo Flores  <matteo_flores@apple.com>
+
+        [ iOS Mac ] http/tests/workers/service/openwindow-from-notification-click.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238824
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-04-05  Alan Bujtas  <zalan@apple.com>
+
+        [CSS-Contain] Add support for contain: inline-size
+        https://bugs.webkit.org/show_bug.cgi?id=238787
+
+        Reviewed by Antti Koivisto.
+
+        * TestExpectations:
+
+2022-04-05  Cameron McCormack  <heycam@apple.com>
+
+        Skip editing-word-with-marker-1.html
+        https://bugs.webkit.org/show_bug.cgi?id=238767
+
+        Unreviewed test gardening.
+
+        * TestExpectations:
+
+2022-04-05  Tim Nguyen  <ntim@apple.com>
+
+        [iOS] Add timeout expectations for focus-after-close.html WPT
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close-expected.txt: Added.
+
+2022-04-04  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] change the default appearance of button, checkbox etc. to 'auto'
+        https://bugs.webkit.org/show_bug.cgi?id=236012
+
+        Reviewed by Tim Nguyen.
+
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/rendering/widgets/appearance/default-styles-expected.txt: Removed.
+        * platform/mac-wk1/imported/w3c/web-platform-tests/html/rendering/widgets/appearance/default-styles-expected.txt: Removed.
+
+2022-04-04  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r291770-r291762): [ iOS ] css3/background/background-repeat-round-auto1.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=238781
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+
+2022-04-04  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r290676?): [ iOS ] media/video-played-ranges-1.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238771
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+
+2022-04-04  Matteo Flores  <matteo_flores@apple.com>
+
+        [ iOS ] http/wpt/mediarecorder/mute-tracks.html is a flaky crash
+        https://bugs.webkit.org/show_bug.cgi?id=238774
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+
+2022-04-04  Matt Woodrow  <mattwoodrow@apple.com>
+
+        intersectsWithAncestor should take fragmented boxes into account.
+        https://bugs.webkit.org/show_bug.cgi?id=238648
+
+        Reviewed by Dean Jackson.
+
+        * compositing/backing/backing-store-columns-inside-position-fixed-expected.txt: Added.
+        * compositing/backing/backing-store-columns-inside-position-fixed.html: Added.
+
+        Adds new test that scrolls content split into columns until the first column is offscreen, to confirm
+        that we still have a backing store.
+
+2022-04-04  Alan Bujtas  <zalan@apple.com>
+
+        [CSS-contain] Update select element based test failures.
+
+        Unreviewed.
+
+        * TestExpectations:
+
+2022-04-04  Tyler Wilcock  <tyler_w@apple.com>
+
+        AccessibilityNodeObject::elementRect should use children rects for display:contents AX objects
+        https://bugs.webkit.org/show_bug.cgi?id=238680
+
+        Reviewed by Chris Fleizach and Andres Gonzalez.
+
+        * accessibility/node-only-object-element-rect-expected.txt: Added.
+        * accessibility/node-only-object-element-rect.html: Added.
+        * platform/glib/accessibility/node-only-object-element-rect-expected.txt: Added.
+        * platform/ios/TestExpectations: Enable new test.
+        * platform/ios/accessibility/node-only-object-element-rect-expected.txt: Added.
+        * platform/win/accessibility/node-only-object-element-rect-expected.txt: Added.
+
+2022-04-04  J Pascoe  <j_pascoe@apple.com>
+
+        [ iOS 15 ] imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html is flaky timing out
+        https://bugs.webkit.org/show_bug.cgi?id=231544
+        rdar://problem/84122086
+
+        Reviewed by Brent Fulgham.
+
+        Remove timeout expectation.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-04  Tim Nguyen  <ntim@apple.com>
+
+        Conditionally inject <attachment> styles based on runtime flag
+        https://bugs.webkit.org/show_bug.cgi?id=238739
+
+        Reviewed by Tim Horton.
+
+        Update test expectations, now that display is no longer forced to inline-block by appearance, and now that
+        color is no longer unconditionally set on iOS to -apple-system-blue.
+
+        * fast/attachment/attachment-disabled-rendering-expected.txt:
+        * fast/attachment/attachment-disabled-rendering.html:
+        * platform/ios/fast/attachment/attachment-disabled-rendering-expected.txt: Removed.
+        * platform/mac/fast/attachment/attachment-disabled-rendering-expected.png:
+        * platform/win/fast/attachment/attachment-disabled-rendering-expected.txt: Removed.
+        * platform/wpe/fast/attachment/attachment-disabled-rendering-expected.txt: Removed.
+
 2022-04-04  Youenn Fablet  <youenn@apple.com>
 
         Service-Worker-Navigation-Preload header not being sent when Navigation Preload is enabled.

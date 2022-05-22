@@ -2874,7 +2874,7 @@ JSC_DEFINE_HOST_FUNCTION_WITH_ATTRIBUTES(functionCallWithStackSize, SUPPRESS_ASA
 
 #else // not ENABLE(ASSEMBLER)
     UNUSED_PARAM(callFrame);
-    return throwVMError(globalObject, throwScope, "Not supported for this platform");
+    return throwVMError(globalObject, throwScope, "Not supported for this platform"_s);
 #endif // ENABLE(ASSEMBLER)
 }
 
@@ -3150,7 +3150,7 @@ JSC_DEFINE_HOST_FUNCTION(functionCreateBuiltin, (JSGlobalObject* globalObject, C
     String functionText = asString(callFrame->argument(0))->value(globalObject);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
-    SourceCode source = makeSource(functionText, { });
+    SourceCode source = makeSource(WTFMove(functionText), { });
     JSFunction* func = JSFunction::create(vm, createBuiltinExecutable(vm, source, Identifier::fromString(vm, "foo"_s), ConstructorKind::None, ConstructAbility::CannotConstruct)->link(vm, nullptr, source), globalObject);
 
     return JSValue::encode(func);

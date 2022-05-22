@@ -77,7 +77,7 @@ RenderPtr<RenderElement> YouTubePluginReplacement::createElementRenderer(HTMLPlu
     return m_embedShadowElement->createElementRenderer(WTFMove(style), insertionPosition);
 }
 
-auto YouTubePluginReplacement::installReplacement(ShadowRoot& root) -> InstallResult
+void YouTubePluginReplacement::installReplacement(ShadowRoot& root)
 {
     m_embedShadowElement = YouTubeEmbedShadowElement::create(m_parentElement->document());
 
@@ -99,8 +99,6 @@ auto YouTubePluginReplacement::installReplacement(ShadowRoot& root) -> InstallRe
     // Disable frame flattening for this iframe.
     iframeElement->setAttributeWithoutSynchronization(HTMLNames::scrollingAttr, AtomString("no", AtomString::ConstructFromLiteral));
     m_embedShadowElement->appendChild(iframeElement);
-
-    return { true };
 }
     
 static URL createYouTubeURL(StringView videoID, StringView timeID)
@@ -171,6 +169,9 @@ static YouTubePluginReplacement::KeyValueMap queryKeysAndValues(StringView query
     
 static bool isYouTubeURL(const URL& url)
 {
+    if (!url.protocolIsInHTTPFamily())
+        return false;
+
     auto hostName = url.host();
     return equalLettersIgnoringASCIICase(hostName, "m.youtube.com")
         || equalLettersIgnoringASCIICase(hostName, "youtu.be")
@@ -191,8 +192,7 @@ static const String& valueForKey(const YouTubePluginReplacement::KeyValueMap& di
 
 static URL processAndCreateYouTubeURL(const URL& url, bool& isYouTubeShortenedURL, String& outPathAfterFirstAmpersand)
 {
-    if (!url.protocolIsInHTTPFamily())
-        return URL();
+    ASSERT(isYouTubeURL(url));
 
     // Bail out early if we aren't even on www.youtube.com or youtube.com.
     if (!isYouTubeURL(url))
@@ -284,10 +284,14 @@ String YouTubePluginReplacement::youTubeURL(const String& srcString)
 
 String YouTubePluginReplacement::youTubeURLFromAbsoluteURL(const URL& srcURL, const String& srcString)
 {
+    // Validate URL to make sure it is a Youtube URL.
+    if (!isYouTubeURL(srcURL))
+        return emptyString();
+
     bool isYouTubeShortenedURL = false;
     String possiblyMalformedQuery;
     URL youTubeURL = processAndCreateYouTubeURL(srcURL, isYouTubeShortenedURL, possiblyMalformedQuery);
-    if (srcURL.isEmpty() || youTubeURL.isEmpty())
+    if (youTubeURL.isEmpty())
         return srcString;
 
     // Transform the youtubeURL (youtube:VideoID) to iframe embed url which has the format: http://www.youtube.com/embed/VideoID

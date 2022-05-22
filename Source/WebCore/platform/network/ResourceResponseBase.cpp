@@ -118,7 +118,7 @@ ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& dat
     response.setURL(data.url);
     response.setMimeType(data.mimeType);
     response.setExpectedContentLength(data.expectedContentLength);
-    response.setTextEncodingName(data.textEncodingName);
+    response.setTextEncodingName(WTFMove(data.textEncodingName));
 
     response.setHTTPStatusCode(data.httpStatusCode);
     response.setHTTPStatusText(data.httpStatusText);
@@ -273,13 +273,13 @@ const String& ResourceResponseBase::textEncodingName() const
     return m_textEncodingName;
 }
 
-void ResourceResponseBase::setTextEncodingName(const String& encodingName)
+void ResourceResponseBase::setTextEncodingName(String&& encodingName)
 {
     lazyInit(CommonFieldsOnly);
     m_isNull = false;
 
     // FIXME: Text encoding is determined by HTTP Content-Type header. We should update the header, so that it doesn't disagree with m_textEncodingName.
-    m_textEncodingName = encodingName;
+    m_textEncodingName = WTFMove(encodingName);
 
     // FIXME: Should invalidate or update platform response if present.
 }
@@ -463,7 +463,7 @@ void ResourceResponseBase::sanitizeHTTPHeaderFieldsAccordingToTainting()
             return;
 
         m_httpHeaderFields.commonHeaders().removeAllMatching([&corsSafeHeaderSet](auto& header) {
-            return !isSafeCrossOriginResponseHeader(header.key) && !corsSafeHeaderSet.contains(httpHeaderNameString(header.key).toStringWithoutCopying());
+            return !isSafeCrossOriginResponseHeader(header.key) && !corsSafeHeaderSet.contains<ASCIICaseInsensitiveStringViewHashTranslator>(httpHeaderNameString(header.key));
         });
         m_httpHeaderFields.uncommonHeaders().removeAllMatching([&corsSafeHeaderSet](auto& header) { return !corsSafeHeaderSet.contains(header.key); });
         break;
@@ -503,7 +503,7 @@ bool ResourceResponseBase::isHTTP09() const
     return m_httpVersion.startsWith("HTTP/0.9");
 }
 
-String ResourceResponseBase::httpHeaderField(const String& name) const
+String ResourceResponseBase::httpHeaderField(StringView name) const
 {
     lazyInit(CommonFieldsOnly);
 
@@ -566,13 +566,18 @@ void ResourceResponseBase::updateHeaderParsedState(HTTPHeaderName name)
 
 void ResourceResponseBase::setHTTPHeaderField(const String& name, const String& value)
 {
-    lazyInit(AllFields);
-
     HTTPHeaderName headerName;
     if (findHTTPHeaderName(name, headerName))
-        updateHeaderParsedState(headerName);
+        setHTTPHeaderField(headerName, value);
+    else
+        setUncommonHTTPHeaderField(name, value);
+}
 
-    m_httpHeaderFields.set(name, value);
+void ResourceResponseBase::setUncommonHTTPHeaderField(const String& name, const String& value)
+{
+    lazyInit(AllFields);
+
+    m_httpHeaderFields.setUncommonHeader(name, value);
 
     // FIXME: Should invalidate or update platform response if present.
 }
@@ -607,10 +612,14 @@ void ResourceResponseBase::addHTTPHeaderField(const String& name, const String& 
     HTTPHeaderName headerName;
     if (findHTTPHeaderName(name, headerName))
         addHTTPHeaderField(headerName, value);
-    else {
-        lazyInit(AllFields);
-        m_httpHeaderFields.add(name, value);
-    }
+    else
+        addUncommonHTTPHeaderField(name, value);
+}
+
+void ResourceResponseBase::addUncommonHTTPHeaderField(const String& name, const String& value)
+{
+    lazyInit(AllFields);
+    m_httpHeaderFields.addUncommonHeader(name, value);
 }
 
 const HTTPHeaderMap& ResourceResponseBase::httpHeaderFields() const

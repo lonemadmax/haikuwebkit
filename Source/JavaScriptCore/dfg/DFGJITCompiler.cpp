@@ -40,6 +40,7 @@
 #include "JSCJSValueInlines.h"
 #include "LinkBuffer.h"
 #include "MaxFrameExtentForSlowPathCall.h"
+#include "ProbeContext.h"
 #include "ThunkGenerators.h"
 #include "VM.h"
 
@@ -110,7 +111,7 @@ void JITCompiler::compileEntry()
     // check) which will be dependent on stack layout. (We'd need to account for this in
     // both normal return code and when jumping to an exception handler).
     emitFunctionPrologue();
-    emitPutToCallFrameHeader(m_codeBlock, CallFrameSlot::codeBlock);
+    jitAssertCodeBlockOnCallFrameWithType(GPRInfo::regT2, JITType::DFGJIT);
 }
 
 void JITCompiler::compileSetupRegistersForEntry()
@@ -340,7 +341,8 @@ void JITCompiler::compile()
     if (maxFrameExtentForSlowPathCall)
         addPtr(TrustedImm32(-static_cast<int32_t>(maxFrameExtentForSlowPathCall)), stackPointerRegister);
 
-    m_speculative->callOperationWithCallFrameRollbackOnException(operationThrowStackOverflowError, m_codeBlock);
+    emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, GPRInfo::argumentGPR0);
+    m_speculative->callOperationWithCallFrameRollbackOnException(operationThrowStackOverflowError, GPRInfo::argumentGPR0);
 
     // Generate slow path code.
     m_speculative->runSlowPathGenerators(m_pcToCodeOriginMapBuilder);
@@ -413,7 +415,8 @@ void JITCompiler::compileFunction()
     if (maxFrameExtentForSlowPathCall)
         addPtr(TrustedImm32(-static_cast<int32_t>(maxFrameExtentForSlowPathCall)), stackPointerRegister);
 
-    m_speculative->callOperationWithCallFrameRollbackOnException(operationThrowStackOverflowError, m_codeBlock);
+    emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, GPRInfo::argumentGPR0);
+    m_speculative->callOperationWithCallFrameRollbackOnException(operationThrowStackOverflowError, GPRInfo::argumentGPR0);
     
     // The fast entry point into a function does not check the correct number of arguments
     // have been passed to the call (we only use the fast entry point where we can statically

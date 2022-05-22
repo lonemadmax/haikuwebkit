@@ -713,29 +713,29 @@ void WebPage::generateSyntheticEditingCommand(SyntheticEditingCommandType comman
     
     switch (command) {
     case SyntheticEditingCommandType::Undo:
-        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "z", "z",
-        "z", "KeyZ"_s,
-        @"U+005A", 90, false, false, false, modifiers, WallTime::now());
+        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "z"_s, "z"_s,
+        "z"_s, "KeyZ"_s,
+        "U+005A"_s, 90, false, false, false, modifiers, WallTime::now());
         break;
     case SyntheticEditingCommandType::Redo:
-        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "y", "y",
-        "y", "KeyY"_s,
-        @"U+0059", 89, false, false, false, modifiers, WallTime::now());
+        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "y"_s, "y"_s,
+        "y"_s, "KeyY"_s,
+        "U+0059"_s, 89, false, false, false, modifiers, WallTime::now());
         break;
     case SyntheticEditingCommandType::ToggleBoldface:
-        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "b", "b",
-        "b", "KeyB"_s,
-        @"U+0042", 66, false, false, false, modifiers, WallTime::now());
+        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "b"_s, "b"_s,
+        "b"_s, "KeyB"_s,
+        "U+0042"_s, 66, false, false, false, modifiers, WallTime::now());
         break;
     case SyntheticEditingCommandType::ToggleItalic:
-        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "i", "i",
-        "i", "KeyI"_s,
-        @"U+0049", 73, false, false, false, modifiers, WallTime::now());
+        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "i"_s, "i"_s,
+        "i"_s, "KeyI"_s,
+        "U+0049"_s, 73, false, false, false, modifiers, WallTime::now());
         break;
     case SyntheticEditingCommandType::ToggleUnderline:
-        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "u", "u",
-        "u", "KeyU"_s,
-        @"U+0055", 85, false, false, false, modifiers, WallTime::now());
+        keyEvent = PlatformKeyboardEvent(PlatformEvent::KeyDown, "u"_s, "u"_s,
+        "u"_s, "KeyU"_s,
+        "U+0055"_s, 85, false, false, false, modifiers, WallTime::now());
         break;
     default:
         break;
@@ -2565,9 +2565,9 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     VisiblePosition startPosition = frame->selection().selection().start();
     VisiblePosition endPosition = frame->selection().selection().end();
-    const unsigned minContextWordCount = 3;
-    const unsigned minContextLength = 12;
-    const unsigned maxContextLength = 30;
+    const unsigned minContextWordCount = 10;
+    const unsigned minContextLength = 40;
+    const unsigned maxContextLength = 100;
 
     if (frame->selection().isRange())
         selectedText = plainTextForContext(frame->selection().selection().toNormalizedRange());
@@ -2598,7 +2598,10 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
                     break;
                 contextStartPosition = previousPosition;
             }
-            if (contextStartPosition.isNotNull() && contextStartPosition != startPosition) {
+            VisiblePosition sentenceContextStartPosition = startOfSentence(startPosition);
+            if (sentenceContextStartPosition.isNotNull() && sentenceContextStartPosition < contextStartPosition)
+                contextStartPosition = sentenceContextStartPosition;
+            if (contextStartPosition.isNotNull() && contextStartPosition < startPosition) {
                 contextBefore = plainTextForContext(makeSimpleRange(contextStartPosition, startPosition));
                 if (atBoundaryOfGranularity(contextStartPosition, TextGranularity::ParagraphGranularity, SelectionDirection::Backward) && firstPositionInEditableContent != contextStartPosition)
                     contextBefore = makeString("\n "_s, contextBefore);
@@ -2606,10 +2609,9 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
         }
 
         if (endPosition != endOfEditableContent(endPosition)) {
-            VisiblePosition nextPosition;
-            if (!atBoundaryOfGranularity(endPosition, TextGranularity::WordGranularity, SelectionDirection::Forward) && withinTextUnitOfGranularity(endPosition, TextGranularity::WordGranularity, SelectionDirection::Forward))
-                nextPosition = positionOfNextBoundaryOfGranularity(endPosition, TextGranularity::WordGranularity, SelectionDirection::Forward);
-            contextAfter = plainTextForContext(makeSimpleRange(endPosition, nextPosition));
+            VisiblePosition nextPosition = endOfSentence(endPosition);
+            if (nextPosition.isNotNull() && nextPosition > endPosition)
+                contextAfter = plainTextForContext(makeSimpleRange(endPosition, nextPosition));
         }
     }
 
@@ -2692,24 +2694,6 @@ static inline bool isObscuredElement(Element& element)
         return false;
 
     return true;
-}
-
-void WebPage::getPositionInformation(const InteractionInformationRequest& request, CompletionHandler<void(InteractionInformationAtPosition&&)>&& reply)
-{
-    // Avoid UIProcess hangs when the WebContent process is stuck on a sync IPC.
-    if (IPC::UnboundedSynchronousIPCScope::hasOngoingUnboundedSyncIPC()) {
-        WEBPAGE_RELEASE_LOG_ERROR(Process, "getPositionInformation - Not processing because the process is stuck on unbounded sync IPC");
-        return reply({ });
-    }
-
-    sendEditorStateUpdate();
-
-    m_pendingSynchronousPositionInformationReply = WTFMove(reply);
-
-    auto information = positionInformation(request);
-
-    if (auto reply = WTFMove(m_pendingSynchronousPositionInformationReply))
-        reply(WTFMove(information));
 }
     
 static void focusedElementPositionInformation(WebPage& page, Element& focusedElement, const InteractionInformationRequest& request, InteractionInformationAtPosition& info)
@@ -4040,12 +4024,14 @@ void WebPage::applicationDidBecomeActive()
 
 void WebPage::applicationDidEnterBackgroundForMedia(bool isSuspendedUnderLock)
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationDidEnterBackgroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
+    if (auto* manager = PlatformMediaSessionManager::sharedManagerIfExists())
+        manager->applicationDidEnterBackground(isSuspendedUnderLock);
 }
 
 void WebPage::applicationWillEnterForegroundForMedia(bool isSuspendedUnderLock)
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationWillEnterForegroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
+    if (auto* manager = PlatformMediaSessionManager::sharedManagerIfExists())
+        manager->applicationWillEnterForeground(isSuspendedUnderLock);
 }
 
 static inline void adjustVelocityDataForBoundedScale(VelocityData& velocityData, double exposedRectScale, double minimumScale, double maximumScale)
@@ -4324,7 +4310,7 @@ String WebPage::platformUserAgent(const URL&) const
         return String();
 
     if (document->quirks().shouldAvoidUsingIOS13ForGmail() && osNameForUserAgent() == "iPhone OS")
-        return standardUserAgentWithApplicationName({ }, "12_1_3");
+        return standardUserAgentWithApplicationName({ }, "12_1_3"_s);
 
     return String();
 }

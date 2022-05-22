@@ -643,7 +643,8 @@ void RenderLayerBacking::updateTransform(const RenderStyle&)
     // baked into it, and we don't want that.
     TransformationMatrix t;
     if (m_owningLayer.hasTransform()) {
-        renderer().applyTransform(t, snapRectToDevicePixels(m_owningLayer.rendererBorderBoxRect(), deviceScaleFactor()), RenderStyle::individualTransformOperations);
+        // FIXME: This uses the wrong, transform-box unaware, geometry.
+        renderer().applyTransform(t, renderer().style(), snapRectToDevicePixels(m_owningLayer.rendererBorderBoxRect(), deviceScaleFactor()), RenderStyle::individualTransformOperations);
         makeMatrixRenderable(t, compositor().canRender3DTransforms());
     }
     
@@ -1830,7 +1831,7 @@ void RenderLayerBacking::updateEventRegion()
     };
 
     auto updateEventRegionForLayer = [&](GraphicsLayer& graphicsLayer) {
-        NullGraphicsContext nullContext(NullGraphicsContext::PaintInvalidationReasons::None);
+        NullGraphicsContext nullContext;
         EventRegion eventRegion;
 #if ENABLE(EDITABLE_REGION)
         if (renderer().page().shouldBuildEditableRegion())
@@ -2810,9 +2811,7 @@ static std::optional<bool> intersectsWithAncestor(const RenderLayer& child, cons
             return std::nullopt;
     }
 
-    auto offset = child.convertToLayerCoords(&ancestor, { }, RenderLayer::AdjustForColumns);
-    auto overlap = child.overlapBounds();
-    overlap.moveBy(offset);
+    auto overlap = child.boundingBox(&ancestor, child.offsetFromAncestor(&ancestor), RenderLayer::UseFragmentBoxesExcludingCompositing);
     return overlap.intersects(ancestorCompositedBounds);
 }
 

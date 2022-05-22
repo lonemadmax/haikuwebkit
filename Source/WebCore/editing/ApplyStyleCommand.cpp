@@ -65,7 +65,7 @@ static int toIdentifier(RefPtr<CSSValue>&& value)
 
 static String& styleSpanClassString()
 {
-    static NeverDestroyed<String> styleSpanClassString(AppleStyleSpanClass);
+    static NeverDestroyed<String> styleSpanClassString = String::fromLatin1(AppleStyleSpanClass);
     return styleSpanClassString;
 }
 
@@ -498,7 +498,7 @@ RefPtr<HTMLElement> ApplyStyleCommand::splitAncestorsWithUnicodeBidi(Node* node,
             if (!nextHighestAncestorWithUnicodeBidi)
                 return static_pointer_cast<HTMLElement>(WTFMove(highestAncestorWithUnicodeBidi));
 
-            unsplitAncestor = static_pointer_cast<HTMLElement>(highestAncestorWithUnicodeBidi);
+            unsplitAncestor = static_pointer_cast<HTMLElement>(WTFMove(highestAncestorWithUnicodeBidi));
             highestAncestorWithUnicodeBidi = nextHighestAncestorWithUnicodeBidi;
         }
     }

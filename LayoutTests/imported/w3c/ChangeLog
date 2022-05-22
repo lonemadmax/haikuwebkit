@@ -1,3 +1,595 @@
+2022-04-11  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        calc(): Propogate nan for min, max, clamp, and hypot
+        https://bugs.webkit.org/show_bug.cgi?id=238974
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-values/calc-catch-divide-by-0-expected.txt:
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-angle-expected.txt:
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-length-expected.txt:
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-time-expected.txt:
+
+2022-04-11  Youenn Fablet  <youenn@apple.com>
+
+        Expose more ServiceWorker interfaces to workers
+        https://bugs.webkit.org/show_bug.cgi?id=238992
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/notifications/idlharness.https.any.worker-expected.txt:
+        * web-platform-tests/push-api/idlharness.https.any.worker-expected.txt:
+        * web-platform-tests/service-workers/idlharness.https.any.sharedworker-expected.txt:
+        * web-platform-tests/service-workers/idlharness.https.any.worker-expected.txt:
+
+2022-04-08  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Search query containers for ::slotted and and ::part rules in their scope
+        https://bugs.webkit.org/show_bug.cgi?id=238997
+
+        Reviewed by Sam Weinig.
+
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom-expected.txt:
+
+2022-04-08  Alan Bujtas  <zalan@apple.com>
+
+        Do not use std::numeric_limits<float>::min() as the initial value to collect max values for glyph overflow
+        https://bugs.webkit.org/show_bug.cgi?id=238334
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/mathml/presentation-markup/operators/operator-dictionary-stretchy-001-expected.txt:
+        * web-platform-tests/mathml/presentation-markup/operators/operator-dictionary-stretchy-002-expected.txt:
+
+2022-04-08  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Incorrect CORP/COEP check in 304 responses
+        https://bugs.webkit.org/show_bug.cgi?id=238238
+        <rdar://problem/90706510>
+
+        Reviewed by Youenn Fablet.
+
+        Sync cross-origin-embedder-policy tests to include the new test require-corp-revalidated-images.https.html.
+
+        * web-platform-tests/html/cross-origin-embedder-policy/block-local-documents-inheriting-none.https.html:
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/cache-storage.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/cache-storage.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/cache-storage.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/cache.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/cache.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/cache.tentative.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/dedicated-worker.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/dedicated-worker.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/dedicated-worker.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/fetch.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/fetch.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/fetch.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-credentialless.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-credentialless.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-credentialless.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-none.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-none.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-none.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-require-corp.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-require-corp.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe-coep-require-corp.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/iframe.tentative.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/image.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/image.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/image.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/link.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/link.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/link.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/redirect.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/redirect.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/redirect.tentative.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/reporting-navigation.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/reporting-navigation.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/reporting-navigation.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/reporting-subresource-corp.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/reporting-subresource-corp.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/reporting-subresource-corp.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/script.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/script.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/script.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker-coep-credentialless-proxy.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker-coep-credentialless-proxy.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker-coep-credentialless-proxy.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker-coep-none-proxy.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker-coep-none-proxy.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker-coep-none-proxy.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/shared-worker.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/shared-worker.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/shared-worker.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/video.https.window.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/video.https.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/video.tentative.https.window.js.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/video.https.window.js.headers: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/video.tentative.https.window.js.headers.
+        * web-platform-tests/html/cross-origin-embedder-policy/credentialless/w3c-import.log:
+        * web-platform-tests/html/cross-origin-embedder-policy/dedicated-worker.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/dedicated-worker.https.html:
+        * web-platform-tests/html/cross-origin-embedder-policy/reporting-to-endpoint.https.html:
+        * web-platform-tests/html/cross-origin-embedder-policy/reporting-to-endpoint.https.html.headers:
+        * web-platform-tests/html/cross-origin-embedder-policy/require-corp-cached-images.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/require-corp-cached-images.https.html:
+        * web-platform-tests/html/cross-origin-embedder-policy/require-corp-revalidated-images.https-expected.txt: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/require-corp-revalidated-images.https.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/resources/corp-image.py:
+        (main):
+        * web-platform-tests/html/cross-origin-embedder-policy/resources/fetch-and-create-url.html: Added.
+        * web-platform-tests/html/cross-origin-embedder-policy/resources/load-corp-images.html:
+        * web-platform-tests/html/cross-origin-embedder-policy/resources/w3c-import.log:
+        * web-platform-tests/html/cross-origin-embedder-policy/resources/worker-support.js: Added.
+        (setCoep):
+        (resolveUrl):
+        (async withIframe):
+        (waitForMessage):
+        (async createLocalUrl):
+        * web-platform-tests/html/cross-origin-embedder-policy/shared-workers.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/shared-workers.https.html:
+        * web-platform-tests/html/cross-origin-embedder-policy/w3c-import.log:
+
+2022-04-07  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Evaluate against shadow-including ancestors
+        https://bugs.webkit.org/show_bug.cgi?id=238934
+
+        Reviewed by Tim Nguyen.
+
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom.html:
+
+        Add declarative shadow DOM polyfill.
+
+2022-04-07  Tim Nguyen  <ntim@apple.com>
+
+        [:has() pseudo-class] Support invalidation for :indeterminate pseudo class on <progress>
+        https://bugs.webkit.org/show_bug.cgi?id=238923
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/selectors/invalidation/input-pseudo-classes-in-has-expected.txt:
+        * web-platform-tests/css/selectors/invalidation/input-pseudo-classes-in-has.html:
+
+2022-04-07  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r291509): imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238920
+
+        Reviewed by Cameron McCormack.
+
+        Fixed typo.
+
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html:
+
+2022-04-07  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Grid items that establish an independent formatting context should not be subgrids.
+        https://bugs.webkit.org/show_bug.cgi?id=237692
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/css-grid/subgrid/abs-pos-003-expected.html: Removed.
+        * web-platform-tests/css/css-grid/subgrid/abs-pos-003.html: Removed.
+        * web-platform-tests/css/css-grid/subgrid/abs-pos-004-expected.html: Removed.
+        * web-platform-tests/css/css-grid/subgrid/abs-pos-004.html: Removed.
+        * web-platform-tests/css/css-grid/subgrid/independent-formatting-context-expected.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/independent-formatting-context.html: Added.
+
+        Removes tests that expect position:absolute combined with grid-template-X: subgrid to work.
+        Adds new test to confirm that elements that establish an independent formatting context can't
+        also be a subgrid.
+
+2022-04-06  Tim Nguyen  <ntim@apple.com>
+
+        [:has() pseudo-class] Support invalidation for :placeholder-shown
+        https://bugs.webkit.org/show_bug.cgi?id=238894
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/selectors/invalidation/input-pseudo-classes-in-has-expected.txt:
+
+2022-04-06  Oriol Brufau  <obrufau@igalia.com>
+
+        [css] Turn -webkit-border-image into a shorthand
+        https://bugs.webkit.org/show_bug.cgi?id=237487
+
+        Reviewed by Antti Koivisto.
+
+        Update tests to take into account that '-webkit-border-image' is a shorthand.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-04-06  Tim Nguyen  <ntim@apple.com>
+
+        [:has() pseudo-class] Support invalidation for more input pseudo classes
+        https://bugs.webkit.org/show_bug.cgi?id=238451
+
+        Reviewed by Antti Koivisto.
+
+        - :indeterminate
+        - :read-only
+        - :read-write
+        - :required
+        - :optional
+
+        Split the test in multiple subtests.
+
+        * web-platform-tests/css/selectors/invalidation/input-pseudo-classes-in-has-expected.txt:
+        * web-platform-tests/css/selectors/invalidation/input-pseudo-classes-in-has.html:
+
+2022-04-06  Youenn Fablet  <youenn@apple.com>
+
+        Implement ServiceWorkerWindowClient.navigate
+        https://bugs.webkit.org/show_bug.cgi?id=238738
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/windowclient-navigate.https-expected.txt:
+
+2022-04-05  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Support transitions/animations on grid-template-columns|rows
+        https://bugs.webkit.org/show_bug.cgi?id=204580
+        
+        Reviewed by Antoine Quint.
+
+        Update expectation files for newly passing tests.
+
+        * web-platform-tests/css/css-grid/animation/grid-template-columns-interpolation-expected.txt:
+        * web-platform-tests/css/css-grid/animation/grid-template-rows-interpolation-expected.txt:
+
+2022-04-05  Tim Nguyen  <ntim@apple.com>
+
+        Re-import css/selectors WPT
+        https://bugs.webkit.org/show_bug.cgi?id=238820
+
+        Reviewed by Simon Fraser.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/ef2b67e4a79e8f8d37556533e6dc715d2c692a78
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/selectors/any-link-dynamic-001-ref.html: Added.
+        * web-platform-tests/css/selectors/child-indexed-no-parent-expected.html: Added.
+        * web-platform-tests/css/selectors/child-indexed-no-parent-ref.html: Added.
+        * web-platform-tests/css/selectors/child-indexed-no-parent.html: Added.
+        * web-platform-tests/css/selectors/dir-selector-auto-direction-change-001-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-auto-direction-change-001-expected.xht.
+        * web-platform-tests/css/selectors/dir-selector-auto-direction-change-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-auto-direction-change-001.html.
+        * web-platform-tests/css/selectors/dir-selector-auto-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-auto-expected.txt.
+        * web-platform-tests/css/selectors/dir-selector-auto.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-auto.html.
+        * web-platform-tests/css/selectors/dir-selector-change-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-001-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-change-001-ref.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-003-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-change-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-001.html.
+        * web-platform-tests/css/selectors/dir-selector-change-002-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-002-expected.xht.
+        * web-platform-tests/css/selectors/dir-selector-change-002.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-002.html.
+        * web-platform-tests/css/selectors/dir-selector-change-003-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-001-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-change-003-ref.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-001-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-change-003.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-003.html.
+        * web-platform-tests/css/selectors/dir-selector-change-004-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-004-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-change-004-ref.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-004-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-change-004.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-004.html.
+        * web-platform-tests/css/selectors/dir-selector-ltr-001-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-ltr-001-expected.xht.
+        * web-platform-tests/css/selectors/dir-selector-ltr-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-ltr-001.html.
+        * web-platform-tests/css/selectors/dir-selector-ltr-002-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-ltr-002-expected.xht.
+        * web-platform-tests/css/selectors/dir-selector-ltr-002.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-ltr-002.html.
+        * web-platform-tests/css/selectors/dir-selector-ltr-003-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-ltr-003-expected.xht.
+        * web-platform-tests/css/selectors/dir-selector-ltr-003.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-ltr-003.html.
+        * web-platform-tests/css/selectors/dir-selector-querySelector-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-querySelector-expected.txt.
+        * web-platform-tests/css/selectors/dir-selector-querySelector.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-querySelector.html.
+        * web-platform-tests/css/selectors/dir-selector-rtl-001-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-rtl-001-expected.xht.
+        * web-platform-tests/css/selectors/dir-selector-rtl-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-rtl-001.html.
+        * web-platform-tests/css/selectors/dir-selector-white-space-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-white-space-001-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-white-space-001-ref.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-white-space-001-expected.html.
+        * web-platform-tests/css/selectors/dir-selector-white-space-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-white-space-001.html.
+        * web-platform-tests/css/selectors/dir-style-01-ref.html: Added.
+        * web-platform-tests/css/selectors/dir-style-01a-expected.html: Added.
+        * web-platform-tests/css/selectors/dir-style-01a.html: Added.
+        * web-platform-tests/css/selectors/dir-style-01b-expected.html: Added.
+        * web-platform-tests/css/selectors/dir-style-01b.html: Added.
+        * web-platform-tests/css/selectors/dir-style-02-ref.html: Added.
+        * web-platform-tests/css/selectors/dir-style-02a-expected.html: Added.
+        * web-platform-tests/css/selectors/dir-style-02a.html: Added.
+        * web-platform-tests/css/selectors/dir-style-02b-expected.html: Added.
+        * web-platform-tests/css/selectors/dir-style-02b.html: Added.
+        * web-platform-tests/css/selectors/dir-style-03-ref.html: Added.
+        * web-platform-tests/css/selectors/dir-style-03a-expected.html: Added.
+        * web-platform-tests/css/selectors/dir-style-03a.html: Added.
+        * web-platform-tests/css/selectors/dir-style-03b-expected.html: Added.
+        * web-platform-tests/css/selectors/dir-style-03b.html: Added.
+        * web-platform-tests/css/selectors/dir-style-04-expected.html: Added.
+        * web-platform-tests/css/selectors/dir-style-04-ref.html: Added.
+        * web-platform-tests/css/selectors/dir-style-04.html: Added.
+        * web-platform-tests/css/selectors/first-letter-flag-001-ref.html: Added.
+        * web-platform-tests/css/selectors/first-line-bidi-001-ref.html: Added.
+        * web-platform-tests/css/selectors/first-line-bidi-002-ref.html: Added.
+        * web-platform-tests/css/selectors/floating-first-letter-ref.html: Added.
+        * web-platform-tests/css/selectors/focus-display-none-001.html:
+        * web-platform-tests/css/selectors/focus-within-001-ref.html: Added.
+        * web-platform-tests/css/selectors/focus-within-006-ref.html: Added.
+        * web-platform-tests/css/selectors/focus-within-007-ref.html: Added.
+        * web-platform-tests/css/selectors/focus-within-011-expected.html: Added.
+        * web-platform-tests/css/selectors/focus-within-011-ref.html: Added.
+        * web-platform-tests/css/selectors/focus-within-011.html: Added.
+        * web-platform-tests/css/selectors/focus-within-012-expected.html: Added.
+        * web-platform-tests/css/selectors/focus-within-012-ref.html: Added.
+        * web-platform-tests/css/selectors/focus-within-012.html: Added.
+        * web-platform-tests/css/selectors/focus-within-013-expected.html: Added.
+        * web-platform-tests/css/selectors/focus-within-013-ref.html: Added.
+        * web-platform-tests/css/selectors/focus-within-013.html: Added.
+        * web-platform-tests/css/selectors/focus-within-display-none-001.html:
+        * web-platform-tests/css/selectors/focus-within-shadow-001-ref.html: Added.
+        * web-platform-tests/css/selectors/invalidation/class-id-attr-expected.html: Added.
+        * web-platform-tests/css/selectors/invalidation/class-id-attr-ref.html: Added.
+        * web-platform-tests/css/selectors/invalidation/class-id-attr.html: Added.
+        * web-platform-tests/css/selectors/invalidation/input-pseudo-classes-in-has-expected.txt: Added.
+        * web-platform-tests/css/selectors/invalidation/input-pseudo-classes-in-has.html: Added.
+        * web-platform-tests/css/selectors/invalidation/location-pseudo-classes-in-has-expected.txt: Added.
+        * web-platform-tests/css/selectors/invalidation/location-pseudo-classes-in-has.html: Added.
+        * web-platform-tests/css/selectors/invalidation/sheet-going-away-002-ref.html: Added.
+        * web-platform-tests/css/selectors/invalidation/user-action-pseudo-classes-in-has-expected.txt: Added.
+        * web-platform-tests/css/selectors/invalidation/user-action-pseudo-classes-in-has.html: Added.
+        * web-platform-tests/css/selectors/invalidation/w3c-import.log:
+        * web-platform-tests/css/selectors/is-where-pseudo-elements-ref.html: Added.
+        * web-platform-tests/css/selectors/is-where-visited-ref.html: Added.
+        * web-platform-tests/css/selectors/nesting-ref.html: Added.
+        * web-platform-tests/css/selectors/not-links-ref.html: Added.
+        * web-platform-tests/css/selectors/of-type-selectors-ref.xhtml: Added.
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-1.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-10.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-11.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-13.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-14.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-144.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-148.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-149.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-149b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-14b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-14c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-14d.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-14e.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-15.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-150.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-151.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-152.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-154.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-155.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-155a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-155b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-155c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-155d.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-156.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-156b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-156c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-157.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-158.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-15b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-160.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-166.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-166a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-167.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-167a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-168.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-168a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-169.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-169a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-170.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-170a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-170b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-170c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-170d.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-175a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-175b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-175c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-176.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-177b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-178.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-179.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-179a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-180a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-181.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-183.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-184-ref.xht: Added.
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-184a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-184b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-184c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-184d.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-184e.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-184f.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-2.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-21b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-21c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-22.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-25.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-27.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-27a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-27b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-28.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-28b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-29.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-29b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-30.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-31.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-32.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-33.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-34.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-35.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-36.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-37.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-38.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-39.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-39a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-39b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-39c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-3a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-4.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-41.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-41a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-42.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-42a.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-43.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-43b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-44.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-44b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-44c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-44d.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-45.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-45b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-45c.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-46.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-46b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-5.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-54.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-55.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-56.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-59.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-6.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-60.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-66b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-67.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-7.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-70.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-72.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-72b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-73.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-73b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-74.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-74b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-75.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-75b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-76.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-76b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-77.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-77b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-78.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-78b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-79.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-7b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-8.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-80.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-81.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-81b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-82.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-82b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-83-ref.xml: Added.
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-86.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-87.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-87b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-88.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-88b.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-89.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-9.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-90.xml:
+        * web-platform-tests/css/selectors/old-tests/css3-modsel-90b.xml:
+        * web-platform-tests/css/selectors/old-tests/w3c-import.log:
+        * web-platform-tests/css/selectors/remove-hovered-element-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-placeholder-shown-type-change-001-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-placeholder-shown-type-change-002-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-placeholder-shown-type-change-003-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-read-write-type-change-001-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-read-write-type-change-002-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-required-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-required-type-change-001-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-required-type-change-002-ref.html: Added.
+        * web-platform-tests/css/selectors/selector-structural-pseudo-root-ref.html: Added.
+        * web-platform-tests/css/selectors/selectors-attr-white-space-001-ref.html: Added.
+        * web-platform-tests/css/selectors/selectors-empty-001-ref.xml: Added.
+        * web-platform-tests/css/selectors/selectors-namespace-001-ref.xml: Added.
+        * web-platform-tests/css/selectors/sharing-in-svg-use-ref.html: Added.
+        * web-platform-tests/css/selectors/visited-inheritance-expected.html: Added.
+        * web-platform-tests/css/selectors/visited-inheritance-ref.html: Added.
+        * web-platform-tests/css/selectors/visited-inheritance.html: Added.
+        * web-platform-tests/css/selectors/w3c-import.log:
+        * web-platform-tests/css/selectors/xml-class-selector-ref.xml: Added.
+
+2022-04-05  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        [macOS][selectors] :focus-visible matching on button focused via script (after clicking on a different button)
+        https://bugs.webkit.org/show_bug.cgi?id=236782
+        <rdar://problem/89382543>
+
+        Reviewed by Antti Koivisto.
+
+        Add specific test for <button> element.
+
+        * web-platform-tests/css/selectors/focus-visible-script-focus-008-b-expected.txt: Added.
+        * web-platform-tests/css/selectors/focus-visible-script-focus-008-b.html: Added.
+
+2022-04-05  Alan Bujtas  <zalan@apple.com>
+
+        [CSS-Contain] Add support for contain: inline-size
+        https://bugs.webkit.org/show_bug.cgi?id=238787
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/css-contain/parsing/contain-computed-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-valid-expected.txt:
+
+2022-04-05  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Support rendering url(), CSS basic shapes other than path(), and coord-box for offset-path
+        https://bugs.webkit.org/show_bug.cgi?id=233382
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/motion/offset-path-shape-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-shape.html: Added.
+        * web-platform-tests/css/motion/offset-path-url-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-url.html: Added.
+
+2022-04-04  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] change the default appearance of button, checkbox etc. to 'auto'
+        https://bugs.webkit.org/show_bug.cgi?id=236012
+
+        Reviewed by Tim Nguyen.
+
+        * web-platform-tests/html/rendering/widgets/appearance/default-styles-expected.txt:
+
+2022-04-04  J Pascoe  <j_pascoe@apple.com>
+
+        [ iOS 15 ] imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html is flaky timing out
+        https://bugs.webkit.org/show_bug.cgi?id=231544
+        rdar://problem/84122086
+
+        Reviewed by Brent Fulgham.
+
+        Update expectations to account for variant metadata.
+
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any-expected.txt: Removed.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any.html:
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any.worker-expected.txt: Removed.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any.worker.html:
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any.worker_1-1000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any.worker_1001-2000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any.worker_2001-3000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any.worker_3001-last-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any_1-1000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any_1001-2000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any_2001-3000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/hkdf.https.any_3001-last-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any-expected.txt: Removed.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.html:
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker-expected.txt: Removed.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html:
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_1-1000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_1001-2000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_2001-3000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_3001-4000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_4001-5000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_5001-6000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_6001-7000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_7001-8000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker_8001-last-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_1-1000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_1001-2000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_2001-3000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_3001-4000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_4001-5000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_5001-6000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_6001-7000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_7001-8000-expected.txt: Added.
+        * web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any_8001-last-expected.txt: Added.
+
+2022-04-04  Tim Nguyen  <ntim@apple.com>
+
+        Make focus-after-close.html WPT pass
+        https://bugs.webkit.org/show_bug.cgi?id=233525
+
+        Reviewed by Simon Fraser.
+
+        The last subtest doesn't pass, because WebKit intentionally differs from other browsers by scrolling
+        to the focused element asynchronously (see bug 181575). Wait for a scroll event + tick to make it pass.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close.html:
+
 2022-04-04  Youenn Fablet  <youenn@apple.com>
 
         CORS: Allow particular Range header values without a preflight

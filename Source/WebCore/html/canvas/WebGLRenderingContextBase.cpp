@@ -1904,8 +1904,7 @@ GCGLenum WebGLRenderingContextBase::checkFramebufferStatus(GCGLenum target)
     const char* reason = "framebuffer incomplete";
     GCGLenum result = targetFramebuffer->checkStatus(&reason);
     if (result != GraphicsContextGL::FRAMEBUFFER_COMPLETE) {
-        String str = "WebGL: checkFramebufferStatus:" + String(reason);
-        printToConsole(MessageLevel::Warning, str);
+        printToConsole(MessageLevel::Warning, makeString("WebGL: checkFramebufferStatus: ", reason));
         return result;
     }
     result = m_context->checkFramebufferStatus(target);
@@ -7837,7 +7836,7 @@ ImageBuffer* WebGLRenderingContextBase::LRUImageBufferCache::imageBuffer(const I
     }
 
     // FIXME (149423): Should this ImageBuffer be unconditionally unaccelerated?
-    auto temp = ImageBuffer::create(size, RenderingMode::Unaccelerated, 1, colorSpace, PixelFormat::BGRA8);
+    auto temp = ImageBuffer::create(size, RenderingPurpose::Unspecified, 1, colorSpace, PixelFormat::BGRA8);
     if (!temp)
         return nullptr;
     ASSERT(m_buffers.size() > 0);

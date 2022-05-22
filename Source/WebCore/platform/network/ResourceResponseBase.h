@@ -100,7 +100,7 @@ public:
     WEBCORE_EXPORT void setExpectedContentLength(long long expectedContentLength);
 
     WEBCORE_EXPORT const String& textEncodingName() const;
-    WEBCORE_EXPORT void setTextEncodingName(const String& name);
+    WEBCORE_EXPORT void setTextEncodingName(String&&);
 
     WEBCORE_EXPORT int httpStatusCode() const;
     WEBCORE_EXPORT void setHTTPStatusCode(int);
@@ -119,13 +119,15 @@ public:
     enum class SanitizationType { Redirection, RemoveCookies, CrossOriginSafe };
     WEBCORE_EXPORT void sanitizeHTTPHeaderFields(SanitizationType);
 
-    String httpHeaderField(const String& name) const;
+    String httpHeaderField(StringView name) const;
     WEBCORE_EXPORT String httpHeaderField(HTTPHeaderName) const;
     WEBCORE_EXPORT void setHTTPHeaderField(const String& name, const String& value);
+    WEBCORE_EXPORT void setUncommonHTTPHeaderField(const String& name, const String& value);
     WEBCORE_EXPORT void setHTTPHeaderField(HTTPHeaderName, const String& value);
 
     WEBCORE_EXPORT void addHTTPHeaderField(HTTPHeaderName, const String& value);
     WEBCORE_EXPORT void addHTTPHeaderField(const String& name, const String& value);
+    WEBCORE_EXPORT void addUncommonHTTPHeaderField(const String& name, const String& value);
 
     // Instead of passing a string literal to any of these functions, just use a HTTPHeaderName instead.
     template<size_t length> String httpHeaderField(const char (&)[length]) const = delete;

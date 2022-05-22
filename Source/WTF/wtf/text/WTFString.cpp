@@ -67,12 +67,6 @@ String::String(const char* characters, unsigned length)
 }
 
 // Construct a string with Latin-1 data, from a null-terminated source.
-String::String(const LChar* nullTerminatedString)
-{
-    if (nullTerminatedString)
-        m_impl = StringImpl::create(nullTerminatedString);
-}
-
 String::String(const char* nullTerminatedString)
 {
     if (nullTerminatedString)
@@ -895,7 +889,7 @@ void String::show() const
 String* string(const char* s)
 {
     // Intentionally leaks memory!
-    return new String(s);
+    return new String(String::fromLatin1(s));
 }
 
 Vector<char> asciiDebug(StringImpl* impl)

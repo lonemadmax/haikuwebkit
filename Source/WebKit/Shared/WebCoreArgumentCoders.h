@@ -106,6 +106,10 @@ class MachSendRight;
 }
 #endif
 
+#if USE(UNIX_DOMAIN_SOCKETS)
+#include <wtf/unix/UnixFileDescriptor.h>
+#endif
+
 OBJC_CLASS VKCImageAnalysis;
 
 #if USE(AVFOUNDATION)
@@ -839,6 +843,16 @@ template<> struct ArgumentCoder<RetainPtr<CVPixelBufferRef>> {
 
 #endif
 
+#if USE(UNIX_DOMAIN_SOCKETS)
+
+template<> struct ArgumentCoder<UnixFileDescriptor> {
+    static void encode(Encoder&, const UnixFileDescriptor&);
+    static void encode(Encoder&, UnixFileDescriptor&&);
+    static std::optional<UnixFileDescriptor> decode(Decoder&);
+};
+
+#endif
+
 } // namespace IPC
 
 namespace WTF {
@@ -848,6 +862,17 @@ template<> struct EnumTraits<WebCore::RenderingMode> {
         WebCore::RenderingMode,
         WebCore::RenderingMode::Unaccelerated,
         WebCore::RenderingMode::Accelerated
+    >;
+};
+
+template<> struct EnumTraits<WebCore::RenderingPurpose> {
+    using values = EnumValues<
+        WebCore::RenderingPurpose,
+        WebCore::RenderingPurpose::Unspecified,
+        WebCore::RenderingPurpose::Canvas,
+        WebCore::RenderingPurpose::DOM,
+        WebCore::RenderingPurpose::LayerBacking,
+        WebCore::RenderingPurpose::MediaPainting
     >;
 };
 

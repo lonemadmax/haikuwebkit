@@ -1029,10 +1029,6 @@ void WebProcess::isJITEnabled(CompletionHandler<void(bool)>&& completionHandler)
     completionHandler(JSC::Options::useJIT());
 }
 
-void WebProcess::refreshPlugins()
-{
-}
-
 void WebProcess::garbageCollectJavaScriptObjects()
 {
     GCController::singleton().garbageCollectNow();
@@ -2207,6 +2203,7 @@ bool WebProcess::shouldUseRemoteRenderingFor(RenderingPurpose purpose)
     case RenderingPurpose::Canvas:
         return m_useGPUProcessForCanvasRendering;
     case RenderingPurpose::DOM:
+    case RenderingPurpose::LayerBacking:
         return m_useGPUProcessForDOMRendering;
     case RenderingPurpose::MediaPainting:
         return m_useGPUProcessForMedia;

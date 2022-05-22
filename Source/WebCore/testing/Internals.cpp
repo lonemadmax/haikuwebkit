@@ -586,7 +586,7 @@ void Internals::resetToConsistentState(Page& page)
     page.setOutsideViewportThrottlingEnabledForTesting(false);
 
 #if USE(QUICK_LOOK)
-    MockPreviewLoaderClient::singleton().setPassword("");
+    MockPreviewLoaderClient::singleton().setPassword(emptyString());
     LegacyPreviewLoader::setClientForTesting(nullptr);
 #endif
 
@@ -6198,7 +6198,7 @@ void Internals::testDictionaryLogging()
         return;
 
     DiagnosticLoggingClient::ValueDictionary dictionary;
-    dictionary.set("stringKey"_s, String("stringValue"));
+    dictionary.set("stringKey"_s, String("stringValue"_s));
     dictionary.set("uint64Key"_s, std::numeric_limits<uint64_t>::max());
     dictionary.set("int64Key"_s, std::numeric_limits<int64_t>::min());
     dictionary.set("boolKey"_s, true);

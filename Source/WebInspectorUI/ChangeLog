@@ -1,3 +1,68 @@
+2022-04-08  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Avoid targeting 32-bit iOS and Mac architectures
+        https://bugs.webkit.org/show_bug.cgi?id=238971
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-04-08  Elliott Williams  <emw@apple.com>
+
+        Unreviewed, reverting r292591.
+
+        Causing spurious EWS errors
+
+        Reverted changeset:
+
+        "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        https://commits.webkit.org/r292591
+
+2022-04-08  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Web Inspector: Use computedStyleMap() instead of deprecated getPropertyCSSValue()
+        https://bugs.webkit.org/show_bug.cgi?id=238661
+
+        Reviewed by Devin Rousso.
+
+        Add Element.getComputedCSSPropertyNumberValue() instead of using computedStyleMap() directly to have a fallback
+        in case CSS_TYPED_OM is disabled in build.
+
+        * UserInterface/Base/Utilities.js:
+        (get return):
+        * UserInterface/Views/DataGridNode.js:
+        (WI.DataGridNode.prototype.isEventWithinDisclosureTriangle):
+        * UserInterface/Views/TabBar.js:
+        (WI.TabBar.prototype._handleMouseMoved.inlineStyleValue):
+        (WI.TabBar.prototype._handleMouseMoved):
+        * UserInterface/Views/TreeElement.js:
+        (WI.TreeElement.prototype.isEventWithinDisclosureTriangle):
+
+2022-04-07  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Enable dependency validation by default
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-04-05  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Regression(r291729) The result of logging $0 to the console shows overlapping `$0` and `$[n]` after the node
+        https://bugs.webkit.org/show_bug.cgi?id=238843
+
+        Reviewed by Devin Rousso.
+
+        r291729 was missing a check that the `DOMTreeOutline` is actually supposed to show an indicator for the
+        inspected node, which means other uses of `DOMTreeOutline` (the console, the sources tab, etc.) were showing the
+        $0 indicator as well.
+
+        * UserInterface/Views/DOMTreeOutline.js:
+        (WI.DOMTreeOutline.prototype.update):
+
 2022-04-01  Michael Saboff  <msaboff@apple.com>
 
         Stop copying StagedFrameworks to the secondary path by default

@@ -328,9 +328,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             done.append(jit.jump());
 
             isDouble.link(&jit);
-            jit.move(JIT::TrustedImm64(JSValue::NumberTag), GPRInfo::returnValueGPR2);
-            jit.add64(GPRInfo::returnValueGPR2, GPRInfo::returnValueGPR);
-            jit.move64ToDouble(GPRInfo::returnValueGPR, dest);
+            jit.unboxDoubleWithoutAssertions(GPRInfo::returnValueGPR, GPRInfo::returnValueGPR2, dest, DoNotHaveTagRegisters);
             jit.convertDoubleToFloat(dest, dest);
             done.append(jit.jump());
 
@@ -359,9 +357,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             done.append(jit.jump());
 
             isDouble.link(&jit);
-            jit.move(JIT::TrustedImm64(JSValue::NumberTag), GPRInfo::returnValueGPR2);
-            jit.add64(GPRInfo::returnValueGPR2, GPRInfo::returnValueGPR);
-            jit.move64ToDouble(GPRInfo::returnValueGPR, dest);
+            jit.unboxDoubleWithoutAssertions(GPRInfo::returnValueGPR, GPRInfo::returnValueGPR2, dest, DoNotHaveTagRegisters);
             done.append(jit.jump());
 
             notANumber.link(&jit);
@@ -393,7 +389,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             jit.loadWasmContextInstance(wasmContextInstanceGPR);
         }
 
-        jit.setupArguments<decltype(operationIterateResults)>(wasmContextInstanceGPR, &signature, GPRInfo::returnValueGPR, CCallHelpers::stackPointerRegister, CCallHelpers::framePointerRegister);
+        jit.setupArguments<decltype(operationIterateResults)>(wasmContextInstanceGPR, CCallHelpers::TrustedImmPtr(&signature), GPRInfo::returnValueGPR, CCallHelpers::stackPointerRegister, CCallHelpers::framePointerRegister);
         jit.callOperation(FunctionPtr<OperationPtrTag>(operationIterateResults));
         exceptionChecks.append(jit.emitJumpIfException(vm));
 

@@ -225,7 +225,7 @@ static Ref<CSSValue> valueForNinePieceImageRepeat(const NinePieceImage& image)
     return cssValuePool.createValue(Pair::create(WTFMove(horizontalRepeat), WTFMove(verticalRepeat)));
 }
 
-static Ref<CSSValue> valueForNinePieceImage(const NinePieceImage& image, const RenderStyle& style)
+static RefPtr<CSSValue> valueForNinePieceImage(CSSPropertyID propertyID, const NinePieceImage& image, const RenderStyle& style)
 {
     if (!image.hasImage())
         return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
@@ -234,10 +234,17 @@ static Ref<CSSValue> valueForNinePieceImage(const NinePieceImage& image, const R
     if (image.image())
         imageValue = image.image()->cssValue();
 
+    // -webkit-border-image has a legacy behavior that makes fixed border slices also set the border widths.
+    const LengthBox& slices = image.borderSlices();
+    bool overridesBorderWidths = propertyID == CSSPropertyWebkitBorderImage && (slices.top().isFixed() || slices.right().isFixed() || slices.bottom().isFixed() || slices.left().isFixed());
+    if (overridesBorderWidths != image.overridesBorderWidths())
+        return nullptr;
+
     auto imageSlices = valueForNinePieceImageSlice(image);
-    auto borderSlices = valueForNinePieceImageQuad(image.borderSlices(), style);
+    auto borderSlices = valueForNinePieceImageQuad(slices, style);
     auto outset = valueForNinePieceImageQuad(image.outset(), style);
     auto repeat = valueForNinePieceImageRepeat(image);
+
     return createBorderImageValue(WTFMove(imageValue), WTFMove(imageSlices), WTFMove(borderSlices), WTFMove(outset), WTFMove(repeat));
 }
 
@@ -285,7 +292,7 @@ static Ref<CSSValue> valueForReflection(const StyleReflection* reflection, const
         break;
     }
 
-    return CSSReflectValue::create(direction.releaseNonNull(), offset.releaseNonNull(), valueForNinePieceImage(reflection->mask(), style));
+    return CSSReflectValue::create(direction.releaseNonNull(), offset.releaseNonNull(), valueForNinePieceImage(CSSPropertyWebkitBoxReflect, reflection->mask(), style));
 }
 
 static Ref<CSSValueList> createPositionListForLayer(CSSPropertyID propertyID, const FillLayer& layer, const RenderStyle& style)
@@ -561,17 +568,6 @@ static LayoutRect sizingBox(RenderObject& renderer)
     return box.style().boxSizing() == BoxSizing::BorderBox ? box.borderBoxRect() : box.computedCSSContentBoxRect();
 }
 
-static FloatRect transformReferenceBox(const RenderStyle& style, const RenderElement& renderer)
-{
-    if (is<RenderBox>(renderer))
-        return downcast<RenderBox>(renderer).referenceBox(transformBoxToCSSBoxType(style.transformBox()));
-
-    if (is<SVGElement>(renderer.element()))
-        return SVGRenderSupport::transformReferenceBox(renderer, downcast<SVGElement>(*renderer.element()), style);
-
-    return { };
-}
-
 static Ref<CSSFunctionValue> matrixTransformValue(const TransformationMatrix& transform, const RenderStyle& style)
 {
     RefPtr<CSSFunctionValue> transformValue;
@@ -624,7 +620,8 @@ static Ref<CSSValue> computedTransform(RenderElement* renderer, const RenderStyl
         return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
 
     TransformationMatrix transform;
-    style.applyTransform(transform, transformReferenceBox(style, *renderer), { });
+    style.applyTransform(transform, renderer->transformReferenceBoxRect(style), { });
+
     // Note that this does not flatten to an affine transform if ENABLE(3D_TRANSFORMS) is off, by design.
 
     // FIXME: Need to print out individual functions (https://bugs.webkit.org/show_bug.cgi?id=23924)
@@ -1073,8 +1070,11 @@ static Ref<CSSValue> valueForGridTrackList(GridTrackSizingDirection direction, R
 
     auto repeatVisitor = [&](CSSValueList& dest, const RepeatEntry& entry) {
         if (std::holds_alternative<Vector<String>>(entry)) {
+            const auto& names = std::get<Vector<String>>(entry);
+            if (names.isEmpty() && !isSubgrid)
+                return;
             auto lineNamesValue = CSSGridLineNamesValue::create();
-            for (const auto& name : std::get<Vector<String>>(entry))
+            for (const auto& name : names)
                 lineNamesValue->append(CSSValuePool::singleton().createCustomIdent(name));
             dest.append(lineNamesValue);
         } else {
@@ -1085,6 +1085,11 @@ static Ref<CSSValue> valueForGridTrackList(GridTrackSizingDirection direction, R
     auto trackEntryVisitor = WTF::makeVisitor([&](const GridTrackSize& size) {
         list->append(specifiedValueForGridTrackSize(size, style));
     }, [&](const Vector<String>& names) {
+        // Subgrids don't have track sizes specified, so empty line names sets
+        // need to be serialized, as they are meaningful placeholders.
+        if (names.isEmpty() && !isSubgrid)
+            return;
+
         auto lineNamesValue = CSSGridLineNamesValue::create();
         for (const auto& name : names)
             lineNamesValue->append(CSSValuePool::singleton().createCustomIdent(name));
@@ -3732,6 +3737,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
                 list->append(cssValuePool.createIdentifierValue(CSSValueStyle));
             if (containment & Containment::Paint)
                 list->append(cssValuePool.createIdentifierValue(CSSValuePaint));
+            if (containment & Containment::InlineSize)
+                list->append(cssValuePool.createIdentifierValue(CSSValueInlineSize));
             return list;
         }
         case CSSPropertyContainer: {
@@ -3753,8 +3760,9 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         }
         case CSSPropertyBackfaceVisibility:
             return cssValuePool.createIdentifierValue((style.backfaceVisibility() == BackfaceVisibility::Hidden) ? CSSValueHidden : CSSValueVisible);
+        case CSSPropertyBorderImage:
         case CSSPropertyWebkitBorderImage:
-            return valueForNinePieceImage(style.borderImage(), style);
+            return valueForNinePieceImage(propertyID, style.borderImage(), style);
         case CSSPropertyBorderImageOutset:
             return valueForNinePieceImageQuad(style.borderImage().outset(), style);
         case CSSPropertyBorderImageRepeat:
@@ -3762,9 +3770,11 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyBorderImageSlice:
             return valueForNinePieceImageSlice(style.borderImage());
         case CSSPropertyBorderImageWidth:
+            if (style.borderImage().overridesBorderWidths())
+                return nullptr;
             return valueForNinePieceImageQuad(style.borderImage().borderSlices(), style);
         case CSSPropertyWebkitMaskBoxImage:
-            return valueForNinePieceImage(style.maskBoxImage(), style);
+            return valueForNinePieceImage(propertyID, style.maskBoxImage(), style);
         case CSSPropertyWebkitMaskBoxImageOutset:
             return valueForNinePieceImageQuad(style.maskBoxImage().outset(), style);
         case CSSPropertyWebkitMaskBoxImageRepeat:
@@ -3802,7 +3812,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyPerspectiveOrigin: {
             auto list = CSSValueList::createSpaceSeparated();
             if (renderer) {
-                auto box = transformReferenceBox(style, *renderer);
+                auto box = renderer->transformReferenceBoxRect(style);
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.perspectiveOriginX(), box.width()), style));
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.perspectiveOriginY(), box.height()), style));
             } else {
@@ -3858,7 +3868,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyTransformOrigin: {
             auto list = CSSValueList::createSpaceSeparated();
             if (renderer) {
-                auto box = transformReferenceBox(style, *renderer);
+                auto box = renderer->transformReferenceBoxRect(style);
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.transformOriginX(), box.width()), style));
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.transformOriginY(), box.height()), style));
                 if (style.transformOriginZ())
@@ -4000,8 +4010,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return getCSSPropertyValuesFor4SidesShorthand(borderColorShorthand());
         case CSSPropertyBorderLeft:
             return getCSSPropertyValuesForShorthandProperties(borderLeftShorthand());
-        case CSSPropertyBorderImage:
-            return valueForNinePieceImage(style.borderImage(), style);
         case CSSPropertyBorderInline: {
             auto value = propertyValue(CSSPropertyBorderInlineStart, DoNotUpdateLayout);
             if (!compareCSSValuePtr<CSSValue>(value, propertyValue(CSSPropertyBorderInlineEnd, DoNotUpdateLayout)))

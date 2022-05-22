@@ -667,16 +667,9 @@ void RenderBox::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
     quads.append(localToAbsoluteQuad(localRect, UseTransforms, wasFixed));
 }
 
-void RenderBox::updateLayerTransform()
+void RenderBox::applyTransform(TransformationMatrix& t, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
 {
-    // Transform-origin depends on box size, so we need to update the layer transform after layout.
-    if (hasLayer())
-        layer()->updateTransform();
-}
-
-void RenderBox::applyTransform(TransformationMatrix& t, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
-{
-    style().applyTransform(t, boundingBox, options);
+    style.applyTransform(t, boundingBox, options);
 }
 
 LayoutUnit RenderBox::constrainLogicalWidthInFragmentByMinMax(LayoutUnit logicalWidth, LayoutUnit availableWidth, RenderBlock& cb, RenderFragmentContainer* fragment, AllowIntrinsic allowIntrinsic) const
@@ -771,9 +764,8 @@ LayoutPoint RenderBox::contentBoxLocation() const
     return { borderLeft() + paddingLeft() + scrollbarSpace, borderTop() + paddingTop() };
 }
 
-LayoutRect RenderBox::referenceBox(CSSBoxType boxType) const
+FloatRect RenderBox::referenceBoxRect(CSSBoxType boxType) const
 {
-    LayoutRect referenceBox;
     switch (boxType) {
     case CSSBoxType::ContentBox:
     case CSSBoxType::FillBox:
@@ -789,6 +781,8 @@ LayoutRect RenderBox::referenceBox(CSSBoxType boxType) const
     case CSSBoxType::BoxMissing:
         return borderBoxRect();
     }
+
+    ASSERT_NOT_REACHED();
     return { };
 }
 
@@ -1465,7 +1459,7 @@ bool RenderBox::hitTestClipPath(const HitTestLocation& hitTestLocation, const La
     switch (style().clipPath()->type()) {
     case PathOperation::Shape: {
         auto& clipPath = downcast<ShapePathOperation>(*style().clipPath());
-        auto referenceBoxRect = referenceBox(clipPath.referenceBox());
+        auto referenceBoxRect = this->referenceBoxRect(clipPath.referenceBox());
         if (!clipPath.pathForReferenceRect(referenceBoxRect).contains(hitTestLocationInLocalCoordinates, clipPath.windRule()))
             return false;
         break;
@@ -4944,11 +4938,9 @@ bool RenderBox::shrinkToAvoidFloats() const
     return style().width().isAuto();
 }
 
-bool RenderBox::createsNewFormattingContext() const
+bool RenderBox::establishesIndependentFormattingContext() const
 {
-    return isInlineBlockOrInlineTable() || isFloatingOrOutOfFlowPositioned() || hasPotentiallyScrollableOverflow() || isFlexItemIncludingDeprecated()
-        || isTableCell() || isTableCaption() || isFieldset() || isWritingModeRoot() || isDocumentElementRenderer() || isRenderFragmentedFlow()
-        || style().containsLayout() || paintContainmentApplies() || isGridItem() || style().specifiesColumns() || style().columnSpan() == ColumnSpan::All || style().display() == DisplayType::FlowRoot;
+    return isGridItem() || RenderElement::establishesIndependentFormattingContext();
 }
 
 bool RenderBox::avoidsFloats() const

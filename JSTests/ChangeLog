@@ -1,3 +1,76 @@
+2022-04-10  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] DFG / FTL should be aware of JSString's String replacement
+        https://bugs.webkit.org/show_bug.cgi?id=238918
+
+        Reviewed by Saam Barati.
+
+        * stress/resolve-rope-get-by-val.js: Added.
+        (shouldBe):
+        (test):
+        * stress/resolve-rope-string-char-at.js: Added.
+        (shouldBe):
+        (test):
+        * stress/resolve-rope-string-char-code-at.js: Added.
+        (shouldBe):
+        (test):
+        * stress/resolve-rope-string-code-point-at.js: Added.
+        (shouldBe):
+        (test):
+
+2022-04-07  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fire structure transition watchpoint in Structure::finishCreation instead of Structure constructor
+        https://bugs.webkit.org/show_bug.cgi?id=238980
+
+        Reviewed by Saam Barati.
+
+        * stress/heap-allocation-in-did-structure-transition-watchpoint.js: Added.
+        (__isPropertyOfType):
+        (__getProperties):
+        (__getObjects):
+        (__getRandomObject):
+        (__getRandomProperty):
+        (__callGC):
+        (get var):
+
+2022-04-07  Geza Lore  <glore@igalia.com>
+
+        [JSC][ARMv7] Support proper near calls and JUMP_ISLANDS
+        https://bugs.webkit.org/show_bug.cgi?id=238143
+
+        Reviewed by Yusuke Suzuki.
+
+        * microbenchmarks/let-const-tdz-environment-parsing-and-hash-consing-speed.js:
+
+2022-04-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Substring resolving should check 8bit / 16bit again
+        https://bugs.webkit.org/show_bug.cgi?id=236775
+        <rdar://problem/89253391>
+
+        Reviewed by Saam Barati.
+
+        * stress/8bit-16bit-atomize-conversion.js: Added.
+        (main.v64):
+        (main):
+
+2022-04-06  Alexey Shvayka  <ashvayka@apple.com>
+
+        ICU was recently updated to use type="long" format if there is {month: "long"}
+        https://bugs.webkit.org/show_bug.cgi?id=238852
+        <rdar://90462186>
+
+        Reviewed by Saam Barati.
+
+        Since this update [1] is not yet released, we can't set expectations based on major / minor
+        ICU version, this patch loosens the tests to accept either of the format types.
+
+        [1]: https://github.com/unicode-org/icu/commit/23081486ffec0973b01e66e2cbad93a1a7dec267
+
+        * stress/date-toLocaleString.js:
+        * stress/intl-datetimeformat.js:
+
 2022-04-01  Angelos Oikonomopoulos  <angelos@igalia.com>
 
         Skip flaky test on mips

@@ -433,7 +433,8 @@ static bool isCompatibilityMouseEvent(const MouseEvent& mouseEvent)
 {
     // https://www.w3.org/TR/pointerevents/#compatibility-mapping-with-mouse-events
     const auto& type = mouseEvent.type();
-    return type != eventNames().clickEvent && type != eventNames().mouseoverEvent && type != eventNames().mouseoutEvent && type != eventNames().mouseenterEvent && type != eventNames().mouseleaveEvent;
+    auto& eventNames = WebCore::eventNames();
+    return type != eventNames.clickEvent && type != eventNames.mouseoverEvent && type != eventNames.mouseoutEvent && type != eventNames.mouseenterEvent && type != eventNames.mouseleaveEvent;
 }
 
 enum class ShouldIgnoreMouseEvent : bool { No, Yes };
@@ -3372,18 +3373,6 @@ const AtomString& Element::pseudo() const
 void Element::setPseudo(const AtomString& value)
 {
     setAttributeWithoutSynchronization(pseudoAttr, value);
-}
-
-LayoutSize Element::minimumSizeForResizing() const
-{
-    return hasRareData() ? elementRareData()->minimumSizeForResizing() : defaultMinimumSizeForResizing();
-}
-
-void Element::setMinimumSizeForResizing(const LayoutSize& size)
-{
-    if (!hasRareData() && size == defaultMinimumSizeForResizing())
-        return;
-    ensureElementRareData().setMinimumSizeForResizing(size);
 }
 
 void Element::willBecomeFullscreenElement()

@@ -1861,8 +1861,10 @@ webkit.org/b/140869 [ Debug ] accessibility/aria-combobox.html [ Skip ]
 [ Debug ] accessibility/table-one-cell.html [ Skip ] # Debug assertion
 [ Release ] accessibility/table-roles-hierarchy.html [ Failure ]
 [ Debug ] accessibility/table-roles-hierarchy.html [ Skip ] # Debug assertion
-[ Release ] accessibility/table-sections.html [ Failure ]
-[ Debug ] accessibility/table-sections.html [ Skip ] # Debug assertion
+[ Release ] accessibility/table-multiple-tbodies.html [ Skip ]
+[ Debug ] accessibility/table-multiple-tbodies.html [ Skip ] # Debug assertion
+[ Release ] accessibility/table-thead-tfoot.html [ Skip ]
+[ Debug ] accessibility/table-thead-tfoot.html [ Skip ] # Debug assertion
 [ Release ] accessibility/table-with-rules.html [ Failure ]
 [ Debug ] accessibility/table-with-rules.html [ Skip ] # Debug assertion
 [ Release ] accessibility/transformed-element.html [ Failure ]
@@ -1925,7 +1927,7 @@ webkit.org/b/140869 [ Debug ] accessibility/aria-combobox.html [ Skip ]
 [ Debug ] accessibility/selection-states.html [ Skip ] # Debug assertion
 [ Debug ] accessibility/svg-image.html [ Skip ] # Debug assertion
 [ Debug ] accessibility/table-destroyed-crash.html [ Skip ] # Debug assertion
-[ Debug ] accessibility/table-modification-crash.html [ Skip ] # Debug assertion
+accessibility/table-add-remove-row.html [ Skip ]
 [ Debug ] accessibility/table-notbody.html [ Skip ] # Debug assertion
 [ Debug ] accessibility/table-nofirstbody.html [ Skip ] # Debug assertion
 [ Debug ] accessibility/table-remove-cell-crash.html [ Skip ] # Debug assertion

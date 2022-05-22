@@ -197,7 +197,7 @@ struct LogArgument<URL> {
         return url.string().substring(0, maximumURLLengthForLogging) + "...";
 #else
         UNUSED_PARAM(url);
-        return "[url]";
+        return "[url]"_s;
 #endif
     }
 };
@@ -2018,8 +2018,11 @@ void HTMLMediaElement::endIgnoringTrackDisplayUpdateRequests()
 {
     ASSERT(m_ignoreTrackDisplayUpdate);
     --m_ignoreTrackDisplayUpdate;
-    if (!m_ignoreTrackDisplayUpdate && m_inActiveDocument)
-        updateActiveTextTrackCues(currentMediaTime());
+
+    queueCancellableTaskKeepingObjectAlive(*this, TaskSource::MediaElement, m_updateTextTracksTaskCancellationGroup, [this] {
+        if (!m_ignoreTrackDisplayUpdate && m_inActiveDocument)
+            updateActiveTextTrackCues(currentMediaTime());
+    });
 }
 
 void HTMLMediaElement::textTrackAddCues(TextTrack& track, const TextTrackCueList& cues)
@@ -5792,6 +5795,7 @@ void HTMLMediaElement::stopPeriodicTimers()
 void HTMLMediaElement::cancelPendingTasks()
 {
     m_configureTextTracksTaskCancellationGroup.cancel();
+    m_updateTextTracksTaskCancellationGroup.cancel();
     m_checkPlaybackTargetCompatibilityTaskCancellationGroup.cancel();
     m_updateMediaStateTaskCancellationGroup.cancel();
     m_mediaEngineUpdatedTaskCancellationGroup.cancel();

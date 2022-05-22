@@ -437,6 +437,8 @@ imported/w3c/web-platform-tests/html/browsers/history/the-location-interface/loc
 imported/w3c/web-platform-tests/html/browsers/origin/cross-origin-objects/cross-origin-objects.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/html/browsers/sandboxing/sandbox-disallow-popups.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/blob.https.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/require-corp-cached-images.https.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/require-corp-revalidated-images.https.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/coop-csp-sandbox.https.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/coop-navigated-history-popup.https.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/navigate-to-aboutblank.https.html [ DumpJSConsoleLogInStdErr ]
@@ -1445,16 +1447,22 @@ webkit.org/b/185859 imported/w3c/web-platform-tests/css/selectors/focus-visible-
 webkit.org/b/234139 imported/w3c/web-platform-tests/css/selectors/focus-visible-024.html [ Skip ]
 webkit.org/b/234139 imported/w3c/web-platform-tests/css/selectors/focus-visible-025.html [ Skip ]
 webkit.org/b/217904 imported/w3c/web-platform-tests/css/selectors/is-where-visited.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-auto-direction-change-001.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-001.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-002.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-003.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-change-004.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-ltr-001.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-rtl-001.html [ ImageOnlyFailure ]
-webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/selectors-dir-selector-white-space-001.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-auto-direction-change-001.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-change-001.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-change-002.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-change-003.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-change-004.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-ltr-001.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-rtl-001.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-selector-white-space-001.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-style-01a.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-style-01b.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-style-02a.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-style-02b.html [ ImageOnlyFailure ]
+webkit.org/b/64861 imported/w3c/web-platform-tests/css/selectors/dir-style-04.html [ ImageOnlyFailure ]
 webkit.org/b/223497 imported/w3c/web-platform-tests/css/selectors/nesting.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/selectors/xml-class-selector.xml [ ImageOnlyFailure ]
+webkit.org/b/238822 imported/w3c/web-platform-tests/css/selectors/child-indexed-no-parent.html [ ImageOnlyFailure ]
 
 # This test is bit heavy for debug
 [ Debug ] imported/w3c/web-platform-tests/css/selectors/invalidation/has-complexity.html [ Skip ]
@@ -2030,7 +2038,6 @@ webkit.org/b/135053 [ Debug ] html5lib/webkit-resumer.html [ Slow ]
 [ Debug ] editing/selection/caret-at-bidi-boundary.html [ Slow ]
 [ Debug ] js/dom/line-column-numbers.html [ Slow ]
 [ Debug ] css3/flexbox/multiline-justify-content.html [ Slow ]
-[ Debug ] accessibility/table-sections.html [ Slow ]
 
 webkit.org/b/142175 js/promises-tests/promises-tests-2-1-2.html [ Pass Timeout ]
 
@@ -2934,6 +2941,13 @@ webkit.org/b/163046 [ Release ] js/regress-141098.html [ Pass Failure ]
 webkit.org/b/163046 [ Debug ] js/regress-141098.html [ Slow Pass Failure ]
 
 webkit.org/b/169625 imported/w3c/web-platform-tests/cors/status.htm [ Pass Failure ]
+
+# webkit.org/b/238908 Global expectations for these until baselines are resolved
+http/tests/paymentrequest/payment-address-attributes-and-toJSON-method.https.html [ Pass Failure ]
+http/tests/inspector/paymentrequest/payment-request-internal-properties.https.html [ Pass Failure ]
+http/tests/paymentrequest/payment-request-change-shipping-option.https.html [ Pass Failure ]
+http/tests/paymentrequest/payment-response-retry-method.https.html [ Pass Failure ]
+http/tests/paymentrequest/updateWith-shippingOptions.https.html [ Pass Failure ]
 
 webkit.org/b/170130 fast/events/before-unload-adopt-subframe-to-outside.html [ Pass Timeout ]
 
@@ -4257,8 +4271,6 @@ imported/w3c/web-platform-tests/html/canvas/element/manual/shadows/canvas_shadow
 
 # CSS Masonry Layout not supported.
 imported/w3c/web-platform-tests/css/css-grid/masonry.tentative [ Skip ]
-webkit.org/b/204580 imported/w3c/web-platform-tests/css/css-grid/animation/grid-template-columns-001.html [ ImageOnlyFailure ]
-webkit.org/b/204580 imported/w3c/web-platform-tests/css/css-grid/animation/grid-template-rows-001.html [ ImageOnlyFailure ]
 webkit.org/b/209460 imported/w3c/web-platform-tests/css/css-grid/abspos/descendant-static-position-001.html [ ImageOnlyFailure ]
 webkit.org/b/209460 imported/w3c/web-platform-tests/css/css-grid/abspos/descendant-static-position-002.html [ ImageOnlyFailure ]
 webkit.org/b/209460 imported/w3c/web-platform-tests/css/css-grid/abspos/descendant-static-position-003.html [ ImageOnlyFailure ]
@@ -4635,16 +4647,6 @@ webanimations/transform-property-and-transform-animation-with-delay-on-forced-la
 webanimations/translate-property-and-translate-animation-with-delay-on-forced-layer.html [ Skip ]
 
 # CSS containment tests that fail
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-fieldset.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-flex.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-flexitem.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-grid.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-legend.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-multicol.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-regular-container.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-vertical-rl-.html [ ImageOnlyFailure ]
 # webkit-ruby-text
 imported/w3c/web-platform-tests/css/css-contain/contain-layout-017.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/contain-paint-021.html [ ImageOnlyFailure ]
@@ -4701,6 +4703,7 @@ webkit.org/b/238555 imported/w3c/web-platform-tests/css/css-contain/contain-flex
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/custom-layout-container-001.https.html [ ImageOnlyFailure ]
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/pseudo-elements-002.html [ ImageOnlyFailure ]
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/svg-foreignobject-no-size-container.html [ Skip ]
+webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/inline-size-bfc-floats.html [ ImageOnlyFailure ]
 
 # Flaky css-contain test
 imported/w3c/web-platform-tests/css/css-contain/content-visibility/animation-display-lock.html [ Failure Pass ]
@@ -4720,7 +4723,8 @@ imported/w3c/web-platform-tests/css/css-contain/contain-size-button-002.html [ I
 imported/w3c/web-platform-tests/css/css-contain/contain-size-block-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/contain-size-inline-block-003.html [ ImageOnlyFailure ]
 
-# Select with empty content always has root linebox, so the heights are different.
+# 1. The height driven by the imaginary box (strut) does not match the minimum height value set in the RenderTheme (e.g. see RenderThemeMac::adjustMenuListButtonStyle).
+# 2. We ignore the background-color property value (supposed to be white on white to renderer "blank" content).
 imported/w3c/web-platform-tests/css/css-contain/contain-size-select-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/contain-size-select-002.html [ ImageOnlyFailure ]
 
@@ -4843,6 +4847,9 @@ webkit.org/b/227086 imported/w3c/web-platform-tests/webxr/xrWebGLLayer_construct
 
 # "Opacity on an inline element should apply on float child".
 webkit.org/b/234690 imported/w3c/web-platform-tests/css/css-color/inline-opacity-float-child.html [ ImageOnlyFailure ]
+
+# Interferes with following test
+webkit.org/b/237812 editing/spelling/editing-word-with-marker-1.html [ Skip ]
 
 # color-mix() doesn't work with currentcolor
 webkit.org/b/234691 imported/w3c/web-platform-tests/css/css-color/color-mix-basic-001.html [ ImageOnlyFailure ]

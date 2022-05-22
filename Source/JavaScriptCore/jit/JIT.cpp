@@ -120,7 +120,7 @@ void JIT::emitEnterOptimizationCheck()
 
     copyLLIntBaselineCalleeSavesFromFrameOrRegisterToEntryFrameCalleeSavesBuffer(vm().topEntryFrame);
 
-    callOperationNoExceptionCheck(operationOptimize, &vm(), m_bytecodeIndex.asBits());
+    callOperationNoExceptionCheck(operationOptimize, TrustedImmPtr(&vm()), m_bytecodeIndex.asBits());
     skipOptimize.append(branchTestPtr(Zero, returnValueGPR));
     farJump(returnValueGPR, GPRInfo::callFrameRegister);
     skipOptimize.link(this);
@@ -201,28 +201,6 @@ void JIT::emitSlowCaseCall(Vector<SlowCaseEntry>::iterator& iter, SlowPathFuncti
 
     JITSlowPathCall slowPathCall(this, stub);
     slowPathCall.call();
-}
-
-void JIT::emitPutCodeBlockToFrameInPrologue(GPRReg result)
-{
-    RELEASE_ASSERT(m_unlinkedCodeBlock->codeType() == FunctionCode);
-    emitGetFromCallFrameHeaderPtr(CallFrameSlot::callee, result);
-    loadPtr(Address(result, JSFunction::offsetOfExecutableOrRareData()), result);
-    auto hasExecutable = branchTestPtr(Zero, result, CCallHelpers::TrustedImm32(JSFunction::rareDataTag));
-    loadPtr(Address(result, FunctionRareData::offsetOfExecutable() - JSFunction::rareDataTag), result);
-    hasExecutable.link(this);
-    if (m_unlinkedCodeBlock->isConstructor())
-        loadPtr(Address(result, FunctionExecutable::offsetOfCodeBlockForConstruct()), result);
-    else
-        loadPtr(Address(result, FunctionExecutable::offsetOfCodeBlockForCall()), result);
-    emitPutToCallFrameHeader(result, CallFrameSlot::codeBlock);
-
-#if ASSERT_ENABLED
-    probeDebug([=] (Probe::Context& ctx) {
-        CodeBlock* codeBlock = ctx.fp<CallFrame*>()->codeBlock();
-        RELEASE_ASSERT(codeBlock->jitType() == JITType::BaselineJIT);
-    });
-#endif
 }
 
 void JIT::privateCompileMainPass()
@@ -751,10 +729,8 @@ void JIT::compileAndLinkWithoutFinalizing(JITCompilationEffort effort)
     m_pcToCodeOriginMapBuilder.appendItem(label(), CodeOrigin(BytecodeIndex(0)));
 
     std::optional<JITSizeStatistics::Marker> sizeMarker;
-    if (UNLIKELY(Options::dumpBaselineJITSizeStatistics())) {
-        String id = makeString("Baseline_prologue");
-        sizeMarker = m_vm->jitSizeStatistics->markStart(id, *this);
-    }
+    if (UNLIKELY(Options::dumpBaselineJITSizeStatistics()))
+        sizeMarker = m_vm->jitSizeStatistics->markStart("Baseline_prologue"_s, *this);
 
     Label entryLabel(this);
     if (m_disassembler)
@@ -765,8 +741,7 @@ void JIT::compileAndLinkWithoutFinalizing(JITCompilationEffort effort)
         nop();
 
     emitFunctionPrologue();
-    if (m_unlinkedCodeBlock->codeType() == FunctionCode)
-        emitPutCodeBlockToFrameInPrologue();
+    jitAssertCodeBlockOnCallFrameWithType(regT2, JITType::BaselineJIT);
 
     Label beginLabel(this);
 
@@ -829,7 +804,9 @@ void JIT::compileAndLinkWithoutFinalizing(JITCompilationEffort effort)
         m_arityCheck = label();
 
         emitFunctionPrologue();
-        emitPutCodeBlockToFrameInPrologue(regT0);
+        RELEASE_ASSERT(m_unlinkedCodeBlock->codeType() == FunctionCode);
+        jitAssertCodeBlockOnCallFrameWithType(regT2, JITType::BaselineJIT);
+        emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, regT0);
         store8(TrustedImm32(0), Address(regT0, CodeBlock::offsetOfShouldAlwaysBeInlined()));
 
         load32(payloadFor(CallFrameSlot::argumentCountIncludingThis), regT1);

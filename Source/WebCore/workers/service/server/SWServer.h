@@ -29,6 +29,7 @@
 
 #include "ClientOrigin.h"
 #include "ExceptionOr.h"
+#include "PageIdentifier.h"
 #include "SWServerWorker.h"
 #include "ScriptExecutionContextIdentifier.h"
 #include "SecurityOriginData.h"
@@ -161,6 +162,7 @@ public:
 
     WEBCORE_EXPORT SWServerWorker* workerByID(ServiceWorkerIdentifier) const;
     WEBCORE_EXPORT std::optional<ServiceWorkerClientData> serviceWorkerClientWithOriginByID(const ClientOrigin&, const ScriptExecutionContextIdentifier&) const;
+    WEBCORE_EXPORT std::optional<ServiceWorkerClientData> topLevelServiceWorkerClientFromPageIdentifier(const ClientOrigin&, PageIdentifier) const;
     String serviceWorkerClientUserAgent(const ClientOrigin&) const;
     WEBCORE_EXPORT SWServerWorker* activeWorkerFromRegistrationID(ServiceWorkerRegistrationIdentifier);
 
@@ -240,6 +242,9 @@ public:
     enum class ShouldDelayRemoval : bool { No, Yes };
     ShouldDelayRemoval removeContextConnectionIfPossible(const RegistrableDomain&);
 
+    std::optional<ServiceWorkerRegistrationIdentifier> clientIdentifierToControllingRegistration(ScriptExecutionContextIdentifier) const;
+    WEBCORE_EXPORT void forEachClientForOrigin(const ClientOrigin&, const Function<void(ServiceWorkerClientData&)>&);
+
 private:
     void validateRegistrationDomain(WebCore::RegistrableDomain, ServiceWorkerJobType, CompletionHandler<void(bool)>&&);
 
@@ -259,7 +264,6 @@ private:
     void installContextData(const ServiceWorkerContextData&);
 
     SWServerRegistration* registrationFromServiceWorkerIdentifier(ServiceWorkerIdentifier);
-    void forEachClientForOrigin(const ClientOrigin&, const Function<void(ServiceWorkerClientData&)>&);
 
     void performGetOriginsWithRegistrationsCallbacks();
 

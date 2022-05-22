@@ -225,7 +225,7 @@ Vector<RenderBox*> RenderGrid::computeAspectRatioDependentAndBaselineItems()
             m_hasAspectRatioBlockSizeDependentItem = true;
         }
 
-        // We keep a cache of items with baseline as alignment values so that we only compute the baseline shims for
+        // We keep a cache of items with baseline as aligcnment values so that we only compute the baseline shims for
         // such items. This cache is needed for performance related reasons due to the cost of evaluating the item's
         // participation in a baseline context during the track sizing algorithm.
         if (isBaselineAlignmentForChild(*child, GridColumnAxis))
@@ -280,14 +280,15 @@ void RenderGrid::layoutBlock(bool relayoutChildren, LayoutUnit)
         // logical width is always definite as the above call to updateLogicalWidth() properly resolves intrinsic 
         // sizes. We cannot do the same for heights though because many code paths inside updateLogicalHeight() require 
         // a previous call to setLogicalHeight() to resolve heights properly (like for positioned items for example).
-        if (shouldApplySizeContainment(*this))
+        auto shouldIgnoreGridItemContentForLogicalWidth = shouldApplySizeContainment(*this) || shouldApplyInlineSizeContainment(*this);
+        if (shouldIgnoreGridItemContentForLogicalWidth)
             computeTrackSizesForIndefiniteSize(m_trackSizingAlgorithm, ForColumns);
         else
             computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
 
         m_minContentSize = m_trackSizingAlgorithm.minContentSize();
         m_maxContentSize = m_trackSizingAlgorithm.maxContentSize();
-        if (shouldApplySizeContainment(*this))
+        if (shouldIgnoreGridItemContentForLogicalWidth)
             computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
 
         // 1.5- Compute Content Distribution offsets for column tracks
@@ -627,7 +628,7 @@ std::unique_ptr<OrderedTrackIndexSet> RenderGrid::computeEmptyTracksForAutoRepea
     unsigned firstAutoRepeatTrack = insertionPoint + grid.explicitGridStart(direction);
     unsigned lastAutoRepeatTrack = firstAutoRepeatTrack + grid.autoRepeatTracks(direction);
 
-    if (!grid.hasGridItems() || shouldApplySizeContainment(*this)) {
+    if (!grid.hasGridItems() || shouldApplySizeContainment(*this) || shouldApplyInlineSizeContainment(*this)) {
         emptyTrackIndexes = makeUnique<OrderedTrackIndexSet>();
         for (unsigned trackIndex = firstAutoRepeatTrack; trackIndex < lastAutoRepeatTrack; ++trackIndex)
             emptyTrackIndexes->add(trackIndex);
@@ -1652,9 +1653,17 @@ LayoutUnit RenderGrid::rowAxisOffsetForChild(const RenderBox& child) const
 
 bool RenderGrid::isSubgrid(GridTrackSizingDirection direction) const
 {
-    if (!mayBeSubgridExcludingAbsPos(direction))
+    // If the grid container is forced to establish an independent formatting
+    // context (like contain layout, or position:absolute), then the used value
+    // of grid-template-rows/columns is 'none' and the container is not a subgrid.
+    // https://drafts.csswg.org/css-grid-2/#subgrid-listing
+    if (RenderElement::establishesIndependentFormattingContext())
         return false;
-    return downcast<RenderGrid>(parent())->gridSpanCoversRealTracks(*this, direction);
+    if (direction == ForColumns ? !style().gridSubgridColumns() : !style().gridSubgridRows())
+        return false;
+    if (!is<RenderGrid>(parent()))
+        return false;
+    return true;
 }
 
 bool RenderGrid::isSubgridInParentDirection(GridTrackSizingDirection parentDirection) const
@@ -1675,18 +1684,6 @@ bool RenderGrid::isSubgridOf(GridTrackSizingDirection direction, const RenderGri
     auto& parentGrid = *downcast<RenderGrid>(parent());
     GridTrackSizingDirection parentDirection = GridLayoutFunctions::flowAwareDirectionForParent(parentGrid, *this, direction);
     return parentGrid.isSubgridOf(parentDirection, ancestor);
-}
-
-bool RenderGrid::mayBeSubgridExcludingAbsPos(GridTrackSizingDirection direction) const
-{
-    // Should exclude cases where we establish an IFC, like contain layout.
-    if (isExcludedFromNormalLayout())
-        return false;
-    if (direction == ForColumns ? !style().gridSubgridColumns() : !style().gridSubgridRows())
-        return false;
-    if (!is<RenderGrid>(parent()))
-        return false;
-    return true;
 }
 
 LayoutUnit RenderGrid::gridAreaBreadthForOutOfFlowChild(const RenderBox& child, GridTrackSizingDirection direction)
@@ -2106,26 +2103,16 @@ GridSpan RenderGrid::gridSpanForChild(const RenderBox& child, GridTrackSizingDir
     return span;
 }
 
-bool RenderGrid::gridSpanCoversRealTracks(const RenderBox& child, GridTrackSizingDirection direction) const
+bool RenderGrid::establishesIndependentFormattingContext() const
 {
-    // Only out of flow positioned items can span to the special line that covers
-    // the padding area.
-    if (!child.isOutOfFlowPositioned())
-        return true;
-
-    int lastLine = numTracks(direction, m_grid);
-    int startLine, endLine;
-    bool startIsAuto, endIsAuto;
-    if (!computeGridPositionsForOutOfFlowChild(child, direction, startLine, startIsAuto, endLine, endIsAuto))
-        return lastLine > 0;
-
-    // If the resulting span covers only the padding area, then it's not a real
-    // track that could be used for a subgrid.
-    if (startIsAuto && !endLine)
-        return false;
-    if (endIsAuto && startLine == lastLine)
-        return false;
-    return true;
+    // Grid items establish a new independent formatting context, unless
+    // they're a subgrid
+    // https://drafts.csswg.org/css-grid-2/#grid-item-display
+    if (isGridItem()) {
+        if (!isSubgridRows() && !isSubgridColumns())
+            return true;
+    }
+    return RenderElement::establishesIndependentFormattingContext();
 }
 
 } // namespace WebCore

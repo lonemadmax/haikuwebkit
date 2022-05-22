@@ -2538,11 +2538,11 @@ void WebPageProxy::selectAll()
 static std::optional<DOMPasteAccessCategory> pasteAccessCategoryForCommand(const String& commandName)
 {
     static NeverDestroyed<HashMap<String, DOMPasteAccessCategory, ASCIICaseInsensitiveHash>> pasteCommandNames = HashMap<String, DOMPasteAccessCategory, ASCIICaseInsensitiveHash> {
-        { "Paste", DOMPasteAccessCategory::General },
-        { "PasteAndMatchStyle", DOMPasteAccessCategory::General },
-        { "PasteAsQuotation", DOMPasteAccessCategory::General },
-        { "PasteAsPlainText", DOMPasteAccessCategory::General },
-        { "PasteFont", DOMPasteAccessCategory::Fonts },
+        { "Paste"_s, DOMPasteAccessCategory::General },
+        { "PasteAndMatchStyle"_s, DOMPasteAccessCategory::General },
+        { "PasteAsQuotation"_s, DOMPasteAccessCategory::General },
+        { "PasteAsPlainText"_s, DOMPasteAccessCategory::General },
+        { "PasteFont"_s, DOMPasteAccessCategory::Fonts },
     };
 
     auto it = pasteCommandNames->find(commandName);
@@ -4610,6 +4610,11 @@ void WebPageProxy::didCreateMainFrame(FrameIdentifier frameID)
 
     m_mainFrame = WebFrameProxy::create(*this, frameID);
 
+#if ENABLE(SERVICE_WORKER)
+    if (m_serviceWorkerOpenWindowCompletionCallback)
+        m_mainFrame->setNavigationCallback(WTFMove(m_serviceWorkerOpenWindowCompletionCallback));
+#endif
+
     // Add the frame to the process wide map.
     m_process->frameCreated(frameID, *m_mainFrame);
 }
@@ -4956,7 +4961,7 @@ void WebPageProxy::callLoadCompletionHandlersIfNecessary(bool success)
         m_serviceWorkerLaunchCompletionHandler(false);
 
     if (m_serviceWorkerOpenWindowCompletionCallback)
-        m_serviceWorkerOpenWindowCompletionCallback(success);
+        m_serviceWorkerOpenWindowCompletionCallback(success ? webPageID() : std::optional<WebCore::PageIdentifier> { });
 #endif
 }
 
@@ -5539,7 +5544,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     // Other ports do not implement WebPage::platformCanHandleRequest().
 #if PLATFORM(COCOA)
     // Sandboxed iframes should be allowed to open external apps via custom protocols unless explicitely allowed (https://html.spec.whatwg.org/#hand-off-to-external-software).
-    bool canHandleRequest = navigationActionData.canHandleRequest || m_urlSchemeHandlersByScheme.contains(request.url().protocol().toStringWithoutCopying());
+    bool canHandleRequest = navigationActionData.canHandleRequest || m_urlSchemeHandlersByScheme.contains<StringViewHashTranslator>(request.url().protocol());
     if (!canHandleRequest && !destinationFrameInfo->isMainFrame() && !frameSandboxAllowsOpeningExternalCustomProtocols(navigationActionData.effectiveSandboxFlags, !!navigationActionData.userGestureTokenIdentifier)) {
         if (!sourceFrameInfo || !m_preferences->needsSiteSpecificQuirks() || !Quirks::shouldAllowNavigationToCustomProtocolWithoutUserGesture(request.url().protocol(), sourceFrameInfo->securityOrigin())) {
             WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe");

@@ -31,15 +31,17 @@
 #import "CommandBuffer.h"
 #import "ComputePassEncoder.h"
 #import "Device.h"
+#import "IsValidToUseWith.h"
 #import "QuerySet.h"
 #import "RenderPassEncoder.h"
+#import "Texture.h"
 
 namespace WebGPU {
 
-RefPtr<CommandEncoder> Device::createCommandEncoder(const WGPUCommandEncoderDescriptor& descriptor)
+Ref<CommandEncoder> Device::createCommandEncoder(const WGPUCommandEncoderDescriptor& descriptor)
 {
     if (descriptor.nextInChain)
-        return nullptr;
+        return CommandEncoder::createInvalid(*this);
 
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createcommandencoder
 
@@ -47,7 +49,7 @@ RefPtr<CommandEncoder> Device::createCommandEncoder(const WGPUCommandEncoderDesc
     commandBufferDescriptor.errorOptions = MTLCommandBufferErrorOptionEncoderExecutionStatus;
     id<MTLCommandBuffer> commandBuffer = [getQueue().commandQueue() commandBufferWithDescriptor:commandBufferDescriptor];
     if (!commandBuffer)
-        return nullptr;
+        return CommandEncoder::createInvalid(*this);
 
     commandBuffer.label = fromAPI(descriptor.label);
 
@@ -57,6 +59,11 @@ RefPtr<CommandEncoder> Device::createCommandEncoder(const WGPUCommandEncoderDesc
 CommandEncoder::CommandEncoder(id<MTLCommandBuffer> commandBuffer, Device& device)
     : m_commandBuffer(commandBuffer)
     , m_device(device)
+{
+}
+
+CommandEncoder::CommandEncoder(Device& device)
+    : m_device(device)
 {
 }
 
@@ -79,41 +86,38 @@ void CommandEncoder::finalizeBlitCommandEncoder()
     }
 }
 
-RefPtr<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDescriptor& descriptor)
+Ref<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDescriptor& descriptor)
 {
     UNUSED_PARAM(descriptor);
-    return ComputePassEncoder::create(nil);
+    return ComputePassEncoder::createInvalid(m_device);
 }
 
-RefPtr<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescriptor& descriptor)
+Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescriptor& descriptor)
 {
     UNUSED_PARAM(descriptor);
-    return RenderPassEncoder::create(nil);
+    return RenderPassEncoder::createInvalid(m_device);
 }
 
-static bool validateCopyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
+bool CommandEncoder::validateCopyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
 {
-    // FIXME: "source is valid to use with this."
+    if (!isValidToUseWith(source, *this))
+        return false;
 
-    // FIXME: "destination is valid to use with this."
+    if (!isValidToUseWith(destination, *this))
+        return false;
 
-    // "source.[[usage]] contains COPY_SRC."
     if (!(source.usage() & WGPUBufferUsage_CopySrc))
         return false;
 
-    // "destination.[[usage]] contains COPY_DST."
     if (!(destination.usage() & WGPUBufferUsage_CopyDst))
         return false;
 
-    // "size is a multiple of 4."
     if (size % 4)
         return false;
 
-    // "sourceOffset is a multiple of 4."
     if (sourceOffset % 4)
         return false;
 
-    // "destinationOffset is a multiple of 4."
     if (destinationOffset % 4)
         return false;
 
@@ -142,13 +146,10 @@ void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOff
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copybuffertobuffer
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
 
-    // "If any of the following conditions are unsatisfied
     if (!validateCopyBufferToBuffer(source, sourceOffset, destination, destinationOffset, size)) {
-        // "generate a validation error and stop."
         m_device->generateAValidationError("Validation failure."_s);
         return;
     }
@@ -162,9 +163,9 @@ static bool validateImageCopyBuffer(const WGPUImageCopyBuffer& imageCopyBuffer)
 {
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-gpuimagecopybuffer
 
-    // FIXME: "imageCopyBuffer.buffer must be a valid GPUBuffer."
+    if (!fromAPI(imageCopyBuffer.buffer).isValid())
+        return false;
 
-    // "imageCopyBuffer.bytesPerRow must be a multiple of 256."
     if (imageCopyBuffer.layout.bytesPerRow % 256)
         return false;
 
@@ -188,66 +189,49 @@ static bool refersToAllAspects(WGPUTextureFormat format, WGPUTextureAspect aspec
 
 static bool validateCopyBufferToTexture(const WGPUImageCopyBuffer& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize)
 {
-    // "Let dstTextureDesc be destination.texture.[[descriptor]]."
     const auto& dstTextureDesc = fromAPI(destination.texture).descriptor();
 
-    // "validating GPUImageCopyBuffer(source) returns true."
     if (!validateImageCopyBuffer(source))
         return false;
 
-    // "source.buffer.[[usage]] contains COPY_SRC."
     if (!(fromAPI(source.buffer).usage() & WGPUBufferUsage_CopySrc))
         return false;
 
-    // "validating GPUImageCopyTexture(destination, copySize) returns true."
     if (!Texture::validateImageCopyTexture(destination, copySize))
         return false;
 
-    // "dstTextureDesc.usage contains COPY_DST."
     if (!(dstTextureDesc.usage & WGPUTextureUsage_CopyDst))
         return false;
 
-    // "dstTextureDesc.sampleCount is 1."
     if (dstTextureDesc.sampleCount != 1)
         return false;
 
-    // "Let aspectSpecificFormat = dstTextureDesc.format."
     WGPUTextureFormat aspectSpecificFormat = dstTextureDesc.format;
 
-    // "If dstTextureDesc.format is a depth-or-stencil format:"
     if (Texture::isDepthOrStencilFormat(dstTextureDesc.format)) {
-        // "destination.aspect must refer to a single aspect of dstTextureDesc.format"
         if (!Texture::refersToSingleAspect(dstTextureDesc.format, destination.aspect))
             return false;
 
-        // "That aspect must be a valid image copy destination according to § 25.1.2 Depth-stencil formats."
         if (!Texture::isValidImageCopyDestination(dstTextureDesc.format, destination.aspect))
             return false;
 
-        // "Set aspectSpecificFormat to the aspect-specific format according to § 25.1.2 Depth-stencil formats."
         aspectSpecificFormat = Texture::aspectSpecificFormat(dstTextureDesc.format, destination.aspect);
     }
 
-    // "validating texture copy range(destination, copySize) return true."
     if (!Texture::validateTextureCopyRange(destination, copySize))
         return false;
 
-    // "If dstTextureDesc.format is not a depth-or-stencil format:"
     if (!Texture::isDepthOrStencilFormat(dstTextureDesc.format)) {
-        // "source.offset is a multiple of the texel block size of dstTextureDesc.format."
         auto texelBlockSize = Texture::texelBlockSize(dstTextureDesc.format);
         if (source.layout.offset % texelBlockSize)
             return false;
     }
 
-    // "If dstTextureDesc.format is a depth-or-stencil format:"
     if (Texture::isDepthOrStencilFormat(dstTextureDesc.format)) {
-        // "source.offset is a multiple of 4."
         if (source.layout.offset % 4)
             return false;
     }
 
-    // "validating linear texture data(source, source.buffer.[[size]], aspectSpecificFormat, copySize) succeeds."
     if (!Texture::validateLinearTextureData(source.layout, fromAPI(source.buffer).size(), aspectSpecificFormat, copySize))
         return false;
 
@@ -261,14 +245,11 @@ void CommandEncoder::copyBufferToTexture(const WGPUImageCopyBuffer& source, cons
 
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copybuffertotexture
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
 
-    // "If any of the following conditions are unsatisfied"
     if (!validateCopyBufferToTexture(source, destination, copySize)) {
-        // "generate a validation error and stop."
-        m_device->generateAValidationError("Validation failure.");
+        m_device->generateAValidationError("Validation failure."_s);
         return;
     }
 
@@ -373,66 +354,49 @@ void CommandEncoder::copyBufferToTexture(const WGPUImageCopyBuffer& source, cons
 
 static bool validateCopyTextureToBuffer(const WGPUImageCopyTexture& source, const WGPUImageCopyBuffer& destination, const WGPUExtent3D& copySize)
 {
-    // "Let srcTextureDesc be source.texture.[[descriptor]]."
     const auto& srcTextureDesc = fromAPI(source.texture).descriptor();
 
-    // "validating GPUImageCopyTexture(source, copySize) returns true."
     if (!Texture::validateImageCopyTexture(source, copySize))
         return false;
 
-    // "srcTextureDesc.usage contains COPY_SRC."
     if (!(srcTextureDesc.usage & WGPUBufferUsage_CopySrc))
         return false;
 
-    // "srcTextureDesc.sampleCount is 1."
     if (srcTextureDesc.sampleCount != 1)
         return false;
 
-    // "Let aspectSpecificFormat = dstTextureDesc.format."
     WGPUTextureFormat aspectSpecificFormat = srcTextureDesc.format;
 
-    // "If srcTextureDesc.format is a depth-stencil format:"
     if (Texture::isDepthOrStencilFormat(srcTextureDesc.format)) {
-        // "source.aspect must refer to a single aspect of srcTextureDesc.format"
         if (!Texture::refersToSingleAspect(srcTextureDesc.format, source.aspect))
             return false;
 
-        // "and that aspect must be a valid image copy source according to § 25.1.2 Depth-stencil formats."
         if (!Texture::isValidImageCopySource(srcTextureDesc.format, source.aspect))
             return false;
 
-        // "Set aspectSpecificFormat to the aspect-specific format according to § 25.1.2 Depth-stencil formats."
         aspectSpecificFormat = Texture::aspectSpecificFormat(srcTextureDesc.format, source.aspect);
     }
 
-    // "validating GPUImageCopyBuffer(destination) returns true."
     if (!validateImageCopyBuffer(destination))
         return false;
 
-    // "destination.buffer.[[usage]] contains COPY_DST."
     if (!(fromAPI(destination.buffer).usage() & WGPUBufferUsage_CopyDst))
         return false;
 
-    // "validating texture copy range(source, copySize) returns true."
     if (!Texture::validateTextureCopyRange(source, copySize))
         return false;
 
-    // "If srcTextureDesc.format is not a depth-or-stencil format:"
     if (!Texture::isDepthOrStencilFormat(srcTextureDesc.format)) {
-        // "destination.offset is a multiple of the texel block size of srcTextureDesc.format."
         auto texelBlockSize = Texture::texelBlockSize(srcTextureDesc.format);
         if (destination.layout.offset % texelBlockSize)
             return false;
     }
 
-    // "If srcTextureDesc.format is a depth-or-stencil format:"
     if (Texture::isDepthOrStencilFormat(srcTextureDesc.format)) {
-        // "destination.offset is a multiple of 4."
         if (destination.layout.offset % 4)
             return false;
     }
 
-    // "validating linear texture data(destination, destination.buffer.[[size]], aspectSpecificFormat, copySize) succeeds."
     if (!Texture::validateLinearTextureData(destination.layout, fromAPI(destination.buffer).size(), aspectSpecificFormat, copySize))
         return false;
 
@@ -446,14 +410,11 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
 
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copytexturetobuffer
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
 
-    // "If any of the following conditions are unsatisfied"
     if (!validateCopyTextureToBuffer(source, destination, copySize)) {
-        // "generate a validation error and stop."
-        m_device->generateAValidationError("Validation failure.");
+        m_device->generateAValidationError("Validation failure."_s);
         return;
     }
 
@@ -556,218 +517,60 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
     }
 }
 
-static std::optional<WGPUTextureFormat> isSRGBCompatible(WGPUTextureFormat format)
-{
-    switch (format) {
-    case WGPUTextureFormat_R8Unorm:
-    case WGPUTextureFormat_R8Snorm:
-    case WGPUTextureFormat_R8Uint:
-    case WGPUTextureFormat_R8Sint:
-    case WGPUTextureFormat_R16Uint:
-    case WGPUTextureFormat_R16Sint:
-    case WGPUTextureFormat_R16Float:
-    case WGPUTextureFormat_RG8Unorm:
-    case WGPUTextureFormat_RG8Snorm:
-    case WGPUTextureFormat_RG8Uint:
-    case WGPUTextureFormat_RG8Sint:
-    case WGPUTextureFormat_R32Float:
-    case WGPUTextureFormat_R32Uint:
-    case WGPUTextureFormat_R32Sint:
-    case WGPUTextureFormat_RG16Uint:
-    case WGPUTextureFormat_RG16Sint:
-    case WGPUTextureFormat_RG16Float:
-        return std::nullopt;
-    case WGPUTextureFormat_RGBA8Unorm:
-    case WGPUTextureFormat_RGBA8UnormSrgb:
-        return WGPUTextureFormat_RGBA8Unorm;
-    case WGPUTextureFormat_RGBA8Snorm:
-    case WGPUTextureFormat_RGBA8Uint:
-    case WGPUTextureFormat_RGBA8Sint:
-        return std::nullopt;
-    case WGPUTextureFormat_BGRA8Unorm:
-    case WGPUTextureFormat_BGRA8UnormSrgb:
-        return WGPUTextureFormat_BGRA8Unorm;
-    case WGPUTextureFormat_RGB10A2Unorm:
-    case WGPUTextureFormat_RG11B10Ufloat:
-    case WGPUTextureFormat_RGB9E5Ufloat:
-    case WGPUTextureFormat_RG32Float:
-    case WGPUTextureFormat_RG32Uint:
-    case WGPUTextureFormat_RG32Sint:
-    case WGPUTextureFormat_RGBA16Uint:
-    case WGPUTextureFormat_RGBA16Sint:
-    case WGPUTextureFormat_RGBA16Float:
-    case WGPUTextureFormat_RGBA32Float:
-    case WGPUTextureFormat_RGBA32Uint:
-    case WGPUTextureFormat_RGBA32Sint:
-    case WGPUTextureFormat_Stencil8:
-    case WGPUTextureFormat_Depth16Unorm:
-    case WGPUTextureFormat_Depth24Plus:
-    case WGPUTextureFormat_Depth24PlusStencil8:
-    case WGPUTextureFormat_Depth24UnormStencil8:
-    case WGPUTextureFormat_Depth32Float:
-    case WGPUTextureFormat_Depth32FloatStencil8:
-        return std::nullopt;
-    case WGPUTextureFormat_BC1RGBAUnorm:
-    case WGPUTextureFormat_BC1RGBAUnormSrgb:
-        return WGPUTextureFormat_BC1RGBAUnorm;
-    case WGPUTextureFormat_BC2RGBAUnorm:
-    case WGPUTextureFormat_BC2RGBAUnormSrgb:
-        return WGPUTextureFormat_BC2RGBAUnorm;
-    case WGPUTextureFormat_BC3RGBAUnorm:
-    case WGPUTextureFormat_BC3RGBAUnormSrgb:
-        return WGPUTextureFormat_BC3RGBAUnorm;
-    case WGPUTextureFormat_BC4RUnorm:
-    case WGPUTextureFormat_BC4RSnorm:
-    case WGPUTextureFormat_BC5RGUnorm:
-    case WGPUTextureFormat_BC5RGSnorm:
-    case WGPUTextureFormat_BC6HRGBUfloat:
-    case WGPUTextureFormat_BC6HRGBFloat:
-        return std::nullopt;
-    case WGPUTextureFormat_BC7RGBAUnorm:
-    case WGPUTextureFormat_BC7RGBAUnormSrgb:
-        return WGPUTextureFormat_BC7RGBAUnorm;
-    case WGPUTextureFormat_ETC2RGB8Unorm:
-    case WGPUTextureFormat_ETC2RGB8UnormSrgb:
-        return WGPUTextureFormat_ETC2RGB8Unorm;
-    case WGPUTextureFormat_ETC2RGB8A1Unorm:
-    case WGPUTextureFormat_ETC2RGB8A1UnormSrgb:
-        return WGPUTextureFormat_ETC2RGB8A1Unorm;
-    case WGPUTextureFormat_ETC2RGBA8Unorm:
-    case WGPUTextureFormat_ETC2RGBA8UnormSrgb:
-        return WGPUTextureFormat_ETC2RGBA8Unorm;
-    case WGPUTextureFormat_EACR11Unorm:
-    case WGPUTextureFormat_EACR11Snorm:
-    case WGPUTextureFormat_EACRG11Unorm:
-    case WGPUTextureFormat_EACRG11Snorm:
-        return std::nullopt;
-    case WGPUTextureFormat_ASTC4x4Unorm:
-    case WGPUTextureFormat_ASTC4x4UnormSrgb:
-        return WGPUTextureFormat_ASTC4x4Unorm;
-    case WGPUTextureFormat_ASTC5x4Unorm:
-    case WGPUTextureFormat_ASTC5x4UnormSrgb:
-        return WGPUTextureFormat_ASTC5x4Unorm;
-    case WGPUTextureFormat_ASTC5x5Unorm:
-    case WGPUTextureFormat_ASTC5x5UnormSrgb:
-        return WGPUTextureFormat_ASTC5x5Unorm;
-    case WGPUTextureFormat_ASTC6x5Unorm:
-    case WGPUTextureFormat_ASTC6x5UnormSrgb:
-        return WGPUTextureFormat_ASTC6x5Unorm;
-    case WGPUTextureFormat_ASTC6x6Unorm:
-    case WGPUTextureFormat_ASTC6x6UnormSrgb:
-        return WGPUTextureFormat_ASTC6x6Unorm;
-    case WGPUTextureFormat_ASTC8x5Unorm:
-    case WGPUTextureFormat_ASTC8x5UnormSrgb:
-        return WGPUTextureFormat_ASTC8x5Unorm;
-    case WGPUTextureFormat_ASTC8x6Unorm:
-    case WGPUTextureFormat_ASTC8x6UnormSrgb:
-        return WGPUTextureFormat_ASTC8x6Unorm;
-    case WGPUTextureFormat_ASTC8x8Unorm:
-    case WGPUTextureFormat_ASTC8x8UnormSrgb:
-        return WGPUTextureFormat_ASTC8x8Unorm;
-    case WGPUTextureFormat_ASTC10x5Unorm:
-    case WGPUTextureFormat_ASTC10x5UnormSrgb:
-        return WGPUTextureFormat_ASTC10x5Unorm;
-    case WGPUTextureFormat_ASTC10x6Unorm:
-    case WGPUTextureFormat_ASTC10x6UnormSrgb:
-        return WGPUTextureFormat_ASTC10x6Unorm;
-    case WGPUTextureFormat_ASTC10x8Unorm:
-    case WGPUTextureFormat_ASTC10x8UnormSrgb:
-        return WGPUTextureFormat_ASTC10x8Unorm;
-    case WGPUTextureFormat_ASTC10x10Unorm:
-    case WGPUTextureFormat_ASTC10x10UnormSrgb:
-        return WGPUTextureFormat_ASTC10x10Unorm;
-    case WGPUTextureFormat_ASTC12x10Unorm:
-    case WGPUTextureFormat_ASTC12x10UnormSrgb:
-        return WGPUTextureFormat_ASTC12x10Unorm;
-    case WGPUTextureFormat_ASTC12x12Unorm:
-    case WGPUTextureFormat_ASTC12x12UnormSrgb:
-        return WGPUTextureFormat_ASTC12x12Unorm;
-    case WGPUTextureFormat_Undefined:
-    case WGPUTextureFormat_Force32:
-        ASSERT_NOT_REACHED();
-        return std::nullopt;
-    }
-}
-
 static bool areCopyCompatible(WGPUTextureFormat format1, WGPUTextureFormat format2)
 {
     // https://gpuweb.github.io/gpuweb/#copy-compatible
 
-    // "format1 equals format2"
     if (format1 == format2)
         return true;
 
-    // "format1 and format2 differ only in whether they are srgb formats (have the -srgb suffix)."
-    auto canonicalizedFormat1 = isSRGBCompatible(format1);
-    auto canonicalizedFormat2 = isSRGBCompatible(format2);
-    if (!canonicalizedFormat1 || !canonicalizedFormat2)
-        return false;
-    if (canonicalizedFormat1 != canonicalizedFormat1)
-        return false;
-
-    return true;
+    return Texture::removeSRGBSuffix(format1) == Texture::removeSRGBSuffix(format2);
 }
 
 static bool validateCopyTextureToTexture(const WGPUImageCopyTexture& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize)
 {
-    // "Let srcTextureDesc be source.texture.[[descriptor]]."
     const auto& srcTextureDesc = fromAPI(source.texture).descriptor();
 
-    // "Let dstTextureDesc be destination.texture.[[descriptor]]."
     const auto& dstTextureDesc = fromAPI(destination.texture).descriptor();
 
-    // "validating GPUImageCopyTexture(source, copySize) returns true."
     if (!Texture::validateImageCopyTexture(source, copySize))
         return false;
 
-    // "srcTextureDesc.usage contains COPY_SRC."
     if (!(srcTextureDesc.usage & WGPUTextureUsage_CopySrc))
         return false;
 
-    // "validating GPUImageCopyTexture(destination, copySize) returns true."
     if (!Texture::validateImageCopyTexture(destination, copySize))
         return false;
 
-    // "dstTextureDesc.usage contains COPY_DST."
     if (!(dstTextureDesc.usage & WGPUTextureUsage_CopyDst))
         return false;
 
-    // "srcTextureDesc.sampleCount is equal to dstTextureDesc.sampleCount."
     if (srcTextureDesc.sampleCount != dstTextureDesc.sampleCount)
         return false;
 
-    // "srcTextureDesc.format and dstTextureDesc.format must be copy-compatible."
     if (!areCopyCompatible(srcTextureDesc.format, dstTextureDesc.format))
         return false;
 
-    // "If srcTextureDesc.format is a depth-stencil format:"
     if (Texture::isDepthOrStencilFormat(srcTextureDesc.format)) {
-        // "source.aspect and destination.aspect must both refer to all aspects of srcTextureDesc.format and dstTextureDesc.format, respectively."
         if (!refersToAllAspects(srcTextureDesc.format, source.aspect)
             || !refersToAllAspects(dstTextureDesc.format, destination.aspect))
             return false;
     }
 
-    // "validating texture copy range(source, copySize) returns true."
     if (!Texture::validateTextureCopyRange(source, copySize))
         return false;
 
-    // "validating texture copy range(destination, copySize) returns true."
     if (!Texture::validateTextureCopyRange(destination, copySize))
         return false;
 
-    // "The set of subresources for texture copy(source, copySize) and the set of subresources for texture copy(destination, copySize) is disjoint."
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-set-of-subresources-for-texture-copy
     if (source.texture == destination.texture) {
         // Mip levels are never ranges.
         if (source.mipLevel == destination.mipLevel) {
             switch (fromAPI(source.texture).descriptor().dimension) {
             case WGPUTextureDimension_1D:
-                // "The subresource of imageCopyTexture.texture at mipmap level imageCopyTexture.mipLevel."
                 return false;
             case WGPUTextureDimension_2D: {
-                // "For each arrayLayer of the copySize.depthOrArrayLayers array layers starting at imageCopyTexture.origin.z:"
-                // "The subresource of imageCopyTexture.texture at mipmap level imageCopyTexture.mipLevel and array layer arrayLayer."
                 Range<uint32_t> sourceRange(source.origin.z, source.origin.z + copySize.depthOrArrayLayers);
                 Range<uint32_t> destinationRange(destination.origin.z, source.origin.z + copySize.depthOrArrayLayers);
                 if (sourceRange.overlaps(destinationRange))
@@ -775,7 +578,6 @@ static bool validateCopyTextureToTexture(const WGPUImageCopyTexture& source, con
                 break;
             }
             case WGPUTextureDimension_3D:
-                // "The subresource of imageCopyTexture.texture at mipmap level imageCopyTexture.mipLevel."
                 return false;
             case WGPUTextureDimension_Force32:
                 ASSERT_NOT_REACHED();
@@ -794,14 +596,11 @@ void CommandEncoder::copyTextureToTexture(const WGPUImageCopyTexture& source, co
 
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copytexturetotexture
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
 
-    // "If any of the following conditions are unsatisfied"
     if (!validateCopyTextureToTexture(source, destination, copySize)) {
-        // "generate a validation error and stop."
-        m_device->generateAValidationError("Validation failure.");
+        m_device->generateAValidationError("Validation failure."_s);
         return;
     }
 
@@ -879,23 +678,20 @@ void CommandEncoder::copyTextureToTexture(const WGPUImageCopyTexture& source, co
     }
 }
 
-static bool validateClearBuffer(const Buffer& buffer, uint64_t offset, uint64_t size)
+bool CommandEncoder::validateClearBuffer(const Buffer& buffer, uint64_t offset, uint64_t size)
 {
-    // FIXME: "buffer is valid to use with this."
+    if (!isValidToUseWith(buffer, *this))
+        return false;
 
-    // "buffer.[[usage]] contains COPY_DST."
     if (!(buffer.usage() & WGPUBufferUsage_CopyDst))
         return false;
 
-    // "size is a multiple of 4."
     if (size % 4)
         return false;
 
-    // "offset is a multiple of 4."
     if (offset % 4)
         return false;
 
-    // "buffer.[[size]] is greater than or equal to (offset + size)."
     // FIXME: Use checked arithmetic.
     if (buffer.size() < offset + size)
         return false;
@@ -907,19 +703,15 @@ void CommandEncoder::clearBuffer(const Buffer& buffer, uint64_t offset, uint64_t
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-clearbuffer
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
 
-    // "If size is missing, set size to max(0, |buffer|.{{GPUBuffer/[[size]]}} - |offset|)."
     if (size == WGPU_WHOLE_SIZE) {
         // FIXME: Use checked arithmetic.
         size = buffer.size() - offset;
     }
 
-    // "If any of the following conditions are unsatisfied"
     if (!validateClearBuffer(buffer, offset, size)) {
-        // "generate a validation error and stop."
         m_device->generateAValidationError("Validation failure."_s);
         return;
     }
@@ -931,11 +723,9 @@ void CommandEncoder::clearBuffer(const Buffer& buffer, uint64_t offset, uint64_t
 
 bool CommandEncoder::validateFinish() const
 {
-    // "Let validationSucceeded be true if all of the following requirements are met, and false otherwise."
+    if (!isValid())
+        return false;
 
-    // FIXME: "this must be valid."
-
-    // "this.[[state]] must be "open"."
     if (m_state != EncoderState::Open)
         return false;
 
@@ -946,44 +736,36 @@ bool CommandEncoder::validateFinish() const
     return true;
 }
 
-RefPtr<CommandBuffer> CommandEncoder::finish(const WGPUCommandBufferDescriptor& descriptor)
+Ref<CommandBuffer> CommandEncoder::finish(const WGPUCommandBufferDescriptor& descriptor)
 {
     if (descriptor.nextInChain)
-        return nullptr;
+        return CommandBuffer::createInvalid(m_device);
 
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-finish
 
-    // "Let validationSucceeded be true if all of the following requirements are met, and false otherwise."
     auto validationFailed = !validateFinish();
 
-    // "Set this.[[state]] to "ended"."
     m_state = EncoderState::Ended;
 
-    // "If validationSucceeded is false, then:"
     if (validationFailed) {
-        // "Generate a validation error."
         m_device->generateAValidationError("Validation failure."_s);
-
-        // FIXME: "Return a new invalid GPUCommandBuffer."
-        return nullptr;
+        return CommandBuffer::createInvalid(m_device);
     }
 
     finalizeBlitCommandEncoder();
 
-    // "Set commandBuffer.[[command_list]] to this.[[commands]]."
     auto *commandBuffer = m_commandBuffer;
     m_commandBuffer = nil;
 
     commandBuffer.label = fromAPI(descriptor.label);
 
-    return CommandBuffer::create(commandBuffer);
+    return CommandBuffer::create(commandBuffer, m_device);
 }
 
 void CommandEncoder::insertDebugMarker(String&& markerLabel)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-insertdebugmarker
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
 
@@ -996,7 +778,6 @@ void CommandEncoder::insertDebugMarker(String&& markerLabel)
 
 bool CommandEncoder::validatePopDebugGroup() const
 {
-    // "this.[[debug_group_stack]] must not be empty."
     if (!m_debugGroupStackSize)
         return false;
 
@@ -1007,19 +788,16 @@ void CommandEncoder::popDebugGroup()
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-popdebuggroup
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
 
-    // "If any of the following requirements are unmet"
     if (!validatePopDebugGroup()) {
-        // FIXME: "make this invalid, and stop."
+        makeInvalid();
         return;
     }
 
     finalizeBlitCommandEncoder();
 
-    // "Pop an entry off of this.[[debug_group_stack]]."
     --m_debugGroupStackSize;
     [m_commandBuffer popDebugGroup];
 }
@@ -1028,13 +806,11 @@ void CommandEncoder::pushDebugGroup(String&& groupLabel)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-pushdebuggroup
 
-    // "Prepare the encoder state of this. If it returns false, stop."
     if (!prepareTheEncoderState())
         return;
     
     finalizeBlitCommandEncoder();
 
-    // "Push groupLabel onto this.[[debug_group_stack]]."
     ++m_debugGroupStackSize;
     [m_commandBuffer pushDebugGroup:groupLabel];
 }

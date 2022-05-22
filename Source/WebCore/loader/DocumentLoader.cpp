@@ -397,7 +397,7 @@ void DocumentLoader::stopLoading()
     // We always need to explicitly cancel the Document's parser when stopping the load.
     // Otherwise cancelling the parser while starting the next page load might result
     // in unexpected side effects such as erroneous event dispatch. ( http://webkit.org/b/117112 )
-    if (Document* document = this->document())
+    if (RefPtr document = this->document())
         document->cancelParsing();
     
     stopLoadingSubresources();
@@ -1040,7 +1040,7 @@ bool DocumentLoader::disallowWebArchive() const
     if (m_substituteData.isValid())
         return false;
 
-    if (!LegacySchemeRegistry::shouldTreatURLSchemeAsLocal(m_request.url().protocol().toStringWithoutCopying()))
+    if (!LegacySchemeRegistry::shouldTreatURLSchemeAsLocal(m_request.url().protocol()))
         return true;
 
     if (!frame() || (frame()->isMainFrame() && m_allowsWebArchiveForMainFrame))
@@ -1994,8 +1994,8 @@ bool DocumentLoader::isMultipartReplacingLoad() const
 
 bool DocumentLoader::maybeLoadEmpty()
 {
-    bool shouldLoadEmpty = !m_substituteData.isValid() && (m_request.url().isEmpty() || LegacySchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(m_request.url().protocol().toStringWithoutCopying()));
-    if (!shouldLoadEmpty && !frameLoader()->client().representationExistsForURLScheme(m_request.url().protocol().toStringWithoutCopying()))
+    bool shouldLoadEmpty = !m_substituteData.isValid() && (m_request.url().isEmpty() || LegacySchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(m_request.url().protocol()));
+    if (!shouldLoadEmpty && !frameLoader()->client().representationExistsForURLScheme(m_request.url().protocol()))
         return false;
 
     if (m_request.url().isEmpty() && !frameLoader()->stateMachine().creatingInitialEmptyDocument()) {
@@ -2004,7 +2004,7 @@ bool DocumentLoader::maybeLoadEmpty()
             frameLoader()->client().dispatchDidChangeProvisionalURL();
     }
 
-    String mimeType = shouldLoadEmpty ? "text/html"_s : frameLoader()->client().generatedMIMETypeForURLScheme(m_request.url().protocol().toStringWithoutCopying());
+    String mimeType = shouldLoadEmpty ? "text/html"_s : frameLoader()->client().generatedMIMETypeForURLScheme(m_request.url().protocol());
     m_response = ResourceResponse(m_request.url(), mimeType, 0, "UTF-8"_s);
 
     if (!frameLoader()->stateMachine().isDisplayingInitialEmptyDocument()) {
@@ -2148,9 +2148,12 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
         // If we are loading the main resource of a subframe, use the cache partition of the main document.
         mainResourceRequest.setDomainForCachePartition(*m_frame->document());
     } else {
-        auto origin = SecurityOrigin::create(mainResourceRequest.resourceRequest().url());
-        origin->setStorageBlockingPolicy(frameLoader()->frame().settings().storageBlockingPolicy());
-        mainResourceRequest.setDomainForCachePartition(origin->domainForCachePartition());
+        if (frameLoader()->frame().settings().storageBlockingPolicy() != StorageBlockingPolicy::BlockThirdParty)
+            mainResourceRequest.setDomainForCachePartition(emptyString());
+        else {
+            auto origin = SecurityOrigin::create(mainResourceRequest.resourceRequest().url());
+            mainResourceRequest.setDomainForCachePartition(origin->domainForCachePartition());
+        }
     }
 
     m_mainResource = m_cachedResourceLoader->requestMainResource(WTFMove(mainResourceRequest)).value_or(nullptr);

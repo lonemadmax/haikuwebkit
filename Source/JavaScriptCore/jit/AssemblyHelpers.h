@@ -406,12 +406,6 @@ public:
     }
 
 #if CPU(X86_64)
-    static constexpr size_t prologueStackPointerDelta()
-    {
-        // Prologue only saves the framePointerRegister
-        return sizeof(void*);
-    }
-
     void emitFunctionPrologue()
     {
         push(framePointerRegister);
@@ -477,12 +471,6 @@ public:
 #endif // CPU(X86_64)
 
 #if CPU(ARM_THUMB2) || CPU(ARM64)
-    static constexpr size_t prologueStackPointerDelta()
-    {
-        // Prologue saves the framePointerRegister and linkRegister
-        return 2 * sizeof(void*);
-    }
-
     void emitFunctionPrologue()
     {
         tagReturnAddress();
@@ -528,12 +516,6 @@ public:
 #endif
 
 #if CPU(MIPS)
-    static constexpr size_t prologueStackPointerDelta()
-    {
-        // Prologue saves the framePointerRegister and returnAddressRegister
-        return 2 * sizeof(void*);
-    }
-
     void emitFunctionPrologue()
     {
         pushPair(framePointerRegister, returnAddressRegister);
@@ -568,12 +550,6 @@ public:
 #endif
 
 #if CPU(RISCV64)
-    static constexpr size_t prologueStackPointerDelta()
-    {
-        // Prologue saves the framePointerRegister and returnAddressRegister
-        return 2 * sizeof(void*);
-    }
-
     void emitFunctionPrologue()
     {
         pushPair(framePointerRegister, linkRegister);
@@ -1281,6 +1257,17 @@ public:
         return calleeFrameSlot(VirtualRegister(0)).withOffset(CallFrame::callerFrameOffset());
     }
 
+    static Address calleeFrameCodeBlockBeforeCall()
+    {
+        return calleeFramePayloadSlot(CallFrameSlot::codeBlock);
+    }
+
+    static Address calleeFrameCodeBlockBeforeTailCall()
+    {
+        // The stackPointerRegister state is "after the call, but before the function prologue".
+        return calleeFramePayloadSlot(CallFrameSlot::codeBlock).withOffset(sizeof(CallerFrameAndPC) - prologueStackPointerDelta());
+    }
+
     static GPRReg selectScratchGPR(RegisterSet preserved)
     {
         GPRReg registers[] = {
@@ -1345,6 +1332,8 @@ public:
     void jitAssertTagsInPlace();
     void jitAssertArgumentCountSane();
     inline void jitAssertNoException(VM& vm) { jitReleaseAssertNoException(vm); }
+    void jitAssertCodeBlockOnCallFrameWithType(GPRReg scratchGPR, JITType);
+    void jitAssertCodeBlockOnCallFrameIsOptimizingJIT(GPRReg scratchGPR);
 #else
     void jitAssertIsInt32(GPRReg) { }
     void jitAssertIsJSInt32(GPRReg) { }
@@ -1356,6 +1345,8 @@ public:
     void jitAssertTagsInPlace() { }
     void jitAssertArgumentCountSane() { }
     void jitAssertNoException(VM&) { }
+    void jitAssertCodeBlockOnCallFrameWithType(GPRReg, JITType) { }
+    void jitAssertCodeBlockOnCallFrameIsOptimizingJIT(GPRReg) { }
 #endif
 
     void jitReleaseAssertNoException(VM&);
@@ -1378,16 +1369,20 @@ public:
         }
         return gpr;
     }
-    FPRReg unboxDoubleWithoutAssertions(GPRReg gpr, GPRReg resultGPR, FPRReg fpr)
+    FPRReg unboxDoubleWithoutAssertions(GPRReg gpr, GPRReg resultGPR, FPRReg fpr, TagRegistersMode mode = HaveTagRegisters)
     {
-        add64(GPRInfo::numberTagRegister, gpr, resultGPR);
+        if (mode == DoNotHaveTagRegisters) {
+            move(TrustedImm64(JSValue::NumberTag), resultGPR);
+            add64(gpr, resultGPR);
+        } else
+            add64(GPRInfo::numberTagRegister, gpr, resultGPR);
         move64ToDouble(resultGPR, fpr);
         return fpr;
     }
-    FPRReg unboxDouble(GPRReg gpr, GPRReg resultGPR, FPRReg fpr)
+    FPRReg unboxDouble(GPRReg gpr, GPRReg resultGPR, FPRReg fpr, TagRegistersMode mode = HaveTagRegisters)
     {
         jitAssertIsJSDouble(gpr);
-        return unboxDoubleWithoutAssertions(gpr, resultGPR, fpr);
+        return unboxDoubleWithoutAssertions(gpr, resultGPR, fpr, mode);
     }
     
     void boxDouble(FPRReg fpr, JSValueRegs regs, TagRegistersMode mode = HaveTagRegisters)

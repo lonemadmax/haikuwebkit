@@ -51,6 +51,7 @@
 #import <WebKit/_WKRemoteObjectInterface.h>
 #import <WebKit/_WKRemoteObjectRegistry.h>
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
+#import <WebKit/_WKWebsiteDataStoreDelegate.h>
 #import <wtf/Deque.h>
 #import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
@@ -2134,9 +2135,9 @@ TEST(ServiceWorkers, ContentRuleList)
     using namespace TestWebKitAPI;
     HTTPServer server([] (Connection connection) {
         connection.receiveHTTPRequest([=](Vector<char>&&) {
-            connection.send(HTTPResponse({{ "Content-Type", "text/html" }}, mainBytes).serialize(), [=] {
+            connection.send(HTTPResponse({ { "Content-Type"_s, "text/html"_s } }, mainBytes).serialize(), [=] {
                 connection.receiveHTTPRequest([=](Vector<char>&&) {
-                    connection.send(HTTPResponse({{ "Content-Type", "application/javascript" }}, contentRuleListWorkerScript).serialize(), [=] {
+                    connection.send(HTTPResponse({ { "Content-Type"_s, "application/javascript"_s } }, contentRuleListWorkerScript).serialize(), [=] {
                         connection.receiveHTTPRequest([=](Vector<char>&& lastRequest) {
                             EXPECT_TRUE(strnstr((const char*)lastRequest.data(), "allowedsubresource", lastRequest.size()));
                             connection.send(HTTPResponse("successful fetch"_s).serialize());
@@ -2965,4 +2966,418 @@ TEST(ServiceWorker, ServiceWorkerWindowClientFocusRequiresUserGesture)
     expectedMessage = "not focused"_s;
     [webView evaluateJavaScript:@"focusClient()" completionHandler: nil];
     TestWebKitAPI::Util::run(&done);
+}
+
+static constexpr auto ServiceWorkerWindowClientOpenWindowMain =
+"<div id='log'>test page</div>"
+"<script>"
+"let worker;"
+"async function test() {"
+"    log.innerHTML = 'test';"
+"    try {"
+"        const registration = await navigator.serviceWorker.register('/sw.js');"
+"        log.innerHTML = 'registered';"
+"        if (registration.active) {"
+"            worker = registration.active;"
+"            alert('already active');"
+"            return;"
+"        }"
+"        worker = registration.installing;"
+"        worker.addEventListener('statechange', () => {"
+"           log.innerHTML = 'worker.state=' + worker.state;"
+"            if (worker.state == 'activated')"
+"                alert('successfully registered');"
+"        });"
+"    } catch(e) {"
+"        alert('Exception: ' + e);"
+"    }"
+"}"
+"window.onload = test;"
+""
+"function openWindowClient() {"
+"    log.innerHTML = 'openWindowClient';"
+"    worker.postMessage('start');"
+"    navigator.serviceWorker.onmessage = (event) => {"
+"        window.webkit.messageHandlers.sw.postMessage(event.data);"
+"    }"
+"}"
+"</script>"_s;
+static constexpr auto ServiceWorkerWindowClientOpenWindowJS =
+"self.addEventListener('message', (event) => {"
+"   self.clients.openWindow('/sw.js').then((client) => {"
+"       event.source.postMessage(client ? 'opened with client' : 'opened without client');"
+"   }, (error) => {"
+"       event.source.postMessage('not opened');"
+"   });"
+"});"_s;
+
+TEST(ServiceWorker, openWindowWithoutDelegate)
+{
+    [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
+
+    // Start with a clean slate data store
+    [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    auto preferences = [configuration preferences];
+
+    for (_WKInternalDebugFeature *feature in [WKPreferences _internalDebugFeatures]) {
+        if ([feature.key isEqualToString:@"ServiceWorkersUserGestureEnabled"])
+            [preferences _setEnabled:NO forInternalDebugFeature:feature];
+    }
+
+    auto messageHandler = adoptNS([[SWMessageHandlerWithExpectedMessage alloc] init]);
+    [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"sw"];
+
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { ServiceWorkerWindowClientOpenWindowMain } },
+        { "/sw.js"_s, { {{ "Content-Type"_s, "application/javascript"_s }}, ServiceWorkerWindowClientOpenWindowJS } }
+    });
+
+    [webView loadRequest:server.request()];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "successfully registered");
+
+    done = false;
+    expectedMessage = "opened without client"_s;
+    [webView evaluateJavaScript:@"openWindowClient()" completionHandler: nil];
+    TestWebKitAPI::Util::run(&done);
+}
+
+static constexpr auto ServiceWorkerWindowClientNavigateMain =
+"<div>test page</div>"
+"<script>"
+"let worker;"
+"async function registerServiceWorker() {"
+"    try {"
+"        const registration = await navigator.serviceWorker.register('/sw.js');"
+"        if (registration.active) {"
+"            worker = registration.active;"
+"            alert('already active');"
+"            return;"
+"        }"
+"        worker = registration.installing;"
+"        worker.addEventListener('statechange', () => {"
+"            if (worker.state == 'activated')"
+"                alert('successfully registered');"
+"        });"
+"    } catch(e) {"
+"        alert('Exception: ' + e);"
+"    }"
+"}"
+"window.onload = registerServiceWorker;"
+""
+"function navigateOtherClientToURL(url) {"
+"    worker.postMessage({navigateOtherClientToURL: url});"
+"    navigator.serviceWorker.onmessage = (event) => {"
+"        alert(event.data);"
+"    };"
+"}"
+""
+"function countServiceWorkerClients() {"
+"    worker.postMessage('countServiceWorkerClients');"
+"    navigator.serviceWorker.onmessage = (event) => {"
+"        alert(event.data);"
+"    };"
+"}"
+""
+"function openWindowToURL(url) {"
+"    worker.postMessage({openWindowToURL: url});"
+"    navigator.serviceWorker.onmessage = (event) => {"
+"        alert(event.data);"
+"    };"
+"}"
+"</script>"_s;
+
+static constexpr auto ServiceWorkerWindowClientNavigateJS =
+"self.addEventListener('message', async (event) => {"
+"   if (event.data && event.data.navigateOtherClientToURL) {"
+"       let otherClient;"
+"       let currentClients = await self.clients.matchAll();"
+"       for (let client of currentClients) {"
+"           if (client.id !== event.source.id)"
+"               otherClient = client;"
+"       }"
+"       if (!otherClient) {"
+"           event.source.postMessage('failed, no other client, client number = ' + currentClients.length);"
+"           return;"
+"       }"
+"       await otherClient.navigate(event.data.navigateOtherClientToURL).then((client) => {"
+"           event.source.postMessage(client ? 'client' : 'none');"
+"       }, (e) => {"
+"           event.source.postMessage('failed');"
+"       });"
+"       return;"
+"   }"
+"   if (event.data === 'countServiceWorkerClients') {"
+"       let currentClients = await self.clients.matchAll();"
+"       event.source.postMessage(currentClients.length + ' client(s)');"
+"       return;"
+"   }"
+"   if (event.data && event.data.openWindowToURL) {"
+"       await self.clients.openWindow(event.data.openWindowToURL).then((client) => {"
+"           event.source.postMessage(client ? 'client' : 'none');"
+"       }, (e) => {"
+"           event.source.postMessage('failed');"
+"       });"
+"       return;"
+"   }"
+"});"_s;
+
+static bool shouldServiceWorkerPSONNavigationDelegateAllowNavigation = true;
+static bool shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = true;
+@interface ServiceWorkerPSONNavigationDelegate : NSObject <WKNavigationDelegatePrivate> {
+    @public void (^decidePolicyForNavigationAction)(WKNavigationAction *, void (^)(WKNavigationActionPolicy));
+    @public void (^didStartProvisionalNavigationHandler)();
+    @public void (^didCommitNavigationHandler)();
+}
+@end
+
+@implementation ServiceWorkerPSONNavigationDelegate
+
+- (instancetype) init
+{
+    self = [super init];
+    return self;
+}
+
+- (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
+{
+    decisionHandler(shouldServiceWorkerPSONNavigationDelegateAllowNavigation ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
+}
+
+- (void)webView:(WKWebView *)webView decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler
+{
+    decisionHandler(shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse ? WKNavigationResponsePolicyAllow : WKNavigationResponsePolicyCancel);
+}
+
+@end
+
+TEST(ServiceWorker, WindowClientNavigate)
+{
+    [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
+
+    // Start with a clean slate data store
+    [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    for (_WKExperimentalFeature *feature in [WKPreferences _experimentalFeatures]) {
+        if ([feature.key isEqualToString:@"CrossOriginOpenerPolicyEnabled"])
+            [[configuration preferences] _setEnabled:YES forExperimentalFeature:feature];
+        else if ([feature.key isEqualToString:@"CrossOriginEmbedderPolicyEnabled"])
+            [[configuration preferences] _setEnabled:YES forExperimentalFeature:feature];
+    }
+
+    auto webView1 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+    auto webView2 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/?test"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/?fail1"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/?fail2"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/?swap"_s, { {{ "Content-Type"_s, "application/html"_s }, { "Cross-Origin-Opener-Policy"_s, "same-origin"_s } }, ServiceWorkerWindowClientNavigateMain } },
+        { "/sw.js"_s, { {{ "Content-Type"_s, "application/javascript"_s }}, ServiceWorkerWindowClientNavigateJS } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http, nullptr, nullptr, 8091);
+
+    [webView1 loadRequest:server.request()];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "successfully registered");
+    [webView2 loadRequest:server.request()];
+    EXPECT_WK_STREQ([webView2 _test_waitForAlert], "already active");
+
+    auto navigationDelegate = adoptNS([[ServiceWorkerPSONNavigationDelegate alloc] init]);
+    [webView2 setNavigationDelegate:navigationDelegate.get()];
+
+    auto *baseURL = [[server.request() URL] absoluteString];
+
+    [webView1 evaluateJavaScript:[NSString stringWithFormat:@"navigateOtherClientToURL('%@')", baseURL] completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "client");
+
+    [webView1 evaluateJavaScript:[NSString stringWithFormat:@"navigateOtherClientToURL('%@#test')", baseURL] completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "client");
+
+    [webView1 evaluateJavaScript:[NSString stringWithFormat:@"navigateOtherClientToURL('%@?test')", baseURL] completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "client");
+
+    [webView1 evaluateJavaScript:[NSString stringWithFormat:@"navigateOtherClientToURL('%@?swap')", baseURL] completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "client");
+
+    [webView1 evaluateJavaScript:@"countServiceWorkerClients()" completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "1 client(s)");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = false;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = true;
+    [webView1 evaluateJavaScript:[NSString stringWithFormat:@"navigateOtherClientToURL('%@?fail1')", baseURL] completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "none");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = true;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = false;
+    [webView1 evaluateJavaScript:[NSString stringWithFormat:@"navigateOtherClientToURL('%@?fail2')", baseURL] completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "none");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = true;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = true;
+}
+
+TEST(ServiceWorker, WindowClientNavigateCrossOrigin)
+{
+    [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
+
+    // Start with a clean slate data store
+    [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+
+    auto webView1 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+    auto webView2 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+
+    TestWebKitAPI::HTTPServer server1({
+        { "/"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/?test"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/?swap"_s, { {{ "Content-Type"_s, "application/html"_s }, { "Cross-Origin-Opener-Policy"_s, "same-origin"_s } }, ServiceWorkerWindowClientNavigateMain } },
+        { "/sw.js"_s, { {{ "Content-Type"_s, "application/javascript"_s }}, ServiceWorkerWindowClientNavigateJS } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http, nullptr, nullptr, 8091);
+
+    TestWebKitAPI::HTTPServer server2({
+        { "/"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/sw.js"_s, { {{ "Content-Type"_s, "application/javascript"_s }}, ServiceWorkerWindowClientNavigateJS } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http, nullptr, nullptr, 9091);
+
+    [webView1 loadRequest:server1.request()];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "successfully registered");
+    [webView2 loadRequest:server1.request()];
+    EXPECT_WK_STREQ([webView2 _test_waitForAlert], "already active");
+    [webView1 evaluateJavaScript:[NSString stringWithFormat:@"navigateOtherClientToURL('%@')", [[server2.request() URL] absoluteString]] completionHandler: nil];
+    EXPECT_WK_STREQ([webView1 _test_waitForAlert], "none");
+}
+
+@interface ServiceWorkerOpenWindowWebsiteDataStoreDelegate: NSObject <_WKWebsiteDataStoreDelegate> {
+@private
+    WKWebViewConfiguration* _configuration;
+    RetainPtr<ServiceWorkerPSONNavigationDelegate> _navigationDelegate;
+    RetainPtr<TestWKWebView> _webView;
+}
+- (instancetype)initWithConfiguration:(WKWebViewConfiguration*)configuration;
+@end
+
+@implementation ServiceWorkerOpenWindowWebsiteDataStoreDelegate { }
+- (instancetype)initWithConfiguration:(WKWebViewConfiguration*)configuration
+{
+    _configuration = configuration;
+    return self;
+}
+
+- (void)websiteDataStore:(WKWebsiteDataStore *)dataStore openWindow:(NSURL *)url fromServiceWorkerOrigin:(WKSecurityOrigin *)serviceWorkerOrigin completionHandler:(void (^)(WKWebView *newWebView))completionHandler
+{
+    _navigationDelegate = adoptNS([[ServiceWorkerPSONNavigationDelegate alloc] init]);
+    _webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:_configuration addToWindow:YES]);
+    [_webView setNavigationDelegate:_navigationDelegate.get()];
+
+    [_webView loadRequest:[NSURLRequest requestWithURL:url]];
+    completionHandler(_webView.get());
+}
+
+@end
+
+TEST(ServiceWorker, OpenWindowWebsiteDataStoreDelegate)
+{
+    [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
+
+    // Start with a clean slate data store
+    [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+
+    auto preferences = [configuration preferences];
+    for (_WKInternalDebugFeature *feature in [WKPreferences _internalDebugFeatures]) {
+        if ([feature.key isEqualToString:@"ServiceWorkersUserGestureEnabled"])
+            [preferences _setEnabled:NO forInternalDebugFeature:feature];
+    }
+
+    auto dataStoreDelegate = adoptNS([[ServiceWorkerOpenWindowWebsiteDataStoreDelegate alloc] initWithConfiguration:configuration.get()]);
+    [[configuration websiteDataStore] set_delegate:dataStoreDelegate.get()];
+
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/sw.js"_s, { {{ "Content-Type"_s, "application/javascript"_s }}, ServiceWorkerWindowClientNavigateJS } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http, nullptr, nullptr, 8091);
+
+    [webView loadRequest:server.request()];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "successfully registered");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = true;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = true;
+    [webView evaluateJavaScript:[NSString stringWithFormat:@"openWindowToURL('%@')", [[server.request() URL] absoluteString]] completionHandler: nil];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "client");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = false;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = true;
+    [webView evaluateJavaScript:[NSString stringWithFormat:@"openWindowToURL('%@')", [[server.request() URL] absoluteString]] completionHandler: nil];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "none");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = true;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = false;
+    [webView evaluateJavaScript:[NSString stringWithFormat:@"openWindowToURL('%@')", [[server.request() URL] absoluteString]] completionHandler: nil];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "none");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = true;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = true;
+}
+
+TEST(ServiceWorker, OpenWindowCOOP)
+{
+    [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
+
+    // Start with a clean slate data store
+    [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+
+    auto preferences = [configuration preferences];
+    for (_WKInternalDebugFeature *feature in [WKPreferences _internalDebugFeatures]) {
+        if ([feature.key isEqualToString:@"ServiceWorkersUserGestureEnabled"])
+            [preferences _setEnabled:NO forInternalDebugFeature:feature];
+    }
+
+    auto dataStoreDelegate = adoptNS([[ServiceWorkerOpenWindowWebsiteDataStoreDelegate alloc] initWithConfiguration:configuration.get()]);
+    [[configuration websiteDataStore] set_delegate:dataStoreDelegate.get()];
+
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { ServiceWorkerWindowClientNavigateMain } },
+        { "/sw.js"_s, { {{ "Content-Type"_s, "application/javascript"_s }}, ServiceWorkerWindowClientNavigateJS } },
+        { "/?swap"_s, { {{ "Content-Type"_s, "application/html"_s }, { "Cross-Origin-Opener-Policy"_s, "same-origin"_s } }, ServiceWorkerWindowClientNavigateMain } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http, nullptr, nullptr, 8091);
+
+    [webView loadRequest:server.request()];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "successfully registered");
+
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigation = true;
+    shouldServiceWorkerPSONNavigationDelegateAllowNavigationResponse = true;
+    [webView evaluateJavaScript:[NSString stringWithFormat:@"openWindowToURL('%@?swap')", [[server.request() URL] absoluteString]] completionHandler: nil];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "client");
 }

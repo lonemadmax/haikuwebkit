@@ -478,7 +478,7 @@ void writeSVGResourceContainer(TextStream& ts, const RenderSVGResourceContainer&
         FloatRect dummyRect;
         FloatSize dummyScale(1, 1);
         SVGFilterBuilder builder;
-        auto dummyFilter = SVGFilter::create(filter.filterElement(), builder, RenderingMode::Unaccelerated, dummyScale, Filter::ClipOperation::Intersect, dummyRect, dummyRect);
+        auto dummyFilter = SVGFilter::create(filter.filterElement(), builder, RenderingMode::Unaccelerated, dummyScale, Filter::ClipOperation::Intersect, dummyRect, dummyRect, NullGraphicsContext());
         if (dummyFilter) {
             TextStream::IndentScope indentScope(ts);
             dummyFilter->externalRepresentation(ts, FilterRepresentation::TestOutput);

@@ -89,13 +89,13 @@ ResourceResponse::ResourceResponse(const CurlResponse& response)
 
     switch (response.httpVersion) {
     case CURL_HTTP_VERSION_1_0:
-        setHTTPVersion("HTTP/1.0");
+        setHTTPVersion("HTTP/1.0"_s);
         break;
     case CURL_HTTP_VERSION_1_1:
-        setHTTPVersion("HTTP/1.1");
+        setHTTPVersion("HTTP/1.1"_s);
         break;
     case CURL_HTTP_VERSION_2_0:
-        setHTTPVersion("HTTP/2");
+        setHTTPVersion("HTTP/2"_s);
         break;
     case CURL_HTTP_VERSION_NONE:
     default:
@@ -103,7 +103,7 @@ ResourceResponse::ResourceResponse(const CurlResponse& response)
     }
 
     setMimeType(extractMIMETypeFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)).convertToASCIILowercase());
-    setTextEncodingName(extractCharsetFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)));
+    setTextEncodingName(extractCharsetFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)).toString());
     setSource(ResourceResponse::Source::Network);
 }
 

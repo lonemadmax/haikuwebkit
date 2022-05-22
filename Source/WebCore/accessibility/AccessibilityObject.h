@@ -607,7 +607,7 @@ public:
     String doAXStringForRange(const PlainTextRange&) const override { return String(); }
     IntRect doAXBoundsForRange(const PlainTextRange&) const override { return IntRect(); }
     IntRect doAXBoundsForRangeUsingCharacterOffset(const PlainTextRange&) const override { return IntRect(); }
-    static String listMarkerTextForNodeAndPosition(Node*, const VisiblePosition&);
+    static StringView listMarkerTextForNodeAndPosition(Node*, const VisiblePosition&);
 
     unsigned doAXLineForIndex(unsigned) override;
 
@@ -627,7 +627,7 @@ public:
     // Used by an ARIA tree to get all its rows.
     void ariaTreeRows(AccessibilityChildrenVector&) override;
     // Used by an ARIA tree item to get only its content, and not its child tree items and groups.
-    void ariaTreeItemContent(AccessibilityChildrenVector&) override;
+    AccessibilityChildrenVector ariaTreeItemContent() override;
 
     // ARIA live-region features.
     bool supportsLiveRegion(bool excludeIfOff = true) const override;

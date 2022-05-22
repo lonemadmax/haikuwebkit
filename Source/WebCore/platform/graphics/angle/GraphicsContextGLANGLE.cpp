@@ -54,7 +54,7 @@
 
 namespace WebCore {
 
-static const char* packedDepthStencilExtensionName = "GL_OES_packed_depth_stencil";
+static constexpr auto packedDepthStencilExtensionName = "GL_OES_packed_depth_stencil"_s;
 
 static Seconds maxFrameDuration = 5_s;
 
@@ -83,10 +83,10 @@ bool GraphicsContextGLANGLE::initialize()
 {
     if (!platformInitializeContext())
         return false;
-    String extensionsString = String(reinterpret_cast<const char*>(GL_GetString(GL_EXTENSIONS)));
+    String extensionsString = String::fromLatin1(reinterpret_cast<const char*>(GL_GetString(GL_EXTENSIONS)));
     for (auto& extension : extensionsString.split(' '))
         m_availableExtensions.add(extension);
-    extensionsString = String(reinterpret_cast<const char*>(GL_GetString(GL_REQUESTABLE_EXTENSIONS_ANGLE)));
+    extensionsString = String::fromLatin1(reinterpret_cast<const char*>(GL_GetString(GL_REQUESTABLE_EXTENSIONS_ANGLE)));
     for (auto& extension : extensionsString.split(' '))
         m_requestableExtensions.add(extension);
     return platformInitialize();
@@ -505,7 +505,7 @@ void GraphicsContextGLANGLE::readnPixelsImpl(GCGLint x, GCGLint y, GCGLsizei wid
 
 // The contents of GraphicsContextGLANGLECommon follow, ported to use ANGLE.
 
-void GraphicsContextGLANGLE::validateDepthStencil(const char* packedDepthStencilExtension)
+void GraphicsContextGLANGLE::validateDepthStencil(ASCIILiteral packedDepthStencilExtension)
 {
     // FIXME: Since the constructors of various platforms are not shared, we initialize this here.
     // Upon constructing the context, always initialize the extensions that the WebGLRenderingContext* will
@@ -1302,7 +1302,7 @@ String GraphicsContextGLANGLE::getString(GCGLenum name)
     if (!makeContextCurrent())
         return String();
 
-    return String(reinterpret_cast<const char*>(GL_GetString(name)));
+    return String::fromLatin1(reinterpret_cast<const char*>(GL_GetString(name)));
 }
 
 void GraphicsContextGLANGLE::hint(GCGLenum target, GCGLenum mode)

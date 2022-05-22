@@ -37,6 +37,7 @@
 #include "GPRInfo.h"
 #include "LinkBuffer.h"
 #include "MacroAssembler.h"
+#include "ProbeContext.h"
 
 namespace JSC { namespace DFG {
 
@@ -148,6 +149,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> osrEntryThunkGenerator(VM& vm)
     jit.negPtr(GPRInfo::regT1, GPRInfo::regT2);
     jit.getEffectiveAddress(MacroAssembler::BaseIndex(GPRInfo::callFrameRegister, GPRInfo::regT2, MacroAssembler::TimesEight), MacroAssembler::stackPointerRegister);
     
+    // Copying locals and header from scratch buffer to the new CallFrame. This also replaces
     MacroAssembler::Label loop = jit.label();
     jit.subPtr(MacroAssembler::TrustedImm32(1), GPRInfo::regT1);
     jit.negPtr(GPRInfo::regT1, GPRInfo::regT4);
@@ -160,6 +162,9 @@ MacroAssemblerCodeRef<JITThunkPtrTag> osrEntryThunkGenerator(VM& vm)
     jit.abortWithReason(DFGUnreasonableOSREntryJumpDestination);
 
     ok.link(&jit);
+
+    jit.jitAssertCodeBlockOnCallFrameIsOptimizingJIT(GPRInfo::regT2);
+
     jit.restoreCalleeSavesFromEntryFrameCalleeSavesBuffer(vm.topEntryFrame);
     jit.emitMaterializeTagCheckRegisters();
 

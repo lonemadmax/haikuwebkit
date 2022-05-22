@@ -32,27 +32,23 @@
 
 namespace WebGPU {
 
-static bool validateCreateSampler(Device&, const WGPUSamplerDescriptor& descriptor)
+static bool validateCreateSampler(Device& device, const WGPUSamplerDescriptor& descriptor)
 {
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-gpusamplerdescriptor
 
-    // FIXME: "device is valid."
+    if (!device.isValid())
+        return false;
 
-    // "descriptor.lodMinClamp is greater than or equal to 0."
     if (std::isnan(descriptor.lodMinClamp) || descriptor.lodMinClamp < 0)
         return false;
 
-    // "descriptor.lodMaxClamp is greater than or equal to descriptor.lodMinClamp."
     if (std::isnan(descriptor.lodMaxClamp) || descriptor.lodMaxClamp < descriptor.lodMinClamp)
         return false;
 
-    // "descriptor.maxAnisotropy is greater than or equal to 1."
     if (descriptor.maxAnisotropy < 1)
         return false;
 
-    // "When descriptor.maxAnisotropy is greater than 1"
     if (descriptor.maxAnisotropy > 1) {
-        // "descriptor.magFilter, descriptor.minFilter, and descriptor.mipmapFilter must be equal to "linear"."
         if (descriptor.magFilter != WGPUFilterMode_Linear
             || descriptor.minFilter != WGPUFilterMode_Linear
             || descriptor.mipmapFilter != WGPUFilterMode_Linear)
@@ -129,20 +125,16 @@ static MTLCompareFunction compareFunction(WGPUCompareFunction compareFunction)
     }
 }
 
-RefPtr<Sampler> Device::createSampler(const WGPUSamplerDescriptor& descriptor)
+Ref<Sampler> Device::createSampler(const WGPUSamplerDescriptor& descriptor)
 {
     if (descriptor.nextInChain)
-        return nullptr;
+        return Sampler::createInvalid(*this);
 
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createsampler
 
-    // "If validating GPUSamplerDescriptor(this, descriptor) returns false:"
     if (!validateCreateSampler(*this, descriptor)) {
-        // "Generate a validation error."
         generateAValidationError("Validation failure."_s);
-
-        // "Create a new invalid GPUSampler and return the result."
-        return nullptr;
+        return Sampler::createInvalid(*this);
     }
 
     MTLSamplerDescriptor *samplerDescriptor = [MTLSamplerDescriptor new];
@@ -157,7 +149,6 @@ RefPtr<Sampler> Device::createSampler(const WGPUSamplerDescriptor& descriptor)
     samplerDescriptor.lodMaxClamp = descriptor.lodMaxClamp;
     samplerDescriptor.compareFunction = compareFunction(descriptor.compare);
 
-    // "The used value of maxAnisotropy will be clamped to the maximum value that the platform supports."
     // https://developer.apple.com/documentation/metal/mtlsamplerdescriptor/1516164-maxanisotropy?language=objc
     // "Values must be between 1 and 16, inclusive."
     samplerDescriptor.maxAnisotropy = std::min<uint16_t>(descriptor.maxAnisotropy, 16);
@@ -166,13 +157,7 @@ RefPtr<Sampler> Device::createSampler(const WGPUSamplerDescriptor& descriptor)
 
     id<MTLSamplerState> samplerState = [m_device newSamplerStateWithDescriptor:samplerDescriptor];
     if (!samplerState)
-        return nullptr;
-
-    // "Let s be a new GPUSampler object."
-    // "Set s.[[descriptor]] to descriptor."
-    // "Set s.[[isComparison]] to false if the compare attribute of s.[[descriptor]] is null or undefined. Otherwise, set it to true."
-    // "Set s.[[isFiltering]] to false if none of minFilter, magFilter, or mipmapFilter has the value of "linear". Otherwise, set it to true."
-    // "Return s."
+        return Sampler::createInvalid(*this);
 
     return Sampler::create(samplerState, descriptor, *this);
 }
@@ -181,6 +166,11 @@ Sampler::Sampler(id<MTLSamplerState> samplerState, const WGPUSamplerDescriptor& 
     : m_samplerState(samplerState)
     , m_descriptor(descriptor)
     , m_device(device)
+{
+}
+
+Sampler::Sampler(Device& device)
+    : m_device(device)
 {
 }
 

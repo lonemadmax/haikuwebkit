@@ -2138,8 +2138,6 @@ webkit.org/b/231752 [ Debug ] imported/w3c/web-platform-tests/css/css-contain/co
 
 webkit.org/b/231083 imported/w3c/web-platform-tests/content-security-policy/generic/policy-inherited-correctly-by-plznavigate.html [ Pass Failure ]
 
-webkit.org/b/231544 [ Debug ] imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html [ Pass Timeout ]
-
 webkit.org/b/231397 [ Debug ] fast/canvas/webgl/multisample-resolve-consistency.html [ Slow ]
 webkit.org/b/231397 [ Debug ] fast/selectors/slow-style-sharing-with-long-cousin-list.html [ Slow ]
 webkit.org/b/231397 [ Debug ] fast/selectors/matches-complex.html [ Slow ]
@@ -2166,7 +2164,7 @@ webkit.org/b/231636 [ Debug ] media/media-fragments/TC0001.html [ Pass Timeout ]
 
 webkit.org/b/231638 [ Debug ] webgl/pending/conformance/glsl/misc/shader-with-reserved-words-2.html [ Pass Timeout ]
 
-webkit.org/b/228127 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/resource-popup.https.html [ Pass Crash Failure]
+webkit.org/b/228127 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/resource-popup.https.html [ Pass Crash Failure ]
 
 webkit.org/b/231684 [ Debug ] requestidlecallback/requestidlecallback-document-gc.html [ Pass Crash ]
 
@@ -2175,6 +2173,15 @@ webkit.org/b/230509 fast/events/ios/dom-update-on-keydown-quirk.html [ Pass Fail
 webkit.org/b/231714 fast/scrolling/ios/click-events-during-momentum-scroll-in-overflow.html [ Pass Timeout ]
 
 webkit.org/b/232310 [ Release ] fast/flexbox/aspect-ratio-intrinsic-adjust.html [ Pass ImageOnlyFailure ]
+
+# This test is currently failing on EWS
+webkit.org/b/238954 imported/w3c/web-platform-tests/css/selectors/invalidation/user-action-pseudo-classes-in-has.html [ Pass Failure ]
+
+# This test is currently failing on EWS
+webkit.org/b/238960 fast/attachment/attachment-disabled-rendering.html [ Pass Failure ]
+
+# This failure is only happening on EWS
+webkit.org/b/238965 css3/background/background-repeat-round-auto2.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/231780 [ Debug ] imported/w3c/web-platform-tests/webrtc/simulcast/basic.https.html [ Pass Failure ]
 
@@ -2207,13 +2214,6 @@ http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.
 # Test failures from turning GPU Process on by default
 webkit.org/b/234536 webxr/high-performance.html [ Failure ]
 
-# Wrong text color
-webkit.org/b/236913 imported/blink/fast/multicol/vertical-lr/float-content-break.html [ ImageOnlyFailure ]
-
-# No/bad gradient/pattern
-webkit.org/b/236924 svg/transforms/transformed-text-fill-pattern.html [ ImageOnlyFailure ]
-webkit.org/b/236924 imported/blink/svg/text/obb-paintserver.html [ ImageOnlyFailure ]
-
 # Media failures
 webkit.org/b/237295 fast/mediastream/video-rotation-gpu-process-crash.html [ Timeout Crash Pass ]
 webkit.org/b/236926 webrtc/vp8-then-h264-gpu-process-crash.html [ Timeout Pass ]
@@ -2226,8 +2226,6 @@ webkit.org/b/237674 imported/w3c/web-platform-tests/html/semantics/links/links-c
 webkit.org/b/238691 webgl/1.0.3/conformance/state/gl-object-get-calls.html [ Timeout Pass ]
 
 ############ end of test failures related to GPU Process on by default
-
-webkit.org/b/236927 fast/forms/autofocus-readonly-attribute.html [ Failure Pass ]
 
 # webkit.org/b/237346 REGRESSION(r290539): [ iOS ] 2X http/wpt/webauthn/public-key-credential-create-failure-local (layout-tests) are constant text failures
 http/wpt/webauthn/public-key-credential-create-failure-local.https.html [ Pass Failure ]
@@ -2247,7 +2245,5 @@ webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-writing-modes/full-w
 webkit.org/b/233621 http/tests/webgpu [ Skip ]
 
 webkit.org/b/237849 imported/w3c/web-platform-tests/css/filter-effects/filters-drop-shadow-003.html [ ImageOnlyFailure ]
-
-webkit.org/b/238634 media/video-object-fit.html [ ImageOnlyFailure ]
 
 fast/text/install-font-style-recalc.html [ Pass ]

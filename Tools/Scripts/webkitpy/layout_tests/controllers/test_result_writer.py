@@ -97,13 +97,18 @@ class TestResultWriter(object):
           The absolute path to the output filename
         """
         fs = self._filesystem
-        output_filename = fs.join(self._root_output_dir, self._test_name)
 
-        # Temporary fix, also in LayoutTests/fast/harness/results.html, line 275.
-        # FIXME: Refactor to avoid confusing reference to both test and process names.
-        if len(fs.splitext(output_filename)[1]) - 1 > 5:
-            return output_filename + modifier
-        return fs.splitext(output_filename)[0] + modifier
+        ext_parts = fs.splitext(self._test_name)
+        output_basename = ext_parts[0]
+        if len(ext_parts) > 1 and '?' in ext_parts[1]:
+            output_basename += '_' + ext_parts[1].split('?')[1]
+        elif len(ext_parts) > 1 and '#' in ext_parts[1]:
+            output_basename += '_' + ext_parts[1].split('#')[1]
+        elif len(fs.splitext(output_basename)[1]) - 1 > 5:
+            # Temporary fix, also in LayoutTests/fast/harness/results.html, line 275.
+            # FIXME: Refactor to avoid confusing reference to both test and process names.
+            return fs.join(self._root_output_dir, self._test_name) + modifier
+        return fs.join(self._root_output_dir, output_basename) + modifier
 
     def _write_binary_file(self, path, contents):
         if contents is not None:

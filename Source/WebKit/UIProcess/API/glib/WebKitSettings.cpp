@@ -57,7 +57,7 @@ using namespace WebKit;
 
 struct _WebKitSettingsPrivate {
     _WebKitSettingsPrivate()
-        : preferences(WebPreferences::create(String(), "WebKit2.", "WebKit2."))
+        : preferences(WebPreferences::create(String(), "WebKit2."_s, "WebKit2."_s))
     {
         defaultFontFamily = preferences->standardFontFamily().utf8();
         monospaceFontFamily = preferences->fixedFontFamily().utf8();
@@ -97,12 +97,11 @@ struct _WebKitSettingsPrivate {
  * other things on a #WebKitWebView. After creation, a #WebKitSettings object
  * contains default settings.
  *
- * <informalexample><programlisting>
- * /<!-- -->* Disable JavaScript. *<!-- -->/
+ * ```c
+ * // Disable JavaScript
  * WebKitSettings *settings = webkit_web_view_group_get_settings (my_view_group);
  * webkit_settings_set_enable_javascript (settings, FALSE);
- *
- * </programlisting></informalexample>
+ * ```
  */
 
 WEBKIT_DEFINE_TYPE(WebKitSettings, webkit_settings, G_TYPE_OBJECT)
@@ -3090,7 +3089,7 @@ void webkit_settings_set_user_agent(WebKitSettings* settings, const char* userAg
         userAgentString = String::fromUTF8(userAgent);
         g_return_if_fail(WebCore::isValidUserAgentHeaderValue(userAgentString));
     } else
-        userAgentString = WebCore::standardUserAgent("");
+        userAgentString = WebCore::standardUserAgent(emptyString());
 
     CString newUserAgent = userAgentString.utf8();
     if (newUserAgent == priv->userAgent)
