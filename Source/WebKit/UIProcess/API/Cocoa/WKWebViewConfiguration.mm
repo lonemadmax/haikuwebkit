@@ -27,6 +27,7 @@
 #import "WKWebViewConfigurationInternal.h"
 
 #import "APIPageConfiguration.h"
+#import "CSPExtensionUtilities.h"
 #import "UserInterfaceIdiom.h"
 #import <WebKit/WKPreferences.h>
 #import <WebKit/WKProcessPool.h>
@@ -380,7 +381,8 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     configuration.processPool = self.processPool;
     configuration.preferences = self.preferences;
     configuration.userContentController = self.userContentController;
-    configuration.websiteDataStore = self.websiteDataStore;
+    if (self._websiteDataStoreIfExists)
+        [configuration setWebsiteDataStore:self._websiteDataStoreIfExists];
     configuration.defaultWebpagePreferences = self.defaultWebpagePreferences;
     configuration._visitedLinkStore = self._visitedLinkStore;
     configuration._relatedWebView = _relatedWebView.get().get();
@@ -1360,6 +1362,16 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
     if (!identifier)
         return nil;
     return identifier;
+}
+
+- (void)_setContentSecurityPolicyModeForExtension:(_WKContentSecurityPolicyModeForExtension)mode
+{
+    _pageConfiguration->setContentSecurityPolicyModeForExtension(WebKit::toContentSecurityPolicyModeForExtension(mode));
+}
+
+- (_WKContentSecurityPolicyModeForExtension)_contentSecurityPolicyModeForExtension
+{
+    return WebKit::toWKContentSecurityPolicyModeForExtension(_pageConfiguration->contentSecurityPolicyModeForExtension());
 }
 
 @end

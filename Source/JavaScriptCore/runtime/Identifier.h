@@ -109,9 +109,6 @@ public:
     // fromUid keeps symbol-ness of provided StringImpl* while fromString discards it.
     // Use fromUid when constructing Identifier from StringImpl* which may represent symbols.
 
-    // Only to be used with string literals.
-    template<unsigned charactersCount>
-    static Identifier fromString(VM&, const char (&characters)[charactersCount]);
     static Identifier fromString(VM&, ASCIILiteral);
     static Identifier fromString(VM&, const LChar*, int length);
     static Identifier fromString(VM&, const UChar*, int length);
@@ -120,8 +117,8 @@ public:
     static Identifier fromString(VM&, Ref<AtomStringImpl>&&);
     static Identifier fromString(VM&, const AtomString&);
     static Identifier fromString(VM& vm, SymbolImpl*);
-    static Identifier fromString(VM&, const char*);
     static Identifier fromString(VM& vm, const Vector<LChar>& characters) { return fromString(vm, characters.data(), characters.size()); }
+    static Identifier fromCString(VM&, const char*);
 
     static Identifier fromUid(VM&, UniquedStringImpl* uid);
     static Identifier fromUid(const PrivateName&);
@@ -167,12 +164,9 @@ public:
 private:
     String m_string;
 
-    // Only to be used with string literals.
-    template<unsigned charactersCount>
-    Identifier(VM& vm, const char (&characters)[charactersCount]) : m_string(add(vm, characters)) { ASSERT(m_string.impl()->isAtom()); }
-
     Identifier(VM& vm, const LChar* s, int length) : m_string(add(vm, s, length)) { ASSERT(m_string.impl()->isAtom()); }
     Identifier(VM& vm, const UChar* s, int length) : m_string(add(vm, s, length)) { ASSERT(m_string.impl()->isAtom()); }
+    ALWAYS_INLINE Identifier(VM& vm, ASCIILiteral literal) : m_string(addLiteral(vm, literal.characters(), literal.length())) { ASSERT(m_string.impl()->isAtom()); }
     Identifier(VM&, AtomStringImpl*);
     Identifier(VM&, const AtomString&);
     Identifier(VM& vm, const String& string) : m_string(add(vm, string.impl())) { ASSERT(m_string.impl()->isAtom()); }
@@ -197,6 +191,7 @@ private:
     template <typename T> ALWAYS_INLINE static constexpr bool canUseSingleCharacterString(T);
 
     static Ref<AtomStringImpl> add(VM&, StringImpl*);
+    JS_EXPORT_PRIVATE static Ref<AtomStringImpl> addLiteral(VM&, const char*, size_t length);
 
 #ifndef NDEBUG
     JS_EXPORT_PRIVATE static void checkCurrentAtomStringTable(VM&);

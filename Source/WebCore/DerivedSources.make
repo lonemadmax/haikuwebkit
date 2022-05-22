@@ -771,6 +771,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/crypto/parameters/RsaOaepParams.idl \
     $(WebCore)/crypto/parameters/RsaPssParams.idl \
     $(WebCore)/css/CSSConditionRule.idl \
+    $(WebCore)/css/CSSContainerRule.idl \
     $(WebCore)/css/CSSCounterStyleRule.idl \
     $(WebCore)/css/CSSFontFaceRule.idl \
     $(WebCore)/css/CSSFontPaletteValuesRule.idl \
@@ -912,6 +913,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/DocumentType.idl \
     $(WebCore)/dom/DragEvent.idl \
     $(WebCore)/dom/Element+CSSOMView.idl \
+    $(WebCore)/dom/Element+ComputedStyleMap.idl \
     $(WebCore)/dom/Element+DOMParsing.idl \
     $(WebCore)/dom/Element+Fullscreen.idl \
     $(WebCore)/dom/Element+PointerEvents.idl \

@@ -150,8 +150,10 @@ template<typename U> bool WebNotificationManager::sendNotificationMessage(U&& me
 
 bool WebNotificationManager::show(Notification& notification, WebPage* page)
 {
-    ASSERT(isMainRunLoop());
 #if ENABLE(NOTIFICATIONS)
+    LOG(Notifications, "WebProcess %i going to show notification %s", getpid(), notification.identifier().toString().utf8().data());
+
+    ASSERT(isMainRunLoop());
     if (page && !page->corePage()->settings().notificationsEnabled())
         return false;
 
@@ -172,12 +174,17 @@ void WebNotificationManager::cancel(Notification& notification, WebPage* page)
     ASSERT(isMainRunLoop());
 
 #if ENABLE(NOTIFICATIONS)
-    auto mappedNotification = m_notificationIDMap.get(notification.identifier());
-    if (!mappedNotification)
-        return;
-    ASSERT(mappedNotification == &notification);
+    auto identifier = notification.identifier();
+    auto mappedNotification = m_notificationIDMap.get(identifier);
+    if (!mappedNotification) {
+        auto relatedIdentifier = notification.relatedNotificationIdentifier();
+        if (!relatedIdentifier)
+            return;
+        identifier = *relatedIdentifier;
+    } else
+        ASSERT(mappedNotification == &notification);
 
-    if (!sendNotificationMessage(Messages::NotificationManagerMessageHandler::CancelNotification(notification.identifier()), notification, page))
+    if (!sendNotificationMessage(Messages::NotificationManagerMessageHandler::CancelNotification(identifier), notification, page))
         return;
 #else
     UNUSED_PARAM(notification);
@@ -192,12 +199,17 @@ void WebNotificationManager::didDestroyNotification(Notification& notification, 
 #if ENABLE(NOTIFICATIONS)
     Ref protectedNotification { notification };
 
-    auto takenNotification = m_notificationIDMap.take(notification.identifier());
-    if (!takenNotification)
-        return;
-    ASSERT(takenNotification == &notification);
+    auto identifier = notification.identifier();
+    auto takenNotification = m_notificationIDMap.take(identifier);
+    if (!takenNotification) {
+        auto relatedIdentifier = notification.relatedNotificationIdentifier();
+        if (!relatedIdentifier)
+            return;
+        identifier = *relatedIdentifier;
+    } else
+        ASSERT(takenNotification == &notification);
 
-    sendNotificationMessage(Messages::NotificationManagerMessageHandler::DidDestroyNotification(notification.identifier()), notification, page);
+    sendNotificationMessage(Messages::NotificationManagerMessageHandler::DidDestroyNotification(identifier), notification, page);
 #else
     UNUSED_PARAM(notification);
     UNUSED_PARAM(page);
@@ -207,6 +219,8 @@ void WebNotificationManager::didDestroyNotification(Notification& notification, 
 void WebNotificationManager::didShowNotification(const UUID& notificationID)
 {
     ASSERT(isMainRunLoop());
+
+    LOG(Notifications, "WebProcess %i DID SHOW notification %s", getpid(), notificationID.toString().utf8().data());
 
 #if ENABLE(NOTIFICATIONS)
     RefPtr<Notification> notification = m_notificationIDMap.get(notificationID);
@@ -223,10 +237,14 @@ void WebNotificationManager::didClickNotification(const UUID& notificationID)
 {
     ASSERT(isMainRunLoop());
 
+    LOG(Notifications, "WebProcess %i DID CLICK notification %s", getpid(), notificationID.toString().utf8().data());
+
 #if ENABLE(NOTIFICATIONS)
     RefPtr<Notification> notification = m_notificationIDMap.get(notificationID);
     if (!notification)
         return;
+
+    LOG(Notifications, "WebProcess %i handling click event for notification %s", getpid(), notificationID.toString().utf8().data());
 
     // Indicate that this event is being dispatched in reaction to a user's interaction with a platform notification.
     UserGestureIndicator indicator(ProcessingUserGesture);

@@ -101,7 +101,7 @@ public:
     String(StaticStringImpl*);
 
     // Construct a string from a constant string literal.
-    WTF_EXPORT_PRIVATE String(ASCIILiteral);
+    String(ASCIILiteral);
 
     String(const String&) = default;
     String(String&&) = default;
@@ -380,6 +380,7 @@ template<size_t inlineCapacity> inline bool operator!=(const Vector<char, inline
 template<size_t inlineCapacity> inline bool operator!=(const String& a, const Vector<char, inlineCapacity>& b) { return b != a; }
 
 bool equalIgnoringASCIICase(const String&, const String&);
+bool equalIgnoringASCIICase(const String&, ASCIILiteral);
 bool equalIgnoringASCIICase(const String&, const char*);
 
 template<unsigned length> bool equalLettersIgnoringASCIICase(const String&, const char (&lowercaseLetters)[length]);
@@ -607,10 +608,33 @@ inline bool equalIgnoringASCIICase(const String& a, const char* b)
     return equalIgnoringASCIICase(a.impl(), b);
 }
 
+inline bool equalIgnoringASCIICase(const String& a, ASCIILiteral b)
+{
+    return equalIgnoringASCIICase(a.impl(), b.characters());
+}
+
 template<unsigned length> inline bool startsWithLettersIgnoringASCIICase(const String& string, const char (&lowercaseLetters)[length])
 {
     return startsWithLettersIgnoringASCIICase(string.impl(), lowercaseLetters);
 }
+
+struct HashTranslatorASCIILiteral {
+    static unsigned hash(ASCIILiteral literal)
+    {
+        return StringHasher::computeHashAndMaskTop8Bits(literal.characters(), literal.length());
+    }
+
+    static bool equal(const String& a, ASCIILiteral b)
+    {
+        return a == b;
+    }
+
+    static void translate(String& location, ASCIILiteral literal, unsigned hash)
+    {
+        location = literal;
+        location.impl()->setHash(hash);
+    }
+};
 
 inline namespace StringLiterals {
 
@@ -623,6 +647,7 @@ inline String operator"" _str(const char* characters, size_t)
 
 } // namespace WTF
 
+using WTF::HashTranslatorASCIILiteral;
 using WTF::KeepTrailingZeros;
 using WTF::String;
 using WTF::appendNumber;

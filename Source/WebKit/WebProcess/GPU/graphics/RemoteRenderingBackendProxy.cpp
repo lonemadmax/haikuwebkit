@@ -63,12 +63,8 @@ RemoteRenderingBackendProxy::~RemoteRenderingBackendProxy()
 {
     if (!m_gpuProcessConnection)
         return;
-
-    // Un-register itself as a MessageReceiver.
-    m_gpuProcessConnection->messageReceiverMap().removeMessageReceiver(*this);
-
-    // Release the RemoteRenderingBackend.
     m_gpuProcessConnection->connection().send(Messages::GPUConnectionToWebProcess::ReleaseRenderingBackend(renderingBackendIdentifier()), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    disconnectGPUProcess();
 }
 
 GPUProcessConnection& RemoteRenderingBackendProxy::ensureGPUProcessConnection()
@@ -85,36 +81,39 @@ GPUProcessConnection& RemoteRenderingBackendProxy::ensureGPUProcessConnection()
     return *m_gpuProcessConnection;
 }
 
-IPC::Connection& RemoteRenderingBackendProxy::gpuProcessConnection()
+void RemoteRenderingBackendProxy::gpuProcessConnectionDidClose(GPUProcessConnection&)
 {
-    return ensureGPUProcessConnection().connection();
+    if (!m_gpuProcessConnection)
+        return;
+    disconnectGPUProcess();
+    // Note: The cache will call back to this to setup a new connection.
+    m_remoteResourceCacheProxy.remoteResourceCacheWasDestroyed();
 }
 
-void RemoteRenderingBackendProxy::gpuProcessConnectionDidClose(GPUProcessConnection& previousConnection)
+void RemoteRenderingBackendProxy::disconnectGPUProcess()
 {
-    previousConnection.removeClient(*this);
-    previousConnection.messageReceiverMap().removeMessageReceiver(*this);
+    m_gpuProcessConnection->removeClient(*this);
+    m_gpuProcessConnection->messageReceiverMap().removeMessageReceiver(*this);
     m_gpuProcessConnection = nullptr;
-
-    m_remoteResourceCacheProxy.remoteResourceCacheWasDestroyed();
 
     if (m_destroyGetPixelBufferSharedMemoryTimer.isActive())
         m_destroyGetPixelBufferSharedMemoryTimer.stop();
     m_getPixelBufferSharedMemory = nullptr;
     m_renderingUpdateID = { };
     m_didRenderingUpdateID = { };
+    m_streamConnection = nullptr;
 }
 
 RemoteRenderingBackendProxy::DidReceiveBackendCreationResult RemoteRenderingBackendProxy::waitForDidCreateImageBufferBackend()
 {
-    if (!gpuProcessConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives))
+    if (!streamConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives))
         return DidReceiveBackendCreationResult::TimeoutOrIPCFailure;
     return DidReceiveBackendCreationResult::ReceivedAnyResponse;
 }
 
 bool RemoteRenderingBackendProxy::waitForDidFlush()
 {
-    return gpuProcessConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidFlush>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    return streamConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidFlush>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void RemoteRenderingBackendProxy::createRemoteImageBuffer(ImageBuffer& imageBuffer)
@@ -308,7 +307,8 @@ auto RemoteRenderingBackendProxy::prepareBuffersForDisplay(const Vector<LayerPre
     }
 
     Vector<PrepareBackingStoreBuffersOutputData> outputData;
-    sendSyncToStream(Messages::RemoteRenderingBackend::PrepareBuffersForDisplay(inputData), Messages::RemoteRenderingBackend::PrepareBuffersForDisplay::Reply(outputData));
+    auto sendResult = sendSyncToStream(Messages::RemoteRenderingBackend::PrepareBuffersForDisplay(inputData), Messages::RemoteRenderingBackend::PrepareBuffersForDisplay::Reply(outputData));
+    RELEASE_ASSERT(sendResult);
     RELEASE_ASSERT(inputData.size() == outputData.size());
 
     auto fetchBufferWithIdentifier = [&](std::optional<RenderingResourceIdentifier> identifier, std::optional<ImageBufferBackendHandle>&& handle = std::nullopt, bool isFrontBuffer = false) -> RefPtr<ImageBuffer> {
@@ -415,8 +415,8 @@ RenderingBackendIdentifier RemoteRenderingBackendProxy::ensureBackendCreated()
 IPC::StreamClientConnection& RemoteRenderingBackendProxy::streamConnection()
 {
     ensureGPUProcessConnection();
-    if (UNLIKELY(m_needsWakeUpSemaphoreForDisplayListStream))
-        gpuProcessConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream>(renderingBackendIdentifier(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    if (UNLIKELY(!m_streamConnection->hasWakeUpSemaphore()))
+        m_streamConnection->waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream>(renderingBackendIdentifier(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
     return *m_streamConnection;
 }
 
@@ -426,9 +426,7 @@ void RemoteRenderingBackendProxy::didCreateWakeUpSemaphoreForDisplayListStream(I
         ASSERT_NOT_REACHED();
         return;
     }
-
     m_streamConnection->setWakeUpSemaphore(WTFMove(semaphore));
-    m_needsWakeUpSemaphoreForDisplayListStream = false;
 }
 
 bool RemoteRenderingBackendProxy::isCached(const ImageBuffer& imageBuffer) const

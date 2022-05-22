@@ -31,14 +31,8 @@
 namespace WebKit {
 
 WebNotification::WebNotification(const WebCore::NotificationData& data, WebPageProxyIdentifier pageIdentifier, IPC::Connection& sourceConnection)
-    : m_title(data.title)
-    , m_body(data.body)
-    , m_iconURL(data.iconURL)
-    , m_tag(data.tag)
-    , m_lang(data.language)
-    , m_dir(data.direction)
+    : m_data(data)
     , m_origin(API::SecurityOrigin::createFromString(data.originString))
-    , m_coreNotificationID(data.notificationID)
     , m_pageIdentifier(pageIdentifier)
     , m_sourceConnection(sourceConnection)
 {

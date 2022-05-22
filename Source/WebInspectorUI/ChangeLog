@@ -1,3 +1,157 @@
+2022-04-01  Michael Saboff  <msaboff@apple.com>
+
+        Stop copying StagedFrameworks to the secondary path by default
+        https://bugs.webkit.org/show_bug.cgi?id=238688
+
+        Reviewed by Saam Barati.
+
+        Decoupled COPY_STAGED_FRAMEWORKS_TO_SECONDARY_PATH from USE_SYSTEM_CONTENT_PATH so we won't
+        always copy frameworks to the secondary path on macOS.  Instead, the build configuration can set
+        COPY_STAGED_FRAMEWORKS_TO_SECONDARY_PATH as appropriate.
+
+        * Configurations/WebInspectorUIFramework.xcconfig:
+
+2022-03-31  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Support Container Queries in the Styles sidebar
+        https://bugs.webkit.org/show_bug.cgi?id=238346
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Models/CSSGrouping.js:
+        (WI.CSSGrouping.prototype.get isContainer):
+        (WI.CSSGrouping.prototype.get prefix):
+        (WI.CSSGrouping):
+
+2022-03-31  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: the mapped file URL of a Respone Local Override should wrap
+        https://bugs.webkit.org/show_bug.cgi?id=238625
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/ResourceContentView.js:
+        (WI.ResourceContentView.prototype._handleMappedFilePathChanged):
+        Long file paths should be wrappable so the text doesn't overflow the content area.
+
+2022-03-31  Alex Christensen  <achristensen@webkit.org>
+
+        Remove EXPERIMENTAL_FEATURES flag on Cocoa platforms
+        https://bugs.webkit.org/show_bug.cgi?id=238565
+
+        Reviewed by Darin Adler.
+
+        * UserInterface/Base/BrowserInspectorFrontendHost.js:
+        (window.InspectorFrontendHost.WI.BrowserInspectorFrontendHost.prototype.isExperimentalBuild): Deleted.
+        * UserInterface/Base/Main.js:
+        * UserInterface/Base/Setting.js:
+        (WI.canShowPreviewFeatures):
+        * UserInterface/Test/Test.js:
+
+2022-03-30  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: the mapped file URL of a Response Local Override should be clickable
+        https://bugs.webkit.org/show_bug.cgi?id=238533
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/ResourceContentView.js:
+        (WI.ResourceContentView.prototype._handleMappedFilePathChanged):
+        Instead of showing the mapped file path as basic text, linkify it such that it is shown in
+        the system file explorer when clicked.
+
+        * UserInterface/Base/Main.js:
+        (WI.createMessageTextView):
+        Allow the `message` to be a `Node` (in addition to a `String`).
+
+2022-03-29  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: allow Response Local Overrides to map to a file on disk
+        https://bugs.webkit.org/show_bug.cgi?id=238236
+        <rdar://problem/59009154>
+
+        Reviewed by Patrick Angle.
+
+        This makes Response Local Overrides even more powerful by allowing developers to map the
+        contents of the (Local Override) resource to a file on disk (e.g. a local copy of the file),
+        meaning that they can use their preferred editor of choice (and all the tools that may come
+        with it) to make changes instead of having to stay within Web Inspector.
+
+        * UserInterface/Models/LocalResource.js:
+        (WI.LocalResource):
+        (WI.LocalResource.canMapToFile): Added.
+        (WI.LocalResource.prototype.toJSON):
+        (WI.LocalResource.prototype.get mappedFilePath): Added.
+        (WI.LocalResource.prototype.set mappedFilePath): Added.
+        (WI.LocalResource.prototype.async requestContent):
+        (WI.LocalResource.prototype.async _loadFromFileSystem): Added.
+        * UserInterface/Models/LocalResourceOverride.js:
+        (WI.LocalResourceOverride.prototype.get canMapToFile): Added.
+        Save the given local file path as a member variable and use `InspectorFrontendHost.load` to
+        grab its contents (saving it inside the `WI.LocalResource` so that it can still be used in
+        case the file is moved/deleted) whenever anyone `requestContent`.
+
+        * UserInterface/Views/ResourceContentView.js:
+        (WI.ResourceContentView):
+        (WI.ResourceContentView.prototype.get navigationItems):
+        (WI.ResourceContentView.prototype.showMessage):
+        (WI.ResourceContentView.prototype.addIssue):
+        (WI.ResourceContentView.prototype._contentAvailable):
+        (WI.ResourceContentView.prototype.async _handleMapLocalResourceOverrideToFile): Added.
+        (WI.ResourceContentView.prototype._handleMappedFilePathChanged): Added.
+        Add a new "[Disk.svg] Map to File" navigation item when viewing Response Local Overrides. If
+        the Response Local Override has already been mapped to a file, show the path of the file
+        instead of the contents of the resource. This allows us to not have to monitor the file for
+        changes, instead only grabbing the current contents when necessary (i.e. when replacing the
+        response of an intercepted network request).
+
+        * UserInterface/Views/ResourceContentView.css: Added.
+        (.content-view.resource > .local-resource-override-label-view + .message-text-view):
+        Still show the Local Override banner if the Local Override has been mapped to a file.
+
+        * UserInterface/Views/TextResourceContentView.js:
+        (WI.TextResourceContentView.prototype._contentWillPopulate):
+        Don't show the `WI.SourceCodeTextEditor` if there's already something else being shown.
+
+        * UserInterface/Controllers/NetworkManager.js:
+        (WI.NetworkManager.prototype.async requestIntercepted):
+        (WI.NetworkManager.prototype.async responseIntercepted):
+        Make sure to `requestContent` before using the `currentRevision` so that any file-mapped
+        `WI.LocalResource` have a chance to load from disk before handling the interception.
+
+        * Localizations/en.lproj/localizedStrings.js:
+        * UserInterface/Main.html:
+        * UserInterface/Images/Disk.svg: Added.
+
+2022-03-29  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: [Cocoa] Indicate a request was sent through proxy/private relay in Network tab
+        https://bugs.webkit.org/show_bug.cgi?id=233202
+
+        Reviewed by Devin Rousso.
+
+        For resources that are sent through a proxy or relay (like iCloud Private Relay), the remoteAddress will be that
+        of the proxy or relay server, not the server that provided the page to the proxy or relay. To indicate this, we
+        now append `(Proxy)` to these remote IP addresses in Web Inspector so that it is clearer what server the remote
+        address actually represents in these cases.
+
+        * Localizations/en.lproj/localizedStrings.js:
+        * UserInterface/Models/LocalResource.js:
+        * UserInterface/Models/Resource.js:
+        (WI.Resource.prototype.get displayRemoteAddress):
+        - Similar to `displayName` and `displayURL` which provide user-facing strings, add a `displayRemoteAddress` that
+        will denote the address is a proxy if applicable.
+        
+        (WI.Resource.prototype.updateWithMetrics):
+        * UserInterface/Views/NetworkTableContentView.js:
+        (WI.NetworkTableContentView.prototype._entryForResource):
+        * UserInterface/Views/ResourceDetailsSidebarPanel.js:
+        (WI.ResourceDetailsSidebarPanel.prototype._refreshRequestAndResponse):
+        * UserInterface/Views/ResourceHeadersContentView.js:
+        (WI.ResourceHeadersContentView.prototype._refreshSummarySection):
+        * UserInterface/Views/ResourceTimelineDataGridNode.js:
+        (WI.ResourceTimelineDataGridNode.prototype.get data):
+
 2022-03-23  Razvan Caliman  <rcaliman@apple.com>
 
         Web Inspector: Styles panel: Unwanted extra dash when autocompleting CSS variable names

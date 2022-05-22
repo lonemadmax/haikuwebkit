@@ -425,7 +425,7 @@ public:
 
     ExceptionOr<bool> isPageBoxVisible(int pageNumber);
 
-    static const char* internalsId;
+    static constexpr ASCIILiteral internalsId = "internals"_s;
 
     InternalSettings* settings() const;
     unsigned workerThreadCount() const;
@@ -776,6 +776,8 @@ public:
     ExceptionOr<bool> pageDefersLoading();
 
     RefPtr<File> createFile(const String&);
+    String createTemporaryFile(const String& name, const String& contents);
+
     void queueMicroTask(int);
     bool testPreloaderSettingViewport();
 

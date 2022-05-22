@@ -37,6 +37,7 @@
 #include "ClassChangeInvalidation.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ComposedTreeIterator.h"
+#include "ComputedStylePropertyMapReadOnly.h"
 #include "ContainerNodeAlgorithms.h"
 #include "CustomElementReactionQueue.h"
 #include "CustomElementRegistry.h"
@@ -2417,11 +2418,10 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
     if (hasPendingResources())
         document().accessSVGExtensions().removeElementFromPendingResources(*this);
 
-    RefPtr<Frame> frame = document().frame();
     Styleable::fromElement(*this).elementWasRemoved();
 
 #if ENABLE(WHEEL_EVENT_LATCHING)
-    if (frame && frame->page()) {
+    if (RefPtr frame = document().frame(); frame && frame->page()) {
         if (auto* scrollLatchingController = frame->page()->scrollLatchingControllerIfExists())
             scrollLatchingController->removeLatchingStateForTarget(*this);
     }
@@ -3285,8 +3285,8 @@ ExceptionOr<void> Element::setOuterHTML(const String& html)
     RefPtr parent = parentElement();
     if (UNLIKELY(!parent)) {
         if (!parentNode())
-            return Exception { NoModificationAllowedError, "Cannot set outerHTML on element because it doesn't have a parent" };
-        return Exception { NoModificationAllowedError, "Cannot set outerHTML on element because its parent is not an Element" };
+            return Exception { NoModificationAllowedError, "Cannot set outerHTML on element because it doesn't have a parent"_s };
+        return Exception { NoModificationAllowedError, "Cannot set outerHTML on element because its parent is not an Element"_s };
     }
 
     RefPtr<Node> prev = previousSibling();
@@ -3741,18 +3741,16 @@ static void disconnectPseudoElement(PseudoElement* pseudoElement)
     pseudoElement->clearHostElement();
 }
 
-void Element::clearBeforePseudoElement()
+void Element::clearBeforePseudoElementSlow()
 {
-    if (!hasRareData())
-        return;
+    ASSERT(hasRareData());
     disconnectPseudoElement(elementRareData()->beforePseudoElement());
     elementRareData()->setBeforePseudoElement(nullptr);
 }
 
-void Element::clearAfterPseudoElement()
+void Element::clearAfterPseudoElementSlow()
 {
-    if (!hasRareData())
-        return;
+    ASSERT(hasRareData());
     disconnectPseudoElement(elementRareData()->afterPseudoElement());
     elementRareData()->setAfterPseudoElement(nullptr);
 }
@@ -4327,10 +4325,9 @@ IntPoint Element::savedLayerScrollPosition() const
     return hasRareData() ? elementRareData()->savedLayerScrollPosition() : IntPoint();
 }
 
-void Element::setSavedLayerScrollPosition(const IntPoint& position)
+void Element::setSavedLayerScrollPositionSlow(const IntPoint& position)
 {
-    if (position.isZero() && !hasRareData())
-        return;
+    ASSERT(!position.isZero() || hasRareData());
     ensureElementRareData().setSavedLayerScrollPosition(position);
 }
 
@@ -4697,7 +4694,7 @@ Element* Element::findAnchorElementForLink(String& outAnchorName)
 
 ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlobalObject, JSC::Strong<JSC::JSObject>&& keyframes, std::optional<std::variant<double, KeyframeAnimationOptions>>&& options)
 {
-    String id = "";
+    String id = emptyString();
     std::optional<RefPtr<AnimationTimeline>> timeline;
     std::variant<FramesPerSecond, AnimationFrameRatePreset> frameRate = AnimationFrameRatePreset::Auto;
     std::optional<std::variant<double, KeyframeEffectOptions>> keyframeEffectOptions;
@@ -4781,6 +4778,17 @@ StylePropertyMap* Element::attributeStyleMap()
 void Element::setAttributeStyleMap(Ref<StylePropertyMap>&& map)
 {
     ensureElementRareData().setAttributeStyleMap(WTFMove(map));
+}
+
+StylePropertyMapReadOnly* Element::computedStyleMap()
+{
+    auto& rareData = ensureElementRareData();
+    if (auto* map = rareData.computedStyleMap())
+        return map;
+
+    auto map = ComputedStylePropertyMapReadOnly::create(*this);
+    rareData.setComputedStyleMap(WTFMove(map));
+    return rareData.computedStyleMap();
 }
 
 #endif

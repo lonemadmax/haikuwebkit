@@ -398,6 +398,11 @@ void WebInspectorUIProxy::platformSetForcedAppearance(WebCore::InspectorFrontend
     notImplemented();
 }
 
+void WebInspectorUIProxy::platformRevealFileExternally(const String&)
+{
+    notImplemented();
+}
+
 void WebInspectorUIProxy::platformInspectedURLChanged(const String& /* url */)
 {
     notImplemented();
@@ -416,6 +421,12 @@ void WebInspectorUIProxy::platformSave(const String&, const String&, bool, bool)
 void WebInspectorUIProxy::platformAppend(const String&, const String&)
 {
     notImplemented();
+}
+
+void WebInspectorUIProxy::platformLoad(const String&, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    notImplemented();
+    completionHandler(nullString());
 }
 
 void WebInspectorUIProxy::platformAttachAvailabilityChanged(bool /* available */)

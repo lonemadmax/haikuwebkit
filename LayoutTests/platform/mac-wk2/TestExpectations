@@ -691,6 +691,9 @@ webkit.org/b/141085 http/tests/media/video-query-url.html [ Pass Timeout ]
 # Accessibility isolated tree mode is enabled in Big Sur and beyond, no in Catalina and before.
 [ Mojave Catalina ] accessibility/mac/isolated-tree-mode-on-off.html [ Skip ]
 
+# Network interception with a mapped file is only mac-wk2 for now.
+http/tests/inspector/network/local-resource-override-mapped-to-file.html [ Pass ]
+
 # Content Extensions tests must be enabled explicitly on mac-wk2.
 http/tests/contentextensions [ Pass ]
 http/tests/inspector/network/contentextensions [ Pass ]
@@ -1603,6 +1606,8 @@ webkit.org/b/229579 [ BigSur Debug ] http/tests/loading/preload-img-test.html [ 
 
 webkit.org/b/231088 [ Release ] http/tests/loading/preload-slow-loading.py [ Pass Failure ]
 
+webkit.org/b/228127 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/resource-popup.https.html [ Pass Crash Failure]
+
 webkit.org/b/229584 [ BigSur Release ] animations/fill-mode-forwards.html [ Pass Failure ]
 
 webkit.org/b/229585 imported/w3c/web-platform-tests/navigation-timing/test_performance_attributes.sub.html [ Pass Failure ]
@@ -1673,8 +1678,8 @@ webkit.org/b/236788 [ Monterey ] http/tests/media/video-webm-stall.html [ Failur
 
 webkit.org/b/232497 [ BigSur Debug ] media/media-source/media-source-istypesupported-case-sensitive.html [ Pass Crash ]
 
-webkit.org/b/235681 [ Release ]  imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage.html [ Pass Failure ]
-webkit.org/b/235681 [ Release ]  imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY.html [ Pass Failure ]
+webkit.org/b/235681 [ BigSur Release ]  imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage.html [ Pass Failure ]
+webkit.org/b/235681 [ BigSur Release ]  imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY.html [ Pass Failure ]
 
 # webkit.org/b/234410 Multiple semantics web-platform-tests have become flaky after r286944
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_allow_downloads.tentative.html [ DumpJSConsoleLogInStdErr Pass Failure ]
@@ -1696,3 +1701,5 @@ webkit.org/b/237165 [ BigSur+ Debug ] imported/w3c/web-platform-tests/html/webap
 [ Monterey+ ] fast/text/accessibility-bold.html [ Pass ]
 
 webkit.org/b/233621 http/tests/webgpu [ Skip ]
+
+fast/text/install-font-style-recalc.html [ Pass ]

@@ -285,6 +285,13 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
     if (!m_configuration->modelElementCacheDirectory().isEmpty())
         m_resolvedConfiguration->setModelElementCacheDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->modelElementCacheDirectory()));
 #endif
+#if PLATFORM(IOS_FAMILY)
+    if (isPersistent()) {
+        m_cookieStorageDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::cookieStorageDirectory());
+        m_containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::webContentCachesDirectory());
+        m_containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::containerTemporaryDirectory());
+    }
+#endif
 
     // Resolve directories for file paths.
     if (!m_configuration->cookieStorageFile().isEmpty()) {
@@ -354,7 +361,7 @@ void WebsiteDataStore::fetchDataAndApply(OptionSet<WebsiteDataType> dataTypes, O
                     if (!allowsWebsiteDataRecordsForAllOrigins)
                         continue;
 
-                    String hostString = entry.origin.host.isEmpty() ? "" : makeString(" ", entry.origin.host);
+                    String hostString = entry.origin.host.isEmpty() ? emptyString() : makeString(" ", entry.origin.host);
                     displayName = makeString(entry.origin.protocol, hostString);
                 }
 
@@ -1454,7 +1461,7 @@ HashSet<RefPtr<WebProcessPool>> WebsiteDataStore::ensureProcessPools() const
 
 static String computeMediaKeyFile(const String& mediaKeyDirectory)
 {
-    return FileSystem::pathByAppendingComponent(mediaKeyDirectory, "SecureStop.plist");
+    return FileSystem::pathByAppendingComponent(mediaKeyDirectory, "SecureStop.plist"_s);
 }
 
 void WebsiteDataStore::allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo& certificate, const String& host)
@@ -1575,7 +1582,7 @@ void WebsiteDataStore::sendNetworkProcessWillSuspendImminentlyForTesting()
 
 void WebsiteDataStore::sendNetworkProcessDidResume()
 {
-    networkProcess().sendProcessDidResume();
+    networkProcess().sendProcessDidResume(ProcessThrottlerClient::ResumeReason::ForegroundActivity);
 }
 
 bool WebsiteDataStore::resourceLoadStatisticsEnabled() const
@@ -1893,6 +1900,19 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     parameters.networkSessionParameters.useNetworkLoader = useNetworkLoader();
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+    if (isPersistent()) {
+        if (String cookieStorageDirectory = WebProcessPool::cookieStorageDirectory(); !cookieStorageDirectory.isEmpty())
+            parameters.cookieStorageDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(cookieStorageDirectory);
+        if (String containerCachesDirectory = WebProcessPool::networkingCachesDirectory(); !containerCachesDirectory.isEmpty())
+            parameters.containerCachesDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(containerCachesDirectory);
+        if (String parentBundleDirectory = WebProcessPool::parentBundleDirectory(); !parentBundleDirectory.isEmpty())
+            parameters.parentBundleDirectoryExtensionHandle = SandboxExtension::createHandle(parentBundleDirectory, SandboxExtension::Type::ReadOnly);
+        if (auto handleAndFilePath = SandboxExtension::createHandleForTemporaryFile(emptyString(), SandboxExtension::Type::ReadWrite))
+            parameters.tempDirectoryExtensionHandle = WTFMove(handleAndFilePath->first);
+    }
+#endif
+    
     return parameters;
 }
 
@@ -2085,6 +2105,38 @@ void WebsiteDataStore::clearServiceWorkerNotification(const UUID& notificationID
 void WebsiteDataStore::didDestroyServiceWorkerNotification(const UUID& notificationID)
 {
     WebNotificationManagerProxy::sharedServiceWorkerManager().didDestroyNotification(nullptr, notificationID);
+}
+
+void WebsiteDataStore::openWindowFromServiceWorker(const String& urlString, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(std::optional<WebCore::PageIdentifier>)>&& callback)
+{
+    auto innerCallback = [callback = WTFMove(callback)] (WebPageProxy* newPage) mutable {
+        if (!newPage) {
+            callback(std::nullopt);
+            return;
+        }
+
+        if (!newPage->pageLoadState().isLoading()) {
+            RELEASE_LOG(Loading, "The WKWebView provided in response to a ServiceWorker openWindow request was not in the loading state");
+            callback(std::nullopt);
+            return;
+        }
+
+        auto innerCallback = [pageID = newPage->identifier(), callback = WTFMove(callback)] (bool success) mutable {
+            auto* newPage = WebProcessProxy::webPage(pageID);
+            if (!newPage || !success) {
+                callback(std::nullopt);
+                return;
+            }
+
+            callback(newPage->webPageID());
+        };
+
+#if ENABLE(SERVICE_WORKER)
+        newPage->setServiceWorkerOpenWindowCompletionCallback(WTFMove(innerCallback));
+#endif
+    };
+
+    m_client->openWindowFromServiceWorker(urlString, serviceWorkerOrigin, WTFMove(innerCallback));
 }
 
 }

@@ -57,7 +57,7 @@
 #import "_WKActivatedElementInfoInternal.h"
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/GraphicsContextCG.h>
-#import <WebCore/IOSurface.h>
+#import <WebCore/IOSurfacePool.h>
 #import <WebCore/LocalCurrentTraitCollection.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/RuntimeApplicationChecks.h>
@@ -725,8 +725,6 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     _didDeferUpdateVisibleContentRectsForUnstableScrollView = NO;
     _currentlyAdjustingScrollViewInsetsForKeyboard = NO;
     _lastSentViewLayoutSize = std::nullopt;
-    _lastSentMinimumUnobscuredSize = std::nullopt;
-    _lastSentMaximumUnobscuredSize = std::nullopt;
     _lastSentDeviceOrientation = std::nullopt;
 
     _frozenVisibleContentRect = std::nullopt;
@@ -1085,7 +1083,7 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
 #else
     WebCore::IOSurface::Format snapshotFormat = WebCore::IOSurface::Format::BGRA;
 #endif
-    auto surface = WebCore::IOSurface::create(WebCore::expandedIntSize(snapshotSize), WebCore::DestinationColorSpace::SRGB(), snapshotFormat);
+    auto surface = WebCore::IOSurface::create(nullptr, WebCore::expandedIntSize(snapshotSize), WebCore::DestinationColorSpace::SRGB(), snapshotFormat);
     if (!surface)
         return nullptr;
     CARenderServerRenderLayerWithTransform(MACH_PORT_NULL, self.layer.context.contextId, reinterpret_cast<uint64_t>(self.layer), surface->surface(), 0, 0, &transform);
@@ -1094,7 +1092,7 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     WebCore::IOSurface::Format compressedFormat = WebCore::IOSurface::Format::YUV422;
     if (WebCore::IOSurface::allowConversionFromFormatToFormat(snapshotFormat, compressedFormat)) {
         auto viewSnapshot = WebKit::ViewSnapshot::create(nullptr);
-        WebCore::IOSurface::convertToFormat(WTFMove(surface), WebCore::IOSurface::Format::YUV422, [viewSnapshot](std::unique_ptr<WebCore::IOSurface> convertedSurface) {
+        WebCore::IOSurface::convertToFormat(nullptr, WTFMove(surface), WebCore::IOSurface::Format::YUV422, [viewSnapshot](std::unique_ptr<WebCore::IOSurface> convertedSurface) {
             if (convertedSurface)
                 viewSnapshot->setSurface(WTFMove(convertedSurface));
         });
@@ -1543,12 +1541,21 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     return false;
 }
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKWebViewAdditions.mm>)
+#import <WebKitAdditions/WKWebViewAdditions.mm>
+#else
+- (void)_presentCaptivePortalModeAlertIfNeeded
+{
+}
+#endif
+
 - (void)didMoveToWindow
 {
     if (!_overridesInterfaceOrientation)
         [self _dispatchSetDeviceOrientation:[self _deviceOrientation]];
     _page->activityStateDidChange(WebCore::ActivityState::allFlags());
     _page->webViewDidMoveToWindow();
+    [self _presentCaptivePortalModeAlertIfNeeded];
 }
 
 - (void)_setOpaqueInternal:(BOOL)opaque
@@ -1943,24 +1950,6 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     _lastSentViewLayoutSize = viewLayoutSize;
 }
 
-- (void)_dispatchSetMinimumUnobscuredSize:(WebCore::FloatSize)minimumUnobscuredSize
-{
-    if (_lastSentMinimumUnobscuredSize && CGSizeEqualToSize(_lastSentMinimumUnobscuredSize.value(), minimumUnobscuredSize))
-        return;
-
-    _page->setMinimumUnobscuredSize(minimumUnobscuredSize);
-    _lastSentMinimumUnobscuredSize = minimumUnobscuredSize;
-}
-
-- (void)_dispatchSetMaximumUnobscuredSize:(WebCore::FloatSize)maximumUnobscuredSize
-{
-    if (_lastSentMaximumUnobscuredSize && CGSizeEqualToSize(_lastSentMaximumUnobscuredSize.value(), maximumUnobscuredSize))
-        return;
-
-    _page->setMaximumUnobscuredSize(maximumUnobscuredSize);
-    _lastSentMaximumUnobscuredSize = maximumUnobscuredSize;
-}
-
 - (void)_dispatchSetDeviceOrientation:(int32_t)deviceOrientation
 {
     if (_lastSentDeviceOrientation && _lastSentDeviceOrientation.value() == deviceOrientation)
@@ -1987,10 +1976,9 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing) {
         if (!_viewLayoutSizeOverride)
             [self _dispatchSetViewLayoutSize:[self activeViewLayoutSize:self.bounds]];
-        if (!_minimumUnobscuredSizeOverride)
-            [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(bounds.size)];
         if (!_maximumUnobscuredSizeOverride)
-            [self _dispatchSetMaximumUnobscuredSize:WebCore::FloatSize(bounds.size)];
+            _page->setDefaultUnobscuredSize(WebCore::FloatSize(bounds.size));
+        [self _recalculateViewportSizesWithMinimumViewportInset:_minimumViewportInset maximumViewportInset:_maximumViewportInset throwOnInvalidInput:NO];
 
         BOOL sizeChanged = NO;
         if (_page) {
@@ -2441,11 +2429,13 @@ static int32_t activeOrientation(WKWebView *webView)
     if (!_lastSentViewLayoutSize || newViewLayoutSize != _lastSentViewLayoutSize.value())
         [self _dispatchSetViewLayoutSize:newViewLayoutSize];
 
-    if (!_lastSentMinimumUnobscuredSize || newMinimumUnobscuredSize != _lastSentMinimumUnobscuredSize.value())
-        [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(newMinimumUnobscuredSize)];
-
-    if (!_lastSentMaximumUnobscuredSize || newMaximumUnobscuredSize != _lastSentMaximumUnobscuredSize.value())
-        [self _dispatchSetMaximumUnobscuredSize:WebCore::FloatSize(newMaximumUnobscuredSize)];
+    if (_minimumUnobscuredSizeOverride)
+        _page->setMinimumUnobscuredSize(WebCore::FloatSize(newMinimumUnobscuredSize));
+    if (_maximumUnobscuredSizeOverride) {
+        _page->setDefaultUnobscuredSize(WebCore::FloatSize(newMaximumUnobscuredSize));
+        _page->setMaximumUnobscuredSize(WebCore::FloatSize(newMaximumUnobscuredSize));
+    }
+    [self _recalculateViewportSizesWithMinimumViewportInset:_minimumViewportInset maximumViewportInset:_maximumViewportInset throwOnInvalidInput:NO];
 
     if (!_lastSentDeviceOrientation || newOrientation != _lastSentDeviceOrientation.value())
         [self _dispatchSetDeviceOrientation:newOrientation];
@@ -2832,7 +2822,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     _minimumUnobscuredSizeOverride = size;
 
     if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing)
-        [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(size)];
+        _page->setMinimumUnobscuredSize(WebCore::FloatSize(size));
 }
 
 // Deprecated SPI
@@ -2847,8 +2837,10 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     ASSERT(size.width <= self.bounds.size.width && size.height <= self.bounds.size.height);
     _maximumUnobscuredSizeOverride = size;
 
-    if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing)
-        [self _dispatchSetMaximumUnobscuredSize:WebCore::FloatSize(size)];
+    if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing) {
+        _page->setDefaultUnobscuredSize(WebCore::FloatSize(size));
+        _page->setMaximumUnobscuredSize(WebCore::FloatSize(size));
+    }
 }
 
 - (UIEdgeInsets)_obscuredInsets
@@ -2957,7 +2949,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 - (BOOL)_isDisplayingPDF
 {
     for (auto& type : WebCore::MIMETypeRegistry::pdfMIMETypes()) {
-        Class providerClass = [[_configuration _contentProviderRegistry] providerForMIMEType:@(type)];
+        Class providerClass = [[_configuration _contentProviderRegistry] providerForMIMEType:@(type.characters())];
         if ([_customContentView isKindOfClass:providerClass])
             return YES;
     }
@@ -3190,9 +3182,11 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
         if (_viewLayoutSizeOverride)
             [self _dispatchSetViewLayoutSize:newViewLayoutSize];
         if (_minimumUnobscuredSizeOverride)
-            [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(newMinimumUnobscuredSize)];
-        if (_maximumUnobscuredSizeOverride)
-            [self _dispatchSetMaximumUnobscuredSize:WebCore::FloatSize(newMaximumUnobscuredSize)];
+            _page->setMinimumUnobscuredSize(WebCore::FloatSize(newMinimumUnobscuredSize));
+        if (_maximumUnobscuredSizeOverride) {
+            _page->setDefaultUnobscuredSize(WebCore::FloatSize(newMaximumUnobscuredSize));
+            _page->setMaximumUnobscuredSize(WebCore::FloatSize(newMaximumUnobscuredSize));
+        }
         if (_overridesInterfaceOrientation)
             [self _dispatchSetDeviceOrientation:newOrientation];
 
@@ -3269,8 +3263,6 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     WebCore::FloatBoxExtent unobscuredSafeAreaInsetsExtent(unobscuredSafeAreaInsets.top, unobscuredSafeAreaInsets.right, unobscuredSafeAreaInsets.bottom, unobscuredSafeAreaInsets.left);
 
     _lastSentViewLayoutSize = newViewLayoutSize;
-    _lastSentMinimumUnobscuredSize = newMinimumUnobscuredSize;
-    _lastSentMaximumUnobscuredSize = newMaximumUnobscuredSize;
     _lastSentDeviceOrientation = newOrientation;
 
     _page->dynamicViewportSizeUpdate(newViewLayoutSize, newMinimumUnobscuredSize, newMaximumUnobscuredSize, visibleRectInContentCoordinates, unobscuredRectInContentCoordinates, futureUnobscuredRectInSelfCoordinates, unobscuredSafeAreaInsetsExtent, targetScale, newOrientation, newMinimumEffectiveDeviceWidth, ++_currentDynamicViewportSizeUpdateID);
@@ -3341,7 +3333,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     NSString *displayName = self.window.screen.displayConfiguration.name;
     if (displayName && !self.window.hidden) {
         TraceScope snapshotScope(RenderServerSnapshotStart, RenderServerSnapshotEnd);
-        auto surface = WebCore::IOSurface::create(WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebCore::DestinationColorSpace::SRGB());
+        auto surface = WebCore::IOSurface::create(nullptr, WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebCore::DestinationColorSpace::SRGB());
         if (!surface) {
             completionHandler(nullptr);
             return;

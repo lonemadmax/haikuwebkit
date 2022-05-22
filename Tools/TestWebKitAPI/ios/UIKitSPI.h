@@ -29,6 +29,7 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
+#import <UIKit/NSParagraphStyle_Private.h>
 #import <UIKit/NSTextAlternatives.h>
 #import <UIKit/UIAction_Private.h>
 #import <UIKit/UIApplication_Private.h>
@@ -71,6 +72,15 @@ IGNORE_WARNINGS_END
 @property (readonly) NSString *primaryString;
 @property (readonly) NSArray<NSString *> *alternativeStrings;
 @property (readonly) BOOL isLowConfidence;
+@end
+
+@interface NSParagraphStyle ()
+- (NSArray *)textLists;
+@end
+
+@interface NSTextList : NSObject
+@property NSInteger startingItemNumber;
+@property (readonly, copy) NSString *markerFormat;
 @end
 
 WTF_EXTERN_C_BEGIN

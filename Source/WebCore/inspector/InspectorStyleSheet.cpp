@@ -26,6 +26,7 @@
 #include "config.h"
 #include "InspectorStyleSheet.h"
 
+#include "CSSContainerRule.h"
 #include "CSSImportRule.h"
 #include "CSSKeyframesRule.h"
 #include "CSSLayerBlockRule.h"
@@ -106,10 +107,34 @@ void ParsedStyleSheet::setText(const String& text)
 static void flattenSourceData(RuleSourceDataList& dataList, RuleSourceDataList& target)
 {
     for (auto& data : dataList) {
-        if (data->type == WebCore::StyleRuleType::Style)
+        switch (data->type) {
+        case WebCore::StyleRuleType::Style:
             target.append(data.copyRef());
-        else if (data->type == WebCore::StyleRuleType::Media || data->type == WebCore::StyleRuleType::Supports || data->type == WebCore::StyleRuleType::LayerBlock)
+            break;
+
+        case WebCore::StyleRuleType::Media:
+        case WebCore::StyleRuleType::Supports:
+        case WebCore::StyleRuleType::LayerBlock:
+        case WebCore::StyleRuleType::Container:
             flattenSourceData(data->childRules, target);
+            break;
+
+        case WebCore::StyleRuleType::Unknown:
+        case WebCore::StyleRuleType::Charset:
+        case WebCore::StyleRuleType::Import:
+        case WebCore::StyleRuleType::FontFace:
+        case WebCore::StyleRuleType::Page:
+        case WebCore::StyleRuleType::Keyframes:
+        case WebCore::StyleRuleType::Keyframe:
+        case WebCore::StyleRuleType::Margin:
+        case WebCore::StyleRuleType::Namespace:
+        case WebCore::StyleRuleType::CounterStyle:
+        case WebCore::StyleRuleType::LayerStatement:
+        case WebCore::StyleRuleType::FontPaletteValues:
+            // These rule types do not contain child rules, and therefore have nothing to display in the Styles panel in
+            // the details sidebar of the Elements Tab in Web Inspector.
+            break;
+        }
     }
 }
 
@@ -430,6 +455,9 @@ static RefPtr<CSSRuleList> asCSSRuleList(CSSRule* rule)
     if (is<CSSLayerBlockRule>(*rule))
         return &downcast<CSSLayerBlockRule>(*rule).cssRules();
 
+    if (auto* containerRule = dynamicDowncast<CSSContainerRule>(rule))
+        return &containerRule->cssRules();
+
     return nullptr;
 }
 
@@ -482,6 +510,19 @@ static Ref<JSON::ArrayOf<Protocol::CSS::Grouping>> buildArrayForGroupings(CSSRul
             if (!layerName.isEmpty())
                 layerRulePayload->setText(layerName);
             ruleGroupingPayloads.append(WTFMove(layerRulePayload));
+        } else if (auto* containerRule = dynamicDowncast<CSSContainerRule>(parentRule)) {
+            auto containerRulePayload = Protocol::CSS::Grouping::create()
+                .setType(Protocol::CSS::Grouping::Type::ContainerRule)
+                .release();
+
+            StringBuilder builder;
+            auto nameFilter = containerRule->nameFilterText();
+            if (!nameFilter.isEmpty())
+                builder.append(nameFilter, ' ');
+            builder.append(containerRule->conditionText());
+            containerRulePayload->setText(builder.toString());
+
+            ruleGroupingPayloads.append(WTFMove(containerRulePayload));
         }
 
         for (auto&& ruleGroupingPayload : WTFMove(ruleGroupingPayloads)) {
@@ -554,8 +595,8 @@ Ref<Protocol::CSS::CSSStyle> InspectorStyle::buildObjectForStyle() const
     if (auto styleId = m_styleId.asProtocolValue<Protocol::CSS::CSSStyleId>())
         result->setStyleId(styleId.releaseNonNull());
 
-    result->setWidth(m_style->getPropertyValue("width"));
-    result->setHeight(m_style->getPropertyValue("height"));
+    result->setWidth(m_style->getPropertyValue("width"_s));
+    result->setHeight(m_style->getPropertyValue("height"_s));
 
     if (auto sourceData = extractSourceData()) {
         if (auto range = buildSourceRangeObject(sourceData->ruleBodyRange, m_parentStyleSheet->lineEndings()))
@@ -686,7 +727,7 @@ Ref<Protocol::CSS::CSSStyle> InspectorStyle::styleWithProperties() const
 
         // Default "priority" == "".
         if (propertyEntry.important)
-            property->setPriority("important");
+            property->setPriority("important"_s);
 
         if (it->hasSource) {
             // The property range is relative to the style body start.

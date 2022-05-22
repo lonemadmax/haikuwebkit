@@ -112,6 +112,7 @@ class WebPageProxy;
 
 @class AVPlayerViewController;
 @class QLPreviewController;
+@class VKCImageAnalysisInteraction;
 @class WebEvent;
 @class WebTextIndicatorLayer;
 @class WKActionSheetAssistant;
@@ -540,6 +541,8 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
 #endif // ENABLE(IMAGE_ANALYSIS)
     uint32_t _fullscreenVideoExtractionRequestIdentifier;
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    RetainPtr<VKCImageAnalysisInteraction> _imageAnalysisInteraction;
+    WebCore::FloatRect _imageAnalysisInteractionBounds;
     std::optional<WebKit::ImageAnalysisMarkupData> _imageAnalysisMarkupData;
 #endif
 }
@@ -800,6 +803,9 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)beginFullscreenVideoExtraction:(const WebKit::ShareableBitmap::Handle&)imageHandle playerViewController:(AVPlayerViewController *)playerViewController;
 - (void)cancelFullscreenVideoExtraction:(AVPlayerViewController *)controller;
 @property (nonatomic, readonly) BOOL isFullscreenVideoExtractionEnabled;
+
+- (void)beginElementFullscreenVideoExtraction:(const WebKit::ShareableBitmap::Handle&)bitmapHandle bounds:(WebCore::FloatRect)bounds;
+- (void)cancelElementFullscreenVideoExtraction;
 
 @end
 

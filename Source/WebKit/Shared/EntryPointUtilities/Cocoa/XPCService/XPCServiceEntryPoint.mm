@@ -72,13 +72,13 @@ bool XPCServiceInitializerDelegate::getConnectionIdentifier(IPC::Connection::Ide
 
 bool XPCServiceInitializerDelegate::getClientIdentifier(String& clientIdentifier)
 {
-    clientIdentifier = xpc_dictionary_get_string(m_initializerMessage, "client-identifier");
+    clientIdentifier = String::fromUTF8(xpc_dictionary_get_string(m_initializerMessage, "client-identifier"));
     return !clientIdentifier.isEmpty();
 }
 
 bool XPCServiceInitializerDelegate::getClientBundleIdentifier(String& clientBundleIdentifier)
 {
-    clientBundleIdentifier = xpc_dictionary_get_string(m_initializerMessage, "client-bundle-identifier");
+    clientBundleIdentifier = String { xpc_dictionary_get_string(m_initializerMessage, "client-bundle-identifier") };
     return !clientBundleIdentifier.isEmpty();
 }
 
@@ -111,7 +111,7 @@ bool XPCServiceInitializerDelegate::getProcessIdentifier(WebCore::ProcessIdentif
 
 bool XPCServiceInitializerDelegate::getClientProcessName(String& clientProcessName)
 {
-    clientProcessName = xpc_dictionary_get_string(m_initializerMessage, "ui-process-name");
+    clientProcessName = String { xpc_dictionary_get_string(m_initializerMessage, "ui-process-name") };
     return !clientProcessName.isEmpty();
 }
 
@@ -119,30 +119,30 @@ bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, S
 {
     xpc_object_t extraDataInitializationDataObject = xpc_dictionary_get_value(m_initializerMessage, "extra-initialization-data");
 
-    String inspectorProcess = xpc_dictionary_get_string(extraDataInitializationDataObject, "inspector-process");
+    String inspectorProcess { xpc_dictionary_get_string(extraDataInitializationDataObject, "inspector-process") };
     if (!inspectorProcess.isEmpty())
         extraInitializationData.add("inspector-process"_s, inspectorProcess);
 
 #if ENABLE(SERVICE_WORKER)
-    String serviceWorkerProcess = xpc_dictionary_get_string(extraDataInitializationDataObject, "service-worker-process");
+    String serviceWorkerProcess { xpc_dictionary_get_string(extraDataInitializationDataObject, "service-worker-process") };
     if (!serviceWorkerProcess.isEmpty())
         extraInitializationData.add("service-worker-process"_s, WTFMove(serviceWorkerProcess));
-    String registrableDomain = xpc_dictionary_get_string(extraDataInitializationDataObject, "registrable-domain");
+    String registrableDomain { xpc_dictionary_get_string(extraDataInitializationDataObject, "registrable-domain") };
     if (!registrableDomain.isEmpty())
         extraInitializationData.add("registrable-domain"_s, WTFMove(registrableDomain));
 #endif
 
-    String isPrewarmedProcess = xpc_dictionary_get_string(extraDataInitializationDataObject, "is-prewarmed");
+    String isPrewarmedProcess { xpc_dictionary_get_string(extraDataInitializationDataObject, "is-prewarmed") };
     if (!isPrewarmedProcess.isEmpty())
         extraInitializationData.add("is-prewarmed"_s, isPrewarmedProcess);
 
     if (!isClientSandboxed()) {
-        String userDirectorySuffix = xpc_dictionary_get_string(extraDataInitializationDataObject, "user-directory-suffix");
+        String userDirectorySuffix { xpc_dictionary_get_string(extraDataInitializationDataObject, "user-directory-suffix") };
         if (!userDirectorySuffix.isEmpty())
             extraInitializationData.add("user-directory-suffix"_s, userDirectorySuffix);
     }
 
-    String alwaysRunsAtBackgroundPriority = xpc_dictionary_get_string(extraDataInitializationDataObject, "always-runs-at-background-priority");
+    String alwaysRunsAtBackgroundPriority { xpc_dictionary_get_string(extraDataInitializationDataObject, "always-runs-at-background-priority") };
     if (!alwaysRunsAtBackgroundPriority.isEmpty())
         extraInitializationData.add("always-runs-at-background-priority"_s, alwaysRunsAtBackgroundPriority);
 
@@ -168,13 +168,15 @@ void setOSTransaction(OSObjectPtr<os_transaction_t>&& transaction)
     // services ourselves. However, one of the side effects of leaking this transaction is that the default SIGTERM
     // handler doesn't cleanly exit our XPC services when logging out or rebooting. This led to crashes with
     // XPC_EXIT_REASON_SIGTERM_TIMEOUT as termination reason (rdar://88940229). To address the issue, we now set our
-    // own SIGTERM handler that calls _exit(0). In the future, we should likely adopt RunningBoard on macOS and
+    // own SIGTERM handler that calls exit(0). In the future, we should likely adopt RunningBoard on macOS and
     // control our lifetime via process assertions instead of leaking this OS transaction.
-    static std::once_flag onceKey;
-    std::call_once(onceKey, [] {
-        signal(SIGTERM, [](int) {
-            _exit(0);
+    static dispatch_once_t flag;
+    dispatch_once(&flag, ^{
+        auto sigTermSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, dispatch_get_main_queue());
+        dispatch_source_set_event_handler(sigTermSource, ^{
+            exit(0);
         });
+        dispatch_resume(sigTermSource);
     });
 
     globalTransaction.get() = WTFMove(transaction);

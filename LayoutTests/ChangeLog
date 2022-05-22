@@ -1,3 +1,941 @@
+2022-04-04  Youenn Fablet  <youenn@apple.com>
+
+        Service-Worker-Navigation-Preload header not being sent when Navigation Preload is enabled.
+        https://bugs.webkit.org/show_bug.cgi?id=238564
+
+        Reviewed by Alex Christensen.
+
+        * http/wpt/service-workers/resources/service-worker-iframe-preload-after-response-script.py: Added.
+        * http/wpt/service-workers/service-worker-iframe-preload-after-response-worker.js: Added.
+        * http/wpt/service-workers/service-worker-iframe-preload-after-response.https-expected.txt: Added.
+        * http/wpt/service-workers/service-worker-iframe-preload-after-response.https.html: Added.
+
+2022-04-04  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] [iOS] Sometimes the text drop shadow is not drawn
+        https://bugs.webkit.org/show_bug.cgi?id=236923
+        rdar://89196794
+
+        Reviewed by Simon Fraser.
+
+        Unskip failed the text drop shadow layout test.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-04  Cathie Chen  <cathiechen@igalia.com>
+
+        REGRESSION(r291797): [wk1] 5 contain-intrinsic-size* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238584
+
+        Reviewed by Simon Fraser.
+
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac-wk1/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-031-expected.txt: Removed.
+        * platform/mac-wk1/imported/w3c/web-platform-tests/resize-observer/change-layout-in-error-expected.txt: Removed.
+
+2022-04-04  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Unskip the first few passing WebGPU tests
+        https://bugs.webkit.org/show_bug.cgi?id=238709
+
+        Reviewed by Tim Nguyen.
+
+        The tests pass, so they shouldn't be marked as skip.
+
+        * platform/ios-device-wk1/TestExpectations:
+        * platform/ios-simulator-wk1/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-02  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Automatically relayout the page when new fonts are installed
+        https://bugs.webkit.org/show_bug.cgi?id=238483
+        <rdar://problem/80544133>
+
+        Reviewed by Chris Dumez.
+
+        * TestExpectations:
+        * fast/text/install-font-style-recalc-expected.txt: Added.
+        * fast/text/install-font-style-recalc.html: Added.
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-02  Alan Bujtas  <zalan@apple.com>
+
+        [Ruby] Remove incorrect implicit integral floor in RenderRubyText::adjustInlineDirectionLineBounds
+        https://bugs.webkit.org/show_bug.cgi?id=238671
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+        * fast/ruby/bopomofo-mixed-expected.txt:
+        * platform/mac/fast/css/bidi-override-in-anonymous-block-expected.txt:
+        * platform/mac/fast/ruby/bopomofo-expected.txt:
+        * platform/mac/fast/ruby/bopomofo-letter-spacing-expected.txt:
+        * platform/mac/fast/ruby/bopomofo-rl-expected.txt:
+        * platform/mac/fast/ruby/ruby-run-break-expected.txt:
+        * platform/mac/fast/ruby/ruby-runs-expected.txt:
+        * platform/mac/fast/ruby/ruby-runs-spans-expected.txt:
+        * platform/mac/fast/ruby/ruby-text-before-after-content-expected.txt:
+        * platform/mac/fast/ruby/rubyDOM-insert-rt-expected.txt:
+        * platform/mac/fast/ruby/rubyDOM-insert-text1-expected.txt:
+
+2022-04-02  Ziran Sun  <zsun@igalia.com>
+
+        [css-ui] Only apply 'overflow:visible' to elements that support menulist appearance
+        https://bugs.webkit.org/show_bug.cgi?id=238501
+
+        Reviewed by Tim Nguyen.
+
+        Unskip the tests that are now passing. 
+        * TestExpectations:
+
+2022-04-02  Youenn Fablet  <youenn@apple.com>
+
+        Remove notifications from notification list when notification gets closed
+        https://bugs.webkit.org/show_bug.cgi?id=238665
+
+        Reviewed by Darin Adler.
+
+        * http/tests/workers/service/getnotifications-stop-expected.txt: Added.
+        * http/tests/workers/service/getnotifications-stop.html: Added.
+        * http/tests/workers/service/resources/getNotifications-iframe.html: Added.
+
+2022-04-01  Alan Bujtas  <zalan@apple.com>
+
+        [CSS-contain] Update select element failures with bugzilla link.
+
+        Unreviewed.
+
+        * TestExpectations:
+
+2022-04-01  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening.
+
+        * platform/ios-wk2/TestExpectations: Forms test was flaky before turning GPUP on by default,
+        move it out of the section of GPUP-specific failures. Update WebGL failure with bugzilla link.
+
+2022-04-01  Ryan Haddad  <ryanhaddad@apple.com>
+
+        REGRESSION(r292072): [ Mac iOS ] http/tests/webAPIStatistics/canvas-read-and-write-data-collection.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238580
+
+        Unreviewed test gardening.
+
+        Remove expectations as cause has been reverted.
+
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-01  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r292072.
+        https://bugs.webkit.org/show_bug.cgi?id=238690
+
+        Caused webAPIStatistics test failures
+
+        Reverted changeset:
+
+        "[Cocoa] Automatically relayout the page when new fonts are
+        installed"
+        https://bugs.webkit.org/show_bug.cgi?id=238483
+        https://commits.webkit.org/r292072
+
+2022-04-01  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r290822?): [ wk1 ] storage/websql/change-version.html is a flaky timeout
+        https://bugs.webkit.org/show_bug.cgi?id=238689
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-01  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Change one-shot maxTimerNestingLevel from 5 to 10
+        https://bugs.webkit.org/show_bug.cgi?id=237168
+
+        Reviewed by Sam Weinig, Saam Barati, and Cameron McCormack .
+
+        * fast/dom/timer-increase-min-interval.html:
+        * fast/dom/timer-throttling-hidden-page-expected.txt:
+        * fast/dom/timer-throttling-hidden-page.html:
+
+2022-04-01  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening.
+
+        This is based on auditing the failing tests cited after turning DOM in GPUP on by default.
+        * TestExpectations: One test was flaky on the bots before we turned on the flag.
+        * platform/ios-simulator-wk2/TestExpectations: Some tests have fail/pass results only when the iOS sim is on an arm64 host.
+        * platform/ios-wk2/TestExpectations: Lots of tests no longer fail.
+        * platform/ios/TestExpectations:
+
+2022-04-01  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r292072): [ wk1 ] fast/text/install-font-style-recalc.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238641
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-04-01  Ben Nham  <nham@apple.com>
+
+        Add more push-related logging
+        https://bugs.webkit.org/show_bug.cgi?id=238591
+
+        Reviewed by Youenn Fablet.
+
+        Modify test cases to check for user gesture error console message.
+
+        * http/tests/push-api/subscribe-default-permissions-expected.txt:
+        * http/tests/push-api/subscribe-default-permissions-iframe-same-origin-expected.txt:
+        * http/tests/push-api/subscribe-deny-permissions-on-prompt-expected.txt:
+
+2022-04-01  Kate Cheney  <katherine_cheney@apple.com>
+
+        CSP: WASM fails to execute after window.open
+        https://bugs.webkit.org/show_bug.cgi?id=238562
+        <rdar://problem/90778752>
+
+        Reviewed by Brent Fulgham.
+
+        Layout test coverage. Copy some wasm helper scripts into the http directory.
+
+        * platform/win/TestExpectations:
+        We don't support wasm on win.        
+
+        * http/tests/security/contentSecurityPolicy/allow-wasm-after-window-open-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/allow-wasm-after-window-open.html: Added.
+        * http/tests/security/contentSecurityPolicy/resources/load_wasm.js: Added.
+        (createWasmModule):
+        * http/tests/security/contentSecurityPolicy/resources/run-web-assembly.html: Added.
+        * http/tests/security/contentSecurityPolicy/resources/wasm-builder.js: Added.
+        (const._fail):
+        (const.isNotA.assert.isNotA):
+        (const):
+        (switch.typeof):
+        (Builder):
+        (Builder.prototype.setChecked):
+        (Builder.prototype.setPreamble):
+        (Builder.prototype._functionIndexSpaceKeyHash):
+        (Builder.prototype._registerFunctionToIndexSpace):
+        (Builder.prototype._getFunctionFromIndexSpace):
+        (Builder.prototype._registerSectionBuilders.const.section.in.WASM.description.section.switch.section.case.string_appeared_here.this.section):
+        (Builder.prototype._registerSectionBuilders.const.section.in.WASM.description.section.switch.section.const.codeBuilder.End.switch.case.string_appeared_here.e):
+        (Builder.prototype._registerSectionBuilders.this.Unknown):
+
+2022-04-01  Alan Bujtas  <zalan@apple.com>
+
+        [Ruby] Statically positioned out-of-flow block boxes are mispositioned
+        https://bugs.webkit.org/show_bug.cgi?id=238653
+
+        Reviewed by Antti Koivisto.
+
+        * TestExpectations:
+        * fast/ruby/ruby-with-out-of-flow-base-content-expected.html: Added.
+        * fast/ruby/ruby-with-out-of-flow-base-content.html: Added.
+
+2022-04-01  Ryan Haddad  <ryanhaddad@apple.com>
+
+        REGRESSION(r292072): [ Mac iOS ] http/tests/webAPIStatistics/canvas-read-and-write-data-collection.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238580
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-04-01  Tim Nguyen  <ntim@apple.com>
+
+        [css-logical] Add support for block/inline CSS values for resize property
+        https://bugs.webkit.org/show_bug.cgi?id=218088
+
+        Reviewed by Antti Koivisto.
+
+        Add tests for functionality.
+
+        * fast/css/resize-single-axis-expected.txt:
+        * fast/css/resize-single-axis.html:
+
+2022-04-01  Youenn Fablet  <youenn@apple.com>
+
+        ServiceWorkerRegistration.getNotifications should list all persistent notifications
+        https://bugs.webkit.org/show_bug.cgi?id=238544
+
+        Reviewed by Darin Adler.
+
+        * http/tests/workers/service/getnotifications-expected.txt:
+        * http/tests/workers/service/getnotifications.html:
+
+2022-04-01  Youenn Fablet  <youenn@apple.com>
+
+        Notification should be exposed to ServiceWorker contexts
+        https://bugs.webkit.org/show_bug.cgi?id=238548
+
+        Reviewed by Chris Dumez.
+
+        * http/tests/workers/service/resources/shownotification-worker.js:
+
+2022-04-01  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Add support for element.computedStyleMap()
+        https://bugs.webkit.org/show_bug.cgi?id=238375
+
+        Reviewed by Alex Christensen.
+
+        Update test expectations.
+
+        * platform/glib/imported/w3c/web-platform-tests/css/css-color/system-color-compute-expected.txt:
+        * platform/glib/imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-computed-value-expected.txt: Removed.
+        * platform/ios/imported/w3c/web-platform-tests/css/css-color/system-color-compute-expected.txt:
+
+2022-04-01  Youenn Fablet  <youenn@apple.com>
+
+        Persistent notifications should work in document scopes as well as service worker global scopes
+        https://bugs.webkit.org/show_bug.cgi?id=238601
+
+        Reviewed by Brady Eidson.
+
+        * http/tests/workers/service/shownotification-allowed-document-expected.txt: Added.
+        * http/tests/workers/service/shownotification-allowed-document.html: Added.
+
+2022-03-31  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] [iOS] Vertical text is incorrectly displaced
+        https://bugs.webkit.org/show_bug.cgi?id=232917
+        rdar://85483031
+
+        Reviewed by Myles C. Maxfield.
+
+        Unskip failed vertical text layout tests.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-03-31  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo] Unreviewed test gardening
+
+        * platform/wincairo-wk1/TestExpectations:
+        * platform/wincairo/TestExpectations:
+
+2022-03-31  Robert Jenner  <Jenner@apple.com>
+
+        REGRESSION(r292127): [ BigSur+ wk1 ] imported/w3c/web-platform-tests/css/css-contain/contain-body-overflow-002.html is a constant image failure
+        https://bugs.webkit.org/show_bug.cgi?id=238642
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations:
+
+2022-03-31  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] [iOS] Text decoration is always drawn with solid stroke style
+        https://bugs.webkit.org/show_bug.cgi?id=236909
+        rdar://89196615
+
+        Reviewed by Simon Fraser.
+
+        Unskip failed text decoration layout tests.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-03-31  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed test gardening.
+
+        We had some confusing test expectations as a result of iPad-unique failures. Move those failures into
+        ipad/TestExpectations and leave ios* TestExpectation clear.
+        * platform/ios-simulator/TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios/TestExpectations: Additional test progressions.
+        * platform/ipad/TestExpectations:
+        * platform/mac-wk2/TestExpectations: Be more specific in related test failures on Mac.
+
+2022-03-31  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Support Container Queries in the Styles sidebar
+        https://bugs.webkit.org/show_bug.cgi?id=238346
+
+        Reviewed by Devin Rousso.
+
+        * inspector/css/getMatchedStylesForNodeContainerGrouping-expected.txt: Added.
+        * inspector/css/getMatchedStylesForNodeContainerGrouping.html: Added.
+
+2022-03-31  Robert Jenner  <Jenner@apple.com>
+
+        REGRESSION(r292051-r292022): [ iOS ] media/video-object-fit.html is a constant image failure
+        https://bugs.webkit.org/show_bug.cgi?id=238634
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-03-31  Robert Jenner  <Jenner@apple.com>
+
+        REGRESSION(r292072): [ Mac iOS ] http/tests/webAPIStatistics/canvas-read-and-write-data-collection.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238580
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-03-31  Devin Rousso  <drousso@apple.com>
+
+        REGRESSION(r292107): [ Mac iOS ] http/tests/paymentrequest/updateWith-shippingOptions.https.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238581
+        <rdar://problem/91074265>
+
+        Unreviewed, adjust test results. This test is expected to fail pre macOS 12.3 and iOS 15.4.
+
+        * http/tests/paymentrequest/updateWith-shippingOptions.https-expected.txt:
+
+2022-03-31  Ben Nham  <nham@apple.com>
+
+        Remove push subscriptions when permissions are reset
+        https://bugs.webkit.org/show_bug.cgi?id=238068
+
+        Reviewed by Youenn Fablet.
+
+        Fix an issue with a layout test that didn't register for notification permissions.
+
+        * http/wpt/service-workers/service-worker-spinning-push.https.html:
+
+2022-03-31  Alan Bujtas  <zalan@apple.com>
+
+        [CSS contain] Containment disables the special handling of the HTML body element for overflow viewport propagation [part2]
+        https://bugs.webkit.org/show_bug.cgi?id=238572
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations: Progressions.
+
+2022-03-31  Tim Nguyen  <ntim@apple.com>
+
+        [iOS] imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/default-color.html is a constant failure
+        https://bugs.webkit.org/show_bug.cgi?id=238599
+
+        Unreviewed test gardening.
+
+        iOS has no dark mode support.
+
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/default-color-expected.txt: Added.
+
+2022-03-30  Alan Bujtas  <zalan@apple.com>
+
+        Add explanation as to why contain-size-button-001.html/002.html WPT tests fail.
+
+        Unreviewed.
+
+        * TestExpectations:
+
+2022-03-30  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Link WebCore with WebGPU.framework 🎉
+        https://bugs.webkit.org/show_bug.cgi?id=236751
+
+        Reviewed by Dean Jackson.
+
+        Once we enable WebGPU, the WebGPU tests will start crashing all over the place.
+        Let's temporarily mark them as skip until the crashing stops.
+
+        * platform/ios-device-wk1/TestExpectations:
+        * platform/ios-simulator-wk1/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+
+2022-03-30  Kate Cheney  <katherine_cheney@apple.com>
+
+        Migrate manifest version content security policy filtering for extensions into WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=238230
+        <rdar://problem/60081492>
+
+        Reviewed by Timothy Hatcher.
+
+        Layout test coverage. We don’t allow loading of hosts
+        other than localhost and 127.0.0.1 in our test infrastructure,
+        so that made it difficult to write a test for remote sources
+        being blocked in manifest V3, and for blocked TLDs with wildcards
+        for manifest v2. We have existing unit test coverage for our isPublicSuffix
+        function.
+
+        * TestExpectations:
+        * platform/wk2/TestExpectations:
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-blob-scheme-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-blob-scheme-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-insecure-scheme-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-insecure-scheme.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-missing-scheme-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-missing-scheme.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-scheme-only-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-scheme-only.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-unsafe-eval-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-unsafe-eval-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-unsafe-inline-blocked-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-unsafe-inline-blocked.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-wildcard-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-wildcard-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-wildcard-prohibited-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/default-src/manifest-v2-default-src-wildcard-prohibited.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/img-src/manifest-v2-img-src-host-only-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/img-src/manifest-v2-img-src-host-only-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/img-src/manifest-v2-img-src-scheme-only-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/img-src/manifest-v2-img-src-scheme-only-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/img-src/manifest-v2-img-src-wildcard-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/img-src/manifest-v2-img-src-wildcard-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-blob-scheme-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-blob-scheme-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-hash-source-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-hash-source-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-insecure-scheme-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-insecure-scheme.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-missing-scheme-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-missing-scheme.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-scheme-only-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-scheme-only.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-unsafe-eval-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-unsafe-eval-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-unsafe-inline-blocked-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-unsafe-inline-blocked.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-wildcard-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-wildcard-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-wildcard-blocked-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v2/script-src/manifest-v2-script-src-wildcard-blocked.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-block-non-https-scheme-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-block-non-https-scheme.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-block-wildcard-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-block-wildcard.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-can-load-insecure-loopback-ip-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-can-load-insecure-loopback-ip.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-can-load-secure-loopback-ip-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-can-load-secure-loopback-ip.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-self-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/default-src/manifest-v3-default-src-self.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/img-src/manifest-v3-img-src-host-only-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/img-src/manifest-v3-img-src-host-only-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/img-src/manifest-v3-img-src-scheme-only-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/img-src/manifest-v3-img-src-scheme-only-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/img-src/manifest-v3-img-src-wildcard-allowed-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/img-src/manifest-v3-img-src-wildcard-allowed.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-block-non-https-scheme-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-block-non-https-scheme.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-block-partial-wildcard-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-block-partial-wildcard.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-block-wildcard-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-block-wildcard.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-can-load-insecure-loopback-ip-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-can-load-insecure-loopback-ip.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-can-load-secure-loopback-ip-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-can-load-secure-loopback-ip.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-self-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/object-src/manifest-v3-object-src-self.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/resources/check-style.js: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/resources/load-blob.js: Added.
+        (script.onload):
+        (script.onerror):
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-block-non-https-scheme-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-block-non-https-scheme.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-block-partial-wildcard-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-block-partial-wildcard.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-block-wildcard-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-block-wildcard.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-blockes-nonces-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-blockes-nonces.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-blocks-hashes-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-blocks-hashes.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-can-load-insecure-loopback-ip-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-can-load-insecure-loopback-ip.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-can-load-secure-loopback-ip-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-can-load-secure-loopback-ip.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-self-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/script-src/manifest-v3-script-src-self.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/style-src/manifest-v3-style-src-allows-keywords-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/style-src/manifest-v3-style-src-allows-keywords.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-block-partial-wildcard-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-block-partial-wildcard.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-block-wildcard-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-block-wildcard.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-can-load-insecure-loopback-ip-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-can-load-insecure-loopback-ip.html: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-self-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/extensions/manifest-v3/worker-src/manifest-v3-worker-src-self.html: Added.
+
+2022-03-30  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r291797): [ wk1 ] 5 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238584
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations:
+
+2022-03-30  Matteo Flores  <matteo_flores@apple.com>
+
+        [ Mac , iOS Debug ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/resource-popup.https.html is a flaky failure.
+        https://bugs.webkit.org/show_bug.cgi?id=228127
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+
+2022-03-30  Alan Bujtas  <zalan@apple.com>
+
+        [CSS contain] Containment disables the special handling of the HTML body element for overflow viewport propagation.
+        https://bugs.webkit.org/show_bug.cgi?id=238526
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+        * fast/layers/parent-clipping-overflow-is-overwritten-by-child-clipping-expected.html:
+        * fast/layers/parent-clipping-overflow-is-overwritten-by-child-clipping.html:
+
+2022-03-30  Youenn Fablet  <youenn@apple.com>
+
+        Implement persistent notification handling
+        https://bugs.webkit.org/show_bug.cgi?id=238498
+
+        Reviewed by Brady Eidson.
+
+        * http/tests/workers/service/shownotification-allowed.html:
+
+2022-03-30  Devin Rousso  <drousso@apple.com>
+
+        Unreviewed, fix test after r285521 and r271735
+
+        * http/tests/paymentrequest/updateWith-shippingOptions.https.html:
+        Remove a duplicate `assert_equals` added in r271735 (which should've been removed in r285521).
+        Drive-by: Also check that the `selected` of each provided shipping method/option matches.
+
+2022-03-30  Youenn Fablet  <youenn@apple.com>
+
+        Implement ServiceWorker WindowClient.ancestorOrigins
+        https://bugs.webkit.org/show_bug.cgi?id=238441
+
+        Reviewed by Chris Dumez.
+
+        * http/wpt/service-workers/resources/third-party-worker.js:
+        * http/wpt/service-workers/third-party-registration.html:
+
+2022-03-29  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo] Unreviewed test gardening
+
+        * platform/wincairo-wk1/TestExpectations:
+        * platform/wincairo/TestExpectations:
+        * platform/wincairo/fast/text/softHyphen-expected.txt: Removed.
+
+2022-03-29  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Don't detach children in AXIsolatedTree::applyPendingChanges for nodes being updated (removed and added)
+        https://bugs.webkit.org/show_bug.cgi?id=238460
+
+        Reviewed by Chris Fleizach and Andres Gonzalez.
+
+        * accessibility/search-traversal-after-role-change-expected.txt: Added.
+        * accessibility/search-traversal-after-role-change.html: Added.
+        * platform/glib/TestExpectations: Skip new test.
+        * platform/ios/TestExpectations: Enable new test.
+        * platform/ios/accessibility/search-traversal-after-role-change-expected.txt: Added.
+        * platform/win/TestExpectations: Skip new test.
+
+2022-03-29  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: allow Response Local Overrides to map to a file on disk
+        https://bugs.webkit.org/show_bug.cgi?id=238236
+        <rdar://problem/59009154>
+
+        Reviewed by Patrick Angle.
+
+        * http/tests/inspector/network/local-resource-override-mapped-to-file.html: Added.
+        * http/tests/inspector/network/local-resource-override-mapped-to-file-expected.txt: Added.
+
+        * TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+        Skip this test everywhere except mac-wk2.
+
+2022-03-29  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Don't mutate children during RenderGrid::computeIntrinsicLogicalWidths unless we're about to re-layout.
+        https://bugs.webkit.org/show_bug.cgi?id=237732
+
+        Reviewed by Dean Jackson.
+
+        Don't mutate children during computeIntrinsicWidth
+
+        * TestExpectations:
+        * fast/css-grid-layout/compute-intrinsic-logical-widths-should-not-mutate-children-expected.html: Added.
+        * fast/css-grid-layout/compute-intrinsic-logical-widths-should-not-mutate-children.html: Added.
+        * platform/ios/TestExpectations:
+
+        Marked existing WPT as passing on MacOS (since we run layout multiple times there).
+        Added new test for this implementation-specific bug.
+
+2022-03-29  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Automatically relayout the page when new fonts are installed
+        https://bugs.webkit.org/show_bug.cgi?id=238483
+        <rdar://problem/80544133>
+
+        Reviewed by Chris Dumez.
+
+        * fast/text/install-font-style-recalc-expected.txt: Added.
+        * fast/text/install-font-style-recalc.html: Added.
+
+2022-03-29  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=238506
+
+        * platform/glib/TestExpectations:
+        * platform/glib/css2.1/t0505-c16-descendant-01-e-expected.txt:
+        * platform/glib/fast/lists/002-expected.txt:
+        * platform/gtk/css1/box_properties/margin_right-expected.txt:
+        * platform/gtk/css1/box_properties/padding_right-expected.txt:
+        * platform/gtk/fast/dom/HTMLProgressElement/progress-bar-value-pseudo-element-expected.txt:
+        * platform/gtk/fast/inline/emptyInlinesWithinLists-expected.txt:
+        * platform/gtk/fast/lists/003-expected.txt:
+        * platform/wpe/css1/box_properties/margin_right-expected.txt:
+        * platform/wpe/css1/box_properties/padding_right-expected.txt:
+        * platform/wpe/fast/dom/HTMLProgressElement/progress-bar-value-pseudo-element-expected.txt:
+        * platform/wpe/fast/inline/emptyInlinesWithinLists-expected.txt:
+        * platform/wpe/fast/lists/003-expected.txt:
+
+2022-03-29  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r290898?): [ iOS ] animations/shadow-host-child-change.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=238519
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+
+2022-03-29  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        drop-shadow filter doesn't work correctly in tiled backing layer
+        https://bugs.webkit.org/show_bug.cgi?id=236800
+        <rdar://problem/89382612>
+
+        Reviewed by Simon Fraser.
+
+        * css3/filters/drop-shadow-in-tiled-backing-expected.html: Added.
+        * css3/filters/drop-shadow-in-tiled-backing.html: Added.
+        * platform/ios-wk2/TestExpectations:
+
+2022-03-29  Matteo Flores  <matteo_flores@apple.com>
+
+        [ iOS Mac ] imported/w3c/web-platform-tests/fetch/metadata/download.https.sub.html is a flaky text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238469
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-03-29  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Muted video is sometimes paused when entering fullscreen
+        https://bugs.webkit.org/show_bug.cgi?id=238462
+        rdar://89104216
+
+        Reviewed by Jer Noble.
+
+        * media/fullscreen-when-muted-expected.txt: Added.
+        * media/fullscreen-when-muted.html: Added.
+
+2022-03-29  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Support CSSOM
+        https://bugs.webkit.org/show_bug.cgi?id=238500
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+
+2022-03-29  Sam Sneddon  <gsnedders@apple.com>
+
+        Re-import web-platform-tests/css/css-conditional
+        https://bugs.webkit.org/show_bug.cgi?id=237896
+
+        Reviewed by Tim Nguyen.
+
+        This used to be web-platform-tests/css/conditional, so this also
+        combines the rename, but is ultimately this is just an update.
+
+        * TestExpectations:
+
+2022-03-29  Alan Bujtas  <zalan@apple.com>
+
+        Make fast/repaint/list-item-equal-style-change-no-repaint.html less prone to flakiness
+        https://bugs.webkit.org/show_bug.cgi?id=238480
+
+        Reviewed by Simon Fraser.
+        
+        Use Internals::layoutCount to check whether animation triggers layout.
+
+        * fast/repaint/list-item-equal-style-change-no-repaint-expected.txt:
+        * fast/repaint/list-item-equal-style-change-no-repaint.html:
+
+2022-03-29  Tim Nguyen  <ntim@apple.com>
+
+        Re-import inert and <dialog> WPT
+        https://bugs.webkit.org/show_bug.cgi?id=238502
+
+        Reviewed by Antti Koivisto.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/46e50fc357127c76c898675cd30ae34090a2268d
+
+        Main changes:
+        - Removes .tentative.html suffix from inert tests
+        - Adds default-color.html test for <dialog>
+
+        * platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-iframe-hittest-expected.txt: Renamed from LayoutTests/platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-iframe-hittest.tentative-expected.txt.
+        * platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-iframe-tabbing-expected.txt: Renamed from LayoutTests/platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-iframe-tabbing.tentative-expected.txt.
+        * platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-node-is-uneditable-expected.txt: Renamed from LayoutTests/platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-node-is-uneditable.tentative-expected.txt.
+        * platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-svg-hittest-expected.txt: Renamed from LayoutTests/platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-svg-hittest.tentative-expected.txt.
+
+2022-03-28  Alan Bujtas  <zalan@apple.com>
+
+        [ macOS & Win ] fast/repaint/list-item-equal-style-change-no-repaint.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=215723
+        <rdar://problem/67520729>
+
+        Reviewed by Simon Fraser.
+
+        * platform/mac/TestExpectations:
+
+2022-03-28  Lauro Moura  <lmoura@igalia.com>
+
+        [AT-SPI] accessibility/native-text-control-attributed-string.html is failing
+        https://bugs.webkit.org/show_bug.cgi?id=237821
+
+        Reviewed by Carlos Garcia Campos.
+
+        * platform/gtk/TestExpectations:
+        * platform/gtk/accessibility/native-text-control-attributed-string-expected.txt: Added.
+        * platform/wpe/TestExpectations:
+
+2022-03-28  Matteo Flores  <matteo_flores@apple.com>
+
+        [ iPadOS ] 3 svg/filters/* tests are constant image failures
+        https://bugs.webkit.org/show_bug.cgi?id=237689
+
+        Unreviewed test gardening.
+
+        * platform/ipad/TestExpectations:
+
+2022-03-28  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        REGRESSION (r290794): [ iOS Debug ] 4 editing/selection/* tests are constant timeouts
+        https://bugs.webkit.org/show_bug.cgi?id=238155
+        rdar://90593957
+
+        Reviewed by Aditya Keerthi.
+
+        Unmark several tests that no longer need to be marked as [ Slow ].
+
+        * platform/ios/TestExpectations:
+
+2022-03-28  Cameron McCormack  <heycam@apple.com>
+
+        Remove the 1ms minimum for setTimeout
+        https://bugs.webkit.org/show_bug.cgi?id=221124
+        <rdar://problem/73852354>
+
+        Reviewed by Sam Weinig.
+
+        * TestExpectations: Disable console output in some worker tests where
+        the reduced timeout would cause intemittent failures due to the
+        console message sometimes not making it to the test output in time.
+        * js/script-tests/weakref-finalizationregistry.js:
+        (turnEventLoop): Use a timeout of 1ms instead of 0ms so that
+        the deferred work task that calls the JS FinalizationRegistry
+        callback gets a chance to run before we continue on to the
+        assertion that it was run.
+
+2022-03-28  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Another WPT import
+        https://bugs.webkit.org/show_bug.cgi?id=238459
+
+        Reviewed by Tim Nguyen.
+
+        * TestExpectations:
+
+2022-03-28  Kate Cheney  <katherine_cheney@apple.com>
+
+        REGRESSION (r291587): [ iOS ] editing/deleting/insert-in-orphaned-selection-crash.html is a constant text failure (238282)
+        https://bugs.webkit.org/show_bug.cgi?id=238282
+        <rdar://problem/90720306>
+
+        Reviewed by Aditya Keerthi.
+
+        In r291587 we started dropping native appearance for non-form control elements with
+        specified author style. This is the correct behavior, but requires adjusting this
+        test which relies on the appearance of a table element in order to reproduce a
+        non-appearance related crash. This patch updates the test to add table data tags which
+        ensure the table element gets included in the selectAll() command to keep the test passing.
+
+        * editing/deleting/insert-in-orphaned-selection-crash.html:
+        * platform/ios-wk2/TestExpectations:
+
+2022-03-28  Brady Eidson  <beidson@apple.com>
+
+        Support ServiceWorkerClients.openWindow.
+        <rdar://90616651> and https://bugs.webkit.org/show_bug.cgi?id=238400
+
+        Reviewed by Youenn Fablet.
+
+        WKTR knows how to openWindow() now.
+        
+        So test:
+        - The success case
+        - Failure due to a disallowed URL
+        - Failure due to a lack of a related user gesture.
+        
+        * http/tests/workers/service/openwindow-from-notification-click-expected.txt: Added.
+        * http/tests/workers/service/openwindow-from-notification-click.html: Added.
+        * http/tests/workers/service/resources/openwindow-client.html: Added.
+        * http/tests/workers/service/resources/shownotification-openwindow-worker.js: Added.
+        (async const):
+        (let.messageClients):
+        (clients.openWindow.string_appeared_here.then.async client):
+        (catch.async error):
+        (async event):
+        (async tryShow):
+        (async getNotes):
+        * platform/gtk/TestExpectations:
+
+2022-03-28  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] Alias appearance <compat-auto> keywords to 'auto' for button
+        https://bugs.webkit.org/show_bug.cgi?id=238252
+
+        Reviewed by Darin Adler.
+
+        Unskip the tests that are now passing.
+        -webkit-appearance: square-button doesnt work for ::-webkit-file-upload-button any more.
+        Replace it with -webkit-appearance: none in fast/forms/file/file-style-inheritance.html.
+        This is also in line with the change in Chromium.
+        * TestExpectations:
+        * fast/forms/file/file-style-inheritance.html:
+
+2022-03-28  Cameron McCormack  <heycam@apple.com>
+
+        Remove pending UA shadow tree state when an input element is removed from the document
+        https://bugs.webkit.org/show_bug.cgi?id=238429
+        <rdar://90682918>
+
+        Reviewed by Antti Koivisto.
+
+        * fast/forms/lazy-shadow-tree-creation-move-document-crash-expected.txt: Added.
+        * fast/forms/lazy-shadow-tree-creation-move-document-crash.html: Added.
+
 2022-03-27  Matt Woodrow  <mattwoodrow@apple.com>
 
         Preserve repeat() notation for grid-templates

@@ -134,7 +134,7 @@ void JIT::emit_op_overrides_has_instance(const JSInstruction* currentInstruction
     // We don't jump if we know what Symbol.hasInstance would do.
     move(TrustedImm32(1), regT0);
     loadGlobalObject(regT1);
-    Jump customHasInstanceValue = branchPtr(NotEqual, regT2, Address(regT1, OBJECT_OFFSETOF(JSGlobalObject, m_functionProtoHasInstanceSymbolFunction)));
+    Jump customHasInstanceValue = branchPtr(NotEqual, regT2, Address(regT1, JSGlobalObject::offsetOfFunctionProtoHasInstanceSymbolFunction()));
     // We know that constructor is an object from the way bytecode is emitted for instanceof expressions.
     emitGetVirtualRegisterPayload(constructor, regT2);
     // Check that constructor 'ImplementsDefaultHasInstance' i.e. the object is not a C-API user nor a bound function.
@@ -156,9 +156,9 @@ void JIT::emit_op_instanceof(const JSInstruction* currentInstruction)
     using BaselineJITRegisters::Instanceof::resultJSR;
     using BaselineJITRegisters::Instanceof::valueJSR;
     using BaselineJITRegisters::Instanceof::protoJSR;
-    using BaselineJITRegisters::Instanceof::stubInfoGPR;
-    using BaselineJITRegisters::Instanceof::scratch1GPR;
-    using BaselineJITRegisters::Instanceof::scratch2GPR;
+    using BaselineJITRegisters::Instanceof::FastPath::stubInfoGPR;
+    using BaselineJITRegisters::Instanceof::FastPath::scratch1GPR;
+    using BaselineJITRegisters::Instanceof::FastPath::scratch2GPR;
 
     emitGetVirtualRegister(value, valueJSR);
     emitGetVirtualRegister(proto, protoJSR);
@@ -189,36 +189,29 @@ void JIT::emit_op_instanceof(const JSInstruction* currentInstruction)
     addSlowCase();
     m_instanceOfs.append(gen);
 
+    setFastPathResumePoint();
     emitPutVirtualRegister(dst, resultJSR);
 }
 
-void JIT::emitSlow_op_instanceof(const JSInstruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_instanceof(const JSInstruction*, Vector<SlowCaseEntry>::iterator& iter)
 {
     linkAllSlowCases(iter);
 
-    auto bytecode = currentInstruction->as<OpInstanceof>();
-    VirtualRegister resultVReg = bytecode.m_dst;
-    
     JITInstanceOfGenerator& gen = m_instanceOfs[m_instanceOfIndex++];
-    
+
     Label coldPathBegin = label();
 
-    using SlowOperation = decltype(operationInstanceOfOptimize);
-    constexpr GPRReg globalObjectGPR = preferredArgumentGPR<SlowOperation, 0>();
-    constexpr GPRReg stubInfoGPR = preferredArgumentGPR<SlowOperation, 1>();
     using BaselineJITRegisters::Instanceof::valueJSR;
-    static_assert(valueJSR == preferredArgumentJSR<SlowOperation, 2>());
     using BaselineJITRegisters::Instanceof::protoJSR;
-    // On JSVALUE32_64, 'proto' will be passed on stack anyway
-    static_assert(protoJSR == preferredArgumentJSR<SlowOperation, 3>() || is32Bit());
-    static_assert(noOverlap(globalObjectGPR, stubInfoGPR, valueJSR, protoJSR));
+    using BaselineJITRegisters::Instanceof::SlowPath::globalObjectGPR;
+    using BaselineJITRegisters::Instanceof::SlowPath::stubInfoGPR;
 
     loadGlobalObject(globalObjectGPR);
     loadConstant(gen.m_unlinkedStubInfoConstantIndex, stubInfoGPR);
-    callOperation<SlowOperation>(
+    callOperation<decltype(operationInstanceOfOptimize)>(
         Address(stubInfoGPR, StructureStubInfo::offsetOfSlowOperation()),
-        resultVReg,
         globalObjectGPR, stubInfoGPR, valueJSR, protoJSR);
+    static_assert(BaselineJITRegisters::Instanceof::resultJSR == returnValueJSR);
     gen.reportSlowPathCall(coldPathBegin, Call());
 }
 
@@ -477,8 +470,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::valueIsFalseyGenerator(VM& vm)
 
     jit.tagReturnAddress();
 
-    jit.loadPtr(addressFor(CallFrameSlot::codeBlock), globalObjectGPR);
-    jit.loadPtr(Address(globalObjectGPR, CodeBlock::offsetOfGlobalObject()), globalObjectGPR);
+    loadGlobalObject(jit, globalObjectGPR);
     jit.move(TrustedImm32(1), regT0);
     auto isFalsey = jit.branchIfFalsey(vm, valueJSR, scratch1GPR, scratch2GPR, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, globalObjectGPR);
     jit.move(TrustedImm32(0), regT0);
@@ -664,8 +656,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::valueIsTruthyGenerator(VM& vm)
 
     jit.tagReturnAddress();
 
-    jit.loadPtr(addressFor(CallFrameSlot::codeBlock), globalObjectGPR);
-    jit.loadPtr(Address(globalObjectGPR, CodeBlock::offsetOfGlobalObject()), globalObjectGPR);
+    loadGlobalObject(jit, globalObjectGPR);
     jit.move(TrustedImm32(1), regT0);
     auto isTruthy = jit.branchIfTruthy(vm, valueJSR, scratch1GPR, scratch2GPR, fpRegT0, fpRegT1, shouldCheckMasqueradesAsUndefined, globalObjectGPR);
     jit.move(TrustedImm32(0), regT0);
@@ -735,8 +726,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::op_throw_handlerGenerator(VM& vm)
     // Call slow operation
     jit.store32(bytecodeOffsetGPR, tagFor(CallFrameSlot::argumentCountIncludingThis));
     jit.prepareCallOperation(vm);
-    jit.loadPtr(addressFor(CallFrameSlot::codeBlock), globalObjectGPR);
-    jit.loadPtr(Address(globalObjectGPR, CodeBlock::offsetOfGlobalObject()), globalObjectGPR);
+    loadGlobalObject(jit, globalObjectGPR);
     jit.setupArguments<decltype(operationThrow)>(globalObjectGPR, thrownValueJSR);
     Call operation = jit.call(OperationPtrTag);
 
@@ -1565,8 +1555,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::op_check_traps_handlerGenerator(VM& v
     // Call slow operation
     jit.store32(bytecodeOffsetGPR, tagFor(CallFrameSlot::argumentCountIncludingThis));
     jit.prepareCallOperation(vm);
-    jit.loadPtr(addressFor(CallFrameSlot::codeBlock), globalObjectGPR);
-    jit.loadPtr(Address(globalObjectGPR, CodeBlock::offsetOfGlobalObject()), globalObjectGPR);
+    loadGlobalObject(jit, globalObjectGPR);
     jit.setupArguments<decltype(operationHandleTraps)>(globalObjectGPR);
     CCallHelpers::Call operation = jit.call(OperationPtrTag);
 

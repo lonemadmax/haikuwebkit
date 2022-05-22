@@ -48,7 +48,7 @@ namespace DisplayList {
 
 Recorder::Recorder(const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM, DrawGlyphsRecorder::DeconstructDrawGlyphs deconstructDrawGlyphs)
     : GraphicsContext(state)
-    , m_drawGlyphsRecorder(*this, deconstructDrawGlyphs)
+    , m_drawGlyphsRecorder(*this, initialCTM.xScale(), deconstructDrawGlyphs)
 {
     m_stateStack.append({ state, initialCTM, initialCTM.mapRect(initialClip) });
 }
@@ -310,10 +310,10 @@ void Recorder::drawLine(const FloatPoint& point1, const FloatPoint& point2)
     recordDrawLine(point1, point2);
 }
 
-void Recorder::drawLinesForText(const FloatPoint& point, float thickness, const DashArray& widths, bool printing, bool doubleLines, StrokeStyle)
+void Recorder::drawLinesForText(const FloatPoint& point, float thickness, const DashArray& widths, bool printing, bool doubleLines, StrokeStyle style)
 {
     appendStateChangeItemIfNecessary();
-    recordDrawLinesForText(FloatPoint(), toFloatSize(point), thickness, widths, printing, doubleLines);
+    recordDrawLinesForText(FloatPoint(), toFloatSize(point), thickness, widths, printing, doubleLines, style);
 }
 
 void Recorder::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)

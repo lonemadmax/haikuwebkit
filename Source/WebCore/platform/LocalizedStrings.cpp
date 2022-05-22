@@ -759,19 +759,19 @@ String AXLinkActionVerb()
 String AXMenuListPopupActionVerb()
 {
     notImplemented();
-    return "select";
+    return "select"_s;
 }
 
 String AXMenuListActionVerb()
 {
     notImplemented();
-    return "select";
+    return "select"_s;
 }
 
 String AXListItemActionVerb()
 {
     notImplemented();
-    return "select";
+    return "select"_s;
 }
 
 #if ENABLE(APPLE_PAY)

@@ -1,3 +1,251 @@
+2022-04-01  Michael Saboff  <msaboff@apple.com>
+
+        Stop copying StagedFrameworks to the secondary path by default
+        https://bugs.webkit.org/show_bug.cgi?id=238688
+
+        Reviewed by Saam Barati.
+
+        Decoupled COPY_STAGED_FRAMEWORKS_TO_SECONDARY_PATH from USE_SYSTEM_CONTENT_PATH so we won't
+        always copy frameworks to the secondary path on macOS.  Instead, the build configuration can set
+        COPY_STAGED_FRAMEWORKS_TO_SECONDARY_PATH as appropriate.
+
+        * Configurations/WebGPU.xcconfig:
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] There's no need to sprinkle std::optionals everywhere just for _Force32 enum values
+        https://bugs.webkit.org/show_bug.cgi?id=238434
+
+        For ABI compatibility, the shared header uses this pattern:
+
+        enum Foo {
+            Foo_AValue = 1,
+            Foo_AnotherValue = 2,
+            Foo_SomeOtherValue = 3,
+            Foo_Force32 = 0x7FFFFFFF
+        };
+
+        This is so that more values can be added to the enum without making it wider.
+
+        However, this means that if you want to switch over the values of Foo, you have to have
+        a dummy _Force32 case. These cases will never actually occur, and we have ASSERTs() for
+        them.
+
+        Originally, I made some functions return a std::optional<> so that there was some "empty"
+        value that could be returned in these case statements. That means that every caller of
+        any function that switches over any enum has to check the return value for nullopt. This
+        is pretty yucky.
+
+        And, indeed, it's all for nothing - the client calling into WebGPU can happily cast any
+        aribtrary integer to a Foo can call our functions, so the cases for the _Force32 values
+        should be no different. Therefore, we can just say "in order to call WebGPU functions,
+        it's illegal to pass in the _Force32 values (just as it would be illegal to pass in
+        unassigned values)." This means we can clean up the code a bit, and remove a bunch of
+        nullopt checks.
+
+        Reviewed by Dean Jackson.
+
+        * WebGPU/BindGroupLayout.mm:
+        (WebGPU::createArgumentDescriptor):
+        * WebGPU/Buffer.mm:
+        (WebGPU::Buffer::mapAsync):
+        * WebGPU/CommandEncoder.mm:
+        (WebGPU::CommandEncoder::copyBufferToTexture):
+        (WebGPU::CommandEncoder::copyTextureToBuffer):
+        * WebGPU/Instance.mm:
+        (WebGPU::sortedDevices):
+        * WebGPU/Queue.mm:
+        (WebGPU::Queue::writeTexture):
+        * WebGPU/Sampler.mm:
+        (WebGPU::addressMode):
+        (WebGPU::minMagFilter):
+        (WebGPU::mipFilter):
+        (WebGPU::compareFunction):
+        (WebGPU::Device::createSampler):
+        * WebGPU/Texture.h:
+        * WebGPU/Texture.mm:
+        (WebGPU::featureRequirementForFormat):
+        (WebGPU::isCompressedFormat):
+        (WebGPU::stencilSpecificFormat):
+        (WebGPU::Texture::texelBlockWidth):
+        (WebGPU::Texture::texelBlockHeight):
+        (WebGPU::isRenderableFormat):
+        (WebGPU::supportsMultisampling):
+        (WebGPU::maximumMiplevelCount):
+        (WebGPU::hasStorageBindingCapability):
+        (WebGPU::Device::validateCreateTexture):
+        (WebGPU::pixelFormat):
+        (WebGPU::depthOnlyAspectMetalFormat):
+        (WebGPU::stencilOnlyAspectMetalFormat):
+        (WebGPU::Device::createTexture):
+        (WebGPU::Texture::resolveTextureViewDescriptorDefaults const):
+        (WebGPU::Texture::validateCreateView const):
+        (WebGPU::Texture::createView):
+        (WebGPU::Texture::refersToSingleAspect):
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] etc2-rgba8unorm and etc2-rgba8unorm-srgb are not handled
+        https://bugs.webkit.org/show_bug.cgi?id=238435
+
+        Reviewed by Dean Jackson.
+
+        They map to MTLPixelFormatEAC_RGBA8 and MTLPixelFormatEAC_RGBA8_sRGB.
+
+        * WebGPU/Texture.mm:
+        (WebGPU::pixelFormat):
+        (WebGPU::Device::createTexture):
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] 2 texture formats need to be guarded behind optional extensions
+        https://bugs.webkit.org/show_bug.cgi?id=238433
+
+        Reviewed by Dean Jackson.
+
+        WGPUTextureFormat_Depth24UnormStencil8 needs to be guarded behind WGPUFeatureName_Depth24UnormStencil8
+        and WGPUTextureFormat_Depth32FloatStencil8 needs to be guarded behind WGPUFeatureName_Depth32FloatStencil8.
+
+        * WebGPU/Texture.mm:
+        (WebGPU::featureRequirementForFormat):
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement Queue::writeTexture() according to the spec
+        https://bugs.webkit.org/show_bug.cgi?id=238432
+
+        Reviewed by Dean Jackson.
+
+        This implements Queue::writeTexture() according to the spec.
+        It re-uses many of the helper functions added in
+        https://bugs.webkit.org/show_bug.cgi?id=238428. There are links and quotes from
+        the spec where appropriate.
+
+        * WebGPU/Queue.mm:
+        (WebGPU::Queue::writeBuffer):
+        (WebGPU::validateWriteTexture):
+        (WebGPU::Queue::writeTexture):
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement CommandEncoder::copyTextureToTexture() according to the spec
+        https://bugs.webkit.org/show_bug.cgi?id=238431
+
+        Reviewed by Dean Jackson.
+
+        This implements CommandEncoder::copyTextureToBuffer() according to the spec.
+        It re-uses many of the helper functions added in
+        https://bugs.webkit.org/show_bug.cgi?id=238428. There are links and quotes from
+        the spec where appropriate.
+
+        * WebGPU/CommandEncoder.mm:
+        (WebGPU::refersToAllAspects):
+        (WebGPU::isSRGBCompatible):
+        (WebGPU::areCopyCompatible):
+        (WebGPU::validateCopyTextureToTexture):
+        (WebGPU::CommandEncoder::copyTextureToTexture):
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement CommandEncoder::copyTextureToBuffer() according to the spec.
+        https://bugs.webkit.org/show_bug.cgi?id=238430
+
+        Reviewed by Dean Jackson.
+
+        This implements CommandEncoder::copyTextureToBuffer() according to the spec.
+        It re-uses many of the helper functions added in
+        https://bugs.webkit.org/show_bug.cgi?id=238428. There are links and quotes from
+        the spec where appropriate.
+
+        * WebGPU/CommandEncoder.mm:
+        (WebGPU::validateCopyTextureToBuffer):
+        (WebGPU::CommandEncoder::copyTextureToBuffer):
+        * WebGPU/Texture.h:
+        * WebGPU/Texture.mm:
+        (WebGPU::Texture::isValidImageCopySource):
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement CommandEncoder::copyBufferToTexture() according to the spec
+        https://bugs.webkit.org/show_bug.cgi?id=238428
+
+        Reviewed by Kimmo Kinnunen.
+
+        This patch implements CommandEncoder::copyBufferToTexture() according to the spec.
+        There are a bunch of helper validation functions added as public static members of Texture
+        because they will be needed for Queue::writeTexture() later. There are links and quotes
+        from the spec where appropriate.
+
+        * WebGPU/CommandEncoder.mm:
+        (WebGPU::validateImageCopyBuffer):
+        (WebGPU::validateCopyBufferToTexture):
+        (WebGPU::CommandEncoder::copyBufferToTexture):
+        * WebGPU/Texture.h:
+        * WebGPU/Texture.mm:
+        (WebGPU::Texture::texelBlockSize):
+        (WebGPU::Texture::aspectSpecificFormat):
+        (WebGPU::Texture::logicalTextureSubresourceExtent):
+        (WebGPU::Texture::physicalTextureSubresourceExtent):
+        (WebGPU::imageCopyTextureSubresourceSize):
+        (WebGPU::Texture::validateImageCopyTexture):
+        (WebGPU::Texture::refersToSingleAspect):
+        (WebGPU::Texture::isValidImageCopyDestination):
+        (WebGPU::Texture::validateTextureCopyRange):
+        (WebGPU::Texture::validateLinearTextureData):
+
+2022-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement Texture::createView() according to the spec
+        https://bugs.webkit.org/show_bug.cgi?id=238311
+
+        This patch implements texture views, which are the objects that get bound to pipelines (rather
+        than textures themselves). It links to the spec where relevant, and quotes the spec in comments
+        where relevant.
+
+        Test: api/validation/createView.spec.ts
+
+        Reviewed by Kimmo Kinnunen.
+
+        * WebGPU/Texture.h:
+        (WebGPU::Texture::create):
+        * WebGPU/Texture.mm:
+        (WebGPU::depthOnlyAspectMetalFormat):
+        (WebGPU::stencilOnlyAspectMetalFormat):
+        (WebGPU::Device::createTexture):
+        (WebGPU::Texture::Texture):
+        (WebGPU::Texture::resolveTextureViewDescriptorDefaults const):
+        (WebGPU::Texture::arrayLayerCount const):
+        (WebGPU::Texture::validateCreateView const):
+        (WebGPU::computeRenderExtent):
+        (WebGPU::Texture::createView):
+        * WebGPU/TextureView.h:
+        (WebGPU::TextureView::create):
+        (WebGPU::TextureView::descriptor const):
+        (WebGPU::TextureView::renderExtent const):
+        * WebGPU/TextureView.mm:
+        (WebGPU::TextureView::TextureView):
+
+2022-03-30  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Refactor isDepthOrStencilFormat() for upcoming data transfer patches
+        https://bugs.webkit.org/show_bug.cgi?id=238427
+
+        Reviewed by Kimmo Kinnunen.
+
+        This exposes isDepthOrStencilFormat() outside of Texture.mm, and changes its implementation
+        to use depthSpecificFormat() and stencilSpecificFormat(), which will become useful in the
+        implementation of subsequent data transfer patches.
+
+        * WebGPU/Texture.h:
+        * WebGPU/Texture.mm:
+        (WebGPU::depthSpecificFormat):
+        (WebGPU::stencilSpecificFormat):
+        (WebGPU::Texture::containsDepthAspect):
+        (WebGPU::Texture::containsStencilAspect):
+        (WebGPU::Texture::isDepthOrStencilFormat):
+        (WebGPU::Device::validateCreateTexture):
+        (WebGPU::isDepthOrStencilFormat): Deleted.
+
 2022-03-25  Myles C. Maxfield  <mmaxfield@apple.com>
 
         [WebGPU] Remove default: from switch statements, in favor of exhaustively listing all cases

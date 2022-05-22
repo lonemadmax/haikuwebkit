@@ -170,7 +170,7 @@ bool IOSurfacePool::shouldCacheSurface(const IOSurface& surface) const
     return true;
 }
 
-void IOSurfacePool::addSurface(std::unique_ptr<IOSurface> surface)
+void IOSurfacePool::addSurface(std::unique_ptr<IOSurface>&& surface)
 {
     Locker locker { m_lock };
     if (!shouldCacheSurface(*surface))
@@ -370,7 +370,7 @@ String IOSurfacePool::poolStatistics() const
         totalSize += queueSize;
         totalPurgeableSize += queuePurgeableSize;
 
-        stream << "   " << keyAndSurfaces.key << ": " << keyAndSurfaces.value.size() << " surfaces for " << queueSize / (1024.0 * 1024.0) << " MB (" << queuePurgeableSize / (1024.0 * 1024.0) << " MB purgeable)";
+        stream << "   " << keyAndSurfaces.key << ": " << keyAndSurfaces.value.size() << " surfaces for " << queueSize / (1024.0 * 1024.0) << " MB (" << queuePurgeableSize / (1024.0 * 1024.0) << " MB purgeable)\n";
     }
 
     size_t inUseSize = 0;

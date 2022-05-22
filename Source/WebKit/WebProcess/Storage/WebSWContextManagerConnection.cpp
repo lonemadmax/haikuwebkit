@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -267,6 +267,11 @@ void WebSWContextManagerConnection::firePushEvent(ServiceWorkerIdentifier identi
     SWContextManager::singleton().firePushEvent(identifier, WTFMove(data), WTFMove(callback));
 }
 
+void WebSWContextManagerConnection::fireNotificationEvent(ServiceWorkerIdentifier identifier, NotificationData&& data, NotificationEventType eventType, CompletionHandler<void(bool)>&& callback)
+{
+    SWContextManager::singleton().fireNotificationEvent(identifier, WTFMove(data), eventType, WTFMove(callback));
+}
+
 void WebSWContextManagerConnection::terminateWorker(ServiceWorkerIdentifier identifier)
 {
     SWContextManager::singleton().terminateWorker(identifier, SWContextManager::workerTerminationTimeout, nullptr);
@@ -330,6 +335,11 @@ void WebSWContextManagerConnection::matchAllCompleted(uint64_t requestIdentifier
 {
     if (auto callback = m_matchAllRequests.take(requestIdentifier))
         callback(WTFMove(clientsData));
+}
+
+void WebSWContextManagerConnection::openWindow(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, const String& url, CompletionHandler<void(std::optional<WebCore::PageIdentifier>&&)>&& callback)
+{
+    m_connectionToNetworkProcess->sendWithAsyncReply(Messages::WebSWServerToContextConnection::OpenWindow { serviceWorkerIdentifier, url }, WTFMove(callback));
 }
 
 void WebSWContextManagerConnection::claim(ServiceWorkerIdentifier serviceWorkerIdentifier, CompletionHandler<void(ExceptionOr<void>&&)>&& callback)

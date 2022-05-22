@@ -837,7 +837,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             networkLoadMetrics.secureConnectionStart = dateToMonotonicTime(m.secureConnectionStartDate);
         networkLoadMetrics.connectEnd = dateToMonotonicTime(m.connectEndDate);
         networkLoadMetrics.requestStart = dateToMonotonicTime(m.requestStartDate);
-        networkLoadMetrics.responseStart = dateToMonotonicTime(m.responseStartDate);
+        // Sometimes, likely because of <rdar://90997689>, responseStart is before requestStart. If this happens, use the later of the two.
+        networkLoadMetrics.responseStart = std::max(networkLoadMetrics.requestStart, dateToMonotonicTime(m.responseStartDate));
         networkLoadMetrics.responseEnd = dateToMonotonicTime(m.responseEndDate);
         networkLoadMetrics.markComplete();
         networkLoadMetrics.redirectCount = metrics.redirectCount;
@@ -902,6 +903,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             additionalMetrics->requestHeaderBytesSent = requestHeaderBytesSent;
             additionalMetrics->requestBodyBytesSent = task.countOfBytesSent;
             additionalMetrics->responseHeaderBytesReceived = responseHeaderBytesReceived;
+
+            additionalMetrics->isProxyConnection = m.proxyConnection;
+
             networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector = WTFMove(additionalMetrics);
         }
 #if HAVE(CFNETWORK_METRICS_APIS_V4)
@@ -1008,15 +1012,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!download)
         return;
     download->didReceiveData(bytesWritten, totalBytesWritten, totalBytesExpectedToWrite);
-}
-
-- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didResumeAtOffset:(int64_t)fileOffset expectedTotalBytes:(int64_t)expectedTotalBytes
-{
-#if HAVE(BROKEN_DOWNLOAD_RESUME_UNLINK)
-    // This is to work around rdar://problem/63249830
-    if ([downloadTask respondsToSelector:@selector(downloadFile)] && [downloadTask.downloadFile respondsToSelector:@selector(setSkipUnlink:)])
-        downloadTask.downloadFile.skipUnlink = YES;
-#endif
 }
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didBecomeDownloadTask:(NSURLSessionDownloadTask *)downloadTask

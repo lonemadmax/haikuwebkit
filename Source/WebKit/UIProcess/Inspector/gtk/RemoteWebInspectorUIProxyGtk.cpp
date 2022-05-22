@@ -162,6 +162,11 @@ void RemoteWebInspectorUIProxy::platformAppend(const String&, const String&)
 {
 }
 
+void RemoteWebInspectorUIProxy::platformLoad(const String&, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    completionHandler(nullString());
+}
+
 void RemoteWebInspectorUIProxy::platformSetSheetRect(const FloatRect&)
 {
 }
@@ -175,6 +180,10 @@ void RemoteWebInspectorUIProxy::platformStartWindowDrag()
 }
 
 void RemoteWebInspectorUIProxy::platformOpenURLExternally(const String&)
+{
+}
+
+void RemoteWebInspectorUIProxy::platformRevealFileExternally(const String&)
 {
 }
 

@@ -38,7 +38,7 @@ namespace TestWebKitAPI {
 static String makeTemporaryDatabasePath()
 {
     FileSystem::PlatformFileHandle handle;
-    auto path = FileSystem::openTemporaryFile("PushDatabase", handle, ".db");
+    auto path = FileSystem::openTemporaryFile("PushDatabase"_s, handle, ".db"_s);
     FileSystem::closeFile(handle);
     return path;
 }
@@ -432,8 +432,8 @@ TEST(PushDatabase, ManyInFlightOps)
         for (unsigned i = 0; i < recordCount; i++) {
             snprintf(scope, sizeof(scope), "http://www.webkit.org/test/%d", i);
             snprintf(topic, sizeof(topic), "topic_%d", i);
-            record.scope = scope;
-            record.topic = topic;
+            record.scope = String { scope };
+            record.topic = String { topic };
 
             database.insertRecord(record, [](auto&& result) {
                 ASSERT_TRUE(result);

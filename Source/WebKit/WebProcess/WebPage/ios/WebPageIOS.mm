@@ -2565,9 +2565,9 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     VisiblePosition startPosition = frame->selection().selection().start();
     VisiblePosition endPosition = frame->selection().selection().end();
-    const unsigned minContextWordCount = 10;
-    const unsigned minContextLength = 40;
-    const unsigned maxContextLength = 100;
+    const unsigned minContextWordCount = 3;
+    const unsigned minContextLength = 12;
+    const unsigned maxContextLength = 30;
 
     if (frame->selection().isRange())
         selectedText = plainTextForContext(frame->selection().selection().toNormalizedRange());
@@ -2598,9 +2598,6 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
                     break;
                 contextStartPosition = previousPosition;
             }
-            VisiblePosition sentenceContextStartPosition = positionOfNextBoundaryOfGranularity(startPosition, TextGranularity::SentenceGranularity, SelectionDirection::Backward);
-            if (sentenceContextStartPosition.isNotNull() && sentenceContextStartPosition < contextStartPosition)
-                contextStartPosition = sentenceContextStartPosition;
             if (contextStartPosition.isNotNull() && contextStartPosition != startPosition) {
                 contextBefore = plainTextForContext(makeSimpleRange(contextStartPosition, startPosition));
                 if (atBoundaryOfGranularity(contextStartPosition, TextGranularity::ParagraphGranularity, SelectionDirection::Backward) && firstPositionInEditableContent != contextStartPosition)
@@ -2609,9 +2606,10 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
         }
 
         if (endPosition != endOfEditableContent(endPosition)) {
-            VisiblePosition nextPosition = positionOfNextBoundaryOfGranularity(endPosition, TextGranularity::SentenceGranularity, SelectionDirection::Forward);
-            if (nextPosition.isNotNull() && nextPosition != endPosition)
-                contextAfter = plainTextForContext(makeSimpleRange(endPosition, nextPosition));
+            VisiblePosition nextPosition;
+            if (!atBoundaryOfGranularity(endPosition, TextGranularity::WordGranularity, SelectionDirection::Forward) && withinTextUnitOfGranularity(endPosition, TextGranularity::WordGranularity, SelectionDirection::Forward))
+                nextPosition = positionOfNextBoundaryOfGranularity(endPosition, TextGranularity::WordGranularity, SelectionDirection::Forward);
+            contextAfter = plainTextForContext(makeSimpleRange(endPosition, nextPosition));
         }
     }
 
@@ -3570,18 +3568,6 @@ void WebPage::setViewportConfigurationViewLayoutSize(const FloatSize& size, doub
     viewportConfigurationChanged(zoomToInitialScale);
 }
 
-void WebPage::setMinimumUnobscuredSize(const FloatSize& minimumUnobscuredSize)
-{
-    m_minimumUnobscuredSize = minimumUnobscuredSize;
-    updateViewportSizeForCSSViewportUnits();
-}
-
-void WebPage::setMaximumUnobscuredSize(const FloatSize& maximumUnobscuredSize)
-{
-    m_maximumUnobscuredSize = maximumUnobscuredSize;
-    updateViewportSizeForCSSViewportUnits();
-}
-
 void WebPage::setDeviceOrientation(int32_t deviceOrientation)
 {
     if (deviceOrientation == m_deviceOrientation)
@@ -3643,6 +3629,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
     if (setFixedLayoutSize(newLayoutSize))
         resetTextAutosizing();
 
+    setDefaultUnobscuredSize(maximumUnobscuredSize);
     setMinimumUnobscuredSize(minimumUnobscuredSize);
     setMaximumUnobscuredSize(maximumUnobscuredSize);
     m_page->setUnobscuredSafeAreaInsets(targetUnobscuredSafeAreaInsets);
@@ -3962,7 +3949,9 @@ void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale
 
     m_page->setZoomedOutPageScaleFactor(m_viewportConfiguration.minimumScale());
 
-    updateViewportSizeForCSSViewportUnits();
+    updateSizeForCSSDefaultViewportUnits();
+    updateSizeForCSSSmallViewportUnits();
+    updateSizeForCSSLargeViewportUnits();
 
     FrameView& frameView = *mainFrameView();
     IntPoint scrollPosition = frameView.scrollPosition();
@@ -3986,23 +3975,6 @@ void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale
 
         frameView.setCustomSizeForResizeEvent(expandedIntSize(m_viewportConfiguration.minimumLayoutSize()));
     }
-}
-
-void WebPage::updateViewportSizeForCSSViewportUnits()
-{
-    FloatSize smallestUnobscuredSize = m_minimumUnobscuredSize;
-    if (smallestUnobscuredSize.isEmpty())
-        smallestUnobscuredSize = m_viewportConfiguration.viewLayoutSize();
-
-    FloatSize largestUnobscuredSize = m_maximumUnobscuredSize;
-    if (largestUnobscuredSize.isEmpty())
-        largestUnobscuredSize = m_viewportConfiguration.viewLayoutSize();
-
-    FrameView& frameView = *mainFrameView();
-    smallestUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
-    largestUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
-    frameView.setSizeForCSSSmallViewportUnits(smallestUnobscuredSize);
-    frameView.setSizeForCSSLargeViewportUnits(largestUnobscuredSize);
 }
 
 void WebPage::applicationWillResignActive()

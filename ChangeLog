@@ -1,3 +1,130 @@
+2022-04-04  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [WPE][GTK] REGRESSION(r292263): Cannot make release tarballs
+        https://bugs.webkit.org/show_bug.cgi?id=238698
+
+        Reviewed by Carlos Garcia Campos.
+
+        * Source/cmake/WebKitDist.cmake: Make "dist" and "distcheck" targets depend on "doc-all".
+
+2022-04-04  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Provide better messages when gi-docgen cannot be found
+        https://bugs.webkit.org/show_bug.cgi?id=238729
+
+        Reviewed by Carlos Garcia Campos.
+
+        When gi-docgen cannot be found, or cannot be executed, provide better error messages
+        than those provided by CMake. While at it, make the messages mention how gi-docgen
+        can be installed inside the WebKit source tree to be used for the build.
+
+        * Source/cmake/FindGIDocgen.cmake:
+
+2022-04-04  Miguel Gomez  <magomez@igalia.com>
+
+        Change contributor status of Miguel Gomez from committer to reviewer
+        https://bugs.webkit.org/show_bug.cgi?id=238730
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2022-04-02  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [GTK] Replace gtk-doc with gi-docgen
+        https://bugs.webkit.org/show_bug.cgi?id=226662
+
+        Reviewed by Michael Catanzaro.
+
+        Import two new CMake modules which define commands to easy setup of GObject-Introspection
+        and gi-docgen. These in turn allow to remove a bunch of duplicated CMake code, reuse
+        the same for both the WPE and GTK ports, and remove the gnarly DocBook templates and
+        other auxiliary files previously used by gtk-doc (which amount to a sizeable amount of
+        code).
+
+        While at it, do a quick pass to fix the most egregious issues reported by gi-docgen's
+        linting mode and that all public symbols end up with at least some documentation in
+        the generated output. Follow-up patches will be needed to keep adapting to the style
+        encouraged by gi-docgen, fix linking between documented entities, make code examples
+        display properly, and a few other things.
+
+        * Source/PlatformGTK.cmake: Adapted to use the new CMake modules.
+        * Source/PlatformWPE.cmake: Ditto.
+        * Source/cmake/FindGI.cmake: Added.
+        * Source/cmake/FindGIDocgen.cmake: Added.
+        * Source/cmake/FindGObjectIntrospection.cmake: Removed.
+        * Source/cmake/OptionsGTK.cmake: Adapted to use the new CMake modules.
+        * Source/cmake/OptionsWPE.cmake: Ditto.
+
+2022-04-01  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Enable CSS Typed OM by default
+        https://bugs.webkit.org/show_bug.cgi?id=238659
+
+        Reviewed by Adrian Perez de Castro.
+
+        Always build with Typed OM enabled, it's handled by an off by default setting.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-03-31  Don Olmstead  <don.olmstead@sony.com>
+
+        [PlayStation] Enable more features by default
+        https://bugs.webkit.org/show_bug.cgi?id=238628
+
+        Reviewed by Fujii Hironori.
+
+        Move ENABLE_WEB_CRYPTO and add ENABLE_NETWORK_CACHE_SPECULATIVE_REVALIDATION
+        and ENABLE_NETWORK_CACHE_STALE_WHILE_REVALIDATE to the list of features on by default.
+
+        * Source/cmake/OptionsPlayStation.cmake:
+
+2022-03-31  Don Olmstead  <don.olmstead@sony.com>
+
+        [PlayStation] Enable WebDriver
+        https://bugs.webkit.org/show_bug.cgi?id=238615
+
+        Reviewed by Alex Christensen.
+
+        Enable WebDriver by default. Set values for input interactions.
+
+        * Source/cmake/OptionsPlayStation.cmake:
+
+2022-03-30  Don Olmstead  <don.olmstead@sony.com>
+
+        Turn DEVELOPER_MODE ON for all non-Apple ports in build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=238556
+
+        Reviewed by Alex Christensen.
+
+        Use DEVELOPER_MODE to determine what the defaults of ENABLE_API_TESTS and
+        ENABLE_MINIBROWSER should be. Make ENABLE_WEBKIT the default of ENABLE_MINIBROWSER.
+
+        * Source/cmake/OptionsPlayStation.cmake:
+
+2022-03-29  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Add descriptions on how to start WPT and http test servers to Introduction.md
+        https://bugs.webkit.org/show_bug.cgi?id=238523
+
+        Reviewed by Chris Dumez.
+
+        * Introduction.md:
+
+2022-03-29  Don Olmstead  <don.olmstead@sony.com>
+
+        [LibWPE] Guard libxkbcommon code with WPE_ENABLE_XKB
+        https://bugs.webkit.org/show_bug.cgi?id=238510
+
+        Reviewed by Adrian Perez de Castro.
+
+        Post v1.12.0 introduces the WPE_ENABLE_XKB definition to libwpe. For v1.12.0 and earlier
+        the define is added to the WPE::libwpe target's compile options. For later versions the
+        pkg-config for the library will determine the presence of this definition.
+
+        * Source/cmake/FindWPE.cmake:
+
 2022-03-26  Aakash Jain  <aakash_jain@apple.com>
 
         Update my github username.

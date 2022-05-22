@@ -348,7 +348,7 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
                 slot.setExistingProperty(this, offset);
             }
 
-            return ASCIILiteral::null();
+            return { };
         }
 
         if ((mode == PutModePut || mode == PutModeDefineOwnProperty) && !isStructureExtensible(vm))
@@ -360,7 +360,7 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
         slot.setNewProperty(this, offset);
         if (attributes & PropertyAttribute::ReadOnly)
             this->structure(vm)->setContainsReadOnlyProperties();
-        return ASCIILiteral::null();
+        return { };
     }
 
     PropertyOffset offset;
@@ -384,7 +384,7 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
         putDirect(vm, offset, value);
         setStructure(vm, newStructure);
         slot.setNewProperty(this, offset);
-        return ASCIILiteral::null();
+        return { };
     }
 
     unsigned currentAttributes;
@@ -408,7 +408,7 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
             slot.setExistingProperty(this, offset);
         }
 
-        return ASCIILiteral::null();
+        return { };
     }
 
     if ((mode == PutModePut || mode == PutModeDefineOwnProperty) && !isStructureExtensible(vm))
@@ -437,7 +437,7 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
     slot.setNewProperty(this, offset);
     if (attributes & PropertyAttribute::ReadOnly)
         newStructure->setContainsReadOnlyProperties();
-    return ASCIILiteral::null();
+    return { };
 }
 
 inline bool JSObject::mayBePrototype() const
@@ -737,7 +737,7 @@ ALWAYS_INLINE void JSObject::getNonReifiedStaticPropertyNames(VM& vm, PropertyNa
 
         for (auto iter = table->begin(); iter != table->end(); ++iter) {
             if (mode == DontEnumPropertiesMode::Include || !(iter->attributes() & PropertyAttribute::DontEnum))
-                propertyNames.add(Identifier::fromString(vm, iter.key()));
+                propertyNames.add(Identifier::fromCString(vm, iter.key()));
         }
     }
 }

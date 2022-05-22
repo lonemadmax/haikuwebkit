@@ -1,3 +1,614 @@
+2022-04-04  Youenn Fablet  <youenn@apple.com>
+
+        CORS: Allow particular Range header values without a preflight
+        https://bugs.webkit.org/show_bug.cgi?id=231174
+        <rdar://problem/84101544>
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/fetch/range/general.any-expected.txt:
+        * web-platform-tests/fetch/range/general.any.js:
+        * web-platform-tests/fetch/range/general.any.worker-expected.txt:
+        * web-platform-tests/fetch/range/resources/long-wav.py:
+
+2022-04-02  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Improve compatibility of source matching
+        https://bugs.webkit.org/show_bug.cgi?id=235873
+
+        Reviewed by Darin Adler.
+
+        Update expectation as passing.
+
+        * web-platform-tests/content-security-policy/connect-src/connect-src-websocket-self.sub-expected.txt:
+
+2022-04-01  Tim Nguyen  <ntim@apple.com>
+
+        [css-logical] Add support for block/inline CSS values for resize property
+        https://bugs.webkit.org/show_bug.cgi?id=218088
+
+        Reviewed by Antti Koivisto.
+
+        Marked relevant WPT as passing.
+
+        * web-platform-tests/css/css-logical/logical-values-resize-expected.txt:
+
+2022-04-01  Youenn Fablet  <youenn@apple.com>
+
+        Notification should be exposed to ServiceWorker contexts
+        https://bugs.webkit.org/show_bug.cgi?id=238548
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/notifications/idlharness.https.any.serviceworker-expected.txt:
+
+2022-04-01  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Add support for element.computedStyleMap()
+        https://bugs.webkit.org/show_bug.cgi?id=238375
+
+        Reviewed by Alex Christensen.
+
+        Update test expectations.
+
+        * web-platform-tests/css/css-color/system-color-compute-expected.txt:
+        * web-platform-tests/css/css-properties-values-api/at-property-typedom-expected.txt:
+        * web-platform-tests/css/css-properties-values-api/property-cascade-expected.txt:
+        * web-platform-tests/css/css-properties-values-api/typedom-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-computed-value-expected.txt:
+        * web-platform-tests/css/css-typed-om/idlharness-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssStyleValue-cssom-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/computed.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/get-auto-min-size-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/get-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/get-invalid-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/get-position-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/get-shorthand-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/getAll-shorthand-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/getAll.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/has.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/computed/iterable.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/inline/getAll-shorthand-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/inline/getAll.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/inline/has.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/inline/iterable.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/properties/transform-interpolated-expected.txt:
+
+2022-03-31  Rob Buis  <rbuis@igalia.com>
+
+        Interop issue with position: sticky within contain: paint
+        https://bugs.webkit.org/show_bug.cgi?id=238016
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-position/sticky/position-sticky-overflow-clip-container-expected.html: Added.
+        * web-platform-tests/css/css-position/sticky/position-sticky-overflow-clip-container-ref.html: Added.
+        * web-platform-tests/css/css-position/sticky/position-sticky-overflow-clip-container.html: Added.
+
+2022-03-31  Alex Christensen  <achristensen@webkit.org>
+
+        Implement units for CSS Typed OM
+        https://bugs.webkit.org/show_bug.cgi?id=238532
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssUnitValue.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/add-two-types.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/arithmetic.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/create-a-type.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/cssMathInvert-type-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/cssMathNegate-type-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/cssMathValue.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/cssUnitValue-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/cssnumericvalue-multiply-two-types.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/to.tentative-expected.txt:
+
+2022-03-30  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Keep colon syntax when serializing container condition
+        https://bugs.webkit.org/show_bug.cgi?id=238542
+
+        Reviewed by Tim Nguyen.
+
+        * web-platform-tests/css/css-contain/container-queries/at-container-serialization-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/at-container-serialization.html:
+
+2022-03-30  Youenn Fablet  <youenn@apple.com>
+
+        Implement ServiceWorker WindowClient.ancestorOrigins
+        https://bugs.webkit.org/show_bug.cgi?id=238441
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/idlharness.https.any.serviceworker-expected.txt:
+
+2022-03-29  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        drop-shadow filter doesn't work correctly in tiled backing layer
+        https://bugs.webkit.org/show_bug.cgi?id=236800
+        <rdar://problem/89382612>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/filter-effects/filters-drop-shadow-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-drop-shadow-003.html: Added.
+
+2022-03-29  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Support CSSOM
+        https://bugs.webkit.org/show_bug.cgi?id=238500
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-contain/container-queries/at-container-serialization-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/idlharness-expected.txt:
+
+2022-03-29  Sam Sneddon  <gsnedders@apple.com>
+
+        Re-import web-platform-tests/css/css-conditional
+        https://bugs.webkit.org/show_bug.cgi?id=237896
+
+        Reviewed by Tim Nguyen.
+
+        This used to be web-platform-tests/css/conditional, so this also
+        combines the rename, but is ultimately this is just an update.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/conditional/LICENSE: Removed.
+        * web-platform-tests/css/conditional/at-supports-001-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-002-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-003-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-004-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-005-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-006-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-007-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-008-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-009-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-010-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-011-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-012-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-013-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-014-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-015-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-016-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-017-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-018-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-019-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-020-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-021-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-022-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-023-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-024-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-025-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-026-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-027-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-028-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-029-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-030-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-031-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-032-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-033-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-034-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-035-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-036-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-037-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-038-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-039-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-040-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-041-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-042-expected.html: Removed.
+        * web-platform-tests/css/conditional/at-supports-043-expected.html: Removed.
+        * web-platform-tests/css/conditional/reference/background-lime.html: Removed.
+        * web-platform-tests/css/conditional/test_group_insertRule-expected.txt: Removed.
+        * web-platform-tests/css/conditional/test_group_insertRule.html: Removed.
+        * web-platform-tests/css/css-conditional/META.yml: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/META.yml.
+        * web-platform-tests/css/css-conditional/at-media-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-001.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-002-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-002.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-003-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-003.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-content-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-content-001.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-content-002-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-content-002.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-content-003-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-content-003.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-content-004-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-content-004.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-dynamic-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-media-dynamic-001.html: Added.
+        * web-platform-tests/css/css-conditional/at-media-whitespace-optional-001-expected.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-media-whitespace-optional-001-expected.html.
+        * web-platform-tests/css/css-conditional/at-media-whitespace-optional-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-media-whitespace-optional-001.html.
+        * web-platform-tests/css/css-conditional/at-media-whitespace-optional-002-expected.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-media-whitespace-optional-002-expected.html.
+        * web-platform-tests/css/css-conditional/at-media-whitespace-optional-002.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-media-whitespace-optional-002.html.
+        * web-platform-tests/css/css-conditional/at-supports-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-001-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-001.html.
+        * web-platform-tests/css/css-conditional/at-supports-002-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-006.html.
+        * web-platform-tests/css/css-conditional/at-supports-002.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-002.html.
+        * web-platform-tests/css/css-conditional/at-supports-003-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-003.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-004-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-004.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-004.html.
+        * web-platform-tests/css/css-conditional/at-supports-005-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-005.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-005.html.
+        * web-platform-tests/css/css-conditional/at-supports-006-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-006.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-006.html.
+        * web-platform-tests/css/css-conditional/at-supports-007-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-007.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-007.html.
+        * web-platform-tests/css/css-conditional/at-supports-008-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-008.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-008.html.
+        * web-platform-tests/css/css-conditional/at-supports-009-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-009.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-009.html.
+        * web-platform-tests/css/css-conditional/at-supports-010-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-010.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-010.html.
+        * web-platform-tests/css/css-conditional/at-supports-011-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-011.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-011.html.
+        * web-platform-tests/css/css-conditional/at-supports-012-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-012.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-012.html.
+        * web-platform-tests/css/css-conditional/at-supports-013-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-013.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-013.html.
+        * web-platform-tests/css/css-conditional/at-supports-014-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-014.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-014.html.
+        * web-platform-tests/css/css-conditional/at-supports-015-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-015.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-015.html.
+        * web-platform-tests/css/css-conditional/at-supports-016-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-016.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-016.html.
+        * web-platform-tests/css/css-conditional/at-supports-017-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-017.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-017.html.
+        * web-platform-tests/css/css-conditional/at-supports-018-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-018.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-018.html.
+        * web-platform-tests/css/css-conditional/at-supports-019-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-019.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-019.html.
+        * web-platform-tests/css/css-conditional/at-supports-020-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-020.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-020.html.
+        * web-platform-tests/css/css-conditional/at-supports-021-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-021.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-021.html.
+        * web-platform-tests/css/css-conditional/at-supports-022-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-022.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-022.html.
+        * web-platform-tests/css/css-conditional/at-supports-023-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-023.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-023.html.
+        * web-platform-tests/css/css-conditional/at-supports-024-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-024.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-024.html.
+        * web-platform-tests/css/css-conditional/at-supports-025-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-025.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-025.html.
+        * web-platform-tests/css/css-conditional/at-supports-026-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-026.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-026.html.
+        * web-platform-tests/css/css-conditional/at-supports-027-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-027.html.
+        * web-platform-tests/css/css-conditional/at-supports-027-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-027.html.
+        * web-platform-tests/css/css-conditional/at-supports-027.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-027.html.
+        * web-platform-tests/css/css-conditional/at-supports-028-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-028.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-028.html.
+        * web-platform-tests/css/css-conditional/at-supports-029-expected.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-027.html.
+        * web-platform-tests/css/css-conditional/at-supports-029.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-029.html.
+        * web-platform-tests/css/css-conditional/at-supports-030-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-030.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-030.html.
+        * web-platform-tests/css/css-conditional/at-supports-031-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-031.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-031.html.
+        * web-platform-tests/css/css-conditional/at-supports-032-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-032.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-032.html.
+        * web-platform-tests/css/css-conditional/at-supports-033-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-033.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-033.html.
+        * web-platform-tests/css/css-conditional/at-supports-034-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-034.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-034.html.
+        * web-platform-tests/css/css-conditional/at-supports-035-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-035.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-035.html.
+        * web-platform-tests/css/css-conditional/at-supports-036-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-036.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-036.html.
+        * web-platform-tests/css/css-conditional/at-supports-037-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-037.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-037.html.
+        * web-platform-tests/css/css-conditional/at-supports-038-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-038.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-038.html.
+        * web-platform-tests/css/css-conditional/at-supports-039-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-039.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-039.html.
+        * web-platform-tests/css/css-conditional/at-supports-043-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-043.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-043.html.
+        * web-platform-tests/css/css-conditional/at-supports-044-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-044.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-045-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-045.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-046-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-046.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-content-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-content-001.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-content-002-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-content-002.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-content-003-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-content-003.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-content-004-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-content-004.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-namespace-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-namespace-001.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-namespace-002-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-namespace-002.html: Added.
+        * web-platform-tests/css/css-conditional/at-supports-selector-001-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-selector-001.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-040.html.
+        * web-platform-tests/css/css-conditional/at-supports-selector-002-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-selector-002.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-040.html.
+        * web-platform-tests/css/css-conditional/at-supports-selector-003-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-selector-003.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-041.html.
+        * web-platform-tests/css/css-conditional/at-supports-selector-004-expected.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-003.html.
+        * web-platform-tests/css/css-conditional/at-supports-selector-004.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/at-supports-042.html.
+        * web-platform-tests/css/css-conditional/css-supports-001-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-001.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-002-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-002.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-003-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-003.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-004-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-004.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-005-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-005.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-006-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-006.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-007-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-007.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-008-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-008.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-009-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-009.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-010-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-010.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-011-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-011.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-012-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-012.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-013-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-013.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-014-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-014.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-015-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-015.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-016-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-016.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-017-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-017.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-018-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-018.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-019-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-019.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-020-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-020.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-021-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-021.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-022-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-022.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-023-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-023.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-024-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-024.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-025-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-025.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-026-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-026.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-029-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-029.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-030-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-030.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-031-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-031.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-032-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-032.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-033-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-033.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-034-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-034.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-035-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-035.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-036-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-036.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-037-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-037.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-038-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-038.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-039-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-039.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-040-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-040.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-041-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-041.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-042-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-042.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-043-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-043.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-044-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-044.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-045-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-045.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-046-expected.xht: Added.
+        * web-platform-tests/css/css-conditional/css-supports-046.xht: Added.
+        * web-platform-tests/css/css-conditional/idlharness-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/idlharness-expected.txt.
+        * web-platform-tests/css/css-conditional/idlharness.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/idlharness.html.
+        * web-platform-tests/css/css-conditional/js/001-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/js/001-expected.txt.
+        * web-platform-tests/css/css-conditional/js/001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/conditional/js/001.html.
+        * web-platform-tests/css/css-conditional/js/CSS-supports-CSSStyleDeclaration-expected.txt: Added.
+        * web-platform-tests/css/css-conditional/js/CSS-supports-CSSStyleDeclaration.html: Added.
+        * web-platform-tests/css/css-conditional/js/CSS-supports-L3-expected.txt: Added.
+        * web-platform-tests/css/css-conditional/js/CSS-supports-L3.html: Added.
+        * web-platform-tests/css/css-conditional/js/CSS-supports-L4-expected.txt: Added.
+        * web-platform-tests/css/css-conditional/js/CSS-supports-L4.html: Added.
+        * web-platform-tests/css/css-conditional/js/conditional-CSSGroupingRule-expected.txt: Added.
+        * web-platform-tests/css/css-conditional/js/conditional-CSSGroupingRule.html: Added.
+        * web-platform-tests/css/css-conditional/js/w3c-import.log: Added.
+        * web-platform-tests/css/css-conditional/support/at-media-dynamic-001-inner.html: Added.
+        * web-platform-tests/css/css-conditional/support/fail.css: Added.
+        (*):
+        * web-platform-tests/css/css-conditional/support/pass.xht: Added.
+        * web-platform-tests/css/css-conditional/support/w3c-import.log: Added.
+        * web-platform-tests/css/css-conditional/w3c-import.log: Added.
+
+2022-03-29  Tim Nguyen  <ntim@apple.com>
+
+        Use Canvas/CanvasText system colors for <dialog> default styling
+        https://bugs.webkit.org/show_bug.cgi?id=238425
+
+        Reviewed by Antti Koivisto.
+
+        Per HTML spec change: https://github.com/whatwg/html/commit/22154a4c1d426dddf187fb12c05fbcb8816c94a5
+        Main change is that the colors now adapt to dark mode by default.
+
+        Updated test result to pass.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/default-color-expected.txt:
+
+2022-03-29  Tim Nguyen  <ntim@apple.com>
+
+        Re-import inert and <dialog> WPT
+        https://bugs.webkit.org/show_bug.cgi?id=238502
+
+        Reviewed by Antti Koivisto.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/46e50fc357127c76c898675cd30ae34090a2268d
+
+        Main changes:
+        - Removes .tentative.html suffix from inert tests
+        - Adds default-color.html test for <dialog>
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/default-color-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/default-color.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-inert-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-inert.tentative-expected.txt.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-inert.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-inert.tentative.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-selection-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-selection.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+        * web-platform-tests/inert/dynamic-inert-on-focused-element-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/dynamic-inert-on-focused-element.tentative-expected.txt.
+        * web-platform-tests/inert/dynamic-inert-on-focused-element.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/dynamic-inert-on-focused-element.tentative.html.
+        * web-platform-tests/inert/inert-and-contenteditable-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-and-contenteditable.tentative-expected.txt.
+        * web-platform-tests/inert/inert-and-contenteditable.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-and-contenteditable.tentative.html.
+        * web-platform-tests/inert/inert-canvas-fallback-content-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-canvas-fallback-content.tentative-expected.txt.
+        * web-platform-tests/inert/inert-canvas-fallback-content.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-canvas-fallback-content.tentative.html.
+        * web-platform-tests/inert/inert-does-not-match-disabled-selector-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-does-not-match-disabled-selector.tentative-expected.txt.
+        * web-platform-tests/inert/inert-does-not-match-disabled-selector.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-does-not-match-disabled-selector.tentative.html.
+        * web-platform-tests/inert/inert-iframe-hittest-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-iframe-hittest.tentative-expected.txt.
+        * web-platform-tests/inert/inert-iframe-hittest.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-iframe-hittest.tentative.html.
+        * web-platform-tests/inert/inert-iframe-tabbing-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-iframe-tabbing.tentative-expected.txt.
+        * web-platform-tests/inert/inert-iframe-tabbing.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-iframe-tabbing.tentative.html.
+        * web-platform-tests/inert/inert-in-shadow-dom-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-in-shadow-dom.tentative-expected.txt.
+        * web-platform-tests/inert/inert-in-shadow-dom.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-in-shadow-dom.tentative.html.
+        * web-platform-tests/inert/inert-inlines-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-inlines.tentative-expected.txt.
+        * web-platform-tests/inert/inert-inlines.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-inlines.tentative.html.
+        * web-platform-tests/inert/inert-label-focus-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-label-focus.tentative-expected.txt.
+        * web-platform-tests/inert/inert-label-focus.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-label-focus.tentative.html.
+        * web-platform-tests/inert/inert-node-is-uneditable-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-node-is-uneditable.tentative-expected.txt.
+        * web-platform-tests/inert/inert-node-is-uneditable.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-node-is-uneditable.tentative.html.
+        * web-platform-tests/inert/inert-node-is-unfocusable-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-node-is-unfocusable.tentative-expected.txt.
+        * web-platform-tests/inert/inert-node-is-unfocusable.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-node-is-unfocusable.tentative.html.
+        * web-platform-tests/inert/inert-node-is-unselectable-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-node-is-unselectable.tentative-expected.txt.
+        * web-platform-tests/inert/inert-node-is-unselectable.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-node-is-unselectable.tentative.html.
+        * web-platform-tests/inert/inert-on-non-html-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-on-non-html.tentative-expected.txt.
+        * web-platform-tests/inert/inert-on-non-html.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-on-non-html.tentative.html.
+        * web-platform-tests/inert/inert-on-slots-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-on-slots.tentative-expected.txt.
+        * web-platform-tests/inert/inert-on-slots.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-on-slots.tentative.html.
+        * web-platform-tests/inert/inert-svg-hittest-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-svg-hittest.tentative-expected.txt.
+        * web-platform-tests/inert/inert-svg-hittest.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-svg-hittest.tentative.html.
+        * web-platform-tests/inert/inert-with-modal-dialog-001-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-with-modal-dialog-001.tentative-expected.txt.
+        * web-platform-tests/inert/inert-with-modal-dialog-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-with-modal-dialog-001.tentative.html.
+        * web-platform-tests/inert/inert-with-modal-dialog-002-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-with-modal-dialog-002.tentative-expected.txt.
+        * web-platform-tests/inert/inert-with-modal-dialog-002.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/inert/inert-with-modal-dialog-002.tentative.html.
+        * web-platform-tests/inert/w3c-import.log:
+
+2022-03-28  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Clamp degenerate calc() values for <angle>
+        https://bugs.webkit.org/show_bug.cgi?id=238401
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-values/calc-infinity-nan-computed-expected.txt:
+
+2022-03-28  Cameron McCormack  <heycam@apple.com>
+
+        Remove the 1ms minimum for setTimeout
+        https://bugs.webkit.org/show_bug.cgi?id=221124
+        <rdar://problem/73852354>
+
+        Reviewed by Sam Weinig.
+
+        * web-platform-tests/html/webappapis/timers/zero-settimeout.any-expected.txt:
+        * web-platform-tests/html/webappapis/timers/zero-settimeout.any.html:
+        * web-platform-tests/html/webappapis/timers/zero-settimeout.any.js:
+        (async_test):
+        * web-platform-tests/html/webappapis/timers/zero-settimeout.any.worker-expected.txt:
+        * web-platform-tests/html/webappapis/timers/zero-settimeout.any.worker.html:
+        New test checking that 0ms and 1ms timeouts are called in the right
+        order.
+
+        * web-platform-tests/FileAPI/file/File-constructor.any.worker-expected.txt:
+        * web-platform-tests/html/webappapis/microtask-queuing/queue-microtask-exceptions.any.worker-expected.txt:
+        * web-platform-tests/workers/interfaces/WorkerUtils/importScripts/report-error-cross-origin.sub.any.worker-expected.txt:
+        * web-platform-tests/workers/interfaces/WorkerUtils/importScripts/report-error-redirect-to-cross-origin.sub.any.worker-expected.txt:
+        * web-platform-tests/workers/interfaces/WorkerUtils/importScripts/report-error-same-origin.sub.any.worker-expected.txt:
+        * web-platform-tests/workers/interfaces/WorkerUtils/importScripts/report-error-setTimeout-cross-origin.sub.any.worker-expected.txt:
+        * web-platform-tests/workers/interfaces/WorkerUtils/importScripts/report-error-setTimeout-redirect-to-cross-origin.sub.any.worker-expected.txt:
+        * web-platform-tests/workers/interfaces/WorkerUtils/importScripts/report-error-setTimeout-same-origin.sub.any.worker-expected.txt:
+        Disable console output in some worker tests where the reduced timeout
+        would cause intemittent failures due to the console message sometimes
+        not making it to the test output in time.
+
+2022-03-28  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Another WPT import
+        https://bugs.webkit.org/show_bug.cgi?id=238459
+
+        Reviewed by Tim Nguyen.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/at-container-serialization-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/at-container-serialization.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-name-computed-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-computed.html:
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/crashtests/canvas-as-container-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/chrome-bug-1289718-000-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/chrome-bug-1289718-001-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/columns-in-table-001-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/container-type-change-chrome-legacy-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/container-type-change-chrome-legacy-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/flex-in-columns-000-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/flex-in-columns-000-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/flex-in-columns-001-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/flex-in-columns-001-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/flex-in-columns-002-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/flex-in-columns-002-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/flex-in-columns-003-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/flex-in-columns-003-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/focus-inside-content-visibility-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/focus-inside-content-visibility-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/grid-in-columns-000-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/grid-in-columns-000-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/grid-in-columns-001-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/grid-in-columns-001-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/grid-in-columns-002-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/grid-in-columns-002-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/grid-in-columns-003-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/grid-in-columns-003-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/inline-multicol-inside-container-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/inline-multicol-inside-container-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/inline-with-columns-000-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/inline-with-columns-000-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/inline-with-columns-001-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/inline-with-columns-001-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/input-column-group-container-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/input-column-group-container-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/input-placeholder-inline-size-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/math-block-container-child-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/pseudo-container-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/pseudo-container-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/svg-layout-root-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/svg-layout-root-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/svg-text-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/table-in-columns-000-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/table-in-columns-000-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/table-in-columns-001-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/table-in-columns-001-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/table-in-columns-002-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/table-in-columns-002-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/table-in-columns-003-crash.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/container-queries/table-in-columns-003-crash.html.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/w3c-import.log: Added.
+        * web-platform-tests/css/css-contain/container-queries/idlharness-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/idlharness.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/layout-dependent-focus-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/layout-dependent-focus.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/w3c-import.log:
+
+2022-03-28  Ziran Sun  <zsun@igalia.com>
+
+        [selection] Fire Select event when selection extent or direction changes
+        https://bugs.webkit.org/show_bug.cgi?id=238142
+
+        Reviewed by Chris Dumez.
+
+        Update test expectations as more sub-tests are now passing.
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-start-end-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/textfieldselection-setRangeText-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/textfieldselection-setSelectionRange-expected.txt:
+
 2022-03-27  Matt Woodrow  <mattwoodrow@apple.com>
 
         Preserve repeat() notation for grid-templates

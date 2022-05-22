@@ -640,6 +640,11 @@ void WebInspectorUIProxy::openURLExternally(const String& url)
         m_inspectorClient->openURLExternally(*this, url);
 }
 
+void WebInspectorUIProxy::revealFileExternally(const String& path)
+{
+    platformRevealFileExternally(path);
+}
+
 void WebInspectorUIProxy::inspectedURLChanged(const String& urlString)
 {
     platformInspectedURLChanged(urlString);
@@ -729,6 +734,18 @@ void WebInspectorUIProxy::append(const String& filename, const String& content)
     platformAppend(filename, content);
 }
 
+void WebInspectorUIProxy::load(const String& path, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    if (!m_inspectedPage->preferences().developerExtrasEnabled())
+        return;
+
+    ASSERT(!path.isEmpty());
+    if (path.isEmpty())
+        return;
+
+    platformLoad(path, WTFMove(completionHandler));
+}
+
 bool WebInspectorUIProxy::shouldOpenAttached()
 {
     return inspectorPagePreferences().inspectorStartsAttached() && canAttach();
@@ -803,6 +820,11 @@ void WebInspectorUIProxy::platformSetForcedAppearance(InspectorFrontendClient::A
     notImplemented();
 }
 
+void WebInspectorUIProxy::platformRevealFileExternally(const String&)
+{
+    notImplemented();
+}
+
 void WebInspectorUIProxy::platformInspectedURLChanged(const String&)
 {
     notImplemented();
@@ -821,6 +843,12 @@ void WebInspectorUIProxy::platformSave(const String& suggestedURL, const String&
 void WebInspectorUIProxy::platformAppend(const String& suggestedURL, const String& content)
 {
     notImplemented();
+}
+
+void WebInspectorUIProxy::platformLoad(const String& path, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    notImplemented();
+    completionHandler(nullString());
 }
 
 unsigned WebInspectorUIProxy::platformInspectedWindowHeight()

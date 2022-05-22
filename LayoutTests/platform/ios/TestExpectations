@@ -1253,7 +1253,6 @@ webkit.org/b/178487 compositing/rtl/rtl-iframe-fixed-overflow.html [ Failure ]
 webkit.org/b/178487 compositing/video/video-object-fit.html [ Failure ]
 webkit.org/b/178487 compositing/masks/compositing-clip-path-on-subpixel-position.html [ ImageOnlyFailure ]
 webkit.org/b/178487 compositing/overlap-blending/nested-overlap-overflow.html [ ImageOnlyFailure ]
-webkit.org/b/178487 compositing/overlap-blending/nested-overlap.html [ ImageOnlyFailure ]
 webkit.org/b/178487 compositing/video/video-clip-change-src.html [ ImageOnlyFailure ]
 
 # CSS tests to triage
@@ -1262,7 +1261,6 @@ webkit.org/b/178588 fast/css/active-display-none.html [ Failure ]
 webkit.org/b/178588 fast/css/image-orientation/image-orientation.html [ Failure ]
 webkit.org/b/178588 fast/css/image-resolution/image-resolution.html [ Failure ]
 webkit.org/b/178588 fast/css/line-height-determined-by-primary-font.html [ Failure ]
-webkit.org/b/178588 fast/css/square-button-appearance.html [ Failure ]
 webkit.org/b/178588 fast/css/unknown-pseudo-element-matching.html [ Failure ]
 webkit.org/b/178588 css3/background/background-repeat-round-padding.html [ ImageOnlyFailure ]
 webkit.org/b/178588 css3/blending/blend-mode-body-child-isolate-html-background-color.html [ ImageOnlyFailure ]
@@ -2115,6 +2113,7 @@ accessibility/aria-sort-changed-notification.html [ Pass ]
 webkit.org/b/150366 accessibility/aria-table-attributes.html [ Pass ]
 
 accessibility/display-contents-search-traversal.html [ Pass ]
+accessibility/search-traversal-after-role-change.html [ Pass ]
 accessibility/table-search-traversal.html [ Pass ]
 accessibility/dynamically-changing-iframe-remains-accessible.html [ Pass ]
 accessibility/ignore-modals-without-any-content.html [ Pass ]
@@ -2676,13 +2675,6 @@ webkit.org/b/177401 webrtc/captureCanvas-webrtc.html [ Pass Timeout Failure ]
 
 webkit.org/b/210173 webrtc/h265.html [ Skip ]
 
-# webkit.org/b/238155 [ Debug ] These 5 tests are timing out on iOS Debug Specifically.
-[ Debug ] editing/selection/move-by-word-visually-single-space-one-element.html [ Slow ]
-[ Debug ] editing/selection/move-by-word-visually-single-space-inline-element.html [ Slow ]
-[ Debug ] editing/selection/move-by-word-visually-multi-line.html [ Slow ]
-[ Debug ] editing/selection/move-by-word-visually-mac.html [ Slow ]
-[ Debug ] editing/selection/move-by-word-visually-inline-block-positioned-element.html [ Slow ]
-
 webkit.org/b/209878  [ Debug ] webrtc/datachannel/multiple-connections.html [ Slow ]
 
 webkit.org/b/177323 imported/w3c/web-platform-tests/fetch/security/embedded-credentials.tentative.sub.html [ Pass Failure ]
@@ -2886,7 +2878,7 @@ webkit.org/b/187557 media/media-fragments/TC0091.html [ Pass Failure ]
 
 webkit.org/b/189598 compositing/backing/backing-store-attachment-fill-forwards-animation.html [ Pass Failure ]
 
-webkit.org/b/190032 animations/stop-animation-on-suspend.html [ Failure ]
+webkit.org/b/190032 animations/stop-animation-on-suspend.html [ Failure Pass ]
 
 http/tests/cookies/same-site [ Pass ]
 
@@ -3154,6 +3146,8 @@ webkit.org/b/212218 webrtc/datachannel/gather-candidates-networkprocess-crash.ht
 webkit.org/b/212226 imported/w3c/web-platform-tests/css/css-grid/alignment/self-baseline/grid-self-baseline-changes-grid-area-size-008.html [ ImageOnlyFailure ]
 webkit.org/b/212227 imported/w3c/web-platform-tests/css/css-grid/alignment/self-baseline/grid-self-baseline-changes-grid-area-size-002.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/css/css-grid/grid-definition/grid-repeat-max-width-001.html [ ImageOnlyFailure ]
+
 fast/text/text-styles/-apple-system [ Pass ]
 
 webkit.org/b/214155 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/blob.https.html [ Pass Failure ]
@@ -3286,8 +3280,6 @@ webkit.org/b/221486 imported/w3c/web-platform-tests/shadow-dom/nested-slot-remov
 webkit.org/b/221466 imported/w3c/web-platform-tests/uievents/keyboard/modifier-keys.html [ Skip ]
 webkit.org/b/221465 imported/w3c/web-platform-tests/uievents/keyboard/modifier-keys-combinations.html [ Skip ]
 
-webkit.org/b/222840 security/contentSecurityPolicy/video-with-data-url-allowed-by-media-src-star.html [ ImageOnlyFailure ]
-
 # iOS15 supports this emoji.
 fast/text/mending-heart.html [ Pass ]
 
@@ -3412,6 +3404,8 @@ webkit.org/b/238211 fast/text/text-shadow-ink-overflow-missing.html [ Pass Image
 
 webkit.org/b/237812 editing/spelling/spellcheck-api-crash.html [ Pass Crash ]
 
+webkit.org/b/238469 imported/w3c/web-platform-tests/fetch/metadata/download.https.sub.html [ Skip ]
+
 webkit.org/b/229584 animations/fill-mode-forwards.html [ Pass Failure ]
 
 # rdar://82190832 ([ iOS15 ] editing/caret/ios/caret-in-overflow-area.html is failing)
@@ -3481,10 +3475,6 @@ webkit.org/b/236904 imported/mozilla/svg/path-02.svg [ ImageOnlyFailure ]
 # Incorrect upstream, but seem to pass on the bots, possibly with a broken baseline.
 css2.1/20110323/replaced-intrinsic-001.htm [ Pass ]
 
-# Failure only on iPad simulator
-webkit.org/b/178588 fast/css/button-height.html [ Failure ]
-webkit.org/b/214465 imported/w3c/web-platform-tests/css/mediaqueries/mq-gamut-002.html [ ImageOnlyFailure ]
-
 # Passing only on iOS
 webkit.org/b/136754 css3/flexbox/csswg/ttwf-reftest-flex-wrap-reverse.html [ Pass ]
 webkit.org/b/136754 css3/flexbox/csswg/ttwf-reftest-flex-wrap.html [ Pass ]
@@ -3535,6 +3525,7 @@ imported/w3c/web-platform-tests/css/mediaqueries/viewport-script-dynamic.html [ 
 imported/w3c/web-platform-tests/html/rendering/bindings/the-select-element-0/option-label.html [ Pass ]
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/form-controls/select-sizing-001.html [ Pass ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe-modify-scrolling-attr-to-yes.html [ Pass ]
+webkit.org/b/214465 imported/w3c/web-platform-tests/css/mediaqueries/mq-gamut-002.html [ Pass ]
 
 webkit.org/b/237694 [ Debug ] webgl/1.0.3/conformance/uniforms/uniform-samplers-test.html [ Timeout Pass ]
 
@@ -3550,6 +3541,8 @@ webkit.org/b/238227 fast/dom/intersection-observer-document-leak.html [ Pass Fai
 webkit.org/b/238229 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-050.html [ Pass Crash ]
 
 webkit.org/b/237295 fast/mediastream/video-rotation-gpu-process-crash.html [ Pass Crash ]
+
+webkit.org/b/238519 animations/shadow-host-child-change.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/236930 accessibility/ios-simulator/aria-details.html [ Crash Pass ]
 webkit.org/b/236794 editing/spelling/editing-word-with-marker-2.html [ Pass Crash ]

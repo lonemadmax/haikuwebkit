@@ -91,6 +91,7 @@
 #include "RemoveFormatCommand.h"
 #include "RenderBlock.h"
 #include "RenderBlockFlow.h"
+#include "RenderImage.h"
 #include "RenderLayer.h"
 #include "RenderTextControl.h"
 #include "RenderedDocumentMarker.h"
@@ -1903,12 +1904,12 @@ void Editor::didWriteSelectionToPasteboard()
 
 void Editor::toggleBold()
 {
-    command("ToggleBold").execute();
+    command("ToggleBold"_s).execute();
 }
 
 void Editor::toggleUnderline()
 {
-    command("ToggleUnderline").execute();
+    command("ToggleUnderline"_s).execute();
 }
 
 void Editor::setBaseWritingDirection(WritingDirection direction)
@@ -1925,7 +1926,7 @@ void Editor::setBaseWritingDirection(WritingDirection direction)
             return;
 
         auto& focusedFormElement = downcast<HTMLTextFormControlElement>(*focusedElement);
-        auto directionValue = direction == WritingDirection::LeftToRight ? "ltr" : "rtl";
+        auto directionValue = direction == WritingDirection::LeftToRight ? "ltr"_s : "rtl"_s;
         auto writingDirectionInputTypeName = inputTypeNameForEditingAction(EditAction::SetBlockWritingDirection);
         if (!dispatchBeforeInputEvent(focusedFormElement, writingDirectionInputTypeName, directionValue))
             return;
@@ -1937,7 +1938,7 @@ void Editor::setBaseWritingDirection(WritingDirection direction)
     }
 
     auto style = MutableStyleProperties::create();
-    style->setProperty(CSSPropertyDirection, direction == WritingDirection::LeftToRight ? "ltr" : direction == WritingDirection::RightToLeft ? "rtl" : "inherit", false);
+    style->setProperty(CSSPropertyDirection, direction == WritingDirection::LeftToRight ? "ltr"_s : direction == WritingDirection::RightToLeft ? "rtl"_s : "inherit"_s, false);
     applyParagraphStyleToSelection(style.ptr(), EditAction::SetBlockWritingDirection);
 }
 
@@ -4191,9 +4192,46 @@ void Editor::registerAttachments(Vector<SerializedAttachmentData>&& data)
         client->registerAttachments(WTFMove(data));
 }
 
-void Editor::registerAttachmentIdentifier(const String& identifier)
+void Editor::registerAttachmentIdentifier(const String& identifier, const HTMLImageElement& imageElement)
 {
-    if (auto* client = this->client())
+    auto* client = this->client();
+    if (!client)
+        return;
+
+    auto attachmentInfo = [&]() -> std::optional<std::tuple<String, String, Ref<FragmentedSharedBuffer>>> {
+        auto* renderer = dynamicDowncast<RenderImage>(imageElement.renderer());
+        if (!renderer)
+            return std::nullopt;
+
+        auto* cachedImage = renderer->cachedImage();
+        if (!cachedImage || cachedImage->errorOccurred())
+            return std::nullopt;
+
+        String contentType;
+        if (auto* image = cachedImage->image())
+            contentType = image->mimeType();
+
+        if (contentType.isEmpty())
+            return std::nullopt;
+
+        RefPtr imageData = cachedImage->resourceBuffer();
+        if (!imageData)
+            return std::nullopt;
+
+        String name = imageElement.alt();
+        if (name.isEmpty())
+            name = imageElement.document().completeURL(imageElement.imageSourceURL()).lastPathComponent().toString();
+
+        if (name.isEmpty())
+            return std::nullopt;
+
+        return { { WTFMove(contentType), WTFMove(name), imageData.releaseNonNull() } };
+    }();
+
+    if (attachmentInfo) {
+        auto& [contentType, preferredFileName, data] = *attachmentInfo;
+        client->registerAttachmentIdentifier(identifier, WTFMove(contentType), WTFMove(preferredFileName), WTFMove(data));
+    } else
         client->registerAttachmentIdentifier(identifier);
 }
 

@@ -320,7 +320,7 @@ void Daemon::runAfterStartingPushService(Function<void()>&& function)
     function();
 }
 
-void Daemon::broadcastDebugMessage(const String& message)
+void Daemon::broadcastDebugMessage(StringView message)
 {
     for (auto& iterator : m_connectionMap) {
         if (iterator.value->debugModeIsEnabled())
@@ -495,11 +495,22 @@ void Daemon::getOriginsWithPushAndNotificationPermissions(ClientConnection* conn
 void Daemon::deletePushAndNotificationRegistration(ClientConnection* connection, const String& originString, CompletionHandler<void(const String&)>&& replySender)
 {
     if (!canRegisterForNotifications(*connection)) {
-        replySender("Could not delete push and notification registrations for connection: Unknown host application code signing identifier");
+        replySender("Could not delete push and notification registrations for connection: Unknown host application code signing identifier"_s);
         return;
     }
 
-    connection->enqueueAppBundleRequest(makeUnique<AppBundleDeletionRequest>(*connection, originString, WTFMove(replySender)));
+    connection->enqueueAppBundleRequest(makeUnique<AppBundleDeletionRequest>(*connection, originString, [this, originString = String { originString }, replySender = WTFMove(replySender), bundleIdentifier = connection->hostAppCodeSigningIdentifier()](auto result) mutable {
+        runAfterStartingPushService([this, bundleIdentifier = WTFMove(bundleIdentifier), originString = WTFMove(originString), replySender = WTFMove(replySender), result]() mutable {
+            if (!m_pushService) {
+                replySender(result);
+                return;
+            }
+
+            m_pushService->removeRecordsForBundleIdentifierAndOrigin(bundleIdentifier, originString, [replySender = WTFMove(replySender), result](auto&&) mutable {
+                replySender(result);
+            });
+        });
+    }));
 }
 
 void Daemon::setDebugModeIsEnabled(ClientConnection* clientConnection, bool enabled)
@@ -561,7 +572,6 @@ void Daemon::injectEncryptedPushMessageForTesting(ClientConnection* connection, 
             replySender(false);
             return;
         }
-        NSLog(@"got obj: %@", obj);
 
         m_pushService->didReceivePushMessage(obj[@"topic"], obj[@"userInfo"], [replySender = WTFMove(replySender)]() mutable {
             replySender(true);
@@ -581,6 +591,8 @@ void Daemon::handleIncomingPush(const String& bundleIdentifier, WebKit::WebPushM
 
 void Daemon::notifyClientPushMessageIsAvailable(const String& clientCodeSigningIdentifier)
 {
+    RELEASE_LOG(Push, "Launching %{public}s in response to push", clientCodeSigningIdentifier.utf8().data());
+
 #if PLATFORM(MAC)
     CFArrayRef urls = (__bridge CFArrayRef)@[ [NSURL URLWithString:@"x-webkit-app-launch://1"] ];
     CFStringRef identifier = (__bridge CFStringRef)((NSString *)clientCodeSigningIdentifier);
@@ -593,7 +605,9 @@ void Daemon::notifyClientPushMessageIsAvailable(const String& clientCodeSigningI
         (id)_kLSOpenOptionHideKey: @YES,
     };
 
-    _LSOpenURLsUsingBundleIdentifierWithCompletionHandler(urls, identifier, options, ^(LSASNRef newProcessSerialNumber, Boolean processWasLaunched, CFErrorRef cfError) { });
+    _LSOpenURLsUsingBundleIdentifierWithCompletionHandler(urls, identifier, options, ^(LSASNRef, Boolean, CFErrorRef cfError) {
+        RELEASE_LOG_ERROR_IF(cfError, Push, "Failed to launch process in response to push: %{public}@", (__bridge NSError *)cfError);
+    });
 #else
     // FIXME: Figure out equivalent iOS code here
     UNUSED_PARAM(clientCodeSigningIdentifier);
@@ -622,6 +636,7 @@ void Daemon::getPendingPushMessages(ClientConnection* connection, CompletionHand
         m_testingPushMessages.remove(iterator);
     }
 
+    RELEASE_LOG(Push, "Fetched %zu pending push messages for %{public}s", resultMessages.size(), hostAppCodeSigningIdentifier.utf8().data());
     connection->broadcastDebugMessage(makeString("Fetching ", String::number(resultMessages.size()), " pending push messages"));
 
     replySender(WTFMove(resultMessages));

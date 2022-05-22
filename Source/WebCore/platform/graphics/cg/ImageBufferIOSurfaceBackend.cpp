@@ -29,7 +29,7 @@
 #if HAVE(IOSURFACE)
 
 #include "GraphicsContextCG.h"
-#include "IOSurface.h"
+#include "IOSurfacePool.h"
 #include "IntRect.h"
 #include "PixelBuffer.h"
 #include <CoreGraphics/CoreGraphics.h>
@@ -81,17 +81,17 @@ RetainPtr<CGColorSpaceRef> ImageBufferIOSurfaceBackend::contextColorSpace(const 
     return ImageBufferCGBackend::contextColorSpace(context);
 }
 
-std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create(const Parameters& parameters, const HostWindow* hostWindow)
+std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create(const Parameters& parameters, const ImageBuffer::CreationContext& creationContext)
 {
     IntSize backendSize = calculateSafeBackendSize(parameters);
     if (backendSize.isEmpty())
         return nullptr;
 
-    auto surface = IOSurface::create(backendSize, backendSize, parameters.colorSpace, IOSurface::formatForPixelFormat(parameters.pixelFormat));
+    auto surface = IOSurface::create(creationContext.surfacePool, backendSize, backendSize, parameters.colorSpace, IOSurface::formatForPixelFormat(parameters.pixelFormat));
     if (!surface)
         return nullptr;
 
-    RetainPtr<CGContextRef> cgContext = surface->ensurePlatformContext(hostWindow);
+    RetainPtr<CGContextRef> cgContext = surface->ensurePlatformContext(creationContext.hostWindow);
     if (!cgContext)
         return nullptr;
 
@@ -262,7 +262,7 @@ void ImageBufferIOSurfaceBackend::setVolatilityState(VolatilityState volatilityS
 
 void ImageBufferIOSurfaceBackend::releaseBufferToPool()
 {
-    IOSurface::moveToPool(WTFMove(m_surface));
+    IOSurface::moveToPool(WTFMove(m_surface), &IOSurfacePool::sharedPool());
 }
 
 void ImageBufferIOSurfaceBackend::ensureNativeImagesHaveCopiedBackingStore()

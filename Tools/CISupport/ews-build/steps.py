@@ -327,8 +327,32 @@ class GitHubMixin(object):
                 self._addToLog('stdio', f"Failed to post comment to PR {pr_number}. Unexpected response code from GitHub: {response.status_code}\n")
                 return False
         except Exception as e:
-            for label in labels:
-                self._addToLog('stdio', f"Error in posting comment to PR {pr_number}\n")
+            self._addToLog('stdio', f"Error in posting comment to PR {pr_number}\n")
+            return False
+        return True
+
+    def update_pr(self, pr_number, title, description, repository_url=None):
+        api_url = GitHub.api_url(repository_url)
+        if not api_url:
+            return False
+
+        update_url = f'{api_url}/pulls/{pr_number}'
+        try:
+            username, access_token = GitHub.credentials()
+            auth = HTTPBasicAuth(username, access_token) if username and access_token else None
+            response = requests.request(
+                'POST', update_url, timeout=60, auth=auth,
+                headers=dict(Accept='application/vnd.github.v3+json'),
+                json=dict(
+                    title=title,
+                    body=description,
+                ),
+            )
+            if response.status_code // 100 != 2:
+                self._addToLog('stdio', f"Failed to update PR {pr_number}. Unexpected response code from GitHub: {response.status_code}\n")
+                return False
+        except Exception as e:
+            self._addToLog('stdio', f"Error in updating PR {pr_number}\n")
             return False
         return True
 
@@ -799,6 +823,7 @@ class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
         rebase_target_hash = self.getProperty('ews_revision') or self.getProperty('got_revision')
 
         commands = [
+            ['git', 'config', 'credential.helper', '!echo_credentials() { sleep 1; echo "username=${GIT_USER}"; echo "password=${GIT_PASSWORD}"; }; echo_credentials'],
             self.shell_command('git remote add {} {}{}.git || {}'.format(remote, GITHUB_URL, project, self.shell_exit_0())),
             ['git', 'remote', 'set-url', remote, '{}{}.git'.format(GITHUB_URL, project)],
             ['git', 'fetch', remote],
@@ -1666,7 +1691,6 @@ class BlockPullRequest(buildstep.BuildStep, GitHubMixin):
         return not self.doStepIf(step)
 
 
-
 class RemoveFlagsOnPatch(buildstep.BuildStep, BugzillaMixin):
     name = 'remove-flags-from-patch'
     flunkOnFailure = False
@@ -1685,32 +1709,43 @@ class RemoveFlagsOnPatch(buildstep.BuildStep, BugzillaMixin):
         return None
 
     def getResultSummary(self):
+        if self.results == SKIPPED:
+            return buildstep.BuildStep.getResultSummary(self)
         if self.results == SUCCESS:
             return {'step': 'Removed flags on bugzilla patch'}
         return {'step': 'Failed to remove flags on bugzilla patch'}
+
+    def doStepIf(self, step):
+        return self.getProperty('patch_id')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
 
 
 class CloseBug(buildstep.BuildStep, BugzillaMixin):
     name = 'close-bugzilla-bug'
     flunkOnFailure = False
     haltOnFailure = False
+    bug_id = ''
 
     def start(self):
         self.bug_id = self.getProperty('bug_id', '')
-        if not self.bug_id:
-            self._addToLog('stdio', 'bug_id build property not found.\n')
-            self.descriptionDone = 'No bug id found'
-            self.finished(FAILURE)
-            return None
-
         rc = self.close_bug(self.bug_id)
         self.finished(rc)
         return None
 
     def getResultSummary(self):
+        if self.results == SKIPPED:
+            return buildstep.BuildStep.getResultSummary(self)
         if self.results == SUCCESS:
             return {'step': 'Closed bug {}'.format(self.bug_id)}
         return {'step': 'Failed to close bug {}'.format(self.bug_id)}
+
+    def doStepIf(self, step):
+        return self.getProperty('bug_id')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
 
 
 class LeaveComment(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
@@ -4602,11 +4637,11 @@ class ValidateSquashed(shell.ShellCommand):
         return shell.ShellCommand.start(self)
 
     def getResultSummary(self):
-        if self.results == SKIPPED:
-            return {'step': 'Patches are always squashed'}
-        elif self.results == SUCCESS:
+        if self.results == FAILURE:
+            return {'step': 'Can only land squashed branches'}
+        if self.results == SUCCESS:
             return {'step': 'Verified branch is squashed'}
-        return {'step': 'Can only land squashed branches'}
+        return super(ValidateSquashed, self).getResultSummary()
 
     def evaluateCommand(self, cmd):
         rc = shell.ShellCommand.evaluateCommand(self, cmd)
@@ -4620,6 +4655,314 @@ class ValidateSquashed(shell.ShellCommand):
 
     def doStepIf(self, step):
         return self.getProperty('github.number')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+
+class AddReviewerMixin(object):
+    NOBODY_SED = 's/NOBODY (OO*PP*S!*)/{}/g'
+
+    def gitCommitEnvironment(self):
+        owners = self.getProperty('owners', [])
+        if not owners:
+            return dict(
+                GIT_COMMITTER_NAME='EWS',
+                GIT_COMMITTER_EMAIL=FROM_EMAIL,
+                FILTER_BRANCH_SQUELCH_WARNING='1',
+            )
+
+        contributors, _ = Contributors.load(use_network=False)
+        return dict(
+            GIT_COMMITTER_NAME=contributors.get(owners[0], {}).get('name', 'EWS'),
+            GIT_COMMITTER_EMAIL=contributors.get(owners[0], {}).get('email', FROM_EMAIL),
+            FILTER_BRANCH_SQUELCH_WARNING='1',
+        )
+
+    def reviewers(self):
+        reviewers = self.getProperty('reviewers_full_names', [])
+        if len(reviewers) == 1:
+            return reviewers[0]
+        if reviewers:
+            return f'{", ".join(reviewers[:-1])} and {reviewers[-1]}'
+        return 'NOBODY (OOPS!)'
+
+
+class AddReviewerToCommitMessage(shell.ShellCommand, AddReviewerMixin):
+    name = 'add-reviewer-to-commit-message'
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        super(AddReviewerToCommitMessage, self).__init__(logEnviron=False, timeout=60, **kwargs)
+
+    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+        base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
+        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
+
+        gmtoffset = int(time.localtime().tm_gmtoff * 100 / (60 * 60))
+        date = f'{int(time.time())} {gmtoffset}'
+        self.command = [
+            'git', 'filter-branch', '-f',
+            '--env-filter', f"GIT_AUTHOR_DATE='{date}';GIT_COMMITTER_DATE='{date}'",
+            '--msg-filter', f'sed "{self.NOBODY_SED.format(self.reviewers())}"',
+            f'{head_ref}...{base_ref}',
+        ]
+
+        for key, value in self.gitCommitEnvironment().items():
+            self.workerEnvironment[key] = value
+
+        return super(AddReviewerToCommitMessage, self).start()
+
+    def getResultSummary(self):
+        if self.results == FAILURE:
+            return {'step': 'Failed to apply reviewers'}
+        if self.results == SUCCESS:
+            return {'step': f'Reviewed by {self.reviewers()}'}
+        return super(AddReviewerToCommitMessage, self).getResultSummary()
+
+    def doStepIf(self, step):
+        return self.getProperty('github.number') and self.getProperty('reviewers_full_names')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+
+class AddReviewerToChangeLog(steps.ShellSequence, ShellMixin, AddReviewerMixin):
+    name = 'add-reviewer-to-changelog'
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        super(AddReviewerToChangeLog, self).__init__(logEnviron=False, timeout=60, **kwargs)
+
+    def _files(self):
+        sourcestamp = self.build.getSourceStamp(self.getProperty('codebase', ''))
+        if sourcestamp and sourcestamp.changes:
+            return sourcestamp.changes[0].files
+        return []
+
+    def run(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+        self.commands = []
+        for file in self._files():
+            if not file.startswith('+++') or not file.endswith('ChangeLog'):
+                continue
+            self.commands.append(util.ShellArg(
+                command=['sed', '-i', '', self.NOBODY_SED.format(self.reviewers()), file[4:]],
+                logname='stdio',
+                haltOnFailure=True,
+            ))
+
+        for command in [
+            ['git', 'add', '-A'],
+            ['git', 'commit', '--amend', '--date=now', '-C', 'HEAD'],
+        ]:
+            self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))
+
+        self.env = self.gitCommitEnvironment()
+
+        return super(AddReviewerToChangeLog, self).run()
+
+    def getResultSummary(self):
+        if self.results == FAILURE:
+            return {'step': 'Failed to add reviewers to ChangeLogs'}
+        if self.results == SUCCESS:
+            return {'step': f'Reviewed by {self.reviewers()}'}
+        return super(AddReviewerToChangeLog, self).getResultSummary()
+
+    def doStepIf(self, step):
+        return self.getProperty('github.number') and self.getProperty('reviewers_full_names')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+
+class ValidateCommitMessage(shell.ShellCommand):
+    name = 'validate-commit-message'
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        super(ValidateCommitMessage, self).__init__(logEnviron=False, timeout=60, **kwargs)
+        self.summary = 'Patches have no commit message'
+
+    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+        base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
+        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
+        self.command = ['git', 'log', head_ref, f'^{base_ref}']
+
+        self.log_observer = BufferLogObserverClass(wantStderr=True)
+        self.addLogObserver('stdio', self.log_observer)
+
+        return super(ValidateCommitMessage, self).start()
+
+    def getResultSummary(self):
+        if self.results in (SUCCESS, FAILURE):
+            return {'step': self.summary}
+        return super(ValidateCommitMessage, self).getResultSummary()
+
+    def evaluateCommand(self, cmd):
+        rc = super(ValidateCommitMessage, self).evaluateCommand(cmd)
+        if rc == SKIPPED:
+            return rc
+        if rc != SUCCESS:
+            self.summary = 'Error parsing commit message'
+            return rc
+
+        log_text = self.log_observer.getStdout()
+        if '(OOPS!)' in log_text:
+            self.summary = 'Commit message contains (OOPS!)'
+            return FAILURE
+        if 'Reviewed by' not in log_text and 'Unreviewed' not in log_text:
+            self.summary = 'No reviewer information in commit message'
+            return FAILURE
+
+        self.summary = 'Validated commit message'
+        return SUCCESS
+
+    def doStepIf(self, step):
+        return self.getProperty('github.number')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+
+class Canonicalize(steps.ShellSequence, ShellMixin):
+    name = 'canonicalize-commit'
+    description = ['canonicalize-commit']
+    descriptionDone = ['Canonicalize Commit']
+    haltOnFailure = True
+
+    def __init__(self, rebase_enabled=True, **kwargs):
+        super(Canonicalize, self).__init__(logEnviron=False, timeout=300, **kwargs)
+        self.rebase_enabled = rebase_enabled
+
+    def run(self):
+        self.commands = []
+
+        base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
+        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
+
+        commands = []
+        if self.rebase_enabled:
+            commands = [
+                ['git', 'pull', 'origin', base_ref],
+                ['git', 'branch', '-f', base_ref, head_ref],
+                ['git', 'checkout', base_ref],
+            ]
+        commands.append(['python3', 'Tools/Scripts/git-webkit', 'canonicalize', '-n', '1'])
+
+        for command in commands:
+            self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))
+
+        return super(Canonicalize, self).run()
+
+    def getResultSummary(self):
+        if self.results == SUCCESS:
+            return {'step': 'Canonicalized commit'}
+        if self.results == FAILURE:
+            return {'step': 'Failed to canonicalize commit'}
+        return super(Canonicalize, self).getResultSummary()
+
+    def doStepIf(self, step):
+        return self.getProperty('github.number', False)
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+
+class PushPullRequestBranch(shell.ShellCommand):
+    name = 'push-pull-request-branch'
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        super(PushPullRequestBranch, self).__init__(logEnviron=False, timeout=300, **kwargs)
+
+    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+        remote = self.getProperty('github.head.repo.full_name').split('/')[0]
+        head_ref = self.getProperty('github.head.ref')
+        self.command = ['git', 'push', remote, head_ref, '-f']
+
+        username, access_token = GitHub.credentials()
+        self.workerEnvironment['GIT_USER'] = username
+        self.workerEnvironment['GIT_PASSWORD'] = access_token
+
+        return super(PushPullRequestBranch, self).start()
+
+    def getResultSummary(self):
+        if self.results == SUCCESS:
+            return {'step': 'Pushed to pull request branch'}
+        if self.results == FAILURE:
+            return {'step': 'Failed to push to pull request branch'}
+        return super(PushPullRequestBranch, self).getResultSummary()
+
+    def doStepIf(self, step):
+        return CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME and self.getProperty('github.number') and self.getProperty('github.head.ref') and self.getProperty('github.head.repo.full_name')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+class UpdatePullRequest(shell.ShellCommand, GitHubMixin):
+    name = 'update-pull-request'
+    haltOnFailure = True
+    command = ['git', 'log', '-1', '--no-decorate']
+    ESCAPE_TABLE = {
+        '"': '&quot;',
+        "'": '&apos;',
+        '>': ' &gt;',
+        '<': '&lt;',
+        '&': '&amp;',
+    }
+
+    @classmethod
+    def escape_html(cls, message):
+        message = ''.join(cls.ESCAPE_TABLE.get(c, c) for c in message)
+        return re.sub(r'(https?://[^\s<>,:;]+)', r'<a href="\1">\1</a>', message)
+
+    def __init__(self, **kwargs):
+        super(UpdatePullRequest, self).__init__(logEnviron=False, timeout=300, **kwargs)
+
+    @defer.inlineCallbacks
+    def _addToLog(self, logName, message):
+        try:
+            log = self.getLog(logName)
+        except KeyError:
+            log = yield self.addLog(logName)
+        log.addStdout(message)
+
+    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+        self.log_observer = BufferLogObserverClass(wantStderr=True)
+        self.addLogObserver('stdio', self.log_observer)
+
+        return super(UpdatePullRequest, self).start()
+
+    def getResultSummary(self):
+        if self.results == SUCCESS:
+            return {'step': 'Updated pull request'}
+        if self.results == FAILURE:
+            return {'step': 'Failed to update pull request'}
+        return super(UpdatePullRequest, self).getResultSummary()
+
+    def evaluateCommand(self, cmd):
+        rc = super(UpdatePullRequest, self).evaluateCommand(cmd)
+
+        loglines = self.log_observer.getStdout().splitlines()
+
+        title = loglines[4][4:].rstrip()
+        description = f'#### {loglines[0].split()[1]}\n<pre>\n'
+        for line in loglines[4:]:
+            description += self.escape_html(line[4:] + '\n')
+        description += '</pre>\n'
+
+        if not self.update_pr(
+            self.getProperty('github.number'),
+            title=title,
+            description=description,
+            repository_url=self.getProperty('repository', ''),
+        ):
+            return FAILURE
+
+        return rc
+
+    def doStepIf(self, step):
+        return CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME and self.getProperty('github.number')
 
     def hideStepIf(self, results, step):
         return not self.doStepIf(step)

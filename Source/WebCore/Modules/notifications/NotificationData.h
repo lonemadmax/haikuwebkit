@@ -27,6 +27,8 @@
 
 #include <optional>
 #include <pal/SessionID.h>
+#include <wtf/MonotonicTime.h>
+#include <wtf/URL.h>
 #include <wtf/UUID.h>
 #include <wtf/text/WTFString.h>
 
@@ -38,6 +40,9 @@ struct NotificationData {
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<NotificationData> decode(Decoder&);
 
+    NotificationData isolatedCopy() const &;
+    NotificationData isolatedCopy() &&;
+
     String title;
     String body;
     String iconURL;
@@ -45,14 +50,16 @@ struct NotificationData {
     String language;
     WebCore::NotificationDirection direction;
     String originString;
+    URL serviceWorkerRegistrationURL;
     UUID notificationID;
     PAL::SessionID sourceSession;
+    MonotonicTime creationTime;
 };
 
 template<class Encoder>
 void NotificationData::encode(Encoder& encoder) const
 {
-    encoder << title << body << iconURL << tag << language << direction << originString << notificationID << sourceSession;
+    encoder << title << body << iconURL << tag << language << direction << originString << serviceWorkerRegistrationURL << notificationID << sourceSession << creationTime;
 }
 
 template<class Decoder>
@@ -93,6 +100,11 @@ std::optional<NotificationData> NotificationData::decode(Decoder& decoder)
     if (!originString)
         return std::nullopt;
 
+    std::optional<URL> serviceWorkerRegistrationURL;
+    decoder >> serviceWorkerRegistrationURL;
+    if (!serviceWorkerRegistrationURL)
+        return std::nullopt;
+
     std::optional<UUID> notificationID;
     decoder >> notificationID;
     if (!notificationID)
@@ -103,6 +115,11 @@ std::optional<NotificationData> NotificationData::decode(Decoder& decoder)
     if (!sourceSession)
         return std::nullopt;
 
+    std::optional<MonotonicTime> creationTime;
+    decoder >> creationTime;
+    if (!creationTime)
+        return std::nullopt;
+
     return { {
         WTFMove(*title),
         WTFMove(*body),
@@ -111,8 +128,10 @@ std::optional<NotificationData> NotificationData::decode(Decoder& decoder)
         WTFMove(*language),
         WTFMove(*direction),
         WTFMove(*originString),
+        WTFMove(*serviceWorkerRegistrationURL),
         WTFMove(*notificationID),
         WTFMove(*sourceSession),
+        WTFMove(*creationTime)
     } };
 }
 

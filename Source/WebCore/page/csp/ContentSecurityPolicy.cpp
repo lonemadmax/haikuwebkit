@@ -70,9 +70,9 @@ static String consoleMessageForViolation(const ContentSecurityPolicyDirective& v
 {
     bool isDefaultSrc = violatedDirective.isDefaultSrc();
     String name = violatedDirective.nameForReporting();
-    if (violatedDirective.nameForReporting().startsWith(ContentSecurityPolicyDirectiveNames::scriptSrc))
+    if (violatedDirective.nameForReporting().startsWith(StringView { ContentSecurityPolicyDirectiveNames::scriptSrc }))
         name = ContentSecurityPolicyDirectiveNames::scriptSrc;
-    else if (violatedDirective.nameForReporting().startsWith(ContentSecurityPolicyDirectiveNames::styleSrc))
+    else if (violatedDirective.nameForReporting().startsWith(StringView { ContentSecurityPolicyDirectiveNames::styleSrc }))
         name = ContentSecurityPolicyDirectiveNames::styleSrc;
 
     return makeString(violatedDirective.directiveList().isReportOnly() ? "[Report Only] " : "",
@@ -95,6 +95,11 @@ ContentSecurityPolicy::ContentSecurityPolicy(URL&& protectedURL, ScriptExecution
 {
     ASSERT(scriptExecutionContext.securityOrigin());
     updateSourceSelf(*scriptExecutionContext.securityOrigin());
+    // FIXME: handle the non-document case.
+    if (is<Document>(m_scriptExecutionContext)) {
+        if (auto* page = downcast<Document>(*m_scriptExecutionContext).page())
+            m_contentSecurityPolicyModeForExtension = page->contentSecurityPolicyModeForExtension();
+    }
 }
 
 ContentSecurityPolicy::~ContentSecurityPolicy() = default;
@@ -234,8 +239,8 @@ void ContentSecurityPolicy::didReceiveHeader(const String& header, ContentSecuri
 
 void ContentSecurityPolicy::updateSourceSelf(const SecurityOrigin& securityOrigin)
 {
-    m_selfSourceProtocol = securityOrigin.protocol();
-    m_selfSource = makeUnique<ContentSecurityPolicySource>(*this, m_selfSourceProtocol, securityOrigin.host(), securityOrigin.port(), emptyString(), false, false);
+    m_selfSourceProtocol = securityOrigin.protocol().convertToASCIILowercase();
+    m_selfSource = makeUnique<ContentSecurityPolicySource>(*this, m_selfSourceProtocol, securityOrigin.host(), securityOrigin.port(), emptyString(), false, false, IsSelfSource::Yes);
 }
 
 void ContentSecurityPolicy::applyPolicyToScriptExecutionContext()
@@ -288,13 +293,6 @@ bool ContentSecurityPolicy::allowContentSecurityPolicySourceStarToMatchAnyProtoc
     if (is<Document>(m_scriptExecutionContext))
         return downcast<Document>(*m_scriptExecutionContext).settings().allowContentSecurityPolicySourceStarToMatchAnyProtocol();
     return false;
-}
-
-bool ContentSecurityPolicy::protocolMatchesSelf(const URL& url) const
-{
-    if (equalLettersIgnoringASCIICase(m_selfSourceProtocol, "http"))
-        return url.protocolIsInHTTPFamily();
-    return equalIgnoringASCIICase(url.protocol(), m_selfSourceProtocol);
 }
 
 template<typename Predicate, typename... Args>
@@ -493,7 +491,7 @@ bool ContentSecurityPolicy::allowEval(JSC::JSGlobalObject* state, LogToConsole s
     bool didNotifyInspector = false;
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
         String consoleMessage = shouldLogToConsole == LogToConsole::Yes ? consoleMessageForViolation(violatedDirective, URL(), "Refused to execute a script", "'unsafe-eval'") : String();
-        reportViolation(violatedDirective, "eval", consoleMessage, state, codeContent);
+        reportViolation(violatedDirective, "eval"_s, consoleMessage, state, codeContent);
         if (!didNotifyInspector && !violatedDirective.directiveList().isReportOnly()) {
             reportBlockedScriptExecutionToInspector(violatedDirective.text());
             didNotifyInspector = true;
@@ -900,7 +898,7 @@ void ContentSecurityPolicy::reportInvalidPluginTypes(const String& pluginType) c
 {
     String message;
     if (pluginType.isNull())
-        message = "'plugin-types' Content Security Policy directive is empty; all plugins will be blocked.\n";
+        message = "'plugin-types' Content Security Policy directive is empty; all plugins will be blocked.\n"_s;
     else
         message = makeString("Invalid plugin type in 'plugin-types' Content Security Policy directive: '", pluginType, "'.\n");
     logToConsole(message);

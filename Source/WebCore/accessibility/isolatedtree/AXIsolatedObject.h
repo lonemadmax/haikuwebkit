@@ -57,8 +57,6 @@ public:
     void attachPlatformWrapper(AccessibilityObjectWrapper*);
     bool isDetached() const override;
 
-    void setParent(AXID);
-
 private:
     void detachRemoteParts(AccessibilityDetachmentType) override;
     void detachPlatformWrapper(AccessibilityDetachmentType) override;
@@ -485,8 +483,9 @@ private:
     bool press() override;
     bool performDefaultAction() override;
 
+    bool isAccessibilityObject() const override { return false; }
+
     // Functions that should never be called on an isolated tree object. ASSERT that these are not reached;
-    bool isAccessibilityObject() const override;
     bool isAccessibilityNodeObject() const override;
     bool isAccessibilityRenderObject() const override;
     bool isAccessibilityScrollbar() const override;

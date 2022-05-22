@@ -44,6 +44,9 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << underlayColor;
     encoder << useFixedLayout;
     encoder << fixedLayoutSize;
+    encoder << defaultUnobscuredSize;
+    encoder << minimumUnobscuredSize;
+    encoder << maximumUnobscuredSize;
     encoder << viewExposedRect;
     encoder << alwaysShowsHorizontalScroller;
     encoder << alwaysShowsVerticalScroller;
@@ -102,8 +105,6 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << availableScreenSize;
     encoder << overrideScreenSize;
     encoder << textAutosizingWidth;
-    encoder << minimumUnobscuredSize;
-    encoder << maximumUnobscuredSize;
     encoder << deviceOrientation;
     encoder << keyboardIsAttached;
     encoder << canShowWhileLocked;
@@ -188,6 +189,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if HAVE(TOUCH_BAR)
     encoder << requiresUserActionForEditingControlsManager;
 #endif
+
+    encoder << contentSecurityPolicyModeForExtension;
 }
 
 std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decoder& decoder)
@@ -224,6 +227,12 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     if (!decoder.decode(parameters.useFixedLayout))
         return std::nullopt;
     if (!decoder.decode(parameters.fixedLayoutSize))
+        return std::nullopt;
+    if (!decoder.decode(parameters.defaultUnobscuredSize))
+        return std::nullopt;
+    if (!decoder.decode(parameters.minimumUnobscuredSize))
+        return std::nullopt;
+    if (!decoder.decode(parameters.maximumUnobscuredSize))
         return std::nullopt;
     if (!decoder.decode(parameters.viewExposedRect))
         return std::nullopt;
@@ -365,10 +374,6 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     if (!decoder.decode(parameters.overrideScreenSize))
         return std::nullopt;
     if (!decoder.decode(parameters.textAutosizingWidth))
-        return std::nullopt;
-    if (!decoder.decode(parameters.minimumUnobscuredSize))
-        return std::nullopt;
-    if (!decoder.decode(parameters.maximumUnobscuredSize))
         return std::nullopt;
     if (!decoder.decode(parameters.deviceOrientation))
         return std::nullopt;
@@ -595,6 +600,9 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     if (!decoder.decode(parameters.requiresUserActionForEditingControlsManager))
         return std::nullopt;
 #endif
+
+    if (!decoder.decode(parameters.contentSecurityPolicyModeForExtension))
+        return std::nullopt;
 
     return parameters;
 }

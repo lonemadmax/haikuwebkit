@@ -42,15 +42,42 @@
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/CString.h>
 
-static const char* const classNameKey = "$class";
-static const char* const objectStreamKey = "$objectStream";
-static const char* const stringKey = "$string";
+static constexpr auto classNameKey = "$class"_s;
+static constexpr auto objectStreamKey = "$objectStream"_s;
+static constexpr auto stringKey = "$string"_s;
 
 static NSString * const selectorKey = @"selector";
 static NSString * const typeStringKey = @"typeString";
 static NSString * const isReplyBlockKey = @"isReplyBlock";
 
 static RefPtr<API::Dictionary> createEncodedObject(WKRemoteObjectEncoder *, id);
+
+namespace WebKit {
+
+bool methodSignaturesAreCompatible(const String& wire, const String& local)
+{
+    if (local == wire)
+        return true;
+
+    if (local.length() != wire.length())
+        return false;
+
+    unsigned length = local.length();
+    for (unsigned i = 0; i < length; i++) {
+        char localType = local[i];
+        char wireType = wire[i];
+
+        if (localType != wireType) {
+            // `bool` and `signed char` are interchangeable.
+            if (strchr("Bc", localType) && strchr("Bc", wireType))
+                continue;
+            return false;
+        }
+    }
+    return true;
+}
+
+}
 
 @interface NSMethodSignature ()
 - (NSString *)_typeString;
@@ -440,7 +467,7 @@ static void encodeObject(WKRemoteObjectEncoder *encoder, id object)
         encoder->_objectsBeingEncoded.remove(object);
     });
 
-    encoder->_currentDictionary->set(classNameKey, API::String::create(class_getName(objectClass)));
+    encoder->_currentDictionary->set(classNameKey, API::String::create(String { class_getName(objectClass) }));
 
     if ([object isKindOfClass:[NSInvocation class]]) {
         // We have to special case NSInvocation since we don't want to encode the target.
@@ -943,9 +970,10 @@ static NSInvocation *decodeInvocation(WKRemoteObjectDecoder *decoder)
     if (!typeSignature)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"Invocation had no type signature"];
 
-    NSMethodSignature *remoteMethodSignature = [NSMethodSignature signatureWithObjCTypes:typeSignature.UTF8String];
-    if (![[invocation methodSignature] isEqual:remoteMethodSignature])
-        [NSException raise:NSInvalidUnarchiveOperationException format:@"Local and remote method signatures are not equal for method \"%s\"", selector ? sel_getName(selector) : "(no selector)"];
+    String remoteMethodSignature = typeSignature.UTF8String;
+    String localMethodSignature = [invocation methodSignature]._typeString.UTF8String;
+    if (!WebKit::methodSignaturesAreCompatible(remoteMethodSignature, localMethodSignature))
+        [NSException raise:NSInvalidUnarchiveOperationException format:@"Local and remote method signatures are not compatible for method \"%s\"", selector ? sel_getName(selector) : "(no selector)"];
 
     if (isReplyBlock) {
         const auto& allowedClasses = [decoder->_interface _allowedArgumentClassesForReplyBlockOfSelector:decoder->_replyToSelector];

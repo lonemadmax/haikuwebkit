@@ -122,6 +122,16 @@ AsyncOverflowScrollingEnabled:
     WebCore:
       default: false
 
+BlockIOKitInWebContentSandbox:
+  type: bool
+  humanReadableName: "IOKit blocking in the WebContent sandbox"
+  humanReadableDescription: "Block IOKit access in the WebContent sandbox"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: false
+
 CSSDisplayContentsAXSupportEnabled:
   type: bool
   humanReadableName: "Accessibility support for display: contents elements"
@@ -690,7 +700,7 @@ OffscreenCanvasEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "ENABLE(EXPERIMENTAL_FEATURES) && (PLATFORM(GTK) || PLATFORM(WPE))": true
+      "ENABLE(EXPERIMENTAL_FEATURES)": true
       default: false
 
 OffscreenCanvasInWorkersEnabled:
@@ -703,7 +713,7 @@ OffscreenCanvasInWorkersEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "ENABLE(EXPERIMENTAL_FEATURES) && (PLATFORM(GTK) || PLATFORM(WPE))": true
+      "ENABLE(EXPERIMENTAL_FEATURES)": true
       default: false
 
 PdfJSViewerEnabled:
@@ -840,8 +850,7 @@ ServiceWorkersEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "ENABLE(EXPERIMENTAL_FEATURES) || PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)": true
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -981,6 +990,16 @@ UseGPUProcessForMediaEnabled:
   defaultValue:
     WebKit:
       default: WebKit::defaultUseGPUProcessForMediaEnabled()
+
+UseGeneralDirectoryForStorage:
+  type: bool
+  humanReadableName: "Use General Directory For Storage"
+  humanReadableDescription: "Use general storage directory for IndexedDB and LocalStorage"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: true
 
 UseSceneKitForModel:
   type: bool

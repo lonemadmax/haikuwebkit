@@ -37,6 +37,7 @@
 #include "WebURLSchemeHandlerIdentifier.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
+#include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/DestinationColorSpace.h>
 #include <WebCore/FloatSize.h>
 #include <WebCore/HighlightVisibility.h>
@@ -83,6 +84,10 @@ struct WebPageCreationParameters {
 
     bool useFixedLayout;
     WebCore::IntSize fixedLayoutSize;
+
+    WebCore::FloatSize defaultUnobscuredSize;
+    WebCore::FloatSize minimumUnobscuredSize;
+    WebCore::FloatSize maximumUnobscuredSize;
 
     std::optional<WebCore::FloatRect> viewExposedRect;
 
@@ -162,8 +167,6 @@ struct WebPageCreationParameters {
     WebCore::FloatSize availableScreenSize;
     WebCore::FloatSize overrideScreenSize;
     float textAutosizingWidth;
-    WebCore::FloatSize minimumUnobscuredSize;
-    WebCore::FloatSize maximumUnobscuredSize;
     int32_t deviceOrientation { 0 };
     bool keyboardIsAttached { false };
     bool canShowWhileLocked { false };
@@ -262,6 +265,8 @@ struct WebPageCreationParameters {
 #if HAVE(TOUCH_BAR)
     bool requiresUserActionForEditingControlsManager { false };
 #endif
+
+    WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 };
 
 } // namespace WebKit

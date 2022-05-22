@@ -1,3 +1,182 @@
+2022-04-04  Cathie Chen  <cathiechen@igalia.com>
+
+        REGRESSION(r291797): [wk1] 5 contain-intrinsic-size* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238584
+
+        Reviewed by Simon Fraser.
+
+        Enable ResizeObserver for legacy WebKit.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-04-03  Tim Horton  <timothy_horton@apple.com>
+
+        _WKDataTask doesn't work in macCatalyst
+        https://bugs.webkit.org/show_bug.cgi?id=238655
+
+        Reviewed by Alexey Proskuryakov.
+
+        * wtf/PlatformHave.h:
+        Enable HAVE(NSURLSESSION_TASK_DELEGATE) on macCatalyst.
+        Drive-by enable a few other things on macCatalyst.
+        Remove and simplify some always-true version checks.
+        Leave some comments about ones I'm not sure about.
+
+2022-04-02  Chris Dumez  <cdumez@apple.com>
+
+        Add default constructor to ASCIILiteral
+        https://bugs.webkit.org/show_bug.cgi?id=238700
+
+        Reviewed by Geoffrey Garen.
+
+        Add default constructor to ASCIILiteral, to replace the more verbose ASCIILiteral::null().
+
+        * wtf/cocoa/ResourceUsageCocoa.cpp:
+        (WTF::displayNameForVMTag):
+        * wtf/text/ASCIILiteral.h:
+
+2022-04-01  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, drop unnecessary WTF_EXPORT_PRIVATE on String(ASCIILiteral)
+
+        This constructor was recently inlined.
+
+        * wtf/text/WTFString.h:
+
+2022-03-31  Chris Dumez  <cdumez@apple.com>
+
+        Prepare WebKit/ & WebKitLegacy/ for making the String(const char*) constructor explicit
+        https://bugs.webkit.org/show_bug.cgi?id=238525
+
+        Reviewed by Darin Adler.
+
+        * wtf/FileSystem.h:
+        (WTF::FileSystemImpl::openTemporaryFile):
+        * wtf/cocoa/FileSystemCocoa.mm:
+        (WTF::FileSystemImpl::openTemporaryFile):
+        * wtf/glib/FileSystemGlib.cpp:
+        (WTF::FileSystemImpl::openTemporaryFile):
+        * wtf/posix/FileSystemPOSIX.cpp:
+        (WTF::FileSystemImpl::openTemporaryFile):
+        * wtf/win/FileSystemWin.cpp:
+        (WTF::FileSystemImpl::openTemporaryFile):
+
+2022-03-31  Alex Christensen  <achristensen@webkit.org>
+
+        Remove EXPERIMENTAL_FEATURES flag use on Cocoa platforms
+        https://bugs.webkit.org/show_bug.cgi?id=238565
+
+        Reviewed by Darin Adler.
+
+        It was used to enable some experimental features in places like Safari Technology Preview,
+        but we don't want Safari Technology Preview to be this fundamentally different than WebKit
+        everywhere else.  This removes the flag and treats code accordingly as if it were always false.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-31  Per Arne Vollan  <pvollan@apple.com>
+
+        Add runtime flag for blocking IOKit resources in the WebContent process' sandbox
+        https://bugs.webkit.org/show_bug.cgi?id=238528
+
+        Reviewed by Simon Fraser.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-30  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Link WebCore with WebGPU.framework 🎉
+        https://bugs.webkit.org/show_bug.cgi?id=236751
+
+        Reviewed by Dean Jackson.
+
+        Apple's build system has been configured, so it's now safe to
+        link WebCore.framework and WebGPU.framework.
+
+        We correctly handle the situation where the framework isn't present
+        at runtime.
+
+        * wtf/PlatformHave.h:
+
+2022-03-30  Chris Dumez  <cdumez@apple.com>
+
+        Add HashTranslator for ASCIILiteral for faster lookup in HashMaps / HashSets
+        https://bugs.webkit.org/show_bug.cgi?id=238521
+
+        Reviewed by Geoffrey Garen.
+
+        Add HashTranslator for ASCIILiteral for faster lookup in HashMaps / HashSets using an ASCIILiteral,
+        without the need for allocating a String.
+
+        * wtf/text/StringImpl.h:
+        * wtf/text/WTFString.h:
+        (WTF::HashTranslatorASCIILiteral::hash):
+        (WTF::HashTranslatorASCIILiteral::equal):
+        (WTF::HashTranslatorASCIILiteral::translate):
+
+2022-03-30  Youenn Fablet  <youenn@apple.com>
+
+        Implement ServiceWorker WindowClient.ancestorOrigins
+        https://bugs.webkit.org/show_bug.cgi?id=238441
+
+        Reviewed by Chris Dumez.
+
+        Update UniqueRef and HashTraits to not use a private constructor when creating empty values.
+
+        * wtf/HashTraits.h:
+        * wtf/UniqueRef.h:
+
+2022-03-28  Sihui Liu  <sihui_liu@apple.com>
+
+        Disable custom storage paths for IndexedDB and LocalStorage by default
+        https://bugs.webkit.org/show_bug.cgi?id=236977
+        <rdar://problem/89559929>
+
+        Reviewed by Geoffrey Garen.
+
+        Add an internal debug feature for using genreal directory for storage.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-28  Chris Dumez  <cdumez@apple.com>
+
+        Prepare WebCore for making the String(const char*) constructor explicit
+        https://bugs.webkit.org/show_bug.cgi?id=238408
+
+        Reviewed by Geoff Garen.
+
+        Prepare WebCore for making the String(const char*) constructor explicit.
+        Making this constructor explicit helps findings cases where a String is constructed
+        from a literal without the ""_s suffix.
+
+        * wtf/text/WTFString.h:
+        (WTF::equalIgnoringASCIICase):
+
+2022-03-28  Brady Eidson  <beidson@apple.com>
+
+        Support ServiceWorkerClients.openWindow.
+        <rdar://90616651> and https://bugs.webkit.org/show_bug.cgi?id=238400
+
+        Reviewed by Youenn Fablet.
+
+        * wtf/HashTable.h:
+        (WTF::KeyTraits>::inlineLookup): Relax this value size requirement for now.
+        The required refactoring is best left as a seperate task with a seperate patch.
+
+2022-03-28  Chris Dumez  <cdumez@apple.com>
+
+        Use StringView for Yarr / RegularExpression parsing
+        https://bugs.webkit.org/show_bug.cgi?id=238420
+
+        Reviewed by Sam Weinig.
+
+        Add convenience characters() templated function to StringView, to match String and StringImpl.
+
+        * wtf/text/StringView.h:
+        (WTF::StringView::characters<LChar> const):
+        (WTF::StringView::characters<UChar> const):
+
 2022-03-27  Alexander Mikhaylenko  <alexm@gnome.org>
 
         [GTK][WPE] Support CSS accent-color

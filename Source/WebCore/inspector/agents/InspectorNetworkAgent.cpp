@@ -275,7 +275,9 @@ Ref<Protocol::Network::Metrics> InspectorNetworkAgent::buildObjectForMetrics(con
             metrics->setRequestBodyBytesSent(additionalMetrics->requestBodyBytesSent);
         if (additionalMetrics->responseHeaderBytesReceived != std::numeric_limits<uint64_t>::max())
             metrics->setResponseHeaderBytesReceived(additionalMetrics->responseHeaderBytesReceived);
+        metrics->setIsProxyConnection(additionalMetrics->isProxyConnection);
     }
+
     if (networkLoadMetrics.responseBodyBytesReceived != std::numeric_limits<uint64_t>::max())
         metrics->setResponseBodyBytesReceived(networkLoadMetrics.responseBodyBytesReceived);
     if (networkLoadMetrics.responseBodyDecodedSize != std::numeric_limits<uint64_t>::max())
@@ -1032,7 +1034,7 @@ Protocol::ErrorStringOr<Ref<Protocol::Runtime::RemoteObject>> InspectorNetworkAg
 
     // FIXME: <https://webkit.org/b/168475> Web Inspector: Correctly display iframe's and worker's WebSockets
     if (!is<Document>(webSocket->scriptExecutionContext()))
-        return makeUnexpected("Not supported");
+        return makeUnexpected("Not supported"_s);
 
     auto* document = downcast<Document>(webSocket->scriptExecutionContext());
     auto* frame = document->frame();
@@ -1045,7 +1047,7 @@ Protocol::ErrorStringOr<Ref<Protocol::Runtime::RemoteObject>> InspectorNetworkAg
 
     auto object = injectedScript.wrapObject(webSocketAsScriptValue(globalObject, webSocket), objectGroup);
     if (!object)
-        return makeUnexpected("Internal error: unable to cast WebSocket");
+        return makeUnexpected("Internal error: unable to cast WebSocket"_s);
 
     return object.releaseNonNull();
 }

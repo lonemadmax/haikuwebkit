@@ -155,7 +155,9 @@ public:
     using HTMLElement::weakPtrFactory;
 
     RefPtr<MediaPlayer> player() const { return m_player; }
-    bool supportsAcceleratedRendering() const { return m_cachedSupportsAcceleratedRendering; }
+    WEBCORE_EXPORT std::optional<MediaPlayerIdentifier> playerIdentifier() const;
+
+    bool supportsAcceleratedRendering() const { return m_player && m_player->supportsAcceleratedRendering(); }
 
     virtual bool isVideo() const { return false; }
     bool hasVideo() const override { return false; }
@@ -295,8 +297,6 @@ public:
     WEBCORE_EXPORT bool webkitClosedCaptionsVisible() const;
     WEBCORE_EXPORT void setWebkitClosedCaptionsVisible(bool);
 
-    bool elementIsHidden() const { return m_elementIsHidden; }
-
 #if ENABLE(MEDIA_STATISTICS)
 // Statistics
     unsigned webkitAudioDecodedByteCount() const;
@@ -425,8 +425,8 @@ public:
     void textTrackReadyStateChanged(TextTrack*);
     void updateTextTrackRepresentationImageIfNeeded();
 
-    bool addEventListener(const AtomString& eventType, Ref<EventListener>&&, const AddEventListenerOptions&) override;
-    bool removeEventListener(const AtomString& eventType, EventListener&, const EventListenerOptions&) override;
+    WEBCORE_EXPORT bool addEventListener(const AtomString& eventType, Ref<EventListener>&&, const AddEventListenerOptions&) override;
+    WEBCORE_EXPORT bool removeEventListener(const AtomString& eventType, EventListener&, const EventListenerOptions&) override;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     void webkitShowPlaybackTargetPicker();
@@ -609,6 +609,9 @@ public:
     WEBCORE_EXPORT AudioSessionCategory categoryAtMostRecentPlayback() const { return m_categoryAtMostRecentPlayback; }
 #endif
 
+    void updateMediaPlayer(IntSize, bool);
+    WEBCORE_EXPORT bool elementIsHidden() const;
+
 protected:
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLMediaElement();
@@ -645,7 +648,6 @@ protected:
     void setChangingVideoFullscreenMode(bool value) { m_changingVideoFullscreenMode = value; }
     bool isChangingVideoFullscreenMode() const { return m_changingVideoFullscreenMode; }
 
-protected:
     void mediaPlayerEngineUpdated() override;
 
 private:
@@ -955,7 +957,6 @@ private:
     void updateShouldAutoplay();
 
     void pauseAfterDetachedTask();
-    void updatePlaybackControlsManager();
     void schedulePlaybackControlsManagerUpdate();
     void playbackControlsManagerBehaviorRestrictionsTimerFired();
 
@@ -963,7 +964,7 @@ private:
 
     void updatePageScaleFactorJSProperty();
     void updateUsesLTRUserInterfaceLayoutDirectionJSProperty();
-    void setControllerJSProperty(const char*, JSC::JSValue);
+    void setControllerJSProperty(ASCIILiteral, JSC::JSValue);
 
     void addBehaviorRestrictionsOnEndIfNecessary();
     void handleSeekToPlaybackPosition(double);
@@ -1067,7 +1068,6 @@ private:
 #endif
 
     RefPtr<MediaPlayer> m_player;
-    bool m_cachedSupportsAcceleratedRendering { false };
 
     MediaPlayer::Preload m_preload { Preload::Auto };
 

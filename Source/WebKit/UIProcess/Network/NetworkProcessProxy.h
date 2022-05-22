@@ -41,6 +41,7 @@
 #include "WebsiteDataStore.h"
 #include <WebCore/CrossSiteNavigationDataTransfer.h>
 #include <WebCore/FrameIdentifier.h>
+#include <WebCore/NotificationEventType.h>
 #include <WebCore/RegistrableDomain.h>
 #include <memory>
 #include <wtf/Deque.h>
@@ -72,13 +73,14 @@ class AuthenticationChallenge;
 class SharedBuffer;
 class ProtectionSpace;
 class ResourceRequest;
+class SecurityOrigin;
 enum class ShouldSample : bool;
 enum class StorageAccessPromptWasShown : bool;
 enum class StorageAccessWasGranted : bool;
 enum class StoredCredentialsPolicy : uint8_t;
-class SecurityOrigin;
-struct SecurityOriginData;
 struct ClientOrigin;
+struct NotificationData;
+struct SecurityOriginData;
 }
 
 namespace WebKit {
@@ -237,7 +239,7 @@ public:
     void createSymLinkForFileUpgrade(const String& indexedDatabaseDirectory);
 
     // ProcessThrottlerClient
-    void sendProcessDidResume() final;
+    void sendProcessDidResume(ResumeReason) final;
     ASCIILiteral clientName() const final { return "NetworkProcess"_s; }
     
     static void setSuspensionAllowedForTesting(bool);
@@ -284,6 +286,7 @@ public:
 #if ENABLE(SERVICE_WORKER)
     void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
     void processPushMessage(PAL::SessionID, const WebPushMessage&, CompletionHandler<void(bool wasProcessed)>&&);
+    void processNotificationEvent(const WebCore::NotificationData&, WebCore::NotificationEventType);
 #endif
 
     void deletePushAndNotificationRegistration(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(const String&)>&&);
@@ -298,6 +301,8 @@ public:
     void cancelDataTask(DataTaskIdentifier, PAL::SessionID);
 
     void terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType, PAL::SessionID, const WebCore::RegistrableDomain&, WebCore::ProcessIdentifier);
+
+    void openWindowFromServiceWorker(PAL::SessionID, const String& urlString, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(std::optional<WebCore::PageIdentifier>&&)>&&);
 
 private:
     explicit NetworkProcessProxy();
@@ -372,6 +377,13 @@ private:
     void didExceedMemoryLimit();
 #endif
 
+    void applicationDidEnterBackground();
+    void applicationWillEnterForeground();
+#if PLATFORM(IOS_FAMILY)
+    void addBackgroundStateObservers();
+    void removeBackgroundStateObservers();
+#endif
+
     std::unique_ptr<DownloadProxyMap> m_downloadProxyMap;
 
     UniqueRef<API::CustomProtocolManagerClient> m_customProtocolManagerClient;
@@ -409,6 +421,11 @@ private:
     WeakHashSet<WebsiteDataStore> m_websiteDataStores;
     UniqueRef<WebCookieManagerProxy> m_cookieManager;
     HashMap<DataTaskIdentifier, Ref<API::DataTask>> m_dataTasks;
+
+#if PLATFORM(IOS_FAMILY)
+    RetainPtr<id> m_backgroundObserver;
+    RetainPtr<id> m_foregroundObserver;
+#endif
 };
 
 } // namespace WebKit

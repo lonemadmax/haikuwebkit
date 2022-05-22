@@ -1016,8 +1016,10 @@
 ;; Allow loading injected bundles.
 (allow file-map-executable)
 
+#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 ;; Allow ManagedPreference access
 (allow file-read* (literal "/private/var/Managed Preferences/mobile/com.apple.webcontentfilter.plist"))
+#endif
 
 (allow file-read-data
     (literal "/usr/local/lib/log") ; <rdar://problem/36629495>
@@ -1040,7 +1042,7 @@
     (xpc-service-name "com.apple.audio.toolbox.reporting.service")
 )
 
-(allow iokit-open (with telemetry)
+(allow iokit-open (with telemetry-backtrace)
     (require-all
         (require-not (extension "com.apple.webkit.extension.iokit"))
         (iokit-user-client-class
@@ -1065,12 +1067,33 @@
     )
 )
 
-(allow iokit-open (with report) (with telemetry)
+(allow iokit-open (with report) (with telemetry-backtrace)
     (require-all
         (require-not (extension "com.apple.webkit.extension.iokit"))
         (iokit-connection "IOGPU")
     )
 )
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+;; This rule enables the WebContent process to enable the "BlockIOKitInWebContentSandbox" sandbox variable
+;; by reading a preference from the domain "com.apple.WebKit.WebContent.BlockIOKitInWebContentSandbox".
+(deny user-preference-read (with enable-state-flag "BlockIOKitInWebContentSandbox")
+    (preference-domain "com.apple.WebKit.WebContent.BlockIOKitInWebContentSandbox"))
+
+(with-filter (state-flag "BlockIOKitInWebContentSandbox")
+    (deny iokit-open (with telemetry-backtrace)
+        (require-all
+            (require-not (extension "com.apple.webkit.extension.iokit"))
+            (iokit-user-client-class "IOSurfaceRootUserClient")))
+    (deny iokit-open (with telemetry-backtrace)
+        (require-all
+            (require-not (extension "com.apple.webkit.extension.iokit"))
+            (iokit-connection "IOGPU")))
+    (deny mach-lookup (with telemetry-backtrace)
+        (require-all
+            (require-not (extension "com.apple.webkit.extension.mach"))
+            (xpc-service-name "com.apple.MTLCompilerService"))))
+#endif
 
 (with-filter (system-attribute apple-internal)
     (allow mach-lookup

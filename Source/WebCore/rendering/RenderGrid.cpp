@@ -280,7 +280,15 @@ void RenderGrid::layoutBlock(bool relayoutChildren, LayoutUnit)
         // logical width is always definite as the above call to updateLogicalWidth() properly resolves intrinsic 
         // sizes. We cannot do the same for heights though because many code paths inside updateLogicalHeight() require 
         // a previous call to setLogicalHeight() to resolve heights properly (like for positioned items for example).
-        computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
+        if (shouldApplySizeContainment(*this))
+            computeTrackSizesForIndefiniteSize(m_trackSizingAlgorithm, ForColumns);
+        else
+            computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
+
+        m_minContentSize = m_trackSizingAlgorithm.minContentSize();
+        m_maxContentSize = m_trackSizingAlgorithm.maxContentSize();
+        if (shouldApplySizeContainment(*this))
+            computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
 
         // 1.5- Compute Content Distribution offsets for column tracks
         computeContentPositionAndDistributionOffset(ForColumns, m_trackSizingAlgorithm.freeSpace(ForColumns).value(), nonCollapsedTracks(ForColumns));
@@ -459,23 +467,29 @@ void RenderGrid::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, Layo
     LayoutUnit childMaxWidth;
     bool hadExcludedChildren = computePreferredWidthsForExcludedChildren(childMinWidth, childMaxWidth);
 
-    GridTrackSizingAlgorithm algorithm(this, const_cast<Grid&>(m_grid));
-    placeItemsOnGrid(algorithm, std::nullopt);
+    if (needsLayout()) {
+        GridTrackSizingAlgorithm algorithm(this, const_cast<Grid&>(m_grid));
+        placeItemsOnGrid(algorithm, std::nullopt);
 
-    performGridItemsPreLayout(algorithm);
+        performGridItemsPreLayout(algorithm);
 
-    if (m_baselineItemsCached)
-        algorithm.copyBaselineItemsCache(m_trackSizingAlgorithm, GridRowAxis);
-    else {
-        for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-            if (child->isOutOfFlowPositioned())
-                continue;
-            if (isBaselineAlignmentForChild(*child, GridRowAxis))
-                algorithm.cacheBaselineAlignedItem(*child, GridRowAxis);
+        if (m_baselineItemsCached)
+            algorithm.copyBaselineItemsCache(m_trackSizingAlgorithm, GridRowAxis);
+        else {
+            for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
+                if (child->isOutOfFlowPositioned())
+                    continue;
+                if (isBaselineAlignmentForChild(*child, GridRowAxis))
+                    algorithm.cacheBaselineAlignedItem(*child, GridRowAxis);
+            }
         }
-    }
 
-    computeTrackSizesForIndefiniteSize(algorithm, ForColumns, &minLogicalWidth, &maxLogicalWidth);
+        computeTrackSizesForIndefiniteSize(algorithm, ForColumns, &minLogicalWidth, &maxLogicalWidth);
+    } else {
+        LayoutUnit totalGuttersSize = guttersSize(m_grid, ForColumns, 0, numTracks(ForColumns), std::nullopt);
+        minLogicalWidth = *m_minContentSize + totalGuttersSize;
+        maxLogicalWidth = *m_maxContentSize + totalGuttersSize;
+    }
 
     if (hadExcludedChildren) {
         minLogicalWidth = std::max(minLogicalWidth, childMinWidth);
@@ -787,7 +801,7 @@ void RenderGrid::populateExplicitGridAndOrderIterator(Grid& grid) const
         if (!populator.collectChild(*child))
             continue;
         
-        GridSpan rowPositions = GridPositionsResolver::resolveGridPositionsFromStyle(*child, ForRows);
+        GridSpan rowPositions = GridPositionsResolver::resolveGridPositionsFromStyle(*this, *child, ForRows);
         if (!isSubgridRows()) {
             if (!rowPositions.isIndefinite()) {
                 explicitRowStart = std::max<int>(explicitRowStart, -rowPositions.untranslatedStartLine());
@@ -799,7 +813,7 @@ void RenderGrid::populateExplicitGridAndOrderIterator(Grid& grid) const
             }
         }
 
-        GridSpan columnPositions = GridPositionsResolver::resolveGridPositionsFromStyle(*child, ForColumns);
+        GridSpan columnPositions = GridPositionsResolver::resolveGridPositionsFromStyle(*this, *child, ForColumns);
         if (!isSubgridColumns()) {
             if (!columnPositions.isIndefinite()) {
                 explicitColumnStart = std::max<int>(explicitColumnStart, -columnPositions.untranslatedStartLine());
@@ -1987,17 +2001,17 @@ void RenderGrid::paintChildren(PaintInfo& paintInfo, const LayoutPoint& paintOff
         paintChild(*child, paintInfo, paintOffset, forChild, usePrintRect, PaintAsInlineBlock);
 }
 
-const char* RenderGrid::renderName() const
+ASCIILiteral RenderGrid::renderName() const
 {
     if (isFloating())
-        return "RenderGrid (floating)";
+        return "RenderGrid (floating)"_s;
     if (isOutOfFlowPositioned())
-        return "RenderGrid (positioned)";
+        return "RenderGrid (positioned)"_s;
     if (isAnonymous())
-        return "RenderGrid (generated)";
+        return "RenderGrid (generated)"_s;
     if (isRelativelyPositioned())
-        return "RenderGrid (relative positioned)";
-    return "RenderGrid";
+        return "RenderGrid (relative positioned)"_s;
+    return "RenderGrid"_s;
 }
 
 bool RenderGrid::hasAutoSizeInColumnAxis(const RenderBox& child) const
@@ -2038,7 +2052,7 @@ bool RenderGrid::computeGridPositionsForOutOfFlowChild(const RenderBox& child, G
 {
     ASSERT(child.isOutOfFlowPositioned());
     int lastLine = numTracks(direction, m_grid);
-    GridSpan span = GridPositionsResolver::resolveGridPositionsFromStyle(child, direction);
+    GridSpan span = GridPositionsResolver::resolveGridPositionsFromStyle(*this, child, direction);
     if (span.isIndefinite())
         return false;
 

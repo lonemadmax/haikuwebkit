@@ -485,12 +485,6 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         m_propertyMap.set(propertyName, value);
 }
 
-void AXIsolatedObject::setParent(AXID parent)
-{
-    ASSERT(isMainThread());
-    m_parentID = parent;
-}
-
 void AXIsolatedObject::detachRemoteParts(AccessibilityDetachmentType)
 {
     for (const auto& childID : m_childrenIDs) {
@@ -1305,12 +1299,6 @@ void AXIsolatedObject::decrement()
 }
 
 bool AXIsolatedObject::performDefaultAction()
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-bool AXIsolatedObject::isAccessibilityObject() const
 {
     ASSERT_NOT_REACHED();
     return false;

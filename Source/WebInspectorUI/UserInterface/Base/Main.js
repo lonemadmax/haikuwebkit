@@ -3084,7 +3084,7 @@ WI.createMessageTextView = function(message, isError)
 
     let textElement = messageElement.appendChild(document.createElement("div"));
     textElement.className = "message";
-    textElement.textContent = message;
+    textElement.append(message);
 
     return messageElement;
 };
@@ -3555,7 +3555,6 @@ WI.reset = async function()
 };
 
 WI.isEngineeringBuild = false;
-WI.isExperimentalBuild = InspectorFrontendHost.isExperimentalBuild();
 
 // OpenResourceDialog delegate
 

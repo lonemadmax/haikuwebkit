@@ -4079,6 +4079,45 @@ void WebPageProxy::setFixedLayoutSize(const IntSize& size)
     send(Messages::WebPage::SetFixedLayoutSize(size));
 }
 
+void WebPageProxy::setDefaultUnobscuredSize(const FloatSize& size)
+{
+    if (size == m_defaultUnobscuredSize)
+        return;
+
+    m_defaultUnobscuredSize = size;
+
+    if (!hasRunningProcess())
+        return;
+
+    send(Messages::WebPage::SetDefaultUnobscuredSize(m_defaultUnobscuredSize));
+}
+
+void WebPageProxy::setMinimumUnobscuredSize(const FloatSize& size)
+{
+    if (size == m_minimumUnobscuredSize)
+        return;
+
+    m_minimumUnobscuredSize = size;
+
+    if (!hasRunningProcess())
+        return;
+
+    send(Messages::WebPage::SetMinimumUnobscuredSize(m_minimumUnobscuredSize));
+}
+
+void WebPageProxy::setMaximumUnobscuredSize(const FloatSize& size)
+{
+    if (size == m_maximumUnobscuredSize)
+        return;
+
+    m_maximumUnobscuredSize = size;
+
+    if (!hasRunningProcess())
+        return;
+
+    send(Messages::WebPage::SetMaximumUnobscuredSize(m_maximumUnobscuredSize));
+}
+
 void WebPageProxy::setViewExposedRect(std::optional<WebCore::FloatRect> viewExposedRect)
 {
     if (m_viewExposedRect == viewExposedRect)
@@ -4511,6 +4550,11 @@ void WebPageProxy::getWebArchiveOfFrame(WebFrameProxy* frame, CompletionHandler<
     sendWithAsyncReply(Messages::WebPage::GetWebArchiveOfFrame(frame->frameID()), toAPIDataCallback(WTFMove(callback)));
 }
 
+void WebPageProxy::getAccessibilityTreeData(CompletionHandler<void(API::Data*)>&& callback)
+{
+    sendWithAsyncReply(Messages::WebPage::GetAccessibilityTreeData(), toAPIDataCallback(WTFMove(callback)));
+}
+
 void WebPageProxy::forceRepaint(CompletionHandler<void()>&& callback)
 {
     if (!hasRunningProcess())
@@ -4870,7 +4914,7 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
         if (navigation)
             navigation->setClientNavigationActivity(nullptr);
 
-        callServiceWorkerLaunchCompletionHandlerIfNecessary();
+        callLoadCompletionHandlersIfNecessary(false);
     }
 
     frame.didFailProvisionalLoad();
@@ -4905,11 +4949,14 @@ void WebPageProxy::didFinishServiceWorkerPageRegistration(bool success)
 }
 #endif
 
-void WebPageProxy::callServiceWorkerLaunchCompletionHandlerIfNecessary()
+void WebPageProxy::callLoadCompletionHandlersIfNecessary(bool success)
 {
 #if ENABLE(SERVICE_WORKER)
-    if (m_isServiceWorkerPage && m_serviceWorkerLaunchCompletionHandler)
+    if (m_isServiceWorkerPage && m_serviceWorkerLaunchCompletionHandler && !success)
         m_serviceWorkerLaunchCompletionHandler(false);
+
+    if (m_serviceWorkerOpenWindowCompletionCallback)
+        m_serviceWorkerOpenWindowCompletionCallback(success);
 #endif
 }
 
@@ -5134,6 +5181,8 @@ void WebPageProxy::didFinishLoadForFrame(FrameIdentifier frameID, FrameInfoData&
         resetRecentCrashCountSoon();
 
         notifyProcessPoolToPrewarm();
+
+        callLoadCompletionHandlersIfNecessary(true);
     }
 
     m_isLoadingAlternateHTMLStringForFailingProvisionalLoad = false;
@@ -5182,7 +5231,7 @@ void WebPageProxy::didFailLoadForFrame(FrameIdentifier frameID, FrameInfoData&& 
         if (navigation)
             navigation->setClientNavigationActivity(nullptr);
 
-        callServiceWorkerLaunchCompletionHandlerIfNecessary();
+        callLoadCompletionHandlersIfNecessary(false);
     }
 }
 
@@ -8018,7 +8067,7 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 #endif
 
     if (resetStateReason != ResetStateReason::NavigationSwap)
-        callServiceWorkerLaunchCompletionHandlerIfNecessary();
+        callLoadCompletionHandlersIfNecessary(false);
 
     if (m_openPanelResultListener) {
         m_openPanelResultListener->invalidate();
@@ -8284,6 +8333,9 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.underlayColor = m_underlayColor;
     parameters.useFixedLayout = m_useFixedLayout;
     parameters.fixedLayoutSize = m_fixedLayoutSize;
+    parameters.defaultUnobscuredSize = m_defaultUnobscuredSize;
+    parameters.minimumUnobscuredSize = m_minimumUnobscuredSize;
+    parameters.maximumUnobscuredSize = m_maximumUnobscuredSize;
     parameters.viewExposedRect = m_viewExposedRect;
     parameters.alwaysShowsHorizontalScroller = m_alwaysShowsHorizontalScroller;
     parameters.alwaysShowsVerticalScroller = m_alwaysShowsVerticalScroller;
@@ -8342,8 +8394,6 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.overrideScreenSize = overrideScreenSize();
     parameters.textAutosizingWidth = textAutosizingWidth();
     parameters.mimeTypesWithCustomContentProviders = pageClient().mimeTypesWithCustomContentProviders();
-    parameters.minimumUnobscuredSize = m_minimumUnobscuredSize;
-    parameters.maximumUnobscuredSize = m_maximumUnobscuredSize;
     parameters.deviceOrientation = m_deviceOrientation;
     parameters.keyboardIsAttached = isInHardwareKeyboardMode();
     parameters.canShowWhileLocked = m_configuration->canShowWhileLocked();
@@ -8374,6 +8424,7 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.userInterfaceLayoutDirection = pageClient().userInterfaceLayoutDirection();
     parameters.observedLayoutMilestones = m_observedLayoutMilestones;
     parameters.overrideContentSecurityPolicy = m_overrideContentSecurityPolicy;
+    parameters.contentSecurityPolicyModeForExtension = m_configuration->contentSecurityPolicyModeForExtension();
     parameters.cpuLimit = m_cpuLimit;
 
 #if USE(WPE_RENDERER)
@@ -11066,7 +11117,7 @@ WebCore::CaptureSourceOrError WebPageProxy::createRealtimeMediaSourceForSpeechRe
 {
     auto captureDevice = SpeechRecognitionCaptureSource::findCaptureDevice();
     if (!captureDevice)
-        return CaptureSourceOrError { "No device is available for capture" };
+        return CaptureSourceOrError { "No device is available for capture"_s };
 
     if (preferences().captureAudioInGPUProcessEnabled())
         return CaptureSourceOrError { SpeechRecognitionRemoteRealtimeMediaSource::create(m_process->ensureSpeechRecognitionRemoteRealtimeMediaSourceManager(), *captureDevice, m_webPageID) };
@@ -11236,9 +11287,9 @@ bool WebPageProxy::shouldEnableCaptivePortalMode() const
     return m_configuration->captivePortalModeEnabled();
 }
 
-void WebPageProxy::interactableRegionsInRootViewCoordinates(FloatRect rect, CompletionHandler<void(Vector<FloatRect>)>&& completionHandler)
+void WebPageProxy::interactionRegions(FloatRect rectInContentCoordinates, CompletionHandler<void(Vector<InteractionRegion>)>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::WebPage::InteractableRegionsInRootViewCoordinates(rect), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::WebPage::InteractionRegions(rectInContentCoordinates), WTFMove(completionHandler));
 }
 
 #if PLATFORM(COCOA)
@@ -11261,6 +11312,40 @@ void WebPageProxy::requestCookieConsent(CompletionHandler<void(CookieConsentDeci
 void WebPageProxy::decidePolicyForModalContainer(OptionSet<ModalContainerControlType> types, CompletionHandler<void(ModalContainerDecision)>&& completion)
 {
     m_uiClient->decidePolicyForModalContainer(types, WTFMove(completion));
+}
+
+void WebPageProxy::extractVideoInElementFullScreen(MediaPlayerIdentifier identifier, FloatRect bounds)
+{
+    if (!pageClient().isFullscreenVideoExtractionEnabled())
+        return;
+
+#if ENABLE(GPU_PROCESS)
+    RefPtr gpuProcess = GPUProcessProxy::singletonIfCreated();
+    if (!gpuProcess)
+        return;
+
+    m_hasPendingElementFullScreenVideoExtraction = true;
+    gpuProcess->requestBitmapImageForCurrentTime(m_process->coreProcessIdentifier(), identifier, [weakThis = WeakPtr { *this }, bounds](auto& bitmapHandle) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !protectedThis->m_hasPendingElementFullScreenVideoExtraction)
+            return;
+
+        protectedThis->pageClient().beginElementFullscreenVideoExtraction(bitmapHandle, bounds);
+        protectedThis->m_hasPendingElementFullScreenVideoExtraction = false;
+    });
+#else
+    UNUSED_PARAM(identifier);
+    UNUSED_PARAM(bounds);
+#endif
+}
+
+void WebPageProxy::cancelVideoExtractionInElementFullScreen()
+{
+    if (!pageClient().isFullscreenVideoExtractionEnabled())
+        return;
+
+    m_hasPendingElementFullScreenVideoExtraction = false;
+    pageClient().cancelElementFullscreenVideoExtraction();
 }
 
 } // namespace WebKit

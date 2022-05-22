@@ -23,6 +23,7 @@
 #include "ActivityState.h"
 #include "AnimationFrameRate.h"
 #include "Color.h"
+#include "ContentSecurityPolicy.h"
 #include "DisabledAdaptations.h"
 #include "Document.h"
 #include "FindOptions.h"
@@ -173,6 +174,7 @@ class WebLockRegistry;
 class WheelEventDeltaFilter;
 class WheelEventTestMonitor;
 
+struct AXTreeData;
 struct ApplePayAMSUIRequest;
 struct SimpleRange;
 struct TextRecognitionResult;
@@ -943,6 +945,7 @@ public:
     AttachmentElementClient* attachmentElementClient() { return m_attachmentElementClient.get(); }
 #endif
 
+    WEBCORE_EXPORT std::optional<AXTreeData> accessibilityTreeData() const;
 #if USE(ATSPI)
     AccessibilityRootAtspi* accessibilityRootObject() const { return m_accessibilityRootObject; }
     void setAccessibilityRootObject(AccessibilityRootAtspi* rootObject) { m_accessibilityRootObject = rootObject; }
@@ -955,12 +958,16 @@ public:
 
     void timelineControllerMaximumAnimationFrameRateDidChange(DocumentTimelinesController&);
 
+    ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension() const { return m_contentSecurityPolicyModeForExtension; }
+
 private:
     struct Navigation {
         RegistrableDomain domain;
         FrameLoadType type;
     };
     void logNavigation(const Navigation&);
+
+    static void firstTimeInitialization();
 
     WEBCORE_EXPORT void initGroup();
 
@@ -1313,6 +1320,8 @@ private:
 #if USE(ATSPI)
     AccessibilityRootAtspi* m_accessibilityRootObject { nullptr };
 #endif
+
+    ContentSecurityPolicyModeForExtension m_contentSecurityPolicyModeForExtension { ContentSecurityPolicyModeForExtension::None };
 };
 
 inline PageGroup& Page::group()

@@ -236,6 +236,7 @@
 #include <WebCore/RenderLayer.h>
 #include <WebCore/RenderTheme.h>
 #include <WebCore/RenderTreeAsText.h>
+#include <WebCore/RenderVideo.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/ResourceRequest.h>
@@ -390,6 +391,14 @@
 #if USE(CG)
 // FIXME: Move the CG-specific PDF painting code out of WebPage.cpp.
 #include <WebCore/GraphicsContextCG.h>
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/WebPageAdditions.cpp>
+#else
+static void adjustCoreGraphicsForCaptivePortal()
+{
+}
 #endif
 
 namespace WebKit {
@@ -656,6 +665,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     pageConfiguration.attachmentElementClient = makeUnique<WebAttachmentElementClient>(*this);
 #endif
 
+    pageConfiguration.contentSecurityPolicyModeForExtension = parameters.contentSecurityPolicyModeForExtension;
+
 #if PLATFORM(COCOA)
     static bool hasConsumedGPUExtensionHandles = false;
     if (!hasConsumedGPUExtensionHandles) {
@@ -743,6 +754,10 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     platformInitialize(parameters);
 
     setUseFixedLayout(parameters.useFixedLayout);
+
+    setDefaultUnobscuredSize(parameters.defaultUnobscuredSize);
+    setMinimumUnobscuredSize(parameters.minimumUnobscuredSize);
+    setMaximumUnobscuredSize(parameters.maximumUnobscuredSize);
 
     setUnderlayColor(parameters.underlayColor);
 
@@ -866,8 +881,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if PLATFORM(IOS_FAMILY)
     setViewportConfigurationViewLayoutSize(parameters.viewportConfigurationViewLayoutSize, parameters.viewportConfigurationLayoutSizeScaleFactor, parameters.viewportConfigurationMinimumEffectiveDeviceWidth);
-    setMinimumUnobscuredSize(parameters.minimumUnobscuredSize);
-    setMaximumUnobscuredSize(parameters.maximumUnobscuredSize);
 #endif
 
 #if USE(AUDIO_SESSION)
@@ -903,6 +916,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         // This call should be replaced with proper API when available.
         CFPreferencesGetAppIntegerValue(CFSTR("key"), CFSTR("com.apple.WebKit.WebContent.AppCacheDisabled"), nullptr);
     }
+    if (parameters.store.getBoolValueForKey(WebPreferencesKey::blockIOKitInWebContentSandboxKey()))
+        CFPreferencesGetAppIntegerValue(CFSTR("key"), CFSTR("com.apple.WebKit.WebContent.BlockIOKitInWebContentSandbox"), nullptr);
 #endif
 
     updateThrottleState();
@@ -2367,6 +2382,81 @@ IntSize WebPage::fixedLayoutSize() const
     if (!view)
         return IntSize();
     return view->fixedLayoutSize();
+}
+
+void WebPage::setDefaultUnobscuredSize(const FloatSize& defaultUnobscuredSize)
+{
+    if (defaultUnobscuredSize == m_defaultUnobscuredSize)
+        return;
+
+    m_defaultUnobscuredSize = defaultUnobscuredSize;
+
+    updateSizeForCSSDefaultViewportUnits();
+}
+
+void WebPage::updateSizeForCSSDefaultViewportUnits()
+{
+    auto* mainFrameView = this->mainFrameView();
+    if (!mainFrameView)
+        return;
+
+    auto defaultUnobscuredSize = m_defaultUnobscuredSize;
+#if ENABLE(META_VIEWPORT)
+    if (defaultUnobscuredSize.isEmpty())
+        defaultUnobscuredSize = m_viewportConfiguration.viewLayoutSize();
+    defaultUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
+#endif
+    mainFrameView->setSizeForCSSDefaultViewportUnits(defaultUnobscuredSize);
+}
+
+void WebPage::setMinimumUnobscuredSize(const FloatSize& minimumUnobscuredSize)
+{
+    if (minimumUnobscuredSize == m_minimumUnobscuredSize)
+        return;
+
+    m_minimumUnobscuredSize = minimumUnobscuredSize;
+
+    updateSizeForCSSSmallViewportUnits();
+}
+
+void WebPage::updateSizeForCSSSmallViewportUnits()
+{
+    auto* mainFrameView = this->mainFrameView();
+    if (!mainFrameView)
+        return;
+
+    auto minimumUnobscuredSize = m_minimumUnobscuredSize;
+#if ENABLE(META_VIEWPORT)
+    if (minimumUnobscuredSize.isEmpty())
+        minimumUnobscuredSize = m_viewportConfiguration.viewLayoutSize();
+    minimumUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
+#endif
+    mainFrameView->setSizeForCSSSmallViewportUnits(minimumUnobscuredSize);
+}
+
+void WebPage::setMaximumUnobscuredSize(const FloatSize& maximumUnobscuredSize)
+{
+    if (maximumUnobscuredSize == m_maximumUnobscuredSize)
+        return;
+
+    m_maximumUnobscuredSize = maximumUnobscuredSize;
+
+    updateSizeForCSSLargeViewportUnits();
+}
+
+void WebPage::updateSizeForCSSLargeViewportUnits()
+{
+    auto* mainFrameView = this->mainFrameView();
+    if (!mainFrameView)
+        return;
+
+    auto maximumUnobscuredSize = m_maximumUnobscuredSize;
+#if ENABLE(META_VIEWPORT)
+    if (maximumUnobscuredSize.isEmpty())
+        maximumUnobscuredSize = m_viewportConfiguration.viewLayoutSize();
+    maximumUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
+#endif
+    mainFrameView->setSizeForCSSLargeViewportUnits(maximumUnobscuredSize);
 }
 
 void WebPage::disabledAdaptationsDidChange(const OptionSet<DisabledAdaptations>& disabledAdaptations)
@@ -3938,6 +4028,31 @@ void WebPage::getWebArchiveOfFrame(FrameIdentifier frameID, CompletionHandler<vo
     callback(dataBuffer);
 }
 
+void WebPage::getAccessibilityTreeData(CompletionHandler<void(const std::optional<IPC::SharedBufferCopy>&)>&& callback)
+{
+    IPC::SharedBufferCopy dataBuffer;
+
+#if PLATFORM(COCOA)
+    RetainPtr<CFDataRef> data;
+
+    if (auto treeData = m_page->accessibilityTreeData()) {
+        auto stream = adoptCF(CFWriteStreamCreateWithAllocatedBuffers(0, 0));
+        CFWriteStreamOpen(stream.get());
+
+        CFWriteStreamWrite(stream.get(), treeData->liveTree.utf8().dataAsUInt8Ptr(), treeData->liveTree.utf8().length());
+        CFWriteStreamWrite(stream.get(), treeData->isolatedTree.utf8().dataAsUInt8Ptr(), treeData->isolatedTree.utf8().length());
+
+        data = adoptCF(static_cast<CFDataRef>(CFWriteStreamCopyProperty(stream.get(), kCFStreamPropertyDataWritten)));
+        CFWriteStreamClose(stream.get());
+    }
+
+    if (data)
+        dataBuffer = IPC::SharedBufferCopy(SharedBuffer::create(data.get()));
+#endif
+
+    callback(dataBuffer);
+}
+
 void WebPage::forceRepaintWithoutCallback()
 {
     m_drawingArea->forceRepaint();
@@ -4019,6 +4134,8 @@ static void adjustSettingsForCaptivePortal(Settings& settings, const WebPreferen
 
     settings.setVideoPlaybackRequiresUserGesture(true);
     settings.setAudioPlaybackRequiresUserGesture(true);
+
+    adjustCoreGraphicsForCaptivePortal();
 }
 
 void WebPage::updatePreferences(const WebPreferencesStore& store)
@@ -6220,6 +6337,9 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
     }
 
     if (is<HTMLSelectElement>(element) || isTextFormControlOrEditableContent(element)) {
+#if PLATFORM(IOS_FAMILY)
+        bool isChangingFocusedElement = m_focusedElement != &element;
+#endif
         m_focusedElement = &element;
         m_hasPendingInputContextUpdateAfterBlurringAndRefocusingElement = false;
 
@@ -6229,7 +6349,7 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
         if (element.document().fullscreenManager().isFullscreen())
             element.document().fullscreenManager().cancelFullscreen();
 #endif
-        if (m_userIsInteracting || m_keyboardIsAttached)
+        if (isChangingFocusedElement && (m_userIsInteracting || m_keyboardIsAttached))
             m_sendAutocorrectionContextAfterFocusingElement = true;
 
         auto information = focusedElementInformation();
@@ -6314,41 +6434,9 @@ void WebPage::canceledComposition()
     sendEditorStateUpdate();
 }
 
-void WebPage::interactableRegionsInRootViewCoordinates(FloatRect rect, CompletionHandler<void(Vector<FloatRect>)>&& completionHandler)
+void WebPage::interactionRegions(FloatRect rectInContentCoordinates, CompletionHandler<void(Vector<InteractionRegion>)>&& completionHandler)
 {
-    Ref frame(m_page->mainFrame());
-
-    if (RefPtr frameView = frame->view())
-        frameView->updateLayoutAndStyleIfNeededRecursive();
-
-    auto result = HitTestResult { LayoutRect(rect) };
-    RefPtr document = frame->document();
-    if (!document) {
-        completionHandler({ });
-        return;
-    }
-
-    HitTestRequest request({
-        HitTestRequest::Type::ReadOnly,
-        HitTestRequest::Type::AllowVisibleChildFrameContentOnly,
-        HitTestRequest::Type::CollectMultipleElements
-    });
-    document->hitTest(request, result);
-
-    Vector<FloatRect> rects;
-
-    for (const auto& node : result.listBasedTestResult()) {
-        if (!is<Element>(node.get()))
-            continue;
-        auto& element = downcast<Element>(node.get());
-
-        if (!node->willRespondToMouseClickEvents())
-            continue;
-
-        rects.append(element.boundingBoxInRootViewCoordinates());
-    }
-
-    completionHandler(rects);
+    completionHandler(WebCore::interactionRegions(*m_page, rectInContentCoordinates));
 }
 
 void WebPage::setAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScroller)
@@ -6420,7 +6508,7 @@ void WebPage::setViewportSizeForCSSViewportUnits(std::optional<WebCore::FloatSiz
 
     m_viewportSizeForCSSViewportUnits = viewportSize;
     if (m_viewportSizeForCSSViewportUnits)
-        corePage()->mainFrame().view()->setSizeForCSSLargeViewportUnits(*m_viewportSizeForCSSViewportUnits);
+        corePage()->mainFrame().view()->setSizeForCSSDefaultViewportUnits(*m_viewportSizeForCSSViewportUnits);
 }
 
 bool WebPage::isSmartInsertDeleteEnabled()
@@ -8022,6 +8110,32 @@ void WebPage::handleContextMenuTranslation(const TranslationContextMenuInfo& inf
 void WebPage::scrollToRect(const WebCore::FloatRect& targetRect, const WebCore::FloatPoint& origin)
 {
     mainFrameView()->setScrollPosition(IntPoint(targetRect.minXMinYCorner()));
+}
+
+void WebPage::extractVideoInElementFullScreen(const HTMLVideoElement& element)
+{
+    RefPtr view = element.document().view();
+    if (!view)
+        return;
+
+    auto mediaPlayerIdentifier = valueOrDefault(element.playerIdentifier());
+    if (!mediaPlayerIdentifier)
+        return;
+
+    auto* renderer = element.renderer();
+    if (!renderer)
+        return;
+
+    auto rectInRootView = view->contentsToRootView(renderer->videoBox());
+    if (rectInRootView.isEmpty())
+        return;
+
+    send(Messages::WebPageProxy::ExtractVideoInElementFullScreen(mediaPlayerIdentifier, rectInRootView));
+}
+
+void WebPage::cancelVideoExtractionInElementFullScreen()
+{
+    send(Messages::WebPageProxy::CancelVideoExtractionInElementFullScreen());
 }
 
 } // namespace WebKit

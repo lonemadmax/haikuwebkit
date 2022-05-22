@@ -1930,7 +1930,7 @@ void Node::showTreeForThisAcrossFrame() const
     Node* rootNode = const_cast<Node*>(this);
     while (parentOrShadowHostOrFrameOwner(rootNode))
         rootNode = parentOrShadowHostOrFrameOwner(rootNode);
-    showSubTreeAcrossFrame(rootNode, this, "");
+    showSubTreeAcrossFrame(rootNode, this, emptyString());
 }
 
 #endif // ENABLE(TREE_DEBUGGING)
@@ -2508,6 +2508,13 @@ bool Node::willRespondToMouseMoveEvents()
         return false;
 #endif
     return hasEventListeners(eventNames().mousemoveEvent) || hasEventListeners(eventNames().mouseoverEvent) || hasEventListeners(eventNames().mouseoutEvent);
+}
+
+bool Node::willRespondToTouchEvents()
+{
+    return eventTypes().containsIf([&](const auto& type) {
+        return eventNames().isTouchRelatedEventType(type, *this);
+    });
 }
 
 bool Node::willRespondToMouseClickEvents()

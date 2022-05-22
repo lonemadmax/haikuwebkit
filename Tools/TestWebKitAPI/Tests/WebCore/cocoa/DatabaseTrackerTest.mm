@@ -41,7 +41,7 @@ namespace TestWebKitAPI {
 TEST(DatabaseTracker, DeleteDatabaseFileIfEmpty)
 {
     FileSystem::PlatformFileHandle handle;
-    String databaseFilePath = FileSystem::openTemporaryFile("tempEmptyDatabase", handle);
+    String databaseFilePath = FileSystem::openTemporaryFile("tempEmptyDatabase"_s, handle);
     FileSystem::closeFile(handle);
 
     auto fileSize = FileSystem::fileSize(databaseFilePath).value_or(0);
@@ -102,16 +102,16 @@ TEST(DatabaseTracker, DeleteOrigin)
     String databaseDirectoryPath(webSQLDirectory.UTF8String);
 
     std::unique_ptr<DatabaseTracker> databaseTracker = DatabaseTracker::trackerWithDatabasePath(databaseDirectoryPath);
-    SecurityOriginData origin("https", "webkit.org", 443);
+    SecurityOriginData origin("https"_s, "webkit.org"_s, 443);
 
     databaseTracker->setQuota(origin, 5242880);
     EXPECT_EQ((unsigned)1, databaseTracker->origins().size());
 
-    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db");
+    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db"_s);
     EXPECT_TRUE(FileSystem::fileExists(databasePath));
 
-    String webDatabaseName = "database_name";
-    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db");
+    String webDatabaseName = "database_name"_s;
+    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db"_s);
     EXPECT_EQ((unsigned)1, databaseTracker->databaseNames(origin).size());
 
     String originPath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, origin.databaseIdentifier());
@@ -146,16 +146,16 @@ TEST(DatabaseTracker, DeleteOriginWhenDatabaseDoesNotExist)
     String databaseDirectoryPath(webSQLDirectory.UTF8String);
 
     std::unique_ptr<DatabaseTracker> databaseTracker = DatabaseTracker::trackerWithDatabasePath(databaseDirectoryPath);
-    SecurityOriginData origin("https", "webkit.org", 443);
+    SecurityOriginData origin("https"_s, "webkit.org"_s, 443);
 
     databaseTracker->setQuota(origin, 5242880);
     EXPECT_EQ((unsigned)1, databaseTracker->origins().size());
 
-    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db");
+    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db"_s);
     EXPECT_TRUE(FileSystem::fileExists(databasePath));
 
-    String webDatabaseName = "database_name";
-    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db");
+    String webDatabaseName = "database_name"_s;
+    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db"_s);
     EXPECT_EQ((unsigned)1, databaseTracker->databaseNames(origin).size());
 
     String webDatabaseFullPath = databaseTracker->fullPathForDatabase(origin, webDatabaseName, false);
@@ -181,16 +181,16 @@ TEST(DatabaseTracker, DeleteOriginWhenDeletingADatabaseFails)
     String databaseDirectoryPath(webSQLDirectory.UTF8String);
 
     std::unique_ptr<DatabaseTracker> databaseTracker = DatabaseTracker::trackerWithDatabasePath(databaseDirectoryPath);
-    SecurityOriginData origin("https", "webkit.org", 443);
+    SecurityOriginData origin("https"_s, "webkit.org"_s, 443);
 
     databaseTracker->setQuota(origin, 5242880);
     EXPECT_EQ((unsigned)1, databaseTracker->origins().size());
 
-    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db");
+    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db"_s);
     EXPECT_TRUE(FileSystem::fileExists(databasePath));
 
-    String webDatabaseName = "database_name";
-    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db");
+    String webDatabaseName = "database_name"_s;
+    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db"_s);
     EXPECT_EQ((unsigned)1, databaseTracker->databaseNames(origin).size());
 
     String originPath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, origin.databaseIdentifier());
@@ -237,12 +237,12 @@ TEST(DatabaseTracker, DeleteOriginWithMissingEntryInDatabasesTable)
     String databaseDirectoryPath(webSQLDirectory.UTF8String);
 
     std::unique_ptr<DatabaseTracker> databaseTracker = DatabaseTracker::trackerWithDatabasePath(databaseDirectoryPath);
-    SecurityOriginData origin("https", "webkit.org", 443);
+    SecurityOriginData origin("https"_s, "webkit.org"_s, 443);
 
     databaseTracker->setQuota(origin, 5242880);
     EXPECT_EQ((unsigned)1, databaseTracker->origins().size());
 
-    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db");
+    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db"_s);
     EXPECT_TRUE(FileSystem::fileExists(databasePath));
 
     EXPECT_TRUE(databaseTracker->databaseNames(origin).isEmpty());
@@ -251,7 +251,7 @@ TEST(DatabaseTracker, DeleteOriginWithMissingEntryInDatabasesTable)
     EXPECT_TRUE(FileSystem::makeAllDirectories(originPath));
     EXPECT_TRUE(FileSystem::fileExists(originPath));
 
-    String webDatabasePath = FileSystem::pathByAppendingComponent(originPath, "database.db");
+    String webDatabasePath = FileSystem::pathByAppendingComponent(originPath, "database.db"_s);
     createFileAtPath(webDatabasePath);
 
     EXPECT_TRUE(databaseTracker->deleteOrigin(origin));
@@ -275,16 +275,16 @@ TEST(DatabaseTracker, DeleteDatabase)
     String databaseDirectoryPath(webSQLDirectory.UTF8String);
 
     std::unique_ptr<DatabaseTracker> databaseTracker = DatabaseTracker::trackerWithDatabasePath(databaseDirectoryPath);
-    SecurityOriginData origin("https", "webkit.org", 443);
+    SecurityOriginData origin("https"_s, "webkit.org"_s, 443);
 
     databaseTracker->setQuota(origin, 5242880);
     EXPECT_EQ((unsigned)1, databaseTracker->origins().size());
 
-    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db");
+    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db"_s);
     EXPECT_TRUE(FileSystem::fileExists(databasePath));
 
-    String webDatabaseName = "database_name";
-    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db");
+    String webDatabaseName = "database_name"_s;
+    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db"_s);
     EXPECT_EQ((unsigned)1, databaseTracker->databaseNames(origin).size());
 
     String originPath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, origin.databaseIdentifier());
@@ -317,16 +317,16 @@ TEST(DatabaseTracker, DeleteDatabaseWhenDatabaseDoesNotExist)
     String databaseDirectoryPath(webSQLDirectory.UTF8String);
 
     std::unique_ptr<DatabaseTracker> databaseTracker = DatabaseTracker::trackerWithDatabasePath(databaseDirectoryPath);
-    SecurityOriginData origin("https", "webkit.org", 443);
+    SecurityOriginData origin("https"_s, "webkit.org"_s, 443);
 
     databaseTracker->setQuota(origin, 5242880);
     EXPECT_EQ((unsigned)1, databaseTracker->origins().size());
 
-    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db");
+    String databasePath = FileSystem::pathByAppendingComponent(databaseDirectoryPath, "Databases.db"_s);
     EXPECT_TRUE(FileSystem::fileExists(databasePath));
 
-    String webDatabaseName = "database_name";
-    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db");
+    String webDatabaseName = "database_name"_s;
+    addToDatabasesTable(databasePath, origin, webDatabaseName, "database.db"_s);
     EXPECT_EQ((unsigned)1, databaseTracker->databaseNames(origin).size());
 
     String webDatabaseFullPath = databaseTracker->fullPathForDatabase(origin, webDatabaseName, false);

@@ -291,6 +291,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/notifications/NotificationController.h
     Modules/notifications/NotificationData.h
     Modules/notifications/NotificationDirection.h
+    Modules/notifications/NotificationEventType.h
     Modules/notifications/NotificationPermission.h
     Modules/notifications/NotificationPermissionCallback.h
 
@@ -1126,6 +1127,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/GlobalFrameIdentifier.h
     page/GlobalWindowIdentifier.h
     page/ImageAnalysisQueue.h
+    page/InteractionRegion.h
     page/LayoutMilestone.h
     page/MediaCanStartListener.h
     page/MediaControlsContextMenuItem.h
