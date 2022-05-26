@@ -1,4 +1,4 @@
-; Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+; Copyright (C) 2010-2022 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -26,6 +26,10 @@
 (deny nvram*)
 (deny system-privilege)
 (allow system-audit file-read-metadata)
+
+;; We can remove the catch once we no longer need to support older macOS
+(catch (lambda)
+    (import "dyld-support.sb"))
 
 ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
 (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
@@ -1832,10 +1836,6 @@
 (when (defined? 'socket-option-get)
     ;; getsockopt
     (deny socket-option-get (with telemetry))
-    (allow socket-option-get
-        (require-all
-            (socket-option-level SOL_SOCKET)
-            (socket-option-name SO_ERROR))) ;; libwebrtc; physical_socket_server.cc, ProcessEvents.  Called with fd=-1, so it fails.  Not technically needed, but the code needs changing
 )
 
 (when (defined? 'socket-option-set)
@@ -2040,8 +2040,8 @@
     (if (defined? 'SYS_objc_bp_assist_cfg_np)
         (allow syscall-unix (syscall-number SYS_objc_bp_assist_cfg_np)))
 #endif
-    (when (defined? 'SYS__map_with_linking_np)
-        (allow syscall-unix (syscall-number SYS__map_with_linking_np)))
+    (when (defined? 'SYS_map_with_linking_np)
+        (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
 )
 
 (with-filter (uid 0)

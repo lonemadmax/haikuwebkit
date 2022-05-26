@@ -90,13 +90,16 @@ public:
     enum EmptyIdentifierFlag { EmptyIdentifier };
     Identifier(EmptyIdentifierFlag) : m_string(StringImpl::empty()) { ASSERT(m_string.impl()->isAtom()); }
 
-    const String& string() const { return m_string; }
+    // FIXME: Consider renaming atomString() to string() and always return an AtomString.
+    const AtomString& atomString() const { return m_string; }
+    const String& string() const { return m_string.string(); }
+
     UniquedStringImpl* impl() const { return static_cast<UniquedStringImpl*>(m_string.impl()); }
 
     int length() const { return m_string.length(); }
 
-    CString ascii() const { return m_string.ascii(); }
-    CString utf8() const { return m_string.utf8(); }
+    CString ascii() const { return m_string.string().ascii(); }
+    CString utf8() const { return m_string.string().utf8(); }
 
     // There's 2 functions to construct Identifier from string, (1) fromString and (2) fromUid.
     // They have different meanings in keeping or discarding symbol-ness of strings.
@@ -118,7 +121,7 @@ public:
     static Identifier fromString(VM&, const AtomString&);
     static Identifier fromString(VM& vm, SymbolImpl*);
     static Identifier fromString(VM& vm, const Vector<LChar>& characters) { return fromString(vm, characters.data(), characters.size()); }
-    static Identifier fromCString(VM&, const char*);
+    static Identifier fromLatin1(VM&, const char*);
 
     static Identifier fromUid(VM&, UniquedStringImpl* uid);
     static Identifier fromUid(const PrivateName&);
@@ -162,7 +165,7 @@ public:
     void dump(PrintStream&) const;
 
 private:
-    String m_string;
+    AtomString m_string;
 
     Identifier(VM& vm, const LChar* s, int length) : m_string(add(vm, s, length)) { ASSERT(m_string.impl()->isAtom()); }
     Identifier(VM& vm, const UChar* s, int length) : m_string(add(vm, s, length)) { ASSERT(m_string.impl()->isAtom()); }

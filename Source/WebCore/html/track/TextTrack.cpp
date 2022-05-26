@@ -34,6 +34,7 @@
 
 #if ENABLE(VIDEO)
 
+#include "CommonAtomStrings.h"
 #include "DataCue.h"
 #include "Document.h"
 #include "Event.h"
@@ -49,18 +50,6 @@
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(TextTrack);
-
-const AtomString& TextTrack::subtitlesKeyword()
-{
-    static MainThreadNeverDestroyed<const AtomString> subtitles("subtitles", AtomString::ConstructFromLiteral);
-    return subtitles;
-}
-
-static const AtomString& captionsKeyword()
-{
-    static MainThreadNeverDestroyed<const AtomString> captions("captions", AtomString::ConstructFromLiteral);
-    return captions;
-}
 
 static const AtomString& descriptionsKeyword()
 {
@@ -88,13 +77,13 @@ static const AtomString& forcedKeyword()
 
 TextTrack& TextTrack::captionMenuOffItem()
 {
-    static TextTrack& off = TextTrack::create(nullptr, "off menu item", emptyAtom(), emptyAtom(), emptyAtom()).leakRef();
+    static TextTrack& off = TextTrack::create(nullptr, "off menu item"_s, emptyAtom(), emptyAtom(), emptyAtom()).leakRef();
     return off;
 }
 
 TextTrack& TextTrack::captionMenuAutomaticItem()
 {
-    static TextTrack& automatic = TextTrack::create(nullptr, "automatic menu item", emptyAtom(), emptyAtom(), emptyAtom()).leakRef();
+    static TextTrack& automatic = TextTrack::create(nullptr, "automatic menu item"_s, emptyAtom(), emptyAtom(), emptyAtom()).leakRef();
     return automatic;
 }
 
@@ -103,7 +92,7 @@ TextTrack::TextTrack(ScriptExecutionContext* context, const AtomString& kind, co
     , ActiveDOMObject(context)
     , m_trackType(type)
 {
-    if (kind == captionsKeyword())
+    if (kind == captionsAtom())
         m_kind = Kind::Captions;
     else if (kind == chaptersKeyword())
         m_kind = Kind::Chapters;
@@ -167,9 +156,9 @@ bool TextTrack::enabled() const
 
 bool TextTrack::isValidKindKeyword(const AtomString& value)
 {
-    if (value == subtitlesKeyword())
+    if (value == subtitlesAtom())
         return true;
-    if (value == captionsKeyword())
+    if (value == captionsAtom())
         return true;
     if (value == descriptionsKeyword())
         return true;
@@ -187,7 +176,7 @@ const AtomString& TextTrack::kindKeyword() const
 {
     switch (m_kind) {
     case Kind::Captions:
-        return captionsKeyword();
+        return captionsAtom();
     case Kind::Chapters:
         return chaptersKeyword();
     case Kind::Descriptions:
@@ -197,10 +186,10 @@ const AtomString& TextTrack::kindKeyword() const
     case Kind::Metadata:
         return metadataKeyword();
     case Kind::Subtitles:
-        return subtitlesKeyword();
+        return subtitlesAtom();
     }
     ASSERT_NOT_REACHED();
-    return subtitlesKeyword();
+    return subtitlesAtom();
 }
 
 void TextTrack::setKind(Kind newKind)

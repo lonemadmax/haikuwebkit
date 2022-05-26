@@ -1089,7 +1089,7 @@ void WebProcessPool::notifyPreferencesChanged(const String& domain, const String
         webAuthnProcess->send(Messages::WebAuthnProcess::NotifyPreferencesChanged(domain, key, encodedValue), 0);
 #endif
 
-    if (key == WKCaptivePortalModeEnabledKey || key == WebKitCaptivePortalModeChangedNotification_Legacy)
+    if (key == WKCaptivePortalModeEnabledKey)
         captivePortalModeStateChanged();
 }
 #endif // ENABLE(CFPREFS_DIRECT_MODE)

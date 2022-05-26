@@ -261,12 +261,6 @@ Element::~Element()
     }
 }
 
-inline ElementRareData* Element::elementRareData() const
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(hasRareData());
-    return static_cast<ElementRareData*>(rareData());
-}
-
 inline ElementRareData& Element::ensureElementRareData()
 {
     return static_cast<ElementRareData&>(ensureRareData());
@@ -1106,6 +1100,9 @@ void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, 
         if (this == document().documentElement())
             return;
     }
+    
+    if (auto* view = document().view())
+        view->cancelScheduledScrollToFocusedElement();
 
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -1792,7 +1789,7 @@ IntRect Element::screenRect() const
 
 const AtomString& Element::getAttribute(const AtomString& qualifiedName) const
 {
-    if (!elementData())
+    if (!elementData() || qualifiedName.isEmpty())
         return nullAtom();
     synchronizeAttribute(qualifiedName);
     if (const Attribute* attribute = elementData()->findAttributeByName(qualifiedName, shouldIgnoreAttributeCase(*this)))
@@ -1997,7 +1994,7 @@ void Element::classAttributeChanged(const AtomString& newClassString)
     if (!elementData())
         ensureUniqueElementData();
 
-    bool shouldFoldCase = document().inQuirksMode();
+    auto shouldFoldCase = document().inQuirksMode() ? SpaceSplitString::ShouldFoldCase::Yes : SpaceSplitString::ShouldFoldCase::No;
     bool newStringHasClasses = isNonEmptyTokenList(newClassString);
 
     auto oldClassNames = elementData()->classNames();
@@ -2017,7 +2014,7 @@ void Element::partAttributeChanged(const AtomString& newValue)
 {
     bool hasParts = isNonEmptyTokenList(newValue);
     if (hasParts || !partNames().isEmpty()) {
-        auto newParts = hasParts ? SpaceSplitString(newValue, false) : SpaceSplitString();
+        auto newParts = hasParts ? SpaceSplitString(newValue, SpaceSplitString::ShouldFoldCase::No) : SpaceSplitString();
         ensureElementRareData().setPartNames(WTFMove(newParts));
     }
 
@@ -2435,11 +2432,6 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
         document().identifiedElementWasRemovedFromDocument(*this);
         clearNodeFlag(NodeFlag::HasElementIdentifier);
     }
-}
-
-ShadowRoot* Element::shadowRoot() const
-{
-    return hasRareData() ? elementRareData()->shadowRoot() : nullptr;
 }
 
 void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
@@ -3224,7 +3216,7 @@ void Element::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
 void Element::dispatchWebKitImageReadyEventForTesting()
 {
     if (document().settings().webkitImageReadyEventEnabled())
-        dispatchEvent(Event::create("webkitImageFrameReady", Event::CanBubble::Yes, Event::IsCancelable::Yes));
+        dispatchEvent(Event::create("webkitImageFrameReady"_s, Event::CanBubble::Yes, Event::IsCancelable::Yes));
 }
 
 bool Element::dispatchMouseForceWillBegin()
@@ -3557,8 +3549,16 @@ bool Element::hasValidStyle() const
 
 bool Element::isFocusableWithoutResolvingFullStyle() const
 {
+    auto isFocusableStyle = [](const RenderStyle* style) {
+        return style
+            && style->display() != DisplayType::None
+            && style->display() != DisplayType::Contents
+            && style->visibility() == Visibility::Visible
+            && !style->effectiveInert();
+    };
+
     if (renderStyle() || hasValidStyle())
-        return renderStyle() && renderStyle()->visibility() == Visibility::Visible && !renderStyle()->effectiveInert();
+        return isFocusableStyle(renderStyle());
 
     auto computedStyleForElement = [](Element& element) -> const RenderStyle* {
         auto* style = element.hasNodeFlag(NodeFlag::IsComputedStyleInvalidFlag) ? nullptr : element.existingComputedStyle();
@@ -3567,13 +3567,7 @@ bool Element::isFocusableWithoutResolvingFullStyle() const
 
     // Compute style in yet unstyled subtree.
     auto* style = computedStyleForElement(const_cast<Element&>(*this));
-    if (!style)
-        return false;
-
-    if (style->display() == DisplayType::None || style->display() == DisplayType::Contents)
-        return false;
-
-    if (style->visibility() != Visibility::Visible || style->effectiveInert())
+    if (!isFocusableStyle(style))
         return false;
 
     for (auto& element : composedTreeAncestors(const_cast<Element&>(*this))) {
@@ -4651,9 +4645,9 @@ ExceptionOr<void> Element::insertAdjacentHTML(const String& where, const String&
     return insertAdjacentHTML(where, markup, nullptr);
 }
 
-ExceptionOr<void> Element::insertAdjacentText(const String& where, const String& text)
+ExceptionOr<void> Element::insertAdjacentText(const String& where, String&& text)
 {
-    auto result = insertAdjacent(where, document().createTextNode(text));
+    auto result = insertAdjacent(where, document().createTextNode(WTFMove(text)));
     if (result.hasException())
         return result.releaseException();
     return { };

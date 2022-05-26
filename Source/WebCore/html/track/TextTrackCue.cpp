@@ -67,13 +67,13 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(TextTrackCueBox);
 
 static const QualifiedName& cueAttributName()
 {
-    static NeverDestroyed<QualifiedName> cueTag(nullAtom(), "cue", nullAtom());
+    static NeverDestroyed<QualifiedName> cueTag(nullAtom(), "cue"_s, nullAtom());
     return cueTag;
 }
 
 static const QualifiedName& cueBackgroundAttributName()
 {
-    static NeverDestroyed<QualifiedName> cueBackgroundTag(nullAtom(), "cuebackground", nullAtom());
+    static NeverDestroyed<QualifiedName> cueBackgroundTag(nullAtom(), "cuebackground"_s, nullAtom());
     return cueBackgroundTag;
 }
 
@@ -510,8 +510,8 @@ void TextTrackCue::rebuildDisplayTree()
         if (const auto& styleSheets = track()->styleSheets()) {
             for (const auto& cssString : *styleSheets) {
                 auto style = HTMLStyleElement::create(HTMLNames::styleTag, m_displayTree->document(), false);
-                style->setTextContent(cssString);
-                m_displayTree->appendChild(style);
+                style->setTextContent(String { cssString });
+                m_displayTree->appendChild(WTFMove(style));
             }
         }
     }

@@ -241,7 +241,7 @@ private:
         skipLeading<characterPredicate>();
         if (start.length() == m_text.length())
             return String();
-        return makeString(start.substring(0, start.length() - m_text.length()));
+        return makeString(start.left(start.length() - m_text.length()));
     }
 
     String makeString(StringView stringView) const
@@ -544,7 +544,7 @@ static MemoryCompactLookupOnlyRobinHoodHashMap<AtomString, QualifiedName> create
     addNamesWithPrefix(map, xmlAtom(), XMLNames::getXMLAttrs(), XMLNames::XMLAttrsCount);
 
     map.add(xmlnsAtom(), XMLNSNames::xmlnsAttr);
-    map.add("xmlns:xlink", QualifiedName(xmlnsAtom(), xlinkName, XMLNSNames::xmlnsNamespaceURI));
+    map.add("xmlns:xlink"_s, QualifiedName(xmlnsAtom(), xlinkName, XMLNSNames::xmlnsNamespaceURI));
 
     return map;
 }
@@ -2200,7 +2200,7 @@ void HTMLTreeBuilder::processCharacter(AtomHTMLToken&& token)
 // From the string 4089961010, creates a link of the form <a href="tel:4089961010">4089961010</a> and inserts it.
 void HTMLTreeBuilder::insertPhoneNumberLink(const String& string)
 {
-    Attribute attribute(HTMLNames::hrefAttr, makeString("tel:"_s, string));
+    Attribute attribute(HTMLNames::hrefAttr, makeAtomString("tel:"_s, string));
 
     const AtomString& aTagLocalName = aTag->localName();
     AtomHTMLToken aStartToken(HTMLToken::StartTag, aTagLocalName, { WTFMove(attribute) });

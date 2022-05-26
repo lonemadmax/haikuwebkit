@@ -166,7 +166,8 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
 #define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M) \
     M(find) \
     M(findNext) \
-    M(findPrevious)
+    M(findPrevious) \
+    M(findAndReplace)
 #else
 #define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M)
 #endif
@@ -564,7 +565,7 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     , WKHoverPlatterDelegate
 #endif
 #if HAVE(UIFINDINTERACTION)
-    , _UITextSearching
+    , UITextSearching
 #endif
 >
 
@@ -661,8 +662,8 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_willStartScrollingOrZooming;
 - (void)_didScroll;
 - (void)_didEndScrollingOrZooming;
-- (void)_scrollingNodeScrollingWillBegin;
-- (void)_scrollingNodeScrollingDidEnd;
+- (void)_scrollingNodeScrollingWillBegin:(WebCore::ScrollingNodeID)nodeID;
+- (void)_scrollingNodeScrollingDidEnd:(WebCore::ScrollingNodeID)nodeID;
 - (void)_showPlaybackTargetPicker:(BOOL)hasVideo fromRect:(const WebCore::IntRect&)elementRect routeSharingPolicy:(WebCore::RouteSharingPolicy)policy routingContextUID:(NSString *)contextUID;
 - (void)_showRunOpenPanel:(API::OpenPanelParameters*)parameters frameInfo:(const WebKit::FrameInfoData&)frameInfo resultListener:(WebKit::WebOpenPanelResultListenerProxy*)listener;
 - (void)_showShareSheet:(const WebCore::ShareDataWithParsedURL&)shareData inRect:(std::optional<WebCore::FloatRect>)rect completionHandler:(WTF::CompletionHandler<void(bool)>&&)completionHandler;
@@ -796,7 +797,10 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 #endif
 
 #if HAVE(UIFINDINTERACTION)
-- (NSComparisonResult)compareFoundRange:(UITextRange *)fromRange toRange:(UITextRange *)toRange inDocument:(_UITextSearchDocumentIdentifier)document;
+- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(UITextSearchDocumentIdentifier)document;
+- (void)didBeginTextSearchOperation;
+- (void)didEndTextSearchOperation;
+
 - (void)requestRectForFoundTextRange:(UITextRange *)range completionHandler:(void (^)(CGRect))completionHandler;
 #endif
 

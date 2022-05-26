@@ -36,10 +36,8 @@ static String platformLanguage()
     if (localeDefault.isEmpty() || equalIgnoringASCIICase(localeDefault, "C") || equalIgnoringASCIICase(localeDefault, "POSIX"))
         return "en-US"_s;
 
-    String normalizedDefault = localeDefault;
-    normalizedDefault.replace('_', '-');
-    normalizedDefault.truncate(normalizedDefault.find('.'));
-    return normalizedDefault;
+    auto normalizedDefault = makeStringByReplacingAll(localeDefault, '_', '-');
+    return normalizedDefault.left(normalizedDefault.find('.'));
 }
 
 Vector<String> platformUserPreferredLanguages(ShouldMinimizeLanguages)

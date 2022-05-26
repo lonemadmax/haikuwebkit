@@ -528,14 +528,20 @@ Seconds ScriptExecutionContext::domTimerAlignmentInterval(bool) const
     return DOMTimer::defaultAlignmentInterval();
 }
 
-RejectedPromiseTracker& ScriptExecutionContext::ensureRejectedPromiseTrackerSlow()
+RejectedPromiseTracker* ScriptExecutionContext::ensureRejectedPromiseTrackerSlow()
 {
     // ScriptExecutionContext::vm() in Worker is only available after WorkerGlobalScope initialization is done.
     // When initializing ScriptExecutionContext, vm() is not ready.
 
     ASSERT(!m_rejectedPromiseTracker);
+    if (is<WorkerOrWorkletGlobalScope>(*this)) {
+        auto* scriptController = downcast<WorkerOrWorkletGlobalScope>(*this).script();
+        // Do not re-create the promise tracker if we are in a worker / worklet whose execution is terminating.
+        if (!scriptController || scriptController->isTerminatingExecution())
+            return nullptr;
+    }
     m_rejectedPromiseTracker = makeUnique<RejectedPromiseTracker>(*this, vm());
-    return *m_rejectedPromiseTracker.get();
+    return m_rejectedPromiseTracker.get();
 }
 
 void ScriptExecutionContext::removeRejectedPromiseTracker()
@@ -746,6 +752,7 @@ ScriptExecutionContext::HasResourceAccess ScriptExecutionContext::canAccessResou
             return HasResourceAccess::DefaultForThirdParty;
         return HasResourceAccess::Yes;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 } // namespace WebCore

@@ -70,6 +70,7 @@ messages -> WebPage LegacyReceiver {
     SelectWithTwoTouches(WebCore::IntPoint from, WebCore::IntPoint to, enum:uint8_t WebKit::GestureType gestureType, enum:uint8_t WebKit::GestureRecognizerState gestureState) -> (WebCore::IntPoint point, enum:uint8_t WebKit::GestureType gestureType, enum:uint8_t WebKit::GestureRecognizerState gestureState, OptionSet<WebKit::SelectionFlags> selectionFlags)
     ExtendSelection(enum:uint8_t WebCore::TextGranularity granularity) -> ()
     SelectWordBackward()
+    ExtendSelectionForReplacement() -> ()
     MoveSelectionByOffset(int32_t offset) -> ()
     SelectTextWithGranularityAtPoint(WebCore::IntPoint point, enum:uint8_t WebCore::TextGranularity granularity, bool isInteractingWithFocusedElement) -> ()
     SelectPositionAtBoundaryWithDirection(WebCore::IntPoint point, enum:uint8_t WebCore::TextGranularity granularity, enum:uint8_t WebCore::SelectionDirection direction, bool isInteractingWithFocusedElement) -> ()
@@ -83,6 +84,8 @@ messages -> WebPage LegacyReceiver {
     RequestRVItemInCurrentSelectedRange() -> (WebKit::RevealItem item)
     PrepareSelectionForContextMenuWithLocationInView(WebCore::IntPoint point) -> (bool shouldShowMenu, WebKit::RevealItem item)
 #endif
+    WillInsertFinalDictationResult()
+    DidInsertFinalDictationResult()
     ReplaceDictatedText(String oldText, String newText)
     ReplaceSelectedText(String oldText, String newText)
     RequestAutocorrectionData(String textForAutocorrection) -> (struct WebKit::WebAutocorrectionData data)
@@ -130,11 +133,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #endif
 
     RequestImageBitmap(struct WebCore::ElementContext elementContext) -> (WebKit::ShareableBitmap::Handle image, String sourceMIMEType)
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    InstallCroppedImageOverlay(struct WebCore::ElementContext elementContext, WebKit::SharedMemory::IPCHandle imageData, String mimeType, WebCore::FloatRect normalizedCropRect)
-    SetCroppedImageOverlayVisibility(bool visible)
-#endif
 
     SetControlledByAutomation(bool controlled)
 
@@ -475,7 +473,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GetStringSelectionForPasteboard() -> (String stringValue) Synchronous
     GetDataSelectionForPasteboard(String pasteboardType) -> (WebKit::SharedMemory::IPCHandle ipcHandle) Synchronous
     ReadSelectionFromPasteboard(String pasteboardName) -> (bool result) Synchronous
-    ReplaceWithPasteboardData(struct WebCore::ElementContext context, Vector<String> types, IPC::DataReference data)
+    ReplaceImageWithMarkupResults(struct WebCore::ElementContext context, Vector<String> types, IPC::DataReference data)
     ReplaceSelectionWithPasteboardData(Vector<String> types, IPC::DataReference data)
 
     ShouldDelayWindowOrderingEvent(WebKit::WebMouseEvent event) -> (bool result) Synchronous
@@ -681,4 +679,9 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     InteractionRegions(WebCore::FloatRect rectInContentCoordinates) -> (Vector<WebCore::InteractionRegion> regions)
 
     NavigateServiceWorkerClient(WebCore::ScriptExecutionContextIdentifier documentIdentifier, URL url) -> (bool result)
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
+    ModelInlinePreviewDidLoad(WebCore::GraphicsLayer::PlatformLayerID layerID)
+    ModelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::PlatformLayerID layerID, WebCore::ResourceError error)
+#endif
 }

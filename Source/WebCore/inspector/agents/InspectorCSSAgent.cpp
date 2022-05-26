@@ -37,11 +37,13 @@
 #include "CSSStyleRule.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
+#include "CommonAtomStrings.h"
 #include "ContainerNode.h"
 #include "ContentSecurityPolicy.h"
 #include "DOMWindow.h"
 #include "ElementAncestorIterator.h"
 #include "ElementChildIterator.h"
+#include "ElementRareData.h"
 #include "Font.h"
 #include "FontCache.h"
 #include "FontCascade.h"
@@ -781,7 +783,7 @@ InspectorStyleSheet* InspectorCSSAgent::createInspectorStyleSheetForDocument(Doc
         return nullptr;
 
     auto styleElement = HTMLStyleElement::create(document);
-    styleElement->setAttributeWithoutSynchronization(HTMLNames::typeAttr, AtomString("text/css", AtomString::ConstructFromLiteral));
+    styleElement->setAttributeWithoutSynchronization(HTMLNames::typeAttr, cssContentTypeAtom());
 
     ContainerNode* targetNode;
     // HEAD is absent in ImageDocuments, for example.
@@ -980,10 +982,9 @@ void InspectorCSSAgent::nodeLayoutContextTypeChanged(Node& node, RenderObject* n
         return;
 
     auto nodeId = domAgent->boundNodeId(&node);
-    if (!nodeId && m_layoutContextTypeChangedMode == Protocol::CSS::LayoutContextTypeChangedMode::All) {
-        // FIXME: <https://webkit.org/b/189687> Preserve DOM.NodeId if a node is removed and re-added
+    if (!nodeId && m_layoutContextTypeChangedMode == Protocol::CSS::LayoutContextTypeChangedMode::All)
         nodeId = domAgent->identifierForNode(node);
-    }
+
     if (!nodeId)
         return;
 

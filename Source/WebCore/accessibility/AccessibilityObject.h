@@ -297,7 +297,8 @@ public:
     double loadingProgress() const override { return 0; }
     WEBCORE_EXPORT static bool isARIAControl(AccessibilityRole);
     bool supportsCheckedState() const override;
-    
+
+    bool supportsARIARoleDescription() const;
     bool supportsARIAOwns() const override { return false; }
     bool isActiveDescendantOfFocusedContainer() const override;
     void ariaActiveDescendantReferencingElements(AccessibilityChildrenVector&) const override;
@@ -370,7 +371,7 @@ public:
     virtual AccessibilityObject* previousSiblingUnignored(int limit) const;
     AccessibilityObject* parentObject() const override { return nullptr; }
     AccessibilityObject* displayContentsParent() const;
-    AXCoreObject* parentObjectUnignored() const override;
+    AccessibilityObject* parentObjectUnignored() const override;
     AccessibilityObject* parentObjectIfExists() const override { return nullptr; }
     static AccessibilityObject* firstAccessibleObjectFromNode(const Node*);
     void findMatchingObjects(AccessibilitySearchCriteria*, AccessibilityChildrenVector&) override;
@@ -427,7 +428,7 @@ public:
     String expandedTextValue() const override { return String(); }
     bool supportsExpandedTextValue() const override { return false; }
 
-    void elementsFromAttribute(Vector<Element*>&, const QualifiedName&) const override;
+    Vector<Element*> elementsFromAttribute(const QualifiedName&) const;
 
     // Only if isColorWell()
     SRGBA<uint8_t> colorValue() const override { return Color::transparentBlack; }
@@ -508,7 +509,7 @@ public:
     void increment() override { }
     void decrement() override { }
 
-    virtual void updateAccessibilityRole() { }
+    virtual void updateRole() { }
     const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) override;
     virtual void addChildren() { }
     enum class DescendIfIgnored : uint8_t { No, Yes };
@@ -543,7 +544,7 @@ public:
     std::optional<String> attributeValue(const String&) const override;
     int getIntegralAttribute(const QualifiedName&) const;
     bool hasTagName(const QualifiedName&) const override;
-    String tagName() const override;
+    AtomString tagName() const override;
     bool hasDisplayContents() const;
 
     VisiblePositionRange visiblePositionRange() const override { return VisiblePositionRange(); }
@@ -809,6 +810,7 @@ protected:
     bool dispatchTouchEvent();
 
     static bool isARIAInput(AccessibilityRole);
+
     void ariaElementsFromAttribute(AccessibilityChildrenVector&, const QualifiedName&) const;
     void ariaElementsReferencedByAttribute(AccessibilityChildrenVector&, const QualifiedName&) const;
     virtual bool exposesTitleUIElement() const { return true; }

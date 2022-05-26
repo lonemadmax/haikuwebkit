@@ -47,7 +47,7 @@ class AXIsolatedTree;
 class AXIsolatedObject final : public AXCoreObject {
     friend class AXIsolatedTree;
 public:
-    static Ref<AXIsolatedObject> create(AXCoreObject&, AXIsolatedTree*, AXID parentID);
+    static Ref<AXIsolatedObject> create(AXCoreObject&, AXIsolatedTree*);
     ~AXIsolatedObject();
 
     void setObjectID(AXID id) override { m_id = id; }
@@ -66,11 +66,13 @@ private:
     AXIsolatedTree* tree() const { return m_cachedTree.get(); }
 
     AXIsolatedObject() = default;
-    AXIsolatedObject(AXCoreObject&, AXIsolatedTree*, AXID parentID);
+    AXIsolatedObject(AXCoreObject&, AXIsolatedTree*);
     bool isAXIsolatedObjectInstance() const override { return true; }
-    void initializeAttributeData(AXCoreObject&, bool isRoot);
-    void initializePlatformProperties(const AXCoreObject&, bool isRoot);
     AXCoreObject* associatedAXObject() const;
+
+    enum class IsRoot : bool { Yes, No };
+    void initializeProperties(AXCoreObject&, IsRoot);
+    void initializePlatformProperties(const AXCoreObject&, IsRoot);
 
     void setProperty(AXPropertyName, AXPropertyValueVariant&&, bool shouldRemove = false);
     void setObjectProperty(AXPropertyName, AXCoreObject*);
@@ -356,7 +358,7 @@ private:
     void tabChildren(AccessibilityChildrenVector& children) override { fillChildrenVectorForProperty(AXPropertyName::TabChildren, children); }
     AccessibilityChildrenVector contents() override;
     bool hasARIAValueNow() const override { return boolAttributeValue(AXPropertyName::HasARIAValueNow); }
-    String tagName() const override { return stringAttributeValue(AXPropertyName::TagName); }
+    AtomString tagName() const override { return AtomString { stringAttributeValue(AXPropertyName::TagName) }; }
     const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) override;
     void updateChildrenIfNecessary() override;
     bool isDetachedFromParent() override;
@@ -580,7 +582,6 @@ private:
     String ariaLabeledByAttribute() const override;
     String ariaDescribedByAttribute() const override;
     bool accessibleNameDerivesFromContent() const override;
-    void elementsFromAttribute(Vector<Element*>&, const QualifiedName&) const override;
     AXObjectCache* axObjectCache() const override;
     Element* anchorElement() const override;
     Element* actionElement() const override;

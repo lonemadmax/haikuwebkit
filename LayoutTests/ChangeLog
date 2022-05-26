@@ -1,3 +1,2100 @@
+2022-04-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Enable change-array-by-copy
+        https://bugs.webkit.org/show_bug.cgi?id=239678
+
+        Reviewed by Saam Barati.
+
+        * inspector/model/remote-object-get-properties-expected.txt:
+        * js/Object-getOwnPropertyNames-expected.txt:
+        * js/array-unscopables-properties-expected.txt:
+        * js/script-tests/Object-getOwnPropertyNames.js:
+        * js/script-tests/array-unscopables-properties.js:
+
+2022-04-25  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Don't expose aria-roledescription value on "generic" elements (e.g. div and span) unless explicit role value is also defined
+        https://bugs.webkit.org/show_bug.cgi?id=174248
+        <rdar://problem/33178050>
+
+        Reviewed by Andres Gonzalez.
+
+        * accessibility/ignored-aria-role-description-expected.txt: Added.
+        * accessibility/ignored-aria-role-description.html: Added.
+
+2022-04-25  Antti Koivisto  <antti@apple.com>
+
+        [CSS Typed OM] Fix AttributeStyleMap.get for list values
+        https://bugs.webkit.org/show_bug.cgi?id=239716
+
+        Reviewed by Alan Bujtas.
+
+        * css-typedom/typed-om-perspective-value-expected.txt: Added.
+        * css-typedom/typed-om-perspective-value.html: Added.
+
+2022-04-25  Ziran Sun  <zsun@igalia.com>
+
+        UA stylesheet should include table { text-indent: initial } to conform with HTML standard
+        https://bugs.webkit.org/show_bug.cgi?id=201297
+
+        Reviewed by Tim Nguyen.
+
+        * platform/glib/imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/form-controls/resets-expected.txt:
+
+2022-04-25  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        REGRESSION (249585@main): TestWebKitAPI.IPCTestingAPI.CanReceiveIPCSemaphore is timing out
+        https://bugs.webkit.org/show_bug.cgi?id=239507
+
+        Reviewed by Wenson Hsieh.
+
+        * ipc/send-semaphore-expected.txt: Added.
+        * ipc/send-semaphore.html: Added.
+
+2022-04-24  Youenn Fablet  <youenn@apple.com>
+
+        TextTrackLoader should use SameOrigin mode by default
+        https://bugs.webkit.org/show_bug.cgi?id=239381
+
+        Reviewed by Eric Carlson.
+
+        * http/tests/security/contentSecurityPolicy/resources/track.vtt.py: Added.
+        * http/tests/security/contentSecurityPolicy/track-redirect-allowed.html:
+        * http/tests/security/contentSecurityPolicy/track-redirect-allowed2.html:
+        * http/tests/security/contentSecurityPolicy/track-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/track-redirect-blocked.html:
+        * http/tests/security/text-track-crossorigin-expected.txt:
+        * http/tests/security/text-track-crossorigin.html:
+
+2022-04-23  Andres Gonzalez  <andresg_22@apple.com>
+
+        AX ITM: Table row objects should return a non-null unignored parent even when a table object is not found in its ancestry.
+        https://bugs.webkit.org/show_bug.cgi?id=239606
+        <rdar://problem/92094205>
+
+        Reviewed by Chris Fleizach.
+
+        * accessibility/aria-expanded-supported-roles.html:
+        * accessibility/mac/heading-clickpoint-expected.txt:
+        * accessibility/mac/heading-clickpoint.html:
+        * platform/mac/accessibility/aria-expanded-supported-roles-expected.txt:
+
+2022-04-23  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [ATSPI] WTR: add implementation for AccessibilityUIElement::domIdentifier
+        https://bugs.webkit.org/show_bug.cgi?id=239598
+
+        Reviewed by Andres Gonzalez.
+
+        * platform/glib/accessibility/table-add-remove-row-expected.txt: Removed.
+
+2022-04-22  Rob Buis  <rbuis@igalia.com>
+
+        Should never be reached failure in WebCore::RenderElement::visibleInViewportStateChanged
+        https://bugs.webkit.org/show_bug.cgi?id=191824
+
+        Reviewed by Eric Carlson.
+
+        * media/audio-viewport-state-change-crash-expected.txt: Added.
+        * media/audio-viewport-state-change-crash.html: Added.
+
+2022-04-22  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Regression(r287684) Resources from the memory cache show empty content in Network, Sources, and Search tabs
+        https://bugs.webkit.org/show_bug.cgi?id=239667
+
+        Reviewed by Devin Rousso.
+
+        Add test steps to ensure that the resource has content, and that the base64Encoded value matches our
+        expectations. While only the memory cache was affected by this regression, add the test steps to both
+        the memory and disk caches to defend this functionality.
+
+        * http/tests/inspector/network/resource-response-source-memory-cache-expected.txt:
+        * http/tests/inspector/network/resource-response-source-memory-cache.html:
+        * http/tests/inspector/network/resource-response-source-disk-cache-expected.txt:
+        * http/tests/inspector/network/resource-response-source-disk-cache.html:
+
+2022-04-22  Simon Fraser  <simon.fraser@apple.com>
+
+        Focusing scroll container before scrolling breaks smooth scrolling
+        https://bugs.webkit.org/show_bug.cgi?id=239605
+
+        Reviewed by Wenson Hsieh.
+
+        * fast/scrolling/programmatic-smooth-scroll-after-focus-expected.txt: Added.
+        * fast/scrolling/programmatic-smooth-scroll-after-focus.html: Added.
+        * platform/win/TestExpectations:
+
+2022-04-22  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey ] fast/text/khmer-lao-font.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=238917
+
+        Unreviewed test gardening.
+
+        * platform/mac-bigsur/fast/text/khmer-lao-font-expected.txt: Copied from LayoutTests/platform/mac/fast/text/khmer-lao-font-expected.txt.
+        * platform/mac/fast/text/khmer-lao-font-expected.txt:
+
+2022-04-22  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 arm64 ] imported/w3c/web-platform-tests/infrastructure/reftest-wait.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=230488
+
+        Unreviewed test gardening. 
+
+        Updated text expectation in include Monterey wk2 arm64
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-22  Karl Rackler  <rackler@apple.com>
+
+        [ macOS Release arm64 ] imported/w3c/web-platform-tests/resource-timing/resource_timing.worker.html is a flakey text failure
+        https://bugs.webkit.org/show_bug.cgi?id=223472
+
+        Unreviewed test gardening. 
+
+        Updated test expectation [ Release arm64 ]
+
+        * platform/mac/TestExpectations:
+
+2022-04-22  Andres Gonzalez  <andresg_22@apple.com>
+
+        Fix for accessibility/aria-grid-with-aria-owns-rows.html in isolated tree mode.
+        https://bugs.webkit.org/show_bug.cgi?id=239498
+        <rdar://problem/91961398>
+
+        Reviewed by Chris Fleizach and Tyler Wilcock.
+
+        * accessibility/aria-grid-with-aria-owns-rows-expected.txt:
+        * accessibility/aria-grid-with-aria-owns-rows.html:
+
+2022-04-22  Alan Bujtas  <zalan@apple.com>
+
+        Book content is clipped at page boundary when displaying list with bullet points
+        https://bugs.webkit.org/show_bug.cgi?id=239638
+        <rdar://89257768>
+
+        Reviewed by Antti Koivisto.
+
+        * fast/multicol/pagination/table-cell-one-line-pagination-expected.html: Added.
+        * fast/multicol/pagination/table-cell-one-line-pagination.html: Added.
+
+2022-04-22  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: The isolated tree is not updated after role changes in AccessibilityRenderObject::updateRoleAfterChildrenCreation()
+        https://bugs.webkit.org/show_bug.cgi?id=239549
+
+        Reviewed by Chris Fleizach and Andres Gonzalez.
+
+        * accessibility/mac/invalid-menu-role-does-not-send-notification-expected.txt:
+        * accessibility/mac/invalid-menu-role-does-not-send-notification.html:
+        Update test to use async-await to actually wait for changes to happen,
+        which is required to make the test pass in isolated tree mode.
+
+2022-04-21  Andres Gonzalez  <andresg_22@apple.com>
+
+        AX ITM: Fix for multiple flaky tests in isolated tree mode.
+        https://bugs.webkit.org/show_bug.cgi?id=239583
+        <rdar://problem/92064483>
+
+        Reviewed by Chris Fleizach.
+
+        Rewrote these flaky tests so that now pass in isolated tree mode:
+        - Use expect() instead of shouldBe*() and log the output at the end of
+        the test.
+        - Avoid setting focus to an element just to get the accessible element.
+
+        * accessibility/legend-children-are-visible-expected.txt:
+        * accessibility/legend-children-are-visible.html:
+        * accessibility/mac/aria-label-overrides-visible-text-expected.txt:
+        * accessibility/mac/aria-label-overrides-visible-text.html:
+        * accessibility/mac/aria-popup-buttons-on-native-elements-expected.txt:
+        * accessibility/mac/aria-popup-buttons-on-native-elements.html:
+        * accessibility/mac/link-with-title-expected.txt:
+        * accessibility/mac/link-with-title.html:
+
+2022-04-21  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 arm64 ] media/modern-media-controls/tracks-support/text-track-selected-via-media-api.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239634
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-21  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 arm64 ] fast/scrolling/mac/adjust-scroll-snap-during-gesture.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239627
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-21  Truitt Savell  <tsavell@apple.com>
+
+        [ iOS 15.4 ] imported/w3c/web-platform-tests/css/css-color/opacity-overlapping-letters.html is failing
+        https://bugs.webkit.org/show_bug.cgi?id=239625
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+
+2022-04-21  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 arm64 ] REGRESSION (r242313): Layout Test scrollingcoordinator/mac/multiple-fixed.html is a flaky time out and image diff
+        https://bugs.webkit.org/show_bug.cgi?id=195635
+
+        Unreviewed test gardening. 
+
+        Adding new test expectation.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-21  Matteo Flores  <matteo_flores@apple.com>
+
+        Implement ElementInternals
+        https://bugs.webkit.org/show_bug.cgi?id=197960
+
+        Unreviewed test gardening.
+
+        * platform/ipad/TestExpectations:
+
+2022-04-21  Youenn Fablet  <youenn@apple.com>
+
+        A suspended remote shared worker should resume when a new SharedWorker is added
+        https://bugs.webkit.org/show_bug.cgi?id=239325
+
+        Reviewed by Chris Dumez.
+
+        * http/tests/navigation/page-cache-shared-worker-expected.txt:
+        * http/tests/navigation/page-cache-shared-worker.html:
+        * http/tests/navigation/resources/page-cache-helper-for-sharedworker.html:
+        * http/tests/navigation/resources/shared-worker-script.js:
+
+2022-04-21  Karl Rackler  <rackler@apple.com>
+
+        [ macOS Release ] webanimations/css-transition-retargeting-during-ready-promise.html is a flaky failure
+        Updating test expectations to include Monterey Release
+        https://bugs.webkit.org/show_bug.cgi?id=215335
+
+        Unreviewed test gardening. 
+
+        * platform/mac/TestExpectations:
+
+2022-04-21  Eric Carlson  <eric.carlson@apple.com>
+
+        AVSampleBufferRenderSynchronizer timeline sometimes goes backwards when playback begins
+        https://bugs.webkit.org/show_bug.cgi?id=239471
+        rdar://91117803
+
+        Reviewed by Jer Noble.
+
+        * media/media-source/media-source-current-time-expected.txt: Added.
+        * media/media-source/media-source-current-time.html: Added.
+
+2022-04-21  Tim Nguyen  <ntim@apple.com>
+
+        [iOS] Rebaseline fast/attachment/attachment-disabled-rendering.html expectations
+        https://bugs.webkit.org/show_bug.cgi?id=238960
+
+        Unreviewed test gardening.
+
+        The page dimensions are slightly different, but the <attachment> has 0 size as expected.
+
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios/fast/attachment/attachment-disabled-rendering-expected.txt: Added.
+
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [ iOS ] platform/ios/ios/fast/text/opticalFont.html is a constant failure
+        https://bugs.webkit.org/show_bug.cgi?id=239570
+        <rdar://problem/92056238>
+
+        Unreviewed test gardening.
+
+        Rebase.
+
+        * platform/ios/platform/ios/ios/fast/text/opticalFont-expected.txt:
+
+2022-04-20  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_block_downloads.tentative.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239577
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-20  Karl Rackler  <rackler@apple.com>
+
+        [ macOS Release wk2 ] webanimations/frame-rate/animation-frame-rate-alignment-started-with-one-frame-separation.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239574
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-20  Karl Rackler  <rackler@apple.com>
+
+        [ Monterey Release wk2 ] imported/w3c/web-platform-tests/content-security-policy/inheritance/blob-url-in-main-window-self-navigate-inherits.sub.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239568
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-20  Simon Fraser  <simon.fraser@apple.com>
+
+        REGRESSION (r281913): Map toolbar flickers when dragging the map on https://gis.ee/
+        https://bugs.webkit.org/show_bug.cgi?id=238589
+        <rdar://90483049>
+
+        Reviewed by Alan Bujtas.
+
+        Move subtree-div-overlaps-multiple-negative-z-divs.html into the layer-creation directory.
+        Add a new test.
+
+        * compositing/layer-creation/overlap-with-negative-z-layers-expected.html: Added.
+        * compositing/layer-creation/overlap-with-negative-z-layers.html: Added.
+        * compositing/layer-creation/subtree-div-overlaps-multiple-negative-z-divs-expected.html: Renamed from LayoutTests/compositing/subtree-div-overlaps-multiple-negative-z-divs-expected.html.
+        * compositing/layer-creation/subtree-div-overlaps-multiple-negative-z-divs.html: Renamed from LayoutTests/compositing/subtree-div-overlaps-multiple-negative-z-divs.html.
+        * fast/harness/render-tree-as-text-options-expected.txt: Test progressed; update results.
+
+2022-04-20  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 ] media/audio-session-category-at-most-recent-playback.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239566
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-20  Truitt Savell  <tsavell@apple.com>
+
+        Some layout tests are failing on EWS but not post commit testing due to a OS difference
+        https://bugs.webkit.org/show_bug.cgi?id=239564
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+
+2022-04-20  Alan Bujtas  <zalan@apple.com>
+
+        [IFC][Integration] Do not call WebPreferences::simpleLineLayoutEnabled in canUseForLineLayoutWithReason
+        https://bugs.webkit.org/show_bug.cgi?id=239540
+
+        Reviewed by Antti Koivisto.
+
+        * TestExpectations:
+        * editing/document-marker-null-check.html:
+        * editing/text-iterator/count-mark-lineboxes.html:
+        * fast/block/float/simple-line-layout-float-shrink-line-expected.html:
+        * fast/block/line-layout/first-line-should-bail-out-of-simple-line-layout-expected.html:
+        * fast/block/margin-collapse/empty-clear-blocks-complex.html:
+        * fast/css/word-spacing-with-normal-layout.html:
+        * fast/css3-text/css3-text-decoration/simple-line-layout-text-decoration-expected.html:
+        * fast/css3-text/css3-text-justify/text-justify-last-line-simple-line-layout-expected.html:
+        * fast/dom/Document/CaretRangeFromPoint/simple-line-layout-hittest-with-caret-range-from-point-expected.html:
+        * fast/dom/Range/simple-line-layout-getclientrects-expected.html:
+        * fast/forms/basic-textareas-quirks-simple-lines-expected.html:
+        * fast/forms/basic-textareas-quirks.html:
+        * fast/forms/basic-textareas-simple-lines-expected.html:
+        * fast/forms/basic-textareas.html:
+        * fast/forms/linebox-overflow-in-textarea-padding-simple-lines-expected.html:
+        * fast/forms/linebox-overflow-in-textarea-padding.html:
+        * fast/forms/negativeLineHeight-simple-lines-expected.html:
+        * fast/forms/negativeLineHeight.html:
+        * fast/forms/textAreaLineHeight-simple-lines-expected.html:
+        * fast/forms/textAreaLineHeight.html:
+        * fast/inline/hidpi-legacy-integral-rounding-on-hard-line-break-expected.html:
+        * fast/inline/hidpi-legacy-integral-rounding-on-inline-boxes-expected.html:
+        * fast/inline/simple-line-layout-16bit-content-expected.html:
+        * fast/layoutformattingcontext/absolute-positioned-box-with-inline-sibling-expected.html:
+        * fast/layoutformattingcontext/absolute-positioned-box-with-inline-sibling.html:
+        * fast/layoutformattingcontext/absolute-positioned-simple-table-expected.html:
+        * fast/layoutformattingcontext/absolute-positioned-simple-table.html:
+        * fast/layoutformattingcontext/absolute-positioned-simple-table2-expected.html:
+        * fast/layoutformattingcontext/absolute-positioned-simple-table2.html:
+        * fast/layoutformattingcontext/absolute-positioned-simple-table3-expected.html:
+        * fast/layoutformattingcontext/absolute-positioned-simple-table3.html:
+        * fast/layoutformattingcontext/anonymous-inline-container-simple-expected.html:
+        * fast/layoutformattingcontext/anonymous-inline-container-simple.html:
+        * fast/layoutformattingcontext/block-only/abs-pos-with-border-padding-and-float-child-expected.html:
+        * fast/layoutformattingcontext/block-only/abs-pos-with-border-padding-and-float-child.html:
+        * fast/layoutformattingcontext/block-only/absolute-auto-with-sibling-margin-bottom.html:
+        * fast/layoutformattingcontext/block-only/absolute-height-stretch.html:
+        * fast/layoutformattingcontext/block-only/absolute-left-auto.html:
+        * fast/layoutformattingcontext/block-only/absolute-left-right-top-bottom-auto.html:
+        * fast/layoutformattingcontext/block-only/absolute-nested.html:
+        * fast/layoutformattingcontext/block-only/absolute-nested2.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-left-right-margin.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-min-max-height.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-min-max-width.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-when-containing-block-is-not-in-the-formatting-context.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-when-containing-block-is-not-in-the-formatting-context2.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-with-margin-auto-simple-expected.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-with-margin-auto-simple.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-with-margin-auto-simple2-expected.html:
+        * fast/layoutformattingcontext/block-only/absolute-position-with-margin-auto-simple2.html:
+        * fast/layoutformattingcontext/block-only/absolute-positioned-min-max-percentage-with-parent-padding-expected.html:
+        * fast/layoutformattingcontext/block-only/absolute-positioned-min-max-percentage-with-parent-padding.html:
+        * fast/layoutformattingcontext/block-only/absolute-simple.html:
+        * fast/layoutformattingcontext/block-only/absolute-width-shrink-to-fit.html:
+        * fast/layoutformattingcontext/block-only/absolute-width-stretch.html:
+        * fast/layoutformattingcontext/block-only/absolute-with-static-block-position-nested.html:
+        * fast/layoutformattingcontext/block-only/almost-intruding-left-float-simple.html:
+        * fast/layoutformattingcontext/block-only/block-replaced-with-vertical-margins-expected.html:
+        * fast/layoutformattingcontext/block-only/block-replaced-with-vertical-margins.html:
+        * fast/layoutformattingcontext/block-only/block-root-top-should-start-from-float-top-expected.html:
+        * fast/layoutformattingcontext/block-only/block-root-top-should-start-from-float-top.html:
+        * fast/layoutformattingcontext/block-only/body-height-with-auto-html-height-quirk.html:
+        * fast/layoutformattingcontext/block-only/body-height-with-auto-html-height-quirk2.html:
+        * fast/layoutformattingcontext/block-only/body-height-with-non-auto-html-height-quirk.html:
+        * fast/layoutformattingcontext/block-only/body-height-with-non-auto-html-height-quirk2.html:
+        * fast/layoutformattingcontext/block-only/border-simple.html:
+        * fast/layoutformattingcontext/block-only/box-sizing-inflow-out-of-flow-simple.html:
+        * fast/layoutformattingcontext/block-only/child-containing-block-margin-collapse-when-float-avoiders-expected.html:
+        * fast/layoutformattingcontext/block-only/child-containing-block-margin-collapse-when-float-avoiders.html:
+        * fast/layoutformattingcontext/block-only/collapsed-margin-with-min-height.html:
+        * fast/layoutformattingcontext/block-only/collapsed-through-siblings.html:
+        * fast/layoutformattingcontext/block-only/collapsed-through-with-parent.html:
+        * fast/layoutformattingcontext/block-only/fixed-nested.html:
+        * fast/layoutformattingcontext/block-only/float-and-siblings-with-margins.html:
+        * fast/layoutformattingcontext/block-only/float-avoider-multiple-roots.html:
+        * fast/layoutformattingcontext/block-only/float-avoider-simple-left.html:
+        * fast/layoutformattingcontext/block-only/float-avoider-simple-right.html:
+        * fast/layoutformattingcontext/block-only/float-avoider-with-margins.html:
+        * fast/layoutformattingcontext/block-only/float-clear-with-auto-width-expected.html:
+        * fast/layoutformattingcontext/block-only/float-clear-with-auto-width.html:
+        * fast/layoutformattingcontext/block-only/float-left-when-container-has-padding-margin.html:
+        * fast/layoutformattingcontext/block-only/float-min-max-height.html:
+        * fast/layoutformattingcontext/block-only/float-min-max-width.html:
+        * fast/layoutformattingcontext/block-only/floating-and-next-previous-inflow-with-margin-with-no-border.html:
+        * fast/layoutformattingcontext/block-only/floating-and-next-previous-inflow-with-margin.html:
+        * fast/layoutformattingcontext/block-only/floating-box-clear-both-simple.html:
+        * fast/layoutformattingcontext/block-only/floating-box-clear-right-simple.html:
+        * fast/layoutformattingcontext/block-only/floating-box-left-and-right-multiple-with-top-offset.html:
+        * fast/layoutformattingcontext/block-only/floating-box-left-and-right-multiple.html:
+        * fast/layoutformattingcontext/block-only/floating-box-right-simple.html:
+        * fast/layoutformattingcontext/block-only/floating-box-with-clear-siblings.html:
+        * fast/layoutformattingcontext/block-only/floating-box-with-clear-simple.html:
+        * fast/layoutformattingcontext/block-only/floating-box-with-new-formatting-context.html:
+        * fast/layoutformattingcontext/block-only/floating-box-with-relative-positioned-sibling.html:
+        * fast/layoutformattingcontext/block-only/floating-left-and-right-with-clearance.html:
+        * fast/layoutformattingcontext/block-only/floating-left-right-simple.html:
+        * fast/layoutformattingcontext/block-only/floating-left-right-with-all-margins.html:
+        * fast/layoutformattingcontext/block-only/floating-lefts-and-rights-simple.html:
+        * fast/layoutformattingcontext/block-only/floating-multiple-lefts-in-body.html:
+        * fast/layoutformattingcontext/block-only/floating-multiple-lefts-multiple-lines.html:
+        * fast/layoutformattingcontext/block-only/floating-multiple-lefts.html:
+        * fast/layoutformattingcontext/block-only/floating-with-new-block-formatting-context.html:
+        * fast/layoutformattingcontext/block-only/floats-and-block-formatting-roots-expected.html:
+        * fast/layoutformattingcontext/block-only/floats-and-block-formatting-roots.html:
+        * fast/layoutformattingcontext/block-only/inflow-min-max-height.html:
+        * fast/layoutformattingcontext/block-only/inflow-min-max-width.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-bottom-bottom.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-bottom-nested.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-first-last-are-floating.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-simple.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-top-nested.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-when-child-has-padding-border.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-with-block-formatting-context.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-with-block-formatting-context2.html:
+        * fast/layoutformattingcontext/block-only/margin-collapse-with-clearance.html:
+        * fast/layoutformattingcontext/block-only/margin-left-right-sizing-out-of-flow.html:
+        * fast/layoutformattingcontext/block-only/margin-left-right-sizing.html:
+        * fast/layoutformattingcontext/block-only/margin-propagation-simple-content-height.html:
+        * fast/layoutformattingcontext/block-only/margin-sibling-collapse-propagated.html:
+        * fast/layoutformattingcontext/block-only/margin-simple.html:
+        * fast/layoutformattingcontext/block-only/min-max-and-preferred-width-simple-expected.html:
+        * fast/layoutformattingcontext/block-only/min-max-and-preferred-width-simple.html:
+        * fast/layoutformattingcontext/block-only/min-max-height-percentage.html:
+        * fast/layoutformattingcontext/block-only/negative-margin-simple.html:
+        * fast/layoutformattingcontext/block-only/non-auto-top-bottom-height-with-auto-margins.html:
+        * fast/layoutformattingcontext/block-only/non-auto-top-bottom-height-with-margins.html:
+        * fast/layoutformattingcontext/block-only/non-auto-top-bottom-left-right-widht-height-out-of-flow.html:
+        * fast/layoutformattingcontext/block-only/out-of-flow-is-never-float-box-expected.html:
+        * fast/layoutformattingcontext/block-only/out-of-flow-is-never-float-box.html:
+        * fast/layoutformattingcontext/block-only/out-of-flow-with-containing-block-border-padding.html:
+        * fast/layoutformattingcontext/block-only/padding-nested.html:
+        * fast/layoutformattingcontext/block-only/padding-simple.html:
+        * fast/layoutformattingcontext/block-only/relative-auto-with-parent-offset.html:
+        * fast/layoutformattingcontext/block-only/relative-auto.html:
+        * fast/layoutformattingcontext/block-only/relative-bottom.html:
+        * fast/layoutformattingcontext/block-only/relative-position-when-containing-block-is-not-in-the-formatting-context.html:
+        * fast/layoutformattingcontext/block-only/relative-right.html:
+        * fast/layoutformattingcontext/block-only/relative-siblings.html:
+        * fast/layoutformattingcontext/block-only/relative-simple.html:
+        * fast/layoutformattingcontext/block-only/replaced-as-inline-block-simple-expected.html:
+        * fast/layoutformattingcontext/block-only/replaced-as-inline-block-simple.html:
+        * fast/layoutformattingcontext/block-only/replaced-intrinsic-width-simple-expected.html:
+        * fast/layoutformattingcontext/block-only/replaced-intrinsic-width-simple.html:
+        * fast/layoutformattingcontext/br-and-wbr-simple-expected.html:
+        * fast/layoutformattingcontext/br-and-wbr-simple.html:
+        * fast/layoutformattingcontext/br-in-inline-content-simple-expected.html:
+        * fast/layoutformattingcontext/br-in-inline-content-simple.html:
+        * fast/layoutformattingcontext/center-alignment-with-block-content-simple-expected.html:
+        * fast/layoutformattingcontext/center-alignment-with-block-content-simple.html:
+        * fast/layoutformattingcontext/display/stacking-item-bounds-expected.html:
+        * fast/layoutformattingcontext/display/stacking-item-bounds.html:
+        * fast/layoutformattingcontext/empty-block-level-box-with-clearance-expected.html:
+        * fast/layoutformattingcontext/empty-block-level-box-with-clearance.html:
+        * fast/layoutformattingcontext/empty-table-box-expected.html:
+        * fast/layoutformattingcontext/empty-table-box.html:
+        * fast/layoutformattingcontext/empty-table-with-specified-height-quirk-simple-expected.html:
+        * fast/layoutformattingcontext/empty-table-with-specified-height-quirk-simple.html:
+        * fast/layoutformattingcontext/empty-table-with-specified-height-standards-simple-expected.html:
+        * fast/layoutformattingcontext/empty-table-with-specified-height-standards-simple.html:
+        * fast/layoutformattingcontext/fit-content-width-simple-expected.html:
+        * fast/layoutformattingcontext/fit-content-width-simple.html:
+        * fast/layoutformattingcontext/flex-box-simple.html:
+        * fast/layoutformattingcontext/float-and-br-inline-content-only-expected.html:
+        * fast/layoutformattingcontext/float-and-br-inline-content-only.html:
+        * fast/layoutformattingcontext/float-avoider-available-horizontal-space-expected.html:
+        * fast/layoutformattingcontext/float-avoider-available-horizontal-space.html:
+        * fast/layoutformattingcontext/float-avoider-available-horizontal-space2-expected.html:
+        * fast/layoutformattingcontext/float-avoider-available-horizontal-space2.html:
+        * fast/layoutformattingcontext/float-avoider-available-horizontal-space3-expected.html:
+        * fast/layoutformattingcontext/float-avoider-available-horizontal-space3.html:
+        * fast/layoutformattingcontext/float-avoider-with-inline-content-expected.html:
+        * fast/layoutformattingcontext/float-avoider-with-inline-content.html:
+        * fast/layoutformattingcontext/float-avoiding-br-last-line-expected.html:
+        * fast/layoutformattingcontext/float-avoiding-br-last-line.html:
+        * fast/layoutformattingcontext/float-avoiding-br-simple-expected.html:
+        * fast/layoutformattingcontext/float-avoiding-br-simple.html:
+        * fast/layoutformattingcontext/float-in-inline-context-simple-expected.html:
+        * fast/layoutformattingcontext/float-in-inline-context-simple.html:
+        * fast/layoutformattingcontext/float-inside-table-cell-simple-expected.html:
+        * fast/layoutformattingcontext/float-inside-table-cell-simple.html:
+        * fast/layoutformattingcontext/float-with-clear-simple-expected.html:
+        * fast/layoutformattingcontext/float-with-clear-simple.html:
+        * fast/layoutformattingcontext/floats-shrinking-line-simple-expected.html:
+        * fast/layoutformattingcontext/floats-shrinking-line-simple.html:
+        * fast/layoutformattingcontext/flow-integration-basic-paint.html:
+        * fast/layoutformattingcontext/flow-integration-basic.html:
+        * fast/layoutformattingcontext/height-percentage-quirk-to-icb-expected.html:
+        * fast/layoutformattingcontext/height-percentage-quirk-to-icb.html:
+        * fast/layoutformattingcontext/height-precentage-with-anonymous-wrapper-expected.html:
+        * fast/layoutformattingcontext/height-precentage-with-anonymous-wrapper.html:
+        * fast/layoutformattingcontext/horizontal-sizing-with-trailing-letter-spacing-expected.html:
+        * fast/layoutformattingcontext/horizontal-sizing-with-trailing-letter-spacing.html:
+        * fast/layoutformattingcontext/html-is-absolute-positioned-expected.html:
+        * fast/layoutformattingcontext/html-is-absolute-positioned.html:
+        * fast/layoutformattingcontext/inlin-box-content-fits-but-the-box-does-not-expected.html:
+        * fast/layoutformattingcontext/inlin-box-content-fits-but-the-box-does-not.html:
+        * fast/layoutformattingcontext/inline-box-overlaps-multiple-lines-expected.html:
+        * fast/layoutformattingcontext/inline-box-overlaps-multiple-lines.html:
+        * fast/layoutformattingcontext/inline-float-simple-expected.html:
+        * fast/layoutformattingcontext/inline-float-simple.html:
+        * fast/layoutformattingcontext/inline-max-width-height-simple-expected.html:
+        * fast/layoutformattingcontext/inline-max-width-height-simple.html:
+        * fast/layoutformattingcontext/inline-text-outside-of-inline-container-simple-expected.html:
+        * fast/layoutformattingcontext/inline-text-outside-of-inline-container-simple.html:
+        * fast/layoutformattingcontext/intrusive-floats-and-stretchy-lines-simple-expected.html:
+        * fast/layoutformattingcontext/intrusive-floats-and-stretchy-lines-simple.html:
+        * fast/layoutformattingcontext/intrusive-floats-takes-entire-horizontal-space-expected.html:
+        * fast/layoutformattingcontext/intrusive-floats-takes-entire-horizontal-space.html:
+        * fast/layoutformattingcontext/line-heigt-when-text-is-inside-inline-container-expected.html:
+        * fast/layoutformattingcontext/line-heigt-when-text-is-inside-inline-container.html:
+        * fast/layoutformattingcontext/max-content-and-box-sizing-simple-expected.html:
+        * fast/layoutformattingcontext/max-content-and-box-sizing-simple.html:
+        * fast/layoutformattingcontext/min-max-content-width-simple-expected.html:
+        * fast/layoutformattingcontext/min-max-content-width-simple.html:
+        * fast/layoutformattingcontext/min-max-content-width-simple2-expected.html:
+        * fast/layoutformattingcontext/min-max-content-width-simple2.html:
+        * fast/layoutformattingcontext/min-max-content-width-with-floats-simple-expected.html:
+        * fast/layoutformattingcontext/min-max-content-width-with-floats-simple.html:
+        * fast/layoutformattingcontext/min-max-content-width-with-nested-floats-simple-expected.html:
+        * fast/layoutformattingcontext/min-max-content-width-with-nested-floats-simple.html:
+        * fast/layoutformattingcontext/out-of-flow-html-and-body-stretches-to-viewport.html:
+        * fast/layoutformattingcontext/out-of-flow-positioned-line-breaks.html:
+        * fast/layoutformattingcontext/out-of-flow-with-non-fixed-height-simple-expected.html:
+        * fast/layoutformattingcontext/out-of-flow-with-non-fixed-height-simple.html:
+        * fast/layoutformattingcontext/overflow-at-inline-box-boundary-simple-expected.html:
+        * fast/layoutformattingcontext/overflow-at-inline-box-boundary-simple.html:
+        * fast/layoutformattingcontext/quirk-margin-not-collapse-when-floating-expected.html:
+        * fast/layoutformattingcontext/quirk-margin-not-collapse-when-floating.html:
+        * fast/layoutformattingcontext/replaced-and-trailing-trimmable-content-expected.html:
+        * fast/layoutformattingcontext/replaced-and-trailing-trimmable-content.html:
+        * fast/layoutformattingcontext/replaced-box-with-margin-on-baseline-expected.html:
+        * fast/layoutformattingcontext/replaced-box-with-margin-on-baseline.html:
+        * fast/layoutformattingcontext/run-expansion-extends-line-content-width-expected.html:
+        * fast/layoutformattingcontext/run-expansion-extends-line-content-width.html:
+        * fast/layoutformattingcontext/simple-absolute-positioned-inline-element-expected.html:
+        * fast/layoutformattingcontext/simple-absolute-positioned-inline-element.html:
+        * fast/layoutformattingcontext/simple-absolute-positioned-replaced-inline-element-with-percentage-height-expected.html:
+        * fast/layoutformattingcontext/simple-absolute-positioned-replaced-inline-element-with-percentage-height.html:
+        * fast/layoutformattingcontext/simple-inline-block-expected.html:
+        * fast/layoutformattingcontext/simple-inline-block.html:
+        * fast/layoutformattingcontext/simple-table-with-empty-td.html:
+        * fast/layoutformattingcontext/subframe-with-display-none-html-expected.html:
+        * fast/layoutformattingcontext/subframe-with-display-none-html.html:
+        * fast/layoutformattingcontext/table-basic-row-baseline-align.html:
+        * fast/layoutformattingcontext/table-basic-row-baseline-with-nested-table.html:
+        * fast/layoutformattingcontext/table-basic-row-vertical-align-baseline.html:
+        * fast/layoutformattingcontext/table-cell-baseline-offset-simple-expected.html:
+        * fast/layoutformattingcontext/table-cell-baseline-offset-simple.html:
+        * fast/layoutformattingcontext/table-cell-baseline-offset-simple2-expected.html:
+        * fast/layoutformattingcontext/table-cell-baseline-offset-simple2.html:
+        * fast/layoutformattingcontext/table-cell-height-middle-align-simple-expected.html:
+        * fast/layoutformattingcontext/table-cell-height-middle-align-simple.html:
+        * fast/layoutformattingcontext/table-cell-vertical-alignment-simple-expected.html:
+        * fast/layoutformattingcontext/table-cell-vertical-alignment-simple.html:
+        * fast/layoutformattingcontext/table-colspan-simple-expected.html:
+        * fast/layoutformattingcontext/table-colspan-simple.html:
+        * fast/layoutformattingcontext/table-fixed-row-height-simple-expected.html:
+        * fast/layoutformattingcontext/table-fixed-row-height-simple.html:
+        * fast/layoutformattingcontext/table-fixed-width-colspans.html:
+        * fast/layoutformattingcontext/table-fixed-width-variations-simple-expected.html:
+        * fast/layoutformattingcontext/table-fixed-width-variations-simple.html:
+        * fast/layoutformattingcontext/table-fixed-width-with-max-distribution.html:
+        * fast/layoutformattingcontext/table-flex-width-border-collapse.html:
+        * fast/layoutformattingcontext/table-flex-width-colspans.html:
+        * fast/layoutformattingcontext/table-min-max-flex-distribution-simple-expected.html:
+        * fast/layoutformattingcontext/table-min-max-flex-distribution-simple.html:
+        * fast/layoutformattingcontext/table-min-max-width-empty-content-simple-expected.html:
+        * fast/layoutformattingcontext/table-min-max-width-empty-content-simple.html:
+        * fast/layoutformattingcontext/table-min-max-width-simple-expected.html:
+        * fast/layoutformattingcontext/table-min-max-width-simple.html:
+        * fast/layoutformattingcontext/table-missing-cells-simple-expected.html:
+        * fast/layoutformattingcontext/table-missing-cells-simple.html:
+        * fast/layoutformattingcontext/table-quirk-vertical-margin-simple-expected.html:
+        * fast/layoutformattingcontext/table-quirk-vertical-margin-simple.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse-expected.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse-with-padding-expected.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse-with-padding.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse2-expected.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse2.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse3-expected.html:
+        * fast/layoutformattingcontext/table-simple-border-collapse3.html:
+        * fast/layoutformattingcontext/table-simple-collapsed-row-border-expected.html:
+        * fast/layoutformattingcontext/table-simple-collapsed-row-border.html:
+        * fast/layoutformattingcontext/table-simple-collapsed-row-border2-expected.html:
+        * fast/layoutformattingcontext/table-simple-collapsed-row-border2.html:
+        * fast/layoutformattingcontext/table-simple-collapsed-tbody-border-expected.html:
+        * fast/layoutformattingcontext/table-simple-collapsed-tbody-border.html:
+        * fast/layoutformattingcontext/table-simple-fixed-width-with-wide-content-expected.html:
+        * fast/layoutformattingcontext/table-simple-fixed-width-with-wide-content.html:
+        * fast/layoutformattingcontext/table-simple-multiple-sections-expected.html:
+        * fast/layoutformattingcontext/table-simple-multiple-sections-with-border-spacing-and-collapse-expected.html:
+        * fast/layoutformattingcontext/table-simple-multiple-sections-with-border-spacing-and-collapse.html:
+        * fast/layoutformattingcontext/table-simple-multiple-sections.html:
+        * fast/layoutformattingcontext/table-simple-row-border-expected.html:
+        * fast/layoutformattingcontext/table-simple-row-border.html:
+        * fast/layoutformattingcontext/table-simple-rowspan-with-spacing-expected.html:
+        * fast/layoutformattingcontext/table-simple-rowspan-with-spacing.html:
+        * fast/layoutformattingcontext/table-simple-tall-cell-content-with-fixed-height-expected.html:
+        * fast/layoutformattingcontext/table-simple-tall-cell-content-with-fixed-height.html:
+        * fast/layoutformattingcontext/table-simple-thead-border-ignore-expected.html:
+        * fast/layoutformattingcontext/table-simple-thead-border-ignore.html:
+        * fast/layoutformattingcontext/table-simple-with-border.html:
+        * fast/layoutformattingcontext/table-simple-with-fixed-widht-and-inline-content.html:
+        * fast/layoutformattingcontext/table-simple-with-padding.html:
+        * fast/layoutformattingcontext/table-space-distribution-mixed-width-type-simple-expected.html:
+        * fast/layoutformattingcontext/table-space-distribution-mixed-width-type-simple.html:
+        * fast/layoutformattingcontext/table-space-distribution-simple-expected.html:
+        * fast/layoutformattingcontext/table-space-distribution-simple-mismatching.html:
+        * fast/layoutformattingcontext/table-space-distribution-simple.html:
+        * fast/layoutformattingcontext/table-space-distribution-simple2-expected.html:
+        * fast/layoutformattingcontext/table-space-distribution-simple2.html:
+        * fast/layoutformattingcontext/table-space-mixed-width-type-simple3-expected.html:
+        * fast/layoutformattingcontext/table-space-mixed-width-type-simple3.html:
+        * fast/layoutformattingcontext/table-space-shinking-mixed-width-type-simple-expected.html:
+        * fast/layoutformattingcontext/table-space-shinking-mixed-width-type-simple.html:
+        * fast/layoutformattingcontext/table-space-shinking-mixed-width-type-simple2-expected.html:
+        * fast/layoutformattingcontext/table-space-shinking-mixed-width-type-simple2.html:
+        * fast/layoutformattingcontext/table-space-width-100-percent-quirk-expected.html:
+        * fast/layoutformattingcontext/table-space-width-100-percent-quirk.html:
+        * fast/layoutformattingcontext/table-with-column-spanner-first-row.html:
+        * fast/layoutformattingcontext/table-with-margin-content-simple-expected.html:
+        * fast/layoutformattingcontext/table-with-margin-content-simple.html:
+        * fast/layoutformattingcontext/table-with-margin-simple-expected.html:
+        * fast/layoutformattingcontext/table-with-margin-simple.html:
+        * fast/layoutformattingcontext/table-with-padding-and-border-simple-expected.html:
+        * fast/layoutformattingcontext/table-with-padding-and-border-simple.html:
+        * fast/layoutformattingcontext/table-with-percent-columns-and-spacing-expected.html:
+        * fast/layoutformattingcontext/table-with-percent-columns-and-spacing.html:
+        * fast/layoutformattingcontext/table-with-percent-columns-only-no-content-expected.html:
+        * fast/layoutformattingcontext/table-with-percent-columns-only-no-content.html:
+        * fast/layoutformattingcontext/table-with-percent-columns-simple-expected.html:
+        * fast/layoutformattingcontext/table-with-percent-columns-simple.html:
+        * fast/layoutformattingcontext/table-with-percent-height-descendant.html:
+        * fast/layoutformattingcontext/vertical-align-bottom-nested-expected.html:
+        * fast/layoutformattingcontext/vertical-align-bottom-nested.html:
+        * fast/layoutformattingcontext/vertical-align-middle-nested-expected.html:
+        * fast/layoutformattingcontext/vertical-align-middle-nested.html:
+        * fast/layoutformattingcontext/vertical-align-middle-simple-expected.html:
+        * fast/layoutformattingcontext/vertical-align-middle-simple.html:
+        * fast/layoutformattingcontext/vertical-align-top-nested-expected.html:
+        * fast/layoutformattingcontext/vertical-align-top-nested.html:
+        * fast/layoutformattingcontext/wbr-simple-expected.html:
+        * fast/layoutformattingcontext/wbr-simple.html:
+        * fast/multicol/orphans-ignored-expected.html:
+        * fast/multicol/orphans-ignored.html:
+        * fast/repaint/implicitly-positioned-block-repaint-complex-line-layout.html:
+        * fast/replaced/width100percent-textarea.html:
+        * fast/text/embed-at-end-of-pre-wrap-line-simple-lines-expected.html:
+        * fast/text/embed-at-end-of-pre-wrap-line-simple-lines.html:
+        * fast/text/embed-at-end-of-pre-wrap-line.html:
+        * fast/text/font-with-no-space-glyph-expected.html:
+        * fast/text/font-with-no-space-glyph.html:
+        * fast/text/line-runs-rounding-simple-lines-expected.html:
+        * fast/text/mark-matches-rendering-simple-lines-expected.html:
+        * fast/text/multiple-renderers-with-hypen-on-boundary-expected.html:
+        * fast/text/negative-letter-spacing-visual-overflow-expected.html:
+        * fast/text/newline-width-expected.html:
+        * fast/text/newline-width.html:
+        * fast/text/no-wrap-in-pre-with-word-wrap-expected.html:
+        * fast/text/no-wrap-in-pre-with-word-wrap.html:
+        * fast/text/overflow-wrap-break-word-004.html:
+        * fast/text/overflow-wrap-break-word-005.html:
+        * fast/text/overflow-wrap-break-word-007.html:
+        * fast/text/simple-line-hyphens-with-text-align-expected.html:
+        * fast/text/simple-line-hyphens-with-word-letter-spacing-expected.html:
+        * fast/text/simple-line-layout-and-multiline-inlineboxtree-expected.html:
+        * fast/text/simple-line-layout-and-multiline-inlineboxtree.html:
+        * fast/text/simple-line-layout-dynamic-letter-word-spacing-expected.html:
+        * fast/text/simple-line-layout-fallback-space-glyph-expected.html:
+        * fast/text/simple-line-layout-glyph-overflows-line-expected.html:
+        * fast/text/simple-line-layout-hyphen-limit-after-expected.html:
+        * fast/text/simple-line-layout-hyphen-limit-before-expected.html:
+        * fast/text/simple-line-layout-hyphen-limit-lines-expected.html:
+        * fast/text/simple-line-layout-hyphen-limit-lines2-expected.html:
+        * fast/text/simple-line-layout-hyphenation-limit-lines-accross-words-expected.html:
+        * fast/text/simple-line-layout-leading-whitespace-with-soft-hard-linebreak-expected.html:
+        * fast/text/simple-line-layout-leading-whitespace-with-soft-hard-linebreak.html:
+        * fast/text/simple-line-layout-line-box-contain-glyphs-expected.html:
+        * fast/text/simple-line-layout-line-box-contain-glyphs.html:
+        * fast/text/simple-line-layout-multiple-renderers-non-breaking-space-expected.html:
+        * fast/text/simple-line-layout-multiple-renderers-with-float-expected.html:
+        * fast/text/simple-line-layout-selection-with-overflow-expected.html:
+        * fast/text/simple-line-layout-text-position-with-stroke-expected.html:
+        * fast/text/simple-line-layout-with-justified-punctuation-expected.html:
+        * fast/text/simple-line-layout-wrapping-multiple-renderers-hang-expected.html:
+        * fast/text/simple-line-letterspacing-expected.html:
+        * fast/text/simple-line-text-indent-expected.html:
+        * fast/text/simple-line-text-measuring-with-trailing-space-expected.html:
+        * fast/text/simple-line-with-br-expected.html:
+        * fast/text/simple-line-with-multiple-renderers-expected.html:
+        * fast/text/simple-line-wordspacing-expected.html:
+        * fast/text/simple-lines-float-compare-expected.html:
+        * fast/text/simple-lines-float-expected.html:
+        * fast/text/simple-lines-float.html:
+        * fast/text/simple-lines-intruding-wide-float-expected.html:
+        * fast/text/simple-lines-range-low-line-height-expected.html:
+        * fast/text/simple-lines-text-transform-expected.html:
+        * fast/text/simple-lines-text-transform.html:
+        * fast/text/whitespace/pre-wrap-008.html:
+        * fast/text/whitespace/pre-wrap-015.html:
+        * fast/text/whitespace/pre-wrap-016.html:
+        * fast/text/whitespace/pre-wrap-line-test-simple-lines-expected.html:
+        * fast/text/whitespace/pre-wrap-line-test.html:
+        * fast/text/whitespace/pre-wrap-long-word-simple-lines-expected.html:
+        * fast/text/whitespace/pre-wrap-long-word-simple-lines.html:
+        * fast/text/whitespace/pre-wrap-spaces-after-newline-simple-lines-expected.html:
+        * fast/text/whitespace/pre-wrap-spaces-after-newline.html:
+        * fast/text/whitespace/simple-line-layout-tab-position-expected.html:
+        * fast/text/word-break-break-all-010.html:
+        * fast/text/word-break-break-all-011.html:
+        * printing/simple-lines-break-expected.html:
+
+2022-04-20  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 ] imported/blink/fast/text/international-iteration-simple-text.html is a flaky failure
+        Adding test expectation for newly affected macOS wk2
+        https://bugs.webkit.org/show_bug.cgi?id=179853
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Unskip api/validation/createTexture.html 🎉
+        https://bugs.webkit.org/show_bug.cgi?id=239447
+
+        Reviewed by Kimmo Kinnunen.
+
+        It passes now!!!!
+
+        * http/tests/webgpu/webgpu/api/validation/createTexture-expected.txt:
+        * platform/ios-device-wk1/TestExpectations:
+        * platform/ios-simulator-wk1/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-20  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r292508.
+        https://bugs.webkit.org/show_bug.cgi?id=239561
+
+        Links to test results are partly broken in layout-tests-
+        results/results.html
+
+        Reverted changeset:
+
+        "Fix expected, actual links for variant-based imported wpt
+        tests"
+        https://bugs.webkit.org/show_bug.cgi?id=238832
+        https://commits.webkit.org/r292508
+
+2022-04-20  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 ] fast/scrolling/overflow-scroll-past-max.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239554
+        
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-20  Karl Rackler  <rackler@apple.com>
+
+        [ macOS wk2 ]  imported/w3c/web-platform-tests/html/semantics/embedded-content/the-area-element/area-download-click.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239546
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Update WebGPU CTS to revision 549d7c2f1637321a9247f0a3ab022f919e5ca5da
+        https://bugs.webkit.org/show_bug.cgi?id=239444
+
+        Reviewed by Kimmo Kinnunen.
+
+        This includes a fix for api/validation/createTexture.
+
+        * http/tests/webgpu/common/framework/fixture.js:
+        (export.Fixture.prototype.eventualExpectOK):
+        (export.Fixture):
+        * http/tests/webgpu/common/internal/version.js:
+        * http/tests/webgpu/cts.https.html:
+        * http/tests/webgpu/webgpu/api/operation/adapter/requestDevice_limits.spec.js:
+        (g.test.string_appeared_here.desc.Test.that.specifying.limits.that.aren.requestDevice.to.reject.fn.async t):
+        (string_appeared_here.fn.async t):
+        (kLimits.beginSubcases.expandWithParams.p.switch.case):
+        (kLimits.beginSubcases.expandWithParams.p.switch):
+        (fn.async t):
+        (fn.async t.switch.case):
+        (65535.fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/api/operation/command_buffer/copyTextureToTexture.spec.js:
+        (F.prototype.GetRenderPipelineForT2TCopyWithDepthTests):
+        * http/tests/webgpu/webgpu/api/operation/command_buffer/image_copy.spec.js:
+        (0.and.is.isnstring_appeared_heret.power.of.2.values.also.including.ImageCopyTest.prototype.async checkStencilTextureContent):
+        (0.and.is.isnstring_appeared_heret.power.of.2.values.also.including.ImageCopyTest.prototype.DoCopyTextureToBufferWithDepthAspectTest):
+        (0.and.is.isnstring_appeared_heret.power.of.2.values.also.including.ImageCopyTest):
+        * http/tests/webgpu/webgpu/api/operation/command_buffer/programmable/programmable_state_test.js:
+        (export.ProgrammableStateTest.prototype.createBindingStatePipeline):
+        * http/tests/webgpu/webgpu/api/operation/command_buffer/render/state_tracking.spec.js:
+        (VertexAndIndexStateTrackingTest.prototype.GetRenderPipelineForTest):
+        (VertexAndIndexStateTrackingTest):
+        (The.test.verifies.both.of.these.two.draw.calls.work.correctly.fn.async t):
+        * http/tests/webgpu/webgpu/api/operation/compute/basic.spec.js:
+        (g.test.string_appeared_here.fn.async t):
+        (kMaxComputeWorkgroupSize.p.largeDimension.fn.async t):
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/buffer_sync_test.js:
+        (export.checkOpsValidForContext):
+        (export.BufferSyncTest.prototype.async createIntermediateBuffersAndTexturesForWriteOp):
+        (export.BufferSyncTest.prototype.async createBuffersForReadOp):
+        (export.BufferSyncTest.prototype.async createBufferWithValue):
+        (export.BufferSyncTest.prototype.async createBufferWithValues):
+        (export.BufferSyncTest.prototype.async createTextureWithValue):
+        (export.BufferSyncTest.prototype.createStorageWriteComputePipeline):
+        (export.BufferSyncTest.prototype.createTrivialRenderPipeline):
+        (export.BufferSyncTest.prototype.createStorageWriteRenderPipeline):
+        (export.BufferSyncTest.prototype.beginSimpleRenderPass):
+        (export.BufferSyncTest.prototype.encodeWriteAsStorageBufferInRenderPass):
+        (export.BufferSyncTest.prototype.encodeWriteAsStorageBufferInComputePass):
+        (export.BufferSyncTest.prototype.encodeWriteByB2BCopy):
+        (export.BufferSyncTest.prototype.encodeWriteByT2BCopy):
+        (export.BufferSyncTest.prototype.writeByWriteBuffer):
+        (export.BufferSyncTest.prototype.encodeWriteOp):
+        (export.BufferSyncTest.prototype.createStorageReadComputePipeline):
+        (export.BufferSyncTest.prototype.createBindGroupSrcDstBuffer):
+        (export.BufferSyncTest.prototype.createVertexReadRenderPipeline):
+        (export.BufferSyncTest.prototype.createUniformReadRenderPipeline):
+        (export.BufferSyncTest.prototype.createStorageReadRenderPipeline):
+        (export.BufferSyncTest.prototype.encodeReadAsStorageBufferInComputePass):
+        (export.BufferSyncTest.prototype.encodeReadAsIndirectBufferInComputePass):
+        (export.BufferSyncTest.prototype.encodeReadAsVertexBufferInRenderPass):
+        (export.BufferSyncTest.prototype.encodeReadAsIndexBufferInRenderPass):
+        (export.BufferSyncTest.prototype.encodeReadAsIndirectBufferInRenderPass):
+        (export.BufferSyncTest.prototype.encodeReadAsIndexedIndirectBufferInRenderPass):
+        (export.BufferSyncTest.prototype.encodeReadAsUniformBufferInRenderPass):
+        (export.BufferSyncTest.prototype.encodeReadAsStorageBufferInRenderPass):
+        (export.BufferSyncTest.prototype.encodeReadByB2BCopy):
+        (export.BufferSyncTest.prototype.encodeReadByB2TCopy):
+        (export.BufferSyncTest.prototype.encodeReadOp):
+        (export.BufferSyncTest.prototype.async encodeWriteByB2BCopy): Deleted.
+        (export.BufferSyncTest.prototype.async encodeWriteByT2BCopy): Deleted.
+        (export.BufferSyncTest.prototype.async encodeWriteOp): Deleted.
+        (export.BufferSyncTest.prototype.async createCommandBufferWithWriteOp): Deleted.
+        (export.BufferSyncTest.prototype.async submitWriteOp): Deleted.
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/multiple_buffers.html: Added.
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/multiple_buffers.spec.js: Added.
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/single_buffer-expected.txt: Added.
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/single_buffer.html: Added.
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/single_buffer.spec.js: Added.
+        (p.kBoundaryInfo.p.boundary.contexts.expandWithParams):
+        (fn.async t):
+        (true.fn.async t):
+        (g.test.string_appeared_here.desc.Test.write.after.write.operations.in.the.same.render.bundle.The.first.write.will.write.1.into.a.storage.buffer.The.second.write.will.write.2.into.the.same.buffer.in.the.same.pass.Expected.data.in.buffer.is.either.1.or.2.fn.async t):
+        (g.test.string_appeared_here.desc.Test.write.after.write.operations.in.the.same.compute.pass.The.first.write.will.write.1.into.a.storage.buffer.The.second.write.will.write.2.into.the.same.buffer.in.the.same.pass.Expected.data.in.buffer.is.2.fn.async t):
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/operation_context_helper.js: Added.
+        (combineContexts):
+        (export.OperationContextHelper):
+        (export.OperationContextHelper.prototype.ensureSubmit):
+        (export.OperationContextHelper.prototype.popContext):
+        (export.OperationContextHelper.prototype.makeDummyAttachment):
+        (export.OperationContextHelper.prototype.ensureContext):
+        (export.OperationContextHelper.prototype.flushRenderBundles):
+        (export.OperationContextHelper.prototype.flushCommandBuffers):
+        (export.OperationContextHelper.prototype.ensureBoundary):
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/texture/same_subresource.spec.js:
+        (TextureSyncTestHelper):
+        (TextureSyncTestHelper.prototype.performWriteOp):
+        (TextureSyncTestHelper.prototype.ensureSubmit): Deleted.
+        (TextureSyncTestHelper.prototype.popContext): Deleted.
+        (TextureSyncTestHelper.prototype.makeDummyAttachment): Deleted.
+        (TextureSyncTestHelper.prototype.ensureContext): Deleted.
+        (TextureSyncTestHelper.prototype.flushRenderBundles): Deleted.
+        (TextureSyncTestHelper.prototype.flushCommandBuffers): Deleted.
+        (TextureSyncTestHelper.prototype.ensureBoundary): Deleted.
+        * http/tests/webgpu/webgpu/api/operation/memory_sync/texture/texture_sync_test.js:
+        (combineContexts): Deleted.
+        * http/tests/webgpu/webgpu/api/operation/render_pass/resolve.spec.js:
+        * http/tests/webgpu/webgpu/api/operation/render_pass/storeOp.spec.js:
+        (kArrayLayers.fn.t.else):
+        * http/tests/webgpu/webgpu/api/operation/rendering/basic.spec.js:
+        * http/tests/webgpu/webgpu/api/operation/rendering/blending.spec.js:
+        * http/tests/webgpu/webgpu/api/operation/rendering/depth.spec.js:
+        * http/tests/webgpu/webgpu/api/operation/rendering/depth_clip_clamp.spec.js:
+        (fn.async t):
+        * http/tests/webgpu/webgpu/api/operation/rendering/draw.spec.js:
+        (9.undefined.fn.async t):
+        * http/tests/webgpu/webgpu/api/operation/resource_init/buffer.spec.js:
+        * http/tests/webgpu/webgpu/api/operation/resource_init/check_texture/by_copy.js:
+        (export.const.checkContentsByBufferCopy):
+        (export.const.checkContentsByTextureCopy):
+        * http/tests/webgpu/webgpu/api/operation/resource_init/check_texture/by_ds_test.js:
+        (const.checkContents):
+        * http/tests/webgpu/webgpu/api/operation/resource_init/check_texture/by_sampling.js:
+        (export.const.checkContentsBySampling):
+        * http/tests/webgpu/webgpu/api/operation/resource_init/texture_zero.spec.js:
+        (export.TextureZeroInitTest.prototype.initializeWithStoreOp):
+        (export.TextureZeroInitTest.prototype.discardTexture):
+        (export.TextureZeroInitTest):
+        * http/tests/webgpu/webgpu/api/operation/sampling/anisotropy.spec.js:
+        (SamplerAnisotropicFilteringSlantedPlaneTest.prototype.async init):
+        * http/tests/webgpu/webgpu/api/operation/texture_view/format_reinterpretation-expected.txt: Added.
+        * http/tests/webgpu/webgpu/api/operation/texture_view/format_reinterpretation.html: Added.
+        * http/tests/webgpu/webgpu/api/operation/texture_view/format_reinterpretation.spec.js: Added.
+        (makeInputTexelView):
+        (viewFormat.fn.async t):
+        (4.fn.async t):
+        * http/tests/webgpu/webgpu/api/operation/texture_view/read.spec.js:
+        * http/tests/webgpu/webgpu/api/operation/texture_view/write.spec.js:
+        * http/tests/webgpu/webgpu/api/operation/vertex_state/correctness.spec.js:
+        (prototype.makeTestWGSL):
+        * http/tests/webgpu/webgpu/api/validation/attachment_compatibility.spec.js:
+        (F.prototype.createColorAttachment):
+        (F.prototype.createRenderPipeline):
+        (F):
+        (string_appeared_here.filter.p.p.format.depthStencilInfo.stencil):
+        (fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/buffer/create.spec.js:
+        * http/tests/webgpu/webgpu/api/validation/createBindGroup.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/createBindGroupLayout.spec.js:
+        (prototype.async g): Deleted.
+        * http/tests/webgpu/webgpu/api/validation/createComputePipeline.spec.js:
+        (making.sure.that.the.test.working):
+        * http/tests/webgpu/webgpu/api/validation/createRenderPipeline.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/createTexture.spec.js:
+        (format.unless):
+        (2.fn.async t):
+        (fn.async t):
+        (format.fn.async t):
+        (kTextureFormats.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/createView.spec.js:
+        (true.fn.async t):
+        (kTextureFormats.fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/api/validation/encoding/beginRenderPass.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/buffer_texture_copies.spec.js:
+        (string_appeared_here.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/clearBuffer.spec.js:
+        (kResourceStates.fn.async t):
+        (false.fn.async t):
+        (g.test.string_appeared_here.desc.Test.that.clearing.an.error.buffer.fails.fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/compute_pass.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/copyBufferToBuffer.spec.js:
+        (F.prototype.TestCopyBufferToBuffer):
+        (F):
+        (kResourceStates.fn.async t):
+        (fn.async t):
+        (kBufferUsages.fn.async t):
+        (g.test.string_appeared_here.fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/copyTextureToTexture.spec.js:
+        (fn.async t):
+        (kTextureFormats.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/indirect_draw.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/setIndexBuffer.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/setPipeline.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/setVertexBuffer.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/state_tracking.spec.js:
+        (F.prototype.createRenderPipeline):
+        * http/tests/webgpu/webgpu/api/validation/encoding/cmds/setBindGroup.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/programmable/pipeline_bind_group_compat.spec.js:
+        (F.prototype.createComputePipelineWithLayout):
+        * http/tests/webgpu/webgpu/api/validation/encoding/queries/general.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/queries/resolveQuerySet.spec.js:
+        (g.test.string_appeared_here.desc.Tests.that.resolve.query.set must.be.with.valid.query.set and):
+        (g.test.string_appeared_here.desc.Tests.that.resolve.query.set must):
+        (kResourceStates.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/encoding/render_bundle.spec.js:
+        (fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/image_copy/buffer_related.spec.js:
+        (kResourceStates.fn.async t):
+        (false.fn.async t):
+        (fn.async t):
+        (bytesPerRow.undefined.copyHeightInBlocks.1.bytesPerRow.undefined.bytesPerRow.kTextureFormatInfo.format.bytesPerBlock.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/image_copy/image_copy.js:
+        (export.ImageCopyTest.prototype.testBuffer):
+        (export.ImageCopyTest):
+        * http/tests/webgpu/webgpu/api/validation/image_copy/layout_related.spec.js:
+        (fn.async t):
+        (unless.p.p.dimension.string_appeared_here.p.copyHeightInBlocks.1.p.copyDepth.1.fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/api/validation/image_copy/texture_related.spec.js:
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/queue/copyToTexture/CopyExternalImageToTexture.spec.js:
+        * http/tests/webgpu/webgpu/api/validation/queue/submit.spec.js:
+        (fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/queue/writeBuffer.spec.js:
+        (kResourceStates.fn.async t):
+        (g.test.string_appeared_here.desc.Tests.that.the.data.ranges.given.to.GPUQueue.writeBuffer.are.properly.validated.Tests.calling.writeBuffer.with.both.TypedArrays.and.ArrayBuffers.and.checks.that.the.data.offset.and.size.is.interpreted.correctly.both.When.passing.a.TypedArray.the.data.offset.and.size.is.given.in.elements.When.passing.an.ArrayBuffer.the.data.offset.and.size.is.given.in.bytes.Also.verifies.that.the.specified.data.range.Describes.a.valid.range.of.the.destination.buffer.and.source.buffer.Fits.fully.within.the.destination.buffer.Has.a.byte.size.is.a.multiple.of.4.fn.async t.runTest):
+        (g.test.string_appeared_here.desc.Tests.that.the.data.ranges.given.to.GPUQueue.writeBuffer.are.properly.validated.Tests.calling.writeBuffer.with.both.TypedArrays.and.ArrayBuffers.and.checks.that.the.data.offset.and.size.is.interpreted.correctly.both.When.passing.a.TypedArray.the.data.offset.and.size.is.given.in.elements.When.passing.an.ArrayBuffer.the.data.offset.and.size.is.given.in.bytes.Also.verifies.that.the.specified.data.range.Describes.a.valid.range.of.the.destination.buffer.and.source.buffer.Fits.fully.within.the.destination.buffer.Has.a.byte.size.is.a.multiple.of.4.fn.async t):
+        (false.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/render_pass_descriptor.spec.js:
+        (true.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/resource_usages/texture/in_pass_encoder.spec.js:
+        (unless.p.kTextureFormatInfo.p.format.depth.kTextureFormatInfo.p.format.stencil.p.aspect0.string_appeared_here.p.type0.string_appeared_here.p.aspect1.string_appeared_here.p.type1.string_appeared_here.unless.p.p.binding1InBundle.p.type1.string_appeared_here.unless.p.p.compute.p.binding0InBundle.p.binding1InBundle.p.type1.string_appeared_here.fn.async t):
+        * http/tests/webgpu/webgpu/api/validation/resource_usages/texture/in_render_common.spec.js:
+        (F.prototype.createBindGroupForTest):
+        (F.prototype.isRangeNotOverlapped):
+        (F):
+        (false.unless.t.t.inSamePass.t.level0.t.level1.fn.async t):
+        (false.fn.async t):
+        (false.unless.t.t.inSamePass.t.baseLevel0.t.baseLevel1.fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/api/validation/resource_usages/texture/in_render_misc.spec.js:
+        (F.prototype.createBindGroupLayoutForTest):
+        (F.prototype.createBindGroupForTest):
+        (F):
+        (false.fn.async t):
+        (usage0.string_appeared_here.usage0.string_appeared_here.usage1.string_appeared_here.usage1.string_appeared_here.fn.async t):
+        (or.different.subresources.of.the.same.texture.texture.usages.in.copies.and.in.render.pass.consecutively.set bind): Deleted.
+        * http/tests/webgpu/webgpu/api/validation/state/device_lost/destroy-expected.txt: Added.
+        * http/tests/webgpu/webgpu/api/validation/state/device_lost/destroy.html: Added.
+        * http/tests/webgpu/webgpu/api/validation/state/device_lost/destroy.spec.js: Added.
+        (DeviceDestroyTests.prototype.async executeAfterDestroy):
+        (DeviceDestroyTests.prototype.async executeCommandsAfterDestroy):
+        (DeviceDestroyTests):
+        (false.filter):
+        (false.fn.async t):
+        (fn.async t):
+        (g.test.string_appeared_here.desc.Tests.creating.bind.group.on.destroyed.device.Tests.valid.combinations.of.Various.binded.resource.types.Various.valid.binding.entries.Maximum.set of):
+        (g.test.string_appeared_here.desc.Tests.creating.bind.group.layouts.on.destroyed.device.Tests.valid.combinations.of.Various.valid.binding.entries.Maximum.set of):
+        * http/tests/webgpu/webgpu/api/validation/validation_test.js:
+        (export.ValidationTest.prototype.getNoOpShaderCode):
+        (export.ValidationTest.prototype.createNoOpRenderPipeline):
+        (export.ValidationTest.prototype.createNoOpComputePipeline):
+        * http/tests/webgpu/webgpu/api/validation/vertex_state.spec.js:
+        * http/tests/webgpu/webgpu/capability_info.js:
+        (export.resolvePerAspectFormat):
+        (export.viewCompatible):
+        * http/tests/webgpu/webgpu/constants.js:
+        * http/tests/webgpu/webgpu/gpu_test.js:
+        (export.GPUTest.prototype.expectSingleColor):
+        (export.GPUTest.prototype.readSinglePixelFrom2DTexture):
+        (export.GPUTest.prototype.async expectDeviceLost):
+        (export.GPUTest.prototype.makeTextureWithContents):
+        (export.GPUTest.prototype.createEncoder):
+        (export.GPUTest):
+        (export.GPUTest.prototype.async makeBufferWithContents): Deleted.
+        * http/tests/webgpu/webgpu/listing.js:
+        * http/tests/webgpu/webgpu/shader/execution/evaluation_order-expected.txt: Added.
+        * http/tests/webgpu/webgpu/shader/execution/evaluation_order.html: Added.
+        * http/tests/webgpu/webgpu/shader/execution/evaluation_order.spec.js: Added.
+        (run):
+        * http/tests/webgpu/webgpu/shader/execution/expression/binary/f32_arithmetic.spec.js:
+        (calculateResults):
+        (makeCaseImpl):
+        (4.fn.async t):
+        (fullNumericRange): Deleted.
+        * http/tests/webgpu/webgpu/shader/execution/expression/binary/f32_logical-expected.txt: Added.
+        * http/tests/webgpu/webgpu/shader/execution/expression/binary/f32_logical.html: Added.
+        * http/tests/webgpu/webgpu/shader/execution/expression/binary/f32_logical.spec.js: Added.
+        (makeCase):
+        (4.fn.async t):
+        * http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/atan.spec.js:
+        (4.fn.async t):
+        * http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/atan2.spec.js:
+        (4.fn.async t):
+        * http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/clamp.spec.js:
+        (calculateMinMaxClamp):
+        (calculateMedianClamp):
+        (generateIntegerTestCases):
+        (generateFloatTestCases):
+        (4.fn.async t):
+        (generateTestCases): Deleted.
+        * http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/inversesqrt.spec.js:
+        (4.fn.async t):
+        * http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/ldexp.spec.js:
+        (4.fn.async t):
+        * http/tests/webgpu/webgpu/shader/execution/expression/expression.js:
+        * http/tests/webgpu/webgpu/shader/execution/expression/unary/f32_arithmetic.spec.js:
+        (4.fn.async t):
+        * http/tests/webgpu/webgpu/shader/execution/memory_model/memory_model_setup.js:
+        * http/tests/webgpu/webgpu/shader/execution/robust_access.spec.js:
+        (runShaderTest):
+        * http/tests/webgpu/webgpu/shader/execution/robust_access_vertex.spec.js:
+        (F.prototype.generateVertexShaderCode):
+        * http/tests/webgpu/webgpu/shader/execution/sampling/gradients_in_varying_loop.spec.js:
+        (DerivativesTest.prototype.async init):
+        * http/tests/webgpu/webgpu/shader/execution/shader_io/compute_builtins.spec.js:
+        * http/tests/webgpu/webgpu/shader/execution/shader_io/shared_structs.spec.js:
+        (and.the.layout.attributes.should.be.ignored.when.used.as.an.entry.point.IO.parameter.fn.async t):
+        (and.uses.it.as.both.the.output.of.a.vertex.shader.and.the.input.to.a.fragment.shader.fn.async t):
+        (and.uses.those.structures.as.parameter.and.return.types.entry.point.functions.and.regular.functions.fn.async t):
+        * http/tests/webgpu/webgpu/shader/execution/zero_init.spec.js:
+        * http/tests/webgpu/webgpu/shader/types.js:
+        * http/tests/webgpu/webgpu/shader/validation/shader_io/builtins.spec.js:
+        * http/tests/webgpu/webgpu/shader/validation/shader_io/generic.spec.js:
+        * http/tests/webgpu/webgpu/shader/validation/shader_io/invariant.spec.js:
+        (false.beginSubcases.fn.t.const.code.struct.VertexOut.location):
+        * http/tests/webgpu/webgpu/shader/validation/shader_io/locations.spec.js:
+        * http/tests/webgpu/webgpu/shader/validation/shader_io/util.js:
+        (export.generateShader):
+        * http/tests/webgpu/webgpu/shader/validation/tokens-expected.txt: Added.
+        * http/tests/webgpu/webgpu/shader/validation/tokens.html: Added.
+        * http/tests/webgpu/webgpu/shader/validation/tokens.spec.js: Added.
+        (string_appeared_here.beginSubcases.fn.t.else):
+        * http/tests/webgpu/webgpu/shader/validation/variable_and_const.spec.js:
+        (fn.t.prototype.else):
+        * http/tests/webgpu/webgpu/util/check_contents.js:
+        * http/tests/webgpu/webgpu/util/color_space_conversion.js:
+        (XYZ_to_lin_sRGB):
+        (lin_P3_to_XYZ):
+        (XYZ_to_lin_P3):
+        (export.makeInPlaceColorConversion):
+        * http/tests/webgpu/webgpu/util/command_buffer_maker.js:
+        (export.CommandBufferMaker):
+        * http/tests/webgpu/webgpu/util/conversion.js:
+        (export.floatAsNormalizedInteger):
+        (export.float32ToFloatBits):
+        (export.numberToFloatBits):
+        * http/tests/webgpu/webgpu/util/copy_to_texture.js:
+        (export.CopyToTextureUtils.prototype.getExpectedPixels):
+        (export.CopyToTextureUtils.prototype.doTestAndCheckResult):
+        (export.CopyToTextureUtils):
+        (isFp16Format): Deleted.
+        (isFp32Format): Deleted.
+        (isUnormFormat): Deleted.
+        (export.CopyToTextureUtils.prototype.formatForExpectedPixels): Deleted.
+        (export.CopyToTextureUtils.prototype.getSourceImageBitmapPixels): Deleted.
+        (export.CopyToTextureUtils.prototype.checkCopyExternalImageResult): Deleted.
+        (export.CopyToTextureUtils.prototype.async checkBufferWithRowPitch): Deleted.
+        * http/tests/webgpu/webgpu/util/create_elements.js:
+        (export.canCopyFromCanvasContext):
+        (export.createCanvas):
+        * http/tests/webgpu/webgpu/util/device_pool.js:
+        (export.DevicePool.prototype.async reserve):
+        (export.DevicePool.prototype.async release):
+        (export.DevicePool):
+        (canonicalizeDescriptor):
+        (DeviceHolder.prototype.expectDeviceLost):
+        * http/tests/webgpu/webgpu/util/math.js:
+        * http/tests/webgpu/webgpu/util/texture.js: Added.
+        (export.makeTextureWithContents):
+        * http/tests/webgpu/webgpu/util/texture/layout.js:
+        (export.getTextureCopyLayout):
+        * http/tests/webgpu/webgpu/util/texture/texel_data.js:
+        (export.makeClampToRange):
+        (unpackComponentsBits):
+        (makeNormalizedInfo):
+        (makeIntegerInfo):
+        (makeFloatInfo):
+        (packComponents): Deleted.
+        (export.const.kTexelRepresentationInfo.rgba32float.makeFloatInfo): Deleted.
+        (export.getSingleDataType): Deleted.
+        (export.getComponentReadbackTraits): Deleted.
+        * http/tests/webgpu/webgpu/util/texture/texel_view.js: Added.
+        (export.TexelView.prototype.fromTextureDataByReference):
+        (export.TexelView.fromTexelsAsBytes):
+        (export.TexelView.prototype.fromTexelsAsColors):
+        (export.TexelView.prototype.writeTextureData):
+        (export.TexelView):
+        * http/tests/webgpu/webgpu/util/texture/texture_ok-expected.txt: Added.
+        * http/tests/webgpu/webgpu/util/texture/texture_ok.html: Added.
+        * http/tests/webgpu/webgpu/util/texture/texture_ok.js: Added.
+        (makeTexelViewComparer):
+        (makeTexelViewComparer.):
+        * http/tests/webgpu/webgpu/util/texture/texture_ok.spec.js: Added.
+        (fn.async t):
+        * http/tests/webgpu/webgpu/web_platform/canvas/readbackFromWebGPUCanvas.spec.js:
+        (allCanvasTypes.fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/web_platform/copyToTexture/ImageBitmap.spec.js:
+        (makeTestColorsTexelView):
+        (F.prototype.generatePixel): Deleted.
+        (F.prototype.getImagePixels): Deleted.
+        (F): Deleted.
+        (fn.async t): Deleted.
+        * http/tests/webgpu/webgpu/web_platform/copyToTexture/canvas.spec.js:
+        (F.prototype.init2DCanvasContentWithColorSpace):
+        (F.prototype.init2DCanvasContent):
+        (F.prototype.initGLCanvasContent):
+        (F.prototype.getInitGPUCanvasData):
+        (F.prototype.initGPUCanvasContent):
+        (F.prototype.calculateSourceContentOnCPU):
+        (F):
+        (fn.async t):
+        (F.prototype.getTestImageURLByColorSpace): Deleted.
+        * platform/ios-device-wk1/TestExpectations:
+        * platform/ios-simulator-wk1/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-20  Yacine Bandou  <yacine.bandou@softathome.com>
+
+        [GStreamer] REGRESSION(r285586): we never end the playback of some videos
+        https://bugs.webkit.org/show_bug.cgi?id=239387
+
+        Reviewed by Philippe Normand.
+
+        * media/content/test-inaccurate-duration.mp4: Added.
+        * media/video-inaccurate-duration-ended-expected.txt: Added.
+        * media/video-inaccurate-duration-ended.html: Added.
+
+2022-04-20  Cathie Chen  <cathiechen@igalia.com>
+
+        Parsing of contain-intrinsic-size and adding a runtime flag for it
+        https://bugs.webkit.org/show_bug.cgi?id=238181
+
+        Reviewed by Simon Fraser.
+
+        * platform/gtk/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * platform/ios/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/ios/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * platform/wpe/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/wpe/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-04-20  Tim Nguyen  <ntim@apple.com>
+
+        Unprefix -webkit-user-select CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=208677
+
+        Reviewed by Simon Fraser.
+
+        * editing/selection/user-select-js-property-expected.txt:
+        * editing/selection/user-select-js-property.html:
+        * fast/css/getComputedStyle/computed-style-expected.txt:
+        * fast/css/getComputedStyle/computed-style-without-renderer-expected.txt:
+        * fast/css/getComputedStyle/resources/property-names.js:
+        * platform/gtk/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/ios/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * platform/wpe/imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * svg/css/getComputedStyle-basic-expected.txt:
+
+2022-04-20  Tim Nguyen  <ntim@apple.com>
+
+        [Debug] Skip editing/inserting/insert-list-user-select-none-crash.html
+
+        Unreviewed test gardening.
+
+        This started crashing after r293028, but it's not a direct cause of that bug. You can also
+        reproduce before r293028 by replacing `user-select: none;` in the test with `user-select: text`.
+
+        * TestExpectations:
+
+2022-04-19  Karl Rackler  <rackler@apple.com>
+
+        [Release wk2 arm64] fast/selectors/selection-window-inactive-stroke-color.html is a flaky image-only failure
+        https://bugs.webkit.org/show_bug.cgi?id=228337
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-19  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r292947.
+        https://bugs.webkit.org/show_bug.cgi?id=239520
+
+        Introduced new assertion failures
+
+        Reverted changeset:
+
+        "Make release assertion in Document::updateLayout more precise
+        for FrameSelection::setSelection"
+        https://bugs.webkit.org/show_bug.cgi?id=239431
+        https://commits.webkit.org/r292947
+
+2022-04-19  Ricky Mondello  <rmondello@apple.com>
+
+        Update in-field icons for credential fields
+        https://bugs.webkit.org/show_bug.cgi?id=239336
+
+        Reviewed by Wenson Hsieh.
+
+        * platform/mac/fast/forms/auto-fill-button/input-auto-fill-button-expected.txt:
+
+2022-04-19  Karl Rackler  <rackler@apple.com>
+
+        fast/css/sticky/sticky-left.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=227467
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-19  Tim Nguyen  <ntim@apple.com>
+
+        user-select: none shouldn't affect editability
+        https://bugs.webkit.org/show_bug.cgi?id=118009
+
+        Reviewed by Antti Koivisto.
+
+        - Removed tests that were testing old behavior
+        - Added new tests for new behavior (imported from the Blink codebase)
+
+        * editing/selection/4866671.html: Removed.
+        * editing/selection/5779984-1-expected.txt: Removed.
+        * editing/selection/5779984-1.html: Removed.
+        * editing/selection/user-select-js-property-expected.txt: Added.
+        * editing/selection/user-select-js-property.html: Added.
+        * platform/gtk/editing/selection/4866671-expected.png: Removed.
+        * platform/gtk/editing/selection/4866671-expected.txt: Removed.
+        * platform/ios/TestExpectations:
+        * platform/ios/editing/selection/4866671-expected.txt: Removed.
+        * platform/mac/editing/selection/4866671-expected.png: Removed.
+        * platform/mac/editing/selection/4866671-expected.txt: Removed.
+        * platform/win/editing/selection/4866671-expected.txt: Removed.
+        * platform/wincairo/editing/selection/4866671-expected.txt: Removed.
+
+2022-04-19  Tim Nguyen  <ntim@apple.com>
+
+        [iOS] Also skip resize-orthogonal-containing-block.html
+        https://bugs.webkit.org/show_bug.cgi?id=239459
+
+        Unreviewed test gardening.
+
+        I should have done this with the other resize tests.
+
+        * platform/ios/TestExpectations:
+
+2022-04-18  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Unskip api/validation/createSampler.html 🎉
+        https://bugs.webkit.org/show_bug.cgi?id=239448
+
+        Reviewed by Darin Adler.
+
+        Turns out we were already passing it.
+
+        * http/tests/webgpu/webgpu/api/validation/createSampler-expected.txt:
+        * platform/ios-device-wk1/TestExpectations:
+        * platform/ios-simulator-wk1/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-18  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Update the isolated tree in response to AXElementBusyChanged and AXTextChanged notifications
+        https://bugs.webkit.org/show_bug.cgi?id=239434
+
+        Reviewed by Chris Fleizach.
+
+        * accessibility/text-updates-after-dynamic-change-expected.txt: Added.
+        * accessibility/text-updates-after-dynamic-change.html: Added.
+        * accessibility/aria-busy-updates-after-dynamic-change-expected.txt: Added.
+        * accessibility/aria-busy-updates-after-dynamic-change.html: Added.
+        * platform/glib/TestExpectations:
+        Skip new test.
+        * platform/ios/TestExpectations:
+        Enable new tests.
+        * platform/ios/accessibility/text-updates-after-dynamic-change-expected.txt: Added.
+        * platform/win/TestExpectations:
+        Skip aria-busy-updates-after-dynamic-change.html.
+
+2022-04-18  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] fast/events/touch/force-press-event.html fails on iPhones with top safe area insets
+        https://bugs.webkit.org/show_bug.cgi?id=239475
+
+        Reviewed by Darin Adler.
+
+        Adjust this test so that it simulates a force press over the center of the target element.
+
+        * platform/iphone-7/fast/events/touch/force-press-event.html:
+
+2022-04-18  Tim Nguyen  <ntim@apple.com>
+
+        [iOS] Skip CSS resize tests added by r292559
+        https://bugs.webkit.org/show_bug.cgi?id=239459
+
+        Unreviewed test gardening.
+
+        iOS doesn't support CSS resize.
+
+        * platform/ios/TestExpectations:
+
+2022-04-18  Ryan Haddad  <ryanhaddad@apple.com>
+
+        REGRESSION (249698@main): 4 payment request layout tests failing on Big Sur
+        https://bugs.webkit.org/show_bug.cgi?id=239461
+
+        Unreviewed test gardening.
+
+        * platform/mac-bigsur/http/tests/paymentrequest/payment-request-change-shipping-option.https-expected.txt: Added.
+        * platform/mac-bigsur/http/tests/paymentrequest/updateWith-shippingOptions.https-expected.txt: Added.
+        * platform/mac-bigsur/imported/w3c/web-platform-tests/payment-request/payment-request-constructor.https.sub-expected.txt: Added.
+        * platform/mac-bigsur/imported/w3c/web-platform-tests/payment-request/payment-request-shippingOption-attribute.https-expected.txt: Added.
+
+2022-04-18  Martin Robinson  <mrobinson@webkit.org>
+
+        TestRunner testdriver does not properly focus elements before sending keys to them
+        https://bugs.webkit.org/show_bug.cgi?id=237589
+
+        Reviewed by Carlos Garcia Campos.
+
+        * platform/gtk/imported/w3c/web-platform-tests/html/semantics/forms/input-change-event-properties-expected.txt: Added.
+        * platform/ios-simulator/imported/w3c/web-platform-tests/html/semantics/selectors/pseudo-classes/invalid-after-clone-expected.txt: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/selectors/pseudo-classes/invalid-after-clone-expected.txt.
+        * platform/ios/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac-wk1/imported/w3c/web-platform-tests/html/semantics/forms/input-change-event-properties-expected.txt: Added.
+        * platform/mac/imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard-expected.txt: Added.
+        * platform/mac/imported/w3c/web-platform-tests/css/selectors/focus-visible-008-expected.txt:
+
+2022-04-16  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Make release assertion in Document::updateLayout more precise for FrameSelection::setSelection
+        https://bugs.webkit.org/show_bug.cgi?id=239431
+
+        Reviewed by Alan Bujtas.
+
+        Add a regression test, and fix existing accessibility tests which were mutating DOM inside setSelection
+        via should* functions. In production, this will never happen since accessibility notification will be sent
+        to UI process asynchronously and accesssibility code won't try to mutate DOM synchronously.
+
+        * accessibility/mac/focus-setting-selection-syncronizing-not-clearing-expected.txt: Rebaselined.
+        * accessibility/mac/focus-setting-selection-syncronizing-not-clearing.html: Delay DOM mutations in should*
+        until the notification is over.
+        * accessibility/mac/selection-change-userinfo.html: Ditto.
+        * accessibility/mac/selection-sync.html: Ditto.
+        * accessibility/mac/selection-value-changes-for-aria-textbox.html: Ditto.
+        * fast/forms/textarea-selection-update-during-DOMNodeRemoved-crash-expected.txt: Added.
+        * fast/forms/textarea-selection-update-during-DOMNodeRemoved-crash.html: Added.
+
+2022-04-15  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey wk2 ] 7 /paymentrequest/* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238908
+
+        Unreviewed rebasline & test gardening.
+
+        * http/tests/paymentrequest/updateWith-shippingOptions.https-expected.txt:
+        * platform/mac-wk2/TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-15  Karl Rackler  <rackler@apple.com>
+
+        [ Monterey wk2 ] WebGL conformance tests are a flaky time out
+        Adding additional tests
+        https://bugs.webkit.org/show_bug.cgi?id=239388
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-15  Karl Rackler  <rackler@apple.com>
+
+        [ Monterey wk2 debug ] WebGL conformance tests are a flaky time out
+        Adding additional tests
+        https://bugs.webkit.org/show_bug.cgi?id=239386
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-15  Karl Rackler  <rackler@apple.com>
+
+        [ Monterey wk2 ] 2 css-transforms tests are flaky failing
+        https://bugs.webkit.org/show_bug.cgi?id=239407
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-15  Antoine Quint  <graouts@apple.com>
+
+        WKWebView false positive when testing a.relList.supports("ar"), fails to open USDZ in AR QuickLook
+        https://bugs.webkit.org/show_bug.cgi?id=239135
+        <rdar://problem/91798041>
+
+        Reviewed by Tim Horton.
+
+        Add tests to check a.relList.supports("ar") returns the expected value based on
+        the SystemPreviewEnabled setting value.
+
+        * system-preview/rel-ar-setting-disabled-expected.txt: Added.
+        * system-preview/rel-ar-setting-disabled.html: Added.
+        * system-preview/rel-ar-setting-enabled-expected.txt: Added.
+        * system-preview/rel-ar-setting-enabled.html: Added.
+
+2022-04-15  Karl Rackler  <rackler@apple.com>
+
+        [ Mac ] fast/css/counters/element-removal-crash.xhtml is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239405
+
+        Unreviewed test gardening. 
+
+        * platform/mac/TestExpectations:
+
+2022-04-15  J Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Implement getTransports() and getAuthenticatorData() on AuthenticatorAttestationResponse
+        https://bugs.webkit.org/show_bug.cgi?id=238966
+        rdar://problem/91449906
+
+        Reviewed by Brent Fulgham.
+
+        Add getTransports() to test.
+
+        * http/wpt/webauthn/public-key-credential-create-success-hid.https.html:
+        * http/wpt/webauthn/resources/util.js:
+
+2022-04-15  Karl Rackler  <rackler@apple.com>
+
+        [ Monterey wk2 ] WebGL conformance tests are a flaky time out
+        https://bugs.webkit.org/show_bug.cgi?id=239388
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-15  Karl Rackler  <rackler@apple.com>
+
+        [ Monterey wk2 debug ] WebGL conformance tests are a flaky time out
+        https://bugs.webkit.org/show_bug.cgi?id=239386
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-15  Youenn Fablet  <youenn@apple.com>
+
+        Sandboxed iframe loads should match a service worker registration based on sandbox flags
+        https://bugs.webkit.org/show_bug.cgi?id=239379
+
+        Reviewed by Chris Dumez.
+
+        * TestExpectations:
+
+2022-04-15  Rob Buis  <rbuis@igalia.com>
+
+        Import css/css-sizing/aspect-ratio tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=239378
+
+        Reviewed by Tim Nguyen.
+
+        * TestExpectations:
+
+2022-04-15  Youenn Fablet  <youenn@apple.com>
+
+        ServiceWorker.postMessage() doesn't work from inside iframe
+        https://bugs.webkit.org/show_bug.cgi?id=213984
+        <rdar://problem/65203340>
+
+        Reviewed by Chris Dumez.
+
+        * http/wpt/service-workers/about-blank-iframe-expected.txt: Added.
+        * http/wpt/service-workers/about-blank-iframe-worker.js: Added.
+        * http/wpt/service-workers/about-blank-iframe.html: Added.
+        * http/tests/workers/service/client-added-to-clients-when-restored-from-page-cache.html:
+        * http/tests/workers/service/client-removed-from-clients-while-in-page-cache-expected.txt:
+        * http/tests/workers/service/client-removed-from-clients-while-in-page-cache.html:
+        * http/tests/workers/service/other_resources/test.html:
+        * http/tests/workers/service/resources/getClientIds-worker.js:
+
+2022-04-14  Claudio Saavedra  <csaavedra@igalia.com>
+
+        [GTK] Default initialize GTK-specific print info in WebKit::PrintInfo
+        https://bugs.webkit.org/show_bug.cgi?id=196542
+
+        Reviewed by Adrian Perez de Castro.
+
+        * LayoutTests/platform/gtk/TestExpectations: Remove now passing tests
+        * platform/gtk/editing/execCommand/print-expected.png: Update expectations
+        * platform/gtk/editing/execCommand/print-expected.txt:
+
+2022-04-14  Antoine Quint  <graouts@apple.com>
+
+        [model] ASVInlinePreview objects don't get cleared when the model source changes
+        https://bugs.webkit.org/show_bug.cgi?id=239064
+        <rdar://problem/90391037>
+
+        Reviewed by Dean Jackson.
+
+        Add a new test which loads a <model> element with a valid resource, checks its UUID against
+        those loaded in the UI process, and then removes the <model> source to check that same UUID
+        is not longer loaded.
+
+        This test is currently disabled on OpenSource bots.
+
+        * model-element/model-element-inline-preview-deletion-upon-source-change-expected.txt: Added.
+        * model-element/model-element-inline-preview-deletion-upon-source-change.html: Added.
+        * platform/ios/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-04-14  Matteo Flores  <matteo_flores@apple.com>
+
+        EXPECTATIONS: [ Monterey wk2 ] 7 /paymentrequest/* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238908
+
+        Unreviewed test gardening.
+
+        * TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-14  Caitlin Potter  <caitp@igalia.com>
+
+        [JSC] ShadowRealm global object has a mutable prototype
+        https://bugs.webkit.org/show_bug.cgi?id=239332
+
+        Reviewed by Yusuke Suzuki.
+
+        Add a new layout test to verify changes to verify that ShadowRealmGlobalObject has a properly
+        mutable prototype.
+
+        * js/ShadowRealm-globalThis-expected.txt: Added.
+        * js/ShadowRealm-globalThis.html: Added.
+
+2022-04-14  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        calc(): Serialize top level min/max/hypot as calc()
+        https://bugs.webkit.org/show_bug.cgi?id=239019
+
+        Reviewed by Darin Adler.
+
+        * fast/css/calc-parsing-expected.txt:
+        * fast/css/calc-parsing.html:
+
+2022-04-14  Karl Rackler  <rackler@apple.com>
+
+        [ Mac ] editing/execCommand/insert-ordered-list-and-delete.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239345
+
+        Unreviewed test gardening. 
+
+        * platform/mac/TestExpectations:
+
+2022-04-14  Karl Rackler  <rackler@apple.com>
+
+        [ Mac wk2 arm64 ] scrollingcoordinator/mac/fixed-backgrounds/fixed-background-in-overflow-in-iframe.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=225529
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-13  Kate Cheney  <katherine_cheney@apple.com>
+
+        [ iOS ] imported/w3c/web-platform-tests/content-security-policy/worker-src/service-* tests are consistently failing (229875)
+        https://bugs.webkit.org/show_bug.cgi?id=229875
+        <rdar://problem/82727204>
+
+        Unreviewed. Updating test expectations to enable CSP worker-src tests.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-04-14  Youenn Fablet  <youenn@apple.com>
+
+        Expose workers as service worker clients and implement registration matching for dedicated workers
+        https://bugs.webkit.org/show_bug.cgi?id=239066
+
+        Reviewed by Chris Dumez.
+
+        * TestExpectations:
+        * http/wpt/service-workers/controlled-dedicatedworker.https-expected.txt: Added.
+        * http/wpt/service-workers/controlled-dedicatedworker.https.html: Added.
+        * http/wpt/service-workers/resources/controlled-worker.js: Added.
+
+2022-04-14  Youenn Fablet  <youenn@apple.com>
+
+        A shared worker in a cached page should not allow the remote shared worker to continue executing
+        https://bugs.webkit.org/show_bug.cgi?id=239286
+
+        Reviewed by Chris Dumez.
+
+        * http/tests/navigation/page-cache-shared-worker-expected.txt: Added.
+        * http/tests/navigation/page-cache-shared-worker.html: Added.
+        * http/tests/navigation/resources/page-cache-helper-for-sharedworker.html: Added.
+        * http/tests/navigation/resources/shared-worker-script.js: Added.
+        * platform/mac-wk1/TestExpectations:
+        * platform/win/TestExpectations:
+
+2022-04-13  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Revert r291846 because it caused a 3% performance regression
+        https://bugs.webkit.org/show_bug.cgi?id=239323
+        <rdar://problem/91046238>
+
+        Rubber-stamped by Stephanie Lewis.
+
+        * TestExpectations:
+        * fast/text/accessibility-bold-expected-mismatch.html: Removed.
+        * fast/text/accessibility-bold.html: Removed.
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-04-13  Antoine Quint  <graouts@apple.com>
+
+        [web-animations] REGRESSION(r291527): assertion hit during teardown of document with CSS Animations
+        https://bugs.webkit.org/show_bug.cgi?id=239291
+        rdar://90699078
+
+        Reviewed by Dean Jackson.
+
+        Add a new test that would have asserted prior to the source change.
+
+        * webanimations/css-animation-resolution-during-teardown-expected.txt: Added.
+        * webanimations/css-animation-resolution-during-teardown.html: Added.
+
+2022-04-13  Alan Bujtas  <zalan@apple.com>
+
+        REGRESSION (r292043): [ Mac ] fast/block/positioning/fixed-container-with-relative-parent.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=239101
+        <rdar://problem/91603539>
+
+        Reviewed by Antti Koivisto.
+
+        * fast/block/fixed-inside-absolute-positioned-expected.html: Added.
+        * fast/block/fixed-inside-absolute-positioned.html: Added.
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-13  Truitt Savell  <tsavell@apple.com>
+
+        [ Monterey WK2 ] media/media-source/media-source-webm-vorbis-partial.html is a constant failure
+        https://bugs.webkit.org/show_bug.cgi?id=239308
+
+        Unreviewed test gardening
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-13  Andres Gonzalez  <andresg_22@apple.com>
+
+        Rewrite accessibility/mac/stale-table-rows.html to properly check that the number of rows and columns are correct after grid changes.
+        https://bugs.webkit.org/show_bug.cgi?id=239292
+        <rdar://problem/91705969>
+
+        Reviewed by Chris Fleizach.
+
+        This test had a weak success criterion that was passing when two
+        expressions were equal without checking the actual value of the
+        expressions, which was incorrect in isolated tree mode. This is a
+        rewrite of the test that makes the success criteria more strict and
+        modernize the test to be async so that it can pass in isolated tree
+        mode. In addition, renamed the test to better reflect what it is
+        actually doing.
+
+        * accessibility/mac/grid-add-remove-rows-expected.txt: Added.
+        * accessibility/mac/grid-add-remove-rows.html: Added.
+        * accessibility/mac/stale-table-rows-expected.txt: Renamed to above.
+        * accessibility/mac/stale-table-rows.html: Renamed to above.
+
+2022-04-13  Karl Rackler  <rackler@apple.com>
+
+        [ Monterey wk2 release ] imported/w3c/web-platform-tests/content-security-policy/inheritance/blob-url-inherits-from-initiator.sub.html is a flaky crash
+        https://bugs.webkit.org/show_bug.cgi?id=239307
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-13  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r292817.
+        https://bugs.webkit.org/show_bug.cgi?id=239305
+
+        some dialog tests are asserting
+
+        Reverted changeset:
+
+        "REGRESSION (r292043): [ Mac ] fast/block/positioning/fixed-
+        container-with-relative-parent.html is a flaky image failure"
+        https://bugs.webkit.org/show_bug.cgi?id=239101
+        https://commits.webkit.org/r292817
+
+2022-04-13  Karl Rackler  <rackler@apple.com>
+
+        [ Mac wk2 ] http/tests/cache-storage/cache-origins.https.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239304
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-13  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey wk2 ] 7 /paymentrequest/* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238908
+
+        Unreviewed test gardening.
+
+        * TestExpectations:
+
+2022-04-13  Truitt Savell  <tsavell@apple.com>
+
+        [ Monterey ] 4 http/tests/paymentrequest tests failing
+        https://bugs.webkit.org/show_bug.cgi?id=239300
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-13  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Correct container selection for pseudo-elements
+        https://bugs.webkit.org/show_bug.cgi?id=239279
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+
+2022-04-13  Alan Bujtas  <zalan@apple.com>
+
+        REGRESSION (r292043): [ Mac ] fast/block/positioning/fixed-container-with-relative-parent.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=239101
+        <rdar://problem/91603539>
+
+        Reviewed by Antti Koivisto.
+
+        * fast/block/fixed-inside-absolute-positioned-expected.html: Added.
+        * fast/block/fixed-inside-absolute-positioned.html: Added.
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-13  Simon Fraser  <simon.fraser@apple.com>
+
+        [css-scroll-snap] scrollIntoView fails with scroll-snap-type on :root
+        https://bugs.webkit.org/show_bug.cgi?id=239063
+        <rdar://problem/91603363>
+
+        Reviewed by Dean Jackson.
+
+        Make UIHelper.waitForScrollCompletion() work on iOS.
+
+        * fast/scrolling/ios/constrain-scrollintoview-position-expected.txt: Added.
+        * fast/scrolling/ios/constrain-scrollintoview-position.html: Added.
+        * resources/ui-helper.js:
+        (window.UIHelper.async waitForScrollCompletion.await.new.Promise.):
+        (window.UIHelper.async waitForScrollCompletion.await.new.Promise):
+        (window.UIHelper.async waitForScrollCompletion):
+
+2022-04-12  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Remove support for drawing cropped image overlays when hovering over "Copy Cropped Image"
+        https://bugs.webkit.org/show_bug.cgi?id=239269
+
+        Reviewed by Darin Adler.
+
+        * fast/images/text-recognition/image-overlay-cropped-image-expected.txt: Removed.
+        * fast/images/text-recognition/image-overlay-cropped-image.html: Removed.
+
+2022-04-12  Devin Rousso  <drousso@apple.com>
+
+        [Modern Media Controls] allow skipping by durations other than 15s
+        https://bugs.webkit.org/show_bug.cgi?id=239260
+        <rdar://problem/91441576>
+
+        Reviewed by Eric Carlson.
+
+        * media/modern-media-controls/skip-back-button/skip-back-button.html:
+        * media/modern-media-controls/skip-back-button/skip-back-button-expected.txt:
+        * media/modern-media-controls/skip-forward-button/skip-forward-button.html:
+        * media/modern-media-controls/skip-forward-button/skip-forward-button-expected.txt:
+
+2022-04-12  Karl Rackler  <rackler@apple.com>
+
+        [ Mac wk2 ] fast/forms/datetimelocal/datetimelocal-editable-components/datetimelocal-choose-value-from-picker.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=239257
+
+        Unreviewed test gardening. 
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-12  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WKTR] [DRT] Only enable WebGPU for the LayoutTests/http/tests/webgpu directory
+        https://bugs.webkit.org/show_bug.cgi?id=238779
+
+        Reviewed by Darin Adler.
+
+        * platform/mac-wk1/fast/dom/navigator-detached-no-crash-expected.txt:
+        * platform/mac-wk2/fast/dom/navigator-detached-no-crash-expected.txt:
+
+2022-04-12  Karl Rackler  <rackler@apple.com>
+
+        [ BigSur+ wk2 Release ] css3/masking/reference-clip-path-animate-transform-repaint.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=230504
+        Marking test for BigSur "+"
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-12  Ada Chan  <adachan@apple.com>
+
+        [WebXR] Implement the WebXRFrame methods for getting joints' poses and radii
+        https://bugs.webkit.org/show_bug.cgi?id=238968
+
+        Reviewed by Dean Jackson.
+
+        Add more constants for a valid joint value and device init dictionary
+        that represents a device with hand tracking support enabled.
+
+        Add new tests for testing hand input related methods in XRFrame.
+
+        * http/wpt/webxr/resources/webxr_test_constants_single_view.js:
+        * http/wpt/webxr/xrFrame_fillJointRadii-expected.txt: Added.
+        * http/wpt/webxr/xrFrame_fillJointRadii.html: Added.
+        * http/wpt/webxr/xrFrame_fillJointRadii_missing_joint_pose-expected.txt: Added.
+        * http/wpt/webxr/xrFrame_fillJointRadii_missing_joint_pose.html: Added.
+        * http/wpt/webxr/xrFrame_fillPoses-expected.txt: Added.
+        * http/wpt/webxr/xrFrame_fillPoses.html: Added.
+        * http/wpt/webxr/xrFrame_fillPoses_missing_joint_pose-expected.txt: Added.
+        * http/wpt/webxr/xrFrame_fillPoses_missing_joint_pose.html: Added.
+        * http/wpt/webxr/xrFrame_getJointPose-expected.txt: Added.
+        * http/wpt/webxr/xrFrame_getJointPose.html: Added.
+        * http/wpt/webxr/xrFrame_getJointPose_missing_joint_pose-expected.txt: Added.
+        * http/wpt/webxr/xrFrame_getJointPose_missing_joint_pose.html: Added.
+        * http/wpt/webxr/xrHand-expected.txt: Added.
+        * http/wpt/webxr/xrHand.html: Added.
+        * http/wpt/webxr/xrHandInput_gc.html:
+        * platform/win/TestExpectations: Skip other folders with WebXR tests
+
+2022-04-12  Karl Rackler  <rackler@apple.com>
+
+        REGRESSION (r292043): [ Mac ] fast/block/positioning/fixed-container-with-relative-parent.html is a flaky image failure
+        https://bugs.webkit.org/show_bug.cgi?id=239101
+
+        Unreviewed test gardening.
+
+        * platform/mac/TestExpectations:
+
+2022-04-12  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Incorrect role on dynamic lists
+        https://bugs.webkit.org/show_bug.cgi?id=238831
+
+        Reviewed by Andres Gonzalez.
+
+        * accessibility/list-with-dynamically-changing-content-expected.txt: Added.
+        * accessibility/list-with-dynamically-changing-content.html: Added.
+        * platform/ios/accessibility/list-with-dynamically-changing-content-expected.txt: Added.
+        * platform/ios/TestExpectations: Enable new test.
+        * platform/win/TestExpectations: Skip new test.
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Make fast/text/otsvg-canvas.html more robust
+        https://bugs.webkit.org/show_bug.cgi?id=239109
+        <rdar://problem/88838078>
+
+        Unreviewed test gardening.
+
+        Turns out loading fonts is asynchronous.
+
+        * fast/text/otsvg-canvas.html:
+        * platform/mac-wk1/TestExpectations:
+
+2022-04-11  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Update isolated tree in response to AXReadOnlyStatusChanged, AXRequiredStatusChanged, and AXPressedStateChanged notifications
+        https://bugs.webkit.org/show_bug.cgi?id=239047
+
+        Reviewed by Chris Fleizach.
+
+        * accessibility/aria-readonly-updates-after-dynamic-change-expected.txt: Added.
+        * accessibility/aria-readonly-updates-after-dynamic-change.html: Added.
+        * accessibility/aria-required-updates-after-dynamic-change-expected.txt: Added.
+        * accessibility/aria-required-updates-after-dynamic-change.html: Added.
+        * accessibility/mac/aria-pressed-button-attributes-expected.txt:
+        * accessibility/mac/aria-pressed-button-attributes.html:
+        Add testcases that dynamically change aria-pressed and expect the
+        right attributes.
+        * platform/ios/TestExpectations: Enable new tests.
+        * platform/win/TestExpectations: Skip new tests.
+
+2022-04-11  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: preserve DOM.NodeId if a node is removed and re-added
+        https://bugs.webkit.org/show_bug.cgi?id=189687
+
+        Reviewed by Devin Rousso.
+
+        Update test to reflect that DOM breakpoints are now able to be reattached to their original node upon insertion
+        following removal.
+
+        * inspector/dom-debugger/dom-breakpoint-node-removed-ancestor.html:
+        * inspector/dom-debugger/dom-breakpoint-node-removed-ancestor-expected.txt:
+        * inspector/dom-debugger/dom-breakpoint-node-removed-direct-expected.txt:
+
+        * inspector/dom-debugger/resources/dom-breakpoint-utilities.js:
+        (TestPage.registerInitializer.InspectorTest.DOMBreakpoint.createBreakpoint):
+        - Add an event handler to log the setting of the domNode for breakpoints. In order to prevent spurious output
+        when removing breakpoints, instrument the removal of breakpoints to remove the testing event handler before the
+        node is changed.
+
+2022-04-11  Matteo Flores  <matteo_flores@apple.com>
+
+        [ Mac wk2 Debug ] accessibility/ancestor-computation.html is a constant timeout
+        https://bugs.webkit.org/show_bug.cgi?id=239099
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-04-11  Alan Bujtas  <zalan@apple.com>
+
+        [ iOS iPhone 12 ] fast/hidpi & fast/layers/hidpi tests are flaky text/image failing
+        https://bugs.webkit.org/show_bug.cgi?id=232384
+        <rdar://problem/84714121>
+
+        Reviewed by Wenson Hsieh.
+
+        * platform/ios/TestExpectations:
+
+2022-04-11  Truitt Savell  <tsavell@apple.com>
+
+        REGRESSION (249023-249029@main): [ Monterey ] http/wpt/cache-storage/cache-storage-networkprocess-crash.html is a flaky CRASH with ASSERTION FAILED: m_pageMap.isEmpty()
+        https://bugs.webkit.org/show_bug.cgi?id=239095
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
 2022-04-11  Matteo Flores  <matteo_flores@apple.com>
 
         [ Mac ] http/tests/media/modern-media-controls/macos-fullscreen-media-controls/macos-fullscreen-media-controls-live-broadcast.html is a flaky text failure

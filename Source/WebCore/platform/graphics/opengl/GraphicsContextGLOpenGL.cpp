@@ -1984,7 +1984,7 @@ String GraphicsContextGLOpenGL::getUnmangledInfoLog(PlatformGLObject shaders[2],
         if (start == -1)
             break;
 
-        processedLog.append(log.substring(startFrom, start - startFrom));
+        processedLog.append(StringView(log).substring(startFrom, start - startFrom));
         startFrom = start + matchedLength;
 
         const String& mangledSymbol = log.substring(start, matchedLength);
@@ -1993,7 +1993,7 @@ String GraphicsContextGLOpenGL::getUnmangledInfoLog(PlatformGLObject shaders[2],
         processedLog.append(mappedSymbol);
     } while (startFrom < static_cast<int>(log.length()));
 
-    processedLog.append(log.substring(startFrom, log.length() - startFrom));
+    processedLog.append(StringView(log).substring(startFrom, log.length() - startFrom));
 
     LOG(WebGL, "Unmangled ShaderInfoLog:\n%s", processedLog.toString().utf8().data());
     return processedLog.toString();
@@ -3036,22 +3036,22 @@ void GraphicsContextGLOpenGL::compressedTexSubImage3D(GCGLenum, GCGLint, GCGLint
 {
 }
 
-void GraphicsContextGLOpenGL::multiDrawArraysANGLE(GCGLenum, GCGLSpan<const GCGLint>, GCGLSpan<const GCGLsizei>, GCGLsizei)
+void GraphicsContextGLOpenGL::multiDrawArraysANGLE(GCGLenum, GCGLSpanTuple<const GCGLint, const GCGLsizei>)
 {
     synthesizeGLError(GraphicsContextGL::INVALID_OPERATION);
 }
 
-void GraphicsContextGLOpenGL::multiDrawArraysInstancedANGLE(GCGLenum, GCGLSpan<const GCGLint>, GCGLSpan<const GCGLsizei>, GCGLSpan<const GCGLsizei>, GCGLsizei)
+void GraphicsContextGLOpenGL::multiDrawArraysInstancedANGLE(GCGLenum, GCGLSpanTuple<const GCGLint, const GCGLsizei, const GCGLsizei>)
 {
     synthesizeGLError(GraphicsContextGL::INVALID_OPERATION);
 }
 
-void GraphicsContextGLOpenGL::multiDrawElementsANGLE(GCGLenum, GCGLSpan<const GCGLsizei>, GCGLenum, GCGLSpan<const GCGLint>, GCGLsizei)
+void GraphicsContextGLOpenGL::multiDrawElementsANGLE(GCGLenum, GCGLSpanTuple<const GCGLsizei, const GCGLint>, GCGLenum)
 {
     synthesizeGLError(GraphicsContextGL::INVALID_OPERATION);
 }
 
-void GraphicsContextGLOpenGL::multiDrawElementsInstancedANGLE(GCGLenum, GCGLSpan<const GCGLsizei>, GCGLenum, GCGLSpan<const GCGLint>, GCGLSpan<const GCGLsizei>, GCGLsizei)
+void GraphicsContextGLOpenGL::multiDrawElementsInstancedANGLE(GCGLenum, GCGLSpanTuple<const GCGLsizei, const GCGLint, const GCGLsizei>, GCGLenum)
 {
     synthesizeGLError(GraphicsContextGL::INVALID_OPERATION);
 }

@@ -150,7 +150,12 @@ void NetworkProcessProxy::terminate()
     AuxiliaryProcessProxy::terminate();
     if (auto* connection = this->connection())
         connection->invalidate();
-    networkProcessDidTerminate(TerminationReason::RequestedByClient);
+}
+
+void NetworkProcessProxy::requestTermination()
+{
+    terminate();
+    networkProcessDidTerminate(ProcessTerminationReason::RequestedByClient);
 }
 
 void NetworkProcessProxy::didBecomeUnresponsive()
@@ -163,13 +168,17 @@ void NetworkProcessProxy::didBecomeUnresponsive()
     if (shouldTerminateNetworkProcessBySendingMessage()) {
         sendMessage(makeUniqueRef<IPC::Encoder>(IPC::MessageName::Terminate, 0), { });
         RunLoop::main().dispatchAfter(1_s, [weakThis = WeakPtr { *this }] () mutable {
-            if (weakThis)
+            if (weakThis) {
                 weakThis->terminate();
+                weakThis->networkProcessDidTerminate(ProcessTerminationReason::Unresponsive);
+            }
+
         });
         return;
     }
 
     terminate();
+    networkProcessDidTerminate(ProcessTerminationReason::Unresponsive);
 }
 
 void NetworkProcessProxy::sendCreationParametersToNewProcess()
@@ -412,7 +421,7 @@ void NetworkProcessProxy::websiteDataOriginDirectoryForTesting(PAL::SessionID se
     sendWithAsyncReply(Messages::NetworkProcess::WebsiteDataOriginDirectoryForTesting(sessionID, WTFMove(origin), WTFMove(topOrigin), type), WTFMove(completionHandler));
 }
 
-void NetworkProcessProxy::networkProcessDidTerminate(TerminationReason reason)
+void NetworkProcessProxy::networkProcessDidTerminate(ProcessTerminationReason reason)
 {
     Ref protectedThis { *this };
 
@@ -461,13 +470,14 @@ void NetworkProcessProxy::didClose(IPC::Connection& connection)
 #endif
 
     // This will cause us to be deleted.
-    networkProcessDidTerminate(TerminationReason::Crash);
+    networkProcessDidTerminate(ProcessTerminationReason::Crash);
 }
 
 void NetworkProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName)
 {
     logInvalidMessage(connection, messageName);
     terminate();
+    networkProcessDidTerminate(ProcessTerminationReason::Crash);
 }
 
 void NetworkProcessProxy::processAuthenticationChallenge(PAL::SessionID sessionID, Ref<AuthenticationChallengeProxy>&& authenticationChallenge)
@@ -551,7 +561,7 @@ void NetworkProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Con
     AuxiliaryProcessProxy::didFinishLaunching(launcher, connectionIdentifier);
 
     if (!IPC::Connection::identifierIsValid(connectionIdentifier)) {
-        networkProcessDidTerminate(TerminationReason::Crash);
+        networkProcessDidTerminate(ProcessTerminationReason::Crash);
         return;
     }
     
@@ -1742,7 +1752,7 @@ void NetworkProcessProxy::didExceedMemoryLimit()
     AuxiliaryProcessProxy::terminate();
     if (auto* connection = this->connection())
         connection->invalidate();
-    networkProcessDidTerminate(TerminationReason::ExceededMemoryLimit);
+    networkProcessDidTerminate(ProcessTerminationReason::ExceededMemoryLimit);
 }
 #endif
 
@@ -1769,9 +1779,10 @@ void NetworkProcessProxy::processPushMessage(PAL::SessionID sessionID, const Web
     sendWithAsyncReply(Messages::NetworkProcess::ProcessPushMessage { sessionID, pushMessage, permission }, WTFMove(callback));
 }
 
-void NetworkProcessProxy::processNotificationEvent(const NotificationData& data, NotificationEventType eventType)
+void NetworkProcessProxy::processNotificationEvent(const NotificationData& data, NotificationEventType eventType, CompletionHandler<void(bool wasProcessed)>&& callback)
 {
-    send(Messages::NetworkProcess::ProcessNotificationEvent { data, eventType }, 0);
+    RELEASE_ASSERT(!!callback);
+    sendWithAsyncReply(Messages::NetworkProcess::ProcessNotificationEvent { data, eventType }, WTFMove(callback));
 }
 #endif // ENABLE(SERVICE_WORKER)
 

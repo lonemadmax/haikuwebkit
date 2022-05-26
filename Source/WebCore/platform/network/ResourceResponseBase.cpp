@@ -97,7 +97,7 @@ ResourceResponseBase::CrossThreadData ResourceResponseBase::crossThreadData() co
     data.textEncodingName = textEncodingName().isolatedCopy();
 
     data.httpStatusCode = httpStatusCode();
-    data.httpStatusText = httpStatusText().isolatedCopy();
+    data.httpStatusText = httpStatusText().string().isolatedCopy();
     data.httpVersion = httpVersion().isolatedCopy();
 
     data.httpHeaderFields = httpHeaderFields().isolatedCopy();
@@ -121,7 +121,7 @@ ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& dat
     response.setTextEncodingName(WTFMove(data.textEncodingName));
 
     response.setHTTPStatusCode(data.httpStatusCode);
-    response.setHTTPStatusText(data.httpStatusText);
+    response.setHTTPStatusText(AtomString { data.httpStatusText });
     response.setHTTPVersion(data.httpVersion);
 
     response.m_httpHeaderFields = WTFMove(data.httpHeaderFields);
@@ -309,7 +309,8 @@ String ResourceResponseBase::sanitizeSuggestedFilename(const String& suggestedFi
 
     ResourceResponse response { { { }, "http://example.com/"_s }, { }, -1, { } };
     response.setHTTPStatusCode(200);
-    String escapedSuggestedFilename = String(suggestedFilename).replace('\\', "\\\\").replace('"', "\\\"");
+    String escapedSuggestedFilename = makeStringByReplacingAll(suggestedFilename, '\\', "\\\\"_s);
+    escapedSuggestedFilename = makeStringByReplacingAll(escapedSuggestedFilename, '"', "\\\""_s);
     response.setHTTPHeaderField(HTTPHeaderName::ContentDisposition, makeString("attachment; filename=\"", escapedSuggestedFilename, '"'));
     return response.suggestedFilename();
 }
@@ -342,14 +343,14 @@ bool ResourceResponseBase::isRedirection() const
     return isRedirectionStatusCode(m_httpStatusCode);
 }
 
-const String& ResourceResponseBase::httpStatusText() const 
+const AtomString& ResourceResponseBase::httpStatusText() const
 {
     lazyInit(AllFields);
 
     return m_httpStatusText; 
 }
 
-void ResourceResponseBase::setHTTPStatusText(const String& statusText) 
+void ResourceResponseBase::setHTTPStatusText(const AtomString& statusText)
 {
     lazyInit(AllFields);
 
@@ -781,7 +782,7 @@ bool ResourceResponseBase::isAttachment() const
     lazyInit(AllFields);
 
     auto value = m_httpHeaderFields.get(HTTPHeaderName::ContentDisposition);
-    return equalLettersIgnoringASCIICase(value.left(value.find(';')).stripWhiteSpace(), "attachment");
+    return equalLettersIgnoringASCIICase(StringView(value).left(value.find(';')).stripWhiteSpace(), "attachment");
 }
 
 bool ResourceResponseBase::isAttachmentWithFilename() const
@@ -796,8 +797,7 @@ bool ResourceResponseBase::isAttachmentWithFilename() const
     if (!equalLettersIgnoringASCIICase(contentDispositionView.left(contentDispositionView.find(';')).stripWhiteSpace(), "attachment"))
         return false;
 
-    String filename = filenameFromHTTPContentDisposition(contentDispositionView);
-    return !filename.isNull();
+    return !filenameFromHTTPContentDisposition(contentDispositionView).isNull();
 }
 
 ResourceResponseBase::Source ResourceResponseBase::source() const

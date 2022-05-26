@@ -168,6 +168,13 @@ typedef NS_ENUM(NSInteger, UIPreviewItemType) {
     UIPreviewItemTypeAttachment,
 };
 
+typedef NS_ENUM(NSInteger, _UIDataOwner) {
+    _UIDataOwnerUndefined,
+    _UIDataOwnerUser,
+    _UIDataOwnerEnterprise,
+    _UIDataOwnerShared,
+};
+
 @class UIPreviewItemController;
 
 @protocol UIPreviewItemDelegate <NSObject>
@@ -490,7 +497,10 @@ typedef enum {
 - (void)_wheelChangedWithEvent:(UIEvent *)event;
 - (void)_beginPinningInputViews;
 - (void)_endPinningInputViews;
-
+#if HAVE(PASTEBOARD_DATA_OWNER)
+@property (nonatomic, setter=_setDataOwnerForCopy:) _UIDataOwner _dataOwnerForCopy;
+@property (nonatomic, setter=_setDataOwnerForPaste:) _UIDataOwner _dataOwnerForPaste;
+#endif
 @end
 
 @class FBSDisplayConfiguration;
@@ -1202,9 +1212,11 @@ WTF_EXTERN_C_END
 @property (nonatomic, readonly) UIKeyboardPreferencesController<TIPreferencesControllerActions> *preferencesActions;
 @end
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 @interface UIMenuItem (UIMenuController_SPI)
 @property (nonatomic) BOOL dontDismiss;
 @end
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 @interface UICalloutBar : UIView
 + (UICalloutBar *)activeCalloutBar;
@@ -1371,15 +1383,6 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 #endif
 
 #endif // USE(APPLE_INTERNAL_SDK)
-
-#if HAVE(PASTEBOARD_DATA_OWNER)
-
-@interface UIResponder (Staging_73852335)
-@property (nonatomic, setter=_setDataOwnerForCopy:) _UIDataOwner _dataOwnerForCopy;
-@property (nonatomic, setter=_setDataOwnerForPaste:) _UIDataOwner _dataOwnerForPaste;
-@end
-
-#endif
 
 @interface UITextInteractionAssistant (IPI)
 @property (nonatomic, readonly) BOOL inGesture;

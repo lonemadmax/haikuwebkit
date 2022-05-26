@@ -33,6 +33,7 @@
 #include "BreakBlockquoteCommand.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSStyleDeclaration.h"
+#include "CommonAtomStrings.h"
 #include "DOMWrapperWorld.h"
 #include "DataTransfer.h"
 #include "Document.h"
@@ -184,7 +185,7 @@ ReplacementFragment::ReplacementFragment(DocumentFragment* fragment, const Visib
     ASSERT(stagingDocument->body());
 
     ComputedStyleExtractor computedStyleOfEditableRoot(editableRoot.get());
-    stagingDocument->body()->setAttributeWithoutSynchronization(styleAttr, computedStyleOfEditableRoot.copyProperties()->asText());
+    stagingDocument->body()->setAttributeWithoutSynchronization(styleAttr, computedStyleOfEditableRoot.copyProperties()->asTextAtom());
 
     RefPtr<StyledElement> holder = insertFragmentForTestRendering(stagingDocument->body());
     if (!holder) {
@@ -622,7 +623,7 @@ void ReplaceSelectionCommand::inverseTransformColor(InsertedNodes& insertedNodes
         if (editingStyle.ptr() == transformedStyle.ptr())
             continue;
 
-        setNodeAttribute(element, styleAttr, transformedStyle->style()->asText());
+        setNodeAttribute(element, styleAttr, transformedStyle->style()->asTextAtom());
     }
 }
 
@@ -685,7 +686,7 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
             }
             removeNodeAttribute(*element, styleAttr);
         } else if (newInlineStyle->style()->propertyCount() != inlineStyle->propertyCount())
-            setNodeAttribute(*element, styleAttr, newInlineStyle->style()->asText());
+            setNodeAttribute(*element, styleAttr, newInlineStyle->style()->asTextAtom());
 
         // FIXME: Tolerate differences in id, class, and style attributes.
         if (element->parentNode() && isNonTableCellHTMLBlockElement(element) && areIdenticalElements(*element, *element->parentNode())
@@ -718,7 +719,7 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
             if (isBlock(element))
                 element->cssomStyle().setPropertyInternal(CSSPropertyDisplay, "inline"_s, false);
             if (element->renderer() && element->renderer()->style().isFloating())
-                element->cssomStyle().setPropertyInternal(CSSPropertyFloat, "none"_s, false);
+                element->cssomStyle().setPropertyInternal(CSSPropertyFloat, noneAtom(), false);
         }
     }
 }
@@ -989,7 +990,7 @@ void ReplaceSelectionCommand::handleStyleSpans(InsertedNodes& insertedNodes)
         insertedNodes.willRemoveNodePreservingChildren(wrappingStyleSpan.get());
         removeNodePreservingChildren(*wrappingStyleSpan);
     } else
-        setNodeAttribute(*wrappingStyleSpan, styleAttr, style->style()->asText());
+        setNodeAttribute(*wrappingStyleSpan, styleAttr, style->style()->asTextAtom());
 }
 
 void ReplaceSelectionCommand::mergeEndIfNeeded()
@@ -1598,7 +1599,7 @@ void ReplaceSelectionCommand::addSpacesForSmartReplace()
             if (m_endOfInsertedContent.containerNode() == endNode)
                 m_endOfInsertedContent.moveToOffset(m_endOfInsertedContent.offsetInContainerNode() + 1);
         } else {
-            auto node = document().createEditingTextNode(collapseWhiteSpace ? nonBreakingSpaceString() : " "_s);
+            auto node = document().createEditingTextNode(collapseWhiteSpace ? String { nonBreakingSpaceString() } : " "_s);
             insertNodeAfter(node.copyRef(), *endNode);
             updateNodesInserted(node.ptr());
         }
@@ -1622,7 +1623,7 @@ void ReplaceSelectionCommand::addSpacesForSmartReplace()
             if (m_endOfInsertedContent.containerNode() == startNode && m_endOfInsertedContent.offsetInContainerNode())
                 m_endOfInsertedContent.moveToOffset(m_endOfInsertedContent.offsetInContainerNode() + 1);
         } else {
-            auto node = document().createEditingTextNode(collapseWhiteSpace ? nonBreakingSpaceString() : " "_s);
+            auto node = document().createEditingTextNode(collapseWhiteSpace ? String { nonBreakingSpaceString() } : " "_s);
             // Don't updateNodesInserted. Doing so would set m_endOfInsertedContent to be the node containing the leading space,
             // but m_endOfInsertedContent is supposed to mark the end of pasted content.
             insertNodeBefore(node, *startNode);

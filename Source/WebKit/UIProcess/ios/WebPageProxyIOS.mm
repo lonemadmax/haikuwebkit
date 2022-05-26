@@ -245,24 +245,24 @@ void WebPageProxy::adjustLayersForLayoutViewport(const FloatRect& layoutViewport
     m_scrollingCoordinatorProxy->viewportChangedViaDelegatedScrolling(unobscuredContentRect().location(), layoutViewport, displayedContentScale());
 }
 
-void WebPageProxy::scrollingNodeScrollViewWillStartPanGesture()
+void WebPageProxy::scrollingNodeScrollViewWillStartPanGesture(ScrollingNodeID nodeID)
 {
-    pageClient().scrollingNodeScrollViewWillStartPanGesture();
+    pageClient().scrollingNodeScrollViewWillStartPanGesture(nodeID);
 }
 
-void WebPageProxy::scrollingNodeScrollViewDidScroll()
+void WebPageProxy::scrollingNodeScrollViewDidScroll(ScrollingNodeID nodeID)
 {
-    pageClient().scrollingNodeScrollViewDidScroll();
+    pageClient().scrollingNodeScrollViewDidScroll(nodeID);
 }
 
-void WebPageProxy::scrollingNodeScrollWillStartScroll()
+void WebPageProxy::scrollingNodeScrollWillStartScroll(ScrollingNodeID nodeID)
 {
-    pageClient().scrollingNodeScrollWillStartScroll();
+    pageClient().scrollingNodeScrollWillStartScroll(nodeID);
 }
 
-void WebPageProxy::scrollingNodeScrollDidEndScroll()
+void WebPageProxy::scrollingNodeScrollDidEndScroll(ScrollingNodeID nodeID)
 {
-    pageClient().scrollingNodeScrollDidEndScroll();
+    pageClient().scrollingNodeScrollDidEndScroll(nodeID);
 }
 
 void WebPageProxy::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const WebCore::FloatSize& minimumUnobscuredSize, const WebCore::FloatSize& maximumUnobscuredSize, const FloatRect& targetExposedContentRect, const FloatRect& targetUnobscuredRect, const FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& unobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID dynamicViewportSizeUpdateID)
@@ -391,6 +391,16 @@ void WebPageProxy::updateSelectionWithTouches(const WebCore::IntPoint point, Sel
         return callback(WebCore::IntPoint(), SelectionTouch::Started, { });
 
     sendWithAsyncReply(Messages::WebPage::UpdateSelectionWithTouches(point, touches, baseIsStart), WTFMove(callback));
+}
+
+void WebPageProxy::willInsertFinalDictationResult()
+{
+    m_process->send(Messages::WebPage::WillInsertFinalDictationResult(), m_webPageID);
+}
+
+void WebPageProxy::didInsertFinalDictationResult()
+{
+    m_process->send(Messages::WebPage::DidInsertFinalDictationResult(), m_webPageID);
 }
     
 void WebPageProxy::replaceDictatedText(const String& oldText, const String& newText)
@@ -697,6 +707,11 @@ void WebPageProxy::extendSelection(WebCore::TextGranularity granularity, Complet
 void WebPageProxy::selectWordBackward()
 {
     m_process->send(Messages::WebPage::SelectWordBackward(), m_webPageID);
+}
+
+void WebPageProxy::extendSelectionForReplacement(CompletionHandler<void()>&& completion)
+{
+    sendWithAsyncReply(Messages::WebPage::ExtendSelectionForReplacement(), WTFMove(completion));
 }
 
 void WebPageProxy::requestRectsForGranularityWithSelectionOffset(WebCore::TextGranularity granularity, uint32_t offset, CompletionHandler<void(const Vector<WebCore::SelectionGeometry>&)>&& callback)
@@ -1397,7 +1412,7 @@ static bool desktopClassBrowsingRecommended(const WebCore::ResourceRequest& requ
         auto screenClass = MGGetSInt32Answer(kMGQMainScreenClass, MGScreenClassPad2);
         shouldRecommendDesktopClassBrowsing = screenClass != MGScreenClassPad3 && screenClass != MGScreenClassPad4 && desktopClassBrowsingSupported();
 #endif
-        if (ignoreSafeguards == IgnoreAppCompatibilitySafeguards::No && !linkedOnOrAfter(SDKVersion::FirstWithModernCompabilityModeByDefault)) {
+        if (ignoreSafeguards == IgnoreAppCompatibilitySafeguards::No && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ModernCompabilityModeByDefault)) {
             // Opt out apps that haven't yet built against the iOS 13 SDK to limit any incompatibilities as a result of enabling desktop-class browsing by default in
             // WKWebView on appropriately-sized iPad models.
             shouldRecommendDesktopClassBrowsing = false;

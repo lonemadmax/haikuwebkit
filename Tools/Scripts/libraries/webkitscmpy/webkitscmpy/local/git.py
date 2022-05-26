@@ -130,7 +130,7 @@ class Git(Scm):
                     kwargs = dict(encoding='utf-8')
                 self._last_populated[branch] = time.time()
                 log = subprocess.Popen(
-                    [self.repo.executable(), 'log', branch],
+                    [self.repo.executable(), 'log', branch, '--no-decorate'],
                     cwd=self.repo.root_path,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -482,18 +482,11 @@ class Git(Scm):
         elif http_match:
             url = '{}://{}/{}'.format(http_match.group('protocol'), http_match.group('host'), http_match.group('path'))
 
-        if remote.GitHub.is_webserver(url):
-            return remote.GitHub(url, contributors=self.contributors)
-        if 'bitbucket' in url or 'stash' in url:
-            match = re.match(r'(?P<protocol>https?)://(?P<host>.+)/(?P<project>.+)/(?P<repo>.+)', url)
-            return remote.BitBucket(
-                '{}://{}/projects/{}/repos/{}'.format(
-                    match.group('protocol'),
-                    match.group('host'),
-                    match.group('project').upper(),
-                    match.group('repo'),
-                ), contributors=self.contributors,
-            )
+        try:
+            return remote.Scm.from_url(url)
+        except OSError:
+            pass
+
         return None
 
     def _commit_count(self, native_parameter):
@@ -505,6 +498,7 @@ class Git(Scm):
             raise self.Exception('Failed to retrieve revision count for {}'.format(native_parameter))
         return int(revision_count.stdout)
 
+    @decorators.Memoize(cached=False)
     def branches_for(self, hash=None, remote=True):
         branch = run(
             [self.executable(), 'branch'] + (['--contains', hash] if hash else ['-a']),
@@ -560,7 +554,7 @@ class Git(Scm):
 
         default_branch = self.default_branch
         parsed_branch_point = None
-        log_format = ['-1'] if include_log else ['-1', '--format=short']
+        log_format = ['-1', '--no-decorate'] if include_log else ['-1', '--no-decorate', '--format=short']
 
         # Determine the `git log` output and branch for a given identifier
         if identifier is not None:
@@ -743,7 +737,7 @@ class Git(Scm):
         try:
             log = None
             log = subprocess.Popen(
-                [self.executable(), 'log', '--format=fuller', '{}...{}'.format(end.hash, begin.hash)],
+                [self.executable(), 'log', '--format=fuller', '--no-decorate', '{}...{}'.format(end.hash, begin.hash)],
                 cwd=self.root_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

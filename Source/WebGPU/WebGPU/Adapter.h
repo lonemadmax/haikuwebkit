@@ -25,6 +25,7 @@
 
 #pragma once
 
+#import "HardwareCapabilities.h"
 #import <wtf/CompletionHandler.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
@@ -42,9 +43,9 @@ class Instance;
 class Adapter : public WGPUAdapterImpl, public RefCounted<Adapter> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<Adapter> create(id<MTLDevice> device, Instance& instance)
+    static Ref<Adapter> create(id<MTLDevice> device, Instance& instance, HardwareCapabilities&& capabilities)
     {
-        return adoptRef(*new Adapter(device, instance));
+        return adoptRef(*new Adapter(device, instance, WTFMove(capabilities)));
     }
     static Ref<Adapter> createInvalid(Instance& instance)
     {
@@ -58,6 +59,7 @@ public:
     void getProperties(WGPUAdapterProperties&);
     bool hasFeature(WGPUFeatureName);
     void requestDevice(const WGPUDeviceDescriptor&, CompletionHandler<void(WGPURequestDeviceStatus, Ref<Device>&&, String&&)>&& callback);
+    void requestInvalidDevice(CompletionHandler<void(Ref<Device>&&)>&&);
 
     bool isValid() const { return m_device; }
     void makeInvalid() { m_device = nil; }
@@ -66,11 +68,13 @@ public:
 
 
 private:
-    Adapter(id<MTLDevice>, Instance&);
+    Adapter(id<MTLDevice>, Instance&, HardwareCapabilities&&);
     Adapter(Instance&);
 
     id<MTLDevice> m_device { nil };
     const Ref<Instance> m_instance;
+
+    HardwareCapabilities m_capabilities { };
 };
 
 } // namespace WebGPU

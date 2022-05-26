@@ -44,7 +44,7 @@
 
 namespace WebKit {
 
-#define ASSERT_IS_TESTING_IPC() ASSERT(isTestingIPC(), "Untrusted connection sent invalid data. Should only happen when testing IPC.")
+#define ASSERT_IS_TESTING_IPC() ASSERT(WebKit::isTestingIPC(), "Untrusted connection sent invalid data. Should only happen when testing IPC.")
 
 #if ENABLE(IPC_TESTING_API)
 
@@ -69,6 +69,8 @@ private:
     void stopMessageTesting(CompletionHandler<void()>);
     void createStreamTester(IPC::Connection&, IPCStreamTesterIdentifier, IPC::StreamConnectionBuffer&&);
     void releaseStreamTester(IPCStreamTesterIdentifier, CompletionHandler<void()>&&);
+    void sendSameSemaphoreBack(IPC::Connection&, IPC::Semaphore&&);
+    void sendSemaphoreBackAndSignalProtocol(IPC::Connection&, IPC::Semaphore&&);
 
     void stopIfNeeded();
 

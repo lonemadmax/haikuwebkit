@@ -57,7 +57,8 @@ static HashSet<SharedWorkerThreadProxy*>& allSharedWorkerThreadProxies()
 
 static WorkerParameters generateWorkerParameters(const WorkerFetchResult& workerFetchResult, WorkerOptions&& workerOptions, const String& userAgent, Document& document)
 {
-    return WorkerParameters {
+    RELEASE_ASSERT(document.sessionID());
+    return {
         workerFetchResult.lastRequestURL,
         workerOptions.name,
         "sharedworker:" + Inspector::IdentifiersFactory::createIdentifier(),
@@ -70,7 +71,13 @@ static WorkerParameters generateWorkerParameters(const WorkerFetchResult& worker
         parseReferrerPolicy(workerFetchResult.referrerPolicy, ReferrerPolicySource::HTTPHeader).value_or(ReferrerPolicy::EmptyString),
         workerOptions.type,
         workerOptions.credentials,
-        document.settingsValues()
+        document.settingsValues(),
+        WorkerThreadMode::CreateNewThread,
+        *document.sessionID(),
+#if ENABLE(SERVICE_WORKER)
+        { },
+#endif
+        { }
     };
 }
 

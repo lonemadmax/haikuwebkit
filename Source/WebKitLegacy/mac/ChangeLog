@@ -1,3 +1,166 @@
+2022-04-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Remove the `PreferInlineTextSelectionInImages` internal feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=234849
+
+        Reviewed by Sam Weinig.
+
+        See WebKit/ChangeLog for more details.
+
+        * WebView/WebHTMLView.mm:
+        (toTag):
+
+2022-04-21  Brent Fulgham  <bfulgham@apple.com>
+
+        Remove XSS Auditor: Part 4 (Settings)
+        https://bugs.webkit.org/show_bug.cgi?id=239628
+
+        Reviewed by Alex Christensen.
+
+        This change is a follow-up to Bug 230661 that removes the unused
+        WebKitXSSAuditorEnabledPreferenceKey.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+
+2022-04-20  Alan Bujtas  <zalan@apple.com>
+
+        [IFC][Integration] Do not call WebPreferences::simpleLineLayoutEnabled in canUseForLineLayoutWithReason
+        https://bugs.webkit.org/show_bug.cgi?id=239540
+
+        Reviewed by Antti Koivisto.
+
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences simpleLineLayoutEnabled]): Deleted.
+        (-[WebPreferences setSimpleLineLayoutEnabled:]): Deleted.
+        * WebView/WebPreferencesPrivate.h:
+
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] WebKit and WebKitLegacy shouldn't need to know about WebGPU.framework
+        https://bugs.webkit.org/show_bug.cgi?id=239528
+        <rdar://problem/91740931>
+
+        Unreviewed build fix.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::createGPUForWebGPU const):
+
+2022-04-17  Chris Dumez  <cdumez@apple.com>
+
+        Leverage StringView in more places
+        https://bugs.webkit.org/show_bug.cgi?id=239426
+
+        Reviewed by Sam Weinig.
+
+        Leverage StringView in more places, to reduce the number of String allocations.
+
+        * WebView/WebImmediateActionController.mm:
+        (+[WebImmediateActionController _dictionaryPopupInfoForRange:inFrame:withLookupOptions:indicatorOptions:transition:]):
+
+2022-04-15  Chris Dumez  <cdumez@apple.com>
+
+        Leverage StringView in more places to avoid some String allocations
+        https://bugs.webkit.org/show_bug.cgi?id=239356
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebUserContentURLPattern.mm:
+        (-[WebUserContentURLPattern initWithPatternString:]):
+
+2022-04-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove VM& parameter from structure related code including jsDyamicCast
+        https://bugs.webkit.org/show_bug.cgi?id=239362
+
+        Reviewed by Darin Adler.
+
+        * DOM/DOM.mm:
+        (+[DOMNode _nodeFromJSWrapper:]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _stringByEvaluatingJavaScriptFromString:withGlobalObject:inScriptWorld:]):
+        * WebView/WebView.mm:
+        (+[WebView _reportException:inContext:]):
+        (aeDescFromJSValue):
+
+2022-04-14  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Reduce use of CallFrame::deprecatedVM
+        https://bugs.webkit.org/show_bug.cgi?id=239326
+
+        Reviewed by Devin Rousso.
+
+        * WebView/WebScriptDebugger.mm:
+        (WebScriptDebugger::handlePause):
+
+2022-04-13  Chris Dumez  <cdumez@apple.com>
+
+        Replace calls to substring(0, x) with the more concise left(x)
+        https://bugs.webkit.org/show_bug.cgi?id=239306
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebHTMLRepresentation.mm:
+        (regExpForLabels):
+
+2022-04-13  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Fix public watchOS workspace build by updating scheme and build settings
+        https://bugs.webkit.org/show_bug.cgi?id=239301
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/WebKitLegacy.xcconfig:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] In open-source builds, disable bitcode in xcconfigs instead of build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=239262
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+
+2022-04-12  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt "version set"-based linked-on-or-after checks instead of platform-specific ones
+        https://bugs.webkit.org/show_bug.cgi?id=239054
+        <rdar://problem/83436715>
+
+        Reviewed by Wenson Hsieh.
+
+        * DefaultDelegates/WebDefaultUIDelegate.mm:
+        (-[WebDefaultUIDelegate webView:dragDestinationActionMaskForDraggingInfo:]):
+        * Misc/WebDownload.mm:
+        (shouldCallOnNetworkThread):
+        * Misc/WebIconDatabase.mm:
+        (+[WebIconDatabase sharedIconDatabase]):
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultAllowsPictureInPictureMediaPlayback):
+        (WebKit::defaultJavaScriptCanOpenWindowsAutomatically):
+        (WebKit::defaultPassiveTouchListenersAsDefaultOnDocument):
+        (WebKit::defaultRequiresUserGestureToLoadVideo):
+        (WebKit::defaultWebSQLEnabled):
+        (WebKit::defaultShouldRestrictBaseURLSchemes):
+        (WebKit::defaultShouldConvertInvalidURLsToBlank):
+        (WebKit::defaultPassiveWheelListenersAsDefaultOnDocument):
+        (WebKit::defaultWheelEventGesturesBecomeNonBlocking):
+        * WebView/WebView.mm:
+        (needsLaBanquePostaleQuirks):
+        Adopt the new naming.
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        Reland "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig: In open-source builds, disable
+        VALIDATE_DEPENDENCIES when there is no PRODUCT_TYPE (i.e. not building
+        a native target).
+
 2022-04-08  Elliott Williams  <emw@apple.com>
 
         [Xcode] Avoid targeting 32-bit iOS and Mac architectures

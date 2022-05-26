@@ -1,3 +1,89 @@
+2022-04-25  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        REGRESSION (Safari 15.4) Performance regression after uploading WebGL buffers
+        https://bugs.webkit.org/show_bug.cgi?id=239015
+
+        Reviewed by Dean Jackson.
+
+        BufferMtl::getRestartIndices() would recalculate restart indices on each
+        draw because RestartRangeCache::operator bool() would return m_isDirty
+        instead of the intended !m_isDirty.
+
+        Use std::optional to hold the RestartRangeCache instead of
+        maintaining m_isDirty. This allows the type system to contribute to the
+        correctness of the code. Dirty restart range cache is not useful and takes
+        up memory.
+
+        Re-apply hunks from r281550 "ANGLE Metal index buffer left mapped when building primitive restart ranges".
+
+        These were overwritten in r286638 "Roll ANGLE to include upstreamed Metal backend".
+
+        * src/libANGLE/renderer/metal/BufferMtl.h:
+        (rx::BufferMtl::RestartRangeCache::RestartRangeCache):
+        * src/libANGLE/renderer/metal/BufferMtl.mm:
+        (rx::BufferMtl::markConversionBuffersDirty):
+        (rx::BufferMtl::clearConversionBuffers):
+        (rx::BufferMtl::getRestartIndices):
+
+2022-04-18  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Use XCBuild for all command-line and project builds
+        https://bugs.webkit.org/show_bug.cgi?id=238916
+
+        Reviewed by Alexey Proskuryakov.
+
+        * ANGLE.xcodeproj/project.pbxproj:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] In open-source builds, disable bitcode in xcconfigs instead of build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=239262
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        Reland "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig: In open-source builds, disable
+        VALIDATE_DEPENDENCIES when there is no PRODUCT_TYPE (i.e. not building
+        a native target).
+
+2022-04-11  Zan Dobersek  <zdobersek@igalia.com>
+
+        [GTK][WPE] Build ANGLE with the EGL_NO_PLATFORM_SPECIFIC_TYPES define
+        https://bugs.webkit.org/show_bug.cgi?id=239039
+
+        Reviewed by Adrian Perez de Castro.
+
+        Specify the EGL_NO_PLATFORM_SPECIFIC_TYPES define when building ANGLE
+        subproject for the GTK and WPE ports. This should avoid searching for
+        platform-specific headers that might not be available at all during
+        build, e.g. the X11 headers which are used by default on UNIX platforms.
+
+        * PlatformGTK.cmake:
+        * PlatformWPE.cmake:
+
+2022-04-11  Kyle Piddington  <kpiddington@apple.com>
+
+        This WebGL example crashes
+        https://bugs.webkit.org/show_bug.cgi?id=238953
+        
+        Null-check subnodes while performing a deep copy for
+        loops, and branches. These nodes can be null in some cases
+
+        Reviewed by Dean Jackson.
+
+        * src/compiler/translator/IntermNode.cpp:
+        (sh::TIntermBranch::TIntermBranch):
+        (sh::TIntermLoop::TIntermLoop):
+
 2022-04-08  Elliott Williams  <emw@apple.com>
 
         [Xcode] Avoid targeting 32-bit iOS and Mac architectures

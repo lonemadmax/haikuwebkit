@@ -93,7 +93,7 @@ IntlNumberFormat::IntlNumberFormat(VM& vm, Structure* structure)
 void IntlNumberFormat::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
 }
 
 template<typename Visitor>
@@ -223,7 +223,7 @@ static std::optional<WellFormedUnit> wellFormedUnitIdentifier(StringView unitIde
         return std::nullopt;
 
     // If the result of IsSanctionedSimpleUnitIdentifier(numerator) is false, then return false.
-    auto numerator = unitIdentifier.substring(0, position);
+    auto numerator = unitIdentifier.left(position);
     auto numeratorUnit = sanctionedSimpleUnitIdentifier(numerator);
     if (!numeratorUnit)
         return std::nullopt;
@@ -1033,7 +1033,7 @@ void IntlNumberFormat::formatRangeToPartsInternal(JSGlobalObject* globalObject, 
         throwTypeError(globalObject, scope, "Failed to format number range"_s);
         return;
     }
-    String resultString(formattedStringPointer, formattedStringLength);
+    StringView resultStringView(formattedStringPointer, formattedStringLength);
 
     // We care multiple categories (UFIELD_CATEGORY_DATE and UFIELD_CATEGORY_DATE_INTERVAL_SPAN).
     // So we do not constraint iterator.
@@ -1118,7 +1118,7 @@ void IntlNumberFormat::formatRangeToPartsInternal(JSGlobalObject* globalObject, 
             return sharedString;
         };
 
-        auto value = jsString(vm, resultString.substring(beginIndex, length));
+        auto value = jsString(vm, resultStringView.substring(beginIndex, length));
         JSObject* part = constructEmptyObject(globalObject);
         part->putDirect(vm, vm.propertyNames->type, type);
         part->putDirect(vm, vm.propertyNames->value, value);

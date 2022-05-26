@@ -61,6 +61,7 @@
 #include "RemoteSampleBufferDisplayLayerManagerMessages.h"
 #include "RemoteSampleBufferDisplayLayerMessages.h"
 #include "RemoteScrollingCoordinatorTransaction.h"
+#include "ScopedRenderingResourcesRequest.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
 #include "WebGPUObjectHeap.h"
@@ -383,15 +384,7 @@ void GPUConnectionToWebProcess::releaseWCLayerTreeHost(WebKit::WCLayerTreeHostId
 
 bool GPUConnectionToWebProcess::allowsExitUnderMemoryPressure() const
 {
-    for (auto& remoteRenderingBackend : m_remoteRenderingBackendMap.values()) {
-        if (!remoteRenderingBackend->allowsExitUnderMemoryPressure())
-            return false;
-    }
-#if ENABLE(WEBGL)
-    if (!m_remoteGraphicsContextGLMap.isEmpty())
-        return false;
-#endif
-    if (!m_remoteMediaPlayerManagerProxy->allowsExitUnderMemoryPressure())
+    if (hasOutstandingRenderingResourceUsage())
         return false;
 #if ENABLE(WEB_AUDIO)
     if (m_remoteAudioDestinationManager && !m_remoteAudioDestinationManager->allowsExitUnderMemoryPressure())
@@ -538,10 +531,10 @@ RemoteImageDecoderAVFProxy& GPUConnectionToWebProcess::imageDecoderAVFProxy()
 }
 #endif
 
-void GPUConnectionToWebProcess::createRenderingBackend(RemoteRenderingBackendCreationParameters&& creationParameters, IPC::StreamConnectionBuffer&& streamBuffer)
+void GPUConnectionToWebProcess::createRenderingBackend(RemoteRenderingBackendCreationParameters&& creationParameters, IPC::Attachment&& connectionIdentifier, IPC::StreamConnectionBuffer&& streamBuffer)
 {
     auto addResult = m_remoteRenderingBackendMap.ensure(creationParameters.identifier, [&]() {
-        return IPC::ScopedActiveMessageReceiveQueue { RemoteRenderingBackend::create(*this, WTFMove(creationParameters), WTFMove(streamBuffer)) };
+        return IPC::ScopedActiveMessageReceiveQueue { RemoteRenderingBackend::create(*this, WTFMove(creationParameters), WTFMove(connectionIdentifier), WTFMove(streamBuffer)) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }

@@ -3489,6 +3489,11 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyColumnSpan:
         case CSSPropertyColumns:
         case CSSPropertyContain:
+        case CSSPropertyContainIntrinsicSize:
+        case CSSPropertyContainIntrinsicWidth:
+        case CSSPropertyContainIntrinsicHeight:
+        case CSSPropertyContainIntrinsicBlockSize:
+        case CSSPropertyContainIntrinsicInlineSize:
         case CSSPropertyContainer:
         case CSSPropertyContainerName:
         case CSSPropertyContainerType:
@@ -3650,7 +3655,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyWebkitTransformStyle:
         case CSSPropertyWebkitUserDrag:
         case CSSPropertyWebkitUserModify:
-        case CSSPropertyWebkitUserSelect:
+        case CSSPropertyUserSelect:
             continue;
         default:
             auto resolvedProperty = CSSProperty::resolveDirectionAwareProperty(property, RenderStyle::initialDirection(), RenderStyle::initialWritingMode());

@@ -730,7 +730,7 @@ void WebPageProxy::closeSharedPreviewPanelIfNecessary()
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void WebPageProxy::handleContextMenuQuickLookImage(QuickLookPreviewActivity activity)
+void WebPageProxy::handleContextMenuLookUpImage()
 {
     ASSERT(m_activeContextMenuContextData.webHitTestResultData());
     
@@ -738,7 +738,7 @@ void WebPageProxy::handleContextMenuQuickLookImage(QuickLookPreviewActivity acti
     if (!result.imageBitmap)
         return;
 
-    showImageInQuickLookPreviewPanel(*result.imageBitmap, result.toolTipText, URL { result.absoluteImageURL }, activity);
+    showImageInQuickLookPreviewPanel(*result.imageBitmap, result.toolTipText, URL { result.absoluteImageURL }, QuickLookPreviewActivity::VisualSearch);
 }
 
 void WebPageProxy::showImageInQuickLookPreviewPanel(ShareableBitmap& imageBitmap, const String& tooltip, const URL& imageURL, QuickLookPreviewActivity activity)
@@ -779,104 +779,26 @@ void WebPageProxy::showImageInQuickLookPreviewPanel(ShareableBitmap& imageBitmap
 
 #endif // ENABLE(IMAGE_ANALYSIS)
 
-void WebPageProxy::willHighlightContextMenuItem(ContextMenuAction action)
-{
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    if (action != ContextMenuItemTagCopyCroppedImage) {
-        if (m_croppedImageOverlayState == CroppedImageOverlayState::Showing) {
-            m_croppedImageOverlayState = CroppedImageOverlayState::Hidden;
-            send(Messages::WebPage::SetCroppedImageOverlayVisibility(false));
-        }
-        return;
-    }
 
-    if (m_croppedImageOverlayState == CroppedImageOverlayState::Hidden) {
-        m_croppedImageOverlayState = CroppedImageOverlayState::Showing;
-        send(Messages::WebPage::SetCroppedImageOverlayVisibility(true));
-        return;
-    }
-
-    if (m_croppedImageOverlayState != CroppedImageOverlayState::Inactive)
-        return;
-
-    auto elementContext = m_activeContextMenuContextData.hitTestedElementContext();
-    if (!elementContext)
-        return;
-
-    auto& hitTestData = m_activeContextMenuContextData.webHitTestResultData().value();
-    auto imageBitmap = hitTestData.imageBitmap;
-    if (!imageBitmap)
-        return;
-
-    auto image = imageBitmap->makeCGImageCopy();
-    if (!image)
-        return;
-
-    m_croppedImageOverlayState = CroppedImageOverlayState::Analyzing;
-
-    requestImageAnalysisMarkup(image.get(), [weakPage = WeakPtr { *this }, elementContext = WTFMove(*elementContext)](CGImageRef resultImage, CGRect normalizedCropRect) {
-        if (!resultImage || CGRectIsEmpty(normalizedCropRect))
-            return;
-
-        RefPtr protectedPage = weakPage.get();
-        if (!protectedPage)
-            return;
-
-        protectedPage->m_croppedImageResult = resultImage;
-
-        if (protectedPage->m_croppedImageOverlayState != CroppedImageOverlayState::Analyzing)
-            return;
-
-        auto tiffData = transcode(resultImage, (__bridge CFStringRef)UTTypeTIFF.identifier);
-        if (!tiffData)
-            return;
-
-        auto sharedMemory = SharedMemory::allocate([tiffData length]);
-        if (!sharedMemory)
-            return;
-
-        [tiffData getBytes:sharedMemory->data() length:[tiffData length]];
-
-        SharedMemory::Handle handle;
-        sharedMemory->createHandle(handle, SharedMemory::Protection::ReadOnly);
-        protectedPage->send(Messages::WebPage::InstallCroppedImageOverlay(elementContext, { WTFMove(handle), sharedMemory->size() }, "image/tiff"_s, normalizedCropRect));
-        protectedPage->m_croppedImageOverlayState = CroppedImageOverlayState::Showing;
-    });
-#else
-    UNUSED_PARAM(action);
-#endif
+void WebPageProxy::setCroppedImageForContextMenu(CGImageRef image)
+{
+    m_croppedImageForContextMenu = image;
 }
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-
-void WebPageProxy::handleContextMenuCopyCroppedImage(ShareableBitmap& imageBitmap, const String& preferredMIMEType)
+void WebPageProxy::handleContextMenuCopyCroppedImage(const String& preferredMIMEType)
 {
-    auto changeCount = NSPasteboard.generalPasteboard.changeCount;
-    auto performCopy = [changeCount, preferredMIMEType](CGImageRef resultImage) {
-        auto pasteboard = NSPasteboard.generalPasteboard;
-        if (changeCount != pasteboard.changeCount || !resultImage)
-            return;
-
-        auto [data, type] = transcodeWithPreferredMIMEType(resultImage, preferredMIMEType.createCFString().get(), (__bridge CFStringRef)UTTypeTIFF.identifier);
-        if (!data)
-            return;
-
-        [pasteboard declareTypes:@[(__bridge NSString *)type.get()] owner:nil];
-        [pasteboard setData:data.get() forType:(__bridge NSString *)type.get()];
-    };
-
-    if (m_croppedImageResult) {
-        performCopy(m_croppedImageResult.get());
-        return;
-    }
-
-    auto originalImage = imageBitmap.makeCGImageCopy();
-    if (!originalImage)
+    if (!m_croppedImageForContextMenu)
         return;
 
-    requestImageAnalysisMarkup(originalImage.get(), [performCopy = WTFMove(performCopy)](auto image, auto) {
-        performCopy(image);
-    });
+    auto [data, type] = transcodeWithPreferredMIMEType(m_croppedImageForContextMenu.get(), preferredMIMEType.createCFString().get(), (__bridge CFStringRef)UTTypeTIFF.identifier);
+    if (!data)
+        return;
+
+    auto pasteboard = NSPasteboard.generalPasteboard;
+    auto pasteboardType = (__bridge NSString *)type.get();
+    [pasteboard declareTypes:@[pasteboardType] owner:nil];
+    [pasteboard setData:data.get() forType:pasteboardType];
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)

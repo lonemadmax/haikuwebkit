@@ -68,6 +68,12 @@ static SMILEventSender& smilEndEventSender()
     return sender;
 }
 
+static const AtomString& indefiniteAtom()
+{
+    static MainThreadNeverDestroyed<const AtomString> indefiniteValue("indefinite", AtomString::ConstructFromLiteral);
+    return indefiniteValue;
+}
+
 // This is used for duration type time values that can't be negative.
 static const double invalidCachedTime = -1.;
     
@@ -338,9 +344,7 @@ SMILTime SVGSMILElement::parseClockValue(StringView data)
         return SMILTime::unresolved();
 
     auto parse = data.stripWhiteSpace();
-
-    static MainThreadNeverDestroyed<const AtomString> indefiniteValue("indefinite", AtomString::ConstructFromLiteral);
-    if (parse == indefiniteValue.get())
+    if (parse == indefiniteAtom())
         return SMILTime::indefinite();
 
     double result = 0;
@@ -348,13 +352,13 @@ SMILTime SVGSMILElement::parseClockValue(StringView data)
     size_t doublePointOne = parse.find(':');
     size_t doublePointTwo = parse.find(':', doublePointOne + 1);
     if (doublePointOne == 2 && doublePointTwo == 5 && parse.length() >= 8) {
-        auto hour = parseInteger<uint8_t>(parse.substring(0, 2));
+        auto hour = parseInteger<uint8_t>(parse.left(2));
         auto minute = parseInteger<uint8_t>(parse.substring(3, 2));
         if (!hour || !minute)
             return SMILTime::unresolved();
         result = *hour * 60 * 60 + *minute * 60 + parse.substring(6).toDouble(ok);
     } else if (doublePointOne == 2 && doublePointTwo == notFound && parse.length() >= 5) { 
-        auto minute = parseInteger<uint8_t>(parse.substring(0, 2));
+        auto minute = parseInteger<uint8_t>(parse.left(2));
         if (!minute)
             return SMILTime::unresolved();
         result = *minute * 60 + parse.substring(3).toDouble(ok);
@@ -698,8 +702,7 @@ SMILTime SVGSMILElement::repeatCount() const
     if (value.isNull())
         return SMILTime::unresolved();
 
-    static MainThreadNeverDestroyed<const AtomString> indefiniteValue("indefinite", AtomString::ConstructFromLiteral);
-    if (value == indefiniteValue)
+    if (value == indefiniteAtom())
         return SMILTime::indefinite();
     bool ok;
     double result = value.string().toDouble(&ok);

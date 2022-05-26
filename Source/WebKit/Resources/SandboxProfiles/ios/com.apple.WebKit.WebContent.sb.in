@@ -27,6 +27,10 @@
 (deny system-privilege)
 (allow system-audit file-read-metadata)
 
+;; We can remove the catch once we no longer need to support iOS 15 (or earlier))
+(catch (lambda)
+    (import "dyld-support.sb"))
+
 ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
 (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
@@ -1295,8 +1299,6 @@
         SYS_getgid
         SYS_getxattr
         SYS_mkdirat
-        SYS_necp_client_action
-        SYS_necp_open
         SYS_openat_nocancel
         SYS_pread_nocancel
         SYS_rmdir
@@ -1307,7 +1309,6 @@
 #if PLATFORM(WATCHOS)
         SYS_sigreturn
 #endif
-        SYS_socket
         SYS_thread_selfusage
         SYS_unlink
         SYS_write
@@ -1320,8 +1321,11 @@
         SYS___semwait_signal
         SYS_getattrlistbulk ;; xpc_realpath and directory enumeration
         SYS_iopolicysys
+        SYS_necp_client_action
+        SYS_necp_open
         SYS_open_dprotected_np
         SYS_psynch_rw_wrlock
+        SYS_socket
         SYS_umask
         SYS_work_interval_ctl))
 
@@ -1349,8 +1353,8 @@
         (syscall-unix-rarely-in-use-need-backtrace))
 )
 
-(when (defined? 'SYS__map_with_linking_np)
-    (allow syscall-unix (syscall-number SYS__map_with_linking_np)))
+(when (defined? 'SYS_map_with_linking_np)
+    (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
 
 (with-filter (system-attribute apple-internal)
     (when (defined? 'syscall-unix)
@@ -1438,10 +1442,6 @@
 (when (defined? 'socket-option-get)
     ;; getsockopt
     (deny socket-option-get (with telemetry))
-    (allow socket-option-get
-        (require-all
-            (socket-option-level SOL_SOCKET)
-            (socket-option-name SO_ERROR))) ;; libwebrtc; physical_socket_server.cc, ProcessEvents.  Called with fd=-1, so it fails.  Not technically needed, but the code needs changing
 )
 
 (when (defined? 'socket-option-set)

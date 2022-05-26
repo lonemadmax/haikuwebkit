@@ -63,7 +63,7 @@ if (HAIKU)
 	install(TARGETS WebKitLegacy DESTINATION "${LIB_INSTALL_DIR}")
 endif ()
 
-if (MSVC)
+if (MSVC AND NOT WTF_PLATFORM_WIN_CAIRO)
     add_custom_command(
         TARGET WebKitLegacy
         POST_BUILD

@@ -1033,6 +1033,14 @@ scrollbars/scrolling-by-page-accounting-top-fixed-elements-with-negative-top-on-
 scrollbars/scrolling-by-page-ignoring-hidden-fixed-elements-on-keyboard-spacebar.html [ Skip ]
 scrollbars/scrolling-by-page-ignoring-transparent-fixed-elements-on-keyboard-spacebar.html [ Skip ]
 storage/domstorage/sessionstorage/set-item-synchronous-keydown.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/forms/input-change-event-properties.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/defaultValue-clobbering.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/email-set-value.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/maxlength-number.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/radio-double-activate-pseudo.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-ui/user-select-none-on-input.html [ Skip ]
 
 # Tests that use EventSender's mouseMoveTo, mouseUp and mouseDown
 css3/viewport-percentage-lengths/vh-resize.html [ Skip ]
@@ -1077,8 +1085,6 @@ fast/css/hover-display-block.html [ Skip ]
 fast/css/hover-update.html [ Skip ]
 fast/css/nested-layers-with-hover.html [ Skip ]
 fast/css/pseudo-element-selector-scrollbar-hover.html [ Skip ]
-fast/css/resize-corner-tracking.html [ Skip ]
-fast/css/resize-single-axis.html [ Skip ]
 fast/css/user-drag-none.html [ Skip ]
 fast/forms/range/disabled-while-dragging.html [ Skip ]
 fast/forms/range/range-drag-when-toggled-disabled.html [ Skip ]
@@ -1087,6 +1093,16 @@ fast/media/video-element-in-details-collapse.html [ Skip ]
 fast/frames/user-gesture-timestamp-propagation.html [ Failure ]
 fast/events/mouse-click-different-mouseDown-mouseUp-nodes.html [ Skip ]
 fast/scrolling/scrolling-inside-scrolled-overflowarea.html [ Skip ]
+
+# CSS resizers aren't supported on iOS
+fast/css/resize-above-min-size-and-below-initial-size.html [ Skip ]
+fast/css/resize-below-min-intrinsic-size-large-scrollbars.html [ Skip ]
+fast/css/resize-below-min-intrinsic-size.html [ Skip ]
+fast/css/resize-below-min-size-zoomed.html [ Skip ]
+fast/css/resize-below-min-size.html [ Skip ]
+fast/css/resize-corner-tracking.html [ Skip ]
+fast/css/resize-orthogonal-containing-block.html [ Skip ]
+fast/css/resize-single-axis.html [ Skip ]
 
 # The file-wrapper part of <attachment> is not yet working on iOS
 fast/attachment/attachment-type-attribute.html [ Skip ]
@@ -2093,9 +2109,14 @@ webkit.org/b/148806 imported/w3c/web-platform-tests/css/css-multicol/multicol-sp
 # Enable "phone number linkifying" test for iOS
 fast/dom/linkify-phone-numbers.html [ Pass ]
 
+accessibility/aria-busy-updates-after-dynamic-change.html [ Pass ]
 accessibility/aria-hidden-display-contents-element.html [ Pass ]
+accessibility/aria-readonly-updates-after-dynamic-change.html [ Pass ]
+accessibility/aria-required-updates-after-dynamic-change.html [ Pass ]
 accessibility/display-contents-element-roles.html [ Pass ]
+accessibility/list-with-dynamically-changing-content.html [ Pass ]
 accessibility/node-only-object-element-rect.html [ Pass ]
+accessibility/text-updates-after-dynamic-change.html [ Pass ]
 accessibility/video-element-url-attribute.html [ Pass ]
 accessibility/visible-character-range-basic.html [ Pass ]
 accessibility/visible-character-range-height-changes.html [ Pass ]
@@ -3425,11 +3446,7 @@ fast/canvas/canvas-blending-text.html [ Pass Failure ]
 # This test requires ARQL SPIs not yet available to OpenSource builds.
 model-element/model-element-camera.html [ Skip ]
 model-element/model-element-interactive-dragging.html [ Skip ]
-
-# webkit.org/b/232384 these are flaky failures on iOS
-fast/hidpi/image-srcset-simple-1x.html [ Pass Failure ]
-fast/hidpi/image-srcset-simple-in-variable-1x.html [ Pass Failure ]
-fast/hidpi/pdf-image-scaled.html [ Pass Failure ]
+model-element/model-element-inline-preview-deletion-upon-source-change.html [ Skip ]
 
 # webkit.org/b/201982 These are flaky failures on iOS
 fast/images/exif-orientation-svg-feimage.html [ Pass Failure ]
@@ -3564,8 +3581,11 @@ webkit.org/b/237433 editing/pasteboard/paste-and-sanitize.html [ Timeout Pass Fa
 
 webkit.org/b/237955 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-044.html [ Failure ]
 
-# fast/text/accessibility-bold.html requires WK2. The ***-wk2/TestExpectation files mark it as PASS.
-fast/text/accessibility-bold.html [ Skip ]
+webkit.org/b/239564 storage/indexeddb/modern/index-get-count-failures.html [ Failure ]
+webkit.org/b/239564 storage/indexeddb/modern/deleteobjectstore-1.html [ Failure ]
+webkit.org/b/239564 http/tests/app-privacy-report/user-attribution-cors-preflight-redirect.html [ Failure ]
+
+webkit.org/b/239625 imported/w3c/web-platform-tests/css/css-color/opacity-overlapping-letters.html [ ImageOnlyFailure ]
 
 # iOS has a WebGPU implementation.
 http/tests/webgpu [ Pass ]

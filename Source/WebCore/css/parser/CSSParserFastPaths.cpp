@@ -826,7 +826,7 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
         return valueID == CSSValueAuto || valueID == CSSValueNone || valueID == CSSValueElement;
     case CSSPropertyWebkitUserModify: // read-only | read-write
         return valueID == CSSValueReadOnly || valueID == CSSValueReadWrite || valueID == CSSValueReadWritePlaintextOnly;
-    case CSSPropertyWebkitUserSelect: // auto | none | text | all
+    case CSSPropertyUserSelect: // auto | none | text | all
         return valueID == CSSValueAuto || valueID == CSSValueNone || valueID == CSSValueText || valueID == CSSValueAll;
     case CSSPropertyWritingMode:
         // Note that horizontal-bt is not supported by the unprefixed version of
@@ -899,7 +899,7 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     case CSSPropertyTextDecorationSkipInk:
         return valueID == CSSValueAuto || valueID == CSSValueNone || valueID == CSSValueAll;
     case CSSPropertyContainerType:
-        // FIXME: Support 'style', 'state'. Those will require parsing the value as a list.
+        // FIXME: Support 'style'. It will require parsing the value as a list.
         return valueID == CSSValueNone || valueID == CSSValueSize || valueID == CSSValueInlineSize;
     default:
         ASSERT_NOT_REACHED();
@@ -990,7 +990,7 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyWebkitTransformStyle:
     case CSSPropertyWebkitUserDrag:
     case CSSPropertyWebkitUserModify:
-    case CSSPropertyWebkitUserSelect:
+    case CSSPropertyUserSelect:
     case CSSPropertyWhiteSpace:
     case CSSPropertyWordBreak:
     case CSSPropertyWordWrap:

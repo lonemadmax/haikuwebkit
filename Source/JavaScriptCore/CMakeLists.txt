@@ -867,13 +867,13 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     jit/RegisterAtOffsetList.h
     jit/RegisterMap.h
     jit/RegisterSet.h
+    jit/ScratchRegisterAllocator.h
     jit/Snippet.h
     jit/SnippetParams.h
     jit/SnippetReg.h
     jit/SnippetSlowPathCalls.h
     jit/SpillRegistersMode.h
     jit/TagRegistersMode.h
-    jit/TempRegisterSet.h
     jit/ThunkGenerator.h
 
     llint/LLIntOpcode.h
@@ -1243,7 +1243,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmOSREntryData.h
     wasm/WasmPageCount.h
     wasm/WasmSections.h
-    wasm/WasmSignature.h
+    wasm/WasmTypeDefinition.h
     wasm/WasmStreamingCompiler.h
     wasm/WasmStreamingParser.h
     wasm/WasmTierUpCount.h

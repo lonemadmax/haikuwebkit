@@ -220,7 +220,6 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     , emptyList(new ArgList)
     , machineCodeBytesPerBytecodeWordForBaselineJIT(makeUnique<SimpleStats>())
     , symbolImplToSymbolMap(*this)
-    , structureCache(*this)
     , interpreter(nullptr)
     , entryScope(nullptr)
     , m_regExpCache(new RegExpCache(this))
@@ -899,9 +898,6 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
     }
 
     CallFrame* throwOriginFrame = topJSCallFrame();
-    if (!throwOriginFrame)
-        throwOriginFrame = globalObject->deprecatedCallFrameForDebugger();
-
     if (UNLIKELY(Options::breakOnThrow())) {
         CodeBlock* codeBlock = throwOriginFrame ? throwOriginFrame->codeBlock() : nullptr;
         dataLog("Throwing exception in call frame ", RawPointer(throwOriginFrame), " for code block ", codeBlock, "\n");
@@ -921,8 +917,7 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
 
 Exception* VM::throwException(JSGlobalObject* globalObject, JSValue thrownValue)
 {
-    VM& vm = *this;
-    Exception* exception = jsDynamicCast<Exception*>(vm, thrownValue);
+    Exception* exception = jsDynamicCast<Exception*>(thrownValue);
     if (!exception)
         exception = Exception::create(*this, thrownValue);
 
@@ -1243,7 +1238,7 @@ void VM::callPromiseRejectionCallback(Strong<JSPromise>& promise)
 
     auto scope = DECLARE_CATCH_SCOPE(*this);
 
-    auto callData = getCallData(*this, callback);
+    auto callData = JSC::getCallData(callback);
     ASSERT(callData.type != CallData::Type::None);
 
     MarkedArgumentBuffer args;

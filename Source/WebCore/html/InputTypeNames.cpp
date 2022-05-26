@@ -22,6 +22,8 @@
 #include "config.h"
 #include "InputTypeNames.h"
 
+#include "CommonAtomStrings.h"
+#include "HTMLNames.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -33,8 +35,7 @@ namespace InputTypeNames {
 
 const AtomString& button()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("button", AtomString::ConstructFromLiteral);
-    return name;
+    return HTMLNames::buttonTag->localName();
 }
 
 const AtomString& checkbox()
@@ -63,8 +64,7 @@ const AtomString& datetimelocal()
 
 const AtomString& email()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("email", AtomString::ConstructFromLiteral);
-    return name;
+    return emailAtom();
 }
 
 const AtomString& file()
@@ -117,32 +117,27 @@ const AtomString& range()
 
 const AtomString& reset()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("reset", AtomString::ConstructFromLiteral);
-    return name;
+    return resetAtom();
 }
 
 const AtomString& search()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("search", AtomString::ConstructFromLiteral);
-    return name;
+    return searchAtom();
 }
 
 const AtomString& submit()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("submit", AtomString::ConstructFromLiteral);
-    return name;
+    return submitAtom();
 }
 
 const AtomString& telephone()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("tel", AtomString::ConstructFromLiteral);
-    return name;
+    return telAtom();
 }
 
 const AtomString& text()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("text", AtomString::ConstructFromLiteral);
-    return name;
+    return textAtom();
 }
 
 const AtomString& time()
@@ -153,8 +148,7 @@ const AtomString& time()
 
 const AtomString& url()
 {
-    static MainThreadNeverDestroyed<const AtomString> name("url", AtomString::ConstructFromLiteral);
-    return name;
+    return urlAtom();
 }
 
 const AtomString& week()

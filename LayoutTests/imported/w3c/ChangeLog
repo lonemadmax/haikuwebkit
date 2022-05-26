@@ -1,3 +1,343 @@
+2022-04-25  Ziran Sun  <zsun@igalia.com>
+
+        UA stylesheet should include table { text-indent: initial } to conform with HTML standard
+        https://bugs.webkit.org/show_bug.cgi?id=201297
+
+        Reviewed by Tim Nguyen.
+
+        * web-platform-tests/html/rendering/non-replaced-elements/form-controls/resets-expected.txt:
+        * web-platform-tests/html/rendering/non-replaced-elements/tables/table-ua-stylesheet-expected.txt:
+
+2022-04-24  Youenn Fablet  <youenn@apple.com>
+
+        TextTrackLoader should use SameOrigin mode by default
+        https://bugs.webkit.org/show_bug.cgi?id=239381
+
+        Reviewed by Eric Carlson.
+
+        * web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/cloneNode-expected.txt:
+        * web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/track-data-url-expected.txt:
+        * web-platform-tests/service-workers/service-worker/webvtt-cross-origin.https-expected.txt:
+
+2022-04-22  Cathie Chen  <cathiechen@igalia.com>
+
+        The layout is not updated when style.contain is changed from "size"/"inline-size" to empty string
+        https://bugs.webkit.org/show_bug.cgi?id=239489
+
+        Reviewed by Rob Buis.
+
+        * web-platform-tests/css/css-contain/contain-inline-size-removed-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-removed.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-removed-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-removed.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-004-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-005-expected.txt:
+
+2022-04-21  Rob Buis  <rbuis@igalia.com>
+
+        `contain: layout` on the html element should change position:fixed behavior
+        https://bugs.webkit.org/show_bug.cgi?id=238560
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-contain/contain-layout-021-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-021.html: Added.
+        * web-platform-tests/css/css-contain/reference/contain-layout-021-ref.html: Added.
+
+2022-04-21  Chris Dumez  <cdumez@apple.com>
+
+        No-op, instead of throwing, on dataTransfer.items.remove()
+        https://bugs.webkit.org/show_bug.cgi?id=239618
+
+        Reviewed by Wenson Hsieh.
+
+        Import test coverage from upstream WPT.
+
+        * web-platform-tests/html/editing/dnd/datastore/datatransferitemlist-remove-expected.txt: Added.
+        * web-platform-tests/html/editing/dnd/datastore/datatransferitemlist-remove.html: Added.
+
+2022-04-20  Cathie Chen  <cathiechen@igalia.com>
+
+        Parsing of contain-intrinsic-size and adding a runtime flag for it
+        https://bugs.webkit.org/show_bug.cgi?id=238181
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/animation/contain-intrinsic-size-interpolation-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-computed-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-valid-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-04-20  Tim Nguyen  <ntim@apple.com>
+
+        Unprefix -webkit-user-select CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=208677
+
+        Reviewed by Simon Fraser.
+
+        WPT progressions.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-ui/inheritance-expected.txt:
+        * web-platform-tests/css/css-ui/parsing/user-select-computed-expected.txt:
+        * web-platform-tests/css/css-ui/parsing/user-select-valid-expected.txt:
+        * web-platform-tests/inert/inert-computed-style-expected.txt:
+
+2022-04-19  Alex Christensen  <achristensen@webkit.org>
+
+        Implement most of CSS typed OM object stringifiers
+        https://bugs.webkit.org/show_bug.cgi?id=239483
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssKeywordValue.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssMathValue.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssTransformValue.tentative-expected.txt:
+
+2022-04-19  Tim Nguyen  <ntim@apple.com>
+
+        user-select: none shouldn't affect editability
+        https://bugs.webkit.org/show_bug.cgi?id=118009
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/css-ui/user-select-none-in-editable-expected.txt: Added.
+        * web-platform-tests/css/css-ui/user-select-none-in-editable.html: Added.
+        * web-platform-tests/css/css-ui/user-select-none-on-input-expected.txt: Added.
+        * web-platform-tests/css/css-ui/user-select-none-on-input.html: Added.
+
+2022-04-19  Joseph Griego  <jgriego@igalia.com>
+
+        Fix runtime expose scope check for shadow realms
+        https://bugs.webkit.org/show_bug.cgi?id=238381
+
+        Reviewed Darin Adler.
+
+        Updated idlharness expectations to reflect the fix for
+        `AbortController.timeout` visibility
+
+        * web-platform-tests/dom/idlharness-shadowrealm.window-expected.txt:
+
+2022-04-18  Alex Christensen  <achristensen@webkit.org>
+
+        Implement CSSTransformValue.is2D
+        https://bugs.webkit.org/show_bug.cgi?id=239462
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssMatrixComponent.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssRotate.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssScale.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssTransformValue.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssPerspective.tentative-expected.txt:
+
+2022-04-18  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Implement support for aligning baselines through subgrids
+        https://bugs.webkit.org/show_bug.cgi?id=238643
+
+        Reviewed by Javier Fernandez.
+
+        * web-platform-tests/css/css-grid/subgrid/baseline-002-expected.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/baseline-002.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/baseline-003-expected.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/baseline-003.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/baseline-004-expected.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/baseline-004.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/baseline-005-expected.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/baseline-005.html: Added.
+
+        Added new WPT variants of the baseline tests, for the case where the introspected subgrid
+        has padding that affects the baseline position, and for the case where the subgrid uses an
+        orthogonal writing mode.
+
+2022-04-18  Martin Robinson  <mrobinson@webkit.org>
+
+        TestRunner testdriver does not properly focus elements before sending keys to them
+        https://bugs.webkit.org/show_bug.cgi?id=237589
+
+        Reviewed by Carlos Garcia Campos.
+
+        * web-platform-tests/css/css-scroll-snap/input/keyboard-expected.txt:
+        * web-platform-tests/css/css-scroll-snap/input/keyboard.html:
+        * web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary-expected.txt:
+        * web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary.html:
+        * web-platform-tests/html/semantics/forms/input-change-event-properties-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/defaultValue-clobbering-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/email-set-value-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/maxlength-number-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/radio-double-activate-pseudo-expected.txt:
+        * web-platform-tests/html/semantics/selectors/pseudo-classes/invalid-after-clone-expected.txt:
+        * web-platform-tests/resources/testdriver-vendor.js: When sending keys, first focus the element
+        in question.
+
+2022-04-15  Matteo Flores  <matteo_flores@apple.com>
+
+        REBASLINE: [ Monterey wk2 ] 7 /paymentrequest/* tests are constant text failures
+        https://bugs.webkit.org/show_bug.cgi?id=238908
+
+        Unreviewed rebasline & test gardening.
+
+        * web-platform-tests/payment-request/payment-request-constructor.https.sub-expected.txt:
+        * web-platform-tests/payment-request/payment-request-shippingOption-attribute.https-expected.txt:
+
+2022-04-15  Youenn Fablet  <youenn@apple.com>
+
+        Sandboxed iframe loads should match a service worker registration based on sandbox flags
+        https://bugs.webkit.org/show_bug.cgi?id=239379
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/sandboxed-iframe-fetch-event.https-expected.txt: Added.
+
+2022-04-15  Rob Buis  <rbuis@igalia.com>
+
+        Import css/css-sizing/aspect-ratio tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=239378
+
+        Reviewed by Tim Nguyen.
+
+        Import based on SHA e0b8f9b500.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-034-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-034.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-035-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-035.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-036-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-036.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-037-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-037.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-038-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-038.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/fractional-aspect-ratio-expected.txt: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/fractional-aspect-ratio.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/intrinsic-size-011.html:
+        * web-platform-tests/css/css-sizing/aspect-ratio/large-aspect-ratio-crash.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-035-expected.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-035-ref.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-035.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/select-element-001-ref.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/w3c-import.log:
+
+2022-04-15  Youenn Fablet  <youenn@apple.com>
+
+        ServiceWorker.postMessage() doesn't work from inside iframe
+        https://bugs.webkit.org/show_bug.cgi?id=213984
+        <rdar://problem/65203340>
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/about-blank-replacement.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/client-url-of-blob-url-worker.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-matchall-blob-url-worker.https-expected.txt:
+
+2022-04-14  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        calc(): Serialize top level min/max/hypot as calc()
+        https://bugs.webkit.org/show_bug.cgi?id=239019
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-values/hypot-pow-sqrt-invalid-expected.txt:
+        * web-platform-tests/css/css-values/hypot-pow-sqrt-serialize-expected.txt:
+        * web-platform-tests/css/css-values/minmax-angle-serialize-expected.txt:
+        * web-platform-tests/css/css-values/minmax-length-percent-serialize-expected.txt:
+        * web-platform-tests/css/css-values/minmax-length-serialize-expected.txt:
+        * web-platform-tests/css/css-values/minmax-number-serialize-expected.txt:
+        * web-platform-tests/css/css-values/minmax-percentage-serialize-expected.txt:
+        * web-platform-tests/css/css-values/minmax-time-serialize-expected.txt:
+
+2022-04-14  Youenn Fablet  <youenn@apple.com>
+
+        Expose workers as service worker clients and implement registration matching for dedicated workers
+        https://bugs.webkit.org/show_bug.cgi?id=239066
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/local-url-inherit-controller.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/worker-client-id.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/worker-interception-redirect.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/worker-interception.https-expected.txt:
+
+2022-04-13  Chris Dumez  <cdumez@apple.com>
+
+        imported/w3c/web-platform-tests/webaudio/the-audio-api/the-biquadfilternode-interface/no-dezippering.html
+        https://bugs.webkit.org/show_bug.cgi?id=238790
+        <rdar://problem/91607355>
+
+        Reviewed by Eric Carlson.
+
+        The audio values may differ slightly from hardware to hardware due to floating point precision and vectorization.
+        On one of our ARM platforms, we were getting values slightly outside the allowed range but still close enough
+        that we consider the behavior to be correct. As a result, I am increasing the tolerance a bit in the test.
+
+        If this resolves the issue on our bot (I cannot reproduce locally), I'll submit a PR upstream.
+
+        * web-platform-tests/webaudio/the-audio-api/the-biquadfilternode-interface/no-dezippering-expected.txt:
+        * web-platform-tests/webaudio/the-audio-api/the-biquadfilternode-interface/no-dezippering.html:
+
+2022-04-13  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Limit query range syntax
+        https://bugs.webkit.org/show_bug.cgi?id=239118
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+
+2022-04-13  Youenn Fablet  <youenn@apple.com>
+
+        Complement implementation of step 5.5 of https://fetch.spec.whatwg.org/#http-fetch
+        https://bugs.webkit.org/show_bug.cgi?id=239123
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/service-workers/service-worker/fetch-response-taint.https-expected.txt:
+
+2022-04-12  Asumu Takikawa  <asumu@igalia.com>
+
+        Allow Wasm import from a JS Worker module
+        https://bugs.webkit.org/show_bug.cgi?id=238291
+
+        Reviewed by Yusuke Suzuki.
+
+        Fixed worker test and updated expectation.
+
+        * web-platform-tests/wasm/webapi/esm-integration/resources/worker-helper.js:
+        (export.pm):
+        * web-platform-tests/wasm/webapi/esm-integration/worker-import.tentative-expected.txt:
+        * web-platform-tests/wasm/webapi/esm-integration/worker-import.tentative.html:
+
+2022-04-11  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Update container shorthand order
+        https://bugs.webkit.org/show_bug.cgi?id=239065
+
+        Reviewed by Alan Bujtas.
+
+        Update from WPT repo.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/container-computed-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-computed.html:
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/container-selection.html:
+        * web-platform-tests/css/css-contain/container-queries/container-type-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/crashtests/canvas-as-container-crash.html:
+        * web-platform-tests/css/css-contain/container-queries/crashtests/chrome-bug-1289718-000-crash.html:
+        * web-platform-tests/css/css-contain/container-queries/crashtests/chrome-bug-1289718-001-crash.html:
+        * web-platform-tests/css/css-contain/container-queries/crashtests/chrome-quotes-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/force-sibling-style-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/crashtests/w3c-import.log:
+
 2022-04-11  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
 
         calc(): Propogate nan for min, max, clamp, and hypot

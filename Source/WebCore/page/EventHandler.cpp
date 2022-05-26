@@ -113,6 +113,7 @@
 #include "StyleCachedImage.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
+#include "TextRecognitionOptions.h"
 #include "UserGestureIndicator.h"
 #include "UserTypingGestureIndicator.h"
 #include "ValidationMessageClient.h"
@@ -1127,12 +1128,10 @@ void EventHandler::didPanScrollStop()
 
 void EventHandler::startPanScrolling(RenderElement& renderer)
 {
-#if !PLATFORM(IOS_FAMILY)
     if (!is<RenderBox>(renderer))
         return;
-    m_autoscrollController->startPanScrolling(&downcast<RenderBox>(renderer), lastKnownMousePosition());
+    m_autoscrollController->startPanScrolling(downcast<RenderBox>(renderer), lastKnownMousePosition());
     invalidateClick();
-#endif
 }
 
 #endif // ENABLE(PAN_SCROLLING)
@@ -1784,7 +1783,7 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& platformMouse
     auto localPoint = roundedIntPoint(mouseEvent.hitTestResult().localPoint());
     if (layer && layer->isPointInResizeControl(localPoint)) {
         layer->setInResizeMode(true);
-        m_resizeLayer = layer;
+        m_resizeLayer = WeakPtr { layer };
         m_offsetFromResizeCorner = layer->offsetFromResizeCorner(localPoint);
         invalidateClick();
         return true;
@@ -2276,15 +2275,16 @@ bool EventHandler::dispatchDragEvent(const AtomString& eventType, Element& dragT
     dragTarget.dispatchEvent(dragEvent);
 
     if (auto* cache = m_frame.document()->existingAXObjectCache()) {
-        if (eventType == eventNames().dragstartEvent)
+        auto& eventNames = WebCore::eventNames();
+        if (eventType == eventNames.dragstartEvent)
             cache->postNotification(&dragTarget, AXObjectCache::AXDraggingStarted);
-        else if (eventType == eventNames().dragendEvent)
+        else if (eventType == eventNames.dragendEvent)
             cache->postNotification(&dragTarget, AXObjectCache::AXDraggingEnded);
-        else if (eventType == eventNames().dragenterEvent)
+        else if (eventType == eventNames.dragenterEvent)
             cache->postNotification(&dragTarget, AXObjectCache::AXDraggingEnteredDropZone);
-        else if (eventType == eventNames().dragleaveEvent)
+        else if (eventType == eventNames.dragleaveEvent)
             cache->postNotification(&dragTarget, AXObjectCache::AXDraggingExitedDropZone);
-        else if (eventType == eventNames().dropEvent)
+        else if (eventType == eventNames.dropEvent)
             cache->postNotification(&dragTarget, AXObjectCache::AXDraggingDropped);
     }
 
@@ -2345,7 +2345,7 @@ static bool findDropZone(Node& target, DataTransfer& dataTransfer)
 {
     RefPtr<Element> element = is<Element>(target) ? &downcast<Element>(target) : target.parentElement();
     for (; element; element = element->parentElement()) {
-        SpaceSplitString keywords(element->attributeWithoutSynchronization(webkitdropzoneAttr), true);
+        SpaceSplitString keywords(element->attributeWithoutSynchronization(webkitdropzoneAttr), SpaceSplitString::ShouldFoldCase::Yes);
         bool matched = false;
         std::optional<DragOperation> dragOperation;
         for (unsigned i = 0, size = keywords.size(); i < size; ++i) {
@@ -2578,12 +2578,10 @@ void EventHandler::updateMouseEventTargetNode(const AtomString& eventType, Node*
     m_elementUnderMouse = targetElement;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    if (m_frame.settings().preferInlineTextSelectionInImages()) {
-        if (!textRecognitionCandidateElement())
-            m_textRecognitionHoverTimer.stop();
-        else if (!platformMouseEvent.movementDelta().isZero())
-            m_textRecognitionHoverTimer.restart();
-    }
+    if (!textRecognitionCandidateElement())
+        m_textRecognitionHoverTimer.stop();
+    else if (!platformMouseEvent.movementDelta().isZero())
+        m_textRecognitionHoverTimer.restart();
 #endif // ENABLE(IMAGE_ANALYSIS)
 
     if (auto* page = m_frame.page())
@@ -3492,7 +3490,7 @@ void EventHandler::textRecognitionHoverTimerFired()
         return;
 
     if (auto* page = m_frame.page())
-        page->chrome().client().requestTextRecognition(*element);
+        page->chrome().client().requestTextRecognition(*element, { });
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)

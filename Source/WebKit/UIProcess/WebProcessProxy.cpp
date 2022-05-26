@@ -132,9 +132,9 @@ bool WebProcessProxy::hasReachedProcessCountLimit()
 static bool isMainThreadOrCheckDisabled()
 {
 #if PLATFORM(IOS_FAMILY)
-    return LIKELY(RunLoop::isMain()) || !linkedOnOrAfter(SDKVersion::FirstWithMainThreadReleaseAssertionInWebPageProxy);
+    return LIKELY(RunLoop::isMain()) || !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::MainThreadReleaseAssertionInWebPageProxy);
 #elif PLATFORM(MAC)
-    return LIKELY(RunLoop::isMain()) || !linkedOnOrAfter(SDKVersion::FirstWithMainThreadReleaseAssertionInWebPageProxy);
+    return LIKELY(RunLoop::isMain()) || !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::MainThreadReleaseAssertionInWebPageProxy);
 #else
     return RunLoop::isMain();
 #endif
@@ -830,12 +830,9 @@ void WebProcessProxy::gpuProcessDidFinishLaunching()
         page->gpuProcessDidFinishLaunching();
 }
 
-void WebProcessProxy::gpuProcessExited(GPUProcessTerminationReason reason)
+void WebProcessProxy::gpuProcessExited(ProcessTerminationReason reason)
 {
-    if (reason == GPUProcessTerminationReason::IdleExit)
-        WEBPROCESSPROXY_RELEASE_LOG(Process, "gpuProcessExited: reason=idle-exit");
-    else
-        WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "gpuProcessExited: reason=%u", static_cast<unsigned>(reason));
+    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "gpuProcessExited: reason=%{public}s", processTerminationReasonToString(reason));
 
     for (auto& page : copyToVectorOf<RefPtr<WebPageProxy>>(m_pageMap.values()))
         page->gpuProcessExited(reason);
@@ -901,7 +898,7 @@ void WebProcessProxy::didClose(IPC::Connection& connection)
 
 void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReason reason)
 {
-    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "processDidTerminateOrFailedToLaunch: reason=%u", static_cast<unsigned>(reason));
+    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "processDidTerminateOrFailedToLaunch: reason=%{public}s", processTerminationReasonToString(reason));
 
     // Protect ourselves, as the call to shutDown() below may otherwise cause us
     // to be deleted before we can finish our work.
@@ -924,11 +921,12 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
         callback(false);
 
     if (isStandaloneServiceWorkerProcess())
-        processPool().serviceWorkerProcessCrashed(*this);
+        processPool().serviceWorkerProcessCrashed(*this, reason);
 
     shutDown();
 
 #if ENABLE(PUBLIC_SUFFIX_LIST)
+    // FIXME: Perhaps this should consider ProcessTerminationReasons ExceededMemoryLimit, ExceededCPULimit, Unresponsive as well.
     if (pages.size() == 1 && reason == ProcessTerminationReason::Crash) {
         auto& page = *pages[0];
         String domain = topPrivatelyControlledDomain(URL({ }, page.currentURL()).host().toString());

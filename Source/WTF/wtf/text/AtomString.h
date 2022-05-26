@@ -38,11 +38,11 @@ public:
     WTF_EXPORT_PRIVATE static void init();
 
     AtomString();
-    AtomString(const LChar*);
-    AtomString(const char*);
     AtomString(const LChar*, unsigned length);
     AtomString(const UChar*, unsigned length);
     AtomString(const UChar*);
+
+    ALWAYS_INLINE static AtomString fromLatin1(const char* characters) { return AtomString(characters); }
 
     template<size_t inlineCapacity>
     explicit AtomString(const Vector<UChar, inlineCapacity>& characters)
@@ -52,6 +52,7 @@ public:
 
     AtomString(AtomStringImpl*);
     AtomString(RefPtr<AtomStringImpl>&&);
+    AtomString(Ref<AtomStringImpl>&&);
     AtomString(const StaticStringImpl*);
     AtomString(StringImpl*);
     AtomString(const String&);
@@ -93,6 +94,7 @@ public:
 
     operator const String&() const { return m_string; }
     const String& string() const { return m_string; };
+    String releaseString() { return WTFMove(m_string); }
 
     // FIXME: What guarantees this isn't a SymbolImpl rather than an AtomStringImpl?
     AtomStringImpl* impl() const { return static_cast<AtomStringImpl*>(m_string.impl()); }
@@ -167,6 +169,8 @@ public:
 #endif
 
 private:
+    explicit AtomString(const char*);
+
     enum class CaseConvertType { Upper, Lower };
     template<CaseConvertType> AtomString convertASCIICase() const;
 
@@ -180,6 +184,7 @@ static_assert(sizeof(AtomString) == sizeof(String), "AtomString and String must 
 inline bool operator==(const AtomString& a, const AtomString& b) { return a.impl() == b.impl(); }
 bool operator==(const AtomString&, const LChar*);
 inline bool operator==(const AtomString& a, const char* b) { return WTF::equal(a.impl(), reinterpret_cast<const LChar*>(b)); }
+inline bool operator==(const AtomString& a, ASCIILiteral b) { return WTF::equal(a.impl(), reinterpret_cast<const LChar*>(b.characters())); }
 inline bool operator==(const AtomString& a, const Vector<UChar>& b) { return a.impl() && equal(a.impl(), b.data(), b.size()); }    
 inline bool operator==(const AtomString& a, const String& b) { return equal(a.impl(), b.impl()); }
 inline bool operator==(const LChar* a, const AtomString& b) { return b == a; }
@@ -192,6 +197,7 @@ inline bool operator!=(const AtomString& a, const char* b) { return !(a == b); }
 inline bool operator!=(const AtomString& a, const String& b) { return !equal(a.impl(), b.impl()); }
 inline bool operator!=(const AtomString& a, const Vector<UChar>& b) { return !(a == b); }
 inline bool operator!=(const LChar* a, const AtomString& b) { return !(b == a); }
+inline bool operator!=(ASCIILiteral a, const AtomString& b) { return !(b == a); }
 inline bool operator!=(const String& a, const AtomString& b) { return !equal(a.impl(), b.impl()); }
 inline bool operator!=(const Vector<UChar>& a, const AtomString& b) { return !(a == b); }
 
@@ -202,12 +208,10 @@ bool equalIgnoringASCIICase(const AtomString&, const char*);
 
 template<unsigned length> bool equalLettersIgnoringASCIICase(const AtomString&, const char (&lowercaseLetters)[length]);
 
-inline AtomString::AtomString()
-{
-}
+WTF_EXPORT_PRIVATE AtomString replaceUnpairedSurrogatesWithReplacementCharacter(AtomString&&);
+WTF_EXPORT_PRIVATE String replaceUnpairedSurrogatesWithReplacementCharacter(String&&);
 
-inline AtomString::AtomString(const LChar* string)
-    : m_string(AtomStringImpl::add(string))
+inline AtomString::AtomString()
 {
 }
 
@@ -237,6 +241,11 @@ inline AtomString::AtomString(AtomStringImpl* string)
 }
 
 inline AtomString::AtomString(RefPtr<AtomStringImpl>&& string)
+    : m_string(WTFMove(string))
+{
+}
+
+inline AtomString::AtomString(Ref<AtomStringImpl>&& string)
     : m_string(WTFMove(string))
 {
 }

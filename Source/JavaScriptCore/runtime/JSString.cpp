@@ -65,9 +65,8 @@ void JSRopeString::RopeBuilder<RecordOverflow>::expand()
 
 void JSString::dumpToStream(const JSCell* cell, PrintStream& out)
 {
-    VM& vm = cell->vm();
     const JSString* thisObject = jsCast<const JSString*>(cell);
-    out.printf("<%p, %s, [%u], ", thisObject, thisObject->className(vm).characters(), thisObject->length());
+    out.printf("<%p, %s, [%u], ", thisObject, thisObject->className().characters(), thisObject->length());
     uintptr_t pointer = thisObject->fiberConcurrently();
     if (pointer & isRopeInPointer) {
         if (pointer & JSRopeString::isSubstringInPointer)
@@ -197,11 +196,16 @@ AtomString JSRopeString::resolveRopeToAtomString(JSGlobalObject* globalObject) c
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
+    auto convertToAtomString = [](const String& string) -> AtomString {
+        ASSERT(!string.impl() || string.impl()->isAtom());
+        return static_cast<AtomStringImpl*>(string.impl());
+    };
+
     if (length() > maxLengthForOnStackResolve) {
         scope.release();
-        return resolveRopeWithFunction(globalObject, [&] (Ref<StringImpl>&& newImpl) {
+        return convertToAtomString(resolveRopeWithFunction(globalObject, [&] (Ref<StringImpl>&& newImpl) {
             return AtomStringImpl::add(newImpl.ptr());
-        });
+        }));
     }
 
     if (is8Bit()) {
@@ -217,7 +221,7 @@ AtomString JSRopeString::resolveRopeToAtomString(JSGlobalObject* globalObject) c
     // If we resolved a string that didn't previously exist, notify the heap that we've grown.
     if (valueInternal().impl()->hasOneRef())
         vm.heap.reportExtraMemoryAllocated(valueInternal().impl()->cost());
-    return valueInternal();
+    return convertToAtomString(valueInternal());
 }
 
 inline void JSRopeString::convertToNonRope(String&& string) const

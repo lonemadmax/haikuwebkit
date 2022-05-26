@@ -1147,6 +1147,15 @@ public:
         m_assembler.sdInsn(resolution.base, immRegister, Imm::S(resolution.offset));
     }
 
+    void store64(TrustedImmPtr imm, Address address)
+    {
+        intptr_t value = imm.asIntptr();
+        if constexpr (sizeof(intptr_t) == sizeof(int64_t))
+            store64(TrustedImm64(int64_t(value)), address);
+        else
+            store64(TrustedImm32(int32_t(value)), address);
+    }
+
     void store64(TrustedImm64 imm, BaseIndex address)
     {
         auto temp = temps<Data, Memory>();
@@ -1171,6 +1180,18 @@ public:
 
         loadImmediate(TrustedImmPtr(address), temp.memory());
         m_assembler.sdInsn(temp.memory(), immRegister, Imm::S<0>());
+    }
+
+    void transfer64(Address src, Address dest)
+    {
+        auto temp = temps<Data>();
+        load64(src, temp.data());
+        store64(temp.data(), dest);
+    }
+
+    void transferPtr(Address src, Address dest)
+    {
+        transfer64(src, dest);
     }
 
     void storePair32(RegisterID src1, RegisterID src2, RegisterID dest)
@@ -2156,6 +2177,16 @@ public:
         return makeBranch(cond, temp.data(), rhs);
     }
 
+    Jump branch64(RelationalCondition cond, Address left, Address right)
+    {
+        auto temp = temps<Data, Memory>();
+        auto leftResolution = resolveAddress(left, temp.memory());
+        m_assembler.ldInsn(temp.data(), leftResolution.base, Imm::I(leftResolution.offset));
+        auto rightResolution = resolveAddress(right, temp.memory());
+        m_assembler.ldInsn(temp.memory(), rightResolution.base, Imm::I(rightResolution.offset));
+        return makeBranch(cond, temp.data(), temp.memory());
+    }
+
     Jump branch32WithUnalignedHalfWords(RelationalCondition cond, BaseIndex address, TrustedImm32 imm)
     {
         return branch32(cond, address, imm);
@@ -2645,6 +2676,11 @@ public:
     Jump branchPtr(RelationalCondition cond, BaseIndex address, RegisterID rhs)
     {
         return branch64(cond, address, rhs);
+    }
+
+    Jump branchPtr(RelationalCondition cond, Address left, Address right)
+    {
+        return branch64(cond, left, right);
     }
 
     DataLabel32 moveWithPatch(TrustedImm32 imm, RegisterID dest)
@@ -3249,9 +3285,20 @@ public:
         m_assembler.addiInsn(RISCV64Registers::zero, RISCV64Registers::zero, Imm::I<0>());
     }
 
-    void memoryFence() { }
-    void storeFence() { }
-    void loadFence() { }
+    void memoryFence()
+    {
+        m_assembler.fenceInsn({ RISCV64Assembler::MemoryOperation::RW }, { RISCV64Assembler::MemoryOperation::RW });
+    }
+
+    void storeFence()
+    {
+        m_assembler.fenceInsn({ RISCV64Assembler::MemoryOperation::W }, { RISCV64Assembler::MemoryOperation::RW });
+    }
+
+    void loadFence()
+    {
+        m_assembler.fenceInsn({ RISCV64Assembler::MemoryOperation::R }, { RISCV64Assembler::MemoryOperation::RW });
+    }
 
     MACRO_ASSEMBLER_RISCV64_TEMPLATED_NOOP_METHOD_WITH_RETURN(branchAtomicWeakCAS8, JumpList);
     MACRO_ASSEMBLER_RISCV64_TEMPLATED_NOOP_METHOD_WITH_RETURN(branchAtomicWeakCAS16, JumpList);

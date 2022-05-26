@@ -353,7 +353,7 @@ void MediaPlayerPrivateGStreamer::load(const String& urlString)
 }
 
 #if ENABLE(MEDIA_SOURCE)
-void MediaPlayerPrivateGStreamer::load(const URL&, const ContentType&, MediaSourcePrivateClient*)
+void MediaPlayerPrivateGStreamer::load(const URL&, const ContentType&, MediaSourcePrivateClient&)
 {
     // Properly fail so the global MediaPlayer tries to fallback to the next MediaPlayerPrivate.
     m_networkState = MediaPlayer::NetworkState::FormatError;
@@ -941,7 +941,7 @@ void MediaPlayerPrivateGStreamer::setPlaybinURL(const URL& url)
     // Clean out everything after file:// url path.
     String cleanURLString(url.string());
     if (url.isLocalFile())
-        cleanURLString = cleanURLString.substring(0, url.pathEnd());
+        cleanURLString = cleanURLString.left(url.pathEnd());
 
     m_url = URL { cleanURLString };
     GST_INFO_OBJECT(pipeline(), "Load %s", m_url.string().utf8().data());
@@ -1464,7 +1464,7 @@ void MediaPlayerPrivateGStreamer::updateTracks(const GRefPtr<GstStreamCollection
             CREATE_TRACK(video, Video);
         else if (type & GST_STREAM_TYPE_TEXT && !useMediaSource) {
             auto track = InbandTextTrackPrivateGStreamer::create(textTrackIndex++, WTFMove(stream));
-            m_textTracks.add(streamId, track.copyRef());
+            m_textTracks.add(AtomString::fromLatin1(streamId), track.copyRef());
             m_player->addTextTrack(track.get());
         } else
             GST_WARNING("Unknown track type found for stream %s", streamId);
@@ -1782,9 +1782,20 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
         MediaTime playbackPosition = MediaTime::invalidTime();
         MediaTime duration = durationMediaTime();
         GstClockTime gstreamerPosition = gstreamerPositionFromSinks();
+        bool eosFlagIsSetInSink = false;
+        if (m_videoSink) {
+            GRefPtr<GstPad> sinkPad = adoptGRef(gst_element_get_static_pad(m_videoSink.get(), "sink"));
+            eosFlagIsSetInSink = sinkPad && GST_PAD_IS_EOS(sinkPad.get());
+        }
+
+        if (!eosFlagIsSetInSink && m_audioSink) {
+            GRefPtr<GstPad> sinkPad = adoptGRef(gst_element_get_static_pad(m_audioSink.get(), "sink"));
+            eosFlagIsSetInSink = sinkPad && GST_PAD_IS_EOS(sinkPad.get());
+        }
+
         if (GST_CLOCK_TIME_IS_VALID(gstreamerPosition))
             playbackPosition = MediaTime(gstreamerPosition, GST_SECOND);
-        if (playbackPosition.isValid() && duration.isValid()
+        if (!eosFlagIsSetInSink && playbackPosition.isValid() && duration.isValid()
             && ((m_playbackRate >= 0 && playbackPosition < duration && duration.isFinite())
             || (m_playbackRate < 0 && playbackPosition > MediaTime::zeroTime()))) {
             GST_DEBUG_OBJECT(pipeline(), "EOS received but position %s is still in the finite playable limits [%s, %s], ignoring it",
@@ -2166,8 +2177,8 @@ void MediaPlayerPrivateGStreamer::configureDownloadBuffer(GstElement* element)
     g_object_set(element, "temp-template", newDownloadTemplate.get(), nullptr);
     GST_DEBUG_OBJECT(pipeline(), "Reconfigured file download template from '%s' to '%s'", oldDownloadTemplate.get(), newDownloadTemplate.get());
 
-    auto newDownloadPrefixPath = String::fromLatin1(newDownloadTemplate.get());
-    purgeOldDownloadFiles(newDownloadPrefixPath.replace("XXXXXX", ""));
+    auto newDownloadPrefixPath = makeStringByReplacingAll(String::fromLatin1(newDownloadTemplate.get()), "XXXXXX", "");
+    purgeOldDownloadFiles(newDownloadPrefixPath);
 }
 
 void MediaPlayerPrivateGStreamer::downloadBufferFileCreatedCallback(MediaPlayerPrivateGStreamer* player)
@@ -2824,7 +2835,8 @@ void MediaPlayerPrivateGStreamer::configureVideoDecoder(GstElement* decoder)
         // Set the decoder maximum number of threads to a low, fixed value, not depending on the
         // platform. This also helps with processing metrics gathering. When using the default value
         // the decoder introduces artificial processing latency reflecting the maximum number of threads.
-        g_object_set(decoder, "max-threads", 2, nullptr);
+        if (g_object_class_find_property(G_OBJECT_GET_CLASS(decoder), "max-threads"))
+            g_object_set(decoder, "max-threads", 2, nullptr);
     }
 
 #if USE(TEXTURE_MAPPER_GL)

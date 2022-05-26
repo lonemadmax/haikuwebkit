@@ -352,14 +352,14 @@ void StyleSheetHandler::observeProperty(unsigned startOffset, unsigned endOffset
         ++endOffset;
     
     ASSERT(startOffset < endOffset);
-    String propertyString = m_parsedText.substring(startOffset, endOffset - startOffset).stripWhiteSpace();
+    StringView propertyString = StringView(m_parsedText).substring(startOffset, endOffset - startOffset).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
     if (propertyString.endsWith(';'))
         propertyString = propertyString.left(propertyString.length() - 1);
     size_t colonIndex = propertyString.find(':');
     ASSERT(colonIndex != notFound);
 
-    String name = propertyString.left(colonIndex).stripWhiteSpace();
-    String value = propertyString.substring(colonIndex + 1, propertyString.length()).stripWhiteSpace();
+    String name = propertyString.left(colonIndex).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline).toString();
+    String value = propertyString.substring(colonIndex + 1, propertyString.length()).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline).toString();
     
     // FIXME-NEWPARSER: The property range is relative to the declaration start offset, but no
     // good reason for it, and it complicates fixUnparsedProperties.
@@ -376,17 +376,19 @@ void StyleSheetHandler::observeComment(unsigned startOffset, unsigned endOffset)
     
     // The lexer is not inside a property AND it is scanning a declaration-aware
     // rule body.
-    String commentText = m_parsedText.substring(startOffset, endOffset - startOffset);
+    auto commentTextView = StringView(m_parsedText).substring(startOffset, endOffset - startOffset);
     
-    ASSERT(commentText.startsWith("/*"));
-    commentText = commentText.substring(2);
+    ASSERT(commentTextView.startsWith("/*"));
+    commentTextView = commentTextView.substring(2);
     
     // Require well-formed comments.
-    if (!commentText.endsWith("*/"))
+    if (!commentTextView.endsWith("*/"))
         return;
-    commentText = commentText.substring(0, commentText.length() - 2).stripWhiteSpace();
-    if (commentText.isEmpty())
+    commentTextView = commentTextView.left(commentTextView.length() - 2).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
+    if (commentTextView.isEmpty())
         return;
+
+    auto commentText = commentTextView.toString();
     
     // FIXME: Use the actual rule type rather than STYLE_RULE?
     RuleSourceDataList sourceData;
@@ -982,7 +984,7 @@ ExceptionOr<void> InspectorStyleSheet::setRuleSelector(const InspectorCSSId& id,
         return Exception { NotFoundError };
 
     String sheetText = m_parsedStyleSheet->text();
-    sheetText.replace(sourceData->ruleHeaderRange.start, sourceData->ruleHeaderRange.length(), selector);
+    sheetText = makeStringByReplacing(sheetText, sourceData->ruleHeaderRange.start, sourceData->ruleHeaderRange.length(), selector);
     m_parsedStyleSheet->setText(sheetText);
     m_pageStyleSheet->clearHadRulesMutation();
     fireStyleSheetChanged();
@@ -1487,8 +1489,7 @@ bool InspectorStyleSheet::styleSheetTextWithChangedStyle(CSSStyleDeclaration* st
     String text = m_parsedStyleSheet->text();
     ASSERT_WITH_SECURITY_IMPLICATION(bodyEnd <= text.length()); // bodyEnd is exclusive
 
-    text.replace(bodyStart, bodyEnd - bodyStart, newStyleText);
-    *result = text;
+    *result = makeStringByReplacing(text, bodyStart, bodyEnd - bodyStart, newStyleText);
     return true;
 }
 
@@ -1593,7 +1594,7 @@ InspectorStyleSheetForInlineStyle::InspectorStyleSheetForInlineStyle(InspectorPa
     , m_isStyleTextValid(false)
 {
     m_inspectorStyle = InspectorStyle::create(InspectorCSSId(id, 0), inlineStyle(), this);
-    m_styleText = m_element->getAttribute("style").string();
+    m_styleText = m_element->getAttribute(HTMLNames::styleAttr).string();
 }
 
 void InspectorStyleSheetForInlineStyle::didModifyElementAttribute()
@@ -1669,7 +1670,7 @@ CSSStyleDeclaration& InspectorStyleSheetForInlineStyle::inlineStyle() const
 
 const String& InspectorStyleSheetForInlineStyle::elementStyleText() const
 {
-    return m_element->getAttribute("style").string();
+    return m_element->getAttribute(HTMLNames::styleAttr).string();
 }
 
 Ref<CSSRuleSourceData> InspectorStyleSheetForInlineStyle::ruleSourceData() const

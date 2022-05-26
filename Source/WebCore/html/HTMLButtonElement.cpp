@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HTMLButtonElement.h"
 
+#include "CommonAtomStrings.h"
 #include "DOMFormData.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
@@ -82,18 +83,12 @@ int HTMLButtonElement::defaultTabIndex() const
 const AtomString& HTMLButtonElement::formControlType() const
 {
     switch (m_type) {
-        case SUBMIT: {
-            static MainThreadNeverDestroyed<const AtomString> submit("submit", AtomString::ConstructFromLiteral);
-            return submit;
-        }
-        case BUTTON: {
-            static MainThreadNeverDestroyed<const AtomString> button("button", AtomString::ConstructFromLiteral);
-            return button;
-        }
-        case RESET: {
-            static MainThreadNeverDestroyed<const AtomString> reset("reset", AtomString::ConstructFromLiteral);
-            return reset;
-        }
+    case SUBMIT:
+        return submitAtom();
+    case BUTTON:
+        return HTMLNames::buttonTag->localName();
+    case RESET:
+        return resetAtom();
     }
 
     ASSERT_NOT_REACHED();

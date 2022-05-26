@@ -79,7 +79,7 @@
 #include "WeekInputType.h"
 #include <limits>
 #include <wtf/Assertions.h>
-#include <wtf/HashMap.h>
+#include <wtf/RobinHoodHashMap.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/TextBreakIterator.h>
 
@@ -90,7 +90,7 @@ using namespace HTMLNames;
 typedef bool (Settings::*InputTypeConditionalFunction)() const;
 typedef const AtomString& (*InputTypeNameFunction)();
 typedef Ref<InputType> (*InputTypeFactoryFunction)(HTMLInputElement&);
-typedef HashMap<AtomString, std::pair<InputTypeConditionalFunction, InputTypeFactoryFunction>> InputTypeFactoryMap;
+typedef MemoryCompactLookupOnlyRobinHoodHashMap<AtomString, std::pair<InputTypeConditionalFunction, InputTypeFactoryFunction>> InputTypeFactoryMap;
 
 template<class T> static Ref<InputType> createInputType(HTMLInputElement& element)
 {
@@ -954,7 +954,7 @@ ExceptionOr<void> InputType::applyStep(int count, AnyStepHandling anyStepHandlin
 
     newValue = newValue + stepRange.step() * Decimal::fromDouble(count);
     const AtomString& stepString = element()->getAttribute(HTMLNames::stepAttr);
-    if (!equalIgnoringASCIICase(stepString, "any"))
+    if (!equalLettersIgnoringASCIICase(stepString, "any"))
         newValue = stepRange.alignValueForStep(current, newValue);
 
     // 8. If the element has a minimum, and value is less than that minimum, then set value to the smallest value that, when subtracted from the step

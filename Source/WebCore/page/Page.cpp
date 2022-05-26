@@ -37,6 +37,7 @@
 #include "CachedResourceLoader.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CommonAtomStrings.h"
 #include "ConstantPropertyMap.h"
 #include "ContextMenuClient.h"
 #include "ContextMenuController.h"
@@ -163,7 +164,6 @@
 #include "VisitedLinkStore.h"
 #include "VoidCallback.h"
 #include "WebCoreJSClientData.h"
-#include "WebLockRegistry.h"
 #include "WheelEventDeltaFilter.h"
 #include "WheelEventTestMonitor.h"
 #include "Widget.h"
@@ -311,7 +311,6 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_userContentProvider(WTFMove(pageConfiguration.userContentProvider))
     , m_visitedLinkStore(*WTFMove(pageConfiguration.visitedLinkStore))
     , m_broadcastChannelRegistry(WTFMove(pageConfiguration.broadcastChannelRegistry))
-    , m_webLockRegistry(WTFMove(pageConfiguration.webLockRegistry))
     , m_sessionID(pageConfiguration.sessionID)
 #if ENABLE(VIDEO)
     , m_playbackControlsManagerUpdateTimer(*this, &Page::playbackControlsManagerUpdateTimerFired)
@@ -2023,7 +2022,7 @@ void Page::userStyleSheetLocationChanged()
     if (url.protocolIsData() && url.string().startsWith("data:text/css;charset=utf-8;base64,")) {
         m_didLoadUserStyleSheet = true;
 
-        if (auto styleSheetAsUTF8 = base64Decode(PAL::decodeURLEscapeSequences(url.string().substring(35)), Base64DecodeOptions::IgnoreSpacesAndNewLines))
+        if (auto styleSheetAsUTF8 = base64Decode(PAL::decodeURLEscapeSequences(StringView(url.string()).substring(35)), Base64DecodeOptions::IgnoreSpacesAndNewLines))
             m_userStyleSheet = String::fromUTF8(styleSheetAsUTF8->data(), styleSheetAsUTF8->size());
     }
 
@@ -2066,7 +2065,7 @@ const String& Page::userStyleSheet() const
     if (!data)
         return m_userStyleSheet;
 
-    m_userStyleSheet = TextResourceDecoder::create("text/css"_s)->decodeAndFlush(data->data(), data->size());
+    m_userStyleSheet = TextResourceDecoder::create(cssContentTypeAtom())->decodeAndFlush(data->data(), data->size());
 
     return m_userStyleSheet;
 }

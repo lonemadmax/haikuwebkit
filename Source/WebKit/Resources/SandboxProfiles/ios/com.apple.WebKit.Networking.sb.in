@@ -1,4 +1,4 @@
-; Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+; Copyright (C) 2014-2022 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -26,6 +26,10 @@
 (deny nvram*)
 (deny system-privilege)
 (allow system-audit file-read-metadata)
+
+;; We can remove the catch once we no longer need to support iOS 15 (or earlier))
+(catch (lambda)
+    (import "dyld-support.sb"))
 
 (allow system-privilege (with grant)
     (require-all
@@ -610,13 +614,15 @@
     (global-name "com.apple.tccd"))
 
 (when (defined? 'syscall-unix)
-    (allow syscall-unix)
+    (deny syscall-unix (with telemetry))
     (allow syscall-unix (syscall-number
         SYS___channel_get_info
         SYS___channel_open
         SYS___channel_sync
         SYS___disable_threadsignal
         SYS___mac_syscall
+        SYS___pthread_kill
+        SYS___pthread_sigmask
         SYS___semwait_signal
         SYS_abort_with_payload
         SYS_access
@@ -634,11 +640,15 @@
         SYS_csops
         SYS_csops_audittoken
         SYS_dup
+        SYS_dup2
         SYS_exit
         SYS_fcntl
         SYS_fcntl_nocancel
+        SYS_ffsctl
+        SYS_fileport_makefd
         SYS_fsgetpath
         SYS_fstat64
+        SYS_fstat64_extended
         SYS_fstatat64
         SYS_fstatfs64
         SYS_fsync
@@ -750,11 +760,11 @@
         SYS_write_nocancel
         SYS_writev)))
 
-(when (defined? 'SYS__map_with_linking_np)
-    (allow syscall-unix (syscall-number SYS__map_with_linking_np)))
+(when (defined? 'SYS_map_with_linking_np)
+    (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
 
 (when (defined? 'syscall-mach)
-    (allow syscall-mach (with report))
+    (deny syscall-mach (with telemetry))
     (allow syscall-mach
         (machtrap-number
             MSC__kernelrpc_mach_port_allocate_trap

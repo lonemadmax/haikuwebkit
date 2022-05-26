@@ -1221,7 +1221,7 @@ sub GeneratePut
         my $legacyOverrideBuiltins = $codeGenerator->InheritsExtendedAttribute($interface, "LegacyOverrideBuiltIns");
         if (!$legacyOverrideBuiltins) {
             push(@$outputArray, "        PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &lexicalGlobalObject->vm() };\n");
-            push(@$outputArray, "        JSValue prototype = thisObject->getPrototypeDirect(JSC::getVM(lexicalGlobalObject));\n");
+            push(@$outputArray, "        JSValue prototype = thisObject->getPrototypeDirect();\n");
             push(@$outputArray, "        bool found = prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot);\n");
             push(@$outputArray, "        slot.disallowVMEntry.reset();\n");
             push(@$outputArray, "        RETURN_IF_EXCEPTION(throwScope, false);\n");
@@ -1299,7 +1299,7 @@ sub GeneratePutByIndex
         my $additionalIndent = "";
         if (!$legacyOverrideBuiltins) {
             push(@$outputArray, "    PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &vm };\n");
-            push(@$outputArray, "    JSValue prototype = thisObject->getPrototypeDirect(vm);\n");
+            push(@$outputArray, "    JSValue prototype = thisObject->getPrototypeDirect();\n");
             push(@$outputArray, "    bool found = prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot);\n");
             push(@$outputArray, "    slot.disallowVMEntry.reset();\n");
             push(@$outputArray, "    RETURN_IF_EXCEPTION(throwScope, false);\n");
@@ -2362,6 +2362,7 @@ sub GenerateEnumerationImplementationContent
     AddToImplIncludes("<JavaScriptCore/JSString.h>");
     AddToImplIncludes("<JavaScriptCore/JSCInlines.h>");
     AddToImplIncludes("JSDOMConvertEnumeration.h");
+    AddToImplIncludes("<wtf/SortedArrayMap.h>");
 
     my $result = "";
     $result .= "#if ${conditionalString}\n\n" if $conditionalString;
@@ -2402,15 +2403,21 @@ sub GenerateEnumerationImplementationContent
     $result .= "template<> std::optional<$className> parseEnumeration<$className>(JSGlobalObject& lexicalGlobalObject, JSValue value)\n";
     $result .= "{\n";
     $result .= "    auto stringValue = value.toWTFString(&lexicalGlobalObject);\n";
-    foreach my $value (@{$enumeration->values}) {
-        my $enumerationValueName = GetEnumerationValueName($value);
-        if ($value eq "") {
-            $result .= "    if (stringValue.isEmpty())\n";
-        } else {
-            $result .= "    if (stringValue == \"$value\")\n";
-        }
-        $result .= "        return ${className}::${enumerationValueName};\n";
+    my @sortedEnumerationValues = sort @{$enumeration->values};
+    if ($sortedEnumerationValues[0] eq "") {
+        $result .= "    if (stringValue.isEmpty())\n";
+        my $enumerationValueName = GetEnumerationValueName(shift(@sortedEnumerationValues));
+        $result .= "        return ${className}::$enumerationValueName;\n";
     }
+    $result .= "    static constexpr std::pair<ComparableASCIILiteral, $className> mappings[] = {\n";
+    for my $value (@sortedEnumerationValues) {
+        my $enumerationValueName = GetEnumerationValueName($value);
+        $result .= "        { \"$value\", ${className}::$enumerationValueName },\n";
+    }
+    $result .= "    };\n";
+    $result .= "    static constexpr SortedArrayMap enumerationMapping { mappings };\n";
+    $result .= "    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))\n";
+    $result .= "        return *enumerationValue;\n";
     $result .= "    return std::nullopt;\n";
     $result .= "}\n\n";
 
@@ -3205,7 +3212,12 @@ sub GenerateHeader
     # structure flags
     if (%structureFlags) {
         push(@headerContent, "public:\n");
-        push(@headerContent, "    static constexpr unsigned StructureFlags = Base::StructureFlags");
+        if ($interfaceName eq "ShadowRealmGlobalScope") {
+            # Hack to make ShadowRealmGlobalScope a default realm global object (not an ImmutablePrototypeExoticObject)
+            push(@headerContent, "    static constexpr unsigned StructureFlags = (Base::StructureFlags & ~JSC::IsImmutablePrototypeExoticObject)");
+        } else {
+            push(@headerContent, "    static constexpr unsigned StructureFlags = Base::StructureFlags");
+        }
         foreach my $structureFlag (sort (keys %structureFlags)) {
             push(@headerContent, " | " . $structureFlag);
         }
@@ -3755,25 +3767,25 @@ sub GenerateOverloadDispatcher
                     if ($codeGenerator->IsWrapperType($subtype) || $codeGenerator->IsBufferSourceType($subtype)) {
                         if ($subtype->name eq "DOMWindow") {
                             AddToImplIncludes("JSWindowProxy.h");
-                            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && (asObject(distinguishingArg)->inherits<JSWindowProxy>(vm) || asObject(distinguishingArg)->inherits<JSDOMWindow>(vm))");
+                            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && (asObject(distinguishingArg)->inherits<JSWindowProxy>() || asObject(distinguishingArg)->inherits<JSDOMWindow>())");
                         } elsif ($subtype->name eq "RemoteDOMWindow") {
                             AddToImplIncludes("JSWindowProxy.h");
-                            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && (asObject(distinguishingArg)->inherits<JSWindowProxy>(vm) || asObject(distinguishingArg)->inherits<JSRemoteDOMWindow>(vm))");
+                            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && (asObject(distinguishingArg)->inherits<JSWindowProxy>() || asObject(distinguishingArg)->inherits<JSRemoteDOMWindow>())");
                         } else {
-                            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JS" . $subtype->name . ">(vm)");
+                            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JS" . $subtype->name . ">()");
                         }
                     }
                 }
             }
 
             $overload = GetOverloadThatMatches($S, $d, \&$isObjectOrErrorOrDOMExceptionParameter);
-            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSDOMException>(vm)");
+            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSDOMException>()");
 
             $overload = GetOverloadThatMatches($S, $d, \&$isObjectOrErrorParameter);
             &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isObject() && asObject(distinguishingArg)->type() == ErrorInstanceType");
 
             $overload = GetOverloadThatMatches($S, $d, \&$isObjectOrCallbackFunctionParameter);
-            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isCallable(vm)");
+            &$generateOverloadCallIfNecessary($overload, "distinguishingArg.isCallable()");
 
             # FIXME: Avoid invoking GetMethod(object, Symbol.iterator) again in convert<IDLSequence<T>>(...).
             $overload = GetOverloadThatMatches($S, $d, \&$isSequenceOrFrozenArrayParameter);
@@ -3986,18 +3998,30 @@ sub GenerateRuntimeEnableConditionalStringForExposeScope
 {
     my ($exposed, $context, $globalObjectPtr) = @_;
 
+    my $wrapperType;
+    my $sideCondition;
+
     if ($exposed eq "Window") {
-      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isDocument()";
+      $wrapperType = "JSDOMWindowBase";
     } elsif ($exposed eq "Worker") {
-      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isWorkerGlobalScope()";
+      $wrapperType = "JSWorkerGlobalScopeBase";
     } elsif ($exposed eq "ShadowRealm") {
-      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isShadowRealmGlobalScope()";
+      $wrapperType = "JSShadowRealmGlobalScopeBase";
     } elsif ($exposed eq "Worklet") {
-      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isWorkletGlobalScope()";
+      $wrapperType = "JSWorkletGlobalScopeBase";
     } elsif ($exposed eq "AudioWorklet") {
-      return "is<AudioWorkletGlobalScope>(jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext())";
+      $wrapperType = "JSWorkletGlobalScopeBase";
+      $sideCondition = "global->scriptExecutionContext()->isAudioWorkletGlobalScope()";
     } else {
       assert("Unrecognized value '" . Dumper($context->extendedAttributes->{Exposed}) . "' for the Exposed extended attribute on '" . ref($context) . "'.");
+    }
+
+    AddToImplIncludes("$wrapperType.h", 0);
+
+    if (defined $sideCondition) {
+      return "([&] { auto* global = jsDynamicCast<$wrapperType>($globalObjectPtr); return global && $sideCondition; })()";
+    } else {
+      return "($globalObjectPtr)->inherits<$wrapperType>()"
     }
 }
 
@@ -4603,10 +4627,10 @@ sub GenerateImplementation
                 push(@implContent, "    if (!${runtimeEnableConditionalString})\n");
                 if (IsAcceleratedDOMAttribute($interface, $attribute)) {
                     my $classForThis = "${className}::info()";
-                    push(@implContent, "        putDirectCustomAccessor(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames()." . $attributeName . "PublicName(), JSC::DOMAttributeGetterSetter::create(vm, $getter, $setter, JSC::DOMAttributeAnnotation { $classForThis, nullptr }), attributesForStructure($jscAttributes));\n");
+                    push(@implContent, "        putDirectCustomAccessor(vm, builtinNames(vm)." . $attributeName . "PublicName(), JSC::DOMAttributeGetterSetter::create(vm, $getter, $setter, JSC::DOMAttributeAnnotation { $classForThis, nullptr }), attributesForStructure($jscAttributes));\n");
                 } else {
                     assert("CustomGetterSetter is not allowed for DOMAttribute. DOMAttributeGetterSetter must be used.") if IsAcceleratedDOMAttribute($interface, $attribute);
-                    push(@implContent, "        putDirectCustomAccessor(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames()." . $attributeName . "PublicName(), CustomGetterSetter::create(vm, $getter, $setter), attributesForStructure($jscAttributes));\n");
+                    push(@implContent, "        putDirectCustomAccessor(vm, builtinNames(vm)." . $attributeName . "PublicName(), CustomGetterSetter::create(vm, $getter, $setter), attributesForStructure($jscAttributes));\n");
                 }
                 push(@implContent, "#endif\n") if $conditionalString;
             }
@@ -4622,7 +4646,7 @@ sub GenerateImplementation
             AddToImplIncludes("WebCoreJSClientData.h");
             my $conditionalString = $codeGenerator->GenerateConditionalString($operation);
             push(@implContent, "#if ${conditionalString}\n") if $conditionalString;
-            push(@implContent, "    putDirect(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames()." . $operation->name . "PrivateName(), JSFunction::create(vm, globalObject(), 0, String(), " . GetFunctionName($interface, $className, $operation) . "), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);\n");
+            push(@implContent, "    putDirect(vm, builtinNames(vm)." . $operation->name . "PrivateName(), JSFunction::create(vm, globalObject(), 0, String(), " . GetFunctionName($interface, $className, $operation) . "), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);\n");
             push(@implContent, "#endif\n") if $conditionalString;
         }
 
@@ -4703,7 +4727,7 @@ sub GenerateImplementation
         push(@implContent, "void ${className}::finishCreation(VM& vm)\n");
         push(@implContent, "{\n");
         push(@implContent, "    Base::finishCreation(vm);\n");
-        push(@implContent, "    ASSERT(inherits(vm, info()));\n\n");
+        push(@implContent, "    ASSERT(inherits(info()));\n\n");
     }
 
     if (!$codeGenerator->InheritsExtendedAttribute($interface, "JSBuiltin")) {
@@ -4741,10 +4765,10 @@ sub GenerateImplementation
         assert("CustomGetterSetter is not allowed for DOMAttribute. DOMAttributeGetterSetter must be used.") if IsAcceleratedDOMAttribute($interface, $attribute);
 
         if ($attribute->extendedAttributes->{PublicIdentifier} || !$attribute->extendedAttributes->{PrivateIdentifier}) {
-            push(@implContent, "        putDirectCustomAccessor(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames()." . $attributeName . "PublicName(), CustomGetterSetter::create(vm, $getter, $setter), attributesForStructure($jscAttributes));\n");
+            push(@implContent, "        putDirectCustomAccessor(vm, builtinNames(vm)." . $attributeName . "PublicName(), CustomGetterSetter::create(vm, $getter, $setter), attributesForStructure($jscAttributes));\n");
         }
         if ($attribute->extendedAttributes->{PrivateIdentifier}) {
-            push(@implContent, "        putDirectCustomAccessor(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames()." . $attributeName . "PrivateName(), CustomGetterSetter::create(vm, $getter, $setter), attributesForStructure($jscAttributes));\n");
+            push(@implContent, "        putDirectCustomAccessor(vm, builtinNames(vm)." . $attributeName . "PrivateName(), CustomGetterSetter::create(vm, $getter, $setter), attributesForStructure($jscAttributes));\n");
         }
 
         push(@implContent, "    }\n") if $isPrivateAndPublic;
@@ -4764,7 +4788,7 @@ sub GenerateImplementation
 
         push(@implContent, "#if ${conditionalString}\n") if $conditionalString;
         assert("CustomGetterSetter is not allowed for DOMAttribute. DOMAttributeGetterSetter must be used.") if IsAcceleratedDOMAttribute($interface, $attribute);
-        push(@implContent, "    putDirectCustomAccessor(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames()." . $attributeName . "PrivateName(), CustomGetterSetter::create(vm, $getter, nullptr), attributesForStructure(JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly));\n");
+        push(@implContent, "    putDirectCustomAccessor(vm, builtinNames(vm)." . $attributeName . "PrivateName(), CustomGetterSetter::create(vm, $getter, nullptr), attributesForStructure(JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly));\n");
         push(@implContent, "#endif\n") if $conditionalString;
     }
 
@@ -4784,7 +4808,7 @@ sub GenerateImplementation
         my $conditionalString = $codeGenerator->GenerateConditionalString($operation);
         push(@implContent, "#if ${conditionalString}\n") if $conditionalString;
         push(@implContent, "    if (${runtimeEnableConditionalString})\n");
-        my $propertyName = "static_cast<JSVMClientData*>(vm.clientData)->builtinNames()." . $functionName . ($operation->extendedAttributes->{PrivateIdentifier} ? "PrivateName()" : "PublicName()");
+        my $propertyName = "builtinNames(vm)." . $functionName . ($operation->extendedAttributes->{PrivateIdentifier} ? "PrivateName()" : "PublicName()");
         if (IsJSBuiltin($interface, $operation)) {
             push(@implContent, "        putDirectBuiltinFunction(vm, this, $propertyName, $implementationFunction(vm), attributesForStructure($jsAttributes));\n");
         } else {
@@ -4872,7 +4896,7 @@ sub GenerateImplementation
         push(@implContent, "{\n");
         push(@implContent, "    VM& vm = JSC::getVM(lexicalGlobalObject);\n");
         push(@implContent, "    auto throwScope = DECLARE_THROW_SCOPE(vm);\n");
-        push(@implContent, "    auto* prototype = jsDynamicCast<${className}Prototype*>(vm, JSValue::decode(thisValue));\n");
+        push(@implContent, "    auto* prototype = jsDynamicCast<${className}Prototype*>(JSValue::decode(thisValue));\n");
         push(@implContent, "    if (UNLIKELY(!prototype))\n");
         push(@implContent, "        return throwVMTypeError(lexicalGlobalObject, throwScope);\n");
         push(@implContent, "    return JSValue::encode(${className}::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));\n");
@@ -5178,9 +5202,9 @@ END
     }
 
     if (ShouldGenerateToWrapped($hasParent, $interface) and !$interface->extendedAttributes->{JSCustomToNativeObject}) {
-        push(@implContent, "${implType}* ${className}::toWrapped(JSC::VM& vm, JSC::JSValue value)\n");
+        push(@implContent, "${implType}* ${className}::toWrapped(JSC::VM&, JSC::JSValue value)\n");
         push(@implContent, "{\n");
-        push(@implContent, "    if (auto* wrapper = " . GetCastingHelperForThisObject($interface) . "(vm, value))\n");
+        push(@implContent, "    if (auto* wrapper = " . GetCastingHelperForThisObject($interface) . "(value))\n");
         push(@implContent, "        return &wrapper->wrapped();\n");
         push(@implContent, "    return nullptr;\n");
         push(@implContent, "}\n");
@@ -5490,7 +5514,7 @@ sub GenerateAttributeSetterBodyDefinition
         
         # 3.5.9.4. Perform ? Set(Q, forwardId, V, false).
         push(@$outputArray, "    PutPropertySlot slot(valueToForwardTo, false);\n");
-        push(@$outputArray, "    asObject(valueToForwardTo)->methodTable(vm)->put(asObject(valueToForwardTo), &lexicalGlobalObject, forwardId, value, slot);\n");
+        push(@$outputArray, "    asObject(valueToForwardTo)->methodTable()->put(asObject(valueToForwardTo), &lexicalGlobalObject, forwardId, value, slot);\n");
         push(@$outputArray, "    RETURN_IF_EXCEPTION(throwScope, false);\n");
         
         push(@$outputArray, "    return true;\n");
@@ -6489,7 +6513,7 @@ sub GenerateCallbackImplementationContent
 
     # Constructor
     push(@$contentRef, "${className}::${className}(VM& vm, JSObject* callback)\n");
-    push(@$contentRef, "    : ${name}(jsCast<JSDOMGlobalObject*>(callback->globalObject(vm))->scriptExecutionContext())\n");
+    push(@$contentRef, "    : ${name}(jsCast<JSDOMGlobalObject*>(callback->globalObject())->scriptExecutionContext())\n");
     push(@$contentRef, "    , m_data(new ${callbackDataType}(vm, callback, this))\n");
     push(@$contentRef, "{\n");
     push(@$contentRef, "}\n\n");
@@ -7878,7 +7902,7 @@ sub GenerateConstructorHelperMethods
         if ($interface->isCallback) {
             push(@$outputArray, "    UNUSED_PARAM(globalObject);\n");
         } else {
-            my $prototype = ShouldUseGlobalObjectPrototype($interface) ? "globalObject.getPrototypeDirect(vm)" : "${className}::prototype(vm, globalObject)";
+            my $prototype = ShouldUseGlobalObjectPrototype($interface) ? "globalObject.getPrototypeDirect()" : "${className}::prototype(vm, globalObject)";
             push(@$outputArray, "    putDirect(vm, vm.propertyNames->prototype, ${prototype}, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::DontDelete);\n");
         }
     }

@@ -56,7 +56,7 @@ static KeyValueMap retrieveKeyValuePairs(WebCore::SharedBufferChunkReader& buffe
             break; // Empty line means end of key/value section.
         if (line[0] == '\t') {
             ASSERT(!key.isEmpty());
-            value.append(line.substring(1));
+            value.append(StringView(line).substring(1));
             continue;
         }
         // New key/value, store the previous one if any.
@@ -67,13 +67,13 @@ static KeyValueMap retrieveKeyValuePairs(WebCore::SharedBufferChunkReader& buffe
             key = String();
             value.clear();
         }
-        size_t semiColonIndex = line.find(':');
-        if (semiColonIndex == notFound) {
+        size_t semicolonIndex = line.find(':');
+        if (semicolonIndex == notFound) {
             // This is not a key value pair, ignore.
             continue;
         }
-        key = line.substring(0, semiColonIndex).convertToASCIILowercase().stripWhiteSpace();
-        value.append(line.substring(semiColonIndex + 1));
+        key = StringView(line).left(semicolonIndex).stripWhiteSpace().convertToASCIILowercase();
+        value.append(StringView(line).substring(semicolonIndex + 1));
     }
     // Store the last property if there is one.
     if (!key.isEmpty())
@@ -120,9 +120,9 @@ RefPtr<MIMEHeader> MIMEHeader::parseHeader(SharedBufferChunkReader& buffer)
     return mimeHeader;
 }
 
-MIMEHeader::Encoding MIMEHeader::parseContentTransferEncoding(const String& text)
+MIMEHeader::Encoding MIMEHeader::parseContentTransferEncoding(StringView text)
 {
-    String encoding = text.stripWhiteSpace();
+    auto encoding = text.stripWhiteSpace();
     if (equalLettersIgnoringASCIICase(encoding, "base64"))
         return Base64;
     if (equalLettersIgnoringASCIICase(encoding, "quoted-printable"))
@@ -131,7 +131,7 @@ MIMEHeader::Encoding MIMEHeader::parseContentTransferEncoding(const String& text
         return SevenBit;
     if (equalLettersIgnoringASCIICase(encoding, "binary"))
         return Binary;
-    LOG_ERROR("Unknown encoding '%s' found in MIME header.", text.ascii().data());
+    LOG_ERROR("Unknown encoding '%s' found in MIME header.", text.utf8().data());
     return Unknown;
 }
 

@@ -29,20 +29,22 @@
 
 #include "CSSNumericBaseType.h"
 #include <optional>
+#include <wtf/Markable.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
 // https://drafts.css-houdini.org/css-typed-om/#dom-cssnumericvalue-type
 struct CSSNumericType {
-    std::optional<long> length;
-    std::optional<long> angle;
-    std::optional<long> time;
-    std::optional<long> frequency;
-    std::optional<long> resolution;
-    std::optional<long> flex;
-    std::optional<long> percent;
-    std::optional<CSSNumericBaseType> percentHint;
+    using BaseTypeStorage = Markable<int, IntegralMarkableTraits<int, std::numeric_limits<int>::min()>>;
+    BaseTypeStorage length;
+    BaseTypeStorage angle;
+    BaseTypeStorage time;
+    BaseTypeStorage frequency;
+    BaseTypeStorage resolution;
+    BaseTypeStorage flex;
+    BaseTypeStorage percent;
+    Markable<CSSNumericBaseType, EnumMarkableTraits<CSSNumericBaseType>> percentHint;
 
     bool operator==(const CSSNumericType& other) const
     {
@@ -56,7 +58,7 @@ struct CSSNumericType {
             && percentHint == other.percentHint;
     }
 
-    std::optional<long>& valueForType(CSSNumericBaseType type)
+    BaseTypeStorage& valueForType(CSSNumericBaseType type)
     {
         switch (type) {
         case CSSNumericBaseType::Length:
@@ -77,6 +79,11 @@ struct CSSNumericType {
         RELEASE_ASSERT_NOT_REACHED();
     }
 
+    const BaseTypeStorage& valueForType(CSSNumericBaseType type) const
+    {
+        return const_cast<CSSNumericType*>(this)->valueForType(type);
+    }
+
     void applyPercentHint(CSSNumericBaseType hint)
     {
         // https://drafts.css-houdini.org/css-typed-om/#apply-the-percent-hint
@@ -86,6 +93,41 @@ struct CSSNumericType {
         if (percent)
             *optional += *std::exchange(percent, 0);
         percentHint = hint;
+    }
+
+    size_t nonZeroEntryCount() const
+    {
+        size_t count { 0 };
+        count += length && *length;
+        count += angle && *angle;
+        count += time && *time;
+        count += frequency && *frequency;
+        count += resolution && *resolution;
+        count += flex && *flex;
+        count += percent && *percent;
+        return count;
+    }
+
+    template<CSSNumericBaseType type>
+    bool matches() const
+    {
+        // https://drafts.css-houdini.org/css-typed-om/#cssnumericvalue-match
+        return (type == CSSNumericBaseType::Percent || !percentHint)
+            && nonZeroEntryCount() == 1
+            && valueForType(type)
+            && *valueForType(type);
+    }
+
+    bool matchesNumber() const
+    {
+        // https://drafts.css-houdini.org/css-typed-om/#cssnumericvalue-match
+        return !nonZeroEntryCount() && !percentHint;
+    }
+
+    template<CSSNumericBaseType type>
+    bool matchesTypeOrPercentage() const
+    {
+        return matches<type>() || matches<CSSNumericBaseType::Percent>();
     }
 
     String debugString() const

@@ -97,7 +97,6 @@ void WebSharedWorkerContextManagerConnection::launchSharedWorker(WebCore::Client
     pageConfiguration.databaseProvider = WebDatabaseProvider::getOrCreate(m_pageGroupID);
     pageConfiguration.socketProvider = WebSocketProvider::create(m_webPageProxyID);
     pageConfiguration.broadcastChannelRegistry = WebProcess::singleton().broadcastChannelRegistry();
-    pageConfiguration.webLockRegistry = WebProcess::singleton().webLockRegistry();
     pageConfiguration.userContentProvider = m_userContentController;
 #if ENABLE(WEB_RTC)
     pageConfiguration.libWebRTCProvider = makeUniqueRef<RemoteWorkerLibWebRTCProvider>();
@@ -118,7 +117,10 @@ void WebSharedWorkerContextManagerConnection::launchSharedWorker(WebCore::Client
 
 void WebSharedWorkerContextManagerConnection::close()
 {
-    RELEASE_LOG(SharedWorker, "WebSharedWorkerContextManagerConnection::close: Shared worker process is requested to stop all shared workers");
+    RELEASE_LOG(SharedWorker, "WebSharedWorkerContextManagerConnection::close: Shared worker process is requested to stop all shared workers (already stopped = %d)", isClosed());
+    if (isClosed())
+        return;
+
     setAsClosed();
 
     m_connectionToNetworkProcess->send(Messages::NetworkConnectionToWebProcess::CloseSharedWorkerContextConnection { }, 0);

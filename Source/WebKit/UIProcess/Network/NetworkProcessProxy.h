@@ -91,6 +91,7 @@ class WebCookieManagerProxy;
 class WebPageProxy;
 class WebUserContentControllerProxy;
 
+enum class ProcessTerminationReason;
 enum class RemoteWorkerType : bool;
 enum class ShouldGrandfatherStatistics : bool;
 enum class StorageAccessStatus : uint8_t;
@@ -126,8 +127,6 @@ public:
 
     static Vector<Ref<NetworkProcessProxy>> allNetworkProcesses();
     
-    void terminate() final;
-
     void getNetworkProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetNetworkProcessConnectionDelayedReply&&);
 
     DownloadProxy& createDownloadProxy(WebsiteDataStore&, WebProcessPool&, const WebCore::ResourceRequest&, const FrameInfoData&, WebPageProxy* originatingPage);
@@ -225,6 +224,8 @@ public:
     void testProcessIncomingSyncMessagesWhenWaitingForSyncReply(WebPageProxyIdentifier, Messages::NetworkProcessProxy::TestProcessIncomingSyncMessagesWhenWaitingForSyncReplyDelayedReply&&);
     void terminateUnresponsiveServiceWorkerProcesses(WebCore::ProcessIdentifier);
 
+    void requestTermination();
+
     ProcessThrottler& throttler() final { return m_throttler; }
     void updateProcessAssertion();
 
@@ -248,8 +249,7 @@ public:
     void registerSchemeForLegacyCustomProtocol(const String&);
     void unregisterSchemeForLegacyCustomProtocol(const String&);
 
-    enum class TerminationReason { RequestedByClient, Crash, ExceededMemoryLimit };
-    void networkProcessDidTerminate(TerminationReason);
+    void networkProcessDidTerminate(ProcessTerminationReason);
     
     void resetQuota(PAL::SessionID, CompletionHandler<void()>&&);
     void clearStorage(PAL::SessionID, CompletionHandler<void()>&&);
@@ -286,7 +286,7 @@ public:
 #if ENABLE(SERVICE_WORKER)
     void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
     void processPushMessage(PAL::SessionID, const WebPushMessage&, CompletionHandler<void(bool wasProcessed)>&&);
-    void processNotificationEvent(const WebCore::NotificationData&, WebCore::NotificationEventType);
+    void processNotificationEvent(const WebCore::NotificationData&, WebCore::NotificationEventType, CompletionHandler<void(bool wasProcessed)>&&);
 #endif
 
     void deletePushAndNotificationRegistration(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(const String&)>&&);
@@ -317,6 +317,7 @@ private:
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void connectionWillOpen(IPC::Connection&) override;
     void processWillShutDown(IPC::Connection&) override;
+    void terminate() final;
 
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;

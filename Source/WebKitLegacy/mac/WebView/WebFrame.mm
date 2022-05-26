@@ -1640,7 +1640,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
     if (!frame || !frame->document())
         return;
         
-    frame->editor().setTextAsChildOfElement(text, *core(element));
+    frame->editor().setTextAsChildOfElement(String { text }, *core(element));
 }
 
 - (void)setDictationPhrases:(NSArray *)dictationPhrases metadata:(id)metadata asChildOfElement:(DOMElement *)element
@@ -2036,9 +2036,8 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
 
     // The global object is probably a proxy object? - if so, we know how to use this!
     JSC::JSObject* globalObjectObj = toJS(globalObjectRef);
-    JSC::VM& vm = globalObjectObj->vm();
-    if (!strcmp(globalObjectObj->classInfo(vm)->className, "JSWindowProxy"))
-        anyWorldGlobalObject = JSC::jsDynamicCast<WebCore::JSDOMWindow*>(vm, static_cast<WebCore::JSWindowProxy*>(globalObjectObj)->window());
+    if (!strcmp(globalObjectObj->classInfo()->className, "JSWindowProxy"))
+        anyWorldGlobalObject = JSC::jsDynamicCast<WebCore::JSDOMWindow*>(static_cast<WebCore::JSWindowProxy*>(globalObjectObj)->window());
 
     if (!anyWorldGlobalObject)
         return @"";

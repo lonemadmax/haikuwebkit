@@ -441,7 +441,7 @@ unsigned AccessibilityObject::blockquoteLevel() const
     return level;
 }
 
-AXCoreObject* AccessibilityObject::parentObjectUnignored() const
+AccessibilityObject* AccessibilityObject::parentObjectUnignored() const
 {
     return Accessibility::findAncestor<AccessibilityObject>(*this, false, [] (const AccessibilityObject& object) {
         return !object.accessibilityIsIgnored();
@@ -2704,14 +2704,29 @@ String AccessibilityObject::ariaLandmarkRoleDescription() const
     }
 }
 
+// ARIA spec: User agents must not expose the aria-roledescription property if the element to which aria-roledescription is applied does not have a valid WAI-ARIA role or does not have an implicit WAI-ARIA role semantic.
+bool AccessibilityObject::supportsARIARoleDescription() const
+{
+    auto role = this->roleValue();
+    switch (role) {
+    case AccessibilityRole::Div:
+    case AccessibilityRole::Unknown:
+        return false;
+    default:
+        return true;
+    }
+}
+
 String AccessibilityObject::roleDescription() const
 {
     // aria-roledescription takes precedence over any other rule.
-    String roleDescription = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_roledescriptionAttr));
-    if (!roleDescription.isEmpty())
-        return roleDescription;
+    if (supportsARIARoleDescription()) {
+        auto roleDescription = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_roledescriptionAttr));
+        if (!roleDescription.isEmpty())
+            return roleDescription;
+    }
 
-    roleDescription = rolePlatformDescription();
+    auto roleDescription = rolePlatformDescription();
     if (!roleDescription.isEmpty())
         return roleDescription;
 
@@ -2876,8 +2891,8 @@ bool AccessibilityObject::liveRegionStatusIsEnabled(const AtomString& liveRegion
     
 bool AccessibilityObject::supportsLiveRegion(bool excludeIfOff) const
 {
-    const AtomString& liveRegionStatusValue = liveRegionStatus();
-    return excludeIfOff ? liveRegionStatusIsEnabled(liveRegionStatusValue) : !liveRegionStatusValue.isEmpty();
+    auto liveRegionStatusValue = liveRegionStatus();
+    return excludeIfOff ? liveRegionStatusIsEnabled(AtomString { liveRegionStatusValue }) : !liveRegionStatusValue.isEmpty();
 }
 
 AXCoreObject* AccessibilityObject::elementAccessibilityHitTest(const IntPoint& point) const
@@ -3743,23 +3758,25 @@ bool AccessibilityObject::accessibilityIsIgnored() const
     return ignored;
 }
 
-void AccessibilityObject::elementsFromAttribute(Vector<Element*>& elements, const QualifiedName& attribute) const
+Vector<Element*> AccessibilityObject::elementsFromAttribute(const QualifiedName& attribute) const
 {
     Node* node = this->node();
     if (!node || !node->isElementNode())
-        return;
+        return { };
 
     auto& idsString = getAttribute(attribute);
     if (idsString.isEmpty())
-        return;
+        return { };
 
+    Vector<Element*> elements;
     auto& treeScope = node->treeScope();
-    auto spaceSplitString = SpaceSplitString(idsString, false);
+    SpaceSplitString spaceSplitString(idsString, SpaceSplitString::ShouldFoldCase::No);
     size_t length = spaceSplitString.size();
     for (size_t i = 0; i < length; ++i) {
         if (auto* element = treeScope.getElementById(spaceSplitString[i]))
             elements.append(element);
     }
+    return elements;
 }
 
 #if PLATFORM(COCOA)
@@ -3840,12 +3857,12 @@ PAL::SessionID AccessibilityObject::sessionID() const
     return PAL::SessionID(PAL::SessionID::SessionConstants::HashTableEmptyValueID);
 }
 
-String AccessibilityObject::tagName() const
+AtomString AccessibilityObject::tagName() const
 {
     if (Element* element = this->element())
         return element->localName();
 
-    return String();
+    return nullAtom();
 }
 
 bool AccessibilityObject::isStyleFormatGroup() const
@@ -3905,31 +3922,32 @@ AXCoreObject* AccessibilityObject::selectedListItem()
 
 void AccessibilityObject::ariaElementsFromAttribute(AccessibilityChildrenVector& children, const QualifiedName& attributeName) const
 {
-    Vector<Element*> elements;
-    elementsFromAttribute(elements, attributeName);
+    auto elements = elementsFromAttribute(attributeName);
     AXObjectCache* cache = axObjectCache();
     for (const auto& element : elements) {
-        if (AccessibilityObject* axObject = cache->getOrCreate(element))
+        if (auto* axObject = cache->getOrCreate(element))
             children.append(axObject);
     }
 }
 
+// FIXME: This function iterates the whole DOM tree and tries to match every Element in the tree, which is very expensive.
+// We should find a better way to achieve this.
 void AccessibilityObject::ariaElementsReferencedByAttribute(AccessibilityChildrenVector& elements, const QualifiedName& attribute) const
 {
     auto id = identifierAttribute();
     if (id.isEmpty())
         return;
 
-    AXObjectCache* cache = axObjectCache();
+    auto* cache = axObjectCache();
     if (!cache)
         return;
 
     for (auto& element : descendantsOfType<Element>(node()->treeScope().rootNode())) {
-        const AtomString& idList = element.attributeWithoutSynchronization(attribute);
-        if (!SpaceSplitString(idList, false).contains(id))
+        auto& idList = element.attributeWithoutSynchronization(attribute);
+        if (!SpaceSplitString::spaceSplitStringContainsValue(idList, id, SpaceSplitString::ShouldFoldCase::No))
             continue;
 
-        if (AccessibilityObject* axObject = cache->getOrCreate(&element))
+        if (auto* axObject = cache->getOrCreate(&element))
             elements.append(axObject);
     }
 }

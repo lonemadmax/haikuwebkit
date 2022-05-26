@@ -164,8 +164,7 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame& frame, const Sim
     Editor& editor = frame.editor();
     editor.setIsGettingDictionaryPopupInfo(true);
 
-    // FIXME: Inefficient to call stripWhiteSpace to detect whether a string has a non-whitespace character in it.
-    if (plainText(range).stripWhiteSpace().isEmpty()) {
+    if (plainText(range).find(isNotSpaceOrNewline) == notFound) {
         editor.setIsGettingDictionaryPopupInfo(false);
         return { };
     }
@@ -566,7 +565,7 @@ private:
     Vector<String> m_types;
 };
 
-void WebPage::replaceWithPasteboardData(const ElementContext& elementContext, const Vector<String>& types, const IPC::DataReference& data)
+void WebPage::replaceImageWithMarkupResults(const ElementContext& elementContext, const Vector<String>& types, const IPC::DataReference& data)
 {
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     auto element = elementForContext(elementContext);
@@ -594,7 +593,7 @@ void WebPage::replaceWithPasteboardData(const ElementContext& elementContext, co
     {
         OverridePasteboardForSelectionReplacement overridePasteboard { types, data };
         IgnoreSelectionChangeForScope ignoreSelectionChanges { frame.get() };
-        frame->editor().replaceNodeFromPasteboard(*element, replaceSelectionPasteboardName());
+        frame->editor().replaceNodeFromPasteboard(*element, replaceSelectionPasteboardName(), EditAction::MarkupImage);
     }
 
     constexpr auto restoreSelectionOptions = FrameSelection::defaultSetSelectionOptions(UserTriggered);

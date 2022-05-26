@@ -1648,7 +1648,7 @@ RefPtr<Frame> WebFrameLoaderClient::createFrame(const String& name, HTMLFrameOwn
     return coreSubframe;
 }
 
-RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement& pluginElement, const URL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
+RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement& pluginElement, const URL& url, const Vector<AtomString>& paramNames, const Vector<AtomString>& paramValues, const String& mimeType, bool loadManually)
 {
     ASSERT(paramNames.size() == paramValues.size());
     ASSERT(m_frame->page());
@@ -2021,6 +2021,19 @@ bool WebFrameLoaderClient::isParentProcessAFullWebBrowser() const
     auto* page = m_frame->page();
     return page && page->isParentProcessAWebBrowser();
 }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+void WebFrameLoaderClient::modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>)>&& completionHandler) const
+{
+    auto* webPage = m_frame->page();
+    if (!webPage) {
+        completionHandler({ });
+        return;
+    }
+
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::ModelInlinePreviewUUIDs(), WTFMove(completionHandler));
+}
+#endif
 
 } // namespace WebKit
 

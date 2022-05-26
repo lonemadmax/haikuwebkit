@@ -1,3 +1,298 @@
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Expand hardware capabilities to include features (beyond just limits)
+        https://bugs.webkit.org/show_bug.cgi?id=239443
+
+        Reviewed by Kimmo Kinnunen.
+
+        Only MTLGPUFamilyApple devices support depth/stencil textures in the managed/shared address space.
+        So, we have to expand the hardware capabilities infrastructure to be able to hold this kind
+        of information (so the texture creation function can consult with this state to know what storage
+        mode to use for the created texture). This patch replaces the stored WGPULimits struct with a new
+        struct, HardwareCapabilities, which holds a WGPULimits iniside it.
+
+        While I was here, I also included a Vector<WGPUFeature> inside the HardwareCapabilities struct,
+        and hooked it up to the various places which need to be guarded by the presence of features.
+        This is needed for compressed textures to work (among other things). Because there are only
+        a handful of possible features, I elected to use a sorted Vector instead of using the big HashSet
+        hammer.
+
+        * WebGPU.xcodeproj/project.pbxproj:
+        * WebGPU/Adapter.h:
+        (WebGPU::Adapter::create):
+        * WebGPU/Adapter.mm:
+        (WebGPU::Adapter::Adapter):
+        (WebGPU::Adapter::enumerateFeatures):
+        (WebGPU::Adapter::getLimits):
+        (WebGPU::Adapter::hasFeature):
+        (WebGPU::Adapter::requestDevice):
+        * WebGPU/Device.h:
+        (WebGPU::Device::limits const):
+        (WebGPU::Device::features const):
+        (WebGPU::Device::baseCapabilities const):
+        * WebGPU/Device.mm:
+        (WebGPU::Device::create):
+        (WebGPU::Device::Device):
+        (WebGPU::Device::enumerateFeatures):
+        (WebGPU::Device::getLimits):
+        (WebGPU::Device::hasFeature):
+        * WebGPU/HardwareCapabilities.h: Renamed from Source/WebGPU/WebGPU/HardwareLimits.h.
+        * WebGPU/HardwareCapabilities.mm: Added.
+        (WebGPU::baseCapabilities):
+        (WebGPU::baseFeatures):
+        (WebGPU::apple3):
+        (WebGPU::apple4):
+        (WebGPU::apple5):
+        (WebGPU::apple6):
+        (WebGPU::apple7):
+        (WebGPU::mac2):
+        (WebGPU::mergeMaximum):
+        (WebGPU::mergeAlignment):
+        (WebGPU::mergeLimits):
+        (WebGPU::mergeFeatures):
+        (WebGPU::mergeBaseCapabilities):
+        (WebGPU::rawHardwareCapabilities):
+        (WebGPU::anyLimitIsBetterThan):
+        (WebGPU::includesUnsupportedFeatures):
+        (WebGPU::checkLimits):
+        (WebGPU::hardwareCapabilities):
+        (WebGPU::isValid):
+        * WebGPU/HardwareLimits.mm: Removed.
+        * WebGPU/Instance.mm:
+        (WebGPU::Instance::requestAdapter):
+        * WebGPU/Texture.mm:
+        (WebGPU::featureRequirementForFormat):
+        (WebGPU::Device::validateCreateTexture):
+        (WebGPU::storageMode):
+        (WebGPU::Device::createTexture):
+
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] RGB9E5Ufloat textures are not renderable
+        https://bugs.webkit.org/show_bug.cgi?id=239445
+
+        Reviewed by Kimmo Kinnunen.
+
+        I misread the table in the spec. This format isn't listed in
+        https://gpuweb.github.io/gpuweb/#plain-color-formats but is instead
+        listed in https://gpuweb.github.io/gpuweb/#packed-formats.
+
+        * WebGPU/Texture.mm:
+        (WebGPU::isRenderableFormat):
+
+2022-04-18  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Use XCBuild for all command-line and project builds
+        https://bugs.webkit.org/show_bug.cgi?id=238916
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebGPU.xcodeproj/project.pbxproj:
+
+2022-04-16  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Fix the Big Sur build
+        https://bugs.webkit.org/show_bug.cgi?id=239422
+
+        Unreviewed.
+
+        HardwareLimits.mm:338:23: error: constexpr function never produces a constant expression [-Winvalid-constexpr]
+
+        * WebGPU/HardwareLimits.mm:
+        (WebGPU::checkLimits):
+
+2022-04-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement hardware limits
+        https://bugs.webkit.org/show_bug.cgi?id=239377
+
+        Reviewed by Darin Adler.
+
+        We gather the values of the limits from the Metal Feature Set Tables
+        at https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf.
+
+        There are no limit tables for the Common families, so we use Apple
+        and Mac families instead.
+
+        Test: webgpu/api/validation/createTexture
+
+        * WebGPU.xcodeproj/project.pbxproj:
+        * WebGPU/Adapter.h:
+        (WebGPU::Adapter::create):
+        * WebGPU/Adapter.mm:
+        (WebGPU::Adapter::Adapter):
+        (WebGPU::Adapter::requestDevice):
+        (WebGPU::Adapter::requestInvalidDevice):
+        (wgpuAdapterRequestInvalidDeviceWithBlock):
+        (WebGPU::deviceMeetsRequiredLimits): Deleted.
+        * WebGPU/Device.h:
+        * WebGPU/Device.mm:
+        (WebGPU::Device::create):
+        (WebGPU::Device::Device):
+        * WebGPU/HardwareLimits.h: Copied from Source/WebGPU/WebGPU/Adapter.h.
+        * WebGPU/HardwareLimits.mm: Added.
+        (WebGPU::apple3):
+        (WebGPU::apple4):
+        (WebGPU::apple5):
+        (WebGPU::apple6):
+        (WebGPU::apple7):
+        (WebGPU::mac2):
+        (WebGPU::rawLimits):
+        (WebGPU::checkLimits):
+        (WebGPU::limits):
+        (WebGPU::isValid):
+        (WebGPU::anyLimitIsBetterThan):
+        * WebGPU/Instance.mm:
+        (WebGPU::Instance::requestAdapter):
+        * WebGPU/Texture.mm:
+        (WebGPU::Device::validateCreateTexture):
+        (WebGPU::Texture::createView):
+        * WebGPU/WebGPUExt.h:
+
+2022-04-13  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Fix public watchOS workspace build by updating scheme and build settings
+        https://bugs.webkit.org/show_bug.cgi?id=239301
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/WebGPU.xcconfig:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] In open-source builds, disable bitcode in xcconfigs instead of build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=239262
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        Reland "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig: In open-source builds, disable
+        VALIDATE_DEPENDENCIES when there is no PRODUCT_TYPE (i.e. not building
+        a native target).
+
+2022-04-12  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Fix the watchOS build
+        https://bugs.webkit.org/show_bug.cgi?id=239256
+
+        Unreviewed.
+
+        * WebGPU/Buffer.mm:
+        (WebGPU::computeRangeSize):
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Fix the tvOS build (again)
+        https://bugs.webkit.org/show_bug.cgi?id=239106
+        <rdar://problem/91351306>
+
+        Unreviewed.
+
+        Turns out PLATFORM(APPLETV) and PLATFORM(TVOS) are different things.
+
+        * WebGPU/Texture.mm:
+        (WebGPU::Device::createTexture):
+        (WebGPU::Texture::createView):
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Use checked arithmetic
+        https://bugs.webkit.org/show_bug.cgi?id=239058
+
+        Reviewed by Kimmo Kinnunen.
+
+        We have a bunch of places where overflow can occur.
+
+        Luckily, we can just detect overflow inside the validation functions, and not have
+        to do any inside the code that creates platform types (NSUInteger, etc.). This is
+        because if the validation code succeeds, then we are guaranteed that the cast to
+        NSUIntegers will succeed. This is because ranges in a resource are checked against
+        the size of the resource, and the size of the resource has been checked against
+        platform maximums, which are guaranteed to be smaller than the largest NSUInteger.
+
+        * WebGPU/BindGroup.mm:
+        (WebGPU::Device::createBindGroup):
+        * WebGPU/Buffer.mm:
+        (WebGPU::Buffer::validateGetMappedRange const):
+        (WebGPU::Buffer::getMappedRange):
+        (WebGPU::Buffer::validateMapAsync const):
+        (WebGPU::Buffer::mapAsync):
+        * WebGPU/CommandEncoder.mm:
+        (WebGPU::CommandEncoder::validateCopyBufferToBuffer):
+        (WebGPU::CommandEncoder::copyBufferToTexture):
+        (WebGPU::CommandEncoder::copyTextureToBuffer):
+        (WebGPU::CommandEncoder::copyTextureToTexture):
+        (WebGPU::CommandEncoder::validateClearBuffer):
+        (WebGPU::CommandEncoder::clearBuffer):
+        * WebGPU/Queue.mm:
+        (WebGPU::Queue::validateWriteBuffer const):
+        (WebGPU::Queue::writeTexture):
+        * WebGPU/Texture.h:
+        * WebGPU/Texture.mm:
+        (WebGPU::Texture::resolveTextureViewDescriptorDefaults const):
+        (WebGPU::Texture::validateCreateView const):
+        (WebGPU::Texture::createView):
+        (WebGPU::Texture::validateTextureCopyRange):
+        (WebGPU::Texture::validateLinearTextureData):
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] WebGPU strings are UTF-8, not Latin-1
+        https://bugs.webkit.org/show_bug.cgi?id=239057
+
+        Reviewed by Kimmo Kinnunen.
+
+        Replace String::fromLatin1() with String::fromUTF8().
+
+        * WebGPU/APIConversions.h:
+        (WebGPU::fromAPI):
+        * WebGPU/Adapter.mm:
+        (WebGPU::Adapter::requestDevice):
+        * WebGPU/ComputePipeline.mm:
+        (WebGPU::createConstantValues):
+        (WebGPU::Device::createComputePipeline):
+        * WebGPU/ShaderModule.mm:
+        (WebGPU::earlyCompileShaderModule):
+        (WebGPU::Device::createShaderModule):
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Make sure asynchronous things are asynchronous
+        https://bugs.webkit.org/show_bug.cgi?id=239056
+
+        Reviewed by Kimmo Kinnunen.
+
+        This isn't strictly necessary, because these asynchronous callbacks get hooked up
+        to promises in the browser which only call their callbacks at microtask boundaries.
+        However, for native code that uses WebGPU.framework, it's probably better to make
+        sure the asynchronous callbacks are actually asynchronous.
+
+        * WebGPU/Adapter.mm:
+        (WebGPU::Adapter::requestDevice):
+        * WebGPU/Buffer.mm:
+        (WebGPU::Buffer::mapAsync):
+        * WebGPU/ComputePipeline.mm:
+        (WebGPU::Device::createComputePipelineAsync):
+        * WebGPU/Device.mm:
+        (WebGPU::Device::loseTheDevice):
+        (WebGPU::Device::popErrorScope):
+        * WebGPU/Instance.mm:
+        (WebGPU::Instance::requestAdapter):
+        * WebGPU/RenderPipeline.mm:
+        (WebGPU::Device::createRenderPipelineAsync):
+        * WebGPU/ShaderModule.mm:
+        (WebGPU::ShaderModule::getCompilationInfo):
+
 2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
 
         [WebGPU] Implement missing validity checks
@@ -51,6 +346,18 @@
         (WebGPU::Texture::validateCreateView const):
         (WebGPU::Texture::createView):
         (WebGPU::Texture::validateImageCopyTexture):
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] RGB9E5Ufloat textures should not be multisamplable
+        https://bugs.webkit.org/show_bug.cgi?id=239053
+
+        Reviewed by Kimmo Kinnunen.
+
+        It's classified as a "packed format" rather than a "mixed component width format."
+
+        * WebGPU/Texture.mm:
+        (WebGPU::supportsMultisampling):
 
 2022-04-08  Myles C. Maxfield  <mmaxfield@apple.com>
 

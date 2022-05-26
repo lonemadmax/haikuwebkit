@@ -552,7 +552,7 @@ ExceptionOr<RefPtr<Node>> Node::convertNodesOrStringsIntoNode(FixedVector<NodeOr
     for (auto& variant : nodeOrStringVector) {
         WTF::switchOn(variant,
             [&](RefPtr<Node>& node) { nodes.uncheckedAppend(*node.get()); },
-            [&](String& string) { nodes.uncheckedAppend(Text::create(document(), string)); }
+            [&](String& string) { nodes.uncheckedAppend(Text::create(document(), WTFMove(string))); }
         );
     }
 
@@ -1590,7 +1590,7 @@ String Node::textContent(bool convertBRsToNewlines) const
     return isNullString ? String() : content.toString();
 }
 
-void Node::setTextContent(const String& text)
+void Node::setTextContent(String&& text)
 {           
     switch (nodeType()) {
     case ATTRIBUTE_NODE:
@@ -1598,11 +1598,11 @@ void Node::setTextContent(const String& text)
     case CDATA_SECTION_NODE:
     case COMMENT_NODE:
     case PROCESSING_INSTRUCTION_NODE:
-        setNodeValue(text);
+        setNodeValue(WTFMove(text));
         return;
     case ELEMENT_NODE:
     case DOCUMENT_FRAGMENT_NODE:
-        downcast<ContainerNode>(*this).stringReplaceAll(text);
+        downcast<ContainerNode>(*this).stringReplaceAll(WTFMove(text));
         return;
     case DOCUMENT_NODE:
     case DOCUMENT_TYPE_NODE:
@@ -1798,9 +1798,8 @@ void Node::showNode(const char* prefix) const
     if (!prefix)
         prefix = "";
     if (isTextNode()) {
-        String value = nodeValue();
-        value.replaceWithLiteral('\\', "\\\\");
-        value.replaceWithLiteral('\n', "\\n");
+        String value = makeStringByReplacingAll(nodeValue(), '\\', "\\\\"_s);
+        value = makeStringByReplacingAll(value, '\n', "\\n"_s);
         fprintf(stderr, "%s%s\t%p \"%s\"\n", prefix, nodeName().utf8().data(), this, value.utf8().data());
     } else {
         StringBuilder attrs;
@@ -2319,7 +2318,7 @@ HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> Node::registeredMu
     return result;
 }
 
-void Node::registerMutationObserver(MutationObserver& observer, MutationObserverOptions options, const HashSet<AtomString>& attributeFilter)
+void Node::registerMutationObserver(MutationObserver& observer, MutationObserverOptions options, const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& attributeFilter)
 {
     MutationObserverRegistration* registration = nullptr;
     auto& registry = ensureRareData().ensureMutationObserverData().registry;

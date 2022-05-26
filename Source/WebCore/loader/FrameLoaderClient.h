@@ -288,7 +288,7 @@ public:
     virtual void convertMainResourceLoadToDownload(DocumentLoader*, const ResourceRequest&, const ResourceResponse&) = 0;
 
     virtual RefPtr<Frame> createFrame(const String& name, HTMLFrameOwnerElement&) = 0;
-    virtual RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) = 0;
+    virtual RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&, const Vector<AtomString>&, const String&, bool loadManually) = 0;
     virtual void redirectDataToPlugin(Widget&) = 0;
 
     virtual ObjectContentType objectContentType(const URL&, const String& mimeType) = 0;
@@ -391,6 +391,10 @@ public:
 #endif
 
     virtual bool isParentProcessAFullWebBrowser() const { return false; }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+    virtual void modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>)>&&) const { }
+#endif
 };
 
 } // namespace WebCore

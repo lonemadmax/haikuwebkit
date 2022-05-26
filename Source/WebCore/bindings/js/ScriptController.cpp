@@ -74,6 +74,7 @@
 #include <JavaScriptCore/StrongInlines.h>
 #include <JavaScriptCore/WeakGCMapInlines.h>
 #include <JavaScriptCore/WebAssemblyModuleRecord.h>
+#include <wtf/GenerateProfiles.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SharedTask.h>
 #include <wtf/Threading.h>
@@ -84,6 +85,8 @@
 namespace WebCore {
 using namespace JSC;
 
+enum class WebCoreProfileTag { };
+
 void ScriptController::initializeMainThread()
 {
 #if !PLATFORM(IOS_FAMILY)
@@ -91,6 +94,7 @@ void ScriptController::initializeMainThread()
     WTF::initializeMainThread();
     WebCore::populateJITOperations();
 #endif
+    WTF::registerProfileGenerationCallback<WebCoreProfileTag>("WebCore");
 }
 
 ScriptController::ScriptController(Frame& frame)
@@ -244,7 +248,7 @@ JSC::JSValue ScriptController::evaluateModule(const URL& sourceURL, AbstractModu
     SetForScope sourceURLScope(m_sourceURL, &sourceURL);
 
 #if ENABLE(WEBASSEMBLY)
-    const bool isWasmModule = moduleRecord.inherits<WebAssemblyModuleRecord>(vm);
+    const bool isWasmModule = moduleRecord.inherits<WebAssemblyModuleRecord>();
 #else
     constexpr bool isWasmModule = false;
 #endif
@@ -252,7 +256,7 @@ JSC::JSValue ScriptController::evaluateModule(const URL& sourceURL, AbstractModu
         // FIXME: Provide better inspector support for Wasm scripts.
         InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL.string(), 1, 1);
     } else {
-        auto* jsModuleRecord = jsDynamicCast<JSModuleRecord*>(vm, &moduleRecord);
+        auto* jsModuleRecord = jsDynamicCast<JSModuleRecord*>(&moduleRecord);
         const auto& jsSourceCode = jsModuleRecord->sourceCode();
         InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL.string(), jsSourceCode.firstLine().oneBasedInt(), jsSourceCode.startColumn().oneBasedInt());
     }
@@ -332,7 +336,7 @@ void ScriptController::setupModuleScriptHandlers(LoadableModuleScript& moduleScr
         auto scope = DECLARE_CATCH_SCOPE(vm);
         if (errorValue.isObject()) {
             auto* object = JSC::asObject(errorValue);
-            if (JSValue failureKindValue = object->getDirect(vm, static_cast<JSVMClientData&>(*vm.clientData).builtinNames().failureKindPrivateName())) {
+            if (JSValue failureKindValue = object->getDirect(vm, builtinNames(vm).failureKindPrivateName())) {
                 // This is host propagated error in the module loader pipeline.
                 switch (static_cast<ModuleFetchFailureKind>(failureKindValue.asInt32())) {
                 case ModuleFetchFailureKind::WasPropagatedError:
@@ -652,14 +656,14 @@ ValueOrException ScriptController::callInWorld(RunJavaScriptParameters&& paramet
         if (evaluationException)
             break;
 
-        if (!functionObject || !functionObject.isCallable(world.vm())) {
+        if (!functionObject || !functionObject.isCallable()) {
             optionalDetails = { { "Unable to create JavaScript async function to call"_s } };
             break;
         }
 
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=205562
         // Getting CallData shouldn't be required to call into JS.
-        auto callData = getCallData(world.vm(), functionObject);
+        auto callData = JSC::getCallData(functionObject);
         if (callData.type == CallData::Type::None) {
             optionalDetails = { { "Unable to prepare JavaScript async function to be called"_s } };
             break;
@@ -711,7 +715,7 @@ void ScriptController::executeAsynchronousUserAgentScriptInWorld(DOMWrapperWorld
         return;
     }
 
-    auto callData = getCallData(world.vm(), thenFunction);
+    auto callData = JSC::getCallData(thenFunction);
     if (callData.type == CallData::Type::None) {
         resolveCompletionHandler(result);
         return;

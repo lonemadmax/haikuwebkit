@@ -361,7 +361,7 @@ public:
 
 #if ENABLE(GPU_PROCESS)
     void gpuProcessDidFinishLaunching(ProcessID);
-    void gpuProcessExited(ProcessID, GPUProcessTerminationReason);
+    void gpuProcessExited(ProcessID, ProcessTerminationReason);
 
     void getGPUProcessConnection(WebProcessProxy&, GPUProcessConnectionParameters&&, Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
 
@@ -374,7 +374,7 @@ public:
 #endif
 
     // Network Process Management
-    void networkProcessDidTerminate(NetworkProcessProxy&, NetworkProcessProxy::TerminationReason);
+    void networkProcessDidTerminate(NetworkProcessProxy&, ProcessTerminationReason);
 
     bool isServiceWorkerPageID(WebPageProxyIdentifier) const;
     void removeFromRemoteWorkerProcesses(WebProcessProxy&);
@@ -384,7 +384,7 @@ public:
     bool hasServiceWorkerForegroundActivityForTesting() const;
     bool hasServiceWorkerBackgroundActivityForTesting() const;
 #endif
-    void serviceWorkerProcessCrashed(WebProcessProxy&);
+    void serviceWorkerProcessCrashed(WebProcessProxy&, ProcessTerminationReason);
 
     void updateRemoteWorkerUserAgent(const String& userAgent);
     UserContentControllerIdentifier userContentControllerIdentifierForRemoteWorkers();

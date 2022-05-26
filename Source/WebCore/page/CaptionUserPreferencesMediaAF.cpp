@@ -30,6 +30,7 @@
 
 #include "AudioTrackList.h"
 #include "ColorSerialization.h"
+#include "CommonAtomStrings.h"
 #include "FloatConversion.h"
 #include "HTMLMediaElement.h"
 #include "LocalizedStrings.h"
@@ -662,7 +663,7 @@ static String languageIdentifier(const String& languageCode)
 
     // Need 2U here to disambiguate String::operator[] from operator(NSString*, int)[] in a production build.
     if (lowercaseLanguageCode.length() >= 3 && (lowercaseLanguageCode[2U] == '_' || lowercaseLanguageCode[2U] == '-'))
-        lowercaseLanguageCode.truncate(2);
+        lowercaseLanguageCode = lowercaseLanguageCode.left(2);
 
     return lowercaseLanguageCode;
 }
@@ -730,7 +731,7 @@ static String addAudioTrackKindDisplayNameIfNeeded(const AudioTrack& track, cons
     if ((track.kind() == AudioTrack::descriptionKeyword() || track.kind() == AudioTrack::mainDescKeyword()) && !text.contains(audioTrackKindDescriptionsDisplayName()))
         return addAudioTrackKindDescriptionsSuffix(text);
 
-    if (track.kind() == AudioTrack::commentaryKeyword() && !text.contains(audioTrackKindCommentaryDisplayName()))
+    if (track.kind() == commentaryAtom() && !text.contains(audioTrackKindCommentaryDisplayName()))
         return addAudioTrackKindCommentarySuffix(text);
 
     return text;

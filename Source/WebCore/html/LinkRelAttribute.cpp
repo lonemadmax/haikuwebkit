@@ -84,8 +84,7 @@ LinkRelAttribute::LinkRelAttribute(Document& document, const String& rel)
 #endif
     } else {
         // Tokenize the rel attribute and set bits based on specific keywords that we find.
-        String relCopy = rel;
-        relCopy.replace('\n', ' ');
+        String relCopy = makeStringByReplacingAll(rel, '\n', ' ');
         for (auto word : StringView(relCopy).split(' ')) {
             if (equalLettersIgnoringASCIICase(word, "stylesheet"))
                 isStyleSheet = true;
@@ -116,13 +115,13 @@ bool LinkRelAttribute::isSupported(Document& document, StringView attribute)
             return true;
     }
 
-    if (document.settings().linkPreconnectEnabled() && equalIgnoringASCIICase(attribute, "preconnect"))
+    if (document.settings().linkPreconnectEnabled() && equalLettersIgnoringASCIICase(attribute, "preconnect"))
         return true;
 
-    if (document.settings().linkPreloadEnabled() && equalIgnoringASCIICase(attribute, "preload"))
+    if (document.settings().linkPreloadEnabled() && equalLettersIgnoringASCIICase(attribute, "preload"))
         return true;
 
-    if (document.settings().linkPrefetchEnabled() && equalIgnoringASCIICase(attribute, "prefetch"))
+    if (document.settings().linkPrefetchEnabled() && equalLettersIgnoringASCIICase(attribute, "prefetch"))
         return true;
 
     return false;

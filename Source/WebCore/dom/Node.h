@@ -38,6 +38,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/MainThread.h>
 #include <wtf/OptionSet.h>
+#include <wtf/RobinHoodHashSet.h>
 #include <wtf/URLHash.h>
 #include <wtf/WeakPtr.h>
 
@@ -175,7 +176,7 @@ public:
     WEBCORE_EXPORT const AtomString& lookupNamespaceURI(const AtomString& prefix) const;
 
     WEBCORE_EXPORT String textContent(bool convertBRsToNewlines = false) const;
-    WEBCORE_EXPORT void setTextContent(const String&);
+    WEBCORE_EXPORT void setTextContent(String&&);
     
     Node* lastDescendant() const;
     Node* firstDescendant() const;
@@ -235,7 +236,7 @@ public:
     // If this node is in a shadow tree, returns its shadow host. Otherwise, returns null.
     WEBCORE_EXPORT Element* shadowHost() const;
     ShadowRoot* containingShadowRoot() const;
-    ShadowRoot* shadowRoot() const; // Defined in ShadowRoot.h
+    inline ShadowRoot* shadowRoot() const; // Defined in ElementRareData.h
     bool isClosedShadowHidden(const Node&) const;
 
     HTMLSlotElement* assignedSlot() const;
@@ -500,7 +501,7 @@ public:
     EventTargetData& ensureEventTargetData() final;
 
     HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> registeredMutationObservers(MutationObserverOptionType, const QualifiedName* attributeName);
-    void registerMutationObserver(MutationObserver&, MutationObserverOptions, const HashSet<AtomString>& attributeFilter);
+    void registerMutationObserver(MutationObserver&, MutationObserverOptions, const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& attributeFilter);
     void unregisterMutationObserver(MutationObserverRegistration&);
     void registerTransientMutationObserver(MutationObserverRegistration&);
     void unregisterTransientMutationObserver(MutationObserverRegistration&);

@@ -564,6 +564,25 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     return self.axBackingObject->isInCell();
 }
 
+- (BOOL)accessibilityIsAttributeSettable:(NSString *)attributeName
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+
+    if ([attributeName isEqualToString:@"AXValue"])
+        return self.axBackingObject->canSetValueAttribute();
+
+    return NO;
+}
+
+- (BOOL)accessibilityIsRequired
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+
+    return self.axBackingObject->isRequired();
+}
+
 - (NSString *)accessibilityLanguage
 {
     if (![self _prepareAccessibilityCall])
@@ -1095,7 +1114,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
         // https://bugs.webkit.org/show_bug.cgi?id=223492
         return self.axBackingObject->isKeyboardFocusable()
             && [self accessibilityElementCount] == 0
-            && self.axBackingObject->descriptionAttributeValue().stripWhiteSpace().length() > 0;
+            && self.axBackingObject->descriptionAttributeValue().find(isNotSpaceOrNewline) != notFound;
     case AccessibilityRole::Ignored:
     case AccessibilityRole::Presentational:
     case AccessibilityRole::Unknown:

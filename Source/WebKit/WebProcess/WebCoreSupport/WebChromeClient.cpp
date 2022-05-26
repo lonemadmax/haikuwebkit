@@ -92,9 +92,10 @@
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/Settings.h>
 #include <WebCore/TextIndicator.h>
+#include <WebCore/TextRecognitionOptions.h>
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
-#import <pal/graphics/WebGPU/Impl/WebGPUImpl.h>
+#import <pal/graphics/WebGPU/Impl/WebGPUCreateImpl.h>
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)
@@ -123,7 +124,7 @@
 #include <WebCore/MockWebAuthenticationConfiguration.h>
 #endif
 
-#if ENABLE(WEBGL) && ENABLE(GPU_PROCESS) && (PLATFORM(COCOA) || PLATFORM(WIN))
+#if ENABLE(WEBGL) && ENABLE(GPU_PROCESS)
 #include "RemoteGraphicsContextGLProxy.h"
 #endif
 
@@ -950,7 +951,7 @@ RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, Re
 #if ENABLE(WEBGL)
 RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const GraphicsContextGLAttributes& attributes) const
 {
-#if ENABLE(GPU_PROCESS) && (PLATFORM(COCOA) || PLATFORM(WIN))
+#if ENABLE(GPU_PROCESS)
     if (WebProcess::singleton().shouldUseRemoteRenderingForWebGL())
         return RemoteGraphicsContextGLProxy::create(attributes, m_page.ensureRemoteRenderingBackendProxy().ensureBackendCreated());
 #endif
@@ -964,7 +965,7 @@ RefPtr<PAL::WebGPU::GPU> WebChromeClient::createGPUForWebGPU() const
 #if ENABLE(GPU_PROCESS)
     return RemoteGPUProxy::create(WebProcess::singleton().ensureGPUProcessConnection(), WebGPU::DowncastConvertToBackingContext::create(), WebGPUIdentifier::generate(), m_page.ensureRemoteRenderingBackendProxy().ensureBackendCreated());
 #else
-    return PAL::WebGPU::GPUImpl::create([](PAL::WebGPU::GPUImpl::WorkItem&& workItem) {
+    return PAL::WebGPU::create([](PAL::WebGPU::WorkItem&& workItem) {
         callOnMainRunLoop(WTFMove(workItem));
     });
 #endif
@@ -1521,9 +1522,9 @@ void WebChromeClient::changeUniversalAccessZoomFocus(const WebCore::IntRect& vie
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void WebChromeClient::requestTextRecognition(Element& element, const String& identifier, CompletionHandler<void(RefPtr<Element>&&)>&& completion)
+void WebChromeClient::requestTextRecognition(Element& element, TextRecognitionOptions&& options, CompletionHandler<void(RefPtr<Element>&&)>&& completion)
 {
-    m_page.requestTextRecognition(element, identifier, WTFMove(completion));
+    m_page.requestTextRecognition(element, WTFMove(options), WTFMove(completion));
 }
 
 #endif

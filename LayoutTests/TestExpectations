@@ -369,7 +369,6 @@ imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tain
 webkit.org/b/201666 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tainting-video-with-range-request.https.html [ Skip ]
 
 # Newly imported service worker tests that are flaky.
-imported/w3c/web-platform-tests/service-workers/service-worker/worker-client-id.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/service-workers/service-worker/update-not-allowed.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/service-workers/service-worker/performance-timeline.https.html [ Pass Failure ]
 
@@ -381,7 +380,6 @@ imported/w3c/web-platform-tests/xhr/send-authentication-basic.htm [ Pass Failure
 imported/w3c/web-platform-tests/service-workers/service-worker/update.https.html [ Pass Failure ]
 
 # Skip service worker tests that are timing out.
-imported/w3c/web-platform-tests/service-workers/service-worker/sandboxed-iframe-fetch-event.https.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/update-bytecheck.https.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/clients-matchall-include-uncontrolled.https.html [ Skip ]
 
@@ -2942,13 +2940,6 @@ webkit.org/b/163046 [ Debug ] js/regress-141098.html [ Slow Pass Failure ]
 
 webkit.org/b/169625 imported/w3c/web-platform-tests/cors/status.htm [ Pass Failure ]
 
-# webkit.org/b/238908 Global expectations for these until baselines are resolved
-http/tests/paymentrequest/payment-address-attributes-and-toJSON-method.https.html [ Pass Failure ]
-http/tests/inspector/paymentrequest/payment-request-internal-properties.https.html [ Pass Failure ]
-http/tests/paymentrequest/payment-request-change-shipping-option.https.html [ Pass Failure ]
-http/tests/paymentrequest/payment-response-retry-method.https.html [ Pass Failure ]
-http/tests/paymentrequest/updateWith-shippingOptions.https.html [ Pass Failure ]
-
 webkit.org/b/170130 fast/events/before-unload-adopt-subframe-to-outside.html [ Pass Timeout ]
 
 webkit.org/b/170355 [ Release ] fast/mediastream/MediaStream-page-muted.html [ Pass Timeout ]
@@ -4503,6 +4494,7 @@ webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-025.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-026.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-031.html [ ImageOnlyFailure ]
+webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-038.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-001.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-002.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-003.html [ ImageOnlyFailure ]
@@ -4701,7 +4693,6 @@ webkit.org/b/238555 imported/w3c/web-platform-tests/css/css-contain/contain-flex
 
 # Container queries
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/custom-layout-container-001.https.html [ ImageOnlyFailure ]
-webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/pseudo-elements-002.html [ ImageOnlyFailure ]
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/svg-foreignobject-no-size-container.html [ Skip ]
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/inline-size-bfc-floats.html [ ImageOnlyFailure ]
 
@@ -5206,11 +5197,15 @@ webkit.org/b/237108 http/tests/websocket/tests/hybi/extensions.html [ Failure ]
 webkit.org/b/237108 http/tests/websocket/tests/hybi/deflate-frame-parameter.html [ Failure ] # <rdar://problem/33850189>
 webkit.org/b/237108 http/tests/websocket/tests/hybi/handshake-ok-with-legacy-sec-websocket-response-headers.html [ Pass Failure ]
 
-# This test is only relevant on Apple platforms.
-fast/text/accessibility-bold.html [ Pass ImageOnlyFailure ]
-
 # Only certain ports have WebGPU implementations.
 http/tests/webgpu [ Failure ImageOnlyFailure Pass Timeout ]
 
 # Only some ports automatically relayout if a font is installed while the page is open
 fast/text/install-font-style-recalc.html [ Failure ]
+
+webkit.org/b/239533 [ Debug ] editing/inserting/insert-list-user-select-none-crash.html [ Skip ]
+
+# Mismatching line wrapping when -webkit-hyphen is auto.
+webkit.org/b/239550 fast/text/simple-line-hyphens-with-text-align.html [ ImageOnlyFailure ]
+webkit.org/b/239550 fast/text/simple-line-layout-hyphen-limit-after.html [ ImageOnlyFailure ]
+webkit.org/b/239550 fast/text/simple-line-layout-hyphen-limit-before.html [ ImageOnlyFailure ]

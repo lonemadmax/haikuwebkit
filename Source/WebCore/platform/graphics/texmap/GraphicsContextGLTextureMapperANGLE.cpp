@@ -27,7 +27,7 @@
 #include "config.h"
 #include "GraphicsContextGLTextureMapperANGLE.h"
 
-#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && USE(ANGLE)
+#if ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(NICOSIA) && USE(ANGLE)
 
 #include "ANGLEHeaders.h"
 #include "ANGLEUtilities.h"
@@ -35,17 +35,9 @@
 #include "PixelBuffer.h"
 #include "PlatformLayerDisplayDelegate.h"
 
-#if USE(NICOSIA)
-#include "GBMDevice.h"
-#include "NicosiaGCGLANGLELayer.h"
-
-#include <fcntl.h>
-#include <gbm.h>
-#else
 #include "GLContext.h"
 #include "PlatformDisplay.h"
 #include "TextureMapperGCGLPlatformLayer.h"
-#endif
 
 #if USE(GSTREAMER) && ENABLE(MEDIA_STREAM)
 #include "VideoFrameGStreamer.h"
@@ -91,77 +83,9 @@ GCGLConfig GraphicsContextGLANGLE::platformConfig() const
 
 bool GraphicsContextGLANGLE::makeContextCurrent()
 {
-    auto madeCurrent =
-        [&] {
-            if (EGL_GetCurrentContext() == m_contextObj)
-                return true;
-            return !!EGL_MakeCurrent(m_displayObj, EGL_NO_SURFACE, EGL_NO_SURFACE, m_contextObj);
-        }();
-
-#if USE(TEXTURE_MAPPER_DMABUF)
-    // Once the context is made current, we have to manually provide the back/draw buffer.
-    // If not yet set (due to repetitive makeContextCurrent() calls), we retrieve it from
-    // the swapchain. We also have to provide (i.e. retrieve from the cache or create)
-    // the ANGLE-y EGLImage object that will be backed by this dmabuf and will be targeted
-    // by the texture that's acting as the color attachment of the default framebuffer.
-
-    auto& context = static_cast<GraphicsContextGLTextureMapperANGLE&>(*this);
-    if (madeCurrent && context.m_swapchain.swapchain && !context.m_swapchain.drawBO) {
-        auto size = getInternalFramebufferSize();
-        context.m_swapchain.drawBO = context.m_swapchain.swapchain->getBuffer(
-            GBMBufferSwapchain::BufferDescription {
-                .format = DMABufFormat::create(uint32_t(contextAttributes().alpha ? DMABufFormat::FourCC::ARGB8888 : DMABufFormat::FourCC::XRGB8888)),
-                .width = std::clamp<uint32_t>(size.width(), 0, UINT_MAX),
-                .height = std::clamp<uint32_t>(size.height(), 0, UINT_MAX),
-            });
-
-        GLenum textureTarget = drawingBufferTextureTarget();
-        ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(textureTarget), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
-
-        auto result = context.m_swapchain.images.ensure(context.m_swapchain.drawBO->handle(),
-            [&] {
-                auto dmabufObject = context.m_swapchain.drawBO->createDMABufObject(0);
-
-                std::initializer_list<EGLint> attributes {
-                    EGL_WIDTH, EGLint(dmabufObject.format.planeWidth(0, dmabufObject.width)),
-                    EGL_HEIGHT, EGLint(dmabufObject.format.planeHeight(0, dmabufObject.height)),
-                    EGL_LINUX_DRM_FOURCC_EXT, static_cast<EGLint>(dmabufObject.format.planes[0].fourcc),
-                    EGL_DMA_BUF_PLANE0_FD_EXT, dmabufObject.fd[0].value(),
-                    EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(dmabufObject.stride[0]),
-                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
-                    EGL_NONE,
-                };
-                return EGL_CreateImageKHR(context.m_swapchain.platformDisplay, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, (EGLClientBuffer)nullptr, std::data(attributes));
-            });
-
-        GL_BindTexture(textureTarget, m_texture);
-        GL_EGLImageTargetTexture2DOES(textureTarget, result.iterator->value);
-
-        // If just created, the dmabuf has to be cleared to provide a zeroed-out buffer.
-        // Current color-clear and framebuffer state has to be preserved and re-established after this.
-        if (result.isNewEntry) {
-            GCGLuint boundFBO { 0 };
-            GL_GetIntegerv(GL_FRAMEBUFFER_BINDING, reinterpret_cast<GCGLint*>(&boundFBO));
-
-            GCGLuint targetFBO = contextAttributes().antialias ? m_multisampleFBO : m_fbo;
-            if (targetFBO != boundFBO)
-                GL_BindFramebuffer(GL_FRAMEBUFFER, targetFBO);
-
-            std::array<float, 4> clearColor { 0, 0, 0, 0 };
-            GL_GetFloatv(GL_COLOR_CLEAR_VALUE, clearColor.data());
-
-            GL_ClearColor(0, 0, 0, 0);
-            GL_Clear(GL_COLOR_BUFFER_BIT);
-
-            GL_ClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
-
-            if (targetFBO != boundFBO)
-                GL_BindFramebuffer(GL_FRAMEBUFFER, boundFBO);
-        }
-    }
-#endif
-
-    return madeCurrent;
+    if (EGL_GetCurrentContext() == m_contextObj)
+        return true;
+    return !!EGL_MakeCurrent(m_displayObj, EGL_NO_SURFACE, EGL_NO_SURFACE, m_contextObj);
 }
 
 void GraphicsContextGLANGLE::checkGPUStatus()
@@ -200,13 +124,11 @@ GraphicsContextGLTextureMapperANGLE::~GraphicsContextGLTextureMapperANGLE()
     bool success = makeContextCurrent();
     ASSERT_UNUSED(success, success);
 
-#if !USE(TEXTURE_MAPPER_DMABUF)
     if (m_compositorTexture)
         GL_DeleteTextures(1, &m_compositorTexture);
 #if USE(COORDINATED_GRAPHICS)
     if (m_intermediateTexture)
         GL_DeleteTextures(1, &m_intermediateTexture);
-#endif
 #endif
 }
 
@@ -318,11 +240,7 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitializeContext()
     }
     eglContextAttributes.append(EGL_NONE);
 
-#if USE(NICOSIA)
-    auto sharingContext = EGL_NO_CONTEXT;
-#else
     auto sharingContext = PlatformDisplay::sharedDisplayForCompositing().sharingGLContext()->platformContext();
-#endif
     m_contextObj = EGL_CreateContext(m_displayObj, m_configObj, sharingContext, eglContextAttributes.data());
     if (m_contextObj == EGL_NO_CONTEXT) {
         LOG(WebGL, "EGLContext Initialization failed.");
@@ -338,13 +256,8 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitializeContext()
 
 bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
 {
-#if USE(NICOSIA)
-    m_nicosiaLayer = makeUnique<Nicosia::GCGLANGLELayer>(*this);
-    m_layerContentsDisplayDelegate = PlatformLayerDisplayDelegate::create(&m_nicosiaLayer->contentLayer());
-#else
     m_texmapLayer = makeUnique<TextureMapperGCGLPlatformLayer>(*this);
     m_layerContentsDisplayDelegate = PlatformLayerDisplayDelegate::create(m_texmapLayer.get());
-#endif
 
     bool success = makeContextCurrent();
     ASSERT_UNUSED(success, success);
@@ -370,7 +283,6 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
     GL_GenFramebuffers(1, &m_fbo);
     GL_BindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 
-#if !USE(TEXTURE_MAPPER_DMABUF)
     GL_GenTextures(1, &m_compositorTexture);
     GL_BindTexture(textureTarget, m_compositorTexture);
     GL_TexParameterf(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -387,7 +299,6 @@ bool GraphicsContextGLTextureMapperANGLE::platformInitialize()
     GL_TexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     GL_BindTexture(textureTarget, 0);
-#endif
 #endif
 
     // Create a multisample FBO.
@@ -418,11 +329,9 @@ void GraphicsContextGLTextureMapperANGLE::prepareTexture()
     if (contextAttributes().antialias)
         resolveMultisamplingIfNecessary();
 
-#if !USE(TEXTURE_MAPPER_DMABUF)
     std::swap(m_texture, m_compositorTexture);
 #if USE(COORDINATED_GRAPHICS)
     std::swap(m_texture, m_intermediateTexture);
-#endif
 #endif
 
     GL_BindFramebuffer(GL_FRAMEBUFFER, m_fbo);
@@ -448,15 +357,11 @@ bool GraphicsContextGLTextureMapperANGLE::reshapeDisplayBufferBacking()
     GLuint internalColorFormat = textureTarget == GL_TEXTURE_2D ? colorFormat : m_internalColorFormat;
     ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(textureTarget), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
 
-#if USE(TEXTURE_MAPPER_DMABUF)
-    m_swapchain = Swapchain(platformDisplay());
-#else
     GL_BindTexture(textureTarget, m_compositorTexture);
     GL_TexImage2D(textureTarget, 0, internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
 #if USE(COORDINATED_GRAPHICS)
     GL_BindTexture(textureTarget, m_intermediateTexture);
     GL_TexImage2D(textureTarget, 0, internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
-#endif
 #endif
     GL_BindTexture(textureTarget, m_texture);
     GL_TexImage2D(textureTarget, 0, internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
@@ -472,27 +377,8 @@ void GraphicsContextGLTextureMapperANGLE::prepareForDisplay()
 
     prepareTexture();
     markLayerComposited();
-
-#if USE(TEXTURE_MAPPER_DMABUF)
-    m_swapchain.displayBO = WTFMove(m_swapchain.drawBO);
-#endif
 }
-
-#if USE(TEXTURE_MAPPER_DMABUF)
-GraphicsContextGLTextureMapperANGLE::Swapchain::Swapchain(GCGLDisplay platformDisplay)
-    : platformDisplay(platformDisplay)
-    , swapchain(adoptRef(new GBMBufferSwapchain(GBMBufferSwapchain::BufferSwapchainSize::Four)))
-{ }
-
-GraphicsContextGLTextureMapperANGLE::Swapchain::~Swapchain()
-{
-    for (EGLImageKHR image : images.values()) {
-        if (image != EGL_NO_IMAGE_KHR)
-            EGL_DestroyImageKHR(platformDisplay, image);
-    }
-}
-#endif
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && USE(ANGLE)
+#endif // ENABLE(WEBGL) && USE(TEXTURE_MAPPER) && !USE(NICOSIA) && USE(ANGLE)

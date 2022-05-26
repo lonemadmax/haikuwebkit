@@ -1012,6 +1012,14 @@ fast/images/animated-gif-webkit-transform.html
 
 webkit.org/b/145432 media/video-transformed-by-javascript.html [ Failure ]
 
+# webkit.org/b/238908 Global expectations for these until baselines are resolved
+http/tests/paymentrequest/payment-address-attributes-and-toJSON-method.https.html [ DumpJSConsoleLogInStdErr ]
+http/tests/paymentrequest/payment-request-change-shipping-option.https.html [ DumpJSConsoleLogInStdErr ]
+http/tests/paymentrequest/payment-response-retry-method.https.html [ DumpJSConsoleLogInStdErr ]
+http/tests/paymentrequest/updateWith-shippingOptions.https.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/payment-request/payment-request-constructor.https.sub.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/payment-request/payment-request-shippingOption-attribute.https.html [ DumpJSConsoleLogInStdErr ]
+
 # Latest iOS failures as of Sept 1, 2015
 webkit.org/b/149087 http/tests/cache/disk-cache/disk-cache-validation-back-navigation-policy.html [ Pass Timeout ]
 platform/ios/ios/fast/coordinates/document-elementFromPoint.html [ Failure Pass ]
@@ -1373,11 +1381,6 @@ webkit.org/b/207465 [ Debug ] storage/indexeddb/intversion-long-queue.html [ Pas
 webkit.org/b/207466 http/wpt/service-workers/service-worker-networkprocess-crash.html [ Slow Pass Failure ]
 
 webkit.org/b/205216 imported/w3c/web-platform-tests/content-security-policy/reporting/report-same-origin-with-cookies.html [ Pass Failure DumpJSConsoleLogInStdErr ]
-
-webkit.org/b/229875 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-fallback.https.sub.html [ Pass Failure DumpJSConsoleLogInStdErr ]
-webkit.org/b/229875 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-list.https.sub.html [ Pass Failure DumpJSConsoleLogInStdErr ]
-webkit.org/b/229875 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-none.https.sub.html [ Pass Failure DumpJSConsoleLogInStdErr ]
-webkit.org/b/229875 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-self.https.sub.html [ Pass Failure DumpJSConsoleLogInStdErr ]
 
 webkit.org/b/190852 imported/w3c/web-platform-tests/service-workers/service-worker/redirected-response.https.html [ Pass Failure ]
 
@@ -2177,9 +2180,6 @@ webkit.org/b/232310 [ Release ] fast/flexbox/aspect-ratio-intrinsic-adjust.html 
 # This test is currently failing on EWS
 webkit.org/b/238954 imported/w3c/web-platform-tests/css/selectors/invalidation/user-action-pseudo-classes-in-has.html [ Pass Failure ]
 
-# This test is currently failing on EWS
-webkit.org/b/238960 fast/attachment/attachment-disabled-rendering.html [ Pass Failure ]
-
 # This failure is only happening on EWS
 webkit.org/b/238965 css3/background/background-repeat-round-auto2.html [ Pass ImageOnlyFailure ]
 
@@ -2239,7 +2239,6 @@ model-element/model-element-interactive.html [ Skip ]
 
 webkit.org/b/237358 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-margin-005.html [ Failure ]
 
-fast/text/accessibility-bold.html [ Pass ]
 webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-writing-modes/full-width-003.html [ Pass ]
 
 webkit.org/b/233621 http/tests/webgpu [ Skip ]

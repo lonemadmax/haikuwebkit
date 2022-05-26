@@ -80,16 +80,16 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<RemoteRenderingBackend> RemoteRenderingBackend::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::StreamConnectionBuffer&& streamBuffer)
+Ref<RemoteRenderingBackend> RemoteRenderingBackend::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::Attachment&& connectionIdentifier, IPC::StreamConnectionBuffer&& streamBuffer)
 {
-    auto instance = adoptRef(*new RemoteRenderingBackend(gpuConnectionToWebProcess, WTFMove(creationParameters), WTFMove(streamBuffer)));
+    auto instance = adoptRef(*new RemoteRenderingBackend(gpuConnectionToWebProcess, WTFMove(creationParameters), WTFMove(connectionIdentifier), WTFMove(streamBuffer)));
     instance->startListeningForIPC();
     return instance;
 }
 
-RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::StreamConnectionBuffer&& streamBuffer)
+RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::Attachment&& connectionIdentifier, IPC::StreamConnectionBuffer&& streamBuffer)
     : m_workQueue(IPC::StreamConnectionWorkQueue::create("RemoteRenderingBackend work queue"))
-    , m_streamConnection(IPC::StreamServerConnection::create(gpuConnectionToWebProcess.connection(), WTFMove(streamBuffer), m_workQueue.get()))
+    , m_streamConnection(IPC::StreamServerConnection::createWithDedicatedConnection(WTFMove(connectionIdentifier), WTFMove(streamBuffer), m_workQueue.get()))
     , m_remoteResourceCache(gpuConnectionToWebProcess.webProcessIdentifier())
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_resourceOwner(gpuConnectionToWebProcess.webProcessIdentity())
@@ -99,7 +99,6 @@ RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuCon
 #endif
 {
     ASSERT(RunLoop::isMain());
-    send(Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream(m_workQueue->wakeUpSemaphore()), m_renderingBackendIdentifier);
 }
 
 RemoteRenderingBackend::~RemoteRenderingBackend() = default;
@@ -110,17 +109,15 @@ void RemoteRenderingBackend::startListeningForIPC()
         Locker locker { m_remoteDisplayListsLock };
         m_canRegisterRemoteDisplayLists = true;
     }
-
     m_streamConnection->startReceivingMessages(*this, Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
-    // RemoteDisplayListRecorder messages depend on RemoteRenderingBackend, because RemoteRenderingBackend creates RemoteDisplayListRecorder and
-    // makes a receive queue for it. In order to guarantee correct ordering, ensure that all RemoteDisplayListRecorder messages are processed in
-    // the same sequence as RemoteRenderingBackend messages.
-    m_streamConnection->startReceivingMessages(Messages::RemoteDisplayListRecorder::messageReceiverName());
+    m_streamConnection->open();
+    send(Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream(m_workQueue->wakeUpSemaphore()), m_renderingBackendIdentifier);
 }
 
 void RemoteRenderingBackend::stopListeningForIPC()
 {
     ASSERT(RunLoop::isMain());
+    m_streamConnection->invalidate();
 
     // This item is dispatched to the WorkQueue before calling stopAndWaitForCompletion() such that it will process it last, after any existing work.
     m_workQueue->dispatch([&] {
@@ -132,7 +129,6 @@ void RemoteRenderingBackend::stopListeningForIPC()
     m_workQueue->stopAndWaitForCompletion();
 
     m_streamConnection->stopReceivingMessages(Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
-    m_streamConnection->stopReceivingMessages(Messages::RemoteDisplayListRecorder::messageReceiverName());
 
     {
         Locker locker { m_remoteDisplayListsLock };
@@ -149,7 +145,7 @@ void RemoteRenderingBackend::dispatch(Function<void()>&& task)
 
 IPC::Connection* RemoteRenderingBackend::messageSenderConnection() const
 {
-    return &m_gpuConnectionToWebProcess->connection();
+    return &m_streamConnection->connection();
 }
 
 uint64_t RemoteRenderingBackend::messageSenderDestinationID() const
@@ -214,7 +210,6 @@ void RemoteRenderingBackend::createImageBufferWithQualifiedIdentifier(const Floa
     }
 
     m_remoteResourceCache.cacheImageBuffer(*imageBuffer, imageBufferResourceIdentifier);
-    updateRenderingResourceRequest();
 }
 
 void RemoteRenderingBackend::getPixelBufferForImageBuffer(RenderingResourceIdentifier imageBuffer, PixelBufferFormat&& destinationFormat, IntRect&& srcRect, CompletionHandler<void()>&& completionHandler)
@@ -405,7 +400,6 @@ void RemoteRenderingBackend::releaseRemoteResourceWithQualifiedIdentifier(Qualif
     }
     auto success = m_remoteResourceCache.releaseRemoteResource(renderingResourceIdentifier);
     MESSAGE_CHECK(success, "Resource is being released before being cached.");
-    updateRenderingResourceRequest();
 }
 
 static std::optional<ImageBufferBackendHandle> handleFromBuffer(ImageBuffer& buffer)
@@ -529,22 +523,6 @@ void RemoteRenderingBackend::markSurfacesVolatile(const Vector<RenderingResource
 void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID renderingUpdateID)
 {
     send(Messages::RemoteRenderingBackendProxy::DidFinalizeRenderingUpdate(renderingUpdateID), m_renderingBackendIdentifier);
-}
-
-void RemoteRenderingBackend::updateRenderingResourceRequest()
-{
-    bool hasActiveDrawables = m_remoteResourceCache.hasActiveDrawables();
-    bool hasActiveRequest = m_renderingResourcesRequest.isRequested();
-    if (hasActiveDrawables && !hasActiveRequest)
-        m_renderingResourcesRequest = ScopedRenderingResourcesRequest::acquire();
-    else if (!hasActiveDrawables && hasActiveRequest)
-        m_renderingResourcesRequest = { };
-}
-
-bool RemoteRenderingBackend::allowsExitUnderMemoryPressure() const
-{
-    ASSERT(isMainRunLoop());
-    return !m_remoteResourceCache.hasActiveDrawables();
 }
 
 void RemoteRenderingBackend::performWithMediaPlayerOnMainThread(MediaPlayerIdentifier identifier, Function<void(MediaPlayer&)>&& callback)

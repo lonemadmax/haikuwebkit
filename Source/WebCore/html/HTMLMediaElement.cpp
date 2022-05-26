@@ -39,6 +39,7 @@
 #include "CSSValueKeywords.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CommonAtomStrings.h"
 #include "CommonVM.h"
 #include "ContentRuleListResults.h"
 #include "ContentSecurityPolicy.h"
@@ -118,6 +119,7 @@
 #include "VideoTrack.h"
 #include "VideoTrackList.h"
 #include "VideoTrackPrivate.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/ScriptObject.h>
 #include <JavaScriptCore/Uint8Array.h>
 #include <limits>
@@ -194,7 +196,7 @@ struct LogArgument<URL> {
 
         if (url.string().length() < maximumURLLengthForLogging)
             return url.string();
-        return url.string().substring(0, maximumURLLengthForLogging) + "...";
+        return makeString(StringView(url.string()).left(maximumURLLengthForLogging), "...");
 #else
         UNUSED_PARAM(url);
         return "[url]"_s;
@@ -1569,7 +1571,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
             // while processing remainder of load failure.
             m_mediaSource = nullptr;
             mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
-        } else if (!m_player->load(url, contentType, m_mediaSource.get())) {
+        } else if (!m_player->load(url, contentType, *m_mediaSource)) {
             // We have to detach the MediaSource before we forget the reference to it.
             m_mediaSource->detachFromElement(*this);
             m_mediaSource = nullptr;
@@ -2670,7 +2672,7 @@ void HTMLMediaElement::updateShouldContinueAfterNeedKey()
 {
     if (!m_player)
         return;
-    bool shouldContinue = hasEventListeners("webkitneedkey") || (document().settings().encryptedMediaAPIEnabled() && !document().quirks().hasBrokenEncryptedMediaAPISupportQuirk());
+    bool shouldContinue = hasEventListeners(eventNames().webkitneedkeyEvent) || (document().settings().encryptedMediaAPIEnabled() && !document().quirks().hasBrokenEncryptedMediaAPISupportQuirk());
     m_player->setShouldContinueAfterKeyNeeded(shouldContinue);
 }
 #endif
@@ -2685,7 +2687,7 @@ void HTMLMediaElement::mediaPlayerKeyNeeded(const SharedBuffer& initData)
     if (!document().settings().legacyEncryptedMediaAPIEnabled())
         return;
 
-    if (!hasEventListeners("webkitneedkey")
+    if (!hasEventListeners(eventNames().webkitneedkeyEvent)
 #if ENABLE(ENCRYPTED_MEDIA)
         // Only fire an error if ENCRYPTED_MEDIA is not enabled, to give clients of the
         // "encrypted" event a chance to handle it without resulting in a synthetic error.
@@ -3648,16 +3650,16 @@ String HTMLMediaElement::preload() const
     // http://w3c.github.io/mediacapture-main/#mediastreams-in-media-elements
     // "preload" - On getting: none. On setting: ignored.
     if (m_mediaStreamSrcObject)
-        return "none"_s;
+        return noneAtom();
 #endif
 
     switch (m_preload) {
     case MediaPlayer::Preload::None:
-        return "none"_s;
+        return noneAtom();
     case MediaPlayer::Preload::MetaData:
         return "metadata"_s;
     case MediaPlayer::Preload::Auto:
-        return "auto"_s;
+        return autoAtom();
     }
 
     ASSERT_NOT_REACHED();
@@ -4596,7 +4598,7 @@ static JSC::JSValue controllerJSValue(JSC::JSGlobalObject& lexicalGlobalObject, 
     auto mediaJSWrapper = toJS(&lexicalGlobalObject, &globalObject, media);
 
     // Retrieve the controller through the JS object graph
-    JSC::JSObject* mediaJSWrapperObject = JSC::jsDynamicCast<JSC::JSObject*>(vm, mediaJSWrapper);
+    JSC::JSObject* mediaJSWrapperObject = JSC::jsDynamicCast<JSC::JSObject*>(mediaJSWrapper);
     if (!mediaJSWrapperObject)
         return JSC::jsNull();
 
@@ -4604,11 +4606,11 @@ static JSC::JSValue controllerJSValue(JSC::JSGlobalObject& lexicalGlobalObject, 
     JSC::JSValue controlsHostJSWrapper = mediaJSWrapperObject->get(&lexicalGlobalObject, controlsHost);
     RETURN_IF_EXCEPTION(scope, JSC::jsNull());
 
-    JSC::JSObject* controlsHostJSWrapperObject = JSC::jsDynamicCast<JSC::JSObject*>(vm, controlsHostJSWrapper);
+    JSC::JSObject* controlsHostJSWrapperObject = JSC::jsDynamicCast<JSC::JSObject*>(controlsHostJSWrapper);
     if (!controlsHostJSWrapperObject)
         return JSC::jsNull();
 
-    JSC::Identifier controllerID = JSC::Identifier::fromString(vm, "controller"_s);
+    JSC::Identifier controllerID = builtinNames(vm).controllerPublicName();
     JSC::JSValue controllerJSWrapper = controlsHostJSWrapperObject->get(&lexicalGlobalObject, controllerID);
     RETURN_IF_EXCEPTION(scope, JSC::jsNull());
 
@@ -4669,7 +4671,7 @@ void HTMLMediaElement::updateCaptionContainer()
         auto controllerValue = controllerJSValue(lexicalGlobalObject, globalObject, *this);
         RETURN_IF_EXCEPTION(scope, reportExceptionAndReturnFalse());
 
-        auto* controllerObject = JSC::jsDynamicCast<JSC::JSObject*>(vm, controllerValue);
+        auto* controllerObject = JSC::jsDynamicCast<JSC::JSObject*>(controllerValue);
         if (!controllerObject)
             return false;
 
@@ -4682,11 +4684,11 @@ void HTMLMediaElement::updateCaptionContainer()
         auto methodValue = controllerObject->get(&lexicalGlobalObject, JSC::Identifier::fromString(vm, "updateCaptionContainer"_s));
         RETURN_IF_EXCEPTION(scope, reportExceptionAndReturnFalse());
 
-        auto* methodObject = JSC::jsDynamicCast<JSC::JSObject*>(vm, methodValue);
+        auto* methodObject = JSC::jsDynamicCast<JSC::JSObject*>(methodValue);
         if (!methodObject)
             return false;
 
-        auto callData = JSC::getCallData(vm, methodObject);
+        auto callData = JSC::getCallData(methodObject);
         if (callData.type == JSC::CallData::Type::None)
             return false;
 
@@ -4705,7 +4707,7 @@ void HTMLMediaElement::layoutSizeChanged()
 {
     auto task = [this] {
         if (auto root = userAgentShadowRoot())
-            root->dispatchEvent(Event::create("resize", Event::CanBubble::No, Event::IsCancelable::No));
+            root->dispatchEvent(Event::create(eventNames().resizeEvent, Event::CanBubble::No, Event::IsCancelable::No));
     };
     queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, WTFMove(task));
 
@@ -5774,9 +5776,10 @@ void HTMLMediaElement::setPlaying(bool playing)
 #endif
 }
 
-void HTMLMediaElement::setPausedInternal(bool b)
+void HTMLMediaElement::setPausedInternal(bool paused)
 {
-    m_pausedInternal = b;
+    ALWAYS_LOG(LOGIDENTIFIER, paused);
+    m_pausedInternal = paused;
     scheduleUpdatePlayState();
 }
 
@@ -5913,10 +5916,12 @@ void HTMLMediaElement::clearMediaPlayer()
     if (m_textTracks)
         configureTextTrackDisplay();
 
-    if (m_mediaSession) {
-        m_mediaSession->clientCharacteristicsChanged();
-        m_mediaSession->canProduceAudioChanged();
-    }
+    queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
+        if (m_mediaSession) {
+            m_mediaSession->clientCharacteristicsChanged();
+            m_mediaSession->canProduceAudioChanged();
+        }
+    });
 
     m_resourceSelectionTaskCancellationGroup.cancel();
 
@@ -7630,7 +7635,7 @@ bool HTMLMediaElement::ensureMediaControlsInjectedScript()
 
         auto functionValue = globalObject.get(&lexicalGlobalObject, JSC::Identifier::fromString(vm, "createControls"_s));
         RETURN_IF_EXCEPTION(scope, reportExceptionAndReturnFalse());
-        if (functionValue.isCallable(vm))
+        if (functionValue.isCallable())
             return true;
 
         for (auto& mediaControlsScript : mediaControlsScripts) {
@@ -7680,7 +7685,7 @@ void HTMLMediaElement::setControllerJSProperty(ASCIILiteral propertyName, JSC::J
             return false;
 
         scope.release();
-        controllerObject->methodTable(vm)->put(controllerObject, &lexicalGlobalObject, JSC::Identifier::fromString(vm, propertyName), propertyValue, propertySlot);
+        controllerObject->methodTable()->put(controllerObject, &lexicalGlobalObject, JSC::Identifier::fromString(vm, propertyName), propertyValue, propertySlot);
 
         return true;
     });
@@ -7731,7 +7736,7 @@ void HTMLMediaElement::didAddUserAgentShadowRoot(ShadowRoot& root)
 
         auto* function = functionValue.toObject(&lexicalGlobalObject);
         RETURN_IF_EXCEPTION(scope, reportExceptionAndReturnFalse());
-        auto callData = JSC::getCallData(vm, function);
+        auto callData = JSC::getCallData(function);
         if (callData.type == JSC::CallData::Type::None)
             return false;
 
@@ -7739,7 +7744,7 @@ void HTMLMediaElement::didAddUserAgentShadowRoot(ShadowRoot& root)
         auto controllerValue = JSC::call(&lexicalGlobalObject, function, callData, &globalObject, argList);
         RETURN_IF_EXCEPTION(scope, reportExceptionAndReturnFalse());
 
-        auto* controllerObject = JSC::jsDynamicCast<JSC::JSObject*>(vm, controllerValue);
+        auto* controllerObject = JSC::jsDynamicCast<JSC::JSObject*>(controllerValue);
         if (!controllerObject)
             return false;
 
@@ -7752,11 +7757,11 @@ void HTMLMediaElement::didAddUserAgentShadowRoot(ShadowRoot& root)
 
         mediaJSWrapperObject->putDirect(vm, controlsHost, mediaControlsHostJSWrapper, JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::ReadOnly);
 
-        auto* mediaControlsHostJSWrapperObject = JSC::jsDynamicCast<JSC::JSObject*>(vm, mediaControlsHostJSWrapper);
+        auto* mediaControlsHostJSWrapperObject = JSC::jsDynamicCast<JSC::JSObject*>(mediaControlsHostJSWrapper);
         if (!mediaControlsHostJSWrapperObject)
             return false;
 
-        auto controller = JSC::Identifier::fromString(vm, "controller"_s);
+        auto controller = builtinNames(vm).controllerPublicName();
 
         ASSERT(!controllerObject->hasProperty(&lexicalGlobalObject, controller));
 
@@ -7808,7 +7813,7 @@ void HTMLMediaElement::updateMediaControlsAfterPresentationModeChange()
 
         auto* function = functionValue.toObject(&lexicalGlobalObject);
         RETURN_IF_EXCEPTION(scope, false);
-        auto callData = JSC::getCallData(vm, function);
+        auto callData = JSC::getCallData(function);
         if (callData.type == JSC::CallData::Type::None)
             return false;
 
@@ -7852,7 +7857,7 @@ String HTMLMediaElement::getCurrentMediaControlsStatus()
 
         auto* function = functionValue.toObject(&lexicalGlobalObject);
         RETURN_IF_EXCEPTION(scope, false);
-        auto callData = JSC::getCallData(vm, function);
+        auto callData = JSC::getCallData(function);
         JSC::MarkedArgumentBuffer argList;
         ASSERT(!argList.hasOverflowed());
         if (callData.type == JSC::CallData::Type::None)

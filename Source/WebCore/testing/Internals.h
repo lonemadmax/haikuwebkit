@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -155,6 +155,10 @@ struct MediaSessionActionDetails;
 class MediaSessionCoordinator;
 class MockMediaSessionCoordinator;
 #endif
+#endif
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+class HTMLModelElement;
 #endif
 
 namespace ImageOverlay {
@@ -315,7 +319,6 @@ public:
 
     void invalidateFontCache();
     void setFontSmoothingEnabled(bool);
-    void setOverrideEnhanceTextLegibility(bool);
 
     ExceptionOr<void> setLowPowerModeEnabled(bool);
     ExceptionOr<void> setOutsideViewportThrottlingEnabled(bool);
@@ -986,8 +989,6 @@ public:
     };
 
     void installImageOverlay(Element&, Vector<ImageOverlayLine>&&, Vector<ImageOverlayBlock>&& = { }, Vector<ImageOverlayDataDetector>&& = { });
-    void installCroppedImageOverlay(Element&, Ref<DOMRectReadOnly>&&);
-    void uninstallCroppedImageOverlay();
     bool hasActiveDataDetectorHighlight() const;
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -1299,6 +1300,12 @@ public:
 
     void overrideModalContainerSearchTermForTesting(const String& term);
 
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+    using ModelInlinePreviewUUIDsPromise = DOMPromiseDeferred<IDLSequence<IDLDOMString>>;
+    void modelInlinePreviewUUIDs(ModelInlinePreviewUUIDsPromise&&) const;
+    String modelInlinePreviewUUIDForModelElement(const HTMLModelElement&) const;
+#endif
+
 private:
     explicit Internals(Document&);
     Document* contextDocument() const;
@@ -1353,8 +1360,6 @@ private:
 #if ENABLE(VIDEO)
     std::unique_ptr<CaptionUserPreferencesTestingModeToken> m_testingModeToken;
 #endif
-
-    std::unique_ptr<ImageOverlay::CroppedImage> m_croppedImageOverlay;
 };
 
 } // namespace WebCore

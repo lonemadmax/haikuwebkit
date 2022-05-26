@@ -267,6 +267,7 @@ enum class CookieConsentDecisionResult : uint8_t;
 enum class CreateNewGroupForHighlight : bool;
 enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
+enum class EditAction : uint8_t;
 enum class EventMakesGamepadsVisible : bool;
 enum class LockBackForwardList : bool;
 enum class HasInsecureContent : bool;
@@ -420,8 +421,6 @@ struct WebNavigationDataStore;
 struct WebPopupItem;
 struct WebSpeechSynthesisVoice;
 
-enum class ImageAnalysisType : uint8_t;
-enum class TapHandlingResult : uint8_t;
 enum class TextRecognitionUpdateResult : uint8_t;
 enum class NegotiatedLegacyTLS : bool;
 enum class ProcessSwapRequestedByClient : bool;
@@ -612,14 +611,18 @@ public:
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
     void takeModelElementFullscreen(ModelIdentifier);
     void modelElementSetInteractionEnabled(ModelIdentifier, bool);
+    void modelInlinePreviewDidLoad(WebCore::GraphicsLayer::PlatformLayerID);
+    void modelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::PlatformLayerID, const WebCore::ResourceError&);
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementCreateRemotePreview(const String&, const WebCore::FloatSize&, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&&);
     void modelElementLoadRemotePreview(const String&, const URL&, CompletionHandler<void(std::optional<WebCore::ResourceError>&&)>&&);
+    void modelElementDestroyRemotePreview(const String&);
     void modelElementSizeDidChange(const String&, WebCore::FloatSize, CompletionHandler<void(Expected<MachSendRight, WebCore::ResourceError>)>&&);
     void handleMouseDownForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
     void handleMouseMoveForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
     void handleMouseUpForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
+    void modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>&&)>&&);
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)
@@ -844,10 +847,10 @@ public:
     WebCore::FloatRect unconstrainedLayoutViewportRect() const;
     void adjustLayersForLayoutViewport(const WebCore::FloatRect& layoutViewport);
 
-    void scrollingNodeScrollViewWillStartPanGesture();
-    void scrollingNodeScrollViewDidScroll();
-    void scrollingNodeScrollWillStartScroll();
-    void scrollingNodeScrollDidEndScroll();
+    void scrollingNodeScrollViewWillStartPanGesture(WebCore::ScrollingNodeID);
+    void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID);
+    void scrollingNodeScrollWillStartScroll(WebCore::ScrollingNodeID);
+    void scrollingNodeScrollDidEndScroll(WebCore::ScrollingNodeID);
 
     void dynamicViewportSizeUpdate(const WebCore::FloatSize& viewLayoutSize, const WebCore::FloatSize& minimumUnobscuredSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& unobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID);
 
@@ -862,6 +865,7 @@ public:
     void selectWithTwoTouches(const WebCore::IntPoint from, const WebCore::IntPoint to, GestureType, GestureRecognizerState, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<SelectionFlags>)>&&);
     void extendSelection(WebCore::TextGranularity, CompletionHandler<void()>&& = { });
     void selectWordBackward();
+    void extendSelectionForReplacement(CompletionHandler<void()>&&);
     void moveSelectionByOffset(int32_t offset, CompletionHandler<void()>&&);
     void selectTextWithGranularityAtPoint(const WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
     void selectPositionAtPoint(const WebCore::IntPoint, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
@@ -880,6 +884,8 @@ public:
     void requestRVItemInCurrentSelectedRange(CompletionHandler<void(const RevealItem&)>&&);
     void prepareSelectionForContextMenuWithLocationInView(const WebCore::IntPoint, CompletionHandler<void(bool, const RevealItem&)>&&);
 #endif
+    void willInsertFinalDictationResult();
+    void didInsertFinalDictationResult();
     void replaceDictatedText(const String& oldText, const String& newText);
     void replaceSelectedText(const String& oldText, const String& newText);
     void didReceivePositionInformation(const InteractionInformationAtPosition&);
@@ -1194,7 +1200,7 @@ public:
     void registerWebProcessAccessibilityToken(const IPC::DataReference&);
     // Called by the UI process when it is ready to send its tokens to the web process.
     void registerUIProcessAccessibilityTokens(const IPC::DataReference& elemenToken, const IPC::DataReference& windowToken);
-    void replaceWithPasteboardData(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
+    void replaceImageWithMarkupResults(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
     void replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference&);
     bool readSelectionFromPasteboard(const String& pasteboardName);
     String stringSelectionForPasteboard();
@@ -1330,7 +1336,7 @@ public:
 
 #if ENABLE(GPU_PROCESS)
     void gpuProcessDidFinishLaunching();
-    void gpuProcessExited(GPUProcessTerminationReason);
+    void gpuProcessExited(ProcessTerminationReason);
 #endif
 
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
@@ -1386,7 +1392,6 @@ public:
     void didDismissContextMenu();
     void contextMenuItemSelected(const WebContextMenuItemData&);
     void handleContextMenuKeyEvent();
-    void willHighlightContextMenuItem(WebCore::ContextMenuAction);
 #endif
 
     // Called by the WebOpenPanelResultListenerProxy.
@@ -1755,7 +1760,7 @@ public:
 #if ENABLE(IMAGE_ANALYSIS)
     void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& identifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
     void updateWithTextRecognitionResult(WebCore::TextRecognitionResult&&, const WebCore::ElementContext&, const WebCore::FloatPoint& location, CompletionHandler<void(TextRecognitionUpdateResult)>&&);
-    void computeHasImageAnalysisResults(const URL& imageURL, ShareableBitmap& imageBitmap, ImageAnalysisType, CompletionHandler<void(bool)>&&);
+    void computeHasVisualSearchResults(const URL& imageURL, ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&&);
     void startImageAnalysis(const String& identifier);
 #endif
 
@@ -2027,10 +2032,10 @@ public:
 
 #if ENABLE(CONTEXT_MENUS)
 #if ENABLE(IMAGE_ANALYSIS)
-    void handleContextMenuQuickLookImage(QuickLookPreviewActivity);
+    void handleContextMenuLookUpImage();
 #endif
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    void handleContextMenuCopyCroppedImage(ShareableBitmap&, const String& preferredMIMEType);
+    void handleContextMenuCopyCroppedImage(const String& preferredMIMEType);
 #endif
 #endif // ENABLE(CONTEXT_MENUS)
 
@@ -2096,6 +2101,10 @@ public:
 
     void extractVideoInElementFullScreen(WebCore::MediaPlayerIdentifier, WebCore::FloatRect videoBounds);
     void cancelVideoExtractionInElementFullScreen();
+
+#if ENABLE(CONTEXT_MENUS) && ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    void setCroppedImageForContextMenu(CGImageRef);
+#endif
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2786,6 +2795,11 @@ private:
     RefPtr<WebContextMenuProxy> m_activeContextMenu;
     ContextMenuContextData m_activeContextMenuContextData;
 #endif
+
+#if ENABLE(CONTEXT_MENUS) && ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    RetainPtr<CGImageRef> m_croppedImageForContextMenu;
+#endif
+
     RefPtr<API::HitTestResult> m_lastMouseMoveHitTestResult;
 
     RefPtr<WebOpenPanelResultListenerProxy> m_openPanelResultListener;
@@ -3245,17 +3259,6 @@ private:
     RunLoop::Timer<WebPageProxy> m_fullscreenVideoExtractionTimer;
 #endif
     bool m_hasPendingElementFullScreenVideoExtraction { false };
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    enum class CroppedImageOverlayState : uint8_t {
-        Inactive,
-        Analyzing,
-        Hidden,
-        Showing,
-    };
-    WebCore::PlatformImagePtr m_croppedImageResult;
-    CroppedImageOverlayState m_croppedImageOverlayState { CroppedImageOverlayState::Inactive };
-#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 };
 
 #ifdef __OBJC__

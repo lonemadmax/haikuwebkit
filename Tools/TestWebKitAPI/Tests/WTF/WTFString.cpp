@@ -239,38 +239,38 @@ TEST(WTF, StringReplaceWithLiteral)
     // Cases for 8Bit source.
     String testString = "1224"_s;
     EXPECT_TRUE(testString.is8Bit());
-    testString.replaceWithLiteral('2', "");
+    testString = makeStringByReplacingAll(testString, '2', ""_s);
     EXPECT_STREQ("14", testString.utf8().data());
 
     testString = "1224"_s;
     EXPECT_TRUE(testString.is8Bit());
-    testString.replaceWithLiteral('2', "3");
+    testString = makeStringByReplacingAll(testString, '2', "3"_s);
     EXPECT_STREQ("1334", testString.utf8().data());
 
     testString = "1224"_s;
     EXPECT_TRUE(testString.is8Bit());
-    testString.replaceWithLiteral('2', "555");
+    testString = makeStringByReplacingAll(testString, '2', "555"_s);
     EXPECT_STREQ("15555554", testString.utf8().data());
 
     testString = "1224"_s;
     EXPECT_TRUE(testString.is8Bit());
-    testString.replaceWithLiteral('3', "NotFound");
+    testString = makeStringByReplacingAll(testString, '3', "NotFound"_s);
     EXPECT_STREQ("1224", testString.utf8().data());
 
     // Cases for 16Bit source.
     testString = String::fromUTF8("résumé");
     EXPECT_FALSE(testString.is8Bit());
-    testString.replaceWithLiteral(UChar(0x00E9 /*U+00E9 is 'é'*/), "e");
+    testString = makeStringByReplacingAll(testString, UChar(0x00E9 /*U+00E9 is 'é'*/), "e"_s);
     EXPECT_STREQ("resume", testString.utf8().data());
 
     testString = String::fromUTF8("résumé");
     EXPECT_FALSE(testString.is8Bit());
-    testString.replaceWithLiteral(UChar(0x00E9 /*U+00E9 is 'é'*/), "");
+    testString = makeStringByReplacingAll(testString, UChar(0x00E9 /*U+00E9 is 'é'*/), ""_s);
     EXPECT_STREQ("rsum", testString.utf8().data());
 
     testString = String::fromUTF8("résumé");
     EXPECT_FALSE(testString.is8Bit());
-    testString.replaceWithLiteral('3', "NotFound");
+    testString = makeStringByReplacingAll(testString, '3', "NotFound"_s);
     EXPECT_STREQ("résumé", testString.utf8().data());
 }
 

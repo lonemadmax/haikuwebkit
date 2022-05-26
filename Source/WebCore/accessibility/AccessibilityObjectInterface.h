@@ -1171,8 +1171,6 @@ public:
     virtual String expandedTextValue() const = 0;
     virtual bool supportsExpandedTextValue() const = 0;
 
-    virtual void elementsFromAttribute(Vector<Element*>&, const QualifiedName&) const = 0;
-
     // Only if isColorWell()
     virtual SRGBA<uint8_t> colorValue() const = 0;
 
@@ -1273,7 +1271,7 @@ public:
 
     virtual std::optional<String> attributeValue(const String&) const = 0;
     virtual bool hasTagName(const QualifiedName&) const = 0;
-    virtual String tagName() const = 0;
+    virtual AtomString tagName() const = 0;
 
     virtual VisiblePositionRange visiblePositionRange() const = 0;
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const = 0;
@@ -1534,6 +1532,13 @@ private:
     virtual void detachPlatformWrapper(AccessibilityDetachmentType) = 0;
 };
 
+inline Vector<AXID> axIDs(const AXCoreObject::AccessibilityChildrenVector& objects)
+{
+    return objects.map([] (const auto& object) {
+        return object ? object->objectID() : AXID();
+    });
+}
+
 inline AXCoreObject::AXValue AXCoreObject::value()
 {
     if (supportsRangeValue())
@@ -1584,9 +1589,7 @@ inline void AXCoreObject::detachWrapper(AccessibilityDetachmentType detachmentTy
 
 inline Vector<AXID> AXCoreObject::childrenIDs(bool updateChildrenIfNecessary)
 {
-    return children(updateChildrenIfNecessary).map([] (auto& axObject) -> AXID {
-        return axObject->objectID();
-    });
+    return axIDs(children(updateChildrenIfNecessary));
 }
 
 namespace Accessibility {

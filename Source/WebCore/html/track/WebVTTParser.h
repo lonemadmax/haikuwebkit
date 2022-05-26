@@ -170,10 +170,10 @@ private:
     ParseState collectWebVTTBlock(const String&);
     ParseState checkAndRecoverCue(const String& line);
     ParseState collectStyleSheet(const String&);
-    bool checkAndCreateRegion(const String& line);
-    bool checkAndStoreRegion(const String& line);
-    bool checkStyleSheet(const String& line);
-    bool checkAndStoreStyleSheet(const String& line);
+    bool checkAndCreateRegion(StringView line);
+    bool checkAndStoreRegion(StringView line);
+    bool checkStyleSheet(StringView line);
+    bool checkAndStoreStyleSheet(StringView line);
 
     void createNewCue();
     void resetCueValues();
@@ -192,7 +192,7 @@ private:
     String m_previousLine;
     String m_currentSettings;
     RefPtr<VTTRegion> m_currentRegion;
-    String m_currentSourceStyleSheet;
+    StringBuilder m_currentSourceStyleSheet;
     
     WebVTTParserClient& m_client;
 

@@ -1,3 +1,194 @@
+2022-04-24  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Enable Baseline JIT
+        https://bugs.webkit.org/show_bug.cgi?id=239708
+
+        Reviewed by Yusuke Suzuki.
+
+        Turn on the CMake defaults for ENABLE(JIT) and ENABLE(FTL_JIT) options
+        for RISCV64. These are enabled together to avoid having to worry about
+        a 64-bit platform that would want to allow compiling with Baseline JIT
+        enabled and FTL JIT disabled at the same time. But because FTL JIT
+        support for RISCV64 isn't complete yet, it's still disabled at runtime.
+
+        * Source/cmake/WebKitFeatures.cmake:
+
+2022-04-22  Alex Christensen  <achristensen@webkit.org>
+
+        Add my github account name
+        https://bugs.webkit.org/show_bug.cgi?id=239671
+
+        Reviewed by Chris Dumez.
+
+        * metadata/contributors.json:
+
+2022-04-22  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, add Geoff's github username to contributors.json so he can review patches
+
+        * metadata/contributors.json:
+
+2022-04-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, add github accounts of Apple JSC reviewers
+
+        * metadata/contributors.json:
+
+2022-04-19  Mark Lam  <mark.lam@apple.com>
+
+        Update my GitHub login.
+
+        * metadata/contributors.json:
+
+2022-04-19  Mark Lam  <mark.lam@apple.com>
+
+        Adding my GitHub credentials.
+
+        * metadata/contributors.json:
+
+2022-04-19  Karl Rackler  <rackler@apple.com>
+
+        Coreection to botwatcher github username to contributors json
+
+        Reviewed by Jonathan Bedard.
+
+        * metadata/contributors.json:
+
+2022-04-19  Dean Jackson  <dino@apple.com>
+
+        Adding GitHub username.
+
+        * metadata/contributors.json:
+
+2022-04-15  Justin Michaud  <justin_michaud@apple.com>
+
+        [PGO] Fix build on intel machines
+        https://bugs.webkit.org/show_bug.cgi?id=239396
+
+        Reviewed by Jonathan Bedard.
+
+        We should use the correct comparison operator for Perl strings when checking
+        if we are building with PGO profile generation enabled.
+
+2022-04-12  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Allow projects to declare alternate remotes
+        https://bugs.webkit.org/show_bug.cgi?id=239261
+        <rdar://problem/91654752>
+
+        Reviewed by Dewei Zhu.
+
+        * metadata/git_config_extension: Add expected remotes.
+
+2022-04-15  Justin Michaud  <justin_michaud@apple.com>
+
+        Add GitHub info to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=239410
+
+        Reviewed by Yusuke Suzuki.
+
+        * metadata/contributors.json:
+
+2022-04-15  Saam Barati  <sbarati@apple.com>
+
+        Unreviewed. Add my github into to contributors.json.
+
+        * metadata/contributors.json:
+
+2022-04-14  Jonathan Bedard  <jbedard@apple.com>
+
+        Add .github/pull_request_template.md
+        https://bugs.webkit.org/show_bug.cgi?id=239347
+        <rdar://problem/91763594>
+
+        Reviewed by Michael Catanzaro.
+
+        * .github/pull_request_template.md: Added.
+
+2022-04-14  Justin Michaud  <justin_michaud@apple.com>
+
+        [PGO] We should be able to build WebKit to collect PGO profiles easily
+        https://bugs.webkit.org/show_bug.cgi?id=238776
+
+        Reviewed by Wenson Hsieh.
+
+        * Makefile.shared:
+        * Source/cmake/WebKitFeatures.cmake:
+
+2022-04-14  Zan Dobersek  <zdobersek@igalia.com>
+
+        [GTK][WPE] Make the ENABLE_GPU_PROCESS CMake option depend on USE_ANGLE_WEBGL
+        https://bugs.webkit.org/show_bug.cgi?id=239330
+
+        Reviewed by Adrian Perez de Castro.
+
+        For the GTK and WPE ports, the ENABLE_GPU_PROCESS CMake option should
+        depend on the USE_ANGLE_WEBGL option being enabled. There's no plans
+        to support 'direct' GL execution in that process, and the ANGLE usage
+        also implies (for these two ports) usage of generic buffer solutions
+        that are shareable across process boundaries, as is necessary for a
+        functioning GPUProcess implementation.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-04-13  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Fix public watchOS workspace build by updating scheme and build settings
+        https://bugs.webkit.org/show_bug.cgi?id=239301
+
+        Reviewed by Alexey Proskuryakov.
+
+        Add AD_HOC_CODE_SIGNING_ALLOWED=YES (similar to
+        https://commits.webkit.org/249449@main) and
+        DISABLE_SDK_METADATA_PARSING=YES in various places to work around
+        open-source workspace build failures when building for watchOS.
+
+        * WebKit.xcworkspace/xcshareddata/xcschemes/All Source.xcscheme:
+        - Remove libwebrtc from the "All Source" scheme. On watchOS, it doesn't
+        build, and on other platforms, it is an implicit dependency, so
+        removing it lets the build system determine whether or not it should
+        build.
+        - Remove MiniBrowser from the "All Source" scheme, as it's part of "All
+        Tools". "All Tools" probably shouldn't be built for embedded
+        platforms, as it contains some Mac-only tools, but we do not enforce
+        this.
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        Reland "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Addresses two problems that impacted the previous attempt at landing:
+
+        Derived Sources scripts which use generated xcfilelists contain
+        "optional" inputs which are only available in internal builds. These
+        inputs lead to spurious dependency validation errors. These scripts
+        are unique in that they run from script-only targets, not as a phase
+        in one of the project's native targets. So, in open-source builds,
+        restrict VALIDATE_DEPENDENCIES to only run on native targets.
+
+        When building an individual project, and not a workspace, it's
+        expected that many input dependencies in the build directory will be
+        missing from XCBuild's graph. Disable dependency validation unless we
+        _know_ we're building from a workspace, defined as when the
+        USE_WORKSPACE Make flag or --use-workspace build-webkit flag is
+        passed.
+
+        * Makefile.shared: Turn on validation errors when USE_WORKSPACE=YES.
+        Use a new build setting, WK_VALIDATE_DEPENDENCIES, which is the
+        "requested" validation level. The actual validation level set in
+        VALIDATE_DEPENDENCIES may be lower (see above).
+
+2022-04-11  Zan Dobersek  <zdobersek@igalia.com>
+
+        Unreviewed, removing one of my email addresses.
+
+        * metadata/contributors.json:
+
 2022-04-09  Adrian Perez de Castro  <aperez@igalia.com>
 
         [GTK][WPE] Missing inter-module documentation links

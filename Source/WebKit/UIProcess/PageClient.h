@@ -165,10 +165,6 @@ class WebProcessProxy;
 
 enum class ContinueUnsafeLoad : bool { No, Yes };
 
-#if ENABLE(IMAGE_ANALYSIS)
-enum class ImageAnalysisType : uint8_t { Text, VisualSearch };
-#endif
-
 struct FocusedElementInformation;
 struct FrameInfoData;
 struct InteractionInformationAtPosition;
@@ -480,10 +476,10 @@ public:
     virtual void handleSmartMagnificationInformationForPotentialTap(WebKit::TapIdentifier, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel) = 0;
     virtual double minimumZoomScale() const = 0;
     virtual WebCore::FloatRect documentRect() const = 0;
-    virtual void scrollingNodeScrollViewWillStartPanGesture() = 0;
-    virtual void scrollingNodeScrollViewDidScroll() = 0;
-    virtual void scrollingNodeScrollWillStartScroll() = 0;
-    virtual void scrollingNodeScrollDidEndScroll() = 0;
+    virtual void scrollingNodeScrollViewWillStartPanGesture(WebCore::ScrollingNodeID) = 0;
+    virtual void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) = 0;
+    virtual void scrollingNodeScrollWillStartScroll(WebCore::ScrollingNodeID) = 0;
+    virtual void scrollingNodeScrollDidEndScroll(WebCore::ScrollingNodeID) = 0;
     virtual Vector<String> mimeTypesWithCustomContentProviders() = 0;
 
     virtual void showInspectorHighlight(const WebCore::InspectorOverlay::Highlight&) = 0;
@@ -560,7 +556,7 @@ public:
 
 #if ENABLE(IMAGE_ANALYSIS)
     virtual void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& identifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion) { completion({ }); }
-    virtual void computeHasImageAnalysisResults(const URL&, ShareableBitmap&, ImageAnalysisType, CompletionHandler<void(bool)>&& completion) { completion(false); }
+    virtual void computeHasVisualSearchResults(const URL&, ShareableBitmap&, CompletionHandler<void(bool)>&& completion) { completion(false); }
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)

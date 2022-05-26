@@ -361,7 +361,6 @@ SourceBufferPrivateAVFObjC::~SourceBufferPrivateAVFObjC()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    ASSERT(!m_client);
     sourceBufferMap().remove(m_mapID);
     destroyStreamDataParser();
     destroyRenderers();
@@ -1099,7 +1098,7 @@ void SourceBufferPrivateAVFObjC::rendererWasAutomaticallyFlushed(AVSampleBufferA
     AtomString trackId;
     for (auto& pair : m_audioRenderers) {
         if (pair.value.get() == renderer) {
-            trackId = String::number(pair.key);
+            trackId = AtomString::number(pair.key);
             break;
         }
     }

@@ -674,7 +674,6 @@ jit/ScratchRegisterAllocator.cpp
 jit/SetupVarargsFrame.cpp
 jit/SlowPathCall.cpp
 jit/TagRegistersMode.cpp
-jit/TempRegisterSet.cpp
 jit/ThunkGenerators.cpp
 
 llint/LLIntCLoop.cpp
@@ -1103,7 +1102,7 @@ wasm/WasmOperations.cpp
 wasm/WasmPageCount.cpp
 wasm/WasmPlan.cpp
 wasm/WasmSectionParser.cpp
-wasm/WasmSignature.cpp
+wasm/WasmTypeDefinition.cpp
 wasm/WasmSlowPaths.cpp
 wasm/WasmStreamingCompiler.cpp
 wasm/WasmStreamingParser.cpp

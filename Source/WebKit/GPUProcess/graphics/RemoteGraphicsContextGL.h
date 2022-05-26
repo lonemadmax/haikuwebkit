@@ -41,6 +41,8 @@
 
 #if PLATFORM(COCOA)
 #include <WebCore/GraphicsContextGLCocoa.h>
+#elif USE(LIBGBM)
+#include <WebCore/GraphicsContextGLGBM.h>
 #else
 #include <WebCore/GraphicsContextGLTextureMapperANGLE.h>
 #endif
@@ -111,6 +113,8 @@ protected:
     virtual void prepareForDisplay(CompletionHandler<void(WTF::MachSendRight&&)>&&) = 0;
 #elif USE(GRAPHICS_LAYER_WC)
     virtual void prepareForDisplay(CompletionHandler<void(std::optional<WCContentBufferIdentifier>)>&&) = 0;
+#elif USE(LIBGBM)
+    virtual void prepareForDisplay(CompletionHandler<void(WebCore::DMABufObject&&)>&&) = 0;
 #else
     void prepareForDisplay(CompletionHandler<void()>&&);
 #endif
@@ -127,6 +131,10 @@ protected:
     void simulateEventForTesting(WebCore::GraphicsContextGL::SimulatedEventForTesting);
     void readnPixels0(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, IPC::ArrayReference<uint8_t>&& data, CompletionHandler<void(IPC::ArrayReference<uint8_t>)>&&);
     void readnPixels1(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, uint64_t offset);
+    void multiDrawArraysANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t>&& firstsAndCounts);
+    void multiDrawArraysInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t>&& firstsCountsAndInstanceCounts);
+    void multiDrawElementsANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t>&& countsAndOffsets, uint32_t type);
+    void multiDrawElementsInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t>&& countsOffsetsAndInstanceCounts, uint32_t type);
 
 #include "RemoteGraphicsContextGLFunctionsGenerated.h" // NOLINT
 
@@ -140,6 +148,8 @@ protected:
     RefPtr<IPC::StreamServerConnection> m_streamConnection;
 #if PLATFORM(COCOA)
     using GCGLContext = WebCore::GraphicsContextGLCocoa;
+#elif USE(LIBGBM)
+    using GCGLContext = WebCore::GraphicsContextGLGBM;
 #else
     using GCGLContext = WebCore::GraphicsContextGLTextureMapperANGLE;
 #endif

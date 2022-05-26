@@ -32,6 +32,7 @@
 #include "config.h"
 #include "FormSubmission.h"
 
+#include "CommonAtomStrings.h"
 #include "ContentSecurityPolicy.h"
 #include "DOMFormData.h"
 #include "DocumentInlines.h"
@@ -64,19 +65,20 @@ static int64_t generateFormDataIdentifier()
     return ++nextIdentifier;
 }
 
+// FIXME: This function copies the body a lot and is really inefficient.
 static void appendMailtoPostFormDataToURL(URL& url, const FormData& data, const String& encodingType)
 {
     String body = data.flattenToString();
 
     if (equalLettersIgnoringASCIICase(encodingType, "text/plain")) {
         // Convention seems to be to decode, and s/&/\r\n/. Also, spaces are encoded as %20.
-        body = PAL::decodeURLEscapeSequences(body.replaceWithLiteral('&', "\r\n").replace('+', ' '));
+        body = PAL::decodeURLEscapeSequences(makeStringByReplacingAll(makeStringByReplacingAll(body, '&', "\r\n"_s), '+', ' '));
     }
 
     Vector<char> bodyData;
     bodyData.append("body=", 5);
     FormDataBuilder::encodeStringAsFormData(bodyData, body.utf8());
-    body = String(bodyData.data(), bodyData.size()).replaceWithLiteral('+', "%20");
+    body = makeStringByReplacingAll(String(bodyData.data(), bodyData.size()), '+', "%20"_s);
 
     auto query = url.query();
     if (query.isEmpty())
@@ -103,7 +105,7 @@ String FormSubmission::Attributes::parseEncodingType(const String& type)
     if (equalLettersIgnoringASCIICase(type, "multipart/form-data"))
         return "multipart/form-data"_s;
     if (equalLettersIgnoringASCIICase(type, "text/plain"))
-        return "text/plain"_s;
+        return textPlainContentTypeAtom();
     return "application/x-www-form-urlencoded"_s;
 }
 
@@ -155,8 +157,7 @@ inline FormSubmission::FormSubmission(Method method, const URL& action, const St
 
 static PAL::TextEncoding encodingFromAcceptCharset(const String& acceptCharset, Document& document)
 {
-    String normalizedAcceptCharset = acceptCharset;
-    normalizedAcceptCharset.replace(',', ' ');
+    String normalizedAcceptCharset = makeStringByReplacingAll(acceptCharset, ',', ' ');
 
     for (auto charset : StringView { normalizedAcceptCharset }.split(' ')) {
         PAL::TextEncoding encoding(charset);

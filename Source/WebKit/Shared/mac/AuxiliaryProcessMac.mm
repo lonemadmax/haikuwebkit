@@ -645,10 +645,7 @@ static String getUserDirectorySuffix(const AuxiliaryProcessInitializationParamet
     auto userDirectorySuffix = parameters.extraInitializationData.find<HashTranslatorASCIILiteral>("user-directory-suffix"_s);
     if (userDirectorySuffix != parameters.extraInitializationData.end()) {
         String suffix = userDirectorySuffix->value;
-        auto firstPathSeparator = suffix.find('/');
-        if (firstPathSeparator != notFound)
-            suffix.truncate(firstPathSeparator);
-        return suffix;
+        return suffix.left(suffix.find('/'));
     }
 
     String clientIdentifier = codeSigningIdentifier(parameters.connectionIdentifier.xpcConnection.get());
@@ -703,10 +700,9 @@ static void populateSandboxInitializationParameters(SandboxInitializationParamet
     }
 
     sandboxParameters.addPathParameter("HOME_DIR", pwd.pw_dir);
-    String path = String::fromUTF8(pwd.pw_dir);
-    path.append("/Library"_s);
+    String path = FileSystem::pathByAppendingComponent(String::fromUTF8(pwd.pw_dir), "Library"_s);
     sandboxParameters.addPathParameter("HOME_LIBRARY_DIR", FileSystem::fileSystemRepresentation(path).data());
-    path.append("/Preferences"_s);
+    path = FileSystem::pathByAppendingComponent(path, "/Preferences"_s);
     sandboxParameters.addPathParameter("HOME_LIBRARY_PREFERENCES_DIR", FileSystem::fileSystemRepresentation(path).data());
 
 #if CPU(X86_64)

@@ -40,16 +40,6 @@
 
 namespace JSC {
 
-void CallFrame::initDeprecatedCallFrameForDebugger(CallFrame* globalExec, JSCallee* globalCallee)
-{
-    globalExec->setCodeBlock(nullptr);
-    globalExec->setCallerFrame(noCaller());
-    globalExec->setReturnPC(nullptr);
-    globalExec->setArgumentCountIncludingThis(0);
-    globalExec->setCallee(globalCallee);
-    ASSERT(globalExec->isDeprecatedCallFrameForDebugger());
-}
-
 bool CallFrame::callSiteBitsAreBytecodeOffset() const
 {
     ASSERT(codeBlock());
@@ -338,8 +328,8 @@ const char* CallFrame::describeFrame()
 
 void CallFrame::convertToStackOverflowFrame(VM& vm, CodeBlock* codeBlockToKeepAliveUntilFrameIsUnwound)
 {
-    ASSERT(!isDeprecatedCallFrameForDebugger());
-    ASSERT(codeBlockToKeepAliveUntilFrameIsUnwound->inherits<CodeBlock>(vm));
+    ASSERT(!isEmptyTopLevelCallFrameForDebugger());
+    ASSERT(codeBlockToKeepAliveUntilFrameIsUnwound->inherits<CodeBlock>());
 
     EntryFrame* entryFrame = vm.topEntryFrame;
     CallFrame* throwOriginFrame = this;

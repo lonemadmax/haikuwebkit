@@ -224,6 +224,18 @@ CSSColorMixEnabled:
     WebCore:
       default: false
 
+CSSContainIntrinsicSizeEnabled:
+  type: bool
+  humanReadableName: "CSS Contain Intrinsic Size"
+  humanReadableDescription: "Enable contain-intrinsic-size CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSContainerQueriesEnabled:
   type: bool
   humanReadableName: "CSS Container Queries"
@@ -915,6 +927,7 @@ MediaSourceInlinePaintingEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "HAVE(LOW_AV_SAMPLE_BUFFER_PRUNING_INTERVAL)": true
       default: false
 
 ModelDocumentEnabled:
@@ -1462,7 +1475,7 @@ UseGPUProcessForWebGLEnabled:
   humanReadableName: "GPU Process: WebGL"
   humanReadableDescription: "Process all WebGL operations in GPU Process"
   webcoreBinding: none
-  condition: ENABLE(GPU_PROCESS) && ENABLE(WEBGL) && !(PLATFORM(GTK) || PLATFORM(WPE))
+  condition: ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
   exposed: [ WebKit ]
   defaultValue:
     WebKit:

@@ -44,6 +44,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ObjectIdentifier.h>
+#include <wtf/RobinHoodHashMap.h>
 #include <wtf/RunLoop.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Threading.h>
@@ -132,7 +133,7 @@ public:
     using SoftUpdateCallback = Function<void(ServiceWorkerJobData&& jobData, bool shouldRefreshCache, ResourceRequest&&, CompletionHandler<void(const WorkerFetchResult&)>&&)>;
     using CreateContextConnectionCallback = Function<void(const WebCore::RegistrableDomain&, std::optional<ProcessIdentifier> requestingProcessIdentifier, std::optional<ScriptExecutionContextIdentifier>, CompletionHandler<void()>&&)>;
     using AppBoundDomainsCallback = Function<void(CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&)>;
-    WEBCORE_EXPORT SWServer(UniqueRef<SWOriginStore>&&, bool processTerminationDelayEnabled, String&& registrationDatabaseDirectory, PAL::SessionID, bool shouldRunServiceWorkersOnMainThreadForTesting, bool hasServiceWorkerEntitlement, SoftUpdateCallback&&, CreateContextConnectionCallback&&, AppBoundDomainsCallback&&);
+    WEBCORE_EXPORT SWServer(UniqueRef<SWOriginStore>&&, bool processTerminationDelayEnabled, String&& registrationDatabaseDirectory, PAL::SessionID, bool shouldRunServiceWorkersOnMainThreadForTesting, bool hasServiceWorkerEntitlement, std::optional<unsigned> overrideServiceWorkerRegistrationCountTestingValue, SoftUpdateCallback&&, CreateContextConnectionCallback&&, AppBoundDomainsCallback&&);
 
     WEBCORE_EXPORT ~SWServer();
 
@@ -156,7 +157,7 @@ public:
     void resolveUnregistrationJob(const ServiceWorkerJobData&, const ServiceWorkerRegistrationKey&, bool unregistrationResult);
     void startScriptFetch(const ServiceWorkerJobData&, SWServerRegistration&);
 
-    void updateWorker(const ServiceWorkerJobDataIdentifier&, SWServerRegistration&, const URL&, const ScriptBuffer&, const CertificateInfo&, const ContentSecurityPolicyResponseHeaders&, const CrossOriginEmbedderPolicy&, const String& referrerPolicy, WorkerType, HashMap<URL, ServiceWorkerContextData::ImportedScript>&&, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier);
+    void updateWorker(const ServiceWorkerJobDataIdentifier&, SWServerRegistration&, const URL&, const ScriptBuffer&, const CertificateInfo&, const ContentSecurityPolicyResponseHeaders&, const CrossOriginEmbedderPolicy&, const String& referrerPolicy, WorkerType, MemoryCompactRobinHoodHashMap<URL, ServiceWorkerContextData::ImportedScript>&&, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier);
     void fireInstallEvent(SWServerWorker&);
     void fireActivateEvent(SWServerWorker&);
 
@@ -197,7 +198,7 @@ public:
     void resolveRegistrationReadyRequests(SWServerRegistration&);
 
     void addRegistrationFromStore(ServiceWorkerContextData&&);
-    void didSaveWorkerScriptsToDisk(ServiceWorkerIdentifier, ScriptBuffer&& mainScript, HashMap<URL, ScriptBuffer>&& importedScripts);
+    void didSaveWorkerScriptsToDisk(ServiceWorkerIdentifier, ScriptBuffer&& mainScript, MemoryCompactRobinHoodHashMap<URL, ScriptBuffer>&& importedScripts);
     void registrationStoreImportComplete();
     void registrationStoreDatabaseFailedToOpen();
     void storeRegistrationForWorker(SWServerWorker&);
@@ -229,7 +230,7 @@ public:
     bool shouldRunServiceWorkersOnMainThreadForTesting() const { return m_shouldRunServiceWorkersOnMainThreadForTesting; }
 
     WEBCORE_EXPORT void processPushMessage(std::optional<Vector<uint8_t>>&&, URL&&, CompletionHandler<void(bool)>&&);
-    WEBCORE_EXPORT void processNotificationEvent(NotificationData&&, NotificationEventType);
+    WEBCORE_EXPORT void processNotificationEvent(NotificationData&&, NotificationEventType, CompletionHandler<void(bool)>&&);
 
     enum class ShouldSkipEvent : bool { No, Yes };
     void fireFunctionalEvent(SWServerRegistration&, CompletionHandler<void(Expected<SWServerToContextConnection*, ShouldSkipEvent>)>&&);
@@ -246,7 +247,9 @@ public:
     WEBCORE_EXPORT void forEachClientForOrigin(const ClientOrigin&, const Function<void(ServiceWorkerClientData&)>&);
 
 private:
-    void validateRegistrationDomain(WebCore::RegistrableDomain, ServiceWorkerJobType, CompletionHandler<void(bool)>&&);
+    unsigned maxRegistrationCount();
+    bool allowLoopbackIPAddress(const String&);
+    void validateRegistrationDomain(WebCore::RegistrableDomain, ServiceWorkerJobType, bool, CompletionHandler<void(bool)>&&);
 
     void scriptFetchFinished(const ServiceWorkerJobDataIdentifier&, const ServiceWorkerRegistrationKey&, const WorkerFetchResult&);
 
@@ -289,7 +292,7 @@ private:
     HashMap<ScriptExecutionContextIdentifier, WeakPtr<SWServerRegistration>> m_serviceWorkerPageIdentifierToRegistrationMap;
     HashMap<ScriptExecutionContextIdentifier, UniqueRef<ServiceWorkerClientData>> m_clientsById;
     HashMap<ScriptExecutionContextIdentifier, ServiceWorkerRegistrationIdentifier> m_clientToControllingRegistration;
-    HashMap<String, ScriptExecutionContextIdentifier> m_visibleClientIdToInternalClientIdMap;
+    MemoryCompactRobinHoodHashMap<String, ScriptExecutionContextIdentifier> m_visibleClientIdToInternalClientIdMap;
 
     UniqueRef<SWOriginStore> m_originStore;
     std::unique_ptr<RegistrationStore> m_registrationStore;
@@ -313,6 +316,7 @@ private:
     bool m_hasServiceWorkerEntitlement { false };
     bool m_hasReceivedAppBoundDomains { false };
     unsigned m_uniqueRegistrationCount { 0 };
+    std::optional<unsigned> m_overrideServiceWorkerRegistrationCountTestingValue;
     uint64_t m_focusOrder { 0 };
 };
 

@@ -46,6 +46,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Comment.h"
+#include "CommonAtomStrings.h"
 #include "CommonVM.h"
 #include "ComposedTreeIterator.h"
 #include "CompositionEvent.h"
@@ -75,6 +76,7 @@
 #include "Editing.h"
 #include "Editor.h"
 #include "ElementIterator.h"
+#include "ElementRareData.h"
 #include "EventHandler.h"
 #include "ExtensionStyleSheets.h"
 #include "FocusController.h"
@@ -1068,17 +1070,17 @@ Ref<DocumentFragment> Document::createDocumentFragment()
     return DocumentFragment::create(document());
 }
 
-Ref<Text> Document::createTextNode(const String& data)
+Ref<Text> Document::createTextNode(String&& data)
 {
-    return Text::create(*this, data);
+    return Text::create(*this, WTFMove(data));
 }
 
-Ref<Comment> Document::createComment(const String& data)
+Ref<Comment> Document::createComment(String&& data)
 {
-    return Comment::create(*this, data);
+    return Comment::create(*this, WTFMove(data));
 }
 
-ExceptionOr<Ref<CDATASection>> Document::createCDATASection(const String& data)
+ExceptionOr<Ref<CDATASection>> Document::createCDATASection(String&& data)
 {
     if (isHTMLDocument())
         return Exception { NotSupportedError };
@@ -1086,10 +1088,10 @@ ExceptionOr<Ref<CDATASection>> Document::createCDATASection(const String& data)
     if (data.contains("]]>"))
         return Exception { InvalidCharacterError };
 
-    return CDATASection::create(*this, data);
+    return CDATASection::create(*this, WTFMove(data));
 }
 
-ExceptionOr<Ref<ProcessingInstruction>> Document::createProcessingInstruction(const String& target, const String& data)
+ExceptionOr<Ref<ProcessingInstruction>> Document::createProcessingInstruction(String&& target, String&& data)
 {
     if (!isValidName(target))
         return Exception { InvalidCharacterError };
@@ -1097,12 +1099,12 @@ ExceptionOr<Ref<ProcessingInstruction>> Document::createProcessingInstruction(co
     if (data.contains("?>"))
         return Exception { InvalidCharacterError };
 
-    return ProcessingInstruction::create(*this, target, data);
+    return ProcessingInstruction::create(*this, WTFMove(target), WTFMove(data));
 }
 
-Ref<Text> Document::createEditingTextNode(const String& text)
+Ref<Text> Document::createEditingTextNode(String&& text)
 {
-    return Text::createEditingText(*this, text);
+    return Text::createEditingText(*this, WTFMove(text));
 }
 
 Ref<CSSStyleDeclaration> Document::createCSSStyleDeclaration()
@@ -1730,7 +1732,7 @@ void Document::updateTitleFromTitleElement()
     }
 }
 
-void Document::setTitle(const String& title)
+void Document::setTitle(String&& title)
 {
     RefPtr element = documentElement();
     if (is<SVGSVGElement>(element)) {
@@ -1740,7 +1742,7 @@ void Document::setTitle(const String& title)
         }
         // insertBefore above may have ran scripts which removed m_titleElement.
         if (m_titleElement)
-            m_titleElement->setTextContent(title);
+            m_titleElement->setTextContent(WTFMove(title));
     } else if (is<HTMLElement>(element)) {
         std::optional<String> oldTitle;
         if (!m_titleElement) {
@@ -1756,7 +1758,7 @@ void Document::setTitle(const String& title)
         if (!m_titleElement)
             return;
     
-        m_titleElement->setTextContent(title);
+        m_titleElement->setTextContent(String { title });
         auto* textManipulationController = textManipulationControllerIfExists();
         if (UNLIKELY(textManipulationController)) {
             if (!oldTitle)
@@ -2190,6 +2192,8 @@ static bool isSafeToUpdateStyleOrLayout(const Document& document)
 
 bool Document::updateStyleIfNeeded()
 {
+    if (topDocument().isResolvingContainerQueries())
+        return false;
     RefPtr<FrameView> frameView = view();
     {
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
@@ -5569,7 +5573,7 @@ ExceptionOr<std::pair<AtomString, AtomString>> Document::parseQualifiedName(cons
     if (!colonPosition || length - colonPosition <= 1)
         return Exception { InvalidCharacterError };
 
-    return std::pair<AtomString, AtomString> { StringView { qualifiedName }.substring(0, colonPosition).toAtomString(), StringView { qualifiedName }.substring(colonPosition + 1).toAtomString() };
+    return std::pair<AtomString, AtomString> { StringView { qualifiedName }.left(colonPosition).toAtomString(), StringView { qualifiedName }.substring(colonPosition + 1).toAtomString() };
 }
 
 ExceptionOr<QualifiedName> Document::parseQualifiedName(const AtomString& namespaceURI, const String& qualifiedName)
@@ -6006,7 +6010,7 @@ void Document::setDesignMode(InheritedBool value)
 
 String Document::designMode() const
 {
-    return inDesignMode() ? "on"_s : "off"_s;
+    return inDesignMode() ? onAtom() : offAtom();
 }
 
 void Document::setDesignMode(const String& value)
@@ -6058,11 +6062,11 @@ Document& Document::topDocument() const
     return *document;
 }
 
-ExceptionOr<Ref<Attr>> Document::createAttribute(const String& localName)
+ExceptionOr<Ref<Attr>> Document::createAttribute(const AtomString& localName)
 {
     if (!isValidName(localName))
         return Exception { InvalidCharacterError };
-    return Attr::create(*this, QualifiedName { nullAtom(), isHTMLDocument() ? localName.convertToASCIILowercase() : localName, nullAtom() }, emptyString());
+    return Attr::create(*this, QualifiedName { nullAtom(), isHTMLDocument() ? localName.convertToASCIILowercase() : localName, nullAtom() }, emptyAtom());
 }
 
 ExceptionOr<Ref<Attr>> Document::createAttributeNS(const AtomString& namespaceURI, const String& qualifiedName, bool shouldIgnoreNamespaceChecks)
@@ -6073,7 +6077,7 @@ ExceptionOr<Ref<Attr>> Document::createAttributeNS(const AtomString& namespaceUR
     QualifiedName parsedName { parseResult.releaseReturnValue() };
     if (!shouldIgnoreNamespaceChecks && !hasValidNamespaceForAttributes(parsedName))
         return Exception { NamespaceError };
-    return Attr::create(*this, parsedName, emptyString());
+    return Attr::create(*this, parsedName, emptyAtom());
 }
 
 const SVGDocumentExtensions* Document::svgExtensions()
@@ -6258,7 +6262,7 @@ String Document::originIdentifierForPasteboard() const
     if (origin != "null")
         return origin;
     if (!m_uniqueIdentifier)
-        m_uniqueIdentifier = "null:" + createVersion4UUIDString();
+        m_uniqueIdentifier = makeString("null:"_s, UUID::createVersion4());
     return m_uniqueIdentifier;
 }
 
@@ -6810,7 +6814,7 @@ String Document::displayStringModifiedByEncoding(const String& string) const
 {
     if (!m_decoder)
         return string;
-    return String { string }.replace('\\', m_decoder->encoding().backslashAsCurrencySymbol());
+    return makeStringByReplacingAll(string, '\\', m_decoder->encoding().backslashAsCurrencySymbol());
 }
 
 void Document::dispatchPageshowEvent(PageshowEventPersistence persisted)
@@ -8778,7 +8782,7 @@ void Document::updateServiceWorkerClientData()
         return;
 
     auto controllingServiceWorkerRegistrationIdentifier = activeServiceWorker() ? std::make_optional<ServiceWorkerRegistrationIdentifier>(activeServiceWorker()->registrationIdentifier()) : std::nullopt;
-    m_serviceWorkerConnection->registerServiceWorkerClient(topOrigin(), ServiceWorkerClientData::from(*this), controllingServiceWorkerRegistrationIdentifier, userAgent(url()));
+    m_serviceWorkerConnection->registerServiceWorkerClient(clientOrigin(), ServiceWorkerClientData::from(*this), controllingServiceWorkerRegistrationIdentifier, userAgent(url()));
 }
 
 void Document::navigateFromServiceWorker(const URL& url, CompletionHandler<void(bool)>&& callback)

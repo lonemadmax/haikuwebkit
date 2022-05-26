@@ -71,7 +71,7 @@ static MTLFunctionConstantValues *createConstantValues(uint32_t constantCount, c
     auto constantValues = [MTLFunctionConstantValues new];
     for (uint32_t i = 0; i < constantCount; ++i) {
         const auto& entry = constants[i];
-        auto nameIterator = entryPointInformation.specializationConstantIndices.find(String::fromLatin1(entry.key));
+        auto nameIterator = entryPointInformation.specializationConstantIndices.find(fromAPI(entry.key));
         if (nameIterator == entryPointInformation.specializationConstantIndices.end())
             return nullptr;
         auto specializationConstantIndex = nameIterator->value;
@@ -150,7 +150,7 @@ Ref<ComputePipeline> Device::createComputePipeline(const WGPUComputePipelineDesc
     const PipelineLayout& pipelineLayout = WebGPU::fromAPI(descriptor.layout);
     auto label = fromAPI(descriptor.label);
 
-    auto libraryCreationResult = createLibrary(m_device, shaderModule, pipelineLayout, String::fromLatin1(descriptor.compute.entryPoint), label);
+    auto libraryCreationResult = createLibrary(m_device, shaderModule, pipelineLayout, fromAPI(descriptor.compute.entryPoint), label);
     if (!libraryCreationResult)
         return ComputePipeline::createInvalid(*this);
 
@@ -172,7 +172,9 @@ void Device::createComputePipelineAsync(const WGPUComputePipelineDescriptor& des
 {
     // FIXME: Implement this
     UNUSED_PARAM(descriptor);
-    callback(WGPUCreatePipelineAsyncStatus_Error, ComputePipeline::createInvalid(*this), { });
+    instance().scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
+        callback(WGPUCreatePipelineAsyncStatus_Error, ComputePipeline::createInvalid(strongThis), { });
+    });
 }
 
 ComputePipeline::ComputePipeline(id<MTLComputePipelineState> computePipelineState, Device& device)

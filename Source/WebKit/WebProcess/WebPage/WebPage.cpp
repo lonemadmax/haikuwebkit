@@ -58,7 +58,6 @@
 #include "RemoteRenderingBackendProxy.h"
 #include "RemoteWebInspectorUI.h"
 #include "RemoteWebInspectorUIMessages.h"
-#include "RemoteWebLockRegistry.h"
 #include "SessionState.h"
 #include "SessionStateConversion.h"
 #include "ShareableBitmap.h"
@@ -256,6 +255,7 @@
 #include <WebCore/SubframeLoader.h>
 #include <WebCore/SubstituteData.h>
 #include <WebCore/TextIterator.h>
+#include <WebCore/TextRecognitionOptions.h>
 #include <WebCore/TranslationContextMenuInfo.h>
 #include <WebCore/UserContentURLPattern.h>
 #include <WebCore/UserGestureIndicator.h>
@@ -382,6 +382,10 @@
 #include "RemoteMediaSessionCoordinator.h"
 #include <WebCore/MediaSessionCoordinator.h>
 #include <WebCore/NavigatorMediaSession.h>
+#endif
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
+#include "ARKitInlinePreviewModelPlayerIOS.h"
 #endif
 
 #if PLATFORM(IOS)
@@ -591,7 +595,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         makeUniqueRef<WebSpeechRecognitionProvider>(m_identifier),
         makeUniqueRef<MediaRecorderProvider>(*this),
         WebProcess::singleton().broadcastChannelRegistry(),
-        WebProcess::singleton().webLockRegistry(),
         WebPermissionController::create(*this),
         makeUniqueRef<WebStorageProvider>(),
         makeUniqueRef<WebModelPlayerProvider>(*this)
@@ -3001,10 +3004,6 @@ void WebPage::didShowContextMenu()
 void WebPage::didDismissContextMenu()
 {
     corePage()->contextMenuController().didDismissContextMenu();
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    m_croppedImageOverlay = nullptr;
-#endif
 }
 
 #endif // ENABLE(CONTEXT_MENUS)
@@ -4132,9 +4131,6 @@ static void adjustSettingsForCaptivePortal(Settings& settings, const WebPreferen
     settings.setAllowedMediaAudioCodecIDs(store.getStringValueForKey(WebPreferencesKey::mediaAudioCodecIDsAllowedInCaptivePortalModeKey()));
     settings.setAllowedMediaCaptionFormatTypes(store.getStringValueForKey(WebPreferencesKey::mediaCaptionFormatTypesAllowedInCaptivePortalModeKey()));
 
-    settings.setVideoPlaybackRequiresUserGesture(true);
-    settings.setAudioPlaybackRequiresUserGesture(true);
-
     adjustCoreGraphicsForCaptivePortal();
 }
 
@@ -4311,23 +4307,6 @@ void WebPage::detectDataInAllFrames(OptionSet<WebCore::DataDetectorType> dataDet
             mainFrameResult.results = WTFMove(results);
     }
     completionHandler(WTFMove(mainFrameResult));
-}
-
-std::optional<std::pair<Ref<WebCore::HTMLElement>, WebCore::IntRect>> WebPage::findDataDetectionResultElementInImageOverlay(const FloatPoint& location, const HTMLElement& imageOverlayHost)
-{
-    Vector<Ref<HTMLElement>> dataDetectorElements;
-    for (auto& child : descendantsOfType<HTMLElement>(*imageOverlayHost.shadowRoot())) {
-        if (ImageOverlay::isDataDetectorResult(child))
-            dataDetectorElements.append(child);
-    }
-
-    for (auto& element : dataDetectorElements) {
-        auto elementBounds = element->boundsInRootViewSpace();
-        if (elementBounds.contains(roundedIntPoint(location)))
-            return {{ WTFMove(element), elementBounds }};
-    }
-
-    return std::nullopt;
 }
 
 #endif // ENABLE(DATA_DETECTION)
@@ -6692,6 +6671,8 @@ void WebPage::didCommitLoad(WebFrame* frame)
     m_didUpdateRenderingAfterCommittingLoad = false;
 
 #if PLATFORM(IOS_FAMILY)
+    if (auto scope = std::exchange(m_ignoreSelectionChangeScopeForDictation, nullptr))
+        scope->invalidate();
     m_sendAutocorrectionContextAfterFocusingElement = false;
     m_hasReceivedVisibleContentRectsAfterDidCommitLoad = false;
     m_hasRestoredExposedContentRectAfterDidCommitLoad = false;
@@ -7748,7 +7729,7 @@ void WebPage::removeMediaUsageManagerSession(MediaSessionIdentifier identifier)
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void WebPage::requestTextRecognition(Element& element, const String& identifier, CompletionHandler<void(RefPtr<Element>&&)>&& completion)
+void WebPage::requestTextRecognition(Element& element, TextRecognitionOptions&& options, CompletionHandler<void(RefPtr<Element>&&)>&& completion)
 {
     if (!is<HTMLElement>(element)) {
         if (completion)
@@ -7785,7 +7766,11 @@ void WebPage::requestTextRecognition(Element& element, const String& identifier,
     }
 
     auto& renderImage = downcast<RenderImage>(*renderer);
-    auto bitmap = createShareableBitmap(renderImage, { std::nullopt, AllowAnimatedImages::No, UseSnapshotForTransparentImages::Yes });
+    auto bitmap = createShareableBitmap(renderImage, {
+        std::nullopt,
+        AllowAnimatedImages::No,
+        options.allowSnapshots == TextRecognitionOptions::AllowSnapshots::Yes ? UseSnapshotForTransparentImages::Yes : UseSnapshotForTransparentImages::No
+    });
     if (!bitmap) {
         if (completion)
             completion({ });
@@ -7807,7 +7792,7 @@ void WebPage::requestTextRecognition(Element& element, const String& identifier,
 
     auto cachedImage = renderImage.cachedImage();
     auto imageURL = cachedImage ? element.document().completeURL(cachedImage->url().string()) : URL { };
-    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(bitmapHandle), identifier), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
+    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(bitmapHandle), options.identifier), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
         RefPtr protectedPage { webPage.get() };
         if (!protectedPage)
             return;
@@ -7865,7 +7850,7 @@ void WebPage::updateWithTextRecognitionResult(const TextRecognitionResult& resul
             return TextRecognitionUpdateResult::NoText;
 
 #if ENABLE(DATA_DETECTION)
-        if (findDataDetectionResultElementInImageOverlay(location, downcast<HTMLElement>(*elementToUpdate)))
+        if (DataDetection::findDataDetectionResultElementInImageOverlay(location, downcast<HTMLElement>(*elementToUpdate)))
             return TextRecognitionUpdateResult::DataDetector;
 #endif
 
@@ -7924,29 +7909,6 @@ void WebPage::requestImageBitmap(const ElementContext& context, CompletionHandle
     ASSERT(!mimeType.isEmpty());
     completion(handle, mimeType);
 }
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-
-void WebPage::installCroppedImageOverlay(const ElementContext& context, const SharedMemory::IPCHandle& imageData, const String& mimeType, FloatRect normalizedCropRect)
-{
-    auto sharedMemory = SharedMemory::map(imageData.handle, SharedMemory::Protection::ReadOnly);
-    if (!sharedMemory)
-        return;
-
-    RefPtr element = dynamicDowncast<HTMLElement>(elementForContext(context).get());
-    if (!element)
-        return;
-
-    m_croppedImageOverlay = ImageOverlay::CroppedImage::install(*element, sharedMemory->createSharedBuffer(imageData.dataSize), mimeType, normalizedCropRect);
-}
-
-void WebPage::setCroppedImageOverlayVisibility(bool visible)
-{
-    if (m_croppedImageOverlay)
-        m_croppedImageOverlay->setVisibility(visible);
-}
-
-#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 void WebPage::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<MediaControlsContextMenuItem>&& items, CompletionHandler<void(MediaControlsContextMenuItem::ID)>&& completionHandler)
@@ -8117,6 +8079,18 @@ void WebPage::cancelVideoExtractionInElementFullScreen()
 {
     send(Messages::WebPageProxy::CancelVideoExtractionInElementFullScreen());
 }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
+void WebPage::modelInlinePreviewDidLoad(WebCore::GraphicsLayer::PlatformLayerID layerID)
+{
+    ARKitInlinePreviewModelPlayerIOS::pageLoadedModelInlinePreview(*this, layerID);
+}
+
+void WebPage::modelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::PlatformLayerID layerID, const WebCore::ResourceError& error)
+{
+    ARKitInlinePreviewModelPlayerIOS::pageFailedToLoadModelInlinePreview(*this, layerID, error);
+}
+#endif
 
 } // namespace WebKit
 

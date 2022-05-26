@@ -535,7 +535,7 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
     return nullptr;
 }
 
-AXCoreObject* AccessibilityRenderObject::parentObjectUnignored() const
+AccessibilityObject* AccessibilityRenderObject::parentObjectUnignored() const
 {
 #if USE(ATSPI)
     // Expose markers that are not direct children of a list item too.
@@ -1127,11 +1127,8 @@ Vector<String> AccessibilityRenderObject::determineDropEffects() const
 {
     // Order is aria-dropeffect, dropzone, webkitdropzone
     const AtomString& dropEffects = getAttribute(aria_dropeffectAttr);
-    if (!dropEffects.isEmpty()) {
-        String dropEffectsString = dropEffects.string();
-        dropEffectsString.replace('\n', ' ');
-        return dropEffectsString.split(' ');
-    }
+    if (!dropEffects.isEmpty())
+        return makeStringByReplacingAll(dropEffects.string(), '\n', ' ').split(' ');
     
     auto dropzone = getAttribute(dropzoneAttr);
     if (!dropzone.isEmpty())
@@ -1777,26 +1774,6 @@ bool AccessibilityRenderObject::isVisited() const
     return m_renderer->style().isLink() && m_renderer->style().insideLink() == InsideLink::InsideVisited;
 }
 
-void AccessibilityRenderObject::setElementAttributeValue(const QualifiedName& attributeName, bool value)
-{
-    if (!m_renderer)
-        return;
-    
-    Node* node = m_renderer->node();
-    if (!is<Element>(node))
-        return;
-    
-    downcast<Element>(*node).setAttribute(attributeName, (value) ? "true" : "false");
-}
-    
-bool AccessibilityRenderObject::elementAttributeValue(const QualifiedName& attributeName) const
-{
-    if (!m_renderer)
-        return false;
-    
-    return equalLettersIgnoringASCIICase(getAttribute(attributeName), "true");
-}
-    
 bool AccessibilityRenderObject::isSelected() const
 {
     if (!m_renderer)
@@ -1822,33 +1799,31 @@ bool AccessibilityRenderObject::isTabItemSelected() const
 {
     if (!isTabItem() || !m_renderer)
         return false;
-    
+
     Node* node = m_renderer->node();
     if (!node || !node->isElementNode())
         return false;
-    
+
     // The ARIA spec says a tab item can also be selected if it is aria-labeled by a tabpanel
     // that has keyboard focus inside of it, or if a tabpanel in its aria-controls list has KB
     // focus inside of it.
-    AccessibilityObject* focusedElement = static_cast<AccessibilityObject*>(focusedUIElement());
+    auto* focusedElement = static_cast<AccessibilityObject*>(focusedUIElement());
     if (!focusedElement)
         return false;
-    
-    Vector<Element*> elements;
-    elementsFromAttribute(elements, aria_controlsAttr);
-    
-    AXObjectCache* cache = axObjectCache();
+
+    auto* cache = axObjectCache();
     if (!cache)
         return false;
-    
+
+    auto elements = elementsFromAttribute(aria_controlsAttr);
     for (const auto& element : elements) {
-        AccessibilityObject* tabPanel = cache->getOrCreate(element);
+        auto* tabPanel = cache->getOrCreate(element);
 
         // A tab item should only control tab panels.
         if (!tabPanel || tabPanel->roleValue() != AccessibilityRole::TabPanel)
             continue;
-        
-        AccessibilityObject* checkFocusElement = focusedElement;
+
+        auto* checkFocusElement = focusedElement;
         // Check if the focused element is a descendant of the element controlled by the tab item.
         while (checkFocusElement) {
             if (tabPanel == checkFocusElement)
@@ -1856,7 +1831,7 @@ bool AccessibilityRenderObject::isTabItemSelected() const
             checkFocusElement = checkFocusElement->parentObject();
         }
     }
-    
+
     return false;
 }
     
@@ -3298,6 +3273,11 @@ void AccessibilityRenderObject::updateRoleAfterChildrenCreation()
     }
     if (role == AccessibilityRole::SVGRoot && !children().size())
         m_role = AccessibilityRole::Image;
+
+    if (role != m_role) {
+        if (auto* cache = axObjectCache())
+            cache->handleRoleChange(this);
+    }
 }
     
 void AccessibilityRenderObject::addChildren()
@@ -3385,11 +3365,6 @@ bool AccessibilityRenderObject::liveRegionAtomic() const
     default:
         return false;
     }
-}
-
-bool AccessibilityRenderObject::isBusy() const
-{
-    return elementAttributeValue(aria_busyAttr);
 }
 
 bool AccessibilityRenderObject::canHaveSelectedChildren() const

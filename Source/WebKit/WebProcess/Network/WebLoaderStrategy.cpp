@@ -326,8 +326,8 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
             && resourceLoader.frameLoader()->notifier().isInitialRequestIdentifier(identifier)
             ? MainFrameMainResource::Yes : MainFrameMainResource::No;
         if (!page->allowsLoadFromURL(request.url(), mainFrameMainResource)) {
-            RunLoop::main().dispatch([resourceLoader = Ref { resourceLoader }] {
-                resourceLoader->didFail(resourceLoader->blockedError());
+            RunLoop::main().dispatch([resourceLoader = Ref { resourceLoader }, error = blockedError(request)] {
+                resourceLoader->didFail(error);
             });
             return;
         }
@@ -460,13 +460,6 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
         for (auto* frame = resourceLoader.frame()->tree().parent(); frame; frame = frame->tree().parent())
             frameAncestorOrigins.append(&frame->document()->securityOrigin());
         loadParameters.frameAncestorOrigins = WTFMove(frameAncestorOrigins);
-
-#if ENABLE(SERVICE_WORKER)
-        if (auto* documentLoader = resourceLoader.documentLoader()) {
-            if (auto resultingClientId = static_cast<WebDocumentLoader&>(*documentLoader).resultingClientId())
-                loadParameters.options.clientIdentifier = resultingClientId;
-        }
-#endif
     }
 
     ASSERT((loadParameters.webPageID && loadParameters.webFrameID) || loadParameters.clientCredentialPolicy == ClientCredentialPolicy::CannotAskClientForCredentials);

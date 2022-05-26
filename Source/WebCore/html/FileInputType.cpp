@@ -27,6 +27,7 @@
 #include "DirectoryFileListCreator.h"
 #include "DragData.h"
 #include "ElementChildIterator.h"
+#include "ElementRareData.h"
 #include "Event.h"
 #include "File.h"
 #include "FileList.h"
@@ -94,8 +95,7 @@ Ref<UploadButtonElement> UploadButtonElement::createForMultiple(Document& docume
 Ref<UploadButtonElement> UploadButtonElement::createInternal(Document& document, const String& value)
 {
     auto button = adoptRef(*new UploadButtonElement(document));
-    static MainThreadNeverDestroyed<const AtomString> buttonName("button", AtomString::ConstructFromLiteral);
-    button->setType(buttonName);
+    button->setType(HTMLNames::buttonTag->localName());
     button->setPseudo(ShadowPseudoIds::fileSelectorButton());
     button->setValue(value);
     return button;

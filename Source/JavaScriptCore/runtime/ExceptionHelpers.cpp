@@ -67,7 +67,7 @@ String errorDescriptionForValue(JSGlobalObject* globalObject, JSValue v)
     if (v.isObject()) {
         VM& vm = globalObject->vm();
         JSObject* object = asObject(v);
-        if (object->isCallable(vm))
+        if (object->isCallable())
             return vm.smallStrings.functionString()->value(globalObject);
         return JSObject::calculatedClassName(object);
     }
@@ -78,7 +78,7 @@ static StringView clampErrorMessage(const String& originalMessage)
 {
     // Hopefully this is sufficiently long. Note, this is the length of the string not the number of bytes used.
     constexpr unsigned maxLength = 2 * KB;
-    return StringView(originalMessage).substring(0, maxLength);
+    return StringView(originalMessage).left(maxLength);
 }
 
 static String defaultApproximateSourceError(const String& originalMessage, StringView sourceText)
@@ -208,7 +208,7 @@ static String invalidParameterInSourceAppender(const String& originalMessage, St
         return makeString(originalMessage, " (evaluating '", sourceText, "')");
 
     static constexpr unsigned inLength = 2;
-    String rightHandSide = sourceText.substring(inIndex + inLength).toStringWithoutCopying().simplifyWhiteSpace();
+    StringView rightHandSide = sourceText.substring(inIndex + inLength).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
     return makeString(rightHandSide, " is not an Object. (evaluating '", sourceText, "')");
 }
 
@@ -227,7 +227,7 @@ inline String invalidParameterInstanceofSourceAppender(const String& content, co
         return makeString(originalMessage, " (evaluating '", sourceText, "')");
 
     static constexpr unsigned instanceofLength = 10;
-    String rightHandSide = sourceText.substring(instanceofIndex + instanceofLength).toStringWithoutCopying().simplifyWhiteSpace();
+    StringView rightHandSide = sourceText.substring(instanceofIndex + instanceofLength).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
     return makeString(rightHandSide, content, ". (evaluating '", sourceText, "')");
 }
 
@@ -271,7 +271,7 @@ JSObject* createError(JSGlobalObject* globalObject, JSValue value, const String&
     if (!errorMessage)
         return createOutOfMemoryError(globalObject);
     scope.assertNoException();
-    JSObject* exception = createTypeError(globalObject, errorMessage, appender, runtimeTypeForValue(vm, value));
+    JSObject* exception = createTypeError(globalObject, errorMessage, appender, runtimeTypeForValue(value));
     ASSERT(exception->isErrorInstance());
 
     return exception;
@@ -279,7 +279,7 @@ JSObject* createError(JSGlobalObject* globalObject, JSValue value, const String&
 
 JSObject* createInvalidFunctionApplyParameterError(JSGlobalObject* globalObject, JSValue value)
 {
-    return createTypeError(globalObject, "second argument to Function.prototype.apply must be an Array-like object"_s, defaultSourceAppender, runtimeTypeForValue(globalObject->vm(), value));
+    return createTypeError(globalObject, "second argument to Function.prototype.apply must be an Array-like object"_s, defaultSourceAppender, runtimeTypeForValue(value));
 }
 
 JSObject* createInvalidInParameterError(JSGlobalObject* globalObject, JSValue value)

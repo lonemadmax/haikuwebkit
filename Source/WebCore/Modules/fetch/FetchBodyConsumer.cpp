@@ -113,7 +113,7 @@ static std::optional<MimeType> parseMIMEType(const String& contentType)
     if (slashIndex == notFound)
         return std::nullopt;
 
-    String type = input.substring(0, slashIndex);
+    String type = input.left(slashIndex);
     if (!type.length() || !isValidHTTPToken(type))
         return std::nullopt;
     
@@ -164,7 +164,7 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
             size_t contentTypeBegin = header.find(contentTypeCharacters);
             if (contentTypeBegin != notFound) {
                 size_t contentTypeEnd = header.find("\r\n", contentTypeBegin);
-                contentType = stripLeadingAndTrailingHTTPSpaces(header.substring(contentTypeBegin + contentTypePrefixLength, contentTypeEnd - contentTypeBegin - contentTypePrefixLength));
+                contentType = StringView(header).substring(contentTypeBegin + contentTypePrefixLength, contentTypeEnd - contentTypeBegin - contentTypePrefixLength).stripLeadingAndTrailingMatchedCharacters(isHTTPSpace).toString();
             }
 
             form.append(name, File::create(context, Blob::create(context, Vector { bodyBegin, bodyLength }, Blob::normalizedContentType(contentType)).get(), filename).get(), filename);
@@ -175,7 +175,7 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
     auto parseMultipartBoundary = [] (const std::optional<MimeType>& mimeType) -> std::optional<String> {
         if (!mimeType)
             return std::nullopt;
-        if (equalIgnoringASCIICase(mimeType->type, "multipart") && equalIgnoringASCIICase(mimeType->subtype, "form-data")) {
+        if (equalLettersIgnoringASCIICase(mimeType->type, "multipart") && equalLettersIgnoringASCIICase(mimeType->subtype, "form-data")) {
             auto iterator = mimeType->parameters.find<HashTranslatorASCIILiteral>("boundary"_s);
             if (iterator != mimeType->parameters.end())
                 return iterator->value;
@@ -201,7 +201,7 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
             currentBoundary = nextBoundary;
             nextBoundary = static_cast<const uint8_t*>(memmem(nextBoundary + boundaryLength, length - (nextBoundary + boundaryLength - data), boundary.data(), boundaryLength));
         }
-    } else if (mimeType && equalIgnoringASCIICase(mimeType->type, "application") && equalIgnoringASCIICase(mimeType->subtype, "x-www-form-urlencoded")) {
+    } else if (mimeType && equalLettersIgnoringASCIICase(mimeType->type, "application") && equalLettersIgnoringASCIICase(mimeType->subtype, "x-www-form-urlencoded")) {
         auto dataString = String::fromUTF8(data, length);
         for (auto& pair : WTF::URLParser::parseURLEncodedForm(dataString))
             form->append(pair.key, pair.value);

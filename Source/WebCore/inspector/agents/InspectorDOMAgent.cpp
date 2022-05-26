@@ -362,8 +362,7 @@ void InspectorDOMAgent::reset()
         m_revalidateStyleAttrTask->reset();
     m_document = nullptr;
 
-    m_destroyedDetachedNodeIdentifiers.clear();
-    m_destroyedAttachedNodeIdentifiers.clear();
+    m_destroyedNodeIdentifiers.clear();
     if (m_destroyedNodesTimer.isActive())
         m_destroyedNodesTimer.stop();
 }
@@ -400,45 +399,12 @@ void InspectorDOMAgent::relayoutDocument()
 
 Protocol::DOM::NodeId InspectorDOMAgent::bind(Node& node)
 {
+    // Node binding is later balanced in `willDestroyDOMNode` which will remove the binding upon destruction.
     return m_nodeToId.ensure(node, [&] {
         auto id = m_lastNodeId++;
         m_idToNode.set(id, node);
         return id;
     }).iterator->value;
-}
-
-void InspectorDOMAgent::unbind(Node& node)
-{
-    auto id = m_nodeToId.take(node);
-    if (!id)
-        return;
-
-    m_idToNode.remove(id);
-
-    if (node.isFrameOwnerElement()) {
-        const HTMLFrameOwnerElement* frameOwner = static_cast<const HTMLFrameOwnerElement*>(&node);
-        if (Document* contentDocument = frameOwner->contentDocument())
-            unbind(*contentDocument);
-    }
-
-    if (is<Element>(node)) {
-        Element& element = downcast<Element>(node);
-        if (ShadowRoot* root = element.shadowRoot())
-            unbind(*root);
-        if (PseudoElement* beforeElement = element.beforePseudoElement())
-            unbind(*beforeElement);
-        if (PseudoElement* afterElement = element.afterPseudoElement())
-            unbind(*afterElement);
-    }
-
-    if (auto* cssAgent = m_instrumentingAgents.enabledCSSAgent())
-        cssAgent->didRemoveDOMNode(node, id);
-
-    if (m_childrenRequested.remove(id)) {
-        // FIXME: Would be better to do this iteratively rather than recursively.
-        for (Node* child = innerFirstChild(&node); child; child = innerNextSibling(child))
-            unbind(*child);
-    }
 }
 
 Node* InspectorDOMAgent::assertNode(Protocol::ErrorString& errorString, Protocol::DOM::NodeId nodeId)
@@ -792,7 +758,7 @@ Protocol::ErrorStringOr<void> InspectorDOMAgent::setAttributesAsText(Protocol::D
             return makeUnexpected(errorString);
     }
 
-    if (!foundOriginalAttribute && !name.stripWhiteSpace().isEmpty()) {
+    if (!foundOriginalAttribute && name.find(isNotSpaceOrNewline) != notFound) {
         if (!m_domEditor->removeAttribute(*element, name, errorString))
             return makeUnexpected(errorString);
     }
@@ -1806,10 +1772,8 @@ Ref<Protocol::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* node, int d
     case Node::COMMENT_NODE:
     case Node::CDATA_SECTION_NODE:
         nodeValue = node->nodeValue();
-        if (nodeValue.length() > maxTextSize) {
-            nodeValue = nodeValue.left(maxTextSize);
-            nodeValue.append(ellipsisUChar);
-        }
+        if (nodeValue.length() > maxTextSize)
+            nodeValue = makeString(StringView(nodeValue).left(maxTextSize), ellipsisUChar);
         break;
     case Node::ATTRIBUTE_NODE:
         localName = node->localName();
@@ -1990,7 +1954,7 @@ Ref<Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEventListener
 
         if (handlerObject && globalObject) {
             JSC::VM& vm = globalObject->vm();
-            JSC::JSFunction* handlerFunction = JSC::jsDynamicCast<JSC::JSFunction*>(vm, handlerObject);
+            JSC::JSFunction* handlerFunction = JSC::jsDynamicCast<JSC::JSFunction*>(handlerObject);
 
             if (!handlerFunction) {
                 auto scope = DECLARE_CATCH_SCOPE(vm);
@@ -2002,7 +1966,7 @@ Ref<Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEventListener
                     scope.clearException();
 
                 if (handleEventValue)
-                    handlerFunction = JSC::jsDynamicCast<JSC::JSFunction*>(vm, handleEventValue);
+                    handlerFunction = JSC::jsDynamicCast<JSC::JSFunction*>(handleEventValue);
             }
 
             if (handlerFunction && !handlerFunction->isHostOrBuiltinFunction()) {
@@ -2111,8 +2075,8 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
     unsigned hierarchicalLevel = 0;
     unsigned level = 0;
 
-    if (AXObjectCache* axObjectCache = node.document().axObjectCache()) {
-        if (AXCoreObject* axObject = axObjectCache->getOrCreate(&node)) {
+    if (auto* axObjectCache = node.document().axObjectCache()) {
+        if (auto* axObject = axObjectCache->getOrCreate(&node)) {
 
             if (AXCoreObject* activeDescendant = axObject->activeDescendant())
                 activeDescendantNode = activeDescendant->node();
@@ -2139,9 +2103,8 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
                 childNodeIds = JSON::ArrayOf<Protocol::DOM::NodeId>::create();
                 processAccessibilityChildren(*axObject, *childNodeIds);
             }
-            
-            Vector<Element*> controlledElements;
-            axObject->elementsFromAttribute(controlledElements, aria_controlsAttr);
+
+            auto controlledElements = axObject->elementsFromAttribute(aria_controlsAttr);
             if (controlledElements.size()) {
                 controlledNodeIds = JSON::ArrayOf<Protocol::DOM::NodeId>::create();
                 for (Element* controlledElement : controlledElements) {
@@ -2181,8 +2144,7 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
             if (supportsExpanded)
                 expanded = axObject->isExpanded();
 
-            Vector<Element*> flowedElements;
-            axObject->elementsFromAttribute(flowedElements, aria_flowtoAttr);
+            auto flowedElements = axObject->elementsFromAttribute(aria_flowtoAttr);
             if (flowedElements.size()) {
                 flowedNodeIds = JSON::ArrayOf<Protocol::DOM::NodeId>::create();
                 for (Element* flowedElement : flowedElements) {
@@ -2190,7 +2152,7 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
                         flowedNodeIds->addItem(flowedElementId);
                 }
             }
-            
+
             if (is<Element>(node)) {
                 supportsFocused = axObject->canSetFocusAttribute();
                 if (supportsFocused)
@@ -2226,10 +2188,10 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
                     String ariaRelevantRemovals = Protocol::Helpers::getEnumConstantValue(Protocol::DOM::LiveRegionRelevant::Removals);
                     String ariaRelevantText = Protocol::Helpers::getEnumConstantValue(Protocol::DOM::LiveRegionRelevant::Text);
                     liveRegionRelevant = JSON::ArrayOf<String>::create();
-                    const SpaceSplitString& values = SpaceSplitString(ariaRelevantAttrValue, true);
+                    SpaceSplitString values(ariaRelevantAttrValue, SpaceSplitString::ShouldFoldCase::Yes);
                     // @aria-relevant="all" is exposed as ["additions","removals","text"], in order.
                     // This order is controlled in WebCore and expected in WebInspectorUI.
-                    if (values.contains("all")) {
+                    if (values.contains("all"_s)) {
                         liveRegionRelevant->addItem(ariaRelevantAdditions);
                         liveRegionRelevant->addItem(ariaRelevantRemovals);
                         liveRegionRelevant->addItem(ariaRelevantText);
@@ -2254,8 +2216,7 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
                 mouseEventNode = downcast<AccessibilityNodeObject>(*axObject).mouseButtonListener(MouseButtonListenerResultFilter::IncludeBodyElement);
 
             if (axObject->supportsARIAOwns()) {
-                Vector<Element*> ownedElements;
-                axObject->elementsFromAttribute(ownedElements, aria_ownsAttr);
+                auto ownedElements = axObject->elementsFromAttribute(aria_ownsAttr);
                 if (ownedElements.size()) {
                     ownedNodeIds = JSON::ArrayOf<Protocol::DOM::NodeId>::create();
                     for (Element* ownedElement : ownedElements) {
@@ -2452,7 +2413,6 @@ void InspectorDOMAgent::didCommitLoad(Document* document)
     // Re-add frame owner element together with its new children.
     auto parentId = boundNodeId(innerParentNode(frameOwner.get()));
     m_frontendDispatcher->childNodeRemoved(parentId, frameOwnerId);
-    unbind(*frameOwner);
 
     auto value = buildObjectForNode(frameOwner.get(), 0);
     Node* previousSibling = innerPreviousSibling(frameOwner.get());
@@ -2510,9 +2470,6 @@ void InspectorDOMAgent::didInsertDOMNode(Node& node)
     if (containsOnlyHTMLWhitespace(&node))
         return;
 
-    // We could be attaching existing subtree. Forget the bindings.
-    unbind(node);
-
     ContainerNode* parent = node.parentNode();
 
     auto parentId = boundNodeId(parent);
@@ -2544,14 +2501,12 @@ void InspectorDOMAgent::didRemoveDOMNode(Node& node)
     if (!parentId)
         return;
 
-    // FIXME: <webkit.org/b/189687> Preserve DOM.NodeId if a node is removed and re-added
     if (!m_childrenRequested.contains(parentId)) {
         // No children are mapped yet -> only notify on changes of hasChildren.
         if (innerChildNodeCount(parent) == 1)
             m_frontendDispatcher->childNodeCountUpdated(parentId, 0);
     } else
         m_frontendDispatcher->childNodeRemoved(parentId, boundNodeId(&node));
-    unbind(node);
 }
 
 void InspectorDOMAgent::willDestroyDOMNode(Node& node)
@@ -2572,12 +2527,7 @@ void InspectorDOMAgent::willDestroyDOMNode(Node& node)
     // This can be called in response to GC. Due to the single-process model used in WebKit1, the
     // event must be dispatched from a timer to prevent the frontend from making JS allocations
     // while the GC is still active.
-
-    // FIXME: <webkit.org/b/189687> Unify m_destroyedAttachedNodeIdentifiers and m_destroyedDetachedNodeIdentifiers.
-    if (auto parentId = boundNodeId(node.parentNode()))
-        m_destroyedAttachedNodeIdentifiers.append({ parentId, nodeId });
-    else
-        m_destroyedDetachedNodeIdentifiers.append(nodeId);
+    m_destroyedNodeIdentifiers.append(nodeId);
 
     if (!m_destroyedNodesTimer.isActive())
         m_destroyedNodesTimer.startOneShot(0_s);
@@ -2585,16 +2535,7 @@ void InspectorDOMAgent::willDestroyDOMNode(Node& node)
 
 void InspectorDOMAgent::destroyedNodesTimerFired()
 {
-    for (auto& [parentId, nodeId] : std::exchange(m_destroyedAttachedNodeIdentifiers, { })) {
-        if (!m_childrenRequested.contains(parentId)) {
-            auto* parent = nodeForId(parentId);
-            if (parent && innerChildNodeCount(parent) == 1)
-                m_frontendDispatcher->childNodeCountUpdated(parentId, 0);
-        } else
-            m_frontendDispatcher->childNodeRemoved(parentId, nodeId);
-    }
-    
-    for (auto nodeId : std::exchange(m_destroyedDetachedNodeIdentifiers, { }))
+    for (auto nodeId : std::exchange(m_destroyedNodeIdentifiers, { }))
         m_frontendDispatcher->willDestroyDOMNode(nodeId);
 }
 
@@ -2734,7 +2675,6 @@ void InspectorDOMAgent::pseudoElementDestroyed(PseudoElement& pseudoElement)
     auto parentId = boundNodeId(parent);
     ASSERT(parentId);
 
-    unbind(pseudoElement);
     m_frontendDispatcher->pseudoElementRemoved(parentId, pseudoElementId);
 }
 

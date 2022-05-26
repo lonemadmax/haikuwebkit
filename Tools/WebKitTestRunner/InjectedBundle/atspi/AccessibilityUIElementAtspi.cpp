@@ -446,6 +446,12 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::currentStateValue() const
     return OpaqueJSString::tryCreate(!value.isNull() ? value : "false"_s).leakRef();
 }
 
+JSRetainPtr<JSStringRef> AccessibilityUIElement::domIdentifier() const
+{
+    m_element->updateBackingStore();
+    return OpaqueJSString::tryCreate(m_element->attributes().get("id"_s)).leakRef();
+}
+
 JSValueRef AccessibilityUIElement::uiElementArrayAttributeValue(JSStringRef attribute) const
 {
     return nullptr;
@@ -889,7 +895,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::stringValue()
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
         return JSStringCreateWithCharacters(nullptr, 0);
 
-    auto value = makeString("AXValue: ", m_element->text().replace("\n", "<\\n>").replace(objectReplacementCharacter, "<obj>"));
+    auto value = makeString("AXValue: ", makeStringByReplacingAll(makeStringByReplacingAll(m_element->text(), '\n', "<\\n>"_s), objectReplacementCharacter, "<obj>"_s));
     return OpaqueJSString::tryCreate(value).leakRef();
 }
 
@@ -1022,6 +1028,12 @@ bool AccessibilityUIElement::isIncrementActionSupported()
 
 bool AccessibilityUIElement::isDecrementActionSupported()
 {
+    return false;
+}
+
+bool AccessibilityUIElement::isBusy() const
+{
+    // FIXME: Implement.
     return false;
 }
 
@@ -1191,7 +1203,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::attributedStringForRange(unsign
         auto attributes = m_element->textAttributes(i);
         auto rangeStart = std::max<int>(location, attributes.startOffset);
         auto rangeEnd = std::min<int>(limit, attributes.endOffset);
-        builder.append("\n\tRange attributes for '", text.substring(rangeStart, rangeEnd - rangeStart).replace("\n", "<\\n>").replace(objectReplacementCharacter, "<obj>"), "':");
+        builder.append("\n\tRange attributes for '", makeStringByReplacingAll(makeStringByReplacingAll(text.substring(rangeStart, rangeEnd - rangeStart), '\n', "<\\n>"_s), objectReplacementCharacter, "<obj>"_s), "':");
         buildAttributes(attributes);
         endOffset = attributes.endOffset;
     }

@@ -235,8 +235,17 @@ TemporarySelectionChange::TemporarySelectionChange(Document& document, std::opti
     }
 }
 
+void TemporarySelectionChange::invalidate()
+{
+    if (auto document = std::exchange(m_document, nullptr))
+        document->editor().setIgnoreSelectionChanges(false, Editor::RevealSelection::No);
+}
+
 TemporarySelectionChange::~TemporarySelectionChange()
 {
+    if (!m_document)
+        return;
+
     if (m_selectionToRestore)
         setSelection(m_selectionToRestore.value(), IsTemporarySelection::No);
 
@@ -337,15 +346,16 @@ bool Editor::handleTextEvent(TextEvent& event)
     if (event.isDrop())
         return false;
 
-    if (event.isPaste()) {
+    if (event.isPaste() || event.isMarkup()) {
+        auto action = event.isMarkup() ? EditAction::MarkupImage : EditAction::Paste;
         if (event.pastingFragment()) {
 #if PLATFORM(IOS_FAMILY)
             if (client()->performsTwoStepPaste(event.pastingFragment()))
                 return true;
 #endif
-            replaceSelectionWithFragment(*event.pastingFragment(), SelectReplacement::No, event.shouldSmartReplace() ? SmartReplace::Yes : SmartReplace::No, event.shouldMatchStyle() ? MatchStyle::Yes : MatchStyle::No, EditAction::Paste, event.mailBlockquoteHandling());
+            replaceSelectionWithFragment(*event.pastingFragment(), SelectReplacement::No, event.shouldSmartReplace() ? SmartReplace::Yes : SmartReplace::No, event.shouldMatchStyle() ? MatchStyle::Yes : MatchStyle::No, action, event.mailBlockquoteHandling());
         } else
-            replaceSelectionWithText(event.data(), SelectReplacement::No, event.shouldSmartReplace() ? SmartReplace::Yes : SmartReplace::No, EditAction::Paste);
+            replaceSelectionWithText(event.data(), SelectReplacement::No, event.shouldSmartReplace() ? SmartReplace::Yes : SmartReplace::No, action);
         return true;
     }
 
@@ -626,12 +636,15 @@ void Editor::pasteAsPlainText(const String& pastingText, bool smartReplace)
     target->dispatchEvent(TextEvent::createForPlainTextPaste(document().windowProxy(), pastingText, smartReplace));
 }
 
-void Editor::pasteAsFragment(Ref<DocumentFragment>&& pastingFragment, bool smartReplace, bool matchStyle, MailBlockquoteHandling respectsMailBlockquote)
+void Editor::pasteAsFragment(Ref<DocumentFragment>&& pastingFragment, bool smartReplace, bool matchStyle, MailBlockquoteHandling respectsMailBlockquote, EditAction action)
 {
     auto target = findEventTargetFromSelection();
     if (!target)
         return;
-    target->dispatchEvent(TextEvent::createForFragmentPaste(document().windowProxy(), WTFMove(pastingFragment), smartReplace, matchStyle, respectsMailBlockquote));
+
+    ASSERT(action == EditAction::MarkupImage || action == EditAction::Paste);
+    auto type = action == EditAction::MarkupImage ? TextEventInputMarkup : TextEventInputPaste;
+    target->dispatchEvent(TextEvent::createForFragmentPaste(document().windowProxy(), WTFMove(pastingFragment), type, smartReplace, matchStyle, respectsMailBlockquote));
 }
 
 void Editor::pasteAsPlainTextBypassingDHTML()
@@ -686,7 +699,7 @@ void Editor::replaceSelectionWithFragment(DocumentFragment& fragment, SelectRepl
         return;
 
     AccessibilityReplacedText replacedText;
-    if (AXObjectCache::accessibilityEnabled() && (editingAction == EditAction::Paste || editingAction == EditAction::Insert))
+    if (AXObjectCache::accessibilityEnabled() && (editingAction == EditAction::Paste || editingAction == EditAction::Insert || editingAction == EditAction::MarkupImage))
         replacedText = AccessibilityReplacedText(selection);
 
     OptionSet<ReplaceSelectionCommand::CommandOption> options { ReplaceSelectionCommand::PreventNesting, ReplaceSelectionCommand::SanitizeFragment };
@@ -1178,7 +1191,7 @@ void Editor::appliedEditing(CompositeEditCommand& command)
 
 bool Editor::willUnapplyEditing(const EditCommandComposition& composition) const
 {
-    return dispatchBeforeInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyUndo");
+    return dispatchBeforeInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyUndo"_s);
 }
 
 void Editor::unappliedEditing(EditCommandComposition& composition)
@@ -1189,7 +1202,7 @@ void Editor::unappliedEditing(EditCommandComposition& composition)
 
     VisibleSelection newSelection(composition.startingSelection());
     changeSelectionAfterCommand(newSelection, FrameSelection::defaultSetSelectionOptions());
-    dispatchInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyUndo");
+    dispatchInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyUndo"_s);
 
     updateEditorUINowIfScheduled();
 
@@ -1203,7 +1216,7 @@ void Editor::unappliedEditing(EditCommandComposition& composition)
 
 bool Editor::willReapplyEditing(const EditCommandComposition& composition) const
 {
-    return dispatchBeforeInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyRedo");
+    return dispatchBeforeInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyRedo"_s);
 }
 
 void Editor::reappliedEditing(EditCommandComposition& composition)
@@ -1214,7 +1227,7 @@ void Editor::reappliedEditing(EditCommandComposition& composition)
 
     VisibleSelection newSelection(composition.endingSelection());
     changeSelectionAfterCommand(newSelection, FrameSelection::defaultSetSelectionOptions());
-    dispatchInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyRedo");
+    dispatchInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyRedo"_s);
     
     updateEditorUINowIfScheduled();
 
@@ -1550,8 +1563,8 @@ void Editor::pasteFont(FromMenuOrKeyBinding fromMenuOrKeyBinding)
 void Editor::quoteFragmentForPasting(DocumentFragment& fragment)
 {
     auto blockQuote = HTMLQuoteElement::create(blockquoteTag, document());
-    blockQuote->setAttributeWithoutSynchronization(typeAttr, AtomString("cite"));
-    blockQuote->setAttributeWithoutSynchronization(classAttr, AtomString(ApplePasteAsQuotation));
+    blockQuote->setAttributeWithoutSynchronization(typeAttr, "cite"_s);
+    blockQuote->setAttributeWithoutSynchronization(classAttr, ApplePasteAsQuotation);
 
     auto childNode = fragment.firstChild();
 
@@ -3217,7 +3230,9 @@ void Editor::transpose()
     String text = plainText(*range);
     if (text.length() != 2)
         return;
-    String transposed = text.right(1) + text.left(1);
+
+    // FIXME: This likely won't work with graphemes.
+    String transposed = makeString(text[1], text[0]);
 
     // Select the two characters.
     if (newSelection != m_document.selection().selection()) {
@@ -3319,7 +3334,7 @@ String Editor::selectedText(TextIteratorBehaviors behaviors) const
 {
     // We remove '\0' characters because they are not visibly rendered to the user.
     auto range = m_document.selection().selection().firstRange();
-    return range ? plainText(*range, behaviors).replaceWithLiteral('\0', "") : emptyString();
+    return range ? makeStringByReplacingAll(plainText(*range, behaviors), '\0', ""_s) : emptyString();
 }
 
 RefPtr<TextPlaceholderElement> Editor::insertTextPlaceholder(const IntSize& size)
@@ -4347,7 +4362,7 @@ const RenderStyle* Editor::styleForSelectionStart(RefPtr<Node>& nodeToRemove)
     String styleText = typingStyle->style()->asText() + " display: inline";
     styleElement->setAttribute(HTMLNames::styleAttr, styleText);
 
-    styleElement->appendChild(document().createEditingTextNode(emptyString()));
+    styleElement->appendChild(document().createEditingTextNode(String { emptyString() }));
 
     auto positionNode = position.deprecatedNode();
     ASSERT(positionNode);

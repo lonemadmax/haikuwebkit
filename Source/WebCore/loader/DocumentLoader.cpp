@@ -1259,7 +1259,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
                     document.createNewIdentifier();
             }
 
-            if (m_frame->document()->activeServiceWorker() || document.url().protocolIsInHTTPFamily() || (document.page() && document.page()->isServiceWorkerPage()))
+            if (m_frame->document()->activeServiceWorker() || document.url().protocolIsInHTTPFamily() || (document.page() && document.page()->isServiceWorkerPage()) || (document.parentDocument() && shouldUseActiveServiceWorkerFromParent(document, *document.parentDocument())))
                 document.setServiceWorkerConnection(&ServiceWorkerProvider::singleton().serviceWorkerConnection());
 
             if (m_resultingClientId) {
@@ -1550,7 +1550,7 @@ void DocumentLoader::loadApplicationManifest(CompletionHandler<void(const std::o
             continue;
 
         manifestURL = href;
-        useCredentials = equalIgnoringASCIICase(link.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), "use-credentials");
+        useCredentials = equalLettersIgnoringASCIICase(link.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), "use-credentials");
         break;
     }
 
@@ -2116,6 +2116,11 @@ void DocumentLoader::unregisterReservedServiceWorkerClient()
 #endif
 }
 
+static bool isSandboxingAllowingServiceWorkerFetchHandling(SandboxFlags flags)
+{
+    return !(flags & SandboxOrigin) && !(flags & SandboxScripts);
+}
+
 void DocumentLoader::loadMainResource(ResourceRequest&& request)
 {
     ResourceLoaderOptions mainResourceLoadOptions(
@@ -2134,12 +2139,17 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
 
 #if ENABLE(SERVICE_WORKER)
     if (m_frame && m_frame->settings().serviceWorkersEnabled()) {
-        // The main navigation load will trigger the registration of the client.
-        if (m_resultingClientId)
-            scriptExecutionContextIdentifierToLoaderMap().remove(m_resultingClientId);
-        m_resultingClientId = ScriptExecutionContextIdentifier::generate();
-        ASSERT(!scriptExecutionContextIdentifierToLoaderMap().contains(m_resultingClientId));
-        scriptExecutionContextIdentifierToLoaderMap().add(m_resultingClientId, this);
+        if (!isSandboxingAllowingServiceWorkerFetchHandling(frameLoader()->effectiveSandboxFlags()))
+            mainResourceLoadOptions.serviceWorkersMode = ServiceWorkersMode::None;
+        else {
+            // The main navigation load will trigger the registration of the client.
+            if (m_resultingClientId)
+                scriptExecutionContextIdentifierToLoaderMap().remove(m_resultingClientId);
+            m_resultingClientId = ScriptExecutionContextIdentifier::generate();
+            ASSERT(!scriptExecutionContextIdentifierToLoaderMap().contains(m_resultingClientId));
+            scriptExecutionContextIdentifierToLoaderMap().add(m_resultingClientId, this);
+            mainResourceLoadOptions.clientIdentifier = m_resultingClientId;
+        }
     }
 #endif
 
@@ -2504,7 +2514,7 @@ void DocumentLoader::contentFilterHandleProvisionalLoadFailure(const ResourceErr
 
 void DocumentLoader::setActiveContentRuleListActionPatterns(const HashMap<String, Vector<String>>& patterns)
 {
-    HashMap<String, Vector<UserContentURLPattern>> parsedPatternMap;
+    MemoryCompactRobinHoodHashMap<String, Vector<UserContentURLPattern>> parsedPatternMap;
 
     for (auto& pair : patterns) {
         Vector<UserContentURLPattern> patternVector;

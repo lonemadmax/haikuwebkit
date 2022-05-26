@@ -329,6 +329,7 @@
          "alex.christensen@flexsim.com"
       ],
       "expertise" : "Win64, WebGL",
+      "github" : "achristensen07",
       "name" : "Alex Christensen",
       "nicks" : [
          "alexchristensen"
@@ -1921,6 +1922,7 @@
          "dino@apple.com"
       ],
       "expertise" : "Transforms, Transitions, Animations, Filters",
+      "github" : "grorg",
       "name" : "Dean Jackson",
       "nicks" : [
          "dino"
@@ -2642,6 +2644,7 @@
       ],
       "expertise" : "JavaScript/ECMAScript, Performance, Memory Use / Leaks, Memory Cache, Core DOM, HTML DOM, JavaScript DOM Bindings, Web Compatibility (General), JavaScriptCore C API, FastMalloc",
       "name" : "Geoffrey Garen",
+      "github" : "geoffreygaren",
       "nicks" : [
          "ggaren"
       ],
@@ -3860,6 +3863,8 @@
          "justin_michaud@apple.com",
          "justin@justinmichaud.com"
       ],
+      "expertise" : "JavaScriptCore",
+      "github" : "justinmichaud",
       "name" : "Justin Michaud",
       "status" : "committer"
    },
@@ -3918,6 +3923,7 @@
       "emails" : [
          "rackler@apple.com"
       ],
+      "github" : "karlrackler",
       "name" : "Karl Rackler",
       "status" : "committer"
    },
@@ -3966,6 +3972,7 @@
          "keith_miller@apple.com"
       ],
       "expertise" : "JavaScript/ECMAScript",
+      "github" : "kmiller68",
       "name" : "Keith Miller",
       "nicks" : [
          "keith_miller",
@@ -4562,8 +4569,10 @@
    },
    {
       "emails" : [
-         "mark.lam@apple.com"
+         "mark.lam@apple.com",
+         "menlodorian@outlook.com"
       ],
+      "github" : "MenloDorian",
       "name" : "Mark Lam",
       "nicks" : [
          "mlam"
@@ -4833,6 +4842,7 @@
          "msaboff@apple.com"
       ],
       "expertise" : "JavaScript/ECMAScript",
+      "github": "msaboff",
       "name" : "Michael Saboff",
       "nicks" : [
          "msaboff"
@@ -5854,6 +5864,7 @@
          "sbarati@apple.com",
          "saambarati1@gmail.com"
       ],
+      "github" : "saambarati",
       "name" : "Saam Barati",
       "nicks" : [
          "saamyjoon"
@@ -6606,6 +6617,7 @@
       "emails" : [
          "tsavell@apple.com"
       ],
+      "github" : "Technose",
       "name" : "Truitt Savell",
       "status" : "committer"
    },
@@ -7093,6 +7105,7 @@
          "zhifei_fang@apple.com",
          "facetothefate@gmail.com"
       ],
+      "github" : "facetothefate",
       "name" : "Zhifei Fang",
       "nicks" : [
          "zhifei_fang",
@@ -7160,8 +7173,7 @@
    {
       "emails" : [
          "zdobersek@igalia.com",
-         "zan@falconsigh.net",
-         "zandobersek@gmail.com"
+         "zan@falconsigh.net"
       ],
       "github" : "zdobersek",
       "name" : "\u017dan Dober\u0161ek",

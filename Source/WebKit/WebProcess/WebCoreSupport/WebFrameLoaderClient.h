@@ -223,7 +223,7 @@ private:
 
     RefPtr<WebCore::Frame> createFrame(const String& name, WebCore::HTMLFrameOwnerElement&) final;
 
-    RefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement&, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) final;
+    RefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement&, const URL&, const Vector<AtomString>&, const Vector<AtomString>&, const String&, bool loadManually) final;
     void redirectDataToPlugin(WebCore::Widget&) final;
     
 #if ENABLE(WEBGL)
@@ -300,6 +300,10 @@ private:
 #endif
 
     bool isParentProcessAFullWebBrowser() const final;
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+    void modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>)>&&) const final;
+#endif
 };
 
 // As long as EmptyFrameLoaderClient exists in WebCore, this can return nullptr.

@@ -237,7 +237,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
         bool isSafari = WebCore::MacApplication::isSafari();
 #endif
         if (isSafari)
-            setLinkedOnOrAfterOverride(LinkedOnOrAfterOverride::AfterEverything);
+            enableAllSDKAlignedBehaviors();
 #endif
     });
 
@@ -279,7 +279,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     updateBackForwardCacheCapacity();
 
 #if PLATFORM(IOS)
-    if (WebCore::IOSApplication::isLutron() && !linkedOnOrAfter(SDKVersion::FirstWithSharedNetworkProcess)) {
+    if (WebCore::IOSApplication::isLutron() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SharedNetworkProcess)) {
         callOnMainRunLoop([] {
             if (WebsiteDataStore::defaultDataStoreExists())
                 WebsiteDataStore::defaultDataStore()->terminateNetworkProcess();
@@ -433,10 +433,30 @@ void WebProcessPool::screenPropertiesStateChanged()
 #endif
 }
 
-void WebProcessPool::networkProcessDidTerminate(NetworkProcessProxy& networkProcessProxy, NetworkProcessProxy::TerminationReason reason)
+static bool shouldReportAuxiliaryProcessCrash(ProcessTerminationReason reason)
 {
-    if (reason == NetworkProcessProxy::TerminationReason::Crash)
-        m_client.networkProcessDidCrash(this);
+    switch (reason) {
+    case ProcessTerminationReason::ExceededMemoryLimit:
+    case ProcessTerminationReason::ExceededCPULimit:
+    case ProcessTerminationReason::Unresponsive:
+    case ProcessTerminationReason::Crash:
+        return true;
+    case ProcessTerminationReason::RequestedByClient:
+    case ProcessTerminationReason::IdleExit:
+    case ProcessTerminationReason::ExceededProcessCountLimit:
+    case ProcessTerminationReason::NavigationSwap:
+    case ProcessTerminationReason::RequestedByNetworkProcess:
+    case ProcessTerminationReason::RequestedByGPUProcess:
+        return false;
+    }
+
+    return false;
+}
+
+void WebProcessPool::networkProcessDidTerminate(NetworkProcessProxy& networkProcessProxy, ProcessTerminationReason reason)
+{
+    if (shouldReportAuxiliaryProcessCrash(reason))
+        m_client.networkProcessDidCrash(this, networkProcessProxy.processIdentifier(), reason);
 
     if (m_automationSession)
         m_automationSession->terminate();
@@ -444,10 +464,10 @@ void WebProcessPool::networkProcessDidTerminate(NetworkProcessProxy& networkProc
     terminateServiceWorkers();
 }
 
-void WebProcessPool::serviceWorkerProcessCrashed(WebProcessProxy& proxy)
+void WebProcessPool::serviceWorkerProcessCrashed(WebProcessProxy& proxy, ProcessTerminationReason reason)
 {
 #if ENABLE(SERVICE_WORKER)
-    m_client.serviceWorkerProcessDidCrash(this, proxy.processIdentifier());
+    m_client.serviceWorkerProcessDidCrash(this, proxy.processIdentifier(), reason);
 #endif
 }
 
@@ -471,19 +491,19 @@ void WebProcessPool::gpuProcessDidFinishLaunching(ProcessID)
         process->gpuProcessDidFinishLaunching();
 }
 
-void WebProcessPool::gpuProcessExited(ProcessID identifier, GPUProcessTerminationReason reason)
+void WebProcessPool::gpuProcessExited(ProcessID identifier, ProcessTerminationReason reason)
 {
-    WEBPROCESSPOOL_RELEASE_LOG(Process, "gpuProcessDidExit: PID=%d, reason=%u", identifier, static_cast<unsigned>(reason));
+    WEBPROCESSPOOL_RELEASE_LOG(Process, "gpuProcessDidExit: PID=%d, reason=%{public}s", identifier, processTerminationReasonToString(reason));
     m_gpuProcess = nullptr;
 
-    if (reason == GPUProcessTerminationReason::Crash || reason == GPUProcessTerminationReason::Unresponsive)
-        m_client.gpuProcessDidCrash(this, identifier);
+    if (shouldReportAuxiliaryProcessCrash(reason))
+        m_client.gpuProcessDidCrash(this, identifier, reason);
 
     Vector<Ref<WebProcessProxy>> processes = m_processes;
     for (auto& process : processes)
         process->gpuProcessExited(reason);
 
-    if (reason == GPUProcessTerminationReason::Crash || reason == GPUProcessTerminationReason::Unresponsive) {
+    if (reason == ProcessTerminationReason::Crash || reason == ProcessTerminationReason::Unresponsive) {
         if (++m_recentGPUProcessCrashCount > maximumGPUProcessRelaunchAttemptsBeforeKillingWebProcesses) {
             WEBPROCESSPOOL_RELEASE_LOG_ERROR(Process, "gpuProcessDidExit: GPU Process has crashed more than %u times in the last %g seconds, terminating all WebProcesses", maximumGPUProcessRelaunchAttemptsBeforeKillingWebProcesses, resetGPUProcessCrashCountDelay.seconds());
             m_resetGPUProcessCrashCountTimer.stop();
@@ -1154,7 +1174,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
 
     bool enableProcessSwapOnCrossSiteNavigation = page->preferences().processSwapOnCrossSiteNavigationEnabled();
 #if PLATFORM(IOS_FAMILY)
-    if (WebCore::IOSApplication::isFirefox() && !linkedOnOrAfter(SDKVersion::FirstWithProcessSwapOnCrossSiteNavigation))
+    if (WebCore::IOSApplication::isFirefox() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ProcessSwapOnCrossSiteNavigation))
         enableProcessSwapOnCrossSiteNavigation = false;
 #endif
 

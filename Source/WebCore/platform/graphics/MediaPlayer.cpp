@@ -28,6 +28,7 @@
 
 #if ENABLE(VIDEO)
 
+#include "CommonAtomStrings.h"
 #include "ContentType.h"
 #include "DeprecatedGlobalSettings.h"
 #include "FourCC.h"
@@ -58,7 +59,6 @@
 
 #if USE(GSTREAMER)
 #include "MediaPlayerPrivateGStreamer.h"
-#define PlatformMediaEngineClassName MediaPlayerPrivateGStreamer
 #if ENABLE(MEDIA_SOURCE)
 #include "MediaPlayerPrivateGStreamerMSE.h"
 #endif
@@ -66,7 +66,6 @@
 
 #if USE(MEDIA_FOUNDATION)
 #include "MediaPlayerPrivateMediaFoundation.h"
-#define PlatformMediaEngineClassName MediaPlayerPrivateMediaFoundation
 #endif
 
 #if PLATFORM(COCOA)
@@ -108,7 +107,7 @@ public:
 
     void load(const String&) final { }
 #if ENABLE(MEDIA_SOURCE)
-    void load(const URL&, const ContentType&, MediaSourcePrivateClient*) final { }
+    void load(const URL&, const ContentType&, MediaSourcePrivateClient&) final { }
 #endif
 #if ENABLE(MEDIA_STREAM)
     void load(MediaStreamPrivate&) final { }
@@ -296,16 +295,17 @@ static void buildMediaEnginesVector() WTF_REQUIRES_LOCK(mediaEngineVectorLock)
     }
 #endif // USE(AVFOUNDATION)
 
-#if defined(PlatformMediaEngineClassName)
 #if USE(GSTREAMER)
-    if (DeprecatedGlobalSettings::isGStreamerEnabled())
+    if (DeprecatedGlobalSettings::isGStreamerEnabled()) {
+        MediaPlayerPrivateGStreamer::registerMediaEngine(addMediaEngine);
+#if ENABLE(MEDIA_SOURCE)
+        MediaPlayerPrivateGStreamerMSE::registerMediaEngine(addMediaEngine);
 #endif
-        PlatformMediaEngineClassName::registerMediaEngine(addMediaEngine);
+    }
 #endif
 
-#if USE(GSTREAMER) && ENABLE(MEDIA_SOURCE)
-    if (DeprecatedGlobalSettings::isGStreamerEnabled())
-        MediaPlayerPrivateGStreamerMSE::registerMediaEngine(addMediaEngine);
+#if USE(MEDIA_FOUNDATION)
+    MediaPlayerPrivateMediaFoundation::registerMediaEngine(addMediaEngine);
 #endif
 
 #if USE(EXTERNAL_HOLEPUNCH)
@@ -335,12 +335,6 @@ static const AtomString& applicationOctetStream()
 {
     static MainThreadNeverDestroyed<const AtomString> applicationOctetStream("application/octet-stream", AtomString::ConstructFromLiteral);
     return applicationOctetStream;
-}
-
-static const AtomString& textPlain()
-{
-    static MainThreadNeverDestroyed<const AtomString> textPlain("text/plain", AtomString::ConstructFromLiteral);
-    return textPlain;
 }
 
 const MediaPlayerPrivateInterface* MediaPlayer::playerPrivate() const
@@ -491,14 +485,14 @@ bool MediaPlayer::load(const URL& url, const ContentType& contentType, const Str
 
     // If the MIME type is missing or is not meaningful, try to figure it out from the URL.
     AtomString containerType = m_contentType.containerType();
-    if (containerType.isEmpty() || containerType == applicationOctetStream() || containerType == textPlain()) {
+    if (containerType.isEmpty() || containerType == applicationOctetStream() || containerType == textPlainContentTypeAtom()) {
         if (m_url.protocolIsData())
             m_contentType = ContentType(mimeTypeFromDataURL(m_url.string()));
         else {
             auto lastPathComponent = url.lastPathComponent();
             size_t pos = lastPathComponent.reverseFind('.');
             if (pos != notFound) {
-                String extension = lastPathComponent.substring(pos + 1).toString();
+                auto extension = lastPathComponent.substring(pos + 1);
                 String mediaType = MIMETypeRegistry::mediaMIMETypeForExtension(extension);
                 if (!mediaType.isEmpty()) {
                     m_contentType = ContentType { WTFMove(mediaType) };
@@ -513,10 +507,9 @@ bool MediaPlayer::load(const URL& url, const ContentType& contentType, const Str
 }
 
 #if ENABLE(MEDIA_SOURCE)
-bool MediaPlayer::load(const URL& url, const ContentType& contentType, MediaSourcePrivateClient* mediaSource)
+bool MediaPlayer::load(const URL& url, const ContentType& contentType, MediaSourcePrivateClient& mediaSource)
 {
     ASSERT(!m_reloadTimer.isActive());
-    ASSERT(mediaSource);
 
     m_mediaSource = mediaSource;
     m_contentType = contentType;
@@ -628,7 +621,7 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
     if (m_private) {
 #if ENABLE(MEDIA_SOURCE)
         if (m_mediaSource)
-            m_private->load(m_url, m_contentMIMETypeWasInferredFromExtension ? ContentType() : m_contentType, m_mediaSource.get());
+            m_private->load(m_url, m_contentMIMETypeWasInferredFromExtension ? ContentType() : m_contentType, *m_mediaSource);
         else
 #endif
 #if ENABLE(MEDIA_STREAM)
@@ -1119,8 +1112,7 @@ MediaPlayer::SupportsType MediaPlayer::supportsType(const MediaEngineSupportPara
     if (containerType == applicationOctetStream())
         return SupportsType::IsNotSupported;
 
-    auto lowercaseType = containerType.convertToASCIILowercase();
-    if (!lowercaseType.startsWith("video/") && !lowercaseType.startsWith("audio/") && !lowercaseType.startsWith("application/"))
+    if (!startsWithLettersIgnoringASCIICase(containerType.string(), "video/") && !startsWithLettersIgnoringASCIICase(containerType.string(), "audio/") && !startsWithLettersIgnoringASCIICase(containerType.string(), "application/"))
         return SupportsType::IsNotSupported;
 
     const MediaPlayerFactory* engine = bestMediaEngineForSupportParameters(parameters);

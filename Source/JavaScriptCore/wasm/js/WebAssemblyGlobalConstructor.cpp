@@ -66,7 +66,7 @@ JSC_DEFINE_HOST_FUNCTION(constructJSWebAssemblyGlobal, (JSGlobalObject* globalOb
         globalDescriptor = jsCast<JSObject*>(argument);
     }
 
-    Wasm::GlobalInformation::Mutability mutability;
+    Wasm::Mutability mutability;
     {
         Identifier mutableIdent = Identifier::fromString(vm, "mutable"_s);
         JSValue mutableValue = globalDescriptor->get(globalObject, mutableIdent);
@@ -74,9 +74,9 @@ JSC_DEFINE_HOST_FUNCTION(constructJSWebAssemblyGlobal, (JSGlobalObject* globalOb
         bool mutableBoolean = mutableValue.toBoolean(globalObject);
         RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
         if (mutableBoolean)
-            mutability = Wasm::GlobalInformation::Mutable;
+            mutability = Wasm::Mutable;
         else
-            mutability = Wasm::GlobalInformation::Immutable;
+            mutability = Wasm::Immutable;
     }
 
     Wasm::Type type;
@@ -141,7 +141,7 @@ JSC_DEFINE_HOST_FUNCTION(constructJSWebAssemblyGlobal, (JSGlobalObject* globalOb
         if (Wasm::isFuncref(type)) {
             if (argument.isUndefined())
                 argument = defaultValueForReferenceType(type);
-            if (!isWebAssemblyHostFunction(vm, argument) && !argument.isNull()) {
+            if (!isWebAssemblyHostFunction(argument) && !argument.isNull()) {
                 throwException(globalObject, throwScope, createJSWebAssemblyRuntimeError(globalObject, vm, "Funcref must be an exported wasm function"_s));
                 return { };
             }

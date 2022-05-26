@@ -111,6 +111,7 @@ struct SameSizeAsRenderObject {
     virtual ~SameSizeAsRenderObject() = default; // Allocate vtable pointer.
 #if ASSERT_ENABLED
     bool weakPtrFactorWasConstructedOnMainThread;
+    HashSet<void*> cachedResourceClientAssociatedResources;
 #endif
     void* pointers[5];
 #if ASSERT_ENABLED
@@ -1264,12 +1265,12 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
             String value = node()->nodeValue();
             stream << " length->(" << value.length() << ")";
 
-            value.replaceWithLiteral('\\', "\\\\");
-            value.replaceWithLiteral('\n', "\\n");
+            value = makeStringByReplacingAll(value, '\\', "\\\\"_s);
+            value = makeStringByReplacingAll(value, '\n', "\\n"_s);
             
             const int maxPrintedLength = 80;
             if (value.length() > maxPrintedLength) {
-                String substring = value.substring(0, maxPrintedLength);
+                auto substring = StringView(value).left(maxPrintedLength);
                 stream << " \"" << substring.utf8().data() << "\"...";
             } else
                 stream << " \"" << value.utf8().data() << "\"";

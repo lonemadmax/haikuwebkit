@@ -27,6 +27,8 @@
 #include <wtf/text/IntegerToStringConversion.h>
 
 #include <wtf/dtoa.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WTF {
 
@@ -103,13 +105,13 @@ AtomString AtomString::number(unsigned long long number)
 AtomString AtomString::number(float number)
 {
     NumberToStringBuffer buffer;
-    return numberToString(number, buffer);
+    return AtomString::fromLatin1(numberToString(number, buffer));
 }
 
 AtomString AtomString::number(double number)
 {
     NumberToStringBuffer buffer;
-    return numberToString(number, buffer);
+    return AtomString::fromLatin1(numberToString(number, buffer));
 }
 
 AtomString AtomString::fromUTF8Internal(const char* start, const char* end)
@@ -146,7 +148,7 @@ void AtomString::init()
         ASSERT(isUIThread());
 
         nullAtomData.construct();
-        emptyAtomData.construct("");
+        emptyAtomData.construct(AtomString::fromLatin1(""));
 
         // When starting WebThread via StartWebThread function, we have special period between the prologue of StartWebThread and spawning WebThread actually.
         // In this period, `isMainThread()` returns false even if this is called on the main thread since WebThread is now enabled and we are not taking a WebThread lock.
@@ -158,6 +160,37 @@ void AtomString::init()
         xmlAtomData.constructWithoutAccessCheck("xml", AtomString::ConstructFromLiteral);
         xmlnsAtomData.constructWithoutAccessCheck("xmlns", AtomString::ConstructFromLiteral);
     });
+}
+
+static inline StringBuilder replaceUnpairedSurrogatesWithReplacementCharacterInternal(StringView view)
+{
+    // Slow path: https://infra.spec.whatwg.org/#javascript-string-convert
+    // Replaces unpaired surrogates with the replacement character.
+    StringBuilder result;
+    result.reserveCapacity(view.length());
+    for (auto codePoint : view.codePoints()) {
+        if (U_IS_SURROGATE(codePoint))
+            result.append(replacementCharacter);
+        else
+            result.appendCharacter(codePoint);
+    }
+    return result;
+}
+
+AtomString replaceUnpairedSurrogatesWithReplacementCharacter(AtomString&& string)
+{
+    // Fast path for the case where there are no unpaired surrogates.
+    if (LIKELY(!hasUnpairedSurrogate(string)))
+        return WTFMove(string);
+    return replaceUnpairedSurrogatesWithReplacementCharacterInternal(string).toAtomString();
+}
+
+String replaceUnpairedSurrogatesWithReplacementCharacter(String&& string)
+{
+    // Fast path for the case where there are no unpaired surrogates.
+    if (LIKELY(!hasUnpairedSurrogate(string)))
+        return WTFMove(string);
+    return replaceUnpairedSurrogatesWithReplacementCharacterInternal(string).toString();
 }
 
 } // namespace WTF

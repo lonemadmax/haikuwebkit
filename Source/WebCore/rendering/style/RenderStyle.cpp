@@ -776,6 +776,10 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
     if (first.inputSecurity != second.inputSecurity)
         return true;
 
+    if (first.effectiveContainment().contains(Containment::Size) != second.effectiveContainment().contains(Containment::Size)
+        || first.effectiveContainment().contains(Containment::InlineSize) != second.effectiveContainment().contains(Containment::InlineSize))
+        return true;
+
     return false;
 }
 
@@ -1537,6 +1541,7 @@ static std::optional<Path> getPathFromPathOperation(const FloatRect& box, const 
         // FIXME: implement ray- https://bugs.webkit.org/show_bug.cgi?id=233344
         return std::nullopt;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 static PathTraversalState getTraversalStateAtDistance(const Path& path, const Length& distance)
@@ -2893,23 +2898,16 @@ UsedFloat RenderStyle::usedFloat(const RenderObject& renderer)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-OptionSet<Containment> RenderStyle::effectiveContainment() const
+UserSelect RenderStyle::effectiveUserSelect() const
 {
-    auto containment = contain();
+    if (effectiveInert())
+        return UserSelect::None;
 
-    switch (containerType()) {
-    case ContainerType::None:
-        break;
-    case ContainerType::Size:
-        containment.add({ Containment::Layout, Containment::Style, Containment::Size });
-        break;
-    case ContainerType::InlineSize:
-        containment.add({ Containment::Layout, Containment::Style, Containment::InlineSize });
-        break;
-    };
+    auto value = userSelect();
+    if (userModify() != UserModify::ReadOnly && userDrag() != UserDrag::Element)
+        return value == UserSelect::None ? UserSelect::Text : value;
 
-    return containment;
+    return value;
 }
-
 
 } // namespace WebCore

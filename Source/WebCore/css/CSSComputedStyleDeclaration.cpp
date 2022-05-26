@@ -54,6 +54,7 @@
 #include "CursorList.h"
 #include "DeprecatedCSSOMValue.h"
 #include "Document.h"
+#include "ElementRareData.h"
 #include "FontCascade.h"
 #include "FontSelectionValueInlines.h"
 #include "FontTaggedSettings.h"
@@ -1665,6 +1666,30 @@ static Ref<CSSValue> valueForPathOperation(const RenderStyle& style, const PathO
     }
 
     ASSERT_NOT_REACHED();
+    return cssValuePool.createIdentifierValue(CSSValueNone);
+}
+
+static Ref<CSSValue> valueForContainIntrinsicSize(const RenderStyle& style, const ContainIntrinsicSizeType& type, const std::optional<Length> containIntrinsicLength)
+{
+    auto& cssValuePool = CSSValuePool::singleton();
+
+    switch (type) {
+    case ContainIntrinsicSizeType::None:
+        return cssValuePool.createIdentifierValue(CSSValueNone);
+    case ContainIntrinsicSizeType::Length: {
+        ASSERT(containIntrinsicLength.has_value());
+        return zoomAdjustedPixelValueForLength(containIntrinsicLength.value(), style);
+    }
+    case ContainIntrinsicSizeType::AutoAndLength: {
+        auto autoValue = cssValuePool.createIdentifierValue(CSSValueAuto);
+        auto list = CSSValueList::createSpaceSeparated();
+        list->append(autoValue);
+        ASSERT(containIntrinsicLength.has_value());
+        list->append(zoomAdjustedPixelValueForLength(containIntrinsicLength.value(), style));
+        return list;
+    }
+    }
+    RELEASE_ASSERT_NOT_REACHED();
     return cssValuePool.createIdentifierValue(CSSValueNone);
 }
 
@@ -3743,9 +3768,12 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         }
         case CSSPropertyContainer: {
             auto list = CSSValueList::createSlashSeparated();
-            list->append(propertyValue(CSSPropertyContainerType, DoNotUpdateLayout).releaseNonNull());
-            if (!style.containerNames().isEmpty())
+            if (style.containerNames().isEmpty())
+                list->append(cssValuePool.createIdentifierValue(CSSValueNone));
+            else
                 list->append(propertyValue(CSSPropertyContainerName, DoNotUpdateLayout).releaseNonNull());
+            if (style.containerType() != ContainerType::None)
+                list->append(propertyValue(CSSPropertyContainerType, DoNotUpdateLayout).releaseNonNull());
             return list;
         }
         case CSSPropertyContainerType:
@@ -3757,6 +3785,21 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             for (auto& name : style.containerNames())
                 list->append(cssValuePool.createCustomIdent(name));
             return list;
+        }
+        case CSSPropertyContainIntrinsicSize: {
+            if (!m_element->document().settings().cssContainIntrinsicSizeEnabled())
+                return nullptr;
+            return getCSSPropertyValuesFor2SidesShorthand(containIntrinsicSizeShorthand());
+        }
+        case CSSPropertyContainIntrinsicWidth: {
+            if (!m_element->document().settings().cssContainIntrinsicSizeEnabled())
+                return nullptr;
+            return valueForContainIntrinsicSize(style, style.containIntrinsicWidthType(), style.containIntrinsicWidth());
+        }
+        case CSSPropertyContainIntrinsicHeight: {
+            if (!m_element->document().settings().cssContainIntrinsicSizeEnabled())
+                return nullptr;
+            return valueForContainIntrinsicSize(style, style.containIntrinsicHeightType(), style.containIntrinsicHeight());
         }
         case CSSPropertyBackfaceVisibility:
             return cssValuePool.createIdentifierValue((style.backfaceVisibility() == BackfaceVisibility::Hidden) ? CSSValueHidden : CSSValueVisible);
@@ -3835,7 +3878,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
 #endif
         case CSSPropertyWebkitUserDrag:
             return cssValuePool.createValue(style.userDrag());
-        case CSSPropertyWebkitUserSelect:
+        case CSSPropertyUserSelect:
             return cssValuePool.createValue(style.userSelect());
         case CSSPropertyBorderBottomLeftRadius:
             return borderRadiusCornerValue(style.borderBottomLeftRadius(), style);
@@ -4217,6 +4260,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyScrollPaddingBlockStart:
         case CSSPropertyScrollPaddingInlineEnd:
         case CSSPropertyScrollPaddingInlineStart:
+        case CSSPropertyContainIntrinsicBlockSize:
+        case CSSPropertyContainIntrinsicInlineSize:
             ASSERT_NOT_REACHED();
             break;
 

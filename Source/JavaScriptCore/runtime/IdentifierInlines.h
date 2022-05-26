@@ -44,7 +44,7 @@ inline Identifier::Identifier(VM& vm, AtomStringImpl* string)
 }
 
 inline Identifier::Identifier(VM& vm, const AtomString& string)
-    : m_string(string.string())
+    : m_string(string)
 {
 #ifndef NDEBUG
     checkCurrentAtomStringTable(vm);
@@ -120,9 +120,9 @@ inline Identifier Identifier::fromString(VM& vm, SymbolImpl* symbolImpl)
     return Identifier(vm, symbolImpl);
 }
 
-inline Identifier Identifier::fromCString(VM& vm, const char* s)
+inline Identifier Identifier::fromLatin1(VM& vm, const char* s)
 {
-    return Identifier(vm, AtomString(s));
+    return Identifier(vm, AtomString::fromLatin1(s));
 }
 
 inline JSValue identifierToJSValue(VM& vm, const Identifier& identifier)

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -72,6 +72,7 @@
 #include "DocumentTimelinesController.h"
 #include "Editor.h"
 #include "Element.h"
+#include "ElementRareData.h"
 #include "EventHandler.h"
 #include "EventListener.h"
 #include "EventLoop.h"
@@ -214,6 +215,7 @@
 #include "SystemSoundManager.h"
 #include "TextIterator.h"
 #include "TextPlaceholderElement.h"
+#include "TextRecognitionOptions.h"
 #include "ThreadableBlobRegistry.h"
 #include "TreeScope.h"
 #include "TypeConversions.h"
@@ -347,7 +349,6 @@
 #endif
 
 #if PLATFORM(COCOA)
-#include "FontCacheCoreText.h"
 #include "SystemBattery.h"
 #include "VP9UtilitiesCocoa.h"
 #include <pal/spi/cf/CoreTextSPI.h>
@@ -362,6 +363,10 @@
 
 #if ENABLE(IMAGE_ANALYSIS)
 #include "TextRecognitionResult.h"
+#endif
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+#include "HTMLModelElement.h"
 #endif
 
 using JSC::CallData;
@@ -1905,15 +1910,6 @@ void Internals::setFontSmoothingEnabled(bool enabled)
     FontCascade::setShouldUseSmoothing(enabled);
 }
 
-void Internals::setOverrideEnhanceTextLegibility(bool enhance)
-{
-#if PLATFORM(COCOA)
-    WebCore::setOverrideEnhanceTextLegibility(enhance);
-#else
-    UNUSED_PARAM(enhance);
-#endif
-}
-
 ExceptionOr<void> Internals::setLowPowerModeEnabled(bool isEnabled)
 {
     auto* document = contextDocument();
@@ -2494,7 +2490,7 @@ String Internals::parserMetaData(JSC::JSValue code)
         GetCallerCodeBlockFunctor iter;
         callFrame->iterate(vm, iter);
         executable = iter.codeBlock()->ownerExecutable();
-    } else if (code.isCallable(vm))
+    } else if (code.isCallable())
         executable = JSC::jsCast<JSFunction*>(code.toObject(globalObject))->jsExecutable();
     else
         return String();
@@ -5077,17 +5073,16 @@ bool Internals::isReadableStreamDisturbed(JSC::JSGlobalObject& lexicalGlobalObje
 
 JSValue Internals::cloneArrayBuffer(JSC::JSGlobalObject& lexicalGlobalObject, JSValue buffer, JSValue srcByteOffset, JSValue srcLength)
 {
-    JSC::VM& vm = lexicalGlobalObject.vm();
-    JSVMClientData* clientData = static_cast<JSVMClientData*>(vm.clientData);
-    const Identifier& privateName = clientData->builtinNames().cloneArrayBufferPrivateName();
+    auto& vm = lexicalGlobalObject.vm();
+    const Identifier& privateName = builtinNames(vm).cloneArrayBufferPrivateName();
     JSValue value;
     PropertySlot propertySlot(value, PropertySlot::InternalMethodType::Get);
-    lexicalGlobalObject.methodTable(vm)->getOwnPropertySlot(&lexicalGlobalObject, &lexicalGlobalObject, privateName, propertySlot);
+    lexicalGlobalObject.methodTable()->getOwnPropertySlot(&lexicalGlobalObject, &lexicalGlobalObject, privateName, propertySlot);
     value = propertySlot.getValue(&lexicalGlobalObject, privateName);
-    ASSERT(value.isCallable(vm));
+    ASSERT(value.isCallable());
 
     JSObject* function = value.getObject();
-    auto callData = JSC::getCallData(vm, function);
+    auto callData = JSC::getCallData(function);
     ASSERT(callData.type != JSC::CallData::Type::None);
     MarkedArgumentBuffer arguments;
     arguments.append(buffer);
@@ -5692,6 +5687,7 @@ auto Internals::categoryAtMostRecentPlayback(HTMLMediaElement& element) const ->
 #if USE(AUDIO_SESSION)
     return element.categoryAtMostRecentPlayback();
 #else
+    UNUSED_PARAM(element);
     return AudioSessionCategory::None;
 #endif
 }
@@ -5948,29 +5944,6 @@ void Internals::installImageOverlay(Element& element, Vector<ImageOverlayLine>&&
     UNUSED_PARAM(dataDetectors);
     UNUSED_PARAM(lines);
 #endif
-}
-
-void Internals::installCroppedImageOverlay(Element& element, Ref<DOMRectReadOnly>&& normalizedCropRect)
-{
-    RefPtr htmlElement = dynamicDowncast<HTMLElement>(element);
-    if (!htmlElement)
-        return;
-
-    auto imageData = pngDataForTesting();
-    if (!imageData)
-        return;
-
-    m_croppedImageOverlay = ImageOverlay::CroppedImage::install(*htmlElement, imageData.releaseNonNull(), "image/png"_s, {
-        static_cast<float>(normalizedCropRect->x()),
-        static_cast<float>(normalizedCropRect->y()),
-        static_cast<float>(normalizedCropRect->width()),
-        static_cast<float>(normalizedCropRect->height())
-    });
-}
-
-void Internals::uninstallCroppedImageOverlay()
-{
-    m_croppedImageOverlay = nullptr;
 }
 
 bool Internals::hasActiveDataDetectorHighlight() const
@@ -6795,5 +6768,35 @@ void Internals::overrideModalContainerSearchTermForTesting(const String& term)
     if (auto observer = contextDocument()->modalContainerObserver())
         observer->overrideSearchTermForTesting(term);
 }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+
+void Internals::modelInlinePreviewUUIDs(ModelInlinePreviewUUIDsPromise&& promise) const
+{
+    auto* document = contextDocument();
+    if (!document) {
+        promise.reject(InvalidStateError);
+        return;
+    }
+
+    auto* frame = document->frame();
+    if (!frame) {
+        promise.reject(InvalidStateError);
+        return;
+    }
+
+    CompletionHandler<void(Vector<String>&&)> completionHandler = [promise = WTFMove(promise)] (Vector<String> uuids) mutable {
+        promise.resolve(uuids);
+    };
+
+    frame->loader().client().modelInlinePreviewUUIDs(WTFMove(completionHandler));
+}
+
+String Internals::modelInlinePreviewUUIDForModelElement(const HTMLModelElement& modelElement) const
+{
+    return modelElement.inlinePreviewUUIDForTesting();
+}
+
+#endif
 
 } // namespace WebCore

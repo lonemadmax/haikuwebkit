@@ -1245,16 +1245,6 @@ bool WKPreferencesGetThreadedScrollingEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->threadedScrollingEnabled();
 }
 
-void WKPreferencesSetSimpleLineLayoutEnabled(WKPreferencesRef preferencesRef, bool flag)
-{
-    toImpl(preferencesRef)->setSimpleLineLayoutEnabled(flag);
-}
-
-bool WKPreferencesGetSimpleLineLayoutEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->simpleLineLayoutEnabled();
-}
-
 void WKPreferencesSetLegacyLineLayoutVisualCoverageEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setLegacyLineLayoutVisualCoverageEnabled(flag);

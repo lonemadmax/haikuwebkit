@@ -28,6 +28,7 @@
 #include "AXObjectCache.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "ChromeClient.h"
+#include "CommonAtomStrings.h"
 #include "DocumentInlines.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -257,9 +258,9 @@ ExceptionOr<void> HTMLTextFormControlElement::setRangeText(const String& replace
     end = std::min(end, textLength);
 
     if (start < end)
-        text.replace(start, end - start, replacement);
+        text = makeStringByReplacing(text, start, end - start, replacement);
     else
-        text.insert(replacement, start);
+        text = makeStringByInserting(text, replacement, start);
 
     setValue(text, TextFieldEventBehavior::DispatchNoEvent, TextControlSetValueSelection::DoNotSet);
 
@@ -434,13 +435,12 @@ unsigned HTMLTextFormControlElement::computeSelectionEnd() const
 
 static const AtomString& directionString(TextFieldSelectionDirection direction)
 {
-    static MainThreadNeverDestroyed<const AtomString> none("none", AtomString::ConstructFromLiteral);
     static MainThreadNeverDestroyed<const AtomString> forward("forward", AtomString::ConstructFromLiteral);
     static MainThreadNeverDestroyed<const AtomString> backward("backward", AtomString::ConstructFromLiteral);
 
     switch (direction) {
     case SelectionHasNoDirection:
-        return none;
+        return noneAtom();
     case SelectionHasForwardDirection:
         return forward;
     case SelectionHasBackwardDirection:
@@ -448,7 +448,7 @@ static const AtomString& directionString(TextFieldSelectionDirection direction)
     }
 
     ASSERT_NOT_REACHED();
-    return none;
+    return noneAtom();
 }
 
 const AtomString& HTMLTextFormControlElement::selectionDirection() const
@@ -611,7 +611,7 @@ static String innerTextValueFrom(TextControlInnerTextElement& innerText)
     return result.toString();
 }
 
-void HTMLTextFormControlElement::setInnerTextValue(const String& value)
+void HTMLTextFormControlElement::setInnerTextValue(String&& value)
 {
     LayoutDisallowedScope layoutDisallowedScope(LayoutDisallowedScope::Reason::PerformanceOptimization);
     auto innerText = innerTextElementCreatingShadowSubtreeIfNeeded();
@@ -643,9 +643,10 @@ void HTMLTextFormControlElement::setInnerTextValue(const String& value)
             // Events dispatched on the inner text element cannot execute arbitrary author scripts.
             ScriptDisallowedScope::EventAllowedScope allowedScope(*userAgentShadowRoot());
 
-            innerText->setInnerText(value);
+            bool endsWithNewLine = value.endsWith('\n') || value.endsWith('\r');
+            innerText->setInnerText(WTFMove(value));
 
-            if (value.endsWith('\n') || value.endsWith('\r'))
+            if (endsWithNewLine)
                 innerText->appendChild(HTMLBRElement::create(document()));
         }
 

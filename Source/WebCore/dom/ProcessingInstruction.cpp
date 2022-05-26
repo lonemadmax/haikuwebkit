@@ -27,6 +27,7 @@
 #include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
 #include "CachedXSLStyleSheet.h"
+#include "CommonAtomStrings.h"
 #include "DocumentInlines.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -43,15 +44,15 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(ProcessingInstruction);
 
-inline ProcessingInstruction::ProcessingInstruction(Document& document, const String& target, const String& data)
-    : CharacterData(document, data)
-    , m_target(target)
+inline ProcessingInstruction::ProcessingInstruction(Document& document, String&& target, String&& data)
+    : CharacterData(document, WTFMove(data))
+    , m_target(WTFMove(target))
 {
 }
 
-Ref<ProcessingInstruction> ProcessingInstruction::create(Document& document, const String& target, const String& data)
+Ref<ProcessingInstruction> ProcessingInstruction::create(Document& document, String&& target, String&& data)
 {
-    return adoptRef(*new ProcessingInstruction(document, target, data));
+    return adoptRef(*new ProcessingInstruction(document, WTFMove(target), WTFMove(data)));
 }
 
 ProcessingInstruction::~ProcessingInstruction()
@@ -80,7 +81,7 @@ Ref<Node> ProcessingInstruction::cloneNodeInternal(Document& targetDocument, Clo
 {
     // FIXME: Is it a problem that this does not copy m_localHref?
     // What about other data members?
-    return create(targetDocument, m_target, data());
+    return create(targetDocument, String { m_target }, String { data() });
 }
 
 void ProcessingInstruction::checkStyleSheet()
@@ -94,7 +95,7 @@ void ProcessingInstruction::checkStyleSheet()
             return;
         String type = attributes->get<HashTranslatorASCIILiteral>("type"_s);
 
-        m_isCSS = type.isEmpty() || type == "text/css";
+        m_isCSS = type.isEmpty() || type == cssContentTypeAtom();
 #if ENABLE(XSLT)
         m_isXSL = type == "text/xml" || type == "text/xsl" || type == "application/xml" || type == "application/xhtml+xml" || type == "application/rss+xml" || type == "application/atom+xml";
         if (!m_isCSS && !m_isXSL)

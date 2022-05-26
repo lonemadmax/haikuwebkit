@@ -37,6 +37,7 @@
 #include "CacheStorageProvider.h"
 #include "ChildListMutationScope.h"
 #include "Comment.h"
+#include "CommonAtomStrings.h"
 #include "ComposedTreeIterator.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
@@ -45,6 +46,7 @@
 #include "Editor.h"
 #include "EditorClient.h"
 #include "ElementIterator.h"
+#include "ElementRareData.h"
 #include "EmptyClients.h"
 #include "File.h"
 #include "Frame.h"
@@ -420,7 +422,7 @@ String StyledMarkupAccumulator::takeResults()
         result.append(string);
     result.append(takeMarkup());
     // Remove '\0' characters because they are not visibly rendered to the user.
-    return result.toString().replaceWithLiteral('\0', "");
+    return makeStringByReplacingAll(result.toString(), '\0', ""_s);
 }
 
 void StyledMarkupAccumulator::appendText(StringBuilder& out, const Text& text)
@@ -995,7 +997,7 @@ static bool shouldPreserveMSOLists(StringView markup)
     auto tagClose = markup.find('>');
     if (tagClose == notFound)
         return false;
-    auto tag = markup.substring(0, tagClose);
+    auto tag = markup.left(tagClose);
     return tag.contains("xmlns:o=\"urn:schemas-microsoft-com:office:office\"")
         && tag.contains("xmlns:w=\"urn:schemas-microsoft-com:office:word\"");
 }
@@ -1103,7 +1105,7 @@ static void fillContainerFromString(ContainerNode& paragraph, const String& stri
     ASSERT(string.find('\n') == notFound);
 
     Vector<String> tabList = string.splitAllowingEmptyEntries('\t');
-    String tabText = emptyString();
+    StringBuilder tabText;
     bool first = true;
     size_t numEntries = tabList.size();
     for (size_t i = 0; i < numEntries; ++i) {
@@ -1112,8 +1114,8 @@ static void fillContainerFromString(ContainerNode& paragraph, const String& stri
         // append the non-tab textual part
         if (!s.isEmpty()) {
             if (!tabText.isEmpty()) {
-                paragraph.appendChild(createTabSpanElement(document, tabText));
-                tabText = emptyString();
+                paragraph.appendChild(createTabSpanElement(document, tabText.toString()));
+                tabText.clear();
             }
             Ref<Node> textNode = document.createTextNode(stringWithRebalancedWhitespace(s, first, i + 1 == numEntries));
             paragraph.appendChild(textNode);
@@ -1124,7 +1126,7 @@ static void fillContainerFromString(ContainerNode& paragraph, const String& stri
         if (i + 1 != numEntries)
             tabText.append('\t');
         else if (!tabText.isEmpty())
-            paragraph.appendChild(createTabSpanElement(document, tabText));
+            paragraph.appendChild(createTabSpanElement(document, tabText.toString()));
 
         first = false;
     }
@@ -1168,19 +1170,18 @@ Ref<DocumentFragment> createFragmentFromText(const SimpleRange& context, const S
     if (text.isEmpty())
         return fragment;
 
-    String string = text;
-    string.replace("\r\n", "\n");
-    string.replace('\r', '\n');
+    String string = makeStringBySimplifyingNewLines(text);
 
     auto createHTMLBRElement = [&document]() {
         auto element = HTMLBRElement::create(document);
-        element->setAttributeWithoutSynchronization(classAttr, AppleInterchangeNewline);
+        element->setAttributeWithoutSynchronization(classAttr, AtomString::fromLatin1(AppleInterchangeNewline));
         return element;
     };
 
     if (contextPreservesNewline(context)) {
-        fragment->appendChild(document.createTextNode(string));
-        if (string.endsWith('\n')) {
+        bool endsWithNewLine = string.endsWith('\n');
+        fragment->appendChild(document.createTextNode(WTFMove(string)));
+        if (endsWithNewLine) {
             fragment->appendChild(createHTMLBRElement());
         }
         return fragment;
@@ -1272,7 +1273,7 @@ ExceptionOr<Ref<DocumentFragment>> createFragmentForInnerOuterHTML(Element& cont
     return createFragmentForMarkup(contextElement, markup, DocumentFragmentMode::ReuseForInnerOuterHTML, parserContentPolicy);
 }
 
-RefPtr<DocumentFragment> createFragmentForTransformToFragment(Document& outputDoc, const String& sourceString, const String& sourceMIMEType)
+RefPtr<DocumentFragment> createFragmentForTransformToFragment(Document& outputDoc, String&& sourceString, const String& sourceMIMEType)
 {
     RefPtr<DocumentFragment> fragment = outputDoc.createDocumentFragment();
     
@@ -1282,11 +1283,11 @@ RefPtr<DocumentFragment> createFragmentForTransformToFragment(Document& outputDo
         // Unfortunately, that's an implementation detail of the parser.
         // We achieve that effect here by passing in a fake body element as context for the fragment.
         auto fakeBody = HTMLBodyElement::create(outputDoc);
-        fragment->parseHTML(sourceString, fakeBody.ptr());
-    } else if (sourceMIMEType == "text/plain")
-        fragment->parserAppendChild(Text::create(outputDoc, sourceString));
+        fragment->parseHTML(WTFMove(sourceString), fakeBody.ptr());
+    } else if (sourceMIMEType == textPlainContentTypeAtom())
+        fragment->parserAppendChild(Text::create(outputDoc, WTFMove(sourceString)));
     else {
-        bool successfulParse = fragment->parseXML(sourceString, 0);
+        bool successfulParse = fragment->parseXML(WTFMove(sourceString), 0);
         if (!successfulParse)
             return nullptr;
     }

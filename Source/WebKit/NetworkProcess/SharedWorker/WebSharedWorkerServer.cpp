@@ -107,13 +107,11 @@ void WebSharedWorkerServer::didFinishFetchingSharedWorkerScript(WebSharedWorker&
         return;
     }
 
-    sharedWorker.setFetchResult(WTFMove(fetchResult));
+    auto* connection = m_contextConnections.get(sharedWorker.registrableDomain());
+    sharedWorker.setFetchResult(WTFMove(fetchResult), connection);
 
-    if (auto* contextConnection = sharedWorker.contextConnection()) {
-        contextConnection->launchSharedWorker(sharedWorker);
-        return;
-    }
-    createContextConnection(sharedWorker.registrableDomain(), sharedWorker.firstSharedWorkerObjectProcess());
+    if (!connection)
+        createContextConnection(sharedWorker.registrableDomain(), sharedWorker.firstSharedWorkerObjectProcess());
 }
 
 bool WebSharedWorkerServer::needsContextConnectionForRegistrableDomain(const WebCore::RegistrableDomain& registrableDomain) const
@@ -186,8 +184,6 @@ void WebSharedWorkerServer::contextConnectionCreated(WebSharedWorkerServerToCont
             continue;
 
         sharedWorker->didCreateContextConnection(contextConnection);
-        if (sharedWorker->didFinishFetching())
-            contextConnection.launchSharedWorker(*sharedWorker);
     }
 }
 
@@ -203,6 +199,26 @@ void WebSharedWorkerServer::sharedWorkerObjectIsGoingAway(const WebCore::SharedW
         return;
 
     shutDownSharedWorker(sharedWorkerKey);
+}
+
+void WebSharedWorkerServer::suspendForBackForwardCache(const WebCore::SharedWorkerKey& sharedWorkerKey, WebCore::SharedWorkerObjectIdentifier sharedWorkerObjectIdentifier)
+{
+    auto* sharedWorker = m_sharedWorkers.get(sharedWorkerKey);
+    RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::suspendForBackForwardCache: sharedWorkerObjectIdentifier=%{public}s, sharedWorker=%p", sharedWorkerObjectIdentifier.toString().utf8().data(), sharedWorker);
+    if (!sharedWorker)
+        return;
+
+    sharedWorker->suspend(sharedWorkerObjectIdentifier);
+}
+
+void WebSharedWorkerServer::resumeForBackForwardCache(const WebCore::SharedWorkerKey& sharedWorkerKey, WebCore::SharedWorkerObjectIdentifier sharedWorkerObjectIdentifier)
+{
+    auto* sharedWorker = m_sharedWorkers.get(sharedWorkerKey);
+    RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::resumeForBackForwardCache: sharedWorkerObjectIdentifier=%{public}s, sharedWorker=%p", sharedWorkerObjectIdentifier.toString().utf8().data(), sharedWorker);
+    if (!sharedWorker)
+        return;
+
+    sharedWorker->resume(sharedWorkerObjectIdentifier);
 }
 
 void WebSharedWorkerServer::shutDownSharedWorker(const WebCore::SharedWorkerKey& key)

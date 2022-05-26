@@ -1,3 +1,85 @@
+2022-04-24  Zan Dobersek  <zdobersek@igalia.com>
+
+        Skip microbenchmarks/memcpy-wasm.js and friends on non-FTL (i.e. non-WASM) platforms
+        https://bugs.webkit.org/show_bug.cgi?id=239705
+
+        Reviewed by Yusuke Suzuki.
+
+        Mark microbenchmarks/memcpy-wasm.js and related tests as skipped on
+        non-FTL platforms since WASM tests are not run there, resulting in
+        failures when they're executed.
+
+        * microbenchmarks/memcpy-wasm-large.js:
+        * microbenchmarks/memcpy-wasm-medium.js:
+        * microbenchmarks/memcpy-wasm-small.js:
+        * microbenchmarks/memcpy-wasm.js:
+
+2022-04-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] PropertyTable should have compact mode
+        https://bugs.webkit.org/show_bug.cgi?id=239451
+
+        Reviewed by Saam Barati.
+
+        * stress/change-attribute-structure-transition.js:
+        (shouldBe.JSON.stringify.sd):
+        * stress/compact-to-non-compact-with-delete.js: Added.
+        (shouldBe):
+        * stress/compact-to-non-compact.js: Added.
+        (shouldBe):
+
+2022-04-14  Caitlin Potter  <caitp@igalia.com>
+
+        [JSC] ShadowRealm global object has a mutable prototype
+        https://bugs.webkit.org/show_bug.cgi?id=239332
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/shadow-realm-globalThis-mutable-prototype.js: Added.
+
+2022-04-14  Alexey Shvayka  <ashvayka@apple.com>
+
+        InternalFunction::createSubclassStructure() should use base object's global object
+        https://bugs.webkit.org/show_bug.cgi?id=239346
+
+        Reviewed by Darin Adler.
+
+        * stress/internal-function-subclass-structure-realm.js:
+
+2022-04-12  Aditi Singh  <asingh@igalia.com>
+
+        Implement Change Array by copy proposal
+        https://bugs.webkit.org/show_bug.cgi?id=234604
+
+        Reviewed by Alexey Shvayka.
+
+        * stress/change-array-by-copy.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (shallowEqual):
+        (shouldThrow.Array.prototype.toSpliced.toReversed):
+        * stress/typed-array-change-by-copy.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (shallowEqual):
+        (sequence.new.Uint8Array):
+        * stress/unscopables.js:
+
+2022-04-12  Dmitry Bezhetskov  <dbezhetskov@igalia.com>
+
+        [WASM-GC] Introduce structs types
+        https://bugs.webkit.org/show_bug.cgi?id=237029
+
+        Reviewed by Keith Miller.
+
+        Added basic tests for struct types declaration.
+
+        * wasm.yaml:
+        * wasm/gc/structs.js: Added.
+        (module):
+        (testStructDeclaration):
+        * wasm/wasm.json:
+
 2022-04-10  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] DFG / FTL should be aware of JSString's String replacement

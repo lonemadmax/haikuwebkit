@@ -110,6 +110,7 @@ model-element/model-element-contents-layer-updates.html [ Skip ]
 # This test requires ARQL SPIs not yet available to OpenSource builds.
 model-element/model-element-camera.html [ Skip ]
 model-element/model-element-interactive-dragging.html [ Skip ]
+model-element/model-element-inline-preview-deletion-upon-source-change.html [ Skip ]
 
 # Accessibility tests for notifications that don't exist or aren't needed on Mac OS X.
 accessibility/aria-checkbox-sends-notification.html
@@ -1390,7 +1391,7 @@ webkit.org/b/190724 [ Debug ] http/tests/misc/large-js-program.py [ Pass Timeout
 webkit.org/b/191565 [ Debug ] imported/w3c/web-platform-tests/css/mediaqueries/test_media_queries.html [ Failure Slow ]
 webkit.org/b/225469 [ Release ] imported/w3c/web-platform-tests/css/mediaqueries/test_media_queries.html [ Failure ]
 
-webkit.org/b/183389 [ Debug ] fast/css/counters/element-removal-crash.xhtml [ Pass Failure ] 
+webkit.org/b/239405 fast/css/counters/element-removal-crash.xhtml [ Pass Failure ] 
 
 webkit.org/b/190976 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play.html [ Pass Failure ]
 
@@ -2090,9 +2091,9 @@ webkit.org/b/226598 animations/leak-document-with-css-animation.html [ Pass Fail
 
 webkit.org/b/238824 http/tests/workers/service/openwindow-from-notification-click.html [ Pass Failure ]
 
-webkit.org/b/215335 [ BigSur Release ] webanimations/css-transition-retargeting-during-ready-promise.html [ Pass Failure ]
+webkit.org/b/215335 [ Release ] webanimations/css-transition-retargeting-during-ready-promise.html [ Pass Failure ]
 
-webkit.org/b/223472 [ BigSur Release arm64 ] imported/w3c/web-platform-tests/resource-timing/resource_timing.worker.html [ Pass Failure ]
+webkit.org/b/223472 [ Release arm64 ] imported/w3c/web-platform-tests/resource-timing/resource_timing.worker.html [ Pass Failure ]
 
 webkit.org/b/227753 [ Debug ] fast/dom/Window/post-message-large-array-buffer-should-not-crash.html [ Pass Failure ]
 
@@ -2286,11 +2287,10 @@ imported/w3c/web-platform-tests/xhr/event-timeout-order.any.worker.html [ Failur
 
 webkit.org/b/237166 [ BigSur+ ] webgl/pending/conformance/textures/misc/tex-image-video-repeated.html [ Pass Timeout ]
 
-# fast/text/accessibility-bold.html requires WK2. The ***-wk2/TestExpectation files mark it as PASS.
-fast/text/accessibility-bold.html [ Skip ]
-
 # macOS has a WebGPU implementation.
 http/tests/webgpu [ Pass ]
 
 # fractional pixel diff between modern and legacy line layout.
 imported/blink/fast/multicol/vertical-lr/float-content-break.html [ ImageOnlyFailure ]
+
+editing/execCommand/insert-ordered-list-and-delete.html [ Pass Failure ]

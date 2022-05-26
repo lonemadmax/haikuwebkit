@@ -83,7 +83,6 @@
 #include "ThreadableWebSocketChannel.h"
 #include "UserContentProvider.h"
 #include "VisitedLinkStore.h"
-#include "WebLockRegistry.h"
 #include <JavaScriptCore/HeapInlines.h>
 #include <pal/SessionID.h>
 #include <wtf/NeverDestroyed.h>
@@ -633,7 +632,7 @@ RefPtr<Frame> EmptyFrameLoaderClient::createFrame(const String&, HTMLFrameOwnerE
     return nullptr;
 }
 
-RefPtr<Widget> EmptyFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool)
+RefPtr<Widget> EmptyFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&, const Vector<AtomString>&, const String&, bool)
 {
     return nullptr;
 }
@@ -1193,20 +1192,6 @@ private:
     void postMessage(const PartitionedSecurityOrigin&, const String&, BroadcastChannelIdentifier, Ref<SerializedScriptValue>&&, CompletionHandler<void()>&&) final { }
 };
 
-class EmptyWebLockRegistry final : public WebLockRegistry {
-public:
-    static Ref<EmptyWebLockRegistry> create()
-    {
-        return adoptRef(*new EmptyWebLockRegistry);
-    }
-private:
-    void requestLock(const ClientOrigin&, WebLockIdentifier, ScriptExecutionContextIdentifier, const String&, WebLockMode, bool, bool, Function<void(bool)>&&, Function<void()>&&) { }
-    void releaseLock(const ClientOrigin&, WebLockIdentifier, ScriptExecutionContextIdentifier, const String&) final { }
-    void abortLockRequest(const ClientOrigin&, WebLockIdentifier, ScriptExecutionContextIdentifier, const String&, CompletionHandler<void(bool)>&&) final { }
-    void snapshot(const ClientOrigin&, CompletionHandler<void(WebLockManagerSnapshot&&)>&&) { }
-    void clientIsGoingAway(const ClientOrigin&, ScriptExecutionContextIdentifier) { }
-};
-
 PageConfiguration pageConfigurationWithEmptyClients(PAL::SessionID sessionID)
 {
     PageConfiguration pageConfiguration {
@@ -1223,7 +1208,6 @@ PageConfiguration pageConfigurationWithEmptyClients(PAL::SessionID sessionID)
         makeUniqueRef<DummySpeechRecognitionProvider>(),
         makeUniqueRef<EmptyMediaRecorderProvider>(),
         EmptyBroadcastChannelRegistry::create(),
-        EmptyWebLockRegistry::create(),
         DummyPermissionController::create(),
         makeUniqueRef<DummyStorageProvider>(),
         makeUniqueRef<DummyModelPlayerProvider>()

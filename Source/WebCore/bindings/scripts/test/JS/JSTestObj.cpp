@@ -81,6 +81,7 @@
 #include "JSTestSubObj.h"
 #include "JSVoidCallback.h"
 #include "JSWindowProxy.h"
+#include "JSWorkerGlobalScopeBase.h"
 #include "JSXPathNSResolver.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScriptExecutionContext.h"
@@ -102,6 +103,7 @@
 #include <variant>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
+#include <wtf/SortedArrayMap.h>
 #include <wtf/URL.h>
 #include <wtf/Vector.h>
 
@@ -151,12 +153,14 @@ template<> std::optional<TestObj::EnumType> parseEnumeration<TestObj::EnumType>(
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
     if (stringValue.isEmpty())
         return TestObj::EnumType::EmptyString;
-    if (stringValue == "enumValue1")
-        return TestObj::EnumType::EnumValue1;
-    if (stringValue == "EnumValue2")
-        return TestObj::EnumType::EnumValue2;
-    if (stringValue == "EnumValue3")
-        return TestObj::EnumType::EnumValue3;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::EnumType> mappings[] = {
+        { "EnumValue2", TestObj::EnumType::EnumValue2 },
+        { "EnumValue3", TestObj::EnumType::EnumValue3 },
+        { "enumValue1", TestObj::EnumType::EnumValue1 },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -185,10 +189,13 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<TestObj::EnumTrailingComma> parseEnumeration<TestObj::EnumTrailingComma>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "enumValue1")
-        return TestObj::EnumTrailingComma::EnumValue1;
-    if (stringValue == "enumValue2")
-        return TestObj::EnumTrailingComma::EnumValue2;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma> mappings[] = {
+        { "enumValue1", TestObj::EnumTrailingComma::EnumValue1 },
+        { "enumValue2", TestObj::EnumTrailingComma::EnumValue2 },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -223,12 +230,14 @@ template<> std::optional<TestObj::Optional> parseEnumeration<TestObj::Optional>(
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
     if (stringValue.isEmpty())
         return TestObj::Optional::EmptyString;
-    if (stringValue == "OptionalValue1")
-        return TestObj::Optional::OptionalValue1;
-    if (stringValue == "OptionalValue2")
-        return TestObj::Optional::OptionalValue2;
-    if (stringValue == "OptionalValue3")
-        return TestObj::Optional::OptionalValue3;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::Optional> mappings[] = {
+        { "OptionalValue1", TestObj::Optional::OptionalValue1 },
+        { "OptionalValue2", TestObj::Optional::OptionalValue2 },
+        { "OptionalValue3", TestObj::Optional::OptionalValue3 },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -257,10 +266,13 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<AlternateEnumName> parseEnumeration<AlternateEnumName>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "enumValue1")
-        return AlternateEnumName::EnumValue1;
-    if (stringValue == "EnumValue2")
-        return AlternateEnumName::EnumValue2;
+    static constexpr std::pair<ComparableASCIILiteral, AlternateEnumName> mappings[] = {
+        { "EnumValue2", AlternateEnumName::EnumValue2 },
+        { "enumValue1", AlternateEnumName::EnumValue1 },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -289,8 +301,12 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<TestObj::EnumA> parseEnumeration<TestObj::EnumA>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "A")
-        return TestObj::EnumA::A;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::EnumA> mappings[] = {
+        { "A", TestObj::EnumA::A },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -321,8 +337,12 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<TestObj::EnumB> parseEnumeration<TestObj::EnumB>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "B")
-        return TestObj::EnumB::B;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::EnumB> mappings[] = {
+        { "B", TestObj::EnumB::B },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -353,8 +373,12 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<TestObj::EnumC> parseEnumeration<TestObj::EnumC>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "C")
-        return TestObj::EnumC::C;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::EnumC> mappings[] = {
+        { "C", TestObj::EnumC::C },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -385,10 +409,13 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<TestObj::Kind> parseEnumeration<TestObj::Kind>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "quick")
-        return TestObj::Kind::Quick;
-    if (stringValue == "dead")
-        return TestObj::Kind::Dead;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::Kind> mappings[] = {
+        { "dead", TestObj::Kind::Dead },
+        { "quick", TestObj::Kind::Quick },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -417,10 +444,13 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<TestObj::Size> parseEnumeration<TestObj::Size>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "small")
-        return TestObj::Size::Small;
-    if (stringValue == "much-much-larger")
-        return TestObj::Size::MuchMuchLarger;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::Size> mappings[] = {
+        { "much-much-larger", TestObj::Size::MuchMuchLarger },
+        { "small", TestObj::Size::Small },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -449,10 +479,13 @@ template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject,
 template<> std::optional<TestObj::Confidence> parseEnumeration<TestObj::Confidence>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
     auto stringValue = value.toWTFString(&lexicalGlobalObject);
-    if (stringValue == "high")
-        return TestObj::Confidence::High;
-    if (stringValue == "kinda-low")
-        return TestObj::Confidence::KindaLow;
+    static constexpr std::pair<ComparableASCIILiteral, TestObj::Confidence> mappings[] = {
+        { "high", TestObj::Confidence::High },
+        { "kinda-low", TestObj::Confidence::KindaLow },
+    };
+    static constexpr SortedArrayMap enumerationMapping { mappings };
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+        return *enumerationValue;
     return std::nullopt;
 }
 
@@ -2482,14 +2515,14 @@ void JSTestObjPrototype::finishCreation(VM& vm)
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
 #endif
-    if (!jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isDocument()) {
+    if (!(globalObject())->inherits<JSDOMWindowBase>()) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "conditionallyExposedToWindowFunction"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
         DeletePropertySlot slot;
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
-    if (!jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isWorkerGlobalScope()) {
+    if (!(globalObject())->inherits<JSWorkerGlobalScopeBase>()) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "conditionallyExposedToWorkerFunction"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
@@ -2512,14 +2545,14 @@ void JSTestObjPrototype::finishCreation(VM& vm)
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
 #endif
-    if (!jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isDocument()) {
+    if (!(globalObject())->inherits<JSDOMWindowBase>()) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "conditionallyExposedToWindowAttribute"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
         DeletePropertySlot slot;
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
-    if (!jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isWorkerGlobalScope()) {
+    if (!(globalObject())->inherits<JSWorkerGlobalScopeBase>()) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "conditionallyExposedToWorkerAttribute"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
@@ -2528,8 +2561,8 @@ void JSTestObjPrototype::finishCreation(VM& vm)
     }
     if (hasDisabledRuntimeProperties && structure()->isDictionary())
         flattenDictionaryObject(vm);
-    putDirect(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames().privateMethodPrivateName(), JSFunction::create(vm, globalObject(), 0, String(), jsTestObjPrototypeFunction_privateMethod), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames().publicAndPrivateMethodPrivateName(), JSFunction::create(vm, globalObject(), 0, String(), jsTestObjPrototypeFunction_publicAndPrivateMethod), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, builtinNames(vm).privateMethodPrivateName(), JSFunction::create(vm, globalObject(), 0, String(), jsTestObjPrototypeFunction_privateMethod), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, builtinNames(vm).publicAndPrivateMethodPrivateName(), JSFunction::create(vm, globalObject(), 0, String(), jsTestObjPrototypeFunction_publicAndPrivateMethod), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->iteratorSymbol, globalObject()->arrayPrototype()->getDirect(vm, vm.propertyNames->builtinNames().valuesPrivateName()), static_cast<unsigned>(JSC::PropertyAttribute::DontEnum));
     addValueIterableMethods(*globalObject(), *this);
     JSObject& unscopables = *constructEmptyObject(globalObject()->vm(), globalObject()->nullPrototypeObjectStructure());
@@ -2549,7 +2582,7 @@ JSTestObj::JSTestObj(Structure* structure, JSDOMGlobalObject& globalObject, Ref<
 void JSTestObj::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
 
     static_assert(!std::is_base_of<ActiveDOMObject, TestObj>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
@@ -2623,7 +2656,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestObjConstructor, (JSGlobalObject* lexicalGlobalObj
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSTestObjPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestObjPrototype*>(JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestObj::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
@@ -5048,7 +5081,7 @@ static inline bool setJSTestObj_putForwardsAttributeSetter(JSGlobalObject& lexic
     }
     auto forwardId = Identifier::fromString(vm, "name"_s);
     PutPropertySlot slot(valueToForwardTo, false);
-    asObject(valueToForwardTo)->methodTable(vm)->put(asObject(valueToForwardTo), &lexicalGlobalObject, forwardId, value, slot);
+    asObject(valueToForwardTo)->methodTable()->put(asObject(valueToForwardTo), &lexicalGlobalObject, forwardId, value, slot);
     RETURN_IF_EXCEPTION(throwScope, false);
     return true;
 }
@@ -5084,7 +5117,7 @@ static inline bool setJSTestObj_putForwardsNullableAttributeSetter(JSGlobalObjec
     }
     auto forwardId = Identifier::fromString(vm, "name"_s);
     PutPropertySlot slot(valueToForwardTo, false);
-    asObject(valueToForwardTo)->methodTable(vm)->put(asObject(valueToForwardTo), &lexicalGlobalObject, forwardId, value, slot);
+    asObject(valueToForwardTo)->methodTable()->put(asObject(valueToForwardTo), &lexicalGlobalObject, forwardId, value, slot);
     RETURN_IF_EXCEPTION(throwScope, false);
     return true;
 }
@@ -7519,17 +7552,17 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodOve
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
         if (distinguishingArg.isUndefinedOrNull())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod2Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod2Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestCallbackInterface>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestCallbackInterface>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod5Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSDOMStringList>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSDOMStringList>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod6Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod8Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSWindowProxy>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSWindowProxy>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod9Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSBlob>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSBlob>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod13Body(lexicalGlobalObject, callFrame, castedThis)));
         {
             bool success = hasIteratorMethod(lexicalGlobalObject, distinguishingArg);
@@ -7547,7 +7580,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodOve
         JSValue distinguishingArg = callFrame->uncheckedArgument(1);
         if (distinguishingArg.isUndefined())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod2Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSBlob>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSBlob>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod13Body(lexicalGlobalObject, callFrame, castedThis)));
         if (distinguishingArg.isNumber())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethod2Body(lexicalGlobalObject, callFrame, castedThis)));
@@ -7604,7 +7637,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodWit
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
         if (distinguishingArg.isUndefinedOrNull())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithOptionalParameter2Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithOptionalParameter2Body(lexicalGlobalObject, callFrame, castedThis)));
         RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithOptionalParameter1Body(lexicalGlobalObject, callFrame, castedThis)));
     }
@@ -7612,7 +7645,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodWit
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
         if (distinguishingArg.isUndefinedOrNull())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithOptionalParameter2Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithOptionalParameter2Body(lexicalGlobalObject, callFrame, castedThis)));
         RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithOptionalParameter1Body(lexicalGlobalObject, callFrame, castedThis)));
     }
@@ -7659,9 +7692,9 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodWit
     size_t argsCount = std::min<size_t>(1, callFrame->argumentCount());
     if (argsCount == 1) {
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithDistinguishingUnion1Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithDistinguishingUnion1Body(lexicalGlobalObject, callFrame, castedThis)));
         if (distinguishingArg.isNumber())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithDistinguishingUnion2Body(lexicalGlobalObject, callFrame, castedThis)));
@@ -7710,11 +7743,11 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodWit
     size_t argsCount = std::min<size_t>(1, callFrame->argumentCount());
     if (argsCount == 1) {
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWith2DistinguishingUnions1Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWith2DistinguishingUnions1Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestInterface>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestInterface>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWith2DistinguishingUnions2Body(lexicalGlobalObject, callFrame, castedThis)));
         if (distinguishingArg.isNumber())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWith2DistinguishingUnions2Body(lexicalGlobalObject, callFrame, castedThis)));
@@ -7769,9 +7802,9 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadedMethodWit
     size_t argsCount = std::min<size_t>(2, callFrame->argumentCount());
     if (argsCount == 2) {
         JSValue distinguishingArg = callFrame->uncheckedArgument(1);
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithNonDistinguishingUnion1Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadedMethodWithNonDistinguishingUnion2Body(lexicalGlobalObject, callFrame, castedThis)));
     }
     return argsCount < 2 ? throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject)) : throwVMTypeError(lexicalGlobalObject, throwScope);
@@ -7819,9 +7852,9 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadWithNullabl
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
         if (distinguishingArg.isUndefinedOrNull())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadWithNullableUnion1Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestObj>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadWithNullableUnion1Body(lexicalGlobalObject, callFrame, castedThis)));
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadWithNullableUnion1Body(lexicalGlobalObject, callFrame, castedThis)));
         if (distinguishingArg.isNumber())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadWithNullableUnion2Body(lexicalGlobalObject, callFrame, castedThis)));
@@ -7930,7 +7963,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_overloadWithNullabl
     size_t argsCount = std::min<size_t>(2, callFrame->argumentCount());
     if (argsCount == 2) {
         JSValue distinguishingArg = callFrame->uncheckedArgument(1);
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSTestNode>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadWithNullableNonDistinguishingParameter1Body(lexicalGlobalObject, callFrame, castedThis)));
         if (distinguishingArg.isNumber())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_overloadWithNullableNonDistinguishingParameter2Body(lexicalGlobalObject, callFrame, castedThis)));
@@ -8575,7 +8608,7 @@ static inline JSC::EncodedJSValue jsTestObjPrototypeFunction_testPromiseOverload
     size_t argsCount = std::min<size_t>(1, callFrame->argumentCount());
     if (argsCount == 1) {
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
-        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSFetchRequest>(vm))
+        if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSFetchRequest>())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction2Body(lexicalGlobalObject, callFrame, castedThis, WTFMove(promise))));
         if (distinguishingArg.isNumber())
             RELEASE_AND_RETURN(throwScope, (jsTestObjPrototypeFunction_testPromiseOverloadedFunction1Body(lexicalGlobalObject, callFrame, castedThis, WTFMove(promise))));
@@ -9177,9 +9210,9 @@ JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* g
     return wrap(lexicalGlobalObject, globalObject, impl);
 }
 
-TestObj* JSTestObj::toWrapped(JSC::VM& vm, JSC::JSValue value)
+TestObj* JSTestObj::toWrapped(JSC::VM&, JSC::JSValue value)
 {
-    if (auto* wrapper = jsDynamicCast<JSTestObj*>(vm, value))
+    if (auto* wrapper = jsDynamicCast<JSTestObj*>(value))
         return &wrapper->wrapped();
     return nullptr;
 }

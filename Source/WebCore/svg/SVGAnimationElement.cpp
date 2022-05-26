@@ -56,11 +56,11 @@ SVGAnimationElement::SVGAnimationElement(const QualifiedName& tagName, Document&
 {
 }
 
-static void parseKeyTimes(const String& parse, Vector<float>& result, bool verifyOrder)
+static void parseKeyTimes(StringView parse, Vector<float>& result, bool verifyOrder)
 {
     result.clear();
     bool isFirst = true;
-    for (StringView timeString : StringView(parse).split(';')) {
+    for (auto timeString : parse.split(';')) {
         bool ok;
         float time = timeString.toFloat(ok);
         if (!ok || time < 0 || time > 1)
@@ -153,9 +153,10 @@ void SVGAnimationElement::parseAttribute(const QualifiedName& name, const AtomSt
         // Per the SMIL specification, leading and trailing white space,
         // and white space before and after semicolon separators, is allowed and will be ignored.
         // http://www.w3.org/TR/SVG11/animate.html#ValuesAttribute
-        m_values = value.string().split(';');
-        for (auto& value : m_values)
-            value = value.stripWhiteSpace();
+        m_values.clear();
+        value.string().split(';', [this](StringView innerValue) {
+            m_values.append(innerValue.stripWhiteSpace().toString());
+        });
 
         updateAnimationMode();
         return;
@@ -318,18 +319,22 @@ String SVGAnimationElement::fromValue() const
     return attributeWithoutSynchronization(SVGNames::fromAttr);
 }
 
-bool SVGAnimationElement::isAdditive() const
+static const AtomString& sumAtom()
 {
     static MainThreadNeverDestroyed<const AtomString> sum("sum", AtomString::ConstructFromLiteral);
+    return sum;
+}
+
+bool SVGAnimationElement::isAdditive() const
+{
     const AtomString& value = attributeWithoutSynchronization(SVGNames::additiveAttr);
-    return value == sum || animationMode() == AnimationMode::By;
+    return value == sumAtom() || animationMode() == AnimationMode::By;
 }
 
 bool SVGAnimationElement::isAccumulated() const
 {
-    static MainThreadNeverDestroyed<const AtomString> sum("sum", AtomString::ConstructFromLiteral);
     const AtomString& value = attributeWithoutSynchronization(SVGNames::accumulateAttr);
-    return value == sum && animationMode() != AnimationMode::To;
+    return value == sumAtom() && animationMode() != AnimationMode::To;
 }
 
 bool SVGAnimationElement::isTargetAttributeCSSProperty(SVGElement* targetElement, const QualifiedName& attributeName)

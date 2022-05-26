@@ -78,7 +78,7 @@ enum class SwapBuffersDisplayRequirement : uint8_t;
 
 class RemoteRenderingBackend : private IPC::MessageSender, public IPC::StreamMessageReceiver {
 public:
-    static Ref<RemoteRenderingBackend> create(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&, IPC::StreamConnectionBuffer&&);
+    static Ref<RemoteRenderingBackend> create(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&, IPC::Attachment&&, IPC::StreamConnectionBuffer&&);
     virtual ~RemoteRenderingBackend();
     void stopListeningForIPC();
 
@@ -89,8 +89,6 @@ public:
     // Messages to be sent.
     void didCreateImageBufferBackend(ImageBufferBackendHandle, QualifiedRenderingResourceIdentifier, RemoteDisplayListRecorder&);
     void didFlush(WebCore::GraphicsContextFlushIdentifier, QualifiedRenderingResourceIdentifier);
-
-    bool allowsExitUnderMemoryPressure() const;
 
     // Runs Function in RemoteRenderingBackend task queue.
     void dispatch(Function<void()>&&);
@@ -106,11 +104,10 @@ public:
 #endif
 
 private:
-    RemoteRenderingBackend(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&, IPC::StreamConnectionBuffer&&);
+    RemoteRenderingBackend(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&, IPC::Attachment&&, IPC::StreamConnectionBuffer&&);
     void startListeningForIPC();
 
     std::optional<SharedMemory::IPCHandle> updateSharedMemoryForGetPixelBufferHelper(size_t byteCount);
-    void updateRenderingResourceRequest();
 
     // IPC::MessageSender.
     IPC::Connection* messageSenderConnection() const override;

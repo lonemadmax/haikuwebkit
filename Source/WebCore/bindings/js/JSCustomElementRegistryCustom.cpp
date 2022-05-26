@@ -49,7 +49,7 @@ static JSObject* getCustomElementCallback(JSGlobalObject& lexicalGlobalObject, J
     RETURN_IF_EXCEPTION(scope, nullptr);
     if (callback.isUndefined())
         return nullptr;
-    if (!callback.isCallable(vm)) {
+    if (!callback.isCallable()) {
         throwTypeError(&lexicalGlobalObject, scope, "A custom element callback must be a function"_s);
         return nullptr;
     }
@@ -95,7 +95,7 @@ JSValue JSCustomElementRegistry::define(JSGlobalObject& lexicalGlobalObject, Cal
     RETURN_IF_EXCEPTION(scope, JSValue());
 
     JSValue constructorValue = callFrame.uncheckedArgument(1);
-    if (!constructorValue.isConstructor(vm))
+    if (!constructorValue.isConstructor())
         return throwTypeError(&lexicalGlobalObject, scope, "The second argument must be a constructor"_s);
     JSObject* constructor = constructorValue.getObject();
 
@@ -150,9 +150,9 @@ JSValue JSCustomElementRegistry::define(JSGlobalObject& lexicalGlobalObject, Cal
         auto observedAttributesValue = constructor->get(&lexicalGlobalObject, Identifier::fromString(vm, "observedAttributes"_s));
         RETURN_IF_EXCEPTION(scope, JSValue());
         if (!observedAttributesValue.isUndefined()) {
-            auto observedAttributes = convert<IDLSequence<IDLDOMString>>(lexicalGlobalObject, observedAttributesValue);
+            auto observedAttributes = convert<IDLSequence<IDLAtomStringAdaptor<IDLDOMString>>>(lexicalGlobalObject, observedAttributesValue);
             RETURN_IF_EXCEPTION(scope, JSValue());
-            elementInterface->setAttributeChangedCallback(attributeChangedCallback, observedAttributes);
+            elementInterface->setAttributeChangedCallback(attributeChangedCallback, WTFMove(observedAttributes));
         }
     }
 

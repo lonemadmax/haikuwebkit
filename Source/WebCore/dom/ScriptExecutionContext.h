@@ -102,7 +102,6 @@ public:
     virtual bool isDocument() const { return false; }
     virtual bool isWorkerGlobalScope() const { return false; }
     virtual bool isServiceWorkerGlobalScope() const { return false; }
-    virtual bool isShadowRealmGlobalScope() const { return false; }
     virtual bool isWorkletGlobalScope() const { return false; }
 
     virtual bool isContextThread() const { return true; }
@@ -266,10 +265,10 @@ public:
     int timerNestingLevel() const { return m_timerNestingLevel; }
     void setTimerNestingLevel(int timerNestingLevel) { m_timerNestingLevel = timerNestingLevel; }
 
-    RejectedPromiseTracker& ensureRejectedPromiseTracker()
+    RejectedPromiseTracker* ensureRejectedPromiseTracker()
     {
         if (m_rejectedPromiseTracker)
-            return *m_rejectedPromiseTracker.get();
+            return m_rejectedPromiseTracker.get();
         return ensureRejectedPromiseTrackerSlow();
     }
 
@@ -289,6 +288,7 @@ public:
 
     ServiceWorkerContainer* serviceWorkerContainer();
     ServiceWorkerContainer* ensureServiceWorkerContainer();
+    virtual void updateServiceWorkerClientData() { ASSERT_NOT_REACHED(); }
 #endif
     WEBCORE_EXPORT static bool postTaskTo(ScriptExecutionContextIdentifier, Task&&);
     WEBCORE_EXPORT static bool ensureOnContextThread(ScriptExecutionContextIdentifier, Task&&);
@@ -352,7 +352,7 @@ private:
     enum class ShouldContinue { No, Yes };
     void forEachActiveDOMObject(const Function<ShouldContinue(ActiveDOMObject&)>&) const;
 
-    RejectedPromiseTracker& ensureRejectedPromiseTrackerSlow();
+    RejectedPromiseTracker* ensureRejectedPromiseTrackerSlow();
 
     void checkConsistency() const;
 

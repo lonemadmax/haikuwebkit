@@ -766,8 +766,8 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
     };
 
     auto isMediaMIMEType = [] (const String& mimeType) {
-        return mimeType.startsWithIgnoringASCIICase("audio/")
-            || mimeType.startsWithIgnoringASCIICase("video/")
+        return startsWithLettersIgnoringASCIICase(mimeType, "audio/")
+            || startsWithLettersIgnoringASCIICase(mimeType, "video/")
             || equalLettersIgnoringASCIICase(mimeType, "application/octet-stream");
     };
 
@@ -1220,7 +1220,7 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
     LOADER_RELEASE_LOG("continueWillSendRequest: (isAllowedToAskUserForCredentials=%d)", isAllowedToAskUserForCredentials);
 
 #if ENABLE(SERVICE_WORKER)
-    if (parameters().options.mode == FetchOptions::Mode::Navigate) {
+    if (parameters().options.mode == FetchOptions::Mode::Navigate || (parameters().options.destination == FetchOptions::Destination::Worker && m_serviceWorkerFetchTask)) {
         m_serviceWorkerRegistration = { };
         if (auto serviceWorkerFetchTask = m_connection->createFetchTask(*this, newRequest)) {
             LOADER_RELEASE_LOG("continueWillSendRequest: Created a ServiceWorkerFetchTask to handle the redirect (fetchIdentifier=%" PRIu64 ")", serviceWorkerFetchTask->fetchIdentifier().toUInt64());
@@ -1590,9 +1590,9 @@ bool NetworkResourceLoader::shouldLogCookieInformation(NetworkConnectionToWebPro
     return false;
 }
 
-static String escapeForJSON(String s)
+static String escapeForJSON(const String& s)
 {
-    return s.replace('\\', "\\\\").replace('"', "\\\"");
+    return makeStringByReplacingAll(makeStringByReplacingAll(s, '\\', "\\\\"_s), '"', "\\\""_s);
 }
 
 template<typename IdentifierType>

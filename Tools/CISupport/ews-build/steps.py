@@ -57,7 +57,7 @@ RESULTS_DB_URL = 'https://results.webkit.org/'
 WithProperties = properties.WithProperties
 Interpolate = properties.Interpolate
 GITHUB_URL = 'https://github.com/'
-GITHUB_PROJECTS = ['WebKit/WebKit']
+GITHUB_PROJECTS = ['WebKit/WebKit', 'apple/WebKit']
 HASH_LENGTH_TO_DISPLAY = 8
 DEFAULT_BRANCH = 'main'
 
@@ -133,7 +133,7 @@ class GitHub(object):
         if not owners:
             return None, 'No owners defined, so email cannot be extracted'
         contributors, errors = Contributors.load(use_network=False)
-        return contributors.get(owners[0], {}).get('email'), errors
+        return contributors.get(owners[0].lower(), {}).get('email'), errors
 
 
 class GitHubMixin(object):
@@ -144,7 +144,7 @@ class GitHubMixin(object):
     MERGE_QUEUE_LABEL = 'merge-queue'
     UNSAFE_MERGE_QUEUE_LABEL = 'unsafe-merge-queue'
 
-    def fetch_data_from_url_with_authentication(self, url):
+    def fetch_data_from_url_with_authentication_github(self, url):
         response = None
         try:
             username, access_token = GitHub.credentials()
@@ -168,7 +168,7 @@ class GitHubMixin(object):
             return None
 
         pr_url = '{}/pulls/{}'.format(api_url, pr_number)
-        content = self.fetch_data_from_url_with_authentication(pr_url)
+        content = self.fetch_data_from_url_with_authentication_github(pr_url)
         if not content:
             return None
 
@@ -195,7 +195,7 @@ class GitHubMixin(object):
             return []
 
         reviews_url = f'{api_url}/pulls/{pr_number}/reviews'
-        content = self.fetch_data_from_url_with_authentication(reviews_url)
+        content = self.fetch_data_from_url_with_authentication_github(reviews_url)
         if not content:
             return []
 
@@ -281,7 +281,7 @@ class GitHubMixin(object):
             return False
 
         pr_label_url = f'{api_url}/issues/{pr_number}/labels'
-        content = self.fetch_data_from_url_with_authentication(pr_label_url)
+        content = self.fetch_data_from_url_with_authentication_github(pr_label_url)
         if not content:
             self._addToLog('stdio', "Failed to fetch existing labels, cannot remove labels\n")
             return True
@@ -462,7 +462,7 @@ class Contributors(object):
                 bugzilla_email = emails[0].lower()  # We're requiring that the first email is the primary bugzilla email
                 contributors[bugzilla_email] = {'name': name, 'status': value.get('status')}
             if github_username and name and emails:
-                contributors[github_username] = dict(
+                contributors[github_username.lower()] = dict(
                     name=name,
                     status=value.get('status'),
                     email=emails[0].lower(),
@@ -744,7 +744,7 @@ class CleanWorkingDirectory(shell.ShellCommand):
 
 class UpdateWorkingDirectory(shell.ShellCommand):
     name = 'update-working-directory'
-    description = ['update-workring-directory running']
+    description = ['update-working-directory running']
     flunkOnFailure = True
     haltOnFailure = True
     command = ['perl', 'Tools/Scripts/update-webkit']
@@ -829,10 +829,6 @@ class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
     description = ['checking-out-pull-request']
     descriptionDone = ['Checked out pull request']
     haltOnFailure = True
-    env = dict(
-        GIT_COMMITTER_NAME='EWS',
-        GIT_COMMITTER_EMAIL=FROM_EMAIL,
-    )
 
     def __init__(self, **kwargs):
         super(CheckOutPullRequest, self).__init__(timeout=10 * 60, logEnviron=False, **kwargs)
@@ -867,6 +863,14 @@ class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
             ]
         for command in commands:
             self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))
+
+        username, access_token = GitHub.credentials()
+        self.env = dict(
+            GIT_COMMITTER_NAME='EWS',
+            GIT_COMMITTER_EMAIL=FROM_EMAIL,
+            GIT_USER=username,
+            GIT_PASSWORD=access_token,
+        )
 
         return super(CheckOutPullRequest, self).run()
 
@@ -1079,7 +1083,7 @@ class BugzillaMixin(AddToLogMixin):
     bug_closed_statuses = ['RESOLVED', 'VERIFIED', 'CLOSED']
     fast_cq_preambles = ('revert of r', 'fast-cq', '[fast-cq]')
 
-    def fetch_data_from_url_with_authentication(self, url):
+    def fetch_data_from_url_with_authentication_bugzilla(self, url):
         response = None
         try:
             response = requests.get(url, timeout=60, params={'Bugzilla_api_key': self.get_bugzilla_api_key()})
@@ -1109,7 +1113,7 @@ class BugzillaMixin(AddToLogMixin):
 
     def get_patch_json(self, patch_id):
         patch_url = '{}rest/bug/attachment/{}'.format(BUG_SERVER_URL, patch_id)
-        patch = self.fetch_data_from_url_with_authentication(patch_url)
+        patch = self.fetch_data_from_url_with_authentication_bugzilla(patch_url)
         if not patch:
             return None
         try:
@@ -1123,7 +1127,7 @@ class BugzillaMixin(AddToLogMixin):
 
     def get_bug_json(self, bug_id):
         bug_url = '{}rest/bug/{}'.format(BUG_SERVER_URL, bug_id)
-        bug = self.fetch_data_from_url_with_authentication(bug_url)
+        bug = self.fetch_data_from_url_with_authentication_bugzilla(bug_url)
         if not bug:
             return None
         try:
@@ -1534,15 +1538,15 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
         self.descriptionDone = reason
 
     def is_reviewer(self, email):
-        contributor = self.contributors.get(email)
+        contributor = self.contributors.get(email.lower())
         return contributor and contributor['status'] == 'reviewer'
 
     def is_committer(self, email):
-        contributor = self.contributors.get(email)
+        contributor = self.contributors.get(email.lower())
         return contributor and contributor['status'] in ['reviewer', 'committer']
 
     def full_name_from_email(self, email):
-        contributor = self.contributors.get(email)
+        contributor = self.contributors.get(email.lower())
         if not contributor:
             return ''
         return contributor.get('name')
@@ -1578,6 +1582,7 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
         else:
             reviewer = self.getProperty('reviewer', '').lower()
             reviewers = [reviewer] if reviewer else []
+        reviewers = set(reviewers)
 
         if not reviewers:
             # Change has not been reviewed in bug tracker. This is acceptable, since the ChangeLog might have 'Reviewed by' in it.
@@ -1778,7 +1783,7 @@ class CloseBug(buildstep.BuildStep, BugzillaMixin):
         return {'step': 'Failed to close bug {}'.format(self.bug_id)}
 
     def doStepIf(self, step):
-        return self.getProperty('bug_id')
+        return self.getProperty('bug_id') and not self.getProperty('is_test_gardening')
 
     def hideStepIf(self, results, step):
         return not self.doStepIf(step)
@@ -2294,6 +2299,9 @@ class CompileWebKit(shell.Compile, AddToLogMixin):
 
     def __init__(self, skipUpload=False, **kwargs):
         self.skipUpload = skipUpload
+        # https://bugs.webkit.org/show_bug.cgi?id=239455: The timeout needs to be >20 min to work
+        # around log output delays on slower machines.
+        kwargs.setdefault('timeout', 60 * 30)
         super(CompileWebKit, self).__init__(logEnviron=False, **kwargs)
 
     def doStepIf(self, step):
@@ -4770,8 +4778,8 @@ class AddReviewerMixin(object):
 
         contributors, _ = Contributors.load(use_network=False)
         return dict(
-            GIT_COMMITTER_NAME=contributors.get(owners[0], {}).get('name', 'EWS'),
-            GIT_COMMITTER_EMAIL=contributors.get(owners[0], {}).get('email', FROM_EMAIL),
+            GIT_COMMITTER_NAME=contributors.get(owners[0].lower(), {}).get('name', 'EWS'),
+            GIT_COMMITTER_EMAIL=contributors.get(owners[0].lower(), {}).get('email', FROM_EMAIL),
             FILTER_BRANCH_SQUELCH_WARNING='1',
         )
 
@@ -4838,8 +4846,8 @@ class AddAuthorToCommitMessage(shell.ShellCommand, AddReviewerMixin):
             if not candidate:
                 continue
 
-            name = contributors.get(candidate, {}).get('name', None)
-            email = contributors.get(candidate, {}).get('email', None)
+            name = contributors.get(candidate.lower(), {}).get('name', None)
+            email = contributors.get(candidate.lower(), {}).get('email', None)
             if name and email:
                 return name, email
 
@@ -4939,6 +4947,12 @@ class ValidateCommitMessage(shell.ShellCommand):
     haltOnFailure = False
     flunkOnFailure = True
     OOPS_RE = re.compile(r'\(OO*PP*S!\)')
+    REVIEWED_STRINGS = (
+        'Reviewed by',
+        'Unreviewed',
+        'Rubber-stamped by',
+        'Rubber stamped by',
+    )
 
     def __init__(self, **kwargs):
         super(ValidateCommitMessage, self).__init__(logEnviron=False, timeout=60, **kwargs)
@@ -4970,9 +4984,10 @@ class ValidateCommitMessage(shell.ShellCommand):
             if self.OOPS_RE.search(log_text):
                 self.summary = 'Commit message contains (OOPS!)'
                 rc = FAILURE
-            elif 'Reviewed by' not in log_text and 'Unreviewed' not in log_text:
+            elif all([candidate not in log_text for candidate in self.REVIEWED_STRINGS]):
                 self.summary = 'No reviewer information in commit message'
                 rc = FAILURE
+
         else:
             self.summary = 'Error parsing commit message'
             rc = FAILURE
@@ -5117,6 +5132,13 @@ class UpdatePullRequest(shell.ShellCommand, GitHubMixin, AddToLogMixin):
                         return match.group('id')
         return None
 
+    @classmethod
+    def is_test_gardening(cls, lines):
+        for line in lines:
+            if line.lstrip().startswith('Unreviewed test gardening'):
+                return True
+        return False
+
     def evaluateCommand(self, cmd):
         rc = super(UpdatePullRequest, self).evaluateCommand(cmd)
 
@@ -5131,6 +5153,7 @@ class UpdatePullRequest(shell.ShellCommand, GitHubMixin, AddToLogMixin):
         bug_id = self.bug_id_from_log(loglines)
         if bug_id:
             self.setProperty('bug_id', bug_id)
+        self.setProperty('is_test_gardening', self.is_test_gardening(loglines))
 
         user = self.getProperty('github.head.user.login', '')
         head = self.getProperty('github.head.ref', '')

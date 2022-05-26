@@ -231,7 +231,6 @@
 #import <WebCore/WebCoreJITOperations.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreView.h>
-#import <WebCore/WebLockRegistry.h>
 #import <WebCore/WebViewVisualIdentificationOverlay.h>
 #import <WebCore/Widget.h>
 #import <WebKitLegacy/DOM.h>
@@ -1343,7 +1342,7 @@ static RetainPtr<CFMutableSetRef>& allWebViewsSet()
     JSC::JSLockHolder lock(globalObject);
 
     // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a WebView.
-    if (!globalObject->inherits<WebCore::JSDOMWindow>(globalObject->vm()))
+    if (!globalObject->inherits<WebCore::JSDOMWindow>())
         return;
 
     WebCore::reportException(globalObject, toJS(globalObject, exception));
@@ -1391,7 +1390,7 @@ static RetainPtr<NSString> createOutlookQuirksUserScriptContents()
 #if PLATFORM(IOS)
 static bool needsLaBanquePostaleQuirks()
 {
-    static bool needsQuirks = WebCore::IOSApplication::isLaBanquePostale() && !linkedOnOrAfter(SDKVersion::FirstWithoutLaBanquePostaleQuirks);
+    static bool needsQuirks = WebCore::IOSApplication::isLaBanquePostale() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoLaBanquePostaleQuirks);
     return needsQuirks;
 }
 
@@ -1439,18 +1438,6 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     initialized = true;
 }
 #endif
-
-static Ref<WebCore::LocalWebLockRegistry> getOrCreateWebLockRegistry(bool isPrivateBrowsingEnabled)
-{
-    static NeverDestroyed<WeakPtr<WebCore::LocalWebLockRegistry>> defaultRegistry;
-    static NeverDestroyed<WeakPtr<WebCore::LocalWebLockRegistry>> privateRegistry;
-    auto& existingRegistry = isPrivateBrowsingEnabled ? privateRegistry : defaultRegistry;
-    if (existingRegistry.get())
-        return *existingRegistry.get();
-    auto registry = WebCore::LocalWebLockRegistry::create();
-    existingRegistry.get() = registry;
-    return registry;
-}
 
 - (void)_commonInitializationWithFrameName:(NSString *)frameName groupName:(NSString *)groupName
 {
@@ -1557,7 +1544,6 @@ static Ref<WebCore::LocalWebLockRegistry> getOrCreateWebLockRegistry(bool isPriv
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
-        getOrCreateWebLockRegistry([[self preferences] privateBrowsingEnabled]),
         WebCore::DummyPermissionController::create(),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>()
@@ -1839,7 +1825,6 @@ static Ref<WebCore::LocalWebLockRegistry> getOrCreateWebLockRegistry(bool isPriv
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
-        getOrCreateWebLockRegistry([[self preferences] privateBrowsingEnabled]),
         WebCore::DummyPermissionController::create(),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>()
@@ -7500,7 +7485,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(JSC::JSGlobalObject* lexicalGlo
     }
     if (jsValue.isObject()) {
         JSObject* object = jsValue.getObject();
-        if (object->inherits<DateInstance>(vm)) {
+        if (object->inherits<DateInstance>()) {
             DateInstance* date = static_cast<DateInstance*>(object);
             double ms = date->internalNumber();
             if (!std::isnan(ms)) {
@@ -7509,7 +7494,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(JSC::JSGlobalObject* lexicalGlo
                 if (noErr == UCConvertCFAbsoluteTimeToLongDateTime(utcSeconds, &ldt))
                     return [NSAppleEventDescriptor descriptorWithDescriptorType:typeLongDateTime bytes:&ldt length:sizeof(ldt)];
             }
-        } else if (object->inherits<JSArray>(vm)) {
+        } else if (object->inherits<JSArray>()) {
             static NeverDestroyed<HashSet<JSObject*>> visitedElems;
             if (visitedElems.get().add(object).isNewEntry) {
                 JSArray* array = static_cast<JSArray*>(object);

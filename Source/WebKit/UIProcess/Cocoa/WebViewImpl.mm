@@ -280,7 +280,7 @@ void WebViewImpl::requestTextRecognition(const URL& imageURL, const ShareableBit
     });
 }
 
-void WebViewImpl::computeHasImageAnalysisResults(const URL& imageURL, ShareableBitmap& imageBitmap, ImageAnalysisType type, CompletionHandler<void(bool)>&& completion)
+void WebViewImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&& completion)
 {
     if (!isLiveTextAvailableAndEnabled()) {
         completion(false);
@@ -288,13 +288,12 @@ void WebViewImpl::computeHasImageAnalysisResults(const URL& imageURL, ShareableB
     }
 
     auto cgImage = imageBitmap.makeCGImage();
-    auto analysisType = type == ImageAnalysisType::VisualSearch ? VKAnalysisTypeVisualSearch : VKAnalysisTypeText;
-    auto request = createImageAnalyzerRequest(cgImage.get(), imageURL, [NSURL _web_URLWithWTFString:m_page->currentURL()], analysisType);
+    auto request = createImageAnalyzerRequest(cgImage.get(), imageURL, [NSURL _web_URLWithWTFString:m_page->currentURL()], VKAnalysisTypeVisualSearch);
     auto startTime = MonotonicTime::now();
-    [ensureImageAnalyzer() processRequest:request.get() progressHandler:nil completionHandler:makeBlockPtr([completion = WTFMove(completion), startTime, analysisType] (CocoaImageAnalysis *analysis, NSError *) mutable {
-        BOOL result = [analysis hasResultsForAnalysisTypes:analysisType];
-        CFRunLoopPerformBlock(CFRunLoopGetMain(), (__bridge CFStringRef)NSEventTrackingRunLoopMode, makeBlockPtr([completion = WTFMove(completion), result, analysisType, startTime] () mutable {
-            RELEASE_LOG(Images, "Image analysis completed in %.0f ms (found %s? %d)", (MonotonicTime::now() - startTime).milliseconds(), analysisType == VKAnalysisTypeVisualSearch ? "visual search results" : "text", result);
+    [ensureImageAnalyzer() processRequest:request.get() progressHandler:nil completionHandler:makeBlockPtr([completion = WTFMove(completion), startTime] (CocoaImageAnalysis *analysis, NSError *) mutable {
+        BOOL result = [analysis hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), (__bridge CFStringRef)NSEventTrackingRunLoopMode, makeBlockPtr([completion = WTFMove(completion), result, startTime] () mutable {
+            RELEASE_LOG(Images, "Image analysis completed in %.0f ms (found visual search results? %d)", (MonotonicTime::now() - startTime).milliseconds(), result);
             completion(result);
         }).get());
         CFRunLoopWakeUp(CFRunLoopGetMain());
@@ -5233,8 +5232,7 @@ void WebViewImpl::insertText(id string, NSRange replacementRange)
         return;
     }
 
-    String eventText = text;
-    eventText.replace(NSBackTabCharacter, NSTabCharacter); // same thing is done in KeyEventMac.mm in WebCore
+    String eventText = makeStringByReplacingAll(text, NSBackTabCharacter, NSTabCharacter); // same thing is done in KeyEventMac.mm in WebCore
     if (!dictationAlternatives.isEmpty()) {
         InsertTextOptions options;
         options.registerUndoGroup = registerUndoGroup;
@@ -5938,6 +5936,7 @@ void WebViewImpl::installImageAnalysisOverlayView(VKCImageAnalysis *analysis)
         [m_imageAnalysisOverlayView setDelegate:m_imageAnalysisOverlayViewDelegate.get()];
         [m_imageAnalysisOverlayView setActiveInteractionTypes:VKImageAnalysisInteractionTypeTextSelection | VKImageAnalysisInteractionTypeDataDetectors];
         [m_imageAnalysisOverlayView setWantsAutomaticContentsRectCalculation:NO];
+        setUpAdditionalImageAnalysisBehaviors(m_imageAnalysisOverlayView.get());
     }
 
     [m_imageAnalysisOverlayView setAnalysis:analysis];

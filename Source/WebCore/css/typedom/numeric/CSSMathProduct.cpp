@@ -28,6 +28,7 @@
 
 #if ENABLE(CSS_TYPED_OM)
 
+#include "CSSMathInvert.h"
 #include "CSSNumericArray.h"
 #include "ExceptionOr.h"
 #include <wtf/IsoMallocInlines.h>
@@ -42,7 +43,7 @@ static std::optional<CSSNumericType> multiplyTypes(const CSSNumericType& a, cons
     if (a.percentHint && b.percentHint && *a.percentHint != *b.percentHint)
         return std::nullopt;
 
-    auto add = [] (auto left, auto right) -> std::optional<unsigned> {
+    auto add = [] (auto left, auto right) -> CSSNumericType::BaseTypeStorage {
         if (!left)
             return right;
         if (!right)
@@ -86,6 +87,28 @@ CSSMathProduct::CSSMathProduct(Vector<Ref<CSSNumericValue>> values, CSSNumericTy
     : CSSMathValue(WTFMove(type))
     , m_values(CSSNumericArray::create(WTFMove(values)))
 {
+}
+
+void CSSMathProduct::serialize(StringBuilder& builder, OptionSet<SerializationArguments> arguments) const
+{
+    // https://drafts.css-houdini.org/css-typed-om/#calc-serialization
+    if (!arguments.contains(SerializationArguments::WithoutParentheses))
+        builder.append(arguments.contains(SerializationArguments::Nested) ? "(" : "calc(");
+    m_values->forEach([&](auto& numericValue, bool first) {
+        OptionSet<SerializationArguments> operandSerializationArguments { SerializationArguments::Nested };
+        operandSerializationArguments.set(SerializationArguments::WithoutParentheses, arguments.contains(SerializationArguments::WithoutParentheses));
+        if (!first) {
+            if (auto* mathNegate = dynamicDowncast<CSSMathInvert>(numericValue)) {
+                builder.append(" / ");
+                mathNegate->value().serialize(builder, operandSerializationArguments);
+                return;
+            }
+            builder.append(" * ");
+        }
+        numericValue.serialize(builder, operandSerializationArguments);
+    });
+    if (!arguments.contains(SerializationArguments::WithoutParentheses))
+        builder.append(')');
 }
 
 } // namespace WebCore

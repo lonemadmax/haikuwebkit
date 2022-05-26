@@ -38,23 +38,28 @@
 
 namespace WebCore {
 
-AXIsolatedObject::AXIsolatedObject(AXCoreObject& object, AXIsolatedTree* tree, AXID parentID)
+AXIsolatedObject::AXIsolatedObject(AXCoreObject& axObject, AXIsolatedTree* tree)
     : m_cachedTree(tree)
-    , m_parentID(parentID)
-    , m_id(object.objectID())
+    , m_id(axObject.objectID())
 {
     ASSERT(isMainThread());
-    if (m_id.isValid())
-        initializeAttributeData(object, !parentID.isValid());
-    else {
+    ASSERT(is<AccessibilityObject>(axObject));
+
+    auto* axParent = axObject.parentObjectUnignored();
+    m_parentID = axParent ? axParent->objectID() : AXID();
+
+    if (m_id.isValid()) {
+        auto isRoot = !axParent && axObject.isScrollView() ? IsRoot::Yes : IsRoot::No;
+        initializeProperties(axObject, isRoot);
+    } else {
         // Should never happen under normal circumstances.
         ASSERT_NOT_REACHED();
     }
 }
 
-Ref<AXIsolatedObject> AXIsolatedObject::create(AXCoreObject& object, AXIsolatedTree* tree, AXID parentID)
+Ref<AXIsolatedObject> AXIsolatedObject::create(AXCoreObject& object, AXIsolatedTree* tree)
 {
-    return adoptRef(*new AXIsolatedObject(object, tree, parentID));
+    return adoptRef(*new AXIsolatedObject(object, tree));
 }
 
 AXIsolatedObject::~AXIsolatedObject()
@@ -67,7 +72,7 @@ void AXIsolatedObject::init()
     ASSERT_NOT_REACHED();
 }
 
-void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool isRoot)
+void AXIsolatedObject::initializeProperties(AXCoreObject& coreObject, IsRoot isRoot)
 {
     ASSERT(is<AccessibilityObject>(coreObject));
     auto& object = downcast<AccessibilityObject>(coreObject);
@@ -215,7 +220,7 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::HierarchicalLevel, object.hierarchicalLevel());
     setProperty(AXPropertyName::Language, object.language().isolatedCopy());
     setProperty(AXPropertyName::CanHaveSelectedChildren, object.canHaveSelectedChildren());
-    setProperty(AXPropertyName::TagName, object.tagName().isolatedCopy());
+    setProperty(AXPropertyName::TagName, object.tagName().string().isolatedCopy());
     setProperty(AXPropertyName::SupportsLiveRegion, object.supportsLiveRegion());
     setProperty(AXPropertyName::IsInsideLiveRegion, object.isInsideLiveRegion());
     setProperty(AXPropertyName::LiveRegionStatus, object.liveRegionStatus().isolatedCopy());
@@ -355,12 +360,12 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
 
     Vector<String> classList;
     object.classList(classList);
-    String combinedClassList;
+    StringBuilder combinedClassList;
     for (auto it = classList.begin(), end = classList.end(); it != end; ++it) {
         combinedClassList.append(*it);
-        combinedClassList.append(" "_s);
+        combinedClassList.append(' ');
     }
-    setProperty(AXPropertyName::ClassList, combinedClassList);
+    setProperty(AXPropertyName::ClassList, combinedClassList.toString());
 
     setProperty(AXPropertyName::ColorValue, object.colorValue());
 
@@ -408,7 +413,7 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
         setMathscripts(AXPropertyName::MathPostscripts, object);
     }
 
-    if (isRoot) {
+    if (isRoot == IsRoot::Yes) {
         setObjectProperty(AXPropertyName::WebArea, object.webAreaObject());
         setProperty(AXPropertyName::SessionID, object.sessionID().isolatedCopy());
         setProperty(AXPropertyName::DocumentURI, object.documentURI().isolatedCopy());
@@ -462,15 +467,11 @@ void AXIsolatedObject::setObjectProperty(AXPropertyName propertyName, AXCoreObje
         setProperty(propertyName, nullptr, true);
 }
 
-void AXIsolatedObject::setObjectVectorProperty(AXPropertyName propertyName, const AccessibilityChildrenVector& children)
+void AXIsolatedObject::setObjectVectorProperty(AXPropertyName propertyName, const AccessibilityChildrenVector& objects)
 {
-    if (children.isEmpty())
+    if (objects.isEmpty())
         return;
-
-    auto childIDs = children.map([](auto& child) {
-        return child->objectID();
-    });
-    setProperty(propertyName, WTFMove(childIDs));
+    setProperty(propertyName, axIDs(objects));
 }
 
 void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueVariant&& value, bool shouldRemove)
@@ -545,8 +546,7 @@ void AXIsolatedObject::setSelectedChildren(const AccessibilityChildrenVector& se
         if (!axObjectCache)
             return;
 
-        auto axIDs = tree()->idsForObjects(selectedChildren);
-        auto axSelectedChildren = axObjectCache->objectsForIDs(axIDs);
+        auto axSelectedChildren = axObjectCache->objectsForIDs(axIDs(selectedChildren));
         object->setSelectedChildren(axSelectedChildren);
     });
 }
@@ -2065,11 +2065,6 @@ bool AXIsolatedObject::accessibleNameDerivesFromContent() const
 {
     ASSERT_NOT_REACHED();
     return false;
-}
-
-void AXIsolatedObject::elementsFromAttribute(Vector<Element*>&, const QualifiedName&) const
-{
-    ASSERT_NOT_REACHED();
 }
 
 AXObjectCache* AXIsolatedObject::axObjectCache() const

@@ -914,6 +914,7 @@
 		46F38E8C2416E6730059375A /* RunningBoardServicesSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 46F38E8B2416E66D0059375A /* RunningBoardServicesSPI.h */; };
 		46F9B26323526EF3006FE5FA /* WebBackForwardCacheEntry.h in Headers */ = {isa = PBXBuildFile; fileRef = 46F9B26223526ED0006FE5FA /* WebBackForwardCacheEntry.h */; };
 		493102BD2683F3D0002BB885 /* AppPrivacyReport.h in Headers */ = {isa = PBXBuildFile; fileRef = 493102BC2683F3A5002BB885 /* AppPrivacyReport.h */; };
+		4955A6E628076D4D00BB91C4 /* ArrayReferenceTuple.h in Headers */ = {isa = PBXBuildFile; fileRef = 4955A6E528076D4C00BB91C4 /* ArrayReferenceTuple.h */; };
 		4973DF482422941F00E4C26A /* NavigatingToAppBoundDomain.h in Headers */ = {isa = PBXBuildFile; fileRef = 4973DF472422941F00E4C26A /* NavigatingToAppBoundDomain.h */; };
 		4990002124D2429C00049CB4 /* WKRenderLayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 4990001F24D2429C00049CB4 /* WKRenderLayer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4990002424D24C2900049CB4 /* WKRenderObject.h in Headers */ = {isa = PBXBuildFile; fileRef = 4990002324D24C1C00049CB4 /* WKRenderObject.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1036,6 +1037,7 @@
 		518D2CAE12D5153B003BB93B /* WebBackForwardListItem.h in Headers */ = {isa = PBXBuildFile; fileRef = 518D2CAC12D5153B003BB93B /* WebBackForwardListItem.h */; };
 		518E8EF916B2091C00E91429 /* AuthenticationManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 518E8EF416B2091C00E91429 /* AuthenticationManager.h */; };
 		51933DEF1965EB31008AC3EA /* MenuUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 51933DEB1965EB24008AC3EA /* MenuUtilities.h */; };
+		519DFBE7281387C1003FF6AD /* WKNotificationPrivateMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 519DFBE528138756003FF6AD /* WKNotificationPrivateMac.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51A555F6128C6C47009ABCEC /* WKContextMenuItem.h in Headers */ = {isa = PBXBuildFile; fileRef = 51A555F4128C6C47009ABCEC /* WKContextMenuItem.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51A55601128C6D92009ABCEC /* WKContextMenuItemTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 51A55600128C6D92009ABCEC /* WKContextMenuItemTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51A728DE1B1BAD3800102EEE /* WKBundleNavigationActionPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 51A728DC1B1BAD2D00102EEE /* WKBundleNavigationActionPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2973,6 +2975,7 @@
 		0FDCD7F61D47E92A009F08BC /* LogInitialization.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LogInitialization.h; sourceTree = "<group>"; };
 		0FE27FAE2714FC150003AAAE /* TiledCoreAnimationScrollingCoordinator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TiledCoreAnimationScrollingCoordinator.h; sourceTree = "<group>"; };
 		0FE27FAF2714FC150003AAAE /* TiledCoreAnimationScrollingCoordinator.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = TiledCoreAnimationScrollingCoordinator.mm; sourceTree = "<group>"; };
+		0FEC6E05280915CF008082AC /* ProcessTerminationReason.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ProcessTerminationReason.cpp; sourceTree = "<group>"; };
 		0FF24A2B1879E4BC003ABF0C /* RemoteLayerTreeDrawingAreaProxyMessageReceiver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = RemoteLayerTreeDrawingAreaProxyMessageReceiver.cpp; path = DerivedSources/WebKit/RemoteLayerTreeDrawingAreaProxyMessageReceiver.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
 		0FF24A2B1879E4BC003ABF0D /* RemoteCaptureSampleManagerMessageReceiver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = RemoteCaptureSampleManagerMessageReceiver.cpp; path = DerivedSources/WebKit/RemoteCaptureSampleManagerMessageReceiver.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
 		0FF24A2C1879E4BC003ABF0C /* RemoteLayerTreeDrawingAreaProxyMessages.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RemoteLayerTreeDrawingAreaProxyMessages.h; path = DerivedSources/WebKit/RemoteLayerTreeDrawingAreaProxyMessages.h; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -4656,6 +4659,7 @@
 		46F38E8B2416E66D0059375A /* RunningBoardServicesSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RunningBoardServicesSPI.h; sourceTree = "<group>"; };
 		46F9B26223526ED0006FE5FA /* WebBackForwardCacheEntry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebBackForwardCacheEntry.h; sourceTree = "<group>"; };
 		493102BC2683F3A5002BB885 /* AppPrivacyReport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppPrivacyReport.h; sourceTree = "<group>"; };
+		4955A6E528076D4C00BB91C4 /* ArrayReferenceTuple.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ArrayReferenceTuple.h; sourceTree = "<group>"; };
 		4973DF472422941F00E4C26A /* NavigatingToAppBoundDomain.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NavigatingToAppBoundDomain.h; sourceTree = "<group>"; };
 		4990001E24D2429C00049CB4 /* WKRenderLayer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WKRenderLayer.cpp; sourceTree = "<group>"; };
 		4990001F24D2429C00049CB4 /* WKRenderLayer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WKRenderLayer.h; sourceTree = "<group>"; };
@@ -4853,6 +4857,8 @@
 		51933DEB1965EB24008AC3EA /* MenuUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MenuUtilities.h; sourceTree = "<group>"; };
 		51933DEC1965EB24008AC3EA /* MenuUtilities.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MenuUtilities.mm; sourceTree = "<group>"; };
 		5194B3861F192FB900FA4708 /* CookieStorageUtilsCF.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CookieStorageUtilsCF.h; sourceTree = "<group>"; };
+		519DFBE528138756003FF6AD /* WKNotificationPrivateMac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WKNotificationPrivateMac.h; path = mac/WKNotificationPrivateMac.h; sourceTree = "<group>"; };
+		519DFBE628138756003FF6AD /* WKNotificationPrivateMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = WKNotificationPrivateMac.mm; path = mac/WKNotificationPrivateMac.mm; sourceTree = "<group>"; };
 		51A555F3128C6C47009ABCEC /* WKContextMenuItem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WKContextMenuItem.cpp; sourceTree = "<group>"; };
 		51A555F4128C6C47009ABCEC /* WKContextMenuItem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKContextMenuItem.h; sourceTree = "<group>"; };
 		51A55600128C6D92009ABCEC /* WKContextMenuItemTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKContextMenuItemTypes.h; sourceTree = "<group>"; };
@@ -7197,7 +7203,6 @@
 		F4517D7A26FBCD38004C8475 /* RemoteRenderingBackendMessages.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RemoteRenderingBackendMessages.h; path = DerivedSources/WebKit/RemoteRenderingBackendMessages.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		F451C1002703D853002BA03B /* RemoteDisplayListRecorder.messages.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = RemoteDisplayListRecorder.messages.in; sourceTree = "<group>"; };
 		F4660BC125DEF08100E86598 /* PasteboardAccessIntent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PasteboardAccessIntent.h; sourceTree = "<group>"; };
-		F47A051626827A09007E5CF2 /* QuickLookPreviewActivity.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QuickLookPreviewActivity.h; sourceTree = "<group>"; };
 		F48570A22644BEC400C05F71 /* Timeout.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Timeout.h; sourceTree = "<group>"; };
 		F48BB8DD26F9635D001C1C40 /* RemoteDisplayListRecorderProxy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteDisplayListRecorderProxy.h; sourceTree = "<group>"; };
 		F48BB8DE26F9635D001C1C40 /* RemoteDisplayListRecorderProxy.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteDisplayListRecorderProxy.cpp; sourceTree = "<group>"; };
@@ -7943,6 +7948,7 @@
 				E18C92F312DB9E7100CF2AEB /* PrintInfo.cpp */,
 				E1CC1B8E12D7EADF00625838 /* PrintInfo.h */,
 				5C05FDF227AB4FA5003A2487 /* PrivateRelayed.h */,
+				0FEC6E05280915CF008082AC /* ProcessTerminationReason.cpp */,
 				463FD4811EB94EAD00A2982C /* ProcessTerminationReason.h */,
 				517B5F94275EBA62002DC22D /* PushMessageForTesting.h */,
 				9B1229D023FF2A5E008CA751 /* RemoteAudioDestinationIdentifier.h */,
@@ -8227,7 +8233,6 @@
 				CDA29A1F1CBEB5FB00901CCF /* PlaybackSessionManagerProxy.mm */,
 				C145CC0E23DCA427003A5EEB /* PreferenceObserver.h */,
 				C15CBB3323F34C3800300CC7 /* PreferenceObserver.mm */,
-				F47A051626827A09007E5CF2 /* QuickLookPreviewActivity.h */,
 				5CB7AFDD23C5273D00E49CF3 /* ResourceLoadDelegate.h */,
 				5CB7AFDE23C5273D00E49CF3 /* ResourceLoadDelegate.mm */,
 				5CA9854B210BEB730057EB6B /* SafeBrowsingWarningCocoa.mm */,
@@ -8303,6 +8308,7 @@
 				1A3D610413A7F03A00F95D4E /* ArgumentCoders.cpp */,
 				1AEFD2F611D1807B008219D3 /* ArgumentCoders.h */,
 				7B1DB26525668CE0000E26BC /* ArrayReference.h */,
+				4955A6E528076D4C00BB91C4 /* ArrayReferenceTuple.h */,
 				BCEE966A112FAF57006BCC24 /* Attachment.cpp */,
 				BCEE966B112FAF57006BCC24 /* Attachment.h */,
 				BC032DA210F437D10058C15A /* Connection.cpp */,
@@ -10972,6 +10978,8 @@
 				9FB5F393169E6A80002C25BF /* WKContextPrivateMac.h */,
 				9FB5F392169E6A80002C25BF /* WKContextPrivateMac.mm */,
 				6EE849C61368D92D0038D481 /* WKInspectorPrivateMac.h */,
+				519DFBE528138756003FF6AD /* WKNotificationPrivateMac.h */,
+				519DFBE628138756003FF6AD /* WKNotificationPrivateMac.mm */,
 				BCE17B7C1381F1170012A641 /* WKPagePrivateMac.h */,
 				BCE17B7B1381F1170012A641 /* WKPagePrivateMac.mm */,
 				5272D4C71E735F0900EB4290 /* WKProtectionSpaceNS.h */,
@@ -14006,6 +14014,7 @@
 				1AAF0C4A12B16334008E49E2 /* ArgumentCodersCF.h in Headers */,
 				A175C44A21AA3171000037D0 /* ArgumentCodersCocoa.h in Headers */,
 				7B1DB26625668CE1000E26BC /* ArrayReference.h in Headers */,
+				4955A6E628076D4D00BB91C4 /* ArrayReferenceTuple.h in Headers */,
 				AAFA634F234F7C6400FFA864 /* AsyncRevalidation.h in Headers */,
 				BCEE966D112FAF57006BCC24 /* Attachment.h in Headers */,
 				512F589712A8838800629530 /* AuthenticationChallengeProxy.h in Headers */,
@@ -14815,6 +14824,7 @@
 				BCE469541214E6CB000B98EB /* WebFormClient.h in Headers */,
 				DDA0A2B527E55E4E005E086E /* WebFormDelegate.h in Headers */,
 				DDA0A30127E55E4E005E086E /* WebFormDelegatePrivate.h in Headers */,
+				519DFBE7281387C1003FF6AD /* WKNotificationPrivateMac.h in Headers */,
 				BCE469561214E6CB000B98EB /* WebFormSubmissionListenerProxy.h in Headers */,
 				E5227D8427A11261008EAB57 /* WebFoundTextRange.h in Headers */,
 				E55CFD4E279D31E5002F1020 /* WebFoundTextRangeController.h in Headers */,
@@ -15817,7 +15827,6 @@
 		0867D690FE84028FC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				DefaultBuildSystemTypeForWorkspace = Original;
 				LastSwiftUpdateCheck = 1300;
 				LastUpgradeCheck = 1140;
 				TargetAttributes = {

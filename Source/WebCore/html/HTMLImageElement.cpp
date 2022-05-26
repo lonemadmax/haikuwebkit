@@ -28,8 +28,10 @@
 #include "CachedImage.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CommonAtomStrings.h"
 #include "Editor.h"
 #include "ElementIterator.h"
+#include "ElementRareData.h"
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "FrameView.h"
@@ -191,6 +193,14 @@ void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidat
         downcast<RenderImage>(*renderer()).setImageDevicePixelRatio(m_imageDevicePixelRatio);
 }
 
+static String extractMIMETypeFromTypeAttributeForLookup(const String& typeAttribute)
+{
+    auto semicolonIndex = typeAttribute.find(';');
+    if (semicolonIndex == notFound)
+        return stripLeadingAndTrailingHTMLSpaces(typeAttribute);
+    return StringView(typeAttribute).left(semicolonIndex).stripLeadingAndTrailingMatchedCharacters(isHTMLSpace<UChar>).toStringWithoutCopying();
+}
+
 ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
 {
     RefPtr picture = pictureElement();
@@ -210,9 +220,7 @@ ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
 
         auto& typeAttribute = source.attributeWithoutSynchronization(typeAttr);
         if (!typeAttribute.isNull()) {
-            String type = typeAttribute.string();
-            type.truncate(type.find(';'));
-            type = stripLeadingAndTrailingHTMLSpaces(type);
+            auto type = extractMIMETypeFromTypeAttributeForLookup(typeAttribute);
             if (!type.isEmpty() && !MIMETypeRegistry::isSupportedImageVideoOrSVGMIMEType(type))
                 continue;
         }
@@ -281,7 +289,7 @@ static CrossOriginState parseCrossoriginState(const AtomString& crossoriginValue
 {
     if (crossoriginValue.isNull())
         return NotSet;
-    return equalIgnoringASCIICase(crossoriginValue, "use-credentials") ? UseCredentials : Anonymous;
+    return equalLettersIgnoringASCIICase(crossoriginValue, "use-credentials") ? UseCredentials : Anonymous;
 }
 
 void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason reason)
@@ -615,7 +623,7 @@ URL HTMLImageElement::src() const
     return document().completeURL(attributeWithoutSynchronization(srcAttr));
 }
 
-void HTMLImageElement::setSrc(const String& value)
+void HTMLImageElement::setSrc(const AtomString& value)
 {
     setAttributeWithoutSynchronization(srcAttr, value);
 }
@@ -652,7 +660,7 @@ bool HTMLImageElement::complete() const
     return m_imageLoader->imageComplete();
 }
 
-void HTMLImageElement::setDecoding(String&& decodingMode)
+void HTMLImageElement::setDecoding(AtomString&& decodingMode)
 {
     setAttributeWithoutSynchronization(decodingAttr, WTFMove(decodingMode));
 }
@@ -667,7 +675,7 @@ String HTMLImageElement::decoding() const
     case DecodingMode::Auto:
         break;
     }
-    return "auto"_s;
+    return autoAtom();
 }
 
 DecodingMode HTMLImageElement::decodingMode() const
@@ -889,10 +897,8 @@ size_t HTMLImageElement::pendingDecodePromisesCountForTesting() const
 
 const AtomString& HTMLImageElement::loadingForBindings() const
 {
-    static MainThreadNeverDestroyed<const AtomString> eager("eager", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> lazy("lazy", AtomString::ConstructFromLiteral);
     auto& attributeValue = attributeWithoutSynchronization(HTMLNames::loadingAttr);
-    return hasLazyLoadableAttributeValue(attributeValue) ? lazy : eager;
+    return hasLazyLoadableAttributeValue(attributeValue) ? lazyAtom() : eagerAtom();
 }
 
 void HTMLImageElement::setLoadingForBindings(const AtomString& value)

@@ -93,7 +93,7 @@ static CSSUnitType parseUnit(const String& unit)
     return CSSParserToken::stringToUnitType(unit);
 }
 
-String CSSUnitValue::unit() const
+ASCIILiteral CSSUnitValue::unit() const
 {
     switch (m_unit) {
     case CSSUnitType::CSS_NUMBER:
@@ -106,9 +106,15 @@ String CSSUnitValue::unit() const
     return unitSerialization();
 }
 
-String CSSUnitValue::unitSerialization() const
+ASCIILiteral CSSUnitValue::unitSerialization() const
 {
     return CSSPrimitiveValue::unitTypeString(m_unit);
+}
+
+void CSSUnitValue::serialize(StringBuilder& builder, OptionSet<SerializationArguments>) const
+{
+    builder.append(FormattedCSSNumber::create(m_value));
+    builder.append(unitSerialization());
 }
 
 ExceptionOr<Ref<CSSUnitValue>> CSSUnitValue::create(double value, const String& unit)

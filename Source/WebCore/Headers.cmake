@@ -970,25 +970,37 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     inspector/agents/InspectorPageAgent.h
 
+    layout/FormattingState.h
+    layout/LayoutState.h
     layout/LayoutUnits.h
     layout/MarginTypes.h
+
+    layout/formattingContexts/FormattingConstraints.h
+    layout/formattingContexts/FormattingContext.h
+
+    layout/formattingContexts/flex/FlexFormattingState.h
 
     layout/formattingContexts/inline/display/InlineDisplayBox.h
     layout/formattingContexts/inline/InlineRect.h
 
-    layout/integration/InlineIteratorBox.h
-    layout/integration/InlineIteratorBoxLegacyPath.h
-    layout/integration/InlineIteratorBoxModernPath.h
-    layout/integration/InlineIteratorLineBox.h
-    layout/integration/InlineIteratorLineBoxLegacyPath.h
-    layout/integration/InlineIteratorLineBoxModernPath.h
-    layout/integration/InlineIteratorLogicalOrderTraversal.h
-    layout/integration/InlineIteratorTextBox.h
-    layout/integration/LayoutIntegrationInlineContent.h
-    layout/integration/LayoutIntegrationLine.h
+    layout/integration/LayoutIntegrationBoxTree.h
+
+    layout/integration/flex/LayoutIntegrationFlexLayout.h
+
+    layout/integration/inline/InlineIteratorBox.h
+    layout/integration/inline/InlineIteratorBoxLegacyPath.h
+    layout/integration/inline/InlineIteratorBoxModernPath.h
+    layout/integration/inline/InlineIteratorLineBox.h
+    layout/integration/inline/InlineIteratorLineBoxLegacyPath.h
+    layout/integration/inline/InlineIteratorLineBoxModernPath.h
+    layout/integration/inline/InlineIteratorLogicalOrderTraversal.h
+    layout/integration/inline/InlineIteratorTextBox.h
+    layout/integration/inline/LayoutIntegrationInlineContent.h
+    layout/integration/inline/LayoutIntegrationLine.h
 
     layout/layouttree/LayoutContainerBox.h
     layout/layouttree/LayoutBox.h
+    layout/layouttree/LayoutInitialContainingBlock.h
 
     loader/CanvasActivityRecord.h
     loader/ContentFilterClient.h
@@ -1240,6 +1252,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/CPUMonitor.h
     platform/ColorChooser.h
     platform/ColorChooserClient.h
+    platform/CommonAtomStrings.h
     platform/ContentFilterUnblockHandler.h
     platform/ContentType.h
     platform/ContextMenu.h
@@ -1355,6 +1368,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SuddenTermination.h
     platform/Supplementable.h
     platform/SystemSoundDelegate.h
+    platform/TextRecognitionOptions.h
     platform/ThemeTypes.h
     platform/ThreadCheck.h
     platform/ThreadGlobalData.h

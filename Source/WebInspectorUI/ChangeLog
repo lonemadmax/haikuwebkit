@@ -1,3 +1,401 @@
+2022-04-25  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: response overrides with an error status code should indicate that somewhere
+        https://bugs.webkit.org/show_bug.cgi?id=239676
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/LocalResourceOverrideTreeElement.js:
+        (WI.LocalResourceOverrideTreeElement.prototype.updateStatus):
+        Also have the `WI.LocalResourceOverrideTreeElement` add/remove the `"error"` CSS class
+        depening on the state of the related `WI.LocalResource` (which is what's done for "regular"
+        `WI.ResourceTreeElement` and `WI.Resource`).
+
+2022-04-25  Tim Nguyen  <ntim@apple.com>
+
+        Web Inspector: Unprefix CSS properties in source code
+        https://bugs.webkit.org/show_bug.cgi?id=239517
+
+        Reviewed by Patrick Angle.
+
+        Properties:
+        -webkit-appearance
+        -webkit-mask-image
+        -webkit-clip-path
+        -webkit-text-decoration-*
+        -webkit-user-select
+
+        Values:
+        cursor: -webkit-grab/grabbing
+        -webkit-fill-available
+
+        JS Properties:
+        webkitTransform
+
+        Media queries:
+        -webkit-device-pixel-ratio
+        -webkit-min-device-pixel-ratio
+        -webkit-max-device-pixel-ratio
+
+        Also used shorthand properties there and there.
+
+        * UserInterface/Debug/UncaughtExceptionReporter.css:
+        (.sheet-container):
+        (.uncaught-exception-sheet li):
+        * UserInterface/Views/AuditTestCaseContentView.css:
+        (.content-view.audit-test-case > section table > tr > td > :not(.tree-outline)):
+        * UserInterface/Views/AuditTestContentView.css:
+        (.content-view.audit-test.manager-editing > header :is(.name, .description)[contenteditable]):
+        * UserInterface/Views/BoxShadowEditor.css:
+        (.box-shadow-editor > table > tr > td > input[type="text"]):
+        * UserInterface/Views/BreakpointActionView.css:
+        (.breakpoint-action-eval-editor):
+        * UserInterface/Views/BreakpointPopover.css:
+        (.popover .edit-breakpoint-popover-content > table > tr.condition > td > .editor):
+        * UserInterface/Views/BreakpointTreeElement.css:
+        (.item.breakpoint .status > .status-image.auto-continue::after):
+        * UserInterface/Views/CPUTimelineView.css:
+        (.timeline-view.cpu > .content > .overview .legend):
+        (.timeline-view.cpu > .content > .overview > .chart > .container.stats):
+        * UserInterface/Views/CPUUsageCombinedView.css:
+        (.cpu-usage-combined-view > .details):
+        * UserInterface/Views/ChangesDetailsSidebarPanel.css:
+        (.sidebar > .panel.changes-panel .css-rule):
+        * UserInterface/Views/CodeMirrorOverrides.css:
+        (.CodeMirror-linewidget):
+        * UserInterface/Views/ColorSquare.css:
+        (@media (-webkit-device-pixel-ratio: 1) .color-square > .srgb-edge): Deleted.
+        * UserInterface/Views/ComputedStyleSection.css:
+        (.computed-style-section):
+        (.computed-style-section .computed-property-item .disclosure-button):
+        * UserInterface/Views/ConsoleMessageView.css:
+        (.console-user-command.special-user-log > .console-message-body):
+        (.console-message-body > span):
+        (.console-message-body > span > :matches(.console-message-enclosed, .console-message-preview, .console-message-preview-divider)):
+        (.console-message .console-message-extra-parameters-container > li,):
+        (.console-user-command > .console-message-body):
+        * UserInterface/Views/CookiePopover.css:
+        (.popover .cookie-popover-content > table > tr > td > input:matches([type="text"], [type="datetime-local"])):
+        * UserInterface/Views/DOMEventsBreakdownView.css:
+        (.waterfall-popover-content .dom-events-breakdown):
+        * UserInterface/Views/DOMTreeOutline.css:
+        (.tree-outline.dom.non-selectable):
+        (.tree-outline.dom li .selection-area):
+        * UserInterface/Views/DatabaseContentView.css:
+        (:matches(.database-user-query, .database-query-result)::before):
+        (.database-query-text):
+        (.database-query-result.error):
+        (.database-query-result.no-results):
+        * UserInterface/Views/DetailsSection.css:
+        (.details-section > .content > .group > .row.simple > .value):
+        (.details-section > .content > .group > .row.text):
+        (@media (-webkit-min-device-pixel-ratio: 2) .details-section,): Deleted.
+        * UserInterface/Views/Editing.css:
+        (.editing):
+        * UserInterface/Views/EventBreakpointPopover.css:
+        (.popover .edit-breakpoint-popover-content .event input):
+        * UserInterface/Views/FilterBar.css:
+        (:matches(.filter-bar, .search-bar) > input[type="search"]):
+        (:matches(.filter-bar, .search-bar) > input[type="search"]::-webkit-search-decoration):
+        * UserInterface/Views/FindBanner.css:
+        (.find-banner > input[type="search"]):
+        (.find-banner > button):
+        * UserInterface/Views/FontResourceContentView.css:
+        (.content-view.resource.font .preview > .line > .content):
+        * UserInterface/Views/FormattedValue.css:
+        (.formatted-node > .tree-outline.dom li):
+        * UserInterface/Views/GeneralStyleDetailsSidebarPanel.css:
+        (.sidebar > .panel.details.css-style > .content ~ .options-container > .filter-bar):
+        (.sidebar > .panel.details.css-style > .content ~ .options-container > .toggle-class-toggle):
+        * UserInterface/Views/GoToLineDialog.css:
+        (.go-to-line-dialog > div > input):
+        * UserInterface/Views/GradientEditor.css:
+        (.gradient-editor > .gradient-angle > input::-webkit-inner-spin-button):
+        * UserInterface/Views/GradientSlider.js:
+        (WI.GradientSliderKnob.prototype._updateTransform):
+        (WI.GradientSliderKnob):
+        * UserInterface/Views/ImageResourceContentView.css:
+        (.content-view.resource.image img):
+        * UserInterface/Views/IndexedDatabaseContentView.css:
+        (.indexed-database.content-view):
+        * UserInterface/Views/InlineSwatch.css:
+        (@media (-webkit-max-device-pixel-ratio: 1) .inline-swatch): Deleted.
+        * UserInterface/Views/InputPopover.css:
+        (.popover .input-popover-content > .editor):
+        * UserInterface/Views/LocalResourceOverrideLabelView.css:
+        (.local-resource-override-label-view > div > .url):
+        * UserInterface/Views/LocalResourceOverridePopover.css:
+        (.popover .local-resource-override-popover-content .editor):
+        * UserInterface/Views/Main.css:
+        (body):
+        (input[type=range]):
+        (.message-text-view):
+        (.resource-link,):
+        (.go-to-arrow):
+        (.css-documentation-button):
+        (.search-settings):
+        (.expand-list-button):
+        (.bouncy-highlight):
+        (@media (-webkit-device-pixel-ratio: 1) .reference-page-link): Deleted.
+        * UserInterface/Views/NetworkResourceDetailView.css:
+        (.content-view.resource-details):
+        * UserInterface/Views/NetworkTableContentView.css:
+        (.network-table > .statistics > .statistic > .text):
+        * UserInterface/Views/ObjectTreeView.css:
+        (.tree-outline.object li):
+        * UserInterface/Views/OpenResourceDialog.css:
+        (.open-resource-dialog > .field > input):
+        * UserInterface/Views/RecordingContentView.css:
+        (.content-view.recording > .preview-container):
+        * UserInterface/Views/ResourceCookiesContentView.css:
+        (.resource-cookies .table > .header):
+        * UserInterface/Views/ResourceHeadersContentView.css:
+        (.resource-headers .go-to-link):
+        (.resource-headers .call-stack):
+        * UserInterface/Views/ResourceTimingBreakdownView.css:
+        (.waterfall-popover-content .resource-timing-breakdown):
+        * UserInterface/Views/ResourceTreeElement.css:
+        (.item.resource.resource-type-websocket .status > .ready-state):
+        * UserInterface/Views/ScopeChainDetailsSidebarPanel.css:
+        (.watch-expression-editor):
+        * UserInterface/Views/Slider.css:
+        (@media (-webkit-min-device-pixel-ratio: 2) .slider): Deleted.
+        * UserInterface/Views/SourceCodeTextEditor.css:
+        (.source-code.text-editor > .CodeMirror .line-indicator-widget.inline):
+        (@media (-webkit-min-device-pixel-ratio: 2) .popover .debugger-popover-content > .body): Deleted.
+        * UserInterface/Views/SpreadsheetCSSStyleDeclarationEditor.css:
+        (.spreadsheet-style-declaration-editor):
+        (.spreadsheet-style-declaration-editor > .property:matches(.invalid-name, .other-vendor, .overridden):not(.disabled) > .content > *:not(.name, .value-container),):
+        (.spreadsheet-style-declaration-editor > .property.invalid-name:not(.disabled) > .content > *:not(.name, .value-container),):
+        (body:not(.meta-key-pressed) .spreadsheet-style-declaration-editor > .property.invalid-value:not(.disabled) > .content .value:not(.editing),):
+        (.spreadsheet-style-declaration-editor .property.has-warning .warning):
+        * UserInterface/Views/SpreadsheetCSSStyleDeclarationSection.css:
+        (.spreadsheet-css-declaration):
+        (.spreadsheet-css-declaration.selecting,):
+        (.spreadsheet-css-declaration .selector > .icon):
+        * UserInterface/Views/SpringEditor.css:
+        (.spring-editor > .number-input-container > .number-input-row > input::-webkit-inner-spin-button):
+        * UserInterface/Views/TextEditor.css:
+        (.text-editor > .CodeMirror .has-breakpoint .CodeMirror-linenumber::before):
+        (.text-editor > .CodeMirror .breakpoint-auto-continue:not(.execution-line.primary) .CodeMirror-linenumber::after):
+        * UserInterface/Views/TimelineRecordFrame.css:
+        (.timeline-record-frame.tall):
+        * UserInterface/Views/TimelineRuler.css:
+        (.timeline-ruler:not(.disabled, .resizing-selection) > .selection-drag):
+        (.timeline-ruler:not(.disabled, .resizing-selection) > .selection-drag:active):
+        * UserInterface/Views/TreeOutline.css:
+        (.tree-outline .item .disclosure-button):
+        * UserInterface/Views/TypeTreeElement.css:
+        (.item.type-tree-element > .disclosure-button):
+        * UserInterface/Views/TypeTreeView.css:
+        (.tree-outline.type li):
+        * UserInterface/Views/URLBreakpointPopover.css:
+        (.popover .edit-breakpoint-popover-content .url .editor):
+        (@media (prefers-color-scheme: dark) .popover .edit-breakpoint-popover-content .url .editor):
+
+2022-04-21  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Elements: Layout: hovering over a node should highlight it in the page
+        https://bugs.webkit.org/show_bug.cgi?id=239621
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/NodeOverlayListSection.js:
+        (WI.NodeOverlayListSection.prototype.layout):
+        Use the existing `WI.linkifyNodeReference` to create the UI for the `WI.DOMNode`.
+
+        * UserInterface/Base/DOMUtilities.js:
+        (WI.linkifyNodeReferenceElement):
+        Don't style the UI as a link if clicking it doesn't do anything.
+
+2022-04-21  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: add reference page links for the Timelines Tab
+        https://bugs.webkit.org/show_bug.cgi?id=239580
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/TimelineView.js:
+        (WI.TimelineView.prototype.initialLayout): Added.
+        * UserInterface/Views/TimelineView.css:
+        (.timeline-view > .reference-page-link-container): Added.
+        Add a reference page link to the bottom-right of each timeline view.
+
+        * UserInterface/Views/CPUTimelineView.js:
+        (WI.CPUTimelineView.prototype.initialLayout):
+        * UserInterface/Views/HeapAllocationsTimelineView.js:
+        * UserInterface/Views/LayoutTimelineView.js:
+        * UserInterface/Views/MediaTimelineView.js:
+        * UserInterface/Views/MemoryTimelineView.js:
+        * UserInterface/Views/NetworkTimelineView.js:
+        * UserInterface/Views/OverviewTimelineView.js:
+        * UserInterface/Views/RenderingFrameTimelineView.js:
+        * UserInterface/Views/ScriptDetailsTimelineView.js:
+        * UserInterface/Views/ScriptProfileTimelineView.js:
+        Add `WI.*.ReferencePage = WI.ReferencePage.*` relationships for each timeline view.
+
+        * UserInterface/Base/ReferencePage.js:
+        (WI.ReferencePage): Added.
+        (WI.ReferencePage.prototype.get page): Added.
+        (WI.ReferencePage.prototype.get topic): Added.
+        (WI.ReferencePage.prototype.createLinkElement): Added.
+        * UserInterface/Base/Main.js:
+        (WI.createReferencePageLink): Moved to `WI.ReferencePage.prototype.createLinkElement`.
+        Create a `WI.ReferencePage` class that knows how to generate a `<a>`.
+
+        * UserInterface/Views/AuditNavigationSidebarPanel.js:
+        (WI.AuditNavigationSidebarPanel.prototype.showDefaultContentView):
+        * UserInterface/Views/AuditTestCaseContentView.js:
+        (WI.AuditTestCaseContentView.prototype.showRunningPlaceholder):
+        * UserInterface/Views/AuditTestContentView.js:
+        (WI.AuditTestContentView.prototype.showStoppingPlaceholder):
+        (WI.AuditTestContentView.prototype.showNoResultPlaceholder):
+        (WI.AuditTestContentView.prototype.showNoResultDataPlaceholder):
+        (WI.AuditTestContentView.prototype.showFilteredPlaceholder):
+        * UserInterface/Views/AuditTestGroupContentView.js:
+        (WI.AuditTestGroupContentView.prototype.showRunningPlaceholder):
+        * UserInterface/Views/BreakpointPopover.js:
+        (WI.BreakpointPopover.prototype.show):
+        * UserInterface/Views/CreateAuditPopover.js:
+        (WI.CreateAuditPopover.prototype.show):
+        * UserInterface/Views/Layers3DContentView.js:
+        (WI.Layers3DContentView.prototype.initialLayout):
+        * UserInterface/Views/LocalResourceOverridePopover.js:
+        (WI.LocalResourceOverridePopover.prototype.show):
+        Replace `WI.createReferencePageLink` with `WI.ReferencePage.*.createLinkElement`
+
+2022-04-18  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Use XCBuild for all command-line and project builds
+        https://bugs.webkit.org/show_bug.cgi?id=238916
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebInspectorUI.xcodeproj/project.pbxproj:
+
+2022-04-13  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Fix public watchOS workspace build by updating scheme and build settings
+        https://bugs.webkit.org/show_bug.cgi?id=239301
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+
+2022-04-13  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Clean up `WI.DOMNode` to no longer require the shared `WI.DOMManager` be passed during construction
+        https://bugs.webkit.org/show_bug.cgi?id=239129
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Controllers/DOMManager.js:
+        (WI.DOMManager.prototype._setDocument):
+        (WI.DOMManager.prototype._childNodeInserted):
+        (WI.DOMManager.prototype._pseudoElementAdded):
+        - Update to use new syntax for `WI.DOMNode` constructor/`newOrExistingFromPayload`. Additionally, there is no
+        need to explicitly map node ids to nodes here since `WI.DOMNode`'s constructor does this.
+        
+        (WI.DOMManager.prototype._setChildNodes):
+        (WI.DOMManager.prototype._setDetachedRoot): Deleted.
+        - Inline _setDetachedRoot with a comment instead and update to use `WI.DOMNode.newOrExistingFromPayload` instead
+        of always creating a new node.
+        
+        * UserInterface/Models/DOMNode.js:
+        (WI.DOMNode):
+        - Remove the _domManager property since it will always be `WI.domManager`, the shared singleton and update the
+        required arguments to use an options object for non-required parameters.
+
+        (WI.DOMNode.prototype.newOrExistingFromPayload):
+        (WI.DOMNode.prototype._insertChild):
+        (WI.DOMNode.prototype._setChildrenPayload):
+        - Update to use new constructor syntax.
+        
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] In open-source builds, disable bitcode in xcconfigs instead of build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=239262
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        Reland "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig: In open-source builds, disable
+        VALIDATE_DEPENDENCIES when there is no PRODUCT_TYPE (i.e. not building
+        a native target).
+
+2022-04-12  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Add engineering-build-only ability to dump the current known bound nodes tree in Inspector^2 or layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=239086
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Debug/DOMManager.js: Added.
+        (appendLine):
+        (appendChildren):
+        (get let):
+        - To assist with debugging layout tests and patches to the DOMManager, add a utility getter to dump the current
+        node tree.
+        
+        * UserInterface/Main.html:
+        * UserInterface/Test.html:
+
+2022-04-11  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: preserve DOM.NodeId if a node is removed and re-added
+        https://bugs.webkit.org/show_bug.cgi?id=189687
+
+        Reviewed by Devin Rousso.
+
+        Instead of unbinding and rebinding nodes upon removal/reinsertion to the DOM tree, we should only perform the
+        unbinding actions on a `Node` that is being destroyed.
+
+        * UserInterface/Controllers/DOMDebuggerManager.js:
+
+        * UserInterface/Controllers/DOMManager.js:
+        (WI.DOMManager.prototype._pseudoElementAdded):
+
+        (WI.DOMManager.prototype.willDestroyDOMNode):
+        (WI.DOMManager.prototype._unbind):
+        - To match the backend, we should only unbind nodes when they are destroyed, not removed.
+
+        * UserInterface/Models/DOMNode.js:
+        (WI.DOMNode.prototype.newOrExistingFromPayload):
+        - Reuse an existing orphaned DOMNode if it already exists. In the future, we want to stop sending entire node
+        payloads to the frontend in those situations.
+
+        (WI.DOMNode.prototype._insertChild):
+        (WI.DOMNode.prototype._setChildrenPayload):
+
+2022-04-11  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: REGRESSION(r290770): Styles: creating a new property scrolls the input to the top of the panel
+        https://bugs.webkit.org/show_bug.cgi?id=237747
+        <rdar://problem/90130669>
+
+        Reviewed by Patrick Angle.
+
+        Remove unnecessary scrollIntoViewIfNeeded call. I added the scrollIntoViewIfNeeded call in 2017 (r222959) because,
+        at the time, focusing on an input field didn't scroll it into the viewport. It was possible to tab into an element
+        outside of the viewport and  WebKit wouldn't scroll it make it visible. This is no longer the case.
+
+        * UserInterface/Views/SpreadsheetSelectorField.js:
+        (WI.SpreadsheetSelectorField.prototype.startEditing):
+        Call `focus()` to scroll to the edited element.
+
+        * UserInterface/Views/SpreadsheetTextField.js:
+        (WI.SpreadsheetTextField.prototype.startEditing):
+
 2022-04-08  Elliott Williams  <emw@apple.com>
 
         [Xcode] Avoid targeting 32-bit iOS and Mac architectures

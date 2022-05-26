@@ -738,7 +738,6 @@ enum class TextTransform : uint8_t {
 
 static const size_t TextDecorationLineBits = 4;
 enum class TextDecorationLine : uint8_t {
-    None          = 0,
     Underline     = 1 << 0,
     Overline      = 1 << 1,
     LineThrough   = 1 << 2,
@@ -1212,6 +1211,12 @@ enum class ContainerType : uint8_t {
     InlineSize,
 };
 
+enum class ContainIntrinsicSizeType : uint8_t {
+    None,
+    Length,
+    AutoAndLength
+};
+
 CSSBoxType transformBoxToCSSBoxType(TransformBox);
 
 extern const float defaultMiterLimit;
@@ -1323,6 +1328,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, Visibility);
 WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpace);
 WTF::TextStream& operator<<(WTF::TextStream&, WordBreak);
 WTF::TextStream& operator<<(WTF::TextStream&, MathStyle);
+WTF::TextStream& operator<<(WTF::TextStream&, ContainIntrinsicSizeType);
 
 } // namespace WebCore
 

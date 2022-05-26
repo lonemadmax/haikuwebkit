@@ -61,7 +61,6 @@
 #import <WebCore/LocalCurrentTraitCollection.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/WebCoreUIColorExtras.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <wtf/BlockPtr.h>
@@ -543,7 +542,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
 
     if (!color.isValid()) {
 #if HAVE(OS_DARK_MODE_SUPPORT)
-        color = WebCore::roundAndClampToSRGBALossy(WebCore::systemBackgroundColor().CGColor);
+        color = WebCore::roundAndClampToSRGBALossy(UIColor.systemBackgroundColor.CGColor);
 #else
         color = WebCore::Color::white;
 #endif
@@ -646,7 +645,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
 
 - (UIEdgeInsets)_computedObscuredInset
 {
-    if (!linkedOnOrAfter(SDKVersion::FirstWhereScrollViewContentInsetsAreNotObscuringInsets)) {
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ScrollViewContentInsetsAreNotObscuringInsets)) {
         // For binary compability with third party apps, treat scroll view content insets as obscuring insets when the app is compiled
         // against a WebKit version without the fix in r229641.
         return [self _computedContentInset];
@@ -779,10 +778,8 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
         [_scrollView _stopScrollingAndZoomingAnimations];
 
 #if HAVE(UIFINDINTERACTION)
-    if (_findInteractionEnabled) {
+    if (_findInteractionEnabled)
         [_findInteraction dismissFindNavigator];
-        [_findInteraction setSearchableObject:[self _searchableObject]];
-    }
 #endif
 }
 
@@ -881,7 +878,8 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     if (_maximumUnobscuredSizeOverride) {
         auto unobscuredContentRect = _page->unobscuredContentRect();
         auto maxUnobscuredSize = _page->maximumUnobscuredSize();
-        scrollingNeededToRevealUI = maxUnobscuredSize.width() == unobscuredContentRect.width() && maxUnobscuredSize.height() == unobscuredContentRect.height();
+        auto minUnobscuredSize = _page->minimumUnobscuredSize();
+        scrollingNeededToRevealUI = minUnobscuredSize != maxUnobscuredSize && maxUnobscuredSize == unobscuredContentRect.size();
     }
 
     bool scrollingEnabled = _page->scrollingCoordinatorProxy()->hasScrollableOrZoomedMainFrame() || hasDockedInputView || isZoomed || scrollingNeededToRevealUI;
@@ -1676,8 +1674,11 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 #endif
 }
 
-- (void)_didFinishScrolling
+- (void)_didFinishScrolling:(UIScrollView *)scrollView
 {
+    if (scrollView != _scrollView.get())
+        return;
+
     if (![self usesStandardContentView])
         return;
 
@@ -1725,17 +1726,17 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 {
     // If we're decelerating, scroll offset will be updated when scrollViewDidFinishDecelerating: is called.
     if (!decelerate)
-        [self _didFinishScrolling];
+        [self _didFinishScrolling:scrollView];
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
 {
-    [self _didFinishScrolling];
+    [self _didFinishScrolling:scrollView];
 }
 
 - (void)scrollViewDidScrollToTop:(UIScrollView *)scrollView
 {
-    [self _didFinishScrolling];
+    [self _didFinishScrolling:scrollView];
 }
 
 - (CGPoint)_scrollView:(UIScrollView *)scrollView adjustedOffsetForOffset:(CGPoint)offset translation:(CGPoint)translation startPoint:(CGPoint)start locationInView:(CGPoint)locationInView horizontalVelocity:(inout double *)hv verticalVelocity:(inout double *)vv
@@ -1858,7 +1859,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
 - (void)scrollViewDidEndScrollingAnimation:(UIScrollView *)scrollView
 {
-    [self _didFinishScrolling];
+    [self _didFinishScrolling:scrollView];
 }
 
 - (void)_scrollViewDidInterruptDecelerating:(UIScrollView *)scrollView
@@ -2712,10 +2713,10 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
 #if HAVE(UIFINDINTERACTION)
 
-- (id<_UITextSearching>)_searchableObject
+- (id<UITextSearching>)_searchableObject
 {
-    if ([_customContentView conformsToProtocol:@protocol(_UITextSearching)])
-        return (id<_UITextSearching>)_customContentView.get();
+    if ([_customContentView conformsToProtocol:@protocol(UITextSearching)])
+        return (id<UITextSearching>)_customContentView.get();
 
     return _contentView.get();
 }
@@ -3558,28 +3559,12 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
 
 - (void)_setFindInteractionEnabled:(BOOL)enabled
 {
-    if (_findInteractionEnabled != enabled) {
-        _findInteractionEnabled = enabled;
-
-        if (enabled) {
-            if (!_findInteraction) {
-                ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-                _findInteraction = adoptNS([[_UIFindInteraction alloc] init]);
-                ALLOW_DEPRECATED_DECLARATIONS_END
-                [_findInteraction setSearchableObject:[self _searchableObject]];
-            }
-
-            [self addInteraction:_findInteraction.get()];
-        } else {
-            [self removeInteraction:_findInteraction.get()];
-            _findInteraction = nil;
-        }
-    }
+    [self setFindInteractionEnabled:enabled];
 }
 
 - (_UIFindInteraction *)_findInteraction
 {
-    return _findInteraction.get();
+    return (_UIFindInteraction *)_findInteraction.get();
 }
 
 - (UITextRange *)selectedTextRange
@@ -3588,30 +3573,33 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
-- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(_UITextSearchDocumentIdentifier)document
+- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(UITextSearchDocumentIdentifier)document
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [_contentView offsetFromPosition:from toPosition:toPosition inDocument:document];
-    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
-- (NSComparisonResult)compareFoundRange:(UITextRange *)fromRange toRange:(UITextRange *)toRange inDocument:(_UITextSearchDocumentIdentifier)document
+- (NSComparisonResult)compareFoundRange:(UITextRange *)fromRange toRange:(UITextRange *)toRange inDocument:(UITextSearchDocumentIdentifier)document
 {
     return [_contentView compareFoundRange:fromRange toRange:toRange inDocument:document];
 }
 
-- (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(_UITextSearchOptions *)options resultAggregator:(id<_UITextSearchAggregator>)aggregator
+- (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(UITextSearchOptions *)options resultAggregator:(id<UITextSearchAggregator>)aggregator
 {
     [_contentView performTextSearchWithQueryString:string usingOptions:options resultAggregator:aggregator];
 }
 
-- (void)decorateFoundTextRange:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document usingStyle:(_UIFoundTextStyle)style
+- (void)replaceFoundTextInRange:(UITextRange *)range inDocument:(UITextSearchDocumentIdentifier)document withText:(NSString *)replacementText
+{
+    [_contentView replaceFoundTextInRange:range inDocument:document withText:replacementText];
+}
+
+- (void)decorateFoundTextRange:(UITextRange *)range inDocument:(UITextSearchDocumentIdentifier)document usingStyle:(UITextSearchFoundTextStyle)style
 {
     [_contentView decorateFoundTextRange:range inDocument:document usingStyle:style];
 }
 
-- (void)scrollRangeToVisible:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document
+- (void)scrollRangeToVisible:(UITextRange *)range inDocument:(UITextSearchDocumentIdentifier)document
 {
     [_contentView scrollRangeToVisible:range inDocument:document];
 }
@@ -3634,6 +3622,24 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_requestRectForFoundTextRange:(UITextRange *)ranges completionHandler:(void (^)(CGRect rect))completionHandler
 {
     [_contentView requestRectForFoundTextRange:ranges completionHandler:completionHandler];
+}
+
+- (UIFindSession *)findInteraction:(UIFindInteraction *)interaction sessionForView:(UIView *)view
+{
+    auto findSession = adoptNS([[UITextSearchingFindSession alloc] initWithSearchableObject:[self _searchableObject]]);
+    return findSession.autorelease();
+}
+
+- (void)findInteraction:(UIFindInteraction *)interaction didBeginFindSession:(UIFindSession *)session
+{
+    if ([self _searchableObject] == _contentView.get())
+        [_contentView didBeginTextSearchOperation];
+}
+
+- (void)findInteraction:(UIFindInteraction *)interaction didEndFindSession:(UIFindSession *)session
+{
+    if ([self _searchableObject] == _contentView.get())
+        [_contentView didEndTextSearchOperation];
 }
 
 #endif // HAVE(UIFINDINTERACTION)

@@ -515,10 +515,8 @@ void RenderLayerBacking::createPrimaryGraphicsLayer()
 {
     String layerName = m_owningLayer.name();
     const unsigned maxLayerNameLength = 100;
-    if (layerName.length() > maxLayerNameLength) {
-        layerName.truncate(maxLayerNameLength);
-        layerName.append("..."_s);
-    }
+    if (layerName.length() > maxLayerNameLength)
+        layerName = makeString(StringView(layerName).left(maxLayerNameLength), "..."_s);
     m_graphicsLayer = createGraphicsLayer(layerName, m_isFrameLayerWithTiledBacking ? GraphicsLayer::Type::PageTiledBacking : GraphicsLayer::Type::Normal);
 
     if (m_isFrameLayerWithTiledBacking) {
@@ -3330,7 +3328,7 @@ static RefPtr<Pattern> patternForDescription(PatternDescription description, Flo
         GraphicsContext& imageContext = imageBuffer->context();
 
         FontCascadeDescription fontDescription;
-        fontDescription.setOneFamily("Helvetica");
+        fontDescription.setOneFamily("Helvetica"_s);
         fontDescription.setSpecifiedSize(10);
         fontDescription.setComputedSize(10);
         fontDescription.setWeight(FontSelectionValue(500));

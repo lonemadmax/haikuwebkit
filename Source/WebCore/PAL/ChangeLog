@@ -1,3 +1,267 @@
+2022-04-22  Alex Christensen  <achristensen@webkit.org>
+
+        Adjust SPI headers to fix build with non-internal SDK
+        https://bugs.webkit.org/show_bug.cgi?id=239626
+
+        Reviewed by Chris Dumez.
+
+        * pal/spi/cocoa/PassKitSPI.h:
+        * pal/spi/mac/ScreenCaptureKitSPI.h:
+
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] WebKit and WebKitLegacy shouldn't need to know about WebGPU.framework
+        https://bugs.webkit.org/show_bug.cgi?id=239528
+        <rdar://problem/91740931>
+
+        Unreviewed build fix.
+
+        WebKit and WebKitLegacy create a WebGPU implementation from pal/graphics/WebGPU/Impl. This implementation
+        knows about WebGPU.framework. However, the create() function doesn't need to know about WebGPU.framework,
+        and its header doesn't need to include <WebGPU/WebGPU.h>. Only the .cpp files need to know about
+        <WebGPU/WebGPU.h>, and those .cpp files are invisible from WebKit and WebKitLegacy's points of view. So,
+        this patch splits the PAL header into:
+        1. A header which includes a creation function, but doesn't know about WebGPU.framework, and
+        2. A header which knows about WebGPU.framework, but doesn't hold the creation function used by WebKit or
+               WebKitLegacy.
+
+        This fixes one of Apple's internal builds.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/graphics/WebGPU/Impl/WebGPUCreateImpl.cpp: Copied from Source/WebCore/PAL/pal/graphics/WebGPU/Impl/WebGPUImpl.cpp.
+        (PAL::WebGPU::create):
+        * pal/graphics/WebGPU/Impl/WebGPUCreateImpl.h: Copied from Source/WebCore/PAL/pal/graphics/WebGPU/Impl/WebGPUImpl.h.
+        * pal/graphics/WebGPU/Impl/WebGPUImpl.cpp:
+        (PAL::WebGPU::GPUImpl::create): Deleted.
+        * pal/graphics/WebGPU/Impl/WebGPUImpl.h:
+
+2022-04-20  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Fix texture conversion format typo
+        https://bugs.webkit.org/show_bug.cgi?id=239446
+
+        Reviewed by Kimmo Kinnunen.
+
+        I mixed up "plus" and "unorm".
+
+        * pal/graphics/WebGPU/Impl/WebGPUConvertToBackingContext.cpp:
+        (PAL::WebGPU::ConvertToBackingContext::convertToBacking):
+
+2022-04-19  Antoine Quint  <graouts@apple.com>
+
+        [model] set canonicalWebPageURL and urlFragment on ASVInlinePreview on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=239502
+        rdar://87352281
+
+        Reviewed by Dean Jackson.
+
+        Add the `canonicalWebPageURL` and `urlFragment` properties to the SPI declarations.
+
+        * pal/spi/ios/SystemPreviewSPI.h:
+
+2022-04-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement hardware limits
+        https://bugs.webkit.org/show_bug.cgi?id=239377
+
+        Reviewed by Darin Adler.
+
+        This patch adds support for "limits" as described in https://gpuweb.github.io/gpuweb/#limits.
+        Various operations query the limits of the device to know whether the requested operation is
+        within range. E.g. if content tries to make a texture too big, this is how we catch it ahead of
+        time.
+
+        * pal/graphics/WebGPU/Impl/WebGPUAdapterImpl.cpp:
+        (PAL::WebGPU::AdapterImpl::requestDevice):
+
+2022-04-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] [WK2] Managed pasteboard should function for all managed domains
+        https://bugs.webkit.org/show_bug.cgi?id=239319
+        rdar://80059355
+
+        Reviewed by Kate Cheney.
+
+        Add an SPI method on `MCProfileConnection`.
+
+        * pal/spi/ios/ManagedConfigurationSPI.h:
+
+2022-04-13  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Revert r291846 because it caused a 3% performance regression
+        https://bugs.webkit.org/show_bug.cgi?id=239323
+        <rdar://problem/91046238>
+
+        Rubber-stamped by Stephanie Lewis.
+
+        * pal/spi/cf/CoreTextSPI.h:
+        * pal/spi/cocoa/AccessibilitySupportSPI.h:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] In open-source builds, disable bitcode in xcconfigs instead of build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=239262
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+
+2022-04-12  Elliott Williams  <emw@apple.com>
+
+        Reland "[XCBuild] Enable dependency validation by default"
+        https://bugs.webkit.org/show_bug.cgi?id=238901
+        <rdar://problem/91379968>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig: In open-source builds, disable
+        VALIDATE_DEPENDENCIES when there is no PRODUCT_TYPE (i.e. not building
+        a native target).
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Unspecified texture size values should be set to 1, not 0
+        https://bugs.webkit.org/show_bug.cgi?id=239052
+
+        Reviewed by Kimmo Kinnunen.
+
+        If content says "Please create a texture of size [32, 32]" then we need to pad that
+        to [32, 32, 1] rather than [32, 32, 0].
+
+        Test: http/tests/webgpu/webgpu/api/validation/createTexture.html
+
+        * pal/graphics/WebGPU/Impl/WebGPUConvertToBackingContext.cpp:
+        (PAL::WebGPU::ConvertToBackingContext::convertToBacking):
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement correct ownership for WGPUQueues
+        https://bugs.webkit.org/show_bug.cgi?id=239050
+
+        Reviewed by Kimmo Kinnunen.
+
+        WGPUQueues and WGPUDevices have a somewhat interesting relationship: neither is
+        reference-counted, and the WGPUDevice owns its WGPUQueue. This means that, if client
+        code wants to extend the lifetime of a WGPUQueue, it has to do this by extending the
+        lifetime of its owning WGPUDevice. Both objects are Javascript objects, so there has to
+        be some mechanism for a queue to extend the lifetime of its owning device. And yet, a
+        device owns a queue, so a queue can't have a queue have a Ref<> to its owning device,
+        because that would be a circular depndency.
+
+        Here's the old ownership graph:
+
+              J    A    V    A    S    C    R    I    P    T
+             ------------------------------------------------
+                  |                                     |
+                  |                                     |
+                  V                                     |
+        PAL::WebGPU::DeviceImpl                         |
+                  |            \                        |
+                  |             -----                   |
+                  |                   \                 V
+                  |                    -----> PAL::WebGPU::QueueImpl
+                  |                                     |
+                  |                                     |
+                  V                                     |
+              WGPUDevice                                |
+                        \                               |
+                         -------------                  |
+                                      \                 V
+                                       ------------> WGPUQueue
+
+        You can see that there's a problem here: WGPUQueue has 2 owners, but it's not a
+        reference-counted object.
+
+        The solution is to add a new node into the ownership graph, like this:
+
+              J    A    V    A    S    C    R    I    P    T
+             ------------------------------------------------
+                  |                                     |
+                  |                                     |
+                  V                                     |
+        PAL::WebGPU::DeviceImpl                         |
+                   \           \                        |
+                    \           -----                   |
+                     \                \                 V
+                      \                 -----> PAL::WebGPU::QueueImpl
+                       \                              / 
+                        \                            /
+                         \                          /
+                          V                        V 
+                          PAL::WebGPU::DeviceHolder
+                          /
+                         /
+                        /
+                       /
+                      V
+              WGPUDevice
+                        \
+                         -------------
+                                      \
+                                       ------------> WGPUQueue
+
+        This way, both WGPUDevice and WGPUQueue have a single owner, there are no cycles,
+        and there is a path from PAL::WebGPU::QueueImpl to WGPUDevice.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/graphics/WebGPU/Impl/WebGPUDeviceHolderImpl.cpp: Added.
+        (PAL::WebGPU::DeviceHolderImpl::DeviceHolderImpl):
+        (PAL::WebGPU::DeviceHolderImpl::~DeviceHolderImpl):
+        * pal/graphics/WebGPU/Impl/WebGPUDeviceHolderImpl.h: Copied from Source/WebCore/PAL/pal/graphics/WebGPU/Impl/WebGPUQueueImpl.h.
+        * pal/graphics/WebGPU/Impl/WebGPUDeviceImpl.cpp:
+        (PAL::WebGPU::DeviceImpl::DeviceImpl):
+        (PAL::WebGPU::DeviceImpl::destroy):
+        (PAL::WebGPU::DeviceImpl::createBuffer):
+        (PAL::WebGPU::DeviceImpl::createTexture):
+        (PAL::WebGPU::DeviceImpl::createSampler):
+        (PAL::WebGPU::DeviceImpl::createBindGroupLayout):
+        (PAL::WebGPU::DeviceImpl::createPipelineLayout):
+        (PAL::WebGPU::DeviceImpl::createBindGroup):
+        (PAL::WebGPU::DeviceImpl::createShaderModule):
+        (PAL::WebGPU::DeviceImpl::createComputePipeline):
+        (PAL::WebGPU::DeviceImpl::createRenderPipeline):
+        (PAL::WebGPU::DeviceImpl::createComputePipelineAsync):
+        (PAL::WebGPU::DeviceImpl::createRenderPipelineAsync):
+        (PAL::WebGPU::DeviceImpl::createCommandEncoder):
+        (PAL::WebGPU::DeviceImpl::createRenderBundleEncoder):
+        (PAL::WebGPU::DeviceImpl::createQuerySet):
+        (PAL::WebGPU::DeviceImpl::pushErrorScope):
+        (PAL::WebGPU::DeviceImpl::popErrorScope):
+        (PAL::WebGPU::DeviceImpl::setLabelInternal):
+        (PAL::WebGPU::DeviceImpl::~DeviceImpl): Deleted.
+        * pal/graphics/WebGPU/Impl/WebGPUDeviceImpl.h:
+        * pal/graphics/WebGPU/Impl/WebGPUQueueImpl.cpp:
+        (PAL::WebGPU::QueueImpl::QueueImpl):
+        (PAL::WebGPU::QueueImpl::submit):
+        (PAL::WebGPU::QueueImpl::onSubmittedWorkDone):
+        (PAL::WebGPU::QueueImpl::writeBuffer):
+        (PAL::WebGPU::QueueImpl::writeTexture):
+        (PAL::WebGPU::QueueImpl::setLabelInternal):
+        (PAL::WebGPU::QueueImpl::~QueueImpl): Deleted.
+        * pal/graphics/WebGPU/Impl/WebGPUQueueImpl.h:
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Hook up device.queue to the IDL
+        https://bugs.webkit.org/show_bug.cgi?id=239043
+
+        Reviewed by Kimmo Kinnunen.
+
+        * pal/graphics/WebGPU/Impl/WebGPUDeviceImpl.cpp:
+        (PAL::WebGPU::DeviceImpl::DeviceImpl):
+        (PAL::WebGPU::DeviceImpl::queue):
+        * pal/graphics/WebGPU/Impl/WebGPUDeviceImpl.h:
+        * pal/graphics/WebGPU/WebGPUDevice.h:
+
+2022-04-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Sort PAL.xcodeproj.
+        https://bugs.webkit.org/show_bug.cgi?id=239050
+
+        Reviewed by Kimmo Kinnunen.
+
+        * PAL.xcodeproj/project.pbxproj:
+
 2022-04-10  Chris Dumez  <cdumez@apple.com>
 
         Unreviewed Windows build fix after r292696.

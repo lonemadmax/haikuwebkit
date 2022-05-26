@@ -186,6 +186,7 @@ public:
     void childrenChanged(RenderObject*, RenderObject* newChild = nullptr);
     void childrenChanged(AccessibilityObject*);
     void checkedStateChanged(Node*);
+    void handleRoleChange(AccessibilityObject*);
     // Called when a node has just been attached, so we can make sure we have the right subclass of AccessibilityObject.
     void updateCacheAfterNodeIsAttached(Node*);
     void updateLoadingProgress(double);
@@ -467,7 +468,6 @@ private:
     // Called by a node when text or a text equivalent (e.g. alt) attribute is changed.
     void textChanged(Node*);
     void handleActiveDescendantChanged(Node*);
-    void handleAriaRoleChanged(Node*);
     void handleAriaExpandedChange(Node*);
     void handleFocusedUIElementChanged(Node* oldFocusedNode, Node* newFocusedNode);
     void handleMenuListValueChanged(Element&);
@@ -550,7 +550,7 @@ private:
 #endif
 };
 
-bool nodeHasRole(Node*, const String& role);
+bool nodeHasRole(Node*, StringView role);
 // This will let you know if aria-hidden was explicitly set to false.
 bool isNodeAriaVisible(Node*);
     
@@ -574,7 +574,7 @@ inline AccessibilityObject* AXObjectCache::focusedObjectForPage(const Page*) { r
 inline void AXObjectCache::enableAccessibility() { }
 inline void AXObjectCache::disableAccessibility() { }
 inline void AXObjectCache::setEnhancedUserInterfaceAccessibility(bool) { }
-inline bool nodeHasRole(Node*, const String&) { return false; }
+inline bool nodeHasRole(Node*, StringView) { return false; }
 inline void AXObjectCache::startCachingComputedObjectAttributesUntilTreeMutates() { }
 inline void AXObjectCache::stopCachingComputedObjectAttributes() { }
 inline bool isNodeAriaVisible(Node*) { return true; }
@@ -602,7 +602,7 @@ inline void AXObjectCache::handleActiveDescendantChanged(Node*) { }
 inline void AXObjectCache::handleAriaExpandedChange(Node*) { }
 inline void AXObjectCache::handleModalChange(Element&) { }
 inline void AXObjectCache::deferModalChange(Element*) { }
-inline void AXObjectCache::handleAriaRoleChanged(Node*) { }
+inline void AXObjectCache::handleRoleChange(AccessibilityObject*) { }
 inline void AXObjectCache::deferAttributeChangeIfNeeded(const QualifiedName&, Element*) { }
 inline void AXObjectCache::handleAttributeChange(const QualifiedName&, Element*) { }
 inline bool AXObjectCache::shouldProcessAttributeChange(const QualifiedName&, Element*) { return false; }

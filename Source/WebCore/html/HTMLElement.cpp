@@ -32,6 +32,7 @@
 #include "CSSValuePool.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CommonAtomStrings.h"
 #include "DOMTokenList.h"
 #include "DocumentFragment.h"
 #include "ElementAncestorIterator.h"
@@ -214,7 +215,7 @@ void HTMLElement::collectPresentationalHintsForAttribute(const QualifiedName& na
         if (equalLettersIgnoringASCIICase(value, "true")) {
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueElement);
             if (!isDraggableIgnoringAttributes())
-                addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserSelect, CSSValueNone);
+                addPropertyToPresentationalHintStyle(style, CSSPropertyUserSelect, CSSValueNone);
         } else if (equalLettersIgnoringASCIICase(value, "false"))
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueNone);
     } else if (name == dirAttr) {
@@ -415,13 +416,12 @@ static inline const AtomString& toValidDirValue(const AtomString& value)
 {
     static MainThreadNeverDestroyed<const AtomString> ltrValue("ltr", AtomString::ConstructFromLiteral);
     static MainThreadNeverDestroyed<const AtomString> rtlValue("rtl", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> autoValue("auto", AtomString::ConstructFromLiteral);
     if (equalLettersIgnoringASCIICase(value, "ltr"))
         return ltrValue;
     if (equalLettersIgnoringASCIICase(value, "rtl"))
         return rtlValue;
     if (equalLettersIgnoringASCIICase(value, "auto"))
-        return autoValue;
+        return autoAtom();
     return nullAtom();
 }
 
@@ -435,36 +435,34 @@ void HTMLElement::setDir(const AtomString& value)
     setAttributeWithoutSynchronization(dirAttr, value);
 }
 
-ExceptionOr<void> HTMLElement::setInnerText(const String& text)
+ExceptionOr<void> HTMLElement::setInnerText(String&& text)
 {
     // FIXME: This doesn't take whitespace collapsing into account at all.
 
     if (!text.contains('\n') && !text.contains('\r')) {
-        stringReplaceAll(text);
+        stringReplaceAll(WTFMove(text));
         return { };
     }
 
     if (isConnected() && isTextControlInnerTextElement()) {
         if (!text.contains('\r')) {
-            stringReplaceAll(text);
+            stringReplaceAll(WTFMove(text));
             return { };
         }
-        String textWithConsistentLineBreaks = text;
-        textWithConsistentLineBreaks.replace("\r\n", "\n");
-        textWithConsistentLineBreaks.replace('\r', '\n');
-        stringReplaceAll(textWithConsistentLineBreaks);
+        String textWithConsistentLineBreaks = makeStringBySimplifyingNewLines(text);
+        stringReplaceAll(WTFMove(textWithConsistentLineBreaks));
         return { };
     }
 
     // FIXME: This should use replaceAll(), after we fix that to work properly for DocumentFragment.
     // Add text nodes and <br> elements.
-    auto fragment = textToFragment(document(), text);
+    auto fragment = textToFragment(document(), WTFMove(text));
     // It's safe to dispatch events on the new fragment since author scripts have no access to it yet.
     ScriptDisallowedScope::EventAllowedScope allowedScope(fragment.get());
     return replaceChildrenWithFragment(*this, WTFMove(fragment));
 }
 
-ExceptionOr<void> HTMLElement::setOuterText(const String& text)
+ExceptionOr<void> HTMLElement::setOuterText(String&& text)
 {
     RefPtr<ContainerNode> parent = parentNode();
     if (!parent)
@@ -476,9 +474,9 @@ ExceptionOr<void> HTMLElement::setOuterText(const String& text)
 
     // Convert text to fragment with <br> tags instead of linebreaks if needed.
     if (text.contains('\r') || text.contains('\n'))
-        newChild = textToFragment(document(), text);
+        newChild = textToFragment(document(), WTFMove(text));
     else
-        newChild = Text::create(document(), text);
+        newChild = Text::create(document(), WTFMove(text));
 
     if (!parentNode())
         return Exception { HierarchyRequestError };
@@ -574,41 +572,23 @@ String HTMLElement::contentEditable() const
     case ContentEditableType::Inherit:
         return "inherit"_s;
     case ContentEditableType::True:
-        return "true"_s;
+        return trueAtom();
     case ContentEditableType::False:
-        return "false"_s;
+        return falseAtom();
     case ContentEditableType::PlaintextOnly:
-        return "plaintext-only"_s;
+        return plaintextOnlyAtom();
     }
     return "inherit"_s;
-}
-
-static const AtomString& trueName()
-{
-    static MainThreadNeverDestroyed<const AtomString> trueValue("true", AtomString::ConstructFromLiteral);
-    return trueValue.get();
-}
-
-static const AtomString& falseName()
-{
-    static MainThreadNeverDestroyed<const AtomString> falseValue("false", AtomString::ConstructFromLiteral);
-    return falseValue.get();
-}
-
-static const AtomString& plaintextOnlyName()
-{
-    static MainThreadNeverDestroyed<const AtomString> plaintextOnlyValue("plaintext-only", AtomString::ConstructFromLiteral);
-    return plaintextOnlyValue.get();
 }
 
 ExceptionOr<void> HTMLElement::setContentEditable(const String& enabled)
 {
     if (equalLettersIgnoringASCIICase(enabled, "true"))
-        setAttributeWithoutSynchronization(contenteditableAttr, trueName());
+        setAttributeWithoutSynchronization(contenteditableAttr, trueAtom());
     else if (equalLettersIgnoringASCIICase(enabled, "false"))
-        setAttributeWithoutSynchronization(contenteditableAttr, falseName());
+        setAttributeWithoutSynchronization(contenteditableAttr, falseAtom());
     else if (equalLettersIgnoringASCIICase(enabled, "plaintext-only"))
-        setAttributeWithoutSynchronization(contenteditableAttr, plaintextOnlyName());
+        setAttributeWithoutSynchronization(contenteditableAttr, plaintextOnlyAtom());
     else if (equalLettersIgnoringASCIICase(enabled, "inherit"))
         removeAttribute(contenteditableAttr);
     else
@@ -627,7 +607,7 @@ bool HTMLElement::draggable() const
 
 void HTMLElement::setDraggable(bool value)
 {
-    setAttributeWithoutSynchronization(draggableAttr, value ? trueName() : falseName());
+    setAttributeWithoutSynchronization(draggableAttr, value ? trueAtom() : falseAtom());
 }
 
 bool HTMLElement::spellcheck() const
@@ -637,7 +617,7 @@ bool HTMLElement::spellcheck() const
 
 void HTMLElement::setSpellcheck(bool enable)
 {
-    setAttributeWithoutSynchronization(spellcheckAttr, enable ? trueName() : falseName());
+    setAttributeWithoutSynchronization(spellcheckAttr, enable ? trueAtom() : falseAtom());
 }
 
 void HTMLElement::click()
@@ -696,7 +676,7 @@ bool HTMLElement::translate() const
 
 void HTMLElement::setTranslate(bool enable)
 {
-    setAttributeWithoutSynchronization(translateAttr, enable ? "yes" : "no");
+    setAttributeWithoutSynchronization(translateAttr, enable ? "yes"_s : "no"_s);
 }
 
 bool HTMLElement::rendererIsEverNeeded()
@@ -1076,9 +1056,7 @@ bool HTMLElement::shouldAutocorrect() const
 
 void HTMLElement::setAutocorrect(bool autocorrect)
 {
-    static MainThreadNeverDestroyed<const AtomString> onName("on", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> offName("off", AtomString::ConstructFromLiteral);
-    setAttributeWithoutSynchronization(autocorrectAttr, autocorrect ? onName.get() : offName.get());
+    setAttributeWithoutSynchronization(autocorrectAttr, autocorrect ? onAtom() : offAtom());
 }
 
 #endif
@@ -1113,7 +1091,7 @@ String HTMLElement::enterKeyHint() const
     return attributeValueForEnterKeyHint(canonicalEnterKeyHint());
 }
 
-void HTMLElement::setEnterKeyHint(const String& value)
+void HTMLElement::setEnterKeyHint(const AtomString& value)
 {
     setAttributeWithoutSynchronization(enterkeyhintAttr, value);
 }

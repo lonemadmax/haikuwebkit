@@ -165,6 +165,7 @@ public:
     size_t findIgnoringASCIICase(StringView) const;
     size_t findIgnoringASCIICase(StringView, unsigned start) const;
 
+    template<typename CodeUnitMatchFunction, std::enable_if_t<std::is_invocable_r_v<bool, CodeUnitMatchFunction, UChar>>* = nullptr>
     size_t find(CodeUnitMatchFunction matchFunction, unsigned start = 0) const { return m_impl ? m_impl->find(matchFunction, start) : notFound; }
     size_t find(const LChar* string, unsigned start = 0) const { return m_impl ? m_impl->find(string, start) : notFound; }
 
@@ -194,21 +195,6 @@ public:
     bool endsWith(char character) const { return endsWith(static_cast<UChar>(character)); }
     bool hasInfixEndingAt(StringView suffix, unsigned end) const;
 
-    WTF_EXPORT_PRIVATE void append(const String&);
-    WTF_EXPORT_PRIVATE void append(LChar);
-    void append(char character) { append(static_cast<LChar>(character)); };
-    WTF_EXPORT_PRIVATE void append(UChar);
-    WTF_EXPORT_PRIVATE void append(const LChar*, unsigned length);
-    WTF_EXPORT_PRIVATE void append(const UChar*, unsigned length);
-    WTF_EXPORT_PRIVATE void insert(const String&, unsigned position);
-
-    String& replace(UChar target, UChar replacement);
-    String& replace(UChar target, StringView replacement);
-    String& replace(StringView target, StringView replacement);
-    String& replace(unsigned start, unsigned length, StringView replacement);
-    template<unsigned characterCount> String& replaceWithLiteral(UChar target, const char (&replacement)[characterCount]);
-
-    WTF_EXPORT_PRIVATE void truncate(unsigned length);
     WTF_EXPORT_PRIVATE void remove(unsigned position, unsigned length = 1);
 
     WTF_EXPORT_PRIVATE String substring(unsigned position, unsigned length = MaxLength) const;
@@ -428,8 +414,6 @@ WTF_EXPORT_PRIVATE std::optional<String> makeVectorElement(const String*, id);
 
 #endif
 
-WTF_EXPORT_PRIVATE String replaceUnpairedSurrogatesWithReplacementCharacter(String&&);
-
 // Definitions of string operations
 
 inline String::String(StringImpl& string)
@@ -499,19 +483,21 @@ inline UChar String::characterAt(unsigned index) const
     return (*m_impl)[index];
 }
 
-inline String& String::replace(UChar target, UChar replacement)
+inline String WARN_UNUSED_RETURN makeStringByReplacingAll(const String& string, UChar target, UChar replacement)
 {
-    if (m_impl)
-        m_impl = m_impl->replace(target, replacement);
-    return *this;
+    if (auto impl = string.impl())
+        return String { impl->replace(target, replacement) };
+    return string;
 }
 
-template<unsigned characterCount> ALWAYS_INLINE String& String::replaceWithLiteral(UChar target, const char (&characters)[characterCount])
+ALWAYS_INLINE String WARN_UNUSED_RETURN makeStringByReplacingAll(const String& string, UChar target, ASCIILiteral literal)
 {
-    if (m_impl)
-        m_impl = m_impl->replace(target, characters, characterCount - 1);
-    return *this;
+    if (auto impl = string.impl())
+        return String { impl->replace(target, literal.characters(), literal.length()) };
+    return string;
 }
+
+String makeStringByReplacingAll(const String&, UChar target, const char*) = delete;
 
 template<size_t inlineCapacity> inline String String::make8BitFrom16BitSource(const Vector<UChar, inlineCapacity>& buffer)
 {
@@ -653,11 +639,11 @@ using WTF::appendNumber;
 using WTF::charactersToDouble;
 using WTF::charactersToFloat;
 using WTF::emptyString;
+using WTF::makeStringByReplacingAll;
 using WTF::nullString;
 using WTF::equal;
 using WTF::find;
 using WTF::isAllSpecialCharacters;
-using WTF::isSpaceOrNewline;
 using WTF::reverseFind;
 
 #include <wtf/text/AtomString.h>

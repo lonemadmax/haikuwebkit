@@ -148,19 +148,20 @@
 #import <WebCore/UserGestureIndicator.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WebEvent.h>
-#import <pal/cocoa/RevealSoftLink.h>
 #import <wtf/MathExtras.h>
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/Scope.h>
 #import <wtf/SetForScope.h>
-#import <wtf/SoftLinking.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/text/StringToIntegerConversion.h>
+#import <wtf/text/TextBreakIterator.h>
 #import <wtf/text/TextStream.h>
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 #import <WebCore/PromisedAttachmentInfo.h>
 #endif
+
+#import <pal/cocoa/RevealSoftLink.h>
 
 #define WEBPAGE_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - WebPage::" fmt, this, ##__VA_ARGS__)
 #define WEBPAGE_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - WebPage::" fmt, this, ##__VA_ARGS__)
@@ -1815,6 +1816,47 @@ void WebPage::selectWithTwoTouches(const WebCore::IntPoint& from, const WebCore:
     completionHandler(from, gestureType, gestureState, { });
 }
 
+void WebPage::extendSelectionForReplacement(CompletionHandler<void()>&& completion)
+{
+    auto callCompletionHandlerOnExit = makeScopeExit(WTFMove(completion));
+
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
+    RefPtr document = frame->document();
+    if (!document)
+        return;
+
+    auto selectedRange = frame->selection().selection().range();
+    if (!selectedRange || !selectedRange->collapsed())
+        return;
+
+    VisiblePosition position = frame->selection().selection().start();
+    RefPtr container = position.deepEquivalent().containerNode();
+    if (!container)
+        return;
+
+    auto markerRanges = document->markers().markersFor(*container, { DocumentMarker::DictationAlternatives }).map([&](auto* marker) {
+        return makeSimpleRange(*container, *marker);
+    });
+
+    std::optional<SimpleRange> rangeToSelect;
+    for (auto& markerRange : markerRanges) {
+        if (contains(makeVisiblePositionRange(markerRange), position)) {
+            // In practice, dictation markers should only span a single text node, so it's sufficient to
+            // grab the first matching range (instead of taking the union of all intersecting ranges).
+            rangeToSelect = markerRange;
+            break;
+        }
+    }
+
+    if (!rangeToSelect)
+        rangeToSelect = wordRangeFromPosition(position);
+
+    if (!rangeToSelect)
+        return;
+
+    setSelectedRangeDispatchingSyntheticMouseEventsIfNeeded(*rangeToSelect, position.affinity());
+}
+
 void WebPage::extendSelection(WebCore::TextGranularity granularity, CompletionHandler<void()>&& completionHandler)
 {
     auto callCompletionHandlerOnExit = makeScopeExit(WTFMove(completionHandler));
@@ -1829,17 +1871,23 @@ void WebPage::extendSelection(WebCore::TextGranularity granularity, CompletionHa
     if (!wordRange)
         return;
 
+    setSelectedRangeDispatchingSyntheticMouseEventsIfNeeded(*wordRange, position.affinity());
+}
+
+void WebPage::setSelectedRangeDispatchingSyntheticMouseEventsIfNeeded(const SimpleRange& range, Affinity affinity)
+{
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     IntPoint endLocationForSyntheticMouseEvents;
     bool shouldDispatchMouseEvents = shouldDispatchSyntheticMouseEventsWhenModifyingSelection();
     if (shouldDispatchMouseEvents) {
         RefPtr view = frame->view();
-        auto startLocationForSyntheticMouseEvents = view->contentsToRootView(VisiblePosition(makeDeprecatedLegacyPosition(wordRange->start)).absoluteCaretBounds()).center();
-        endLocationForSyntheticMouseEvents = view->contentsToRootView(VisiblePosition(makeDeprecatedLegacyPosition(wordRange->end)).absoluteCaretBounds()).center();
+        auto startLocationForSyntheticMouseEvents = view->contentsToRootView(VisiblePosition(makeDeprecatedLegacyPosition(range.start)).absoluteCaretBounds()).center();
+        endLocationForSyntheticMouseEvents = view->contentsToRootView(VisiblePosition(makeDeprecatedLegacyPosition(range.end)).absoluteCaretBounds()).center();
         dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch::Started, startLocationForSyntheticMouseEvents);
         dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch::Moved, endLocationForSyntheticMouseEvents);
     }
 
-    frame->selection().setSelectedRange(wordRange, position.affinity(), WebCore::FrameSelection::ShouldCloseTyping::Yes, UserTriggered);
+    frame->selection().setSelectedRange(range, affinity, WebCore::FrameSelection::ShouldCloseTyping::Yes, UserTriggered);
 
     if (shouldDispatchMouseEvents)
         dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch::Ended, endLocationForSyntheticMouseEvents);
@@ -2385,10 +2433,10 @@ void WebPage::replaceSelectedText(const String& oldText, const String& newText)
     auto wordRange = frame->selection().isCaret() ? wordRangeFromPosition(frame->selection().selection().start()) : frame->selection().selection().toNormalizedRange();
     if (plainTextForContext(wordRange) != oldText)
         return;
-    frame->editor().setIgnoreSelectionChanges(true);
+
+    IgnoreSelectionChangeForScope ignoreSelectionChanges { frame };
     frame->selection().setSelectedRange(wordRange, Affinity::Upstream, WebCore::FrameSelection::ShouldCloseTyping::Yes);
     frame->editor().insertText(newText, 0);
-    frame->editor().setIgnoreSelectionChanges(false);
 }
 
 void WebPage::replaceDictatedText(const String& oldText, const String& newText)
@@ -2402,7 +2450,7 @@ void WebPage::replaceDictatedText(const String& oldText, const String& newText)
         return;
     }
     VisiblePosition position = frame->selection().selection().start();
-    for (size_t i = 0; i < oldText.length(); ++i)
+    for (auto i = numGraphemeClusters(oldText); i; --i)
         position = position.previous();
     if (position.isNull())
         position = startOfDocument(frame->document());
@@ -2412,10 +2460,24 @@ void WebPage::replaceDictatedText(const String& oldText, const String& newText)
         return;
 
     // We don't want to notify the client that the selection has changed until we are done inserting the new text.
-    frame->editor().setIgnoreSelectionChanges(true);
+    IgnoreSelectionChangeForScope ignoreSelectionChanges { frame };
     frame->selection().setSelectedRange(range, Affinity::Upstream, WebCore::FrameSelection::ShouldCloseTyping::Yes);
     frame->editor().insertText(newText, 0);
-    frame->editor().setIgnoreSelectionChanges(false);
+}
+
+void WebPage::willInsertFinalDictationResult()
+{
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
+    if (frame->selection().isNone())
+        return;
+
+    m_ignoreSelectionChangeScopeForDictation = makeUnique<IgnoreSelectionChangeForScope>(frame);
+}
+
+void WebPage::didInsertFinalDictationResult()
+{
+    m_ignoreSelectionChangeScopeForDictation = nullptr;
+    scheduleFullEditorStateUpdate();
 }
 
 void WebPage::requestAutocorrectionData(const String& textForAutocorrection, CompletionHandler<void(WebAutocorrectionData)>&& reply)
@@ -2505,6 +2567,9 @@ bool WebPage::applyAutocorrectionInternal(const String& correction, const String
         // forward such that it matches the original selection as much as possible.
         if (foldQuoteMarks(textForRange) != originalTextWithFoldedQuoteMarks) {
             // Search for the original text before the selection caret.
+            // FIXME: Does this do the right thing in the case where `originalText` contains one or more grapheme clusters
+            // that encompass multiple codepoints? Advancing backwards by grapheme cluster count here may also allow us to
+            // sidestep the position adjustment logic below in some cases.
             for (size_t i = 0; i < originalText.length(); ++i)
                 position = position.previous();
             if (position.isNull())
@@ -2780,7 +2845,7 @@ static void dataDetectorImageOverlayPositionInformation(const HTMLElement& overl
     if (!frame)
         return;
 
-    auto elementAndBounds = WebPage::findDataDetectionResultElementInImageOverlay(request.point, overlayHost);
+    auto elementAndBounds = DataDetection::findDataDetectionResultElementInImageOverlay(request.point, overlayHost);
     if (!elementAndBounds)
         return;
 
@@ -3442,7 +3507,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformation()
         else if (element.isTelephoneField())
             information.elementType = InputType::Phone;
         else if (element.isNumberField())
-            information.elementType = element.getAttribute("pattern") == "\\d*" || element.getAttribute("pattern") == "[0-9]*" ? InputType::NumberPad : InputType::Number;
+            information.elementType = element.getAttribute(HTMLNames::patternAttr) == "\\d*" || element.getAttribute(HTMLNames::patternAttr) == "[0-9]*" ? InputType::NumberPad : InputType::Number;
         else if (element.isDateTimeLocalField())
             information.elementType = InputType::DateTimeLocal;
         else if (element.isDateField())

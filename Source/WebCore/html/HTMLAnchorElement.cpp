@@ -259,8 +259,7 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomStri
         static MainThreadNeverDestroyed<const AtomString> noReferrer("noreferrer", AtomString::ConstructFromLiteral);
         static MainThreadNeverDestroyed<const AtomString> noOpener("noopener", AtomString::ConstructFromLiteral);
         static MainThreadNeverDestroyed<const AtomString> opener("opener", AtomString::ConstructFromLiteral);
-        const bool shouldFoldCase = true;
-        SpaceSplitString relValue(value, shouldFoldCase);
+        SpaceSplitString relValue(value, SpaceSplitString::ShouldFoldCase::Yes);
         if (relValue.contains(noReferrer))
             m_linkRelations.add(Relation::NoReferrer);
         if (relValue.contains(noOpener))
@@ -314,12 +313,14 @@ bool HTMLAnchorElement::hasRel(Relation relation) const
 DOMTokenList& HTMLAnchorElement::relList()
 {
     if (!m_relList) {
-        m_relList = makeUnique<DOMTokenList>(*this, HTMLNames::relAttr, [](Document&, StringView token) {
+        m_relList = makeUnique<DOMTokenList>(*this, HTMLNames::relAttr, [](Document& document, StringView token) {
 #if USE(SYSTEM_PREVIEW)
-            if (equalIgnoringASCIICase(token, "ar"))
-                return true;
+            if (equalLettersIgnoringASCIICase(token, "ar"))
+                return document.settings().systemPreviewEnabled();
+#else
+            UNUSED_PARAM(document);
 #endif
-            return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener") || equalIgnoringASCIICase(token, "opener");
+            return equalLettersIgnoringASCIICase(token, "noreferrer") || equalLettersIgnoringASCIICase(token, "noopener") || equalLettersIgnoringASCIICase(token, "opener");
         });
     }
     return *m_relList;
@@ -350,9 +351,9 @@ String HTMLAnchorElement::text()
     return textContent();
 }
 
-void HTMLAnchorElement::setText(const String& text)
+void HTMLAnchorElement::setText(String&& text)
 {
-    setTextContent(text);
+    setTextContent(WTFMove(text));
 }
 
 bool HTMLAnchorElement::isLiveLink() const
@@ -368,7 +369,7 @@ void HTMLAnchorElement::sendPings(const URL& destinationURL)
     if (!hasAttributeWithoutSynchronization(pingAttr) || !document().settings().hyperlinkAuditingEnabled())
         return;
 
-    SpaceSplitString pingURLs(attributeWithoutSynchronization(pingAttr), false);
+    SpaceSplitString pingURLs(attributeWithoutSynchronization(pingAttr), SpaceSplitString::ShouldFoldCase::No);
     for (unsigned i = 0; i < pingURLs.size(); i++)
         PingLoader::sendPing(*document().frame(), document().completeURL(pingURLs[i]), destinationURL);
 }

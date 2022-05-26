@@ -25,6 +25,7 @@
 #include "config.h"
 #include "HTMLFormElement.h"
 
+#include "CommonAtomStrings.h"
 #include "DOMFormData.h"
 #include "DOMTokenList.h"
 #include "DOMWindow.h"
@@ -80,11 +81,11 @@ static FormRelAttributes parseFormRelAttributes(StringView string)
 {
     FormRelAttributes attributes;
     for (auto token : string.split(' ')) {
-        if (equalIgnoringASCIICase(token, "noopener"))
+        if (equalLettersIgnoringASCIICase(token, "noopener"))
             attributes.noopener = true;
-        else if (equalIgnoringASCIICase(token, "noreferrer"))
+        else if (equalLettersIgnoringASCIICase(token, "noreferrer"))
             attributes.noreferrer = true;
-        else if (equalIgnoringASCIICase(token, "opener"))
+        else if (equalLettersIgnoringASCIICase(token, "opener"))
             attributes.opener = true;
     }
     return attributes;
@@ -732,12 +733,12 @@ String HTMLFormElement::action() const
     return document().completeURL(stripLeadingAndTrailingHTMLSpaces(value)).string();
 }
 
-void HTMLFormElement::setAction(const String& value)
+void HTMLFormElement::setAction(const AtomString& value)
 {
     setAttributeWithoutSynchronization(actionAttr, value);
 }
 
-void HTMLFormElement::setEnctype(const String& value)
+void HTMLFormElement::setEnctype(const AtomString& value)
 {
     setAttributeWithoutSynchronization(enctypeAttr, value);
 }
@@ -747,7 +748,7 @@ String HTMLFormElement::method() const
     return FormSubmission::Attributes::methodString(m_attributes.method(), document().settings().dialogElementEnabled());
 }
 
-void HTMLFormElement::setMethod(const String& value)
+void HTMLFormElement::setMethod(const AtomString& value)
 {
     setAttributeWithoutSynchronization(methodAttr, value);
 }
@@ -756,7 +757,7 @@ DOMTokenList& HTMLFormElement::relList()
 {
     if (!m_relList) {
         m_relList = makeUnique<DOMTokenList>(*this, HTMLNames::relAttr, [](Document&, StringView token) {
-            return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener") || equalIgnoringASCIICase(token, "opener");
+            return equalLettersIgnoringASCIICase(token, "noreferrer") || equalLettersIgnoringASCIICase(token, "noopener") || equalLettersIgnoringASCIICase(token, "opener");
         });
     }
     return *m_relList;
@@ -932,6 +933,9 @@ bool HTMLFormElement::matchesInvalidPseudoClass() const
 // FIXME: Use Ref<HTMLElement> for the function result since there are no non-HTML elements returned here.
 Vector<Ref<Element>> HTMLFormElement::namedElements(const AtomString& name)
 {
+    if (name.isEmpty())
+        return { };
+
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/forms.html#dom-form-nameditem
     Vector<Ref<Element>> namedItems = elements()->namedItems(name);
 
@@ -1009,10 +1013,7 @@ void HTMLFormElement::setAutocomplete(const AtomString& value)
 
 const AtomString& HTMLFormElement::autocomplete() const
 {
-    static MainThreadNeverDestroyed<const AtomString> on("on", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> off("off", AtomString::ConstructFromLiteral);
-
-    return equalIgnoringASCIICase(attributeWithoutSynchronization(autocompleteAttr), "off") ? off : on;
+    return equalLettersIgnoringASCIICase(attributeWithoutSynchronization(autocompleteAttr), "off") ? offAtom() : onAtom();
 }
 
 RefPtr<DOMFormData> HTMLFormElement::constructEntryList(Ref<DOMFormData>&& domFormData, StringPairVector* formValues)

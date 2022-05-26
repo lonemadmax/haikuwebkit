@@ -159,5 +159,7 @@ if (USE_LIBGBM)
         platform/graphics/gbm/DMABufReleaseFlag.h
         platform/graphics/gbm/GBMBufferSwapchain.h
         platform/graphics/gbm/GBMDevice.h
+        platform/graphics/gbm/GraphicsContextGLGBM.h
+        platform/graphics/gbm/GraphicsContextGLGBMTextureMapper.h
     )
 endif ()

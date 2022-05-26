@@ -56,6 +56,7 @@
 #include <wtf/Lock.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RefPtr.h>
+#include <wtf/RobinHoodHashMap.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 
@@ -112,29 +113,29 @@ static String formatErrorMessage(const char* message, int sqliteErrorCode, const
     return makeString(message, " (", sqliteErrorCode, ' ', sqliteErrorMessage, ')');
 }
 
-static bool setTextValueInDatabase(SQLiteDatabase& db, const String& query, const String& value)
+static bool setTextValueInDatabase(SQLiteDatabase& db, StringView query, const String& value)
 {
     auto statement = db.prepareStatementSlow(query);
     if (!statement) {
-        LOG_ERROR("Failed to prepare statement to set value in database (%s)", query.ascii().data());
+        LOG_ERROR("Failed to prepare statement to set value in database (%s)", query.utf8().data());
         return false;
     }
 
     statement->bindText(1, value);
 
     if (statement->step() != SQLITE_DONE) {
-        LOG_ERROR("Failed to step statement to set value in database (%s)", query.ascii().data());
+        LOG_ERROR("Failed to step statement to set value in database (%s)", query.utf8().data());
         return false;
     }
 
     return true;
 }
 
-static bool retrieveTextResultFromDatabase(SQLiteDatabase& db, const String& query, String& resultString)
+static bool retrieveTextResultFromDatabase(SQLiteDatabase& db, StringView query, String& resultString)
 {
     auto statement = db.prepareStatementSlow(query);
     if (!statement) {
-        LOG_ERROR("Error (%i) preparing statement to read text result from database (%s)", statement.error(), query.ascii().data());
+        LOG_ERROR("Error (%i) preparing statement to read text result from database (%s)", statement.error(), query.utf8().data());
         return false;
     }
 
@@ -148,7 +149,7 @@ static bool retrieveTextResultFromDatabase(SQLiteDatabase& db, const String& que
         return true;
     }
 
-    LOG_ERROR("Error (%i) reading text result from database (%s)", result, query.ascii().data());
+    LOG_ERROR("Error (%i) reading text result from database (%s)", result, query.utf8().data());
     return false;
 }
 
@@ -181,7 +182,7 @@ static HashMap<DatabaseGUID, HashSet<Database*>>& guidToDatabaseMap() WTF_REQUIR
 
 static inline DatabaseGUID guidForOriginAndName(const String& origin, const String& name) WTF_REQUIRES_LOCK(guidLock)
 {
-    static NeverDestroyed<HashMap<String, DatabaseGUID>> map;
+    static MainThreadNeverDestroyed<MemoryCompactRobinHoodHashMap<String, DatabaseGUID>> map;
     return map.get().ensure(makeString(origin, '/', name), [] {
         static DatabaseGUID lastUsedGUID;
         return ++lastUsedGUID;

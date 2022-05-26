@@ -28,6 +28,7 @@
 
 #import "APIConversions.h"
 #import "Adapter.h"
+#import "HardwareCapabilities.h"
 #import "Surface.h"
 #import <cstring>
 #import <wtf/BlockPtr.h>
@@ -149,31 +150,54 @@ void Instance::requestAdapter(const WGPURequestAdapterOptions& options, Completi
     auto sortedDevices = WebGPU::sortedDevices(devices, options.powerPreference);
 
     if (options.nextInChain) {
-        callback(WGPURequestAdapterStatus_Error, Adapter::createInvalid(*this), "Unknown descriptor type"_s);
+        scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
+            callback(WGPURequestAdapterStatus_Error, Adapter::createInvalid(strongThis), "Unknown descriptor type"_s);
+        });
         return;
     }
 
     if (options.forceFallbackAdapter) {
-        callback(WGPURequestAdapterStatus_Unavailable, Adapter::createInvalid(*this), "No adapters present"_s);
+        scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
+            callback(WGPURequestAdapterStatus_Unavailable, Adapter::createInvalid(strongThis), "No adapters present"_s);
+        });
         return;
     }
 
     if (!sortedDevices) {
-        callback(WGPURequestAdapterStatus_Error, Adapter::createInvalid(*this), "Unknown power preference"_s);
+        scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
+            callback(WGPURequestAdapterStatus_Error, Adapter::createInvalid(strongThis), "Unknown power preference"_s);
+        });
         return;
     }
 
     if (!sortedDevices.count) {
-        callback(WGPURequestAdapterStatus_Unavailable, Adapter::createInvalid(*this), "No adapters present"_s);
+        scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
+            callback(WGPURequestAdapterStatus_Unavailable, Adapter::createInvalid(strongThis), "No adapters present"_s);
+        });
         return;
     }
 
     if (!sortedDevices[0]) {
-        callback(WGPURequestAdapterStatus_Error, Adapter::createInvalid(*this), "Adapter is internally null"_s);
+        scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
+            callback(WGPURequestAdapterStatus_Error, Adapter::createInvalid(strongThis), "Adapter is internally null"_s);
+        });
         return;
     }
 
-    callback(WGPURequestAdapterStatus_Success, Adapter::create(sortedDevices[0], *this), { });
+    auto device = sortedDevices[0];
+
+    auto deviceCapabilties = hardwareCapabilities(device);
+
+    if (!deviceCapabilties) {
+        scheduleWork([strongThis = Ref { *this }, callback = WTFMove(callback)]() mutable {
+            callback(WGPURequestAdapterStatus_Error, Adapter::createInvalid(strongThis), "Device does not support WebGPU"_s);
+        });
+        return;
+    }
+
+    scheduleWork([strongThis = Ref { *this }, device = sortedDevices[0], deviceCapabilties = WTFMove(*deviceCapabilties), callback = WTFMove(callback)]() mutable {
+        callback(WGPURequestAdapterStatus_Success, Adapter::create(device, strongThis, WTFMove(deviceCapabilties)), { });
+    });
 }
 
 } // namespace WebGPU

@@ -315,7 +315,7 @@ public:
     virtual bool rendererIsNeeded(const RenderStyle&);
     virtual bool rendererIsEverNeeded() { return true; }
 
-    WEBCORE_EXPORT ShadowRoot* shadowRoot() const;
+    inline ShadowRoot* shadowRoot() const; // Defined in ElementRareData.h
     ShadowRoot* shadowRootForBindings(JSC::JSGlobalObject&) const;
 
     WEBCORE_EXPORT ExceptionOr<ShadowRoot&> attachShadow(const ShadowRootInit&);
@@ -372,7 +372,7 @@ public:
 
     WEBCORE_EXPORT ExceptionOr<Element*> insertAdjacentElement(const String& where, Element& newChild);
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html);
-    WEBCORE_EXPORT ExceptionOr<void> insertAdjacentText(const String& where, const String& text);
+    WEBCORE_EXPORT ExceptionOr<void> insertAdjacentText(const String& where, String&& text);
 
     const RenderStyle* computedStyle(PseudoId = PseudoId::None) override;
 
@@ -765,7 +765,7 @@ private:
 
     void createUniqueElementData();
 
-    ElementRareData* elementRareData() const;
+    inline ElementRareData* elementRareData() const;
     ElementRareData& ensureElementRareData();
 
     ElementAnimationRareData* animationRareData(PseudoId) const;

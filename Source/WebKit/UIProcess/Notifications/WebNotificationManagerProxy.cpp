@@ -29,6 +29,7 @@
 #include "APIArray.h"
 #include "APINotificationProvider.h"
 #include "APISecurityOrigin.h"
+#include "Logging.h"
 #include "WebNotification.h"
 #include "WebNotificationManagerMessages.h"
 #include "WebPageProxy.h"
@@ -193,7 +194,9 @@ static void dispatchDidClickNotification(WebNotification* notification)
 #if ENABLE(SERVICE_WORKER)
     if (notification->isPersistentNotification()) {
         if (auto* dataStore = WebsiteDataStore::existingDataStoreForSessionID(notification->sessionID()))
-            dataStore->networkProcess().processNotificationEvent(notification->data(), NotificationEventType::Click);
+            dataStore->networkProcess().processNotificationEvent(notification->data(), NotificationEventType::Click, [](bool) { });
+        else
+            RELEASE_LOG_ERROR(Notifications, "WebsiteDataStore not found from sessionID %" PRIu64 ", dropping notification click", notification->sessionID().toUInt64());
         return;
     }
 #endif
@@ -254,7 +257,9 @@ void WebNotificationManagerProxy::providerDidCloseNotifications(API::Array* glob
 #if ENABLE(SERVICE_WORKER)
         if (notification->isPersistentNotification()) {
             if (auto* dataStore = WebsiteDataStore::existingDataStoreForSessionID(notification->sessionID()))
-                dataStore->networkProcess().processNotificationEvent(notification->data(), NotificationEventType::Close);
+                dataStore->networkProcess().processNotificationEvent(notification->data(), NotificationEventType::Close, [](bool) { });
+            else
+                RELEASE_LOG_ERROR(Notifications, "WebsiteDataStore not found from sessionID %" PRIu64 ", dropping notification close", notification->sessionID().toUInt64());
             return;
         }
 #endif

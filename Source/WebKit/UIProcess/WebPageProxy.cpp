@@ -216,7 +216,6 @@
 
 #if PLATFORM(COCOA)
 #include "InsertTextOptions.h"
-#include "QuickLookPreviewActivity.h"
 #include "RemoteLayerTreeDrawingAreaProxy.h"
 #include "RemoteLayerTreeScrollingPerformanceData.h"
 #include "UserMediaCaptureManagerProxy.h"
@@ -1191,6 +1190,10 @@ void WebPageProxy::close()
     m_activeContextMenu = nullptr;
 #endif
 
+#if ENABLE(CONTEXT_MENUS) && ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    m_croppedImageForContextMenu = nullptr;
+#endif
+
     m_provisionalPage = nullptr;
 
     m_inspector->invalidate();
@@ -1349,7 +1352,7 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     }
 
 #if PLATFORM(COCOA)
-    if (!linkedOnOrAfter(SDKVersion::FirstWithoutUnconditionalUniversalSandboxExtension))
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoUnconditionalUniversalSandboxExtension))
         willAcquireUniversalFileReadSandboxExtension(process);
 #endif
 
@@ -2667,7 +2670,7 @@ void WebPageProxy::makeViewBlankIfUnpaintedSinceLastLoadCommit()
 {
     if (!m_hasUpdatedRenderingAfterDidCommitLoad) {
 #if PLATFORM(COCOA)
-        static bool shouldMakeViewBlank = linkedOnOrAfter(SDKVersion::FirstWithBlankViewOnJSPrompt);
+        static bool shouldMakeViewBlank = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::BlanksViewOnJSPrompt);
 #else
         static bool shouldMakeViewBlank = true;
 #endif
@@ -7084,6 +7087,10 @@ void WebPageProxy::showContextMenu(ContextMenuContextData&& contextMenuContextDa
     // MouseDown event that triggered this ShowContextMenu message. This can happen if we take too long to enter the nested runloop.
     discardQueuedMouseEvents();
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    m_croppedImageForContextMenu = nullptr;
+#endif
+
     m_activeContextMenuContextData = contextMenuContextData;
 
     m_activeContextMenu = pageClient().createContextMenuProxy(*this, WTFMove(contextMenuContextData), userData);
@@ -7104,11 +7111,6 @@ void WebPageProxy::didDismissContextMenu()
     send(Messages::WebPage::DidDismissContextMenu());
 
     pageClient().didDismissContextMenu();
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    m_croppedImageResult = { };
-    m_croppedImageOverlayState = CroppedImageOverlayState::Inactive;
-#endif
 }
 
 void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item)
@@ -7211,17 +7213,15 @@ void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item)
         ++m_pendingLearnOrIgnoreWordMessageCount;
         break;
 
-    case ContextMenuItemTagQuickLookImage:
+    case ContextMenuItemTagLookUpImage:
 #if ENABLE(IMAGE_ANALYSIS)
-        if (m_activeContextMenu)
-            handleContextMenuQuickLookImage(m_activeContextMenu->quickLookPreviewActivity());
+        handleContextMenuLookUpImage();
 #endif
         return;
 
     case ContextMenuItemTagCopyCroppedImage:
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-        if (hitTestData.imageBitmap)
-            handleContextMenuCopyCroppedImage(*hitTestData.imageBitmap, hitTestData.sourceImageMIMEType);
+        handleContextMenuCopyCroppedImage(hitTestData.sourceImageMIMEType);
 #endif
         return;
 
@@ -7911,7 +7911,7 @@ URL WebPageProxy::currentResourceDirectoryURL() const
 void WebPageProxy::resetStateAfterProcessTermination(ProcessTerminationReason reason)
 {
     if (reason != ProcessTerminationReason::NavigationSwap)
-        WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "processDidTerminate: (pid %d), reason %d", processIdentifier(), reason);
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "processDidTerminate: (pid %d), reason=%{public}s", processIdentifier(), processTerminationReasonToString(reason));
 
     ASSERT(m_hasRunningProcess);
 
@@ -7955,36 +7955,15 @@ static bool shouldReloadAfterProcessTermination(ProcessTerminationReason reason)
     case ProcessTerminationReason::RequestedByNetworkProcess:
     case ProcessTerminationReason::RequestedByGPUProcess:
     case ProcessTerminationReason::Crash:
+    case ProcessTerminationReason::Unresponsive:
         return true;
     case ProcessTerminationReason::ExceededProcessCountLimit:
     case ProcessTerminationReason::NavigationSwap:
+    case ProcessTerminationReason::IdleExit:
     case ProcessTerminationReason::RequestedByClient:
         break;
     }
     return false;
-}
-
-static const char* processTerminationReasonToString(ProcessTerminationReason reason)
-{
-    switch (reason) {
-    case ProcessTerminationReason::ExceededMemoryLimit:
-        return "ExceededMemoryLimit";
-    case ProcessTerminationReason::ExceededCPULimit:
-        return "ExceededCPULimit";
-    case ProcessTerminationReason::RequestedByNetworkProcess:
-        return "RequestedByNetworkProcess";
-    case ProcessTerminationReason::RequestedByGPUProcess:
-        return "RequestedByGPUProcess";
-    case ProcessTerminationReason::ExceededProcessCountLimit:
-        return "ExceededProcessCountLimit";
-    case ProcessTerminationReason::NavigationSwap:
-        return "NavigationSwap";
-    case ProcessTerminationReason::RequestedByClient:
-        return "RequestedByClient";
-    case ProcessTerminationReason::Crash:
-        break;
-    }
-    return "Crash";
 }
 
 void WebPageProxy::dispatchProcessDidTerminate(ProcessTerminationReason reason)
@@ -8261,11 +8240,6 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     m_fullscreenVideoExtractionTimer.stop();
     m_currentFullscreenVideoSessionIdentifier = std::nullopt;
-#endif
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    m_croppedImageResult = { };
-    m_croppedImageOverlayState = CroppedImageOverlayState::Inactive;
 #endif
 
     // FIXME: <rdar://problem/38676604> In case of process swaps, the old process should gracefully suspend instead of terminating.
@@ -8873,9 +8847,9 @@ void WebPageProxy::requestTextRecognition(const URL& imageURL, const ShareableBi
     pageClient().requestTextRecognition(imageURL, imageData, identifier, WTFMove(completionHandler));
 }
 
-void WebPageProxy::computeHasImageAnalysisResults(const URL& imageURL, ShareableBitmap& imageBitmap, ImageAnalysisType type, CompletionHandler<void(bool)>&& completion)
+void WebPageProxy::computeHasVisualSearchResults(const URL& imageURL, ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&& completion)
 {
-    pageClient().computeHasImageAnalysisResults(imageURL, imageBitmap, type, WTFMove(completion));
+    pageClient().computeHasVisualSearchResults(imageURL, imageBitmap, WTFMove(completion));
 }
 
 void WebPageProxy::updateWithTextRecognitionResult(TextRecognitionResult&& results, const ElementContext& context, const FloatPoint& location, CompletionHandler<void(TextRecognitionUpdateResult)>&& completionHandler)
@@ -11030,7 +11004,7 @@ void WebPageProxy::gpuProcessDidFinishLaunching()
     pageClient().gpuProcessDidFinishLaunching();
 }
 
-void WebPageProxy::gpuProcessExited(GPUProcessTerminationReason)
+void WebPageProxy::gpuProcessExited(ProcessTerminationReason)
 {
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     m_contextIDForVisibilityPropagationInGPUProcess = 0;
@@ -11208,13 +11182,24 @@ void WebPageProxy::modelElementSetIsMuted(ModelIdentifier modelIdentifier, bool 
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 void WebPageProxy::takeModelElementFullscreen(ModelIdentifier modelIdentifier)
 {
-    modelElementController()->takeModelElementFullscreen(modelIdentifier);
+    modelElementController()->takeModelElementFullscreen(modelIdentifier, URL { currentURL() });
 }
 
 void WebPageProxy::modelElementSetInteractionEnabled(ModelIdentifier modelIdentifier, bool isInteractionEnabled)
 {
     modelElementController()->setInteractionEnabledForModelElement(modelIdentifier, isInteractionEnabled);
 }
+
+void WebPageProxy::modelInlinePreviewDidLoad(WebCore::GraphicsLayer::PlatformLayerID layerID)
+{
+    send(Messages::WebPage::ModelInlinePreviewDidLoad(layerID));
+}
+
+void WebPageProxy::modelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::PlatformLayerID layerID, const WebCore::ResourceError& error)
+{
+    send(Messages::WebPage::ModelInlinePreviewDidFailToLoad(layerID, error));
+}
+
 #endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
@@ -11226,6 +11211,11 @@ void WebPageProxy::modelElementCreateRemotePreview(const String& uuid, const Flo
 void WebPageProxy::modelElementLoadRemotePreview(const String& uuid, const URL& url, CompletionHandler<void(std::optional<WebCore::ResourceError>&&)>&& completionHandler)
 {
     modelElementController()->modelElementLoadRemotePreview(uuid, url, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementDestroyRemotePreview(const String& uuid)
+{
+    modelElementController()->modelElementDestroyRemotePreview(uuid);
 }
 
 void WebPageProxy::modelElementSizeDidChange(const String& uuid, WebCore::FloatSize size, CompletionHandler<void(Expected<MachSendRight, WebCore::ResourceError>)>&& completionHandler)
@@ -11246,6 +11236,11 @@ void WebPageProxy::handleMouseMoveForModelElement(const String& uuid, const WebC
 void WebPageProxy::handleMouseUpForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
     modelElementController()->handleMouseUpForModelElement(uuid, flippedLocationInElement, timestamp);
+}
+
+void WebPageProxy::modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>&&)>&& completionHandler)
+{
+    modelElementController()->inlinePreviewUUIDs(WTFMove(completionHandler));
 }
 #endif
 

@@ -30,6 +30,7 @@
 #include "Utilities.h"
 #include <JavaScriptCore/InitializeThreading.h>
 #include <WebCore/CombinedURLFilters.h>
+#include <WebCore/CommonAtomStrings.h>
 #include <WebCore/ContentExtensionActions.h>
 #include <WebCore/ContentExtensionCompiler.h>
 #include <WebCore/ContentExtensionError.h>
@@ -212,7 +213,7 @@ static ResourceLoadInfo requestInTopAndFrameURLs(ASCIILiteral url, ASCIILiteral 
 
 ContentExtensions::ContentExtensionsBackend makeBackend(String&& json)
 {
-    AtomString::init();
+    WebCore::initializeCommonAtomStrings();
     auto extension = InMemoryCompiledContentExtension::create(WTFMove(json));
     ContentExtensions::ContentExtensionsBackend backend;
     backend.addContentExtension("testFilter"_s, WTFMove(extension), { });
@@ -1507,10 +1508,8 @@ TEST_F(ContentExtensionTest, InvalidJSON)
     rules.append("["_s);
     for (unsigned i = 0; i < 149999; ++i)
         rules.append("{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"a\"}},"_s);
-    String rules150000 = rules.toString();
-    String rules150001 = rules.toString();
-    rules150000.append("{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"a\"}}]"_s);
-    rules150001.append("{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"a\"}},{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"a\"}}]"_s);
+    String rules150000 = makeString(rules.toString(), "{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"a\"}}]"_s);
+    String rules150001 = makeString(rules.toString(), "{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"a\"}},{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"a\"}}]"_s);
     checkCompilerError(WTFMove(rules150000), { });
     checkCompilerError(WTFMove(rules150001), ContentExtensionError::JSONTooManyRules);
     
