@@ -142,13 +142,13 @@ JSRetainPtr<JSStringRef> TestRunner::pathToLocalResource(JSContextRef context, J
         // If the URL contains LayoutTests we need to remap that to
         // LOCAL_RESOURCE_ROOT which is the path of the LayoutTests directory
         // within the WebKit source tree.
-        requestedRoot = "/tmp/LayoutTests";
-        resourceRoot = getenv("LOCAL_RESOURCE_ROOT");
+        requestedRoot = ASCIILiteral::fromLiteralUnsafe("/tmp/LayoutTests");
+        resourceRoot = String::fromUTF8(getenv("LOCAL_RESOURCE_ROOT"));
     } else if (requestedUrl.find("tmp") != notFound) {
         // If the URL is a child of /tmp we need to convert it to be a child
         // DUMPRENDERTREE_TEMP replace tmp with DUMPRENDERTREE_TEMP
-        requestedRoot = "/tmp";
-        resourceRoot = getenv("DUMPRENDERTREE_TEMP");
+        requestedRoot = ASCIILiteral::fromLiteralUnsafe("/tmp");
+        resourceRoot = String::fromUTF8(getenv("DUMPRENDERTREE_TEMP"));
     }
 
     size_t indexOfRootStart = requestedUrl.reverseFind(requestedRoot);

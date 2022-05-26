@@ -193,7 +193,12 @@ bool FrameLoaderClientHaiku::shouldUseCredentialStorage(DocumentLoader*, Resourc
 void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, ResourceLoaderIdentifier, const AuthenticationChallenge& challenge)
 {
     const ProtectionSpace& space = challenge.protectionSpace();
-    String text = "Host \"" + space.host() + "\" requests authentication for realm \"" + space.realm() + "\"\n";
+    StringBuilder text;
+    text.append("Host \"");
+    text.append(space.host());
+    text.append("\" requests authentication for realm \"");
+    text.append(space.realm());
+    text.append("\"\n");
     text.append(ASCIILiteral::fromLiteralUnsafe("Authentication Scheme: "));
     switch (space.authenticationScheme()) {
         case WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPBasic:
@@ -208,7 +213,7 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
     }
 
     BMessage challengeMessage(AUTHENTICATION_CHALLENGE);
-    challengeMessage.AddString("text", text);
+    challengeMessage.AddString("text", text.toString());
     challengeMessage.AddString("user", challenge.proposedCredential().user());
     challengeMessage.AddString("password", challenge.proposedCredential().password());
     challengeMessage.AddUInt32("failureCount", challenge.previousFailureCount());
@@ -951,8 +956,8 @@ ObjectContentType FrameLoaderClientHaiku::objectContentType(const URL& url, cons
     return ObjectContentType::None;
 }
 
-RefPtr<Widget> FrameLoaderClientHaiku::createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<String>&,
-                                                        const Vector<String>&, const String&, bool /*loadManually*/)
+RefPtr<Widget> FrameLoaderClientHaiku::createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&,
+                                                        const Vector<AtomString>&, const String&, bool /*loadManually*/)
 {
     CALLED();
     notImplemented();

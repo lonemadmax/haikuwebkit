@@ -77,11 +77,11 @@ String MIMETypeRegistry::mimeTypeForExtension(const StringView ext)
     }
 
     // Try system mime database.
-    String fakeFileName = ASCIILiteral::fromLiteralUnsafe("filename.");
-    fakeFileName.append(str);
+    BString fakeFileName("filename.");
+    fakeFileName.Append(str);
 
     BMimeType type;
-    if (BMimeType::GuessMimeType(fakeFileName.utf8().data(), &type) == B_OK)
+    if (BMimeType::GuessMimeType(fakeFileName.String(), &type) == B_OK)
         return String::fromUTF8(type.Type());
 
     // unknown

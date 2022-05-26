@@ -200,8 +200,8 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
     void setTitle(const StringWithDirection&, const URL&) override;
 
     RefPtr<Frame> createFrame(const String& name, HTMLFrameOwnerElement&) override;
-    RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<String>&,
-        const Vector<String>&, const String&, bool) override;
+    RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&,
+        const Vector<AtomString>&, const String&, bool) override;
     void redirectDataToPlugin(Widget& pluginWidget) override;
 
     ObjectContentType objectContentType(const URL&, const String& mimeType) override;

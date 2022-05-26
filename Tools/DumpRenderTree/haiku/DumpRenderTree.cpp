@@ -89,15 +89,16 @@ static String dumpFramesAsText(BWebFrame* frame)
     if (!frame)
         return String();
 
-    String result = frame->InnerText();
+    StringBuilder resultBuilder;
+    resultBuilder.append(frame->InnerText().String());
 
     if (webView->WebPage()->MainFrame() != frame) {
-        result.append("\n--------\nFrame: '");
-        result.append(frame->Name());
-        result.append("'\n--------\n");
+        resultBuilder.append("\n--------\nFrame: '");
+        resultBuilder.append(frame->Name());
+        resultBuilder.append("'\n--------\n");
     }
 
-    result.append("\n");
+    resultBuilder.append("\n");
 
     if (gTestRunner->dumpChildFramesAsText()) {
         BList children = WebCore::DumpRenderTreeClient::frameChildren(frame);
@@ -110,9 +111,11 @@ static String dumpFramesAsText(BWebFrame* frame)
             if (tempText.isEmpty())
                 continue;
 
-            result.append(tempText);
+            resultBuilder.append(tempText);
         }
     }
+
+    String result = resultBuilder.toString();
 
     // To keep things tidy, strip all trailing spaces: they are not a meaningful part of dumpAsText test output.
     size_t spacePosition = String::MaxLength;
@@ -176,7 +179,7 @@ static void dumpFrameContentsAsText(BWebFrame* frame)
     if (gTestRunner->dumpAsText())
         result = dumpFramesAsText(frame);
     else
-        result = frame->ExternalRepresentation();
+        result = String::fromUTF8(frame->ExternalRepresentation());
 
     printf("%s", result.utf8().data());
 }
@@ -246,7 +249,7 @@ static String getFinalTestURL(const String& testURL)
         free(cFilePath);
 
         if (BFile(filePath.utf8().data(), B_READ_ONLY).IsFile())
-            return String("file://") + filePath;
+            return String::fromUTF8("file://") + filePath;
     }
 
     return testURL;
@@ -384,10 +387,10 @@ static void resetDefaultsToConsistentValues()
 static void runTest(const string& inputLine)
 {
     auto command = WTR::parseInputLine(inputLine);
-    const String testPathOrURL(command.pathOrURL.c_str());
+    const String testPathOrURL = String::fromUTF8(command.pathOrURL.c_str());
     ASSERT(!testPathOrURL.isEmpty());
     dumpPixelsForCurrentTest = command.shouldDumpPixels || dumpPixelsForAllTests;
-    const String expectedPixelHash(command.expectedPixelHash.c_str());
+    const String expectedPixelHash = String::fromUTF8(command.expectedPixelHash.c_str());
 
     // Convert the path into a full file URL if it does not look
     // like an HTTP/S URL (doesn't start with http:// or https://).
@@ -614,7 +617,7 @@ void DumpRenderTreeApp::MessageReceived(BMessage* message)
             BString mimeType = message->FindString("mimeType");
             BString url = message->FindString("url");
             printf("%s has MIME type %s\n",
-                WTF::URL({ }, url).lastPathComponent().utf8().data(),
+                WTF::URL({ }, String::fromUTF8(url.String())).lastPathComponent().utf8().data(),
                 mimeType.String());
         }
         break;

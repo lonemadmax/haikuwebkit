@@ -285,11 +285,12 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
     ssize_t bufferLength;
     if (data->FindData("text/html", B_MIME_TYPE, reinterpret_cast<const void**>(&buffer), &bufferLength) == B_OK) {
         RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create(ASCIILiteral::fromLiteralUnsafe("text/plain"), "UTF-8", true);
-        String html = decoder->decode(buffer, bufferLength);
+        StringBuilder html;
+        html.append(decoder->decode(buffer, bufferLength));
         html.append(decoder->flush());
 
         if (!html.isEmpty()) {
-            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(*frame.document(), html, String(), DisallowScriptingContent);
+            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(*frame.document(), html.toString(), String(), DisallowScriptingContent);
             if (fragment)
                 return fragment;
         }

@@ -424,7 +424,7 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
     data->frame = coreFrame.get();
     FrameLoaderClientHaiku& client = static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
     client.setFrame(frame);
-    coreFrame->tree().setName(name.String());
+    coreFrame->tree().setName(String::fromUTF8(name.String()));
 
     if (ownerElement)
         ownerElement->document().frame()->tree().appendChild(*coreFrame.get());

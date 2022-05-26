@@ -51,7 +51,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
 	const Font* /*originalFontData*/, WebCore::IsForPlatformFont,
 	WebCore::FontCache::PreferColoredFont, const UChar* /*characters*/, unsigned /*length*/)
 {
-    FontPlatformData data(description, "Sans");
+    FontPlatformData data(description, AtomString::fromUTF8("Sans"));
         // FIXME check that the requested characters are actually available,
         // and try to use the other info in the arguments (should this be
         // monospace, etc)
@@ -84,7 +84,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     font_family family;
     font_style style;
     be_plain_font->GetFamilyAndStyle(&family, &style);
-    AtomString plainFontFamily(family);
+    AtomString plainFontFamily = AtomString::fromUTF8(family);
     return *fontForFamily(fontDescription, plainFontFamily);
 }
 

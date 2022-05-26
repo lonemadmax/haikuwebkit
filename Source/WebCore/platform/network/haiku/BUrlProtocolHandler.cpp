@@ -171,11 +171,11 @@ void BUrlRequestWrapper::HeadersReceived(BPrivate::Network::BUrlRequest* caller)
 
     const BPrivate::Network::BHttpResult* httpResult = dynamic_cast<const BPrivate::Network::BHttpResult*>(&result);
     if (httpResult) {
-        String suggestedFilename = filenameFromHTTPContentDisposition(
+        StringView suggestedFilename = filenameFromHTTPContentDisposition(
             httpResult->Headers()["Content-Disposition"]);
 
         if (!suggestedFilename.isEmpty())
-            response.setSuggestedFilename(suggestedFilename);
+            response.setSuggestedFilename(suggestedFilename.toString());
 
         response.setHTTPStatusCode(httpResult->StatusCode());
         response.setHTTPStatusText(String::fromUTF8(httpResult->StatusText().String()));
