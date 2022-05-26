@@ -98,7 +98,7 @@ public:
     virtual GraphicsContext* drawingContext() { return nullptr; }
     virtual bool prefersPreparationForDisplay() { return false; }
     virtual void flushDrawingContext() { }
-    virtual void flushDrawingContextAsync() { }
+    virtual bool flushDrawingContextAsync() { return false; }
     virtual void didFlush(GraphicsContextFlushIdentifier) { }
 
     virtual FloatSize logicalSize() const = 0;
@@ -116,9 +116,6 @@ public:
 
     virtual bool isInUse() const = 0;
     virtual void releaseGraphicsContext() = 0;
-#if HAVE(IOSURFACE)
-    virtual void releaseBufferToPool(IOSurfacePool*) = 0;
-#endif
     // Returns true on success.
     virtual bool setVolatile() = 0;
     virtual SetNonVolatileResult setNonVolatile() = 0;
@@ -154,6 +151,10 @@ public:
     // with textures that are RGB or RGBA format, and UNSIGNED_BYTE type.
     virtual bool copyToPlatformTexture(GraphicsContextGL&, GCGLenum, PlatformGLObject, GCGLenum, bool, bool) const = 0;
     virtual PlatformLayer* platformLayer() const = 0;
+
+#if USE(CAIRO)
+    virtual RefPtr<cairo_surface_t> createCairoSurface() { return nullptr; }
+#endif
 
 protected:
     ImageBuffer() = default;

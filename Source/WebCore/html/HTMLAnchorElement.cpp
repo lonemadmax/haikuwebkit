@@ -256,9 +256,9 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomStri
         // Do nothing.
     } else if (name == relAttr) {
         // Update HTMLAnchorElement::relList() if more rel attributes values are supported.
-        static MainThreadNeverDestroyed<const AtomString> noReferrer("noreferrer", AtomString::ConstructFromLiteral);
-        static MainThreadNeverDestroyed<const AtomString> noOpener("noopener", AtomString::ConstructFromLiteral);
-        static MainThreadNeverDestroyed<const AtomString> opener("opener", AtomString::ConstructFromLiteral);
+        static MainThreadNeverDestroyed<const AtomString> noReferrer("noreferrer"_s);
+        static MainThreadNeverDestroyed<const AtomString> noOpener("noopener"_s);
+        static MainThreadNeverDestroyed<const AtomString> opener("opener"_s);
         SpaceSplitString relValue(value, SpaceSplitString::ShouldFoldCase::Yes);
         if (relValue.contains(noReferrer))
             m_linkRelations.add(Relation::NoReferrer);
@@ -288,9 +288,9 @@ bool HTMLAnchorElement::canStartSelection() const
 bool HTMLAnchorElement::draggable() const
 {
     const AtomString& value = attributeWithoutSynchronization(draggableAttr);
-    if (equalLettersIgnoringASCIICase(value, "true"))
+    if (equalLettersIgnoringASCIICase(value, "true"_s))
         return true;
-    if (equalLettersIgnoringASCIICase(value, "false"))
+    if (equalLettersIgnoringASCIICase(value, "false"_s))
         return false;
     return hasAttributeWithoutSynchronization(hrefAttr);
 }
@@ -315,12 +315,12 @@ DOMTokenList& HTMLAnchorElement::relList()
     if (!m_relList) {
         m_relList = makeUnique<DOMTokenList>(*this, HTMLNames::relAttr, [](Document& document, StringView token) {
 #if USE(SYSTEM_PREVIEW)
-            if (equalLettersIgnoringASCIICase(token, "ar"))
+            if (equalLettersIgnoringASCIICase(token, "ar"_s))
                 return document.settings().systemPreviewEnabled();
 #else
             UNUSED_PARAM(document);
 #endif
-            return equalLettersIgnoringASCIICase(token, "noreferrer") || equalLettersIgnoringASCIICase(token, "noopener") || equalLettersIgnoringASCIICase(token, "opener");
+            return equalLettersIgnoringASCIICase(token, "noreferrer"_s) || equalLettersIgnoringASCIICase(token, "noopener"_s) || equalLettersIgnoringASCIICase(token, "opener"_s);
         });
     }
     return *m_relList;
@@ -336,7 +336,7 @@ int HTMLAnchorElement::defaultTabIndex() const
     return 0;
 }
 
-String HTMLAnchorElement::target() const
+AtomString HTMLAnchorElement::target() const
 {
     return attributeWithoutSynchronization(targetAttr);
 }
@@ -380,7 +380,7 @@ bool HTMLAnchorElement::isSystemPreviewLink()
     if (!document().settings().systemPreviewEnabled())
         return false;
 
-    static MainThreadNeverDestroyed<const AtomString> systemPreviewRelValue("ar", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> systemPreviewRelValue("ar"_s);
 
     if (!relList().contains(systemPreviewRelValue))
         return false;
@@ -576,13 +576,13 @@ void HTMLAnchorElement::handleClick(Event& event)
     }
 #endif
 
-    String downloadAttribute;
+    AtomString downloadAttribute;
 #if ENABLE(DOWNLOAD_ATTRIBUTE)
     if (document().settings().downloadAttributeEnabled()) {
         // Ignore the download attribute completely if the href URL is cross origin.
         bool isSameOrigin = completedURL.protocolIsData() || document().securityOrigin().canRequest(completedURL);
         if (isSameOrigin)
-            downloadAttribute = ResourceResponse::sanitizeSuggestedFilename(attributeWithoutSynchronization(downloadAttr));
+            downloadAttribute = AtomString { ResourceResponse::sanitizeSuggestedFilename(attributeWithoutSynchronization(downloadAttr)) };
         else if (hasAttributeWithoutSynchronization(downloadAttr))
             document().addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "The download attribute on anchor was ignored because its href URL has a different security origin."_s);
     }
@@ -625,7 +625,7 @@ void HTMLAnchorElement::handleClick(Event& event)
 }
 
 // Falls back to using <base> element's target if the anchor does not have one.
-String HTMLAnchorElement::effectiveTarget() const
+AtomString HTMLAnchorElement::effectiveTarget() const
 {
     auto effectiveTarget = target();
     if (effectiveTarget.isEmpty())

@@ -2009,12 +2009,11 @@ static RetainPtr<NSString>& classIBCreatorID()
 
 - (void)setAVFoundationNSURLSessionEnabled:(BOOL)flag
 {
-    [self _setBoolValue:flag forKey:WebKitAVFoundationNSURLSessionEnabledKey];
 }
 
 - (BOOL)isAVFoundationNSURLSessionEnabled
 {
-    return [self _boolValueForKey:WebKitAVFoundationNSURLSessionEnabledKey];
+    return YES;
 }
 
 - (BOOL)isInheritURIQueryComponentEnabled
@@ -2848,16 +2847,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setInspectorAdditionsEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitInspectorAdditionsEnabledPreferenceKey];
-}
-
-- (BOOL)ariaReflectionEnabled
-{
-    return [self _boolValueForKey:WebKitAriaReflectionEnabledPreferenceKey];
-}
-
-- (void)setAriaReflectionEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitAriaReflectionEnabledPreferenceKey];
 }
 
 - (BOOL)mediaCapabilitiesEnabled

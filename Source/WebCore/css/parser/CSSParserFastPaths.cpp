@@ -673,7 +673,6 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     // case CSSPropertyOverflowAnchor:
     //    return valueID == CSSValueNone || valueID == CSSValueAuto;
     case CSSPropertyOverflowWrap: // normal | break-word | anywhere
-    case CSSPropertyWordWrap:
         return valueID == CSSValueNormal || valueID == CSSValueBreakWord || valueID == CSSValueAnywhere;
     case CSSPropertyOverflowX: // visible | hidden | scroll | auto | overlay (overlay is a synonym for auto)
         if (context.overflowClipEnabled && valueID == CSSValueClip)
@@ -815,7 +814,6 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     case CSSPropertyWebkitTextSecurity: // disc | circle | square | none
         return valueID == CSSValueDisc || valueID == CSSValueCircle || valueID == CSSValueSquare || valueID == CSSValueNone;
     case CSSPropertyTransformStyle:
-    case CSSPropertyWebkitTransformStyle:
         return valueID == CSSValueFlat
             || valueID == CSSValuePreserve3d
 #if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
@@ -987,13 +985,11 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyTextDecorationStyle:
     case CSSPropertyWebkitTextSecurity:
     case CSSPropertyWebkitTextZoom:
-    case CSSPropertyWebkitTransformStyle:
     case CSSPropertyWebkitUserDrag:
     case CSSPropertyWebkitUserModify:
     case CSSPropertyUserSelect:
     case CSSPropertyWhiteSpace:
     case CSSPropertyWordBreak:
-    case CSSPropertyWordWrap:
 
     // SVG CSS properties from SVG 1.1, Appendix N: Property Index.
     case CSSPropertyAlignmentBaseline:
@@ -1077,10 +1073,10 @@ bool CSSParserFastPaths::isPartialKeywordPropertyID(CSSPropertyID propertyId)
 static bool isUniversalKeyword(StringView string)
 {
     // These keywords can be used for all properties.
-    return equalLettersIgnoringASCIICase(string, "initial")
-        || equalLettersIgnoringASCIICase(string, "inherit")
-        || equalLettersIgnoringASCIICase(string, "unset")
-        || equalLettersIgnoringASCIICase(string, "revert");
+    return equalLettersIgnoringASCIICase(string, "initial"_s)
+        || equalLettersIgnoringASCIICase(string, "inherit"_s)
+        || equalLettersIgnoringASCIICase(string, "unset"_s)
+        || equalLettersIgnoringASCIICase(string, "revert"_s);
 }
 
 static RefPtr<CSSValue> parseKeywordValue(CSSPropertyID propertyId, StringView string, const CSSParserContext& context)

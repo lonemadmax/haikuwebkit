@@ -923,6 +923,8 @@ http/tests/inspector/network/intercept-request-main-resource-with-response.html 
 http/tests/inspector/network/intercept-request-properties.html [ Skip ]
 http/tests/inspector/network/intercept-request-subresource.html [ Skip ]
 http/tests/inspector/network/intercept-request-subresource-with-response.html [ Skip ]
+http/tests/inspector/network/intercept-request-subresource-with-response-error-status-code.html [ Skip ]
+http/tests/inspector/network/intercept-request-with-error.html [ Skip ]
 http/tests/inspector/network/intercept-request-with-response.html [ Skip ]
 http/tests/inspector/network/local-resource-override-basic.html [ Skip ]
 http/tests/inspector/network/local-resource-override-main-resource.html [ Skip ]
@@ -931,7 +933,6 @@ http/tests/inspector/network/local-resource-override-script-tag.html [ Skip ]
 http/tests/inspector/network/resource-response-inspector-override.html [ Skip ]
 inspector/network/intercept-aborted-request.html [ Skip ]
 inspector/network/interceptContinue.html [ Skip ]
-inspector/network/interceptRequestWithError.html [ Skip ]
 
 webkit.org/b/164933 http/tests/misc/link-rel-icon-beforeload.html [ Failure ]
 
@@ -1560,9 +1561,6 @@ accessibility/native-text-control-attributed-string.html [ Skip ]
 
 webkit.org/b/227516 fast/shadow-dom/style-resolver-sharing.html [ Pass Failure ]
 
-# <rdar://problem/81996454> ([ Monterey wk1 GuardMalloc ] fast/borders/hidpi-3x-input-hairline-border.html is timing out)
-[ Monterey ] fast/borders/hidpi-3x-input-hairline-border.html [ Timeout ]
-
 webkit.org/b/228042 [ Release ] media/modern-media-controls/volume-support/volume-support-drag-to-mute.html [ Pass Timeout Failure ]
 
 webkit.org/b/228091 [ Release ] media/modern-media-controls/scrubber-support/scrubber-support-drag.html [ Pass Timeout Failure ]
@@ -1617,6 +1615,8 @@ webkit.org/b/229425 fast/canvas/webgl/texImage2D-video-flipY-false.html [ Pass T
 webkit.org/b/238689 storage/websql/change-version.html [ Pass Timeout ]
 
 webkit.org/b/229481 media/video-poster-background.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/239871 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-upperlower-003.html  [ Pass ImageOnlyFailure ]
 
 webkit.org/b/229519 media/media-session/actionHandlerInternalMappings.html [ Pass Failure ]
 
@@ -1873,3 +1873,17 @@ webkit.org/b/238642 imported/w3c/web-platform-tests/css/css-contain/contain-body
 
 webkit.org/b/237783 imported/w3c/web-platform-tests/html/semantics/forms/input-change-event-properties.html [ Timeout ]
 
+webkit.org/b/239835 webgl/2.0.0/conformance/extensions/oes-texture-float-with-video.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance/extensions/oes-texture-half-float-with-video.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance/textures/video/tex-2d-rgba-rgba-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance/textures/video/tex-2d-rgba-rgba-unsigned_short_5_5_5_1.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/image_bitmap_from_video/tex-2d-r8-red-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-2d-r11f_g11f_b10f-rgb-float.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-2d-r16f-red-float.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-2d-r16f-red-half_float.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-2d-r8ui-red_integer-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-2d-rg32f-rg-float.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-2d-rgb9_e5-rgb-float.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-3d-rg16f-rg-half_float.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-3d-rgb5_a1-rgba-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/239835 webgl/2.0.0/conformance2/textures/video/tex-3d-rgba4-rgba-unsigned_byte.html [ Pass Timeout ]

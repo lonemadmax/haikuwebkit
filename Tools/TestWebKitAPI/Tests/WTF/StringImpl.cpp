@@ -118,8 +118,8 @@ TEST(WTF, StringImplEqualIgnoringASCIICaseBasic)
     auto a = StringImpl::createFromLiteral("aBcDeFG"_s);
     auto b = StringImpl::createFromLiteral("ABCDEFG"_s);
     auto c = StringImpl::createFromLiteral("abcdefg"_s);
-    const char d[] = "aBcDeFG";
-    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""));
+    constexpr auto d = "aBcDeFG"_s;
+    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
     auto shorter = StringImpl::createFromLiteral("abcdef"_s);
     auto different = StringImpl::createFromLiteral("abcrefg"_s);
 
@@ -162,8 +162,8 @@ TEST(WTF, StringImplEqualIgnoringASCIICaseWithNull)
 
 TEST(WTF, StringImplEqualIgnoringASCIICaseWithEmpty)
 {
-    auto a = StringImpl::create(reinterpret_cast<const LChar*>(""));
-    auto b = StringImpl::create(reinterpret_cast<const LChar*>(""));
+    auto a = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
+    auto b = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
     ASSERT_TRUE(equalIgnoringASCIICase(a.ptr(), b.ptr()));
     ASSERT_TRUE(equalIgnoringASCIICase(b.ptr(), a.ptr()));
 }
@@ -179,7 +179,6 @@ TEST(WTF, StringImplEqualIgnoringASCIICaseWithLatin1Characters)
     auto b = stringFromUTF8("ABCÉEFG");
     auto c = stringFromUTF8("ABCéEFG");
     auto d = stringFromUTF8("abcéefg");
-    const char e[] = "aBcéeFG";
 
     // Identity.
     ASSERT_TRUE(equalIgnoringASCIICase(a.ptr(), a.ptr()));
@@ -194,10 +193,6 @@ TEST(WTF, StringImplEqualIgnoringASCIICaseWithLatin1Characters)
     ASSERT_FALSE(equalIgnoringASCIICase(b.ptr(), c.ptr()));
     ASSERT_FALSE(equalIgnoringASCIICase(b.ptr(), d.ptr()));
     ASSERT_TRUE(equalIgnoringASCIICase(c.ptr(), d.ptr()));
-    ASSERT_FALSE(equalIgnoringASCIICase(a.ptr(), e));
-    ASSERT_FALSE(equalIgnoringASCIICase(b.ptr(), e));
-    ASSERT_FALSE(equalIgnoringASCIICase(c.ptr(), e));
-    ASSERT_FALSE(equalIgnoringASCIICase(d.ptr(), e));
 }
 
 TEST(WTF, StringImplFindIgnoringASCIICaseBasic)
@@ -346,7 +341,7 @@ TEST(WTF, StringImplFindIgnoringASCIICaseOnNull)
 TEST(WTF, StringImplFindIgnoringASCIICaseOnEmpty)
 {
     auto reference = stringFromUTF8("ABCÉEFG");
-    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""));
+    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
     EXPECT_EQ(static_cast<size_t>(0), reference->findIgnoringASCIICase(empty.ptr()));
     EXPECT_EQ(static_cast<size_t>(0), reference->findIgnoringASCIICase(empty.ptr(), 0));
     EXPECT_EQ(static_cast<size_t>(3), reference->findIgnoringASCIICase(empty.ptr(), 3));
@@ -422,14 +417,14 @@ TEST(WTF, StringImplStartsWithIgnoringASCIICaseWithNull)
     auto reference = StringImpl::createFromLiteral("aBcDeFG"_s);
     ASSERT_FALSE(reference->startsWithIgnoringASCIICase(StringView { }));
 
-    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""));
+    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
     ASSERT_FALSE(empty->startsWithIgnoringASCIICase(StringView { }));
 }
 
 TEST(WTF, StringImplStartsWithIgnoringASCIICaseWithEmpty)
 {
     auto reference = StringImpl::createFromLiteral("aBcDeFG"_s);
-    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""));
+    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
     ASSERT_TRUE(reference->startsWithIgnoringASCIICase(empty.ptr()));
     ASSERT_TRUE(reference->startsWithIgnoringASCIICase(*empty.ptr()));
     ASSERT_TRUE(empty->startsWithIgnoringASCIICase(empty.ptr()));
@@ -441,16 +436,16 @@ TEST(WTF, StringImplStartsWithIgnoringASCIICaseWithEmpty)
 TEST(WTF, StartsWithLettersIgnoringASCIICase)
 {
     String string("Test tEST"_s);
-    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, "test t"));
-    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, "test te"));
-    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, "test test"));
-    ASSERT_FALSE(startsWithLettersIgnoringASCIICase(string, "test tex"));
+    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, "test t"_s));
+    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, "test te"_s));
+    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, "test test"_s));
+    ASSERT_FALSE(startsWithLettersIgnoringASCIICase(string, "test tex"_s));
 
-    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, ""));
-    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(emptyString(), ""));
+    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(string, ""_s));
+    ASSERT_TRUE(startsWithLettersIgnoringASCIICase(emptyString(), ""_s));
 
-    ASSERT_FALSE(startsWithLettersIgnoringASCIICase(String(), "t"));
-    ASSERT_FALSE(startsWithLettersIgnoringASCIICase(String(), ""));
+    ASSERT_FALSE(startsWithLettersIgnoringASCIICase(String(), "t"_s));
+    ASSERT_FALSE(startsWithLettersIgnoringASCIICase(String(), ""_s));
 }
 
 TEST(WTF, StringImplEndsWithIgnoringASCIICaseBasic)
@@ -511,14 +506,14 @@ TEST(WTF, StringImplEndsWithIgnoringASCIICaseWithNull)
     auto reference = StringImpl::createFromLiteral("aBcDeFG"_s);
     ASSERT_FALSE(reference->endsWithIgnoringASCIICase(StringView { }));
 
-    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""));
+    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
     ASSERT_FALSE(empty->endsWithIgnoringASCIICase(StringView { }));
 }
 
 TEST(WTF, StringImplEndsWithIgnoringASCIICaseWithEmpty)
 {
     auto reference = StringImpl::createFromLiteral("aBcDeFG"_s);
-    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""));
+    auto empty = StringImpl::create(reinterpret_cast<const LChar*>(""), 0);
     ASSERT_TRUE(reference->endsWithIgnoringASCIICase(empty.ptr()));
     ASSERT_TRUE(reference->endsWithIgnoringASCIICase(*empty.ptr()));
     ASSERT_TRUE(empty->endsWithIgnoringASCIICase(empty.ptr()));

@@ -134,6 +134,11 @@ void WebSWServerConnection::startScriptFetchInClient(ServiceWorkerJobIdentifier 
     send(Messages::WebSWClientConnection::StartScriptFetchForServer(jobIdentifier, registrationKey, cachePolicy));
 }
 
+void WebSWServerConnection::refreshImportedScripts(ServiceWorkerJobIdentifier jobIdentifier, FetchOptions::Cache cachePolicy, const Vector<URL>& urls, ServiceWorkerJob::RefreshImportedScriptsCallback&& callback)
+{
+    sendWithAsyncReply(Messages::WebSWClientConnection::RefreshImportedScripts(jobIdentifier, cachePolicy, urls), WTFMove(callback));
+}
+
 void WebSWServerConnection::updateRegistrationStateInClient(ServiceWorkerRegistrationIdentifier identifier, ServiceWorkerRegistrationState state, const std::optional<ServiceWorkerData>& serviceWorkerData)
 {
     send(Messages::WebSWClientConnection::UpdateRegistrationState(identifier, state, serviceWorkerData));
@@ -169,6 +174,8 @@ void WebSWServerConnection::controlClient(const NetworkResourceLoadParameters& p
     ServiceWorkerClientType clientType;
     if (parameters.options.destination  == FetchOptions::Destination::Worker)
         clientType = ServiceWorkerClientType::Worker;
+    else if (parameters.options.destination  == FetchOptions::Destination::Sharedworker)
+        clientType = ServiceWorkerClientType::Sharedworker;
     else
         clientType = ServiceWorkerClientType::Window;
 
@@ -201,7 +208,7 @@ std::unique_ptr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(N
         return nullptr;
 
     std::optional<ServiceWorkerRegistrationIdentifier> serviceWorkerRegistrationIdentifier;
-    if (loader.parameters().options.mode == FetchOptions::Mode::Navigate || loader.parameters().options.destination == FetchOptions::Destination::Worker) {
+    if (loader.parameters().options.mode == FetchOptions::Mode::Navigate || loader.parameters().options.destination == FetchOptions::Destination::Worker || loader.parameters().options.destination == FetchOptions::Destination::Sharedworker) {
         auto topOrigin = loader.parameters().isMainFrameNavigation ? SecurityOriginData::fromURL(request.url()) : loader.parameters().topOrigin->data();
         auto* registration = doRegistrationMatching(topOrigin, request.url());
         if (!registration)
@@ -681,6 +688,16 @@ void WebSWServerConnection::focusServiceWorkerClient(WebCore::ScriptExecutionCon
 void WebSWServerConnection::transferServiceWorkerLoadToNewWebProcess(NetworkResourceLoader& loader, WebCore::SWServerRegistration& registration)
 {
     controlClient(loader.parameters(), registration, loader.originalRequest());
+}
+
+std::optional<SWServer::GatheredClientData> WebSWServerConnection::gatherClientData(ScriptExecutionContextIdentifier clientIdentifier)
+{
+    ASSERT(clientIdentifier.processIdentifier() == identifier());
+    auto iterator = m_clientOrigins.find(clientIdentifier);
+    if (iterator == m_clientOrigins.end())
+        return { };
+
+    return server().gatherClientData(iterator->value, clientIdentifier);
 }
 
 } // namespace WebKit

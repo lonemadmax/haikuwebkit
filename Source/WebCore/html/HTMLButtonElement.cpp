@@ -110,9 +110,9 @@ void HTMLButtonElement::parseAttribute(const QualifiedName& name, const AtomStri
 {
     if (name == typeAttr) {
         Type oldType = m_type;
-        if (equalLettersIgnoringASCIICase(value, "reset"))
+        if (equalLettersIgnoringASCIICase(value, "reset"_s))
             m_type = RESET;
-        else if (equalLettersIgnoringASCIICase(value, "button"))
+        else if (equalLettersIgnoringASCIICase(value, "button"_s))
             m_type = BUTTON;
         else
             m_type = SUBMIT;
@@ -141,10 +141,8 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
             document().updateLayoutIgnorePendingStylesheets();
 
             if (auto currentForm = form()) {
-                if (m_type == SUBMIT) {
-                    SetForScope activatedSubmitState(m_isActivatedSubmit, true);
+                if (m_type == SUBMIT)
                     currentForm->submitIfPossible(&event, this);
-                }
 
                 if (m_type == RESET)
                     currentForm->reset();

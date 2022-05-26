@@ -1953,7 +1953,7 @@ JSC_DEFINE_JIT_OPERATION(operationOptimize, SlowPathReturnType, (VM* vmPointer, 
     // possible in order to minimize the chances of us executing baseline code after
     // optimized code is already available.
     JITWorklist::State worklistState = JITWorklist::ensureGlobalWorklist().completeAllReadyPlansForVM(
-        vm, JITCompilationKey(codeBlock, JITCompilationMode::DFG));
+        vm, JITCompilationKey(codeBlock, Options::forceUnlinkedDFG() ? JITCompilationMode::UnlinkedDFG : JITCompilationMode::DFG));
 
     if (worklistState == JITWorklist::Compiling) {
         CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("compiling"));
@@ -2027,7 +2027,7 @@ JSC_DEFINE_JIT_OPERATION(operationOptimize, SlowPathReturnType, (VM* vmPointer, 
 
         CodeBlock* replacementCodeBlock = codeBlock->newReplacement();
         CompilationResult result = DFG::compile(
-            vm, replacementCodeBlock, nullptr, JITCompilationMode::DFG, bytecodeIndex,
+            vm, replacementCodeBlock, nullptr, Options::forceUnlinkedDFG() ? JITCompilationMode::UnlinkedDFG : JITCompilationMode::DFG, bytecodeIndex,
             mustHandleValues, JITToDFGDeferredCompilationCallback::create());
         
         if (result != CompilationSuccessful) {
@@ -2239,10 +2239,10 @@ ALWAYS_INLINE static JSValue getByVal(JSGlobalObject* globalObject, CallFrame* c
     if (LIKELY(baseValue.isCell() && subscript.isString())) {
         Structure& structure = *baseValue.asCell()->structure();
         if (JSCell::canUseFastGetOwnProperty(structure)) {
-            RefPtr<AtomStringImpl> existingAtomString = asString(subscript)->toExistingAtomString(globalObject);
+            auto existingAtomString = asString(subscript)->toExistingAtomString(globalObject);
             RETURN_IF_EXCEPTION(scope, JSValue());
-            if (existingAtomString) {
-                if (JSValue result = baseValue.asCell()->fastGetOwnProperty(vm, structure, existingAtomString.get())) {
+            if (!existingAtomString.isNull()) {
+                if (JSValue result = baseValue.asCell()->fastGetOwnProperty(vm, structure, existingAtomString.impl())) {
                     ASSERT(callFrame->bytecodeIndex() != BytecodeIndex(0));
                     return result;
                 }
@@ -2368,10 +2368,10 @@ JSC_DEFINE_JIT_OPERATION(operationGetByVal, EncodedJSValue, (JSGlobalObject* glo
         if (property.isString()) {
             Structure& structure = *base->structure();
             if (JSCell::canUseFastGetOwnProperty(structure)) {
-                RefPtr<AtomStringImpl> existingAtomString = asString(property)->toExistingAtomString(globalObject);
+                auto existingAtomString = asString(property)->toExistingAtomString(globalObject);
                 RETURN_IF_EXCEPTION(scope, encodedJSValue());
-                if (existingAtomString) {
-                    if (JSValue result = base->fastGetOwnProperty(vm, structure, existingAtomString.get()))
+                if (!existingAtomString.isNull()) {
+                    if (JSValue result = base->fastGetOwnProperty(vm, structure, existingAtomString.impl()))
                         return JSValue::encode(result);
                 }
             }

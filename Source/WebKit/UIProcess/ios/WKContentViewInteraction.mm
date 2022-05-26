@@ -4750,7 +4750,10 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     if (!_page || !_page->preferences().imageAnalysisMarkupEnabled())
         return nil;
 
-    if (_page->editorState().isMissingPostLayoutData || !_page->editorState().postLayoutData().selectedEditableImage)
+    if (_page->editorState().isMissingPostLayoutData || !_imageAnalysisMarkupData)
+        return nil;
+
+    if (_imageAnalysisMarkupData->element != _page->editorState().postLayoutData().selectedEditableImage)
         return nil;
 
     return [self menuWithInlineAction:WebCore::contextMenuItemTitleMarkupImage() identifier:@"WKActionMarkupImage" handler:[](WKContentView *view) {
@@ -4758,7 +4761,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
             return;
 
         auto [elementContext, image, preferredMIMEType] = *view->_imageAnalysisMarkupData;
-        if (auto [data, type] = WebKit::transcodeWithPreferredMIMEType(image.get(), preferredMIMEType.createCFString().get(), (__bridge CFStringRef)UTTypeTIFF.identifier); data)
+        if (auto [data, type] = WebKit::imageDataForCroppedImageResult(image.get(), preferredMIMEType.createCFString().get()); data)
             view->_page->replaceImageWithMarkupResults(elementContext, { String { type.get() } }, { static_cast<const uint8_t*>([data bytes]), [data length] });
     }];
 }
@@ -7680,8 +7683,22 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 
 - (void)prepareSelectionForContextMenuWithLocationInView:(CGPoint)locationInView completionHandler:(void(^)(BOOL shouldPresentMenu, RVItem *item))completionHandler
 {
-    _page->prepareSelectionForContextMenuWithLocationInView(WebCore::roundedIntPoint(locationInView), [protectedCompletionHandler = makeBlockPtr(completionHandler)](bool shouldPresentMenu, const WebKit::RevealItem& item) {
-        protectedCompletionHandler(shouldPresentMenu, item.item());
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    _imageAnalysisMarkupData = std::nullopt;
+#endif
+
+    _page->prepareSelectionForContextMenuWithLocationInView(WebCore::roundedIntPoint(locationInView), [weakSelf = WeakObjCPtr<WKContentView>(self), completionHandler = makeBlockPtr(completionHandler)](bool shouldPresentMenu, auto& item) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return completionHandler(false, nil);
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+        [strongSelf doAfterComputingImageAnalysisResultsForMarkup:[completionHandler, shouldPresentMenu, item = RetainPtr { item.item() }]() mutable {
+            completionHandler(shouldPresentMenu, item.get());
+        }];
+#else
+        completionHandler(shouldPresentMenu, item.item());
+#endif
     });
 }
 #endif
@@ -9882,7 +9899,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     if (auto menu = self.imageAnalysisMarkupMenu)
-        [builder insertSiblingMenu:menu afterMenuForIdentifier:UIMenuStandardEdit];
+        [builder insertSiblingMenu:menu beforeMenuForIdentifier:UIMenuFormat];
 #endif
 
 #if ENABLE(APP_HIGHLIGHTS)
@@ -11027,11 +11044,14 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 {
     auto changeCount = UIPasteboard.generalPasteboard.changeCount;
     WebKit::requestImageAnalysisMarkup(image.CGImage, [changeCount, weakSelf = WeakObjCPtr<WKContentView>(self), originalImage = RetainPtr { image }, sourceMIMEType = RetainPtr { sourceMIMEType }](CGImageRef result, CGRect) mutable {
+        if (!result)
+            return;
+
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
             return;
 
-        auto [data, type] = WebKit::transcodeWithPreferredMIMEType(result ?: [originalImage CGImage], (__bridge CFStringRef)sourceMIMEType.get(), (__bridge CFStringRef)UTTypeTIFF.identifier);
+        auto [data, type] = WebKit::imageDataForCroppedImageResult(result, (__bridge CFStringRef)sourceMIMEType.get());
         if (!data)
             return;
 
@@ -11889,7 +11909,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     return [_actionSheetAssistant suggestedActionsForContextMenuWithPositionInformation:_positionInformation];
 }
 
-- (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction configuration:(UIContextMenuConfiguration *)configuration previewForHighlightingItemWithIdentifier:(id<NSCopying>)identifier
+- (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction configuration:(UIContextMenuConfiguration *)configuration highlightPreviewForItemWithIdentifier:(id<NSCopying>)identifier
 {
     [self _startSuppressingSelectionAssistantForReason:WebKit::InteractionIsHappening];
     [self _cancelTouchEventGestureRecognizer];

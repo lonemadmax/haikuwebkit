@@ -842,9 +842,6 @@ webkit.org/b/173861 [ Release ] http/tests/webrtc/filtering-ice-candidate-cross-
 
 webkit.org/b/172148 tiled-drawing/scrolling/scroll-snap/scroll-snap-mandatory-mainframe-vertical.html [ Pass Failure ]
 
-webkit.org/b/228930 [ BigSur+ arm64 ] tiled-drawing/scrolling/scroll-snap/scroll-snap-momentum-in-non-snapping-axis.html [ Pass Failure ]
-webkit.org/b/228930 [ Debug ] tiled-drawing/scrolling/scroll-snap/scroll-snap-momentum-in-non-snapping-axis.html [ Pass Failure ]
-
 webkit.org/b/173779 [ Debug ] fast/scrolling/arrow-key-scroll-in-rtl-document.html [ Pass Failure ]
 
 webkit.org/b/173500 http/tests/loading/basic-auth-remove-credentials.html [ Pass Failure ]
@@ -1381,8 +1378,6 @@ webkit.org/b/224463 [ BigSur arm64 ] webrtc/disable-encryption.html [ Pass Timeo
 
 webkit.org/b/224633 media/presentationmodechanged-fired-once.html [ Pass Timeout ]
 
-webkit.org/b/224690 compositing/video/video-border-radius-clipping.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/228713 [ BigSur Debug arm64 ] compositing/video/video-object-fit.html [ Pass Timeout ] 
 
 webkit.org/b/224698 [ BigSur Release arm64 ] inspector/console/console-oom.html [ Pass Crash ]
@@ -1441,9 +1436,6 @@ webkit.org/b/227639 [ BigSur Release ] fast/history/visited-href-mutation.html [
 [ Monterey arm64 ] fast/animation/request-animation-frame-throttling-detached-iframe.html [ Failure ]
 [ Monterey arm64 ] fast/animation/request-animation-frame-throttling-lowPowerMode.html [ Failure ]
 [ Monterey arm64 ] fast/animation/css-animation-throttling-lowPowerMode.html [ Failure ]
-
-# rdar://80342948 ([ Monterey wk2 ] http/tests/websocket/tests/hybi/bufferedAmount-after-close-in-busy.html is a Flaky failure)
-[ Monterey ] http/tests/websocket/tests/hybi/bufferedAmount-after-close-in-busy.html [ Pass Failure ]
 
 # Behavior of navigator-language-ru changed in Monterey
 [ Monterey+ ] fast/text/international/system-language/navigator-language/navigator-language-ru.html [ Failure ]
@@ -1586,6 +1578,7 @@ webkit.org/b/230070 media/track/track-cue-css.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/network/fetch-response-body.html [ Pass Failure ]
 webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/network/intercept-request-properties.html [ Pass Failure ]
+webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/network/intercept-request-with-error.html [ Pass Failure ]
 webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/network/intercept-request-with-response.html [ Pass Failure ]
 webkit.org/b/230117 [ BigSur Debug ] http/tests/inspector/target/pause-on-inline-debugger-statement.html [ Pass Failure ]
 
@@ -1732,3 +1725,6 @@ webkit.org/b/239627 [ arm64 ] fast/scrolling/mac/adjust-scroll-snap-during-gestu
 
 webkit.org/b/239634 [ arm64 ] media/modern-media-controls/tracks-support/text-track-selected-via-media-api.html [ Pass Failure ]
 
+webkit.org/b/239818 [ Debug ] fast/css/identical-logical-height-decl.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/239818 [ Debug ] fast/css/variables/test-suite/168.html [ Pass ImageOnlyFailure ]

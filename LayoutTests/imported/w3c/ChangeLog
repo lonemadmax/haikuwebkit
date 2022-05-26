@@ -1,3 +1,252 @@
+2022-05-03  Youenn Fablet  <youenn@apple.com>
+
+        ServiceWorkerRegistration update should fail if called from an installing service worker context
+        https://bugs.webkit.org/show_bug.cgi?id=239962
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/update-not-allowed.https-expected.txt:
+
+2022-05-02  Youenn Fablet  <youenn@apple.com>
+
+        URL.createObjectURL should not be exposed in service worker contexts
+        https://bugs.webkit.org/show_bug.cgi?id=239972
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/interface-requirements-sw.https-expected.txt:
+
+2022-05-02  Alex Christensen  <achristensen@webkit.org>
+
+        Update some wpt tests with control characters in cookies
+        https://bugs.webkit.org/show_bug.cgi?id=239966
+        <rdar://92300855>
+
+        Reviewed by Chris Dumez.
+
+        This reflects a change in https://github.com/httpwg/http-extensions/issues/1531
+
+        * web-platform-tests/cookies/name/name-ctl-expected.txt:
+        * web-platform-tests/cookies/name/name-ctl.html:
+        * web-platform-tests/cookies/resources/cookie-test.js:
+        * web-platform-tests/cookies/value/value-ctl-expected.txt:
+        * web-platform-tests/cookies/value/value-ctl.html:
+        * web-platform-tests/html/dom/documents/resource-metadata-management/document-cookie-expected.txt:
+        * web-platform-tests/html/dom/documents/resource-metadata-management/document-cookie.html:
+
+2022-05-02  Oriol Brufau  <obrufau@igalia.com>
+
+        [cssom] Don't index 'all' shorthand in computed styles
+        https://bugs.webkit.org/show_bug.cgi?id=239669
+
+        Reviewed by Darin Adler.
+
+        Update test expectations.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-05-02  Youenn Fablet  <youenn@apple.com>
+
+        Cancel response stream if load is being cancelled by the web page
+        https://bugs.webkit.org/show_bug.cgi?id=239968
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/fetch-event-respond-with-readable-stream.https-expected.txt:
+
+2022-05-02  Ziran Sun  <zsun@igalia.com>
+
+        [selection] Set correct selection range for TEXTAREA when updating default value
+        https://bugs.webkit.org/show_bug.cgi?id=237525
+
+        Reviewed by  Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-start-end-extra-expected.txt:
+
+2022-05-02  Oriol Brufau  <obrufau@igalia.com>
+
+        [cssom] Enumerate all logical longhands in the computed style
+        https://bugs.webkit.org/show_bug.cgi?id=239910
+
+        Reviewed by Darin Adler.
+
+        Update test expectations.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-cascade/all-prop-revert-layer-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-05-02  Youenn Fablet  <youenn@apple.com>
+
+        Register shared workers as service worker clients
+        https://bugs.webkit.org/show_bug.cgi?id=239846
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/claim-shared-worker-fetch.https-expected.txt:
+
+2022-04-29  Rob Buis  <rbuis@igalia.com>
+
+        REGRESSION(r290770): element.scrollIntoViewIfNeeded() scrolls to top even when element is already in viewport
+        https://bugs.webkit.org/show_bug.cgi?id=238985
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/cssom-view/scrollintoview-zero-height-item-expected.txt: Added.
+        * web-platform-tests/css/cssom-view/scrollintoview-zero-height-item.html: Added.
+
+2022-04-29  Youenn Fablet  <youenn@apple.com>
+
+        Make sure to fail importScripts as per https://w3c.github.io/ServiceWorker/#importscripts step 4
+        https://bugs.webkit.org/show_bug.cgi?id=239847
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/import-scripts-updated-flag.https-expected.txt:
+
+2022-04-28  Oriol Brufau  <obrufau@igalia.com>
+
+        [css-cascade] Mark properties sharing a computed value as related
+        https://bugs.webkit.org/show_bug.cgi?id=239579
+
+        Reviewed by Tim Nguyen.
+
+        Some failures are now passing.
+
+        * web-platform-tests/css/css-cascade/all-prop-revert-layer-expected.txt:
+
+2022-04-28  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=239827
+
+        * web-platform-tests/cookies/samesite/about-blank-toplevel.https-expected.txt: Update baseline to expect a pass.
+
+2022-04-27  Oriol Brufau  <obrufau@igalia.com>
+
+        Fix CSS cascade regarding logical properties
+        https://bugs.webkit.org/show_bug.cgi?id=236199
+
+        Reviewed by Darin Adler.
+
+        Expect animation-004.html to pass.
+        Add new test logicalprops-with-deferred-writing-mode.html
+
+        * web-platform-tests/css/css-logical/animation-004-expected.txt:
+        * web-platform-tests/css/css-logical/logicalprops-with-deferred-writing-mode-expected.txt: Added.
+        * web-platform-tests/css/css-logical/logicalprops-with-deferred-writing-mode.html: Added.
+
+2022-04-27  Tim Nguyen  <ntim@apple.com>
+
+        Rebaseline imported/w3c/web-platform-tests/css/css-text/inheritance.html after r293521
+        https://bugs.webkit.org/show_bug.cgi?id=166782
+
+        Unreviewed test gardening.
+
+        * web-platform-tests/css/css-text/inheritance-expected.txt:
+
+2022-04-27  Tim Nguyen  <ntim@apple.com>
+
+        Make -webkit-transform-style an alias of transform-style
+        https://bugs.webkit.org/show_bug.cgi?id=239808
+
+        Reviewed by Antti Koivisto.
+
+        Fixes cascade issues when applying both -webkit-transform-style and transform-style (see bug 239579), and removes
+        unnecessary code as well given the FIXME was never addressed.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-cascade/all-prop-revert-layer-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-04-27  Tim Nguyen  <ntim@apple.com>
+
+        [css-text] Make word-wrap CSS property an alias of overflow-wrap
+        https://bugs.webkit.org/show_bug.cgi?id=166782
+
+        Reviewed by Antti Koivisto.
+
+        This follows the spec, and fixes cascade issues when applying both properties (see bug 239579).
+
+        Relevant WPT expectations updated to pass.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-cascade/all-prop-revert-layer-expected.txt:
+        * web-platform-tests/css/css-text/overflow-wrap/word-wrap-alias-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-04-27  Ziran Sun  <zsun@igalia.com>
+
+        [css-ui] Remove some unimplemented -webkit-appearance keywords
+        https://bugs.webkit.org/show_bug.cgi?id=238930
+
+        Reviewed by Aditya Keerthi.
+
+        * web-platform-tests/css/css-ui/appearance-cssom-001-expected.txt:
+
+2022-04-27  Youenn Fablet  <youenn@apple.com>
+
+        service worker update should refresh imported scripts in addition to the main script
+        https://bugs.webkit.org/show_bug.cgi?id=239657
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/credentials.https-expected.txt:
+
+2022-04-27  Youenn Fablet  <youenn@apple.com>
+
+        Shared workers should match service worker registrations
+        https://bugs.webkit.org/show_bug.cgi?id=239122
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/clients-get-client-types.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-matchall-client-types.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/worker-interception-redirect.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/worker-interception.https-expected.txt:
+
+2022-04-26  Oriol Brufau  <obrufau@igalia.com>
+
+        [css-cascade] Fix cascade rollback for deferred properties
+        https://bugs.webkit.org/show_bug.cgi?id=238125
+
+        Reviewed by Antti Koivisto.
+
+        Add a test. It still has some failures due to bug 239579, bug 239669,
+        and bug 239670.
+
+        * web-platform-tests/css/css-cascade/all-prop-revert-layer-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/all-prop-revert-layer.html: Added.
+
+2022-04-26  Ziran Sun  <zsun@igalia.com>
+
+        Constructed FormData object should not contain an entry for the submit button that was used to submit the form
+        https://bugs.webkit.org/show_bug.cgi?id=239070
+
+        Reviewed by Chris Dumez.
+
+        Update test expectation as the sub-test is now passing.
+        * web-platform-tests/html/semantics/forms/form-submission-0/constructing-form-data-set-expected.txt:
+
+2022-04-26  Youenn Fablet  <youenn@apple.com>
+
+        Service Worker loads should not expose some ResourceTiming information
+        https://bugs.webkit.org/show_bug.cgi?id=239608
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/service-workers/service-worker/resource-timing-fetch-variants.https-expected.txt:
+
+2022-04-25  Youenn Fablet  <youenn@apple.com>
+
+        Service workers should not intercept embed/object related loads
+        https://bugs.webkit.org/show_bug.cgi?id=239642
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/embed-and-object-are-not-intercepted.https-expected.txt:
+
 2022-04-25  Ziran Sun  <zsun@igalia.com>
 
         UA stylesheet should include table { text-indent: initial } to conform with HTML standard

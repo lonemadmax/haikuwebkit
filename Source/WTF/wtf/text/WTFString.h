@@ -77,9 +77,6 @@ public:
     template<size_t inlineCapacity, typename OverflowHandler>
     explicit String(const Vector<UChar, inlineCapacity, OverflowHandler>&);
 
-    // Construct a string with UTF-16 data, from a null-terminated source.
-    WTF_EXPORT_PRIVATE String(const UChar*);
-
     // Construct a string with Latin-1 data.
     WTF_EXPORT_PRIVATE String(const LChar* characters, unsigned length);
     WTF_EXPORT_PRIVATE String(const char* characters, unsigned length);
@@ -157,6 +154,8 @@ public:
     WTF_EXPORT_PRIVATE static String numberToStringFixedWidth(float, unsigned decimalPlaces);
     WTF_EXPORT_PRIVATE static String numberToStringFixedWidth(double, unsigned decimalPlaces);
 
+    AtomString toExistingAtomString() const;
+
     // Find a single character or string, also with match function & latin1 forms.
     size_t find(UChar character, unsigned start = 0) const { return m_impl ? m_impl->find(character, start) : notFound; }
 
@@ -181,6 +180,8 @@ public:
     bool contains(UChar character) const { return find(character) != notFound; }
     bool contains(const LChar* string) const { return find(string) != notFound; }
     bool contains(StringView) const;
+    template<typename CodeUnitMatchFunction, std::enable_if_t<std::is_invocable_r_v<bool, CodeUnitMatchFunction, UChar>>* = nullptr>
+    bool contains(CodeUnitMatchFunction matchFunction) const { return find(matchFunction, 0) != notFound; }
     bool containsIgnoringASCIICase(StringView) const;
     bool containsIgnoringASCIICase(StringView, unsigned start) const;
 
@@ -279,7 +280,7 @@ public:
         : String(ucharFrom(characters), length) { }
 
     String(const wchar_t* characters)
-        : String(ucharFrom(characters)) { }
+        : String(characters, characters ? wcslen(characters) : 0) { }
 
     WTF_EXPORT_PRIVATE Vector<wchar_t> wideCharacters() const;
 #endif
@@ -347,29 +348,29 @@ static_assert(sizeof(String) == sizeof(void*), "String should effectively be a p
 inline bool operator==(const String& a, const String& b) { return equal(a.impl(), b.impl()); }
 inline bool operator==(const String& a, const LChar* b) { return equal(a.impl(), b); }
 inline bool operator==(const String& a, const char* b) { return equal(a.impl(), reinterpret_cast<const LChar*>(b)); }
-inline bool operator==(const String& a, ASCIILiteral b) { return equal(a.impl(), reinterpret_cast<const LChar*>(b.characters())); }
+inline bool operator==(const String& a, ASCIILiteral b) { return equal(a.impl(), b); }
 inline bool operator==(const LChar* a, const String& b) { return equal(a, b.impl()); }
 inline bool operator==(const char* a, const String& b) { return equal(reinterpret_cast<const LChar*>(a), b.impl()); }
-inline bool operator==(ASCIILiteral a, const String& b) { return equal(reinterpret_cast<const LChar*>(a.characters()), b.impl()); }
+inline bool operator==(ASCIILiteral a, const String& b) { return equal(b.impl(), a); }
 template<size_t inlineCapacity> inline bool operator==(const Vector<char, inlineCapacity>& a, const String& b) { return equal(b.impl(), a.data(), a.size()); }
 template<size_t inlineCapacity> inline bool operator==(const String& a, const Vector<char, inlineCapacity>& b) { return b == a; }
 
 inline bool operator!=(const String& a, const String& b) { return !equal(a.impl(), b.impl()); }
 inline bool operator!=(const String& a, const LChar* b) { return !equal(a.impl(), b); }
 inline bool operator!=(const String& a, const char* b) { return !equal(a.impl(), reinterpret_cast<const LChar*>(b)); }
-inline bool operator!=(const String& a, ASCIILiteral b) { return !equal(a.impl(), reinterpret_cast<const LChar*>(b.characters())); }
+inline bool operator!=(const String& a, ASCIILiteral b) { return !equal(a.impl(), b); }
 inline bool operator!=(const LChar* a, const String& b) { return !equal(a, b.impl()); }
 inline bool operator!=(const char* a, const String& b) { return !equal(reinterpret_cast<const LChar*>(a), b.impl()); }
-inline bool operator!=(ASCIILiteral a, const String& b) { return !equal(reinterpret_cast<const LChar*>(a.characters()), b.impl()); }
+inline bool operator!=(ASCIILiteral a, const String& b) { return !equal(b.impl(), a); }
 template<size_t inlineCapacity> inline bool operator!=(const Vector<char, inlineCapacity>& a, const String& b) { return !(a == b); }
 template<size_t inlineCapacity> inline bool operator!=(const String& a, const Vector<char, inlineCapacity>& b) { return b != a; }
 
 bool equalIgnoringASCIICase(const String&, const String&);
 bool equalIgnoringASCIICase(const String&, ASCIILiteral);
-bool equalIgnoringASCIICase(const String&, const char*);
+bool equalIgnoringASCIICase(const String&, const char*) = delete;
 
-template<unsigned length> bool equalLettersIgnoringASCIICase(const String&, const char (&lowercaseLetters)[length]);
-template<unsigned length> bool startsWithLettersIgnoringASCIICase(const String&, const char (&lowercaseLetters)[length]);
+bool equalLettersIgnoringASCIICase(const String&, ASCIILiteral);
+bool startsWithLettersIgnoringASCIICase(const String&, ASCIILiteral);
 
 inline bool equalIgnoringNullity(const String& a, const String& b) { return equalIgnoringNullity(a.impl(), b.impl()); }
 template<size_t inlineCapacity> inline bool equalIgnoringNullity(const Vector<UChar, inlineCapacity>& a, const String& b) { return equalIgnoringNullity(a, b.impl()); }
@@ -578,9 +579,9 @@ String String::removeCharacters(const Predicate& findMatch) const
     return m_impl ? m_impl->removeCharacters(findMatch) : String { };
 }
 
-template<unsigned length> inline bool equalLettersIgnoringASCIICase(const String& string, const char (&lowercaseLetters)[length])
+inline bool equalLettersIgnoringASCIICase(const String& string, ASCIILiteral literal)
 {
-    return equalLettersIgnoringASCIICase(string.impl(), lowercaseLetters);
+    return equalLettersIgnoringASCIICase(string.impl(), literal);
 }
 
 inline bool equalIgnoringASCIICase(const String& a, const String& b)
@@ -588,19 +589,14 @@ inline bool equalIgnoringASCIICase(const String& a, const String& b)
     return equalIgnoringASCIICase(a.impl(), b.impl());
 }
 
-inline bool equalIgnoringASCIICase(const String& a, const char* b)
+inline bool equalIgnoringASCIICase(const String& a, ASCIILiteral b)
 {
     return equalIgnoringASCIICase(a.impl(), b);
 }
 
-inline bool equalIgnoringASCIICase(const String& a, ASCIILiteral b)
+inline bool startsWithLettersIgnoringASCIICase(const String& string, ASCIILiteral literal)
 {
-    return equalIgnoringASCIICase(a.impl(), b.characters());
-}
-
-template<unsigned length> inline bool startsWithLettersIgnoringASCIICase(const String& string, const char (&lowercaseLetters)[length])
-{
-    return startsWithLettersIgnoringASCIICase(string.impl(), lowercaseLetters);
+    return startsWithLettersIgnoringASCIICase(string.impl(), literal);
 }
 
 struct HashTranslatorASCIILiteral {

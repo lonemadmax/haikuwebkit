@@ -737,7 +737,7 @@ static BrowsingContextGroupSwitchDecision toBrowsingContextGroupSwitchDecision(c
 
 void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedResponse, PrivateRelayed privateRelayed, ResponseCompletionHandler&& completionHandler)
 {
-    LOADER_RELEASE_LOG("didReceiveResponse: (httpStatusCode=%d, MIMEType=%" PUBLIC_LOG_STRING ", expectedContentLength=%" PRId64 ", hasCachedEntryForValidation=%d, hasNetworkLoadChecker=%d)", receivedResponse.httpStatusCode(), receivedResponse.mimeType().utf8().data(), receivedResponse.expectedContentLength(), !!m_cacheEntryForValidation, !!m_networkLoadChecker);
+    LOADER_RELEASE_LOG("didReceiveResponse: (httpStatusCode=%d, MIMEType=%" PUBLIC_LOG_STRING ", expectedContentLength=%" PRId64 ", hasCachedEntryForValidation=%d, hasNetworkLoadChecker=%d)", receivedResponse.httpStatusCode(), receivedResponse.mimeType().string().utf8().data(), receivedResponse.expectedContentLength(), !!m_cacheEntryForValidation, !!m_networkLoadChecker);
 
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     if (m_contentFilter && !m_contentFilter->continueAfterResponseReceived(receivedResponse))
@@ -766,9 +766,9 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
     };
 
     auto isMediaMIMEType = [] (const String& mimeType) {
-        return startsWithLettersIgnoringASCIICase(mimeType, "audio/")
-            || startsWithLettersIgnoringASCIICase(mimeType, "video/")
-            || equalLettersIgnoringASCIICase(mimeType, "application/octet-stream");
+        return startsWithLettersIgnoringASCIICase(mimeType, "audio/"_s)
+            || startsWithLettersIgnoringASCIICase(mimeType, "video/"_s)
+            || equalLettersIgnoringASCIICase(mimeType, "application/octet-stream"_s);
     };
 
     if (!m_bufferedData
@@ -1215,12 +1215,21 @@ void NetworkResourceLoader::restartNetworkLoad(WebCore::ResourceRequest&& newReq
     startNetworkLoad(WTFMove(newRequest), FirstLoad::No);
 }
 
+#if ENABLE(SERVICE_WORKER)
+static bool shouldTryToMatchRegistrationOnRedirection(const FetchOptions& options, bool isServiceWorkerLoaded)
+{
+    if (options.mode == FetchOptions::Mode::Navigate)
+        return true;
+    return isServiceWorkerLoaded && (options.destination == FetchOptions::Destination::Worker || options.destination == FetchOptions::Destination::Sharedworker);
+}
+#endif
+
 void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest, bool isAllowedToAskUserForCredentials)
 {
     LOADER_RELEASE_LOG("continueWillSendRequest: (isAllowedToAskUserForCredentials=%d)", isAllowedToAskUserForCredentials);
 
 #if ENABLE(SERVICE_WORKER)
-    if (parameters().options.mode == FetchOptions::Mode::Navigate || (parameters().options.destination == FetchOptions::Destination::Worker && m_serviceWorkerFetchTask)) {
+    if (shouldTryToMatchRegistrationOnRedirection(parameters().options, !!m_serviceWorkerFetchTask)) {
         m_serviceWorkerRegistration = { };
         if (auto serviceWorkerFetchTask = m_connection->createFetchTask(*this, newRequest)) {
             LOADER_RELEASE_LOG("continueWillSendRequest: Created a ServiceWorkerFetchTask to handle the redirect (fetchIdentifier=%" PRIu64 ")", serviceWorkerFetchTask->fetchIdentifier().toUInt64());

@@ -1076,29 +1076,31 @@ void AccessibilityRenderObject::addRadioButtonGroupMembers(AccessibilityChildren
         }
     }
 }
-    
-// linked ui elements could be all the related radio buttons in a group
-// or an internal anchor connection
-void AccessibilityRenderObject::linkedUIElements(AccessibilityChildrenVector& linkedUIElements) const
+
+// Linked ui elements could be all the related radio buttons in a group
+// or an internal anchor connection.
+AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::linkedObjects() const
 {
-    ariaFlowToElements(linkedUIElements);
+    auto linkedObjects = flowToObjects();
 
     if (isLink()) {
-        AccessibilityObject* linkedAXElement = internalLinkElement();
+        auto* linkedAXElement = internalLinkElement();
         if (linkedAXElement)
-            linkedUIElements.append(linkedAXElement);
+            linkedObjects.append(linkedAXElement);
     }
 
     if (roleValue() == AccessibilityRole::RadioButton)
-        addRadioButtonGroupMembers(linkedUIElements);
+        addRadioButtonGroupMembers(linkedObjects);
+
+    return linkedObjects;
 }
 
 bool AccessibilityRenderObject::hasPopup() const
 {
     // Return true if this has the aria-haspopup attribute, or if it has an ancestor of type link with the aria-haspopup attribute.
     return Accessibility::findAncestor<AccessibilityObject>(*this, true, [this] (const AccessibilityObject& object) {
-        return (this == &object) ? !equalLettersIgnoringASCIICase(object.popupValue(), "false")
-            : object.isLink() && !equalLettersIgnoringASCIICase(object.popupValue(), "false");
+        return (this == &object) ? !equalLettersIgnoringASCIICase(object.popupValue(), "false"_s)
+            : object.isLink() && !equalLettersIgnoringASCIICase(object.popupValue(), "false"_s);
     });
 }
 
@@ -1110,7 +1112,7 @@ bool AccessibilityRenderObject::supportsDropping() const
 bool AccessibilityRenderObject::supportsDragging() const
 {
     const AtomString& grabbed = getAttribute(aria_grabbedAttr);
-    return equalLettersIgnoringASCIICase(grabbed, "true") || equalLettersIgnoringASCIICase(grabbed, "false") || hasAttribute(draggableAttr);
+    return equalLettersIgnoringASCIICase(grabbed, "true"_s) || equalLettersIgnoringASCIICase(grabbed, "false"_s) || hasAttribute(draggableAttr);
 }
 
 bool AccessibilityRenderObject::isGrabbed()
@@ -1263,7 +1265,7 @@ AccessibilityObjectInclusion AccessibilityRenderObject::defaultObjectInclusion()
 
     if (m_renderer->style().visibility() != Visibility::Visible) {
         // aria-hidden is meant to override visibility as the determinant in AX hierarchy inclusion.
-        if (equalLettersIgnoringASCIICase(getAttribute(aria_hiddenAttr), "false"))
+        if (equalLettersIgnoringASCIICase(getAttribute(aria_hiddenAttr), "false"_s))
             return AccessibilityObjectInclusion::DefaultBehavior;
 
         return AccessibilityObjectInclusion::IgnoreObject;
@@ -1782,7 +1784,7 @@ bool AccessibilityRenderObject::isSelected() const
     if (!m_renderer->node())
         return false;
     
-    if (equalLettersIgnoringASCIICase(getAttribute(aria_selectedAttr), "true"))
+    if (equalLettersIgnoringASCIICase(getAttribute(aria_selectedAttr), "true"_s))
         return true;    
     
     if (isTabItem() && isTabItemSelected())
@@ -2715,11 +2717,10 @@ AccessibilityObject* AccessibilityRenderObject::activeDescendant() const
 
 RenderObject* AccessibilityRenderObject::targetElementForActiveDescendant(const QualifiedName& attributeName, AccessibilityObject* activeDescendant) const
 {
-    AccessibilityObject::AccessibilityChildrenVector elements;
-    ariaElementsFromAttribute(elements, attributeName);
-    for (const auto& element : elements) {
-        if (activeDescendant->isDescendantOfObject(element.get()))
-            return element->renderer();
+    auto objects = ariaElementsFromAttribute(attributeName);
+    for (const auto& object : objects) {
+        if (activeDescendant->isDescendantOfObject(object.get()))
+            return object->renderer();
     }
 
     return nullptr;
@@ -2908,11 +2909,11 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
 AccessibilityOrientation AccessibilityRenderObject::orientation() const
 {
     const AtomString& ariaOrientation = getAttribute(aria_orientationAttr);
-    if (equalLettersIgnoringASCIICase(ariaOrientation, "horizontal"))
+    if (equalLettersIgnoringASCIICase(ariaOrientation, "horizontal"_s))
         return AccessibilityOrientation::Horizontal;
-    if (equalLettersIgnoringASCIICase(ariaOrientation, "vertical"))
+    if (equalLettersIgnoringASCIICase(ariaOrientation, "vertical"_s))
         return AccessibilityOrientation::Vertical;
-    if (equalLettersIgnoringASCIICase(ariaOrientation, "undefined"))
+    if (equalLettersIgnoringASCIICase(ariaOrientation, "undefined"_s))
         return AccessibilityOrientation::Undefined;
 
     // In ARIA 1.1, the implicit value of aria-orientation changed from horizontal
@@ -3339,7 +3340,7 @@ const String AccessibilityRenderObject::liveRegionStatus() const
 
 const String AccessibilityRenderObject::liveRegionRelevant() const
 {
-    static MainThreadNeverDestroyed<const AtomString> defaultLiveRegionRelevant("additions text", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> defaultLiveRegionRelevant("additions text"_s);
     const AtomString& relevant = getAttribute(aria_relevantAttr);
 
     // Default aria-relevant = "additions text".
@@ -3352,9 +3353,9 @@ const String AccessibilityRenderObject::liveRegionRelevant() const
 bool AccessibilityRenderObject::liveRegionAtomic() const
 {
     const AtomString& atomic = getAttribute(aria_atomicAttr);
-    if (equalLettersIgnoringASCIICase(atomic, "true"))
+    if (equalLettersIgnoringASCIICase(atomic, "true"_s))
         return true;
-    if (equalLettersIgnoringASCIICase(atomic, "false"))
+    if (equalLettersIgnoringASCIICase(atomic, "false"_s))
         return false;
 
     // WAI-ARIA "alert" and "status" roles have an implicit aria-atomic value of true.

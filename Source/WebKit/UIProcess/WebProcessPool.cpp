@@ -524,6 +524,8 @@ void WebProcessPool::getGPUProcessConnection(WebProcessProxy& webProcessProxy, G
     parameters.presentingApplicationAuditToken = configuration().presentingApplicationProcessToken();
 #endif
 
+    parameters.isCaptivePortalModeEnabled = webProcessProxy.captivePortalMode() == WebProcessProxy::CaptivePortalMode::Enabled;
+
     ensureGPUProcess().getGPUProcessConnection(webProcessProxy, parameters, [this, weakThis = WeakPtr { *this }, parameters, webProcessProxy = WeakPtr { webProcessProxy }, reply = WTFMove(reply)] (auto& connectionInfo) mutable {
         if (UNLIKELY(!IPC::Connection::identifierIsValid(connectionInfo.identifier()))) {
             // Retry on the next RunLoop iteration because we may be inside the WebProcessPool destructor.
@@ -587,15 +589,13 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
             useProcessForRemoteWorkers(*process);
     }
 
-    bool shouldUseSeparateRemoteWorkerProcess = workerType == RemoteWorkerType::ServiceWorker && s_useSeparateServiceWorkerProcess;
-
     // Prioritize the requesting WebProcess for running the service worker.
-    if (!remoteWorkerProcessProxy && !shouldUseSeparateRemoteWorkerProcess && requestingProcess) {
+    if (!remoteWorkerProcessProxy && !s_useSeparateServiceWorkerProcess && requestingProcess) {
         if (&requestingProcess->websiteDataStore() == websiteDataStore && requestingProcess->isMatchingRegistrableDomain(registrableDomain))
             useProcessForRemoteWorkers(*requestingProcess);
     }
 
-    if (!remoteWorkerProcessProxy && !shouldUseSeparateRemoteWorkerProcess) {
+    if (!remoteWorkerProcessProxy && !s_useSeparateServiceWorkerProcess) {
         for (auto& process : processPool->m_processes) {
             if (process.ptr() == processPool->m_prewarmedProcess.get() || process->isDummyProcessProxy())
                 continue;
@@ -2164,6 +2164,15 @@ void WebProcessPool::setUseSeparateServiceWorkerProcess(bool useSeparateServiceW
     s_useSeparateServiceWorkerProcess = useSeparateServiceWorkerProcess;
     for (auto& processPool : allProcessPools())
         processPool->terminateServiceWorkers();
+}
+
+bool WebProcessPool::anyProcessPoolNeedsUIBackgroundAssertion()
+{
+    for (auto& processPool : WebProcessPool::allProcessPools()) {
+        if (processPool->shouldTakeUIBackgroundAssertion())
+            return true;
+    }
+    return false;
 }
 
 #if ENABLE(SERVICE_WORKER)

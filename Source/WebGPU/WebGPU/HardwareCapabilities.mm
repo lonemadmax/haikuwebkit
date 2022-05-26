@@ -238,7 +238,7 @@ static HardwareCapabilities apple5(id<MTLDevice> device)
     };
 }
 
-#if !PLATFORM(WATCHOS)
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 static HardwareCapabilities apple6(id<MTLDevice> device)
 {
     auto baseCapabilities = WebGPU::baseCapabilities(device);
@@ -493,7 +493,7 @@ static std::optional<HardwareCapabilities> rawHardwareCapabilities(id<MTLDevice>
         merge(apple4(device));
     if ([device supportsFamily:MTLGPUFamilyApple5])
         merge(apple5(device));
-#if !PLATFORM(WATCHOS)
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     if ([device supportsFamily:MTLGPUFamilyApple6])
         merge(apple6(device));
     if ([device supportsFamily:MTLGPUFamilyApple7])

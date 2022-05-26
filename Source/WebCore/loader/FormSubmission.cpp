@@ -70,7 +70,7 @@ static void appendMailtoPostFormDataToURL(URL& url, const FormData& data, const 
 {
     String body = data.flattenToString();
 
-    if (equalLettersIgnoringASCIICase(encodingType, "text/plain")) {
+    if (equalLettersIgnoringASCIICase(encodingType, "text/plain"_s)) {
         // Convention seems to be to decode, and s/&/\r\n/. Also, spaces are encoded as %20.
         body = PAL::decodeURLEscapeSequences(makeStringByReplacingAll(makeStringByReplacingAll(body, '&', "\r\n"_s), '+', ' '));
     }
@@ -102,9 +102,9 @@ void FormSubmission::Attributes::parseAction(const String& action)
 
 String FormSubmission::Attributes::parseEncodingType(const String& type)
 {
-    if (equalLettersIgnoringASCIICase(type, "multipart/form-data"))
+    if (equalLettersIgnoringASCIICase(type, "multipart/form-data"_s))
         return "multipart/form-data"_s;
-    if (equalLettersIgnoringASCIICase(type, "text/plain"))
+    if (equalLettersIgnoringASCIICase(type, "text/plain"_s))
         return textPlainContentTypeAtom();
     return "application/x-www-form-urlencoded"_s;
 }
@@ -117,10 +117,10 @@ void FormSubmission::Attributes::updateEncodingType(const String& type)
 
 FormSubmission::Method FormSubmission::Attributes::parseMethodType(const String& type, bool dialogElementEnabled)
 {
-    if (dialogElementEnabled && equalLettersIgnoringASCIICase(type, "dialog"))
+    if (dialogElementEnabled && equalLettersIgnoringASCIICase(type, "dialog"_s))
         return FormSubmission::Method::Dialog;
 
-    if (equalLettersIgnoringASCIICase(type, "post"))
+    if (equalLettersIgnoringASCIICase(type, "post"_s))
         return FormSubmission::Method::Post;
 
     return FormSubmission::Method::Get;
@@ -131,7 +131,7 @@ void FormSubmission::Attributes::updateMethodType(const String& type, bool dialo
     m_method = parseMethodType(type, dialogElementEnabled);
 }
 
-inline FormSubmission::FormSubmission(Method method, const String& returnValue, const URL& action, const String& target, const String& contentType, LockHistory lockHistory, Event* event)
+inline FormSubmission::FormSubmission(Method method, const String& returnValue, const URL& action, const AtomString& target, const String& contentType, LockHistory lockHistory, Event* event)
     : m_method(method)
     , m_action(action)
     , m_target(target)
@@ -142,7 +142,7 @@ inline FormSubmission::FormSubmission(Method method, const String& returnValue, 
 {
 }
 
-inline FormSubmission::FormSubmission(Method method, const URL& action, const String& target, const String& contentType, Ref<FormState>&& state, Ref<FormData>&& data, const String& boundary, LockHistory lockHistory, Event* event)
+inline FormSubmission::FormSubmission(Method method, const URL& action, const AtomString& target, const String& contentType, Ref<FormState>&& state, Ref<FormData>&& data, const String& boundary, LockHistory lockHistory, Event* event)
     : m_method(method)
     , m_action(action)
     , m_target(target)
@@ -213,7 +213,7 @@ Ref<FormSubmission> FormSubmission::create(HTMLFormElement& form, HTMLFormContro
     auto domFormData = DOMFormData::create(dataEncoding.encodingForFormSubmissionOrURLParsing());
     StringPairVector formValues;
 
-    auto result = form.constructEntryList(WTFMove(domFormData), &formValues);
+    auto result = form.constructEntryList(submitter.copyRef(), WTFMove(domFormData), &formValues);
     RELEASE_ASSERT(result);
     domFormData = result.releaseNonNull();
 

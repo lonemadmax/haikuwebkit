@@ -33,17 +33,6 @@ AVFoundationEnabled:
       "PLATFORM(WATCHOS)": false
       default: true
 
-AVFoundationNSURLSessionEnabled:
-  type: bool
-  getter: isAVFoundationNSURLSessionEnabled
-  webcoreBinding: DeprecatedGlobalSettings
-  condition: USE(AVFOUNDATION)
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-
 AcceleratedCompositingEnabled:
   type: bool
   webcoreOnChange: setNeedsRecalcStyleInAllFrames
@@ -1380,7 +1369,7 @@ MediaContainerTypesAllowedInCaptivePortalMode:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: '"video/mp4,audio/mp4,video/x-m4v,audio/x-m4a,audio/mp3,application/x-mpegURL,vnd.apple.mpegURL"'
+      default: '"video/mp4,audio/mp4,video/x-m4v,audio/x-m4a,audio/mp3,application/x-mpegURL,application/vnd.apple.mpegURL,video/mp2t,video/iso.segment,audio/aac,audio/mpeg,audio/ac3,audio/eac3"'
 
 MediaContentTypesRequiringHardwareSupport:
   type: String
@@ -2542,6 +2531,17 @@ WantsBalancedSetDefersLoadingBehavior:
 WebArchiveDebugModeEnabled:
   type: bool
   webKitLegacyPreferenceKey: WebKitWebArchiveDebugModeEnabledPreferenceKey
+  condition: ENABLE(WEB_ARCHIVE)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+WebArchiveTestingModeEnabled:
+  type: bool
   condition: ENABLE(WEB_ARCHIVE)
   defaultValue:
     WebKitLegacy:

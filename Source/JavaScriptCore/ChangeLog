@@ -1,3 +1,676 @@
+2022-04-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Introduce unlinked version of invalidation
+        https://bugs.webkit.org/show_bug.cgi?id=239887
+
+        Reviewed by Saam Barati.
+
+        This patch makes invalidation mechanism unlinked for unlinked DFG.
+
+        1. We always use CheckTraps instead of InvalidationPoint with VMTraps so that we do not need
+           to repatch existing code.
+        2. We introduce load-and-branch based InvalidationPoint for unlinked DFG so that we do not need
+           to repatch it to jump to OSR exit when watchpoint fires. We store this condition in DFG::JITData
+           so that code can quickly access to that.
+        3. We make isStillValid conditions in DFG::CommonData always true for unlinked DFG code. Instead,
+           we check isJettisoned() condition of CodeBlock since it will become eventually per CodeBlock
+           information (while this CodeBlock gets invalidated, unlinked DFG code itself can be used for
+           the other CodeBlock).
+
+        After this change, now, jumpReplacements for unlinked DFG becomes empty. We no longer repatch these invalidation points.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::jettison):
+        (JSC::CodeBlock::hasInstalledVMTrapsBreakpoints const):
+        (JSC::CodeBlock::canInstallVMTrapBreakpoints const):
+        (JSC::CodeBlock::installVMTrapBreakpoints):
+        (JSC::CodeBlock::hasInstalledVMTrapBreakpoints const): Deleted.
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::isJettisoned const):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        * dfg/DFGCommonData.cpp:
+        (JSC::DFG::CommonData::invalidateLinkedCode):
+        (JSC::DFG::CommonData::~CommonData):
+        (JSC::DFG::CommonData::installVMTrapBreakpoints):
+        (JSC::DFG::CommonData::invalidate): Deleted.
+        (JSC::DFG::CommonData::isVMTrapBreakpoint): Deleted.
+        * dfg/DFGCommonData.h:
+        (JSC::DFG::CommonData::CommonData):
+        (JSC::DFG::CommonData::hasInstalledVMTrapsBreakpoints const):
+        (JSC::DFG::CommonData::isUnlinked const):
+        (JSC::DFG::CommonData::isStillValid const):
+        * dfg/DFGDoesGC.cpp:
+        (JSC::DFG::doesGC):
+        * dfg/DFGJITCode.cpp:
+        (JSC::DFG::JITCode::JITCode):
+        * dfg/DFGJITCode.h:
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::link):
+        * dfg/DFGOSREntry.cpp:
+        (JSC::DFG::prepareOSREntry):
+        (JSC::DFG::prepareCatchOSREntry):
+        * dfg/DFGPlan.cpp:
+        (JSC::DFG::Plan::finalize):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileInvalidationPoint):
+        (JSC::DFG::SpeculativeJIT::compileCheckTraps):
+        (JSC::DFG::SpeculativeJIT::emitInvalidationPoint): Deleted.
+        * dfg/DFGSpeculativeJIT.h:
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * ftl/FTLJITCode.cpp:
+        (JSC::FTL::JITCode::JITCode):
+        * ftl/FTLJITCode.h:
+        (JSC::FTL::JITCode::isUnlinked const):
+        * ftl/FTLOSREntry.cpp:
+        (JSC::FTL::prepareOSREntry):
+        * jit/JITCode.cpp:
+        (JSC::JITCode::isUnlinked const):
+        * jit/JITCode.h:
+        * runtime/VMTraps.cpp:
+        (JSC::VMTraps::tryInstallTrapBreakpoints):
+        (JSC::VMTraps::handleTraps):
+
+2022-05-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Introduce shifting Structure encoding
+        https://bugs.webkit.org/show_bug.cgi?id=239957
+
+        Reviewed by Mark Lam.
+
+        For platforms which have limited amount of virtual address space (<= 36 bits), this patch introduces
+        shifting Structure encoding. We align Structure on a 32-bytes boundary instead of 16 bytes so that
+        we can ensure that lower 5 bits are zero. Then, we can use 1 bit for nuke, and shifting 4 bits to
+        convert 36 bit address to 32 bit StructureID. By using this mechanism, we do not need to allocate
+        large virtual address space for these platforms. If we an address can have more than 36 bits, then
+        we should just reserve a larger address region since we have enough address space. Current Structure
+        size is 112 bytes, which is 3.5 atoms at 32 bytes / atom. Hence, this alignment costs us 16 bytes per
+        Structure.
+        Relanding with debug build failure & crash on static atomSize assumption in IsoSubspace.
+
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+        * heap/Heap.cpp:
+        * heap/IsoSubspace.h:
+        (JSC::GCClient::IsoSubspace::allocatorFor):
+        * heap/IsoSubspaceInlines.h:
+        (JSC::GCClient::IsoSubspace::allocate):
+        * heap/StructureAlignedMemoryAllocator.cpp:
+        (JSC::StructureMemoryManager::StructureMemoryManager):
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::emitNonNullDecodeStructureID):
+        * llint/LLIntOfflineAsmConfig.h:
+        * llint/LowLevelInterpreter64.asm:
+        * runtime/JSCell.h:
+        * runtime/JSCellInlines.h:
+        (JSC::JSCell::JSCell):
+        * runtime/Structure.cpp:
+        (JSC::Structure::Structure):
+        * runtime/Structure.h:
+        * runtime/StructureID.h:
+        (JSC::StructureID::decode const):
+        (JSC::StructureID::tryDecode const):
+        (JSC::StructureID::encode):
+        * tools/IntegrityInlines.h:
+        (JSC::Integrity::auditStructureID):
+
+2022-05-01  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add ISO8601 based Temporal.PlainDate getters
+        https://bugs.webkit.org/show_bug.cgi?id=239949
+
+        Reviewed by Ross Kirsling and Dean Jackson.
+
+        This patch adds missing getters of Temporal.PlainDate. Currently, we are not querying to Calendar.
+        It will be wired once we bake Calendar completely.
+
+        * runtime/ISO8601.cpp:
+        (JSC::ISO8601::dayOfWeek):
+        (JSC::ISO8601::dayOfYear):
+        (JSC::ISO8601::weekOfYear):
+        (JSC::ISO8601::daysInMonth):
+        (JSC::ISO8601::monthCode):
+        * runtime/ISO8601.h:
+        * runtime/TemporalPlainDate.cpp:
+        (JSC::TemporalPlainDate::from):
+        (JSC::TemporalPlainDate::monthCode const):
+        (JSC::TemporalPlainDate::dayOfWeek const):
+        (JSC::TemporalPlainDate::dayOfYear const):
+        (JSC::TemporalPlainDate::weekOfYear const):
+        * runtime/TemporalPlainDate.h:
+        * runtime/TemporalPlainDatePrototype.cpp:
+        (JSC::JSC_DEFINE_CUSTOM_GETTER):
+
+2022-05-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix ASan crash due to CString ownership
+        https://bugs.webkit.org/show_bug.cgi?id=239981
+
+        Reviewed by Darin Adler and Mark Lam.
+
+        We need to ensure that CString is kept alive.
+
+        * runtime/JSDateMath.cpp:
+        (JSC::DateCache::timeZoneDisplayName):
+
+2022-05-02  Justin Michaud  <justin_michaud@apple.com>
+
+        Add option to JSC shell to wait for a USR2 signal before exiting to aid in collection of vmmaps
+        https://bugs.webkit.org/show_bug.cgi?id=239919
+
+        Reviewed by Yusuke Suzuki.
+
+        * jsc.cpp:
+        (main):
+
+2022-05-02  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r293680.
+        https://bugs.webkit.org/show_bug.cgi?id=239983
+
+        crash on iOS
+
+        Reverted changeset:
+
+        "[JSC] Introduce shifting Structure encoding"
+        https://bugs.webkit.org/show_bug.cgi?id=239957
+        https://commits.webkit.org/r293680
+
+2022-05-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Introduce shifting Structure encoding
+        https://bugs.webkit.org/show_bug.cgi?id=239957
+
+        Reviewed by Mark Lam.
+
+        For platforms which have limited amount of virtual address space (<= 36 bits), this patch introduces
+        shifting Structure encoding. We align Structure on a 32-bytes boundary instead of 16 bytes so that
+        we can ensure that lower 5 bits are zero. Then, we can use 1 bit for nuke, and shifting 4 bits to
+        convert 36 bit address to 32 bit StructureID. By using this mechanism, we do not need to allocate
+        large virtual address space for these platforms. If we an address can have more than 36 bits, then
+        we should just reserve a larger address region since we have enough address space. Current Structure
+        size is 112 bytes, which is 3.5 atoms at 32 bytes / atom. Hence, this alignment costs us 16 bytes per
+        Structure.
+
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+        * heap/Heap.cpp:
+        * heap/StructureAlignedMemoryAllocator.cpp:
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::emitNonNullDecodeStructureID):
+        * llint/LLIntOfflineAsmConfig.h:
+        * llint/LowLevelInterpreter64.asm:
+        * runtime/JSCConfig.h:
+        * runtime/JSCell.h:
+        (JSC::JSCell::atomSize):
+        * runtime/Structure.h:
+        (JSC::Structure::atomSize):
+        * runtime/StructureID.h:
+        (JSC::StructureID::decode const):
+        (JSC::StructureID::tryDecode const):
+        (JSC::StructureID::encode):
+        * tools/IntegrityInlines.h:
+        (JSC::Integrity::auditStructureID):
+
+2022-05-01  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Revive JSC's guard against speculation collection
+        https://bugs.webkit.org/show_bug.cgi?id=239939
+
+        Reviewed by Mark Lam.
+
+        r288815 dropped JSC's guard against structures in speculation collection, but this is wrong.
+        This patch reverts it back.
+
+        * bytecode/SpeculatedType.cpp:
+        (JSC::speculationFromCell):
+        * heap/StructureAlignedMemoryAllocator.cpp:
+        (JSC::StructureMemoryManager::StructureMemoryManager):
+        (JSC::StructureMemoryManager::tryMallocStructureBlock):
+        (JSC::StructureMemoryManager::freeStructureBlock):
+        (JSC::StructureAlignedMemoryAllocator::initializeStructureAddressSpace):
+        * runtime/JSCConfig.h:
+        * runtime/StructureID.h:
+        (JSC::StructureID::tryDecode const):
+
+2022-05-01  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Implement MacroAssembler::probe(), ctiMasmProbeTrampoline
+        https://bugs.webkit.org/show_bug.cgi?id=239938
+
+        Reviewed by Yusuke Suzuki.
+
+        Implement MacroAssembler::probe() for RISCV64, along with the
+        ctiMasmProbeTrampoline operation. The implementation follows the process
+        of implementations for other platforms, with incoming, outgoing and
+        return-address-restoration records used to store register values during
+        setup and breakdown of the probe.
+
+        Going into the probe and back out of it, the general-purpose and
+        floating-point registers are stored, with the exception of global and
+        thread registers (x3 and x4). After the probe, if the probe state on the
+        stack is broken, the complete state is re-established before the
+        registers are reloaded, with the stack pointer and return address
+        registers set up last.
+
+        Covered by probing-related unit tests in testmasm.
+
+        * assembler/MacroAssemblerRISCV64.cpp:
+        (JSC::MacroAssembler::probe):
+
+2022-05-01  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Enable testmasm execution
+        https://bugs.webkit.org/show_bug.cgi?id=239937
+
+        Reviewed by Yusuke Suzuki.
+
+        In testmasm, enable some additional sets of tests for RISCV64 that cover
+        already-functioning behavior. In isSpecialGPR(), the function returns
+        true under CPU(RISCV64) for the appropriate registers.
+
+        In invoke(), when targeting RISCV64 and invoking JIT-produced code whose
+        return type is a 32-bit integer, the resulting value is manually
+        sign-extended to paper over the mismatch between zero-extended 32-bit
+        values that are used and produced in JSC JIT and the sign-extended
+        32-bit values that are expected in the RV64 calling convention.
+
+        * assembler/testmasm.cpp:
+        (JSC::isSpecialGPR):
+        (JSC::invoke):
+        (JSC::testProbePreservesGPRS):
+        (JSC::testLoadBaseIndex):
+        (JSC::testStoreBaseIndex):
+
+2022-04-29  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, reverting r293621.
+
+        Reverting patch while we fix internal EWS issues, will reland
+        after.
+
+        Reverted changeset:
+
+        https://commits.webkit.org/r293621
+
+2022-04-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Use FixedVector in JumpReplacements and VariableEventStream
+        https://bugs.webkit.org/show_bug.cgi?id=239892
+
+        Reviewed by Mark Lam.
+
+        1. Introduce DFG::VariableEventStreamBuilder. And construct DFG::VariableEventStream from that
+           builder when finailizing code generation. We also make it FixedVector.
+        2. Use FixedVector for JumpReplacements.
+
+        * dfg/DFGCommonData.cpp:
+        (JSC::DFG::CommonData::shrinkToFit):
+        * dfg/DFGCommonData.h:
+        * dfg/DFGGenerationInfo.h:
+        (JSC::DFG::GenerationInfo::noticeOSRBirth):
+        (JSC::DFG::GenerationInfo::use):
+        (JSC::DFG::GenerationInfo::spill):
+        (JSC::DFG::GenerationInfo::setSpilled):
+        (JSC::DFG::GenerationInfo::fillGPR):
+        (JSC::DFG::GenerationInfo::fillJSValue):
+        (JSC::DFG::GenerationInfo::fillCell):
+        (JSC::DFG::GenerationInfo::fillInt32):
+        (JSC::DFG::GenerationInfo::fillInt52):
+        (JSC::DFG::GenerationInfo::fillStrictInt52):
+        (JSC::DFG::GenerationInfo::fillBoolean):
+        (JSC::DFG::GenerationInfo::fillDouble):
+        (JSC::DFG::GenerationInfo::fillStorage):
+        (JSC::DFG::GenerationInfo::appendBirth):
+        (JSC::DFG::GenerationInfo::appendFill):
+        (JSC::DFG::GenerationInfo::appendSpill):
+        * dfg/DFGJITCode.cpp:
+        (JSC::DFG::JITCode::shrinkToFit):
+        (JSC::DFG::JITCode::reconstruct):
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::link):
+        (JSC::DFG::JITCompiler::compile):
+        (JSC::DFG::JITCompiler::compileFunction):
+        (JSC::DFG::JITCompiler::exceptionCheck):
+        * dfg/DFGSlowPathGenerator.h:
+        (JSC::DFG::SlowPathGenerator::SlowPathGenerator):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::SpeculativeJIT):
+        (JSC::DFG::SpeculativeJIT::speculationCheck):
+        (JSC::DFG::SpeculativeJIT::emitInvalidationPoint):
+        (JSC::DFG::SpeculativeJIT::addSlowPathGeneratorLambda):
+        (JSC::DFG::SpeculativeJIT::fillStorage):
+        (JSC::DFG::SpeculativeJIT::compileDeleteById):
+        (JSC::DFG::SpeculativeJIT::compileDeleteByVal):
+        (JSC::DFG::SpeculativeJIT::compileInById):
+        (JSC::DFG::SpeculativeJIT::compileInByVal):
+        (JSC::DFG::SpeculativeJIT::compileHasPrivate):
+        (JSC::DFG::SpeculativeJIT::noticeOSRBirth):
+        (JSC::DFG::SpeculativeJIT::compileMovHint):
+        (JSC::DFG::SpeculativeJIT::compileCurrentBlock):
+        (JSC::DFG::SpeculativeJIT::compilePutByVal):
+        * dfg/DFGSpeculativeJIT.h:
+        (JSC::DFG::SpeculativeJIT::finalizeEventStream):
+        (JSC::DFG::SpeculativeJIT::use):
+        (JSC::DFG::SpeculativeJIT::spill):
+        (JSC::DFG::SpeculativeJIT::recordSetLocal):
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::fillJSValue):
+        (JSC::DFG::SpeculativeJIT::cachedGetById):
+        (JSC::DFG::SpeculativeJIT::cachedGetByIdWithThis):
+        (JSC::DFG::SpeculativeJIT::emitCall):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateInt32Internal):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateDouble):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateCell):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateBoolean):
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::fillJSValue):
+        (JSC::DFG::SpeculativeJIT::cachedGetById):
+        (JSC::DFG::SpeculativeJIT::cachedGetByIdWithThis):
+        (JSC::DFG::SpeculativeJIT::emitCall):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateInt32Internal):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateInt52):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateDouble):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateCell):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateBoolean):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateBigInt32):
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGVariableEventStream.cpp:
+        (JSC::DFG::VariableEventStreamBuilder::logEvent):
+        (JSC::DFG::VariableEventStream::reconstruct const):
+        (JSC::DFG::VariableEventStream::logEvent): Deleted.
+        * dfg/DFGVariableEventStream.h:
+        (JSC::DFG::VariableEventStream::VariableEventStream):
+        (JSC::DFG::VariableEventStreamBuilder::appendAndLog):
+        (JSC::DFG::VariableEventStreamBuilder::size const):
+        (JSC::DFG::VariableEventStreamBuilder::finalize):
+        (JSC::DFG::VariableEventStream::appendAndLog): Deleted.
+        * ftl/FTLLink.cpp:
+        (JSC::FTL::link):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+        * ftl/FTLState.h:
+
+2022-04-29  Yury Semikhatsky  <yurys@chromium.org>
+
+        Format time zone name using ICU instead of platform calls
+        https://bugs.webkit.org/show_bug.cgi?id=239865
+
+        Reviewed by Yusuke Suzuki.
+
+        formatDateTime now uses cached display name of the timezone.
+
+        * runtime/DateConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/DateConversion.cpp:
+        (JSC::formatDateTime):
+        * runtime/DateConversion.h:
+        * runtime/DatePrototype.cpp:
+        (JSC::formateDateInstance):
+        * runtime/JSDateMath.cpp:
+        (JSC::toICUTimeZone): Encapsulate bitwise_cast into typesafe functions.
+        (JSC::toOpaqueICUTimeZone):
+        (JSC::OpaqueICUTimeZoneDeleter::operator()):
+        (JSC::DateCache::calculateLocalTimeOffset):
+        (JSC::DateCache::defaultTimeZone):
+        (JSC::DateCache::timeZoneDisplayName): Both standard and daylight names are computed
+        once on the first access as ICU methods internally acquire locks.
+        (JSC::DateCache::timeZoneCacheSlow):
+        (JSC::DateCache::resetIfNecessary):
+        * runtime/JSDateMath.h:
+
+2022-04-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, remove unused variable
+        https://bugs.webkit.org/show_bug.cgi?id=239828
+
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::methodOfGettingAValueProfileFor):
+
+2022-04-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Make DFG::OSRExit data unlinked
+        https://bugs.webkit.org/show_bug.cgi?id=239828
+
+        Reviewed by Saam Barati.
+
+        This patch makes DFG::OSRExit unlinked. While generated OSR exit code is linked version,
+        we no longer put linked data to DFG::OSRExit so that unlinked DFG can use DFG::OSRExit.
+        Key changes are two things.
+
+        1. Now, we always store compiled MacroAssemblerCodeRef in DFG::JITData regardless of whether
+           we have linked / unlinked DFG. While linked DFG uses repatching to jump to this code,
+           unlinked DFG looks into this vector in JITData and jump to that.
+        2. MethodOfGettingAValueProfile was including CodeBlock*, ValueProfile* in CodeBlock* etc.,
+           so it was linked data structure which unlinked DFG cannot use. Instead, we encode how to
+           retrieve these pointers when generating OSR exit code actually, and just storing CodeOrigin,
+           type, and Operand to make MethodOfGettingAValueProfile unlinked data structure. While
+           CodeOrigin can include InlineCallFrame, but our first version of unlinked DFG will not perform
+           inlining thus we will not include it. It also makes sizeof(MethodOfGettingAValueProfile) smaller
+           from 32 bytes to 16 bytes (50% reduction).
+
+        * assembler/MacroAssemblerCodeRef.h:
+        (JSC::MacroAssemblerCodeRef::offsetOfCodePtr):
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::updateOSRExitCounterAndCheckIfNeedToReoptimize): Deleted.
+        * bytecode/CodeBlock.h:
+        * bytecode/MethodOfGettingAValueProfile.cpp:
+        (JSC::MethodOfGettingAValueProfile::emitReportValue const):
+        (JSC::MethodOfGettingAValueProfile::fromLazyOperand): Deleted.
+        (JSC::MethodOfGettingAValueProfile::reportValue): Deleted.
+        * bytecode/MethodOfGettingAValueProfile.h:
+        (JSC::MethodOfGettingAValueProfile::unaryArithProfile):
+        (JSC::MethodOfGettingAValueProfile::binaryArithProfile):
+        (JSC::MethodOfGettingAValueProfile::argumentValueProfile):
+        (JSC::MethodOfGettingAValueProfile::bytecodeValueProfile):
+        (JSC::MethodOfGettingAValueProfile::lazyOperandValueProfile):
+        (JSC::MethodOfGettingAValueProfile::operator bool const):
+        (JSC::MethodOfGettingAValueProfile::MethodOfGettingAValueProfile): Deleted.
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::methodOfGettingAValueProfileFor):
+        * dfg/DFGJITCode.cpp:
+        (JSC::DFG::JITCode::JITCode):
+        (JSC::DFG::JITCode::findPC):
+        * dfg/DFGJITCode.h:
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::JITCompiler):
+        (JSC::DFG::JITCompiler::linkOSRExits):
+        (JSC::DFG::JITCompiler::link):
+        * dfg/DFGJITFinalizer.cpp:
+        (JSC::DFG::JITFinalizer::finalize):
+        * dfg/DFGOSRExit.cpp:
+        (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+        (JSC::DFG::OSRExit::compileExit):
+        (JSC::DFG::OSRExit::codeLocationForRepatch const): Deleted.
+        * dfg/DFGOSRExit.h:
+        (JSC::DFG::OSRExit::codeLocationForRepatch const):
+        (JSC::DFG::OSRExitState::OSRExitState): Deleted.
+        * dfg/DFGPlan.cpp:
+        (JSC::DFG::Plan::finalizeJITData):
+        * dfg/DFGPlan.h:
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::lower):
+        * ftl/FTLOSRExitCompiler.cpp:
+        (JSC::FTL::compileStub):
+
+2022-04-28  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Support C files in Unified Builds
+        https://bugs.webkit.org/show_bug.cgi?id=239873
+
+        Reviewed by Mark Lam.
+
+        This patch adds support for C (not CPP) files in Unified Builds
+        so that we do not need to build Zydis in non-unified way.
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Scripts/generate-unified-sources.sh:
+        * Sources.txt:
+        * UnifiedSources-output.xcfilelist:
+
+2022-04-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Implement MacroAssemblerRISCV64 branchAtomicWeakCAS{8,16,32,64} methods
+        https://bugs.webkit.org/show_bug.cgi?id=239806
+
+        Reviewed by Yusuke Suzuki.
+
+        Provide MacroAssemblerRISCV64 method implementations for the different
+        branchAtomicWeakCAS variants. The 32-bit and 64-bit versions are
+        straightforward, leveraging the load-reserved and store-conditional
+        instructions of the corresponding sizes. For 8-bit and 16-bit versions,
+        a method template is provided, loading and storing 32-bit words and
+        performing additional operations to validate and change the desired
+        value.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::branchAtomicWeakCASImpl):
+        (JSC::MacroAssemblerRISCV64::branchAtomicWeakCAS8):
+        (JSC::MacroAssemblerRISCV64::branchAtomicWeakCAS16):
+        (JSC::MacroAssemblerRISCV64::branchAtomicWeakCAS32):
+        (JSC::MacroAssemblerRISCV64::branchAtomicWeakCAS64):
+
+2022-04-27  Dmitry Bezhetskov  <dbezhetskov@igalia.com>
+
+        [WASM-GC] Introduce rtt types
+        https://bugs.webkit.org/show_bug.cgi?id=239493
+
+        Reviewed by Keith Miller.
+        
+        Add a basic support through runtime call for rtt.canon and rtt types.
+        It is a prototype implementation of rtt types needed to move forward
+        with wasm gc proposal (https://github.com/WebAssembly/gc/blob/main/proposals/gc/MVP.md).
+        For example, we don't need to use rtt values for struct.new,
+        but we do need them for the future js api.
+        So, rtt.canon returns jsNull for now, but we can replace it with
+        properly defined values when the spec will be ready.
+
+        * bytecode/BytecodeList.rb:
+        * llint/WebAssembly.asm:
+        * wasm/WasmAirIRGenerator.cpp:
+        (JSC::Wasm::AirIRGenerator::tmpForType):
+        (JSC::Wasm::AirIRGenerator::AirIRGenerator):
+        (JSC::Wasm::AirIRGenerator::addRttCanon):
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::B3IRGenerator::addRttCanon):
+        * wasm/WasmCallingConvention.h:
+        (JSC::Wasm::WasmCallingConvention::marshallLocation const):
+        * wasm/WasmFormat.h:
+        (JSC::Wasm::isValueType):
+        (JSC::Wasm::isValidHeapTypeKind):
+        * wasm/WasmFunctionParser.h:
+        (JSC::Wasm::FunctionParser<Context>::parseExpression):
+        (JSC::Wasm::FunctionParser<Context>::parseUnreachableExpression):
+        * wasm/WasmLLIntGenerator.cpp:
+        (JSC::Wasm::LLIntGenerator::callInformationForCaller):
+        (JSC::Wasm::LLIntGenerator::callInformationForCallee):
+        (JSC::Wasm::LLIntGenerator::addArguments):
+        (JSC::Wasm::LLIntGenerator::addRttCanon):
+        * wasm/WasmOperations.cpp:
+        (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+        * wasm/WasmOperations.h:
+        * wasm/WasmParser.h:
+        (JSC::Wasm::Parser<SuccessType>::parseValueType):
+        * wasm/WasmSlowPaths.cpp:
+        (JSC::LLInt::WASM_SLOW_PATH_DECL):
+        * wasm/WasmSlowPaths.h:
+        * wasm/generateWasmOpsHeader.py:
+        * wasm/js/WasmToJS.cpp:
+        (JSC::Wasm::wasmToJS):
+        * wasm/wasm.json:
+
+2022-04-26  Dmitry Bezhetskov  <dbezhetskov@igalia.com>
+
+        [WASM] Fix warning: cast from ‘char*’ to ‘JSC::Wasm::Type*’ increases required alignment of target type [-Wcast-align]
+        https://bugs.webkit.org/show_bug.cgi?id=239698
+
+        Reviewed by Darin Adler.
+        
+        There is a warning inside TypeDefinition on some platforms so this
+        patch fixes it.
+
+        * wasm/WasmTypeDefinition.h:
+        (JSC::Wasm::FunctionSignature::FunctionSignature):
+        (JSC::Wasm::FunctionSignature::storage):
+        (JSC::Wasm::FunctionSignature::storage const):
+        (JSC::Wasm::StructType::StructType):
+        (JSC::Wasm::StructType::storage):
+        (JSC::Wasm::StructType::storage const):
+        (JSC::Wasm::TypeDefinition::payload):
+
+2022-04-26  Elliott Williams  <emw@apple.com>
+
+        Unreviewed, reverting "[Xcode] Compute PGO profdata paths instead of searching for them at build time"
+        https://bugs.webkit.org/show_bug.cgi?id=239681
+
+        This reverts commit 433f73bc052d7c978c619e28b2574df8faf6cb72.
+
+        * Configurations/JavaScriptCore.xcconfig:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2022-04-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add forceUnlinkedDFG option
+        https://bugs.webkit.org/show_bug.cgi?id=239751
+
+        Reviewed by Saam Barati.
+
+        This patch adds forceUnlinkedDFG option to start running tests with unlinked DFG (while it is not truly unlinked yet).
+
+        * jit/JITOperations.cpp:
+        (JSC::JSC_DEFINE_JIT_OPERATION):
+        * runtime/Options.cpp:
+        (JSC::Options::recomputeDependentOptions):
+        * runtime/OptionsList.h:
+
+2022-04-26  Elliott Williams  <emw@apple.com>
+
+        Fix build error: "cp: JavaScriptCore.profdata is not a directory"
+        https://bugs.webkit.org/show_bug.cgi?id=239681
+
+        Unreviewed build fix.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2022-04-22  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Compute PGO profdata paths instead of searching for them at build time
+        https://bugs.webkit.org/show_bug.cgi?id=239681
+
+        Reviewed by Alexey Proskuryakov.
+
+        Production builds should always use profdata from the SDK, internal
+        release builds should use profdata from the local WebKitAdditions, and
+        everyone else should use the stub profdata. Add a PROFILE_DATA_PATH
+        build setting which implements these rules and replace the script
+        phases that checked those paths dynamically.
+
+        This fixes XCBuild validation issues in the open-source build, and
+        should prevent production builders from using stale profdata in
+        BUILT_PRODUCTS_DIR. Additionally, engineers can now build with custom
+        profile data by overriding PROFILE_DATA_PATH.
+
+        If PROFILE_DATA_PATH does not appear to be raw LLVM profiling data, it
+        is decoded using compression_tool(1).
+
+        * Configurations/JavaScriptCore.xcconfig:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2022-04-25  Keith Miller  <keith_miller@apple.com>
+
+        structureIDToStructureWithScratch should only do things if ADDRESS64
+        https://bugs.webkit.org/show_bug.cgi?id=239749
+
+        Reviewed by Saam Barati.
+
+        * llint/LowLevelInterpreter64.asm:
+
 2022-04-22  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Enable change-array-by-copy

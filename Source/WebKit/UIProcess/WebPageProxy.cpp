@@ -1190,10 +1190,6 @@ void WebPageProxy::close()
     m_activeContextMenu = nullptr;
 #endif
 
-#if ENABLE(CONTEXT_MENUS) && ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    m_croppedImageForContextMenu = nullptr;
-#endif
-
     m_provisionalPage = nullptr;
 
     m_inspector->invalidate();
@@ -2888,9 +2884,9 @@ void WebPageProxy::processNextQueuedMouseEvent()
 #if PLATFORM(MAC)
     bool eventMayStartDrag = !m_currentDragOperation && eventType == WebEvent::MouseMove && event.button() != WebMouseEvent::Button::NoButton;
     if (eventMayStartDrag)
-        sandboxExtensions = SandboxExtension::createHandlesForMachLookup({ "com.apple.iconservices"_s, "com.apple.iconservices.store"_s }, std::nullopt);
+        sandboxExtensions = SandboxExtension::createHandlesForMachLookup({ "com.apple.iconservices"_s, "com.apple.iconservices.store"_s }, process().auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
 #endif
-    
+
     LOG(MouseHandling, "UIProcess: sent mouse event %s (queue size %zu)", webMouseEventTypeString(eventType), m_mouseEventQueue.size());
     send(Messages::WebPage::MouseEvent(event, sandboxExtensions));
 }
@@ -6900,14 +6896,14 @@ void WebPageProxy::didCountStringMatches(const String& string, uint32_t matchCou
     m_findClient->didCountStringMatches(this, string, matchCount);
 }
 
-void WebPageProxy::didGetImageForFindMatch(const ShareableBitmap::Handle& contentImageHandle, uint32_t matchIndex)
+void WebPageProxy::didGetImageForFindMatch(const ImageBufferBackend::Parameters& parameters, ShareableBitmap::Handle contentImageHandle, uint32_t matchIndex)
 {
-    auto bitmap = ShareableBitmap::create(contentImageHandle);
-    if (!bitmap) {
+    auto image = WebImage::create(parameters, WTFMove(contentImageHandle));
+    if (!image) {
         ASSERT_NOT_REACHED();
         return;
     }
-    m_findMatchesClient->didGetImageForMatchResult(this, WebImage::create(bitmap.releaseNonNull()).ptr(), matchIndex);
+    m_findMatchesClient->didGetImageForMatchResult(this, image.get(), matchIndex);
 }
 
 void WebPageProxy::setTextIndicator(const TextIndicatorData& indicatorData, uint64_t lifetime)
@@ -7087,10 +7083,6 @@ void WebPageProxy::showContextMenu(ContextMenuContextData&& contextMenuContextDa
     // MouseDown event that triggered this ShowContextMenu message. This can happen if we take too long to enter the nested runloop.
     discardQueuedMouseEvents();
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    m_croppedImageForContextMenu = nullptr;
-#endif
-
     m_activeContextMenuContextData = contextMenuContextData;
 
     m_activeContextMenu = pageClient().createContextMenuProxy(*this, WTFMove(contextMenuContextData), userData);
@@ -7261,11 +7253,12 @@ void WebPageProxy::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vect
 #endif
 
     SandboxExtension::Handle frontboardServicesSandboxExtension, iconServicesSandboxExtension;
+    auto auditToken = m_process->auditToken();
 #if HAVE(FRONTBOARD_SYSTEM_APP_SERVICES)
-    if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.frontboard.systemappservices"_s, std::nullopt))
+    if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.frontboard.systemappservices"_s, auditToken, SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
         frontboardServicesSandboxExtension = WTFMove(*handle);
 #endif
-    if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.iconservices"_s, std::nullopt))
+    if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.iconservices"_s, auditToken, SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
         iconServicesSandboxExtension = WTFMove(*handle);
 
     send(Messages::WebPage::DidChooseFilesForOpenPanelWithDisplayStringAndIcon(fileURLs, displayString, iconData ? iconData->dataReference() : IPC::DataReference(), frontboardServicesSandboxExtension, iconServicesSandboxExtension));
@@ -8394,7 +8387,7 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
 #endif
 #if HAVE(STATIC_FONT_REGISTRY)
     if (preferences().shouldAllowUserInstalledFonts())
-        parameters.fontMachExtensionHandle = fontdMachExtensionHandle();
+        parameters.fontMachExtensionHandle = fontdMachExtensionHandle(SandboxExtension::MachBootstrapOptions::DoNotEnableMachBootstrap);
 #endif
 #if HAVE(APP_ACCENT_COLORS)
     parameters.accentColor = pageClient().accentColor();
@@ -11120,74 +11113,88 @@ void WebPageProxy::setIndexOfGetDisplayMediaDeviceSelectedForTesting(std::option
 #if ENABLE(ARKIT_INLINE_PREVIEW)
 void WebPageProxy::modelElementGetCamera(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<WebCore::HTMLModelElementCamera, ResourceError>)>&& completionHandler)
 {
-    modelElementController()->getCameraForModelElement(modelIdentifier, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->getCameraForModelElement(modelIdentifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementSetCamera(ModelIdentifier modelIdentifier, WebCore::HTMLModelElementCamera camera, CompletionHandler<void(bool)>&& completionHandler)
 {
-    modelElementController()->setCameraForModelElement(modelIdentifier, camera, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->setCameraForModelElement(modelIdentifier, camera, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementIsPlayingAnimation(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
 {
-    modelElementController()->isPlayingAnimationForModelElement(modelIdentifier, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->isPlayingAnimationForModelElement(modelIdentifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementSetAnimationIsPlaying(ModelIdentifier modelIdentifier, bool isPlaying, CompletionHandler<void(bool)>&& completionHandler)
 {
-    modelElementController()->setAnimationIsPlayingForModelElement(modelIdentifier, isPlaying, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->setAnimationIsPlayingForModelElement(modelIdentifier, isPlaying, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementIsLoopingAnimation(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
 {
-    modelElementController()->isLoopingAnimationForModelElement(modelIdentifier, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->isLoopingAnimationForModelElement(modelIdentifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementSetIsLoopingAnimation(ModelIdentifier modelIdentifier, bool isLooping, CompletionHandler<void(bool)>&& completionHandler)
 {
-    modelElementController()->setIsLoopingAnimationForModelElement(modelIdentifier, isLooping, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->setIsLoopingAnimationForModelElement(modelIdentifier, isLooping, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementAnimationDuration(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&& completionHandler)
 {
-    modelElementController()->animationDurationForModelElement(modelIdentifier, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->animationDurationForModelElement(modelIdentifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementAnimationCurrentTime(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&& completionHandler)
 {
-    modelElementController()->animationCurrentTimeForModelElement(modelIdentifier, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->animationCurrentTimeForModelElement(modelIdentifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementSetAnimationCurrentTime(ModelIdentifier modelIdentifier, Seconds currentTime, CompletionHandler<void(bool)>&& completionHandler)
 {
-    modelElementController()->setAnimationCurrentTimeForModelElement(modelIdentifier, currentTime, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->setAnimationCurrentTimeForModelElement(modelIdentifier, currentTime, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementHasAudio(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
 {
-    modelElementController()->hasAudioForModelElement(modelIdentifier, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->hasAudioForModelElement(modelIdentifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementIsMuted(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
 {
-    modelElementController()->isMutedForModelElement(modelIdentifier, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->isMutedForModelElement(modelIdentifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementSetIsMuted(ModelIdentifier modelIdentifier, bool isMuted, CompletionHandler<void(bool)>&& completionHandler)
 {
-    modelElementController()->setIsMutedForModelElement(modelIdentifier, isMuted, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->setIsMutedForModelElement(modelIdentifier, isMuted, WTFMove(completionHandler));
 }
 #endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 void WebPageProxy::takeModelElementFullscreen(ModelIdentifier modelIdentifier)
 {
-    modelElementController()->takeModelElementFullscreen(modelIdentifier, URL { currentURL() });
+    if (m_modelElementController)
+        m_modelElementController->takeModelElementFullscreen(modelIdentifier, URL { currentURL() });
 }
 
 void WebPageProxy::modelElementSetInteractionEnabled(ModelIdentifier modelIdentifier, bool isInteractionEnabled)
 {
-    modelElementController()->setInteractionEnabledForModelElement(modelIdentifier, isInteractionEnabled);
+    if (m_modelElementController)
+        m_modelElementController->setInteractionEnabledForModelElement(modelIdentifier, isInteractionEnabled);
 }
 
 void WebPageProxy::modelInlinePreviewDidLoad(WebCore::GraphicsLayer::PlatformLayerID layerID)
@@ -11205,42 +11212,50 @@ void WebPageProxy::modelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::Platf
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 void WebPageProxy::modelElementCreateRemotePreview(const String& uuid, const FloatSize& size, CompletionHandler<void(Expected<std::pair<String, uint32_t>, ResourceError>)>&& completionHandler)
 {
-    modelElementController()->modelElementCreateRemotePreview(uuid, size, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->modelElementCreateRemotePreview(uuid, size, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementLoadRemotePreview(const String& uuid, const URL& url, CompletionHandler<void(std::optional<WebCore::ResourceError>&&)>&& completionHandler)
 {
-    modelElementController()->modelElementLoadRemotePreview(uuid, url, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->modelElementLoadRemotePreview(uuid, url, WTFMove(completionHandler));
 }
 
 void WebPageProxy::modelElementDestroyRemotePreview(const String& uuid)
 {
-    modelElementController()->modelElementDestroyRemotePreview(uuid);
+    if (m_modelElementController)
+        m_modelElementController->modelElementDestroyRemotePreview(uuid);
 }
 
 void WebPageProxy::modelElementSizeDidChange(const String& uuid, WebCore::FloatSize size, CompletionHandler<void(Expected<MachSendRight, WebCore::ResourceError>)>&& completionHandler)
 {
-    modelElementController()->modelElementSizeDidChange(uuid, size, WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->modelElementSizeDidChange(uuid, size, WTFMove(completionHandler));
 }
 
 void WebPageProxy::handleMouseDownForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
-    modelElementController()->handleMouseDownForModelElement(uuid, flippedLocationInElement, timestamp);
+    if (m_modelElementController)
+        m_modelElementController->handleMouseDownForModelElement(uuid, flippedLocationInElement, timestamp);
 }
 
 void WebPageProxy::handleMouseMoveForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
-    modelElementController()->handleMouseMoveForModelElement(uuid, flippedLocationInElement, timestamp);
+    if (m_modelElementController)
+        m_modelElementController->handleMouseMoveForModelElement(uuid, flippedLocationInElement, timestamp);
 }
 
 void WebPageProxy::handleMouseUpForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
-    modelElementController()->handleMouseUpForModelElement(uuid, flippedLocationInElement, timestamp);
+    if (m_modelElementController)
+        m_modelElementController->handleMouseUpForModelElement(uuid, flippedLocationInElement, timestamp);
 }
 
 void WebPageProxy::modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>&&)>&& completionHandler)
 {
-    modelElementController()->inlinePreviewUUIDs(WTFMove(completionHandler));
+    if (m_modelElementController)
+        m_modelElementController->inlinePreviewUUIDs(WTFMove(completionHandler));
 }
 #endif
 

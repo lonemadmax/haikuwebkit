@@ -27,6 +27,7 @@
 #include "config.h"
 #include "HTMLTreeBuilder.h"
 
+#include "CommonAtomStrings.h"
 #include "DocumentFragment.h"
 #include "HTMLDocument.h"
 #include "HTMLDocumentParser.h"
@@ -533,13 +534,13 @@ static MemoryCompactLookupOnlyRobinHoodHashMap<AtomString, QualifiedName> create
         for (unsigned i = 0; i < length; ++i) {
             const QualifiedName& name = *names[i];
             const AtomString& localName = name.localName();
-            map.add(prefix + ':' + localName, QualifiedName(prefix, localName, name.namespaceURI()));
+            map.add(makeAtomString(prefix, ':', localName), QualifiedName(prefix, localName, name.namespaceURI()));
         }
     };
 
     MemoryCompactLookupOnlyRobinHoodHashMap<AtomString, QualifiedName> map;
 
-    AtomString xlinkName("xlink", AtomString::ConstructFromLiteral);
+    AtomString xlinkName("xlink"_s);
     addNamesWithPrefix(map, xlinkName, XLinkNames::getXLinkAttrs(), XLinkNames::XLinkAttrsCount);
     addNamesWithPrefix(map, xmlAtom(), XMLNames::getXMLAttrs(), XMLNames::XMLAttrsCount);
 
@@ -752,7 +753,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomHTMLToken&& token)
     if (token.name() == inputTag) {
         m_tree.reconstructTheActiveFormattingElements();
         auto* typeAttribute = findAttribute(token.attributes(), typeAttr);
-        bool shouldClearFramesetOK = !typeAttribute || !equalLettersIgnoringASCIICase(typeAttribute->value(), "hidden");
+        bool shouldClearFramesetOK = !typeAttribute || !equalLettersIgnoringASCIICase(typeAttribute->value(), "hidden"_s);
         m_tree.insertSelfClosingHTMLElement(WTFMove(token));
         if (shouldClearFramesetOK)
             m_framesetOk = false;
@@ -994,7 +995,7 @@ void HTMLTreeBuilder::processStartTagForInTable(AtomHTMLToken&& token)
     }
     if (token.name() == inputTag) {
         auto* typeAttribute = findAttribute(token.attributes(), typeAttr);
-        if (typeAttribute && equalLettersIgnoringASCIICase(typeAttribute->value(), "hidden")) {
+        if (typeAttribute && equalLettersIgnoringASCIICase(typeAttribute->value(), "hidden"_s)) {
             parseError(token);
             m_tree.insertSelfClosingHTMLElement(WTFMove(token));
             return;

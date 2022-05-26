@@ -40,12 +40,7 @@ class PropertyCascade {
 public:
     enum IncludedProperties { All, InheritedOnly };
 
-    struct Direction {
-        TextDirection textDirection;
-        WritingMode writingMode;
-    };
-
-    PropertyCascade(const MatchResult&, CascadeLevel, IncludedProperties, Direction);
+    PropertyCascade(const MatchResult&, CascadeLevel, IncludedProperties);
     PropertyCascade(const PropertyCascade&, CascadeLevel, std::optional<CascadeLayerPriority> maximumCascadeLayerPriorityForRollback = { });
 
     ~PropertyCascade();
@@ -64,14 +59,13 @@ public:
 
     bool hasDeferredProperty(CSSPropertyID) const;
     const Property& deferredProperty(CSSPropertyID) const;
+    const Property* lastDeferredPropertyResolvingRelated(CSSPropertyID, TextDirection, WritingMode) const;
 
     bool hasCustomProperty(const AtomString&) const;
     Property customProperty(const AtomString&) const;
 
     Span<const CSSPropertyID> deferredPropertyIDs() const;
     const HashMap<AtomString, Property>& customProperties() const { return m_customProperties; }
-
-    Direction direction() const;
 
 private:
     void buildCascade();
@@ -83,7 +77,6 @@ private:
     void setDeferred(CSSPropertyID, CSSValue&, const MatchedProperties&, CascadeLevel);
     static void setPropertyInternal(Property&, CSSPropertyID, CSSValue&, const MatchedProperties&, CascadeLevel);
 
-    Direction resolveDirectionAndWritingMode(Direction inheritedDirection) const;
 
     unsigned deferredPropertyIndex(CSSPropertyID) const;
     void setDeferredPropertyIndex(CSSPropertyID, unsigned);
@@ -93,16 +86,15 @@ private:
     const IncludedProperties m_includedProperties;
     const CascadeLevel m_maximumCascadeLevel;
     const std::optional<CascadeLayerPriority> m_maximumCascadeLayerPriorityForRollback;
-    mutable Direction m_direction;
-    mutable bool m_directionIsUnresolved { true };
 
     // The CSSPropertyID enum is sorted like this:
     // 1. CSSPropertyInvalid and CSSPropertyCustom.
-    // 2. Normal properties (high priority ones followed by low priority ones).
-    // 3. Deferred properties.
+    // 2. Normal longhand properties (high priority ones followed by low priority ones).
+    // 3. Deferred longhand properties.
+    // 4. Shorthand properties.
     //
-    // 'm_properties' is used for both normal and deferred properties, so it has size 'lastDeferredProperty + 1'.
-    // It could actually use 'numCSSProperties', but then we would have to subtract 'firstCSSProperty', which may not be worth it.
+    // 'm_properties' is used for both normal and deferred longhands, so it has size 'lastDeferredProperty + 1'.
+    // It could actually be 2 units smaller, but then we would have to subtract 'firstCSSProperty', which may not be worth it.
     // 'm_propertyIsPresent' is not used for deferred properties, so we only need to cover up to the last low priority one.
     std::array<Property, lastDeferredProperty + 1> m_properties;
     std::bitset<lastLowPriorityProperty + 1> m_propertyIsPresent;

@@ -269,7 +269,7 @@ private:
     , name ISO_SUBSPACE_INIT(*this, heapCellType, type)
 
 #define INIT_SERVER_STRUCTURE_ISO_SUBSPACE(name, heapCellType, type) \
-    , name("Isolated" #name "Space", *this, heapCellType, sizeof(type), type::numberOfLowerTierCells, makeUnique<StructureAlignedMemoryAllocator>("Structure"))
+    , name("Isolated" #name "Space", *this, heapCellType, WTF::roundUpToMultipleOf<type::atomSize>(sizeof(type)), type::numberOfLowerTierCells, makeUnique<StructureAlignedMemoryAllocator>("Structure"))
 
 Heap::Heap(VM& vm, HeapType heapType)
     : m_heapType(heapType)
@@ -2845,9 +2845,9 @@ void Heap::addCoreConstraints()
                     visitor.appendUnbarriered(pair.key);
             }
             
-            if (m_markListSet && m_markListSet->size()) {
+            if (!m_markListSet.isEmpty()) {
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::ConservativeScan);
-                MarkedArgumentBufferBase::markLists(visitor, *m_markListSet);
+                MarkedArgumentBufferBase::markLists(visitor, m_markListSet);
             }
 
             {

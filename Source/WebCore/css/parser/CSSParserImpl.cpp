@@ -486,7 +486,7 @@ static AtomString consumeStringOrURI(CSSParserTokenRange& range)
     if (token.type() == StringToken || token.type() == UrlToken)
         return range.consumeIncludingWhitespace().value().toAtomString();
 
-    if (token.type() != FunctionToken || !equalLettersIgnoringASCIICase(token.value(), "url"))
+    if (token.type() != FunctionToken || !equalLettersIgnoringASCIICase(token.value(), "url"_s))
         return AtomString();
 
     CSSParserTokenRange contents = range.consumeBlock();
@@ -551,7 +551,7 @@ RefPtr<StyleRuleImport> CSSParserImpl::consumeImportRule(CSSParserTokenRange pre
             return { };
 
         auto& token = prelude.peek();
-        if (token.type() == FunctionToken && equalLettersIgnoringASCIICase(token.value(), "layer")) {
+        if (token.type() == FunctionToken && equalLettersIgnoringASCIICase(token.value(), "layer"_s)) {
             auto savedPreludeForFailure = prelude;
             auto contents = CSSPropertyParserHelpers::consumeFunction(prelude);
             auto layerName = consumeCascadeLayerName(contents, AllowAnonymous::No);
@@ -561,7 +561,7 @@ RefPtr<StyleRuleImport> CSSParserImpl::consumeImportRule(CSSParserTokenRange pre
             }
             return layerName;
         }
-        if (token.type() == IdentToken && equalLettersIgnoringASCIICase(token.value(), "layer")) {
+        if (token.type() == IdentToken && equalLettersIgnoringASCIICase(token.value(), "layer"_s)) {
             prelude.consumeIncludingWhitespace();
             return CascadeLayerName { };
         }
@@ -674,7 +674,7 @@ RefPtr<StyleRuleFontPaletteValues> CSSParserImpl::consumeFontPaletteValuesRule(C
 
     AtomString fontFamily;
     if (auto fontFamilyValue = properties->getPropertyCSSValue(CSSPropertyFontFamily))
-        fontFamily = downcast<CSSPrimitiveValue>(*fontFamilyValue).fontFamily().familyName;
+        fontFamily = AtomString { downcast<CSSPrimitiveValue>(*fontFamilyValue).fontFamily().familyName };
 
     std::optional<FontPaletteIndex> basePalette;
     if (auto basePaletteValue = properties->getPropertyCSSValue(CSSPropertyBasePalette)) {
@@ -700,7 +700,7 @@ RefPtr<StyleRuleFontPaletteValues> CSSParserImpl::consumeFontPaletteValuesRule(C
         }
     }
 
-    return StyleRuleFontPaletteValues::create(name->stringValue(), fontFamily, WTFMove(basePalette), WTFMove(overrideColors));
+    return StyleRuleFontPaletteValues::create(AtomString { name->stringValue() }, AtomString { fontFamily }, WTFMove(basePalette), WTFMove(overrideColors));
 }
 
 RefPtr<StyleRuleKeyframes> CSSParserImpl::consumeKeyframesRule(bool webkitPrefixed, CSSParserTokenRange prelude, CSSParserTokenRange block)
@@ -710,11 +710,11 @@ RefPtr<StyleRuleKeyframes> CSSParserImpl::consumeKeyframesRule(bool webkitPrefix
     if (!prelude.atEnd())
         return nullptr; // Parse error; expected single non-whitespace token in @keyframes header
 
-    String name;
+    AtomString name;
     if (nameToken.type() == IdentToken) {
-        name = nameToken.value().toString();
+        name = nameToken.value().toAtomString();
     } else if (nameToken.type() == StringToken && webkitPrefixed)
-        name = nameToken.value().toString();
+        name = nameToken.value().toAtomString();
     else
         return nullptr; // Parse error; expected ident token in @keyframes header
 
@@ -1014,7 +1014,7 @@ void CSSParserImpl::consumeDeclaration(CSSParserTokenRange range, StyleRuleType 
         auto end = range.end();
         removeTrailingWhitespace(range, end);
         declarationValueEnd = end;
-        if (end[-1].type() == IdentToken && equalLettersIgnoringASCIICase(end[-1].value(), "important")) {
+        if (end[-1].type() == IdentToken && equalLettersIgnoringASCIICase(end[-1].value(), "important"_s)) {
             --end;
             removeTrailingWhitespace(range, end);
             if (end[-1].type() == DelimiterToken && end[-1].delimiter() == '!') {
@@ -1070,9 +1070,9 @@ Vector<double> CSSParserImpl::consumeKeyframeKeyList(CSSParserTokenRange range)
         const CSSParserToken& token = range.consumeIncludingWhitespace();
         if (token.type() == PercentageToken && token.numericValue() >= 0 && token.numericValue() <= 100)
             result.append(token.numericValue() / 100);
-        else if (token.type() == IdentToken && equalLettersIgnoringASCIICase(token.value(), "from"))
+        else if (token.type() == IdentToken && equalLettersIgnoringASCIICase(token.value(), "from"_s))
             result.append(0);
-        else if (token.type() == IdentToken && equalLettersIgnoringASCIICase(token.value(), "to"))
+        else if (token.type() == IdentToken && equalLettersIgnoringASCIICase(token.value(), "to"_s))
             result.append(1);
         else
             return { }; // Parser error, invalid value in keyframe selector

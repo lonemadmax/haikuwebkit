@@ -3373,6 +3373,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         CSSPropertyWebkitMaskPosition,
         CSSPropertyMaskRepeat,
         CSSPropertyBorderTop, CSSPropertyBorderRight, CSSPropertyBorderBottom, CSSPropertyBorderLeft,
+        CSSPropertyBorderBlockStart, CSSPropertyBorderBlockEnd, CSSPropertyBorderInlineStart, CSSPropertyBorderInlineEnd,
         CSSPropertyBorderColor,
         CSSPropertyBorderRadius,
         CSSPropertyBorderWidth,
@@ -3586,7 +3587,6 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyUnicodeBidi:
         case CSSPropertyUnicodeRange:
         case CSSPropertyWillChange:
-        case CSSPropertyWordWrap:
 #if ENABLE(APPLE_PAY)
         case CSSPropertyApplePayButtonStyle:
         case CSSPropertyApplePayButtonType:
@@ -3652,7 +3652,6 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
 #if PLATFORM(IOS_FAMILY)
         case CSSPropertyWebkitTouchCallout:
 #endif
-        case CSSPropertyWebkitTransformStyle:
         case CSSPropertyWebkitUserDrag:
         case CSSPropertyWebkitUserModify:
         case CSSPropertyUserSelect:

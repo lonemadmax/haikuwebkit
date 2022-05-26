@@ -571,7 +571,7 @@ ScriptExecutionContextIdentifier DocumentLoader::resultingClientId() const
 
 void DocumentLoader::matchRegistration(const URL& url, SWClientConnection::RegistrationCallback&& callback)
 {
-    auto shouldTryLoadingThroughServiceWorker = !frameLoader()->isReloadingFromOrigin() && m_frame->page() && m_frame->settings().serviceWorkersEnabled() && url.protocolIsInHTTPFamily();
+    bool shouldTryLoadingThroughServiceWorker = m_canUseServiceWorkers && !frameLoader()->isReloadingFromOrigin() && m_frame->page() && url.protocolIsInHTTPFamily();
     if (!shouldTryLoadingThroughServiceWorker) {
         callback(std::nullopt);
         return;
@@ -891,7 +891,7 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    if (m_frame && m_frame->settings().serviceWorkersEnabled() && response.source() == ResourceResponse::Source::MemoryCache) {
+    if (m_canUseServiceWorkers && response.source() == ResourceResponse::Source::MemoryCache) {
         matchRegistration(response.url(), [this, protectedThis = Ref { *this }, response, completionHandler = WTFMove(completionHandler)](auto&& registrationData) mutable {
             if (!m_mainDocumentError.isNull() || !m_frame) {
                 completionHandler();
@@ -1215,9 +1215,14 @@ static inline bool shouldUseActiveServiceWorkerFromParent(const Document& docume
 
 void DocumentLoader::commitData(const SharedBuffer& data)
 {
+#if ENABLE(WEB_ARCHIVE)
+    URL documentOrEmptyURL = m_archive && !m_frame->settings().webArchiveTestingModeEnabled() ? URL() : documentURL();
+#else
+    URL documentOrEmptyURL = documentURL();
+#endif
     if (!m_gotFirstByte) {
         m_gotFirstByte = true;
-        bool hasBegun = m_writer.begin(documentURL(), false, nullptr, m_resultingClientId);
+        bool hasBegun = m_writer.begin(documentOrEmptyURL, false, nullptr, m_resultingClientId);
         if (!hasBegun)
             return;
 
@@ -1239,12 +1244,15 @@ void DocumentLoader::commitData(const SharedBuffer& data)
         if (frameLoader()->stateMachine().creatingInitialEmptyDocument())
             return;
 
-#if ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
-        if (m_archive && m_archive->shouldOverrideBaseURL())
+#if ENABLE(WEB_ARCHIVE)
+        if (m_archive && !m_frame->settings().webArchiveTestingModeEnabled()) {
             document.setBaseURLOverride(m_archive->mainResource()->url());
+            if (LegacySchemeRegistry::shouldTreatURLSchemeAsLocal(documentURL().protocol().toStringWithoutCopying()))
+                document.securityOrigin().grantLoadLocalResources();
+        }
 #endif
 #if ENABLE(SERVICE_WORKER)
-        if (m_frame && m_frame->settings().serviceWorkersEnabled()) {
+        if (m_canUseServiceWorkers) {
             if (!document.securityOrigin().isUnique()) {
                 if (m_serviceWorkerRegistrationData && m_serviceWorkerRegistrationData->activeWorker) {
                     document.setActiveServiceWorker(ServiceWorker::getOrCreate(document, WTFMove(m_serviceWorkerRegistrationData->activeWorker.value())));
@@ -1550,7 +1558,7 @@ void DocumentLoader::loadApplicationManifest(CompletionHandler<void(const std::o
             continue;
 
         manifestURL = href;
-        useCredentials = equalLettersIgnoringASCIICase(link.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), "use-credentials");
+        useCredentials = equalLettersIgnoringASCIICase(link.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), "use-credentials"_s);
         break;
     }
 
@@ -1793,14 +1801,15 @@ bool DocumentLoader::scheduleArchiveLoad(ResourceLoader& loader, const ResourceR
         return false;
 
 #if ENABLE(WEB_ARCHIVE)
-    // The idea of WebArchiveDebugMode is that we should fail instead of trying to fetch from the network.
-    // Returning true ensures the caller will not try to fetch from the network.
-    if (m_frame->settings().webArchiveDebugModeEnabled() && responseMIMEType() == "application/x-webarchive")
+    if (!m_frame->settings().webArchiveTestingModeEnabled()) {
+        DOCUMENTLOADER_RELEASE_LOG("scheduleArchiveLoad: Failed to unarchive subresource");
+        loader.didFail(ResourceError(errorDomainWebKitInternal, 0, request.url(), "Failed to unarchive subresource"_s));
         return true;
+    }
 #endif
 
     // If we want to load from the archive only, then we should always return true so that the caller
-    // does not try to fetch form the network.
+    // does not try to fetch from the network.
     return m_archive->shouldLoadFromArchiveOnly();
 }
 
@@ -2019,8 +2028,21 @@ bool DocumentLoader::maybeLoadEmpty()
     return true;
 }
 
+#if ENABLE(SERVICE_WORKER)
+static bool canUseServiceWorkers(Frame* frame)
+{
+    if (!frame || !frame->settings().serviceWorkersEnabled())
+        return false;
+    auto* ownerElement = frame->ownerElement();
+    return !ownerElement || !is<HTMLPlugInElement>(ownerElement);
+}
+#endif
+
 void DocumentLoader::startLoadingMainResource()
 {
+#if ENABLE(SERVICE_WORKER)
+    m_canUseServiceWorkers = canUseServiceWorkers(m_frame.get());
+#endif
     m_mainDocumentError = ResourceError();
     timing().markStartTime();
     ASSERT(!m_mainResource);
@@ -2138,18 +2160,16 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
         CachingPolicy::AllowCaching);
 
 #if ENABLE(SERVICE_WORKER)
-    if (m_frame && m_frame->settings().serviceWorkersEnabled()) {
-        if (!isSandboxingAllowingServiceWorkerFetchHandling(frameLoader()->effectiveSandboxFlags()))
-            mainResourceLoadOptions.serviceWorkersMode = ServiceWorkersMode::None;
-        else {
-            // The main navigation load will trigger the registration of the client.
-            if (m_resultingClientId)
-                scriptExecutionContextIdentifierToLoaderMap().remove(m_resultingClientId);
-            m_resultingClientId = ScriptExecutionContextIdentifier::generate();
-            ASSERT(!scriptExecutionContextIdentifierToLoaderMap().contains(m_resultingClientId));
-            scriptExecutionContextIdentifierToLoaderMap().add(m_resultingClientId, this);
-            mainResourceLoadOptions.clientIdentifier = m_resultingClientId;
-        }
+    if (!m_canUseServiceWorkers || !isSandboxingAllowingServiceWorkerFetchHandling(frameLoader()->effectiveSandboxFlags()))
+        mainResourceLoadOptions.serviceWorkersMode = ServiceWorkersMode::None;
+    else {
+        // The main navigation load will trigger the registration of the client.
+        if (m_resultingClientId)
+            scriptExecutionContextIdentifierToLoaderMap().remove(m_resultingClientId);
+        m_resultingClientId = ScriptExecutionContextIdentifier::generate();
+        ASSERT(!scriptExecutionContextIdentifierToLoaderMap().contains(m_resultingClientId));
+        scriptExecutionContextIdentifierToLoaderMap().add(m_resultingClientId, this);
+        mainResourceLoadOptions.clientIdentifier = m_resultingClientId;
     }
 #endif
 

@@ -2415,15 +2415,26 @@ void WebPage::requestRVItemInCurrentSelectedRange(CompletionHandler<void(const W
     completionHandler(RevealItem(revealItemForCurrentSelection()));
 }
 
-void WebPage::prepareSelectionForContextMenuWithLocationInView(const WebCore::IntPoint point, CompletionHandler<void(bool, const RevealItem&)>&& completionHandler)
+void WebPage::prepareSelectionForContextMenuWithLocationInView(IntPoint point, CompletionHandler<void(bool, const RevealItem&)>&& completionHandler)
 {
-    constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
-    auto& eventHander = m_page->mainFrame().eventHandler();
-    HitTestResult result = eventHander.hitTestResultAtPoint(point, hitType);
-    
-    eventHander.selectClosestContextualWordOrLinkFromHitTestResult(result, WebCore::DontAppendTrailingWhitespace);
-    
-    completionHandler(true, RevealItem(revealItemForCurrentSelection()));
+    constexpr OptionSet hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
+    Ref frame = m_page->mainFrame();
+    auto result = frame->eventHandler().hitTestResultAtPoint(point, hitType);
+    RefPtr hitNode = result.innerNonSharedNode();
+    if (!hitNode)
+        return completionHandler(false, { });
+
+    if (is<HTMLImageElement>(*hitNode) && hitNode->hasEditableStyle()) {
+        auto range = makeRangeSelectingNode(*hitNode);
+        if (range && frame->selection().setSelectedRange(range, Affinity::Upstream, FrameSelection::ShouldCloseTyping::Yes, UserTriggered)) {
+            layoutIfNeeded();
+            sendEditorStateUpdate();
+            return completionHandler(true, { });
+        }
+    }
+
+    frame->eventHandler().selectClosestContextualWordOrLinkFromHitTestResult(result, DontAppendTrailingWhitespace);
+    completionHandler(true, { revealItemForCurrentSelection() });
 }
 #endif
 
@@ -3102,8 +3113,8 @@ static void textInteractionPositionInformation(WebPage& page, const HTMLInputEle
 RefPtr<ShareableBitmap> WebPage::shareableBitmapSnapshotForNode(Element& element)
 {
     // Ensure that the image contains at most 600K pixels, so that it is not too big.
-    if (RefPtr<WebImage> snapshot = snapshotNode(element, SnapshotOptionsShareable, 600 * 1024))
-        return &snapshot->bitmap();
+    if (auto snapshot = snapshotNode(element, SnapshotOptionsShareable, 600 * 1024))
+        return snapshot->bitmap();
     return nullptr;
 }
 

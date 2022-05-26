@@ -238,8 +238,8 @@ class GitHubMixin(object):
             return 1
         return 0
 
-    def should_send_email_for_pr(self, pr_number):
-        pr_json = self.get_pr_json(pr_number)
+    def should_send_email_for_pr(self, pr_number, repository_url=None):
+        pr_json = self.get_pr_json(pr_number, repository_url=repository_url)
         if not pr_json:
             return True
 
@@ -533,8 +533,8 @@ class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
 
         self.setProperty('change_id', revision[:HASH_LENGTH_TO_DISPLAY], 'ConfigureBuild')
 
-        if title:
-            self.addURL('PR {}: {}'.format(pr_number, title), GitHub.pr_url(pr_number, repository_url))
+        title = f': {title}' if title else ''
+        self.addURL(f'PR {pr_number}{title}', GitHub.pr_url(pr_number, repository_url))
         if owners:
             email, errors = GitHub.email_for_owners(owners)
             for error in errors:
@@ -1528,6 +1528,7 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
         if patch_id:
             comment += f'\n\nRejecting attachment {patch_id} from commit queue.'
         elif pr_number:
+            comment += f'\n\nIf you do have {status} permmissions, please ensure that your GitHub username is added to contributors.json.'
             comment += f'\n\nRejecting {self.getProperty("github.head.sha", f"#{pr_number}")} from merge queue.'
         self.setProperty('comment_text', comment)
 
@@ -1671,7 +1672,10 @@ class BlockPullRequest(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
         build_finish_summary = self.getProperty('build_finish_summary', None)
 
         rc = SKIPPED
-        if CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME:
+        repository_url = self.getProperty('repository', '')
+        pr_json = self.get_pr_json(pr_number, repository_url)
+
+        if self._is_hash_outdated(pr_json) == 0 and CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME:
             repository_url = self.getProperty('repository', '')
             rc = SUCCESS
             if any((
@@ -2509,7 +2513,7 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
 
             if patch_id and not self.should_send_email_for_patch(patch_id):
                 return
-            if pr_number and not self.should_send_email_for_pr(pr_number):
+            if pr_number and not self.should_send_email_for_pr(pr_number, self.getProperty('repository')):
                 return
             if not patch_id and not (pr_number and sha):
                 self._addToLog('stderr', 'Unrecognized change type')
@@ -3352,7 +3356,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
 
             if patch_id and not self.should_send_email_for_patch(patch_id):
                 return
-            if pr_number and not self.should_send_email_for_pr(pr_number):
+            if pr_number and not self.should_send_email_for_pr(pr_number, self.getProperty('repository')):
                 return
             if not patch_id and not (pr_number and sha):
                 self._addToLog('stderr', 'Unrecognized change type')
@@ -4653,7 +4657,10 @@ class DetermineLandedIdentifier(shell.ShellCommand):
 
     def comment_text_for_bug(self, svn_revision=None, identifier=None):
         identifier_str = identifier if identifier and '@' in identifier else '?'
-        comment = 'Committed r{} ({}): <{}>'.format(svn_revision, identifier_str, self.url_for_identifier(identifier))
+        comment = '{} r{} ({}): <{}>'.format(
+            'Test gardening commit' if self.getProperty('is_test_gardening') else 'Committed',
+            svn_revision, identifier_str, self.url_for_identifier(identifier),
+        )
 
         patch_id = self.getProperty('patch_id', '')
         if patch_id:

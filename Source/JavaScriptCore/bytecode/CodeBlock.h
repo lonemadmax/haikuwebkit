@@ -80,7 +80,6 @@ namespace JSC {
 #if ENABLE(DFG_JIT)
 namespace DFG {
 class JITData;
-struct OSRExitState;
 } // namespace DFG
 #endif
 
@@ -228,7 +227,8 @@ public:
 
     JSParserScriptMode scriptMode() const { return m_unlinkedCode->scriptMode(); }
 
-    bool hasInstalledVMTrapBreakpoints() const;
+    bool hasInstalledVMTrapsBreakpoints() const;
+    bool canInstallVMTrapBreakpoints() const;
     bool installVMTrapBreakpoints();
 
     ALWAYS_INLINE bool isTemporaryRegister(VirtualRegister reg)
@@ -706,11 +706,6 @@ public:
 
     void countOSRExit() { m_osrExitCounter++; }
 
-    enum class OptimizeAction { None, ReoptimizeNow };
-#if ENABLE(DFG_JIT)
-    OptimizeAction updateOSRExitCounterAndCheckIfNeedToReoptimize(DFG::OSRExitState&);
-#endif
-
     static ptrdiff_t offsetOfOSRExitCounter() { return OBJECT_OFFSETOF(CodeBlock, m_osrExitCounter); }
 
     uint32_t adjustedExitCountThreshold(uint32_t desiredThreshold);
@@ -744,6 +739,8 @@ public:
         ASSERT(m_numBreakpoints >= numBreakpoints);
         m_numBreakpoints -= numBreakpoints;
     }
+
+    bool isJettisoned() const { return m_isJettisoned; }
 
     enum SteppingMode {
         SteppingModeDisabled,

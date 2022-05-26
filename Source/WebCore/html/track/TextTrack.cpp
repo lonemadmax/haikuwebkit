@@ -53,25 +53,25 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(TextTrack);
 
 static const AtomString& descriptionsKeyword()
 {
-    static MainThreadNeverDestroyed<const AtomString> descriptions("descriptions", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> descriptions("descriptions"_s);
     return descriptions;
 }
 
 static const AtomString& chaptersKeyword()
 {
-    static MainThreadNeverDestroyed<const AtomString> chapters("chapters", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> chapters("chapters"_s);
     return chapters;
 }
 
 static const AtomString& metadataKeyword()
 {
-    static MainThreadNeverDestroyed<const AtomString> metadata("metadata", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> metadata("metadata"_s);
     return metadata;
 }
     
 static const AtomString& forcedKeyword()
 {
-    static MainThreadNeverDestroyed<const AtomString> forced("forced", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> forced("forced"_s);
     return forced;
 }
 
@@ -225,17 +225,17 @@ void TextTrack::setKindKeywordIgnoringASCIICase(StringView keyword)
         setKind(Kind::Subtitles);
         return;
     }
-    if (equalLettersIgnoringASCIICase(keyword, "captions"))
+    if (equalLettersIgnoringASCIICase(keyword, "captions"_s))
         setKind(Kind::Captions);
-    else if (equalLettersIgnoringASCIICase(keyword, "chapters"))
+    else if (equalLettersIgnoringASCIICase(keyword, "chapters"_s))
         setKind(Kind::Chapters);
-    else if (equalLettersIgnoringASCIICase(keyword, "descriptions"))
+    else if (equalLettersIgnoringASCIICase(keyword, "descriptions"_s))
         setKind(Kind::Descriptions);
-    else if (equalLettersIgnoringASCIICase(keyword, "forced"))
+    else if (equalLettersIgnoringASCIICase(keyword, "forced"_s))
         setKind(Kind::Forced);
-    else if (equalLettersIgnoringASCIICase(keyword, "metadata"))
+    else if (equalLettersIgnoringASCIICase(keyword, "metadata"_s))
         setKind(Kind::Metadata);
-    else if (equalLettersIgnoringASCIICase(keyword, "subtitles"))
+    else if (equalLettersIgnoringASCIICase(keyword, "subtitles"_s))
         setKind(Kind::Subtitles);
     else {
         // The invalid value default is the metadata state.

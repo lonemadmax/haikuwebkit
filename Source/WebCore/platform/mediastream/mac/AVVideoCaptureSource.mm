@@ -126,7 +126,7 @@ CaptureSourceOrError AVVideoCaptureSource::create(const CaptureDevice& device, S
 }
 
 AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDevice* avDevice, const CaptureDevice& device, String&& hashSalt, PageIdentifier pageIdentifier)
-    : RealtimeVideoCaptureSource(String(device.label()), String(device.persistentId()), WTFMove(hashSalt), pageIdentifier)
+    : RealtimeVideoCaptureSource(AtomString(device.label()), String(device.persistentId()), WTFMove(hashSalt), pageIdentifier)
     , m_objcObserver(adoptNS([[WebCoreAVVideoCaptureSourceObserver alloc] initWithCallback:this]))
     , m_device(avDevice)
     , m_verifyCapturingTimer(*this, &AVVideoCaptureSource::verifyIsCapturing)
@@ -247,7 +247,7 @@ const RealtimeMediaSourceSettings& AVVideoCaptureSource::settings()
     else
         settings.setFacingMode(RealtimeMediaSourceSettings::Unknown);
 
-    settings.setLabel(AtomString { name() });
+    settings.setLabel(name());
     settings.setFrameRate(frameRate());
 
     auto size = this->size();
@@ -256,7 +256,7 @@ const RealtimeMediaSourceSettings& AVVideoCaptureSource::settings()
     
     settings.setWidth(size.width());
     settings.setHeight(size.height());
-    settings.setDeviceId(AtomString { hashedId() });
+    settings.setDeviceId(hashedId());
 
     RealtimeMediaSourceSupportedConstraints supportedConstraints;
     supportedConstraints.setSupportsDeviceId(true);
@@ -279,7 +279,7 @@ const RealtimeMediaSourceCapabilities& AVVideoCaptureSource::capabilities()
         return *m_capabilities;
 
     RealtimeMediaSourceCapabilities capabilities(settings().supportedConstraints());
-    capabilities.setDeviceId(AtomString { hashedId() });
+    capabilities.setDeviceId(hashedId());
 
     AVCaptureDevice *videoDevice = device();
     if ([videoDevice position] == AVCaptureDevicePositionFront)

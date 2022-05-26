@@ -2812,7 +2812,7 @@ inline static bool isFlexOrGridItem(RenderObject* renderer)
     return box.isFlexItem() || box.isGridItem();
 }
 
-RefPtr<CSSValue> ComputedStyleExtractor::customPropertyValue(const String& propertyName)
+RefPtr<CSSValue> ComputedStyleExtractor::customPropertyValue(const AtomString& propertyName)
 {
     Element* styledElement = m_element.get();
     if (!styledElement)
@@ -2838,7 +2838,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::customPropertyValue(const String& prope
     });
 }
 
-String ComputedStyleExtractor::customPropertyText(const String& propertyName)
+String ComputedStyleExtractor::customPropertyText(const AtomString& propertyName)
 {
     RefPtr<CSSValue> propertyValue = customPropertyValue(propertyName);
     return propertyValue ? propertyValue->cssText() : emptyString();
@@ -3673,8 +3673,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return cssValuePool.createValue(style.wordBreak());
         case CSSPropertyWordSpacing:
             return zoomAdjustedPixelValue(style.fontCascade().wordSpacing(), style);
-        case CSSPropertyWordWrap:
-            return cssValuePool.createValue(style.overflowWrap());
         case CSSPropertyLineBreak:
             return cssValuePool.createValue(style.lineBreak());
         case CSSPropertyWebkitNbspMode:
@@ -3925,7 +3923,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return list;
         }
         case CSSPropertyTransformStyle:
-        case CSSPropertyWebkitTransformStyle:
             switch (style.transformStyle3D()) {
             case TransformStyle3D::Flat:
                 return cssValuePool.createIdentifierValue(CSSValueFlat);
@@ -4043,6 +4040,10 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         }
         case CSSPropertyBorderBlockColor:
             return getCSSPropertyValuesFor2SidesShorthand(borderBlockColorShorthand());
+        case CSSPropertyBorderBlockEnd:
+            return getCSSPropertyValuesForShorthandProperties(borderBlockEndShorthand());
+        case CSSPropertyBorderBlockStart:
+            return getCSSPropertyValuesForShorthandProperties(borderBlockStartShorthand());
         case CSSPropertyBorderBlockStyle:
             return getCSSPropertyValuesFor2SidesShorthand(borderBlockStyleShorthand());
         case CSSPropertyBorderBlockWidth:
@@ -4061,6 +4062,10 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         }
         case CSSPropertyBorderInlineColor:
             return getCSSPropertyValuesFor2SidesShorthand(borderInlineColorShorthand());
+        case CSSPropertyBorderInlineEnd:
+            return getCSSPropertyValuesForShorthandProperties(borderInlineEndShorthand());
+        case CSSPropertyBorderInlineStart:
+            return getCSSPropertyValuesForShorthandProperties(borderInlineStartShorthand());
         case CSSPropertyBorderInlineStyle:
             return getCSSPropertyValuesFor2SidesShorthand(borderInlineStyleShorthand());
         case CSSPropertyBorderInlineWidth:
@@ -4212,21 +4217,17 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             break;
 
         /* Directional properties are resolved by resolveDirectionAwareProperty() before the switch. */
-        case CSSPropertyBorderBlockEnd:
         case CSSPropertyBorderBlockEndColor:
         case CSSPropertyBorderBlockEndStyle:
         case CSSPropertyBorderBlockEndWidth:
-        case CSSPropertyBorderBlockStart:
         case CSSPropertyBorderBlockStartColor:
         case CSSPropertyBorderBlockStartStyle:
         case CSSPropertyBorderBlockStartWidth:
-        case CSSPropertyBorderEndEndRadius:        
-        case CSSPropertyBorderEndStartRadius:        
-        case CSSPropertyBorderInlineEnd:
+        case CSSPropertyBorderEndEndRadius:
+        case CSSPropertyBorderEndStartRadius:
         case CSSPropertyBorderInlineEndColor:
         case CSSPropertyBorderInlineEndStyle:
         case CSSPropertyBorderInlineEndWidth:
-        case CSSPropertyBorderInlineStart:
         case CSSPropertyBorderInlineStartColor:
         case CSSPropertyBorderInlineStartStyle:
         case CSSPropertyBorderInlineStartWidth:
@@ -4509,7 +4510,7 @@ CSSRule* CSSComputedStyleDeclaration::parentRule() const
 RefPtr<DeprecatedCSSOMValue> CSSComputedStyleDeclaration::getPropertyCSSValue(const String& propertyName)
 {
     if (isCustomPropertyName(propertyName)) {
-        auto value = ComputedStyleExtractor(m_element.ptr(), m_allowVisitedStyle, m_pseudoElementSpecifier).customPropertyValue(propertyName);
+        auto value = ComputedStyleExtractor(m_element.ptr(), m_allowVisitedStyle, m_pseudoElementSpecifier).customPropertyValue(AtomString { propertyName });
         if (!value)
             return nullptr;
         return value->createDeprecatedCSSOMWrapper(*this);
@@ -4527,7 +4528,7 @@ RefPtr<DeprecatedCSSOMValue> CSSComputedStyleDeclaration::getPropertyCSSValue(co
 String CSSComputedStyleDeclaration::getPropertyValue(const String &propertyName)
 {
     if (isCustomPropertyName(propertyName))
-        return ComputedStyleExtractor(m_element.ptr(), m_allowVisitedStyle, m_pseudoElementSpecifier).customPropertyText(propertyName);
+        return ComputedStyleExtractor(m_element.ptr(), m_allowVisitedStyle, m_pseudoElementSpecifier).customPropertyText(AtomString { propertyName });
 
     CSSPropertyID propertyID = cssPropertyID(propertyName);
     if (!propertyID)

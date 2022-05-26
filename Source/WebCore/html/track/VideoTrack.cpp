@@ -49,7 +49,7 @@ namespace WebCore {
 
 const AtomString& VideoTrack::signKeyword()
 {
-    static MainThreadNeverDestroyed<const AtomString> sign("sign", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> sign("sign"_s);
     return sign;
 }
 
@@ -230,7 +230,7 @@ void VideoTrack::updateKindFromPrivate()
         setKind(commentaryAtom());
         return;
     case VideoTrackPrivate::None:
-        setKind(emptyString());
+        setKind(emptyAtom());
         return;
     }
     ASSERT_NOT_REACHED();

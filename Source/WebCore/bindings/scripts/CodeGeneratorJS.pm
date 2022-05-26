@@ -2542,7 +2542,7 @@ sub GenerateDefaultValue
             if ($defaultValue eq "\"\"") {
                 return $useAtomString ? "emptyAtom()" : "emptyString()";
             } else {
-                return $useAtomString ? "AtomString(${defaultValue}, AtomString::ConstructFromLiteral)" : "${defaultValue}_s";
+                return $useAtomString ? "AtomString(${defaultValue}_s)" : "${defaultValue}_s";
             }
         }
 
@@ -4005,6 +4005,10 @@ sub GenerateRuntimeEnableConditionalStringForExposeScope
       $wrapperType = "JSDOMWindowBase";
     } elsif ($exposed eq "Worker") {
       $wrapperType = "JSWorkerGlobalScopeBase";
+    } elsif ($exposed eq "DedicatedWorker") {
+      $wrapperType = "JSDedicatedWorkerGlobalScope";
+    } elsif ($exposed eq "SharedWorker") {
+      $wrapperType = "JSSharedWorkerGlobalScope";
     } elsif ($exposed eq "ShadowRealm") {
       $wrapperType = "JSShadowRealmGlobalScopeBase";
     } elsif ($exposed eq "Worklet") {
@@ -5276,6 +5280,13 @@ sub GenerateAttributeGetterBodyDefinition
     my $isConstructor = $codeGenerator->IsConstructorType($attribute->type);
 
     my $needThrowScope = $needSecurityCheck || (!$hasCustomGetter && !$isEventHandler && !$isConstructor);
+
+    # Reflecting string attributes always need to be AtomStrings. Since such attribute do not have corresponding getters / setters
+    # on the implementation object, we don't require the developers to specify [AtomString] in the IDL. The fact that they need
+    # to be AtomStrings is an implementation detail.
+    if ($attribute->extendedAttributes->{"Reflect"} && $codeGenerator->IsStringType($attribute->type)) {
+       $attribute->type->extendedAttributes->{AtomString} = 1;
+    }
 
     push(@$outputArray, "static inline JSValue ${attributeGetterBodyName}(" . join(", ", @signatureArguments) . ")\n");
     push(@$outputArray, "{\n");
@@ -6964,7 +6975,10 @@ sub GetAnnotatedIDLType
 
     return "IDLClampAdaptor" if $type->extendedAttributes->{Clamp};
     return "IDLEnforceRangeAdaptor" if $type->extendedAttributes->{EnforceRange};
-    return "IDLLegacyNullToEmptyStringAdaptor" if $type->extendedAttributes->{LegacyNullToEmptyString};
+    if ($type->extendedAttributes->{LegacyNullToEmptyString}) {
+        return "IDLLegacyNullToEmptyAtomStringAdaptor" if $type->extendedAttributes->{AtomString};
+        return "IDLLegacyNullToEmptyStringAdaptor";
+    }
     return "IDLAtomStringAdaptor" if $type->extendedAttributes->{AtomString};
     return "IDLRequiresExistingAtomStringAdaptor" if $type->extendedAttributes->{RequiresExistingAtomString};
     return "IDLAllowSharedAdaptor" if $type->extendedAttributes->{AllowShared};

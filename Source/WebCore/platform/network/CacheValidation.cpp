@@ -41,29 +41,29 @@ namespace WebCore {
 // These response headers are not copied from a revalidated response to the
 // cached response headers. For compatibility, this list is based on Chromium's
 // net/http/http_response_headers.cc.
-static const char* const headersToIgnoreAfterRevalidation[] = {
-    "allow",
-    "connection",
-    "etag",
-    "keep-alive",
-    "last-modified",
-    "proxy-authenticate",
-    "proxy-connection",
-    "trailer",
-    "transfer-encoding",
-    "upgrade",
-    "www-authenticate",
-    "x-frame-options",
-    "x-xss-protection",
+static constexpr ASCIILiteral headersToIgnoreAfterRevalidation[] = {
+    "allow"_s,
+    "connection"_s,
+    "etag"_s,
+    "keep-alive"_s,
+    "last-modified"_s,
+    "proxy-authenticate"_s,
+    "proxy-connection"_s,
+    "trailer"_s,
+    "transfer-encoding"_s,
+    "upgrade"_s,
+    "www-authenticate"_s,
+    "x-frame-options"_s,
+    "x-xss-protection"_s,
 };
 
 // Some header prefixes mean "Don't copy this header from a 304 response.".
 // Rather than listing all the relevant headers, we can consolidate them into
 // this list, also grabbed from Chromium's net/http/http_response_headers.cc.
-static const char* const headerPrefixesToIgnoreAfterRevalidation[] = {
-    "content-",
-    "x-content-",
-    "x-webkit-"
+static constexpr ASCIILiteral headerPrefixesToIgnoreAfterRevalidation[] = {
+    "content-"_s,
+    "x-content-"_s,
+    "x-webkit-"_s
 };
 
 static inline bool shouldUpdateHeaderAfterRevalidation(const String& header)
@@ -286,13 +286,13 @@ CacheControlDirectives parseCacheControlDirectives(const HTTPHeaderMap& headers)
             // A no-cache directive with a value is only meaningful for proxy caches.
             // It should be ignored by a browser level cache.
             // http://tools.ietf.org/html/rfc7234#section-5.2.2.2
-            if (equalLettersIgnoringASCIICase(directives[i].first, "no-cache") && directives[i].second.isEmpty())
+            if (equalLettersIgnoringASCIICase(directives[i].first, "no-cache"_s) && directives[i].second.isEmpty())
                 result.noCache = true;
-            else if (equalLettersIgnoringASCIICase(directives[i].first, "no-store"))
+            else if (equalLettersIgnoringASCIICase(directives[i].first, "no-store"_s))
                 result.noStore = true;
-            else if (equalLettersIgnoringASCIICase(directives[i].first, "must-revalidate"))
+            else if (equalLettersIgnoringASCIICase(directives[i].first, "must-revalidate"_s))
                 result.mustRevalidate = true;
-            else if (equalLettersIgnoringASCIICase(directives[i].first, "max-age")) {
+            else if (equalLettersIgnoringASCIICase(directives[i].first, "max-age"_s)) {
                 if (result.maxAge) {
                     // First max-age directive wins if there are multiple ones.
                     continue;
@@ -301,7 +301,7 @@ CacheControlDirectives parseCacheControlDirectives(const HTTPHeaderMap& headers)
                 double maxAge = directives[i].second.toDouble(ok);
                 if (ok)
                     result.maxAge = Seconds { maxAge };
-            } else if (equalLettersIgnoringASCIICase(directives[i].first, "max-stale")) {
+            } else if (equalLettersIgnoringASCIICase(directives[i].first, "max-stale"_s)) {
                 // https://tools.ietf.org/html/rfc7234#section-5.2.1.2
                 if (result.maxStale) {
                     // First max-stale directive wins if there are multiple ones.
@@ -316,9 +316,9 @@ CacheControlDirectives parseCacheControlDirectives(const HTTPHeaderMap& headers)
                 double maxStale = directives[i].second.toDouble(ok);
                 if (ok)
                     result.maxStale = Seconds { maxStale };
-            } else if (equalLettersIgnoringASCIICase(directives[i].first, "immutable")) {
+            } else if (equalLettersIgnoringASCIICase(directives[i].first, "immutable"_s)) {
                 result.immutable = true;
-            } else if (equalLettersIgnoringASCIICase(directives[i].first, "stale-while-revalidate")) {
+            } else if (equalLettersIgnoringASCIICase(directives[i].first, "stale-while-revalidate"_s)) {
                 if (result.staleWhileRevalidate) {
                     // First stale-while-revalidate directive wins if there are multiple ones.
                     continue;

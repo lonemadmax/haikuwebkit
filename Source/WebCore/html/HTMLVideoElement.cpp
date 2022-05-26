@@ -70,7 +70,7 @@ inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document
 {
     ASSERT(hasTagName(videoTag));
     setHasCustomStyleResolveCallbacks();
-    m_defaultPosterURL = document.settings().defaultVideoPosterURL();
+    m_defaultPosterURL = AtomString { document.settings().defaultVideoPosterURL() };
 }
 
 Ref<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document& document, bool createdByParser)
@@ -156,7 +156,7 @@ void HTMLVideoElement::parseAttribute(const QualifiedName& name, const AtomStrin
 #if PLATFORM(IOS_FAMILY) && ENABLE(WIRELESS_PLAYBACK_TARGET)
         if (name == webkitairplayAttr) {
             bool disabled = false;
-            if (equalLettersIgnoringASCIICase(attributeWithoutSynchronization(HTMLNames::webkitairplayAttr), "deny"))
+            if (equalLettersIgnoringASCIICase(attributeWithoutSynchronization(HTMLNames::webkitairplayAttr), "deny"_s))
                 disabled = true;
             mediaSession().setWirelessVideoPlaybackDisabled(disabled);
         }

@@ -1,3 +1,152 @@
+2022-04-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Introduce unlinked version of invalidation
+        https://bugs.webkit.org/show_bug.cgi?id=239887
+
+        Reviewed by Saam Barati.
+
+        * stress/polling-based-trap-on-unlinked-dfg.js: Added.
+        (test):
+
+2022-05-01  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add ISO8601 based Temporal.PlainDate getters
+        https://bugs.webkit.org/show_bug.cgi?id=239949
+
+        Reviewed by Ross Kirsling and Dean Jackson.
+
+        * stress/temporal-plaindate.js:
+        (print):
+        (shouldBe):
+
+2022-05-02  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        new-largeish-contiguous-array-with-size.js: pick up leakFactor
+        https://bugs.webkit.org/show_bug.cgi?id=239963
+
+        Unreviewed gardening.
+
+        The //@ directives are implemented imperatively, so requireOptions
+        only has any effect if it precedes the run* statement. Also,
+        s/var leakFactor/leakFactor/ to avoid running into this:
+
+          Exception: SyntaxError: Can't create duplicate variable: 'leakFactor' 
+
+        With this fix, the leakFactor works as intended -- no failures in 200+
+        iterations.
+
+        * stress/new-largeish-contiguous-array-with-size.js:
+
+2022-04-29  Yury Semikhatsky  <yurys@chromium.org>
+
+        Format time zone name using ICU instead of platform calls
+        https://bugs.webkit.org/show_bug.cgi?id=239865
+
+        Reviewed by Yusuke Suzuki.
+
+        Added new tests that ensure Date's timezone is formatted using preferred
+        language.
+
+        * complex.yaml:
+        * complex/timezone-format-de.js: Added.
+        (shouldBe):
+        * complex/timezone-format-en.js: Added.
+        (shouldBe):
+
+2022-04-27  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        Unskip flaky test on mips
+        https://bugs.webkit.org/show_bug.cgi?id=239342
+
+        Unreviewed gardening.
+
+        Re-enable test. It should still be flaky, so can use it to test
+        the code reporting the flakiness to resultsdb.
+
+        * stress/new-largeish-contiguous-array-with-size.js:
+
+2022-04-27  Dmitry Bezhetskov  <dbezhetskov@igalia.com>
+
+        [WASM-GC] Introduce rtt types
+        https://bugs.webkit.org/show_bug.cgi?id=239493
+
+        Reviewed by Keith Miller.
+        
+        Added basic tests for manipulation of rtt types.
+
+        * wasm/gc/rtt.js: Added.
+        (module):
+        (testRttTypes):
+        (testRttCanon):
+        * wasm/wasm.json:
+
+2022-04-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add forceUnlinkedDFG option
+        https://bugs.webkit.org/show_bug.cgi?id=239751
+
+        Reviewed by Saam Barati.
+
+        Attach `forceUnlinkedDFG=0` option to the following tests which require careful story of how DFG is compiled, which is changed with unlinked DFG.
+
+        * stress/arith-abs-on-various-types.js:
+        * stress/arith-abs-to-arith-negate-range-optimizaton.js:
+        * stress/arith-acos-on-various-types.js:
+        * stress/arith-acosh-on-various-types.js:
+        * stress/arith-asin-on-various-types.js:
+        * stress/arith-asinh-on-various-types.js:
+        * stress/arith-atan-on-various-types.js:
+        * stress/arith-atanh-on-various-types.js:
+        * stress/arith-cbrt-on-various-types.js:
+        * stress/arith-ceil-on-various-types.js:
+        * stress/arith-clz32-on-various-types.js:
+        * stress/arith-cos-on-various-types.js:
+        * stress/arith-cosh-on-various-types.js:
+        * stress/arith-expm1-on-various-types.js:
+        * stress/arith-floor-on-various-types.js:
+        * stress/arith-fround-on-various-types.js:
+        * stress/arith-log-on-various-types.js:
+        * stress/arith-log10-on-various-types.js:
+        * stress/arith-log2-on-various-types.js:
+        * stress/arith-round-on-various-types.js:
+        * stress/arith-sin-on-various-types.js:
+        * stress/arith-sinh-on-various-types.js:
+        * stress/arith-sqrt-on-various-types.js:
+        * stress/arith-tan-on-various-types.js:
+        * stress/arith-tanh-on-various-types.js:
+        * stress/arith-trunc-on-various-types.js:
+        * stress/fold-multi-get-by-offset-to-get-by-offset-with-watchpoint.js:
+
+2022-04-26  Michael Catanzaro  <mcatanzaro@redhat.com>
+
+        Several internationalization tests broken with ICU 69.1
+        https://bugs.webkit.org/show_bug.cgi?id=239724
+
+        Reviewed by Ross Kirsling and Yusuke Suzuki.
+
+        Update these tests to be more permissive of different results for different ICU versions.
+        ICU 69 on macOS is producing different results from ICU 69 on Linux for reasons unexplained,
+        so instead of checking the version number, let's instead just accept both ways.
+
+        * stress/array-toLocaleString.js:
+        (shouldBeOneOf):
+        * stress/date-toLocaleString.js:
+        (shouldBeOneOf):
+        * stress/intl-datetimeformat-formatrange-relevant-extensions-ja.js:
+        (shouldBeOneOf):
+        (vm.icuVersion):
+        (shouldBeOneOfThem): Deleted.
+        * stress/intl-datetimeformat-formatrangetoparts-relevant-extensions-ja.js:
+        (shouldBeOneOf):
+        * stress/intl-datetimeformat.js:
+        (shouldBeOneOf):
+        (shouldBeOneOfThem): Deleted.
+        * stress/intl-locale-info.js:
+        (shouldBeOneOf):
+        (shouldBe):
+        * stress/intl-locale.js:
+        (shouldBeOneOf):
+
 2022-04-24  Zan Dobersek  <zdobersek@igalia.com>
 
         Skip microbenchmarks/memcpy-wasm.js and friends on non-FTL (i.e. non-WASM) platforms

@@ -199,9 +199,6 @@ webkit.org/b/208988 webxr [ Skip ]
 # Crash on EWS bot.
 webrtc/vp8-then-h264-gpu-process-crash.html [ Skip ]
 
-# This test introduces flakiness due to issues with resetting WebPreferences.
-webkit.org/b/237181 fast/forms/validation-message-minimum-font-size.html [ Skip ]
-
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End of Triaged Expectations
 # Legacy Expectations sections below
@@ -416,7 +413,6 @@ webkit.org/b/169918 compositing/hidpi-subpixel-transform-origin.html [ ImageOnly
 webkit.org/b/169918 compositing/hidpi-transform-with-render-layer-on-fractional-pixel-value.html [ ImageOnlyFailure ]
 webkit.org/b/169918 compositing/layer-creation/deep-tree.html [ ImageOnlyFailure ]
 webkit.org/b/169918 compositing/overlap-blending/nested-overlap-overflow.html [ ImageOnlyFailure ]
-webkit.org/b/169918 compositing/overlap-blending/nested-overlap.html [ ImageOnlyFailure ]
 webkit.org/b/169918 compositing/patterns/direct-pattern-compositing-contain.html [ ImageOnlyFailure ]
 webkit.org/b/169918 compositing/patterns/direct-pattern-compositing-cover.html [ ImageOnlyFailure ]
 webkit.org/b/169918 compositing/patterns/direct-pattern-compositing-position.html [ ImageOnlyFailure ]
@@ -1809,8 +1805,6 @@ webkit.org/b/218111 compositing/clipping/border-radius-async-overflow-stacking.h
 
 webkit.org/b/219248 imported/w3c/web-platform-tests/uievents/mouse/mouseevent_move_button.html [ Failure ]
 
-webkit.org/b/223980 editing/deleting/insert-in-orphaned-selection-crash.html [ Failure ]
-
 webkit.org/b/224062 webgl/1.0.3/conformance/glsl/misc/shaders-with-missing-varyings.html [ Failure ]
 webkit.org/b/224062 webgl/1.0.3/conformance/glsl/misc/shaders-with-varyings.html [ Failure ]
 webkit.org/b/224062 webgl/1.0.3/conformance/rendering/gl-scissor-test.html [ Failure ]
@@ -1819,7 +1813,7 @@ webkit.org/b/224076 imported/w3c/web-platform-tests/css/css-text/white-space/whi
 
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/3dtransform-and-filter-no-perspective-001.html [ ImageOnlyFailure ]
 
-webkit.org/b/234726 imported/w3c/web-platform-tests/css/css-color/color-mix-non-srgb-001.html [ Failure ]
+webkit.org/b/234726 imported/w3c/web-platform-tests/css/css-color/color-mix-non-srgb-001.html [ ImageOnlyFailure ]
 webkit.org/b/234726 imported/w3c/web-platform-tests/css/css-color/parsing/relative-color-computed.html  [ Failure ]
 webkit.org/b/234726 imported/w3c/web-platform-tests/css/css-color/parsing/relative-color-valid.html [ Failure ]
 webkit.org/b/234726 imported/w3c/web-platform-tests/css/css-color/parsing/color-mix-computed.html [ Failure ]

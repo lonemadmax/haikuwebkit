@@ -157,6 +157,10 @@ static RetainPtr<TestWKWebView> createWebViewWithTextRecognitionEnhancements()
         if ([key isEqualToString:@"TextRecognitionEnhancementsEnabled"] || [key isEqualToString:@"ImageAnalysisQueueEnabled"] || [key isEqualToString:@"ImageAnalysisMarkupEnabled"])
             [[configuration preferences] _setEnabled:YES forInternalDebugFeature:feature];
     }
+    [configuration _setAttachmentElementEnabled:YES];
+#if ENABLE(SERVICE_CONTROLS)
+    [configuration _setImageControlsEnabled:YES];
+#endif
     return adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get()]);
 }
 
@@ -322,10 +326,74 @@ TEST(ImageAnalysisTests, ImageAnalysisWithTransparentImages)
     EXPECT_FALSE(reader.isTransparentBlack(reader.width() / 2, reader.height() / 2));
 }
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+static RetainPtr<CGImageRef> iconImage()
+{
+    auto iconPath = [NSBundle.mainBundle pathForResource:@"icon" ofType:@"png" inDirectory:@"TestWebKitAPI.resources"];
+#if PLATFORM(IOS_FAMILY)
+    return [UIImage imageWithContentsOfFile:iconPath].CGImage;
+#else
+    auto image = adoptNS([[NSImage alloc] initWithContentsOfFile:iconPath]);
+    return [image CGImageForProposedRect:nil context:nil hints:nil];
+#endif
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS) && PLATFORM(IOS_FAMILY)
+
+static void simulateCalloutBarAppearance(TestWKWebView *webView)
+{
+    __block bool done = false;
+    [webView.textInputContentView requestRectsToEvadeForSelectionCommandsWithCompletionHandler:^(NSArray<NSValue *> *) {
+        done = true;
+    }];
+    Util::run(&done);
+}
+
+static BOOL simulateEditContextMenuAppearance(TestWKWebView *webView, CGPoint location)
+{
+    __block BOOL result;
+    __block bool done = false;
+    [webView.textInputContentView prepareSelectionForContextMenuWithLocationInView:location completionHandler:^(BOOL shouldPresent, RVItem *) {
+        result = shouldPresent;
+        done = true;
+    }];
+    Util::run(&done);
+    return result;
+}
+
+static void invokeImageMarkupAction(TestWKWebView *webView)
+{
+    simulateCalloutBarAppearance(webView);
+
+    auto menuBuilder = adoptNS([[TestUIMenuBuilder alloc] init]);
+    [webView buildMenuWithBuilder:menuBuilder.get()];
+    [[menuBuilder actionWithTitle:WebCore::contextMenuItemTitleMarkupImage()] _performActionWithSender:nil];
+    [webView waitForNextPresentationUpdate];
+}
+
+TEST(ImageAnalysisTests, MarkupImageUsingContextMenu)
+{
+    ImageAnalysisMarkupSwizzler swizzler { iconImage().autorelease(), CGRectMake(10, 10, 215, 174) };
+
+    auto webView = createWebViewWithTextRecognitionEnhancements();
+    [webView _setEditable:YES];
+    [webView synchronouslyLoadTestPageNamed:@"image"];
+    [webView waitForNextPresentationUpdate];
+
+    EXPECT_TRUE(simulateEditContextMenuAppearance(webView.get(), CGPointMake(100, 100)));
+
+    auto menuBuilder = adoptNS([[TestUIMenuBuilder alloc] init]);
+    [webView buildMenuWithBuilder:menuBuilder.get()];
+    EXPECT_NOT_NULL([menuBuilder actionWithTitle:WebCore::contextMenuItemTitleMarkupImage()]);
+}
 
 TEST(ImageAnalysisTests, MenuControllerItems)
 {
+    ImageAnalysisMarkupSwizzler swizzler { iconImage().autorelease(), CGRectMake(10, 10, 215, 174) };
+
     auto webView = createWebViewWithTextRecognitionEnhancements();
     auto inputDelegate = adoptNS([TestInputDelegate new]);
     [inputDelegate setFocusStartsInputSessionPolicyHandler:[](WKWebView *, id <_WKFocusedElementInfo>) {
@@ -337,6 +405,7 @@ TEST(ImageAnalysisTests, MenuControllerItems)
     [webView synchronouslyLoadTestPageNamed:@"multiple-images"];
     [webView objectByEvaluatingJavaScript:@"let image = document.images[0]; getSelection().setBaseAndExtent(image, 0, image, 1);"];
     [webView waitForNextPresentationUpdate];
+    simulateCalloutBarAppearance(webView.get());
 
     auto menuBuilder = adoptNS([[TestUIMenuBuilder alloc] init]);
     [webView buildMenuWithBuilder:menuBuilder.get()];
@@ -344,6 +413,7 @@ TEST(ImageAnalysisTests, MenuControllerItems)
 
     [webView selectAll:nil];
     [webView waitForNextPresentationUpdate];
+    simulateCalloutBarAppearance(webView.get());
 
     [menuBuilder reset];
     [webView buildMenuWithBuilder:menuBuilder.get()];
@@ -351,32 +421,16 @@ TEST(ImageAnalysisTests, MenuControllerItems)
 
     [webView objectByEvaluatingJavaScript:@"getSelection().setBaseAndExtent(document.body, 0, document.images[0], 1);"];
     [webView waitForNextPresentationUpdate];
+    simulateCalloutBarAppearance(webView.get());
 
     [menuBuilder reset];
     [webView buildMenuWithBuilder:menuBuilder.get()];
     EXPECT_NOT_NULL([menuBuilder actionWithTitle:WebCore::contextMenuItemTitleMarkupImage()]);
 }
 
-static void invokeImageMarkupAction(TestWKWebView *webView)
+static void runMarkupTest(NSString *testPage, NSString *scriptToSelectText, Function<void(TestWKWebView *, NSString *)>&& checkWebView)
 {
-    // Simulate callout bar appearance.
-    __block bool done = false;
-    [webView.textInputContentView requestRectsToEvadeForSelectionCommandsWithCompletionHandler:^(NSArray<NSValue *> *) {
-        done = true;
-    }];
-    Util::run(&done);
-
-    auto menuBuilder = adoptNS([[TestUIMenuBuilder alloc] init]);
-    [webView buildMenuWithBuilder:menuBuilder.get()];
-    [[menuBuilder actionWithTitle:WebCore::contextMenuItemTitleMarkupImage()] _performActionWithSender:nil];
-    [webView waitForNextPresentationUpdate];
-}
-
-TEST(ImageAnalysisTests, PerformImageAnalysisMarkup)
-{
-    auto iconPath = [NSBundle.mainBundle pathForResource:@"icon" ofType:@"png" inDirectory:@"TestWebKitAPI.resources"];
-    RetainPtr iconImage = [UIImage imageWithContentsOfFile:iconPath];
-    ImageAnalysisMarkupSwizzler swizzler { [iconImage CGImage], CGRectMake(10, 10, 215, 174) };
+    ImageAnalysisMarkupSwizzler swizzler { iconImage().autorelease(), CGRectMake(10, 10, 215, 174) };
 
     auto webView = createWebViewWithTextRecognitionEnhancements();
     auto inputDelegate = adoptNS([TestInputDelegate new]);
@@ -386,24 +440,71 @@ TEST(ImageAnalysisTests, PerformImageAnalysisMarkup)
 
     [webView _setEditable:YES];
     [webView _setInputDelegate:inputDelegate.get()];
-    [webView synchronouslyLoadTestPageNamed:@"multiple-images"];
-    [webView objectByEvaluatingJavaScript:@"getSelection().setBaseAndExtent(document.body, 0, document.images[0], 1)"];
+    [webView synchronouslyLoadTestPageNamed:testPage];
+    [webView objectByEvaluatingJavaScript:scriptToSelectText];
     [webView waitForNextPresentationUpdate];
 
     NSString *previousSelectedText = [webView selectedText];
     invokeImageMarkupAction(webView.get());
+    checkWebView(webView.get(), previousSelectedText);
+}
 
-    EXPECT_WK_STREQ(previousSelectedText, [webView selectedText]);
-    Util::waitForConditionWithLogging([&] {
-        return [[webView objectByEvaluatingJavaScript:@"document.images[0].getBoundingClientRect().width"] intValue] == 215;
-    }, 3, @"Expected bounding client rect to become 215.");
+TEST(ImageAnalysisTests, PerformImageAnalysisMarkup)
+{
+    runMarkupTest(@"multiple-images", @"getSelection().setBaseAndExtent(document.body, 0, document.images[0], 1)", [](TestWKWebView *webView, NSString *previousSelectedText) {
+        EXPECT_WK_STREQ(previousSelectedText, webView.selectedText);
+        Util::waitForConditionWithLogging([&] {
+            return [[webView objectByEvaluatingJavaScript:@"document.images[0].getBoundingClientRect().width"] intValue] == 215;
+        }, 3, @"Expected bounding client rect to become 215.");
 
-    NSString *undoTitle = [webView undoManager].undoMenuItemTitle;
-    EXPECT_GT(undoTitle.length, 0U);
-    EXPECT_FALSE([undoTitle containsString:@"Paste"]);
+        NSString *undoTitle = webView.undoManager.undoMenuItemTitle;
+        EXPECT_GT(undoTitle.length, 0U);
+        EXPECT_FALSE([undoTitle containsString:@"Paste"]);
+    });
+}
+
+TEST(ImageAnalysisTests, PerformImageAnalysisMarkupWithWebPImages)
+{
+    runMarkupTest(@"webp-image", @"getSelection().selectAllChildren(document.body)", [](TestWKWebView *webView, NSString *) {
+        Util::waitForConditionWithLogging([&] {
+            return [[webView objectByEvaluatingJavaScript:@"document.images[0].getBoundingClientRect().width"] intValue] == 215;
+        }, 3, @"Expected bounding client rect to become 215.");
+    });
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS) && PLATFORM(IOS_FAMILY)
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS) && ENABLE(SERVICE_CONTROLS)
+
+TEST(ImageAnalysisTests, MarkupImageItemInServicesMenu)
+{
+    ImageAnalysisMarkupSwizzler swizzler { iconImage().autorelease(), CGRectMake(10, 10, 215, 174) };
+
+    auto webView = createWebViewWithTextRecognitionEnhancements();
+    [webView _setEditable:YES];
+    [webView synchronouslyLoadTestPageNamed:@"image-controls"];
+    [[webView window] orderFrontRegardless];
+    [webView callAsyncJavaScript:@"waitForAndClickImageControls()" arguments:nil inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:^(id, NSError *error) {
+        EXPECT_NULL(error);
+    }];
+
+    __block bool foundMarkupImageItem = false;
+    RetainPtr timer = [NSTimer timerWithTimeInterval:0.1 repeats:YES block:^(NSTimer *) {
+        NSMenu *menu = [webView _activeMenu];
+        for (NSMenuItem *item in menu.itemArray) {
+            if ([item.title isEqualToString:WebCore::contextMenuItemTitleMarkupImage()]) {
+                foundMarkupImageItem = true;
+                [menu cancelTracking];
+                break;
+            }
+        }
+    }];
+
+    [NSRunLoop.mainRunLoop addTimer:timer.get() forMode:NSEventTrackingRunLoopMode];
+    Util::run(&foundMarkupImageItem);
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS) && ENABLE(SERVICE_CONTROLS)
 
 } // namespace TestWebKitAPI
 

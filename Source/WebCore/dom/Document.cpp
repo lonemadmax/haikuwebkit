@@ -1322,9 +1322,9 @@ CustomElementNameValidationStatus Document::validateCustomElementName(const Atom
 #if ENABLE(MATHML)
     const auto& annotationXmlLocalName = MathMLNames::annotation_xmlTag->localName();
 #else
-    static MainThreadNeverDestroyed<const AtomString> annotationXmlLocalName("annotation-xml", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> annotationXmlLocalName("annotation-xml"_s);
 #endif
-    static MainThreadNeverDestroyed<const AtomString> colorProfileLocalName("color-profile", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> colorProfileLocalName("color-profile"_s);
 
     if (localName == SVGNames::font_faceTag->localName()
         || localName == SVGNames::font_face_formatTag->localName()
@@ -1339,7 +1339,7 @@ CustomElementNameValidationStatus Document::validateCustomElementName(const Atom
     return CustomElementNameValidationStatus::Valid;
 }
 
-ExceptionOr<Ref<Element>> Document::createElementNS(const AtomString& namespaceURI, const String& qualifiedName)
+ExceptionOr<Ref<Element>> Document::createElementNS(const AtomString& namespaceURI, const AtomString& qualifiedName)
 {
     auto parseResult = parseQualifiedName(namespaceURI, qualifiedName);
     if (parseResult.hasException())
@@ -1513,7 +1513,7 @@ void Document::setCharset(const String& charset)
     decoder()->setEncoding(charset, TextResourceDecoder::UserChosenEncoding);
 }
 
-void Document::setContentLanguage(const String& language)
+void Document::setContentLanguage(const AtomString& language)
 {
     if (m_contentLanguage == language)
         return;
@@ -1927,14 +1927,14 @@ FormController& Document::formController()
     return *m_formController;
 }
 
-Vector<String> Document::formElementsState() const
+Vector<AtomString> Document::formElementsState() const
 {
     if (!m_formController)
-        return Vector<String>();
+        return { };
     return m_formController->formElementsState(*this);
 }
 
-void Document::setStateForNewFormElements(const Vector<String>& stateVector)
+void Document::setStateForNewFormElements(const Vector<AtomString>& stateVector)
 {
     if (!stateVector.size() && !m_formController)
         return;
@@ -3817,7 +3817,7 @@ void Document::setHasElementUsingStyleBasedEditability()
     m_hasElementUsingStyleBasedEditability = true;
 }
 
-void Document::processMetaHttpEquiv(const String& equiv, const String& content, bool isInDocumentHead)
+void Document::processMetaHttpEquiv(const String& equiv, const AtomString& content, bool isInDocumentHead)
 {
     ASSERT(!equiv.isNull());
     ASSERT(!content.isNull());
@@ -3981,7 +3981,7 @@ WeakPtr<HTMLMetaElement> Document::determineActiveThemeColorMetaElement()
     if (!m_metaThemeColorElements) {
         Vector<WeakPtr<HTMLMetaElement>> metaThemeColorElements;
         for (auto& metaElement : descendantsOfType<HTMLMetaElement>(*this)) {
-            if (equalLettersIgnoringASCIICase(metaElement.name(), "theme-color") && metaElement.contentColor().isValid())
+            if (equalLettersIgnoringASCIICase(metaElement.name(), "theme-color"_s) && metaElement.contentColor().isValid())
                 metaThemeColorElements.append(metaElement);
         }
         m_metaThemeColorElements = WTFMove(metaThemeColorElements);
@@ -4031,7 +4031,7 @@ void Document::processColorScheme(const String& colorSchemeString)
     bool autoEncountered = false;
 
     processColorSchemeString(colorSchemeString, [&] (StringView key) {
-        if (equalLettersIgnoringASCIICase(key, "auto")) {
+        if (equalLettersIgnoringASCIICase(key, "auto"_s)) {
             colorScheme = { };
             allowsTransformations = true;
             autoEncountered = true;
@@ -4041,11 +4041,11 @@ void Document::processColorScheme(const String& colorSchemeString)
         if (autoEncountered)
             return;
 
-        if (equalLettersIgnoringASCIICase(key, "light"))
+        if (equalLettersIgnoringASCIICase(key, "light"_s))
             colorScheme.add(ColorScheme::Light);
-        else if (equalLettersIgnoringASCIICase(key, "dark"))
+        else if (equalLettersIgnoringASCIICase(key, "dark"_s))
             colorScheme.add(ColorScheme::Dark);
-        else if (equalLettersIgnoringASCIICase(key, "only"))
+        else if (equalLettersIgnoringASCIICase(key, "only"_s))
             allowsTransformations = false;
     });
 
@@ -4070,7 +4070,7 @@ void Document::processFormatDetection(const String& features)
 {
     // FIXME: Find a better place for this function.
     processFeaturesString(features, FeatureMode::Viewport, [this](StringView key, StringView value) {
-        if (equalLettersIgnoringASCIICase(key, "telephone") && equalLettersIgnoringASCIICase(value, "no"))
+        if (equalLettersIgnoringASCIICase(key, "telephone"_s) && equalLettersIgnoringASCIICase(value, "no"_s))
             m_isTelephoneNumberParsingAllowed = false;
     });
 }
@@ -5191,44 +5191,44 @@ ExceptionOr<Ref<Event>> Document::createEvent(const String& type)
     // The following strings are the ones from the DOM specification
     // <https://dom.spec.whatwg.org/#dom-document-createevent>.
 
-    if (equalLettersIgnoringASCIICase(type, "beforeunloadevent"))
+    if (equalLettersIgnoringASCIICase(type, "beforeunloadevent"_s))
         return Ref<Event> { BeforeUnloadEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "compositionevent"))
+    if (equalLettersIgnoringASCIICase(type, "compositionevent"_s))
         return Ref<Event> { CompositionEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "customevent"))
+    if (equalLettersIgnoringASCIICase(type, "customevent"_s))
         return Ref<Event> { CustomEvent::create() };
-    if (equalLettersIgnoringASCIICase(type, "dragevent"))
+    if (equalLettersIgnoringASCIICase(type, "dragevent"_s))
         return Ref<Event> { DragEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "event") || equalLettersIgnoringASCIICase(type, "events") || equalLettersIgnoringASCIICase(type, "htmlevents") || equalLettersIgnoringASCIICase(type, "svgevents"))
+    if (equalLettersIgnoringASCIICase(type, "event"_s) || equalLettersIgnoringASCIICase(type, "events"_s) || equalLettersIgnoringASCIICase(type, "htmlevents"_s) || equalLettersIgnoringASCIICase(type, "svgevents"_s))
         return Event::createForBindings();
-    if (equalLettersIgnoringASCIICase(type, "focusevent"))
+    if (equalLettersIgnoringASCIICase(type, "focusevent"_s))
         return Ref<Event> { FocusEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "hashchangeevent"))
+    if (equalLettersIgnoringASCIICase(type, "hashchangeevent"_s))
         return Ref<Event> { HashChangeEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "keyboardevent"))
+    if (equalLettersIgnoringASCIICase(type, "keyboardevent"_s))
         return Ref<Event> { KeyboardEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "messageevent"))
+    if (equalLettersIgnoringASCIICase(type, "messageevent"_s))
         return Ref<Event> { MessageEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "storageevent"))
+    if (equalLettersIgnoringASCIICase(type, "storageevent"_s))
         return Ref<Event> { StorageEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "mouseevent") || equalLettersIgnoringASCIICase(type, "mouseevents"))
+    if (equalLettersIgnoringASCIICase(type, "mouseevent"_s) || equalLettersIgnoringASCIICase(type, "mouseevents"_s))
         return Ref<Event> { MouseEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "textevent"))
+    if (equalLettersIgnoringASCIICase(type, "textevent"_s))
         return Ref<Event> { TextEvent::createForBindings() }; // FIXME: HTML specification says this should create a CompositionEvent, not a TextEvent.
-    if (equalLettersIgnoringASCIICase(type, "uievent") || equalLettersIgnoringASCIICase(type, "uievents"))
+    if (equalLettersIgnoringASCIICase(type, "uievent"_s) || equalLettersIgnoringASCIICase(type, "uievents"_s))
         return Ref<Event> { UIEvent::createForBindings() };
 
     // FIXME: Consider including support for these event classes even when device orientation
     // support is not enabled.
 #if ENABLE(DEVICE_ORIENTATION)
-    if (equalLettersIgnoringASCIICase(type, "devicemotionevent"))
+    if (equalLettersIgnoringASCIICase(type, "devicemotionevent"_s))
         return Ref<Event> { DeviceMotionEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "deviceorientationevent"))
+    if (equalLettersIgnoringASCIICase(type, "deviceorientationevent"_s))
         return Ref<Event> { DeviceOrientationEvent::createForBindings() };
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-    if (equalLettersIgnoringASCIICase(type, "touchevent"))
+    if (equalLettersIgnoringASCIICase(type, "touchevent"_s))
         return Ref<Event> { TouchEvent::createForBindings() };
 #endif
 
@@ -5240,7 +5240,7 @@ ExceptionOr<Ref<Event>> Document::createEvent(const String& type)
     // there is no practical value in this feature.
     // FIXME: Confirm there is no content depending on this and remove it.
 
-    if (equalLettersIgnoringASCIICase(type, "svgzoomevents"))
+    if (equalLettersIgnoringASCIICase(type, "svgzoomevents"_s))
         return Ref<Event> { SVGZoomEvent::createForBindings() };
 
     // The following strings are not part of the DOM specification and we would like to eliminate them.
@@ -5249,15 +5249,15 @@ ExceptionOr<Ref<Event>> Document::createEvent(const String& type)
     // the string, remove the createForBindings function, and also consider removing the corresponding
     // init function for that class.
 
-    if (equalLettersIgnoringASCIICase(type, "keyboardevents"))
+    if (equalLettersIgnoringASCIICase(type, "keyboardevents"_s))
         return Ref<Event> { KeyboardEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "mutationevent") || equalLettersIgnoringASCIICase(type, "mutationevents"))
+    if (equalLettersIgnoringASCIICase(type, "mutationevent"_s) || equalLettersIgnoringASCIICase(type, "mutationevents"_s))
         return Ref<Event> { MutationEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "overflowevent"))
+    if (equalLettersIgnoringASCIICase(type, "overflowevent"_s))
         return Ref<Event> { OverflowEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "popstateevent"))
+    if (equalLettersIgnoringASCIICase(type, "popstateevent"_s))
         return Ref<Event> { PopStateEvent::createForBindings() };
-    if (equalLettersIgnoringASCIICase(type, "wheelevent"))
+    if (equalLettersIgnoringASCIICase(type, "wheelevent"_s))
         return Ref<Event> { WheelEvent::createForBindings() };
 
     return Exception { NotSupportedError };
@@ -5537,7 +5537,7 @@ bool Document::isValidName(const String& name)
     return isValidNameNonASCII(characters, length);
 }
 
-ExceptionOr<std::pair<AtomString, AtomString>> Document::parseQualifiedName(const String& qualifiedName)
+ExceptionOr<std::pair<AtomString, AtomString>> Document::parseQualifiedName(const AtomString& qualifiedName)
 {
     unsigned length = qualifiedName.length();
 
@@ -5576,7 +5576,7 @@ ExceptionOr<std::pair<AtomString, AtomString>> Document::parseQualifiedName(cons
     return std::pair<AtomString, AtomString> { StringView { qualifiedName }.left(colonPosition).toAtomString(), StringView { qualifiedName }.substring(colonPosition + 1).toAtomString() };
 }
 
-ExceptionOr<QualifiedName> Document::parseQualifiedName(const AtomString& namespaceURI, const String& qualifiedName)
+ExceptionOr<QualifiedName> Document::parseQualifiedName(const AtomString& namespaceURI, const AtomString& qualifiedName)
 {
     auto parseResult = parseQualifiedName(qualifiedName);
     if (parseResult.hasException())
@@ -6016,9 +6016,9 @@ String Document::designMode() const
 void Document::setDesignMode(const String& value)
 {
     InheritedBool mode;
-    if (equalLettersIgnoringASCIICase(value, "on"))
+    if (equalLettersIgnoringASCIICase(value, "on"_s))
         mode = on;
-    else if (equalLettersIgnoringASCIICase(value, "off"))
+    else if (equalLettersIgnoringASCIICase(value, "off"_s))
         mode = off;
     else
         mode = inherit;
@@ -6069,7 +6069,7 @@ ExceptionOr<Ref<Attr>> Document::createAttribute(const AtomString& localName)
     return Attr::create(*this, QualifiedName { nullAtom(), isHTMLDocument() ? localName.convertToASCIILowercase() : localName, nullAtom() }, emptyAtom());
 }
 
-ExceptionOr<Ref<Attr>> Document::createAttributeNS(const AtomString& namespaceURI, const String& qualifiedName, bool shouldIgnoreNamespaceChecks)
+ExceptionOr<Ref<Attr>> Document::createAttributeNS(const AtomString& namespaceURI, const AtomString& qualifiedName, bool shouldIgnoreNamespaceChecks)
 {
     auto parseResult = parseQualifiedName(namespaceURI, qualifiedName);
     if (parseResult.hasException())
@@ -6590,7 +6590,7 @@ void Document::parseDNSPrefetchControlHeader(const String& dnsPrefetchControl)
     if (!settings().dnsPrefetchingEnabled())
         return;
 
-    if (equalLettersIgnoringASCIICase(dnsPrefetchControl, "on") && !m_haveExplicitlyDisabledDNSPrefetch) {
+    if (equalLettersIgnoringASCIICase(dnsPrefetchControl, "on"_s) && !m_haveExplicitlyDisabledDNSPrefetch) {
         m_isDNSPrefetchEnabled = true;
         return;
     }
@@ -7517,7 +7517,7 @@ Locale& Document::getCachedLocale(const AtomString& locale)
 {
     AtomString localeKey = locale;
     if (locale.isEmpty() || !settings().langAttributeAwareFormControlUIEnabled())
-        localeKey = defaultLanguage();
+        localeKey = AtomString { defaultLanguage() };
     LocaleIdentifierToLocaleMap::AddResult result = m_localeCache.add(localeKey, nullptr);
     if (result.isNewEntry)
         result.iterator->value = Locale::create(localeKey);
@@ -8337,7 +8337,7 @@ const AtomString& Document::bgColor() const
     return bodyElement->attributeWithoutSynchronization(bgcolorAttr);
 }
 
-void Document::setBgColor(const String& value)
+void Document::setBgColor(const AtomString& value)
 {
     if (RefPtr bodyElement = body())
         bodyElement->setAttributeWithoutSynchronization(bgcolorAttr, value);
@@ -8351,7 +8351,7 @@ const AtomString& Document::fgColor() const
     return bodyElement->attributeWithoutSynchronization(textAttr);
 }
 
-void Document::setFgColor(const String& value)
+void Document::setFgColor(const AtomString& value)
 {
     if (RefPtr bodyElement = body())
         bodyElement->setAttributeWithoutSynchronization(textAttr, value);
@@ -8365,7 +8365,7 @@ const AtomString& Document::alinkColor() const
     return bodyElement->attributeWithoutSynchronization(alinkAttr);
 }
 
-void Document::setAlinkColor(const String& value)
+void Document::setAlinkColor(const AtomString& value)
 {
     if (RefPtr bodyElement = body())
         bodyElement->setAttributeWithoutSynchronization(alinkAttr, value);
@@ -8379,7 +8379,7 @@ const AtomString& Document::linkColorForBindings() const
     return bodyElement->attributeWithoutSynchronization(linkAttr);
 }
 
-void Document::setLinkColorForBindings(const String& value)
+void Document::setLinkColorForBindings(const AtomString& value)
 {
     if (RefPtr bodyElement = body())
         bodyElement->setAttributeWithoutSynchronization(linkAttr, value);
@@ -8393,7 +8393,7 @@ const AtomString& Document::vlinkColor() const
     return bodyElement->attributeWithoutSynchronization(vlinkAttr);
 }
 
-void Document::setVlinkColor(const String& value)
+void Document::setVlinkColor(const AtomString& value)
 {
     if (RefPtr bodyElement = body())
         bodyElement->setAttributeWithoutSynchronization(vlinkAttr, value);
@@ -8687,17 +8687,13 @@ RefPtr<HTMLAttachmentElement> Document::attachmentForIdentifier(const String& id
 
 static MessageSource messageSourceForWTFLogChannel(const WTFLogChannel& channel)
 {
-    static const NeverDestroyed<String> mediaChannel = MAKE_STATIC_STRING_IMPL("media");
-    static const NeverDestroyed<String> webrtcChannel = MAKE_STATIC_STRING_IMPL("webrtc");
-    static const NeverDestroyed<String> mediaSourceChannel = MAKE_STATIC_STRING_IMPL("mediasource");
-
-    if (equalIgnoringASCIICase(mediaChannel, channel.name))
+    if (equalLettersIgnoringASCIICase(channel.name, "media"_s))
         return MessageSource::Media;
 
-    if (equalIgnoringASCIICase(webrtcChannel, channel.name))
+    if (equalLettersIgnoringASCIICase(channel.name, "webrtc"_s))
         return MessageSource::WebRTC;
 
-    if (equalIgnoringASCIICase(mediaSourceChannel, channel.name))
+    if (equalLettersIgnoringASCIICase(channel.name, "mediasource"_s))
         return MessageSource::MediaSource;
 
     return MessageSource::Other;

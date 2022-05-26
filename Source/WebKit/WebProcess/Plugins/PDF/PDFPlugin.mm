@@ -662,7 +662,7 @@ inline PDFPlugin::PDFPlugin(WebFrame& frame, HTMLPlugInElement* pluginElement)
     if (supportsForms()) {
         auto* document = frame.coreFrame()->document();
         m_annotationContainer = document->createElement(divTag, false);
-        m_annotationContainer->setAttributeWithoutSynchronization(idAttr, AtomString("annotationContainer", AtomString::ConstructFromLiteral));
+        m_annotationContainer->setAttributeWithoutSynchronization(idAttr, "annotationContainer"_s);
 
         auto annotationStyleElement = document->createElement(styleTag, false);
         annotationStyleElement->setTextContent(annotationStyle);
@@ -1992,7 +1992,7 @@ RefPtr<ShareableBitmap> PDFPlugin::snapshot()
     IntSize backingStoreSize = size();
     backingStoreSize.scale(contentsScaleFactor);
 
-    auto bitmap = ShareableBitmap::createShareable(backingStoreSize, { });
+    auto bitmap = ShareableBitmap::create(backingStoreSize, { });
     if (!bitmap)
         return nullptr;
     auto context = bitmap->createGraphicsContext();

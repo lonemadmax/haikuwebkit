@@ -28,12 +28,11 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "Connection.h"
-#include "IPCSemaphore.h"
 #include "ImageBufferBackendHandle.h"
+#include "MarkSurfacesAsVolatileRequestIdentifier.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include "QualifiedRenderingResourceIdentifier.h"
-#include "RemoteDisplayListRecorder.h"
 #include "RemoteResourceCache.h"
 #include "RenderingBackendIdentifier.h"
 #include "RenderingUpdateID.h"
@@ -41,12 +40,8 @@
 #include "StreamConnectionWorkQueue.h"
 #include "StreamMessageReceiver.h"
 #include "StreamServerConnection.h"
-#include <WebCore/ColorSpace.h>
-#include <WebCore/DisplayListItemBufferIdentifier.h>
 #include <WebCore/MediaPlayerIdentifier.h>
-#include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ProcessIdentity.h>
-#include <wtf/WeakPtr.h>
 
 namespace WTF {
 enum class Critical : bool;
@@ -98,9 +93,8 @@ public:
 
     void lowMemoryHandler(WTF::Critical, WTF::Synchronous);
 
-    void willDestroyImageBuffer(WebCore::ImageBuffer&);
 #if HAVE(IOSURFACE)
-    WebCore::IOSurfacePool& ioSurfacePool() const { return *m_ioSurfacePool; }
+    WebCore::IOSurfacePool& ioSurfacePool() const { return m_ioSurfacePool; }
 #endif
 
 private:
@@ -128,7 +122,7 @@ private:
     void deleteAllFonts();
     void releaseRemoteResource(WebCore::RenderingResourceIdentifier);
     void finalizeRenderingUpdate(RenderingUpdateID);
-    void markSurfacesVolatile(const Vector<WebCore::RenderingResourceIdentifier>&, CompletionHandler<void(const Vector<WebCore::RenderingResourceIdentifier>& markedVolatileBufferIdentifiers)>&&);
+    void markSurfacesVolatile(MarkSurfacesAsVolatileRequestIdentifier, const Vector<WebCore::RenderingResourceIdentifier>&);
     void prepareBuffersForDisplay(Vector<PrepareBackingStoreBuffersInputData> swapBuffersInput, CompletionHandler<void(const Vector<PrepareBackingStoreBuffersOutputData>&)>&&);
 
     // Received messages translated to use QualifiedRenderingResourceIdentifier.
@@ -137,7 +131,6 @@ private:
     void getDataForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, QualifiedRenderingResourceIdentifier, CompletionHandler<void(Vector<uint8_t>&&)>&&);
     void getShareableBitmapForImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, WebCore::PreserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
     void cacheNativeImageWithQualifiedIdentifier(const ShareableBitmap::Handle&, QualifiedRenderingResourceIdentifier);
-    void didCreateSharedDisplayListHandleWithQualifiedIdentifier(WebCore::DisplayList::ItemBufferIdentifier, const SharedMemory::IPCHandle&, QualifiedRenderingResourceIdentifier destinationBufferIdentifier);
     void releaseRemoteResourceWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier);
     void cacheFontWithQualifiedIdentifier(Ref<WebCore::Font>&&, QualifiedRenderingResourceIdentifier);
 
@@ -152,7 +145,7 @@ private:
     RefPtr<SharedMemory> m_getPixelBufferSharedMemory;
     ScopedRenderingResourcesRequest m_renderingResourcesRequest;
 #if HAVE(IOSURFACE)
-    std::unique_ptr<WebCore::IOSurfacePool> m_ioSurfacePool;
+    Ref<WebCore::IOSurfacePool> m_ioSurfacePool;
 #endif
 
     Lock m_remoteDisplayListsLock;

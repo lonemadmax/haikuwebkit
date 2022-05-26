@@ -164,14 +164,6 @@ void RemoteRenderingBackend::didCreateImageBufferBackend(ImageBufferBackendHandl
     send(Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend(WTFMove(handle), renderingResourceIdentifier.object()), m_renderingBackendIdentifier);
 }
 
-void RemoteRenderingBackend::willDestroyImageBuffer(ImageBuffer& imageBuffer)
-{
-#if HAVE(IOSURFACE)
-    if (imageBuffer.renderingPurpose() == RenderingPurpose::LayerBacking)
-        imageBuffer.releaseBufferToPool(m_ioSurfacePool.get());
-#endif
-}
-
 void RemoteRenderingBackend::didFlush(GraphicsContextFlushIdentifier flushIdentifier, QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
 {
     MESSAGE_CHECK(renderingResourceIdentifier.processIdentifier() == m_gpuConnectionToWebProcess->webProcessIdentifier(), "Sending didFlush() message to the wrong web process.");
@@ -301,7 +293,7 @@ void RemoteRenderingBackend::getShareableBitmapForImageBufferWithQualifiedIdenti
             return;
         auto backendSize = imageBuffer->backendSize();
         auto resultSize = preserveResolution == PreserveResolution::Yes ? backendSize : imageBuffer->truncatedLogicalSize();
-        auto bitmap = ShareableBitmap::createShareable(resultSize, { imageBuffer->colorSpace() });
+        auto bitmap = ShareableBitmap::create(resultSize, { imageBuffer->colorSpace() });
         if (!bitmap)
             return;
         auto context = bitmap->createGraphicsContext();
@@ -328,7 +320,7 @@ void RemoteRenderingBackend::getFilteredImageForImageBuffer(RenderingResourceIde
         if (!image)
             return;
         auto imageSize = image->size();
-        auto bitmap = ShareableBitmap::createShareable(IntSize(imageSize), { imageBuffer->colorSpace() });
+        auto bitmap = ShareableBitmap::create(IntSize(imageSize), { imageBuffer->colorSpace() });
         if (!bitmap)
             return;
         auto context = bitmap->createGraphicsContext();
@@ -496,7 +488,7 @@ void RemoteRenderingBackend::prepareLayerBuffersForDisplay(const PrepareBackingS
     outputData.displayRequirement = needsFullDisplay ? SwapBuffersDisplayRequirement::NeedsFullDisplay : SwapBuffersDisplayRequirement::NeedsNormalDisplay;
 }
 
-void RemoteRenderingBackend::markSurfacesVolatile(const Vector<RenderingResourceIdentifier>& identifiers, CompletionHandler<void(const Vector<RenderingResourceIdentifier>& markedVolatileBufferIdentifiers)>&& completionHandler)
+void RemoteRenderingBackend::markSurfacesVolatile(MarkSurfacesAsVolatileRequestIdentifier requestIdentifier, const Vector<RenderingResourceIdentifier>& identifiers)
 {
     LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "GPU Process: RemoteRenderingBackend::markSurfacesVolatile " << identifiers);
 
@@ -517,7 +509,8 @@ void RemoteRenderingBackend::markSurfacesVolatile(const Vector<RenderingResource
 
     LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "GPU Process: markSurfacesVolatile - surfaces marked volatile " << markedVolatileBufferIdentifiers);
 
-    completionHandler(markedVolatileBufferIdentifiers);
+    bool didMarkAllLayerAsVolatile = identifiers.size() == markedVolatileBufferIdentifiers.size();
+    send(Messages::RemoteRenderingBackendProxy::DidMarkLayersAsVolatile(requestIdentifier, markedVolatileBufferIdentifiers, didMarkAllLayerAsVolatile), m_renderingBackendIdentifier);
 }
 
 void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID renderingUpdateID)

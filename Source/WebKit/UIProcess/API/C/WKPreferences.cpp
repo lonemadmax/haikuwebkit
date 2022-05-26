@@ -575,14 +575,14 @@ bool WKPreferencesGetDOMTimersThrottlingEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->domTimersThrottlingEnabled();
 }
 
-void WKPreferencesSetWebArchiveDebugModeEnabled(WKPreferencesRef preferencesRef, bool enabled)
+void WKPreferencesSetWebArchiveTestingModeEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
-    toImpl(preferencesRef)->setWebArchiveDebugModeEnabled(enabled);
+    toImpl(preferencesRef)->setWebArchiveTestingModeEnabled(enabled);
 }
 
-bool WKPreferencesGetWebArchiveDebugModeEnabled(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetWebArchiveTestingModeEnabled(WKPreferencesRef preferencesRef)
 {
-    return toImpl(preferencesRef)->webArchiveDebugModeEnabled();
+    return toImpl(preferencesRef)->webArchiveTestingModeEnabled();
 }
 
 void WKPreferencesSetLocalFileContentSniffingEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -672,16 +672,6 @@ void WKPreferencesSetAVFoundationEnabled(WKPreferencesRef preferencesRef, bool e
 bool WKPreferencesGetAVFoundationEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->isAVFoundationEnabled();
-}
-
-void WKPreferencesSetAVFoundationNSURLSessionEnabled(WKPreferencesRef preferencesRef, bool enabled)
-{
-    toImpl(preferencesRef)->setAVFoundationNSURLSessionEnabled(enabled);
-}
-
-bool WKPreferencesGetAVFoundationNSURLSessionEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->isAVFoundationNSURLSessionEnabled();
 }
 
 void WKPreferencesSetWebSecurityEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -1845,16 +1835,6 @@ bool WKPreferencesGetAccessibilityObjectModelEnabled(WKPreferencesRef preference
     return toImpl(preferencesRef)->accessibilityObjectModelEnabled();
 }
 
-void WKPreferencesSetAriaReflectionEnabled(WKPreferencesRef preferencesRef, bool flag)
-{
-    toImpl(preferencesRef)->setAriaReflectionEnabled(flag);
-}
-
-bool WKPreferencesGetAriaReflectionEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->ariaReflectionEnabled();
-}
-
 void WKPreferencesSetSyntheticEditingCommandsEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setSyntheticEditingCommandsEnabled(flag);
@@ -2048,6 +2028,15 @@ bool WKPreferencesGetRequestVideoFrameCallbackEnabled(WKPreferencesRef preferenc
 
 // The following are all deprecated and do nothing. They should be removed when possible.
 
+void WKPreferencesSetAVFoundationNSURLSessionEnabled(WKPreferencesRef, bool)
+{
+}
+
+bool WKPreferencesGetAVFoundationNSURLSessionEnabled(WKPreferencesRef)
+{
+    return true;
+}
+
 void WKPreferencesSetPrivateBrowsingEnabled(WKPreferencesRef, bool)
 {
 }
@@ -2210,6 +2199,15 @@ void WKPreferencesSetXSSAuditorEnabled(WKPreferencesRef, bool)
 }
 
 bool WKPreferencesGetXSSAuditorEnabled(WKPreferencesRef)
+{
+    return false;
+}
+
+void WKPreferencesSetWebArchiveDebugModeEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+}
+
+bool WKPreferencesGetWebArchiveDebugModeEnabled(WKPreferencesRef preferencesRef)
 {
     return false;
 }

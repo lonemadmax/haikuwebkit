@@ -178,14 +178,12 @@ void MediaSessionManagerCocoa::updateSessionState()
     if (!DeprecatedGlobalSettings::shouldManageAudioSessionCategory())
         return;
 
-    RouteSharingPolicy policy = RouteSharingPolicy::Default;
     auto category = AudioSession::CategoryType::None;
     if (captureCount || (isPlayingAudio && AudioSession::sharedSession().category() == AudioSession::CategoryType::PlayAndRecord))
         category = AudioSession::CategoryType::PlayAndRecord;
-    else if (hasAudibleAudioOrVideoMediaType) {
+    else if (hasAudibleAudioOrVideoMediaType)
         category = AudioSession::CategoryType::MediaPlayback;
-        policy = RouteSharingPolicy::LongFormAudio;
-    } else if (webAudioCount)
+    else if (webAudioCount)
         category = AudioSession::CategoryType::AmbientSound;
 
     if (category == AudioSession::CategoryType::None && m_previousCategory != AudioSession::CategoryType::None) {
@@ -197,9 +195,11 @@ void MediaSessionManagerCocoa::updateSessionState()
     } else
         m_delayCategoryChangeTimer.stop();
 
-    m_previousCategory = category;
+    RouteSharingPolicy policy = (category == AudioSession::CategoryType::MediaPlayback) ? RouteSharingPolicy::LongFormAudio : RouteSharingPolicy::Default;
 
-    ALWAYS_LOG(LOGIDENTIFIER, "setting category = ", category, ", policy = ", policy);
+    ALWAYS_LOG(LOGIDENTIFIER, "setting category = ", category, ", policy = ", policy, ", previous category = ", m_previousCategory);
+
+    m_previousCategory = category;
     AudioSession::sharedSession().setCategory(category, policy);
 }
 
@@ -309,7 +309,7 @@ void MediaSessionManagerCocoa::sessionWillEndPlayback(PlatformMediaSession& sess
     }
 }
 
-void MediaSessionManagerCocoa::clientCharacteristicsChanged(PlatformMediaSession& session)
+void MediaSessionManagerCocoa::clientCharacteristicsChanged(PlatformMediaSession& session, bool)
 {
     ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier());
     scheduleSessionStatusUpdate();
@@ -376,7 +376,7 @@ void MediaSessionManagerCocoa::setNowPlayingInfo(bool setAsNowPlayingApplication
         CFDictionarySetValue(info.get(), kMRMediaRemoteNowPlayingInfoDuration, cfDuration.get());
     }
 
-    double rate = nowPlayingInfo.isPlaying ? 1 : 0;
+    double rate = nowPlayingInfo.isPlaying ? nowPlayingInfo.rate : 0;
     auto cfRate = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &rate));
     CFDictionarySetValue(info.get(), kMRMediaRemoteNowPlayingInfoPlaybackRate, cfRate.get());
 

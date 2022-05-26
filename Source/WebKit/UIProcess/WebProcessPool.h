@@ -435,6 +435,7 @@ public:
 
     bool alwaysRunsAtBackgroundPriority() const { return m_alwaysRunsAtBackgroundPriority; }
     bool shouldTakeUIBackgroundAssertion() const { return m_shouldTakeUIBackgroundAssertion; }
+    static bool anyProcessPoolNeedsUIBackgroundAssertion();
 
 #if ENABLE(GAMEPAD)
     void gamepadConnected(const UIGamepad&, WebCore::EventMakesGamepadsVisible);
@@ -810,6 +811,7 @@ private:
 #if PLATFORM(MAC)
     std::unique_ptr<WebCore::PowerObserver> m_powerObserver;
     std::unique_ptr<PAL::SystemSleepListener> m_systemSleepListener;
+    Vector<int> m_openDirectoryNotifyTokens;
 #endif
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;

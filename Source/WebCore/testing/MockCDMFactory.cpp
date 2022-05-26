@@ -60,7 +60,7 @@ void MockCDMFactory::unregister()
 
 bool MockCDMFactory::supportsKeySystem(const String& keySystem)
 {
-    return equalLettersIgnoringASCIICase(keySystem, "org.webkit.mock");
+    return equalLettersIgnoringASCIICase(keySystem, "org.webkit.mock"_s);
 }
 
 void MockCDMFactory::addKeysToSessionWithID(const String& id, Vector<Ref<FragmentedSharedBuffer>>&& keys)
@@ -96,11 +96,6 @@ void MockCDMFactory::setSupportedDataTypes(Vector<String>&& types)
     m_supportedDataTypes.clear();
     for (auto& type : types)
         m_supportedDataTypes.append(type);
-}
-
-void MockCDMFactory::setSupportedRobustness(Vector<String>&& robustnesses)
-{
-    m_supportedRobustness = robustnesses.map([] (auto& robustness) -> AtomString { return robustness; });
 }
 
 std::unique_ptr<CDMPrivate> MockCDMFactory::createCDM(const String&, const CDMPrivateClient&)
@@ -227,7 +222,7 @@ RefPtr<FragmentedSharedBuffer> MockCDM::sanitizeResponse(const FragmentedSharedB
 
 std::optional<String> MockCDM::sanitizeSessionId(const String& sessionId) const
 {
-    if (equalLettersIgnoringASCIICase(sessionId, "valid-loaded-session"))
+    if (equalLettersIgnoringASCIICase(sessionId, "valid-loaded-session"_s))
         return sessionId;
     return std::nullopt;
 }
@@ -274,7 +269,7 @@ void MockCDMInstance::setServerCertificate(Ref<FragmentedSharedBuffer>&& certifi
 {
     StringView certificateStringView(certificate->makeContiguous()->data(), certificate->size());
 
-    callback(equalLettersIgnoringASCIICase(certificateStringView, "valid") ? Succeeded : Failed);
+    callback(equalLettersIgnoringASCIICase(certificateStringView, "valid"_s) ? Succeeded : Failed);
 }
 
 void MockCDMInstance::setStorageDirectory(const String&)

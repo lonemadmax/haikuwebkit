@@ -64,6 +64,7 @@
 #include "DFGStoreBarrierClusteringPhase.h"
 #include "DFGStoreBarrierInsertionPhase.h"
 #include "DFGStrengthReductionPhase.h"
+#include "DFGThunks.h"
 #include "DFGTierUpCheckInjectionPhase.h"
 #include "DFGTypeCheckHoistingPhase.h"
 #include "DFGUnificationPhase.h"
@@ -553,8 +554,9 @@ CompilationResult Plan::finalize()
             m_codeBlock->shrinkToFit(locker, CodeBlock::ShrinkMode::LateShrink);
         }
 
-        // Since Plan::reallyAdd could fire watchpoints (see ArrayBufferViewWatchpointAdaptor::add), it is possible that the current CodeBlock is now invalidated.
-        if (!m_codeBlock->jitCode()->dfgCommon()->isStillValid) {
+        // Since Plan::reallyAdd could fire watchpoints (see ArrayBufferViewWatchpointAdaptor::add),
+        // it is possible that the current CodeBlock is now invalidated & jettisoned.
+        if (m_codeBlock->isJettisoned()) {
             CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("invalidated"));
             return CompilationInvalidated;
         }
@@ -687,12 +689,11 @@ unsigned Plan::addLinkableConstant(void* ptr)
     return m_constantPool.add(ptr, m_constantPool.size()).iterator->value;
 }
 
-std::unique_ptr<JITData> Plan::finalizeJITData()
+std::unique_ptr<JITData> Plan::finalizeJITData(const JITCode& jitCode)
 {
-    if (m_constantPool.isEmpty())
-        return nullptr;
-    ASSERT(isUnlinked());
-    auto jitData = JITData::create(m_constantPool.size());
+    auto osrExitThunk = m_vm->getCTIStub(osrExitGenerationThunkGenerator).retagged<OSRExitPtrTag>();
+    auto exits = JITData::ExitVector::createWithSizeAndConstructorArguments(jitCode.m_osrExit.size(), osrExitThunk);
+    auto jitData = JITData::create(m_constantPool.size(), WTFMove(exits));
     for (auto& pair : m_constantPool)
         jitData->at(pair.value) = pair.key;
     return jitData;

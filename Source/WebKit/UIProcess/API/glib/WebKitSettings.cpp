@@ -229,7 +229,6 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
         webkit_settings_set_enable_html5_database(settings, g_value_get_boolean(value));
         break;
     case PROP_ENABLE_XSS_AUDITOR:
-        webkit_settings_set_enable_xss_auditor(settings, g_value_get_boolean(value));
         break;
     case PROP_ENABLE_FRAME_FLATTENING:
         webkit_settings_set_enable_frame_flattening(settings, g_value_get_boolean(value));
@@ -431,7 +430,7 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
         g_value_set_boolean(value, webkit_settings_get_enable_html5_database(settings));
         break;
     case PROP_ENABLE_XSS_AUDITOR:
-        g_value_set_boolean(value, webkit_settings_get_enable_xss_auditor(settings));
+        g_value_set_boolean(value, FALSE);
         break;
     case PROP_ENABLE_FRAME_FLATTENING:
         g_value_set_boolean(value, webkit_settings_get_enable_frame_flattening(settings));
@@ -1813,15 +1812,15 @@ void webkit_settings_set_enable_html5_database(WebKitSettings* settings, gboolea
  * webkit_settings_get_enable_xss_auditor:
  * @settings: a #WebKitSettings
  *
- * Get the #WebKitSettings:enable-xss-auditor property.
+ * The XSS auditor has been removed. This function returns %FALSE.
  *
- * Returns: %TRUE If XSS auditing is enabled or %FALSE otherwise.
+ * Returns: %FALSE
+ *
+ * Deprecated: 2.38. This function does nothing.
  */
 gboolean webkit_settings_get_enable_xss_auditor(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
-
-    g_warning("webkit_settings_get_enable_xss_auditor is deprecated and always returns FALSE. XSS auditor is no longer supported.");
 
     return FALSE;
 }
@@ -1831,14 +1830,13 @@ gboolean webkit_settings_get_enable_xss_auditor(WebKitSettings* settings)
  * @settings: a #WebKitSettings
  * @enabled: Value to be set
  *
- * Set the #WebKitSettings:enable-xss-auditor property.
+ * The XSS auditor has been removed. This function does nothing.
+ *
+ * Deprecated: 2.38. This function does nothing.
  */
 void webkit_settings_set_enable_xss_auditor(WebKitSettings* settings, gboolean enabled)
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
-
-    if (enabled)
-        g_warning("webkit_settings_set_enable_xss_auditor is deprecated and does nothing. XSS auditor is no longer supported.");
 }
 
 /**

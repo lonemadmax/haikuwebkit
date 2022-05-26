@@ -1,3 +1,165 @@
+2022-04-21  Dan Glastonbury  <djg@apple.com>
+
+        WebInspector: Improve rendering of GLbitfield in WebGL canvas recordings.
+        https://bugs.webkit.org/show_bug.cgi?id=239589
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Models/RecordingAction.js:
+        (WI.RecordingAction.bitfieldNamesForParameter.test_and_clear_bit):
+        (WI.RecordingAction.bitfieldNamesForParameter): Split known
+        bitfields into an array of valid named representation for each
+        bit. Unknown bits are returned as hexadecimal formatted string.
+        * UserInterface/Views/RecordingActionTreeElement.js:
+        (WI.RecordingActionTreeElement._generateDOM.createParameterElement):
+        (WI.RecordingActionTreeElement._generateDOM): If param has a
+        non-null, array of strings, render the array as
+        `context.FIELD1|context.FIELD2`
+
+2022-04-29  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Regression(r267038) Import a timeline does not render the timeline, only lists the events
+        https://bugs.webkit.org/show_bug.cgi?id=239872
+
+        Reviewed by Devin Rousso.
+
+        Two issues existed after r267038 that prevented the timeline overview from rendering correctly for imported
+        recordings. The first is that the timeline view itself was not visible as the result of assuming that we would
+        already be in middle of layout when inside `WI.TimelineRecordingContentView.prototype._updateTimes`, which isn't
+        true for the updating of times when importing a recording. In that case, syncronously attempting to lay out the
+        view means that the layout, including initial layout, will be performed before the view is attached, which means
+        we are unable to get the clientWidth of the view's element during layout, which in turn prevents us from
+        painting the timeline ruler.
+
+        The second issue is that when importing a timeline, we should ignore the current capturing state when setting
+        the current, start, and end times, otherwise not all the values will be kept.
+
+        * UserInterface/Views/TimelineRecordingContentView.js:
+        (WI.TimelineRecordingContentView):
+        (WI.TimelineRecordingContentView.prototype._updateTimes):
+
+2022-04-27  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Uncaught Exception: undefined is not an object (evaluating 'this.resource.hadLoadingError')
+        https://bugs.webkit.org/show_bug.cgi?id=239824
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/LocalResourceOverrideTreeElement.js:
+        (WI.LocalResourceOverrideTreeElement.prototype.updateStatus):
+
+2022-04-20  Dan Glastonbury  <djg@apple.com>
+
+        Web Inspector: Improve rendering of GLenums in WebGL canvas recordings.
+        https://bugs.webkit.org/show_bug.cgi?id=239586
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Models/RecordingAction.js:
+        (WI.RecordingAction.constantNameForParameter):
+        Arrays are also objects, so checking for typeof x == "object" is
+        not enough to distinguish arrays from dictionaries. Since the if
+        above the failing check was handling arrays, turn "object" check
+        into an `else if` handles arrays and dictionaries correctly.
+
+2022-04-27  Ziran Sun  <zsun@igalia.com>
+
+        [css-ui] Remove some unimplemented -webkit-appearance keywords
+        https://bugs.webkit.org/show_bug.cgi?id=238930
+
+        Reviewed by Aditya Keerthi.
+
+        We might need to update the changes on UserInterface/External/CodeMirror/css.js since
+        PR https://github.com/codemirror/CodeMirror/pull/6912 has been merged in CodeMirror.
+
+        * UserInterface/External/CSSDocumentation/CSSDocumentation-overrides.json:
+        * UserInterface/External/CSSDocumentation/CSSDocumentation.js:
+
+2022-04-25  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: add UI for blocking requests
+        https://bugs.webkit.org/show_bug.cgi?id=239674
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Models/LocalResourceOverride.js:
+        (WI.LocalResourceOverride):
+        (WI.LocalResourceOverride.create):
+        (WI.LocalResourceOverride.displayNameForNetworkStageOfType): Added.
+        (WI.LocalResourceOverride.displayNameForType):
+        (WI.LocalResourceOverride.displayNameForResourceErrorType): Added.
+        (WI.LocalResourceOverride.fromJSON):
+        (WI.LocalResourceOverride.prototype.toJSON):
+        (WI.LocalResourceOverride.prototype.get resourceErrorType): Added.
+        (WI.LocalResourceOverride.prototype.set resourceErrorType): Added.
+        (WI.LocalResourceOverride.prototype.get canMapToFile):
+        Add `WI.LocalResourceOverride.ResourceErrorType` (and a corresponding member variable) that
+        is be used when blocking matching requests.
+
+        * UserInterface/Controllers/NetworkManager.js:
+        (WI.NetworkManager.supportsBlockingRequests): Added.
+        (WI.NetworkManager.prototype.async requestIntercepted):
+        (WI.NetworkManager.prototype._handleResourceOverrideResourceErrorTypeChanged): Added.
+        Make sure to save `WI.LocalResourceOverride.InterceptType.Block` whenever the
+        `WI.LocalResourceOverride.ResourceErrorType` changes.
+
+        * UserInterface/Views/ContextMenuUtilities.js:
+        (WI.appendContextMenuItemsForSourceCode):
+        * UserInterface/Views/ResourceContentView.js:
+        (WI.ResourceContentView):
+        (WI.ResourceContentView.prototype._populateCreateLocalResourceOverrideContextMenu):
+        (WI.ResourceContentView.prototype._handleCreateLocalResourceOverride): Deleted.
+        Add contextmenu items for "Block Request URL".
+
+        * UserInterface/Views/LocalResourceOverrideRequestContentView.js:
+        (WI.LocalResourceOverrideRequestContentView):
+        (WI.LocalResourceOverrideRequestContentView.prototype.initialLayout):
+        (WI.LocalResourceOverrideRequestContentView.prototype.initialLayout.addOption): Added.
+        * UserInterface/Views/LocalResourceOverrideRequestContentView.css:
+        (.content-view.text.local-resource-override-request > .message-text-view select): Added.
+        There will be no request or response content for `WI.LocalResourceOverride.InterceptType.Block`
+        so show a `<select>` for choosing the `WI.LocalResourceOverride.ResourceErrorType`.
+
+        * UserInterface/Views/LocalResourceOverridePopover.js:
+        (WI.LocalResourceOverridePopover.prototype.get serializedData):
+        (WI.LocalResourceOverridePopover.prototype.show):
+        * UserInterface/Views/LocalResourceOverridePopover.css:
+        (.popover .local-resource-override-popover-content:is(.response, .block) .editor.url): Renamed from `.popover .local-resource-override-popover-content.response .editor.url`.
+        Only show the URL editor for `WI.LocalResourceOverride.InterceptType.Block`.
+
+        * UserInterface/Models/Resource.js:
+        (WI.Resource.classNamesForResource):
+        * UserInterface/Views/ResourceTreeElement.js:
+        (WI.ResourceTreeElement.prototype._updateResource):
+        (WI.ResourceTreeElement.prototype._updateIcon):
+        (WI.ResourceTreeElement.prototype._loadingDidFail): Added.
+        * UserInterface/Views/ResourceIcons.css:
+        (.resource-icon.override.skip-network .icon): Added.
+        (body:not(.window-inactive, .window-docked-inactive) :is(.table, .data-grid):focus-within .selected .resource-icon.override.skip-network .icon, body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within .selected.resource-icon.override.skip-network .icon): Added.
+        (@media (prefers-color-scheme: dark) .resource-icon.override.skip-network .icon): Added.
+        * UserInterface/Images/SkipNetwork.svg: Added.
+        Add a new icon for when requests do not involve any network activity.
+
+        * UserInterface/Views/ContentView.js:
+        (WI.ContentView.createFromRepresentedObject):
+        (WI.ContentView.resolvedRepresentedObjectForRepresentedObject):
+        * UserInterface/Views/FontResourceContentView.js:
+        (WI.FontResourceContentView.prototype.dropZoneShouldAppearForDragEvent):
+        * UserInterface/Views/ImageResourceContentView.js:
+        (WI.ImageResourceContentView.prototype.dropZoneShouldAppearForDragEvent):
+        * UserInterface/Views/LocalResourceOverrideTreeElement.js:
+        (WI.LocalResourceOverrideTreeElement.prototype.willDismissPopover):
+        Use positive checks for the desired `WI.LocalResourceOverride.InterceptType` instead of
+        a negative check for the one value meant to be exlucded in the expectation that no new
+        enum values would get added (which this patch proves to be false).
+
+        * UserInterface/Views/LocalResourceOverrideLabelView.js:
+        (WI.LocalResourceOverrideLabelView.prototype.initialLayout):
+        Use the new `WI.LocalResourceOverride.displayNameForNetworkStageOfType` instead of doing
+        that work here.
+
+        * Localizations/en.lproj/localizedStrings.js:
+
 2022-04-25  Devin Rousso  <drousso@apple.com>
 
         Web Inspector: response overrides with an error status code should indicate that somewhere

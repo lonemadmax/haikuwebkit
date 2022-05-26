@@ -50,7 +50,7 @@
 namespace WebCore {
 
 #if !PLATFORM(MAC) && !PLATFORM(IOS_FAMILY) && !USE(GSTREAMER)
-CaptureSourceOrError MockRealtimeVideoSource::create(String&& deviceID, String&& name, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError MockRealtimeVideoSource::create(String&& deviceID, AtomString&& name, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
 {
 #ifndef NDEBUG
     auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(deviceID);
@@ -73,7 +73,7 @@ static HashSet<MockRealtimeVideoSource*>& allMockRealtimeVideoSource()
     return videoSources;
 }
 
-MockRealtimeVideoSource::MockRealtimeVideoSource(String&& deviceID, String&& name, String&& hashSalt, PageIdentifier pageIdentifier)
+MockRealtimeVideoSource::MockRealtimeVideoSource(String&& deviceID, AtomString&& name, String&& hashSalt, PageIdentifier pageIdentifier)
     : RealtimeVideoCaptureSource(WTFMove(name), WTFMove(deviceID), WTFMove(hashSalt), pageIdentifier)
     , m_emitFrameTimer(RunLoop::current(), this, &MockRealtimeVideoSource::generateFrame)
 {
@@ -145,7 +145,6 @@ const RealtimeMediaSourceCapabilities& MockRealtimeVideoSource::capabilities()
             capabilities.addFacingMode(std::get<MockCameraProperties>(m_device.properties).facingMode);
             capabilities.setDeviceId(hashedId());
             updateCapabilities(capabilities);
-            capabilities.setDeviceId(hashedId());
         } else if (mockDisplay()) {
             capabilities.setWidth(CapabilityValueOrRange(72, std::get<MockDisplayProperties>(m_device.properties).defaultSize.width()));
             capabilities.setHeight(CapabilityValueOrRange(45, std::get<MockDisplayProperties>(m_device.properties).defaultSize.height()));
@@ -415,10 +414,10 @@ void MockRealtimeVideoSource::drawText(GraphicsContext& context)
         }
         string = makeString("Camera: ", camera);
         statsLocation.move(0, m_statsFontSize);
-        context.drawText(statsFont, TextRun((StringView(string))), statsLocation);
+        context.drawText(statsFont, TextRun(string), statsLocation);
     } else if (!name().isNull()) {
         statsLocation.move(0, m_statsFontSize);
-        context.drawText(statsFont, TextRun { name() }, statsLocation);
+        context.drawText(statsFont, TextRun { name().string() }, statsLocation);
     }
 
     FloatPoint bipBopLocation(captureSize.width() * .6, captureSize.height() * .6);

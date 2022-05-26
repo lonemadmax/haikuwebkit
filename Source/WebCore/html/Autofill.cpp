@@ -108,11 +108,11 @@ AutofillFieldName toAutofillFieldName(const AtomString& value)
 
 static inline bool isContactToken(const AtomString& token)
 {
-    static MainThreadNeverDestroyed<const AtomString> home("home", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> work("work", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> mobile("mobile", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> fax("fax", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> pager("pager", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> home("home"_s);
+    static MainThreadNeverDestroyed<const AtomString> work("work"_s);
+    static MainThreadNeverDestroyed<const AtomString> mobile("mobile"_s);
+    static MainThreadNeverDestroyed<const AtomString> fax("fax"_s);
+    static MainThreadNeverDestroyed<const AtomString> pager("pager"_s);
 
     return token == home || token == work || token == mobile || token == fax || token == pager;
 }
@@ -144,7 +144,7 @@ AutofillData AutofillData::createFromHTMLFormControlElement(const HTMLFormContro
     // 29. If form is not null and form's autocomplete attribute is in the off state, then let the element's autofill field name be "off". Otherwise, let the element's autofill field name be "on".
     auto defaultLabel = [&] () -> AutofillData {
         if (element.autofillMantle() == AutofillMantle::Anchor)
-            return { emptyString(), emptyString() };
+            return { emptyAtom(), emptyString() };
         
         auto form = element.form();
         if (form && form->autocomplete() == offAtom())
@@ -247,7 +247,7 @@ AutofillData AutofillData::createFromHTMLFormControlElement(const HTMLFormContro
     // 15. If the indexth token in tokens is an ASCII case-insensitive match for one of the strings
     // in the following list, then run the substeps that follow:
     const auto& modeToken = tokens[index];
-    if (equalLettersIgnoringASCIICase(modeToken, "shipping") || equalLettersIgnoringASCIICase(modeToken, "billing")) {
+    if (equalLettersIgnoringASCIICase(modeToken, "shipping"_s) || equalLettersIgnoringASCIICase(modeToken, "billing"_s)) {
         // 1. Let mode be the matching string from the list above.
         const auto& mode = modeToken;
 
@@ -276,7 +276,7 @@ AutofillData AutofillData::createFromHTMLFormControlElement(const HTMLFormContro
     // 17. If the first eight characters of the indexth token in tokens are not an ASCII case-insensitive
     // match for the string "section-", then jump to the step labeled default.
     const auto& sectionToken = tokens[index];
-    if (!startsWithLettersIgnoringASCIICase(StringView(sectionToken), "section-"))
+    if (!startsWithLettersIgnoringASCIICase(sectionToken, "section-"_s))
         return defaultLabel();
 
     // 18. Let section be the indexth token in tokens, converted to ASCII lowercase.

@@ -104,7 +104,7 @@ public:
     String toString() const;
     String toStringWithoutCopying() const;
     AtomString toAtomString() const;
-    RefPtr<AtomStringImpl> toExistingAtomString() const;
+    AtomString toExistingAtomString() const;
 
 #if USE(CF)
     // These functions convert null strings to empty strings.
@@ -222,14 +222,14 @@ bool equal(StringView, StringView);
 bool equal(StringView, const LChar* b);
 
 bool equalIgnoringASCIICase(StringView, StringView);
-bool equalIgnoringASCIICase(StringView, const char*);
+bool equalIgnoringASCIICase(StringView, const char*) = delete;
 bool equalIgnoringASCIICase(StringView, ASCIILiteral);
 
 WTF_EXPORT_PRIVATE bool equalRespectingNullity(StringView, StringView);
 bool equalIgnoringNullity(StringView, StringView);
 
-template<unsigned length> bool equalLettersIgnoringASCIICase(StringView, const char (&lowercaseLetters)[length]);
-template<unsigned length> bool startsWithLettersIgnoringASCIICase(StringView, const char (&lowercaseLetters)[length]);
+bool equalLettersIgnoringASCIICase(StringView, ASCIILiteral);
+bool startsWithLettersIgnoringASCIICase(StringView, ASCIILiteral);
 
 inline bool operator==(StringView a, StringView b) { return equal(a, b); }
 inline bool operator==(StringView a, const LChar *b);
@@ -600,7 +600,7 @@ inline AtomString StringView::toAtomString() const
     return AtomString(characters16(), m_length);
 }
 
-inline RefPtr<AtomStringImpl> StringView::toExistingAtomString() const
+inline AtomString StringView::toExistingAtomString() const
 {
     if (is8Bit())
         return AtomStringImpl::lookUp(characters8(), m_length);
@@ -707,11 +707,6 @@ inline bool equal(StringView a, const LChar* b)
 }
 
 inline bool equalIgnoringASCIICase(StringView a, StringView b)
-{
-    return equalIgnoringASCIICaseCommon(a, b);
-}
-
-inline bool equalIgnoringASCIICase(StringView a, const char* b)
 {
     return equalIgnoringASCIICaseCommon(a, b);
 }
@@ -1111,14 +1106,14 @@ StringView StringView::stripLeadingAndTrailingMatchedCharacters(const MatchedCha
     return stripLeadingAndTrailingMatchedCharacters<UChar>(characters16(), predicate);
 }
 
-template<unsigned length> inline bool equalLettersIgnoringASCIICase(StringView string, const char (&lowercaseLetters)[length])
+inline bool equalLettersIgnoringASCIICase(StringView string, ASCIILiteral literal)
 {
-    return equalLettersIgnoringASCIICaseCommon(string, lowercaseLetters);
+    return equalLettersIgnoringASCIICaseCommon(string, literal);
 }
 
-template<unsigned length> inline bool startsWithLettersIgnoringASCIICase(StringView string, const char (&lowercaseLetters)[length])
+inline bool startsWithLettersIgnoringASCIICase(StringView string, ASCIILiteral literal)
 {
-    return startsWithLettersIgnoringASCIICaseCommon(string, lowercaseLetters);
+    return startsWithLettersIgnoringASCIICaseCommon(string, literal);
 }
 
 inline bool equalIgnoringNullity(StringView a, StringView b)
@@ -1328,6 +1323,8 @@ inline String WARN_UNUSED_RETURN makeStringByReplacingAll(const String& string, 
         return String { impl->replace(target, replacement) };
     return string;
 }
+
+WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN makeStringByReplacingAll(StringView, UChar target, UChar replacement);
 
 inline String WARN_UNUSED_RETURN makeStringBySimplifyingNewLines(const String& string)
 {

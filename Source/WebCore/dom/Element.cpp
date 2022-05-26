@@ -686,7 +686,7 @@ ALWAYS_INLINE void Element::synchronizeAttribute(const QualifiedName& name) cons
 static ALWAYS_INLINE bool isStyleAttribute(const Element& element, const AtomString& attributeLocalName)
 {
     if (shouldIgnoreAttributeCase(element))
-        return equalLettersIgnoringASCIICase(attributeLocalName, "style");
+        return equalLettersIgnoringASCIICase(attributeLocalName, "style"_s);
     return attributeLocalName == styleAttr->localName();
 }
 
@@ -1461,17 +1461,17 @@ void Element::setScrollLeft(int newLeft)
     options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
 
     if (document().scrollingElement() == this) {
-        if (auto* frame = documentFrameWithNonNullView()) {
+        if (RefPtr frame = documentFrameWithNonNullView()) {
             IntPoint position(static_cast<int>(newLeft * frame->pageZoomFactor() * frame->frameScaleFactor()), frame->view()->scrollY());
             frame->view()->setScrollPosition(position, options);
         }
         return;
     }
 
-    if (auto* renderer = renderBox()) {
+    if (WeakPtr renderer = renderBox()) {
         int clampedLeft = clampToInteger(newLeft * renderer->style().effectiveZoom());
         renderer->setScrollLeft(clampedLeft, options);
-        if (auto* scrollableArea = renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
+        if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
             scrollableArea->setScrollShouldClearLatchedState(true);
     }
 }
@@ -1484,17 +1484,17 @@ void Element::setScrollTop(int newTop)
     options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
 
     if (document().scrollingElement() == this) {
-        if (auto* frame = documentFrameWithNonNullView()) {
+        if (RefPtr frame = documentFrameWithNonNullView()) {
             IntPoint position(frame->view()->scrollX(), static_cast<int>(newTop * frame->pageZoomFactor() * frame->frameScaleFactor()));
             frame->view()->setScrollPosition(position, options);
         }
         return;
     }
 
-    if (auto* renderer = renderBox()) {
+    if (WeakPtr renderer = renderBox()) {
         int clampedTop = clampToInteger(newTop * renderer->style().effectiveZoom());
         renderer->setScrollTop(clampedTop, options);
-        if (auto* scrollableArea = renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
+        if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
             scrollableArea->setScrollShouldClearLatchedState(true);
     }
 }
@@ -1814,7 +1814,7 @@ ExceptionOr<bool> Element::toggleAttribute(const AtomString& qualifiedName, std:
     unsigned index = elementData() ? elementData()->findAttributeIndexByName(caseAdjustedQualifiedName, false) : ElementData::attributeNotFound;
     if (index == ElementData::attributeNotFound) {
         if (!force || *force) {
-            setAttributeInternal(index, QualifiedName { nullAtom(), caseAdjustedQualifiedName, nullAtom() }, emptyString(), NotInSynchronizationOfLazyAttribute);
+            setAttributeInternal(index, QualifiedName { nullAtom(), caseAdjustedQualifiedName, nullAtom() }, emptyAtom(), NotInSynchronizationOfLazyAttribute);
             return true;
         }
         return false;
@@ -2001,7 +2001,7 @@ void Element::classAttributeChanged(const AtomString& newClassString)
     auto newClassNames = newStringHasClasses ? SpaceSplitString(newClassString, shouldFoldCase) : SpaceSplitString();
     {
         Style::ClassChangeInvalidation styleInvalidation(*this, oldClassNames, newClassNames);
-        elementData()->setClassNames(newClassNames);
+        elementData()->setClassNames(WTFMove(newClassNames));
     }
 
     if (hasRareData()) {
@@ -4117,9 +4117,9 @@ bool Element::isSpellCheckingEnabled() const
         auto& value = ancestor->attributeWithoutSynchronization(HTMLNames::spellcheckAttr);
         if (value.isNull())
             continue;
-        if (value.isEmpty() || equalLettersIgnoringASCIICase(value, "true"))
+        if (value.isEmpty() || equalLettersIgnoringASCIICase(value, "true"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(value, "false"))
+        if (equalLettersIgnoringASCIICase(value, "false"_s))
             return false;
     }
     return true;
@@ -4285,21 +4285,21 @@ void Element::willModifyAttribute(const QualifiedName& name, const AtomString& o
 void Element::didAddAttribute(const QualifiedName& name, const AtomString& value)
 {
     attributeChanged(name, nullAtom(), value);
-    InspectorInstrumentation::didModifyDOMAttr(document(), *this, name.toString(), value);
+    InspectorInstrumentation::didModifyDOMAttr(document(), *this, name.toAtomString(), value);
     dispatchSubtreeModifiedEvent();
 }
 
 void Element::didModifyAttribute(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue)
 {
     attributeChanged(name, oldValue, newValue);
-    InspectorInstrumentation::didModifyDOMAttr(document(), *this, name.toString(), newValue);
+    InspectorInstrumentation::didModifyDOMAttr(document(), *this, name.toAtomString(), newValue);
     // Do not dispatch a DOMSubtreeModified event here; see bug 81141.
 }
 
 void Element::didRemoveAttribute(const QualifiedName& name, const AtomString& oldValue)
 {
     attributeChanged(name, oldValue, nullAtom());
-    InspectorInstrumentation::didRemoveDOMAttr(document(), *this, name.toString());
+    InspectorInstrumentation::didRemoveDOMAttr(document(), *this, name.toAtomString());
     dispatchSubtreeModifiedEvent();
 }
 
@@ -4527,7 +4527,7 @@ void Element::createUniqueElementData()
 
 bool Element::canContainRangeEndPoint() const
 {
-    return !equalLettersIgnoringASCIICase(attributeWithoutSynchronization(roleAttr), "img");
+    return !equalLettersIgnoringASCIICase(attributeWithoutSynchronization(roleAttr), "img"_s);
 }
 
 String Element::completeURLsInAttributeValue(const URL& base, const Attribute& attribute) const
@@ -4544,7 +4544,7 @@ ExceptionOr<Node*> Element::insertAdjacent(const String& where, Ref<Node>&& newC
     // This is impossible for us to implement as the DOM tree does not allow for such structures,
     // Opera also appears to disallow such usage.
 
-    if (equalLettersIgnoringASCIICase(where, "beforebegin")) {
+    if (equalLettersIgnoringASCIICase(where, "beforebegin"_s)) {
         auto* parent = this->parentNode();
         if (!parent)
             return nullptr;
@@ -4554,21 +4554,21 @@ ExceptionOr<Node*> Element::insertAdjacent(const String& where, Ref<Node>&& newC
         return newChild.ptr();
     }
 
-    if (equalLettersIgnoringASCIICase(where, "afterbegin")) {
+    if (equalLettersIgnoringASCIICase(where, "afterbegin"_s)) {
         auto result = insertBefore(newChild, firstChild());
         if (result.hasException())
             return result.releaseException();
         return newChild.ptr();
     }
 
-    if (equalLettersIgnoringASCIICase(where, "beforeend")) {
+    if (equalLettersIgnoringASCIICase(where, "beforeend"_s)) {
         auto result = appendChild(newChild);
         if (result.hasException())
             return result.releaseException();
         return newChild.ptr();
     }
 
-    if (equalLettersIgnoringASCIICase(where, "afterend")) {
+    if (equalLettersIgnoringASCIICase(where, "afterend"_s)) {
         auto* parent = this->parentNode();
         if (!parent)
             return nullptr;
@@ -4592,13 +4592,13 @@ ExceptionOr<Element*> Element::insertAdjacentElement(const String& where, Elemen
 // Step 1 of https://w3c.github.io/DOM-Parsing/#dom-element-insertadjacenthtml.
 static ExceptionOr<ContainerNode&> contextNodeForInsertion(const String& where, Element& element)
 {
-    if (equalLettersIgnoringASCIICase(where, "beforebegin") || equalLettersIgnoringASCIICase(where, "afterend")) {
+    if (equalLettersIgnoringASCIICase(where, "beforebegin"_s) || equalLettersIgnoringASCIICase(where, "afterend"_s)) {
         auto* parent = element.parentNode();
         if (!parent || is<Document>(*parent))
             return Exception { NoModificationAllowedError };
         return *parent;
     }
-    if (equalLettersIgnoringASCIICase(where, "afterbegin") || equalLettersIgnoringASCIICase(where, "beforeend"))
+    if (equalLettersIgnoringASCIICase(where, "afterbegin"_s) || equalLettersIgnoringASCIICase(where, "beforeend"_s))
         return element;
     return Exception { SyntaxError };
 }

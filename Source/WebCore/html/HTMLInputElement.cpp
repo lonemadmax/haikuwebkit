@@ -267,18 +267,10 @@ bool HTMLInputElement::shouldAutocomplete() const
 
 bool HTMLInputElement::isValidValue(const String& value) const
 {
-    if (!m_inputType->canSetStringValue()) {
-        ASSERT_NOT_REACHED();
+    if (!m_inputType->isValidValue(value))
         return false;
-    }
-    return !m_inputType->typeMismatchFor(value)
-        && !m_inputType->stepMismatch(value)
-        && !m_inputType->rangeUnderflow(value)
-        && !m_inputType->rangeOverflow(value)
-        && !tooShort(value, IgnoreDirtyFlag)
-        && !tooLong(value, IgnoreDirtyFlag)
-        && !m_inputType->patternMismatch(value)
-        && !m_inputType->valueMissing(value);
+
+    return !tooShort(value, IgnoreDirtyFlag) && !tooLong(value, IgnoreDirtyFlag);
 }
 
 bool HTMLInputElement::tooShort() const
@@ -566,7 +558,7 @@ void HTMLInputElement::updateType()
     bool wasSuccessfulSubmitButtonCandidate = m_inputType->canBeSuccessfulSubmitButton();
 
     if (didStoreValue && !willStoreValue && hasDirtyValue()) {
-        setAttributeWithoutSynchronization(valueAttr, m_valueIfDirty);
+        setAttributeWithoutSynchronization(valueAttr, AtomString { m_valueIfDirty });
         m_valueIfDirty = String();
     }
 
@@ -749,7 +741,7 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomStrin
         addToRadioButtonGroup();
         HTMLTextFormControlElement::parseAttribute(name, value);
     } else if (name == autocompleteAttr) {
-        if (equalLettersIgnoringASCIICase(value, "off")) {
+        if (equalLettersIgnoringASCIICase(value, "off"_s)) {
             m_autocomplete = Off;
             registerForSuspensionCallbackIfNeeded();
         } else {
@@ -1964,7 +1956,7 @@ MediaCaptureType HTMLInputElement::mediaCaptureType() const
     if (captureAttribute.isNull())
         return MediaCaptureTypeNone;
     
-    if (equalLettersIgnoringASCIICase(captureAttribute, "user"))
+    if (equalLettersIgnoringASCIICase(captureAttribute, "user"_s))
         return MediaCaptureTypeUser;
     
     return MediaCaptureTypeEnvironment;

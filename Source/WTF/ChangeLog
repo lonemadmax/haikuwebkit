@@ -1,3 +1,220 @@
+2022-05-02  Justin Michaud  <justin_michaud@apple.com>
+
+        Add option to JSC shell to wait for a USR2 signal before exiting to aid in collection of vmmaps
+        https://bugs.webkit.org/show_bug.cgi?id=239919
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/threads/Signals.h:
+        (WTF::toSystemSignal):
+
+2022-05-02  Eric Carlson  <eric.carlson@apple.com>
+
+        [Cocoa] Allow more mime types in captive portal mode
+        https://bugs.webkit.org/show_bug.cgi?id=239859
+        rdar://91830683
+
+        Reviewed by Brent Fulgham.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2022-04-29  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, reverting r293621.
+
+        Reverting patch while we fix internal EWS issues, will reland
+        after
+
+        Reverted changeset:
+
+        https://commits.webkit.org/r293621
+
+2022-04-29  Philippe Normand  <philn@igalia.com>
+
+        REGRESSION(r293608): [GTK][WPE] Broke clang builds
+        https://bugs.webkit.org/show_bug.cgi?id=239899
+
+        Reviewed by Michael Catanzaro.
+
+        * wtf/StdLibExtras.h: Restrict std::remove_cvref hacks to GCC.
+
+2022-04-29  Diego Pino Garcia  <dpino@igalia.com>
+
+        [GCC] std::remove_cvref is undefined in GCC8.4
+        https://bugs.webkit.org/show_bug.cgi?id=239881
+
+        Reviewed by Žan Doberšek.
+
+        r293505 changed the guard that added std::remove_cvref if not defined
+        by GCC, checking __cplusplus <= 201703L.
+
+        However in Ubuntu GCC8.4 this flag's value is 201709L. Thus, the
+        evaluation of this flag cannot reliably determine whether the compiler
+        has to define std::remove_cvref or not.
+
+        Instead of relying on a predefined compiler flag, what the patch does is
+        to attempt to compile a small snippet of code to check whether std::remove_cvref
+        is supported by the compiler. If successful, the flag 'HAVE_STD_REMOVE_CVREF' is defined.
+
+        * wtf/StdLibExtras.h: Define std::remove_cvref if not defined by GCC.
+
+2022-04-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Make DFG::OSRExit data unlinked
+        https://bugs.webkit.org/show_bug.cgi?id=239828
+
+        Reviewed by Saam Barati.
+
+        * wtf/FixedVector.h:
+
+2022-04-28  Brent Fulgham  <bfulgham@apple.com>
+
+        Remove the AVFoundationNSURLSessionEnabled preference
+        https://bugs.webkit.org/show_bug.cgi?id=239632
+
+        Reviewed by Eric Carlson.
+
+        All supported operating systems have supported AVFoundationNSURLSession
+        for several years. Since we expect AVFoundation to always use WebKit
+        for network loading (and indeed, expect improper behavior if we do not)
+        we should remove this toggle to simplify the code and reduce the chance
+        for users to mistakenly activate it.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2022-04-28  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Support C files in Unified Builds
+        https://bugs.webkit.org/show_bug.cgi?id=239873
+
+        Reviewed by Mark Lam.
+
+        Fix a bug that we always generate empty UnifiedSource-1.xxx.
+        It also fixes a bug that this script cannot handle 0 max bundle count.
+
+        * Scripts/generate-unified-source-bundles.rb:
+
+2022-04-28  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        REGRESSION (DOM GPUP): Rich HTML emails on watchOS no longer show up
+        https://bugs.webkit.org/show_bug.cgi?id=239870
+        rdar://91311606
+
+        Reviewed by Tim Horton.
+
+        Temporarily turn GPU process for DOM off by default on watchOS.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-04-28  Per Arne Vollan  <pvollan@apple.com>
+
+        Dynamically switch message filter
+        https://bugs.webkit.org/show_bug.cgi?id=238577
+        <rdar://69263324>
+
+        Reviewed by Geoffrey Garen.
+
+        Add SPI to set sandbox state variable.
+
+        * wtf/spi/darwin/SandboxSPI.h:
+
+2022-04-28  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Use quadratic-probing instead of double-hashing
+        https://bugs.webkit.org/show_bug.cgi?id=239813
+
+        Reviewed by Geoffrey Garen.
+
+        If table size is always power-of-two, we can safely use quadratic-probing[1] even if the load exceeds 50%.
+        Quadratic-probing and double-hashing have different tradeoff between clustering possibility and CPU cache
+        friendliness. Double-hashing can avoid clustering more, but it is not CPU cache friendly. Quadratic-probing
+        can cause clustering more but better for CPU cache. And while linear-probing caused a lot of trouble and not
+        practical, quadratic-probing with 75% load factor is practical configuration which is used in production-ready
+        hashtables e.g. Google's sparsetable / densetable[2].
+
+        This patch replaces WTF::HashTable's probing algorithm from double-hashing to quadratic-probing to make it more
+        cache friendly while keeping reasonable clustering characteristics (compared to linear-probing etc.). Due to
+        this cache friendliness, we get large performance improvements.
+
+        1. 0.52% improvement in Speedometer2 with 95% probability.
+        2. 0.72% improvement in JetStream2 with 98% probability.
+
+        [1]: https://fgiesen.wordpress.com/2015/02/22/triangular-numbers-mod-2n/
+        [2]: http://goog-sparsehash.sourceforge.net/doc/implementation.html
+
+        * wtf/HashTable.h:
+        (WTF::KeyTraits>::inlineLookup):
+        (WTF::KeyTraits>::lookupForWriting):
+        (WTF::KeyTraits>::fullLookupForWriting):
+        (WTF::KeyTraits>::addUniqueForInitialization):
+        (WTF::KeyTraits>::add):
+        (WTF::doubleHash): Deleted.
+
+2022-04-28  Per Arne Vollan  <pvollan@apple.com>
+
+        [iOS] Enable IOKit blocking in GPUP by default
+        https://bugs.webkit.org/show_bug.cgi?id=239615
+
+        Reviewed by Darin Adler.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-04-26  Justin Michaud  <justin_michaud@apple.com>
+
+        [PGO] Allow collecting other kinds of pgo profiles
+        https://bugs.webkit.org/show_bug.cgi?id=239776
+
+        Reviewed by Saam Barati.
+
+        Update the way we collect PGO profiles to use LLVM's file handling, because
+        it really seems to care about that. This allowws us to try out other kinds
+        of profile generation, like the IR-based -fcs-profile-generate.
+
+        * wtf/GenerateProfiles.h:
+        (WTF::registerProfileGenerationCallback):
+
+2022-04-27  Diego Pino Garcia  <dpino@igalia.com>
+
+        [GCC] GCC9.3 defines 'remove_cvref_t' but not '__cpp_lib_remove_cvref'
+        https://bugs.webkit.org/show_bug.cgi?id=239805
+
+        Reviewed by Žan Doberšek.
+
+        GCC9.3 defines 'remove_cvref_t' but not '__cpp_lib_remove_cvref'. The
+        latter was introduced in GCC9.4:
+        
+          https://github.com/gcc-mirror/gcc/blob/releases/gcc-9.4.0/libstdc%2B%2B-v3/include/std/type_traits#L3024
+        
+        The flag '__cpp_lib_remove_cvref' is used to check whether 'remove_cvref_t'
+        is defined, but it's not posible to rely on it for GCC9.3 as explained on the
+        paragraph above.
+        
+        Instead we check whether __cplusplus is <= 201703L since the GCC commit
+        that defined 'remove_cvref_t' does it if __cplusplus > 201703L. See:
+        
+          https://github.com/gcc-mirror/gcc/commit/6791489ee5214b0181aa22adc250cbbde1897a5c
+
+        * wtf/StdLibExtras.h:
+
+2022-04-26  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        Remove AriaReflectionEnabled runtime flag
+        https://bugs.webkit.org/show_bug.cgi?id=239532
+
+        Reviewed by Chris Fleizach.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-04-26  Kate Cheney  <katherine_cheney@apple.com>
+
+        Remove WebArchiveDebugMode
+        https://bugs.webkit.org/show_bug.cgi?id=239738
+        <rdar://problem/88406961>
+
+        Reviewed by Tim Horton.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
 2022-04-23  Wenson Hsieh  <wenson_hsieh@apple.com>
 
         Remove the `PreferInlineTextSelectionInImages` internal feature flag

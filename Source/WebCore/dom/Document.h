@@ -440,9 +440,9 @@ public:
     WEBCORE_EXPORT ExceptionOr<Ref<CDATASection>> createCDATASection(String&& data);
     WEBCORE_EXPORT ExceptionOr<Ref<ProcessingInstruction>> createProcessingInstruction(String&& target, String&& data);
     WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttribute(const AtomString& name);
-    WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttributeNS(const AtomString& namespaceURI, const String& qualifiedName, bool shouldIgnoreNamespaceChecks = false);
+    WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttributeNS(const AtomString& namespaceURI, const AtomString& qualifiedName, bool shouldIgnoreNamespaceChecks = false);
     WEBCORE_EXPORT ExceptionOr<Ref<Node>> importNode(Node& nodeToImport, bool deep);
-    WEBCORE_EXPORT ExceptionOr<Ref<Element>> createElementNS(const AtomString& namespaceURI, const String& qualifiedName);
+    WEBCORE_EXPORT ExceptionOr<Ref<Element>> createElementNS(const AtomString& namespaceURI, const AtomString& qualifiedName);
     WEBCORE_EXPORT Ref<Element> createElement(const QualifiedName&, bool createdByParser);
 
     static CustomElementNameValidationStatus validateCustomElementName(const AtomString&);
@@ -473,8 +473,8 @@ public:
     void overrideMIMEType(const String&);
     WEBCORE_EXPORT String contentType() const;
 
-    String contentLanguage() const { return m_contentLanguage; }
-    void setContentLanguage(const String&);
+    const AtomString& contentLanguage() const { return m_contentLanguage; }
+    void setContentLanguage(const AtomString&);
 
     String xmlEncoding() const { return m_xmlEncoding; }
     String xmlVersion() const { return m_xmlVersion; }
@@ -583,8 +583,8 @@ public:
     void evaluateMediaQueriesAndReportChanges();
 
     FormController& formController();
-    Vector<String> formElementsState() const;
-    void setStateForNewFormElements(const Vector<String>&);
+    Vector<AtomString> formElementsState() const;
+    void setStateForNewFormElements(const Vector<AtomString>&);
 
     WEBCORE_EXPORT FrameView* view() const; // Can be null.
     WEBCORE_EXPORT Page* page() const; // Can be null.
@@ -716,7 +716,7 @@ public:
     void setBaseURLOverride(const URL&);
     const URL& baseURLOverride() const { return m_baseURLOverride; }
     const URL& baseElementURL() const { return m_baseElementURL; }
-    const String& baseTarget() const { return m_baseTarget; }
+    const AtomString& baseTarget() const { return m_baseTarget; }
     void processBaseElement();
 
     WEBCORE_EXPORT URL completeURL(const String&, ForceUTF8 = ForceUTF8::No) const final;
@@ -927,7 +927,7 @@ public:
     // when a meta tag is encountered during document parsing, and also when a script dynamically changes or adds a meta
     // tag. This enables scripts to use meta tags to perform refreshes and set expiry dates in addition to them being
     // specified in an HTML file.
-    void processMetaHttpEquiv(const String& equiv, const String& content, bool isInDocumentHead);
+    void processMetaHttpEquiv(const String& equiv, const AtomString& content, bool isInDocumentHead);
 
 #if PLATFORM(IOS_FAMILY)
     void processFormatDetection(const String&);
@@ -1029,8 +1029,8 @@ public:
 
     // The following breaks a qualified name into a prefix and a local name.
     // It also does a validity check, and returns an error if the qualified name is invalid.
-    static ExceptionOr<std::pair<AtomString, AtomString>> parseQualifiedName(const String& qualifiedName);
-    static ExceptionOr<QualifiedName> parseQualifiedName(const AtomString& namespaceURI, const String& qualifiedName);
+    static ExceptionOr<std::pair<AtomString, AtomString>> parseQualifiedName(const AtomString& qualifiedName);
+    static ExceptionOr<QualifiedName> parseQualifiedName(const AtomString& namespaceURI, const AtomString& qualifiedName);
 
     // Checks to make sure prefix and namespace do not conflict (per DOM Core 3)
     static bool hasValidNamespaceForElements(const QualifiedName&);
@@ -1511,15 +1511,15 @@ public:
     OrientationNotifier& orientationNotifier() { return m_orientationNotifier; }
 
     WEBCORE_EXPORT const AtomString& bgColor() const;
-    WEBCORE_EXPORT void setBgColor(const String&);
+    WEBCORE_EXPORT void setBgColor(const AtomString&);
     WEBCORE_EXPORT const AtomString& fgColor() const;
-    WEBCORE_EXPORT void setFgColor(const String&);
+    WEBCORE_EXPORT void setFgColor(const AtomString&);
     WEBCORE_EXPORT const AtomString& alinkColor() const;
-    WEBCORE_EXPORT void setAlinkColor(const String&);
+    WEBCORE_EXPORT void setAlinkColor(const AtomString&);
     WEBCORE_EXPORT const AtomString& linkColorForBindings() const;
-    WEBCORE_EXPORT void setLinkColorForBindings(const String&);
+    WEBCORE_EXPORT void setLinkColorForBindings(const AtomString&);
     WEBCORE_EXPORT const AtomString& vlinkColor() const;
-    WEBCORE_EXPORT void setVlinkColor(const String&);
+    WEBCORE_EXPORT void setVlinkColor(const AtomString&);
 
     // Per https://html.spec.whatwg.org/multipage/obsolete.html#dom-document-clear, this method does nothing.
     void clear() { }
@@ -1839,7 +1839,7 @@ private:
     // This property is read-only from JavaScript, but writable from Objective C.
     String m_documentURI;
 
-    String m_baseTarget;
+    AtomString m_baseTarget;
 
     // MIME type of the document in case it was cloned or created by XHR.
     String m_overriddenMIMEType;
@@ -1917,7 +1917,7 @@ private:
     StandaloneStatus m_xmlStandalone { StandaloneStatus::Unspecified };
     bool m_hasXMLDeclaration { false };
 
-    String m_contentLanguage;
+    AtomString m_contentLanguage;
 
     RefPtr<TextResourceDecoder> m_decoder;
 

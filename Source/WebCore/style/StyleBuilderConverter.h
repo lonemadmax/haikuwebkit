@@ -100,7 +100,9 @@ public:
 #endif
     static String convertString(BuilderState&, const CSSValue&);
     static String convertStringOrAuto(BuilderState&, const CSSValue&);
+    static AtomString convertStringOrAutoAtom(BuilderState& state, const CSSValue& value) { return AtomString { convertStringOrAuto(state, value) }; }
     static String convertStringOrNone(BuilderState&, const CSSValue&);
+    static AtomString convertStringOrNoneAtom(BuilderState& state, const CSSValue& value) { return AtomString { convertStringOrNone(state, value) }; }
     static OptionSet<TextEmphasisPosition> convertTextEmphasisPosition(BuilderState&, const CSSValue&);
     static TextAlignMode convertTextAlign(BuilderState&, const CSSValue&);
     static RefPtr<PathOperation> convertPathOperation(BuilderState&, const CSSValue&);
@@ -623,8 +625,8 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(BuilderState
     if (is<CSSPrimitiveValue>(value)) {
         auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
         if (primitiveValue.primitiveType() == CSSUnitType::CSS_URI) {
-            String cssURLValue = primitiveValue.stringValue();
-            String fragment = SVGURIReference::fragmentIdentifierFromIRIString(cssURLValue, builderState.document());
+            auto cssURLValue = primitiveValue.stringValue();
+            auto fragment = SVGURIReference::fragmentIdentifierFromIRIString(cssURLValue, builderState.document());
             // FIXME: It doesn't work with external SVG references (see https://bugs.webkit.org/show_bug.cgi?id=126133)
             auto target = SVGURIReference::targetElementFromIRIString(cssURLValue, builderState.document());
             return ReferencePathOperation::create(cssURLValue, fragment, downcast<SVGElement>(target.element.get()));
@@ -1368,7 +1370,7 @@ inline FontVariationSettings BuilderConverter::convertFontVariationSettings(Buil
 #if PLATFORM(IOS_FAMILY)
 inline bool BuilderConverter::convertTouchCallout(BuilderState&, const CSSValue& value)
 {
-    return !equalLettersIgnoringASCIICase(downcast<CSSPrimitiveValue>(value).stringValue(), "none");
+    return !equalLettersIgnoringASCIICase(downcast<CSSPrimitiveValue>(value).stringValue(), "none"_s);
 }
 #endif
 

@@ -78,7 +78,7 @@ static bool isCharsetSpecifyingNode(const Node& node)
     if (element.hasAttributes()) {
         for (const Attribute& attribute : element.attributesIterator()) {
             // FIXME: We should deal appropriately with the attribute if they have a namespace.
-            attributes.append(std::make_pair(attribute.name().toString(), attribute.value().string()));
+            attributes.append({ attribute.name().toAtomString(), attribute.value() });
         }
     }
     return HTMLMetaCharsetParser::encodingFromMetaAttributes(attributes).isValid();
@@ -153,7 +153,7 @@ void PageSerializer::SerializerMarkupAccumulator::appendCustomAttributes(StringB
 
     // We need to give a fake location to blank frames so they can be referenced by the serialized frame.
     url = m_serializer.urlForBlankFrame(frame);
-    appendAttribute(out, element, Attribute(frameOwnerURLAttributeName(frameOwner), url.string()), namespaces);
+    appendAttribute(out, element, Attribute(frameOwnerURLAttributeName(frameOwner), AtomString { url.string() }), namespaces);
 }
 
 void PageSerializer::SerializerMarkupAccumulator::appendEndTag(StringBuilder& out, const Element& element)

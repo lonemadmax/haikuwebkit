@@ -36,37 +36,37 @@ namespace WebCore {
 
 bool ResourceResponse::isAppendableHeader(const String &key)
 {
-    static const char* appendableHeaders[] = {
-        "access-control-allow-headers",
-        "access-control-allow-methods",
-        "access-control-allow-origin",
-        "access-control-expose-headers",
-        "allow",
-        "cache-control",
-        "connection",
-        "content-encoding",
-        "content-language",
-        "if-match",
-        "if-none-match",
-        "keep-alive",
-        "pragma",
-        "proxy-authenticate",
-        "public",
-        "server",
-        "set-cookie",
-        "te",
-        "trailer",
-        "transfer-encoding",
-        "upgrade",
-        "user-agent",
-        "vary",
-        "via",
-        "warning",
-        "www-authenticate"
+    static constexpr ASCIILiteral appendableHeaders[] = {
+        "access-control-allow-headers"_s,
+        "access-control-allow-methods"_s,
+        "access-control-allow-origin"_s,
+        "access-control-expose-headers"_s,
+        "allow"_s,
+        "cache-control"_s,
+        "connection"_s,
+        "content-encoding"_s,
+        "content-language"_s,
+        "if-match"_s,
+        "if-none-match"_s,
+        "keep-alive"_s,
+        "pragma"_s,
+        "proxy-authenticate"_s,
+        "public"_s,
+        "server"_s,
+        "set-cookie"_s,
+        "te"_s,
+        "trailer"_s,
+        "transfer-encoding"_s,
+        "upgrade"_s,
+        "user-agent"_s,
+        "vary"_s,
+        "via"_s,
+        "warning"_s,
+        "www-authenticate"_s
     };
 
     // Custom headers start with 'X-', and need no further checking.
-    if (startsWithLettersIgnoringASCIICase(key, "x-"))
+    if (startsWithLettersIgnoringASCIICase(key, "x-"_s))
         return true;
 
     for (const auto& header : appendableHeaders) {
@@ -118,7 +118,7 @@ void ResourceResponse::appendHTTPHeaderField(const String& header)
             addHTTPHeaderField(key, value);
         else
             setHTTPHeaderField(key, value);
-    } else if (startsWithLettersIgnoringASCIICase(header, "http")) {
+    } else if (startsWithLettersIgnoringASCIICase(header, "http"_s)) {
         // This is the first line of the response.
         setStatusLine(header);
     }

@@ -1120,6 +1120,7 @@
                 "border-box",
                 "padding-box",
                 "content-box",
+                "text",
                 {
                     "value": "-webkit-text",
                     "status": "non-standard"
@@ -1342,11 +1343,7 @@
                     "border-block-end-width",
                     "border-block-end-style",
                     "border-block-end-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "block-end"
-                }
+                ]
             },
             "specification": {
                 "category": "css-logical-props",
@@ -1423,11 +1420,7 @@
                     "border-block-start-width",
                     "border-block-start-style",
                     "border-block-start-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "block-start"
-                }
+                ]
             },
             "specification": {
                 "category": "css-logical-props",
@@ -1525,11 +1518,7 @@
                     "border-bottom-width",
                     "border-bottom-style",
                     "border-bottom-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "bottom"
-                }
+                ]
             },
             "specification": {
                 "category": "css-backgrounds",
@@ -1770,11 +1759,7 @@
                     "border-inline-end-width",
                     "border-inline-end-style",
                     "border-inline-end-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "inline-end"
-                }
+                ]
             },
             "specification": {
                 "category": "css-logical-props",
@@ -1851,11 +1836,7 @@
                     "border-inline-start-width",
                     "border-inline-start-style",
                     "border-inline-start-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "inline-start"
-                }
+                ]
             },
             "specification": {
                 "category": "css-logical-props",
@@ -1953,11 +1934,7 @@
                     "border-left-width",
                     "border-left-style",
                     "border-left-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "left"
-                }
+                ]
             },
             "specification": {
                 "category": "css-backgrounds",
@@ -2038,11 +2015,7 @@
                     "border-right-width",
                     "border-right-style",
                     "border-right-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "right"
-                }
+                ]
             },
             "specification": {
                 "category": "css-backgrounds",
@@ -2162,11 +2135,7 @@
                     "border-top-width",
                     "border-top-style",
                     "border-top-color"
-                ],
-                "logical-property-group": {
-                    "name": "border",
-                    "resolver": "top"
-                }
+                ]
             },
             "specification": {
                 "category": "css-backgrounds",
@@ -3363,6 +3332,7 @@
         },
         "mask-clip": {
             "codegen-properties": {
+                "related-property": "-webkit-mask-clip",
                 "name-for-methods": "Clip",
                 "fill-layer-property": true
             },
@@ -3373,6 +3343,7 @@
         },
         "mask-composite": {
             "codegen-properties": {
+                "related-property": "-webkit-mask-composite",
                 "name-for-methods": "Composite",
                 "fill-layer-property": true
             },
@@ -3396,6 +3367,7 @@
         },
         "mask-mode": {
             "codegen-properties": {
+                "related-property": "-webkit-mask-source-type",
                 "name-for-methods": "MaskMode",
                 "fill-layer-property": true
             },
@@ -3848,9 +3820,16 @@
             }
         },
         "overflow-wrap": {
+            "codegen-properties": {
+                "aliases": [
+                    "word-wrap"
+                ]
+            },
+            "inherited": true,
             "values": [
                 "normal",
-                "break-word"
+                "break-word",
+                "anywhere"
             ],
             "specification": {
                 "category": "css-text",
@@ -5118,24 +5097,6 @@
                 "url": "https://www.w3.org/TR/CSS22/text.html#propdef-word-spacing"
             }
         },
-        "word-wrap": {
-            "inherited": true,
-            "values": [
-                "normal",
-                "break-word"
-            ],
-            "codegen-properties": {
-                "name-for-methods": "OverflowWrap"
-            },
-            "status": {
-                "status": "obsolete",
-                "comment": "Replaced by overflow-wrap"
-            },
-            "specification": {
-                "category": "css-text",
-                "url": "https://www.w3.org/TR/css-text-3/#overflow-wrap"
-            }
-        },
         "x": {
             "codegen-properties": {
                 "initial": "initialZeroLength",
@@ -5188,39 +5149,22 @@
                 "push-button",
                 "square-button",
                 "button",
-                "button-bevel",
                 "default-button",
                 "inner-spin-button",
                 "listbox",
                 "listitem",
-                "media-controls-background",
                 "media-controls-dark-bar-background",
-                "media-controls-fullscreen-background",
                 "media-controls-light-bar-background",
-                "media-current-time-display",
-                "media-enter-fullscreen-button",
-                "media-exit-fullscreen-button",
                 "media-fullscreen-volume-slider",
                 "media-fullscreen-volume-slider-thumb",
-                "media-mute-button",
-                "media-overlay-play-button",
                 "media-play-button",
-                "media-return-to-realtime-button",
-                "media-rewind-button",
-                "media-seek-back-button",
-                "media-seek-forward-button",
                 "media-slider",
                 "media-sliderthumb",
-                "media-time-remaining-display",
-                "media-toggle-closed-captions-button",
                 "media-volume-slider",
-                "media-volume-slider-container",
                 "media-volume-slider-mute-button",
                 "media-volume-sliderthumb",
                 "menulist",
                 "menulist-button",
-                "menulist-text",
-                "menulist-textfield",
                 "meter",
                 "progress-bar",
                 "progress-bar-value",
@@ -6331,7 +6275,7 @@
             "inherited": true,
             "codegen-properties": {
                 "name-for-methods": "HyphenationString",
-                "converter": "StringOrAuto"
+                "converter": "StringOrAutoAtom"
             },
             "status": {
                 "status": "experimental"
@@ -6467,7 +6411,7 @@
         "-webkit-line-grid": {
             "inherited": true,
             "codegen-properties": {
-                "converter": "StringOrNone"
+                "converter": "StringOrNoneAtom"
             },
             "status": {
                 "status": "experimental"
@@ -6641,6 +6585,7 @@
         },
         "-webkit-mask-clip": {
             "codegen-properties": {
+                "related-property": "mask-clip",
                 "name-for-methods": "Clip",
                 "fill-layer-property": true
             },
@@ -6654,6 +6599,7 @@
         },
         "-webkit-mask-composite": {
             "codegen-properties": {
+                "related-property": "mask-composite",
                 "name-for-methods": "Composite",
                 "fill-layer-property": true
             },
@@ -6667,6 +6613,7 @@
         },
         "-webkit-mask-source-type": {
             "codegen-properties": {
+                "related-property": "mask-mode",
                 "synonym": "mask-mode",
                 "comment": "Deprecated alias for mask-mode, supports an 'auto' value, does not support 'match-source'"
             },
@@ -6856,6 +6803,7 @@
                 "horizontal"
             ],
             "codegen-properties": {
+                "related-property": "text-combine-upright",
                 "aliases": [
                     "-epub-text-combine"
                 ]
@@ -6868,6 +6816,7 @@
         "text-combine-upright": {
             "inherited": true,
             "codegen-properties": {
+                "related-property": "-webkit-text-combine",
                 "name-for-methods": "TextCombine"
             },
             "values": [
@@ -7279,25 +7228,14 @@
                 }
             ],
             "codegen-properties": {
+                "aliases": [
+                    "-webkit-transform-style"
+                ],
                 "name-for-methods": "TransformStyle3D"
             },
             "specification": {
                 "category": "css-transforms",
                 "url": "https://www.w3.org/TR/css-transforms-1/#transform-style-property"
-            }
-        },
-        "-webkit-transform-style": {
-            "values": [
-                "flat",
-                "preserve-3d",
-                {
-                    "value": "optimized-3d",
-                    "status": "internal"
-                }
-            ],
-            "codegen-properties": {
-                "name-for-methods": "TransformStyle3D",
-                "comment": "Keeping -webkit-transform-style around is how we'll detect legacy content. At that point, we'll have to add a custom builder and a new TransformStyle3D type. FIXME: this never happened."
             }
         },
         "translate": {

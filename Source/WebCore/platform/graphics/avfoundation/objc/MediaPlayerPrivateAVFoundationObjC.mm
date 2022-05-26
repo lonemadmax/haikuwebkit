@@ -808,7 +808,7 @@ static bool willUseWebMFormatReaderForType(const String& type)
     if (!SourceBufferParserWebM::isWebMFormatReaderAvailable())
         return false;
 
-    return equalLettersIgnoringASCIICase(type, "video/webm") || equalLettersIgnoringASCIICase(type, "audio/webm");
+    return equalLettersIgnoringASCIICase(type, "video/webm"_s) || equalLettersIgnoringASCIICase(type, "audio/webm"_s);
 #else
     UNUSED_PARAM(type);
     return false;
@@ -1008,14 +1008,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
     AVAssetResourceLoader *resourceLoader = m_avAsset.get().resourceLoader;
     [resourceLoader setDelegate:m_loaderDelegate.get() queue:globalLoaderDelegateQueue()];
 
-    if (DeprecatedGlobalSettings::isAVFoundationNSURLSessionEnabled()
-        && [resourceLoader respondsToSelector:@selector(setURLSession:)]
-        && [resourceLoader respondsToSelector:@selector(URLSessionDataDelegate)]
-        && [resourceLoader respondsToSelector:@selector(URLSessionDataDelegateQueue)]) {
-        RefPtr<PlatformMediaResourceLoader> mediaResourceLoader = player()->createResourceLoader();
-        if (mediaResourceLoader)
-            resourceLoader.URLSession = (NSURLSession *)adoptNS([[WebCoreNSURLSession alloc] initWithResourceLoader:*mediaResourceLoader delegate:resourceLoader.URLSessionDataDelegate delegateQueue:resourceLoader.URLSessionDataDelegateQueue]).get();
-    }
+    if (auto mediaResourceLoader = player()->createResourceLoader())
+        resourceLoader.URLSession = (NSURLSession *)adoptNS([[WebCoreNSURLSession alloc] initWithResourceLoader:*mediaResourceLoader delegate:resourceLoader.URLSessionDataDelegate delegateQueue:resourceLoader.URLSessionDataDelegateQueue]).get();
 
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(chapterMetadataDidChange:) name:AVAssetChapterMetadataGroupsDidChangeNotification object:m_avAsset.get()];
 
@@ -2018,9 +2012,9 @@ void MediaPlayerPrivateAVFoundationObjC::getSupportedTypes(HashSet<String, ASCII
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 static bool keySystemIsSupported(const String& keySystem)
 {
-    return equalLettersIgnoringASCIICase(keySystem, "com.apple.fps")
-        || equalIgnoringASCIICase(keySystem, "com.apple.fps.1_0")
-        || equalLettersIgnoringASCIICase(keySystem, "org.w3c.clearkey");
+    return equalLettersIgnoringASCIICase(keySystem, "com.apple.fps"_s)
+        || equalIgnoringASCIICase(keySystem, "com.apple.fps.1_0"_s)
+        || equalLettersIgnoringASCIICase(keySystem, "org.w3c.clearkey"_s);
 }
 #endif
 
@@ -2053,7 +2047,7 @@ bool MediaPlayerPrivateAVFoundationObjC::supportsKeySystem(const String& keySyst
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     if (!keySystem.isEmpty()) {
         // "Clear Key" is only supported with HLS:
-        if (equalLettersIgnoringASCIICase(keySystem, "org.w3c.clearkey") && !mimeType.isEmpty() && !equalLettersIgnoringASCIICase(mimeType, "application/x-mpegurl"))
+        if (equalLettersIgnoringASCIICase(keySystem, "org.w3c.clearkey"_s) && !mimeType.isEmpty() && !equalLettersIgnoringASCIICase(mimeType, "application/x-mpegurl"_s))
             return false;
 
         if (!keySystemIsSupported(keySystem))
@@ -2582,10 +2576,6 @@ void MediaPlayerPrivateAVFoundationObjC::resolvedURLChanged()
 bool MediaPlayerPrivateAVFoundationObjC::didPassCORSAccessCheck() const
 {
     AVAssetResourceLoader *resourceLoader = m_avAsset.get().resourceLoader;
-    if (!DeprecatedGlobalSettings::isAVFoundationNSURLSessionEnabled()
-        || ![resourceLoader respondsToSelector:@selector(URLSession)])
-        return false;
-
     WebCoreNSURLSession *session = (WebCoreNSURLSession *)resourceLoader.URLSession;
     if ([session isKindOfClass:[WebCoreNSURLSession class]])
         return session.didPassCORSAccessChecks;
@@ -2596,10 +2586,6 @@ bool MediaPlayerPrivateAVFoundationObjC::didPassCORSAccessCheck() const
 std::optional<bool> MediaPlayerPrivateAVFoundationObjC::wouldTaintOrigin(const SecurityOrigin& origin) const
 {
     AVAssetResourceLoader *resourceLoader = m_avAsset.get().resourceLoader;
-    if (!DeprecatedGlobalSettings::isAVFoundationNSURLSessionEnabled()
-        || ![resourceLoader respondsToSelector:@selector(URLSession)])
-        return false;
-
     WebCoreNSURLSession *session = (WebCoreNSURLSession *)resourceLoader.URLSession;
     if ([session isKindOfClass:[WebCoreNSURLSession class]])
         return [session wouldTaintOrigin:origin];
@@ -3520,12 +3506,12 @@ void MediaPlayerPrivateAVFoundationObjC::setBufferingPolicy(MediaPlayer::Bufferi
 #if ENABLE(DATACUE_VALUE)
 static const AtomString& metadataType(NSString *avMetadataKeySpace)
 {
-    static MainThreadNeverDestroyed<const AtomString> quickTimeUserData("com.apple.quicktime.udta", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> isoUserData("org.mp4ra", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> quickTimeMetadata("com.apple.quicktime.mdta", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> iTunesMetadata("com.apple.itunes", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> id3Metadata("org.id3", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> hlsDateRangeMetadata("com.apple.quicktime.HLS", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> quickTimeUserData("com.apple.quicktime.udta"_s);
+    static MainThreadNeverDestroyed<const AtomString> isoUserData("org.mp4ra"_s);
+    static MainThreadNeverDestroyed<const AtomString> quickTimeMetadata("com.apple.quicktime.mdta"_s);
+    static MainThreadNeverDestroyed<const AtomString> iTunesMetadata("com.apple.itunes"_s);
+    static MainThreadNeverDestroyed<const AtomString> id3Metadata("org.id3"_s);
+    static MainThreadNeverDestroyed<const AtomString> hlsDateRangeMetadata("com.apple.quicktime.HLS"_s);
 
     if ([avMetadataKeySpace isEqualToString:AVMetadataKeySpaceQuickTimeUserData])
         return quickTimeUserData;

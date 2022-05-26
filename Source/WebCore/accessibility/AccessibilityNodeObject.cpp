@@ -419,7 +419,7 @@ AccessibilityRole AccessibilityNodeObject::determineAccessibilityRoleFromNode(Tr
     }
 
     // menu tags with toolbar type should have Toolbar role.
-    if (node()->hasTagName(menuTag) && equalLettersIgnoringASCIICase(getAttribute(typeAttr), "toolbar"))
+    if (node()->hasTagName(menuTag) && equalLettersIgnoringASCIICase(getAttribute(typeAttr), "toolbar"_s))
         return AccessibilityRole::Toolbar;
     if (node()->hasTagName(timeTag))
         return AccessibilityRole::Time;
@@ -736,9 +736,9 @@ bool AccessibilityNodeObject::isEnabled() const
     // ARIA says that the disabled status applies to the current element and all descendant elements.
     for (AccessibilityObject* object = const_cast<AccessibilityNodeObject*>(this); object; object = object->parentObject()) {
         const AtomString& disabledStatus = object->getAttribute(aria_disabledAttr);
-        if (equalLettersIgnoringASCIICase(disabledStatus, "true"))
+        if (equalLettersIgnoringASCIICase(disabledStatus, "true"_s))
             return false;
-        if (equalLettersIgnoringASCIICase(disabledStatus, "false"))
+        if (equalLettersIgnoringASCIICase(disabledStatus, "false"_s))
             break;
     }
     
@@ -754,7 +754,7 @@ bool AccessibilityNodeObject::isEnabled() const
 
 bool AccessibilityNodeObject::isIndeterminate() const
 {
-    return equalLettersIgnoringASCIICase(getAttribute(indeterminateAttr), "true");
+    return equalLettersIgnoringASCIICase(getAttribute(indeterminateAttr), "true"_s);
 }
 
 bool AccessibilityNodeObject::isPressed() const
@@ -768,7 +768,7 @@ bool AccessibilityNodeObject::isPressed() const
 
     // If this is an toggle button, check the aria-pressed attribute rather than node()->active()
     if (isToggleButton())
-        return equalLettersIgnoringASCIICase(getAttribute(aria_pressedAttr), "true");
+        return equalLettersIgnoringASCIICase(getAttribute(aria_pressedAttr), "true"_s);
 
     if (!is<Element>(*node))
         return false;
@@ -801,7 +801,7 @@ bool AccessibilityNodeObject::isChecked() const
         break;
     }
     
-    if (validRole && equalLettersIgnoringASCIICase(getAttribute(aria_checkedAttr), "true"))
+    if (validRole && equalLettersIgnoringASCIICase(getAttribute(aria_checkedAttr), "true"_s))
         return true;
 
     return false;
@@ -816,9 +816,9 @@ bool AccessibilityNodeObject::isHovered() const
 bool AccessibilityNodeObject::isMultiSelectable() const
 {
     const AtomString& ariaMultiSelectable = getAttribute(aria_multiselectableAttr);
-    if (equalLettersIgnoringASCIICase(ariaMultiSelectable, "true"))
+    if (equalLettersIgnoringASCIICase(ariaMultiSelectable, "true"_s))
         return true;
-    if (equalLettersIgnoringASCIICase(ariaMultiSelectable, "false"))
+    if (equalLettersIgnoringASCIICase(ariaMultiSelectable, "false"_s))
         return false;
     
     return node() && node()->hasTagName(selectTag) && downcast<HTMLSelectElement>(*node()).multiple();
@@ -828,9 +828,9 @@ bool AccessibilityNodeObject::isRequired() const
 {
     // Explicit aria-required values should trump native required attributes.
     const AtomString& requiredValue = getAttribute(aria_requiredAttr);
-    if (equalLettersIgnoringASCIICase(requiredValue, "true"))
+    if (equalLettersIgnoringASCIICase(requiredValue, "true"_s))
         return true;
-    if (equalLettersIgnoringASCIICase(requiredValue, "false"))
+    if (equalLettersIgnoringASCIICase(requiredValue, "false"_s))
         return false;
 
     Node* n = this->node();
@@ -1301,7 +1301,7 @@ void AccessibilityNodeObject::changeValueByPercent(float percentChange)
 
 bool AccessibilityNodeObject::elementAttributeValue(const QualifiedName& attributeName) const
 {
-    return equalLettersIgnoringASCIICase(getAttribute(attributeName), "true");
+    return equalLettersIgnoringASCIICase(getAttribute(attributeName), "true"_s);
 }
 
 bool AccessibilityNodeObject::isGenericFocusableElement() const
@@ -1401,7 +1401,7 @@ String AccessibilityNodeObject::ariaAccessibilityDescription() const
     return String();
 }
 
-static Element* siblingWithAriaRole(Node* node, const char* role)
+static Element* siblingWithAriaRole(Node* node, ASCIILiteral role)
 {
     // FIXME: Either we should add a null check here or change the function to take a reference instead of a pointer.
     ContainerNode* parent = node->parentNode();
@@ -1422,7 +1422,7 @@ Element* AccessibilityNodeObject::menuElementForMenuButton() const
     if (ariaRoleAttribute() != AccessibilityRole::MenuButton)
         return nullptr;
 
-    return siblingWithAriaRole(node(), "menu");
+    return siblingWithAriaRole(node(), "menu"_s);
 }
 
 AccessibilityObject* AccessibilityNodeObject::menuForMenuButton() const
@@ -1437,7 +1437,7 @@ Element* AccessibilityNodeObject::menuItemElementForMenu() const
     if (ariaRoleAttribute() != AccessibilityRole::Menu)
         return nullptr;
     
-    return siblingWithAriaRole(node(), "menuitem");
+    return siblingWithAriaRole(node(), "menuitem"_s);
 }
 
 AccessibilityObject* AccessibilityNodeObject::menuButtonForMenu() const
@@ -1991,7 +1991,7 @@ static bool shouldUseAccessibilityObjectInnerText(AccessibilityObject* obj, Acce
         && !obj->accessibleNameDerivesFromContent())
         return false;
     
-    if (equalLettersIgnoringASCIICase(obj->getAttribute(aria_hiddenAttr), "true"))
+    if (equalLettersIgnoringASCIICase(obj->getAttribute(aria_hiddenAttr), "true"_s))
         return false;
     
     // If something doesn't expose any children, then we can always take the inner text content.
@@ -2044,19 +2044,15 @@ String AccessibilityNodeObject::textUnderElement(AccessibilityTextUnderElementMo
         return downcast<Text>(*node).wholeText();
 
     bool isAriaVisible = Accessibility::findAncestor<AccessibilityObject>(*this, true, [] (const AccessibilityObject& object) {
-        return equalLettersIgnoringASCIICase(object.getAttribute(aria_hiddenAttr), "false");
+        return equalLettersIgnoringASCIICase(object.getAttribute(aria_hiddenAttr), "false"_s);
     }) != nullptr;
 
     // The Accname specification states that if the current node is hidden, and not directly
     // referenced by aria-labelledby or aria-describedby, and is not a host language text
     // alternative, the empty string should be returned.
     if (isDOMHidden() && !isAriaVisible && !is<HTMLLabelElement>(node) && (node && !ancestorsOfType<HTMLCanvasElement>(*node).first())) {
-        AccessibilityObject::AccessibilityChildrenVector labelFor;
-        AccessibilityObject::AccessibilityChildrenVector descriptionFor;
-        ariaLabelledByReferencingElements(labelFor);
-        ariaDescribedByReferencingElements(descriptionFor);
-        if (!labelFor.size() && !descriptionFor.size())
-            return String();
+        if (labelForObjects().isEmpty() && descriptionForObjects().isEmpty())
+            return { };
     }
 
     StringBuilder builder;

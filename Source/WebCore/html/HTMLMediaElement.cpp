@@ -768,9 +768,9 @@ void HTMLMediaElement::parseAttribute(const QualifiedName& name, const AtomStrin
     else if (name == loopAttr)
         updateSleepDisabling();
     else if (name == preloadAttr) {
-        if (equalLettersIgnoringASCIICase(value, "none"))
+        if (equalLettersIgnoringASCIICase(value, "none"_s))
             m_preload = MediaPlayer::Preload::None;
-        else if (equalLettersIgnoringASCIICase(value, "metadata"))
+        else if (equalLettersIgnoringASCIICase(value, "metadata"_s))
             m_preload = MediaPlayer::Preload::MetaData;
         else {
             // The spec does not define an "invalid value default" but "auto" is suggested as the
@@ -789,7 +789,7 @@ void HTMLMediaElement::parseAttribute(const QualifiedName& name, const AtomStrin
             removeBehaviorRestrictionsAfterFirstUserGesture();
     } else if (name == titleAttr) {
         if (m_mediaSession)
-            m_mediaSession->clientCharacteristicsChanged();
+            m_mediaSession->clientCharacteristicsChanged(false);
     }
     else
         HTMLElement::parseAttribute(name, value);
@@ -893,7 +893,7 @@ void HTMLMediaElement::removedFromAncestor(RemovalType removalType, ContainerNod
     }
 
     if (m_mediaSession)
-        m_mediaSession->clientCharacteristicsChanged();
+        m_mediaSession->clientCharacteristicsChanged(false);
 
     HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
 }
@@ -2352,7 +2352,7 @@ void HTMLMediaElement::mediaLoadingFailed(MediaPlayer::NetworkState error)
 
     logMediaLoadRequest(document().page(), String(), convertEnumerationToString(error), false);
 
-    mediaSession().clientCharacteristicsChanged();
+    mediaSession().clientCharacteristicsChanged(false);
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     if (!m_hasPlaybackTargetAvailabilityListeners)
         mediaSession().setActive(false);
@@ -2577,7 +2577,7 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
             scheduleUpdateMediaState();
 #endif
 
-            mediaSession().clientCharacteristicsChanged();
+            mediaSession().clientCharacteristicsChanged(false);
 
             // As the spec only mentiones HAVE_METADATA, run the later
             // steps if we are moving to a higher state.
@@ -3319,7 +3319,7 @@ void HTMLMediaElement::finishSeek()
         scheduleEvent(eventNames().canplayEvent);
 
     if (m_mediaSession)
-        m_mediaSession->clientCharacteristicsChanged();
+        m_mediaSession->clientCharacteristicsChanged(true);
 
 #if ENABLE(MEDIA_SOURCE)
     if (m_mediaSource)
@@ -3666,7 +3666,7 @@ String HTMLMediaElement::preload() const
     return String();
 }
 
-void HTMLMediaElement::setPreload(const String& preload)
+void HTMLMediaElement::setPreload(const AtomString& preload)
 {
     ALWAYS_LOG(LOGIDENTIFIER, preload);
 #if ENABLE(MEDIA_STREAM)
@@ -4375,7 +4375,7 @@ void HTMLMediaElement::forgetResourceSpecificTracks()
         removeVideoTrack(*m_videoTracks->lastItem());
 }
 
-ExceptionOr<TextTrack&> HTMLMediaElement::addTextTrack(const String& kind, const String& label, const String& language)
+ExceptionOr<TextTrack&> HTMLMediaElement::addTextTrack(const AtomString& kind, const AtomString& label, const AtomString& language)
 {
     // 4.8.10.12.4 Text track API
     // The addTextTrack(kind, label, language) method of media elements, when invoked, must run the following steps:
@@ -4390,7 +4390,7 @@ ExceptionOr<TextTrack&> HTMLMediaElement::addTextTrack(const String& kind, const
 
     // 5. Create a new text track corresponding to the new object, and set its text track kind to kind, its text
     // track label to label, its text track language to language...
-    auto track = TextTrack::create(&document(), kind, emptyString(), label, language);
+    auto track = TextTrack::create(&document(), kind, emptyAtom(), label, language);
     auto& trackReference = track.get();
 #if !RELEASE_LOG_DISABLED
     trackReference.setLogger(logger(), logIdentifier());
@@ -5918,7 +5918,7 @@ void HTMLMediaElement::clearMediaPlayer()
 
     queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
         if (m_mediaSession) {
-            m_mediaSession->clientCharacteristicsChanged();
+            m_mediaSession->clientCharacteristicsChanged(false);
             m_mediaSession->canProduceAudioChanged();
         }
     });
@@ -8379,15 +8379,26 @@ void HTMLMediaElement::updateShouldAutoplay()
     bool canAutoplay = mediaSession().autoplayPermitted();
 
     if (canAutoplay) {
-        if (mediaSession().state() == PlatformMediaSession::Interrupted) {
-            if (mediaSession().interruptionType() == PlatformMediaSession::InvisibleAutoplay)
-                mediaSession().endInterruption(PlatformMediaSession::MayResumePlaying);
-        } else if (!isPlaying())
+        if (m_wasInterruptedForInvisibleAutoplay) {
+            m_wasInterruptedForInvisibleAutoplay = false;
+            mediaSession().endInterruption(PlatformMediaSession::MayResumePlaying);
+            return;
+        }
+        if (!isPlaying())
             resumeAutoplaying();
         return;
     }
-    if (mediaSession().state() != PlatformMediaSession::Interrupted)
-        mediaSession().beginInterruption(PlatformMediaSession::InvisibleAutoplay);
+
+    if (mediaSession().state() == PlatformMediaSession::Interrupted)
+        return;
+
+    if (m_wasInterruptedForInvisibleAutoplay) {
+        m_wasInterruptedForInvisibleAutoplay = false;
+        mediaSession().endInterruption(PlatformMediaSession::NoFlags);
+    }
+
+    m_wasInterruptedForInvisibleAutoplay = true;
+    mediaSession().beginInterruption(PlatformMediaSession::InvisibleAutoplay);
 }
 
 void HTMLMediaElement::updateShouldPlay()
