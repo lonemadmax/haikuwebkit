@@ -118,7 +118,7 @@ std::pair<String, bool> NetworkStorageSession::cookiesForDOM(const URL& firstPar
 	}
 	result.Remove(0, 2);
 
-    return {result, secure};
+    return {String::fromUTF8(result), secure};
 }
 
 void NetworkStorageSession::setCookies(const Vector<Cookie>&, const URL&, const URL&)
@@ -223,7 +223,7 @@ std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(con
 	}
 	result.Remove(0, 2);
 
-    return {result, secure};
+    return {String::fromUTF8(result.String()), secure};
 }
 
 std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(

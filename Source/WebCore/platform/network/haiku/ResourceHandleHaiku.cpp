@@ -135,8 +135,8 @@ void ResourceHandle::receivedRequestToContinueWithoutCredential(const Authentica
     ASSERT(!challenge.isNull());
     ResourceHandleInternal* internal = getInternal();
 
-    internal->m_user = "";
-    internal->m_password = "";
+    internal->m_user = String();
+    internal->m_password = String();
 
     clearAuthentication();
 }

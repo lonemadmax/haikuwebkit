@@ -285,7 +285,6 @@ public:
 #endif
 
 #if PLATFORM(HAIKU)
-    String(const BString&);
     operator BString() const;
 #endif
 

@@ -107,14 +107,14 @@ void BWebFrame::LoadURL(BString urlString)
     WTF::URL url;
     if (BEntry(urlString.String()).Exists()) {
         url.setProtocol("file");
-        url.setPath(String(urlString));
+        url.setPath(String::fromUTF8(urlString.String()));
     } else
-		url = WTF::URL(WTF::URL(), urlString.Trim());
+		url = WTF::URL(WTF::URL(), String::fromUTF8(urlString.Trim().String()));
 
 	if (!url.isValid()) {
         BString fixedUrl("http://");
         fixedUrl << urlString.Trim();
-		url = WTF::URL(WTF::URL(), fixedUrl);
+		url = WTF::URL(WTF::URL(), String::fromUTF8(fixedUrl.String()));
 	}
     LoadURL(url);
 }
@@ -306,7 +306,7 @@ BString BWebFrame::ExternalRepresentation() const
 bool BWebFrame::FindString(const BString& string, WebCore::FindOptions options)
 {
     if (fData->page)
-        return fData->page->findString(string, options);
+        return fData->page->findString(String::fromUTF8(string.String()), options);
     return false;
 }
 
@@ -410,7 +410,7 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
     WebCore::HTMLFrameOwnerElement* ownerElement)
 {
     WebFramePrivate* data = new WebFramePrivate(page->page());
-    data->name = name;
+    data->name = String::fromUTF8(name.String());
     data->ownerElement = ownerElement;
 
     BWebFrame* frame = new(std::nothrow) BWebFrame(page, this, data);

@@ -401,7 +401,7 @@ static HashSet<String, WTF::ASCIICaseInsensitiveHash> mimeTypeCache()
 
     // Add the types the Haiku Media Kit add-ons advertise support for
     while(get_next_file_format(&cookie, &mfi) == B_OK) {
-        cache.get().add(String(mfi.mime_type));
+        cache.get().add(String::fromUTF8(mfi.mime_type));
     }
 
     typeListInitialized = true;

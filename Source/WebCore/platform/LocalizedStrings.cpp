@@ -85,15 +85,15 @@ String formatLocalizedString(const char* format, ...)
     va_end(arguments);
     return String::fromUTF8(result.get());
 #elif USE(HAIKU)
-	BString formatted;
-	va_list arguments;
+    BString formatted;
+    va_list arguments;
     va_start(arguments, format);
 
-	formatted.SetToFormatVarArgs(format, arguments);
+    formatted.SetToFormatVarArgs(format, arguments);
 
     va_end(arguments);
 
-	return formatted;
+    return String::fromUTF8(formatted.String());
 #else
     notImplemented();
     return String::fromUTF8(format);

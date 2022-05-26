@@ -121,9 +121,9 @@ BUrlRequestWrapper::BUrlRequestWrapper(BUrlProtocolHandler* handler, NetworkStor
     if (m_request->Run() < B_OK) {
         deref();
 
-        ResourceError error("BUrlProtocol", 42,
+        ResourceError error(ASCIILiteral::fromLiteralUnsafe("BUrlProtocol"), 42,
             request.url(),
-            "The service kit failed to start the request.");
+            ASCIILiteral::fromLiteralUnsafe("The service kit failed to start the request."));
         m_handler->didFail(error);
 
         return;
@@ -164,9 +164,10 @@ void BUrlRequestWrapper::HeadersReceived(BPrivate::Network::BUrlRequest* caller)
 
     const BPrivate::Network::BUrlResult& result = caller->Result();
 
+    String contentType = String::fromUTF8(result.ContentType());
     ResourceResponse response(URL(caller->Url()),
-        extractMIMETypeFromMediaType(result.ContentType()), result.Length(),
-        extractCharsetFromMediaType(result.ContentType()));
+        extractMIMETypeFromMediaType(contentType), result.Length(),
+        extractCharsetFromMediaType(contentType).toString());
 
     const BPrivate::Network::BHttpResult* httpResult = dynamic_cast<const BPrivate::Network::BHttpResult*>(&result);
     if (httpResult) {
@@ -177,13 +178,13 @@ void BUrlRequestWrapper::HeadersReceived(BPrivate::Network::BUrlRequest* caller)
             response.setSuggestedFilename(suggestedFilename);
 
         response.setHTTPStatusCode(httpResult->StatusCode());
-        response.setHTTPStatusText(httpResult->StatusText());
+        response.setHTTPStatusText(String::fromUTF8(httpResult->StatusText().String()));
 
         // Add remaining headers.
         const BPrivate::Network::BHttpHeaders& resultHeaders = httpResult->Headers();
         for (int i = 0; i < resultHeaders.CountHeaders(); i++) {
             BPrivate::Network::BHttpHeader& headerPair = resultHeaders.HeaderAt(i);
-            response.setHTTPHeaderField(headerPair.Name(), headerPair.Value());
+            response.setHTTPHeaderField(String::fromUTF8(headerPair.Name()), String::fromUTF8(headerPair.Value()));
         }
 
         if (response.isRedirection() && !response.httpHeaderField(HTTPHeaderName::Location).isEmpty()) {
@@ -238,8 +239,8 @@ void BUrlRequestWrapper::RequestCompleted(BPrivate::Network::BUrlRequest* caller
         int httpStatusCode = result.StatusCode();
 
         if (httpStatusCode != 0) {
-            ResourceError error("HTTP", httpStatusCode,
-                URL(caller->Url()), strerror(caller->Status()));
+            ResourceError error(ASCIILiteral::fromLiteralUnsafe("HTTP"), httpStatusCode,
+                URL(caller->Url()), String::fromUTF8(strerror(caller->Status())));
 
             m_handler->didFail(error);
             return;
@@ -248,7 +249,7 @@ void BUrlRequestWrapper::RequestCompleted(BPrivate::Network::BUrlRequest* caller
 
     // If we get here, it means we are in failure without an HTTP error code
     // (DNS error, or error from a protocol other than HTTP).
-    ResourceError error("BUrlRequest", caller->Status(), URL(caller->Url()), strerror(caller->Status()));
+    ResourceError error(ASCIILiteral::fromLiteralUnsafe("BUrlRequest"), caller->Status(), URL(caller->Url()), String::fromUTF8(strerror(caller->Status())));
     m_handler->didFail(error);
 }
 
@@ -339,8 +340,8 @@ void BUrlProtocolHandler::willSendRequest(const ResourceResponse& response)
     m_redirectionTries++;
 
     if (m_redirectionTries > gMaxRecursionLimit) {
-        ResourceError error(request.url().host().utf8().data(), 400, request.url(),
-            "Redirection limit reached");
+        ResourceError error(request.url().host().toString(), 400, request.url(),
+            ASCIILiteral::fromLiteralUnsafe("Redirection limit reached"));
         client->didFail(m_resourceHandle, error);
         return;
     }
@@ -352,7 +353,7 @@ void BUrlProtocolHandler::willSendRequest(const ResourceResponse& response)
     request.setURL(newUrl);
 
     if (!newUrl.protocolIsInHTTPFamily() || shouldRedirectAsGET(request, response.httpStatusCode(), crossOrigin)) {
-        request.setHTTPMethod("GET");
+        request.setHTTPMethod(ASCIILiteral::fromLiteralUnsafe("GET"));
         request.setHTTPBody(nullptr);
         request.clearHTTPContentType();
     }
@@ -394,7 +395,7 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
         serverType = WebCore::ProtectionSpaceBase::ServerType::HTTPS;
     // FIXME handle other types (FTP and proxy stuff)
 
-    static NeverDestroyed<String> wwwAuthenticate(MAKE_STATIC_STRING_IMPL("www-authenticate"));
+    static ASCIILiteral wwwAuthenticate = ASCIILiteral::fromLiteralUnsafe("www-authenticate");
     String challenge = response.httpHeaderField(wwwAuthenticate);
 
     auto scheme = WebCore::ProtectionSpaceBase::AuthenticationScheme::Default;
@@ -426,8 +427,9 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
         port = 443;
     else
         port = 80;
-    ProtectionSpace protectionSpace(url.host().utf8().data(), port, serverType, realm, scheme);
-    ResourceError resourceError(url.host().utf8().data(), 401, url, String());
+    String host = url.host().toString();
+    ProtectionSpace protectionSpace(host, port, serverType, realm, scheme);
+    ResourceError resourceError(host, 401, url, String());
 
     ResourceHandleInternal* d = m_resourceHandle->getInternal();
 

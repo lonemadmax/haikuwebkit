@@ -419,7 +419,7 @@ String MIMETypeRegistry::mimeTypeForPath(StringView path)
             BNodeInfo nodeInfo(&node);
             char mimeType[B_MIME_TYPE_LENGTH];
             if (nodeInfo.GetType(mimeType) == B_OK)
-                return mimeType;
+                return String::fromUTF8(mimeType);
         }
     }
 #endif

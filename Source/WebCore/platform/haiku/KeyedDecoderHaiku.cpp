@@ -102,7 +102,7 @@ bool KeyedDecoderHaiku::decodeString(const String& key, String& result)
 {
     BString tmp;
     if (currentMessage->FindString(key.utf8().data(), &tmp) == B_OK) {
-        result = tmp;
+        result = String::fromUTF8(tmp.String());
         return true;
     }
 

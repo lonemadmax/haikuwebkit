@@ -39,7 +39,7 @@ std::unique_ptr<KeyedEncoder> KeyedEncoder::encoder()
 KeyedEncoderHaiku::KeyedEncoderHaiku()
 {
     currentMessage = &root;
-    m_messageStack.append(std::make_pair("root", currentMessage));
+    m_messageStack.append(std::make_pair(ASCIILiteral::fromLiteralUnsafe("root"), currentMessage));
 }
 
 KeyedEncoderHaiku::~KeyedEncoderHaiku()

@@ -194,16 +194,16 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
 {
     const ProtectionSpace& space = challenge.protectionSpace();
     String text = "Host \"" + space.host() + "\" requests authentication for realm \"" + space.realm() + "\"\n";
-    text.append("Authentication Scheme: ");
+    text.append(ASCIILiteral::fromLiteralUnsafe("Authentication Scheme: "));
     switch (space.authenticationScheme()) {
         case WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPBasic:
-        text.append("Basic (data will be sent as plain text)");
+        text.append(ASCIILiteral::fromLiteralUnsafe("Basic (data will be sent as plain text)"));
         break;
         case WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPDigest:
-        text.append("Digest (data will not be sent plain text)");
+        text.append(ASCIILiteral::fromLiteralUnsafe("Digest (data will not be sent plain text)"));
         break;
     default:
-        text.append("Unknown (possibly plaintext)");
+        text.append(ASCIILiteral::fromLiteralUnsafe("Unknown (possibly plaintext)"));
         break;
     }
 
@@ -233,7 +233,7 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
                 persistence = CredentialPersistencePermanent;
             }
 
-            Credential credential(user.String(), password.String(), persistence);
+            Credential credential(String::fromUTF8(user.String()), String::fromUTF8(password.String()), persistence);
             challenge.authenticationClient()->receivedCredential(challenge, credential);
         }
     }
@@ -696,32 +696,32 @@ void FrameLoaderClientHaiku::convertMainResourceLoadToDownload(DocumentLoader*,
 WebCore::ResourceError FrameLoaderClientHaiku::cancelledError(const WebCore::ResourceRequest& request) const
 {
     ResourceError error = ResourceError(String(), WebKitErrorCannotShowURL,
-        request.url(), "Load request cancelled", ResourceError::Type::Cancellation);
+        request.url(), ASCIILiteral::fromLiteralUnsafe("Load request cancelled"), ResourceError::Type::Cancellation);
     return error;
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::blockedError(const ResourceRequest& request) const
 {
     return ResourceError(String(), WebKitErrorCannotUseRestrictedPort,
-                         request.url(), "Not allowed to use restricted network port");
+                         request.url(), ASCIILiteral::fromLiteralUnsafe("Not allowed to use restricted network port"));
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::blockedByContentBlockerError(const ResourceRequest& request) const
 {
     return ResourceError(String(), WebKitErrorCannotShowURL,
-        request.url(), "Blocked by content blocker");
+        request.url(), ASCIILiteral::fromLiteralUnsafe("Blocked by content blocker"));
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::cannotShowURLError(const WebCore::ResourceRequest& request) const
 {
     return ResourceError(String(), WebKitErrorCannotShowURL,
-                         request.url(), "URL cannot be shown");
+                         request.url(), ASCIILiteral::fromLiteralUnsafe("URL cannot be shown"));
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::interruptedForPolicyChangeError(const WebCore::ResourceRequest& request) const
 {
     ResourceError error = ResourceError(String(), WebKitErrorFrameLoadInterruptedByPolicyChange,
-        request.url(), "Frame load was interrupted", ResourceError::Type::Cancellation);
+        request.url(), ASCIILiteral::fromLiteralUnsafe("Frame load was interrupted"), ResourceError::Type::Cancellation);
     return error;
 }
 
@@ -732,19 +732,19 @@ WebCore::ResourceError FrameLoaderClientHaiku::cannotShowMIMETypeError(const Web
     // it could remember doing so and then we could ask here if we are the main frame,
     // have no content, but did download something -- then we could asked to be closed.
     return ResourceError(String(), WebKitErrorCannotShowMIMEType,
-                         response.url(), "Content with the specified MIME type cannot be shown");
+                         response.url(), ASCIILiteral::fromLiteralUnsafe("Content with the specified MIME type cannot be shown"));
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::fileDoesNotExistError(const WebCore::ResourceResponse& response) const
 {
     return ResourceError(String(), WebKitErrorCannotShowURL,
-                         response.url(), "File does not exist");
+                         response.url(), ASCIILiteral::fromLiteralUnsafe("File does not exist"));
 }
 
 ResourceError FrameLoaderClientHaiku::pluginWillHandleLoadError(const ResourceResponse& response) const
 {
     return ResourceError(String(), WebKitErrorPlugInWillHandleLoad,
-                         response.url(), "Plugin will handle load");
+                         response.url(), ASCIILiteral::fromLiteralUnsafe("Plugin will handle load"));
 }
 
 bool FrameLoaderClientHaiku::shouldFallBack(const WebCore::ResourceError& error) const
@@ -787,12 +787,12 @@ bool FrameLoaderClientHaiku::canShowMIMEType(const String& mimeType) const
     return false;
 }
 
-bool FrameLoaderClientHaiku::representationExistsForURLScheme(const String& /*URLScheme*/) const
+bool FrameLoaderClientHaiku::representationExistsForURLScheme(StringView /*URLScheme*/) const
 {
     return false;
 }
 
-String FrameLoaderClientHaiku::generatedMIMETypeForURLScheme(const String& /*URLScheme*/) const
+String FrameLoaderClientHaiku::generatedMIMETypeForURLScheme(StringView /*URLScheme*/) const
 {
     notImplemented();
     return String();
@@ -886,7 +886,7 @@ String FrameLoaderClientHaiku::userAgent(const URL&) const
 	// A fixed version of webkit is reported here, see https://bugs.webkit.org/show_bug.cgi?id=180365
 	// However some websites still use the Version/ component to detect old browsers, apparently (hi Github!)
 	// so we still need to bump that to match Safari from time to time.
-    return "Mozilla/5.0 (Macintosh; Intel Haiku R1) AppleWebKit/605.1.15 (KHTML, like Gecko) WebPositive/1.3 Version/14.1.2 Safari/605.1.15";
+    return ASCIILiteral::fromLiteralUnsafe("Mozilla/5.0 (Macintosh; Intel Haiku R1) AppleWebKit/605.1.15 (KHTML, like Gecko) WebPositive/1.3 Version/14.1.2 Safari/605.1.15");
 }
 
 bool FrameLoaderClientHaiku::canCachePage() const
@@ -923,7 +923,7 @@ ObjectContentType FrameLoaderClientHaiku::objectContentType(const URL& url, cons
         if (get_ref_for_path(url.path().utf8().data(), &ref) == B_OK) {
             BMimeType type;
             if (BMimeType::GuessMimeType(&ref, &type) == B_OK)
-                mimeType = type.Type();
+                mimeType = String::fromUTF8(type.Type());
         } else {
             // For non-file URLs, try guessing from the extension (this happens
             // before the request so our content sniffing is of no use)
@@ -968,7 +968,7 @@ void FrameLoaderClientHaiku::redirectDataToPlugin(Widget& pluginWidge)
 String FrameLoaderClientHaiku::overrideMediaType() const
 {
     // This will do, until we support printing.
-    return "screen";
+    return ASCIILiteral::fromLiteralUnsafe("screen");
 }
 
 void FrameLoaderClientHaiku::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& world)

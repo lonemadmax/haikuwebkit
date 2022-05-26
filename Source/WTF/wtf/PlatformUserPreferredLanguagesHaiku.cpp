@@ -54,7 +54,7 @@ static String platformLanguage()
 			locale = "c";
 		locale.ReplaceAll('_', '-');
 	}
-	return locale.String();
+	return String::fromUTF8(locale.String());
 }
 
 Vector<String> platformUserPreferredLanguages(WTF::ShouldMinimizeLanguages)

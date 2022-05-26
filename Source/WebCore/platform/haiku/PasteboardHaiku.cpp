@@ -284,12 +284,12 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
     const char* buffer = 0;
     ssize_t bufferLength;
     if (data->FindData("text/html", B_MIME_TYPE, reinterpret_cast<const void**>(&buffer), &bufferLength) == B_OK) {
-        RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("text/plain", "UTF-8", true);
+        RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create(ASCIILiteral::fromLiteralUnsafe("text/plain"), "UTF-8", true);
         String html = decoder->decode(buffer, bufferLength);
         html.append(decoder->flush());
 
         if (!html.isEmpty()) {
-            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(*frame.document(), html, "", DisallowScriptingContent);
+            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(*frame.document(), html, String(), DisallowScriptingContent);
             if (fragment)
                 return fragment;
         }
@@ -299,7 +299,7 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
         return nullptr;
 
     if (data->FindData("text/plain", B_MIME_TYPE, reinterpret_cast<const void**>(&buffer), &bufferLength) == B_OK) {
-        BString plainText(buffer, bufferLength);
+        String plainText = String::fromUTF8(buffer, bufferLength);
 
         chosePlainText = true;
         RefPtr<DocumentFragment> fragment = createFragmentFromText(context, plainText);
@@ -364,7 +364,7 @@ String Pasteboard::readString(const String& type)
         be_clipboard->Unlock();
     }
 
-    return result;
+    return String::fromUTF8(result.String());
 }
 
 String Pasteboard::readStringInCustomData(const String& type)
@@ -403,7 +403,7 @@ Vector<String> Pasteboard::typesForLegacyUnsafeBindings()
             int32 count;
 
             for (int32 i = 0; data->GetInfo(B_ANY_TYPE, i, &name, &type, &count) == B_OK; i++)
-                result.append(name);
+                result.append(String::fromUTF8(name));
         }
 
         be_clipboard->Unlock();

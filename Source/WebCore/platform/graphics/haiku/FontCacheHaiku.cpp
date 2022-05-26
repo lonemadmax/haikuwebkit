@@ -65,11 +65,11 @@ Vector<String> FontCache::systemFontFamilies()
     font_style style;
 
     be_plain_font->GetFamilyAndStyle(&family, &style);
-    fontFamilies.append(family);
+    fontFamilies.append(String::fromUTF8(family));
     be_bold_font->GetFamilyAndStyle(&family, &style);
-    fontFamilies.append(family);
+    fontFamilies.append(String::fromUTF8(family));
     be_fixed_font->GetFamilyAndStyle(&family, &style);
-    fontFamilies.append(family);
+    fontFamilies.append(String::fromUTF8(family));
 
     return fontFamilies;
 }

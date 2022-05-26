@@ -95,7 +95,7 @@ void DumpRenderTreeClient::clearUserScripts(const BWebView* view)
 void DumpRenderTreeClient::executeCoreCommandByName(const BWebView* view,
         const BString name, const BString value)
 {
-    view->WebPage()->page()->focusController().focusedOrMainFrame().editor().command(name).execute(value);
+    view->WebPage()->page()->focusController().focusedOrMainFrame().editor().command(String::fromUTF8(name.String())).execute(String::fromUTF8(value.String()));
 }
 
 
@@ -129,15 +129,15 @@ String DumpRenderTreeClient::suitableDRTFrameName(const BWebFrame* frame)
 
     if (frame->Frame() == &frame->fData->page->mainFrame()) {
         if (!frameName.isEmpty())
-            return String("main frame \"") + frameName + String("\"");
+            return ASCIILiteral::fromLiteralUnsafe("main frame \"") + frameName + ASCIILiteral::fromLiteralUnsafe("\"");
 
-        return String("main frame");
+        return ASCIILiteral::fromLiteralUnsafe("main frame");
     }
 
     if (!frameName.isEmpty())
-        return String("frame \"") + frameName + String("\"");
+        return ASCIILiteral::fromLiteralUnsafe("frame \"") + frameName + ASCIILiteral::fromLiteralUnsafe("\"");
 
-    return String("frame (anonymous)");
+    return ASCIILiteral::fromLiteralUnsafe("frame (anonymous)");
 }
 
 BBitmap* DumpRenderTreeClient::getOffscreen(BWebView* view)

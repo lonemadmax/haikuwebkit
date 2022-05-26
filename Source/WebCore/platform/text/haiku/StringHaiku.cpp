@@ -31,15 +31,6 @@
 
 namespace WTF {
 
-// String conversions
-String::String(const BString& string)
-{
-    if (string.Length())
-        m_impl = String::fromUTF8(string.String(), string.Length()).impl();
-    else
-        m_impl = StringImpl::empty();
-}
-
 String::operator BString() const
 {
     BString string;

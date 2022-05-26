@@ -56,7 +56,7 @@ String homeDirectoryPath()
     if (find_directory(B_USER_DIRECTORY, &path) != B_OK)
         return String();
 
-    return String(path.Path());
+    return String::fromUTF8(path.Path());
 }
 
 } // namespace FileSystem

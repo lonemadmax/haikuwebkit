@@ -72,17 +72,17 @@ String MIMETypeRegistry::mimeTypeForExtension(const StringView ext)
     const ExtensionMap* extMap = extensionMap;
     while (extMap->extension) {
         if (str == extMap->extension)
-            return extMap->mimeType;
+            return String::fromUTF8(extMap->mimeType);
         ++extMap;
     }
 
     // Try system mime database.
-    String fakeFileName("filename.");
+    String fakeFileName = ASCIILiteral::fromLiteralUnsafe("filename.");
     fakeFileName.append(str);
 
     BMimeType type;
     if (BMimeType::GuessMimeType(fakeFileName.utf8().data(), &type) == B_OK)
-        return type.Type();
+        return String::fromUTF8(type.Type());
 
     // unknown
     return String();
@@ -94,9 +94,9 @@ String MIMETypeRegistry::preferredExtensionForMIMEType(const String& type)
 	BMimeType mimeType(type.utf8().data());
 	BMessage storage;
 	mimeType.GetFileExtensions(&storage);
-	BString extension = storage.FindString("extensions");
+	const char* extension = storage.FindString("extensions");
 
-	return extension;
+	return String::fromUTF8(extension);
 }
 
 Vector<String> MIMETypeRegistry::extensionsForMIMEType(const String&)

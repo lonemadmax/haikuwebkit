@@ -52,64 +52,64 @@ static String keyIdentifierForHaikuKeyCode(char singleByte, int keyCode)
 
         switch (keyCode) {
         case B_F1_KEY:
-            return "F1";
+            return ASCIILiteral::fromLiteralUnsafe("F1");
         case B_F2_KEY:
-            return "F2";
+            return ASCIILiteral::fromLiteralUnsafe("F2");
         case B_F3_KEY:
-            return "F3";
+            return ASCIILiteral::fromLiteralUnsafe("F3");
         case B_F4_KEY:
-            return "F4";
+            return ASCIILiteral::fromLiteralUnsafe("F4");
         case B_F5_KEY:
-            return "F5";
+            return ASCIILiteral::fromLiteralUnsafe("F5");
         case B_F6_KEY:
-            return "F6";
+            return ASCIILiteral::fromLiteralUnsafe("F6");
         case B_F7_KEY:
-            return "F7";
+            return ASCIILiteral::fromLiteralUnsafe("F7");
         case B_F8_KEY:
-            return "F8";
+            return ASCIILiteral::fromLiteralUnsafe("F8");
         case B_F9_KEY:
-            return "F9";
+            return ASCIILiteral::fromLiteralUnsafe("F9");
         case B_F10_KEY:
-            return "F10";
+            return ASCIILiteral::fromLiteralUnsafe("F10");
         case B_F11_KEY:
-            return "F11";
+            return ASCIILiteral::fromLiteralUnsafe("F11");
         case B_F12_KEY:
-            return "F12";
+            return ASCIILiteral::fromLiteralUnsafe("F12");
         case B_PRINT_KEY:
-            return "Print";
+            return ASCIILiteral::fromLiteralUnsafe("Print");
         case B_PAUSE_KEY:
-            return "Pause";
+            return ASCIILiteral::fromLiteralUnsafe("Pause");
         case B_SCROLL_KEY:
-            return ""; // FIXME
+            return ASCIILiteral::fromLiteralUnsafe(""); // FIXME
         }
     break;
 
     case B_BACKSPACE:
-        return "U+0008";
+        return ASCIILiteral::fromLiteralUnsafe("U+0008");
     case B_LEFT_ARROW:
-        return "Left";
+        return ASCIILiteral::fromLiteralUnsafe("Left");
     case B_RIGHT_ARROW:
-        return "Right";
+        return ASCIILiteral::fromLiteralUnsafe("Right");
     case B_UP_ARROW:
-        return "Up";
+        return ASCIILiteral::fromLiteralUnsafe("Up");
     case B_DOWN_ARROW:
-        return "Down";
+        return ASCIILiteral::fromLiteralUnsafe("Down");
     case B_INSERT:
-        return "Insert";
+        return ASCIILiteral::fromLiteralUnsafe("Insert");
     case B_ENTER:
-        return "Enter";
+        return ASCIILiteral::fromLiteralUnsafe("Enter");
     case B_DELETE:
-        return "U+007F";
+        return ASCIILiteral::fromLiteralUnsafe("U+007F");
     case B_HOME:
-        return "Home";
+        return ASCIILiteral::fromLiteralUnsafe("Home");
     case B_END:
-        return "End";
+        return ASCIILiteral::fromLiteralUnsafe("End");
     case B_PAGE_UP:
-        return "PageUp";
+        return ASCIILiteral::fromLiteralUnsafe("PageUp");
     case B_PAGE_DOWN:
-        return "PageDown";
+        return ASCIILiteral::fromLiteralUnsafe("PageDown");
     case B_TAB:
-        return "U+0009";
+        return ASCIILiteral::fromLiteralUnsafe("U+0009");
     }
 
 	// FIXME will not work for non-ASCII characters
@@ -337,305 +337,305 @@ static String KeyValueForKeyEvent(BString bytes, int keyCode)
         case B_FUNCTION_KEY:
             switch (keyCode) {
                 case B_F1_KEY:
-                    return "F1";
+                    return ASCIILiteral::fromLiteralUnsafe("F1");
                 case B_F2_KEY:
-                    return "F2";
+                    return ASCIILiteral::fromLiteralUnsafe("F2");
                 case B_F3_KEY:
-                    return "F3";
+                    return ASCIILiteral::fromLiteralUnsafe("F3");
                 case B_F4_KEY:
-                    return "F4";
+                    return ASCIILiteral::fromLiteralUnsafe("F4");
                 case B_F5_KEY:
-                    return "F5";
+                    return ASCIILiteral::fromLiteralUnsafe("F5");
                 case B_F6_KEY:
-                    return "F6";
+                    return ASCIILiteral::fromLiteralUnsafe("F6");
                 case B_F7_KEY:
-                    return "F7";
+                    return ASCIILiteral::fromLiteralUnsafe("F7");
                 case B_F8_KEY:
-                    return "F8";
+                    return ASCIILiteral::fromLiteralUnsafe("F8");
                 case B_F9_KEY:
-                    return "F9";
+                    return ASCIILiteral::fromLiteralUnsafe("F9");
                 case B_F10_KEY:
-                    return "F10";
+                    return ASCIILiteral::fromLiteralUnsafe("F10");
                 case B_F11_KEY:
-                    return "F11";
+                    return ASCIILiteral::fromLiteralUnsafe("F11");
                 case B_F12_KEY:
-                    return "F12";
+                    return ASCIILiteral::fromLiteralUnsafe("F12");
                 case B_PRINT_KEY:
-                    return "Print";
+                    return ASCIILiteral::fromLiteralUnsafe("Print");
                 case B_PAUSE_KEY:
-                    return "Pause";
+                    return ASCIILiteral::fromLiteralUnsafe("Pause");
                 case B_SCROLL_KEY:
-                    return "ScrollLock";
+                    return ASCIILiteral::fromLiteralUnsafe("ScrollLock");
             }
             break;
 
         case B_BACKSPACE:
-            return "Backspace";
+            return ASCIILiteral::fromLiteralUnsafe("Backspace");
         case B_LEFT_ARROW:
-            return "ArrowLeft";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowLeft");
         case B_RIGHT_ARROW:
-            return "ArrowRight";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowRight");
         case B_UP_ARROW:
-            return "ArrowUp";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowUp");
         case B_DOWN_ARROW:
-            return "ArrowDown";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowDown");
         case B_INSERT:
-            return "Insert";
+            return ASCIILiteral::fromLiteralUnsafe("Insert");
         case B_ENTER:
-            return "Enter";
+            return ASCIILiteral::fromLiteralUnsafe("Enter");
         case B_DELETE:
-            return "Delete";
+            return ASCIILiteral::fromLiteralUnsafe("Delete");
         case B_HOME:
-            return "Home";
+            return ASCIILiteral::fromLiteralUnsafe("Home");
         case B_END:
-            return "End";
+            return ASCIILiteral::fromLiteralUnsafe("End");
         case B_PAGE_UP:
-            return "PageUp";
+            return ASCIILiteral::fromLiteralUnsafe("PageUp");
         case B_PAGE_DOWN:
-            return "PageDown";
+            return ASCIILiteral::fromLiteralUnsafe("PageDown");
         case B_TAB:
-            return "Tab";
+            return ASCIILiteral::fromLiteralUnsafe("Tab");
         case B_SPACE:
-            return " "; // (20) SPACEBAR
-            
+            return ASCIILiteral::fromLiteralUnsafe(" "); // (20) SPACEBAR
+
         case B_ESCAPE:
-            return "Escape";
-            
+            return ASCIILiteral::fromLiteralUnsafe("Escape");
+
         default: {
-            return bytes;          
+            return String::fromUTF8(bytes);
         }
     }
-    return "Unidentified";
+    return ASCIILiteral::fromLiteralUnsafe("Unidentified");
 }
 
 static String KeyCodeForKeyEvent(int keyCode)
 {
     switch (keyCode) {
         case 0x0001:
-            return "Escape";
+            return ASCIILiteral::fromLiteralUnsafe("Escape");
         case 0x0002:
-            return "F1";
+            return ASCIILiteral::fromLiteralUnsafe("F1");
         case 0x0003:
-            return "F2";
+            return ASCIILiteral::fromLiteralUnsafe("F2");
         case 0x0004:
-            return "F3";
+            return ASCIILiteral::fromLiteralUnsafe("F3");
         case 0x0005:
-            return "F4";
+            return ASCIILiteral::fromLiteralUnsafe("F4");
         case 0x0006:
-            return "F5";
+            return ASCIILiteral::fromLiteralUnsafe("F5");
         case 0x0007:
-            return "F6";
+            return ASCIILiteral::fromLiteralUnsafe("F6");
         case 0x0008:
-            return "F7";
+            return ASCIILiteral::fromLiteralUnsafe("F7");
         case 0x0009:
-            return "F8";
+            return ASCIILiteral::fromLiteralUnsafe("F8");
         case 0x000A:
-            return "F9";
+            return ASCIILiteral::fromLiteralUnsafe("F9");
         case 0x000B:
-            return "F10";
+            return ASCIILiteral::fromLiteralUnsafe("F10");
         case 0x000C:
-            return "F11";
+            return ASCIILiteral::fromLiteralUnsafe("F11");
         case 0x000D:
-            return "F12";
+            return ASCIILiteral::fromLiteralUnsafe("F12");
 
         case 0x000E:
-            return "PrintScreen";
+            return ASCIILiteral::fromLiteralUnsafe("PrintScreen");
         case 0x000F:
-            return "ScrollLock";
+            return ASCIILiteral::fromLiteralUnsafe("ScrollLock");
         case 0x0010:
-            return "Pause";
+            return ASCIILiteral::fromLiteralUnsafe("Pause");
 
         case 0x0011:
-            return "Backquote";
+            return ASCIILiteral::fromLiteralUnsafe("Backquote");
         case 0x0012:
-            return "Digit1";
+            return ASCIILiteral::fromLiteralUnsafe("Digit1");
         case 0x0013:
-            return "Digit2";
+            return ASCIILiteral::fromLiteralUnsafe("Digit2");
         case 0x0014:
-            return "Digit3";
+            return ASCIILiteral::fromLiteralUnsafe("Digit3");
         case 0x0015:
-            return "Digit4";
+            return ASCIILiteral::fromLiteralUnsafe("Digit4");
         case 0x0016:
-            return "Digit5";
+            return ASCIILiteral::fromLiteralUnsafe("Digit5");
         case 0x0017:
-            return "Digit6";
+            return ASCIILiteral::fromLiteralUnsafe("Digit6");
         case 0x0018:
-            return "Digit7";
+            return ASCIILiteral::fromLiteralUnsafe("Digit7");
         case 0x0019:
-            return "Digit8";
+            return ASCIILiteral::fromLiteralUnsafe("Digit8");
         case 0x001A:
-            return "Digit9";
+            return ASCIILiteral::fromLiteralUnsafe("Digit9");
         case 0x001B:
-            return "Digit0";
+            return ASCIILiteral::fromLiteralUnsafe("Digit0");
         case 0x001C:
-            return "Minus";
+            return ASCIILiteral::fromLiteralUnsafe("Minus");
         case 0x001D:
-            return "Equal";
+            return ASCIILiteral::fromLiteralUnsafe("Equal");
         case 0x001E:
-            return "Backspace"; // IntYen
+            return ASCIILiteral::fromLiteralUnsafe("Backspace"); // IntYen
 
         case 0x001F:
-            return "Insert";
+            return ASCIILiteral::fromLiteralUnsafe("Insert");
         case 0x0020:
-            return "Home";
+            return ASCIILiteral::fromLiteralUnsafe("Home");
         case 0x0021:
-            return "PageUp";
+            return ASCIILiteral::fromLiteralUnsafe("PageUp");
             
         case 0x0022:
-            return "NumLock";
+            return ASCIILiteral::fromLiteralUnsafe("NumLock");
         case 0x0023:
-            return "NumpadDivide";
+            return ASCIILiteral::fromLiteralUnsafe("NumpadDivide");
         case 0x0024:
-            return "NumpadMultiply";
+            return ASCIILiteral::fromLiteralUnsafe("NumpadMultiply");
         case 0x0025:
-            return "NumpadSubtract";
+            return ASCIILiteral::fromLiteralUnsafe("NumpadSubtract");
 
         case 0x0026:
-            return "Tab";
+            return ASCIILiteral::fromLiteralUnsafe("Tab");
         case 0x0027:
-            return "KeyQ";
+            return ASCIILiteral::fromLiteralUnsafe("KeyQ");
         case 0x0028:
-            return "KeyW";
+            return ASCIILiteral::fromLiteralUnsafe("KeyW");
         case 0x0029:
-            return "KeyE";
+            return ASCIILiteral::fromLiteralUnsafe("KeyE");
         case 0x002A:
-            return "KeyR";
+            return ASCIILiteral::fromLiteralUnsafe("KeyR");
         case 0x002B:
-            return "KeyT";
+            return ASCIILiteral::fromLiteralUnsafe("KeyT");
         case 0x002C:
-            return "KeyY";
+            return ASCIILiteral::fromLiteralUnsafe("KeyY");
         case 0x002D:
-            return "KeyU";
+            return ASCIILiteral::fromLiteralUnsafe("KeyU");
         case 0x002E:
-            return "KeyI";
+            return ASCIILiteral::fromLiteralUnsafe("KeyI");
         case 0x002F:
-            return "KeyO";
+            return ASCIILiteral::fromLiteralUnsafe("KeyO");
         case 0x0030:
-            return "KepP";
+            return ASCIILiteral::fromLiteralUnsafe("KepP");
         case 0x0031:
-            return "BracketLeft";
+            return ASCIILiteral::fromLiteralUnsafe("BracketLeft");
         case 0x0032:
-            return "BracketRight";
+            return ASCIILiteral::fromLiteralUnsafe("BracketRight");
         case 0x0033:
-            return "Backslash";
+            return ASCIILiteral::fromLiteralUnsafe("Backslash");
 
         case 0x0034:
-            return "Delete";
+            return ASCIILiteral::fromLiteralUnsafe("Delete");
         case 0x0035:
-            return "End";
+            return ASCIILiteral::fromLiteralUnsafe("End");
         case 0x0036:
-            return "PageDown";
+            return ASCIILiteral::fromLiteralUnsafe("PageDown");
 
         case 0x0037:
-            return "Numpad7";
+            return ASCIILiteral::fromLiteralUnsafe("Numpad7");
         case 0x0038:
-            return "Numpad8";
+            return ASCIILiteral::fromLiteralUnsafe("Numpad8");
         case 0x0039:
-            return "Numpad9";
+            return ASCIILiteral::fromLiteralUnsafe("Numpad9");
         case 0x003A:
-            return "NumpadAdd";
+            return ASCIILiteral::fromLiteralUnsafe("NumpadAdd");
 
         case 0x003B:
-            return "CapsLock";
+            return ASCIILiteral::fromLiteralUnsafe("CapsLock");
         case 0x003C:
-            return "KeyA";
+            return ASCIILiteral::fromLiteralUnsafe("KeyA");
         case 0x003D:
-            return "KeyS";
+            return ASCIILiteral::fromLiteralUnsafe("KeyS");
         case 0x003E:
-            return "KeyD";
+            return ASCIILiteral::fromLiteralUnsafe("KeyD");
         case 0x003F:
-            return "KeyF";
+            return ASCIILiteral::fromLiteralUnsafe("KeyF");
         case 0x0040:
-            return "KeyG";
+            return ASCIILiteral::fromLiteralUnsafe("KeyG");
         case 0x0041:
-            return "KeyH";
+            return ASCIILiteral::fromLiteralUnsafe("KeyH");
         case 0x0042:
-            return "KeyJ";
+            return ASCIILiteral::fromLiteralUnsafe("KeyJ");
         case 0x0043:
-            return "KeyK";
+            return ASCIILiteral::fromLiteralUnsafe("KeyK");
         case 0x0044:
-            return "KeyL";
+            return ASCIILiteral::fromLiteralUnsafe("KeyL");
         case 0x0045:
-            return "Semicolon";
+            return ASCIILiteral::fromLiteralUnsafe("Semicolon");
         case 0x0046:
-            return "Quote";
+            return ASCIILiteral::fromLiteralUnsafe("Quote");
         case 0x0047:
-            return "Return";
+            return ASCIILiteral::fromLiteralUnsafe("Return");
 
         case 0x0048:
-            return "Numpad4";
+            return ASCIILiteral::fromLiteralUnsafe("Numpad4");
         case 0x0049:
-            return "Numpad5";
+            return ASCIILiteral::fromLiteralUnsafe("Numpad5");
         case 0x004A:
-            return "Numpad6";
+            return ASCIILiteral::fromLiteralUnsafe("Numpad6");
 
         case 0x004B:
-            return "ShiftLeft";
+            return ASCIILiteral::fromLiteralUnsafe("ShiftLeft");
         case 0x004C:
-            return "KeyZ";
+            return ASCIILiteral::fromLiteralUnsafe("KeyZ");
         case 0x004D:
-            return "KeyX";
+            return ASCIILiteral::fromLiteralUnsafe("KeyX");
         case 0x004E:
-            return "KeyC";
+            return ASCIILiteral::fromLiteralUnsafe("KeyC");
         case 0x004F:
-            return "KeyV";
+            return ASCIILiteral::fromLiteralUnsafe("KeyV");
         case 0x0050:
-            return "KeyB";
+            return ASCIILiteral::fromLiteralUnsafe("KeyB");
         case 0x0051:
-            return "KeyN";
+            return ASCIILiteral::fromLiteralUnsafe("KeyN");
         case 0x0052:
-            return "KeyM";
+            return ASCIILiteral::fromLiteralUnsafe("KeyM");
         case 0x0053:
-            return "Comma";
+            return ASCIILiteral::fromLiteralUnsafe("Comma");
         case 0x0054:
-            return "Period";
+            return ASCIILiteral::fromLiteralUnsafe("Period");
         case 0x0055:
-            return "Slash";
+            return ASCIILiteral::fromLiteralUnsafe("Slash");
         case 0x0056:
-            return "ShiftRight";
+            return ASCIILiteral::fromLiteralUnsafe("ShiftRight");
 
         case 0x0057:
-            return "ArrowUp";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowUp");
         case 0x0058:
-            return "Digit1";
+            return ASCIILiteral::fromLiteralUnsafe("Digit1");
         case 0x0059:
-            return "Digit2";
+            return ASCIILiteral::fromLiteralUnsafe("Digit2");
         case 0x005A:
-            return "Digit3";
+            return ASCIILiteral::fromLiteralUnsafe("Digit3");
         case 0x005B:
-            return "NumpadEnter";
+            return ASCIILiteral::fromLiteralUnsafe("NumpadEnter");
         case 0x005C:
-            return "ControlLeft";
+            return ASCIILiteral::fromLiteralUnsafe("ControlLeft");
         case 0x005D:
-            return "AltLeft";
+            return ASCIILiteral::fromLiteralUnsafe("AltLeft");
         case 0x005E:
-            return "Space";
+            return ASCIILiteral::fromLiteralUnsafe("Space");
         case 0x005F:
-            return "AltRight";
+            return ASCIILiteral::fromLiteralUnsafe("AltRight");
         case 0x0060:
-            return "ControlRight";
+            return ASCIILiteral::fromLiteralUnsafe("ControlRight");
         case 0x0061:
-            return "ArrowLeft";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowLeft");
         case 0x0062:
-            return "ArrowDown";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowDown");
         case 0x0063:
-            return "ArrowRight";
+            return ASCIILiteral::fromLiteralUnsafe("ArrowRight");
         case 0x0064:
-            return "Numpad0";
+            return ASCIILiteral::fromLiteralUnsafe("Numpad0");
         case 0x0065:
-            return "NumpadDecimal";
+            return ASCIILiteral::fromLiteralUnsafe("NumpadDecimal");
         case 0x0066:
-            return "OSLeft"; // MetaLeft
+            return ASCIILiteral::fromLiteralUnsafe("OSLeft"); // MetaLeft
         case 0x0067:
-            return "OSRight";
+            return ASCIILiteral::fromLiteralUnsafe("OSRight");
         case 0x0068:
-            return "ContextMenu";
+            return ASCIILiteral::fromLiteralUnsafe("ContextMenu");
         case 0x0069:
-            return "IntlBackslash";
+            return ASCIILiteral::fromLiteralUnsafe("IntlBackslash");
         case 0x006a:
-            return "NumPadEqual";
+            return ASCIILiteral::fromLiteralUnsafe("NumPadEqual");
     }
-    return "Unidentified";
+    return ASCIILiteral::fromLiteralUnsafe("Unidentified");
 }
 
 PlatformKeyboardEvent::PlatformKeyboardEvent(BMessage* message)

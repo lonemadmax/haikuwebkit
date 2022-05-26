@@ -393,7 +393,7 @@ void BWebSettings::_HandleSetIconDatabasePath(const BString& path)
 		WebKit::iconDatabase().setEnabled(true);
 		BEntry entry(path.String());
 		if (entry.IsDirectory())
-			WebKit::iconDatabase().open(path, WebKit::IconDatabase::defaultDatabaseFilename());
+			WebKit::iconDatabase().open(String::fromUTF8(path.String()), WebKit::IconDatabase::defaultDatabaseFilename());
 	} else {
 		WebKit::iconDatabase().setEnabled(false);
 		WebKit::iconDatabase().close();
@@ -422,7 +422,7 @@ void BWebSettings::_HandleSendIconForURL(BMessage* message)
 	reply.AddString("url", url);
 
 	std::pair<WebCore::PlatformImagePtr, WebKit::IconDatabase::IsKnownIcon> icon
-		= WebKit::iconDatabase().synchronousIconForPageURL(url, WebCore::IntSize(16, 16));
+		= WebKit::iconDatabase().synchronousIconForPageURL(String::fromUTF8(url.String()), WebCore::IntSize(16, 16));
 	BMessage iconArchive;
 	if (icon.second == WebKit::IconDatabase::IsKnownIcon::Yes
 			&& icon.first != NULL && icon.first->Archive(&iconArchive) == B_OK)

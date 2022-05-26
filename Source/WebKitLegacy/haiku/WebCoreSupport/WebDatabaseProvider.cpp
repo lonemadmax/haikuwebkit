@@ -35,5 +35,5 @@ String WebDatabaseProvider::indexedDatabaseDirectoryPath()
 	find_directory(B_USER_SETTINGS_DIRECTORY, &storagePath);
 	storagePath.Append("WebKit/IndexedDB");
 
-	return storagePath.Path();
+	return String::fromUTF8(storagePath.Path());
 }

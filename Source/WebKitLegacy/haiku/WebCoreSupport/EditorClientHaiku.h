@@ -127,7 +127,9 @@ public:
     void learnWord(const String&) override;
     void checkSpellingOfString(StringView, int* misspellingLocation,
                                        int* misspellingLength) override;
-    String getAutoCorrectSuggestionForMisspelledWord(const String& misspelledWord) override;
+#if 0
+    String getAutoCorrectSuggestionForMisspelledWord(StringView misspelledWord) override;
+#endif
     void checkGrammarOfString(StringView, Vector<GrammarDetail>&,
                                       int* badGrammarLocation, int* badGrammarLength) override;
 

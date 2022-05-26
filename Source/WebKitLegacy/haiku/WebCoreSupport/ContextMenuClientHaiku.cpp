@@ -67,13 +67,13 @@ void ContextMenuClientHaiku::searchWithGoogle(const Frame* frame)
     String encoded = encodeWithURLEscapeSequences(searchString);
     encoded.replace("%20", "+");
 
-    String url("http://www.google.com/search?q=");
+    String url = String::fromUTF8("http://www.google.com/search?q=");
     url.append(encoded);
 
     if (Page* page = frame->page()) {
         UserGestureIndicator indicator(ProcessingUserGesture);
         page->mainFrame().loader().changeLocation(URL({ }, url),
-            String("_blank"), 0, ReferrerPolicy::EmptyString,
+            String::fromUTF8("_blank"), 0, ReferrerPolicy::EmptyString,
             frame->document()->shouldOpenExternalURLsPolicyToPropagate());
     }
 }

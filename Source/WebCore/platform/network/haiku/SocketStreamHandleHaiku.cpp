@@ -184,7 +184,7 @@ void SocketStreamHandleImpl::handleError(status_t errorCode)
             return;
 
         // TODO: when to call m_client.didFailToReceiveSocketStreamData(*this); ?
-        m_client.didFailSocketStream(*this, SocketStreamError(static_cast<int>(errorCode), { }, localizedDescription));
+        m_client.didFailSocketStream(*this, SocketStreamError(static_cast<int>(errorCode), String(), String::fromUTF8(localizedDescription)));
     });
 }
 

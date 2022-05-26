@@ -40,7 +40,7 @@ URL::URL(const BUrl& url)
 {
 	// The only way to fully initialize an URL is by parsing it from a string.
 	// So let's do just that.
-	URLParser parser(url.UrlString().String());
+	URLParser parser(String::fromUTF8(url.UrlString().String()));
 	*this = parser.result();
 }
 

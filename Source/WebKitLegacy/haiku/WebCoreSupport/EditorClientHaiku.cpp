@@ -351,11 +351,13 @@ void EditorClientHaiku::checkSpellingOfString(StringView, int*, int*)
     notImplemented();
 }
 
+#if 0
 String EditorClientHaiku::getAutoCorrectSuggestionForMisspelledWord(const String& /*misspelledWord*/)
 {
     notImplemented();
     return String();
 }
+#endif
 
 void EditorClientHaiku::checkGrammarOfString(StringView, Vector<GrammarDetail>&, int*, int*)
 {
@@ -475,41 +477,41 @@ bool EditorClientHaiku::handleEditingKeyboardEvent(KeyboardEvent* event,
         break;
     case VK_HOME:
         if (platformEvent->shiftKey() && platformEvent->controlKey())
-            frame.editor().command("MoveToBeginningOfDocumentAndModifySelection").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToBeginningOfDocumentAndModifySelection")).execute();
         else if (platformEvent->shiftKey())
-            frame.editor().command("MoveToBeginningOfLineAndModifySelection").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToBeginningOfLineAndModifySelection")).execute();
         else if (platformEvent->controlKey())
-            frame.editor().command("MoveToBeginningOfDocument").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToBeginningOfDocument")).execute();
         else
-            frame.editor().command("MoveToBeginningOfLine").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToBeginningOfLine")).execute();
         break;
     case VK_END:
         if (platformEvent->shiftKey() && platformEvent->controlKey())
-            frame.editor().command("MoveToEndOfDocumentAndModifySelection").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToEndOfDocumentAndModifySelection")).execute();
         else if (platformEvent->shiftKey())
-            frame.editor().command("MoveToEndOfLineAndModifySelection").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToEndOfLineAndModifySelection")).execute();
         else if (platformEvent->controlKey())
-            frame.editor().command("MoveToEndOfDocument").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToEndOfDocument")).execute();
         else
-            frame.editor().command("MoveToEndOfLine").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MoveToEndOfLine")).execute();
         break;
     case VK_PRIOR:  // PageUp
         if (platformEvent->shiftKey())
-            frame.editor().command("MovePageUpAndModifySelection").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MovePageUpAndModifySelection")).execute();
         else
-            frame.editor().command("MovePageUp").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MovePageUp")).execute();
         break;
     case VK_NEXT:  // PageDown
         if (platformEvent->shiftKey())
-            frame.editor().command("MovePageDownAndModifySelection").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MovePageDownAndModifySelection")).execute();
         else
-            frame.editor().command("MovePageDown").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("MovePageDown")).execute();
         break;
     case VK_RETURN:
         if (platformEvent->shiftKey())
-            frame.editor().command("InsertLineBreak").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("InsertLineBreak")).execute();
         else
-            frame.editor().command("InsertNewline").execute();
+            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("InsertNewline")).execute();
         break;
     case VK_TAB:
         return false;
@@ -525,29 +527,29 @@ bool EditorClientHaiku::handleEditingKeyboardEvent(KeyboardEvent* event,
         } else if (platformEvent->controlKey()) {
             switch (platformEvent->windowsVirtualKeyCode()) {
             case VK_B:
-                frame.editor().command("ToggleBold").execute();
+                frame.editor().command(ASCIILiteral::fromLiteralUnsafe("ToggleBold")).execute();
                 break;
             case VK_I:
-                frame.editor().command("ToggleItalic").execute();
+                frame.editor().command(ASCIILiteral::fromLiteralUnsafe("ToggleItalic")).execute();
                 break;
             case VK_V:
-                frame.editor().command("Paste").execute();
+                frame.editor().command(ASCIILiteral::fromLiteralUnsafe("Paste")).execute();
                 break;
             case VK_X:
-                frame.editor().command("Cut").execute();
+                frame.editor().command(ASCIILiteral::fromLiteralUnsafe("Cut")).execute();
                 break;
             case VK_Y:
             case VK_Z:
                 if (platformEvent->shiftKey())
-                    frame.editor().command("Redo").execute();
+                    frame.editor().command(ASCIILiteral::fromLiteralUnsafe("Redo")).execute();
                 else
-                    frame.editor().command("Undo").execute();
+                    frame.editor().command(ASCIILiteral::fromLiteralUnsafe("Undo")).execute();
                 break;
 		    case VK_A:
-	            frame.editor().command("SelectAll").execute();
+	            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("SelectAll")).execute();
 		        break;
 		    case VK_C:
-	            frame.editor().command("Copy").execute();
+	            frame.editor().command(ASCIILiteral::fromLiteralUnsafe("Copy")).execute();
 		        break;
             default:
                 return false;

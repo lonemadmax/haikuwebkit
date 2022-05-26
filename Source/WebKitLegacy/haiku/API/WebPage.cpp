@@ -276,8 +276,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
 
     storagePath.Append("WebKit/LocalStorage");
 
-    RefPtr<WebViewGroup> viewGroup = WebViewGroup::getOrCreate("default",
-        storagePath.Path());
+    RefPtr<WebViewGroup> viewGroup = WebViewGroup::getOrCreate(ASCIILiteral::fromLiteralUnsafe("default"),
+        String::fromUTF8(storagePath.Path()));
 
     auto storageProvider = PageStorageSessionProvider::create();
     PageConfiguration pageClients(
@@ -468,7 +468,7 @@ void BWebPage::SendPageSource()
 
 void BWebPage::RequestDownload(const BString& url)
 {
-	ResourceRequest request(url);
+	ResourceRequest request(String::fromUTF8(url.String()));
 	requestDownload(request, false);
 }
 
@@ -1072,7 +1072,7 @@ void BWebPage::MessageReceived(BMessage* message)
             Vector<String> filenames;
             for (int32 i = 0; message->FindRef("refs", i, &ref) == B_OK; i++) {
                 path.SetTo(&ref);
-                filenames.append(String(path.Path()));
+                filenames.append(String::fromUTF8(path.Path()));
             }
             chooser->chooseFiles(filenames);
         }

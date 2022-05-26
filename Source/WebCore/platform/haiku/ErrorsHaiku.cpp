@@ -34,67 +34,67 @@ namespace WebCore {
 
 ResourceError cancelledError(const ResourceRequest& request)
 {
-    return ResourceError(errorDomainNetwork, NetworkErrorCancelled, request.url(), ASCIILiteral::fromLiteralUnsafe("Load request cancelled"));
+    return ResourceError(String::fromUTF8(errorDomainNetwork), NetworkErrorCancelled, request.url(), ASCIILiteral::fromLiteralUnsafe("Load request cancelled"));
 }
 
 ResourceError blockedError(const ResourceRequest& request)
 {
-    return ResourceError(errorDomainPolicy, PolicyErrorCannotUseRestrictedPort, request.url(), ASCIILiteral::fromLiteralUnsafe("Not allowed to use restricted network port"));
+    return ResourceError(String::fromUTF8(errorDomainPolicy), PolicyErrorCannotUseRestrictedPort, request.url(), ASCIILiteral::fromLiteralUnsafe("Not allowed to use restricted network port"));
 }
 
 ResourceError cannotShowURLError(const ResourceRequest& request)
 {
-    return ResourceError(errorDomainPolicy, PolicyErrorCannotShowURL, request.url(), ASCIILiteral::fromLiteralUnsafe("URL cannot be shown"));
+    return ResourceError(String::fromUTF8(errorDomainPolicy), PolicyErrorCannotShowURL, request.url(), ASCIILiteral::fromLiteralUnsafe("URL cannot be shown"));
 }
 
 ResourceError interruptedForPolicyChangeError(const ResourceRequest& request)
 {
-    return ResourceError(errorDomainPolicy, PolicyErrorFrameLoadInterruptedByPolicyChange, request.url(), ASCIILiteral::fromLiteralUnsafe("Frame load was interrupted"));
+    return ResourceError(String::fromUTF8(errorDomainPolicy), PolicyErrorFrameLoadInterruptedByPolicyChange, request.url(), ASCIILiteral::fromLiteralUnsafe("Frame load was interrupted"));
 }
 
 ResourceError cannotShowMIMETypeError(const ResourceResponse& response)
 {
-    return ResourceError(errorDomainPolicy, PolicyErrorCannotShowMimeType, response.url(), ASCIILiteral::fromLiteralUnsafe("Content with the specified MIME type cannot be shown"));
+    return ResourceError(String::fromUTF8(errorDomainPolicy), PolicyErrorCannotShowMimeType, response.url(), ASCIILiteral::fromLiteralUnsafe("Content with the specified MIME type cannot be shown"));
 }
 
 ResourceError fileDoesNotExistError(const ResourceResponse& response)
 {
-    return ResourceError(errorDomainNetwork, NetworkErrorFileDoesNotExist, response.url(), ASCIILiteral::fromLiteralUnsafe("File does not exist"));
+    return ResourceError(String::fromUTF8(errorDomainNetwork), NetworkErrorFileDoesNotExist, response.url(), ASCIILiteral::fromLiteralUnsafe("File does not exist"));
 }
 
 ResourceError pluginWillHandleLoadError(const ResourceResponse& response)
 {
-    return ResourceError(errorDomainPlugin, PluginErrorWillHandleLoad, response.url(), ASCIILiteral::fromLiteralUnsafe("Plugin will handle load"));
+    return ResourceError(String::fromUTF8(errorDomainPlugin), PluginErrorWillHandleLoad, response.url(), ASCIILiteral::fromLiteralUnsafe("Plugin will handle load"));
 }
 
 ResourceError downloadNetworkError(const ResourceError& networkError)
 {
-    return ResourceError(errorDomainDownload, DownloadErrorNetwork, networkError.failingURL(), networkError.localizedDescription());
+    return ResourceError(String::fromUTF8(errorDomainDownload), DownloadErrorNetwork, networkError.failingURL(), networkError.localizedDescription());
 }
 
 ResourceError downloadCancelledByUserError(const ResourceResponse& response)
 {
-    return ResourceError(errorDomainDownload, DownloadErrorCancelledByUser, response.url(), ASCIILiteral::fromLiteralUnsafe("User cancelled the download"));
+    return ResourceError(String::fromUTF8(errorDomainDownload), DownloadErrorCancelledByUser, response.url(), ASCIILiteral::fromLiteralUnsafe("User cancelled the download"));
 }
 
 ResourceError downloadDestinationError(const ResourceResponse& response, const String& errorMessage)
 {
-    return ResourceError(errorDomainDownload, DownloadErrorDestination, response.url(), errorMessage);
+    return ResourceError(String::fromUTF8(errorDomainDownload), DownloadErrorDestination, response.url(), errorMessage);
 }
 
 ResourceError printError(const URL& failingURL, const String& errorMessage)
 {
-    return ResourceError(errorDomainPrint, PrintErrorGeneral, failingURL, errorMessage);
+    return ResourceError(String::fromUTF8(errorDomainPrint), PrintErrorGeneral, failingURL, errorMessage);
 }
 
 ResourceError printerNotFoundError(const URL& failingURL)
 {
-    return ResourceError(errorDomainPrint, PrintErrorPrinterNotFound, failingURL, ASCIILiteral::fromLiteralUnsafe("Printer not found"));
+    return ResourceError(String::fromUTF8(errorDomainPrint), PrintErrorPrinterNotFound, failingURL, ASCIILiteral::fromLiteralUnsafe("Printer not found"));
 }
 
 ResourceError invalidPageRangeToPrint(const URL& failingURL)
 {
-    return ResourceError(errorDomainPrint, PrintErrorInvalidPageRange, failingURL, ASCIILiteral::fromLiteralUnsafe("Invalid page range"));
+    return ResourceError(String::fromUTF8(errorDomainPrint), PrintErrorInvalidPageRange, failingURL, ASCIILiteral::fromLiteralUnsafe("Invalid page range"));
 }
 
 } // namespace WebCore

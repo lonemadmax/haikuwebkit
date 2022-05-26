@@ -57,14 +57,14 @@ static String applicationCachePath()
 	find_directory(B_USER_CACHE_DIRECTORY, &path);
 	path.Append("webkit");
 
-    return path.Path();
+    return String::fromUTF8(path.Path());
 }
 
 WebCore::ApplicationCacheStorage& WebApplicationCache::storage()
 {
     static WebCore::ApplicationCacheStorage& storage
 		= WebCore::ApplicationCacheStorage::create(applicationCachePath(),
-			"ApplicationCache").leakRef();
+			ASCIILiteral::fromLiteralUnsafe("ApplicationCache")).leakRef();
 
     return storage;
 }

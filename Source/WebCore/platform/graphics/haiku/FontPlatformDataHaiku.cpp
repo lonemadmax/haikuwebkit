@@ -65,7 +65,7 @@ static void findMatchingFontStyle(const font_family& fontFamily, bool bold, bool
 
     for (int i = 0; i < numStyles; i++) {
         if (get_font_style(const_cast<char*>(fontFamily), i, fontStyle) == B_OK) {
-            String styleName(*fontStyle);
+            BString styleName(*fontStyle);
             if ((oblique && bold) && (styleName == "Bold Italic" || styleName == "Bold Oblique"))
                 return;
             if ((oblique && !bold) && (styleName == "Italic" || styleName == "Oblique"))

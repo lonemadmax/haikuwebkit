@@ -115,7 +115,7 @@ std::unique_ptr<ImageBufferHaikuSurfaceBackend>
 ImageBufferHaikuSurfaceBackend::create(const ImageBufferBackend::Parameters& parameters,
     const GraphicsContext&)
 {
-    return create(parameters, ImageBuffer::CreationContext(nullptr, nullptr));
+    return create(parameters, ImageBuffer::CreationContext(nullptr));
 }
 
 
@@ -197,12 +197,12 @@ unsigned ImageBufferHaikuSurfaceBackend::bytesPerRow() const
 String ImageBufferHaikuSurfaceBackend::toDataURL(const String& mimeType, std::optional<double> quality, PreserveResolution) const
 {
     if (!MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType))
-        return "data:,";
+        return ASCIILiteral::fromLiteralUnsafe("data:,");
 
     Vector<uint8_t> binaryBuffer = toData(mimeType, quality);
 
     if (binaryBuffer.size() == 0)
-        return "data:,";
+        return ASCIILiteral::fromLiteralUnsafe("data:,");
 
     Vector<char> encodedBuffer;
 

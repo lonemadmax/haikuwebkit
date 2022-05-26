@@ -96,8 +96,8 @@ void WebSettingsPrivate::apply()
 //	    settings->setShowsURLsInToolTips(true);
 	    settings->setEditingBehaviorType(WebCore::EditingBehaviorType::Mac);
 	    settings->setLocalStorageEnabled(global->localStorageEnabled);
-	    settings->setLocalStorageDatabasePath(global->localStoragePath);
-	    settings->setDefaultTextEncodingName("UTF-8");
+	    settings->setLocalStorageDatabasePath(String::fromUTF8(global->localStoragePath.String()));
+	    settings->setDefaultTextEncodingName(ASCIILiteral::fromLiteralUnsafe("UTF-8"));
         settings->setNeedsSiteSpecificQuirks(true);
 
         char path[256];
@@ -109,7 +109,7 @@ void WebSettingsPrivate::apply()
 				256);
             strcat(path, "/WebKit/Directory Listing Template.html");
         }
-        settings->setFTPDirectoryTemplatePath(path);
+        settings->setFTPDirectoryTemplatePath(String::fromUTF8(path));
 
 //      settings->setShowDebugBorders(true);
 
@@ -125,24 +125,24 @@ void WebSettingsPrivate::apply()
             settings->setDefaultFixedFontSize(global->defaultFixedFontSize);
 
 		if (serifFontFamilySet)
-            settings->setSerifFontFamily(serifFontFamily.String());
+            settings->setSerifFontFamily(String::fromUTF8(serifFontFamily.String()));
 		else
-            settings->setSerifFontFamily(global->serifFontFamily.String());
+            settings->setSerifFontFamily(String::fromUTF8(global->serifFontFamily.String()));
 
 		if (sansSerifFontFamilySet)
-            settings->setSansSerifFontFamily(sansSerifFontFamily.String());
+            settings->setSansSerifFontFamily(String::fromUTF8(sansSerifFontFamily.String()));
 		else
-            settings->setSansSerifFontFamily(global->sansSerifFontFamily.String());
+            settings->setSansSerifFontFamily(String::fromUTF8(global->sansSerifFontFamily.String()));
 
 		if (fixedFontFamilySet)
-            settings->setFixedFontFamily(fixedFontFamily.String());
+            settings->setFixedFontFamily(String::fromUTF8(fixedFontFamily.String()));
 		else
-            settings->setFixedFontFamily(global->fixedFontFamily.String());
+            settings->setFixedFontFamily(String::fromUTF8(global->fixedFontFamily.String()));
 
 		if (standardFontFamilySet)
-            settings->setStandardFontFamily(standardFontFamily.String());
+            settings->setStandardFontFamily(String::fromUTF8(standardFontFamily.String()));
 		else
-            settings->setStandardFontFamily(global->standardFontFamily.String());
+            settings->setStandardFontFamily(String::fromUTF8(global->standardFontFamily.String()));
 	} else {
 	    int32 count = sAllSettings.CountItems();
 	    for (int32 i = 0; i < count; i++) {

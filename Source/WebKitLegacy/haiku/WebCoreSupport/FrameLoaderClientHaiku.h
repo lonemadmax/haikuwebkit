@@ -186,8 +186,8 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
     bool canHandleRequest(const ResourceRequest&) const override;
     bool canShowMIMEType(const String& MIMEType) const override;
     bool canShowMIMETypeAsHTML(const String& MIMEType) const override;
-    bool representationExistsForURLScheme(const String& URLScheme) const override;
-    String generatedMIMETypeForURLScheme(const String& URLScheme) const override;
+    bool representationExistsForURLScheme(StringView URLScheme) const override;
+    String generatedMIMETypeForURLScheme(StringView URLScheme) const override;
 
     void frameLoadCompleted() override;
     void saveViewStateToItem(HistoryItem&) override;
