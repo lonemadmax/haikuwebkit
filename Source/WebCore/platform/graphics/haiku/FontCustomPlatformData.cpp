@@ -43,7 +43,7 @@ std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffe
 
 bool FontCustomPlatformData::supportsFormat(const String& format)
 {
-    return equalIgnoringASCIICase(format, "truetype");
+    return equalIgnoringASCIICase(format, ASCIILiteral::fromLiteralUnsafe("truetype"));
 }
 
 }

@@ -278,7 +278,7 @@ void FrameLoaderClientHaiku::dispatchDidReceiveResponse(DocumentLoader* loader,
     message.AddInt32("status", coreResponse.httpStatusCode());
     message.AddInt64("identifier", identifier.toUInt64());
     message.AddString("url", coreResponse.url().string());
-    message.AddString("mimeType", coreResponse.mimeType());
+    message.AddString("mimeType", coreResponse.mimeType().string().utf8().data());
     dispatchMessage(message);
 }
 

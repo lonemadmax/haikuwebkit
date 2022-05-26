@@ -83,7 +83,7 @@ void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceRespon
         if (response.mimeType().length()) {
         	// Do some checks, as no mime type yet is always better
         	// than set an invalid one
-        	BString mimeType = response.mimeType();
+        	BString mimeType = response.mimeType().string().utf8().data();
         	BMimeType type(mimeType);
         	BMimeType superType;
         	if (type.IsValid() && type.GetSupertype(&superType) == B_OK
@@ -245,8 +245,8 @@ void WebDownloadPrivate::findAvailableFilename()
             baseName.MoveInto(extension, extensionStart, baseName.CountChars() - extensionStart);
 
         // Add i to file name before the extension
-        char num[10];
-        snprintf(num, sizeof(num), "-%ld", i);
+        char num[12];
+        snprintf(num, sizeof(num), "-%" B_PRId32, i);
         baseName.Append(num).Append(extension);
         fileName = baseName;
         filePath = m_path;
