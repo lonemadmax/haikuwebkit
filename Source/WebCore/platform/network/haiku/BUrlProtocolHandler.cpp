@@ -365,7 +365,7 @@ void BUrlProtocolHandler::willSendRequest(const ResourceResponse& response)
 
     m_request->abort();
     ResourceResponse responseCopy = response;
-    client->willSendRequestAsync(m_resourceHandle, WTFMove(request), WTFMove(responseCopy), [this] (ResourceRequest&& request) {
+    client->willSendRequestAsync(m_resourceHandle, WTFMove(request), WTFMove(responseCopy), [this, protectedThis = Ref { *this }] (ResourceRequest&& request) {
         continueAfterWillSendRequest(WTFMove(request));
     });
 }

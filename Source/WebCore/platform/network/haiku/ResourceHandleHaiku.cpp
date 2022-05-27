@@ -69,7 +69,7 @@ bool ResourceHandle::start()
         d->m_firstRequest.setURL(urlWithCredentials);
     }
 
-    d->m_urlrequest = new BUrlProtocolHandler(this);
+    d->m_urlrequest = adoptRef(*new BUrlProtocolHandler(this));
 
     if (!d->m_urlrequest->isValid())
         scheduleFailure(InvalidURLFailure);
@@ -80,8 +80,7 @@ void ResourceHandle::cancel()
 {
     if (d->m_urlrequest) {
         d->m_urlrequest->abort();
-        delete d->m_urlrequest;
-        d->m_urlrequest = 0;
+        d->m_urlrequest = nullptr;
     }
 }
 

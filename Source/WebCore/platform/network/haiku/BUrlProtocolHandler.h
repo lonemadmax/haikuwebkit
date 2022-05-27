@@ -73,7 +73,7 @@ private:
     BLocker m_receiveMutex;
 };
 
-class BUrlProtocolHandler {
+class BUrlProtocolHandler : public ThreadSafeRefCounted<BUrlProtocolHandler> {
 public:
     explicit BUrlProtocolHandler(ResourceHandle *handle);
     virtual ~BUrlProtocolHandler();

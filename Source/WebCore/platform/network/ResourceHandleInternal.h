@@ -47,7 +47,7 @@
 
 #if PLATFORM(HAIKU)
 #include <String.h>
-class BUrlProtocolHandler;
+#include "BUrlProtocolHandler.h"
 #endif
 
 #if PLATFORM(COCOA)
@@ -81,9 +81,6 @@ public:
         , m_shouldContentEncodingSniff(shouldContentEncodingSniff)
 #if USE(CFURLCONNECTION)
         , m_currentRequest(request)
-#endif
-#if PLATFORM(HAIKU)
-        , m_urlrequest(0)
 #endif
         , m_failureTimer(*loader, &ResourceHandle::failureTimerFired)
         , m_sourceOrigin(WTFMove(sourceOrigin))
@@ -148,7 +145,7 @@ public:
     bool m_isCrossOrigin { false };
 
 #if PLATFORM(HAIKU)
-    BUrlProtocolHandler* m_urlrequest;
+    RefPtr<BUrlProtocolHandler> m_urlrequest;
     BString m_url;
 #endif
 
