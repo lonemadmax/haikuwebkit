@@ -192,7 +192,6 @@ void WebKitInitializeLogChannelsIfNecessary();
 
     WTF::initializeMainThread();
     ScriptController::initializeMainThread();
-    WTF::AtomString::init();
     PAL::UTF8Encoding();
 
     WebVisitedLinkStore::setShouldTrackVisitedLinks(true);

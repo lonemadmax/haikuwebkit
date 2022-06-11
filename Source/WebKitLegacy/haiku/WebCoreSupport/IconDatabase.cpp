@@ -300,10 +300,12 @@ void IconDatabase::removeAllIcons()
 
 static bool documentCanHaveIcon(const String& documentURL)
 {
-    return !documentURL.isEmpty() && !protocolIs(documentURL, "about");
+    return !documentURL.isEmpty() && !protocolIs(documentURL,
+        ASCIILiteral::fromLiteralUnsafe("about"));
 }
 
-std::pair<PlatformImagePtr, IconDatabase::IsKnownIcon> IconDatabase::synchronousIconForPageURL(const String& pageURLOriginal, const IntSize& size)
+std::pair<PlatformImagePtr, IconDatabase::IsKnownIcon> IconDatabase::synchronousIconForPageURL(
+    const String& pageURLOriginal, const IntSize& size)
 {
     ASSERT_NOT_SYNC_THREAD();
 
@@ -944,7 +946,10 @@ static int databaseVersionNumber(SQLiteDatabase& db)
 static bool isValidDatabase(SQLiteDatabase& db)
 {
     // These four tables should always exist in a valid db
-    if (!db.tableExists("IconInfo") || !db.tableExists("IconData") || !db.tableExists("PageURL") || !db.tableExists("IconDatabaseInfo"))
+    if (!db.tableExists(ASCIILiteral::fromLiteralUnsafe("IconInfo"))
+        || !db.tableExists(ASCIILiteral::fromLiteralUnsafe("IconData"))
+        || !db.tableExists(ASCIILiteral::fromLiteralUnsafe("PageURL"))
+        || !db.tableExists(ASCIILiteral::fromLiteralUnsafe("IconDatabaseInfo")))
         return false;
 
     if (databaseVersionNumber(db) < currentDatabaseVersion) {

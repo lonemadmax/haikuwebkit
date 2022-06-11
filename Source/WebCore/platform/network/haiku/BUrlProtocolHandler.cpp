@@ -172,13 +172,13 @@ void BUrlRequestWrapper::HeadersReceived(BPrivate::Network::BUrlRequest* caller)
     const BPrivate::Network::BHttpResult* httpResult = dynamic_cast<const BPrivate::Network::BHttpResult*>(&result);
     if (httpResult) {
         StringView suggestedFilename = filenameFromHTTPContentDisposition(
-            httpResult->Headers()["Content-Disposition"]);
+            String::fromUTF8(httpResult->Headers()["Content-Disposition"]));
 
         if (!suggestedFilename.isEmpty())
             response.setSuggestedFilename(suggestedFilename.toString());
 
         response.setHTTPStatusCode(httpResult->StatusCode());
-        response.setHTTPStatusText(String::fromUTF8(httpResult->StatusText().String()));
+        response.setHTTPStatusText(AtomString::fromUTF8(httpResult->StatusText().String()));
 
         // Add remaining headers.
         const BPrivate::Network::BHttpHeaders& resultHeaders = httpResult->Headers();
@@ -391,7 +391,7 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
 
     const URL& url = response.url();
     auto serverType = WebCore::ProtectionSpaceBase::ServerType::HTTP;
-    if (url.protocolIs("https"))
+    if (url.protocolIs(ASCIILiteral::fromLiteralUnsafe("https")))
         serverType = WebCore::ProtectionSpaceBase::ServerType::HTTPS;
     // FIXME handle other types (FTP and proxy stuff)
 
@@ -401,9 +401,9 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
     auto scheme = WebCore::ProtectionSpaceBase::AuthenticationScheme::Default;
     // TODO according to RFC7235, there could be more than one challenge in WWW-Authenticate. We
     // should parse them all, instead of just the first one.
-    if (challenge.startsWith("Digest"))
+    if (challenge.startsWith(ASCIILiteral::fromLiteralUnsafe("Digest")))
         scheme = WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPDigest;
-    else if (challenge.startsWith("Basic"))
+    else if (challenge.startsWith(ASCIILiteral::fromLiteralUnsafe("Basic")))
         scheme = WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPBasic;
     else {
         // Unknown authentication type, ignore (various websites are intercepting the auth and
@@ -412,10 +412,10 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
     }
 
     String realm;
-    int realmStart = challenge.find("realm=\"", 0);
+    int realmStart = challenge.find(ASCIILiteral::fromLiteralUnsafe("realm=\""), 0);
     if (realmStart > 0) {
         realmStart += 7;
-        int realmEnd = challenge.find("\"", realmStart);
+        int realmEnd = challenge.find(ASCIILiteral::fromLiteralUnsafe("\""), realmStart);
         if (realmEnd >= 0)
             realm = challenge.substring(realmStart, realmEnd - realmStart);
     }
@@ -423,7 +423,7 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
     int port;
     if (url.port())
         port = *url.port();
-    else if (url.protocolIs("https"))
+    else if (url.protocolIs(ASCIILiteral::fromLiteralUnsafe("https")))
         port = 443;
     else
         port = 80;

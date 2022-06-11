@@ -899,13 +899,13 @@ bool FrameLoaderClientHaiku::canCachePage() const
     return true;
 }
 
-RefPtr<Frame> FrameLoaderClientHaiku::createFrame(const String& name,
+RefPtr<Frame> FrameLoaderClientHaiku::createFrame(const AtomString& name,
     HTMLFrameOwnerElement& ownerElement)
 {
     ASSERT(m_webFrame);
     ASSERT(m_webPage);
 
-    BWebFrame* subFrame = m_webFrame->AddChild(m_webPage, name, &ownerElement);
+    BWebFrame* subFrame = m_webFrame->AddChild(m_webPage, name.string().utf8().data(), &ownerElement);
     if (!subFrame)
         return nullptr;
 

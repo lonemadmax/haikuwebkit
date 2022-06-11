@@ -143,40 +143,6 @@ RefPtr<Image> ImageBufferHaikuSurfaceBackend::copyImage(BackingStoreCopy copyBeh
     return BitmapImage::create(copyNativeImage(copyBehavior));
 }
 
-void ImageBufferHaikuSurfaceBackend::draw(GraphicsContext& destContext,
-    const FloatRect& destRect, const FloatRect& srcRect,
-    const ImagePaintingOptions& options)
-{
-    if (!m_data.m_view)
-        return;
-
-    m_data.m_view->Sync();
-    if (&destContext == &context() && destRect.intersects(srcRect)) {
-        // We're drawing into our own buffer.  In order for this to work, we need to copy the source buffer first.
-        RefPtr<Image> copy = copyImage(CopyBackingStore, PreserveResolution::Yes);
-        destContext.drawImage(*copy.get(), destRect, srcRect, options);
-    } else {
-        dynamic_cast<GraphicsContextHaiku&>(destContext).drawBitmap(m_data.m_image.get(), srcRect.size(), destRect, srcRect, options);
-    }
-}
-
-void ImageBufferHaikuSurfaceBackend::drawPattern(GraphicsContext& destContext,
-    const FloatRect& destRect, const FloatRect& srcRect,
-    const AffineTransform& patternTransform, const FloatPoint& phase,
-    const FloatSize& size, const ImagePaintingOptions& options)
-{
-    if (!m_data.m_view)
-        return;
-
-    m_data.m_view->Sync();
-    if (&destContext == &context() && srcRect.intersects(destRect)) {
-        // We're drawing into our own buffer.  In order for this to work, we need to copy the source buffer first.
-        RefPtr<Image> copy = copyImage(CopyBackingStore, PreserveResolution::Yes);
-        copy->drawPattern(destContext, destRect, srcRect, patternTransform, phase, size, options.compositeOperator());
-    } else
-        dynamic_cast<GraphicsContextHaiku&>(destContext).drawBitmap(m_data.m_image.get(), srcRect.size(), destRect, srcRect, patternTransform, phase, size, options.compositeOperator());
-}
-
 
 std::optional<PixelBuffer> ImageBufferHaikuSurfaceBackend::getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& srcRect) const
 {

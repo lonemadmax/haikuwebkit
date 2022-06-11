@@ -51,7 +51,7 @@ public:
     {}
 
 
-    WTF::String name;
+    WTF::AtomString name;
     WTF::String requestedURL;
     WebCore::HTMLFrameOwnerElement* ownerElement;
     WebCore::Page* page;

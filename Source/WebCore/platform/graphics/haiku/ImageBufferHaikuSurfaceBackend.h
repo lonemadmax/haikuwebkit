@@ -50,8 +50,6 @@ public:
     GraphicsContext& context() const override;
     WTF::RefPtr<WebCore::NativeImage> copyNativeImage(BackingStoreCopy) const override;
     RefPtr<Image> copyImage(BackingStoreCopy, PreserveResolution) const override;
-    void draw(GraphicsContext&, const FloatRect&, const FloatRect&, const ImagePaintingOptions&) override;
-    void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions&) override;
     String toDataURL(const String& mimeType, std::optional<double> quality, PreserveResolution) const override;
     Vector<uint8_t> toData(const String& mimeType, std::optional<double> quality) const override;
     std::optional<WebCore::PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&) const override;

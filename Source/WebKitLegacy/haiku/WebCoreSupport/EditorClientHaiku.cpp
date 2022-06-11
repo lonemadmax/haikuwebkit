@@ -299,29 +299,29 @@ void EditorClientHaiku::handleInputMethodKeydown(KeyboardEvent&)
     notImplemented();
 }
 
-void EditorClientHaiku::textFieldDidBeginEditing(Element*)
+void EditorClientHaiku::textFieldDidBeginEditing(Element&)
 {
 }
 
-void EditorClientHaiku::textFieldDidEndEditing(Element*)
+void EditorClientHaiku::textFieldDidEndEditing(Element&)
 {
 }
 
-void EditorClientHaiku::textDidChangeInTextField(Element*)
+void EditorClientHaiku::textDidChangeInTextField(Element&)
 {
 }
 
-bool EditorClientHaiku::doTextFieldCommandFromEvent(Element*, KeyboardEvent*)
+bool EditorClientHaiku::doTextFieldCommandFromEvent(Element&, KeyboardEvent*)
 {
     return false;
 }
 
-void EditorClientHaiku::textWillBeDeletedInTextField(Element*)
+void EditorClientHaiku::textWillBeDeletedInTextField(Element&)
 {
     notImplemented();
 }
 
-void EditorClientHaiku::textDidChangeInTextArea(Element*)
+void EditorClientHaiku::textDidChangeInTextArea(Element&)
 {
     notImplemented();
 }

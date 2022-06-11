@@ -50,7 +50,7 @@ class NotificationClientHaiku: public NotificationClient {
 public:
     NotificationClientHaiku(BWebPage*) {}
 
-    bool show(Notification& descriptor) override {
+    bool show(Notification& descriptor, CompletionHandler<void()>&&) override {
 
         // FIXME should call dispatch{Click/Close/Error/Show}Event
         fromDescriptor(descriptor).Send();

@@ -106,9 +106,9 @@ void SocketStreamHandleImpl::threadEntryPoint()
 {
     ASSERT(!isMainThread());
 
-	unsigned int port = m_url.port() ? *m_url.port() : (m_url.protocolIs("wss") ? 443 : 80);
+	unsigned int port = m_url.port() ? *m_url.port() : (m_url.protocolIs(ASCIILiteral::fromLiteralUnsafe("wss")) ? 443 : 80);
     BNetworkAddress peer(m_url.host().utf8().data(), port);
-    BSocket* socket = m_url.protocolIs("wss") ? new BSecureSocket : new BSocket;
+    BSocket* socket = m_url.protocolIs(ASCIILiteral::fromLiteralUnsafe("wss")) ? new BSecureSocket : new BSocket;
 
     // Connect to host
 	status_t status = socket->Connect(peer);

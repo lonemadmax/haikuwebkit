@@ -106,7 +106,7 @@ void BWebFrame::LoadURL(BString urlString)
 {
     WTF::URL url;
     if (BEntry(urlString.String()).Exists()) {
-        url.setProtocol("file");
+        url.setProtocol(ASCIILiteral::fromLiteralUnsafe("file"));
         url.setPath(String::fromUTF8(urlString.String()));
     } else
 		url = WTF::URL(WTF::URL(), String::fromUTF8(urlString.Trim().String()));
@@ -410,7 +410,7 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
     WebCore::HTMLFrameOwnerElement* ownerElement)
 {
     WebFramePrivate* data = new WebFramePrivate(page->page());
-    data->name = String::fromUTF8(name.String());
+    data->name = AtomString::fromUTF8(name.String());
     data->ownerElement = ownerElement;
 
     BWebFrame* frame = new(std::nothrow) BWebFrame(page, this, data);
@@ -424,7 +424,7 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
     data->frame = coreFrame.get();
     FrameLoaderClientHaiku& client = static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
     client.setFrame(frame);
-    coreFrame->tree().setName(String::fromUTF8(name.String()));
+    coreFrame->tree().setName(AtomString::fromUTF8(name.String()));
 
     if (ownerElement)
         ownerElement->document().frame()->tree().appendChild(*coreFrame.get());

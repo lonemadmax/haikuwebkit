@@ -84,21 +84,21 @@ using namespace std;
 const unsigned maxViewHeight = 600;
 const unsigned maxViewWidth = 800;
 
-static String dumpFramesAsText(BWebFrame* frame)
+static std::string dumpFramesAsText(BWebFrame* frame)
 {
     if (!frame)
-        return String();
+        return "";
 
-    StringBuilder resultBuilder;
-    resultBuilder.append(frame->InnerText().String());
+    std::string result;
 
     if (webView->WebPage()->MainFrame() != frame) {
-        resultBuilder.append("\n--------\nFrame: '");
-        resultBuilder.append(frame->Name());
-        resultBuilder.append("'\n--------\n");
+        result.append("\n--------\nFrame: '");
+        result.append(frame->Name());
+        result.append("'\n--------\n");
     }
 
-    resultBuilder.append("\n");
+    result.append(frame->InnerText().String());
+    result.append("\n");
 
     if (gTestRunner->dumpChildFramesAsText()) {
         BList children = WebCore::DumpRenderTreeClient::frameChildren(frame);
@@ -106,26 +106,21 @@ static String dumpFramesAsText(BWebFrame* frame)
         for(int i = 0; i < children.CountItems(); i++)
         {
             BWebFrame* currentFrame = static_cast<BWebFrame*>(children.ItemAt(i));
-            String tempText(dumpFramesAsText(currentFrame));
+            std::string tempText(dumpFramesAsText(currentFrame));
 
-            if (tempText.isEmpty())
-                continue;
-
-            resultBuilder.append(tempText);
+            result.append(tempText);
         }
     }
 
-    String result = resultBuilder.toString();
-
     // To keep things tidy, strip all trailing spaces: they are not a meaningful part of dumpAsText test output.
     size_t spacePosition = String::MaxLength;
-    while ((spacePosition = result.reverseFind(" \n", spacePosition)) != notFound)
-        result.remove(spacePosition, 1);
-    if (!result.isEmpty()) {
+    while ((spacePosition = result.rfind(" \n", spacePosition)) != notFound)
+        result.erase(spacePosition, 1);
+    if (!result.empty()) {
         spacePosition = result.length();
         while (spacePosition > 0 && result[spacePosition - 1] == ' ')
             spacePosition--;
-        result.remove(spacePosition, result.length() - spacePosition);
+        result.erase(spacePosition, result.length() - spacePosition);
     }
 
     return result;
@@ -175,13 +170,13 @@ static void adjustOutputTypeByMimeType(BWebFrame* frame)
 
 static void dumpFrameContentsAsText(BWebFrame* frame)
 {
-    String result;
+    std::string result;
     if (gTestRunner->dumpAsText())
         result = dumpFramesAsText(frame);
     else
-        result = String::fromUTF8(frame->ExternalRepresentation());
+        result = frame->ExternalRepresentation();
 
-    printf("%s", result.utf8().data());
+    printf("%s", result.c_str());
 }
 
 static bool shouldDumpFrameScrollPosition()
@@ -228,22 +223,23 @@ void dump()
 
 static bool shouldLogFrameLoadDelegates(const String& pathOrURL)
 {
-    return pathOrURL.contains("loading/");
+    return pathOrURL.contains(ASCIILiteral::fromLiteralUnsafe("loading/"));
 }
 
 static bool shouldDumpAsText(const String& pathOrURL)
 {
-    return pathOrURL.contains("dumpAsText/");
+    return pathOrURL.contains(ASCIILiteral::fromLiteralUnsafe("dumpAsText/"));
 }
 
 static bool shouldOpenWebInspector(const String& pathOrURL)
 {
-    return pathOrURL.contains("inspector/");
+    return pathOrURL.contains(ASCIILiteral::fromLiteralUnsafe("inspector/"));
 }
 
 static String getFinalTestURL(const String& testURL)
 {
-    if (!testURL.startsWith("http://") && !testURL.startsWith("https://")) {
+    if (!testURL.startsWith(ASCIILiteral::fromLiteralUnsafe("http://"))
+        && !testURL.startsWith(ASCIILiteral::fromLiteralUnsafe("https://"))) {
         char* cFilePath = realpath(testURL.utf8().data(), NULL);
         const String filePath = String::fromUTF8(cFilePath);
         free(cFilePath);
@@ -257,7 +253,7 @@ static String getFinalTestURL(const String& testURL)
 
 static inline bool isGlobalHistoryTest(const String& cTestPathOrURL)
 {
-    return cTestPathOrURL.contains("/globalhistory/");
+    return cTestPathOrURL.contains(ASCIILiteral::fromLiteralUnsafe("/globalhistory/"));
 }
 
 static void createTestRunner(const String& testURL, const String& expectedPixelHash)
@@ -402,7 +398,7 @@ static void runTest(const string& inputLine)
 	DRT::WorkQueue::singleton().clear();
 	DRT::WorkQueue::singleton().setFrozen(false);
 
-    const bool isSVGW3CTest = testURL.contains("svg/W3C-SVG-1.1");
+    const bool isSVGW3CTest = testURL.contains(ASCIILiteral::fromLiteralUnsafe("svg/W3C-SVG-1.1"));
     const int width = isSVGW3CTest ? TestRunner::w3cSVGViewWidth : TestRunner::viewWidth;
     const int height = isSVGW3CTest ? TestRunner::w3cSVGViewHeight : TestRunner::viewHeight;
     webView->LockLooper();

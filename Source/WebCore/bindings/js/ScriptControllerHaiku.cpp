@@ -37,7 +37,7 @@ namespace WebCore {
 
 RefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWidget(Widget* widget)
 {
-    if (!widget->isPluginView())
+    if (!widget->isPluginViewBase())
         return nullptr;
 
 	// TODO: cleanup, this method isn't defined anymore without NETSCAPE_PLUGIN_API enabled

@@ -65,7 +65,8 @@ void ContextMenuClientHaiku::searchWithGoogle(const Frame* frame)
     String searchString = frame->editor().selectedText();
     searchString.stripWhiteSpace();
     String encoded = encodeWithURLEscapeSequences(searchString);
-    encoded = makeStringByReplacingAll(encoded, "%20", "+");
+    encoded = makeStringByReplacingAll(encoded, ASCIILiteral::fromLiteralUnsafe("%20"),
+        ASCIILiteral::fromLiteralUnsafe("+"));
 
     StringBuilder url;
     url.append("http://www.google.com/search?q=");
@@ -74,7 +75,7 @@ void ContextMenuClientHaiku::searchWithGoogle(const Frame* frame)
     if (Page* page = frame->page()) {
         UserGestureIndicator indicator(ProcessingUserGesture);
         page->mainFrame().loader().changeLocation(URL({ }, url.toString()),
-            String::fromUTF8("_blank"), 0, ReferrerPolicy::EmptyString,
+            ASCIILiteral::fromLiteralUnsafe("_blank"), 0, ReferrerPolicy::EmptyString,
             frame->document()->shouldOpenExternalURLsPolicyToPropagate());
     }
 }
