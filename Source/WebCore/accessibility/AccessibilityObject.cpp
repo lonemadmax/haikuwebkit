@@ -2208,18 +2208,18 @@ AccessibilityCurrentState AccessibilityObject::currentState() const
     String currentStateValue = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_currentAttr));
     
     // If "false", empty, or missing, return false state.
-    if (currentStateValue.isEmpty() || currentStateValue == "false")
+    if (currentStateValue.isEmpty() || currentStateValue == "false"_s)
         return AccessibilityCurrentState::False;
     
-    if (currentStateValue == "page")
+    if (currentStateValue == "page"_s)
         return AccessibilityCurrentState::Page;
-    if (currentStateValue == "step")
+    if (currentStateValue == "step"_s)
         return AccessibilityCurrentState::Step;
-    if (currentStateValue == "location")
+    if (currentStateValue == "location"_s)
         return AccessibilityCurrentState::Location;
-    if (currentStateValue == "date")
+    if (currentStateValue == "date"_s)
         return AccessibilityCurrentState::Date;
-    if (currentStateValue == "time")
+    if (currentStateValue == "time"_s)
         return AccessibilityCurrentState::Time;
     
     // Any value not included in the list of allowed values should be treated as "true".
@@ -2315,7 +2315,7 @@ const AtomString& AccessibilityObject::getAttribute(const QualifiedName& attribu
 
 std::optional<String> AccessibilityObject::attributeValue(const String& attributeName) const
 {
-    if (attributeName == "name") {
+    if (attributeName == "name"_s) {
         auto value = getAttribute(nameAttr);
         if (!value.isNull())
             return value;
@@ -2802,7 +2802,14 @@ Element* AccessibilityObject::element() const
         return downcast<Element>(node);
     return nullptr;
 }
-    
+
+const RenderStyle* AccessibilityObject::style() const
+{
+    if (auto* element = this->element())
+        return element->computedStyle();
+    return nullptr;
+}
+
 bool AccessibilityObject::isValueAutofillAvailable() const
 {
     if (!isNativeTextControl())
@@ -3714,7 +3721,8 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     if (useParentData ? m_isIgnoredFromParentData.isAXHidden : isAXHidden())
         return AccessibilityObjectInclusion::IgnoreObject;
 
-    if (renderer() && renderer()->style().effectiveInert())
+    auto* style = this->style();
+    if (style && style->effectiveInert())
         return AccessibilityObjectInclusion::IgnoreObject;
 
     if (useParentData ? m_isIgnoredFromParentData.isPresentationalChildOfAriaRole : isPresentationalChildOfAriaRole())
@@ -3928,7 +3936,7 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityObject::relatedObjects(AX
     if (!cache)
         return { };
 
-    auto relatedObjectIDs = cache->relatedObjectsFor(*this, relationType);
+    auto relatedObjectIDs = cache->relatedObjectIDsFor(*this, relationType);
     if (!relatedObjectIDs)
         return { };
     return cache->objectsForIDs(*relatedObjectIDs);
@@ -3943,81 +3951,6 @@ bool AccessibilityObject::isActiveDescendantOfFocusedContainer() const
     }
 
     return false;
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::activeDescendantOfObjects() const
-{
-    return relatedObjects(AXRelationType::ActiveDescendantOf);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::controlledObjects() const
-{
-    return relatedObjects(AXRelationType::ControllerFor);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::controllers() const
-{
-    return relatedObjects(AXRelationType::ControlledBy);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::describedByObjects() const
-{
-    return relatedObjects(AXRelationType::DescribedBy);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::descriptionForObjects() const
-{
-    return relatedObjects(AXRelationType::DescriptionFor);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::detailedByObjects() const
-{
-    return relatedObjects(AXRelationType::Details);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::detailsForObjects() const
-{
-    return relatedObjects(AXRelationType::DetailsFor);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::errorMessageObjects() const
-{
-    return relatedObjects(AXRelationType::ErrorMessage);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::errorMessageForObjects() const
-{
-    return relatedObjects(AXRelationType::ErrorMessageFor);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::flowToObjects() const
-{
-    return relatedObjects(AXRelationType::FlowsTo);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::flowFromObjects() const
-{
-    return relatedObjects(AXRelationType::FlowsFrom);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::labelledByObjects() const
-{
-    return relatedObjects(AXRelationType::LabelledBy);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::labelForObjects() const
-{
-    return relatedObjects(AXRelationType::LabelFor);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::ownedObjects() const
-{
-    return relatedObjects(AXRelationType::OwnerFor);
-}
-
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::owners() const
-{
-    return relatedObjects(AXRelationType::OwnedBy);
 }
 
 void AccessibilityObject::setIsIgnoredFromParentDataForChild(AXCoreObject* child)

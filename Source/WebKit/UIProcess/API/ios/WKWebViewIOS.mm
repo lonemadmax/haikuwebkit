@@ -40,7 +40,7 @@
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewGestureController.h"
 #import "WKBackForwardListItemInternal.h"
-#import "WKContentView.h"
+#import "WKContentViewInteraction.h"
 #import "WKPasswordView.h"
 #import "WKSafeBrowsingWarning.h"
 #import "WKScrollView.h"
@@ -2742,6 +2742,11 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     [super buildMenuWithBuilder:builder];
 }
 
+- (BOOL)_shouldAvoidSecurityHeuristicScoreUpdates
+{
+    return [_contentView _shouldAvoidSecurityHeuristicScoreUpdates];
+}
+
 #if HAVE(UIFINDINTERACTION)
 
 - (id<UITextSearching>)_searchableObject
@@ -2865,7 +2870,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
 - (void)_setMinimumUnobscuredSizeOverride:(CGSize)size
 {
-    ASSERT(size.width <= self.bounds.size.width && size.height <= self.bounds.size.height);
+    ASSERT((!self.bounds.size.width || size.width <= self.bounds.size.width) && (!self.bounds.size.height || size.height <= self.bounds.size.height));
     _minimumUnobscuredSizeOverride = size;
 
     if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing)
@@ -2881,7 +2886,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
 - (void)_setMaximumUnobscuredSizeOverride:(CGSize)size
 {
-    ASSERT(size.width <= self.bounds.size.width && size.height <= self.bounds.size.height);
+    ASSERT((!self.bounds.size.width || size.width <= self.bounds.size.width) && (!self.bounds.size.height || size.height <= self.bounds.size.height));
     _maximumUnobscuredSizeOverride = size;
 
     if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing) {

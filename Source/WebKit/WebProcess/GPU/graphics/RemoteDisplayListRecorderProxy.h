@@ -50,8 +50,10 @@ private:
     template<typename T>
     void send(T&& message)
     {
-        if (UNLIKELY(!m_renderingBackend))
+        if (UNLIKELY(!(m_renderingBackend && m_imageBuffer)))
             return;
+
+        m_imageBuffer->setNeedsFlush(true);
         m_renderingBackend->sendToStream(WTFMove(message), m_destinationBufferIdentifier);
     }
 
@@ -131,8 +133,6 @@ private:
     bool recordResourceUse(WebCore::ImageBuffer&) final;
     bool recordResourceUse(const WebCore::SourceImage&) final;
     bool recordResourceUse(WebCore::Font&) final;
-
-    void setNeedsFlush(bool) final;
 
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, float resolutionScale, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMode>, std::optional<WebCore::RenderingMethod>) const final;
     RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;

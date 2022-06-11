@@ -198,7 +198,8 @@ RenderStyle::RenderStyle(CreateDefaultStyleTag)
     m_nonInheritedFlags.hasExplicitlySetDirection = false;
     m_nonInheritedFlags.hasExplicitlySetWritingMode = false;
     m_nonInheritedFlags.hasExplicitlySetTextAlign = false;
-    m_nonInheritedFlags.hasViewportUnits = false;
+    m_nonInheritedFlags.usesViewportUnits = false;
+    m_nonInheritedFlags.usesContainerUnits = false;
     m_nonInheritedFlags.hasExplicitlyInheritedProperties = false;
     m_nonInheritedFlags.disallowsFastPathInheritance = false;
     m_nonInheritedFlags.isUnique = false;
@@ -823,10 +824,8 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
     ASSERT(&first != &second);
 
     if (first.indent != second.indent
-#if ENABLE(CSS3_TEXT)
         || first.textAlignLast != second.textAlignLast
         || first.textJustify != second.textJustify
-#endif
         || first.textIndentLine != second.textIndentLine
         || first.effectiveZoom != second.effectiveZoom
         || first.textZoom != second.textZoom

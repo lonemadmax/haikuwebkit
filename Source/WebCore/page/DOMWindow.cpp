@@ -114,6 +114,7 @@
 #include "UserContentProvider.h"
 #include "UserGestureIndicator.h"
 #include "VisualViewport.h"
+#include "WebCoreOpaqueRoot.h"
 #include "WebKitPoint.h"
 #include "WindowFeatures.h"
 #include "WindowFocusAllowedIndicator.h"
@@ -900,11 +901,11 @@ ExceptionOr<void> DOMWindow::postMessage(JSC::JSGlobalObject& lexicalGlobalObjec
     // Compute the target origin.  We need to do this synchronously in order
     // to generate the SyntaxError exception correctly.
     RefPtr<SecurityOrigin> target;
-    if (options.targetOrigin == "/") {
+    if (options.targetOrigin == "/"_s) {
         if (!sourceDocument)
             return { };
         target = &sourceDocument->securityOrigin();
-    } else if (options.targetOrigin != "*") {
+    } else if (options.targetOrigin != "*"_s) {
         target = SecurityOrigin::createFromString(options.targetOrigin);
         // It doesn't make sense target a postMessage at a unique origin
         // because there's no way to represent a unique origin in a string.
@@ -997,7 +998,13 @@ void DOMWindow::focus(DOMWindow& incumbentWindow)
 {
     RefPtr frame = this->frame();
     RefPtr openerFrame = frame ? frame->loader().opener() : nullptr;
-    focus(openerFrame && openerFrame != frame && incumbentWindow.frame() == openerFrame);
+    focus([&] {
+        if (!openerFrame || openerFrame == frame || incumbentWindow.frame() != openerFrame)
+            return false;
+
+        auto* page = openerFrame->page();
+        return page && page->isVisibleAndActive();
+    }());
 }
 
 void DOMWindow::focus(bool allowFocus)
@@ -2736,6 +2743,11 @@ void DOMWindow::eventListenersDidChange()
         else
             windowsInterestedInStorageEvents().remove(*this);
     }
+}
+
+WebCoreOpaqueRoot root(DOMWindow* window)
+{
+    return WebCoreOpaqueRoot { window };
 }
 
 } // namespace WebCore

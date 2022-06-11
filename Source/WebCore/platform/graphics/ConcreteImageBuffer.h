@@ -89,6 +89,7 @@ protected:
     GraphicsContext& context() const override
     {
         ASSERT(m_backend);
+        ASSERT(volatilityState() == VolatilityState::NonVolatile);
         return m_backend->context();
     }
 
@@ -155,7 +156,7 @@ protected:
             return nullptr;
 
         const_cast<ConcreteImageBuffer&>(*this).flushDrawingContext();
-        
+
         FilterResults results;
         auto result = filter.apply(this, { { }, logicalSize() }, results);
         if (!result)
@@ -265,13 +266,13 @@ protected:
         return { };
     }
 
-    std::optional<PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& srcRect) const override
+    RefPtr<PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& srcRect, const ImageBufferAllocator& allocator) const override
     {
         if (auto* backend = ensureBackendCreated()) {
             const_cast<ConcreteImageBuffer&>(*this).flushContext();
-            return backend->getPixelBuffer(outputFormat, srcRect);
+            return backend->getPixelBuffer(outputFormat, srcRect, allocator);
         }
-        return std::nullopt;
+        return nullptr;
     }
 
     void putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint = { }, AlphaPremultiplication destFormat = AlphaPremultiplication::Premultiplied) override

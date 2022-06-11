@@ -52,6 +52,12 @@ WebGLExtension::ExtensionName EXTTextureCompressionRGTC::getName() const
     return EXTTextureCompressionRGTCName;
 }
 
+bool EXTTextureCompressionRGTC::supported(GraphicsContextGL& context)
+{
+    return context.supportsExtension("GL_EXT_texture_compression_rgtc"_s)
+        || context.supportsExtension("GL_ARB_texture_compression_rgtc"_s);
+}
+
 } // namespace WebCore
 
 #endif // ENABLE(WEBGL)

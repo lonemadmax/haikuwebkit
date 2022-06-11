@@ -32,6 +32,7 @@
 #include "RuntimeEnabledFeatures.h"
 #include "ServiceWorkerContainer.h"
 #include "StorageManager.h"
+#include "WebCoreOpaqueRoot.h"
 #include "WebLockManager.h"
 #include <mutex>
 #include <wtf/Language.h>
@@ -196,6 +197,11 @@ int NavigatorBase::hardwareConcurrency()
     });
 
     return numberOfCores;
+}
+
+WebCoreOpaqueRoot root(NavigatorBase* navigator)
+{
+    return WebCoreOpaqueRoot { navigator };
 }
 
 } // namespace WebCore

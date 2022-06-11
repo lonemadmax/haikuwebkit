@@ -752,7 +752,6 @@ enum class TextDecorationStyle : uint8_t {
     Wavy
 };
 
-#if ENABLE(CSS3_TEXT)
 enum class TextAlignLast : uint8_t {
     Auto,
     Start,
@@ -767,9 +766,8 @@ enum class TextJustify : uint8_t {
     Auto,
     None,
     InterWord,
-    Distribute
+    InterCharacter
 };
-#endif // CSS3_TEXT
 
 enum class TextDecorationSkipInk : uint8_t {
     None,
@@ -1190,6 +1188,7 @@ enum class FontLoadingBehavior : uint8_t {
 enum class EventListenerRegionType : uint8_t {
     Wheel           = 1 << 0,
     NonPassiveWheel = 1 << 1,
+    MouseClick      = 1 << 2,
 };
 
 enum class MathStyle : uint8_t {
@@ -1305,6 +1304,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, SpeakAs);
 WTF::TextStream& operator<<(WTF::TextStream&, StyleDifference);
 WTF::TextStream& operator<<(WTF::TextStream&, TableLayoutType);
 WTF::TextStream& operator<<(WTF::TextStream&, TextAlignMode);
+WTF::TextStream& operator<<(WTF::TextStream&, TextAlignLast);
 WTF::TextStream& operator<<(WTF::TextStream&, TextCombine);
 WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationLine);
 WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationSkipInk);
@@ -1312,6 +1312,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisFill);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisMark);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisPosition);
+WTF::TextStream& operator<<(WTF::TextStream&, TextJustify);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOrientation);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOverflow);
 WTF::TextStream& operator<<(WTF::TextStream&, TextSecurity);

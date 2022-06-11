@@ -127,7 +127,6 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <UIKit/UIAccessibility.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
-#import <pal/spi/ios/MobileGestaltSPI.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY) && USE(APPLE_INTERNAL_SDK)
@@ -153,6 +152,10 @@
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 #import "WebCaptionPreferencesDelegate.h"
 #import <WebCore/CaptionUserPreferencesMediaAF.h>
+#endif
+
+#if ENABLE(DATA_DETECTION) && PLATFORM(IOS_FAMILY)
+#import <pal/spi/ios/DataDetectorsUISPI.h>
 #endif
 
 #import <WebCore/MediaAccessibilitySoftLink.h>
@@ -225,6 +228,16 @@ static Boolean isAXAuthenticatedCallback(audit_token_t auditToken)
 }
 #endif
 
+static void softlinkDataDetectorsFrameworks()
+{
+#if ENABLE(DATA_DETECTION)
+    PAL::isDataDetectorsCoreFrameworkAvailable();
+#if PLATFORM(IOS_FAMILY)
+    DataDetectorsUILibrary();
+#endif // PLATFORM(IOS_FAMILY)
+#endif // ENABLE(DATA_DETECTION)
+}
+
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
     applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
@@ -238,39 +251,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     }
 #endif
 
-    if (parameters.mobileGestaltExtensionHandle) {
-        if (auto extension = SandboxExtension::create(WTFMove(*parameters.mobileGestaltExtensionHandle))) {
-            bool ok = extension->consume();
-            ASSERT_UNUSED(ok, ok);
-            // If we have an extension handle for MobileGestalt, it means the MobileGestalt cache is invalid.
-            // In this case, we perform a set of MobileGestalt queries while having access to the daemon,
-            // which will populate the MobileGestalt in-memory cache with correct values.
-            // The set of queries below was determined by finding all possible queries that have cachable
-            // values, and would reach out to the daemon for the answer. That way, the in-memory cache
-            // should be identical to a valid MobileGestalt cache after having queried all of these values.
-#if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
-            MGGetFloat32Answer(kMGQMainScreenScale, 0);
-            MGGetSInt32Answer(kMGQMainScreenPitch, 0);
-            MGGetSInt32Answer(kMGQMainScreenClass, MGScreenClassPad2);
-            MGGetBoolAnswer(kMGQAppleInternalInstallCapability);
-            MGGetBoolAnswer(kMGQiPadCapability);
-            auto deviceName = adoptCF(MGCopyAnswer(kMGQDeviceName, nullptr));
-            MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid);
-            MGGetBoolAnswer(kMGQHasExtendedColorDisplay);
-            MGGetFloat32Answer(kMGQDeviceCornerRadius, 0);
-            MGGetBoolAnswer(kMGQSupportsForceTouch);
-
-            auto answer = adoptCF(MGCopyAnswer(kMGQBluetoothCapability, nullptr));
-            answer = MGCopyAnswer(kMGQDeviceProximityCapability, nullptr);
-            answer = MGCopyAnswer(kMGQDeviceSupportsARKit, nullptr);
-            answer = MGCopyAnswer(kMGQTimeSyncCapability, nullptr);
-            answer = MGCopyAnswer(kMGQWAPICapability, nullptr);
-            answer = MGCopyAnswer(kMGQMainDisplayRotation, nullptr);
-#endif
-            ok = extension->revoke();
-            ASSERT_UNUSED(ok, ok);
-        }
-    }
+    populateMobileGestaltCache(WTFMove(parameters.mobileGestaltExtensionHandle));
 
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
 
@@ -289,9 +270,9 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     SandboxExtension::consumePermanently(parameters.trustdExtensionHandle);
 #endif // PLATFORM(MAC)
 #if USE(APPLE_INTERNAL_SDK)
-    if (parameters.restrictImageAndVideoDecoders) {
-        ImageDecoderCG::enableRestrictedDecoding();
-        restrictImageAndVideoDecoders();
+    if (parameters.enableDecodingHEIC) {
+        ImageDecoderCG::enableDecodingHEIC();
+        enableDecodingHEIC();
     }
 #endif
 #endif // HAVE(VIDEO_RESTRICTED_DECODING)
@@ -451,6 +432,10 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     if (!isParentProcessAFullWebBrowser(*this))
         disableURLSchemeCheckInDataDetectors();
+
+    // Soft link frameworks related to Data Detection before we disconnect from launchd because these frameworks connect to
+    // launchd temporarily at link time to register XPC services. See rdar://93598951 (my feature request to stop doing that)
+    softlinkDataDetectorsFrameworks();
 }
 
 void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&& parameters)
@@ -632,17 +617,17 @@ void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationP
     MainThreadSharedTimer::shouldSetupPowerObserver() = false;
 #endif // PLATFORM(MAC)
 
-    if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("inspector-process"_s) == "1")
+    if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("inspector-process"_s) == "1"_s)
         m_processType = ProcessType::Inspector;
 #if ENABLE(SERVICE_WORKER)
-    else if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("service-worker-process"_s) == "1") {
+    else if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("service-worker-process"_s) == "1"_s) {
         m_processType = ProcessType::ServiceWorker;
 #if PLATFORM(MAC)
         m_registrableDomain = RegistrableDomain::uncheckedCreateFromRegistrableDomainString(parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("registrable-domain"_s));
 #endif
     }
 #endif
-    else if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("is-prewarmed"_s) == "1")
+    else if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("is-prewarmed"_s) == "1"_s)
         m_processType = ProcessType::PrewarmedWebContent;
     else
         m_processType = ProcessType::WebContent;
@@ -1125,7 +1110,7 @@ void WebProcess::dispatchSimulatedNotificationsForPreferenceChange(const String&
 
 void WebProcess::handlePreferenceChange(const String& domain, const String& key, id value)
 {
-    if (key == "AppleLanguages") {
+    if (key == "AppleLanguages"_s) {
         // We need to set AppleLanguages for the volatile domain, similarly to what we do in XPCServiceMain.mm.
         NSDictionary *existingArguments = [[NSUserDefaults standardUserDefaults] volatileDomainForName:NSArgumentDomain];
         RetainPtr<NSMutableDictionary> newArguments = adoptNS([existingArguments mutableCopy]);

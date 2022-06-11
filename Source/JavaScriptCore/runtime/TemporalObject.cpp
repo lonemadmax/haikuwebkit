@@ -196,25 +196,25 @@ std::optional<TemporalUnit> temporalUnitType(StringView unit)
 {
     StringView singular = singularUnit(unit);
 
-    if (singular == "year")
+    if (singular == "year"_s)
         return TemporalUnit::Year;
-    if (singular == "month")
+    if (singular == "month"_s)
         return TemporalUnit::Month;
-    if (singular == "week")
+    if (singular == "week"_s)
         return TemporalUnit::Week;
-    if (singular == "day")
+    if (singular == "day"_s)
         return TemporalUnit::Day;
-    if (singular == "hour")
+    if (singular == "hour"_s)
         return TemporalUnit::Hour;
-    if (singular == "minute")
+    if (singular == "minute"_s)
         return TemporalUnit::Minute;
-    if (singular == "second")
+    if (singular == "second"_s)
         return TemporalUnit::Second;
-    if (singular == "millisecond")
+    if (singular == "millisecond"_s)
         return TemporalUnit::Millisecond;
-    if (singular == "microsecond")
+    if (singular == "microsecond"_s)
         return TemporalUnit::Microsecond;
-    if (singular == "nanosecond")
+    if (singular == "nanosecond"_s)
         return TemporalUnit::Nanosecond;
     
     return std::nullopt;
@@ -306,7 +306,7 @@ std::optional<unsigned> temporalFractionalSecondDigits(JSGlobalObject* globalObj
     String stringValue = value.toWTFString(globalObject);
     RETURN_IF_EXCEPTION(scope, std::nullopt);
 
-    if (stringValue != "auto")
+    if (stringValue != "auto"_s)
         throwRangeError(globalObject, scope, makeString("fractionalSecondDigits must be 'auto' or 0 through 9, not "_s, ellipsizeAt(100, stringValue)));
 
     return std::nullopt;

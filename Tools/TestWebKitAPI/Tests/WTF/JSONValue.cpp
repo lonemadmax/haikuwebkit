@@ -631,7 +631,7 @@ TEST(JSONValue, ParseJSON)
         EXPECT_TRUE(value);
         auto stringValue = value->asString();
         EXPECT_TRUE(!!stringValue);
-        EXPECT_EQ("foo", stringValue);
+        EXPECT_EQ("foo"_s, stringValue);
     }
 
     {
@@ -700,14 +700,22 @@ TEST(JSONValue, MemoryCost)
         Ref<JSON::Value> value = JSON::Value::create(makeString("test"_s));
         size_t memoryCost = value->memoryCost();
         EXPECT_GT(memoryCost, 0U);
+#if HAVE(36BIT_ADDRESS)
+        EXPECT_LE(memoryCost, 44U);
+#else
         EXPECT_LE(memoryCost, 36U);
+#endif
     }
 
     {
         Ref<JSON::Value> value = JSON::Value::create(emptyString());
         size_t memoryCost = value->memoryCost();
         EXPECT_GT(memoryCost, 0U);
+#if HAVE(36BIT_ADDRESS)
+        EXPECT_LE(memoryCost, 40U);
+#else
         EXPECT_LE(memoryCost, 32U);
+#endif
     }
 
     {

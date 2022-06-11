@@ -76,26 +76,30 @@ class EXTBlendMinMax;
 class EXTColorBufferFloat;
 class EXTColorBufferHalfFloat;
 class EXTFloatBlend;
+class EXTFragDepth;
+class EXTShaderTextureLOD;
+class EXTTextureCompressionBPTC;
 class EXTTextureCompressionRGTC;
 class EXTTextureFilterAnisotropic;
-class EXTShaderTextureLOD;
+class EXTTextureNorm16;
 class EXTsRGB;
-class EXTFragDepth;
 class HTMLImageElement;
 class ImageData;
 class IntSize;
 class KHRParallelShaderCompile;
+class OESDrawBuffersIndexed;
+class OESElementIndexUint;
+class OESFBORenderMipmap;
 class OESStandardDerivatives;
 class OESTextureFloat;
 class OESTextureFloatLinear;
 class OESTextureHalfFloat;
 class OESTextureHalfFloatLinear;
 class OESVertexArrayObject;
-class OESElementIndexUint;
-class OESFBORenderMipmap;
 #if ENABLE(OFFSCREEN_CANVAS)
 class OffscreenCanvas;
 #endif
+class WebCoreOpaqueRoot;
 class WebGLActiveInfo;
 class WebGLColorBufferFloat;
 class WebGLCompressedTextureASTC;
@@ -116,8 +120,8 @@ class WebGLLoseContext;
 class WebGLMultiDraw;
 class WebGLObject;
 class WebGLShader;
-class WebGLSharedObject;
 class WebGLShaderPrecisionFormat;
+class WebGLSharedObject;
 class WebGLUniformLocation;
 
 #if ENABLE(VIDEO)
@@ -393,7 +397,7 @@ public:
 
     void prepareForDisplayWithPaint() final;
     void paintRenderingResultsToCanvas() final;
-    std::optional<PixelBuffer> paintRenderingResultsToPixelBuffer();
+    RefPtr<PixelBuffer> paintRenderingResultsToPixelBuffer();
 #if ENABLE(MEDIA_STREAM)
     RefPtr<VideoFrame> paintCompositedResultsToVideoFrame();
 #endif
@@ -440,12 +444,9 @@ protected:
     WebGLRenderingContextBase(CanvasBase&, WebGLContextAttributes);
     WebGLRenderingContextBase(CanvasBase&, Ref<GraphicsContextGL>&&, WebGLContextAttributes);
 
+    friend class EXTTextureCompressionBPTC;
     friend class EXTTextureCompressionRGTC;
-    friend class WebGLDrawBuffers;
-    friend class WebGLFramebuffer;
-    friend class WebGLObject;
     friend class OESVertexArrayObject;
-    friend class WebGLDebugShaders;
     friend class WebGLCompressedTextureASTC;
     friend class WebGLCompressedTextureATC;
     friend class WebGLCompressedTextureETC;
@@ -453,12 +454,17 @@ protected:
     friend class WebGLCompressedTexturePVRTC;
     friend class WebGLCompressedTextureS3TC;
     friend class WebGLCompressedTextureS3TCsRGB;
+    friend class WebGLDebugShaders;
+    friend class WebGLDrawBuffers;
     friend class WebGLMultiDraw;
+
+    friend class WebGLFramebuffer;
+    friend class WebGLObject;
     friend class WebGLRenderingContextErrorMessageCallback;
-    friend class WebGLVertexArrayObjectOES;
+    friend class WebGLSync;
     friend class WebGLVertexArrayObject;
     friend class WebGLVertexArrayObjectBase;
-    friend class WebGLSync;
+    friend class WebGLVertexArrayObjectOES;
 
     // Implementation helpers.
     friend class ScopedUnpackParametersResetRestore;
@@ -702,24 +708,29 @@ protected:
 
     // Enabled extension objects.
     // FIXME: Move some of these to WebGLRenderingContext, the ones not needed for WebGL2
-    RefPtr<EXTFragDepth> m_extFragDepth;
+    RefPtr<ANGLEInstancedArrays> m_angleInstancedArrays;
     RefPtr<EXTBlendMinMax> m_extBlendMinMax;
-    RefPtr<EXTsRGB> m_extsRGB;
+    RefPtr<EXTColorBufferFloat> m_extColorBufferFloat;
+    RefPtr<EXTColorBufferHalfFloat> m_extColorBufferHalfFloat;
+    RefPtr<EXTFloatBlend> m_extFloatBlend;
+    RefPtr<EXTFragDepth> m_extFragDepth;
+    RefPtr<EXTShaderTextureLOD> m_extShaderTextureLOD;
+    RefPtr<EXTTextureCompressionBPTC> m_extTextureCompressionBPTC;
     RefPtr<EXTTextureCompressionRGTC> m_extTextureCompressionRGTC;
     RefPtr<EXTTextureFilterAnisotropic> m_extTextureFilterAnisotropic;
-    RefPtr<EXTShaderTextureLOD> m_extShaderTextureLOD;
+    RefPtr<EXTTextureNorm16> m_extTextureNorm16;
+    RefPtr<EXTsRGB> m_extsRGB;
     RefPtr<KHRParallelShaderCompile> m_khrParallelShaderCompile;
+    RefPtr<OESDrawBuffersIndexed> m_oesDrawBuffersIndexed;
+    RefPtr<OESElementIndexUint> m_oesElementIndexUint;
+    RefPtr<OESFBORenderMipmap> m_oesFBORenderMipmap;
+    RefPtr<OESStandardDerivatives> m_oesStandardDerivatives;
     RefPtr<OESTextureFloat> m_oesTextureFloat;
     RefPtr<OESTextureFloatLinear> m_oesTextureFloatLinear;
     RefPtr<OESTextureHalfFloat> m_oesTextureHalfFloat;
     RefPtr<OESTextureHalfFloatLinear> m_oesTextureHalfFloatLinear;
-    RefPtr<OESStandardDerivatives> m_oesStandardDerivatives;
     RefPtr<OESVertexArrayObject> m_oesVertexArrayObject;
-    RefPtr<OESElementIndexUint> m_oesElementIndexUint;
-    RefPtr<OESFBORenderMipmap> m_oesFBORenderMipmap;
-    RefPtr<WebGLLoseContext> m_webglLoseContext;
-    RefPtr<WebGLDebugRendererInfo> m_webglDebugRendererInfo;
-    RefPtr<WebGLDebugShaders> m_webglDebugShaders;
+    RefPtr<WebGLColorBufferFloat> m_webglColorBufferFloat;
     RefPtr<WebGLCompressedTextureASTC> m_webglCompressedTextureASTC;
     RefPtr<WebGLCompressedTextureATC> m_webglCompressedTextureATC;
     RefPtr<WebGLCompressedTextureETC> m_webglCompressedTextureETC;
@@ -727,13 +738,11 @@ protected:
     RefPtr<WebGLCompressedTexturePVRTC> m_webglCompressedTexturePVRTC;
     RefPtr<WebGLCompressedTextureS3TC> m_webglCompressedTextureS3TC;
     RefPtr<WebGLCompressedTextureS3TCsRGB> m_webglCompressedTextureS3TCsRGB;
+    RefPtr<WebGLDebugRendererInfo> m_webglDebugRendererInfo;
+    RefPtr<WebGLDebugShaders> m_webglDebugShaders;
     RefPtr<WebGLDepthTexture> m_webglDepthTexture;
     RefPtr<WebGLDrawBuffers> m_webglDrawBuffers;
-    RefPtr<ANGLEInstancedArrays> m_angleInstancedArrays;
-    RefPtr<EXTColorBufferHalfFloat> m_extColorBufferHalfFloat;
-    RefPtr<EXTFloatBlend> m_extFloatBlend;
-    RefPtr<WebGLColorBufferFloat> m_webglColorBufferFloat;
-    RefPtr<EXTColorBufferFloat> m_extColorBufferFloat;
+    RefPtr<WebGLLoseContext> m_webglLoseContext;
     RefPtr<WebGLMultiDraw> m_webglMultiDraw;
 
     bool m_areWebGL2TexImageSourceFormatsAndTypesAdded { false };
@@ -1195,6 +1204,8 @@ inline unsigned WebGLRenderingContextBase::getMaxIndex(const RefPtr<JSC::ArrayBu
 
     return maxIndex;
 }
+
+WebCoreOpaqueRoot root(WebGLRenderingContextBase*);
 
 } // namespace WebCore
 

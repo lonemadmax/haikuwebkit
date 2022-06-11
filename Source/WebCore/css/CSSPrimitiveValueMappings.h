@@ -472,15 +472,6 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
     case ListboxPart:
         m_value.valueID = CSSValueListbox;
         break;
-    case MediaSliderPart:
-        m_value.valueID = CSSValueMediaSlider;
-        break;
-    case MediaVolumeSliderPart:
-        m_value.valueID = CSSValueMediaVolumeSlider;
-        break;
-    case MediaFullScreenVolumeSliderPart:
-        m_value.valueID = CSSValueMediaFullscreenVolumeSlider;
-        break;
     case MenulistPart:
         m_value.valueID = CSSValueMenulist;
         break;
@@ -532,9 +523,6 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
 #if ENABLE(DATALIST_ELEMENT)
     case ListButtonPart:
 #endif
-    case MediaFullScreenVolumeSliderThumbPart:
-    case MediaSliderThumbPart:
-    case MediaVolumeSliderThumbPart:
     case SearchFieldDecorationPart:
     case SearchFieldResultsDecorationPart:
     case SearchFieldResultsButtonPart:
@@ -2213,7 +2201,6 @@ template<> inline CSSPrimitiveValue::operator TextAlignMode() const
     }
 }
 
-#if ENABLE(CSS3_TEXT)
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextAlignLast e)
     : CSSValue(PrimitiveClass)
 {
@@ -2284,8 +2271,8 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextJustify e)
     case TextJustify::InterWord:
         m_value.valueID = CSSValueInterWord;
         break;
-    case TextJustify::Distribute:
-        m_value.valueID = CSSValueDistribute;
+    case TextJustify::InterCharacter:
+        m_value.valueID = CSSValueInterCharacter;
         break;
     }
 }
@@ -2301,8 +2288,9 @@ template<> inline CSSPrimitiveValue::operator TextJustify() const
         return TextJustify::None;
     case CSSValueInterWord:
         return TextJustify::InterWord;
+    case CSSValueInterCharacter:
     case CSSValueDistribute:
-        return TextJustify::Distribute;
+        return TextJustify::InterCharacter;
     default:
         break;
     }
@@ -2310,7 +2298,6 @@ template<> inline CSSPrimitiveValue::operator TextJustify() const
     ASSERT_NOT_REACHED();
     return TextJustify::Auto;
 }
-#endif // CSS3_TEXT
 
 template<> inline CSSPrimitiveValue::operator OptionSet<TextDecorationLine>() const
 {

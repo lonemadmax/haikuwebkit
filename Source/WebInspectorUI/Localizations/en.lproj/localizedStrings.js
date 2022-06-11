@@ -205,6 +205,7 @@ localizedStrings["Attribute"] = "Attribute";
 /* A submenu item of 'Break On' that breaks (pauses) before DOM attribute is modified */
 localizedStrings["Attribute Modified @ DOM Breakpoint"] = "Attribute Modified";
 localizedStrings["Attributes"] = "Attributes";
+localizedStrings["Audit"] = "Audit";
 localizedStrings["Audit Error: %s"] = "Audit Error: %s";
 /* Name of Audit Tab */
 localizedStrings["Audit Tab Name"] = "Audit";
@@ -333,8 +334,7 @@ localizedStrings["Click to create a Local Override from this content"] = "Click 
 localizedStrings["Click to import a file and create a Local Override\nShift-click to create a Local Override from this content"] = "Click to import a file and create a Local Override\nShift-click to create a Local Override from this content";
 /* Title of text button that resets the gesture controls in the image resource content view. */
 localizedStrings["Click to reset @ Image Resource Content View Gesture Controls"] = "Click to reset";
-localizedStrings["Click to select a color"] = "Click to select a color";
-localizedStrings["Click to select a color\nShift-click to switch color formats"] = "Click to select a color\nShift-click to switch color formats";
+localizedStrings["Click to select a color."] = "Click to select a color.";
 localizedStrings["Click to show %d error in the Console"] = "Click to show %d error in the Console";
 localizedStrings["Click to show %d errors in the Console"] = "Click to show %d errors in the Console";
 localizedStrings["Click to show %d warning in the Console"] = "Click to show %d warning in the Console";
@@ -416,6 +416,8 @@ localizedStrings["Copy Rule"] = "Copy Rule";
 localizedStrings["Copy Selected"] = "Copy Selected";
 localizedStrings["Copy Table"] = "Copy Table";
 localizedStrings["Copy as cURL"] = "Copy as cURL";
+/* Copy the URL, method, headers, etc. of the given network request in the format of a JS fetch expression. */
+localizedStrings["Copy as fetch"] = "Copy as fetch";
 localizedStrings["Could not capture screenshot"] = "Could not capture screenshot";
 localizedStrings["Could not fetch properties. Object may no longer exist."] = "Could not fetch properties. Object may no longer exist.";
 localizedStrings["Count"] = "Count";
@@ -1069,6 +1071,7 @@ localizedStrings["Open"] = "Open";
 localizedStrings["Open closed tabs\u2026"] = "Open closed tabs\u2026";
 /* Context menu item for opening the target item in a new window. */
 localizedStrings["Open in New Window @ Context Menu Item"] = "Open in New Window";
+localizedStrings["Option-click to pick color from screen."] = "Option-click to pick color from screen.";
 localizedStrings["Option-click to show source"] = "Option-click to show source";
 /* Tooltip with instructions on how to show all hidden CSS variables */
 localizedStrings["Option-click to show unused CSS variables from all rules @ Styles Sidebar Panel Tooltip"] = "Option-click to show unused CSS variables from all rules";
@@ -1129,6 +1132,8 @@ localizedStrings["Percentage (of audits)"] = "%s%%";
 localizedStrings["Periods of high CPU utilization will rapidly drain battery. Strive to keep idle pages under %s average CPU utilization."] = "Periods of high CPU utilization will rapidly drain battery. Strive to keep idle pages under %s average CPU utilization.";
 /* Property value for `font-variant-capitals: petite-caps`. */
 localizedStrings["Petite Capitals @ Font Details Sidebar Property Value"] = "Petite Capitals";
+/* Color picker view tooltip for picking a color from the screen. */
+localizedStrings["Pick color from screen"] = "Pick color from screen";
 localizedStrings["Ping"] = "Ping";
 localizedStrings["Ping Frame"] = "Ping Frame";
 localizedStrings["Pings"] = "Pings";
@@ -1201,6 +1206,7 @@ localizedStrings["Recordings"] = "Recordings";
 localizedStrings["Redirect"] = "Redirect";
 localizedStrings["Redirect Response"] = "Redirect Response";
 localizedStrings["Redirects"] = "Redirects";
+localizedStrings["Reduction"] = "Reduction";
 localizedStrings["Reference Issue"] = "Reference Issue";
 localizedStrings["Reflection"] = "Reflection";
 localizedStrings["Refresh"] = "Refresh";
@@ -1263,6 +1269,7 @@ localizedStrings["Response Override @ Local Override Network Stage"] = "Response
 localizedStrings["Response:"] = "Response:";
 localizedStrings["Restart (%s)"] = "Restart (%s)";
 localizedStrings["Restart animation"] = "Restart animation";
+localizedStrings["Result"] = "Result";
 localizedStrings["Result Data"] = "Result Data";
 localizedStrings["Result Levels"] = "Result Levels";
 localizedStrings["Results"] = "Results";
@@ -1372,6 +1379,7 @@ localizedStrings["Shader Programs"] = "Shader Programs";
 localizedStrings["Shadow Content"] = "Shadow Content";
 localizedStrings["Shadow Content (%s)"] = "Shadow Content (%s)";
 localizedStrings["Shared Focus"] = "Shared Focus";
+localizedStrings["Shift-click to switch color formats."] = "Shift-click to switch color formats.";
 localizedStrings["Shortest property path to %s"] = "Shortest property path to %s";
 localizedStrings["Show %d More"] = "Show %d More";
 /* Text label for button to reveal one unused CSS variable */
@@ -1387,7 +1395,6 @@ localizedStrings["Show Elements"] = "Show Elements";
 localizedStrings["Show Path"] = "Show Path";
 localizedStrings["Show Remaining (%d)"] = "Show Remaining (%d)";
 localizedStrings["Show Scope Chain on pause"] = "Show Scope Chain on pause";
-localizedStrings["Show Screenshots"] = "Show Screenshots";
 localizedStrings["Show all actions"] = "Show all actions";
 localizedStrings["Show all resources"] = "Show all resources";
 localizedStrings["Show changes only for selected node"] = "Show changes only for selected node";
@@ -1593,7 +1600,6 @@ localizedStrings["Timeline Recording %d"] = "Timeline Recording %d";
 localizedStrings["Timeline Recording Import Error: %s"] = "Timeline Recording Import Error: %s";
 /* Name of Timelines Tab */
 localizedStrings["Timelines Tab Name"] = "Timelines";
-localizedStrings["Timelines:"] = "Timelines:";
 /* Text indicating that the local override will block the network activity with an timeout error. */
 localizedStrings["Timeout @ Local Override Type"] = "Timeout";
 localizedStrings["Timer %d Fired"] = "Timer %d Fired";
@@ -1805,7 +1811,7 @@ localizedStrings["default prevented"] = "default prevented";
 /* Shown in the 'Type' column of the Network Table for document resources. */
 localizedStrings["document @ Network Tab Resource Type Column Value"] = "document";
 localizedStrings["ensuring that common debugging functions are available on every page via the Console"] = "ensuring that common debugging functions are available on every page via the Console";
-/* Shown in the 'Type' column of the Network Table for EventSource resources. */
+/* Shown in the 'Type' column of the Network Table for resources loaded via the EventSource API. */
 localizedStrings["eventsource @ Network Tab Resource Type Column Value"] = "eventsource";
 /* Shown in the 'Type' column of the Network Table for resources loaded via the 'fetch' method. */
 localizedStrings["fetch @ Network Tab Resource Type Column Value"] = "fetch";

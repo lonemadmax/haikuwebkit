@@ -2809,16 +2809,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitAllowMediaContentTypesRequiringHardwareSupportAsFallbackKey];
 }
 
-- (BOOL)inspectorAdditionsEnabled
-{
-    return [self _boolValueForKey:WebKitInspectorAdditionsEnabledPreferenceKey];
-}
-
-- (void)setInspectorAdditionsEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitInspectorAdditionsEnabledPreferenceKey];
-}
-
 - (BOOL)mediaCapabilitiesEnabled
 {
     return [self _boolValueForKey:WebKitMediaCapabilitiesEnabledPreferenceKey];
@@ -2931,7 +2921,7 @@ static RetainPtr<NSString>& classIBCreatorID()
 
 + (void)_clearNetworkLoaderSession
 {
-    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies();
+    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies([] { });
 }
 
 - (void)_setBoolPreferenceForTestingWithValue:(BOOL)value forKey:(NSString *)key

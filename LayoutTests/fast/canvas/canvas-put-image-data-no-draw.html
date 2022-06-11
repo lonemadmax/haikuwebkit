@@ -25,7 +25,7 @@
             target.putImageData(imagedata, 0, 0, progressX, progressY, paintSize, paintSize);
 
             progressX += paintSize;
-
+ 
             if (progressX + paintSize <= canvasWidth) {
                 requestAnimationFrame(drawLoop);
                 return;

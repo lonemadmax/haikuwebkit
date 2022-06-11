@@ -491,6 +491,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/WebAssemblyCachedScriptSourceProvider.h
     bindings/js/WebAssemblyScriptSourceCode.h
     bindings/js/WebCoreJITOperations.h
+    bindings/js/WebCoreOpaqueRoot.h
     bindings/js/WebCoreTypedArrayController.h
     bindings/js/WindowProxy.h
     bindings/js/WorkerScriptFetcher.h
@@ -981,6 +982,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     layout/formattingContexts/flex/FlexFormattingConstraints.h
     layout/formattingContexts/flex/FlexFormattingState.h
+    layout/formattingContexts/flex/FlexLayout.h
 
     layout/formattingContexts/inline/display/InlineDisplayBox.h
     layout/formattingContexts/inline/InlineRect.h
@@ -1445,6 +1447,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/CopyImageOptions.h
     platform/graphics/BifurcatedGraphicsContext.h
     platform/graphics/BitmapImage.h
+    platform/graphics/ByteArrayPixelBuffer.h
     platform/graphics/Color.h
     platform/graphics/ColorComponents.h
     platform/graphics/ColorConversion.h
@@ -1528,6 +1531,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/Image.h
     platform/graphics/ImageBackingStore.h
     platform/graphics/ImageBuffer.h
+    platform/graphics/ImageBufferAllocator.h
     platform/graphics/ImageBufferBackend.h
     platform/graphics/ImageFrame.h
     platform/graphics/ImageObserver.h

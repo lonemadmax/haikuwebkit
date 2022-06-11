@@ -362,7 +362,7 @@ bool Editor::handleTextEvent(TextEvent& event)
     }
 
     String data = event.data();
-    if (data == "\n") {
+    if (data == "\n"_s) {
         if (event.isLineBreak())
             return insertLineBreak();
         return insertParagraphSeparator();
@@ -1310,7 +1310,7 @@ bool Editor::insertTextWithoutSendingTextEvent(const String& text, bool selectIn
     updateMarkersForWordsAffectedByEditing(isSpaceOrNewline(text[0]) || isStartOfNewWord);
 
     bool shouldConsiderApplyingAutocorrection = false;
-    if (text == " " || text == "\t")
+    if (text == " "_s || text == "\t"_s)
         shouldConsiderApplyingAutocorrection = true;
 
     if (text.length() == 1 && u_ispunct(text[0]) && !isAmbiguousBoundaryCharacter(text[0]))
@@ -2880,6 +2880,8 @@ void Editor::markAndReplaceFor(const SpellCheckRequest& request, const Vector<Te
         bool resultRangeIsAcceptableForReplacement = automaticReplacementStartLocation <= resultEndLocation && resultEndLocation <= automaticReplacementEndLocation;
         // In this case the result range just has to touch the automatic replacement range, so we can handle replacing non-word text such as punctuation.
 #if ENABLE(MAC_CATALYST_GRAMMAR_CHECKING)
+        if (!resultRangeIsAcceptableForReplacement && shouldCheckForCorrection && resultType == TextCheckingType::Correction)
+            resultRangeIsAcceptableForReplacement = results[i].details.size() > 0;
         if (!resultRangeIsAcceptableForReplacement && shouldMarkGrammar && shouldCheckForCorrection && resultType == TextCheckingType::Correction) {
             resultRangeIsAcceptableForReplacement = previousGrammarRanges.containsIf([&](auto& range) {
                 return range.location == resultLocation && range.length == resultLength;
@@ -2932,6 +2934,10 @@ void Editor::markAndReplaceFor(const SpellCheckRequest& request, const Vector<Te
 
             String replacedString = plainText(rangeToReplace);
             bool existingMarkersPermitReplacement = m_alternativeTextController->processMarkersOnTextToBeReplacedByResult(results[i], rangeToReplace, replacedString);
+#if ENABLE(MAC_CATALYST_GRAMMAR_CHECKING)
+            if (!existingMarkersPermitReplacement && shouldCheckForCorrection && resultType == TextCheckingType::Correction)
+                existingMarkersPermitReplacement = results[i].details.size() > 0;
+#endif
             if (!existingMarkersPermitReplacement)
                 continue;
 

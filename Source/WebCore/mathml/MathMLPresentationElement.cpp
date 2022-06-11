@@ -44,6 +44,7 @@
 #include "SVGElementTypeHelpers.h"
 #include "SVGSVGElement.h"
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/SortedArrayMap.h>
 
 namespace WebCore {
 
@@ -250,33 +251,33 @@ MathMLElement::Length MathMLPresentationElement::parseNamedSpace(StringView stri
 {
     // Named space values are case-sensitive.
     int namedSpaceValue;
-    if (string == "veryverythinmathspace")
+    if (string == "veryverythinmathspace"_s)
         namedSpaceValue = 1;
-    else if (string == "verythinmathspace")
+    else if (string == "verythinmathspace"_s)
         namedSpaceValue = 2;
-    else if (string == "thinmathspace")
+    else if (string == "thinmathspace"_s)
         namedSpaceValue = 3;
-    else if (string == "mediummathspace")
+    else if (string == "mediummathspace"_s)
         namedSpaceValue = 4;
-    else if (string == "thickmathspace")
+    else if (string == "thickmathspace"_s)
         namedSpaceValue = 5;
-    else if (string == "verythickmathspace")
+    else if (string == "verythickmathspace"_s)
         namedSpaceValue = 6;
-    else if (string == "veryverythickmathspace")
+    else if (string == "veryverythickmathspace"_s)
         namedSpaceValue = 7;
-    else if (string == "negativeveryverythinmathspace")
+    else if (string == "negativeveryverythinmathspace"_s)
         namedSpaceValue = -1;
-    else if (string == "negativeverythinmathspace")
+    else if (string == "negativeverythinmathspace"_s)
         namedSpaceValue = -2;
-    else if (string == "negativethinmathspace")
+    else if (string == "negativethinmathspace"_s)
         namedSpaceValue = -3;
-    else if (string == "negativemediummathspace")
+    else if (string == "negativemediummathspace"_s)
         namedSpaceValue = -4;
-    else if (string == "negativethickmathspace")
+    else if (string == "negativethickmathspace"_s)
         namedSpaceValue = -5;
-    else if (string == "negativeverythickmathspace")
+    else if (string == "negativeverythickmathspace"_s)
         namedSpaceValue = -6;
-    else if (string == "negativeveryverythickmathspace")
+    else if (string == "negativeveryverythickmathspace"_s)
         namedSpaceValue = -7;
     else
         return Length();
@@ -323,43 +324,28 @@ const MathMLElement::Length& MathMLPresentationElement::cachedMathMLLength(const
 MathMLElement::MathVariant MathMLPresentationElement::parseMathVariantAttribute(const AtomString& attributeValue)
 {
     // The mathvariant attribute values is case-sensitive.
-    if (attributeValue == "normal")
-        return MathVariant::Normal;
-    if (attributeValue == "bold")
-        return MathVariant::Bold;
-    if (attributeValue == "italic")
-        return MathVariant::Italic;
-    if (attributeValue == "bold-italic")
-        return MathVariant::BoldItalic;
-    if (attributeValue == "double-struck")
-        return MathVariant::DoubleStruck;
-    if (attributeValue == "bold-fraktur")
-        return MathVariant::BoldFraktur;
-    if (attributeValue == "script")
-        return MathVariant::Script;
-    if (attributeValue == "bold-script")
-        return MathVariant::BoldScript;
-    if (attributeValue == "fraktur")
-        return MathVariant::Fraktur;
-    if (attributeValue == "sans-serif")
-        return MathVariant::SansSerif;
-    if (attributeValue == "bold-sans-serif")
-        return MathVariant::BoldSansSerif;
-    if (attributeValue == "sans-serif-italic")
-        return MathVariant::SansSerifItalic;
-    if (attributeValue == "sans-serif-bold-italic")
-        return MathVariant::SansSerifBoldItalic;
-    if (attributeValue == "monospace")
-        return MathVariant::Monospace;
-    if (attributeValue == "initial")
-        return MathVariant::Initial;
-    if (attributeValue == "tailed")
-        return MathVariant::Tailed;
-    if (attributeValue == "looped")
-        return MathVariant::Looped;
-    if (attributeValue == "stretched")
-        return MathVariant::Stretched;
-    return MathVariant::None;
+    static constexpr std::pair<ComparableASCIILiteral, MathVariant> mappings[] = {
+        { "bold", MathVariant::Bold },
+        { "bold-fraktur", MathVariant::BoldFraktur },
+        { "bold-italic", MathVariant::BoldItalic },
+        { "bold-sans-serif", MathVariant::BoldSansSerif },
+        { "bold-script", MathVariant::BoldScript },
+        { "double-struck", MathVariant::DoubleStruck },
+        { "fraktur", MathVariant::Fraktur },
+        { "initial", MathVariant::Initial },
+        { "italic", MathVariant::Italic },
+        { "looped", MathVariant::Looped },
+        { "monospace", MathVariant::Monospace },
+        { "normal", MathVariant::Normal },
+        { "sans-serif", MathVariant::SansSerif },
+        { "sans-serif-bold-italic", MathVariant::SansSerifBoldItalic },
+        { "sans-serif-italic", MathVariant::SansSerifItalic },
+        { "script", MathVariant::Script },
+        { "stretched", MathVariant::Stretched },
+        { "tailed", MathVariant::Tailed },
+    };
+    static constexpr SortedArrayMap map { mappings };
+    return map.get(attributeValue, MathVariant::None);
 }
 
 std::optional<MathMLElement::MathVariant> MathMLPresentationElement::specifiedMathVariant()

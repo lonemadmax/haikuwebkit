@@ -136,13 +136,14 @@ protected:
     void multiDrawArraysInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t>&& firstsCountsAndInstanceCounts);
     void multiDrawElementsANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t>&& countsAndOffsets, uint32_t type);
     void multiDrawElementsInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t>&& countsOffsetsAndInstanceCounts, uint32_t type);
+    void paintRenderingResultsToPixelBuffer(CompletionHandler<void(std::optional<IPC::PixelBufferReference>&&)>&&);
 
 #include "RemoteGraphicsContextGLFunctionsGenerated.h" // NOLINT
 
 private:
     void paintRenderingResultsToCanvasWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, CompletionHandler<void()>&&);
     void paintCompositedResultsToCanvasWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, CompletionHandler<void()>&&);
-    void paintPixelBufferToImageBuffer(std::optional<WebCore::PixelBuffer>&&, QualifiedRenderingResourceIdentifier, CompletionHandler<void()>&&);
+    void paintPixelBufferToImageBuffer(RefPtr<WebCore::PixelBuffer>&&, QualifiedRenderingResourceIdentifier, CompletionHandler<void()>&&);
 
 protected:
     WeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;

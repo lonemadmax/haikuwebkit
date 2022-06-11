@@ -340,8 +340,6 @@ void WebPreferences::initializeDefaultSettings()
 
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitDataTransferItemsEnabledPreferenceKey), kCFBooleanFalse);
 
-    CFDictionaryAddValue(defaults.get(), CFSTR(WebKitInspectorAdditionsEnabledPreferenceKey), kCFBooleanFalse);
-
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitVisualViewportAPIEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitCSSOMViewScrollingAPIEnabledPreferenceKey), kCFBooleanFalse);
@@ -2179,7 +2177,7 @@ HRESULT WebPreferences::mediaPreloadingEnabled(_Out_ BOOL* enabled)
 
 HRESULT WebPreferences::clearNetworkLoaderSession()
 {
-    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies();
+    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies([] { });
     return S_OK;
 }
 
@@ -2213,20 +2211,6 @@ HRESULT WebPreferences::dataTransferItemsEnabled(_Out_ BOOL* enabled)
 HRESULT WebPreferences::setDataTransferItemsEnabled(BOOL enabled)
 {
     setBoolValue(WebKitDataTransferItemsEnabledPreferenceKey, enabled);
-    return S_OK;
-}
-
-HRESULT WebPreferences::inspectorAdditionsEnabled(_Out_ BOOL* enabled)
-{
-    if (!enabled)
-        return E_POINTER;
-    *enabled = boolValueForKey(WebKitInspectorAdditionsEnabledPreferenceKey);
-    return S_OK;
-}
-
-HRESULT WebPreferences::setInspectorAdditionsEnabled(BOOL enabled)
-{
-    setBoolValue(WebKitInspectorAdditionsEnabledPreferenceKey, enabled);
     return S_OK;
 }
 
@@ -2648,4 +2632,14 @@ bool WebPreferences::mockScrollbarsControllerEnabled()
 bool WebPreferences::cssInputSecurityEnabled()
 {
     return boolValueForKey("WebKitCSSInputSecurityEnabled");
+}
+
+bool WebPreferences::cssTextAlignLastEnabled()
+{
+    return boolValueForKey("WebKitCSSTextAlignLastEnabled");
+}
+
+bool WebPreferences::cssTextJustifyEnabled()
+{
+    return boolValueForKey("WebKitCSSTextJustifyEnabled");
 }

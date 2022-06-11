@@ -3465,7 +3465,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 #endif
 }
 
-- (bool)_elementTypeRequiresAccessoryView:(WebKit::InputType)type
+- (BOOL)_elementTypeRequiresAccessoryView:(WebKit::InputType)type
 {
     switch (type) {
     case WebKit::InputType::None:
@@ -3477,7 +3477,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     case WebKit::InputType::DateTimeLocal:
     case WebKit::InputType::Month:
     case WebKit::InputType::Time:
-        return false;
+        return NO;
     case WebKit::InputType::Select: {
 #if ENABLE(IOS_FORM_CONTROL_REFRESH)
         if (self._shouldUseContextMenusForFormControls)
@@ -4677,10 +4677,11 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
         return nil;
 
     return [self menuWithInlineAction:WebCore::contextMenuItemTitleMarkupImage() identifier:@"WKActionMarkupImage" handler:[](WKContentView *view) {
-        if (!view->_imageAnalysisMarkupData)
+        auto markupData = std::exchange(view->_imageAnalysisMarkupData, { });
+        if (!markupData)
             return;
 
-        auto [elementContext, image, preferredMIMEType] = *view->_imageAnalysisMarkupData;
+        auto [elementContext, image, preferredMIMEType] = *markupData;
         if (auto [data, type] = WebKit::imageDataForCroppedImageResult(image.get(), preferredMIMEType.createCFString().get()); data)
             view->_page->replaceImageWithMarkupResults(elementContext, { String { type.get() } }, { static_cast<const uint8_t*>([data bytes]), [data length] });
     }];
@@ -6649,15 +6650,17 @@ static bool mayContainSelectableText(WebKit::InputType type)
     }
 }
 
-- (bool)_shouldShowKeyboardForElement:(const WebKit::FocusedElementInformation&)information
+- (BOOL)_shouldShowKeyboardForElement:(const WebKit::FocusedElementInformation&)information
 {
     if (information.inputMode == WebCore::InputMode::None)
-        return false;
+        return NO;
 
-    if (mayContainSelectableText(information.elementType))
-        return true;
+    return [self _shouldShowKeyboardForElementIgnoringInputMode:information];
+}
 
-    return [self _elementTypeRequiresAccessoryView:information.elementType];
+- (BOOL)_shouldShowKeyboardForElementIgnoringInputMode:(const WebKit::FocusedElementInformation&)information
+{
+    return mayContainSelectableText(information.elementType) || [self _elementTypeRequiresAccessoryView:information.elementType];
 }
 
 static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebKit::InputType type, WKContentView *view)
@@ -6737,7 +6740,7 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
                 if (_isChangingFocus)
                     return YES;
 
-                if (_isFocusingElementWithKeyboard && [UIKeyboard isInHardwareKeyboardMode])
+                if ([self _shouldShowKeyboardForElementIgnoringInputMode:information] && UIKeyboard.isInHardwareKeyboardMode)
                     return YES;
 #endif
             }
@@ -10206,6 +10209,20 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
 
 #endif // HAVE(PENCILKIT_TEXT_INPUT)
 
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+
+- (void)_didEnterFullscreen
+{
+    [self _startSuppressingSelectionAssistantForReason:WebKit::SuppressSelectionAssistantReason::ShowingFullscreenVideo];
+}
+
+- (void)_didExitFullscreen
+{
+    [self _stopSuppressingSelectionAssistantForReason:WebKit::SuppressSelectionAssistantReason::ShowingFullscreenVideo];
+}
+
+#endif // ENABLE(VIDEO_PRESENTATION_MODE)
+
 #if ENABLE(ATTACHMENT_ELEMENT)
 
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
@@ -10676,7 +10693,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 - (void)_cancelImageAnalysis
 {
     [_imageAnalyzer cancelAllRequests];
-    RELEASE_LOG_IF(self.hasPendingImageAnalysisRequest, Images, "Image analysis request %" PRIu64 " cancelled.", _pendingImageAnalysisRequestIdentifier->toUInt64());
+    RELEASE_LOG_IF(self.hasPendingImageAnalysisRequest, ImageAnalysis, "Image analysis request %" PRIu64 " cancelled.", _pendingImageAnalysisRequestIdentifier->toUInt64());
     _pendingImageAnalysisRequestIdentifier = std::nullopt;
     _isProceedingWithTextSelectionInImage = NO;
     _elementPendingImageAnalysis = std::nullopt;
@@ -10716,7 +10733,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         [self _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
     }
 
-    RELEASE_LOG(Images, "Image analysis request %" PRIu64 " invalidated.", identifier.toUInt64());
+    RELEASE_LOG(ImageAnalysis, "Image analysis request %" PRIu64 " invalidated.", identifier.toUInt64());
     return NO;
 }
 
@@ -10811,7 +10828,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
             return;
         }
 
-        RELEASE_LOG(Images, "Image analysis preflight gesture initiated (request %" PRIu64 ").", requestIdentifier.toUInt64());
+        RELEASE_LOG(ImageAnalysis, "Image analysis preflight gesture initiated (request %" PRIu64 ").", requestIdentifier.toUInt64());
 
         strongSelf->_elementPendingImageAnalysis = information.hostImageOrVideoElementContext;
 
@@ -10831,7 +10848,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
                 return;
 
             BOOL hasTextResults = [result hasResultsForAnalysisTypes:VKAnalysisTypeText];
-            RELEASE_LOG(Images, "Image analysis completed in %.0f ms (request %" PRIu64 "; found text? %d)", (MonotonicTime::now() - textAnalysisStartTime).milliseconds(), requestIdentifier.toUInt64(), hasTextResults);
+            RELEASE_LOG(ImageAnalysis, "Image analysis completed in %.0f ms (request %" PRIu64 "; found text? %d)", (MonotonicTime::now() - textAnalysisStartTime).milliseconds(), requestIdentifier.toUInt64(), hasTextResults);
 
             strongSelf->_page->updateWithTextRecognitionResult(WebKit::makeTextRecognitionResult(result), elementContext, requestLocation, [requestIdentifier = WTFMove(requestIdentifier), weakSelf, hasTextResults, cgImage, gestureDeferralToken] (WebKit::TextRecognitionUpdateResult updateResult) mutable {
                 auto strongSelf = weakSelf.get();
@@ -10878,7 +10895,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if USE(QUICK_LOOK)
         BOOL hasVisualSearchResults = [result hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
-        RELEASE_LOG(Images, "Image analysis completed in %.0f ms (request %" PRIu64 "; found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), requestIdentifier.toUInt64(), hasVisualSearchResults);
+        RELEASE_LOG(ImageAnalysis, "Image analysis completed in %.0f ms (request %" PRIu64 "; found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), requestIdentifier.toUInt64(), hasVisualSearchResults);
 #else
         UNUSED_PARAM(visualSearchAnalysisStartTime);
 #endif
@@ -10937,7 +10954,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         if (!cgImage)
             return;
 
-        RELEASE_LOG(Images, "Image analysis timeout gesture initiated.");
+        RELEASE_LOG(ImageAnalysis, "Image analysis timeout gesture initiated.");
         // FIXME: We need to implement some way to cache image analysis results per element, so that we don't end up
         // making redundant image analysis requests for the same image data.
 
@@ -10959,7 +10976,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if USE(QUICK_LOOK)
             BOOL hasVisualSearchResults = [result hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
-            RELEASE_LOG(Images, "Image analysis completed in %.0f ms (found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), hasVisualSearchResults);
+            RELEASE_LOG(ImageAnalysis, "Image analysis completed in %.0f ms (found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), hasVisualSearchResults);
             strongSelf->_hasSelectableTextInImage = YES;
             strongSelf->_hasVisualSearchResults = hasVisualSearchResults;
 #else
@@ -11010,40 +11027,6 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     }];
 }
 
-- (void)installImageAnalysisInteraction:(VKCImageAnalysis *)analysis
-{
-    if (!_imageAnalysisInteraction) {
-        _imageAnalysisActionButtons = adoptNS([[NSMutableSet alloc] initWithCapacity:1]);
-        _imageAnalysisInteraction = adoptNS([PAL::allocVKCImageAnalysisInteractionInstance() init]);
-        [_imageAnalysisInteraction setActiveInteractionTypes:VKImageAnalysisInteractionTypeTextSelection | VKImageAnalysisInteractionTypeDataDetectors];
-        [_imageAnalysisInteraction setDelegate:self];
-        [_imageAnalysisInteraction setWantsAutomaticContentsRectCalculation:NO];
-        [_imageAnalysisInteraction setQuickActionConfigurationUpdateHandler:[weakSelf = WeakObjCPtr<WKContentView>(self)] (UIButton *button) {
-            if (auto strongSelf = weakSelf.get())
-                [strongSelf->_imageAnalysisActionButtons addObject:button];
-        }];
-        WebKit::setUpAdditionalImageAnalysisBehaviors(_imageAnalysisInteraction.get());
-        [self addInteraction:_imageAnalysisInteraction.get()];
-    }
-    [_imageAnalysisInteraction setAnalysis:analysis];
-    [_imageAnalysisDeferringGestureRecognizer setEnabled:NO];
-    [_imageAnalysisGestureRecognizer setEnabled:NO];
-}
-
-- (void)uninstallImageAnalysisInteraction
-{
-    if (!_imageAnalysisInteraction)
-        return;
-
-    [self removeInteraction:_imageAnalysisInteraction.get()];
-    [_imageAnalysisInteraction setDelegate:nil];
-    [_imageAnalysisInteraction setQuickActionConfigurationUpdateHandler:nil];
-    _imageAnalysisInteraction = nil;
-    _imageAnalysisActionButtons = nil;
-    [_imageAnalysisDeferringGestureRecognizer setEnabled:WebKit::isLiveTextAvailableAndEnabled()];
-    [_imageAnalysisGestureRecognizer setEnabled:WebKit::isLiveTextAvailableAndEnabled()];
-}
-
 #pragma mark - VKCImageAnalysisInteractionDelegate
 
 - (CGRect)contentsRectForImageAnalysisInteraction:(VKCImageAnalysisInteraction *)interaction
@@ -11085,6 +11068,11 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 - (void)cancelElementFullscreenVideoExtraction
 {
+}
+
+- (BOOL)_shouldAvoidSecurityHeuristicScoreUpdates
+{
+    return NO;
 }
 
 #endif

@@ -545,11 +545,11 @@ void CanvasRenderingContext2DBase::setLineCap(CanvasLineCap canvasLineCap)
 void CanvasRenderingContext2DBase::setLineCap(const String& stringValue)
 {
     CanvasLineCap cap;
-    if (stringValue == "butt")
+    if (stringValue == "butt"_s)
         cap = CanvasLineCap::Butt;
-    else if (stringValue == "round")
+    else if (stringValue == "round"_s)
         cap = CanvasLineCap::Round;
-    else if (stringValue == "square")
+    else if (stringValue == "square"_s)
         cap = CanvasLineCap::Square;
     else
         return;
@@ -573,11 +573,11 @@ void CanvasRenderingContext2DBase::setLineJoin(CanvasLineJoin canvasLineJoin)
 void CanvasRenderingContext2DBase::setLineJoin(const String& stringValue)
 {
     CanvasLineJoin join;
-    if (stringValue == "round")
+    if (stringValue == "round"_s)
         join = CanvasLineJoin::Round;
-    else if (stringValue == "bevel")
+    else if (stringValue == "bevel"_s)
         join = CanvasLineJoin::Bevel;
-    else if (stringValue == "miter")
+    else if (stringValue == "miter"_s)
         join = CanvasLineJoin::Miter;
     else
         return;
@@ -1889,7 +1889,7 @@ ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createLinearGradi
     if (!std::isfinite(x0) || !std::isfinite(y0) || !std::isfinite(x1) || !std::isfinite(y1))
         return Exception { NotSupportedError };
 
-    return CanvasGradient::create(FloatPoint(x0, y0), FloatPoint(x1, y1), canvasBase());
+    return CanvasGradient::create(FloatPoint(x0, y0), FloatPoint(x1, y1), *this);
 }
 
 ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1)
@@ -1900,7 +1900,7 @@ ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createRadialGradi
     if (r0 < 0 || r1 < 0)
         return Exception { IndexSizeError };
 
-    return CanvasGradient::create(FloatPoint(x0, y0), r0, FloatPoint(x1, y1), r1, canvasBase());
+    return CanvasGradient::create(FloatPoint(x0, y0), r0, FloatPoint(x1, y1), r1, *this);
 }
 
 ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createConicGradient(float angleInRadians, float x, float y)
@@ -1908,7 +1908,7 @@ ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createConicGradie
     if (!std::isfinite(angleInRadians) || !std::isfinite(x) || !std::isfinite(y))
         return Exception { NotSupportedError };
 
-    return CanvasGradient::create(FloatPoint(x, y), angleInRadians, canvasBase());
+    return CanvasGradient::create(FloatPoint(x, y), angleInRadians, *this);
 }
 
 ExceptionOr<RefPtr<CanvasPattern>> CanvasRenderingContext2DBase::createPattern(CanvasImageSource&& image, const String& repetition)
@@ -2188,7 +2188,7 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
 
     PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, toDestinationColorSpace(computedColorSpace) };
     auto pixelBuffer = buffer->getPixelBuffer(format, imageDataRect);
-    if (!pixelBuffer) {
+    if (!is<ByteArrayPixelBuffer>(pixelBuffer)) {
         canvasBase().scriptExecutionContext()->addConsoleMessage(MessageSource::Rendering, MessageLevel::Error,
             makeString("Unable to get image data from canvas. Requested size was ", imageDataRect.width(), " x ", imageDataRect.height()));
         return Exception { InvalidStateError };
@@ -2196,7 +2196,7 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
 
     ASSERT(pixelBuffer->format().colorSpace == toDestinationColorSpace(computedColorSpace));
 
-    return { { ImageData::create(WTFMove(*pixelBuffer)) } };
+    return { { ImageData::create(static_reference_cast<ByteArrayPixelBuffer>(pixelBuffer.releaseNonNull())) } };
 }
 
 void CanvasRenderingContext2DBase::putImageData(ImageData& data, int dx, int dy)

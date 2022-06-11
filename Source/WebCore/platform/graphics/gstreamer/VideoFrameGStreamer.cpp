@@ -30,19 +30,18 @@
 
 namespace WebCore {
 
-Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(PixelBuffer&& pixelBuffer, const MediaTime& presentationTime, const IntSize& destinationSize, double frameRate, Rotation videoRotation, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata)
+Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, const MediaTime& presentationTime, const IntSize& destinationSize, double frameRate, Rotation videoRotation, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata)
 {
     ensureGStreamerInitialized();
 
-    auto size = pixelBuffer.size();
+    auto size = pixelBuffer->size();
 
-    auto data = pixelBuffer.takeData();
-    auto sizeInBytes = data->byteLength();
-    auto dataBaseAddress = data->data();
-    auto leakedData = &data.leakRef();
+    auto sizeInBytes = pixelBuffer->sizeInBytes();
+    auto dataBaseAddress = pixelBuffer->bytes();
+    auto leakedPixelBuffer = &pixelBuffer.leakRef();
 
-    auto buffer = adoptGRef(gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY, dataBaseAddress, sizeInBytes, 0, sizeInBytes, leakedData, [](gpointer userData) {
-        static_cast<JSC::Uint8ClampedArray*>(userData)->deref();
+    auto buffer = adoptGRef(gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY, dataBaseAddress, sizeInBytes, 0, sizeInBytes, leakedPixelBuffer, [](gpointer userData) {
+        static_cast<PixelBuffer*>(userData)->deref();
     }));
 
     auto width = size.width();

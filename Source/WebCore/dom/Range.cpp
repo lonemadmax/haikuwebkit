@@ -1004,16 +1004,16 @@ ExceptionOr<void> Range::expand(const String& unit)
 {
     auto start = VisiblePosition { makeContainerOffsetPosition(&startContainer(), startOffset()) };
     auto end = VisiblePosition { makeContainerOffsetPosition(&endContainer(), endOffset()) };
-    if (unit == "word") {
+    if (unit == "word"_s) {
         start = startOfWord(start);
         end = endOfWord(end);
-    } else if (unit == "sentence") {
+    } else if (unit == "sentence"_s) {
         start = startOfSentence(start);
         end = endOfSentence(end);
-    } else if (unit == "block") {
+    } else if (unit == "block"_s) {
         start = startOfParagraph(start);
         end = endOfParagraph(end);
-    } else if (unit == "document") {
+    } else if (unit == "document"_s) {
         start = startOfDocument(start);
         end = endOfDocument(end);
     } else
@@ -1102,8 +1102,8 @@ RefPtr<Range> createLiveRange(const std::optional<SimpleRange>& range)
 
 void Range::visitNodesConcurrently(JSC::AbstractSlotVisitor& visitor) const
 {
-    visitor.addOpaqueRoot(root(&m_start.container()));
-    visitor.addOpaqueRoot(root(&m_end.container()));
+    addWebCoreOpaqueRoot(visitor, m_start.container());
+    addWebCoreOpaqueRoot(visitor, m_end.container());
 }
 
 } // namespace WebCore

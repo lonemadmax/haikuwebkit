@@ -413,12 +413,7 @@ void WebInspectorUIProxy::platformShowCertificate(const WebCore::CertificateInfo
     notImplemented();
 }
 
-void WebInspectorUIProxy::platformSave(const String&, const String&, bool, bool)
-{
-    notImplemented();
-}
-
-void WebInspectorUIProxy::platformAppend(const String&, const String&)
+void WebInspectorUIProxy::platformSave(Vector<WebCore::InspectorFrontendClient::SaveData>&&, bool /* forceSaveAs */)
 {
     notImplemented();
 }
@@ -427,6 +422,12 @@ void WebInspectorUIProxy::platformLoad(const String&, CompletionHandler<void(con
 {
     notImplemented();
     completionHandler(nullString());
+}
+
+void WebInspectorUIProxy::platformPickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&& completionHandler)
+{
+    notImplemented();
+    completionHandler({ });
 }
 
 void WebInspectorUIProxy::platformAttachAvailabilityChanged(bool /* available */)

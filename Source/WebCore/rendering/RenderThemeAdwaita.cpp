@@ -46,6 +46,8 @@
 #include <gtk/gtk.h>
 #endif
 
+#include <wtf/text/Base64.h>
+
 namespace WebCore {
 
 static const double disabledOpacity = 0.5; // Keep in sync with disabledOpacity in ThemeAdwaita.
@@ -201,16 +203,45 @@ String RenderThemeAdwaita::extraDefaultStyleSheet()
 }
 
 #if ENABLE(VIDEO)
-String RenderThemeAdwaita::extraMediaControlsStyleSheet()
-{
-    return StringImpl::createWithoutCopying(mediaControlsAdwaitaUserAgentStyleSheet, sizeof(mediaControlsAdwaitaUserAgentStyleSheet));
-}
 
 Vector<String, 2> RenderThemeAdwaita::mediaControlsScripts()
 {
-    return { StringImpl::createWithoutCopying(mediaControlsAdwaitaJavaScript, sizeof(mediaControlsAdwaitaJavaScript)) };
-}
+#if ENABLE(MODERN_MEDIA_CONTROLS)
+    return { StringImpl::createWithoutCopying(ModernMediaControlsJavaScript, sizeof(ModernMediaControlsJavaScript)) };
+#else
+    return { };
 #endif
+}
+
+String RenderThemeAdwaita::mediaControlsStyleSheet()
+{
+#if ENABLE(MODERN_MEDIA_CONTROLS)
+    if (m_mediaControlsStyleSheet.isEmpty())
+        m_mediaControlsStyleSheet = StringImpl::createWithoutCopying(ModernMediaControlsUserAgentStyleSheet, sizeof(ModernMediaControlsUserAgentStyleSheet));
+    return m_mediaControlsStyleSheet;
+#else
+    return emptyString();
+#endif
+}
+
+#if ENABLE(MODERN_MEDIA_CONTROLS)
+
+String RenderThemeAdwaita::mediaControlsBase64StringForIconNameAndType(const String& iconName, const String& iconType)
+{
+    auto path = makeString("/org/webkit/media-controls/", iconName, '.', iconType);
+    auto data = adoptGRef(g_resources_lookup_data(path.latin1().data(), G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr));
+    if (!data)
+        return emptyString();
+    return base64EncodeToString(g_bytes_get_data(data.get(), nullptr), g_bytes_get_size(data.get()));
+}
+
+String RenderThemeAdwaita::mediaControlsFormattedStringForDuration(double durationInSeconds)
+{
+    // FIXME: Format this somehow, maybe through GDateTime?
+    return makeString(durationInSeconds);
+}
+#endif // ENABLE(MODERN_MEDIA_CONTROLS)
+#endif // ENABLE(VIDEO)
 
 Color RenderThemeAdwaita::systemColor(CSSValueID cssValueID, OptionSet<StyleColorOptions> options) const
 {
@@ -626,98 +657,6 @@ bool RenderThemeAdwaita::paintSliderThumb(const RenderObject& renderObject, cons
 
     return false;
 }
-
-#if ENABLE(VIDEO)
-static RefPtr<HTMLMediaElement> parentMediaElement(const Node* node)
-{
-    if (!node)
-        return nullptr;
-    RefPtr<Node> mediaNode = node->shadowHost();
-    if (!mediaNode)
-        mediaNode = const_cast<Node*>(node);
-    if (!is<HTMLMediaElement>(*mediaNode))
-        return nullptr;
-    return downcast<HTMLMediaElement>(mediaNode.get());
-}
-
-bool RenderThemeAdwaita::paintMediaSliderTrack(const RenderObject& renderObject, const PaintInfo& paintInfo, const IntRect& rect)
-{
-    auto mediaElement = parentMediaElement(renderObject.node());
-    if (!mediaElement)
-        return false;
-
-    auto& graphicsContext = paintInfo.context();
-    GraphicsContextStateSaver stateSaver(graphicsContext);
-
-    FloatRect trackRect = rect;
-    FloatSize corner(2, 2);
-    Path path;
-    path.addRoundedRect(trackRect, corner);
-    graphicsContext.setFillColor(mediaSliderTrackBackgroundcolor);
-    graphicsContext.fillPath(path);
-    path.clear();
-
-    graphicsContext.setFillColor(mediaSliderTrackBufferedColor);
-
-    float mediaDuration = mediaElement->duration();
-    RefPtr<TimeRanges> timeRanges = mediaElement->buffered();
-    for (unsigned index = 0; index < timeRanges->length(); ++index) {
-        float start = timeRanges->start(index).releaseReturnValue();
-        float end = timeRanges->end(index).releaseReturnValue();
-        float startRatio = start / mediaDuration;
-        float lengthRatio = (end - start) / mediaDuration;
-        if (!lengthRatio)
-            continue;
-
-        FloatRect rangeRect = rect;
-        rangeRect.setWidth(lengthRatio * rect.width());
-        if (index)
-            rangeRect.move(startRatio * rect.width(), 0);
-
-        path.addRoundedRect(rangeRect, corner);
-        graphicsContext.fillPath(path);
-        path.clear();
-    }
-
-    FloatRect playedRect = rect;
-    playedRect.setWidth((mediaElement->currentTime() / mediaDuration) * rect.width());
-    graphicsContext.setFillColor(mediaSliderTrackActiveColor);
-    path.addRoundedRect(playedRect, corner);
-    graphicsContext.fillPath(path);
-
-    return false;
-}
-
-bool RenderThemeAdwaita::paintMediaVolumeSliderTrack(const RenderObject& renderObject, const PaintInfo& paintInfo, const IntRect& rect)
-{
-    auto mediaElement = parentMediaElement(renderObject.node());
-    if (!mediaElement)
-        return false;
-
-    auto& graphicsContext = paintInfo.context();
-    GraphicsContextStateSaver stateSaver(graphicsContext);
-
-    FloatRect trackRect = rect;
-    FloatSize corner(2, 2);
-    Path path;
-    path.addRoundedRect(trackRect, corner);
-    graphicsContext.setFillColor(mediaSliderTrackBackgroundcolor);
-    graphicsContext.fillPath(path);
-    path.clear();
-
-    float volume = mediaElement->muted() ? 0.0f : mediaElement->volume();
-    if (volume) {
-        FloatRect volumeRect = rect;
-        volumeRect.setHeight(volumeRect.height() * volume);
-        volumeRect.move(0, rect.height() - volumeRect.height());
-        path.addRoundedRect(volumeRect, corner);
-        graphicsContext.setFillColor(mediaSliderTrackActiveColor);
-        graphicsContext.fillPath(path);
-    }
-
-    return false;
-}
-#endif // ENABLE(VIDEO)
 
 #if ENABLE(DATALIST_ELEMENT)
 IntSize RenderThemeAdwaita::sliderTickSize() const

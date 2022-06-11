@@ -64,7 +64,7 @@ static size_t sizeForImmutableStylePropertiesWithPropertyCount(unsigned count)
 
 static bool isCSSWideValueKeyword(StringView value)
 {
-    return value == "initial" || value == "inherit" || value == "unset" || value == "revert";
+    return value == "initial"_s || value == "inherit"_s || value == "unset"_s || value == "revert"_s;
 }
 
 static bool isNoneValue(const RefPtr<CSSValue>& value)
@@ -1093,7 +1093,7 @@ String StyleProperties::borderPropertyValue(const StylePropertyShorthand& width,
             commonValue = value;
         else if (commonValue != value)
             commonValue = String();
-        if (value == "initial")
+        if (value == "initial"_s)
             continue;
         if (!result.isEmpty())
             result.append(' ');
@@ -1704,7 +1704,7 @@ StringBuilder StyleProperties::asTextInternal() const
         } else
             value = property.value()->cssText();
 
-        if (propertyID != CSSPropertyCustom && value == "initial" && !CSSProperty::isInheritedProperty(propertyID))
+        if (propertyID != CSSPropertyCustom && value == "initial"_s && !CSSProperty::isInheritedProperty(propertyID))
             continue;
 
         if (numDecls++)
@@ -1735,7 +1735,7 @@ StringBuilder StyleProperties::asTextInternal() const
                 else
                     value = makeString(x, ' ', y);
             }
-            if (value != "initial") {
+            if (value != "initial"_s) {
                 result.append(numDecls ? " " : "", name, ": ", value, xProperty.isImportant() ? " !important" : "", ';');
                 ++numDecls;
             }
@@ -1801,10 +1801,8 @@ static const CSSPropertyID blockProperties[] = {
     CSSPropertyPageBreakBefore,
     CSSPropertyPageBreakInside,
     CSSPropertyTextAlign,
-#if ENABLE(CSS3_TEXT)
-    CSSPropertyWebkitTextAlignLast,
-    CSSPropertyWebkitTextJustify,
-#endif // CSS3_TEXT
+    CSSPropertyTextAlignLast,
+    CSSPropertyTextJustify,
     CSSPropertyTextIndent,
     CSSPropertyWidows
 };

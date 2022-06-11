@@ -774,10 +774,14 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTFragDepth.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTFragDepth.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTShaderTextureLOD.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTShaderTextureLOD.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureCompressionBPTC.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureCompressionBPTC.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureCompressionRGTC.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureCompressionRGTC.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureFilterAnisotropic.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureFilterAnisotropic.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureNorm16.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureNorm16.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTsRGB.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTsRGB.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEcKeyParams.cpp
@@ -1756,6 +1760,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNotificationPermission.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNotificationPermission.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNotificationPermissionCallback.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNotificationPermissionCallback.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOESDrawBuffersIndexed.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOESDrawBuffersIndexed.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOESElementIndexUint.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOESElementIndexUint.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOESFBORenderMipmap.cpp

@@ -31,12 +31,12 @@
 
 #include "ANGLEHeaders.h"
 #include "ANGLEUtilities.h"
+#include "ByteArrayPixelBuffer.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
 #include "IntSize.h"
 #include "Logging.h"
 #include "NotImplemented.h"
-#include "PixelBuffer.h"
 #include "RuntimeApplicationChecks.h"
 #include <algorithm>
 #include <cstring>
@@ -189,12 +189,12 @@ bool GraphicsContextGLANGLE::releaseThreadResources(ReleaseThreadResourceBehavio
     return EGL_ReleaseThread();
 }
 
-std::optional<PixelBuffer> GraphicsContextGLANGLE::readPixelsForPaintResults()
+RefPtr<PixelBuffer> GraphicsContextGLANGLE::readPixelsForPaintResults()
 {
     PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, DestinationColorSpace::SRGB() };
-    auto pixelBuffer = PixelBuffer::tryCreate(format, getInternalFramebufferSize());
+    auto pixelBuffer = ByteArrayPixelBuffer::tryCreate(format, getInternalFramebufferSize());
     if (!pixelBuffer)
-        return std::nullopt;
+        return nullptr;
     ScopedPixelStorageMode packAlignment(GL_PACK_ALIGNMENT);
     if (packAlignment > 4)
         packAlignment.pixelStore(4);
@@ -203,14 +203,14 @@ std::optional<PixelBuffer> GraphicsContextGLANGLE::readPixelsForPaintResults()
     ScopedPixelStorageMode packSkipPixels(GL_PACK_SKIP_PIXELS, 0, m_isForWebGL2);
     ScopedBufferBinding scopedPixelPackBufferReset(GL_PIXEL_PACK_BUFFER, 0, m_isForWebGL2);
 
-    GL_ReadnPixelsRobustANGLE(0, 0, pixelBuffer->size().width(), pixelBuffer->size().height(), GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer->data().byteLength(), nullptr, nullptr, nullptr, pixelBuffer->data().data());
+    GL_ReadnPixelsRobustANGLE(0, 0, pixelBuffer->size().width(), pixelBuffer->size().height(), GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer->sizeInBytes(), nullptr, nullptr, nullptr, pixelBuffer->bytes());
     // FIXME: Rendering to GL_RGB textures with a IOSurface bound to the texture image leaves
     // the alpha in the IOSurface in incorrect state. Also ANGLE GL_ReadPixels will in some
     // cases expose the non-255 values.
     // https://bugs.webkit.org/show_bug.cgi?id=215804
 #if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
     if (!contextAttributes().alpha)
-        wipeAlphaChannelFromPixels(pixelBuffer->size().width(), pixelBuffer->size().height(), pixelBuffer->data().data());
+        wipeAlphaChannelFromPixels(pixelBuffer->size().width(), pixelBuffer->size().height(), pixelBuffer->bytes());
 #endif
     return pixelBuffer;
 }
@@ -372,6 +372,13 @@ void GraphicsContextGLANGLE::getIntegerv(GCGLenum pname, GCGLSpan<GCGLint> value
     if (!makeContextCurrent())
         return;
     GL_GetIntegervRobustANGLE(pname, value.bufSize, nullptr, value.data);
+}
+
+void GraphicsContextGLANGLE::getIntegeri_v(GCGLenum pname, GCGLuint index, GCGLSpan<GCGLint, 4> value) // NOLINT
+{
+    if (!makeContextCurrent())
+        return;
+    GL_GetIntegeri_vRobustANGLE(pname, index, value.bufSize, nullptr, value.data);
 }
 
 void GraphicsContextGLANGLE::getShaderPrecisionFormat(GCGLenum shaderType, GCGLenum precisionType, GCGLSpan<GCGLint, 2> range, GCGLint* precision)
@@ -575,7 +582,7 @@ void GraphicsContextGLANGLE::prepareTexture()
 #endif
 }
 
-std::optional<PixelBuffer> GraphicsContextGLANGLE::readRenderingResults()
+RefPtr<PixelBuffer> GraphicsContextGLANGLE::readRenderingResults()
 {
     ScopedRestoreReadFramebufferBinding fboBinding(m_isForWebGL2, m_state.boundReadFBO);
     if (contextAttributes().antialias) {
@@ -2928,6 +2935,62 @@ void GraphicsContextGLANGLE::drawBuffersEXT(GCGLSpan<const GCGLenum> bufs)
     GL_DrawBuffersEXT(bufs.bufSize, bufs.data);
 }
 
+void GraphicsContextGLANGLE::enableiOES(GCGLenum target, GCGLuint index)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_EnableiOES(target, index);
+}
+
+void GraphicsContextGLANGLE::disableiOES(GCGLenum target, GCGLuint index)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_DisableiOES(target, index);
+}
+
+void GraphicsContextGLANGLE::blendEquationiOES(GCGLuint buf, GCGLenum mode)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_BlendEquationiOES(buf, mode);
+}
+
+void GraphicsContextGLANGLE::blendEquationSeparateiOES(GCGLuint buf, GCGLenum modeRGB, GCGLenum modeAlpha)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_BlendEquationSeparateiOES(buf, modeRGB, modeAlpha);
+}
+
+void GraphicsContextGLANGLE::blendFunciOES(GCGLuint buf, GCGLenum src, GCGLenum dst)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_BlendFunciOES(buf, src, dst);
+}
+
+void GraphicsContextGLANGLE::blendFuncSeparateiOES(GCGLuint buf, GCGLenum srcRGB, GCGLenum dstRGB, GCGLenum srcAlpha, GCGLenum dstAlpha)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_BlendFuncSeparateiOES(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+}
+
+void GraphicsContextGLANGLE::colorMaskiOES(GCGLuint buf, GCGLboolean red, GCGLboolean green, GCGLboolean blue, GCGLboolean alpha)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_ColorMaskiOES(buf, red, green, blue, alpha);
+}
+
 bool GraphicsContextGLANGLE::waitAndUpdateOldestFrame()
 {
     size_t oldestFrameCompletionFence = m_oldestFrameCompletionFence++ % maxPendingFrames;
@@ -2975,7 +3038,7 @@ void GraphicsContextGLANGLE::paintRenderingResultsToCanvas(ImageBuffer& imageBuf
     auto pixelBuffer = readRenderingResults();
     if (!pixelBuffer)
         return;
-    paintToCanvas(contextAttributes(), WTFMove(*pixelBuffer), imageBuffer.backendSize(), imageBuffer.context());
+    paintToCanvas(contextAttributes(), pixelBuffer.releaseNonNull(), imageBuffer.backendSize(), imageBuffer.context());
 }
 
 void GraphicsContextGLANGLE::paintCompositedResultsToCanvas(ImageBuffer& imageBuffer)
@@ -2987,21 +3050,21 @@ void GraphicsContextGLANGLE::paintCompositedResultsToCanvas(ImageBuffer& imageBu
     auto pixelBuffer = readCompositedResults();
     if (!pixelBuffer)
         return;
-    paintToCanvas(contextAttributes(), WTFMove(*pixelBuffer), imageBuffer.backendSize(), imageBuffer.context());
+    paintToCanvas(contextAttributes(), pixelBuffer.releaseNonNull(), imageBuffer.backendSize(), imageBuffer.context());
 }
 
-std::optional<PixelBuffer> GraphicsContextGLANGLE::paintRenderingResultsToPixelBuffer()
+RefPtr<PixelBuffer> GraphicsContextGLANGLE::paintRenderingResultsToPixelBuffer()
 {
     // Reading premultiplied alpha would involve unpremultiplying, which is lossy.
     if (contextAttributes().premultipliedAlpha)
-        return std::nullopt;
+        return nullptr;
     auto results = readRenderingResultsForPainting();
     if (results && !results->size().isEmpty()) {
         ASSERT(results->format().pixelFormat == PixelFormat::RGBA8 || results->format().pixelFormat == PixelFormat::BGRA8);
         // FIXME: Make PixelBufferConversions support negative rowBytes and in-place conversions.
         const auto size = results->size();
         const size_t rowStride = size.width() * 4;
-        uint8_t* top = results->data().data();
+        uint8_t* top = results->bytes();
         uint8_t* bottom = top + (size.height() - 1) * rowStride;
         std::unique_ptr<uint8_t[]> temp(new uint8_t[rowStride]);
         for (; top < bottom; top += rowStride, bottom -= rowStride) {
@@ -3013,21 +3076,21 @@ std::optional<PixelBuffer> GraphicsContextGLANGLE::paintRenderingResultsToPixelB
     return results;
 }
 
-std::optional<PixelBuffer> GraphicsContextGLANGLE::readRenderingResultsForPainting()
+RefPtr<PixelBuffer> GraphicsContextGLANGLE::readRenderingResultsForPainting()
 {
     if (!makeContextCurrent())
-        return std::nullopt;
+        return nullptr;
     if (getInternalFramebufferSize().isEmpty())
-        return std::nullopt;
+        return nullptr;
     return readRenderingResults();
 }
 
-std::optional<PixelBuffer> GraphicsContextGLANGLE::readCompositedResultsForPainting()
+RefPtr<PixelBuffer> GraphicsContextGLANGLE::readCompositedResultsForPainting()
 {
     if (!makeContextCurrent())
-        return std::nullopt;
+        return nullptr;
     if (getInternalFramebufferSize().isEmpty())
-        return std::nullopt;
+        return nullptr;
     return readCompositedResults();
 }
 

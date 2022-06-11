@@ -142,6 +142,7 @@ public:
     void getFloatv(GCGLenum pname, GCGLSpan<GCGLfloat> value) final;
     GCGLint getFramebufferAttachmentParameteri(GCGLenum target, GCGLenum attachment, GCGLenum pname) final;
     void getIntegerv(GCGLenum pname, GCGLSpan<GCGLint> value) final;
+    void getIntegeri_v(GCGLenum pname, GCGLuint index, GCGLSpan<GCGLint, 4> value) final; // NOLINT
     GCGLint64 getInteger64(GCGLenum pname) final;
     GCGLint64 getInteger64i(GCGLenum pname, GCGLuint index) final;
     GCGLint getProgrami(PlatformGLObject program, GCGLenum pname) final;
@@ -369,6 +370,15 @@ public:
     void multiDrawElementsANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLint> countsAndOffsets, GCGLenum type) override;
     void multiDrawElementsInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLint, const GCGLsizei> countsOffsetsAndInstanceCounts, GCGLenum type) override;
 
+    // GL_OES_draw_buffers_indexed
+    void enableiOES(GCGLenum target, GCGLuint index) final;
+    void disableiOES(GCGLenum target, GCGLuint index) final;
+    void blendEquationiOES(GCGLuint buf, GCGLenum mode) final;
+    void blendEquationSeparateiOES(GCGLuint buf, GCGLenum modeRGB, GCGLenum modeAlpha) final;
+    void blendFunciOES(GCGLuint buf, GCGLenum src, GCGLenum dst) final;
+    void blendFuncSeparateiOES(GCGLuint buf, GCGLenum srcRGB, GCGLenum dstRGB, GCGLenum srcAlpha, GCGLenum dstAlpha) final;
+    void colorMaskiOES(GCGLuint buf, GCGLboolean red, GCGLboolean green, GCGLboolean blue, GCGLboolean alpha) final;
+
     bool supportsExtension(const String&) final;
     void ensureExtensionEnabled(const String&) final;
     bool isExtensionEnabled(const String&) final;
@@ -377,11 +387,11 @@ public:
 
     // Helper methods.
     void paintRenderingResultsToCanvas(ImageBuffer&) final;
-    std::optional<PixelBuffer> paintRenderingResultsToPixelBuffer() final;
+    RefPtr<PixelBuffer> paintRenderingResultsToPixelBuffer() final;
     void paintCompositedResultsToCanvas(ImageBuffer&) final;
 
-    std::optional<PixelBuffer> readRenderingResultsForPainting();
-    std::optional<PixelBuffer> readCompositedResultsForPainting();
+    RefPtr<PixelBuffer> readRenderingResultsForPainting();
+    RefPtr<PixelBuffer> readCompositedResultsForPainting();
 
     void setContextVisibility(bool) final;
 
@@ -441,9 +451,9 @@ protected:
     // Did the most recent drawing operation leave the GPU in an acceptable state?
     void checkGPUStatus();
 
-    std::optional<PixelBuffer> readRenderingResults();
-    std::optional<PixelBuffer> readCompositedResults();
-    std::optional<PixelBuffer> readPixelsForPaintResults();
+    RefPtr<PixelBuffer> readRenderingResults();
+    RefPtr<PixelBuffer> readCompositedResults();
+    RefPtr<PixelBuffer> readPixelsForPaintResults();
 
     bool reshapeFBOs(const IntSize&);
     void resolveMultisamplingIfNecessary(const IntRect& = IntRect());

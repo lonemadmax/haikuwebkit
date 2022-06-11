@@ -214,6 +214,12 @@ static bool isDocumentSandboxed(Frame& frame, SandboxFlags mask)
     return frame.document() && frame.document()->isSandboxed(mask);
 }
 
+static bool isInVisibleAndActivePage(const Frame& frame)
+{
+    auto* page = frame.page();
+    return page && page->isVisibleAndActive();
+}
+
 class PageLevelForbidScope {
 protected:
     explicit PageLevelForbidScope(Page* page)
@@ -443,7 +449,7 @@ void FrameLoader::changeLocation(const URL& url, const AtomString& passedTarget,
 void FrameLoader::changeLocation(FrameLoadRequest&& frameRequest, Event* triggeringEvent, std::optional<PrivateClickMeasurement>&& privateClickMeasurement)
 {
     FRAMELOADER_RELEASE_LOG(ResourceLoading, "changeLocation: frame load started");
-    ASSERT(frameRequest.resourceRequest().httpMethod() == "GET");
+    ASSERT(frameRequest.resourceRequest().httpMethod() == "GET"_s);
 
     Ref<Frame> protect(m_frame);
 
@@ -1277,12 +1283,12 @@ void FrameLoader::loadFrameRequest(FrameLoadRequest&& request, Event* event, Ref
             sourceFrame = &m_frame;
         Frame* targetFrame = sourceFrame->loader().findFrameForNavigation(frameName);
         if (targetFrame && targetFrame != sourceFrame) {
-            if (Page* page = targetFrame->page())
+            if (auto* page = targetFrame->page(); page && isInVisibleAndActivePage(*sourceFrame))
                 page->chrome().focus();
         }
     };
 
-    if (request.resourceRequest().httpMethod() == "POST")
+    if (request.resourceRequest().httpMethod() == "POST"_s)
         loadPostRequest(WTFMove(request), referrer, loadType, event, WTFMove(formState), WTFMove(completionHandler));
     else
         loadURL(WTFMove(request), referrer, loadType, event, WTFMove(formState), WTFMove(privateClickMeasurement), WTFMove(completionHandler));
@@ -1330,7 +1336,7 @@ bool FrameLoader::isStopLoadingAllowed() const
 void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& referrer, FrameLoadType newLoadType, Event* event, RefPtr<FormState>&& formState, std::optional<PrivateClickMeasurement>&& privateClickMeasurement, CompletionHandler<void()>&& completionHandler)
 {
     FRAMELOADER_RELEASE_LOG(ResourceLoading, "loadURL: frame load started");
-    ASSERT(frameLoadRequest.resourceRequest().httpMethod() == "GET");
+    ASSERT(frameLoadRequest.resourceRequest().httpMethod() == "GET"_s);
 
     CompletionHandlerCallingScope completionHandlerCaller(WTFMove(completionHandler));
     if (m_inStopAllLoaders || m_inClearProvisionalLoadForPolicyCheck)
@@ -1776,7 +1782,7 @@ void FrameLoader::reload(OptionSet<ReloadOption> options)
     addSameSiteInfoToRequestIfNeeded(request);
 
     // If we're about to re-post, set up action so the application can warn the user.
-    if (request.httpMethod() == "POST")
+    if (request.httpMethod() == "POST"_s)
         loader->setTriggeringAction({ *m_frame.document(), request, InitiatedByMainFrame::Unknown, NavigationType::FormResubmitted });
 
     loader->setOverrideEncoding(m_documentLoader->overrideEncoding());
@@ -3014,7 +3020,7 @@ void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, const String& 
     // will leak the internal host name. Similar privacy concerns have lead
     // to the widespread suppression of the Referer header at the network
     // layer.
-    if (request.httpMethod() == "GET" || request.httpMethod() == "HEAD")
+    if (request.httpMethod() == "GET"_s || request.httpMethod() == "HEAD"_s)
         return;
 
     // FIXME: take referrer-policy into account.
@@ -4116,7 +4122,7 @@ bool FrameLoaderClient::hasHTMLView() const
 RefPtr<Frame> createWindow(Frame& openerFrame, Frame& lookupFrame, FrameLoadRequest&& request, WindowFeatures& features, bool& created)
 {
     ASSERT(!features.dialog || request.frameName().isEmpty());
-    ASSERT(request.resourceRequest().httpMethod() == "GET");
+    ASSERT(request.resourceRequest().httpMethod() == "GET"_s);
 
     created = false;
 
@@ -4127,7 +4133,7 @@ RefPtr<Frame> createWindow(Frame& openerFrame, Frame& lookupFrame, FrameLoadRequ
     if (!request.frameName().isEmpty() && !isBlankTargetFrameName(request.frameName())) {
         if (RefPtr<Frame> frame = lookupFrame.loader().findFrameForNavigation(request.frameName(), openerFrame.document())) {
             if (!isSelfTargetFrameName(request.frameName())) {
-                if (Page* page = frame->page())
+                if (auto* page = frame->page(); page && isInVisibleAndActivePage(openerFrame))
                     page->chrome().focus();
             }
             return frame;

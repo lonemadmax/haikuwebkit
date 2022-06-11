@@ -50,6 +50,7 @@ namespace WebCore {
     macro(ApplePaySession) \
     macro(ApplePaySetup) \
     macro(ApplePaySetupFeature) \
+    macro(ApplicationCache) \
     macro(AttachmentElement) \
     macro(Audio) \
     macro(AudioBuffer) \
@@ -421,6 +422,7 @@ namespace WebCore {
     macro(abortAlgorithm) \
     macro(abortSteps) \
     macro(appendFromJS) \
+    macro(applicationCache) \
     macro(associatedReadableByteStreamController) \
     macro(autoAllocateChunkSize) \
     macro(backingMap) \
@@ -430,6 +432,7 @@ namespace WebCore {
     macro(blur) \
     macro(body) \
     macro(byobRequest) \
+    macro(cachedAttrAssociatedElements) \
     macro(caches) \
     macro(cancel) \
     macro(cancelAlgorithm) \

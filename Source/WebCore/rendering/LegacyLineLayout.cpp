@@ -360,19 +360,8 @@ TextAlignMode LegacyLineLayout::textAlignmentForLine(bool endsWithSoftBreak) con
         return *overrideAlignment;
 
     TextAlignMode alignment = style().textAlign();
-#if ENABLE(CSS3_TEXT)
-    TextJustify textJustify = style().textJustify();
-    if (alignment == TextAlignMode::Justify && textJustify == TextJustify::None)
-        return style().direction() == TextDirection::LTR ? TextAlignMode::Left : TextAlignMode::Right;
-#endif
 
     if (endsWithSoftBreak)
-        return alignment;
-
-#if !ENABLE(CSS3_TEXT)
-    return (alignment == TextAlignMode::Justify) ? TextAlignMode::Start : alignment;
-#else
-    if (alignment != TextAlignMode::Justify)
         return alignment;
 
     TextAlignLast alignmentLast = style().textAlignLast();
@@ -390,12 +379,13 @@ TextAlignMode LegacyLineLayout::textAlignmentForLine(bool endsWithSoftBreak) con
     case TextAlignLast::Justify:
         return TextAlignMode::Justify;
     case TextAlignLast::Auto:
-        if (textJustify == TextJustify::Distribute)
-            return TextAlignMode::Justify;
-        return TextAlignMode::Start;
+        if (alignment == TextAlignMode::Justify)
+            return TextAlignMode::Start;
+        return alignment;
     }
-    return alignment;
-#endif
+
+    ASSERT_NOT_REACHED();
+    return TextAlignMode::Start;
 }
 
 static void updateLogicalWidthForLeftAlignedBlock(bool isLeftToRightDirection, BidiRun* trailingSpaceRun, float& logicalLeft, float& totalLogicalWidth, float availableLogicalWidth)

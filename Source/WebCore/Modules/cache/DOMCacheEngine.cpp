@@ -69,7 +69,7 @@ Exception convertToExceptionAndLog(ScriptExecutionContext* context, Error error)
 
 static inline bool matchURLs(const ResourceRequest& request, const URL& cachedURL, const CacheQueryOptions& options)
 {
-    ASSERT(options.ignoreMethod || request.httpMethod() == "GET");
+    ASSERT(options.ignoreMethod || request.httpMethod() == "GET"_s);
 
     URL requestURL = request.url();
     URL cachedRequestURL = cachedURL;
@@ -98,7 +98,7 @@ bool queryCacheMatch(const ResourceRequest& request, const ResourceRequest& cach
         if (isVarying)
             return;
         auto nameView = stripLeadingAndTrailingHTTPSpaces(view);
-        if (nameView == "*") {
+        if (nameView == "*"_s) {
             isVarying = true;
             return;
         }

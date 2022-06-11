@@ -121,16 +121,10 @@ WI.NodeOverlayListSection = class NodeOverlayListSection extends WI.View
                     domNode.hideLayoutOverlay();
             });
 
-            let swatch = new WI.InlineSwatch(WI.InlineSwatch.Type.Color, domNode.layoutOverlayColor);
-            swatch.shiftClickColorEnabled = false;
+            let swatch = new WI.InlineSwatch(WI.InlineSwatch.Type.Color, domNode.layoutOverlayColor, {preventChangingColorFormats: true});
             itemContainerElement.append(swatch.element);
 
             swatch.addEventListener(WI.InlineSwatch.Event.ValueChanged, (event) => {
-                if (checkboxElement?.checked)
-                    domNode.showLayoutOverlay({color: event.data.value});
-            }, swatch);
-
-            swatch.addEventListener(WI.InlineSwatch.Event.Deactivated, (event) => {
                 domNode.layoutOverlayColor = event.target.value;
             }, swatch);
 

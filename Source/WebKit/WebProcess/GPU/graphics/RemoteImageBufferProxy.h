@@ -234,18 +234,17 @@ protected:
         return m_remoteRenderingBackendProxy->getFilteredImage(m_renderingResourceIdentifier, filter);
     }
 
-    std::optional<WebCore::PixelBuffer> getPixelBuffer(const WebCore::PixelBufferFormat& destinationFormat, const WebCore::IntRect& srcRect) const final
+    RefPtr<WebCore::PixelBuffer> getPixelBuffer(const WebCore::PixelBufferFormat& destinationFormat, const WebCore::IntRect& srcRect, const WebCore::ImageBufferAllocator& allocator) const final
     {
         if (UNLIKELY(!m_remoteRenderingBackendProxy))
-            return std::nullopt;
+            return nullptr;
         auto& mutableThis = const_cast<RemoteImageBufferProxy&>(*this);
         mutableThis.flushDrawingContextAsync();
-        auto pixelBuffer = WebCore::PixelBuffer::tryCreate(destinationFormat, srcRect.size());
+        auto pixelBuffer = allocator.createPixelBuffer(destinationFormat, srcRect.size());
         if (!pixelBuffer)
-            return std::nullopt;
-        auto& data = pixelBuffer->data();
-        if (!m_remoteRenderingBackendProxy->getPixelBufferForImageBuffer(m_renderingResourceIdentifier, destinationFormat, srcRect, { data.data(), data.byteLength() }))
-            return std::nullopt;
+            return nullptr;
+        if (!m_remoteRenderingBackendProxy->getPixelBufferForImageBuffer(m_renderingResourceIdentifier, destinationFormat, srcRect, { pixelBuffer->bytes(), pixelBuffer->sizeInBytes() }))
+            return nullptr;
         return pixelBuffer;
     }
 

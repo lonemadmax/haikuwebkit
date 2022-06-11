@@ -272,6 +272,8 @@ public:
     Element* element() const override;
     Node* node() const override { return nullptr; }
     RenderObject* renderer() const override { return nullptr; }
+    const RenderStyle* style() const;
+
     // Note: computeAccessibilityIsIgnored does not consider whether an object is ignored due to presence of modals.
     // Use accessibilityIsIgnored as the word of law when determining if an object is ignored.
     virtual bool computeAccessibilityIsIgnored() const { return true; }
@@ -301,22 +303,6 @@ public:
     bool supportsARIARoleDescription() const;
     bool supportsARIAOwns() const override { return false; }
     bool isActiveDescendantOfFocusedContainer() const override;
-
-    AccessibilityChildrenVector activeDescendantOfObjects() const override;
-    AccessibilityChildrenVector controlledObjects() const override;
-    AccessibilityChildrenVector controllers() const override;
-    AccessibilityChildrenVector describedByObjects() const override;
-    AccessibilityChildrenVector descriptionForObjects() const override;
-    AccessibilityChildrenVector detailedByObjects() const override;
-    AccessibilityChildrenVector detailsForObjects() const override;
-    AccessibilityChildrenVector errorMessageObjects() const override;
-    AccessibilityChildrenVector errorMessageForObjects() const override;
-    AccessibilityChildrenVector flowToObjects() const override;
-    AccessibilityChildrenVector flowFromObjects() const override;
-    AccessibilityChildrenVector labelledByObjects() const override;
-    AccessibilityChildrenVector labelForObjects() const override;
-    AccessibilityChildrenVector ownedObjects() const override;
-    AccessibilityChildrenVector owners() const override;
 
     bool hasPopup() const override { return false; }
     String popupValue() const override;
@@ -785,7 +771,7 @@ public:
     String documentEncoding() const override;
     AccessibilityChildrenVector documentLinks() override { return AccessibilityChildrenVector(); }
 
-    AccessibilityChildrenVector relatedObjects(AXRelationType) const;
+    AccessibilityChildrenVector relatedObjects(AXRelationType) const override;
 protected:
     AccessibilityObject() = default;
 

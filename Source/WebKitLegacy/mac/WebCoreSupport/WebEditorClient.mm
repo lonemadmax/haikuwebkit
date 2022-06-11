@@ -99,12 +99,6 @@ using namespace WebCore;
 
 using namespace HTMLNames;
 
-#if !PLATFORM(IOS_FAMILY)
-@interface NSSpellChecker (WebNSSpellCheckerDetails)
-- (NSString *)languageForWordRange:(NSRange)range inString:(NSString *)string orthography:(NSOrthography *)orthography;
-@end
-#endif
-
 // FIXME: Seems likely we can get rid of this legacy code for watchOS and tvOS.
 #if PLATFORM(WATCHOS) || PLATFORM(APPLETV)
 @interface NSAttributedString (WebNSAttributedStringDetails)
@@ -757,19 +751,19 @@ static SEL selectorForKeyEvent(KeyboardEvent* event)
     // not relying on the selector in the new implementation.
     // The key identifiers are from <http://www.w3.org/TR/DOM-Level-3-Events/keyset.html#KeySet-Set>
     const String& key = event->keyIdentifier();
-    if (key == "Up")
+    if (key == "Up"_s)
         return @selector(moveUp:);
-    if (key == "Down")
+    if (key == "Down"_s)
         return @selector(moveDown:);
 IGNORE_WARNINGS_BEGIN("undeclared-selector")
-    if (key == "U+001B")
+    if (key == "U+001B"_s)
         return @selector(cancel:);
-    if (key == "U+0009") {
+    if (key == "U+0009"_s) {
         if (event->shiftKey())
             return @selector(insertBacktab:);
         return @selector(insertTab:);
     }
-    if (key == "Enter")
+    if (key == "Enter"_s)
         return @selector(insertNewline:);
 IGNORE_WARNINGS_END
     return 0;

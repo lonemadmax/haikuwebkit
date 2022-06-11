@@ -5053,11 +5053,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings.setDataTransferItemsEnabled(!!enabled);
 
-    hr = prefsPrivate->inspectorAdditionsEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setInspectorAdditionsEnabled(!!enabled);
-
     hr = prefsPrivate->webSQLEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5414,6 +5409,8 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings.setCSSGradientPremultipliedAlphaInterpolationEnabled(m_preferences->cssGradientPremultipliedAlphaInterpolationEnabled());
     settings.setMockScrollbarsControllerEnabled(m_preferences->mockScrollbarsControllerEnabled());
     settings.setCSSInputSecurityEnabled(m_preferences->cssInputSecurityEnabled());
+    settings.setCSSTextAlignLastEnabled(m_preferences->cssTextAlignLastEnabled());
+    settings.setCSSTextJustifyEnabled(m_preferences->cssTextJustifyEnabled());
 
     return S_OK;
 }

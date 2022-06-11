@@ -33,11 +33,11 @@
 #elif USE(SYSTEM_MALLOC)
 #if OS(HAIKU)
 #include <OS.h>
-#elif OS(LINUX)
+#elif OS(LINUX) || OS(FREEBSD)
 #include <sys/sysinfo.h>
 #elif OS(UNIX)
 #include <unistd.h>
-#endif // OS(LINUX) || OS(UNIX)
+#endif // OS(LINUX) || OS(FREEBSD) || OS(UNIX)
 #else
 #include <bmalloc/bmalloc.h>
 #endif

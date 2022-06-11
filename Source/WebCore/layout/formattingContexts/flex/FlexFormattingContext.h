@@ -30,6 +30,7 @@
 #include "FlexFormattingConstraints.h"
 #include "FlexFormattingGeometry.h"
 #include "FlexFormattingState.h"
+#include "FlexLayout.h"
 #include "FlexRect.h"
 #include "FormattingQuirks.h"
 #include <wtf/IsoMalloc.h>
@@ -50,24 +51,17 @@ public:
     const FlexFormattingGeometry& formattingGeometry() const final { return m_flexFormattingGeometry; }
     const FormattingQuirks& formattingQuirks() const final { return m_flexFormattingQuirks; }
 
-    void layoutInFlowContentForIntegration(const ConstraintsForInFlowContent&);
+    void layoutInFlowContentForIntegration(const ConstraintsForFlexContent&);
     IntrinsicWidthConstraints computedIntrinsicWidthConstraintsForIntegration();
 
 private:
     void sizeAndPlaceFlexItems(const ConstraintsForFlexContent&);
     void computeIntrinsicWidthConstraintsForFlexItems();
 
-    struct LogicalFlexItem {
-        FlexRect rect;
-        int logicalOrder { 0 };
-        CheckedPtr<const ContainerBox> layoutBox;
-    };
-    using LogicalFlexItems = Vector<LogicalFlexItem>;
-    LogicalFlexItems convertFlexItemsToLogicalSpace();
-    void setFlexItemsGeometry(const LogicalFlexItems&, const ConstraintsForFlexContent&);
-    void computeLogicalWidthForFlexItems(LogicalFlexItems&, const ConstraintsForFlexContent&);
-    void computeLogicalWidthForStretchingFlexItems(LogicalFlexItems&, LayoutUnit availableSpace);
-    void computeLogicalWidthForShrinkingFlexItems(LogicalFlexItems&, LayoutUnit availableSpace);
+    FlexLayout::LogicalFlexItems convertFlexItemsToLogicalSpace(const ConstraintsForFlexContent&);
+    void setFlexItemsGeometry(const FlexLayout::LogicalFlexItems&, const ConstraintsForFlexContent&);
+
+    std::optional<LayoutUnit> computedAutoMarginValueForFlexItems(const ConstraintsForFlexContent&);
 
     const FlexFormattingState& formattingState() const { return downcast<FlexFormattingState>(FormattingContext::formattingState()); }
     FlexFormattingState& formattingState() { return downcast<FlexFormattingState>(FormattingContext::formattingState()); }

@@ -148,6 +148,11 @@ void FlexLayout::updateRenderers() const
         renderer.setLocation(borderBox.topLeft());
         renderer.setWidth(borderBox.width());
         renderer.setHeight(borderBox.height());
+
+        renderer.setMarginStart(flexItemGeometry.marginStart());
+        renderer.setMarginEnd(flexItemGeometry.marginEnd());
+        renderer.setMarginBefore(flexItemGeometry.marginBefore());
+        renderer.setMarginAfter(flexItemGeometry.marginAfter());
     }
 }
 
@@ -166,7 +171,7 @@ void FlexLayout::collectOverflow()
 
 LayoutUnit FlexLayout::contentLogicalHeight() const
 {
-    return { };
+    return Layout::FlexFormattingContext { rootLayoutBox(), m_flexFormattingState }.usedContentHeight();
 }
 
 }

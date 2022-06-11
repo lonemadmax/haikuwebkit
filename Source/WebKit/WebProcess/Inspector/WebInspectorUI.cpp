@@ -56,7 +56,6 @@ Ref<WebInspectorUI> WebInspectorUI::create(WebPage& page)
 void WebInspectorUI::enableFrontendFeatures(WebPage& page)
 {
     // FIXME: These should be enabled in the UIProcess by the preferences for the inspector page's WKWebView.
-    RuntimeEnabledFeatures::sharedFeatures().setInspectorAdditionsEnabled(true);
     RuntimeEnabledFeatures::sharedFeatures().setImageBitmapEnabled(true);
 #if ENABLE(WEBGL2)
     page.corePage()->settings().setWebGL2Enabled(true);
@@ -301,19 +300,19 @@ void WebInspectorUI::revealFileExternally(const String& path)
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::RevealFileExternally(path), m_inspectedPageIdentifier);
 }
 
-void WebInspectorUI::save(const WTF::String& filename, const WTF::String& content, bool base64Encoded, bool forceSaveAs)
+void WebInspectorUI::save(Vector<InspectorFrontendClient::SaveData>&& saveDatas, bool forceSaveAs)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::Save(filename, content, base64Encoded, forceSaveAs), m_inspectedPageIdentifier);
-}
-
-void WebInspectorUI::append(const WTF::String& filename, const WTF::String& content)
-{
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::Append(filename, content), m_inspectedPageIdentifier);
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::Save(WTFMove(saveDatas), forceSaveAs), m_inspectedPageIdentifier);
 }
 
 void WebInspectorUI::load(const WTF::String& path, CompletionHandler<void(const String&)>&& completionHandler)
 {
     WebProcess::singleton().parentProcessConnection()->sendWithAsyncReply(Messages::WebInspectorUIProxy::Load(path), WTFMove(completionHandler), m_inspectedPageIdentifier);
+}
+
+void WebInspectorUI::pickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&& completionHandler)
+{
+    WebProcess::singleton().parentProcessConnection()->sendWithAsyncReply(Messages::WebInspectorUIProxy::PickColorFromScreen(), WTFMove(completionHandler), m_inspectedPageIdentifier);
 }
 
 void WebInspectorUI::inspectedURLChanged(const String& urlString)
@@ -421,16 +420,6 @@ void WebInspectorUI::stopElementSelection()
     m_frontendAPIDispatcher->dispatchCommandWithResultAsync("setElementSelectionEnabled"_s, { JSON::Value::create(false) });
 }
 
-void WebInspectorUI::didSave(const String& url)
-{
-    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("savedURL"_s, { JSON::Value::create(url) });
-}
-
-void WebInspectorUI::didAppend(const String& url)
-{
-    m_frontendAPIDispatcher->dispatchCommandWithResultAsync("appendedToURL"_s, { JSON::Value::create(url) });
-}
-
 void WebInspectorUI::sendMessageToFrontend(const String& message)
 {
     m_frontendAPIDispatcher->dispatchMessageAsync(message);
@@ -478,13 +467,19 @@ WebCore::Page* WebInspectorUI::frontendPage()
 
 
 #if !PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(WIN)
-bool WebInspectorUI::canSave()
+bool WebInspectorUI::canSave(InspectorFrontendClient::SaveMode)
 {
     notImplemented();
     return false;
 }
 
 bool WebInspectorUI::canLoad()
+{
+    notImplemented();
+    return false;
+}
+
+bool WebInspectorUI::canPickColorFromScreen()
 {
     notImplemented();
     return false;

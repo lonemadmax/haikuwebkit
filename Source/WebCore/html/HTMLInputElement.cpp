@@ -1091,7 +1091,7 @@ void HTMLInputElement::setValueFromRenderer(const String& value)
     // The assert macro above may also be simplified by removing the expression
     // that calls isEmpty.
     // http://bugs.webkit.org/show_bug.cgi?id=9661
-    m_valueIfDirty = value == "\n" ? emptyString() : value;
+    m_valueIfDirty = value == "\n"_s ? emptyString() : value;
 
     setFormControlValueMatchesRenderer(true);
     m_wasModifiedByUser = true;
@@ -1224,12 +1224,12 @@ void HTMLInputElement::defaultEventHandler(Event& event)
         HTMLTextFormControlElement::defaultEventHandler(event);
 }
 
-bool HTMLInputElement::willRespondToMouseClickEvents() const
+bool HTMLInputElement::willRespondToMouseClickEventsWithEditability(Editability editability) const
 {
     if (!isDisabledFormControl())
         return true;
 
-    return HTMLTextFormControlElement::willRespondToMouseClickEvents();
+    return HTMLTextFormControlElement::willRespondToMouseClickEventsWithEditability(editability);
 }
 
 bool HTMLInputElement::isURLAttribute(const Attribute& attribute) const

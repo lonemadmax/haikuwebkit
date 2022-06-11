@@ -39,6 +39,7 @@
 #import "FullscreenClient.h"
 #import "GlobalFindInPageState.h"
 #import "IconLoadingDelegate.h"
+#import "ImageAnalysisUtilities.h"
 #import "LegacySessionStateCoding.h"
 #import "Logging.h"
 #import "MediaUtilities.h"
@@ -558,7 +559,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 #endif
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(SERVICE_WORKER)
-    bool hasServiceWorkerEntitlement = (WTF::processHasEntitlement("com.apple.developer.WebKit.ServiceWorkers") || WTF::processHasEntitlement("com.apple.developer.web-browser")) && ![_configuration preferences]._serviceWorkerEntitlementDisabledForTesting;
+    bool hasServiceWorkerEntitlement = (WTF::processHasEntitlement("com.apple.developer.WebKit.ServiceWorkers"_s) || WTF::processHasEntitlement("com.apple.developer.web-browser"_s)) && ![_configuration preferences]._serviceWorkerEntitlementDisabledForTesting;
     if (!hasServiceWorkerEntitlement && ![_configuration limitsNavigationsToAppBoundDomains])
         pageConfiguration->preferences()->setServiceWorkersEnabled(false);
     pageConfiguration->preferences()->setServiceWorkerEntitlementDisabledForTesting(!![_configuration preferences]._serviceWorkerEntitlementDisabledForTesting);
@@ -2328,7 +2329,7 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 #if ENABLE(IMAGE_ANALYSIS)
     THROW_IF_SUSPENDED;
 
-    if (!_page || !_page->preferences().imageAnalysisQueueEnabled())
+    if (!_page || !_page->preferences().imageAnalysisQueueEnabled() || !WebKit::canStartImageAnalysis(source))
         return;
 
     _page->startImageAnalysis(source, target);
@@ -3438,7 +3439,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 - (void)_preconnectToServer:(NSURL *)url
 {
     THROW_IF_SUSPENDED;
-    _page->preconnectTo(url);
+    _page->preconnectTo(url, _page->userAgent());
 }
 
 - (BOOL)_canUseCredentialStorage

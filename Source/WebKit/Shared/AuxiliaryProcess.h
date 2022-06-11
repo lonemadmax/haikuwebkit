@@ -99,7 +99,7 @@ public:
 #endif
     
 #if PLATFORM(COCOA)
-    bool parentProcessHasEntitlement(const char* entitlement);
+    bool parentProcessHasEntitlement(ASCIILiteral entitlement);
 #endif
 
 protected:
@@ -149,6 +149,8 @@ protected:
 #if PLATFORM(MAC)
     void openDirectoryCacheInvalidated(SandboxExtension::Handle&&);
 #endif
+
+    void populateMobileGestaltCache(std::optional<SandboxExtension::Handle>&& mobileGestaltExtensionHandle);
 
 private:
     virtual bool shouldOverrideQuarantine() { return true; }

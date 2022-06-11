@@ -2546,6 +2546,7 @@
          "fred.wang@free.fr",
          "fwang@igalia.com"
       ],
+      "github" : "fred-wang",
       "name" : "Fr\u00e9d\u00e9ric Wang",
       "nicks" : [
          "fredw"
@@ -5203,9 +5204,11 @@
    },
    {
       "emails" : [
-         "nvasilyev@apple.com"
+         "nvasilyev@apple.com",
+         "me@elv1s.ru"
       ],
       "expertise" : "Web Inspector",
+      "github" : "NV",
       "name" : "Nikita Vasilyev",
       "nicks" : [
          "NVI",

@@ -135,7 +135,7 @@ void SVGAElement::defaultEventHandler(Event& event)
             }
 
             auto target = this->target();
-            if (target.isEmpty() && attributeWithoutSynchronization(XLinkNames::showAttr) == "new")
+            if (target.isEmpty() && attributeWithoutSynchronization(XLinkNames::showAttr) == "new"_s)
                 target = blankTargetFrameName();
             event.setDefaultHandled();
 
@@ -210,9 +210,9 @@ bool SVGAElement::childShouldCreateRenderer(const Node& child) const
     return SVGElement::childShouldCreateRenderer(child);
 }
 
-bool SVGAElement::willRespondToMouseClickEvents() const
+bool SVGAElement::willRespondToMouseClickEventsWithEditability(Editability editability) const
 { 
-    return isLink() || SVGGraphicsElement::willRespondToMouseClickEvents(); 
+    return isLink() || SVGGraphicsElement::willRespondToMouseClickEventsWithEditability(editability); 
 }
 
 SharedStringHash SVGAElement::visitedLinkHash() const
