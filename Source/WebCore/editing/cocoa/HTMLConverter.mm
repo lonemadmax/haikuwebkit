@@ -819,10 +819,10 @@ static inline NSShadow *_shadowForShadowStyle(NSString *shadowStyle)
 bool HTMLConverterCaches::isBlockElement(Element& element)
 {
     String displayValue = propertyValueForNode(element, CSSPropertyDisplay);
-    if (displayValue == "block" || displayValue == "list-item" || displayValue.startsWith("table"))
+    if (displayValue == "block"_s || displayValue == "list-item"_s || displayValue.startsWith("table"_s))
         return true;
     String floatValue = propertyValueForNode(element, CSSPropertyFloat);
-    if (floatValue == "left" || floatValue == "right")
+    if (floatValue == "left"_s || floatValue == "right"_s)
         return true;
     return false;
 }
@@ -833,7 +833,7 @@ bool HTMLConverterCaches::elementHasOwnBackgroundColor(Element& element)
         return false;
     // In the text system, text blocks (table elements) and documents (body elements)
     // have their own background colors, which should not be inherited.
-    return element.hasTagName(htmlTag) || element.hasTagName(bodyTag) || propertyValueForNode(element, CSSPropertyDisplay).startsWith("table");
+    return element.hasTagName(htmlTag) || element.hasTagName(bodyTag) || propertyValueForNode(element, CSSPropertyDisplay).startsWith("table"_s);
 }
 
 Element* HTMLConverter::_blockLevelElementForNode(Node* node)
@@ -979,7 +979,7 @@ NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)
         }
 
         String fontWeight = _caches->propertyValueForNode(element, CSSPropertyFontStyle);
-        if (fontWeight.startsWith("bold") || parseIntegerAllowingTrailingJunk<int>(fontWeight).value_or(0) >= 700) {
+        if (fontWeight.startsWith("bold"_s) || parseIntegerAllowingTrailingJunk<int>(fontWeight).value_or(0) >= 700) {
             // ??? handle weight properly using NSFontManager
             PlatformFont *originalFont = font;
 #if PLATFORM(IOS_FAMILY)
@@ -1031,19 +1031,19 @@ NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)
 
     String fontLigatures = _caches->propertyValueForNode(element, CSSPropertyFontVariantLigatures);
     if (fontLigatures.length()) {
-        if (fontLigatures.contains("normal"))
+        if (fontLigatures.contains("normal"_s))
             ;   // default: whatever the system decides to do
-        else if (fontLigatures.contains("common-ligatures"))
+        else if (fontLigatures.contains("common-ligatures"_s))
             [attrs setObject:@1 forKey:NSLigatureAttributeName];   // explicitly enabled
-        else if (fontLigatures.contains("no-common-ligatures"))
+        else if (fontLigatures.contains("no-common-ligatures"_s))
             [attrs setObject:@0 forKey:NSLigatureAttributeName];  // explicitly disabled
     }
 
     String textDecoration = _caches->propertyValueForNode(element, CSSPropertyTextDecorationLine);
     if (textDecoration.length()) {
-        if (textDecoration.contains("underline"))
+        if (textDecoration.contains("underline"_s))
             [attrs setObject:[NSNumber numberWithInteger:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
-        if (textDecoration.contains("line-through"))
+        if (textDecoration.contains("line-through"_s))
             [attrs setObject:[NSNumber numberWithInteger:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
     }
 
@@ -1091,21 +1091,21 @@ NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)
         String textAlign = _caches->propertyValueForNode(coreBlockElement, CSSPropertyTextAlign);
         if (textAlign.length()) {
             // WebKit can return -khtml-left, -khtml-right, -khtml-center
-            if (textAlign.endsWith("left"))
+            if (textAlign.endsWith("left"_s))
                 [paragraphStyle setAlignment:NSTextAlignmentLeft];
-            else if (textAlign.endsWith("right"))
+            else if (textAlign.endsWith("right"_s))
                 [paragraphStyle setAlignment:NSTextAlignmentRight];
-            else if (textAlign.endsWith("center"))
+            else if (textAlign.endsWith("center"_s))
                 [paragraphStyle setAlignment:NSTextAlignmentCenter];
-            else if (textAlign.endsWith("justify"))
+            else if (textAlign.endsWith("justify"_s))
                 [paragraphStyle setAlignment:NSTextAlignmentJustified];
         }
 
         String direction = _caches->propertyValueForNode(coreBlockElement, CSSPropertyDirection);
         if (direction.length()) {
-            if (direction == "ltr")
+            if (direction == "ltr"_s)
                 [paragraphStyle setBaseWritingDirection:NSWritingDirectionLeftToRight];
-            else if (direction == "rtl")
+            else if (direction == "rtl"_s)
                 [paragraphStyle setBaseWritingDirection:NSWritingDirectionRightToLeft];
         }
 
@@ -2107,7 +2107,7 @@ void HTMLConverter::_processText(CharacterData& characterData)
 
     // FIXME: Use RenderText's content instead.
     bool wasSpace = false;
-    if (_caches->propertyValueForNode(characterData, CSSPropertyWhiteSpace).startsWith("pre")) {
+    if (_caches->propertyValueForNode(characterData, CSSPropertyWhiteSpace).startsWith("pre"_s)) {
         if (textLength && originalString.length() && _flags.isSoft) {
             unichar c = originalString.characterAt(0);
             if (c == '\n' || c == '\r' || c == NSParagraphSeparatorCharacter || c == NSLineSeparatorCharacter || c == NSFormFeedCharacter || c == WebNextLineCharacter)

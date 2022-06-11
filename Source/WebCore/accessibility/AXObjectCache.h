@@ -199,7 +199,8 @@ public:
     void deferNodeAddedOrRemoved(Node*);
     void handleScrolledToAnchor(const Node* anchorNode);
     void handleScrollbarUpdate(ScrollView*);
-    
+
+    bool isRetrievingCurrentModalNode() { return m_isRetrievingCurrentModalNode; }
     Node* modalNode();
 
     void deferAttributeChangeIfNeeded(const QualifiedName&, Element*);
@@ -279,9 +280,12 @@ public:
         AXCheckedStateChanged,
         AXChildrenChanged,
         AXCurrentStateChanged,
+        AXDescribedByChanged,
         AXDisabledStateChanged,
         AXFocusedUIElementChanged,
         AXFrameLoadComplete,
+        AXGrabbedStateChanged,
+        AXHasPopupChanged,
         AXIdAttributeChanged,
         AXImageOverlayChanged,
         AXLanguageChanged,
@@ -289,6 +293,7 @@ public:
         AXLoadComplete,
         AXNewDocumentLoadComplete,
         AXPageScrolled,
+        AXPositionInSetChanged,
         AXSelectedChildrenChanged,
         AXSelectedStateChanged,
         AXSelectedTextChanged,
@@ -373,6 +378,9 @@ public:
     static ASCIILiteral notificationPlatformName(AXNotification);
 
     AXTreeData treeData();
+
+    // Returns the IDs of the objects that relate to the given object with the specified relationship.
+    std::optional<Vector<AXID>> relatedObjectsFor(const AXCoreObject&, AXRelationType);
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     WEBCORE_EXPORT static bool isIsolatedTreeEnabled();
@@ -461,6 +469,7 @@ private:
     void handleMenuOpened(Node*);
     void handleLiveRegionCreated(Node*);
     void handleMenuItemSelected(Node*);
+    void handleRowCountChanged(AXCoreObject*, Document*);
     void handleAttributeChange(const QualifiedName&, Element*);
     bool shouldProcessAttributeChange(const QualifiedName&, Element*);
     void selectedChildrenChanged(Node*);
@@ -468,7 +477,9 @@ private:
     void selectedStateChanged(Node*);
     // Called by a node when text or a text equivalent (e.g. alt) attribute is changed.
     void textChanged(Node*);
-    void handleActiveDescendantChanged(Node*);
+
+    void handleActiveDescendantChanged(Element&);
+
     void handleAriaExpandedChange(Node*);
     void handleFocusedUIElementChanged(Node* oldFocusedNode, Node* newFocusedNode);
     void handleMenuListValueChanged(Element&);
@@ -480,6 +491,16 @@ private:
     bool isNodeVisible(Node*) const;
     void handleModalChange(Element&);
     bool modalElementHasAccessibleContent(Element&);
+
+    // Relationships between objects.
+    static Vector<QualifiedName>& relationAttributes();
+    static AXRelationType attributeToRelationType(const QualifiedName&);
+    enum class AddingSymmetricRelation : bool { No, Yes };
+    static AXRelationType symmetricRelation(AXRelationType);
+    void addRelation(Element*, Element*, AXRelationType);
+    void addRelation(AccessibilityObject*, AccessibilityObject*, AXRelationType, AddingSymmetricRelation = AddingSymmetricRelation::No);
+    void updateRelationsIfNeeded();
+    void relationsNeedUpdate(bool needUpdate) { m_relationsNeedUpdate = needUpdate; }
 
     Document& m_document;
     const std::optional<PageIdentifier> m_pageID; // constant for object's lifetime.
@@ -516,11 +537,13 @@ private:
     // If that changes to require only one aria-modal we could change this to a WeakHashSet, or discard the set completely.
     ListHashSet<Element*> m_modalElementsSet;
     bool m_modalNodesInitialized { false };
+    bool m_isRetrievingCurrentModalNode { false };
 
     Timer m_performCacheUpdateTimer;
 
     AXTextStateChangeIntent m_textSelectionIntent;
     WeakHashSet<Element> m_deferredRecomputeIsIgnoredList;
+    WeakHashSet<HTMLTableElement> m_deferredRecomputeTableIsExposedList;
     ListHashSet<Node*> m_deferredTextChangedList;
     WeakHashSet<Element> m_deferredSelectedChildredChangedList;
     ListHashSet<RefPtr<AccessibilityObject>> m_deferredChildrenChangedList;
@@ -533,6 +556,11 @@ private:
     bool m_isSynchronizingSelection { false };
     bool m_performingDeferredCacheUpdate { false };
     double m_loadingProgress { 0 };
+
+    // Relationships between objects.
+    using Relations = HashMap<AXRelationType, Vector<AXID>, DefaultHash<uint8_t>, WTF::UnsignedWithZeroKeyHashTraits<uint8_t>>;
+    HashMap<AXID, Relations> m_relations;
+    bool m_relationsNeedUpdate { true };
 
 #if USE(ATSPI)
     ListHashSet<RefPtr<AXCoreObject>> m_deferredParentChangedList;
@@ -599,7 +627,7 @@ inline void AXObjectCache::focusModalNodeTimerFired() { }
 inline void AXObjectCache::performCacheUpdateTimerFired() { }
 inline void AXObjectCache::frameLoadingEventNotification(Frame*, AXLoadingEvent) { }
 inline void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject*, AXLoadingEvent) { }
-inline void AXObjectCache::handleActiveDescendantChanged(Node*) { }
+inline void AXObjectCache::handleActiveDescendantChanged(Element&) { }
 inline void AXObjectCache::handleAriaExpandedChange(Node*) { }
 inline void AXObjectCache::handleModalChange(Element&) { }
 inline void AXObjectCache::deferModalChange(Element*) { }
@@ -612,6 +640,7 @@ inline void AXObjectCache::handleScrollbarUpdate(ScrollView*) { }
 inline void AXObjectCache::handleScrolledToAnchor(const Node*) { }
 inline void AXObjectCache::liveRegionChangedNotificationPostTimerFired() { }
 inline void AXObjectCache::notificationPostTimerFired() { }
+inline Vector<RefPtr<AXCoreObject>> AXObjectCache::objectsForIDs(const Vector<AXID>&) const { return { }; }
 inline void AXObjectCache::passwordNotificationPostTimerFired() { }
 inline void AXObjectCache::performDeferredCacheUpdate() { }
 inline void AXObjectCache::postLiveRegionChangeNotification(AccessibilityObject*) { }
@@ -629,6 +658,7 @@ inline void AXObjectCache::textChanged(Node*) { }
 inline void AXObjectCache::updateCacheAfterNodeIsAttached(Node*) { }
 inline void AXObjectCache::updateLoadingProgress(double) { }
 inline SimpleRange AXObjectCache::rangeForNodeContents(Node& node) { return makeRangeSelectingNodeContents(node); }
+inline std::optional<Vector<AXID>> AXObjectCache::relatedObjectsFor(const AXCoreObject&, AXRelationType) { return std::nullopt; }
 inline void AXObjectCache::remove(AXID) { }
 inline void AXObjectCache::remove(RenderObject*) { }
 inline void AXObjectCache::remove(Node&) { }

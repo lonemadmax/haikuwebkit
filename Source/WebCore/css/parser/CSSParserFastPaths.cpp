@@ -750,8 +750,19 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
         return valueID == CSSValueNone || valueID == CSSValueNonScalingStroke;
     case CSSPropertyVisibility: // visible | hidden | collapse
         return valueID == CSSValueVisible || valueID == CSSValueHidden || valueID == CSSValueCollapse;
-    case CSSPropertyAppearance:
-        return (valueID >= CSSValueCheckbox && valueID <= CSSValueCapsLockIndicator) || valueID == CSSValueNone || valueID == CSSValueAuto;
+    case CSSPropertyAppearance: {
+        if (valueID == CSSValueMediaSlider || valueID == CSSValueMediaVolumeSlider || valueID == CSSValueMediaFullscreenVolumeSlider)
+            return isUASheetBehavior(context.mode);
+
+        if (valueID == CSSValueDefaultButton)
+            return context.useSystemAppearance;
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+        if (valueID == CSSValueAttachment || valueID == CSSValueBorderlessAttachment)
+            return context.attachmentEnabled;
+#endif
+        return (valueID >= CSSValueCheckbox && valueID <= CSSValueTextfield) || valueID == CSSValueNone || valueID == CSSValueAuto;
+    }
     case CSSPropertyBackfaceVisibility:
         return valueID == CSSValueVisible || valueID == CSSValueHidden;
 #if ENABLE(CSS_COMPOSITING)
@@ -1076,7 +1087,8 @@ static bool isUniversalKeyword(StringView string)
     return equalLettersIgnoringASCIICase(string, "initial"_s)
         || equalLettersIgnoringASCIICase(string, "inherit"_s)
         || equalLettersIgnoringASCIICase(string, "unset"_s)
-        || equalLettersIgnoringASCIICase(string, "revert"_s);
+        || equalLettersIgnoringASCIICase(string, "revert"_s)
+        || equalLettersIgnoringASCIICase(string, "revert-layer"_s);
 }
 
 static RefPtr<CSSValue> parseKeywordValue(CSSPropertyID propertyId, StringView string, const CSSParserContext& context)
@@ -1084,7 +1096,8 @@ static RefPtr<CSSValue> parseKeywordValue(CSSPropertyID propertyId, StringView s
     ASSERT(!string.isEmpty());
 
     bool parsingDescriptor = context.enclosingRuleType && *context.enclosingRuleType != StyleRuleType::Style;
-    ASSERT(!CSSProperty::isDescriptorOnly(propertyId) || parsingDescriptor);
+    // FIXME: The "!context.enclosingRuleType" is suspicious.
+    ASSERT(!CSSProperty::isDescriptorOnly(propertyId) || parsingDescriptor || !context.enclosingRuleType);
 
     if (!CSSParserFastPaths::isKeywordPropertyID(propertyId)) {
         // All properties, including non-keyword properties, accept the CSS-wide keywords.

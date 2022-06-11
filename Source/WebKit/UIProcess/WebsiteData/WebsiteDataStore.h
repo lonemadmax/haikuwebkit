@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "LocalStorageDatabaseTracker.h"
 #include "NetworkSessionCreationParameters.h"
 #include "WebDeviceOrientationAndMotionAccessController.h"
 #include "WebFramePolicyListenerProxy.h"
@@ -161,9 +160,11 @@ public:
     const String& cacheStorageDirectory() const { return m_resolvedConfiguration->cacheStorageDirectory(); }
 
 #if PLATFORM(IOS_FAMILY)
-    const String& cookieStorageDirectory() const { return m_cookieStorageDirectory; }
-    const String& containerCachesDirectory() const { return m_containerCachesDirectory; }
-    const String& containerTemporaryDirectory() const { return m_containerTemporaryDirectory; }
+    String cookieStorageDirectory() const;
+    String containerCachesDirectory() const;
+    String containerTemporaryDirectory() const;
+    static String defaultContainerTemporaryDirectory();
+    static String cacheDirectoryInContainerOrHomeDirectory(const String& subpath);
 #endif
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
@@ -335,7 +336,7 @@ public:
 #endif
 
 #if HAVE(APP_SSO)
-    SOAuthorizationCoordinator& soAuthorizationCoordinator() { return m_soAuthorizationCoordinator.get(); }
+    SOAuthorizationCoordinator& soAuthorizationCoordinator(const WebPageProxy&);
 #endif
 
     static WTF::String defaultServiceWorkerRegistrationDirectory();
@@ -427,17 +428,17 @@ private:
     void setAppBoundDomainsForITP(const HashSet<WebCore::RegistrableDomain>&, CompletionHandler<void()>&&);
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+    String networkingCachesDirectory() const;
+    String parentBundleDirectory() const;
+#endif
+
     const PAL::SessionID m_sessionID;
 
     Ref<WebsiteDataStoreConfiguration> m_resolvedConfiguration;
     Ref<const WebsiteDataStoreConfiguration> m_configuration;
     bool m_hasResolvedDirectories { false };
     const Ref<DeviceIdHashSaltStorage> m_deviceIdHashSaltStorage;
-#if PLATFORM(IOS_FAMILY)
-    String m_cookieStorageDirectory;
-    String m_containerCachesDirectory;
-    String m_containerTemporaryDirectory;
-#endif
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     bool m_resourceLoadStatisticsDebugMode { false };
@@ -487,7 +488,7 @@ private:
     RefPtr<NetworkProcessProxy> m_networkProcess;
 
 #if HAVE(APP_SSO)
-    UniqueRef<SOAuthorizationCoordinator> m_soAuthorizationCoordinator;
+    std::unique_ptr<SOAuthorizationCoordinator> m_soAuthorizationCoordinator;
 #endif
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     mutable std::optional<WebCore::ThirdPartyCookieBlockingMode> m_thirdPartyCookieBlockingMode; // Lazily computed.

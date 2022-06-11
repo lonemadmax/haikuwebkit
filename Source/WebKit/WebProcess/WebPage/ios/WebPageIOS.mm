@@ -44,7 +44,7 @@
 #import "RevealItem.h"
 #import "SandboxUtilities.h"
 #import "ShareableBitmapUtilities.h"
-#import "SharedBufferCopy.h"
+#import "SharedBufferReference.h"
 #import "SharedMemory.h"
 #import "SyntheticEditingCommandType.h"
 #import "TapHandlingResult.h"
@@ -417,23 +417,21 @@ void WebPage::savePageState(HistoryItem& historyItem)
     historyItem.setContentSize(m_viewportConfiguration.contentsSize());
 }
 
-static double scaleAfterViewportWidthChange(double currentScale, bool userHasChangedPageScaleFactor, const ViewportConfiguration& viewportConfiguration, float unobscuredWidthInScrollViewCoordinates, const IntSize& newContentSize, const IntSize& oldContentSize, float visibleHorizontalFraction)
+static double scaleAfterViewportWidthChange(double currentScale, bool scaleToFitContent, const ViewportConfiguration& viewportConfiguration, float unobscuredWidthInScrollViewCoordinates, const IntSize& newContentSize, const IntSize& oldContentSize, float visibleHorizontalFraction)
 {
     double scale;
-    if (!userHasChangedPageScaleFactor)
+    if (!scaleToFitContent) {
         scale = viewportConfiguration.initialScale();
-    else
-        scale = std::max(std::min(currentScale, viewportConfiguration.maximumScale()), viewportConfiguration.minimumScale());
-
-    LOG(VisibleRects, "scaleAfterViewportWidthChange getting scale %.2f", scale);
-
-    if (userHasChangedPageScaleFactor) {
-        // When the content size changes, we keep the same relative horizontal content width in view, otherwise we would
-        // end up zoomed too far in landscape->portrait, and too close in portrait->landscape.
-        double widthToKeepInView = visibleHorizontalFraction * newContentSize.width();
-        double newScale = unobscuredWidthInScrollViewCoordinates / widthToKeepInView;
-        scale = std::max(std::min(newScale, viewportConfiguration.maximumScale()), viewportConfiguration.minimumScale());
+        LOG(VisibleRects, "scaleAfterViewportWidthChange using initial scale: %.2f", scale);
+        return scale;
     }
+
+    // When the content size changes, we keep the same relative horizontal content width in view, otherwise we would
+    // end up zoomed too far in landscape->portrait, and too close in portrait->landscape.
+    double widthToKeepInView = visibleHorizontalFraction * newContentSize.width();
+    double newScale = unobscuredWidthInScrollViewCoordinates / widthToKeepInView;
+    scale = std::max(std::min(newScale, viewportConfiguration.maximumScale()), viewportConfiguration.minimumScale());
+    LOG(VisibleRects, "scaleAfterViewportWidthChange scaling content to fit: %.2f", scale);
     return scale;
 }
 
@@ -607,12 +605,6 @@ void WebPage::getSelectionContext(CompletionHandler<void(const String&, const St
 
 NSObject *WebPage::accessibilityObjectForMainFramePlugin()
 {
-    if (!m_page)
-        return nil;
-    
-    if (auto* pluginView = pluginViewForFrame(&m_page->mainFrame()))
-        return pluginView->accessibilityObject();
-    
     return nil;
 }
     
@@ -3352,11 +3344,13 @@ void WebPage::performActionOnElement(uint32_t action, const String& authorizatio
         RefPtr<FragmentedSharedBuffer> buffer = cachedImage->resourceBuffer();
         if (!buffer)
             return;
-        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
-        if (!sharedMemoryBuffer)
-            return;
         SharedMemory::Handle handle;
-        sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
+        {
+            auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
+            if (!sharedMemoryBuffer)
+                return;
+            sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
+        }
         send(Messages::WebPageProxy::SaveImageToLibrary(SharedMemory::IPCHandle { WTFMove(handle), buffer->size() }, authorizationToken));
     }
 }
@@ -3538,7 +3532,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformation()
             else {
                 information.elementType = InputType::Text;
                 if (!information.formAction.isEmpty()
-                    && (element.getNameAttribute().contains("search") || element.getIdAttribute().contains("search") || element.attributeWithoutSynchronization(HTMLNames::titleAttr).contains("search")))
+                    && (element.getNameAttribute().contains("search"_s) || element.getIdAttribute().contains("search"_s) || element.attributeWithoutSynchronization(HTMLNames::titleAttr).contains("search"_s)))
                     information.elementType = InputType::Search;
             }
         }
@@ -3651,6 +3645,8 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
     FrameView& frameView = *m_page->mainFrame().view();
     IntSize oldContentSize = frameView.contentsSize();
     float oldPageScaleFactor = m_page->pageScaleFactor();
+    auto oldUnobscuredContentRect = frameView.unobscuredContentRect();
+    bool wasAtInitialScale = areEssentiallyEqualAsFloat(oldPageScaleFactor, m_viewportConfiguration.initialScale());
 
     m_dynamicSizeUpdateHistory.add(std::make_pair(oldContentSize, oldPageScaleFactor), frameView.scrollPosition());
 
@@ -3658,7 +3654,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
     double visibleHorizontalFraction = 1;
     float relativeHorizontalPositionInNodeAtCenter = 0;
     float relativeVerticalPositionInNodeAtCenter = 0;
-    {
+    if (!usesMultitaskingModeViewportBehaviors()) {
         visibleHorizontalFraction = frameView.unobscuredContentSize().width() / oldContentSize.width();
         IntPoint unobscuredContentRectCenter = frameView.unobscuredContentRect().center();
 
@@ -3698,7 +3694,8 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
 
     IntSize newContentSize = frameView.contentsSize();
 
-    double scale = scaleAfterViewportWidthChange(targetScale, m_userHasChangedPageScaleFactor, m_viewportConfiguration, targetUnobscuredRectInScrollViewCoordinates.width(), newContentSize, oldContentSize, visibleHorizontalFraction);
+    bool scaleToFitContent = (!usesMultitaskingModeViewportBehaviors() || !wasAtInitialScale) && m_userHasChangedPageScaleFactor;
+    double scale = scaleAfterViewportWidthChange(targetScale, scaleToFitContent, m_viewportConfiguration, targetUnobscuredRectInScrollViewCoordinates.width(), newContentSize, oldContentSize, visibleHorizontalFraction);
     FloatRect newUnobscuredContentRect = targetUnobscuredRect;
     FloatRect newExposedContentRect = targetExposedContentRect;
 
@@ -3711,8 +3708,15 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
         double scaleDifference = targetScale / scale;
         double newUnobscuredRectWidth = targetUnobscuredRect.width() * scaleDifference;
         double newUnobscuredRectHeight = targetUnobscuredRect.height() * scaleDifference;
-        double newUnobscuredRectX = targetUnobscuredRect.x() - (newUnobscuredRectWidth - targetUnobscuredRect.width()) / 2;
-        double newUnobscuredRectY = targetUnobscuredRect.y() - (newUnobscuredRectHeight - targetUnobscuredRect.height()) / 2;
+        double newUnobscuredRectX;
+        double newUnobscuredRectY;
+        if (usesMultitaskingModeViewportBehaviors()) {
+            newUnobscuredRectX = oldUnobscuredContentRect.x();
+            newUnobscuredRectY = oldUnobscuredContentRect.y();
+        } else {
+            newUnobscuredRectX = targetUnobscuredRect.x() - (newUnobscuredRectWidth - targetUnobscuredRect.width()) / 2;
+            newUnobscuredRectY = targetUnobscuredRect.y() - (newUnobscuredRectHeight - targetUnobscuredRect.height()) / 2;
+        }
         newUnobscuredContentRect = FloatRect(newUnobscuredRectX, newUnobscuredRectY, newUnobscuredRectWidth, newUnobscuredRectHeight);
 
         // 2) Extend our new unobscuredRect by the obscured margins to get a new exposed rect.
@@ -3985,6 +3989,15 @@ bool WebPage::shouldIgnoreMetaViewport() const
             return true;
     }
     return m_page->settings().shouldIgnoreMetaViewport();
+}
+
+bool WebPage::usesMultitaskingModeViewportBehaviors() const
+{
+#if HAVE(MULTITASKING_MODE)
+    return shouldIgnoreMetaViewport() && m_isInMultitaskingMode;
+#else
+    return false;
+#endif
 }
 
 void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale)
@@ -4359,13 +4372,13 @@ void WebPage::drawToPDFiOS(WebCore::FrameIdentifier frameID, const PrintInfo& pr
         auto pdfData = pdfSnapshotAtSize(snapshotRect, snapshotSize, 0);
 
         frameView.setLayoutViewportOverrideRect(originalLayoutViewportOverrideRect);
-        reply(IPC::SharedBufferCopy(SharedBuffer::create(pdfData.get())));
+        reply(IPC::SharedBufferReference(SharedBuffer::create(pdfData.get())));
         return;
     }
 
     RetainPtr<CFMutableDataRef> pdfPageData;
     drawPagesToPDFImpl(frameID, printInfo, 0, pageCount, pdfPageData);
-    reply(IPC::SharedBufferCopy(SharedBuffer::create(pdfPageData.get())));
+    reply(IPC::SharedBufferReference(SharedBuffer::create(pdfPageData.get())));
 
     endPrinting();
 }
@@ -4741,7 +4754,7 @@ void WebPage::textInputContextsInRect(FloatRect searchRect, CompletionHandler<vo
         ElementContext context;
         context.webPageIdentifier = m_identifier;
         context.documentIdentifier = document.identifier();
-        context.elementIdentifier = document.identifierForElement(element);
+        context.elementIdentifier = element->identifier();
         context.boundingRect = element->boundingBoxInRootViewCoordinates();
         return context;
     });
@@ -4811,19 +4824,20 @@ void WebPage::didFinishLoadForQuickLookDocumentInMainFrame(const FragmentedShare
 {
     ASSERT(!buffer.isEmpty());
 
-    // FIXME: In some cases, buffer conains a single segment that wraps an existing ShareableResource.
+    // FIXME: In some cases, buffer contains a single segment that wraps an existing ShareableResource.
     // If we could create a handle from that existing resource then we could avoid this extra
     // allocation and copy.
 
-    auto sharedMemory = SharedMemory::copyBuffer(buffer);
-    if (!sharedMemory)
-        return;
-
     ShareableResource::Handle handle;
-    auto shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, buffer.size());
-    if (!shareableResource || !shareableResource->createHandle(handle))
-        return;
+    {
+        auto sharedMemory = SharedMemory::copyBuffer(buffer);
+        if (!sharedMemory)
+            return;
 
+        auto shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, buffer.size());
+        if (!shareableResource || !shareableResource->createHandle(handle))
+            return;
+    }
     send(Messages::WebPageProxy::DidFinishLoadForQuickLookDocumentInMainFrame(handle));
 }
 

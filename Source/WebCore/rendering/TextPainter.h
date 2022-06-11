@@ -36,6 +36,7 @@ class FontCascade;
 class RenderCombineText;
 class ShadowData;
 class TextRun;
+class Text;
 
 struct TextPaintStyle;
 
@@ -73,8 +74,16 @@ public:
 
     static void clearGlyphDisplayLists();
     static bool shouldUseGlyphDisplayList(const PaintInfo&);
+    WEBCORE_EXPORT static void setForceUseGlyphDisplayListForTesting(bool);
+    WEBCORE_EXPORT static String cachedGlyphDisplayListsForTextNodeAsText(Text&, OptionSet<DisplayList::AsTextFlag>);
 
 private:
+    template<typename LayoutRun>
+    static DisplayList::DisplayList* glyphDisplayListIfExists(const LayoutRun& run)
+    {
+        return GlyphDisplayListCache<LayoutRun>::singleton().getIfExists(run);
+    }
+
     void paintTextOrEmphasisMarks(const FontCascade&, const TextRun&, const AtomString& emphasisMark, float emphasisMarkOffset,
         const FloatPoint& textOrigin, unsigned startOffset, unsigned endOffset);
     void paintTextWithShadows(const ShadowData*, const FilterOperations*, const FontCascade&, const TextRun&, const FloatRect& boxRect, const FloatPoint& textOrigin,

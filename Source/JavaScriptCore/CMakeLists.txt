@@ -200,6 +200,8 @@ set(LLINT_ASM
     llint/LowLevelInterpreter32_64.asm
     llint/LowLevelInterpreter64.asm
     llint/WebAssembly.asm
+    llint/WebAssembly32_64.asm
+    llint/WebAssembly64.asm
 )
 
 set(OFFLINE_ASM
@@ -364,6 +366,7 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/TypedArrayConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/TypedArrayPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/WebAssembly.js
+    ${JAVASCRIPTCORE_DIR}/inspector/InjectedScriptSource.js
 )
 
 add_custom_command(
@@ -396,6 +399,12 @@ set(LLIntSettingsExtractor_PRIVATE_INCLUDE_DIRECTORIES
 set(LLIntSettingsExtractor_FRAMEWORKS ${JavaScriptCore_FRAMEWORKS})
 set(LLIntSettingsExtractor_DEPENDENCIES JavaScriptCore_CopyHeaders)
 WEBKIT_EXECUTABLE(LLIntSettingsExtractor)
+
+# LLIntSettingsExtractor target needs to have a direct or indirect
+# dependency to Bytecodes target for CMake Visual Studio generator to
+# eliminate duplicated custom commands. Otherwise, Bytecodes.h will be
+# generated in both projects.
+add_dependencies(LLIntSettingsExtractor Bytecodes)
 
 WEBKIT_EXECUTABLE_DECLARE(LLIntOffsetsExtractor)
 set(LLIntOffsetsExtractor_SOURCES
@@ -1397,24 +1406,6 @@ add_custom_command(
     COMMAND ${PERL_EXECUTABLE} ${JavaScriptCore_INSPECTOR_SCRIPTS_DIR}/codegen/preprocess.pl --input ${JavaScriptCore_DERIVED_SOURCES_DIR}/inspector/InspectorBackendCommands.js.in --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" --output ${JavaScriptCore_DERIVED_SOURCES_DIR}/inspector/InspectorBackendCommands.js
     VERBATIM)
 add_custom_target(InspectorBackendCommands DEPENDS "${JavaScriptCore_DERIVED_SOURCES_DIR}/inspector/InspectorBackendCommands.js")
-
-list(APPEND JavaScriptCore_HEADERS
-    ${JavaScriptCore_DERIVED_SOURCES_DIR}/inspector/InspectorBackendDispatchers.h
-    ${JavaScriptCore_DERIVED_SOURCES_DIR}/inspector/InspectorFrontendDispatchers.h
-    ${JavaScriptCore_DERIVED_SOURCES_DIR}/inspector/InspectorProtocolObjects.h
-    ${JavaScriptCore_DERIVED_SOURCES_DIR}/JSCBuiltins.h
-)
-
-add_custom_command(
-    OUTPUT ${JavaScriptCore_DERIVED_SOURCES_DIR}/InjectedScriptSource.h ${JavaScriptCore_DERIVED_SOURCES_DIR}/InjectedScriptSource.min.js
-    MAIN_DEPENDENCY ${JAVASCRIPTCORE_DIR}/inspector/InjectedScriptSource.js
-    DEPENDS ${JavaScriptCore_SCRIPTS_DIR}/xxd.pl ${JavaScriptCore_SCRIPTS_DIR}/jsmin.py
-    COMMAND ${CMAKE_COMMAND} -E echo "//# sourceURL=__InjectedScript_InjectedScriptSource.js" > ${JavaScriptCore_DERIVED_SOURCES_DIR}/InjectedScriptSource.min.js
-    COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/jsmin.py < ${JAVASCRIPTCORE_DIR}/inspector/InjectedScriptSource.js >> ${JavaScriptCore_DERIVED_SOURCES_DIR}/InjectedScriptSource.min.js
-    COMMAND ${PERL_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/xxd.pl InjectedScriptSource_js ${JavaScriptCore_DERIVED_SOURCES_DIR}/InjectedScriptSource.min.js ${JavaScriptCore_DERIVED_SOURCES_DIR}/InjectedScriptSource.h
-    VERBATIM)
-
-list(APPEND JavaScriptCore_HEADERS ${JavaScriptCore_DERIVED_SOURCES_DIR}/InjectedScriptSource.h)
 
 if (WTF_CPU_X86_64)
     if (MSVC AND NOT ENABLE_C_LOOP)

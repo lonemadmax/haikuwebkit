@@ -37,6 +37,9 @@ border-top-width: 16px
 bottom: auto
 box-shadow: none
 box-sizing: content-box
+break-after: auto
+break-before: auto
+break-inside: auto
 buffered-rendering: auto
 caption-side: top
 clear: none
@@ -143,11 +146,9 @@ padding-bottom: 0px
 padding-left: 0px
 padding-right: 0px
 padding-top: 0px
-page-break-after: auto
-page-break-before: auto
-page-break-inside: auto
 paint-order: normal
 perspective: none
+perspective-origin: 50% 50%
 pointer-events: auto
 position: static
 print-color-adjust: economy
@@ -180,12 +181,14 @@ text-emphasis-color: rgb(0, 0, 0)
 text-emphasis-position: over right
 text-emphasis-style: none
 text-indent: 0px
+text-orientation: mixed
 text-overflow: clip
 text-rendering: auto
 text-shadow: none
 text-transform: none
 top: auto
 transform: none
+transform-origin: 50% 50%
 transform-style: flat
 transition-delay: 0s
 transition-duration: 0s
@@ -222,9 +225,6 @@ zoom: 1
 -webkit-box-reflect: none
 -webkit-box-shadow: none
 -webkit-column-axis: auto
--webkit-column-break-after: auto
--webkit-column-break-before: auto
--webkit-column-break-inside: auto
 -webkit-font-smoothing: auto
 -webkit-hyphenate-character: auto
 -webkit-hyphenate-limit-after: auto
@@ -248,7 +248,6 @@ zoom: 1
 -webkit-nbsp-mode: normal
 -webkit-rtl-ordering: logical
 -webkit-text-fill-color: rgb(0, 0, 0)
--webkit-text-orientation: mixed
 -webkit-text-security: none
 -webkit-text-stroke-color: rgb(0, 0, 0)
 -webkit-text-stroke-width: 0px

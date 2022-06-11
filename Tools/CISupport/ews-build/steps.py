@@ -132,7 +132,7 @@ class GitHub(object):
     def email_for_owners(cls, owners):
         if not owners:
             return None, 'No owners defined, so email cannot be extracted'
-        contributors, errors = Contributors.load(use_network=False)
+        contributors, errors = Contributors.load()
         return contributors.get(owners[0].lower(), {}).get('email'), errors
 
 
@@ -415,6 +415,8 @@ class AddToLogMixin(object):
 class Contributors(object):
     url = 'https://raw.githubusercontent.com/WebKit/WebKit/main/metadata/contributors.json'
     contributors = {}
+    last_update = 0
+    REFRESH = 4 * 60 * 60
 
     @classmethod
     def load_from_disk(cls):
@@ -438,36 +440,53 @@ class Contributors(object):
             return {}, 'Failed to access {url}\n'.format(url=cls.url)
 
     @classmethod
-    def load(cls, use_network=True):
+    def load(cls, use_network=None):
         errors = []
 
+        now = int(time.time())
+        if cls.last_update < now - cls.REFRESH:
+            cls.contributors = {}
+
         if use_network:
+            cls.contributors = {}
             contributors_json, error = cls.load_from_github()
             if error:
                 errors.append(error)
+            else:
+                cls.last_update = now
+        elif use_network is False:
+            contributors_json, error = cls.load_from_disk()
+            if error:
+                errors.append(error)
+        elif cls.contributors:
+            return cls.contributors, errors
         else:
-            contributors_json = []
+            contributors_json, error = cls.load_from_github()
+            if error:
+                errors.append(error)
+            else:
+                cls.last_update = now
 
         if not contributors_json:
             contributors_json, error = cls.load_from_disk()
             if error:
                 errors.append(error)
 
-        contributors = {}
         for value in contributors_json:
             name = value.get('name')
             emails = value.get('emails')
             github_username = value.get('github')
             if name and emails:
                 bugzilla_email = emails[0].lower()  # We're requiring that the first email is the primary bugzilla email
-                contributors[bugzilla_email] = {'name': name, 'status': value.get('status')}
+                cls.contributors[bugzilla_email] = {'name': name, 'status': value.get('status')}
+                cls.contributors[name] = {'status': value.get('status')}
             if github_username and name and emails:
-                contributors[github_username.lower()] = dict(
+                cls.contributors[github_username.lower()] = dict(
                     name=name,
                     status=value.get('status'),
                     email=emails[0].lower(),
                 )
-        return contributors, errors
+        return cls.contributors, errors
 
 
 class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
@@ -530,6 +549,9 @@ class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
         title = self.getProperty('github.title', '')
         owners = self.getProperty('owners', [])
         revision = self.getProperty('github.head.sha')
+
+        if self.getProperty('project') != 'WebKit/WebKit':
+            self.setProperty('sensitive', True)
 
         self.setProperty('change_id', revision[:HASH_LENGTH_TO_DISPLAY], 'ConfigureBuild')
 
@@ -822,6 +844,63 @@ class ApplyPatch(shell.ShellCommand, CompositeStepMixin, ShellMixin):
             else:
                 self.build.buildFinished([message], FAILURE)
         return rc
+
+
+class CommitPatch(steps.ShellSequence, CompositeStepMixin, ShellMixin):
+    name = 'commit-patch'
+    description = ['commit-patch']
+    descriptionDone = ['Created commit from patch']
+    haltOnFailure = True
+    env = dict(FILTER_BRANCH_SQUELCH_WARNING='1')
+    FILTER_BRANCH_PROGRAM = '''import re
+import sys
+
+lines = [l for l in sys.stdin]
+for s in re.split(r' (Need the bug URL \(OOPS!\).)|(\S+:\/\/\S+)', lines[0].rstrip()):
+    if s and s != ' ':
+        print(s)
+for l in lines[1:]:
+    sys.stdout.write(l)
+'''
+
+    def __init__(self, **kwargs):
+        super(CommitPatch, self).__init__(timeout=10 * 60, logEnviron=False, **kwargs)
+
+    def doStepIf(self, step):
+        return self.getProperty('patch_id', False)
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step) or (results == SUCCESS and self.getProperty('sensitive', False))
+
+    def _get_patch(self):
+        sourcestamp = self.build.getSourceStamp(self.getProperty('codebase', ''))
+        if not sourcestamp or not sourcestamp.patch:
+            return None
+        return sourcestamp.patch[1]
+
+    @defer.inlineCallbacks
+    def run(self):
+        self.commands = []
+        patch = self._get_patch()
+
+        commands = []
+        if not patch:
+            commands += [['curl', '-L', 'https://bugs.webkit.org/attachment.cgi?id={}'.format(self.getProperty('patch_id', '')), '-o', '.buildbot-diff']]
+        commands += [
+            ['git', 'am', '.buildbot-diff'],
+            ['git', 'filter-branch', '-f', '--msg-filter', 'python3 -c "{}"'.format(self.FILTER_BRANCH_PROGRAM), 'HEAD...HEAD~1'],
+        ]
+        for command in commands:
+            self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))
+
+        _ = yield self.downloadFileContentToWorker('.buildbot-diff', patch)
+        res = yield super(CommitPatch, self).run()
+        return res
+
+    def getResultSummary(self):
+        if self.results != SUCCESS:
+            return {'step': 'git failed to apply patch to trunk'}
+        return super(CommitPatch, self).getResultSummary()
 
 
 class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
@@ -1484,7 +1563,7 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
             self.skip_build('Hash {} on PR {} is outdated'.format(self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY], pr_number))
             return False
 
-        blocked = self._is_pr_blocked(pr_json) if self.verifyReviewDenied else 0
+        blocked = self._is_pr_blocked(pr_json) if self.verifyMergeQueue else 0
         if blocked == 1:
             self.skip_build("PR {} has been marked as '{}'".format(pr_number, self.BLOCKED_LABEL))
             return False
@@ -1553,7 +1632,7 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
         return contributor.get('name')
 
     def start(self):
-        self.contributors, errors = Contributors.load()
+        self.contributors, errors = Contributors.load(use_network=True)
         for error in errors:
             print(error)
             self._addToLog('stdio', error)
@@ -1600,39 +1679,6 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
 
         self.finished(SUCCESS)
         return None
-
-
-class ValidateChangeLogAndReviewer(shell.ShellCommand):
-    name = 'validate-changelog-and-reviewer'
-    descriptionDone = ['Validated ChangeLog and Reviewer']
-    command = ['python3', 'Tools/Scripts/webkit-patch', 'validate-changelog', '--check-oops', '--non-interactive']
-    haltOnFailure = False
-    flunkOnFailure = True
-
-    def __init__(self, **kwargs):
-        shell.ShellCommand.__init__(self, timeout=3 * 60, logEnviron=False, **kwargs)
-
-    def start(self):
-        self.log_observer = logobserver.BufferLogObserver(wantStderr=True)
-        self.addLogObserver('stdio', self.log_observer)
-        return shell.ShellCommand.start(self)
-
-    def getResultSummary(self):
-        if self.results != SUCCESS:
-            return {'step': 'ChangeLog validation failed'}
-        return shell.ShellCommand.getResultSummary(self)
-
-    def evaluateCommand(self, cmd):
-        rc = shell.ShellCommand.evaluateCommand(self, cmd)
-        if rc == FAILURE:
-            log_text = self.log_observer.getStdout() + self.log_observer.getStderr()
-            self.setProperty('comment_text', log_text)
-            self.setProperty('build_finish_summary', 'ChangeLog validation failed')
-            self.build.addStepsAfterCurrentStep([
-                LeaveComment(),
-                SetCommitQueueMinusFlagOnPatch(), BlockPullRequest(),
-            ])
-        return rc
 
 
 class SetCommitQueueMinusFlagOnPatch(buildstep.BuildStep, BugzillaMixin):
@@ -4341,6 +4387,7 @@ class CleanGitRepo(steps.ShellSequence, ShellMixin):
         self.commands = []
         for command in [
             self.shell_command('git rebase --abort || {}'.format(self.shell_exit_0())),
+            self.shell_command('git am --abort || {}'.format(self.shell_exit_0())),
             ['git', 'clean', '-f', '-d'],  # Remove any left-over layout test results, added files, etc.
             ['git', 'fetch', self.git_remote],  # Avoid updating the working copy to a stale revision.
             ['git', 'checkout', '{}/{}'.format(self.git_remote, branch), '-f'],  # Checkout branch from specific remote
@@ -4394,103 +4441,6 @@ class SetBuildSummary(buildstep.BuildStep):
         self.finished(SUCCESS)
         self.build.buildFinished([build_summary], self.build.results)
         return defer.succeed(None)
-
-
-class FindModifiedChangeLogs(shell.ShellCommand):
-    name = 'find-modified-changelogs'
-    descriptionDone = ['Found modified ChangeLogs']
-    command = ['git', 'diff', '-r', '--name-status', '--no-renames', '--no-ext-diff', '--full-index']
-    haltOnFailure = False
-
-    def __init__(self, **kwargs):
-        shell.ShellCommand.__init__(self, timeout=3 * 60, logEnviron=False, **kwargs)
-
-    def start(self):
-        self.log_observer = logobserver.BufferLogObserver(wantStderr=True)
-        self.addLogObserver('stdio', self.log_observer)
-        return shell.ShellCommand.start(self)
-
-    def getResultSummary(self):
-        if self.results != SUCCESS:
-            patch_id = self.getProperty('patch_id', '')
-            return {'step': 'Failed to find any modified ChangeLog in Patch {}'.format(patch_id)}
-        return shell.ShellCommand.getResultSummary(self)
-
-    def evaluateCommand(self, cmd):
-        rc = shell.ShellCommand.evaluateCommand(self, cmd)
-        log_text = self.log_observer.getStdout() + self.log_observer.getStderr()
-        modified_changelogs = self.extract_changelogs(log_text, self._status_regexp('MA'))
-        self.setProperty('modified_changelogs', modified_changelogs)
-        if rc == FAILURE or not modified_changelogs:
-            patch_id = self.getProperty('patch_id', '')
-            message = 'Unable to find any modified ChangeLog in Patch {}'.format(patch_id)
-            if self.getProperty('buildername', '').lower() == 'commit-queue':
-                self.setProperty('comment_text', message.replace('Patch', 'Attachment'))
-                self.setProperty('build_finish_summary', message)
-                self.build.addStepsAfterCurrentStep([LeaveComment(), SetCommitQueueMinusFlagOnPatch()])
-            else:
-                self.build.buildFinished([message], FAILURE)
-        return rc
-
-    def is_path_to_changelog(self, path):
-        return os.path.basename(path) == 'ChangeLog'
-
-    def _status_regexp(self, expected_types):
-        return '^(?P<status>[{}])\t(?P<filename>.+)$'.format(expected_types)
-
-    def extract_changelogs(self, output, status_regexp):
-        filenames = []
-        for line in output.splitlines():
-            match = re.search(status_regexp, line)
-            if not match:
-                continue
-            filename = match.group('filename')
-            if self.is_path_to_changelog(filename):
-                filenames.append(filename)
-        return filenames
-
-
-class CreateLocalGITCommit(shell.ShellCommand):
-    name = 'create-local-git-commit'
-    descriptionDone = ['Created local git commit']
-    haltOnFailure = False
-
-    def __init__(self, **kwargs):
-        shell.ShellCommand.__init__(self, timeout=5 * 60, logEnviron=False, **kwargs)
-
-    def start(self):
-        self.failure_message = None
-        modified_changelogs = self.getProperty('modified_changelogs')
-        patch_id = self.getProperty('patch_id', '')
-        if not modified_changelogs:
-            self.failure_message = 'No modified ChangeLog file found for Patch {}'.format(patch_id)
-            self.finished(FAILURE)
-            return None
-
-        modified_changelogs = ' '.join(modified_changelogs)
-        self.command = 'perl Tools/Scripts/commit-log-editor --print-log {}'.format(modified_changelogs)
-        self.command += ' | git commit --all -F -'
-        return shell.ShellCommand.start(self)
-
-    def getResultSummary(self):
-        if self.failure_message:
-            return {'step': self.failure_message}
-        if self.results != SUCCESS:
-            return {'step': 'Failed to create git commit'}
-        return shell.ShellCommand.getResultSummary(self)
-
-    def evaluateCommand(self, cmd):
-        rc = shell.ShellCommand.evaluateCommand(self, cmd)
-        if rc == FAILURE:
-            patch_id = self.getProperty('patch_id', '')
-            message = self.failure_message or 'Failed to create git commit for Patch {}'.format(patch_id)
-            if self.getProperty('buildername', '').lower() == 'commit-queue':
-                self.setProperty('comment_text', message.replace('Patch', 'Attachment'))
-                self.setProperty('build_finish_summary', message)
-                self.build.addStepsAfterCurrentStep([LeaveComment(), SetCommitQueueMinusFlagOnPatch()])
-            else:
-                self.build.buildFinished([message], FAILURE)
-        return rc
 
 
 class PushCommitToWebKitRepo(shell.ShellCommand):
@@ -4548,19 +4498,23 @@ class PushCommitToWebKitRepo(shell.ShellCommand):
                         CheckOutPullRequest(),
                         AddReviewerToCommitMessage(),
                         AddAuthorToCommitMessage(),
-                        AddReviewerToChangeLog(),
                         ValidateChange(verifyMergeQueue=True, verifyNoDraftForMergeQueue=True),
                         Canonicalize(),
                         PushCommitToWebKitRepo(),
                     ])
                 else:
                     self.build.addStepsAfterCurrentStep([
-                        GitResetHard(),
-                        CheckOutSource(repourl='https://git.webkit.org/git/WebKit-https'),
+                        ResetGitSvn(),
+                        CleanGitRepo(),
+                        CheckOutSource(),
+                        GitSvnFetch(),
                         ShowIdentifier(),
                         UpdateWorkingDirectory(),
-                        ApplyPatch(),
-                        CreateLocalGITCommit(),
+                        CommitPatch(),
+                        AddReviewerToCommitMessage(),
+                        AddAuthorToCommitMessage(),
+                        ValidateChange(addURLs=False, verifycqplus=True),
+                        Canonicalize(),
                         PushCommitToWebKitRepo(),
                     ])
                 return rc
@@ -4670,6 +4624,9 @@ class DetermineLandedIdentifier(shell.ShellCommand):
             comment += f'\n\nReviewed commits have been landed. Closing PR #{pr_number} and removing active labels.'
         return comment
 
+    def hideStepIf(self, results, step):
+        return self.getProperty('sensitive', False)
+
 
 class CheckPatchStatusOnEWSQueues(buildstep.BuildStep, BugzillaMixin):
     name = 'check-status-on-other-ewses'
@@ -4738,8 +4695,8 @@ class ValidateSquashed(shell.ShellCommand):
         super(ValidateSquashed, self).__init__(logEnviron=False, **kwargs)
 
     def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
-        base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
-        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
+        base_ref = self.getProperty('github.base.ref', f'origin/{DEFAULT_BRANCH}')
+        head_ref = self.getProperty('github.head.ref', 'HEAD')
         self.command = ['git', 'log', '--oneline', head_ref, f'^{base_ref}', '--max-count=2']
 
         self.log_observer = BufferLogObserverClass(wantStderr=True)
@@ -4764,12 +4721,6 @@ class ValidateSquashed(shell.ShellCommand):
             return SUCCESS
         return FAILURE
 
-    def doStepIf(self, step):
-        return self.getProperty('github.number')
-
-    def hideStepIf(self, results, step):
-        return not self.doStepIf(step)
-
 
 class AddReviewerMixin(object):
     NOBODY_SED = 's/NOBODY (OO*PP*S!*)/{}/g'
@@ -4783,7 +4734,7 @@ class AddReviewerMixin(object):
                 FILTER_BRANCH_SQUELCH_WARNING='1',
             )
 
-        contributors, _ = Contributors.load(use_network=False)
+        contributors, _ = Contributors.load()
         return dict(
             GIT_COMMITTER_NAME=contributors.get(owners[0].lower(), {}).get('name', 'EWS'),
             GIT_COMMITTER_EMAIL=contributors.get(owners[0].lower(), {}).get('email', FROM_EMAIL),
@@ -4807,8 +4758,8 @@ class AddReviewerToCommitMessage(shell.ShellCommand, AddReviewerMixin):
         super(AddReviewerToCommitMessage, self).__init__(logEnviron=False, timeout=60, **kwargs)
 
     def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
-        base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
-        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
+        base_ref = self.getProperty('github.base.ref', f'origin/{DEFAULT_BRANCH}')
+        head_ref = self.getProperty('github.head.ref', 'HEAD')
 
         gmtoffset = int(time.localtime().tm_gmtoff * 100 / (60 * 60))
         date = f'{int(time.time())} {gmtoffset}'
@@ -4832,11 +4783,50 @@ class AddReviewerToCommitMessage(shell.ShellCommand, AddReviewerMixin):
         return super(AddReviewerToCommitMessage, self).getResultSummary()
 
     def doStepIf(self, step):
-        return self.getProperty('github.number') and self.getProperty('reviewers_full_names')
+        return self.getProperty('reviewers_full_names')
 
     def hideStepIf(self, results, step):
         return not self.doStepIf(step)
 
+
+class DetermineAuthor(shell.ShellCommand, ShellMixin):
+    name = 'determine-author'
+    haltOnFailure = True
+    AUTHOR_RE = re.compile(r'Author:\s+(.+ <.+>)')
+
+    def __init__(self, **kwargs):
+        super(DetermineAuthor, self).__init__(logEnviron=False, timeout=60, **kwargs)
+
+    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+        self.command = self.shell_command("git log -1 | grep '^Author:'")
+
+        self.log_observer = BufferLogObserverClass(wantStderr=True)
+        self.addLogObserver('stdio', self.log_observer)
+
+        return super(DetermineAuthor, self).start()
+
+    def getResultSummary(self):
+        name = self.getProperty('author')
+        if not name or self.results == FAILURE:
+            return {'step': 'Failed to find author'}
+        elif self.results == SUCCESS:
+            return {'step': f"Author is {name}"}
+        return super(DetermineAuthor, self).getResultSummary()
+
+    def evaluateCommand(self, cmd):
+        rc = super(DetermineAuthor, self).evaluateCommand(cmd)
+        if rc != SUCCESS:
+            return rc
+
+        log_text = self.log_observer.getStdout()
+        lines = log_text.splitlines()
+        if len(lines) != 1:
+            return FAILURE
+        match = self.AUTHOR_RE.match(lines[0])
+        if match:
+            self.setProperty('author', match.group(1))
+            return SUCCESS
+        return FAILURE
 
 class AddAuthorToCommitMessage(shell.ShellCommand, AddReviewerMixin):
     name = 'add-author-to-commit-message'
@@ -4845,30 +4835,15 @@ class AddAuthorToCommitMessage(shell.ShellCommand, AddReviewerMixin):
     def __init__(self, **kwargs):
         super(AddAuthorToCommitMessage, self).__init__(logEnviron=False, timeout=60, **kwargs)
 
-    def author(self):
-        contributors, _ = Contributors.load(use_network=False)
-        username = self.getProperty('github.head.user.login')
-        owners = self.getProperty('owners', [])
-        for candidate in [username, owners[0] if owners else None]:
-            if not candidate:
-                continue
-
-            name = contributors.get(candidate.lower(), {}).get('name', None)
-            email = contributors.get(candidate.lower(), {}).get('email', None)
-            if name and email:
-                return name, email
-
-        return None, None
-
     def start(self):
-        base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
-        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
+        base_ref = self.getProperty('github.base.ref', f'origin/{DEFAULT_BRANCH}')
+        head_ref = self.getProperty('github.head.ref', 'HEAD')
 
         gmtoffset = int(time.localtime().tm_gmtoff * 100 / (60 * 60))
         timestamp = f'{int(time.time())} {gmtoffset}'
 
-        name, email = self.author()
-        patch_by = f"Patch by {name} <{email}> on {date.today().strftime('%Y-%m-%d')}"
+        author = self.getProperty('author')
+        patch_by = f"Patch by {author} on {date.today().strftime('%Y-%m-%d')}"
 
         self.command = [
             'git', 'filter-branch', '-f',
@@ -4886,115 +4861,126 @@ class AddAuthorToCommitMessage(shell.ShellCommand, AddReviewerMixin):
         if self.results == FAILURE:
             return {'step': 'Failed to add author to commit message'}
         elif self.results == SUCCESS:
-            name, _ = self.author()
-            return {'step': f"Added {name} as author"}
+            author = self.getProperty('author')
+            return {'step': f"Added {author} as author"}
         return super(AddAuthorToCommitMessage, self).getResultSummary()
 
     def doStepIf(self, step):
-        if not self.getProperty('github.number'):
-            return False
-
-        name, email = self.author()
-        return name and email
+        return self.getProperty('author')
 
     def hideStepIf(self, results, step):
         return not self.doStepIf(step)
 
 
-class AddReviewerToChangeLog(steps.ShellSequence, ShellMixin, AddReviewerMixin):
-    name = 'add-reviewer-to-changelog'
-    haltOnFailure = True
+class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
+    name = 'validate-commit-message'
+    haltOnFailure = False
+    flunkOnFailure = True
+    OOPS_RE = 'OO*PP*S!'
+    REVIEWED_STRINGS = (
+        'Reviewed by',
+        'Rubber-stamped by',
+        'Rubber stamped by',
+        'Unreviewed',
+    )
+    RE_CHANGELOG = br'^(\+\+\+)\s+(.*ChangeLog.*)'
+    BY_RE = re.compile(r'.+\s+by\s+(.+)$')
+    SPLIT_RE = re.compile(r'(,\s*)|( and )|\.')
 
     def __init__(self, **kwargs):
-        super(AddReviewerToChangeLog, self).__init__(logEnviron=False, timeout=60, **kwargs)
+        super(ValidateCommitMessage, self).__init__(logEnviron=False, timeout=60, **kwargs)
+        self.contributors = {}
+
+    @classmethod
+    def extract_reviewers(cls, text):
+        reviewers = set()
+        stripped_text = ''
+        for line in text.splitlines():
+            match = cls.BY_RE.match(line)
+            if not match:
+                stripped_text += line + '\n'
+                continue
+            for person in cls.SPLIT_RE.split(match.group(1)):
+                if person and not cls.SPLIT_RE.match(person):
+                    reviewers.add(person)
+        return reviewers, stripped_text
+
+    def is_reviewer(self, name):
+        contributor = self.contributors.get(name)
+        return contributor and contributor['status'] == 'reviewer'
 
     def _files(self):
         sourcestamp = self.build.getSourceStamp(self.getProperty('codebase', ''))
         if sourcestamp and sourcestamp.changes:
             return sourcestamp.changes[0].files
+        if sourcestamp and sourcestamp.patch:
+            files = []
+            for line in sourcestamp.patch[1].splitlines():
+                match = re.search(self.RE_CHANGELOG, line)
+                if match:
+                    files.append(match.group(1))
+            return files
         return []
 
+    @defer.inlineCallbacks
     def run(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+        base_ref = self.getProperty('github.base.ref', f'origin/{DEFAULT_BRANCH}')
+        head_ref = self.getProperty('github.head.ref', 'HEAD')
+
         self.commands = []
-        for file in self._files():
-            if not file.startswith('+++') or not file.endswith('ChangeLog'):
-                continue
-            self.commands.append(util.ShellArg(
-                command=['sed', '-i', '', self.NOBODY_SED.format(self.reviewers()), file[4:]],
-                logname='stdio',
-                haltOnFailure=True,
-            ))
-
-        for command in [
-            ['git', 'add', '-A'],
-            ['git', 'commit', '--amend', '--date=now', '-C', 'HEAD'],
-        ]:
-            self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))
-
-        self.env = self.gitCommitEnvironment()
-
-        return super(AddReviewerToChangeLog, self).run()
-
-    def getResultSummary(self):
-        if self.results == FAILURE:
-            return {'step': 'Failed to add reviewers to ChangeLogs'}
-        if self.results == SUCCESS:
-            return {'step': f'Reviewed by {self.reviewers()}'}
-        return super(AddReviewerToChangeLog, self).getResultSummary()
-
-    def doStepIf(self, step):
-        return self.getProperty('github.number') and self.getProperty('reviewers_full_names')
-
-    def hideStepIf(self, results, step):
-        return not self.doStepIf(step)
-
-
-class ValidateCommitMessage(shell.ShellCommand):
-    name = 'validate-commit-message'
-    haltOnFailure = False
-    flunkOnFailure = True
-    OOPS_RE = re.compile(r'\(OO*PP*S!\)')
-    REVIEWED_STRINGS = (
-        'Reviewed by',
-        'Unreviewed',
-        'Rubber-stamped by',
-        'Rubber stamped by',
-    )
-
-    def __init__(self, **kwargs):
-        super(ValidateCommitMessage, self).__init__(logEnviron=False, timeout=60, **kwargs)
-        self.summary = 'Patches have no commit message'
-
-    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
-        base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
-        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
-        self.command = ['git', 'log', head_ref, f'^{base_ref}']
+        commands = [
+            f"git log {head_ref} ^{base_ref} | grep -q '{self.OOPS_RE}' && echo 'Commit message contains (OOPS!)' || test $? -eq 1",
+            "git log {} ^{} | grep -q '\\({}\\)' || echo 'No reviewer information in commit message'".format(
+                head_ref, base_ref,
+                '\\|'.join(self.REVIEWED_STRINGS),
+            ), "git log {} ^{} | grep '\\({}\\)'".format(
+                head_ref, base_ref,
+                '\\|'.join(self.REVIEWED_STRINGS[:-1]),
+            ),
+        ]
+        for command in commands:
+            self.commands.append(util.ShellArg(command=self.shell_command(command), logname='stdio', haltOnFailure=True))
 
         self.log_observer = BufferLogObserverClass(wantStderr=True)
         self.addLogObserver('stdio', self.log_observer)
 
-        return super(ValidateCommitMessage, self).start()
+        rc = yield super(ValidateCommitMessage, self).run()
 
-    def getResultSummary(self):
-        if self.results in (SUCCESS, FAILURE):
-            return {'step': self.summary}
-        return super(ValidateCommitMessage, self).getResultSummary()
-
-    def evaluateCommand(self, cmd):
-        rc = super(ValidateCommitMessage, self).evaluateCommand(cmd)
         if rc == SKIPPED:
+            self.summary = 'Patches have no commit message'
             return rc
 
-        if rc == SUCCESS:
-            self.summary = 'Validated commit message'
-            log_text = self.log_observer.getStdout()
-            if self.OOPS_RE.search(log_text):
-                self.summary = 'Commit message contains (OOPS!)'
-                rc = FAILURE
-            elif all([candidate not in log_text for candidate in self.REVIEWED_STRINGS]):
-                self.summary = 'No reviewer information in commit message'
-                rc = FAILURE
+        self.contributors, errors = Contributors.load(use_network=True)
+        for error in errors:
+            print(error)
+            self._addToLog('stdio', error)
 
+        reviewers, log_text = self.extract_reviewers(self.log_observer.getStdout())
+        log_text = log_text.rstrip()
+        author = self.getProperty('author', '')
+
+        if any(['ChangeLog' in file for file in self._files()]):
+            self.summary = 'ChangeLog modified, WebKit only allows commit messages'
+            rc = FAILURE
+        elif log_text:
+            self.summary = log_text
+            rc = FAILURE
+        elif rc == SUCCESS:
+            if reviewers and not self.contributors:
+                self.summary = "Failed to load contributors.json, can't validate reviewers"
+                rc = FAILURE
+            elif reviewers and any([not self.is_reviewer(reviewer) for reviewer in reviewers]):
+                self.summary = "'{}' is not a reviewer"
+                for reviewer in reviewers:
+                    if not self.is_reviewer(reviewer):
+                        self.summary = self.summary.format(reviewer)
+                        break
+                rc = FAILURE
+            elif reviewers and author and any([author.startswith(reviewer) for reviewer in reviewers]):
+                self.summary = f"'{author}' cannot review their own change"
+                rc = FAILURE
+            else:
+                self.summary = 'Validated commit message'
         else:
             self.summary = 'Error parsing commit message'
             rc = FAILURE
@@ -5002,14 +4988,13 @@ class ValidateCommitMessage(shell.ShellCommand):
         if rc == FAILURE:
             self.setProperty('comment_text', f"{self.summary}, blocking PR #{self.getProperty('github.number')}")
             self.setProperty('build_finish_summary', 'Commit message validation failed')
-            self.build.addStepsAfterCurrentStep([LeaveComment(),  BlockPullRequest()])
+            self.build.addStepsAfterCurrentStep([LeaveComment(), SetCommitQueueMinusFlagOnPatch(), BlockPullRequest()])
         return rc
 
-    def doStepIf(self, step):
-        return self.getProperty('github.number')
-
-    def hideStepIf(self, results, step):
-        return not self.doStepIf(step)
+    def getResultSummary(self):
+        if self.results in (SUCCESS, FAILURE):
+            return {'step': self.summary}
+        return super(ValidateCommitMessage, self).getResultSummary()
 
 
 class Canonicalize(steps.ShellSequence, ShellMixin):
@@ -5026,15 +5011,14 @@ class Canonicalize(steps.ShellSequence, ShellMixin):
         self.commands = []
 
         base_ref = self.getProperty('github.base.ref', DEFAULT_BRANCH)
-        head_ref = self.getProperty('github.head.ref', DEFAULT_BRANCH)
+        head_ref = self.getProperty('github.head.ref', None)
 
         commands = []
         if self.rebase_enabled:
-            commands = [
-                ['git', 'pull', 'origin', base_ref, '--rebase'],
-                ['git', 'branch', '-f', base_ref, head_ref],
-                ['git', 'checkout', base_ref],
-            ]
+            commands = [['git', 'pull', 'origin', base_ref, '--rebase']]
+            if head_ref:
+                commands += [['git', 'branch', '-f', base_ref, head_ref]]
+            commands += [['git', 'checkout', base_ref]]
         commands.append(['python3', 'Tools/Scripts/git-webkit', 'canonicalize', '-n', '1' if self.rebase_enabled else '3'])
 
         for command in commands:
@@ -5049,12 +5033,6 @@ class Canonicalize(steps.ShellSequence, ShellMixin):
         if self.results == FAILURE:
             return {'step': f'Failed to canonicalize {commit_pluralized}'}
         return super(Canonicalize, self).getResultSummary()
-
-    def doStepIf(self, step):
-        return self.getProperty('github.number', False)
-
-    def hideStepIf(self, results, step):
-        return not self.doStepIf(step)
 
 
 class PushPullRequestBranch(shell.ShellCommand):
@@ -5091,7 +5069,7 @@ class PushPullRequestBranch(shell.ShellCommand):
 
 class UpdatePullRequest(shell.ShellCommand, GitHubMixin, AddToLogMixin):
     name = 'update-pull-request'
-    haltOnFailure = True
+    haltOnFailure = False
     command = ['git', 'log', '-1', '--no-decorate']
     ESCAPE_TABLE = {
         '"': '&quot;',

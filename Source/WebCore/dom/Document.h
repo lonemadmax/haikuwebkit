@@ -35,7 +35,6 @@
 #include "CrossOriginOpenerPolicy.h"
 #include "DisabledAdaptations.h"
 #include "DocumentEventTiming.h"
-#include "ElementIdentifier.h"
 #include "FocusOptions.h"
 #include "FontSelectorClient.h"
 #include "FrameDestructionObserver.h"
@@ -205,6 +204,7 @@ class RenderView;
 class RequestAnimationFrameCallback;
 class ResizeObserver;
 class SVGDocumentExtensions;
+class SVGElement;
 class SVGSVGElement;
 class SVGUseElement;
 class SWClientConnection;
@@ -264,7 +264,7 @@ enum class MediaProducerMediaCaptureKind : uint8_t;
 enum class MediaProducerMutedState : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 enum class ShouldOpenExternalURLsPolicy : uint8_t;
-enum class RenderingUpdateStep : uint16_t;
+enum class RenderingUpdateStep : uint32_t;
 enum class StyleColorOptions : uint8_t;
 enum class MutationObserverOptionType : uint8_t;
 
@@ -390,10 +390,6 @@ public:
     using DocumentsMap = HashMap<ScriptExecutionContextIdentifier, Document*>;
     WEBCORE_EXPORT static DocumentsMap::ValuesIteratorRange allDocuments();
     WEBCORE_EXPORT static DocumentsMap& allDocumentsMap();
-
-    WEBCORE_EXPORT ElementIdentifier identifierForElement(Element&);
-    WEBCORE_EXPORT Element* searchForElementByIdentifier(const ElementIdentifier&);
-    void identifiedElementWasRemovedFromDocument(Element&);
 
     MediaQueryMatcher& mediaQueryMatcher();
 
@@ -880,7 +876,7 @@ public:
     // In DOM Level 2, the Document's DOMWindow is called the defaultView.
     WEBCORE_EXPORT WindowProxy* windowProxy() const;
 
-    bool hasBrowsingContext() const { return !!frame(); }
+    inline bool hasBrowsingContext() const; // Defined in DocumentInlines.h.
 
     Document& contextDocument() const;
     void setContextDocument(Document& document) { m_contextDocument = document; }
@@ -1356,6 +1352,7 @@ public:
     void setIsResolvingTreeStyle(bool);
 
     void updateTextRenderer(Text&, unsigned offsetOfReplacedText, unsigned lengthOfReplacedText);
+    void updateSVGRenderer(SVGElement&);
 
     // Return a Locale for the default locale if the argument is null or empty.
     Locale& getCachedLocale(const AtomString& locale = nullAtom());
@@ -1628,6 +1625,7 @@ public:
     WEBCORE_EXPORT TextManipulationController& textManipulationController();
     TextManipulationController* textManipulationControllerIfExists() { return m_textManipulationController.get(); }
 
+    bool hasHighlight() const;
     HighlightRegister* highlightRegisterIfExists() { return m_highlightRegister.get(); }
     HighlightRegister& highlightRegister();
     void updateHighlightPositions();
@@ -1806,6 +1804,8 @@ private:
     void addToDocumentsMap();
     void removeFromDocumentsMap();
 
+    Style::Update& ensurePendingRenderTreeUpdate();
+
     NotificationClient* notificationClient() final;
 
     const Ref<const Settings> m_settings;
@@ -1888,7 +1888,7 @@ private:
     
     Timer m_styleRecalcTimer;
 
-    std::unique_ptr<Style::Update> m_pendingRenderTreeTextUpdate;
+    std::unique_ptr<Style::Update> m_pendingRenderTreeUpdate;
 
     Element* m_cssTarget { nullptr };
 
@@ -2257,8 +2257,6 @@ private:
 #endif
 
     std::unique_ptr<TextManipulationController> m_textManipulationController;
-
-    HashMap<Element*, ElementIdentifier> m_identifiedElementsMap;
 
     UniqueRef<Editor> m_editor;
     UniqueRef<FrameSelection> m_selection;

@@ -31,6 +31,7 @@
 #include "ContextDestructionObserver.h"
 #include "Cookie.h"
 #include "EpochTimeStamp.h"
+#include "EventTrackingRegions.h"
 #include "ExceptionOr.h"
 #include "HEVCUtilities.h"
 #include "IDLTypes.h"
@@ -247,11 +248,6 @@ public:
     const AtomString& shadowPseudoId(Element&);
     void setShadowPseudoId(Element&, const AtomString&);
 
-    // CSS Deferred Parsing Testing
-    unsigned deferredStyleRulesCount(StyleSheet&);
-    unsigned deferredGroupRulesCount(StyleSheet&);
-    unsigned deferredKeyframesRulesCount(StyleSheet&);
-
     // DOMTimers throttling testing.
     ExceptionOr<bool> isTimerThrottled(int timeoutId);
     String requestAnimationFrameThrottlingReasons() const;
@@ -337,6 +333,7 @@ public:
 
     ExceptionOr<void> setPagination(const String& mode, int gap, int pageLength);
     ExceptionOr<void> setPaginationLineGridEnabled(bool);
+    ExceptionOr<uint64_t> lineIndexAfterPageBreak(Element&);
     ExceptionOr<String> configurationForViewport(float devicePixelRatio, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight);
 
     ExceptionOr<bool> wasLastChangeUserEdit(Element& textField);
@@ -482,6 +479,9 @@ public:
     ExceptionOr<String> displayListForElement(Element&, unsigned short flags);
     ExceptionOr<String> replayDisplayListForElement(Element&, unsigned short flags);
 
+    void setForceUseGlyphDisplayListForTesting(bool enabled);
+    ExceptionOr<String> cachedGlyphDisplayListsForTextNode(Node&, unsigned short flags);
+
     ExceptionOr<void> garbageCollectDocumentResources() const;
 
     void beginSimulatedMemoryPressure();
@@ -513,7 +513,7 @@ public:
     uint64_t storageAreaMapCount() const;
 
     uint64_t elementIdentifier(Element&) const;
-    bool isElementAlive(Document&, uint64_t documentIdentifier) const;
+    bool isElementAlive(uint64_t elementIdentifier) const;
 
     uint64_t frameIdentifier(const Document&) const;
     uint64_t pageIdentifier(const Document&) const;
@@ -722,7 +722,6 @@ public:
     ExceptionOr<bool> isPluginUnavailabilityIndicatorObscured(Element&);
     ExceptionOr<String> unavailablePluginReplacementText(Element&);
     bool isPluginSnapshotted(Element&);
-    bool pluginIsBelowSizeThreshold(Element&);
 
 #if ENABLE(MEDIA_SOURCE)
     WEBCORE_TESTSUPPORT_EXPORT void initializeMockMediaSource();

@@ -79,7 +79,7 @@ class Object;
 }
 
 namespace IPC {
-class SharedBufferCopy;
+class SharedBufferReference;
 }
 
 namespace PAL {
@@ -129,7 +129,6 @@ class RemoteMediaEngineConfigurationFactory;
 class StorageAreaMap;
 class UserData;
 class WaylandCompositorDisplay;
-class WebAuthnProcessConnection;
 class WebAutomationSessionProxy;
 class WebBroadcastChannelRegistry;
 class WebCacheStorageProvider;
@@ -143,8 +142,6 @@ class WebPage;
 class WebPageGroupProxy;
 class WebProcessSupplement;
 
-struct GPUProcessConnectionInfo;
-struct GPUProcessConnectionParameters;
 struct RemoteWorkerInitializationData;
 struct UserMessage;
 struct WebProcessCreationParameters;
@@ -262,12 +259,6 @@ public:
     RemoteMediaEngineConfigurationFactory& mediaEngineConfigurationFactory();
 #endif // ENABLE(GPU_PROCESS)
 
-#if ENABLE(WEB_AUTHN)
-    WebAuthnProcessConnection& ensureWebAuthnProcessConnection();
-    void webAuthnProcessConnectionClosed(WebAuthnProcessConnection*);
-    WebAuthnProcessConnection* existingWebAuthnProcessConnection() { return m_webAuthnProcessConnection.get(); }
-#endif
-
     LibWebRTCNetwork& libWebRTCNetwork();
 
     void setCacheModel(CacheModel);
@@ -300,7 +291,7 @@ public:
 
     void setHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds);
 
-    void prepareToSuspend(bool isSuspensionImminent, CompletionHandler<void()>&&);
+    void prepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime, CompletionHandler<void()>&&);
     void processDidResume();
 
     void sendPrewarmInformation(const URL&);
@@ -368,6 +359,8 @@ public:
     void grantAccessToAssetServices(WebKit::SandboxExtension::Handle&& mobileAssetV2Handle);
     void revokeAccessToAssetServices();
     void switchFromStaticFontRegistryToUserFontRegistry(WebKit::SandboxExtension::Handle&& fontMachExtensionHandle);
+
+    void disableURLSchemeCheckInDataDetectors() const;
 
 #if PLATFORM(MAC)
     void updatePageScreenProperties();
@@ -541,7 +534,7 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
-    void consumeAudioComponentRegistrations(const IPC::SharedBufferCopy&);
+    void consumeAudioComponentRegistrations(const IPC::SharedBufferReference&);
 #endif
     
     void platformInitializeProcess(const AuxiliaryProcessInitializationParameters&);
@@ -584,11 +577,6 @@ private:
 
     bool shouldFreezeOnSuspension() const;
     void updateFreezerStatus();
-#endif
-
-#if ENABLE(GPU_PROCESS)
-    static GPUProcessConnectionInfo getGPUProcessConnection(IPC::Connection&);
-    static void platformInitializeGPUProcessConnectionParameters(GPUProcessConnectionParameters&);
 #endif
 
 #if ENABLE(VIDEO)
@@ -661,11 +649,6 @@ private:
     std::unique_ptr<AudioMediaStreamTrackRendererInternalUnitManager> m_audioMediaStreamTrackRendererInternalUnitManager;
 #endif
 #endif
-
-#if ENABLE(WEB_AUTHN)
-    RefPtr<WebAuthnProcessConnection> m_webAuthnProcessConnection;
-#endif
-
     Ref<WebCacheStorageProvider> m_cacheStorageProvider;
     Ref<WebBroadcastChannelRegistry> m_broadcastChannelRegistry;
     Ref<WebCookieJar> m_cookieJar;

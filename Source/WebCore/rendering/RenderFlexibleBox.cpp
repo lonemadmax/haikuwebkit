@@ -103,7 +103,7 @@ void RenderFlexibleBox::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidt
         minLogicalWidth += scrollbarWidth;
     };
 
-    auto shouldIgnoreFlexItemContentForLogicalWidth = shouldApplySizeContainment(*this) || shouldApplyInlineSizeContainment(*this);
+    auto shouldIgnoreFlexItemContentForLogicalWidth = shouldApplySizeOrStyleContainment({ Containment::Size, Containment::InlineSize });
     if (shouldIgnoreFlexItemContentForLogicalWidth) {
         addScrollbarWidth();
         return;
@@ -256,7 +256,7 @@ LayoutUnit RenderFlexibleBox::baselinePosition(FontBaseline, bool, LineDirection
 
 std::optional<LayoutUnit> RenderFlexibleBox::firstLineBaseline() const
 {
-    if (isWritingModeRoot() || m_numberOfInFlowChildrenOnFirstLine <= 0 || shouldApplyLayoutContainment(*this))
+    if (isWritingModeRoot() || m_numberOfInFlowChildrenOnFirstLine <= 0 || shouldApplyLayoutContainment())
         return std::optional<LayoutUnit>();
     RenderBox* baselineChild = nullptr;
     int childNumber = 0;
@@ -521,6 +521,11 @@ bool RenderFlexibleBox::shouldApplyMinSizeAutoForChild(const RenderBox& child) c
     bool childBlockSizeIsEquivalentToAutomaticSize  = !mainAxisIsChildInlineAxis(child) && (minSize.isMinContent() || minSize.isMaxContent() || minSize.isFitContent());
 
     return (minSize.isAuto() || childBlockSizeIsEquivalentToAutomaticSize) && (mainAxisOverflowForChild(child) == Overflow::Visible);
+}
+
+bool RenderFlexibleBox::shouldApplyMinBlockSizeAutoForChild(const RenderBox& child) const
+{
+    return !mainAxisIsChildInlineAxis(child) && shouldApplyMinSizeAutoForChild(child);
 }
 
 Length RenderFlexibleBox::flexBasisForChild(const RenderBox& child) const
@@ -2347,9 +2352,12 @@ void RenderFlexibleBox::layoutUsingFlexFormattingContext()
     if (!m_flexLayout)
         m_flexLayout = makeUnique<LayoutIntegration::FlexLayout>(*this);
 
+    m_flexLayout->updateFormattingRootGeometryAndInvalidate();
+
     for (auto& flexItem : childrenOfType<RenderBlock>(*this)) {
         flexItem.layoutIfNeeded();
-        m_flexLayout->updateFlexItemDimensions(flexItem);
+        auto minMaxContentSize = computeFlexItemMinMaxSizes(flexItem);
+        m_flexLayout->updateFlexItemDimensions(flexItem, minMaxContentSize.first, minMaxContentSize.second);
     }
     m_flexLayout->layout();
 }

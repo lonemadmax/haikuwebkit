@@ -40,7 +40,6 @@
 #import "TextCheckingController.h"
 #import "TransactionID.h"
 #import "UIKitSPI.h"
-#import "WKHoverPlatter.h"
 #import <WebKit/WKActionSheetAssistant.h>
 #import <WebKit/WKAirPlayRoutePicker.h>
 #import <WebKit/WKContactPicker.h>
@@ -225,7 +224,6 @@ enum SuppressSelectionAssistantReason : uint8_t {
     EditableRootIsTransparentOrFullyClipped = 1 << 0,
     FocusedElementIsTooSmall = 1 << 1,
     InteractionIsHappening = 1 << 2,
-    HoverPlatterEnabled = 1 << 3,
 };
 
 struct WKSelectionDrawingInfo {
@@ -317,10 +315,6 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     RetainPtr<WKMouseGestureRecognizer> _mouseGestureRecognizer;
     RetainPtr<WKMouseGestureRecognizer> _alternateMouseGestureRecognizer;
     WebCore::MouseEventPolicy _mouseEventPolicy;
-#endif
-
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-    RetainPtr<WKHoverPlatter> _hoverPlatter;
 #endif
 
 #if HAVE(PENCILKIT_TEXT_INPUT)
@@ -543,8 +537,10 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     uint32_t _fullscreenVideoExtractionRequestIdentifier;
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     RetainPtr<VKCImageAnalysisInteraction> _imageAnalysisInteraction;
+    RetainPtr<NSMutableSet<UIButton *>> _imageAnalysisActionButtons;
     WebCore::FloatRect _imageAnalysisInteractionBounds;
     std::optional<WebKit::ImageAnalysisMarkupData> _imageAnalysisMarkupData;
+    RetainPtr<CGImageRef> _croppedImageResult;
 #endif
 }
 
@@ -561,9 +557,6 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     , UIDragInteractionDelegate, UIDropInteractionDelegate
 #endif
     , WKTouchActionGestureRecognizerDelegate
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-    , WKHoverPlatterDelegate
-#endif
 #if HAVE(UIFINDINTERACTION)
     , UITextSearching
 #endif
@@ -793,7 +786,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 
 #if ENABLE(IMAGE_ANALYSIS)
 - (void)_endImageAnalysisGestureDeferral:(WebKit::ShouldPreventGestures)shouldPreventGestures;
-- (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmap::Handle&)imageData identifier:(NSString *)identifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion;
+- (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmap::Handle&)imageData source:(NSString *)source target:(NSString *)target completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion;
 #endif
 
 #if HAVE(UIFINDINTERACTION)

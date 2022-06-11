@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -859,16 +859,6 @@ public:
 }
 #endif
 
-- (BOOL)isJavaEnabled
-{
-    return [self _boolValueForKey: WebKitJavaEnabledPreferenceKey];
-}
-
-- (void)setJavaEnabled:(BOOL)flag
-{
-    [self _setBoolValue: flag forKey: WebKitJavaEnabledPreferenceKey];
-}
-
 - (BOOL)isJavaScriptEnabled
 {
     return [self _boolValueForKey: WebKitJavaScriptEnabledPreferenceKey];
@@ -1399,16 +1389,6 @@ public:
 - (BOOL)_alwaysRequestGeolocationPermission
 {
     return [self _boolValueForKey:WebKitAlwaysRequestGeolocationPermissionPreferenceKey];
-}
-
-- (void)_setAlwaysUseAcceleratedOverflowScroll:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitAlwaysUseAcceleratedOverflowScrollPreferenceKey];
-}
-
-- (BOOL)_alwaysUseAcceleratedOverflowScroll
-{
-    return [self _boolValueForKey:WebKitAlwaysUseAcceleratedOverflowScrollPreferenceKey];
 }
 
 - (void)_setInterpolationQuality:(int)quality
@@ -2789,16 +2769,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitPictureInPictureAPIEnabledKey];
 }
 
-- (BOOL)viewportFitEnabled
-{
-    return [self _boolValueForKey:WebKitViewportFitEnabledPreferenceKey];
-}
-
-- (void)setViewportFitEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitViewportFitEnabledPreferenceKey];
-}
-
 - (BOOL)constantPropertiesEnabled
 {
     return [self _boolValueForKey:WebKitConstantPropertiesEnabledPreferenceKey];
@@ -2857,16 +2827,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setMediaCapabilitiesEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitMediaCapabilitiesEnabledPreferenceKey];
-}
-
-- (BOOL)cssDisplayContentsAXSupportEnabled
-{
-    return [self _boolValueForKey:WebKitCSSDisplayContentsAXSupportEnabledPreferenceKey];
-}
-
-- (void)setCSSDisplayContentsAXSupportEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitCSSDisplayContentsAXSupportEnabledPreferenceKey];
 }
 
 - (BOOL)cssLogicalEnabled
@@ -3471,6 +3431,15 @@ static RetainPtr<NSString>& classIBCreatorID()
 }
 
 - (void)setXSSAuditorEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)isJavaEnabled
+{
+    return NO;
+}
+
+- (void)setJavaEnabled:(BOOL)flag
 {
 }
 

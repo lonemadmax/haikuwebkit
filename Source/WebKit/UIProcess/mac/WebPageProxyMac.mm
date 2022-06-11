@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -435,7 +435,7 @@ void WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication(const St
     }
 
     auto sanitizedFilename = ResourceResponseBase::sanitizeSuggestedFilename(suggestedFilename);
-    if (!sanitizedFilename.endsWithIgnoringASCIICase(".pdf")) {
+    if (!sanitizedFilename.endsWithIgnoringASCIICase(".pdf"_s)) {
         WTFLogAlways("Cannot save file without .pdf extension to the temporary directory.");
         return;
     }
@@ -640,11 +640,6 @@ void WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCat
 PlatformView* WebPageProxy::platformView() const
 {
     return [pageClient().platformWindow() contentView];
-}
-
-bool WebPageProxy::useiTunesAVOutputContext() const
-{
-    return m_preferences->store().getBoolValueForKey(WebPreferencesKey::useiTunesAVOutputContextKey());
 }
 
 #if ENABLE(UI_PROCESS_PDF_HUD)

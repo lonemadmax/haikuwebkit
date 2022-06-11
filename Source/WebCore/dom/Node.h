@@ -29,6 +29,7 @@
 #include "LayoutRect.h"
 #include "RenderStyleConstants.h"
 #include "StyleValidity.h"
+#include "TaskSource.h"
 #include "TreeScope.h"
 #include <wtf/CompactPointerTuple.h>
 #include <wtf/CompactUniquePtrTuple.h>
@@ -266,6 +267,10 @@ public:
     Node& getRootNode(const GetRootNodeOptions&) const;
     
     void* opaqueRoot() const;
+    void* traverseToOpaqueRoot() const;
+
+    void queueTaskKeepingThisNodeAlive(TaskSource, Function<void ()>&&);
+    void queueTaskToDispatchEvent(TaskSource, Ref<Event>&&);
 
     // Use when it's guaranteed to that shadowHost is null.
     ContainerNode* parentNodeGuaranteedHostFree() const;
@@ -455,10 +460,10 @@ public:
     NodeListsNodeData* nodeLists();
     void clearNodeLists();
 
-    virtual bool willRespondToMouseMoveEvents();
-    virtual bool willRespondToMouseClickEvents();
-    virtual bool willRespondToMouseWheelEvents();
-    virtual bool willRespondToTouchEvents();
+    virtual bool willRespondToMouseMoveEvents() const;
+    virtual bool willRespondToMouseClickEvents() const;
+    virtual bool willRespondToMouseWheelEvents() const;
+    virtual bool willRespondToTouchEvents() const;
 
     WEBCORE_EXPORT unsigned short compareDocumentPosition(Node&);
 
@@ -560,7 +565,7 @@ protected:
         HasCustomStyleResolveCallbacks = 1 << 21,
 
         HasPendingResources = 1 << 22,
-        HasElementIdentifier = 1 << 23,
+        // Bit 23 is free.
 #if ENABLE(FULLSCREEN_API)
         ContainsFullScreenElement = 1 << 24,
 #endif
@@ -712,8 +717,6 @@ private:
 
     void adjustStyleValidity(Style::Validity, Style::InvalidationMode);
 
-    void* opaqueRootSlow() const;
-
     static void moveShadowTreeToNewDocument(ShadowRoot&, Document& oldDocument, Document& newDocument);
     static void moveTreeToNewScope(Node&, TreeScope& oldScope, TreeScope& newScope);
     void moveNodeToNewDocument(Document& oldDocument, Document& newDocument);
@@ -848,7 +851,7 @@ inline void* Node::opaqueRoot() const
     // https://bugs.webkit.org/show_bug.cgi?id=165713
     if (isConnected())
         return &document();
-    return opaqueRootSlow();
+    return traverseToOpaqueRoot();
 }
 
 inline ContainerNode* Node::parentNodeGuaranteedHostFree() const

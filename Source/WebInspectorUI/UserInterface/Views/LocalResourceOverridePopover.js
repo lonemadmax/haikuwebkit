@@ -57,7 +57,7 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
         // COMPATIBILITY (iOS 13.4): `Network.addInterception` did not exist yet.
         let data = {
             type: this._skipNetworkCheckbox?.checked ? WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork : this._typeSelectElement.value,
-            url: WI.urlWithoutFragment(this._urlCodeMirror.getValue()),
+            url: this._urlCodeMirror.getValue(),
             isCaseSensitive: !this._isCaseSensitiveCheckbox || this._isCaseSensitiveCheckbox.checked,
             isRegex: !!this._isRegexCheckbox?.checked,
         };
@@ -362,8 +362,10 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
         };
 
         let toggleHeadersDataGridVisibility = (force) => {
-            this._headersDataGrid.element.hidden = force !== undefined ? force : !this._headersDataGrid.hasChildren;
-            this._headersDataGrid.updateLayoutIfNeeded();
+            let hidden = force ?? !this._headersDataGrid.hasChildren;
+            this._headersDataGrid.element.hidden = hidden;
+            if (!hidden)
+                this._headersDataGrid.updateLayout();
         };
 
         let contentTypeDataGridNode = addDataGridNodeForHeader(WI.unlocalizedString("Content-Type"), valueData.mimeType || placeholderData.mimeType, {selectable: false, editable: false, classNames: ["header-content-type"]});

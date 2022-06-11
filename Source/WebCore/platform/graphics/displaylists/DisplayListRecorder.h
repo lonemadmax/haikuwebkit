@@ -51,12 +51,13 @@ class Recorder : public GraphicsContext {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(Recorder);
 public:
-    WEBCORE_EXPORT Recorder(const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, DrawGlyphsRecorder::DeconstructDrawGlyphs = DrawGlyphsRecorder::DeconstructDrawGlyphs::Yes);
+    enum class DeconstructDrawGlyphs : bool { No, Yes };
+
+    WEBCORE_EXPORT Recorder(const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, DeconstructDrawGlyphs = DeconstructDrawGlyphs::No);
     WEBCORE_EXPORT virtual ~Recorder();
 
     virtual void convertToLuminanceMask() = 0;
     virtual void transformToColorSpace(const DestinationColorSpace&) = 0;
-    virtual void flushContext(GraphicsContextFlushIdentifier) = 0;
 
 protected:
     virtual void recordSave() = 0;
@@ -133,6 +134,8 @@ protected:
     virtual bool recordResourceUse(ImageBuffer&) = 0;
     virtual bool recordResourceUse(const SourceImage&) = 0;
     virtual bool recordResourceUse(Font&) = 0;
+
+    virtual void setNeedsFlush(bool) { }
 
     struct ContextState {
         GraphicsContextState state;
@@ -272,7 +275,7 @@ private:
     Vector<ContextState, 4> m_stateStack;
     std::unique_ptr<DrawGlyphsRecorder> m_drawGlyphsRecorder;
     float m_initialScale { 1 };
-    DrawGlyphsRecorder::DeconstructDrawGlyphs m_deconstructDrawGlyphs { DrawGlyphsRecorder::DeconstructDrawGlyphs::No };
+    const DeconstructDrawGlyphs m_deconstructDrawGlyphs { DeconstructDrawGlyphs::No };
 };
 
 } // namespace DisplayList

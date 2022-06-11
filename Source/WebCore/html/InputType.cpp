@@ -59,6 +59,7 @@
 #include "NumberInputType.h"
 #include "Page.h"
 #include "PasswordInputType.h"
+#include "PseudoClassChangeInvalidation.h"
 #include "RadioInputType.h"
 #include "RangeInputType.h"
 #include "RenderElement.h"
@@ -771,20 +772,6 @@ bool InputType::rendererIsNeeded()
     return true;
 }
 
-FileList* InputType::files()
-{
-    return nullptr;
-}
-
-void InputType::setFiles(RefPtr<FileList>&&, WasSetByJavaScript)
-{
-}
-
-bool InputType::getTypeSpecificValue(String&)
-{
-    return false;
-}
-
 String InputType::fallbackValue() const
 {
     return String();
@@ -808,10 +795,25 @@ bool InputType::storesValueSeparateFromAttribute()
 void InputType::setValue(const String& sanitizedValue, bool valueChanged, TextFieldEventBehavior eventBehavior, TextControlSetValueSelection)
 {
     ASSERT(element());
-    element()->setValueInternal(sanitizedValue, eventBehavior);
-    if (!valueChanged)
+    if (!valueChanged) {
+        element()->setValueInternal(sanitizedValue, eventBehavior);
         return;
-    element()->invalidateStyleForSubtree();
+    }
+
+    bool wasInRange = isInRange(element()->value());
+    bool inRange = isInRange(sanitizedValue);
+
+    bool dummy;
+    auto oldDirection = element()->directionalityIfhasDirAutoAttribute(dummy);
+
+    std::optional<Style::PseudoClassChangeInvalidation> styleInvalidation;
+    if (wasInRange != inRange)
+        emplace(styleInvalidation, *element(), { { CSSSelector::PseudoClassInRange, inRange }, { CSSSelector::PseudoClassOutOfRange, !inRange } });
+
+    element()->setValueInternal(sanitizedValue, eventBehavior);
+
+    if (oldDirection != element()->directionalityIfhasDirAutoAttribute(dummy))
+        element()->invalidateStyleInternal();
 
     switch (eventBehavior) {
     case DispatchChangeEvent:
@@ -830,11 +832,6 @@ void InputType::setValue(const String& sanitizedValue, bool valueChanged, TextFi
         if (auto* cache = element()->document().existingAXObjectCache())
             cache->postNotification(element(), AXObjectCache::AXValueChanged);
     }
-}
-
-bool InputType::canSetValue(const String&)
-{
-    return true;
 }
 
 void InputType::willDispatchClick(InputElementClickState&)
@@ -1182,20 +1179,6 @@ void InputType::stepUpFromRenderer(int n)
         } else
             applyStep(n, AnyStepHandling::Default, DispatchInputAndChangeEvent);
     }
-}
-
-Color InputType::valueAsColor() const
-{
-    return Color::transparentBlack;
-}
-
-void InputType::selectColor(StringView)
-{
-}
-
-Vector<Color> InputType::suggestedColors() const
-{
-    return { };
 }
 
 RefPtr<TextControlInnerTextElement> InputType::innerTextElement() const

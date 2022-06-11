@@ -385,11 +385,20 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXDisabledStateChanged:
         stream << "AXDisabledStateChanged";
         break;
+    case AXObjectCache::AXNotification::AXDescribedByChanged:
+        stream << "AXDescribedByChanged";
+        break;
     case AXObjectCache::AXNotification::AXFocusedUIElementChanged:
         stream << "AXFocusedUIElementChanged";
         break;
     case AXObjectCache::AXNotification::AXFrameLoadComplete:
         stream << "AXFrameLoadComplete";
+        break;
+    case AXObjectCache::AXNotification::AXGrabbedStateChanged:
+        stream << "AXGrabbedStateChanged";
+        break;
+    case AXObjectCache::AXNotification::AXHasPopupChanged:
+        stream << "AXHasPopupChanged";
         break;
     case AXObjectCache::AXNotification::AXIdAttributeChanged:
         stream << "AXIdAttributeChanged";
@@ -411,6 +420,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXPageScrolled:
         stream << "AXPageScrolled";
+        break;
+    case AXObjectCache::AXNotification::AXPositionInSetChanged:
+        stream << "AXPositionInSetChanged";
         break;
     case AXObjectCache::AXNotification::AXSelectedChildrenChanged:
         stream << "AXSelectedChildrenChanged";
@@ -588,11 +600,11 @@ void streamAXCoreObject(TextStream& stream, const AXCoreObject& object, const Op
             objectWithInterestingHTML = parent;
 
         if (objectWithInterestingHTML)
-            stream.dumpProperty("outerHTML", objectWithInterestingHTML->outerHTML());
+            stream.dumpProperty("outerHTML", objectWithInterestingHTML->outerHTML().left(150));
     }
 
     if (options & AXStreamOptions::DisplayContents) {
-        if (auto* axObject = dynamicDowncast<AccessibilityObject>(&object); axObject->hasDisplayContents())
+        if (auto* axObject = dynamicDowncast<AccessibilityObject>(&object); axObject && axObject->hasDisplayContents())
             stream.dumpProperty("hasDisplayContents", true);
     }
 

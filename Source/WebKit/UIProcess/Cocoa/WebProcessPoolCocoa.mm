@@ -38,12 +38,11 @@
 #import "NetworkProcessMessages.h"
 #import "NetworkProcessProxy.h"
 #import "PreferenceObserver.h"
+#import "ProcessThrottler.h"
 #import "SandboxUtilities.h"
 #import "TextChecker.h"
 #import "UserInterfaceIdiom.h"
 #import "WKBrowsingContextControllerInternal.h"
-#import "WebAuthnProcessMessages.h"
-#import "WebAuthnProcessProxy.h"
 #import "WebBackForwardCache.h"
 #import "WebMemoryPressureHandler.h"
 #import "WebPageGroup.h"
@@ -264,39 +263,10 @@ void WebProcessPool::platformInitialize()
 #endif
 }
 
-#if PLATFORM(IOS_FAMILY)
-String WebProcessPool::cacheDirectoryInContainerOrHomeDirectory(const String& subpath)
-{
-    String path = pathForProcessContainer();
-    if (path.isEmpty())
-        path = NSHomeDirectory();
-
-    path = path + subpath;
-    path = stringByResolvingSymlinksInPath(path);
-    return path;
-}
-
-String WebProcessPool::cookieStorageDirectory()
-{
-    return cacheDirectoryInContainerOrHomeDirectory("/Library/Cookies"_s);
-}
-#endif
-
 void WebProcessPool::platformResolvePathsForSandboxExtensions()
 {
     m_resolvedPaths.uiProcessBundleResourcePath = resolvePathForSandboxExtension(String { [[NSBundle mainBundle] resourcePath] });
 }
-
-#if PLATFORM(IOS_FAMILY)
-static const Vector<ASCIILiteral>& nonBrowserServices()
-{
-    ASSERT(isMainRunLoop());
-    static NeverDestroyed services = Vector<ASCIILiteral> {
-        "com.apple.lsd.open"_s,
-    };
-    return services;
-}
-#endif
 
 void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process, WebProcessCreationParameters& parameters)
 {
@@ -398,9 +368,6 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    if (!isFullWebBrowser())
-        parameters.dynamicMachExtensionHandles = SandboxExtension::createHandlesForMachLookup(nonBrowserServices(), std::nullopt);
-
     if (WebCore::deviceHasAGXCompilerService())
         parameters.dynamicIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(WebCore::agxCompilerClasses(), std::nullopt);
 #endif
@@ -431,13 +398,13 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC)
-    if (MacApplication::isAppleMail()) {
+    if (MacApplication::isAppleMail() || CocoaApplication::isWebkitTestRunner()) {
         if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
             parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
         parameters.restrictImageAndVideoDecoders = true;
     }
 #else
-    parameters.restrictImageAndVideoDecoders = IOSApplication::isMobileMail() || IOSApplication::isMailCompositionService();
+    parameters.restrictImageAndVideoDecoders = IOSApplication::isMobileMail() || IOSApplication::isMailCompositionService() || CocoaApplication::isWebkitTestRunner();
 #endif // PLATFORM(MAC)
 #endif // HAVE(VIDEO_RESTRICTED_DECODING)
 
@@ -495,47 +462,6 @@ void WebProcessPool::platformInvalidateContext()
 {
     unregisterNotificationObservers();
 }
-
-#if PLATFORM(IOS_FAMILY)
-String WebProcessPool::parentBundleDirectory()
-{
-    return [[[NSBundle mainBundle] bundlePath] stringByStandardizingPath];
-}
-
-String WebProcessPool::networkingCachesDirectory()
-{
-    String path = cacheDirectoryInContainerOrHomeDirectory("/Library/Caches/com.apple.WebKit.Networking/"_s);
-
-    NSError *error = nil;
-    NSString* nsPath = path;
-    if (![[NSFileManager defaultManager] createDirectoryAtPath:nsPath withIntermediateDirectories:YES attributes:nil error:&error]) {
-        NSLog(@"could not create networking caches directory \"%@\", error %@", nsPath, error);
-        return String();
-    }
-
-    return path;
-}
-
-String WebProcessPool::webContentCachesDirectory()
-{
-    String path = cacheDirectoryInContainerOrHomeDirectory("/Library/Caches/com.apple.WebKit.WebContent/"_s);
-
-    NSError *error = nil;
-    NSString* nsPath = path;
-    if (![[NSFileManager defaultManager] createDirectoryAtPath:nsPath withIntermediateDirectories:YES attributes:nil error:&error]) {
-        NSLog(@"could not create web content caches directory \"%@\", error %@", nsPath, error);
-        return String();
-    }
-
-    return path;
-}
-
-String WebProcessPool::containerTemporaryDirectory()
-{
-    String path = NSTemporaryDirectory();
-    return stringByResolvingSymlinksInPath(path);
-}
-#endif
 
 #if PLATFORM(IOS_FAMILY)
 void WebProcessPool::setJavaScriptConfigurationFileEnabledFromDefaults()
@@ -1065,6 +991,15 @@ void WebProcessPool::notifyProcessPoolsApplicationIsAboutToSuspend()
     for (auto& processPool : allProcessPools())
         processPool->applicationIsAboutToSuspend();
 }
+
+void WebProcessPool::setProcessesShouldSuspend(bool shouldSuspend)
+{
+    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "setProcessesShouldSuspend: Processes should suspend %d", shouldSuspend);
+
+    for (auto& process : m_processes)
+        process->throttler().setAllowsActivities(!shouldSuspend);
+}
+
 #endif
 
 void WebProcessPool::initializeClassesForParameterCoding()
@@ -1112,11 +1047,6 @@ void WebProcessPool::notifyPreferencesChanged(const String& domain, const String
         if (auto* networkProcess = dataStore.networkProcessIfExists())
             networkProcess->send(Messages::NetworkProcess::NotifyPreferencesChanged(domain, key, encodedValue), 0);
     });
-    
-#if ENABLE(WEB_AUTHN)
-    if (auto webAuthnProcess = WebAuthnProcessProxy::singletonIfCreated())
-        webAuthnProcess->send(Messages::WebAuthnProcess::NotifyPreferencesChanged(domain, key, encodedValue), 0);
-#endif
 
     if (key == WKCaptivePortalModeEnabledKey)
         captivePortalModeStateChanged();

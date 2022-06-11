@@ -26,7 +26,6 @@
 #include "CSSBorderImageWidthValue.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSCustomPropertyValue.h"
-#include "CSSDeferredParser.h"
 #include "CSSGridLineNamesValue.h"
 #include "CSSGridTemplateAreasValue.h"
 #include "CSSOffsetRotateValue.h"
@@ -133,7 +132,6 @@ ImmutableStyleProperties::~ImmutableStyleProperties()
 MutableStyleProperties::MutableStyleProperties(const StyleProperties& other)
     : StyleProperties(other.cssParserMode(), MutablePropertiesType)
 {
-    ASSERT(other.type() != DeferredPropertiesType);
     if (is<MutableStyleProperties>(other))
         m_propertyVector = downcast<MutableStyleProperties>(other).m_propertyVector;
     else {
@@ -176,7 +174,7 @@ bool StyleProperties::shorthandHasVariableReference(CSSPropertyID propertyID, St
     return false;
 }
 
-String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
+String StyleProperties::getPropertyValue(CSSPropertyID propertyID, Document* document) const
 {
     if (auto value = getPropertyCSSValue(propertyID)) {
         switch (propertyID) {
@@ -190,7 +188,7 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
                 return makeString(downcast<CSSPrimitiveValue>(*value).doubleValue() / 100);
             FALLTHROUGH;
         default:
-            return value->cssText();
+            return value->cssText(document);
         }
     }
 
@@ -880,7 +878,7 @@ String StyleProperties::getGridTemplateValue() const
         return String();
 
     auto areas = propertyAt(areasIndex);
-    if (isValueID(areas.value(), CSSValueNone) || areas.value()->isInitialValue()) {
+    if (!is<CSSGridTemplateAreasValue>(areas.value())) {
         String rowsText = rows->cssText();
         result.append(rowsText);
 
@@ -2006,25 +2004,6 @@ String StyleProperties::PropertyReference::cssName() const
 String StyleProperties::PropertyReference::cssText() const
 {
     return makeString(cssName(), ": ", m_value->cssText(), isImportant() ? " !important" : "", ';');
-}
-    
-Ref<DeferredStyleProperties> DeferredStyleProperties::create(const CSSParserTokenRange& tokenRange, CSSDeferredParser& parser)
-{
-    return adoptRef(*new DeferredStyleProperties(tokenRange, parser));
-}
-
-DeferredStyleProperties::DeferredStyleProperties(const CSSParserTokenRange& range, CSSDeferredParser& parser)
-    : StylePropertiesBase(parser.mode(), DeferredPropertiesType)
-    , m_tokens(range.begin(), range.end() - range.begin())
-    , m_parser(parser)
-{
-}
-    
-DeferredStyleProperties::~DeferredStyleProperties() = default;
-
-Ref<ImmutableStyleProperties> DeferredStyleProperties::parseDeferredProperties()
-{
-    return m_parser->parseDeclaration(m_tokens);
 }
 
 } // namespace WebCore

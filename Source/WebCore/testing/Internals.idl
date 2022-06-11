@@ -378,11 +378,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     Node ensureUserAgentShadowRoot(Element host);
     Node shadowRoot(Element host);
 
-    // CSS Deferred Parsing Testing.
-    long deferredStyleRulesCount(StyleSheet sheet);
-    long deferredGroupRulesCount(StyleSheet sheet);
-    long deferredKeyframesRulesCount(StyleSheet sheet);
-
     DOMString shadowRootType(Node root);
     DOMString shadowPseudoId(Element element);
     undefined setShadowPseudoId(Element element, [AtomString] DOMString id);
@@ -454,6 +449,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     undefined setPagination(DOMString mode, long gap, optional long pageLength = 0);
     undefined setPaginationLineGridEnabled(boolean enabled);
+    unsigned long long lineIndexAfterPageBreak(Element element);
 
     DOMString configurationForViewport(unrestricted float devicePixelRatio, long deviceWidth, long deviceHeight, long availableWidth, long availableHeight);
 
@@ -609,6 +605,9 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     DOMString displayListForElement(Element element, optional unsigned short flags = 0);
     // Returns the display list that was actually painted.
     DOMString replayDisplayListForElement(Element element, optional unsigned short flags = 0);
+
+    undefined setForceUseGlyphDisplayListForTesting(boolean enabled);
+    DOMString cachedGlyphDisplayListsForTextNode(Node node, optional unsigned short flags = 0);
 
     undefined garbageCollectDocumentResources();
 
@@ -790,7 +789,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     boolean isPluginUnavailabilityIndicatorObscured(Element element);
     DOMString unavailablePluginReplacementText(Element element);
     boolean isPluginSnapshotted(Element element);
-    boolean pluginIsBelowSizeThreshold(Element element);
 
     DOMRect selectionBounds();
     undefined setSelectionWithoutValidation(Node baseNode, unsigned long baseOffset, Node? extentNode, unsigned long extentOffset);
@@ -960,7 +958,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     readonly attribute unsigned long long storageAreaMapCount;
 
     unsigned long long elementIdentifier(Element element);
-    [CallWith=CurrentDocument] boolean isElementAlive(unsigned long long documentIdentifier);
+    boolean isElementAlive(unsigned long long elementIdentifier);
     unsigned long long frameIdentifier(Document document);
     unsigned long long pageIdentifier(Document document);
 

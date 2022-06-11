@@ -33,7 +33,7 @@
 #import "Logging.h"
 #import "ObjCObjectGraph.h"
 #import "SandboxUtilities.h"
-#import "SharedBufferCopy.h"
+#import "SharedBufferReference.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKTypeRefWrapper.h"
@@ -290,7 +290,7 @@ void WebProcessProxy::sendAudioComponentRegistrations()
                 return;
 
             auto registrationData = WebCore::SharedBuffer::create(registrations.get());
-            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferCopy(WTFMove(registrationData))), 0);
+            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferReference(WTFMove(registrationData))), 0);
         });
     });
 }
@@ -316,7 +316,7 @@ bool WebProcessProxy::messageSourceIsValidWebContentProcess()
     // Confirm that the connection is from a WebContent process:
     auto [signingIdentifier, isPlatformBinary] = codeSigningIdentifierAndPlatformBinaryStatus(connection()->xpcConnection());
 
-    if (!isPlatformBinary || !signingIdentifier.startsWith("com.apple.WebKit.WebContent")) {
+    if (!isPlatformBinary || !signingIdentifier.startsWith("com.apple.WebKit.WebContent"_s)) {
         RELEASE_LOG_ERROR(Process, "Process is not an entitled WebContent process.");
         return false;
     }
@@ -331,6 +331,11 @@ std::optional<audit_token_t> WebProcessProxy::auditToken() const
         return std::nullopt;
     
     return connection()->getAuditToken();
+}
+
+SandboxExtension::Handle WebProcessProxy::fontdMachExtensionHandle(SandboxExtension::MachBootstrapOptions machBootstrapOptions) const
+{
+    return SandboxExtension::createHandleForMachLookup("com.apple.fonts"_s, auditToken(), machBootstrapOptions).value_or(SandboxExtension::Handle { });
 }
 
 }

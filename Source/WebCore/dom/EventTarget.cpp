@@ -290,8 +290,6 @@ void EventTarget::fireEventListeners(Event& event, EventInvokePhase phase)
     if (!data)
         return;
 
-    SetForScope firingEventListenersScope(data->isFiringEventListeners, true);
-
     if (auto* listenersVector = data->eventListenerMap.find(event.type())) {
         innerInvokeEventListeners(event, *listenersVector, phase);
         return;
@@ -372,7 +370,7 @@ void EventTarget::innerInvokeEventListeners(Event& event, EventListenerVector li
         InspectorInstrumentation::didDispatchEvent(downcast<Document>(context), event);
 }
 
-Vector<AtomString> EventTarget::eventTypes()
+Vector<AtomString> EventTarget::eventTypes() const
 {
     if (auto* data = eventTargetData())
         return data->eventListenerMap.eventTypes();

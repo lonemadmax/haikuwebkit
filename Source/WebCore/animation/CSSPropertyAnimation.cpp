@@ -624,12 +624,8 @@ static inline bool canInterpolate(const GridTrackList& from, const GridTrackList
             return false;
         const auto& toEntry = std::get<GridTrackEntryRepeat>(to[i]);
         return repeat.repeats == toEntry.repeats && repeat.list.size() == toEntry.list.size();
-    }, [&](const GridTrackEntryAutoRepeat& repeat) {
+    }, [&](const GridTrackEntryAutoRepeat&) {
         return false;
-        if (!std::holds_alternative<GridTrackEntryAutoRepeat>(to[i]))
-            return false;
-        const auto& toEntry = std::get<GridTrackEntryAutoRepeat>(to[i]);
-        return repeat.type == toEntry.type && repeat.list.size() == toEntry.list.size();
     }, [&](const GridTrackEntrySubgrid&) {
         return false;
     });
@@ -3636,6 +3632,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyWebkitMaskComposite:
         case CSSPropertyWebkitMaskSourceType:
         case CSSPropertyWebkitNbspMode:
+        case CSSPropertyWebkitPerspective:
 #if ENABLE(OVERFLOW_SCROLLING_TOUCH)
         case CSSPropertyWebkitOverflowScrolling:
 #endif

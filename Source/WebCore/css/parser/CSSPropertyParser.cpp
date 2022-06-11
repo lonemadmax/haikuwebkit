@@ -2466,14 +2466,27 @@ static RefPtr<CSSPrimitiveValue> consumePerspective(CSSParserTokenRange& range, 
     if (auto parsedValue = consumeLength(range, cssParserMode, ValueRange::All)) {
         if (!parsedValue->isNegative().value_or(false))
             return parsedValue;
-        return nullptr;
     }
 
-    // FIXME: Make this quirk only apply to the webkit prefixed version of the property.
-    auto perspective = consumeNumberRaw(range);
-    if (!perspective || perspective->value < 0)
-        return nullptr;
-    return CSSPrimitiveValue::create(perspective->value, CSSUnitType::CSS_PX);
+    return nullptr;
+}
+
+bool CSSPropertyParser::consumePrefixedPerspective(bool important)
+{
+    if (auto value = consumePerspective(m_range, m_context.mode)) {
+        addProperty(CSSPropertyPerspective, CSSPropertyWebkitPerspective, value.releaseNonNull(), important);
+        return m_range.atEnd();
+    }
+
+    if (auto perspective = consumeNumberRaw(m_range)) {
+        if (perspective->value < 0)
+            return false;
+        auto value = CSSPrimitiveValue::create(perspective->value, CSSUnitType::CSS_PX);
+        addProperty(CSSPropertyPerspective, CSSPropertyWebkitPerspective, WTFMove(value), important);
+        return m_range.atEnd();
+    }
+
+    return false;
 }
 
 static RefPtr<CSSValueList> consumeScrollSnapAlign(CSSParserTokenRange& range)
@@ -4581,13 +4594,21 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
             return parsedValue;
         return consumePercent(m_range, ValueRange::All);
     case CSSPropertyOffsetPath:
+        if (!m_context.motionPathEnabled)
+            return nullptr;
         return consumePathOperation(m_range, m_context, ConsumeRay::Include);
     case CSSPropertyOffsetDistance:
+        if (!m_context.motionPathEnabled)
+            return nullptr;
         return consumeLengthOrPercent(m_range, m_context.mode, ValueRange::All, UnitlessQuirk::Forbid);
     case CSSPropertyOffsetPosition:
     case CSSPropertyOffsetAnchor:
+        if (!m_context.motionPathEnabled)
+            return nullptr;
         return consumePositionOrAuto(m_range, m_context.mode, UnitlessQuirk::Forbid, PositionSyntax::Position);
     case CSSPropertyOffsetRotate:
+        if (!m_context.motionPathEnabled)
+            return nullptr;
         return consumeOffsetRotate(m_range, m_context.mode);
     case CSSPropertyWebkitBoxFlex:
         return consumeNumber(m_range, ValueRange::All);
@@ -6424,6 +6445,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
     case CSSPropertyOutline:
         return consumeShorthandGreedily(outlineShorthand(), important);
     case CSSPropertyOffset:
+        if (!m_context.motionPathEnabled)
+            return false;
         return consumeOffset(important);
     case CSSPropertyBorderInline: {
         RefPtr<CSSValue> width;
@@ -6578,6 +6601,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumeTransformOrigin(important);
     case CSSPropertyPerspectiveOrigin:
         return consumePerspectiveOrigin(important);
+    case CSSPropertyWebkitPerspective:
+        return consumePrefixedPerspective(important);
     case CSSPropertyGap: {
         RefPtr<CSSValue> rowGap = consumeGapLength(m_range, m_context.mode);
         RefPtr<CSSValue> columnGap = consumeGapLength(m_range, m_context.mode);

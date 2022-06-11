@@ -65,6 +65,7 @@
 #include <libintl.h>
 #include <memory>
 #include <pal/HysteresisActivity.h>
+#include <wtf/DateMath.h>
 #include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -127,6 +128,7 @@ enum {
 #endif
 #endif
     PROP_MEMORY_PRESSURE_SETTINGS,
+    PROP_TIME_ZONE_OVERRIDE,
     N_PROPERTIES,
 };
 
@@ -245,6 +247,8 @@ struct _WebKitWebContextPrivate {
     PAL::HysteresisActivity dnsPrefetchHystereris;
 
     WebKitMemoryPressureSettings* memoryPressureSettings;
+
+    CString timeZoneOverride;
 };
 
 static guint signals[LAST_SIGNAL] = { 0, };
@@ -350,6 +354,9 @@ static void webkitWebContextGetProperty(GObject* object, guint propID, GValue* v
         break;
 #endif
 #endif
+    case PROP_TIME_ZONE_OVERRIDE:
+        g_value_set_string(value, webkit_web_context_get_time_zone_override(context));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
     }
@@ -385,6 +392,12 @@ static void webkitWebContextSetProperty(GObject* object, guint propID, const GVa
         context->priv->memoryPressureSettings = settings ? webkit_memory_pressure_settings_copy(static_cast<WebKitMemoryPressureSettings*>(settings)) : nullptr;
         break;
     }
+    case PROP_TIME_ZONE_OVERRIDE: {
+        const auto* timeZone = g_value_get_string(value);
+        if (isTimeZoneValid(StringView::fromLatin1(timeZone)))
+            context->priv->timeZoneOverride = timeZone;
+        break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
     }
@@ -413,6 +426,7 @@ static void webkitWebContextConstructed(GObject* object)
         // Once the settings have been passed to the ProcessPoolConfiguration, we don't need them anymore so we can free them.
         g_clear_pointer(&priv->memoryPressureSettings, webkit_memory_pressure_settings_free);
     }
+    configuration.setTimeZoneOverride(String::fromUTF8(priv->timeZoneOverride.data(), priv->timeZoneOverride.length()));
 
     if (!priv->websiteDataManager)
         priv->websiteDataManager = adoptGRef(webkit_website_data_manager_new("local-storage-directory", priv->localStorageDirectory.data(), nullptr));
@@ -571,6 +585,28 @@ static void webkit_web_context_class_init(WebKitWebContextClass* webContextClass
             _("The WebKitMemoryPressureSettings applied to the web processes created by this context"),
             WEBKIT_TYPE_MEMORY_PRESSURE_SETTINGS,
             static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+
+    /**
+     * WebKitWebContext:time-zone-override:
+     *
+     * The timezone override for this web context. Setting this property provides a better
+     * alternative to configure the timezone information for all webviews managed by the WebContext.
+     * The other, less optimal, approach is to globally set the TZ environment variable in the
+     * process before creating the context. However this approach might not be very convenient and
+     * can have side-effects in your application.
+     *
+     * The expected values for this property are defined in the IANA timezone database. See this
+     * wikipedia page for instance, https://en.wikipedia.org/wiki/List_of_tz_database_time_zones.
+     *
+     * Since: 2.38
+     */
+    sObjProperties[PROP_TIME_ZONE_OVERRIDE] =
+        g_param_spec_string(
+            "time-zone-override",
+            _("Time Zone Override"),
+            _("The time zone to use instead of the system one"),
+            nullptr,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
     g_object_class_install_properties(gObjectClass, N_PROPERTIES, sObjProperties);
 
@@ -1249,7 +1285,7 @@ void webkit_web_context_register_uri_scheme(WebKitWebContext* context, const cha
     g_return_if_fail(scheme);
     g_return_if_fail(callback);
 
-    auto canonicalizedScheme = WTF::URLParser::maybeCanonicalizeScheme(scheme);
+    auto canonicalizedScheme = WTF::URLParser::maybeCanonicalizeScheme(StringView::fromLatin1(scheme));
     if (!canonicalizedScheme) {
         g_critical("Cannot register invalid URI scheme %s", scheme);
         return;
@@ -1834,6 +1870,21 @@ gboolean webkit_web_context_get_use_system_appearance_for_scrollbars(WebKitWebCo
     return context->priv->useSystemAppearanceForScrollbars;
 }
 #endif
+
+/**
+ * webkit_web_context_get_time_zone_override:
+ * @context: a #WebKitWebContext
+ *
+ * Get the #WebKitWebContext:time-zone-override property.
+ *
+ * Since: 2.38
+ */
+const gchar* webkit_web_context_get_time_zone_override(WebKitWebContext* context)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
+
+    return context->priv->timeZoneOverride.data();
+}
 
 void webkitWebContextInitializeNotificationPermissions(WebKitWebContext* context)
 {

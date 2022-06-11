@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -33,7 +33,6 @@
 #include "GlyphBuffer.h"
 #include "Gradient.h"
 #include "GraphicsContext.h"
-#include "GraphicsContextFlushIdentifier.h"
 #include "Image.h"
 #include "MediaPlayerIdentifier.h"
 #include "Pattern.h"
@@ -56,6 +55,7 @@ struct ImagePaintingOptions;
 
 namespace DisplayList {
 
+enum class AsTextFlag : uint8_t;
 struct ItemHandle;
 
 /* isInlineItem indicates whether the object needs to be passed through IPC::Encoder in order to serialize,
@@ -441,7 +441,7 @@ public:
         , m_destinationRect(destinationRect)
     {
     }
-    
+
     RenderingResourceIdentifier imageBufferIdentifier() const { return m_imageBufferIdentifier; }
     FloatRect destinationRect() const { return m_destinationRect; }
     bool isValid() const { return m_imageBufferIdentifier.isValid(); }
@@ -1975,26 +1975,6 @@ private:
     float m_scaleFactor { 1 };
 };
 
-class FlushContext {
-public:
-    static constexpr ItemType itemType = ItemType::FlushContext;
-    static constexpr bool isInlineItem = true;
-    static constexpr bool isDrawingItem = false;
-
-    explicit FlushContext(GraphicsContextFlushIdentifier identifier)
-        : m_identifier(identifier)
-    {
-    }
-
-    GraphicsContextFlushIdentifier identifier() const { return m_identifier; }
-    bool isValid() const { return m_identifier.isValid(); }
-
-    WEBCORE_EXPORT void apply(GraphicsContext&) const;
-
-private:
-    GraphicsContextFlushIdentifier m_identifier;
-};
-
 using DisplayListItem = std::variant
     < ApplyDeviceScaleFactor
     , BeginTransparencyLayer
@@ -2029,7 +2009,6 @@ using DisplayListItem = std::variant
     , FillRectWithGradient
     , FillRectWithRoundedHole
     , FillRoundedRect
-    , FlushContext
     , Restore
     , Rotate
     , Save
@@ -2072,7 +2051,82 @@ using DisplayListItem = std::variant
 size_t paddedSizeOfTypeAndItemInBytes(const DisplayListItem&);
 ItemType displayListItemType(const DisplayListItem&);
 
-TextStream& operator<<(TextStream&, ItemHandle);
+#if !LOG_DISABLED
+WEBCORE_EXPORT void dumpItem(TextStream&, const Translate&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const Rotate&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const Scale&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetCTM&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const ConcatenateCTM&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetInlineFillColor&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetInlineStrokeColor&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetStrokeThickness&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetState&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetLineCap&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetLineDash&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetLineJoin&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const SetMiterLimit&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const Clip&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const ClipOut&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const ClipToImageBuffer&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const ClipOutToPath&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const ClipPath&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawFilteredImageBuffer&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawGlyphs&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawImageBuffer&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawNativeImage&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawSystemImage&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawPattern&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawRect&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawLine&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawLinesForText&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawDotsForDocumentMarker&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawEllipse&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawPath&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawFocusRingPath&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const DrawFocusRingRects&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillRect&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillRectWithColor&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillRectWithGradient&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillCompositedRect&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillRoundedRect&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillRectWithRoundedHole&, OptionSet<AsTextFlag>);
+#if ENABLE(INLINE_PATH_DATA)
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillLine&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillArc&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillQuadCurve&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillBezierCurve&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeArc&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeQuadCurve&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeBezierCurve&, OptionSet<AsTextFlag>);
+#endif // ENABLE(INLINE_PATH_DATA)
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillPath&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const FillEllipse&, OptionSet<AsTextFlag>);
+#if ENABLE(VIDEO)
+WEBCORE_EXPORT void dumpItem(TextStream&, const PaintFrameForMedia&, OptionSet<AsTextFlag>);
+#endif // ENABLE(VIDEO)
+WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeRect&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const StrokePath&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeEllipse&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const StrokeLine&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const ClearRect&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const BeginTransparencyLayer&, OptionSet<AsTextFlag>);
+WEBCORE_EXPORT void dumpItem(TextStream&, const ApplyDeviceScaleFactor&, OptionSet<AsTextFlag>);
+
+template <typename T>
+TextStream& operator<<(TextStream& ts, const T& item)
+{
+    dumpItem(ts, item, { AsTextFlag::IncludesPlatformOperations, AsTextFlag::IncludesResourceIdentifiers });
+    return ts;
+}
+
+void dumpItemHandle(TextStream&, const ItemHandle&, OptionSet<AsTextFlag>);
+
+inline TextStream& operator<<(TextStream& ts, const ItemHandle& itemHandle)
+{
+    dumpItemHandle(ts, itemHandle, { AsTextFlag::IncludesPlatformOperations, AsTextFlag::IncludesResourceIdentifiers });
+    return ts;
+}
+#endif
 
 } // namespace DisplayList
 } // namespace WebCore
@@ -2130,7 +2184,6 @@ template<> struct EnumTraits<WebCore::DisplayList::ItemType> {
 #endif
     WebCore::DisplayList::ItemType::FillPath,
     WebCore::DisplayList::ItemType::FillEllipse,
-    WebCore::DisplayList::ItemType::FlushContext,
 #if ENABLE(VIDEO)
     WebCore::DisplayList::ItemType::PaintFrameForMedia,
 #endif

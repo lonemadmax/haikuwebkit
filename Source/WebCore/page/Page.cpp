@@ -549,7 +549,7 @@ Ref<DOMRectList> Page::nonFastScrollableRectsForTesting()
     return DOMRectList::create(quads);
 }
 
-Ref<DOMRectList> Page::touchEventRectsForEventForTesting(const String& eventName)
+Ref<DOMRectList> Page::touchEventRectsForEventForTesting(EventTrackingRegions::EventType eventType)
 {
     if (Document* document = m_mainFrame->document()) {
         document->updateLayout();
@@ -561,7 +561,7 @@ Ref<DOMRectList> Page::touchEventRectsForEventForTesting(const String& eventName
     Vector<IntRect> rects;
     if (ScrollingCoordinator* scrollingCoordinator = this->scrollingCoordinator()) {
         const EventTrackingRegions& eventTrackingRegions = scrollingCoordinator->absoluteEventTrackingRegions();
-        const auto& region = eventTrackingRegions.eventSpecificSynchronousDispatchRegions.get(eventName);
+        const auto& region = eventTrackingRegions.eventSpecificSynchronousDispatchRegions.get(eventType);
         rects.appendVector(region.rects());
     }
 
@@ -1091,6 +1091,13 @@ Vector<Ref<Element>> Page::editableElementsInRect(const FloatRect& searchRectInR
     }
     return WTF::map(rootEditableElements, [](const auto& element) { return element.copyRef(); });
 }
+
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+bool Page::shouldBuildInteractionRegions() const
+{
+    return m_settings->interactionRegionsEnabled();
+}
+#endif
 
 const VisibleSelection& Page::selection() const
 {
@@ -1735,6 +1742,10 @@ void Page::doAfterUpdateRendering()
     });
 
     forEachDocument([] (Document& document) {
+        document.selection().updateAppearanceAfterLayout();
+    });
+
+    forEachDocument([] (Document& document) {
         document.updateHighlightPositions();
     });
 #if ENABLE(APP_HIGHLIGHTS)
@@ -1781,6 +1792,8 @@ void Page::doAfterUpdateRendering()
     });
 
     DebugPageOverlays::doAfterUpdateRendering(*this);
+
+    m_renderingUpdateRemainingSteps.last().remove(RenderingUpdateStep::PrepareCanvasesForDisplay);
 
     forEachDocument([] (Document& document) {
         document.prepareCanvasesForDisplayIfNeeded();
@@ -2019,7 +2032,7 @@ void Page::userStyleSheetLocationChanged()
 
     // Data URLs with base64-encoded UTF-8 style sheets are common. We can process them
     // synchronously and avoid using a loader. 
-    if (url.protocolIsData() && url.string().startsWith("data:text/css;charset=utf-8;base64,")) {
+    if (url.protocolIsData() && url.string().startsWith("data:text/css;charset=utf-8;base64,"_s)) {
         m_didLoadUserStyleSheet = true;
 
         if (auto styleSheetAsUTF8 = base64Decode(PAL::decodeURLEscapeSequences(StringView(url.string()).substring(35)), Base64DecodeOptions::IgnoreSpacesAndNewLines))
@@ -2268,31 +2281,11 @@ void Page::dnsPrefetchingStateChanged()
     });
 }
 
-Vector<Ref<PluginViewBase>> Page::pluginViews()
-{
-    Vector<Ref<PluginViewBase>> views;
-    for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        auto* view = frame->view();
-        if (!view)
-            break;
-        for (auto& widget : view->children()) {
-            if (is<PluginViewBase>(widget))
-                views.append(downcast<PluginViewBase>(widget.get()));
-        }
-    }
-    return views;
-}
-
 void Page::storageBlockingStateChanged()
 {
     forEachDocument([] (Document& document) {
         document.storageBlockingStateDidChange();
     });
-
-    // Collect the PluginViews in to a vector to ensure that action the plug-in takes
-    // from below storageBlockingStateChanged does not affect their lifetime.
-    for (auto& view : pluginViews())
-        view->storageBlockingStateChanged();
 }
 
 void Page::updateIsPlayingMedia()
@@ -3531,7 +3524,7 @@ bool Page::allowsLoadFromURL(const URL& url, MainFrameMainResource mainFrameMain
         return false;
     if (!m_allowedNetworkHosts)
         return true;
-    if (!url.protocolIsInHTTPFamily() && !url.protocolIs("ws") && !url.protocolIs("wss"))
+    if (!url.protocolIsInHTTPFamily() && !url.protocolIs("ws"_s) && !url.protocolIs("wss"_s))
         return true;
     return m_allowedNetworkHosts->contains<StringViewHashTranslator>(url.host());
 }
@@ -3845,6 +3838,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
     case RenderingUpdateStep::ScrollingTreeUpdate: ts << "ScrollingTreeUpdate"; break;
 #endif
     case RenderingUpdateStep::VideoFrameCallbacks: ts << "VideoFrameCallbacks"; break;
+    case RenderingUpdateStep::PrepareCanvasesForDisplay: ts << "PrepareCanvasesForDisplay"; break;
     }
     return ts;
 }

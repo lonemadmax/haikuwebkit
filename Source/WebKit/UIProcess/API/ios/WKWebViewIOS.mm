@@ -41,7 +41,6 @@
 #import "ViewGestureController.h"
 #import "WKBackForwardListItemInternal.h"
 #import "WKContentView.h"
-#import "WKHoverPlatterParameters.h"
 #import "WKPasswordView.h"
 #import "WKSafeBrowsingWarning.h"
 #import "WKScrollView.h"
@@ -64,6 +63,7 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/Box.h>
 #import <wtf/FixedVector.h>
 #import <wtf/SystemTracing.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -195,6 +195,10 @@ static int32_t deviceOrientationForUIInterfaceOrientation(UIInterfaceOrientation
     [center addObserver:self selector:@selector(_accessibilitySettingsDidChange:) name:UIAccessibilityGrayscaleStatusDidChangeNotification object:nil];
     [center addObserver:self selector:@selector(_accessibilitySettingsDidChange:) name:UIAccessibilityInvertColorsStatusDidChangeNotification object:nil];
     [center addObserver:self selector:@selector(_accessibilitySettingsDidChange:) name:UIAccessibilityReduceMotionStatusDidChangeNotification object:nil];
+
+#if HAVE(MULTITASKING_MODE)
+    [center addObserver:self selector:@selector(_multitaskingModeDidChange:) name:self.multitaskingModeChangedNotificationName object:nil];
+#endif
 }
 
 - (BOOL)_isShowingVideoPictureInPicture
@@ -701,6 +705,10 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     // FIXME: Which ones of these need to be done in the process swap case and which ones in the exit case?
     [self _hidePasswordView];
     [self _cancelAnimatedResize];
+
+#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+    [self _invalidateResizeAssertions];
+#endif
 
     if (_gestureController)
         _gestureController->disconnectFromProcess();
@@ -1554,6 +1562,13 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     _page->activityStateDidChange(WebCore::ActivityState::allFlags());
     _page->webViewDidMoveToWindow();
     [self _presentCaptivePortalModeAlertIfNeeded];
+#if HAVE(MULTITASKING_MODE)
+    if (_page->hasRunningProcess() && self.window)
+        _page->setIsInMultitaskingMode(self._isInMultitaskingMode);
+#endif
+#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+    [self _invalidateResizeAssertions];
+#endif
 }
 
 - (void)_setOpaqueInternal:(BOOL)opaque
@@ -1590,11 +1605,6 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
 - (BOOL)_allowsDoubleTapGestures
 {
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-    if (WKHoverPlatterDomain.rootSettings.platterEnabledForDoubleTap)
-        return YES;
-#endif
-
     if (_fastClickingIsDisabled)
         return YES;
 
@@ -2006,13 +2016,34 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
         return;
 
     if (_resizeAssertions.isEmpty()) {
-        [self _doAfterNextVisibleContentRectUpdate:makeBlockPtr([weakSelf = WeakObjCPtr<WKWebView>(self)] {
+        auto didInvalidateResizeAssertions = Box<bool>::create(false);
+
+        [self _doAfterNextVisibleContentRectUpdate:makeBlockPtr([weakSelf = WeakObjCPtr<WKWebView>(self), didInvalidateResizeAssertions] {
             auto strongSelf = weakSelf.get();
             if (!strongSelf)
                 return;
 
+            if (*didInvalidateResizeAssertions)
+                return;
+
             [strongSelf _invalidateResizeAssertions];
+
+            *didInvalidateResizeAssertions = true;
         }).get()];
+
+        RunLoop::main().dispatchAfter(1_s, [weakSelf = WeakObjCPtr<WKWebView>(self), didInvalidateResizeAssertions] {
+            auto strongSelf = weakSelf.get();
+            WKWEBVIEW_RELEASE_LOG("WKWebview %p next visible content rect update took too long; clearing resize assertions", strongSelf.get());
+            if (!strongSelf)
+                return;
+
+            if (*didInvalidateResizeAssertions)
+                return;
+
+            [strongSelf _invalidateResizeAssertions];
+
+            *didInvalidateResizeAssertions = true;
+        });
     }
 
     _resizeAssertions.append(retainPtr([windowScene _holdLiveResizeSnapshotForReason:reason]));
@@ -2723,6 +2754,21 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
 #endif
 
+#if HAVE(MULTITASKING_MODE)
+
+- (void)_multitaskingModeDidChange:(NSNotification *)notification
+{
+    if (dynamic_objc_cast<UIWindowScene>(notification.object) != self.window.windowScene)
+        return;
+
+    if (!_page || !_page->hasRunningProcess())
+        return;
+
+    _page->setIsInMultitaskingMode(self._isInMultitaskingMode);
+}
+
+#endif // HAVE(MULTITASKING_MODE)
+
 @end
 
 @implementation WKWebView (WKPrivateIOS)
@@ -3222,7 +3268,13 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
     // Compute the new scale to keep the current content width in the scrollview.
     CGFloat oldWebViewWidthInContentViewCoordinates = oldUnobscuredContentRect.width();
-    _animatedResizeOriginalContentWidth = std::min(contentSizeInContentViewCoordinates.width, oldWebViewWidthInContentViewCoordinates);
+    _animatedResizeOriginalContentWidth = [&] {
+#if HAVE(MULTITASKING_MODE)
+        if (self._isInMultitaskingMode)
+            return contentSizeInContentViewCoordinates.width;
+#endif
+        return std::min(contentSizeInContentViewCoordinates.width, oldWebViewWidthInContentViewCoordinates);
+    }();
     CGFloat targetScale = newViewLayoutSize.width() / _animatedResizeOriginalContentWidth;
     CGFloat resizeAnimationViewAnimationScale = targetScale / contentZoomScale(self);
     [_resizeAnimationView setTransform:CGAffineTransformMakeScale(resizeAnimationViewAnimationScale, resizeAnimationViewAnimationScale)];
@@ -3406,7 +3458,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     _maximumUnobscuredSizeOverride = std::nullopt;
 }
 
-static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary(NSDictionary<NSString *, NSString *> *viewportArgumentPairs, bool viewportFitEnabled)
+static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary(NSDictionary<NSString *, NSString *> *viewportArgumentPairs)
 {
     if (!viewportArgumentPairs)
         return std::nullopt;
@@ -3418,7 +3470,7 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
             [NSException raise:NSInvalidArgumentException format:@"-[WKWebView _overrideViewportWithArguments:]: Keys and values must all be NSStrings."];
         String keyString = key;
         String valueString = value;
-        WebCore::setViewportFeature(viewportArguments, keyString, valueString, viewportFitEnabled, [] (WebCore::ViewportErrorCode, const String& errorMessage) {
+        WebCore::setViewportFeature(viewportArguments, keyString, valueString, [] (WebCore::ViewportErrorCode, const String& errorMessage) {
             NSLog(@"-[WKWebView _overrideViewportWithArguments:]: Error parsing viewport argument: %s", errorMessage.utf8().data());
         });
     }).get()];
@@ -3431,7 +3483,7 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
     if (!_page)
         return;
 
-    _page->setOverrideViewportArguments(viewportArgumentsFromDictionary(arguments, _page->preferences().viewportFitEnabled()));
+    _page->setOverrideViewportArguments(viewportArgumentsFromDictionary(arguments));
 }
 
 - (UIView *)_viewForFindUI

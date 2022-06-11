@@ -181,18 +181,22 @@ void AXIsolatedTree::generateSubtree(AXCoreObject& axObject)
     queueRemovalsAndUnresolvedChanges({ });
 }
 
-AXIsolatedTree::NodeChange AXIsolatedTree::nodeChangeForObject(AXCoreObject& axObject, AttachWrapper attachWrapper)
+std::optional<AXIsolatedTree::NodeChange> AXIsolatedTree::nodeChangeForObject(AXCoreObject& axObject, AttachWrapper attachWrapper)
 {
     ASSERT(isMainThread());
 
-    auto object = AXIsolatedObject::create(axObject, this);
-    NodeChange nodeChange { object, nullptr };
+    // We should never create an isolated object from an ignored object.
+    if (axObject.accessibilityIsIgnored())
+        return std::nullopt;
 
-    if (!object->objectID().isValid()) {
+    if (!axObject.objectID().isValid()) {
         // Either the axObject has an invalid ID or something else went terribly wrong. Don't bother doing anything else.
         ASSERT_NOT_REACHED();
-        return nodeChange;
+        return std::nullopt;
     }
+
+    auto object = AXIsolatedObject::create(axObject, this);
+    NodeChange nodeChange { object, nullptr };
 
     ASSERT(axObject.wrapper());
     if (attachWrapper == AttachWrapper::OnMainThread)
@@ -260,7 +264,8 @@ void AXIsolatedTree::queueRemovalsAndUnresolvedChanges(const Vector<AXID>& subtr
             resolvedAppends.reserveInitialCapacity(m_unresolvedPendingAppends.size());
             for (const auto& unresolvedAppend : m_unresolvedPendingAppends) {
                 if (auto* axObject = cache->objectFromAXID(unresolvedAppend.key))
-                    resolvedAppends.uncheckedAppend(nodeChangeForObject(*axObject, unresolvedAppend.value));
+                    if (auto nodeChange = nodeChangeForObject(*axObject, unresolvedAppend.value))
+                        resolvedAppends.uncheckedAppend(WTFMove(*nodeChange));
             }
             m_unresolvedPendingAppends.clear();
         }
@@ -306,9 +311,10 @@ void AXIsolatedTree::updateNode(AXCoreObject& axObject)
     // Otherwise, resolve the change immediately and queue it up.
     // In both cases, we can't attach the wrapper immediately on the main thread, since the wrapper could be in use
     // on the AX thread (because this function updates an existing node).
-    auto change = nodeChangeForObject(axObject, AttachWrapper::OnAXThread);
-    Locker locker { m_changeLogLock };
-    queueChange(change);
+    if (auto change = nodeChangeForObject(axObject, AttachWrapper::OnAXThread)) {
+        Locker locker { m_changeLogLock };
+        queueChange(WTFMove(*change));
+    }
 }
 
 void AXIsolatedTree::updateNodeProperty(AXCoreObject& axObject, AXPropertyName property)
@@ -356,11 +362,20 @@ void AXIsolatedTree::updateNodeProperty(AXCoreObject& axObject, AXPropertyName p
     case AXPropertyName::IsRequired:
         propertyMap.set(AXPropertyName::IsRequired, axObject.isRequired());
         break;
+    case AXPropertyName::IsSelected:
+        propertyMap.set(AXPropertyName::IsSelected, axObject.isSelected());
+        break;
+    case AXPropertyName::PosInSet:
+        propertyMap.set(AXPropertyName::PosInSet, axObject.posInSet());
+        break;
     case AXPropertyName::ReadOnlyValue:
         propertyMap.set(AXPropertyName::ReadOnlyValue, axObject.readOnlyValue().isolatedCopy());
         break;
     case AXPropertyName::SortDirection:
         propertyMap.set(AXPropertyName::SortDirection, static_cast<int>(axObject.sortDirection()));
+        break;
+    case AXPropertyName::SupportsPosInSet:
+        propertyMap.set(AXPropertyName::SupportsPosInSet, axObject.supportsPosInSet());
         break;
     default:
         return;

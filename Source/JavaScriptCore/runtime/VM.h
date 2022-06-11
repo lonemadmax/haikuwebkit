@@ -346,6 +346,8 @@ public:
     Heap heap;
     GCClient::Heap clientHeap;
 
+    bool isInService() const { return m_isInService; }
+
     const HeapCellType& cellHeapCellType() { return heap.cellHeapCellType; }
     const JSDestructibleObjectHeapCellType& destructibleObjectHeapCellType() { return heap.destructibleObjectHeapCellType; };
 
@@ -683,6 +685,7 @@ public:
     // - You can only write to entries in the ScratchBuffer from the main thread.
     ScratchBuffer* scratchBufferForSize(size_t size);
     void clearScratchBuffers();
+    bool isScratchBuffer(void*);
 
     EncodedJSValue* exceptionFuzzingBuffer(size_t size)
     {
@@ -945,6 +948,7 @@ private:
     std::unique_ptr<TypeProfilerLog> m_typeProfilerLog;
     unsigned m_typeProfilerEnabledCount;
     bool m_needToFirePrimitiveGigacageEnabled { false };
+    bool m_isInService { false };
     Lock m_scratchBufferLock;
     Vector<ScratchBuffer*> m_scratchBuffers;
     size_t m_sizeOfLastScratchBuffer { 0 };

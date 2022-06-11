@@ -56,7 +56,7 @@ public:
 
 #define JSC_DEFINE_ISO8601_DURATION_FIELD(name, capitalizedName) \
     double name##s() const { return m_data[static_cast<uint8_t>(TemporalUnit::capitalizedName)]; } \
-    void set##capitalizedName##s(double value) { m_data[static_cast<uint8_t>(TemporalUnit::capitalizedName)] = value; }
+    void set##capitalizedName##s(double value) { m_data[static_cast<uint8_t>(TemporalUnit::capitalizedName)] = !value ? 0 : value; }
     JSC_TEMPORAL_UNITS(JSC_DEFINE_ISO8601_DURATION_FIELD);
 #undef JSC_DEFINE_ISO8601_DURATION_FIELD
 
@@ -71,8 +71,10 @@ public:
     Duration operator-() const
     {
         Duration result(*this);
-        for (auto& value : result.m_data)
-            value = -value;
+        for (auto& value : result.m_data) {
+            if (value)
+                value = -value;
+        }
         return result;
     }
 
@@ -301,11 +303,11 @@ uint16_t dayOfYear(PlainDate);
 uint8_t weeksInYear(int32_t year);
 uint8_t weekOfYear(PlainDate);
 uint8_t daysInMonth(int32_t year, uint8_t month);
+uint8_t daysInMonth(uint8_t month);
 String formatTimeZoneOffsetString(int64_t);
 String temporalTimeToString(PlainTime, std::tuple<Precision, unsigned> precision);
 String temporalDateToString(PlainDate);
 String monthCode(uint32_t);
-unsigned daysInMonth(int32_t year, unsigned month);
 
 bool isValidDuration(const Duration&);
 

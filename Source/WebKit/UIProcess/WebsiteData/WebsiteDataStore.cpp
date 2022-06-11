@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -135,9 +135,6 @@ WebsiteDataStore::WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&& configur
     , m_authenticatorManager(makeUniqueRef<AuthenticatorManager>())
 #endif
     , m_client(makeUniqueRef<WebsiteDataStoreClient>())
-#if HAVE(APP_SSO)
-    , m_soAuthorizationCoordinator(makeUniqueRef<SOAuthorizationCoordinator>())
-#endif
     , m_webLockRegistry(WebCore::LocalWebLockRegistry::create())
 {
     WTF::setProcessPrivileges(allPrivileges());
@@ -207,6 +204,17 @@ WebsiteDataStore* WebsiteDataStore::existingDataStoreForSessionID(PAL::SessionID
 {
     return allDataStores().get(sessionID);
 }
+
+#if HAVE(APP_SSO)
+SOAuthorizationCoordinator& WebsiteDataStore::soAuthorizationCoordinator(const WebPageProxy& pageProxy)
+{
+    RELEASE_ASSERT(pageProxy.preferences().isExtensibleSSOEnabled());
+    if (!m_soAuthorizationCoordinator)
+        m_soAuthorizationCoordinator = WTF::makeUnique<SOAuthorizationCoordinator>();
+
+    return *m_soAuthorizationCoordinator;
+}
+#endif
 
 static Ref<NetworkProcessProxy> networkProcessForSession(PAL::SessionID sessionID)
 {
@@ -298,13 +306,6 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     if (!m_configuration->modelElementCacheDirectory().isEmpty())
         m_resolvedConfiguration->setModelElementCacheDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->modelElementCacheDirectory()));
-#endif
-#if PLATFORM(IOS_FAMILY)
-    if (isPersistent()) {
-        m_cookieStorageDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::cookieStorageDirectory());
-        m_containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::webContentCachesDirectory());
-        m_containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::containerTemporaryDirectory());
-    }
 #endif
 
     // Resolve directories for file paths.
@@ -1597,7 +1598,7 @@ void WebsiteDataStore::terminateNetworkProcess()
 
 void WebsiteDataStore::sendNetworkProcessPrepareToSuspendForTesting(CompletionHandler<void()>&& completionHandler)
 {
-    networkProcess().sendPrepareToSuspend(IsSuspensionImminent::No, WTFMove(completionHandler));
+    networkProcess().sendPrepareToSuspend(IsSuspensionImminent::No, 0.0, WTFMove(completionHandler));
 }
 
 void WebsiteDataStore::sendNetworkProcessWillSuspendImminentlyForTesting()
@@ -1928,12 +1929,12 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
 
 #if PLATFORM(IOS_FAMILY)
     if (isPersistent()) {
-        if (String cookieStorageDirectory = WebProcessPool::cookieStorageDirectory(); !cookieStorageDirectory.isEmpty())
-            parameters.cookieStorageDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(cookieStorageDirectory);
-        if (String containerCachesDirectory = WebProcessPool::networkingCachesDirectory(); !containerCachesDirectory.isEmpty())
-            parameters.containerCachesDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(containerCachesDirectory);
-        if (String parentBundleDirectory = WebProcessPool::parentBundleDirectory(); !parentBundleDirectory.isEmpty())
-            parameters.parentBundleDirectoryExtensionHandle = SandboxExtension::createHandle(parentBundleDirectory, SandboxExtension::Type::ReadOnly);
+        if (auto directory = cookieStorageDirectory(); !directory.isEmpty())
+            parameters.cookieStorageDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(directory);
+        if (auto directory = networkingCachesDirectory(); !directory.isEmpty())
+            parameters.containerCachesDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(directory);
+        if (auto directory = parentBundleDirectory(); !directory.isEmpty())
+            parameters.parentBundleDirectoryExtensionHandle = SandboxExtension::createHandle(directory, SandboxExtension::Type::ReadOnly);
         if (auto handleAndFilePath = SandboxExtension::createHandleForTemporaryFile(emptyString(), SandboxExtension::Type::ReadWrite))
             parameters.tempDirectoryExtensionHandle = WTFMove(handleAndFilePath->first);
     }

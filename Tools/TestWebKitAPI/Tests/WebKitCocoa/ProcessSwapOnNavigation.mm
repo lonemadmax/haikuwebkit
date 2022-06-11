@@ -220,6 +220,11 @@ static bool captivePortalModeAfterChange;
     didPerformClientRedirect = true;
 }
 
+- (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
+{
+    [webView reload];
+}
+
 #if PLATFORM(IOS_FAMILY)
 
 - (void)_webViewDidRequestPasswordForQuickLookDocument:(WKWebView *)webView
@@ -7316,7 +7321,7 @@ TEST(ProcessSwap, ResponsePolicyDownloadAfterCOOPProcessSwap)
     [webView setNavigationDelegate:navigationDelegate.get()];
 
     done = false;
-    [webView loadRequest:server.request("/source.html")];
+    [webView loadRequest:server.request("/source.html"_s)];
     Util::run(&done);
     done = false;
 
@@ -7327,7 +7332,7 @@ TEST(ProcessSwap, ResponsePolicyDownloadAfterCOOPProcessSwap)
 
     done = false;
     failed = false;
-    [webView loadRequest:server.request("/destination.html")];
+    [webView loadRequest:server.request("/destination.html"_s)];
     Util::run(&failed);
     failed = false;
     shouldConvertToDownload = false;
@@ -7374,11 +7379,11 @@ TEST(ProcessSwap, NavigateBackAfterNavigatingAwayFromCOOP)
     [webView setNavigationDelegate:navigationDelegate.get()];
 
     done = false;
-    [webView loadRequest:server.request("/source.html")];
+    [webView loadRequest:server.request("/source.html"_s)];
     Util::run(&done);
     done = false;
 
-    [webView loadRequest:server.request("/destination.html")];
+    [webView loadRequest:server.request("/destination.html"_s)];
     Util::run(&done);
     done = false;
 
@@ -7456,7 +7461,7 @@ static void runCOOPProcessSwapTest(ASCIILiteral sourceCOOP, ASCIILiteral sourceC
     failed = false;
     serverRedirected = false;
     numberOfDecidePolicyCalls = 0;
-    [webView loadRequest:server.request("/main.html")];
+    [webView loadRequest:server.request("/main.html"_s)];
 
     TestWebKitAPI::Util::run(&done);
     done = false;
@@ -7825,7 +7830,9 @@ static void checkSettingsControlledByCaptivePortalMode(WKWebView *webView, Shoul
     EXPECT_EQ(runJSCheck("!!window.HTMLModelElement"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // AR (Model)
     EXPECT_EQ(runJSCheck("!!window.PictureInPictureEvent"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Picture in Picture API.
     EXPECT_EQ(runJSCheck("!!window.SpeechRecognitionEvent"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Speech recognition.
+#if ENABLE(NOTIFICATIONS)
     EXPECT_EQ(runJSCheck("!!window.Notification"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Notification API.
+#endif
     EXPECT_EQ(runJSCheck("!!window.WebXRSystem"_s), false); // WebXR (currently always disabled).
     EXPECT_EQ(runJSCheck("!!window.AudioContext"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebAudio.
     EXPECT_EQ(runJSCheck("!!window.RTCPeerConnection"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebRTC Peer Connection.
@@ -8336,7 +8343,7 @@ TEST(ProcessSwap, ContentModeInCaseOfCoopProcessSwap)
     [webView setNavigationDelegate:navigationDelegate.get()];
 
     done = false;
-    [webView loadRequest:server.request("/source.html")];
+    [webView loadRequest:server.request("/source.html"_s)];
     Util::run(&done);
     done = false;
 
@@ -8352,7 +8359,7 @@ TEST(ProcessSwap, ContentModeInCaseOfCoopProcessSwap)
 
     auto pid1 = [webView _webProcessIdentifier];
 
-    [webView loadRequest:server.request("/destination.html")];
+    [webView loadRequest:server.request("/destination.html"_s)];
     Util::run(&done);
     done = false;
 
@@ -8411,7 +8418,7 @@ TEST(ProcessSwap, ContentModeInCaseOfPSONThenCoopProcessSwap)
     [webView setNavigationDelegate:navigationDelegate.get()];
 
     done = false;
-    [webView loadRequest:server1.request("/source.html")];
+    [webView loadRequest:server1.request("/source.html"_s)];
     Util::run(&done);
     done = false;
 
@@ -8427,7 +8434,7 @@ TEST(ProcessSwap, ContentModeInCaseOfPSONThenCoopProcessSwap)
 
     auto pid1 = [webView _webProcessIdentifier];
 
-    [webView loadRequest:server2.request("/destination.html")];
+    [webView loadRequest:server2.request("/destination.html"_s)];
     Util::run(&done);
     done = false;
 

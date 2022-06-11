@@ -491,6 +491,9 @@ Protocol::ErrorStringOr<std::tuple<RefPtr<JSON::ArrayOf<Protocol::CSS::RuleMatch
     if (!element)
         return makeUnexpected(errorString);
 
+    if (!element->isConnected())
+        return makeUnexpected("Element for given nodeId was not connected to DOM tree."_s);
+
     Element* originalElement = element;
     PseudoId elementPseudoId = element->pseudoId();
     if (elementPseudoId != PseudoId::None) {
@@ -569,6 +572,9 @@ Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Protocol::CSS::CSSComputedStylePropert
     auto* element = elementForId(errorString, nodeId);
     if (!element)
         return makeUnexpected(errorString);
+
+    if (!element->isConnected())
+        return makeUnexpected("Element for given nodeId was not connected to DOM tree."_s);
 
     auto computedStyleInfo = CSSComputedStyleDeclaration::create(*element, true);
     auto inspectorStyle = InspectorStyle::create(InspectorCSSId(), WTFMove(computedStyleInfo), nullptr);
@@ -987,9 +993,10 @@ void InspectorCSSAgent::nodeLayoutContextTypeChanged(Node& node, RenderObject* n
         return;
 
     auto nodeId = domAgent->boundNodeId(&node);
-    if (!nodeId && m_layoutContextTypeChangedMode == Protocol::CSS::LayoutContextTypeChangedMode::All)
+    if (!nodeId && m_layoutContextTypeChangedMode == Protocol::CSS::LayoutContextTypeChangedMode::All) {
+        // FIXME: <https://webkit.org/b/189687> Preserve DOM.NodeId if a node is removed and re-added
         nodeId = domAgent->identifierForNode(node);
-
+    }
     if (!nodeId)
         return;
 
@@ -1096,6 +1103,8 @@ Protocol::CSS::StyleSheetOrigin InspectorCSSAgent::detectOrigin(CSSStyleSheet* p
 
 RefPtr<Protocol::CSS::CSSRule> InspectorCSSAgent::buildObjectForRule(const StyleRule* styleRule, Style::Resolver& styleResolver, Element& element)
 {
+    ASSERT(element.isConnected());
+
     if (!styleRule)
         return nullptr;
 

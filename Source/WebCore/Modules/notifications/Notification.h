@@ -38,6 +38,8 @@
 #include "NotificationDirection.h"
 #include "NotificationPermission.h"
 #include "ScriptExecutionContextIdentifier.h"
+#include "SerializedScriptValue.h"
+#include <wtf/CompletionHandler.h>
 #include <wtf/URL.h>
 #include <wtf/UUID.h>
 #include "WritingMode.h"
@@ -63,16 +65,17 @@ public:
         String body;
         String tag;
         String icon;
+        JSC::JSValue data;
     };
     // For JS constructor only.
     static ExceptionOr<Ref<Notification>> create(ScriptExecutionContext&, String&& title, Options&&);
 
-    static Ref<Notification> createForServiceWorker(ScriptExecutionContext&, String&& title, Options&&, const URL&);
+    static ExceptionOr<Ref<Notification>> createForServiceWorker(ScriptExecutionContext&, String&& title, Options&&, const URL&);
     static Ref<Notification> create(ScriptExecutionContext&, NotificationData&&);
 
     WEBCORE_EXPORT virtual ~Notification();
 
-    void show();
+    void show(CompletionHandler<void()>&& = [] { });
     void close();
 
     const String& title() const { return m_title; }
@@ -81,6 +84,7 @@ public:
     const String& lang() const { return m_lang; }
     const String& tag() const { return m_tag; }
     const URL& icon() const { return m_icon; }
+    JSC::JSValue dataForBindings(JSC::JSGlobalObject&);
 
     TextDirection direction() const { return m_direction == Direction::Rtl ? TextDirection::RTL : TextDirection::LTR; }
 
@@ -109,7 +113,7 @@ public:
     bool isPersistent() const { return !m_serviceWorkerRegistrationURL.isNull(); }
 
 private:
-    Notification(ScriptExecutionContext&, UUID, String&& title, Options&&);
+    Notification(ScriptExecutionContext&, UUID, String&& title, Options&&, Ref<SerializedScriptValue>&&);
 
     NotificationClient* clientFromContext();
     EventTargetInterface eventTargetInterface() const final { return NotificationEventTargetInterfaceType; }
@@ -133,6 +137,7 @@ private:
     String m_body;
     String m_tag;
     URL m_icon;
+    Ref<SerializedScriptValue> m_dataForBindings;
 
     enum State { Idle, Showing, Closed };
     State m_state { Idle };

@@ -45,6 +45,7 @@
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SerializedScriptValue.h>
@@ -56,9 +57,9 @@
 #include <WebCore/WorkerScriptLoader.h>
 
 namespace WebKit {
+
 using namespace PAL;
 using namespace WebCore;
-
 
 WebSWClientConnection::WebSWClientConnection()
     : m_identifier(Process::identifier())

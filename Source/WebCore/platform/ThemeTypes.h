@@ -41,59 +41,47 @@ enum ControlPart {
     SquareButtonPart,
     ButtonPart,
     DefaultButtonPart,
-    InnerSpinButtonPart,
     ListboxPart,
-    ListItemPart,
-    MediaControlsDarkBarBackgroundPart,
-    MediaControlsLightBarBackgroundPart,
     MediaFullScreenVolumeSliderPart,
-    MediaFullScreenVolumeSliderThumbPart,
-    MediaPlayButtonPart,
     MediaSliderPart,
-    MediaSliderThumbPart,
     MediaVolumeSliderPart,
-    MediaVolumeSliderMuteButtonPart,
-    MediaVolumeSliderThumbPart,
     MenulistPart,
     MenulistButtonPart,
     MeterPart,
     ProgressBarPart,
-    ProgressBarValuePart,
     SliderHorizontalPart,
     SliderVerticalPart,
-    SliderThumbHorizontalPart,
-    SliderThumbVerticalPart,
-    CaretPart,
     SearchFieldPart,
-    SearchFieldDecorationPart,
-    SearchFieldResultsDecorationPart,
-    SearchFieldResultsButtonPart,
-    SearchFieldCancelButtonPart,
-    TextFieldPart,
-    RelevancyLevelIndicatorPart,
-    ContinuousCapacityLevelIndicatorPart,
-    DiscreteCapacityLevelIndicatorPart,
-    RatingLevelIndicatorPart,
 #if ENABLE(APPLE_PAY)
     ApplePayButtonPart,
 #endif
-#if ENABLE(INPUT_TYPE_COLOR)
-    ColorWellPart,
-#endif
-#if ENABLE(DATALIST_ELEMENT)
-    ListButtonPart,
-#endif
-    TextAreaPart,
 #if ENABLE(ATTACHMENT_ELEMENT)
     AttachmentPart,
     BorderlessAttachmentPart,
 #endif
-    CapsLockIndicatorPart,
+    TextAreaPart,
+    TextFieldPart,
     // Internal-only Values
-#if ENABLE(SERVICE_CONTROLS)
-    ImageControlsButtonPart
+    CapsLockIndicatorPart,
+#if ENABLE(INPUT_TYPE_COLOR)
+    ColorWellPart,
 #endif
-    
+#if ENABLE(SERVICE_CONTROLS)
+    ImageControlsButtonPart,
+#endif
+    InnerSpinButtonPart,
+#if ENABLE(DATALIST_ELEMENT)
+    ListButtonPart,
+#endif
+    MediaFullScreenVolumeSliderThumbPart,
+    MediaSliderThumbPart,
+    MediaVolumeSliderThumbPart,
+    SearchFieldDecorationPart,
+    SearchFieldResultsDecorationPart,
+    SearchFieldResultsButtonPart,
+    SearchFieldCancelButtonPart,
+    SliderThumbHorizontalPart,
+    SliderThumbVerticalPart
 };
 
 #if ENABLE(SERVICE_CONTROLS)

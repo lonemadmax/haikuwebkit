@@ -126,6 +126,8 @@ enum class TemporarySelectionOption : uint8_t {
     DelegateMainFrameScroll = 1 << 5,
     
     RevealSelectionBounds = 1 << 6,
+
+    UserTriggered = 1 << 7,
 };
 
 class TemporarySelectionChange {
@@ -485,12 +487,12 @@ public:
     bool markedTextMatchesAreHighlighted() const;
     WEBCORE_EXPORT void setMarkedTextMatchesAreHighlighted(bool);
 
-    void textFieldDidBeginEditing(Element*);
-    void textFieldDidEndEditing(Element*);
-    void textDidChangeInTextField(Element*);
-    bool doTextFieldCommandFromEvent(Element*, KeyboardEvent*);
-    void textWillBeDeletedInTextField(Element* input);
-    void textDidChangeInTextArea(Element*);
+    void textFieldDidBeginEditing(Element&);
+    void textFieldDidEndEditing(Element&);
+    void textDidChangeInTextField(Element&);
+    bool doTextFieldCommandFromEvent(Element&, KeyboardEvent*);
+    void textWillBeDeletedInTextField(Element& input);
+    void textDidChangeInTextArea(Element&);
     WEBCORE_EXPORT WritingDirection baseWritingDirectionForSelectionStart() const;
 
     enum class SelectReplacement : bool { No, Yes };
@@ -632,6 +634,8 @@ private:
 
     std::optional<SimpleRange> adjustedSelectionRange();
 
+    bool isInSubframeWithoutUserInteraction() const;
+
 #if PLATFORM(COCOA)
     RefPtr<SharedBuffer> selectionInWebArchiveFormat();
     String selectionInHTMLFormat();
@@ -646,6 +650,9 @@ private:
 #if ENABLE(ATTACHMENT_ELEMENT)
     void notifyClientOfAttachmentUpdates();
 #endif
+
+    bool stopTextFieldDidBeginEditingTimer();
+    void textFieldDidBeginEditingTimerFired();
 
     String platformContentTypeForBlobType(const String& type) const;
 
@@ -689,6 +696,8 @@ private:
     DeferrableOneShotTimer m_telephoneNumberDetectionUpdateTimer;
     Vector<SimpleRange> m_detectedTelephoneNumberRanges;
 #endif
+
+    Timer m_textFieldDidBeginEditingTimer;
 
     mutable std::unique_ptr<ScrollView::ProhibitScrollingWhenChangingContentSizeForScope> m_prohibitScrollingDueToContentSizeChangesWhileTyping;
 

@@ -194,20 +194,20 @@ public:
     }
 
     static TextRun constructTextRun(StringView, const RenderStyle&,
-        ExpansionBehavior = DefaultExpansion, TextRunFlags = DefaultTextRunFlags);
+        ExpansionBehavior = ExpansionBehavior::defaultBehavior(), TextRunFlags = DefaultTextRunFlags);
     static TextRun constructTextRun(const String&, const RenderStyle&,
-        ExpansionBehavior = DefaultExpansion, TextRunFlags = DefaultTextRunFlags);
+        ExpansionBehavior = ExpansionBehavior::defaultBehavior(), TextRunFlags = DefaultTextRunFlags);
     static TextRun constructTextRun(const AtomString&, const RenderStyle&,
-        ExpansionBehavior = DefaultExpansion, TextRunFlags = DefaultTextRunFlags);
+        ExpansionBehavior = ExpansionBehavior::defaultBehavior(), TextRunFlags = DefaultTextRunFlags);
     static TextRun constructTextRun(const RenderText&, const RenderStyle&,
-        ExpansionBehavior = DefaultExpansion);
+        ExpansionBehavior = ExpansionBehavior::defaultBehavior());
     static TextRun constructTextRun(const RenderText&, unsigned offset, unsigned length, const RenderStyle&,
-        ExpansionBehavior = DefaultExpansion);
+        ExpansionBehavior = ExpansionBehavior::defaultBehavior());
     static TextRun constructTextRun(const LChar* characters, unsigned length, const RenderStyle&,
-        ExpansionBehavior = DefaultExpansion);
+        ExpansionBehavior = ExpansionBehavior::defaultBehavior());
     static TextRun constructTextRun(const UChar* characters, unsigned length, const RenderStyle&,
-        ExpansionBehavior = DefaultExpansion);
-    
+        ExpansionBehavior = ExpansionBehavior::defaultBehavior());
+
     LayoutUnit paginationStrut() const;
     void setPaginationStrut(LayoutUnit);
 
@@ -228,6 +228,7 @@ public:
     LayoutUnit borderBefore() const override;
     LayoutUnit adjustBorderBoxLogicalHeightForBoxSizing(LayoutUnit height) const override;
     LayoutUnit adjustContentBoxLogicalHeightForBoxSizing(std::optional<LayoutUnit> height) const override;
+    LayoutUnit adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit height) const override;
     void paintExcludedChildrenInBorder(PaintInfo&, const LayoutPoint&);
     
     LayoutSize clientLogicalRightAndBottomAfterRepositioning() const;

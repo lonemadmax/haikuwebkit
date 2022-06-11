@@ -10,6 +10,7 @@ depends:
 # replaced (patched) elements:
 - sdk/adwaita-icon-theme.bst
 - sdk/apitrace.bst
+- sdk/breakpad.bst
 - sdk/capnp.bst
 - sdk/cargo-c.bst
 - sdk/ccls.bst
@@ -42,7 +43,6 @@ depends:
 - sdk/libkate.bst
 - sdk/libmanette.bst
 - sdk/libnotify.bst
-- sdk/libsecret.bst
 - sdk/libsoup3.bst
 - sdk/libusrsctp.bst
 - sdk/libwpe.bst
@@ -51,7 +51,6 @@ depends:
 - sdk/openxr.bst
 - sdk/os-release.bst
 - sdk/patchelf.bst
-- sdk/perl-term-readkey.bst
 - sdk/psmisc.bst
 - sdk/pygls.bst
 - sdk/ruby-json.bst
@@ -59,7 +58,6 @@ depends:
 - sdk/ruby-webrick.bst
 - sdk/sccache.bst
 - sdk/sparkle-cdm.bst
-- sdk/subversion.bst
 - sdk/woff2.bst
 - sdk/wpebackend-fdo.bst
 - sdk/x264.bst

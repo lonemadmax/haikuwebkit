@@ -25,6 +25,8 @@
 
 #import "config.h"
 
+#if ENABLE(NOTIFICATIONS)
+
 #import "DeprecatedGlobalValues.h"
 #import "HTTPServer.h"
 #import "PlatformUtilities.h"
@@ -393,6 +395,11 @@ self.addEventListener("push", (event) => {
         return;
     }
     if (event.data.text() === 'third') {
+        if (self.previousMessageData !== 'second')
+            event.waitUntil(Promise.reject('expected second'));
+        return;
+    }
+    if (event.data.text() === 'fourth') {
         if (self.previousMessageData !== undefined)
             event.waitUntil(Promise.reject('expected undefined'));
         return;
@@ -458,6 +465,19 @@ TEST(PushAPI, pushEventsAndInspectedServiceWorker)
     pushMessageProcessed = false;
     pushMessageSuccessful = false;
     message = @"third";
+    [[configuration websiteDataStore] _processPushMessage:messageDictionary([message dataUsingEncoding:NSUTF8StringEncoding], [server.request() URL]) completionHandler:^(bool result) {
+        pushMessageSuccessful = result;
+        pushMessageProcessed = true;
+    }];
+    TestWebKitAPI::Util::run(&pushMessageProcessed);
+    EXPECT_FALSE(pushMessageSuccessful);
+
+    // We delay so that the timer to terminate service worker kicks in.
+    sleep(3);
+
+    pushMessageProcessed = false;
+    pushMessageSuccessful = false;
+    message = @"fourth";
     [[configuration websiteDataStore] _processPushMessage:messageDictionary([message dataUsingEncoding:NSUTF8StringEncoding], [server.request() URL]) completionHandler:^(bool result) {
         pushMessageSuccessful = result;
         pushMessageProcessed = true;
@@ -677,6 +697,9 @@ TEST(PushAPI, fireNotificationClickEvent)
 
     TestWebKitAPI::Util::run(&done);
 
+    provider.resetHasReceivedNotification();
+    auto& providerRef = provider;
+
     done = false;
     pushMessageProcessed = false;
     pushMessageSuccessful = false;
@@ -684,6 +707,7 @@ TEST(PushAPI, fireNotificationClickEvent)
     expectedMessage = "Received: Sweet Potatoes"_s;
 
     [[configuration websiteDataStore] _processPushMessage:messageDictionary([message dataUsingEncoding:NSUTF8StringEncoding], [server.request() URL]) completionHandler:^(bool result) {
+        EXPECT_TRUE(providerRef.hasReceivedNotification());
         pushMessageSuccessful = result;
         pushMessageProcessed = true;
     }];
@@ -704,3 +728,5 @@ TEST(PushAPI, fireNotificationClickEvent)
 }
 
 #endif // WK_HAVE_C_SPI
+
+#endif // ENABLE(NOTIFICATIONS)

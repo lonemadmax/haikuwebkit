@@ -154,6 +154,7 @@ endif ()
 
 if (USE_LIBGBM)
     list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/graphics/gbm/DMABufEGLUtilities.h
         platform/graphics/gbm/DMABufFormat.h
         platform/graphics/gbm/DMABufObject.h
         platform/graphics/gbm/DMABufReleaseFlag.h

@@ -154,6 +154,49 @@ WI.DOMManager = class DOMManager extends WI.Object
         return Array.from(this._breakpointsForEventListeners.values());
     }
 
+    *attachedNodes({filter} = {})
+    {
+        if (!this._document)
+            return;
+
+        filter ??= (node) => true;
+
+        // Traverse the node tree in the same order items would appear if the entire tree were expanded in order to
+        // provide a predictable order for the results.
+        let currentBranch = [this._document];
+        while (currentBranch.length) {
+            let currentNode = currentBranch.at(-1);
+
+            if (filter(currentNode))
+                yield currentNode;
+
+            // The `::before` pseudo element is the first child of any node.
+            let beforePseudoElement = currentNode.beforePseudoElement();
+            if (beforePseudoElement && filter(beforePseudoElement))
+                yield beforePseudoElement;
+
+            let firstChild = currentNode.children?.[0];
+            if (firstChild) {
+                currentBranch.push(firstChild);
+                continue;
+            }
+
+            while (currentBranch.length) {
+                let parent = currentBranch.pop();
+
+                // The `::after` pseudo element is the last child of any node.
+                let parentAfterPseudoElement = parent.afterPseudoElement();
+                if (parentAfterPseudoElement && filter(parentAfterPseudoElement))
+                    yield parentAfterPseudoElement;
+
+                if (parent.nextSibling) {
+                    currentBranch.push(parent.nextSibling);
+                    break;
+                }
+            }
+        }
+    }
+
     requestDocument(callback)
     {
         if (typeof callback !== "function")
@@ -188,12 +231,10 @@ WI.DOMManager = class DOMManager extends WI.Object
     willDestroyDOMNode(nodeId)
     {
         let node = this._idToDOMNode[nodeId];
-        console.assert(!node.parentNode, "Node should have been removed from its parent before `willDestroyDOMNode` is invoked.", node);
-
         node.markDestroyed();
         delete this._idToDOMNode[nodeId];
 
-        this.dispatchEventToListeners(WI.DOMManager.Event.NodeDestroyed, {node});
+        this.dispatchEventToListeners(WI.DOMManager.Event.NodeRemoved, {node});
     }
 
     didAddEventListener(nodeId)
@@ -240,11 +281,6 @@ WI.DOMManager = class DOMManager extends WI.Object
             return;
 
         domNode.layoutContextType = layoutContextType;
-    }
-
-    nodesWithLayoutContextType(layoutContextType)
-    {
-        return Object.values(this._idToDOMNode).filter((node) => node.layoutContextType === layoutContextType);
     }
 
     // Private
@@ -406,7 +442,7 @@ WI.DOMManager = class DOMManager extends WI.Object
 
         let newDocument = null;
         if (payload && "nodeId" in payload)
-            newDocument = new WI.DOMNode(payload);
+            newDocument = new WI.DOMNode(this, null, false, payload);
 
         if (this._document === newDocument)
             return;
@@ -422,12 +458,15 @@ WI.DOMManager = class DOMManager extends WI.Object
         this.dispatchEventToListeners(WI.DOMManager.Event.DocumentUpdated, {document: this._document});
     }
 
+    _setDetachedRoot(payload)
+    {
+        new WI.DOMNode(this, null, false, payload);
+    }
+
     _setChildNodes(parentId, payloads)
     {
         if (!parentId && payloads.length) {
-            // `InspectorDOMAgent::pushNodePathToFrontend` can provide a single child as a detached root node.
-            let node = WI.DOMNode.newOrExistingFromPayload(payloads[0]);
-            console.assert(!node.parentNode);
+            this._setDetachedRoot(payloads[0]);
             return;
         }
 
@@ -456,6 +495,7 @@ WI.DOMManager = class DOMManager extends WI.Object
         var parent = this._idToDOMNode[parentId];
         var prev = this._idToDOMNode[prevId];
         var node = parent._insertChild(prev, payload);
+        this._idToDOMNode[node.id] = node;
         this.dispatchEventToListeners(WI.DOMManager.Event.NodeInserted, {node, parent});
     }
 
@@ -481,8 +521,9 @@ WI.DOMManager = class DOMManager extends WI.Object
         if (!parent)
             return;
 
-        let node = WI.DOMNode.newOrExistingFromPayload(pseudoElement, {ownerDocument: parent.ownerDocument});
+        var node = new WI.DOMNode(this, parent.ownerDocument, false, pseudoElement);
         node.parentNode = parent;
+        this._idToDOMNode[node.id] = node;
         console.assert(!parent.pseudoElements().get(node.pseudoType()));
         parent.pseudoElements().set(node.pseudoType(), node);
         this.dispatchEventToListeners(WI.DOMManager.Event.NodeInserted, {node, parent});
@@ -507,13 +548,6 @@ WI.DOMManager = class DOMManager extends WI.Object
 
     _unbind(node)
     {
-        // COMPATIBILITY (iOS 15.4): After iOS 15.4, the backend no longer unbinds nodes from their IDs until the node
-        // is destroyed. Because there are no protocol changes associated with this change, check for flexbox overlay
-        // support, which was also new after iOS 15.4.
-        // FIXME: <https://webkit.org/b/148680> Use explicit version checking.
-        if (WI.assumingMainTarget().hasCommand("DOM.showFlexOverlay"))
-            return;
-
         node.markDestroyed();
 
         delete this._idToDOMNode[node.id];
@@ -880,5 +914,4 @@ WI.DOMManager.Event = {
     DOMNodeWasInspected: "dom-manager-dom-node-was-inspected",
     InspectModeStateChanged: "dom-manager-inspect-mode-state-changed",
     InspectedNodeChanged: "dom-manager-inspected-node-changed",
-    NodeDestroyed: "dom-manager-node-destroyed",
 };

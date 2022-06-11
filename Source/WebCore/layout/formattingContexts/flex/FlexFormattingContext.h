@@ -27,8 +27,10 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
+#include "FlexFormattingConstraints.h"
 #include "FlexFormattingGeometry.h"
 #include "FlexFormattingState.h"
+#include "FlexRect.h"
 #include "FormattingQuirks.h"
 #include <wtf/IsoMalloc.h>
 
@@ -52,8 +54,20 @@ public:
     IntrinsicWidthConstraints computedIntrinsicWidthConstraintsForIntegration();
 
 private:
-    void sizeAndPlaceFlexItems(const ConstraintsForInFlowContent&);
+    void sizeAndPlaceFlexItems(const ConstraintsForFlexContent&);
     void computeIntrinsicWidthConstraintsForFlexItems();
+
+    struct LogicalFlexItem {
+        FlexRect rect;
+        int logicalOrder { 0 };
+        CheckedPtr<const ContainerBox> layoutBox;
+    };
+    using LogicalFlexItems = Vector<LogicalFlexItem>;
+    LogicalFlexItems convertFlexItemsToLogicalSpace();
+    void setFlexItemsGeometry(const LogicalFlexItems&, const ConstraintsForFlexContent&);
+    void computeLogicalWidthForFlexItems(LogicalFlexItems&, const ConstraintsForFlexContent&);
+    void computeLogicalWidthForStretchingFlexItems(LogicalFlexItems&, LayoutUnit availableSpace);
+    void computeLogicalWidthForShrinkingFlexItems(LogicalFlexItems&, LayoutUnit availableSpace);
 
     const FlexFormattingState& formattingState() const { return downcast<FlexFormattingState>(FormattingContext::formattingState()); }
     FlexFormattingState& formattingState() { return downcast<FlexFormattingState>(FormattingContext::formattingState()); }

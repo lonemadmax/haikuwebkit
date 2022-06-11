@@ -468,6 +468,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         case WI.Resource.Type.Fetch:
         case WI.Resource.Type.Image:
         case WI.Resource.Type.Font:
+        case WI.Resource.Type.EventSource:
         case WI.Resource.Type.Other:
             break;
         case WI.Resource.Type.Ping:
@@ -959,8 +960,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     async requestIntercepted(target, requestId, request)
     {
-        let url = WI.urlWithoutFragment(request.url);
-        for (let localResourceOverride of this.localResourceOverridesForURL(url)) {
+        for (let localResourceOverride of this.localResourceOverridesForURL(request.url)) {
             if (localResourceOverride.disabled)
                 continue;
 
@@ -980,9 +980,9 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             case WI.LocalResourceOverride.InterceptType.Request: {
                 target.NetworkAgent.interceptWithRequest.invoke({
                     requestId,
-                    url: localResource.url || undefined,
+                    url: localResourceOverride.generateRequestRedirectURL(request.url) ?? undefined,
                     method: localResource.requestMethod ?? undefined,
-                    headers: localResource.requestHeaders,
+                    headers: !isEmptyObject(localResource.requestHeaders) ? localResource.requestHeaders : undefined,
                     postData: (WI.HTTPUtilities.RequestMethodsWithBody.has(localResource.requestMethod) && localResource.requestData) ? btoa(localResource.requestData) : undefined,
                 });
                 return;
@@ -1014,8 +1014,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     async responseIntercepted(target, requestId, response)
     {
-        let url = WI.urlWithoutFragment(response.url);
-        for (let localResourceOverride of this.localResourceOverridesForURL(url)) {
+        for (let localResourceOverride of this.localResourceOverridesForURL(response.url)) {
             if (localResourceOverride.disabled)
                 continue;
 
@@ -1034,7 +1033,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                     mimeType: revision.mimeType ?? undefined,
                     status: !isNaN(localResource.statusCode) ? localResource.statusCode : undefined,
                     statusText: !isNaN(localResource.statusCode) ? (localResource.statusText ?? "") : undefined,
-                    headers: localResource.responseHeaders,
+                    headers: !isEmptyObject(localResource.responseHeaders) ? localResource.responseHeaders : undefined,
                 });
                 return;
             }

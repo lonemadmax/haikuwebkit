@@ -86,6 +86,15 @@ public:
     bool canContainAbsolutelyPositionedObjects() const;
     bool canEstablishContainingBlockWithTransform() const;
 
+    bool shouldApplyLayoutContainment() const;
+    bool shouldApplySizeContainment() const;
+    bool shouldApplyInlineSizeContainment() const;
+    bool shouldApplyStyleContainment() const;
+    bool shouldApplyPaintContainment() const;
+    bool shouldApplyAnyContainment() const;
+    bool shouldApplyLayoutOrPaintContainment(OptionSet<Containment>) const;
+    bool shouldApplySizeOrStyleContainment(OptionSet<Containment>) const;
+
     Color selectionColor(CSSPropertyID) const;
     std::unique_ptr<RenderStyle> selectionPseudoStyle() const;
 
@@ -303,9 +312,6 @@ protected:
     enum StylePropagationType { PropagateToAllChildren, PropagateToBlockChildrenOnly };
     void propagateStyleToAnonymousChildren(StylePropagationType);
 
-    void setFirstChild(RenderObject* child) { m_firstChild = child; }
-    void setLastChild(RenderObject* child) { m_lastChild = child; }
-
     bool repaintBeforeStyleChange(StyleDifference, const RenderStyle& oldStyle, const RenderStyle& newStyle);
 
     virtual void styleWillChange(StyleDifference, const RenderStyle& newStyle);
@@ -359,7 +365,6 @@ private:
     void handleDynamicFloatPositionChange();
 
     bool shouldRepaintForStyleDifference(StyleDifference) const;
-    bool hasImmediateNonWhitespaceTextChildOrBorderOrOutline() const;
 
     void updateFillImages(const FillLayer*, const FillLayer&);
     void updateImage(StyleImage*, StyleImage*);
@@ -468,28 +473,65 @@ inline bool RenderElement::canContainFixedPositionObjects() const
 {
     return isRenderView()
         || (canEstablishContainingBlockWithTransform() && hasTransform())
-        // FIXME: will-change should create containing blocks on inline boxes (bug 225035)
-        || (isRenderBlock() && style().willChange() && style().willChange()->createsContainingBlockForOutOfFlowPositioned())
+        || (isRenderBlock() && style().willChange() && style().willChange()->createsContainingBlockForOutOfFlowPositioned()) // FIXME: will-change should create containing blocks on inline boxes (bug 225035)
         || isSVGForeignObject()
-        || shouldApplyLayoutContainment(*this)
-        || shouldApplyPaintContainment(*this);
+        || shouldApplyLayoutOrPaintContainment({ Containment::Layout, Containment::Paint });
 }
 
 inline bool RenderElement::canContainAbsolutelyPositionedObjects() const
 {
-    return style().position() != PositionType::Static
+    return isRenderView()
+        || style().position() != PositionType::Static
         || (canEstablishContainingBlockWithTransform() && hasTransformRelatedProperty())
-        // FIXME: will-change should create containing blocks on inline boxes (bug 225035)
-        || (isRenderBlock() && style().willChange() && style().willChange()->createsContainingBlockForAbsolutelyPositioned())
+        || (isRenderBlock() && style().willChange() && style().willChange()->createsContainingBlockForAbsolutelyPositioned()) // FIXME: will-change should create containing blocks on inline boxes (bug 225035)
         || isSVGForeignObject()
-        || shouldApplyLayoutContainment(*this)
-        || shouldApplyPaintContainment(*this)
-        || isRenderView();
+        || shouldApplyLayoutOrPaintContainment({ Containment::Layout, Containment::Paint });
 }
 
 inline bool RenderElement::canEstablishContainingBlockWithTransform() const
 {
     return isRenderBlock() || (isTablePart() && !isRenderTableCol());
+}
+
+inline bool RenderElement::shouldApplyLayoutOrPaintContainment(OptionSet<Containment> options) const
+{
+    return style().effectiveContainment().containsAny(options) && (!isInline() || isAtomicInlineLevelBox()) && !isRubyText() && (!isTablePart() || isRenderBlockFlow());
+}
+
+inline bool RenderElement::shouldApplySizeOrStyleContainment(OptionSet<Containment> options) const
+{
+    return style().effectiveContainment().containsAny(options) && (!isInline() || isAtomicInlineLevelBox()) && !isRubyText() && (!isTablePart() || isTableCaption()) && !isTable();
+}
+
+inline bool RenderElement::shouldApplyLayoutContainment() const
+{
+    return shouldApplyLayoutOrPaintContainment(Containment::Layout);
+}
+
+inline bool RenderElement::shouldApplyPaintContainment() const
+{
+    return shouldApplyLayoutOrPaintContainment(Containment::Paint);
+}
+
+inline bool RenderElement::shouldApplySizeContainment() const
+{
+    return shouldApplySizeOrStyleContainment(Containment::Size);
+}
+
+inline bool RenderElement::shouldApplyInlineSizeContainment() const
+{
+    return shouldApplySizeOrStyleContainment(Containment::InlineSize);
+}
+
+inline bool RenderElement::shouldApplyStyleContainment() const
+{
+    return shouldApplySizeOrStyleContainment(Containment::Style);
+}
+
+inline bool RenderElement::shouldApplyAnyContainment() const
+{
+    return shouldApplyLayoutOrPaintContainment({ Containment::Layout, Containment::Paint })
+        || shouldApplySizeOrStyleContainment({ Containment::Size, Containment::InlineSize, Containment::Style });
 }
 
 inline bool RenderElement::createsGroupForStyle(const RenderStyle& style)

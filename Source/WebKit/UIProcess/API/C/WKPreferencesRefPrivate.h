@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -211,10 +211,6 @@ WK_EXPORT bool WKPreferencesGetShowsToolTipOverTruncatedText(WKPreferencesRef pr
 WK_EXPORT void WKPreferencesSetMockScrollbarsEnabled(WKPreferencesRef preferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetMockScrollbarsEnabled(WKPreferencesRef preferencesRef);
 
-// Defaults to true.
-WK_EXPORT void WKPreferencesSetJavaEnabledForLocalFiles(WKPreferencesRef preferences, bool javaEnabled);
-WK_EXPORT bool WKPreferencesGetJavaEnabledForLocalFiles(WKPreferencesRef preferences);
-
 // Defaults to false
 WK_EXPORT void WKPreferencesSetDiagnosticLoggingEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetDiagnosticLoggingEnabled(WKPreferencesRef preferencesRef);
@@ -315,10 +311,6 @@ WK_EXPORT void WKPreferencesSetContentChangeObserverEnabled(WKPreferencesRef, bo
 WK_EXPORT bool WKPreferencesGetContentChangeObserverEnabled(WKPreferencesRef);
 
 // Defaults to false.
-WK_EXPORT void WKPreferencesSetDeferredCSSParserEnabled(WKPreferencesRef, bool);
-WK_EXPORT bool WKPreferencesGetDeferredCSSParserEnabled(WKPreferencesRef);
-
-// Defaults to false.
 WK_EXPORT void WKPreferencesSetUseGiantTiles(WKPreferencesRef, bool);
 WK_EXPORT bool WKPreferencesGetUseGiantTiles(WKPreferencesRef);
 
@@ -414,10 +406,6 @@ WK_EXPORT double WKPreferencesGetInactiveMediaCaptureSteamRepromptIntervalInMinu
 WK_EXPORT void WKPreferencesSetDownloadAttributeEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetDownloadAttributeEnabled(WKPreferencesRef);
 
-// Defaults to false
-WK_EXPORT void WKPreferencesSetSelectionPaintingWithoutSelectionGapsEnabled(WKPreferencesRef, bool flag);
-WK_EXPORT bool WKPreferencesGetSelectionPaintingWithoutSelectionGapsEnabled(WKPreferencesRef);
-
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetAllowsPictureInPictureMediaPlayback(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetAllowsPictureInPictureMediaPlayback(WKPreferencesRef);
@@ -493,10 +481,6 @@ WK_EXPORT bool WKPreferencesGetExposeSpeakersEnabled(WKPreferencesRef);
 // Defaults to false
 WK_EXPORT void WKPreferencesSetWebAuthenticationEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetWebAuthenticationEnabled(WKPreferencesRef);
-
-// Defaults to false
-WK_EXPORT void WKPreferencesSetWebAuthenticationModernEnabled(WKPreferencesRef, bool flag);
-WK_EXPORT bool WKPreferencesGetWebAuthenticationModernEnabled(WKPreferencesRef);
 
 // Defaults to true.
 WK_EXPORT void WKPreferencesSetInvisibleMediaAutoplayPermitted(WKPreferencesRef, bool flag);

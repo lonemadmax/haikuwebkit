@@ -33,6 +33,7 @@
 #include "DownloadProxyMap.h"
 #include "LoadParameters.h"
 #include "Logging.h"
+#include "NetworkProcessConnectionInfo.h"
 #include "NotificationManagerMessageHandlerMessages.h"
 #include "ProvisionalPageProxy.h"
 #include "RemoteWorkerType.h"
@@ -83,7 +84,6 @@
 
 #if PLATFORM(COCOA)
 #include "ObjCObjectGraph.h"
-#include "PDFPlugin.h"
 #include "UserMediaCaptureManagerProxy.h"
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
@@ -241,7 +241,6 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* 
 #endif
     , m_isResponsive(NoOrMaybe::Maybe)
     , m_visiblePageCounter([this](RefCounterEvent) { updateBackgroundResponsivenessTimer(); })
-    , m_websiteDataStore(websiteDataStore)
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     , m_userMediaCaptureManagerProxy(makeUnique<UserMediaCaptureManagerProxy>(makeUniqueRef<UIProxyForCapture>(*this)))
 #endif
@@ -259,6 +258,8 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* 
 
     WebPasteboardProxy::singleton().addWebProcessProxy(*this);
 
+    if (websiteDataStore)
+        m_sessionID = websiteDataStore->sessionID();
     platformInitialize();
 }
 
@@ -346,11 +347,19 @@ void WebProcessProxy::setIsInProcessCache(bool value, WillShutDown willShutDown)
     }
 }
 
+WebsiteDataStore* WebProcessProxy::websiteDataStore() const
+{
+    if (!m_sessionID)
+        return nullptr;
+
+    return WebsiteDataStore::existingDataStoreForSessionID(*m_sessionID);
+}
+
 void WebProcessProxy::setWebsiteDataStore(WebsiteDataStore& dataStore)
 {
-    ASSERT(!m_websiteDataStore);
+    ASSERT(!m_sessionID);
     WEBPROCESSPROXY_RELEASE_LOG(Process, "setWebsiteDataStore() dataStore=%p, sessionID=%" PRIu64, &dataStore, dataStore.sessionID().toUInt64());
-    m_websiteDataStore = &dataStore;
+    m_sessionID = dataStore.sessionID();
     updateRegistrationWithDataStore();
     send(Messages::WebProcess::SetWebsiteDataStoreParameters(processPool().webProcessDataStoreParameters(*this, dataStore)), 0);
 
@@ -361,19 +370,17 @@ void WebProcessProxy::setWebsiteDataStore(WebsiteDataStore& dataStore)
 
 bool WebProcessProxy::isDummyProcessProxy() const
 {
-    return m_websiteDataStore && processPool().dummyProcessProxy(m_websiteDataStore->sessionID()) == this;
+    return m_sessionID && processPool().dummyProcessProxy(*m_sessionID) == this;
 }
 
 void WebProcessProxy::updateRegistrationWithDataStore()
 {
-    if (!m_websiteDataStore)
-        return;
-    
-    bool shouldBeRegistered = pageCount() || provisionalPageCount();
-    if (shouldBeRegistered)
-        m_websiteDataStore->registerProcess(*this);
-    else
-        m_websiteDataStore->unregisterProcess(*this);
+    if (auto* dataStore = websiteDataStore()) {
+        if (pageCount() || provisionalPageCount())
+            dataStore->registerProcess(*this);
+        else
+            dataStore->unregisterProcess(*this);
+    }
 }
 
 void WebProcessProxy::addProvisionalPageProxy(ProvisionalPageProxy& provisionalPage)
@@ -596,7 +603,7 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
     ASSERT(!m_pageMap.contains(webPage.identifier()));
     ASSERT(!globalPageMap().contains(webPage.identifier()));
     RELEASE_ASSERT(!m_isInProcessCache);
-    ASSERT(!m_websiteDataStore || m_websiteDataStore == &webPage.websiteDataStore());
+    ASSERT(!m_sessionID || websiteDataStore() == &webPage.websiteDataStore());
 
     if (beginsUsingDataStore == BeginsUsingDataStore::Yes) {
         RELEASE_ASSERT(m_processPool);
@@ -815,13 +822,17 @@ void WebProcessProxy::updateBackForwardItem(const BackForwardListItemState& item
 
 void WebProcessProxy::getNetworkProcessConnection(Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply&& reply)
 {
-    websiteDataStore().getNetworkProcessConnection(*this, WTFMove(reply));
+    auto* dataStore = websiteDataStore();
+    if (!dataStore)
+        return reply({ });
+
+    dataStore->getNetworkProcessConnection(*this, WTFMove(reply));
 }
 
 #if ENABLE(GPU_PROCESS)
-void WebProcessProxy::getGPUProcessConnection(GPUProcessConnectionParameters&& parameters, Messages::WebProcessProxy::GetGPUProcessConnection::DelayedReply&& reply)
+void WebProcessProxy::createGPUProcessConnection(IPC::Attachment&& connectionIdentifier, WebKit::GPUProcessConnectionParameters&& parameters)
 {
-    m_processPool->getGPUProcessConnection(*this, WTFMove(parameters), WTFMove(reply));
+    m_processPool->createGPUProcessConnection(*this, WTFMove(connectionIdentifier), WTFMove(parameters));
 }
 
 void WebProcessProxy::gpuProcessDidFinishLaunching()
@@ -836,14 +847,6 @@ void WebProcessProxy::gpuProcessExited(ProcessTerminationReason reason)
 
     for (auto& page : copyToVectorOf<RefPtr<WebPageProxy>>(m_pageMap.values()))
         page->gpuProcessExited(reason);
-}
-#endif
-
-#if ENABLE(WEB_AUTHN)
-void WebProcessProxy::getWebAuthnProcessConnection(Messages::WebProcessProxy::GetWebAuthnProcessConnection::DelayedReply&& reply)
-{
-    MESSAGE_CHECK_COMPLETION(messageSourceIsValidWebContentProcess(), reply({ }));
-    m_processPool->getWebAuthnProcessConnection(*this, WTFMove(reply));
 }
 #endif
 
@@ -1440,10 +1443,10 @@ RefPtr<API::Object> WebProcessProxy::transformObjectsToHandles(API::Object* obje
     return UserData::transform(object, Transformer());
 }
 
-void WebProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImminent, CompletionHandler<void()>&& completionHandler)
+void WebProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&& completionHandler)
 {
     WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "sendPrepareToSuspend: isSuspensionImminent=%d", isSuspensionImminent == IsSuspensionImminent::Yes);
-    sendWithAsyncReply(Messages::WebProcess::PrepareToSuspend(isSuspensionImminent == IsSuspensionImminent::Yes), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
+    sendWithAsyncReply(Messages::WebProcess::PrepareToSuspend(isSuspensionImminent == IsSuspensionImminent::Yes, MonotonicTime::now() + Seconds(remainingRunTime)), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
 }
 
 void WebProcessProxy::sendProcessDidResume(ResumeReason)
@@ -1701,11 +1704,12 @@ void WebProcessProxy::didStartProvisionalLoadForMainFrame(const URL& url)
     }
 
     auto registrableDomain = WebCore::RegistrableDomain { url };
-    if (m_registrableDomain && *m_registrableDomain != registrableDomain) {
+    auto* dataStore = websiteDataStore();
+    if (dataStore && m_registrableDomain && *m_registrableDomain != registrableDomain) {
         if (isRunningServiceWorkers())
-            websiteDataStore().networkProcess().terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType::ServiceWorker, websiteDataStore().sessionID(), *m_registrableDomain, coreProcessIdentifier());
+            dataStore->networkProcess().terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType::ServiceWorker, dataStore->sessionID(), *m_registrableDomain, coreProcessIdentifier());
         if (isRunningSharedWorkers())
-            websiteDataStore().networkProcess().terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType::SharedWorker, websiteDataStore().sessionID(), *m_registrableDomain, coreProcessIdentifier());
+            dataStore->networkProcess().terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType::SharedWorker, dataStore->sessionID(), *m_registrableDomain, coreProcessIdentifier());
 
         // Null out registrable domain since this process has now been used for several domains.
         m_registrableDomain = WebCore::RegistrableDomain { };
@@ -1752,8 +1756,8 @@ WebProcessPool& WebProcessProxy::processPool() const
 
 PAL::SessionID WebProcessProxy::sessionID() const
 {
-    ASSERT(m_websiteDataStore);
-    return m_websiteDataStore->sessionID();
+    ASSERT(m_sessionID);
+    return *m_sessionID;
 }
 
 void WebProcessProxy::createSpeechRecognitionServer(SpeechRecognitionServerIdentifier identifier)

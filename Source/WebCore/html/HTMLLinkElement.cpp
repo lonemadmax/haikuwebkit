@@ -263,6 +263,7 @@ void HTMLLinkElement::process()
         attributeWithoutSynchronization(crossoriginAttr),
         attributeWithoutSynchronization(imagesrcsetAttr),
         attributeWithoutSynchronization(imagesizesAttr),
+        nonce(),
         referrerPolicy(),
     };
 
@@ -276,7 +277,7 @@ void HTMLLinkElement::process()
             treatAsStyleSheet = equalLettersIgnoringASCIICase(parsedContentType->mimeType(), "text/css"_s);
     }
     if (!treatAsStyleSheet)
-        treatAsStyleSheet = document().settings().treatsAnyTextCSSLinkAsStylesheet() && m_type.containsIgnoringASCIICase("text/css");
+        treatAsStyleSheet = document().settings().treatsAnyTextCSSLinkAsStylesheet() && m_type.containsIgnoringASCIICase("text/css"_s);
 
     LOG_WITH_STREAM(StyleSheets, stream << "HTMLLinkElement " << this << " process() - treatAsStyleSheet " << treatAsStyleSheet);
 

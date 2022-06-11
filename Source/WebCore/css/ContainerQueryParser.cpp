@@ -171,9 +171,7 @@ static AtomString consumeFeatureName(CSSParserTokenRange& range)
 {
     if (range.peek().type() != IdentToken)
         return nullAtom();
-    // FIXME: This is a bit inefficient. Ideally, we'd convert to lowercase as part of converting the
-    // StringView to an AtomString.
-    return AtomString { range.consumeIncludingWhitespace().value().convertToASCIILowercase() };
+    return range.consumeIncludingWhitespace().value().convertToASCIILowercaseAtom();
 }
 
 std::optional<CQ::SizeFeature> ContainerQueryParser::consumePlainSizeFeature(CSSParserTokenRange& range)
@@ -182,9 +180,9 @@ std::optional<CQ::SizeFeature> ContainerQueryParser::consumePlainSizeFeature(CSS
         auto name = consumeFeatureName(range);
         if (name.isEmpty())
             return { };
-        if (name.startsWith("min-"))
+        if (name.startsWith("min-"_s))
             return { StringView(name).substring(4).toAtomString(), CQ::ComparisonOperator::GreaterThanOrEqual };
-        if (name.startsWith("max-"))
+        if (name.startsWith("max-"_s))
             return { StringView(name).substring(4).toAtomString(), CQ::ComparisonOperator::LessThanOrEqual };
 
         return { name, CQ::ComparisonOperator::Equal };

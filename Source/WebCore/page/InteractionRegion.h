@@ -25,11 +25,17 @@
 
 #pragma once
 
+#include "ElementIdentifier.h"
 #include "FloatRect.h"
+#include "Region.h"
 
 namespace IPC {
 class Decoder;
 class Encoder;
+}
+
+namespace WTF {
+class TextStream;
 }
 
 namespace WebCore {
@@ -37,24 +43,34 @@ namespace WebCore {
 class Page;
 
 struct InteractionRegion {
-    Vector<FloatRect> rectsInContentCoordinates;
-    bool isInline { false };
+    ElementIdentifier elementIdentifier;
+    Region regionInLayerCoordinates;
     bool hasLightBackground { false };
     float borderRadius { 0 };
-    
+
     WEBCORE_EXPORT ~InteractionRegion();
-    
+
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<InteractionRegion> decode(Decoder&);
 };
 
+inline bool operator==(const InteractionRegion& a, const InteractionRegion& b)
+{
+    return a.elementIdentifier == b.elementIdentifier
+        && a.regionInLayerCoordinates == b.regionInLayerCoordinates
+        && a.hasLightBackground == b.hasLightBackground
+        && a.borderRadius == b.borderRadius;
+}
+
 WEBCORE_EXPORT Vector<InteractionRegion> interactionRegions(Page&, FloatRect rectInContentCoordinates);
+
+WTF::TextStream& operator<<(WTF::TextStream&, const InteractionRegion&);
 
 template<class Encoder>
 void InteractionRegion::encode(Encoder& encoder) const
 {
-    encoder << rectsInContentCoordinates;
-    encoder << isInline;
+    encoder << elementIdentifier;
+    encoder << regionInLayerCoordinates;
     encoder << hasLightBackground;
     encoder << borderRadius;
 }
@@ -62,14 +78,14 @@ void InteractionRegion::encode(Encoder& encoder) const
 template<class Decoder>
 std::optional<InteractionRegion> InteractionRegion::decode(Decoder& decoder)
 {
-    std::optional<Vector<FloatRect>> rectsInContentCoordinates;
-    decoder >> rectsInContentCoordinates;
-    if (!rectsInContentCoordinates)
+    std::optional<ElementIdentifier> elementIdentifier;
+    decoder >> elementIdentifier;
+    if (!elementIdentifier)
         return std::nullopt;
-    
-    std::optional<bool> isInline;
-    decoder >> isInline;
-    if (!isInline)
+
+    std::optional<Region> regionInLayerCoordinates;
+    decoder >> regionInLayerCoordinates;
+    if (!regionInLayerCoordinates)
         return std::nullopt;
     
     std::optional<bool> hasLightBackground;
@@ -83,8 +99,8 @@ std::optional<InteractionRegion> InteractionRegion::decode(Decoder& decoder)
         return std::nullopt;
 
     return { {
-        WTFMove(*rectsInContentCoordinates),
-        WTFMove(*isInline),
+        WTFMove(*elementIdentifier),
+        WTFMove(*regionInLayerCoordinates),
         WTFMove(*hasLightBackground),
         WTFMove(*borderRadius)
     } };

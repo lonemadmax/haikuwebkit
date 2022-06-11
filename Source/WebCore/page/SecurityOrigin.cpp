@@ -57,12 +57,12 @@ static bool schemeRequiresHost(const URL& url)
     // We expect URLs with these schemes to have authority components. If the
     // URL lacks an authority component, we get concerned and mark the origin
     // as unique.
-    return url.protocolIsInHTTPFamily() || url.protocolIs("ftp");
+    return url.protocolIsInHTTPFamily() || url.protocolIs("ftp"_s);
 }
 
 bool SecurityOrigin::shouldIgnoreHost(const URL& url)
 {
-    return url.protocolIsData() || url.protocolIsAbout() || url.protocolIsJavaScript() || url.protocolIs("file");
+    return url.protocolIsData() || url.protocolIsAbout() || url.protocolIsJavaScript() || url.protocolIs("file"_s);
 }
 
 bool SecurityOrigin::shouldUseInnerURL(const URL& url)
@@ -114,18 +114,18 @@ static bool shouldTreatAsUniqueOrigin(const URL& url)
     if (url.hasSpecialScheme()
 #if PLATFORM(COCOA)
         || !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NullOriginForNonSpecialSchemedURLs)
-        || url.protocolIs("applewebdata")
-        || url.protocolIs("x-apple-ql-id")
-        || url.protocolIs("x-apple-ql-id2")
-        || url.protocolIs("x-apple-ql-magic")
+        || url.protocolIs("applewebdata"_s)
+        || url.protocolIs("x-apple-ql-id"_s)
+        || url.protocolIs("x-apple-ql-id2"_s)
+        || url.protocolIs("x-apple-ql-magic"_s)
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
-        || url.protocolIs("resource")
+        || url.protocolIs("resource"_s)
 #if ENABLE(PDFJS)
-        || url.protocolIs("webkit-pdfjs-viewer")
+        || url.protocolIs("webkit-pdfjs-viewer"_s)
 #endif
 #endif
-        || url.protocolIs("blob"))
+        || url.protocolIs("blob"_s))
         return false;
 
     return !LegacySchemeRegistry::schemeIsHandledBySchemeHandler(url.protocol());
@@ -134,11 +134,11 @@ static bool shouldTreatAsUniqueOrigin(const URL& url)
 static bool isLoopbackIPAddress(StringView host)
 {
     // The IPv6 loopback address is 0:0:0:0:0:0:0:1, which compresses to ::1.
-    if (host == "[::1]")
+    if (host == "[::1]"_s)
         return true;
 
     // Check to see if it's a valid IPv4 address that has the form 127.*.*.*.
-    if (!host.startsWith("127."))
+    if (!host.startsWith("127."_s))
         return false;
     size_t dotsFound = 0;
     for (size_t i = 0; i < host.length(); ++i) {
@@ -195,7 +195,7 @@ SecurityOrigin::SecurityOrigin(const URL& url)
 SecurityOrigin::SecurityOrigin()
     : m_data { emptyString(), emptyString(), std::nullopt }
     , m_domain { emptyString() }
-    , m_isUnique { true }
+    , m_uniqueOriginIdentifier { UniqueOriginIdentifier::generateThreadSafe() }
     , m_isPotentiallyTrustworthy { false }
 {
 }
@@ -204,7 +204,7 @@ SecurityOrigin::SecurityOrigin(const SecurityOrigin* other)
     : m_data { other->m_data.isolatedCopy() }
     , m_domain { other->m_domain.isolatedCopy() }
     , m_filePath { other->m_filePath.isolatedCopy() }
-    , m_isUnique { other->m_isUnique }
+    , m_uniqueOriginIdentifier { other->m_uniqueOriginIdentifier }
     , m_universalAccess { other->m_universalAccess }
     , m_domainWasSetInDOM { other->m_domainWasSetInDOM }
     , m_canLoadLocalResources { other->m_canLoadLocalResources }
@@ -277,7 +277,7 @@ bool SecurityOrigin::isSameOriginDomain(const SecurityOrigin& other) const
         return true;
 
     if (isUnique() || other.isUnique())
-        return false;
+        return m_uniqueOriginIdentifier == other.m_uniqueOriginIdentifier;
 
     // Here are two cases where we should permit access:
     //
@@ -432,7 +432,7 @@ bool SecurityOrigin::isSameOriginAs(const SecurityOrigin& other) const
         return true;
 
     if (isUnique() || other.isUnique())
-        return false;
+        return m_uniqueOriginIdentifier == other.m_uniqueOriginIdentifier;
 
     return isSameSchemeHostPort(other);
 }
@@ -575,6 +575,9 @@ bool SecurityOrigin::equal(const SecurityOrigin* other) const
 {
     if (other == this)
         return true;
+
+    if (isUnique() || other->isUnique())
+        return m_uniqueOriginIdentifier == other->m_uniqueOriginIdentifier;
     
     if (!isSameSchemeHostPort(*other))
         return false;
@@ -605,7 +608,7 @@ bool SecurityOrigin::isLocalHostOrLoopbackIPAddress(StringView host)
         return true;
 
     // FIXME: Ensure that localhost resolves to the loopback address.
-    if (equalLettersIgnoringASCIICase(host, "localhost"_s) || host.endsWithIgnoringASCIICase(".localhost"))
+    if (equalLettersIgnoringASCIICase(host, "localhost"_s) || host.endsWithIgnoringASCIICase(".localhost"_s))
         return true;
 
     return false;

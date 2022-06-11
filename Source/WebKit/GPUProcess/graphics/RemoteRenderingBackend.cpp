@@ -111,7 +111,7 @@ void RemoteRenderingBackend::startListeningForIPC()
     }
     m_streamConnection->startReceivingMessages(*this, Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
     m_streamConnection->open();
-    send(Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream(m_workQueue->wakeUpSemaphore()), m_renderingBackendIdentifier);
+    send(Messages::RemoteRenderingBackendProxy::DidInitialize(m_workQueue->wakeUpSemaphore(), m_streamConnection->clientWaitSemaphore()), m_renderingBackendIdentifier);
 }
 
 void RemoteRenderingBackend::stopListeningForIPC()
@@ -292,6 +292,7 @@ void RemoteRenderingBackend::getShareableBitmapForImageBufferWithQualifiedIdenti
         if (!imageBuffer)
             return;
         auto backendSize = imageBuffer->backendSize();
+        auto logicalSize = imageBuffer->logicalSize();
         auto resultSize = preserveResolution == PreserveResolution::Yes ? backendSize : imageBuffer->truncatedLogicalSize();
         auto bitmap = ShareableBitmap::create(resultSize, { imageBuffer->colorSpace() });
         if (!bitmap)
@@ -299,7 +300,7 @@ void RemoteRenderingBackend::getShareableBitmapForImageBufferWithQualifiedIdenti
         auto context = bitmap->createGraphicsContext();
         if (!context)
             return;
-        context->drawImageBuffer(*imageBuffer, FloatRect { { }, resultSize }, FloatRect { { }, backendSize }, { CompositeOperator::Copy });
+        context->drawImageBuffer(*imageBuffer, FloatRect { { }, resultSize }, FloatRect { { }, logicalSize }, { CompositeOperator::Copy });
         bitmap->createHandle(handle);
     }();
     completionHandler(WTFMove(handle));
@@ -347,11 +348,11 @@ void RemoteRenderingBackend::cacheNativeImageWithQualifiedIdentifier(const Share
     if (!bitmap)
         return;
 
-    auto image = NativeImage::create(bitmap->createPlatformImage(), nativeImageResourceIdentifier.object());
+    auto image = NativeImage::create(bitmap->createPlatformImage(DontCopyBackingStore, ShouldInterpolate::Yes), nativeImageResourceIdentifier.object());
     if (!image)
         return;
 
-    m_remoteResourceCache.cacheNativeImage(*image, nativeImageResourceIdentifier);
+    m_remoteResourceCache.cacheNativeImage(image.releaseNonNull(), nativeImageResourceIdentifier);
 }
 
 void RemoteRenderingBackend::cacheFont(Ref<Font>&& font)

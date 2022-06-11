@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -115,6 +115,7 @@
 #include "IDBTransaction.h"
 #include "ImageOverlay.h"
 #include "ImageOverlayController.h"
+#include "InlineIteratorLineBox.h"
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorDebuggableType.h"
@@ -215,6 +216,7 @@
 #include "StyleSheetContents.h"
 #include "SystemSoundManager.h"
 #include "TextIterator.h"
+#include "TextPainter.h"
 #include "TextPlaceholderElement.h"
 #include "TextRecognitionOptions.h"
 #include "ThreadableBlobRegistry.h"
@@ -372,6 +374,10 @@
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 #include "HTMLModelElement.h"
+#endif
+
+#if ENABLE(SERVICE_CONTROLS)
+#include "ImageControlsMac.h"
 #endif
 
 using JSC::CallData;
@@ -642,6 +648,8 @@ void Internals::resetToConsistentState(Page& page)
     auto& sessionManager = reinterpret_cast<MediaSessionManagerGLib&>(PlatformMediaSessionManager::sharedManager());
     sessionManager.setDBusNotificationsEnabled(false);
 #endif
+
+    TextPainter::setForceUseGlyphDisplayListForTesting(false);
 }
 
 Internals::Internals(Document& document)
@@ -1310,101 +1318,6 @@ void Internals::setShadowPseudoId(Element& element, const AtomString& id)
     return element.setPseudo(id);
 }
 
-static unsigned deferredStyleRulesCountForList(const Vector<RefPtr<StyleRuleBase>>& childRules)
-{
-    unsigned count = 0;
-    for (auto rule : childRules) {
-        if (is<StyleRule>(rule)) {
-            auto* cssRule = downcast<StyleRule>(rule.get());
-            if (!cssRule->propertiesWithoutDeferredParsing())
-                count++;
-            continue;
-        }
-
-        StyleRuleGroup* groupRule = nullptr;
-        if (is<StyleRuleMedia>(rule))
-            groupRule = downcast<StyleRuleMedia>(rule.get());
-        else if (is<StyleRuleSupports>(rule))
-            groupRule = downcast<StyleRuleSupports>(rule.get());
-        if (!groupRule)
-            continue;
-
-        auto* groupChildRules = groupRule->childRulesWithoutDeferredParsing();
-        if (!groupChildRules)
-            continue;
-
-        count += deferredStyleRulesCountForList(*groupChildRules);
-    }
-
-    return count;
-}
-
-unsigned Internals::deferredStyleRulesCount(StyleSheet& styleSheet)
-{
-    return deferredStyleRulesCountForList(downcast<CSSStyleSheet>(styleSheet).contents().childRules());
-}
-
-static unsigned deferredGroupRulesCountForList(const Vector<RefPtr<StyleRuleBase>>& childRules)
-{
-    unsigned count = 0;
-    for (auto rule : childRules) {
-        StyleRuleGroup* groupRule = nullptr;
-        if (is<StyleRuleMedia>(rule))
-            groupRule = downcast<StyleRuleMedia>(rule.get());
-        else if (is<StyleRuleSupports>(rule))
-            groupRule = downcast<StyleRuleSupports>(rule.get());
-        if (!groupRule)
-            continue;
-
-        auto* groupChildRules = groupRule->childRulesWithoutDeferredParsing();
-        if (!groupChildRules)
-            count++;
-        else
-            count += deferredGroupRulesCountForList(*groupChildRules);
-    }
-    return count;
-}
-
-unsigned Internals::deferredGroupRulesCount(StyleSheet& styleSheet)
-{
-    return deferredGroupRulesCountForList(downcast<CSSStyleSheet>(styleSheet).contents().childRules());
-}
-
-static unsigned deferredKeyframesRulesCountForList(const Vector<RefPtr<StyleRuleBase>>& childRules)
-{
-    unsigned count = 0;
-    for (auto rule : childRules) {
-        if (is<StyleRuleKeyframes>(rule)) {
-            auto* cssRule = downcast<StyleRuleKeyframes>(rule.get());
-            if (!cssRule->keyframesWithoutDeferredParsing())
-                count++;
-            continue;
-        }
-
-        StyleRuleGroup* groupRule = nullptr;
-        if (is<StyleRuleMedia>(rule))
-            groupRule = downcast<StyleRuleMedia>(rule.get());
-        else if (is<StyleRuleSupports>(rule))
-            groupRule = downcast<StyleRuleSupports>(rule.get());
-        if (!groupRule)
-            continue;
-
-        auto* groupChildRules = groupRule->childRulesWithoutDeferredParsing();
-        if (!groupChildRules)
-            continue;
-
-        count += deferredKeyframesRulesCountForList(*groupChildRules);
-    }
-
-    return count;
-}
-
-unsigned Internals::deferredKeyframesRulesCount(StyleSheet& styleSheet)
-{
-    StyleSheetContents& contents = downcast<CSSStyleSheet>(styleSheet).contents();
-    return deferredKeyframesRulesCountForList(contents.childRules());
-}
-
 ExceptionOr<bool> Internals::isTimerThrottled(int timeoutId)
 {
     auto* timer = scriptExecutionContext()->findTimeout(timeoutId);
@@ -1690,7 +1603,7 @@ bool Internals::isSupportingVP9VTB() const
 void Internals::isVP9VTBDeccoderUsed(RTCPeerConnection& connection, DOMPromiseDeferred<IDLBoolean>&& promise)
 {
     connection.gatherDecoderImplementationName([promise = WTFMove(promise)](auto&& name) mutable {
-        promise.resolve(name.contains("VideoToolBox"));
+        promise.resolve(name.contains("VideoToolBox"_s));
     });
 }
 
@@ -2123,6 +2036,28 @@ ExceptionOr<void> Internals::setPaginationLineGridEnabled(bool enabled)
     return { };
 }
 
+ExceptionOr<uint64_t> Internals::lineIndexAfterPageBreak(Element& element)
+{
+    Document* document = contextDocument();
+    if (!document || !document->frame())
+        return Exception { InvalidAccessError };
+
+    element.document().updateLayoutIgnorePendingStylesheets();
+
+    if (!element.renderer() || !is<RenderBlockFlow>(element.renderer()))
+        return Exception { NotFoundError };
+    auto& blockFlow = downcast<RenderBlockFlow>(*element.renderer());
+    if (!blockFlow.childrenInline())
+        return Exception { NotFoundError };
+
+    size_t lineIndex = 0;
+    for (auto lineBox = InlineIterator::firstLineBoxFor(blockFlow); lineBox; lineBox.traverseNext(), ++lineIndex) {
+        if (lineBox->isFirstAfterPageBreak())
+            return lineIndex;
+    }
+    return Exception { NotFoundError };
+}
+
 ExceptionOr<String> Internals::configurationForViewport(float devicePixelRatio, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight)
 {
     Document* document = contextDocument();
@@ -2351,7 +2286,7 @@ void Internals::advanceToNextMisspelling()
 
 Vector<String> Internals::userPreferredLanguages() const
 {
-    return WTF::userPreferredLanguages();
+    return WTF::userPreferredLanguages(ShouldMinimizeLanguages::No);
 }
 
 void Internals::setUserPreferredLanguages(const Vector<String>& languages)
@@ -2407,7 +2342,25 @@ ExceptionOr<Ref<DOMRectList>> Internals::touchEventRectsForEvent(const String& e
     if (!document || !document->page())
         return Exception { InvalidAccessError };
 
-    return document->page()->touchEventRectsForEventForTesting(eventName);
+    std::array<EventTrackingRegions::EventType, 4> touchEvents = { {
+        EventTrackingRegions::EventType::Touchstart,
+        EventTrackingRegions::EventType::Touchmove,
+        EventTrackingRegions::EventType::Touchend,
+        EventTrackingRegions::EventType::Touchforcechange,
+    } };
+
+    std::optional<EventTrackingRegions::EventType> touchEvent;
+    for (auto event : touchEvents) {
+        if (eventName == EventTrackingRegions::eventName(event)) {
+            touchEvent = event;
+            break;
+        }
+    }
+
+    if (!touchEvent)
+        return Exception { InvalidAccessError };
+
+    return document->page()->touchEventRectsForEventForTesting(touchEvent.value());
 }
 
 ExceptionOr<Ref<DOMRectList>> Internals::passiveTouchEventListenerRects()
@@ -2473,14 +2426,14 @@ public:
     {
     }
 
-    StackVisitor::Status operator()(StackVisitor& visitor) const
+    IterationStatus operator()(StackVisitor& visitor) const
     {
         ++m_iterations;
         if (m_iterations < 2)
-            return StackVisitor::Continue;
+            return IterationStatus::Continue;
 
         m_codeBlock = visitor->codeBlock();
-        return StackVisitor::Done;
+        return IterationStatus::Done;
     }
 
     CodeBlock* codeBlock() const { return m_codeBlock; }
@@ -2838,12 +2791,12 @@ uint64_t Internals::storageAreaMapCount() const
 
 uint64_t Internals::elementIdentifier(Element& element) const
 {
-    return element.document().identifierForElement(element).toUInt64();
+    return element.identifier().toUInt64();
 }
 
-bool Internals::isElementAlive(Document& document, uint64_t elementIdentifier) const
+bool Internals::isElementAlive(uint64_t elementIdentifier) const
 {
-    return document.searchForElementByIdentifier(makeObjectIdentifier<ElementIdentifierType>(elementIdentifier));
+    return Element::fromIdentifier(makeObjectIdentifier<ElementIdentifierType>(elementIdentifier));
 }
 
 uint64_t Internals::frameIdentifier(const Document& document) const
@@ -3241,9 +3194,9 @@ ExceptionOr<String> Internals::displayListForElement(Element& element, unsigned 
     if (!element.renderer())
         return Exception { InvalidAccessError };
 
-    DisplayList::AsTextFlags displayListFlags = 0;
+    OptionSet<DisplayList::AsTextFlag> displayListFlags;
     if (flags & DISPLAY_LIST_INCLUDES_PLATFORM_OPERATIONS)
-        displayListFlags |= DisplayList::AsTextFlag::IncludesPlatformOperations;
+        displayListFlags.add(DisplayList::AsTextFlag::IncludesPlatformOperations);
 
     if (!element.renderer()->hasLayer())
         return Exception { InvalidAccessError };
@@ -3266,9 +3219,9 @@ ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, uns
     if (!element.renderer())
         return Exception { InvalidAccessError };
 
-    DisplayList::AsTextFlags displayListFlags = 0;
+    OptionSet<DisplayList::AsTextFlag> displayListFlags;
     if (flags & DISPLAY_LIST_INCLUDES_PLATFORM_OPERATIONS)
-        displayListFlags |= DisplayList::AsTextFlag::IncludesPlatformOperations;
+        displayListFlags.add(DisplayList::AsTextFlag::IncludesPlatformOperations);
 
     if (!element.renderer()->hasLayer())
         return Exception { InvalidAccessError };
@@ -3278,6 +3231,32 @@ ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, uns
         return Exception { InvalidAccessError };
 
     return layer->backing()->replayDisplayListAsText(displayListFlags);
+}
+
+void Internals::setForceUseGlyphDisplayListForTesting(bool enabled)
+{
+    TextPainter::setForceUseGlyphDisplayListForTesting(enabled);
+}
+
+ExceptionOr<String> Internals::cachedGlyphDisplayListsForTextNode(Node& node, unsigned short flags)
+{
+    Document* document = contextDocument();
+    if (!document || !document->renderView())
+        return Exception { InvalidAccessError };
+
+    if (!is<Text>(node))
+        return Exception { InvalidAccessError };
+
+    node.document().updateLayoutIgnorePendingStylesheets();
+
+    if (!node.renderer())
+        return Exception { InvalidAccessError };
+
+    OptionSet<DisplayList::AsTextFlag> displayListFlags;
+    if (flags & DISPLAY_LIST_INCLUDES_PLATFORM_OPERATIONS)
+        displayListFlags.add(DisplayList::AsTextFlag::IncludesPlatformOperations);
+
+    return TextPainter::cachedGlyphDisplayListsForTextNodeAsText(downcast<Text>(node), displayListFlags);
 }
 
 ExceptionOr<void> Internals::garbageCollectDocumentResources() const
@@ -4257,11 +4236,6 @@ ExceptionOr<String> Internals::unavailablePluginReplacementText(Element& element
 bool Internals::isPluginSnapshotted(Element&)
 {
     return false;
-}
-
-bool Internals::pluginIsBelowSizeThreshold(Element& element)
-{
-    return is<HTMLPlugInElement>(element) && downcast<HTMLPlugInElement>(element).isBelowSizeThreshold();
 }
 
 #if ENABLE(MEDIA_SOURCE)
@@ -6552,7 +6526,7 @@ ExceptionOr<Internals::AttachmentThumbnailInfo> Internals::attachmentThumbnailIn
 #if ENABLE(SERVICE_CONTROLS)
 bool Internals::hasImageControls(const HTMLImageElement& element) const
 {
-    return element.hasImageControls();
+    return ImageControlsMac::hasImageControls(element);
 }
 #endif
 

@@ -35,8 +35,6 @@ namespace WTF {
 class AtomString final {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    WTF_EXPORT_PRIVATE static void init();
-
     AtomString();
     AtomString(const LChar*, unsigned length);
     AtomString(const UChar*, unsigned length);
@@ -54,8 +52,8 @@ public:
     AtomString(Ref<AtomStringImpl>&&);
     AtomString(const StaticStringImpl*);
     AtomString(StringImpl*);
-    AtomString(const String&);
-    AtomString(String&&);
+    explicit AtomString(const String&);
+    explicit AtomString(String&&);
     AtomString(StringImpl* baseString, unsigned start, unsigned length);
 
     // FIXME: AtomString doesn’t always have AtomStringImpl, so one of those two names needs to change.
@@ -99,12 +97,12 @@ public:
     // If we need more overloads of the number function, we can add all the others that String has, but these seem to do for now.
 
     bool contains(UChar character) const { return m_string.contains(character); }
-    bool contains(const LChar* string) const { return m_string.contains(string); }
+    bool contains(ASCIILiteral literal) const { return m_string.contains(literal); }
     bool contains(StringView) const;
     bool containsIgnoringASCIICase(StringView) const;
 
     size_t find(UChar character, unsigned start = 0) const { return m_string.find(character, start); }
-    size_t find(const LChar* string, unsigned start = 0) const { return m_string.find(string, start); }
+    size_t find(ASCIILiteral literal, unsigned start = 0) const { return m_string.find(literal, start); }
     size_t find(StringView, unsigned start = 0) const;
     size_t findIgnoringASCIICase(StringView) const;
     size_t findIgnoringASCIICase(StringView, unsigned start) const;
@@ -189,7 +187,6 @@ bool equalIgnoringASCIICase(const AtomString&, const AtomString&);
 bool equalIgnoringASCIICase(const AtomString&, const String&);
 bool equalIgnoringASCIICase(const String&, const AtomString&);
 bool equalIgnoringASCIICase(const AtomString&, ASCIILiteral);
-bool equalIgnoringASCIICase(const AtomString&, const char*) = delete;
 
 bool equalLettersIgnoringASCIICase(const AtomString&, ASCIILiteral);
 bool startsWithLettersIgnoringASCIICase(const AtomString&, ASCIILiteral);
@@ -279,12 +276,20 @@ inline AtomString::AtomString(NSString *string)
 
 #endif
 
-// nullAtom and emptyAtom are special AtomString. They can be used from any threads since their StringImpls are not actually registered into AtomStringTable.
-extern WTF_EXPORT_PRIVATE LazyNeverDestroyed<const AtomString> nullAtomData;
-extern WTF_EXPORT_PRIVATE LazyNeverDestroyed<const AtomString> emptyAtomData;
+struct StaticAtomString {
+    constexpr StaticAtomString(StringImpl::StaticStringImpl* pointer)
+        : m_pointer(pointer)
+    {
+    }
 
-inline const AtomString& nullAtom() { return nullAtomData.get(); }
-inline const AtomString& emptyAtom() { return emptyAtomData.get(); }
+    StringImpl::StaticStringImpl* m_pointer;
+};
+static_assert(sizeof(AtomString) == sizeof(StaticAtomString), "AtomString and StaticAtomString must be the same size!");
+extern WTF_EXPORT_PRIVATE const StaticAtomString nullAtomData;
+extern WTF_EXPORT_PRIVATE const StaticAtomString emptyAtomData;
+
+inline const AtomString& nullAtom() { return *reinterpret_cast<const AtomString*>(&nullAtomData); }
+inline const AtomString& emptyAtom() { return *reinterpret_cast<const AtomString*>(&emptyAtomData); }
 
 inline AtomString::AtomString(ASCIILiteral literal)
     : m_string(literal.length() ? AtomStringImpl::add(literal.characters(), literal.length()) : Ref { *emptyAtom().impl() })
@@ -355,6 +360,11 @@ inline bool equalIgnoringASCIICase(const AtomString& a, ASCIILiteral b)
 inline int codePointCompare(const AtomString& a, const AtomString& b)
 {
     return codePointCompare(a.string(), b.string());
+}
+
+ALWAYS_INLINE String WARN_UNUSED_RETURN makeStringByReplacingAll(const AtomString& string, UChar target, UChar replacement)
+{
+    return makeStringByReplacingAll(string.string(), target, replacement);
 }
 
 template<> struct IntegerToStringConversionTrait<AtomString> {

@@ -32,6 +32,9 @@
 
 namespace WTF {
 
+const StaticAtomString nullAtomData { nullptr };
+const StaticAtomString emptyAtomData { &StringImpl::s_emptyAtomString };
+
 template<AtomString::CaseConvertType type>
 ALWAYS_INLINE AtomString AtomString::convertASCIICase() const
 {
@@ -133,21 +136,6 @@ void AtomString::show() const
 }
 
 #endif
-
-WTF_EXPORT_PRIVATE LazyNeverDestroyed<const AtomString> nullAtomData;
-WTF_EXPORT_PRIVATE LazyNeverDestroyed<const AtomString> emptyAtomData;
-
-void AtomString::init()
-{
-    static std::once_flag initializeKey;
-    std::call_once(initializeKey, [] {
-        // Initialization is not thread safe, so this function must be called from the main thread first.
-        ASSERT(isUIThread());
-
-        nullAtomData.construct();
-        emptyAtomData.construct(AtomString::fromLatin1(""));
-    });
-}
 
 static inline StringBuilder replaceUnpairedSurrogatesWithReplacementCharacterInternal(StringView view)
 {

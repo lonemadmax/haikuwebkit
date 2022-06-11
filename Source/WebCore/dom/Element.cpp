@@ -325,8 +325,8 @@ bool Element::isNonceable() const
 
     if (hasAttributes()
         && (is<HTMLScriptElement>(*this) || is<SVGScriptElement>(*this))) {
-        static const char scriptString[] = "<script";
-        static const char styleString[] = "<style";
+        static constexpr auto scriptString = "<script"_s;
+        static constexpr auto styleString = "<style"_s;
 
         for (const auto& attribute : attributesIterator()) {
             auto name = attribute.localName().convertToASCIILowercase();
@@ -1901,6 +1901,21 @@ static inline AtomString makeIdForStyleResolution(const AtomString& value, bool 
     return value;
 }
 
+static inline bool isElementReflectionAttribute(const QualifiedName& name)
+{
+    return name == HTMLNames::aria_activedescendantAttr || name == HTMLNames::aria_errormessageAttr;
+}
+
+static inline bool isElementsArrayReflectionAttribute(const QualifiedName& name)
+{
+    return name == HTMLNames::aria_controlsAttr
+        || name == HTMLNames::aria_describedbyAttr
+        || name == HTMLNames::aria_detailsAttr
+        || name == HTMLNames::aria_flowtoAttr
+        || name == HTMLNames::aria_labelledbyAttr
+        || name == HTMLNames::aria_ownsAttr;
+}
+
 void Element::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason)
 {
     bool valueIsSameAsBefore = oldValue == newValue;
@@ -1937,7 +1952,10 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
             }
         } else if (name == HTMLNames::partAttr)
             partAttributeChanged(newValue);
-        else if (name == HTMLNames::exportpartsAttr) {
+        else if (document().settings().ariaReflectionForElementReferencesEnabled() && (isElementReflectionAttribute(name) || isElementsArrayReflectionAttribute(name))) {
+            if (auto* map = explicitlySetAttrElementsMapIfExists())
+                map->remove(name);
+        } else if (name == HTMLNames::exportpartsAttr) {
             if (auto* shadowRoot = this->shadowRoot()) {
                 shadowRoot->invalidatePartMappings();
                 Style::Invalidator::invalidateShadowParts(*shadowRoot);
@@ -1959,6 +1977,124 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
 
     if (AXObjectCache* cache = document().existingAXObjectCache())
         cache->deferAttributeChangeIfNeeded(name, this);
+}
+
+ExplicitlySetAttrElementsMap& Element::explicitlySetAttrElementsMap()
+{
+    return ensureElementRareData().explicitlySetAttrElementsMap();
+}
+
+ExplicitlySetAttrElementsMap* Element::explicitlySetAttrElementsMapIfExists() const
+{
+    return hasRareData() ? &elementRareData()->explicitlySetAttrElementsMap() : nullptr;
+}
+
+Element* Element::getElementAttribute(const QualifiedName& attributeName) const
+{
+    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
+    ASSERT(isElementReflectionAttribute(attributeName));
+
+    if (auto* map = explicitlySetAttrElementsMapIfExists()) {
+        auto it = map->find(attributeName);
+        if (it != map->end()) {
+            ASSERT(it->value.size() == 1);
+            auto* element = it->value[0].get();
+            if (element && isDescendantOrShadowDescendantOf(element->rootNode()))
+                return element;
+            return nullptr;
+        }
+    }
+
+    auto id = getAttribute(attributeName);
+    if (id.isNull())
+        return nullptr;
+
+    return treeScope().getElementById(id);
+}
+
+void Element::setElementAttribute(const QualifiedName& attributeName, Element* element)
+{
+    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
+    ASSERT(isElementReflectionAttribute(attributeName));
+
+    if (!element) {
+        if (auto* map = explicitlySetAttrElementsMapIfExists())
+            map->remove(attributeName);
+        removeAttribute(attributeName);
+        return;
+    }
+
+    auto id = element->getIdAttribute();
+    if (!id.isNull() && &rootNode() == &element->rootNode() && treeScope().getElementById(id) == element)
+        setAttribute(attributeName, id);
+    else
+        setAttribute(attributeName, emptyAtom());
+
+    explicitlySetAttrElementsMap().set(attributeName, Vector<WeakPtr<Element>> { element });
+}
+
+std::optional<Vector<RefPtr<Element>>> Element::getElementsArrayAttribute(const QualifiedName& attributeName) const
+{
+    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
+    ASSERT(isElementsArrayReflectionAttribute(attributeName));
+
+    if (auto* map = explicitlySetAttrElementsMapIfExists()) {
+        if (auto it = map->find(attributeName); it != map->end()) {
+            return compactMap(it->value, [&](auto& element) -> std::optional<RefPtr<Element>> {
+                if (element && isDescendantOrShadowDescendantOf(element->rootNode()))
+                    return element.get();
+                return std::nullopt;
+            });
+        }
+    }
+
+    auto attr = attributeName;
+    if (attr == HTMLNames::aria_labelledbyAttr && !hasAttribute(HTMLNames::aria_labelledbyAttr) && hasAttribute(HTMLNames::aria_labeledbyAttr))
+        attr = HTMLNames::aria_labeledbyAttr;
+
+    if (!hasAttribute(attr))
+        return std::nullopt;
+
+    SpaceSplitString ids(getAttribute(attr), SpaceSplitString::ShouldFoldCase::No);
+    Vector<RefPtr<Element>> elements;
+    for (unsigned i = 0; i < ids.size(); ++i) {
+        if (auto* element = treeScope().getElementById(ids[i]))
+            elements.append(element);
+    }
+    return elements;
+}
+
+void Element::setElementsArrayAttribute(const QualifiedName& attributeName, std::optional<Vector<RefPtr<Element>>>&& elements)
+{
+    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
+    ASSERT(isElementsArrayReflectionAttribute(attributeName));
+
+    if (!elements) {
+        if (auto* map = explicitlySetAttrElementsMapIfExists())
+            map->remove(attributeName);
+        removeAttribute(attributeName);
+        return;
+    }
+
+    Vector<WeakPtr<Element>> newElements;
+    newElements.reserveInitialCapacity(elements->size());
+    StringBuilder value;
+    for (auto element : elements.value()) {
+        newElements.uncheckedAppend(element);
+        if (value.isEmpty() && newElements.size() > 1)
+            continue;
+
+        auto id = element->getIdAttribute();
+        if (!id.isNull() && &rootNode() == &element->rootNode() && treeScope().getElementById(id) == element) {
+            if (!value.isEmpty())
+                value.append(' ');
+            value.append(id);
+        } else
+            value.clear();
+    }
+    setAttribute(attributeName, value.toAtomString());
+
+    explicitlySetAttrElementsMap().set(attributeName, WTFMove(newElements));
 }
 
 template <typename CharacterType>
@@ -2165,7 +2301,7 @@ void Element::storeDisplayContentsStyle(std::unique_ptr<RenderStyle> style)
 
 bool Element::isEventHandlerAttribute(const Attribute& attribute) const
 {
-    return attribute.name().namespaceURI().isNull() && attribute.name().localName().startsWith("on");
+    return attribute.name().namespaceURI().isNull() && attribute.name().localName().startsWith("on"_s);
 }
 
 bool Element::isJavaScriptURLAttribute(const Attribute& attribute) const
@@ -2325,11 +2461,6 @@ Node::InsertedIntoAncestorResult Element::insertedIntoAncestor(InsertionType ins
             updateNameForDocument(*newDocument, nullAtom(), nameValue);
     }
 
-    if (newScope && hasTagName(labelTag)) {
-        if (newScope->shouldCacheLabelsByForAttribute())
-            updateLabel(*newScope, nullAtom(), attributeWithoutSynchronization(forAttr));
-    }
-
     if (becomeConnected) {
         if (UNLIKELY(isCustomElementUpgradeCandidate())) {
             ASSERT(isConnected());
@@ -2338,9 +2469,6 @@ Node::InsertedIntoAncestorResult Element::insertedIntoAncestor(InsertionType ins
         if (UNLIKELY(isDefinedCustomElement()))
             CustomElementReactionQueue::enqueueConnectedCallbackIfNeeded(*this);
     }
-
-    if (UNLIKELY(hasTagName(articleTag) && newDocument))
-        newDocument->registerArticleElement(*this);
 
     if (shouldAutofocus(*this))
         document().topDocument().appendAutofocusCandidate(*this);
@@ -2387,16 +2515,9 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
                 updateNameForDocument(*oldHTMLDocument, nameValue, nullAtom());
         }
 
-        if (oldScope && hasTagName(labelTag)) {
-            if (oldScope->shouldCacheLabelsByForAttribute())
-                updateLabel(*oldScope, attributeWithoutSynchronization(forAttr), nullAtom());
-        }
-
         if (oldDocument) {
             if (oldDocument->cssTarget() == this)
                 oldDocument->setCSSTarget(nullptr);
-            if (UNLIKELY(hasTagName(articleTag)))
-                oldDocument->unregisterArticleElement(*this);
         }
 
         if (removalType.disconnectedFromDocument && UNLIKELY(isDefinedCustomElement()))
@@ -2427,11 +2548,6 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
 
     if (UNLIKELY(isInTopLayer()))
         removeFromTopLayer();
-
-    if (hasNodeFlag(NodeFlag::HasElementIdentifier)) {
-        document().identifiedElementWasRemovedFromDocument(*this);
-        clearNodeFlag(NodeFlag::HasElementIdentifier);
-    }
 }
 
 void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
@@ -3626,7 +3742,10 @@ bool Element::needsStyleInvalidation() const
 {
     if (!inRenderedDocument())
         return false;
-    if (styleValidity() >= Style::Validity::SubtreeInvalid)
+    // If :has() is present a change in an element may affect elements outside its subtree.
+    if (styleValidity() >= Style::Validity::SubtreeInvalid && !Style::Scope::forNode(*this).usesHasPseudoClass())
+        return false;
+    if (document().documentElement() && document().documentElement()->styleValidity() >= Style::Validity::SubtreeInvalid)
         return false;
     if (document().hasPendingFullStyleRebuild())
         return false;
@@ -4742,11 +4861,24 @@ Vector<RefPtr<WebAnimation>> Element::getAnimations(std::optional<GetAnimationsO
     return animations;
 }
 
-ElementIdentifier Element::createElementIdentifier()
+static WeakHashMap<Element, ElementIdentifier>& elementIdentifiersMap()
 {
-    ASSERT(!hasNodeFlag(NodeFlag::HasElementIdentifier));
-    setNodeFlag(NodeFlag::HasElementIdentifier);
-    return ElementIdentifier::generate();
+    static MainThreadNeverDestroyed<WeakHashMap<Element, ElementIdentifier>> map;
+    return map;
+}
+
+ElementIdentifier Element::identifier() const
+{
+    return elementIdentifiersMap().ensure(*this, [] { return ElementIdentifier::generate(); }).iterator->value;
+}
+
+Element* Element::fromIdentifier(ElementIdentifier identifier)
+{
+    for (auto [element, elementIdentifier] : elementIdentifiersMap()) {
+        if (elementIdentifier == identifier)
+            return &element;
+    }
+    return nullptr;
 }
 
 #if ENABLE(CSS_TYPED_OM)

@@ -273,6 +273,9 @@ void RemoteRenderingBackendProxy::releaseRemoteResource(RenderingResourceIdentif
 
 auto RemoteRenderingBackendProxy::prepareBuffersForDisplay(const Vector<LayerPrepareBuffersData>& prepareBuffersInput) -> Vector<SwapBuffersResult>
 {
+    if (prepareBuffersInput.isEmpty())
+        return { };
+
     auto bufferIdentifier = [](ImageBuffer* buffer) -> std::optional<RenderingResourceIdentifier> {
         if (!buffer)
             return std::nullopt;
@@ -313,7 +316,13 @@ auto RemoteRenderingBackendProxy::prepareBuffersForDisplay(const Vector<LayerPre
 
     Vector<PrepareBackingStoreBuffersOutputData> outputData;
     auto sendResult = sendSyncToStream(Messages::RemoteRenderingBackend::PrepareBuffersForDisplay(inputData), Messages::RemoteRenderingBackend::PrepareBuffersForDisplay::Reply(outputData));
-    RELEASE_ASSERT_WITH_MESSAGE(sendResult, "PrepareBuffersForDisplay: IPC failed, probably because of a GPU Process crash");
+    if (!sendResult) {
+        // GPU Process crashed. Set the output data to all null buffers, requiring a full display.
+        outputData.resize(inputData.size());
+        for (auto& perLayerOutputData : outputData)
+            perLayerOutputData.displayRequirement = SwapBuffersDisplayRequirement::NeedsFullDisplay;
+    }
+
     RELEASE_ASSERT_WITH_MESSAGE(inputData.size() == outputData.size(), "PrepareBuffersForDisplay: mismatched buffer vector sizes");
 
     auto fetchBufferWithIdentifier = [&](std::optional<RenderingResourceIdentifier> identifier, std::optional<ImageBufferBackendHandle>&& handle = std::nullopt, bool isFrontBuffer = false) -> RefPtr<ImageBuffer> {
@@ -427,18 +436,18 @@ RenderingBackendIdentifier RemoteRenderingBackendProxy::ensureBackendCreated()
 IPC::StreamClientConnection& RemoteRenderingBackendProxy::streamConnection()
 {
     ensureGPUProcessConnection();
-    if (UNLIKELY(!m_streamConnection->hasWakeUpSemaphore()))
-        m_streamConnection->waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream>(renderingBackendIdentifier(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    if (UNLIKELY(!m_streamConnection->hasSemaphores()))
+        m_streamConnection->waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidInitialize>(renderingBackendIdentifier(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
     return *m_streamConnection;
 }
 
-void RemoteRenderingBackendProxy::didCreateWakeUpSemaphoreForDisplayListStream(IPC::Semaphore&& semaphore)
+void RemoteRenderingBackendProxy::didInitialize(IPC::Semaphore&& wakeUp, IPC::Semaphore&& clientWait)
 {
     if (!m_streamConnection) {
         ASSERT_NOT_REACHED();
         return;
     }
-    m_streamConnection->setWakeUpSemaphore(WTFMove(semaphore));
+    m_streamConnection->setSemaphores(WTFMove(wakeUp), WTFMove(clientWait));
 }
 
 bool RemoteRenderingBackendProxy::isCached(const ImageBuffer& imageBuffer) const

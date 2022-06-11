@@ -117,7 +117,25 @@ ControlPart RenderTheme::adjustAppearanceForElement(RenderStyle& style, const El
         return autoAppearance;
     }
 
+    if (part == TextFieldPart) {
+        if (is<HTMLInputElement>(*element) && downcast<HTMLInputElement>(*element).isSearchField())
+            return part;
+        style.setEffectiveAppearance(autoAppearance);
+        return autoAppearance;
+    }
+
     return part;
+}
+
+static bool isAppearanceAllowedForAllElements(ControlPart part)
+{
+#if ENABLE(APPLE_PAY)
+    if (part == ApplePayButtonPart)
+        return true;
+#endif
+
+    UNUSED_PARAM(part);
+    return false;
 }
 
 void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const RenderStyle* userAgentAppearanceStyle)
@@ -150,7 +168,8 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
         style.setEffectiveAppearance(part);
     }
 
-    if (!userAgentAppearanceStyle
+    if (!isAppearanceAllowedForAllElements(part)
+        && !userAgentAppearanceStyle
         && autoAppearance == NoControlPart
         && !style.borderAndBackgroundEqual(RenderStyle::defaultStyle()))
         style.setEffectiveAppearance(NoControlPart);
@@ -273,8 +292,6 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
         return adjustMenuListStyle(style, element);
     case MenulistButtonPart:
         return adjustMenuListButtonStyle(style, element);
-    case MediaPlayButtonPart:
-        return adjustMediaControlStyle(style, element);
     case MediaSliderPart:
     case MediaVolumeSliderPart:
     case MediaFullScreenVolumeSliderPart:
@@ -289,16 +306,14 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
     case SearchFieldCancelButtonPart:
         return adjustSearchFieldCancelButtonStyle(style, element);
     case SearchFieldDecorationPart:
+        return adjustSearchFieldDecorationPartStyle(style, element);
     case SearchFieldResultsDecorationPart:
+        return adjustSearchFieldResultsDecorationPartStyle(style, element);
     case SearchFieldResultsButtonPart:
-        return adjustSearchFieldDecorationStyle(style, element);
+        return adjustSearchFieldResultsButtonStyle(style, element);
     case ProgressBarPart:
         return adjustProgressBarStyle(style, element);
     case MeterPart:
-    case RelevancyLevelIndicatorPart:
-    case ContinuousCapacityLevelIndicatorPart:
-    case DiscreteCapacityLevelIndicatorPart:
-    case RatingLevelIndicatorPart:
         return adjustMeterStyle(style, element);
 #if ENABLE(SERVICE_CONTROLS)
     case ImageControlsButtonPart:
@@ -409,14 +424,19 @@ ControlPart RenderTheme::autoAppearanceForElement(const Element* elementPtr) con
         if (pseudo == ShadowPseudoIds::webkitSearchCancelButton())
             return SearchFieldCancelButtonPart;
 
-        if (pseudo == ShadowPseudoIds::webkitSearchDecoration())
-            return SearchFieldDecorationPart;
+        if (is<SearchFieldResultsButtonElement>(element)) {
+            if (!downcast<SearchFieldResultsButtonElement>(element.get()).canAdjustStyleForAppearance())
+                return NoControlPart;
 
-        if (pseudo == ShadowPseudoIds::webkitSearchResultsDecoration())
-            return SearchFieldResultsDecorationPart;
+            if (pseudo == ShadowPseudoIds::webkitSearchDecoration())
+                return SearchFieldDecorationPart;
 
-        if (pseudo == ShadowPseudoIds::webkitSearchResultsButton())
-            return SearchFieldResultsButtonPart;
+            if (pseudo == ShadowPseudoIds::webkitSearchResultsDecoration())
+                return SearchFieldResultsDecorationPart;
+
+            if (pseudo == ShadowPseudoIds::webkitSearchResultsButton())
+                return SearchFieldResultsButtonPart;
+        }
 
         if (pseudo == ShadowPseudoIds::webkitSliderThumb() || pseudo == ShadowPseudoIds::webkitMediaSliderThumb())
             return SliderThumbHorizontalPart;
@@ -426,25 +446,6 @@ ControlPart RenderTheme::autoAppearanceForElement(const Element* elementPtr) con
     }
 
     return NoControlPart;
-}
-
-void RenderTheme::adjustSearchFieldDecorationStyle(RenderStyle& style, const Element* element) const
-{
-    if (is<SearchFieldResultsButtonElement>(element) && !downcast<SearchFieldResultsButtonElement>(*element).canAdjustStyleForAppearance()) {
-        style.setEffectiveAppearance(NoControlPart);
-        return;
-    }
-
-    switch (style.effectiveAppearance()) {
-    case SearchFieldDecorationPart:
-        return adjustSearchFieldDecorationPartStyle(style, element);
-    case SearchFieldResultsDecorationPart:
-        return adjustSearchFieldResultsDecorationPartStyle(style, element);
-    case SearchFieldResultsButtonPart:
-        return adjustSearchFieldResultsButtonStyle(style, element);
-    default:
-        break;
-    }
 }
 
 bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, const PaintInfo& paintInfo, const LayoutRect& rect)
@@ -514,10 +515,6 @@ bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, cons
     case MenulistPart:
         return paintMenuList(box, paintInfo, devicePixelSnappedRect);
     case MeterPart:
-    case RelevancyLevelIndicatorPart:
-    case ContinuousCapacityLevelIndicatorPart:
-    case DiscreteCapacityLevelIndicatorPart:
-    case RatingLevelIndicatorPart:
         return paintMeter(box, paintInfo, integralSnappedRect);
     case ProgressBarPart:
         return paintProgressBar(box, paintInfo, integralSnappedRect);
@@ -527,14 +524,10 @@ bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, cons
     case SliderThumbHorizontalPart:
     case SliderThumbVerticalPart:
         return paintSliderThumb(box, paintInfo, integralSnappedRect);
-    case MediaPlayButtonPart:
-        return paintMediaPlayButton(box, paintInfo, integralSnappedRect);
     case MediaSliderPart:
         return paintMediaSliderTrack(box, paintInfo, integralSnappedRect);
     case MediaSliderThumbPart:
         return paintMediaSliderThumb(box, paintInfo, integralSnappedRect);
-    case MediaVolumeSliderMuteButtonPart:
-        return paintMediaMuteButton(box, paintInfo, integralSnappedRect);    
     case MediaVolumeSliderPart:
         return paintMediaVolumeSliderTrack(box, paintInfo, integralSnappedRect);
     case MediaVolumeSliderThumbPart:
@@ -615,10 +608,6 @@ bool RenderTheme::paintBorderOnly(const RenderBox& box, const PaintInfo& paintIn
     case ButtonPart:
     case MenulistPart:
     case MeterPart:
-    case RelevancyLevelIndicatorPart:
-    case ContinuousCapacityLevelIndicatorPart:
-    case DiscreteCapacityLevelIndicatorPart:
-    case RatingLevelIndicatorPart:
     case ProgressBarPart:
     case SliderHorizontalPart:
     case SliderVerticalPart:
@@ -692,10 +681,6 @@ void RenderTheme::paintDecorations(const RenderBox& box, const PaintInfo& paintI
         paintSearchFieldDecorations(box, paintInfo, integralSnappedRect);
         break;
     case MeterPart:
-    case RelevancyLevelIndicatorPart:
-    case ContinuousCapacityLevelIndicatorPart:
-    case DiscreteCapacityLevelIndicatorPart:
-    case RatingLevelIndicatorPart:
     case ProgressBarPart:
     case SliderHorizontalPart:
     case SliderVerticalPart:
@@ -712,43 +697,6 @@ void RenderTheme::paintDecorations(const RenderBox& box, const PaintInfo& paintI
         break;
     }
 }
-
-#if ENABLE(VIDEO)
-
-String RenderTheme::formatMediaControlsTime(float time) const
-{
-    if (!std::isfinite(time))
-        time = 0;
-    // FIXME: Seems like it would be better to use std::lround here.
-    int seconds = static_cast<int>(std::abs(time));
-    int hours = seconds / (60 * 60);
-    int minutes = (seconds / 60) % 60;
-    seconds %= 60;
-    if (hours)
-        return makeString((time < 0 ? "-" : ""), hours, ':', pad('0', 2, minutes), ':', pad('0', 2, seconds));
-    return makeString((time < 0 ? "-" : ""), pad('0', 2, minutes), ':', pad('0', 2, seconds));
-}
-
-String RenderTheme::formatMediaControlsCurrentTime(float currentTime, float /*duration*/) const
-{
-    return formatMediaControlsTime(currentTime);
-}
-
-String RenderTheme::formatMediaControlsRemainingTime(float currentTime, float duration) const
-{
-    return formatMediaControlsTime(currentTime - duration);
-}
-
-LayoutPoint RenderTheme::volumeSliderOffsetFromMuteButton(const RenderBox& muteButtonBox, const LayoutSize& size) const
-{
-    LayoutUnit y = -size.height();
-    FloatPoint absPoint = muteButtonBox.localToAbsolute(FloatPoint(muteButtonBox.offsetLeft(), y), { IsFixed, UseTransforms });
-    if (absPoint.y() < 0)
-        y = muteButtonBox.height();
-    return LayoutPoint(0_lu, y);
-}
-
-#endif
 
 Color RenderTheme::activeSelectionBackgroundColor(OptionSet<StyleColorOptions> options) const
 {
@@ -894,10 +842,6 @@ bool RenderTheme::isControlStyled(const RenderStyle& style, const RenderStyle& u
     case MenulistPart:
     case ProgressBarPart:
     case MeterPart:
-    case RelevancyLevelIndicatorPart:
-    case ContinuousCapacityLevelIndicatorPart:
-    case DiscreteCapacityLevelIndicatorPart:
-    case RatingLevelIndicatorPart:
     // FIXME: SearchFieldPart should be included here when making search fields style-able.
     case TextFieldPart:
     case TextAreaPart:
@@ -1201,7 +1145,7 @@ bool RenderTheme::paintAttachment(const RenderObject&, const PaintInfo&, const I
 
 String RenderTheme::colorInputStyleSheet(const Settings&) const
 {
-    return "input[type=\"color\"] { appearance: auto; width: 44px; height: 23px; outline: none; } "_s;
+    return "input[type=\"color\"] { appearance: auto; width: 44px; height: 23px; box-sizing: border-box; outline: none; } "_s;
 }
 
 #endif // ENABLE(INPUT_TYPE_COLOR)
@@ -1337,10 +1281,6 @@ bool RenderTheme::shouldHaveCapsLockIndicator(const HTMLInputElement&) const
 }
 
 void RenderTheme::adjustMenuListButtonStyle(RenderStyle&, const Element*) const
-{
-}
-
-void RenderTheme::adjustMediaControlStyle(RenderStyle&, const Element*) const
 {
 }
 

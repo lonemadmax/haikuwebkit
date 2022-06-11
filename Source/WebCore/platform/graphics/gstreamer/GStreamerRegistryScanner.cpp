@@ -178,7 +178,7 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::Element
             auto* factory = reinterpret_cast<GstElementFactory*>(factories->data);
             auto metadata = String::fromLatin1(gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_KLASS));
             auto components = metadata.split('/');
-            if (components.contains("Hardware")) {
+            if (components.contains("Hardware"_s)) {
                 isUsingHardware = true;
                 break;
             }
@@ -512,7 +512,7 @@ bool GStreamerRegistryScanner::isCodecSupported(Configuration configuration, con
     String codecName = slashIndex != notFound ? codec.substring(slashIndex + 1) : codec;
 
     bool supported = false;
-    if (codecName.startsWith("avc1"))
+    if (codecName.startsWith("avc1"_s))
         supported = isAVC1CodecSupported(configuration, codecName, shouldCheckForHardwareUse);
     else {
         auto& codecMap = configuration == Configuration::Decoding ? m_decoderCodecMap : m_encoderCodecMap;

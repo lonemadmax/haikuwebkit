@@ -205,7 +205,7 @@ public:
     const String& responseMIMEType() const;
 #if PLATFORM(IOS_FAMILY)
     // FIXME: This method seems to violate the encapsulation of this class.
-    WEBCORE_EXPORT void setResponseMIMEType(const String&);
+    WEBCORE_EXPORT void setResponseMIMEType(const AtomString&);
 #endif
     const String& currentContentType() const;
     void replaceRequestURLForSameDocumentNavigation(const URL&);
@@ -501,6 +501,10 @@ private:
     bool maybeCreateArchive();
 #if ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
     void clearArchiveResources();
+#endif
+
+#if ENABLE(WEB_ARCHIVE)
+    bool isLoadingRemoteArchive() const;
 #endif
 
     void willSendRequest(ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&);
@@ -800,7 +804,7 @@ inline void DocumentLoader::didTellClientAboutLoad(const String& url)
 {
 #if !PLATFORM(COCOA)
     // Don't include data URLs here, as if a lot of data is loaded that way, we hold on to the (large) URL string for too long.
-    if (protocolIs(url, "data"))
+    if (protocolIs(url, "data"_s))
         return;
 #endif
     if (!url.isEmpty())

@@ -178,6 +178,7 @@
                 41
                 42
                 43
+                46
                 48
                 49
                 256
@@ -225,7 +226,7 @@
             iokit-external-method
         )
         (allow iokit-async-external-method
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000 && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
             (iokit-method-number
                 17
                 40
@@ -233,7 +234,7 @@
 #endif
         )
         (allow iokit-external-method
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000 && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
             (iokit-method-number
                 0
                 1
@@ -256,6 +257,7 @@
                 36
                 38
                 39
+                43
                 44
             )
 #endif
@@ -2198,6 +2200,9 @@
         MSC__kernelrpc_mach_vm_purgable_control_trap
         MSC_host_create_mach_voucher_trap
         MSC_host_self_trap
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 130000
+        MSC_iokit_user_client_trap
+#endif
         MSC_mach_generate_activity_id
         MSC_mach_msg_trap
         MSC_mach_reply_port

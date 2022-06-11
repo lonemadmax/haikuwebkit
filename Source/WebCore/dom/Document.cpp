@@ -769,7 +769,7 @@ void Document::removedLastRef()
         m_fullscreenManager->clear();
 #endif
         m_associatedFormControls.clear();
-        m_pendingRenderTreeTextUpdate = { };
+        m_pendingRenderTreeUpdate = { };
 
         m_fontLoader->stopLoadingAndClearFonts();
 
@@ -1085,7 +1085,7 @@ ExceptionOr<Ref<CDATASection>> Document::createCDATASection(String&& data)
     if (isHTMLDocument())
         return Exception { NotSupportedError };
 
-    if (data.contains("]]>"))
+    if (data.contains("]]>"_s))
         return Exception { InvalidCharacterError };
 
     return CDATASection::create(*this, WTFMove(data));
@@ -1096,7 +1096,7 @@ ExceptionOr<Ref<ProcessingInstruction>> Document::createProcessingInstruction(St
     if (!isValidName(target))
         return Exception { InvalidCharacterError };
 
-    if (data.contains("?>"))
+    if (data.contains("?>"_s))
         return Exception { InvalidCharacterError };
 
     return ProcessingInstruction::create(*this, WTFMove(target), WTFMove(data));
@@ -2092,7 +2092,7 @@ void Document::resolveStyle(ResolveStyleType type)
                 documentElement->invalidateStyleForSubtree();
         }
 
-        Style::TreeResolver resolver(*this, WTFMove(m_pendingRenderTreeTextUpdate));
+        Style::TreeResolver resolver(*this, WTFMove(m_pendingRenderTreeUpdate));
         auto styleUpdate = resolver.resolve();
 
         while (resolver.hasUnresolvedQueryContainers() && styleUpdate) {
@@ -2154,12 +2154,27 @@ void Document::updateTextRenderer(Text& text, unsigned offsetOfReplacedText, uns
     if (!hasLivingRenderTree())
         return;
 
-    if (!m_pendingRenderTreeTextUpdate)
-        m_pendingRenderTreeTextUpdate = makeUnique<Style::Update>(*this);
+    ensurePendingRenderTreeUpdate().addText(text, { offsetOfReplacedText, lengthOfReplacedText, std::nullopt });
+}
 
-    m_pendingRenderTreeTextUpdate->addText(text, { offsetOfReplacedText, lengthOfReplacedText, std::nullopt });
+void Document::updateSVGRenderer(SVGElement& element)
+{
+    if (!hasLivingRenderTree())
+        return;
+
+    ensurePendingRenderTreeUpdate().addSVGRendererUpdate(element);
+}
+
+Style::Update& Document::ensurePendingRenderTreeUpdate()
+{
+    ASSERT(hasLivingRenderTree());
+
+    if (!m_pendingRenderTreeUpdate)
+        m_pendingRenderTreeUpdate = makeUnique<Style::Update>(*this);
 
     scheduleRenderingUpdate({ });
+
+    return *m_pendingRenderTreeUpdate;
 }
 
 bool Document::needsStyleRecalc() const
@@ -2173,7 +2188,7 @@ bool Document::needsStyleRecalc() const
     if (childNeedsStyleRecalc())
         return true;
 
-    if (m_pendingRenderTreeTextUpdate)
+    if (m_pendingRenderTreeUpdate)
         return true;
 
     if (styleScope().hasPendingUpdate())
@@ -2594,6 +2609,8 @@ void Document::destroyRenderTree()
     if (view())
         view()->willDestroyRenderTree();
 
+    m_pendingRenderTreeUpdate = { };
+
     if (m_documentElement)
         RenderTreeUpdater::tearDownRenderers(*m_documentElement);
 
@@ -2867,6 +2884,16 @@ Ref<DocumentParser> Document::createParser()
 {
     // FIXME: this should probably pass the frame instead
     return XMLDocumentParser::create(*this, view());
+}
+
+bool Document::hasHighlight() const
+{
+    return (m_highlightRegister && !m_highlightRegister->isEmpty())
+        || (m_fragmentHighlightRegister && !m_fragmentHighlightRegister->isEmpty()) 
+#if ENABLE(APP_HIGHLIGHTS)
+        || (m_appHighlightRegister && !m_appHighlightRegister->isEmpty())
+#endif
+    ;
 }
 
 HighlightRegister& Document::highlightRegister()
@@ -4739,7 +4766,8 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
         m_focusedElement = newFocusedElement;
         setFocusNavigationStartingNode(m_focusedElement.get());
         m_focusedElement->setFocus(true, options.visibility);
-        m_latestFocusTrigger = options.trigger;
+        if (options.trigger != FocusTrigger::Bindings)
+            m_latestFocusTrigger = options.trigger;
 
         // The setFocus call triggers a blur and a focus event. Event handlers could cause the focused element to be cleared.
         if (m_focusedElement != newFocusedElement) {
@@ -4852,13 +4880,19 @@ Element* Document::focusNavigationStartingNode(FocusDirection direction) const
     return node->parentOrShadowHostElement();
 }
 
-void Document::setCSSTarget(Element* targetNode)
+void Document::setCSSTarget(Element* newTarget)
 {
+    if (m_cssTarget == newTarget)
+        return;
+
+    std::optional<Style::PseudoClassChangeInvalidation> oldInvalidation;
     if (m_cssTarget)
-        m_cssTarget->invalidateStyleForSubtree();
-    m_cssTarget = targetNode;
-    if (targetNode)
-        targetNode->invalidateStyleForSubtree();
+        emplace(oldInvalidation, *m_cssTarget, { { CSSSelector::PseudoClassTarget, false } });
+
+    std::optional<Style::PseudoClassChangeInvalidation> newInvalidation;
+    if (newTarget)
+        emplace(newInvalidation, *newTarget, { { CSSSelector::PseudoClassTarget, true } });
+    m_cssTarget = newTarget;
 }
 
 void Document::registerNodeListForInvalidation(LiveNodeList& list)
@@ -5334,7 +5368,7 @@ bool Document::isCookieAverse() const
         return false;
 
     // A Document whose URL's scheme is not a network scheme is cookie-averse (https://fetch.spec.whatwg.org/#network-scheme).
-    return !cookieURL.protocolIsInHTTPFamily() && !cookieURL.protocolIs("ftp");
+    return !cookieURL.protocolIsInHTTPFamily() && !cookieURL.protocolIs("ftp"_s);
 }
 
 ExceptionOr<String> Document::cookie()
@@ -8872,30 +8906,6 @@ bool Document::hitTest(const HitTestRequest& request, const HitTestLocation& loc
     return resultLayer;
 }
 
-ElementIdentifier Document::identifierForElement(Element& element)
-{
-    ASSERT(&element.document() == this);
-    auto result = m_identifiedElementsMap.ensure(&element, [&] {
-        return element.createElementIdentifier();
-    });
-    return result.iterator->value;
-}
-
-Element* Document::searchForElementByIdentifier(const ElementIdentifier& identifier)
-{
-    for (auto it = m_identifiedElementsMap.begin(); it != m_identifiedElementsMap.end(); ++it) {
-        if (it->value == identifier)
-            return it->key;
-    }
-
-    return nullptr;
-}
-
-void Document::identifiedElementWasRemovedFromDocument(Element& element)
-{
-    m_identifiedElementsMap.remove(&element);
-}
-
 #if ENABLE(DEVICE_ORIENTATION)
 
 DeviceOrientationAndMotionAccessController& Document::deviceOrientationAndMotionAccessController()
@@ -8990,11 +9000,11 @@ MessagePortChannelProvider& Document::messagePortChannelProvider()
 #if USE(SYSTEM_PREVIEW)
 void Document::dispatchSystemPreviewActionEvent(const SystemPreviewInfo& systemPreviewInfo, const String& message)
 {
-    RefPtr element = searchForElementByIdentifier(systemPreviewInfo.element.elementIdentifier);
-    if (!element)
+    RefPtr element = Element::fromIdentifier(systemPreviewInfo.element.elementIdentifier);
+    if (!is<HTMLAnchorElement>(element))
         return;
 
-    if (!is<HTMLAnchorElement>(element))
+    if (!element->isConnected() || &element->document() != this)
         return;
 
     auto event = MessageEvent::create(message, securityOrigin().toString());
@@ -9061,13 +9071,20 @@ void Document::clearCanvasPreparation(HTMLCanvasElement& canvas)
     m_canvasesNeedingDisplayPreparation.remove(canvas);
 }
 
-void Document::canvasChanged(CanvasBase& canvasBase, const std::optional<FloatRect>&)
+void Document::canvasChanged(CanvasBase& canvasBase, const std::optional<FloatRect>& changedRect)
 {
     if (!is<HTMLCanvasElement>(canvasBase))
         return;
     auto& canvas = downcast<HTMLCanvasElement>(canvasBase);
-    if (canvas.needsPreparationForDisplay())
+    if (canvas.needsPreparationForDisplay()) {
         m_canvasesNeedingDisplayPreparation.add(canvas);
+        // Schedule a rendering update to force handling of prepareForDisplay
+        // for any queued canvases. This is especially important for any canvas
+        // that is not in the DOM, as those don't have a rect to invalidate to
+        // trigger an update. <http://bugs.webkit.org/show_bug.cgi?id=240380>.
+        if (!changedRect)
+            scheduleRenderingUpdate(RenderingUpdateStep::PrepareCanvasesForDisplay);
+    }
 }
 
 void Document::canvasDestroyed(CanvasBase& canvasBase)

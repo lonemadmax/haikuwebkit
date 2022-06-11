@@ -1266,33 +1266,7 @@ bool RenderThemeMac::paintMeter(const RenderObject& renderObject, const PaintInf
 
 bool RenderThemeMac::supportsMeter(ControlPart part, const HTMLMeterElement&) const
 {
-    switch (part) {
-    case RelevancyLevelIndicatorPart:
-    case DiscreteCapacityLevelIndicatorPart:
-    case RatingLevelIndicatorPart:
-    case MeterPart:
-    case ContinuousCapacityLevelIndicatorPart:
-        return true;
-    default:
-        return false;
-    }
-}
-
-NSLevelIndicatorStyle RenderThemeMac::levelIndicatorStyleFor(ControlPart part) const
-{
-    switch (part) {
-    case RelevancyLevelIndicatorPart:
-        return NSLevelIndicatorStyleRelevancy;
-    case DiscreteCapacityLevelIndicatorPart:
-        return NSLevelIndicatorStyleDiscreteCapacity;
-    case RatingLevelIndicatorPart:
-        return NSLevelIndicatorStyleRating;
-    case MeterPart:
-    case ContinuousCapacityLevelIndicatorPart:
-    default:
-        return NSLevelIndicatorStyleContinuousCapacity;
-    }
-
+    return part == MeterPart;
 }
 
 NSLevelIndicatorCell* RenderThemeMac::levelIndicatorFor(const RenderMeter& renderMeter) const
@@ -1327,7 +1301,7 @@ NSLevelIndicatorCell* RenderThemeMac::levelIndicatorFor(const RenderMeter& rende
         break;
     }
 
-    [cell setLevelIndicatorStyle:levelIndicatorStyleFor(style.effectiveAppearance())];
+    [cell setLevelIndicatorStyle:NSLevelIndicatorStyleContinuousCapacity];
     [cell setUserInterfaceLayoutDirection:style.isLeftToRightDirection() ? NSUserInterfaceLayoutDirectionLeftToRight : NSUserInterfaceLayoutDirectionRightToLeft];
     [cell setMinValue:element->min()];
     [cell setMaxValue:element->max()];
@@ -2625,6 +2599,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 RetainPtr<NSImage> RenderThemeMac::iconForAttachment(const String& fileName, const String& attachmentType, const String& title)
 {
+    if (fileName.isNull() && attachmentType.isNull() && title.isNull())
+        return nil;
+
     if (auto icon = WebCore::iconForAttachment(fileName, attachmentType, title))
         return icon->nsImage();
     return nil;
@@ -2661,6 +2638,18 @@ static void paintAttachmentIconBackground(const RenderAttachment& attachment, Gr
     }
 }
 
+static bool shouldDrawIcon(const String& title)
+{
+    // The thumbnail will be painted by the client.
+    NSString *cocoaTitle = title;
+    if (auto fileExtension = cocoaTitle.pathExtension; fileExtension.length) {
+        return ![fileExtension isEqualToString:@"key"]
+            && ![fileExtension isEqualToString:@"pages"]
+            && ![fileExtension isEqualToString:@"numbers"];
+    }
+    return true;
+}
+
 static void paintAttachmentIcon(const RenderAttachment& attachment, GraphicsContext& context, AttachmentLayout& layout)
 {
     if (auto thumbnailIcon = attachment.attachmentElement().thumbnail()) {
@@ -2681,6 +2670,9 @@ static void paintAttachmentIcon(const RenderAttachment& attachment, GraphicsCont
     if (!image)
         return;
     
+    if (!shouldDrawIcon(attachment.attachmentElement().attachmentTitleForDisplay()))
+        return;
+
     LocalCurrentGraphicsContext localCurrentGC(context);
 
     [image drawInRect:layout.iconRect fromRect:NSMakeRect(0, 0, [image size].width, [image size].height) operation:NSCompositingOperationSourceOver fraction:1.0f];

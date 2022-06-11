@@ -241,6 +241,8 @@ NetworkProcessProxy::NetworkProcessProxy()
     , m_throttler(*this, WebProcessPool::anyProcessPoolNeedsUIBackgroundAssertion())
     , m_cookieManager(makeUniqueRef<WebCookieManagerProxy>(*this))
 {
+    RELEASE_LOG(Process, "%p - NetworkProcessProxy::NetworkProcessProxy", this);
+
     connect();
     sendCreationParametersToNewProcess();
     updateProcessAssertion();
@@ -549,6 +551,8 @@ void NetworkProcessProxy::triggerBrowsingContextGroupSwitchForNavigation(WebPage
 
 void NetworkProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connection::Identifier connectionIdentifier)
 {
+    RELEASE_LOG(Process, "%p - NetworkProcessProxy::didFinishLaunching", this);
+
     AuxiliaryProcessProxy::didFinishLaunching(launcher, connectionIdentifier);
 
     if (!IPC::Connection::identifierIsValid(connectionIdentifier)) {
@@ -1370,11 +1374,13 @@ void NetworkProcessProxy::setSuspensionAllowedForTesting(bool allowed)
     s_suspensionAllowedForTesting = allowed;
 }
 
-void NetworkProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImminent, CompletionHandler<void()>&& completionHandler)
+void NetworkProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&& completionHandler)
 {
     if (!s_suspensionAllowedForTesting)
         return completionHandler();
-    sendWithAsyncReply(Messages::NetworkProcess::PrepareToSuspend(isSuspensionImminent == IsSuspensionImminent::Yes), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
+    
+    auto estimatedSuspendTime = MonotonicTime::now() + Seconds(remainingRunTime);
+    sendWithAsyncReply(Messages::NetworkProcess::PrepareToSuspend(isSuspensionImminent == IsSuspensionImminent::Yes, estimatedSuspendTime), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
 }
 
 void NetworkProcessProxy::sendProcessDidResume(ResumeReason reason)
@@ -1761,11 +1767,6 @@ void NetworkProcessProxy::processPushMessage(PAL::SessionID sessionID, const Web
 
     if (auto it = permissions.find(origin); it != permissions.end())
         permission = it->value ? PushPermissionState::Granted : PushPermissionState::Denied;
-
-    if (permission == PushPermissionState::Denied) {
-        callback(false);
-        return;
-    }
 
     sendWithAsyncReply(Messages::NetworkProcess::ProcessPushMessage { sessionID, pushMessage, permission }, WTFMove(callback));
 }

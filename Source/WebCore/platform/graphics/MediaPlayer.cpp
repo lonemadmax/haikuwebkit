@@ -1104,6 +1104,11 @@ DestinationColorSpace MediaPlayer::colorSpace()
     return m_private->colorSpace();
 }
 
+bool MediaPlayer::shouldGetNativeImageForCanvasDrawing() const
+{
+    return m_private->shouldGetNativeImageForCanvasDrawing();
+}
+
 MediaPlayer::SupportsType MediaPlayer::supportsType(const MediaEngineSupportParameters& parameters)
 {
     // 4.8.10.3 MIME types - The canPlayType(type) method must return the empty string if type is a type that the 

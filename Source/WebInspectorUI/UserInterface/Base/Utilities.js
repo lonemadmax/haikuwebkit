@@ -148,6 +148,31 @@ Object.defineProperty(Map.prototype, "getOrInitialize",
         if (value)
             return value;
 
+        if (typeof initialValue === "function")
+            initialValue = initialValue();
+
+        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
+
+        this.set(key, initialValue);
+        return initialValue;
+    }
+});
+
+Object.defineProperty(WeakMap.prototype, "getOrInitialize",
+{
+    value(key, initialValue)
+    {
+        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
+
+        let value = this.get(key);
+        if (value)
+            return value;
+
+        if (typeof initialValue === "function")
+            initialValue = initialValue();
+
+        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
+
         this.set(key, initialValue);
         return initialValue;
     }
@@ -1566,6 +1591,25 @@ function simpleGlobStringToRegExp(globString, regExpFlags)
 
     return new RegExp(regexString, regExpFlags);
 }
+
+Object.defineProperty(Array.prototype, "minIndex",
+{
+    value(comparator)
+    {
+        function defaultComparator(a, b)
+        {
+            return a - b;
+        }
+        comparator = comparator || defaultComparator;
+
+        let minIndex = 0;
+        for (let i = 1; i < this.length; ++i) {
+            if (comparator(this[minIndex], this[i]) > 0)
+                minIndex = i;
+        }
+        return minIndex;
+    },
+});
 
 Object.defineProperty(Array.prototype, "lowerBound",
 {

@@ -1,4 +1,4 @@
-# Copyright (C) 2020, 2021 Apple Inc. All rights reserved.
+# Copyright (C) 2020-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -44,7 +44,7 @@ class Git(mocks.Subprocess):
     # 	  merge = refs/heads/main
     RE_SINGLE_TOP = re.compile(r'^\[\s*(?P<key>\S+)\s*\]')
     RE_MULTI_TOP = re.compile(r'^\[\s*(?P<keya>\S+) "(?P<keyb>\S+)"\s*\]')
-    RE_ELEMENT = re.compile(r'^\s+(?P<key>\S+)\s*=\s*(?P<value>\S+)')
+    RE_ELEMENT = re.compile(r'^\s+(?P<key>\S+)\s*=\s*(?P<value>.*\S+)')
 
     def __init__(
         self, path='/.invalid-git', datafile=None,
@@ -210,6 +210,13 @@ nothing to commit, working tree clean
                     stdout='{}\n'.format(self.path),
                 ),
             ), mocks.Subprocess.Route(
+                self.executable, 'rev-parse', '--git-common-dir',
+                cwd=self.path,
+                completion=mocks.ProcessCompletion(
+                    returncode=0,
+                    stdout='.git\n',
+                ),
+            ), mocks.Subprocess.Route(
                 self.executable, 'rev-parse', '--abbrev-ref', 'HEAD',
                 cwd=self.path,
                 generator=lambda *args, **kwargs: mocks.ProcessCompletion(
@@ -271,7 +278,7 @@ nothing to commit, working tree clean
                     stdout='{}\n'.format(self.find(args[2]).hash),
                 ) if self.find(args[2]) else mocks.ProcessCompletion(returncode=128)
             ), mocks.Subprocess.Route(
-                self.executable, 'log', re.compile(r'.+'), '-1', '--no-decorate',
+                self.executable, 'log', re.compile(r'.+'), '-1', '--no-decorate', '--date=unix',
                 cwd=self.path,
                 generator=lambda *args, **kwargs: mocks.ProcessCompletion(
                     returncode=0,
@@ -284,7 +291,7 @@ nothing to commit, working tree clean
                             branch=self.branch,
                             author=self.find(args[2]).author.name,
                             email=self.find(args[2]).author.email,
-                            date=datetime.utcfromtimestamp(self.find(args[2]).timestamp + time.timezone).strftime('%a %b %d %H:%M:%S %Y +0000'),
+                            date=self.find(args[2]).timestamp,
                             log='\n'.join([
                                     ('    ' + line) if line else '' for line in self.find(args[2]).message.splitlines()
                                 ] + (['    git-svn-id: https://svn.{}/repository/{}/trunk@{} 268f45cc-cd09-0410-ab3c-d52691b4dbfc'.format(
@@ -296,7 +303,7 @@ nothing to commit, working tree clean
                         ),
                 ) if self.find(args[2]) else mocks.ProcessCompletion(returncode=128),
             ), mocks.Subprocess.Route(
-                self.executable, 'log', '--format=fuller', '--no-decorate', re.compile(r'.+\.\.\..+'),
+                self.executable, 'log', '--format=fuller', '--no-decorate', '--date=unix', re.compile(r'.+\.\.\..+'),
                 cwd=self.path,
                 generator=lambda *args, **kwargs: mocks.ProcessCompletion(
                     returncode=0,
@@ -310,7 +317,7 @@ nothing to commit, working tree clean
                             hash=commit.hash,
                             author=commit.author.name,
                             email=commit.author.email,
-                            date=datetime.utcfromtimestamp(commit.timestamp + time.timezone).strftime('%a %b %d %H:%M:%S %Y +0000'),
+                            date=commit.timestamp,
                             log='\n'.join([
                                 ('    ' + line) if line else '' for line in commit.message.splitlines()
                             ] + ([
@@ -319,7 +326,7 @@ nothing to commit, working tree clean
                                     os.path.basename(path),
                                    commit.revision,
                             )] if git_svn else []),
-                        )) for commit in list(self.commits_in_range(args[4].split('...')[-1], args[4].split('...')[0]))[:-1]
+                        )) for commit in list(self.commits_in_range(args[5].split('...')[-1], args[5].split('...')[0]))[:-1]
                     ])
                 )
             ), mocks.Subprocess.Route(
@@ -335,7 +342,7 @@ nothing to commit, working tree clean
                             hash=commit.hash,
                             author=commit.author.name,
                             email=commit.author.email,
-                            date=datetime.utcfromtimestamp(commit.timestamp + time.timezone).strftime('%a %b %d %H:%M:%S %Y +0000'),
+                            date=commit.timestamp if '--date=unix' in args else datetime.utcfromtimestamp(commit.timestamp + time.timezone).strftime('%a %b %d %H:%M:%S %Y +0000'),
                             log='\n'.join([
                                 ('    ' + line) if line else '' for line in commit.message.splitlines()
                             ] + ([
@@ -449,7 +456,7 @@ nothing to commit, working tree clean
                 generator=lambda *args, **kwargs:
                     self.edit_config(args[2], args[3]),
             ), mocks.Subprocess.Route(
-                self.executable, 'fetch', 'fork',
+                self.executable, 'fetch', re.compile(r'.+'),
                 cwd=self.path,
                 completion=mocks.ProcessCompletion(
                     returncode=0,
@@ -480,11 +487,11 @@ nothing to commit, working tree clean
             ), mocks.Subprocess.Route(
                 self.executable, 'commit', '--date=now',
                 cwd=self.path,
-                generator=lambda *args, **kwargs: self.commit(amend=False),
+                generator=lambda *args, **kwargs: self.commit(amend=False, env=kwargs.get('env', dict())),
             ), mocks.Subprocess.Route(
                 self.executable, 'commit', '--date=now', '--amend',
                 cwd=self.path,
-                generator=lambda *args, **kwargs: self.commit(amend=True),
+                generator=lambda *args, **kwargs: self.commit(amend=True, env=kwargs.get('env', dict())),
             ), mocks.Subprocess.Route(
                 self.executable, 'revert', '--no-commit', re.compile(r'.+'),
                 cwd=self.path,
@@ -902,7 +909,8 @@ nothing to commit, working tree clean
 
         return mocks.ProcessCompletion(returncode=0)
 
-    def commit(self, amend=False):
+    def commit(self, amend=False, env=None):
+        env = env or dict()
         if not self.head:
             return mocks.ProcessCompletion(returncode=1, stdout='Allowed in git, but disallowed by reasonable workflows')
         if not self.staged and not amend:
@@ -918,8 +926,9 @@ nothing to commit, working tree clean
             self.commits[self.branch].append(self.head)
 
         self.head.author = Contributor(self.config()['user.name'], [self.config()['user.email']])
-        self.head.message = '[Testing] {} commits\nReviewed by Jonathan Bedard\n\n * {}\n'.format(
-            'Amending' if amend else 'Creating',
+        self.head.message = '{}{}\nReviewed by Jonathan Bedard\n\n * {}\n'.format(
+            env.get('COMMIT_MESSAGE_TITLE', '') or '[Testing] {} commits'.format('Amending' if amend else 'Creating'),
+            ('\n' + env.get('COMMIT_MESSAGE_BUG', '')) if env.get('COMMIT_MESSAGE_BUG', '') else '',
             '\n * '.join(self.staged.keys()),
         )
         self.head.hash = hashlib.sha256(string_utils.encode(self.head.message)).hexdigest()[:40]

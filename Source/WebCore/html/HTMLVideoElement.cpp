@@ -146,10 +146,6 @@ void HTMLVideoElement::parseAttribute(const QualifiedName& name, const AtomStrin
             }
         }
     }
-#if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    else if (name == webkitwirelessvideoplaybackdisabledAttr)
-        mediaSession().setWirelessVideoPlaybackDisabled(true);
-#endif
     else {
         HTMLMediaElement::parseAttribute(name, value);    
 
@@ -321,6 +317,14 @@ bool HTMLVideoElement::hasAvailableVideoFrame() const
         return false;
     
     return player()->hasVideo() && player()->hasAvailableVideoFrame();
+}
+
+bool HTMLVideoElement::shouldGetNativeImageForCanvasDrawing() const
+{
+    if (!player())
+        return false;
+
+    return player()->shouldGetNativeImageForCanvasDrawing();
 }
 
 RefPtr<NativeImage> HTMLVideoElement::nativeImageForCurrentTime()

@@ -30,7 +30,6 @@ import subprocess
 import sys
 import time
 
-from datetime import datetime, timedelta
 from collections import defaultdict
 
 from webkitcorepy import run, decorators, NestedFuzzyDict
@@ -71,7 +70,7 @@ class Git(Scm):
 
         @property
         def path(self):
-            return os.path.join(self.repo.root_path, '.git', 'identifiers.json')
+            return os.path.join(self.repo.common_directory, 'identifiers.json')
 
         def _fill(self, branch):
             default_branch = self.repo.default_branch
@@ -130,7 +129,7 @@ class Git(Scm):
                     kwargs = dict(encoding='utf-8')
                 self._last_populated[branch] = time.time()
                 log = subprocess.Popen(
-                    [self.repo.executable(), 'log', branch, '--no-decorate'],
+                    [self.repo.executable(), 'log', branch, '--no-decorate', '--date=unix'],
                     cwd=self.repo.root_path,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -397,7 +396,7 @@ class Git(Scm):
     @property
     @decorators.Memoize()
     def is_svn(self):
-        config = os.path.join(self.root_path, '.git/config')
+        config = os.path.join(self.common_directory, 'config')
         if not os.path.isfile(config):
             return False
 
@@ -421,16 +420,29 @@ class Git(Scm):
 
     @property
     @decorators.Memoize()
-    def default_branch(self):
-        result = run([self.executable(), 'rev-parse', '--abbrev-ref', 'origin/HEAD'], cwd=self.path, capture_output=True, encoding='utf-8')
+    def common_directory(self):
+        result = run([self.executable(), 'rev-parse', '--git-common-dir'], cwd=self.path, capture_output=True, encoding='utf-8')
         if result.returncode:
-            candidates = self.branches
-            if 'master' in candidates:
-                return 'master'
-            if 'main' in candidates:
-                return 'main'
-            return None
-        return '/'.join(result.stdout.rstrip().split('/')[1:])
+            return os.path.join(self.root_path, '.git')
+        return os.path.join(self.root_path, result.stdout.rstrip())
+
+    @property
+    @decorators.Memoize()
+    def default_branch(self):
+        for name in ['HEAD', 'main', 'master']:
+            result = run([self.executable(), 'rev-parse', '--symbolic-full-name', 'refs/remotes/origin/{}'.format(name)],
+                         cwd=self.path, capture_output=True, encoding='utf-8')
+            s = result.stdout.strip()
+            if result.returncode == 0 and s:
+                assert s.startswith('refs/remotes/origin/')
+                return s[len('refs/remotes/origin/'):]
+
+        candidates = self.branches
+        if 'main' in candidates:
+            return 'main'
+        if 'master' in candidates:
+            return 'master'
+        return None
 
     @property
     def branch(self):
@@ -555,7 +567,7 @@ class Git(Scm):
 
         default_branch = self.default_branch
         parsed_branch_point = None
-        log_format = ['-1', '--no-decorate'] if include_log else ['-1', '--no-decorate', '--format=short']
+        log_format = ['-1', '--no-decorate', '--date=unix'] if include_log else ['-1', '--no-decorate', '--date=unix', '--format=short']
 
         # Determine the `git log` output and branch for a given identifier
         if identifier is not None:
@@ -712,13 +724,7 @@ class Git(Scm):
             if split[0] == 'Author':
                 author = Contributor.from_scm_log(line.lstrip(), self.contributors)
             elif split[0] == 'CommitDate':
-                tz_diff = line.split(' ')[-1]
-                date = datetime.strptime(split[1].lstrip()[:-len(tz_diff)], '%a %b %d %H:%M:%S %Y ')
-                date += timedelta(
-                    hours=int(tz_diff[1:3]),
-                    minutes=int(tz_diff[3:5]),
-                ) * (1 if tz_diff[0] == '-' else -1)
-                timestamp = int(calendar.timegm(date.timetuple())) - time.timezone
+                timestamp = int(line.split(' ')[-1])
 
         message = ''
         for line in content.splitlines()[5:]:
@@ -738,7 +744,7 @@ class Git(Scm):
         try:
             log = None
             log = subprocess.Popen(
-                [self.executable(), 'log', '--format=fuller', '--no-decorate', '{}...{}'.format(end.hash, begin.hash)],
+                [self.executable(), 'log', '--format=fuller', '--no-decorate', '--date=unix', '{}...{}'.format(end.hash, begin.hash)],
                 cwd=self.root_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

@@ -112,15 +112,19 @@ inline size_t JSValue::toTypedArrayIndex(JSGlobalObject* globalObject, const cha
     RELEASE_AND_RETURN(scope, outputOffset + static_cast<size_t>(static_cast<uint32_t>(JSC::toInt32(d - inputOffset))));
 }
 
-// https://tc39.es/ecma262/#sec-tointegerorinfinity
-inline double JSValue::toIntegerOrInfinity(JSGlobalObject* globalObject) const
+// https://tc39.es/proposal-temporal/#sec-temporal-tointegerwithoutrounding
+inline double JSValue::toIntegerWithoutRounding(JSGlobalObject* globalObject) const
 {
     if (isInt32())
         return asInt32();
     double d = toNumber(globalObject);
-    if (std::isnan(d) || !d)
-        return 0.0;
-    return trunc(d);
+    return std::isnan(d) ? 0.0 : d + 0.0;
+}
+
+// https://tc39.es/ecma262/#sec-tointegerorinfinity
+inline double JSValue::toIntegerOrInfinity(JSGlobalObject* globalObject) const
+{
+    return trunc(toIntegerWithoutRounding(globalObject));
 }
 
 inline bool JSValue::isUInt32() const
@@ -618,6 +622,13 @@ inline JSValue::JSValue(EncodeAsBigInt32Tag, int32_t value)
     u.asInt64 = shiftedValue | BigInt32Tag;
 }
 #endif // USE(BIGINT32)
+
+#if ENABLE(WEBASSEMBLY) && USE(JSVALUE32_64)
+inline JSValue::JSValue(EncodeAsUnboxedFloatTag, float value)
+{
+    u.asBits.payload = bitwise_cast<int32_t>(value);
+}
+#endif
 
 inline int64_t tryConvertToInt52(double number)
 {

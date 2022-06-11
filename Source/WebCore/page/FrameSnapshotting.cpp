@@ -122,7 +122,7 @@ RefPtr<ImageBuffer> snapshotFrameRectWithClip(Frame& frame, const IntRect& image
     if (!buffer)
         return nullptr;
 
-    buffer->context().translate(-imageRect.x(), -imageRect.y());
+    buffer->context().translate(-imageRect.location());
 
     if (!clipRects.isEmpty()) {
         Path clipPath;

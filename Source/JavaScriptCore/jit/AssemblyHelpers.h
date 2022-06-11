@@ -1403,7 +1403,10 @@ public:
         jitAssertIsJSDouble(gpr);
         return unboxDoubleWithoutAssertions(gpr, resultGPR, fpr, mode);
     }
-    
+    void unboxDouble(JSValueRegs regs, FPRReg fpr)
+    {
+        unboxDouble(regs.tagGPR(), regs.payloadGPR(), fpr);
+    }
     void boxDouble(FPRReg fpr, JSValueRegs regs, TagRegistersMode mode = HaveTagRegisters)
     {
         boxDouble(fpr, regs.gpr(), mode);
@@ -1610,7 +1613,7 @@ public:
         return argumentCount(codeOrigin.inlineCallFrame());
     }
     
-    void emitNonNullDecodeStructureID(RegisterID source, RegisterID dest);
+    void emitNonNullDecodeZeroExtendedStructureID(RegisterID source, RegisterID dest);
     void emitLoadStructure(VM&, RegisterID source, RegisterID dest);
     void emitLoadPrototype(VM&, GPRReg objectGPR, JSValueRegs resultRegs, JumpList& slowPath);
 

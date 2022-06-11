@@ -46,7 +46,7 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/text/Base64.h>
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if ENABLE(NOTIFICATIONS) && (PLATFORM(MAC) || PLATFORM(IOS))
 
 using WebKit::WebPushD::MessageType;
 
@@ -96,11 +96,14 @@ static RetainPtr<NSURL> testWebPushDaemonLocation()
     return [currentExecutableDirectory() URLByAppendingPathComponent:@"webpushd" isDirectory:NO];
 }
 
-static NSDictionary<NSString *, id> *testWebPushDaemonPList(NSURL *storageLocation)
+enum LaunchOnlyOnce : BOOL { No, Yes };
+
+static NSDictionary<NSString *, id> *testWebPushDaemonPList(NSURL *storageLocation, LaunchOnlyOnce launchOnlyOnce)
 {
     return @{
         @"Label" : @"org.webkit.webpushtestdaemon",
-        @"LaunchOnlyOnce" : @YES,
+        @"LaunchOnlyOnce" : @(static_cast<BOOL>(launchOnlyOnce)),
+        @"ThrottleInterval" : @(1),
         @"StandardErrorPath" : [storageLocation URLByAppendingPathComponent:@"daemon_stderr"].path,
         @"EnvironmentVariables" : @{ @"DYLD_FRAMEWORK_PATH" : currentExecutableDirectory().get().path },
         @"MachServices" : @{ @"org.webkit.webpushtestdaemon.service" : @YES },
@@ -126,7 +129,7 @@ static bool shouldSetupWebPushD()
     return shouldSetup;
 }
 
-static NSURL *setUpTestWebPushD()
+static NSURL *setUpTestWebPushD(LaunchOnlyOnce launchOnlyOnce = LaunchOnlyOnce::Yes)
 {
     if (!shouldSetupWebPushD())
         return nil;
@@ -140,9 +143,15 @@ static NSURL *setUpTestWebPushD()
 
     killFirstInstanceOfDaemon(@"webpushd");
 
-    registerPlistWithLaunchD(testWebPushDaemonPList(tempDir), tempDir);
+    registerPlistWithLaunchD(testWebPushDaemonPList(tempDir, launchOnlyOnce), tempDir);
 
     return tempDir;
+}
+
+// Only works if the test daemon was registered with LaunchOnlyOnce::No.
+static BOOL restartTestWebPushD()
+{
+    return restartService(@"org.webkit.webpushtestdaemon", @"webpushd");
 }
 
 static void cleanUpTestWebPushD(NSURL *tempDir)
@@ -313,67 +322,6 @@ TEST(WebPushD, BasicCommunication)
     cleanUpTestWebPushD(tempDir);
 }
 
-TEST(WebPushD, PermissionManagement)
-{
-    NSURL *tempDirectory = setUpTestWebPushD();
-
-    auto dataStoreConfiguration = adoptNS([_WKWebsiteDataStoreConfiguration new]);
-    dataStoreConfiguration.get().webPushMachServiceName = @"org.webkit.webpushtestdaemon.service";
-    dataStoreConfiguration.get().webPushDaemonUsesMockBundlesForTesting = YES;
-    auto dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:dataStoreConfiguration.get()]);
-
-    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get().websiteDataStore = dataStore.get();
-    [configuration.get().preferences _setNotificationsEnabled:YES];
-    for (_WKExperimentalFeature *feature in [WKPreferences _experimentalFeatures]) {
-        if ([feature.key isEqualToString:@"BuiltInNotificationsEnabled"])
-            [[configuration preferences] _setEnabled:YES forFeature:feature];
-    }
-
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get()]);
-    auto uiDelegate = adoptNS([[NotificationPermissionDelegate alloc] init]);
-    [webView setUIDelegate:uiDelegate.get()];
-    [webView synchronouslyLoadHTMLString:@"" baseURL:[NSURL URLWithString:@"https://example.org"]];
-    [webView evaluateJavaScript:@"Notification.requestPermission().then(() => { alert('done') })" completionHandler:nil];
-    TestWebKitAPI::Util::run(&alertReceived);
-
-    static bool originOperationDone = false;
-    static RetainPtr<WKSecurityOrigin> origin;
-    [dataStore _getOriginsWithPushAndNotificationPermissions:^(NSSet<WKSecurityOrigin *> *origins) {
-        EXPECT_EQ([origins count], 1u);
-        origin = [origins anyObject];
-        originOperationDone = true;
-    }];
-
-    TestWebKitAPI::Util::run(&originOperationDone);
-
-    EXPECT_WK_STREQ(origin.get().protocol, "https");
-    EXPECT_WK_STREQ(origin.get().host, "example.org");
-
-    // If we failed to retrieve an expected origin, we will have failed the above checks
-    if (!origin) {
-        cleanUpTestWebPushD(tempDirectory);
-        return;
-    }
-
-    originOperationDone = false;
-    [dataStore _deletePushAndNotificationRegistration:origin.get() completionHandler:^(NSError *error) {
-        EXPECT_FALSE(!!error);
-        originOperationDone = true;
-    }];
-
-    TestWebKitAPI::Util::run(&originOperationDone);
-
-    originOperationDone = false;
-    [dataStore _getOriginsWithPushAndNotificationPermissions:^(NSSet<WKSecurityOrigin *> *origins) {
-        EXPECT_EQ([origins count], 0u);
-        originOperationDone = true;
-    }];
-    TestWebKitAPI::Util::run(&originOperationDone);
-
-    cleanUpTestWebPushD(tempDirectory);
-}
-
 static void clearWebsiteDataStore(WKWebsiteDataStore *store)
 {
     __block bool clearedStore = false;
@@ -385,11 +333,11 @@ static void clearWebsiteDataStore(WKWebsiteDataStore *store)
 
 class WebPushDTest : public ::testing::Test {
 protected:
-    WebPushDTest()
+    WebPushDTest(LaunchOnlyOnce launchOnlyOnce = LaunchOnlyOnce::Yes)
     {
         [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
 
-        m_tempDirectory = retainPtr(setUpTestWebPushD());
+        m_tempDirectory = retainPtr(setUpTestWebPushD(launchOnlyOnce));
 
         auto dataStoreConfiguration = adoptNS([_WKWebsiteDataStoreConfiguration new]);
         dataStoreConfiguration.get().webPushMachServiceName = @"org.webkit.webpushtestdaemon.service";
@@ -498,6 +446,14 @@ protected:
 class WebPushDInjectedPushTest : public WebPushDTest {
 protected:
     void runTest(NSString *expectedMessage, NSDictionary *pushUserInfo);
+};
+
+class WebPushDMultipleLaunchTest : public WebPushDTest {
+public:
+    WebPushDMultipleLaunchTest()
+        : WebPushDTest(LaunchOnlyOnce::No)
+    {
+    }
 };
 
 void WebPushDInjectedPushTest::runTest(NSString *expectedMessage, NSDictionary *pushUserInfo)
@@ -921,6 +877,67 @@ TEST_F(WebPushDTest, UnsubscribesOnPermissionReset)
 
 #if ENABLE(INSTALL_COORDINATION_BUNDLES)
 #if USE(APPLE_INTERNAL_SDK)
+TEST(WebPushD, PermissionManagement)
+{
+    NSURL *tempDirectory = setUpTestWebPushD();
+
+    auto dataStoreConfiguration = adoptNS([_WKWebsiteDataStoreConfiguration new]);
+    dataStoreConfiguration.get().webPushMachServiceName = @"org.webkit.webpushtestdaemon.service";
+    dataStoreConfiguration.get().webPushDaemonUsesMockBundlesForTesting = YES;
+    auto dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:dataStoreConfiguration.get()]);
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    configuration.get().websiteDataStore = dataStore.get();
+    [configuration.get().preferences _setNotificationsEnabled:YES];
+    for (_WKExperimentalFeature *feature in [WKPreferences _experimentalFeatures]) {
+        if ([feature.key isEqualToString:@"BuiltInNotificationsEnabled"])
+            [[configuration preferences] _setEnabled:YES forFeature:feature];
+    }
+
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get()]);
+    auto uiDelegate = adoptNS([[NotificationPermissionDelegate alloc] init]);
+    [webView setUIDelegate:uiDelegate.get()];
+    [webView synchronouslyLoadHTMLString:@"" baseURL:[NSURL URLWithString:@"https://example.org"]];
+    [webView evaluateJavaScript:@"Notification.requestPermission().then(() => { alert('done') })" completionHandler:nil];
+    TestWebKitAPI::Util::run(&alertReceived);
+
+    static bool originOperationDone = false;
+    static RetainPtr<WKSecurityOrigin> origin;
+    [dataStore _getOriginsWithPushAndNotificationPermissions:^(NSSet<WKSecurityOrigin *> *origins) {
+        EXPECT_EQ([origins count], 1u);
+        origin = [origins anyObject];
+        originOperationDone = true;
+    }];
+
+    TestWebKitAPI::Util::run(&originOperationDone);
+
+    EXPECT_WK_STREQ(origin.get().protocol, "https");
+    EXPECT_WK_STREQ(origin.get().host, "example.org");
+
+    // If we failed to retrieve an expected origin, we will have failed the above checks
+    if (!origin) {
+        cleanUpTestWebPushD(tempDirectory);
+        return;
+    }
+
+    originOperationDone = false;
+    [dataStore _deletePushAndNotificationRegistration:origin.get() completionHandler:^(NSError *error) {
+        EXPECT_FALSE(!!error);
+        originOperationDone = true;
+    }];
+
+    TestWebKitAPI::Util::run(&originOperationDone);
+
+    originOperationDone = false;
+    [dataStore _getOriginsWithPushAndNotificationPermissions:^(NSSet<WKSecurityOrigin *> *origins) {
+        EXPECT_EQ([origins count], 0u);
+        originOperationDone = true;
+    }];
+    TestWebKitAPI::Util::run(&originOperationDone);
+
+    cleanUpTestWebPushD(tempDirectory);
+}
+
 static void deleteAllRegistrationsForDataStore(WKWebsiteDataStore *dataStore)
 {
     __block bool originOperationDone = false;
@@ -1159,6 +1176,59 @@ TEST_F(WebPushDTest, GetPushSubscriptionWithMismatchedPublicToken)
     ASSERT_TRUE([message isEqual:[NSNull null]]);
 }
 
+TEST_F(WebPushDMultipleLaunchTest, GetPushSubscriptionAfterDaemonRelaunch)
+{
+    static constexpr auto htmlSource = R"HTML(
+    <script src="/constants.js"></script>
+    <script>
+    let postNoteMessage = window.webkit.messageHandlers.note.postMessage.bind(window.webkit.messageHandlers.note);
+    let getPushManager =
+        navigator.serviceWorker.register('/sw.js')
+            .then(() => navigator.serviceWorker.ready)
+            .then(registration => registration.pushManager);
+
+    function getSubscription()
+    {
+        getPushManager
+            .then(pushManager => pushManager.getSubscription())
+            .then(subscription => subscription ? subscription.toJSON() : null)
+            .then(postNoteMessage)
+            .catch(e => postNoteMessage(e.toString()));
+    }
+
+    postNoteMessage('Ready');
+    </script>
+    )HTML"_s;
+
+    __block RetainPtr<id> message = nil;
+    __block bool gotMessage = false;
+    [m_notificationMessageHandler setMessageHandler:^(id receivedMessage) {
+        message = receivedMessage;
+        gotMessage = true;
+    }];
+
+    loadRequest(htmlSource, ""_s);
+    TestWebKitAPI::Util::run(&gotMessage);
+    ASSERT_TRUE([message isEqualToString:@"Ready"]);
+
+    message = nil;
+    gotMessage = false;
+    [m_webView evaluateJavaScript:@"getSubscription()" completionHandler:^(id, NSError*) { }];
+    TestWebKitAPI::Util::run(&gotMessage);
+    ASSERT_TRUE([message isEqual:[NSNull null]]);
+
+    ASSERT_TRUE(restartTestWebPushD());
+
+    // Make sure that getSubscription works after killing webpushd. Previously, this didn't work and
+    // would fail with an AbortError because we didn't re-send the connection configuration after
+    // the daemon relaunched.
+    message = nil;
+    gotMessage = false;
+    [m_webView evaluateJavaScript:@"getSubscription()" completionHandler:^(id, NSError*) { }];
+    TestWebKitAPI::Util::run(&gotMessage);
+    ASSERT_TRUE([message isEqual:[NSNull null]]);
+}
+
 } // namespace TestWebKitAPI
 
-#endif // PLATFORM(MAC) || PLATFORM(IOS)
+#endif // ENABLE(NOTIFICATIONS) && (PLATFORM(MAC) || PLATFORM(IOS))

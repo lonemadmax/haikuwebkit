@@ -106,7 +106,7 @@ public:
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason);
 
     // DOMBackendDispatcherHandler
-    Inspector::Protocol::ErrorStringOr<Inspector::Protocol::DOM::NodeId> querySelector(Inspector::Protocol::DOM::NodeId, const String& selector);
+    Inspector::Protocol::ErrorStringOr<std::optional<Inspector::Protocol::DOM::NodeId>> querySelector(Inspector::Protocol::DOM::NodeId, const String& selector);
     Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::DOM::NodeId>>> querySelectorAll(Inspector::Protocol::DOM::NodeId, const String& selector);
     Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::Node>> getDocument();
     Inspector::Protocol::ErrorStringOr<void> requestChildNodes(Inspector::Protocol::DOM::NodeId, std::optional<int>&& depth);
@@ -230,6 +230,7 @@ private:
 
     // Node-related methods.
     Inspector::Protocol::DOM::NodeId bind(Node&);
+    void unbind(Node&);
 
     Node* assertEditableNode(Inspector::Protocol::ErrorString&, Inspector::Protocol::DOM::NodeId);
     Element* assertEditableElement(Inspector::Protocol::ErrorString&, Inspector::Protocol::DOM::NodeId);
@@ -276,7 +277,8 @@ private:
     std::unique_ptr<DOMEditor> m_domEditor;
     WeakHashMap<RenderObject, Vector<size_t>> m_flexibleBoxRendererCachedItemsAtStartOfLine;
 
-    Vector<Inspector::Protocol::DOM::NodeId> m_destroyedNodeIdentifiers;
+    Vector<Inspector::Protocol::DOM::NodeId> m_destroyedDetachedNodeIdentifiers;
+    Vector<std::pair<Inspector::Protocol::DOM::NodeId, Inspector::Protocol::DOM::NodeId>> m_destroyedAttachedNodeIdentifiers;
     Timer m_destroyedNodesTimer;
 
 #if ENABLE(VIDEO)

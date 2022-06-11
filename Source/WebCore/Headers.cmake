@@ -838,6 +838,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/HTMLAnchorElement.h
     html/HTMLAnchorElementInlines.h
     html/HTMLAreaElement.h
+    html/HTMLArticleElement.h
     html/HTMLAttachmentElement.h
     html/HTMLAudioElement.h
     html/HTMLBRElement.h
@@ -978,6 +979,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/formattingContexts/FormattingConstraints.h
     layout/formattingContexts/FormattingContext.h
 
+    layout/formattingContexts/flex/FlexFormattingConstraints.h
     layout/formattingContexts/flex/FlexFormattingState.h
 
     layout/formattingContexts/inline/display/InlineDisplayBox.h
@@ -1130,6 +1132,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/FocusDirection.h
     page/Frame.h
     page/FrameDestructionObserver.h
+    page/FrameDestructionObserverInlines.h
     page/FrameFlattening.h
     page/FrameIdentifier.h
     page/FrameSnapshotting.h
@@ -1439,6 +1442,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/AnimationFrameRate.h
     platform/graphics/AudioTrackPrivate.h
     platform/graphics/AudioTrackPrivateClient.h
+    platform/graphics/CopyImageOptions.h
     platform/graphics/BifurcatedGraphicsContext.h
     platform/graphics/BitmapImage.h
     platform/graphics/Color.h
@@ -2068,6 +2072,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.h
+    ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSourceBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/EventInterfaces.h
     ${WebCore_DERIVED_SOURCES_DIR}/EventTargetInterfaces.h
     ${WebCore_DERIVED_SOURCES_DIR}/HTMLElementTypeHelpers.h

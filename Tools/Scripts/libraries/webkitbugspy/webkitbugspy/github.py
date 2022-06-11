@@ -103,7 +103,10 @@ class Tracker(GenericTracker):
                 headers=dict(Accept='application/vnd.github.v3+json'),
                 auth=HTTPBasicAuth(username, access_token),
             )
-            if response.status_code == 200 and response.json().get('login') == username:
+            expiration = response.headers.get('github-authentication-token-expiration', None)
+            if expiration:
+                expiration = int(calendar.timegm(datetime.strptime(expiration, '%Y-%m-%d %H:%M:%S UTC').timetuple()))
+            if (expiration is None or expiration > time.time()) and response.status_code == 200 and response.json().get('login') == username:
                 return True
             sys.stderr.write('Login to {} for {} failed\n'.format(self.api_url, username))
             return False
@@ -113,7 +116,11 @@ class Tracker(GenericTracker):
 
         def prompt():
             result = "GitHub's API\nProvide {} username and access token to create and update pull requests".format(hostname)
-            if webkitcorepy.Terminal.open_url('{}?scopes=repo,workflow&description={}%20Local%20Automation'.format(token_url, self.name)):
+            if webkitcorepy.Terminal.open_url(
+                '{}?scopes=repo,workflow&description={}%20Local%20Automation'.format(token_url, self.name),
+                prompt='Please press Return key to open the GitHub token generation web page.\n'
+                        'Options are preconfigured, set your expiration date and then click "Generate token": ',
+            ):
                 return result
             return '''{}
 Please go to {token_url} and generate a new 'Personal access token' via 'Developer settings'
@@ -125,7 +132,8 @@ with 'repo' and 'workflow' access and appropriate 'Expiration' for your {host} u
             name=self.url.split('/')[2].replace('.', '_').upper(),
             prompt=prompt,
             key_name='token',
-            validater=validater if validate else None,
+            validater=validater,
+            validate_existing_credentials=validate,
             save_in_keyring=save_in_keyring,
         )
 

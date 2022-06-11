@@ -140,10 +140,13 @@ void TextFieldInputType::setValue(const String& sanitizedValue, bool valueChange
     // TextFieldInputType dispatches events different way from InputType.
     InputType::setValue(sanitizedValue, valueChanged, DispatchNoEvent, selection);
 
+    // Visible value needs update if it differs from sanitized value, if it was set with setValue().
+    // event_behavior == DispatchNoEvent usually means this call is not a user edit.
+    bool needsTextUpdate = valueChanged || (eventBehavior == TextFieldEventBehavior::DispatchNoEvent && sanitizedValue != element()->innerTextValue());
+    if (needsTextUpdate)
+        updateInnerTextValue();
     if (!valueChanged)
         return;
-
-    updateInnerTextValue();
 
     if (selection == TextControlSetValueSelection::SetSelectionToEnd) {
         auto max = visibleValue().length();
@@ -201,8 +204,8 @@ auto TextFieldInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallB
         event.setDefaultHandled();
     }
 #endif
-    RefPtr<Frame> frame = element()->document().frame();
-    if (frame && frame->editor().doTextFieldCommandFromEvent(element(), &event))
+    RefPtr frame = element()->document().frame();
+    if (frame && frame->editor().doTextFieldCommandFromEvent(*element(), &event))
         event.setDefaultHandled();
     return ShouldCallBaseEventHandler::Yes;
 }
@@ -275,8 +278,8 @@ void TextFieldInputType::handleFocusEvent(Node* oldFocusedNode, FocusDirection)
 {
     ASSERT(element());
     ASSERT_UNUSED(oldFocusedNode, oldFocusedNode != element());
-    if (RefPtr<Frame> frame = element()->document().frame()) {
-        frame->editor().textFieldDidBeginEditing(element());
+    if (RefPtr frame = element()->document().frame()) {
+        frame->editor().textFieldDidBeginEditing(*element());
 #if ENABLE(DATALIST_ELEMENT)
         if (shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited() && element()->list() && m_dataListDropdownIndicator)
             m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, suggestions().size() ? CSSValueBlock : CSSValueNone, true);
@@ -626,7 +629,7 @@ void TextFieldInputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& 
     unsigned textLength = eventText.length();
     while (textLength > 0 && isHTMLLineBreak(eventText[textLength - 1]))
         textLength--;
-    eventText = makeStringByReplacingAll(eventText.left(textLength), "\r\n", " ");
+    eventText = makeStringByReplacingAll(eventText.left(textLength), "\r\n"_s, " "_s);
     eventText = makeStringByReplacingAll(eventText, '\r', ' ');
     eventText = makeStringByReplacingAll(eventText, '\n', ' ');
     event.setText(limitLength(eventText, appendableLength));
@@ -712,8 +715,8 @@ void TextFieldInputType::didSetValueByUserEdit()
     ASSERT(element());
     if (!element()->focused())
         return;
-    if (RefPtr<Frame> frame = element()->document().frame())
-        frame->editor().textDidChangeInTextField(element());
+    if (RefPtr frame = element()->document().frame())
+        frame->editor().textDidChangeInTextField(*element());
 #if ENABLE(DATALIST_ELEMENT)
     if (shouldOnlyShowDataListDropdownButtonWhenFocusedOrEdited() && element()->list() && m_dataListDropdownIndicator)
         m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, suggestions().size() ? CSSValueBlock : CSSValueNone, true);
@@ -752,13 +755,13 @@ void TextFieldInputType::focusAndSelectSpinButtonOwner()
     input->select();
 }
 
-bool TextFieldInputType::shouldSpinButtonRespondToMouseEvents()
+bool TextFieldInputType::shouldSpinButtonRespondToMouseEvents() const
 {
     ASSERT(element());
     return !element()->isDisabledOrReadOnly();
 }
 
-bool TextFieldInputType::shouldSpinButtonRespondToWheelEvents()
+bool TextFieldInputType::shouldSpinButtonRespondToWheelEvents() const
 {
     ASSERT(element());
     return shouldSpinButtonRespondToMouseEvents() && element()->focused();

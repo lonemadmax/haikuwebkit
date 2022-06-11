@@ -307,7 +307,7 @@ AtomString YouTubePluginReplacement::youTubeURLFromAbsoluteURL(const URL& srcURL
     } else if (equalLettersIgnoringASCIICase(srcPath, "/watch"_s)) {
         // From the original URL, we need to get the part before /watch/#!v=VideoID
         // FIXME: Shouldn't this be ASCII case-insensitive?
-        locationOfPathBeforeVideoID = srcString.find("/watch");
+        locationOfPathBeforeVideoID = srcString.find("/watch"_s);
     } else
         return srcString;
 
@@ -322,10 +322,10 @@ AtomString YouTubePluginReplacement::youTubeURLFromAbsoluteURL(const URL& srcURL
 
     // Append the query string if it is valid.
     return makeAtomString(
-        isYouTubeShortenedURL ? "http://www.youtube.com" : srcURLPrefix,
-        "/embed/",
+        isYouTubeShortenedURL ? "http://www.youtube.com"_s : srcURLPrefix,
+        "/embed/"_s,
         videoID,
-        query.isEmpty() ? "" : "?",
+        query.isEmpty() ? ""_s : "?"_s,
         query
     );
 }

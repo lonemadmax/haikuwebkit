@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Apple Inc. All rights reserved.
+# Copyright (c) 2020-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -65,20 +65,6 @@ AlwaysZoomOnDoubleTap:
     WebKit:
       default: false
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
-ApplePayRemoteUIEnabled:
-  type: bool
-  humanReadableDescription: "Enable Apple Pay Remote UI"
-  humanReadableName: "Apple Pay Remote UI"
-  condition: ENABLE(APPLE_PAY_REMOTE_UI)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 AsyncFrameScrollingEnabled:
   type: bool
   webcoreOnChange: setNeedsRelayoutAllFrames
@@ -120,17 +106,6 @@ BlockIOKitInWebContentSandbox:
   defaultValue:
     WebKit:
       default: true
-
-CSSDisplayContentsAXSupportEnabled:
-  type: bool
-  humanReadableName: "Accessibility support for display: contents elements"
-  humanReadableDescription: "Enable work-in-progress accessibility support for display: contents elements"
-  webcoreBinding: RuntimeEnabledFeatures
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
 
 CSSLogicalEnabled:
   type: bool
@@ -508,6 +483,19 @@ InputTypeWeekEnabled:
       default: false
     WebKit:
       "!PLATFORM(MAC) && !PLATFORM(APPLETV)": true
+      default: false
+    WebCore:
+      default: false
+
+InteractionRegionsEnabled:
+  type: bool
+  humanReadableName: "Interaction Regions"
+  humanReadableDescription: "Generate and visualize interaction regions"
+  condition: ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+  defaultValue:
+    WebKit:
+      default: true
+    WebKitLegacy:
       default: false
     WebCore:
       default: false
@@ -979,17 +967,6 @@ UseSceneKitForModel:
     WebKit:
       default: false
 
-# FIXME: Remove once <rdar://73830961> has been fixed
-UseiTunesAVOutputContext:
-  type: bool
-  humanReadableName: "Use iTunes AVOutputContext"
-  humanReadableDescription: "Use iTunes AVOutputContext"
-  webcoreBinding: none
-  condition: ENABLE(WIRELESS_PLAYBACK_TARGET)
-  defaultValue:
-    WebKit:
-      default: true
-
 WebAPIStatisticsEnabled:
   type: bool
   humanReadableName: "Web API Statistics"
@@ -1000,6 +977,17 @@ WebAPIStatisticsEnabled:
       default: false
     WebKit:
       default: false
+
+WebRTCAudioLatencyAdaptationEnabled:
+  type: bool
+  humanReadableName: "WebRTC Audio Latency Adaptation"
+  humanReadableDescription: "Enable WebRTC Audio Latency Adaptation"
+  webcoreBinding: RuntimeEnabledFeatures
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 WebRTCDTMFEnabled:

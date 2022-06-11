@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2019 Apple, Inc. All rights reserved.
+ * Copyright (C) 2006-2022 Apple, Inc. All rights reserved.
  * Copyright (C) 2009, 2010, 2011 Appcelerator, Inc. All rights reserved.
  * Copyright (C) 2011 Brent Fulgham. All rights reserved.
  *
@@ -1324,7 +1324,7 @@ bool WebView::canHandleRequest(const WebCore::ResourceRequest& request)
 {
 #if USE(CFURLCONNECTION)
     // On the Mac there's an about URL protocol implementation but Windows CFNetwork doesn't have that.
-    if (request.url().protocolIs("about"))
+    if (request.url().protocolIs("about"_s))
         return true;
 
     return CFURLProtocolCanHandleRequest(request.cfURLRequest(UpdateHTTPBody));
@@ -2945,7 +2945,7 @@ HRESULT WebView::initWithFrame(RECT frame, _In_ BSTR frameName, _In_ BSTR groupN
     m_mainFrame = webFrame;
     webFrame->Release(); // The WebFrame is owned by the Frame, so release our reference to it.
 
-    m_page->mainFrame().tree().setName(toString(frameName));
+    m_page->mainFrame().tree().setName(toAtomString(frameName));
     m_page->mainFrame().init();
     setGroupName(groupName);
 
@@ -4985,11 +4985,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings.setPictographFontFamily(toAtomString(str));
     str.clear();
-
-    hr = preferences->isJavaEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    settings.setJavaEnabled(!!enabled);
 
     hr = preferences->isJavaScriptEnabled(&enabled);
     if (FAILED(hr))

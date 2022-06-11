@@ -66,6 +66,18 @@ AccessibilityObjectModelEnabled:
     WebKit:
       default: false
 
+AriaReflectionForElementReferencesEnabled:
+  type: bool
+  humanReadableName: "ARIA Reflection for Element References"
+  humanReadableDescription: "Enable ARIA reflection for attributes that refer to elements"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 AspectRatioEnabled:
   type: bool
   humanReadableName: "CSS Aspect Ratio"
@@ -1483,19 +1495,6 @@ UseGPUProcessForWebGLEnabled:
       "PLATFORM(WIN)": true
       default: false
 
-UseScreenCaptureKit:
-  type: bool
-  condition: HAVE(SCREEN_CAPTURE_KIT)
-  humanReadableName: "Use ScreenCaptureKit"
-  humanReadableDescription: "Use ScreenCaptureKit when available"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: WebKit::defaultScreenCaptureKitEnabled()
-    WebCore:
-      default: false
-
 UserGesturePromisePropagationEnabled:
   type: bool
   humanReadableName: "UserGesture Promise Propagation"
@@ -1578,6 +1577,18 @@ WebAnimationsCustomFrameRateEnabled:
     WebCore:
       default: false
 
+WebAnimationsIterationCompositeEnabled:
+  type: bool
+  humanReadableName: "Web Animations iteration composite"
+  humanReadableDescription: "Support for the KeyframeEffect.iterationComposite property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 WebAnimationsMutableTimelinesEnabled:
   type: bool
   humanReadableName: "Web Animations mutable timelines"
@@ -1617,22 +1628,6 @@ WebAuthenticationEnabled:
     WebCore:
       default: true
 
-# FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
-WebAuthenticationModernEnabled:
-  type: bool
-  humanReadableName: "Web Authentication Modern"
-  humanReadableDescription: "Enable Modern Web Authentication support"
-  condition: ENABLE(WEB_AUTHN)
-  webcoreBinding: RuntimeEnabledFeatures
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      "PLATFORM(IOS)" : true
-      default: false
-    WebCore:
-      default: false
-
 WebGL2Enabled:
   type: bool
   humanReadableName: "WebGL 2.0"
@@ -1660,18 +1655,6 @@ WebGLUsingMetal:
       default: false
     WebCore:
       "HAVE(WEBGL_COMPATIBLE_METAL)": true
-      default: false
-
-WebKitAdditionsFeature1Enabled:
-  type: bool
-  humanReadableName: WebKitAdditionsFeature1HumanReadableName
-  humanReadableDescription: WebKitAdditionsFeature1HumanReadableDescription
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
       default: false
 
 WebLocksAPIEnabled:

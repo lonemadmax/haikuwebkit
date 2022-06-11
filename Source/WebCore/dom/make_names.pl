@@ -604,8 +604,6 @@ print F "\nvoid init()
     initialized = true;
 
     // Use placement new to initialize the globals.
-
-    AtomString::init();
 ";
 }
 

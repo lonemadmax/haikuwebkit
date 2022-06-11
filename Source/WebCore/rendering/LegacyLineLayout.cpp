@@ -728,9 +728,9 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
 {
     // Tatechuyoko is modeled as the Object Replacement Character (U+FFFC), which can never have expansion opportunities inside nor intrinsically adjacent to it.
     if (textBox.renderer().style().textCombine() == TextCombine::All)
-        return ForbidLeftExpansion | ForbidRightExpansion;
+        return ExpansionBehavior::forbidAll();
 
-    ExpansionBehavior result = 0;
+    auto result = ExpansionBehavior::forbidAll();
     bool setLeftExpansion = false;
     bool setRightExpansion = false;
     if (textAlign == TextAlignMode::Justify) {
@@ -743,7 +743,7 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
                         // FIXME: This leftExpansionOpportunity doesn't actually work because it doesn't perform the UBA
                         if (FontCascade::leftExpansionOpportunity(downcast<RenderText>(leafChild->renderer()).stringView(), leafChild->direction())) {
                             setRightExpansion = true;
-                            result |= ForceRightExpansion;
+                            result.right = ExpansionBehavior::Behavior::Force;
                         }
                     }
                 }
@@ -758,7 +758,7 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
                         // FIXME: This leftExpansionOpportunity doesn't actually work because it doesn't perform the UBA
                         if (FontCascade::rightExpansionOpportunity(downcast<RenderText>(leafChild->renderer()).stringView(), leafChild->direction())) {
                             setLeftExpansion = true;
-                            result |= ForceLeftExpansion;
+                            result.left = ExpansionBehavior::Behavior::Force;
                         }
                     }
                 }
@@ -769,44 +769,45 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
             RenderRubyBase& rubyBase = downcast<RenderRubyBase>(block);
             if (&textBox == rubyBase.firstRootBox()->firstLeafDescendant()) {
                 setLeftExpansion = true;
-                result |= ForbidLeftExpansion;
+                result.left = ExpansionBehavior::Behavior::Forbid;
             } if (&textBox == rubyBase.firstRootBox()->lastLeafDescendant()) {
                 setRightExpansion = true;
-                result |= ForbidRightExpansion;
+                result.right = ExpansionBehavior::Behavior::Forbid;
             }
         }
     }
     if (!setLeftExpansion)
-        result |= isAfterExpansion ? ForbidLeftExpansion : AllowLeftExpansion;
+        result.left = isAfterExpansion ? ExpansionBehavior::Behavior::Forbid : ExpansionBehavior::Behavior::Allow;
     if (!setRightExpansion)
-        result |= AllowRightExpansion;
+        result.right = ExpansionBehavior::Behavior::Allow;
     return result;
 }
 
 static inline void applyExpansionBehavior(LegacyInlineTextBox& textBox, ExpansionBehavior expansionBehavior)
 {
-    switch (expansionBehavior & LeftExpansionMask) {
-    case ForceLeftExpansion:
+    switch (expansionBehavior.left) {
+    case ExpansionBehavior::Behavior::Force:
         textBox.setForceLeftExpansion();
         break;
-    case ForbidLeftExpansion:
+    case ExpansionBehavior::Behavior::Forbid:
         textBox.setCanHaveLeftExpansion(false);
         break;
-    case AllowLeftExpansion:
+    case ExpansionBehavior::Behavior::Allow:
         textBox.setCanHaveLeftExpansion(true);
         break;
     default:
         ASSERT_NOT_REACHED();
         break;
-    }
-    switch (expansionBehavior & RightExpansionMask) {
-    case ForceRightExpansion:
+    };
+
+    switch (expansionBehavior.right) {
+    case ExpansionBehavior::Behavior::Force:
         textBox.setForceRightExpansion();
         break;
-    case ForbidRightExpansion:
+    case ExpansionBehavior::Behavior::Forbid:
         textBox.setCanHaveRightExpansion(false);
         break;
-    case AllowRightExpansion:
+    case ExpansionBehavior::Behavior::Allow:
         textBox.setCanHaveRightExpansion(true);
         break;
     default:
@@ -1347,7 +1348,7 @@ void LegacyLineLayout::layoutRunsAndFloats(LineLayoutState& layoutState, bool ha
             // that the block really needed a full layout, we missed our chance to repaint the layer
             // before layout started. Luckily the layer has cached the repaint rect for its original
             // position and size, and so we can use that to make a repaint happen now.
-            m_flow.repaintUsingContainer(m_flow.containerForRepaint(), m_flow.layerRepaintRects()->clippedOverflowRect);
+            m_flow.repaintUsingContainer(m_flow.containerForRepaint().renderer, m_flow.layerRepaintRects()->clippedOverflowRect);
         }
     }
 

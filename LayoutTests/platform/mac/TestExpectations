@@ -8,7 +8,6 @@
 
 accessibility/mac [ Pass ]
 compositing/scrolling/async-overflow-scrolling/mac [ Pass ]
-displaylists [ Pass ]
 editing/execCommand/mac [ Pass ]
 editing/input/cocoa [ Pass ]
 editing/mac [ Pass ]
@@ -17,6 +16,9 @@ fast/dom/Range/mac [ Pass ]
 fast/scrolling/latching [ Pass ]
 model-element [ Pass ]
 fast/images/mac [ Pass ]
+
+# Display list logging is only available in debug
+[ Debug ] displaylists [ Pass ]
 
 # Disable plug-in tests on Apple Silicon
 [ arm64 ] compositing/plugins [ Skip ]
@@ -86,6 +88,11 @@ imported/w3c/web-platform-tests/speech-api [ Pass ]
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
 #//////////////////////////////////////////////////////////////////////////////////////////
+
+# webkit.org/b/240843
+fast/images/animated-heics-draw.html [ Skip ]
+fast/images/animated-heics-verify.html [ Skip ]
+fast/images/heic-as-background-image.html [ Skip ]
 
 # <rdar://problem/5647952> fast/events/mouseout-on-window.html needs mac DRT to issue mouse out events
 fast/events/mouseout-on-window.html [ Failure ]
@@ -1040,6 +1047,7 @@ webkit.org/b/158649 fast/text/chinese-font-name-aliases-2.html [ ImageOnlyFailur
 fast/css/appearance-apple-pay-button.html [ Pass ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Pass ]
 fast/css/appearance-apple-pay-button-border-radius-longhands.html [ Pass ]
+fast/css/appearance-apple-pay-button-border-width.html [ Pass ]
 fast/css/appearance-apple-pay-button-default-corners.html [ Pass ]
 fast/css/webkit-named-image/apple-pay-logo-black [ Pass ]
 fast/css/webkit-named-image/apple-pay-logo-white [ Pass ]
@@ -1279,10 +1287,6 @@ crypto/workers/subtle/rsa-pss-import-key-verify.html [ Pass ]
 http/wpt/crypto/rsa-pss-crash.any.html [ Pass ]
 http/wpt/crypto/rsa-pss-crash.any.worker.html [ Pass ]
 
-# <rdar://problem/32352702> REGRESSION: fast/dom/HTMLMeterElement/meter-appearances LayoutTests failing
-fast/dom/HTMLMeterElement/meter-appearances-capacity.html [ Failure ]
-fast/dom/HTMLMeterElement/meter-appearances-rating-relevancy.html [ Failure ]
-
 # <rdar://problem/32864306> Unskip after bots have CTFontCopyPhysicalFont()
 fast/text/system-font-japanese-synthetic-italic.html [ Pass ImageOnlyFailure ]
 
@@ -1458,10 +1462,6 @@ webkit.org/b/197473 imported/w3c/web-platform-tests/resource-timing/resource-tim
 webaudio/oscillator-sine.html [ Skip ]
 
 webkit.org/b/190882 animations/change-one-anim.html [ Pass Failure ]
-
-# <rdar://problem/88980849>
-fast/images/animated-heics-draw.html [ Skip ]
-fast/images/animated-heics-verify.html [ Skip ]
 
 # <rdar://problem/40172428>
 fast/text/woff2.html [ Pass ImageOnlyFailure ]
@@ -2124,9 +2124,6 @@ webkit.org/b/228311 imported/w3c/web-platform-tests/css/css-scoping/css-scoping-
 [ Monterey ] model-element/model-element-graphics-layers-opacity.html [ Pass Failure ]
 [ Monterey Debug arm64 ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-restartIce.https.html [ Pass Failure Crash ]
 
-#rdar://82053210 ([Guard-Malloc] imported/w3c/web-platform-tests/mathml/relations/html5-tree/display-2.html is a flaky failure)
-imported/w3c/web-platform-tests/mathml/relations/html5-tree/display-2.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/229291 imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/revoked-blob-print.html [ Pass ImageOnlyFailure ]
 
 #rdar://82146367 ([Mac, iOS Release] imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html is a flaky failure) imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html [ Pass Failure ] 
@@ -2196,9 +2193,6 @@ webkit.org/b/229521 pointer-lock/lock-already-locked.html [ Pass Failure ]
 webkit.org/b/228176 [ BigSur Monterey ] fast/text/variable-system-font-2.html [ Pass ]
 
 webkit.org/b/230327 imported/w3c/web-platform-tests/css/css-transforms/crashtests/transform-marquee-resize-div-image-001.html [ Pass Failure ]
-
-# 'transform-box' support is broken for composited elements.
-webkit.org/b/237553 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-box-will-change-transform-layer.html [ ImageOnlyFailure ]
 
 # rdar://83591040
 [ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup-input.html [ Crash ]
@@ -2300,3 +2294,11 @@ webkit.org/b/239791 webanimations/accelerated-animation-slot-invalidation.html [
 webkit.org/b/239794 webanimations/accelerated-animation-after-forward-filling-animation.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/239990 css3/calc/transitions-dependent.html [ Pass Failure ]
+
+webkit.org/b/240074 imported/w3c/web-platform-tests/service-workers/service-worker/registration-updateviacache.https.html [ Pass Failure ]
+
+webkit.org/b/231298 accessibility/mac/selection-sync.html [ Skip ] # Timeout
+
+webkit.org/b/227845 [ Debug ] webaudio/audioworket-out-of-memory.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
+
+webkit.org/b/240989 http/tests/media/hls/hls-webvtt-flashing.html [ Pass Failure ]

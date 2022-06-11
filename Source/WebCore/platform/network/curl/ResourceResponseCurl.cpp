@@ -102,8 +102,8 @@ ResourceResponse::ResourceResponse(const CurlResponse& response)
         break;
     }
 
-    setMimeType(extractMIMETypeFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)).convertToASCIILowercase());
-    setTextEncodingName(extractCharsetFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)).toString());
+    setMimeType(AtomString { extractMIMETypeFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)).convertToASCIILowercase() });
+    setTextEncodingName(extractCharsetFromMediaType(httpHeaderField(HTTPHeaderName::ContentType)).toAtomString());
     setSource(ResourceResponse::Source::Network);
 }
 
@@ -124,23 +124,23 @@ void ResourceResponse::appendHTTPHeaderField(const String& header)
     }
 }
 
-void ResourceResponse::setStatusLine(const String& header)
+void ResourceResponse::setStatusLine(StringView header)
 {
-    auto statusLine = header.stripWhiteSpace();
+    auto statusLine = header.stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
 
     auto httpVersionEndPosition = statusLine.find(' ');
     auto statusCodeEndPosition = notFound;
 
     // Extract the http version
     if (httpVersionEndPosition != notFound) {
-        statusLine = statusLine.substring(httpVersionEndPosition + 1).stripWhiteSpace();
+        statusLine = statusLine.substring(httpVersionEndPosition + 1).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
         statusCodeEndPosition = statusLine.find(' ');
     }
 
     // Extract the http status text
     if (statusCodeEndPosition != notFound) {
-        auto statusText = statusLine.substring(statusCodeEndPosition + 1);
-        setHTTPStatusText(statusText.stripWhiteSpace());
+        auto statusText = statusLine.substring(statusCodeEndPosition + 1).stripLeadingAndTrailingMatchedCharacters(isSpaceOrNewline);
+        setHTTPStatusText(statusText.toAtomString());
     }
 }
 
@@ -151,7 +151,10 @@ void ResourceResponse::setCertificateInfo(CertificateInfo&& certificateInfo)
 
 String ResourceResponse::platformSuggestedFilename() const
 {
-    return filenameFromHTTPContentDisposition(httpHeaderField(HTTPHeaderName::ContentDisposition)).toString();
+    StringView contentDisposition = filenameFromHTTPContentDisposition(httpHeaderField(HTTPHeaderName::ContentDisposition));
+    if (contentDisposition.is8Bit())
+        return String::fromUTF8WithLatin1Fallback(contentDisposition.characters8(), contentDisposition.length());
+    return contentDisposition.toString();
 }
 
 bool ResourceResponse::shouldRedirect()

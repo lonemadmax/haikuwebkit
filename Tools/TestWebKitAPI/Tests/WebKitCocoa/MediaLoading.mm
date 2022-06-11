@@ -37,8 +37,8 @@ namespace TestWebKitAPI {
 
 static String parseUserAgent(const Vector<char>& request)
 {
-    auto headers = String::fromUTF8(request.data(), request.size()).split("\r\n");
-    auto index = headers.findIf([] (auto& header) { return header.startsWith("User-Agent:"); });
+    auto headers = String::fromUTF8(request.data(), request.size()).split("\r\n"_s);
+    auto index = headers.findIf([] (auto& header) { return header.startsWith("User-Agent:"_s); });
     if (index != notFound)
         return headers[index];
     return emptyString();
@@ -137,11 +137,10 @@ static Vector<uint8_t> testVideoBytes()
     return vector;
 }
 
-static void runVideoTest(NSURLRequest *request, const char* expectedMessage, bool enableCaptivePortalMode = false)
+static void runVideoTest(NSURLRequest *request, const char* expectedMessage)
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
     configuration.get().mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone;
-    configuration.get().defaultWebpagePreferences._captivePortalModeEnabled = enableCaptivePortalMode;
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
     [webView loadRequest:request];
     EXPECT_WK_STREQ([webView _test_waitForAlert], expectedMessage);
@@ -186,28 +185,27 @@ TEST(MediaLoading, RangeRequestSynthesisWithoutContentLength)
     EXPECT_EQ(totalRequests, 2u);
 }
 
-static Vector<uint8_t> testTransportStreamBytes()
-{
-    NSData *data = [NSData dataWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"start-offset" withExtension:@"ts" subdirectory:@"TestWebKitAPI.resources"]];
-    Vector<uint8_t> vector;
-    vector.append(static_cast<const uint8_t*>(data.bytes), data.length);
-    return vector;
-}
-
-constexpr auto hlsPlayTestHTML ="<script>"
-    "function createVideoElement() {"
-        "let video = document.createElement('video');"
-        "video.addEventListener('error', ()=>{alert('error')});"
-        "video.addEventListener('playing', ()=>{alert('playing')});"
-        "video.src='video.m3u8';"
-        "video.autoplay=1;"
-        "document.body.appendChild(video);"
-    "}"
-"</script>"
-"<body onload='createVideoElement()'></body>"_s;
-
 TEST(MediaLoading, CaptivePortalHLS)
 {
+    constexpr auto hlsPlayTestHTML = "<script>"
+        "function createVideoElement() {"
+            "let video = document.createElement('video');"
+            "video.addEventListener('error', () => { alert('error') });"
+            "video.addEventListener('playing', () => { alert('playing') });"
+            "video.src='video.m3u8';"
+            "video.autoplay=1;"
+            "document.body.appendChild(video);"
+        "}"
+    "</script>"
+    "<body onload='createVideoElement()'></body>"_s;
+
+    auto testTransportStreamBytes = [&] () -> Vector<uint8_t> {
+        NSData *data = [NSData dataWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"start-offset" withExtension:@"ts" subdirectory:@"TestWebKitAPI.resources"]];
+        Vector<uint8_t> vector;
+        vector.append(static_cast<const uint8_t*>(data.bytes), data.length);
+        return vector;
+    };
+
     HTTPServer server({
         { "/"_s, { hlsPlayTestHTML } },
         { "/start-offset.ts"_s, { testTransportStreamBytes() } }
@@ -233,9 +231,13 @@ TEST(MediaLoading, CaptivePortalHLS)
     );
     server.addResponse("/video.m3u8"_s, { m3u8Source });
 
-    runVideoTest(server.request(), "playing", true);
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [configuration setMediaTypesRequiringUserActionForPlayback:WKAudiovisualMediaTypeNone];
+    [[configuration defaultWebpagePreferences] _setCaptivePortalModeEnabled:YES];
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 300, 300) configuration:configuration.get() addToWindow:YES]);
+    [webView loadRequest:server.request()];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "playing");
 }
-
 
 } // namespace TestWebKitAPI
 

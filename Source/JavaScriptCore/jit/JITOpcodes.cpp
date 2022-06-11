@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -157,8 +157,6 @@ void JIT::emit_op_instanceof(const JSInstruction* currentInstruction)
     using BaselineJITRegisters::Instanceof::valueJSR;
     using BaselineJITRegisters::Instanceof::protoJSR;
     using BaselineJITRegisters::Instanceof::FastPath::stubInfoGPR;
-    using BaselineJITRegisters::Instanceof::FastPath::scratch1GPR;
-    using BaselineJITRegisters::Instanceof::FastPath::scratch2GPR;
 
     emitGetVirtualRegister(value, valueJSR);
     emitGetVirtualRegister(proto, protoJSR);
@@ -167,20 +165,15 @@ void JIT::emit_op_instanceof(const JSInstruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(valueJSR, value);
     emitJumpSlowCaseIfNotJSCell(protoJSR, proto);
 
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     JITInstanceOfGenerator gen(
-        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex),
+        nullptr, stubInfo, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex),
         RegisterSet::stubUnavailableRegisters(),
         resultJSR.payloadGPR(),
         valueJSR.payloadGPR(),
         protoJSR.payloadGPR(),
-        stubInfoGPR,
-        scratch1GPR, scratch2GPR);
-
-    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
-    stubInfo->accessType = AccessType::InstanceOf;
-    stubInfo->bytecodeIndex = m_bytecodeIndex;
+        stubInfoGPR);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
-    gen.m_unlinkedStubInfo = stubInfo;
 
     gen.generateBaselineDataICFastPath(*this, stubInfoIndex, stubInfoGPR);
 #if USE(JSVALUE32_64)
@@ -478,7 +471,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::valueIsFalseyGenerator(VM& vm)
     jit.ret();
 
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::ExtraCTIThunk);
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "Baseline: valueIsFalsey");
+    return FINALIZE_THUNK(patchBuffer, JITThunkPtrTag, "Baseline: valueIsFalsey");
 }
 
 void JIT::emit_op_jeq_null(const JSInstruction* currentInstruction)
@@ -664,7 +657,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::valueIsTruthyGenerator(VM& vm)
     jit.ret();
 
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::ExtraCTIThunk);
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "Baseline: valueIsTruthy");
+    return FINALIZE_THUNK(patchBuffer, JITThunkPtrTag, "Baseline: valueIsTruthy");
 }
 
 #if USE(JSVALUE64)
@@ -734,7 +727,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::op_throw_handlerGenerator(VM& vm)
 
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::ExtraCTIThunk);
     patchBuffer.link(operation, FunctionPtr<OperationPtrTag>(operationThrow));
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "Baseline: op_throw_handler");
+    return FINALIZE_THUNK(patchBuffer, JITThunkPtrTag, "Baseline: op_throw_handler");
 }
 
 #if USE(JSVALUE64)
@@ -1323,7 +1316,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::op_enter_handlerGenerator(VM& vm)
     if (Options::useDFGJIT())
         patchBuffer.link(operationOptimizeCall, FunctionPtr<OperationPtrTag>(operationOptimize));
 #endif
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "Baseline: op_enter_handler");
+    return FINALIZE_THUNK(patchBuffer, JITThunkPtrTag, "Baseline: op_enter_handler");
 }
 
 void JIT::emit_op_get_scope(const JSInstruction* currentInstruction)
@@ -1568,7 +1561,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> JIT::op_check_traps_handlerGenerator(VM& v
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::ExtraCTIThunk);
     patchBuffer.link(operation, FunctionPtr<OperationPtrTag>(operationHandleTraps));
     patchBuffer.link(exceptionCheck, CodeLocationLabel(vm.getCTIStub(checkExceptionGenerator).retaggedCode<NoPtrTag>()));
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "Baseline: op_check_traps_handler");
+    return FINALIZE_THUNK(patchBuffer, JITThunkPtrTag, "Baseline: op_check_traps_handler");
 }
 
 void JIT::emit_op_new_regexp(const JSInstruction* currentInstruction)

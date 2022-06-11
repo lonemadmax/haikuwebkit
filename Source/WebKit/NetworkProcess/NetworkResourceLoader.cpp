@@ -852,7 +852,7 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
 
     if (isCrossOriginPrefetch()) {
         LOADER_RELEASE_LOG("didReceiveResponse: Using response for cross-origin prefetch");
-        if (response.httpHeaderField(HTTPHeaderName::Vary).contains("Cookie")) {
+        if (response.httpHeaderField(HTTPHeaderName::Vary).contains("Cookie"_s)) {
             LOADER_RELEASE_LOG("didReceiveResponse: Canceling cross-origin prefetch for Vary: Cookie");
             abort();
             return completionHandler(PolicyAction::Ignore);
@@ -1346,9 +1346,9 @@ void NetworkResourceLoader::bufferingTimerFired()
     auto sharedBuffer = m_bufferedData.takeAsContiguous();
     bool shouldFilter = m_contentFilter && !m_contentFilter->continueAfterDataReceived(sharedBuffer, m_bufferedDataEncodedDataLength);
     if (!shouldFilter)
-        send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferCopy(sharedBuffer.get()), m_bufferedDataEncodedDataLength));
+        send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferReference(sharedBuffer.get()), m_bufferedDataEncodedDataLength));
 #else
-    send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferCopy(*m_bufferedData.get()), m_bufferedDataEncodedDataLength));
+    send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferReference(*m_bufferedData.get()), m_bufferedDataEncodedDataLength));
 #endif
     m_bufferedData.empty();
     m_bufferedDataEncodedDataLength = 0;
@@ -1363,7 +1363,7 @@ void NetworkResourceLoader::sendBuffer(const FragmentedSharedBuffer& buffer, siz
         return;
 #endif
 
-    send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferCopy(buffer), encodedDataLength));
+    send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferReference(buffer), encodedDataLength));
 }
 
 void NetworkResourceLoader::tryStoreAsCacheEntry()
@@ -1820,7 +1820,7 @@ bool NetworkResourceLoader::isAppInitiated()
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 void NetworkResourceLoader::dataReceivedThroughContentFilter(const SharedBuffer& buffer, size_t encodedDataLength)
 {
-    send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferCopy(buffer), encodedDataLength));
+    send(Messages::WebResourceLoader::DidReceiveData(IPC::SharedBufferReference(buffer), encodedDataLength));
 }
 
 WebCore::ResourceError NetworkResourceLoader::contentFilterDidBlock(WebCore::ContentFilterUnblockHandler unblockHandler, String&& unblockRequestDeniedScript)
@@ -1830,9 +1830,10 @@ WebCore::ResourceError NetworkResourceLoader::contentFilterDidBlock(WebCore::Con
     m_unblockHandler = unblockHandler;
     m_unblockRequestDeniedScript = unblockRequestDeniedScript;
     
-    if (unblockHandler.needsUIProcess())
+    if (unblockHandler.needsUIProcess()) {
+        m_contentFilter->setBlockedError(error);
         m_contentFilter->handleProvisionalLoadFailure(error);
-    else {
+    } else {
         unblockHandler.requestUnblockAsync([this, protectedThis = Ref { *this }](bool unblocked) mutable {
             m_unblockHandler.setUnblockedAfterRequest(unblocked);
 

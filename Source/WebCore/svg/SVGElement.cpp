@@ -531,7 +531,7 @@ static MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> createSVGLayerAwareEl
     // List of all SVG elements whose renderers support the layer aware layout / painting / hit-testing mode ('LBSE-mode').
     using namespace SVGNames;
     MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> set;
-    for (auto& tag : { gTag.get(), rectTag.get() })
+    for (auto& tag : { circleTag.get(), ellipseTag.get(), gTag.get(), rectTag.get(), textTag.get() })
         set.add(tag.localName());
     return set;
 }
@@ -883,20 +883,9 @@ void SVGElement::collectPresentationalHintsForAttribute(const QualifiedName& nam
         addPropertyToPresentationalHintStyle(style, propertyID, value);
 }
 
-void SVGElement::setSVGResourcesInAncestorChainAreDirty()
+void SVGElement::updateSVGRendererForElementChange()
 {
-    ensureUniqueElementData().setSVGResourcesInAncestorChainAreDirty(true);
-    invalidateStyle();
-}
-
-void SVGElement::invalidateSVGResourcesInAncestorChainIfNeeded()
-{
-    if (!elementData() || !elementData()->svgResourcesInAncestorChainAreDirty())
-        return;
-
-    if (auto renderer = this->renderer())
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
-    elementData()->setSVGResourcesInAncestorChainAreDirty(false);
+    document().updateSVGRenderer(*this);
 }
 
 void SVGElement::svgAttributeChanged(const QualifiedName& attrName)

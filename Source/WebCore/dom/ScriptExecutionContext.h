@@ -291,6 +291,7 @@ public:
     virtual void updateServiceWorkerClientData() { ASSERT_NOT_REACHED(); }
 #endif
     WEBCORE_EXPORT static bool postTaskTo(ScriptExecutionContextIdentifier, Task&&);
+    WEBCORE_EXPORT static bool postTaskForModeToWorkerOrWorklet(ScriptExecutionContextIdentifier, Task&&, const String&);
     WEBCORE_EXPORT static bool ensureOnContextThread(ScriptExecutionContextIdentifier, Task&&);
 
     ScriptExecutionContextIdentifier identifier() const { return m_identifier; }
@@ -312,6 +313,12 @@ public:
     };
     enum class HasResourceAccess : uint8_t { No, Yes, DefaultForThirdParty };
     WEBCORE_EXPORT HasResourceAccess canAccessResource(ResourceType) const;
+
+    enum NotificationCallbackIdentifierType { };
+    using NotificationCallbackIdentifier = ObjectIdentifier<NotificationCallbackIdentifierType>;
+
+    WEBCORE_EXPORT NotificationCallbackIdentifier addNotificationCallback(CompletionHandler<void()>&&);
+    WEBCORE_EXPORT CompletionHandler<void()> takeNotificationCallback(NotificationCallbackIdentifier);
 
 protected:
     class AddConsoleMessageTask : public Task {
@@ -395,6 +402,8 @@ private:
 
     bool m_hasLoggedAuthenticatedEncryptionWarning { false };
     StorageBlockingPolicy m_storageBlockingPolicy { StorageBlockingPolicy::AllowAll };
+
+    HashMap<NotificationCallbackIdentifier, CompletionHandler<void()>> m_notificationCallbacks;
 };
 
 } // namespace WebCore

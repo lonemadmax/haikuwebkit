@@ -38,6 +38,7 @@
 #include "DiagnosticLoggingKeys.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLFrameOwnerElement.h"
@@ -247,7 +248,7 @@ void ResourceLoader::start()
 #endif
 
 #if USE(SOUP)
-    if (m_request.url().protocolIs("resource") || isPDFJSResourceLoad()) {
+    if (m_request.url().protocolIs("resource"_s) || isPDFJSResourceLoad()) {
         loadGResource();
         return;
     }
@@ -877,7 +878,7 @@ bool ResourceLoader::isQuickLookResource() const
 bool ResourceLoader::isPDFJSResourceLoad() const
 {
 #if ENABLE(PDFJS)
-    if (!m_request.url().protocolIs("webkit-pdfjs-viewer"))
+    if (!m_request.url().protocolIs("webkit-pdfjs-viewer"_s))
         return false;
 
     auto* document = frame() && frame()->ownerElement() ? &frame()->ownerElement()->document() : nullptr;

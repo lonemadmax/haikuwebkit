@@ -29,7 +29,6 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "DrawingAreaProxy.h"
-#include "GPUProcessConnectionInfo.h"
 #include "GPUProcessConnectionParameters.h"
 #include "GPUProcessCreationParameters.h"
 #include "GPUProcessMessages.h"
@@ -81,19 +80,6 @@ static bool shouldCreateAppleCameraServiceSandboxExtension()
 }
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-static const Vector<ASCIILiteral>& nonBrowserServices()
-{
-    ASSERT(isMainRunLoop());
-    static NeverDestroyed services = Vector<ASCIILiteral> {
-        "com.apple.iconservices"_s,
-        "com.apple.PowerManagement.control"_s,
-        "com.apple.frontboard.systemappservices"_s
-    };
-    return services;
-}
-#endif
-
 static WeakPtr<GPUProcessProxy>& singleton()
 {
     static NeverDestroyed<WeakPtr<GPUProcessProxy>> singleton;
@@ -120,7 +106,7 @@ GPUProcessProxy* GPUProcessProxy::singletonIfCreated()
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
 static String gpuProcessCachesDirectory()
 {
-    String path = WebProcessPool::cacheDirectoryInContainerOrHomeDirectory("/Library/Caches/com.apple.WebKit.GPU/"_s);
+    String path = WebsiteDataStore::cacheDirectoryInContainerOrHomeDirectory("/Library/Caches/com.apple.WebKit.GPU/"_s);
 
     FileSystem::makeAllDirectories(path);
     
@@ -156,7 +142,7 @@ GPUProcessProxy::GPUProcessProxy()
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
     auto containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory());
-    auto containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::containerTemporaryDirectory());
+    auto containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebsiteDataStore::defaultContainerTemporaryDirectory());
 
     if (!containerCachesDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(containerCachesDirectory, SandboxExtension::Type::ReadWrite))
@@ -173,9 +159,6 @@ GPUProcessProxy::GPUProcessProxy()
         parameters.compilerServiceExtensionHandles = SandboxExtension::createHandlesForMachLookup(WebCore::agxCompilerServices(), std::nullopt);
         parameters.dynamicIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(WebCore::agxCompilerClasses(), std::nullopt);
     }
-
-    if (!WebCore::IOSApplication::isMobileSafari())
-        parameters.dynamicMachExtensionHandles = SandboxExtension::createHandlesForMachLookup(nonBrowserServices(), std::nullopt);
 #endif
 
     platformInitializeGPUProcessParameters(parameters);
@@ -385,33 +368,17 @@ void GPUProcessProxy::processWillShutDown(IPC::Connection& connection)
         singleton() = nullptr;
 }
 
-void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, const GPUProcessConnectionParameters& parameters, Messages::WebProcessProxy::GetGPUProcessConnection::DelayedReply&& reply)
+void GPUProcessProxy::createGPUProcessConnection(WebProcessProxy& webProcessProxy, IPC::Attachment&& connectionIdentifier, GPUProcessConnectionParameters&& parameters)
 {
-    addSession(webProcessProxy.websiteDataStore());
+    if (auto* store = webProcessProxy.websiteDataStore())
+        addSession(*store);
 
     RELEASE_LOG(ProcessSuspension, "%p - GPUProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto&& connectionParameters) mutable {
-        if (!weakThis) {
-            RELEASE_LOG_ERROR(Process, "GPUProcessProxy::getGPUProcessConnection: GPUProcessProxy deallocated during connection establishment");
-            return reply({ });
-        }
-
+    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), connectionIdentifier, parameters }, [this, weakThis = WeakPtr { *this }]() mutable {
+        if (!weakThis)
+            return;
         stopResponsivenessTimer();
-        if (!identifier) {
-            RELEASE_LOG_ERROR(Process, "GPUProcessProxy::getGPUProcessConnection: connection identifier is empty");
-            return reply({ });
-        }
-
-#if USE(UNIX_DOMAIN_SOCKETS) || OS(WINDOWS)
-        reply(GPUProcessConnectionInfo { WTFMove(*identifier) });
-        UNUSED_VARIABLE(this);
-#elif OS(DARWIN)
-        MESSAGE_CHECK(MACH_PORT_VALID(identifier->port()));
-        reply(GPUProcessConnectionInfo { IPC::Attachment { identifier->port(), MACH_MSG_TYPE_MOVE_SEND }, this->connection()->getAuditToken(), WTFMove(connectionParameters) });
-#else
-        notImplemented();
-#endif
     }, 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
@@ -578,9 +545,9 @@ void GPUProcessProxy::removeSession(PAL::SessionID sessionID)
         send(Messages::GPUProcess::RemoveSession { sessionID }, 0);
 }
 
-void GPUProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImminent, CompletionHandler<void()>&& completionHandler)
+void GPUProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::GPUProcess::PrepareToSuspend(isSuspensionImminent == IsSuspensionImminent::Yes), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
+    sendWithAsyncReply(Messages::GPUProcess::PrepareToSuspend(isSuspensionImminent == IsSuspensionImminent::Yes, MonotonicTime::now() + Seconds(remainingRunTime)), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
 }
 
 void GPUProcessProxy::sendProcessDidResume(ResumeReason)
@@ -679,13 +646,6 @@ void GPUProcessProxy::updatePreferences(WebProcessProxy& webProcess)
         if (!m_hasEnabledMediaSourceInlinePainting && preferences.mediaSourceInlinePaintingEnabled()) {
             m_hasEnabledMediaSourceInlinePainting = true;
             send(Messages::GPUProcess::SetMediaSourceInlinePaintingEnabled(m_hasEnabledMediaSourceInlinePainting), 0);
-        }
-#endif
-
-#if HAVE(SCREEN_CAPTURE_KIT)
-        if (!m_hasEnabledScreenCaptureKit && preferences.useScreenCaptureKit()) {
-            m_hasEnabledScreenCaptureKit = true;
-            send(Messages::GPUProcess::SetUseScreenCaptureKit(m_hasEnabledScreenCaptureKit), 0);
         }
 #endif
 

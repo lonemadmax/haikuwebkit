@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -202,26 +202,6 @@ void WKPreferencesSetPluginsEnabled(WKPreferencesRef preferencesRef, bool plugin
 bool WKPreferencesGetPluginsEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->pluginsEnabled();
-}
-
-void WKPreferencesSetJavaEnabled(WKPreferencesRef preferencesRef, bool javaEnabled)
-{
-    toImpl(preferencesRef)->setJavaEnabled(javaEnabled);
-}
-
-bool WKPreferencesGetJavaEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->javaEnabled();
-}
-
-void WKPreferencesSetJavaEnabledForLocalFiles(WKPreferencesRef preferencesRef, bool javaEnabledForLocalFiles)
-{
-    toImpl(preferencesRef)->setJavaEnabledForLocalFiles(javaEnabledForLocalFiles);
-}
-
-bool WKPreferencesGetJavaEnabledForLocalFiles(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->javaEnabledForLocalFiles();
 }
 
 void WKPreferencesSetJavaScriptCanOpenWindowsAutomatically(WKPreferencesRef preferencesRef, bool javaScriptCanOpenWindowsAutomatically)
@@ -824,16 +804,6 @@ bool WKPreferencesGetWebAuthenticationEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->webAuthenticationEnabled();
 }
 
-void WKPreferencesSetWebAuthenticationModernEnabled(WKPreferencesRef preferencesRef, bool flag)
-{
-    toImpl(preferencesRef)->setWebAuthenticationModernEnabled(flag);
-}
-
-bool WKPreferencesGetWebAuthenticationModernEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->webAuthenticationModernEnabled();
-}
-
 void WKPreferencesSetInvisibleMediaAutoplayPermitted(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setInvisibleAutoplayNotPermitted(!flag);
@@ -1255,16 +1225,6 @@ bool WKPreferencesGetContentChangeObserverEnabled(WKPreferencesRef preferencesRe
     return toImpl(preferencesRef)->contentChangeObserverEnabled();
 }
 
-void WKPreferencesSetDeferredCSSParserEnabled(WKPreferencesRef preferencesRef, bool flag)
-{
-    toImpl(preferencesRef)->setDeferredCSSParserEnabled(flag);
-}
-
-bool WKPreferencesGetDeferredCSSParserEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->deferredCSSParserEnabled();
-}
-
 void WKPreferencesSetUseGiantTiles(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setUseGiantTiles(flag);
@@ -1663,16 +1623,6 @@ void WKPreferencesSetFetchAPIKeepAliveEnabled(WKPreferencesRef preferencesRef, b
 bool WKPreferencesGetFetchAPIKeepAliveEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->fetchAPIKeepAliveEnabled();
-}
-
-void WKPreferencesSetSelectionPaintingWithoutSelectionGapsEnabled(WKPreferencesRef preferencesRef, bool flag)
-{
-    toImpl(preferencesRef)->setSelectionPaintingWithoutSelectionGapsEnabled(flag);
-}
-
-bool WKPreferencesGetSelectionPaintingWithoutSelectionGapsEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->selectionPaintingWithoutSelectionGapsEnabled();
 }
 
 void WKPreferencesSetAllowsPictureInPictureMediaPlayback(WKPreferencesRef preferencesRef, bool enabled)
@@ -2208,6 +2158,15 @@ void WKPreferencesSetWebArchiveDebugModeEnabled(WKPreferencesRef preferencesRef,
 }
 
 bool WKPreferencesGetWebArchiveDebugModeEnabled(WKPreferencesRef preferencesRef)
+{
+    return false;
+}
+
+void WKPreferencesSetJavaEnabled(WKPreferencesRef, bool)
+{
+}
+
+bool WKPreferencesGetJavaEnabled(WKPreferencesRef)
 {
     return false;
 }

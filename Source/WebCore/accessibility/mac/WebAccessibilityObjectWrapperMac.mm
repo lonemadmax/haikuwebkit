@@ -542,7 +542,10 @@ extern "C" AXUIElementRef NSAccessibilityCreateAXUIElementRef(id element);
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 - (void)detachIsolatedObject:(AccessibilityDetachmentType)detachmentType
 {
-    NSAccessibilityUnregisterUniqueIdForUIElement(self);
+    // Only unregister this wrapper if the underlying object or cache is being destroyed. Unregistering it in other cases (like `ElementChanged`)
+    // would cause AX clients to get a notification that this wrapper was destroyed, which wouldn't be true.
+    if (detachmentType == AccessibilityDetachmentType::ElementDestroyed || detachmentType == AccessibilityDetachmentType::CacheDestroyed)
+        NSAccessibilityUnregisterUniqueIdForUIElement(self);
     [super detachIsolatedObject:detachmentType];
 }
 #endif
@@ -1677,15 +1680,13 @@ static void convertToVector(NSArray* array, AccessibilityObject::AccessibilityCh
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject || !backingObject->hasApplePDFAnnotationAttribute())
             return nil;
-
-        if (!backingObject->document()->isPluginDocument())
+        auto* document = dynamicDowncast<PluginDocument>(backingObject->document());
+        if (!document)
             return nil;
-
-        Widget* pluginWidget = static_cast<PluginDocument*>(backingObject->document())->pluginWidget();
-        if (!pluginWidget || !pluginWidget->isPluginViewBase())
+        auto* widget = document->pluginWidget();
+        if (!widget)
             return nil;
-
-        return static_cast<PluginViewBase*>(pluginWidget)->accessibilityAssociatedPluginParentForElement(backingObject->element());
+        return widget->accessibilityAssociatedPluginParentForElement(backingObject->element());
     });
 }
 
@@ -1931,7 +1932,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return [self computedRoleString];
 
     if ([attributeName isEqualToString: NSAccessibilityParentAttribute]) {
-
         // This will return the parent of the AXWebArea, if this is a web area.
         id scrollViewParent = [self scrollViewParent];
         if (scrollViewParent)
@@ -4137,6 +4137,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (NSUInteger)accessibilityArrayAttributeCount:(NSString *)attribute
 {
+    AXTRACE(makeString("WebAccessibilityObjectWrapper accessibilityArrayAttributeCount:", String(attribute)));
+
     auto* backingObject = self.updateObjectBackingStore;
     if (!backingObject)
         return 0;

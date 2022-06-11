@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+# Copyright (C) 2017-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -172,6 +172,26 @@ class CleanUpGitIndexLock(shell.ShellCommand):
         return super(CleanUpGitIndexLock, self).evaluateCommand(cmd)
 
 
+class CheckOutSpecificRevision(shell.ShellCommand):
+    name = 'checkout-specific-revision'
+    descriptionDone = ['Checked out required revision']
+    flunkOnFailure = True
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        super(CheckOutSpecificRevision, self).__init__(logEnviron=False, **kwargs)
+
+    def doStepIf(self, step):
+        return self.getProperty('user_provided_git_hash', False)
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+    def start(self):
+        self.setCommand(['git', 'checkout', self.getProperty('user_provided_git_hash')])
+        return shell.ShellCommand.start(self)
+
+
 class InstallWin32Dependencies(shell.Compile):
     description = ["installing dependencies"]
     descriptionDone = ["installed dependencies"]
@@ -327,6 +347,12 @@ class CompileWebKit(shell.Compile):
             log = yield self.addLog(logName)
         log.addStdout(message)
 
+    def evaluateCommand(self, cmd):
+        rc = shell.ShellCommand.evaluateCommand(self, cmd)
+        if rc in (SUCCESS, WARNINGS) and self.getProperty('user_provided_git_hash'):
+            self.build.addStepsAfterCurrentStep([ArchiveMinifiedBuiltProduct(), UploadMinifiedBuiltProduct(), TransferToS3(terminate_build=True)])
+        return rc
+
 
 class CompileLLINTCLoop(CompileWebKit):
     command = ["perl", "Tools/Scripts/build-jsc", "--cloop", WithProperties("--%(configuration)s")]
@@ -358,6 +384,7 @@ class ArchiveBuiltProduct(shell.ShellCommand):
 
 
 class ArchiveMinifiedBuiltProduct(ArchiveBuiltProduct):
+    name = 'archive-minified-built-product'
     command = ["python3", "Tools/CISupport/built-product-archive",
                WithProperties("--platform=%(fullPlatform)s"), WithProperties("--%(configuration)s"), "archive", "--minify"]
 
@@ -394,6 +421,7 @@ class ExtractBuiltProduct(shell.ShellCommand):
 
 
 class UploadBuiltProduct(transfer.FileUpload):
+    name = 'upload-built-product'
     workersrc = WithProperties("WebKitBuild/%(configuration)s.zip")
     masterdest = WithProperties("archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(archive_revision)s.zip")
     haltOnFailure = True
@@ -407,6 +435,7 @@ class UploadBuiltProduct(transfer.FileUpload):
 
 
 class UploadMinifiedBuiltProduct(UploadBuiltProduct):
+    name = 'upload-minified-built-product'
     workersrc = WithProperties("WebKitBuild/minified-%(configuration)s.zip")
     masterdest = WithProperties("archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/minified-%(archive_revision)s.zip")
 
@@ -1151,16 +1180,20 @@ class TransferToS3(master.MasterShellCommand):
     command = ["python3", "../Shared/transfer-archive-to-s3", "--revision", revision, "--identifier", identifier, "--archive", archive]
     haltOnFailure = True
 
-    def __init__(self, **kwargs):
+    def __init__(self, terminate_build=False, **kwargs):
         kwargs['command'] = self.command
         kwargs['logEnviron'] = False
+        self.terminate_build = terminate_build
         master.MasterShellCommand.__init__(self, **kwargs)
 
     def start(self):
         return master.MasterShellCommand.start(self)
 
     def finished(self, result):
-        return master.MasterShellCommand.finished(self, result)
+        rc = master.MasterShellCommand.finished(self, result)
+        if self.terminate_build and self.getProperty('user_provided_git_hash'):
+            self.build.buildFinished([f"Uploaded archive with hash {self.getProperty('user_provided_git_hash', '')[:8]}"], SUCCESS)
+        return rc
 
     def doStepIf(self, step):
         return CURRENT_HOSTNAME == BUILD_WEBKIT_HOSTNAME
@@ -1283,7 +1316,7 @@ class ShowIdentifier(shell.ShellCommand):
     def start(self):
         self.log_observer = logobserver.BufferLogObserver()
         self.addLogObserver('stdio', self.log_observer)
-        revision = self.getProperty('got_revision')
+        revision = self.getProperty('user_provided_git_hash', None) or self.getProperty('got_revision')
         self.setCommand(['python3', 'Tools/Scripts/git-webkit', 'find', revision])
         return shell.ShellCommand.start(self)
 
@@ -1300,7 +1333,12 @@ class ShowIdentifier(shell.ShellCommand):
                 identifier = identifier.replace('trunk', 'main')
             self.setProperty('identifier', identifier)
             self.setProperty('archive_revision', identifier)
-            step = self.getLastBuildStepByName(CheckOutSource.name)
+
+            if self.getProperty('user_provided_git_hash'):
+                step = self.getLastBuildStepByName(CheckOutSpecificRevision.name)
+            else:
+                step = self.getLastBuildStepByName(CheckOutSource.name)
+
             if not step:
                 step = self
             step.addURL('Updated to {}'.format(identifier), self.url_for_identifier(identifier))

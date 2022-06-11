@@ -25,9 +25,9 @@
 messages -> GPUProcess LegacyReceiver {
     InitializeGPUProcess(struct WebKit::GPUProcessCreationParameters processCreationParameters)
 
-    CreateGPUConnectionToWebProcess(WebCore::ProcessIdentifier processIdentifier, PAL::SessionID sessionID, struct WebKit::GPUProcessConnectionParameters parameters) -> (std::optional<IPC::Attachment> connectionIdentifier, struct WebKit::GPUProcessConnectionInitializationParameters parameters)
+    CreateGPUConnectionToWebProcess(WebCore::ProcessIdentifier processIdentifier, PAL::SessionID sessionID, IPC::Attachment connectionIdentifier, struct WebKit::GPUProcessConnectionParameters parameters) -> ()
 
-    PrepareToSuspend(bool isSuspensionImminent) -> ()
+    PrepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime) -> ()
     ProcessDidResume()
 
     AddSession(PAL::SessionID sessionID, struct WebKit::GPUProcessSessionParameters parameters)
@@ -75,10 +75,6 @@ messages -> GPUProcess LegacyReceiver {
 
 #if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
     SetMediaSourceInlinePaintingEnabled(bool enabled);
-#endif
-
-#if HAVE(SCREEN_CAPTURE_KIT)
-    SetUseScreenCaptureKit(bool use);
 #endif
 
 #if HAVE(AVCONTENTKEYSPECIFIER)

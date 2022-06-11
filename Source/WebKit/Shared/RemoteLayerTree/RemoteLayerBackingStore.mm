@@ -489,10 +489,8 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context)
     }
 
     IntRect layerBounds(IntPoint(), expandedIntSize(m_size));
-    if (!m_dirtyRegion.contains(layerBounds)) {
-        ASSERT(m_backBuffer.imageBuffer);
+    if (!m_dirtyRegion.contains(layerBounds) && m_backBuffer.imageBuffer)
         context.drawImageBuffer(*m_backBuffer.imageBuffer, { 0, 0 }, { CompositeOperator::Copy });
-    }
 
     if (m_paintingRects.size() == 1)
         context.clip(m_paintingRects[0]);
@@ -522,12 +520,6 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context)
         break;
     case PlatformCALayer::LayerTypeWebLayer:
     case PlatformCALayer::LayerTypeBackdropLayer:
-        PlatformCALayer::drawLayerContents(context, m_layer, m_paintingRects, flags);
-        break;
-    case PlatformCALayer::LayerTypeDarkSystemBackdropLayer:
-    case PlatformCALayer::LayerTypeLightSystemBackdropLayer:
-        // FIXME: These have a more complicated layer hierarchy. We need to paint into
-        // a child layer in order to see the rendered results.
         PlatformCALayer::drawLayerContents(context, m_layer, m_paintingRects, flags);
         break;
     case PlatformCALayer::LayerTypeLayer:
@@ -590,7 +582,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
                 }
             }
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-            , [&] (IPC::SharedBufferCopy& buffer) {
+            , [&] (IPC::SharedBufferReference& buffer) {
                 ASSERT_NOT_REACHED();
             }
 #endif
@@ -608,7 +600,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
             [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
         } else
             layer.opaque = m_isOpaque;
-        auto data = std::get<IPC::SharedBufferCopy>(*m_displayListBufferHandle).buffer()->createCFData();
+        auto data = std::get<IPC::SharedBufferReference>(*m_displayListBufferHandle).unsafeBuffer()->createCFData();
         [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:data.get() replayForTesting:replayCGDisplayListsIntoBackingStore];
         return;
     }

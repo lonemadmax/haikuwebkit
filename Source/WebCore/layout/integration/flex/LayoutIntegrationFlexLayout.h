@@ -51,7 +51,7 @@ public:
     FlexLayout(RenderFlexibleBox&);
 
     void updateFormattingRootGeometryAndInvalidate();
-    void updateFlexItemDimensions(const RenderBlock&);
+    void updateFlexItemDimensions(const RenderBlock& flexItem, LayoutUnit minimumContentSize, LayoutUnit maximumContentSize);
     void updateStyle(const RenderBlock&, const RenderStyle& oldStyle);
 
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicWidthConstraints();
@@ -64,8 +64,13 @@ public:
     LayoutUnit contentLogicalHeight() const;
 
 private:
+    void updateRenderers() const;
+
     const Layout::ContainerBox& rootLayoutBox() const { return m_boxTree.rootLayoutBox(); }
     Layout::ContainerBox& rootLayoutBox() { return m_boxTree.rootLayoutBox(); }
+
+    const RenderFlexibleBox& flexBoxRenderer() const { return downcast<RenderFlexibleBox>(m_boxTree.rootRenderer()); }
+    RenderFlexibleBox& flexBoxRenderer() { return downcast<RenderFlexibleBox>(m_boxTree.rootRenderer()); }
 
     BoxTree m_boxTree;
     Layout::LayoutState m_layoutState;

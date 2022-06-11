@@ -563,7 +563,7 @@ static bool canCreateStackingContext(const RenderLayer& layer)
         || renderer.isPositioned() // Note that this only creates stacking context in conjunction with explicit z-index.
         || renderer.hasReflection()
         || renderer.style().hasIsolation()
-        || shouldApplyPaintContainment(renderer)
+        || renderer.shouldApplyPaintContainment()
         || !renderer.style().hasAutoUsedZIndex()
         || (renderer.style().willChange() && renderer.style().willChange()->canCreateStackingContext())
         || layer.establishesTopLayer();
@@ -595,7 +595,7 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 
 bool RenderLayer::shouldBeCSSStackingContext() const
 {
-    return !renderer().style().hasAutoUsedZIndex() || shouldApplyPaintContainment(renderer()) || isRenderViewLayer();
+    return !renderer().style().hasAutoUsedZIndex() || renderer().shouldApplyPaintContainment() || isRenderViewLayer();
 }
 
 bool RenderLayer::setIsNormalFlowOnly(bool isNormalFlowOnly)
@@ -990,7 +990,7 @@ void RenderLayer::recursiveUpdateLayerPositions(RenderGeometryMap* geometryMap, 
         // LayoutState outside the layout() phase and use it here.
         ASSERT(!renderer().view().frameView().layoutContext().isPaintOffsetCacheEnabled());
 
-        RenderLayerModelObject* repaintContainer = renderer().containerForRepaint();
+        auto* repaintContainer = renderer().containerForRepaint().renderer;
         
         auto oldRects = repaintRects();
         computeRepaintRects(repaintContainer, geometryMap);
@@ -1100,7 +1100,7 @@ LayoutRect RenderLayer::repaintRectIncludingNonCompositingDescendants() const
 void RenderLayer::setAncestorChainHasSelfPaintingLayerDescendant()
 {
     for (RenderLayer* layer = this; layer; layer = layer->parent()) {
-        if (shouldApplyPaintContainment(renderer())) {
+        if (renderer().shouldApplyPaintContainment()) {
             m_hasSelfPaintingLayerDescendant = true;
             m_hasSelfPaintingLayerDescendantDirty = false;
             break;
@@ -1145,7 +1145,7 @@ void RenderLayer::computeRepaintRectsIncludingDescendants()
     // FIXME: computeRepaintRects() has to walk up the parent chain for every layer to compute the rects.
     // We should make this more efficient.
     // FIXME: it's wrong to call this when layout is not up-to-date, which we do.
-    computeRepaintRects(renderer().containerForRepaint());
+    computeRepaintRects(renderer().containerForRepaint().renderer);
 
     for (RenderLayer* layer = firstChild(); layer; layer = layer->nextSibling())
         layer->computeRepaintRectsIncludingDescendants();
@@ -1222,13 +1222,13 @@ void RenderLayer::recursiveUpdateLayerPositionsAfterScroll(RenderGeometryMap* ge
         if (isVisuallyEmpty)
             clearRepaintRects();
         else // FIXME: We could track the repaint container as we walk down the tree.
-            computeRepaintRects(renderer().containerForRepaint(), geometryMap);
+            computeRepaintRects(renderer().containerForRepaint().renderer, geometryMap);
     } else if (!renderer().view().frameView().platformWidget()) {
         // When ScrollView's m_paintsEntireContents flag flips due to layer backing changes, the repaint area transitions from
         // visual to layout overflow. When this happens the cached repaint rects become invalid and they need to be recomputed (see webkit.org/b/188121).
         // Check that our cached rects are correct.
-        ASSERT_IMPLIES(m_repaintRectsValid, m_repaintRects.clippedOverflowRect == renderer().clippedOverflowRectForRepaint(renderer().containerForRepaint()));
-        ASSERT_IMPLIES(m_repaintRectsValid, m_repaintRects.outlineBoundsRect == renderer().outlineBoundsForRepaint(renderer().containerForRepaint()));
+        ASSERT_IMPLIES(m_repaintRectsValid, m_repaintRects.clippedOverflowRect == renderer().clippedOverflowRectForRepaint(renderer().containerForRepaint().renderer));
+        ASSERT_IMPLIES(m_repaintRectsValid, m_repaintRects.outlineBoundsRect == renderer().outlineBoundsForRepaint(renderer().containerForRepaint().renderer));
     }
     
     for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
@@ -1317,6 +1317,31 @@ void RenderLayer::updateTransformFromStyle(TransformationMatrix& transform, cons
     makeMatrixRenderable(transform, canRender3DTransforms());
 }
 
+void RenderLayer::setReferenceBoxForPathOperations()
+{
+    auto pathOperation = renderer().style().offsetPath();
+    if (!pathOperation)
+        return;
+    if (is<BoxPathOperation>(pathOperation)) {
+        auto& boxPathOperation = downcast<BoxPathOperation>(*pathOperation);
+        auto pathReferenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().referenceBoxRect(boxPathOperation.referenceBox()), renderer());
+        boxPathOperation.setPathForReferenceRect(FloatRoundedRect { pathReferenceBoxRect });
+    } else if (is<RayPathOperation>(pathOperation)) {
+        if (const auto* containingBlock = renderer().containingBlock()) {
+            auto& rayPathOperation = downcast<RayPathOperation>(*pathOperation);
+            auto pathReferenceBoxRect = snapRectToDevicePixelsIfNeeded(containingBlock->transformReferenceBoxRect(containingBlock->style()), renderer());
+            if (!pathReferenceBoxRect.width())
+                pathReferenceBoxRect.setWidth(pathReferenceBoxRect.height());
+            if (!pathReferenceBoxRect.height())
+                pathReferenceBoxRect.setHeight(pathReferenceBoxRect.width());
+            rayPathOperation.setContainingBlockReferenceRect(pathReferenceBoxRect);
+            auto left = renderer().style().left();
+            auto top = renderer().style().top();
+            rayPathOperation.setStartingPosition(FloatPoint(left.isPercent() ? left.value() / 100 * pathReferenceBoxRect.width() : left.value(), top.isPercent() ? top.value() / 100 * pathReferenceBoxRect.height() : top.value()));
+        }
+    }
+}
+
 void RenderLayer::updateTransform()
 {
     bool hasTransform = renderer().hasTransform();
@@ -1335,13 +1360,7 @@ void RenderLayer::updateTransform()
     
     if (hasTransform) {
         m_transform->makeIdentity();
-
-        if (auto pathOperation = renderer().style().offsetPath(); pathOperation && is<BoxPathOperation>(pathOperation)) {
-            auto& boxPathOperation = downcast<BoxPathOperation>(*pathOperation);
-            auto pathReferenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().referenceBoxRect(boxPathOperation.referenceBox()), renderer());
-            boxPathOperation.setPathForReferenceRect(FloatRoundedRect { pathReferenceBoxRect });
-        }
-
+        setReferenceBoxForPathOperations();
         updateTransformFromStyle(*m_transform, renderer().style(), RenderStyle::allTransformOperations);
     }
 
@@ -1487,7 +1506,7 @@ void RenderLayer::setHasVisibleContent()
 
     m_visibleContentStatusDirty = false; 
     m_hasVisibleContent = true;
-    computeRepaintRects(renderer().containerForRepaint());
+    computeRepaintRects(renderer().containerForRepaint().renderer);
     if (!isNormalFlowOnly()) {
         // We don't collect invisible layers in z-order lists if we are not in compositing mode.
         // As we became visible, we need to dirty our stacking containers ancestors to be properly
@@ -1523,7 +1542,7 @@ void RenderLayer::dirtyAncestorChainVisibleDescendantStatus()
 void RenderLayer::setAncestorChainHasVisibleDescendant()
 {
     for (auto* layer = this; layer; layer = layer->parent()) {
-        if (shouldApplyPaintContainment(renderer())) {
+        if (renderer().shouldApplyPaintContainment()) {
             m_hasVisibleDescendant = true;
             m_visibleDescendantStatusDirty = false;
             break;
@@ -1781,43 +1800,62 @@ bool RenderLayer::updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* flags
     return positionOrOffsetChanged;
 }
 
-TransformationMatrix RenderLayer::perspectiveTransform(const LayoutRect& layerRect) const
+TransformationMatrix RenderLayer::perspectiveTransform() const
 {
-    // FIXME: [LBSE] Upstream transform support for RenderSVGModelObject derived renderers
-    if (!is<RenderBox>(renderer()))
+    if (!renderer().hasTransformRelatedProperty())
         return { };
 
-    auto& renderBox = downcast<RenderBox>(renderer());
-    if (!renderBox.hasTransformRelatedProperty())
-        return { };
-
-    const auto& style = renderBox.style();
+    const auto& style = renderer().style();
     if (!style.hasPerspective())
         return { };
 
-    auto referenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().transformReferenceBoxRect(style), renderer());
-    auto snappedLayerRect = snapRectToDevicePixelsIfNeeded(layerRect, renderer());
+    auto transformReferenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().transformReferenceBoxRect(style), renderer());
+    auto perspectiveOrigin = style.computePerspectiveOrigin(transformReferenceBoxRect);
 
-    auto perspectiveOrigin = referenceBoxRect.location() - toFloatSize(snappedLayerRect.location()) + floatPointForLengthPoint(style.perspectiveOrigin(), referenceBoxRect.size());
+    // In the regular case of a non-clipped, non-scrolled GraphicsLayer, all transformations
+    // (via CSS 'transform' / 'perspective') are applied with respect to a predefined anchor point,
+    // which depends on the chosen CSS 'transform-box' / 'transform-origin' properties.
+    //
+    // A transformation given by the CSS 'transform' property is applied, by translating
+    // to the 'transform origin', applying the transformation, and translating back.
+    // When an element specifies a CSS 'perspective' property, the perspective transformation matrix
+    // that's computed here is propagated to the GraphicsLayer by calling setChildrenTransform().
+    //
+    // However the GraphicsLayer platform implementations (e.g. CA on macOS) apply the children transform,
+    // defined on the parent, with respect to the anchor point of the parent, when rendering child elements.
+    // This is wrong, as the perspective transformation (applied to a child of the element defining the
+    // 3d effect), must be independant of the chosen transform-origin (the parents transform origin
+    // must not affect its children).
+    //
+    // To circumvent this, explicitely remove the transform-origin dependency in the perspective matrix.
+    auto transformOrigin = transformOriginPixelSnappedIfNeeded();
 
-    // A perspective origin of 0,0 makes the vanishing point in the center of the element.
-    // We want it to be in the top-left, so subtract half the height and width.
-    perspectiveOrigin -= snappedLayerRect.size() / 2.0f;
+    TransformationMatrix transform;
+    style.unapplyTransformOrigin(transform, transformOrigin);
+    style.applyPerspective(transform, renderer(), perspectiveOrigin);
+    style.applyTransformOrigin(transform, transformOrigin);
+    return transform;
+}
 
-    TransformationMatrix t;
-    t.translate(perspectiveOrigin.x(), perspectiveOrigin.y());
-    t.applyPerspective(style.usedPerspective(renderer()));
-    t.translate(-perspectiveOrigin.x(), -perspectiveOrigin.y());
+FloatPoint3D RenderLayer::transformOriginPixelSnappedIfNeeded() const
+{
+    if (!renderer().hasTransformRelatedProperty())
+        return { };
 
-    return t;
+    const auto& style = renderer().style();
+    auto referenceBoxRect = renderer().transformReferenceBoxRect(style);
+
+    auto origin = style.computeTransformOrigin(referenceBoxRect);
+    if (rendererNeedsPixelSnapping(renderer()))
+        origin.setXY(roundPointToDevicePixels(LayoutPoint(origin.xy()), renderer().document().deviceScaleFactor()));
+    return origin;
 }
 
 FloatPoint RenderLayer::perspectiveOrigin() const
 {
     if (!renderer().hasTransformRelatedProperty())
         return { };
-    // FIXME: This uses the wrong, transform-box unaware, geometry.
-    return floatPointForLengthPoint(renderer().style().perspectiveOrigin(), rendererBorderBoxRect().size());
+    return floatPointForLengthPoint(renderer().style().perspectiveOrigin(), renderer().transformReferenceBoxRect(renderer().style()).size());
 }
 
 static inline bool isContainerForPositioned(RenderLayer& layer, PositionType position, bool establishesTopLayer)
@@ -1986,7 +2024,7 @@ RenderLayer* RenderLayer::enclosingCompositingLayer(IncludeSelfOrNot includeSelf
     return nullptr;
 }
 
-RenderLayer* RenderLayer::enclosingCompositingLayerForRepaint(IncludeSelfOrNot includeSelf) const
+RenderLayer::EnclosingCompositingLayerStatus RenderLayer::enclosingCompositingLayerForRepaint(IncludeSelfOrNot includeSelf) const
 {
     auto repaintTargetForLayer = [](const RenderLayer& layer) -> RenderLayer* {
         if (compositedWithOwnBackingStore(layer))
@@ -1997,17 +2035,22 @@ RenderLayer* RenderLayer::enclosingCompositingLayerForRepaint(IncludeSelfOrNot i
         
         return nullptr;
     };
+    auto isEligibleForFullRepaintCheck = [&](const auto& layer) {
+        return layer.isSelfPaintingLayer() && !layer.renderer().hasPotentiallyScrollableOverflow() && !is<RenderView>(layer.renderer());
+    };
 
+    auto fullRepaintAlreadyScheduled = isEligibleForFullRepaintCheck(*this) && needsFullRepaint();
     RenderLayer* repaintTarget = nullptr;
     if (includeSelf == IncludeSelf && (repaintTarget = repaintTargetForLayer(*this)))
-        return repaintTarget;
+        return { fullRepaintAlreadyScheduled, repaintTarget };
 
     for (const RenderLayer* curr = paintOrderParent(); curr; curr = curr->paintOrderParent()) {
+        fullRepaintAlreadyScheduled = fullRepaintAlreadyScheduled || (isEligibleForFullRepaintCheck(*curr) && curr->needsFullRepaint());
         if ((repaintTarget = repaintTargetForLayer(*curr)))
-            return repaintTarget;
+            return { fullRepaintAlreadyScheduled, repaintTarget };
     }
          
-    return nullptr;
+    return { };
 }
 
 RenderLayer* RenderLayer::enclosingFilterLayer(IncludeSelfOrNot includeSelf) const
@@ -4574,7 +4617,7 @@ ClipRects* RenderLayer::clipRects(const ClipRectsContext& context) const
 bool RenderLayer::clipCrossesPaintingBoundary() const
 {
     return parent()->enclosingPaginationLayer(IncludeCompositedPaginatedLayers) != enclosingPaginationLayer(IncludeCompositedPaginatedLayers)
-        || parent()->enclosingCompositingLayerForRepaint() != enclosingCompositingLayerForRepaint();
+        || parent()->enclosingCompositingLayerForRepaint().layer != enclosingCompositingLayerForRepaint().layer;
 }
 
 void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, ClipRects& clipRects) const
@@ -4652,7 +4695,7 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
             clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
             if (renderer().isPositioned())
                 clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
-            if (shouldApplyPaintContainment(renderer())) {
+            if (renderer().shouldApplyPaintContainment()) {
                 clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
                 clipRects.setFixedClipRect(intersection(newOverflowClip, clipRects.fixedClipRect()));
             }
@@ -5309,7 +5352,7 @@ void RenderLayer::setBackingNeedsRepaintInRect(const LayoutRect& r, GraphicsLaye
 }
 
 // Since we're only painting non-composited layers, we know that they all share the same repaintContainer.
-void RenderLayer::repaintIncludingNonCompositingDescendants(RenderLayerModelObject* repaintContainer)
+void RenderLayer::repaintIncludingNonCompositingDescendants(const RenderLayerModelObject* repaintContainer)
 {
     auto clippedOverflowRect = m_repaintRectsValid ? m_repaintRects.clippedOverflowRect : renderer().clippedOverflowRectForRepaint(repaintContainer);
     renderer().repaintUsingContainer(repaintContainer, clippedOverflowRect);
@@ -5773,7 +5816,7 @@ static TextStream& operator<<(TextStream& ts, RenderLayer::EventRegionInvalidati
 bool RenderLayer::invalidateEventRegion(EventRegionInvalidationReason reason)
 {
 #if ENABLE(ASYNC_SCROLLING)
-    auto* compositingLayer = enclosingCompositingLayerForRepaint();
+    auto* compositingLayer = enclosingCompositingLayerForRepaint().layer;
 
     auto shouldInvalidate = [&] {
         if (!compositingLayer)

@@ -47,6 +47,7 @@
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/HTMLBodyElement.h>
 #import <WebCore/HTMLConverter.h>
+#import <WebCore/HTMLImageElement.h>
 #import <WebCore/HTMLOListElement.h>
 #import <WebCore/HTMLUListElement.h>
 #import <WebCore/HitTestResult.h>
@@ -117,10 +118,12 @@ void WebPage::requestActiveNowPlayingSessionInfo(CompletionHandler<void(bool, bo
     
 void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
 {
-    if (auto* pluginView = pluginViewForFrame(&m_page->mainFrame())) {
+#if ENABLE(PDFKIT_PLUGIN)
+    if (auto* pluginView = mainFramePlugIn()) {
         if (pluginView->performDictionaryLookupAtLocation(floatPoint))
             return;
     }
+#endif
     
     // Find the frame the point is over.
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
@@ -510,23 +513,19 @@ void WebPage::consumeNetworkExtensionSandboxExtensions(const Vector<SandboxExten
 
 void WebPage::getPDFFirstPageSize(WebCore::FrameIdentifier frameID, CompletionHandler<void(WebCore::FloatSize)>&& completionHandler)
 {
+#if !ENABLE(PDFKIT_PLUGIN)
+    return completionHandler({ });
+#else
     auto* webFrame = WebProcess::singleton().webFrame(frameID);
     if (!webFrame)
         return completionHandler({ });
 
-    auto* coreFrame = webFrame->coreFrame();
-    if (!coreFrame)
-        return completionHandler({ });
-
-    auto* pluginView = pluginViewForFrame(coreFrame);
+    auto* pluginView = pluginViewForFrame(webFrame->coreFrame());
     if (!pluginView)
         return completionHandler({ });
     
-    auto* plugin = pluginView->plugin();
-    if (!plugin)
-        return completionHandler({ });
-
-    completionHandler(FloatSize(plugin->pdfDocumentSizeForPrinting()));
+    completionHandler(FloatSize(pluginView->pdfDocumentSizeForPrinting()));
+#endif
 }
 
 #if ENABLE(DATA_DETECTION)
@@ -565,6 +564,8 @@ private:
     Vector<String> m_types;
 };
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
 void WebPage::replaceImageWithMarkupResults(const ElementContext& elementContext, const Vector<String>& types, const IPC::DataReference& data)
 {
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
@@ -594,6 +595,16 @@ void WebPage::replaceImageWithMarkupResults(const ElementContext& elementContext
         OverridePasteboardForSelectionReplacement overridePasteboard { types, data };
         IgnoreSelectionChangeForScope ignoreSelectionChanges { frame.get() };
         frame->editor().replaceNodeFromPasteboard(*element, replaceSelectionPasteboardName(), EditAction::MarkupImage);
+
+        auto position = frame->selection().selection().visibleStart();
+        if (auto imageRange = makeSimpleRange(WebCore::VisiblePositionRange { position.previous(), position })) {
+            for (WebCore::TextIterator iterator { *imageRange, { } }; !iterator.atEnd(); iterator.advance()) {
+                if (RefPtr image = dynamicDowncast<HTMLImageElement>(iterator.node())) {
+                    m_elementsToExcludeFromMarkup.add(*image);
+                    break;
+                }
+            }
+        }
     }
 
     constexpr auto restoreSelectionOptions = FrameSelection::defaultSetSelectionOptions(UserTriggered);
@@ -619,6 +630,8 @@ void WebPage::replaceImageWithMarkupResults(const ElementContext& elementContext
     auto newSelectionRange = resolveCharacterRange(selectionHostRange, *rangeToRestore, iteratorOptions);
     frame->selection().setSelection(newSelectionRange, restoreSelectionOptions);
 }
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 void WebPage::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)
 {

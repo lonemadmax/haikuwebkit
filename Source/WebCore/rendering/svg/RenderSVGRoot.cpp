@@ -75,7 +75,7 @@ SVGSVGElement& RenderSVGRoot::svgSVGElement() const
 
 void RenderSVGRoot::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio) const
 {
-    ASSERT(!shouldApplySizeContainment(*this));
+    ASSERT(!shouldApplySizeContainment());
 
     // Spec: http://www.w3.org/TR/SVG/coords.html#IntrinsicSizing
     // SVG needs to specify how to calculate some intrinsic sizing properties to enable inclusion within other languages.
@@ -519,7 +519,7 @@ void RenderSVGRoot::mapLocalToContainer(const RenderLayerModelObject* repaintCon
     // and may itself also be fixed position. So propagate 'fixed' up only if this box is fixed position.
     if (isFixedPos)
         mode.add(IsFixed);
-    else if (canContainFixedPositionObjects())
+    else if (mode.contains(IsFixed) && canContainFixedPositionObjects())
         mode.remove(IsFixed);
 
     if (wasFixed)

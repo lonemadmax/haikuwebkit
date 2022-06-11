@@ -1919,7 +1919,7 @@ static void paintAttachmentIcon(GraphicsContext& context, RenderAttachmentInfo& 
 
 static void paintAttachmentText(GraphicsContext& context, RenderAttachmentInfo& info)
 {
-    DrawGlyphsRecorder recorder(context, 1, DrawGlyphsRecorder::DeconstructDrawGlyphs::Yes, DrawGlyphsRecorder::DeriveFontFromContext::Yes);
+    DrawGlyphsRecorder recorder(context, 1, DrawGlyphsRecorder::DeriveFontFromContext::Yes);
 
     for (const auto& line : info.lines)
         recorder.drawNativeText(line.font.get(), CTFontGetSize(line.font.get()), line.line.get(), line.rect);
@@ -2180,7 +2180,14 @@ bool RenderThemeIOS::paintCheckbox(const RenderObject& box, const PaintInfo& pai
     }
 
     Path path;
-    if (checked) {
+    if (indeterminate) {
+        const FloatSize indeterminateBarRoundingRadii(1.25f, 1.25f);
+        constexpr float indeterminateBarPadding = 2.5f;
+        float height = 0.12f * rect.height();
+
+        FloatRect indeterminateBarRect(rect.x() + indeterminateBarPadding, rect.center().y() - height / 2.0f, rect.width() - indeterminateBarPadding * 2, height);
+        path.addRoundedRect(indeterminateBarRect, indeterminateBarRoundingRadii);
+    } else {
         path.moveTo({ 28.174f, 68.652f });
         path.addBezierCurveTo({ 31.006f, 68.652f }, { 33.154f, 67.578f }, { 34.668f, 65.332f });
         path.addLineTo({ 70.02f, 11.28f });
@@ -2202,13 +2209,6 @@ bool RenderThemeIOS::paintCheckbox(const RenderObject& box, const PaintInfo& pai
         transform.translate(rect.center() - (checkmarkSize * scale * 0.5f));
         transform.scale(scale);
         path.transform(transform);
-    } else {
-        const FloatSize indeterminateBarRoundingRadii(1.25f, 1.25f);
-        constexpr float indeterminateBarPadding = 2.5f;
-        float height = 0.12f * rect.height();
-
-        FloatRect indeterminateBarRect(rect.x() + indeterminateBarPadding, rect.center().y() - height / 2.0f, rect.width() - indeterminateBarPadding * 2, height);
-        path.addRoundedRect(indeterminateBarRect, indeterminateBarRoundingRadii);
     }
 
     context.setFillColor(checkboxRadioIndicatorColor(controlStates, styleColorOptions));
@@ -2602,7 +2602,7 @@ String RenderThemeIOS::colorInputStyleSheet(const Settings& settings) const
     if (!settings.iOSFormControlRefreshEnabled())
         return RenderTheme::colorInputStyleSheet(settings);
 
-    return "input[type=\"color\"] { appearance: auto; width: 28px; height: 28px; outline: none; border: initial; border-radius: 50%; } "_s;
+    return "input[type=\"color\"] { appearance: auto; width: 28px; height: 28px; box-sizing: border-box; outline: none; border: initial; border-radius: 50%; } "_s;
 }
 
 void RenderThemeIOS::adjustColorWellStyle(RenderStyle& style, const Element* element) const

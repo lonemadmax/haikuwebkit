@@ -75,6 +75,7 @@
 #include "AudioSourceProviderGStreamer.h"
 #endif
 
+#include <cstring>
 #include <glib.h>
 #include <gst/audio/streamvolume.h>
 #include <gst/gst.h>
@@ -2177,7 +2178,7 @@ void MediaPlayerPrivateGStreamer::configureDownloadBuffer(GstElement* element)
     g_object_set(element, "temp-template", newDownloadTemplate.get(), nullptr);
     GST_DEBUG_OBJECT(pipeline(), "Reconfigured file download template from '%s' to '%s'", oldDownloadTemplate.get(), newDownloadTemplate.get());
 
-    auto newDownloadPrefixPath = makeStringByReplacingAll(String::fromLatin1(newDownloadTemplate.get()), "XXXXXX", "");
+    auto newDownloadPrefixPath = makeStringByReplacingAll(String::fromLatin1(newDownloadTemplate.get()), "XXXXXX"_s, ""_s);
     purgeOldDownloadFiles(newDownloadPrefixPath);
 }
 
@@ -2593,7 +2594,7 @@ MediaPlayer::SupportsType MediaPlayerPrivateGStreamer::supportsType(const MediaE
         return result;
 
     // This player doesn't support pictures rendering.
-    if (parameters.type.raw().startsWith("image"))
+    if (parameters.type.raw().startsWith("image"_s))
         return result;
 
     auto& gstRegistryScanner = GStreamerRegistryScanner::singleton();
@@ -2705,7 +2706,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
     // MSE and Mediastream require playbin3. Regular playback can use playbin3 on-demand with the
     // WEBKIT_GST_USE_PLAYBIN3 environment variable.
     const char* usePlaybin3 = g_getenv("WEBKIT_GST_USE_PLAYBIN3");
-    if ((isMediaSource() || url.protocolIs("mediastream") || (usePlaybin3 && equal(usePlaybin3, "1"))))
+    if (isMediaSource() || url.protocolIs("mediastream"_s) || (usePlaybin3 && !strcmp(usePlaybin3, "1")))
         playbinName = "playbin3";
 
     ASSERT(!m_pipeline);
@@ -2714,7 +2715,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
     if (elementId.isEmpty())
         elementId = "media-player"_s;
 
-    const char* type = isMediaSource() ? "MSE-" : url.protocolIs("mediastream") ? "mediastream-" : "";
+    const char* type = isMediaSource() ? "MSE-" : url.protocolIs("mediastream"_s) ? "mediastream-" : "";
 
     m_isLegacyPlaybin = !g_strcmp0(playbinName, "playbin");
 
@@ -2763,7 +2764,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
         auto classifiers = elementClass.split('/');
 
         // Collect processing time metrics for video decoders and converters.
-        if ((classifiers.contains("Converter"_s) || classifiers.contains("Decoder"_s)) && classifiers.contains("Video"_s) && !classifiers.contains("Parser"))
+        if ((classifiers.contains("Converter"_s) || classifiers.contains("Decoder"_s)) && classifiers.contains("Video"_s) && !classifiers.contains("Parser"_s))
             webkitGstTraceProcessingTimeForElement(element);
 
         if (classifiers.contains("Decoder"_s) && classifiers.contains("Video"_s)) {
@@ -3081,8 +3082,13 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
     auto& proxy = downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).proxy();
     ASSERT(is<TextureMapperPlatformLayerProxyDMABuf>(proxy));
 
-    auto* features = gst_caps_get_features(caps, 0);
-    if (gst_caps_features_contains(features, GST_CAPS_FEATURE_MEMORY_DMABUF)) {
+    // Currently we have to cover two ways of detecting a DMABuf memory. The most reliable is by detecting
+    // the memory:DMABuf feature on the GstCaps object. All sensible decoders yielding DMABufs specify this.
+    // For all other decoders, another option is peeking the zero-index GstMemory and testing whether it's
+    // a DMABuf memory, i.e. allocated by a DMABuf-capable allocator. If it is, we can proceed the same way.
+    bool isDMABufMemory = gst_caps_features_contains(gst_caps_get_features(caps, 0), GST_CAPS_FEATURE_MEMORY_DMABUF)
+        || gst_is_dmabuf_memory(gst_buffer_peek_memory(buffer, 0));
+    if (isDMABufMemory) {
         // In case of a hardware decoder that's yielding dmabuf memory, we can take the relevant data and
         // push it into the composition process.
 
@@ -3135,10 +3141,12 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
     }
 
     // If the decoder is exporting raw memory, we have to use the swapchain to allocate appropriate buffers
-    // and copy over the data for each plane.
+    // and copy over the data for each plane. For that to work, linear-storage buffer is required.
     GBMBufferSwapchain::BufferDescription bufferDescription {
-        DMABufFormat::create(fourccValue(GST_VIDEO_INFO_FORMAT(&videoInfo))),
-        static_cast<uint32_t>GST_VIDEO_INFO_WIDTH(&videoInfo), static_cast<uint32_t>GST_VIDEO_INFO_HEIGHT(&videoInfo),
+        .format = DMABufFormat::create(fourccValue(GST_VIDEO_INFO_FORMAT(&videoInfo))),
+        .width = static_cast<uint32_t>GST_VIDEO_INFO_WIDTH(&videoInfo),
+        .height = static_cast<uint32_t>GST_VIDEO_INFO_HEIGHT(&videoInfo),
+        .flags = GBMBufferSwapchain::BufferDescription::LinearStorage,
     };
     if (bufferDescription.format.fourcc == DMABufFormat::FourCC::Invalid)
         return;
@@ -3720,7 +3728,7 @@ GstElement* MediaPlayerPrivateGStreamer::createVideoSinkDMABuf()
 GstElement* MediaPlayerPrivateGStreamer::createVideoSinkGL()
 {
     const char* disableGLSink = g_getenv("WEBKIT_GST_DISABLE_GL_SINK");
-    if (disableGLSink && equal(disableGLSink, "1")) {
+    if (disableGLSink && !strcmp(disableGLSink, "1")) {
         GST_INFO("Disabling hardware-accelerated rendering per user request.");
         return nullptr;
     }
@@ -3919,23 +3927,33 @@ InitData MediaPlayerPrivateGStreamer::parseInitDataFromProtectionMessage(GstMess
 {
     ASSERT(!isMainThread());
 
-    InitData initData;
-    {
-        Locker locker { m_protectionMutex };
-        ProtectionSystemEvents protectionSystemEvents(message);
-        GST_TRACE_OBJECT(pipeline(), "found %zu protection events, %zu decryptors available", protectionSystemEvents.events().size(), protectionSystemEvents.availableSystems().size());
+    Locker locker { m_protectionMutex };
+    ProtectionSystemEvents protectionSystemEvents(message);
+    GST_TRACE_OBJECT(pipeline(), "found %zu protection events, %zu decryptors available", protectionSystemEvents.events().size(), protectionSystemEvents.availableSystems().size());
 
-        for (auto& event : protectionSystemEvents.events()) {
-            const char* eventKeySystemId = nullptr;
-            GstBuffer* data = nullptr;
-            gst_event_parse_protection(event.get(), &eventKeySystemId, &data, nullptr);
+    String systemId;
+    SharedBufferBuilder payloadBuilder;
+    for (auto& event : protectionSystemEvents.events()) {
+        const char* eventKeySystemId = nullptr;
+        GstBuffer* data = nullptr;
+        gst_event_parse_protection(event.get(), &eventKeySystemId, &data, nullptr);
 
-            initData.append({ String::fromLatin1(eventKeySystemId), data });
-            m_handledProtectionEvents.add(GST_EVENT_SEQNUM(event.get()));
-        }
+        // FIXME: There is some confusion here about how to detect the
+        // correct "initialization data type", if the system ID is
+        // GST_PROTECTION_UNSPECIFIED_SYSTEM_ID, then we know it came
+        // from WebM. If the system id is specified with one of the
+        // defined ClearKey / Playready / Widevine / etc UUIDs, then
+        // we know it's MP4. For the latter case, it does not matter
+        // which of the UUIDs it is, so we just overwrite it. This is
+        // a quirk of how GStreamer provides protection events, and
+        // it's not very robust, so be careful here!
+        systemId = String::fromLatin1(eventKeySystemId);
+        InitData initData { systemId, data };
+        payloadBuilder.append(*initData.payload());
+        m_handledProtectionEvents.add(GST_EVENT_SEQNUM(event.get()));
     }
 
-    return initData;
+    return { systemId, payloadBuilder.takeAsContiguous() };
 }
 
 bool MediaPlayerPrivateGStreamer::waitForCDMAttachment()

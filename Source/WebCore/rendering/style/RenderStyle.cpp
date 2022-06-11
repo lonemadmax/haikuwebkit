@@ -115,14 +115,7 @@ RenderStyle RenderStyle::clone(const RenderStyle& style)
 RenderStyle RenderStyle::cloneIncludingPseudoElements(const RenderStyle& style)
 {
     auto newStyle = RenderStyle(style, Clone);
-
-    if (!style.m_cachedPseudoStyles)
-        return newStyle;
-
-    for (auto& pseudoElementStyle : *style.m_cachedPseudoStyles) {
-        auto clone = makeUnique<RenderStyle>(cloneIncludingPseudoElements(*pseudoElementStyle));
-        newStyle.addCachedPseudoStyle(WTFMove(clone));
-    }
+    newStyle.copyPseudoElementsFrom(style);
     return newStyle;
 }
 
@@ -207,6 +200,7 @@ RenderStyle::RenderStyle(CreateDefaultStyleTag)
     m_nonInheritedFlags.hasExplicitlySetTextAlign = false;
     m_nonInheritedFlags.hasViewportUnits = false;
     m_nonInheritedFlags.hasExplicitlyInheritedProperties = false;
+    m_nonInheritedFlags.disallowsFastPathInheritance = false;
     m_nonInheritedFlags.isUnique = false;
     m_nonInheritedFlags.emptyState = false;
     m_nonInheritedFlags.firstChildState = false;
@@ -354,6 +348,21 @@ void RenderStyle::inheritFrom(const RenderStyle& inheritParent)
         m_svgStyle.access().inheritFrom(inheritParent.m_svgStyle.get());
 }
 
+void RenderStyle::fastPathInheritFrom(const RenderStyle& inheritParent)
+{
+    ASSERT(!disallowsFastPathInheritance());
+
+    if (m_inheritedData.ptr() == inheritParent.m_inheritedData.ptr())
+        return;
+
+    // FIXME: Use this mechanism for other properties too, like variables.
+    if (m_inheritedData->nonFastPathInheritedEqual(*inheritParent.m_inheritedData)) {
+        m_inheritedData = inheritParent.m_inheritedData;
+        return;
+    }
+    m_inheritedData.access().fastPathInheritFrom(*inheritParent.m_inheritedData);
+}
+
 void RenderStyle::copyNonInheritedFrom(const RenderStyle& other)
 {
     m_boxData = other.m_boxData;
@@ -374,6 +383,15 @@ void RenderStyle::copyContentFrom(const RenderStyle& other)
     if (!other.m_rareNonInheritedData->content)
         return;
     m_rareNonInheritedData.access().content = other.m_rareNonInheritedData->content->clone();
+}
+
+void RenderStyle::copyPseudoElementsFrom(const RenderStyle& other)
+{
+    if (!other.m_cachedPseudoStyles)
+        return;
+
+    for (auto& pseudoElementStyle : *other.m_cachedPseudoStyles)
+        addCachedPseudoStyle(makeUnique<RenderStyle>(cloneIncludingPseudoElements(*pseudoElementStyle)));
 }
 
 bool RenderStyle::operator==(const RenderStyle& other) const
@@ -434,25 +452,32 @@ RenderStyle* RenderStyle::addCachedPseudoStyle(std::unique_ptr<RenderStyle> pseu
     return result;
 }
 
-void RenderStyle::removeCachedPseudoStyle(PseudoId pid)
-{
-    if (!m_cachedPseudoStyles)
-        return;
-    for (size_t i = 0; i < m_cachedPseudoStyles->size(); ++i) {
-        RenderStyle* pseudoStyle = m_cachedPseudoStyles->at(i).get();
-        if (pseudoStyle->styleType() == pid) {
-            m_cachedPseudoStyles->remove(i);
-            return;
-        }
-    }
-}
-
 bool RenderStyle::inheritedEqual(const RenderStyle& other) const
 {
     return m_inheritedFlags == other.m_inheritedFlags
         && m_inheritedData == other.m_inheritedData
         && (m_svgStyle.ptr() == other.m_svgStyle.ptr() || m_svgStyle->inheritedEqual(other.m_svgStyle))
         && m_rareInheritedData == other.m_rareInheritedData;
+}
+
+bool RenderStyle::fastPathInheritedEqual(const RenderStyle& other) const
+{
+    if (m_inheritedData.ptr() == other.m_inheritedData.ptr())
+        return true;
+    return m_inheritedData->fastPathInheritedEqual(*other.m_inheritedData);
+}
+
+bool RenderStyle::nonFastPathInheritedEqual(const RenderStyle& other) const
+{
+    if (m_inheritedFlags != other.m_inheritedFlags)
+        return false;
+    if (m_inheritedData.ptr() != other.m_inheritedData.ptr() && !m_inheritedData->nonFastPathInheritedEqual(*other.m_inheritedData))
+        return false;
+    if (m_rareInheritedData != other.m_rareInheritedData)
+        return false;
+    if (m_svgStyle.ptr() != other.m_svgStyle.ptr() && !m_svgStyle->inheritedEqual(other.m_svgStyle))
+        return false;
+    return true;
 }
 
 bool RenderStyle::descendantAffectingNonInheritedPropertiesEqual(const RenderStyle& other) const
@@ -705,6 +730,10 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
     if (!arePointingToEqualData(first.boxReflect, second.boxReflect))
         return true;
 
+    // If the counter directives change, trigger a relayout to re-calculate counter values and rebuild the counter node tree.
+    if (!arePointingToEqualData(first.counterDirectives, second.counterDirectives))
+        return true;
+
     if (first.multiCol != second.multiCol)
         return true;
 
@@ -778,6 +807,12 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
 
     if (first.effectiveContainment().contains(Containment::Size) != second.effectiveContainment().contains(Containment::Size)
         || first.effectiveContainment().contains(Containment::InlineSize) != second.effectiveContainment().contains(Containment::InlineSize))
+        return true;
+
+    if (first.scrollPadding != second.scrollPadding)
+        return true;
+
+    if (first.scrollSnapType != second.scrollSnapType)
         return true;
 
     return false;
@@ -868,11 +903,34 @@ bool RenderStyle::changeRequiresLayout(const RenderStyle& other, OptionSet<Style
             return true;
     }
 
-    if (m_surroundData->margin != other.m_surroundData->margin)
-        return true;
+    if (m_surroundData.ptr() != other.m_surroundData.ptr()) {
+        if (m_surroundData->margin != other.m_surroundData->margin)
+            return true;
 
-    if (m_surroundData->padding != other.m_surroundData->padding)
-        return true;
+        if (m_surroundData->padding != other.m_surroundData->padding)
+            return true;
+
+        // If our border widths change, then we need to layout. Other changes to borders only necessitate a repaint.
+        if (borderLeftWidth() != other.borderLeftWidth()
+            || borderTopWidth() != other.borderTopWidth()
+            || borderBottomWidth() != other.borderBottomWidth()
+            || borderRightWidth() != other.borderRightWidth())
+            return true;
+
+        if (position() != PositionType::Static) {
+            if (m_surroundData->offset != other.m_surroundData->offset) {
+                // FIXME: We would like to use SimplifiedLayout for relative positioning, but we can't quite do that yet.
+                // We need to make sure SimplifiedLayout can operate correctly on RenderInlines (we will need
+                // to add a selfNeedsSimplifiedLayout bit in order to not get confused and taint every line).
+                if (position() != PositionType::Absolute)
+                    return true;
+
+                // Optimize for the case where a positioned layer is moving but not changing size.
+                if (!positionChangeIsMovementOnly(m_surroundData->offset, other.m_surroundData->offset, m_boxData->width()))
+                    return true;
+            }
+        }
+    }
 
     // FIXME: We should add an optimized form of layout that just recomputes visual overflow.
     if (changeAffectsVisualOverflow(other))
@@ -949,38 +1007,13 @@ bool RenderStyle::changeRequiresLayout(const RenderStyle& other, OptionSet<Style
         || m_nonInheritedFlags.overflowY != other.m_nonInheritedFlags.overflowY)
         return true;
 
-    // If our border widths change, then we need to layout.  Other changes to borders
-    // only necessitate a repaint.
-    if (borderLeftWidth() != other.borderLeftWidth()
-        || borderTopWidth() != other.borderTopWidth()
-        || borderBottomWidth() != other.borderBottomWidth()
-        || borderRightWidth() != other.borderRightWidth())
-        return true;
-
-    // If the counter directives change, trigger a relayout to re-calculate counter values and rebuild the counter node tree.
-    if (!arePointingToEqualData(m_rareNonInheritedData->counterDirectives, other.m_rareNonInheritedData->counterDirectives))
-        return true;
-
     if ((visibility() == Visibility::Collapse) != (other.visibility() == Visibility::Collapse))
         return true;
-
-    if (position() != PositionType::Static) {
-        if (m_surroundData->offset != other.m_surroundData->offset) {
-            // FIXME: We would like to use SimplifiedLayout for relative positioning, but we can't quite do that yet.
-            // We need to make sure SimplifiedLayout can operate correctly on RenderInlines (we will need
-            // to add a selfNeedsSimplifiedLayout bit in order to not get confused and taint every line).
-            if (position() != PositionType::Absolute)
-                return true;
-
-            // Optimize for the case where a positioned layer is moving but not changing size.
-            if (!positionChangeIsMovementOnly(m_surroundData->offset, other.m_surroundData->offset, m_boxData->width()))
-                return true;
-        }
-    }
 
     bool hasFirstLineStyle = hasPseudoStyle(PseudoId::FirstLine);
     if (hasFirstLineStyle != other.hasPseudoStyle(PseudoId::FirstLine))
         return true;
+
     if (hasFirstLineStyle) {
         auto* firstLineStyle = getCachedPseudoStyle(PseudoId::FirstLine);
         if (!firstLineStyle)
@@ -992,9 +1025,6 @@ bool RenderStyle::changeRequiresLayout(const RenderStyle& other, OptionSet<Style
         if (*firstLineStyle != *otherFirstLineStyle)
             return true;
     }
-
-    if (scrollPadding() != other.scrollPadding() || scrollSnapType() != other.scrollSnapType())
-        return true;
 
     return false;
 }
@@ -1047,13 +1077,17 @@ static bool rareNonInheritedDataChangeRequiresLayerRepaint(const StyleRareNonInh
 bool RenderStyle::changeRequiresLayerRepaint(const RenderStyle& other, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const
 {
     // Style::Resolver has ensured that zIndex is non-auto only if it's applicable.
-    if (m_boxData->usedZIndex() != other.m_boxData->usedZIndex() || m_boxData->hasAutoUsedZIndex() != other.m_boxData->hasAutoUsedZIndex())
-        return true;
+    if (m_boxData.ptr() != other.m_boxData.ptr()) {
+        if (m_boxData->usedZIndex() != other.m_boxData->usedZIndex() || m_boxData->hasAutoUsedZIndex() != other.m_boxData->hasAutoUsedZIndex())
+            return true;
+    }
 
     if (position() != PositionType::Static) {
-        if (m_visualData->clip != other.m_visualData->clip || m_visualData->hasClip != other.m_visualData->hasClip) {
-            changedContextSensitiveProperties.add(StyleDifferenceContextSensitiveProperty::ClipRect);
-            return true;
+        if (m_visualData.ptr() != other.m_visualData.ptr()) {
+            if (m_visualData->clip != other.m_visualData->clip || m_visualData->hasClip != other.m_visualData->hasClip) {
+                changedContextSensitiveProperties.add(StyleDifferenceContextSensitiveProperty::ClipRect);
+                return true;
+            }
         }
     }
 
@@ -1162,15 +1196,23 @@ bool RenderStyle::changeRequiresRepaint(const RenderStyle& other, OptionSet<Styl
     if (!requiresPainting(*this) && !requiresPainting(other))
         return false;
 
-    bool currentColorDiffers = m_inheritedData->color != other.m_inheritedData->color;
-
     if (m_inheritedFlags.visibility != other.m_inheritedFlags.visibility
         || m_inheritedFlags.printColorAdjust != other.m_inheritedFlags.printColorAdjust
         || m_inheritedFlags.insideLink != other.m_inheritedFlags.insideLink
-        || m_inheritedFlags.insideDefaultButton != other.m_inheritedFlags.insideDefaultButton
-        || m_surroundData->border != other.m_surroundData->border
-        || !m_backgroundData->isEquivalentForPainting(*other.m_backgroundData, currentColorDiffers))
+        || m_inheritedFlags.insideDefaultButton != other.m_inheritedFlags.insideDefaultButton)
         return true;
+
+
+    bool currentColorDiffers = m_inheritedData->color != other.m_inheritedData->color;
+    if (m_backgroundData.ptr() != other.m_backgroundData.ptr()) {
+        if (!m_backgroundData->isEquivalentForPainting(*other.m_backgroundData, currentColorDiffers))
+            return true;
+    }
+
+    if (m_surroundData.ptr() != other.m_surroundData.ptr()) {
+        if (!m_surroundData->border.isEquivalentForPainting(other.m_surroundData->border, currentColorDiffers))
+            return true;
+    }
 
     if (m_rareNonInheritedData.ptr() != other.m_rareNonInheritedData.ptr()
         && rareNonInheritedDataChangeRequiresRepaint(*m_rareNonInheritedData, *other.m_rareNonInheritedData, changedContextSensitiveProperties))
@@ -1188,7 +1230,7 @@ bool RenderStyle::changeRequiresRepaint(const RenderStyle& other, OptionSet<Styl
     return false;
 }
 
-bool RenderStyle::changeRequiresRepaintIfTextOrBorderOrOutline(const RenderStyle& other, OptionSet<StyleDifferenceContextSensitiveProperty>&) const
+bool RenderStyle::changeRequiresRepaintIfText(const RenderStyle& other, OptionSet<StyleDifferenceContextSensitiveProperty>&) const
 {
     if (m_inheritedData->color != other.m_inheritedData->color
         || m_inheritedFlags.textDecorationLines != other.m_inheritedFlags.textDecorationLines
@@ -1256,8 +1298,8 @@ StyleDifference RenderStyle::diff(const RenderStyle& other, OptionSet<StyleDiffe
     if (changeRequiresRepaint(other, changedContextSensitiveProperties))
         return StyleDifference::Repaint;
 
-    if (changeRequiresRepaintIfTextOrBorderOrOutline(other, changedContextSensitiveProperties))
-        return StyleDifference::RepaintIfTextOrBorderOrOutline;
+    if (changeRequiresRepaintIfText(other, changedContextSensitiveProperties))
+        return StyleDifference::RepaintIfText;
 
     // FIXME: RecompositeLayer should also behave as a priority bit (e.g when the style change requires layout, we know that
     // the content also needs repaint and it will eventually get repainted,
@@ -1449,22 +1491,43 @@ bool RenderStyle::affectedByTransformOrigin() const
     return false;
 }
 
-FloatPoint3D RenderStyle::applyTransformOrigin(TransformationMatrix& transform, const FloatRect& boundingBox) const
+FloatPoint RenderStyle::computePerspectiveOrigin(const FloatRect& boundingBox) const
 {
-    // https://www.w3.org/TR/css-transforms-2/#ctm
-    // 2. Translate by the computed X, Y, and Z values of transform-origin.
+    return boundingBox.location() + floatPointForLengthPoint(perspectiveOrigin(), boundingBox.size());
+}
+
+void RenderStyle::applyPerspective(TransformationMatrix& transform, const RenderObject& renderer, const FloatPoint& originTranslate) const
+{
+    // https://www.w3.org/TR/css-transforms-2/#perspective
+    // The perspective matrix is computed as follows:
+    // 1. Start with the identity matrix.
+
+    // 2. Translate by the computed X and Y values of perspective-origin
+    transform.translate(originTranslate.x(), originTranslate.y());
+
+    // 3. Multiply by the matrix that would be obtained from the perspective() transform function, where the length is provided by the value of the perspective property
+    transform.applyPerspective(usedPerspective(renderer));
+
+    // 4. Translate by the negated computed X and Y values of perspective-origin
+    transform.translate(-originTranslate.x(), -originTranslate.y());
+}
+
+FloatPoint3D RenderStyle::computeTransformOrigin(const FloatRect& boundingBox) const
+{
     FloatPoint3D originTranslate;
     originTranslate.setXY(boundingBox.location() + floatPointForLengthPoint(transformOriginXY(), boundingBox.size()));
     originTranslate.setZ(transformOriginZ());
+    return originTranslate;
+}
+
+void RenderStyle::applyTransformOrigin(TransformationMatrix& transform, const FloatPoint3D& originTranslate) const
+{
     if (!originTranslate.isZero())
         transform.translate3d(originTranslate.x(), originTranslate.y(), originTranslate.z());
-    return originTranslate;
 }
 
 void RenderStyle::unapplyTransformOrigin(TransformationMatrix& transform, const FloatPoint3D& originTranslate) const
 {
-    // https://www.w3.org/TR/css-transforms-2/#ctm
-    // 8. Translate by the negated computed X, Y and Z values of transform-origin.
     if (!originTranslate.isZero())
         transform.translate3d(-originTranslate.x(), -originTranslate.y(), -originTranslate.z());
 }
@@ -1476,7 +1539,8 @@ void RenderStyle::applyTransform(TransformationMatrix& transform, const FloatRec
         return;
     }
 
-    auto originTranslate = applyTransformOrigin(transform, boundingBox);
+    auto originTranslate = computeTransformOrigin(boundingBox);
+    applyTransformOrigin(transform, originTranslate);
     applyCSSTransform(transform, boundingBox, options);
     unapplyTransformOrigin(transform, originTranslate);
 }
@@ -1521,20 +1585,19 @@ void RenderStyle::applyCSSTransform(TransformationMatrix& transform, const Float
     // (implemented in unapplyTransformOrigin)
 }
 
-static std::optional<Path> getPathFromPathOperation(const FloatRect& box, const PathOperation& operation)
+static std::optional<Path> getPathFromPathOperation(const FloatRect& box, const PathOperation& operation, const FloatPoint& anchor, OffsetRotation rotation)
 {
     switch (operation.type()) {
     case PathOperation::Shape:
         return downcast<ShapePathOperation>(operation).pathForReferenceRect(box);
     case PathOperation::Reference:
-        if (!is<SVGPathElement>(downcast<ReferencePathOperation>(operation).element()) && !is<SVGGeometryElement>(downcast<ReferencePathOperation>(operation).element()))
+        if (!downcast<ReferencePathOperation>(operation).element() || (!is<SVGPathElement>(downcast<ReferencePathOperation>(operation).element()) && !is<SVGGeometryElement>(downcast<ReferencePathOperation>(operation).element())))
             return std::nullopt;
         return pathFromGraphicsElement(downcast<ReferencePathOperation>(operation).element());
     case PathOperation::Box:
         return downcast<BoxPathOperation>(operation).getPath();
     case PathOperation::Ray:
-        // FIXME: implement ray- https://bugs.webkit.org/show_bug.cgi?id=233344
-        return std::nullopt;
+        return downcast<RayPathOperation>(operation).pathForReferenceRect(box, anchor, rotation);
     }
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -1563,18 +1626,19 @@ void RenderStyle::applyMotionPathTransform(TransformationMatrix& transform, cons
     if (!offsetPath())
         return;
 
+    auto transformOrigin = computeTransformOrigin(boundingBox).xy();
+    auto anchor = transformOrigin;
+    if (!offsetAnchor().x().isAuto())
+        anchor = floatPointForLengthPoint(offsetAnchor(), boundingBox.size()) + boundingBox.location();
+    
     // Shift element to the point on path specified by offset-path and offset-distance.
-    auto path = getPathFromPathOperation(boundingBox, *offsetPath());
+    auto path = getPathFromPathOperation(boundingBox, *offsetPath(), anchor, offsetRotate());
     if (!path)
         return;
     auto traversalState = getTraversalStateAtDistance(*path, offsetDistance());
     transform.translate(traversalState.current().x(), traversalState.current().y());
 
     // Shift element to the anchor specified by offset-anchor.
-    auto transformOrigin = floatPointForLengthPoint(transformOriginXY(), boundingBox.size()) + boundingBox.location();
-    auto anchor = transformOrigin;
-    if (!offsetAnchor().x().isAuto())
-        anchor = floatPointForLengthPoint(offsetAnchor(), boundingBox.size()) + boundingBox.location();
     transform.translate(-anchor.x(), -anchor.y());
 
     auto shiftToOrigin = anchor - transformOrigin;

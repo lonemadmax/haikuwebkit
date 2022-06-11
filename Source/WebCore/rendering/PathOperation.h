@@ -30,6 +30,7 @@
 #pragma once
 
 #include "BasicShapes.h"
+#include "OffsetRotation.h"
 #include "Path.h"
 #include "RenderStyleConstants.h"
 #include <wtf/RefCounted.h>
@@ -196,6 +197,18 @@ public:
         return RayPathOperation::create(WebCore::blend(m_angle, to.m_angle, context), m_size, m_isContaining);
     }
 
+    const Path pathForReferenceRect(const FloatRect& elementRect, const FloatPoint& anchor, const OffsetRotation rotation) const;
+    double lengthForPath() const;
+    double lengthForContainPath(const FloatRect& elementRect, double computedPathLength, const FloatPoint& anchor, const OffsetRotation rotation) const;
+    
+    void setContainingBlockReferenceRect(const FloatRect& boundingRect)
+    {
+        m_containingBlockBoundingRect = boundingRect;
+    }
+    void setStartingPosition(const FloatPoint& position)
+    {
+        m_position = position;
+    }
 private:
     bool operator==(const PathOperation& other) const override
     {
@@ -216,9 +229,11 @@ private:
     {
     }
 
-    float m_angle;
+    float m_angle { 0 };
     Size m_size;
-    bool m_isContaining;
+    bool m_isContaining { false };
+    FloatRect m_containingBlockBoundingRect;
+    FloatPoint m_position;
 };
 
 } // namespace WebCore

@@ -71,7 +71,7 @@ namespace LayoutIntegration {
 
 LineLayout::LineLayout(RenderBlockFlow& flow)
     : m_boxTree(flow)
-    , m_layoutState(flow.document(), rootLayoutBox())
+    , m_layoutState(flow.document(), rootLayoutBox(), Layout::LayoutState::FormattingContextIntegrationType::Inline)
     , m_inlineFormattingState(m_layoutState.ensureInlineFormattingState(rootLayoutBox()))
 {
     m_layoutState.setIsIntegratedRootBoxFirstChild(flow.parent()->firstChild() == &flow);
@@ -800,7 +800,7 @@ void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
             if (!box.text()->length() || !hasDamage(box))
                 continue;
 
-            TextBoxPainter painter(*m_inlineContent, box, paintInfo, paintOffset);
+            ModernTextBoxPainter painter(*m_inlineContent, box, paintInfo, paintOffset);
             painter.paint();
             continue;
         }
@@ -867,7 +867,7 @@ bool LineLayout::hitTest(const HitTestRequest& request, HitTestResult& result, c
 
 void LineLayout::releaseCaches(RenderView& view)
 {
-    if (!RuntimeEnabledFeatures::sharedFeatures().inlineFormattingContextIntegrationEnabled())
+    if (!isEnabled())
         return;
 
     for (auto& renderer : descendantsOfType<RenderBlockFlow>(view)) {

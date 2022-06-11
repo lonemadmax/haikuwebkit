@@ -236,6 +236,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
     void applicationIsAboutToSuspend();
     static void notifyProcessPoolsApplicationIsAboutToSuspend();
+    void setProcessesShouldSuspend(bool);
 #endif
 
     void handleMemoryPressureWarning(Critical);
@@ -363,16 +364,11 @@ public:
     void gpuProcessDidFinishLaunching(ProcessID);
     void gpuProcessExited(ProcessID, ProcessTerminationReason);
 
-    void getGPUProcessConnection(WebProcessProxy&, GPUProcessConnectionParameters&&, Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
+    void createGPUProcessConnection(WebProcessProxy&, IPC::Attachment&&, WebKit::GPUProcessConnectionParameters&&);
 
     GPUProcessProxy& ensureGPUProcess();
     GPUProcessProxy* gpuProcess() const { return m_gpuProcess.get(); }
 #endif
-
-#if ENABLE(WEB_AUTHN)
-    void getWebAuthnProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetWebAuthnProcessConnectionDelayedReply&&);
-#endif
-
     // Network Process Management
     void networkProcessDidTerminate(NetworkProcessProxy&, ProcessTerminationReason);
 
@@ -515,15 +511,6 @@ public:
 
     static void platformInitializeNetworkProcess(NetworkProcessCreationParameters&);
     static Vector<String> urlSchemesWithCustomProtocolHandlers();
-
-#if PLATFORM(IOS_FAMILY)
-    static String cacheDirectoryInContainerOrHomeDirectory(const String& subpath);
-    static String cookieStorageDirectory();
-    static String parentBundleDirectory();
-    static String networkingCachesDirectory();
-    static String webContentCachesDirectory();
-    static String containerTemporaryDirectory();
-#endif
 
     Ref<WebProcessProxy> createNewWebProcess(WebsiteDataStore*, WebProcessProxy::CaptivePortalMode, WebProcessProxy::IsPrewarmed = WebProcessProxy::IsPrewarmed::No, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared);
 

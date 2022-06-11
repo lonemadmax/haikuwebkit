@@ -2332,7 +2332,7 @@ void FrameLoader::open(CachedFrameBase& cachedFrame)
 
     // FIXME: I suspect this block of code doesn't do anything.
     if (url.protocolIsInHTTPFamily() && !url.host().isEmpty() && url.path().isEmpty())
-        url.setPath("/");
+        url.setPath("/"_s);
 
     started();
     Ref document = *cachedFrame.document();
@@ -3743,6 +3743,9 @@ Frame* FrameLoader::findFrameForNavigation(const AtomString& name, Document* act
     // FIXME: Eventually all callers should supply the actual activeDocument so we can call canNavigate with the right document.
     if (!activeDocument)
         activeDocument = m_frame.document();
+
+    if (!activeDocument)
+        return nullptr;
 
     auto* frame = m_frame.tree().find(name, activeDocument->frame() ? *activeDocument->frame() : m_frame);
 

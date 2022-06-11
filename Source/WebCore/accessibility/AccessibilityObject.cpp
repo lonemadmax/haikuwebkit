@@ -2656,48 +2656,48 @@ String AccessibilityObject::ariaLandmarkRoleDescription() const
 {
     switch (roleValue()) {
     case AccessibilityRole::LandmarkBanner:
-        return AXARIAContentGroupText("ARIALandmarkBanner");
+        return AXARIAContentGroupText("ARIALandmarkBanner"_s);
     case AccessibilityRole::LandmarkComplementary:
-        return AXARIAContentGroupText("ARIALandmarkComplementary");
+        return AXARIAContentGroupText("ARIALandmarkComplementary"_s);
     case AccessibilityRole::LandmarkContentInfo:
-        return AXARIAContentGroupText("ARIALandmarkContentInfo");
+        return AXARIAContentGroupText("ARIALandmarkContentInfo"_s);
     case AccessibilityRole::LandmarkMain:
-        return AXARIAContentGroupText("ARIALandmarkMain");
+        return AXARIAContentGroupText("ARIALandmarkMain"_s);
     case AccessibilityRole::LandmarkNavigation:
-        return AXARIAContentGroupText("ARIALandmarkNavigation");
+        return AXARIAContentGroupText("ARIALandmarkNavigation"_s);
     case AccessibilityRole::LandmarkDocRegion:
     case AccessibilityRole::LandmarkRegion:
-        return AXARIAContentGroupText("ARIALandmarkRegion");
+        return AXARIAContentGroupText("ARIALandmarkRegion"_s);
     case AccessibilityRole::LandmarkSearch:
-        return AXARIAContentGroupText("ARIALandmarkSearch");
+        return AXARIAContentGroupText("ARIALandmarkSearch"_s);
     case AccessibilityRole::ApplicationAlert:
-        return AXARIAContentGroupText("ARIAApplicationAlert");
+        return AXARIAContentGroupText("ARIAApplicationAlert"_s);
     case AccessibilityRole::ApplicationAlertDialog:
-        return AXARIAContentGroupText("ARIAApplicationAlertDialog");
+        return AXARIAContentGroupText("ARIAApplicationAlertDialog"_s);
     case AccessibilityRole::ApplicationDialog:
-        return AXARIAContentGroupText("ARIAApplicationDialog");
+        return AXARIAContentGroupText("ARIAApplicationDialog"_s);
     case AccessibilityRole::ApplicationLog:
-        return AXARIAContentGroupText("ARIAApplicationLog");
+        return AXARIAContentGroupText("ARIAApplicationLog"_s);
     case AccessibilityRole::ApplicationMarquee:
-        return AXARIAContentGroupText("ARIAApplicationMarquee");
+        return AXARIAContentGroupText("ARIAApplicationMarquee"_s);
     case AccessibilityRole::ApplicationStatus:
-        return AXARIAContentGroupText("ARIAApplicationStatus");
+        return AXARIAContentGroupText("ARIAApplicationStatus"_s);
     case AccessibilityRole::ApplicationTimer:
-        return AXARIAContentGroupText("ARIAApplicationTimer");
+        return AXARIAContentGroupText("ARIAApplicationTimer"_s);
     case AccessibilityRole::Document:
-        return AXARIAContentGroupText("ARIADocument");
+        return AXARIAContentGroupText("ARIADocument"_s);
     case AccessibilityRole::DocumentArticle:
-        return AXARIAContentGroupText("ARIADocumentArticle");
+        return AXARIAContentGroupText("ARIADocumentArticle"_s);
     case AccessibilityRole::DocumentMath:
-        return AXARIAContentGroupText("ARIADocumentMath");
+        return AXARIAContentGroupText("ARIADocumentMath"_s);
     case AccessibilityRole::DocumentNote:
-        return AXARIAContentGroupText("ARIADocumentNote");
+        return AXARIAContentGroupText("ARIADocumentNote"_s);
     case AccessibilityRole::UserInterfaceTooltip:
-        return AXARIAContentGroupText("ARIAUserInterfaceTooltip");
+        return AXARIAContentGroupText("ARIAUserInterfaceTooltip"_s);
     case AccessibilityRole::TabPanel:
-        return AXARIAContentGroupText("ARIATabPanel");
+        return AXARIAContentGroupText("ARIATabPanel"_s);
     case AccessibilityRole::WebApplication:
-        return AXARIAContentGroupText("ARIAWebApplication");
+        return AXARIAContentGroupText("ARIAWebApplication"_s);
     default:
         return String();
     }
@@ -3746,7 +3746,10 @@ bool AccessibilityObject::accessibilityIsIgnored() const
         }
     }
 
-    bool ignored = ignoredFromModalPresence();
+    // If we are in the midst of retrieving the current modal node, we only need to consider whether the object
+    // is inherently ignored via computeAccessibilityIsIgnored. Also, calling ignoredFromModalPresence
+    // in this state would cause infinite recursion.
+    bool ignored = cache && cache->isRetrievingCurrentModalNode() ? false : ignoredFromModalPresence();
     if (!ignored)
         ignored = computeAccessibilityIsIgnored();
 
@@ -3919,38 +3922,16 @@ AXCoreObject* AccessibilityObject::selectedListItem()
     return nullptr;
 }
 
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::ariaElementsFromAttribute(const QualifiedName& attribute) const
+AXCoreObject::AccessibilityChildrenVector AccessibilityObject::relatedObjects(AXRelationType relationType) const
 {
     auto* cache = axObjectCache();
     if (!cache)
         return { };
-    return elementsFromAttribute(attribute).map([cache] (auto* element) -> RefPtr<AXCoreObject> {
-        return cache->getOrCreate(element);
-    });
-}
 
-// FIXME: This function iterates the whole DOM tree and tries to match every Element in the tree, which is very expensive.
-// We should find a better way to achieve this.
-AXCoreObject::AccessibilityChildrenVector AccessibilityObject::ariaElementsReferencedByAttribute(const QualifiedName& attribute) const
-{
-    auto id = identifierAttribute();
-    if (id.isEmpty())
+    auto relatedObjectIDs = cache->relatedObjectsFor(*this, relationType);
+    if (!relatedObjectIDs)
         return { };
-
-    auto* cache = axObjectCache();
-    if (!cache)
-        return { };
-
-    AccessibilityChildrenVector objects;
-    for (auto& element : descendantsOfType<Element>(node()->treeScope().rootNode())) {
-        auto& idList = element.attributeWithoutSynchronization(attribute);
-        if (!SpaceSplitString::spaceSplitStringContainsValue(idList, id, SpaceSplitString::ShouldFoldCase::No))
-            continue;
-
-        if (auto* object = cache->getOrCreate(&element))
-            objects.append(object);
-    }
-    return objects;
+    return cache->objectsForIDs(*relatedObjectIDs);
 }
 
 bool AccessibilityObject::isActiveDescendantOfFocusedContainer() const
@@ -3966,83 +3947,77 @@ bool AccessibilityObject::isActiveDescendantOfFocusedContainer() const
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::activeDescendantOfObjects() const
 {
-    return ariaElementsReferencedByAttribute(aria_activedescendantAttr);
+    return relatedObjects(AXRelationType::ActiveDescendantOf);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::controlledObjects() const
 {
-    return ariaElementsFromAttribute(aria_controlsAttr);
+    return relatedObjects(AXRelationType::ControllerFor);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::controllers() const
 {
-    return ariaElementsReferencedByAttribute(aria_controlsAttr);
+    return relatedObjects(AXRelationType::ControlledBy);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::describedByObjects() const
 {
-    return ariaElementsFromAttribute(aria_describedbyAttr);
+    return relatedObjects(AXRelationType::DescribedBy);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::descriptionForObjects() const
 {
-    return ariaElementsReferencedByAttribute(aria_describedbyAttr);
+    return relatedObjects(AXRelationType::DescriptionFor);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::detailedByObjects() const
 {
-    return ariaElementsFromAttribute(aria_detailsAttr);
+    return relatedObjects(AXRelationType::Details);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::detailsForObjects() const
 {
-    return ariaElementsReferencedByAttribute(aria_detailsAttr);
+    return relatedObjects(AXRelationType::DetailsFor);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::errorMessageObjects() const
 {
-    return ariaElementsFromAttribute(aria_errormessageAttr);
+    return relatedObjects(AXRelationType::ErrorMessage);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::errorMessageForObjects() const
 {
-    return ariaElementsReferencedByAttribute(aria_errormessageAttr);
+    return relatedObjects(AXRelationType::ErrorMessageFor);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::flowToObjects() const
 {
-    return ariaElementsFromAttribute(aria_flowtoAttr);
+    return relatedObjects(AXRelationType::FlowsTo);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::flowFromObjects() const
 {
-    return ariaElementsReferencedByAttribute(aria_flowtoAttr);
+    return relatedObjects(AXRelationType::FlowsFrom);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::labelledByObjects() const
 {
-    auto labelledByObjects = ariaElementsFromAttribute(aria_labelledbyAttr);
-    if (labelledByObjects.isEmpty())
-        labelledByObjects = ariaElementsFromAttribute(aria_labeledbyAttr);
-    return labelledByObjects;
+    return relatedObjects(AXRelationType::LabelledBy);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::labelForObjects() const
 {
-    auto objects = ariaElementsReferencedByAttribute(aria_labelledbyAttr);
-    if (objects.isEmpty())
-        objects = ariaElementsReferencedByAttribute(aria_labeledbyAttr);
-    return objects;
+    return relatedObjects(AXRelationType::LabelFor);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::ownedObjects() const
 {
-    return ariaElementsFromAttribute(aria_ownsAttr);
+    return relatedObjects(AXRelationType::OwnerFor);
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::owners() const
 {
-    return ariaElementsReferencedByAttribute(aria_ownsAttr);
+    return relatedObjects(AXRelationType::OwnedBy);
 }
 
 void AccessibilityObject::setIsIgnoredFromParentDataForChild(AXCoreObject* child)

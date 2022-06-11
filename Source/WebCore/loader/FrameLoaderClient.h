@@ -90,7 +90,6 @@ class LegacyPreviewLoaderClient;
 class MessageEvent;
 class NavigationAction;
 class Page;
-class PluginViewBase;
 class ProtectionSpace;
 class RegistrableDomain;
 class RTCPeerConnectionHandler;
@@ -287,7 +286,7 @@ public:
     virtual bool canCachePage() const = 0;
     virtual void convertMainResourceLoadToDownload(DocumentLoader*, const ResourceRequest&, const ResourceResponse&) = 0;
 
-    virtual RefPtr<Frame> createFrame(const String& name, HTMLFrameOwnerElement&) = 0;
+    virtual RefPtr<Frame> createFrame(const AtomString& name, HTMLFrameOwnerElement&) = 0;
     virtual RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&, const Vector<AtomString>&, const String&, bool loadManually) = 0;
     virtual void redirectDataToPlugin(Widget&) = 0;
 

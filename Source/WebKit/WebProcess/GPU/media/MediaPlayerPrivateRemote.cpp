@@ -1079,6 +1079,9 @@ bool MediaPlayerPrivateRemote::wirelessVideoPlaybackDisabled() const
 
 void MediaPlayerPrivateRemote::setWirelessVideoPlaybackDisabled(bool disabled)
 {
+    // Update the cache state so we don't have to make this a synchronous message send to avoid a
+    // race condition with the web process fetching the new state immediately after change.
+    m_cachedState.wirelessVideoPlaybackDisabled = disabled;
     connection().send(Messages::RemoteMediaPlayerProxy::SetWirelessVideoPlaybackDisabled(disabled), m_id);
 }
 
@@ -1429,7 +1432,7 @@ void MediaPlayerPrivateRemote::stopVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = false;
 #if PLATFORM(COCOA)
-    m_pixelBufferGatheredWithVideoFrameMetadata = nullptr;
+    m_videoFrameGatheredWithVideoFrameMetadata = nullptr;
 #endif
     connection().send(Messages::RemoteMediaPlayerProxy::StopVideoFrameMetadataGathering(), m_id);
 }
@@ -1439,13 +1442,12 @@ void MediaPlayerPrivateRemote::playerContentBoxRectChanged(const LayoutRect& con
     connection().send(Messages::RemoteMediaPlayerProxy::PlayerContentBoxRectChanged(contentRect), m_id);
 }
 
-void MediaPlayerPrivateRemote::requestResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier, WebCore::ResourceRequest&& request, WebCore::PlatformMediaResourceLoader::LoadOptions options, CompletionHandler<void()>&& completionHandler)
+void MediaPlayerPrivateRemote::requestResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier, WebCore::ResourceRequest&& request, WebCore::PlatformMediaResourceLoader::LoadOptions options)
 {
     ASSERT(!m_mediaResources.contains(remoteMediaResourceIdentifier));
     auto resource = m_mediaResourceLoader->requestResource(WTFMove(request), options);
 
     if (!resource) {
-        completionHandler();
         // FIXME: Get the error from MediaResourceLoader::requestResource.
         connection().send(Messages::RemoteMediaResourceManager::LoadFailed(remoteMediaResourceIdentifier, { ResourceError::Type::Cancellation }), 0);
         return;
@@ -1453,8 +1455,6 @@ void MediaPlayerPrivateRemote::requestResource(RemoteMediaResourceIdentifier rem
     // PlatformMediaResource owns the PlatformMediaResourceClient
     resource->setClient(adoptRef(*new RemoteMediaResourceProxy(connection(), *resource, remoteMediaResourceIdentifier)));
     m_mediaResources.add(remoteMediaResourceIdentifier, WTFMove(resource));
-
-    completionHandler();
 }
 
 void MediaPlayerPrivateRemote::sendH2Ping(const URL& url, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&& completionHandler)

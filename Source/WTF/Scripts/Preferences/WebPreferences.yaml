@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021 Apple Inc. All rights reserved.
+# Copyright (c) 2020-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -226,16 +226,6 @@ AllowsPictureInPictureMediaPlayback:
 AlternateFormControlDesignEnabled:
   type: bool
   condition: PLATFORM(IOS_FAMILY)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
-AlwaysUseAcceleratedOverflowScroll:
-  type: bool
   defaultValue:
     WebKitLegacy:
       default: false
@@ -590,16 +580,6 @@ DefaultTextEncodingName:
       default: PAL::defaultTextEncodingNameForSystemLanguage()
     WebCore:
       default: '{ }'
-
-DeferredCSSParserEnabled:
-  type: bool
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
 
 DeviceHeight:
   type: uint32_t
@@ -1072,29 +1052,6 @@ ItpDebugModeEnabled:
       default: false
     WebKit:
       default: false
-
-JavaEnabled:
-  type: bool
-  webcoreGetter: isJavaEnabled
-  defaultValue:
-    WebKitLegacy:
-      "PLATFORM(IOS_FAMILY)": false
-      default: true
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
-JavaEnabledForLocalFiles:
-  type: bool
-  webcoreGetter: isJavaEnabledForLocalFiles
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: false
-    WebCore:
-      default: true
 
 JavaScriptCanAccessClipboard:
   type: bool
@@ -1934,16 +1891,6 @@ SelectTrailingWhitespaceEnabled:
     WebCore:
       default: false
 
-SelectionPaintingWithoutSelectionGapsEnabled:
-  type: bool
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 SerifFontFamily:
   type: String
   webKitLegacyPreferenceKey: WebKitSerifFont
@@ -2492,18 +2439,6 @@ ViewGestureDebuggingEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: false
-
-ViewportFitEnabled:
-  type: bool
-  humanReadableName: "Viewport Fit"
-  humanReadableDescription: "Enable viewport-fit viewport parameter"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
       default: false
 
 VisualViewportEnabled:

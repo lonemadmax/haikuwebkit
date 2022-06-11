@@ -29,6 +29,7 @@
 #include "HighlightVisibility.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/AtomStringHash.h>
 
 namespace WebCore {
 
@@ -45,7 +46,7 @@ public:
     void setFromMapLike(AtomString&&, Ref<Highlight>&&);
     void clear();
     bool remove(const AtomString&);
-    
+    bool isEmpty() const { return map().isEmpty(); }    
 
     HighlightVisibility highlightsVisibility() const { return m_highlightVisibility; }
 #if ENABLE(APP_HIGHLIGHTS)

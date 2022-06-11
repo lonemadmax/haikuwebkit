@@ -43,7 +43,7 @@
 #include "PluginView.h"
 #include "RemoteGPUProxy.h"
 #include "RemoteRenderingBackendProxy.h"
-#include "SharedBufferCopy.h"
+#include "SharedBufferReference.h"
 #include "UserData.h"
 #include "WebColorChooser.h"
 #include "WebCoreArgumentCoders.h"
@@ -121,8 +121,6 @@
 #endif
 
 #if ENABLE(WEB_AUTHN)
-#include "WebAuthnConnectionToWebProcessMessages.h"
-#include "WebAuthnProcessConnection.h"
 #include <WebCore/MockWebAuthenticationConfiguration.h>
 #endif
 
@@ -262,16 +260,13 @@ void WebChromeClient::takeFocus(FocusDirection direction)
 
 void WebChromeClient::focusedElementChanged(Element* element)
 {
-    if (!is<HTMLInputElement>(element))
-        return;
-
-    HTMLInputElement& inputElement = downcast<HTMLInputElement>(*element);
-    if (!inputElement.isText())
+    auto* inputElement = dynamicDowncast<HTMLInputElement>(element);
+    if (!inputElement || !inputElement->isText())
         return;
 
     WebFrame* webFrame = WebFrame::fromCoreFrame(*element->document().frame());
     ASSERT(webFrame);
-    m_page.injectedBundleFormClient().didFocusTextField(&m_page, &inputElement, webFrame);
+    m_page.injectedBundleFormClient().didFocusTextField(&m_page, *inputElement, webFrame);
 }
 
 void WebChromeClient::focusedFrameChanged(Frame* frame)
@@ -759,11 +754,9 @@ void WebChromeClient::print(Frame& frame, const StringWithDirection& title)
 #endif
 
     WebCore::FloatSize pdfFirstPageSize;
-#if PLATFORM(COCOA)
-    if (auto* pluginView = WebPage::pluginViewForFrame(&frame)) {
-        if (auto* plugin = pluginView->plugin())
-            pdfFirstPageSize = plugin->pdfDocumentSizeForPrinting();
-    }
+#if ENABLE(PDFKIT_PLUGIN)
+    if (auto* pluginView = WebPage::pluginViewForFrame(&frame))
+        pdfFirstPageSize = pluginView->pdfDocumentSizeForPrinting();
 #endif
 
     auto truncatedTitle = truncateFromEnd(title, maxTitleLength);
@@ -1367,6 +1360,11 @@ void WebChromeClient::handleImageServiceClick(const IntPoint& point, Image& imag
     m_page.handleImageServiceClick(point, image, element);
 }
 
+void WebChromeClient::handlePDFServiceClick(const IntPoint& point, HTMLAttachmentElement& element)
+{
+    m_page.handlePDFServiceClick(point, element);
+}
+
 #endif
 
 bool WebChromeClient::shouldDispatchFakeMouseMoveEvents() const
@@ -1505,12 +1503,7 @@ void WebChromeClient::setUserIsInteracting(bool userIsInteracting)
 #if ENABLE(WEB_AUTHN)
 void WebChromeClient::setMockWebAuthenticationConfiguration(const MockWebAuthenticationConfiguration& configuration)
 {
-    if (!RuntimeEnabledFeatures::sharedFeatures().webAuthenticationModernEnabled()) {
-        m_page.send(Messages::WebPageProxy::SetMockWebAuthenticationConfiguration(configuration));
-        return;
-    }
-
-    WebProcess::singleton().ensureWebAuthnProcessConnection().connection().send(Messages::WebAuthnConnectionToWebProcess::SetMockWebAuthenticationConfiguration(configuration), { });
+    m_page.send(Messages::WebPageProxy::SetMockWebAuthenticationConfiguration(configuration));
 }
 #endif
 

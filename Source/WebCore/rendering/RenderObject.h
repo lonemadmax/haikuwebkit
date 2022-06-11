@@ -29,6 +29,7 @@
 #include "Element.h"
 #include "FloatQuad.h"
 #include "Frame.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLNames.h"
 #include "LayoutRect.h"
 #include "Page.h"
@@ -95,7 +96,7 @@ class PseudoElementRequest;
 }
 
 // Base class for all rendering tree objects.
-class RenderObject : public CachedImageClient, public CanMakeWeakPtr<RenderObject> {
+class RenderObject : public CachedImageClient {
     WTF_MAKE_ISO_ALLOCATED(RenderObject);
     friend class RenderBlock;
     friend class RenderBlockFlow;
@@ -134,6 +135,8 @@ public:
 
     RenderObject* firstLeafChild() const;
     RenderObject* lastLeafChild() const;
+
+    RenderElement* firstNonAnonymousAncestor() const;
 
 #if ENABLE(TEXT_AUTOSIZING)
     // Minimal distance between the block with fixed height and overflowing content and the text block to apply text autosizing.
@@ -237,7 +240,6 @@ public:
     virtual bool isRubyText() const { return false; }
 
     virtual bool isSlider() const { return false; }
-    virtual bool isSliderThumb() const { return false; }
     virtual bool isTable() const { return false; }
     virtual bool isTableCell() const { return false; }
     virtual bool isRenderTableCol() const { return false; }
@@ -627,7 +629,11 @@ public:
 
     // Return the RenderLayerModelObject in the container chain which is responsible for painting this object, or nullptr
     // if painting is root-relative. This is the container that should be passed to the 'forRepaint' functions.
-    RenderLayerModelObject* containerForRepaint() const;
+    struct RepaintContainerStatus {
+        bool fullRepaintIsScheduled { false }; // Either the repaint container or a layer in-between has aleady been scheduled for full repaint.
+        const RenderLayerModelObject* renderer { nullptr };
+    };
+    RepaintContainerStatus containerForRepaint() const;
     // Actually do the repaint of rect r for this object which has been computed in the coordinate space
     // of repaintContainer. If repaintContainer is nullptr, repaint via the view.
     void repaintUsingContainer(const RenderLayerModelObject* repaintContainer, const LayoutRect&, bool shouldClipToLayer = true) const;
@@ -777,8 +783,6 @@ protected:
     //////////////////////////////////////////
     void addPDFURLRect(PaintInfo&, const LayoutPoint&);
     Node& nodeForNonAnonymous() const { ASSERT(!isAnonymous()); return m_node; }
-
-    RenderElement* firstNonAnonymousAncestor() const;
 
     void adjustRectForOutlineAndShadow(LayoutRect&) const;
 
@@ -975,7 +979,7 @@ private:
         WeakPtr<RenderBlockFlow> backdropRenderer;
     };
     
-    const RenderObject::RenderObjectRareData& rareData() const;
+    WEBCORE_EXPORT const RenderObject::RenderObjectRareData& rareData() const;
     RenderObjectRareData& ensureRareData();
     void removeRareData();
     
@@ -1233,13 +1237,6 @@ void printRenderTreeForLiveDocuments();
 void printLayerTreeForLiveDocuments();
 void printGraphicsLayerTreeForLiveDocuments();
 #endif
-
-bool shouldApplyLayoutContainment(const RenderObject&);
-bool shouldApplySizeContainment(const RenderObject&);
-bool shouldApplyInlineSizeContainment(const RenderObject&);
-bool shouldApplyStyleContainment(const RenderObject&);
-bool shouldApplyPaintContainment(const RenderObject&);
-bool shouldApplyAnyContainment(const RenderObject&);
 
 } // namespace WebCore
 

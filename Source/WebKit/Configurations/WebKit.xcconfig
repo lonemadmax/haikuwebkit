@@ -23,15 +23,17 @@
 
 #include "BaseTarget.xcconfig"
 #include "WebKitTargetConditionals.xcconfig"
+#include? "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AppleFeatures.xcconfig"
 
 PRODUCT_NAME = WebKit;
 PRODUCT_BUNDLE_IDENTIFIER = com.apple.$(PRODUCT_NAME:rfc1034identifier);
 INFOPLIST_FILE = Info.plist;
 
 DEFINES_MODULE = YES;
-MODULEMAP_FILE = $(MODULEMAP_FILE_$(WK_COCOA_TOUCH));
-MODULEMAP_FILE_cocoatouch = Modules/iOS.modulemap;
-MODULEMAP_FILE_ = Modules/OSX.modulemap;
+MODULEMAP_FILE = $(MODULEMAP_FILE_$(WK_COCOA_TOUCH)_$(WK_IS_CATALYST));
+MODULEMAP_FILE_cocoatouch_NO = Modules/iOS.modulemap;
+MODULEMAP_FILE_cocoatouch_YES = Modules/MacCatalyst.modulemap;
+MODULEMAP_FILE__NO = Modules/OSX.modulemap;
 
 INSTALL_PATH = $(INSTALL_PATH_PREFIX)$(WEBKIT_FRAMEWORKS_DIR);
 
@@ -44,8 +46,8 @@ DYLIB_INSTALL_NAME_BASE_YES = $(WEBKIT_FRAMEWORKS_DIR);
 
 ALTERNATE_ROOT_PATH = $(NORMAL_WEBKIT_FRAMEWORKS_DIR);
 
-OUTPUT_ALTERNATE_ROOT_PATH = $(OUTPUT_ALTERNATE_ROOT_PATH_$(USE_SYSTEM_CONTENT_PATH));
-OUTPUT_ALTERNATE_ROOT_PATH_YES = $(DSTROOT)$(ALTERNATE_ROOT_PATH)/$(FULL_PRODUCT_NAME);
+OUTPUT_ALTERNATE_ROOT_PATH = $(OUTPUT_ALTERNATE_ROOT_PATH_$(USE_SYSTEM_CONTENT_PATH)_$(WK_NOT_$(WK_USE_OVERRIDE_FRAMEWORKS_DIR)));
+OUTPUT_ALTERNATE_ROOT_PATH_YES_YES = $(DSTROOT)$(ALTERNATE_ROOT_PATH)/$(FULL_PRODUCT_NAME);
 
 LIBRARY_SEARCH_PATHS = $(inherited) "$(LIBWEBRTC_LIBRARY_DIR)";
 
@@ -208,7 +210,7 @@ WK_MIGRATED_HEADER_OUTPUT_DIR_ = $(HEADER_OUTPUT_DIR);
 // On non-Mac platforms, all migrated headers go to PrivateHeaders.
 WK_MIGRATED_HEADER_OUTPUT_DIR_cocoatouch = $(HEADER_OUTPUT_DIR:dir)PrivateHeaders;
 
-EXCLUDED_MACOS_PLUGIN_FILE_NAMES[sdk=iphone*] = SecItemShim.dylib WebProcessShim.dylib *.pdf Resources/mac/* com.apple.WebKit.NetworkProcess.sb com.apple.WebKit.GPUProcess.sb com.apple.WebKit.WebAuthnProcess.sb com.apple.WebKit.webpushd.sb com.apple.WebProcess.sb;
+EXCLUDED_MACOS_PLUGIN_FILE_NAMES[sdk=iphone*] = SecItemShim.dylib WebProcessShim.dylib *.pdf Resources/mac/* com.apple.WebKit.NetworkProcess.sb com.apple.WebKit.GPUProcess.sb com.apple.WebKit.webpushd.sb com.apple.WebProcess.sb;
 
 INSTALLHDRS_SCRIPT_PHASE = YES;
 APPLY_RULES_IN_COPY_HEADERS = $(WK_USE_NEW_BUILD_SYSTEM);

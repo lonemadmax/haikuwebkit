@@ -72,7 +72,7 @@ public:
     static GPUProcessProxy* singletonIfCreated();
     ~GPUProcessProxy();
 
-    void getGPUProcessConnection(WebProcessProxy&, const GPUProcessConnectionParameters&, Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
+    void createGPUProcessConnection(WebProcessProxy&, IPC::Attachment&& connectionIdentifier, GPUProcessConnectionParameters&&);
 
     ProcessThrottler& throttler() final { return m_throttler; }
     void updateProcessAssertion();
@@ -126,7 +126,7 @@ private:
 
     // ProcessThrottlerClient
     ASCIILiteral clientName() const final { return "GPUProcess"_s; }
-    void sendPrepareToSuspend(IsSuspensionImminent, CompletionHandler<void()>&&) final;
+    void sendPrepareToSuspend(IsSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&&) final;
     void sendProcessDidResume(ResumeReason) final;
 
     // ProcessLauncher::Client

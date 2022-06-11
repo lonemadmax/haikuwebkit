@@ -29,6 +29,7 @@
 #if PLATFORM(MAC) || PLATFORM(IOS)
 
 #import "DragAndDropSimulator.h"
+#import "InstanceMethodSwizzler.h"
 #import "NSItemProviderAdditions.h"
 #import "PlatformUtilities.h"
 #import "TestNavigationDelegate.h"
@@ -37,6 +38,7 @@
 #import "WKWebViewConfigurationExtras.h"
 #import <Contacts/Contacts.h>
 #import <MapKit/MapKit.h>
+#import <QuickLookThumbnailing/QLThumbnailGenerator.h>
 #import <WebKit/WKPreferencesRefPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
 #import <WebKit/WebArchive.h>
@@ -54,6 +56,9 @@ SOFT_LINK_CLASS(Contacts, CNMutableContact)
 SOFT_LINK_FRAMEWORK(MapKit)
 SOFT_LINK_CLASS(MapKit, MKMapItem)
 SOFT_LINK_CLASS(MapKit, MKPlacemark)
+
+SOFT_LINK_FRAMEWORK(QuickLookThumbnailing)
+SOFT_LINK_CLASS(QuickLookThumbnailing, QLThumbnailGenerator)
 
 @interface NSArray (AttachmentTestingHelpers)
 - (_WKAttachment *)_attachmentWithName:(NSString *)name;
@@ -137,6 +142,43 @@ using CocoaPasteboard = UIPasteboard;
 - (void)_webView:(WKWebView *)webView didInvalidateDataForAttachment:(_WKAttachment *)attachment
 {
     [_dataInvalidated addObject:attachment];
+}
+
+@end
+
+static NSURL *testiWorkAttachmentFileURL()
+{
+    return [[NSBundle mainBundle] URLForResource:@"test" withExtension:@"pages" subdirectory:@"TestWebKitAPI.resources"];
+}
+
+static NSData *testiWorkAttachmentData()
+{
+    return [NSData dataWithContentsOfURL:testiWorkAttachmentFileURL()];
+}
+
+#if PLATFORM(MAC)
+
+static NSURL *testDirectoryAttachmentFileURL()
+{
+    NSString *folderName = [NSString stringWithFormat:@"some.directory-%@", [NSUUID UUID].UUIDString];
+    auto temporaryFolder = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:folderName] isDirectory:YES];
+    NSError *error = nil;
+    [[NSFileManager defaultManager] createDirectoryAtURL:temporaryFolder withIntermediateDirectories:NO attributes:nil error:&error];
+
+    return temporaryFolder;
+}
+
+#endif
+
+@interface AttachmentUIDelegate : NSObject<WKUIDelegatePrivate>
+@end
+
+@implementation AttachmentUIDelegate
+
+- (void)_webView:(WKWebView *)webView didInsertAttachment:(_WKAttachment *)wkAttachment withSource:(NSString *)source
+{
+    auto fileWrapper = adoptNS([[NSFileWrapper alloc] initWithURL:testiWorkAttachmentFileURL() options:0 error:NULL]);
+    [wkAttachment setFileWrapper:fileWrapper.get() contentType:nil completion:nil];
 }
 
 @end
@@ -1628,6 +1670,63 @@ TEST(WKAttachmentTests, CopyAndPasteImageBetweenWebViews)
     EXPECT_TRUE([originalData isEqualToData:pastedAttachmentInfo.data]);
 }
 
+static bool triedToLoadThumbnail;
+static void _generateBestRepresentationForRequest(id, SEL)
+{
+    triedToLoadThumbnail = true;
+}
+
+TEST(WKAttachmentTests, CutAndPasteAttachmentBetweenWebViews)
+{
+    triedToLoadThumbnail = false;
+    auto webView = webViewForTestingAttachments();
+    [webView synchronouslyInsertAttachmentWithFilename:@"test.pages" contentType:nil data:testiWorkAttachmentData()];
+    [webView selectAll:nil];
+    [webView _synchronouslyExecuteEditCommand:@"Cut" argument:nil];
+
+    InstanceMethodSwizzler quickLookSwizzler {
+        getQLThumbnailGeneratorClass(),
+        @selector(generateBestRepresentationForRequest:completionHandler:),
+        reinterpret_cast<IMP>(_generateBestRepresentationForRequest)
+    };
+
+    auto destinationView = webViewForTestingAttachments();
+    ObserveAttachmentUpdatesForScope observer(destinationView.get());
+    triedToLoadThumbnail = false;
+    [destinationView _synchronouslyExecuteEditCommand:@"Paste" argument:nil];
+    EXPECT_EQ(1U, observer.observer().inserted.count);
+
+    Util::run(&triedToLoadThumbnail);
+}
+
+TEST(WKAttachmentTests, iWorkAttachmentWithoutPasteboardActionLoadsThumbnail)
+{
+    triedToLoadThumbnail = false;
+    InstanceMethodSwizzler quickLookSwizzler {
+        getQLThumbnailGeneratorClass(),
+        @selector(generateBestRepresentationForRequest:completionHandler:),
+        reinterpret_cast<IMP>(_generateBestRepresentationForRequest)
+    };
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    configuration.get()._attachmentElementEnabled = YES;
+    WKPreferencesSetCustomPasteboardDataEnabled((__bridge WKPreferencesRef)[configuration preferences], YES);
+
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 500, 500) configuration:configuration.get()]);
+
+    auto uiDelegate = adoptNS([[AttachmentUIDelegate alloc] init]);
+    webView.get().UIDelegate = uiDelegate.get();
+
+    static NSString *htmlWithEmbeddedAttachment = @"<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<script>focus = () => document.body.focus()</script>"
+        "<body onload=focus() contenteditable>"
+        "<attachment src='test.pages' title='test.pages'></attachment></body>";
+
+    [webView synchronouslyLoadHTMLString:htmlWithEmbeddedAttachment];
+
+    Util::run(&triedToLoadThumbnail);
+}
+
 TEST(WKAttachmentTests, AttachmentIdentifierOfClonedAttachment)
 {
     auto webView = webViewForTestingAttachments();
@@ -1975,6 +2074,34 @@ TEST(WKAttachmentTestsMac, DropImageOverImageWithControls)
     [simulator runFrom:NSMakePoint(400, 400) to:NSMakePoint(50, 50)];
     [webView waitForImageElementSizeToBecome:CGSizeMake(215, 174)];
     [webView expectElementCount:2 querySelector:@"IMG"];
+}
+
+static bool didLoadIcon;
+static NSImage *_icon(id, SEL)
+{
+    didLoadIcon = true;
+    return nil;
+}
+
+TEST(WKAttachmentTestsMac, DragDirectoryAttachment)
+{
+    didLoadIcon = false;
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [configuration _setAttachmentElementEnabled:YES];
+    auto simulator = adoptNS([[DragAndDropSimulator alloc] initWithWebViewFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
+    TestWKWebView *webView = [simulator webView];
+    [webView synchronouslyLoadHTMLString:attachmentEditingTestMarkup];
+
+    InstanceMethodSwizzler fileWrapperSwizzler {
+        [NSFileWrapper class],
+        @selector(icon),
+        reinterpret_cast<IMP>(_icon)
+    };
+
+    auto fileWrapper = adoptNS([[NSFileWrapper alloc] initWithURL:testDirectoryAttachmentFileURL() options:0 error:nil]);
+    auto attachment = retainPtr([webView synchronouslyInsertAttachmentWithFileWrapper:fileWrapper.get() contentType:nil]);
+    [simulator runFrom:[webView attachmentElementMidPoint] to:CGPointMake(300, 300)];
+    TestWebKitAPI::Util::run(&didLoadIcon);
 }
 
 #endif // PLATFORM(MAC)

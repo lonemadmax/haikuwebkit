@@ -248,7 +248,7 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomStri
         if (isLink()) {
             String parsedURL = stripLeadingAndTrailingHTMLSpaces(value);
             if (document().isDNSPrefetchEnabled() && document().frame()) {
-                if (protocolIsInHTTPFamily(parsedURL) || parsedURL.startsWith("//"))
+                if (protocolIsInHTTPFamily(parsedURL) || parsedURL.startsWith("//"_s))
                     document().frame()->loader().client().prefetchDNS(document().completeURL(parsedURL).host().toString());
             }
         }
@@ -593,7 +593,7 @@ void HTMLAnchorElement::handleClick(Event& event)
     systemPreviewInfo.isPreview = isSystemPreviewLink() && document().settings().systemPreviewEnabled();
 
     if (systemPreviewInfo.isPreview) {
-        systemPreviewInfo.element.elementIdentifier = document().identifierForElement(*this);
+        systemPreviewInfo.element.elementIdentifier = identifier();
         systemPreviewInfo.element.documentIdentifier = document().identifier();
         systemPreviewInfo.element.webPageIdentifier = valueOrDefault(document().frame()->loader().pageID());
         if (auto* child = firstElementChild())
@@ -676,7 +676,7 @@ bool shouldProhibitLinks(Element* element)
     return isInSVGImage(element);
 }
 
-bool HTMLAnchorElement::willRespondToMouseClickEvents()
+bool HTMLAnchorElement::willRespondToMouseClickEvents() const
 {
     return isLink() || HTMLElement::willRespondToMouseClickEvents();
 }

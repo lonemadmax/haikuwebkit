@@ -203,7 +203,7 @@ static RetainPtr<CFArrayRef> copyCookiesForURLWithFirstPartyURL(const NetworkSto
 {
     bool secure = includeSecureCookies == IncludeSecureCookies::Yes;
     
-    ASSERT(!secure || (secure && url.protocolIs("https")));
+    ASSERT(!secure || (secure && url.protocolIs("https"_s)));
     
     UNUSED_PARAM(firstParty);
     return adoptCF(CFHTTPCookieStorageCopyCookiesForURL(session.cookieStorage().get(), url.createCFURL().get(), secure));
@@ -322,7 +322,7 @@ bool NetworkStorageSession::getRawCookies(const URL& firstParty, const SameSiteI
     UNUSED_PARAM(pageID);
     rawCookies.clear();
     
-    auto includeSecureCookies = url.protocolIs("https") ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
+    auto includeSecureCookies = url.protocolIs("https"_s) ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
     
     RetainPtr<CFArrayRef> cookiesCF = copyCookiesForURLWithFirstPartyURL(*this, firstParty, url, includeSecureCookies);
     
@@ -353,7 +353,7 @@ void NetworkStorageSession::deleteCookie(const URL& url, const String& name) con
     
     RetainPtr<CFURLRef> urlCF = url.createCFURL();
     
-    bool sendSecureCookies = url.protocolIs("https");
+    bool sendSecureCookies = url.protocolIs("https"_s);
     RetainPtr<CFArrayRef> cookiesCF = adoptCF(CFHTTPCookieStorageCopyCookiesForURL(cookieStorage.get(), urlCF.get(), sendSecureCookies));
     
     CFIndex count = CFArrayGetCount(cookiesCF.get());

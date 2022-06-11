@@ -202,7 +202,7 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request, WasBlockingCo
 #endif
 
 #if SOUP_CHECK_VERSION(2, 67, 1)
-    if ((m_currentRequest.url().protocolIs("https") && !shouldAllowHSTSPolicySetting()) || (m_currentRequest.url().protocolIs("http") && !shouldAllowHSTSProtocolUpgrade()))
+    if ((m_currentRequest.url().protocolIs("https"_s) && !shouldAllowHSTSPolicySetting()) || (m_currentRequest.url().protocolIs("http"_s) && !shouldAllowHSTSProtocolUpgrade()))
         soup_message_disable_feature(m_soupMessage.get(), SOUP_TYPE_HSTS_ENFORCER);
     else {
 #if USE(SOUP2)
@@ -657,7 +657,7 @@ void NetworkDataTaskSoup::authenticateCallback(SoupSession* session, SoupMessage
     // it's proxy authentication and the request URL is HTTPS, because in that case libsoup uses a
     // tunnel internally and the SoupMessage used for the authentication is the tunneling one.
     // See https://bugs.webkit.org/show_bug.cgi?id=175378.
-    if (soupMessage != task->m_soupMessage.get() && (soupMessage->status_code != SOUP_STATUS_PROXY_AUTHENTICATION_REQUIRED || !task->m_currentRequest.url().protocolIs("https")))
+    if (soupMessage != task->m_soupMessage.get() && (soupMessage->status_code != SOUP_STATUS_PROXY_AUTHENTICATION_REQUIRED || !task->m_currentRequest.url().protocolIs("https"_s)))
         return;
 
     if (task->state() == State::Canceling || task->state() == State::Completed || !task->m_client) {
@@ -952,7 +952,7 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
     request.clearHTTPUserAgent();
 
     // Should not set Referer after a redirect from a secure resource to non-secure one.
-    if (m_shouldClearReferrerOnHTTPSToHTTPRedirect && !request.url().protocolIs("https") && protocolIs(request.httpReferrer(), "https"))
+    if (m_shouldClearReferrerOnHTTPSToHTTPRedirect && !request.url().protocolIs("https"_s) && protocolIs(request.httpReferrer(), "https"_s))
         request.clearHTTPReferrer();
 
     bool isCrossOrigin = !protocolHostAndPortAreEqual(m_currentRequest.url(), request.url());
@@ -1218,6 +1218,15 @@ WebCore::AdditionalNetworkLoadMetricsForWebInspector& NetworkDataTaskSoup::addit
     return *m_networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector;
 }
 
+#if USE(SOUP2)
+static void addHeaderSizes(const char *name, const char *value, gpointer pointer)
+{
+    uint64_t* size = static_cast<uint64_t*>(pointer);
+    // Each header is formatted as "<name>: <value>\r\n"
+    *size += strlen(name) + strlen(value) + 4;
+}
+#endif
+
 void NetworkDataTaskSoup::didGetHeaders()
 {
     // We are a bit more conservative with the persistent credential storage than the session store,
@@ -1263,6 +1272,20 @@ void NetworkDataTaskSoup::didGetHeaders()
         additionalMetrics.tlsProtocol = tlsProtocolVersionToString(soup_message_get_tls_protocol_version(m_soupMessage.get()));
         additionalMetrics.tlsCipher = String::fromUTF8(soup_message_get_tls_ciphersuite_name(m_soupMessage.get()));
         additionalMetrics.responseHeaderBytesReceived = soup_message_metrics_get_response_header_bytes_received(metrics);
+#else
+        {
+            auto* requestHeaders = soup_message_get_request_headers(m_soupMessage.get());
+            uint64_t requestHeadersSize = 0;
+            soup_message_headers_foreach(requestHeaders, addHeaderSizes, &requestHeadersSize);
+            additionalMetrics.requestHeaderBytesSent = requestHeadersSize;
+        }
+
+        {
+            auto* responseHeaders = soup_message_get_response_headers(m_soupMessage.get());
+            uint64_t responseHeadersSize = 0;
+            soup_message_headers_foreach(responseHeaders, addHeaderSizes, &responseHeadersSize);
+            additionalMetrics.responseHeaderBytesReceived = responseHeadersSize;
+        }
 #endif
     }
 
@@ -1613,7 +1636,7 @@ void NetworkDataTaskSoup::didStartRequest()
 {
 #if USE(SOUP2)
     m_networkLoadMetrics.requestStart = MonotonicTime::now();
-    if (!m_networkLoadMetrics.secureConnectionStart && m_currentRequest.url().protocolIs("https"))
+    if (!m_networkLoadMetrics.secureConnectionStart && m_currentRequest.url().protocolIs("https"_s))
         m_networkLoadMetrics.secureConnectionStart = WebCore::reusedTLSConnectionSentinel;
 #else
     auto* metrics = soup_message_get_metrics(m_soupMessage.get());
@@ -1628,7 +1651,7 @@ void NetworkDataTaskSoup::didStartRequest()
     m_networkLoadMetrics.domainLookupEnd = MonotonicTime::fromRawSeconds(domainLookupEnd.seconds());
     m_networkLoadMetrics.connectStart = MonotonicTime::fromRawSeconds(connectStart.seconds());
     m_networkLoadMetrics.connectEnd = MonotonicTime::fromRawSeconds(connectEnd.seconds());
-    if (!secureConnectionStart && m_currentRequest.url().protocolIs("https"))
+    if (!secureConnectionStart && m_currentRequest.url().protocolIs("https"_s))
         m_networkLoadMetrics.secureConnectionStart = WebCore::reusedTLSConnectionSentinel;
     else
         m_networkLoadMetrics.secureConnectionStart = MonotonicTime::fromRawSeconds(secureConnectionStart.seconds());
@@ -1692,10 +1715,10 @@ void NetworkDataTaskSoup::didGetFileInfo(GFileInfo* info)
         m_response.setExpectedContentLength(-1);
     } else {
         auto contentType = String::fromLatin1(g_file_info_get_content_type(info));
-        m_response.setMimeType(extractMIMETypeFromMediaType(contentType));
-        m_response.setTextEncodingName(extractCharsetFromMediaType(contentType).toString());
+        m_response.setMimeType(AtomString { extractMIMETypeFromMediaType(contentType) });
+        m_response.setTextEncodingName(extractCharsetFromMediaType(contentType).toAtomString());
         if (m_response.mimeType().isEmpty())
-            m_response.setMimeType(MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()));
+            m_response.setMimeType(AtomString { MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()) });
         m_response.setExpectedContentLength(g_file_info_get_size(info));
     }
 }

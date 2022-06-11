@@ -29,6 +29,7 @@
 #include "RenderLayerBacking.h"
 #include "RenderLayerCompositor.h"
 #include "RenderLayerScrollableArea.h"
+#include "RenderSVGBlock.h"
 #include "RenderSVGModelObject.h"
 #include "RenderView.h"
 #include "SVGGraphicsElement.h"
@@ -136,7 +137,7 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
 
         // Repaint the about to be destroyed self-painting layer when style change also triggers repaint.
         if (layer()->isSelfPaintingLayer() && layer()->repaintStatus() == NeedsFullRepaint && layer()->repaintRects())
-            repaintUsingContainer(containerForRepaint(), layer()->repaintRects()->clippedOverflowRect);
+            repaintUsingContainer(containerForRepaint().renderer, layer()->repaintRects()->clippedOverflowRect);
 
         layer()->removeOnlyThisLayer(RenderLayer::LayerChangeTiming::StyleChange); // calls destroyLayer() which clears m_layer
         if (s_wasFloating && isFloating())
@@ -245,10 +246,7 @@ void RenderLayerModelObject::updateLayerTransform()
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
 std::optional<LayoutRect> RenderLayerModelObject::computeVisibleRectInSVGContainer(const LayoutRect& rect, const RenderLayerModelObject* container, RenderObject::VisibleRectContext context) const
 {
-    // FIXME: [LBSE] Upstream RenderSVGBlock changes
-    // ASSERT(is<RenderSVGModelObject>(this) || is<RenderSVGBlock>(this));
-    ASSERT(is<RenderSVGModelObject>(this));
-
+    ASSERT(is<RenderSVGModelObject>(this) || is<RenderSVGBlock>(this));
     ASSERT(!style().hasInFlowPosition());
     ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled());
 
@@ -349,7 +347,9 @@ void RenderLayerModelObject::applySVGTransform(TransformationMatrix& transform, 
 
     FloatPoint3D originTranslate;
     if (options.contains(RenderStyle::TransformOperationOption::TransformOrigin) && affectedByTransformOrigin)
-        originTranslate = style.applyTransformOrigin(transform, boundingBox);
+        originTranslate = style.computeTransformOrigin(boundingBox);
+
+    style.applyTransformOrigin(transform, originTranslate);
 
     // CSS transforms take precedence over SVG transforms.
     if (hasCSSTransform)

@@ -490,11 +490,11 @@ bool CookieJarDB::hasHttpOnlyCookie(const String& name, const String& domain, co
 
 static bool checkSecureCookie(const Cookie& cookie)
 {
-    if (cookie.name.startsWith("__Secure-") && !cookie.secure)
+    if (cookie.name.startsWith("__Secure-"_s) && !cookie.secure)
         return false;
 
     // Cookies for __Host must have the Secure attribute, path explicitly set to "/", and no domain attribute
-    if (cookie.name.startsWith("__Host-") && (!cookie.secure || cookie.path != "/"_s || !cookie.domain.isEmpty()))
+    if (cookie.name.startsWith("__Host-"_s) && (!cookie.secure || cookie.path != "/"_s || !cookie.domain.isEmpty()))
         return false;
 
     return true;
@@ -596,7 +596,7 @@ bool CookieJarDB::deleteCookie(const String& url, const String& name)
 
     String urlCopied = String(url);
     if (urlCopied.startsWith('.'))
-        urlCopied.remove(0, 1);
+        urlCopied = urlCopied.substring(1);
 
     URL urlObj({ }, urlCopied);
     if (urlObj.isValid()) {

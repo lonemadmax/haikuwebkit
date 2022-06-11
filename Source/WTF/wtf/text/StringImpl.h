@@ -246,14 +246,12 @@ public:
 
     static Ref<StringImpl> createSubstringSharingImpl(StringImpl&, unsigned offset, unsigned length);
 
-    // FIXME: Replace calls to these overloads of createFromLiteral to createWithoutCopying instead.
-    WTF_EXPORT_PRIVATE static Ref<StringImpl> createFromLiteral(const char*, unsigned length);
-    WTF_EXPORT_PRIVATE static Ref<StringImpl> createFromLiteral(const char*);
-    static Ref<StringImpl> createFromLiteral(ASCIILiteral);
+    ALWAYS_INLINE static Ref<StringImpl> create(ASCIILiteral literal) { return createWithoutCopying(literal.characters8(), literal.length()); }
 
-    WTF_EXPORT_PRIVATE static Ref<StringImpl> createWithoutCopying(const UChar*, unsigned length);
-    WTF_EXPORT_PRIVATE static Ref<StringImpl> createWithoutCopying(const LChar*, unsigned length);
-    static Ref<StringImpl> createWithoutCopying(const char* characters, unsigned length) { return createWithoutCopying(reinterpret_cast<const LChar*>(characters), length); }
+    static Ref<StringImpl> createWithoutCopying(const UChar* characters, unsigned length) { return length ? createWithoutCopyingNonEmpty(characters, length) : Ref { *empty() }; }
+    static Ref<StringImpl> createWithoutCopying(const LChar* characters, unsigned length) { return length ? createWithoutCopyingNonEmpty(characters, length) : Ref { *empty() }; }
+    ALWAYS_INLINE static Ref<StringImpl> createWithoutCopying(const char* characters, unsigned length) { return createWithoutCopying(reinterpret_cast<const LChar*>(characters), length); }
+
     WTF_EXPORT_PRIVATE static Ref<StringImpl> createUninitialized(unsigned length, LChar*&);
     WTF_EXPORT_PRIVATE static Ref<StringImpl> createUninitialized(unsigned length, UChar*&);
     template<typename CharacterType> static RefPtr<StringImpl> tryCreateUninitialized(unsigned length, CharacterType*&);
@@ -434,7 +432,7 @@ public:
     size_t find(UChar character, unsigned start = 0);
     template<typename CodeUnitMatchFunction, std::enable_if_t<std::is_invocable_r_v<bool, CodeUnitMatchFunction, UChar>>* = nullptr>
     size_t find(CodeUnitMatchFunction, unsigned start = 0);
-    WTF_EXPORT_PRIVATE size_t find(const LChar*, unsigned start = 0);
+    ALWAYS_INLINE size_t find(ASCIILiteral literal, unsigned start = 0) { return find(literal.characters8(), literal.length(), start); }
     WTF_EXPORT_PRIVATE size_t find(StringView);
     WTF_EXPORT_PRIVATE size_t find(StringView, unsigned start);
     WTF_EXPORT_PRIVATE size_t findIgnoringASCIICase(StringView) const;
@@ -442,6 +440,7 @@ public:
 
     WTF_EXPORT_PRIVATE size_t reverseFind(UChar, unsigned start = MaxLength);
     WTF_EXPORT_PRIVATE size_t reverseFind(StringView, unsigned start = MaxLength);
+    ALWAYS_INLINE size_t reverseFind(ASCIILiteral literal, unsigned start = MaxLength) { return reverseFind(literal.characters8(), literal.length(), start); }
 
     WTF_EXPORT_PRIVATE bool startsWith(StringView) const;
     WTF_EXPORT_PRIVATE bool startsWithIgnoringASCIICase(StringView) const;
@@ -497,6 +496,9 @@ private:
     template<typename> static size_t maxInternalLength();
     template<typename> static size_t tailOffset();
 
+    WTF_EXPORT_PRIVATE size_t find(const LChar*, unsigned length, unsigned start);
+    WTF_EXPORT_PRIVATE size_t reverseFind(const LChar*, unsigned length, unsigned start);
+
     bool requiresCopy() const;
     template<typename T> const T* tailPointer() const;
     template<typename T> T* tailPointer();
@@ -505,6 +507,9 @@ private:
 
     enum class CaseConvertType { Upper, Lower };
     template<CaseConvertType, typename CharacterType> static Ref<StringImpl> convertASCIICase(StringImpl&, const CharacterType*, unsigned);
+
+    WTF_EXPORT_PRIVATE static Ref<StringImpl> createWithoutCopyingNonEmpty(const LChar*, unsigned length);
+    WTF_EXPORT_PRIVATE static Ref<StringImpl> createWithoutCopyingNonEmpty(const UChar*, unsigned length);
 
     template<class CodeUnitPredicate> Ref<StringImpl> stripMatchedCharacters(CodeUnitPredicate);
     template<typename CharacterType, typename Predicate> ALWAYS_INLINE Ref<StringImpl> removeCharactersImpl(const CharacterType* characters, const Predicate&);
@@ -582,8 +587,6 @@ bool equalIgnoringASCIICase(const StringImpl&, const StringImpl&);
 WTF_EXPORT_PRIVATE bool equalIgnoringASCIICase(const StringImpl*, const StringImpl*);
 bool equalIgnoringASCIICase(const StringImpl&, ASCIILiteral);
 bool equalIgnoringASCIICase(const StringImpl*, ASCIILiteral);
-bool equalIgnoringASCIICase(const StringImpl&, const char*) = delete;
-bool equalIgnoringASCIICase(const StringImpl*, const char*) = delete;
 
 WTF_EXPORT_PRIVATE bool equalIgnoringASCIICaseNonNull(const StringImpl*, const StringImpl*);
 
@@ -978,12 +981,6 @@ ALWAYS_INLINE Ref<StringImpl> StringImpl::createSubstringSharingImpl(StringImpl&
     if (rep.is8Bit())
         return adoptRef(*new (NotNull, stringImpl) StringImpl(rep.m_data8 + offset, length, *ownerRep));
     return adoptRef(*new (NotNull, stringImpl) StringImpl(rep.m_data16 + offset, length, *ownerRep));
-}
-
-inline Ref<StringImpl> StringImpl::createFromLiteral(ASCIILiteral literal)
-{
-    auto length = literal.length();
-    return length ? createFromLiteral(literal.characters(), length) : Ref { *StringImpl::empty() };
 }
 
 template<typename CharacterType> ALWAYS_INLINE RefPtr<StringImpl> StringImpl::tryCreateUninitialized(unsigned length, CharacterType*& output)

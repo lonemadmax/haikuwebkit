@@ -86,11 +86,6 @@ void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& lau
         varname = "GPU_PROCESS_CMD_PREFIX";
         break;
 #endif
-#if ENABLE(WEB_AUTHN)
-    case ProcessLauncher::ProcessType::WebAuthn:
-        varname = "WEBAUTHN_PROCESS_CMD_PREFIX";
-        break;
-#endif
 #if ENABLE(BUBBLEWRAP_SANDBOX)
     case ProcessLauncher::ProcessType::DBusProxy:
         ASSERT_NOT_REACHED();
@@ -108,6 +103,7 @@ void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& lau
 void AuxiliaryProcessProxy::connect()
 {
     ASSERT(!m_processLauncher);
+    m_processStart = MonotonicTime::now();
     ProcessLauncher::LaunchOptions launchOptions;
     getLaunchOptions(launchOptions);
     m_processLauncher = ProcessLauncher::create(this, WTFMove(launchOptions));
@@ -257,6 +253,10 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher*, IPC::Connection
     ASSERT(!m_connection);
     ASSERT(isMainRunLoop());
 
+    auto launchTime = MonotonicTime::now() - m_processStart;
+    if (launchTime > 1_s)
+        RELEASE_LOG_FAULT(Process, "%s process (%p) took %f seconds to launch", processName().characters(), this, launchTime.value());
+    
     if (!IPC::Connection::identifierIsValid(connectionIdentifier))
         return;
 

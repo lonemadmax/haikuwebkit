@@ -2133,18 +2133,6 @@ WEBKIT_FRAMEWORK_DECLARE(WebCore)
 WEBKIT_FRAMEWORK_DECLARE(WebCoreTestSupport)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
-# Generate CommandLineAPIModuleSource.h
-add_custom_command(
-    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSource.h ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSource.min.js
-    MAIN_DEPENDENCY inspector/CommandLineAPIModuleSource.js
-    DEPENDS ${JavaScriptCore_SCRIPTS_DIR}/xxd.pl ${JavaScriptCore_SCRIPTS_DIR}/jsmin.py
-    COMMAND ${CMAKE_COMMAND} -E echo "//# sourceURL=__InjectedScript_CommandLineAPIModuleSource.js" > ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSource.min.js
-    COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/jsmin.py < ${WEBCORE_DIR}/inspector/CommandLineAPIModuleSource.js >> ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSource.min.js
-    COMMAND ${PERL_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/xxd.pl CommandLineAPIModuleSource_js ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSource.min.js ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSource.h
-    VERBATIM)
-list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSource.h)
-
-
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/platform/ColorData)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ColorData.cpp)
 
@@ -2356,6 +2344,7 @@ set(WebCore_BUILTINS_SOURCES
     ${WEBCORE_DIR}/dom/TextDecoderStream.js
     ${WEBCORE_DIR}/dom/TextEncoderStream.js
     ${WEBCORE_DIR}/bindings/js/JSDOMBindingInternals.js
+    ${WEBCORE_DIR}/inspector/CommandLineAPIModuleSource.js
 )
 
 set(BUILTINS_GENERATOR_SCRIPTS
@@ -2392,15 +2381,12 @@ add_custom_command(
            ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltinInternals.cpp
            ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltins.h
            ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltinInternals.h
-    MAIN_DEPENDENCY ${WebCore_BUILTINS_SOURCES}
-    DEPENDS ${BUILTINS_GENERATOR_SCRIPTS} ${WebCore_DERIVED_BUILTIN_HEADERS}
+    DEPENDS ${BUILTINS_GENERATOR_SCRIPTS} ${WebCore_DERIVED_BUILTIN_HEADERS} ${WebCore_BUILTINS_SOURCES}
     COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/generate-js-builtins.py --wrappers-only --framework WebCore --output-directory ${WebCore_DERIVED_SOURCES_DIR} ${WebCore_BUILTINS_SOURCES}
     VERBATIM)
 list(APPEND WebCore_SOURCES
     ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltins.cpp
-    ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltinInternals.cpp
-    ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltins.h
-    ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltinInternals.h)
+    ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltinInternals.cpp)
 
 ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLTreeBuilder.cpp MathMLNames.cpp)
 

@@ -1,7 +1,13 @@
 include(GNUInstallDirs)
 include(VersioningUtils)
 
-SET_PROJECT_VERSION(2 35 1)
+SET_PROJECT_VERSION(2 37 0)
+
+# This is required because we use the DEPFILE argument to add_custom_command().
+# Remove after upgrading cmake_minimum_required() to 3.20.
+if (${CMAKE_VERSION} VERSION_LESS "3.20" AND NOT ${CMAKE_GENERATOR} STREQUAL "Ninja")
+    message(FATAL_ERROR "Building with Makefiles requires CMake 3.20 or newer. Either enable Ninja by passing -GNinja, or upgrade CMake.")
+endif ()
 
 set(USER_AGENT_BRANDING "" CACHE STRING "Branding to add to user agent string")
 
@@ -161,9 +167,9 @@ endif ()
 endif ()
 
 if (WPE_API_VERSION VERSION_EQUAL "1.0")
-    CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 20 0 17)
+    CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 21 0 18)
 else ()
-    CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 1 0 1)
+    CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 2 0 2)
 endif ()
 
 set(CMAKE_C_VISIBILITY_PRESET hidden)
@@ -172,6 +178,7 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(bmalloc_LIBRARY_TYPE OBJECT)
 set(WTF_LIBRARY_TYPE OBJECT)
 set(JavaScriptCore_LIBRARY_TYPE OBJECT)
+set(WebCore_LIBRARY_TYPE OBJECT)
 
 # These are shared variables, but we special case their definition so that we can use the
 # CMAKE_INSTALL_* variables that are populated by the GNUInstallDirs macro.

@@ -43,37 +43,26 @@ TextStream& operator<<(TextStream& ts, ControlPart controlPart)
     case DefaultButtonPart: ts << "default-button-part"; break;
     case InnerSpinButtonPart: ts << "inner-spin-button-part"; break;
     case ListboxPart: ts << "listbox-part"; break;
-    case ListItemPart: ts << "list-item-part"; break;
-    case MediaControlsDarkBarBackgroundPart: ts << "media-controls-dark-bar-background-part"; break;
-    case MediaControlsLightBarBackgroundPart: ts << "media-controls-light-bar-background-part"; break;
     case MediaFullScreenVolumeSliderPart: ts << "media-full-screen-volume-slider-part"; break;
     case MediaFullScreenVolumeSliderThumbPart: ts << "media-full-screen-volume-slider-thumb-part"; break;
-    case MediaPlayButtonPart: ts << "media-play-button-part"; break;
     case MediaSliderPart: ts << "media-slider-part"; break;
     case MediaSliderThumbPart: ts << "media-slider-thumb-part"; break;
     case MediaVolumeSliderPart: ts << "media-volume-slider-part"; break;
-    case MediaVolumeSliderMuteButtonPart: ts << "media-volume-slider-mute-button-part"; break;
     case MediaVolumeSliderThumbPart: ts << "media-volume-slider-thumb-part"; break;
     case MenulistPart: ts << "menulist-part"; break;
     case MenulistButtonPart: ts << "menulist-button-part"; break;
     case MeterPart: ts << "meter-part"; break;
     case ProgressBarPart: ts << "progress-bar-part"; break;
-    case ProgressBarValuePart: ts << "progress-bar-value-part"; break;
     case SliderHorizontalPart: ts << "slider-horizontal-part"; break;
     case SliderVerticalPart: ts << "slider-vertical-part"; break;
     case SliderThumbHorizontalPart: ts << "slider-thumb-horizontal-part"; break;
     case SliderThumbVerticalPart: ts << "slider-thumb-vertical-part"; break;
-    case CaretPart: ts << "caret-part"; break;
     case SearchFieldPart: ts << "search-field-part"; break;
     case SearchFieldDecorationPart: ts << "search-field-decoration-part"; break;
     case SearchFieldResultsDecorationPart: ts << "search-field-results-decoration-part"; break;
     case SearchFieldResultsButtonPart: ts << "search-field-results-button-part"; break;
     case SearchFieldCancelButtonPart: ts << "search-field-cancel-button-part"; break;
     case TextFieldPart: ts << "text-field-part"; break;
-    case RelevancyLevelIndicatorPart: ts << "relevancy-level-indicator-part"; break;
-    case ContinuousCapacityLevelIndicatorPart: ts << "continuous-capacity-level-indicator-part"; break;
-    case DiscreteCapacityLevelIndicatorPart: ts << "discrete-capacity-level-indicator-part"; break;
-    case RatingLevelIndicatorPart: ts << "rating-level-indicator-part"; break;
 #if ENABLE(SERVICE_CONTROLS)
     case ImageControlsButtonPart: ts << "image-controls-button-part"; break;
 #endif
@@ -93,7 +82,7 @@ TextStream& operator<<(TextStream& ts, ControlPart controlPart)
 #endif
     case CapsLockIndicatorPart: ts << "caps-lock-indicator-part"; break;
     }
-    
+
     return ts;
 }
 

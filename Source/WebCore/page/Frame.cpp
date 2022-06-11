@@ -336,6 +336,7 @@ void Frame::invalidateContentEventRegionsIfNeeded(InvalidateContentEventRegionsR
     bool needsUpdateForWheelEventHandlers = false;
     bool needsUpdateForTouchActionElements = false;
     bool needsUpdateForEditableElements = false;
+    bool needsUpdateForInteractionRegions = false;
 #if ENABLE(WHEEL_EVENT_REGIONS)
     needsUpdateForWheelEventHandlers = m_doc->hasWheelEventHandlers() || reason == InvalidateContentEventRegionsReason::EventHandlerChange;
 #else
@@ -349,7 +350,10 @@ void Frame::invalidateContentEventRegionsIfNeeded(InvalidateContentEventRegionsR
     // Document::mayHaveEditableElements never changes from true to false currently.
     needsUpdateForEditableElements = m_doc->mayHaveEditableElements() && m_page->shouldBuildEditableRegion();
 #endif
-    if (!needsUpdateForTouchActionElements && !needsUpdateForEditableElements && !needsUpdateForWheelEventHandlers)
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    needsUpdateForInteractionRegions = m_page->shouldBuildInteractionRegions();
+#endif
+    if (!needsUpdateForTouchActionElements && !needsUpdateForEditableElements && !needsUpdateForWheelEventHandlers && !needsUpdateForInteractionRegions)
         return;
 
     if (!m_doc->renderView()->compositor().viewNeedsToInvalidateEventRegionOfEnclosingCompositingLayerForRepaint())
@@ -380,7 +384,7 @@ static JSC::Yarr::RegularExpression createRegExpForLabels(const Vector<String>& 
     // REVIEW- version of this call in FrameMac.mm caches based on the NSArray ptrs being
     // the same across calls.  We can't do that.
 
-    static NeverDestroyed<JSC::Yarr::RegularExpression> wordRegExp("\\w");
+    static NeverDestroyed<JSC::Yarr::RegularExpression> wordRegExp("\\w"_s);
     StringBuilder pattern;
     pattern.append('(');
     for (unsigned i = 0, numLabels = labels.size(); i < numLabels; i++) {
@@ -503,7 +507,7 @@ static String matchLabelsAgainstString(const Vector<String>& labels, const Strin
     String mutableStringToMatch = stringToMatch;
 
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    replace(mutableStringToMatch, JSC::Yarr::RegularExpression("\\d"), " ");
+    replace(mutableStringToMatch, JSC::Yarr::RegularExpression("\\d"_s), " "_s);
     mutableStringToMatch = makeStringByReplacingAll(mutableStringToMatch, '_', ' ');
     
     JSC::Yarr::RegularExpression regExp = createRegExpForLabels(labels);
@@ -602,7 +606,7 @@ bool Frame::requestDOMPasteAccess(DOMPasteAccessCategory pasteAccessCategory)
 
 void Frame::setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio, AdjustViewSizeOrNot shouldAdjustViewSize)
 {
-    if (!view())
+    if (!view() || !document())
         return;
     // In setting printing, we should not validate resources already cached for the document.
     // See https://bugs.webkit.org/show_bug.cgi?id=43704

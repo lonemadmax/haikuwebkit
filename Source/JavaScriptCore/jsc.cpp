@@ -229,12 +229,13 @@ private:
 
 class Worker : public BasicRawSentinelNode<Worker> {
 public:
-    Worker(Workers&);
+    Worker(Workers&, bool isMain);
     ~Worker();
     
     void enqueue(const AbstractLocker&, RefPtr<Message>);
     RefPtr<Message> dequeue();
-    
+    bool isMain() const { return m_isMain; }
+
     static Worker& current();
 
 private:
@@ -242,6 +243,7 @@ private:
 
     Workers& m_workers;
     Deque<RefPtr<Message>> m_messages;
+    const bool m_isMain;
 };
 
 class Workers {
@@ -823,7 +825,7 @@ static URL currentWorkingDirectory()
     DWORD lengthNotIncludingNull = ::GetCurrentDirectoryW(bufferLength, buffer.data());
     String directoryString(buffer.data(), lengthNotIncludingNull);
     // We don't support network path like \\host\share\<path name>.
-    if (directoryString.startsWith("\\\\"))
+    if (directoryString.startsWith("\\\\"_s))
         return { };
 
 #else
@@ -870,7 +872,7 @@ JSInternalPromise* GlobalObject::moduleLoaderImportModule(JSGlobalObject* global
     if (!referrer.isLocalFile())
         RELEASE_AND_RETURN(scope, rejectWithError(createError(globalObject, makeString("Could not resolve the referrer's path '", referrer.string(), "', while trying to resolve module '", specifier, "'."))));
 
-    if (!specifier.startsWith('/') && !specifier.startsWith("./") && !specifier.startsWith("../"))
+    if (!specifier.startsWith('/') && !specifier.startsWith("./"_s) && !specifier.startsWith("../"_s))
         RELEASE_AND_RETURN(scope, rejectWithError(createTypeError(globalObject, makeString("Module specifier, '"_s, specifier, "' does not start with \"/\", \"./\", or \"../\". Referenced from: "_s, referrer.fileSystemPath()))));
 
     URL moduleURL(referrer, specifier);
@@ -897,7 +899,7 @@ Identifier GlobalObject::moduleLoaderResolve(JSGlobalObject* globalObject, JSMod
 
     auto resolvePath = [&] (const URL& directoryURL) -> Identifier {
         String specifier = key.impl();
-        if (!specifier.startsWith('/') && !specifier.startsWith("./") && !specifier.startsWith("../")) {
+        if (!specifier.startsWith('/') && !specifier.startsWith("./"_s) && !specifier.startsWith("../"_s)) {
             throwTypeError(globalObject, scope, makeString("Module specifier, '"_s, specifier, "' does not start with \"/\", \"./\", or \"../\". Referenced from: "_s, directoryURL.fileSystemPath()));
             return { };
         }
@@ -1098,7 +1100,7 @@ private:
             return { };
         const char* cachePath = Options::diskCachePath();
         String filename = FileSystem::encodeForFileName(FileSystem::lastComponentOfPathIgnoringTrailingSlash(sourceOrigin().url().fileSystemPath()));
-        return FileSystem::pathByAppendingComponent(cachePath, makeString(source().hash(), '-', filename, ".bytecode-cache"));
+        return FileSystem::pathByAppendingComponent(StringView::fromLatin1(cachePath), makeString(source().hash(), '-', filename, ".bytecode-cache"_s));
     }
 
     void loadBytecode() const
@@ -1129,16 +1131,19 @@ private:
 
     ShellSourceProvider(const String& source, const SourceOrigin& sourceOrigin, String&& sourceURL, const TextPosition& startPosition, SourceProviderSourceType sourceType)
         : StringSourceProvider(source, sourceOrigin, WTFMove(sourceURL), startPosition, sourceType)
+        // Workers started via $.agent.start are not shut down in a synchronous manner, and it
+        // is possible the main thread terminates the process while a worker is writing its
+        // bytecode cache, which results in intermittent test failures. As $.agent.start is only
+        // a rarely used testing facility, we simply do not cache bytecode on these threads.
+        , m_cacheEnabled(Worker::current().isMain() && !!Options::diskCachePath())
+
     {
     }
 
-    static bool cacheEnabled()
-    {
-        static bool enabled = !!Options::diskCachePath();
-        return enabled;
-    }
+    bool cacheEnabled() const { return m_cacheEnabled; }
 
     mutable RefPtr<CachedBytecode> m_cachedBytecode;
+    const bool m_cacheEnabled;
 };
 
 static inline SourceCode jscSource(const String& source, const SourceOrigin& sourceOrigin, String sourceURL = String(), const TextPosition& startPosition = TextPosition(), SourceProviderSourceType sourceType = SourceProviderSourceType::Program)
@@ -1376,10 +1381,10 @@ public:
     {
     }
 
-    StackVisitor::Status operator()(StackVisitor& visitor) const
+    IterationStatus operator()(StackVisitor& visitor) const
     {
         m_trace.append(makeString("    ", visitor->index(), "   ", visitor->toString(), '\n'));
-        return StackVisitor::Continue;
+        return IterationStatus::Continue;
     }
 
 private:
@@ -1925,8 +1930,9 @@ Message::~Message()
 {
 }
 
-Worker::Worker(Workers& workers)
+Worker::Worker(Workers& workers, bool isMain)
     : m_workers(workers)
+    , m_isMain(isMain)
 {
     Locker locker { m_workers.m_lock };
     m_workers.m_workers.append(this);
@@ -2280,7 +2286,7 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarAgentGetReport, (JSGlobalObject* globalOb
     if (!string)
         return JSValue::encode(jsNull());
     
-    return JSValue::encode(jsString(vm, string));
+    return JSValue::encode(jsString(vm, WTFMove(string)));
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionDollarAgentLeaving, (JSGlobalObject*, CallFrame*))
@@ -2305,7 +2311,7 @@ JSC_DEFINE_HOST_FUNCTION(functionWaitForReport, (JSGlobalObject* globalObject, C
     if (!string)
         return JSValue::encode(jsNull());
     
-    return JSValue::encode(jsString(vm, string));
+    return JSValue::encode(jsString(vm, WTFMove(string)));
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionHeapCapacity, (JSGlobalObject* globalObject, CallFrame*))
@@ -2755,7 +2761,7 @@ JSC_DEFINE_HOST_FUNCTION(functionGenerateHeapSnapshotForGCDebugging, (JSGlobalOb
         jsonString = snapshotBuilder.json();
     }
     scope.releaseAssertNoException();
-    return JSValue::encode(jsString(vm, jsonString));
+    return JSValue::encode(jsString(vm, WTFMove(jsonString)));
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionResetSuperSamplerState, (JSGlobalObject*, CallFrame*))
@@ -2936,11 +2942,11 @@ static void startTimeoutTimer(Seconds duration)
 {
     Thread::create("jsc Timeout Thread", [=] () {
         sleep(duration);
-        VMInspector::forEachVM([&] (VM& vm) -> VMInspector::FunctorStatus {
+        VMInspector::forEachVM([&] (VM& vm) -> IterationStatus {
             if (&vm != s_vm)
-                return VMInspector::FunctorStatus::Continue;
+                return IterationStatus::Continue;
             vm.notifyNeedShellTimeoutCheck();
-            return VMInspector::FunctorStatus::Done;
+            return IterationStatus::Done;
         });
 
         if (const char* timeoutString = getenv("JSCTEST_hardTimeout")) {
@@ -3651,7 +3657,7 @@ CommandLine::CommandLine(CommandLineForWorkersTag)
 template<typename Func>
 int runJSC(const CommandLine& options, bool isWorker, const Func& func)
 {
-    Worker worker(Workers::singleton());
+    Worker worker(Workers::singleton(), !isWorker);
     
     VM& vm = VM::create(HeapType::Large).leakRef();
     if (!isWorker && options.m_canBlockIsFalse)
@@ -3756,7 +3762,7 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
     return result;
 }
 
-#if ENABLE(JIT_OPERATION_VALIDATION)
+#if ENABLE(JIT_OPERATION_VALIDATION) || ENABLE(JIT_OPERATION_DISASSEMBLY)
 extern const JITOperationAnnotation startOfJITOperationsInShell __asm("section$start$__DATA_CONST$__jsc_ops");
 extern const JITOperationAnnotation endOfJITOperationsInShell __asm("section$end$__DATA_CONST$__jsc_ops");
 #endif
@@ -3783,6 +3789,11 @@ int jscmain(int argc, char** argv)
 #if ENABLE(JIT_OPERATION_VALIDATION)
     JSC::JITOperationList::populatePointersInEmbedder(&startOfJITOperationsInShell, &endOfJITOperationsInShell);
 #endif
+#if ENABLE(JIT_OPERATION_DISASSEMBLY)
+    if (UNLIKELY(Options::needDisassemblySupport()))
+        JSC::JITOperationList::populateDisassemblyLabelsInEmbedder(&startOfJITOperationsInShell, &endOfJITOperationsInShell);
+#endif
+
     initializeTimeoutIfNeeded();
 
 #if OS(DARWIN) || OS(LINUX)

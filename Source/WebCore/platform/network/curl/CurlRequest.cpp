@@ -116,9 +116,10 @@ void CurlRequest::start()
         [[fallthrough]];
     case StartState::StartSuspended:
         return;
+    case StartState::WaitingForStart:
+        m_startState = StartState::DidStart;
+        break;
     }
-
-    m_startState = StartState::DidStart;
 
     if (m_request.url().isLocalFile())
         invokeDidReceiveResponseForFile(m_request.url());
@@ -530,7 +531,7 @@ int CurlRequest::didReceiveDebugInfo(curl_infotype type, char* data, size_t size
 
     if (type == CURLINFO_HEADER_OUT) {
         String requestHeader(data, size);
-        auto headerFields = requestHeader.split("\r\n");
+        auto headerFields = requestHeader.split("\r\n"_s);
         // Remove the request line
         if (headerFields.size())
             headerFields.remove(0);

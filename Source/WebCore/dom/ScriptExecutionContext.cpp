@@ -38,6 +38,7 @@
 #include "Document.h"
 #include "ErrorEvent.h"
 #include "FontLoadRequest.h"
+#include "FrameDestructionObserverInlines.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWindow.h"
 #include "JSWorkerGlobalScope.h"
@@ -175,6 +176,10 @@ ScriptExecutionContext::~ScriptExecutionContext()
 
     m_inScriptExecutionContextDestructor = true;
 #endif // ASSERT_ENABLED
+
+    auto callbacks = WTFMove(m_notificationCallbacks);
+    for (auto& callback : callbacks.values())
+        callback();
 
 #if ENABLE(SERVICE_WORKER)
     setActiveServiceWorker(nullptr);
@@ -678,6 +683,18 @@ bool ScriptExecutionContext::postTaskTo(ScriptExecutionContextIdentifier identif
     return true;
 }
 
+bool ScriptExecutionContext::postTaskForModeToWorkerOrWorklet(ScriptExecutionContextIdentifier identifier, Task&& task, const String& mode)
+{
+    Locker locker { allScriptExecutionContextsMapLock };
+    auto* context = dynamicDowncast<WorkerOrWorkletGlobalScope>(allScriptExecutionContextsMap().get(identifier));
+
+    if (!context)
+        return false;
+
+    context->postTaskForMode(WTFMove(task), mode);
+    return true;
+}
+
 bool ScriptExecutionContext::ensureOnContextThread(ScriptExecutionContextIdentifier identifier, Task&& task)
 {
     ScriptExecutionContext* context = nullptr;
@@ -753,6 +770,18 @@ ScriptExecutionContext::HasResourceAccess ScriptExecutionContext::canAccessResou
         return HasResourceAccess::Yes;
     }
     RELEASE_ASSERT_NOT_REACHED();
+}
+
+ScriptExecutionContext::NotificationCallbackIdentifier ScriptExecutionContext::addNotificationCallback(CompletionHandler<void()>&& callback)
+{
+    auto identifier = NotificationCallbackIdentifier::generateThreadSafe();
+    m_notificationCallbacks.add(identifier, WTFMove(callback));
+    return identifier;
+}
+
+CompletionHandler<void()> ScriptExecutionContext::takeNotificationCallback(NotificationCallbackIdentifier identifier)
+{
+    return m_notificationCallbacks.take(identifier);
 }
 
 } // namespace WebCore

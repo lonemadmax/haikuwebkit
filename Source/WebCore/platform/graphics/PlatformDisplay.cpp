@@ -177,15 +177,17 @@ PlatformDisplay::PlatformDisplay(GdkDisplay* display)
     , m_eglDisplay(EGL_NO_DISPLAY)
 #endif
 {
+    if (m_sharedDisplay) {
 #if USE(ATSPI) && USE(GTK4)
-    if (const char* atspiBusAddress = static_cast<const char*>(g_object_get_data(G_OBJECT(display), "-gtk-atspi-bus-address")))
-        m_accessibilityBusAddress = String::fromUTF8(atspiBusAddress);
+        if (const char* atspiBusAddress = static_cast<const char*>(g_object_get_data(G_OBJECT(m_sharedDisplay.get()), "-gtk-atspi-bus-address")))
+            m_accessibilityBusAddress = String::fromUTF8(atspiBusAddress);
 #endif
 
-    g_signal_connect(m_sharedDisplay.get(), "closed", G_CALLBACK(+[](GdkDisplay*, gboolean, gpointer userData) {
-        auto& platformDisplay = *static_cast<PlatformDisplay*>(userData);
-        platformDisplay.sharedDisplayDidClose();
-    }), this);
+        g_signal_connect(m_sharedDisplay.get(), "closed", G_CALLBACK(+[](GdkDisplay*, gboolean, gpointer userData) {
+            auto& platformDisplay = *static_cast<PlatformDisplay*>(userData);
+            platformDisplay.sharedDisplayDidClose();
+        }), this);
+    }
 }
 
 void PlatformDisplay::sharedDisplayDidClose()
@@ -266,6 +268,20 @@ void PlatformDisplay::initializeEGLDisplay()
 
     m_eglMajorVersion = majorVersion;
     m_eglMinorVersion = minorVersion;
+
+    {
+        const char* extensionsString = eglQueryString(m_eglDisplay, EGL_EXTENSIONS);
+        auto displayExtensions = StringView::fromLatin1(extensionsString).split(' ');
+        auto findExtension =
+            [&](auto extensionName) {
+                return std::any_of(displayExtensions.begin(), displayExtensions.end(),
+                    [&](auto extensionEntry) {
+                        return extensionEntry == extensionName;
+                    });
+            };
+
+        m_eglExtensions.EXT_image_dma_buf_import_modifiers = findExtension("EGL_EXT_image_dma_buf_import_modifiers"_s);
+    }
 
     eglDisplays().add(this);
 

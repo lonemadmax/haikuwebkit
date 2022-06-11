@@ -46,10 +46,11 @@ struct HTTPServer::RequestData : public ThreadSafeRefCounted<RequestData, WTF::D
             map.add(pair.first, pair.second);
         return map;
     }(responses)) { }
-    
+
     size_t requestCount { 0 };
     HashMap<String, HTTPResponse> requestMap;
     Vector<Connection> connections;
+    Vector<CoroutineHandle<Task::promise_type>> coroutineHandles;
 };
 
 static RetainPtr<nw_protocol_definition_t> proxyDefinition(HTTPServer::Protocol protocol)
@@ -214,6 +215,21 @@ HTTPServer::HTTPServer(Function<void(Connection)>&& connectionHandler, Protocol 
     startListening(m_listener.get());
 }
 
+HTTPServer::HTTPServer(UseCoroutines, WTF::Function<Task(Connection)>&& connectionHandler, Protocol protocol)
+    : m_requestData(adoptRef(*new RequestData({ })))
+    , m_listener(adoptNS(nw_listener_create(listenerParameters(protocol, nullptr, nullptr, { }).get())))
+    , m_protocol(protocol)
+{
+    nw_listener_set_queue(m_listener.get(), dispatch_get_main_queue());
+    nw_listener_set_new_connection_handler(m_listener.get(), makeBlockPtr([requestData = m_requestData, connectionHandler = WTFMove(connectionHandler)] (nw_connection_t connection) {
+        requestData->connections.append(Connection(connection));
+        nw_connection_set_queue(connection, dispatch_get_main_queue());
+        nw_connection_start(connection);
+        requestData->coroutineHandles.append(connectionHandler(Connection(connection)).handle);
+    }).get());
+    startListening(m_listener.get());
+}
+
 HTTPServer::~HTTPServer() = default;
 
 void HTTPServer::addResponse(String&& path, HTTPResponse&& response)
@@ -237,7 +253,15 @@ void HTTPServer::respondWithChallengeThenOK(Connection connection)
         "Content-Length: 0\r\n"
         "WWW-Authenticate: Basic realm=\"testrealm\"\r\n\r\n"_s;
         connection.send(challengeHeader, [connection] {
-            respondWithOK(connection);
+            connection.receiveHTTPRequest([connection] (Vector<char>&&) {
+                connection.send(
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Length: 34\r\n\r\n"
+                    "<script>alert('success!')</script>"_s, [connection] {
+                        respondWithChallengeThenOK(connection);
+                    }
+                );
+            });
         });
     });
 }
@@ -421,6 +445,31 @@ void Connection::receiveHTTPRequest(CompletionHandler<void(Vector<char>&&)>&& co
         } else
             connection.receiveHTTPRequest(WTFMove(completionHandler), WTFMove(buffer));
     });
+}
+
+ReceiveOperation Connection::awaitableReceiveHTTPRequest() const
+{
+    return { *this };
+}
+
+void ReceiveOperation::await_suspend(std::experimental::coroutine_handle<> handle)
+{
+    m_connection.receiveHTTPRequest([this, handle](Vector<char>&& result) mutable {
+        m_result = WTFMove(result);
+        handle();
+    });
+}
+
+void SendOperation::await_suspend(std::experimental::coroutine_handle<> handle)
+{
+    m_connection.send(WTFMove(m_data), [handle] (bool) mutable {
+        handle();
+    });
+}
+
+SendOperation Connection::awaitableSend(String&& message)
+{
+    return { dataFromString(WTFMove(message)), *this };
 }
 
 void Connection::send(String&& message, CompletionHandler<void()>&& completionHandler) const

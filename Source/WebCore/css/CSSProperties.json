@@ -92,6 +92,10 @@
         "Indicates that this CSS property is color-related (populates",
         "CSSProperty::isColorProperty().",
         "",
+        "* fast-path-inherited:",
+        "Indicates that this CSS property can use the fast-path inheritance mechanism.",
+        "This generates code that disables the mechanism if the property is explicitly mutated.",
+        "",
         "* logical-property-group:",
         "Indicates that this CSS property belongs to a logical property group",
         "(https://drafts.csswg.org/css-logical/#logical-property-group)",
@@ -172,6 +176,14 @@
         "The name of the flag on Settings (e.g. \"CSSOMViewSmoothScrolling\")",
         "that conditionally enables the property.",
         "",
+        "* computable:",
+        "Whether the property should be indexed on computed styles.",
+        "If omitted, the property will be computable by default,",
+        "except if it has \"skip-builder\" and is not logical,",
+        "or if it's a shorthand with multiple indexed longhands.",
+        "Internal properties (\"internal-only\") are never computable,",
+        "and setting this flag to true is an error.",
+        "",
         "2. Lesser known capabilities of this file format",
         "",
         "Conditional CSS keyword value:",
@@ -250,7 +262,8 @@
             "codegen-properties": {
                 "visited-link-color-support": true,
                 "color-property": true,
-                "high-priority": true
+                "high-priority": true,
+                "fast-path-inherited": true
             },
             "status": {
                 "comment": "All the values from CSS Color Level 3 are supported, as well as the 8- and 4-digit forms of hex color, and the color() function."
@@ -881,6 +894,7 @@
         },
         "all": {
             "codegen-properties": {
+                "computable": false,
                 "longhands": [
                     "all"
                 ]
@@ -3701,7 +3715,7 @@
             },
             "specification": {
                 "category": "css-motion-path",
-                "url": "https://drafts.fxtf.org/motion-1/#offset-anchor-property"
+                "url": "https://drafts.fxtf.org/motion-1/#offset-rotate-property"
             }
         },
         "offset": {
@@ -3712,7 +3726,8 @@
                     "offset-position",
                     "offset-anchor",
                     "offset-rotate"
-                ]
+                ],
+                "settings-flag": "cssMotionPathEnabled"
             },
             "specification": {
                 "category": "css-motion-path",
@@ -5149,47 +5164,17 @@
                 "push-button",
                 "square-button",
                 "button",
-                "default-button",
-                "inner-spin-button",
                 "listbox",
-                "listitem",
-                "media-controls-dark-bar-background",
-                "media-controls-light-bar-background",
-                "media-fullscreen-volume-slider",
-                "media-fullscreen-volume-slider-thumb",
-                "media-play-button",
-                "media-slider",
-                "media-sliderthumb",
-                "media-volume-slider",
-                "media-volume-slider-mute-button",
-                "media-volume-sliderthumb",
                 "menulist",
                 "menulist-button",
                 "meter",
                 "progress-bar",
-                "progress-bar-value",
                 "slider-horizontal",
                 "slider-vertical",
-                "sliderthumb-horizontal",
-                "sliderthumb-vertical",
-                "caret",
                 "searchfield",
-                "searchfield-decoration",
-                "searchfield-results-decoration",
-                "searchfield-results-button",
-                "searchfield-cancel-button",
-                "snapshotted-plugin-overlay",
                 "textfield",
-                "relevancy-level-indicator",
-                "continuous-capacity-level-indicator",
-                "discrete-capacity-level-indicator",
-                "rating-level-indicator",
                 "-apple-pay-button",
                 "textarea",
-                "attachment",
-                "caps-lock-indicator",
-                "color-well",
-                "list-button",
                 "auto",
                 "none"
             ],
@@ -6685,14 +6670,25 @@
         },
         "perspective": {
             "codegen-properties": {
-                "aliases": [
-                    "-webkit-perspective"
-                ],
                 "conditional-converter": "Perspective"
             },
             "specification": {
                 "category": "css-transforms",
-                "url": "https://www.w3.org/TR/css-transforms-1/#transform-style-property"
+                "url": "https://www.w3.org/TR/css-transforms-2/#perspective-property"
+            }
+        },
+        "-webkit-perspective": {
+            "codegen-properties": {
+                "longhands": [
+                    "perspective"
+                ]
+            },
+            "specification": {
+                "category": "css-transforms",
+                "url": "https://www.w3.org/TR/css-transforms-2/#perspective-property"
+            },
+            "status": {
+                "comment": "Differs from unprefixed perspective only through support for unitless values, which are interpreted as 'px'."
             }
         },
         "perspective-origin": {
@@ -6715,6 +6711,7 @@
                 "aliases": [
                     "-webkit-perspective-origin-x"
                 ],
+                "computable": false,
                 "converter": "PositionComponentX"
             },
             "specification": {
@@ -6727,6 +6724,7 @@
                 "aliases": [
                     "-webkit-perspective-origin-y"
                 ],
+                "computable": false,
                 "converter": "PositionComponentY"
             },
             "specification": {
@@ -7187,6 +7185,7 @@
                 "aliases": [
                     "-webkit-transform-origin-x"
                 ],
+                "computable": false,
                 "converter": "PositionComponentX"
             },
             "specification": {
@@ -7199,6 +7198,7 @@
                 "aliases": [
                     "-webkit-transform-origin-y"
                 ],
+                "computable": false,
                 "converter": "PositionComponentY"
             },
             "specification": {
@@ -7211,6 +7211,7 @@
                 "aliases": [
                     "-webkit-transform-origin-z"
                 ],
+                "computable": false,
                 "converter": "ComputedLength<float>"
             },
             "specification": {

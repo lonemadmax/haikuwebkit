@@ -1313,6 +1313,11 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
             LOG_WITH_STREAM(EventRegions, stream << "  needs editable event region: " << (document().mayHaveEditableElements() && page().shouldBuildEditableRegion()));
         }
 #endif
+
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+        needsTraverseDescendants |= page().shouldBuildInteractionRegions();
+#endif
+
         if (!needsTraverseDescendants)
             return;
     }
@@ -1445,9 +1450,6 @@ void RenderBlock::paintContinuationOutlines(PaintInfo& info, const LayoutPoint& 
 
 bool RenderBlock::shouldPaintSelectionGaps() const
 {
-    if (settings().selectionPaintingWithoutSelectionGapsEnabled())
-        return false;
-
     return selectionState() != HighlightState::None && style().visibility() == Visibility::Visible && isSelectionRoot();
 }
 
@@ -2258,7 +2260,7 @@ void RenderBlock::offsetForContents(LayoutPoint& offset) const
 void RenderBlock::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
     ASSERT(!childrenInline());
-    auto shouldIgnoreDescendantContentForLogicalWidth = shouldApplySizeContainment(*this) || shouldApplyInlineSizeContainment(*this);
+    auto shouldIgnoreDescendantContentForLogicalWidth = shouldApplySizeOrStyleContainment({ Containment::Size, Containment::InlineSize });
     if (!shouldIgnoreDescendantContentForLogicalWidth)
         computeBlockPreferredLogicalWidths(minLogicalWidth, maxLogicalWidth);
 
@@ -2293,7 +2295,7 @@ void RenderBlock::computePreferredLogicalWidths()
 
 void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
-    ASSERT(!shouldApplyInlineSizeContainment(*this));
+    ASSERT(!shouldApplyInlineSizeContainment());
 
     const RenderStyle& styleToUse = style();
     bool nowrap = styleToUse.whiteSpace() == WhiteSpace::NoWrap;
@@ -2531,7 +2533,7 @@ LayoutUnit RenderBlock::minLineHeightForReplacedRenderer(bool isFirstLine, Layou
 
 std::optional<LayoutUnit> RenderBlock::firstLineBaseline() const
 {
-    if (shouldApplyLayoutContainment(*this))
+    if (shouldApplyLayoutContainment())
         return std::nullopt;
 
     if (isWritingModeRoot() && !isRubyRun())
@@ -2549,7 +2551,7 @@ std::optional<LayoutUnit> RenderBlock::firstLineBaseline() const
 
 std::optional<LayoutUnit> RenderBlock::inlineBlockBaseline(LineDirectionMode lineDirection) const
 {
-    if (shouldApplyLayoutContainment(*this))
+    if (shouldApplyLayoutContainment())
         return synthesizedBaselineFromBorderBox(*this, lineDirection) + (lineDirection == HorizontalLine ? marginBottom() : marginLeft());
 
     if (isWritingModeRoot() && !isRubyRun())
@@ -3446,6 +3448,13 @@ LayoutUnit RenderBlock::adjustContentBoxLogicalHeightForBoxSizing(std::optional<
     else
         result -= intrinsicBorderForFieldset();
     return std::max(0_lu, result);
+}
+
+LayoutUnit RenderBlock::adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit height) const
+{
+    if (style().boxSizing() == BoxSizing::BorderBox)
+        return height + borderAndPaddingLogicalHeight();
+    return height + intrinsicBorderForFieldset();
 }
 
 void RenderBlock::paintExcludedChildrenInBorder(PaintInfo& paintInfo, const LayoutPoint& paintOffset)

@@ -85,6 +85,8 @@
 #include "HTMLOptionElement.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSelectElement.h"
+#include "HTMLTableElement.h"
+#include "HTMLTableSectionElement.h"
 #include "HTMLTextFormControlElement.h"
 #include "InlineRunAndOffset.h"
 #include "MathMLElement.h"
@@ -114,7 +116,9 @@
 #include "TextIterator.h"
 #include <utility>
 #include <wtf/DataLog.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
+#include <wtf/text/AtomString.h>
 
 #if COMPILER(MSVC)
 // See https://msdn.microsoft.com/en-us/library/1wea5zwe.aspx
@@ -306,6 +310,7 @@ Element* AXObjectCache::currentModalNode()
         return activeModalDialog;
     }
 
+    SetForScope retrievingCurrentModalNode(m_isRetrievingCurrentModalNode, true);
     // If any of the modal nodes contains the keyboard focus, we want to pick that one.
     // If not, we want to pick the last visible dialog in the DOM.
     RefPtr<Element> focusedElement = document().focusedElement();
@@ -899,6 +904,7 @@ void AXObjectCache::remove(Node& node)
         m_deferredAttributeChange.remove(downcast<Element>(&node));
         m_modalElementsSet.remove(downcast<Element>(&node));
         m_deferredRecomputeIsIgnoredList.remove(downcast<Element>(node));
+        m_deferredRecomputeTableIsExposedList.remove(downcast<Element>(node));
         m_deferredSelectedChildredChangedList.remove(downcast<Element>(node));
         m_deferredModalChangedList.remove(downcast<Element>(node));
         m_deferredMenuListChange.remove(downcast<Element>(node));
@@ -944,7 +950,7 @@ Vector<RefPtr<AXCoreObject>> AXObjectCache::objectsForIDs(const Vector<AXID>& ax
 {
     ASSERT(isMainThread());
 
-    return axIDs.map([this] (AXID axID) -> RefPtr<AXCoreObject> {
+    return axIDs.map([this] (const auto& axID) -> RefPtr<AXCoreObject> {
         ASSERT(axID.isValid());
         return objectFromAXID(axID);
     });
@@ -1139,6 +1145,12 @@ void AXObjectCache::childrenChanged(AccessibilityObject* object)
         return;
     m_deferredChildrenChangedList.add(object);
 
+    // Adding or removing rows from a table can cause it to change from layout table to AX data table and vice versa, so queue up recomputation of that for the parent table.
+    if (auto* tableSectionElement = dynamicDowncast<HTMLTableSectionElement>(object->element())) {
+        if (auto* parentTable = tableSectionElement->findParentTable().get())
+            m_deferredRecomputeTableIsExposedList.add(*parentTable);
+    }
+
     if (!m_performCacheUpdateTimer.isActive())
         m_performCacheUpdateTimer.startOneShot(0_s);
 }
@@ -1292,7 +1304,18 @@ void AXObjectCache::handleMenuItemSelected(Node* node)
     
     postNotification(getOrCreate(node), &document(), AXMenuListItemSelected);
 }
-    
+
+void AXObjectCache::handleRowCountChanged(AXCoreObject* axObject, Document* document)
+{
+    if (!axObject)
+        return;
+
+    if (auto* axTable = dynamicDowncast<AccessibilityTable>(axObject))
+        axTable->recomputeIsExposable();
+
+    postNotification(axObject, document, AXRowCountChanged);
+}
+
 void AXObjectCache::deferFocusedUIElementChangeIfNeeded(Node* oldNode, Node* newNode)
 {
     if (nodeAndRendererAreValid(newNode) && rendererNeedsDeferredUpdate(*newNode->renderer())) {
@@ -1789,7 +1812,7 @@ void AXObjectCache::handleAriaExpandedChange(Node* node)
 
         // Post that the ancestor's row count changed.
         if (ancestor)
-            postNotification(ancestor, &document(), AXRowCountChanged);
+            handleRowCountChanged(ancestor, &document());
 
         // Post that the specific row either collapsed or expanded.
         auto role = object->roleValue();
@@ -1800,10 +1823,33 @@ void AXObjectCache::handleAriaExpandedChange(Node* node)
     }
 }
 
-void AXObjectCache::handleActiveDescendantChanged(Node* node)
+void AXObjectCache::handleActiveDescendantChanged(Element& element)
 {
-    if (AccessibilityObject* obj = getOrCreate(node))
-        obj->handleActiveDescendantChanged();
+    if (!document().frame()->selection().isFocusedAndActive() || document().focusedElement() != &element)
+        return;
+
+    auto* object = getOrCreate(&element);
+    if (!object)
+        return;
+
+    auto* activeDescendant = object->activeDescendant();
+    // We want to notify that the combo box has changed its active descendant,
+    // but we do not want to change the focus, because focus should remain with the combo box.
+    if (activeDescendant && (object->isComboBox() || object->shouldFocusActiveDescendant())) {
+        auto target = object;
+
+#if PLATFORM(COCOA)
+        // If the combobox's activeDescendant is inside a descendant owned or controlled by the combobox, that descendant should be the target of the notification and not the combobox itself.
+        if (object->isComboBox()) {
+            if (auto* ownedObject = Accessibility::findRelatedObjectInAncestry(*object, AXRelationType::OwnerFor, *activeDescendant))
+                target = ownedObject;
+            else if (auto* controlledObject = Accessibility::findRelatedObjectInAncestry(*object, AXRelationType::ControllerFor, *activeDescendant))
+                target = controlledObject;
+        }
+#endif
+
+        postNotification(target, &document(), AXActiveDescendantChanged);
+    }
 }
 
 void AXObjectCache::handleRoleChange(AccessibilityObject* axObject)
@@ -1845,11 +1891,14 @@ bool AXObjectCache::shouldProcessAttributeChange(const QualifiedName& attrName, 
 
     return false;
 }
-    
+
 void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element* element)
 {
     if (!shouldProcessAttributeChange(attrName, element))
         return;
+
+    if (relationAttributes().contains(attrName))
+        relationsNeedUpdate(true);
 
     if (attrName == roleAttr) {
         if (auto* axObject = get(element))
@@ -1866,19 +1915,21 @@ void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     else if (attrName == langAttr)
         updateIsolatedTree(get(element), AXObjectCache::AXLanguageChanged);
-    else if (attrName == idAttr)
+    else if (attrName == idAttr) {
+        relationsNeedUpdate(true);
         updateIsolatedTree(get(element), AXObjectCache::AXIdAttributeChanged);
+    }
 #endif
     else if (attrName == openAttr && is<HTMLDialogElement>(*element)) {
         deferModalChange(element);
         recomputeIsIgnored(element->parentNode());
     }
 
-    if (!attrName.localName().string().startsWith("aria-"))
+    if (!attrName.localName().string().startsWith("aria-"_s))
         return;
 
     if (attrName == aria_activedescendantAttr)
-        handleActiveDescendantChanged(element);
+        handleActiveDescendantChanged(*element);
     else if (attrName == aria_busyAttr)
         postNotification(element, AXObjectCache::AXElementBusyChanged);
     else if (attrName == aria_valuenowAttr || attrName == aria_valuetextAttr)
@@ -1887,10 +1938,18 @@ void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element
         textChanged(element);
     else if (attrName == aria_checkedAttr)
         checkedStateChanged(element);
+    else if (attrName == aria_describedbyAttr)
+        postNotification(element, AXDescribedByChanged);
+    else if (attrName == aria_grabbedAttr)
+        postNotification(element, AXGrabbedStateChanged);
+    else if (attrName == aria_posinsetAttr)
+        postNotification(element, AXPositionInSetChanged);
     else if (attrName == aria_selectedAttr)
         selectedStateChanged(element);
     else if (attrName == aria_expandedAttr)
         handleAriaExpandedChange(element);
+    else if (attrName == aria_haspopupAttr)
+        postNotification(element, AXHasPopupChanged);
     else if (attrName == aria_hiddenAttr) {
         if (auto* parent = get(element->parentNode()))
             handleChildrenChanged(*parent);
@@ -1914,6 +1973,8 @@ void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element
         postNotification(element, AXObjectCache::AXReadOnlyStatusChanged);
     else if (attrName == aria_requiredAttr)
         postNotification(element, AXObjectCache::AXRequiredStatusChanged);
+    else if (attrName == aria_rowcountAttr)
+        handleRowCountChanged(get(element), element ? &element->document() : nullptr);
     else if (attrName == aria_sortAttr)
         postNotification(element, AXObjectCache::AXSortDirectionChanged);
 }
@@ -3232,7 +3293,8 @@ static void filterListForRemoval(const ListHashSet<T>& list, const Document& doc
         conditionallyAddNodeToFilterList(node, document, nodesToRemove);
 }
 
-static void filterWeakHashSetForRemoval(WeakHashSet<Element>& weakHashSet, const Document& document, HashSet<Ref<Node>>& nodesToRemove)
+template<typename T>
+static void filterWeakHashSetForRemoval(WeakHashSet<T>& weakHashSet, const Document& document, HashSet<Ref<Node>>& nodesToRemove)
 {
     weakHashSet.forEach([&] (auto& element) {
         conditionallyAddNodeToFilterList(&element, document, nodesToRemove);
@@ -3247,6 +3309,7 @@ void AXObjectCache::prepareForDocumentDestruction(const Document& document)
     filterListForRemoval(m_deferredTextChangedList, document, nodesToRemove);
     filterListForRemoval(m_deferredNodeAddedOrRemovedList, document, nodesToRemove);
     filterWeakHashSetForRemoval(m_deferredRecomputeIsIgnoredList, document, nodesToRemove);
+    filterWeakHashSetForRemoval(m_deferredRecomputeTableIsExposedList, document, nodesToRemove);
     filterWeakHashSetForRemoval(m_deferredSelectedChildredChangedList, document, nodesToRemove);
     filterWeakHashSetForRemoval(m_deferredModalChangedList, document, nodesToRemove);
     filterWeakHashSetForRemoval(m_deferredMenuListChange, document, nodesToRemove);
@@ -3289,6 +3352,12 @@ void AXObjectCache::performDeferredCacheUpdate()
     if (m_performingDeferredCacheUpdate)
         return;
     SetForScope performingDeferredCacheUpdate(m_performingDeferredCacheUpdate, true);
+
+    m_deferredRecomputeTableIsExposedList.forEach([this] (auto& tableElement) {
+        if (auto* axTable = dynamicDowncast<AccessibilityTable>(getOrCreate(&tableElement)))
+            axTable->recomputeIsExposable();
+    });
+    m_deferredRecomputeTableIsExposedList.clear();
 
     for (auto* nodeChild : m_deferredNodeAddedOrRemovedList) {
         handleMenuOpened(nodeChild);
@@ -3372,7 +3441,6 @@ void AXObjectCache::updateIsolatedTree(AXCoreObject& object, AXNotification noti
 void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObject>, AXNotification>>& notifications)
 {
     AXTRACE("AXObjectCache::updateIsolatedTree"_s);
-    AXLOG(*this);
 
     if (!m_pageID) {
         AXLOG("No pageID.");
@@ -3390,6 +3458,14 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         bool node { false };
     };
     HashMap<AXID, UpdatedFields> updatedObjects;
+    auto updateNode = [&] (RefPtr<AXCoreObject> axObject) {
+        auto updatedFields = updatedObjects.get(axObject->objectID());
+        if (!updatedFields.node) {
+            updatedObjects.set(axObject->objectID(), UpdatedFields { updatedFields.children, true });
+            tree->updateNode(*axObject);
+        }
+    };
+
     for (const auto& notification : notifications) {
         AXLOG(notification);
         if (!notification.first || !notification.first->objectID().isValid())
@@ -3409,6 +3485,10 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         case AXExpandedChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsExpanded);
             break;
+        case AXPositionInSetChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::PosInSet);
+            tree->updateNodeProperty(*notification.first, AXPropertyName::SupportsPosInSet);
+            break;
         case AXSortDirectionChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::SortDirection);
             break;
@@ -3422,25 +3502,28 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         case AXRequiredStatusChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsRequired);
             break;
+        case AXSelectedStateChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::IsSelected);
+            break;
         case AXActiveDescendantChanged:
         case AXAriaRoleChanged:
+        case AXDescribedByChanged:
         case AXElementBusyChanged:
+        case AXGrabbedStateChanged:
+        case AXHasPopupChanged:
         case AXInvalidStatusChanged:
         case AXMenuListValueChanged:
         case AXPressedStateChanged:
         case AXSelectedChildrenChanged:
         case AXTextChanged:
-        case AXValueChanged: {
-            auto updatedFields = updatedObjects.get(notification.first->objectID());
-            if (!updatedFields.node) {
-                updatedObjects.set(notification.first->objectID(), UpdatedFields { updatedFields.children, true });
-                tree->updateNode(*notification.first);
-            }
+        case AXValueChanged:
+            updateNode(notification.first);
             break;
-        }
+        case AXRowCountChanged:
+            updateNode(notification.first);
+            FALLTHROUGH;
         case AXChildrenChanged:
         case AXLanguageChanged:
-        case AXRowCountChanged:
         case AXRowCollapsed:
         case AXRowExpanded: {
             auto updatedFields = updatedObjects.get(notification.first->objectID());
@@ -3584,6 +3667,191 @@ AXTreeData AXObjectCache::treeData()
 #endif
 
     return data;
+}
+
+Vector<QualifiedName>& AXObjectCache::relationAttributes()
+{
+    static NeverDestroyed<Vector<QualifiedName>> relationAttributes = Vector<QualifiedName> {
+        aria_activedescendantAttr,
+        aria_controlsAttr,
+        aria_describedbyAttr,
+        aria_detailsAttr,
+        aria_errormessageAttr,
+        aria_flowtoAttr,
+        aria_labelledbyAttr,
+        aria_labeledbyAttr,
+        aria_ownsAttr,
+        headersAttr,
+    };
+    return relationAttributes;
+}
+
+AXRelationType AXObjectCache::symmetricRelation(AXRelationType relationType)
+{
+    switch (relationType) {
+    case AXRelationType::ActiveDescendant:
+        return AXRelationType::ActiveDescendantOf;
+    case AXRelationType::ActiveDescendantOf:
+        return AXRelationType::ActiveDescendant;
+    case AXRelationType::ControlledBy:
+        return AXRelationType::ControllerFor;
+    case AXRelationType::ControllerFor:
+        return AXRelationType::ControlledBy;
+    case AXRelationType::DescribedBy:
+        return AXRelationType::DescriptionFor;
+    case AXRelationType::DescriptionFor:
+        return AXRelationType::DescribedBy;
+    case AXRelationType::Details:
+        return AXRelationType::DetailsFor;
+    case AXRelationType::DetailsFor:
+        return AXRelationType::Details;
+    case AXRelationType::ErrorMessage:
+        return AXRelationType::ErrorMessageFor;
+    case AXRelationType::ErrorMessageFor:
+        return AXRelationType::ErrorMessage;
+    case AXRelationType::FlowsFrom:
+        return AXRelationType::FlowsTo;
+    case AXRelationType::FlowsTo:
+        return AXRelationType::FlowsFrom;
+    case AXRelationType::Headers:
+        return AXRelationType::HeaderFor;
+    case AXRelationType::HeaderFor:
+        return AXRelationType::Headers;
+    case AXRelationType::LabelledBy:
+        return AXRelationType::LabelFor;
+    case AXRelationType::LabelFor:
+        return AXRelationType::LabelledBy;
+    case AXRelationType::OwnedBy:
+        return AXRelationType::OwnerFor;
+    case AXRelationType::OwnerFor:
+        return AXRelationType::OwnedBy;
+    case AXRelationType::None:
+        return AXRelationType::None;
+    }
+}
+
+AXRelationType AXObjectCache::attributeToRelationType(const QualifiedName& attribute)
+{
+    if (attribute == aria_activedescendantAttr)
+        return AXRelationType::ActiveDescendant;
+    if (attribute == aria_controlsAttr)
+        return AXRelationType::ControllerFor;
+    if (attribute == aria_describedbyAttr)
+        return AXRelationType::DescribedBy;
+    if (attribute == aria_detailsAttr)
+        return AXRelationType::Details;
+    if (attribute == aria_errormessageAttr)
+        return AXRelationType::ErrorMessage;
+    if (attribute == aria_flowtoAttr)
+        return AXRelationType::FlowsTo;
+    if (attribute == aria_labelledbyAttr || attribute == aria_labeledbyAttr)
+        return AXRelationType::LabelledBy;
+    if (attribute == aria_ownsAttr)
+        return AXRelationType::OwnerFor;
+    if (attribute == headersAttr)
+        return AXRelationType::Headers;
+    return AXRelationType::None;
+}
+
+void AXObjectCache::addRelation(Element* origin, Element* target, AXRelationType relationType)
+{
+    if (!origin || !target || origin == target || relationType == AXRelationType::None) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+    addRelation(getOrCreate(origin), getOrCreate(target), relationType);
+}
+
+void AXObjectCache::addRelation(AccessibilityObject* origin, AccessibilityObject* target, AXRelationType relationType, AddingSymmetricRelation addingSymmetricRelation)
+{
+    if (!origin || !target || origin == target || relationType == AXRelationType::None)
+        return;
+
+    auto relationsIterator = m_relations.find(origin->objectID());
+    if (relationsIterator == m_relations.end()) {
+        // No relations for this object, add the first one.
+        m_relations.add(origin->objectID(), Relations { { static_cast<uint8_t>(relationType), { target->objectID() } } });
+    } else if (auto targetsIterator = relationsIterator->value.find(static_cast<uint8_t>(relationType)); targetsIterator == relationsIterator->value.end()) {
+        // No relation of this type for this object, add the first one.
+        relationsIterator->value.add(static_cast<uint8_t>(relationType), Vector<AXID> { target->objectID() });
+    } else {
+        // There are already relations of this type for the object. Add the new relation.
+        if (relationType == AXRelationType::ActiveDescendant
+            || relationType == AXRelationType::OwnedBy) {
+            // There should be only one active descendant and only one owner. Enforce that by removing any existing targets.
+            targetsIterator->value.clear();
+        }
+        targetsIterator->value.append(target->objectID());
+    }
+
+    if (addingSymmetricRelation == AddingSymmetricRelation::No) {
+        if (auto symmetric = symmetricRelation(relationType); symmetric != AXRelationType::None)
+            addRelation(target, origin, symmetric, AddingSymmetricRelation::Yes);
+    }
+}
+
+void AXObjectCache::updateRelationsIfNeeded()
+{
+    AXTRACE("AXObjectCache::updateRelationsIfNeeded"_s);
+
+    if (!m_relationsNeedUpdate)
+        return;
+    relationsNeedUpdate(false);
+    AXLOG("Updating relations.");
+    m_relations.clear();
+
+    struct RelationOrigin {
+        Element* originElement { nullptr };
+        AtomString targetID;
+        AXRelationType relationType;
+    };
+
+    struct RelationTarget {
+        Element* targetElement { nullptr };
+        AtomString targetID;
+    };
+
+    Vector<RelationOrigin> origins;
+    Vector<RelationTarget> targets;
+    for (auto& element : descendantsOfType<Element>(m_document.rootNode())) {
+        // Collect all possible origins, i.e., elements with non-empty relation attributes.
+        for (const auto& attribute : relationAttributes()) {
+            auto& idsString = element.attributeWithoutSynchronization(attribute);
+            SpaceSplitString ids(idsString, SpaceSplitString::ShouldFoldCase::No);
+            for (size_t i = 0; i < ids.size(); ++i)
+                origins.append({ &element, ids[i], attributeToRelationType(attribute) });
+        }
+
+        // Collect all possible targets, i.e., elements with a non-empty id attribute.
+        auto elementID = element.attributeWithoutSynchronization(idAttr);
+        if (!elementID.isEmpty())
+            targets.append({ &element, elementID });
+    }
+
+    for (const auto& origin : origins) {
+        for (const auto& target : targets) {
+            if (origin.originElement == target.targetElement) {
+                // Relationship should be between different elements.
+                continue;
+            }
+
+            if (origin.targetID == target.targetID)
+                addRelation(origin.originElement, target.targetElement, origin.relationType);
+        }
+    }
+}
+
+std::optional<Vector<AXID>> AXObjectCache::relatedObjectsFor(const AXCoreObject& object, AXRelationType relationType)
+{
+    updateRelationsIfNeeded();
+    auto relationsIterator = m_relations.find(object.objectID());
+    if (relationsIterator == m_relations.end())
+        return std::nullopt;
+
+    auto targetsIterator = relationsIterator->value.find(static_cast<uint8_t>(relationType));
+    if (targetsIterator == relationsIterator->value.end())
+        return std::nullopt;
+    return targetsIterator->value;
 }
 
 AXAttributeCacheEnabler::AXAttributeCacheEnabler(AXObjectCache* cache)

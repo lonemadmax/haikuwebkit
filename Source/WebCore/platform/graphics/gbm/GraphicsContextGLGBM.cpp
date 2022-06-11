@@ -30,6 +30,7 @@
 #if ENABLE(WEBGL) && USE(LIBGBM) && USE(ANGLE)
 
 #include "ANGLEHeaders.h"
+#include "DMABufEGLUtilities.h"
 #include "Logging.h"
 #include "PixelBuffer.h"
 
@@ -77,11 +78,16 @@ GCGLConfig GraphicsContextGLANGLE::platformConfig() const
 
 bool GraphicsContextGLANGLE::makeContextCurrent()
 {
+    static thread_local TLS_MODEL_INITIAL_EXEC GraphicsContextGLANGLE* s_currentContext { nullptr };
+
     auto madeCurrent =
         [&] {
-            if (EGL_GetCurrentContext() == m_contextObj)
+            if (s_currentContext == this)
                 return true;
-            return !!EGL_MakeCurrent(m_displayObj, EGL_NO_SURFACE, EGL_NO_SURFACE, m_contextObj);
+            bool current = !!EGL_MakeCurrent(m_displayObj, EGL_NO_SURFACE, EGL_NO_SURFACE, m_contextObj);
+            if (current)
+                s_currentContext = this;
+            return current;
         }();
 
     auto& contextSwapchain = static_cast<GraphicsContextGLGBM&>(*this).swapchain();
@@ -92,6 +98,7 @@ bool GraphicsContextGLANGLE::makeContextCurrent()
                 .format = DMABufFormat::create(uint32_t(contextAttributes().alpha ? DMABufFormat::FourCC::ARGB8888 : DMABufFormat::FourCC::XRGB8888)),
                 .width = std::clamp<uint32_t>(size.width(), 0, UINT_MAX),
                 .height = std::clamp<uint32_t>(size.height(), 0, UINT_MAX),
+                .flags = GBMBufferSwapchain::BufferDescription::NoFlags,
             });
 
         GLenum textureTarget = drawingBufferTextureTarget();
@@ -100,17 +107,9 @@ bool GraphicsContextGLANGLE::makeContextCurrent()
         auto result = contextSwapchain.images.ensure(contextSwapchain.drawBO->handle(),
             [&] {
                 auto dmabufObject = contextSwapchain.drawBO->createDMABufObject(0);
-
-                std::initializer_list<EGLint> attributes {
-                    EGL_WIDTH, EGLint(dmabufObject.format.planeWidth(0, dmabufObject.width)),
-                    EGL_HEIGHT, EGLint(dmabufObject.format.planeHeight(0, dmabufObject.height)),
-                    EGL_LINUX_DRM_FOURCC_EXT, static_cast<EGLint>(dmabufObject.format.planes[0].fourcc),
-                    EGL_DMA_BUF_PLANE0_FD_EXT, dmabufObject.fd[0].value(),
-                    EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(dmabufObject.stride[0]),
-                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
-                    EGL_NONE,
-                };
-                return EGL_CreateImageKHR(contextSwapchain.platformDisplay, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, (EGLClientBuffer)nullptr, std::data(attributes));
+                auto attributes = DMABufEGLUtilities::constructEGLCreateImageAttributes(dmabufObject, 0,
+                    DMABufEGLUtilities::PlaneModifiersUsage { static_cast<GraphicsContextGLGBM&>(*this).eglExtensions().EXT_image_dma_buf_import_modifiers });
+                return EGL_CreateImageKHR(contextSwapchain.platformDisplay, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, (EGLClientBuffer)nullptr, attributes.data());
             });
 
         GL_BindTexture(textureTarget, m_texture);
@@ -210,11 +209,9 @@ bool GraphicsContextGLGBM::platformInitializeContext()
 #endif
 
     Vector<EGLint> displayAttributes {
-#if !OS(WINDOWS)
         EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_OPENGLES_ANGLE,
         EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_EGL_ANGLE,
         EGL_PLATFORM_ANGLE_NATIVE_PLATFORM_TYPE_ANGLE, EGL_PLATFORM_SURFACELESS_MESA,
-#endif
         EGL_NONE,
     };
 
@@ -296,6 +293,10 @@ bool GraphicsContextGLGBM::platformInitializeContext()
         LOG(WebGL, "ANGLE makeContextCurrent failed.");
         return false;
     }
+
+    if (strstr(displayExtensions, "EGL_EXT_image_dma_buf_import_modifiers"))
+        m_eglExtensions.EXT_image_dma_buf_import_modifiers = true;
+
     LOG(WebGL, "Got EGLContext");
     return true;
 }

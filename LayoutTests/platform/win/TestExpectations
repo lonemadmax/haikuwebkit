@@ -143,8 +143,6 @@ webkit.org/b/185076 css3/color-filters [ Skip ]
 # IntersectionObserver is off by default
 webkit.org/b/188613 intersection-observer [ Skip ]
 webkit.org/b/188613 http/tests/intersection-observer [ Skip ]
-webkit.org/b/188613 fast/dom/callback-function-detached-frame-intersection-observer.html [ Skip ]
-fast/dom/callback-function-detached-frame-resize-observer.html [ Skip ]
 
 # TODO Should be moved to platform/mac <rdar://5621425>
 http/tests/misc/willCacheResponse-delegate-callback.html [ Skip ]
@@ -461,6 +459,9 @@ fast/events/mouseover-button.html [ Skip ]
 # TODO Accept header is handled by the browser
 http/tests/misc/image-checks-for-accept.html [ Skip ]
 
+# Timing out since added in https://bugs.webkit.org/show_bug.cgi?id=240750 (likely some missing AccessibilityUIElement implementation).
+accessibility/table-exposure-updates-dynamically.html [ Skip ]
+
 # Probably wrong role after adding children to list (AXGroup instead of AXList).
 accessibility/list-with-dynamically-changing-content.html [ Skip ]
 accessibility/ignored-aria-role-description.html [ Skip ]
@@ -483,6 +484,7 @@ accessibility/visible-character-range-width-changes.html [ Skip ]
 accessibility/ancestor-computation.html [ Skip ]
 
 # Missing AccessibilityUIElement::uiElementForSearchPredicate implementation.
+accessibility/aria-modal-with-text-crash.html [ Skip ]
 accessibility/display-contents-search-traversal.html [ Skip ]
 accessibility/search-traversal-after-role-change.html [ Skip ]
 accessibility/table-search-traversal.html [ Skip ]
@@ -941,6 +943,7 @@ accessibility/aria-current-state-changed-notification.html [ Skip ]
 # TODO ARIA 1.1 table related attributes are not supported
 webkit.org/b/148967 accessibility/aria-table-attributes.html [ Skip ]
 accessibility/aria-grid-with-aria-owns-rows.html [ Skip ]
+accessibility/grid-with-aria-owned-cells.html [ Skip ]
 
 # TODO webkit-font-smoothing is not supported.
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-basic-001.html [ Skip ]
@@ -953,9 +956,6 @@ webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-ru
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-shorthand-001.xht [ Skip ]
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-span-all-block-sibling-003.xht [ Skip ]
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-span-all-margin-nested-firstchild-001.xht [ Skip ]
-
-# 'transform-box' support is broken for composited elements.
-webkit.org/b/237553 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-box-will-change-transform-layer.html [ ImageOnlyFailure ]
 
 # TODO EXIF-resolution is not supported
 imported/w3c/web-platform-tests/density-size-correction/ [ Skip ]
@@ -3373,8 +3373,6 @@ fast/css/font_property_normal.html [ Failure ]
 fast/css/image-rendering-parsing.html [ Failure ]
 fast/css/shadow-multiple.html [ Failure ]
 fast/css/word-space-extra.html [ Failure ]
-fast/dom/HTMLMeterElement/meter-appearances-capacity.html [ Failure ]
-fast/dom/HTMLMeterElement/meter-appearances-rating-relevancy.html [ Failure ]
 fast/dom/HTMLMeterElement/meter-styles-changing-pseudo.html [ Failure ]
 fast/dom/HTMLMeterElement/meter-styles.html [ Failure ]
 fast/dom/HTMLProgressElement/progress-bar-value-pseudo-element.html [ Failure ]
@@ -3710,6 +3708,8 @@ fast/events/contextmenu-lookup-action-for-image.html [ Failure ]
 fast/events/webkit-media-key-events-constructor.html [ Failure ]
 fast/forms/validation-message-maxLength.html [ Failure ]
 fast/mediacapturefromelement/CanvasCaptureMediaStream-2d-events.html [ Failure ]
+# canvas.captureStream is not a function
+webkit.org/b/240380 fast/mediacapturefromelement/CanvasCaptureMediaStream-capture-out-of-DOM-canvas.html [ Failure ]
 fast/mediacapturefromelement/CanvasCaptureMediaStream-capture-out-of-DOM-element.html [ Failure ]
 fast/mediacapturefromelement/CanvasCaptureMediaStream-clone-track.html [ Failure ]
 fast/mediacapturefromelement/CanvasCaptureMediaStream-creation.html [ Failure ]
@@ -3847,6 +3847,8 @@ http/tests/security/contentSecurityPolicy/audio-redirect-blocked.html [ Timeout 
 http/tests/security/contentSecurityPolicy/block-favicon.html [ Failure Pass ]
 http/tests/websocket/tests/hybi/workers/close-code-and-reason.html [ Crash Pass ]
 svg/animations/animations-paused-in-background-page.html [ Timeout Pass ]
+svg/animations/animations-paused-when-inserted-in-hidden-document.html [ Skip ]
+svg/animations/animations-paused-when-inserted-in-hidden-document2.html [ Skip ]
 
 # FIXME: create bugs to track the following failures:
 accessibility/add-children-pseudo-element.html [ Failure ]
@@ -5039,6 +5041,13 @@ http/tests/push-api/subscribe-default-permissions.html [ Failure ]
 http/tests/push-api/subscribe-deny-permissions-on-prompt.html [ Failure ]
 http/tests/push-api/subscribe-deny-permissions.html [ Failure ]
 http/tests/push-api/subscribe-grant-permissions.html [ Failure ]
+
+webkit.org/b/240617 webanimations/offset-anchor-animation-yields-compositing.html [ Pass Failure ]
+webkit.org/b/240617 webanimations/offset-distance-animation-yields-compositing.html [ Pass Failure ]
+webkit.org/b/240617 webanimations/offset-path-animation-yields-compositing.html [ Pass Failure ]
+webkit.org/b/240617 webanimations/offset-position-animation-yields-compositing.html [ Pass Failure ]
+webkit.org/b/240617 webanimations/offset-rotate-animation-yields-compositing.html [ Pass Failure ]
+webkit.org/b/240617 webanimations/offset-shorthand-animation-yields-compositing.html [ Pass Failure ]
 
 # webkit.org/b/237344 [ Win ] 4X imported/mozilla/svg/blend(layout-tests) are constant Image Only Failures
 imported/mozilla/svg/blend-color.svg [ Skip ]

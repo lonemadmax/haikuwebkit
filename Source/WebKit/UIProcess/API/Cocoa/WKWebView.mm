@@ -53,7 +53,7 @@
 #import "ResourceLoadDelegate.h"
 #import "SafeBrowsingWarning.h"
 #import "SessionStateCoding.h"
-#import "SharedBufferCopy.h"
+#import "SharedBufferReference.h"
 #import "UIDelegate.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewGestureController.h"
@@ -1602,25 +1602,33 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 {
     auto frame = WebCore::FloatSize(self.frame.size);
 
-    auto minimumUnobscuredSize = frame - WebCore::FloatSize(maximumViewportInset.left + maximumViewportInset.right, maximumViewportInset.top + maximumViewportInset.bottom);
+    auto maximumViewportInsetSize = WebCore::FloatSize(maximumViewportInset.left + maximumViewportInset.right, maximumViewportInset.top + maximumViewportInset.bottom);
+    auto minimumUnobscuredSize = frame - maximumViewportInsetSize;
     if (minimumUnobscuredSize.isEmpty()) {
-        if (throwOnInvalidInput) {
-            [NSException raise:NSInvalidArgumentException format:@"maximumViewportInset cannot be larger than frame"];
-            return;
+        if (!maximumViewportInsetSize.isEmpty()) {
+            if (throwOnInvalidInput) {
+                [NSException raise:NSInvalidArgumentException format:@"maximumViewportInset cannot be larger than frame"];
+                return;
+            }
+
+            RELEASE_LOG_ERROR(ViewportSizing, "maximumViewportInset cannot be larger than frame");
         }
 
-        RELEASE_LOG_ERROR(ViewportSizing, "maximumViewportInset cannot be larger than frame");
         minimumUnobscuredSize = frame;
     }
 
-    auto maximumUnobscuredSize = frame - WebCore::FloatSize(minimumViewportInset.left + minimumViewportInset.right, minimumViewportInset.top + minimumViewportInset.bottom);
+    auto minimumViewportInsetSize = WebCore::FloatSize(minimumViewportInset.left + minimumViewportInset.right, minimumViewportInset.top + minimumViewportInset.bottom);
+    auto maximumUnobscuredSize = frame - minimumViewportInsetSize;
     if (maximumUnobscuredSize.isEmpty()) {
-        if (throwOnInvalidInput) {
-            [NSException raise:NSInvalidArgumentException format:@"minimumViewportInset cannot be larger than frame"];
-            return;
+        if (!minimumViewportInsetSize.isEmpty()) {
+            if (throwOnInvalidInput) {
+                [NSException raise:NSInvalidArgumentException format:@"minimumViewportInset cannot be larger than frame"];
+                return;
+            }
+
+            RELEASE_LOG_ERROR(ViewportSizing, "minimumViewportInset cannot be larger than frame");
         }
 
-        RELEASE_LOG_ERROR(ViewportSizing, "minimumViewportInset cannot be larger than frame");
         maximumUnobscuredSize = frame;
     }
 
@@ -1732,13 +1740,13 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     if (pdfConfiguration && !CGRectIsNull(pdfConfiguration.rect))
         floatRect = WebCore::FloatRect(pdfConfiguration.rect);
 
-    _page->drawToPDF(frameID, floatRect, [handler = makeBlockPtr(completionHandler)](const IPC::SharedBufferCopy& pdfData) {
+    _page->drawToPDF(frameID, floatRect, [handler = makeBlockPtr(completionHandler)](const IPC::SharedBufferReference& pdfData) {
         if (pdfData.isEmpty()) {
             handler(nil, createNSError(WKErrorUnknown).get());
             return;
         }
 
-        auto data = pdfData.buffer()->createCFData();
+        auto data = pdfData.unsafeBuffer()->createCFData();
         handler((NSData *)data.get(), nil);
     });
 }
@@ -1747,14 +1755,6 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 {
     THROW_IF_SUSPENDED;
     _page->getWebArchiveOfFrame(_page->mainFrame(), [completionHandler = makeBlockPtr(completionHandler)](API::Data* data) {
-        completionHandler(wrapper(data), nil);
-    });
-}
-
-- (void)retrieveAccessibilityTreeData:(void (^)(NSData *, NSError *))completionHandler
-{
-    THROW_IF_SUSPENDED;
-    _page->getAccessibilityTreeData([completionHandler = makeBlockPtr(completionHandler)] (API::Data* data) {
         completionHandler(wrapper(data), nil);
     });
 }
@@ -2323,15 +2323,15 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
     });
 }
 
-- (void)_startImageAnalysis:(NSString *)identifier
+- (void)_startImageAnalysis:(NSString *)source target:(NSString *)target
 {
 #if ENABLE(IMAGE_ANALYSIS)
     THROW_IF_SUSPENDED;
 
-    if (!_page || !_page->preferences().textRecognitionEnhancementsEnabled())
+    if (!_page || !_page->preferences().imageAnalysisQueueEnabled())
         return;
 
-    _page->startImageAnalysis(identifier);
+    _page->startImageAnalysis(source, target);
 #endif
 }
 
@@ -2592,6 +2592,13 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
     THROW_IF_SUSPENDED;
     if (_page)
         _page->revokeAccessToAssetServices();
+}
+
+- (void)_disableURLSchemeCheckInDataDetectors
+{
+    THROW_IF_SUSPENDED;
+    if (_page)
+        _page->disableURLSchemeCheckInDataDetectors();
 }
 
 - (void)_switchFromStaticFontRegistryToUserFontRegistry

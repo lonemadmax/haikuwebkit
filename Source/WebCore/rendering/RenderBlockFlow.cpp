@@ -345,7 +345,7 @@ void RenderBlockFlow::adjustIntrinsicLogicalWidthsForColumns(LayoutUnit& minLogi
 
 void RenderBlockFlow::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
-    auto shouldIgnoreDescendantContentForLogicalWidth = shouldApplySizeContainment(*this) || shouldApplyInlineSizeContainment(*this);
+    auto shouldIgnoreDescendantContentForLogicalWidth = shouldApplySizeOrStyleContainment({ Containment::Size, Containment::InlineSize });
     if (!shouldIgnoreDescendantContentForLogicalWidth) {
         if (childrenInline())
             computeInlinePreferredLogicalWidths(minLogicalWidth, maxLogicalWidth);
@@ -1523,7 +1523,7 @@ LayoutUnit RenderBlockFlow::adjustBlockChildForPagination(LayoutUnit logicalTopA
         }
     }
 
-    if (shouldApplySizeContainment(child))
+    if (child.shouldApplySizeContainment())
         adjustSizeContainmentChildForPagination(child, result);
 
     // For replaced elements and scrolled elements, we want to shift them to the next page if they don't fit on the current one.
@@ -1903,7 +1903,7 @@ LayoutUnit RenderBlockFlow::logicalHeightForChildForFragmentation(const RenderBo
 
 void RenderBlockFlow::adjustSizeContainmentChildForPagination(RenderBox& child, LayoutUnit offset)
 {
-    if (!shouldApplySizeContainment(child))
+    if (!child.shouldApplySizeContainment())
         return;
 
     LayoutUnit childOverflowHeight = child.isHorizontalWritingMode() ? child.layoutOverflowRect().maxY() : child.layoutOverflowRect().maxX();
@@ -2843,8 +2843,7 @@ LayoutUnit RenderBlockFlow::getClearDelta(RenderBox& child, LayoutUnit logicalTo
             child.setMarginLeft(childOldMarginLeft);
             child.setMarginRight(childOldMarginRight);
             
-            auto shouldAvoidCurrentVerticalPosition = !availableLogicalWidthAtNewLogicalTopOffset || childLogicalWidthAtNewLogicalTopOffset > availableLogicalWidthAtNewLogicalTopOffset;
-            if (!shouldAvoidCurrentVerticalPosition) {
+            if (childLogicalWidthAtNewLogicalTopOffset <= availableLogicalWidthAtNewLogicalTopOffset) {
                 // Even though we may not be moving, if the logical width did shrink because of the presence of new floats, then
                 // we need to force a relayout as though we shifted. This happens because of the dynamic addition of overhanging floats
                 // from previous siblings when negative margins exist on a child (see the addOverhangingFloats call at the end of collapseMargins).
@@ -2946,7 +2945,7 @@ std::optional<LayoutUnit> RenderBlockFlow::firstLineBaseline() const
     if (isWritingModeRoot() && !isRubyRun() && !isGridItem())
         return std::nullopt;
 
-    if (shouldApplyLayoutContainment(*this))
+    if (shouldApplyLayoutContainment())
         return std::nullopt;
 
     if (!childrenInline())
@@ -2971,7 +2970,7 @@ std::optional<LayoutUnit> RenderBlockFlow::inlineBlockBaseline(LineDirectionMode
     if (isWritingModeRoot() && !isRubyRun())
         return std::nullopt;
 
-    if (shouldApplyLayoutContainment(*this))
+    if (shouldApplyLayoutContainment())
         return RenderBlock::inlineBlockBaseline(lineDirection);
 
     if (style().display() == DisplayType::InlineBlock) {
@@ -4083,7 +4082,7 @@ static inline LayoutUnit preferredWidth(LayoutUnit preferredWidth, float result)
 
 void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
-    ASSERT(!shouldApplyInlineSizeContainment(*this));
+    ASSERT(!shouldApplyInlineSizeContainment());
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
     if (const_cast<RenderBlockFlow&>(*this).tryComputePreferredWidthsUsingModernPath(minLogicalWidth, maxLogicalWidth))

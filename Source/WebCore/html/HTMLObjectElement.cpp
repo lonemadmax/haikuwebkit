@@ -41,7 +41,6 @@
 #include "MIMETypeRegistry.h"
 #include "NodeList.h"
 #include "Page.h"
-#include "PluginViewBase.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderImage.h"
 #include "RenderWidget.h"
@@ -226,7 +225,7 @@ bool HTMLObjectElement::hasFallbackContent() const
 
 bool HTMLObjectElement::hasValidClassId()
 {
-    if (MIMETypeRegistry::isJavaAppletMIMEType(serviceType()) && protocolIs(attributeWithoutSynchronization(classidAttr), "java"))
+    if (MIMETypeRegistry::isJavaAppletMIMEType(serviceType()) && protocolIs(attributeWithoutSynchronization(classidAttr), "java"_s))
         return true;
 
     // HTML5 says that fallback content should be rendered if a non-empty

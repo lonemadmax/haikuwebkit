@@ -302,6 +302,9 @@ webkit_web_context_set_use_system_appearance_for_scrollbars (WebKitWebContext   
 WEBKIT_API gboolean
 webkit_web_context_get_use_system_appearance_for_scrollbars (WebKitWebContext      *context);
 
+WEBKIT_API const gchar*
+webkit_web_context_get_time_zone_override           (WebKitWebContext              *context);
+
 G_END_DECLS
 
 #endif

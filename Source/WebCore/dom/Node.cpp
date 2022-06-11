@@ -42,8 +42,10 @@
 #include "ElementTraversal.h"
 #include "EventDispatcher.h"
 #include "EventHandler.h"
+#include "EventLoop.h"
 #include "EventNames.h"
 #include "FrameView.h"
+#include "GCReachableRef.h"
 #include "HTMLAreaElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLDialogElement.h"
@@ -144,6 +146,8 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "PartList";
     case NodeRareData::UseType::PartNames:
         return "PartNames";
+    case NodeRareData::UseType::ExplicitlySetAttrElementsMap:
+        return "ExplicitlySetAttrElementsMap";
     }
     return nullptr;
 }
@@ -760,8 +764,7 @@ static Node::Editability computeEditabilityFromComputedStyle(const Node& startNo
         auto* style = node->isDocumentNode() ? node->renderStyle() : const_cast<Node*>(node)->computedStyle();
         if (!style)
             continue;
-        if (style->display() == DisplayType::None)
-            continue;
+
         // Elements with user-select: all style are considered atomic
         // therefore non editable.
         if (treatment == Node::UserSelectAllIsAlwaysNonEditable && style->effectiveUserSelect() == UserSelect::All)
@@ -1305,6 +1308,20 @@ Node& Node::shadowIncludingRoot() const
 Node& Node::getRootNode(const GetRootNodeOptions& options) const
 {
     return options.composed ? shadowIncludingRoot() : rootNode();
+}
+
+void Node::queueTaskKeepingThisNodeAlive(TaskSource source, Function<void ()>&& task)
+{
+    document().eventLoop().queueTask(source, [protectedThis = GCReachableRef(*this), task = WTFMove(task)] () {
+        task();
+    });
+}
+
+void Node::queueTaskToDispatchEvent(TaskSource source, Ref<Event>&& event)
+{
+    queueTaskKeepingThisNodeAlive(source, [protectedThis = Ref { *this }, event = WTFMove(event)]() {
+        protectedThis->dispatchEvent(event);
+    });
 }
 
 Node::InsertedIntoAncestorResult Node::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
@@ -2502,7 +2519,7 @@ void Node::defaultEventHandler(Event& event)
     }
 }
 
-bool Node::willRespondToMouseMoveEvents()
+bool Node::willRespondToMouseMoveEvents() const
 {
     // FIXME: Why is the iOS code path different from the non-iOS code path?
 #if !PLATFORM(IOS_FAMILY)
@@ -2515,7 +2532,7 @@ bool Node::willRespondToMouseMoveEvents()
     return hasEventListeners(eventNames.mousemoveEvent) || hasEventListeners(eventNames.mouseoverEvent) || hasEventListeners(eventNames.mouseoutEvent);
 }
 
-bool Node::willRespondToTouchEvents()
+bool Node::willRespondToTouchEvents() const
 {
     auto& eventNames = WebCore::eventNames();
     return eventTypes().containsIf([&](const auto& type) {
@@ -2523,7 +2540,7 @@ bool Node::willRespondToTouchEvents()
     });
 }
 
-bool Node::willRespondToMouseClickEvents()
+bool Node::willRespondToMouseClickEvents() const
 {
     // FIXME: Why is the iOS code path different from the non-iOS code path?
 #if PLATFORM(IOS_FAMILY)
@@ -2543,7 +2560,7 @@ bool Node::willRespondToMouseClickEvents()
 #endif
 }
 
-bool Node::willRespondToMouseWheelEvents()
+bool Node::willRespondToMouseWheelEvents() const
 {
     return hasEventListeners(eventNames().mousewheelEvent);
 }
@@ -2621,8 +2638,9 @@ bool Node::inRenderedDocument() const
     return isConnected() && document().hasLivingRenderTree();
 }
 
-void* Node::opaqueRootSlow() const
+void* Node::traverseToOpaqueRoot() const
 {
+    ASSERT_WITH_MESSAGE(!isConnected(), "Call opaqueRoot() or document() when the node is connected");
     const Node* node = this;
     for (;;) {
         const Node* nextNode = node->parentOrShadowHostNode();

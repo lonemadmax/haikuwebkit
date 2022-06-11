@@ -66,9 +66,10 @@ public:
     StringView(const StringImpl*);
     StringView(const LChar*, unsigned length);
     StringView(const UChar*, unsigned length);
-    StringView(const char*);
     StringView(const char*, unsigned length);
     StringView(ASCIILiteral);
+
+    ALWAYS_INLINE static StringView fromLatin1(const char* characters) { return StringView { characters }; }
 
     static StringView empty();
 
@@ -146,9 +147,11 @@ public:
     size_t find(UChar, unsigned start = 0) const;
     template<typename CodeUnitMatchFunction, std::enable_if_t<std::is_invocable_r_v<bool, CodeUnitMatchFunction, UChar>>* = nullptr>
     size_t find(CodeUnitMatchFunction&&, unsigned start = 0) const;
+    ALWAYS_INLINE size_t find(ASCIILiteral literal, unsigned start = 0) const { return find(literal.characters8(), literal.length(), start); }
     WTF_EXPORT_PRIVATE size_t find(StringView, unsigned start = 0) const;
 
     size_t reverseFind(UChar, unsigned index = std::numeric_limits<unsigned>::max()) const;
+    ALWAYS_INLINE size_t reverseFind(ASCIILiteral literal, unsigned start = std::numeric_limits<unsigned>::max()) const { return reverseFind(literal.characters8(), literal.length(), start); }
     WTF_EXPORT_PRIVATE size_t reverseFind(StringView, unsigned start = std::numeric_limits<unsigned>::max()) const;
 
     WTF_EXPORT_PRIVATE size_t findIgnoringASCIICase(StringView) const;
@@ -161,8 +164,8 @@ public:
     bool contains(UChar) const;
     template<typename CodeUnitMatchFunction, std::enable_if_t<std::is_invocable_r_v<bool, CodeUnitMatchFunction, UChar>>* = nullptr>
     bool contains(CodeUnitMatchFunction&&) const;
-    bool contains(StringView string) const { return find(string, 0) != notFound; }
-    WTF_EXPORT_PRIVATE bool contains(const char*) const;
+    bool contains(ASCIILiteral literal) const { return find(literal) != notFound; }
+    bool contains(StringView string) const { return find(string) != notFound; }
 
     WTF_EXPORT_PRIVATE bool containsIgnoringASCIICase(StringView) const;
     WTF_EXPORT_PRIVATE bool containsIgnoringASCIICase(StringView, unsigned start) const;
@@ -185,11 +188,17 @@ public:
     struct UnderlyingString;
 
 private:
+    // Clients should use StringView(ASCIILiteral) or StringView::fromLatin1() instead.
+    explicit StringView(const char*);
+
     friend bool equal(StringView, StringView);
     friend WTF_EXPORT_PRIVATE bool equalRespectingNullity(StringView, StringView);
 
     void initialize(const LChar*, unsigned length);
     void initialize(const UChar*, unsigned length);
+
+    WTF_EXPORT_PRIVATE size_t find(const LChar* match, unsigned matchLength, unsigned start) const;
+    WTF_EXPORT_PRIVATE size_t reverseFind(const LChar* match, unsigned matchLength, unsigned start) const;
 
     template<typename CharacterType, typename MatchedCharacterPredicate>
     StringView stripLeadingAndTrailingMatchedCharacters(const CharacterType*, const MatchedCharacterPredicate&) const;
@@ -222,7 +231,6 @@ bool equal(StringView, StringView);
 bool equal(StringView, const LChar* b);
 
 bool equalIgnoringASCIICase(StringView, StringView);
-bool equalIgnoringASCIICase(StringView, const char*) = delete;
 bool equalIgnoringASCIICase(StringView, ASCIILiteral);
 
 WTF_EXPORT_PRIVATE bool equalRespectingNullity(StringView, StringView);
@@ -234,16 +242,16 @@ bool startsWithLettersIgnoringASCIICase(StringView, ASCIILiteral);
 inline bool operator==(StringView a, StringView b) { return equal(a, b); }
 inline bool operator==(StringView a, const LChar *b);
 inline bool operator==(StringView a, const char *b) { return equal(a, reinterpret_cast<const LChar*>(b)); }
-inline bool operator==(const char* a, StringView b) { return equal(b, a); }
-inline bool operator==(StringView a, ASCIILiteral b) { return equal(a, reinterpret_cast<const LChar*>(b.characters())); }
+inline bool operator==(const char* a, StringView b) { return equal(b, reinterpret_cast<const LChar*>(a)); }
+inline bool operator==(StringView a, ASCIILiteral b) { return equal(a, b); }
 inline bool operator==(ASCIILiteral a, StringView b) { return equal(b, a); }
 
 inline bool operator!=(StringView a, StringView b) { return !equal(a, b); }
 inline bool operator!=(StringView a, const LChar* b) { return !equal(a, b); }
-inline bool operator!=(StringView a, const char* b) { return !equal(a, b); }
-inline bool operator!=(StringView a, ASCIILiteral b) { return !equal(a, b.characters()); }
+inline bool operator!=(StringView a, const char* b) { return !equal(a, reinterpret_cast<const LChar*>(b)); }
+inline bool operator!=(StringView a, ASCIILiteral b) { return !equal(a, b); }
 inline bool operator!=(const LChar* a, StringView b) { return !equal(b, a); }
-inline bool operator!=(const char* a, StringView b) { return !equal(b, a); }
+inline bool operator!=(const char* a, StringView b) { return !equal(b, reinterpret_cast<const LChar*>(a)); }
 inline bool operator!=(ASCIILiteral a, StringView b) { return !equal(b, a); }
 
 struct StringViewWithUnderlyingString;
@@ -704,6 +712,11 @@ inline bool equal(StringView a, const LChar* b)
     if (a.is8Bit())
         return equal(a.characters8(), b, aLength);
     return equal(a.characters16(), b, aLength);
+}
+
+ALWAYS_INLINE bool equal(StringView a, ASCIILiteral b)
+{
+    return equal(a, b.characters8());
 }
 
 inline bool equalIgnoringASCIICase(StringView a, StringView b)

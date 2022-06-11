@@ -32,6 +32,7 @@
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "JSAttr.h"
@@ -68,24 +69,18 @@ bool JSNodeOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, v
 {
     auto& node = jsCast<JSNode*>(handle.slot()->asCell())->wrapped();
     if (!node.isConnected()) {
-        // If a node is firing event listeners, its wrapper is observable because
-        // its wrapper is responsible for marking those event listeners.
-        if (node.isFiringEventListeners()) {
-            if (UNLIKELY(reason))
-                *reason = "Node which is firing event listeners";
-            return true;
-        }
         if (GCReachableRefMap::contains(node)) {
             if (UNLIKELY(reason))
                 *reason = "Node is scheduled to be used in an async script invocation)";
             return true;
         }
+        return visitor.containsOpaqueRoot(node.traverseToOpaqueRoot());
     }
 
     if (UNLIKELY(reason))
         *reason = "Connected node";
 
-    return visitor.containsOpaqueRoot(root(node));
+    return visitor.containsOpaqueRoot(&node.document());
 }
 
 JSScope* JSNode::pushEventHandlerScope(JSGlobalObject* lexicalGlobalObject, JSScope* node) const

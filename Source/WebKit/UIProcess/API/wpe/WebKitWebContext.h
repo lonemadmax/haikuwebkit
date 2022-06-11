@@ -291,6 +291,9 @@ WEBKIT_API void
 webkit_web_context_send_message_to_all_extensions   (WebKitWebContext              *context,
                                                      WebKitUserMessage             *message);
 
+WEBKIT_API const gchar*
+webkit_web_context_get_time_zone_override           (WebKitWebContext              *context);
+
 G_END_DECLS
 
 #endif

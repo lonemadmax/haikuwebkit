@@ -31,7 +31,6 @@
 #include "DataTaskIdentifier.h"
 #include "DownloadID.h"
 #include "DownloadManager.h"
-#include "LocalStorageDatabaseTracker.h"
 #include "NetworkContentRuleListManager.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "QuotaIncreaseRequestIdentifier.h"
@@ -176,7 +175,7 @@ public:
     void addStorageSession(PAL::SessionID, bool shouldUseTestingNetworkSession, const Vector<uint8_t>& uiProcessCookieStorageIdentifier, const SandboxExtension::Handle&);
 
     void processWillSuspendImminentlyForTestingSync(CompletionHandler<void()>&&);
-    void prepareToSuspend(bool isSuspensionImminent, CompletionHandler<void()>&&);
+    void prepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime, CompletionHandler<void()>&&);
     void processDidResume(bool forForegroundActivity);
 
     CacheModel cacheModel() const { return m_cacheModel; }
@@ -531,7 +530,6 @@ private:
     bool m_privateClickMeasurementEnabled { true };
     bool m_ftpEnabled { false };
     bool m_isSuspended { false };
-    std::optional<MonotonicTime> m_enterBackgroundTimestamp;
 };
 
 #if !PLATFORM(COCOA)

@@ -936,7 +936,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         NSURLSessionTaskTransactionMetrics *metrics = taskMetrics.transactionMetrics.lastObject;
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
-        auto privateRelayed = metrics._privacyStance == nw_connection_privacy_stance_direct ? PrivateRelayed::No : PrivateRelayed::Yes;
+        auto privateRelayed = metrics._privacyStance == nw_connection_privacy_stance_direct
+            || metrics._privacyStance == nw_connection_privacy_stance_not_eligible
+            ? PrivateRelayed::No : PrivateRelayed::Yes;
 #else
         auto privateRelayed = PrivateRelayed::No;
 #endif
@@ -1332,7 +1334,6 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkProcess& networkProcess, const N
 
     m_deviceManagementRestrictionsEnabled = parameters.deviceManagementRestrictionsEnabled;
     m_allLoadsBlockedByDeviceManagementRestrictionsForTesting = parameters.allLoadsBlockedByDeviceManagementRestrictionsForTesting;
-    m_webPushDaemonUsesMockBundlesForTesting = parameters.webPushDaemonConnectionConfiguration.useMockBundlesForTesting;
 
 #if ENABLE(APP_BOUND_DOMAINS)
     if (m_resourceLoadStatistics && !parameters.resourceLoadStatisticsParameters.appBoundDomains.isEmpty())
@@ -1352,9 +1353,6 @@ void NetworkSessionCocoa::initializeNSURLSessionsInSet(SessionSet& sessionSet, N
     auto cookieAcceptPolicy = configuration.HTTPCookieStorage.cookieAcceptPolicy;
     LOG(NetworkSession, "Created NetworkSession with cookieAcceptPolicy %lu", cookieAcceptPolicy);
     RELEASE_LOG_IF(cookieAcceptPolicy == NSHTTPCookieAcceptPolicyNever, NetworkSession, "Creating network session with ID %" PRIu64 " that will not accept cookies.", m_sessionID.toUInt64());
-
-    configuration.URLCredentialStorage = nil;
-    sessionSet.sessionWithoutCredentialStorage.initialize(configuration, *this, WebCore::StoredCredentialsPolicy::DoNotUse, NavigatingToAppBoundDomain::No);
 }
 
 SessionSet& NetworkSessionCocoa::sessionSetForPage(WebPageProxyIdentifier webPageProxyID)
@@ -1380,7 +1378,7 @@ SessionWrapper& SessionSet::initializeEphemeralStatelessSessionIfNeeded(Navigati
         return ephemeralStatelessSession;
 
     NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-    NSURLSessionConfiguration *existingConfiguration = sessionWithoutCredentialStorage.session.get().configuration;
+    NSURLSessionConfiguration *existingConfiguration = sessionWithCredentialStorage.session.get().configuration;
 
     configuration.HTTPCookieAcceptPolicy = NSHTTPCookieAcceptPolicyNever;
     configuration.URLCredentialStorage = nil;
@@ -1424,9 +1422,8 @@ SessionWrapper& NetworkSessionCocoa::sessionWrapperForTask(WebPageProxyIdentifie
 
     switch (storedCredentialsPolicy) {
     case WebCore::StoredCredentialsPolicy::Use:
-        return sessionSetForPage(webPageProxyID).sessionWithCredentialStorage;
     case WebCore::StoredCredentialsPolicy::DoNotUse:
-        return sessionSetForPage(webPageProxyID).sessionWithoutCredentialStorage;
+        return sessionSetForPage(webPageProxyID).sessionWithCredentialStorage;
     case WebCore::StoredCredentialsPolicy::EphemeralStateless:
         return initializeEphemeralStatelessSessionIfNeeded(webPageProxyID, NavigatingToAppBoundDomain::No);
     }
@@ -1440,17 +1437,14 @@ SessionWrapper& NetworkSessionCocoa::appBoundSession(WebPageProxyIdentifier webP
     if (!sessionSet.appBoundSession) {
         sessionSet.appBoundSession = makeUnique<IsolatedSession>();
         sessionSet.appBoundSession->sessionWithCredentialStorage.initialize(sessionSet.sessionWithCredentialStorage.session.get().configuration, *this, WebCore::StoredCredentialsPolicy::Use, NavigatingToAppBoundDomain::Yes);
-        sessionSet.appBoundSession->sessionWithoutCredentialStorage.initialize(sessionSet.sessionWithoutCredentialStorage.session.get().configuration, *this, WebCore::StoredCredentialsPolicy::DoNotUse, NavigatingToAppBoundDomain::Yes);
     }
 
     auto& sessionWrapper = [&] (auto storedCredentialsPolicy) -> SessionWrapper& {
         switch (storedCredentialsPolicy) {
         case WebCore::StoredCredentialsPolicy::Use:
-            LOG(NetworkSession, "Using app-bound NSURLSession with credential storage.");
-            return sessionSet.appBoundSession->sessionWithCredentialStorage;
         case WebCore::StoredCredentialsPolicy::DoNotUse:
-            LOG(NetworkSession, "Using app-bound NSURLSession without credential storage.");
-            return sessionSet.appBoundSession->sessionWithoutCredentialStorage;
+            LOG(NetworkSession, "Using app-bound NSURLSession.");
+            return sessionSet.appBoundSession->sessionWithCredentialStorage;
         case WebCore::StoredCredentialsPolicy::EphemeralStateless:
             return initializeEphemeralStatelessSessionIfNeeded(webPageProxyID, NavigatingToAppBoundDomain::Yes);
         }
@@ -1489,7 +1483,6 @@ SessionWrapper& SessionSet::isolatedSession(WebCore::StoredCredentialsPolicy sto
     auto& entry = isolatedSessions.ensure(firstPartyDomain, [this, &session, isNavigatingToAppBoundDomain] {
         auto newEntry = makeUnique<IsolatedSession>();
         newEntry->sessionWithCredentialStorage.initialize(sessionWithCredentialStorage.session.get().configuration, session, WebCore::StoredCredentialsPolicy::Use, isNavigatingToAppBoundDomain);
-        newEntry->sessionWithoutCredentialStorage.initialize(sessionWithoutCredentialStorage.session.get().configuration, session, WebCore::StoredCredentialsPolicy::DoNotUse, isNavigatingToAppBoundDomain);
         return newEntry;
     }).iterator->value;
 
@@ -1498,11 +1491,9 @@ SessionWrapper& SessionSet::isolatedSession(WebCore::StoredCredentialsPolicy sto
     auto& sessionWrapper = [&] (auto storedCredentialsPolicy) -> SessionWrapper& {
         switch (storedCredentialsPolicy) {
         case WebCore::StoredCredentialsPolicy::Use:
-            LOG(NetworkSession, "Using isolated NSURLSession with credential storage.");
-            return entry->sessionWithCredentialStorage;
         case WebCore::StoredCredentialsPolicy::DoNotUse:
-            LOG(NetworkSession, "Using isolated NSURLSession without credential storage.");
-            return entry->sessionWithoutCredentialStorage;
+            LOG(NetworkSession, "Using isolated NSURLSession.");
+            return entry->sessionWithCredentialStorage;
         case WebCore::StoredCredentialsPolicy::EphemeralStateless:
             return initializeEphemeralStatelessSessionIfNeeded(isNavigatingToAppBoundDomain, session);
         }
@@ -1549,25 +1540,19 @@ void NetworkSessionCocoa::clearIsolatedSessions()
 void NetworkSessionCocoa::invalidateAndCancelSessionSet(SessionSet& sessionSet)
 {
     [sessionSet.sessionWithCredentialStorage.session invalidateAndCancel];
-    [sessionSet.sessionWithoutCredentialStorage.session invalidateAndCancel];
     [sessionSet.ephemeralStatelessSession.session invalidateAndCancel];
     [sessionSet.sessionWithCredentialStorage.delegate sessionInvalidated];
-    [sessionSet.sessionWithoutCredentialStorage.delegate sessionInvalidated];
     [sessionSet.ephemeralStatelessSession.delegate sessionInvalidated];
 
     for (auto& session : sessionSet.isolatedSessions.values()) {
         [session->sessionWithCredentialStorage.session invalidateAndCancel];
         [session->sessionWithCredentialStorage.delegate sessionInvalidated];
-        [session->sessionWithoutCredentialStorage.session invalidateAndCancel];
-        [session->sessionWithoutCredentialStorage.delegate sessionInvalidated];
     }
     sessionSet.isolatedSessions.clear();
 
     if (sessionSet.appBoundSession) {
         [sessionSet.appBoundSession->sessionWithCredentialStorage.session invalidateAndCancel];
         [sessionSet.appBoundSession->sessionWithCredentialStorage.delegate sessionInvalidated];
-        [sessionSet.appBoundSession->sessionWithoutCredentialStorage.session invalidateAndCancel];
-        [sessionSet.appBoundSession->sessionWithoutCredentialStorage.delegate sessionInvalidated];
     }
 }
 
@@ -1712,6 +1697,17 @@ std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageP
 
     appPrivacyReportTestingData().didLoadAppInitiatedRequest(nsRequest.get().attribution == NSURLRequestAttributionDeveloper);
 #endif
+
+    // FIXME: This function can make up to 3 copies of a request.
+    // Reduce that to one if the protocol is null, the request isn't app initiated,
+    // or the main frame main resource was private relayed, then set all properties
+    // on the one copy.
+    if (hadMainFrameMainResourcePrivateRelayed || request.url().host() == clientOrigin.topOrigin.host) {
+        RetainPtr<NSMutableURLRequest> mutableRequest = adoptNS([nsRequest.get() mutableCopy]);
+        if ([mutableRequest respondsToSelector:@selector(_setPrivacyProxyFailClosedForUnreachableNonMainHosts:)])
+            [mutableRequest _setPrivacyProxyFailClosedForUnreachableNonMainHosts:YES];
+        nsRequest = WTFMove(mutableRequest);
+    }
 
     auto& sessionSet = sessionSetForPage(webPageProxyID);
     RetainPtr<NSURLSessionWebSocketTask> task = [sessionSet.sessionWithCredentialStorage.session webSocketTaskWithRequest:nsRequest.get()];

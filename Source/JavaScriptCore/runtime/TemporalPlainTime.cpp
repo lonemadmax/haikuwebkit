@@ -228,14 +228,32 @@ ISO8601::PlainTime TemporalPlainTime::round(JSGlobalObject* globalObject, JSValu
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    JSObject* options = intlGetOptionsObject(globalObject, optionsValue);
-    RETURN_IF_EXCEPTION(scope, { });
+    JSObject* options = nullptr;
+    std::optional<TemporalUnit> smallest;
+    if (optionsValue.isString()) {
+        auto string = optionsValue.toWTFString(globalObject);
+        RETURN_IF_EXCEPTION(scope, { });
 
-    auto smallest = temporalSmallestUnit(globalObject, options, { TemporalUnit::Year, TemporalUnit::Month, TemporalUnit::Week, TemporalUnit::Day });
-    RETURN_IF_EXCEPTION(scope, { });
-    if (!smallest) {
-        throwRangeError(globalObject, scope, "Cannot round without a smallestUnit option"_s);
-        return { };
+        smallest = temporalUnitType(string);
+        if (!smallest) {
+            throwRangeError(globalObject, scope, "smallestUnit is an invalid Temporal unit"_s);
+            return { };
+        }
+
+        if (smallest.value() <= TemporalUnit::Day) {
+            throwRangeError(globalObject, scope, "smallestUnit is a disallowed unit"_s);
+            return { };
+        }
+    } else {
+        options = intlGetOptionsObject(globalObject, optionsValue);
+        RETURN_IF_EXCEPTION(scope, { });
+
+        smallest = temporalSmallestUnit(globalObject, options, { TemporalUnit::Year, TemporalUnit::Month, TemporalUnit::Week, TemporalUnit::Day });
+        RETURN_IF_EXCEPTION(scope, { });
+        if (!smallest) {
+            throwRangeError(globalObject, scope, "Cannot round without a smallestUnit option"_s);
+            return { };
+        }
     }
     TemporalUnit smallestUnit = smallest.value();
 
@@ -283,6 +301,7 @@ static ISO8601::Duration toTemporalTimeRecord(JSGlobalObject* globalObject, JSOb
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     ISO8601::Duration duration { };
+    auto hasRelevantProperty = false;
     for (TemporalUnit unit : temporalUnitsInTableOrder) {
         if (unit < TemporalUnit::Hour)
             continue;
@@ -290,13 +309,10 @@ static ISO8601::Duration toTemporalTimeRecord(JSGlobalObject* globalObject, JSOb
         JSValue value = temporalTimeLike->get(globalObject, name);
         RETURN_IF_EXCEPTION(scope, { });
 
-        // We are throwing an error here, but probably this is a spec bug.
-        // Tracked in https://github.com/tc39/proposal-temporal/issues/1803.
-        if (value.isUndefined()) {
-            throwTypeError(globalObject, scope, makeString('"', StringView(name.uid()), "\" field is missing"_s));
-            return { };
-        }
+        if (value.isUndefined())
+            continue;
 
+        hasRelevantProperty = true;
         double integer = value.toIntegerOrInfinity(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
         if (!std::isfinite(integer)) {
@@ -305,6 +321,12 @@ static ISO8601::Duration toTemporalTimeRecord(JSGlobalObject* globalObject, JSOb
         }
         duration[unit] = integer;
     }
+
+    if (!hasRelevantProperty) {
+        throwTypeError(globalObject, scope, "Object must contain at least one Temporal time unit property"_s);
+        return { };
+    }
+
     return duration;
 }
 

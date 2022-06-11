@@ -1020,15 +1020,12 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
         WKArrayAppendItem(allowedHostsValue.get(), toWK(host.c_str()).get());
     setValue(resetMessageBody, "AllowedHosts", allowedHostsValue);
 
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    setValue(resetMessageBody, "AccessibilityIsolatedTree", options.accessibilityIsolatedTreeMode());
-#endif
-
     auto jscOptions = options.jscOptions();
     if (!jscOptions.empty())
         setValue(resetMessageBody, "JSCOptions", jscOptions.c_str());
 
-    WKPagePostMessageToInjectedBundle(TestController::singleton().mainWebView()->page(), toWK("Reset").get(), resetMessageBody.get());
+    if (resetStage == ResetStage::AfterTest)
+        WKPagePostMessageToInjectedBundle(TestController::singleton().mainWebView()->page(), toWK("Reset").get(), resetMessageBody.get());
 
     WKContextSetShouldUseFontSmoothing(TestController::singleton().context(), false);
     WKContextSetCacheModel(TestController::singleton().context(), kWKCacheModelDocumentBrowser);
@@ -1465,7 +1462,7 @@ void TestController::configureContentExtensionForTest(const TestInvocation& test
     if (!contentExtensionsPath)
         contentExtensionsPath = "/tmp/wktr-contentextensions";
 
-    if (!test.urlContains("contentextensions/")) {
+    if (!test.urlContains("contentextensions/"_s)) {
         WKPageSetUserContentExtensionsEnabled(m_mainWebView->page(), false);
         return;
     }

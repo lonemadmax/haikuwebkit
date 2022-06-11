@@ -36,6 +36,7 @@
 #include "Editor.h"
 #include "FileList.h"
 #include "Frame.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "HTMLImageElement.h"
 #include "HTMLParserIdioms.h"
@@ -127,11 +128,11 @@ static String normalizeType(const String& type)
         return type;
 
     String lowercaseType = stripLeadingAndTrailingHTMLSpaces(type).convertToASCIILowercase();
-    if (lowercaseType == "text" || lowercaseType.startsWith("text/plain;"))
+    if (lowercaseType == "text"_s || lowercaseType.startsWith("text/plain;"_s))
         return textPlainContentTypeAtom();
-    if (lowercaseType == "url" || lowercaseType.startsWith("text/uri-list;"))
+    if (lowercaseType == "url"_s || lowercaseType.startsWith("text/uri-list;"_s))
         return "text/uri-list"_s;
-    if (lowercaseType.startsWith("text/html;"))
+    if (lowercaseType.startsWith("text/html;"_s))
         return "text/html"_s;
 
     return lowercaseType;
@@ -318,7 +319,7 @@ Vector<String> DataTransfer::types(AddFilesType addFilesType) const
     
     if (!RuntimeEnabledFeatures::sharedFeatures().customPasteboardDataEnabled()) {
         auto types = m_pasteboard->typesForLegacyUnsafeBindings();
-        ASSERT(!types.contains("Files"));
+        ASSERT(!types.contains("Files"_s));
         if (m_pasteboard->fileContentState() != Pasteboard::FileContentState::NoFileOrImageData && addFilesType == AddFilesType::Yes)
             types.append("Files"_s);
         return types;
@@ -340,14 +341,14 @@ Vector<String> DataTransfer::types(AddFilesType addFilesType) const
             return types;
         }
 
-        if (safeTypes.contains("text/uri-list"))
+        if (safeTypes.contains("text/uri-list"_s))
             types.append("text/uri-list"_s);
-        if (safeTypes.contains("text/html") && RuntimeEnabledFeatures::sharedFeatures().customPasteboardDataEnabled())
+        if (safeTypes.contains("text/html"_s) && RuntimeEnabledFeatures::sharedFeatures().customPasteboardDataEnabled())
             types.append("text/html"_s);
         return types;
     }
 
-    ASSERT(!safeTypes.contains("Files"));
+    ASSERT(!safeTypes.contains("Files"_s));
     return safeTypes;
 }
 

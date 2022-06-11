@@ -397,7 +397,7 @@ void LegacyInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (logicalStart >= paintEnd || logicalStart + logicalExtent <= paintStart)
         return;
 
-    TextBoxPainter textBoxPainter(*this, paintInfo, paintOffset);
+    LegacyTextBoxPainter textBoxPainter(*this, paintInfo, paintOffset);
     textBoxPainter.paint();
 }
 
@@ -488,23 +488,23 @@ const RenderCombineText* LegacyInlineTextBox::combinedText() const
 
 ExpansionBehavior LegacyInlineTextBox::expansionBehavior() const
 {
-    ExpansionBehavior leftBehavior;
+    ExpansionBehavior behavior;
+
     if (forceLeftExpansion())
-        leftBehavior = ForceLeftExpansion;
+        behavior.left = ExpansionBehavior::Behavior::Force;
     else if (canHaveLeftExpansion())
-        leftBehavior = AllowLeftExpansion;
+        behavior.left = ExpansionBehavior::Behavior::Allow;
     else
-        leftBehavior = ForbidLeftExpansion;
+        behavior.left = ExpansionBehavior::Behavior::Forbid;
 
-    ExpansionBehavior rightBehavior;
     if (forceRightExpansion())
-        rightBehavior = ForceRightExpansion;
+        behavior.right = ExpansionBehavior::Behavior::Force;
     else if (expansion() && nextLeafOnLine() && !nextLeafOnLine()->isLineBreak())
-        rightBehavior = AllowRightExpansion;
+        behavior.right = ExpansionBehavior::Behavior::Allow;
     else
-        rightBehavior = ForbidRightExpansion;
+        behavior.right = ExpansionBehavior::Behavior::Forbid;
 
-    return leftBehavior | rightBehavior;
+    return behavior;
 }
 
 #if ENABLE(TREE_DEBUGGING)

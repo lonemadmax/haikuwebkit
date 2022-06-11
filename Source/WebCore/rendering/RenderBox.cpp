@@ -364,7 +364,7 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
             // Propagate the new writing mode and direction up to the RenderView.
             if (!documentElementRenderer)
                 return;
-            if (!isBodyRenderer || !(shouldApplyAnyContainment(*this) || shouldApplyAnyContainment(*documentElementRenderer))) {
+            if (!isBodyRenderer || !(shouldApplyAnyContainment() || documentElementRenderer->shouldApplyAnyContainment())) {
                 if (viewStyle.direction() != newStyle.direction() && (isDocElementRenderer || !documentElementRenderer->style().hasExplicitlySetDirection())) {
                     viewStyle.setDirection(newStyle.direction());
                     viewDirectionOrWritingModeChanged = true;
@@ -1436,6 +1436,13 @@ LayoutUnit RenderBox::adjustContentBoxLogicalHeightForBoxSizing(std::optional<La
     return std::max(0_lu, result);
 }
 
+LayoutUnit RenderBox::adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit height) const
+{
+    if (style().boxSizing() == BoxSizing::BorderBox)
+        return height + borderAndPaddingLogicalHeight();
+    return height;
+}
+
 // Hit Testing
 bool RenderBox::hitTestVisualOverflow(const HitTestLocation& hitTestLocation, const LayoutPoint& accumulatedOffset) const
 {
@@ -2322,7 +2329,7 @@ void RenderBox::mapLocalToContainer(const RenderLayerModelObject* ancestorContai
     // and may itself also be fixed position. So propagate 'fixed' up only if this box is fixed position.
     if (isFixedPos)
         mode.add(IsFixed);
-    else if (canContainFixedPositionObjects())
+    else if (mode.contains(IsFixed) && canContainFixedPositionObjects())
         mode.remove(IsFixed);
 
     if (wasFixed)
@@ -2396,7 +2403,7 @@ void RenderBox::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode> mode, Tran
     bool isFixedPos = isFixedPositioned();
     if (isFixedPos)
         mode.add(IsFixed);
-    else if (canContainFixedPositionObjects()) {
+    else if (mode.contains(IsFixed) && canContainFixedPositionObjects()) {
         // If this box has a transform, it acts as a fixed position container for fixed descendants,
         // and may itself also be fixed position. So propagate 'fixed' up only if this box is fixed position.
         mode.remove(IsFixed);
@@ -3088,7 +3095,7 @@ void RenderBox::cacheIntrinsicContentLogicalHeightForFlexItem(LayoutUnit height)
 
 void RenderBox::updateLogicalHeight()
 {
-    if (shouldApplySizeContainment(*this) && !isRenderGrid()) {
+    if (shouldApplySizeContainment() && !isRenderGrid()) {
         // We need the exact width of border and padding here, yet we can't use borderAndPadding* interfaces.
         // Because these interfaces evetually call borderAfter/Before, and RenderBlock::borderBefore
         // adds extra border to fieldset by adding intrinsicBorderForFieldset which is not needed here.
@@ -3257,9 +3264,9 @@ std::optional<LayoutUnit> RenderBox::computeIntrinsicLogicalContentHeightUsing(L
     // FIXME: The CSS sizing spec is considering changing what min-content/max-content should resolve to.
     // If that happens, this code will have to change.
     if (logicalHeightLength.isMinContent() || logicalHeightLength.isMaxContent() || logicalHeightLength.isFitContent() || logicalHeightLength.isLegacyIntrinsic()) {
-        if (intrinsicContentHeight && style().boxSizing() == BoxSizing::BorderBox)
-            return intrinsicContentHeight.value() + borderAndPaddingLogicalHeight();
-        return intrinsicContentHeight;
+        if (intrinsicContentHeight)
+            return adjustIntrinsicLogicalHeightForBoxSizing(intrinsicContentHeight.value());
+        return std::nullopt;
     }
     if (logicalHeightLength.isFillAvailable())
         return containingBlock()->availableLogicalHeight(ExcludeMarginBorderPadding) - borderAndPadding;
@@ -3269,8 +3276,13 @@ std::optional<LayoutUnit> RenderBox::computeIntrinsicLogicalContentHeightUsing(L
 
 std::optional<LayoutUnit> RenderBox::computeContentAndScrollbarLogicalHeightUsing(SizeType heightType, const Length& height, std::optional<LayoutUnit> intrinsicContentHeight) const
 {
-    if (height.isAuto())
-        return heightType == MinSize ? std::optional<LayoutUnit>(0) : std::nullopt;
+    if (height.isAuto()) {
+        if (heightType != MinSize)
+            return std::nullopt;
+        if (intrinsicContentHeight && isFlexItem() && downcast<RenderFlexibleBox>(parent())->shouldApplyMinBlockSizeAutoForChild(*this))
+            return adjustIntrinsicLogicalHeightForBoxSizing(intrinsicContentHeight.value());
+        return std::optional<LayoutUnit>(0);
+    }
     // FIXME: The CSS sizing spec is considering changing what min-content/max-content should resolve to.
     // If that happens, this code will have to change.
     if (height.isIntrinsic() || height.isLegacyIntrinsic())
@@ -5130,7 +5142,7 @@ bool RenderBox::isUnsplittableForPagination() const
         || hasUnsplittableScrollingOverflow()
         || (parent() && isWritingModeRoot())
         || (isFloating() && style().styleType() == PseudoId::FirstLetter && style().initialLetterDrop() > 0)
-        || shouldApplySizeContainment(*this);
+        || shouldApplySizeContainment();
 }
 
 LayoutUnit RenderBox::lineHeight(bool /*firstLine*/, LineDirectionMode direction, LinePositionMode /*linePositionMode*/) const
@@ -5198,7 +5210,7 @@ LayoutRect RenderBox::layoutOverflowRectForPropagation(const RenderStyle* parent
 {
     // Only propagate interior layout overflow if we don't completely clip it.
     LayoutRect rect = borderBoxRect();
-    if (!shouldApplyLayoutContainment(*this)) {
+    if (!shouldApplyLayoutContainment()) {
         if (style().overflowX() == Overflow::Clip && style().overflowY() == Overflow::Visible) {
             LayoutRect clippedOverflowRect = layoutOverflowRect();
             clippedOverflowRect.setX(rect.x());

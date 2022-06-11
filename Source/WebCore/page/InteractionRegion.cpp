@@ -56,64 +56,80 @@ static FloatRect absoluteBoundingRectForRange(const SimpleRange& range)
 
 static std::optional<InteractionRegion> regionForElement(Element& element)
 {
-    auto& frameView = *element.document().frame()->view();
-    auto& mainFrameView = *element.document().frame()->mainFrame().view();
+    Ref document = element.document();
+    Ref frameView = *document->frame()->view();
+    Ref mainFrameView = *document->frame()->mainFrame().view();
     
     IntRect frameClipRect;
 #if PLATFORM(IOS_FAMILY)
-    frameClipRect = enclosingIntRect(frameView.exposedContentRect());
+    frameClipRect = enclosingIntRect(frameView->exposedContentRect());
 #else
-    if (auto viewExposedRect = frameView.viewExposedRect())
+    if (auto viewExposedRect = frameView->viewExposedRect())
         frameClipRect = enclosingIntRect(*viewExposedRect);
     else
-        frameClipRect = frameView.visibleContentRect();
+        frameClipRect = frameView->visibleContentRect();
 #endif
 
     auto* renderer = element.renderer();
     if (!renderer)
         return std::nullopt;
 
-    Vector<FloatRect> rectsInContentsCoordinates;
-    
+    Vector<FloatRect> rectsInContentCoordinates;
     InteractionRegion region;
 
+    region.elementIdentifier = element.identifier();
+
     auto linkRange = makeRangeSelectingNode(element);
-    
     if (linkRange)
         region.hasLightBackground = estimatedBackgroundColorForRange(*linkRange, *element.document().frame()).luminance() > 0.5;
     
     if (linkRange && renderer->isInline() && !renderer->isReplacedOrInlineBlock()) {
-        region.isInline = true;
-
+        static constexpr float inlinePadding = 3;
         OptionSet<RenderObject::BoundingRectBehavior> behavior { RenderObject::BoundingRectBehavior::RespectClipping };
-        rectsInContentsCoordinates = RenderObject::absoluteTextRects(*linkRange, behavior).map([&](auto rect) -> FloatRect {
+        rectsInContentCoordinates = RenderObject::absoluteTextRects(*linkRange, behavior).map([&](auto rect) -> FloatRect {
+            rect.inflate(inlinePadding);
             return rect;
         });
 
-        if (rectsInContentsCoordinates.isEmpty()) {
+        if (rectsInContentCoordinates.isEmpty()) {
             auto boundingRectForRange = absoluteBoundingRectForRange(*linkRange);
-            if (!boundingRectForRange.isEmpty())
-                rectsInContentsCoordinates = { boundingRectForRange };
+            if (!boundingRectForRange.isEmpty()) {
+                boundingRectForRange.inflate(inlinePadding);
+                rectsInContentCoordinates = { boundingRectForRange };
+            }
         }
     }
 
-    if (rectsInContentsCoordinates.isEmpty())
-        rectsInContentsCoordinates = { renderer->absoluteBoundingBoxRect() };
+    if (rectsInContentCoordinates.isEmpty())
+        rectsInContentCoordinates = { renderer->absoluteBoundingBoxRect() };
+    
+    auto layoutArea = mainFrameView->layoutSize().area();
+    rectsInContentCoordinates = compactMap(rectsInContentCoordinates, [&] (auto rect) -> std::optional<FloatRect> {
+        if (rect.area() > layoutArea / 2)
+            return std::nullopt;
+        return rect;
+    });
     
     if (is<RenderBox>(*renderer)) {
         RoundedRect::Radii borderRadii = downcast<RenderBox>(*renderer).borderRadii();
         region.borderRadius = borderRadii.minimumRadius();
     }
-
-    region.rectsInContentCoordinates = rectsInContentsCoordinates.map([&](auto rect) {
+    
+    for (auto rect : rectsInContentCoordinates) {
         auto contentsRect = rect;
 
-        if (&frameView != &mainFrameView)
+        if (frameView.ptr() != mainFrameView.ptr())
             contentsRect.intersect(frameClipRect);
 
-        return contentsRect;
-    });
-        
+        if (contentsRect.isEmpty())
+            continue;
+
+        region.regionInLayerCoordinates.unite(enclosingIntRect(contentsRect));
+    }
+
+    if (region.regionInLayerCoordinates.isEmpty())
+        return std::nullopt;
+
     return region;
 }
 
@@ -171,6 +187,15 @@ Vector<InteractionRegion> interactionRegions(Page& page, FloatRect rect)
     }
 
     return regions;
+}
+
+TextStream& operator<<(TextStream& ts, const InteractionRegion& interactionRegion)
+{
+    ts.dumpProperty("region", interactionRegion.regionInLayerCoordinates);
+    ts.dumpProperty("hasLightBackground", interactionRegion.hasLightBackground);
+    ts.dumpProperty("borderRadius", interactionRegion.borderRadius);
+
+    return ts;
 }
 
 }

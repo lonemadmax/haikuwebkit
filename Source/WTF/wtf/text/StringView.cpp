@@ -109,6 +109,34 @@ size_t StringView::find(StringView matchString, unsigned start) const
     return findCommon(*this, matchString, start);
 }
 
+size_t StringView::find(const LChar* match, unsigned matchLength, unsigned start) const
+{
+    ASSERT(matchLength);
+    auto length = this->length();
+    if (start > length)
+        return notFound;
+
+    unsigned searchLength = length - start;
+    if (matchLength > searchLength)
+        return notFound;
+
+    if (is8Bit())
+        return findInner(characters8() + start, match, start, searchLength, matchLength);
+    return findInner(characters16() + start, match, start, searchLength, matchLength);
+}
+
+size_t StringView::reverseFind(const LChar* match, unsigned matchLength, unsigned start) const
+{
+    ASSERT(matchLength);
+    auto length = this->length();
+    if (matchLength > length)
+        return notFound;
+
+    if (is8Bit())
+        return reverseFindInner(characters8(), match, start, length, matchLength);
+    return reverseFindInner(characters16(), match, start, length, matchLength);
+}
+
 void StringView::SplitResult::Iterator::findNextSubstring()
 {
     for (size_t separatorPosition; (separatorPosition = m_result.m_string.find(m_result.m_separator, m_position)) != notFound; ++m_position) {
@@ -253,16 +281,8 @@ template<typename CharacterType>
 static AtomString convertASCIILowercaseAtom(const CharacterType* input, unsigned length)
 {
     for (unsigned i = 0; i < length; ++i) {
-        if (UNLIKELY(isASCIIUpper(input[i]))) {
-            CharacterType* characters;
-            auto result = String::createUninitialized(length, characters);
-            StringImpl::copyCharacters(characters, input, i);
-            for (; i < length; ++i)
-                characters[i] = toASCIILower(input[i]);
-            // FIXME: This is inefficient. Ideally, we wouldn't have to allocate a String/StringImpl if the
-            // string is already in the AtomStringTable.
-            return AtomString(result);
-        }
+        if (UNLIKELY(isASCIIUpper(input[i])))
+            return makeAtomString(asASCIILowercase(StringView { input, length }));
     }
     // Fast path when the StringView is already all lowercase.
     return AtomString(input, length);
@@ -349,11 +369,6 @@ bool equalRespectingNullity(StringView a, StringView b)
         return a.isNull() == b.isNull();
 
     return equalCommon(a, b);
-}
-
-bool StringView::contains(const char* string) const
-{
-    return find(string) != notFound;
 }
 
 StringView StringView::stripWhiteSpace() const

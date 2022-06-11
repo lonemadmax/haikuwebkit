@@ -165,9 +165,11 @@ public:
     bool operator==(const RenderStyle&) const;
     bool operator!=(const RenderStyle& other) const { return !(*this == other); }
 
-    void inheritFrom(const RenderStyle& inheritParent);
+    void inheritFrom(const RenderStyle&);
+    void fastPathInheritFrom(const RenderStyle&);
     void copyNonInheritedFrom(const RenderStyle&);
     void copyContentFrom(const RenderStyle&);
+    void copyPseudoElementsFrom(const RenderStyle&);
 
     ContentPosition resolvedJustifyContentPosition(const StyleContentAlignmentData& normalValueBehavior) const;
     ContentDistribution resolvedJustifyContentDistribution(const StyleContentAlignmentData& normalValueBehavior) const;
@@ -185,7 +187,6 @@ public:
 
     RenderStyle* getCachedPseudoStyle(PseudoId) const;
     RenderStyle* addCachedPseudoStyle(std::unique_ptr<RenderStyle>);
-    void removeCachedPseudoStyle(PseudoId);
 
     const PseudoStyleCache* cachedPseudoStyles() const { return m_cachedPseudoStyles.get(); }
 
@@ -713,8 +714,14 @@ public:
     static constexpr OptionSet<TransformOperationOption> individualTransformOperations = { TransformOperationOption::Translate, TransformOperationOption::Rotate, TransformOperationOption::Scale, TransformOperationOption::Offset };
 
     bool affectedByTransformOrigin() const;
-    FloatPoint3D applyTransformOrigin(TransformationMatrix&, const FloatRect& boundingBox) const;
+
+    FloatPoint computePerspectiveOrigin(const FloatRect& boundingBox) const;
+    void applyPerspective(TransformationMatrix&, const RenderObject&, const FloatPoint& originTranslate) const;
+
+    FloatPoint3D computeTransformOrigin(const FloatRect& boundingBox) const;
+    void applyTransformOrigin(TransformationMatrix&, const FloatPoint3D& originTranslate) const;
     void unapplyTransformOrigin(TransformationMatrix&, const FloatPoint3D& originTranslate) const;
+
     // applyTransform calls applyTransformOrigin(), then applyCSSTransform(), followed by unapplyTransformOrigin().
     void applyTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<TransformOperationOption> = allTransformOperations) const;
     void applyCSSTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<TransformOperationOption> = allTransformOperations) const;
@@ -1539,6 +1546,9 @@ public:
     const AtomString& hyphenString() const;
 
     bool inheritedEqual(const RenderStyle&) const;
+    bool fastPathInheritedEqual(const RenderStyle&) const;
+    bool nonFastPathInheritedEqual(const RenderStyle&) const;
+
     bool descendantAffectingNonInheritedPropertiesEqual(const RenderStyle&) const;
 
 #if ENABLE(TEXT_AUTOSIZING)
@@ -1588,7 +1598,10 @@ public:
 
     void setHasExplicitlyInheritedProperties() { m_nonInheritedFlags.hasExplicitlyInheritedProperties = true; }
     bool hasExplicitlyInheritedProperties() const { return m_nonInheritedFlags.hasExplicitlyInheritedProperties; }
-    
+
+    bool disallowsFastPathInheritance() const { return m_nonInheritedFlags.disallowsFastPathInheritance; }
+    void setDisallowsFastPathInheritance() { m_nonInheritedFlags.disallowsFastPathInheritance = true; }
+
     void setMathStyle(const MathStyle& v) { SET_VAR(m_rareInheritedData, mathStyle, static_cast<unsigned>(v)); }
 
     // Initial values for all the properties
@@ -1987,6 +2000,7 @@ private:
 #endif
         unsigned hasViewportUnits : 1;
         unsigned hasExplicitlyInheritedProperties : 1; // Explicitly inherits a non-inherited property.
+        unsigned disallowsFastPathInheritance : 1;
         unsigned isUnique : 1; // Style cannot be shared.
         unsigned emptyState : 1;
         unsigned firstChildState : 1;
@@ -2068,7 +2082,7 @@ private:
     bool changeRequiresPositionedLayoutOnly(const RenderStyle&, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const;
     bool changeRequiresLayerRepaint(const RenderStyle&, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const;
     bool changeRequiresRepaint(const RenderStyle&, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const;
-    bool changeRequiresRepaintIfTextOrBorderOrOutline(const RenderStyle&, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const;
+    bool changeRequiresRepaintIfText(const RenderStyle&, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const;
     bool changeRequiresRecompositeLayer(const RenderStyle&, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const;
 
     // non-inherited attributes
@@ -2127,6 +2141,7 @@ inline bool RenderStyle::NonInheritedFlags::operator==(const NonInheritedFlags& 
 #endif
         && hasViewportUnits == other.hasViewportUnits
         && hasExplicitlyInheritedProperties == other.hasExplicitlyInheritedProperties
+        && disallowsFastPathInheritance == other.disallowsFastPathInheritance
         && isUnique == other.isUnique
         && emptyState == other.emptyState
         && firstChildState == other.firstChildState
@@ -2152,6 +2167,7 @@ inline void RenderStyle::NonInheritedFlags::copyNonInheritedFrom(const NonInheri
     tableLayout = other.tableLayout;
     hasViewportUnits = other.hasViewportUnits;
     hasExplicitlyInheritedProperties = other.hasExplicitlyInheritedProperties;
+    disallowsFastPathInheritance = other.disallowsFastPathInheritance;
 
     // Unlike properties tracked by the other hasExplicitlySet* flags, border-radius is non-inherited
     // and we need to remember whether it's been explicitly set when copying m_surroundData.

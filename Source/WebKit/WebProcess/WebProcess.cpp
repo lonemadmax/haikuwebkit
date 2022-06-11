@@ -143,6 +143,7 @@
 #include <pal/Logging.h>
 #include <wtf/Algorithms.h>
 #include <wtf/CallbackAggregator.h>
+#include <wtf/DateMath.h>
 #include <wtf/Language.h>
 #include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
@@ -190,13 +191,6 @@
 #if ENABLE(GPU_PROCESS)
 #include "GPUConnectionToWebProcessMessages.h"
 #include "GPUProcessConnection.h"
-#include "GPUProcessConnectionInfo.h"
-#endif
-
-#if ENABLE(WEB_AUTHN)
-#include "WebAuthnConnectionToWebProcessMessages.h"
-#include "WebAuthnProcessConnection.h"
-#include "WebAuthnProcessConnectionInfo.h"
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -239,6 +233,10 @@
 
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 #include "WebMockContentFilterManager.h"
+#endif
+
+#if HAVE(LSDATABASECONTEXT)
+#include "LaunchServicesDatabaseManager.h"
 #endif
 
 #undef WEBPROCESS_RELEASE_LOG
@@ -505,6 +503,9 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
         supplement->initialize(parameters);
 
     setCacheModel(parameters.cacheModel);
+
+    if (!parameters.timeZoneOverride.isEmpty())
+        setTimeZoneOverride(parameters.timeZoneOverride);
 
     if (!parameters.overrideLanguages.isEmpty()) {
         LOG_WITH_STREAM(Language, stream << "Web Process initialization is setting overrideLanguages: " << parameters.overrideLanguages);
@@ -1189,6 +1190,12 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
             m_networkProcessConnection->serviceWorkerConnection().registerServiceWorkerClients();
 #endif
 
+#if HAVE(LSDATABASECONTEXT)
+        // On Mac, this needs to be called before NSApplication is being initialized.
+        // The NSApplication initialization is being done in [NSApplication _accessibilityInitialize]
+        LaunchServicesDatabaseManager::singleton().waitForDatabaseUpdate();
+#endif
+
         // This can be called during a WebPage's constructor, so wait until after the constructor returns to touch the WebPage.
         RunLoop::main().dispatch([this] {
             for (auto& webPage : m_pageMap.values())
@@ -1293,55 +1300,13 @@ WebLoaderStrategy& WebProcess::webLoaderStrategy()
 
 #if ENABLE(GPU_PROCESS)
 
-#if !PLATFORM(COCOA)
-void WebProcess::platformInitializeGPUProcessConnectionParameters(GPUProcessConnectionParameters&)
-{
-}
-#endif
-
-GPUProcessConnectionInfo WebProcess::getGPUProcessConnection(IPC::Connection& connection)
-{
-    GPUProcessConnectionParameters parameters;
-    platformInitializeGPUProcessConnectionParameters(parameters);
-
-    IPC::UnboundedSynchronousIPCScope unboundedSynchronousIPCScope;
-
-    GPUProcessConnectionInfo connectionInfo;
-    if (!connection.sendSync(Messages::WebProcessProxy::GetGPUProcessConnection(parameters), Messages::WebProcessProxy::GetGPUProcessConnection::Reply(connectionInfo), 0)) {
-        // If we failed the first time, retry once. The attachment may have become invalid
-        // before it was received by the web process if the network process crashed.
-        if (!connection.sendSync(Messages::WebProcessProxy::GetGPUProcessConnection(parameters), Messages::WebProcessProxy::GetGPUProcessConnection::Reply(connectionInfo), 0))
-            failedToSendSyncMessage();
-    }
-
-    return connectionInfo;
-}
-
 GPUProcessConnection& WebProcess::ensureGPUProcessConnection()
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
     // If we've lost our connection to the GPU process (e.g. it crashed) try to re-establish it.
     if (!m_gpuProcessConnection) {
-        auto connectionInfo = getGPUProcessConnection(*parentProcessConnection());
-
-        // Retry once if the IPC to get the connectionIdentifier succeeded but the connectionIdentifier we received
-        // is invalid. This may indicate that the GPU process has crashed.
-        if (!IPC::Connection::identifierIsValid(connectionInfo.identifier()))
-            connectionInfo = getGPUProcessConnection(*parentProcessConnection());
-
-        if (!IPC::Connection::identifierIsValid(connectionInfo.identifier()))
-            CRASH();
-
-        m_gpuProcessConnection = GPUProcessConnection::create(connectionInfo.releaseIdentifier(), connectionInfo.parameters);
-#if HAVE(AUDIT_TOKEN)
-        ASSERT(connectionInfo.auditToken);
-        m_gpuProcessConnection->setAuditToken(WTFMove(connectionInfo.auditToken));
-#endif
-#if ENABLE(IPC_TESTING_API)
-        if (parentProcessConnection()->ignoreInvalidMessageForTesting())
-            m_gpuProcessConnection->connection().setIgnoreInvalidMessageForTesting();
-#endif
+        m_gpuProcessConnection = GPUProcessConnection::create(*parentProcessConnection());
 
         for (auto& page : m_pageMap.values()) {
             // If page is null, then it is currently being constructed.
@@ -1385,57 +1350,6 @@ AudioMediaStreamTrackRendererInternalUnitManager& WebProcess::audioMediaStreamTr
 #endif
 
 #endif // ENABLE(GPU_PROCESS)
-
-#if ENABLE(WEB_AUTHN)
-
-static WebAuthnProcessConnectionInfo getWebAuthnProcessConnection(IPC::Connection& connection)
-{
-    WebAuthnProcessConnectionInfo connectionInfo;
-    if (!connection.sendSync(Messages::WebProcessProxy::GetWebAuthnProcessConnection(), Messages::WebProcessProxy::GetWebAuthnProcessConnection::Reply(connectionInfo), 0)) {
-        // If we failed the first time, retry once. The attachment may have become invalid
-        // before it was received by the web process if the network process crashed.
-        if (!connection.sendSync(Messages::WebProcessProxy::GetWebAuthnProcessConnection(), Messages::WebProcessProxy::GetWebAuthnProcessConnection::Reply(connectionInfo), 0)) {
-            RELEASE_LOG_ERROR(WebAuthn, "getWebAuthnProcessConnection: Unable to connect to WebAuthn process (Terminating)");
-            failedToSendSyncMessage();
-        }
-    }
-
-    return connectionInfo;
-}
-
-WebAuthnProcessConnection& WebProcess::ensureWebAuthnProcessConnection()
-{
-    RELEASE_ASSERT(RunLoop::isMain());
-
-    // If we've lost our connection to the WebAuthn process (e.g. it crashed) try to re-establish it.
-    if (!m_webAuthnProcessConnection) {
-        auto connectionInfo = getWebAuthnProcessConnection(*parentProcessConnection());
-
-        // Retry once if the IPC to get the connectionIdentifier succeeded but the connectionIdentifier we received
-        // is invalid. This may indicate that the WebAuthn process has crashed.
-        if (!IPC::Connection::identifierIsValid(connectionInfo.identifier()))
-            connectionInfo = getWebAuthnProcessConnection(*parentProcessConnection());
-
-        if (!IPC::Connection::identifierIsValid(connectionInfo.identifier())) {
-            RELEASE_LOG_ERROR(WebAuthn, "ensureWebAuthnProcessConnection: Connection identifier for WebAuthn process is invalid.");
-            CRASH();
-        }
-
-        m_webAuthnProcessConnection = WebAuthnProcessConnection::create(connectionInfo.releaseIdentifier());
-    }
-
-    return *m_webAuthnProcessConnection;
-}
-
-void WebProcess::webAuthnProcessConnectionClosed(WebAuthnProcessConnection* connection)
-{
-    ASSERT(m_webAuthnProcessConnection);
-    ASSERT_UNUSED(connection, m_webAuthnProcessConnection == connection);
-
-    m_webAuthnProcessConnection = nullptr;
-}
-
-#endif // ENABLE(WEB_AUTHN)
 
 void WebProcess::setEnhancedAccessibility(bool flag)
 {
@@ -1559,9 +1473,11 @@ void WebProcess::pageActivityStateDidChange(PageIdentifier, OptionSet<WebCore::A
     }
 }
 
-void WebProcess::prepareToSuspend(bool isSuspensionImminent, CompletionHandler<void()>&& completionHandler)
+void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime, CompletionHandler<void()>&& completionHandler)
 {
-    WEBPROCESS_RELEASE_LOG(ProcessSuspension, "prepareToSuspend: isSuspensionImminent=%d", isSuspensionImminent);
+    auto nowTime = MonotonicTime::now();
+    double remainingRunTime = nowTime > estimatedSuspendTime ? (nowTime - estimatedSuspendTime).value() : 0.0;
+    WEBPROCESS_RELEASE_LOG(ProcessSuspension, "prepareToSuspend: isSuspensionImminent=%d, remainingRunTime=%fs", isSuspensionImminent, remainingRunTime);
     SetForScope suspensionScope(m_isSuspending, true);
     m_processIsSuspended = true;
 
@@ -2026,9 +1942,9 @@ static inline void checkDocumentsCaptureStateConsistency(const Vector<String>& e
     });
 
     if (isCapturingAudio)
-        ASSERT(extensionIDs.findIf([](auto& id) { return id.contains("microphone"); }) == notFound);
+        ASSERT(!extensionIDs.containsIf([](auto& id) { return id.contains("microphone"_s); }));
     if (isCapturingVideo)
-        ASSERT(extensionIDs.findIf([](auto& id) { return id.contains("camera"); }) == notFound);
+        ASSERT(!extensionIDs.containsIf([](auto& id) { return id.contains("camera"_s); }));
 #endif // ASSERT_ENABLED
 }
 

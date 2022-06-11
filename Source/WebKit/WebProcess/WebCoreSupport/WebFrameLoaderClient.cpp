@@ -1119,14 +1119,25 @@ void WebFrameLoaderClient::revertToProvisionalState(DocumentLoader*)
     notImplemented();
 }
 
-void WebFrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError& error)
+inline bool WebFrameLoaderClient::hasPlugInView() const
 {
+#if !ENABLE(PDFKIT_PLUGIN)
+    return false;
+#else
+    return m_pluginView;
+#endif
+}
+
+void WebFrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError&)
+{
+#if ENABLE(PDFKIT_PLUGIN)
     if (!m_pluginView)
         return;
     
-    m_pluginView->manualLoadDidFail(error);
+    m_pluginView->manualLoadDidFail();
     m_pluginView = nullptr;
     m_hasSentResponseToPluginView = false;
+#endif
 }
 
 void WebFrameLoaderClient::setMainFrameDocumentReady(bool)
@@ -1167,7 +1178,7 @@ void WebFrameLoaderClient::didReplaceMultipartContent()
 
 void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const SharedBuffer& data)
 {
-    if (!m_pluginView)
+    if (!hasPlugInView())
         loader->commitData(data);
 
     // If the document is a stand-alone media document, now is the right time to cancel the WebKit load.
@@ -1177,6 +1188,7 @@ void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const SharedBuf
         loader->cancelMainResourceLoad(pluginWillHandleLoadError(loader->response()));
 #endif
 
+#if ENABLE(PDFKIT_PLUGIN)
     // Calling commitData did not create the plug-in view.
     if (!m_pluginView)
         return;
@@ -1191,26 +1203,27 @@ void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const SharedBuf
         m_hasSentResponseToPluginView = true;
     }
     m_pluginView->manualLoadDidReceiveData(data);
+#endif
 }
 
 void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
 {
-    if (!m_pluginView) {
-        if (m_frameHasCustomContentProvider) {
-            WebPage* webPage = m_frame->page();
-            if (!webPage)
-                return;
+    if (m_frameHasCustomContentProvider) {
+        WebPage* webPage = m_frame->page();
+        if (!webPage)
+            return;
 
-            RefPtr<const SharedBuffer> contiguousData;
-            RefPtr<const FragmentedSharedBuffer> mainResourceData = loader->mainResourceData();
-            if (mainResourceData)
-                contiguousData = mainResourceData->makeContiguous();
-            IPC::DataReference dataReference(contiguousData ? contiguousData->data() : nullptr, contiguousData ? contiguousData->size() : 0);
-            webPage->send(Messages::WebPageProxy::DidFinishLoadingDataForCustomContentProvider(loader->response().suggestedFilename(), dataReference));
-        }
-
-        return;
+        RefPtr<const SharedBuffer> contiguousData;
+        RefPtr<const FragmentedSharedBuffer> mainResourceData = loader->mainResourceData();
+        if (mainResourceData)
+            contiguousData = mainResourceData->makeContiguous();
+        IPC::DataReference dataReference(contiguousData ? contiguousData->data() : nullptr, contiguousData ? contiguousData->size() : 0);
+        webPage->send(Messages::WebPageProxy::DidFinishLoadingDataForCustomContentProvider(loader->response().suggestedFilename(), dataReference));
     }
+
+#if ENABLE(PDFKIT_PLUGIN)
+    if (!m_pluginView)
+        return;
 
     // If we just received an empty response without any data, we won't have sent a response to the plug-in view.
     // Make sure to do this before calling manualLoadDidFinishLoading.
@@ -1225,6 +1238,7 @@ void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
     m_pluginView->manualLoadDidFinishLoading();
     m_pluginView = nullptr;
     m_hasSentResponseToPluginView = false;
+#endif
 }
 
 void WebFrameLoaderClient::updateGlobalHistory()
@@ -1632,7 +1646,7 @@ void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader *doc
     m_frame->convertMainResourceLoadToDownload(documentLoader, request, response);
 }
 
-RefPtr<Frame> WebFrameLoaderClient::createFrame(const String& name, HTMLFrameOwnerElement& ownerElement)
+RefPtr<Frame> WebFrameLoaderClient::createFrame(const AtomString& name, HTMLFrameOwnerElement& ownerElement)
 {
     auto* webPage = m_frame->page();
 
@@ -1648,37 +1662,26 @@ RefPtr<Frame> WebFrameLoaderClient::createFrame(const String& name, HTMLFrameOwn
     return coreSubframe;
 }
 
-RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement& pluginElement, const URL& url, const Vector<AtomString>& paramNames, const Vector<AtomString>& paramValues, const String& mimeType, bool loadManually)
+RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement& pluginElement, const URL& url, const Vector<AtomString>&, const Vector<AtomString>&, const String& mimeType, bool loadManually)
 {
-    ASSERT(paramNames.size() == paramValues.size());
-    ASSERT(m_frame->page());
-
-    Plugin::Parameters parameters;
-    parameters.url = url;
-    parameters.names = paramNames;
-    parameters.values = paramValues;
-    parameters.mimeType = mimeType;
-    parameters.isFullFramePlugin = loadManually;
-    parameters.shouldUseManualLoader = parameters.isFullFramePlugin && !m_frameCameFromBackForwardCache;
-#if PLATFORM(COCOA)
-    parameters.layerHostingMode = m_frame->page()->layerHostingMode();
-#endif
-
-#if ENABLE(PDFKIT_PLUGIN)
-    auto plugin = m_frame->page()->createPlugin(m_frame.ptr(), &pluginElement, parameters, parameters.mimeType);
-    if (!plugin)
-        return nullptr;
-
-    return PluginView::create(pluginElement, plugin.releaseNonNull(), parameters);
-#else
+#if !ENABLE(PDFKIT_PLUGIN)
     UNUSED_PARAM(pluginElement);
+    UNUSED_PARAM(url);
+    UNUSED_PARAM(mimeType);
+    UNUSED_PARAM(loadManually);
     return nullptr;
+#else
+    return PluginView::create(pluginElement, url, mimeType, loadManually && !m_frameCameFromBackForwardCache);
 #endif
 }
 
 void WebFrameLoaderClient::redirectDataToPlugin(Widget& pluginWidget)
 {
+#if !ENABLE(PDFKIT_PLUGIN)
+    UNUSED_PARAM(pluginWidget);
+#else
     m_pluginView = static_cast<PluginView*>(&pluginWidget);
+#endif
 }
 
 #if ENABLE(WEBGL)
@@ -1884,11 +1887,7 @@ void WebFrameLoaderClient::didChangeScrollOffset()
 
 bool WebFrameLoaderClient::allowScript(bool enabledPerSettings)
 {
-    if (!enabledPerSettings)
-        return false;
-
-    auto* pluginView = WebPage::pluginViewForFrame(m_frame->coreFrame());
-    return !pluginView || !pluginView->shouldAllowScripting();
+    return enabledPerSettings && !hasPlugInView();
 }
 
 bool WebFrameLoaderClient::shouldForceUniversalAccessFromLocalURL(const URL& url)
@@ -2009,11 +2008,13 @@ void WebFrameLoaderClient::notifyPageOfAppBoundBehavior()
 #endif
 
 #if ENABLE(PDFKIT_PLUGIN)
+
 bool WebFrameLoaderClient::shouldUsePDFPlugin(const String& contentType, StringView path) const
 {
     auto* page = m_frame->page();
     return page && page->shouldUsePDFPlugin(contentType, path);
 }
+
 #endif
 
 bool WebFrameLoaderClient::isParentProcessAFullWebBrowser() const

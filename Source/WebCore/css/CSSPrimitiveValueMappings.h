@@ -469,44 +469,17 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
     case DefaultButtonPart:
         m_value.valueID = CSSValueDefaultButton;
         break;
-    case InnerSpinButtonPart:
-        m_value.valueID = CSSValueInnerSpinButton;
-        break;
     case ListboxPart:
         m_value.valueID = CSSValueListbox;
-        break;
-    case ListItemPart:
-        m_value.valueID = CSSValueListitem;
-        break;
-    case MediaPlayButtonPart:
-        m_value.valueID = CSSValueMediaPlayButton;
         break;
     case MediaSliderPart:
         m_value.valueID = CSSValueMediaSlider;
         break;
-    case MediaSliderThumbPart:
-        m_value.valueID = CSSValueMediaSliderthumb;
-        break;
     case MediaVolumeSliderPart:
         m_value.valueID = CSSValueMediaVolumeSlider;
         break;
-    case MediaVolumeSliderMuteButtonPart:
-        m_value.valueID = CSSValueMediaVolumeSliderMuteButton;
-        break;
-    case MediaVolumeSliderThumbPart:
-        m_value.valueID = CSSValueMediaVolumeSliderthumb;
-        break;    
     case MediaFullScreenVolumeSliderPart:
         m_value.valueID = CSSValueMediaFullscreenVolumeSlider;
-        break;
-    case MediaFullScreenVolumeSliderThumbPart:
-        m_value.valueID = CSSValueMediaFullscreenVolumeSliderThumb;
-        break;
-    case MediaControlsLightBarBackgroundPart:
-        m_value.valueID = CSSValueMediaControlsLightBarBackground;
-        break;
-    case MediaControlsDarkBarBackgroundPart:
-        m_value.valueID = CSSValueMediaControlsDarkBarBackground;
         break;
     case MenulistPart:
         m_value.valueID = CSSValueMenulist;
@@ -517,23 +490,8 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
     case MeterPart:
         m_value.valueID = CSSValueMeter;
         break;
-    case RelevancyLevelIndicatorPart:
-        m_value.valueID = CSSValueRelevancyLevelIndicator;
-        break;
-    case ContinuousCapacityLevelIndicatorPart:
-        m_value.valueID = CSSValueContinuousCapacityLevelIndicator;
-        break;
-    case DiscreteCapacityLevelIndicatorPart:
-        m_value.valueID = CSSValueDiscreteCapacityLevelIndicator;
-        break;
-    case RatingLevelIndicatorPart:
-        m_value.valueID = CSSValueRatingLevelIndicator;
-        break;
     case ProgressBarPart:
         m_value.valueID = CSSValueProgressBar;
-        break;
-    case ProgressBarValuePart:
-        m_value.valueID = CSSValueProgressBarValue;
         break;
     case SliderHorizontalPart:
         m_value.valueID = CSSValueSliderHorizontal;
@@ -541,38 +499,14 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
     case SliderVerticalPart:
         m_value.valueID = CSSValueSliderVertical;
         break;
-    case SliderThumbHorizontalPart:
-        m_value.valueID = CSSValueSliderthumbHorizontal;
-        break;
-    case SliderThumbVerticalPart:
-        m_value.valueID = CSSValueSliderthumbVertical;
-        break;
-    case CaretPart:
-        m_value.valueID = CSSValueCaret;
-        break;
     case SearchFieldPart:
         m_value.valueID = CSSValueSearchfield;
-        break;
-    case SearchFieldDecorationPart:
-        m_value.valueID = CSSValueSearchfieldDecoration;
-        break;
-    case SearchFieldResultsDecorationPart:
-        m_value.valueID = CSSValueSearchfieldResultsDecoration;
-        break;
-    case SearchFieldResultsButtonPart:
-        m_value.valueID = CSSValueSearchfieldResultsButton;
-        break;
-    case SearchFieldCancelButtonPart:
-        m_value.valueID = CSSValueSearchfieldCancelButton;
         break;
     case TextFieldPart:
         m_value.valueID = CSSValueTextfield;
         break;
     case TextAreaPart:
         m_value.valueID = CSSValueTextarea;
-        break;
-    case CapsLockIndicatorPart:
-        m_value.valueID = CSSValueCapsLockIndicator;
         break;
 #if ENABLE(ATTACHMENT_ELEMENT)
     case AttachmentPart:
@@ -582,27 +516,34 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
         m_value.valueID = CSSValueBorderlessAttachment;
         break;
 #endif
-#if ENABLE(SERVICE_CONTROLS)
-    case ImageControlsButtonPart:
-        ASSERT_NOT_REACHED();
-        m_value.valueID = CSSValueNone;
-        break;
-#endif
 #if ENABLE(APPLE_PAY)
     case ApplePayButtonPart:
         m_value.valueID = CSSValueApplePayButton;
         break;
 #endif
+    case CapsLockIndicatorPart:
 #if ENABLE(INPUT_TYPE_COLOR)
     case ColorWellPart:
-        m_value.valueID = CSSValueColorWell;
-        break;
 #endif
+#if ENABLE(SERVICE_CONTROLS)
+    case ImageControlsButtonPart:
+#endif
+    case InnerSpinButtonPart:
 #if ENABLE(DATALIST_ELEMENT)
     case ListButtonPart:
-        m_value.valueID = CSSValueListButton;
-        break;
 #endif
+    case MediaFullScreenVolumeSliderThumbPart:
+    case MediaSliderThumbPart:
+    case MediaVolumeSliderThumbPart:
+    case SearchFieldDecorationPart:
+    case SearchFieldResultsDecorationPart:
+    case SearchFieldResultsButtonPart:
+    case SearchFieldCancelButtonPart:
+    case SliderThumbHorizontalPart:
+    case SliderThumbVerticalPart:
+        ASSERT_NOT_REACHED();
+        m_value.valueID = CSSValueNone;
+        break;
     }
 }
 

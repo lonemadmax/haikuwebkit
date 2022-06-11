@@ -127,6 +127,7 @@ bool canUseWebAssemblyFastMemory();
     \
     v(Bool, useOSLog, false, Normal, "Log dataLog()s to os_log instead of stderr") \
     /* dumpDisassembly implies dumpDFGDisassembly. */ \
+    v(Bool, needDisassemblySupport, false, Normal, nullptr) \
     v(Bool, dumpDisassembly, false, Normal, "dumps disassembly of all JIT compiled code upon compilation") \
     v(Bool, asyncDisassembly, false, Normal, nullptr) \
     v(Bool, logJIT, false, Normal, nullptr) \
@@ -531,7 +532,7 @@ bool canUseWebAssemblyFastMemory();
     v(Bool, dumpBaselineJITSizeStatistics, false, Normal, nullptr) \
     v(Bool, dumpDFGJITSizeStatistics, false, Normal, nullptr) \
     v(Bool, verboseExecutablePoolAllocation, false, Normal, nullptr) \
-    v(Bool, useDataICInOptimizingJIT, false, Normal, nullptr) \
+    v(Bool, useDataICInFTL, false, Normal, nullptr) \
     v(Bool, useDataICSharing, false, Normal, nullptr) \
     v(Bool, useLLIntICs, true, Normal, "Use property and call ICs in LLInt code.") \
     v(Bool, useBaselineJITCodeSharing, is64Bit(), Normal, nullptr) \

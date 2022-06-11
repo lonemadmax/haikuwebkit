@@ -40,7 +40,6 @@
 #include "AuxiliaryProcessProxy.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
-#include "GPUProcessConnectionInfo.h"
 #include "GPUProcessConnectionParameters.h"
 #include "GamepadData.h"
 #include "HighPerformanceGraphicsUsageSampler.h"
@@ -114,11 +113,6 @@
 #include "GPUProcessCreationParameters.h"
 #include "GPUProcessMessages.h"
 #include "GPUProcessProxy.h"
-#endif
-
-#if ENABLE(WEB_AUTHN)
-#include "WebAuthnProcessConnectionInfo.h"
-#include "WebAuthnProcessProxy.h"
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -514,7 +508,7 @@ void WebProcessPool::gpuProcessExited(ProcessID identifier, ProcessTerminationRe
     }
 }
 
-void WebProcessPool::getGPUProcessConnection(WebProcessProxy& webProcessProxy, GPUProcessConnectionParameters&& parameters, Messages::WebProcessProxy::GetGPUProcessConnection::DelayedReply&& reply)
+void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy, IPC::Attachment&& connectionIdentifier, WebKit::GPUProcessConnectionParameters&& parameters)
 {
 #if ENABLE(IPC_TESTING_API)
     parameters.ignoreInvalidMessageForTesting = webProcessProxy.ignoreInvalidMessageForTesting();
@@ -525,35 +519,7 @@ void WebProcessPool::getGPUProcessConnection(WebProcessProxy& webProcessProxy, G
 #endif
 
     parameters.isCaptivePortalModeEnabled = webProcessProxy.captivePortalMode() == WebProcessProxy::CaptivePortalMode::Enabled;
-
-    ensureGPUProcess().getGPUProcessConnection(webProcessProxy, parameters, [this, weakThis = WeakPtr { *this }, parameters, webProcessProxy = WeakPtr { webProcessProxy }, reply = WTFMove(reply)] (auto& connectionInfo) mutable {
-        if (UNLIKELY(!IPC::Connection::identifierIsValid(connectionInfo.identifier()))) {
-            // Retry on the next RunLoop iteration because we may be inside the WebProcessPool destructor.
-            RunLoop::main().dispatch([this, weakThis = WTFMove(weakThis), webProcessProxy = WTFMove(webProcessProxy), parameters = WTFMove(parameters), reply = WTFMove(reply)] () mutable {
-                if (weakThis && webProcessProxy) {
-                    WEBPROCESSPOOL_RELEASE_LOG_ERROR(Process, "getGPUProcessConnection: Failed first attempt, retrying");
-                    ensureGPUProcess().getGPUProcessConnection(*webProcessProxy, parameters, WTFMove(reply));
-                } else
-                    reply({ });
-            });
-            return;
-        }
-        reply(connectionInfo);
-    });
-}
-#endif
-
-#if ENABLE(WEB_AUTHN)
-void WebProcessPool::getWebAuthnProcessConnection(WebProcessProxy& webProcessProxy, Messages::WebProcessProxy::GetWebAuthnProcessConnection::DelayedReply&& reply)
-{
-    WebAuthnProcessProxy::singleton().getWebAuthnProcessConnection(webProcessProxy, [this, weakThis = WeakPtr { *this }, webProcessProxy = WeakPtr { webProcessProxy }, reply = WTFMove(reply)] (auto& connectionInfo) mutable {
-        if (UNLIKELY(!IPC::Connection::identifierIsValid(connectionInfo.identifier()) && webProcessProxy && weakThis)) {
-            WEBPROCESSPOOL_RELEASE_LOG_ERROR(Process, "getWebAuthnProcessConnection: Failed first attempt, retrying");
-            WebAuthnProcessProxy::singleton().getWebAuthnProcessConnection(*webProcessProxy, WTFMove(reply));
-            return;
-        }
-        reply(connectionInfo);
-    });
+    ensureGPUProcess().createGPUProcessConnection(webProcessProxy, WTFMove(connectionIdentifier), WTFMove(parameters));
 }
 #endif
 
@@ -591,7 +557,7 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
 
     // Prioritize the requesting WebProcess for running the service worker.
     if (!remoteWorkerProcessProxy && !s_useSeparateServiceWorkerProcess && requestingProcess) {
-        if (&requestingProcess->websiteDataStore() == websiteDataStore && requestingProcess->isMatchingRegistrableDomain(registrableDomain))
+        if (requestingProcess->websiteDataStore() == websiteDataStore && requestingProcess->isMatchingRegistrableDomain(registrableDomain))
             useProcessForRemoteWorkers(*requestingProcess);
     }
 
@@ -599,7 +565,7 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
         for (auto& process : processPool->m_processes) {
             if (process.ptr() == processPool->m_prewarmedProcess.get() || process->isDummyProcessProxy())
                 continue;
-            if (&process->websiteDataStore() != websiteDataStore)
+            if (process->websiteDataStore() != websiteDataStore)
                 continue;
             if (!process->isMatchingRegistrableDomain(registrableDomain))
                 continue;
@@ -664,7 +630,7 @@ void WebProcessPool::resolvePathsForSandboxExtensions()
 
     m_resolvedPaths.additionalWebProcessSandboxExtensionPaths.reserveCapacity(m_configuration->additionalReadAccessAllowedPaths().size());
     for (const auto& path : m_configuration->additionalReadAccessAllowedPaths())
-        m_resolvedPaths.additionalWebProcessSandboxExtensionPaths.uncheckedAppend(resolvePathForSandboxExtension(path.data()));
+        m_resolvedPaths.additionalWebProcessSandboxExtensionPaths.uncheckedAppend(resolvePathForSandboxExtension(path));
 
     platformResolvePathsForSandboxExtensions();
 }
@@ -795,14 +761,14 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
 
 #if PLATFORM(IOS_FAMILY)
     std::optional<SandboxExtension::Handle> cookieStorageDirectoryExtensionHandle;
-    if (auto& directory = websiteDataStore.cookieStorageDirectory(); !directory.isEmpty())
-        cookieStorageDirectoryExtensionHandle = SandboxExtension::createHandleWithoutResolvingPath(directory, SandboxExtension::Type::ReadWrite);
+    if (auto directory = websiteDataStore.cookieStorageDirectory(); !directory.isEmpty())
+        cookieStorageDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(directory);
     std::optional<SandboxExtension::Handle> containerCachesDirectoryExtensionHandle;
-    if (auto& directory = websiteDataStore.containerCachesDirectory(); !directory.isEmpty())
-        containerCachesDirectoryExtensionHandle = SandboxExtension::createHandleWithoutResolvingPath(directory, SandboxExtension::Type::ReadWrite);
+    if (auto directory = websiteDataStore.containerCachesDirectory(); !directory.isEmpty())
+        containerCachesDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(directory);
     std::optional<SandboxExtension::Handle> containerTemporaryDirectoryExtensionHandle;
-    if (auto& directory = websiteDataStore.containerTemporaryDirectory(); !directory.isEmpty())
-        containerTemporaryDirectoryExtensionHandle = SandboxExtension::createHandleWithoutResolvingPath(directory, SandboxExtension::Type::ReadWrite);
+    if (auto directory = websiteDataStore.containerTemporaryDirectory(); !directory.isEmpty())
+        containerTemporaryDirectoryExtensionHandle = SandboxExtension::createHandleForReadWriteDirectory(directory);
 #endif
 
     return WebProcessDataStoreParameters {
@@ -912,6 +878,8 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
 #endif
 
     parameters.presentingApplicationPID = m_configuration->presentingApplicationPID();
+
+    parameters.timeZoneOverride = m_configuration->timeZoneOverride();
 
     // Add any platform specific parameters
     platformInitializeWebProcess(process, parameters);
@@ -1105,7 +1073,7 @@ Ref<WebProcessProxy> WebProcessPool::processForRegistrableDomain(WebsiteDataStor
             if (process->isRunningServiceWorkers())
                 continue;
 #endif
-            if (mustMatchDataStore && &process->websiteDataStore() != &websiteDataStore)
+            if (mustMatchDataStore && process->websiteDataStore() != &websiteDataStore)
                 continue;
             return process;
         }
@@ -1145,7 +1113,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         // Sharing processes, e.g. when creating the page via window.open().
         process = &pageConfiguration->relatedPage()->ensureRunningProcess();
         // We do not support several WebsiteDataStores sharing a single process.
-        ASSERT(process->isDummyProcessProxy() || pageConfiguration->websiteDataStore() == &process->websiteDataStore());
+        ASSERT(process->isDummyProcessProxy() || pageConfiguration->websiteDataStore() == process->websiteDataStore());
         ASSERT(&pageConfiguration->relatedPage()->websiteDataStore() == pageConfiguration->websiteDataStore());
     } else if (!m_isDelayedWebProcessLaunchDisabled) {
         // In the common case, we delay process launch until something is actually loaded in the page.
@@ -1995,7 +1963,7 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
         LOG(ProcessSwapping, "(ProcessSwapping) Considering re-use of a previously cached process for domain %s", targetRegistrableDomain.string().utf8().data());
 
         if (auto* process = m_swappedProcessesPerRegistrableDomain.get(targetRegistrableDomain)) {
-            if (&process->websiteDataStore() == dataStore.ptr()) {
+            if (process->websiteDataStore() == dataStore.ptr()) {
                 LOG(ProcessSwapping, "(ProcessSwapping) Reusing a previously cached process with pid %i to continue navigation to URL %s", process->processIdentifier(), targetURL.string().utf8().data());
 
                 return completionHandler(*process, nullptr, reason);

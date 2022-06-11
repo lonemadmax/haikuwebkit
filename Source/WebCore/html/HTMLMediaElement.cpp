@@ -49,6 +49,7 @@
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "ElementChildIterator.h"
 #include "EventLoop.h"
@@ -219,12 +220,12 @@ static const Seconds hideMediaControlsAfterEndedDelay { 6_s };
 
 #if ENABLE(MEDIA_SOURCE)
 // URL protocol used to signal that the media source API is being used.
-static const char* mediaSourceBlobProtocol = "blob";
+static constexpr auto mediaSourceBlobProtocol = "blob"_s;
 #endif
 
 #if ENABLE(MEDIA_STREAM)
 // URL protocol used to signal that the media stream API is being used.
-static const char* mediaStreamBlobProtocol = "blob";
+static constexpr auto mediaStreamBlobProtocol = "blob"_s;
 #endif
 
 using namespace HTMLNames;
@@ -747,6 +748,16 @@ bool HTMLMediaElement::isMouseFocusable() const
 bool HTMLMediaElement::isInteractiveContent() const
 {
     return controls();
+}
+
+void HTMLMediaElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason reason)
+{
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    if (name == webkitwirelessvideoplaybackdisabledAttr)
+        mediaSession().setWirelessVideoPlaybackDisabled(newValue != nullAtom());
+    else
+#endif
+        HTMLElement::attributeChanged(name, oldValue, newValue, reason);
 }
 
 void HTMLMediaElement::parseAttribute(const QualifiedName& name, const AtomString& value)
@@ -2990,7 +3001,7 @@ void HTMLMediaElement::cdmClientAttemptToResumePlaybackIfNecessary()
     attemptToResumePlaybackIfNecessary();
 }
 
-void HTMLMediaElement::cdmClientUnrequestedInitializationDataReceived(const String& initDataType, Ref<FragmentedSharedBuffer>&& initData)
+void HTMLMediaElement::cdmClientUnrequestedInitializationDataReceived(const String& initDataType, Ref<SharedBuffer>&& initData)
 {
     mediaPlayerInitializationDataEncountered(initDataType, initData->tryCreateArrayBuffer());
 }

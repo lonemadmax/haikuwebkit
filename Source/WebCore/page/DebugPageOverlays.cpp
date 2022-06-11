@@ -177,15 +177,15 @@ static void drawRightAlignedText(const String& text, GraphicsContext& context, c
 
 void NonFastScrollableRegionOverlay::drawRect(PageOverlay& pageOverlay, GraphicsContext& context, const IntRect&)
 {
-    static constexpr std::pair<ComparableASCIILiteral, SRGBA<uint8_t>> colorMappings[] = {
-        { "mousedown", { 80, 245, 80, 50 } },
-        { "mousemove", { 245, 245, 80, 50 } },
-        { "mouseup", { 80, 245, 176, 50 } },
-        { "touchend", { 191, 63, 127, 50 } },
-        { "touchforcechange", { 63, 63, 191, 50 } },
-        { "touchmove", { 80, 204, 245, 50 } },
-        { "touchstart", { 191, 191, 63, 50 } },
-        { "wheel", { 255, 128, 0, 50 } },
+    static constexpr std::pair<EventTrackingRegions::EventType, SRGBA<uint8_t>> colorMappings[] = {
+        { EventTrackingRegions::EventType::Mousedown, { 80, 245, 80, 50 } },
+        { EventTrackingRegions::EventType::Mousemove, { 245, 245, 80, 50 } },
+        { EventTrackingRegions::EventType::Mouseup, { 80, 245, 176, 50 } },
+        { EventTrackingRegions::EventType::Touchend, { 191, 63, 127, 50 } },
+        { EventTrackingRegions::EventType::Touchforcechange, { 63, 63, 191, 50 } },
+        { EventTrackingRegions::EventType::Touchmove, { 80, 204, 245, 50 } },
+        { EventTrackingRegions::EventType::Touchstart, { 191, 191, 63, 50 } },
+        { EventTrackingRegions::EventType::Wheel, { 255, 128, 0, 50 } },
     };
     constexpr SortedArrayMap colors { colorMappings };
     constexpr auto defaultColor = Color::black.colorWithAlphaByte(64);
@@ -212,20 +212,20 @@ void NonFastScrollableRegionOverlay::drawRect(PageOverlay& pageOverlay, Graphics
     };
 
 #if ENABLE(TOUCH_EVENTS)
-    auto drawEventLegend = [&] (ASCIILiteral color) {
-        drawLegend(colors.get(StringView { color }), color);
+    auto drawEventLegend = [&](EventTrackingRegions::EventType eventType) {
+        drawLegend(colors.get(eventType), EventTrackingRegions::eventName(eventType));
     };
-    drawEventLegend("touchstart"_s);
-    drawEventLegend("touchmove"_s);
-    drawEventLegend("touchend"_s);
-    drawEventLegend("touchforcechange"_s);
+    drawEventLegend(EventTrackingRegions::EventType::Touchstart);
+    drawEventLegend(EventTrackingRegions::EventType::Touchmove);
+    drawEventLegend(EventTrackingRegions::EventType::Touchend);
+    drawEventLegend(EventTrackingRegions::EventType::Touchforcechange);
     drawLegend(m_color, "passive listeners"_s);
-    drawEventLegend("mousedown"_s);
-    drawEventLegend("mousemove"_s);
-    drawEventLegend("mouseup"_s);
+    drawEventLegend(EventTrackingRegions::EventType::Mousedown);
+    drawEventLegend(EventTrackingRegions::EventType::Mousemove);
+    drawEventLegend(EventTrackingRegions::EventType::Mouseup);
 #else
     // On desktop platforms, the "wheel" region includes the non-fast scrollable region.
-    drawLegend(colors.get("wheel"), "non-fast region"_s);
+    drawLegend(colors.get(EventTrackingRegions::EventType::Wheel), "non-fast region"_s);
 #endif
 
     for (auto& region : m_eventTrackingRegions.eventSpecificSynchronousDispatchRegions)
@@ -293,15 +293,11 @@ bool InteractionRegionOverlay::updateRegion()
 
 static Vector<Path> pathsForRegion(const InteractionRegion& region)
 {
-    static constexpr float padding = 3;
     static constexpr float radius = 4;
 
-    Vector<FloatRect> rects;
-    for (auto rect : region.rectsInContentCoordinates) {
-        if (region.isInline)
-            rect.inflate(padding);
-        rects.append(rect);
-    }
+    Vector<FloatRect> rects = region.regionInLayerCoordinates.rects().map([] (auto rect) -> FloatRect {
+        return rect;
+    });
     return PathUtilities::pathsWithShrinkWrappedRects(rects, std::max(region.borderRadius, radius));
 }
 
@@ -313,7 +309,7 @@ std::optional<InteractionRegion> InteractionRegionOverlay::activeRegion()
     for (const auto& region : m_regions) {
         float area = 0;
         FloatRect boundingRect;
-        for (const auto& rect : region.rectsInContentCoordinates) {
+        for (const auto& rect : region.regionInLayerCoordinates.rects()) {
             if (boundingRect.isEmpty())
                 boundingRect = rect;
             else
@@ -437,8 +433,8 @@ void InteractionRegionOverlay::drawRect(PageOverlay&, GraphicsContext& context, 
         context.setStrokeColor(Color::green);
 
         for (const auto& region : m_regions) {
-            for (const auto& rect : region.rectsInContentCoordinates)
-            context.strokeRect(rect, 2);
+            for (const auto& rect : region.regionInLayerCoordinates.rects())
+                context.strokeRect(rect, 2);
         }
     }
 

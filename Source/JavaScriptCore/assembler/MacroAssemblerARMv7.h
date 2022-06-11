@@ -41,11 +41,14 @@ class MacroAssemblerARMv7 : public AbstractMacroAssembler<Assembler> {
 public:
     static constexpr size_t nearJumpRange = 16 * MB;
 
-private:
     static constexpr RegisterID dataTempRegister = ARMRegisters::ip;
     static constexpr RegisterID addressTempRegister = ARMRegisters::r6;
 
-    static constexpr ARMRegisters::FPDoubleRegisterID fpTempRegister = ARMRegisters::d7;
+    // d15 is host/C ABI callee save, but is volatile in the VM/JS ABI. We use
+    // this as scratch register so we can use the full range of d0-d7 as
+    // temporary, and in particular as Wasm argument/return register.
+    static constexpr ARMRegisters::FPDoubleRegisterID fpTempRegister = ARMRegisters::d15;
+private:
     inline ARMRegisters::FPSingleRegisterID fpTempRegisterAsSingle() { return ARMRegisters::asSingle(fpTempRegister); }
 
     // In the Thumb-2 instruction set, instructions operating only on registers r0-r7 can often
@@ -1464,6 +1467,12 @@ public:
         CRASH();
     }
 
+    void convertInt32ToFloat(RegisterID src, FPRegisterID dest)
+    {
+        m_assembler.vmov(fpTempRegister, src, src);
+        m_assembler.vcvt_signedToFloatingPoint(dest, fpTempRegisterAsSingle(), /* toDouble: */ false);
+    }
+
     void convertInt32ToDouble(RegisterID src, FPRegisterID dest)
     {
         m_assembler.vmov(fpTempRegister, src, src);
@@ -2295,6 +2304,14 @@ public:
         return Call(m_assembler.b(), Call::LinkableNearTail);
     }
 
+    // FIXME: why is this the same than nearCall() in ARM64? is it right?
+    ALWAYS_INLINE Call threadSafePatchableNearCall()
+    {
+        invalidateAllTempRegisters();
+        moveFixedWidthEncoding(TrustedImm32(0), dataTempRegister);
+        return Call(m_assembler.blx(dataTempRegister), Call::LinkableNear);
+    }
+
     ALWAYS_INLINE Call call(PtrTag)
     {
         moveFixedWidthEncoding(TrustedImm32(0), dataTempRegister);
@@ -2318,6 +2335,12 @@ public:
     ALWAYS_INLINE Call call(RegisterID callTag) { return UNUSED_PARAM(callTag), call(NoPtrTag); }
     ALWAYS_INLINE Call call(RegisterID target, RegisterID callTag) { return UNUSED_PARAM(callTag), call(target, NoPtrTag); }
     ALWAYS_INLINE Call call(Address address, RegisterID callTag) { return UNUSED_PARAM(callTag), call(address, NoPtrTag); }
+
+    ALWAYS_INLINE void callOperation(const FunctionPtr<OperationPtrTag> operation)
+    {
+        move(TrustedImmPtr(operation.executableAddress()), addressTempRegister);
+        call(addressTempRegister, OperationPtrTag);
+    }
 
     ALWAYS_INLINE void ret()
     {
