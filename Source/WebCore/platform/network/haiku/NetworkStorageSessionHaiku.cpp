@@ -131,12 +131,12 @@ void NetworkStorageSession::setCookie(const Cookie&)
     // FIXME: Implement for WebKit to use.
 }
 
-void NetworkStorageSession::deleteCookie(const Cookie&)
+void NetworkStorageSession::deleteCookie(const Cookie&, WTF::CompletionHandler<void()>&&)
 {
     // FIXME: Implement for WebKit to use.
 }
 
-void NetworkStorageSession::deleteCookie(const URL& url, const String& cookie) const
+void NetworkStorageSession::deleteCookie(const URL& url, const String& cookie, WTF::CompletionHandler<void()>&&) const
 {
 #if TRACE_COOKIE_JAR
 	printf("CookieJar: delete cookie for %s (NOT IMPLEMENTED)\n", url.string().utf8().data());
@@ -144,17 +144,18 @@ void NetworkStorageSession::deleteCookie(const URL& url, const String& cookie) c
 	notImplemented();
 }
 
-void NetworkStorageSession::deleteAllCookies()
+void NetworkStorageSession::deleteAllCookies(WTF::CompletionHandler<void()>&&)
 {
     notImplemented();
 }
 
-void NetworkStorageSession::deleteAllCookiesModifiedSince(WallTime since)
+void NetworkStorageSession::deleteAllCookiesModifiedSince(WallTime since, WTF::CompletionHandler<void()>&&)
 {
     notImplemented();
 }
 
-void NetworkStorageSession::deleteCookiesForHostnames(const Vector<String>& cookieHostNames)
+void NetworkStorageSession::deleteCookiesForHostnames(const Vector<String>& cookieHostNames,
+    WebCore::IncludeHttpOnlyCookies, WTF::CompletionHandler<void()>&&)
 {
     notImplemented();
 }
@@ -187,11 +188,6 @@ bool NetworkStorageSession::getRawCookies(const URL& firstParty,
 
     rawCookies.clear();
     return false; // return true when implemented
-}
-
-void NetworkStorageSession::flushCookieStore()
-{
-    // FIXME: Implement for WebKit to use.
 }
 
 std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(const URL& firstParty,

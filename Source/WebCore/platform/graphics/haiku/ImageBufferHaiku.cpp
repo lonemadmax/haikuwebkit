@@ -144,9 +144,11 @@ RefPtr<Image> ImageBufferHaikuSurfaceBackend::copyImage(BackingStoreCopy copyBeh
 }
 
 
-std::optional<PixelBuffer> ImageBufferHaikuSurfaceBackend::getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& srcRect) const
+RefPtr<PixelBuffer> ImageBufferHaikuSurfaceBackend::getPixelBuffer(
+    const PixelBufferFormat& outputFormat, const IntRect& srcRect,
+    const ImageBufferAllocator& allocator) const
 {
-    return ImageBufferBackend::getPixelBuffer(outputFormat, srcRect, m_data.m_image->Bits());
+    return ImageBufferBackend::getPixelBuffer(outputFormat, srcRect, m_data.m_image->Bits(), allocator);
 }
 
 void ImageBufferHaikuSurfaceBackend::putPixelBuffer(const PixelBuffer& imageData, const IntRect& sourceRect, const IntPoint& destPoint, AlphaPremultiplication premultiplication)

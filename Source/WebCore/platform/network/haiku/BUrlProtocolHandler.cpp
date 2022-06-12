@@ -53,16 +53,16 @@ namespace WebCore {
 
 static bool shouldRedirectAsGET(const ResourceRequest& request, int statusCode, bool crossOrigin)
 {
-    if (request.httpMethod() == "GET" || request.httpMethod() == "HEAD")
+    if (request.httpMethod() == ASCIILiteral::fromLiteralUnsafe("GET") || request.httpMethod() == ASCIILiteral::fromLiteralUnsafe("HEAD"))
         return false;
 
     if (statusCode == 303)
         return true;
 
-    if ((statusCode == 301 || statusCode == 302) && request.httpMethod() == "POST")
+    if ((statusCode == 301 || statusCode == 302) && request.httpMethod() == ASCIILiteral::fromLiteralUnsafe("POST"))
         return true;
 
-    if (crossOrigin && request.httpMethod() == "DELETE")
+    if (crossOrigin && request.httpMethod() == ASCIILiteral::fromLiteralUnsafe("DELETE"))
         return true;
 
     return false;
@@ -92,7 +92,8 @@ BUrlRequestWrapper::BUrlRequestWrapper(BUrlProtocolHandler* handler, NetworkStor
 
     BPrivate::Network::BHttpRequest* httpRequest = dynamic_cast<BPrivate::Network::BHttpRequest*>(m_request);
     if (httpRequest) {
-        if (request.httpMethod() == "POST" || request.httpMethod() == "PUT") {
+        if (request.httpMethod() == ASCIILiteral::fromLiteralUnsafe("POST")
+            || request.httpMethod() == ASCIILiteral::fromLiteralUnsafe("PUT")) {
             if (request.httpBody()) {
                 auto postData = new BFormDataIO(request.httpBody(), storageSession->sessionID());
                 httpRequest->AdoptInputData(postData, postData->Size());
@@ -102,7 +103,7 @@ BUrlRequestWrapper::BUrlRequestWrapper(BUrlProtocolHandler* handler, NetworkStor
         httpRequest->SetMethod(request.httpMethod().utf8().data());
         // Redirections will be handled by this class.
         httpRequest->SetFollowLocation(false);
-    } else if (request.httpMethod() != "GET") {
+    } else if (request.httpMethod() != ASCIILiteral::fromLiteralUnsafe("GET")) {
         // Only the HTTP backend support things other than GET.
         // Remove m_request to signify to ResourceHandle that the request was
         // invalid.
@@ -441,7 +442,7 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
     m_resourceHandle->didReceiveAuthenticationChallenge(authenticationChallenge);
     // will set m_user and m_password in ResourceHandleInternal
 
-    if (d->m_user != "") {
+    if (!d->m_user.isEmpty()) {
         ResourceRequest request = m_resourceRequest;
         ResourceResponse responseCopy = response;
         request.setCredentials(d->m_user.utf8().data(), d->m_password.utf8().data());

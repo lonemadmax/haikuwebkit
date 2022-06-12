@@ -49,7 +49,6 @@ private:
 		const WTF::URL& firstParty, const WebCore::SameSiteInfo&, const WTF::URL&,
 		std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID,
 		Vector<WebCore::Cookie>&);
-    virtual void deleteCookie(const WebCore::NetworkStorageSession&, const WTF::URL&, const String&);
 };
 
 #endif // PlatformStrategiesHaiku_h

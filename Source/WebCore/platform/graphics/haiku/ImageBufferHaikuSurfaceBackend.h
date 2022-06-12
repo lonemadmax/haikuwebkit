@@ -52,7 +52,7 @@ public:
     RefPtr<Image> copyImage(BackingStoreCopy, PreserveResolution) const override;
     String toDataURL(const String& mimeType, std::optional<double> quality, PreserveResolution) const override;
     Vector<uint8_t> toData(const String& mimeType, std::optional<double> quality) const override;
-    std::optional<WebCore::PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&) const override;
+    RefPtr<WebCore::PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator& allocator) const override;
     void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) override;
     unsigned bytesPerRow() const override;
 

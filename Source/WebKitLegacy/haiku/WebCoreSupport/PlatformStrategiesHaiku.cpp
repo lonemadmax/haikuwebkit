@@ -128,11 +128,6 @@ bool PlatformStrategiesHaiku::getRawCookies(const NetworkStorageSession& session
     return session.getRawCookies(firstParty, sameSite, url, frameID, pageID, ShouldAskITP::No, ShouldRelaxThirdPartyCookieBlocking::Yes, rawCookies);
 }
 
-void PlatformStrategiesHaiku::deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookieName)
-{
-    session.deleteCookie(url, cookieName);
-}
-
 
 class WebMediaStrategy final : public MediaStrategy {
 private:
