@@ -525,7 +525,9 @@ void BWebSettings::_HandleSetProxyInfo(BMessage* message)
     // TODO there could be a cleaner way of accessing the default context from here.
     RefPtr<WebCore::FrameNetworkingContextHaiku> context
         = WebCore::FrameNetworkingContextHaiku::create(nullptr, nullptr);
+#if !USE(CURL)
     context->context()->SetProxy(host, port);
+#endif
 }
 
 void BWebSettings::_HandleApply()

@@ -35,12 +35,30 @@ Additionally if you want to run the tests:
     $ pkgman install php_x86 lighttpd_x86
 
 ##### NOTE :
-If you get an _Ruby missng error_ even after you have installed ruby, similar to <br>
+If you get an _Ruby missing error_ even after you have installed ruby, similar to <br>
 `Could NOT find Ruby  (missing: RUBY_INCLUDE_DIR RUBY_LIBRARY RUBY_CONFIG_INCLUDE_DIR)  (found suitable version "2.2.0", minimum required is "1.9")`, you can skip that.
 
 Packages for other flavors of Haiku may or may not be available. Use [haikuporter](http://haikuports.org) to build them if needed.
 
 ### Building WebKit ###
+
+#### Configure using Curl ####
+
+Curl is available as an alternative network backend. This can be useful for comparing performance
+and bugs with the libnetservices based implementation.
+
+If you want to use curl as a network backend, make sure the needed libraries are installed:
+
+    $ pkgman install devel:libcurl devel:libpsl devel:libidn2 devel:libunistring
+
+Edit Source/cmake/OptionsHaiku.cmake and turn USE\_CURL ON (near the bottom of the file). Then
+build as usual following the instructions below, the resulting build will use CURL.
+
+Note that some things are currently disabled:
+
+- No support for showing certificate errors in the UI
+- No support for showing icons in BNotification
+- Possibly a few other problems
 
 #### Configuring your build for the first time ####
 Commands to run from the webkit checkout directory:

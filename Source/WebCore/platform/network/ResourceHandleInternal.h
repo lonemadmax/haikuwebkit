@@ -45,7 +45,7 @@
 #include <wtf/MonotonicTime.h>
 #endif
 
-#if PLATFORM(HAIKU)
+#if PLATFORM(HAIKU) && !USE(CURL)
 #include <String.h>
 #include "BUrlProtocolHandler.h"
 #endif
@@ -144,7 +144,7 @@ public:
     bool m_hasCrossOriginRedirect { false };
     bool m_isCrossOrigin { false };
 
-#if PLATFORM(HAIKU)
+#if PLATFORM(HAIKU) && !USE(CURL)
     RefPtr<BUrlProtocolHandler> m_urlrequest;
     BString m_url;
 #endif

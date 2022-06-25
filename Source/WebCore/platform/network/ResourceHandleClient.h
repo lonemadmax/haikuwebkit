@@ -98,7 +98,7 @@ public:
     virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&) { }
     virtual void receivedCancellation(ResourceHandle*, const AuthenticationChallenge&) { }
 
-#if PLATFORM(HAIKU)
+#if PLATFORM(HAIKU) && !USE(CURL)
         virtual bool didReceiveInvalidCertificate(ResourceHandle*, const BCertificate&,
             const char*) { return false; }
 #endif

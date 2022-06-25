@@ -55,7 +55,9 @@ Ref<FrameNetworkingContextHaiku> FrameNetworkingContextHaiku::create(Frame* fram
 FrameNetworkingContextHaiku::FrameNetworkingContextHaiku(Frame* frame, BPrivate::Network::BUrlContext* context)
     : FrameNetworkingContext(frame)
 {
+#if !USE(CURL)
     storageSession()->setPlatformSession(context);
+#endif
 }
 
 FrameNetworkingContextHaiku::~FrameNetworkingContextHaiku()
@@ -64,7 +66,11 @@ FrameNetworkingContextHaiku::~FrameNetworkingContextHaiku()
 
 BPrivate::Network::BUrlContext* FrameNetworkingContextHaiku::context()
 {
+#if USE(CURL)
+    return NULL;
+#else
     return &storageSession()->platformSession();
+#endif
 }
 
 uint64_t FrameNetworkingContextHaiku::initiatingPageID() const

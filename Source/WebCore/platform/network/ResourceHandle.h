@@ -137,7 +137,7 @@ public:
     void unschedule(WTF::SchedulePair&);
 #endif
 
-#if PLATFORM(HAIKU)
+#if PLATFORM(HAIKU) && !USE(CURL)
     bool didReceiveInvalidCertificate(BCertificate& certificate, const char* message);
 #endif
 

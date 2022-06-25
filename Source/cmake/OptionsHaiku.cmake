@@ -227,3 +227,10 @@ endif ()
 
 set(JavaScriptCore_LIBRARY_TYPE SHARED)
 set(SHOULD_INSTALL_JS_SHELL ON)
+
+SET_AND_EXPOSE_TO_BUILD(USE_CURL OFF)
+if (USE_CURL)
+    find_package(CURL 7.77.0 REQUIRED)
+    find_package(LibPSL 0.20.2 REQUIRED)
+    find_package(OpenSSL 1.1.1 REQUIRED)
+endif ()

@@ -831,12 +831,16 @@ bool ResourceLoader::canAuthenticateAgainstProtectionSpace(const ProtectionSpace
 
 #endif
 
+#if PLATFORM(HAIKU) && !USE(CURL)
+
 bool ResourceLoader::didReceiveInvalidCertificate(ResourceHandle* handle,
     const BCertificate& certificate, const char* message)
 {
     CertificateInfo info(certificate);
     return frameLoader()->notifier().didReceiveInvalidCertificate(this, info, message);
 }
+
+#endif
 
 #if PLATFORM(IOS_FAMILY)
 

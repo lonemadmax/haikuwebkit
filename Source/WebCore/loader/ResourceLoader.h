@@ -119,7 +119,9 @@ public:
     virtual bool canAuthenticateAgainstProtectionSpace(const ProtectionSpace&);
 #endif
 
+#if PLATFORM(HAIKU) && !USE(CURL)
     bool didReceiveInvalidCertificate(ResourceHandle*, const BCertificate&, const char*) override;
+#endif
 
     virtual void receivedCancellation(const AuthenticationChallenge&);
 

@@ -29,6 +29,8 @@
 #include "config.h"
 #include "DumpRenderTree.h"
 
+#include "TestRunner.h"
+
 #include "AccessibilityController.h"
 #include "DumpRenderTreeClient.h"
 #include "EditingCallbacks.h"
@@ -38,7 +40,6 @@
 #include "PixelDumpSupport.h"
 #include "WebCore/ScriptController.h"
 #include "TestCommand.h"
-#include "TestRunner.h"
 #include "WebCoreTestSupport.h"
 #include "WebFrame.h"
 #include "WebPage.h"

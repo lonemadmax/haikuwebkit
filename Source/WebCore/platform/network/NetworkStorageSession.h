@@ -141,7 +141,7 @@ public:
     void setCookieObserverHandler(Function<void ()>&&);
     void getCredentialFromPersistentStorage(const ProtectionSpace&, GCancellable*, Function<void (Credential&&)>&& completionHandler);
     void saveCredentialToPersistentStorage(const ProtectionSpace&, const Credential&);
-#elif USE(HAIKU)
+#elif USE(HAIKU) && !USE(CURL)
     WEBCORE_EXPORT NetworkStorageSession(PAL::SessionID);
     ~NetworkStorageSession();
 
@@ -264,7 +264,7 @@ private:
     HTTPCookieAcceptPolicy m_cookieAcceptPolicy;
     GRefPtr<SoupCookieJar> m_cookieStorage;
     Function<void ()> m_cookieObserverHandler;
-#elif USE(HAIKU)
+#elif USE(HAIKU) && !USE(CURL)
     BPrivate::Network::BUrlContext* m_context;
 #elif USE(CURL)
     mutable UniqueRef<CookieJarDB> m_cookieDatabase;

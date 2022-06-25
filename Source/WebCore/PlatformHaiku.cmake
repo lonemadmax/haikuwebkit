@@ -2,6 +2,44 @@ include(platform/GCrypt.cmake)
 include(platform/Haiku.cmake)
 include(platform/ImageDecoders.cmake)
 
+if(USE_CURL)
+  include(platform/Curl.cmake)
+  list(APPEND WebCore_SOURCES
+    platform/network/haiku/CurlSSLHandleHaiku.cpp
+  )
+  list(APPEND WebCore_LIBRARIES unistring idn2)
+else()
+  list(APPEND WebCore_INCLUDE_DIRECTORIES
+    "${WEBCORE_DIR}/platform/network/haiku"
+  )
+
+  list(APPEND WebCore_SOURCES
+    platform/network/haiku/BUrlProtocolHandler.cpp
+    platform/network/haiku/CertificateInfo.cpp
+    platform/network/haiku/CookieJarHaiku.cpp
+    platform/network/haiku/DNSHaiku.cpp
+    platform/network/haiku/HaikuFormDataStream.cpp
+    platform/network/haiku/ResourceHandleHaiku.cpp
+    platform/network/haiku/ResourceRequestHaiku.cpp
+
+    platform/network/haiku/CredentialStorageHaiku.cpp
+    platform/network/haiku/SocketStreamHandleHaiku.cpp
+    platform/network/haiku/NetworkStorageSessionHaiku.cpp
+  )
+
+  list(APPEND WebCore_LIBRARIES netservices)
+  list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+    platform/network/haiku/AuthenticationChallenge.h
+    platform/network/haiku/CertificateInfo.h
+    platform/network/haiku/HaikuFormDataStream.h
+    platform/network/haiku/ResourceError.h
+    platform/network/haiku/ResourceRequest.h
+    platform/network/haiku/ResourceResponse.h
+    platform/network/haiku/SocketStreamHandleImpl.h
+  )
+
+endif()
+
 list(APPEND WebCore_INCLUDE_DIRECTORIES
   "${THIRDPARTY_DIR}/ANGLE/"
   "${THIRDPARTY_DIR}/ANGLE/include/KHR"
@@ -13,7 +51,6 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
   "${WEBCORE_DIR}/platform/graphics/opentype"
   "${WEBCORE_DIR}/platform/graphics/texmap/coordinated"
   "${WEBCORE_DIR}/platform/mediacapabilities"
-  "${WEBCORE_DIR}/platform/network/haiku"
   "${FORWARDING_HEADERS_DIR}/JavaScriptCore"
   "${CMAKE_SOURCE_DIR}/Source"
 )
@@ -57,6 +94,8 @@ list(APPEND WebCore_SOURCES
   platform/haiku/TemporaryLinkStubs.cpp
   platform/haiku/WidgetHaiku.cpp
 
+  platform/image-decoders/haiku/ImageDecoderHaiku.cpp
+
   platform/graphics/WOFFFileFormat.cpp
   platform/graphics/displaylists/DisplayListDrawGlyphsRecorderHaiku.cpp
 
@@ -93,22 +132,9 @@ list(APPEND WebCore_SOURCES
   platform/graphics/GLContext.cpp
   platform/graphics/OpenGLShims.cpp
 
-  platform/image-decoders/haiku/ImageDecoderHaiku.cpp
+  platform/network/haiku/NetworkStateNotifierHaiku.cpp
 
   platform/mock/GeolocationClientMock.cpp
-
-  platform/network/haiku/BUrlProtocolHandler.cpp
-  platform/network/haiku/CertificateInfo.cpp
-  platform/network/haiku/CookieJarHaiku.cpp
-  platform/network/haiku/DNSHaiku.cpp
-  platform/network/haiku/HaikuFormDataStream.cpp
-  platform/network/haiku/ResourceHandleHaiku.cpp
-  platform/network/haiku/ResourceRequestHaiku.cpp
-
-  platform/network/haiku/CredentialStorageHaiku.cpp
-  platform/network/haiku/SocketStreamHandleHaiku.cpp
-  platform/network/haiku/NetworkStateNotifierHaiku.cpp
-  platform/network/haiku/NetworkStorageSessionHaiku.cpp
 
   platform/text/Hyphenation.cpp
   platform/text/LocaleICU.cpp
@@ -206,7 +232,7 @@ list(APPEND WebCore_LIBRARIES
   ${SQLITE_LIBRARIES}
   ${WEBP_LIBRARIES}
   ${ZLIB_LIBRARIES}
-  be bsd network bnetapi netservices textencoding translation execinfo
+  be bsd network bnetapi textencoding translation execinfo
 )
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
@@ -332,14 +358,6 @@ endif ()
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/haiku/PopupMenuHaiku.h
     platform/haiku/SearchPopupMenuHaiku.h
-
-    platform/network/haiku/AuthenticationChallenge.h
-    platform/network/haiku/CertificateInfo.h
-    platform/network/haiku/HaikuFormDataStream.h
-    platform/network/haiku/ResourceError.h
-    platform/network/haiku/ResourceRequest.h
-    platform/network/haiku/ResourceResponse.h
-    platform/network/haiku/SocketStreamHandleImpl.h
 
     html/InputTypeNames.h
     platform/DateTimeChooser.h

@@ -23,6 +23,7 @@ NotificationClientHaiku::fromDescriptor(Notification& descriptor)
         notification.SetContent(descriptor.title());
     }
 
+#if !USE(CURL)
     // TODO we should cache the data, in case the notification is re-sent
     // with some changes for an update.
     BUrl iconURL(descriptor.icon());
@@ -42,6 +43,7 @@ NotificationClientHaiku::fromDescriptor(Notification& descriptor)
 
         delete request;
     }
+#endif
 
     notification.SetMessageID(descriptor.tag());
 
