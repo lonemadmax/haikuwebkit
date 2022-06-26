@@ -33,7 +33,7 @@
 #include "CryptoKeyRSAComponents.h"
 #include "OpenSSLUtilities.h"
 #include <JavaScriptCore/TypedArrayInlines.h>
-#include <openssl/X509.h>
+#include <openssl/x509.h>
 #include <openssl/evp.h>
 
 namespace WebCore {

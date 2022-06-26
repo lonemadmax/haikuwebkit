@@ -59,7 +59,9 @@ void CryptoAlgorithmRegistry::platformRegisterAlgorithms()
     registerAlgorithm<CryptoAlgorithmAES_KW>();
     registerAlgorithm<CryptoAlgorithmECDH>();
     registerAlgorithm<CryptoAlgorithmECDSA>();
+#if !PLATFORM(HAIKU)
     registerAlgorithm<CryptoAlgorithmHKDF>();
+#endif
     registerAlgorithm<CryptoAlgorithmHMAC>();
     registerAlgorithm<CryptoAlgorithmPBKDF2>();
     registerAlgorithm<CryptoAlgorithmRSAES_PKCS1_v1_5>();

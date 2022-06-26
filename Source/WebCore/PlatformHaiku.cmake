@@ -1,6 +1,6 @@
-include(platform/GCrypt.cmake)
 include(platform/Haiku.cmake)
 include(platform/ImageDecoders.cmake)
+include(platform/OpenSSL.cmake)
 
 if(USE_CURL)
   include(platform/Curl.cmake)
@@ -168,25 +168,6 @@ if (ENABLE_WEB_CRYPTO)
         crypto/algorithms/CryptoAlgorithmSHA256.cpp
         crypto/algorithms/CryptoAlgorithmSHA384.cpp
         crypto/algorithms/CryptoAlgorithmSHA512.cpp
-
-        crypto/gcrypt/CryptoAlgorithmAES_CBCGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmAES_CFBGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmAES_CTRGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmAES_GCMGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmAES_KWGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmECDHGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmECDSAGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmHKDFGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmHMACGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmPBKDF2GCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmRSAES_PKCS1_v1_5GCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmRSASSA_PKCS1_v1_5GCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmRSA_OAEPGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmRSA_PSSGCrypt.cpp
-        crypto/gcrypt/CryptoAlgorithmRegistryGCrypt.cpp
-        crypto/gcrypt/CryptoKeyECGCrypt.cpp
-        crypto/gcrypt/CryptoKeyRSAGCrypt.cpp
-        crypto/gcrypt/SerializedCryptoKeyWrapGCrypt.cpp
 
         crypto/keys/CryptoKeyAES.cpp
         crypto/keys/CryptoKeyEC.cpp

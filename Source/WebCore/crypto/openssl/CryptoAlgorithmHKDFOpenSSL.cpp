@@ -31,12 +31,18 @@
 #include "CryptoAlgorithmHkdfParams.h"
 #include "CryptoKeyRaw.h"
 #include "OpenSSLUtilities.h"
+#if !PLATFORM(HAIKU)
 #include <openssl/hkdf.h>
+#endif
 
 namespace WebCore {
 
 ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHKDF::platformDeriveBits(const CryptoAlgorithmHkdfParams& parameters, const CryptoKeyRaw& key, size_t length)
 {
+#if PLATFORM(HAIKU)
+    // This isn't available in OpenSSL, only LibreSSL or BoringSSL
+    return Exception { NotSupportedError };
+#else
     auto algorithm = digestAlgorithm(parameters.hashIdentifier);
     if (!algorithm)
         return Exception { NotSupportedError };
@@ -46,6 +52,7 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHKDF::platformDeriveBits(const Crypt
         return Exception { OperationError };
 
     return output;
+#endif
 }
 
 } // namespace WebCore
