@@ -68,7 +68,6 @@
 #include "RenderSVGModelObject.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScrollingCoordinator.h"
 #include "Settings.h"
 #include "StyleResolver.h"
@@ -111,7 +110,8 @@ public:
         Unknown,
         SimpleContainer,
         DirectlyCompositedImage,
-        Painted
+        UnscaledBitmapOnly,
+        Painted,
     };
 
     PaintedContentsInfo(RenderLayerBacking& inBacking)
@@ -154,6 +154,11 @@ public:
     bool isDirectlyCompositedImage()
     {
         return contentsTypeDetermination() == ContentsTypeDetermination::DirectlyCompositedImage;
+    }
+
+    bool isUnscaledBitmapOnly()
+    {
+        return contentsTypeDetermination() == ContentsTypeDetermination::UnscaledBitmapOnly;
     }
 
     RenderLayerBacking& m_backing;
@@ -209,6 +214,8 @@ PaintedContentsInfo::ContentsTypeDetermination PaintedContentsInfo::contentsType
         m_contentsType = ContentsTypeDetermination::SimpleContainer;
     else if (m_backing.isDirectlyCompositedImage())
         m_contentsType = ContentsTypeDetermination::DirectlyCompositedImage;
+    else if (m_backing.isUnscaledBitmapOnly())
+        m_contentsType = ContentsTypeDetermination::UnscaledBitmapOnly;
     else
         m_contentsType = ContentsTypeDetermination::Painted;
 
@@ -1068,6 +1075,12 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
     if (contentsInfo.isDirectlyCompositedImage())
         updateImageContents(contentsInfo);
 
+    bool unscaledBitmap = contentsInfo.isUnscaledBitmapOnly();
+    if (unscaledBitmap == m_graphicsLayer->appliesDeviceScale()) {
+        m_graphicsLayer->setAppliesDeviceScale(!unscaledBitmap);
+        layerConfigChanged = true;
+    }
+
     if (is<RenderEmbeddedObject>(renderer()) && downcast<RenderEmbeddedObject>(renderer()).allowsAcceleratedCompositing()) {
         auto* pluginViewBase = downcast<PluginViewBase>(downcast<RenderWidget>(renderer()).widget());
 #if PLATFORM(IOS_FAMILY)
@@ -1387,7 +1400,7 @@ void RenderLayerBacking::updateGeometry(const RenderLayer* compositedAncestor)
             return FloatRoundedRect { FloatRect { { }, snappedClippingGraphicsLayer.m_snappedRect.size() } };
         };
 
-        clipLayer->setMasksToBoundsRect(computeMasksToBoundsRect());
+        clipLayer->setContentsClippingRect(computeMasksToBoundsRect());
 
         if (m_childClippingMaskLayer && !m_scrollContainerLayer) {
             m_childClippingMaskLayer->setSize(clipLayer->size());
@@ -1825,8 +1838,11 @@ void RenderLayerBacking::updateEventRegion()
         EventRegion eventRegion;
         auto eventRegionContext = eventRegion.makeContext();
         if (visibleToHitTesting)
-            eventRegionContext.unite(enclosingIntRect(FloatRect({ }, graphicsLayer->size())), renderer().style());
+            eventRegionContext.unite(enclosingIntRect(FloatRect({ }, graphicsLayer->size())), renderer(), renderer().style());
 
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+        eventRegionContext.copyInteractionRegionsToEventRegion();
+#endif
         graphicsLayer->setEventRegion(WTFMove(eventRegion));
     };
 
@@ -1845,26 +1861,22 @@ void RenderLayerBacking::updateEventRegion()
             if (&graphicsLayer == m_scrolledContentsLayer) {
                 // Initialize scrolled contents layer with layer-sized event region as it can all used for scrolling.
                 // This avoids generating unnecessarily complex event regions. We still need to to do the paint to capture touch-action regions.
-                eventRegionContext.unite(layerBounds, renderer().style());
+                eventRegionContext.unite(layerBounds, renderer(), renderer().style());
             }
         }
 
         if (m_owningLayer.isRenderViewLayer() && (&graphicsLayer == m_graphicsLayer || &graphicsLayer == m_foregroundLayer)) {
             // Event handlers on the root cover the entire layer.
-            eventRegionContext.unite(layerBounds, renderer().style());
+            eventRegionContext.unite(layerBounds, renderer(), renderer().style());
         }
-
-#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
-        // FIXME: We should collect editable regions per-layer instead of keeping them all on the root.
-        if (renderer().page().shouldBuildInteractionRegions() && m_owningLayer.isRenderViewLayer() && (&graphicsLayer == m_graphicsLayer))
-            eventRegion.computeInteractionRegions(renderer().page(), layerBounds);
-#endif
 
         auto dirtyRect = enclosingIntRect(FloatRect(FloatPoint(graphicsLayer.offsetFromRenderer()), graphicsLayer.size()));
         paintIntoLayer(&graphicsLayer, nullContext, dirtyRect, { }, &eventRegionContext);
 
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+        eventRegionContext.copyInteractionRegionsToEventRegion();
+#endif
         eventRegion.translate(toIntSize(layerOffset));
-
         graphicsLayer.setEventRegion(WTFMove(eventRegion));
     };
 
@@ -2036,6 +2048,7 @@ bool RenderLayerBacking::updateDescendantClippingLayer(bool needsDescendantClip)
         if (!m_childContainmentLayer && !m_isFrameLayerWithTiledBacking) {
             m_childContainmentLayer = createGraphicsLayer("child clipping"_s);
             m_childContainmentLayer->setMasksToBounds(true);
+            m_childContainmentLayer->setContentsRectClipsDescendants(true);
             layersChanged = true;
         }
     } else if (hasClippingLayer()) {
@@ -2860,6 +2873,11 @@ bool RenderLayerBacking::containsPaintedContent(PaintedContentsInfo& contentsInf
     if (contentsInfo.isDirectlyCompositedImage())
         return false;
 
+    if (auto styleable = Styleable::fromRenderer(renderer())) {
+        if (!styleable->mayHaveNonZeroOpacity())
+            return false;
+    }
+
     // FIXME: we could optimize cases where the image, video or canvas is known to fill the border box entirely,
     // and set background color on the layer in that case, instead of allocating backing store and painting.
 #if ENABLE(VIDEO)
@@ -2913,12 +2931,54 @@ bool RenderLayerBacking::isDirectlyCompositedImage() const
     return false;
 }
 
+bool RenderLayerBacking::isUnscaledBitmapOnly() const
+{
+    if (!is<RenderImage>(renderer()) && !is<RenderHTMLCanvas>(renderer()))
+        return false;
+
+    if (m_owningLayer.hasVisibleBoxDecorationsOrBackground())
+        return false;
+
+    auto contents = contentsBox();
+    if (contents.location() != LayoutPoint(0, 0))
+        return false;
+
+    if (is<RenderImage>(renderer())) {
+        auto& imageRenderer = downcast<RenderImage>(renderer());
+        if (auto* cachedImage = imageRenderer.cachedImage()) {
+            if (!cachedImage->hasImage())
+                return false;
+
+            auto* image = cachedImage->imageForRenderer(&imageRenderer);
+            if (!is<BitmapImage>(image))
+                return false;
+
+            if (downcast<BitmapImage>(*image).orientationForCurrentFrame() != ImageOrientation::None)
+                return false;
+
+            return contents.size() == image->size();
+        }
+        return false;
+    }
+
+    auto& canvasRenderer = downcast<RenderHTMLCanvas>(renderer());
+    if (snappedIntRect(contents).size() == canvasRenderer.canvasElement().size())
+        return true;
+    return false;
+}
+
 void RenderLayerBacking::contentChanged(ContentChangeType changeType)
 {
     PaintedContentsInfo contentsInfo(*this);
-    if ((changeType == ImageChanged) && contentsInfo.isDirectlyCompositedImage()) {
-        updateImageContents(contentsInfo);
-        return;
+    if (changeType == ImageChanged) {
+        if (contentsInfo.isDirectlyCompositedImage()) {
+            updateImageContents(contentsInfo);
+            return;
+        }
+        if (contentsInfo.isUnscaledBitmapOnly()) {
+            compositor().scheduleCompositingLayerUpdate();
+            return;
+        }
     }
 
     if (changeType == VideoChanged) {

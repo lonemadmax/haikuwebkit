@@ -3058,12 +3058,12 @@ void GraphicsContextGLOpenGL::multiDrawArraysInstancedANGLE(GCGLenum, GCGLSpanTu
     synthesizeGLError(GraphicsContextGL::INVALID_OPERATION);
 }
 
-void GraphicsContextGLOpenGL::multiDrawElementsANGLE(GCGLenum, GCGLSpanTuple<const GCGLsizei, const GCGLint>, GCGLenum)
+void GraphicsContextGLOpenGL::multiDrawElementsANGLE(GCGLenum, GCGLSpanTuple<const GCGLsizei, const GCGLsizei>, GCGLenum)
 {
     synthesizeGLError(GraphicsContextGL::INVALID_OPERATION);
 }
 
-void GraphicsContextGLOpenGL::multiDrawElementsInstancedANGLE(GCGLenum, GCGLSpanTuple<const GCGLsizei, const GCGLint, const GCGLsizei>, GCGLenum)
+void GraphicsContextGLOpenGL::multiDrawElementsInstancedANGLE(GCGLenum, GCGLSpanTuple<const GCGLsizei, const GCGLsizei, const GCGLsizei>, GCGLenum)
 {
     synthesizeGLError(GraphicsContextGL::INVALID_OPERATION);
 }
@@ -3118,6 +3118,22 @@ void GraphicsContextGLOpenGL::blendFuncSeparateiOES(GCGLuint, GCGLenum, GCGLenum
 }
 
 void GraphicsContextGLOpenGL::colorMaskiOES(GCGLuint, GCGLboolean, GCGLboolean, GCGLboolean, GCGLboolean)
+{
+}
+
+void GraphicsContextGLOpenGL::drawArraysInstancedBaseInstanceANGLE(GCGLenum, GCGLint, GCGLsizei, GCGLsizei, GCGLuint)
+{
+}
+
+void GraphicsContextGLOpenGL::drawElementsInstancedBaseVertexBaseInstanceANGLE(GCGLenum, GCGLsizei, GCGLenum, GCGLintptr, GCGLsizei, GCGLint, GCGLuint)
+{
+}
+
+void GraphicsContextGLOpenGL::multiDrawArraysInstancedBaseInstanceANGLE(GCGLenum, GCGLSpanTuple<const GCGLint, const GCGLsizei, const GCGLsizei, const GCGLuint>)
+{
+}
+
+void GraphicsContextGLOpenGL::multiDrawElementsInstancedBaseVertexBaseInstanceANGLE(GCGLenum, GCGLSpanTuple<const GCGLsizei, const GCGLsizei, const GCGLsizei, const GCGLint, const GCGLuint>, GCGLenum)
 {
 }
 

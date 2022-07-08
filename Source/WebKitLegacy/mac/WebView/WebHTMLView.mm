@@ -81,6 +81,7 @@
 #import <WebCore/CompositionHighlight.h>
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
+#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DictationAlternative.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/Document.h>
@@ -117,7 +118,6 @@
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/RuntimeEnabledFeatures.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/StyleProperties.h>
 #import <WebCore/StyleScope.h>
@@ -599,7 +599,7 @@ static std::optional<NSInteger> toTag(WebCore::ContextMenuAction action)
         return WebMenuItemTagToggleVideoEnhancedFullscreen;
     case ContextMenuItemTagTranslate:
         return WebMenuItemTagTranslate;
-    case ContextMenuItemTagCopyCroppedImage:
+    case ContextMenuItemTagCopySubject:
     case ContextMenuItemTagLookUpImage:
         return std::nullopt;
 
@@ -1134,7 +1134,7 @@ static NSControlStateValue kit(TriState state)
         nil]);
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    if (!WebCore::RuntimeEnabledFeatures::sharedFeatures().attachmentElementEnabled())
+    if (!WebCore::DeprecatedGlobalSettings::attachmentElementEnabled())
         [elements addObject:@"object"];
 #endif
 
@@ -5045,9 +5045,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (NSDictionary *)_fontAttributesFromFontPasteboard
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSFontPboard];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSPasteboardNameFont];
     if (fontPasteboard == nil)
         return nil;
     NSData *data = [fontPasteboard dataForType:WebCore::legacyFontPasteboardType()];
@@ -5252,9 +5250,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // Put RTF with font attributes on the pasteboard.
     // Maybe later we should add a pasteboard type that contains CSS text for "native" copy and paste font.
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSFontPboard];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSPasteboardNameFont];
     [fontPasteboard declareTypes:@[WebCore::legacyFontPasteboardType()] owner:nil];
     [fontPasteboard setData:[self _selectionStartFontAttributesAsRTF] forType:WebCore::legacyFontPasteboardType()];
 }

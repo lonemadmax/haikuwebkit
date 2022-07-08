@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+// Copyright (C) 2017-2022 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -1402,10 +1402,12 @@ html/canvas/WebGLDebugRendererInfo.cpp
 html/canvas/WebGLDebugShaders.cpp
 html/canvas/WebGLDepthTexture.cpp
 html/canvas/WebGLDrawBuffers.cpp
+html/canvas/WebGLDrawInstancedBaseVertexBaseInstance.cpp
 html/canvas/WebGLExtension.cpp
 html/canvas/WebGLFramebuffer.cpp
 html/canvas/WebGLLoseContext.cpp
 html/canvas/WebGLMultiDraw.cpp
+html/canvas/WebGLMultiDrawInstancedBaseVertexBaseInstance.cpp
 html/canvas/WebGLObject.cpp
 html/canvas/WebGLProgram.cpp
 html/canvas/WebGLQuery.cpp
@@ -1809,7 +1811,6 @@ page/ResizeObservation.cpp
 page/ResizeObserver.cpp
 page/ResourceUsageOverlay.cpp
 page/ResourceUsageThread.cpp
-page/RuntimeEnabledFeatures.cpp
 page/Screen.cpp
 page/ScrollBehavior.cpp
 page/SecurityOrigin.cpp
@@ -1915,6 +1916,7 @@ platform/PlatformSpeechSynthesizer.cpp
 platform/PlatformStrategies.cpp
 platform/PlatformWheelEvent.cpp
 platform/PreviewConverter.cpp
+platform/ProcessCapabilities.cpp
 platform/ProcessIdentifier.cpp
 platform/ProcessIdentity.cpp
 platform/ReferrerPolicy.cpp
@@ -2023,6 +2025,7 @@ platform/graphics/Color.cpp
 platform/graphics/ColorBlending.cpp
 platform/graphics/ColorConversion.cpp
 platform/graphics/ColorInterpolation.cpp
+platform/graphics/ColorInterpolationMethod.cpp
 platform/graphics/ColorLuminance.cpp
 platform/graphics/ColorSerialization.cpp
 platform/graphics/ColorSpace.cpp
@@ -2030,6 +2033,7 @@ platform/graphics/ColorUtilities.cpp
 platform/graphics/ComplexTextController.cpp
 platform/graphics/ContentTypeUtilities.cpp
 platform/graphics/CrossfadeGeneratedImage.cpp
+platform/graphics/DecomposedGlyphs.cpp
 platform/graphics/DestinationColorSpace.cpp
 platform/graphics/DisplayRefreshMonitor.cpp
 platform/graphics/DisplayRefreshMonitorClient.cpp
@@ -2059,6 +2063,8 @@ platform/graphics/FourCC.cpp
 platform/graphics/GeneratedImage.cpp
 platform/graphics/GeometryUtilities.cpp
 platform/graphics/Gradient.cpp
+platform/graphics/GradientColorStop.cpp
+platform/graphics/GradientColorStops.cpp
 platform/graphics/GradientImage.cpp
 platform/graphics/GraphicsContext.cpp
 platform/graphics/GraphicsContextGL.cpp
@@ -2101,6 +2107,7 @@ platform/graphics/PixelBufferConversion.cpp
 platform/graphics/PixelBufferFormat.cpp
 platform/graphics/PixelFormat.cpp
 platform/graphics/PlatformTimeRanges.cpp
+platform/graphics/PositionedGlyphs.cpp
 platform/graphics/Region.cpp
 platform/graphics/RoundedRect.cpp
 platform/graphics/ShadowBlur.cpp
@@ -2108,11 +2115,14 @@ platform/graphics/SourceBrush.cpp
 platform/graphics/SourceBufferPrivate.cpp
 platform/graphics/SourceImage.cpp
 platform/graphics/StringTruncator.cpp
+platform/graphics/SystemFontDatabase.cpp
 platform/graphics/TextRun.cpp
 platform/graphics/TextTrackRepresentation.cpp
+platform/graphics/TrackBuffer.cpp
 platform/graphics/TrackPrivateBase.cpp
 platform/graphics/VP9Utilities.cpp
 platform/graphics/VelocityData.cpp
+platform/graphics/WebMResourceClient.cpp
 platform/graphics/WOFFFileFormat.cpp
 platform/graphics/WidthIterator.cpp
 platform/graphics/cpu/arm/filters/FELightingNEON.cpp
@@ -2317,6 +2327,7 @@ rendering/Grid.cpp
 rendering/GridBaselineAlignment.cpp
 rendering/GridLayoutFunctions.cpp
 rendering/GridTrackSizingAlgorithm.cpp
+rendering/GlyphDisplayListCache.cpp
 rendering/HighlightData.cpp
 rendering/HitTestLocation.cpp
 rendering/HitTestResult.cpp
@@ -2501,6 +2512,7 @@ rendering/style/TextSizeAdjustment.cpp
 rendering/style/WillChangeData.cpp
 rendering/svg/LegacyRenderSVGContainer.cpp
 rendering/svg/LegacyRenderSVGModelObject.cpp
+rendering/svg/LegacyRenderSVGPath.cpp
 rendering/svg/LegacyRenderSVGRect.cpp
 rendering/svg/LegacyRenderSVGRoot.cpp
 rendering/svg/LegacyRenderSVGShape.cpp
@@ -2755,7 +2767,6 @@ svg/graphics/SVGImage.cpp
 svg/graphics/SVGImageCache.cpp
 svg/graphics/SVGImageForContainer.cpp
 svg/graphics/filters/SVGFilter.cpp
-svg/graphics/filters/SVGFilterBuilder.cpp
 svg/properties/SVGAnimatedProperty.cpp
 svg/properties/SVGAnimationAdditiveValueFunctionImpl.cpp
 svg/properties/SVGAttributeAnimator.cpp
@@ -4052,9 +4063,11 @@ JSWebGLDebugRendererInfo.cpp
 JSWebGLDebugShaders.cpp
 JSWebGLDepthTexture.cpp
 JSWebGLDrawBuffers.cpp
+JSWebGLDrawInstancedBaseVertexBaseInstance.cpp
 JSWebGLFramebuffer.cpp
 JSWebGLLoseContext.cpp
 JSWebGLMultiDraw.cpp
+JSWebGLMultiDrawInstancedBaseVertexBaseInstance.cpp
 JSWebGLProgram.cpp
 JSWebGLQuery.cpp
 JSWebGLRenderbuffer.cpp

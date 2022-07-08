@@ -594,7 +594,7 @@ public:
     bool shouldRequestCandidates() const;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& source, const String& target, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
+    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
     void computeHasVisualSearchResults(const URL& imageURL, ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&&);
 #endif
 
@@ -678,8 +678,8 @@ public:
     void didFinishPresentation(WKRevealItemPresenter *);
 #endif
 
-    void beginElementFullscreenVideoExtraction(const ShareableBitmap::Handle&, WebCore::FloatRect);
-    void cancelElementFullscreenVideoExtraction();
+    void beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmap::Handle&, WebCore::FloatRect);
+    void cancelTextRecognitionForVideoInElementFullscreen();
 
 private:
 #if HAVE(TOUCH_BAR)

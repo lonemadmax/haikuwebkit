@@ -372,6 +372,11 @@ RetainPtr<NSWindow> WebInspectorUIProxy::createFrontendWindow(NSRect savedWindow
     [window setMinFullScreenContentSize:NSMakeSize(minimumFullScreenWidth, minimumWindowHeight)];
     [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenAllowsTiling)];
 
+    // FIXME: <rdar://94829409> Replace Stage Manager auxiliary window workaround.
+    [window setToolbar:[NSToolbar new]];
+    [[window toolbar] setVisible:NO];
+    [window setToolbarStyle:NSWindowToolbarStylePreference];
+
     [window setTitlebarAppearsTransparent:YES];
 
     // Center the window if the saved frame was empty.
@@ -462,8 +467,11 @@ void WebInspectorUIProxy::platformCreateFrontendWindow()
 {
     ASSERT(!m_inspectorWindow);
 
-    NSString *savedWindowFrameString = inspectedPage()->pageGroup().preferences().inspectorWindowFrame();
-    NSRect savedWindowFrame = NSRectFromString(savedWindowFrameString);
+    NSRect savedWindowFrame = NSZeroRect;
+    if (inspectedPage()) {
+        NSString *savedWindowFrameString = inspectedPage()->pageGroup().preferences().inspectorWindowFrame();
+        savedWindowFrame = NSRectFromString(savedWindowFrameString);
+    }
 
     m_inspectorWindow = WebInspectorUIProxy::createFrontendWindow(savedWindowFrame, InspectionTargetType::Local);
     [m_inspectorWindow setDelegate:m_objCAdapter.get()];
@@ -540,7 +548,8 @@ void WebInspectorUIProxy::platformHide()
 
 void WebInspectorUIProxy::platformResetState()
 {
-    inspectedPage()->pageGroup().preferences().deleteInspectorWindowFrame();
+    if (inspectedPage())
+        inspectedPage()->pageGroup().preferences().deleteInspectorWindowFrame();
 }
 
 void WebInspectorUIProxy::platformBringToFront()
@@ -548,7 +557,7 @@ void WebInspectorUIProxy::platformBringToFront()
     // If the Web Inspector is no longer in the same window as the inspected view,
     // then we need to reopen the Inspector to get it attached to the right window.
     // This can happen when dragging tabs to another window in Safari.
-    if (m_isAttached && [m_inspectorViewController webView].window != inspectedPage()->platformWindow()) {
+    if (m_isAttached && inspectedPage() && [m_inspectorViewController webView].window != inspectedPage()->platformWindow()) {
         if (m_isOpening) {
             // <rdar://88358696> If we are currently opening an attached inspector, the windows should have already
             // matched, and calling back to `open` isn't going to correct this. As a fail-safe to prevent reentrancy,
@@ -570,7 +579,8 @@ void WebInspectorUIProxy::platformBringToFront()
 
 void WebInspectorUIProxy::platformBringInspectedPageToFront()
 {
-    [inspectedPage()->platformWindow() makeKeyAndOrderFront:nil];
+    if (inspectedPage())
+        [inspectedPage()->platformWindow() makeKeyAndOrderFront:nil];
 }
 
 bool WebInspectorUIProxy::platformIsFront()
@@ -581,6 +591,9 @@ bool WebInspectorUIProxy::platformIsFront()
 
 bool WebInspectorUIProxy::platformCanAttach(bool webProcessCanAttach)
 {
+    if (!inspectedPage())
+        return false;
+
     NSView *inspectedView = inspectedPage()->inspectorAttachmentView();
     if ([WKInspectorViewController viewIsInspectorWebView:inspectedView])
         return webProcessCanAttach;
@@ -702,7 +715,7 @@ void WebInspectorUIProxy::windowFrameDidChange()
     ASSERT(m_isVisible);
     ASSERT(m_inspectorWindow);
 
-    if (m_isAttached || !m_isVisible || !m_inspectorWindow)
+    if (m_isAttached || !m_isVisible || !m_inspectorWindow || !inspectedPage())
         return;
 
     NSString *frameString = NSStringFromRect([m_inspectorWindow frame]);
@@ -808,22 +821,9 @@ void WebInspectorUIProxy::inspectedViewFrameDidChange(CGFloat currentDimension)
     [inspectedView setFrame:inspectedViewFrame];
 }
 
-unsigned WebInspectorUIProxy::platformInspectedWindowHeight()
-{
-    NSView *inspectedView = inspectedPage()->inspectorAttachmentView();
-    NSRect inspectedViewRect = [inspectedView frame];
-    return static_cast<unsigned>(inspectedViewRect.size.height);
-}
-
-unsigned WebInspectorUIProxy::platformInspectedWindowWidth()
-{
-    NSView *inspectedView = inspectedPage()->inspectorAttachmentView();
-    NSRect inspectedViewRect = [inspectedView frame];
-    return static_cast<unsigned>(inspectedViewRect.size.width);
-}
-
 void WebInspectorUIProxy::platformAttach()
 {
+    ASSERT(inspectedPage());
     NSView *inspectedView = inspectedPage()->inspectorAttachmentView();
     WKWebView *inspectorView = [m_inspectorViewController webView];
 
@@ -859,17 +859,16 @@ void WebInspectorUIProxy::platformAttach()
 
 void WebInspectorUIProxy::platformDetach()
 {
-    NSView *inspectedView = inspectedPage()->inspectorAttachmentView();
+    NSView *inspectedView = inspectedPage() ? inspectedPage()->inspectorAttachmentView() : nil;
     WKWebView *inspectorView = [m_inspectorViewController webView];
 
     [inspectorView removeFromSuperview];
-
     [inspectorView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
 
     // Make sure that we size the inspected view's frame after detaching so that it takes up the space that the
     // attached inspector used to. Preserve the top position of the inspected view so banners in Safari still work.
-
-    inspectedView.frame = NSMakeRect(0, 0, NSWidth(inspectedView.superview.bounds), NSMaxY(inspectedView.frame));
+    if (inspectedView)
+        inspectedView.frame = NSMakeRect(0, 0, NSWidth(inspectedView.superview.bounds), NSMaxY(inspectedView.frame));
 
     // Return early if we are not visible. This means the inspector was closed while attached
     // and we should not create and show the inspector window.

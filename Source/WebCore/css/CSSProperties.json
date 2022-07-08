@@ -168,10 +168,6 @@
         "specified macro define is enabled. Prefix the macro define with '!' to",
         "generate code when the macro define is not enabled.",
         "",
-        "* runtime-flag:",
-        "The name of the flag on RuntimeEnabledFeatures (e.g. \"cssLogical\")",
-        "that conditionally enables the property.",
-        "",
         "* settings-flag:",
         "The name of the flag on Settings (e.g. \"CSSOMViewSmoothScrolling\")",
         "that conditionally enables the property.",
@@ -573,7 +569,8 @@
             "codegen-properties": {
                 "name-for-methods": "VariantCaps",
                 "font-property": true,
-                "high-priority": true
+                "high-priority": true,
+                "converter": "FontVariantCaps"
             },
             "specification": {
                 "category": "css-fonts",
@@ -4586,8 +4583,7 @@
                 }
             ],
             "codegen-properties": {
-                "converter": "TextAlign",
-                "custom": "Initial|Value"
+                "converter": "TextAlign"
             },
             "specification": {
                 "category": "css-22",
@@ -4608,7 +4604,6 @@
             ],
             "codegen-properties": {
                 "converter": "TextAlignLast",
-                "custom": "Initial|Value",
                 "settings-flag": "cssTextAlignLastEnabled"
             },
             "specification": {

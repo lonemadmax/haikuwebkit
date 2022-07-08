@@ -31,6 +31,7 @@ from .canonicalize import Canonicalize
 from .clean import Clean, DeletePRBranches
 from .command import Command
 from .commit import Commit
+from .squash import Squash
 from .checkout import Checkout
 from .credentials import Credentials
 from .find import Find, Info
@@ -58,7 +59,7 @@ def main(
 
     parser = argparse.ArgumentParser(
         description='Custom git tooling from the WebKit team to interact with a ' +
-                    'repository using identifers',
+                    'repository using identifiers',
     )
     arguments.LoggingGroup(
         parser,
@@ -79,7 +80,7 @@ def main(
         Blame, Branch, Canonicalize, Checkout,
         Clean, Find, Info, Land, Log, Pull,
         PullRequest, Revert, Setup, InstallGitLFS,
-        Credentials, Commit, DeletePRBranches,
+        Credentials, Commit, DeletePRBranches, Squash
     ]
     if subversion:
         programs.append(SetupGitSvn)

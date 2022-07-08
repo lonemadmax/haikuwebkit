@@ -577,6 +577,12 @@ class WebkitFlatpak:
         self.sccache_token = ""
         self.sccache_scheduler = DEFAULT_SCCACHE_SCHEDULER
 
+        self.dbus_proxy_process = None
+
+    def __del__(self):
+        if self.dbus_proxy_process:
+            self.dbus_proxy_process.kill()
+
     def execute_command(self, args, stdout=None, stderr=None, env=None, keep_signals=True):
         if keep_signals:
             ctx_manager = nullcontext()
@@ -755,9 +761,7 @@ class WebkitFlatpak:
         self.a11y_socket = tempfile.NamedTemporaryFile(dir=self.socket_dir.name, delete=False)
 
         try:
-            proxy_proc = subprocess.Popen((dbus_proxy_path, a11y_bus_address, self.a11y_socket.name))
-
-            atexit.register(lambda: proxy_proc.terminate())
+            self.dbus_proxy_process = subprocess.Popen((dbus_proxy_path, a11y_bus_address, self.a11y_socket.name, "--talk=org.a11y.Bus"), close_fds=True)
         except (subprocess.CalledProcessError) as e:
             _log.warning("Failed to run xdg-dbus-proxy {}. Can't forward a11y bus.".format(e))
             return []
@@ -791,7 +795,7 @@ class WebkitFlatpak:
         sandbox_build_path = os.path.join(SANDBOX_SOURCE_ROOT, BUILD_ROOT_DIR_NAME, self.build_type)
         sandbox_environment = {
             "TEST_RUNNER_INJECTED_BUNDLE_FILENAME": os.path.join(sandbox_build_path, "lib/libTestRunnerInjectedBundle.so"),
-            "PATH": "/usr/lib/sdk/llvm13/bin:/usr/bin:/usr/lib/sdk/rust/bin/",
+            "PATH": "/usr/lib/sdk/llvm14/bin:/usr/bin:/usr/lib/sdk/rust/bin/",
         }
 
         if not args:
@@ -1252,7 +1256,7 @@ class WebkitFlatpak:
         packages = [self.runtime, self.sdk]
         packages.append(FlatpakPackage('org.webkit.Sdk.Debug', SDK_BRANCH,
                                        self.sdk_repo, arch))
-        packages.append(FlatpakPackage("org.freedesktop.Sdk.Extension.llvm13", SDK_BRANCH,
+        packages.append(FlatpakPackage("org.freedesktop.Sdk.Extension.llvm14", SDK_BRANCH,
                                        self.flathub_repo, arch))
         packages.append(FlatpakPackage("org.freedesktop.Platform.GL.default", SDK_BRANCH,
                                        self.flathub_repo, arch))

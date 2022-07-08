@@ -677,8 +677,10 @@ LayoutUnit RenderBox::constrainLogicalWidthInFragmentByMinMax(LayoutUnit logical
     const RenderStyle& styleToUse = style();
 
     if (shouldComputeLogicalHeightFromAspectRatio()) {
-        auto [logicalMinWidth, logicalMaxWidth] = computeMinMaxLogicalWidthFromAspectRatio();
-        logicalWidth = std::clamp(logicalWidth, logicalMinWidth, logicalMaxWidth);
+        if (!styleToUse.logicalWidth().isSpecified()) {
+            auto [logicalMinWidth, logicalMaxWidth] = computeMinMaxLogicalWidthFromAspectRatio();
+            logicalWidth = std::clamp(logicalWidth, logicalMinWidth, logicalMaxWidth);
+        }
     }
 
     if (!styleToUse.logicalMaxWidth().isUndefined() && (allowIntrinsic == AllowIntrinsic::Yes || !styleToUse.logicalMaxWidth().isIntrinsic()))
@@ -703,6 +705,7 @@ LayoutUnit RenderBox::constrainLogicalHeightByMinMax(LayoutUnit logicalHeight, s
     auto logicalMinHeight = styleToUse.logicalMinHeight();
     if (logicalMinHeight.isAuto() && shouldComputeLogicalHeightFromAspectRatio() && intrinsicContentHeight && !is<RenderReplaced>(*this) && effectiveOverflowBlockDirection() == Overflow::Visible) {
         auto heightFromAspectRatio = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth()) - borderAndPaddingLogicalHeight();
+        heightFromAspectRatio = std::min(heightFromAspectRatio, logicalHeight);
         if (firstChild())
             heightFromAspectRatio = std::max(heightFromAspectRatio, *intrinsicContentHeight);
         logicalMinHeight = Length(heightFromAspectRatio, LengthType::Fixed);
@@ -3274,30 +3277,37 @@ std::optional<LayoutUnit> RenderBox::computeIntrinsicLogicalContentHeightUsing(L
         return { };
     }
     if (logicalHeightLength.isFillAvailable()) {
-        auto* containingBlock = this->containingBlock();
-
         auto canResolveAvailableSpace = [&] {
             // FIXME: We need to find a way to say: yes, the constraint value is set and we can resolve height against it.
             // Until then, this is mostly just guesswork.
-            if (!containingBlock)
-                return false;
-            if (is<RenderView>(containingBlock))
-                return true;
-            auto containingBlockHasSpecifiedSpace = [&] {
-                auto isOrthogonal = WebCore::isOrthogonal(*this, *containingBlock);
-                auto& style = containingBlock->style();
-                if ((!isOrthogonal && style.height().isSpecified()) || (isOrthogonal && style.width().isSpecified()))
+            auto inQuirksMode = document().inQuirksMode();
+            auto containingBlockHasSpecifiedSpace = [&](auto& containingBlock) {
+                auto isOrthogonal = WebCore::isOrthogonal(*this, containingBlock);
+                auto& style = containingBlock.style();
+                auto& logicalHeight = isOrthogonal ? style.width() : style.height();
+                if (logicalHeight.isSpecified())
                     return true;
-                if (containingBlock->isOutOfFlowPositioned()) {
+                if (containingBlock.isOutOfFlowPositioned()) {
                     if ((!isOrthogonal && !style.top().isAuto() && !style.bottom().isAuto()) || (isOrthogonal && !style.left().isAuto() && !style.right().isAuto()))
                         return true;
                 }
                 return false;
             };
-            return containingBlockHasSpecifiedSpace() || containingBlock->hasOverridingLogicalHeight();
+
+            for (auto* ancestor = this->containingBlock(); ancestor; ancestor = ancestor->containingBlock()) {
+                if (ancestor->hasOverridingLogicalHeight() || containingBlockHasSpecifiedSpace(*ancestor))
+                    return true;
+                if (is<RenderView>(ancestor) || (inQuirksMode && (ancestor->isBody() || ancestor->isDocumentElementRenderer())))
+                    return true;
+                // Flexing containers don't need to have specified height in order to provide a resolvable value.
+                if (!ancestor->isFlexItem() && !ancestor->isGridItem() && !is<RenderTableCell>(ancestor))
+                    return false;
+            }
+            ASSERT_NOT_REACHED();
+            return false;
         };
         if (canResolveAvailableSpace())
-            return containingBlock->availableLogicalHeight(ExcludeMarginBorderPadding) - borderAndPadding;
+            return containingBlock()->availableLogicalHeight(ExcludeMarginBorderPadding) - borderAndPadding;
         return { };
     }
     ASSERT_NOT_REACHED();
@@ -5233,7 +5243,12 @@ LayoutRect RenderBox::logicalLayoutOverflowRectForPropagation(const RenderStyle*
 LayoutRect RenderBox::layoutOverflowRectForPropagation(const RenderStyle* parentStyle) const
 {
     // Only propagate interior layout overflow if we don't completely clip it.
-    LayoutRect rect = borderBoxRect();
+    auto rect = borderBoxRect();
+    if (isGridItem()) {
+        // As per https://github.com/w3c/csswg-drafts/issues/3653, child's margins should contribute to the scrollable overflow area.
+        // FIXME: Expand it to non-grid cases when applicable.
+        rect.setWidth(rect.width() + std::max(0_lu, marginEnd()));
+    }
     if (!shouldApplyLayoutContainment()) {
         if (style().overflowX() == Overflow::Clip && style().overflowY() == Overflow::Visible) {
             LayoutRect clippedOverflowRect = layoutOverflowRect();

@@ -27,6 +27,7 @@
 
 #if PLATFORM(IOS) || PLATFORM(MACCATALYST)
 
+#import "InstanceMethodSwizzler.h"
 #import "PlatformUtilities.h"
 #import "Test.h"
 #import "TestNavigationDelegate.h"
@@ -376,6 +377,82 @@ TEST(iOSMouseSupport, MouseDidMoveOverElement)
 
     EXPECT_TRUE(mouseDidMoveOverElement);
     EXPECT_NOT_NULL(hitTestResult);
+}
+
+static bool selectionUpdated = false;
+static void handleUpdatedSelection(id, SEL)
+{
+    selectionUpdated = true;
+}
+
+TEST(iOSMouseSupport, SelectionUpdatesBeforeContextMenuAppears)
+{
+    InstanceMethodSwizzler swizzler { UIWKTextInteractionAssistant.class, @selector(selectionChanged), reinterpret_cast<IMP>(handleUpdatedSelection) };
+
+    auto webViewConfiguration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    [webView synchronouslyLoadTestPageNamed:@"simple"];
+    [webView objectByEvaluatingJavaScript:@"document.body.setAttribute('contenteditable','');"];
+
+    auto contentView = [webView wkContentView];
+    [webView _simulateSelectionStart];
+    __block bool done = false;
+    [contentView prepareSelectionForContextMenuWithLocationInView:CGPointZero completionHandler:^(BOOL, RVItem *) {
+        EXPECT_TRUE(selectionUpdated);
+        done = true;
+    }];
+
+    TestWebKitAPI::Util::run(&done);
+}
+
+constexpr auto largeResponsiveHelloMarkup = "<meta name='viewport' content='width=device-width'><span style='font-size: 400px;'>Hello</span>";
+
+TEST(iOSMouseSupport, DisablingTextIteractionPreventsSelectionWhenShowingContextMenu)
+{
+    auto configuration = adoptNS([WKWebViewConfiguration new]);
+    [configuration preferences].textInteractionEnabled = NO;
+
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get()]);
+    [webView synchronouslyLoadHTMLString:@(largeResponsiveHelloMarkup)];
+
+    __block bool done = false;
+    [[webView wkContentView] prepareSelectionForContextMenuWithLocationInView:CGPointMake(100, 100) completionHandler:^(BOOL, RVItem *) {
+        done = true;
+    }];
+
+    TestWebKitAPI::Util::run(&done);
+    EXPECT_WK_STREQ("", [webView stringByEvaluatingJavaScript:@"getSelection().toString()"]);
+}
+
+TEST(iOSMouseSupport, ShowingContextMenuSelectsEditableText)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
+    [webView _setEditable:YES];
+    [webView synchronouslyLoadHTMLString:@(largeResponsiveHelloMarkup)];
+
+    __block bool done = false;
+    [[webView wkContentView] prepareSelectionForContextMenuWithLocationInView:CGPointMake(100, 100) completionHandler:^(BOOL, RVItem *) {
+        done = true;
+    }];
+
+    TestWebKitAPI::Util::run(&done);
+    EXPECT_WK_STREQ("Hello", [webView stringByEvaluatingJavaScript:@"getSelection().toString()"]);
+    EXPECT_FALSE(CGRectIsEmpty([webView _uiTextSelectionRects].firstObject.CGRectValue));
+}
+
+TEST(iOSMouseSupport, ShowingContextMenuSelectsNonEditableText)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
+    [webView synchronouslyLoadHTMLString:@(largeResponsiveHelloMarkup)];
+
+    __block bool done = false;
+    [[webView wkContentView] prepareSelectionForContextMenuWithLocationInView:CGPointMake(100, 100) completionHandler:^(BOOL, RVItem *) {
+        done = true;
+    }];
+
+    TestWebKitAPI::Util::run(&done);
+    EXPECT_WK_STREQ("Hello", [webView stringByEvaluatingJavaScript:@"getSelection().toString()"]);
+    EXPECT_FALSE(CGRectIsEmpty([webView _uiTextSelectionRects].firstObject.CGRectValue));
 }
 
 #if ENABLE(IOS_TOUCH_EVENTS)

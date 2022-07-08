@@ -476,11 +476,6 @@ public:
     bool contentsRectClipsDescendants() const { return m_contentsRectClipsDescendants; }
     virtual void setContentsRectClipsDescendants(bool b) { m_contentsRectClipsDescendants = b; }
 
-    // Set a rounded rect that is used to clip this layer and its descendants (implies setting masksToBounds).
-    // Consult supportsRoundedClip() to know whether non-zero radii are supported.
-    FloatRoundedRect maskToBoundsRect() const { return m_masksToBoundsRect; };
-    virtual void setMasksToBoundsRect(const FloatRoundedRect&);
-
     Path shapeLayerPath() const;
     virtual void setShapeLayerPath(const Path&);
 
@@ -581,8 +576,11 @@ public:
     virtual void setAppliesPageScale(bool appliesScale = true) { m_appliesPageScale = appliesScale; }
     virtual bool appliesPageScale() const { return m_appliesPageScale; }
 
+    void setAppliesDeviceScale(bool appliesScale = true) { m_appliesDeviceScale = appliesScale; }
+    bool appliesDeviceScale() const { return m_appliesDeviceScale; }
+
     float pageScaleFactor() const { return client().pageScaleFactor(); }
-    float deviceScaleFactor() const { return client().deviceScaleFactor(); }
+    float deviceScaleFactor() const { return appliesDeviceScale() ? client().deviceScaleFactor() : 1.f; }
     
     // Whether this layer can throw away backing store to save memory. False for layers that can be revealed by async scrolling.
     virtual void setAllowsBackingStoreDetaching(bool) { }
@@ -742,6 +740,7 @@ protected:
     bool m_usesDisplayListDrawing : 1;
     bool m_allowsTiling : 1;
     bool m_appliesPageScale : 1; // Set for the layer which has the page scale applied to it.
+    bool m_appliesDeviceScale : 1;
     bool m_showDebugBorder : 1;
     bool m_showRepaintCounter : 1;
     bool m_isMaskLayer : 1;
@@ -770,7 +769,6 @@ protected:
 
     FloatRect m_contentsRect;
     FloatRoundedRect m_contentsClippingRect;
-    FloatRoundedRect m_masksToBoundsRect;
     FloatSize m_contentsTilePhase;
     FloatSize m_contentsTileSize;
     ScalingFilter m_contentsMinificationFilter = ScalingFilter::Linear;

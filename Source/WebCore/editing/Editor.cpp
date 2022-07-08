@@ -43,6 +43,7 @@
 #include "CustomUndoStep.h"
 #include "DataTransfer.h"
 #include "DeleteSelectionCommand.h"
+#include "DeprecatedGlobalSettings.h"
 #include "DictationAlternative.h"
 #include "DictationCommand.h"
 #include "DocumentFragment.h"
@@ -98,7 +99,6 @@
 #include "RenderedPosition.h"
 #include "ReplaceRangeWithTextCommand.h"
 #include "ReplaceSelectionCommand.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScriptDisallowedScope.h"
 #include "SerializedAttachmentData.h"
 #include "Settings.h"
@@ -348,8 +348,8 @@ bool Editor::handleTextEvent(TextEvent& event)
     if (event.isDrop())
         return false;
 
-    if (event.isPaste() || event.isMarkup()) {
-        auto action = event.isMarkup() ? EditAction::MarkupImage : EditAction::Paste;
+    if (event.isPaste() || event.isRemoveBackground()) {
+        auto action = event.isRemoveBackground() ? EditAction::RemoveBackground : EditAction::Paste;
         if (event.pastingFragment()) {
 #if PLATFORM(IOS_FAMILY)
             if (client()->performsTwoStepPaste(event.pastingFragment()))
@@ -426,7 +426,7 @@ static Ref<DataTransfer> createDataTransferForClipboardEvent(Document& document,
     case ClipboardEventKind::Cut:
         return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::ReadWrite, makeUnique<StaticPasteboard>());
     case ClipboardEventKind::PasteAsPlainText:
-        if (RuntimeEnabledFeatures::sharedFeatures().customPasteboardDataEnabled()) {
+        if (DeprecatedGlobalSettings::customPasteboardDataEnabled()) {
             auto plainTextType = "text/plain"_s;
             auto plainText = Pasteboard::createForCopyAndPaste(PagePasteboardContext::create(document.pageID()))->readString(plainTextType);
             auto pasteboard = makeUnique<StaticPasteboard>();
@@ -644,8 +644,8 @@ void Editor::pasteAsFragment(Ref<DocumentFragment>&& pastingFragment, bool smart
     if (!target)
         return;
 
-    ASSERT(action == EditAction::MarkupImage || action == EditAction::Paste);
-    auto type = action == EditAction::MarkupImage ? TextEventInputMarkup : TextEventInputPaste;
+    ASSERT(action == EditAction::RemoveBackground || action == EditAction::Paste);
+    auto type = action == EditAction::RemoveBackground ? TextEventInputRemoveBackground : TextEventInputPaste;
     target->dispatchEvent(TextEvent::createForFragmentPaste(document().windowProxy(), WTFMove(pastingFragment), type, smartReplace, matchStyle, respectsMailBlockquote));
 }
 
@@ -701,7 +701,7 @@ void Editor::replaceSelectionWithFragment(DocumentFragment& fragment, SelectRepl
         return;
 
     AccessibilityReplacedText replacedText;
-    if (AXObjectCache::accessibilityEnabled() && (editingAction == EditAction::Paste || editingAction == EditAction::Insert || editingAction == EditAction::MarkupImage))
+    if (AXObjectCache::accessibilityEnabled() && (editingAction == EditAction::Paste || editingAction == EditAction::Insert || editingAction == EditAction::RemoveBackground))
         replacedText = AccessibilityReplacedText(selection);
 
     OptionSet<ReplaceSelectionCommand::CommandOption> options { ReplaceSelectionCommand::PreventNesting, ReplaceSelectionCommand::SanitizeFragment };
@@ -2546,7 +2546,7 @@ void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition& wordStart,
     auto adjacentWords = VisibleSelection(startOfWord(wordStart, LeftWordIfOnBoundary), endOfWord(wordStart, RightWordIfOnBoundary));
     auto adjacentWordRange = adjacentWords.toNormalizedRange();
 
-#if ENABLE(MAC_CATALYST_GRAMMAR_CHECKING)
+#if ENABLE(POST_EDITING_GRAMMAR_CHECKING)
     if (isGrammarCheckingEnabled()) {
         textCheckingOptions.add(TextCheckingType::Grammar);
         textCheckingOptions.add(TextCheckingType::Correction);
@@ -2879,7 +2879,7 @@ void Editor::markAndReplaceFor(const SpellCheckRequest& request, const Vector<Te
 
         bool resultRangeIsAcceptableForReplacement = automaticReplacementStartLocation <= resultEndLocation && resultEndLocation <= automaticReplacementEndLocation;
         // In this case the result range just has to touch the automatic replacement range, so we can handle replacing non-word text such as punctuation.
-#if ENABLE(MAC_CATALYST_GRAMMAR_CHECKING)
+#if ENABLE(POST_EDITING_GRAMMAR_CHECKING)
         if (!resultRangeIsAcceptableForReplacement && shouldCheckForCorrection && resultType == TextCheckingType::Correction)
             resultRangeIsAcceptableForReplacement = results[i].details.size() > 0;
         if (!resultRangeIsAcceptableForReplacement && shouldMarkGrammar && shouldCheckForCorrection && resultType == TextCheckingType::Correction) {
@@ -2934,7 +2934,7 @@ void Editor::markAndReplaceFor(const SpellCheckRequest& request, const Vector<Te
 
             String replacedString = plainText(rangeToReplace);
             bool existingMarkersPermitReplacement = m_alternativeTextController->processMarkersOnTextToBeReplacedByResult(results[i], rangeToReplace, replacedString);
-#if ENABLE(MAC_CATALYST_GRAMMAR_CHECKING)
+#if ENABLE(POST_EDITING_GRAMMAR_CHECKING)
             if (!existingMarkersPermitReplacement && shouldCheckForCorrection && resultType == TextCheckingType::Correction)
                 existingMarkersPermitReplacement = results[i].details.size() > 0;
 #endif

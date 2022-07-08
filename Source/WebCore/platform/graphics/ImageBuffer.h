@@ -101,7 +101,7 @@ public:
     virtual void flushDrawingContext() { }
     virtual bool flushDrawingContextAsync() { return false; }
     virtual void didFlush(GraphicsContextFlushIdentifier) { }
-    virtual void setNeedsFlush(bool) { }
+    virtual void backingStoreWillChange() { }
 
     virtual FloatSize logicalSize() const = 0;
     virtual IntSize truncatedLogicalSize() const = 0; // This truncates the real size. You probably should be calling logicalSize() instead.
@@ -127,7 +127,7 @@ public:
     virtual std::unique_ptr<ThreadSafeImageBufferFlusher> createFlusher() = 0;
 
     virtual RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) const = 0;
-    virtual RefPtr<Image> copyImage(BackingStoreCopy = CopyBackingStore, PreserveResolution = PreserveResolution::No) const = 0;
+    WEBCORE_EXPORT RefPtr<Image> copyImage(BackingStoreCopy = CopyBackingStore, PreserveResolution = PreserveResolution::No) const;
     virtual RefPtr<Image> filteredImage(Filter&) = 0;
 
     virtual void draw(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1), const ImagePaintingOptions& = { }) = 0;
@@ -162,7 +162,6 @@ protected:
     ImageBuffer() = default;
 
     virtual RefPtr<NativeImage> sinkIntoNativeImage() = 0;
-    virtual RefPtr<Image> sinkIntoImage(PreserveResolution = PreserveResolution::No) = 0;
     virtual void drawConsuming(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) = 0;
 };
 

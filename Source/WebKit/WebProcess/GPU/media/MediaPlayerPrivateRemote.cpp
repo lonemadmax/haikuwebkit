@@ -41,6 +41,7 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
 #include <JavaScriptCore/TypedArrayInlines.h>
+#include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/NotImplemented.h>
@@ -48,7 +49,6 @@
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/PlatformTimeRanges.h>
 #include <WebCore/ResourceError.h>
-#include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/TextTrackRepresentation.h>
 #include <WebCore/VideoLayerManager.h>
@@ -798,7 +798,7 @@ void MediaPlayerPrivateRemote::load(const URL& url, const ContentType& contentTy
 {
     if (m_remoteEngineIdentifier == MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMSE) {
         auto identifier = RemoteMediaSourceIdentifier::generate();
-        connection().sendWithAsyncReply(Messages::RemoteMediaPlayerProxy::LoadMediaSource(url, contentType, RuntimeEnabledFeatures::sharedFeatures().webMParserEnabled(), identifier), [weakThis = WeakPtr { *this }, this](auto&& configuration) {
+        connection().sendWithAsyncReply(Messages::RemoteMediaPlayerProxy::LoadMediaSource(url, contentType, DeprecatedGlobalSettings::webMParserEnabled(), identifier), [weakThis = WeakPtr { *this }, this](auto&& configuration) {
             if (!weakThis)
                 return;
 
@@ -1021,6 +1021,17 @@ bool MediaPlayerPrivateRemote::copyVideoTextureToPlatformTexture(WebCore::Graphi
 {
     notImplemented();
     return false;
+}
+#endif
+
+#if PLATFORM(COCOA) && !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+void MediaPlayerPrivateRemote::willBeAskedToPaintGL()
+{
+    if (m_hasBeenAskedToPaintGL)
+        return;
+
+    m_hasBeenAskedToPaintGL = true;
+    connection().send(Messages::RemoteMediaPlayerProxy::WillBeAskedToPaintGL(), m_id);
 }
 #endif
 
@@ -1494,11 +1505,6 @@ WTFLogChannel& MediaPlayerPrivateRemote::logChannel() const
     return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 #endif
-
-MediaPlayerIdentifier MediaPlayerPrivateRemote::identifier() const
-{
-    return m_id;
-}
 
 } // namespace WebKit
 

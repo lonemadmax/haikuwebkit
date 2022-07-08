@@ -47,10 +47,10 @@
 #include "ColorInterpolation.h"
 #include "ColorLuminance.h"
 #include "ColorNormalization.h"
+#include "DeprecatedGlobalSettings.h"
 #include "Logging.h"
 #include "Pair.h"
 #include "RenderStyleConstants.h"
-#include "RuntimeEnabledFeatures.h"
 #include "StyleColor.h"
 #include "WebKitFontFamilyNames.h"
 #include <wtf/SortedArrayMap.h>
@@ -191,6 +191,10 @@ static constexpr double computeMinimumValue(IntegerRange range)
     case IntegerRange::OneAndGreater:
         return 1.0;
     }
+
+    RELEASE_ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
+
+    return 0.0;
 }
 // MARK: Integer (Raw)
 
@@ -3918,7 +3922,7 @@ static RefPtr<CSSValue> consumeFilterImage(CSSParserTokenRange& args, const CSSP
 #if ENABLE(CSS_PAINTING_API)
 static RefPtr<CSSValue> consumeCustomPaint(CSSParserTokenRange& args)
 {
-    if (!RuntimeEnabledFeatures::sharedFeatures().cssPaintingAPIEnabled())
+    if (!DeprecatedGlobalSettings::cssPaintingAPIEnabled())
         return nullptr;
     if (args.peek().type() != IdentToken)
         return nullptr;

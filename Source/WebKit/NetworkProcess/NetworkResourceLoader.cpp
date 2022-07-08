@@ -591,6 +591,8 @@ void NetworkResourceLoader::transferToNewWebProcess(NetworkConnectionToWebProces
         if (auto* swConnection = newConnection.swConnection())
             swConnection->transferServiceWorkerLoadToNewWebProcess(*this, *m_serviceWorkerRegistration);
     }
+    if (m_workerStart)
+        send(Messages::WebResourceLoader::SetWorkerStart { m_workerStart }, coreIdentifier());
 #else
     ASSERT(m_responseCompletionHandler || m_cacheEntryWaitingForContinueDidReceiveResponse);
 #endif
@@ -1180,6 +1182,9 @@ void NetworkResourceLoader::didFinishWithRedirectResponse(WebCore::ResourceReque
     networkLoadMetrics.markComplete();
     networkLoadMetrics.responseBodyBytesReceived = 0;
     networkLoadMetrics.responseBodyDecodedSize = 0;
+
+    if (m_serviceWorkerFetchTask)
+        networkLoadMetrics.fetchStart = m_serviceWorkerFetchTask->startTime();
     send(Messages::WebResourceLoader::DidFinishResourceLoad { networkLoadMetrics });
 
     cleanup(LoadResult::Success);
@@ -1231,6 +1236,7 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
 #if ENABLE(SERVICE_WORKER)
     if (shouldTryToMatchRegistrationOnRedirection(parameters().options, !!m_serviceWorkerFetchTask)) {
         m_serviceWorkerRegistration = { };
+        setWorkerStart({ });
         if (auto serviceWorkerFetchTask = m_connection->createFetchTask(*this, newRequest)) {
             LOADER_RELEASE_LOG("continueWillSendRequest: Created a ServiceWorkerFetchTask to handle the redirect (fetchIdentifier=%" PRIu64 ")", serviceWorkerFetchTask->fetchIdentifier().toUInt64());
             m_networkLoad = nullptr;
@@ -1773,6 +1779,12 @@ bool NetworkResourceLoader::isCrossOriginPrefetch() const
 }
 
 #if ENABLE(SERVICE_WORKER)
+void NetworkResourceLoader::setWorkerStart(MonotonicTime value)
+{
+    m_workerStart = value;
+    send(Messages::WebResourceLoader::SetWorkerStart { m_workerStart }, coreIdentifier());
+}
+
 void NetworkResourceLoader::startWithServiceWorker()
 {
     LOADER_RELEASE_LOG("startWithServiceWorker:");

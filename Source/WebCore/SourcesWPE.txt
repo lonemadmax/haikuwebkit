@@ -24,6 +24,7 @@
 accessibility/atspi/AccessibilityAtspi.cpp
 accessibility/atspi/AccessibilityObjectAtspi.cpp
 accessibility/atspi/AccessibilityObjectActionAtspi.cpp
+accessibility/atspi/AccessibilityObjectCollectionAtspi.cpp
 accessibility/atspi/AccessibilityObjectComponentAtspi.cpp
 accessibility/atspi/AccessibilityObjectDocumentAtspi.cpp
 accessibility/atspi/AccessibilityObjectHyperlinkAtspi.cpp
@@ -66,6 +67,8 @@ platform/generic/ScrollbarsControllerGeneric.cpp
 platform/graphics/ANGLEWebKitBridge.cpp
 platform/graphics/GLContext.cpp
 platform/graphics/PlatformDisplay.cpp
+
+platform/graphics/wpe/SystemFontDatabaseWPE.cpp
 
 platform/graphics/egl/GLContextEGL.cpp
 platform/graphics/egl/GLContextEGLLibWPE.cpp

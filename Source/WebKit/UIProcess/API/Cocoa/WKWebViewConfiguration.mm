@@ -42,7 +42,6 @@
 #import "WebURLSchemeHandlerCocoa.h"
 #import "_WKApplicationManifestInternal.h"
 #import "_WKVisitedLinkStore.h"
-#import "_WKWebsiteDataStoreInternal.h"
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/Settings.h>
 #import <wtf/RetainPtr.h>
@@ -587,24 +586,6 @@ static NSString *defaultApplicationNameForUserAgent()
     return handler ? static_cast<WebKit::WebURLSchemeHandlerCocoa*>(handler.get())->apiHandler() : nil;
 }
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-
-ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
-- (_WKWebsiteDataStore *)_websiteDataStore
-ALLOW_DEPRECATED_IMPLEMENTATIONS_END
-{
-    return self.websiteDataStore ? adoptNS([[_WKWebsiteDataStore alloc] initWithDataStore:self.websiteDataStore]).autorelease() : nullptr;
-}
-
-ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
-- (void)_setWebsiteDataStore:(_WKWebsiteDataStore *)websiteDataStore
-ALLOW_DEPRECATED_IMPLEMENTATIONS_END
-{
-    self.websiteDataStore = websiteDataStore ? websiteDataStore->_dataStore.get() : nullptr;
-}
-
-ALLOW_DEPRECATED_DECLARATIONS_END
-
 #if PLATFORM(IOS_FAMILY)
 - (BOOL)limitsNavigationsToAppBoundDomains
 {
@@ -979,6 +960,23 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 - (void)_setCORSDisablingPatterns:(NSArray<NSString *> *)patterns
 {
     _pageConfiguration->setCORSDisablingPatterns(makeVector<String>(patterns));
+}
+
+- (NSSet<NSString *> *)_maskedURLSchemes
+{
+    const auto& schemes = _pageConfiguration->maskedURLSchemes();
+    NSMutableSet<NSString *> *set = [NSMutableSet setWithCapacity:schemes.size()];
+    for (const auto& scheme : schemes)
+        [set addObject:scheme];
+    return set;
+}
+
+- (void)_setMaskedURLSchemes:(NSSet<NSString *> *)schemes
+{
+    HashSet<String> set;
+    for (NSString *scheme in schemes)
+        set.add(scheme);
+    _pageConfiguration->setMaskedURLSchemes(WTFMove(set));
 }
 
 - (void)_setLoadsFromNetwork:(BOOL)loads

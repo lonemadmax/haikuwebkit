@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,10 +44,6 @@ public:
     friend NeverDestroyed<RenderThemeIOS>;
 
     static void adjustRoundBorderRadius(RenderStyle&, RenderBox&);
-
-    CFStringRef contentSizeCategory() const final;
-
-    WEBCORE_EXPORT static void setContentSizeCategory(const String&);
 
 #if USE(SYSTEM_PREVIEW)
     void paintSystemPreviewBadge(Image&, const PaintInfo&, const FloatRect&) override;
@@ -183,9 +179,6 @@ private:
     bool paintAttachment(const RenderObject&, const PaintInfo&, const IntRect&) override;
 #endif
 
-    bool shouldMockBoldSystemFontForAccessibility() const override { return m_shouldMockBoldSystemFontForAccessibility; }
-    void setShouldMockBoldSystemFontForAccessibility(bool shouldMockBoldSystemFontForAccessibility) override { m_shouldMockBoldSystemFontForAccessibility = shouldMockBoldSystemFontForAccessibility; }
-
 private:
     RenderThemeIOS();
     virtual ~RenderThemeIOS() = default;
@@ -211,8 +204,6 @@ private:
     Color controlTintColor(const RenderStyle&, OptionSet<StyleColorOptions>) const;
 
     void adjustStyleForAlternateFormControlDesignTransition(RenderStyle&, const Element*) const;
-
-    bool m_shouldMockBoldSystemFontForAccessibility { false };
 };
 
 }

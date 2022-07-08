@@ -51,7 +51,7 @@ class RenderTextControl;
 class RenderView;
 class VisibleSelection;
 
-class AccessibilityRenderObject : public AccessibilityNodeObject, public CanMakeWeakPtr<AccessibilityRenderObject> {
+class AccessibilityRenderObject : public AccessibilityNodeObject {
 public:
     static Ref<AccessibilityRenderObject> create(RenderObject*);
     virtual ~AccessibilityRenderObject();
@@ -142,7 +142,6 @@ public:
     void setSelectedTextRange(const PlainTextRange&) override;
     bool setValue(const String&) override;
     void setSelectedRows(AccessibilityChildrenVector&) override;
-    AccessibilityOrientation orientation() const override;
 
     void addChildren() override;
     bool canHaveChildren() const override;
@@ -266,10 +265,6 @@ private:
     
     OptionSet<SpeakAs> speakAsProperty() const override;
     
-    const String liveRegionStatus() const override;
-    const String liveRegionRelevant() const override;
-    bool liveRegionAtomic() const override;
-
     bool inheritsPresentationalRole() const override;
 
     bool shouldGetTextFromNode(AccessibilityTextUnderElementMode) const;

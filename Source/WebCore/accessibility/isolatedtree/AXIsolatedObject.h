@@ -47,7 +47,7 @@ class AXIsolatedTree;
 class AXIsolatedObject final : public AXCoreObject {
     friend class AXIsolatedTree;
 public:
-    static Ref<AXIsolatedObject> create(AXCoreObject&, AXIsolatedTree*);
+    static Ref<AXIsolatedObject> create(Ref<AXCoreObject>, AXIsolatedTree*);
     ~AXIsolatedObject();
 
     void setObjectID(AXID id) override { m_id = id; }
@@ -66,13 +66,13 @@ private:
     AXIsolatedTree* tree() const { return m_cachedTree.get(); }
 
     AXIsolatedObject() = default;
-    AXIsolatedObject(AXCoreObject&, AXIsolatedTree*);
+    AXIsolatedObject(Ref<AXCoreObject>, AXIsolatedTree*);
     bool isAXIsolatedObjectInstance() const override { return true; }
     AXCoreObject* associatedAXObject() const;
 
     enum class IsRoot : bool { Yes, No };
-    void initializeProperties(AXCoreObject&, IsRoot);
-    void initializePlatformProperties(const AXCoreObject&, IsRoot);
+    void initializeProperties(Ref<AXCoreObject>, IsRoot);
+    void initializePlatformProperties(Ref<const AXCoreObject>, IsRoot);
 
     void setProperty(AXPropertyName, AXPropertyValueVariant&&, bool shouldRemove = false);
     void setObjectProperty(AXPropertyName, AXCoreObject*);
@@ -552,7 +552,6 @@ private:
     bool isModalNode() const override;
     AXCoreObject* elementAccessibilityHitTest(const IntPoint&) const override;
     AXCoreObject* parentObjectIfExists() const override;
-    bool isDescendantOfBarrenParent() const override;
     bool isDescendantOfRole(AccessibilityRole) const override;
     AXCoreObject* observableObject() const override;
     AXCoreObject* correspondingLabelForControlElement() const override;
@@ -672,8 +671,9 @@ inline T AXIsolatedObject::propertyValue(AXPropertyName propertyName) const
 {
     auto value = m_propertyMap.get(propertyName);
     return WTF::switchOn(value,
-        [] (T& typedValue) -> T { return typedValue; },
-        [] (auto&) { return T(); }
+        [] (T& typedValue) { return typedValue; },
+        [] (auto&) { ASSERT_NOT_REACHED();
+            return T(); }
     );
 }
 

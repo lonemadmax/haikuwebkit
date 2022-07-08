@@ -241,13 +241,6 @@ static void *WKContentViewKVOTransformContext = &WKContentViewKVOTransformContex
 #import <WebKitAdditions/WKContentViewInteractionAdditions.mm>
 #else
 
-#if ENABLE(IMAGE_ANALYSIS)
-static bool canAttemptTextRecognitionForNonImageElements(const WebKit::InteractionInformationAtPosition& information, const WebKit::WebPreferences&)
-{
-    return false;
-}
-#endif // ENABLE(IMAGE_ANALYSIS)
-
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
 
 static bool shouldEnableAlternativeMouseGestureRecognizers(WKMouseGestureRecognizer *mouseRecognizer, WKMouseGestureRecognizer *alternativeMouseRecognizer)
@@ -260,8 +253,24 @@ static bool shouldEnableAlternativeMouseGestureRecognizers(WKMouseGestureRecogni
 
 #endif // HAVE(UIKIT_WITH_MOUSE_SUPPORT)
 
-
 #endif
+
+#if ENABLE(IMAGE_ANALYSIS)
+
+static bool canAttemptTextRecognitionForNonImageElements(const WebKit::InteractionInformationAtPosition& information, const WebKit::WebPreferences& preferences)
+{
+    return preferences.textRecognitionInVideosEnabled() && information.isPausedVideo;
+}
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+@interface AVPlayerViewController (Staging_86237428)
+- (void)setImageAnalysis:(CocoaImageAnalysis *)analysis;
+@end
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+#endif // ENABLE(IMAGE_ANALYSIS)
 
 namespace WebKit {
 using namespace WebCore;
@@ -1062,6 +1071,9 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     _touchActionGestureRecognizer = adoptNS([[WKTouchActionGestureRecognizer alloc] initWithTouchActionDelegate:self]);
     [self addGestureRecognizer:_touchActionGestureRecognizer.get()];
 
+    // FIXME: This should be called when we get notified that loading has completed.
+    [self setUpTextSelectionAssistant];
+
 #if HAVE(LINK_PREVIEW)
     [self _registerPreview];
 #endif
@@ -1076,9 +1088,6 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [center addObserver:self selector:@selector(_keyboardDidRequestDismissal:) name:UIKeyboardPrivateDidRequestDismissalNotification object:nil];
 
     _showingTextStyleOptions = NO;
-
-    // FIXME: This should be called when we get notified that loading has completed.
-    [self setUpTextSelectionAssistant];
     
     _actionSheetAssistant = adoptNS([[WKActionSheetAssistant alloc] initWithView:self]);
     [_actionSheetAssistant setDelegate:self];
@@ -2377,6 +2386,15 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
 
 - (void)_keyboardDidShow
 {
+    [self _zoomToFocusRectAfterShowingKeyboardIfNeeded];
+
+#if USE(UICONTEXTMENU)
+    [_fileUploadPanel repositionContextMenuIfNeeded];
+#endif
+}
+
+- (void)_zoomToFocusRectAfterShowingKeyboardIfNeeded
+{
     if (!_shouldZoomToFocusRectAfterShowingKeyboard)
         return;
 
@@ -2608,7 +2626,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
         return [(WKDeferringGestureRecognizer *)otherGestureRecognizer shouldDeferGestureRecognizer:gestureRecognizer];
 
 #if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS)
-    if (gestureRecognizer == _imageAnalysisTimeoutGestureRecognizer && otherGestureRecognizer == [_contextMenuInteraction gestureRecognizerForFailureRelationships])
+    if (gestureRecognizer == _imageAnalysisTimeoutGestureRecognizer && otherGestureRecognizer == [self.contextMenuInteraction gestureRecognizerForFailureRelationships])
         return YES;
 #endif
 
@@ -2621,7 +2639,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
         return [(WKDeferringGestureRecognizer *)gestureRecognizer shouldDeferGestureRecognizer:otherGestureRecognizer];
 
 #if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS)
-    if (gestureRecognizer == [_contextMenuInteraction gestureRecognizerForFailureRelationships] && otherGestureRecognizer == _imageAnalysisTimeoutGestureRecognizer)
+    if (gestureRecognizer == [self.contextMenuInteraction gestureRecognizerForFailureRelationships] && otherGestureRecognizer == _imageAnalysisTimeoutGestureRecognizer)
         return YES;
 #endif
 
@@ -4606,58 +4624,69 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     });
 }
 
-- (void)requestRectsToEvadeForSelectionCommandsWithCompletionHandler:(void(^)(NSArray<NSValue *> *rects))completionHandler
+#if HAVE(UI_EDIT_MENU_INTERACTION)
+
+- (void)requestPreferredArrowDirectionForEditMenuWithCompletionHandler:(void(^)(UIEditMenuArrowDirection))completion
 {
-    if (!completionHandler) {
-        [NSException raise:NSInvalidArgumentException format:@"Expected a nonnull completion handler in %s.", __PRETTY_FUNCTION__];
-        return;
-    }
+    [self _requestEvasionRectsAboveSelectionIfNeeded:[completion = makeBlockPtr(completion)](const Vector<WebCore::FloatRect>& rects) {
+        completion(rects.isEmpty() ? UIEditMenuArrowDirectionAutomatic : UIEditMenuArrowDirectionUp);
+    }];
+}
 
+#endif
+
+- (void)requestRectsToEvadeForSelectionCommandsWithCompletionHandler:(void(^)(NSArray<NSValue *> *rects))completion
+{
+    [self _requestEvasionRectsAboveSelectionIfNeeded:[completion = makeBlockPtr(completion)](const Vector<WebCore::FloatRect>& rects) {
+        completion(createNSArray(rects).get());
+    }];
+}
+
+- (void)_requestEvasionRectsAboveSelectionIfNeeded:(CompletionHandler<void(const Vector<WebCore::FloatRect>&)>&&)completion
+{
     if ([self _shouldSuppressSelectionCommands]) {
-        completionHandler(@[ ]);
+        completion({ });
         return;
     }
 
-    auto requestRectsToEvadeIfNeeded = [startTime = ApproximateTime::now(), weakSelf = WeakObjCPtr<WKContentView>(self), completion = makeBlockPtr(completionHandler)] {
+    auto requestRectsToEvadeIfNeeded = [startTime = ApproximateTime::now(), weakSelf = WeakObjCPtr<WKContentView>(self), completion = WTFMove(completion)]() mutable {
         auto strongSelf = weakSelf.get();
         if (!strongSelf) {
-            completion(@[ ]);
+            completion({ });
             return;
         }
 
         if ([strongSelf webView]._editable) {
-            completion(@[ ]);
+            completion({ });
             return;
         }
 
         auto focusedElementType = strongSelf->_focusedElementInformation.elementType;
         if (focusedElementType != WebKit::InputType::ContentEditable && focusedElementType != WebKit::InputType::TextArea) {
-            completion(@[ ]);
+            completion({ });
             return;
         }
 
         // Give the page some time to present custom editing UI before attempting to detect and evade it.
         auto delayBeforeShowingCalloutBar = std::max(0_s, 0.25_s - (ApproximateTime::now() - startTime));
-        WorkQueue::main().dispatchAfter(delayBeforeShowingCalloutBar, [completion, weakSelf] () mutable {
+        WorkQueue::main().dispatchAfter(delayBeforeShowingCalloutBar, [completion = WTFMove(completion), weakSelf]() mutable {
             auto strongSelf = weakSelf.get();
             if (!strongSelf) {
-                completion(@[ ]);
+                completion({ });
                 return;
             }
 
             if (!strongSelf->_page) {
-                completion(@[ ]);
+                completion({ });
                 return;
             }
 
-            strongSelf->_page->requestEvasionRectsAboveSelection([completion = WTFMove(completion)] (auto& rects) {
-                completion(createNSArray(rects).get());
-            });
+            strongSelf->_page->requestEvasionRectsAboveSelection(WTFMove(completion));
         });
     };
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    [self doAfterComputingImageAnalysisResultsForMarkup:WTFMove(requestRectsToEvadeIfNeeded)];
+    [self doAfterComputingImageAnalysisResultsForBackgroundRemoval:WTFMove(requestRectsToEvadeIfNeeded)];
 #else
     requestRectsToEvadeIfNeeded();
 #endif
@@ -4665,29 +4694,29 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
-- (UIMenu *)imageAnalysisMarkupMenu
+- (UIMenu *)removeBackgroundMenu
 {
-    if (!_page || !_page->preferences().imageAnalysisMarkupEnabled())
+    if (!_page || !_page->preferences().removeBackgroundEnabled())
         return nil;
 
-    if (_page->editorState().isMissingPostLayoutData || !_imageAnalysisMarkupData)
+    if (_page->editorState().isMissingPostLayoutData || !_removeBackgroundData)
         return nil;
 
-    if (_imageAnalysisMarkupData->element != _page->editorState().postLayoutData().selectedEditableImage)
+    if (_removeBackgroundData->element != _page->editorState().postLayoutData().selectedEditableImage)
         return nil;
 
-    return [self menuWithInlineAction:WebCore::contextMenuItemTitleMarkupImage() identifier:@"WKActionMarkupImage" handler:[](WKContentView *view) {
-        auto markupData = std::exchange(view->_imageAnalysisMarkupData, { });
-        if (!markupData)
+    return [self menuWithInlineAction:WebCore::contextMenuItemTitleRemoveBackground() image:[UIImage _systemImageNamed:@"circle.rectangle.filled.pattern.diagonalline"] identifier:@"WKActionRemoveBackground" handler:[](WKContentView *view) {
+        auto data = std::exchange(view->_removeBackgroundData, { });
+        if (!data)
             return;
 
-        auto [elementContext, image, preferredMIMEType] = *markupData;
-        if (auto [data, type] = WebKit::imageDataForCroppedImageResult(image.get(), preferredMIMEType.createCFString().get()); data)
+        auto [elementContext, image, preferredMIMEType] = *data;
+        if (auto [data, type] = WebKit::imageDataForRemoveBackground(image.get(), preferredMIMEType.createCFString().get()); data)
             view->_page->replaceImageWithMarkupResults(elementContext, { String { type.get() } }, { static_cast<const uint8_t*>([data bytes]), [data length] });
     }];
 }
 
-- (void)doAfterComputingImageAnalysisResultsForMarkup:(CompletionHandler<void()>&&)completion
+- (void)doAfterComputingImageAnalysisResultsForBackgroundRemoval:(CompletionHandler<void()>&&)completion
 {
     if (_page->editorState().isMissingPostLayoutData) {
         completion();
@@ -4695,19 +4724,19 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     }
 
     auto elementToAnalyze = _page->editorState().postLayoutData().selectedEditableImage;
-    if (_imageAnalysisMarkupData && _imageAnalysisMarkupData->element == elementToAnalyze) {
+    if (_removeBackgroundData && _removeBackgroundData->element == elementToAnalyze) {
         completion();
         return;
     }
 
-    _imageAnalysisMarkupData = std::nullopt;
+    _removeBackgroundData = std::nullopt;
 
     if (!elementToAnalyze) {
         completion();
         return;
     }
 
-    _page->shouldAllowImageMarkup(*elementToAnalyze, [context = *elementToAnalyze, completion = WTFMove(completion), weakSelf = WeakObjCPtr<WKContentView>(self)](bool shouldAllow) mutable {
+    _page->shouldAllowRemoveBackground(*elementToAnalyze, [context = *elementToAnalyze, completion = WTFMove(completion), weakSelf = WeakObjCPtr<WKContentView>(self)](bool shouldAllow) mutable {
         auto strongSelf = weakSelf.get();
         if (!shouldAllow || !strongSelf) {
             completion();
@@ -4733,7 +4762,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
                 return;
             }
 
-            WebKit::requestImageAnalysisMarkup(cgImage.get(), [sourceMIMEType, context, completion = WTFMove(completion), weakSelf](CGImageRef result, CGRect) mutable {
+            WebKit::requestBackgroundRemoval(cgImage.get(), [sourceMIMEType, context, completion = WTFMove(completion), weakSelf](CGImageRef result) mutable {
                 auto strongSelf = weakSelf.get();
                 if (!strongSelf) {
                     completion();
@@ -4741,9 +4770,9 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
                 }
 
                 if (result)
-                    strongSelf->_imageAnalysisMarkupData = { { context, { result }, sourceMIMEType } };
+                    strongSelf->_removeBackgroundData = { { context, { result }, sourceMIMEType } };
                 else
-                    strongSelf->_imageAnalysisMarkupData = std::nullopt;
+                    strongSelf->_removeBackgroundData = std::nullopt;
                 completion();
             });
         });
@@ -4851,20 +4880,22 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     });
 }
 
-- (UTF32Char)_characterBeforeCaretSelection
-{
-    return _lastInsertedCharacterToOverrideCharacterBeforeSelection.value_or(_page->editorState().postLayoutData().characterBeforeSelection);
-}
-
 - (UTF32Char)_characterInRelationToCaretSelection:(int)amount
 {
+    if (amount == -1 && _lastInsertedCharacterToOverrideCharacterBeforeSelection)
+        return *_lastInsertedCharacterToOverrideCharacterBeforeSelection;
+
+    auto& state = _page->editorState();
+    if (!state.isContentEditable || state.selectionIsNone || state.selectionIsRange)
+        return 0;
+
     switch (amount) {
     case 0:
-        return _page->editorState().postLayoutData().characterAfterSelection;
+        return state.postLayoutData().characterAfterSelection;
     case -1:
-        return self._characterBeforeCaretSelection;
+        return state.postLayoutData().characterBeforeSelection;
     case -2:
-        return _page->editorState().postLayoutData().twoCharacterBeforeSelection;
+        return state.postLayoutData().twoCharacterBeforeSelection;
     default:
         return 0;
     }
@@ -4907,6 +4938,9 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 
 - (void)replaceDictatedText:(NSString*)oldText withText:(NSString *)newText
 {
+    if (_isHidingKeyboard && _isChangingFocus)
+        return;
+
     _autocorrectionContextNeedsUpdate = YES;
     _page->replaceDictatedText(oldText, newText);
 }
@@ -4995,6 +5029,8 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
         completionHandler(WKAutocorrectionContext.emptyAutocorrectionContext);
         return;
     }
+
+    SetForScope requestAutocorrectionContextScope { _isRequestingAutocorrectionContext, YES };
 
     _pendingAutocorrectionContextHandler = completionHandler;
     _page->requestAutocorrectionContext();
@@ -5637,6 +5673,9 @@ static WebKit::WritingDirection coreWritingDirection(NSWritingDirection directio
 // Inserts the given string, replacing any selected or marked text.
 - (void)insertText:(NSString *)aStringValue
 {
+    if (_isHidingKeyboard && _isChangingFocus)
+        return;
+
     auto* keyboard = [UIKeyboardImpl sharedInstance];
 
     WebKit::InsertTextOptions options;
@@ -5877,6 +5916,7 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
             traits.smartQuotesType = UITextSmartQuotesTypeNo;
         if ([traits respondsToSelector:@selector(setSmartDashesType:)])
             traits.smartDashesType = UITextSmartDashesTypeNo;
+        traits.spellCheckingType = UITextSpellCheckingTypeNo;
     }
 
     switch (_focusedElementInformation.inputMode) {
@@ -6584,6 +6624,8 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
 
 - (void)_hideKeyboard
 {
+    SetForScope isHidingKeyboardScope { _isHidingKeyboard, YES };
+
     self.inputDelegate = nil;
     [self setUpTextSelectionAssistant];
     
@@ -6690,6 +6732,14 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
 
 - (void)_elementDidFocus:(const WebKit::FocusedElementInformation&)information userIsInteracting:(BOOL)userIsInteracting blurPreviousNode:(BOOL)blurPreviousNode activityStateChanges:(OptionSet<WebCore::ActivityState::Flag>)activityStateChanges userObject:(NSObject <NSSecureCoding> *)userObject
 {
+    if (_isRequestingAutocorrectionContext) {
+        RunLoop::main().dispatch([weakSelf = WeakObjCPtr<WKContentView> { self }, information, userIsInteracting, blurPreviousNode, activityStateChanges, userObject = RetainPtr { userObject } ] {
+            if (auto strongSelf = weakSelf.get())
+                [strongSelf _elementDidFocus:information userIsInteracting:userIsInteracting blurPreviousNode:blurPreviousNode activityStateChanges:activityStateChanges userObject:userObject.get()];
+        });
+        return;
+    }
+
     SetForScope isChangingFocusForScope { _isChangingFocus, self._hasFocusedElement };
     SetForScope isFocusingElementWithKeyboardForScope { _isFocusingElementWithKeyboard, [self _shouldShowKeyboardForElement:information] };
 
@@ -6870,6 +6920,14 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
 
 - (void)_elementDidBlur
 {
+    if (_isRequestingAutocorrectionContext) {
+        RunLoop::main().dispatch([weakSelf = WeakObjCPtr<WKContentView> { self }] {
+            if (auto strongSelf = weakSelf.get())
+                [strongSelf _elementDidBlur];
+        });
+        return;
+    }
+
     SetForScope isBlurringFocusedElementForScope { _isBlurringFocusedElement, YES };
 
     [self _endEditing];
@@ -7634,7 +7692,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 - (void)prepareSelectionForContextMenuWithLocationInView:(CGPoint)locationInView completionHandler:(void(^)(BOOL shouldPresentMenu, RVItem *item))completionHandler
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    _imageAnalysisMarkupData = std::nullopt;
+    _removeBackgroundData = std::nullopt;
 #endif
 
     _page->prepareSelectionForContextMenuWithLocationInView(WebCore::roundedIntPoint(locationInView), [weakSelf = WeakObjCPtr<WKContentView>(self), completionHandler = makeBlockPtr(completionHandler)](bool shouldPresentMenu, auto& item) {
@@ -7642,8 +7700,11 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
         if (!strongSelf)
             return completionHandler(false, nil);
 
+        if (shouldPresentMenu && ![strongSelf _shouldSuppressSelectionCommands])
+            [strongSelf->_textInteractionAssistant activateSelection];
+
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-        [strongSelf doAfterComputingImageAnalysisResultsForMarkup:[completionHandler, shouldPresentMenu, item = RetainPtr { item.item() }]() mutable {
+        [strongSelf doAfterComputingImageAnalysisResultsForBackgroundRemoval:[completionHandler, shouldPresentMenu, item = RetainPtr { item.item() }]() mutable {
             completionHandler(shouldPresentMenu, item.get());
         }];
 #else
@@ -8424,7 +8485,7 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
 
     auto mayDelayResetOfContainingSubgraph = [&](UIGestureRecognizer *gesture) -> BOOL {
 #if USE(UICONTEXTMENU) && HAVE(LINK_PREVIEW)
-        if (gesture == [_contextMenuInteraction gestureRecognizerForFailureRelationships])
+        if (gesture == [self.contextMenuInteraction gestureRecognizerForFailureRelationships])
             return YES;
 #endif
 
@@ -9844,7 +9905,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 - (void)buildMenuForWebViewWithBuilder:(id <UIMenuBuilder>)builder
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    if (auto menu = self.imageAnalysisMarkupMenu)
+    if (auto menu = self.removeBackgroundMenu)
         [builder insertSiblingMenu:menu beforeMenuForIdentifier:UIMenuFormat];
 #endif
 
@@ -9854,9 +9915,9 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 #endif
 }
 
-- (UIMenu *)menuWithInlineAction:(NSString *)title identifier:(NSString *)identifier handler:(Function<void(WKContentView *)>&&)handler
+- (UIMenu *)menuWithInlineAction:(NSString *)title image:(UIImage *)image identifier:(NSString *)identifier handler:(Function<void(WKContentView *)>&&)handler
 {
-    auto action = [UIAction actionWithTitle:title image:nil identifier:identifier handler:makeBlockPtr([handler = WTFMove(handler), weakSelf = WeakObjCPtr<WKContentView>(self)](UIAction *) mutable {
+    auto action = [UIAction actionWithTitle:title image:image identifier:identifier handler:makeBlockPtr([handler = WTFMove(handler), weakSelf = WeakObjCPtr<WKContentView>(self)](UIAction *) mutable {
         if (auto strongSelf = weakSelf.get())
             handler(strongSelf.get());
     }).get()];
@@ -9872,7 +9933,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
     bool isVisible = _page->appHighlightsVisibility();
     auto title = isVisible ? WebCore::contextMenuItemTagAddHighlightToCurrentQuickNote() : WebCore::contextMenuItemTagAddHighlightToNewQuickNote();
-    return [self menuWithInlineAction:title identifier:@"WKActionCreateQuickNote" handler:[isVisible](WKContentView *view) mutable {
+    return [self menuWithInlineAction:title image:nil identifier:@"WKActionCreateQuickNote" handler:[isVisible](WKContentView *view) mutable {
         view->_page->createAppHighlightInSelectedRange(isVisible ? WebCore::CreateNewGroupForHighlight::No : WebCore::CreateNewGroupForHighlight::Yes, WebCore::HighlightRequestOriginatedInApp::No);
     }];
 }
@@ -10413,10 +10474,10 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
     // The limit matches the limit set on existing WKWebView find API.
     constexpr auto maxMatches = 1000;
-    _page->findTextRangesForStringMatches(string, findOptions, maxMatches, [string, aggregator = retainPtr(aggregator)](const Vector<WebKit::WebFoundTextRange> ranges) {
+    _page->findTextRangesForStringMatches(string, findOptions, maxMatches, [string = retainPtr(string), aggregator = retainPtr(aggregator)](const Vector<WebKit::WebFoundTextRange> ranges) {
         for (auto& range : ranges) {
             WKFoundTextRange *textRange = [WKFoundTextRange foundTextRangeWithWebFoundTextRange:range];
-            [aggregator foundRange:textRange forSearchString:string inDocument:nil];
+            [aggregator foundRange:textRange forSearchString:string.get() inDocument:nil];
         }
 
         [aggregator finishedSearching];
@@ -10655,8 +10716,8 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     _contextMenuForMachineReadableCode.clear();
 #endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    _imageAnalysisMarkupData = std::nullopt;
-    _croppedImageResult = nil;
+    _removeBackgroundData = std::nullopt;
+    _copySubjectResult = nil;
 #endif
 }
 
@@ -10685,8 +10746,8 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     [self _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     [self uninstallImageAnalysisInteraction];
-    _imageAnalysisMarkupData = std::nullopt;
-    _croppedImageResult = nil;
+    _removeBackgroundData = std::nullopt;
+    _copySubjectResult = nil;
 #endif
 }
 
@@ -10737,7 +10798,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     return NO;
 }
 
-- (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmap::Handle&)imageData source:(NSString *)source target:(NSString *)target completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion
+- (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmap::Handle&)imageData sourceLanguageIdentifier:(NSString *)sourceLanguageIdentifier targetLanguageIdentifier:(NSString *)targetLanguageIdentifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion
 {
     auto imageBitmap = WebKit::ShareableBitmap::create(imageData);
     if (!imageBitmap) {
@@ -10752,11 +10813,11 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     }
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    if (target.length)
-        return WebKit::requestImageAnalysisWithIdentifiers(self.imageAnalyzer, imageURL, source, target, cgImage.get(), WTFMove(completion));
+    if (targetLanguageIdentifier.length)
+        return WebKit::requestVisualTranslation(self.imageAnalyzer, imageURL, sourceLanguageIdentifier, targetLanguageIdentifier, cgImage.get(), WTFMove(completion));
 #else
-    UNUSED_PARAM(source);
-    UNUSED_PARAM(target);
+    UNUSED_PARAM(sourceLanguageIdentifier);
+    UNUSED_PARAM(targetLanguageIdentifier);
 #endif
 
     auto request = [self createImageAnalyzerRequest:VKAnalysisTypeText image:cgImage.get()];
@@ -10784,7 +10845,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 #endif // USE(QUICK_LOOK)
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    _croppedImageResult = nil;
+    _copySubjectResult = nil;
 #endif
 
 #if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
@@ -10911,10 +10972,10 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     }];
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    if (_page->preferences().imageAnalysisMarkupEnabled()) {
-        WebKit::requestImageAnalysisMarkup(image, [weakSelf = WeakObjCPtr<WKContentView>(self), aggregator = aggregator.copyRef()](CGImageRef result, CGRect) mutable {
+    if (_page->preferences().removeBackgroundEnabled()) {
+        WebKit::requestBackgroundRemoval(image, [weakSelf = WeakObjCPtr<WKContentView>(self), aggregator = aggregator.copyRef()](CGImageRef result) mutable {
             if (auto strongSelf = weakSelf.get())
-                strongSelf->_croppedImageResult = result;
+                strongSelf->_copySubjectResult = result;
         });
     }
 #endif
@@ -10964,7 +11025,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
                 return;
 
             strongSelf->_contextMenuWasTriggeredByImageAnalysisTimeout = YES;
-            [strongSelf presentContextMenu:strongSelf->_contextMenuInteraction.get() atLocation:location];
+            [strongSelf presentContextMenu:[strongSelf contextMenuInteraction] atLocation:location];
         });
 
         auto visualSearchAnalysisStartTime = MonotonicTime::now();
@@ -10989,10 +11050,10 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         }];
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-        if (strongSelf->_page->preferences().imageAnalysisMarkupEnabled()) {
-            WebKit::requestImageAnalysisMarkup(cgImage.get(), [weakSelf, aggregator = aggregator.copyRef()](CGImageRef result, CGRect) mutable {
+        if (strongSelf->_page->preferences().removeBackgroundEnabled()) {
+            WebKit::requestBackgroundRemoval(cgImage.get(), [weakSelf, aggregator = aggregator.copyRef()](CGImageRef result) mutable {
                 if (auto strongSelf = weakSelf.get())
-                    strongSelf->_croppedImageResult = result;
+                    strongSelf->_copySubjectResult = result;
             });
         }
 #endif
@@ -11008,17 +11069,17 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
-- (BOOL)actionSheetAssistantShouldIncludeCopyCroppedImageAction:(WKActionSheetAssistant *)assistant
+- (BOOL)actionSheetAssistantShouldIncludeCopySubjectAction:(WKActionSheetAssistant *)assistant
 {
-    return !!_croppedImageResult;
+    return !!_copySubjectResult;
 }
 
-- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant copyCroppedImage:(UIImage *)image sourceMIMEType:(NSString *)sourceMIMEType
+- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant copySubject:(UIImage *)image sourceMIMEType:(NSString *)sourceMIMEType
 {
-    if (!_croppedImageResult)
+    if (!_copySubjectResult)
         return;
 
-    auto [data, type] = WebKit::imageDataForCroppedImageResult(_croppedImageResult.get(), (__bridge CFStringRef)sourceMIMEType);
+    auto [data, type] = WebKit::imageDataForRemoveBackground(_copySubjectResult.get(), (__bridge CFStringRef)sourceMIMEType);
     if (!data)
         return;
 
@@ -11045,37 +11106,154 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WKContentViewInteractionAdditionsAfter.mm>
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+constexpr auto analysisTypesForFullscreenVideo = VKAnalysisTypeAll & ~VKAnalysisTypeVisualSearch;
+#endif
+
+- (void)beginTextRecognitionForFullscreenVideo:(const WebKit::ShareableBitmap::Handle&)imageData playerViewController:(AVPlayerViewController *)controller
+{
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    ASSERT(_page->preferences().textRecognitionInVideosEnabled());
+
+    if (_fullscreenVideoImageAnalysisRequestIdentifier)
+        return;
+
+    auto imageBitmap = WebKit::ShareableBitmap::create(imageData);
+    if (!imageBitmap)
+        return;
+
+    auto cgImage = imageBitmap->makeCGImage();
+    if (!cgImage)
+        return;
+
+    auto request = [self createImageAnalyzerRequest:analysisTypesForFullscreenVideo image:cgImage.get()];
+    _fullscreenVideoImageAnalysisRequestIdentifier = [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:makeBlockPtr([weakSelf = WeakObjCPtr<WKContentView>(self), controller = RetainPtr { controller }] (CocoaImageAnalysis *result, NSError *) mutable {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return;
+
+        strongSelf->_fullscreenVideoImageAnalysisRequestIdentifier = 0;
+
+        if ([controller respondsToSelector:@selector(setImageAnalysis:)])
+            [controller setImageAnalysis:result];
+    }).get()];
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+}
+
+- (void)cancelTextRecognitionForFullscreenVideo:(AVPlayerViewController *)controller
+{
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    if (auto identifier = std::exchange(_fullscreenVideoImageAnalysisRequestIdentifier, 0))
+        [_imageAnalyzer cancelRequestID:identifier];
+
+    if ([controller respondsToSelector:@selector(setImageAnalysis:)])
+        [controller setImageAnalysis:nil];
+#endif
+}
+
+- (BOOL)isTextRecognitionInFullscreenVideoEnabled
+{
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    return _page->preferences().textRecognitionInVideosEnabled();
 #else
-
-- (void)beginFullscreenVideoExtraction:(const WebKit::ShareableBitmap::Handle&)imageData playerViewController:(AVPlayerViewController *)controller
-{
-}
-
-- (void)cancelFullscreenVideoExtraction:(AVPlayerViewController *)controller
-{
-}
-
-- (BOOL)isFullscreenVideoExtractionEnabled
-{
     return NO;
+#endif
 }
 
-- (void)beginElementFullscreenVideoExtraction:(const WebKit::ShareableBitmap::Handle&)bitmapHandle bounds:(WebCore::FloatRect)bounds
+- (void)beginTextRecognitionForVideoInElementFullscreen:(const WebKit::ShareableBitmap::Handle&)bitmapHandle bounds:(WebCore::FloatRect)bounds
 {
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    auto imageBitmap = WebKit::ShareableBitmap::create(bitmapHandle);
+    if (!imageBitmap)
+        return;
+
+    auto image = imageBitmap->makeCGImage();
+    if (!image)
+        return;
+
+    auto request = WebKit::createImageAnalyzerRequest(image.get(), analysisTypesForFullscreenVideo);
+    _fullscreenVideoImageAnalysisRequestIdentifier = [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:[weakSelf = WeakObjCPtr<WKContentView>(self), bounds](CocoaImageAnalysis *result, NSError *error) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf || !strongSelf->_fullscreenVideoImageAnalysisRequestIdentifier)
+            return;
+
+        strongSelf->_fullscreenVideoImageAnalysisRequestIdentifier = 0;
+        if (error || !result)
+            return;
+
+        strongSelf->_imageAnalysisInteractionBounds = bounds;
+        [strongSelf installImageAnalysisInteraction:result];
+    }];
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 }
 
-- (void)cancelElementFullscreenVideoExtraction
+- (void)cancelTextRecognitionForVideoInElementFullscreen
 {
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    [self uninstallImageAnalysisInteraction];
+
+    if (auto previousIdentifier = std::exchange(_fullscreenVideoImageAnalysisRequestIdentifier, 0))
+        [self.imageAnalyzer cancelRequestID:previousIdentifier];
+#endif
 }
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+- (void)installImageAnalysisInteraction:(VKCImageAnalysis *)analysis
+{
+    if (!_imageAnalysisInteraction) {
+        _imageAnalysisActionButtons = adoptNS([[NSMutableSet alloc] initWithCapacity:1]);
+        _imageAnalysisInteraction = adoptNS([PAL::allocVKCImageAnalysisInteractionInstance() init]);
+        [_imageAnalysisInteraction setDelegate:self];
+        [_imageAnalysisInteraction setAnalysisButtonRequiresVisibleContentGating:YES];
+        [_imageAnalysisInteraction setQuickActionConfigurationUpdateHandler:[weakSelf = WeakObjCPtr<WKContentView>(self)] (UIButton *button) {
+            if (auto strongSelf = weakSelf.get())
+                [strongSelf->_imageAnalysisActionButtons addObject:button];
+        }];
+        WebKit::setUpAdditionalImageAnalysisBehaviors(_imageAnalysisInteraction.get());
+        [self addInteraction:_imageAnalysisInteraction.get()];
+        RELEASE_LOG(ImageAnalysis, "Installing image analysis interaction at {{ %.0f, %.0f }, { %.0f, %.0f }}",
+            _imageAnalysisInteractionBounds.x(), _imageAnalysisInteractionBounds.y(), _imageAnalysisInteractionBounds.width(), _imageAnalysisInteractionBounds.height());
+    }
+    [_imageAnalysisInteraction setAnalysis:analysis];
+    [_imageAnalysisDeferringGestureRecognizer setEnabled:NO];
+    [_imageAnalysisGestureRecognizer setEnabled:NO];
+}
+
+- (void)uninstallImageAnalysisInteraction
+{
+    if (!_imageAnalysisInteraction)
+        return;
+
+    RELEASE_LOG(ImageAnalysis, "Uninstalling image analysis interaction");
+
+    [self removeInteraction:_imageAnalysisInteraction.get()];
+    [_imageAnalysisInteraction setDelegate:nil];
+    [_imageAnalysisInteraction setQuickActionConfigurationUpdateHandler:nil];
+    _imageAnalysisInteraction = nil;
+    _imageAnalysisActionButtons = nil;
+    _imageAnalysisInteractionBounds = { };
+    [_imageAnalysisDeferringGestureRecognizer setEnabled:WebKit::isLiveTextAvailableAndEnabled()];
+    [_imageAnalysisGestureRecognizer setEnabled:WebKit::isLiveTextAvailableAndEnabled()];
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 - (BOOL)_shouldAvoidSecurityHeuristicScoreUpdates
 {
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    return [_imageAnalysisInteraction hasActiveTextSelection];
+#else
     return NO;
+#endif
 }
 
-#endif
+#pragma mark - _UITextInputTranslationSupport
+
+- (BOOL)isImageBacked
+{
+    return _page && _page->editorState().selectionIsRangeInsideImageOverlay;
+}
 
 @end
 
@@ -11298,6 +11476,12 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 #endif
 }
 
+- (void)_simulateSelectionStart
+{
+    _usingGestureForSelection = YES;
+    _lastSelectionDrawingInfo.type = WebKit::WKSelectionDrawingInfo::SelectionType::Range;
+}
+
 #if ENABLE(DATALIST_ELEMENT)
 - (void)_selectDataListOption:(NSInteger)optionIndex
 {
@@ -11348,6 +11532,24 @@ static NSString *previewIdentifierForElementAction(_WKElementAction *action)
 
 @implementation WKContentView (WKInteractionPreview)
 
+#if HAVE(TEXT_INTERACTION_WITH_CONTEXT_MENU_INTERACTION)
+- (UIContextMenuInteraction *)textInteractionAssistantContextMenuInteraction
+{
+    return [_textInteractionAssistant respondsToSelector:@selector(contextMenuInteraction)] ? _textInteractionAssistant.get().contextMenuInteraction : nil;
+}
+#endif // HAVE(TEXT_INTERACTION_WITH_CONTEXT_MENU_INTERACTION)
+
+#if USE(UICONTEXTMENU)
+- (UIContextMenuInteraction *)contextMenuInteraction
+{
+#if HAVE(TEXT_INTERACTION_WITH_CONTEXT_MENU_INTERACTION)
+    return _contextMenuInteraction.get() ?: self.textInteractionAssistantContextMenuInteraction;
+#else
+    return _contextMenuInteraction.get();
+#endif
+}
+#endif // USE(UICONTEXTMENU)
+
 - (void)_registerPreview
 {
     if (!self.webView.allowsLinkPreview)
@@ -11355,15 +11557,22 @@ static NSString *previewIdentifierForElementAction(_WKElementAction *action)
 
 #if USE(UICONTEXTMENU)
     if (self._shouldUseContextMenus) {
-        _contextMenuInteraction = adoptNS([[UIContextMenuInteraction alloc] initWithDelegate:self]);
         _contextMenuHasRequestedLegacyData = NO;
-        [self addInteraction:_contextMenuInteraction.get()];
+#if HAVE(TEXT_INTERACTION_WITH_CONTEXT_MENU_INTERACTION)
+        if (self.textInteractionAssistantContextMenuInteraction)
+            _textInteractionAssistant.get().externalContextMenuInteractionDelegate = self;
+        else
+#endif
+        {
+            _contextMenuInteraction = adoptNS([[UIContextMenuInteraction alloc] initWithDelegate:self]);
+            [self addInteraction:_contextMenuInteraction.get()];
+        }
 
         if (id<_UIClickInteractionDriving> driver = self.webView.configuration._clickInteractionDriverForTesting)
-            [_contextMenuInteraction presentationInteraction].overrideDrivers = @[driver];
+            [self.contextMenuInteraction presentationInteraction].overrideDrivers = @[driver];
         return;
     }
-#endif
+#endif // USE(UICONTEXTMENU)
 
     _previewItemController = adoptNS([[UIPreviewItemController alloc] initWithView:self]);
     [_previewItemController setDelegate:self];

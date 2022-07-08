@@ -200,7 +200,6 @@
 #include "ResizeObserver.h"
 #include "ResourceLoadObserver.h"
 #include "RuntimeApplicationChecks.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementFactory.h"
 #include "SVGElementTypeHelpers.h"
@@ -2095,13 +2094,15 @@ void Document::resolveStyle(ResolveStyleType type)
         Style::TreeResolver resolver(*this, WTFMove(m_pendingRenderTreeUpdate));
         auto styleUpdate = resolver.resolve();
 
-        while (resolver.hasUnresolvedQueryContainers() && styleUpdate) {
-            SetForScope resolvingContainerQueriesScope(m_isResolvingContainerQueries, true);
+        while (resolver.hasUnresolvedQueryContainers()) {
+            if (styleUpdate) {
+                SetForScope resolvingContainerQueriesScope(m_isResolvingContainerQueries, true);
+                
+                updateRenderTree(WTFMove(styleUpdate));
 
-            updateRenderTree(WTFMove(styleUpdate));
-
-            if (frameView.layoutContext().needsLayout())
-                frameView.layoutContext().layout();
+                if (frameView.layoutContext().needsLayout())
+                    frameView.layoutContext().layout();
+            }
 
             styleUpdate = resolver.resolve();
         }
@@ -2207,7 +2208,7 @@ static bool isSafeToUpdateStyleOrLayout(const Document& document)
 
 bool Document::updateStyleIfNeeded()
 {
-    if (isResolvingContainerQueries())
+    if (isResolvingContainerQueriesForSelfOrAncestor())
         return false;
 
     RefPtr<FrameView> frameView = view();
@@ -2475,6 +2476,15 @@ void Document::setIsResolvingTreeStyle(bool value)
 {
     RELEASE_ASSERT(value != m_isResolvingTreeStyle);
     m_isResolvingTreeStyle = value;
+}
+
+bool Document::isResolvingContainerQueriesForSelfOrAncestor() const
+{
+    if (m_isResolvingContainerQueries)
+        return true;
+    if (auto* owner = ownerElement())
+        return owner->document().isResolvingContainerQueriesForSelfOrAncestor();
+    return false;
 }
 
 void Document::createRenderTree()
@@ -3337,7 +3347,7 @@ bool Document::isLayoutPending() const
 
 bool Document::supportsPaintTiming() const
 {
-    return RuntimeEnabledFeatures::sharedFeatures().paintTimingEnabled() && securityOrigin().isSameOriginDomain(topOrigin());
+    return DeprecatedGlobalSettings::paintTimingEnabled() && securityOrigin().isSameOriginDomain(topOrigin());
 }
 
 // https://w3c.github.io/paint-timing/#ref-for-mark-paint-timing
@@ -5635,6 +5645,41 @@ URL Document::completeURL(const String& url, ForceUTF8 forceUTF8) const
     return completeURL(url, m_baseURL, forceUTF8);
 }
 
+bool Document::shouldMaskURLForBindings(const URL& url) const
+{
+    auto* page = this->page();
+    if (UNLIKELY(!page))
+        return false;
+    return page->shouldMaskURLForBindings(url);
+}
+
+bool Document::hasURLsToMaskForBindings() const
+{
+    auto* page = this->page();
+    if (UNLIKELY(!page))
+        return false;
+    return page->hasURLsToMaskForBindings();
+}
+
+const URL& Document::maskedURLForBindingsIfNeeded(const URL& url) const
+{
+    if (UNLIKELY(shouldMaskURLForBindings(url)))
+        return maskedURLForBindings();
+    return url;
+}
+
+const AtomString& Document::maskedURLStringForBindings() const
+{
+    static MainThreadNeverDestroyed<const AtomString> url("webkit-masked-url://hidden/"_s);
+    return url;
+}
+
+const URL& Document::maskedURLForBindings() const
+{
+    static MainThreadNeverDestroyed<URL> url(maskedURLStringForBindings().string());
+    return url;
+}
+
 void Document::setBackForwardCacheState(BackForwardCacheState state)
 {
     if (m_backForwardCacheState == state)
@@ -6498,7 +6543,7 @@ bool Document::isSecureContext() const
 {
     if (!m_frame)
         return true;
-    if (!RuntimeEnabledFeatures::sharedFeatures().secureContextChecksEnabled())
+    if (!DeprecatedGlobalSettings::secureContextChecksEnabled())
         return true;
     if (page() && page()->isServiceWorkerPage())
         return true;
@@ -6568,6 +6613,9 @@ std::optional<RenderingContext> Document::getCSSCanvasContext(const String& type
     if (is<WebGL2RenderingContext>(*context))
         return RenderingContext { RefPtr<WebGL2RenderingContext> { &downcast<WebGL2RenderingContext>(*context) } };
 #endif
+
+    if (is<ImageBitmapRenderingContext>(*context))
+        return RenderingContext { RefPtr<ImageBitmapRenderingContext> { &downcast<ImageBitmapRenderingContext>(*context) } };
 
     return RenderingContext { RefPtr<CanvasRenderingContext2D> { &downcast<CanvasRenderingContext2D>(*context) } };
 }
@@ -7995,14 +8043,21 @@ void Document::removeIntersectionObserver(IntersectionObserver& observer)
 
 static void expandRootBoundsWithRootMargin(FloatRect& localRootBounds, const LengthBox& rootMargin, float zoomFactor)
 {
-    FloatBoxExtent rootMarginFloatBox(
-        floatValueForLength(rootMargin.top(), localRootBounds.height()) * zoomFactor,
-        floatValueForLength(rootMargin.right(), localRootBounds.width()) * zoomFactor,
-        floatValueForLength(rootMargin.bottom(), localRootBounds.height()) * zoomFactor,
-        floatValueForLength(rootMargin.left(), localRootBounds.width()) * zoomFactor
-    );
+    auto zoomAdjustedLength = [](const Length& length, float maximumValue, float zoomFactor) {
+        if (length.isPercent())
+            return floatValueForLength(length, maximumValue);
+    
+        return floatValueForLength(length, maximumValue) * zoomFactor;
+    };
 
-    localRootBounds.expand(rootMarginFloatBox);
+    auto rootMarginEdges = FloatBoxExtent {
+        zoomAdjustedLength(rootMargin.top(), localRootBounds.height(), zoomFactor),
+        zoomAdjustedLength(rootMargin.right(), localRootBounds.width(), zoomFactor),
+        zoomAdjustedLength(rootMargin.bottom(), localRootBounds.height(), zoomFactor),
+        zoomAdjustedLength(rootMargin.left(), localRootBounds.width(), zoomFactor)
+    };
+
+    localRootBounds.expand(rootMarginEdges);
 }
 
 static std::optional<LayoutRect> computeClippedRectInRootContentsSpace(const LayoutRect& rect, const RenderElement* renderer)

@@ -369,8 +369,21 @@ void RemoteRenderingBackend::cacheFont(Ref<Font>&& font)
 void RemoteRenderingBackend::cacheFontWithQualifiedIdentifier(Ref<Font>&& font, QualifiedRenderingResourceIdentifier fontResourceIdentifier)
 {
     ASSERT(!RunLoop::isMain());
-
     m_remoteResourceCache.cacheFont(WTFMove(font), fontResourceIdentifier);
+}
+
+void RemoteRenderingBackend::cacheDecomposedGlyphs(Ref<DecomposedGlyphs>&& decomposedGlyphs)
+{
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    auto renderingResourceIdentifier = decomposedGlyphs->renderingResourceIdentifier();
+    cacheDecomposedGlyphsWithQualifiedIdentifier(WTFMove(decomposedGlyphs), { renderingResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
+}
+
+void RemoteRenderingBackend::cacheDecomposedGlyphsWithQualifiedIdentifier(Ref<DecomposedGlyphs>&& decomposedGlyphs, QualifiedRenderingResourceIdentifier decomposedGlyphsIdentifier)
+{
+    ASSERT(!RunLoop::isMain());
+    m_remoteResourceCache.cacheDecomposedGlyphs(WTFMove(decomposedGlyphs), decomposedGlyphsIdentifier);
 }
 
 void RemoteRenderingBackend::deleteAllFonts()
@@ -419,7 +432,7 @@ void RemoteRenderingBackend::prepareBuffersForDisplay(Vector<PrepareBackingStore
     for (unsigned i = 0; i < swapBuffersInput.size(); ++i)
         prepareLayerBuffersForDisplay(swapBuffersInput[i], outputData[i]);
 
-    completionHandler(outputData);
+    completionHandler(WTFMove(outputData));
 }
 
 // This is the GPU Process version of RemoteLayerBackingStore::prepareBuffers().
@@ -429,7 +442,7 @@ void RemoteRenderingBackend::prepareLayerBuffersForDisplay(const PrepareBackingS
         return identifier ? m_remoteResourceCache.cachedImageBuffer({ *identifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }) : nullptr;
     };
 
-    auto bufferIdentifer = [](ImageBuffer* buffer) -> std::optional<RenderingResourceIdentifier> {
+    auto bufferIdentifier = [](ImageBuffer* buffer) -> std::optional<RenderingResourceIdentifier> {
         if (!buffer)
             return std::nullopt;
         return buffer->renderingResourceIdentifier();
@@ -455,7 +468,7 @@ void RemoteRenderingBackend::prepareLayerBuffersForDisplay(const PrepareBackingS
     if (frontBuffer && !needsFullDisplay && inputData.hasEmptyDirtyRegion) {
         // No swap necessary, but we do need to return the front buffer handle.
         outputData.frontBufferHandle = handleFromBuffer(*frontBuffer);
-        outputData.bufferSet = BufferIdentifierSet { bufferIdentifer(frontBuffer), bufferIdentifer(backBuffer), bufferIdentifer(secondaryBackBuffer) };
+        outputData.bufferSet = BufferIdentifierSet { bufferIdentifier(frontBuffer), bufferIdentifier(backBuffer), bufferIdentifier(secondaryBackBuffer) };
         outputData.displayRequirement = SwapBuffersDisplayRequirement::NeedsNoDisplay;
         return;
     }
@@ -475,7 +488,7 @@ void RemoteRenderingBackend::prepareLayerBuffersForDisplay(const PrepareBackingS
 
     std::swap(frontBuffer, backBuffer);
 
-    outputData.bufferSet = BufferIdentifierSet { bufferIdentifer(frontBuffer), bufferIdentifer(backBuffer), bufferIdentifer(secondaryBackBuffer) };
+    outputData.bufferSet = BufferIdentifierSet { bufferIdentifier(frontBuffer), bufferIdentifier(backBuffer), bufferIdentifier(secondaryBackBuffer) };
     if (frontBuffer) {
         auto previousState = frontBuffer->setNonVolatile();
         if (previousState == SetNonVolatileResult::Empty)

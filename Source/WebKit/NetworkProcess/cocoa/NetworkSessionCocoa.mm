@@ -690,12 +690,9 @@ static inline void processServerTrustEvaluation(NetworkSessionCocoa& session, Se
 
 void NetworkSessionCocoa::setClientAuditToken(const WebCore::AuthenticationChallenge& challenge)
 {
-#if ENABLE(APP_PRIVACY_REPORT)
-    if (auto auditToken = networkProcess().sourceApplicationAuditToken()) {
-        auto& tokenValue = *auditToken;
-        RetainPtr<NSData> token = adoptNS([[NSData alloc] initWithBytes:(uint8_t *)&tokenValue length:sizeof(tokenValue)]);
-        SecTrustSetClientAuditToken(challenge.nsURLAuthenticationChallenge().protectionSpace.serverTrust, bridge_cast(token.get()));
-    }
+#if HAVE(SEC_TRUST_SET_CLIENT_AUDIT_TOKEN)
+    if (auto auditData = networkProcess().sourceApplicationAuditData())
+        SecTrustSetClientAuditToken(challenge.nsURLAuthenticationChallenge().protectionSpace.serverTrust, auditData.get());
 #else
     UNUSED_PARAM(challenge);
 #endif
@@ -1723,14 +1720,18 @@ std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageP
 
 void NetworkSessionCocoa::addWebSocketTask(WebPageProxyIdentifier webPageProxyID, WebSocketTask& task)
 {
-    auto addResult = sessionSetForPage(webPageProxyID).sessionWithCredentialStorage.webSocketDataTaskMap.add(task.identifier(), &task);
+    auto& webSocketDataTaskMap = sessionSetForPage(webPageProxyID).sessionWithCredentialStorage.webSocketDataTaskMap;
+    auto addResult = webSocketDataTaskMap.add(task.identifier(), &task);
     RELEASE_ASSERT(addResult.isNewEntry);
+    RELEASE_LOG(NetworkSession, "NetworkSessionCocoa::addWebSocketTask, web socket count is %u", webSocketDataTaskMap.size());
 }
 
 void NetworkSessionCocoa::removeWebSocketTask(SessionSet& sessionSet, WebSocketTask& task)
 {
-    bool contained = sessionSet.sessionWithCredentialStorage.webSocketDataTaskMap.remove(task.identifier());
+    auto& webSocketDataTaskMap = sessionSet.sessionWithCredentialStorage.webSocketDataTaskMap;
+    bool contained = webSocketDataTaskMap.remove(task.identifier());
     RELEASE_ASSERT(contained);
+    RELEASE_LOG(NetworkSession, "NetworkSessionCocoa::removeWebSocketTask, web socket count is %u", webSocketDataTaskMap.size());
 }
 
 #endif // HAVE(NSURLSESSION_WEBSOCKET)

@@ -421,10 +421,10 @@ class Git(Scm):
     @property
     @decorators.Memoize()
     def common_directory(self):
-        result = run([self.executable(), 'rev-parse', '--git-common-dir'], cwd=self.path, capture_output=True, encoding='utf-8')
+        result = run([self.executable(), 'rev-parse', '--git-common-dir'], cwd=self.root_path, capture_output=True, encoding='utf-8')
         if result.returncode:
             return os.path.join(self.root_path, '.git')
-        return os.path.join(self.root_path, result.stdout.rstrip())
+        return os.path.abspath(os.path.join(self.root_path, result.stdout.rstrip()))
 
     @property
     @decorators.Memoize()
@@ -744,7 +744,7 @@ class Git(Scm):
         try:
             log = None
             log = subprocess.Popen(
-                [self.executable(), 'log', '--format=fuller', '--no-decorate', '--date=unix', '{}...{}'.format(end.hash, begin.hash), '--'],
+                [self.executable(), 'log', '--format=fuller', '--no-decorate', '--date=unix', '{}..{}'.format(begin.hash, end.hash), '--'],
                 cwd=self.root_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -874,7 +874,10 @@ class Git(Scm):
             name = match.group('name')
             username = name.split('/')[0]
             repo_name = rmt.name if '/' not in name else name.split('/', 1)[-1]
-            name = username + repo_name[len(rmt.name):]
+            if username == rmt.credentials(required=False)[0]:
+                name = 'fork' + repo_name[len(rmt.name):]
+            else:
+                name = username + repo_name[len(rmt.name):]
 
             if not self.url(name):
                 url = self.url()

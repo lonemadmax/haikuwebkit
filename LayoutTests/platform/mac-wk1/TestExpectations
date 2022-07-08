@@ -344,11 +344,6 @@ http/tests/referrer-policy-img/no-referrer-when-downgrade/ [ Skip ]
 http/tests/referrer-policy-img/unsafe-url/cross-origin-http-http.html [ Skip ]
 http/tests/referrer-policy-img/unsafe-url/cross-origin-http.https.html [ Skip ]
 
-# Not supported on WK1
-http/tests/intersection-observer [ Skip ]
-imported/w3c/web-platform-tests/intersection-observer [ Skip ]
-intersection-observer [ Skip ]
-
 http/tests/lazyload [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/below-viewport-image-loading-lazy-load-event.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/disconnected-image-loading-lazy.html [ Skip ]
@@ -1262,6 +1257,7 @@ accessibility/element-line-rects-and-text.html [ Skip ]
 accessibility/mac/line-index-for-textmarker.html [ Skip ]
 accessibility/mac/mathml-elements.html [ Skip ]
 accessibility/mac/mathml-root.html [ Skip ]
+accessibility/deep-tree.html [ Skip ]
 
 # <rdar://problem/61066929> [ Stress GC ] flaky JSC::ExceptionScope::assertNoException crash under WebCore::ReadableStreamDefaultController
 webkit.org/b/211923 imported/w3c/web-platform-tests/fetch/api/basic/stream-safe-creation.any.html [ Pass Crash ]
@@ -1477,8 +1473,6 @@ webkit.org/b/223944 [ BigSur Debug ] imported/w3c/web-platform-tests/xhr/event-u
 # rdar://80342885 ([ Monterey wk1 arm64 ] webanimations/accelerated-transition-by-removing-property.html is a flaky image only failure)
 [ Monterey arm64 ] webanimations/accelerated-transition-by-removing-property.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/230863 webanimations/relative-ordering-of-translate-and-rotate-properties-accelerated.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/223816 [ arm64 ] platform/mac/fast/objc/webScriptObject-hasWebScriptKey.html [ Failure ]
 
 # rdar://80346975
@@ -1624,12 +1618,7 @@ fast/scrolling/rtl-scrollbars-alternate-iframe-body-dir-attr-does-not-update-scr
 [ BigSur+ arm64 ] editing/execCommand/paste-as-quotation-disconnected-paragraph-ancestor-crash.html [ Skip ]
 
 # Push subscription tests don't work without service worker support.
-http/tests/push-api/subscribe-default-permissions-iframe-cross-origin.html [ Skip ]
-http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Skip ]
-http/tests/push-api/subscribe-default-permissions.html [ Skip ]
-http/tests/push-api/subscribe-deny-permissions-on-prompt.html [ Failure ]
-http/tests/push-api/subscribe-deny-permissions.html [ Skip ]
-http/tests/push-api/subscribe-grant-permissions.html [ Skip ]
+http/tests/push-api [ Skip ]
 
 webkit.org/b/236126 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-pointerevent.html [ Pass Failure ]
 
@@ -1839,6 +1828,9 @@ webkit.org/b/237552 imported/w3c/web-platform-tests/html/browsers/history/the-lo
 
 webkit.org/b/240081 [ Debug ]  webaudio/AudioBuffer/huge-buffer.html [ Pass Slow ]
 
+# This test has been timing out on WK1 since IntersectionObserver was enabled.
+intersection-observer/observe-then-disconnect-target.html [ Skip ]
+
 # rdar://82399990 ([ Catalina EWS ] webgl/2.0.0/* tests are flaky crashing ASSERTION FAILED: !needsLayout() (229580)) Disable webgl tests for mac-wk1
 webgl [ Skip ]
 
@@ -1851,3 +1843,5 @@ webkit.org/b/241048 imported/w3c/web-platform-tests/html/canvas/element/manual/w
 webkit.org/b/241048 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html [ Failure Timeout ]
 
 webkit.org/b/241266 compositing/video/video-border-radius.html [ Pass Timeout ]
+
+webkit.org/b/241376 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-035.html [ Pass ImageOnlyFailure ]

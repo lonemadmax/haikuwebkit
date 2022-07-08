@@ -58,7 +58,6 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScrollingConstraints.h"
 #include "Settings.h"
 #include "TiledBacking.h"
@@ -83,6 +82,10 @@
 
 #if ENABLE(TREE_DEBUGGING)
 #include "RenderTreeAsText.h"
+#endif
+
+#if ENABLE(MODEL_ELEMENT)
+#include "RenderModel.h"
 #endif
 
 #if ENABLE(3D_TRANSFORMS)
@@ -1753,6 +1756,10 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
                 // For RenderWidgets this is necessary to get iframe layers hooked up in response to scheduleInvalidateStyleAndLayerComposition().
                 layer.setNeedsCompositingConfigurationUpdate();
             }
+            // If we're changing to/from 0 opacity, then we need to reconfigure the layer since we try to
+            // skip backing store allocation for opacity:0.
+            if (oldStyle && oldStyle->opacity() != newStyle.opacity() && (!oldStyle->opacity() || !newStyle.opacity()))
+                layer.setNeedsCompositingConfigurationUpdate();
         }
         if (oldStyle && recompositeChangeRequiresGeometryUpdate(*oldStyle, newStyle)) {
             // FIXME: transform changes really need to trigger layout. See RenderElement::adjustStyleDifference().
@@ -2271,7 +2278,10 @@ void RenderLayerCompositor::updateScrollLayerClipping()
     if (layerForClipping == m_clipLayer) {
         EventRegion eventRegion;
         auto eventRegionContext = eventRegion.makeContext();
-        eventRegionContext.unite(IntRect({ }, layerSize), RenderStyle::defaultStyle());
+        eventRegionContext.unite(IntRect({ }, layerSize), m_renderView, RenderStyle::defaultStyle());
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+        eventRegionContext.copyInteractionRegionsToEventRegion();
+#endif
         m_clipLayer->setEventRegion(WTFMove(eventRegion));
     }
 #endif
@@ -2594,6 +2604,11 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer& layer, Requir
 bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer& layer, RequiresCompositingData& queryData) const
 {
     auto& renderer = rendererForCompositingTests(layer);
+
+    if (!renderer.layer()) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
 
     // The root layer always has a compositing layer, but it may not have backing.
     return requiresCompositingForTransform(renderer)

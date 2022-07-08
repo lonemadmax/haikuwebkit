@@ -221,7 +221,7 @@ sub defaultTagPropertyHash
         'wrapperOnlyIfMediaIsAvailable' => 0,
         'settingsConditional' => 0,
         'conditional' => 0,
-        'runtimeEnabled' => 0,
+        'deprecatedGlobalSettingsConditional' => 0,
         'customTypeHelper' => 0,
     );
 }
@@ -433,11 +433,11 @@ END
 
     my $runtimeCondition;
     my $settingsConditional = $allTags{$tagName}{settingsConditional};
-    my $runtimeEnabled = $allTags{$tagName}{runtimeEnabled};
+    my $deprecatedGlobalSettingsConditional = $allTags{$tagName}{deprecatedGlobalSettingsConditional};
     if ($settingsConditional) {
         $runtimeCondition = "document.settings().${settingsConditional}()";
-    } elsif ($runtimeEnabled) {
-        $runtimeCondition = "RuntimeEnabledFeatures::sharedFeatures().${runtimeEnabled}Enabled()";
+    } elsif ($deprecatedGlobalSettingsConditional) {
+        $runtimeCondition = "DeprecatedGlobalSettings::${deprecatedGlobalSettingsConditional}Enabled()";
     }
 
     if ($runtimeCondition) {
@@ -672,7 +672,7 @@ public:
 private:
 END
        ;
-       if ($parameters{namespace} eq "HTML" && ($parsedTags{$name}{wrapperOnlyIfMediaIsAvailable} || $parsedTags{$name}{settingsConditional} || $parsedTags{$name}{runtimeEnabled})) {
+       if ($parameters{namespace} eq "HTML" && ($parsedTags{$name}{wrapperOnlyIfMediaIsAvailable} || $parsedTags{$name}{settingsConditional} || $parsedTags{$name}{deprecatedGlobalSettingsConditional})) {
            print F <<END
     static bool checkTagName(const WebCore::HTMLElement& element) { return !element.isHTMLUnknownElement() && element.hasTagName(WebCore::$parameters{namespace}Names::${name}Tag); }
     static bool checkTagName(const WebCore::Node& node) { return is<WebCore::HTMLElement>(node) && checkTagName(downcast<WebCore::HTMLElement>(node)); }
@@ -1070,8 +1070,8 @@ END
 
     print F <<END
 
+#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
-#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/NeverDestroyed.h>
@@ -1287,8 +1287,8 @@ static JSDOMObject* create$allTags{$tagName}{interfaceName}Wrapper(JSDOMGlobalOb
 
 END
             ;
-        } elsif ($allTags{$tagName}{runtimeEnabled}) {
-            my $runtimeEnabled = $allTags{$tagName}{runtimeEnabled};
+        } elsif ($allTags{$tagName}{deprecatedGlobalSettingsConditional}) {
+            my $deprecatedGlobalSettingsConditional = $allTags{$tagName}{deprecatedGlobalSettingsConditional};
             print F <<END
 static JSDOMObject* create${JSInterfaceName}Wrapper(JSDOMGlobalObject* globalObject, Ref<$parameters{namespace}Element>&& element)
 {
@@ -1335,8 +1335,8 @@ sub printWrapperFactoryCppFile
     print F "\n#include \"$parameters{namespace}Names.h\"\n";
     print F <<END
 
+#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
-#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RobinHoodHashMap.h>

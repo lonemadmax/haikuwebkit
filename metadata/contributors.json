@@ -1327,6 +1327,7 @@
          "clopez@igalia.com"
       ],
       "expertise" : "The WebKitGTK and WPE ports, Tools, Build/test infrastructure",
+      "github" : "clopez",
       "name" : "Carlos Alberto Lopez Perez",
       "nicks" : [
          "clopez"
@@ -1382,6 +1383,7 @@
       "emails" : [
          "cathiechen@igalia.com"
       ],
+      "github" : "cathiechen",
       "name" : "Cathie Chen",
       "nicks" : [
          "cathiechen"
@@ -1693,7 +1695,8 @@
       "name" : "Dan Glastonbury",
       "nicks" : [
          "djg"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -3343,14 +3346,15 @@
    {
       "emails" : [
          "jean-yves.avenard@apple.com",
-         "jya@apple.com"
+         "jya@apple.com",
+         "jyavenard@gmail.com"
       ],
       "github" : "jyavenard",
       "name" : "Jean-Yves Avenard",
       "nicks" : [
          "jya"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -6572,6 +6576,7 @@
          "thatcher@tesla.com"
       ],
       "expertise" : "WebKit (Mac), Developer Tools (Web Inspector)",
+      "github" : "xeenon",
       "name" : "Timothy Hatcher",
       "nicks" : [
          "xenon"
@@ -7077,15 +7082,16 @@
    },
    {
       "emails" : [
-         "y_soliman@apple.com",
-         "youssefdevelops@gmail.com"
+         "youssefdevelops@gmail.com",
+         "y_soliman@apple.com"
       ],
       "github" : "youssefsoli",
       "name" : "Youssef Soliman",
       "nicks" : [
          "ys",
          "youssefsoli"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [

@@ -66,6 +66,7 @@
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/Cursor.h>
+#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/EventNames.h>
@@ -92,7 +93,6 @@
 #import <WebCore/PluginData.h>
 #import <WebCore/PluginDocument.h>
 #import <WebCore/RenderBoxModelObject.h>
-#import <WebCore/RuntimeEnabledFeatures.h>
 #import <WebCore/ScrollAnimator.h>
 #import <WebCore/ScrollbarTheme.h>
 #import <WebCore/Settings.h>
@@ -239,13 +239,18 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return [[self parent] accessibilityAttributeValue:NSAccessibilityTopLevelUIElementAttribute];
     if ([attribute isEqualToString:NSAccessibilityWindowAttribute])
         return [[self parent] accessibilityAttributeValue:NSAccessibilityWindowAttribute];
-    if ([attribute isEqualToString:NSAccessibilitySizeAttribute])
-        return [NSValue valueWithSize:_pdfPlugin->boundsOnScreen().size()];
+    if ([attribute isEqualToString:NSAccessibilitySizeAttribute]) {
+        return [NSValue valueWithSize:WebCore::Accessibility::retrieveValueFromMainThread<WebCore::IntSize>([protectedSelf = retainPtr(self)] {
+            return protectedSelf.get().pdfPlugin->boundsOnScreen().size();
+        })];
+    }
     if ([attribute isEqualToString:NSAccessibilityEnabledAttribute])
         return [[self parent] accessibilityAttributeValue:NSAccessibilityEnabledAttribute];
-    if ([attribute isEqualToString:NSAccessibilityPositionAttribute])
-        return [NSValue valueWithPoint:_pdfPlugin->boundsOnScreen().location()];
-
+    if ([attribute isEqualToString:NSAccessibilityPositionAttribute]) {
+        return [NSValue valueWithPoint:WebCore::Accessibility::retrieveValueFromMainThread<WebCore::IntPoint>([protectedSelf = retainPtr(self)] {
+            return protectedSelf.get().pdfPlugin->boundsOnScreen().location();
+        })];
+    }
     if ([attribute isEqualToString:NSAccessibilityChildrenAttribute])
         return @[ _pdfLayerController ];
     if ([attribute isEqualToString:NSAccessibilityRoleAttribute])
@@ -264,7 +269,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     if ([attribute isEqualToString:NSAccessibilityBoundsForRangeParameterizedAttribute]) {
         NSRect boundsInPDFViewCoordinates = [[_pdfLayerController accessibilityBoundsForRangeAttributeForParameter:parameter] rectValue];
-        NSRect boundsInScreenCoordinates = _pdfPlugin->convertFromPDFViewToScreen(boundsInPDFViewCoordinates);
+        NSRect boundsInScreenCoordinates = WebCore::Accessibility::retrieveValueFromMainThread<NSRect>([protectedSelf = retainPtr(self), boundsInPDFViewCoordinates] {
+            return protectedSelf.get().pdfPlugin->convertFromPDFViewToScreen(boundsInPDFViewCoordinates);
+        });
         return [NSValue valueWithRect:boundsInScreenCoordinates];
     }
 
@@ -453,9 +460,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)writeItemsToPasteboard:(NSArray *)items withTypes:(NSArray *)types
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    _pdfPlugin->writeItemsToPasteboard(NSGeneralPboard, items, types);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    _pdfPlugin->writeItemsToPasteboard(NSPasteboardNameGeneral, items, types);
 }
 
 - (void)showDefinitionForAttributedString:(NSAttributedString *)string atPoint:(CGPoint)point
@@ -641,7 +646,7 @@ PDFPlugin::PDFPlugin(HTMLPlugInElement& element)
     , m_pdfLayerControllerDelegate(adoptNS([[WKPDFLayerControllerDelegate alloc] initWithPDFPlugin:this]))
 #if HAVE(INCREMENTAL_PDF_APIS)
     , m_streamLoaderClient(adoptRef(*new PDFPluginStreamLoaderClient(*this)))
-    , m_incrementalPDFLoadingEnabled(WebCore::RuntimeEnabledFeatures::sharedFeatures().incrementalPDFLoadingEnabled())
+    , m_incrementalPDFLoadingEnabled(WebCore::DeprecatedGlobalSettings::incrementalPDFLoadingEnabled())
 #endif
     , m_identifier(PDFPluginIdentifier::generate())
 {
@@ -2340,10 +2345,8 @@ bool PDFPlugin::handleEditingCommand(StringView commandName)
         [m_pdfLayerController selectAll];
     else if (commandName == "takeFindStringFromSelection"_s) {
         NSString *string = [m_pdfLayerController currentSelection].string;
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (string.length)
-            writeItemsToPasteboard(NSFindPboard, @[ [string dataUsingEncoding:NSUTF8StringEncoding] ], @[ NSPasteboardTypeString ]);
-        ALLOW_DEPRECATED_DECLARATIONS_END
+            writeItemsToPasteboard(NSPasteboardNameFind, @[ [string dataUsingEncoding:NSUTF8StringEncoding] ], @[ NSPasteboardTypeString ]);
     }
 
     return true;
@@ -2567,15 +2570,8 @@ void PDFPlugin::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items,
             auto plainTextString = adoptNS([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
             webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardStringForType(pasteboardName, type, plainTextString.get(), pageIdentifier), Messages::WebPasteboardProxy::SetPasteboardStringForType::Reply(newChangeCount), 0);
         } else {
-            SharedMemory::Handle handle;
             auto buffer = SharedBuffer::create(data);
-            {
-                auto sharedMemory = SharedMemory::copyBuffer(buffer.get());
-                if (!sharedMemory)
-                    continue;
-                sharedMemory->createHandle(handle, SharedMemory::Protection::ReadOnly);
-            }
-            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, type, SharedMemory::IPCHandle { WTFMove(handle), buffer->size() }, pageIdentifier), Messages::WebPasteboardProxy::SetPasteboardBufferForType::Reply(newChangeCount), 0);
+            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, type, WTFMove(buffer), pageIdentifier), Messages::WebPasteboardProxy::SetPasteboardBufferForType::Reply(newChangeCount), 0);
         }
     }
 }

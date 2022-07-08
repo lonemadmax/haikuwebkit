@@ -39,7 +39,6 @@
 #include "ShouldGrandfatherStatistics.h"
 #include "StorageAccessStatus.h"
 #include "WebBackForwardCache.h"
-#include "WebCookieManagerProxy.h"
 #include "WebKit2Initialize.h"
 #include "WebNotificationManagerProxy.h"
 #include "WebPageProxy.h"
@@ -137,6 +136,8 @@ WebsiteDataStore::WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&& configur
     , m_client(makeUniqueRef<WebsiteDataStoreClient>())
     , m_webLockRegistry(WebCore::LocalWebLockRegistry::create())
 {
+    RELEASE_LOG(Storage, "%p - WebsiteDataStore::WebsiteDataStore sessionID=%" PRIu64, this, m_sessionID.toUInt64());
+
     WTF::setProcessPrivileges(allPrivileges());
     registerWithSessionIDMap();
     platformInitialize();
@@ -151,6 +152,8 @@ WebsiteDataStore::WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&& configur
 
 WebsiteDataStore::~WebsiteDataStore()
 {
+    RELEASE_LOG(Storage, "%p - WebsiteDataStore::~WebsiteDataStore sessionID=%" PRIu64, this, m_sessionID.toUInt64());
+
     ASSERT(RunLoop::isMain());
     RELEASE_ASSERT(m_sessionID.isValid());
 
@@ -168,25 +171,36 @@ WebsiteDataStore::~WebsiteDataStore()
 #endif
 }
 
-static RefPtr<WebsiteDataStore>& globalDefaultDataStore()
+// FIXME: Remove this when rdar://95786441 is resolved.
+static RefPtr<WebsiteDataStore>& protectedDefaultDataStore()
 {
     static NeverDestroyed<RefPtr<WebsiteDataStore>> globalDefaultDataStore;
+    return globalDefaultDataStore.get();
+}
+
+static WeakPtr<WebsiteDataStore>& globalDefaultDataStore()
+{
+    static NeverDestroyed<WeakPtr<WebsiteDataStore>> globalDefaultDataStore;
     return globalDefaultDataStore.get();
 }
 
 Ref<WebsiteDataStore> WebsiteDataStore::defaultDataStore()
 {
     InitializeWebKit2();
-    auto& store = globalDefaultDataStore();
-    if (!store)
-        store = adoptRef(new WebsiteDataStore(WebsiteDataStoreConfiguration::create(IsPersistent::Yes), PAL::SessionID::defaultSessionID()));
+    auto& globalDatasStore = globalDefaultDataStore();
+    if (globalDatasStore)
+        return Ref { *globalDatasStore };
 
-    return *store;
+    auto newDataStore = adoptRef(new WebsiteDataStore(WebsiteDataStoreConfiguration::create(IsPersistent::Yes), PAL::SessionID::defaultSessionID()));
+    globalDatasStore = newDataStore.get();
+    protectedDefaultDataStore() = newDataStore.get();
+
+    return *newDataStore;
 }
 
 void WebsiteDataStore::deleteDefaultDataStoreForTesting()
 {
-    globalDefaultDataStore() = nullptr;
+    protectedDefaultDataStore() = nullptr;
 }
 
 bool WebsiteDataStore::defaultDataStoreExists()
@@ -248,11 +262,6 @@ NetworkProcessProxy& WebsiteDataStore::networkProcess() const
     return const_cast<WebsiteDataStore&>(*this).networkProcess();
 }
 
-void WebsiteDataStore::removeNetworkProcessReference()
-{
-    m_networkProcess = nullptr;
-}
-
 void WebsiteDataStore::registerProcess(WebProcessProxy& process)
 {
     ASSERT(process.pageCount() || process.provisionalPageCount());
@@ -311,9 +320,6 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         m_resolvedConfiguration->setCookieStorageFile(resolveAndCreateReadWriteDirectoryForSandboxExtension(FileSystem::parentPath(m_configuration->cookieStorageFile())));
         m_resolvedConfiguration->setCookieStorageFile(FileSystem::pathByAppendingComponent(m_resolvedConfiguration->cookieStorageFile(), FileSystem::pathFileName(m_configuration->cookieStorageFile())));
     }
-
-    if (auto directory = m_configuration->webSQLDatabaseDirectory(); !directory.isEmpty())
-        FileSystem::deleteNonEmptyDirectory(directory);
 }
 
 enum class ProcessAccessType : uint8_t { None, OnlyIfLaunched, Launch };
@@ -1707,11 +1713,6 @@ void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses(CompletionHandl
     callback();
 }
 #endif
-
-void WebsiteDataStore::flushCookies(CompletionHandler<void()>&& completionHandler)
-{
-    networkProcess().flushCookies(sessionID(), WTFMove(completionHandler));
-}
 
 void WebsiteDataStore::setAllowsAnySSLCertificateForWebSocket(bool allows)
 {

@@ -146,9 +146,8 @@ struct ScrollRectToVisibleOptions {
 
 using ScrollingScope = uint64_t;
 
-DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(RenderLayer);
 class RenderLayer : public CanMakeWeakPtr<RenderLayer> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(RenderLayer);
+    WTF_MAKE_ISO_ALLOCATED(RenderLayer);
 public:
     friend class RenderReplica;
     friend class RenderLayerFilters;
@@ -832,7 +831,7 @@ public:
 
     Element* enclosingElement() const;
 
-    static Vector<RenderLayer*> topLayerRenderLayers(RenderView&);
+    static Vector<RenderLayer*> topLayerRenderLayers(const RenderView&);
 
     bool establishesTopLayer() const;
     void establishesTopLayerWillChange();

@@ -155,8 +155,8 @@ TEST(GPUProcess, WebProcessTerminationAfterTooManyGPUProcessCrashes)
     timeout = 0;
     while ((![processPool _gpuProcessIdentifier] || [processPool _gpuProcessIdentifier] == gpuProcessPID) && timeout++ < 100)
         TestWebKitAPI::Util::sleep(0.1);
-    EXPECT_NE([processPool _gpuProcessIdentifier], 0);
-    EXPECT_NE([processPool _gpuProcessIdentifier], gpuProcessPID);
+    ASSERT_NE([processPool _gpuProcessIdentifier], 0);
+    ASSERT_NE([processPool _gpuProcessIdentifier], gpuProcessPID);
     gpuProcessPID = [processPool _gpuProcessIdentifier];
 
     // Make sure the WebView's WebProcess did not crash or get terminated.
@@ -169,8 +169,8 @@ TEST(GPUProcess, WebProcessTerminationAfterTooManyGPUProcessCrashes)
     timeout = 0;
     while ((![processPool _gpuProcessIdentifier] || [processPool _gpuProcessIdentifier] == gpuProcessPID) && timeout++ < 100)
         TestWebKitAPI::Util::sleep(0.1);
-    EXPECT_NE([processPool _gpuProcessIdentifier], 0);
-    EXPECT_NE([processPool _gpuProcessIdentifier], gpuProcessPID);
+    ASSERT_NE([processPool _gpuProcessIdentifier], 0);
+    ASSERT_NE([processPool _gpuProcessIdentifier], gpuProcessPID);
     gpuProcessPID = [processPool _gpuProcessIdentifier];
 
     // Make sure the WebView's WebProcess did not crash or get terminated.
@@ -451,8 +451,7 @@ static NSString *testCanvasPage = @"<body> \n"
     "</script> \n"
     "</body>";
 
-// FIXME: https://bugs.webkit.org/show_bug.cgi?id=239303
-TEST(GPUProcess, DISABLED_CanvasBasicCrashHandling)
+TEST(GPUProcess, CanvasBasicCrashHandling)
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
     WKPreferencesSetBoolValueForKeyForTesting((__bridge WKPreferencesRef)[configuration preferences], true, WKStringCreateWithUTF8CString("UseGPUProcessForCanvasRenderingEnabled"));

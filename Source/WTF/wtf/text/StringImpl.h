@@ -618,11 +618,12 @@ int codePointCompare(const StringImpl*, const StringImpl*);
 bool isSpaceOrNewline(UChar32);
 bool isNotSpaceOrNewline(UChar32);
 
-// StringHashd is the default hash for StringImpl* and RefPtr<StringImpl>
+// StringHash is the default hash for StringImpl* and RefPtr<StringImpl>
 template<typename> struct DefaultHash;
 template<> struct DefaultHash<StringImpl*>;
 template<> struct DefaultHash<RefPtr<StringImpl>>;
 template<> struct DefaultHash<PackedPtr<StringImpl>>;
+template<> struct DefaultHash<CompactPtr<StringImpl>>;
 
 #define MAKE_STATIC_STRING_IMPL(characters) ([] { \
         static StaticStringImpl impl(characters); \
@@ -1183,12 +1184,7 @@ inline size_t StringImpl::maxInternalLength()
 
 template<typename T> inline size_t StringImpl::tailOffset()
 {
-#if COMPILER(MSVC)
-    // MSVC doesn't support alignof yet.
-    return roundUpToMultipleOf<sizeof(T)>(sizeof(StringImpl));
-#else
     return roundUpToMultipleOf<alignof(T)>(offsetof(StringImpl, m_hashAndFlags) + sizeof(StringImpl::m_hashAndFlags));
-#endif
 }
 
 inline bool StringImpl::requiresCopy() const

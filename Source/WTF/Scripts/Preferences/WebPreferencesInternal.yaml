@@ -54,6 +54,19 @@ AllowViewportShrinkToFitContent:
     WebCore:
       default: true
 
+AlternateWebMPlayerEnabled:
+  type: bool
+  humanReadableName: "Alternate WebM Player"
+  humanReadableDescription: "Enable Alternate WebM Player"
+  condition: ENABLE(ALTERNATE_WEBM_PLAYER)
+  defaultValue:
+    WebKitLegacy:
+     default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 AlwaysZoomOnDoubleTap:
   type: bool
   humanReadableName: "DTTZ always"
@@ -111,7 +124,7 @@ CSSLogicalEnabled:
   type: bool
   humanReadableName: "CSS Logical Properties and Values"
   humanReadableDescription: "Enable CSS Logical Properties and Values"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
       default: false
@@ -207,7 +220,7 @@ DataListElementEnabled:
   type: bool
   humanReadableName: "DataList Element"
   humanReadableDescription: "Enable datalist elements"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(DATALIST_ELEMENT)
   defaultValue:
     WebKitLegacy:
@@ -358,39 +371,11 @@ IPCTestingAPIEnabled:
     WebKit:
       default: false
 
-ImageAnalysisMarkupEnabled:
-  type: bool
-  humanReadableName: "Image analysis markup"
-  humanReadableDescription: "Enable image analysis markup"
-  condition: ENABLE(IMAGE_ANALYSIS)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebCore:
-      default: false
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: defaultImageAnalysisMarkupEnabled()
-
-ImageAnalysisQueueEnabled:
-  type: bool
-  humanReadableName: "Image analysis queue"
-  humanReadableDescription: "Enable image analysis queue"
-  condition: ENABLE(IMAGE_ANALYSIS)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebCore:
-      default: false
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: defaultImageAnalysisQueueEnabled()
-
 InlineFormattingContextIntegrationEnabled:
   type: bool
   humanReadableName: "Next-generation inline layout integration (IFC)"
   humanReadableDescription: "Enable next-generation inline layout integration (IFC)"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(LAYOUT_FORMATTING_CONTEXT)
   defaultValue:
     WebKitLegacy:
@@ -544,7 +529,7 @@ LayoutFormattingContextEnabled:
   type: bool
   humanReadableName: "Full next-generation layout (LFC)"
   humanReadableDescription: "Enable full next-generation layout (LFC)"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(LAYOUT_FORMATTING_CONTEXT)
   defaultValue:
     WebKitLegacy:
@@ -570,7 +555,7 @@ LineHeightUnitsEnabled:
   type: bool
   humanReadableName: "lh / rlh units"
   humanReadableDescription: "Enable the lh and lhr units"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
       default: false
@@ -635,7 +620,7 @@ MouseEventsSimulationEnabled:
   type: bool
   humanReadableName: "Mouse events simulation"
   humanReadableDescription: "Enable mouse events dispatch along with touch events on iOS"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(TOUCH_EVENTS)
   defaultValue:
     WebKitLegacy:
@@ -661,7 +646,7 @@ NotificationEventEnabled:
   type: bool
   humanReadableName: "NotificationEvent support"
   humanReadableDescription: "NotificationEvent and ServiceWorkerRegistration.showNotification() support"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(NOTIFICATION_EVENT)
   defaultValue:
     WebCore:
@@ -675,7 +660,7 @@ OffscreenCanvasEnabled:
   type: bool
   humanReadableName: "OffscreenCanvas"
   humanReadableDescription: "Support for the OffscreenCanvas APIs"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(OFFSCREEN_CANVAS)
   defaultValue:
     WebKitLegacy:
@@ -688,7 +673,7 @@ OffscreenCanvasInWorkersEnabled:
   type: bool
   humanReadableName: "OffscreenCanvas in Workers"
   humanReadableDescription: "Support for the OffscreenCanvas APIs in Workers"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
   defaultValue:
     WebKitLegacy:
@@ -736,6 +721,20 @@ PreferSandboxedMediaParsing:
     WebKit:
       default: true
 
+RemoveBackgroundEnabled:
+  type: bool
+  humanReadableName: "Remove Background"
+  humanReadableDescription: "Enable Remove Background"
+  condition: ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: defaultRemoveBackgroundEnabled()
+
 ReplayCGDisplayListsIntoBackingStore:
   type: bool
   humanReadableName: "CG Display Lists: Replay for Testing"
@@ -764,7 +763,7 @@ RestrictedHTTPResponseAccess:
   type: bool
   humanReadableName: "Filter HTTP Response for Web Processes"
   humanReadableDescription: "Enable HTTP Response filtering for Web Processes"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
       default: true
@@ -789,7 +788,7 @@ SecureContextChecksEnabled:
   type: bool
   humanReadableName: "Secure Context Checks"
   humanReadableDescription: "Allow access to HTTPS-only Web APIs over HTTP"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
       default: true
@@ -862,10 +861,10 @@ TextAutosizingUsesIdempotentMode:
     WebCore:
       default: false
 
-TextRecognitionEnhancementsEnabled:
+TextRecognitionInVideosEnabled:
   type: bool
-  humanReadableName: "Text Recognition Enhancements"
-  humanReadableDescription: "Enable Text Recognition Enhancements"
+  humanReadableName: "Text Recognition in Videos"
+  humanReadableDescription: "Enable Text Recognition in Videos"
   condition: ENABLE(IMAGE_ANALYSIS)
   exposed: [ WebKit ]
   defaultValue:
@@ -874,7 +873,7 @@ TextRecognitionEnhancementsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: defaultTextRecognitionEnhancementsEnabled()
+      default: defaultTextRecognitionInVideosEnabled()
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:
@@ -967,11 +966,25 @@ UseSceneKitForModel:
     WebKit:
       default: false
 
+VisualTranslationEnabled:
+  type: bool
+  humanReadableName: "Visual Translation"
+  humanReadableDescription: "Enable Visual Translation"
+  condition: ENABLE(IMAGE_ANALYSIS)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: defaultVisualTranslationEnabled()
+
 WebAPIStatisticsEnabled:
   type: bool
   humanReadableName: "Web API Statistics"
   humanReadableDescription: "Enable Web API Statistics"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
       default: false
@@ -982,7 +995,7 @@ WebRTCAudioLatencyAdaptationEnabled:
   type: bool
   humanReadableName: "WebRTC Audio Latency Adaptation"
   humanReadableDescription: "Enable WebRTC Audio Latency Adaptation"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
       default: true
@@ -994,7 +1007,7 @@ WebRTCDTMFEnabled:
   type: bool
   humanReadableName: "WebRTC DTMF"
   humanReadableDescription: "Enable WebRTC DTMF"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(WEB_RTC)
   defaultValue:
     WebKitLegacy:
@@ -1020,7 +1033,7 @@ WebRTCH264SimulcastEnabled:
   type: bool
   humanReadableName: "WebRTC H264 Simulcast"
   humanReadableDescription: "Enable WebRTC H264 Simulcast"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(WEB_RTC)
   defaultValue:
     WebKitLegacy:
@@ -1033,7 +1046,7 @@ WebRTCMDNSICECandidatesEnabled:
   type: bool
   humanReadableName: "WebRTC mDNS ICE candidates"
   humanReadableDescription: "Enable WebRTC mDNS ICE candidates"
-  webcoreBinding: RuntimeEnabledFeatures
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(WEB_RTC)
   defaultValue:
     WebKitLegacy:

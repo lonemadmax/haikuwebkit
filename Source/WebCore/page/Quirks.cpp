@@ -49,7 +49,6 @@
 #include "RegistrableDomain.h"
 #include "ResourceLoadObserver.h"
 #include "RuntimeApplicationChecks.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGPathElement.h"
 #include "SVGSVGElement.h"
@@ -381,7 +380,7 @@ bool Quirks::isGoogleMaps() const
 
 bool Quirks::shouldDispatchSimulatedMouseEvents(const EventTarget* target) const
 {
-    if (RuntimeEnabledFeatures::sharedFeatures().mouseEventsSimulationEnabled())
+    if (DeprecatedGlobalSettings::mouseEventsSimulationEnabled())
         return true;
 
     if (!needsQuirks())
@@ -1480,5 +1479,21 @@ bool Quirks::shouldDisableWebSharePolicy() const
 
     return *m_shouldDisableWebSharePolicy;
 }
+
+#if PLATFORM(IOS)
+bool Quirks::allowLayeredFullscreenVideos() const
+{
+    if (!needsQuirks())
+        return false;
+    
+    if (!m_allowLayeredFullscreenVideos) {
+        auto domain = RegistrableDomain(m_document->topDocument().url());
+        
+        m_allowLayeredFullscreenVideos = domain == "espn.com"_s;
+    }
+    
+    return *m_allowLayeredFullscreenVideos;
+}
+#endif
 
 }

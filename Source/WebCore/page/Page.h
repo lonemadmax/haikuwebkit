@@ -30,6 +30,7 @@
 #include "FindOptions.h"
 #include "FrameLoaderTypes.h"
 #include "IntRectHash.h"
+#include "KeyboardScrollingAnimator.h"
 #include "LayoutMilestone.h"
 #include "LayoutRect.h"
 #include "LengthBox.h"
@@ -318,6 +319,10 @@ public:
     void decrementNestedRunLoopCount();
     bool insideNestedRunLoop() const { return m_nestedRunLoopCount > 0; }
     WEBCORE_EXPORT void whenUnnested(Function<void()>&&);
+
+    void setCurrentKeyboardScrollingAnimator(KeyboardScrollingAnimator*);
+    KeyboardScrollingAnimator* currentKeyboardScrollingAnimator() const { return m_currentKeyboardScrollingAnimator.get(); }
+
 
 #if ENABLE(REMOTE_INSPECTOR)
     WEBCORE_EXPORT bool remoteInspectionAllowed() const;
@@ -915,6 +920,8 @@ public:
     void forEachFrame(const Function<void(Frame&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
+    bool shouldMaskURLForBindings(const URL&) const;
+    bool hasURLsToMaskForBindings() const { return !m_maskedURLSchemes.isEmpty(); }
 
     WEBCORE_EXPORT void injectUserStyleSheet(UserStyleSheet&);
     WEBCORE_EXPORT void removeInjectedUserStyleSheet(UserStyleSheet&);
@@ -1289,6 +1296,7 @@ private:
 #endif
 
     Vector<UserContentURLPattern> m_corsDisablingPatterns;
+    HashSet<String> m_maskedURLSchemes;
     Vector<UserStyleSheet> m_userStyleSheetsPendingInjection;
     std::optional<MemoryCompactLookupOnlyRobinHoodHashSet<String>> m_allowedNetworkHosts;
     bool m_isTakingSnapshotsForApplicationSuspension { false };
@@ -1310,6 +1318,8 @@ private:
     Ref<PermissionController> m_permissionController;
     UniqueRef<StorageProvider> m_storageProvider;
     UniqueRef<ModelPlayerProvider> m_modelPlayerProvider;
+
+    WeakPtr<KeyboardScrollingAnimator> m_currentKeyboardScrollingAnimator;
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     std::unique_ptr<AttachmentElementClient> m_attachmentElementClient;

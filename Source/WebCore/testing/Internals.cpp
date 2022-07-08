@@ -186,7 +186,6 @@
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
 #include "ResourceLoadObserver.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SMILTimeContainer.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGPathStringBuilder.h"
@@ -352,6 +351,7 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include "FontCacheCoreText.h"
 #include "SystemBattery.h"
 #include "VP9UtilitiesCocoa.h"
 #include <pal/spi/cf/CoreTextSPI.h>
@@ -641,12 +641,16 @@ void Internals::resetToConsistentState(Page& page)
     DOMWindow::overrideTransientActivationDurationForTesting(std::nullopt);
 
 #if PLATFORM(IOS)
-    RenderThemeIOS::setContentSizeCategory(kCTFontContentSizeCategoryL);
+    WebCore::setContentSizeCategory(kCTFontContentSizeCategoryL);
 #endif
 
 #if ENABLE(MEDIA_SESSION) && USE(GLIB)
     auto& sessionManager = reinterpret_cast<MediaSessionManagerGLib&>(PlatformMediaSessionManager::sharedManager());
     sessionManager.setDBusNotificationsEnabled(false);
+#endif
+
+#if PLATFORM(COCOA)
+    setOverrideEnhanceTextLegibility(false);
 #endif
 
     TextPainter::setForceUseGlyphDisplayListForTesting(false);
@@ -2928,6 +2932,8 @@ static OptionSet<LayerTreeAsTextOptions> toLayerTreeAsTextOptions(unsigned short
         layerTreeFlags.add(LayerTreeAsTextOptions::IncludeEventRegion);
     if (flags & Internals::LAYER_TREE_INCLUDES_DEEP_COLOR)
         layerTreeFlags.add(LayerTreeAsTextOptions::IncludeDeepColor);
+    if (flags & Internals::LAYER_TREE_INCLUDES_DEVICE_SCALE)
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeDeviceScale);
 
     return layerTreeFlags;
 }
@@ -3204,6 +3210,16 @@ ExceptionOr<void> Internals::setElementTracksDisplayListReplay(Element& element,
     return { };
 }
 
+static OptionSet<DisplayList::AsTextFlag> toDisplayListFlags(unsigned short flags)
+{
+    OptionSet<DisplayList::AsTextFlag> displayListFlags;
+    if (flags & Internals::DISPLAY_LIST_INCLUDE_PLATFORM_OPERATIONS)
+        displayListFlags.add(DisplayList::AsTextFlag::IncludePlatformOperations);
+    if (flags & Internals::DISPLAY_LIST_INCLUDE_RESOURCE_IDENTIFIERS)
+        displayListFlags.add(DisplayList::AsTextFlag::IncludeResourceIdentifiers);
+    return displayListFlags;
+}
+
 ExceptionOr<String> Internals::displayListForElement(Element& element, unsigned short flags)
 {
     Document* document = contextDocument();
@@ -3215,10 +3231,6 @@ ExceptionOr<String> Internals::displayListForElement(Element& element, unsigned 
     if (!element.renderer())
         return Exception { InvalidAccessError };
 
-    OptionSet<DisplayList::AsTextFlag> displayListFlags;
-    if (flags & DISPLAY_LIST_INCLUDE_PLATFORM_OPERATIONS)
-        displayListFlags.add(DisplayList::AsTextFlag::IncludePlatformOperations);
-
     if (!element.renderer()->hasLayer())
         return Exception { InvalidAccessError };
 
@@ -3226,7 +3238,7 @@ ExceptionOr<String> Internals::displayListForElement(Element& element, unsigned 
     if (!layer->isComposited())
         return Exception { InvalidAccessError };
 
-    return layer->backing()->displayListAsText(displayListFlags);
+    return layer->backing()->displayListAsText(toDisplayListFlags(flags));
 }
 
 ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, unsigned short flags)
@@ -3240,10 +3252,6 @@ ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, uns
     if (!element.renderer())
         return Exception { InvalidAccessError };
 
-    OptionSet<DisplayList::AsTextFlag> displayListFlags;
-    if (flags & DISPLAY_LIST_INCLUDE_PLATFORM_OPERATIONS)
-        displayListFlags.add(DisplayList::AsTextFlag::IncludePlatformOperations);
-
     if (!element.renderer()->hasLayer())
         return Exception { InvalidAccessError };
 
@@ -3251,7 +3259,7 @@ ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, uns
     if (!layer->isComposited())
         return Exception { InvalidAccessError };
 
-    return layer->backing()->replayDisplayListAsText(displayListFlags);
+    return layer->backing()->replayDisplayListAsText(toDisplayListFlags(flags));
 }
 
 void Internals::setForceUseGlyphDisplayListForTesting(bool enabled)
@@ -3273,11 +3281,7 @@ ExceptionOr<String> Internals::cachedGlyphDisplayListsForTextNode(Node& node, un
     if (!node.renderer())
         return Exception { InvalidAccessError };
 
-    OptionSet<DisplayList::AsTextFlag> displayListFlags;
-    if (flags & DISPLAY_LIST_INCLUDE_PLATFORM_OPERATIONS)
-        displayListFlags.add(DisplayList::AsTextFlag::IncludePlatformOperations);
-
-    return TextPainter::cachedGlyphDisplayListsForTextNodeAsText(downcast<Text>(node), displayListFlags);
+    return TextPainter::cachedGlyphDisplayListsForTextNodeAsText(downcast<Text>(node), toDisplayListFlags(flags));
 }
 
 ExceptionOr<void> Internals::garbageCollectDocumentResources() const
@@ -6519,7 +6523,7 @@ void Internals::setContentSizeCategory(Internals::ContentSizeCategory category)
         ctCategory = kCTFontContentSizeCategoryXXXL;
         break;
     }
-    RenderThemeIOS::setContentSizeCategory(ctCategory);
+    WebCore::setContentSizeCategory(ctCategory);
     Page::updateStyleForAllPagesAfterGlobalChangeInEnvironment();
 #else
     UNUSED_PARAM(category);

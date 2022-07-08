@@ -24,6 +24,7 @@
 GPUProcess/GPUProcess.cpp
 GPUProcess/GPUConnectionToWebProcess.cpp
 GPUProcess/GPUProcessCreationParameters.cpp
+GPUProcess/GPUProcessPreferences.cpp
 GPUProcess/graphics/ImageBufferShareableAllocator.cpp
 GPUProcess/graphics/RemoteDisplayListRecorder.cpp
 GPUProcess/graphics/RemoteGraphicsContextGL.cpp
@@ -31,6 +32,7 @@ GPUProcess/graphics/RemoteRenderingBackend.cpp
 GPUProcess/graphics/RemoteResourceCache.cpp
 GPUProcess/graphics/ScopedRenderingResourcesRequest.cpp
 GPUProcess/graphics/ScopedWebGLRenderingResourcesRequest.cpp
+GPUProcess/graphics/ShareablePixelBuffer.cpp
 GPUProcess/graphics/WebGPU/RemoteAdapter.cpp
 GPUProcess/graphics/WebGPU/RemoteBindGroup.cpp
 GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.cpp
@@ -434,7 +436,6 @@ UIProcess/WebContextConnectionClient.cpp
 UIProcess/WebContextInjectedBundleClient.cpp
 UIProcess/WebContextMenuListenerProxy.cpp
 UIProcess/WebContextMenuProxy.cpp
-UIProcess/WebCookieManagerProxy.cpp
 UIProcess/WebDataListSuggestionsDropdown.cpp
 UIProcess/WebDateTimePicker.cpp
 UIProcess/WebEditCommandProxy.cpp

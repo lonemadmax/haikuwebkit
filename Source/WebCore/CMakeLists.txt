@@ -1844,10 +1844,12 @@ if (ENABLE_WEBGL)
         html/canvas/WebGLDebugShaders.cpp
         html/canvas/WebGLDepthTexture.cpp
         html/canvas/WebGLDrawBuffers.cpp
+        html/canvas/WebGLDrawInstancedBaseVertexBaseInstance.cpp
         html/canvas/WebGLExtension.cpp
         html/canvas/WebGLFramebuffer.cpp
         html/canvas/WebGLLoseContext.cpp
         html/canvas/WebGLMultiDraw.cpp
+        html/canvas/WebGLMultiDrawInstancedBaseVertexBaseInstance.cpp
         html/canvas/WebGLObject.cpp
         html/canvas/WebGLProgram.cpp
         html/canvas/WebGLQuery.cpp
@@ -1908,9 +1910,11 @@ list(APPEND WebCore_IDL_FILES
     html/canvas/WebGLDebugShaders.idl
     html/canvas/WebGLDepthTexture.idl
     html/canvas/WebGLDrawBuffers.idl
+    html/canvas/WebGLDrawInstancedBaseVertexBaseInstance.idl
     html/canvas/WebGLFramebuffer.idl
     html/canvas/WebGLLoseContext.idl
     html/canvas/WebGLMultiDraw.idl
+    html/canvas/WebGLMultiDrawInstancedBaseVertexBaseInstance.idl
     html/canvas/WebGLProgram.idl
     html/canvas/WebGLQuery.idl
     html/canvas/WebGLRenderbuffer.idl
@@ -2105,6 +2109,7 @@ set(MODERN_MEDIA_CONTROLS_STYLE_SHEETS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/buttons-container.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/controls-bar.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/inline-media-controls.css"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/ios-inline-media-controls.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/macos-fullscreen-media-controls.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/macos-inline-media-controls.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/adwaita-inline-media-controls.css"
@@ -2112,6 +2117,7 @@ set(MODERN_MEDIA_CONTROLS_STYLE_SHEETS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/media-controls.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/media-document.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/placard.css"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/slider-base.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/slider.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/status-label.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/text-tracks.css"
@@ -2139,6 +2145,7 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/background-tint.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/time-control.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/time-label.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/slider-base.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/slider.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/button.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/play-pause-button.js"
@@ -2153,9 +2160,6 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/rewind-button.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/forward-button.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/overflow-button.js"
-    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/range-button.js"
-    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/brightness-button.js"
-    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/volume-button.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/buttons-container.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/status-label.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/controls-bar.js"
@@ -2181,7 +2185,6 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/media-controller-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/airplay-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/audio-support.js"
-    "${WEBCORE_DIR}/Modules/modern-media-controls/media/brightness-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/close-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/controls-visibility-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/fullscreen-support.js"

@@ -38,7 +38,6 @@
 #import "ModalContainerControlClassifier.h"
 #import "PageClient.h"
 #import "PlaybackSessionManagerProxy.h"
-#import "QuarantineSPI.h"
 #import "QuickLookThumbnailLoader.h"
 #import "SafeBrowsingSPI.h"
 #import "SafeBrowsingWarning.h"
@@ -66,6 +65,7 @@
 #import <WebCore/TextAlternativeWithRange.h>
 #import <WebCore/ValidationBubble.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <pal/spi/mac/QuarantineSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/cf/TypeCastsCF.h>
@@ -543,37 +543,37 @@ void WebPageProxy::removeMediaUsageManagerSession(WebCore::MediaSessionIdentifie
 void WebPageProxy::didChangePlaybackRate(PlaybackSessionContextIdentifier identifier)
 {
     if (m_currentFullscreenVideoSessionIdentifier == identifier)
-        updateFullscreenVideoExtraction();
+        updateFullscreenVideoTextRecognition();
 }
 
 void WebPageProxy::didChangeCurrentTime(PlaybackSessionContextIdentifier identifier)
 {
     if (m_currentFullscreenVideoSessionIdentifier == identifier)
-        updateFullscreenVideoExtraction();
+        updateFullscreenVideoTextRecognition();
 }
 
-void WebPageProxy::updateFullscreenVideoExtraction()
+void WebPageProxy::updateFullscreenVideoTextRecognition()
 {
-    if (!pageClient().isFullscreenVideoExtractionEnabled())
+    if (!pageClient().isTextRecognitionInFullscreenVideoEnabled())
         return;
 
     if (m_currentFullscreenVideoSessionIdentifier && m_playbackSessionManager && m_playbackSessionManager->isPaused(*m_currentFullscreenVideoSessionIdentifier)) {
-        m_fullscreenVideoExtractionTimer.startOneShot(250_ms);
+        m_fullscreenVideoTextRecognitionTimer.startOneShot(250_ms);
         return;
     }
 
-    m_fullscreenVideoExtractionTimer.stop();
+    m_fullscreenVideoTextRecognitionTimer.stop();
 
     if (!m_currentFullscreenVideoSessionIdentifier)
         return;
 
 #if PLATFORM(IOS_FAMILY)
     if (RetainPtr controller = m_videoFullscreenManager->playerViewController(*m_currentFullscreenVideoSessionIdentifier))
-        pageClient().cancelFullscreenVideoExtraction(controller.get());
+        pageClient().cancelTextRecognitionForFullscreenVideo(controller.get());
 #endif
 }
 
-void WebPageProxy::fullscreenVideoExtractionTimerFired()
+void WebPageProxy::fullscreenVideoTextRecognitionTimerFired()
 {
     if (!m_currentFullscreenVideoSessionIdentifier || !m_videoFullscreenManager)
         return;
@@ -590,7 +590,7 @@ void WebPageProxy::fullscreenVideoExtractionTimerFired()
 
 #if PLATFORM(IOS_FAMILY)
         if (RetainPtr controller = fullscreenManager->playerViewController(identifier))
-            protectedThis->pageClient().beginFullscreenVideoExtraction(imageHandle, controller.get());
+            protectedThis->pageClient().beginTextRecognitionForFullscreenVideo(imageHandle, controller.get());
 #endif
     });
 }

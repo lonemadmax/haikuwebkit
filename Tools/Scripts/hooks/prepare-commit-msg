@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 
-LOCATION = '{{ location }}'
+LOCATION = r'{{ location }}'
 SPACING = 8
 SCRIPTS = os.path.dirname(os.path.dirname(LOCATION))
 
@@ -43,7 +43,7 @@ def message(source=None, sha=None):
 
     try:
         for line in subprocess.check_output(
-            [os.path.join(SCRIPTS, 'prepare-ChangeLog'), '--no-write', '--only-files', '--delimiters'],
+            ['perl', os.path.join(SCRIPTS, 'prepare-ChangeLog'), '--no-write', '--only-files', '--delimiters'],
             **(dict(encoding='utf-8') if sys.version_info > (3, 0) else dict())
         ).splitlines():
             if line == '~':
@@ -67,14 +67,20 @@ Reviewed by NOBODY (OOPS!).
 '''.format(
         title=os.environ.get('COMMIT_MESSAGE_TITLE', '') or 'Need a short description (OOPS!).',
         bugs=os.environ.get('COMMIT_MESSAGE_BUG', '') or 'Need the bug URL (OOPS!).',
-        content='\n'.join(commit_message),
+        content='\n'.join(commit_message) + os.environ.get('COMMIT_MESSAGE_CONTENT', ''),
     )
 
     except subprocess.CalledProcessError:
         return ''
 
 def main(file_name=None, source=None, sha=None):
-    if source not in (None, 'commit', 'template'):
+    with open(file_name, 'r') as commit_message_file:
+        content = commit_message_file.read()
+
+    if source not in (None, 'commit', 'template', 'merge'):
+        return 0
+    
+    if source == 'merge' and not content.startswith('Revert'):
         return 0
 
     if os.environ.get('GIT_EDITOR', '') == ':':

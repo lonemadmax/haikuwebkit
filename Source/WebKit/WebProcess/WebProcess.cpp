@@ -132,7 +132,6 @@
 #include <WebCore/RemoteCommandListener.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/RuntimeApplicationChecks.h>
-#include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/ScriptExecutionContext.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/ServiceWorkerContextData.h>
@@ -568,13 +567,13 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     setMemoryCacheDisabled(parameters.memoryCacheDisabled);
 
-    WebCore::RuntimeEnabledFeatures::sharedFeatures().setAttrStyleEnabled(parameters.attrStyleEnabled);
+    WebCore::DeprecatedGlobalSettings::setAttrStyleEnabled(parameters.attrStyleEnabled);
     
     commonVM().setGlobalConstRedeclarationShouldThrow(parameters.shouldThrowExceptionForGlobalConstantRedeclaration);
 
     ScriptExecutionContext::setCrossOriginMode(parameters.crossOriginMode);
     m_isCaptivePortalModeEnabled = parameters.isCaptivePortalModeEnabled;
-    RuntimeEnabledFeatures::sharedFeatures().setArePDFImagesEnabled(!m_isCaptivePortalModeEnabled);
+    DeprecatedGlobalSettings::setArePDFImagesEnabled(!m_isCaptivePortalModeEnabled);
 
 #if ENABLE(SERVICE_CONTROLS)
     setEnabledServices(parameters.hasImageServices, parameters.hasSelectionServices, parameters.hasRichContentServices);
@@ -893,7 +892,7 @@ void WebProcess::terminate()
 #ifndef NDEBUG
     // These are done in an attempt to reduce LEAK output.
     GCController::singleton().garbageCollectNow();
-    FontCache::forCurrentThread().invalidate();
+    FontCache::invalidateAllFontCaches();
     MemoryCache::singleton().setDisabled(true);
 #endif
 
@@ -2032,14 +2031,7 @@ void WebProcess::setUseGPUProcessForCanvasRendering(bool useGPUProcessForCanvasR
 
 void WebProcess::setUseGPUProcessForDOMRendering(bool useGPUProcessForDOMRendering)
 {
-    if (useGPUProcessForDOMRendering == m_useGPUProcessForDOMRendering)
-        return;
-
     m_useGPUProcessForDOMRendering = useGPUProcessForDOMRendering;
-#if USE(CG)
-    if (m_useGPUProcessForDOMRendering)
-        ImageDecoderCG::disableHardwareAcceleratedDecoding();
-#endif
 }
 
 void WebProcess::setUseGPUProcessForMedia(bool useGPUProcessForMedia)

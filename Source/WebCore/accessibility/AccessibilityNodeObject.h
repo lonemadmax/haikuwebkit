@@ -101,6 +101,8 @@ public:
     float minValueForRange() const override;
     float stepValueForRange() const override;
 
+    AccessibilityOrientation orientation() const override;
+
     AXCoreObject* selectedRadioButton() override;
     AXCoreObject* selectedTabItem() override;
     AccessibilityButtonState checkboxOrRadioValue() const override;
@@ -172,6 +174,10 @@ protected:
     bool isGenericFocusableElement() const;
 
     bool elementAttributeValue(const QualifiedName&) const;
+
+    const String liveRegionStatus() const override;
+    const String liveRegionRelevant() const override;
+    bool liveRegionAtomic() const override;
 
     bool isLabelable() const;
     AccessibilityObject* correspondingControlForLabelElement() const override;

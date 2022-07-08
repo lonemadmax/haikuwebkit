@@ -63,13 +63,13 @@ private:
 
     void resolveComposedTree();
 
-    enum class QueryContainerAction : uint8_t { None, Continue, Layout };
-    QueryContainerAction updateQueryContainer(Element&, const RenderStyle&, ContainerType previousContainerType);
+    enum class QueryContainerAction : uint8_t { None, Resolve };
+    QueryContainerAction determineQueryContainerAction(const Element&, const RenderStyle*, ContainerType previousContainerType);
 
     enum class DescendantsToResolve : uint8_t { None, ChildrenWithExplicitInherit, Children, All };
     std::pair<ElementUpdate, DescendantsToResolve> resolveElement(Element&, ResolutionType);
 
-    static ElementUpdate createAnimatedElementUpdate(std::unique_ptr<RenderStyle>, const Styleable&, Change, const ResolutionContext&);
+    ElementUpdate createAnimatedElementUpdate(std::unique_ptr<RenderStyle>, const Styleable&, Change, const ResolutionContext&);
     std::optional<ElementUpdate> resolvePseudoElement(Element&, PseudoId, const ElementUpdate&);
     std::optional<ElementUpdate> resolveAncestorPseudoElement(Element&, PseudoId, const ElementUpdate&);
     std::unique_ptr<RenderStyle> resolveAncestorFirstLinePseudoElement(Element&, const ElementUpdate&);
@@ -95,6 +95,7 @@ private:
         DescendantsToResolve descendantsToResolve { DescendantsToResolve::None };
         bool didPushScope { false };
         bool resolvedFirstLineAndLetterChild { false };
+        bool needsUpdateQueryContainerDependentStyle { false };
 
         Parent(Document&);
         Parent(Element&, const RenderStyle&, Change, DescendantsToResolve);
@@ -129,7 +130,8 @@ private:
     Vector<Parent, 32> m_parentStack;
     bool m_didSeePendingStylesheet { false };
 
-    HashSet<RefPtr<Element>> m_unresolvedQueryContainers;
+    Vector<Ref<const Element>> m_unresolvedQueryContainers;
+    HashSet<Ref<const Element>> m_resolvedQueryContainers;
 
     std::unique_ptr<Update> m_update;
 };

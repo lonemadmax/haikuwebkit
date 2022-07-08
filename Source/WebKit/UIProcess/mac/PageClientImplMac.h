@@ -131,7 +131,7 @@ private:
     void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) override;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& source, const String& target, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) override;
+    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) override;
     void computeHasVisualSearchResults(const URL&, ShareableBitmap&, CompletionHandler<void(bool)>&&) override;
 #endif
 
@@ -256,9 +256,9 @@ private:
     bool effectiveAppearanceIsDark() const override;
     bool effectiveUserInterfaceLevelIsElevated() const override;
 
-    bool isFullscreenVideoExtractionEnabled() const final { return true; }
-    void beginElementFullscreenVideoExtraction(const ShareableBitmap::Handle&, WebCore::FloatRect) final;
-    void cancelElementFullscreenVideoExtraction() final;
+    bool isTextRecognitionInFullscreenVideoEnabled() const final { return true; }
+    void beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmap::Handle&, WebCore::FloatRect) final;
+    void cancelTextRecognitionForVideoInElementFullscreen() final;
 
 #if ENABLE(DRAG_SUPPORT)
     void didPerformDragOperation(bool handled) final;

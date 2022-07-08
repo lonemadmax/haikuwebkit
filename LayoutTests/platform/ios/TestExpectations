@@ -1583,6 +1583,15 @@ webkit.org/b/204505 imported/w3c/web-platform-tests/css/css-multicol/multicol-ru
 # Antialiasing differences
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-svg-child-will-change.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-composite-1b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-composite-2b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-1a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-mode-c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1e.html [ ImageOnlyFailure ]
+
 fast/filter-image/clipped-filter.html [ ImageOnlyFailure ]
 fast/flexbox/flex-hang.html [ Failure ]
 fast/flexbox/overhanging-floats-removed.html [ Failure ]
@@ -2039,6 +2048,8 @@ editing/pasteboard/paste-sanitize-crash-1.html [ Failure ]
 editing/pasteboard/paste-sanitize-crash-2.html [ Failure ]
 editing/pasteboard/paste-text-events.html [ Failure ]
 
+# setPageZoomFactor() is wrong/flaky on iOS
+webkit.org/b/241951 intersection-observer/root-margin-percentage-units-with-zoom.html [ Skip ]
 
 # Local pasteboard is not implemented on iOS, so pasteboard tests used to be all disabled.
 
@@ -2115,16 +2126,21 @@ webkit.org/b/148806 imported/w3c/web-platform-tests/css/css-multicol/multicol-sp
 fast/dom/linkify-phone-numbers.html [ Pass ]
 
 accessibility/table-exposure-updates-dynamically.html [ Pass ]
-accessibility/aria-busy-updates-after-dynamic-change.html [ Pass ]
 accessibility/aria-describedby-on-input.html [ Pass ]
 accessibility/aria-hidden-display-contents-element.html [ Pass ]
+accessibility/aria-multiline.html [ Pass ]
 accessibility/aria-readonly-updates-after-dynamic-change.html [ Pass ]
 accessibility/aria-required-updates-after-dynamic-change.html [ Pass ]
+accessibility/aria-slider-value.html [ Pass ]
 accessibility/display-contents-element-roles.html [ Pass ]
 accessibility/element-haspopup.html [ Pass ]
+accessibility/heading-level.html [ Pass ]
+accessibility/insert-text-into-password-field.html [ Pass ]
 accessibility/list-with-dynamically-changing-content.html [ Pass ]
+accessibility/live-region-attributes-update-after-dynamic-change.html [ Pass ]
 accessibility/node-only-inert-object.html [ Pass ]
 accessibility/node-only-object-element-rect.html [ Pass ]
+accessibility/placeholder.html [ Pass ]
 accessibility/text-updates-after-dynamic-change.html [ Pass ]
 accessibility/video-element-url-attribute.html [ Pass ]
 accessibility/visible-character-range-basic.html [ Pass ]
@@ -2560,7 +2576,6 @@ webkit.org/b/171617 perf/object-keys.html [ Pass Failure ]
 
 # WebGL tests which need triaging https://bugs.webkit.org/b/174100
 fast/canvas/webgl/webgl-compressed-texture-size-limit.html [ Failure ]
-fast/canvas/webgl/webgl-draw-buffers.html [ Failure ]
 fast/canvas/webgl/webgl2-texture-upload-enums.html [ Failure ]
 fast/canvas/webgl/read-pixels-test.html [ Skip ]
 fast/canvas/webgl/webglcontextchangedevent.html [ Skip ]
@@ -2619,9 +2634,6 @@ webkit.org/b/175353 imported/w3c/web-platform-tests/css/css-ui/outline-004.html 
 webkit.org/b/175353 imported/w3c/web-platform-tests/css/css-ui/outline-style-014.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/css/mediaqueries/device-aspect-ratio-003.html [ ImageOnlyFailure ]
-
-# This test tests a feature that only exists on iOS.
-fast/text/accessibility-bold-system-font-2.html [ Pass ]
 
 # This test is specific to Core Text.
 fast/text/font-lookup-dot-prefix-case-sensitive.html [ Pass ]
@@ -3318,8 +3330,6 @@ webkit.org/b/222844 imported/blink/compositing/draws-content/webgl-simple-backgr
 
 webkit.org/b/222239 webgl/conformance/extensions/khr-parallel-shader-compile.html [ Skip ]
 
-webkit.org/b/237174 editing/pasteboard/dom-paste/dom-paste-same-origin.html [ Pass Failure Timeout ]
-
 fast/text/line-break-with-locale.html [ ImageOnlyFailure ]
 
 webkit.org/b/229154 webrtc/peer-connection-audio-mute2.html [ Pass Failure ]
@@ -3556,8 +3566,6 @@ imported/w3c/web-platform-tests/workers/semantics/multiple-workers/004.html [ Fa
 
 webkit.org/b/238227 fast/dom/intersection-observer-document-leak.html [ Pass Failure ]
 
-webkit.org/b/238229 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-050.html [ Pass Crash ]
-
 webkit.org/b/237295 fast/mediastream/video-rotation-gpu-process-crash.html [ Pass Crash ]
 
 webkit.org/b/238519 animations/shadow-host-child-change.html [ Pass ImageOnlyFailure ]
@@ -3568,8 +3576,6 @@ webkit.org/b/238284 editing/spelling/spellcheck-async-remove-frame.html [ Pass C
 
 webkit.org/b/238771 media/video-played-ranges-1.html [ Pass Failure ]
 
-webkit.org/b/237159 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-049.html [ Pass Crash ]
-
 webkit.org/b/237108 http/tests/websocket/tests/hybi/extensions.html [ Pass ]
 
 webkit.org/b/238824 http/tests/workers/service/openwindow-from-notification-click.html [ Pass Failure ]
@@ -3578,13 +3584,6 @@ webkit.org/b/237433 editing/pasteboard/4076267-3.html [ Timeout Pass Failure ]
 webkit.org/b/237433 editing/pasteboard/paste-and-sanitize.html [ Timeout Pass Failure ]
 
 webkit.org/b/237955 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-044.html [ Failure ]
-
-webkit.org/b/239564 storage/indexeddb/modern/index-get-count-failures.html [ Failure ]
-webkit.org/b/239564 storage/indexeddb/modern/deleteobjectstore-1.html [ Failure ]
-webkit.org/b/239564 http/tests/app-privacy-report/user-attribution-cors-preflight-redirect.html [ Failure ]
-webkit.org/b/239564 fast/forms/select-list-box-with-height.html [ Failure ]
-webkit.org/b/239564 fast/forms/control-restrict-line-height.html [ Failure ]
-webkit.org/b/239564 tables/mozilla/bugs/bug2479-3.html [ Failure ]
 
 webkit.org/b/239625 imported/w3c/web-platform-tests/css/css-color/opacity-overlapping-letters.html [ ImageOnlyFailure ]
 
@@ -3620,14 +3619,22 @@ webkit.org/b/240579 http/tests/workers/service/shownotification-denied.html [ Sk
 webkit.org/b/240579 http/tests/workers/service/shownotification-invalid-data.html [ Skip ]
 webkit.org/b/240579 http/tests/workers/service/getnotifications-stop.html [ Skip ]
 webkit.org/b/240579 http/tests/workers/service/getnotifications.html [ Skip ]
-webkit.org/b/240579 http/tests/push-api/subscribe-default-permissions-iframe-cross-origin.html [ Skip ]
-webkit.org/b/240579 http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Skip ]
-webkit.org/b/240579 http/tests/push-api/subscribe-default-permissions.html [ Skip ]
-webkit.org/b/240579 http/tests/push-api/subscribe-deny-permissions-on-prompt.html [ Skip ]
-webkit.org/b/240579 http/tests/push-api/subscribe-grant-permissions.html [ Skip ]
-webkit.org/b/240579 http/wpt/push-api/pushEvent.any.serviceworker.html [ Skip ]
-webkit.org/b/240579 http/wpt/push-api/pushManager.any.html [ Skip ]
-webkit.org/b/240579 http/wpt/push-api/pushManager.any.serviceworker.html [ Skip ]
+webkit.org/b/240579 http/tests/push-api [ Skip ]
+webkit.org/b/240579 http/wpt/push-api [ Skip ]
+
+# These tests finish with unfired UI script callbacks, causing crashes. See webkit.org/b/236794
+editing/spelling/editing-word-with-marker-1.html
+fast/events/ios/pdf-modifer-key-down-crash.html
+fast/media/mq-inverted-colors-live-update-for-listener.html
+fast/media/mq-prefers-contrast-live-update-for-listener.html
+fast/media/mq-prefers-reduced-motion-live-update-for-listener.html
+imported/w3c/web-platform-tests/clipboard-apis/async-raw-write-read.tentative.https.html
+imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-047.html
+imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-048.html
+imported/w3c/web-platform-tests/html/user-activation/no-activation-thru-escape-key.html
+platform/ios/fast/scrolling/find-text-in-overflow-node-indicator-position-limit.html
+platform/ios/fast/scrolling/find-text-in-overflow-node-indicator-position.html
+swipe/main-frame-pinning-requirement.html
 
 
 webkit.org/b/240659 fast/text/isolate-ignore.html [ Crash ]
@@ -3651,3 +3658,8 @@ webkit.org/b/241048 imported/w3c/web-platform-tests/html/canvas/element/manual/w
 webkit.org/b/241205 fast/forms/textfield-outline.html [ Pass Failure ]
 
 fast/text/bulgarian-system-language-shaping.html [ Pass ]
+
+# Accessibility bold only exists on iOS.
+fast/text/accessibility-bold-system-font [ Pass ]
+
+webkit.org/b/242164 imported/w3c/web-platform-tests/service-workers/service-worker/navigation-timing.https.html [ Failure ]

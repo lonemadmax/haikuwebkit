@@ -31,6 +31,7 @@
 #include "CtapDriver.h"
 #include "CtapHidDriver.h"
 #include "U2fAuthenticator.h"
+#include <WebCore/AuthenticationExtensionsClientOutputs.h>
 #include <WebCore/AuthenticatorAttachment.h>
 #include <WebCore/CryptoKeyAES.h>
 #include <WebCore/CryptoKeyEC.h>
@@ -118,6 +119,11 @@ void CtapAuthenticator::continueMakeCredentialAfterResponseReceived(Vector<uint8
     if (!response) {
         auto error = getResponseCode(data);
 
+        if (error == CtapDeviceResponseCode::kCtap2ErrActionTimeout) {
+            makeCredential();
+            return;
+        }
+
         if (error == CtapDeviceResponseCode::kCtap2ErrCredentialExcluded) {
             receiveRespond(ExceptionData { InvalidStateError, "At least one credential matches an entry of the excludeCredentials list in the authenticator."_s });
             return;
@@ -132,6 +138,15 @@ void CtapAuthenticator::continueMakeCredentialAfterResponseReceived(Vector<uint8
 
         receiveRespond(ExceptionData { UnknownError, makeString("Unknown internal error. Error code: ", static_cast<uint8_t>(error)) });
         return;
+    }
+    auto& options = std::get<PublicKeyCredentialCreationOptions>(requestData().options);
+    if (options.extensions && options.extensions->credProps) {
+        auto extensionOutputs = response->extensions();
+        
+        auto rkSupported = m_info.options().residentKeyAvailability() == AuthenticatorSupportedOptions::ResidentKeyAvailability::kSupported;
+        auto rkRequested = options.authenticatorSelection && ((options.authenticatorSelection->residentKey && options.authenticatorSelection->residentKey != ResidentKeyRequirement::Discouraged) || options.authenticatorSelection->requireResidentKey);
+        extensionOutputs.credProps = AuthenticationExtensionsClientOutputs::CredentialPropertiesOutput { rkSupported && rkRequested };
+        response->setExtensions(WTFMove(extensionOutputs));
     }
     receiveRespond(response.releaseNonNull());
 }
@@ -162,6 +177,11 @@ void CtapAuthenticator::continueGetAssertionAfterResponseReceived(Vector<uint8_t
     auto response = readCTAPGetAssertionResponse(data, AuthenticatorAttachment::CrossPlatform);
     if (!response) {
         auto error = getResponseCode(data);
+
+        if (error == CtapDeviceResponseCode::kCtap2ErrActionTimeout) {
+            getAssertion();
+            return;
+        }
 
         if (!isPinError(error) && tryDowngrade())
             return;

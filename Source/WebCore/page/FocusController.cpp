@@ -964,7 +964,6 @@ void FocusController::setIsVisibleAndActiveInternal(bool contentIsVisible)
 
         for (auto& scrollableArea : *scrollableAreas) {
             ASSERT(scrollableArea->scrollbarsCanBeActive() || m_page.shouldSuppressScrollbarAnimations());
-
             contentAreaDidShowOrHide(scrollableArea, contentIsVisible);
         }
     }

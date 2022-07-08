@@ -99,7 +99,6 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "ResizeObserver.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGDocument.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGSVGElement.h"
@@ -1006,7 +1005,7 @@ void FrameView::updateScrollingCoordinatorScrollSnapProperties() const
 bool FrameView::flushCompositingStateForThisFrame(const Frame& rootFrameForFlush)
 {
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextEnabled()) {
+    if (DeprecatedGlobalSettings::layoutFormattingContextEnabled()) {
         if (auto* view = existingDisplayView())
             view->flushLayers();
         return true;
@@ -5319,9 +5318,17 @@ void FrameView::notifyWidgetsInAllFrames(WidgetNotification notification)
     
 AXObjectCache* FrameView::axObjectCache() const
 {
+    AXObjectCache* cache = nullptr;
     if (frame().document())
-        return frame().document()->existingAXObjectCache();
-    return nullptr;
+        cache = frame().document()->existingAXObjectCache();
+
+    // FIXME: We should generally always be using the main-frame cache rather than
+    // using it as a fallback as we do here.
+    if (!cache && !frame().isMainFrame()) {
+        if (auto* mainFrameDocument = frame().mainFrame().document())
+            cache = mainFrameDocument->existingAXObjectCache();
+    }
+    return cache;
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -5842,6 +5849,15 @@ OverscrollBehavior FrameView::verticalOverscrollBehavior()  const
         return scrollingObject->style().overscrollBehaviorY();
     return OverscrollBehavior::Auto;
 }
+
+bool FrameView::isVisibleToHitTesting() const
+{
+    bool isVisibleToHitTest = true;
+    if (HTMLFrameOwnerElement* owner = frame().ownerElement())
+        isVisibleToHitTest = owner->renderer() && owner->renderer()->visibleToHitTesting();
+    return isVisibleToHitTest;
+}
+
 } // namespace WebCore
 
 #undef PAGE_ID

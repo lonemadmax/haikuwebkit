@@ -465,6 +465,9 @@ accessibility/table-exposure-updates-dynamically.html [ Skip ]
 # Failing since added in https://bugs.webkit.org/show_bug.cgi?id=241022.
 accessibility/node-only-inert-object.html [ Failure ]
 
+# Failing since added in https://bugs.webkit.org/show_bug.cgi?id=241428.
+accessibility/aria-multiline.html [ Skip ]
+
 # Probably wrong role after adding children to list (AXGroup instead of AXList).
 accessibility/list-with-dynamically-changing-content.html [ Skip ]
 accessibility/ignored-aria-role-description.html [ Skip ]
@@ -480,6 +483,9 @@ accessibility/visible-character-range-basic.html [ Skip ]
 accessibility/visible-character-range-height-changes.html [ Skip ]
 accessibility/visible-character-range-scrolling.html [ Skip ]
 accessibility/visible-character-range-width-changes.html [ Skip ]
+
+# Need to implement AccessibilityUIElement::insertText.
+accessibility/insert-text-into-password-field.html [ Skip ]
 
 # Need to implement AccessibilityUIElement::hasDocumentRoleAncestor(), AccessibilityUIElement::hasWebApplicationAncestor(),
 # AccessibilityUIElement::isInDescriptionListDetail(), AccessibilityUIElement::isInDescriptionListTerm(), and
@@ -498,8 +504,8 @@ accessibility/ignore-modals-without-any-content.html [ Skip ]
 accessibility/aria-readonly-updates-after-dynamic-change.html [ Skip ]
 # Missing AccessibilityUIElement::isRequired implementation.
 accessibility/aria-required-updates-after-dynamic-change.html [ Skip ]
-# Missing AccessibilityUIElement::isBusy implementation.
-accessibility/aria-busy-updates-after-dynamic-change.html [ Skip ]
+# Missing AccessibilityUIElement::{isBusy, isAtomicLiveRegion, liveRegionStatus, liveRegionRelevant} implementations.
+accessibility/live-region-attributes-update-after-dynamic-change.html [ Skip ]
 
 # TODO Conic gradients
 http/wpt/css/css-images-4/conic-gradient-parsing.html [ Skip ]
@@ -944,6 +950,8 @@ accessibility/aria-current-state-changed-notification.html [ Skip ]
 webkit.org/b/148967 accessibility/aria-table-attributes.html [ Skip ]
 accessibility/aria-grid-with-aria-owns-rows.html [ Skip ]
 accessibility/grid-with-aria-owned-cells.html [ Skip ]
+
+accessibility/deep-tree.html [ Skip ]
 
 # TODO webkit-font-smoothing is not supported.
 webkit.org/b/149245 imported/w3c/web-platform-tests/css/css-multicol/multicol-basic-001.html [ Skip ]
@@ -1776,7 +1784,6 @@ webkit.org/b/140867 [ Debug ] accessibility/aria-option-role.html [ Skip ]
 [ Debug ] accessibility/aria-required.html [ Skip ] # Crash (Debug Assertion)
 webkit.org/b/140867 [ Debug ] accessibility/aria-tab-role-on-buttons.html [ Skip ]
 webkit.org/b/140867 [ Debug ] accessibility/aria-tab-roles.html [ Skip ]
-webkit.org/b/140867 [ Debug ] accessibility/aria-toggle-button-with-title.html [ Skip ]
 [ Debug ] accessibility/button-press-action.html [ Skip ] # Crash (Debug Assertion)
 webkit.org/b/140867 [ Debug ] accessibility/button-title-uses-inner-img-alt.html [ Skip ]
 [ Debug ] accessibility/canvas-description-and-role.html [ Skip ] # Crash (Debug Assertion)
@@ -3791,7 +3798,6 @@ fast/forms/baseline-of-number-inputs.html [ ImageOnlyFailure ]
 fast/images/image-subsampling.html [ ImageOnlyFailure ]
 fast/multicol/flexbox-rows.html [ ImageOnlyFailure ]
 fast/multicol/newmulticol/compare-with-old-impl/shrink-to-column-height-for-pagination.html [ ImageOnlyFailure ]
-fast/text/accessibility-bold-system-font-2.html [ ImageOnlyFailure ]
 fast/text/emoji-overlap.html [ ImageOnlyFailure ]
 imported/blink/scrollbars/avoid-double-scrollbars-when-html-element-is-not-the-renderview.html [ ImageOnlyFailure ]
 imported/w3c/i18n/bidi/bidi-plaintext-011.html [ ImageOnlyFailure ]
@@ -5031,12 +5037,7 @@ http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-
 streams/readable-stream-lock-after-worker-terminates-crash.html [ Timeout Pass ]
 
 # Push subscription tests fail without platform-specific PushCrypto implementations.
-http/tests/push-api/subscribe-default-permissions-iframe-cross-origin.html [ Failure ]
-http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Failure ]
-http/tests/push-api/subscribe-default-permissions.html [ Failure ]
-http/tests/push-api/subscribe-deny-permissions-on-prompt.html [ Failure ]
-http/tests/push-api/subscribe-deny-permissions.html [ Failure ]
-http/tests/push-api/subscribe-grant-permissions.html [ Failure ]
+http/tests/push-api [ Skip ]
 
 webkit.org/b/240617 webanimations/offset-anchor-animation-yields-compositing.html [ Pass Failure ]
 webkit.org/b/240617 webanimations/offset-distance-animation-yields-compositing.html [ Pass Failure ]
@@ -5065,3 +5066,6 @@ webkit.org/b/241281 fast/layers/parent-clipping-overflow-is-overwritten-by-child
 
 webkit.org/b/241282 webanimations/accelerated-animations-and-motion-path.html [ Pass Failure ]
 
+webkit.org/b/241377 fast/css3-text/css3-text-decoration/repaint/underline-outside-of-layout-rect-altered.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/241382 html5lib/generated/run-tests19-data.html [ Pass Crash ]

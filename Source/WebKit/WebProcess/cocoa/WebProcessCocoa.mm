@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,8 +59,10 @@
 #import <WebCore/AVAssetMIMETypeCache.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/CPUMonitor.h>
+#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DisplayRefreshMonitorManager.h>
 #import <WebCore/FontCache.h>
+#import <WebCore/FontCacheCoreText.h>
 #import <WebCore/FontCascade.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/HistoryController.h>
@@ -78,8 +80,8 @@
 #import <WebCore/PictureInPictureSupport.h>
 #import <WebCore/PlatformMediaSessionManager.h>
 #import <WebCore/PlatformScreen.h>
+#import <WebCore/ProcessCapabilities.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/RuntimeEnabledFeatures.h>
 #import <WebCore/SWContextManager.h>
 #import <WebCore/SystemBattery.h>
 #import <WebCore/SystemSoundManager.h>
@@ -159,7 +161,6 @@
 #endif
 
 #import <WebCore/MediaAccessibilitySoftLink.h>
-#import <pal/cf/AudioToolboxSoftLink.h>
 #import <pal/cf/VideoToolboxSoftLink.h>
 #import <pal/cocoa/AVFoundationSoftLink.h>
 #import <pal/cocoa/DataDetectorsCoreSoftLink.h>
@@ -238,8 +239,21 @@ static void softlinkDataDetectorsFrameworks()
 #endif // ENABLE(DATA_DETECTION)
 }
 
+static void initializeXPCConnectionToLogd()
+{
+    // Log a long message to make sure the XPC connection to the log daemon for oversized messages is opened.
+    // This is needed to block launchd after the WebContent process has launched, since access to launchd is
+    // required when opening new XPC connections.
+    char stringWithSpaces[1024];
+    memset(stringWithSpaces, ' ', sizeof(stringWithSpaces));
+    stringWithSpaces[sizeof(stringWithSpaces) - 1] = 0;
+    RELEASE_LOG(Process, "WebProcess::platformInitializeWebProcess %s", stringWithSpaces);
+}
+
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
+    initializeXPCConnectionToLogd();
+    
     applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
 
     setQOS(parameters.latencyQOS, parameters.throughputQOS);
@@ -270,9 +284,21 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     SandboxExtension::consumePermanently(parameters.trustdExtensionHandle);
 #endif // PLATFORM(MAC)
 #if USE(APPLE_INTERNAL_SDK)
+    OptionSet<VideoDecoderBehavior> videoDecoderBehavior;
+    
     if (parameters.enableDecodingHEIC) {
-        ImageDecoderCG::enableDecodingHEIC();
-        enableDecodingHEIC();
+        ProcessCapabilities::setHEICDecodingEnabled(true);
+        videoDecoderBehavior.add(VideoDecoderBehavior::EnableHEIC);
+    }
+
+    if (parameters.enableDecodingAVIF) {
+        ProcessCapabilities::setAVIFDecodingEnabled(true);
+        videoDecoderBehavior.add(VideoDecoderBehavior::EnableAVIF);
+    }
+
+    if (videoDecoderBehavior) {
+        videoDecoderBehavior.add({ VideoDecoderBehavior::AvoidIOSurface, VideoDecoderBehavior::AvoidHardware });
+        setVideoDecoderBehaviors(videoDecoderBehavior);
     }
 #endif
 #endif // HAVE(VIDEO_RESTRICTED_DECODING)
@@ -295,7 +321,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #if PLATFORM(IOS_FAMILY)
     setCurrentUserInterfaceIdiomIsSmallScreen(parameters.currentUserInterfaceIdiomIsSmallScreen);
     setLocalizedDeviceModel(parameters.localizedDeviceModel);
-    RenderThemeIOS::setContentSizeCategory(parameters.contentSizeCategory);
+    setContentSizeCategory(parameters.contentSizeCategory);
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     setSupportsPictureInPicture(parameters.supportsPictureInPicture);
 #endif
@@ -364,15 +390,15 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #endif
 
 #if ENABLE(WEBM_FORMAT_READER)
-    PlatformMediaSessionManager::setWebMFormatReaderEnabled(RuntimeEnabledFeatures::sharedFeatures().webMFormatReaderEnabled());
+    PlatformMediaSessionManager::setWebMFormatReaderEnabled(DeprecatedGlobalSettings::webMFormatReaderEnabled());
 #endif
 
 #if ENABLE(VORBIS)
-    PlatformMediaSessionManager::setVorbisDecoderEnabled(RuntimeEnabledFeatures::sharedFeatures().vorbisDecoderEnabled());
+    PlatformMediaSessionManager::setVorbisDecoderEnabled(DeprecatedGlobalSettings::vorbisDecoderEnabled());
 #endif
 
 #if ENABLE(OPUS)
-    PlatformMediaSessionManager::setOpusDecoderEnabled(RuntimeEnabledFeatures::sharedFeatures().opusDecoderEnabled());
+    PlatformMediaSessionManager::setOpusDecoderEnabled(DeprecatedGlobalSettings::opusDecoderEnabled());
 #endif
 
     if (!parameters.mediaMIMETypes.isEmpty())
@@ -430,8 +456,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     accessibilityPreferencesDidChange(parameters.accessibilityPreferences);
 
-    if (!isParentProcessAFullWebBrowser(*this))
-        disableURLSchemeCheckInDataDetectors();
+    disableURLSchemeCheckInDataDetectors();
 
     // Soft link frameworks related to Data Detection before we disconnect from launchd because these frameworks connect to
     // launchd temporarily at link time to register XPC services. See rdar://93598951 (my feature request to stop doing that)
@@ -857,7 +882,7 @@ RefPtr<ObjCObjectGraph> WebProcess::transformHandlesToObjects(ObjCObjectGraph& o
         RetainPtr<id> transformObject(id object) const override
         {
             if (auto* handle = dynamic_objc_cast<WKBrowsingContextHandle>(object)) {
-                if (auto* webPage = m_webProcess.webPage(handle._webPageID))
+                if (auto* webPage = m_webProcess.webPage(makeObjectIdentifier<WebCore::PageIdentifierType>(handle._webPageID)))
                     return wrapper(*webPage);
 
                 return [NSNull null];
@@ -1020,6 +1045,8 @@ void WebProcess::accessibilityPreferencesDidChange(const AccessibilityPreference
     if (_AXSInvertColorsEnabledApp(appID) != invertColorsEnabled)
         _AXSInvertColorsSetEnabledApp(invertColorsEnabled, appID);
 #endif
+    setOverrideEnhanceTextLegibility(preferences.enhanceTextLegibilityOverall);
+    FontCache::invalidateAllFontCaches();
 }
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
@@ -1251,22 +1278,6 @@ void WebProcess::systemDidWake()
         PlatformMediaSessionManager::sharedManager().processSystemDidWake();
 }
 #endif
-
-void WebProcess::consumeAudioComponentRegistrations(const IPC::SharedBufferReference& data)
-{
-    using namespace PAL;
-
-    if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentApplyServerRegistrations())
-        return;
-
-    if (data.isNull())
-        return;
-    auto registrations = data.unsafeBuffer()->createCFData();
-
-    auto err = AudioComponentApplyServerRegistrations(registrations.get());
-    if (noErr != err)
-        WEBPROCESS_RELEASE_LOG_ERROR(Process, "Could not apply AudioComponent registrations, err(%ld)", static_cast<long>(err));
-}
 
 #if PLATFORM(MAC)
 void WebProcess::openDirectoryCacheInvalidated(SandboxExtension::Handle&& handle)

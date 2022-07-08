@@ -27,6 +27,7 @@
 
 #if HAVE(IOSURFACE)
 
+#include "ImageBuffer.h"
 #include "ImageBufferCGBackend.h"
 #include "IOSurface.h"
 #include "IOSurfacePool.h"
@@ -86,7 +87,7 @@ protected:
 
     std::unique_ptr<IOSurface> m_surface;
     mutable bool m_requiresDrawAfterPutPixelBuffer { false };
-
+    mutable bool m_mayHaveOutstandingBackingStoreReferences { false };
     mutable bool m_needsSetupContext { false };
     VolatilityState m_volatilityState { VolatilityState::NonVolatile };
 

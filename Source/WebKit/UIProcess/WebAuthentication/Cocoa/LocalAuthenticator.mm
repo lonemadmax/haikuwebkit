@@ -200,7 +200,7 @@ static Vector<AuthenticatorTransport> transports()
 {
     Vector<WebCore::AuthenticatorTransport> transports = { WebCore::AuthenticatorTransport::Internal };
     if (shouldUpdateQuery())
-        transports.append(WebCore::AuthenticatorTransport::Cable);
+        transports.append(WebCore::AuthenticatorTransport::Hybrid);
     return transports;
 }
 
@@ -262,19 +262,7 @@ void LocalAuthenticator::makeCredential()
             ASSERT(rawId);
             return excludeCredentialIds.contains(base64EncodeToString(rawId->data(), rawId->byteLength()));
         })) {
-            // Obtain consent per Step 3.1
-            auto callback = [weakThis = WeakPtr { *this }] (LocalAuthenticatorPolicy policy) {
-                RELEASE_ASSERT(RunLoop::isMain());
-                if (!weakThis)
-                    return;
-
-                if (policy == LocalAuthenticatorPolicy::Allow)
-                    weakThis->receiveException({ InvalidStateError, "At least one credential matches an entry of the excludeCredentials list in the platform attached authenticator."_s }, WebAuthenticationStatus::LAExcludeCredentialsMatched);
-                else
-                    weakThis->receiveException({ NotAllowedError, "This request has been cancelled by the user."_s });
-            };
-            // Similar to below, consent has already been given.
-            observer()->decidePolicyForLocalAuthenticator(WTFMove(callback));
+            receiveException({ InvalidStateError, "At least one credential matches an entry of the excludeCredentials list in the platform attached authenticator."_s }, WebAuthenticationStatus::LAExcludeCredentialsMatched);
             return;
         }
     }
@@ -316,6 +304,19 @@ void LocalAuthenticator::continueMakeCredentialAfterReceivingLAContext(LAContext
         weakThis->continueMakeCredentialAfterUserVerification(accessControl.get(), verification, context.get());
     };
     m_connection->verifyUser(accessControlRef, context, WTFMove(callback));
+}
+
+void LocalAuthenticator::processClientExtensions(std::variant<Ref<AuthenticatorAttestationResponse>, Ref<AuthenticatorAssertionResponse>> response)
+{
+    WTF::switchOn(response, [&](const Ref<AuthenticatorAttestationResponse>& response) {
+        auto& creationOptions = std::get<PublicKeyCredentialCreationOptions>(requestData().options);
+        if (creationOptions.extensions && creationOptions.extensions->credProps) {
+            auto extensionOutputs = response->extensions();
+            
+            extensionOutputs.credProps = AuthenticationExtensionsClientOutputs::CredentialPropertiesOutput { true /* rk */ };
+            response->setExtensions(WTFMove(extensionOutputs));
+        }
+    }, [&](const Ref<AuthenticatorAssertionResponse>& options) { });
 }
 
 void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessControlRef accessControlRef, LocalConnection::UserVerification verification, LAContext *context)
@@ -415,7 +416,9 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
 
         auto authData = buildAuthData(creationOptions.rp.id, flags, counter, buildAttestedCredentialData(Vector<uint8_t>(aaguidLength, 0), credentialId, cosePublicKey));
         auto attestationObject = buildAttestationObject(WTFMove(authData), String { emptyString() }, { }, AttestationConveyancePreference::None);
-        receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform, transports()));
+        auto response = AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform, transports());
+        processClientExtensions(response);
+        receiveRespond(WTFMove(response));
         return;
     }
 
@@ -461,7 +464,9 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(Vector<uint8_t>&& c
     auto attestationObject = buildAttestationObject(WTFMove(authData), "apple"_s, WTFMove(attestationStatementMap), creationOptions.attestation);
 
     deleteDuplicateCredential();
-    receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform, transports()));
+    auto response = AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform, transports());
+    processClientExtensions(response);
+    receiveRespond(WTFMove(response));
 }
 
 void LocalAuthenticator::getAssertion()
@@ -622,6 +627,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
     // Step 13.
     response->setAuthenticatorData(WTFMove(authData));
     response->setSignature(toArrayBuffer((NSData *)signature.get()));
+    processClientExtensions(response);
     receiveRespond(WTFMove(response));
 }
 
@@ -664,15 +670,14 @@ void LocalAuthenticator::deleteDuplicateCredential() const
         if (memcmp(userHandle->data(), creationOptions.user.id.data(), userHandle->byteLength()))
             return false;
 
-        auto query = adoptNS([[NSMutableDictionary alloc] init]);
-        [query setDictionary:@{
+        NSDictionary *query = @{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrApplicationLabel: toNSData(credential->rawId()).get(),
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
             (id)kSecUseDataProtectionKeychain: @YES
-        }];
-        updateQueryIfNecessary(query.get());
+        };
 
-        OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query.get());
+        OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query);
         if (status && status != errSecItemNotFound)
             LOG_ERROR(makeString("Couldn't delete older credential: "_s, status).utf8().data());
         return true;

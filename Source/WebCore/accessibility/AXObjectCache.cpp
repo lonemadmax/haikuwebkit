@@ -107,7 +107,6 @@
 #include "RenderTableCell.h"
 #include "RenderTableRow.h"
 #include "RenderView.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGElement.h"
 #include "ScriptDisallowedScope.h"
 #include "ScrollView.h"
@@ -222,7 +221,6 @@ AXObjectCache::AXObjectCache(Document& document)
     , m_notificationPostTimer(*this, &AXObjectCache::notificationPostTimerFired)
     , m_passwordNotificationPostTimer(*this, &AXObjectCache::passwordNotificationPostTimerFired)
     , m_liveRegionChangedPostTimer(*this, &AXObjectCache::liveRegionChangedNotificationPostTimerFired)
-    , m_focusModalNodeTimer(*this, &AXObjectCache::focusModalNodeTimerFired)
     , m_currentModalElement(nullptr)
     , m_performCacheUpdateTimer(*this, &AXObjectCache::performCacheUpdateTimerFired)
 {
@@ -240,7 +238,6 @@ AXObjectCache::~AXObjectCache()
 {
     m_notificationPostTimer.stop();
     m_liveRegionChangedPostTimer.stop();
-    m_focusModalNodeTimer.stop();
     m_performCacheUpdateTimer.stop();
 
     for (const auto& object : m_objects.values())
@@ -296,11 +293,24 @@ bool AXObjectCache::modalElementHasAccessibleContent(Element& element)
     return false;
 }
 
-Element* AXObjectCache::currentModalNode()
+void AXObjectCache::updateCurrentModalNode()
+{
+    auto* previousModal = m_currentModalElement.get();
+    m_currentModalElement = updateCurrentModalNodeInternal();
+    if (previousModal != m_currentModalElement.get()) {
+        childrenChanged(rootWebArea());
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+        // Because the presence of a modal affects every element on the page,
+        // regenerate the entire isolated tree with the next cache update.
+        m_deferredRegenerateIsolatedTree = true;
+#endif
+    }
+}
+
+Element* AXObjectCache::updateCurrentModalNodeInternal()
 {
     // There might be multiple modal dialog nodes.
     // We use this function to pick the one we want.
-    m_currentModalElement = nullptr;
     if (m_modalElementsSet.isEmpty())
         return nullptr;
 
@@ -325,17 +335,11 @@ Element* AXObjectCache::currentModalNode()
         if (!isNodeVisible(element) || !modalElementHasAccessibleContent(*element))
             continue;
 
-        if (focusedElement && focusedElement->isDescendantOf(element)) {
-            m_currentModalElement = element;
-            break;
-        }
         lastVisible = element;
+        if (focusedElement && focusedElement->isDescendantOf(element))
+            break;
     }
-
-    if (!m_currentModalElement)
-        m_currentModalElement = lastVisible.get();
-
-    return m_currentModalElement.get();
+    return lastVisible.get();
 }
 
 bool AXObjectCache::isNodeVisible(Node* node) const
@@ -385,7 +389,8 @@ Node* AXObjectCache::modalNode()
         return m_currentModalElement.get();
 
     // Recompute the valid aria modal node when m_currentModalElement is null or hidden.
-    return currentModalNode();
+    updateCurrentModalNode();
+    return m_currentModalElement.get();
 }
 
 AccessibilityObject* AXObjectCache::focusedImageMapUIElement(HTMLAreaElement* areaElement)
@@ -950,10 +955,14 @@ Vector<RefPtr<AXCoreObject>> AXObjectCache::objectsForIDs(const Vector<AXID>& ax
 {
     ASSERT(isMainThread());
 
-    return axIDs.map([this] (const auto& axID) -> RefPtr<AXCoreObject> {
-        ASSERT(axID.isValid());
-        return objectFromAXID(axID);
-    });
+    Vector<RefPtr<AXCoreObject>> result;
+    result.reserveInitialCapacity(axIDs.size());
+    for (auto& axID : axIDs) {
+        if (auto* object = objectForID(axID))
+            result.uncheckedAppend(object);
+    }
+    result.shrinkToFit();
+    return result;
 }
 
 AXID AXObjectCache::getAXID(AccessibilityObject* obj)
@@ -973,18 +982,14 @@ AXID AXObjectCache::getAXID(AccessibilityObject* obj)
     return objID;
 }
 
-void AXObjectCache::textChanged(Node* node)
+void AXObjectCache::handleTextChanged(AccessibilityObject* object)
 {
-    textChanged(getOrCreate(node));
-}
-
-void AXObjectCache::textChanged(AccessibilityObject* object)
-{
-    AXTRACE("AXObjectCache::textChanged"_s);
+    AXTRACE("AXObjectCache::handleTextChanged"_s);
     AXLOG(object);
 
     if (!object)
         return;
+
     Ref<AccessibilityObject> protectedObject(*object);
 
     // If this element supports ARIA live regions, or is part of a region with an ARIA editable role,
@@ -1118,6 +1123,12 @@ void AXObjectCache::deferNodeAddedOrRemoved(Node* node)
         return;
 
     m_deferredNodeAddedOrRemovedList.add(node);
+
+    if (is<Element>(node)) {
+        auto* changedElement = downcast<Element>(node);
+        if (isModalElement(*changedElement))
+            deferModalChange(changedElement);
+    }
 
     if (!m_performCacheUpdateTimer.isActive())
         m_performCacheUpdateTimer.startOneShot(0_s);
@@ -1351,12 +1362,14 @@ void AXObjectCache::deferModalChange(Element* element)
         m_performCacheUpdateTimer.startOneShot(0_s);
 }
     
-void AXObjectCache::handleFocusedUIElementChanged(Node* oldNode, Node* newNode)
+void AXObjectCache::handleFocusedUIElementChanged(Node* oldNode, Node* newNode, UpdateModal updateModal)
 {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     setIsolatedTreeFocusedObject(newNode);
 #endif
 
+    if (updateModal == UpdateModal::Yes)
+        updateCurrentModalNode();
     handleMenuItemSelected(newNode);
     platformHandleFocusedUIElementChanged(oldNode, newNode);
 }
@@ -1759,21 +1772,17 @@ static AccessibilityObject* firstFocusableChild(AccessibilityObject* obj)
     return nullptr;
 }
 
-void AXObjectCache::focusModalNode()
-{
-    if (m_focusModalNodeTimer.isActive())
-        m_focusModalNodeTimer.stop();
-    
-    m_focusModalNodeTimer.startOneShot(0_s);
-}
-
-void AXObjectCache::focusModalNodeTimerFired()
+void AXObjectCache::focusCurrentModal()
 {
     if (!m_document.hasLivingRenderTree())
         return;
 
     Ref<Document> protectedDocument(m_document);
     if (!nodeAndRendererAreValid(m_currentModalElement.get()) || !isNodeVisible(m_currentModalElement.get()))
+        return;
+
+    // Don't focus the current modal if focus has been requested to be put elsewhere (e.g. via JS).
+    if (!m_deferredFocusedNodeChange.isEmpty())
         return;
     
     // Don't set focus if we are already focusing onto some element within
@@ -1903,9 +1912,8 @@ void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element
     if (attrName == roleAttr) {
         if (auto* axObject = get(element))
             axObject->updateRole();
-    }
-    else if (attrName == altAttr || attrName == titleAttr)
-        textChanged(element);
+    } else if (attrName == altAttr || attrName == titleAttr)
+        handleTextChanged(getOrCreate(element));
     else if (attrName == disabledAttr)
         postNotification(element, AXObjectCache::AXDisabledStateChanged);
     else if (attrName == forAttr && is<HTMLLabelElement>(*element))
@@ -1915,6 +1923,8 @@ void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     else if (attrName == langAttr)
         updateIsolatedTree(get(element), AXObjectCache::AXLanguageChanged);
+    else if (attrName == placeholderAttr)
+        postNotification(element, AXPlaceholderChanged);
     else if (attrName == idAttr) {
         relationsNeedUpdate(true);
         updateIsolatedTree(get(element), AXObjectCache::AXIdAttributeChanged);
@@ -1930,22 +1940,49 @@ void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element
 
     if (attrName == aria_activedescendantAttr)
         handleActiveDescendantChanged(*element);
+    else if (attrName == aria_atomicAttr)
+        postNotification(element, AXIsAtomicChanged);
     else if (attrName == aria_busyAttr)
         postNotification(element, AXObjectCache::AXElementBusyChanged);
     else if (attrName == aria_valuenowAttr || attrName == aria_valuetextAttr)
         postNotification(element, AXObjectCache::AXValueChanged);
     else if (attrName == aria_labelAttr || attrName == aria_labeledbyAttr || attrName == aria_labelledbyAttr)
-        textChanged(element);
+        handleTextChanged(getOrCreate(element));
     else if (attrName == aria_checkedAttr)
         checkedStateChanged(element);
     else if (attrName == aria_describedbyAttr)
         postNotification(element, AXDescribedByChanged);
     else if (attrName == aria_grabbedAttr)
         postNotification(element, AXGrabbedStateChanged);
+    else if (attrName == aria_levelAttr)
+        postNotification(element, AXLevelChanged);
+    else if (attrName == aria_liveAttr)
+        postNotification(element, AXLiveRegionStatusChanged);
+    else if (attrName == aria_placeholderAttr)
+        postNotification(element, AXPlaceholderChanged);
+    else if (attrName == aria_valuemaxAttr)
+        postNotification(element, AXMaximumValueChanged);
+    else if (attrName == aria_valueminAttr)
+        postNotification(element, AXMinimumValueChanged);
+    else if (attrName == aria_multilineAttr) {
+        if (auto* axObject = get(element)) {
+            // The role of textarea and textfield objects is dependent on whether they can span multiple lines, so recompute it here.
+            if (axObject->roleValue() == AccessibilityRole::TextArea || axObject->roleValue() == AccessibilityRole::TextField)
+                axObject->updateRole();
+        }
+    }
+    else if (attrName == aria_multiselectableAttr)
+        postNotification(element, AXMultiSelectableStateChanged);
+    else if (attrName == aria_orientationAttr)
+        postNotification(element, AXOrientationChanged);
     else if (attrName == aria_posinsetAttr)
         postNotification(element, AXPositionInSetChanged);
+    else if (attrName == aria_relevantAttr)
+        postNotification(element, AXLiveRegionRelevantChanged);
     else if (attrName == aria_selectedAttr)
         selectedStateChanged(element);
+    else if (attrName == aria_setsizeAttr)
+        postNotification(element, AXSetSizeChanged);
     else if (attrName == aria_expandedAttr)
         handleAriaExpandedChange(element);
     else if (attrName == aria_haspopupAttr)
@@ -1977,34 +2014,6 @@ void AXObjectCache::handleAttributeChange(const QualifiedName& attrName, Element
         handleRowCountChanged(get(element), element ? &element->document() : nullptr);
     else if (attrName == aria_sortAttr)
         postNotification(element, AXObjectCache::AXSortDirectionChanged);
-}
-
-void AXObjectCache::handleModalChange(Element& element)
-{
-    if (!is<HTMLDialogElement>(element) && !nodeHasRole(&element, "dialog"_s) && !nodeHasRole(&element, "alertdialog"_s))
-        return;
-
-    stopCachingComputedObjectAttributes();
-
-    if (!m_modalNodesInitialized)
-        findModalNodes();
-
-    if (isModalElement(element)) {
-        // Add the newly modified node to the modal nodes set.
-        // We will recompute the current valid aria modal node in modalNode() when this node is not visible.
-        m_modalElementsSet.add(&element);
-    } else {
-        // Remove the node from the modal nodes set.
-        m_modalElementsSet.remove(&element);
-    }
-
-    // Find new active modal node.
-    currentModalNode();
-
-    if (m_currentModalElement)
-        focusModalNode();
-
-    startCachingComputedObjectAttributesUntilTreeMutates();
 }
 
 void AXObjectCache::labelChanged(Element* element)
@@ -3368,7 +3377,7 @@ void AXObjectCache::performDeferredCacheUpdate()
     processDeferredChildrenChangedList();
 
     for (auto* node : m_deferredTextChangedList)
-        textChanged(node);
+        handleTextChanged(getOrCreate(node));
     m_deferredTextChangedList.clear();
 
     m_deferredRecomputeIsIgnoredList.forEach([this] (auto& element) {
@@ -3393,22 +3402,59 @@ void AXObjectCache::performDeferredCacheUpdate()
     m_deferredAttributeChange.clear();
     
     for (auto& deferredFocusedChangeContext : m_deferredFocusedNodeChange) {
-        handleFocusedUIElementChanged(deferredFocusedChangeContext.first, deferredFocusedChangeContext.second);
+        // Don't recompute the active modal for each individal focus change, as that could cause a lot of expensive tree rebuilding. Instead, we do it once below.
+        handleFocusedUIElementChanged(deferredFocusedChangeContext.first, deferredFocusedChangeContext.second, UpdateModal::No);
         // Recompute isIgnored after a focus change in case that altered visibility.
         recomputeIsIgnored(deferredFocusedChangeContext.first);
         recomputeIsIgnored(deferredFocusedChangeContext.second);
     }
+    bool updatedFocusedElement = !m_deferredFocusedNodeChange.isEmpty();
+    // If we changed the focused element, that could affect what modal should be active, so recompute it.
+    bool shouldRecomputeModal = updatedFocusedElement;
     m_deferredFocusedNodeChange.clear();
 
-    m_deferredModalChangedList.forEach([this] (auto& deferredModalChangedElement) {
-        handleModalChange(deferredModalChangedElement);
-    });
+    for (auto& element : m_deferredModalChangedList) {
+        if (!is<HTMLDialogElement>(element) && !nodeHasRole(&element, "dialog"_s) && !nodeHasRole(&element, "alertdialog"_s))
+            continue;
+
+        shouldRecomputeModal = true;
+        if (!m_modalNodesInitialized)
+            findModalNodes();
+
+        if (isModalElement(element)) {
+            // Add the newly modified node to the modal nodes set.
+            // We will recompute the current valid aria modal node in modalNode() when this node is not visible.
+            m_modalElementsSet.add(&element);
+        } else
+            m_modalElementsSet.remove(&element);
+    }
     m_deferredModalChangedList.clear();
+
+    if (shouldRecomputeModal) {
+        updateCurrentModalNode();
+        // "When a modal element is displayed, assistive technologies SHOULD navigate to the element unless focus has explicitly been set elsewhere."
+        // `updatedFocusedElement` indicates focus was explicitly set elsewhere, so don't autofocus into the modal.
+        // https://w3c.github.io/aria/#aria-modal
+        if (!updatedFocusedElement)
+            focusCurrentModal();
+    }
 
     m_deferredMenuListChange.forEach([this] (auto& element) {
         handleMenuListValueChanged(element);
     });
     m_deferredMenuListChange.clear();
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (m_deferredRegenerateIsolatedTree && m_pageID) {
+        if (auto tree = AXIsolatedTree::treeForPageID(*m_pageID)) {
+            if (auto* webArea = rootWebArea()) {
+                AXLOG("Regenerating isolated tree from AXObjectCache::performDeferredCacheUpdate().");
+                tree->generateSubtree(*webArea);
+            }
+        }
+    }
+    m_deferredRegenerateIsolatedTree = false;
+#endif
 
     platformPerformDeferredCacheUpdate();
 }
@@ -3485,6 +3531,17 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         case AXExpandedChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsExpanded);
             break;
+        case AXMaximumValueChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::MaxValueForRange);
+            tree->updateNodeProperty(*notification.first, AXPropertyName::ValueForRange);
+            break;
+        case AXMinimumValueChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::MinValueForRange);
+            tree->updateNodeProperty(*notification.first, AXPropertyName::ValueForRange);
+            break;
+        case AXOrientationChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::Orientation);
+            break;
         case AXPositionInSetChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::PosInSet);
             tree->updateNodeProperty(*notification.first, AXPropertyName::SupportsPosInSet);
@@ -3505,6 +3562,10 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         case AXSelectedStateChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsSelected);
             break;
+        case AXSetSizeChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::SetSize);
+            tree->updateNodeProperty(*notification.first, AXPropertyName::SupportsSetSize);
+            break;
         case AXActiveDescendantChanged:
         case AXAriaRoleChanged:
         case AXDescribedByChanged:
@@ -3512,18 +3573,24 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         case AXGrabbedStateChanged:
         case AXHasPopupChanged:
         case AXInvalidStatusChanged:
+        case AXIsAtomicChanged:
+        case AXLevelChanged:
+        case AXLiveRegionStatusChanged:
+        case AXLiveRegionRelevantChanged:
+        case AXPlaceholderChanged:
         case AXMenuListValueChanged:
+        case AXMultiSelectableStateChanged:
         case AXPressedStateChanged:
         case AXSelectedChildrenChanged:
         case AXTextChanged:
         case AXValueChanged:
             updateNode(notification.first);
             break;
+        case AXLanguageChanged:
         case AXRowCountChanged:
             updateNode(notification.first);
             FALLTHROUGH;
         case AXChildrenChanged:
-        case AXLanguageChanged:
         case AXRowCollapsed:
         case AXRowExpanded: {
             auto updatedFields = updatedObjects.get(notification.first->objectID());
@@ -3569,7 +3636,7 @@ void AXObjectCache::deferTextChangedIfNeeded(Node* node)
         m_deferredTextChangedList.add(node);
         return;
     }
-    textChanged(node);
+    handleTextChanged(getOrCreate(node));
 }
 
 void AXObjectCache::deferSelectedChildrenChangedIfNeeded(Element& selectElement)
@@ -3649,7 +3716,7 @@ AXTreeData AXObjectCache::treeData()
 
     stream << "\nAXObjectTree:\n";
     if (auto* root = get(document().view())) {
-        constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::ParentID, AXStreamOptions::Role };
+        constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::ParentID, AXStreamOptions::Role, AXStreamOptions::OuterHTML };
         streamSubtree(stream, root, options);
     } else
         stream << "No root!";
@@ -3784,6 +3851,7 @@ void AXObjectCache::addRelation(AccessibilityObject* origin, AccessibilityObject
         }
         targetsIterator->value.append(target->objectID());
     }
+    m_relationTargets.add(target->objectID());
 
     if (addingSymmetricRelation == AddingSymmetricRelation::No) {
         if (auto symmetric = symmetricRelation(relationType); symmetric != AXRelationType::None)
@@ -3800,6 +3868,7 @@ void AXObjectCache::updateRelationsIfNeeded()
     relationsNeedUpdate(false);
     AXLOG("Updating relations.");
     m_relations.clear();
+    m_relationTargets.clear();
 
     struct RelationOrigin {
         Element* originElement { nullptr };
@@ -3858,6 +3927,12 @@ HashMap<AXID, AXRelations> AXObjectCache::relations()
 {
     updateRelationsIfNeeded();
     return m_relations;
+}
+
+const HashSet<AXID>& AXObjectCache::relationTargetIDs()
+{
+    updateRelationsIfNeeded();
+    return m_relationTargets;
 }
 
 std::optional<Vector<AXID>> AXObjectCache::relatedObjectIDsFor(const AXCoreObject& object, AXRelationType relationType)

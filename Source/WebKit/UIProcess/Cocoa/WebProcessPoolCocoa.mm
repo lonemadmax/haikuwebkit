@@ -54,6 +54,7 @@
 #import "_WKSystemPreferencesInternal.h"
 #import <WebCore/AGXCompilerService.h>
 #import <WebCore/Color.h>
+#import <WebCore/FontCacheCoreText.h>
 #import <WebCore/LocalizedDeviceModel.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/NotImplemented.h>
@@ -89,9 +90,14 @@
 #import <QuartzCore/CARemoteLayerServer.h>
 #import <notify.h>
 #import <notify_keys.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
 #else
 #import "UIKitSPI.h"
+#endif
+
+#if HAVE(POWERLOG_TASK_MODE_QUERY)
+#import <pal/spi/mac/PowerLogSPI.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -220,6 +226,7 @@ static AccessibilityPreferences accessibilityPreferences()
     preferences.darkenSystemColors = _AXDarkenSystemColorsApp(appId.get());
     preferences.invertColorsEnabled = _AXSInvertColorsEnabledApp(appId.get());
 #endif
+    preferences.enhanceTextLegibilityOverall = _AXSEnhanceTextLegibilityEnabled();
     return preferences;
 }
 
@@ -381,7 +388,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     parameters.cssValueToSystemColorMap = RenderThemeIOS::cssValueToSystemColorMap();
     parameters.focusRingColor = RenderThemeIOS::systemFocusRingColor();
     parameters.localizedDeviceModel = localizedDeviceModel();
-    parameters.contentSizeCategory = RenderThemeCocoa::singleton().contentSizeCategory();
+    parameters.contentSizeCategory = contentSizeCategory();
 #endif
 
     parameters.mobileGestaltExtensionHandle = process.createMobileGestaltSandboxExtensionIfNeeded();
@@ -397,9 +404,11 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
         if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
             parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
         parameters.enableDecodingHEIC = true;
+        parameters.enableDecodingAVIF = true;
     }
 #else
     parameters.enableDecodingHEIC = true;
+    parameters.enableDecodingAVIF = true;
 #endif // PLATFORM(MAC)
 #endif // HAVE(VIDEO_RESTRICTED_DECODING)
 
@@ -528,6 +537,14 @@ void WebProcessPool::colorPreferencesDidChangeCallback(CFNotificationCenterRef, 
     if (!pool)
         return;
     pool->sendToAllProcesses(Messages::WebProcess::ColorPreferencesDidChange());
+}
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+void WebProcessPool::hardwareConsoleStateChanged()
+{
+    for (auto& process : m_processes)
+        process->hardwareConsoleStateChanged();
 }
 #endif
 
@@ -702,6 +719,14 @@ void WebProcessPool::registerNotificationObservers()
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     addCFNotificationObserver(mediaAccessibilityPreferencesChangedCallback, kMAXCaptionAppearanceSettingsChangedNotification);
 #endif
+#if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
+    if (kPLTaskingStartNotification) {
+        m_powerLogObserver = [[NSNotificationCenter defaultCenter] addObserverForName:kPLTaskingStartNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *notification) {
+            if (auto* gpuProcess = GPUProcessProxy::singletonIfCreated())
+                gpuProcess->enablePowerLogging();
+        }];
+    }
+#endif // HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
 }
 
 void WebProcessPool::unregisterNotificationObservers()
@@ -752,7 +777,10 @@ void WebProcessPool::unregisterNotificationObservers()
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     removeCFNotificationObserver(kMAXCaptionAppearanceSettingsChangedNotification);
 #endif
-
+#if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
+    if (m_powerLogObserver)
+        [[NSNotificationCenter defaultCenter] removeObserver:m_powerLogObserver.get()];
+#endif
     m_weakObserver = nil;
 }
 
@@ -991,8 +1019,12 @@ void WebProcessPool::setProcessesShouldSuspend(bool shouldSuspend)
 {
     WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "setProcessesShouldSuspend: Processes should suspend %d", shouldSuspend);
 
+    if (m_processesShouldSuspend == shouldSuspend)
+        return;
+
+    m_processesShouldSuspend = shouldSuspend;
     for (auto& process : m_processes)
-        process->throttler().setAllowsActivities(!shouldSuspend);
+        process->throttler().setAllowsActivities(!m_processesShouldSuspend);
 }
 
 #endif
@@ -1049,6 +1081,31 @@ void WebProcessPool::notifyPreferencesChanged(const String& domain, const String
 #endif // ENABLE(CFPREFS_DIRECT_MODE)
 
 #if PLATFORM(MAC)
+static void displayReconfigurationCallBack(CGDirectDisplayID display, CGDisplayChangeSummaryFlags flags, void *userInfo)
+{
+    RunLoop::main().dispatch([display, flags]() {
+        auto screenProperties = WebCore::collectScreenProperties();
+        for (auto& processPool : WebProcessPool::allProcessPools()) {
+            processPool->sendToAllProcesses(Messages::WebProcess::SetScreenProperties(screenProperties));
+            processPool->sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(display, flags));
+            if (auto gpuProcess = processPool->gpuProcess()) {
+                gpuProcess->displayConfigurationChanged(display, flags);
+                gpuProcess->setScreenProperties(screenProperties);
+            }
+        }
+    });
+}
+
+void WebProcessPool::registerDisplayConfigurationCallback()
+{
+    static std::once_flag onceFlag;
+    std::call_once(
+        onceFlag,
+        [] {
+            CGDisplayRegisterReconfigurationCallback(displayReconfigurationCallBack, nullptr);
+        });
+}
+
 static void webProcessPoolHighDynamicRangeDidChangeCallback(CMNotificationCenterRef, const void*, CFStringRef notificationName, const void*, CFTypeRef)
 {
     RunLoop::main().dispatch([] {
@@ -1090,7 +1147,6 @@ void WebProcessPool::systemDidWake()
 {
     sendToAllProcesses(Messages::WebProcess::SystemDidWake());
 }
-
-#endif
+#endif // PLATFORM(MAC)
 
 } // namespace WebKit

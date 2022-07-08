@@ -57,7 +57,6 @@
 #include "RenderStyleConstants.h"
 #include "RenderView.h"
 #include "RuleSet.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElement.h"
 #include "SVGFontFaceElement.h"
@@ -286,10 +285,15 @@ std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, 
         // The animation-composition and animation-timing-function within keyframes are special
         // because they are not animated; they just describe the composite operation and timing
         // function between this keyframe and the next.
-        if (property != CSSPropertyAnimationTimingFunction && property != CSSPropertyAnimationComposition)
+        bool isAnimatableValue = property != CSSPropertyAnimationTimingFunction && property != CSSPropertyAnimationComposition;
+        if (isAnimatableValue)
             keyframeValue.addProperty(property);
-        if (auto* value = propertyReference.value(); value && value->isRevertValue())
-            hasRevert = true;
+        if (auto* value = propertyReference.value()) {
+            if (isAnimatableValue && value->isCustomPropertyValue())
+                keyframeValue.addCustomProperty(downcast<CSSCustomPropertyValue>(*value).name());
+            if (value->isRevertValue())
+                hasRevert = true;
+        }
     }
 
     auto state = State(element, nullptr, context.documentElementStyle);

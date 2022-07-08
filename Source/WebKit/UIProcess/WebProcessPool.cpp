@@ -62,7 +62,6 @@
 #include "WebBackForwardListItem.h"
 #include "WebCertificateInfo.h"
 #include "WebContextSupplement.h"
-#include "WebCookieManagerProxy.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebGeolocationManagerProxy.h"
 #include "WebInspectorUtilities.h"
@@ -130,10 +129,6 @@
 #include <WebCore/MultiGamepadProvider.h>
 #include <WebCore/PowerSourceNotifier.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
-#endif
-
-#if PLATFORM(MAC)
-#include <pal/spi/cg/CoreGraphicsSPI.h>
 #endif
 
 #ifndef NDEBUG
@@ -317,16 +312,6 @@ WebProcessPool::~WebProcessPool()
         ASSERT(process->hasOneRef());
 
         process->shutDown();
-    }
-
-    if (processPools().isEmpty()) {
-        WebsiteDataStore::forEachWebsiteDataStore([](auto& websiteDataStore) {
-            websiteDataStore.removeNetworkProcessReference();
-        });
-        if (auto& networkProcess = NetworkProcessProxy::defaultNetworkProcess()) {
-            ASSERT(networkProcess->hasOneRef());
-            networkProcess = nullptr;
-        }
     }
 }
 
@@ -680,36 +665,15 @@ RefPtr<WebProcessProxy> WebProcessPool::tryTakePrewarmedProcess(WebsiteDataStore
     return std::exchange(m_prewarmedProcess, nullptr).get();
 }
 
-#if PLATFORM(MAC)
-static void displayReconfigurationCallBack(CGDirectDisplayID display, CGDisplayChangeSummaryFlags flags, void *userInfo)
-{
-    auto screenProperties = WebCore::collectScreenProperties();
-    for (auto& processPool : WebProcessPool::allProcessPools()) {
-        processPool->sendToAllProcesses(Messages::WebProcess::SetScreenProperties(screenProperties));
-        processPool->sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(display, flags));
-        if (auto gpuProcess = processPool->gpuProcess()) {
-            gpuProcess->displayConfigurationChanged(display, flags);
-            gpuProcess->setScreenProperties(screenProperties);
-        }
-    }
-}
-
-static void registerDisplayConfigurationCallback()
-{
-    static std::once_flag onceFlag;
-    std::call_once(
-        onceFlag,
-        [] {
-            CGDisplayRegisterReconfigurationCallback(displayReconfigurationCallBack, nullptr);
-        });
-}
-#endif
-
 #if !PLATFORM(MAC)
+void WebProcessPool::registerDisplayConfigurationCallback()
+{
+}
+
 void WebProcessPool::registerHighDynamicRangeChangeCallback()
 {
 }
-#endif
+#endif // !PLATFORM(MAC)
 
 WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebProcessProxy& process, WebsiteDataStore& websiteDataStore)
 {
@@ -912,14 +876,11 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     process.send(Messages::WebProcess::BacklightLevelDidChange(displayBrightness()), 0);
 #endif
 
-#if PLATFORM(COCOA)
+#if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS)
     process.sendAudioComponentRegistrations();
 #endif
 
-#if PLATFORM(MAC)
     registerDisplayConfigurationCallback();
-#endif
-
     registerHighDynamicRangeChangeCallback();
 }
 

@@ -38,6 +38,7 @@
 #import <WebCore/ExceptionData.h>
 #import <WebCore/PublicKeyCredentialCreationOptions.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 #import "AuthenticationServicesCoreSoftLink.h"
 
@@ -156,6 +157,9 @@ static inline RetainPtr<ASCPublicKeyCredentialDescriptor> toASCDescriptor(Public
             case AuthenticatorTransport::Cable:
                 transportString = @"cable";
                 break;
+            case AuthenticatorTransport::Hybrid:
+                transportString = @"hybrid";
+                break;
             }
 
             if (transportString)
@@ -177,10 +181,8 @@ static inline RetainPtr<ASCWebAuthenticationExtensionsClientInputs> toASCExtensi
 static inline void setGlobalFrameIDForContext(RetainPtr<ASCCredentialRequestContext> requestContext, std::optional<WebCore::GlobalFrameIdentifier> globalFrameID)
 {
     if (globalFrameID && [requestContext respondsToSelector:@selector(setGlobalFrameID:)]) {
-        auto ascGlobalFrameID = adoptNS([allocASCGlobalFrameIdentifierInstance() init]);
-        ascGlobalFrameID.get().webFrameID = [NSNumber numberWithUnsignedLong:globalFrameID->frameID.toUInt64()];
-        ascGlobalFrameID.get().webPageID = [NSNumber numberWithUnsignedLong:globalFrameID->pageID.toUInt64()];
-        requestContext.get().globalFrameID = ascGlobalFrameID.get();
+        auto asGlobalFrameID = adoptNS([allocASGlobalFrameIdentifierInstance() initWithPageID:[NSNumber numberWithUnsignedLong:globalFrameID->pageID.toUInt64()] frameID:[NSNumber numberWithUnsignedLong:globalFrameID->frameID.toUInt64()]]);
+        requestContext.get().globalFrameID = asGlobalFrameID.get();
     }
 }
 
@@ -259,18 +261,22 @@ static RetainPtr<ASCCredentialRequestContext> configureRegistrationRequestContex
 
         [credentialCreationOptions setExcludedCredentials:excludedCredentials.get()];
     }
+    
+    if (options.extensions) {
+        if ([credentialCreationOptions respondsToSelector:@selector(setExtensionsCBOR:)])
+            [credentialCreationOptions setExtensionsCBOR:toNSData(options.extensions->toCBOR()).get()];
+        else
+            [credentialCreationOptions setExtensions:toASCExtensions(*options.extensions).get()];
+    }
+
+    if (options.timeout && [credentialCreationOptions respondsToSelector:@selector(setTimeout:)])
+        credentialCreationOptions.get().timeout = [NSNumber numberWithUnsignedInt:*options.timeout];
 
     if (requestTypes & ASCCredentialRequestTypePlatformPublicKeyRegistration)
         [requestContext setPlatformKeyCredentialCreationOptions:credentialCreationOptions.get()];
 
     if (requestTypes & ASCCredentialRequestTypeSecurityKeyPublicKeyRegistration)
         [requestContext setSecurityKeyCredentialCreationOptions:credentialCreationOptions.get()];
-
-    if (options.extensions)
-        [credentialCreationOptions setExtensions:toASCExtensions(*options.extensions).get()];
-
-    if (options.timeout && [credentialCreationOptions respondsToSelector:@selector(setTimeout:)])
-        credentialCreationOptions.get().timeout = [NSNumber numberWithUnsignedInt:*options.timeout];
 
     return requestContext;
 }
@@ -285,8 +291,12 @@ static inline RetainPtr<ASCPublicKeyCredentialAssertionOptions> configureAsserti
         auto challenge = WebCore::toNSData(options.challenge);
         [assertionOptions initWithKind:kind relyingPartyIdentifier:options.rpId challenge:challenge.get() userVerificationPreference:userVerification.get() allowedCredentials:allowedCredentials.get()];
     }
-    if (options.extensions)
-        [assertionOptions setExtensions:toASCExtensions(*options.extensions).get()];
+    if (options.extensions) {
+        if ([assertionOptions respondsToSelector:@selector(setExtensionsCBOR:)])
+            [assertionOptions setExtensionsCBOR:toNSData(options.extensions->toCBOR()).get()];
+        else
+            [assertionOptions setExtensions:toASCExtensions(*options.extensions).get()];
+    }
     if (parentOrigin && [assertionOptions respondsToSelector:@selector(setDestinationSiteForCrossSiteAssertion:)])
         assertionOptions.get().destinationSiteForCrossSiteAssertion = parentOrigin->toString();
     else if (parentOrigin && ![assertionOptions respondsToSelector:@selector(setDestinationSiteForCrossSiteAssertion:)])
@@ -355,6 +365,13 @@ static Vector<WebCore::AuthenticatorTransport> toAuthenticatorTransports(NSArray
     return transports;
 }
 
+static std::optional<AuthenticationExtensionsClientOutputs> toExtensionOutputs(NSData *extensionOutputsCBOR)
+{
+    if (!extensionOutputsCBOR)
+        return std::nullopt;
+    return AuthenticationExtensionsClientOutputs::fromCBOR(vectorFromNSData(extensionOutputsCBOR));
+}
+
 RetainPtr<ASCCredentialRequestContext> WebAuthenticatorCoordinatorProxy::contextForRequest(WebAuthenticationRequestData&& requestData)
 {
     RetainPtr<ASCCredentialRequestContext> result;
@@ -381,6 +398,8 @@ static inline void continueAfterRequest(RetainPtr<id <ASCCredentialProtocol>> cr
         response.attestationObject = toArrayBuffer(registrationCredential.attestationObject);
         if ([registrationCredential respondsToSelector:@selector(transports)])
             response.transports = toAuthenticatorTransports(registrationCredential.transports);
+        if ([registrationCredential respondsToSelector:@selector(extensionOutputsCBOR)])
+            response.extensionOutputs = toExtensionOutputs(registrationCredential.extensionOutputsCBOR);
     } else if ([credential isKindOfClass:getASCSecurityKeyPublicKeyCredentialRegistrationClass()]) {
         attachment = AuthenticatorAttachment::CrossPlatform;
         response.isAuthenticatorAttestationResponse = true;
@@ -390,6 +409,8 @@ static inline void continueAfterRequest(RetainPtr<id <ASCCredentialProtocol>> cr
         response.attestationObject = toArrayBuffer(registrationCredential.attestationObject);
         if ([registrationCredential respondsToSelector:@selector(transports)])
             response.transports = toAuthenticatorTransports(registrationCredential.transports);
+        if ([registrationCredential respondsToSelector:@selector(extensionOutputsCBOR)])
+            response.extensionOutputs = toExtensionOutputs(registrationCredential.extensionOutputsCBOR);
     } else if ([credential isKindOfClass:getASCPlatformPublicKeyCredentialAssertionClass()]) {
         attachment = AuthenticatorAttachment::Platform;
         response.isAuthenticatorAttestationResponse = false;
@@ -399,6 +420,8 @@ static inline void continueAfterRequest(RetainPtr<id <ASCCredentialProtocol>> cr
         response.authenticatorData = toArrayBuffer(assertionCredential.authenticatorData);
         response.signature = toArrayBuffer(assertionCredential.signature);
         response.userHandle = toArrayBuffer(assertionCredential.userHandle);
+        if ([assertionCredential respondsToSelector:@selector(extensionOutputsCBOR)])
+            response.extensionOutputs = toExtensionOutputs(assertionCredential.extensionOutputsCBOR);
     } else if ([credential isKindOfClass:getASCSecurityKeyPublicKeyCredentialAssertionClass()]) {
         attachment = AuthenticatorAttachment::CrossPlatform;
         response.isAuthenticatorAttestationResponse = false;
@@ -408,6 +431,8 @@ static inline void continueAfterRequest(RetainPtr<id <ASCCredentialProtocol>> cr
         response.authenticatorData = toArrayBuffer(assertionCredential.authenticatorData);
         response.signature = toArrayBuffer(assertionCredential.signature);
         response.userHandle = toArrayBuffer(assertionCredential.userHandle);
+        if ([assertionCredential respondsToSelector:@selector(extensionOutputsCBOR)])
+            response.extensionOutputs = toExtensionOutputs(assertionCredential.extensionOutputsCBOR);
     } else {
         attachment = (AuthenticatorAttachment) 0;
         ExceptionCode exceptionCode;

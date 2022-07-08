@@ -45,7 +45,6 @@
 #include "Quirks.h"
 #include "RenderElement.h"
 #include "RenderStyle.h"
-#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "StyleAdjuster.h"
@@ -199,6 +198,7 @@ auto TreeResolver::computeDescendantsToResolve(Change change, Validity validity,
     case Change::FastPathInherited:
     case Change::Inherited:
         return DescendantsToResolve::Children;
+    case Change::Descendants:
     case Change::Renderer:
         return DescendantsToResolve::All;
     };
@@ -576,7 +576,9 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(std::unique_ptr<RenderSt
     auto& document = element.document();
     auto* oldStyle = element.renderOrDisplayContentsStyle(styleable.pseudoId);
 
-    OptionSet<AnimationImpact> animationImpact;
+    // FIXME: Something like this is also needed for viewport units.
+    if (oldStyle && parent().needsUpdateQueryContainerDependentStyle)
+        styleable.queryContainerDidChange();
 
     // First, we need to make sure that any new CSS animation occuring on this element has a matching WebAnimation
     // on the document timeline.
@@ -590,6 +592,8 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(std::unique_ptr<RenderSt
         if ((oldStyle && oldStyle->hasAnimations()) || newStyle->hasAnimations())
             styleable.updateCSSAnimations(oldStyle, *newStyle, resolutionContext);
     }
+
+    OptionSet<AnimationImpact> animationImpact;
 
     // Now we can update all Web animations, which will include CSS Animations as well
     // as animations created via the JS API.
@@ -625,6 +629,8 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(std::unique_ptr<RenderSt
 void TreeResolver::pushParent(Element& element, const RenderStyle& style, Change change, DescendantsToResolve descendantsToResolve)
 {
     scope().selectorMatchingState.selectorFilter.pushParent(&element);
+    if (style.containerType() != ContainerType::None)
+        scope().selectorMatchingState.queryContainers.append(element);
 
     Parent parent(element, style, change, descendantsToResolve);
 
@@ -637,6 +643,9 @@ void TreeResolver::pushParent(Element& element, const RenderStyle& style, Change
         parent.didPushScope = true;
     }
 
+    parent.needsUpdateQueryContainerDependentStyle = m_parentStack.last().needsUpdateQueryContainerDependentStyle || element.needsUpdateQueryContainerDependentStyle();
+    element.clearNeedsUpdateQueryContainerDependentStyle();
+
     m_parentStack.append(WTFMove(parent));
 }
 
@@ -645,7 +654,9 @@ void TreeResolver::popParent()
     auto& parentElement = *parent().element;
 
     parentElement.setHasValidStyle();
-    parentElement.clearChildNeedsStyleRecalc();
+    // Don't clear the child flags if there are unresolved containers because we are going to resume the style resolution.
+    if (!hasUnresolvedQueryContainers())
+        parentElement.clearChildNeedsStyleRecalc();
 
     if (parent().didPushScope)
         popScope();
@@ -834,10 +845,21 @@ void TreeResolver::resolveComposedTree()
         if (!style)
             resetStyleForNonRenderedDescendants(element);
 
-        bool shouldIterateChildren = style && (element.childNeedsStyleRecalc() || descendantsToResolve != DescendantsToResolve::None);
+        auto queryContainerAction = determineQueryContainerAction(element, style, previousContainerType);
 
-        if (style && updateQueryContainer(element, *style, previousContainerType) == QueryContainerAction::Layout)
-            shouldIterateChildren = false;
+        bool shouldIterateChildren = [&] {
+            // display::none, no need to resolve descendants.
+            if (!style)
+                return false;
+            // Style resolution will be resumed after the container has been resolved.
+            if (queryContainerAction == QueryContainerAction::Resolve)
+                return false;
+            return element.childNeedsStyleRecalc() || descendantsToResolve != DescendantsToResolve::None;
+        }();
+
+        // Ensure we respect DescendantsToResolve::All after resuming the style resolution.
+        if (queryContainerAction == QueryContainerAction::Resolve && descendantsToResolve == DescendantsToResolve::All)
+            element.invalidateStyleForSubtreeInternal();
 
         if (!m_didSeePendingStylesheet)
             m_didSeePendingStylesheet = hasLoadingStylesheet(m_document.styleScope(), element, !shouldIterateChildren);
@@ -860,38 +882,33 @@ void TreeResolver::resolveComposedTree()
     popParentsToDepth(1);
 }
 
-auto TreeResolver::updateQueryContainer(Element& element, const RenderStyle& style, ContainerType previousContainerType) -> QueryContainerAction
+auto TreeResolver::determineQueryContainerAction(const Element& element, const RenderStyle* style, ContainerType previousContainerType) -> QueryContainerAction
 {
-    if (style.containerType() != ContainerType::None)
-        scope().selectorMatchingState.queryContainers.append(element);
-
-    if (m_unresolvedQueryContainers.remove(&element))
-        return QueryContainerAction::Continue;
-
-    // Render tree needs to be updated before proceeding to children also if we have a former query container
-    // because container query resolution for descendants relies on it being up-to-date.
-    if (style.containerType() == ContainerType::None && previousContainerType == ContainerType::None)
+    if (!style)
         return QueryContainerAction::None;
 
-    if (m_update->isEmpty())
-        return QueryContainerAction::Continue;
+    // FIXME: Render tree needs to be updated before proceeding to children also if we have a former query container
+    // because container unit resolution for descendants relies on it being up-to-date.
+    if (style->containerType() == ContainerType::None && previousContainerType == ContainerType::None)
+        return QueryContainerAction::None;
 
-    // Bail out from TreeResolver to build a render tree and do a layout. Resolution continues after.
-    m_unresolvedQueryContainers.add(&element);
-    return QueryContainerAction::Layout;
+    if (m_resolvedQueryContainers.contains(element))
+        return QueryContainerAction::None;
+
+    m_unresolvedQueryContainers.append(element);
+    return QueryContainerAction::Resolve;
 }
 
 std::unique_ptr<Update> TreeResolver::resolve()
 {
+    m_resolvedQueryContainers.add(m_unresolvedQueryContainers.begin(), m_unresolvedQueryContainers.end());
+    m_unresolvedQueryContainers.clear();
+
     Element* documentElement = m_document.documentElement();
     if (!documentElement) {
         m_document.styleScope().resolver();
         return nullptr;
     }
-
-    // FIXME: Just need to restore the ancestor marking.
-    for (auto& queryContainer : m_unresolvedQueryContainers)
-        queryContainer->invalidateStyleForSubtreeInternal();
 
     if (!documentElement->childNeedsStyleRecalc() && !documentElement->needsStyleRecalc())
         return WTFMove(m_update);

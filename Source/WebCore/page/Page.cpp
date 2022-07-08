@@ -47,6 +47,7 @@
 #include "DatabaseProvider.h"
 #include "DebugOverlayRegions.h"
 #include "DebugPageOverlays.h"
+#include "DeprecatedGlobalSettings.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "DisplayRefreshMonitorManager.h"
@@ -128,7 +129,6 @@
 #include "RenderingUpdateScheduler.h"
 #include "ResizeObserver.h"
 #include "ResourceUsageOverlay.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGImage.h"
 #include "ScriptController.h"
@@ -337,6 +337,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_deviceOrientationUpdateProvider(WTFMove(pageConfiguration.deviceOrientationUpdateProvider))
 #endif
     , m_corsDisablingPatterns(WTFMove(pageConfiguration.corsDisablingPatterns))
+    , m_maskedURLSchemes(WTFMove(pageConfiguration.maskedURLSchemes))
     , m_allowedNetworkHosts(WTFMove(pageConfiguration.allowedNetworkHosts))
     , m_loadsSubresources(pageConfiguration.loadsSubresources)
     , m_shouldRelaxThirdPartyCookieBlocking(pageConfiguration.shouldRelaxThirdPartyCookieBlocking)
@@ -437,9 +438,7 @@ void Page::firstTimeInitialization()
     platformStrategies()->loaderStrategy()->addOnlineStateChangeListener(&networkStateChanged);
 
     FontCache::registerFontCacheInvalidationCallback([] {
-        forEachPage([](auto& page) {
-            page.setNeedsRecalcStyleInAllFrames();
-        });
+        updateStyleForAllPagesAfterGlobalChangeInEnvironment();
     });
 }
 
@@ -1719,7 +1718,7 @@ void Page::doAfterUpdateRendering()
     // layout to be up-to-date. It should not run script, trigger layout, or dirty layout.
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextEnabled()) {
+    if (DeprecatedGlobalSettings::layoutFormattingContextEnabled()) {
         forEachDocument([] (Document& document) {
             if (auto* frameView = document.view())
                 frameView->displayView().prepareForDisplay();
@@ -2684,6 +2683,11 @@ void Page::whenUnnested(Function<void()>&& callback)
     ASSERT(!m_unnestCallback);
 
     m_unnestCallback = WTFMove(callback);
+}
+
+void Page::setCurrentKeyboardScrollingAnimator(KeyboardScrollingAnimator* animator)
+{
+    m_currentKeyboardScrollingAnimator = animator;
 }
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -3751,6 +3755,13 @@ bool Page::shouldDisableCorsForRequestTo(const URL& url) const
     return WTF::anyOf(m_corsDisablingPatterns, [&] (const auto& pattern) {
         return pattern.matches(url);
     });
+}
+
+bool Page::shouldMaskURLForBindings(const URL& url) const
+{
+    if (m_maskedURLSchemes.isEmpty())
+        return false;
+    return m_maskedURLSchemes.contains<StringViewHashTranslator>(url.protocol());
 }
 
 void Page::revealCurrentSelection()

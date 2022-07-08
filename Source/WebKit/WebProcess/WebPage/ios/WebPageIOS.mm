@@ -87,6 +87,8 @@
 #import <WebCore/File.h>
 #import <WebCore/FloatQuad.h>
 #import <WebCore/FocusController.h>
+#import <WebCore/FontCache.h>
+#import <WebCore/FontCacheCoreText.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoaderClient.h>
 #import <WebCore/FrameView.h>
@@ -620,7 +622,7 @@ void WebPage::getStringSelectionForPasteboard(CompletionHandler<void(String&&)>&
     completionHandler({ });
 }
 
-void WebPage::getDataSelectionForPasteboard(const String, CompletionHandler<void(SharedMemory::IPCHandle&&)>&& completionHandler)
+void WebPage::getDataSelectionForPasteboard(const String, CompletionHandler<void(RefPtr<SharedBuffer>&&)>&& completionHandler)
 {
     notImplemented();
     completionHandler({ });
@@ -2416,17 +2418,20 @@ void WebPage::prepareSelectionForContextMenuWithLocationInView(IntPoint point, C
     if (!hitNode)
         return completionHandler(false, { });
 
+    auto sendEditorStateAndCallCompletionHandler = [this, completionHandler = WTFMove(completionHandler)](RevealItem&& item) mutable {
+        layoutIfNeeded();
+        sendEditorStateUpdate();
+        completionHandler(true, WTFMove(item));
+    };
+
     if (is<HTMLImageElement>(*hitNode) && hitNode->hasEditableStyle()) {
         auto range = makeRangeSelectingNode(*hitNode);
-        if (range && frame->selection().setSelectedRange(range, Affinity::Upstream, FrameSelection::ShouldCloseTyping::Yes, UserTriggered)) {
-            layoutIfNeeded();
-            sendEditorStateUpdate();
-            return completionHandler(true, { });
-        }
+        if (range && frame->selection().setSelectedRange(range, Affinity::Upstream, FrameSelection::ShouldCloseTyping::Yes, UserTriggered))
+            return sendEditorStateAndCallCompletionHandler({ });
     }
 
     frame->eventHandler().selectClosestContextualWordOrLinkFromHitTestResult(result, DontAppendTrailingWhitespace);
-    completionHandler(true, { revealItemForCurrentSelection() });
+    sendEditorStateAndCallCompletionHandler(revealItemForCurrentSelection());
 }
 #endif
 
@@ -3654,7 +3659,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
     double visibleHorizontalFraction = 1;
     float relativeHorizontalPositionInNodeAtCenter = 0;
     float relativeVerticalPositionInNodeAtCenter = 0;
-    if (!usesMultitaskingModeViewportBehaviors()) {
+    if (!shouldEnableViewportBehaviorsForResizableWindows()) {
         visibleHorizontalFraction = frameView.unobscuredContentSize().width() / oldContentSize.width();
         IntPoint unobscuredContentRectCenter = frameView.unobscuredContentRect().center();
 
@@ -3694,7 +3699,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
 
     IntSize newContentSize = frameView.contentsSize();
 
-    bool scaleToFitContent = (!usesMultitaskingModeViewportBehaviors() || !wasAtInitialScale) && m_userHasChangedPageScaleFactor;
+    bool scaleToFitContent = (!shouldEnableViewportBehaviorsForResizableWindows() || !wasAtInitialScale) && m_userHasChangedPageScaleFactor;
     double scale = scaleAfterViewportWidthChange(targetScale, scaleToFitContent, m_viewportConfiguration, targetUnobscuredRectInScrollViewCoordinates.width(), newContentSize, oldContentSize, visibleHorizontalFraction);
     FloatRect newUnobscuredContentRect = targetUnobscuredRect;
     FloatRect newExposedContentRect = targetExposedContentRect;
@@ -3710,7 +3715,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
         double newUnobscuredRectHeight = targetUnobscuredRect.height() * scaleDifference;
         double newUnobscuredRectX;
         double newUnobscuredRectY;
-        if (usesMultitaskingModeViewportBehaviors()) {
+        if (shouldEnableViewportBehaviorsForResizableWindows()) {
             newUnobscuredRectX = oldUnobscuredContentRect.x();
             newUnobscuredRectY = oldUnobscuredContentRect.y();
         } else {
@@ -3991,10 +3996,10 @@ bool WebPage::shouldIgnoreMetaViewport() const
     return m_page->settings().shouldIgnoreMetaViewport();
 }
 
-bool WebPage::usesMultitaskingModeViewportBehaviors() const
+bool WebPage::shouldEnableViewportBehaviorsForResizableWindows() const
 {
-#if HAVE(MULTITASKING_MODE)
-    return shouldIgnoreMetaViewport() && m_isInMultitaskingMode;
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+    return shouldIgnoreMetaViewport() && m_isWindowResizingEnabled;
 #else
     return false;
 #endif
@@ -4372,21 +4377,21 @@ void WebPage::drawToPDFiOS(WebCore::FrameIdentifier frameID, const PrintInfo& pr
         auto pdfData = pdfSnapshotAtSize(snapshotRect, snapshotSize, 0);
 
         frameView.setLayoutViewportOverrideRect(originalLayoutViewportOverrideRect);
-        reply(IPC::SharedBufferReference(SharedBuffer::create(pdfData.get())));
+        reply(SharedBuffer::create(pdfData.get()));
         return;
     }
 
     RetainPtr<CFMutableDataRef> pdfPageData;
     drawPagesToPDFImpl(frameID, printInfo, 0, pageCount, pdfPageData);
-    reply(IPC::SharedBufferReference(SharedBuffer::create(pdfPageData.get())));
+    reply(SharedBuffer::create(pdfPageData.get()));
 
     endPrinting();
 }
 
 void WebPage::contentSizeCategoryDidChange(const String& contentSizeCategory)
 {
-    RenderThemeIOS::setContentSizeCategory(contentSizeCategory);
-    Page::updateStyleForAllPagesAfterGlobalChangeInEnvironment();
+    setContentSizeCategory(contentSizeCategory);
+    FontCache::invalidateAllFontCaches();
 }
 
 String WebPage::platformUserAgent(const URL&) const

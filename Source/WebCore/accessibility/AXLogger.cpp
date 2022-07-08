@@ -406,17 +406,38 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXImageOverlayChanged:
         stream << "AXImageOverlayChanged";
         break;
+    case AXObjectCache::AXNotification::AXIsAtomicChanged:
+        stream << "AXIsAtomicChanged";
+        break;
     case AXObjectCache::AXNotification::AXLanguageChanged:
         stream << "AXLanguageChanged";
         break;
     case AXObjectCache::AXNotification::AXLayoutComplete:
         stream << "AXLayoutComplete";
         break;
+    case AXObjectCache::AXNotification::AXLevelChanged:
+        stream << "AXLevelChanged";
+        break;
     case AXObjectCache::AXNotification::AXLoadComplete:
         stream << "AXLoadComplete";
         break;
+    case AXObjectCache::AXNotification::AXPlaceholderChanged:
+        stream << "AXPlaceholderChanged";
+        break;
+    case AXObjectCache::AXNotification::AXMaximumValueChanged:
+        stream << "AXMaximumValueChanged";
+        break;
+    case AXObjectCache::AXNotification::AXMinimumValueChanged:
+        stream << "AXMinimumValueChanged";
+        break;
+    case AXObjectCache::AXNotification::AXMultiSelectableStateChanged:
+        stream << "AXMultiSelectableStateChanged";
+        break;
     case AXObjectCache::AXNotification::AXNewDocumentLoadComplete:
         stream << "AXNewDocumentLoadComplete";
+        break;
+    case AXObjectCache::AXNotification::AXOrientationChanged:
+        stream << "AXOrientationChanged";
         break;
     case AXObjectCache::AXNotification::AXPageScrolled:
         stream << "AXPageScrolled";
@@ -433,6 +454,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXSelectedTextChanged:
         stream << "AXSelectedTextChanged";
         break;
+    case AXObjectCache::AXNotification::AXSetSizeChanged:
+        stream << "AXSetSizeChanged";
+        break;
     case AXObjectCache::AXNotification::AXValueChanged:
         stream << "AXValueChanged";
         break;
@@ -444,6 +468,12 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXLiveRegionChanged:
         stream << "AXLiveRegionChanged";
+        break;
+    case AXObjectCache::AXNotification::AXLiveRegionRelevantChanged:
+        stream << "AXLiveRegionRelevantChanged";
+        break;
+    case AXObjectCache::AXNotification::AXLiveRegionStatusChanged:
+        stream << "AXLiveRegionStatusChanged";
         break;
     case AXObjectCache::AXNotification::AXMenuListItemSelected:
         stream << "AXMenuListItemSelected";

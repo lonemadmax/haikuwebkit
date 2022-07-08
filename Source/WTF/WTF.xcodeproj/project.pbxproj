@@ -51,6 +51,7 @@
 		1C96836926BE76B600A2A2F9 /* LoggingCocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1C96836826BE76B600A2A2F9 /* LoggingCocoa.mm */; };
 		1CA85CA9241B0B260071C2F5 /* RuntimeApplicationChecksCocoa.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1CA85CA8241B0B260071C2F5 /* RuntimeApplicationChecksCocoa.cpp */; };
 		1CF18F3B26BB579E004B1722 /* LogChannels.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1CF18F3926BB579E004B1722 /* LogChannels.cpp */; };
+		1CFD5D3D2851AB3E00A0E30B /* EnumeratedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = 1CFD5D3B2851AB3E00A0E30B /* EnumeratedArray.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1FA47C8A152502DA00568D1B /* WebCoreThread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1FA47C88152502DA00568D1B /* WebCoreThread.cpp */; };
 		2CCD892A15C0390200285083 /* GregorianDateTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CCD892915C0390200285083 /* GregorianDateTime.cpp */; };
 		2CDED0EF18115C38004DBA70 /* RunLoopCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CDED0EE18115C38004DBA70 /* RunLoopCF.cpp */; };
@@ -809,6 +810,7 @@
 		FE1E2C3B2240C06600F6B729 /* PtrTag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE1E2C392240C05400F6B729 /* PtrTag.cpp */; };
 		FE1E2C42224187C600F6B729 /* PlatformRegisters.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE1E2C41224187C600F6B729 /* PlatformRegisters.cpp */; };
 		FE35D09227DC5ECC009DFA5B /* StackCheck.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE35D09127DC5ECC009DFA5B /* StackCheck.cpp */; };
+		FE7ACFEF285DC2F9007FC8E9 /* RawHex.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7ACFEE285DC2F8007FC8E9 /* RawHex.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FEDACD3D1630F83F00C69634 /* StackStats.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEDACD3B1630F83F00C69634 /* StackStats.cpp */; };
 		FEEA4DF9216D7BE400AC0602 /* StackPointer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEEA4DF8216D7BE400AC0602 /* StackPointer.cpp */; };
 		FF895F11282AB96400E7BAE8 /* CompactRefPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = FF895F10282AB96400E7BAE8 /* CompactRefPtr.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1049,6 +1051,7 @@
 		1CCDB14D1E566898006C73C0 /* TextBreakIteratorICU.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextBreakIteratorICU.h; sourceTree = "<group>"; };
 		1CF18F3926BB579E004B1722 /* LogChannels.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LogChannels.cpp; sourceTree = "<group>"; };
 		1CF18F3A26BB579E004B1722 /* LogChannels.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LogChannels.h; sourceTree = "<group>"; };
+		1CFD5D3B2851AB3E00A0E30B /* EnumeratedArray.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EnumeratedArray.h; sourceTree = "<group>"; };
 		1FA47C88152502DA00568D1B /* WebCoreThread.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebCoreThread.cpp; sourceTree = "<group>"; };
 		1FA47C89152502DA00568D1B /* WebCoreThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebCoreThread.h; sourceTree = "<group>"; };
 		24F1B248619F412296D1C19C /* RandomDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RandomDevice.h; sourceTree = "<group>"; };
@@ -1704,6 +1707,7 @@
 		FE3842342325CC80009DD445 /* ResourceUsage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ResourceUsage.h; sourceTree = "<group>"; };
 		FE7497E4208FFCAA0003565B /* PtrTag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PtrTag.h; sourceTree = "<group>"; };
 		FE7497ED209163060003565B /* MetaAllocatorPtr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MetaAllocatorPtr.h; sourceTree = "<group>"; };
+		FE7ACFEE285DC2F8007FC8E9 /* RawHex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RawHex.h; sourceTree = "<group>"; };
 		FE8225301B2A1E5B00BA68FD /* NakedPtr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NakedPtr.h; sourceTree = "<group>"; };
 		FE86A8741E59440200111BBF /* ForbidHeapAllocation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ForbidHeapAllocation.h; sourceTree = "<group>"; };
 		FE8925AF1D00DAEC0046907E /* Indenter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Indenter.h; sourceTree = "<group>"; };
@@ -1981,6 +1985,7 @@
 				A8A47298151A825A004123FF /* dtoa.h */,
 				E3538D4C276220880075DA50 /* EmbeddedFixedVector.h */,
 				5338EBA423AB04D100382662 /* EnumClassOperatorOverloads.h */,
+				1CFD5D3B2851AB3E00A0E30B /* EnumeratedArray.h */,
 				1AEA88E11D6BBCF400E5AD64 /* EnumTraits.h */,
 				AD7C434A1DD2A4A70026888B /* Expected.h */,
 				DF292D55278F9BC600BB2918 /* ExperimentalFeatureNames.h */,
@@ -2172,6 +2177,7 @@
 				A8A472FD151A825B004123FF /* RandomNumberSeed.h */,
 				0F2AC5601E89F70C0001EE3F /* Range.h */,
 				0F725CAB1C50461600AD943A /* RangeSet.h */,
+				FE7ACFEE285DC2F8007FC8E9 /* RawHex.h */,
 				0F87105916643F190090B0AD /* RawPointer.h */,
 				FE05FAE61FDB214300093230 /* RawPtrTraits.h */,
 				AD653DA82006B6C200D820D7 /* RawValueTraits.h */,
@@ -2911,6 +2917,7 @@
 				DD3DC94C27A4BF8E007E5B61 /* EmbeddedFixedVector.h in Headers */,
 				DDF3076327C086CD006A526F /* Entitlements.h in Headers */,
 				DD3DC97827A4BF8E007E5B61 /* EnumClassOperatorOverloads.h in Headers */,
+				1CFD5D3D2851AB3E00A0E30B /* EnumeratedArray.h in Headers */,
 				DD3DC88C27A4BF8E007E5B61 /* EnumTraits.h in Headers */,
 				DD3DC87C27A4BF8E007E5B61 /* Expected.h in Headers */,
 				DD3DC8FB27A4BF8E007E5B61 /* ExperimentalFeatureNames.h in Headers */,
@@ -3215,6 +3222,7 @@
 				DD4901E627B4748A00D7E50D /* UniStdExtras.h in Headers */,
 				DD3DC97027A4BF8E007E5B61 /* UnsafePointer.h in Headers */,
 				DD3DC90327A4BF8E007E5B61 /* URL.h in Headers */,
+				FE7ACFEF285DC2F9007FC8E9 /* RawHex.h in Headers */,
 				DD3DC8ED27A4BF8E007E5B61 /* URLHash.h in Headers */,
 				DD3DC99A27A4BF8E007E5B61 /* URLHelpers.h in Headers */,
 				DD3DC8BD27A4BF8E007E5B61 /* URLParser.h in Headers */,

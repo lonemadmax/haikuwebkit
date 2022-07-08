@@ -66,7 +66,7 @@ public:
     void didCancelAuthenticationChallenge(WebCore::ResourceLoader*, const WebCore::AuthenticationChallenge&);
 
     void assignIdentifierToInitialRequest(ResourceLoaderIdentifier, DocumentLoader*, const ResourceRequest&);
-    void dispatchWillSendRequest(DocumentLoader*, ResourceLoaderIdentifier, ResourceRequest&, const ResourceResponse& redirectResponse, const CachedResource*);
+    void dispatchWillSendRequest(DocumentLoader*, ResourceLoaderIdentifier, ResourceRequest&, const ResourceResponse& redirectResponse, const CachedResource*, ResourceLoader* = nullptr);
     void dispatchDidReceiveResponse(DocumentLoader*, ResourceLoaderIdentifier, const ResourceResponse&, ResourceLoader* = nullptr);
     void dispatchDidReceiveData(DocumentLoader*, ResourceLoaderIdentifier, const SharedBuffer*, int expectedDataLength, int encodedDataLength);
     void dispatchDidFinishLoading(DocumentLoader*, ResourceLoaderIdentifier, const NetworkLoadMetrics&, ResourceLoader*);

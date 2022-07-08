@@ -36,6 +36,7 @@
 #import "RealtimeVideoUtilities.h"
 #import "ScreenCaptureKitSharingSessionManager.h"
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/ScreenCaptureKitSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/BlockPtr.h>
@@ -211,11 +212,13 @@ void ScreenCaptureKitCaptureSource::stop()
 
     if (m_contentStream) {
         auto stopHandler = makeBlockPtr([weakThis = WeakPtr { *this }] (NSError *error) mutable {
-            if (!error)
-                return;
 
             callOnMainRunLoop([weakThis = WTFMove(weakThis), error = RetainPtr { error }]() mutable {
-                if (weakThis)
+                if (!weakThis)
+                    return;
+
+                weakThis->m_contentStream = nil;
+                if (error)
                     weakThis->streamFailedWithError(WTFMove(error), "-[SCStream stopCaptureWithCompletionHandler:] failed"_s);
             });
         });
@@ -383,18 +386,20 @@ void ScreenCaptureKitCaptureSource::startContentStream()
         return;
     }
 
-    m_contentFilter = switchOn(m_content.value(),
-        [] (const RetainPtr<SCDisplay> display) -> RetainPtr<SCContentFilter> {
-            return adoptNS([PAL::allocSCContentFilterInstance() initWithDisplay:display.get() excludingWindows:@[]]);
-        },
-        [] (const RetainPtr<SCWindow> window)  -> RetainPtr<SCContentFilter> {
-            return adoptNS([PAL::allocSCContentFilterInstance() initWithDesktopIndependentWindow:window.get()]);
-        }
-    );
-
     if (!m_contentFilter) {
-        streamFailedWithError(nil, "Failed to allocate SCContentFilter"_s);
-        return;
+        m_contentFilter = switchOn(m_content.value(),
+            [] (const RetainPtr<SCDisplay> display) -> RetainPtr<SCContentFilter> {
+                return adoptNS([PAL::allocSCContentFilterInstance() initWithDisplay:display.get() excludingWindows:@[]]);
+            },
+            [] (const RetainPtr<SCWindow> window)  -> RetainPtr<SCContentFilter> {
+                return adoptNS([PAL::allocSCContentFilterInstance() initWithDesktopIndependentWindow:window.get()]);
+            }
+        );
+
+        if (!m_contentFilter) {
+            streamFailedWithError(nil, "Failed to allocate SCContentFilter"_s);
+            return;
+        }
     }
 
     if (!m_captureHelper)
@@ -404,10 +409,12 @@ void ScreenCaptureKitCaptureSource::startContentStream()
 
 #if HAVE(SC_CONTENT_SHARING_SESSION)
     if (ScreenCaptureKitSharingSessionManager::isAvailable()) {
-        m_contentSharingSession = ScreenCaptureKitSharingSessionManager::singleton().takeSharingSessionForFilter(m_contentFilter.get());
         if (!m_contentSharingSession) {
-            streamFailedWithError(nil, "Failed to get SharingSession"_s);
-            return;
+            m_contentSharingSession = ScreenCaptureKitSharingSessionManager::singleton().takeSharingSessionForFilter(m_contentFilter.get());
+            if (!m_contentSharingSession) {
+                streamFailedWithError(nil, "Failed to get SharingSession"_s);
+                return;
+            }
         }
 
         m_contentStream = adoptNS([PAL::allocSCStreamInstance() initWithSharingSession:m_contentSharingSession.get() captureOutputProperties:streamConfiguration().get() delegate:m_captureHelper.get()]);

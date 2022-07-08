@@ -3003,7 +3003,7 @@ def check_braces(clean_lines, line_number, file_state, error):
         # on the previous non-blank line is '{' because it's likely to
         # indicate the begining of a nested code block.
         previous_line = get_previous_non_blank_line(clean_lines, line_number)[0]
-        if ((not search(r'[;:}{)=]\s*$|\)\s*((const|override|const override|final|const final)\s*)?(->\s*\S+)?\s*$', previous_line)
+        if ((not search(r'[;:}{)=]\s*$|\)\s*((const|override|const override|final|const final|noexcept|const noexcept)\s*)?(->\s*\S+)?\s*$', previous_line)
              or search(r'\b(if|for|while|switch|else|CF_OPTIONS|NS_ENUM|NS_ERROR_ENUM|NS_OPTIONS)\b', previous_line)
              or regex_for_lambdas_and_blocks(previous_line, line_number, file_state, error))
             and previous_line.find('#') < 0
@@ -4196,6 +4196,7 @@ def check_identifier_name_in_declaration(filename, line_number, line, file_state
                 and not modified_identifier == "LOG_CHANNEL"
                 and not modified_identifier == "WTF_GUARDED_BY_LOCK"
                 and not modified_identifier == "WTF_GUARDED_BY_CAPABILITY"
+                and not modified_identifier.startswith("_AX")
                 and not modified_identifier.find('chrono_literals') >= 0):
                 error(line_number, 'readability/naming/underscores', 4, identifier + " is incorrectly named. Don't use underscores in your identifier names.")
 

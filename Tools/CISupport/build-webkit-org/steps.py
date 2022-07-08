@@ -323,8 +323,9 @@ class CompileWebKit(shell.Compile):
             # For build-only bots, the expectation is that tests will be run on separate machines,
             # so we need to package debug info as dSYMs. Only generating line tables makes
             # this much faster than full debug info, and crash logs still have line numbers.
+            # Some projects (namely lldbWebKitTester) require full debug info, and may override this.
             self.setCommand(self.command + ['DEBUG_INFORMATION_FORMAT=dwarf-with-dsym'])
-            self.setCommand(self.command + ['CLANG_DEBUG_INFORMATION_LEVEL=line-tables-only'])
+            self.setCommand(self.command + ['CLANG_DEBUG_INFORMATION_LEVEL=$(WK_OVERRIDE_DEBUG_INFORMATION_LEVEL:default=line-tables-only)'])
         if platform == 'gtk':
             prefix = os.path.join("/app", "webkit", "WebKitBuild", self.getProperty("configuration").title(), "install")
             self.setCommand(self.command + [f'--prefix={prefix}'])
@@ -528,7 +529,7 @@ class RunJavaScriptCoreTests(TestWithFailureCount):
         # high enough.
         self.command += self.commandExtra
         # Currently run-javascriptcore-test doesn't support run javascript core test binaries list below remotely
-        if architecture in ['mips', 'armv7', 'aarch64']:
+        if architecture in ['mips', 'aarch64']:
             self.command += ['--no-testmasm', '--no-testair', '--no-testb3', '--no-testdfg', '--no-testapi']
         # Linux bots have currently problems with JSC tests that try to use large amounts of memory.
         # Check: https://bugs.webkit.org/show_bug.cgi?id=175140
@@ -1128,7 +1129,7 @@ class RunBenchmarkTests(shell.Test):
     name = "benchmark-test"
     description = ["benchmark tests running"]
     descriptionDone = ["benchmark tests"]
-    command = ["python", "Tools/Scripts/browserperfdash-benchmark", "--allplans",
+    command = ["python3", "Tools/Scripts/browserperfdash-benchmark", "--allplans",
                "--config-file", "../../browserperfdash-benchmark-config.txt",
                "--browser-version", WithProperties("%(archive_revision)s")]
 

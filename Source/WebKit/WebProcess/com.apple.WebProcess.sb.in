@@ -262,9 +262,13 @@
             )
 #endif
         )
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
         (deny (with telemetry)
-            iokit-external-trap
-        )
+            iokit-external-trap)
+#else
+        (allow
+            iokit-external-trap)
+#endif
     )
 )
 
@@ -1948,7 +1952,6 @@
         SYS_sendto
         SYS_sigaltstack
         SYS_sigprocmask
-        SYS_socket
         SYS_stat64
         SYS_sysctlbyname
         SYS_thread_selfid
@@ -1974,7 +1977,6 @@
         SYS___semwait_signal_nocancel
         SYS_change_fdguard_np
         SYS_chmod
-        SYS_connect
         SYS_dup ;; Remove when <rdar://88210738> is fixed
         SYS_fchmod
         SYS_fsync
@@ -1987,8 +1989,10 @@
         SYS_kevent ;; <rdar://89072361>
         SYS_mlock
         SYS_munlock
+#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
         SYS_necp_client_action
         SYS_necp_open
+#endif
         SYS_openat_nocancel
         SYS_proc_rlimit_control
         SYS_psynch_rw_rdlock
@@ -2050,16 +2054,29 @@
         (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
 )
 
+(deny syscall-unix (syscall-number
+    SYS_connect
+    SYS_socket))
+
 (with-filter (uid 0)
     (allow syscall-unix (syscall-number SYS_gettid))) ;; Needed for base system, see <rdar://problem/48651255>
 
-#if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/WebContentSandboxAdditionsMac.sb>
+#if HAVE(ADDITIONAL_APPLE_CAMERA_SERVICE)
+(if (equal? (param "CPU") "arm64")
+    (with-filter (extension "com.apple.webkit.camera")
+        (allow mach-lookup
+            (require-all
+                (extension "com.apple.webkit.extension.mach")
+                (global-name "com.apple.appleh13camerad")
+            ))))
 #endif
 
 #if HAVE(SANDBOX_MESSAGE_FILTERING)
 (define (mach-bootstrap-message-numbers)
     (message-number 204 207 301 711 800 804))
+
+(define (mach-bootstrap-message-numbers-post-launch)
+    (message-number 207 301 800 804))
 
 (define (allow-mach-bootstrap-with-filter)
     (allow mach-bootstrap
@@ -2075,7 +2092,9 @@
         (if (require-ancestor-with-entitlement "com.apple.private.security.enable-state-flags")
             (allow mach-bootstrap
                 (apply-message-filter
-                    (allow mach-message-send (with telemetry-backtrace))))
+                    (deny mach-message-send (with telemetry-backtrace))
+                    (allow mach-message-send (with telemetry-backtrace)
+                        (mach-bootstrap-message-numbers-post-launch))))
         ;; else
             (allow-mach-bootstrap-with-filter))
 

@@ -128,6 +128,7 @@ class CubicBezierTimingFunction;
 class Cursor;
 class DatabaseDetails;
 class DragData;
+class DecomposedGlyphs;
 class File;
 class FilterOperation;
 class FilterOperations;
@@ -403,6 +404,11 @@ template<> struct ArgumentCoder<WebCore::Font> {
     static std::optional<Ref<WebCore::Font>> decode(Decoder&);
     static void encodePlatformData(Encoder&, const WebCore::Font&);
     static std::optional<WebCore::FontPlatformData> decodePlatformData(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::DecomposedGlyphs> {
+    static void encode(Encoder&, const WebCore::DecomposedGlyphs&);
+    static std::optional<Ref<WebCore::DecomposedGlyphs>> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<WebCore::ResourceRequest> {
@@ -746,23 +752,13 @@ template<> struct ArgumentCoder<WebCore::SerializedPlatformDataCueValue> {
 };
 #endif
 
-template<> struct ArgumentCoder<RefPtr<WebCore::FragmentedSharedBuffer>> {
-    static void encode(Encoder&, const RefPtr<WebCore::FragmentedSharedBuffer>&);
-    static std::optional<RefPtr<WebCore::FragmentedSharedBuffer>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<Ref<WebCore::FragmentedSharedBuffer>> {
-    static void encode(Encoder&, const Ref<WebCore::FragmentedSharedBuffer>&);
+template<> struct ArgumentCoder<WebCore::FragmentedSharedBuffer> {
+    static void encode(Encoder&, const WebCore::FragmentedSharedBuffer&);
     static std::optional<Ref<WebCore::FragmentedSharedBuffer>> decode(Decoder&);
 };
 
-template<> struct ArgumentCoder<RefPtr<WebCore::SharedBuffer>> {
-    static void encode(Encoder&, const RefPtr<WebCore::SharedBuffer>&);
-    static std::optional<RefPtr<WebCore::SharedBuffer>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<Ref<WebCore::SharedBuffer>> {
-    static void encode(Encoder&, const Ref<WebCore::SharedBuffer>&);
+template<> struct ArgumentCoder<WebCore::SharedBuffer> {
+    static void encode(Encoder&, const WebCore::SharedBuffer&);
     static std::optional<Ref<WebCore::SharedBuffer>> decode(Decoder&);
 };
 

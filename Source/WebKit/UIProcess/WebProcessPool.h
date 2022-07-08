@@ -515,6 +515,13 @@ public:
     Ref<WebProcessProxy> createNewWebProcess(WebsiteDataStore*, WebProcessProxy::CaptivePortalMode, WebProcessProxy::IsPrewarmed = WebProcessProxy::IsPrewarmed::No, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared);
 
     bool hasAudibleMediaActivity() const { return !!m_audibleMediaActivity; }
+#if PLATFORM(IOS_FAMILY)
+    bool processesShouldSuspend() const { return m_processesShouldSuspend; }
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    void hardwareConsoleStateChanged();
+#endif
 
 private:
     void platformInitialize();
@@ -596,6 +603,7 @@ private:
     void startObservingPreferenceChanges();
 #endif
 
+    static void registerDisplayConfigurationCallback();
     static void registerHighDynamicRangeChangeCallback();
 
 #if PLATFORM(MAC)
@@ -684,6 +692,10 @@ private:
 
     std::unique_ptr<HighPerformanceGraphicsUsageSampler> m_highPerformanceGraphicsUsageSampler;
     std::unique_ptr<PerActivityStateCPUUsageSampler> m_perActivityStateCPUUsageSampler;
+#endif
+
+#if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
+    RetainPtr<NSObject> m_powerLogObserver;
 #endif
 
 #if PLATFORM(COCOA)
@@ -802,6 +814,10 @@ private:
 #endif
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    bool m_processesShouldSuspend { false };
 #endif
 };
 

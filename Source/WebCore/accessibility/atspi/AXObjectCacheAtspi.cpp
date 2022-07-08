@@ -203,6 +203,26 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* coreObject, AXNotific
         break;
     case AXHasPopupChanged:
         break;
+    case AXSetSizeChanged:
+        break;
+    case AXLevelChanged:
+        break;
+    case AXMaximumValueChanged:
+        break;
+    case AXMinimumValueChanged:
+        break;
+    case AXMultiSelectableStateChanged:
+        break;
+    case AXIsAtomicChanged:
+        break;
+    case AXLiveRegionRelevantChanged:
+        break;
+    case AXLiveRegionStatusChanged:
+        break;
+    case AXOrientationChanged:
+        break;
+    case AXPlaceholderChanged:
+        break;
     }
 }
 

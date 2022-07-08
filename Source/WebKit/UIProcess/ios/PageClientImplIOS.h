@@ -122,7 +122,7 @@ private:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& source, const String& target, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) final;
+    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&) final;
 #endif
 
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
@@ -303,14 +303,14 @@ private:
     WebCore::Color contentViewBackgroundColor() final;
     String sceneID() final;
 
-    void beginFullscreenVideoExtraction(const ShareableBitmap::Handle&, AVPlayerViewController *) final;
-    void cancelFullscreenVideoExtraction(AVPlayerViewController *) final;
-    bool isFullscreenVideoExtractionEnabled() const final;
+    void beginTextRecognitionForFullscreenVideo(const ShareableBitmap::Handle&, AVPlayerViewController *) final;
+    void cancelTextRecognitionForFullscreenVideo(AVPlayerViewController *) final;
+    bool isTextRecognitionInFullscreenVideoEnabled() const final;
 
-    void beginElementFullscreenVideoExtraction(const ShareableBitmap::Handle&, WebCore::FloatRect) final;
-    void cancelElementFullscreenVideoExtraction() final;
+    void beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmap::Handle&, WebCore::FloatRect) final;
+    void cancelTextRecognitionForVideoInElementFullscreen() final;
 
-    bool isInMultitaskingMode() const final;
+    bool hasResizableWindows() const final;
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     void didEnterFullscreen() final;

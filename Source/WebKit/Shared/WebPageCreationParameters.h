@@ -222,6 +222,7 @@ struct WebPageCreationParameters {
 
     String overriddenMediaType;
     Vector<String> corsDisablingPatterns;
+    HashSet<String> maskedURLSchemes;
     bool userScriptsShouldWaitUntilNotification { true };
     bool loadsSubresources { true };
     std::optional<MemoryCompactLookupOnlyRobinHoodHashSet<String>> allowedNetworkHosts;
@@ -266,7 +267,7 @@ struct WebPageCreationParameters {
     bool requiresUserActionForEditingControlsManager { false };
 #endif
 
-    bool isInMultitaskingMode { false };
+    bool hasResizableWindows { false };
 
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 };

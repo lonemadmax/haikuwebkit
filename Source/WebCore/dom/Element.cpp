@@ -105,7 +105,6 @@
 #include "RenderTreeUpdater.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
@@ -708,12 +707,32 @@ ALWAYS_INLINE void Element::synchronizeAttribute(const AtomString& localName) co
 
 const AtomString& Element::getAttribute(const QualifiedName& name) const
 {
-    if (!elementData())
-        return nullAtom();
-    synchronizeAttribute(name);
-    if (const Attribute* attribute = findAttributeByName(name))
+    if (auto* attribute = getAttributeInternal(name))
         return attribute->value();
     return nullAtom();
+}
+
+AtomString Element::getAttributeForBindings(const QualifiedName& name, ResolveURLs resolveURLs) const
+{
+    auto* attribute = getAttributeInternal(name);
+    if (!attribute)
+        return nullAtom();
+
+    switch (resolveURLs) {
+    case ResolveURLs::Yes:
+    case ResolveURLs::YesExcludingURLsForPrivacy:
+        return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
+
+    case ResolveURLs::NoExcludingURLsForPrivacy:
+        if (document().hasURLsToMaskForBindings())
+            return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
+        break;
+
+    case ResolveURLs::No:
+        break;
+    }
+
+    return attribute->value();
 }
 
 Vector<String> Element::getAttributeNames() const
@@ -1779,7 +1798,7 @@ Ref<DOMRect> Element::getBoundingClientRect()
 {
     return DOMRect::create(boundingClientRect());
 }
-    
+
 IntRect Element::screenRect() const
 {
     if (RenderObject* renderer = this->renderer())
@@ -1789,12 +1808,32 @@ IntRect Element::screenRect() const
 
 const AtomString& Element::getAttribute(const AtomString& qualifiedName) const
 {
-    if (!elementData() || qualifiedName.isEmpty())
-        return nullAtom();
-    synchronizeAttribute(qualifiedName);
-    if (const Attribute* attribute = elementData()->findAttributeByName(qualifiedName, shouldIgnoreAttributeCase(*this)))
+    if (auto* attribute = getAttributeInternal(qualifiedName))
         return attribute->value();
     return nullAtom();
+}
+
+AtomString Element::getAttributeForBindings(const AtomString& qualifiedName, ResolveURLs resolveURLs) const
+{
+    auto* attribute = getAttributeInternal(qualifiedName);
+    if (!attribute)
+        return nullAtom();
+
+    switch (resolveURLs) {
+    case ResolveURLs::Yes:
+    case ResolveURLs::YesExcludingURLsForPrivacy:
+        return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
+
+    case ResolveURLs::NoExcludingURLsForPrivacy:
+        if (document().hasURLsToMaskForBindings())
+            return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
+        break;
+
+    case ResolveURLs::No:
+        break;
+    }
+
+    return attribute->value();
 }
 
 const AtomString& Element::getAttributeNS(const AtomString& namespaceURI, const AtomString& localName) const
@@ -2265,10 +2304,21 @@ void Element::invalidateStyleForSubtreeInternal()
     Node::invalidateStyle(Style::Validity::SubtreeInvalid);
 }
 
-void Element::invalidateForQueryContainerChange()
+void Element::invalidateForQueryContainerSizeChange()
 {
-    // FIXME: This doesn't really need to recompute the element style.
-    Node::invalidateStyle(Style::Validity::ElementInvalid);
+    // FIXME: Ideally we would just recompute things that are actually affected by containers queries within the subtree.
+    Node::invalidateStyle(Style::Validity::SubtreeInvalid);
+    setNodeFlag(NodeFlag::NeedsUpdateQueryContainerDependentStyle);
+}
+
+bool Element::needsUpdateQueryContainerDependentStyle() const
+{
+    return hasNodeFlag(NodeFlag::NeedsUpdateQueryContainerDependentStyle);
+}
+
+void Element::clearNeedsUpdateQueryContainerDependentStyle()
+{
+    clearNodeFlag(NodeFlag::NeedsUpdateQueryContainerDependentStyle);
 }
 
 void Element::invalidateEventListenerRegions()
@@ -2304,7 +2354,7 @@ bool Element::isEventHandlerAttribute(const Attribute& attribute) const
     return attribute.name().namespaceURI().isNull() && attribute.name().localName().startsWith("on"_s);
 }
 
-bool Element::isJavaScriptURLAttribute(const Attribute& attribute) const
+bool Element::attributeContainsJavaScriptURL(const Attribute& attribute) const
 {
     return isURLAttribute(attribute) && WTF::protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(attribute.value()));
 }
@@ -2313,7 +2363,7 @@ void Element::stripScriptingAttributes(Vector<Attribute>& attributeVector) const
 {
     attributeVector.removeAllMatching([this](auto& attribute) -> bool {
         return this->isEventHandlerAttribute(attribute)
-            || this->isJavaScriptURLAttribute(attribute)
+            || this->attributeContainsJavaScriptURL(attribute)
             || this->isHTMLContentAttribute(attribute);
     });
 }
@@ -3379,12 +3429,12 @@ ExceptionOr<void> Element::mergeWithNextTextNode(Text& node)
 
 String Element::innerHTML() const
 {
-    return serializeFragment(*this, SerializedNodes::SubtreesOfChildren);
+    return serializeFragment(*this, SerializedNodes::SubtreesOfChildren, nullptr, ResolveURLs::NoExcludingURLsForPrivacy);
 }
 
 String Element::outerHTML() const
 {
-    return serializeFragment(*this, SerializedNodes::SubtreeIncludingNode);
+    return serializeFragment(*this, SerializedNodes::SubtreeIncludingNode, nullptr, ResolveURLs::NoExcludingURLsForPrivacy);
 }
 
 ExceptionOr<void> Element::setOuterHTML(const String& html)
@@ -4649,9 +4699,41 @@ bool Element::canContainRangeEndPoint() const
     return !equalLettersIgnoringASCIICase(attributeWithoutSynchronization(roleAttr), "img"_s);
 }
 
-String Element::completeURLsInAttributeValue(const URL& base, const Attribute& attribute) const
+String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs resolveURLs, const URL& base) const
 {
-    return URL(base, attribute.value()).string();
+    if (resolveURLs == ResolveURLs::No)
+        return urlString;
+
+    URL completeURL = base.isNull() ? document().completeURL(urlString) : URL(base, urlString);
+
+    switch (resolveURLs) {
+    case ResolveURLs::Yes:
+        return completeURL.string();
+
+    case ResolveURLs::YesExcludingURLsForPrivacy: {
+        if (document().shouldMaskURLForBindings(completeURL))
+            return document().maskedURLStringForBindings();
+        if (!document().url().isLocalFile())
+            return completeURL.string();
+        break;
+    }
+
+    case ResolveURLs::NoExcludingURLsForPrivacy:
+        if (document().shouldMaskURLForBindings(completeURL))
+            return document().maskedURLStringForBindings();
+        break;
+
+    case ResolveURLs::No:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+
+    return urlString;
+}
+
+String Element::completeURLsInAttributeValue(const URL& base, const Attribute& attribute, ResolveURLs resolveURLs) const
+{
+    return resolveURLStringIfNeeded(attribute.value(), resolveURLs, base);
 }
 
 ExceptionOr<Node*> Element::insertAdjacent(const String& where, Ref<Node>&& newChild)

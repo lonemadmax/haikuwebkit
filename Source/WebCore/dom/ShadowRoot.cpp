@@ -38,7 +38,6 @@
 #include "NotImplemented.h"
 #endif
 #include "RenderElement.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SlotAssignment.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
@@ -178,7 +177,7 @@ StyleSheetList& ShadowRoot::styleSheets()
 
 String ShadowRoot::innerHTML() const
 {
-    return serializeFragment(*this, SerializedNodes::SubtreesOfChildren);
+    return serializeFragment(*this, SerializedNodes::SubtreesOfChildren, nullptr, ResolveURLs::NoExcludingURLsForPrivacy);
 }
 
 ExceptionOr<void> ShadowRoot::setInnerHTML(const String& markup)

@@ -27,8 +27,8 @@
 #include "config.h"
 #include "MIMETypeRegistry.h"
 
+#include "DeprecatedGlobalSettings.h"
 #include "MediaPlayer.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ThreadGlobalData.h"
 #include <wtf/FixedVector.h>
 #include <wtf/HashMap.h>
@@ -102,7 +102,7 @@ constexpr ComparableCaseFoldingASCIILiteral supportedImageMIMETypeArray[] = {
 #if USE(CG) || ENABLE(APNG)
     "image/apng",
 #endif
-#if USE(AVIF)
+#if HAVE(AVIF) || USE(AVIF)
     "image/avif",
 #endif
     "image/bmp",
@@ -142,7 +142,7 @@ constexpr ComparableCaseFoldingASCIILiteral supportedImageMIMETypeArray[] = {
 #if PLATFORM(IOS_FAMILY)
     "image/vnd.switfview-jpeg",
 #endif
-#if (USE(CG) && HAVE(WEBP)) || (!USE(CG) && USE(WEBP))
+#if HAVE(WEBP) || USE(WEBP)
     "image/webp",
 #endif
 #if PLATFORM(IOS_FAMILY)
@@ -693,7 +693,7 @@ bool MIMETypeRegistry::canShowMIMEType(const String& mimeType)
 #endif
 
 #if ENABLE(MODEL_ELEMENT)
-    if (isSupportedModelMIMEType(mimeType) && RuntimeEnabledFeatures::sharedFeatures().modelDocumentEnabled())
+    if (isSupportedModelMIMEType(mimeType) && DeprecatedGlobalSettings::modelDocumentEnabled())
         return true;
 #endif
 

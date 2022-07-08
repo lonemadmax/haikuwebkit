@@ -2606,6 +2606,7 @@ void GraphicsContextGLANGLE::drawRangeElements(GCGLenum mode, GCGLuint start, GC
         return;
 
     GL_DrawRangeElements(mode, start, end, count, type, reinterpret_cast<void*>(offset));
+    checkGPUStatus();
 }
 
 void GraphicsContextGLANGLE::drawBuffers(GCGLSpan<const GCGLenum> bufs)
@@ -2622,6 +2623,7 @@ void GraphicsContextGLANGLE::clearBufferiv(GCGLenum buffer, GCGLint drawbuffer, 
         return;
 
     GL_ClearBufferiv(buffer, drawbuffer, values.data);
+    checkGPUStatus();
 }
 
 void GraphicsContextGLANGLE::clearBufferuiv(GCGLenum buffer, GCGLint drawbuffer, GCGLSpan<const GCGLuint> values)
@@ -2630,6 +2632,7 @@ void GraphicsContextGLANGLE::clearBufferuiv(GCGLenum buffer, GCGLint drawbuffer,
         return;
 
     GL_ClearBufferuiv(buffer, drawbuffer, values.data);
+    checkGPUStatus();
 }
 
 void GraphicsContextGLANGLE::clearBufferfv(GCGLenum buffer, GCGLint drawbuffer, GCGLSpan<const GCGLfloat> values)
@@ -2638,6 +2641,7 @@ void GraphicsContextGLANGLE::clearBufferfv(GCGLenum buffer, GCGLint drawbuffer, 
         return;
 
     GL_ClearBufferfv(buffer, drawbuffer, values.data);
+    checkGPUStatus();
 }
 
 void GraphicsContextGLANGLE::clearBufferfi(GCGLenum buffer, GCGLint drawbuffer, GCGLfloat depth, GCGLint stencil)
@@ -2646,6 +2650,7 @@ void GraphicsContextGLANGLE::clearBufferfi(GCGLenum buffer, GCGLint drawbuffer, 
         return;
 
     GL_ClearBufferfi(buffer, drawbuffer, depth, stencil);
+    checkGPUStatus();
 }
 
 void GraphicsContextGLANGLE::deleteQuery(PlatformGLObject query)
@@ -2844,6 +2849,7 @@ void GraphicsContextGLANGLE::multiDrawArraysANGLE(GCGLenum mode, GCGLSpanTuple<c
         return;
 
     GL_MultiDrawArraysANGLE(mode, firstsAndCounts.data0, firstsAndCounts.data1, firstsAndCounts.bufSize);
+    checkGPUStatus();
 }
 
 void GraphicsContextGLANGLE::multiDrawArraysInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei, const GCGLsizei> firstsCountsAndInstanceCounts)
@@ -2852,9 +2858,10 @@ void GraphicsContextGLANGLE::multiDrawArraysInstancedANGLE(GCGLenum mode, GCGLSp
         return;
 
     GL_MultiDrawArraysInstancedANGLE(mode, firstsCountsAndInstanceCounts.data0, firstsCountsAndInstanceCounts.data1, firstsCountsAndInstanceCounts.data2, firstsCountsAndInstanceCounts.bufSize);
+    checkGPUStatus();
 }
 
-void GraphicsContextGLANGLE::multiDrawElementsANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLint> countsAndOffsets, GCGLenum type)
+void GraphicsContextGLANGLE::multiDrawElementsANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei> countsAndOffsets, GCGLenum type)
 {
     if (!makeContextCurrent())
         return;
@@ -2866,9 +2873,10 @@ void GraphicsContextGLANGLE::multiDrawElementsANGLE(GCGLenum mode, GCGLSpanTuple
         offsetsPointers.append(reinterpret_cast<void*>(countsAndOffsets.data1[i]));
 
     GL_MultiDrawElementsANGLE(mode, countsAndOffsets.data0, type, offsetsPointers.data(), countsAndOffsets.bufSize);
+    checkGPUStatus();
 }
 
-void GraphicsContextGLANGLE::multiDrawElementsInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLint, const GCGLsizei> countsOffsetsAndInstanceCounts, GCGLenum type)
+void GraphicsContextGLANGLE::multiDrawElementsInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei, const GCGLsizei> countsOffsetsAndInstanceCounts, GCGLenum type)
 {
     if (!makeContextCurrent())
         return;
@@ -2880,6 +2888,7 @@ void GraphicsContextGLANGLE::multiDrawElementsInstancedANGLE(GCGLenum mode, GCGL
         offsetsPointers.append(reinterpret_cast<void*>(countsOffsetsAndInstanceCounts.data1[i]));
 
     GL_MultiDrawElementsInstancedANGLE(mode, countsOffsetsAndInstanceCounts.data0, type, offsetsPointers.data(), countsOffsetsAndInstanceCounts.data2, countsOffsetsAndInstanceCounts.bufSize);
+    checkGPUStatus();
 }
 
 bool GraphicsContextGLANGLE::supportsExtension(const String& name)
@@ -2989,6 +2998,48 @@ void GraphicsContextGLANGLE::colorMaskiOES(GCGLuint buf, GCGLboolean red, GCGLbo
         return;
 
     GL_ColorMaskiOES(buf, red, green, blue, alpha);
+}
+
+void GraphicsContextGLANGLE::drawArraysInstancedBaseInstanceANGLE(GCGLenum mode, GCGLint first, GCGLsizei count, GCGLsizei instanceCount, GCGLuint baseInstance)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_DrawArraysInstancedBaseInstanceANGLE(mode, first, count, instanceCount, baseInstance);
+    checkGPUStatus();
+}
+
+void GraphicsContextGLANGLE::drawElementsInstancedBaseVertexBaseInstanceANGLE(GCGLenum mode, GCGLsizei count, GCGLenum type, GCGLintptr offset, GCGLsizei instanceCount, GCGLint baseVertex, GCGLuint baseInstance)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_DrawElementsInstancedBaseVertexBaseInstanceANGLE(mode, count, type, reinterpret_cast<void*>(offset), instanceCount, baseVertex, baseInstance);
+    checkGPUStatus();
+}
+
+void GraphicsContextGLANGLE::multiDrawArraysInstancedBaseInstanceANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei, const GCGLsizei, const GCGLuint> firstsCountsInstanceCountsAndBaseInstances)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_MultiDrawArraysInstancedBaseInstanceANGLE(mode, firstsCountsInstanceCountsAndBaseInstances.data0, firstsCountsInstanceCountsAndBaseInstances.data1, firstsCountsInstanceCountsAndBaseInstances.data2, firstsCountsInstanceCountsAndBaseInstances.data3, firstsCountsInstanceCountsAndBaseInstances.bufSize);
+    checkGPUStatus();
+}
+
+void GraphicsContextGLANGLE::multiDrawElementsInstancedBaseVertexBaseInstanceANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei, const GCGLsizei, const GCGLint, const GCGLuint> countsOffsetsInstanceCountsBaseVerticesAndBaseInstances, GCGLenum type)
+{
+    if (!makeContextCurrent())
+        return;
+
+    // Must perform conversion from integer offsets to void* pointers before passing down to ANGLE.
+    Vector<void*> offsetsPointers;
+    offsetsPointers.reserveInitialCapacity(countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.bufSize);
+    for (size_t i = 0; i < countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.bufSize; ++i)
+        offsetsPointers.append(reinterpret_cast<void*>(countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.data1[i]));
+
+    GL_MultiDrawElementsInstancedBaseVertexBaseInstanceANGLE(mode, countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.data0, type, offsetsPointers.data(), countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.data2, countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.data3, countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.data4, countsOffsetsInstanceCountsBaseVerticesAndBaseInstances.bufSize);
+    checkGPUStatus();
 }
 
 bool GraphicsContextGLANGLE::waitAndUpdateOldestFrame()

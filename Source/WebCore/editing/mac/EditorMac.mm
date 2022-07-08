@@ -54,7 +54,6 @@
 #import "RenderBlock.h"
 #import "RenderImage.h"
 #import "RuntimeApplicationChecks.h"
-#import "RuntimeEnabledFeatures.h"
 #import "SharedBuffer.h"
 #import "StyleProperties.h"
 #import "WebContentReader.h"
@@ -89,10 +88,8 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> 
 {
     auto range = selectedRange();
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // FIXME: How can this hard-coded pasteboard name be right, given that the passed-in pasteboard has a name?
-    client()->setInsertionPasteboard(NSGeneralPboard);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    client()->setInsertionPasteboard(NSPasteboardNameGeneral);
 
     bool chosePlainText;
     RefPtr<DocumentFragment> fragment = webContentFromPasteboard(*pasteboard, *range, options.contains(PasteOption::AllowPlainText), chosePlainText);
@@ -272,7 +269,7 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
         pasteboardImage.dataInWebArchiveFormat = imageInWebArchiveFormat(imageElement);
 
     if (auto imageRange = makeRangeSelectingNode(imageElement))
-        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingLocalFileURLsForPrivacy, SerializeComposedTree::Yes);
+        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingURLsForPrivacy, SerializeComposedTree::Yes);
 
     pasteboardImage.url.url = url;
     pasteboardImage.url.title = title;

@@ -89,6 +89,7 @@
 #import <UIKit/UIWebScrollView.h>
 #import <UIKit/UIWebTiledView.h>
 #import <UIKit/UIWebTouchEventsGestureRecognizer.h>
+#import <UIKit/UIWindowScene_Private.h>
 #import <UIKit/UIWindow_Private.h>
 #import <UIKit/_UIApplicationRotationFollowing.h>
 #import <UIKit/_UIBackdropViewSettings.h>
@@ -147,6 +148,11 @@
 
 #if HAVE(UIKIT_HOVER_EVENT_PROTOCOL)
 #import <UIKit/UIHoverEvent_RequiresApproval.h>
+#endif
+
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+#import <UIKit/UIWindowScene_RequiresApproval.h>
+#import <UIKit/_UIInvalidatable.h>
 #endif
 
 // FIXME: STAGING for rdar://75546704 Remove later.
@@ -628,6 +634,10 @@ typedef enum {
 - (void)selectAll;
 @end
 
+@protocol _UITextInputTranslationSupport <UITextInput>
+@property (nonatomic, readonly, getter=isImageBacked) BOOL imageBacked;
+@end
+
 @interface UITextInputTraits : NSObject <UITextInputTraits, UITextInputTraits_Private, NSCopying>
 - (void)_setColorsToMatchTintColor:(UIColor *)tintColor;
 @end
@@ -795,8 +805,12 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 @interface UITextSelectionView : UIView
 @end
 
+@class UIContextMenuInteraction;
+@protocol UIContextMenuInteractionDelegate;
 @interface UITextInteractionAssistant (SPI)
 @property (nonatomic, readonly) UITextSelectionView *selectionView;
+@property (nonatomic, strong, readonly) UIContextMenuInteraction *contextMenuInteraction;
+@property (nonatomic, weak, readwrite) id<UIContextMenuInteractionDelegate> externalContextMenuInteractionDelegate;
 @end
 
 @interface UIWKTextInteractionAssistant : UITextInteractionAssistant <UIResponderStandardEditActions>
@@ -1380,6 +1394,19 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @end
 #endif
 
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+
+@protocol _UIInvalidatable <NSObject>
+- (void)_invalidate;
+@end
+
+@interface UIWindowScene ()
+- (id<_UIInvalidatable>)_holdLiveResizeSnapshotForReason:(NSString *)reason;
+@property (nonatomic, readonly) BOOL _enhancedWindowingEnabled;
+@end
+
+#endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
+
 #endif // USE(APPLE_INTERNAL_SDK)
 
 @interface UITextInteractionAssistant (IPI)
@@ -1526,7 +1553,7 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @end
 #endif
 
-#if ENABLE(MAC_CATALYST_GRAMMAR_CHECKING)
+#if ENABLE(POST_EDITING_GRAMMAR_CHECKING)
 @interface UITextChecker ()
 + (BOOL)grammarCheckingEnabled;
 - (NSArray<NSTextCheckingResult *> *)checkString:(NSString *)stringToCheck range:(NSRange)range types:(NSTextCheckingTypes)checkingTypes languages:(NSArray<NSString *> *)languagesArray options:(NSDictionary<NSString *, id> *)options;
@@ -1566,22 +1593,6 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @end
 
 #endif
-
-#if HAVE(MAC_CATALYST_LIVE_RESIZE)
-
-#if __has_include(<UIKit/_UIInvalidatable.h>)
-#include <UIKit/_UIInvalidatable.h>
-#else
-@protocol _UIInvalidatable <NSObject>
-- (void)_invalidate;
-@end
-#endif
-
-@interface UIWindowScene (Staging_86494115)
-- (id<_UIInvalidatable>)_holdLiveResizeSnapshotForReason:(NSString *)reason;
-@end
-
-#endif // HAVE(MAC_CATALYST_LIVE_RESIZE)
 
 WTF_EXTERN_C_BEGIN
 

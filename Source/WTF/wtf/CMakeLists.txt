@@ -67,6 +67,7 @@ set(WTF_PUBLIC_HEADERS
     EmbeddedFixedVector.h
     EnumClassOperatorOverloads.h
     EnumTraits.h
+    EnumeratedArray.h
     Expected.h
     ExperimentalFeatureNames.h
     ExportMacros.h
@@ -217,6 +218,7 @@ set(WTF_PUBLIC_HEADERS
     RandomNumberSeed.h
     Range.h
     RangeSet.h
+    RawHex.h
     RawPointer.h
     RawPtrTraits.h
     RawValueTraits.h

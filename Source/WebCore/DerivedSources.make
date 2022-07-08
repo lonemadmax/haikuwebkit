@@ -195,6 +195,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/WebGPU/GPUVertexStepMode.idl \
     $(WebCore)/Modules/WebGPU/NavigatorGPU.idl \
     $(WebCore)/Modules/airplay/WebKitPlaybackTargetAvailabilityEvent.idl \
+    $(WebCore)/Modules/applepay/ApplePayAutomaticReloadPaymentRequest.idl \
     $(WebCore)/Modules/applepay/ApplePayCancelEvent.idl \
     $(WebCore)/Modules/applepay/ApplePayContactField.idl \
     $(WebCore)/Modules/applepay/ApplePayCouponCodeChangedEvent.idl \
@@ -203,7 +204,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/applepay/ApplePayDateComponents.idl \
     $(WebCore)/Modules/applepay/ApplePayDateComponentsRange.idl \
     $(WebCore)/Modules/applepay/ApplePayDetailsUpdateBase.idl \
-    $(WebCore)/Modules/applepay/ApplePayDetailsUpdateData.idl \
     $(WebCore)/Modules/applepay/ApplePayError.idl \
     $(WebCore)/Modules/applepay/ApplePayErrorCode.idl \
     $(WebCore)/Modules/applepay/ApplePayErrorContactField.idl \
@@ -221,10 +221,13 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/applepay/ApplePayPaymentMethodSelectedEvent.idl \
     $(WebCore)/Modules/applepay/ApplePayPaymentMethodType.idl \
     $(WebCore)/Modules/applepay/ApplePayPaymentMethodUpdate.idl \
+    $(WebCore)/Modules/applepay/ApplePayPaymentOrderDetails.idl \
     $(WebCore)/Modules/applepay/ApplePayPaymentPass.idl \
     $(WebCore)/Modules/applepay/ApplePayPaymentRequest.idl \
     $(WebCore)/Modules/applepay/ApplePayPaymentTiming.idl \
+    $(WebCore)/Modules/applepay/ApplePayPaymentTokenContext.idl \
     $(WebCore)/Modules/applepay/ApplePayRecurringPaymentDateUnit.idl \
+    $(WebCore)/Modules/applepay/ApplePayRecurringPaymentRequest.idl \
     $(WebCore)/Modules/applepay/ApplePayRequestBase.idl \
     $(WebCore)/Modules/applepay/ApplePaySession.idl \
     $(WebCore)/Modules/applepay/ApplePaySessionError.idl \
@@ -1177,9 +1180,11 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/WebGLDebugShaders.idl \
     $(WebCore)/html/canvas/WebGLDepthTexture.idl \
     $(WebCore)/html/canvas/WebGLDrawBuffers.idl \
+    $(WebCore)/html/canvas/WebGLDrawInstancedBaseVertexBaseInstance.idl \
     $(WebCore)/html/canvas/WebGLFramebuffer.idl \
     $(WebCore)/html/canvas/WebGLLoseContext.idl \
     $(WebCore)/html/canvas/WebGLMultiDraw.idl \
+    $(WebCore)/html/canvas/WebGLMultiDrawInstancedBaseVertexBaseInstance.idl \
     $(WebCore)/html/canvas/WebGLProgram.idl \
     $(WebCore)/html/canvas/WebGLQuery.idl \
     $(WebCore)/html/canvas/WebGLRenderbuffer.idl \
@@ -1759,12 +1764,13 @@ MODERN_MEDIA_CONTROLS_STYLE_SHEETS = \
     $(WebCore)/Modules/modern-media-controls/controls/buttons-container.css \
     $(WebCore)/Modules/modern-media-controls/controls/controls-bar.css \
     $(WebCore)/Modules/modern-media-controls/controls/inline-media-controls.css \
+    $(WebCore)/Modules/modern-media-controls/controls/ios-inline-media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/macos-fullscreen-media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/macos-inline-media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/media-document.css \
     $(WebCore)/Modules/modern-media-controls/controls/placard.css \
-    $(WebCore)/Modules/modern-media-controls/controls/range-button.css \
+    $(WebCore)/Modules/modern-media-controls/controls/slider-base.css \
     $(WebCore)/Modules/modern-media-controls/controls/slider.css \
     $(WebCore)/Modules/modern-media-controls/controls/status-label.css \
     $(WebCore)/Modules/modern-media-controls/controls/text-tracks.css \
@@ -1841,6 +1847,7 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/controls/background-tint.js \
     $(WebCore)/Modules/modern-media-controls/controls/time-control.js \
     $(WebCore)/Modules/modern-media-controls/controls/time-label.js \
+    $(WebCore)/Modules/modern-media-controls/controls/slider-base.js \
     $(WebCore)/Modules/modern-media-controls/controls/slider.js \
     $(WebCore)/Modules/modern-media-controls/controls/button.js \
     $(WebCore)/Modules/modern-media-controls/controls/play-pause-button.js \
@@ -1855,9 +1862,6 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/controls/rewind-button.js \
     $(WebCore)/Modules/modern-media-controls/controls/forward-button.js \
     $(WebCore)/Modules/modern-media-controls/controls/overflow-button.js \
-    $(WebCore)/Modules/modern-media-controls/controls/range-button.js \
-    $(WebCore)/Modules/modern-media-controls/controls/volume-button.js \
-    $(WebCore)/Modules/modern-media-controls/controls/brightness-button.js \
     $(WebCore)/Modules/modern-media-controls/controls/close-button.js \
     $(WebCore)/Modules/modern-media-controls/controls/buttons-container.js \
     $(WebCore)/Modules/modern-media-controls/controls/status-label.js \
@@ -1881,7 +1885,6 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/media/media-controller-support.js \
     $(WebCore)/Modules/modern-media-controls/media/airplay-support.js \
     $(WebCore)/Modules/modern-media-controls/media/audio-support.js \
-    $(WebCore)/Modules/modern-media-controls/media/brightness-support.js \
     $(WebCore)/Modules/modern-media-controls/media/close-support.js \
     $(WebCore)/Modules/modern-media-controls/media/controls-visibility-support.js \
     $(WebCore)/Modules/modern-media-controls/media/fullscreen-support.js \
@@ -1901,7 +1904,6 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/media/time-control-support.js \
     $(WebCore)/Modules/modern-media-controls/media/tracks-support.js \
     $(WebCore)/Modules/modern-media-controls/media/volume-support.js \
-    $(WebCore)/Modules/modern-media-controls/media/mute-and-volume-support.js \
     $(WebCore)/Modules/modern-media-controls/media/media-document-controller.js \
     $(WebCore)/Modules/modern-media-controls/media/watchos-media-controls-support.js \
     $(WebCore)/Modules/modern-media-controls/media/media-controller.js \

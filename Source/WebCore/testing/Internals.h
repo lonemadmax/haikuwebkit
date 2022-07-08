@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -161,10 +161,6 @@ class MockMediaSessionCoordinator;
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 class HTMLModelElement;
 #endif
-
-namespace ImageOverlay {
-class CroppedImage;
-}
 
 template<typename IDLType> class DOMPromiseDeferred;
 
@@ -451,6 +447,7 @@ public:
         LAYER_TREE_INCLUDES_ROOT_LAYER_PROPERTIES = 256,
         LAYER_TREE_INCLUDES_EVENT_REGION = 512,
         LAYER_TREE_INCLUDES_DEEP_COLOR = 1024,
+        LAYER_TREE_INCLUDES_DEVICE_SCALE = 2048,
     };
     ExceptionOr<String> layerTreeAsText(Document&, unsigned short flags) const;
     ExceptionOr<uint64_t> layerIDForElement(Element&);
@@ -481,6 +478,7 @@ public:
     enum {
         // Values need to be kept in sync with Internals.idl.
         DISPLAY_LIST_INCLUDE_PLATFORM_OPERATIONS = 1,
+        DISPLAY_LIST_INCLUDE_RESOURCE_IDENTIFIERS = 2,
     };
     ExceptionOr<String> displayListForElement(Element&, unsigned short flags);
     ExceptionOr<String> replayDisplayListForElement(Element&, unsigned short flags);

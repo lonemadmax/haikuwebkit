@@ -30,6 +30,7 @@
 #include "APICustomProtocolManagerClient.h"
 #include "APIDataTask.h"
 #include "APIDataTaskClient.h"
+#include "APIHTTPCookieStore.h"
 #include "APINavigation.h"
 #include "AuthenticationChallengeProxy.h"
 #include "AuthenticationManager.h"
@@ -49,7 +50,6 @@
 #include "ShouldGrandfatherStatistics.h"
 #include "StorageAccessStatus.h"
 #include "WebCompiledContentRuleList.h"
-#include "WebCookieManagerProxy.h"
 #include "WebNotificationManagerProxy.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
@@ -132,17 +132,21 @@ Vector<Ref<NetworkProcessProxy>> NetworkProcessProxy::allNetworkProcesses()
     });
 }
 
-RefPtr<NetworkProcessProxy>& NetworkProcessProxy::defaultNetworkProcess()
+WeakPtr<NetworkProcessProxy>& NetworkProcessProxy::defaultNetworkProcess()
 {
-    static NeverDestroyed<RefPtr<NetworkProcessProxy>> process;
-    return process.get();
+    static NeverDestroyed<WeakPtr<NetworkProcessProxy>> networkProcess;
+    return networkProcess.get();
 }
 
 Ref<NetworkProcessProxy> NetworkProcessProxy::ensureDefaultNetworkProcess()
 {
-    if (!defaultNetworkProcess())
-        defaultNetworkProcess() = NetworkProcessProxy::create();
-    return *defaultNetworkProcess();
+    auto& networkProcess = defaultNetworkProcess();
+    if (networkProcess)
+        return Ref { *networkProcess };
+
+    auto newNetworkProcess = NetworkProcessProxy::create();
+    networkProcess = newNetworkProcess.get();
+    return newNetworkProcess;
 }
 
 void NetworkProcessProxy::terminate()
@@ -239,7 +243,6 @@ NetworkProcessProxy::NetworkProcessProxy()
     , m_customProtocolManagerClient(makeUniqueRef<API::CustomProtocolManagerClient>())
 #endif
     , m_throttler(*this, WebProcessPool::anyProcessPoolNeedsUIBackgroundAssertion())
-    , m_cookieManager(makeUniqueRef<WebCookieManagerProxy>(*this))
 {
     RELEASE_LOG(Process, "%p - NetworkProcessProxy::NetworkProcessProxy", this);
 
@@ -310,8 +313,8 @@ void NetworkProcessProxy::getNetworkProcessConnection(WebProcessProxy& webProces
         reply(NetworkProcessConnectionInfo { WTFMove(*identifier), cookieAcceptPolicy });
         UNUSED_VARIABLE(this);
 #elif OS(DARWIN)
-        MESSAGE_CHECK(MACH_PORT_VALID(identifier->port()));
-        reply(NetworkProcessConnectionInfo { IPC::Attachment { identifier->port(), MACH_MSG_TYPE_MOVE_SEND }, cookieAcceptPolicy, connection()->getAuditToken() });
+        MESSAGE_CHECK(MACH_PORT_VALID(identifier->sendRight()));
+        reply(NetworkProcessConnectionInfo { WTFMove(*identifier) , cookieAcceptPolicy, connection()->getAuditToken() });
 #else
         notImplemented();
 #endif
@@ -858,16 +861,6 @@ void NetworkProcessProxy::hasLocalStorage(PAL::SessionID sessionID, const Regist
     sendWithAsyncReply(Messages::NetworkProcess::HasLocalStorage(sessionID, resourceDomain), WTFMove(completionHandler));
 }
 
-void NetworkProcessProxy::setAgeCapForClientSideCookies(PAL::SessionID sessionID, std::optional<Seconds> seconds, CompletionHandler<void()>&& completionHandler)
-{
-    if (!canSendMessage()) {
-        completionHandler();
-        return;
-    }
-    
-    sendWithAsyncReply(Messages::NetworkProcess::SetAgeCapForClientSideCookies(sessionID, seconds), WTFMove(completionHandler));
-}
-
 void NetworkProcessProxy::setTimeToLiveUserInteraction(PAL::SessionID sessionID, Seconds seconds, CompletionHandler<void()>&& completionHandler)
 {
     if (!canSendMessage()) {
@@ -1389,11 +1382,6 @@ void NetworkProcessProxy::sendProcessDidResume(ResumeReason reason)
         send(Messages::NetworkProcess::ProcessDidResume(reason == ResumeReason::ForegroundActivity), 0);
 }
 
-void NetworkProcessProxy::flushCookies(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
-{
-    sendWithAsyncReply(Messages::NetworkProcess::FlushCookies(sessionID), WTFMove(completionHandler));
-}
-
 void NetworkProcessProxy::addSession(WebsiteDataStore& store, SendParametersToNetworkProcess sendParametersToNetworkProcess)
 {
     auto addResult = m_websiteDataStores.add(store);
@@ -1827,6 +1815,12 @@ void NetworkProcessProxy::applicationDidEnterBackground()
 void NetworkProcessProxy::applicationWillEnterForeground()
 {
     send(Messages::NetworkProcess::ApplicationWillEnterForeground(), 0);
+}
+
+void NetworkProcessProxy::cookiesDidChange(PAL::SessionID sessionID)
+{
+    if (auto* websiteDataStore = websiteDataStoreFromSessionID(sessionID))
+        websiteDataStore->cookieStore().cookiesDidChange();
 }
 
 } // namespace WebKit

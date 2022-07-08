@@ -25,6 +25,7 @@
 #include "DOMPromiseProxy.h"
 #include "DOMWindow.h"
 #include "DOMWrapperWorld.h"
+#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
@@ -83,7 +84,6 @@
 #include "JSWindowProxy.h"
 #include "JSWorkerGlobalScopeBase.h"
 #include "JSXPathNSResolver.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScriptExecutionContext.h"
 #include "SerializedScriptValue.h"
 #include "WebCoreJSClientData.h"
@@ -2117,7 +2117,7 @@ template<> void JSTestObjDOMConstructor::initializeProperties(VM& vm, JSDOMGloba
     putDirect(vm, vm.propertyNames->prototype, JSTestObj::prototype(vm, globalObject), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::DontDelete);
     reifyStaticProperties(vm, JSTestObj::info(), JSTestObjConstructorTableValues, *this);
 #if ENABLE(TEST_FEATURE)
-    if (!RuntimeEnabledFeatures::sharedFeatures().testFeatureEnabled()) {
+    if (!DeprecatedGlobalSettings::testFeatureEnabled()) {
         auto propertyName = Identifier::fromString(vm, "enabledAtRuntimeAttributeStatic"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
         DeletePropertySlot slot;
@@ -2125,7 +2125,7 @@ template<> void JSTestObjDOMConstructor::initializeProperties(VM& vm, JSDOMGloba
     }
 #endif
 #if ENABLE(TEST_FEATURE)
-    if (!RuntimeEnabledFeatures::sharedFeatures().testFeatureEnabled()) {
+    if (!DeprecatedGlobalSettings::testFeatureEnabled()) {
         auto propertyName = Identifier::fromString(vm, "enabledAtRuntimeOperationStatic"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
         DeletePropertySlot slot;
@@ -2476,7 +2476,7 @@ void JSTestObjPrototype::finishCreation(VM& vm)
     reifyStaticProperties(vm, JSTestObj::info(), JSTestObjPrototypeTableValues, *this);
     bool hasDisabledRuntimeProperties = false;
 #if ENABLE(TEST_FEATURE)
-    if (!RuntimeEnabledFeatures::sharedFeatures().testFeatureEnabled()) {
+    if (!DeprecatedGlobalSettings::testFeatureEnabled()) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "enabledAtRuntimeOperation"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
@@ -2484,7 +2484,7 @@ void JSTestObjPrototype::finishCreation(VM& vm)
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
 #endif
-    if (!(worldForDOMObject(*this).someWorld() && RuntimeEnabledFeatures::sharedFeatures().testFeatureEnabled())) {
+    if (!(worldForDOMObject(*this).someWorld() && DeprecatedGlobalSettings::testFeatureEnabled())) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "enabledInSpecificWorldWhenRuntimeFeatureEnabled"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
@@ -2513,7 +2513,7 @@ void JSTestObjPrototype::finishCreation(VM& vm)
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
 #if ENABLE(TEST_FEATURE)
-    if (!(jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isSecureContext() && RuntimeEnabledFeatures::sharedFeatures().testFeatureEnabled())) {
+    if (!(jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isSecureContext() && DeprecatedGlobalSettings::testFeatureEnabled())) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "testFeatureGetSecretBoolean"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
@@ -2543,7 +2543,7 @@ void JSTestObjPrototype::finishCreation(VM& vm)
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
 #if ENABLE(TEST_FEATURE)
-    if (!(RuntimeEnabledFeatures::sharedFeatures().testFeatureEnabled() && RuntimeEnabledFeatures::sharedFeatures().testFeature1Enabled())) {
+    if (!(DeprecatedGlobalSettings::testFeatureEnabled() && DeprecatedGlobalSettings::testFeature1Enabled())) {
         hasDisabledRuntimeProperties = true;
         auto propertyName = Identifier::fromString(vm, "enabledAtRuntimeAttribute"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
@@ -3991,7 +3991,7 @@ static inline JSValue jsTestObj_reflectedURLAttrGetter(JSGlobalObject& lexicalGl
     auto& vm = JSC::getVM(&lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    RELEASE_AND_RETURN(throwScope, (toJS<IDLAtomStringAdaptor<IDLDOMString>>(lexicalGlobalObject, throwScope, impl.getURLAttribute(WebCore::HTMLNames::reflectedurlattrAttr))));
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLAtomStringAdaptor<IDLDOMString>>(lexicalGlobalObject, throwScope, impl.getURLAttributeForBindings(WebCore::HTMLNames::reflectedurlattrAttr))));
 }
 
 JSC_DEFINE_CUSTOM_GETTER(jsTestObj_reflectedURLAttr, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName attributeName))
@@ -4022,7 +4022,7 @@ static inline JSValue jsTestObj_reflectedUSVURLAttrGetter(JSGlobalObject& lexica
     auto& vm = JSC::getVM(&lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    RELEASE_AND_RETURN(throwScope, (toJS<IDLAtomStringAdaptor<IDLUSVString>>(lexicalGlobalObject, throwScope, impl.getURLAttribute(WebCore::HTMLNames::reflectedusvurlattrAttr))));
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLAtomStringAdaptor<IDLUSVString>>(lexicalGlobalObject, throwScope, impl.getURLAttributeForBindings(WebCore::HTMLNames::reflectedusvurlattrAttr))));
 }
 
 JSC_DEFINE_CUSTOM_GETTER(jsTestObj_reflectedUSVURLAttr, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName attributeName))
@@ -4146,7 +4146,7 @@ static inline JSValue jsTestObj_reflectedCustomURLAttrGetter(JSGlobalObject& lex
     auto& vm = JSC::getVM(&lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    RELEASE_AND_RETURN(throwScope, (toJS<IDLAtomStringAdaptor<IDLDOMString>>(lexicalGlobalObject, throwScope, impl.getURLAttribute(WebCore::HTMLNames::customContentURLAttrAttr))));
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLAtomStringAdaptor<IDLDOMString>>(lexicalGlobalObject, throwScope, impl.getURLAttributeForBindings(WebCore::HTMLNames::customContentURLAttrAttr))));
 }
 
 JSC_DEFINE_CUSTOM_GETTER(jsTestObj_reflectedCustomURLAttr, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName attributeName))

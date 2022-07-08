@@ -123,7 +123,7 @@ static int32_t deviceOrientationForUIInterfaceOrientation(UIInterfaceOrientation
     if (!CGSizeEqualToSize(oldFrame.size, frame.size)) {
         [self _frameOrBoundsChanged];
 
-#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
         [self _acquireResizeAssertionForReason:@"-[WKWebView setFrame:]"];
 #endif
     }
@@ -138,7 +138,7 @@ static int32_t deviceOrientationForUIInterfaceOrientation(UIInterfaceOrientation
     if (!CGSizeEqualToSize(oldBounds.size, bounds.size)) {
         [self _frameOrBoundsChanged];
 
-#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
         [self _acquireResizeAssertionForReason:@"-[WKWebView setBounds:]"];
 #endif
     }
@@ -196,8 +196,8 @@ static int32_t deviceOrientationForUIInterfaceOrientation(UIInterfaceOrientation
     [center addObserver:self selector:@selector(_accessibilitySettingsDidChange:) name:UIAccessibilityInvertColorsStatusDidChangeNotification object:nil];
     [center addObserver:self selector:@selector(_accessibilitySettingsDidChange:) name:UIAccessibilityReduceMotionStatusDidChangeNotification object:nil];
 
-#if HAVE(MULTITASKING_MODE)
-    [center addObserver:self selector:@selector(_multitaskingModeDidChange:) name:self.multitaskingModeChangedNotificationName object:nil];
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+    [center addObserver:self selector:@selector(_enhancedWindowingToggled:) name:_UIWindowSceneEnhancedWindowingModeChanged object:nil];
 #endif
 }
 
@@ -706,7 +706,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     [self _hidePasswordView];
     [self _cancelAnimatedResize];
 
-#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
     [self _invalidateResizeAssertions];
 #endif
 
@@ -876,8 +876,16 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     [_scrollView setMinimumZoomScale:layerTreeTransaction.minimumScaleFactor()];
     [_scrollView setMaximumZoomScale:layerTreeTransaction.maximumScaleFactor()];
     [_scrollView _setZoomEnabledInternal:layerTreeTransaction.allowsUserScaling()];
-    auto rootNode = _page->scrollingCoordinatorProxy()->rootNode();
-    WebKit::ScrollingTreeScrollingNodeDelegateIOS::updateScrollViewForOverscrollBehavior(_scrollView.get(), rootNode->horizontalOverscrollBehavior(), rootNode->verticalOverscrollBehavior(), WebKit::ScrollingTreeScrollingNodeDelegateIOS::AllowOverscrollToPreventScrollPropagation::No);
+
+    auto horizontalOverscrollBehavior = WebCore::OverscrollBehavior::Auto;
+    auto verticalOverscrollBehavior = WebCore::OverscrollBehavior::Auto;
+
+    if (auto rootNode = _page->scrollingCoordinatorProxy()->rootNode()) {
+        horizontalOverscrollBehavior = rootNode->horizontalOverscrollBehavior();
+        verticalOverscrollBehavior = rootNode->verticalOverscrollBehavior();
+    }
+
+    WebKit::ScrollingTreeScrollingNodeDelegateIOS::updateScrollViewForOverscrollBehavior(_scrollView.get(), horizontalOverscrollBehavior, verticalOverscrollBehavior, WebKit::ScrollingTreeScrollingNodeDelegateIOS::AllowOverscrollToPreventScrollPropagation::No);
 
     bool hasDockedInputView = !CGRectIsEmpty(_inputViewBoundsInWindow);
     bool isZoomed = layerTreeTransaction.pageScaleFactor() > layerTreeTransaction.initialScaleFactor();
@@ -893,7 +901,7 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     bool scrollingEnabled = _page->scrollingCoordinatorProxy()->hasScrollableOrZoomedMainFrame() || hasDockedInputView || isZoomed || scrollingNeededToRevealUI;
     [_scrollView _setScrollEnabledInternal:scrollingEnabled];
 
-    if (!layerTreeTransaction.scaleWasSetByUIProcess() && ![_scrollView isZooming] && ![_scrollView isZoomBouncing] && ![_scrollView _isAnimatingZoom] && [_scrollView zoomScale] != layerTreeTransaction.pageScaleFactor()) {
+    if (!layerTreeTransaction.scaleWasSetByUIProcess() && ![_scrollView isZooming] && ![_scrollView isZoomBouncing] && ![_scrollView _isAnimatingZoom] && !WTF::areEssentiallyEqual<float>([_scrollView zoomScale], layerTreeTransaction.pageScaleFactor())) {
         LOG_WITH_STREAM(VisibleRects, stream << " updating scroll view with pageScaleFactor " << layerTreeTransaction.pageScaleFactor());
         [_scrollView setZoomScale:layerTreeTransaction.pageScaleFactor()];
     }
@@ -1562,14 +1570,24 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     _page->activityStateDidChange(WebCore::ActivityState::allFlags());
     _page->webViewDidMoveToWindow();
     [self _presentCaptivePortalModeAlertIfNeeded];
-#if HAVE(MULTITASKING_MODE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
     if (_page->hasRunningProcess() && self.window)
-        _page->setIsInMultitaskingMode(self._isInMultitaskingMode);
+        _page->setIsWindowResizingEnabled(self._isWindowResizingEnabled);
 #endif
-#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
     [self _invalidateResizeAssertions];
 #endif
 }
+
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+
+- (BOOL)_isWindowResizingEnabled
+{
+    UIWindowScene *scene = self.window.windowScene;
+    return [scene respondsToSelector:@selector(_enhancedWindowingEnabled)] && scene._enhancedWindowingEnabled;
+}
+
+#endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
 
 - (void)_setOpaqueInternal:(BOOL)opaque
 {
@@ -1676,9 +1694,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     // FIXME: We will want to detect whether snapping will occur before beginning to drag. See WebPageProxy::didCommitLayerTree.
     WebKit::RemoteScrollingCoordinatorProxy* coordinator = _page->scrollingCoordinatorProxy();
     ASSERT(scrollView == _scrollView.get());
-    CGFloat scrollDecelerationFactor = (coordinator && coordinator->shouldSetScrollViewDecelerationRateFast()) ? UIScrollViewDecelerationRateFast : UIScrollViewDecelerationRateNormal;
-    scrollView.horizontalScrollDecelerationFactor = scrollDecelerationFactor;
-    scrollView.verticalScrollDecelerationFactor = scrollDecelerationFactor;
+    [_scrollView _setDecelerationRateInternal:(coordinator && coordinator->shouldSetScrollViewDecelerationRateFast()) ? UIScrollViewDecelerationRateFast : UIScrollViewDecelerationRateNormal];
 
     coordinator->setRootNodeIsInUserScroll(true);
 #endif
@@ -2005,7 +2021,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     [self _scheduleVisibleContentRectUpdate];
 }
 
-#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
 
 - (void)_acquireResizeAssertionForReason:(NSString *)reason
 {
@@ -2055,7 +2071,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
         [resizeAssertion _invalidate];
 }
 
-#endif // HAVE(MAC_CATALYST_LIVE_RESIZE)
+#endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
 
 // Unobscured content rect where the user can interact. When the keyboard is up, this should be the area above or below the keyboard, wherever there is enough space.
 - (CGRect)_contentRectForUserInteraction
@@ -2759,9 +2775,9 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
 #endif
 
-#if HAVE(MULTITASKING_MODE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
 
-- (void)_multitaskingModeDidChange:(NSNotification *)notification
+- (void)_enhancedWindowingToggled:(NSNotification *)notification
 {
     if (dynamic_objc_cast<UIWindowScene>(notification.object) != self.window.windowScene)
         return;
@@ -2769,10 +2785,10 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     if (!_page || !_page->hasRunningProcess())
         return;
 
-    _page->setIsInMultitaskingMode(self._isInMultitaskingMode);
+    _page->setIsWindowResizingEnabled(self._isWindowResizingEnabled);
 }
 
-#endif // HAVE(MULTITASKING_MODE)
+#endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
 
 @end
 
@@ -3274,8 +3290,8 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     // Compute the new scale to keep the current content width in the scrollview.
     CGFloat oldWebViewWidthInContentViewCoordinates = oldUnobscuredContentRect.width();
     _animatedResizeOriginalContentWidth = [&] {
-#if HAVE(MULTITASKING_MODE)
-        if (self._isInMultitaskingMode)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+        if (self._isWindowResizingEnabled)
             return contentSizeInContentViewCoordinates.width;
 #endif
         return std::min(contentSizeInContentViewCoordinates.width, oldWebViewWidthInContentViewCoordinates);

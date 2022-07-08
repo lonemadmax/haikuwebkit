@@ -26,6 +26,7 @@ import sys
 
 from .command import Command
 from .branch import Branch
+from .squash import Squash
 
 from webkitbugspy import Tracker
 from webkitcorepy import arguments, run, Terminal
@@ -37,10 +38,13 @@ class PullRequest(Command):
     aliases = ['pr', 'pfr', 'upload']
     help = 'Push the current checkout state as a pull-request'
     BLOCKED_LABEL = 'merging-blocked'
+    MERGE_LABELS = ['merge-queue']
+    UNSAFE_MERGE_LABELS = ['unsafe-merge-queue']
 
     @classmethod
     def parser(cls, parser, loggers=None):
         Branch.parser(parser, loggers=loggers)
+        Squash.parser(parser, loggers=loggers)
         parser.add_argument(
             '--add', '--no-add',
             dest='will_add', default=None,
@@ -51,6 +55,12 @@ class PullRequest(Command):
             '--rebase', '--no-rebase', '--update', '--no-update',
             dest='rebase', default=None,
             help='Rebase (or do not rebase) the pull-request on the source branch before pushing',
+            action=arguments.NoAction,
+        )
+        parser.add_argument(
+            '--squash', '--no-squash',
+            dest='squash', default=None,
+            help='Combine all commits on the current development branch into a single commit before pushing',
             action=arguments.NoAction,
         )
         parser.add_argument(
@@ -252,23 +262,25 @@ class PullRequest(Command):
         return 0
 
     @classmethod
-    def create_pull_request(cls, repository, args, branch_point):
+    def create_pull_request(cls, repository, args, branch_point, callback=None, unblock=True, update_issue=True):
         # FIXME: We can do better by inferring the remote from the branch point, if it's not specified
         source_remote = args.remote or 'origin'
         if not repository.config().get('remote.{}.url'.format(source_remote)):
             sys.stderr.write("'{}' is not a remote in this repository\n".format(source_remote))
             return 1
 
-        rebasing = args.rebase or (args.rebase is None and repository.config().get('pull.rebase'))
+        rebasing = args.rebase if args.rebase is not None else repository.config().get(
+            'webkitscmpy.auto-rebase-branch',
+            repository.config().get('pull.rebase', 'true'),
+        ) == 'true'
+
         if rebasing:
             log.info("Rebasing '{}' on '{}'...".format(repository.branch, branch_point.branch))
             if repository.pull(rebase=True, branch=branch_point.branch):
                 sys.stderr.write("Failed to rebase '{}' on '{},' please resolve conflicts\n".format(repository.branch, branch_point.branch))
                 return 1
             log.info("Rebased '{}' on '{}!'".format(repository.branch, branch_point.branch))
-            branch_point = Branch.branch_point(repository)
-        else:
-            branch_point = Branch.branch_point(repository)
+            branch_point = repository.commit(branch=branch_point.branch)
 
         if args.checks is None:
             args.checks = repository.config().get('webkitscmpy.auto-check', 'false') == 'true'
@@ -291,15 +303,19 @@ class PullRequest(Command):
             ) == 'Yes'):
                 existing_pr = None
 
-        # Remove "merging-blocked" label
+        # Remove any active labels
         if existing_pr and existing_pr._metadata and existing_pr._metadata.get('issue'):
-            log.info("Checking PR labels for '{}'...".format(cls.BLOCKED_LABEL))
+            log.info("Checking PR labels for active labels...")
             pr_issue = existing_pr._metadata['issue']
             labels = pr_issue.labels
-            if cls.BLOCKED_LABEL in labels:
-                log.info("Removing '{}' from PR {}...".format(cls.BLOCKED_LABEL, existing_pr.number))
-                labels.remove(cls.BLOCKED_LABEL)
-                pr_issue.set_labels([])
+            did_remove = False
+            for to_remove in cls.MERGE_LABELS + cls.UNSAFE_MERGE_LABELS + ([cls.BLOCKED_LABEL] if unblock else []):
+                if to_remove in labels:
+                    log.info("Removing '{}' from PR {}...".format(to_remove, existing_pr.number))
+                    labels.remove(to_remove)
+                    did_remove = True
+            if did_remove:
+                pr_issue.set_labels(labels)
 
         if isinstance(remote_repo, remote.GitHub):
             target = 'fork' if source_remote == 'origin' else '{}-fork'.format(source_remote)
@@ -385,7 +401,7 @@ class PullRequest(Command):
             if cls.is_revert_commit(commits[0]):
                 cls.add_comment_to_reverted_commit_bug_tracker(repository, args, pr, commits[0])
 
-        if issue:
+        if issue and update_issue:
             log.info('Checking issue assignee...')
             if issue.assignee != issue.tracker.me():
                 issue.assign(issue.tracker.me())
@@ -417,6 +433,8 @@ class PullRequest(Command):
         if pr.url:
             print(pr.url)
 
+        if callback:
+            return callback(pr)
         return 0
 
     @classmethod
@@ -434,5 +452,9 @@ class PullRequest(Command):
         result = cls.create_commit(args, repository, **kwargs)
         if result:
             return result
+        if args.squash:
+            result = Squash.squash_commit(args, repository, branch_point, **kwargs)
+            if result:
+                return result
 
         return cls.create_pull_request(repository, args, branch_point)

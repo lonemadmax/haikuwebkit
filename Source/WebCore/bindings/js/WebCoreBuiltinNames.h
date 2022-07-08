@@ -39,6 +39,25 @@ namespace WebCore {
 #define WEBCORE_ADDITIONAL_PRIVATE_IDENTIFIERS(macro)
 #endif
 
+#if !defined(WEBCORE_COMMON_PRIVATE_IDENTIFIERS_FOR_SHADOWREALM_EACH_PROPERTY_NAME)
+// Dom APIs exposed to ShadowRealm are temporarily enabled via the WebAPIsInShadowRealmEnabled
+// experimental feature. When this is resolved, these can be deleted.
+#define WEBCORE_COMMON_PRIVATE_IDENTIFIERS_FOR_SHADOWREALM_EACH_PROPERTY_NAME(macro) \
+    macro(AbortController) \
+    macro(ByteLengthQueuingStrategy) \
+    macro(CountQueuingStrategy) \
+    macro(CustomEvent) \
+    macro(ErrorEvent) \
+    macro(Event) \
+    macro(EventTarget) \
+    macro(Performance) \
+    macro(PromiseRejectionEvent) \
+    macro(TextDecoder) \
+    macro(TextEncoder) \
+    macro(URL) \
+    macro(URLSearchParams)
+#endif
+
 #define WEBCORE_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(macro) \
     macro(AbortSignal) \
     macro(AbstractRange) \
@@ -554,7 +573,6 @@ namespace WebCore {
     macro(setBodyFromInputRequest) \
     macro(setStatus) \
     macro(showModalDialog) \
-    macro(size) \
     macro(start) \
     macro(startConsumingStream) \
     macro(started) \
@@ -608,6 +626,7 @@ namespace WebCore {
     macro(pendingAbortRequest) \
     macro(writeRequests) \
     WEBCORE_ADDITIONAL_PRIVATE_IDENTIFIERS(macro) \
+    WEBCORE_COMMON_PRIVATE_IDENTIFIERS_FOR_SHADOWREALM_EACH_PROPERTY_NAME(macro) \
 
 class WebCoreBuiltinNames {
 public:

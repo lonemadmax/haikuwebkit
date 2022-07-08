@@ -121,6 +121,7 @@ UIProcess/API/C/glib/WKTextCheckerGLib.cpp
 UIProcess/API/C/gtk/WKView.cpp
 
 UIProcess/API/glib/APIContentRuleListStoreGLib.cpp @no-unify
+UIProcess/API/glib/APISerializedScriptValueGLib.cpp @no-unify
 UIProcess/API/glib/IconDatabase.cpp @no-unify
 UIProcess/API/glib/InputMethodFilter.cpp @no-unify
 UIProcess/API/glib/WebKitApplicationInfo.cpp @no-unify
@@ -215,6 +216,8 @@ UIProcess/API/gtk/WebKitWebViewBase.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewDialog.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewGtk.cpp @no-unify
 
+UIProcess/API/soup/HTTPCookieStoreSoup.cpp
+
 UIProcess/Automation/cairo/WebAutomationSessionCairo.cpp
 
 UIProcess/Automation/gtk/WebAutomationSessionGtk.cpp
@@ -281,7 +284,6 @@ UIProcess/gtk/WebPreferencesGtk.cpp
 UIProcess/gtk/WebTextChecker.cpp
 UIProcess/gtk/WebTextCheckerClient.cpp
 
-UIProcess/soup/WebCookieManagerProxySoup.cpp
 UIProcess/soup/WebProcessPoolSoup.cpp
 
 WebProcess/GPU/graphics/gbm/RemoteGraphicsContextGLProxyGBM.cpp

@@ -1058,7 +1058,7 @@ size_t WebPageProxy::computePagesForPrintingiOS(FrameIdentifier frameID, const P
     return pageCount;
 }
 
-uint64_t WebPageProxy::drawToPDFiOS(FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(const IPC::SharedBufferReference&)>&& completionHandler)
+uint64_t WebPageProxy::drawToPDFiOS(FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
     if (!hasRunningProcess()) {
         completionHandler({ });
@@ -1397,7 +1397,7 @@ bool WebPageProxy::isDesktopClassBrowsingRecommended(const WebCore::ResourceRequ
         return false;
 
 #if !PLATFORM(MACCATALYST)
-    if (!pageClient().isInMultitaskingMode() && webViewSizeIsNarrow(viewSize()))
+    if (!pageClient().hasResizableWindows() && webViewSizeIsNarrow(viewSize()))
         return false;
 #endif
 

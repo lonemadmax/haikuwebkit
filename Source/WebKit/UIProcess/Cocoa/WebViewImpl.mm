@@ -148,9 +148,11 @@
 #endif
 
 #if HAVE(TRANSLATION_UI_SERVICES)
+#import <TranslationUIServices/LTUISourceMeta.h>
 #import <TranslationUIServices/LTUITranslationViewController.h>
 
 SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(TranslationUIServices)
+SOFT_LINK_CLASS_OPTIONAL(TranslationUIServices, LTUISourceMeta)
 SOFT_LINK_CLASS_OPTIONAL(TranslationUIServices, LTUITranslationViewController)
 #endif
 
@@ -249,7 +251,7 @@ static RetainPtr<CocoaImageAnalyzerRequest> createImageAnalyzerRequest(CGImageRe
     return request;
 }
 
-void WebViewImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& source, const String& target, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion)
+void WebViewImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion)
 {
     if (!isLiveTextAvailableAndEnabled()) {
         completion({ });
@@ -265,11 +267,11 @@ void WebViewImpl::requestTextRecognition(const URL& imageURL, const ShareableBit
     auto cgImage = imageBitmap->makeCGImage();
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    if (!target.isEmpty())
-        return requestImageAnalysisWithIdentifiers(ensureImageAnalyzer(), imageURL, source, target, cgImage.get(), WTFMove(completion));
+    if (!targetLanguageIdentifier.isEmpty())
+        return requestVisualTranslation(ensureImageAnalyzer(), imageURL, sourceLanguageIdentifier, targetLanguageIdentifier, cgImage.get(), WTFMove(completion));
 #else
-    UNUSED_PARAM(source);
-    UNUSED_PARAM(target);
+    UNUSED_PARAM(sourceLanguageIdentifier);
+    UNUSED_PARAM(targetLanguageIdentifier);
 #endif
 
     auto request = createImageAnalyzerRequest(cgImage.get(), imageURL, [NSURL _web_URLWithWTFString:m_page->currentURL()], VKAnalysisTypeText);
@@ -348,6 +350,7 @@ void WebViewImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBi
     WebKit::WebViewImpl *_impl;
 
     BOOL _didRegisterForLookupPopoverCloseNotifications;
+    BOOL _shouldObserveFontPanel;
 }
 
 - (instancetype)initWithView:(NSView *)view impl:(WebKit::WebViewImpl&)impl;
@@ -413,6 +416,9 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
     [defaultNotificationCenter addObserver:self selector:@selector(_screenDidChangeColorSpace:) name:NSScreenColorSpaceDidChangeNotification object:nil];
 
+    if (_shouldObserveFontPanel)
+        [self startObservingFontPanel];
+
     [window addObserver:self forKeyPath:@"contentLayoutRect" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
     [window addObserver:self forKeyPath:@"titlebarAppearsTransparent" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
 }
@@ -440,7 +446,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
     [defaultNotificationCenter removeObserver:self name:NSScreenColorSpaceDidChangeNotification object:nil];
 
-    if (_impl->isEditable())
+    if (_shouldObserveFontPanel)
         [[NSFontPanel sharedFontPanel] removeObserver:self forKeyPath:@"visible" context:keyValueObservingContext];
     [window removeObserver:self forKeyPath:@"contentLayoutRect" context:keyValueObservingContext];
     [window removeObserver:self forKeyPath:@"titlebarAppearsTransparent" context:keyValueObservingContext];
@@ -448,6 +454,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
 - (void)startObservingFontPanel
 {
+    _shouldObserveFontPanel = YES;
     [[NSFontPanel sharedFontPanel] addObserver:self forKeyPath:@"visible" options:0 context:keyValueObservingContext];
 }
 
@@ -4329,7 +4336,7 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
 {
     WebCore::IntPoint client([m_view convertPoint:draggingInfo.draggingLocation fromView:nil]);
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, [m_view window]));
-    WebCore::DragData *dragData = new WebCore::DragData(draggingInfo, client, global, coreDragOperationMask(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), WebCore::anyDragDestinationAction(), m_page->webPageID());
+    auto dragData = Box<WebCore::DragData>::create(draggingInfo, client, global, coreDragOperationMask(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), WebCore::anyDragDestinationAction(), m_page->webPageID());
 
     NSArray *types = draggingInfo.draggingPasteboard.types;
     SandboxExtension::Handle sandboxExtensionHandle;
@@ -4341,31 +4348,24 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
         // guaranteed that the count of UTIs equals the count of files, since some clients only write
         // unique UTIs.
         NSArray *files = [draggingInfo.draggingPasteboard propertyListForType:WebCore::legacyFilesPromisePasteboardType()];
-        if (![files isKindOfClass:[NSArray class]]) {
-            delete dragData;
+        if (![files isKindOfClass:[NSArray class]])
             return false;
-        }
 
         NSString *dropDestinationPath = FileSystem::createTemporaryDirectory(@"WebKitDropDestination");
-        if (!dropDestinationPath) {
-            delete dragData;
+        if (!dropDestinationPath)
             return false;
-        }
 
         size_t fileCount = files.count;
-        Vector<String> *fileNames = new Vector<String>;
+        auto fileNames = Box<Vector<String>>::create();
         NSURL *dropDestination = [NSURL fileURLWithPath:dropDestinationPath isDirectory:YES];
         String pasteboardName = draggingInfo.draggingPasteboard.name;
-        [draggingInfo enumerateDraggingItemsWithOptions:0 forView:m_view.getAutoreleased() classes:@[[NSFilePromiseReceiver class]] searchOptions:@{ } usingBlock:^(NSDraggingItem *draggingItem, NSInteger idx, BOOL *stop) {
-            NSFilePromiseReceiver *item = draggingItem.item;
-            NSDictionary *options = @{ };
-
-            RetainPtr<NSOperationQueue> queue = adoptNS([NSOperationQueue new]);
-            [item receivePromisedFilesAtDestination:dropDestination options:options operationQueue:queue.get() reader:^(NSURL *fileURL, NSError *errorOrNil) {
+        [draggingInfo enumerateDraggingItemsWithOptions:0 forView:m_view.getAutoreleased() classes:@[ NSFilePromiseReceiver.class ] searchOptions:@{ } usingBlock:[&](NSDraggingItem *draggingItem, NSInteger idx, BOOL *stop) {
+            auto queue = adoptNS([NSOperationQueue new]);
+            [draggingItem.item receivePromisedFilesAtDestination:dropDestination options:@{ } operationQueue:queue.get() reader:[this, fileNames, fileCount, dragData, pasteboardName](NSURL *fileURL, NSError *errorOrNil) {
                 if (errorOrNil)
                     return;
 
-                RunLoop::main().dispatch([this, path = RetainPtr<NSString>(fileURL.path), fileNames, fileCount, dragData, pasteboardName] {
+                RunLoop::main().dispatch([this, path = RetainPtr { fileURL.path }, fileNames, fileCount, dragData, pasteboardName] {
                     fileNames->append(path.get());
                     if (fileNames->size() == fileCount) {
                         SandboxExtension::Handle sandboxExtensionHandle;
@@ -4374,8 +4374,6 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
                         m_page->createSandboxExtensionsIfNeeded(*fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
                         dragData->setFileNames(*fileNames);
                         m_page->performDragOperation(*dragData, pasteboardName, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
-                        delete dragData;
-                        delete fileNames;
                     }
                 });
             }];
@@ -4386,10 +4384,8 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
 
     if ([types containsObject:WebCore::legacyFilenamesPasteboardType()]) {
         NSArray *files = [draggingInfo.draggingPasteboard propertyListForType:WebCore::legacyFilenamesPasteboardType()];
-        if (![files isKindOfClass:[NSArray class]]) {
-            delete dragData;
+        if (![files isKindOfClass:[NSArray class]])
             return false;
-        }
 
         m_page->createSandboxExtensionsIfNeeded(makeVector<String>(files), sandboxExtensionHandle, sandboxExtensionForUpload);
     }
@@ -4397,7 +4393,6 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
     String draggingPasteboardName = draggingInfo.draggingPasteboard.name;
     m_page->grantAccessToCurrentPasteboardData(draggingPasteboardName);
     m_page->performDragOperation(*dragData, draggingPasteboardName, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
-    delete dragData;
 
     return true;
 }
@@ -4498,9 +4493,7 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, const ShareableBitmap
     // The call below could release the view.
     auto protector = m_view.get();
     auto clientDragLocation = item.dragLocationInWindowCoordinates;
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:NSDragPboard];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:NSPasteboardNameDrag];
 
     if (auto& info = item.promisedAttachmentInfo) {
         auto attachment = m_page->attachmentForIdentifier(info.attachmentIdentifier);
@@ -5858,6 +5851,10 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
         }];
     }
 
+    auto sourceMetadata = adoptNS([allocLTUISourceMetaInstance() init]);
+    [sourceMetadata setOrigin:info.source == WebCore::TranslationContextMenuSource::Image ? LTUISourceMetaOriginImage : LTUISourceMetaOriginUnspecified];
+    [translationViewController setSourceMeta:sourceMetadata.get()];
+
     if (NSEqualSizes([translationViewController preferredContentSize], NSZeroSize))
         [translationViewController setPreferredContentSize:NSMakeSize(400, 400)];
 
@@ -5937,17 +5934,74 @@ bool WebViewImpl::imageAnalysisOverlayViewHasCursorAtPoint(NSPoint locationInVie
 #endif
 }
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WebViewImplAdditions.mm>
-#else
-void WebViewImpl::beginElementFullscreenVideoExtraction(const ShareableBitmap::Handle&, WebCore::FloatRect)
+void WebViewImpl::beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmap::Handle& bitmapHandle, WebCore::FloatRect bounds)
 {
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    auto imageBitmap = ShareableBitmap::create(bitmapHandle);
+    if (!imageBitmap)
+        return;
+
+    auto image = imageBitmap->makeCGImage();
+    if (!image)
+        return;
+
+    auto request = WebKit::createImageAnalyzerRequest(image.get(), VKAnalysisTypeText);
+    m_currentImageAnalysisRequestID = processImageAnalyzerRequest(request.get(), [this, weakThis = WeakPtr { *this }, bounds](CocoaImageAnalysis *result, NSError *error) {
+        if (!weakThis || !m_currentImageAnalysisRequestID)
+            return;
+
+        m_currentImageAnalysisRequestID = 0;
+        if (error || !result)
+            return;
+
+        m_imageAnalysisInteractionBounds = bounds;
+        installImageAnalysisOverlayView(result);
+    });
+#else
+    UNUSED_PARAM(bitmapHandle);
+    UNUSED_PARAM(bounds);
+#endif
 }
 
-void WebViewImpl::cancelElementFullscreenVideoExtraction()
+void WebViewImpl::cancelTextRecognitionForVideoInElementFullscreen()
 {
-}
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    if (auto identifier = std::exchange(m_currentImageAnalysisRequestID, 0))
+        [m_imageAnalyzer cancelRequestID:identifier];
+    uninstallImageAnalysisOverlayView();
 #endif
+}
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+void WebViewImpl::installImageAnalysisOverlayView(VKCImageAnalysis *analysis)
+{
+    if (!m_imageAnalysisOverlayView) {
+        m_imageAnalysisOverlayView = adoptNS([PAL::allocVKCImageAnalysisOverlayViewInstance() initWithFrame:[m_view bounds]]);
+        m_imageAnalysisOverlayViewDelegate = adoptNS([[WKImageAnalysisOverlayViewDelegate alloc] initWithWebViewImpl:*this]);
+        [m_imageAnalysisOverlayView setDelegate:m_imageAnalysisOverlayViewDelegate.get()];
+        setUpAdditionalImageAnalysisBehaviors(m_imageAnalysisOverlayView.get());
+        RELEASE_LOG(ImageAnalysis, "Installing image analysis overlay view at {{ %.0f, %.0f }, { %.0f, %.0f }}",
+            m_imageAnalysisInteractionBounds.x(), m_imageAnalysisInteractionBounds.y(), m_imageAnalysisInteractionBounds.width(), m_imageAnalysisInteractionBounds.height());
+    }
+
+    [m_imageAnalysisOverlayView setAnalysis:analysis];
+    [m_view addSubview:m_imageAnalysisOverlayView.get()];
+}
+
+void WebViewImpl::uninstallImageAnalysisOverlayView()
+{
+    if (!m_imageAnalysisOverlayView)
+        return;
+
+    RELEASE_LOG(ImageAnalysis, "Uninstalling image analysis overlay view");
+    [m_imageAnalysisOverlayView removeFromSuperview];
+    m_imageAnalysisOverlayViewDelegate = nil;
+    m_imageAnalysisOverlayView = nil;
+    m_imageAnalysisInteractionBounds = { };
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 } // namespace WebKit
 

@@ -572,21 +572,20 @@ void EventHandler::selectClosestContextualWordOrLinkFromHitTestResult(const HitT
     if (!m_frame.selection().selection().isContentEditable() && !is<Text>(result.targetNode()))
         return;
 
+    if (!m_frame.settings().textInteractionEnabled())
+        return;
+
     RefPtr urlElement = result.URLElement();
     if (!urlElement || !isDraggableLink(*urlElement)) {
-        if (RefPtr targetNode = result.targetNode()) {
-            if (isEditableNode(*targetNode)) {
-                if (mouseDownMayStartSelect())
-                    return selectClosestWordFromHitTestResult(result, appendTrailingWhitespace);
-                return;
-            }
+        if (RefPtr targetNode = result.targetNode(); targetNode && isEditableNode(*targetNode)) {
+            selectClosestWordFromHitTestResult(result, appendTrailingWhitespace);
+            return;
         }
 
         return selectClosestContextualWordFromHitTestResult(result, appendTrailingWhitespace);
     }
 
-    RefPtr targetNode = result.targetNode();
-    if (targetNode && targetNode->renderer() && mouseDownMayStartSelect()) {
+    if (RefPtr targetNode = result.targetNode(); targetNode && targetNode->renderer()) {
         VisibleSelection newSelection;
         VisiblePosition pos(targetNode->renderer()->positionForPoint(result.localPoint(), nullptr));
         if (pos.isNotNull() && pos.deepEquivalent().deprecatedNode()->isDescendantOf(*urlElement))
@@ -2551,10 +2550,10 @@ RefPtr<Element> EventHandler::textRecognitionCandidateElement() const
     if (!is<RenderImage>(renderer))
         return nullptr;
 
-#if USE(APPLE_INTERNAL_SDK)
-    if (isAdditionalTextRecognitionCandidateElement(*candidateElement))
-        return candidateElement;
-#endif
+    if (candidateElement->document().settings().textRecognitionInVideosEnabled()) {
+        if (auto video = dynamicDowncast<HTMLVideoElement>(*candidateElement); video && video->paused())
+            return candidateElement;
+    }
 
 #if ENABLE(VIDEO)
     if (is<HTMLVideoElement>(*candidateElement))
@@ -3888,7 +3887,7 @@ void EventHandler::defaultKeyboardEventHandler(KeyboardEvent& event)
         else if (event.keyIdentifier() == "U+0008"_s)
             defaultBackspaceEventHandler(event);
         else if (event.keyIdentifier() == "PageUp"_s || event.keyIdentifier() == "PageDown"_s) {
-            if (startKeyboardScrolling(event))
+            if (keyboardScrollRecursively(event, nullptr))
                 event.setDefaultHandled();
         } else {
             FocusDirection direction = focusDirectionForKey(event.keyIdentifier());
@@ -4304,7 +4303,7 @@ void EventHandler::defaultSpaceEventHandler(KeyboardEvent& event)
     if (!view)
         return;
 
-    bool defaultHandled = m_frame.settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled() ? startKeyboardScrolling(event) : view->logicalScroll(direction, ScrollGranularity::Page);
+    bool defaultHandled = m_frame.settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled() ? keyboardScrollRecursively(event, nullptr) : view->logicalScroll(direction, ScrollGranularity::Page);
     if (defaultHandled)
         event.setDefaultHandled();
 }
@@ -4339,32 +4338,94 @@ void EventHandler::defaultBackspaceEventHandler(KeyboardEvent& event)
 
 void EventHandler::stopKeyboardScrolling()
 {
-    Ref protectedFrame = m_frame;
-    auto* view = m_frame.view();
-    if (!view)
-        return;
-
-    auto* animator = view->scrollAnimator().keyboardScrollingAnimator();
+    auto animator = m_frame.page()->currentKeyboardScrollingAnimator();
     if (animator)
         animator->handleKeyUpEvent();
 }
 
-bool EventHandler::startKeyboardScrolling(KeyboardEvent& event)
+bool EventHandler::beginKeyboardScrollGesture(KeyboardScrollingAnimator* animator, KeyboardEvent& event)
 {
-    if (!m_frame.settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled())
-        return false;
+    auto* platformEvent = event.underlyingPlatformEvent();
 
-    Ref protectedFrame = m_frame;
-    auto* view = m_frame.view();
+    if (animator && platformEvent && animator->beginKeyboardScrollGesture(*platformEvent)) {
+        m_frame.page()->setCurrentKeyboardScrollingAnimator(animator);
+        return true;
+    }
+
+    return false;
+}
+
+bool EventHandler::startKeyboardScrollAnimationOnDocument(KeyboardEvent& event)
+{
+    auto view = m_frame.view();
     if (!view)
         return false;
 
     auto* animator = view->scrollAnimator().keyboardScrollingAnimator();
-    auto* platformEvent = event.underlyingPlatformEvent();
-    if (animator && platformEvent)
-        return animator->beginKeyboardScrollGesture(*platformEvent);
+    return beginKeyboardScrollGesture(animator, event);
+}
+
+bool EventHandler::startKeyboardScrollAnimationOnRenderBoxLayer(KeyboardEvent& event, RenderBox* renderBox)
+{
+    auto* scrollableArea = renderBox->layer() ? renderBox->layer()->scrollableArea() : nullptr;
+    if (!scrollableArea)
+        return false;
+
+    auto* animator = scrollableArea->scrollAnimator().keyboardScrollingAnimator();
+    return beginKeyboardScrollGesture(animator, event);
+}
+
+bool EventHandler::startKeyboardScrollAnimationOnRenderBoxAndItsAncestors(KeyboardEvent& event, RenderBox* renderBox)
+{
+    while (renderBox && !renderBox->isRenderView()) {
+        if (startKeyboardScrollAnimationOnRenderBoxLayer(event, renderBox))
+            return true;
+        renderBox = renderBox->containingBlock();
+    }
 
     return false;
+}
+
+bool EventHandler::startKeyboardScrollAnimationOnEnclosingScrollableContainer(KeyboardEvent& event, Node* startingNode)
+{
+    RefPtr node = startingNode;
+
+    if (!node)
+        node = m_frame.document()->focusedElement();
+
+    if (!node)
+        node = m_mousePressNode.get();
+
+    if (node) {
+        auto renderer = node->renderer();
+        RenderBox& renderBox = renderer->enclosingBox();
+        if (renderer && !renderer->isListBox() && startKeyboardScrollAnimationOnRenderBoxAndItsAncestors(event, &renderBox))
+            return true;
+    }
+    return false;
+}
+
+bool EventHandler::keyboardScrollRecursively(KeyboardEvent& event, Node* startingNode)
+{
+    Ref protectedFrame = m_frame;
+
+    if (!m_frame.settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled())
+        return false;
+
+    m_frame.document()->updateLayoutIgnorePendingStylesheets();
+
+    if (startKeyboardScrollAnimationOnEnclosingScrollableContainer(event, startingNode))
+        return true;
+
+    if (startKeyboardScrollAnimationOnDocument(event))
+        return true;
+
+    RefPtr frame = &m_frame;
+    frame = frame->tree().parent();
+    if (!frame)
+        return false;
+
+    return frame->eventHandler().keyboardScrollRecursively(event, m_frame.ownerElement());
 }
 
 void EventHandler::defaultArrowEventHandler(FocusDirection focusDirection, KeyboardEvent& event)
@@ -4372,7 +4433,7 @@ void EventHandler::defaultArrowEventHandler(FocusDirection focusDirection, Keybo
     ASSERT(event.type() == eventNames().keydownEvent);
 
     if (!isSpatialNavigationEnabled(&m_frame)) {
-        if (startKeyboardScrolling(event))
+        if (keyboardScrollRecursively(event, nullptr))
             event.setDefaultHandled();
         return;
     }

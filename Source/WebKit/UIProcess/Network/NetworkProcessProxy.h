@@ -87,7 +87,6 @@ namespace WebKit {
 
 class DownloadProxy;
 class DownloadProxyMap;
-class WebCookieManagerProxy;
 class WebPageProxy;
 class WebUserContentControllerProxy;
 
@@ -121,7 +120,7 @@ public:
     using OpenerDomain = WebCore::RegistrableDomain;
 
     static Ref<NetworkProcessProxy> ensureDefaultNetworkProcess();
-    static RefPtr<NetworkProcessProxy>& defaultNetworkProcess();
+    static WeakPtr<NetworkProcessProxy>& defaultNetworkProcess();
     static Ref<NetworkProcessProxy> create() { return adoptRef(*new NetworkProcessProxy); }
     ~NetworkProcessProxy();
 
@@ -161,7 +160,6 @@ public:
     void statisticsDatabaseHasAllTables(PAL::SessionID, CompletionHandler<void(bool)>&&);
     void mergeStatisticForTesting(PAL::SessionID, const RegistrableDomain&, const TopFrameDomain& topFrameDomain1, const TopFrameDomain& topFrameDomain2, Seconds lastSeen, bool hadUserInteraction, Seconds mostRecentUserInteraction, bool isGrandfathered, bool isPrevalent, bool isVeryPrevalent, unsigned dataRecordsRemoved, CompletionHandler<void()>&&);
     void insertExpiredStatisticForTesting(PAL::SessionID, const RegistrableDomain&, unsigned numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
-    void setAgeCapForClientSideCookies(PAL::SessionID, std::optional<Seconds>, CompletionHandler<void()>&&);
     void setCacheMaxAgeCap(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
     void setGrandfathered(PAL::SessionID, const RegistrableDomain&, bool isGrandfathered, CompletionHandler<void()>&&);
     void setNotifyPagesWhenDataRecordsWereScanned(PAL::SessionID, bool, CompletionHandler<void()>&&);
@@ -272,8 +270,6 @@ public:
     void updateBundleIdentifier(const String&, CompletionHandler<void()>&&);
     void clearBundleIdentifier(CompletionHandler<void()>&&);
 
-    WebCookieManagerProxy& cookieManager() { return m_cookieManager.get(); }
-
     API::CustomProtocolManagerClient& customProtocolManagerClient() { return m_customProtocolManagerClient.get(); }
 
 #if PLATFORM(COCOA)
@@ -303,6 +299,8 @@ public:
     void openWindowFromServiceWorker(PAL::SessionID, const String& urlString, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(std::optional<WebCore::PageIdentifier>&&)>&&);
 
     void navigateServiceWorkerClient(WebCore::FrameIdentifier, WebCore::ScriptExecutionContextIdentifier, const URL&, CompletionHandler<void(std::optional<WebCore::PageIdentifier>)>&&);
+
+    void cookiesDidChange(PAL::SessionID);
 
 private:
     explicit NetworkProcessProxy();
@@ -420,7 +418,6 @@ private:
 #endif
 
     WeakHashSet<WebsiteDataStore> m_websiteDataStores;
-    UniqueRef<WebCookieManagerProxy> m_cookieManager;
     HashMap<DataTaskIdentifier, Ref<API::DataTask>> m_dataTasks;
 
 #if PLATFORM(IOS_FAMILY)

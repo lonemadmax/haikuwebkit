@@ -225,6 +225,7 @@
 #include <WebCore/PluginDocument.h>
 #include <WebCore/PointerCaptureController.h>
 #include <WebCore/PrintContext.h>
+#include <WebCore/ProcessCapabilities.h>
 #include <WebCore/PromisedAttachmentInfo.h>
 #include <WebCore/Quirks.h>
 #include <WebCore/Range.h>
@@ -241,7 +242,6 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/RunJavaScriptParameters.h>
-#include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/SWClientConnection.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityPolicy.h>
@@ -541,8 +541,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #if HAVE(TOUCH_BAR)
     , m_requiresUserActionForEditingControlsManager(parameters.requiresUserActionForEditingControlsManager)
 #endif
-#if HAVE(MULTITASKING_MODE)
-    , m_isInMultitaskingMode(parameters.isInMultitaskingMode)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+    , m_isWindowResizingEnabled(parameters.hasResizableWindows)
 #endif
 #if ENABLE(META_VIEWPORT)
     , m_forceAlwaysUserScalable(parameters.ignoresViewportScaleLimits)
@@ -657,6 +657,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         synchronizeCORSDisablingPatternsWithNetworkProcess();
     pageConfiguration.corsDisablingPatterns = parseAndAllowAccessToCORSDisablingPatterns(m_corsDisablingPatterns);
 
+    pageConfiguration.maskedURLSchemes = parameters.maskedURLSchemes;
     pageConfiguration.userScriptsShouldWaitUntilNotification = parameters.userScriptsShouldWaitUntilNotification;
     pageConfiguration.loadsSubresources = parameters.loadsSubresources;
     pageConfiguration.allowedNetworkHosts = parameters.allowedNetworkHosts;
@@ -930,8 +931,10 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         && m_shouldRenderDOMInGPUProcess
         && m_shouldPlayMediaInGPUProcess;
 
-    if (blockIOKit)
+    if (blockIOKit) {
         CFPreferencesGetAppIntegerValue(CFSTR("key"), CFSTR("com.apple.WebKit.WebContent.BlockIOKitInWebContentSandbox"), nullptr);
+        ProcessCapabilities::setHardwareAcceleratedDecodingDisabled(true);
+    }
 #endif
 
     updateThrottleState();
@@ -1733,6 +1736,10 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
     // Let the InjectedBundle know we are about to start the load, passing the user data from the UIProcess
     // to all the client to set up any needed state.
     m_loaderClient->willLoadURLRequest(*this, loadParameters.request, WebProcess::singleton().transformHandlesToObjects(loadParameters.userData.object()).get());
+
+#if ENABLE(PUBLIC_SUFFIX_LIST)
+    WebCore::setTopPrivatelyControlledDomain(loadParameters.request.url().host().toString(), loadParameters.topPrivatelyControlledDomain);
+#endif
 
     platformDidReceiveLoadParameters(loadParameters);
 
@@ -4141,6 +4148,9 @@ static void adjustSettingsForCaptivePortal(Settings& settings, const WebPreferen
 #if ENABLE(PDFJS)
     settings.setPdfJSViewerEnabled(true);
 #endif
+#if USE(SYSTEM_PREVIEW)
+    settings.setSystemPreviewEnabled(false);
+#endif
 
     settings.setAllowedMediaContainerTypes(store.getStringValueForKey(WebPreferencesKey::mediaContainerTypesAllowedInCaptivePortalModeKey()));
     settings.setAllowedMediaCodecTypes(store.getStringValueForKey(WebPreferencesKey::mediaCodecTypesAllowedInCaptivePortalModeKey()));
@@ -4229,7 +4239,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
         m_drawingArea->updatePreferences(store);
 
 #if ENABLE(GPU_PROCESS)
-    // FIXME: useGPUProcessForMediaEnabled should be a RuntimeEnabledFeature since it's global.
     static_cast<WebMediaStrategy&>(platformStrategies()->mediaStrategy()).setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
     WebProcess::singleton().supplement<RemoteMediaPlayerManager>()->setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
 #if HAVE(AVASSETREADER)
@@ -4256,17 +4265,21 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     if (isParentProcessAWebBrowser())
         settings.setWebAuthenticationEnabled(true);
 #endif
+    
+#if ENABLE(ALTERNATE_WEBM_PLAYER)
+    PlatformMediaSessionManager::setAlternateWebMPlayerEnabled(settings.alternateWebMPlayerEnabled());
+#endif
 
 #if ENABLE(WEBM_FORMAT_READER)
-    PlatformMediaSessionManager::setWebMFormatReaderEnabled(RuntimeEnabledFeatures::sharedFeatures().webMFormatReaderEnabled());
+    PlatformMediaSessionManager::setWebMFormatReaderEnabled(DeprecatedGlobalSettings::webMFormatReaderEnabled());
 #endif
 
 #if ENABLE(VORBIS)
-    PlatformMediaSessionManager::setVorbisDecoderEnabled(RuntimeEnabledFeatures::sharedFeatures().vorbisDecoderEnabled());
+    PlatformMediaSessionManager::setVorbisDecoderEnabled(DeprecatedGlobalSettings::vorbisDecoderEnabled());
 #endif
 
 #if ENABLE(OPUS)
-    PlatformMediaSessionManager::setOpusDecoderEnabled(RuntimeEnabledFeatures::sharedFeatures().opusDecoderEnabled());
+    PlatformMediaSessionManager::setOpusDecoderEnabled(DeprecatedGlobalSettings::opusDecoderEnabled());
 #endif
 
     // FIXME: This should be automated by adding a new field in WebPreferences*.yaml
@@ -4969,7 +4982,7 @@ void WebPage::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<St
     if (!iconData.empty()) {
         RetainPtr<CFDataRef> dataRef = adoptCF(CFDataCreate(nullptr, iconData.data(), iconData.size()));
         RetainPtr<CGDataProviderRef> imageProviderRef = adoptCF(CGDataProviderCreateWithCFData(dataRef.get()));
-        RetainPtr<CGImageRef> imageRef = adoptCF(CGImageCreateWithJPEGDataProvider(imageProviderRef.get(), nullptr, true, kCGRenderingIntentDefault));
+        RetainPtr<CGImageRef> imageRef = adoptCF(CGImageCreateWithPNGDataProvider(imageProviderRef.get(), nullptr, true, kCGRenderingIntentDefault));
         icon = Icon::createIconForImage(WTFMove(imageRef));
     }
 
@@ -5228,6 +5241,7 @@ void WebPage::mainFrameDidLayout()
             viewportConfigurationChanged();
     }
     findController().redraw();
+    foundTextRangeController().redraw();
 #endif
 }
 
@@ -5631,7 +5645,7 @@ void WebPage::computePagesForPrintingImpl(FrameIdentifier frameID, const PrintIn
 }
 
 #if PLATFORM(COCOA)
-void WebPage::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>& rect, CompletionHandler<void(const IPC::SharedBufferReference&)>&& completionHandler)
+void WebPage::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>& rect, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
     auto& frameView = *m_page->mainFrame().view();
     IntSize snapshotSize;
@@ -5656,7 +5670,7 @@ void WebPage::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>&
     frameView.setLayoutViewportOverrideRect(originalLayoutViewportOverrideRect);
     frameView.setPaintBehavior(originalPaintBehavior);
 
-    completionHandler(IPC::SharedBufferReference(SharedBuffer::create(pdfData.get())));
+    completionHandler(SharedBuffer::create(pdfData.get()));
 }
 
 void WebPage::drawRectToImage(FrameIdentifier frameID, const PrintInfo& printInfo, const IntRect& rect, const WebCore::IntSize& imageSize, CompletionHandler<void(const WebKit::ShareableBitmap::Handle&)>&& completionHandler)
@@ -5706,12 +5720,12 @@ void WebPage::drawRectToImage(FrameIdentifier frameID, const PrintInfo& printInf
     completionHandler(handle);
 }
 
-void WebPage::drawPagesToPDF(FrameIdentifier frameID, const PrintInfo& printInfo, uint32_t first, uint32_t count, CompletionHandler<void(const IPC::SharedBufferReference&)>&& callback)
+void WebPage::drawPagesToPDF(FrameIdentifier frameID, const PrintInfo& printInfo, uint32_t first, uint32_t count, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& callback)
 {
     PrintContextAccessScope scope { *this };
     RetainPtr<CFMutableDataRef> pdfPageData;
     drawPagesToPDFImpl(frameID, printInfo, first, count, pdfPageData);
-    callback(IPC::SharedBufferReference(SharedBuffer::create(pdfPageData.get())));
+    callback(SharedBuffer::create(pdfPageData.get()));
 }
 
 void WebPage::drawPagesToPDFImpl(FrameIdentifier frameID, const PrintInfo& printInfo, uint32_t first, uint32_t count, RetainPtr<CFMutableDataRef>& pdfPageData)
@@ -5857,7 +5871,6 @@ void WebPage::runModal()
     Ref<WebPage> protector(*this);
 #endif
     RunLoop::run();
-    ASSERT(!m_isRunningModal);
 }
 
 bool WebPage::canHandleRequest(const WebCore::ResourceRequest& request)
@@ -6702,7 +6715,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     
     bool viewportChanged = false;
 
-    m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(usesMultitaskingModeViewportBehaviors());
+    m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
 
     LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier.toUInt64() << " didCommitLoad setting content size to " << coreFrame->view()->contentsSize());
     if (m_viewportConfiguration.setContentsSize(coreFrame->view()->contentsSize()))
@@ -7806,7 +7819,7 @@ void WebPage::requestTextRecognition(Element& element, TextRecognitionOptions&& 
 
     auto cachedImage = renderImage.cachedImage();
     auto imageURL = cachedImage ? element.document().completeURL(cachedImage->url().string()) : URL { };
-    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(bitmapHandle), options.source, options.target), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
+    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(bitmapHandle), options.sourceLanguageIdentifier, options.targetLanguageIdentifier), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
         RefPtr protectedPage { webPage.get() };
         if (!protectedPage)
             return;
@@ -7877,10 +7890,10 @@ void WebPage::updateWithTextRecognitionResult(const TextRecognitionResult& resul
     completionHandler(updateResult);
 }
 
-void WebPage::startImageAnalysis(const String& source, const String& target)
+void WebPage::startVisualTranslation(const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier)
 {
     if (RefPtr document = m_mainFrame->coreFrame()->document())
-        corePage()->imageAnalysisQueue().enqueueAllImages(*document, source, target);
+        corePage()->imageAnalysisQueue().enqueueAllImages(*document, sourceLanguageIdentifier, targetLanguageIdentifier);
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -8066,7 +8079,7 @@ void WebPage::scrollToRect(const WebCore::FloatRect& targetRect, const WebCore::
 }
 
 #if ENABLE(VIDEO)
-void WebPage::extractVideoInElementFullScreen(const HTMLVideoElement& element)
+void WebPage::beginTextRecognitionForVideoInElementFullScreen(const HTMLVideoElement& element)
 {
     RefPtr view = element.document().view();
     if (!view)
@@ -8084,12 +8097,12 @@ void WebPage::extractVideoInElementFullScreen(const HTMLVideoElement& element)
     if (rectInRootView.isEmpty())
         return;
 
-    send(Messages::WebPageProxy::ExtractVideoInElementFullScreen(mediaPlayerIdentifier, rectInRootView));
+    send(Messages::WebPageProxy::BeginTextRecognitionForVideoInElementFullScreen(mediaPlayerIdentifier, rectInRootView));
 }
 
-void WebPage::cancelVideoExtractionInElementFullScreen()
+void WebPage::cancelTextRecognitionForVideoInElementFullScreen()
 {
-    send(Messages::WebPageProxy::CancelVideoExtractionInElementFullScreen());
+    send(Messages::WebPageProxy::CancelTextRecognitionForVideoInElementFullScreen());
 }
 #endif // ENABLE(VIDEO)
 
@@ -8107,7 +8120,7 @@ void WebPage::modelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::PlatformLa
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
-void WebPage::shouldAllowImageMarkup(const ElementContext& context, CompletionHandler<void(bool)>&& completion) const
+void WebPage::shouldAllowRemoveBackground(const ElementContext& context, CompletionHandler<void(bool)>&& completion) const
 {
     auto element = elementForContext(context);
     completion(element && !m_elementsToExcludeFromMarkup.contains(*element));
@@ -8115,18 +8128,18 @@ void WebPage::shouldAllowImageMarkup(const ElementContext& context, CompletionHa
 
 #endif
 
-#if HAVE(MULTITASKING_MODE)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
 
-void WebPage::setIsInMultitaskingMode(bool value)
+void WebPage::setIsWindowResizingEnabled(bool value)
 {
-    if (m_isInMultitaskingMode == value)
+    if (m_isWindowResizingEnabled == value)
         return;
 
-    m_isInMultitaskingMode = value;
-    m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(usesMultitaskingModeViewportBehaviors());
+    m_isWindowResizingEnabled = value;
+    m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
 }
 
-#endif // HAVE(MULTITASKING_MODE)
+#endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
 
 bool WebPage::handlesPageScaleGesture()
 {

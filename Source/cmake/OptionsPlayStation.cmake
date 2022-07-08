@@ -6,6 +6,7 @@ string(APPEND CMAKE_C_FLAGS_RELEASE " -g")
 string(APPEND CMAKE_CXX_FLAGS_RELEASE " -g")
 set(CMAKE_CONFIGURATION_TYPES "Debug" "Release")
 
+include(PlayStationModule)
 include(Sign)
 
 add_definitions(-DWTF_PLATFORM_PLAYSTATION=1)
@@ -40,14 +41,16 @@ find_library(KERNEL_LIBRARY kernel)
 find_package(ICU 61.2 REQUIRED COMPONENTS data i18n uc)
 
 set(USE_WPE_BACKEND_PLAYSTATION OFF)
+set(PlayStationModule_TARGETS ICU::uc)
 
 if (ENABLE_WEBCORE)
-    set(WebKitRequirements_COMPONENTS
+    set(WebKitRequirements_COMPONENTS WebKitResources)
+    set(WebKitRequirements_OPTIONAL_COMPONENTS
         JPEG
         LibPSL
         LibXml2
-        ProcessLauncher
         SQLite3
+        WebP
         ZLIB
     )
 
@@ -58,11 +61,19 @@ if (ENABLE_WEBCORE)
         find_package(WPE REQUIRED)
 
         SET_AND_EXPOSE_TO_BUILD(USE_WPE_BACKEND_PLAYSTATION ON)
+
+        list(APPEND PlayStationModule_TARGETS WPE::PlayStation)
     else ()
-        list(APPEND WebKitRequirements_COMPONENTS libwpe)
+        list(APPEND WebKitRequirements_COMPONENTS
+            ProcessLauncher
+            libwpe
+        )
     endif ()
 
-    find_package(WebKitRequirements REQUIRED COMPONENTS ${WebKitRequirements_COMPONENTS})
+    find_package(WebKitRequirements
+        REQUIRED COMPONENTS ${WebKitRequirements_COMPONENTS}
+        OPTIONAL_COMPONENTS ${WebKitRequirements_OPTIONAL_COMPONENTS}
+    )
 
     # The OpenGL ES implementation is in the same library as the EGL implementation
     set(OpenGLES2_NAMES ${EGL_NAMES})
@@ -77,7 +88,47 @@ if (ENABLE_WEBCORE)
     find_package(OpenSSL REQUIRED)
     find_package(PNG REQUIRED)
     find_package(Threads REQUIRED)
-    find_package(WebP REQUIRED COMPONENTS demux)
+
+    list(APPEND PlayStationModule_TARGETS
+        CURL::libcurl
+        Cairo::Cairo
+        Fontconfig::Fontconfig
+        Freetype::Freetype
+        HarfBuzz::HarfBuzz
+        OpenSSL::SSL
+        PNG::PNG
+        WebKitRequirements::WebKitResources
+    )
+
+    if (NOT TARGET JPEG::JPEG)
+        find_package(JPEG 1.5.2 REQUIRED)
+        list(APPEND PlayStationModule_TARGETS JPEG::JPEG)
+    endif ()
+
+    if (NOT TARGET LibPSL::LibPSL)
+        find_package(LibPSL 0.20.2 REQUIRED)
+        list(APPEND PlayStationModule_TARGETS LibPSL::LibPSL)
+    endif ()
+
+    if (NOT TARGET LibXml2::LibXml2)
+        find_package(LibXml2 2.9.7 REQUIRED)
+        list(APPEND PlayStationModule_TARGETS LibXml2::LibXml2)
+    endif ()
+
+    if (NOT TARGET SQLite::SQLite3)
+        find_package(SQLite3 3.23.1 REQUIRED)
+        list(APPEND PlayStationModule_TARGETS SQLite::SQLite3)
+    endif ()
+
+    if (NOT TARGET WebP::libwebp)
+        find_package(WebP REQUIRED COMPONENTS demux)
+        list(APPEND PlayStationModule_TARGETS WebP::libwebp)
+    endif ()
+
+    if (NOT TARGET ZLIB::ZLIB)
+        find_package(ZLIB 1.2.11 REQUIRED)
+        list(APPEND PlayStationModule_TARGETS ZLIB::ZLIB)
+    endif ()
 endif ()
 
 WEBKIT_OPTION_BEGIN()
@@ -183,6 +234,7 @@ SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE ON)
 SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ ON)
 SET_AND_EXPOSE_TO_BUILD(USE_LIBWPE ON)
 SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL ON)
+SET_AND_EXPOSE_TO_BUILD(USE_WEBP ON)
 SET_AND_EXPOSE_TO_BUILD(USE_WPE_RENDERER OFF)
 
 SET_AND_EXPOSE_TO_BUILD(USE_INSPECTOR_SOCKET_SERVER ${ENABLE_REMOTE_INSPECTOR})
@@ -203,6 +255,13 @@ if (ENABLE_WEBDRIVER)
     SET_AND_EXPOSE_TO_BUILD(ENABLE_WEBDRIVER_MOUSE_INTERACTIONS ON)
     SET_AND_EXPOSE_TO_BUILD(ENABLE_WEBDRIVER_TOUCH_INTERACTIONS OFF)
     SET_AND_EXPOSE_TO_BUILD(ENABLE_WEBDRIVER_WHEEL_INTERACTIONS ON)
+endif ()
+
+if (ENABLE_MINIBROWSER)
+    find_library(TOOLKIT_LIBRARY ToolKitten)
+    if (NOT TOOLKIT_LIBRARY)
+        message(FATAL_ERROR "ToolKit library required to run MiniBrowser")
+    endif ()
 endif ()
 
 # Create a shared JavaScriptCore with WTF and bmalloc exposed through it.
@@ -252,6 +311,7 @@ add_custom_target(playstation_tools_copy
     COMMAND ${CMAKE_COMMAND} -E touch
         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ebootparam.ini
 )
+set_target_properties(playstation_tools_copy PROPERTIES FOLDER "PlayStation")
 
 macro(WEBKIT_EXECUTABLE _target)
     _WEBKIT_EXECUTABLE(${_target})
@@ -268,63 +328,49 @@ macro(WEBKIT_EXECUTABLE _target)
     add_dependencies(${_target} playstation_tools_copy)
 endmacro()
 
-set_property(GLOBAL PROPERTY playstation_copied_requirements)
+macro(PLAYSTATION_MODULES)
+    set(oneValueArgs DESTINATION)
+    set(multiValueArgs TARGETS)
+    cmake_parse_arguments(opt "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-function(PLAYSTATION_COPY_REQUIREMENTS target_name)
-    set(oneValueArgs PREFIX DESTINATION)
-    set(multiValueArgs FILES)
-    cmake_parse_arguments(opt "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    if (opt_PREFIX)
-        set(prefix ${opt_PREFIX})
-    else ()
-        set(prefix ${WEBKIT_LIBRARIES_DIR})
-    endif ()
-    if (opt_DESTINATION)
-        set(destination ${opt_DESTINATION})
-    else ()
-        set(destination ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-    endif ()
+    foreach (_target IN LISTS opt_TARGETS)
+        string(REGEX MATCH "^(.+)::(.+)$" _is_stub "${_target}")
+        set(_target_name ${CMAKE_MATCH_1})
+        playstation_module(${_target_name} TARGET ${_target} FOLDER "PlayStation")
 
-    set(files_to_copy)
-    list(REMOVE_DUPLICATES opt_FILES)
-    foreach (file IN LISTS opt_FILES)
-        if (NOT (${file} MATCHES ".*_stub_weak\.a" OR
-                 ${file} MATCHES ".*\.sprx" OR
-                 ${file} MATCHES ".*\.elf" OR
-                 ${file} MATCHES ".*\.self"))
-            continue()
-        endif ()
-        file(RELATIVE_PATH _relative ${prefix} ${file})
-        if (NOT ${_relative} MATCHES "^\.\./.*")
-            get_filename_component(lib ${file} NAME)
-            list(APPEND files_to_copy ${lib})
+        if (${_target_name}_LOAD_AT)
+            EXPOSE_STRING_VARIABLE_TO_BUILD(${_target_name}_LOAD_AT)
         endif ()
     endforeach ()
+endmacro()
 
-    set(dst_requirements)
-    get_property(copied_requirements GLOBAL PROPERTY playstation_copied_requirements)
-    foreach (basefilename IN LISTS files_to_copy)
-        string(REPLACE "_stub_weak.a" ".sprx" filename ${basefilename})
-        set(src_file "${prefix}/bin/${filename}")
-        list(FIND copied_requirements ${src_file} found)
-        if (${found} GREATER_EQUAL 0)
-            continue()
+macro(PLAYSTATION_COPY_MODULES _target_name)
+    set(multiValueArgs TARGETS)
+    cmake_parse_arguments(opt "" "" "${multiValueArgs}" ${ARGN})
+
+    foreach (_target IN LISTS opt_TARGETS)
+        if (TARGET ${_target}_CopyModule)
+            list(APPEND ${_target_name}_INTERFACE_DEPENDENCIES ${_target}_CopyModule)
         endif ()
-        if (NOT EXISTS ${src_file})
-            continue()
-        endif ()
-        list(APPEND copied_requirements ${src_file})
-        set(dst_file "${destination}/${filename}")
-        add_custom_command(OUTPUT ${dst_file}
-            COMMAND ${CMAKE_COMMAND} -E copy ${src_file} ${dst_file}
-            MAIN_DEPENDENCY ${file}
-            VERBATIM
-        )
-        list(APPEND dst_requirements ${dst_file})
     endforeach ()
-    add_custom_target(${target_name} ALL DEPENDS ${dst_requirements})
-    set_property(GLOBAL PROPERTY playstation_copied_requirements ${copied_requirements} ${dst_requirements})
-endfunction()
+endmacro()
+
+PLAYSTATION_MODULES(TARGETS ${PlayStationModule_TARGETS})
+
+# These should be made into proper CMake targets
+if (EGL_LIBRARIES)
+    playstation_module(EGL TARGET ${EGL_LIBRARIES} FOLDER "PlayStation")
+    if (EGL_LOAD_AT)
+        EXPOSE_STRING_VARIABLE_TO_BUILD(EGL_LOAD_AT)
+    endif ()
+endif ()
+
+if (TOOLKIT_LIBRARY)
+    playstation_module(ToolKitten TARGET ${TOOLKIT_LIBRARY} FOLDER "PlayStation")
+    if (ToolKitten_LOAD_AT)
+        EXPOSE_STRING_VARIABLE_TO_BUILD(ToolKitten_LOAD_AT)
+    endif ()
+endif ()
 
 check_symbol_exists(memmem string.h HAVE_MEMMEM)
 if (HAVE_MEMMEM)

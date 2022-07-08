@@ -98,6 +98,8 @@ public:
     WebCore::IOSurfacePool& ioSurfacePool() const { return m_ioSurfacePool; }
 #endif
 
+    const WebCore::ProcessIdentity& resourceOwner() const { return m_resourceOwner; }
+
 private:
     RemoteRenderingBackend(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&, IPC::Attachment&&, IPC::StreamConnectionBuffer&&);
     void startListeningForIPC();
@@ -119,6 +121,7 @@ private:
     void getShareableBitmapForImageBuffer(WebCore::RenderingResourceIdentifier, WebCore::PreserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
     void getFilteredImageForImageBuffer(WebCore::RenderingResourceIdentifier, IPC::FilterReference&&, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
     void cacheNativeImage(const ShareableBitmap::Handle&, WebCore::RenderingResourceIdentifier);
+    void cacheDecomposedGlyphs(Ref<WebCore::DecomposedGlyphs>&&);
     void cacheFont(Ref<WebCore::Font>&&);
     void deleteAllFonts();
     void releaseRemoteResource(WebCore::RenderingResourceIdentifier);
@@ -132,6 +135,7 @@ private:
     void getDataForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, QualifiedRenderingResourceIdentifier, CompletionHandler<void(Vector<uint8_t>&&)>&&);
     void getShareableBitmapForImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, WebCore::PreserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
     void cacheNativeImageWithQualifiedIdentifier(const ShareableBitmap::Handle&, QualifiedRenderingResourceIdentifier);
+    void cacheDecomposedGlyphsWithQualifiedIdentifier(Ref<WebCore::DecomposedGlyphs>&&, QualifiedRenderingResourceIdentifier);
     void releaseRemoteResourceWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier);
     void cacheFontWithQualifiedIdentifier(Ref<WebCore::Font>&&, QualifiedRenderingResourceIdentifier);
 

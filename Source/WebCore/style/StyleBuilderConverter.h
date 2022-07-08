@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
- * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #include "CSSOffsetRotateValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueMappings.h"
+#include "CSSPropertyParserHelpers.h"
 #include "CSSRayValue.h"
 #include "CSSReflectValue.h"
 #include "CSSSubgridValue.h"
@@ -55,7 +56,6 @@
 #include "Length.h"
 #include "Pair.h"
 #include "QuotesData.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGPathElement.h"
 #include "SVGURIReference.h"
@@ -149,6 +149,7 @@ public:
     static FontSelectionValue convertFontWeight(BuilderState&, const CSSValue&);
     static FontSelectionValue convertFontStretch(BuilderState&, const CSSValue&);
     static FontSelectionValue convertFontStyle(BuilderState&, const CSSValue&);
+    static FontVariantCaps convertFontVariantCaps(BuilderState&, const CSSValue&);
     static FontVariationSettings convertFontVariationSettings(BuilderState&, const CSSValue&);
     static SVGLengthValue convertSVGLengthValue(BuilderState&, const CSSValue&);
     static Vector<SVGLengthValue> convertSVGLengthVector(BuilderState&, const CSSValue&);
@@ -608,23 +609,37 @@ inline OptionSet<TextEmphasisPosition> BuilderConverter::convertTextEmphasisPosi
 
 inline TextAlignMode BuilderConverter::convertTextAlign(BuilderState& builderState, const CSSValue& value)
 {
-    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
+    const auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
     ASSERT(primitiveValue.isValueID());
 
-    if (primitiveValue.valueID() != CSSValueWebkitMatchParent && primitiveValue.valueID() != CSSValueMatchParent)
-        return primitiveValue;
+    const auto& parentStyle = builderState.parentStyle();
 
-    auto* element = builderState.element();
-    if (element && element == builderState.document().documentElement())
-        return TextAlignMode::Start;
+    // User agents are expected to have a rule in their user agent stylesheet that matches th elements that have a parent
+    // node whose computed value for the 'text-align' property is its initial value, whose declaration block consists of
+    // just a single declaration that sets the 'text-align' property to the value 'center'.
+    // https://html.spec.whatwg.org/multipage/rendering.html#rendering
+    if (primitiveValue.valueID() == CSSValueInternalThCenter) {
+        if (parentStyle.textAlign() == RenderStyle::initialTextAlign())
+            return TextAlignMode::Center;
+        return parentStyle.textAlign();
+    }
 
-    auto& parentStyle = builderState.parentStyle();
-    if (parentStyle.textAlign() == TextAlignMode::Start)
-        return parentStyle.isLeftToRightDirection() ? TextAlignMode::Left : TextAlignMode::Right;
-    if (parentStyle.textAlign() == TextAlignMode::End)
-        return parentStyle.isLeftToRightDirection() ? TextAlignMode::Right : TextAlignMode::Left;
-    return parentStyle.textAlign();
+    if (primitiveValue.valueID() == CSSValueWebkitMatchParent || primitiveValue.valueID() == CSSValueMatchParent) {
+        const auto* element = builderState.element();
+
+        if (element && element == builderState.document().documentElement())
+            return TextAlignMode::Start;
+        if (parentStyle.textAlign() == TextAlignMode::Start)
+            return parentStyle.isLeftToRightDirection() ? TextAlignMode::Left : TextAlignMode::Right;
+        if (parentStyle.textAlign() == TextAlignMode::End)
+            return parentStyle.isLeftToRightDirection() ? TextAlignMode::Right : TextAlignMode::Left;
+
+        return parentStyle.textAlign();
+    }
+
+    return primitiveValue;
 }
+
 inline TextAlignLast BuilderConverter::convertTextAlignLast(BuilderState& builderState, const CSSValue& value)
 {
     auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
@@ -1364,8 +1379,20 @@ inline FontSelectionValue BuilderConverter::convertFontWeight(BuilderState& buil
             return FontCascadeDescription::bolderWeight(builderState.parentStyle().fontDescription().weight());
         if (valueID == CSSValueLighter)
             return FontCascadeDescription::lighterWeight(builderState.parentStyle().fontDescription().weight());
+        if (CSSPropertyParserHelpers::isSystemFontShorthand(valueID))
+            return SystemFontDatabase::singleton().systemFontShorthandWeight(CSSPropertyParserHelpers::lowerFontShorthand(valueID));
     }
     return convertFontWeightFromValue(value);
+}
+
+inline FontVariantCaps BuilderConverter::convertFontVariantCaps(BuilderState&, const CSSValue& value)
+{
+    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
+    auto valueID = primitiveValue.valueID();
+    if (CSSPropertyParserHelpers::isSystemFontShorthand(valueID))
+        return FontVariantCaps::Normal;
+
+    return static_cast<FontVariantCaps>(primitiveValue);
 }
 
 inline FontSelectionValue BuilderConverter::convertFontStretch(BuilderState&, const CSSValue& value)
@@ -1559,7 +1586,11 @@ inline GlyphOrientation BuilderConverter::convertGlyphOrientationOrAuto(BuilderS
 inline std::optional<Length> BuilderConverter::convertLineHeight(BuilderState& builderState, const CSSValue& value, float multiplier)
 {
     auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
-    if (primitiveValue.valueID() == CSSValueNormal)
+    auto valueID = primitiveValue.valueID();
+    if (valueID == CSSValueNormal)
+        return RenderStyle::initialLineHeight();
+
+    if (CSSPropertyParserHelpers::isSystemFontShorthand(valueID))
         return RenderStyle::initialLineHeight();
 
     if (primitiveValue.isLength()) {
@@ -1703,5 +1734,5 @@ inline Vector<AtomString> BuilderConverter::convertContainerName(BuilderState&, 
     });
 }
 
-}
-}
+} // namespace Style
+} // namespace WebCore

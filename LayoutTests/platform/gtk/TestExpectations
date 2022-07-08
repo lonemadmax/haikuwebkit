@@ -156,6 +156,8 @@ webkit.org/b/238208 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-a
 # CSS
 webkit.org/b/216161 imported/w3c/web-platform-tests/css/css-pseudo/text-selection.html [ Failure Pass ]
 
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-repeat-2.html [ ImageOnlyFailure ]
+
 # Download
 webkit.org/b/219530 fast/dom/HTMLAnchorElement/anchor-download-user-triggered-synthetic-click.html [ Failure ]
 webkit.org/b/219530 fast/dom/HTMLAnchorElement/anchor-download.html [ Failure ]
@@ -455,6 +457,7 @@ webkit.org/b/169917 webgl/webgl-vertex-array-object-defined.html [ Failure ]
 webkit.org/b/169917 webgl/1.0.3/conformance/more/functions/readPixelsBadArgs.html [ Failure ]
 webkit.org/b/169917 webgl/1.0.3/conformance/more/functions/texImage2DHTML.html [ Failure ]
 webkit.org/b/169917 webgl/1.0.3/conformance/more/functions/texSubImage2DHTML.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.x/conformance/programs/program-test.html [ Failure ]
 # WebGL flaky tests
 webkit.org/b/169917 webgl/1.0.3/conformance/extensions/oes-vertex-array-object.html [ Failure ]
 webkit.org/b/169917 webgl/1.0.3/conformance/textures/texture-formats-test.html [ Failure ]
@@ -481,8 +484,8 @@ webkit.org/b/169917 webgl/1.0.3/conformance/glsl/constructors/glsl-construct-ive
 webkit.org/b/169917 webgl/1.0.3/conformance/glsl/constructors/glsl-construct-vec2.html [ Slow ]
 webkit.org/b/169917 webgl/1.0.3/conformance/glsl/misc/shader-varying-packing-restrictions.html [ Slow ]
 # WebGL crashes
-webkit.org/b/169917 fast/canvas/webgl/webgl-draw-buffers.html [ Failure ]
 webkit.org/b/169917 webgl/1.0.3/conformance/extensions/webgl-draw-buffers.html [ Failure ]
+webkit.org/b/169917 webgl/1.0.x/conformance/extensions/webgl-draw-buffers.html [ Failure ]
 
 # WebGL 2.0 still not enabled
 webkit.org/b/166536 webgl/webgl2-rendering-context-defined.html [ Skip ]
@@ -1862,12 +1865,7 @@ imported/w3c/web-platform-tests/html/canvas/element/manual/drawing-images-to-the
 imported/w3c/web-platform-tests/xhr/preserve-ua-header-on-redirect.htm [ Failure ]
 
 # Push subscription tests fail without platform-specific PushCrypto implementations.
-http/tests/push-api/subscribe-default-permissions-iframe-cross-origin.html [ Failure ]
-http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Failure ]
-http/tests/push-api/subscribe-default-permissions.html [ Failure ]
-http/tests/push-api/subscribe-deny-permissions-on-prompt.html [ Failure ]
-http/tests/push-api/subscribe-deny-permissions.html [ Failure ]
-http/tests/push-api/subscribe-grant-permissions.html [ Failure ]
+http/tests/push-api [ Skip ]
 
 # Ftp code is disabled in gtk port
 http/tests/misc/ftp-eplf-directory.py [ Skip ]

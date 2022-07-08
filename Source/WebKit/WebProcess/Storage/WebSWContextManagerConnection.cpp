@@ -60,7 +60,6 @@
 #include <WebCore/EmptyClients.h>
 #include <WebCore/MessageWithMessagePorts.h>
 #include <WebCore/PageConfiguration.h>
-#include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <WebCore/SerializedScriptValue.h>
 #include <WebCore/ServiceWorkerClientData.h>
@@ -332,6 +331,22 @@ void WebSWContextManagerConnection::convertFetchToDownload(SWServerConnectionIde
 
     if (auto serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxyFromBackgroundThread(serviceWorkerIdentifier))
         serviceWorkerThreadProxy->convertFetchToDownload(serverConnectionIdentifier, fetchIdentifier);
+}
+
+void WebSWContextManagerConnection::navigationPreloadIsReady(SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, FetchIdentifier fetchIdentifier, ResourceResponse&& response)
+{
+    assertIsCurrent(m_queue.get());
+
+    if (auto serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxyFromBackgroundThread(serviceWorkerIdentifier))
+        serviceWorkerThreadProxy->navigationPreloadIsReady(serverConnectionIdentifier, fetchIdentifier, WTFMove(response));
+}
+
+void WebSWContextManagerConnection::navigationPreloadFailed(SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, FetchIdentifier fetchIdentifier, ResourceError&& error)
+{
+    assertIsCurrent(m_queue.get());
+
+    if (auto serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxyFromBackgroundThread(serviceWorkerIdentifier))
+        serviceWorkerThreadProxy->navigationPreloadFailed(serverConnectionIdentifier, fetchIdentifier, WTFMove(error));
 }
 
 void WebSWContextManagerConnection::postMessageToServiceWorkerClient(const ScriptExecutionContextIdentifier& destinationIdentifier, const MessageWithMessagePorts& message, ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin)

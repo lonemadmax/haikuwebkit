@@ -40,6 +40,8 @@
 #include "Styleable.h"
 #include "WebAnimationTypes.h"
 #include <wtf/Ref.h>
+#include <wtf/text/AtomString.h>
+#include <wtf/text/AtomStringHash.h>
 
 namespace WebCore {
 
@@ -72,6 +74,7 @@ public:
 
     struct PropertyAndValues {
         CSSPropertyID property;
+        AtomString customProperty;
         Vector<String> values;
     };
 
@@ -86,6 +89,7 @@ public:
 
     struct ComputedKeyframe : BaseComputedKeyframe {
         HashMap<CSSPropertyID, String> styleStrings;
+        HashMap<AtomString, String> customStyleStrings;
     };
 
     struct ParsedKeyframe : ComputedKeyframe {
@@ -156,6 +160,7 @@ public:
     void computeDeclarativeAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext&);
     const KeyframeList& blendingKeyframes() const { return m_blendingKeyframes; }
     const HashSet<CSSPropertyID>& animatedProperties();
+    const HashSet<AtomString>& animatedCustomProperties();
     const HashSet<CSSPropertyID>& inheritedProperties() const { return m_inheritedProperties; }
     bool animatesProperty(CSSPropertyID) const;
 
@@ -250,6 +255,7 @@ private:
     AtomString m_keyframesName;
     KeyframeList m_blendingKeyframes { emptyAtom() };
     HashSet<CSSPropertyID> m_animatedProperties;
+    HashSet<AtomString> m_animatedCustomProperties;
     HashSet<CSSPropertyID> m_inheritedProperties;
     Vector<ParsedKeyframe> m_parsedKeyframes;
     Vector<AcceleratedAction> m_pendingAcceleratedActions;

@@ -215,8 +215,9 @@ WI.contentLoaded = function()
     document.addEventListener("dragover", WI._handleDragOver);
     document.addEventListener("focus", WI._focusChanged, true);
 
-    window.addEventListener("focus", WI._windowFocused);
-    window.addEventListener("blur", WI._windowBlurred);
+    window.addEventListener("focus", WI._updateWindowInactiveState);
+    window.addEventListener("blur", WI._updateWindowInactiveState);
+    window.addEventListener("visibilitychange", WI._updateWindowInactiveState);
     window.addEventListener("resize", WI._windowResized);
     window.addEventListener("keydown", WI._windowKeyDown);
     window.addEventListener("keyup", WI._windowKeyUp);
@@ -1821,22 +1822,18 @@ WI._saveCookieForOpenTabs = function()
     }
 };
 
-WI._windowFocused = function(event)
+WI._updateWindowInactiveState = function(event)
 {
-    if (event.target.document.nodeType !== Node.DOCUMENT_NODE)
-        return;
-
     // FIXME: We should use the :window-inactive pseudo class once https://webkit.org/b/38927 is fixed.
-    document.body.classList.remove(WI.dockConfiguration === WI.DockConfiguration.Undocked ? "window-inactive" : "window-docked-inactive");
-};
 
-WI._windowBlurred = function(event)
-{
-    if (event.target.document.nodeType !== Node.DOCUMENT_NODE)
-        return;
+    if (document.activeElement?.tagName === "IFRAME") {
+        // An active iframe means an extension tab is active and we can't tell when the window blurs due to cross-origin restrictions.
+        // In this case we need to keep checking to know if the window loses focus since there is no event we can use.
+        setTimeout(WI._updateWindowInactiveState, 250);
+    }
 
-    // FIXME: We should use the :window-inactive pseudo class once https://webkit.org/b/38927 is fixed.
-    document.body.classList.add(WI.dockConfiguration === WI.DockConfiguration.Undocked ? "window-inactive" : "window-docked-inactive");
+    let inactive = !document.hasFocus();
+    document.body.classList.toggle(WI.dockConfiguration === WI.DockConfiguration.Undocked ? "window-inactive" : "window-docked-inactive", inactive);
 };
 
 WI._windowResized = function(event)
@@ -2225,23 +2222,24 @@ WI._handleDeviceSettingsTabBarButtonClicked = function(event)
             { name: WI.UIString("Default"), value: "default" },
         ],
         [
-            { name: "Safari 13.0", value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Safari/605.1.15" },
+            { name: "Safari 16.0", value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15" },
         ],
         [
-            { name: `Safari ${emDash} iOS 12.1.3 ${emDash} iPhone`, value: "Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1" },
-            { name: `Safari ${emDash} iOS 12.1.3 ${emDash} iPod touch`, value: "Mozilla/5.0 (iPod; CPU iPhone OS 12_1_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1" },
-            { name: `Safari ${emDash} iOS 12.1.3 ${emDash} iPad`, value: "Mozilla/5.0 (iPad; CPU iPhone OS 12_1_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1" },
+            { name: `Safari ${emDash} iOS 16.0 ${emDash} iPhone`, value: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1" },
+            { name: `Safari ${emDash} iPadOS 16.0 ${emDash} iPad mini`, value: "Mozilla/5.0 (iPad; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1" },
+            { name: `Safari ${emDash} iPadOS 16.0 ${emDash} iPad`, value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15" },
         ],
         [
-            { name: `Microsoft Edge`, value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16299" },
+            { name: `Microsoft Edge ${emDash} macOS`, value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.53 Safari/537.36 Edg/103.0.1264.37" },
+            { name: `Microsoft Edge ${emDash} Windows`, value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.53 Safari/537.36 Edg/103.0.1264.37" },
         ],
         [
-            { name: `Google Chrome ${emDash} macOS`, value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36" },
-            { name: `Google Chrome ${emDash} Windows`, value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36" },
+            { name: `Google Chrome ${emDash} macOS`, value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.53 Safari/537.36" },
+            { name: `Google Chrome ${emDash} Windows`, value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36" },
         ],
         [
-            { name: `Firefox ${emDash} macOS`, value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:63.0) Gecko/20100101 Firefox/63.0" },
-            { name: `Firefox ${emDash} Windows`, value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:63.0) Gecko/20100101 Firefox/63.0" },
+            { name: `Firefox ${emDash} macOS`, value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0" },
+            { name: `Firefox ${emDash} Windows`, value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:101.0) Gecko/20100101 Firefox/101.0" },
         ],
         [
             { name: WI.UIString("Other\u2026"), value: "other" },
@@ -2441,7 +2439,7 @@ WI._handleDeviceSettingsTabBarButtonClicked = function(event)
             name: WI.UIString("Enable:"),
             columns: [
                 [
-                    {name: WI.UIString("ITP Debug Mode"), setting: InspectorBackend.Enum.Page.Setting.ITPDebugModeEnabled, value: true},
+                    {name: WI.UIString("Intelligent Tracking Prevention Debug Mode"), setting: InspectorBackend.Enum.Page.Setting.ITPDebugModeEnabled, value: true},
                     // COMPATIBILITY (iOS 14.0): `Page.Setting.AdClickAttributionDebugModeEnabled` was renamed to `Page.Setting.PrivateClickMeasurementDebugModeEnabled`.
                     {name: WI.UIString("Private Click Measurement Debug Mode"), setting: InspectorBackend.Enum.Page.Setting.PrivateClickMeasurementDebugModeEnabled, value: true},
                     {name: WI.UIString("Ad Click Attribution Debug Mode"), setting: InspectorBackend.Enum.Page.Setting.AdClickAttributionDebugModeEnabled, value: true},

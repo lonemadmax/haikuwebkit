@@ -71,7 +71,6 @@
 #include "ResourceLoadInfo.h"
 #include "ResourceTiming.h"
 #include "RuntimeApplicationChecks.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
 #include "ScriptController.h"
@@ -1072,9 +1071,10 @@ ResourceErrorOr<CachedResourceHandle<CachedResource>> CachedResourceLoader::requ
     ASSERT(resource);
     resource->setOriginalRequest(WTFMove(originalRequest));
 
-    if (forPreload == ForPreload::No && resource->loader() && resource->ignoreForRequestCount()) {
+    if (auto* subresourceLoader = resource->loader(); forPreload == ForPreload::No && subresourceLoader && resource->ignoreForRequestCount()) {
+        subresourceLoader->clearRequestCountTracker();
         resource->setIgnoreForRequestCount(false);
-        incrementRequestCount(*resource);
+        subresourceLoader->resetRequestCountTracker(*this, *resource);
     }
 
     if ((policy != Use || resource->stillNeedsLoad()) && imageLoading == ImageLoading::Immediate) {

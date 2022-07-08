@@ -115,9 +115,11 @@ class WebGLDebugRendererInfo;
 class WebGLDebugShaders;
 class WebGLDepthTexture;
 class WebGLDrawBuffers;
+class WebGLDrawInstancedBaseVertexBaseInstance;
 class WebGLExtension;
 class WebGLLoseContext;
 class WebGLMultiDraw;
+class WebGLMultiDrawInstancedBaseVertexBaseInstance;
 class WebGLObject;
 class WebGLShader;
 class WebGLShaderPrecisionFormat;
@@ -137,6 +139,32 @@ using WebGLCanvas = std::variant<RefPtr<HTMLCanvasElement>>;
 #if ENABLE(MEDIA_STREAM)
 class VideoFrame;
 #endif
+
+class InspectorScopedShaderProgramHighlight {
+public:
+    InspectorScopedShaderProgramHighlight(WebGLRenderingContextBase&, WebGLProgram*);
+
+    ~InspectorScopedShaderProgramHighlight();
+
+private:
+    void showHighlight();
+    void hideHighlight();
+
+    struct {
+        GCGLfloat color[4];
+        GCGLenum equationRGB;
+        GCGLenum equationAlpha;
+        GCGLenum srcRGB;
+        GCGLenum dstRGB;
+        GCGLenum srcAlpha;
+        GCGLenum dstAlpha;
+        GCGLboolean enabled;
+    } m_savedBlend;
+
+    WebGLRenderingContextBase& m_context;
+    WebGLProgram* m_program { nullptr };
+    bool m_didApply { false };
+};
 
 class WebGLRenderingContextBase : public GraphicsContextGL::Client, public GPUBasedCanvasRenderingContext, private ActivityStateChangeObserver {
     WTF_MAKE_ISO_ALLOCATED(WebGLRenderingContextBase);
@@ -446,6 +474,7 @@ protected:
 
     friend class EXTTextureCompressionBPTC;
     friend class EXTTextureCompressionRGTC;
+    friend class OESDrawBuffersIndexed;
     friend class OESVertexArrayObject;
     friend class WebGLCompressedTextureASTC;
     friend class WebGLCompressedTextureATC;
@@ -456,7 +485,9 @@ protected:
     friend class WebGLCompressedTextureS3TCsRGB;
     friend class WebGLDebugShaders;
     friend class WebGLDrawBuffers;
+    friend class WebGLDrawInstancedBaseVertexBaseInstance;
     friend class WebGLMultiDraw;
+    friend class WebGLMultiDrawInstancedBaseVertexBaseInstance;
 
     friend class WebGLFramebuffer;
     friend class WebGLObject;
@@ -467,6 +498,7 @@ protected:
     friend class WebGLVertexArrayObjectOES;
 
     // Implementation helpers.
+    friend class InspectorScopedShaderProgramHighlight;
     friend class ScopedUnpackParametersResetRestore;
 
     virtual void initializeNewContext();
@@ -485,8 +517,16 @@ protected:
 
     void setGraphicsContextGL(Ref<GraphicsContextGL>&&);
     void destroyGraphicsContextGL();
+
+    enum CallerType {
+        // Caller is a user-level draw or clear call.
+        CallerTypeDrawOrClear,
+        // Caller is anything else, including blits, readbacks or copies.
+        CallerTypeOther,
+    };
+
     void markContextChanged();
-    void markContextChangedAndNotifyCanvasObserver();
+    void markContextChangedAndNotifyCanvasObserver(CallerType = CallerTypeDrawOrClear);
 
     void addActivityStateChangeObserverIfNecessary();
     void removeActivityStateChangeObserver();
@@ -742,8 +782,10 @@ protected:
     RefPtr<WebGLDebugShaders> m_webglDebugShaders;
     RefPtr<WebGLDepthTexture> m_webglDepthTexture;
     RefPtr<WebGLDrawBuffers> m_webglDrawBuffers;
+    RefPtr<WebGLDrawInstancedBaseVertexBaseInstance> m_webglDrawInstancedBaseVertexBaseInstance;
     RefPtr<WebGLLoseContext> m_webglLoseContext;
     RefPtr<WebGLMultiDraw> m_webglMultiDraw;
+    RefPtr<WebGLMultiDrawInstancedBaseVertexBaseInstance> m_webglMultiDrawInstancedBaseVertexBaseInstance;
 
     bool m_areWebGL2TexImageSourceFormatsAndTypesAdded { false };
     bool m_areOESTextureFloatFormatsAndTypesAdded { false };
@@ -763,17 +805,10 @@ protected:
     RefPtr<Float32Array> getWebGLFloatArrayParameter(GCGLenum);
     RefPtr<Int32Array> getWebGLIntArrayParameter(GCGLenum);
 
-    enum ClearCaller {
-        // Caller of ClearIfComposited is a user-level draw or clear call.
-        ClearCallerDrawOrClear,
-        // Caller of ClearIfComposited is anything else, including
-        // readbacks or copies.
-        ClearCallerOther,
-    };
     // Clear the backbuffer if it was composited since the last operation.
     // clearMask is set to the bitfield of any clear that would happen anyway at this time
     // and the function returns true if that clear is now unnecessary.
-    bool clearIfComposited(ClearCaller, GCGLbitfield clearMask = 0);
+    bool clearIfComposited(CallerType, GCGLbitfield clearMask = 0);
 
     // Helper to restore state that clearing the framebuffer may destroy.
     void restoreStateAfterClear();

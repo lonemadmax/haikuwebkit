@@ -134,29 +134,45 @@ TEST(NetworkProcess, CrashWhenNotAssociatedWithDataStore)
     EXPECT_NE(networkProcessPID, [webView configuration].websiteDataStore._networkProcessIdentifier);
 }
 
-TEST(NetworkProcess, TerminateWhenUnused)
+TEST(NetworkProcess, TerminateWhenNoWebsiteDataStore)
 {
-    RetainPtr<WKProcessPool> retainedPool;
+    pid_t networkProcessIdentifier = 0;
     @autoreleasepool {
         auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-        configuration.get().websiteDataStore = [WKWebsiteDataStore nonPersistentDataStore];
-        retainedPool = configuration.get().processPool;
+        auto nonPersistentStore = [WKWebsiteDataStore nonPersistentDataStore];
+        configuration.get().websiteDataStore = nonPersistentStore;
         auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 0, 0) configuration:configuration.get()]);
         [webView synchronouslyLoadTestPageNamed:@"simple"];
         EXPECT_TRUE([WKWebsiteDataStore _defaultNetworkProcessExists]);
+
+        networkProcessIdentifier = [nonPersistentStore _networkProcessIdentifier];
+        EXPECT_NE(networkProcessIdentifier, 0);
     }
-    while ([WKWebsiteDataStore _defaultNetworkProcessExists])
+
+    while (!kill(networkProcessIdentifier, 0))
         TestWebKitAPI::Util::spinRunLoop();
-    
-    retainedPool = nil;
-    
+    EXPECT_TRUE(errno == ESRCH);
+    EXPECT_FALSE([WKWebsiteDataStore _defaultNetworkProcessExists]);
+}
+
+TEST(NetworkProcess, TerminateWhenNoDefaultWebsiteDataStore)
+{
+    pid_t networkProcessIdentifier = 0;
     @autoreleasepool {
         auto webView = adoptNS([WKWebView new]);
         [webView synchronouslyLoadTestPageNamed:@"simple"];
         EXPECT_TRUE([WKWebsiteDataStore _defaultNetworkProcessExists]);
+
+        networkProcessIdentifier = [webView.get().configuration.websiteDataStore _networkProcessIdentifier];
+        EXPECT_NE(networkProcessIdentifier, 0);
     }
-    while ([WKWebsiteDataStore _defaultNetworkProcessExists])
+
+    [WKWebsiteDataStore _deleteDefaultDataStoreForTesting];
+
+    while (!kill(networkProcessIdentifier, 0))
         TestWebKitAPI::Util::spinRunLoop();
+    EXPECT_TRUE(errno == ESRCH);
+    EXPECT_FALSE([WKWebsiteDataStore _defaultNetworkProcessExists]);
 }
 
 TEST(NetworkProcess, DoNotLaunchOnDataStoreDestruction)
@@ -428,21 +444,27 @@ TEST(_WKDataTask, Basic)
     constexpr auto html = "<script>document.cookie='testkey=value'</script>"_s;
     constexpr auto secondResponse = "second response"_s;
     Vector<char> secondRequest;
-    auto server = HTTPServer([&](const Connection& connection) {
-        connection.receiveHTTPRequest([&, connection](Vector<char>&& request) {
-            connection.send(HTTPResponse(html).serialize(), [&, connection] {
-                connection.receiveHTTPRequest([&, connection](Vector<char>&& request) {
-                    secondRequest = WTFMove(request);
-                    connection.send(HTTPResponse(secondResponse).serialize());
-                });
-            });
-        });
+    auto server = HTTPServer(HTTPServer::UseCoroutines::Yes, [&](Connection connection) -> Task {
+        while (1) {
+            auto request = co_await connection.awaitableReceiveHTTPRequest();
+            auto path = HTTPServer::parsePath(request);
+            if (path == "/initial_request"_s) {
+                co_await connection.awaitableSend(HTTPResponse(html).serialize());
+                continue;
+            }
+            if (path == "/second_request"_s) {
+                secondRequest = WTFMove(request);
+                co_await connection.awaitableSend(HTTPResponse(secondResponse).serialize());
+                continue;
+            }
+            EXPECT_FALSE(true);
+        }
     });
     auto webView = adoptNS([TestWKWebView new]);
-    [webView synchronouslyLoadRequest:server.request()];
+    [webView synchronouslyLoadRequest:server.request("/initial_request"_s)];
 
     __block bool done = false;
-    RetainPtr<NSMutableURLRequest> postRequest = adoptNS([server.request() mutableCopy]);
+    RetainPtr<NSMutableURLRequest> postRequest = adoptNS([server.request("/second_request"_s) mutableCopy]);
     [postRequest setMainDocumentURL:postRequest.get().URL];
     [postRequest setHTTPMethod:@"POST"];
     auto requestBody = "request body";

@@ -27,12 +27,18 @@
 #include "ImageBufferShareableAllocator.h"
 
 #include "ImageBufferShareableBitmapBackend.h"
+#include "ShareablePixelBuffer.h"
 #include <WebCore/ConcreteImageBuffer.h>
 
 #if ENABLE(GPU_PROCESS)
 
 namespace WebKit {
 using namespace WebCore;
+
+ImageBufferShareableAllocator::ImageBufferShareableAllocator(const ProcessIdentity& resourceOwner)
+    : m_resourceOwner(resourceOwner)
+{
+}
 
 RefPtr<ImageBuffer> ImageBufferShareableAllocator::createImageBuffer(const FloatSize& size, const DestinationColorSpace& colorSpace, RenderingMode) const
 {
@@ -55,19 +61,27 @@ RefPtr<ImageBuffer> ImageBufferShareableAllocator::createImageBuffer(const Float
     if (!bitmap->createHandle(handle))
         return nullptr;
 
-    transferMemoryOwnership(WTFMove(handle.handle()), bitmap->sizeInBytes());
+    transferMemoryOwnership(WTFMove(handle.handle()));
     return imageBuffer;
 }
 
 RefPtr<PixelBuffer> ImageBufferShareableAllocator::createPixelBuffer(const PixelBufferFormat& format, const IntSize& size) const
 {
-    // FIXME: Create a shareable PixelBuffer and transfer the ownership of its memory to WebProcess.
-    return ImageBufferAllocator::createPixelBuffer(format, size);
+    auto pixelBuffer = ShareablePixelBuffer::tryCreate(format, size);
+    if (!pixelBuffer)
+        return nullptr;
+
+    SharedMemory::Handle handle;
+    if (!pixelBuffer->data().createHandle(handle, SharedMemory::Protection::ReadOnly))
+        return nullptr;
+
+    transferMemoryOwnership(WTFMove(handle));
+    return pixelBuffer;
 }
 
-void ImageBufferShareableAllocator::transferMemoryOwnership(SharedMemory::Handle&&, size_t) const
+void ImageBufferShareableAllocator::transferMemoryOwnership(SharedMemory::Handle&& handle) const
 {
-    // FIXME: Transfer the ownership of the SharedMemory::Handle to WebProcess.
+    handle.setOwnershipOfMemory(m_resourceOwner, MemoryLedger::Graphics);
 }
 
 } // namespace WebKit

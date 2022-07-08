@@ -164,11 +164,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/fetch/FetchBodyConsumer.h
     Modules/fetch/FetchBodySource.h
-    Modules/fetch/FetchRequestCredentials.h
     Modules/fetch/FetchHeaders.h
     Modules/fetch/FetchIdentifier.h
     Modules/fetch/FetchLoader.h
     Modules/fetch/FetchLoaderClient.h
+    Modules/fetch/FetchRequestCredentials.h
 
     Modules/filesystemaccess/FileSystemDirectoryHandle.h
     Modules/filesystemaccess/FileSystemFileHandle.h
@@ -425,6 +425,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/BufferSource.h
     bindings/js/CachedScriptFetcher.h
     bindings/js/CommonVM.h
+    bindings/js/DOMPromiseProxy.h
     bindings/js/DOMWrapperWorld.h
     bindings/js/ExceptionDetails.h
     bindings/js/GCController.h
@@ -1176,7 +1177,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/RemoteDOMWindow.h
     page/RemoteFrame.h
     page/RenderingUpdateScheduler.h
-    page/RuntimeEnabledFeatures.h
     page/ScrollBehavior.h
     page/ScrollIntoViewOptions.h
     page/ScrollLogicalPosition.h
@@ -1285,6 +1285,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/FileStreamClient.h
     platform/FloatConversion.h
     platform/HostWindow.h
+    platform/KeyboardScrollingAnimator.h
     platform/KeyboardScroll.h
     platform/KeyedCoding.h
     platform/KeypressCommand.h
@@ -1340,6 +1341,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PopupMenu.h
     platform/PopupMenuClient.h
     platform/PopupMenuStyle.h
+    platform/ProcessCapabilities.h
     platform/ProcessIdentifier.h
     platform/ProcessIdentity.h
     platform/ProcessQualified.h
@@ -1353,14 +1355,17 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SSLKeyGenerator.h
     platform/ScreenProperties.h
     platform/ScriptExecutionContextIdentifier.h
+    platform/ScrollAnimation.h
     platform/ScrollAnimationMomentum.h
     platform/ScrollAnimator.h
+    platform/ScrollSnapAnimatorState.h
     platform/ScrollTypes.h
     platform/ScrollView.h
     platform/ScrollableArea.h
     platform/Scrollbar.h
     platform/ScrollbarTheme.h
     platform/ScrollbarThemeComposite.h
+    platform/ScrollingEffectsController.h
     platform/SearchPopupMenu.h
     platform/SerializedPlatformDataCue.h
     platform/SerializedPlatformDataCueValue.h
@@ -1468,6 +1473,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ContentTypeUtilities.h
     platform/graphics/DashArray.h
     platform/graphics/DecodingOptions.h
+    platform/graphics/DecomposedGlyphs.h
     platform/graphics/DestinationColorSpace.h
     platform/graphics/DisplayRefreshMonitor.h
     platform/graphics/DisplayRefreshMonitorClient.h
@@ -1593,6 +1599,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformVideoMatrixCoefficients.h
     platform/graphics/PlatformVideoTrackConfiguration.h
     platform/graphics/PlatformVideoTransferCharacteristics.h
+    platform/graphics/PositionedGlyphs.h
     platform/graphics/Region.h
     platform/graphics/RenderingResourceIdentifier.h
     platform/graphics/RenderingMode.h
@@ -1608,6 +1615,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/TextRun.h
     platform/graphics/TextTrackRepresentation.h
     platform/graphics/TiledBacking.h
+    platform/graphics/TrackBuffer.h
     platform/graphics/TrackPrivateBase.h
     platform/graphics/TrackPrivateBaseClient.h
     platform/graphics/VP9Utilities.h
@@ -2023,6 +2031,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/WorkerThreadType.h
     workers/WorkerType.h
 
+    workers/service/ExtendableEvent.h
+    workers/service/ExtendableEventInit.h
+    workers/service/FetchEvent.h
     workers/service/NavigationPreloadState.h
     workers/service/SWClientConnection.h
     workers/service/ServiceWorkerClientData.h
