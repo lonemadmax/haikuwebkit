@@ -155,7 +155,7 @@ void NetworkStorageSession::deleteAllCookiesModifiedSince(WallTime since, WTF::C
 }
 
 void NetworkStorageSession::deleteCookiesForHostnames(const Vector<String>& cookieHostNames,
-    WebCore::IncludeHttpOnlyCookies, WTF::CompletionHandler<void()>&&)
+    WebCore::IncludeHttpOnlyCookies, WebCore::ScriptWrittenCookiesOnly, WTF::CompletionHandler<void()>&&)
 {
     notImplemented();
 }

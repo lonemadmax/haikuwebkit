@@ -135,14 +135,6 @@ GraphicsContext& ImageBufferHaikuSurfaceBackend::context() const
     return *m_data.m_context;
 }
 
-RefPtr<Image> ImageBufferHaikuSurfaceBackend::copyImage(BackingStoreCopy copyBehavior, PreserveResolution) const
-{
-    if (m_data.m_view)
-        m_data.m_view->Sync();
-
-    return BitmapImage::create(copyNativeImage(copyBehavior));
-}
-
 
 RefPtr<PixelBuffer> ImageBufferHaikuSurfaceBackend::getPixelBuffer(
     const PixelBufferFormat& outputFormat, const IntRect& srcRect,

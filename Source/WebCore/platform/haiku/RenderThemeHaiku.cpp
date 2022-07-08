@@ -172,15 +172,6 @@ bool RenderThemeHaiku::paintSliderThumb(const RenderObject& object, const PaintI
 }
 
 
-void RenderThemeHaiku::updateCachedSystemFontDescription(CSSValueID, FontCascadeDescription& fontDescription) const
-{
-    fontDescription.setOneFamily(AtomString::fromUTF8("Sans"));
-    fontDescription.setSpecifiedSize(14);
-    fontDescription.setIsAbsoluteSize(true);
-    fontDescription.setWeight(normalWeightValue());
-    fontDescription.setIsItalic(false);
-}
-
 #if ENABLE(VIDEO)
 String RenderThemeHaiku::mediaControlsStyleSheet()
 {

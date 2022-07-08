@@ -122,6 +122,10 @@ std::optional<ASCIILiteral> FontCache::platformAlternateFamilyName(const String&
     return std::nullopt;
 }
 
+void FontCache::platformInvalidate()
+{
+}
+
 
 } // namespace WebCore
 

@@ -45,9 +45,6 @@ public:
     // A method asking if the theme is able to draw the focus ring.
     bool supportsFocusRing(const RenderStyle&) const override;
 
-    // System fonts.
-    void updateCachedSystemFontDescription(CSSValueID propId, FontCascadeDescription&) const override;
-
 #if ENABLE(VIDEO)
     String mediaControlsStyleSheet() override;
     Vector<String, 2> mediaControlsScripts() override;

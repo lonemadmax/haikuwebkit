@@ -49,7 +49,6 @@ public:
 
     GraphicsContext& context() const override;
     WTF::RefPtr<WebCore::NativeImage> copyNativeImage(BackingStoreCopy) const override;
-    RefPtr<Image> copyImage(BackingStoreCopy, PreserveResolution) const override;
     String toDataURL(const String& mimeType, std::optional<double> quality, PreserveResolution) const override;
     Vector<uint8_t> toData(const String& mimeType, std::optional<double> quality) const override;
     RefPtr<WebCore::PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator& allocator) const override;

@@ -125,6 +125,7 @@ list(APPEND WebCore_SOURCES
   platform/graphics/haiku/NativeImageHaiku.cpp
   platform/graphics/haiku/PathHaiku.cpp
   platform/graphics/haiku/SimpleFontDataHaiku.cpp
+  platform/graphics/haiku/SystemFontDatabaseHaiku.cpp
   platform/graphics/haiku/TileHaiku.cpp
   platform/graphics/haiku/TiledBackingStoreHaiku.cpp
   platform/graphics/haiku/GraphicsLayerHaiku.cpp
