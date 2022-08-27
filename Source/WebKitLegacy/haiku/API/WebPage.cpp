@@ -57,6 +57,7 @@
 #include <WebCore/DummyModelPlayerProvider.h>
 #include <WebCore/DummyStorageProvider.h>
 #include "WebCore/DummySpeechRecognitionProvider.h"
+#include "WebCore/DummyWebRTCProvider.h"
 #include "WebCore/Editor.h"
 #include "WebCore/EmptyClients.h"
 #include "WebCore/EventHandler.h"
@@ -279,11 +280,16 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         String::fromUTF8(storagePath.Path()));
 
     auto storageProvider = PageStorageSessionProvider::create();
+
     PageConfiguration pageClients(
         PAL::SessionID::defaultSessionID(),
         makeUniqueRef<EditorClientHaiku>(this),
         SocketProvider::create(),
+#if USE(WEBRTC)
         makeUniqueRef<LibWebRTCProvider>(),
+#else
+        makeUniqueRef<DummyWebRTCProvider>(),
+#endif
         CacheStorageProvider::create(),
         viewGroup->userContentController(),
         BackForwardList::create(),
@@ -293,7 +299,6 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
-        WebCore::DummyPermissionController::create(),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>()
     );

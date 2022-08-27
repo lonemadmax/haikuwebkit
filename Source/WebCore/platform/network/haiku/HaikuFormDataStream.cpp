@@ -176,8 +176,8 @@ std::optional<size_t> BFormDataIO::readFromBlob(const FormDataElement::EncodedBl
     switch (blobItem.type()) {
 		case BlobDataItem::Type::Data:
 		{
-			size_t elementSize = blobItem.data().data()->size() - m_dataOffset;
-			const uint8_t* elementBuffer = blobItem.data().data()->data() + m_dataOffset;
+			size_t elementSize = blobItem.data()->size() - m_dataOffset;
+			const uint8_t* elementBuffer = blobItem.data()->data() + m_dataOffset;
 
 			readBytes = elementSize > size ? size : elementSize;
 			memcpy(buffer, elementBuffer, readBytes);
