@@ -56,13 +56,14 @@ localizedStrings["%s (%s)"] = "%s (%s)";
 localizedStrings["%s (%s, %s)"] = "%s (%s, %s)";
 /* Label for case-insensitive URL match pattern of a local override. */
 localizedStrings["%s (Case Insensitive) @ Local Override"] = "%s (Case Insensitive)";
+/* Label for case-insensitive match pattern of a symbolic breakpoint. */
+localizedStrings["%s (Case Insensitive) @ Symbolic Breakpoint"] = "%s (Case Insensitive)";
 /* Label for the IP address of a proxy server used to retrieve a network resource. */
 localizedStrings["%s (Proxy) @ Resource Remote Address"] = "%s (Proxy)";
 localizedStrings["%s (default)"] = "%s (default)";
 localizedStrings["%s (hidden)"] = "%s (hidden)";
 localizedStrings["%s Callback"] = "%s Callback";
 localizedStrings["%s Event Dispatched"] = "%s Event Dispatched";
-localizedStrings["%s Fired"] = "%s Fired";
 localizedStrings["%s Prototype"] = "%s Prototype";
 /* Format string for the suggested filename when saving the content for a request local override. */
 localizedStrings["%s Request Data @ Local Override Request Content View"] = "%s Request Data";
@@ -166,6 +167,8 @@ localizedStrings["All items in \u0022%s\u0022 must be valid DOM nodes"] = "All i
 /* Label for setting that allows the user to inspect the Web Inspector user interface. */
 localizedStrings["Allow Inspecting Web Inspector @ Experimental Settings"] = "Allow Inspecting Web Inspector";
 localizedStrings["Allow Media Capture on Insecure Sites"] = "Allow Media Capture on Insecure Sites";
+/* Label for checkbox that controls whether symbolic breakpoint functionality is enabled. */
+localizedStrings["Allow Symbolic Breakpoints"] = "Allow Symbolic Breakpoints";
 /* Label for checkbox that controls whether network throttling functionality is enabled. */
 localizedStrings["Allow throttling"] = "Allow throttling";
 localizedStrings["Also defer evaluating breakpoint conditions, ignore counts, and actions until execution has continued outside of the related script instead of at the breakpoint's location."] = "Also defer evaluating breakpoint conditions, ignore counts, and actions until execution has continued outside of the related script instead of at the breakpoint's location.";
@@ -201,7 +204,6 @@ localizedStrings["Assertion Failed"] = "Assertion Failed";
 localizedStrings["Assertion Failed: %s"] = "Assertion Failed: %s";
 /* Break (pause) when console.assert() fails */
 localizedStrings["Assertion Failures @ JavaScript Breakpoint"] = "Assertion Failures";
-localizedStrings["Assertion with message: %s"] = "Assertion with message: %s";
 localizedStrings["Assertive"] = "Assertive";
 localizedStrings["Associated Data"] = "Associated Data";
 localizedStrings["Async audits are not supported."] = "Async audits are not supported.";
@@ -228,6 +230,8 @@ localizedStrings["Average: %s"] = "Average: %s";
 localizedStrings["BMP"] = "BMP";
 localizedStrings["Back (%s)"] = "Back (%s)";
 localizedStrings["Backtrace"] = "Backtrace";
+/* Label for navigation item that controls what badges are shown in the main DOM tree. */
+localizedStrings["Badges @ Elements Tab"] = "Badges";
 localizedStrings["Basic"] = "Basic";
 /* Section title for basic font properties. */
 localizedStrings["Basic Properties @ Font Details Sidebar Section"] = "Basic Properties";
@@ -280,6 +284,8 @@ localizedStrings["Cached"] = "Cached";
 localizedStrings["Call Stack"] = "Call Stack";
 localizedStrings["Call Stack Unavailable"] = "Call Stack Unavailable";
 localizedStrings["Call Trees"] = "Call Trees";
+/* Label shown when JavaScript execution is paused due to a symbolic breakpoint. */
+localizedStrings["Calling Function \u201C%s\u201D @ Sources Navigation Sidebar Panel"] = "Calling Function \u201C%s\u201D";
 localizedStrings["Cancel Automatic Continue"] = "Cancel Automatic Continue";
 localizedStrings["Cancel comparison"] = "Cancel comparison";
 /* Tooltip for a timestamp marker that represents when a CSS animation/transition is canceled */
@@ -315,6 +321,7 @@ localizedStrings["Child"] = "Child";
 localizedStrings["Child Layers"] = "Child Layers";
 localizedStrings["Child added to "] = "Child added to ";
 localizedStrings["Children"] = "Children";
+localizedStrings["Choose which badges are shown in the DOM tree"] = "Choose which badges are shown in the DOM tree";
 localizedStrings["Cipher"] = "Cipher";
 localizedStrings["Clamp to sRGB"] = "Clamp to sRGB";
 localizedStrings["Classes"] = "Classes";
@@ -348,6 +355,7 @@ localizedStrings["Click to show blackboxed call frame @ Debugger Call Stack"] = 
 localizedStrings["Click to show blackboxed call frames @ Debugger Call Stack"] = "Click to show %d blackboxed call frames";
 /* Tooltip to show purpose of the CSS documentation button */
 localizedStrings["Click to show documentation @ CSS Documentation Button"] = "Click to show documentation";
+localizedStrings["Click to view variable value"] = "Click to view variable value";
 localizedStrings["Click to view variable value\nShift-click to replace variable with value"] = "Click to view variable value\nShift-click to replace variable with value";
 localizedStrings["Clickable"] = "Clickable";
 localizedStrings["Clients"] = "Clients";
@@ -461,6 +469,7 @@ localizedStrings["Debugger Statement"] = "Debugger Statement";
 localizedStrings["Debugger Statements @ JavaScript Breakpoint"] = "Debugger Statements";
 localizedStrings["Debugger disabled during Audit"] = "Debugger disabled during Audit";
 localizedStrings["Debugger disabled during Timeline recording"] = "Debugger disabled during Timeline recording";
+localizedStrings["Debugger:"] = "Debugger:";
 localizedStrings["Debugging:"] = "Debugging:";
 localizedStrings["Debugs"] = "Debugs";
 localizedStrings["Decoded"] = "Decoded";
@@ -621,6 +630,8 @@ localizedStrings["Enable paint flashing"] = "Enable paint flashing";
 localizedStrings["Enable source maps"] = "Enable source maps";
 localizedStrings["Enable:"] = "Enable:";
 localizedStrings["Enabled"] = "Enabled";
+/* Label for column showing the list of enabled timelines. */
+localizedStrings["Enabled Timelines @ Timelines Tab"] = "Enabled Timelines";
 localizedStrings["Encoded"] = "Encoded";
 localizedStrings["Encoding"] = "Encoding";
 localizedStrings["Energy Impact"] = "Energy Impact";
@@ -828,7 +839,7 @@ localizedStrings["Import audit or result"] = "Import audit or result";
 localizedStrings["Imported"] = "Imported";
 localizedStrings["Imported - %s"] = "Imported - %s";
 localizedStrings["Imported \u2014 %s"] = "Imported \u2014 %s";
-localizedStrings["Include original repsonse data"] = "Include original repsonse data";
+localizedStrings["Include original response data"] = "Include original response data";
 localizedStrings["Include original request data"] = "Include original request data";
 localizedStrings["Incomplete"] = "Incomplete";
 localizedStrings["Indent width:"] = "Indent width:";
@@ -1256,7 +1267,7 @@ localizedStrings["Request Data"] = "Request Data";
 localizedStrings["Request Headers"] = "Request Headers";
 /* Text indicating that the local override replaces the request of the network activity. */
 localizedStrings["Request Override @ Local Override Network Stage"] = "Request Override";
-localizedStrings["Requesting: %s"] = "Requesting: %s";
+localizedStrings["Requesting \u201C%s\u201D"] = "Requesting \u201C%s\u201D";
 localizedStrings["Required"] = "Required";
 /* Context menu action for resetting the breakpoint to its initial configuration. */
 localizedStrings["Reset Breakpoint @ Breakpoint Context Menu"] = "Reset Breakpoint";
@@ -1532,6 +1543,9 @@ localizedStrings["Suggest property names based on usage"] = "Suggest property na
 localizedStrings["Summary"] = "Summary";
 /* Property value for `font-variant-position: super`. */
 localizedStrings["Superscript @ Font Details Sidebar Property Value"] = "Superscript";
+localizedStrings["Symbol"] = "Symbol";
+/* Context menu item for creating a new symbolic breakpoint. */
+localizedStrings["Symbolic Breakpoint\u2026 @ Sources Navigation Sidebar Panel"] = "Symbolic Breakpoint\u2026";
 /* Label of dropdown item used for forcing Web Inspector to be shown using the system's theme */
 localizedStrings["System @ Settings General Appearance"] = "System";
 localizedStrings["TCP"] = "TCP";
@@ -1653,7 +1667,6 @@ localizedStrings["Traditional Forms @ Font Details Sidebar Property Value"] = "T
 localizedStrings["Transfer Size"] = "Transfer Size";
 localizedStrings["Transferred"] = "Transferred";
 localizedStrings["Triggered Breakpoint"] = "Triggered Breakpoint";
-localizedStrings["Triggered URL Breakpoint"] = "Triggered URL Breakpoint";
 localizedStrings["True"] = "True";
 localizedStrings["Type"] = "Type";
 localizedStrings["Type Issue"] = "Type Issue";

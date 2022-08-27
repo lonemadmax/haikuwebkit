@@ -3022,8 +3022,8 @@ TEST_P(ImageTestES3, SourceYUVAHBTargetExternalYUVSampleLinearFiltering)
     const int windowHeight = getWindowHeight();
     ASSERT_GE(windowHeight, 8);
 
-    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::black);
-    EXPECT_PIXEL_COLOR_EQ(0, windowHeight - 1, GLColor::red);
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, GLColor::black, 1);
+    EXPECT_PIXEL_COLOR_NEAR(0, windowHeight - 1, GLColor::red, 1);
 
     // Approximately half-red:
     EXPECT_PIXEL_COLOR_NEAR(0, windowHeight / 2, GLColor(127, 0, 0, 255), 15.0);
@@ -3176,6 +3176,47 @@ TEST_P(ImageTestES3, AHBClearAppliedBeforeReadBack)
         EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
 
         // Clear to red
+        glClearColor(1, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glFinish();
+    }
+
+    verifyResultAHB(ahb, {{kRed, 4}});
+
+    eglDestroyImageKHR(window->getDisplay(), ahbImage);
+    destroyAndroidHardwareBuffer(ahb);
+}
+
+// Similar to AHBClearAppliedBeforeReadBack, but clear is applied twice.
+TEST_P(ImageTestES3, AHBTwiceClearAppliedBeforeReadBack)
+{
+    EGLWindow *window = getEGLWindow();
+
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt() || !has2DTextureExt());
+    ANGLE_SKIP_TEST_IF(!hasAndroidImageNativeBufferExt() || !hasAndroidHardwareBufferSupport());
+
+    const GLubyte kRed[]   = {255, 0, 0, 255};
+    const GLubyte kBlack[] = {0, 0, 0, 0};
+
+    // Create one image backed by the AHB.
+    AHardwareBuffer *ahb;
+    EGLImageKHR ahbImage;
+    createEGLImageAndroidHardwareBufferSource(1, 1, 1, AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM,
+                                              kDefaultAHBUsage, kDefaultAttribs, {{kBlack, 4}},
+                                              &ahb, &ahbImage);
+    GLTexture ahbTexture;
+    createEGLImageTargetTexture2D(ahbImage, ahbTexture);
+
+    // Create one framebuffer backed by the AHB.
+    {
+        GLFramebuffer ahbFbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, ahbFbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ahbTexture, 0);
+        EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+        // Clear to green, then to red
+        glClearColor(0, 1, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(1, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
         glFinish();
@@ -5483,6 +5524,199 @@ TEST_P(ImageTest, SourceCubeAndSameTargetTextureWithEachCubeFace)
     {
         eglDestroyImageKHR(window->getDisplay(), images[faceIdx]);
     }
+}
+
+// Case for testing External Texture support in MEC.
+// To run this test with the right capture setting, make sure to set these environment variables:
+//
+// For Linux:
+//      export ANGLE_CAPTURE_FRAME_START=2
+//      export ANGLE_CAPTURE_FRAME_END=2
+//      export ANGLE_CAPTURE_LABEL=external_textures
+//      export ANGLE_CAPTURE_OUT_DIR=[PATH_TO_ANGLE]/src/tests/restricted_traces/external_textures/
+//
+// For Android:
+//      adb shell setprop debug.angle.capture.frame_start 2
+//      adb shell setprop debug.angle.capture.frame_end 2
+//      adb shell setprop debug.angle.capture.label external_textures
+//      adb shell setprop debug.angle.capture.out_dir /data/data/externaltextures/angle_capture/
+TEST_P(ImageTest, AppTraceExternalTextureUseCase)
+{
+    EGLWindow *window = getEGLWindow();
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt() || !has2DTextureExt() ||
+                       !hasExternalESSL3Ext());
+
+    constexpr EGLint attribs[] = {
+        EGL_IMAGE_PRESERVED,
+        EGL_TRUE,
+        EGL_NONE,
+    };
+
+    // Create the Image
+    GLTexture sourceTexture1;
+    EGLImageKHR image1;
+
+    GLubyte data[] = {132, 55, 219, 255};
+    // Create a source 2D texture
+    glBindTexture(GL_TEXTURE_2D, sourceTexture1);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, static_cast<GLsizei>(1), static_cast<GLsizei>(1), 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    // Disable mipmapping
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    ASSERT_GL_NO_ERROR();
+
+    image1 = eglCreateImageKHR(window->getDisplay(), window->getContext(), EGL_GL_TEXTURE_2D_KHR,
+                               reinterpretHelper<EGLClientBuffer>(sourceTexture1.get()), attribs);
+
+    ASSERT_EGL_SUCCESS();
+
+    // Create the target
+    GLTexture targetTexture1;
+    // Create a target texture from the image
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, targetTexture1);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image1);
+
+    // Disable mipmapping
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    ASSERT_GL_NO_ERROR();
+
+    // Calls On EndFrame(), with MidExecutionSetup to restore external texture targetTexture1 above
+    EGLDisplay display = getEGLWindow()->getDisplay();
+    EGLSurface surface = getEGLWindow()->getSurface();
+    eglSwapBuffers(display, surface);
+
+    // Create another eglImage with another associated texture
+    // Draw using the eglImage texture targetTexture1 created in frame 1
+    GLTexture sourceTexture2;
+    EGLImageKHR image2;
+
+    // Create a source 2D texture
+    glBindTexture(GL_TEXTURE_2D, sourceTexture2);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, static_cast<GLsizei>(1), static_cast<GLsizei>(1), 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    // Disable mipmapping
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    ASSERT_GL_NO_ERROR();
+
+    image2 = eglCreateImageKHR(window->getDisplay(), window->getContext(), EGL_GL_TEXTURE_2D_KHR,
+                               reinterpretHelper<EGLClientBuffer>(sourceTexture2.get()), attribs);
+
+    ASSERT_EGL_SUCCESS();
+
+    // Create the target
+    GLTexture targetTexture2;
+    // Create a target texture from the image
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, targetTexture2);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image2);
+
+    // Disable mipmapping
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(mTextureExternalProgram);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, targetTexture1);
+    glUniform1i(mTextureExternalUniformLocation, 0);
+
+    drawQuad(mTextureExternalProgram, "position", 0.5f);
+
+    // Calls On EndFrame() to save the gl calls creating external texture targetTexture2;
+    // We use this as a reference to check the gl calls we restore for targetTexture1
+    // in MidExecutionSetup
+    eglSwapBuffers(display, surface);
+
+    // Draw a quad with the targetTexture2
+    glUseProgram(mTextureExternalProgram);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, targetTexture2);
+    glUniform1i(mTextureExternalUniformLocation, 0);
+
+    drawQuad(mTextureExternalProgram, "position", 0.5f);
+
+    eglSwapBuffers(display, surface);
+
+    // Clean up
+    eglDestroyImageKHR(window->getDisplay(), image1);
+    eglDestroyImageKHR(window->getDisplay(), image2);
+}
+
+// Alternate case for testing External Texture (created with AHB) support in MEC.
+// Make sure to use the following environment variables for the right capture setting on Android:
+//
+// adb shell setprop debug.angle.capture.frame_start 2
+// adb shell setprop debug.angle.capture.frame_end 2
+// adb shell setprop debug.angle.capture.label AHB_textures
+// adb shell setprop debug.angle.capture.out_dir /data/data/AHBtextures/angle_capture/
+TEST_P(ImageTest, AppTraceExternalTextureWithAHBUseCase)
+{
+    EGLWindow *window = getEGLWindow();
+
+    ANGLE_SKIP_TEST_IF(!IsAndroid());
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt() || !has2DTextureExt());
+    ANGLE_SKIP_TEST_IF(!hasAndroidImageNativeBufferExt() || !hasAndroidHardwareBufferSupport());
+
+    GLubyte data[4] = {7, 51, 197, 231};
+
+    // Create the Image
+    AHardwareBuffer *source;
+    EGLImageKHR image;
+    createEGLImageAndroidHardwareBufferSource(1, 1, 1, AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM,
+                                              kDefaultAHBUsage, kDefaultAttribs, {{data, 4}},
+                                              &source, &image);
+
+    // Create a texture target to bind the egl image & disable mipmapping
+    GLTexture target;
+    createEGLImageTargetTextureExternal(image, target);
+
+    // Calls On EndFrame(), with MidExecutionSetup to restore external target texture above
+    EGLDisplay display = getEGLWindow()->getDisplay();
+    EGLSurface surface = getEGLWindow()->getSurface();
+    eglSwapBuffers(display, surface);
+
+    // Create another eglImage with another associated texture
+    // Draw using the eglImage target texture created in frame 1
+    AHardwareBuffer *source2;
+    EGLImageKHR image2;
+    createEGLImageAndroidHardwareBufferSource(1, 1, 1, AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM,
+                                              kDefaultAHBUsage, kDefaultAttribs, {{data, 4}},
+                                              &source2, &image2);
+
+    // Create another texture target to bind the egl image & disable mipmapping
+    GLTexture target2;
+    createEGLImageTargetTextureExternal(image, target2);
+
+    glUseProgram(mTextureExternalProgram);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, target);
+    glUniform1i(mTextureExternalUniformLocation, 0);
+
+    drawQuad(mTextureExternalProgram, "position", 0.5f);
+
+    // Calls On EndFrame() to save the gl calls creating external texture target2;
+    // We use this as a reference to check the gl calls we restore for GLTexture target
+    // in MidExecutionSetup
+    eglSwapBuffers(display, surface);
+
+    // Draw a quad with the GLTexture target2
+    glUseProgram(mTextureExternalProgram);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, target2);
+    glUniform1i(mTextureExternalUniformLocation, 0);
+
+    drawQuad(mTextureExternalProgram, "position", 0.5f);
+
+    eglSwapBuffers(display, surface);
+
+    // Clean up
+    eglDestroyImageKHR(window->getDisplay(), image);
+    eglDestroyImageKHR(window->getDisplay(), image2);
 }
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(ImageTest);

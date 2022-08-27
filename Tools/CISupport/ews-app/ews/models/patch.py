@@ -97,6 +97,20 @@ class Change(models.Model):
             return None
 
     @classmethod
+    def mark_old_changes_as_obsolete(cls, pr_id, change_id):
+        changes = Change.objects.filter(pr_id=pr_id).order_by('-created')
+        if not changes or len(changes) == 1:
+            return []
+        for change in changes[1:]:
+            if not change.obsolete:
+                if change.change_id == change_id:
+                    _log.info('Marking change {} on pr {} as obsolete, even though we just received builds for it. Latest commit:'.format(change_id, pr_id, change[0].pr_id))
+                change.obsolete = True
+                change.save()
+                _log.info('Marked change {} on pr {} as obsolete'.format(change.change_id, pr_id))
+        return changes[1:]
+
+    @classmethod
     def set_sent_to_buildbot(cls, change_id, value, commit_queue=False):
         if commit_queue:
             return Change._set_sent_to_commit_queue(change_id, sent_to_commit_queue=value)
@@ -163,4 +177,18 @@ class Change(models.Model):
         change.obsolete = obsolete
         change.save()
         _log.debug('Marked change {} as obsolete={}'.format(change_id, obsolete))
+        return SUCCESS
+
+    def set_comment_id(self, comment_id):
+        if type(comment_id) != int or comment_id < 0:
+            _log.error('Invalid comment_id {}, while trying to set comment_id for change: {}'.format(comment_id, self.change_id))
+            return FAILURE
+
+        if self.comment_id == comment_id:
+            _log.warn('Change {} already has comment id {} set.'.format(self.change_id, comment_id))
+            return SUCCESS
+
+        self.comment_id = comment_id
+        self.save()
+        _log.info('Updated change {} with comment id {}'.format(self.change_id, comment_id))
         return SUCCESS

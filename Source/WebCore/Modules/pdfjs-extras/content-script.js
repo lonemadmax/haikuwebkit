@@ -23,7 +23,85 @@
  */
 
 const PDFJSContentScript = {
+    overrideSettings() {
+        // Disable the findbar provided by PDF.js.
+        delete PDFViewerApplication.supportsIntegratedFind;
+        PDFViewerApplication.supportsIntegratedFind = true;
+
+        // Hide sidebar on load.
+        PDFViewerApplicationOptions.set("sidebarViewOnLoad", 0);
+    },
+
+    setPageMode({ pages, continuous }) {
+        PDFViewerApplication.pdfViewer.spreadMode = pages == "two" ? 1 : 0;
+
+        if (continuous)
+            PDFViewerApplication.pdfViewer.scrollMode = 0;
+        else
+            PDFViewerApplication.pdfViewer.scrollMode = 3;
+
+        this.autoResize();
+    },
+
+    autoResize() {
+        if (PDFViewerApplication.pdfViewer.spreadMode == 1) // Two pages.
+            PDFViewerApplication.pdfViewer.currentScaleValue = "page-fit";
+        else
+            PDFViewerApplication.pdfViewer.currentScaleValue = "page-width";
+    },
+
     open(data) {
         PDFViewerApplication.open(data);
+    },
+
+    init() {
+        this.overrideSettings();
+        PDFViewerApplication.eventBus.on("pagesinit", () => {
+            this.autoResize();
+        });
+
+        window.addEventListener("message", (event) => {
+            const { message, data } = event.data;
+            switch (message) {
+                case "open-pdf":
+                    this.open(data);
+                    break;
+                case "context-menu-auto-size":
+                    this.autoResize();
+                    break;
+                case "context-menu-zoom-in":
+                    PDFViewerApplication.zoomIn();
+                    break;
+                case "context-menu-zoom-out":
+                    PDFViewerApplication.zoomOut();
+                    break;
+                case "context-menu-actual-size":
+                    PDFViewerApplication.pdfViewer.currentScaleValue = "page-fit";
+                    break;
+                case "context-menu-single-page":
+                    this.setPageMode({ pages: "single", continuous: false });
+                    break;
+                case "context-menu-single-page-continuous":
+                    this.setPageMode({ pages: "single", continuous: true });
+                    break;
+                case "context-menu-two-pages":
+                    this.setPageMode({ pages: "two", continuous: false });
+                    break;
+                case "context-menu-two-pages-continuous":
+                    this.setPageMode({ pages: "two", continuous: true });
+                    break;
+                case "context-menu-next-page":
+                    PDFViewerApplication.pdfViewer.nextPage();
+                    break;
+                case "context-menu-previous-page":
+                    PDFViewerApplication.pdfViewer.previousPage();
+                    break;
+                default:
+                    console.error("Unrecognized message:", event);
+                    break;
+            }
+        });
     }
 };
+
+PDFJSContentScript.init();

@@ -43,6 +43,7 @@ namespace WebCore {
 
 class AXIsolatedObject;
 class AXObjectCache;
+class AccessibilityObject;
 class Page;
 enum class AXStreamOptions : uint8_t;
 
@@ -106,6 +107,7 @@ enum class AXPropertyName : uint16_t {
     EditableAncestor,
     EmbeddedImageDescription,
     ExpandedTextValue,
+    ExtendedDescription,
     FileUploadButtonReturnsValueInTitle,
     FocusableAncestor,
     HasARIAValueNow,
@@ -325,6 +327,7 @@ public:
 
     static void removeTreeForPageID(PageIdentifier);
 
+    static RefPtr<AXIsolatedTree> treeForPageID(std::optional<PageIdentifier>);
     static RefPtr<AXIsolatedTree> treeForPageID(PageIdentifier);
     static RefPtr<AXIsolatedTree> treeForID(AXIsolatedTreeID);
     AXObjectCache* axObjectCache() const;
@@ -346,13 +349,14 @@ public:
     void generateSubtree(AXCoreObject&);
     void updateNode(AXCoreObject&);
     enum class ResolveNodeChanges : bool { No, Yes };
-    void updateChildren(AXCoreObject&, ResolveNodeChanges = ResolveNodeChanges::Yes);
+    void updateChildren(AccessibilityObject&, ResolveNodeChanges = ResolveNodeChanges::Yes);
     void updateNodeProperty(AXCoreObject&, AXPropertyName);
     void updateNodeAndDependentProperties(AXCoreObject&);
 
     double loadingProgress() { return m_loadingProgress; }
     void updateLoadingProgress(double);
 
+    void addUnconnectedNode(AccessibilityObject&);
     // Removes the corresponding isolated object and all descendants from the m_nodeMap and queues their removal from the tree.
     void removeNode(const AXCoreObject&);
     // Removes the given node and all its descendants from m_nodeMap.
@@ -441,6 +445,13 @@ inline AXObjectCache* AXIsolatedTree::axObjectCache() const
 {
     ASSERT(isMainThread());
     return m_axObjectCache;
+}
+
+inline RefPtr<AXIsolatedTree> AXIsolatedTree::treeForPageID(std::optional<PageIdentifier> pageID)
+{
+    if (pageID)
+        return treeForPageID(*pageID);
+    return nullptr;
 }
 
 } // namespace WebCore

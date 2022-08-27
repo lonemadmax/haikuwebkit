@@ -32,6 +32,7 @@
 #import "Logging.h"
 #import "RemoteLayerTreeNode.h"
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/MachSendRight.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
@@ -57,7 +58,6 @@
 
     if (replay) {
         _displayListDataForTesting = data;
-        ASSERT(displayList.ports.isEmpty());
         [self setNeedsDisplay];
         return;
     }

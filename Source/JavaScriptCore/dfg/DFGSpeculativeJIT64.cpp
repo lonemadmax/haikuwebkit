@@ -2514,7 +2514,8 @@ void SpeculativeJIT::compileGetByVal(Node* node, const ScopedLambda<std::tuple<J
         break;
     }
     case Array::Int32:
-    case Array::Contiguous: {
+    case Array::Contiguous:
+    case Array::AlwaysSlowPutContiguous: {
         if (node->arrayMode().isInBounds()) {
             SpeculateStrictInt32Operand property(this, m_graph.varArgChild(node, 1));
             StorageOperand storage(this, m_graph.varArgChild(node, 2));
@@ -2534,7 +2535,7 @@ void SpeculativeJIT::compileGetByVal(Node* node, const ScopedLambda<std::tuple<J
 
             m_jit.load64(MacroAssembler::BaseIndex(storageReg, propertyReg, MacroAssembler::TimesEight), result);
             if (node->arrayMode().isInBoundsSaneChain()) {
-                ASSERT(node->arrayMode().type() == Array::Contiguous);
+                ASSERT(node->arrayMode().isAnyKindOfContiguous());
                 JITCompiler::Jump notHole = m_jit.branchIfNotEmpty(result);
                 m_jit.move(TrustedImm64(JSValue::encode(jsUndefined())), result);
                 notHole.link(&m_jit);
@@ -5000,8 +5001,11 @@ void SpeculativeJIT::compile(Node* node)
         if (node->child2().useKind() != UntypedUse)
             speculate(node, node->child2());
 
-        m_jit.load32(MacroAssembler::Address(mapGPR, HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::offsetOfCapacity()), maskGPR);
+        CCallHelpers::JumpList notPresentInTable;
+
         m_jit.loadPtr(MacroAssembler::Address(mapGPR, HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::offsetOfBuffer()), bufferGPR);
+        notPresentInTable.append(m_jit.branchTestPtr(CCallHelpers::Zero, bufferGPR));
+        m_jit.load32(MacroAssembler::Address(mapGPR, HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::offsetOfCapacity()), maskGPR);
         m_jit.sub32(TrustedImm32(1), maskGPR);
         m_jit.move(hashGPR, indexGPR);
 
@@ -5013,8 +5017,9 @@ void SpeculativeJIT::compile(Node* node)
         m_jit.and32(maskGPR, indexGPR);
         m_jit.loadPtr(MacroAssembler::BaseIndex(bufferGPR, indexGPR, MacroAssembler::TimesEight), bucketGPR);
         m_jit.move(bucketGPR, resultGPR);
-        auto notPresentInTable = m_jit.branchPtr(MacroAssembler::Equal, 
-            bucketGPR, TrustedImmPtr(bitwise_cast<size_t>(HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::emptyValue())));
+
+        notPresentInTable.append(m_jit.branchPtr(MacroAssembler::Equal,
+            bucketGPR, TrustedImmPtr(bitwise_cast<size_t>(HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::emptyValue()))));
         loopAround.append(m_jit.branchPtr(MacroAssembler::Equal, 
             bucketGPR, TrustedImmPtr(bitwise_cast<size_t>(HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::deletedValue()))));
 

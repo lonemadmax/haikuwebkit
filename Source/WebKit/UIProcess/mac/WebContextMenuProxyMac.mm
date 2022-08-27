@@ -419,8 +419,8 @@ void WebContextMenuProxyMac::getShareMenuItem(CompletionHandler<void(NSMenuItem 
             [items addObject:(NSURL *)downloadableMediaURL];
     }
 
-    if (hitTestData.imageSharedMemory && hitTestData.imageSize) {
-        if (auto image = adoptNS([[NSImage alloc] initWithData:[NSData dataWithBytes:(unsigned char*)hitTestData.imageSharedMemory->data() length:hitTestData.imageSize]]))
+    if (hitTestData.imageSharedMemory) {
+        if (auto image = adoptNS([[NSImage alloc] initWithData:[NSData dataWithBytes:(unsigned char*)hitTestData.imageSharedMemory->data() length:hitTestData.imageSharedMemory->size()]]))
             [items addObject:image.get()];
     }
 
@@ -548,6 +548,9 @@ static NSString *menuItemIdentifier(const WebCore::ContextMenuAction action)
 
     case ContextMenuItemTagToggleMediaControls:
         return _WKMenuItemIdentifierShowHideMediaControls;
+
+    case ContextMenuItemTagShowMediaStats:
+        return _WKMenuItemIdentifierShowHideMediaStats;
 
     case ContextMenuItemTagToggleVideoEnhancedFullscreen:
         return _WKMenuItemIdentifierToggleEnhancedFullScreen;

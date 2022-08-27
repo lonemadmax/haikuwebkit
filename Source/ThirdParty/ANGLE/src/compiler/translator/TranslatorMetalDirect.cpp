@@ -270,7 +270,7 @@ TIntermSequence *GetMainSequence(TIntermBlock *root)
 }
 
 [[nodiscard]] bool InsertFragCoordCorrection(TCompiler *compiler,
-                                             ShCompileOptions compileOptions,
+                                             const ShCompileOptions &compileOptions,
                                              TIntermBlock *root,
                                              TIntermSequence *insertSequence,
                                              TSymbolTable *symbolTable,
@@ -608,7 +608,7 @@ static inline MetalShaderType metalShaderTypeFromGLSL(sh::GLenum shaderType)
 
 bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
                                           TIntermBlock *root,
-                                          ShCompileOptions compileOptions,
+                                          const ShCompileOptions &compileOptions,
                                           PerformanceDiagnostics * /*perfDiagnostics*/,
                                           SpecConst *specConst,
                                           DriverUniformMetal *driverUniforms)
@@ -660,7 +660,12 @@ bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
     // - It dramatically simplifies future transformations w.r.t to samplers in structs, array of
     //   arrays of opaque types, atomic counters etc.
     // - Avoids the need for shader*ArrayDynamicIndexing Vulkan features.
-    if (!MonomorphizeUnsupportedFunctions(this, root, &getSymbolTable(), compileOptions))
+    UnsupportedFunctionArgsBitSet args{UnsupportedFunctionArgs::StructContainingSamplers,
+                                       UnsupportedFunctionArgs::ArrayOfArrayOfSamplerOrImage,
+                                       UnsupportedFunctionArgs::AtomicCounter,
+                                       UnsupportedFunctionArgs::SamplerCubeEmulation,
+                                       UnsupportedFunctionArgs::Image};
+    if (!MonomorphizeUnsupportedFunctions(this, root, &getSymbolTable(), compileOptions, args))
     {
         return false;
     }
@@ -693,7 +698,7 @@ bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
         return false;
     }
 
-    if (compileOptions & SH_EMULATE_SEAMFUL_CUBE_MAP_SAMPLING)
+    if (compileOptions.emulateSeamfulCubeMapSampling)
     {
         if (!RewriteCubeMapSamplersAs2DArray(this, root, &symbolTable,
                                              getShaderType() == GL_FRAGMENT_SHADER))
@@ -1005,8 +1010,13 @@ bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
         return false;
     }
 
-    const bool needsExplicitBoolCasts = (compileOptions & SH_ADD_EXPLICIT_BOOL_CASTS) != 0;
+    const bool needsExplicitBoolCasts = compileOptions.addExplicitBoolCasts;
     if (!AddExplicitTypeCasts(*this, *root, symbolEnv, needsExplicitBoolCasts))
+    {
+        return false;
+    }
+
+    if (!SeparateCompoundStructDeclarations(*this, idGen, *root, &getSymbolTable()))
     {
         return false;
     }
@@ -1016,7 +1026,7 @@ bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
         return false;
     }
 
-    if ((compileOptions & SH_REWRITE_ROW_MAJOR_MATRICES) != 0 && getShaderVersion() >= 300)
+    if (compileOptions.rewriteRowMajorMatrices && getShaderVersion() >= 300)
     {
         // "Make sure every uniform buffer variable has a name.  The following transformation
         // relies on this." This pass was removed in e196bc85ac2dda0e9f6664cfc2eca0029e33d2d1,
@@ -1038,11 +1048,6 @@ bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
     // Note: ReduceInterfaceBlocks removes row_major matrix layout specifiers
     // so it must come after RewriteRowMajorMatrices.
     if (!ReduceInterfaceBlocks(*this, *root, idGen, &getSymbolTable()))
-    {
-        return false;
-    }
-
-    if (!SeparateCompoundStructDeclarations(*this, idGen, *root, &getSymbolTable()))
     {
         return false;
     }
@@ -1093,7 +1098,7 @@ bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
     {
         return false;
     }
-    if (!EmitMetal(*this, *root, idGen, pipelineStructs, symbolEnv, ppc, &getSymbolTable()))
+    if (!EmitMetal(*this, *root, idGen, pipelineStructs, symbolEnv, ppc, compileOptions))
     {
         return false;
     }
@@ -1104,7 +1109,7 @@ bool TranslatorMetalDirect::translateImpl(TInfoSinkBase &sink,
 }
 
 bool TranslatorMetalDirect::translate(TIntermBlock *root,
-                                      ShCompileOptions compileOptions,
+                                      const ShCompileOptions &compileOptions,
                                       PerformanceDiagnostics *perfDiagnostics)
 {
     if (!root)

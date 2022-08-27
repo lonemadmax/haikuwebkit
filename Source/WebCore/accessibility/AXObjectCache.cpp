@@ -755,7 +755,8 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node* node)
     ASSERT(!get(node));
 
     cacheAndInitializeWrapper(newObj.get(), node);
-    newObj->setLastKnownIsIgnoredValue(newObj->accessibilityIsIgnored());
+    // Compute the object's initial ignored status.
+    newObj->recomputeIsIgnored();
     // Sometimes asking accessibilityIsIgnored() will cause the newObject to be deallocated, and then
     // it will disappear when this function is finished, leading to a use-after-free.
     if (newObj->isDetached())
@@ -781,7 +782,8 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
     ASSERT(!get(renderer));
 
     cacheAndInitializeWrapper(newObj.get(), renderer);
-    newObj->setLastKnownIsIgnoredValue(newObj->accessibilityIsIgnored());
+    // Compute the object's initial ignored status.
+    newObj->recomputeIsIgnored();
     // Sometimes asking accessibilityIsIgnored() will cause the newObject to be deallocated, and then
     // it will disappear when this function is finished, leading to a use-after-free.
     if (newObj->isDetached())
@@ -1018,9 +1020,7 @@ void AXObjectCache::handleTextChanged(AccessibilityObject* object)
     }
 
     postNotification(object, object->document(), AXTextChanged);
-
-    if (object->parentObjectIfExists() && object->hasIgnoredValueChanged())
-        childrenChanged(object->parentObject());
+    object->recomputeIsIgnored();
 }
 
 void AXObjectCache::updateCacheAfterNodeIsAttached(Node* node)
@@ -1067,9 +1067,7 @@ void AXObjectCache::handleChildrenChanged(AccessibilityObject& object)
     // Should make the subtree dirty so that everything below will be updated correctly.
     object.setNeedsToUpdateSubtree();
 
-    // If isIgnored has changed for object, notify that ChildrenChanged for its parent.
-    if (object.parentObjectIfExists() && object.hasIgnoredValueChanged())
-        childrenChanged(object.parentObject());
+    object.recomputeIsIgnored();
 
     // Go up the existing ancestors chain and fire the appropriate notifications.
     bool shouldUpdateParent = true;
@@ -1200,7 +1198,7 @@ void AXObjectCache::notificationPostTimerFired()
     auto notifications = std::exchange(m_notificationsToPost, { });
 
     // Filter out the notifications that are not going to be posted to platform clients.
-    Vector<std::pair<RefPtr<AXCoreObject>, AXNotification>> notificationsToPost;
+    Vector<std::pair<RefPtr<AccessibilityObject>, AXNotification>> notificationsToPost;
     notificationsToPost.reserveInitialCapacity(notifications.size());
     for (const auto& note : notifications) {
         ASSERT(note.first);
@@ -1290,7 +1288,7 @@ void AXObjectCache::postNotification(Node* node, AXNotification notification, Po
     postNotification(object.get(), &node->document(), notification, postTarget);
 }
 
-void AXObjectCache::postNotification(AXCoreObject* object, Document* document, AXNotification notification, PostTarget postTarget)
+void AXObjectCache::postNotification(AccessibilityObject* object, Document* document, AXNotification notification, PostTarget postTarget)
 {
     AXTRACE(makeString("AXObjectCache::postNotification 0x"_s, hex(reinterpret_cast<uintptr_t>(this))));
     AXLOG(std::make_pair(object, notification));
@@ -1336,7 +1334,7 @@ void AXObjectCache::handleMenuItemSelected(Node* node)
     postNotification(getOrCreate(node), &document(), AXMenuListItemSelected);
 }
 
-void AXObjectCache::handleRowCountChanged(AXCoreObject* axObject, Document* document)
+void AXObjectCache::handleRowCountChanged(AccessibilityObject* axObject, Document* document)
 {
     if (!axObject)
         return;
@@ -1904,8 +1902,7 @@ void AXObjectCache::handleRoleChanged(Element* element)
 void AXObjectCache::handleRoleChanged(AccessibilityObject* axObject)
 {
     stopCachingComputedObjectAttributes();
-    if (axObject->hasIgnoredValueChanged())
-        childrenChanged(axObject->parentObject());
+    axObject->recomputeIsIgnored();
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     updateIsolatedTree(axObject, AXNotification::AXAriaRoleChanged);
@@ -1956,6 +1953,10 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         handleRoleChanged(element);
     else if (attrName == altAttr || attrName == titleAttr)
         handleTextChanged(getOrCreate(element));
+    else if (attrName == contenteditableAttr) {
+        if (auto* axObject = get(element))
+            axObject->updateRole();
+    }
     else if (attrName == disabledAttr)
         postNotification(element, AXObjectCache::AXDisabledStateChanged);
     else if (attrName == forAttr && is<HTMLLabelElement>(*element))
@@ -2013,6 +2014,8 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         postNotification(element, AXDescribedByChanged);
     else if (attrName == aria_dropeffectAttr)
         postNotification(element, AXDropEffectChanged);
+    else if (attrName == aria_flowtoAttr)
+        postNotification(element, AXFlowToChanged);
     else if (attrName == aria_grabbedAttr)
         postNotification(element, AXGrabbedStateChanged);
     else if (attrName == aria_levelAttr)
@@ -2094,18 +2097,14 @@ void AXObjectCache::labelChanged(Element* element)
 
 void AXObjectCache::recomputeIsIgnored(RenderObject* renderer)
 {
-    if (auto* object = get(renderer)) {
-        if (object->hasIgnoredValueChanged())
-            childrenChanged(object->parentObject());
-    }
+    if (auto* object = get(renderer))
+        object->recomputeIsIgnored();
 }
 
 void AXObjectCache::recomputeIsIgnored(Node* node)
 {
-    if (auto* object = get(node)) {
-        if (object->hasIgnoredValueChanged())
-            childrenChanged(object->parentObject());
-    }
+    if (auto* object = get(node))
+        object->recomputeIsIgnored();
 }
 
 void AXObjectCache::startCachingComputedObjectAttributesUntilTreeMutates()
@@ -3560,18 +3559,18 @@ void AXObjectCache::handleMenuListValueChanged(Element& element)
 }
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-void AXObjectCache::updateIsolatedTree(AXCoreObject* object, AXNotification notification)
+void AXObjectCache::updateIsolatedTree(AccessibilityObject* object, AXNotification notification)
 {
     if (object)
         updateIsolatedTree(*object, notification);
 }
 
-void AXObjectCache::updateIsolatedTree(AXCoreObject& object, AXNotification notification)
+void AXObjectCache::updateIsolatedTree(AccessibilityObject& object, AXNotification notification)
 {
     updateIsolatedTree({ std::make_pair(&object, notification) });
 }
 
-void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObject>, AXNotification>>& notifications)
+void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AccessibilityObject>, AXNotification>>& notifications)
 {
     AXTRACE(makeString("AXObjectCache::updateIsolatedTree 0x"_s, hex(reinterpret_cast<uintptr_t>(this))));
 
@@ -3671,6 +3670,7 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<AXCoreObjec
         case AXDescribedByChanged:
         case AXDropEffectChanged:
         case AXElementBusyChanged:
+        case AXFlowToChanged:
         case AXGrabbedStateChanged:
         case AXHasPopupChanged:
         case AXInvalidStatusChanged:

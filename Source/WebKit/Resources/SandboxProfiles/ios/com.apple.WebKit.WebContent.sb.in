@@ -557,30 +557,11 @@
 (allow mach-lookup
     (global-name "com.apple.system.notification_center")
     (apply-message-filter
-        (deny mach-message-send (with telemetry))
+        (deny mach-message-send)
         (deny mach-message-send (with no-report) (message-number 1023))
         (allow mach-message-send (message-number
-            1002
-            1009
-            1010
-            1011
-            1012
-            1016
-            1017
-            1018
-            1019
-            1021
-            1022
-            1025
-            1026
-            1028
-            1029
-            1030
-            1031
-            1032
-        ))
-    )
-)
+            1002 1011 1012 1016 1017 1018 1021 1025 1026 1028 1029 1030 1031 1032))))
+
 (allow ipc-posix-shm-read*
        (ipc-posix-name "apple.shm.notification_center"))
 
@@ -774,6 +755,9 @@
     (sysctl-name-prefix "hw.perflevel") ;; <rdar://problem/76782530>
 )
 
+(deny sysctl-read (with no-report)
+    (sysctl-name "vm.task_no_footprint_for_debug"))
+
 (allow iokit-get-properties
     (iokit-property "AAPL,DisplayPipe")
     (iokit-property "AAPL,OpenCLdisabled")
@@ -898,7 +882,8 @@
 (deny file-read-xattr file-write-xattr (xattr-prefix "com.apple.security.private."))
 
 ;; Allow loading injected bundles.
-(allow file-map-executable)
+(with-filter (require-not (state-flag "WebContentProcessLaunched"))
+    (allow file-map-executable))
 
 #if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 ;; Allow ManagedPreference access
@@ -1223,7 +1208,7 @@
         (syscall-unix-rarely-in-use-need-backtrace))
 )
 
-(deny syscall-unix (syscall-number
+(deny syscall-unix (with no-report) (syscall-number
     SYS_connect
     SYS_socket))
 

@@ -760,6 +760,8 @@ public:
     bool has3DTransform() const { return m_transform && !m_transform->isAffine(); }
     bool hasTransformedAncestor() const { return m_hasTransformedAncestor; }
 
+    bool hasFixedContainingBlockAncestor() const { return m_hasFixedContainingBlockAncestor; }
+
     bool hasFilter() const { return renderer().hasFilter(); }
     bool hasFilterOutsets() const { return !filterOutsets().isZero(); }
     IntOutsets filterOutsets() const;
@@ -878,6 +880,8 @@ public:
 
     String debugDescription() const;
 
+    bool setIsOpportunisticStackingContext(bool);
+
 private:
 
     void setNextSibling(RenderLayer* next) { m_next = next; }
@@ -896,7 +900,6 @@ private:
     // Return true if changed.
     bool setIsNormalFlowOnly(bool);
 
-    bool setIsOpportunisticStackingContext(bool);
     bool setIsCSSStackingContext(bool);
     
     void isStackingContextChanged();
@@ -970,9 +973,10 @@ private:
         ContainingClippingLayerChangedSize  = 1 << 2,
         UpdatePagination                    = 1 << 3,
         SeenFixedLayer                      = 1 << 4,
-        SeenTransformedLayer                = 1 << 5,
-        Seen3DTransformedLayer              = 1 << 6,
-        SeenCompositedScrollingLayer        = 1 << 7,
+        SeenFixedContainingBlockLayer       = 1 << 5,
+        SeenTransformedLayer                = 1 << 6,
+        Seen3DTransformedLayer              = 1 << 7,
+        SeenCompositedScrollingLayer        = 1 << 8,
     };
     static OptionSet<UpdateLayerPositionsFlag> flagsForUpdateLayerPositions(RenderLayer& startingLayer);
 
@@ -993,26 +997,79 @@ private:
 
     LayoutPoint rendererLocation() const
     {
-        if (is<RenderBox>(renderer()))
-            return downcast<RenderBox>(renderer()).location();
+        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
+            return box->location();
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
-        if (is<RenderSVGModelObject>(renderer()))
-            return downcast<RenderSVGModelObject>(renderer()).currentSVGLayoutLocation();
+        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
+            return svgModelObject->currentSVGLayoutLocation();
 #endif
-
-        return LayoutPoint();
+        return { };
     }
 
     LayoutRect rendererBorderBoxRect() const
     {
-        if (is<RenderBox>(renderer()))
-            return downcast<RenderBox>(renderer()).borderBoxRect();
+        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
+            return box->borderBoxRect();
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
-        if (is<RenderSVGModelObject>(renderer()))
-            return downcast<RenderSVGModelObject>(renderer()).borderBoxRectEquivalent();
+        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
+            return svgModelObject->borderBoxRectEquivalent();
 #endif
+        return { };
+    }
 
-        return LayoutRect();
+    LayoutRect rendererBorderBoxRectInFragment(RenderFragmentContainer* fragment, RenderBox::RenderBoxFragmentInfoFlags flags = RenderBox::CacheRenderBoxFragmentInfo) const
+    {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
+            return box->borderBoxRectInFragment(fragment, flags);
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
+            return svgModelObject->borderBoxRectInFragmentEquivalent(fragment, flags);
+#endif
+        return { };
+    }
+
+    LayoutRect rendererVisualOverflowRect() const
+    {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
+            return box->visualOverflowRect();
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
+            return svgModelObject->visualOverflowRectEquivalent();
+#endif
+        return { };
+    }
+
+    LayoutRect rendererOverflowClipRect(const LayoutPoint& location, RenderFragmentContainer* fragment, OverlayScrollbarSizeRelevancy relevancy) const
+    {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
+            return box->overflowClipRect(location, fragment, relevancy);
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
+            return svgModelObject->overflowClipRect(location, fragment, relevancy);
+#endif
+        return { };
+    }
+
+    LayoutRect rendererOverflowClipRectForChildLayers(const LayoutPoint& location, RenderFragmentContainer* fragment, OverlayScrollbarSizeRelevancy relevancy) const
+    {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
+            return box->overflowClipRectForChildLayers(location, fragment, relevancy);
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
+            return svgModelObject->overflowClipRectForChildLayers(location, fragment, relevancy);
+#endif
+        return { };
+    }
+
+    bool rendererHasVisualOverflow() const
+    {
+        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
+            return box->hasVisualOverflow();
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
+            return svgModelObject->hasVisualOverflow();
+#endif
+        return false;
     }
 
     bool setupFontSubpixelQuantization(GraphicsContext&, bool& didQuantizeFonts);
@@ -1181,6 +1238,7 @@ private:
     bool m_hasCompositedNonContainedDescendants : 1;
     bool m_hasCompositedScrollingAncestor : 1; // In the layer-order tree.
 
+    bool m_hasFixedContainingBlockAncestor : 1;
     bool m_hasTransformedAncestor : 1;
     bool m_has3DTransformedAncestor : 1;
 

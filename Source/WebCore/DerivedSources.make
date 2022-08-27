@@ -207,6 +207,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/applepay/ApplePayError.idl \
     $(WebCore)/Modules/applepay/ApplePayErrorCode.idl \
     $(WebCore)/Modules/applepay/ApplePayErrorContactField.idl \
+    $(WebCore)/Modules/applepay/ApplePayFeature.idl \
     $(WebCore)/Modules/applepay/ApplePayInstallmentConfiguration.idl \
     $(WebCore)/Modules/applepay/ApplePayInstallmentItem.idl \
     $(WebCore)/Modules/applepay/ApplePayInstallmentItemType.idl \
@@ -505,6 +506,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/permissions/PermissionState.idl \
     $(WebCore)/Modules/permissions/PermissionStatus.idl \
     $(WebCore)/Modules/permissions/Permissions.idl \
+    $(WebCore)/Modules/permissions/WorkerNavigator+Permissions.idl \
     $(WebCore)/Modules/pictureinpicture/DocumentOrShadowRoot+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/Document+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl \
@@ -527,6 +529,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl \
+    $(WebCore)/Modules/reporting/Report.idl \
+    $(WebCore)/Modules/reporting/ReportBody.idl \
+    $(WebCore)/Modules/reporting/ReportingObserver.idl \
+    $(WebCore)/Modules/reporting/ReportingObserverCallback.idl \
     $(WebCore)/Modules/speech/DOMWindow+SpeechSynthesis.idl \
     $(WebCore)/Modules/speech/SpeechSynthesis.idl \
     $(WebCore)/Modules/speech/SpeechSynthesisErrorCode.idl \
@@ -848,6 +854,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/typedom/color/CSSOKLCH.idl \
     $(WebCore)/css/typedom/color/CSSOKLab.idl \
     $(WebCore)/css/typedom/color/CSSRGB.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathClamp.idl \
     $(WebCore)/css/typedom/numeric/CSSMathInvert.idl \
     $(WebCore)/css/typedom/numeric/CSSMathMax.idl \
     $(WebCore)/css/typedom/numeric/CSSMathMin.idl \
@@ -930,6 +937,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/Element+PointerLock.idl \
     $(WebCore)/dom/Element.idl \
     $(WebCore)/dom/ElementContentEditable.idl \
+    $(WebCore)/dom/ElementInternals.idl \
     $(WebCore)/dom/ErrorEvent.idl \
     $(WebCore)/dom/Event.idl \
     $(WebCore)/dom/EventInit.idl \
@@ -983,6 +991,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/ShadowRoot.idl \
     $(WebCore)/dom/ShadowRootInit.idl \
     $(WebCore)/dom/ShadowRootMode.idl \
+    $(WebCore)/dom/SlotAssignmentMode.idl \
     $(WebCore)/dom/Slotable.idl \
     $(WebCore)/dom/StaticRange.idl \
     $(WebCore)/dom/StringCallback.idl \

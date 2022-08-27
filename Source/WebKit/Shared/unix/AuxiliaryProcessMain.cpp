@@ -32,7 +32,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if ENABLE(BREAKPAD)
+#include "unix/BreakpadExceptionHandler.h"
+#endif
+
 namespace WebKit {
+
+AuxiliaryProcessMainCommon::AuxiliaryProcessMainCommon()
+{
+#if ENABLE(BREAKPAD)
+    installBreakpadExceptionHandler();
+#endif
+}
 
 bool AuxiliaryProcessMainCommon::parseCommandLine(int argc, char** argv)
 {

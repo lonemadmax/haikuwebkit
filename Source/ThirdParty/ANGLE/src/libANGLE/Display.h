@@ -57,8 +57,9 @@ class Surface;
 class Sync;
 class Thread;
 
-using ContextSet = std::set<gl::Context *>;
-using SurfaceSet = std::set<Surface *>;
+using ContextSet = angle::HashSet<gl::Context *>;
+using SurfaceSet = angle::HashSet<Surface *>;
+using ThreadSet  = angle::HashSet<Thread *>;
 
 struct DisplayState final : private angle::NonCopyable
 {
@@ -134,13 +135,12 @@ class Display final : public LabeledObject,
     {
         Api,
         InternalCleanup,
-        ProcessExit,
+        NoActiveThreads,
 
         InvalidEnum,
         EnumCount = InvalidEnum,
     };
     Error terminate(Thread *thread, TerminateReason terminateReason);
-    Error destroyInvalidEglObjects();
     // Called before all display state dependent EGL functions. Backends can set up, for example,
     // thread-specific backend state through this function. Not called for functions that do not
     // need the state.
@@ -149,13 +149,17 @@ class Display final : public LabeledObject,
     // this function.
     Error releaseThread();
 
+    // Helpers to maintain active thread set to assist with freeing invalid EGL objects.
+    void addActiveThread(Thread *thread);
+    void removeActiveThreadAndPerformCleanup(Thread *thread);
+
     static Display *GetDisplayFromDevice(Device *device, const AttributeMap &attribMap);
     static Display *GetDisplayFromNativeDisplay(EGLenum platform,
                                                 EGLNativeDisplayType nativeDisplay,
                                                 const AttributeMap &attribMap);
     static Display *GetExistingDisplayFromNativeDisplay(EGLNativeDisplayType nativeDisplay);
 
-    using EglDisplaySet = std::set<Display *>;
+    using EglDisplaySet = angle::HashSet<Display *>;
     static EglDisplaySet GetEglDisplaySet();
 
     static const ClientExtensions &GetClientExtensions();
@@ -342,6 +346,8 @@ class Display final : public LabeledObject,
     void returnScratchBufferImpl(angle::ScratchBuffer scratchBuffer,
                                  std::vector<angle::ScratchBuffer> *bufferVector);
 
+    Error destroyInvalidEglObjects();
+
     DisplayState mState;
     rx::DisplayImpl *mImplementation;
     angle::ObserverBinding mGPUSwitchedBinding;
@@ -350,13 +356,13 @@ class Display final : public LabeledObject,
 
     ConfigSet mConfigSet;
 
-    typedef std::set<Image *> ImageSet;
+    typedef angle::HashSet<Image *> ImageSet;
     ImageSet mImageSet;
 
-    typedef std::set<Stream *> StreamSet;
+    typedef angle::HashSet<Stream *> StreamSet;
     StreamSet mStreamSet;
 
-    typedef std::set<Sync *> SyncSet;
+    typedef angle::HashSet<Sync *> SyncSet;
     SyncSet mSyncSet;
 
     void destroyImageImpl(Image *image, ImageSet *images);
@@ -404,7 +410,9 @@ class Display final : public LabeledObject,
     std::mutex mDisplayGlobalMutex;
     std::mutex mProgramCacheMutex;
 
-    bool mIsTerminated;
+    std::atomic<bool> mTerminatedByApi;
+    std::mutex mActiveThreadsMutex;
+    ThreadSet mActiveThreads;
 };
 
 }  // namespace egl

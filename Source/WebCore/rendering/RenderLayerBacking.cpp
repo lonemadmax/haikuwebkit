@@ -33,6 +33,7 @@
 #include "CachedImage.h"
 #include "Chrome.h"
 #include "DebugOverlayRegions.h"
+#include "DebugPageOverlays.h"
 #include "EventRegion.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -55,6 +56,7 @@
 #include "PerformanceLoggingClient.h"
 #include "PluginViewBase.h"
 #include "ProgressTracker.h"
+#include "RenderAncestorIterator.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderFragmentContainer.h"
 #include "RenderFragmentedFlow.h"
@@ -65,6 +67,7 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderMedia.h"
 #include "RenderModel.h"
+#include "RenderSVGHiddenContainer.h"
 #include "RenderSVGModelObject.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
@@ -357,6 +360,11 @@ Ref<GraphicsLayer> RenderLayerBacking::createGraphicsLayer(const String& name, G
 #if PLATFORM(COCOA) && USE(CA)
     graphicsLayer->setAcceleratesDrawing(compositor().acceleratedDrawingEnabled());
     graphicsLayer->setUsesDisplayListDrawing(compositor().displayListDrawingEnabled());
+#endif
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (renderer().isSVGLayerAwareRenderer() && renderer().document().settings().layerBasedSVGEngineEnabled())
+        graphicsLayer->setShouldUpdateRootRelativeScaleFactor(true);
 #endif
     
     return graphicsLayer;
@@ -1658,26 +1666,36 @@ void RenderLayerBacking::updateInternalHierarchy()
         lastClippingLayer = m_ancestorClippingStack->lastClippingLayer();
     }
 
+    constexpr size_t maxOrderedLayers = 5;
+    Vector<GraphicsLayer*, maxOrderedLayers> orderedLayers;
+
+    if (lastClippingLayer)
+        orderedLayers.append(lastClippingLayer);
+
     if (m_contentsContainmentLayer) {
         m_contentsContainmentLayer->removeAllChildren();
-        if (lastClippingLayer)
-            lastClippingLayer->addChild(*m_contentsContainmentLayer);
-    }
-    
-    if (m_backgroundLayer)
+
+        ASSERT(m_backgroundLayer);
         m_contentsContainmentLayer->addChild(*m_backgroundLayer);
 
-    if (m_contentsContainmentLayer)
-        m_contentsContainmentLayer->addChild(*m_graphicsLayer);
-    else if (lastClippingLayer)
-        lastClippingLayer->addChild(*m_graphicsLayer);
+        // The loop below will add a second child to the m_contentsContainmentLayer.
+        orderedLayers.append(m_contentsContainmentLayer.get());
+    }
+
+    orderedLayers.append(m_graphicsLayer.get());
 
     if (m_childContainmentLayer)
-        m_graphicsLayer->addChild(*m_childContainmentLayer);
+        orderedLayers.append(m_childContainmentLayer.get());
 
-    if (m_scrollContainerLayer) {
-        auto* superlayer = m_childContainmentLayer ? m_childContainmentLayer.get() : m_graphicsLayer.get();
-        superlayer->addChild(*m_scrollContainerLayer);
+    if (m_scrollContainerLayer)
+        orderedLayers.append(m_scrollContainerLayer.get());
+
+    GraphicsLayer* previousLayer = nullptr;
+    for (auto* layer : orderedLayers) {
+        if (previousLayer)
+            previousLayer->addChild(*layer);
+    
+        previousLayer = layer;
     }
 
     // The clip for child layers does not include space for overflow controls, so they exist as
@@ -2687,6 +2705,18 @@ bool RenderLayerBacking::paintsContent(RenderLayer::PaintedContentRequest& reque
 
     if (request.isSatisfied())
         return paintsContent;
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (is<RenderSVGModelObject>(m_owningLayer.renderer())) {
+        // FIXME: [LBSE] Eventually cache if we're part of a RenderSVGHiddenContainer subtree to avoid tree walks.
+        // FIXME: [LBSE] Eventually refine the logic to end up with a narrower set of conditions (webkit.org/b/243417).
+        paintsContent = m_owningLayer.hasVisibleContent() && !lineageOfType<RenderSVGHiddenContainer>(m_owningLayer.renderer()).first();
+        request.setHasPaintedContent();
+    }
+
+    if (request.isSatisfied())
+        return paintsContent;
+#endif
 
     if (request.hasPaintedContent == RequestState::Unknown)
         request.hasPaintedContent = RequestState::False;

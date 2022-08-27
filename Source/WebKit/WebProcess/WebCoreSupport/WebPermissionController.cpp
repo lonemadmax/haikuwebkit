@@ -26,33 +26,38 @@
 #include "config.h"
 #include "WebPermissionController.h"
 
-
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
+#include "WebPermissionControllerProxyMessages.h"
+#include "WebProcess.h"
+#include <WebCore/Page.h>
 #include <WebCore/PermissionObserver.h>
+#include <WebCore/PermissionQuerySource.h>
+#include <WebCore/PermissionState.h>
+#include <optional>
 
 namespace WebKit {
 
-Ref<WebPermissionController> WebPermissionController::create(WebPage& page)
+Ref<WebPermissionController> WebPermissionController::create()
 {
-    return adoptRef(*new WebPermissionController(page));
+    return adoptRef(*new WebPermissionController);
 }
 
-WebPermissionController::WebPermissionController(WebPage& page)
-    : m_page(page)
-{
-}
+WebPermissionController::WebPermissionController() = default;
 
-void WebPermissionController::query(WebCore::ClientOrigin&& origin, WebCore::PermissionDescriptor&& descriptor, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&& completionHandler)
+void WebPermissionController::query(WebCore::ClientOrigin&& origin, WebCore::PermissionDescriptor&& descriptor, WebCore::Page* page, WebCore::PermissionQuerySource source, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&& completionHandler)
 {
-    if (!m_page)
-        return completionHandler({ });
-
     auto cachedResult = queryCache(origin, descriptor);
     if (cachedResult != WebCore::PermissionState::Prompt)
         return completionHandler(cachedResult);
 
-    m_requests.append(PermissionRequest { WTFMove(origin), WTFMove(descriptor), WTFMove(completionHandler) });
+    std::optional<WebPageProxyIdentifier> proxyIdentifier;
+    if (source == WebCore::PermissionQuerySource::Window || source == WebCore::PermissionQuerySource::DedicatedWorker) {
+        ASSERT(page);
+        proxyIdentifier = WebPage::fromCorePage(*page).webPageProxyIdentifier();
+    }
+
+    m_requests.append(PermissionRequest { WTFMove(origin), WTFMove(descriptor), proxyIdentifier, source, WTFMove(completionHandler) });
     tryProcessingRequests();
 }
 
@@ -88,9 +93,6 @@ void WebPermissionController::updateCache(const WebCore::ClientOrigin& origin, c
 
 void WebPermissionController::tryProcessingRequests()
 {
-    if (m_requests.isEmpty() || !m_page)
-        return;
-
     while (!m_requests.isEmpty()) {
         auto& currentRequest = m_requests.first();
         if (currentRequest.isWaitingForReply)
@@ -104,7 +106,7 @@ void WebPermissionController::tryProcessingRequests()
         }
 
         currentRequest.isWaitingForReply = true;
-        m_page->sendWithAsyncReply(Messages::WebPageProxy::QueryPermission(currentRequest.origin, currentRequest.descriptor), [this, weakThis = WeakPtr { *this }](auto state, bool shouldCache) {
+        WebProcess::singleton().sendWithAsyncReply(Messages::WebPermissionControllerProxy::Query(currentRequest.origin, currentRequest.descriptor, currentRequest.identifier, currentRequest.source), [this, weakThis = WeakPtr { *this }](auto state, bool shouldCache) {
             RefPtr protectedThis { weakThis.get() };
             if (!protectedThis)
                 return;

@@ -473,6 +473,9 @@ public:
     const AtomString& contentLanguage() const { return m_contentLanguage; }
     void setContentLanguage(const AtomString&);
 
+    const AtomString& effectiveDocumentElementLanguage() const;
+    void setDocumentElementLanguage(const AtomString&);
+
     String xmlEncoding() const { return m_xmlEncoding; }
     String xmlVersion() const { return m_xmlVersion; }
     enum class StandaloneStatus : uint8_t { Unspecified, Standalone, NotStandalone };
@@ -730,7 +733,6 @@ public:
     void disableWebAssembly(const String& errorMessage) final;
 
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
-    RefPtr<PermissionController> permissionController() final;
     StorageConnection* storageConnection();
     SocketProvider* socketProvider() final;
     RefPtr<RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection() final;
@@ -1929,6 +1931,7 @@ private:
     bool m_hasXMLDeclaration { false };
 
     AtomString m_contentLanguage;
+    AtomString m_documentElementLanguage;
 
     RefPtr<TextResourceDecoder> m_decoder;
 

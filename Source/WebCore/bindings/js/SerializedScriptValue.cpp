@@ -1311,6 +1311,11 @@ private:
                     return true;
                 
                 if (arrayBuffer->isShared() && m_context == SerializationContext::WorkerPostMessage) {
+                    // https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal
+                    if (!JSC::Options::useSharedArrayBuffer()) {
+                        code = SerializationReturnCode::DataCloneError;
+                        return true;
+                    }
                     uint32_t index = m_sharedBuffers.size();
                     ArrayBufferContents contents;
                     if (arrayBuffer->shareWith(contents)) {
@@ -1393,7 +1398,7 @@ private:
                 return true;
             }
             if (JSWebAssemblyMemory* memory = jsDynamicCast<JSWebAssemblyMemory*>(obj)) {
-                if (memory->memory().sharingMode() != JSC::Wasm::MemorySharingMode::Shared) {
+                if (!JSC::Options::useSharedArrayBuffer() || memory->memory().sharingMode() != JSC::Wasm::MemorySharingMode::Shared) {
                     code = SerializationReturnCode::DataCloneError;
                     return true;
                 }
@@ -3722,7 +3727,7 @@ private:
         case WasmMemoryTag: {
             uint32_t index;
             bool indexSuccessfullyRead = read(index);
-            if (!indexSuccessfullyRead || !m_wasmMemoryHandles || index >= m_wasmMemoryHandles->size()) {
+            if (!indexSuccessfullyRead || !m_wasmMemoryHandles || index >= m_wasmMemoryHandles->size() || !JSC::Options::useSharedArrayBuffer()) {
                 fail();
                 return JSValue();
             }
@@ -3776,9 +3781,10 @@ private:
             return getJSValue(m_arrayBuffers[index].get());
         }
         case SharedArrayBufferTag: {
+            // https://html.spec.whatwg.org/multipage/structured-data.html#structureddeserialize
             uint32_t index = UINT_MAX;
             bool indexSuccessfullyRead = read(index);
-            if (!indexSuccessfullyRead || !m_sharedBuffers || index >= m_sharedBuffers->size()) {
+            if (!indexSuccessfullyRead || !m_sharedBuffers || index >= m_sharedBuffers->size() || !JSC::Options::useSharedArrayBuffer()) {
                 fail();
                 return JSValue();
             }
@@ -4012,9 +4018,7 @@ DeserializationResult CloneDeserializer::deserialize()
         mapObjectStartState: {
             if (outputObjectStack.size() > maximumFilterRecursion)
                 return std::make_pair(JSValue(), SerializationReturnCode::StackOverflowError);
-            JSMap* map = JSMap::create(m_lexicalGlobalObject, m_lexicalGlobalObject->vm(), m_globalObject->mapStructure());
-            if (UNLIKELY(scope.exception()))
-                goto error;
+            JSMap* map = JSMap::create(m_lexicalGlobalObject->vm(), m_globalObject->mapStructure());
             m_gcBuffer.appendWithCrashOnOverflow(map);
             outputObjectStack.append(map);
             mapStack.append(map);
@@ -4043,9 +4047,7 @@ DeserializationResult CloneDeserializer::deserialize()
         setObjectStartState: {
             if (outputObjectStack.size() > maximumFilterRecursion)
                 return std::make_pair(JSValue(), SerializationReturnCode::StackOverflowError);
-            JSSet* set = JSSet::create(m_lexicalGlobalObject, m_lexicalGlobalObject->vm(), m_globalObject->setStructure());
-            if (UNLIKELY(scope.exception()))
-                goto error;
+            JSSet* set = JSSet::create(m_lexicalGlobalObject->vm(), m_globalObject->setStructure());
             m_gcBuffer.appendWithCrashOnOverflow(set);
             outputObjectStack.append(set);
             setStack.append(set);

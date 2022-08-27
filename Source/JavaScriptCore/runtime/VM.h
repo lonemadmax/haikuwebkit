@@ -36,6 +36,7 @@
 #include "ExceptionEventLocation.h"
 #include "FunctionHasExecutedCache.h"
 #include "Heap.h"
+#include "ImplementationVisibility.h"
 #include "IndexingType.h"
 #include "Integrity.h"
 #include "Interpreter.h"
@@ -47,6 +48,7 @@
 #include "Microtask.h"
 #include "NativeFunction.h"
 #include "NumericStrings.h"
+#include "SlotVisitorMacros.h"
 #include "SmallStrings.h"
 #include "Strong.h"
 #include "SubspaceAccess.h"
@@ -121,6 +123,7 @@ class JSPropertyNameEnumerator;
 class JITSizeStatistics;
 class JITThunks;
 class NativeExecutable;
+class Debugger;
 class DeferredWorkTimer;
 class RegExp;
 class RegExpCache;
@@ -164,21 +167,69 @@ class Signature;
 
 struct EntryFrame;
 
+class MicrotaskQueue;
 class QueuedTask {
-    WTF_MAKE_NONCOPYABLE(QueuedTask);
     WTF_MAKE_FAST_ALLOCATED;
+    friend class MicrotaskQueue;
 public:
-    void run();
+    static constexpr unsigned maxArguments = 4;
 
-    QueuedTask(VM& vm, JSGlobalObject* globalObject, Ref<Microtask>&& microtask)
-        : m_globalObject(vm, globalObject)
-        , m_microtask(WTFMove(microtask))
+    QueuedTask(MicrotaskIdentifier identifier, JSValue job, JSValue argument0, JSValue argument1, JSValue argument2, JSValue argument3)
+        : m_identifier(identifier)
+        , m_job(job)
+        , m_arguments { argument0, argument1, argument2, argument3 }
     {
     }
 
+    void run();
+
+    MicrotaskIdentifier identifier() const { return m_identifier; }
+
 private:
-    Strong<JSGlobalObject> m_globalObject;
-    Ref<Microtask> m_microtask;
+    MicrotaskIdentifier m_identifier;
+    JSValue m_job;
+    JSValue m_arguments[maxArguments];
+};
+
+class MicrotaskQueue {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(MicrotaskQueue);
+public:
+    MicrotaskQueue() = default;
+
+    QueuedTask dequeue()
+    {
+        if (m_markedBefore)
+            --m_markedBefore;
+        return m_queue.takeFirst();
+    }
+
+    void enqueue(QueuedTask&& task)
+    {
+        m_queue.append(WTFMove(task));
+    }
+
+    bool isEmpty() const
+    {
+        return m_queue.isEmpty();
+    }
+
+    void clear()
+    {
+        m_queue.clear();
+        m_markedBefore = 0;
+    }
+
+    void beginMarking()
+    {
+        m_markedBefore = 0;
+    }
+
+    DECLARE_VISIT_AGGREGATE;
+
+private:
+    Deque<QueuedTask> m_queue;
+    unsigned m_markedBefore { 0 };
 };
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(VM);
@@ -557,13 +608,13 @@ public:
     std::unique_ptr<FTL::Thunks> ftlThunks;
 #endif
 
-    NativeExecutable* getHostFunction(NativeFunction, NativeFunction constructor, const String& name);
-    NativeExecutable* getHostFunction(NativeFunction, Intrinsic, NativeFunction constructor, const DOMJIT::Signature*, const String& name);
+    NativeExecutable* getHostFunction(NativeFunction, ImplementationVisibility, NativeFunction constructor, const String& name);
+    NativeExecutable* getHostFunction(NativeFunction, ImplementationVisibility, Intrinsic, NativeFunction constructor, const DOMJIT::Signature*, const String& name);
 
     NativeExecutable* getBoundFunction(bool isJSFunction, bool canConstruct);
     NativeExecutable* getRemoteFunction(bool isJSFunction);
 
-    MacroAssemblerCodePtr<JSEntryPtrTag> getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
+    CodePtr<JSEntryPtrTag> getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
     MacroAssemblerCodeRef<JSEntryPtrTag> getCTILinkCall();
     MacroAssemblerCodeRef<JSEntryPtrTag> getCTIThrowExceptionFromCallSlowPath();
     MacroAssemblerCodeRef<JITStubRoutinePtrTag> getCTIVirtualCall(CallMode);
@@ -778,7 +829,7 @@ public:
     bool enableControlFlowProfiler();
     bool disableControlFlowProfiler();
 
-    void queueMicrotask(JSGlobalObject&, Ref<Microtask>&&);
+    void queueMicrotask(QueuedTask&&);
     JS_EXPORT_PRIVATE void drainMicrotasks();
     void setOnEachMicrotaskTick(WTF::Function<void(VM&)>&& func) { m_onEachMicrotaskTick = WTFMove(func); }
     void finalizeSynchronousJSExecution() { ASSERT(currentThreadIsHoldingAPILock()); m_currentWeakRefVersion++; }
@@ -848,6 +899,13 @@ public:
     void setDoesGCExpectation(bool, DoesGCCheck::Special) { }
     void verifyCanGC() { }
 #endif
+
+    void beginMarking();
+    DECLARE_VISIT_AGGREGATE;
+
+    void addDebugger(Debugger&);
+    void removeDebugger(Debugger&);
+    void forEachDebugger(Function<void(Debugger&)>&&);
 
 private:
     VM(VMType, HeapType, WTF::RunLoop* = nullptr, bool* success = nullptr);
@@ -947,7 +1005,7 @@ private:
     FunctionHasExecutedCache m_functionHasExecutedCache;
     std::unique_ptr<ControlFlowProfiler> m_controlFlowProfiler;
     unsigned m_controlFlowProfilerEnabledCount { 0 };
-    Deque<std::unique_ptr<QueuedTask>> m_microtaskQueue;
+    MicrotaskQueue m_microtaskQueue;
     MallocPtr<EncodedJSValue, VMMalloc> m_exceptionFuzzBuffer;
     VMTraps m_traps;
     RefPtr<Watchdog> m_watchdog;
@@ -975,6 +1033,8 @@ private:
 #if ENABLE(DFG_DOES_GC_VALIDATION)
     DoesGCCheck m_doesGC;
 #endif
+
+    DoublyLinkedList<Debugger> m_debuggers;
 
     VM* m_prev; // Required by DoublyLinkedListNode.
     VM* m_next; // Required by DoublyLinkedListNode.

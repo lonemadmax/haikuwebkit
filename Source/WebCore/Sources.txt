@@ -208,6 +208,7 @@ Modules/mediastream/RTCEncodedVideoFrame.cpp
 Modules/mediastream/RTCError.cpp
 Modules/mediastream/RTCErrorEvent.cpp
 Modules/mediastream/RTCIceCandidate.cpp
+Modules/mediastream/RTCIceCandidateFields.cpp
 Modules/mediastream/RTCIceTransport.cpp
 Modules/mediastream/RTCPeerConnection.cpp
 Modules/mediastream/RTCPeerConnectionIceEvent.cpp
@@ -247,6 +248,7 @@ Modules/notifications/Notification.cpp
 Modules/notifications/NotificationController.cpp
 Modules/notifications/NotificationData.cpp
 Modules/notifications/NotificationEvent.cpp
+Modules/notifications/NotificationResourcesLoader.cpp
 Modules/paymentrequest/MerchantValidationEvent.cpp
 Modules/paymentrequest/PaymentAddress.cpp
 Modules/paymentrequest/PaymentHandler.cpp
@@ -256,8 +258,10 @@ Modules/paymentrequest/PaymentRequestUpdateEvent.cpp
 Modules/paymentrequest/PaymentRequestUtilities.cpp
 Modules/paymentrequest/PaymentResponse.cpp
 Modules/permissions/NavigatorPermissions.cpp
+Modules/permissions/PermissionController.cpp
 Modules/permissions/PermissionStatus.cpp
 Modules/permissions/Permissions.cpp
+Modules/permissions/WorkerNavigatorPermissions.cpp
 Modules/pictureinpicture/DocumentPictureInPicture.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
 Modules/pictureinpicture/PictureInPictureEvent.cpp
@@ -274,6 +278,8 @@ Modules/push-api/PushSubscriptionOptions.cpp
 Modules/push-api/PushManager.cpp
 Modules/push-api/ServiceWorkerRegistrationPushAPI.cpp
 Modules/remoteplayback/RemotePlayback.cpp
+Modules/reporting/Report.cpp
+Modules/reporting/ReportingObserver.cpp
 Modules/speech/SpeechRecognition.cpp
 Modules/speech/SpeechRecognitionAlternative.cpp
 Modules/speech/SpeechRecognitionErrorEvent.cpp
@@ -603,6 +609,7 @@ bindings/js/JSRangeCustom.cpp
 bindings/js/JSReadableStreamSourceCustom.cpp
 bindings/js/JSRemoteDOMWindowBase.cpp
 bindings/js/JSRemoteDOMWindowCustom.cpp
+bindings/js/JSReportBodyCustom.cpp
 bindings/js/JSResizeObserverCustom.cpp
 bindings/js/JSResizeObserverEntryCustom.cpp
 bindings/js/JSSVGPathSegCustom.cpp
@@ -710,6 +717,7 @@ css/BasicShapeFunctions.cpp
 css/ContainerQuery.cpp
 css/ContainerQueryParser.cpp
 css/CSSAspectRatioValue.cpp
+css/CSSBackgroundRepeatValue.cpp
 css/CSSBasicShapes.cpp
 css/CSSBorderImage.cpp
 css/CSSBorderImageSliceValue.cpp
@@ -799,7 +807,6 @@ css/DeprecatedCSSOMValueList.cpp
 css/FontFace.cpp
 css/FontFaceSet.cpp
 css/FontVariantBuilder.cpp
-css/LengthFunctions.cpp
 css/MediaFeatureNames.cpp
 css/MediaList.cpp
 css/MediaQuery.cpp
@@ -854,6 +861,8 @@ css/parser/MediaQueryBlockWatcher.cpp
 css/parser/MediaQueryParser.cpp
 css/parser/SizesAttributeParser.cpp
 css/parser/SizesCalcParser.cpp
+css/query/GenericMediaQueryEvaluator.cpp
+css/query/GenericMediaQueryParser.cpp
 css/typedom/ComputedStylePropertyMapReadOnly.cpp
 css/typedom/StylePropertyMapReadOnly.cpp
 css/typedom/CSSKeywordValue.cpp
@@ -873,6 +882,7 @@ css/typedom/color/CSSLab.cpp
 css/typedom/color/CSSOKLCH.cpp
 css/typedom/color/CSSOKLab.cpp
 css/typedom/color/CSSRGB.cpp
+css/typedom/numeric/CSSMathClamp.cpp
 css/typedom/numeric/CSSMathInvert.cpp
 css/typedom/numeric/CSSMathMax.cpp
 css/typedom/numeric/CSSMathMin.cpp
@@ -972,6 +982,7 @@ dom/DocumentType.cpp
 dom/DragEvent.cpp
 dom/Element.cpp
 dom/ElementData.cpp
+dom/ElementInternals.cpp
 dom/ElementRareData.cpp
 dom/ErrorEvent.cpp
 dom/Event.cpp
@@ -1348,6 +1359,7 @@ html/TimeRanges.cpp
 html/TypeAhead.cpp
 html/URLDecomposition.cpp
 html/URLInputType.cpp
+html/URLRegistry.cpp
 html/URLSearchParams.cpp
 html/ValidationMessage.cpp
 html/WeekInputType.cpp
@@ -1602,6 +1614,7 @@ layout/integration/inline/InlineIteratorLogicalOrderTraversal.cpp
 layout/integration/inline/InlineIteratorTextBox.cpp
 layout/integration/inline/LayoutIntegrationInlineContentBuilder.cpp
 layout/integration/inline/LayoutIntegrationInlineContent.cpp
+layout/integration/inline/LayoutIntegrationInlineContentPainter.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
 layout/integration/inline/LayoutIntegrationPagination.cpp
 layout/integration/LayoutIntegrationBoxTree.cpp
@@ -1850,6 +1863,7 @@ page/csp/ContentSecurityPolicySource.cpp
 page/csp/ContentSecurityPolicySourceList.cpp
 page/csp/ContentSecurityPolicySourceListDirective.cpp
 page/scrolling/AsyncScrollingCoordinator.cpp
+page/scrolling/ScrollAnchoringController.cpp
 page/scrolling/ScrollSnapOffsetsInfo.cpp
 page/scrolling/ScrollLatchingController.cpp
 page/scrolling/ScrollingConstraints.cpp
@@ -1897,6 +1911,7 @@ platform/LayoutUnit.cpp
 platform/LegacySchemeRegistry.cpp
 platform/Length.cpp
 platform/LengthBox.cpp
+platform/LengthFunctions.cpp
 platform/LengthPoint.cpp
 platform/LengthSize.cpp
 platform/LocalizedStrings.cpp
@@ -2132,7 +2147,7 @@ platform/graphics/VelocityData.cpp
 platform/graphics/WebMResourceClient.cpp
 platform/graphics/WOFFFileFormat.cpp
 platform/graphics/WidthIterator.cpp
-platform/graphics/cpu/arm/filters/FELightingNEON.cpp
+platform/graphics/cpu/arm/filters/FEBlendNeonApplier.cpp
 platform/graphics/displaylists/DisplayList.cpp
 platform/graphics/displaylists/DisplayListDrawingContext.cpp
 platform/graphics/displaylists/DisplayListItems.cpp
@@ -2235,6 +2250,7 @@ platform/mediastream/RealtimeOutgoingAudioSource.cpp
 platform/mediastream/RealtimeOutgoingVideoSource.cpp
 platform/mediastream/RealtimeVideoCaptureSource.cpp
 platform/mediastream/RealtimeVideoSource.cpp
+platform/mediastream/WebRTCProvider.cpp
 platform/mediastream/libwebrtc/LibWebRTCDTMFSenderBackend.cpp
 platform/mediastream/libwebrtc/LibWebRTCProvider.cpp
 platform/mediastream/libwebrtc/VideoFrameLibWebRTC.cpp
@@ -2326,6 +2342,7 @@ rendering/CaretRectComputation.cpp
 rendering/ClipRect.cpp
 rendering/ContentfulPaintChecker.cpp
 rendering/CounterNode.cpp
+rendering/EllipsisBoxPainter.cpp
 rendering/EventRegion.cpp
 rendering/FixedTableLayout.cpp
 rendering/FlexibleBoxAlgorithm.cpp
@@ -2518,6 +2535,9 @@ rendering/style/TextSizeAdjustment.cpp
 rendering/style/WillChangeData.cpp
 rendering/svg/LegacyRenderSVGContainer.cpp
 rendering/svg/LegacyRenderSVGEllipse.cpp
+rendering/svg/LegacyRenderSVGForeignObject.cpp
+rendering/svg/LegacyRenderSVGHiddenContainer.cpp
+rendering/svg/LegacyRenderSVGImage.cpp
 rendering/svg/LegacyRenderSVGModelObject.cpp
 rendering/svg/LegacyRenderSVGPath.cpp
 rendering/svg/LegacyRenderSVGRect.cpp
@@ -3163,6 +3183,7 @@ JSEcdsaParams.cpp
 JSEffectTiming.cpp
 JSElement.cpp
 JSElementCSSInlineStyle.cpp
+JSElementInternals.cpp
 JSEndingType.cpp
 JSErrorCallback.cpp
 JSErrorEvent.cpp
@@ -3749,6 +3770,10 @@ JSReadableStreamSource.cpp
 JSRemoteDOMWindow.cpp
 JSRemotePlayback.cpp
 JSRemotePlaybackAvailabilityCallback.cpp
+JSReport.cpp
+JSReportBody.cpp
+JSReportingObserver.cpp
+JSReportingObserverCallback.cpp
 JSRequestAnimationFrameCallback.cpp
 JSRequestCookieConsentOptions.cpp
 JSResidentKeyRequirement.cpp
@@ -3939,6 +3964,7 @@ JSShadowRootMode.cpp
 JSShareData.cpp
 JSSharedWorker.cpp
 JSSharedWorkerGlobalScope.cpp
+JSSlotAssignmentMode.cpp
 JSSlotable.cpp
 JSSourceBuffer.cpp
 JSSourceBufferList.cpp
@@ -3991,7 +4017,6 @@ JSTransitionEvent.cpp
 JSTreeWalker.cpp
 JSCSSKeywordValue.cpp
 JSCSSStyleImageValue.cpp
-JSCSSMathInvert.cpp
 JSCSSColor.cpp
 JSCSSColorValue.cpp
 JSCSSHSL.cpp
@@ -4001,6 +4026,8 @@ JSCSSLab.cpp
 JSCSSOKLCH.cpp
 JSCSSOKLab.cpp
 JSCSSRGB.cpp
+JSCSSMathClamp.cpp
+JSCSSMathInvert.cpp
 JSCSSMathMax.cpp
 JSCSSMathMin.cpp
 JSCSSMathNegate.cpp

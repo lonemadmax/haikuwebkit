@@ -843,12 +843,12 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
 
         if (decor & TextDecorationLine::Underline) {
             AXAttributeStringSetNumber(attrString, NSAccessibilityUnderlineTextAttribute, @YES, range);
-            AXAttributeStringSetColor(attrString, NSAccessibilityUnderlineColorTextAttribute, cocoaColor(decorationStyles.underlineColor).get(), range);
+            AXAttributeStringSetColor(attrString, NSAccessibilityUnderlineColorTextAttribute, cocoaColor(decorationStyles.underline.color).get(), range);
         }
 
         if (decor & TextDecorationLine::LineThrough) {
             AXAttributeStringSetNumber(attrString, NSAccessibilityStrikethroughTextAttribute, @YES, range);
-            AXAttributeStringSetColor(attrString, NSAccessibilityStrikethroughColorTextAttribute, cocoaColor(decorationStyles.linethroughColor).get(), range);
+            AXAttributeStringSetColor(attrString, NSAccessibilityStrikethroughColorTextAttribute, cocoaColor(decorationStyles.linethrough.color).get(), range);
         }
     }
     
@@ -2892,8 +2892,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 {
     // In case anything we do by performing the press action causes an alert or other modal
     // behaviors, we need to return now, so that VoiceOver doesn't hang indefinitely.
-    RunLoop::main().dispatch([self, protectedSelf = retainPtr(self)] {
-        [self _accessibilityPerformPressAction];
+    RunLoop::main().dispatch([protectedSelf = retainPtr(self)] {
+        [protectedSelf _accessibilityPerformPressAction];
     });
 }
 
@@ -2911,8 +2911,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 - (void)accessibilityPerformIncrementAction
 {
-    RunLoop::main().dispatch([self, protectedSelf = retainPtr(self)] {
-        [self _accessibilityPerformIncrementAction];
+    RunLoop::main().dispatch([protectedSelf = retainPtr(self)] {
+        [protectedSelf _accessibilityPerformIncrementAction];
     });
 }
 
@@ -2930,8 +2930,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 - (void)accessibilityPerformDecrementAction
 {
-    RunLoop::main().dispatch([self, protectedSelf = retainPtr(self)] {
-        [self _accessibilityPerformDecrementAction];
+    RunLoop::main().dispatch([protectedSelf = retainPtr(self)] {
+        [protectedSelf _accessibilityPerformDecrementAction];
     });
 }
 

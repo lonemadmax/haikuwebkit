@@ -991,7 +991,6 @@ class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
         remote = self.getProperty('github.head.repo.full_name', 'origin').split('/')[0]
         project = self.getProperty('github.head.repo.full_name', self.getProperty('project'))
         pr_branch = self.getProperty('github.head.ref', DEFAULT_BRANCH)
-        base_hash = self.getProperty('github.base.sha')
         rebase_target_hash = self.getProperty('ews_revision') or self.getProperty('got_revision')
 
         commands = [
@@ -1001,12 +1000,9 @@ class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
             ['git', 'fetch', remote, '--prune'],
             ['git', 'branch', '-f', pr_branch, 'remotes/{}/{}'.format(remote, pr_branch)],
             ['git', 'checkout', pr_branch],
+            ['git', 'config', 'merge.changelog.driver', 'perl Tools/Scripts/resolve-ChangeLogs --merge-driver -c %O %A %B'],
+            ['git', 'rebase', rebase_target_hash, pr_branch],
         ]
-        if rebase_target_hash and base_hash and rebase_target_hash != base_hash:
-            commands += [
-                ['git', 'config', 'merge.changelog.driver', 'perl Tools/Scripts/resolve-ChangeLogs --merge-driver -c %O %A %B'],
-                ['git', 'rebase', '--onto', rebase_target_hash, base_hash, pr_branch],
-            ]
         for command in commands:
             self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))
 
@@ -1770,7 +1766,8 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
 
         if not reviewers:
             # Change has not been reviewed in bug tracker. This is acceptable, since the ChangeLog might have 'Reviewed by' in it.
-            self.descriptionDone = 'Validated committer'
+            self._addToLog('stdio', f'Reviewer not found. Commit message  will be checked for reviewer name in later steps\n')
+            self.descriptionDone = 'Validated committer, reviewer not found'
             self.finished(SUCCESS)
             return None
 
@@ -2079,7 +2076,7 @@ class Trigger(trigger.Trigger):
             property_names += ['patch_id', 'bug_id', 'owner']
         if pull_request:
             property_names += [
-                'github.base.ref', 'github.base.sha', 'github.head.ref', 'github.head.sha',
+                'github.base.ref', 'github.head.ref', 'github.head.sha',
                 'github.head.repo.full_name', 'github.number', 'github.title',
                 'repository', 'project', 'owners',
             ]
@@ -5018,10 +5015,12 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
     def run(self, BufferLogObserverClass=logobserver.BufferLogObserver):
         base_ref = self.getProperty('github.base.ref', f'origin/{DEFAULT_BRANCH}')
         head_ref = self.getProperty('github.head.ref', 'HEAD')
+        reviewers = self.getProperty('reviewers_full_names', None)
+        reviewer_error_msg = '' if reviewers else ' and no reviewer found'
 
         self.commands = []
         commands = [
-            f"git log {head_ref} ^{base_ref} | grep -q '{self.OOPS_RE}' && echo 'Commit message contains (OOPS!)' || test $? -eq 1",
+            f"git log {head_ref} ^{base_ref} | grep -q '{self.OOPS_RE}' && echo 'Commit message contains (OOPS!){reviewer_error_msg}' || test $? -eq 1",
             "git log {} ^{} | grep -q '\\({}\\)' || echo 'No reviewer information in commit message'".format(
                 head_ref, base_ref,
                 '\\|'.join(self.REVIEWED_STRINGS),
@@ -5060,14 +5059,12 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
         elif rc == SUCCESS:
             if reviewers and not self.contributors:
                 self.summary = "Failed to load contributors.json, can't validate reviewers"
-                rc = FAILURE
             elif reviewers and any([not self.is_reviewer(reviewer) for reviewer in reviewers]):
-                self.summary = "'{}' is not a reviewer"
+                self.summary = "'{}' is not a reviewer, still continuing"
                 for reviewer in reviewers:
                     if not self.is_reviewer(reviewer):
                         self.summary = self.summary.format(reviewer)
                         break
-                rc = FAILURE
             elif reviewers and author and any([author.startswith(reviewer) for reviewer in reviewers]):
                 self.summary = f"'{author}' cannot review their own change"
                 rc = FAILURE

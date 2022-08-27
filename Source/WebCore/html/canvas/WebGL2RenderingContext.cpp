@@ -341,6 +341,20 @@ WebGLBuffer* WebGL2RenderingContext::validateBufferDataTarget(const char* functi
         synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "no buffer");
         return nullptr;
     }
+    if (m_boundTransformFeedback->hasBoundIndexedTransformFeedbackBuffer(buffer)) {
+        ASSERT(buffer != m_boundVertexArrayObject->getElementArrayBuffer());
+        if (m_boundIndexedUniformBuffers.contains(buffer)
+            || m_boundVertexArrayObject->hasArrayBuffer(buffer)
+            || buffer == m_boundArrayBuffer
+            || buffer == m_boundCopyReadBuffer
+            || buffer == m_boundCopyWriteBuffer
+            || buffer == m_boundPixelPackBuffer
+            || buffer == m_boundPixelUnpackBuffer
+            || buffer == m_boundUniformBuffer) {
+            synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "buffer is bound to an indexed transform feedback binding point and some other binding point");
+            return nullptr;
+        }
+    }
     return buffer;
 }
 
@@ -591,11 +605,12 @@ void WebGL2RenderingContext::copyBufferSubData(GCGLenum readTarget, GCGLenum wri
         return;
 
     RefPtr<WebGLBuffer> readBuffer = validateBufferDataParameters("copyBufferSubData", readTarget, GraphicsContextGL::STATIC_DRAW);
-    RefPtr<WebGLBuffer> writeBuffer = validateBufferDataParameters("copyBufferSubData", writeTarget, GraphicsContextGL::STATIC_DRAW);
-    if (!readBuffer || !writeBuffer) {
-        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "copyBufferSubData", "Invalid readTarget or writeTarget");
+    if (!readBuffer)
         return;
-    }
+
+    RefPtr<WebGLBuffer> writeBuffer = validateBufferDataParameters("copyBufferSubData", writeTarget, GraphicsContextGL::STATIC_DRAW);
+    if (!writeBuffer)
+        return;
 
     if (readOffset < 0 || writeOffset < 0 || size < 0) {
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "copyBufferSubData", "offset < 0");
@@ -636,10 +651,8 @@ void WebGL2RenderingContext::getBufferSubData(GCGLenum target, long long srcByte
     if (isContextLostOrPending())
         return;
     RefPtr<WebGLBuffer> buffer = validateBufferDataParameters("getBufferSubData", target, GraphicsContextGL::STATIC_DRAW);
-    if (!buffer) {
-        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "getBufferSubData", "No WebGLBuffer is bound to target");
+    if (!buffer)
         return;
-    }
 
     // FIXME: Implement "If target is TRANSFORM_FEEDBACK_BUFFER, and any transform feedback object is currently active, an INVALID_OPERATION error is generated."
 
@@ -694,7 +707,7 @@ void WebGL2RenderingContext::getBufferSubData(GCGLenum target, long long srcByte
         return;
 
     // FIXME: Coalesce multiple getBufferSubData() calls to use a single map() call
-    m_context->getBufferSubData(target, srcByteOffset, makeGCGLSpan(static_cast<char*>(dstData->baseAddress()) + dstData->byteOffset() + dstOffset * elementSize, copyLength * elementSize));
+    m_context->getBufferSubData(target, srcByteOffset, makeGCGLSpan(static_cast<char*>(dstData->baseAddress()) + dstOffset * elementSize, copyLength * elementSize));
 }
 
 void WebGL2RenderingContext::bindFramebuffer(GCGLenum target, WebGLFramebuffer* buffer)
@@ -789,6 +802,9 @@ WebGLAny WebGL2RenderingContext::getInternalformatParameter(GCGLenum target, GCG
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getInternalformatParameter", "invalid parameter name");
         return nullptr;
     }
+
+    if (!validateForbiddenInternalFormats("getInternalformatParameter", internalformat))
+        return nullptr;
 
     m_context->moveErrorsToSyntheticErrorList();
     GCGLint numValues = m_context->getInternalformati(target, internalformat, GraphicsContextGL::NUM_SAMPLE_COUNTS);
@@ -898,6 +914,9 @@ void WebGL2RenderingContext::texStorage2D(GCGLenum target, GCGLsizei levels, GCG
     if (!texture)
         return;
 
+    if (!validateForbiddenInternalFormats("texStorage2D", internalFormat))
+        return;
+
     m_context->texStorage2D(target, levels, internalFormat, width, height);
 }
 
@@ -908,6 +927,9 @@ void WebGL2RenderingContext::texStorage3D(GCGLenum target, GCGLsizei levels, GCG
 
     auto texture = validateTexture3DBinding("texStorage3D", target);
     if (!texture)
+        return;
+
+    if (!validateForbiddenInternalFormats("texStorage3D", internalFormat))
         return;
 
     m_context->texStorage3D(target, levels, internalFormat, width, height, depth);
@@ -3477,6 +3499,11 @@ void WebGL2RenderingContext::uncacheDeletedBuffer(const AbstractLocker& locker, 
     REMOVE_BUFFER_FROM_BINDING(m_boundTransformFeedbackBuffer);
     REMOVE_BUFFER_FROM_BINDING(m_boundUniformBuffer);
     m_boundTransformFeedback->unbindBuffer(locker, *buffer);
+
+    for (auto& boundBuffer : m_boundIndexedUniformBuffers) {
+        if (boundBuffer == buffer)
+            boundBuffer = nullptr;
+    }
 
     WebGLRenderingContextBase::uncacheDeletedBuffer(locker, buffer);
 }

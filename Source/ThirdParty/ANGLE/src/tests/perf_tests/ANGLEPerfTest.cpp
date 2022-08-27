@@ -9,6 +9,9 @@
 
 #include "ANGLEPerfTest.h"
 
+#if defined(ANGLE_PLATFORM_ANDROID)
+#    include <android/log.h>
+#endif
 #include "ANGLEPerfTestArgs.h"
 #include "common/debug.h"
 #include "common/mathutil.h"
@@ -16,6 +19,7 @@
 #include "common/string_utils.h"
 #include "common/system_utils.h"
 #include "common/utilities.h"
+#include "libANGLE/capture/gl_enum_utils.h"
 #include "test_utils/runner/TestSuite.h"
 #include "third_party/perf/perf_test.h"
 #include "third_party/trace_event/trace_event.h"
@@ -271,6 +275,10 @@ ANGLEPerfTest::~ANGLEPerfTest() {}
 
 void ANGLEPerfTest::run()
 {
+    printf("ANGLE: running test: %s\n", mName.c_str());
+#if defined(ANGLE_PLATFORM_ANDROID)
+    __android_log_print(ANDROID_LOG_INFO, "ANGLE", "running test: %s", mName.c_str());
+#endif
     if (mSkipTest)
     {
         GTEST_SKIP() << mSkipTestReason;
@@ -653,6 +661,9 @@ std::string RenderTestParams::backend() const
         case EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE:
             strstr << "_vulkan";
             break;
+        case EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE:
+            strstr << "_metal";
+            break;
         default:
             assert(0);
             return "_unk";
@@ -731,12 +742,14 @@ ANGLERenderTest::ANGLERenderTest(const std::string &name,
     switch (testParams.driver)
     {
         case GLESDriverType::AngleEGL:
-            mGLWindow = EGLWindow::New(testParams.majorVersion, testParams.minorVersion);
+            mGLWindow = EGLWindow::New(testParams.clientType, testParams.majorVersion,
+                                       testParams.minorVersion, testParams.profileMask);
             mEntryPointsLib.reset(OpenSharedLibrary(ANGLE_EGL_LIBRARY_NAME, SearchType::ModuleDir));
             break;
         case GLESDriverType::SystemEGL:
 #if defined(ANGLE_USE_UTIL_LOADER) && !defined(ANGLE_PLATFORM_WINDOWS)
-            mGLWindow = EGLWindow::New(testParams.majorVersion, testParams.minorVersion);
+            mGLWindow = EGLWindow::New(testParams.clientType, testParams.majorVersion,
+                                       testParams.minorVersion, testParams.profileMask);
             mEntryPointsLib.reset(OpenSharedLibraryWithExtension(
                 GetNativeEGLLibraryNameWithExtension(), SearchType::SystemDir));
 #else
@@ -745,7 +758,8 @@ ANGLERenderTest::ANGLERenderTest(const std::string &name,
             break;
         case GLESDriverType::SystemWGL:
 #if defined(ANGLE_USE_UTIL_LOADER) && defined(ANGLE_PLATFORM_WINDOWS)
-            mGLWindow = WGLWindow::New(testParams.majorVersion, testParams.minorVersion);
+            mGLWindow = WGLWindow::New(testParams.clientType, testParams.majorVersion,
+                                       testParams.minorVersion, testParams.profileMask);
             mEntryPointsLib.reset(OpenSharedLibrary("opengl32", SearchType::SystemDir));
 #else
             skipTest("WGL driver not available.");
@@ -766,6 +780,11 @@ ANGLERenderTest::~ANGLERenderTest()
 void ANGLERenderTest::addExtensionPrerequisite(const char *extensionName)
 {
     mExtensionPrerequisites.push_back(extensionName);
+}
+
+void ANGLERenderTest::addIntegerPrerequisite(GLenum target, int min)
+{
+    mIntegerPrerequisites.push_back({target, min});
 }
 
 void ANGLERenderTest::SetUp()
@@ -852,6 +871,7 @@ void ANGLERenderTest::SetUp()
     }
 
     skipTestIfMissingExtensionPrerequisites();
+    skipTestIfFailsIntegerPrerequisite();
 
     if (mSkipTest)
     {
@@ -1198,6 +1218,23 @@ void ANGLERenderTest::skipTestIfMissingExtensionPrerequisites()
         {
             skipTest(std::string("Test skipped due to missing extension: ") + extension);
             return;
+        }
+    }
+}
+
+void ANGLERenderTest::skipTestIfFailsIntegerPrerequisite()
+{
+    for (const auto [target, minRequired] : mIntegerPrerequisites)
+    {
+        GLint driverValue;
+        glGetIntegerv(target, &driverValue);
+        if (static_cast<int>(driverValue) < minRequired)
+        {
+            std::stringstream ss;
+            ss << "Test skipped due to value (" << std::to_string(static_cast<int>(driverValue))
+               << ") being less than the prerequisite minimum (" << std::to_string(minRequired)
+               << ") for GL constant " << gl::GLenumToString(gl::GLenumGroup::DefaultGroup, target);
+            skipTest(ss.str());
         }
     }
 }

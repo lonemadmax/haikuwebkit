@@ -32,6 +32,7 @@
 
 namespace WebCore {
 
+class ElementInternals;
 class FormAssociatedElement;
 class FormNamedItem;
 class HTMLFormElement;
@@ -80,7 +81,6 @@ public:
 
     String accessKeyLabel() const;
 
-    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
     bool rendererIsEverNeeded() final;
 
     WEBCORE_EXPORT virtual HTMLFormElement* form() const;
@@ -90,7 +90,8 @@ public:
 
     TextDirection computeDirectionality() const;
     bool hasDirectionAuto() const;
-    TextDirection directionalityIfhasDirAutoAttribute(bool& isAuto) const;
+
+    std::optional<TextDirection> directionalityIfDirIsAuto() const;
 
     virtual bool isTextControlInnerTextElement() const { return false; }
     virtual bool isSearchFieldResultsButtonElement() const { return false; }
@@ -134,6 +135,8 @@ public:
     void setEnterKeyHint(const AtomString& value);
 
     WEBCORE_EXPORT static bool shouldExtendSelectionToTargetNode(const Node& targetNode, const VisibleSelection& selectionBeforeUpdate);
+
+    WEBCORE_EXPORT ExceptionOr<Ref<ElementInternals>> attachInternals();
 
 #if PLATFORM(IOS_FAMILY)
     static SelectionRenderingBehavior selectionRenderingBehavior(const Node*);
@@ -179,7 +182,12 @@ private:
     void dirAttributeChanged(const AtomString&);
     void adjustDirectionalityIfNeededAfterChildAttributeChanged(Element* child);
     void adjustDirectionalityIfNeededAfterChildrenChanged(Element* beforeChange, ChildChange::Type);
-    TextDirection directionality(Node** strongDirectionalityTextNode= 0) const;
+
+    struct TextDirectionWithStrongDirectionalityNode {
+        TextDirection direction;
+        RefPtr<Node> strongDirectionalityNode;
+    };
+    TextDirectionWithStrongDirectionalityNode directionality() const;
 
     enum class AllowPercentage : bool { No, Yes };
     enum class UseCSSPXAsUnitType : bool { No, Yes };

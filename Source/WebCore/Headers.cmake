@@ -273,6 +273,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/RTCDataChannelRemoteSource.h
     Modules/mediastream/RTCError.h
     Modules/mediastream/RTCErrorDetailType.h
+    Modules/mediastream/RTCIceCandidateFields.h
+    Modules/mediastream/RTCIceCandidateType.h
+    Modules/mediastream/RTCIceComponent.h
+    Modules/mediastream/RTCIceProtocol.h
+    Modules/mediastream/RTCIceTcpCandidateType.h
     Modules/mediastream/RTCNetworkManager.h
     Modules/mediastream/STUNMessageParsing.h
     Modules/mediastream/UserMediaClient.h
@@ -298,11 +303,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/notifications/NotificationEventType.h
     Modules/notifications/NotificationPermission.h
     Modules/notifications/NotificationPermissionCallback.h
+    Modules/notifications/NotificationResources.h
 
     Modules/permissions/PermissionController.h
     Modules/permissions/PermissionDescriptor.h
     Modules/permissions/PermissionName.h
     Modules/permissions/PermissionObserver.h
+    Modules/permissions/PermissionQuerySource.h
     Modules/permissions/PermissionState.h
 
     Modules/plugins/PluginReplacement.h
@@ -314,6 +321,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/push-api/PushPermissionState.h
     Modules/push-api/PushSubscriptionData.h
     Modules/push-api/PushSubscriptionIdentifier.h
+
+    Modules/reporting/Report.h
+    Modules/reporting/ReportBody.h
+    Modules/reporting/ReportingObserver.h
+    Modules/reporting/ReportingObserverCallback.h
 
     Modules/speech/SpeechRecognitionCaptureSource.h
     Modules/speech/SpeechRecognitionCaptureSourceImpl.h
@@ -580,7 +592,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/DeprecatedCSSOMValue.h
     css/DeprecatedCSSOMValueList.h
     css/FontLoadTimingOverride.h
-    css/LengthFunctions.h
     css/MediaList.h
     css/MediaQueryEvaluator.h
     css/MediaQueryExpression.h
@@ -601,6 +612,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/parser/CSSParserMode.h
     css/parser/CSSParserToken.h
     css/parser/CSSParserTokenRange.h
+
+    css/query/GenericMediaQueryTypes.h
 
     cssjit/CompiledSelector.h
 
@@ -686,6 +699,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/ExceptionData.h
     dom/ExceptionOr.h
     dom/FocusOptions.h
+    dom/FragmentDirectiveParser.h
+    dom/FragmentDirectiveRangeFinder.h
     dom/FragmentScriptingPermission.h
     dom/FullscreenManager.h
     dom/GCReachableRef.h
@@ -736,6 +751,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/ShadowRootMode.h
     dom/SimpleRange.h
     dom/SimulatedClickOptions.h
+    dom/SlotAssignmentMode.h
     dom/SpaceSplitString.h
     dom/StaticRange.h
     dom/StyledElement.h
@@ -1231,6 +1247,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/csp/ContentSecurityPolicyResponseHeaders.h
 
     page/scrolling/AsyncScrollingCoordinator.h
+    page/scrolling/ScrollAnchoringController.h
     page/scrolling/ScrollSnapOffsetsInfo.h
     page/scrolling/ScrollingConstraints.h
     page/scrolling/ScrollingCoordinator.h
@@ -1297,6 +1314,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/LegacySchemeRegistry.h
     platform/Length.h
     platform/LengthBox.h
+    platform/LengthFunctions.h
     platform/LengthPoint.h
     platform/LengthSize.h
     platform/LinkIcon.h
@@ -1759,6 +1777,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mediastream/RealtimeVideoSource.h
     platform/mediastream/VideoPreset.h
     platform/mediastream/WebAudioSourceProvider.h
+    platform/mediastream/WebRTCProvider.h
+
+    platform/mediastream/gstreamer/GStreamerWebRTCProvider.h
 
     platform/mediastream/libwebrtc/LibWebRTCEnumTraits.h
     platform/mediastream/libwebrtc/LibWebRTCMacros.h
@@ -1861,6 +1882,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/HitTestResult.h
     rendering/LayerAncestorClippingStack.h
     rendering/LayerFragment.h
+    rendering/LegacyEllipsisBox.h
     rendering/LegacyInlineBox.h
     rendering/LegacyInlineElementBox.h
     rendering/LegacyInlineFlowBox.h

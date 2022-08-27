@@ -81,10 +81,9 @@ private:
         if (optimizeForX86() || optimizeForARM64() || optimizeForARMv7IDIVSupported()) {
             fixIntOrBooleanEdge(leftChild);
             fixIntOrBooleanEdge(rightChild);
-            // We need to be careful about skipping overflow check because div / mod can generate non integer values
-            // from (Int32, Int32) inputs. For now, we always check non-zero divisor.
-            if (bytecodeCanTruncateInteger(node->arithNodeFlags()) && bytecodeCanIgnoreNaNAndInfinity(node->arithNodeFlags()) && bytecodeCanIgnoreNegativeZero(node->arithNodeFlags()))
-                node->setArithMode(Arith::Unchecked);
+            // FIXME: We should attempt to remove checks.
+            if (bytecodeCanTruncateInteger(node->arithNodeFlags()))
+                node->setArithMode(Arith::CheckOverflow);
             else if (bytecodeCanIgnoreNegativeZero(node->arithNodeFlags()))
                 node->setArithMode(Arith::CheckOverflow);
             else
@@ -124,7 +123,7 @@ private:
 
     void fixupArithDiv(Node* node, Edge& leftChild, Edge& rightChild)
     {
-        if (m_graph.divShouldSpeculateInt32(node, FixupPass)) {
+        if (m_graph.binaryArithShouldSpeculateInt32(node, FixupPass)) {
             fixupArithDivInt32(node, leftChild, rightChild);
             return;
         }
@@ -2600,7 +2599,10 @@ private:
                 fixEdge<WeakSetObjectUse>(node->child1());
             else
                 RELEASE_ASSERT_NOT_REACHED();
-            fixEdge<ObjectUse>(node->child2());
+            if (node->child2()->shouldSpeculateObject())
+                fixEdge<ObjectUse>(node->child2());
+            else if (node->child2()->shouldSpeculateSymbol())
+                fixEdge<SymbolUse>(node->child2());
             fixEdge<Int32Use>(node->child3());
             break;
         }
@@ -2619,14 +2621,16 @@ private:
 
         case WeakSetAdd: {
             fixEdge<WeakSetObjectUse>(node->child1());
-            fixEdge<ObjectUse>(node->child2());
+            if (node->child2()->shouldSpeculateObject())
+                fixEdge<ObjectUse>(node->child2());
             fixEdge<Int32Use>(node->child3());
             break;
         }
 
         case WeakMapSet: {
             fixEdge<WeakMapObjectUse>(m_graph.varArgChild(node, 0));
-            fixEdge<ObjectUse>(m_graph.varArgChild(node, 1));
+            if (m_graph.varArgChild(node, 1)->shouldSpeculateObject())
+                fixEdge<ObjectUse>(m_graph.varArgChild(node, 1));
             fixEdge<Int32Use>(m_graph.varArgChild(node, 3));
             break;
         }
@@ -3677,25 +3681,25 @@ private:
         } else {
             // Note that we only need to be using a structure check if we opt for InBoundsSaneChain, since
             // that needs to protect against JSArray's __proto__ being changed.
-            Structure* structure = arrayMode.originalArrayStructure(m_graph, origin.semantic);
+            StructureSet structureSet = arrayMode.originalArrayStructureSet(m_graph, origin.semantic);
         
             Edge indexEdge = index ? Edge(index, Int32Use) : Edge();
             
             if (arrayMode.doesConversion()) {
-                if (structure) {
+                if (!structureSet.isEmpty()) {
                     m_insertionSet.insertNode(
                         m_indexInBlock, SpecNone, ArrayifyToStructure, origin,
-                        OpInfo(m_graph.registerStructure(structure)), OpInfo(arrayMode.asWord()), Edge(array, CellUse), indexEdge);
+                        OpInfo(m_graph.registerStructure(structureSet.onlyStructure())), OpInfo(arrayMode.asWord()), Edge(array, CellUse), indexEdge);
                 } else {
                     m_insertionSet.insertNode(
                         m_indexInBlock, SpecNone, Arrayify, origin,
                         OpInfo(arrayMode.asWord()), Edge(array, CellUse), indexEdge);
                 }
             } else {
-                if (structure) {
+                if (!structureSet.isEmpty()) {
                     m_insertionSet.insertNode(
                         m_indexInBlock, SpecNone, CheckStructure, origin,
-                        OpInfo(m_graph.addStructureSet(structure)), Edge(array, CellUse));
+                        OpInfo(m_graph.addStructureSet(structureSet)), Edge(array, CellUse));
                 } else {
                     m_insertionSet.insertNode(
                         m_indexInBlock, SpecNone, CheckArray, origin,
@@ -4117,11 +4121,37 @@ private:
                 attemptToForceStringArrayModeByToStringConversion<StringOrStringObjectUse>(arrayMode, node);
         }
             
-        if (!arrayMode.supportsSelfLength())
+        if (!arrayMode.supportsSelfLength()) {
+            if (arrayMode.type() == Array::AlwaysSlowPutContiguous)
+                return attemptToMakeGetArrayLengthForAlwaysSlowPutContiguous(node, arrayMode);
+
             return false;
+        }
         
         convertToGetArrayLength(node, arrayMode);
         return true;
+    }
+
+    bool attemptToMakeGetArrayLengthForAlwaysSlowPutContiguous(Node* node, ArrayMode arrayMode)
+    {
+        if (arrayMode.arrayClass() != Array::OriginalNonArray)
+            return false;
+
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+        Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
+
+        if (globalObject->alwaysSlowPutContiguousPrototypesAreSaneWatchpointSet().isStillValid()
+            && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
+            && globalObject->objectPrototypeIsSaneConcurrently(objectPrototypeStructure)) {
+
+            m_graph.watchpoints().addLazily(globalObject->alwaysSlowPutContiguousPrototypesAreSaneWatchpointSet());
+            m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
+
+            convertToGetArrayLength(node, arrayMode);
+            return true;
+        }
+
+        return false;
     }
 
     void convertToGetArrayLength(Node* node, ArrayMode arrayMode)
@@ -4353,7 +4383,8 @@ private:
                 fixEdge<Int32Use>(searchElement);
             return;
         }
-        case Array::Contiguous: {
+        case Array::Contiguous:
+        case Array::AlwaysSlowPutContiguous: {
             if (searchElement->shouldSpeculateString())
                 fixEdge<StringUse>(searchElement);
             else if (searchElement->shouldSpeculateSymbol())

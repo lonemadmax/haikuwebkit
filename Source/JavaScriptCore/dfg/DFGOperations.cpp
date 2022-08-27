@@ -79,6 +79,9 @@
 #include "TypeProfilerLog.h"
 #include "VMInlines.h"
 #include "VMTrapsInlines.h"
+#include "WeakMapImplInlines.h"
+#include "WeakMapPrototype.h"
+#include "WeakSetPrototype.h"
 
 #if ENABLE(JIT)
 #if ENABLE(DFG_JIT)
@@ -2828,8 +2831,8 @@ JSC_DEFINE_JIT_OPERATION(operationFindSwitchImmTargetForDouble, char*, (VM* vmPo
     double asDouble = value.asDouble();
     int32_t asInt32 = static_cast<int32_t>(asDouble);
     if (asDouble == asInt32)
-        return linkedTable.ctiForValue(min, asInt32).executableAddress<char*>();
-    return linkedTable.m_ctiDefault.executableAddress<char*>();
+        return linkedTable.ctiForValue(min, asInt32).taggedPtr<char*>();
+    return linkedTable.m_ctiDefault.taggedPtr<char*>();
 }
 
 JSC_DEFINE_JIT_OPERATION(operationSwitchString, char*, (JSGlobalObject* globalObject, size_t tableIndex, const UnlinkedStringJumpTable* unlinkedTable, JSString* string))
@@ -2844,7 +2847,7 @@ JSC_DEFINE_JIT_OPERATION(operationSwitchString, char*, (JSGlobalObject* globalOb
     RETURN_IF_EXCEPTION(throwScope, nullptr);
     CodeBlock* codeBlock = callFrame->codeBlock();
     const StringJumpTable& linkedTable = codeBlock->dfgStringSwitchJumpTable(tableIndex);
-    return linkedTable.ctiForValue(*unlinkedTable, strImpl).executableAddress<char*>();
+    return linkedTable.ctiForValue(*unlinkedTable, strImpl).taggedPtr<char*>();
 }
 
 JSC_DEFINE_JIT_OPERATION(operationCompareStringImplLess, uintptr_t, (StringImpl* a, StringImpl* b))
@@ -3445,20 +3448,34 @@ JSC_DEFINE_JIT_OPERATION(operationMapSet, JSCell*, (JSGlobalObject* globalObject
     return bucket;
 }
 
-JSC_DEFINE_JIT_OPERATION(operationWeakSetAdd, void, (VM* vmPointer, JSCell* set, JSCell* key, int32_t hash))
+JSC_DEFINE_JIT_OPERATION(operationWeakSetAdd, void, (JSGlobalObject* globalObject, JSCell* set, JSCell* key, int32_t hash))
 {
-    VM& vm = *vmPointer;
+    VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    jsCast<JSWeakSet*>(set)->add(vm, asObject(key), JSValue(), hash);
+
+    if (UNLIKELY(!canBeHeldWeakly(key))) {
+        auto scope = DECLARE_THROW_SCOPE(vm); // Intentionally putting it here since we would like to make object key case GC-free.
+        throwTypeError(globalObject, scope, WeakSetInvalidValueError);
+        return;
+    }
+
+    jsCast<JSWeakSet*>(set)->add(vm, key, JSValue(), hash);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationWeakMapSet, void, (VM* vmPointer, JSCell* map, JSCell* key, EncodedJSValue value, int32_t hash))
+JSC_DEFINE_JIT_OPERATION(operationWeakMapSet, void, (JSGlobalObject* globalObject, JSCell* map, JSCell* key, EncodedJSValue value, int32_t hash))
 {
-    VM& vm = *vmPointer;
+    VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    jsCast<JSWeakMap*>(map)->add(vm, asObject(key), JSValue::decode(value), hash);
+
+    if (UNLIKELY(!canBeHeldWeakly(key))) {
+        auto scope = DECLARE_THROW_SCOPE(vm); // Intentionally putting it here since we would like to make object key case GC-free.
+        throwTypeError(globalObject, scope, WeakMapInvalidKeyError);
+        return;
+    }
+
+    jsCast<JSWeakMap*>(map)->add(vm, key, JSValue::decode(value), hash);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationGetPrototypeOfObject, EncodedJSValue, (JSGlobalObject* globalObject, JSObject* thisObject))
@@ -3720,7 +3737,7 @@ JSC_DEFINE_JIT_OPERATION(operationLinkDirectCall, void, (OptimizingCallLinkInfo*
 
     // FIXME: Support wasm IC.
     // https://bugs.webkit.org/show_bug.cgi?id=220339
-    MacroAssemblerCodePtr<JSEntryPtrTag> codePtr;
+    CodePtr<JSEntryPtrTag> codePtr;
     CodeBlock* codeBlock = nullptr;
     DeferTraps deferTraps(vm); // We can't jettison this code if we're about to link to it.
 

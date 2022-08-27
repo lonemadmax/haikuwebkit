@@ -59,9 +59,9 @@ public:
 #endif
         bool avoidIOSurfaceSizeCheckInWebProcessForTesting = false;
 
-        enum class UseOutOfLineSurfaces : bool { No, Yes };
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-        UseOutOfLineSurfaces useOutOfLineSurfacesForCGDisplayLists;
+        enum class UseCGDisplayListImageCache : bool { No, Yes };
+        UseCGDisplayListImageCache useCGDisplayListImageCache;
 #endif
 
         CreationContext(HostWindow* window = nullptr
@@ -70,7 +70,7 @@ public:
 #endif
             , bool avoidCheck = false
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-            , UseOutOfLineSurfaces useOutOfLineSurfacesForCGDisplayLists = UseOutOfLineSurfaces::No
+            , UseCGDisplayListImageCache useCGDisplayListImageCache = UseCGDisplayListImageCache::No
 #endif
         )
             : hostWindow(window)
@@ -79,7 +79,7 @@ public:
 #endif
             , avoidIOSurfaceSizeCheckInWebProcessForTesting(avoidCheck)
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-            , useOutOfLineSurfacesForCGDisplayLists(useOutOfLineSurfacesForCGDisplayLists)
+            , useCGDisplayListImageCache(useCGDisplayListImageCache)
 #endif
         { }
     };
@@ -145,12 +145,9 @@ public:
     virtual void flushDrawingContext() { }
     virtual bool flushDrawingContextAsync() { return false; }
     virtual void didFlush(GraphicsContextFlushIdentifier) { }
-    virtual void backingStoreWillChange() { }
 
-    WEBCORE_EXPORT void setBackend(std::unique_ptr<ImageBufferBackend>&&);
     WEBCORE_EXPORT IntSize backendSize() const;
 
-    virtual void clearBackend() { m_backend = nullptr; }
     ImageBufferBackend* backend() const { return m_backend.get(); }
     virtual ImageBufferBackend* ensureBackendCreated() const { return m_backend.get(); }
 
@@ -170,7 +167,6 @@ public:
     AffineTransform baseTransform() const { return m_backendInfo.baseTransform; }
     size_t memoryCost() const { return m_backendInfo.memoryCost; }
     size_t externalMemoryCost() const { return m_backendInfo.externalMemoryCost; }
-    void setBackendInfo(ImageBufferBackend::Info&& parameters) { m_backendInfo = WTFMove(parameters); }
 
     WEBCORE_EXPORT virtual RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) const;
     WEBCORE_EXPORT virtual RefPtr<NativeImage> copyNativeImageForDrawing(BackingStoreCopy = CopyBackingStore) const;

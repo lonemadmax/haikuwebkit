@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -86,6 +86,7 @@ Ref<AccessCase> AccessCase::create(VM& vm, JSCell* owner, AccessType type, Cache
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -99,6 +100,7 @@ Ref<AccessCase> AccessCase::create(VM& vm, JSCell* owner, AccessType type, Cache
     case IndexedTypedArrayFloat32Load:
     case IndexedTypedArrayFloat64Load:
     case IndexedStringLoad:
+    case IndexedNoIndexingMiss:
     case IndexedInt32Store:
     case IndexedDoubleStore:
     case IndexedContiguousStore:
@@ -306,6 +308,7 @@ bool AccessCase::guardedByStructureCheckSkippingConstantIdentifierCheck() const
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -333,6 +336,7 @@ bool AccessCase::guardedByStructureCheckSkippingConstantIdentifierCheck() const
     case IndexedTypedArrayFloat32Store:
     case IndexedTypedArrayFloat64Store:
         return false;
+    case IndexedNoIndexingMiss:
     default:
         return true;
     }
@@ -373,6 +377,7 @@ bool AccessCase::requiresIdentifierNameMatch() const
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -386,6 +391,7 @@ bool AccessCase::requiresIdentifierNameMatch() const
     case IndexedTypedArrayFloat32Load:
     case IndexedTypedArrayFloat64Load:
     case IndexedStringLoad:
+    case IndexedNoIndexingMiss:
     case IndexedInt32Store:
     case IndexedDoubleStore:
     case IndexedContiguousStore:
@@ -438,6 +444,7 @@ bool AccessCase::requiresInt32PropertyCheck() const
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -451,6 +458,7 @@ bool AccessCase::requiresInt32PropertyCheck() const
     case IndexedTypedArrayFloat32Load:
     case IndexedTypedArrayFloat64Load:
     case IndexedStringLoad:
+    case IndexedNoIndexingMiss:
     case IndexedInt32Store:
     case IndexedDoubleStore:
     case IndexedContiguousStore:
@@ -500,6 +508,7 @@ bool AccessCase::needsScratchFPR() const
     case InstanceOfGeneric:
     case IndexedInt32Load:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -510,6 +519,7 @@ bool AccessCase::needsScratchFPR() const
     case IndexedTypedArrayUint16Load:
     case IndexedTypedArrayInt32Load:
     case IndexedStringLoad:
+    case IndexedNoIndexingMiss:
     case IndexedInt32Store:
     case IndexedContiguousStore:
     case IndexedArrayStorageStore:
@@ -602,6 +612,7 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -615,6 +626,7 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     case IndexedTypedArrayFloat32Load:
     case IndexedTypedArrayFloat64Load:
     case IndexedStringLoad:
+    case IndexedNoIndexingMiss:
     case IndexedInt32Store:
     case IndexedDoubleStore:
     case IndexedContiguousStore:
@@ -669,6 +681,7 @@ bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) cons
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -682,6 +695,7 @@ bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) cons
     case IndexedTypedArrayFloat32Load:
     case IndexedTypedArrayFloat64Load:
     case IndexedStringLoad:
+    case IndexedNoIndexingMiss:
     case IndexedInt32Store:
     case IndexedDoubleStore:
     case IndexedContiguousStore:
@@ -759,6 +773,7 @@ bool AccessCase::canReplace(const AccessCase& other) const
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case ArrayLength:
     case StringLength:
@@ -837,6 +852,7 @@ bool AccessCase::canReplace(const AccessCase& other) const
     case InMiss:
     case CheckPrivateBrand:
     case SetPrivateBrand:
+    case IndexedNoIndexingMiss:
         if (other.type() != type())
             return false;
 
@@ -1322,9 +1338,17 @@ void AccessCase::generateWithGuard(
         return;
     }
 
+    case IndexedNoIndexingMiss: {
+        emitDefaultGuard();
+        GPRReg propertyGPR = state.propertyGPR();
+        state.failAndIgnore.append(jit.branch32(CCallHelpers::LessThan, propertyGPR, CCallHelpers::TrustedImm32(0)));
+        break;
+    }
+
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad: {
         ASSERT(!viaProxy());
         // This code is written such that the result could alias with the base or the property.
@@ -1378,6 +1402,9 @@ void AccessCase::generateWithGuard(
                 break;
             case IndexedContiguousLoad:
                 expectedShape = ContiguousShape;
+                break;
+            case IndexedAlwaysSlowPutContiguousLoad:
+                expectedShape = AlwaysSlowPutContiguousShape;
                 break;
             default:
                 RELEASE_ASSERT_NOT_REACHED();
@@ -2139,27 +2166,27 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             if (m_type == CustomValueGetter || m_type == CustomAccessorGetter) {
                 RELEASE_ASSERT(m_identifier);
                 if (Options::useJITCage()) {
-                    jit.setupArguments<PropertySlot::GetValueFuncWithPtr>(
+                    jit.setupArguments<GetValueFuncWithPtr>(
                         CCallHelpers::TrustedImmPtr(globalObject),
                         CCallHelpers::CellValue(baseForCustom),
                         CCallHelpers::TrustedImmPtr(uid()),
-                        CCallHelpers::TrustedImmPtr(this->as<GetterSetterAccessCase>().m_customAccessor.executableAddress()));
+                        CCallHelpers::TrustedImmPtr(this->as<GetterSetterAccessCase>().m_customAccessor.taggedPtr()));
                 } else {
-                    jit.setupArguments<PropertySlot::GetValueFunc>(
+                    jit.setupArguments<GetValueFunc>(
                         CCallHelpers::TrustedImmPtr(globalObject),
                         CCallHelpers::CellValue(baseForCustom),
                         CCallHelpers::TrustedImmPtr(uid()));
                 }
             } else {
                 if (Options::useJITCage()) {
-                    jit.setupArguments<PutPropertySlot::PutValueFuncWithPtr>(
+                    jit.setupArguments<PutValueFuncWithPtr>(
                         CCallHelpers::TrustedImmPtr(globalObject),
                         CCallHelpers::CellValue(baseForCustom),
                         valueRegs,
                         CCallHelpers::TrustedImmPtr(uid()),
-                        CCallHelpers::TrustedImmPtr(this->as<GetterSetterAccessCase>().m_customAccessor.executableAddress()));
+                        CCallHelpers::TrustedImmPtr(this->as<GetterSetterAccessCase>().m_customAccessor.taggedPtr()));
                 } else {
-                    jit.setupArguments<PutPropertySlot::PutValueFunc>(
+                    jit.setupArguments<PutValueFunc>(
                         CCallHelpers::TrustedImmPtr(globalObject),
                         CCallHelpers::CellValue(baseForCustom),
                         valueRegs,
@@ -2175,9 +2202,9 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             jit.addLinkTask([=, this] (LinkBuffer& linkBuffer) {
                 if (Options::useJITCage()) {
                     if (m_type == CustomValueGetter || m_type == CustomAccessorGetter)
-                        linkBuffer.link(operationCall, FunctionPtr<OperationPtrTag>(vmEntryCustomGetter));
+                        linkBuffer.link<OperationPtrTag>(operationCall, vmEntryCustomGetter);
                     else
-                        linkBuffer.link(operationCall, FunctionPtr<OperationPtrTag>(vmEntryCustomSetter));
+                        linkBuffer.link<OperationPtrTag>(operationCall, vmEntryCustomSetter);
                 } else
                     linkBuffer.link(operationCall, this->as<GetterSetterAccessCase>().m_customAccessor);
             });
@@ -2237,7 +2264,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             jit.prepareCallOperation(vm);
             auto operationCall = jit.call(OperationPtrTag);
             jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                linkBuffer.link(operationCall, FunctionPtr<OperationPtrTag>(operationWriteBarrierSlowPath));
+                linkBuffer.link<OperationPtrTag>(operationCall, operationWriteBarrierSlowPath);
             });
             state.restoreLiveRegistersFromStackForCall(spillState);
 
@@ -2332,9 +2359,9 @@ void AccessCase::generateImpl(AccessGenerationState& state)
                     
                     CCallHelpers::Call operationCall = jit.call(OperationPtrTag);
                     jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                        linkBuffer.link(
+                        linkBuffer.link<OperationPtrTag>(
                             operationCall,
-                            FunctionPtr<OperationPtrTag>(operationReallocateButterflyToHavePropertyStorageWithInitialCapacity));
+                            operationReallocateButterflyToHavePropertyStorageWithInitialCapacity);
                     });
                 } else {
                     // Handle the case where we are reallocating (i.e. the old structure/butterfly
@@ -2344,9 +2371,9 @@ void AccessCase::generateImpl(AccessGenerationState& state)
                     
                     CCallHelpers::Call operationCall = jit.call(OperationPtrTag);
                     jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                        linkBuffer.link(
+                        linkBuffer.link<OperationPtrTag>(
                             operationCall,
-                            FunctionPtr<OperationPtrTag>(operationReallocateButterflyToGrowPropertyStorage));
+                            operationReallocateButterflyToGrowPropertyStorage);
                     });
                 }
                 
@@ -2493,7 +2520,12 @@ void AccessCase::generateImpl(AccessGenerationState& state)
         state.succeed();
         return;
     }
-        
+
+    case IndexedNoIndexingMiss:
+        jit.moveTrustedValue(jsUndefined(), valueRegs);
+        state.succeed();
+        return;
+
     case IntrinsicGetter: {
         RELEASE_ASSERT(isValidOffset(offset()));
 
@@ -2517,6 +2549,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -2642,6 +2675,7 @@ bool AccessCase::canBeShared(const AccessCase& lhs, const AccessCase& rhs)
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
+    case IndexedAlwaysSlowPutContiguousLoad:
     case IndexedArrayStorageLoad:
     case IndexedScopedArgumentsLoad:
     case IndexedDirectArgumentsLoad:
@@ -2668,6 +2702,7 @@ bool AccessCase::canBeShared(const AccessCase& lhs, const AccessCase& rhs)
     case IndexedTypedArrayFloat32Store:
     case IndexedTypedArrayFloat64Store:
     case IndexedStringLoad:
+    case IndexedNoIndexingMiss:
     case InstanceOfGeneric:
         return true;
 

@@ -1362,7 +1362,6 @@ webkit.org/b/207156 [ Release ] http/tests/websocket/tests/hybi/workers/close.ht
 
 webkit.org/b/207386 imported/w3c/web-platform-tests/css/css-transitions/properties-value-002.html [ Pass Failure ]
 
-imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/transform-fixed-bg-002.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/transform-fixed-bg-004.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/huge-length-tiny-scale.html [ Pass Timeout ]
@@ -1386,6 +1385,8 @@ webkit.org/b/207771 http/wpt/service-workers/persistent-importScripts.html [ Pas
 webkit.org/b/207774 http/wpt/service-workers/third-party-cookie.html [ Pass Timeout ]
 
 webkit.org/b/207866 imported/w3c/IndexedDB-private-browsing [ Pass Timeout ]
+webkit.org/b/243682 imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_putall.tentative.any.html [ Failure ]
+webkit.org/b/243682 imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_putall.tentative.any.worker.html [ Failure ]
 
 # skip LFC regression tests on iOS for now.
 fast/layoutformattingcontext/ [ Skip ]
@@ -1423,8 +1424,6 @@ webkit.org/b/208576 [ Debug ] fast/forms/textarea-no-scroll-on-blur.html [ Failu
 webkit.org/b/208576 [ Debug ] fast/forms/textarea-scrolled-type.html [ Failure ]
 
 webkit.org/b/208582 http/wpt/service-workers/server-trust-evaluation.https.html [ Pass Failure ]
-
-webkit.org/b/206934 imported/w3c/web-platform-tests/IndexedDB/key-generators/reading-autoincrement-indexes-cursors.any.serviceworker.html [ Pass Failure ]
 
 webkit.org/b/208585 imported/w3c/web-platform-tests/mediacapture-streams/MediaStream-removetrack.https.html [ Pass Failure ]
 
@@ -1782,9 +1781,6 @@ imported/w3c/web-platform-tests/web-share/share-url-noscheme-manual.https.html [
 imported/w3c/web-platform-tests/web-share/share-url-pathonly-manual.https.html [ Skip ]
 imported/w3c/web-platform-tests/web-share/share-url-relative-manual.https.html [ Skip ]
 
-imported/w3c/web-platform-tests/web-share/share-sharePromise-internal-slot.https.html [ DumpJSConsoleLogInStdErr ]
-imported/w3c/web-platform-tests/web-share/share-url-invalid.https.html [ Skip ]
-
 # rdar://problem/59595496
 quicklook/keynote-09.html [ Failure ]
 quicklook/keynote.html [ ImageOnlyFailure ]
@@ -1963,11 +1959,7 @@ webkit.org/b/231299 [ Debug ] imported/w3c/web-platform-tests/selection/collapse
 
 webkit.org/b/216292 [ Release ] imported/w3c/web-platform-tests/css/css-flexbox/quirks-auto-block-size-with-percentage-item.html [ Pass Failure ]
 
-webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-ui/text-overflow-017.html [ Skip ]
 webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-values/vh_not_refreshing_on_chrome.html [ Skip ]
-
-webkit.org/b/217263 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-no-sink.https.html [ Slow ]
-webkit.org/b/217263 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-peerconnection.https.html [ Slow ]
 
 webkit.org/b/196403 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-stop.html [ Pass Failure Slow ]
 
@@ -2235,8 +2227,6 @@ imported/w3c/web-platform-tests/html/canvas/element/manual/drawing-images-to-the
 imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/imageBitmapRendering-transferFromImageBitmap-flipped.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/imageBitmapRendering-transferFromImageBitmap.html [ ImageOnlyFailure ]
 
-webkit.org/b/242515 [ arm64 ] compositing/reflections/mask-and-reflection.html [ ImageOnlyFailure ]
-
 webkit.org/b/242812 [ Release arm64 ] js/dom/Promise-reject-large-string.html [ Pass Failure ]
 
 webkit.org/b/241205 [ Release arm64 ] fast/forms/textfield-outline.html [ Pass Failure ]
@@ -2270,6 +2260,33 @@ imported/w3c/web-platform-tests/mathml/relations/html5-tree/dynamic-childlist-00
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-cancel-events-closewatcher.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-cancel-preventDefault-closewatcher.tentative.html [ Skip ]
 
+# Double-clicking does not select text on iOS.
+imported/w3c/web-platform-tests/css/css-ui/user-select-001.html [ Skip ]
+
+# menulist-button and auto do not have a different appearance on <select> on iOS.
+imported/w3c/web-platform-tests/css/css-ui/appearance-menulist-button-002.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-menulist-button-002.tentative.html [ ImageOnlyFailure ]
+
+# compute-kind-widget-generated iOS-specific failures (webkit.org/b/243945)
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-input-button-background-size-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-input-reset-background-size-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-input-submit-background-size-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-bottom-left-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-bottom-right-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-end-end-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-end-start-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-start-end-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-start-start-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-top-left-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-border-top-right-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-menulist-button-border-bottom-left-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-menulist-button-border-bottom-right-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-menulist-button-border-end-end-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-menulist-button-border-end-start-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-menulist-button-border-start-end-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-menulist-button-border-start-start-radius-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-menulist-button-border-top-left-radius-001.html [ ImageOnlyFailure ]
+
 # rdar://96912160 3* imported/w3c/web-platform-tests/cookies* tests are constant text failures)
 imported/w3c/web-platform-tests/cookies/attributes/path.html [ Failure ]
 imported/w3c/web-platform-tests/cookies/value/value.html [ Failure ]
@@ -2290,3 +2307,28 @@ imported/w3c/web-platform-tests/speech-api/idlharness.window.html [ Failure ]
 
 # rdar://97297483 ([ iOS16 ] fast/events/ios/rotation/zz-no-rotation.html is a constant timeout =)
 fast/events/ios/rotation/zz-no-rotation.html [ Timeout ]
+
+webkit.org/b/210849 compositing/overflow/rtl-scrollbar-layer-positioning.html [ Pass Timeout ]
+
+webkit.org/b/243515 [ Debug ] svg/z-index/shapes-with-zindex.svg [ Pass Crash ]
+webkit.org/b/243515 [ Debug ] svg/z-index/group-with-zindex.svg [ Pass Crash ]
+webkit.org/b/243515 svg/compositing/svg-poster-circle.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 svg/compositing/outermost-svg-with-border.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 svg/compositing/outermost-svg-with-border-padding.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 svg/compositing/outermost-svg-with-border-padding-margin.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 svg/compositing/outermost-svg-with-border-overflow-visible.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 svg/compositing/outermost-svg-directly-composited-transformed-group-child.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 svg/compositing/outermost-svg-directly-composited-shape-child.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 svg/compositing/outermost-svg-directly-composited-group-child.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/243515 [ Debug ] svg/compositing/outermost-svg-directly-composited-group-child-overflow-hidden.html [ Pass Crash ]
+
+webkit.org/b/243589 [ Debug ] http/wpt/service-workers/update-with-importScripts.html [ Pass Crash ]
+webkit.org/b/243589 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/credentials.https.html [ Pass Crash ]
+webkit.org/b/243589 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/registration-updateviacache.https.html [ Pass Crash ]
+webkit.org/b/243589 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/service-worker-header.https.html [ Pass Crash ]
+webkit.org/b/243589 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/update-import-scripts.https.html [ Pass Crash ]
+
+webkit.org/b/244228 [ Release arm64 ] imported/w3c/web-platform-tests/css/css-transforms/transforms-skewY.html [ Pass ImageOnlyFailure ]
+webkit.org/b/244228 [ Release arm64 ] imported/w3c/web-platform-tests/css/css-transforms/css-skew-002.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/244297 [ Release arm64 ] svg/transforms/transformed-text-fill-gradient.html [ Pass ImageOnlyFailure ]

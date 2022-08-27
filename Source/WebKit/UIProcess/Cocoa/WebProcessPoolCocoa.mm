@@ -67,6 +67,7 @@
 #import <objc/runtime.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cf/CFNotificationCenterSPI.h>
+#import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <sys/param.h>
 #import <wtf/FileSystem.h>
 #import <wtf/ProcessPrivilege.h>
@@ -142,6 +143,10 @@ static NSString * const WebKitSuppressMemoryPressureHandlerDefaultsKey = @"WebKi
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
 static NSString * const WebKitLogCookieInformationDefaultsKey = @"WebKitLogCookieInformation";
+#endif
+
+#if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
+static NSString * const kPLTaskingStartNotificationGlobal = @"kPLTaskingStartNotificationGlobal";
 #endif
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
@@ -308,6 +313,15 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
     parameters.latencyQOS = webProcessLatencyQOS();
     parameters.throughputQOS = webProcessThroughputQOS();
+
+    if (m_configuration->presentingApplicationProcessToken()) {
+        NSError *error = nil;
+        auto bundleProxy = [LSBundleProxy bundleProxyWithAuditToken:*m_configuration->presentingApplicationProcessToken() error:&error];
+        if (error)
+            RELEASE_LOG_ERROR(WebRTC, "Failed to get attribution bundleID from audit token with error: %@.", error.localizedDescription);
+        else
+            parameters.presentingApplicationBundleIdentifier = bundleProxy.bundleIdentifier;
+    }
 
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     if (WebProcessProxy::shouldEnableRemoteInspector()) {
@@ -570,6 +584,14 @@ void WebProcessPool::captivePortalModeConfigUpdateCallback(CFNotificationCenterR
 }
 #endif
 
+#if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
+void WebProcessPool::powerLogTaskModeStartedCallback(CFNotificationCenterRef, void* observer, CFStringRef, const void*, CFDictionaryRef)
+{
+    if (auto* gpuProcess = GPUProcessProxy::singletonIfCreated())
+        gpuProcess->enablePowerLogging();
+}
+#endif
+
 #if ENABLE(CFPREFS_DIRECT_MODE)
 void WebProcessPool::startObservingPreferenceChanges()
 {
@@ -723,12 +745,7 @@ void WebProcessPool::registerNotificationObservers()
     addCFNotificationObserver(mediaAccessibilityPreferencesChangedCallback, kMAXCaptionAppearanceSettingsChangedNotification);
 #endif
 #if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
-    if (kPLTaskingStartNotification) {
-        m_powerLogObserver = [[NSNotificationCenter defaultCenter] addObserverForName:kPLTaskingStartNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *notification) {
-            if (auto* gpuProcess = GPUProcessProxy::singletonIfCreated())
-                gpuProcess->enablePowerLogging();
-        }];
-    }
+    addCFNotificationObserver(powerLogTaskModeStartedCallback, (__bridge CFStringRef)kPLTaskingStartNotificationGlobal);
 #endif // HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
 }
 
@@ -781,8 +798,7 @@ void WebProcessPool::unregisterNotificationObservers()
     removeCFNotificationObserver(kMAXCaptionAppearanceSettingsChangedNotification);
 #endif
 #if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
-    if (m_powerLogObserver)
-        [[NSNotificationCenter defaultCenter] removeObserver:m_powerLogObserver.get()];
+    removeCFNotificationObserver((__bridge CFStringRef)kPLTaskingStartNotificationGlobal);
 #endif
     m_weakObserver = nil;
 }

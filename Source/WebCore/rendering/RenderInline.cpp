@@ -228,6 +228,12 @@ bool RenderInline::mayAffectLayout() const
 
 void RenderInline::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*this)) {
+        lineLayout->paint(paintInfo, paintOffset, this);
+        return;
+    }
+#endif
     m_lineBoxes.paint(this, paintInfo, paintOffset);
 }
 
@@ -421,7 +427,8 @@ bool RenderInline::nodeAtPoint(const HitTestRequest& request, HitTestResult& res
 {
     ASSERT(layer());
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    ASSERT(!LayoutIntegration::LineLayout::containing(const_cast<RenderInline&>(*this)));
+    if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*this))
+        return lineLayout->hitTest(request, result, locationInContainer, accumulatedOffset, hitTestAction, this);
 #endif
     return m_lineBoxes.hitTest(this, request, result, locationInContainer, accumulatedOffset, hitTestAction);
 }
@@ -690,7 +697,7 @@ std::optional<LayoutRect> RenderInline::computeVisibleRectInContainer(const Layo
     if (localContainer->hasNonVisibleOverflow()) {
         // FIXME: Respect the value of context.options.
         SetForScope change(context.options, context.options | VisibleRectContextOption::ApplyCompositedContainerScrolls);
-        bool isEmpty = !downcast<RenderBox>(*localContainer).applyCachedClipAndScrollPosition(adjustedRect, container, context);
+        bool isEmpty = !downcast<RenderLayerModelObject>(*localContainer).applyCachedClipAndScrollPosition(adjustedRect, container, context);
         if (isEmpty) {
             if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
                 return std::nullopt;

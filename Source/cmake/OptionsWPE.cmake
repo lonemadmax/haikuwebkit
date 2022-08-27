@@ -1,7 +1,7 @@
 include(GNUInstallDirs)
 include(VersioningUtils)
 
-SET_PROJECT_VERSION(2 37 0)
+SET_PROJECT_VERSION(2 37 1)
 
 # This is required because we use the DEPFILE argument to add_custom_command().
 # Remove after upgrading cmake_minimum_required() to 3.20.
@@ -26,6 +26,7 @@ find_package(LibXml2 2.8.0 REQUIRED)
 find_package(PNG REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Unifdef REQUIRED)
 find_package(WebP REQUIRED COMPONENTS demux)
 find_package(WPE REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -80,7 +81,12 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SHAREABLE_RESOURCE PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_THUNDER PRIVATE ${ENABLE_DEVELOPER_MODE})
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_TOUCH_EVENTS PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEB_RTC PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBGL2 PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBXR PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
+
+if (WPE_VERSION VERSION_GREATER_EQUAL 1.13.90)
+    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_GAMEPAD PUBLIC ON)
+endif ()
 
 # Public options specific to the WPE port. Do not add any options here unless
 # there is a strong reason we should support changing the value of the option,
@@ -197,6 +203,10 @@ if (ENABLE_ACCESSIBILITY)
     endif ()
 endif ()
 
+if (ENABLE_GAMEPAD AND (NOT (WPE_VERSION VERSION_GREATER_EQUAL 1.13.90)))
+    message(FATAL_ERROR "libwpe>=1.13.90 is required for ENABLE_GAMEPAD")
+endif ()
+
 if (USE_JPEGXL)
     find_package(JPEGXL)
     if (NOT JPEGXL_FOUND)
@@ -250,11 +260,13 @@ endif ()
 
 
 if (ENABLE_WEBXR)
+    if (NOT ENABLE_GAMEPAD)
+        message(FATAL_ERROR "Gamepad is required to be enabled for WebXR support.")
+    endif ()
     find_package(OpenXR 1.0.9)
     if (NOT OPENXR_FOUND)
         message(FATAL_ERROR "OpenXR is required to enable WebXR support.")
     endif ()
-    SET_AND_EXPOSE_TO_BUILD(ENABLE_GAMEPAD ON)
     SET_AND_EXPOSE_TO_BUILD(USE_OPENXR ${OpenXR_FOUND})
     SET_AND_EXPOSE_TO_BUILD(XR_USE_PLATFORM_EGL TRUE)
     SET_AND_EXPOSE_TO_BUILD(XR_USE_GRAPHICS_API_OPENGL TRUE)
@@ -282,6 +294,18 @@ if (USE_LCMS)
     find_package(LCMS2)
     if (NOT LCMS2_FOUND)
         message(FATAL_ERROR "libcms2 is required for USE_LCMS.")
+    endif ()
+endif ()
+
+if (ENABLE_BREAKPAD)
+    find_package(Breakpad REQUIRED)
+    if (NOT Breakpad_FOUND)
+        message(FATAL_ERROR "breakpad enabled but not found.")
+    endif ()
+    if (BREAKPAD_MINIDUMP_DIR)
+        add_definitions(-DBREAKPAD_MINIDUMP_DIR="${BREAKPAD_MINIDUMP_DIR}")
+    else ()
+        message(STATUS "BREAKPAD_MINIDUMP_DIR is not set")
     endif ()
 endif ()
 

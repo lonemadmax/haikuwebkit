@@ -127,10 +127,13 @@ Debugger::Debugger(VM& vm)
     , m_lastExecutedSourceID(noSourceID)
     , m_pausingBreakpointID(noBreakpointID)
 {
+    m_vm.addDebugger(*this);
 }
 
 Debugger::~Debugger()
 {
+    m_vm.removeDebugger(*this);
+
     HashSet<JSGlobalObject*>::iterator end = m_globalObjects.end();
     for (HashSet<JSGlobalObject*>::iterator it = m_globalObjects.begin(); it != end; ++it)
         (*it)->setDebugger(nullptr);
@@ -240,6 +243,28 @@ void Debugger::registerCodeBlock(CodeBlock* codeBlock)
         codeBlock->setSteppingMode(CodeBlock::SteppingModeEnabled);
 }
 
+void Debugger::forEachRegisteredCodeBlock(const Function<void(CodeBlock*)>& callback)
+{
+    m_vm.heap.forEachCodeBlock([&] (CodeBlock* codeBlock) {
+        if (codeBlock->globalObject()->debugger() == this)
+            callback(codeBlock);
+    });
+}
+
+void Debugger::didCreateNativeExecutable(NativeExecutable& nativeExecutable)
+{
+    dispatchFunctionToObservers([&] (Observer& observer) {
+        observer.didCreateNativeExecutable(nativeExecutable);
+    });
+}
+
+void Debugger::willCallNativeExecutable(CallFrame* callFrame)
+{
+    dispatchFunctionToObservers([&] (Observer& observer) {
+        observer.willCallNativeExecutable(callFrame);
+    });
+}
+
 void Debugger::setClient(Client* client)
 {
     ASSERT(!!m_client != !!client);
@@ -266,15 +291,13 @@ void Debugger::removeObserver(Observer& observer, bool isBeingDestroyed)
 
 bool Debugger::canDispatchFunctionToObservers() const
 {
-    return !m_dispatchingFunctionToObservers && !m_observers.isEmpty();
+    return !m_observers.isEmpty();
 }
 
 void Debugger::dispatchFunctionToObservers(Function<void(Observer&)> func)
 {
     if (!canDispatchFunctionToObservers())
         return;
-
-    SetForScope change(m_dispatchingFunctionToObservers, true);
 
     for (auto* observer : copyToVector(m_observers))
         func(*observer);
@@ -390,6 +413,10 @@ void Debugger::applyBreakpoints(CodeBlock* codeBlock)
 {
     for (auto& breakpoint : m_breakpoints)
         toggleBreakpoint(codeBlock, breakpoint, BreakpointEnabled);
+
+    dispatchFunctionToObservers([&] (Observer& observer) {
+        observer.applyBreakpoints(codeBlock);
+    });
 }
 
 class Debugger::ToggleBreakpointFunctor {
@@ -1133,6 +1160,12 @@ void Debugger::callEvent(CallFrame* callFrame)
         return;
 
     updateCallFrame(lexicalGlobalObjectForCallFrame(m_vm, callFrame), callFrame, NoPause);
+
+    if (callFrame) {
+        dispatchFunctionToObservers([&] (Observer& observer) {
+            observer.willEnter(callFrame);
+        });
+    }
 }
 
 void Debugger::returnEvent(CallFrame* callFrame)
@@ -1249,24 +1282,24 @@ void Debugger::didReachDebuggerStatement(CallFrame* callFrame)
     updateCallFrame(lexicalGlobalObjectForCallFrame(m_vm, callFrame), callFrame, AttemptPause);
 }
 
-void Debugger::didQueueMicrotask(JSGlobalObject* globalObject, const Microtask& microtask)
+void Debugger::didQueueMicrotask(JSGlobalObject* globalObject, MicrotaskIdentifier identifier)
 {
     dispatchFunctionToObservers([&] (Observer& observer) {
-        observer.didQueueMicrotask(globalObject, microtask);
+        observer.didQueueMicrotask(globalObject, identifier);
     });
 }
 
-void Debugger::willRunMicrotask(JSGlobalObject* globalObject, const Microtask& microtask)
+void Debugger::willRunMicrotask(JSGlobalObject* globalObject, MicrotaskIdentifier identifier)
 {
     dispatchFunctionToObservers([&] (Observer& observer) {
-        observer.willRunMicrotask(globalObject, microtask);
+        observer.willRunMicrotask(globalObject, identifier);
     });
 }
 
-void Debugger::didRunMicrotask(JSGlobalObject* globalObject, const Microtask& microtask)
+void Debugger::didRunMicrotask(JSGlobalObject* globalObject, MicrotaskIdentifier identifier)
 {
     dispatchFunctionToObservers([&] (Observer& observer) {
-        observer.didRunMicrotask(globalObject, microtask);
+        observer.didRunMicrotask(globalObject, identifier);
     });
 }
 

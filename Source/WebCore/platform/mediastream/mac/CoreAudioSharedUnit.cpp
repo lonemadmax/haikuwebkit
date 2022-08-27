@@ -382,16 +382,28 @@ OSStatus CoreAudioSharedUnit::configureSpeakerProc(int sampleRate)
 }
 
 #if !LOG_DISABLED
-void CoreAudioSharedUnit::checkTimestamps(const AudioTimeStamp& timeStamp, uint64_t sampleTime, double hostTime)
+void CoreAudioSharedUnit::checkTimestamps(const AudioTimeStamp& timeStamp, double hostTime)
 {
-    if (!timeStamp.mSampleTime || sampleTime == m_latestMicTimeStamp || !hostTime)
-        RELEASE_LOG_ERROR(WebRTC, "CoreAudioSharedUnit::checkTimestamps: unusual timestamps, sample time = %lld, previous sample time = %lld, hostTime %f", sampleTime, m_latestMicTimeStamp, hostTime);
+    if (!timeStamp.mSampleTime || timeStamp.mSampleTime == m_latestMicTimeStamp || !hostTime)
+        RELEASE_LOG_ERROR(WebRTC, "CoreAudioSharedUnit::checkTimestamps: unusual timestamps, sample time = %f, previous sample time = %f, hostTime %f", timeStamp.mSampleTime, m_latestMicTimeStamp, hostTime);
 }
 #endif
 
 OSStatus CoreAudioSharedUnit::provideSpeakerData(AudioUnitRenderActionFlags& flags, const AudioTimeStamp& timeStamp, UInt32 /*inBusNumber*/, UInt32 inNumberFrames, AudioBufferList& ioData)
 {
-    if (m_isReconfiguring || !m_speakerSamplesProducerLock.tryLock()) {
+    if (m_isReconfiguring || m_shouldNotifySpeakerSamplesProducer || !m_hasNotifiedSpeakerSamplesProducer || !m_speakerSamplesProducerLock.tryLock()) {
+        if (m_shouldNotifySpeakerSamplesProducer) {
+            m_shouldNotifySpeakerSamplesProducer = false;
+            callOnMainThread([this, weakThis = WeakPtr { *this }] {
+                if (!weakThis)
+                    return;
+                m_hasNotifiedSpeakerSamplesProducer = true;
+                Locker locker { m_speakerSamplesProducerLock };
+                if (m_speakerSamplesProducer)
+                    m_speakerSamplesProducer->captureUnitIsStarting();
+            });
+        }
+
         AudioSampleBufferList::zeroABL(ioData, static_cast<size_t>(inNumberFrames * m_speakerProcFormat.bytesPerFrame()));
         flags = kAudioUnitRenderAction_OutputIsSilence;
         return noErr;
@@ -442,9 +454,9 @@ OSStatus CoreAudioSharedUnit::processMicrophoneSamples(AudioUnitRenderActionFlag
     double adjustedHostTime = m_DTSConversionRatio * timeStamp.mHostTime;
     uint64_t sampleTime = timeStamp.mSampleTime;
 #if !LOG_DISABLED
-    checkTimestamps(timeStamp, sampleTime, adjustedHostTime);
+    checkTimestamps(timeStamp, adjustedHostTime);
 #endif
-    m_latestMicTimeStamp = sampleTime;
+    m_latestMicTimeStamp = timeStamp.mSampleTime;
     m_microphoneSampleBuffer->setTimes(adjustedHostTime, sampleTime);
 
     if (volume() != 1.0)
@@ -528,11 +540,8 @@ OSStatus CoreAudioSharedUnit::startInternal()
 
     unduck();
 
-    {
-        Locker locker { m_speakerSamplesProducerLock };
-        if (m_speakerSamplesProducer)
-            m_speakerSamplesProducer->captureUnitIsStarting();
-    }
+    m_shouldNotifySpeakerSamplesProducer = true;
+    m_hasNotifiedSpeakerSamplesProducer = false;
 
     if (auto err = m_ioUnit->start()) {
         {

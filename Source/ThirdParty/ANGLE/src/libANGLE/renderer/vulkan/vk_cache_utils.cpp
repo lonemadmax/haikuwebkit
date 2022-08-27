@@ -257,14 +257,20 @@ void UnpackDepthStencilResolveAttachmentDesc(VkAttachmentDescription *desc,
     desc->finalLayout   = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 }
 
-void UnpackStencilState(const PackedStencilOpState &packedState, VkStencilOpState *stateOut)
+void UnpackStencilState(const PackedStencilOpState &packedState,
+                        VkStencilOpState *stateOut,
+                        bool writeMaskWorkaround)
 {
+    // Any non-zero value works for the purposes of the useNonZeroStencilWriteMaskStaticState driver
+    // bug workaround.
+    constexpr uint32_t kNonZeroWriteMaskForWorkaround = 1;
+
     stateOut->failOp      = static_cast<VkStencilOp>(packedState.ops.fail);
     stateOut->passOp      = static_cast<VkStencilOp>(packedState.ops.pass);
     stateOut->depthFailOp = static_cast<VkStencilOp>(packedState.ops.depthFail);
     stateOut->compareOp   = static_cast<VkCompareOp>(packedState.ops.compare);
     stateOut->compareMask = 0;
-    stateOut->writeMask   = 0;
+    stateOut->writeMask   = writeMaskWorkaround ? kNonZeroWriteMaskForWorkaround : 0;
     stateOut->reference   = 0;
 }
 
@@ -785,8 +791,9 @@ angle::Result CreateRenderPass2(Context *context,
                               multiviewInfo.pViewMasks[subpass], &subpassDescriptions[subpass]);
     }
 
-    VkMultisampledRenderToSingleSampledInfoEXT renderToTextureInfo = {};
-    renderToTextureInfo.sType = VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_EXT;
+    VkMultisampledRenderToSingleSampledInfoGoogleX renderToTextureInfo = {};
+    renderToTextureInfo.sType =
+        VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_GOOGLEX;
     renderToTextureInfo.multisampledRenderToSingleSampledEnable = true;
     renderToTextureInfo.rasterizationSamples = gl_vk::GetSamples(renderToTextureSamples);
     renderToTextureInfo.depthResolveMode     = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
@@ -1035,7 +1042,8 @@ angle::Result InitializeRenderPassFromDesc(ContextVk *contextVk,
     bool isStencilInvalidated = false;
     const bool hasUnresolveAttachments =
         desc.getColorUnresolveAttachmentMask().any() || desc.hasDepthStencilUnresolveAttachment();
-    const bool canRemoveResolveAttachments = !hasUnresolveAttachments;
+    const bool canRemoveResolveAttachments =
+        isRenderToTextureThroughEmulation && !hasUnresolveAttachments;
 
     // Pack color attachments
     PackedAttachmentIndex attachmentCount(0);
@@ -1635,7 +1643,7 @@ void UnpackPipelineState(const vk::GraphicsPipelineDesc &state, UnpackedPipeline
     const PackedInputAssemblyAndRasterizationStateInfo &inputAndRaster =
         state.getInputAssemblyAndRasterizationStateInfoForLog();
     const PackedColorBlendStateInfo &colorBlend = state.getColorBlendStateInfoForLog();
-    const PackedDither &dither                  = state.getDitherForLog();
+    const PackedDitherAndWorkarounds &dither    = state.getDitherForLog();
     const PackedDynamicState &dynamicState      = state.getDynamicStateForLog();
 
     valuesOut->fill(0);
@@ -2383,6 +2391,30 @@ void DumpPipelineCacheGraph(
     }
     out << " }\n";
 }
+
+// Used by SharedCacheKeyManager
+void ReleaseCachedObject(ContextVk *contextVk, const FramebufferDesc &desc)
+{
+    contextVk->getShareGroup()->getFramebufferCache().erase(contextVk, desc);
+}
+
+void ReleaseCachedObject(ContextVk *contextVk, const DescriptorSetDescAndPool &descAndPool)
+{
+    ASSERT(descAndPool.mPool != nullptr);
+    descAndPool.mPool->releaseCachedDescriptorSet(contextVk, descAndPool.mDesc);
+}
+
+void DestroyCachedObject(RendererVk *renderer, const FramebufferDesc &desc)
+{
+    // Framebuffer cache are implemented in a way that each cache entry tracks GPU progress and we
+    // always guarantee cache entries are released before calling destroy.
+}
+
+void DestroyCachedObject(RendererVk *renderer, const DescriptorSetDescAndPool &descAndPool)
+{
+    ASSERT(descAndPool.mPool != nullptr);
+    descAndPool.mPool->destroyCachedDescriptorSet(renderer, descAndPool.mDesc);
+}
 }  // anonymous namespace
 
 // RenderPassDesc implementation.
@@ -2643,8 +2675,9 @@ void GraphicsPipelineDesc::initDefaults(const ContextVk *contextVk)
               &mColorBlendStateInfo.attachments[gl::IMPLEMENTATION_MAX_DRAW_BUFFERS],
               blendAttachmentState);
 
-    mDither.emulatedDitherControl = 0;
-    mDither.unused                = 0;
+    mDitherAndWorkarounds.emulatedDitherControl             = 0;
+    mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround = 0;
+    mDitherAndWorkarounds.unused                            = 0;
 
     SetBitField(mDynamicState.ds1And2.cullMode, VK_CULL_MODE_NONE);
     SetBitField(mDynamicState.ds1And2.frontFace, VK_FRONT_FACE_COUNTER_CLOCKWISE);
@@ -2880,15 +2913,6 @@ angle::Result GraphicsPipelineDesc::initializePipeline(
     inputAssemblyState.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssemblyState.flags    = 0;
     inputAssemblyState.topology = static_cast<VkPrimitiveTopology>(inputAndRaster.misc.topology);
-    // http://anglebug.com/3832
-    // We currently hit a VK Validation here where VUID
-    // VUID-VkPipelineInputAssemblyStateCreateInfo-topology-00428 is flagged because we allow
-    // primitiveRestartEnable to be true for topologies VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-    // VK_PRIMITIVE_TOPOLOGY_LINE_LIST, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
-    // VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
-    // VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY and VK_PRIMITIVE_TOPOLOGY_PATCH_LIST
-    // However if we force primiteRestartEnable to FALSE we fail tests.
-    // Need to identify alternate fix.
     inputAssemblyState.primitiveRestartEnable =
         static_cast<VkBool32>(mDynamicState.ds1And2.primitiveRestartEnable);
 
@@ -3006,8 +3030,10 @@ angle::Result GraphicsPipelineDesc::initializePipeline(
     depthStencilState.depthBoundsTestEnable =
         static_cast<VkBool32>(inputAndRaster.misc.depthBoundsTest);
     depthStencilState.stencilTestEnable = static_cast<VkBool32>(mDynamicState.ds1And2.stencilTest);
-    UnpackStencilState(mDynamicState.ds1.front, &depthStencilState.front);
-    UnpackStencilState(mDynamicState.ds1.back, &depthStencilState.back);
+    UnpackStencilState(mDynamicState.ds1.front, &depthStencilState.front,
+                       mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround);
+    UnpackStencilState(mDynamicState.ds1.back, &depthStencilState.back,
+                       mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround);
     depthStencilState.minDepthBounds = 0;
     depthStencilState.maxDepthBounds = 0;
 
@@ -3677,10 +3703,18 @@ void GraphicsPipelineDesc::updateEmulatedDitherControl(GraphicsPipelineTransitio
                                                        uint16_t value)
 {
     // Make sure we don't waste time resetting this to zero in the common no-dither case.
-    ASSERT(value != 0 || mDither.emulatedDitherControl != 0);
+    ASSERT(value != 0 || mDitherAndWorkarounds.emulatedDitherControl != 0);
 
-    mDither.emulatedDitherControl = value;
-    transition->set(ANGLE_GET_TRANSITION_BIT(mDither, emulatedDitherControl));
+    mDitherAndWorkarounds.emulatedDitherControl = value;
+    transition->set(ANGLE_GET_TRANSITION_BIT(mDitherAndWorkarounds, emulatedDitherControl));
+}
+
+void GraphicsPipelineDesc::updateNonZeroStencilWriteMaskWorkaround(
+    GraphicsPipelineTransitionBits *transition,
+    bool enabled)
+{
+    mDitherAndWorkarounds.nonZeroStencilWriteMaskWorkaround = enabled;
+    transition->set(ANGLE_GET_TRANSITION_BIT(mDitherAndWorkarounds, emulatedDitherControl));
 }
 
 void GraphicsPipelineDesc::updateRenderPassDesc(GraphicsPipelineTransitionBits *transition,
@@ -3951,6 +3985,40 @@ void PipelineHelper::addTransition(GraphicsPipelineTransitionBits bits,
     mTransitions.emplace_back(bits, desc, pipeline);
 }
 
+// FramebufferHelper implementation.
+FramebufferHelper::FramebufferHelper() = default;
+
+FramebufferHelper::~FramebufferHelper() = default;
+
+FramebufferHelper::FramebufferHelper(FramebufferHelper &&other) : Resource(std::move(other))
+{
+    mFramebuffer = std::move(other.mFramebuffer);
+}
+
+FramebufferHelper &FramebufferHelper::operator=(FramebufferHelper &&other)
+{
+    std::swap(mUse, other.mUse);
+    std::swap(mFramebuffer, other.mFramebuffer);
+    return *this;
+}
+
+angle::Result FramebufferHelper::init(ContextVk *contextVk,
+                                      const VkFramebufferCreateInfo &createInfo)
+{
+    ANGLE_VK_TRY(contextVk, mFramebuffer.init(contextVk->getDevice(), createInfo));
+    return angle::Result::Continue;
+}
+
+void FramebufferHelper::destroy(RendererVk *rendererVk)
+{
+    mFramebuffer.destroy(rendererVk->getDevice());
+}
+
+void FramebufferHelper::release(ContextVk *contextVk)
+{
+    contextVk->addGarbage(&mFramebuffer);
+}
+
 // DescriptorSetDesc implementation.
 size_t DescriptorSetDesc::hash() const
 {
@@ -3973,11 +4041,6 @@ FramebufferDesc::FramebufferDesc()
 FramebufferDesc::~FramebufferDesc()                                       = default;
 FramebufferDesc::FramebufferDesc(const FramebufferDesc &other)            = default;
 FramebufferDesc &FramebufferDesc::operator=(const FramebufferDesc &other) = default;
-
-void FramebufferDesc::destroyCachedObject(ContextVk *contextVk)
-{
-    contextVk->getShareGroup()->getFramebufferCache().erase(contextVk, *this);
-}
 
 void FramebufferDesc::update(uint32_t index, ImageOrBufferViewSubresourceSerial serial)
 {
@@ -4121,11 +4184,6 @@ void YcbcrConversionDesc::reset()
     mReserved           = 0;
 }
 
-void YcbcrConversionDesc::updateChromaFilter(VkFilter filter)
-{
-    SetBitField(mChromaFilter, filter);
-}
-
 void YcbcrConversionDesc::update(RendererVk *rendererVk,
                                  uint64_t externalFormat,
                                  VkSamplerYcbcrModelConversion conversionModel,
@@ -4143,15 +4201,56 @@ void YcbcrConversionDesc::update(RendererVk *rendererVk,
     mExternalOrVkFormat = (externalFormat)
                               ? externalFormat
                               : vkFormat.getActualImageVkFormat(vk::ImageAccess::SampleOnly);
+
+    updateChromaFilter(rendererVk, chromaFilter);
+
     SetBitField(mConversionModel, conversionModel);
     SetBitField(mColorRange, colorRange);
     SetBitField(mXChromaOffset, xChromaOffset);
     SetBitField(mYChromaOffset, yChromaOffset);
-    SetBitField(mChromaFilter, chromaFilter);
     SetBitField(mRSwizzle, components.r);
     SetBitField(mGSwizzle, components.g);
     SetBitField(mBSwizzle, components.b);
     SetBitField(mASwizzle, components.a);
+}
+
+bool YcbcrConversionDesc::updateChromaFilter(RendererVk *rendererVk, VkFilter filter)
+{
+    // The app has requested a specific min/mag filter, reconcile that with the filter
+    // requested by preferLinearFilterForYUV feature.
+    //
+    // preferLinearFilterForYUV enforces linear filter while forceNearestFiltering and
+    // forceNearestMipFiltering enforces nearest filter, enabling one precludes the other.
+    ASSERT(!rendererVk->getFeatures().preferLinearFilterForYUV.enabled ||
+           (!rendererVk->getFeatures().forceNearestFiltering.enabled &&
+            !rendererVk->getFeatures().forceNearestMipFiltering.enabled));
+
+    VkFilter preferredChromaFilter = rendererVk->getPreferredFilterForYUV(filter);
+    ASSERT(preferredChromaFilter == VK_FILTER_LINEAR || preferredChromaFilter == VK_FILTER_NEAREST);
+
+    if (preferredChromaFilter == VK_FILTER_LINEAR && mIsExternalFormat == 0)
+    {
+        // Vulkan ICDs are allowed to not support LINEAR filter.
+        angle::FormatID formatId =
+            vk::GetFormatIDFromVkFormat(static_cast<VkFormat>(mExternalOrVkFormat));
+        if (!rendererVk->hasImageFormatFeatureBits(
+                formatId, VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT))
+        {
+            preferredChromaFilter = VK_FILTER_NEAREST;
+        }
+    }
+
+    if (getChromaFilter() != preferredChromaFilter)
+    {
+        SetBitField(mChromaFilter, preferredChromaFilter);
+        return true;
+    }
+    return false;
+}
+
+void YcbcrConversionDesc::updateConversionModel(VkSamplerYcbcrModelConversion conversionModel)
+{
+    SetBitField(mConversionModel, conversionModel);
 }
 
 angle::Result YcbcrConversionDesc::init(Context *context,
@@ -4263,10 +4362,37 @@ void SamplerDesc::update(ContextVk *contextVk,
     mMinLod        = samplerState.getMinLod();
     mMaxLod        = samplerState.getMaxLod();
 
+    GLenum minFilter = samplerState.getMinFilter();
+    GLenum magFilter = samplerState.getMagFilter();
     if (ycbcrConversionDesc && ycbcrConversionDesc->valid())
     {
         // Update the SamplerYcbcrConversionCache key
         mYcbcrConversionDesc = *ycbcrConversionDesc;
+
+        // Reconcile chroma filter and min/mag filters.
+        //
+        // VUID-VkSamplerCreateInfo-minFilter-01645
+        // If sampler YCBCR conversion is enabled and the potential format features of the
+        // sampler YCBCR conversion do not support
+        // VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT,
+        // minFilter and magFilter must be equal to the sampler YCBCR conversions chromaFilter.
+        //
+        // For simplicity assume external formats do not support that feature bit.
+        ASSERT((mYcbcrConversionDesc.getExternalFormat() != 0) ||
+               (angle::Format::Get(intendedFormatID).isYUV));
+        const bool filtersMustMatch =
+            (mYcbcrConversionDesc.getExternalFormat() != 0) ||
+            !contextVk->getRenderer()->hasImageFormatFeatureBits(
+                intendedFormatID,
+                VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT);
+        if (filtersMustMatch)
+        {
+            GLenum glFilter = (mYcbcrConversionDesc.getChromaFilter() == VK_FILTER_LINEAR)
+                                  ? GL_LINEAR
+                                  : GL_NEAREST;
+            minFilter       = glFilter;
+            magFilter       = glFilter;
+        }
     }
 
     bool compareEnable    = samplerState.getCompareMode() == GL_COMPARE_REF_TO_TEXTURE;
@@ -4280,8 +4406,6 @@ void SamplerDesc::update(ContextVk *contextVk,
         compareOp     = VK_COMPARE_OP_ALWAYS;
     }
 
-    GLenum magFilter = samplerState.getMagFilter();
-    GLenum minFilter = samplerState.getMinFilter();
     if (featuresVk.forceNearestFiltering.enabled)
     {
         magFilter = gl::ConvertToNearestFilterMode(magFilter);
@@ -4373,16 +4497,12 @@ angle::Result SamplerDesc::init(ContextVk *contextVk, Sampler *sampler) const
             contextVk, mYcbcrConversionDesc, &samplerYcbcrConversionInfo.conversion));
         AddToPNextChain(&createInfo, &samplerYcbcrConversionInfo);
 
-        const VkFilter filter = contextVk->getRenderer()->getPreferredFilterForYUV();
-
         // Vulkan spec requires these settings:
         createInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         createInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         createInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         createInfo.anisotropyEnable        = VK_FALSE;
         createInfo.unnormalizedCoordinates = VK_FALSE;
-        createInfo.magFilter               = filter;
-        createInfo.minFilter               = filter;
     }
 
     VkSamplerCustomBorderColorCreateInfoEXT customBorderColorInfo = {};
@@ -4619,21 +4739,32 @@ void DescriptorSetDesc::streamOut(std::ostream &ostr) const
 // DescriptorSetDescBuilder implementation.
 DescriptorSetDescBuilder::DescriptorSetDescBuilder() = default;
 
-DescriptorSetDescBuilder::~DescriptorSetDescBuilder() = default;
+DescriptorSetDescBuilder::~DescriptorSetDescBuilder()
+{
+    ASSERT(mUsedImages.empty());
+    ASSERT(mUsedBufferBlocks.empty());
+    ASSERT(mUsedBufferHelpers.empty());
+}
 
 DescriptorSetDescBuilder::DescriptorSetDescBuilder(const DescriptorSetDescBuilder &other)
     : mDesc(other.mDesc),
       mHandles(other.mHandles),
       mDynamicOffsets(other.mDynamicOffsets),
-      mCurrentInfoIndex(other.mCurrentInfoIndex)
+      mCurrentInfoIndex(other.mCurrentInfoIndex),
+      mUsedImages(other.mUsedImages),
+      mUsedBufferBlocks(other.mUsedBufferBlocks),
+      mUsedBufferHelpers(other.mUsedBufferHelpers)
 {}
 
 DescriptorSetDescBuilder &DescriptorSetDescBuilder::operator=(const DescriptorSetDescBuilder &other)
 {
-    mDesc             = other.mDesc;
-    mHandles          = other.mHandles;
-    mDynamicOffsets   = other.mDynamicOffsets;
-    mCurrentInfoIndex = other.mCurrentInfoIndex;
+    mDesc              = other.mDesc;
+    mHandles           = other.mHandles;
+    mDynamicOffsets    = other.mDynamicOffsets;
+    mCurrentInfoIndex  = other.mCurrentInfoIndex;
+    mUsedImages        = other.mUsedImages;
+    mUsedBufferBlocks  = other.mUsedBufferBlocks;
+    mUsedBufferHelpers = other.mUsedBufferHelpers;
     return *this;
 }
 
@@ -4643,6 +4774,9 @@ void DescriptorSetDescBuilder::reset()
     mHandles.clear();
     mDynamicOffsets.clear();
     mCurrentInfoIndex = 0;
+    mUsedImages.clear();
+    mUsedBufferBlocks.clear();
+    mUsedBufferHelpers.clear();
 }
 
 void DescriptorSetDescBuilder::updateWriteDesc(uint32_t bindingIndex,
@@ -4690,6 +4824,7 @@ void DescriptorSetDescBuilder::updateUniformBuffer(uint32_t bindingIndex,
     DescriptorInfoDesc infoDesc = {};
     SetBitField(infoDesc.imageLayoutOrRange, bufferRange);
     infoDesc.samplerOrBufferSerial = bufferHelper.getBlockSerial().getValue();
+    mUsedBufferBlocks.emplace_back(bufferHelper.getBufferBlock());
 
     uint32_t infoIndex = mDesc.getInfoDescIndex(bindingIndex);
 
@@ -4726,6 +4861,7 @@ void DescriptorSetDescBuilder::updateTransformFeedbackBuffer(
     SetBitField(infoDesc.imageLayoutOrRange, adjustedRange);
     SetBitField(infoDesc.imageViewSerialOrOffset, alignedOffset);
     infoDesc.samplerOrBufferSerial = bufferHelper.getBlockSerial().getValue();
+    mUsedBufferBlocks.emplace_back(bufferHelper.getBufferBlock());
 
     uint32_t infoIndex = mDesc.getInfoDescIndex(baseBinding) + xfbBufferIndex;
 
@@ -4770,45 +4906,58 @@ void DescriptorSetDescBuilder::updateUniformsAndXfb(Context *context,
     }
 }
 
-void UpdatePreCacheActiveTextures(const gl::ActiveTextureMask &activeTextures,
+void UpdatePreCacheActiveTextures(const std::vector<gl::SamplerBinding> &samplerBindings,
+                                  const gl::ActiveTextureMask &activeTextures,
                                   const gl::ActiveTextureArray<TextureVk *> &textures,
                                   const gl::SamplerBindingVector &samplers,
                                   DescriptorSetDesc *desc)
 {
     desc->reset();
 
-    for (size_t textureIndex : activeTextures)
+    for (uint32_t samplerIndex = 0; samplerIndex < samplerBindings.size(); ++samplerIndex)
     {
-        TextureVk *textureVk = textures[textureIndex];
-
-        DescriptorInfoDesc infoDesc = {};
-
-        if (textureVk->getState().getType() == gl::TextureType::Buffer)
+        const gl::SamplerBinding &samplerBinding = samplerBindings[samplerIndex];
+        uint32_t arraySize        = static_cast<uint32_t>(samplerBinding.boundTextureUnits.size());
+        bool isSamplerExternalY2Y = samplerBinding.samplerType == GL_SAMPLER_EXTERNAL_2D_Y2Y_EXT;
+        for (uint32_t arrayElement = 0; arrayElement < arraySize; ++arrayElement)
         {
-            ImageOrBufferViewSubresourceSerial imageViewSerial = textureVk->getBufferViewSerial();
-            infoDesc.imageViewSerialOrOffset = imageViewSerial.viewSerial.getValue();
+            size_t textureIndex = samplerBinding.boundTextureUnits[arrayElement];
+            if (!activeTextures.test(textureIndex))
+                continue;
+            TextureVk *textureVk = textures[textureIndex];
+
+            DescriptorInfoDesc infoDesc = {};
+
+            if (textureVk->getState().getType() == gl::TextureType::Buffer)
+            {
+                ImageOrBufferViewSubresourceSerial imageViewSerial =
+                    textureVk->getBufferViewSerial();
+                infoDesc.imageViewSerialOrOffset = imageViewSerial.viewSerial.getValue();
+            }
+            else
+            {
+                gl::Sampler *sampler       = samplers[textureIndex].get();
+                const SamplerVk *samplerVk = sampler ? vk::GetImpl(sampler) : nullptr;
+
+                const SamplerHelper &samplerHelper =
+                    samplerVk ? samplerVk->getSampler()
+                              : textureVk->getSampler(isSamplerExternalY2Y);
+                const gl::SamplerState &samplerState =
+                    sampler ? sampler->getSamplerState() : textureVk->getState().getSamplerState();
+
+                ImageOrBufferViewSubresourceSerial imageViewSerial =
+                    textureVk->getImageViewSubresourceSerial(samplerState);
+
+                // Layout is implicit.
+
+                infoDesc.imageViewSerialOrOffset = imageViewSerial.viewSerial.getValue();
+                infoDesc.samplerOrBufferSerial   = samplerHelper.getSamplerSerial().getValue();
+                memcpy(&infoDesc.imageSubresourceRange, &imageViewSerial.subresource,
+                       sizeof(uint32_t));
+            }
+
+            desc->updateInfoDesc(static_cast<uint32_t>(textureIndex), infoDesc);
         }
-        else
-        {
-            gl::Sampler *sampler       = samplers[textureIndex].get();
-            const SamplerVk *samplerVk = sampler ? vk::GetImpl(sampler) : nullptr;
-
-            const SamplerHelper &samplerHelper =
-                samplerVk ? samplerVk->getSampler() : textureVk->getSampler();
-            const gl::SamplerState &samplerState =
-                sampler ? sampler->getSamplerState() : textureVk->getState().getSamplerState();
-
-            ImageOrBufferViewSubresourceSerial imageViewSerial =
-                textureVk->getImageViewSubresourceSerial(samplerState);
-
-            // Layout is implicit.
-
-            infoDesc.imageViewSerialOrOffset = imageViewSerial.viewSerial.getValue();
-            infoDesc.samplerOrBufferSerial   = samplerHelper.getSamplerSerial().getValue();
-            memcpy(&infoDesc.imageSubresourceRange, &imageViewSerial.subresource, sizeof(uint32_t));
-        }
-
-        desc->updateInfoDesc(static_cast<uint32_t>(textureIndex), infoDesc);
     }
 }
 
@@ -4819,14 +4968,15 @@ angle::Result DescriptorSetDescBuilder::updateFullActiveTextures(
     const gl::ActiveTextureArray<TextureVk *> &textures,
     const gl::SamplerBindingVector &samplers,
     bool emulateSeamfulCubeMapSampling,
-    PipelineType pipelineType)
+    PipelineType pipelineType,
+    const SharedDescriptorSetCacheKey &sharedCacheKey)
 {
     reset();
     for (gl::ShaderType shaderType : executable.getLinkedShaderStages())
     {
         ANGLE_TRY(updateExecutableActiveTexturesForShader(
             context, shaderType, variableInfoMap, executable, textures, samplers,
-            emulateSeamfulCubeMapSampling, pipelineType));
+            emulateSeamfulCubeMapSampling, pipelineType, sharedCacheKey));
     }
 
     return angle::Result::Continue;
@@ -4840,7 +4990,8 @@ angle::Result DescriptorSetDescBuilder::updateExecutableActiveTexturesForShader(
     const gl::ActiveTextureArray<TextureVk *> &textures,
     const gl::SamplerBindingVector &samplers,
     bool emulateSeamfulCubeMapSampling,
-    PipelineType pipelineType)
+    PipelineType pipelineType,
+    const SharedDescriptorSetCacheKey &sharedCacheKey)
 {
     const std::vector<gl::SamplerBinding> &samplerBindings = executable.getSamplerBindings();
     const std::vector<gl::LinkedUniform> &uniforms         = executable.getUniforms();
@@ -4872,6 +5023,8 @@ angle::Result DescriptorSetDescBuilder::updateExecutableActiveTexturesForShader(
 
         updateWriteDesc(info.binding, descriptorType, descriptorCount);
 
+        bool isSamplerExternalY2Y = samplerBinding.samplerType == GL_SAMPLER_EXTERNAL_2D_Y2Y_EXT;
+
         for (uint32_t arrayElement = 0; arrayElement < arraySize; ++arrayElement)
         {
             GLuint textureUnit   = samplerBinding.boundTextureUnits[arrayElement];
@@ -4888,6 +5041,8 @@ angle::Result DescriptorSetDescBuilder::updateExecutableActiveTexturesForShader(
                     textureVk->getBufferViewSerial();
                 infoDesc.imageViewSerialOrOffset = imageViewSerial.viewSerial.getValue();
 
+                textureVk->onNewDescriptorSet(sharedCacheKey);
+
                 const BufferView *view = nullptr;
                 ANGLE_TRY(textureVk->getBufferViewAndRecordUse(context, nullptr, false, &view));
                 mHandles[infoIndex].bufferView = view->getHandle();
@@ -4898,12 +5053,15 @@ angle::Result DescriptorSetDescBuilder::updateExecutableActiveTexturesForShader(
                 const SamplerVk *samplerVk = sampler ? vk::GetImpl(sampler) : nullptr;
 
                 const SamplerHelper &samplerHelper =
-                    samplerVk ? samplerVk->getSampler() : textureVk->getSampler();
+                    samplerVk ? samplerVk->getSampler()
+                              : textureVk->getSampler(isSamplerExternalY2Y);
                 const gl::SamplerState &samplerState =
                     sampler ? sampler->getSamplerState() : textureVk->getState().getSamplerState();
 
                 ImageOrBufferViewSubresourceSerial imageViewSerial =
                     textureVk->getImageViewSubresourceSerial(samplerState);
+
+                textureVk->onNewDescriptorSet(sharedCacheKey);
 
                 ImageLayout imageLayout = textureVk->getImage().getCurrentImageLayout();
 
@@ -4915,7 +5073,10 @@ angle::Result DescriptorSetDescBuilder::updateExecutableActiveTexturesForShader(
 
                 mHandles[infoIndex].sampler = samplerHelper.get().getHandle();
 
-                if (emulateSeamfulCubeMapSampling)
+                // __samplerExternal2DY2YEXT cannot be used with
+                // emulateSeamfulCubeMapSampling because that's only enabled in GLES == 2.
+                // Use the read image view here anyway.
+                if (emulateSeamfulCubeMapSampling && !isSamplerExternalY2Y)
                 {
                     // If emulating seamful cube mapping, use the fetch image view.  This is
                     // basically the same image view as read, except it's a 2DArray view for
@@ -4927,7 +5088,8 @@ angle::Result DescriptorSetDescBuilder::updateExecutableActiveTexturesForShader(
                 else
                 {
                     const ImageView &imageView = textureVk->getReadImageView(
-                        context, samplerState.getSRGBDecode(), samplerUniform.texelFetchStaticUse);
+                        context, samplerState.getSRGBDecode(), samplerUniform.texelFetchStaticUse,
+                        isSamplerExternalY2Y);
                     mHandles[infoIndex].imageView = imageView.getHandle();
                 }
             }
@@ -5039,10 +5201,12 @@ void DescriptorSetDescBuilder::updateShaderBuffers(
             if (IsDynamicDescriptor(descriptorType))
             {
                 SetBitField(mDynamicOffsets[infoDescIndex], offset);
+                mUsedBufferBlocks.emplace_back(bufferHelper.getBufferBlock());
             }
             else
             {
                 SetBitField(infoDesc.imageViewSerialOrOffset, offset);
+                mUsedBufferHelpers.emplace_back(&bufferHelper);
             }
 
             mDesc.updateInfoDesc(infoDescIndex, infoDesc);
@@ -5119,6 +5283,7 @@ void DescriptorSetDescBuilder::updateAtomicCounters(
         SetBitField(infoDesc.imageLayoutOrRange, range);
         SetBitField(infoDesc.imageViewSerialOrOffset, offset);
         infoDesc.samplerOrBufferSerial = bufferHelper.getBlockSerial().getValue();
+        mUsedBufferHelpers.emplace_back(&bufferHelper);
 
         mDesc.updateInfoDesc(infoIndex, infoDesc);
         mHandles[infoIndex].buffer = bufferHelper.getBuffer().getHandle();
@@ -5193,6 +5358,7 @@ angle::Result DescriptorSetDescBuilder::updateImages(
                 DescriptorInfoDesc infoDesc = {};
                 infoDesc.imageViewSerialOrOffset =
                     textureVk->getBufferViewSerial().viewSerial.getValue();
+                mUsedImages.emplace_back(textureVk);
 
                 mDesc.updateInfoDesc(infoIndex, infoDesc);
                 mHandles[infoIndex].bufferView = view->getHandle();
@@ -5223,6 +5389,7 @@ angle::Result DescriptorSetDescBuilder::updateImages(
                 SetBitField(infoDesc.imageLayoutOrRange, image->getCurrentImageLayout());
                 memcpy(&infoDesc.imageSubresourceRange, &serial.subresource, sizeof(uint32_t));
                 infoDesc.imageViewSerialOrOffset = serial.viewSerial.getValue();
+                mUsedImages.emplace_back(textureVk);
 
                 mDesc.updateInfoDesc(infoIndex, infoDesc);
                 mHandles[infoIndex].imageView = imageView->getHandle();
@@ -5298,12 +5465,36 @@ void DescriptorSetDescBuilder::updateDescriptorSet(UpdateDescriptorSetsBuilder *
     mDesc.updateDescriptorSet(updateBuilder, mHandles.data(), descriptorSet);
 }
 
+void DescriptorSetDescBuilder::updateImagesAndBuffersWithSharedCacheKey(
+    const SharedDescriptorSetCacheKey &sharedCacheKey)
+{
+    if (sharedCacheKey)
+    {
+        // A new cache entry has been created. We record this cache key in the images and buffers so
+        // that the descriptorSet cache can be destroyed when buffer/image is destroyed.
+        for (TextureVk *image : mUsedImages)
+        {
+            image->onNewDescriptorSet(sharedCacheKey);
+        }
+        for (BufferBlock *bufferBlock : mUsedBufferBlocks)
+        {
+            bufferBlock->onNewDescriptorSet(sharedCacheKey);
+        }
+        for (BufferHelper *bufferHelper : mUsedBufferHelpers)
+        {
+            bufferHelper->onNewDescriptorSet(sharedCacheKey);
+        }
+    }
+
+    mUsedImages.clear();
+    mUsedBufferBlocks.clear();
+    mUsedBufferHelpers.clear();
+}
+
 // SharedCacheKeyManager implementation.
 template <class SharedCacheKeyT>
 void SharedCacheKeyManager<SharedCacheKeyT>::addKey(const SharedCacheKeyT &key)
 {
-    ASSERT(!containsKey(key));
-
     // If there is invalid key in the array, use it instead of keep expanding the array
     for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
@@ -5325,7 +5516,7 @@ void SharedCacheKeyManager<SharedCacheKeyT>::releaseKeys(ContextVk *contextVk)
         {
             // Immediate destroy the cached object and the key itself when first releaseRef call is
             // made
-            (*sharedCacheKey.get())->destroyCachedObject(contextVk);
+            ReleaseCachedObject(contextVk, *(*sharedCacheKey.get()));
             *sharedCacheKey.get() = nullptr;
         }
     }
@@ -5333,13 +5524,26 @@ void SharedCacheKeyManager<SharedCacheKeyT>::releaseKeys(ContextVk *contextVk)
 }
 
 template <class SharedCacheKeyT>
-void SharedCacheKeyManager<SharedCacheKeyT>::destroy()
+void SharedCacheKeyManager<SharedCacheKeyT>::destroyKeys(RendererVk *renderer)
 {
-    // Caller must have already freed all caches
     for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
-        ASSERT(*sharedCacheKey.get() == nullptr);
+        // destroy the cache key
+        if (*sharedCacheKey.get() != nullptr)
+        {
+            // Immediate destroy the cached object and the key
+            DestroyCachedObject(renderer, *(*sharedCacheKey.get()));
+            *sharedCacheKey.get() = nullptr;
+        }
     }
+    mSharedCacheKeys.clear();
+}
+
+template <class SharedCacheKeyT>
+void SharedCacheKeyManager<SharedCacheKeyT>::clear()
+{
+    // Caller must have already freed all caches
+    assertAllEntriesDestroyed();
     mSharedCacheKeys.clear();
 }
 
@@ -5356,8 +5560,20 @@ bool SharedCacheKeyManager<SharedCacheKeyT>::containsKey(const SharedCacheKeyT &
     return false;
 }
 
+template <class SharedCacheKeyT>
+void SharedCacheKeyManager<SharedCacheKeyT>::assertAllEntriesDestroyed()
+{
+    // Caller must have already freed all caches
+    for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
+    {
+        ASSERT(*sharedCacheKey.get() == nullptr);
+    }
+}
+
 // Explict instantiate for FramebufferCacheManager
 template class SharedCacheKeyManager<SharedFramebufferCacheKey>;
+// Explict instantiate for DescriptorSetCacheManager
+template class SharedCacheKeyManager<SharedDescriptorSetCacheKey>;
 }  // namespace vk
 
 // FramebufferCache implementation.

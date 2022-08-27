@@ -318,6 +318,7 @@ Heap::Heap(VM& vm, HeapType heapType)
     , injectedScriptHostSpaceHeapCellType(IsoHeapCellType::Args<Inspector::JSInjectedScriptHost>())
     , javaScriptCallFrameHeapCellType(IsoHeapCellType::Args<Inspector::JSJavaScriptCallFrame>())
     , jsModuleRecordHeapCellType(IsoHeapCellType::Args<JSModuleRecord>())
+    , syntheticModuleRecordHeapCellType(IsoHeapCellType::Args<SyntheticModuleRecord>())
     , moduleNamespaceObjectHeapCellType(IsoHeapCellType::Args<JSModuleNamespaceObject>())
     , nativeStdFunctionHeapCellType(IsoHeapCellType::Args<JSNativeStdFunction>())
     , weakMapHeapCellType(IsoHeapCellType::Args<JSWeakMap>())
@@ -814,6 +815,7 @@ void Heap::beginMarking()
     TimingScope timingScope(*this, "Heap::beginMarking");
     m_jitStubRoutines->clearMarks();
     m_objectSpace.beginMarking();
+    vm().beginMarking();
     setMutatorShouldBeFenced(true);
 }
 
@@ -2834,9 +2836,11 @@ void Heap::addCoreConstraints()
                 scanExternalRememberedSet(vm, visitor);
             }
 
-            if (vm.smallStrings.needsToBeVisited(*m_collectionScope)) {
+            {
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::StrongReferences);
-                vm.smallStrings.visitStrongReferences(visitor);
+                if (vm.smallStrings.needsToBeVisited(*m_collectionScope))
+                    vm.smallStrings.visitStrongReferences(visitor);
+                vm.visitAggregate(visitor);
             }
             
             {

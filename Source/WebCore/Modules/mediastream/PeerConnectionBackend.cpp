@@ -48,6 +48,7 @@
 #include "RTCSctpTransportBackend.h"
 #include "RTCSessionDescriptionInit.h"
 #include "RTCTrackEvent.h"
+#include "WebRTCProvider.h"
 #include <wtf/UUID.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -58,7 +59,25 @@
 
 namespace WebCore {
 
-#if !USE(LIBWEBRTC) && !USE(GSTREAMER_WEBRTC)
+#if USE(LIBWEBRTC) || USE(GSTREAMER_WEBRTC)
+
+std::optional<RTCRtpCapabilities> PeerConnectionBackend::receiverCapabilities(ScriptExecutionContext& context, const String& kind)
+{
+    auto* page = downcast<Document>(context).page();
+    if (!page)
+        return { };
+    return page->webRTCProvider().receiverCapabilities(kind);
+}
+
+std::optional<RTCRtpCapabilities> PeerConnectionBackend::senderCapabilities(ScriptExecutionContext& context, const String& kind)
+{
+    auto* page = downcast<Document>(context).page();
+    if (!page)
+        return { };
+    return page->webRTCProvider().senderCapabilities(kind);
+}
+
+#else
 
 static std::unique_ptr<PeerConnectionBackend> createNoPeerConnectionBackend(RTCPeerConnection&)
 {
@@ -78,7 +97,7 @@ std::optional<RTCRtpCapabilities> PeerConnectionBackend::senderCapabilities(Scri
     ASSERT_NOT_REACHED();
     return { };
 }
-#endif
+#endif // USE(LIBWEBRTC) || USE(GSTREAMER_WEBRTC)
 
 PeerConnectionBackend::PeerConnectionBackend(RTCPeerConnection& peerConnection)
     : m_peerConnection(peerConnection)
@@ -90,7 +109,7 @@ PeerConnectionBackend::PeerConnectionBackend(RTCPeerConnection& peerConnection)
 #if USE(LIBWEBRTC)
     auto* document = peerConnection.document();
     if (auto* page = document ? document->page() : nullptr)
-        m_shouldFilterICECandidates = page->libWebRTCProvider().isSupportingMDNS();
+        m_shouldFilterICECandidates = page->webRTCProvider().isSupportingMDNS();
 #endif
 }
 
@@ -446,7 +465,8 @@ void PeerConnectionBackend::generateCertificate(Document& document, const Certif
         return;
     }
 
-    LibWebRTCCertificateGenerator::generateCertificate(document.securityOrigin(), page->libWebRTCProvider(), info, [promise = WTFMove(promise)](auto&& result) mutable {
+    auto& webRTCProvider = static_cast<LibWebRTCProvider&>(page->webRTCProvider());
+    LibWebRTCCertificateGenerator::generateCertificate(document.securityOrigin(), webRTCProvider, info, [promise = WTFMove(promise)](auto&& result) mutable {
         promise.settle(WTFMove(result));
     });
 #elif USE(GSTREAMER_WEBRTC)

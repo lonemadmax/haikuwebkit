@@ -25,25 +25,30 @@
 
 #pragma once
 
+#include "WebPageProxyIdentifier.h"
 #include <WebCore/ClientOrigin.h>
 #include <WebCore/PermissionController.h>
 #include <WebCore/PermissionDescriptor.h>
 #include <wtf/Deque.h>
 #include <wtf/WeakHashSet.h>
 
-namespace WebKit {
+namespace WebCore {
+enum class PermissionQuerySource : uint8_t;
+enum class PermissionState : uint8_t;
+class Page;
+}
 
-class WebPage;
+namespace WebKit {
 
 class WebPermissionController final : public CanMakeWeakPtr<WebPermissionController>, public WebCore::PermissionController {
 public:
-    static Ref<WebPermissionController> create(WebPage&);
+    static Ref<WebPermissionController> create();
 
 private:
-    explicit WebPermissionController(WebPage&);
+    WebPermissionController();
 
     // WebCore::PermissionController
-    void query(WebCore::ClientOrigin&&, WebCore::PermissionDescriptor&&, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&&) final;
+    void query(WebCore::ClientOrigin&&, WebCore::PermissionDescriptor&&, WebCore::Page*, WebCore::PermissionQuerySource, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&&) final;
     void addObserver(WebCore::PermissionObserver&) final;
     void removeObserver(WebCore::PermissionObserver&) final;
 
@@ -52,7 +57,6 @@ private:
     void tryProcessingRequests();
     void permissionChanged(const WebCore::ClientOrigin&, const WebCore::PermissionDescriptor&, WebCore::PermissionState);
 
-    WeakPtr<WebPage> m_page;
     WeakHashSet<WebCore::PermissionObserver> m_observers;
 
     using PermissionEntry = std::pair<WebCore::PermissionDescriptor, WebCore::PermissionState>;
@@ -61,6 +65,8 @@ private:
     struct PermissionRequest {
         WebCore::ClientOrigin origin;
         WebCore::PermissionDescriptor descriptor;
+        std::optional<WebPageProxyIdentifier> identifier;
+        WebCore::PermissionQuerySource source;
         CompletionHandler<void(std::optional<WebCore::PermissionState>)> completionHandler;
         bool isWaitingForReply { false };
     };

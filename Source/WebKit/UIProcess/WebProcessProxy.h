@@ -97,6 +97,7 @@ class WebFrameProxy;
 class WebLockRegistryProxy;
 class WebPageGroup;
 class WebPageProxy;
+class WebPermissionControllerProxy;
 class WebProcessPool;
 class WebUserContentControllerProxy;
 class WebsiteDataStore;
@@ -167,7 +168,7 @@ public:
     void enableRemoteWorkers(RemoteWorkerType, const UserContentControllerIdentifier&);
     void disableRemoteWorkers(RemoteWorkerType);
 
-    WebsiteDataStore* websiteDataStore() const;
+    WebsiteDataStore* websiteDataStore() const { ASSERT(m_websiteDataStore); return m_websiteDataStore.get(); }
     void setWebsiteDataStore(WebsiteDataStore&);
     
     PAL::SessionID sessionID() const;
@@ -444,6 +445,9 @@ public:
     void hardwareConsoleStateChanged();
 #endif
 
+    const WeakHashSet<WebProcessProxy>* serviceWorkerClientProcesses() const;
+    const WeakHashSet<WebProcessProxy>* sharedWorkerClientProcesses() const;
+
 protected:
     WebProcessProxy(WebProcessPool&, WebsiteDataStore*, IsPrewarmed, WebCore::CrossOriginMode, CaptivePortalMode);
 
@@ -619,7 +623,7 @@ private:
     Vector<CompletionHandler<void(bool webProcessIsResponsive)>> m_isResponsiveCallbacks;
 
     VisibleWebPageCounter m_visiblePageCounter;
-    std::optional<PAL::SessionID> m_sessionID;
+    RefPtr<WebsiteDataStore> m_websiteDataStore;
 
     bool m_isUnderMemoryPressure { false };
 
@@ -680,6 +684,7 @@ private:
     std::unique_ptr<SpeechRecognitionRemoteRealtimeMediaSourceManager> m_speechRecognitionRemoteRealtimeMediaSourceManager;
 #endif
     std::unique_ptr<WebLockRegistryProxy> m_webLockRegistry;
+    std::unique_ptr<WebPermissionControllerProxy> m_webPermissionController;
     bool m_isConnectedToHardwareConsole { true };
 };
 

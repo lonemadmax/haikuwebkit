@@ -38,7 +38,6 @@
 #include "RenderGeometryMap.h"
 #include "RenderIterator.h"
 #include "RenderLayer.h"
-#include "RenderSVGImage.h"
 #include "RenderSVGResourceClipper.h"
 #include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceMarker.h"
@@ -156,7 +155,7 @@ void SVGRenderSupport::computeContainerBoundingBoxes(const RenderElement& contai
     // the resources applied to the children (such as clips and filters). This allows filters applied to containers to correctly bound
     // the children, and also improves inlining of SVG content, as the stroke bound is used in that situation also.
     for (auto& current : childrenOfType<RenderObject>(container)) {
-        if (current.isSVGHiddenContainer())
+        if (current.isLegacySVGHiddenContainer())
             continue;
 
         // Don't include elements in the union that do not render.

@@ -80,6 +80,7 @@
 #include <WebCore/NotificationData.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/RuntimeApplicationChecks.h>
+#include <WebCore/SQLiteDatabase.h>
 #include <WebCore/SWServer.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
@@ -314,6 +315,7 @@ void NetworkProcess::initializeNetworkProcess(NetworkProcessCreationParameters&&
 #else
     WTF::setProcessPrivileges({ ProcessPrivilege::CanAccessRawCookies, ProcessPrivilege::CanAccessCredentials });
 #endif
+    WebCore::SQLiteDatabase::useFastMalloc();
     WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
     platformInitializeNetworkProcess(parameters);
 
@@ -2291,7 +2293,7 @@ void NetworkProcess::renameOriginInWebsiteData(PAL::SessionID sessionID, const U
     auto oldOrigin = WebCore::SecurityOriginData::fromURL(oldName);
     auto newOrigin = WebCore::SecurityOriginData::fromURL(newName);
 
-    if (oldOrigin.isEmpty() || newOrigin.isEmpty())
+    if (oldOrigin.isNull() || newOrigin.isNull())
         return;
 
     if (auto* session = networkSession(sessionID))

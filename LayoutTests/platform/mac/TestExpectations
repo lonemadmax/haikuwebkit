@@ -85,6 +85,8 @@ imported/w3c/web-platform-tests/pointerevents [ Pass ]
 
 imported/w3c/web-platform-tests/speech-api [ Pass ]
 
+http/tests/media/fairplay [ Pass ]
+
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -1505,6 +1507,13 @@ webkit.org/b/205361 [ Release ] crypto/workers/subtle/aes-indexeddb.html [ Pass 
 
 webkit.org/b/205403 accessibility/presentation-role-iframe.html [ Pass Failure ]
 
+# The actual behavior-under-test has been flaky since introduced, but this flakiness
+# was only exposed when an unnecessary group was removed from the AX tree in:
+# https://bugs.webkit.org/show_bug.cgi?id=243373 (AX: An unnecessary group is created for every block-flow box with no other useful AX semantics)
+# The flakey behavior is that sometimes the AXImage with "circle" AXStaticText child sometimes never becomes part of the AX tree.
+# Full investigation at: https://bugs.webkit.org/show_bug.cgi?id=243407
+webkit.org/b/243407 accessibility/add-children-pseudo-element.html [ Pass Failure ]
+
 # Disabled temporarily since it is causing other tests to fail.
 accessibility/mac/isolated-tree-mode-on-off.html [ Skip ]
 
@@ -1608,7 +1617,6 @@ webkit.org/b/211856 media/video-poster-set-after-playback.html [ Pass Failure ]
 http/tests/frame-throttling/raf-throttle-in-cross-origin-subframe.html [ Pass Failure ]
 
 # These tests fail due to slight differences in font rendering.
-webkit.org/b/211891 imported/w3c/web-platform-tests/css/css-flexbox/flexbox_direction-row-reverse.html [ ImageOnlyFailure ]
 webkit.org/b/211891 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-003.xhtml [ ImageOnlyFailure ]
 webkit.org/b/211891 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-004.xhtml [ ImageOnlyFailure ]
 webkit.org/b/211891 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-rtl-001.xhtml [ ImageOnlyFailure ]
@@ -1864,7 +1872,6 @@ webkit.org/b/219448 [ Debug ] webgl/2.0.0/conformance/rendering/multisample-corr
 
 webkit.org/b/216298 imported/w3c/web-platform-tests/IndexedDB/blob-valid-after-deletion.any.html [ Pass Failure ]
 
-webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-ui/text-overflow-017.html [ Skip ]
 webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-values/vh_not_refreshing_on_chrome.html [ Skip ]
 webkit.org/b/186045 imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-content/cross-domain-iframe.sub.html [ Skip ]
 
@@ -2126,7 +2133,6 @@ fast/css/accent-color/progress.html [ Pass ]
 fast/css/accent-color/radio.html [ Pass ]
 fast/css/accent-color/select.html [ Pass ]
 fast/css/accent-color/text.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-ui/accent-color-checkbox-checked-001.tentative.html [ Pass ]
 
 # The following controls are not tintable on macOS
 fast/css/accent-color/button.html [ Skip ]
@@ -2214,7 +2220,7 @@ webkit.org/b/230862 [ BigSur ] imported/w3c/web-platform-tests/resource-timing/s
 
 webkit.org/b/230984 [ BigSur Debug arm64 ] streams/readableStream-then.html [ Pass Crash ]
 
-webkit.org/b/231757 [ BigSur ] inspector/canvas/updateShader-webgl.html [ Pass Failure ]
+webkit.org/b/244159 inspector/canvas/updateShader-webgl.html [ Pass Failure ]
 
 webkit.org/b/237840 [ Monterey ] webgl/2.0.0/conformance2/glsl3/bool-type-cast-bug-uint-ivec-uvec.html [ Pass Crash ]
 
@@ -2274,7 +2280,7 @@ webkit.org/b/227845 [ Debug ] webaudio/audioworket-out-of-memory.html [ Pass Tim
 
 webkit.org/b/240989 http/tests/media/hls/hls-webvtt-flashing.html [ Pass Failure ]
 
-[ Monterey+ ] fast/text/bulgarian-system-language-shaping.html [ Pass ]
+webkit.org/b/241253 fast/text/bulgarian-system-language-shaping.html [ Pass ]
 
 webkit.org/b/242249 [ BigSur+ ] webanimations/accelerated-animation-after-forward-filling-animation.html [ Pass ImageOnlyFailure ]
 
@@ -2283,3 +2289,12 @@ webkit.org/b/242481 fast/css/direct-adjacent-style-sharing-3.html [ Pass ImageOn
 webkit.org/b/242484 fast/css/display-contents-all.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/242226 http/tests/media/modern-media-controls/time-control [ Pass Crash ]
+
+webkit.org/b/243515 svg/compositing/svg-poster-circle.html [ Pass ImageOnlyFailure ]
+webkit.org/b/243515 [ Monterey+ ] svg/compositing/outermost-svg-with-border-padding.html [ Pass ImageOnlyFailure ]
+webkit.org/b/243515 [ Monterey+ ] svg/compositing/outermost-svg-directly-composited-transformed-group-child.html [ Pass ImageOnlyFailure ]
+
+# The following test only fail on Mac EWS bots.
+webkit.org/b/244012 imported/w3c/web-platform-tests/css/css-transforms/transform-3d-rotateY-stair-below-001.xht [ Pass ImageOnlyFailure ]
+
+webkit.org/b/244014 [ Debug ] imported/w3c/web-platform-tests/html/semantics/document-metadata/the-style-element/style-load-after-mutate.html  [ Pass Failure ]

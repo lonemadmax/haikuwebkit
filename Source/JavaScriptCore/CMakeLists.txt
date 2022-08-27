@@ -90,7 +90,6 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/JSDataViewPrototype.cpp
     runtime/JSGlobalObject.cpp
     runtime/JSInternalPromiseConstructor.cpp
-    runtime/JSModuleLoader.cpp
     runtime/JSONObject.cpp
     runtime/JSPromiseConstructor.cpp
     runtime/JSPromisePrototype.cpp
@@ -119,6 +118,8 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/TemporalObject.cpp
     runtime/TemporalPlainDateConstructor.cpp
     runtime/TemporalPlainDatePrototype.cpp
+    runtime/TemporalPlainDateTimeConstructor.cpp
+    runtime/TemporalPlainDateTimePrototype.cpp
     runtime/TemporalPlainTimeConstructor.cpp
     runtime/TemporalPlainTimePrototype.cpp
     runtime/TemporalTimeZoneConstructor.cpp
@@ -578,6 +579,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     assembler/AbstractMacroAssembler.h
     assembler/AssemblerBuffer.h
     assembler/AssemblerCommon.h
+    assembler/AssemblyComments.h
     assembler/CPU.h
     assembler/CodeLocation.h
     assembler/FastJITPermissions.h
@@ -616,6 +618,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     builtins/BuiltinNames.h
     builtins/BuiltinUtils.h
 
+    bytecode/AdaptiveInferredPropertyValueWatchpointBase.h
     bytecode/ArithProfile.h
     bytecode/ArrayAllocationProfile.h
     bytecode/ArrayProfile.h
@@ -1130,6 +1133,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/NumericStrings.h
     runtime/ObjectConstructor.h
     runtime/ObjectInitializationScope.h
+    runtime/ObjectPropertyChangeAdaptiveWatchpoint.h
     runtime/ObjectPrototype.h
     runtime/Operations.h
     runtime/Options.h
@@ -1191,6 +1195,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/SymbolPrototype.h
     runtime/SymbolTable.h
     runtime/SymbolTableOrScopeDepth.h
+    runtime/SyntheticModuleRecord.h
     runtime/TemplateObjectDescriptor.h
     runtime/TemporalNow.h
     runtime/TemporalObject.h

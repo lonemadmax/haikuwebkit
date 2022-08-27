@@ -341,6 +341,7 @@ public:
     LazyProperty<JSGlobalObject, Structure> m_durationStructure;
     LazyProperty<JSGlobalObject, Structure> m_instantStructure;
     LazyProperty<JSGlobalObject, Structure> m_plainDateStructure;
+    LazyProperty<JSGlobalObject, Structure> m_plainDateTimeStructure;
     LazyProperty<JSGlobalObject, Structure> m_plainTimeStructure;
     LazyProperty<JSGlobalObject, Structure> m_timeZoneStructure;
 
@@ -447,6 +448,7 @@ public:
     LazyProperty<JSGlobalObject, Structure> m_dataPropertyDescriptorObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_accessorPropertyDescriptorObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_moduleRecordStructure;
+    LazyProperty<JSGlobalObject, Structure> m_syntheticModuleRecordStructure;
     LazyProperty<JSGlobalObject, Structure> m_moduleNamespaceObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_proxyObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_callableProxyObjectStructure;
@@ -532,6 +534,9 @@ public:
     InlineWatchpointSet m_sharedArrayBufferSpeciesWatchpointSet { ClearWatchpoint };
     InlineWatchpointSet m_typedArrayConstructorSpeciesWatchpointSet { IsWatched };
     InlineWatchpointSet m_typedArrayPrototypeIteratorProtocolWatchpointSet { IsWatched };
+
+    // Current this is being set up in JSDOMWindowBase and watches only NodeList.prototype.length getter to be original.
+    InlineWatchpointSet m_alwaysSlowPutContiguousPrototypesAreSaneWatchpointSet { ClearWatchpoint };
 #define DECLARE_TYPED_ARRAY_TYPE_SPECIES_WATCHPOINT_SET(name) \
     InlineWatchpointSet m_typedArray ## name ## SpeciesWatchpointSet { ClearWatchpoint }; \
     InlineWatchpointSet m_typedArray ## name ## IteratorProtocolWatchpointSet { ClearWatchpoint };
@@ -556,10 +561,8 @@ public:
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayBufferPrototypeConstructorWatchpoints[2];
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArrayConstructorSpeciesWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArrayPrototypeSymbolIteratorWatchpoint;
-    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArrayPrototypeLengthWatchpoint;
 #define DECLARE_TYPED_ARRAY_TYPE_WATCHPOINT(name) \
     std::unique_ptr<ObjectAdaptiveStructureWatchpoint> m_typedArray ## name ## ConstructorSpeciesAbsenceWatchpoint; \
-    std::unique_ptr<ObjectAdaptiveStructureWatchpoint> m_typedArray ## name ## PrototypeLengthAbsenceWatchpoint; \
     std::unique_ptr<ObjectAdaptiveStructureWatchpoint> m_typedArray ## name ## PrototypeSymbolIteratorAbsenceWatchpoint; \
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArray ## name ## PrototypeConstructorWatchpoint;
     FOR_EACH_TYPED_ARRAY_TYPE(DECLARE_TYPED_ARRAY_TYPE_WATCHPOINT)
@@ -577,20 +580,6 @@ public:
         }
         RELEASE_ASSERT_NOT_REACHED();
         return m_typedArrayInt8ConstructorSpeciesAbsenceWatchpoint;
-    }
-
-    std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& typedArrayPrototypeLengthAbsenceWatchpoint(TypedArrayType type)
-    {
-        switch (type) {
-        case NotTypedArray:
-            RELEASE_ASSERT_NOT_REACHED();
-            return m_typedArrayInt8PrototypeLengthAbsenceWatchpoint;
-#define TYPED_ARRAY_TYPE_CASE(name) case Type ## name: return m_typedArray ## name ## PrototypeLengthAbsenceWatchpoint;
-            FOR_EACH_TYPED_ARRAY_TYPE(TYPED_ARRAY_TYPE_CASE)
-#undef TYPED_ARRAY_TYPE_CASE
-        }
-        RELEASE_ASSERT_NOT_REACHED();
-        return m_typedArrayInt8PrototypeLengthAbsenceWatchpoint;
     }
 
     std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& typedArrayPrototypeSymbolIteratorAbsenceWatchpoint(TypedArrayType type)
@@ -678,6 +667,7 @@ public:
     }
     InlineWatchpointSet& typedArrayConstructorSpeciesWatchpointSet() { return m_typedArrayConstructorSpeciesWatchpointSet; }
     InlineWatchpointSet& typedArrayPrototypeIteratorProtocolWatchpointSet() { return m_typedArrayPrototypeIteratorProtocolWatchpointSet; }
+    InlineWatchpointSet& alwaysSlowPutContiguousPrototypesAreSaneWatchpointSet() { return m_alwaysSlowPutContiguousPrototypesAreSaneWatchpointSet; }
 
     bool isArrayPrototypeIteratorProtocolFastAndNonObservable();
     bool isTypedArrayPrototypeIteratorProtocolFastAndNonObservable(TypedArrayType);
@@ -898,6 +888,14 @@ public:
     {
         return originalArrayStructureForIndexingType(structure->indexingMode() | IsArray) == structure;
     }
+
+    bool isOriginalSlowPutContigiousStructure(Structure* structure)
+    {
+        ASSERT(hasAlwaysSlowPutContiguous(structure->indexingMode()));
+        return m_originalAlwaysSlowPutContiguousStructureSet.contains(structure);
+    }
+
+    const StructureSet& originalAlwaysSlowPutContiguousStructureSet() const { return m_originalAlwaysSlowPutContiguousStructureSet; }
         
     Structure* booleanObjectStructure() const { return m_booleanObjectStructure.get(this); }
     Structure* callbackConstructorStructure() const { return m_callbackConstructorStructure.get(this); }
@@ -986,6 +984,7 @@ public:
     Structure* regExpMatchesIndicesArrayStructure() const { return m_regExpMatchesIndicesArrayStructure.get(); }
     Structure* remoteFunctionStructure() const { return m_remoteFunctionStructure.get(this); }
     Structure* moduleRecordStructure() const { return m_moduleRecordStructure.get(this); }
+    Structure* syntheticModuleRecordStructure() const { return m_syntheticModuleRecordStructure.get(this); }
     Structure* moduleNamespaceObjectStructure() const { return m_moduleNamespaceObjectStructure.get(this); }
     Structure* proxyObjectStructure() const { return m_proxyObjectStructure.get(this); }
     Structure* callableProxyObjectStructure() const { return m_callableProxyObjectStructure.get(this); }
@@ -1019,6 +1018,7 @@ public:
     Structure* durationStructure() { return m_durationStructure.get(this); }
     Structure* instantStructure() { return m_instantStructure.get(this); }
     Structure* plainDateStructure() { return m_plainDateStructure.get(this); }
+    Structure* plainDateTimeStructure() { return m_plainDateTimeStructure.get(this); }
     Structure* plainTimeStructure() { return m_plainTimeStructure.get(this); }
     Structure* timeZoneStructure() { return m_timeZoneStructure.get(this); }
 
@@ -1221,6 +1221,7 @@ public:
     static RuntimeFlags javaScriptRuntimeFlags(const JSGlobalObject*) { return RuntimeFlags(); }
 
     JS_EXPORT_PRIVATE void queueMicrotask(Ref<Microtask>&&);
+    JS_EXPORT_PRIVATE void queueMicrotask(JSValue job, JSValue, JSValue, JSValue, JSValue);
 
     static void reportViolationForUnsafeEval(const JSGlobalObject*, JSString*) { }
 
@@ -1307,7 +1308,7 @@ public:
     void tryInstallTypedArraySpeciesWatchpoint(TypedArrayType);
     void installTypedArrayIteratorProtocolWatchpoint(JSObject* prototype, TypedArrayType);
     void installTypedArrayConstructorSpeciesWatchpoint(JSTypedArrayViewConstructor*);
-    void installTypedArrayPrototypeIteratorProtocolWatchpoint(JSTypedArrayViewPrototype*, GetterSetter*);
+    void installTypedArrayPrototypeIteratorProtocolWatchpoint(JSTypedArrayViewPrototype*);
 
 protected:
     enum class HasSpeciesProperty : bool { Yes, No };
@@ -1330,6 +1331,8 @@ protected:
     JS_EXPORT_PRIVATE void addStaticGlobals(GlobalPropertyInfo*, int count);
 
     void setNeedsSiteSpecificQuirks(bool needQuirks) { m_needsSiteSpecificQuirks = needQuirks; }
+
+    JS_EXPORT_PRIVATE void recordOriginalAlwaysSlowPutContiguousStructure(Structure*);
 
 private:
     friend class LLIntOffsetsExtractor;
@@ -1354,6 +1357,8 @@ private:
 #ifdef JSC_GLIB_API_ENABLED
     std::unique_ptr<WrapperMap> m_wrapperMap;
 #endif
+
+    StructureSet m_originalAlwaysSlowPutContiguousStructureSet;
 };
 
 inline JSArray* constructEmptyArray(JSGlobalObject* globalObject, ArrayAllocationProfile* profile, unsigned initialLength = 0, JSValue newTarget = JSValue())

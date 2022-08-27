@@ -104,6 +104,7 @@
 #include "ScriptDisallowedScope.h"
 #include "ScriptRunner.h"
 #include "ScriptedAnimationController.h"
+#include "ScrollAnchoringController.h"
 #include "ScrollAnimator.h"
 #include "ScrollSnapOffsetsInfo.h"
 #include "ScrollbarTheme.h"
@@ -111,6 +112,8 @@
 #include "Settings.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
+#include "TextIndicator.h"
+#include "TextIterator.h"
 #include "TextResourceDecoder.h"
 #include "TiledBacking.h"
 #include "VelocityData.h"
@@ -197,6 +200,7 @@ FrameView::FrameView(Frame& frame)
     , m_delayedScrollEventTimer(*this, &FrameView::scheduleScrollEvent)
     , m_delayedScrollToFocusedElementTimer(*this, &FrameView::scrollToFocusedElementTimerFired)
     , m_speculativeTilingEnableTimer(*this, &FrameView::speculativeTilingEnableTimerFired)
+    , m_delayedTextFragmentIndicatorTimer(*this, &FrameView::textFragmentIndicatorTimerFired)
 {
     init();
 
@@ -214,6 +218,9 @@ FrameView::FrameView(Frame& frame)
     ScrollableArea::setVerticalScrollElasticity(verticalElasticity);
     ScrollableArea::setHorizontalScrollElasticity(horizontalElasticity);
 #endif
+    if (frame.document() && frame.document()->settings().cssScrollAnchoringEnabled())
+        m_scrollAnchoringController = WTF::makeUnique<ScrollAnchoringController>(*this);
+
 }
 
 Ref<FrameView> FrameView::create(Frame& frame)
@@ -260,6 +267,7 @@ void FrameView::reset()
     m_delayedScrollEventTimer.stop();
     m_shouldScrollToFocusedElement = false;
     m_delayedScrollToFocusedElementTimer.stop();
+    m_delayedTextFragmentIndicatorTimer.stop();
     m_lastViewportSize = IntSize();
     m_lastZoomFactor = 1.0f;
     m_isTrackingRepaints = false;
@@ -908,21 +916,11 @@ void FrameView::updateSnapOffsets()
     if (!frame().document())
         return;
 
-    auto& document = *frame().document();
-    auto* documentElement = document.documentElement();
-    RenderBox* bodyRenderer = document.bodyOrFrameset() ? document.bodyOrFrameset()->renderBox() : nullptr;
-    RenderBox* rootRenderer = documentElement ? documentElement->renderBox() : nullptr;
-    auto rendererSyleHasScrollSnap = [](const RenderObject* renderer) {
-        return renderer && renderer->style().scrollSnapType().strictness != ScrollSnapStrictness::None;
-    };
+    auto* documentElement = frame().document()->documentElement();
+    auto* rootRenderer = documentElement ? documentElement->renderBox() : nullptr;
 
     const RenderStyle* styleToUse = nullptr;
-    if (rendererSyleHasScrollSnap(bodyRenderer)) {
-        //  The specification doesn't allow setting scroll-snap-type on the body, but
-        //  we do this to ensure backwards compatibility with an earlier version of the
-        //  specification: See webkit.org/b/200643.
-        styleToUse = &bodyRenderer->style();
-    } else if (rendererSyleHasScrollSnap(rootRenderer))
+    if (rootRenderer && rootRenderer->style().scrollSnapType().strictness != ScrollSnapStrictness::None)
         styleToUse = &rootRenderer->style();
 
     if (!styleToUse || !documentElement) {
@@ -2075,8 +2073,7 @@ RenderObject* FrameView::rendererForColorScheme() const
     auto* documentElementRenderer = documentElement ? documentElement->renderer() : nullptr;
     if (documentElementRenderer && documentElementRenderer->style().hasExplicitlySetColorScheme())
         return documentElementRenderer;
-    auto* bodyElement = document ? document->bodyOrFrameset() : nullptr;
-    return bodyElement ? bodyElement->renderer() : nullptr;
+    return nullptr;
 }
 #endif
 
@@ -2222,27 +2219,28 @@ bool FrameView::scrollToFragment(const URL& url)
     Ref document = *frame().document();
     
     auto fragmentIdentifier = url.fragmentIdentifier();
+    auto fragmentDirective = document->fragmentDirective();
     
-    if (document->settings().scrollToTextFragmentEnabled()) {
-        FragmentDirectiveParser fragmentDirectiveParser(url);
+    if (document->settings().scrollToTextFragmentEnabled() && !fragmentDirective.isEmpty()) {
+        FragmentDirectiveParser fragmentDirectiveParser(fragmentDirective);
         
         if (fragmentDirectiveParser.isValid()) {
-            auto fragmentDirective = fragmentDirectiveParser.fragmentDirective().toString();
-            document->setFragmentDirective(fragmentDirective);
-            
             auto parsedTextDirectives = fragmentDirectiveParser.parsedTextDirectives();
             
-            auto highlightRanges = FragmentDirectiveRangeFinder::rangesForFragments(parsedTextDirectives, document);
+            auto highlightRanges = FragmentDirectiveRangeFinder::findRangesFromTextDirectives(parsedTextDirectives, document);
             for (auto range : highlightRanges)
                 document->fragmentHighlightRegister().addAnnotationHighlightWithRange(StaticRange::create(range));
             
             if (highlightRanges.size()) {
-                TemporarySelectionChange selectionChange(document, { highlightRanges.first() }, { TemporarySelectionOption::DelegateMainFrameScroll, TemporarySelectionOption::SmoothScroll, TemporarySelectionOption::RevealSelectionBounds });
-                // FIXME: add a textIndicator after the scroll has completed.
+                auto range = highlightRanges.first();
+                TemporarySelectionChange selectionChange(document, { range }, { TemporarySelectionOption::DelegateMainFrameScroll, TemporarySelectionOption::RevealSelectionBounds, TemporarySelectionOption::UserTriggered });
+                m_pendingTextFragmentIndicatorRange = range;
+                m_pendingTextFragmentIndicatorText = plainText(range);
+                if (frame().settings().scrollToTextFragmentIndicatorEnabled())
+                    m_delayedTextFragmentIndicatorTimer.startOneShot(100_ms);
+                return true;
             }
-            
-        } else
-            fragmentIdentifier = fragmentDirectiveParser.remainingURLFragment();
+        }
     }
     
     if (scrollToFragmentInternal(fragmentIdentifier))
@@ -2315,7 +2313,7 @@ void FrameView::maintainScrollPositionAtAnchor(ContainerNode* anchorNode)
     if (!m_maintainScrollPositionAnchor)
         return;
 
-    cancelScheduledScrollToFocusedElement();
+    cancelScheduledScrolls();
 
     // We need to update the layout before scrolling, otherwise we could
     // really mess things up if an anchor scroll comes at a bad moment.
@@ -2348,7 +2346,7 @@ void FrameView::setScrollPosition(const ScrollPosition& scrollPosition, const Sc
     setCurrentScrollType(options.type);
 
     m_maintainScrollPositionAnchor = nullptr;
-    cancelScheduledScrollToFocusedElement();
+    cancelScheduledScrolls();
 
     Page* page = frame().page();
     if (page && page->isMonitoringWheelEvents())
@@ -2395,6 +2393,12 @@ void FrameView::scheduleScrollToFocusedElement(SelectionRevealMode selectionReve
         return;
     m_shouldScrollToFocusedElement = true;
     m_delayedScrollToFocusedElementTimer.startOneShot(0_s);
+}
+
+void FrameView::cancelScheduledScrolls()
+{
+    cancelScheduledScrollToFocusedElement();
+    cancelScheduledTextFragmentIndicatorTimer();
 }
 
 void FrameView::cancelScheduledScrollToFocusedElement()
@@ -2445,6 +2449,33 @@ void FrameView::scrollToFocusedElementInternal()
     bool insideFixed;
     LayoutRect absoluteBounds = renderer->absoluteAnchorRectWithScrollMargin(&insideFixed);
     FrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, { m_selectionRevealModeForFocusedElement, ScrollAlignment::alignCenterIfNeeded, ScrollAlignment::alignCenterIfNeeded, ShouldAllowCrossOriginScrolling::No });
+}
+
+void FrameView::textFragmentIndicatorTimerFired()
+{
+    Ref protectedThis { *this };
+    
+    ASSERT(frame().document());
+    auto& document = *frame().document();
+    
+    if (!m_pendingTextFragmentIndicatorRange)
+        return;
+    
+    if (m_pendingTextFragmentIndicatorText != plainText(m_pendingTextFragmentIndicatorRange.value()))
+        return;
+    
+    auto textIndicator = TextIndicator::createWithRange(m_pendingTextFragmentIndicatorRange.value(), { TextIndicatorOption::DoNotClipToVisibleRect }, WebCore::TextIndicatorPresentationTransition::Bounce);
+    if (textIndicator)
+        document.page()->chrome().client().setTextIndicator(textIndicator->data());
+    
+    cancelScheduledTextFragmentIndicatorTimer();
+}
+
+void FrameView::cancelScheduledTextFragmentIndicatorTimer()
+{
+    m_pendingTextFragmentIndicatorRange.reset();
+    m_pendingTextFragmentIndicatorText = String();
+    m_delayedTextFragmentIndicatorTimer.stop();
 }
 
 bool FrameView::scrollRectToVisible(const LayoutRect& absoluteRect, const RenderObject& renderer, bool insideFixed, const ScrollRectToVisibleOptions& options)
@@ -2651,6 +2682,8 @@ void FrameView::didChangeScrollOffset()
     if (auto* page = frame().page())
         page->pageOverlayController().didScrollFrame(frame());
     frame().loader().client().didChangeScrollOffset();
+    if (m_scrollAnchoringController)
+        m_scrollAnchoringController->invalidateAnchorElement();
 }
 
 void FrameView::scrollOffsetChangedViaPlatformWidgetImpl(const ScrollOffset& oldOffset, const ScrollOffset& newOffset)
@@ -3317,9 +3350,10 @@ FrameView::ExtendedBackgroundMode FrameView::calculateExtendedBackgroundMode() c
         return ExtendedBackgroundModeNone;
 
     ExtendedBackgroundMode mode = ExtendedBackgroundModeNone;
-    if (rootBackgroundRenderer->style().backgroundRepeatX() == FillRepeat::Repeat)
+    auto backgroundRepeat = rootBackgroundRenderer->style().backgroundRepeat();
+    if (backgroundRepeat.x == FillRepeat::Repeat)
         mode |= ExtendedBackgroundModeHorizontal;
-    if (rootBackgroundRenderer->style().backgroundRepeatY() == FillRepeat::Repeat)
+    if (backgroundRepeat.y == FillRepeat::Repeat)
         mode |= ExtendedBackgroundModeVertical;
 
     return mode;
@@ -3416,7 +3450,7 @@ void FrameView::scrollToAnchor()
     if (!anchorNode->renderer())
         return;
 
-    cancelScheduledScrollToFocusedElement();
+    cancelScheduledScrolls();
 
     LayoutRect rect;
     bool insideFixed = false;
@@ -3440,7 +3474,7 @@ void FrameView::scrollToAnchor()
     // scrollRectToVisible can call into setScrollPosition(), which resets m_maintainScrollPositionAnchor.
     LOG_WITH_STREAM(Scrolling, stream << " restoring anchor node to " << anchorNode.get());
     m_maintainScrollPositionAnchor = anchorNode;
-    cancelScheduledScrollToFocusedElement();
+    cancelScheduledScrolls();
 }
 
 void FrameView::updateEmbeddedObject(RenderEmbeddedObject& embeddedObject)
@@ -3887,7 +3921,7 @@ void FrameView::updateOverflowStatus(bool horizontalOverflow, bool verticalOverf
 
         Ref<OverflowEvent> overflowEvent = OverflowEvent::create(horizontalOverflowChanged, horizontalOverflow,
             verticalOverflowChanged, verticalOverflow);
-        overflowEvent->setTarget(viewportRenderer->element());
+        overflowEvent->setTarget(RefPtr { viewportRenderer->element() });
 
         frame().document()->enqueueOverflowEvent(WTFMove(overflowEvent));
     }
@@ -4422,7 +4456,7 @@ void FrameView::setWasScrolledByUser(bool wasScrolledByUser)
 {
     LOG(Scrolling, "FrameView::setWasScrolledByUser at %d", wasScrolledByUser);
 
-    cancelScheduledScrollToFocusedElement();
+    cancelScheduledScrolls();
     if (currentScrollType() == ScrollType::Programmatic)
         return;
     m_maintainScrollPositionAnchor = nullptr;
@@ -5758,7 +5792,7 @@ void FrameView::clearSizeOverrideForCSSSmallViewportUnits()
 
     m_smallViewportSizeOverride = std::nullopt;
     if (auto* document = frame().document())
-        document->styleScope().didChangeStyleSheetEnvironment();
+        document->updateViewportUnitsOnResize();
 }
 
 void FrameView::setSizeForCSSSmallViewportUnits(FloatSize size)
@@ -5784,7 +5818,7 @@ void FrameView::setOverrideSizeForCSSSmallViewportUnits(OverrideViewportSize siz
     m_smallViewportSizeOverride = size;
 
     if (auto* document = frame().document())
-        document->styleScope().didChangeStyleSheetEnvironment();
+        document->updateViewportUnitsOnResize();
 }
 
 FloatSize FrameView::sizeForCSSSmallViewportUnits() const
@@ -5799,7 +5833,7 @@ void FrameView::clearSizeOverrideForCSSLargeViewportUnits()
 
     m_largeViewportSizeOverride = std::nullopt;
     if (auto* document = frame().document())
-        document->styleScope().didChangeStyleSheetEnvironment();
+        document->updateViewportUnitsOnResize();
 }
 
 void FrameView::setSizeForCSSLargeViewportUnits(FloatSize size)
@@ -5825,7 +5859,7 @@ void FrameView::setOverrideSizeForCSSLargeViewportUnits(OverrideViewportSize siz
     m_largeViewportSizeOverride = size;
 
     if (auto* document = frame().document())
-        document->styleScope().didChangeStyleSheetEnvironment();
+        document->updateViewportUnitsOnResize();
 }
 
 FloatSize FrameView::sizeForCSSLargeViewportUnits() const

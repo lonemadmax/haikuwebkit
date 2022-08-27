@@ -532,6 +532,10 @@ void RenderElement::didAttachChild(RenderObject& child, RenderObject*)
 {
     if (is<RenderText>(child))
         downcast<RenderText>(child).styleDidChange(StyleDifference::Equal, nullptr);
+
+    // The following only applies to the legacy SVG engine -- LBSE always creates layers
+    // independant of the position in the render tree, see comment in layerCreationAllowedForSubtree().
+
     // SVG creates renderers for <g display="none">, as SVG requires children of hidden
     // <g>s to have renderers - at least that's how our implementation works. Consider:
     // <g display="none"><foreignObject><body style="position: relative">FOO...
@@ -710,9 +714,24 @@ RenderLayer* RenderElement::layerNextSibling(RenderLayer& parentLayer) const
 
 bool RenderElement::layerCreationAllowedForSubtree() const
 {
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    // In LBSE layers are always created regardless of there position in the render tree.
+    // Consider the SVG document fragment: "<defs><mask><rect transform="scale(2)".../>"
+    // To paint the <rect> into the mask image, the rect needs to be transformed -
+    // which is handled via RenderLayer in LBSE, unlike as in the legacy engine where no
+    // layers are involved for any SVG painting features. In the legacy engine we could
+    // simply omit the layer creation for any children of a <defs> element (or in general
+    // any "hidden container"). For LBSE layers are needed for painting, even if a
+    // RenderSVGHiddenContainer is in the render tree ancestor chain -- however they are
+    // never painted directly, only indirectly through the "RenderSVGResourceContainer
+    // elements (such as RenderSVGResourceClipper, RenderSVGResourceMasker, etc.)
+    if (document().settings().layerBasedSVGEngineEnabled())
+        return true;
+#endif
+
     RenderElement* parentRenderer = parent();
     while (parentRenderer) {
-        if (parentRenderer->isSVGHiddenContainer())
+        if (parentRenderer->isLegacySVGHiddenContainer())
             return false;
         parentRenderer = parentRenderer->parent();
     }
@@ -882,11 +901,19 @@ static inline bool areCursorsEqual(const RenderStyle* a, const RenderStyle* b)
 
 void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    updateFillImages(oldStyle ? &oldStyle->backgroundLayers() : nullptr, m_style.backgroundLayers());
-    updateFillImages(oldStyle ? &oldStyle->maskLayers() : nullptr, m_style.maskLayers());
-    updateImage(oldStyle ? oldStyle->borderImage().image() : nullptr, m_style.borderImage().image());
-    updateImage(oldStyle ? oldStyle->maskBoxImage().image() : nullptr, m_style.maskBoxImage().image());
-    updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, m_style.shapeOutside());
+    auto registerImages = [this](auto& style, auto* oldStyle) {
+        updateFillImages(oldStyle ? &oldStyle->backgroundLayers() : nullptr, style.backgroundLayers());
+        updateFillImages(oldStyle ? &oldStyle->maskLayers() : nullptr, style.maskLayers());
+        updateImage(oldStyle ? oldStyle->borderImage().image() : nullptr, style.borderImage().image());
+        updateImage(oldStyle ? oldStyle->maskBoxImage().image() : nullptr, style.maskBoxImage().image());
+        updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, style.shapeOutside());
+    };
+
+    registerImages(style(), oldStyle);
+
+    // Are there other pseudo-elements that need the resources to be registered?
+    if (auto* firstLineStyle = style().getCachedPseudoStyle(PseudoId::FirstLine))
+        registerImages(*firstLineStyle, oldStyle ? oldStyle->getCachedPseudoStyle(PseudoId::FirstLine) : nullptr);
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
 
@@ -1012,24 +1039,29 @@ void RenderElement::willBeDestroyed()
 
     clearSubtreeLayoutRootIfNeeded();
 
+    auto unregisterImage = [this](auto* image) {
+        if (image)
+            image->removeClient(*this);
+    };
+
+    auto unregisterImages = [&](auto& style) {
+        for (auto* backgroundLayer = &style.backgroundLayers(); backgroundLayer; backgroundLayer = backgroundLayer->next())
+            unregisterImage(backgroundLayer->image());
+        for (auto* maskLayer = &style.maskLayers(); maskLayer; maskLayer = maskLayer->next())
+            unregisterImage(maskLayer->image());
+        unregisterImage(style.borderImage().image());
+        unregisterImage(style.maskBoxImage().image());
+        if (auto shapeValue = style.shapeOutside())
+            unregisterImage(shapeValue->image());
+    };
+
     if (hasInitializedStyle()) {
-        for (auto* bgLayer = &m_style.backgroundLayers(); bgLayer; bgLayer = bgLayer->next()) {
-            if (auto* backgroundImage = bgLayer->image())
-                backgroundImage->removeClient(*this);
-        }
-        for (auto* maskLayer = &m_style.maskLayers(); maskLayer; maskLayer = maskLayer->next()) {
-            if (auto* maskImage = maskLayer->image())
-                maskImage->removeClient(*this);
-        }
-        if (auto* borderImage = m_style.borderImage().image())
-            borderImage->removeClient(*this);
-        if (auto* maskBoxImage = m_style.maskBoxImage().image())
-            maskBoxImage->removeClient(*this);
-        if (auto shapeValue = m_style.shapeOutside()) {
-            if (auto shapeImage = shapeValue->image())
-                shapeImage->removeClient(*this);
-        }
+        unregisterImages(m_style);
+
+        if (auto* firstLineStyle = style().getCachedPseudoStyle(PseudoId::FirstLine))
+            unregisterImages(*firstLineStyle);
     }
+
     if (m_hasPausedImageAnimations)
         view().removeRendererWithPausedImageAnimations(*this);
 }

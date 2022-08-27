@@ -157,6 +157,7 @@ ValidateAST::ValidateAST(TIntermNode *root,
     {
         mOptions.validateVariableReferences = false;
         mOptions.validateFunctionCall       = false;
+        mOptions.validateStructUsage        = false;
     }
 
     if (mOptions.validateSingleParent)
@@ -459,7 +460,8 @@ void ValidateAST::validateExpressionTypeSwitch(TIntermSwitch *node)
 {
     const TType &selectorType = node->getInit()->getType();
 
-    if (selectorType.getBasicType() != EbtInt && selectorType.getBasicType() != EbtUInt)
+    if (selectorType.getBasicType() != EbtYuvCscStandardEXT &&
+        selectorType.getBasicType() != EbtInt && selectorType.getBasicType() != EbtUInt)
     {
         mDiagnostics->error(node->getLine(), "Found switch selector expression that is not integer",
                             "<validateExpressionTypes>");

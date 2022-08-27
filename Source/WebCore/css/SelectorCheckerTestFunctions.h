@@ -95,9 +95,10 @@ ALWAYS_INLINE bool matchesEnabledPseudoClass(const Element& element)
     return is<HTMLElement>(element) && downcast<HTMLElement>(element).canBeActuallyDisabled() && !element.isDisabledFormControl();
 }
 
+// https://dom.spec.whatwg.org/#concept-element-defined
 ALWAYS_INLINE bool isDefinedElement(const Element& element)
 {
-    return !element.isUndefinedCustomElement();
+    return element.isDefinedCustomElement() || element.isUncustomizedCustomElement();
 }
 
 ALWAYS_INLINE bool isMediaDocument(const Element& element)
@@ -203,7 +204,7 @@ ALWAYS_INLINE bool matchesLangPseudoClass(const Element& element, const Vector<A
         language = downcast<WebVTTElement>(element).language();
     else
 #endif
-        language = element.computeInheritedLanguage();
+        language = element.effectiveLang();
 
     if (language.isEmpty())
         return false;

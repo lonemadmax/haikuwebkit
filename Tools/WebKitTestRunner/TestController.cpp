@@ -253,14 +253,14 @@ static void runOpenPanel(WKPageRef page, WKFrameRef frame, WKOpenPanelParameters
     }
 #endif
 
-    WKArrayRef allowedMimeTypes = WKOpenPanelParametersCopyAllowedMIMETypes(parameters);
+    auto allowedMIMETypes = adoptWK(WKOpenPanelParametersCopyAllowedMIMETypes(parameters));
 
     if (WKOpenPanelParametersGetAllowsMultipleFiles(parameters)) {
-        WKOpenPanelResultListenerChooseFiles(resultListenerRef, fileURLs, allowedMimeTypes);
+        WKOpenPanelResultListenerChooseFiles(resultListenerRef, fileURLs, allowedMIMETypes.get());
         return;
     }
 
-    WKOpenPanelResultListenerChooseFiles(resultListenerRef, adoptWK(WKArrayCreate(&firstItem, 1)).get(), allowedMimeTypes);
+    WKOpenPanelResultListenerChooseFiles(resultListenerRef, adoptWK(WKArrayCreate(&firstItem, 1)).get(), allowedMIMETypes.get());
 }
 
 void TestController::runModal(WKPageRef page, const void* clientInfo)
@@ -1020,11 +1020,6 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
 
     for (auto& auxiliaryWebView : std::exchange(m_auxiliaryWebViews, { }))
         WKPageClose(auxiliaryWebView->page());
-
-    // This setting differs between the antique and modern Mac WebKit2 API.
-    // For now, maintain the antique behavior, because some tests depend on it!
-    // FIXME: We should be testing the default.
-    WKPageSetBackgroundExtendsBeyondPage(m_mainWebView->page(), false);
 
     WKPageSetCustomUserAgent(m_mainWebView->page(), nullptr);
 

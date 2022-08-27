@@ -36,8 +36,7 @@ class JSObject;
 
 namespace WebCore {
 
-class Navigator;
-class PermissionController;
+class NavigatorBase;
 class PermissionStatus;
 
 template<typename IDLType> class DOMPromiseDeferred;
@@ -45,17 +44,16 @@ template<typename IDLType> class DOMPromiseDeferred;
 class Permissions : public RefCounted<Permissions> {
     WTF_MAKE_ISO_ALLOCATED(Permissions);
 public:
-    static Ref<Permissions> create(Navigator&);
+    static Ref<Permissions> create(NavigatorBase&);
     ~Permissions();
 
-    Navigator* navigator();
+    NavigatorBase* navigator();
     void query(JSC::Strong<JSC::JSObject>, DOMPromiseDeferred<IDLInterface<PermissionStatus>>&&);
 
 private:
-    explicit Permissions(Navigator&);
+    explicit Permissions(NavigatorBase&);
 
-    WeakPtr<Navigator> m_navigator;
-    RefPtr<PermissionController> m_controller;
+    WeakPtr<NavigatorBase> m_navigator;
 };
 
 } // namespace WebCore

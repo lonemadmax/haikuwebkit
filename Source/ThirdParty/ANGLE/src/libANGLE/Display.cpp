@@ -12,7 +12,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <map>
 #include <sstream>
 #include <vector>
 
@@ -90,7 +89,9 @@ namespace
 
 constexpr angle::SubjectIndex kGPUSwitchedSubjectIndex = 0;
 
-typedef std::map<EGLNativeWindowType, Surface *> WindowSurfaceMap;
+static constexpr size_t kWindowSurfaceMapSize = 32;
+typedef angle::FlatUnorderedMap<EGLNativeWindowType, Surface *, kWindowSurfaceMapSize>
+    WindowSurfaceMap;
 // Get a map of all EGL window surfaces to validate that no window has more than one EGL surface
 // associated with it.
 static WindowSurfaceMap *GetWindowSurfaces()
@@ -132,19 +133,23 @@ struct ANGLEPlatformDisplay
     EGLAttrib deviceIdLow{0};
 };
 
-inline bool operator<(const ANGLEPlatformDisplay &a, const ANGLEPlatformDisplay &b)
+inline bool operator==(const ANGLEPlatformDisplay &a, const ANGLEPlatformDisplay &b)
 {
-    return a.tie() < b.tie();
+    return a.tie() == b.tie();
 }
 
-typedef std::map<ANGLEPlatformDisplay, Display *> ANGLEPlatformDisplayMap;
+static constexpr size_t kANGLEPlatformDisplayMapSize = 9;
+typedef angle::FlatUnorderedMap<ANGLEPlatformDisplay, Display *, kANGLEPlatformDisplayMapSize>
+    ANGLEPlatformDisplayMap;
 static ANGLEPlatformDisplayMap *GetANGLEPlatformDisplayMap()
 {
     static angle::base::NoDestructor<ANGLEPlatformDisplayMap> displays;
     return displays.get();
 }
 
-typedef std::map<Device *, Display *> DevicePlatformDisplayMap;
+static constexpr size_t kDevicePlatformDisplayMapSize = 8;
+typedef angle::FlatUnorderedMap<Device *, Display *, kDevicePlatformDisplayMapSize>
+    DevicePlatformDisplayMap;
 static DevicePlatformDisplayMap *GetDevicePlatformDisplayMap()
 {
     static angle::base::NoDestructor<DevicePlatformDisplayMap> displays;
@@ -740,7 +745,7 @@ Display *Display::GetDisplayFromNativeDisplay(EGLenum platform,
             return nullptr;
         }
 
-#if defined(ANGLE_PLATFORM_ANDROID)
+#if defined(ANGLE_USE_ANDROID_TLS_SLOT)
         angle::gUseAndroidOpenGLTlsSlot = displayType == EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE;
 #endif  // defined(ANGLE_PLATFORM_ANDROID)
 
@@ -861,7 +866,8 @@ Display::Display(EGLenum platform, EGLNativeDisplayType displayId, Device *eglDe
       mMemoryProgramCache(mBlobCache),
       mGlobalTextureShareGroupUsers(0),
       mGlobalSemaphoreShareGroupUsers(0),
-      mIsTerminated(false)
+      mTerminatedByApi(false),
+      mActiveThreads()
 {}
 
 Display::~Display()
@@ -870,6 +876,7 @@ Display::~Display()
     {
         case EGL_PLATFORM_ANGLE_ANGLE:
         case EGL_PLATFORM_GBM_KHR:
+        case EGL_PLATFORM_WAYLAND_EXT:
         {
             ANGLEPlatformDisplayMap *displays      = GetANGLEPlatformDisplayMap();
             ANGLEPlatformDisplayMap::iterator iter = displays->find(ANGLEPlatformDisplay(
@@ -959,7 +966,7 @@ void Display::setupDisplayPlatform(rx::DisplayImpl *impl)
 
 Error Display::initialize()
 {
-    mIsTerminated = false;
+    mTerminatedByApi = false;
 
     ASSERT(mImplementation != nullptr);
     mImplementation->setBlobCache(&mBlobCache);
@@ -976,7 +983,6 @@ Error Display::initialize()
 
     gl::InitializeDebugMutexIfNeeded();
 
-    SCOPED_ANGLE_HISTOGRAM_TIMER("GPU.ANGLE.DisplayInitializeMS");
     ANGLE_TRACE_EVENT0("gpu.angle", "egl::Display::initialize");
 
     if (isInitialized())
@@ -1008,6 +1014,11 @@ Error Display::initialize()
         // config.second.conformant |= EGL_OPENGL_ES_BIT;
 
         config.second.renderableType |= EGL_OPENGL_ES_BIT;
+
+        // If we aren't using desktop GL entry points, remove desktop GL support from all configs
+#if !defined(ANGLE_ENABLE_GL_DESKTOP_FRONTEND)
+        config.second.renderableType &= ~EGL_OPENGL_BIT;
+#endif
     }
 
     if (!mState.featuresAllDisabled)
@@ -1067,10 +1078,10 @@ Error Display::destroyInvalidEglObjects()
     {
         // Retrieve objects to be destroyed
         std::lock_guard<std::mutex> lock(mInvalidEglObjectsMutex);
-        images   = mInvalidImageSet;
-        streams  = mInvalidStreamSet;
-        surfaces = mInvalidSurfaceSet;
-        syncs    = mInvalidSyncSet;
+        images   = std::move(mInvalidImageSet);
+        streams  = std::move(mInvalidStreamSet);
+        surfaces = std::move(mInvalidSurfaceSet);
+        syncs    = std::move(mInvalidSyncSet);
 
         // Update invalid object sets
         mInvalidImageSet.clear();
@@ -1104,7 +1115,10 @@ Error Display::destroyInvalidEglObjects()
 
 Error Display::terminate(Thread *thread, TerminateReason terminateReason)
 {
-    mIsTerminated = true;
+    if (terminateReason == TerminateReason::Api)
+    {
+        mTerminatedByApi = true;
+    }
 
     if (!mInitialized)
     {
@@ -1118,6 +1132,7 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     // as eglTerminate returns
     // Cache EGL objects that are no longer valid
     // TODO (http://www.anglebug.com/6798): Invalidate context handles as well.
+    if (mTerminatedByApi)
     {
         std::lock_guard<std::mutex> lock(mInvalidEglObjectsMutex);
 
@@ -1135,14 +1150,15 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     }
 
     // All EGL objects, except contexts, have been marked invalid by the block above and will be
-    // cleaned up during eglReleaseThread. If no contexts are current on any thread, perform the
-    // cleanup right away.
+    // cleaned up by "destroyInvalidEglObjects". If app called eglTerminate and no active threads
+    // remain, perform the cleanup right away.
     for (gl::Context *context : mState.contextSet)
     {
         if (context->getRefCount() > 0)
         {
-            if (terminateReason == TerminateReason::ProcessExit)
+            if (terminateReason == TerminateReason::NoActiveThreads)
             {
+                ASSERT(mTerminatedByApi);
                 context->release();
                 (void)context->unMakeCurrent(this);
             }
@@ -1204,6 +1220,22 @@ Error Display::releaseThread()
 {
     ANGLE_TRY(mImplementation->releaseThread());
     return destroyInvalidEglObjects();
+}
+
+void Display::addActiveThread(Thread *thread)
+{
+    std::lock_guard<std::mutex> lock(mActiveThreadsMutex);
+    mActiveThreads.insert(thread);
+}
+
+void Display::removeActiveThreadAndPerformCleanup(Thread *thread)
+{
+    std::lock_guard<std::mutex> lock(mActiveThreadsMutex);
+    mActiveThreads.erase(thread);
+    if (mTerminatedByApi && mActiveThreads.size() == 0)
+    {
+        (void)terminate(thread, TerminateReason::NoActiveThreads);
+    }
 }
 
 std::vector<const Config *> Display::getConfigs(const egl::AttributeMap &attribs) const
@@ -1408,7 +1440,7 @@ Error Display::createContext(const Config *configuration,
                              const AttributeMap &attribs,
                              gl::Context **outContext)
 {
-    ASSERT(!mIsTerminated);
+    ASSERT(!mTerminatedByApi);
     ASSERT(isInitialized());
 
     if (mImplementation->testDeviceLost())
@@ -1455,13 +1487,11 @@ Error Display::createContext(const Config *configuration,
     // Check context creation attributes to see if we are using EGL_ANGLE_program_cache_control.
     // If not, keep caching enabled for EGL_ANDROID_blob_cache, which can have its callbacks set
     // at any time.
-    bool usesProgramCacheControl =
-        mAttributeMap.contains(EGL_CONTEXT_PROGRAM_BINARY_CACHE_ENABLED_ANGLE);
+    bool usesProgramCacheControl = attribs.contains(EGL_CONTEXT_PROGRAM_BINARY_CACHE_ENABLED_ANGLE);
     if (usesProgramCacheControl)
     {
         bool programCacheControlEnabled =
-            (mAttributeMap.get(EGL_CONTEXT_PROGRAM_BINARY_CACHE_ENABLED_ANGLE, GL_FALSE) ==
-             GL_TRUE);
+            (attribs.get(EGL_CONTEXT_PROGRAM_BINARY_CACHE_ENABLED_ANGLE, GL_FALSE) == GL_TRUE);
         // A program cache size of zero indicates it should be disabled.
         if (!programCacheControlEnabled || mMemoryProgramCache.maxSize() == 0)
         {
@@ -1724,7 +1754,7 @@ Error Display::destroyContext(Thread *thread, gl::Context *context)
 
     // If eglTerminate() has previously been called and this is the last Context the Display owns,
     // we can now fully terminate the display and release all of its resources.
-    if (mIsTerminated)
+    if (mTerminatedByApi)
     {
         for (const gl::Context *ctx : mState.contextSet)
         {
@@ -1939,7 +1969,8 @@ static ClientExtensions GenerateClientExtensions()
 #endif
 
 #if defined(ANGLE_ENABLE_VULKAN)
-    extensions.platformANGLEVulkan = true;
+    extensions.platformANGLEVulkan   = true;
+    extensions.platformANGLEDeviceId = true;
 #endif
 
 #if defined(ANGLE_ENABLE_SWIFTSHADER)
@@ -2139,6 +2170,9 @@ void Display::initializeFrontendFeatures()
     // Disabled by default. To reduce the risk, create a feature to enable
     // compressing pipeline cache in multi-thread pool.
     ANGLE_FEATURE_CONDITION(&mFrontendFeatures, enableCompressingPipelineCacheInThreadPool, false);
+
+    // Disabled by default until work on the extension is complete - anglebug.com/7279.
+    ANGLE_FEATURE_CONDITION(&mFrontendFeatures, emulatePixelLocalStorage, false);
 
     mImplementation->initializeFrontendFeatures(&mFrontendFeatures);
 

@@ -164,10 +164,6 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
 
 #if HAVE(UIFINDINTERACTION)
 #define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M) \
-    M(find) \
-    M(findNext) \
-    M(findPrevious) \
-    M(findAndReplace) \
     M(useSelectionForFind) \
     M(_findSelected)
 #else
@@ -456,7 +452,6 @@ struct ImageAnalysisContextMenuActionData {
     BOOL _textInteractionDidChangeFocusedElement;
     BOOL _treatAsContentEditableUntilNextEditorStateUpdate;
     BOOL _isWaitingOnPositionInformation;
-    BOOL _isRequestingAutocorrectionContext;
     BOOL _autocorrectionContextNeedsUpdate;
 
     WebCore::PointerID _commitPotentialTapPointerId;
@@ -809,6 +804,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 #endif
 
 #if HAVE(UIFINDINTERACTION)
+@property (nonatomic, readonly) BOOL supportsTextReplacementForWebView;
 - (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(UITextSearchDocumentIdentifier)document;
 - (void)didBeginTextSearchOperation;
 - (void)didEndTextSearchOperation;

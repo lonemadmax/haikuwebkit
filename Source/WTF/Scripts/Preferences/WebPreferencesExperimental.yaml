@@ -272,6 +272,18 @@ CSSContainmentEnabled:
     WebCore:
       default: true
 
+CSSContentVisibilityEnabled:
+  type: bool
+  humanReadableName: "CSS Content Visibility"
+  humanReadableDescription: "Enable CSS content-visibility"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSCounterStyleAtRuleImageSymbolsEnabled:
   type: bool
   humanReadableName: "CSS @counter-style <image> symbols"
@@ -477,7 +489,7 @@ CompressionStreamEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -659,6 +671,18 @@ FocusVisibleEnabled:
     WebCore:
       default: true
 
+FormAssociatedCustomElementsEnabled:
+  type: bool
+  humanReadableName: "Form-associated custom elements"
+  humanReadableDescription: "Support for form-associated custom elements"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 GenericCueAPIEnabled:
   type: bool
@@ -730,6 +754,18 @@ ImageBitmapEnabled:
     WebKitLegacy:
       default: true
     WebKit:
+      default: true
+
+ImperativeSlotAPIEnabled:
+  type: bool
+  humanReadableName: "Imperative Slot API"
+  humanReadableDescription: "Imperative Shadow DOM Distribution API"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
       default: true
 
 # FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
@@ -1240,6 +1276,18 @@ RemotePlaybackEnabled:
     WebCore:
       default: true
 
+ReportingEnabled:
+  type: bool
+  humanReadableName: "Reporting API"
+  humanReadableDescription: "Enable Reporting API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 RequestIdleCallbackEnabled:
   type: bool
   humanReadableName: "requestIdleCallback"
@@ -1315,19 +1363,6 @@ SKAttributionEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
-
-SampleBufferContentKeySessionSupportEnabled:
-  type: bool
-  humanReadableName: "ContentKeySession support for SampleBuffer Renderers"
-  humanReadableDescription: "ContentKeySession support for SampleBuffer Renderers Enabled"
-  condition: HAVE(AVCONTENTKEYSPECIFIER)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
       default: false
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
@@ -1406,6 +1441,18 @@ ShouldDeferAsynchronousScriptsUntilAfterDocumentLoadOrFirstPaint:
       default: true
     WebCore:
       default: true
+
+ShowMediaStatsContextMenuItemEnabled:
+  type: bool
+  humanReadableName: "Show Media Stats"
+  humanReadableDescription: "Adds a 'Media Stats' context menu item to <video> when the Develop menu is enabled"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 SpeechRecognitionEnabled:
   type: bool

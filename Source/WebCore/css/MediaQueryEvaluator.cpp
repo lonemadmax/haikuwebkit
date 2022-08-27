@@ -89,20 +89,6 @@ static bool isAccessibilitySettingsDependent(const AtomString& mediaFeature)
         || mediaFeature == MediaFeatureNames::prefersContrast;
 }
 
-static bool isViewportDependent(const AtomString& mediaFeature)
-{
-    return mediaFeature == MediaFeatureNames::width
-        || mediaFeature == MediaFeatureNames::height
-        || mediaFeature == MediaFeatureNames::minWidth
-        || mediaFeature == MediaFeatureNames::minHeight
-        || mediaFeature == MediaFeatureNames::maxWidth
-        || mediaFeature == MediaFeatureNames::maxHeight
-        || mediaFeature == MediaFeatureNames::orientation
-        || mediaFeature == MediaFeatureNames::aspectRatio
-        || mediaFeature == MediaFeatureNames::minAspectRatio
-        || mediaFeature == MediaFeatureNames::maxAspectRatio;
-}
-
 static bool isAppearanceDependent(const AtomString& mediaFeature)
 {
     return mediaFeature == MediaFeatureNames::prefersDarkInterface
@@ -183,7 +169,7 @@ bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, MediaQueryDyna
             for (; j < expressions.size(); ++j) {
                 bool expressionResult = evaluate(expressions[j]);
                 if (dynamicResults) {
-                    if (isViewportDependent(expressions[j].mediaFeature())) {
+                    if (expressions[j].isViewportDependent()) {
                         isDynamic = true;
                         dynamicResults->viewport.append({ expressions[j], expressionResult });
                     }
@@ -501,6 +487,16 @@ static bool scanEvaluate(CSSValue* value, const CSSToLengthConversionData&, Fram
 
     // All known implementations (Blink, Gecko) assume and match "progressive".
     return primitiveValue->valueID() == CSSValueProgressive;
+}
+
+static bool forcedColorsEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame&, MediaFeaturePrefix)
+{
+    auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
+    if (!primitiveValue)
+        return false;
+
+    // On Cocoa platforms, there is no concept of "forced colors".
+    return primitiveValue->valueID() == CSSValueNone;
 }
 
 static bool gridEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame&, MediaFeaturePrefix op)

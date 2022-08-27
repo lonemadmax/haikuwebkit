@@ -41,6 +41,7 @@
 #include "ControlFlowProfiler.h"
 #include "CustomGetterSetter.h"
 #include "DOMAttributeGetterSetter.h"
+#include "Debugger.h"
 #include "DeferredWorkTimer.h"
 #include "Disassembler.h"
 #include "DoublePredictionFuzzerAgent.h"
@@ -69,6 +70,7 @@
 #include "JSImmutableButterfly.h"
 #include "JSLock.h"
 #include "JSMap.h"
+#include "JSMicrotask.h"
 #include "JSPromise.h"
 #include "JSPropertyNameEnumerator.h"
 #include "JSScriptFetchParameters.h"
@@ -624,9 +626,9 @@ MacroAssemblerCodeRef<JITThunkPtrTag> VM::getCTIStub(ThunkGenerator generator)
 
 #endif // ENABLE(JIT)
 
-NativeExecutable* VM::getHostFunction(NativeFunction function, NativeFunction constructor, const String& name)
+NativeExecutable* VM::getHostFunction(NativeFunction function, ImplementationVisibility implementationVisibility, NativeFunction constructor, const String& name)
 {
-    return getHostFunction(function, NoIntrinsic, constructor, nullptr, name);
+    return getHostFunction(function, implementationVisibility, NoIntrinsic, constructor, nullptr, name);
 }
 
 static Ref<NativeJITCode> jitCodeForCallTrampoline()
@@ -649,19 +651,19 @@ static Ref<NativeJITCode> jitCodeForConstructTrampoline()
     return *result;
 }
 
-NativeExecutable* VM::getHostFunction(NativeFunction function, Intrinsic intrinsic, NativeFunction constructor, const DOMJIT::Signature* signature, const String& name)
+NativeExecutable* VM::getHostFunction(NativeFunction function, ImplementationVisibility implementationVisibility, Intrinsic intrinsic, NativeFunction constructor, const DOMJIT::Signature* signature, const String& name)
 {
 #if ENABLE(JIT)
     if (Options::useJIT()) {
         return jitStubs->hostFunctionStub(
-            *this, function, constructor,
+            *this, toTagged(function), toTagged(constructor),
             intrinsic != NoIntrinsic ? thunkGeneratorForIntrinsic(intrinsic) : nullptr,
-            intrinsic, signature, name);
+            implementationVisibility, intrinsic, signature, name);
     }
 #endif // ENABLE(JIT)
     UNUSED_PARAM(intrinsic);
     UNUSED_PARAM(signature);
-    return NativeExecutable::create(*this, jitCodeForCallTrampoline(), function, jitCodeForConstructTrampoline(), constructor, name);
+    return NativeExecutable::create(*this, jitCodeForCallTrampoline(), toTagged(function), jitCodeForConstructTrampoline(), toTagged(constructor), implementationVisibility, name);
 }
 
 NativeExecutable* VM::getBoundFunction(bool isJSFunction, bool canConstruct)
@@ -673,6 +675,7 @@ NativeExecutable* VM::getBoundFunction(bool isJSFunction, bool canConstruct)
             return cached;
         NativeExecutable* result = getHostFunction(
             slowCase ? boundFunctionCall : boundThisNoArgsFunctionCall,
+            ImplementationVisibility::Public,
             slowCase ? NoIntrinsic : BoundFunctionCallIntrinsic,
             canConstruct ? (slowCase ? boundFunctionConstruct : boundThisNoArgsFunctionConstruct) : callHostFunctionAsConstructor, nullptr, String());
         slot = Weak<NativeExecutable>(result);
@@ -705,7 +708,7 @@ NativeExecutable* VM::getRemoteFunction(bool isJSFunction)
 
         NativeExecutable* result = getHostFunction(
             slowCase ? remoteFunctionCallGeneric : remoteFunctionCallForJSFunction,
-            intrinsic,
+            ImplementationVisibility::Public, intrinsic,
             callHostFunctionAsConstructor, nullptr, String());
         slot = Weak<NativeExecutable>(result);
         return result;
@@ -716,7 +719,7 @@ NativeExecutable* VM::getRemoteFunction(bool isJSFunction)
     return getOrCreate(m_fastRemoteFunctionExecutable);
 }
 
-MacroAssemblerCodePtr<JSEntryPtrTag> VM::getCTIInternalFunctionTrampolineFor(CodeSpecializationKind kind)
+CodePtr<JSEntryPtrTag> VM::getCTIInternalFunctionTrampolineFor(CodeSpecializationKind kind)
 {
 #if ENABLE(JIT)
     if (Options::useJIT()) {
@@ -1204,9 +1207,9 @@ void VM::dumpTypeProfilerData()
     typeProfiler()->dumpTypeProfilerData(*this);
 }
 
-void VM::queueMicrotask(JSGlobalObject& globalObject, Ref<Microtask>&& task)
+void VM::queueMicrotask(QueuedTask&& task)
 {
-    m_microtaskQueue.append(makeUnique<QueuedTask>(*this, &globalObject, WTFMove(task)));
+    m_microtaskQueue.enqueue(WTFMove(task));
 }
 
 void VM::callPromiseRejectionCallback(Strong<JSPromise>& promise)
@@ -1252,7 +1255,8 @@ void VM::drainMicrotasks()
     else {
         do {
             while (!m_microtaskQueue.isEmpty()) {
-                m_microtaskQueue.takeFirst()->run();
+                auto task = m_microtaskQueue.dequeue();
+                task.run();
                 if (m_onEachMicrotaskTick)
                     m_onEachMicrotaskTick(*this);
             }
@@ -1260,11 +1264,6 @@ void VM::drainMicrotasks()
         } while (!m_microtaskQueue.isEmpty());
     }
     finalizeSynchronousJSExecution();
-}
-
-void QueuedTask::run()
-{
-    m_microtask->run(m_globalObject.get());
 }
 
 void sanitizeStackForVM(VM& vm)
@@ -1463,5 +1462,65 @@ void VM::removeLoopHintExecutionCounter(const JSInstruction* instruction)
     if (!iter->value.first)
         m_loopHintExecutionCounts.remove(iter);
 }
+
+void VM::beginMarking()
+{
+    m_microtaskQueue.beginMarking();
+}
+
+template<typename Visitor>
+void VM::visitAggregateImpl(Visitor& visitor)
+{
+    m_microtaskQueue.visitAggregate(visitor);
+}
+DEFINE_VISIT_AGGREGATE(VM);
+
+void VM::addDebugger(Debugger& debugger)
+{
+    m_debuggers.append(&debugger);
+}
+
+void VM::removeDebugger(Debugger& debugger)
+{
+    m_debuggers.remove(&debugger);
+}
+
+void VM::forEachDebugger(Function<void(Debugger&)>&& callback)
+{
+    if (LIKELY(m_debuggers.isEmpty()))
+        return;
+
+    for (auto* debugger = m_debuggers.head(); debugger; debugger = debugger->next())
+        callback(*debugger);
+}
+
+void QueuedTask::run()
+{
+    if (!m_job.isObject())
+        return;
+    JSObject* job = jsCast<JSObject*>(m_job);
+    JSGlobalObject* globalObject = job->globalObject();
+    runJSMicrotask(globalObject, m_identifier, job, m_arguments[0], m_arguments[1], m_arguments[2], m_arguments[3]);
+}
+
+template<typename Visitor>
+void MicrotaskQueue::visitAggregateImpl(Visitor& visitor)
+{
+    // Because content in the queue will not be changed, we need to scan it only once per an entry during one GC cycle.
+    // We record the previous scan's index, and restart scanning again in CollectorPhase::FixPoint from that.
+    // When new GC phase begins, this cursor is reset to zero (beginMarking). This optimization is introduced because
+    // some of application have massive size of MicrotaskQueue depth. For example, in parallel-promises-es2015-native.js
+    // benchmark, it becomes 251670 at most.
+    // This cursor is adjusted when an entry is dequeued. And we do not use any locking here, and that's fine: these
+    // values are read by GC when CollectorPhase::FixPoint and CollectorPhase::Begin, and both suspend the mutator, thus,
+    // there is no concurrency issue.
+    for (auto iterator = m_queue.begin() + m_markedBefore, end = m_queue.end(); iterator != end; ++iterator) {
+        auto& task = *iterator;
+        visitor.appendUnbarriered(task.m_job);
+        visitor.appendUnbarriered(task.m_arguments, QueuedTask::maxArguments);
+    }
+    m_markedBefore = m_queue.size();
+}
+DEFINE_VISIT_AGGREGATE(MicrotaskQueue);
 
 } // namespace JSC

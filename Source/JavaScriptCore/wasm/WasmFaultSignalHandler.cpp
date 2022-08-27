@@ -59,7 +59,7 @@ static SignalAction trapHandler(Signal signal, SigInfo& sigInfo, PlatformRegiste
     auto instructionPointer = MachineContext::instructionPointer(context);
     if (!instructionPointer)
         return SignalAction::NotHandled;
-    void* faultingInstruction = instructionPointer->untaggedExecutableAddress();
+    void* faultingInstruction = instructionPointer->untaggedPtr();
     dataLogLnIf(WasmFaultSignalHandlerInternal::verbose, "starting handler for fault at: ", RawPointer(faultingInstruction));
 
     dataLogLnIf(WasmFaultSignalHandlerInternal::verbose, "JIT memory start: ", RawPointer(startOfFixedExecutableMemoryPool()), " end: ", RawPointer(endOfFixedExecutableMemoryPool()));
@@ -113,7 +113,7 @@ void activateSignalingMemory()
         if (!Wasm::isSupported())
             return;
 
-        if (!Options::useWebAssemblyFastMemory() && !Options::useSharedArrayBuffer())
+        if (!Options::useWasmFaultSignalHandler())
             return;
 
         activateSignalHandlersFor(Signal::AccessFault);
@@ -129,7 +129,7 @@ void prepareSignalingMemory()
         if (!Wasm::isSupported())
             return;
 
-        if (!Options::useWebAssemblyFastMemory() && !Options::useSharedArrayBuffer())
+        if (!Options::useWasmFaultSignalHandler())
             return;
 
         addSignalHandler(Signal::AccessFault, [] (Signal signal, SigInfo& sigInfo, PlatformRegisters& ucontext) {

@@ -65,6 +65,7 @@
 #include "RenderBlock.h"
 #include "RenderBox.h"
 #include "RenderTextControl.h"
+#include "RenderTreeUpdater.h"
 #include "RenderView.h"
 #include "SVGElement.h"
 #include "ScopedEventQueue.h"
@@ -115,10 +116,10 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "NodeList";
     case NodeRareData::UseType::MutationObserver:
         return "MutationObserver";
+    case NodeRareData::UseType::ManuallyAssignedSlot:
+        return "ManuallyAssignedSlot";
     case NodeRareData::UseType::TabIndex:
         return "TabIndex";
-    case NodeRareData::UseType::MinimumSize:
-        return "MinimumSize";
     case NodeRareData::UseType::ScrollingPosition:
         return "ScrollingPosition";
     case NodeRareData::UseType::ComputedStyle:
@@ -147,6 +148,8 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "PartList";
     case NodeRareData::UseType::PartNames:
         return "PartNames";
+    case NodeRareData::UseType::Nonce:
+        return "Nonce";
     case NodeRareData::UseType::ExplicitlySetAttrElementsMap:
         return "ExplicitlySetAttrElementsMap";
     }
@@ -338,6 +341,15 @@ void Node::trackForDebugging()
 #endif
 }
 
+inline void NodeRareData::operator delete(NodeRareData* nodeRareData, std::destroying_delete_t)
+{
+    if (nodeRareData->m_isElementRareData)
+        static_cast<ElementRareData*>(nodeRareData)->~ElementRareData();
+    else
+        nodeRareData->~NodeRareData();
+    WTF::fastFree(nodeRareData);
+}
+
 Node::Node(Document& document, ConstructionType type)
     : m_nodeFlags(type)
     , m_treeScope(&document)
@@ -414,17 +426,9 @@ void Node::willBeDeletedFrom(Document& document)
 void Node::materializeRareData()
 {
     if (is<Element>(*this))
-        m_rareDataWithBitfields.setPointer(std::unique_ptr<NodeRareData, NodeRareDataDeleter>(new ElementRareData));
+        m_rareDataWithBitfields.setPointer(makeUnique<ElementRareData>());
     else
-        m_rareDataWithBitfields.setPointer(std::unique_ptr<NodeRareData, NodeRareDataDeleter>(new NodeRareData));
-}
-
-inline void Node::NodeRareDataDeleter::operator()(NodeRareData* rareData) const
-{
-    if (rareData->isElementRareData())
-        delete static_cast<ElementRareData*>(rareData);
-    else
-        delete static_cast<NodeRareData*>(rareData);
+        m_rareDataWithBitfields.setPointer(makeUnique<NodeRareData>());
 }
 
 void Node::clearRareData()
@@ -1210,6 +1214,23 @@ HTMLSlotElement* Node::assignedSlotForBindings() const
     if (shadowRoot && shadowRoot->mode() == ShadowRootMode::Open)
         return shadowRoot->findAssignedSlot(*this);
     return nullptr;
+}
+
+HTMLSlotElement* Node::manuallyAssignedSlot() const
+{
+    if (!hasRareData())
+        return nullptr;
+    return rareData()->manuallyAssignedSlot();
+}
+
+void Node::setManuallyAssignedSlot(HTMLSlotElement* slotElement)
+{
+    if (RefPtr element = dynamicDowncast<Element>(*this))
+        RenderTreeUpdater::tearDownRenderers(*element);
+    else if (RefPtr text = dynamicDowncast<Text>(*this))
+        RenderTreeUpdater::tearDownRenderer(*text);
+
+    ensureRareData().setManuallyAssignedSlot(slotElement);
 }
 
 ContainerNode* Node::parentInComposedTree() const

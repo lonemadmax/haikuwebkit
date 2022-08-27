@@ -32,8 +32,6 @@
 #include "Logging.h"
 #include "RenderAncestorIterator.h"
 #include "RenderChildIterator.h"
-#include "RenderSVGForeignObject.h"
-#include "RenderSVGHiddenContainer.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGModelObject.h"
 #include "RenderSVGRoot.h"
@@ -61,10 +59,8 @@ void SVGContainerLayout::layoutChildren(bool containerNeedsLayout)
 
     m_positionedChildren.clear();
     for (auto& child : childrenOfType<RenderObject>(m_container)) {
-        if (child.isSVGLayerAwareRenderer()) {
-            ASSERT(child.hasLayer());
+        if (child.isSVGLayerAwareRenderer())
             m_positionedChildren.append(downcast<RenderLayerModelObject>(child));
-        }
 
         bool needsLayout = containerNeedsLayout;
         bool childEverHadLayout = child.everHadLayout();
@@ -145,7 +141,7 @@ void SVGContainerLayout::positionChildrenRelativeToContainer()
 #endif
     };
 
-    auto computeContainerLayoutLocation = [&]() {
+    auto computeContainerLayoutLocation = [&]() -> LayoutPoint {
         // The nominal SVG layout location (== flooredLayoutPoint(objectBoundingBoxWithoutTransformsTopLeft), where
         // objectBoundingBoxWithoutTransforms = union of child boxes, not mapped through their tranforms) is
         // only meaningful for the children of the RenderSVGRoot. RenderSVGRoot itself is positioned according to
@@ -153,6 +149,12 @@ void SVGContainerLayout::positionChildrenRelativeToContainer()
         // -> Position all RenderSVGRoot children relative to the contentBoxLocation() to avoid intruding border/padding area.
         if (is<RenderSVGRoot>(m_container))
             return -downcast<RenderSVGRoot>(m_container).contentBoxLocation();
+
+        // For (inner) RenderSVGViewportContainer nominalSVGLayoutLocation() returns the viewport boundaries,
+        // including the effect of the 'x'/'y' attribute values. Do not subtract the location, otherwise the
+        // effect of the x/y translation is removed.
+        if (is<RenderSVGViewportContainer>(m_container) && !m_container.isAnonymous())
+            return { };
 
         return m_container.nominalSVGLayoutLocation();
     };

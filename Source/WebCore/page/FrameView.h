@@ -38,6 +38,7 @@
 #include "RenderLayerModelObject.h"
 #include "RenderPtr.h"
 #include "ScrollView.h"
+#include "SimpleRange.h"
 #include "StyleColor.h"
 #include "TiledBacking.h"
 #include <memory>
@@ -74,6 +75,7 @@ class RenderStyle;
 class RenderView;
 class RenderWidget;
 class ScrollingCoordinator;
+class ScrollAnchoringController;
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 namespace Display {
@@ -265,7 +267,7 @@ public:
     WEBCORE_EXPORT void setScrollPosition(const ScrollPosition&, const ScrollPositionChangeOptions& = ScrollPositionChangeOptions::createProgrammatic()) final;
     void restoreScrollbar();
     void scheduleScrollToFocusedElement(SelectionRevealMode);
-    void cancelScheduledScrollToFocusedElement();
+    void cancelScheduledScrolls();
     void scrollToFocusedElementImmediatelyIfNeeded();
     void updateLayerPositionsAfterScrolling() final;
     void updateCompositingLayersAfterScrolling() final;
@@ -745,6 +747,9 @@ private:
     bool useSlowRepaintsIfNotOverlapped() const;
     void updateCanBlitOnScrollRecursively();
     bool shouldLayoutAfterContentsResized() const;
+    
+    void cancelScheduledScrollToFocusedElement();
+    void cancelScheduledTextFragmentIndicatorTimer();
 
     ScrollingCoordinator* scrollingCoordinator() const;
     bool shouldUpdateCompositingLayersAfterScrolling() const;
@@ -784,6 +789,8 @@ private:
     void delegatesScrollingDidChange() final;
 
     void unobscuredContentSizeChanged() final;
+    
+    void textFragmentIndicatorTimerFired();
 
     // ScrollableArea interface
     void invalidateScrollbarRect(Scrollbar&, const IntRect&) final;
@@ -906,6 +913,8 @@ private:
 
     RefPtr<ContainerNode> m_maintainScrollPositionAnchor;
     RefPtr<Node> m_nodeToDraw;
+    std::optional<SimpleRange> m_pendingTextFragmentIndicatorRange;
+    String m_pendingTextFragmentIndicatorText;
 
     // Renderer to hold our custom scroll corner.
     RenderPtr<RenderScrollbarPart> m_scrollCorner;
@@ -915,6 +924,7 @@ private:
     Timer m_delayedScrollEventTimer;
     Timer m_delayedScrollToFocusedElementTimer;
     Timer m_speculativeTilingEnableTimer;
+    Timer m_delayedTextFragmentIndicatorTimer;
 
     MonotonicTime m_lastPaintTime;
 
@@ -978,6 +988,7 @@ private:
     ViewportRendererType m_viewportRendererType { ViewportRendererType::None };
     ScrollPinningBehavior m_scrollPinningBehavior { DoNotPin };
     SelectionRevealMode m_selectionRevealModeForFocusedElement { SelectionRevealMode::DoNotReveal };
+    std::unique_ptr<ScrollAnchoringController> m_scrollAnchoringController;
 
     bool m_shouldUpdateWhileOffscreen { true };
     bool m_overflowStatusDirty { true };

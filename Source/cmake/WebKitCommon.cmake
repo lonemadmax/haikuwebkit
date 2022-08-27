@@ -69,8 +69,8 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     endif ()
 
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "8.3.0")
-            message(FATAL_ERROR "GCC 8.3 or newer is required to build WebKit. Use a newer GCC version or Clang.")
+        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "9.3.0")
+            message(FATAL_ERROR "GCC 9.3 or newer is required to build WebKit. Use a newer GCC version or Clang.")
         endif ()
     endif ()
 
@@ -215,6 +215,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     include(CheckTypeSize)
     include(CMakeDependentOption)
     include(CMakeParseArguments)
+    include(CMakePushCheckState)
     include(ProcessorCount)
 
     include(WebKitPackaging)

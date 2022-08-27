@@ -332,6 +332,7 @@ public:
     virtual bool isSVGViewportContainer() const { return false; }
     virtual bool isLegacySVGViewportContainer() const { return false; }
     virtual bool isSVGGradientStop() const { return false; }
+    virtual bool isLegacySVGHiddenContainer() const { return false; }
     virtual bool isSVGHiddenContainer() const { return false; }
     virtual bool isLegacySVGPath() const { return false; }
     virtual bool isSVGPath() const { return false; }
@@ -342,7 +343,9 @@ public:
     virtual bool isSVGTSpan() const { return false; }
     virtual bool isSVGInline() const { return false; }
     virtual bool isSVGInlineText() const { return false; }
+    virtual bool isLegacySVGImage() const { return false; }
     virtual bool isSVGImage() const { return false; }
+    virtual bool isLegacySVGForeignObject() const { return false; }
     virtual bool isSVGForeignObject() const { return false; }
     virtual bool isSVGResourceContainer() const { return false; }
     virtual bool isSVGResourceFilter() const { return false; }
@@ -351,6 +354,8 @@ public:
     bool isSVGRootOrLegacySVGRoot() const { return isSVGRoot() || isLegacySVGRoot(); }
     bool isSVGShapeOrLegacySVGShape() const { return isSVGShape() || isLegacySVGShape(); }
     bool isSVGPathOrLegacySVGPath() const { return isSVGPath() || isLegacySVGPath(); }
+    bool isSVGImageOrLegacySVGImage() const { return isSVGImage() || isLegacySVGImage(); }
+    bool isSVGForeignObjectOrLegacySVGForeignObject() const { return isSVGForeignObject() || isLegacySVGForeignObject(); }
     bool isRenderOrLegacyRenderSVGModelObject() const { return isRenderSVGModelObject() || isLegacyRenderSVGModelObject(); }
     bool isSVGLayerAwareRenderer() const { return isSVGRoot() || isRenderSVGModelObject() || isSVGText() || isSVGInline() || isSVGForeignObject(); }
 

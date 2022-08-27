@@ -161,6 +161,19 @@ namespace WebCore {
     WEBCORE_EXPORT String contextMenuItemTagInspectElement();
 #endif // ENABLE(CONTEXT_MENUS)
 
+#if ENABLE(PDFJS)
+    String contextMenuItemPDFAutoSize();
+    String contextMenuItemPDFZoomIn();
+    String contextMenuItemPDFZoomOut();
+    String contextMenuItemPDFActualSize();
+    String contextMenuItemPDFSinglePage();
+    String contextMenuItemPDFSinglePageContinuous();
+    String contextMenuItemPDFTwoPages();
+    String contextMenuItemPDFTwoPagesContinuous();
+    String contextMenuItemPDFNextPage();
+    String contextMenuItemPDFPreviousPage();
+#endif
+
 #if !PLATFORM(IOS_FAMILY)
     String searchMenuNoRecentSearchesText();
     String searchMenuRecentSearchesText();
@@ -333,6 +346,7 @@ namespace WebCore {
     String audioTrackKindCommentaryDisplayName();
     String addAudioTrackKindCommentarySuffix(const String&);
 #endif // USE(CF)
+    String contextMenuItemTagShowMediaStats();
 #endif // ENABLE(VIDEO)
 
     String snapshottedPlugInLabelTitle();

@@ -58,6 +58,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/plugins"
     "${WEBCORE_DIR}/Modules/push-api"
     "${WEBCORE_DIR}/Modules/remoteplayback"
+    "${WEBCORE_DIR}/Modules/reporting"
     "${WEBCORE_DIR}/Modules/speech"
     "${WEBCORE_DIR}/Modules/storage"
     "${WEBCORE_DIR}/Modules/streams"
@@ -86,6 +87,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/crypto/parameters"
     "${WEBCORE_DIR}/css/calc"
     "${WEBCORE_DIR}/css/parser"
+    "${WEBCORE_DIR}/css/query"
     "${WEBCORE_DIR}/css/typedom"
     "${WEBCORE_DIR}/css/typedom/color"
     "${WEBCORE_DIR}/css/typedom/numeric"
@@ -227,6 +229,7 @@ set(WebCore_IDL_INCLUDES
     Modules/paymentrequest
     Modules/permissions
     Modules/push-api
+    Modules/reporting
     Modules/speech
     Modules/storage
     Modules/streams
@@ -525,6 +528,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/permissions/PermissionState.idl
     Modules/permissions/PermissionStatus.idl
     Modules/permissions/Permissions.idl
+    Modules/permissions/WorkerNavigator+Permissions.idl
 
     Modules/pictureinpicture/Document+PictureInPicture.idl
     Modules/pictureinpicture/DocumentOrShadowRoot+PictureInPicture.idl
@@ -549,6 +553,11 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/remoteplayback/RemotePlayback.idl
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
+
+    Modules/reporting/Report.idl
+    Modules/reporting/ReportBody.idl
+    Modules/reporting/ReportingObserver.idl
+    Modules/reporting/ReportingObserverCallback.idl
 
     Modules/speech/DOMWindow+SpeechSynthesis.idl
     Modules/speech/SpeechRecognitionErrorEvent.idl
@@ -848,6 +857,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/typedom/color/CSSOKLab.idl
     css/typedom/color/CSSRGB.idl
 
+    css/typedom/numeric/CSSMathClamp.idl
     css/typedom/numeric/CSSMathInvert.idl
     css/typedom/numeric/CSSMathMax.idl
     css/typedom/numeric/CSSMathMin.idl
@@ -933,6 +943,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/Element+PointerLock.idl
     dom/Element.idl
     dom/ElementContentEditable.idl
+    dom/ElementInternals.idl
     dom/ErrorEvent.idl
     dom/Event.idl
     dom/EventInit.idl
@@ -985,6 +996,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/ShadowRoot.idl
     dom/ShadowRootInit.idl
     dom/ShadowRootMode.idl
+    dom/SlotAssignmentMode.idl
     dom/Slotable.idl
     dom/StaticRange.idl
     dom/StringCallback.idl

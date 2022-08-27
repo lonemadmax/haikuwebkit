@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -100,9 +100,9 @@ void link(State& state)
                 state.allocationFailed = true;
                 return;
             }
-            linkBuffer->link(callArityCheck, FunctionPtr<OperationPtrTag>(codeBlock->isConstructor() ? operationConstructArityCheck : operationCallArityCheck));
+            linkBuffer->link<OperationPtrTag>(callArityCheck, codeBlock->isConstructor() ? operationConstructArityCheck : operationCallArityCheck);
             linkBuffer->link(jumpToExceptionHandler, CodeLocationLabel(vm.getCTIStub(handleExceptionWithCallFrameRollbackGenerator).retaggedCode<NoPtrTag>()));
-            linkBuffer->link(callArityFixup, FunctionPtr<JITThunkPtrTag>(vm.getCTIStub(arityFixupGenerator).code()));
+            linkBuffer->link(callArityFixup, vm.getCTIStub(arityFixupGenerator).code());
             linkBuffer->link(mainPathJumps, state.generatedFunction);
         }
 

@@ -104,7 +104,6 @@ DisplayBoxes InlineDisplayContentBuilder::build(const LineBuilder::LineContent& 
         processBidiContent(lineContent, lineBox, displayLine, boxes);
     else
         processNonBidiContent(lineContent, lineBox, displayLine, boxes);
-    processOverflownRunsForEllipsis(boxes, displayLine.right());
     collectInkOverflowForTextDecorations(boxes, displayLine);
     collectInkOverflowForInlineBoxes(boxes);
     return boxes;
@@ -187,6 +186,7 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
     auto adjustedContentToRender = [&] {
         return text->needsHyphen ? makeString(StringView(content).substring(text->start, text->length), style.hyphenString()) : String();
     };
+    auto isVisuallyHidden = !lineRun.isTruncated() ? InlineDisplay::Box::IsVisuallyHidden::No : !text->partiallyVisibleContent.has_value() ? InlineDisplay::Box::IsVisuallyHidden::Yes : InlineDisplay::Box::IsVisuallyHidden::Partially;
     boxes.append({ m_lineIndex
         , lineRun.isWordSeparator() ? InlineDisplay::Box::Type::WordSeparator : InlineDisplay::Box::Type::Text
         , layoutBox
@@ -194,8 +194,9 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
         , textRunRect
         , inkOverflow()
         , lineRun.expansion()
-        , InlineDisplay::Box::Text { text->start, text->length, content, adjustedContentToRender(), text->needsHyphen }
+        , InlineDisplay::Box::Text { text->start, text->length, content, adjustedContentToRender(), text->needsHyphen, isVisuallyHidden == InlineDisplay::Box::IsVisuallyHidden::Partially ? std::make_optional(text->partiallyVisibleContent->length) : std::nullopt }
         , true
+        , isVisuallyHidden
         , { }
     });
 }
@@ -257,6 +258,8 @@ void InlineDisplayContentBuilder::appendAtomicInlineLevelDisplayBox(const Line::
         , inkOverflow()
         , lineRun.expansion()
         , { }
+        , true
+        , lineRun.isTruncated() ? InlineDisplay::Box::IsVisuallyHidden::Yes : InlineDisplay::Box::IsVisuallyHidden::No
     });
     // Note that inline boxes are relative to the line and their top position can be negative.
     // Atomic inline boxes are all set. Their margin/border/content box geometries are already computed. We just have to position them here.
@@ -308,6 +311,7 @@ void InlineDisplayContentBuilder::appendInlineBoxDisplayBox(const Line::Run& lin
         , { }
         , { }
         , inlineBox.hasContent()
+        , lineRun.isTruncated() ? InlineDisplay::Box::IsVisuallyHidden::Yes : InlineDisplay::Box::IsVisuallyHidden::No
         , isFirstLastBox(inlineBox)
     });
     // This inline box showed up first on this line.
@@ -335,6 +339,7 @@ void InlineDisplayContentBuilder::appendSpanningInlineBoxDisplayBox(const Line::
         , { }
         , { }
         , inlineBox.hasContent()
+        , lineRun.isTruncated() ? InlineDisplay::Box::IsVisuallyHidden::Yes : InlineDisplay::Box::IsVisuallyHidden::No
         , isFirstLastBox(inlineBox)
     });
     // Middle or end of the inline box. Let's stretch the box as needed.
@@ -750,69 +755,6 @@ void InlineDisplayContentBuilder::processBidiContent(const LineBuilder::LineCont
     handleTrailingOpenInlineBoxes();
 }
 
-void InlineDisplayContentBuilder::processOverflownRunsForEllipsis(DisplayBoxes& boxes, InlineLayoutUnit lineBoxRight)
-{
-    if (root().style().textOverflow() != TextOverflow::Ellipsis)
-        return;
-    auto& rootInlineBox = boxes[0];
-    ASSERT(rootInlineBox.isRootInlineBox());
-
-    if (rootInlineBox.right() <= lineBoxRight) {
-        ASSERT(boxes.last().right() <= lineBoxRight);
-        return;
-    }
-
-    static MainThreadNeverDestroyed<const AtomString> ellipsisStr(&horizontalEllipsis, 1);
-    auto ellipsisRun = WebCore::TextRun { ellipsisStr->string() };
-    auto ellipsisWidth = !m_lineIndex ? root().firstLineStyle().fontCascade().width(ellipsisRun) : root().style().fontCascade().width(ellipsisRun);
-    auto firstTruncatedBoxIndex = boxes.size();
-
-    for (auto index = boxes.size(); index--;) {
-        auto& displayBox = boxes[index];
-
-        if (displayBox.left() >= lineBoxRight) {
-            // Fully overflown boxes are collapsed.
-            displayBox.truncate();
-            continue;
-        }
-
-        // We keep truncating content until after we can accommodate the ellipsis content
-        // 1. fully truncate in case of inline level boxes (ie non-text content) or if ellipsis content is wider than the overflowing one.
-        // 2. partially truncated to make room for the ellipsis box.
-        auto availableRoomForEllipsis = lineBoxRight - displayBox.left();
-        if (availableRoomForEllipsis <= ellipsisWidth) {
-            // Can't accommodate the ellipsis content here. We need to truncate non-overflowing boxes too.
-            displayBox.truncate();
-            continue;
-        }
-
-        auto truncatedWidth = InlineLayoutUnit { };
-        if (displayBox.isText()) {
-            auto text = *displayBox.text();
-            // FIXME: Check if it needs adjustment for RTL direction.
-            truncatedWidth = TextUtil::breakWord(downcast<InlineTextBox>(displayBox.layoutBox()), text.start(), text.length(), displayBox.width(), availableRoomForEllipsis - ellipsisWidth, { }, displayBox.style().fontCascade()).logicalWidth;
-        }
-        displayBox.truncate(truncatedWidth);
-        firstTruncatedBoxIndex = index;
-        break;
-    }
-    ASSERT(firstTruncatedBoxIndex < boxes.size());
-    // Collapse truncated runs.
-    auto contentRight = boxes[firstTruncatedBoxIndex].right();
-    for (auto index = firstTruncatedBoxIndex + 1; index < boxes.size(); ++index)
-        boxes[index].moveHorizontally(contentRight - boxes[index].left());
-    // And append the ellipsis box as the trailing item.
-    auto ellispisBoxRect = InlineRect { rootInlineBox.top(), contentRight, ellipsisWidth, rootInlineBox.height() };
-    boxes.append({ m_lineIndex
-        , InlineDisplay::Box::Type::Ellipsis
-        , root()
-        , UBIDI_DEFAULT_LTR
-        , ellispisBoxRect
-        , ellispisBoxRect
-        , { }
-        , InlineDisplay::Box::Text { 0, 1, ellipsisStr->string() } });
-}
-
 void InlineDisplayContentBuilder::collectInkOverflowForInlineBoxes(DisplayBoxes& boxes)
 {
     if (!m_contentHasInkOverflow)
@@ -873,17 +815,16 @@ void InlineDisplayContentBuilder::collectInkOverflowForTextDecorations(DisplayBo
         if (!textDecorations)
             continue;
 
-        auto underlineOffset = [&]() -> std::optional<float> {
+        auto decorationOverflow = [&] {
             if (!textDecorations.contains(TextDecorationLine::Underline))
-                return { };
+                return visualOverflowForDecorations(style);
+
             if (!logicalBottomForTextDecoration)
                 logicalBottomForTextDecoration = logicalBottomForTextDecorationContent(boxes, isHorizontalWritingMode);
             auto textRunLogicalOffsetFromLineBottom = *logicalBottomForTextDecoration - (isHorizontalWritingMode ? displayBox.bottom() : displayBox.right());
-            // Compensate for the integral ceiling in GraphicsContext::computeLineBoundsAndAntialiasingModeForText()
-            return computeUnderlineOffset({ style, defaultGap(style), UnderlineOffsetArguments::TextUnderlinePositionUnder { displayLine.baselineType(), displayBox.height(), textRunLogicalOffsetFromLineBottom } }) + 1.0f;
-        };
+            return visualOverflowForDecorations(style, displayLine.baselineType(), { displayBox.height(), textRunLogicalOffsetFromLineBottom });
+        }();
 
-        auto decorationOverflow = visualOverflowForDecorations(style, underlineOffset());
         if (!decorationOverflow.isEmpty()) {
             m_contentHasInkOverflow = true;
             auto inflatedVisualOverflowRect = [&] {

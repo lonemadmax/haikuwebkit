@@ -39,6 +39,7 @@
 #include "InlineIteratorTextBox.h"
 #include "LegacyInlineTextBox.h"
 #include "LegacyRenderSVGContainer.h"
+#include "LegacyRenderSVGImage.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LegacyRenderSVGShape.h"
 #include "Logging.h"
@@ -61,7 +62,6 @@
 #include "RenderRuby.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGGradientStop.h"
-#include "RenderSVGImage.h"
 #include "RenderSVGInlineText.h"
 #include "RenderSVGResourceContainer.h"
 #include "RenderSVGRoot.h"
@@ -284,8 +284,10 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
     } else if (is<RenderBox>(o))
         r = downcast<RenderBox>(o).frameRect();
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
-    else if (is<RenderSVGModelObject>(o))
-        r = downcast<RenderSVGModelObject>(o).frameRectEquivalent();
+    else if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(o)) {
+        r = svgModelObject->frameRectEquivalent();
+        ASSERT(r.location() == svgModelObject->currentSVGLayoutLocation());
+    }
 #endif
 
     // FIXME: Temporary in order to ensure compatibility with existing layout test results.
@@ -294,6 +296,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
 
     // FIXME: Convert layout test results to report sub-pixel values, in the meantime using enclosingIntRect
     // for consistency with old results.
+    // FIXME: [LBSE] Enable sub-pixel dumps for SVG
     ts << " " << enclosingIntRect(r);
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
@@ -568,8 +571,7 @@ void writeDebugInfo(TextStream& ts, const RenderObject& object, OptionSet<Render
 
 void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> behavior)
 {
-    auto writeTextRun = [&](auto& textRenderer, auto& textRun)
-    {
+    auto writeTextRun = [&] (auto& textRenderer, auto& textRun) {
         auto rect = textRun.visualRectIgnoringBlockDirection();
         int x = rect.x();
         int y = rect.y();
@@ -583,7 +585,7 @@ void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> be
         if (!textRun.isLeftToRightDirection())
             ts << " RTL";
         ts << ": "
-            << quoteAndEscapeNonPrintables(textRun.text());
+            << quoteAndEscapeNonPrintables(textRun.originalText());
         if (textRun.hasHyphen())
             ts << " + hyphen string " << quoteAndEscapeNonPrintables(textRenderer.style().hyphenString().string());
         ts << "\n";
@@ -618,8 +620,8 @@ void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> be
         writeSVGInlineText(ts, downcast<RenderSVGInlineText>(o), behavior);
         return;
     }
-    if (is<RenderSVGImage>(o)) {
-        writeSVGImage(ts, downcast<RenderSVGImage>(o), behavior);
+    if (is<LegacyRenderSVGImage>(o)) {
+        writeSVGImage(ts, downcast<LegacyRenderSVGImage>(o), behavior);
         return;
     }
 

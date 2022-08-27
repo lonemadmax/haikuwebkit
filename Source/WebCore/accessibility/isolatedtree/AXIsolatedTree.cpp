@@ -264,6 +264,32 @@ void AXIsolatedTree::queueChange(const NodeChange& nodeChange)
     m_pendingChildrenUpdates.append({ objectID, WTFMove(childrenIDs) });
 }
 
+void AXIsolatedTree::addUnconnectedNode(AccessibilityObject& axObject)
+{
+    ASSERT(isMainThread());
+
+    if (!axObject.objectID().isValid() || !axObject.wrapper()) {
+        AXLOG(makeString("AXIsolatedTree::addUnconnectedNode bailing because associated live object ID ", axObject.objectID().loggingString(), " had no wrapper or had an invalid ID. Object is:"));
+        AXLOG(&axObject);
+        return;
+    }
+    AXLOG(makeString("AXIsolatedTree::addUnconnectedNode creating isolated object from live object ID ", axObject.objectID().loggingString()));
+
+    // Because we are queuing a change for an object not intended to be connected to the rest of the tree,
+    // we don't need to update m_nodeMap or m_pendingChildrenUpdates for this object or its parent as is
+    // done in AXIsolatedTree::nodeChangeForObject and AXIsolatedTree::queueChange.
+    //
+    // Instead, just directly create and queue the node change so m_readerThreadNodeMap can hold a reference
+    // to it. It will be removed from m_readerThreadNodeMap when the corresponding DOM element, renderer, or
+    // other entity is removed from the page.
+    auto isolatedObject = AXIsolatedObject::create(axObject, this);
+    isolatedObject->attachPlatformWrapper(axObject.wrapper());
+
+    NodeChange nodeChange { isolatedObject, nullptr };
+    Locker locker { m_changeLogLock };
+    m_pendingAppends.append(WTFMove(nodeChange));
+}
+
 void AXIsolatedTree::queueRemovals(const Vector<AXID>& subtreeRemovals)
 {
     ASSERT(isMainThread());
@@ -486,7 +512,7 @@ void AXIsolatedTree::updateNodeAndDependentProperties(AXCoreObject& axObject)
         updateNodeProperty(*treeAncestor, AXPropertyName::ARIATreeRows);
 }
 
-void AXIsolatedTree::updateChildren(AXCoreObject& axObject, ResolveNodeChanges resolveNodeChanges)
+void AXIsolatedTree::updateChildren(AccessibilityObject& axObject, ResolveNodeChanges resolveNodeChanges)
 {
     AXTRACE("AXIsolatedTree::updateChildren"_s);
     AXLOG("For AXObject:");
@@ -520,13 +546,17 @@ void AXIsolatedTree::updateChildren(AXCoreObject& axObject, ResolveNodeChanges r
     if (axAncestor != &axObject) {
         AXLOG(makeString("Original object with ID ", axObject.objectID().loggingString(), " wasn't in the isolated tree, so instead updating the closest in-isolated-tree ancestor:"));
         AXLOG(axAncestor);
-        for (auto& child : axObject.children()) {
-            auto* liveChild = dynamicDowncast<AccessibilityObject>(child.get());
-            if (!liveChild || liveChild->childrenInitialized())
+
+        // An explicit copy is necessary here because the nested calls to updateChildren
+        // can cause this objects children to be invalidated as we iterate.
+        auto childrenCopy = axObject.children();
+        for (auto& child : childrenCopy) {
+            Ref liveChild = downcast<AccessibilityObject>(*child);
+            if (liveChild->childrenInitialized())
                 continue;
 
             if (!m_nodeMap.contains(liveChild->objectID())) {
-                if (!shouldCreateNodeChange(*liveChild))
+                if (!shouldCreateNodeChange(liveChild))
                     continue;
 
                 // This child should be added to the isolated tree but hasn't been yet.
@@ -542,7 +572,7 @@ void AXIsolatedTree::updateChildren(AXCoreObject& axObject, ResolveNodeChanges r
             // Don't immediately resolve node changes in these recursive calls to updateChildren. This avoids duplicate node change creation in this scenario:
             //   1. Some subtree is updated in the below call to updateChildren.
             //   2. Later in this function, when updating axAncestor, we update some higher subtree that includes the updated subtree from step 1.
-            updateChildren(*liveChild, ResolveNodeChanges::No);
+            updateChildren(liveChild, ResolveNodeChanges::No);
         }
     }
 

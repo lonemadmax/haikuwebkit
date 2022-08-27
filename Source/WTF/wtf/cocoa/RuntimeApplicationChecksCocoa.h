@@ -45,6 +45,7 @@ enum class SDKAlignedBehavior {
     DisallowsSettingAnyXHRHeaderFromFileURLs,
     DoesNotDrainTheMicrotaskQueueWhenCallingObjC,
     DoesNotParseStringEndingWithFullStopAsFloatingPointNumber,
+    DoesNotAddIntrinsicMarginsToFormControls,
     DOMWindowReuseRestriction,
     DownloadDelegatesCalledOnTheMainThread,
     DropToNavigateDisallowedByDefault,
@@ -96,6 +97,7 @@ enum class SDKAlignedBehavior {
     WKContentViewDoesNotOverrideKeyCommands,
     WKWebsiteDataStoreInitReturningNil,
     UIBackForwardSkipsHistoryItemsWithoutUserGesture,
+    ProgrammaticFocusDuringUserScriptShowsInputViews,
 
     NumberOfBehaviors
 };

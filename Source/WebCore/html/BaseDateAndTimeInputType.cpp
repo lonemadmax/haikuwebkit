@@ -243,7 +243,7 @@ bool BaseDateAndTimeInputType::shouldRespectListAttribute()
 bool BaseDateAndTimeInputType::valueMissing(const String& value) const
 {
     ASSERT(element());
-    return !element()->isDisabledOrReadOnly() && element()->isRequired() && value.isEmpty();
+    return element()->isMutable() && element()->isRequired() && value.isEmpty();
 }
 
 bool BaseDateAndTimeInputType::isKeyboardFocusable(KeyboardEvent*) const
@@ -288,7 +288,7 @@ void BaseDateAndTimeInputType::setValue(const String& value, bool valueChanged, 
 void BaseDateAndTimeInputType::handleDOMActivateEvent(Event&)
 {
     ASSERT(element());
-    if (element()->isDisabledOrReadOnly() || !element()->renderer() || !UserGestureIndicator::processingUserGesture())
+    if (!element()->isMutable() || !element()->renderer() || !UserGestureIndicator::processingUserGesture())
         return;
 
     if (m_dateTimeChooser)
@@ -498,7 +498,7 @@ bool BaseDateAndTimeInputType::isEditControlOwnerReadOnly() const
 AtomString BaseDateAndTimeInputType::localeIdentifier() const
 {
     ASSERT(element());
-    return element()->computeInheritedLanguage();
+    return element()->effectiveLang();
 }
 
 void BaseDateAndTimeInputType::didChooseValue(StringView value)
@@ -530,7 +530,7 @@ bool BaseDateAndTimeInputType::setupDateTimeChooserParameters(DateTimeChooserPar
     if (!document.settings().langAttributeAwareFormControlUIEnabled())
         parameters.locale = AtomString { defaultLanguage() };
     else {
-        AtomString computedLocale = element.computeInheritedLanguage();
+        AtomString computedLocale = element.effectiveLang();
         parameters.locale = computedLocale.isEmpty() ? AtomString(defaultLanguage()) : computedLocale;
     }
 

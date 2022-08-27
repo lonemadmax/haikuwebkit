@@ -93,12 +93,12 @@ using namespace HTMLNames;
 class ListAttributeTargetObserver final : public IdTargetObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ListAttributeTargetObserver(const AtomString& id, HTMLInputElement*);
+    ListAttributeTargetObserver(const AtomString& id, HTMLInputElement&);
 
     void idTargetChanged() override;
 
 private:
-    HTMLInputElement* m_element;
+    WeakPtr<HTMLInputElement> m_element;
 };
 #endif
 
@@ -519,6 +519,10 @@ void HTMLInputElement::updateType()
     removeFromRadioButtonGroup();
     resignStrongPasswordAppearance();
 
+    bool didSupportReadOnly = m_inputType->supportsReadOnly();
+    bool willSupportReadOnly = newType->supportsReadOnly();
+    std::optional<Style::PseudoClassChangeInvalidation> readWriteInvalidation;
+
     bool didStoreValue = m_inputType->storesValueSeparateFromAttribute();
     bool willStoreValue = newType->storesValueSeparateFromAttribute();
     bool neededSuspensionCallback = needsSuspensionCallback();
@@ -537,6 +541,11 @@ void HTMLInputElement::updateType()
 
     m_inputType = WTFMove(newType);
     m_inputType->createShadowSubtreeIfNeeded();
+
+    if (UNLIKELY(didSupportReadOnly != willSupportReadOnly && hasAttributeWithoutSynchronization(readonlyAttr))) {
+        emplace(readWriteInvalidation, *this, { { CSSSelector::PseudoClassReadWrite, !willSupportReadOnly }, { CSSSelector::PseudoClassReadOnly, willSupportReadOnly } });
+        readOnlyStateChanged();
+    }
 
     updateWillValidateAndValidity();
 
@@ -809,6 +818,11 @@ void HTMLInputElement::readOnlyStateChanged()
     m_inputType->readOnlyStateChanged();
 }
 
+bool HTMLInputElement::supportsReadOnly() const
+{
+    return m_inputType->supportsReadOnly();
+}
+
 void HTMLInputElement::parserDidSetAttributes()
 {
     DelayedUpdateValidityScope delayedUpdateValidityScope(*this);
@@ -884,7 +898,7 @@ bool HTMLInputElement::isSuccessfulSubmitButton() const
 {
     // HTML spec says that buttons must have names to be considered successful.
     // However, other browsers do not impose this constraint. So we do not.
-    return !isDisabledFormControl() && m_inputType->canBeSuccessfulSubmitButton();
+    return m_inputType->canBeSuccessfulSubmitButton();
 }
 
 bool HTMLInputElement::matchesDefaultPseudoClass() const
@@ -1245,7 +1259,7 @@ ExceptionOr<void> HTMLInputElement::showPicker()
     if (!frame)
         return { };
 
-    if (isDisabledOrReadOnly())
+    if (!isMutable())
         return Exception { InvalidStateError, "Input showPicker() cannot be used on immutable controls."_s };
 
     // In cross-origin iframes it should throw a "SecurityError" DOMException except on file and color. In same-origin iframes it should work fine.
@@ -1504,7 +1518,7 @@ bool HTMLInputElement::isRequiredFormControl() const
 
 bool HTMLInputElement::matchesReadWritePseudoClass() const
 {
-    return m_inputType->supportsReadOnly() && !isDisabledOrReadOnly();
+    return supportsReadOnly() && isMutable();
 }
 
 void HTMLInputElement::addSearchResult()
@@ -1695,7 +1709,7 @@ void HTMLInputElement::resetListAttributeTargetObserver()
 {
     if (isConnected()) {
         if (auto& listAttrValue = attributeWithoutSynchronization(listAttr); !listAttrValue.isNull()) {
-            m_listAttributeTargetObserver = makeUnique<ListAttributeTargetObserver>(listAttrValue, this);
+            m_listAttributeTargetObserver = makeUnique<ListAttributeTargetObserver>(listAttrValue, *this);
             return;
         }
     }
@@ -2022,8 +2036,8 @@ void HTMLInputElement::setWidth(unsigned width)
 }
 
 #if ENABLE(DATALIST_ELEMENT)
-ListAttributeTargetObserver::ListAttributeTargetObserver(const AtomString& id, HTMLInputElement* element)
-    : IdTargetObserver(element->treeScope().idTargetObserverRegistry(), id)
+ListAttributeTargetObserver::ListAttributeTargetObserver(const AtomString& id, HTMLInputElement& element)
+    : IdTargetObserver(element.treeScope().idTargetObserverRegistry(), id)
     , m_element(element)
 {
 }
@@ -2154,7 +2168,7 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
 
     textBlockStyle.setDisplay(DisplayType::Block);
 
-    if (hasAutoFillStrongPasswordButton() && !isDisabledOrReadOnly()) {
+    if (hasAutoFillStrongPasswordButton() && isMutable()) {
         textBlockStyle.setDisplay(DisplayType::InlineBlock);
         textBlockStyle.setMaxWidth(Length { 100, LengthType::Percent });
         textBlockStyle.setColor(Color::black.colorWithAlphaByte(153));

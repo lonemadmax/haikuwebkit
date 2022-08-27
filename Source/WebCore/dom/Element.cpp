@@ -255,11 +255,6 @@ Element::~Element()
             map->clearElement();
     }
 #endif
-
-    if (hasPendingResources()) {
-        document().accessSVGExtensions().removeElementFromPendingResources(*this);
-        ASSERT(!hasPendingResources());
-    }
 }
 
 inline ElementRareData& Element::ensureElementRareData()
@@ -802,7 +797,7 @@ bool Element::isUserActionElementHasFocusWithin() const
     return document().userActionElements().hasFocusWithin(*this);
 }
 
-void Element::setActive(bool value, bool pause, Style::InvalidationScope invalidationScope)
+void Element::setActive(bool value, Style::InvalidationScope invalidationScope)
 {
     if (value == active())
         return;
@@ -814,39 +809,8 @@ void Element::setActive(bool value, bool pause, Style::InvalidationScope invalid
     if (!renderer())
         return;
 
-    bool reactsToPress = false;
-    if (renderer()->style().hasEffectiveAppearance() && renderer()->theme().stateChanged(*renderer(), ControlStates::States::Pressed))
-        reactsToPress = true;
-
-    // The rest of this function implements a feature that only works if the
-    // platform supports immediate invalidations on the ChromeClient, so bail if
-    // that isn't supported.
-    if (!document().page()->chrome().client().supportsImmediateInvalidation())
-        return;
-
-    if (reactsToPress && pause) {
-        // The delay here is subtle. It relies on an assumption, namely that the amount of time it takes
-        // to repaint the "down" state of the control is about the same time as it would take to repaint the
-        // "up" state. Once you assume this, you can just delay for 100ms - that time (assuming that after you
-        // leave this method, it will be about that long before the flush of the up state happens again).
-#ifdef HAVE_FUNC_USLEEP
-        MonotonicTime startTime = MonotonicTime::now();
-#endif
-
-        document().updateStyleIfNeeded();
-
-        // Do an immediate repaint.
-        if (renderer())
-            renderer()->repaint();
-
-        // FIXME: Come up with a less ridiculous way of doing this.
-#ifdef HAVE_FUNC_USLEEP
-        // Now pause for a small amount of time (1/10th of a second from before we repainted in the pressed state)
-        Seconds remainingTime = 100_ms - (MonotonicTime::now() - startTime);
-        if (remainingTime > 0_s)
-            usleep(static_cast<useconds_t>(remainingTime.microseconds()));
-#endif
-    }
+    if (renderer()->style().hasEffectiveAppearance())
+        renderer()->theme().stateChanged(*renderer(), ControlStates::States::Pressed);
 }
 
 static bool shouldAlwaysHaveFocusVisibleWhenFocused(const Element& element)
@@ -1008,15 +972,55 @@ inline ScrollAlignment toScrollAlignmentForBlockDirection(std::optional<ScrollLo
     }
 }
 
+static std::optional<std::pair<RenderElement*, LayoutRect>> listBoxElementScrollIntoView(const Element& element)
+{
+    auto owningSelectElement = [](const Element& element) -> HTMLSelectElement* {
+        if (is<HTMLOptionElement>(element))
+            return downcast<HTMLOptionElement>(element).ownerSelectElement();
+
+        if (is<HTMLOptGroupElement>(element))
+            return downcast<HTMLOptGroupElement>(element).ownerSelectElement();
+
+        return nullptr;
+    };
+
+    auto* selectElement = owningSelectElement(element);
+    if (!selectElement || !selectElement->renderer() || !is<RenderListBox>(selectElement->renderer()))
+        return { };
+
+    auto& renderListBox = downcast<RenderListBox>(*selectElement->renderer());
+    
+    auto itemIndex = selectElement->listItems().find(&element);
+    if (itemIndex != notFound)
+        renderListBox.scrollToRevealElementAtListIndex(itemIndex);
+    else
+        itemIndex = 0;
+
+    auto itemLocalRect = renderListBox.itemBoundingBoxRect({ }, itemIndex);
+    return std::pair<RenderElement*, LayoutRect> { &renderListBox, itemLocalRect };
+}
+
 void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOptions>>&& arg)
 {
     document().updateLayoutIgnorePendingStylesheets();
 
-    if (!renderer())
-        return;
+    RenderElement* renderer = nullptr;
+    bool insideFixed = false;
+    LayoutRect absoluteBounds;
 
-    bool insideFixed;
-    LayoutRect absoluteBounds = renderer()->absoluteAnchorRectWithScrollMargin(&insideFixed);
+    if (auto listBoxScrollResult = listBoxElementScrollIntoView(*this)) {
+        renderer = listBoxScrollResult->first;
+        absoluteBounds = listBoxScrollResult->second;
+
+        auto listBoxAbsoluteBounds = renderer->absoluteAnchorRectWithScrollMargin(&insideFixed);
+        absoluteBounds.moveBy(listBoxAbsoluteBounds.location());
+    } else {
+        renderer = this->renderer();
+        if (!renderer)
+            return;
+
+        absoluteBounds = renderer->absoluteAnchorRectWithScrollMargin(&insideFixed);
+    }
 
     ScrollIntoViewOptions options;
     if (arg) {
@@ -1027,20 +1031,20 @@ void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOpti
             options.blockPosition = ScrollLogicalPosition::End;
     }
 
-    auto writingMode = renderer()->style().writingMode();
-    ScrollAlignment alignX = toScrollAlignmentForInlineDirection(options.inlinePosition, writingMode, renderer()->style().isLeftToRightDirection());
-    ScrollAlignment alignY = toScrollAlignmentForBlockDirection(options.blockPosition, writingMode);
+    auto writingMode = renderer->style().writingMode();
+    auto alignX = toScrollAlignmentForInlineDirection(options.inlinePosition, writingMode, renderer->style().isLeftToRightDirection());
+    auto alignY = toScrollAlignmentForBlockDirection(options.blockPosition, writingMode);
     alignX.disableLegacyHorizontalVisibilityThreshold();
 
-    bool isHorizontal = renderer()->style().isHorizontalWritingMode();
-    ScrollRectToVisibleOptions visibleOptions {
+    bool isHorizontal = renderer->style().isHorizontalWritingMode();
+    auto visibleOptions = ScrollRectToVisibleOptions {
         SelectionRevealMode::Reveal,
         isHorizontal ? alignX : alignY,
         isHorizontal ? alignY : alignX,
         ShouldAllowCrossOriginScrolling::No,
         options.behavior.value_or(ScrollBehavior::Auto)
     };
-    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, visibleOptions);
+    FrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, visibleOptions);
 }
 
 void Element::scrollIntoView(bool alignToTop) 
@@ -1116,7 +1120,7 @@ void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, 
     }
     
     if (auto* view = document().view())
-        view->cancelScheduledScrollToFocusedElement();
+        view->cancelScheduledScrolls();
 
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -1695,42 +1699,31 @@ LayoutRect Element::absoluteEventHandlerBounds(bool& includesFixedPositionElemen
 
 static std::optional<std::pair<RenderObject*, LayoutRect>> listBoxElementBoundingBox(const Element& element)
 {
-    HTMLSelectElement* selectElement;
-    bool isGroup;
-    if (is<HTMLOptionElement>(element)) {
-        selectElement = downcast<HTMLOptionElement>(element).ownerSelectElement();
-        isGroup = false;
-    } else if (is<HTMLOptGroupElement>(element)) {
-        selectElement = downcast<HTMLOptGroupElement>(element).ownerSelectElement();
-        isGroup = true;
-    } else
-        return std::nullopt;
+    auto owningSelectElement = [](const Element& element) -> HTMLSelectElement* {
+        if (is<HTMLOptionElement>(element))
+            return downcast<HTMLOptionElement>(element).ownerSelectElement();
+        
+        if (is<HTMLOptGroupElement>(element))
+            return downcast<HTMLOptGroupElement>(element).ownerSelectElement();
 
+        return nullptr;
+    };
+
+    auto* selectElement = owningSelectElement(element);
     if (!selectElement || !selectElement->renderer() || !is<RenderListBox>(selectElement->renderer()))
         return std::nullopt;
 
-    auto& renderer = downcast<RenderListBox>(*selectElement->renderer());
+    auto& listBoxRenderer = downcast<RenderListBox>(*selectElement->renderer());
     std::optional<LayoutRect> boundingBox;
-    int optionIndex = 0;
-    for (auto* item : selectElement->listItems()) {
-        if (item == &element) {
-            LayoutPoint additionOffset;
-            boundingBox = renderer.itemBoundingBoxRect(additionOffset, optionIndex);
-            if (!isGroup)
-                break;
-        } else if (isGroup && boundingBox) {
-            if (item->parentNode() != &element)
-                break;
-            LayoutPoint additionOffset;
-            boundingBox->setHeight(boundingBox->height() + renderer.itemBoundingBoxRect(additionOffset, optionIndex).height());
-        }
-        ++optionIndex;
-    }
+    if (is<HTMLOptionElement>(element))
+        boundingBox = listBoxRenderer.localBoundsOfOption(downcast<HTMLOptionElement>(element));
+    else if (is<HTMLOptGroupElement>(element))
+        boundingBox = listBoxRenderer.localBoundsOfOptGroup(downcast<HTMLOptGroupElement>(element));
 
     if (!boundingBox)
-        return std::nullopt;
+        return { };
 
-    return std::pair<RenderObject*, LayoutRect> { &renderer, boundingBox.value() };
+    return std::pair<RenderObject*, LayoutRect> { &listBoxRenderer, boundingBox.value() };
 }
 
 Ref<DOMRectList> Element::getClientRects()
@@ -1992,6 +1985,32 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
             if (auto* shadowRoot = this->shadowRoot()) {
                 shadowRoot->invalidatePartMappings();
                 Style::Invalidator::invalidateShadowParts(*shadowRoot);
+            }
+        } else if (name == HTMLNames::langAttr || name.matches(XMLNames::langAttr)) {
+            if (document().documentElement() == this)
+                document().setDocumentElementLanguage(newValue);
+            else {
+                Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassLang, Style::PseudoClassChangeInvalidation::AnyValue);
+                AtomString newValue = langFromAttribute();
+                auto setEffectiveLang = [&](Element& element) {
+                    if (!newValue.isNull())
+                        element.ensureElementRareData().setEffectiveLang(newValue);
+                    else if (hasRareData())
+                        element.elementRareData()->setEffectiveLang(nullAtom());
+                };
+                setEffectiveLang(*this);
+                for (auto it = descendantsOfType<Element>(*this).begin(); it;) {
+                    auto& element = *it;
+                    if (auto* elementData = element.elementData()) {
+                        if (auto* attribute = elementData->findLanguageAttribute()) {
+                            it.traverseNextSkippingChildren();
+                            continue;
+                        }
+                    }
+                    Style::PseudoClassChangeInvalidation styleInvalidation(element, CSSSelector::PseudoClassLang, Style::PseudoClassChangeInvalidation::AnyValue);
+                    setEffectiveLang(element);
+                    it.traverseNext();
+                }
             }
         }
     }
@@ -2516,6 +2535,20 @@ Node::InsertedIntoAncestorResult Element::insertedIntoAncestor(InsertionType ins
             CustomElementReactionQueue::enqueueConnectedCallbackIfNeeded(*this);
     }
 
+    [&]() {
+        if (auto* parent = parentOrShadowHostElement(); parent && parent != document().documentElement() && UNLIKELY(parent->hasRareData())) {
+            auto lang = parent->elementRareData()->effectiveLang();
+            if (!lang.isNull() && langFromAttribute().isNull()) {
+                ensureElementRareData().setEffectiveLang(lang);
+                return;
+            }
+        }
+        if (UNLIKELY(hasRareData())) {
+            if (!elementRareData()->effectiveLang().isNull() && langFromAttribute().isNull())
+                ensureElementRareData().setEffectiveLang(nullAtom());
+        }
+    }();
+
     if (shouldAutofocus(*this))
         document().topDocument().appendAutofocusCandidate(*this);
 
@@ -2580,8 +2613,10 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
 
     ContainerNode::removedFromAncestor(removalType, oldParentOfRemovedTree);
 
-    if (hasPendingResources())
-        document().accessSVGExtensions().removeElementFromPendingResources(*this);
+    if (UNLIKELY(hasRareData()) && !elementRareData()->effectiveLang().isNull()) {
+        if (langFromAttribute().isNull())
+            elementRareData()->setEffectiveLang(nullAtom());
+    }
 
     Styleable::fromElement(*this).elementWasRemoved();
 
@@ -2701,7 +2736,7 @@ ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
         return Exception { NotSupportedError };
     if (init.mode == ShadowRootMode::UserAgent)
         return Exception { TypeError };
-    auto shadow = ShadowRoot::create(document(), init.mode, init.delegatesFocus ? ShadowRoot::DelegatesFocus::Yes : ShadowRoot::DelegatesFocus::No);
+    auto shadow = ShadowRoot::create(document(), init.mode, init.slotAssignment, init.delegatesFocus ? ShadowRoot::DelegatesFocus::Yes : ShadowRoot::DelegatesFocus::No, isPrecustomizedOrDefinedCustomElement() ? ShadowRoot::AvailableToElementInternals::Yes : ShadowRoot::AvailableToElementInternals::No);
     auto& result = shadow.get();
     addShadowRoot(WTFMove(shadow));
     return result;
@@ -2760,21 +2795,22 @@ void Element::setIsDefinedCustomElement(JSCustomElementInterface& elementInterfa
 
 void Element::setIsFailedCustomElement()
 {
-    setIsFailedCustomElementWithoutClearingReactionQueue();
+    ASSERT(isUnknownElement());
+    setIsFailedOrPrecustomizedCustomElementWithoutClearingReactionQueue();
     clearReactionQueueFromFailedCustomElement();
+    ASSERT(isFailedCustomElement());
 }
 
-void Element::setIsFailedCustomElementWithoutClearingReactionQueue()
+void Element::setIsFailedOrPrecustomizedCustomElementWithoutClearingReactionQueue()
 {
-    ASSERT(isUndefinedCustomElement());
     ASSERT(customElementState() == CustomElementState::Undefined);
-    setCustomElementState(CustomElementState::Failed);
+    setCustomElementState(CustomElementState::FailedOrPrecustomized);
     InspectorInstrumentation::didChangeCustomElementState(*this);
 }
 
 void Element::clearReactionQueueFromFailedCustomElement()
 {
-    ASSERT(isFailedCustomElement());
+    ASSERT(isFailedOrPrecustomizedCustomElement());
     if (hasRareData()) {
         // Clear the queue instead of deleting it since this function can be called inside CustomElementReactionQueue::invokeAll during upgrades.
         if (auto* queue = elementRareData()->customElementReactionQueue())
@@ -2792,7 +2828,6 @@ void Element::setIsCustomElementUpgradeCandidate()
 void Element::enqueueToUpgrade(JSCustomElementInterface& elementInterface)
 {
     ASSERT(isCustomElementUpgradeCandidate());
-    ASSERT(!isDefinedCustomElement() && !isFailedCustomElement());
     auto& data = ensureElementRareData();
     bool alreadyScheduledToUpgrade = data.customElementReactionQueue();
     if (!alreadyScheduledToUpgrade)
@@ -2803,12 +2838,11 @@ void Element::enqueueToUpgrade(JSCustomElementInterface& elementInterface)
 CustomElementReactionQueue* Element::reactionQueue() const
 {
 #if ASSERT_ENABLED
-    if (isFailedCustomElement()) {
+    if (isFailedOrPrecustomizedCustomElement()) {
         auto* queue = elementRareData()->customElementReactionQueue();
         ASSERT(queue);
         ASSERT(queue->isEmpty() || queue->hasJustUpgradeReaction());
-    } else
-        ASSERT(isDefinedCustomElement() || isCustomElementUpgradeCandidate());
+    }
 #endif
     if (!hasRareData())
         return nullptr;
@@ -2851,7 +2885,7 @@ void Element::childrenChanged(const ChildChange& change)
         case ChildChange::Type::TextInserted:
         case ChildChange::Type::TextRemoved:
         case ChildChange::Type::TextChanged:
-            shadowRoot->didChangeDefaultSlot();
+            shadowRoot->didMutateTextNodesOfShadowHost();
             break;
         case ChildChange::Type::NonContentsChildInserted:
         case ChildChange::Type::NonContentsChildRemoved:
@@ -3418,7 +3452,7 @@ bool Element::dispatchMouseForceWillBegin()
 
     PlatformMouseEvent platformMouseEvent { frame->eventHandler().lastKnownMousePosition(), frame->eventHandler().lastKnownMouseGlobalPosition(), NoButton, PlatformEvent::NoType, 1, false, false, false, false, WallTime::now(), ForceAtClick, NoTap };
     auto mouseForceWillBeginEvent = MouseEvent::create(eventNames().webkitmouseforcewillbeginEvent, document().windowProxy(), platformMouseEvent, 0, nullptr);
-    mouseForceWillBeginEvent->setTarget(this);
+    mouseForceWillBeginEvent->setTarget(Ref { *this });
     dispatchEvent(mouseForceWillBeginEvent);
 
     if (mouseForceWillBeginEvent->defaultHandled() || mouseForceWillBeginEvent->defaultPrevented())
@@ -3847,21 +3881,28 @@ unsigned Element::rareDataChildIndex() const
     return elementRareData()->childIndex();
 }
 
-AtomString Element::computeInheritedLanguage() const
+AtomString Element::effectiveLang() const
 {
-    // The language property is inherited, so we iterate over the parents to find the first language.
-    for (auto* element = this; element; element = element->parentOrShadowHostElement()) {
-        if (auto* elementData = element->elementData()) {
-            if (auto* attribute = elementData->findLanguageAttribute())
-                return attribute->value();
-        }
+    if (hasRareData()) {
+        auto lang = elementRareData()->effectiveLang();
+        if (!lang.isNull())
+            return lang;
     }
-    return document().contentLanguage();
+    return isConnected() ? document().effectiveDocumentElementLanguage() : nullAtom();
+}
+
+AtomString Element::langFromAttribute() const
+{
+    if (auto* data = elementData()) {
+        if (auto* attribute = data->findLanguageAttribute())
+            return attribute->value();
+    }
+    return nullAtom();
 }
 
 Locale& Element::locale() const
 {
-    return document().getCachedLocale(computeInheritedLanguage());
+    return document().getCachedLocale(effectiveLang());
 }
 
 void Element::normalizeAttributes()

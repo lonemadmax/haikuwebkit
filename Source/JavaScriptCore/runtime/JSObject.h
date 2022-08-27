@@ -436,7 +436,7 @@ public:
             }
             FALLTHROUGH;
         }
-        case ALL_WRITABLE_CONTIGUOUS_INDEXING_TYPES: {
+        case ALL_WRITABLE_FAST_PUT_CONTIGUOUS_INDEXING_TYPES: {
             if (i >= butterfly->vectorLength())
                 return false;
             butterfly->contiguous().at(this, i).setWithoutWriteBarrier(v);
@@ -474,6 +474,8 @@ public:
                 return false;
             setIndexQuicklyForArrayStorageIndexingType(vm, i, v);
             return true;
+        case NonArrayWithAlwaysSlowPutContiguous:
+            return false;
         default:
             RELEASE_ASSERT(isCopyOnWrite(indexingMode()));
             return false;
@@ -493,7 +495,7 @@ public:
             }
             FALLTHROUGH;
         }
-        case ALL_CONTIGUOUS_INDEXING_TYPES: {
+        case ALL_FAST_PUT_CONTIGUOUS_INDEXING_TYPES: {
             ASSERT(i < butterfly->vectorLength());
             butterfly->contiguous().at(this, i).setWithoutWriteBarrier(v);
             if (i >= butterfly->publicLength())
@@ -517,18 +519,9 @@ public:
                 butterfly->setPublicLength(i + 1);
             break;
         }
-        case ALL_ARRAY_STORAGE_INDEXING_TYPES: {
-            ArrayStorage* storage = butterfly->arrayStorage();
-            WriteBarrier<Unknown>& x = storage->m_vector[i];
-            JSValue old = x.get();
-            x.set(vm, this, v);
-            if (!old) {
-                ++storage->m_numValuesInVector;
-                if (i >= storage->length())
-                    storage->setLength(i + 1);
-            }
+        case ALL_ARRAY_STORAGE_INDEXING_TYPES:
+            setIndexQuicklyForArrayStorageIndexingType(vm, i, v);
             break;
-        }
         case ALL_BLANK_INDEXING_TYPES:
             setIndexQuicklyForTypedArray(i, v);
             break;
@@ -842,9 +835,9 @@ public:
 
     JS_EXPORT_PRIVATE bool putDirectNativeIntrinsicGetter(VM&, JSGlobalObject*, Identifier, NativeFunction, Intrinsic, unsigned attributes);
     JS_EXPORT_PRIVATE void putDirectNativeIntrinsicGetterWithoutTransition(VM&, JSGlobalObject*, Identifier, NativeFunction, Intrinsic, unsigned attributes);
-    JS_EXPORT_PRIVATE bool putDirectNativeFunction(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, Intrinsic, unsigned attributes);
-    JS_EXPORT_PRIVATE bool putDirectNativeFunction(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, Intrinsic, const DOMJIT::Signature*, unsigned attributes);
-    JS_EXPORT_PRIVATE void putDirectNativeFunctionWithoutTransition(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, Intrinsic, unsigned attributes);
+    JS_EXPORT_PRIVATE bool putDirectNativeFunction(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, ImplementationVisibility, Intrinsic, unsigned attributes);
+    JS_EXPORT_PRIVATE bool putDirectNativeFunction(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, ImplementationVisibility, Intrinsic, const DOMJIT::Signature*, unsigned attributes);
+    JS_EXPORT_PRIVATE void putDirectNativeFunctionWithoutTransition(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, ImplementationVisibility, Intrinsic, unsigned attributes);
 
     JS_EXPORT_PRIVATE JSFunction* putDirectBuiltinFunction(VM&, JSGlobalObject*, const PropertyName&, FunctionExecutable*, unsigned attributes);
     JSFunction* putDirectBuiltinFunctionWithoutTransition(VM&, JSGlobalObject*, const PropertyName&, FunctionExecutable*, unsigned attributes);
@@ -869,7 +862,7 @@ public:
     bool isFrozen(VM& vm) { return structure()->isFrozen(vm); }
 
     JS_EXPORT_PRIVATE bool anyObjectInChainMayInterceptIndexedAccesses() const;
-    bool needsSlowPutIndexing() const;
+    JS_EXPORT_PRIVATE bool needsSlowPutIndexing() const;
 
 private:
     TransitionKind suggestedArrayStorageTransition() const;
@@ -996,6 +989,7 @@ public:
 
     JS_EXPORT_PRIVATE JSValue getMethod(JSGlobalObject*, CallData&, const Identifier&, const String& errorMessage);
 
+    bool canDoFastIndexedAccess();
     bool canPerformFastPutInline(VM&, PropertyName);
     bool canPerformFastPutInlineExcludingProto();
 
@@ -1090,7 +1084,7 @@ protected:
     ArrayStorage* convertContiguousToArrayStorage(VM&);
 
         
-    ArrayStorage* ensureArrayStorageExistsAndEnterDictionaryIndexingMode(VM&);
+    JS_EXPORT_PRIVATE ArrayStorage* ensureArrayStorageExistsAndEnterDictionaryIndexingMode(VM&);
         
     bool defineOwnNonIndexProperty(JSGlobalObject*, PropertyName, const PropertyDescriptor&, bool throwException);
 
@@ -1680,23 +1674,23 @@ JS_EXPORT_PRIVATE NEVER_INLINE bool ordinarySetSlow(JSGlobalObject*, JSObject*, 
 // Use this macro from within finishCreation() methods in prototypes. This assumes
 // you've defined variables called globalObject, globalObject, and vm, and they
 // have the expected meanings.
-#define JSC_NATIVE_INTRINSIC_FUNCTION(jsName, cppName, attributes, length, intrinsic) \
+#define JSC_NATIVE_INTRINSIC_FUNCTION(jsName, cppName, attributes, length, implementationVisibility, intrinsic) \
     putDirectNativeFunction(\
         vm, globalObject, makeIdentifier(vm, (jsName)), (length), cppName, \
-        (intrinsic), (attributes))
+        (implementationVisibility), (intrinsic), (attributes))
 
-#define JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(jsName, cppName, attributes, length, intrinsic) \
+#define JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(jsName, cppName, attributes, length, implementationVisibility, intrinsic) \
     putDirectNativeFunctionWithoutTransition(\
         vm, globalObject, makeIdentifier(vm, (jsName)), (length), cppName, \
-        (intrinsic), (attributes))
+        (implementationVisibility), (intrinsic), (attributes))
 
 // As above, but this assumes that the function you're defining doesn't have an
 // intrinsic.
-#define JSC_NATIVE_FUNCTION(jsName, cppName, attributes, length) \
-    JSC_NATIVE_INTRINSIC_FUNCTION(jsName, cppName, (attributes), (length), JSC::NoIntrinsic)
+#define JSC_NATIVE_FUNCTION(jsName, cppName, attributes, length, implementationVisibility) \
+    JSC_NATIVE_INTRINSIC_FUNCTION(jsName, cppName, (attributes), (length), (implementationVisibility), JSC::NoIntrinsic)
 
-#define JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(jsName, cppName, attributes, length) \
-    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(jsName, cppName, (attributes), (length), JSC::NoIntrinsic)
+#define JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(jsName, cppName, attributes, length, implementationVisibility) \
+    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(jsName, cppName, (attributes), (length), (implementationVisibility), JSC::NoIntrinsic)
 
 // Identical helpers but for builtins. Note that currently, we don't support builtins that are
 // also intrinsics, but we probably will do that eventually.

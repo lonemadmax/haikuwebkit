@@ -144,7 +144,6 @@
 #include "LayoutDisallowedScope.h"
 #include "LazyLoadImageObserver.h"
 #include "LegacySchemeRegistry.h"
-#include "LibWebRTCProvider.h"
 #include "LoaderStrategy.h"
 #include "Logging.h"
 #include "MediaCanStartListener.h"
@@ -171,7 +170,6 @@
 #include "PaintWorkletGlobalScope.h"
 #include "Performance.h"
 #include "PerformanceNavigationTiming.h"
-#include "PermissionController.h"
 #include "PlatformLocale.h"
 #include "PlatformMediaSessionManager.h"
 #include "PlatformScreen.h"
@@ -261,6 +259,7 @@
 #include "VisualViewport.h"
 #include "WebAnimation.h"
 #include "WebAnimationUtilities.h"
+#include "WebRTCProvider.h"
 #include "WheelEvent.h"
 #include "WindowEventLoop.h"
 #include "WindowFeatures.h"
@@ -981,6 +980,7 @@ void Document::childrenChanged(const ChildChange& change)
     if (newDocumentElement == m_documentElement)
         return;
     m_documentElement = newDocumentElement;
+    setDocumentElementLanguage(m_documentElement ? m_documentElement->langFromAttribute() : nullAtom());
     // The root style used for media query matching depends on the document element.
     styleScope().clearResolver();
 }
@@ -1503,6 +1503,26 @@ void Document::setContentLanguage(const AtomString& language)
     if (m_contentLanguage == language)
         return;
     m_contentLanguage = language;
+
+    // Recalculate style so language is used when selecting the initial font.
+    m_styleScope->didChangeStyleSheetEnvironment();
+}
+
+const AtomString& Document::effectiveDocumentElementLanguage() const
+{
+    if (!m_documentElementLanguage.isNull())
+        return m_documentElementLanguage;
+    return m_contentLanguage;
+}
+
+void Document::setDocumentElementLanguage(const AtomString& language)
+{
+    if (m_documentElementLanguage == language)
+        return;
+    m_documentElementLanguage = language;
+
+    if (m_contentLanguage == language)
+        return;
 
     // Recalculate style so language is used when selecting the initial font.
     m_styleScope->didChangeStyleSheetEnvironment();
@@ -3459,9 +3479,11 @@ void Document::logExceptionToConsole(const String& errorMessage, const String& s
 
 void Document::setURL(const URL& url)
 {
-    const URL& newURL = url.isEmpty() ? aboutBlankURL() : url;
+    URL newURL = url.isEmpty() ? aboutBlankURL() : url;
     if (newURL == m_url)
         return;
+    
+    m_fragmentDirective = newURL.consumefragmentDirective();
 
     m_url = newURL;
     if (SecurityOrigin::shouldIgnoreHost(m_url))
@@ -3595,11 +3617,6 @@ IDBClient::IDBConnectionProxy* Document::idbConnectionProxy()
     return m_idbConnectionProxy.get();
 }
 
-RefPtr<PermissionController> Document::permissionController()
-{
-    return page() ? &page()->permissionController() : nullptr;
-}
-
 StorageConnection* Document::storageConnection()
 {
     return page() ? &page()->storageConnection() : nullptr;
@@ -3616,7 +3633,7 @@ RefPtr<RTCDataChannelRemoteHandlerConnection> Document::createRTCDataChannelRemo
     auto* page = this->page();
     if (!page)
         return nullptr;
-    return page->libWebRTCProvider().createRTCDataChannelRemoteHandlerConnection();
+    return page->webRTCProvider().createRTCDataChannelRemoteHandlerConnection();
 }
 
 #if ENABLE(WEB_RTC)
@@ -4313,7 +4330,7 @@ void Document::evaluateMediaQueriesAndReportChanges()
     if (!m_mediaQueryMatcher)
         return;
 
-    m_mediaQueryMatcher->evaluateAll();
+    m_mediaQueryMatcher->evaluateAll(MediaQueryMatcher::EventMode::DispatchNow);
 }
 
 void Document::updateViewportUnitsOnResize()
@@ -7274,7 +7291,8 @@ bool Document::hasRecentUserInteractionForNavigationFromJS() const
     if (UserGestureIndicator::processingUserGesture(this))
         return true;
 
-    return (MonotonicTime::now() - lastHandledUserGestureTimestamp()) <= UserGestureToken::maximumIntervalForUserGestureForwarding;
+    static constexpr Seconds maximumItervalForUserGestureForwarding { 10_s };
+    return (MonotonicTime::now() - lastHandledUserGestureTimestamp()) <= maximumItervalForUserGestureForwarding;
 }
 
 void Document::startTrackingStyleRecalcs()
@@ -7545,10 +7563,10 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
     };
 
     changeState(elementsToClearActive, CSSSelector::PseudoClassActive, false, [](auto& element) {
-        element.setActive(false, false, Style::InvalidationScope::SelfChildrenAndSiblings);
+        element.setActive(false, Style::InvalidationScope::SelfChildrenAndSiblings);
     });
     changeState(elementsToSetActive, CSSSelector::PseudoClassActive, true, [](auto& element) {
-        element.setActive(true, false, Style::InvalidationScope::SelfChildrenAndSiblings);
+        element.setActive(true, Style::InvalidationScope::SelfChildrenAndSiblings);
     });
     changeState(elementsToClearHover, CSSSelector::PseudoClassHover, false, [request](auto& element) {
         element.setHovered(false, Style::InvalidationScope::SelfChildrenAndSiblings, request);

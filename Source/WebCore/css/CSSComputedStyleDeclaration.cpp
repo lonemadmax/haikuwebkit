@@ -26,6 +26,7 @@
 #include "CSSComputedStyleDeclaration.h"
 
 #include "BasicShapeFunctions.h"
+#include "CSSBackgroundRepeatValue.h"
 #include "CSSBasicShapes.h"
 #include "CSSBorderImage.h"
 #include "CSSBorderImageSliceValue.h"
@@ -1975,21 +1976,23 @@ static Ref<CSSValue> hangingPunctuationToCSSValue(OptionSet<HangingPunctuation> 
     return list;
 }
     
-static Ref<CSSValue> fillRepeatToCSSValue(FillRepeat xRepeat, FillRepeat yRepeat)
+static Ref<CSSValue> fillRepeatToCSSValue(FillRepeatXY repeat)
 {
     // For backwards compatibility, if both values are equal, just return one of them. And
     // if the two values are equivalent to repeat-x or repeat-y, just return the shorthand.
     auto& cssValuePool = CSSValuePool::singleton();
-    if (xRepeat == yRepeat)
-        return cssValuePool.createValue(xRepeat);
-    if (xRepeat == FillRepeat::Repeat && yRepeat == FillRepeat::NoRepeat)
+    if (repeat.x == repeat.y)
+        return cssValuePool.createValue(repeat.x);
+
+    if (repeat.x == FillRepeat::Repeat && repeat.y == FillRepeat::NoRepeat)
         return cssValuePool.createIdentifierValue(CSSValueRepeatX);
-    if (xRepeat == FillRepeat::NoRepeat && yRepeat == FillRepeat::Repeat)
+
+    if (repeat.x == FillRepeat::NoRepeat && repeat.y == FillRepeat::Repeat)
         return cssValuePool.createIdentifierValue(CSSValueRepeatY);
 
     auto list = CSSValueList::createSpaceSeparated();
-    list->append(cssValuePool.createValue(xRepeat));
-    list->append(cssValuePool.createValue(yRepeat));
+    list->append(cssValuePool.createValue(repeat.x));
+    list->append(cssValuePool.createValue(repeat.y));
     return list;
 }
 
@@ -2185,190 +2188,18 @@ static Ref<CSSFontStyleValue> fontStyleFromStyle(const RenderStyle& style)
     return ComputedStyleExtractor::fontStyleFromStyleValue(style.fontDescription().italic(), style.fontDescription().fontStyleAxis());
 }
 
-static Ref<CSSValue> fontVariantFromStyle(const RenderStyle& style)
+Ref<CSSValue> ComputedStyleExtractor::fontVariantShorthandValue()
 {
-    if (style.fontDescription().variantSettings().isAllNormal())
-        return CSSValuePool::singleton().createIdentifierValue(CSSValueNormal);
-
     auto list = CSSValueList::createSpaceSeparated();
-
-    switch (style.fontDescription().variantCommonLigatures()) {
-    case FontVariantLigatures::Normal:
-        break;
-    case FontVariantLigatures::Yes:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueCommonLigatures));
-        break;
-    case FontVariantLigatures::No:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueNoCommonLigatures));
-        break;
+    auto shorthand = fontVariantShorthand();
+    for (size_t i = 0; i < shorthand.length(); ++i) {
+        auto value = propertyValue(shorthand.properties()[i], DoNotUpdateLayout);
+        if (is<CSSPrimitiveValue>(value) && downcast<CSSPrimitiveValue>(*value).valueID() == CSSValueNormal)
+            continue;
+        list->append(value.releaseNonNull());
     }
-
-    switch (style.fontDescription().variantDiscretionaryLigatures()) {
-    case FontVariantLigatures::Normal:
-        break;
-    case FontVariantLigatures::Yes:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueDiscretionaryLigatures));
-        break;
-    case FontVariantLigatures::No:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueNoDiscretionaryLigatures));
-        break;
-    }
-
-    switch (style.fontDescription().variantHistoricalLigatures()) {
-    case FontVariantLigatures::Normal:
-        break;
-    case FontVariantLigatures::Yes:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueHistoricalLigatures));
-        break;
-    case FontVariantLigatures::No:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueNoHistoricalLigatures));
-        break;
-    }
-
-    switch (style.fontDescription().variantContextualAlternates()) {
-    case FontVariantLigatures::Normal:
-        break;
-    case FontVariantLigatures::Yes:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueContextual));
-        break;
-    case FontVariantLigatures::No:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueNoContextual));
-        break;
-    }
-
-    switch (style.fontDescription().variantPosition()) {
-    case FontVariantPosition::Normal:
-        break;
-    case FontVariantPosition::Subscript:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueSub));
-        break;
-    case FontVariantPosition::Superscript:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueSuper));
-        break;
-    }
-
-    switch (style.fontDescription().variantCaps()) {
-    case FontVariantCaps::Normal:
-        break;
-    case FontVariantCaps::Small:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueSmallCaps));
-        break;
-    case FontVariantCaps::AllSmall:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueAllSmallCaps));
-        break;
-    case FontVariantCaps::Petite:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValuePetiteCaps));
-        break;
-    case FontVariantCaps::AllPetite:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueAllPetiteCaps));
-        break;
-    case FontVariantCaps::Unicase:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueUnicase));
-        break;
-    case FontVariantCaps::Titling:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueTitlingCaps));
-        break;
-    }
-
-    switch (style.fontDescription().variantNumericFigure()) {
-    case FontVariantNumericFigure::Normal:
-        break;
-    case FontVariantNumericFigure::LiningNumbers:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueLiningNums));
-        break;
-    case FontVariantNumericFigure::OldStyleNumbers:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueOldstyleNums));
-        break;
-    }
-
-    switch (style.fontDescription().variantNumericSpacing()) {
-    case FontVariantNumericSpacing::Normal:
-        break;
-    case FontVariantNumericSpacing::ProportionalNumbers:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueProportionalNums));
-        break;
-    case FontVariantNumericSpacing::TabularNumbers:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueTabularNums));
-        break;
-    }
-
-    switch (style.fontDescription().variantNumericFraction()) {
-    case FontVariantNumericFraction::Normal:
-        break;
-    case FontVariantNumericFraction::DiagonalFractions:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueDiagonalFractions));
-        break;
-    case FontVariantNumericFraction::StackedFractions:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueStackedFractions));
-        break;
-    }
-
-    switch (style.fontDescription().variantNumericOrdinal()) {
-    case FontVariantNumericOrdinal::Normal:
-        break;
-    case FontVariantNumericOrdinal::Yes:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueOrdinal));
-        break;
-    }
-
-    switch (style.fontDescription().variantNumericSlashedZero()) {
-    case FontVariantNumericSlashedZero::Normal:
-        break;
-    case FontVariantNumericSlashedZero::Yes:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueSlashedZero));
-        break;
-    }
-
-    switch (style.fontDescription().variantAlternates()) {
-    case FontVariantAlternates::Normal:
-        break;
-    case FontVariantAlternates::HistoricalForms:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueHistoricalForms));
-        break;
-    }
-
-    switch (style.fontDescription().variantEastAsianVariant()) {
-    case FontVariantEastAsianVariant::Normal:
-        break;
-    case FontVariantEastAsianVariant::Jis78:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueJis78));
-        break;
-    case FontVariantEastAsianVariant::Jis83:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueJis83));
-        break;
-    case FontVariantEastAsianVariant::Jis90:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueJis90));
-        break;
-    case FontVariantEastAsianVariant::Jis04:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueJis04));
-        break;
-    case FontVariantEastAsianVariant::Simplified:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueSimplified));
-        break;
-    case FontVariantEastAsianVariant::Traditional:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueTraditional));
-        break;
-    }
-
-    switch (style.fontDescription().variantEastAsianWidth()) {
-    case FontVariantEastAsianWidth::Normal:
-        break;
-    case FontVariantEastAsianWidth::Full:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueFullWidth));
-        break;
-    case FontVariantEastAsianWidth::Proportional:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueProportionalWidth));
-        break;
-    }
-
-    switch (style.fontDescription().variantEastAsianRuby()) {
-    case FontVariantEastAsianRuby::Normal:
-        break;
-    case FontVariantEastAsianRuby::Yes:
-        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueRuby));
-        break;
-    }
-
+    if (!list->length())
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueNormal);
     return list;
 }
 
@@ -2982,10 +2813,10 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyMaskRepeat: {
             auto& layers = propertyID == CSSPropertyMaskRepeat ? style.maskLayers() : style.backgroundLayers();
             if (!layers.next())
-                return fillRepeatToCSSValue(layers.repeatX(), layers.repeatY());
+                return fillRepeatToCSSValue(layers.repeat());
             auto list = CSSValueList::createCommaSeparated();
             for (auto* currLayer = &layers; currLayer; currLayer = currLayer->next())
-                list->append(fillRepeatToCSSValue(currLayer->repeatX(), currLayer->repeatY()));
+                list->append(fillRepeatToCSSValue(currLayer->repeat()));
             return list;
         }
         case CSSPropertyWebkitMaskSourceType: {
@@ -3276,7 +3107,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyFontStretch:
             return fontStretchFromStyle(style);
         case CSSPropertyFontVariant:
-            return fontVariantFromStyle(style);
+            return fontVariantShorthandValue();
         case CSSPropertyFontWeight:
             return fontNonKeywordWeightFromStyle(style);
         case CSSPropertyFontPalette:
@@ -3793,6 +3624,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return valueForContainIntrinsicSize(style, style.containIntrinsicWidthType(), style.containIntrinsicWidth());
         case CSSPropertyContainIntrinsicHeight:
             return valueForContainIntrinsicSize(style, style.containIntrinsicHeightType(), style.containIntrinsicHeight());
+        case CSSPropertyContentVisibility:
+            return cssValuePool.createIdentifierValue(toCSSValueID(style.contentVisibility()));
         case CSSPropertyBackfaceVisibility:
             return cssValuePool.createIdentifierValue((style.backfaceVisibility() == BackfaceVisibility::Hidden) ? CSSValueHidden : CSSValueVisible);
         case CSSPropertyBorderImage:
@@ -4143,8 +3976,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
 #if ENABLE(DARK_MODE_CSS)
         case CSSPropertyColorScheme: {
             auto colorScheme = style.colorScheme();
-            if (colorScheme.isAuto())
-                return cssValuePool.createIdentifierValue(CSSValueAuto);
+            if (colorScheme.isNormal())
+                return cssValuePool.createIdentifierValue(CSSValueNormal);
 
             auto list = CSSValueList::createSpaceSeparated();
             if (colorScheme.contains(ColorScheme::Light))
@@ -4249,8 +4082,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return nullptr;
 
         // Internal properties should be handled by isCSSPropertyExposed above.
-        case CSSPropertyBackgroundRepeatX:
-        case CSSPropertyBackgroundRepeatY:
         case CSSPropertyWebkitFontSizeDelta:
         case CSSPropertyWebkitMarqueeDirection:
         case CSSPropertyWebkitMarqueeIncrement:
@@ -4294,8 +4125,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         /* Unimplemented -webkit- properties */
         case CSSPropertyWebkitBorderRadius:
         case CSSPropertyWebkitMask:
-        case CSSPropertyMaskRepeatX:
-        case CSSPropertyMaskRepeatY:
         case CSSPropertyPerspectiveOriginX:
         case CSSPropertyPerspectiveOriginY:
         case CSSPropertyWebkitTextStroke:

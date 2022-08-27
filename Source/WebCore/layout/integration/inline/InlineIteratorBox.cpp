@@ -26,6 +26,7 @@
 #include "config.h"
 #include "InlineIteratorBox.h"
 
+#include "InlineIteratorInlineBox.h"
 #include "InlineIteratorLineBox.h"
 #include "InlineIteratorTextBox.h"
 #include "LayoutIntegrationLineLayout.h"
@@ -79,6 +80,13 @@ LeafBoxIterator Box::nextOnLineIgnoringLineBreak() const
 LeafBoxIterator Box::previousOnLineIgnoringLineBreak() const
 {
     return LeafBoxIterator(*this).traversePreviousOnLineIgnoringLineBreak();
+}
+
+InlineBoxIterator Box::parentInlineBox() const
+{
+    return WTF::switchOn(m_pathVariant, [](auto& path) -> InlineBoxIterator {
+        return { path.parentInlineBox() };
+    });
 }
 
 LineBoxIterator Box::lineBox() const

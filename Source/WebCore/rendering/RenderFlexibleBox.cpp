@@ -47,6 +47,8 @@
 #include "RenderTable.h"
 #include "RenderView.h"
 #include "WritingMode.h"
+#include "platform/LayoutUnit.h"
+#include "rendering/RenderBox.h"
 #include <limits>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
@@ -98,7 +100,7 @@ void RenderFlexibleBox::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidt
         minLogicalWidth += scrollbarWidth;
     };
 
-    auto shouldIgnoreFlexItemContentForLogicalWidth = shouldApplySizeOrStyleContainment({ Containment::Size, Containment::InlineSize });
+    auto shouldIgnoreFlexItemContentForLogicalWidth = shouldApplySizeOrInlineSizeContainment();
     if (shouldIgnoreFlexItemContentForLogicalWidth) {
         addScrollbarWidth();
         return;
@@ -1271,7 +1273,7 @@ bool RenderFlexibleBox::hasAutoMarginsInCrossAxis(const RenderBox& child) const
     return child.style().marginLeft().isAuto() || child.style().marginRight().isAuto();
 }
 
-LayoutUnit RenderFlexibleBox::availableAlignmentSpaceForChild(LayoutUnit lineCrossAxisExtent, const RenderBox& child)
+LayoutUnit RenderFlexibleBox::availableAlignmentSpaceForChild(const LayoutUnit lineCrossAxisExtent, const RenderBox& child) const
 {
     LayoutUnit childCrossExtent = crossAxisMarginExtentForChild(child) + crossAxisExtentForChild(child);
     return lineCrossAxisExtent - childCrossExtent;
@@ -1390,11 +1392,26 @@ std::pair<LayoutUnit, LayoutUnit> RenderFlexibleBox::computeFlexItemMinMaxSizes(
         // ensure it's valid through the virtual calls of computeIntrinsicLogicalContentHeightUsing.
         LayoutUnit contentSize;
         Length childCrossSizeLength = crossSizeLengthForChild(MainOrPreferredSize, child);
-        if (child.isRenderReplaced() && childHasComputableAspectRatio(child) && childCrossSizeIsDefinite(child, childCrossSizeLength))
-            contentSize = computeMainSizeFromAspectRatioUsing(child, childCrossSizeLength);
+
+
+        
+        bool mainSizeAxisIsInline = mainAxisIsChildInlineAxis(child);
+        bool canComputeSizeThroughAspectRatio = childHasComputableAspectRatio(child) && childCrossSizeIsDefinite(child, childCrossSizeLength);
+        auto computeMinContentSize = [this](RenderBox &child) -> LayoutUnit {
+            return computeMainAxisExtentForChild(child, MinSize, Length(LengthType::MinContent)).value_or(0);
+        };
+        auto computeSizeThroughAspectRatio = [this, canComputeSizeThroughAspectRatio] (RenderBox &child, Length childCrossSizeLength) {
+            return canComputeSizeThroughAspectRatio ? computeMainSizeFromAspectRatioUsing(child, childCrossSizeLength) : 0_lu; 
+        };
+        
+        if (mainSizeAxisIsInline && canComputeSizeThroughAspectRatio)
+            contentSize = computeSizeThroughAspectRatio(child, childCrossSizeLength);
+        else if (mainSizeAxisIsInline)
+            contentSize = computeMinContentSize(child);
         else
-            contentSize = computeMainAxisExtentForChild(child, MinSize, Length(LengthType::MinContent)).value_or(0);
-        if (child.hasIntrinsicAspectRatio() && child.intrinsicSize().height())
+            contentSize = std::max(computeSizeThroughAspectRatio(child, childCrossSizeLength), computeMinContentSize(child));
+
+        if (childHasComputableAspectRatio(child) && (!crossSizeLengthForChild(MinSize, child).isAuto() || !crossSizeLengthForChild(MaxSize, child).isAuto()))
             contentSize = adjustChildSizeForAspectRatioCrossAxisMinAndMax(child, contentSize);
         ASSERT(contentSize >= 0);
         contentSize = std::min(contentSize, maxExtent.value_or(contentSize));
@@ -1731,10 +1748,42 @@ LayoutUnit RenderFlexibleBox::staticMainAxisPositionForPositionedChild(const Ren
     return offset;
 }
 
-LayoutUnit RenderFlexibleBox::staticCrossAxisPositionForPositionedChild(const RenderBox& child)
+LayoutUnit RenderFlexibleBox::staticCrossAxisPositionForPositionedChild(const RenderBox& child) const
 {
     auto availableSpace = availableAlignmentSpaceForChild(crossAxisContentExtent(), child);
-    return alignmentOffset(availableSpace, alignmentForChild(child), 0_lu, 0_lu, style().flexWrap() == FlexWrap::Reverse);
+    auto alignContentDistribution = style().resolvedAlignContentDistribution(contentAlignmentNormalBehavior());
+    bool isReversed = style().flexWrap() == FlexWrap::Reverse;
+
+    // This computes static positioning given a flex container's align-content property except for the case
+    // of align-content: stretch.
+    // https://drafts.csswg.org/css-flexbox-1/#align-content-property
+    const auto alignContentOffset = [&] {
+        auto alignContentPosition = style().resolvedAlignContentPosition(contentAlignmentNormalBehavior());
+
+        if (alignContentPosition == ContentPosition::FlexStart
+            || alignContentDistribution == ContentDistribution::SpaceBetween)
+            return isReversed ? availableSpace : 0_lu;
+
+        if (alignContentPosition == ContentPosition::FlexEnd)
+            return isReversed ? 0_lu : availableSpace;
+
+        if (alignContentPosition == ContentPosition::End)
+            return availableSpace;
+
+        if (alignContentPosition == ContentPosition::Center
+            || alignContentDistribution == ContentDistribution::SpaceEvenly
+            || alignContentDistribution == ContentDistribution::SpaceAround)
+            return availableSpace / 2;
+
+        return 0_lu;
+    };
+
+    if (isMultiline() && alignContentDistribution != ContentDistribution::Stretch)
+        return alignContentOffset();
+
+    // For the align-content: stretch case, this leads to unspecified but web compatible behavior.
+    // https://bugs.webkit.org/show_bug.cgi?id=243882
+    return alignmentOffset(availableSpace, alignmentForChild(child), 0_lu, 0_lu, isReversed);
 }
 
 LayoutUnit RenderFlexibleBox::staticInlinePositionForPositionedChild(const RenderBox& child)
@@ -2108,7 +2157,7 @@ void RenderFlexibleBox::layoutColumnReverse(const Vector<FlexItem>& children, La
         }
     }
 }
-    
+
 static LayoutUnit initialAlignContentOffset(LayoutUnit availableFreeSpace, ContentPosition alignContent, ContentDistribution alignContentDistribution, unsigned numberOfLines, bool isReversed)
 {
     if (alignContent == ContentPosition::FlexEnd

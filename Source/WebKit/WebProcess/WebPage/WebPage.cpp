@@ -122,7 +122,6 @@
 #include "WebPageProxyMessages.h"
 #include "WebPaymentCoordinator.h"
 #include "WebPerformanceLoggingClient.h"
-#include "WebPermissionController.h"
 #include "WebPluginInfoProvider.h"
 #include "WebPopupMenu.h"
 #include "WebPreferencesDefinitions.h"
@@ -185,6 +184,8 @@
 #include <WebCore/FontAttributeChanges.h>
 #include <WebCore/FontAttributes.h>
 #include <WebCore/FormState.h>
+#include <WebCore/FragmentDirectiveParser.h>
+#include <WebCore/FragmentDirectiveRangeFinder.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -601,7 +602,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         makeUniqueRef<WebSpeechRecognitionProvider>(m_identifier),
         makeUniqueRef<MediaRecorderProvider>(*this),
         WebProcess::singleton().broadcastChannelRegistry(),
-        WebPermissionController::create(*this),
         makeUniqueRef<WebStorageProvider>(),
         makeUniqueRef<WebModelPlayerProvider>(*this)
     );
@@ -692,6 +692,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
 
     m_page = makeUnique<Page>(WTFMove(pageConfiguration));
+
+    WebStorageNamespaceProvider::incrementUseCount(*m_pageGroup, sessionStorageNamespaceIdentifier());
 
 #if PLATFORM(IOS)
     setAllowsDeprecatedSynchronousXMLHttpRequestDuringUnload(parameters.allowsDeprecatedSynchronousXMLHttpRequestDuringUnload);
@@ -871,8 +873,10 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     if (!parameters.iceCandidateFilteringEnabled)
         m_page->disableICECandidateFiltering();
 #if USE(LIBWEBRTC)
-    if (parameters.enumeratingAllNetworkInterfacesEnabled)
-        m_page->libWebRTCProvider().enableEnumeratingAllNetworkInterfaces();
+    if (parameters.enumeratingAllNetworkInterfacesEnabled) {
+        auto& rtcProvider = static_cast<LibWebRTCProvider&>(m_page->webRTCProvider());
+        rtcProvider.enableEnumeratingAllNetworkInterfaces();
+    }
 #endif
 #endif
 
@@ -1091,6 +1095,8 @@ WebPage::~WebPage()
     if (m_footerBanner)
         m_footerBanner->detachFromPage();
 #endif
+
+    WebStorageNamespaceProvider::decrementUseCount(*m_pageGroup, sessionStorageNamespaceIdentifier());
 
 #ifndef NDEBUG
     webPageCounter.decrement();
@@ -1903,7 +1909,7 @@ void WebPage::setDefersLoading(bool defersLoading)
     m_page->setDefersLoading(defersLoading);
 }
 
-void WebPage::reload(uint64_t navigationID, uint32_t reloadOptions, SandboxExtension::Handle&& sandboxExtensionHandle)
+void WebPage::reload(uint64_t navigationID, OptionSet<WebCore::ReloadOption> reloadOptions, SandboxExtension::Handle&& sandboxExtensionHandle)
 {
     SendStopResponsivenessTimer stopper;
 
@@ -1912,7 +1918,7 @@ void WebPage::reload(uint64_t navigationID, uint32_t reloadOptions, SandboxExten
 
     m_sandboxExtensionTracker.beginReload(m_mainFrame.ptr(), WTFMove(sandboxExtensionHandle));
     if (m_page && m_mainFrame->coreFrame())
-        m_page->userInputBridge().reloadFrame(*m_mainFrame->coreFrame(), OptionSet<ReloadOption>::fromRaw(reloadOptions));
+        m_page->userInputBridge().reloadFrame(*m_mainFrame->coreFrame(), reloadOptions);
     else
         ASSERT_NOT_REACHED();
 
@@ -3861,6 +3867,22 @@ void WebPage::runJavaScript(WebFrame* frame, RunJavaScriptParameters&& parameter
     }
 #endif
 
+    bool shouldAllowUserInteraction = [&] {
+        if (m_userIsInteracting)
+            return true;
+
+        if (parameters.forceUserGesture == ForceUserGesture::No)
+            return false;
+
+#if PLATFORM(COCOA)
+        if (linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ProgrammaticFocusDuringUserScriptShowsInputViews))
+            return true;
+#endif
+
+        return false;
+    }();
+
+    SetForScope userIsInteractingChange { m_userIsInteracting, shouldAllowUserInteraction };
     auto resolveFunction = [world = Ref { *world }, frame = Ref { *frame }, coreFrame = Ref { *frame->coreFrame() }, completionHandler = WTFMove(completionHandler)] (ValueOrException result) mutable {
         RefPtr<SerializedScriptValue> serializedResultValue;
         if (result) {
@@ -4276,6 +4298,9 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 #if HAVE(SCENEKIT)
     m_useSceneKitForModel = store.getBoolValueForKey(WebPreferencesKey::useSceneKitForModelKey());
 #endif
+
+    if (settings.showMediaStatsContextMenuItemEnabled())
+        settings.setTrackConfigurationEnabled(true);
 
     m_page->settingsDidChange();
 }
@@ -4845,7 +4870,7 @@ void WebPage::replaceStringMatchesFromInjectedBundle(const Vector<uint32_t>& mat
 
 void WebPage::findString(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(bool)>&& completionHandler)
 {
-    findController().findString(string, options, maxMatchCount, WTFMove(completionHandler));
+    findController().findString(string, options, maxMatchCount, FindController::TriggerImageAnalysis::Yes, WTFMove(completionHandler));
 }
 
 void WebPage::findStringMatches(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount)
@@ -7541,6 +7566,40 @@ void WebPage::getApplicationManifest(CompletionHandler<void(const std::optional<
 
 #endif // ENABLE(APPLICATION_MANIFEST)
 
+void WebPage::getTextFragmentMatch(CompletionHandler<void(const String&)>&& completionHandler)
+{
+    if (!m_mainFrame->coreFrame()) {
+        completionHandler({ });
+        return;
+    }
+
+    Document* document = m_mainFrame->coreFrame()->document();
+    if (!document) {
+        completionHandler({ });
+        return;
+    }
+
+    auto fragmentDirective = document->fragmentDirective();
+    if (fragmentDirective.isEmpty()) {
+        completionHandler({ });
+        return;
+    }
+    FragmentDirectiveParser fragmentDirectiveParser(fragmentDirective);
+    if (!fragmentDirectiveParser.isValid()) {
+        completionHandler({ });
+        return;
+    }
+
+    auto parsedTextDirectives = fragmentDirectiveParser.parsedTextDirectives();
+    auto highlightRanges = FragmentDirectiveRangeFinder::findRangesFromTextDirectives(parsedTextDirectives, *document);
+    if (highlightRanges.isEmpty()) {
+        completionHandler({ });
+        return;
+    }
+
+    completionHandler(plainText(highlightRanges.first()));
+}
+
 void WebPage::updateCurrentModifierState(OptionSet<PlatformEvent::Modifier> modifiers)
 {
     PlatformKeyboardEvent::setCurrentModifierState(modifiers);
@@ -7898,7 +7957,7 @@ void WebPage::updateWithTextRecognitionResult(const TextRecognitionResult& resul
 void WebPage::startVisualTranslation(const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier)
 {
     if (RefPtr document = m_mainFrame->coreFrame()->document())
-        corePage()->imageAnalysisQueue().enqueueAllImages(*document, sourceLanguageIdentifier, targetLanguageIdentifier);
+        corePage()->imageAnalysisQueue().enqueueAllImagesIfNeeded(*document, sourceLanguageIdentifier, targetLanguageIdentifier);
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -8019,17 +8078,17 @@ bool WebPage::createAppHighlightInSelectedRange(WebCore::CreateNewGroupForHighli
     return true;
 }
 
-void WebPage::restoreAppHighlightsAndScrollToIndex(const Vector<SharedMemory::IPCHandle>&& memoryHandles, const std::optional<unsigned> index)
+void WebPage::restoreAppHighlightsAndScrollToIndex(const Vector<SharedMemory::Handle>&& memoryHandles, const std::optional<unsigned> index)
 {
     RefPtr document = CheckedRef(m_page->focusController())->focusedOrMainFrame().document();
 
     unsigned i = 0;
-    for (const auto& ipcHandle : memoryHandles) {
-        auto sharedMemory = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
+    for (const auto& handle : memoryHandles) {
+        auto sharedMemory = SharedMemory::map(handle, SharedMemory::Protection::ReadOnly);
         if (!sharedMemory)
             continue;
 
-        document->appHighlightStorage().restoreAndScrollToAppHighlight(sharedMemory->createSharedBuffer(ipcHandle.dataSize), i == index ? ScrollToHighlight::Yes : ScrollToHighlight::No);
+        document->appHighlightStorage().restoreAndScrollToAppHighlight(sharedMemory->createSharedBuffer(handle.size()), i == index ? ScrollToHighlight::Yes : ScrollToHighlight::No);
         i++;
     }
 }
@@ -8145,6 +8204,19 @@ void WebPage::setIsWindowResizingEnabled(bool value)
 }
 
 #endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
+
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+
+void WebPage::setInteractionRegionsEnabled(bool enable)
+{
+    WEBPAGE_RELEASE_LOG(Process, "setInteractionRegionsEnabled: enable state = %d for page %p", (int)enable, (void*)m_page.get());
+    if (!m_page)
+        return;
+
+    m_page->setInteractionRegionsEnabled(enable);
+}
+
+#endif // ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
 
 bool WebPage::handlesPageScaleGesture()
 {

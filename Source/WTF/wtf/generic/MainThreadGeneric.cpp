@@ -31,42 +31,27 @@
  */
 
 #include "config.h"
-#if !OS(LINUX)
 #include <pthread.h>
-#endif
-#if HAVE(PTHREAD_NP_H)
-#include <pthread_np.h>
-#endif
-#if OS(LINUX)
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <unistd.h>
-#endif
 
 #include <wtf/RunLoop.h>
 
 namespace WTF {
 
-#if !HAVE(PTHREAD_MAIN_NP) && !OS(LINUX)
 static pthread_t mainThread;
-#endif
 
 void initializeMainThreadPlatform()
 {
-#if !HAVE(PTHREAD_MAIN_NP) && !OS(LINUX)
+    // WebKit APIs must be consistently used from exactly one thread. The thread that initializes WebKit
+    // is considered the "WebKit main thread," and it is an error to use WebKit APIs from any other thread.
+    // The WebKit main thread need not be the application's actual OS-level main thread, which might be
+    // controlled by a language runtime or virtual machine; for example, in Eclipse, the OS main thread is
+    // controlled by the JVM, while the separate WebKit main thread runs all the GUI and WebKit stuff.
     mainThread = pthread_self();
-#endif
 }
 
 bool isMainThread()
 {
-#if HAVE(PTHREAD_MAIN_NP)
-    return pthread_main_np();
-#elif OS(LINUX)
-    return getpid() == static_cast<pid_t>(syscall(SYS_gettid));
-#else
     return pthread_equal(pthread_self(), mainThread);
-#endif
 }
 
 } // namespace WTF

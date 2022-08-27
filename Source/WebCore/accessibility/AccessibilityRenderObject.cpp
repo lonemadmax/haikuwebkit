@@ -160,12 +160,6 @@ RenderBoxModelObject* AccessibilityRenderObject::renderBoxModelObject() const
     return downcast<RenderBoxModelObject>(renderer());
 }
 
-void AccessibilityRenderObject::setRenderer(RenderObject* renderer)
-{
-    m_renderer = renderer;
-    setNode(renderer->node());
-}
-
 static inline bool isInlineWithContinuation(RenderObject& object)
 {
     return is<RenderInline>(object) && downcast<RenderInline>(object).continuation();
@@ -768,8 +762,6 @@ String AccessibilityRenderObject::stringValue() const
     if (isPasswordField())
         return passwordFieldValue();
 
-    RenderBoxModelObject* cssBox = renderBoxModelObject();
-
     if (isARIAStaticText()) {
         String staticText = text();
         if (!staticText.length())
@@ -777,28 +769,28 @@ String AccessibilityRenderObject::stringValue() const
         return staticText;
     }
         
-    if (is<RenderText>(*m_renderer))
+    if (is<RenderText>(m_renderer.get()))
         return textUnderElement();
 
-    if (is<RenderMenuList>(cssBox)) {
+    if (auto* renderMenuList = dynamicDowncast<RenderMenuList>(m_renderer.get())) {
         // RenderMenuList will go straight to the text() of its selected item.
         // This has to be overridden in the case where the selected item has an ARIA label.
-        HTMLSelectElement& selectElement = downcast<HTMLSelectElement>(*m_renderer->node());
+        auto& selectElement = renderMenuList->selectElement();
         int selectedIndex = selectElement.selectedIndex();
-        const Vector<HTMLElement*>& listItems = selectElement.listItems();
+        const auto& listItems = selectElement.listItems();
         if (selectedIndex >= 0 && static_cast<size_t>(selectedIndex) < listItems.size()) {
             const AtomString& overriddenDescription = listItems[selectedIndex]->attributeWithoutSynchronization(aria_labelAttr);
             if (!overriddenDescription.isNull())
                 return overriddenDescription;
         }
-        return downcast<RenderMenuList>(*m_renderer).text();
+        return renderMenuList->text();
     }
 
-    if (is<RenderListMarker>(*m_renderer)) {
+    if (auto* renderListMarker = dynamicDowncast<RenderListMarker>(m_renderer.get())) {
 #if USE(ATSPI)
-        return downcast<RenderListMarker>(*m_renderer).textWithSuffix().toString();
+        return renderListMarker->textWithSuffix().toString();
 #else
-        return downcast<RenderListMarker>(*m_renderer).textWithoutSuffix().toString();
+        return renderListMarker->textWithoutSuffix().toString();
 #endif
     }
 
@@ -812,9 +804,9 @@ String AccessibilityRenderObject::stringValue() const
     if (isInputTypePopupButton())
         return textUnderElement();
 #endif
-    
-    if (is<RenderFileUploadControl>(*m_renderer))
-        return downcast<RenderFileUploadControl>(*m_renderer).fileTextValue();
+
+    if (auto* renderFileUploadControl = dynamicDowncast<RenderFileUploadControl>(m_renderer.get()))
+        return renderFileUploadControl->fileTextValue();
     
     // FIXME: We might need to implement a value here for more types
     // FIXME: It would be better not to advertise a value at all for the types for which we don't implement one;
@@ -2826,9 +2818,12 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     auto roleFromNode = determineAccessibilityRoleFromNode(treatStyleFormatGroupAsInline);
     if (roleFromNode != AccessibilityRole::Unknown)
         return roleFromNode;
-    
+
+#if !PLATFORM(COCOA)
+    // This block should be deleted for all platforms, but doing so causes a lot of test failures that need to be sorted out.
     if (m_renderer->isRenderBlockFlow())
         return m_renderer->isAnonymousBlock() ? AccessibilityRole::TextGroup : AccessibilityRole::Group;
+#endif
     
     // InlineRole is the final fallback before assigning AccessibilityRole::Unknown to an object. It makes it
     // possible to distinguish truly unknown objects from non-focusable inline text elements
@@ -3083,8 +3078,10 @@ void AccessibilityRenderObject::updateAttachmentViewParents()
         return;
     
     for (const auto& child : m_children) {
-        if (child->isAttachment())
-            child->overrideAttachmentParent(this);
+        if (child->isAttachment()) {
+            if (auto* liveChild = dynamicDowncast<AccessibilityObject>(child.get()))
+                liveChild->overrideAttachmentParent(this);
+        }
     }
 }
 #endif

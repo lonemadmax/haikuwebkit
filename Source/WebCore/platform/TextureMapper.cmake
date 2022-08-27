@@ -112,6 +112,7 @@ if (USE_COORDINATED_GRAPHICS)
         platform/graphics/nicosia/texmap/NicosiaCompositionLayerTextureMapperImpl.cpp
         platform/graphics/nicosia/texmap/NicosiaContentLayerTextureMapperImpl.cpp
         platform/graphics/nicosia/texmap/NicosiaGCGLLayer.cpp
+        platform/graphics/nicosia/texmap/NicosiaImageBackingStore.cpp
         platform/graphics/nicosia/texmap/NicosiaImageBackingTextureMapperImpl.cpp
     )
     list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
@@ -128,6 +129,7 @@ if (USE_COORDINATED_GRAPHICS)
         platform/graphics/nicosia/texmap/NicosiaBackingStoreTextureMapperImpl.h
         platform/graphics/nicosia/texmap/NicosiaCompositionLayerTextureMapperImpl.h
         platform/graphics/nicosia/texmap/NicosiaContentLayerTextureMapperImpl.h
+        platform/graphics/nicosia/texmap/NicosiaImageBackingStore.h
         platform/graphics/nicosia/texmap/NicosiaImageBackingTextureMapperImpl.h
     )
 else ()

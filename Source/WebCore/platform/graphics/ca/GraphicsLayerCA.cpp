@@ -323,6 +323,7 @@ bool GraphicsLayer::supportsLayerType(Type type)
 {
     switch (type) {
     case Type::Normal:
+    case Type::Structural:
     case Type::PageTiledBacking:
     case Type::ScrollContainer:
     case Type::ScrolledContents:
@@ -435,6 +436,11 @@ void GraphicsLayerCA::initialize(Type layerType)
     PlatformCALayer::LayerType platformLayerType;
     switch (layerType) {
     case Type::Normal:
+        platformLayerType = PlatformCALayer::LayerType::LayerTypeWebLayer;
+        break;
+    case Type::Structural:
+        platformLayerType = PlatformCALayer::LayerType::LayerTypeTransformLayer;
+        break;
     case Type::ScrolledContents:
         platformLayerType = PlatformCALayer::LayerType::LayerTypeWebLayer;
         break;
@@ -2051,10 +2057,12 @@ void GraphicsLayerCA::commitLayerChangesBeforeSublayers(CommitState& commitState
     if (m_uncommittedChanges & AnimationChanged)
         updateAnimations();
 
+    updateRootRelativeScale(); // Needs to happen before ContentsScaleChanged.
+
     // Updating the contents scale can cause parts of the layer to be invalidated,
     // so make sure to update the contents scale before updating the dirty rects.
     if (m_uncommittedChanges & ContentsScaleChanged)
-        updateContentsScale(pageScaleFactor);
+        updateContentsScale(m_rootRelativeScaleFactor * pageScaleFactor);
 
     if (m_uncommittedChanges & CoverageRectChanged)
         updateCoverage(commitState);
@@ -2670,7 +2678,7 @@ bool GraphicsLayerCA::ensureStructuralLayer(StructuralLayerPurpose purpose)
 
 GraphicsLayerCA::StructuralLayerPurpose GraphicsLayerCA::structuralLayerPurpose() const
 {
-    if (preserves3D())
+    if (preserves3D() && m_type != Type::Structural)
         return StructuralLayerForPreserves3D;
     
     if (isReplicated())
@@ -4007,6 +4015,36 @@ GraphicsLayerCA::LayerMap* GraphicsLayerCA::animatedLayerClones(AnimatedProperty
         return nullptr;
 
     return (property == AnimatedPropertyBackgroundColor) ? &m_layerClones->contentsLayerClones : primaryLayerClones();
+}
+
+void GraphicsLayerCA::updateRootRelativeScale()
+{
+    // For CSS animations we could figure out the max scale level during the animation and only figure out the max content scale once.
+    // For JS driven animation, we need to be more clever to keep the peformance as before. Ideas:
+    // - only update scale factor when the change is 'significant' (to be defined, (orig - new)/orig > delta?)
+    // - never update the scale factor when it gets smaller (unless we're under memory pressure) (or only periodcally)
+    // - ...
+    // --> For now we disable this logic alltogether, but allow to turn it on selectively (for LBSE)
+    if (!m_shouldUpdateRootRelativeScaleFactor)
+        return;
+
+    auto computeMaxScaleFromTransform = [](const TransformationMatrix& transform) -> float {
+        if (transform.isIdentityOrTranslation())
+            return 1;
+        TransformationMatrix::Decomposed2Type decomposeData;
+        transform.decompose2(decomposeData);
+        return std::max(std::abs(decomposeData.scaleX), std::abs(decomposeData.scaleY));
+    };
+
+    float rootRelativeScaleFactor = hasNonIdentityTransform() ? computeMaxScaleFromTransform(transform()) : 1;
+
+    if (auto* parentLayer = parent(); parentLayer && parentLayer->hasNonIdentityChildrenTransform())
+        rootRelativeScaleFactor = std::max(rootRelativeScaleFactor, computeMaxScaleFromTransform(parentLayer->childrenTransform()));
+
+    if (rootRelativeScaleFactor != m_rootRelativeScaleFactor) {
+        m_rootRelativeScaleFactor = rootRelativeScaleFactor;
+        m_uncommittedChanges |= ContentsScaleChanged;
+    }
 }
 
 void GraphicsLayerCA::updateContentsScale(float pageScaleFactor)
