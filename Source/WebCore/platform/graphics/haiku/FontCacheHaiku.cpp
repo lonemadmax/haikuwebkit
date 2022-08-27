@@ -47,8 +47,9 @@ void FontCache::platformInit()
 {
 }
 
+
 RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description,
-	const Font* /*originalFontData*/, WebCore::IsForPlatformFont,
+	const Font& /*originalFontData*/, WebCore::IsForPlatformFont,
 	WebCore::FontCache::PreferColoredFont, const UChar* /*characters*/, unsigned /*length*/)
 {
     FontPlatformData data(description, AtomString::fromUTF8("Sans"));

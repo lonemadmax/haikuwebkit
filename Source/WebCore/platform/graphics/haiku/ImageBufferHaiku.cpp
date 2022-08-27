@@ -153,26 +153,9 @@ unsigned ImageBufferHaikuSurfaceBackend::bytesPerRow() const
     return m_data.m_image->BytesPerRow();
 }
 
-// TODO: PreserveResolution
-String ImageBufferHaikuSurfaceBackend::toDataURL(const String& mimeType, std::optional<double> quality, PreserveResolution) const
-{
-    if (!MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType))
-        return ASCIILiteral::fromLiteralUnsafe("data:,");
-
-    Vector<uint8_t> binaryBuffer = toData(mimeType, quality);
-
-    if (binaryBuffer.size() == 0)
-        return ASCIILiteral::fromLiteralUnsafe("data:,");
-
-    Vector<char> encodedBuffer;
-
-    return makeString("data:", mimeType, ";base64;",
-        base64Encoded(binaryBuffer.data(), binaryBuffer.size()));
-}
-
 
 // TODO: quality
-Vector<uint8_t> ImageBufferHaikuSurfaceBackend::toData(const String& mimeType, std::optional<double> /*quality*/) const
+Vector<uint8_t> encodeData(BBitmap* bitmap, const String& mimeType, std::optional<double> /*quality*/)
 {
     BString mimeTypeString(mimeType);
 
@@ -212,7 +195,7 @@ Vector<uint8_t> ImageBufferHaikuSurfaceBackend::toData(const String& mimeType, s
 
     BMallocIO translatedStream;
         // BBitmapStream doesn't take "const Bitmap*"...
-    BBitmapStream bitmapStream(m_data.m_image.get());
+    BBitmapStream bitmapStream(bitmap);
     BBitmap* tmp = NULL;
     if (roster->Translate(&bitmapStream, 0, 0, &translatedStream, translatorType,
                           B_TRANSLATOR_BITMAP, mimeType.utf8().data()) != B_OK) {

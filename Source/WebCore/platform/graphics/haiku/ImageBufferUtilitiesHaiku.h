@@ -31,35 +31,14 @@
 
 #if USE(HAIKU)
 
-#include "ImageBufferBackend.h"
-#include "ImageBuffer.h"
+#include <Bitmap.h>
 
-#include "ImageBufferDataHaiku.h"
-#include <wtf/IsoMalloc.h>
+#include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class ImageBufferHaikuSurfaceBackend : public ImageBufferBackend {
-    WTF_MAKE_ISO_ALLOCATED(ImageBufferHaikuSurfaceBackend);
-    WTF_MAKE_NONCOPYABLE(ImageBufferHaikuSurfaceBackend);
-public:
-    static std::unique_ptr<ImageBufferHaikuSurfaceBackend> create(const ImageBufferBackend::Parameters&, const ImageBuffer::CreationContext&);
-    static std::unique_ptr<ImageBufferHaikuSurfaceBackend> create(const ImageBufferBackend::Parameters&, const GraphicsContext&);
-    ~ImageBufferHaikuSurfaceBackend();
-
-    GraphicsContext& context() const override;
-    WTF::RefPtr<WebCore::NativeImage> copyNativeImage(BackingStoreCopy) const override;
-    RefPtr<WebCore::PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator& allocator) const override;
-    void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) override;
-    unsigned bytesPerRow() const override;
-
-    static size_t calculateMemoryCost(const Parameters&);
-
-private:
-    ImageBufferHaikuSurfaceBackend(const Parameters& parameters, const IntSize& backendSize);
-
-    ImageBufferData m_data;
-};
+Vector<uint8_t> encodeData(BBitmap*, const String& mimeType, std::optional<double> quality);
 
 } // namespace WebCore
 

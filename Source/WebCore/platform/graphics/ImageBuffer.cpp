@@ -45,6 +45,9 @@
 #if USE(CAIRO)
 #include "ImageBufferUtilitiesCairo.h"
 #endif
+#if USE(HAIKU)
+#include "ImageBufferUtilitiesHaiku.h"
+#endif
 
 namespace WebCore {
 

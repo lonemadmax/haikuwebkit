@@ -497,6 +497,11 @@ void TestRunner::evaluateScriptInIsolatedWorld(unsigned worldID, JSObjectRef glo
     notImplemented();
 }
 
+void TestRunner::removeAllCookies()
+{
+    notImplemented();
+}
+
 void TestRunner::removeAllVisitedLinks()
 {
     notImplemented();

@@ -204,5 +204,13 @@ String FontPlatformData::description() const
 }
 #endif
 
+String FontPlatformData::familyName() const
+{
+	font_family family;
+	font_style style;
+	m_font->GetFamilyAndStyle(&family, &style);
+	return String::fromUTF8(family);
+}
+
 } // namespace WebCore
 
