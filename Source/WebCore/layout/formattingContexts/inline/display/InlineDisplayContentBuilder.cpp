@@ -29,9 +29,11 @@
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
 #include "FontCascade.h"
+#include "InlineFormattingGeometry.h"
 #include "InlineTextBoxStyle.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutInitialContainingBlock.h"
+#include "LayoutListMarkerBox.h"
 #include "TextUtil.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/Range.h>
@@ -81,8 +83,8 @@ static inline OptionSet<InlineDisplay::Box::PositionWithinInlineLevelBox> isFirs
     return positionWithinInlineLevelBox;
 }
 
-InlineDisplayContentBuilder::InlineDisplayContentBuilder(const ContainerBox& formattingContextRoot, InlineFormattingState& formattingState)
-    : m_formattingContextRoot(formattingContextRoot)
+InlineDisplayContentBuilder::InlineDisplayContentBuilder(const InlineFormattingContext& formattingContext, InlineFormattingState& formattingState)
+    : m_formattingContext(formattingContext)
     , m_formattingState(formattingState)
 {
 }
@@ -134,6 +136,22 @@ static inline bool computeInkOverflowForInlineLevelBox(const RenderStyle& style,
         hasVisualOverflow = true;
     };
     inflateWithBoxShadow();
+
+    return hasVisualOverflow;
+}
+
+static inline bool computeInkOverflowForInlineBox(const InlineLevelBox& inlineBox, const RenderStyle& style, FloatRect& inkOverflow)
+{
+    ASSERT(inlineBox.isInlineBox());
+    auto hasVisualOverflow = computeInkOverflowForInlineLevelBox(style, inkOverflow);
+
+    auto inflateWithAnnotation = [&] {
+        if (!inlineBox.hasAnnotation())
+            return;
+        inkOverflow.inflate(0.f, inlineBox.annotationAbove().value_or(0.f), 0.f, inlineBox.annotationUnder().value_or(0.f));
+        hasVisualOverflow = true;
+    };
+    inflateWithAnnotation();
 
     return hasVisualOverflow;
 }
@@ -265,6 +283,7 @@ void InlineDisplayContentBuilder::setInlineBoxGeometry(const Box& layoutBox, con
 void InlineDisplayContentBuilder::appendInlineBoxDisplayBox(const Line::Run& lineRun, const InlineLevelBox& inlineBox, const InlineRect& inlineBoxBorderBox, bool linehasContent, DisplayBoxes& boxes)
 {
     ASSERT(lineRun.layoutBox().isInlineBox());
+    ASSERT(inlineBox.isInlineBox());
 
     auto& layoutBox = lineRun.layoutBox();
 
@@ -276,10 +295,9 @@ void InlineDisplayContentBuilder::appendInlineBoxDisplayBox(const Line::Run& lin
 
     auto inkOverflow = [&] {
         auto inkOverflow = FloatRect { inlineBoxBorderBox };
-        m_contentHasInkOverflow = computeInkOverflowForInlineLevelBox(!m_lineIndex ? layoutBox.firstLineStyle() : layoutBox.style(), inkOverflow) || m_contentHasInkOverflow;
+        m_contentHasInkOverflow = computeInkOverflowForInlineBox(inlineBox, !m_lineIndex ? layoutBox.firstLineStyle() : layoutBox.style(), inkOverflow) || m_contentHasInkOverflow;
         return inkOverflow;
     };
-    ASSERT(inlineBox.isInlineBox());
     ASSERT(inlineBox.isFirstBox());
     boxes.append({ m_lineIndex
         , InlineDisplay::Box::Type::NonRootInlineBox
@@ -299,11 +317,12 @@ void InlineDisplayContentBuilder::appendInlineBoxDisplayBox(const Line::Run& lin
 void InlineDisplayContentBuilder::appendSpanningInlineBoxDisplayBox(const Line::Run& lineRun, const InlineLevelBox& inlineBox, const InlineRect& inlineBoxBorderBox, DisplayBoxes& boxes)
 {
     ASSERT(lineRun.layoutBox().isInlineBox());
+    ASSERT(inlineBox.isInlineBox());
 
     auto& layoutBox = lineRun.layoutBox();
     auto inkOverflow = [&] {
         auto inkOverflow = FloatRect { inlineBoxBorderBox };
-        m_contentHasInkOverflow = computeInkOverflowForInlineLevelBox(!m_lineIndex ? layoutBox.firstLineStyle() : layoutBox.style(), inkOverflow) || m_contentHasInkOverflow;
+        m_contentHasInkOverflow = computeInkOverflowForInlineBox(inlineBox, !m_lineIndex ? layoutBox.firstLineStyle() : layoutBox.style(), inkOverflow) || m_contentHasInkOverflow;
         return inkOverflow;
     };
     ASSERT(!inlineBox.isFirstBox());
@@ -341,7 +360,7 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineBuilder::LineC
 #ifndef NDEBUG
     auto hasContent = false;
     for (auto& lineRun : lineContent.runs)
-        hasContent = hasContent || lineRun.isText() || lineRun.isBox();
+        hasContent = hasContent || lineRun.isContentful();
     ASSERT(lineContent.inlineBaseDirection == TextDirection::LTR || !hasContent);
 #endif
     auto writingMode = root().style().writingMode();
@@ -370,10 +389,18 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineBuilder::LineC
             appendHardLineBreakDisplayBox(lineRun, visualRectRelativeToRoot(lineBox.logicalRectForLineBreakBox(layoutBox)), boxes);
             continue;
         }
-        if (lineRun.isBox() || lineRun.isListMarker()) {
+        if (lineRun.isBox()) {
             appendAtomicInlineLevelDisplayBox(lineRun
                 , visualRectRelativeToRoot(lineBox.logicalBorderBoxForAtomicInlineLevelBox(layoutBox, formattingState().boxGeometry(layoutBox)))
                 , boxes);
+            continue;
+        }
+        if (lineRun.isListMarker()) {
+            auto& listMarker = downcast<ListMarkerBox>(layoutBox);
+            auto visualRect = visualRectRelativeToRoot(lineBox.logicalBorderBoxForAtomicInlineLevelBox(layoutBox, formattingState().boxGeometry(layoutBox)));
+            if (listMarker.isOutside())
+                WebCore::isHorizontalWritingMode(writingMode) ? visualRect.setLeft(outsideListMarkerVisualPosition(listMarker, displayLine)) : visualRect.setTop(outsideListMarkerVisualPosition(listMarker, displayLine));
+            appendAtomicInlineLevelDisplayBox(lineRun, visualRect, boxes);
             continue;
         }
         if (lineRun.isInlineBoxStart()) {
@@ -546,15 +573,16 @@ void InlineDisplayContentBuilder::adjustVisualGeometryForDisplayBox(size_t displ
     };
     afterInlineBoxContent();
 
+    auto& inlineBox = lineBox.inlineLevelBoxForLayoutBox(layoutBox);
     auto computeInkOverflow = [&] {
         auto inkOverflow = FloatRect { displayBox.visualRectIgnoringBlockDirection() };
-        m_contentHasInkOverflow = computeInkOverflowForInlineLevelBox(!m_lineIndex ? layoutBox.firstLineStyle() : layoutBox.style(), inkOverflow) || m_contentHasInkOverflow;
+        m_contentHasInkOverflow = computeInkOverflowForInlineBox(inlineBox, !m_lineIndex ? layoutBox.firstLineStyle() : layoutBox.style(), inkOverflow) || m_contentHasInkOverflow;
         displayBox.adjustInkOverflow(inkOverflow);
     };
     computeInkOverflow();
 
     setInlineBoxGeometry(layoutBox, displayBox.visualRectIgnoringBlockDirection(), isFirstBox);
-    if (lineBox.inlineLevelBoxForLayoutBox(layoutBox).hasContent())
+    if (inlineBox.hasContent())
         displayBox.setHasContent();
 }
 
@@ -627,13 +655,18 @@ void InlineDisplayContentBuilder::processBidiContent(const LineBuilder::LineCont
                 continue;
             }
             if (lineRun.isBox() || lineRun.isListMarker()) {
+                auto isLeftToRightDirection = layoutBox.parent().style().isLeftToRightDirection();
                 auto& boxGeometry = formattingState().boxGeometry(layoutBox);
                 auto logicalRect = lineBox.logicalBorderBoxForAtomicInlineLevelBox(layoutBox, boxGeometry);
                 auto visualRect = visualRectRelativeToRoot(logicalRect);
-
-                auto isLeftToRightDirection = layoutBox.parent().style().isLeftToRightDirection();
                 auto boxMarginLeft = marginLeftInInlineDirection(boxGeometry, isLeftToRightDirection);
-                isHorizontalWritingMode ? visualRect.moveHorizontally(boxMarginLeft) : visualRect.moveVertically(boxMarginLeft);
+
+                if (is<ListMarkerBox>(layoutBox) && downcast<ListMarkerBox>(layoutBox).isOutside()) {
+                    auto& listMarker = downcast<ListMarkerBox>(layoutBox);
+                    isHorizontalWritingMode ? visualRect.setLeft(outsideListMarkerVisualPosition(listMarker, displayLine)) : visualRect.setTop(outsideListMarkerVisualPosition(listMarker, displayLine));
+                } else
+                    isHorizontalWritingMode ? visualRect.moveHorizontally(boxMarginLeft) : visualRect.moveVertically(boxMarginLeft);
+
                 appendAtomicInlineLevelDisplayBox(lineRun, visualRect, boxes);
                 contentRightInInlineDirectionVisualOrder += boxMarginLeft + logicalRect.width() + marginRightInInlineDirection(boxGeometry, isLeftToRightDirection);
                 displayBoxTree.append(parentDisplayBoxNodeIndex, boxes.size() - 1);
@@ -1007,6 +1040,20 @@ InlineLayoutPoint InlineDisplayContentBuilder::movePointHorizontallyForWritingMo
         break;
     }
     return visualPoint;
+}
+
+InlineLayoutUnit InlineDisplayContentBuilder::outsideListMarkerVisualPosition(const ListMarkerBox& listMarker, const InlineDisplay::Line& displayLine) const
+{
+    ASSERT(listMarker.isOutside());
+    auto& boxGeometry = formattingState().boxGeometry(listMarker);
+    auto isLeftToRightDirection = listMarker.parent().style().isLeftToRightDirection();
+    auto isHorizontalWritingMode = WebCore::isHorizontalWritingMode(root().style().writingMode());
+    auto lineBoxOffset = formattingContext().formattingGeometry().computedTextIndent(InlineFormattingGeometry::IsIntrinsicWidthMode::No, { }, displayLine.lineBoxRect().width());
+    auto boxMarginLeft = marginLeftInInlineDirection(boxGeometry, isLeftToRightDirection);
+
+    if (isHorizontalWritingMode)
+        return isLeftToRightDirection ? displayLine.left() - lineBoxOffset + boxMarginLeft : displayLine.right() + lineBoxOffset + boxMarginLeft;
+    return isLeftToRightDirection ? displayLine.top() - lineBoxOffset + boxMarginLeft : displayLine.bottom() + lineBoxOffset + boxMarginLeft;
 }
 
 }

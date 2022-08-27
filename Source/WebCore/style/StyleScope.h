@@ -107,6 +107,8 @@ public:
     // The change is assumed to potentially affect all author and user stylesheets including shadow roots.
     WEBCORE_EXPORT void didChangeStyleSheetEnvironment();
 
+    void didChangeViewportSize();
+
     void invalidateMatchedDeclarationsCache();
 
     bool hasPendingUpdate() const { return m_pendingUpdate || m_hasDescendantWithPendingUpdate; }
@@ -152,7 +154,12 @@ private:
     WEBCORE_EXPORT void flushPendingSelfUpdate();
     WEBCORE_EXPORT void flushPendingDescendantUpdates();
 
-    void collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>&);
+    struct ActiveStyleSheetCollection {
+        Vector<RefPtr<StyleSheet>> activeStyleSheets;
+        Vector<RefPtr<StyleSheet>> styleSheetsForStyleSheetList;
+    };
+
+    ActiveStyleSheetCollection collectActiveStyleSheets();
 
     enum class ResolverUpdateType {
         Reconstruct,

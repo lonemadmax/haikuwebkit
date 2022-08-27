@@ -552,7 +552,7 @@ protected:
         m_failed = true;
     }
 
-    JSGlobalObject* m_lexicalGlobalObject;
+    JSGlobalObject* const m_lexicalGlobalObject;
     bool m_failed;
     MarkedArgumentBuffer m_gcBuffer;
 };
@@ -3739,8 +3739,6 @@ private:
             // not throw.
             scope.releaseAssertNoException();
             Ref<Wasm::Memory> memory = Wasm::Memory::create(handle.releaseNonNull(),
-                [&vm] (Wasm::Memory::NotifyPressure) { vm.heap.collectAsync(CollectionScope::Full); },
-                [&vm] (Wasm::Memory::SyncTryToReclaim) { vm.heap.collectSync(CollectionScope::Full); },
                 [&vm, result] (Wasm::Memory::GrowSuccess, Wasm::PageCount oldPageCount, Wasm::PageCount newPageCount) { result->growSuccessCallback(vm, oldPageCount, newPageCount); });
             result->adopt(WTFMove(memory));
             m_gcBuffer.appendWithCrashOnOverflow(result);
@@ -3872,11 +3870,11 @@ private:
         return false;
     }
 
-    JSGlobalObject* m_globalObject;
-    bool m_isDOMGlobalObject;
-    bool m_canCreateDOMObject;
+    JSGlobalObject* const m_globalObject;
+    const bool m_isDOMGlobalObject;
+    const bool m_canCreateDOMObject;
     const uint8_t* m_ptr;
-    const uint8_t* m_end;
+    const uint8_t* const m_end;
     unsigned m_version;
     Vector<CachedString> m_constantPool;
     const Vector<RefPtr<MessagePort>>& m_messagePorts;
@@ -3896,8 +3894,8 @@ private:
     Vector<RefPtr<RTCDataChannel>> m_rtcDataChannels;
 #endif
 #if ENABLE(WEBASSEMBLY)
-    WasmModuleArray* m_wasmModules;
-    WasmMemoryHandleArray* m_wasmMemoryHandles;
+    WasmModuleArray* const m_wasmModules;
+    WasmMemoryHandleArray* const m_wasmMemoryHandles;
 #endif
 
     String blobFilePathForBlobURL(const String& blobURL)

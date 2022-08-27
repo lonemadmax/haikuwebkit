@@ -387,6 +387,7 @@ public:
     bool isInUserAgentShadowTree() const;
     bool isInShadowTree() const { return hasNodeFlag(NodeFlag::IsInShadowTree); }
     bool isInTreeScope() const { return hasNodeFlag(NodeFlag::IsConnected) || hasNodeFlag(NodeFlag::IsInShadowTree); }
+    bool hasBeenInUserAgentShadowTree() const { return hasNodeFlag(NodeFlag::HasBeenInUserAgentShadowTree); }
 
     // https://dom.spec.whatwg.org/#in-a-document-tree
     bool isInDocumentTree() const { return isConnected() && !isInShadowTree(); }
@@ -584,8 +585,9 @@ protected:
         IsInTopLayer = 1 << 27,
         NeedsSVGRendererUpdate = 1 << 28,
         NeedsUpdateQueryContainerDependentStyle = 1 << 29,
+        HasBeenInUserAgentShadowTree = 1 << 30,
 
-        // Bits 30-31 are free.
+        // Bit 31 is free.
     };
 
     enum class TabIndexState : uint8_t {
@@ -732,6 +734,8 @@ private:
     static void moveShadowTreeToNewDocument(ShadowRoot&, Document& oldDocument, Document& newDocument);
     static void moveTreeToNewScope(Node&, TreeScope& oldScope, TreeScope& newScope);
     void moveNodeToNewDocument(Document& oldDocument, Document& newDocument);
+
+    WEBCORE_EXPORT void notifyInspectorOfRendererChange();
     
     struct NodeRareDataDeleter {
         void operator()(NodeRareData*) const;

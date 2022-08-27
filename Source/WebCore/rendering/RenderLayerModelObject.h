@@ -77,7 +77,7 @@ public:
     // This lives in RenderLayerModelObject, which is the common base-class for all SVG renderers.
     void mapLocalToSVGContainer(const RenderLayerModelObject* ancestorContainer, TransformState&, OptionSet<MapCoordinatesMode>, bool* wasFixed) const;
 
-    void applySVGTransform(TransformationMatrix&, SVGGraphicsElement&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption>) const;
+    void applySVGTransform(TransformationMatrix&, SVGGraphicsElement&, const RenderStyle&, const FloatRect& boundingBox, const std::optional<AffineTransform>& preApplySVGTransformMatrix, OptionSet<RenderStyle::TransformOperationOption>) const;
     void updateHasSVGTransformFlags(const SVGGraphicsElement&);
 
     LayoutPoint nominalSVGLayoutLocation() const { return flooredLayoutPoint(objectBoundingBoxWithoutTransformations().minXMinYCorner()); }
@@ -85,8 +85,9 @@ public:
     virtual void setCurrentSVGLayoutLocation(const LayoutPoint&) { ASSERT_NOT_REACHED(); }
 #endif
 
-    void updateLayerTransform();
+    TransformationMatrix* layerTransform() const;
 
+    virtual void updateLayerTransform();
     virtual void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> = RenderStyle::allTransformOperations) const = 0;
 
 protected:

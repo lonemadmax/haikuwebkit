@@ -565,11 +565,10 @@ static inline NinePieceImage blendFunc(const NinePieceImage& from, const NinePie
 
 static inline FontVariationSettings blendFunc(const FontVariationSettings& from, const FontVariationSettings& to, const CSSPropertyBlendingContext& context)
 {
-    if (!context.progress)
-        return from;
-
-    if (context.progress == 1.0)
-        return to;
+    if (context.isDiscrete) {
+        ASSERT(!context.progress || context.progress == 1.0);
+        return context.progress ? to : from;
+    }
 
     ASSERT(from.size() == to.size());
     FontVariationSettings result;
@@ -598,11 +597,10 @@ static inline std::optional<FontSelectionValue> blendFunc(std::optional<FontSele
 
 static inline OffsetRotation blendFunc(const OffsetRotation& from, const OffsetRotation& to, const CSSPropertyBlendingContext& context)
 {
-    if (!context.progress)
-        return from;
-
-    if (context.progress == 1)
-        return to;
+    if (context.isDiscrete) {
+        ASSERT(!context.progress || context.progress == 1.0);
+        return context.progress ? to : from;
+    }
 
     ASSERT(from.hasAuto() == to.hasAuto());
 
@@ -3232,7 +3230,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         // font-variant-ligatures, font-variant-numeric, font-variant-position, grid-template-areas,
         // ime-mode, marker-end, marker-mid, marker-start, mask, mask-clip, mask-composite, mask-image,
         // mask-mode, mask-origin, mask-repeat, mask-type, offset-distance, perspective-origin, quotes,
-        // ruby-align, scroll-behavior, shape-rendering, stroke-linecap, stroke-linejoin, text-align-last,
+        // ruby-align, scroll-behavior, shape-rendering, stroke-linecap, stroke-linejoin,
         // text-anchor, text-emphasis-style, text-rendering, vector-effect
         new DiscretePropertyWrapper<const StyleContentAlignmentData&>(CSSPropertyAlignContent, &RenderStyle::alignContent, &RenderStyle::setAlignContent),
         new DiscretePropertyWrapper<const StyleSelfAlignmentData&>(CSSPropertyAlignItems, &RenderStyle::alignItems, &RenderStyle::setAlignItems),
@@ -3308,6 +3306,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<TransformStyle3D>(CSSPropertyTransformStyle, &RenderStyle::transformStyle3D, &RenderStyle::setTransformStyle3D),
         new DiscretePropertyWrapper<WhiteSpace>(CSSPropertyWhiteSpace, &RenderStyle::whiteSpace, &RenderStyle::setWhiteSpace),
         new DiscretePropertyWrapper<WordBreak>(CSSPropertyWordBreak, &RenderStyle::wordBreak, &RenderStyle::setWordBreak),
+        new DiscretePropertyWrapper<OverflowAnchor>(CSSPropertyOverflowAnchor, &RenderStyle::overflowAnchor, &RenderStyle::setOverflowAnchor),
 
 #if ENABLE(CSS_BOX_DECORATION_BREAK)
         new DiscretePropertyWrapper<BoxDecorationBreak>(CSSPropertyWebkitBoxDecorationBreak, &RenderStyle::boxDecorationBreak, &RenderStyle::setBoxDecorationBreak),
@@ -3653,7 +3652,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
 #endif
         case CSSPropertyWebkitUserDrag:
         case CSSPropertyWebkitUserModify:
-        case CSSPropertyUserSelect:
+        case CSSPropertyWebkitUserSelect:
             continue;
         default:
             auto resolvedProperty = CSSProperty::resolveDirectionAwareProperty(property, RenderStyle::initialDirection(), RenderStyle::initialWritingMode());

@@ -64,12 +64,17 @@ static size_t sizeForImmutableStylePropertiesWithPropertyCount(unsigned count)
 
 static bool isCSSWideValueKeyword(StringView value)
 {
-    return value == "initial"_s || value == "inherit"_s || value == "unset"_s || value == "revert"_s;
+    return value == "initial"_s || value == "inherit"_s || value == "unset"_s || value == "revert"_s || value == "revert-layer"_s;
 }
 
 static bool isNoneValue(const RefPtr<CSSValue>& value)
 {
     return value && value->isPrimitiveValue() && downcast<CSSPrimitiveValue>(value.get())->isValueID() && downcast<CSSPrimitiveValue>(value.get())->valueID() == CSSValueNone;
+}
+
+static bool isNormalValue(const RefPtr<CSSValue>& value)
+{
+    return value && value->isPrimitiveValue() && downcast<CSSPrimitiveValue>(value.get())->isValueID() && downcast<CSSPrimitiveValue>(value.get())->valueID() == CSSValueNormal;
 }
 
 static bool isValueID(const Ref<CSSValue>& value, CSSValueID id)
@@ -265,7 +270,7 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID, Document* doc
         return getShorthandValue(columnsShorthand());
     case CSSPropertyContainer:
         if (auto type = getPropertyCSSValue(CSSPropertyContainerType)) {
-            if (isNoneValue(type)) {
+            if (isNormalValue(type)) {
                 if (auto name = getPropertyCSSValue(CSSPropertyContainerName))
                     return name->cssText();
                 return { };
@@ -838,8 +843,8 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
                 if (nextProperty == CSSPropertyBackgroundRepeatY || nextProperty == CSSPropertyMaskRepeatY) {
                     if (auto yValue = values[j + 1]) {
                         if (is<CSSValueList>(*yValue))
-                            yValue = downcast<CSSValueList>(*yValue).itemWithoutBoundsCheck(i);
-                        if (!is<CSSPrimitiveValue>(*value) || !is<CSSPrimitiveValue>(*yValue))
+                            yValue = downcast<CSSValueList>(*yValue).item(i);
+                        if (!is<CSSPrimitiveValue>(*value) || !yValue || !is<CSSPrimitiveValue>(*yValue))
                             continue;
 
                         auto xId = downcast<CSSPrimitiveValue>(*value).valueID();
@@ -869,12 +874,12 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
                         ASSERT(shorthand.properties()[j - 1] == CSSPropertyMaskOrigin);
                         auto originValue = values[j - 1];
                         if (is<CSSValueList>(*originValue))
-                            originValue = downcast<CSSValueList>(*originValue).itemWithoutBoundsCheck(i);
-                        if (!is<CSSPrimitiveValue>(*value) || !is<CSSPrimitiveValue>(*originValue))
+                            originValue = downcast<CSSValueList>(*originValue).item(i);
+                        if (!is<CSSPrimitiveValue>(*value) || (originValue && !is<CSSPrimitiveValue>(*originValue)))
                             return false;
 
                         auto maskId = downcast<CSSPrimitiveValue>(*value).valueID();
-                        auto originId = downcast<CSSPrimitiveValue>(*originValue).valueID();
+                        auto originId = originValue ? downcast<CSSPrimitiveValue>(*originValue).valueID() : CSSValueInitial;
                         return maskId == originId && (!isCSSWideValueKeyword(StringView { getValueName(maskId) }) || value->isImplicitInitialValue());
                     }
                     if (property == CSSPropertyMaskOrigin) {
@@ -884,8 +889,8 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
                         ASSERT(shorthand.properties()[j + 1] == CSSPropertyMaskClip);
                         auto clipValue = values[j + 1];
                         if (is<CSSValueList>(*clipValue))
-                            clipValue = downcast<CSSValueList>(*clipValue).itemWithoutBoundsCheck(i);
-                        return value->isImplicitInitialValue() && clipValue->isImplicitInitialValue();
+                            clipValue = downcast<CSSValueList>(*clipValue).item(i);
+                        return value->isImplicitInitialValue() && (!clipValue || clipValue->isImplicitInitialValue());
                     }
                 }
 
@@ -893,6 +898,8 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
             };
 
             String valueText;
+            if (!value && shorthand.id() == CSSPropertyMask)
+                value = CSSValuePool::singleton().createImplicitInitialValue();
             if (value && !canOmitValue()) {
                 if (!layerResult.isEmpty())
                     layerResult.append(' ');
@@ -1322,8 +1329,12 @@ bool StyleProperties::isPropertyImplicit(CSSPropertyID propertyID) const
 
 bool MutableStyleProperties::setProperty(CSSPropertyID propertyID, const String& value, bool important, CSSParserContext parserContext)
 {
-    if (!isEnabledCSSProperty(propertyID))
+    if (!isCSSPropertyExposed(propertyID, &parserContext.propertySettings) && !isInternalCSSProperty(propertyID)) {
+        // Allow internal properties as we use them to handle certain DOM-exposed values
+        // (e.g. -webkit-font-size-delta from execCommand('FontSizeDelta')).
+        ASSERT_NOT_REACHED();
         return false;
+    }
 
     // Setting the value to an empty string just removes the property in both IE and Gecko.
     // Setting it to null seems to produce less consistent results, but we treat it just the same.
@@ -1508,7 +1519,7 @@ StringBuilder StyleProperties::asTextInternal() const
         auto serializeBorderShorthand = [&] (const CSSPropertyID borderProperty, const CSSPropertyID fallbackProperty) {
             // FIXME: Deal with cases where only some of border sides are specified.
             ASSERT(borderProperty - firstCSSProperty < static_cast<CSSPropertyID>(shorthandPropertyAppeared.size()));
-            if (!shorthandPropertyAppeared[borderProperty - firstCSSProperty] && isEnabledCSSProperty(borderProperty)) {
+            if (!shorthandPropertyAppeared[borderProperty - firstCSSProperty]) {
                 value = getPropertyValue(borderProperty);
                 if (value.isNull())
                     shorthandPropertyAppeared.set(borderProperty - firstCSSProperty);
@@ -1768,7 +1779,7 @@ StringBuilder StyleProperties::asTextInternal() const
         }
 
         unsigned shortPropertyIndex = shorthandPropertyID - firstCSSProperty;
-        if (shorthandPropertyID && isEnabledCSSProperty(shorthandPropertyID)) {
+        if (shorthandPropertyID) {
             ASSERT(shortPropertyIndex < shorthandPropertyUsed.size());
             if (shorthandPropertyUsed[shortPropertyIndex])
                 continue;

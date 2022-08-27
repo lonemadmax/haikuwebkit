@@ -581,7 +581,26 @@ bool HTMLImageElement::attributeContainsURL(const Attribute& attribute) const
 String HTMLImageElement::completeURLsInAttributeValue(const URL& base, const Attribute& attribute, ResolveURLs resolveURLs) const
 {
     if (attribute.name() == srcsetAttr) {
+        if (resolveURLs == ResolveURLs::No)
+            return attribute.value();
+
         Vector<ImageCandidate> imageCandidates = parseImageCandidatesFromSrcsetAttribute(StringView(attribute.value()));
+
+        if (resolveURLs == ResolveURLs::NoExcludingURLsForPrivacy) {
+            bool needsToResolveURLs = false;
+            for (const auto& candidate : imageCandidates) {
+                auto urlString = candidate.string.toString();
+                auto completeURL = base.isNull() ? document().completeURL(urlString) : URL(base, urlString);
+                if (document().shouldMaskURLForBindings(completeURL)) {
+                    needsToResolveURLs = true;
+                    break;
+                }
+            }
+
+            if (!needsToResolveURLs)
+                return attribute.value();
+        }
+
         StringBuilder result;
         for (const auto& candidate : imageCandidates) {
             if (&candidate != &imageCandidates[0])
@@ -592,6 +611,7 @@ String HTMLImageElement::completeURLsInAttributeValue(const URL& base, const Att
             if (candidate.resourceWidth != UninitializedDescriptor)
                 result.append(' ', candidate.resourceWidth, 'w');
         }
+
         return result.toString();
     }
 
@@ -790,12 +810,17 @@ bool HTMLImageElement::childShouldCreateRenderer(const Node& child) const
 
 #if PLATFORM(IOS_FAMILY)
 // FIXME: We should find a better place for the touch callout logic. See rdar://problem/48937767.
-bool HTMLImageElement::willRespondToMouseClickEventsWithEditability(Editability editability) const
+bool HTMLImageElement::willRespondToMouseClickEventsWithEditability(Editability editability, IgnoreTouchCallout ignoreTouchCallout) const
 {
     auto renderer = this->renderer();
-    if (!renderer || renderer->style().touchCalloutEnabled())
+    if (ignoreTouchCallout == IgnoreTouchCallout::No && (!renderer || renderer->style().touchCalloutEnabled()))
         return true;
     return HTMLElement::willRespondToMouseClickEventsWithEditability(editability);
+}
+
+bool HTMLImageElement::willRespondToMouseClickEventsWithEditability(Editability editability) const
+{
+    return willRespondToMouseClickEventsWithEditability(editability, IgnoreTouchCallout::No);
 }
 #endif
 

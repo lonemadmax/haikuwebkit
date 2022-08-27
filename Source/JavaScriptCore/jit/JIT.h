@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,7 +59,6 @@ namespace JSC {
     class FunctionExecutable;
     class JIT;
     class Identifier;
-    class Interpreter;
     class BlockDirectory;
     class Register;
     class StructureChain;
@@ -896,8 +895,6 @@ namespace JSC {
         std::tuple<BaselineUnlinkedStructureStubInfo*, JITConstantPool::Constant> addUnlinkedStructureStubInfo();
         UnlinkedCallLinkInfo* addUnlinkedCallLinkInfo();
 
-        Interpreter* m_interpreter;
-
         Vector<FarCallRecord> m_farCalls;
         Vector<NearCallRecord> m_nearCalls;
         Vector<NearJumpRecord> m_nearJumps;
@@ -959,8 +956,8 @@ namespace JSC {
         bool m_shouldEmitProfiling;
         BytecodeIndex m_loopOSREntryBytecodeIndex;
 
-        CodeBlock* m_profiledCodeBlock { nullptr };
-        UnlinkedCodeBlock* m_unlinkedCodeBlock { nullptr };
+        CodeBlock* const m_profiledCodeBlock { nullptr };
+        UnlinkedCodeBlock* const m_unlinkedCodeBlock { nullptr };
 
         MathICHolder m_mathICs;
         RefPtr<BaselineJITCode> m_jitCode;

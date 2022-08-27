@@ -27,6 +27,7 @@
 #include "InteractionRegion.h"
 
 #include "Document.h"
+#include "ElementInlines.h"
 #include "Frame.h"
 #include "FrameSnapshotting.h"
 #include "FrameView.h"
@@ -72,7 +73,11 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     auto& mainFrameView = *regionRenderer.document().frame()->mainFrame().view();
     auto layoutArea = mainFrameView.layoutSize().area();
 
-    if (bounds.area() > layoutArea / 2)
+    auto checkedRegionArea = bounds.area<RecordOverflow>();
+    if (checkedRegionArea.hasOverflowed())
+        return std::nullopt;
+
+    if (checkedRegionArea.value() > layoutArea / 2)
         return std::nullopt;
 
     auto element = dynamicDowncast<Element>(regionRenderer.node());

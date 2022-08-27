@@ -33,10 +33,6 @@
         (privilege-id PRIV_NET_PRIVILEGED_SOCKET_DELEGATE)
         (require-entitlement "com.apple.private.network.socket-delegate")))
 
-;; We can remove the catch once we no longer need to support older macOS
-(catch (lambda)
-    (import "dyld-support.sb"))
-
 ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
 (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
@@ -604,6 +600,9 @@
         SYS_setrlimit
         SYS_setsockopt
         SYS_shutdown
+#if !PLATFORM(MAC)
+        SYS_shared_region_map_and_slide_2_np
+#endif
         SYS_sigaction
         SYS_sigaltstack
         SYS_sigprocmask
@@ -630,8 +629,8 @@
 (when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'mach-kernel-endpoint))
     (allow mach-kernel-endpoint
         (apply-message-filter
-            (allow mach-message-send (with telemetry)))))
-            
+            (allow mach-message-send))))
+
 (when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'syscall-mach))
     (deny syscall-mach (with telemetry))
     (allow syscall-mach

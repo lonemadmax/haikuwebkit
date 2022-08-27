@@ -54,6 +54,10 @@
 
 namespace WebKit {
 
+#if PLATFORM(IOS_FAMILY)
+static const Seconds defaultBackupExclusionPeriod { 24_h };
+#endif
+
 static std::optional<WebCore::ClientOrigin> readOriginFromFile(const String& filePath)
 {
     ASSERT(!RunLoop::isMain());
@@ -79,10 +83,10 @@ static std::optional<WebCore::ClientOrigin> readOriginFromFile(const String& fil
     return origin;
 }
 
-static void writeOriginToFileIfNecessary(const String& filePath, const WebCore::ClientOrigin& origin)
+static bool writeOriginToFile(const String& filePath, const WebCore::ClientOrigin& origin)
 {
     if (filePath.isEmpty() || FileSystem::fileExists(filePath))
-        return;
+        return false;
 
     FileSystem::makeAllDirectories(FileSystem::parentPath(filePath));
     auto originFileHandle = FileSystem::openFile(filePath, FileSystem::FileOpenMode::ReadWrite);
@@ -91,21 +95,74 @@ static void writeOriginToFileIfNecessary(const String& filePath, const WebCore::
     });
 
     if (!FileSystem::isHandleValid(originFileHandle)) {
-        LOG_ERROR("writeOriginToFileIfNecessary: Failed to open origin file '%s'", filePath.utf8().data());
-        return;
+        LOG_ERROR("writeOriginToFile: Failed to open origin file '%s'", filePath.utf8().data());
+        return false;
     }
 
     WTF::Persistence::Encoder encoder;
     encoder << origin;
     FileSystem::writeToFile(originFileHandle, encoder.buffer(), encoder.bufferSize());
+    return true;
 }
 
-static void deleteOriginFileIfNecessary(const String& filePath)
+static String encode(const String& string, FileSystem::Salt salt)
 {
-    auto parentPath = FileSystem::parentPath(filePath);
-    auto children = FileSystem::listDirectory(parentPath);
-    if (children.size() == 1)
-        FileSystem::deleteFile(filePath);
+    auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
+    auto utf8String = string.utf8();
+    crypto->addBytes(utf8String.data(), utf8String.length());
+    crypto->addBytes(salt.data(), salt.size());
+    auto hash = crypto->computeHash();
+    return base64URLEncodeToString(hash.data(), hash.size());
+}
+
+static String originDirectoryPath(const String& rootPath, const WebCore::ClientOrigin& origin, FileSystem::Salt salt)
+{
+    if (rootPath.isEmpty())
+        return emptyString();
+
+    auto encodedTopOrigin = encode(origin.topOrigin.toString(), salt);
+    auto encodedOpeningOrigin = encode(origin.clientOrigin.toString(), salt);
+    return FileSystem::pathByAppendingComponents(rootPath, { encodedTopOrigin, encodedOpeningOrigin });
+}
+
+static String originFilePath(const String& directory)
+{
+    if (directory.isEmpty())
+        return emptyString();
+
+    return FileSystem::pathByAppendingComponent(directory, OriginStorageManager::originFileIdentifier());
+}
+
+static bool isEmptyOriginDirectory(const String& directory)
+{
+    auto children = FileSystem::listDirectory(directory);
+    if (children.isEmpty())
+        return true;
+
+    if (children.size() >= 2)
+        return false;
+
+    HashSet<String> invalidFileNames {
+        OriginStorageManager::originFileIdentifier()
+#if PLATFORM(COCOA)
+        , ".DS_Store"_s
+#endif
+    };
+    return WTF::allOf(children, [&] (auto& child) {
+        return invalidFileNames.contains(child);
+    });
+}
+
+static void deleteEmptyOriginDirectory(const String& directory)
+{
+    if (directory.isEmpty())
+        return;
+
+    if (isEmptyOriginDirectory(directory))
+        FileSystem::deleteFile(originFilePath(directory));
+
+    FileSystem::deleteEmptyDirectory(directory);
+    FileSystem::deleteEmptyDirectory(FileSystem::parentPath(directory));
 }
 
 static WeakHashSet<NetworkStorageManager>& allNetworkStorageManagers()
@@ -131,6 +188,9 @@ NetworkStorageManager::NetworkStorageManager(PAL::SessionID sessionID, IPC::Conn
     , m_defaultOriginQuota(defaultOriginQuota)
     , m_defaultThirdPartyOriginQuota(defaultThirdPartyOriginQuota)
     , m_parentConnection(connection)
+#if PLATFORM(IOS_FAMILY)
+    , m_backupExclusionPeriod(defaultBackupExclusionPeriod)
+#endif
 {
     ASSERT(RunLoop::isMain());
 
@@ -148,6 +208,13 @@ NetworkStorageManager::NetworkStorageManager(PAL::SessionID sessionID, IPC::Conn
             auto saltPath = FileSystem::pathByAppendingComponent(m_path, "salt"_s);
             m_salt = valueOrDefault(FileSystem::readOrMakeSalt(saltPath));
         }
+#if PLATFORM(IOS_FAMILY)
+        // Exclude LocalStorage directory to reduce backup traffic. See https://webkit.org/b/168388.
+        if (m_shouldUseCustomPaths && !m_customLocalStoragePath.isEmpty()) {
+            FileSystem::makeAllDirectories(m_customLocalStoragePath);
+            FileSystem::setExcludedFromBackup(m_customLocalStoragePath, true);
+        }
+#endif
     });
 }
 
@@ -207,7 +274,12 @@ void NetworkStorageManager::stopReceivingMessageFromConnection(IPC::Connection& 
         m_localOriginStorageManagers.removeIf([&](auto& entry) {
             auto& manager = entry.value;
             manager->connectionClosed(connection);
-            return !manager->isActive();
+            bool shouldRemove = !manager->isActive();
+            if (shouldRemove) {
+                manager->deleteEmptyDirectory();
+                deleteEmptyOriginDirectory(manager->path());
+            }
+            return shouldRemove;
         });
 
         RunLoop::main().dispatch([protectedThis = WTFMove(protectedThis), connection] {
@@ -216,42 +288,66 @@ void NetworkStorageManager::stopReceivingMessageFromConnection(IPC::Connection& 
     });
 }
 
-static String encode(const String& string, FileSystem::Salt salt)
+#if PLATFORM(IOS_FAMILY)
+
+void NetworkStorageManager::includeOriginInBackupIfNecessary(OriginStorageManager& manager)
 {
-    auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-    auto utf8String = string.utf8();
-    crypto->addBytes(utf8String.data(), utf8String.length());
-    crypto->addBytes(salt.data(), salt.size());
-    auto hash = crypto->computeHash();
-    return base64URLEncodeToString(hash.data(), hash.size());
+    if (manager.includedInBackup())
+        return;
+
+    auto originFileCreationTimestamp = manager.originFileCreationTimestamp();
+    if (!originFileCreationTimestamp)
+        return;
+
+    if (WallTime::now() - originFileCreationTimestamp.value() < m_backupExclusionPeriod)
+        return;
+    
+    FileSystem::setExcludedFromBackup(manager.path(), false);
+    manager.markIncludedInBackup();
 }
 
-static String originDirectoryPath(const String& rootPath, const WebCore::ClientOrigin& origin, FileSystem::Salt salt)
+#endif
+
+void NetworkStorageManager::writeOriginToFileIfNecessary(const WebCore::ClientOrigin& origin, StorageAreaBase* storageArea)
 {
-    if (rootPath.isEmpty())
-        return emptyString();
+    auto* manager = m_localOriginStorageManagers.get(origin);
+    if (!manager)
+        return;
 
-    auto encodedTopOrigin = encode(origin.topOrigin.toString(), salt);
-    auto encodedOpeningOrigin = encode(origin.clientOrigin.toString(), salt);
-    return FileSystem::pathByAppendingComponents(rootPath, { encodedTopOrigin, encodedOpeningOrigin });
-}
+    if (manager->originFileCreationTimestamp()) {
+#if PLATFORM(IOS_FAMILY)
+        includeOriginInBackupIfNecessary(*manager);
+#endif
+        return;
+    }
 
-static String originFilePath(const String& directory)
-{
-    if (directory.isEmpty())
-        return emptyString();
+    auto originDirectory = manager->path();
+    if (originDirectory.isEmpty())
+        return;
 
-    return FileSystem::pathByAppendingComponent(directory, OriginStorageManager::originFileIdentifier());
+    if (storageArea && isEmptyOriginDirectory(originDirectory))
+        return;
+
+    auto originFile = originFilePath(originDirectory);
+    bool didWrite = writeOriginToFile(originFile, origin);
+    auto timestamp = FileSystem::fileCreationTime(originFile);
+    manager->setOriginFileCreationTimestamp(timestamp);
+#if PLATFORM(IOS_FAMILY)
+    if (didWrite)
+        FileSystem::setExcludedFromBackup(originDirectory, true);
+    else
+        includeOriginInBackupIfNecessary(*manager);
+#else
+    UNUSED_PARAM(didWrite);
+#endif
 }
 
 OriginStorageManager& NetworkStorageManager::localOriginStorageManager(const WebCore::ClientOrigin& origin, ShouldWriteOriginFile shouldWriteOriginFile)
 {
     ASSERT(!RunLoop::isMain());
 
-    return *m_localOriginStorageManagers.ensure(origin, [&] {
+    auto& originStorageManager = *m_localOriginStorageManagers.ensure(origin, [&] {
         auto originDirectory = originDirectoryPath(m_path, origin, m_salt);
-        if (!originDirectory.isEmpty() && shouldWriteOriginFile == ShouldWriteOriginFile::Yes)
-            writeOriginToFileIfNecessary(originFilePath(originDirectory), origin);
         auto localStoragePath = LocalStorageManager::localStorageFilePath(m_customLocalStoragePath, origin);
         auto idbStoragePath = IDBStorageManager::idbStorageOriginDirectory(m_customIDBStoragePath, origin);
         auto cacheStoragePath = CacheStorage::Engine::storagePath(m_customCacheStoragePath, origin);
@@ -261,6 +357,11 @@ OriginStorageManager& NetworkStorageManager::localOriginStorageManager(const Web
         };
         return makeUnique<OriginStorageManager>(quota, WTFMove(increaseQuotaFunction), WTFMove(originDirectory), WTFMove(localStoragePath), WTFMove(idbStoragePath), WTFMove(cacheStoragePath), m_shouldUseCustomPaths);
     }).iterator->value;
+
+    if (shouldWriteOriginFile == ShouldWriteOriginFile::Yes)
+        writeOriginToFileIfNecessary(origin);
+
+    return originStorageManager;
 }
 
 bool NetworkStorageManager::removeOriginStorageManagerIfPossible(const WebCore::ClientOrigin& origin)
@@ -269,24 +370,15 @@ bool NetworkStorageManager::removeOriginStorageManagerIfPossible(const WebCore::
     if (iterator == m_localOriginStorageManagers.end())
         return true;
 
-    if (iterator->value->isActive())
+    auto& manager = iterator->value;
+    if (manager->isActive())
         return false;
+
+    manager->deleteEmptyDirectory();
+    deleteEmptyOriginDirectory(manager->path());
 
     m_localOriginStorageManagers.remove(iterator);
     return true;
-}
-
-void NetworkStorageManager::deleteOriginDirectoryIfPossible(const WebCore::ClientOrigin& origin)
-{
-    bool isEmpty = localOriginStorageManager(origin).isEmpty();
-    bool removed = removeOriginStorageManagerIfPossible(origin);
-    if (!removed || !isEmpty)
-        return;
-
-    auto originDirectory = originDirectoryPath(m_path, origin, m_salt);
-    auto filePath = originFilePath(originDirectory);
-    deleteOriginFileIfNecessary(filePath);
-    FileSystem::deleteEmptyDirectory(originDirectory);
 }
 
 void NetworkStorageManager::persisted(const WebCore::ClientOrigin& origin, CompletionHandler<void(bool)>&& completionHandler)
@@ -565,7 +657,7 @@ HashSet<WebCore::ClientOrigin> NetworkStorageManager::deleteDataOnDisk(OptionSet
             deletedOrigins.add(origin);
             localOriginStorageManager(origin).deleteData(types, modifiedSinceTime);
         }
-        deleteOriginDirectoryIfPossible(origin);
+        removeOriginStorageManagerIfPossible(origin);
     }
 
     return deletedOrigins;
@@ -767,22 +859,27 @@ void NetworkStorageManager::resetQuotaUpdatedBasedOnUsageForTesting(WebCore::Cli
     });
 }
 
+#if PLATFORM(IOS_FAMILY)
+
+void NetworkStorageManager::setBackupExclusionPeriodForTesting(Seconds period, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+
+    m_queue->dispatch([this, protectedThis = Ref { *this }, period, completionHandler = WTFMove(completionHandler)]() mutable {
+        m_backupExclusionPeriod = period;
+        RunLoop::main().dispatch(WTFMove(completionHandler));
+    });
+}
+
+#endif
+
 void NetworkStorageManager::connectToStorageArea(IPC::Connection& connection, WebCore::StorageType type, StorageAreaMapIdentifier sourceIdentifier, StorageNamespaceIdentifier namespaceIdentifier, const WebCore::ClientOrigin& origin, CompletionHandler<void(StorageAreaIdentifier, HashMap<String, String>, uint64_t)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
     auto connectionIdentifier = connection.uniqueID();
-    bool willCreateOriginStorageManager = !m_localOriginStorageManagers.contains(origin);
-    // Avoid delay in replying sync message by writing origin file after replying message.
+    // StorageArea may be connected due to LocalStorage prewarming, so do not write origin file eagerly.
     auto& originStorageManager = localOriginStorageManager(origin, ShouldWriteOriginFile::No);
-    auto writeOriginFile = makeScopeExit([&] {
-        if (!willCreateOriginStorageManager)
-            return;
-
-        if (auto originDirectory = originDirectoryPath(m_path, origin, m_salt); !originDirectory.isEmpty())
-            writeOriginToFileIfNecessary(originFilePath(originDirectory), origin);
-    });
-
     StorageAreaIdentifier resultIdentifier;
     switch (type) {
     case WebCore::StorageType::Local:
@@ -795,8 +892,11 @@ void NetworkStorageManager::connectToStorageArea(IPC::Connection& connection, We
         resultIdentifier = originStorageManager.sessionStorageManager(*m_storageAreaRegistry).connectToSessionStorageArea(connectionIdentifier, sourceIdentifier, origin, namespaceIdentifier);
     }
 
-    if (auto storageArea = m_storageAreaRegistry->getStorageArea(resultIdentifier))
-        return completionHandler(resultIdentifier, storageArea->allItems(), StorageAreaBase::nextMessageIdentifier());
+    if (auto storageArea = m_storageAreaRegistry->getStorageArea(resultIdentifier)) {
+        completionHandler(resultIdentifier, storageArea->allItems(), StorageAreaBase::nextMessageIdentifier());
+        writeOriginToFileIfNecessary(origin, storageArea);
+        return;
+    }
 
     return completionHandler(resultIdentifier, HashMap<String, String> { }, StorageAreaBase::nextMessageIdentifier());
 }
@@ -857,33 +957,44 @@ void NetworkStorageManager::setItem(IPC::Connection& connection, StorageAreaIden
     ASSERT(!RunLoop::isMain());
 
     bool hasQuotaError = false;
-    if (auto storageArea = m_storageAreaRegistry->getStorageArea(identifier)) {
-        auto result = storageArea->setItem(connection.uniqueID(), implIdentifier, String { key }, WTFMove(value), WTFMove(urlString));
-        if (!result)
-            hasQuotaError = (result.error() == StorageError::QuotaExceeded);
-    }
+    auto storageArea = m_storageAreaRegistry->getStorageArea(identifier);
+    if (!storageArea)
+        return completionHandler(hasQuotaError);
 
+    auto result = storageArea->setItem(connection.uniqueID(), implIdentifier, WTFMove(key), WTFMove(value), WTFMove(urlString));
+    if (!result)
+        hasQuotaError = (result.error() == StorageError::QuotaExceeded);
     completionHandler(hasQuotaError);
+
+    writeOriginToFileIfNecessary(storageArea->origin(), storageArea);
 }
 
 void NetworkStorageManager::removeItem(IPC::Connection& connection, StorageAreaIdentifier identifier, StorageAreaImplIdentifier implIdentifier, String&& key, String&& urlString, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
-    if (auto storageArea = m_storageAreaRegistry->getStorageArea(identifier))
-        storageArea->removeItem(connection.uniqueID(), implIdentifier, WTFMove(key), WTFMove(urlString));
-
+    auto storageArea = m_storageAreaRegistry->getStorageArea(identifier);
+    if (!storageArea)
+        return completionHandler();
+    
+    storageArea->removeItem(connection.uniqueID(), implIdentifier, WTFMove(key), WTFMove(urlString));
     completionHandler();
+
+    writeOriginToFileIfNecessary(storageArea->origin(), storageArea);
 }
 
 void NetworkStorageManager::clear(IPC::Connection& connection, StorageAreaIdentifier identifier, StorageAreaImplIdentifier implIdentifier, String&& urlString, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
-    if (auto storageArea = m_storageAreaRegistry->getStorageArea(identifier))
-        storageArea->clear(connection.uniqueID(), implIdentifier, WTFMove(urlString));
+    auto storageArea = m_storageAreaRegistry->getStorageArea(identifier);
+    if (!storageArea)
+        return completionHandler();
 
+    storageArea->clear(connection.uniqueID(), implIdentifier, WTFMove(urlString));
     completionHandler();
+
+    writeOriginToFileIfNecessary(storageArea->origin(), storageArea);
 }
 
 void NetworkStorageManager::openDatabase(IPC::Connection& connection, const WebCore::IDBRequestData& requestData)

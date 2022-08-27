@@ -72,11 +72,11 @@ AriaReflectionForElementReferencesEnabled:
   humanReadableDescription: "Enable ARIA reflection for attributes that refer to elements"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 AspectRatioEnabled:
   type: bool
@@ -230,11 +230,11 @@ CSSColorMixEnabled:
   humanReadableDescription: "Enable support for CSS color-mix() defined in CSS Color 5"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSContainIntrinsicSizeEnabled:
   type: bool
@@ -314,11 +314,11 @@ CSSGradientInterpolationColorSpacesEnabled:
   humanReadableDescription: "Enable custom interpolation in CSS gradients"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSGradientPremultipliedAlphaInterpolationEnabled:
   type: bool
@@ -405,6 +405,18 @@ CSSRelativeColorSyntaxEnabled:
     WebCore:
       default: false
 
+CSSScrollAnchoringEnabled:
+  type: bool
+  humanReadableName: "CSS Scroll Anchoring"
+  humanReadableDescription: "Enable CSS Scroll Anchoring"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSTextAlignLastEnabled:
   type: bool
   humanReadableName: "CSS text-align-last property"
@@ -453,6 +465,18 @@ CanvasColorSpaceEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA)": true
+      default: false
+    WebCore:
+      default: false
+
+CompressionStreamEnabled:
+  type: bool
+  humanReadableName: "Compression Stream API"
+  humanReadableDescription: "Enable Compression Stream API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
       default: false
     WebCore:
       default: false
@@ -518,6 +542,18 @@ DialogElementEnabled:
       default: true
     WebCore:
       default: true
+
+DirPseudoEnabled:
+  type: bool
+  humanReadableName: ":dir pseudo-class"
+  humanReadableDescription: "Enable the directionality pseudo-class :dir"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 # FIXME: Starting the preference name with "Disable" is inconsistent with most other preferences and should be changed.
 DisableMediaExperiencePIDInheritance:
@@ -660,17 +696,6 @@ HDRMediaCapabilitiesEnabled:
     WebKit:
       default: true
     WebCore:
-      default: false
-
-HTTP3Enabled:
-  type: bool
-  humanReadableName: "HTTP/3"
-  humanReadableDescription: "Enable HTTP/3"
-  webcoreBinding: none
-  condition: HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
       default: false
 
 HasPseudoClassEnabled:
@@ -817,11 +842,11 @@ LazyIframeLoadingEnabled:
   humanReadableDescription: "Enable lazy iframe loading support"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 LazyImageLoadingEnabled:
   type: bool
@@ -1503,17 +1528,21 @@ UseGPUProcessForDisplayCapture:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: false
+      default: true
 
 UseGPUProcessForWebGLEnabled:
   type: bool
   humanReadableName: "GPU Process: WebGL"
   humanReadableDescription: "Process all WebGL operations in GPU Process"
-  webcoreBinding: none
   condition: ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
-  exposed: [ WebKit ]
   defaultValue:
+    WebKitLegacy:
+      default: false
     WebKit:
+      "ENABLE(GPU_PROCESS_BY_DEFAULT) && PLATFORM(IOS_FAMILY) && !HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(WIN)": true
+      default: false
+    WebCore:
       "ENABLE(GPU_PROCESS_BY_DEFAULT) && PLATFORM(IOS_FAMILY) && !HAVE(UIKIT_WEBKIT_INTERNALS)": true
       "PLATFORM(WIN)": true
       default: false

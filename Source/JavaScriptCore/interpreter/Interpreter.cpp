@@ -31,6 +31,7 @@
 #include "Interpreter.h"
 
 #include "AbstractModuleRecord.h"
+#include "ArgList.h"
 #include "BatchedTransitionOptimizer.h"
 #include "Bytecodes.h"
 #include "CallFrameClosure.h"
@@ -51,6 +52,7 @@
 #include "JSLexicalEnvironment.h"
 #include "JSModuleEnvironment.h"
 #include "JSModuleRecord.h"
+#include "JSObject.h"
 #include "JSRemoteFunction.h"
 #include "JSString.h"
 #include "JSWebAssemblyException.h"
@@ -82,6 +84,11 @@
 #endif
 
 namespace JSC {
+
+VM& Interpreter::vm()
+{
+    return *bitwise_cast<VM*>(bitwise_cast<uintptr_t>(this) - OBJECT_OFFSETOF(VM, interpreter));
+}
 
 JSValue eval(JSGlobalObject* globalObject, CallFrame* callFrame, ECMAMode ecmaMode)
 {
@@ -164,8 +171,8 @@ JSValue eval(JSGlobalObject* globalObject, CallFrame* callFrame, ECMAMode ecmaMo
     }
 
     JSValue thisValue = callerFrame->thisValue();
-    Interpreter* interpreter = vm.interpreter;
-    RELEASE_AND_RETURN(scope, interpreter->execute(eval, globalObject, thisValue, callerScopeChain));
+    Interpreter& interpreter = vm.interpreter;
+    RELEASE_AND_RETURN(scope, interpreter.execute(eval, globalObject, thisValue, callerScopeChain));
 }
 
 unsigned sizeOfVarargs(JSGlobalObject* globalObject, JSValue arguments, uint32_t firstVarArgOffset)
@@ -319,12 +326,9 @@ void setupForwardArgumentsFrameAndSetThis(JSGlobalObject* globalObject, CallFram
     execCallee->setThisValue(thisValue);
 }
 
-    
-
-Interpreter::Interpreter(VM& vm)
-    : m_vm(vm)
+Interpreter::Interpreter()
 #if ENABLE(C_LOOP)
-    , m_cloopStack(vm)
+    : m_cloopStack(vm())
 #endif
 {
 #if ASSERT_ENABLED
@@ -381,7 +385,6 @@ public:
         , m_owner(owner)
         , m_results(results)
         , m_framesToSkip(framesToSkip)
-        , m_remainingCapacityForFrameCapture(capacity)
     {
         m_results.reserveInitialCapacity(capacity);
     }
@@ -393,18 +396,21 @@ public:
             return IterationStatus::Continue;
         }
 
-        if (m_remainingCapacityForFrameCapture) {
+        if (auto* codeBlock = visitor->codeBlock()) {
+            if (codeBlock->ownerExecutable()->implementationVisibility() != ImplementationVisibility::Public)
+                return IterationStatus::Continue;
+        }
+
+        if (m_results.size() < m_results.capacity()) {
             if (visitor->isWasmFrame()) {
-                m_results.append(StackFrame(visitor->wasmFunctionIndexOrName()));
+                m_results.uncheckedAppend(StackFrame(visitor->wasmFunctionIndexOrName()));
             } else if (!!visitor->codeBlock() && !visitor->codeBlock()->unlinkedCodeBlock()->isBuiltinFunction()) {
-                m_results.append(
+                m_results.uncheckedAppend(
                     StackFrame(m_vm, m_owner, visitor->callee().asCell(), visitor->codeBlock(), visitor->bytecodeIndex()));
             } else {
-                m_results.append(
+                m_results.uncheckedAppend(
                     StackFrame(m_vm, m_owner, visitor->callee().asCell()));
             }
-    
-            m_remainingCapacityForFrameCapture--;
             return IterationStatus::Continue;
         }
         return IterationStatus::Done;
@@ -415,31 +421,36 @@ private:
     JSCell* m_owner;
     Vector<StackFrame>& m_results;
     mutable size_t m_framesToSkip;
-    mutable size_t m_remainingCapacityForFrameCapture;
 };
 
 void Interpreter::getStackTrace(JSCell* owner, Vector<StackFrame>& results, size_t framesToSkip, size_t maxStackSize)
 {
     DisallowGC disallowGC;
-    VM& vm = m_vm;
+    VM& vm = this->vm();
     CallFrame* callFrame = vm.topCallFrame;
     if (!callFrame || !maxStackSize)
         return;
 
-    size_t framesCount = 0;
-    size_t maxFramesCountNeeded = maxStackSize + framesToSkip;
-    StackVisitor::visit(callFrame, vm, [&] (StackVisitor&) -> IterationStatus {
-        if (++framesCount < maxFramesCountNeeded)
+    size_t skippedFrames = 0;
+    size_t visitedFrames = 0;
+    StackVisitor::visit(callFrame, vm, [&] (StackVisitor& visitor) -> IterationStatus {
+        if (++skippedFrames <= framesToSkip)
             return IterationStatus::Continue;
+
+        if (auto* codeBlock = visitor->codeBlock()) {
+            if (codeBlock->ownerExecutable()->implementationVisibility() != ImplementationVisibility::Public)
+                return IterationStatus::Continue;
+        }
+
+        if (++visitedFrames < maxStackSize)
+            return IterationStatus::Continue;
+
         return IterationStatus::Done;
     });
-    if (framesCount <= framesToSkip)
+    if (!visitedFrames)
         return;
 
-    framesCount -= framesToSkip;
-    framesCount = std::min(maxStackSize, framesCount);
-
-    GetStackTraceFunctor functor(vm, owner, results, framesToSkip, framesCount);
+    GetStackTraceFunctor functor(vm, owner, results, framesToSkip, visitedFrames);
     StackVisitor::visit(callFrame, vm, functor);
     ASSERT(results.size() == results.capacity());
 }
@@ -1417,7 +1428,7 @@ JSValue Interpreter::executeModuleProgram(JSModuleRecord* record, ModuleProgramE
 
 NEVER_INLINE void Interpreter::debug(CallFrame* callFrame, DebugHookType debugHookType)
 {
-    VM& vm = m_vm;
+    VM& vm = this->vm();
     DeferTermination deferScope(vm);
     auto scope = DECLARE_CATCH_SCOPE(vm);
 

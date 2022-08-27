@@ -48,6 +48,13 @@
 #include <wtf/Threading.h>
 #include <wtf/threads/Signals.h>
 
+#if !USE(SYSTEM_MALLOC)
+#include <bmalloc/BPlatform.h>
+#if BUSE(LIBPAS)
+#include <bmalloc/pas_scavenger.h>
+#endif
+#endif
+
 namespace JSC {
 
 static_assert(sizeof(bool) == 1, "LLInt and JIT assume sizeof(bool) is always 1 when touching it directly from assembly code.");
@@ -84,6 +91,13 @@ void initialize()
         }
         Options::finalize();
 
+#if !USE(SYSTEM_MALLOC)
+#if BUSE(LIBPAS)
+        if (Options::libpasScavengeContinuously())
+            pas_scavenger_disable_shut_down();
+#endif
+#endif
+
         JITOperationList::populatePointersInJavaScriptCore();
 
         if (Options::useSigillCrashAnalyzer())
@@ -112,7 +126,7 @@ void initialize()
 #endif
         VMTraps::initializeSignals();
 #if ENABLE(WEBASSEMBLY)
-        Wasm::prepareFastMemory();
+        Wasm::prepareSignalingMemory();
 #endif
 
         WTF::compilerFence();

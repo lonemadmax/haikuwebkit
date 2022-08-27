@@ -396,13 +396,17 @@
 #include <WebCore/GraphicsContextCG.h>
 #endif
 
-#if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/WebPageAdditions.cpp>
-#else
+#if ENABLE(LOCKDOWN_MODE_API)
+#import <pal/spi/cg/CoreGraphicsSPI.h>
+#endif
+
 static void adjustCoreGraphicsForCaptivePortal()
 {
-}
+#if HAVE(LOCKDOWN_MODE_PDF_ADDITIONS)
+    CGEnterLockdownModeForPDF();
+    CGEnterLockdownModeForFonts();
 #endif
+}
 
 namespace WebKit {
 using namespace JSC;
@@ -922,6 +926,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         // This call should be replaced with proper API when available.
         CFPreferencesGetAppIntegerValue(CFSTR("key"), CFSTR("com.apple.WebKit.WebContent.AppCacheDisabled"), nullptr);
     }
+#endif
 
     auto blockIOKit = parameters.store.getBoolValueForKey(WebPreferencesKey::blockIOKitInWebContentSandboxKey())
 #if ENABLE(WEBGL)
@@ -932,10 +937,12 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         && m_shouldPlayMediaInGPUProcess;
 
     if (blockIOKit) {
+#if HAVE(SANDBOX_STATE_FLAGS)
         CFPreferencesGetAppIntegerValue(CFSTR("key"), CFSTR("com.apple.WebKit.WebContent.BlockIOKitInWebContentSandbox"), nullptr);
-        ProcessCapabilities::setHardwareAcceleratedDecodingDisabled(true);
-    }
 #endif
+        ProcessCapabilities::setHardwareAcceleratedDecodingDisabled(true);
+        ProcessCapabilities::setCanUseAcceleratedBuffers(false);
+    }
 
     updateThrottleState();
 }
@@ -1248,6 +1255,7 @@ EditorState WebPage::editorState(ShouldPerformLayout shouldPerformLayout) const
     if (result.selectionIsRange) {
         auto selectionRange = selection.range();
         result.selectionIsRangeInsideImageOverlay = selectionRange && ImageOverlay::isInsideOverlay(*selectionRange);
+        result.selectionIsRangeInAutoFilledAndViewableField = selection.isInAutoFilledAndViewableField();
     }
 
     m_lastEditorStateWasContentEditable = result.isContentEditable ? EditorStateIsContentEditable::Yes : EditorStateIsContentEditable::No;
@@ -3323,13 +3331,8 @@ void WebPage::requestFontAttributesAtSelectionStart(CompletionHandler<void(const
     completionHandler(CheckedRef(m_page->focusController())->focusedOrMainFrame().editor().fontAttributesAtSelectionStart());
 }
 
-void WebPage::cancelGesturesBlockedOnSynchronousReplies()
+void WebPage::cancelCurrentInteractionInformationRequest()
 {
-#if ENABLE(IOS_TOUCH_EVENTS)
-    if (auto reply = WTFMove(m_pendingSynchronousTouchEventReply))
-        reply(true);
-#endif
-
 #if PLATFORM(IOS_FAMILY)
     if (auto reply = WTFMove(m_pendingSynchronousPositionInformationReply))
         reply(InteractionInformationAtPosition::invalidInformation());
@@ -3355,26 +3358,6 @@ bool WebPage::dispatchTouchEvent(const WebTouchEvent& touchEvent)
     bool handled = handleTouchEvent(touchEvent, m_page.get());
     updatePotentialTapSecurityOrigin(touchEvent, handled);
     return handled;
-}
-
-void WebPage::touchEventSync(const WebTouchEvent& touchEvent, CompletionHandler<void(bool)>&& reply)
-{
-    // Avoid UIProcess hangs when the WebContent process is stuck on a sync IPC.
-    if (IPC::UnboundedSynchronousIPCScope::hasOngoingUnboundedSyncIPC()) {
-        WEBPAGE_RELEASE_LOG_ERROR(Process, "touchEventSync: Not processing because the process is stuck on unbounded sync IPC");
-        return reply(true);
-    }
-
-    m_pendingSynchronousTouchEventReply = WTFMove(reply);
-
-    EventDispatcher::TouchEventQueue queuedEvents;
-    WebProcess::singleton().eventDispatcher().takeQueuedTouchEventsForPage(*this, queuedEvents);
-    dispatchAsynchronousTouchEvents(WTFMove(queuedEvents));
-
-    bool handled = dispatchTouchEvent(touchEvent);
-
-    if (auto reply = WTFMove(m_pendingSynchronousTouchEventReply))
-        reply(handled);
 }
 
 void WebPage::resetPotentialTapSecurityOrigin()
@@ -4423,11 +4406,21 @@ void WebPage::updateRendering()
 
 void WebPage::didUpdateRendering()
 {
+    didPaintLayers();
+
     if (m_didUpdateRenderingAfterCommittingLoad)
         return;
 
     m_didUpdateRenderingAfterCommittingLoad = true;
     send(Messages::WebPageProxy::DidUpdateRenderingAfterCommittingLoad());
+}
+
+void WebPage::didPaintLayers()
+{
+#if ENABLE(GPU_PROCESS)
+    if (m_remoteRenderingBackendProxy)
+        m_remoteRenderingBackendProxy->didPaintLayers();
+#endif
 }
 
 bool WebPage::shouldTriggerRenderingUpdate(unsigned rescheduledRenderingUpdateCount) const
@@ -4909,6 +4902,17 @@ void WebPage::didEndTextSearchOperation()
 void WebPage::requestRectForFoundTextRange(const WebFoundTextRange& range, CompletionHandler<void(WebCore::FloatRect)>&& completionHandler)
 {
     foundTextRangeController().requestRectForFoundTextRange(range, WTFMove(completionHandler));
+}
+
+void WebPage::addLayerForFindOverlay(CompletionHandler<void(WebCore::GraphicsLayer::PlatformLayerID)>&& completionHandler)
+{
+    foundTextRangeController().addLayerForFindOverlay(WTFMove(completionHandler));
+}
+
+void WebPage::removeLayerForFindOverlay(CompletionHandler<void()>&& completionHandler)
+{
+    foundTextRangeController().removeLayerForFindOverlay();
+    completionHandler();
 }
 
 void WebPage::getImageForFindMatch(uint32_t matchIndex)
@@ -6231,14 +6235,15 @@ void WebPage::didChangeSelection(Frame& frame)
     didChangeSelectionOrOverflowScrollPosition();
 
 #if PLATFORM(IOS_FAMILY)
-    if (!m_sendAutocorrectionContextAfterFocusingElement)
+    if (!std::exchange(m_sendAutocorrectionContextAfterFocusingElement, false))
         return;
 
-    if (UNLIKELY(!frame.document() || !frame.document()->hasLivingRenderTree() || frame.selection().isNone()))
-        return;
+    callOnMainRunLoop([protectedThis = Ref { *this }, frame = Ref { frame }] {
+        if (UNLIKELY(!frame->document() || !frame->document()->hasLivingRenderTree() || frame->selection().isNone()))
+            return;
 
-    m_sendAutocorrectionContextAfterFocusingElement = false;
-    preemptivelySendAutocorrectionContext();
+        protectedThis->preemptivelySendAutocorrectionContext();
+    });
 #endif // PLATFORM(IOS_FAMILY)
 }
 
@@ -6748,7 +6753,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     updateMockAccessibilityElementAfterCommittingLoad();
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    m_elementsToExcludeFromMarkup.clear();
+    m_elementsToExcludeFromRemoveBackground.clear();
 #endif
 }
 
@@ -8123,7 +8128,7 @@ void WebPage::modelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::PlatformLa
 void WebPage::shouldAllowRemoveBackground(const ElementContext& context, CompletionHandler<void(bool)>&& completion) const
 {
     auto element = elementForContext(context);
-    completion(element && !m_elementsToExcludeFromMarkup.contains(*element));
+    completion(element && !m_elementsToExcludeFromRemoveBackground.contains(*element));
 }
 
 #endif
@@ -8149,6 +8154,13 @@ bool WebPage::handlesPageScaleGesture()
     return mainFramePlugIn();
 #endif
 }
+
+#if ENABLE(NOTIFICATIONS)
+void WebPage::clearNotificationPermissionState()
+{
+    static_cast<WebNotificationClient&>(WebCore::NotificationController::from(m_page.get())->client()).clearNotificationPermissionState();
+}
+#endif
 
 } // namespace WebKit
 

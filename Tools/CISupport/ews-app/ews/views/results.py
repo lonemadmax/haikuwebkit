@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2019 Apple Inc. All rights reserved.
+# Copyright (C) 2018-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -60,17 +60,21 @@ class Results(View):
         if not self.is_valid_result(data):
             return HttpResponse("Incomplete data.")
 
-        patch_id = data['patch_id']
-        if not patch_id or patch_id < 1:
-            return HttpResponse("Invalid patch id: {}.".format(patch_id))
+        change_id = data['change_id']
+        _log.info('Build {} event received, change_id: {}, type: {} for build_id: {} of type: {}, pr_id: {}, pr_project: {}'.format(data['status'], change_id, type(change_id), data['build_id'], type(data['build_id']), data.get('pr_id', -1), data.get('pr_project', '')))
+        if not change_id:
+            _log.error('change_id missing: {}'.format(change_id))
+            return HttpResponse("Invalid change id: {}.".format(change_id))
 
-        Build.save_build(patch_id=int(patch_id), hostname=data['hostname'], build_id=data['build_id'], builder_id=data['builder_id'], builder_name=data['builder_name'],
+        Build.save_build(change_id=change_id, hostname=data['hostname'], build_id=data['build_id'], builder_id=data['builder_id'], builder_name=data['builder_name'],
                    builder_display_name=data['builder_display_name'], number=data['number'], result=data['result'],
-                   state_string=data['state_string'], started_at=data['started_at'], complete_at=data['complete_at'])
-        return HttpResponse("Saved data for patch: {}.\n".format(patch_id))
+                   state_string=data['state_string'], started_at=data['started_at'], complete_at=data['complete_at'], pr_id=data.get('pr_id', -1), pr_project=data.get('pr_project', ''))
+        return HttpResponse("Saved data for change: {}.\n".format(change_id))
 
     def step_event(self, data):
+        _log.info('Step event received')
         if not self.is_valid_result(data):
+            _log.warn('Incomplete step event data')
             return HttpResponse("Incomplete data.")
 
         Step.save_step(hostname=data['hostname'], step_id=data['step_id'], build_id=data['build_id'], result=data['result'],
@@ -82,7 +86,7 @@ class Results(View):
             _log.error("Invalid data type: {}".format(data['type']))
             return False
 
-        required_keys = {u'ews-build': ['hostname', 'patch_id', 'build_id', 'builder_id', 'builder_name', 'builder_display_name',
+        required_keys = {u'ews-build': ['hostname', 'change_id', 'build_id', 'builder_id', 'builder_name', 'builder_display_name',
                                            'number', 'result', 'state_string', 'started_at', 'complete_at'],
                          u'ews-step': ['hostname', 'step_id', 'build_id', 'result', 'state_string', 'started_at', 'complete_at']}
 

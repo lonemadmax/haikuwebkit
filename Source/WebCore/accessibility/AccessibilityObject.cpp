@@ -804,6 +804,21 @@ std::optional<SimpleRange> AccessibilityObject::visibleCharacterRange() const
     return computedRange;
 }
 
+#if PLATFORM(IOS_FAMILY)
+static const RenderStyle* styleFromNode(Node* node)
+{
+    if (auto* textNode = dynamicDowncast<Text>(node)) {
+        if (auto* renderer = textNode->renderer())
+            return &renderer->style();
+    }
+
+    if (auto* element = dynamicDowncast<Element>(node))
+        return element->computedStyle();
+
+    return nullptr;
+}
+#endif
+
 std::optional<SimpleRange> AccessibilityObject::visibleCharacterRangeInternal(const std::optional<SimpleRange>& range, const FloatRect& contentRect, const IntRect& startingElementRect) const
 {
     if (!range || !contentRect.intersects(startingElementRect))
@@ -813,6 +828,12 @@ std::optional<SimpleRange> AccessibilityObject::visibleCharacterRangeInternal(co
     auto startBoundary = range->start;
     auto endBoundary = range->end;
 
+#if PLATFORM(IOS_FAMILY)
+    auto* style = styleFromNode(node());
+    // If we can't get style for this object, assume a horizontal writing mode.
+    bool isHorizontalWritingMode = style ? style->isHorizontalWritingMode() : true;
+#endif
+
     // Origin isn't contained in visible rect, start moving forward by line.
     while (!contentRect.contains(elementRect.location())) {
         auto nextLinePosition = nextLineEndPosition(VisiblePosition(makeContainerOffsetPosition(startBoundary)));
@@ -820,10 +841,23 @@ std::optional<SimpleRange> AccessibilityObject::visibleCharacterRangeInternal(co
         if (!testStartBoundary || !contains(*range, *testStartBoundary))
             break;
 
+#if PLATFORM(IOS_FAMILY)
+        float lastX = elementRect.x();
+#endif
+
+        // testStartBoundary is valid, so commit it and update the elementRect.
         startBoundary = *testStartBoundary;
         elementRect = boundsForRange(SimpleRange(startBoundary, range->end));
-        if (elementRect.isEmpty())
+        if (elementRect.isEmpty() || elementRect.x() < 0 || elementRect.y() < 0)
             break;
+
+#if PLATFORM(IOS_FAMILY)
+        // If the x-coordinate of the element's frame has grown, we should break because that likely means
+        // we have crossed a viewport boundary (e.g. moved to a new page in Books).
+        // FIXME: We should investigate further to understand if this is the correct behavior for all platforms.
+        if (isHorizontalWritingMode && lastX < elementRect.x())
+            break;
+#endif
     }
 
     // Computing previous line start positions is cheap relative to computing boundsForRange, so compute the end boundary by
@@ -2368,10 +2402,12 @@ bool AccessibilityObject::replaceTextInRange(const String& replacementString, co
 
 bool AccessibilityObject::insertText(const String& text)
 {
+    AXTRACE(makeString("AccessibilityObject::insertText text = ", text));
+
     if (!renderer() || !is<Element>(node()))
         return false;
 
-    auto& element = downcast<Element>(*renderer()->node());
+    auto& element = downcast<Element>(*node());
     // Only try to insert text if the field is in editing mode (excluding password fields, which we do still want to try to insert into).
     if (!isPasswordField() && !element.shouldUseInputMethod())
         return false;
@@ -2531,6 +2567,7 @@ static void initializeRoleMap()
         { "spinbutton"_s, AccessibilityRole::SpinButton },
         { "status"_s, AccessibilityRole::ApplicationStatus },
         { "subscript"_s, AccessibilityRole::Subscript },
+        { "suggestion"_s, AccessibilityRole::Suggestion },
         { "superscript"_s, AccessibilityRole::Superscript },
         { "switch"_s, AccessibilityRole::Switch },
         { "tab"_s, AccessibilityRole::Tab },
@@ -2733,6 +2770,9 @@ String AccessibilityObject::roleDescription() const
 
     if (roleValue() == AccessibilityRole::Figure)
         return AXFigureText();
+    
+    if (roleValue() == AccessibilityRole::Suggestion)
+        return AXSuggestionRoleDescriptionText();
 
     return roleDescription;
 }
@@ -2830,18 +2870,6 @@ AutoFillButtonType AccessibilityObject::valueAutofillButtonType() const
         return AutoFillButtonType::None;
     
     return downcast<HTMLInputElement>(*this->node()).autoFillButtonType();
-}
-    
-bool AccessibilityObject::isValueAutofilled() const
-{
-    if (!isNativeTextControl())
-        return false;
-    
-    Node* node = this->node();
-    if (!is<HTMLInputElement>(node))
-        return false;
-    
-    return downcast<HTMLInputElement>(*node).isAutoFilled();
 }
 
 const String AccessibilityObject::placeholderValue() const
@@ -3373,7 +3401,7 @@ void AccessibilityObject::scrollToMakeVisible(const ScrollRectToVisibleOptions& 
         parentObject()->scrollToMakeVisible();
 
     if (auto* renderer = this->renderer())
-        renderer->scrollRectToVisible(boundingBoxRect(), false, options);
+        FrameView::scrollRectToVisible(boundingBoxRect(), *renderer, false, options);
 }
 
 void AccessibilityObject::scrollToMakeVisibleWithSubFocus(const IntRect& subfocus) const

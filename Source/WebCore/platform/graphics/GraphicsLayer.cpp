@@ -80,26 +80,13 @@ bool GraphicsLayer::supportsLayerType(Type type)
     case Type::PageTiledBacking:
     case Type::ScrollContainer:
     case Type::ScrolledContents:
+    case Type::TiledBacking:
         return true;
     case Type::Shape:
         return false;
     }
     ASSERT_NOT_REACHED();
     return false;
-}
-
-bool GraphicsLayer::supportsRoundedClip()
-{
-    return false;
-}
-
-bool GraphicsLayer::supportsBackgroundColorContent()
-{
-#if USE(TEXTURE_MAPPER)
-    return true;
-#else
-    return false;
-#endif
 }
 
 bool GraphicsLayer::supportsSubpixelAntialiasedLayerText()

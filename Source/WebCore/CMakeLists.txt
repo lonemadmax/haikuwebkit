@@ -26,6 +26,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/async-clipboard"
     "${WEBCORE_DIR}/Modules/beacon"
     "${WEBCORE_DIR}/Modules/cache"
+    "${WEBCORE_DIR}/Modules/compression"
     "${WEBCORE_DIR}/Modules/contact-picker"
     "${WEBCORE_DIR}/Modules/cookie-consent"
     "${WEBCORE_DIR}/Modules/credentialmanagement"
@@ -209,6 +210,7 @@ set(WebCore_IDL_INCLUDES
     Modules/WebGPU
     Modules/airplay
     Modules/cache
+    Modules/compression
     Modules/credentialmanagement
     Modules/encryptedmedia/legacy
     Modules/entriesapi
@@ -261,6 +263,11 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/cache/DOMCache.idl
     Modules/cache/DOMCacheStorage.idl
     Modules/cache/WindowOrWorkerGlobalScope+Caches.idl
+
+    Modules/compression/CompressionStream.idl
+    Modules/compression/CompressionStreamEncoder.idl
+    Modules/compression/DecompressionStream.idl
+    Modules/compression/DecompressionStreamDecoder.idl
 
     Modules/contact-picker/ContactInfo.idl
     Modules/contact-picker/ContactProperty.idl
@@ -564,6 +571,7 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/streams/ByteLengthQueuingStrategy.idl
     Modules/streams/CountQueuingStrategy.idl
+    Modules/streams/GenericTransformStream.idl
     Modules/streams/ReadableByteStreamController.idl
     Modules/streams/ReadableStream.idl
     Modules/streams/ReadableStreamBYOBReader.idl
@@ -812,6 +820,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/FontFace.idl
     css/FontFaceSet.idl
     css/FontFaceSource.idl
+    css/LinkStyle.idl
     css/MediaList.idl
     css/MediaQueryList.idl
     css/MediaQueryListEvent.idl
@@ -1464,6 +1473,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/gamepad/GamepadButton.idl
     Modules/gamepad/GamepadEvent.idl
     Modules/gamepad/Navigator+Gamepad.idl
+    Modules/gamepad/WindowEventHandlers+Gamepad.idl
 )
 
 if (ENABLE_GAMEPAD)
@@ -2448,6 +2458,8 @@ add_dependencies(WebCoreTestSupportBindings WebCoreBindings)
 # WebCore JS Builtins
 
 set(WebCore_BUILTINS_SOURCES
+    ${WEBCORE_DIR}/Modules/compression/CompressionStream.js
+    ${WEBCORE_DIR}/Modules/compression/DecompressionStream.js
     ${WEBCORE_DIR}/Modules/streams/ByteLengthQueuingStrategy.js
     ${WEBCORE_DIR}/Modules/streams/CountQueuingStrategy.js
     ${WEBCORE_DIR}/Modules/streams/ReadableByteStreamController.js

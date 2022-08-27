@@ -210,40 +210,23 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     , heap(*this, heapType)
     , clientHeap(heap)
     , vmType(vmType)
-    , clientData(nullptr)
-    , topEntryFrame(nullptr)
     , topCallFrame(CallFrame::noCaller())
     , deferredWorkTimer(DeferredWorkTimer::create(*this))
     , m_atomStringTable(vmType == Default ? Thread::current().atomStringTable() : new AtomStringTable)
-    , m_privateSymbolRegistry(WTF::SymbolRegistry::Type::PrivateSymbol)
-    , propertyNames(nullptr)
     , emptyList(new ArgList)
     , machineCodeBytesPerBytecodeWordForBaselineJIT(makeUnique<SimpleStats>())
     , symbolImplToSymbolMap(*this)
-    , interpreter(nullptr)
-    , entryScope(nullptr)
     , m_regExpCache(new RegExpCache(this))
-    , m_compactVariableMap(adoptRef(*(new CompactTDZEnvironmentMap)))
-#if ENABLE(REGEXP_TRACING)
-    , m_rtTraceList(new RTTraceList())
-#endif
-#if ENABLE(GC_VALIDATION)
-    , m_initializingObjectClass(0)
-#endif
-    , m_stackPointerAtVMEntry(nullptr)
+    , m_compactVariableMap(adoptRef(*new CompactTDZEnvironmentMap))
     , m_codeCache(makeUnique<CodeCache>())
     , m_intlCache(makeUnique<IntlCache>())
     , m_builtinExecutables(makeUnique<BuiltinExecutables>(*this))
-    , m_typeProfilerEnabledCount(0)
-    , m_primitiveGigacageEnabled(IsWatched)
-    , m_controlFlowProfilerEnabledCount(0)
 {
     if (UNLIKELY(vmCreationShouldCrash))
         CRASH_WITH_INFO(0x4242424220202020, 0xbadbeef0badbeef, 0x1234123412341234, 0x1337133713371337);
 
     VMInspector::instance().add(this);
 
-    interpreter = new Interpreter(*this);
     updateSoftReservedZoneSize(Options::softReservedZoneSize());
     setLastStackTop(Thread::current());
 
@@ -337,8 +320,6 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
         m_perBytecodeProfiler->registerToSaveAtExit(pathOut.toCString().data());
     }
 
-    callFrameForCatch = nullptr;
-
     // Initialize this last, as a free way of asserting that VM initialization itself
     // won't use this.
     m_typedArrayController = adoptRef(new SimpleTypedArrayController());
@@ -426,7 +407,7 @@ VM::~VM()
     deferredWorkTimer->stopRunningTasks();
 #if ENABLE(WEBASSEMBLY)
     if (Wasm::Worklist* worklist = Wasm::existingWorklistOrNull())
-        worklist->stopAllPlansForContext(wasmContext);
+        worklist->stopAllPlansForContext(*this);
 #endif
     if (UNLIKELY(m_watchdog))
         m_watchdog->willDestroyVM(this);
@@ -463,11 +444,6 @@ VM::~VM()
 
     VMInspector::instance().remove(this);
 
-    delete interpreter;
-#ifndef NDEBUG
-    interpreter = reinterpret_cast<Interpreter*>(0xbbadbeef);
-#endif
-
     delete emptyList;
 
     delete propertyNames;
@@ -476,10 +452,6 @@ VM::~VM()
 
     delete clientData;
     delete m_regExpCache;
-
-#if ENABLE(REGEXP_TRACING)
-    delete m_rtTraceList;
-#endif
 
 #if ENABLE(DFG_JIT)
     for (unsigned i = 0; i < m_scratchBuffers.size(); ++i)
@@ -911,7 +883,7 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
         CRASH();
     }
 
-    interpreter->notifyDebuggerOfExceptionToBeThrown(*this, globalObject, throwOriginFrame, exceptionToThrow);
+    interpreter.notifyDebuggerOfExceptionToBeThrown(*this, globalObject, throwOriginFrame, exceptionToThrow);
 
     setException(exceptionToThrow);
 
@@ -947,7 +919,7 @@ size_t VM::updateSoftReservedZoneSize(size_t softReservedZoneSize)
     size_t oldSoftReservedZoneSize = m_currentSoftReservedZoneSize;
     m_currentSoftReservedZoneSize = softReservedZoneSize;
 #if ENABLE(C_LOOP)
-    interpreter->cloopStack().setSoftReservedZoneSize(softReservedZoneSize);
+    interpreter.cloopStack().setSoftReservedZoneSize(softReservedZoneSize);
 #endif
 
     updateStackLimits();
@@ -1091,6 +1063,7 @@ static void logSanitizeStack(VM& vm)
 }
 
 #if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
+
 char* VM::acquireRegExpPatternContexBuffer()
 {
     m_regExpPatternContextLock.lock();
@@ -1106,21 +1079,23 @@ void VM::releaseRegExpPatternContexBuffer()
 
     m_regExpPatternContextLock.unlock();
 }
+
 #endif
 
 #if ENABLE(REGEXP_TRACING)
+
 void VM::addRegExpToTrace(RegExp* regExp)
 {
     gcProtect(regExp);
-    m_rtTraceList->add(regExp);
+    m_rtTraceList.add(regExp);
 }
 
 void VM::dumpRegExpTrace()
 {
-    // The first RegExp object is ignored.  It is create by the RegExpPrototype ctor and not used.
-    RTTraceList::iterator iter = ++m_rtTraceList->begin();
+    // The first RegExp object is ignored. It is created by the RegExpPrototype ctor and not used.
+    RTTraceList::iterator iter = ++m_rtTraceList.begin();
     
-    if (iter != m_rtTraceList->end()) {
+    if (iter != m_rtTraceList.end()) {
         dataLogF("\nRegExp Tracing\n");
         dataLogF("Regular Expression                              8 Bit          16 Bit        match()    Matches    Average\n");
         dataLogF(" <Match only / Match>                         JIT Addr      JIT Address       calls      found   String len\n");
@@ -1128,7 +1103,7 @@ void VM::dumpRegExpTrace()
     
         unsigned reCount = 0;
     
-        for (; iter != m_rtTraceList->end(); ++iter, ++reCount) {
+        for (; iter != m_rtTraceList.end(); ++iter, ++reCount) {
             (*iter)->printTraceData();
             gcUnprotect(*iter);
         }
@@ -1136,12 +1111,9 @@ void VM::dumpRegExpTrace()
         dataLogF("%d Regular Expressions\n", reCount);
     }
     
-    m_rtTraceList->clear();
+    m_rtTraceList.clear();
 }
-#else
-void VM::dumpRegExpTrace()
-{
-}
+
 #endif
 
 WatchpointSet* VM::ensureWatchpointSetForImpureProperty(UniquedStringImpl* propertyName)
@@ -1306,7 +1278,7 @@ void sanitizeStackForVM(VM& vm)
 
     RELEASE_ASSERT(stack.contains(vm.lastStackTop()), 0xaa10, vm.lastStackTop(), stack.origin(), stack.end());
 #if ENABLE(C_LOOP)
-    vm.interpreter->cloopStack().sanitizeStack();
+    vm.interpreter.cloopStack().sanitizeStack();
 #else
     sanitizeStackForVMImpl(&vm);
 #endif
@@ -1329,17 +1301,17 @@ size_t VM::committedStackByteCount()
 #if ENABLE(C_LOOP)
 bool VM::ensureStackCapacityForCLoop(Register* newTopOfStack)
 {
-    return interpreter->cloopStack().ensureCapacityFor(newTopOfStack);
+    return interpreter.cloopStack().ensureCapacityFor(newTopOfStack);
 }
 
 bool VM::isSafeToRecurseSoftCLoop() const
 {
-    return interpreter->cloopStack().isSafeToRecurse();
+    return interpreter.cloopStack().isSafeToRecurse();
 }
 
 void* VM::currentCLoopStackPointer() const
 {
-    return interpreter->cloopStack().currentStackPointer();
+    return interpreter.cloopStack().currentStackPointer();
 }
 #endif // ENABLE(C_LOOP)
 

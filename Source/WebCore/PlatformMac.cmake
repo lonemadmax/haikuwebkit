@@ -313,8 +313,10 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cocoa/FontCacheCoreText.cpp
     platform/graphics/cocoa/FontCascadeCocoa.cpp
     platform/graphics/cocoa/FontCocoa.cpp
+    platform/graphics/cocoa/FontDatabase.cpp
     platform/graphics/cocoa/FontDescriptionCocoa.cpp
     platform/graphics/cocoa/FontFamilySpecificationCoreText.cpp
+    platform/graphics/cocoa/FontFamilySpecificationCoreTextCache.cpp
     platform/graphics/cocoa/FontPlatformDataCocoa.mm
     platform/graphics/cocoa/GraphicsContextCocoa.mm
     platform/graphics/cocoa/GraphicsContextGLCocoa.mm
@@ -567,6 +569,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/MainThreadSharedTimer.h
     platform/PictureInPictureSupport.h
     platform/PlatformContentFilter.h
+    platform/ScrollAlignment.h
     platform/ScrollAnimation.h
     platform/ScrollingEffectsController.h
     platform/ScrollSnapAnimatorState.h
@@ -660,7 +663,9 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cocoa/ColorCocoa.h
     platform/graphics/cocoa/FontCacheCoreText.h
     platform/graphics/cocoa/FontCocoa.h
+    platform/graphics/cocoa/FontDatabase.h
     platform/graphics/cocoa/FontFamilySpecificationCoreText.h
+    platform/graphics/cocoa/FontFamilySpecificationCoreTextCache.h
     platform/graphics/cocoa/GraphicsContextGLCocoa.h
     platform/graphics/cocoa/GraphicsContextGLOpenGL.h
     platform/graphics/cocoa/GraphicsContextGLIOSurfaceSwapChain.h

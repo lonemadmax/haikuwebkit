@@ -45,13 +45,8 @@
 #include "InstanceMethodSwizzler.h"
 #endif
 
-#if HAVE(UI_EDIT_MENU_INTERACTION)
-#include "EditMenuInteractionSwizzler.h"
-#endif
-
 OBJC_CLASS NSString;
 OBJC_CLASS UIKeyboardInputMode;
-OBJC_CLASS UIEditMenuInteraction;
 OBJC_CLASS UIPasteboardConsistencyEnforcer;
 OBJC_CLASS WKWebViewConfiguration;
 
@@ -266,6 +261,8 @@ public:
     void setAppBoundDomains(WKArrayRef originURLs);
     void statisticsResetToConsistentState();
 
+    void removeAllCookies();
+
     void getAllStorageAccessEntries();
     void loadedSubresourceDomains();
     void clearLoadedSubresourceDomains();
@@ -385,10 +382,7 @@ public:
 
     PlatformWebView* createOtherPlatformWebView(PlatformWebView* parentView, WKPageConfigurationRef, WKNavigationActionRef, WKWindowFeaturesRef);
 
-#if HAVE(UI_EDIT_MENU_INTERACTION)
-    void didPresentEditMenuInteraction(UIEditMenuInteraction *);
-    void didDismissEditMenuInteraction(UIEditMenuInteraction *);
-#endif
+    void handleQueryPermission(WKStringRef, WKSecurityOriginRef, WKQueryPermissionResultCallbackRef);
 
 private:
     WKRetainPtr<WKPageConfigurationRef> generatePageConfiguration(const TestOptions&);
@@ -601,10 +595,6 @@ private:
     RetainPtr<UIPasteboardConsistencyEnforcer> m_pasteboardConsistencyEnforcer;
     RetainPtr<UIKeyboardInputMode> m_overriddenKeyboardInputMode;
     Vector<std::unique_ptr<InstanceMethodSwizzler>> m_presentPopoverSwizzlers;
-#endif
-
-#if HAVE(UI_EDIT_MENU_INTERACTION)
-    std::unique_ptr<EditMenuInteractionSwizzler> m_editMenuInteractionSwizzler;
 #endif
 
     enum State {

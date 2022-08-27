@@ -64,6 +64,7 @@
 #include "RenderRuby.h"
 #include "RenderSVGBlock.h"
 #include "RenderSVGInline.h"
+#include "RenderSVGModelObject.h"
 #include "RenderSVGResourceContainer.h"
 #include "RenderScrollbarPart.h"
 #include "RenderTableRow.h"
@@ -459,19 +460,6 @@ RenderLayer* RenderObject::enclosingLayer() const
             return renderer.layer();
     }
     return nullptr;
-}
-
-bool RenderObject::scrollRectToVisible(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions& options)
-{
-    if (options.revealMode == SelectionRevealMode::DoNotReveal)
-        return false;
-
-    RenderLayer* enclosingLayer = this->enclosingLayer();
-    if (!enclosingLayer)
-        return false;
-
-    enclosingLayer->scrollRectToVisible(absoluteRect, insideFixed, options);
-    return true;
 }
 
 RenderBox& RenderObject::enclosingBox() const
@@ -1274,6 +1262,12 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
         if (renderBox.isInFlowPositioned())
             boxRect.move(renderBox.offsetForInFlowPosition());
         stream << " " << boxRect;
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    } else if (is<RenderSVGModelObject>(*this)) {
+        auto& renderSVGModelObject = downcast<RenderSVGModelObject>(*this);
+        ASSERT(!renderSVGModelObject.isInFlowPositioned());
+        stream << " " << renderSVGModelObject.frameRectEquivalent();
+#endif
     } else if (is<RenderInline>(*this) && isInFlowPositioned()) {
         FloatSize inlineOffset = downcast<RenderInline>(*this).offsetForInFlowPosition();
         stream << "  (" << inlineOffset.width() << ", " << inlineOffset.height() << ")";
@@ -1315,6 +1309,15 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
             }
         }
     }
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (is<RenderSVGModelObject>(*this)) {
+        if (const auto& renderSVGModelObject = downcast<RenderSVGModelObject>(*this); renderSVGModelObject.hasVisualOverflow()) {
+            auto visualOverflow = renderSVGModelObject.visualOverflowRectEquivalent();
+            stream << " (visual overflow " << visualOverflow.x() << "," << visualOverflow.y() << " " << visualOverflow.width() << "x" << visualOverflow.height() << ")";
+        }
+    }
+#endif
 
     if (is<RenderMultiColumnSet>(*this)) {
         const auto& multicolSet = downcast<RenderMultiColumnSet>(*this);
@@ -1947,13 +1950,11 @@ FloatRect RenderObject::repaintRectInLocalCoordinates() const
 
 AffineTransform RenderObject::localTransform() const
 {
-    static const AffineTransform identity;
-    return identity;
+    return AffineTransform();
 }
 
 const AffineTransform& RenderObject::localToParentTransform() const
 {
-    static const AffineTransform identity;
     return identity;
 }
 
@@ -2572,6 +2573,18 @@ TextStream& operator<<(TextStream& ts, const RenderObject& renderer)
 }
 
 #if ENABLE(TREE_DEBUGGING)
+
+void printPaintOrderTreeForLiveDocuments()
+{
+    for (const auto* document : Document::allDocuments()) {
+        if (!document->renderView())
+            continue;
+        if (document->frame() && document->frame()->isMainFrame())
+            fprintf(stderr, "----------------------main frame--------------------------\n");
+        fprintf(stderr, "%s", document->url().string().utf8().data());
+        showPaintOrderTree(document->renderView());
+    }
+}
 
 void printRenderTreeForLiveDocuments()
 {

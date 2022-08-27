@@ -361,6 +361,7 @@ set(WTF_PUBLIC_HEADERS
     text/CString.h
     text/CodePointIterator.h
     text/ConversionMode.h
+    text/EscapedFormsForJSON.h
     text/ExternalStringImpl.h
     text/IntegerToStringConversion.h
     text/LChar.h
@@ -527,6 +528,7 @@ set(WTF_SOURCES
     text/StringBuffer.cpp
     text/StringBuilder.cpp
     text/StringBuilderJSON.cpp
+    text/StringCommon.cpp
     text/StringImpl.cpp
     text/StringView.cpp
     text/SymbolImpl.cpp

@@ -110,6 +110,17 @@ AsyncOverflowScrollingEnabled:
     WebCore:
       default: false
 
+AutomaticLiveResizeEnabled:
+  type: bool
+  humanReadableName: "Enable Automatic Live Resize"
+  humanReadableDescription: "Automatically synchronize web view resize with painting"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      "HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      default: false
+
 BlockIOKitInWebContentSandbox:
   type: bool
   humanReadableName: "IOKit blocking in the WebContent sandbox"
@@ -369,6 +380,18 @@ IPCTestingAPIEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
+      default: false
+
+ImageAnalysisDuringFindInPageEnabled:
+  type: bool
+  humanReadableName: "Image Analysis for Find-in-Page"
+  humanReadableDescription: "Trigger image analysis when performing Find-in-Page"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 InlineFormattingContextIntegrationEnabled:
@@ -802,6 +825,7 @@ SelectionFlippingEnabled:
   webcoreBinding: none
   defaultValue:
     WebKit:
+      "HAVE(UIKIT_WEBKIT_INTERNALS)" : false
       default: true
 
 # FIXME: This is not implemented for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
@@ -830,6 +854,19 @@ ServiceWorkersUserGestureEnabled:
       default: true
     WebCore:
       default: true
+
+ShowModalDialogEnabled:
+  type: bool
+  humanReadableName: "Legacy showModalDialog() API"
+  humanReadableDescription: "Legacy showModalDialog() API"
+  defaultValue:
+    WebKitLegacy:
+      "PLATFORM(IOS_FAMILY)": WebKit::defaultShowModalDialogEnabled()
+      default: false
+    WebKit:
+      default: WebKit::defaultShowModalDialogEnabled()
+    WebCore:
+      default: false
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 SpeakerSelectionRequiresUserGesture:
@@ -905,6 +942,17 @@ UseARKitForModel:
   webcoreBinding: none
   exposed: [ WebKit ]
   condition: ENABLE(ARKIT_INLINE_PREVIEW)
+  defaultValue:
+    WebKit:
+      default: true
+
+UseCGDisplayListOutOfLineSurfaces:
+  type: bool
+  humanReadableName: "CG Display Lists: Out-of-line Surfaces"
+  humanReadableDescription: "Encode surfaces out-of-line for CG Display List image buffers."
+  webcoreBinding: none
+  condition: ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+  exposed: [ WebKit ]
   defaultValue:
     WebKit:
       default: true

@@ -316,6 +316,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     {
         this.revealPosition(new WI.SourceCodePosition(lineNumber - 1, 0), {
             textRangeToSelect: new WI.TextRange(lineNumber - 1, 0, lineNumber, 0),
+            preventHighlight: true,
         });
     }
 
@@ -741,7 +742,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     _addThreadIndicatorForTarget(target)
     {
         let targetData = WI.debuggerManager.dataForTarget(target);
-        let topCallFrame = targetData.callFrames[0];
+        let topCallFrame = targetData.stackTrace?.callFrames[0];
         if (!topCallFrame)
             return;
 

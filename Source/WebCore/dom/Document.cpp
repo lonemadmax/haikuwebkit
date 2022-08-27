@@ -244,6 +244,7 @@
 #include "StyleSheetList.h"
 #include "StyleTreeResolver.h"
 #include "SubresourceLoader.h"
+#include "TemplateContentDocumentFragment.h"
 #include "TextAutoSizing.h"
 #include "TextEvent.h"
 #include "TextManipulationController.h"
@@ -369,26 +370,6 @@ using namespace WTF::Unicode;
 static const unsigned cMaxWriteRecursionDepth = 21;
 bool Document::hasEverCreatedAnAXObjectCache = false;
 static const Seconds maxIntervalForUserGestureForwardingAfterMediaFinishesPlaying { 1_s };
-
-struct FrameFlatteningLayoutDisallower {
-    FrameFlatteningLayoutDisallower(FrameView& frameView)
-        : m_frameView(frameView)
-        , m_disallowLayout(frameView.effectiveFrameFlattening() != FrameFlattening::Disabled)
-    {
-        if (m_disallowLayout)
-            m_frameView.startDisallowingLayout();
-    }
-
-    ~FrameFlatteningLayoutDisallower()
-    {
-        if (m_disallowLayout)
-            m_frameView.endDisallowingLayout();
-    }
-
-private:
-    FrameView& m_frameView;
-    bool m_disallowLayout { false };
-};
 
 // Defined here to avoid including GCReachableRef.h in Document.h
 struct Document::PendingScrollEventTargetList {
@@ -1159,6 +1140,11 @@ ExceptionOr<Ref<Node>> Document::adoptNode(Node& source)
         if (source.isShadowRoot()) {
             // ShadowRoot cannot disconnect itself from the host node.
             return Exception { HierarchyRequestError };
+        }
+        if (is<TemplateContentDocumentFragment>(source)) {
+            // TemplateContentDocumentFragment::host is never null until its destruction.
+            ASSERT(downcast<TemplateContentDocumentFragment>(source).host());
+            return Ref<Node> { source };
         }
         if (is<HTMLFrameOwnerElement>(source)) {
             auto& frameOwnerElement = downcast<HTMLFrameOwnerElement>(source);
@@ -2019,6 +2005,8 @@ void Document::updateRenderTree(std::unique_ptr<const Style::Update> styleUpdate
 
 void Document::resolveStyle(ResolveStyleType type)
 {
+    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
+
     ASSERT(!view() || !view()->isPainting());
 
     // NOTE: XSL code seems to be the only client stumbling in here without a RenderView.
@@ -2037,26 +2025,15 @@ void Document::resolveStyle(ResolveStyleType type)
 
     RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
 
-    // FIXME: Do this user agent shadow tree update per tree scope.
-
-    // We can't clear m_elementsWithPendingUserAgentShadowTreeUpdates here
-    // because SVGUseElement::updateUserAgentShadowTree may end up executing
-    // arbitrary scripts which may insert new SVG use elements or remove
-    // existing ones inside sync IPC via ImageLoader::updateFromElement.
-    //
-    // Instead, it is the responsibility of updateUserAgentShadowTree to
-    // remove the element.
-    for (auto& element : copyToVectorOf<Ref<Element>>(m_elementsWithPendingUserAgentShadowTreeUpdates))
-        element->updateUserAgentShadowTree();
-
     // FIXME: We should update style on our ancestor chain before proceeding, however doing so at
     // the time this comment was originally written caused several tests to crash.
 
-    {
-        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
-        styleScope().flushPendingUpdate();
-        frameView.willRecalcStyle();
-    }
+    // FIXME: Do this user agent shadow tree update per tree scope.
+    for (auto& element : copyToVectorOf<Ref<Element>>(m_elementsWithPendingUserAgentShadowTreeUpdates))
+        element->updateUserAgentShadowTree();
+
+    styleScope().flushPendingUpdate();
+    frameView.willRecalcStyle();
 
     InspectorInstrumentation::willRecalculateStyle(*this);
 
@@ -2064,7 +2041,6 @@ void Document::resolveStyle(ResolveStyleType type)
     {
         Style::PostResolutionCallbackDisabler disabler(*this);
         WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
-        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
         m_inStyleRecalc = true;
 
@@ -2198,12 +2174,9 @@ bool Document::needsStyleRecalc() const
     return false;
 }
 
-static bool isSafeToUpdateStyleOrLayout(const Document& document)
+static bool isSafeToUpdateStyleOrLayout()
 {
-    bool isSafeToExecuteScript = ScriptDisallowedScope::InMainThread::isScriptAllowed();
-    auto* frameView = document.view();
-    bool isInFrameFlattening = frameView && frameView->isInChildFrameWithFrameFlattening();
-    return isSafeToExecuteScript || isInFrameFlattening || !isInWebProcess();
+    return ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess();
 }
 
 bool Document::updateStyleIfNeeded()
@@ -2230,7 +2203,7 @@ bool Document::updateStyleIfNeeded()
     ContentChangeObserver::StyleRecalcScope observingScope(*this);
 #endif
     // The early exit above for !needsStyleRecalc() is needed when updateWidgetPositions() is called in runOrScheduleAsynchronousTasks().
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isSafeToUpdateStyleOrLayout(*this));
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isSafeToUpdateStyleOrLayout());
     resolveStyle();
     return true;
 }
@@ -2245,7 +2218,7 @@ void Document::updateLayout()
         ASSERT_NOT_REACHED();
         return;
     }
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isSafeToUpdateStyleOrLayout(*this));
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isSafeToUpdateStyleOrLayout());
 
     RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
 
@@ -2366,7 +2339,7 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, DimensionsChe
             previousBox = currentBox;
             currentBox = downcast<RenderBox>(currRenderer);
 
-            if (currentBox->style().containerType() != ContainerType::None) {
+            if (currentBox->style().containerType() != ContainerType::Normal) {
                 requireFullLayout = true;
                 break;
             }
@@ -4345,17 +4318,7 @@ void Document::evaluateMediaQueriesAndReportChanges()
 
 void Document::updateViewportUnitsOnResize()
 {
-    if (!hasStyleWithViewportUnits())
-        return;
-
-    styleScope().resolver().clearCachedDeclarationsAffectedByViewportUnits();
-
-    // FIXME: Ideally, we should save the list of elements that have viewport units and only iterate over those.
-    for (RefPtr element = ElementTraversal::firstWithin(rootNode()); element; element = ElementTraversal::nextIncludingPseudo(*element)) {
-        auto* renderer = element->renderer();
-        if (renderer && renderer->style().usesViewportUnits())
-            element->invalidateStyle();
-    }
+    styleScope().didChangeViewportSize();
 }
 
 void Document::setNeedsDOMWindowResizeEvent()
@@ -4851,6 +4814,8 @@ Element* Document::focusNavigationStartingNode(FocusDirection direction) const
 {
     if (m_focusedElement) {
         if (!m_focusNavigationStartingNode || !m_focusNavigationStartingNode->isDescendantOf(m_focusedElement.get()))
+            return m_focusedElement.get();
+        if (m_focusedElement->isRootEditableElement() && m_focusedElement->contains(m_focusNavigationStartingNode.get()))
             return m_focusedElement.get();
     }
 
@@ -5645,38 +5610,39 @@ URL Document::completeURL(const String& url, ForceUTF8 forceUTF8) const
     return completeURL(url, m_baseURL, forceUTF8);
 }
 
-bool Document::shouldMaskURLForBindings(const URL& url) const
+bool Document::shouldMaskURLForBindingsInternal(const URL& urlToMask) const
 {
+    // Don't mask the URL if it has the same protocol as the document.
+    if (urlToMask.protocolIs(url().protocol()))
+        return false;
+
     auto* page = this->page();
     if (UNLIKELY(!page))
         return false;
-    return page->shouldMaskURLForBindings(url);
-}
 
-bool Document::hasURLsToMaskForBindings() const
-{
-    auto* page = this->page();
-    if (UNLIKELY(!page))
+    auto& maskedURLSchemes = page->maskedURLSchemes();
+    if (maskedURLSchemes.isEmpty())
         return false;
-    return page->hasURLsToMaskForBindings();
+
+    return maskedURLSchemes.contains<StringViewHashTranslator>(urlToMask.protocol());
 }
 
-const URL& Document::maskedURLForBindingsIfNeeded(const URL& url) const
+static StaticStringImpl maskedURLString { "webkit-masked-url://hidden/" };
+StaticStringImpl& Document::maskedURLStringForBindings()
 {
-    if (UNLIKELY(shouldMaskURLForBindings(url)))
-        return maskedURLForBindings();
-    return url;
+    return maskedURLString;
 }
 
-const AtomString& Document::maskedURLStringForBindings() const
+const URL& Document::maskedURLForBindings()
 {
-    static MainThreadNeverDestroyed<const AtomString> url("webkit-masked-url://hidden/"_s);
-    return url;
-}
-
-const URL& Document::maskedURLForBindings() const
-{
-    static MainThreadNeverDestroyed<URL> url(maskedURLStringForBindings().string());
+    // This function can be called from GC heap thread, thus we need to use StaticStringImpl as a source of URL.
+    // StaticStringImpl is never converted to AtomString, and it is safe to be used in any threads.
+    static LazyNeverDestroyed<URL> url;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
+        url.construct(maskedURLStringForBindings());
+        ASSERT(url->string().impl() == &static_cast<StringImpl&>(maskedURLStringForBindings()));
+    });
     return url;
 }
 
@@ -6252,7 +6218,10 @@ void Document::finishedParsing()
     }
 
     // FIXME: Schedule a task to fire DOMContentLoaded event instead. See webkit.org/b/82931
-    eventLoop().performMicrotaskCheckpoint();
+    auto* documentLoader = loader();
+    bool isInMiddleOfInitializingIframe = documentLoader && documentLoader->isInFinishedLoadingOfEmptyDocument();
+    if (!isInMiddleOfInitializingIframe)
+        eventLoop().performMicrotaskCheckpoint();
     dispatchEvent(Event::create(eventNames().DOMContentLoadedEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
 
     if (!m_eventTiming.domContentLoadedEventEnd) {
@@ -7300,6 +7269,14 @@ bool Document::processingUserGestureForMedia() const
     return false;
 }
 
+bool Document::hasRecentUserInteractionForNavigationFromJS() const
+{
+    if (UserGestureIndicator::processingUserGesture(this))
+        return true;
+
+    return (MonotonicTime::now() - lastHandledUserGestureTimestamp()) <= UserGestureToken::maximumIntervalForUserGestureForwarding;
+}
+
 void Document::startTrackingStyleRecalcs()
 {
     m_styleRecalcCount = 0;
@@ -8288,6 +8265,7 @@ bool Document::hasResizeObservers()
 
 size_t Document::gatherResizeObservations(size_t deeperThan)
 {
+    LOG_WITH_STREAM(ResizeObserver, stream << "Document " << *this << " gatherResizeObservations");
     size_t minDepth = ResizeObserver::maxElementDepth();
     for (const auto& observer : m_resizeObservers) {
         if (!observer->hasObservations())
@@ -8300,6 +8278,7 @@ size_t Document::gatherResizeObservations(size_t deeperThan)
 
 void Document::deliverResizeObservations()
 {
+    LOG_WITH_STREAM(ResizeObserver, stream << "Document " << *this << " deliverResizeObservations");
     auto observersToNotify = m_resizeObservers;
     for (const auto& observer : observersToNotify) {
         if (!observer || !observer->hasActiveObservations())
@@ -8893,6 +8872,23 @@ bool Document::registerCSSProperty(CSSRegisteredCustomProperty&& prop)
     return m_CSSRegisteredPropertySet.add(prop.name, makeUnique<CSSRegisteredCustomProperty>(WTFMove(prop))).isNewEntry;
 }
 
+const FixedVector<CSSPropertyID>& Document::exposedComputedCSSPropertyIDs()
+{
+    if (!m_exposedComputedCSSPropertyIDs.has_value()) {
+        std::array<CSSPropertyID, numComputedPropertyIDs> exposed;
+        auto last = std::copy_if(std::begin(computedPropertyIDs), std::end(computedPropertyIDs),
+            exposed.begin(), [&](CSSPropertyID x) {
+                return isCSSPropertyExposed(x, m_settings.ptr());
+            });
+
+        FixedVector<CSSPropertyID> active(std::distance(exposed.begin(), last));
+        std::copy(exposed.begin(), last, active.begin());
+        m_exposedComputedCSSPropertyIDs = WTFMove(active);
+    }
+
+    return m_exposedComputedCSSPropertyIDs.value();
+}
+
 void Document::detachFromFrame()
 {
     // Assertion to help pinpint rdar://problem/49877867. If this hits, the crash trace should tell us
@@ -8931,8 +8927,6 @@ bool Document::hitTest(const HitTestRequest& request, const HitTestLocation& loc
 
     auto& frameView = renderView()->frameView();
     Ref<FrameView> protector(frameView);
-
-    FrameFlatteningLayoutDisallower disallower(frameView);
 
     bool resultLayer = renderView()->layer()->hitTest(request, location, result);
 

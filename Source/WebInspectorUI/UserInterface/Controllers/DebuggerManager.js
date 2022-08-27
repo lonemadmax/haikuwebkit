@@ -258,7 +258,7 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
     static supportsBlackboxingBreakpointEvaluations()
     {
-        // COMPATIBILITY (iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
+        // COMPATIBILITY (macOS 12.3, iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
         return InspectorBackend.hasCommand("Debugger.setBlackboxBreakpointEvaluations");
     }
 
@@ -912,8 +912,10 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             return;
         }
 
-        let asyncStackTrace = WI.StackTrace.fromPayload(target, asyncStackTracePayload);
-        targetData.updateForPause(callFrames, pauseReason, pauseData, asyncStackTrace);
+        let stackTrace = new WI.StackTrace(callFrames, {
+            parentStackTrace: WI.StackTrace.fromPayload(target, asyncStackTracePayload),
+        });
+        targetData.updateForPause(stackTrace, pauseReason, pauseData);
 
         // Pause other targets because at least one target has paused.
         // FIXME: Should this be done on the backend?
@@ -1268,7 +1270,7 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
     _setBlackboxBreakpointEvaluations(target)
     {
-        // COMPATIBILITY (iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
+        // COMPATIBILITY (macOS 12.3, iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
         if (target.hasCommand("Debugger.setBlackboxBreakpointEvaluations"))
             target.DebuggerAgent.setBlackboxBreakpointEvaluations(WI.settings.blackboxBreakpointEvaluations.value);
     }

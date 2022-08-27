@@ -36,6 +36,7 @@ class CallFrame;
 class CodeBlock;
 class Exception;
 class JSGlobalObject;
+class Microtask;
 class SourceProvider;
 class VM;
 
@@ -137,8 +138,9 @@ public:
     void didExecuteProgram(CallFrame*);
     void didReachDebuggerStatement(CallFrame*);
 
-    JS_EXPORT_PRIVATE void willRunMicrotask();
-    JS_EXPORT_PRIVATE void didRunMicrotask();
+    JS_EXPORT_PRIVATE void didQueueMicrotask(JSGlobalObject*, const Microtask&);
+    JS_EXPORT_PRIVATE void willRunMicrotask(JSGlobalObject*, const Microtask&);
+    JS_EXPORT_PRIVATE void didRunMicrotask(JSGlobalObject*, const Microtask&);
 
     void registerCodeBlock(CodeBlock*);
 
@@ -146,11 +148,14 @@ public:
     public:
         virtual ~Client() = default;
 
+        virtual bool isInspectorDebuggerAgent() const { return false; }
+
         virtual JSObject* debuggerScopeExtensionObject(Debugger&, JSGlobalObject*, DebuggerCallFrame&) { return nullptr; }
         virtual void debuggerWillEvaluate(Debugger&, JSGlobalObject*, const Breakpoint::Action&) { }
         virtual void debuggerDidEvaluate(Debugger&, JSGlobalObject*, const Breakpoint::Action&) { }
     };
 
+    Client* client() const { return m_client; }
     void setClient(Client*);
 
     // FIXME: <https://webkit.org/b/162773> Web Inspector: Simplify Debugger::Script to use SourceProvider
@@ -174,8 +179,9 @@ public:
         virtual void didParseSource(SourceID, const Debugger::Script&) { }
         virtual void failedToParseSource(const String& /* url */, const String& /* data */, int /* firstLine */, int /* errorLine */, const String& /* errorMessage */) { }
 
-        virtual void willRunMicrotask() { }
-        virtual void didRunMicrotask() { }
+        virtual void didQueueMicrotask(JSGlobalObject*, const Microtask&) { }
+        virtual void willRunMicrotask(JSGlobalObject*, const Microtask&) { }
+        virtual void didRunMicrotask(JSGlobalObject*, const Microtask&) { }
 
         virtual void didPause(JSGlobalObject*, DebuggerCallFrame&, JSValue /* exceptionOrCaughtValue */) { }
         virtual void didContinue() { }

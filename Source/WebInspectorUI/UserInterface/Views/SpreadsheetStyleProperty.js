@@ -371,7 +371,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
     spreadsheetTextFieldInitialCompletionIndex(textField, completions)
     {
         if (textField === this._nameTextField && WI.settings.experimentalCSSSortPropertyNameAutocompletionByUsage.value)
-            return completions.minIndex(WI.CSSProperty.sortByPropertyNameUsageCount);
+            return WI.CSSProperty.indexOfCompletionForMostUsedPropertyName(completions);
         return 0;
     }
 
@@ -469,7 +469,6 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     willDismissPopover()
     {
-        this._valueElement.classList.remove(WI.Popover.IgnoreAutoDismissClassName);
         this._cssDocumentationPopover = null;
     }
 
@@ -581,8 +580,6 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
     {
         this._cssDocumentationPopover ??= new WI.CSSDocumentationPopover(this._property, this);
         this._cssDocumentationPopover.show(this._nameElement);
-        if (this._isEditable())
-            this._valueElement.classList.add(WI.Popover.IgnoreAutoDismissClassName);
     }
 
     _createInlineSwatch(type, contents, valueObject)
@@ -887,7 +884,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                     continue;
 
                 let rawTokens = tokens.slice(startIndex, i + 1);
-                let variableNameIndex = rawTokens.findIndex((token) => token.value.startsWith("--") && /\bvariable-2\b/.test(token.type));
+                let variableNameIndex = rawTokens.findIndex((token) => WI.CSSProperty.isVariable(token.value) && /\bvariable-2\b/.test(token.type));
                 if (variableNameIndex !== -1) {
                     let contents = rawTokens.slice(0, variableNameIndex + 1);
 

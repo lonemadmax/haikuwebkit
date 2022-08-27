@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,10 @@
 #import "PlatformUtilities.h"
 #import "TestNavigationDelegate.h"
 #import "TestProtocol.h"
+#import "TestUIDelegate.h"
 #import "TestWKWebView.h"
+#import <WebKit/WKUserContentControllerPrivate.h>
+#import <WebKit/WKUserScriptPrivate.h>
 #import <WebKit/WKWebView.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebsiteDataStorePrivate.h>
@@ -206,6 +209,9 @@ TEST(WebKit, ConfigurationMaskedURLSchemes)
     [configuration _setMaskedURLSchemes:[NSSet setWithObjects:@"test-scheme", @"another-scheme", nil]];
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 100, 100) configuration:configuration.get()]);
+    auto delegate = adoptNS([TestUIDelegate new]);
+    [webView setUIDelegate:delegate.get()];
+
     [webView synchronouslyLoadHTMLString:@"<img src=\"test-scheme://foo.com/bar.jpg\"><img src=\"baz.png\">" baseURL:[NSURL URLWithString:@"https://example.com"]];
 
     NSString *imageSource = [webView stringByEvaluatingJavaScript:@"document.querySelectorAll(\"img\")[0].src"];
@@ -264,4 +270,20 @@ TEST(WebKit, ConfigurationMaskedURLSchemes)
 
     NSString *htmlSource = [webView stringByEvaluatingJavaScript:@"document.body.innerHTML"];
     EXPECT_EQ([htmlSource containsString:@"<iframe src=\"webkit-masked-url://hidden/\"></iframe>"], YES);
+
+    [webView synchronouslyLoadHTMLString:@""];
+
+    NSURL *scriptURL = [NSURL URLWithString:@"another-scheme://foo.com/bar.js"];
+    auto userScript = adoptNS([[WKUserScript alloc] _initWithSource:@"alert((new Error).stack)" injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES includeMatchPatternStrings:@[] excludeMatchPatternStrings:@[] associatedURL:scriptURL contentWorld:nil deferRunningUntilNotification:NO]);
+
+    [[webView configuration].userContentController _addUserScriptImmediately:userScript.get()];
+
+    EXPECT_WK_STREQ([delegate waitForAlert], "global code@webkit-masked-url://hidden/:1:17");
+
+    scriptURL = [NSURL URLWithString:@"https://example.com/foo.js"];
+    userScript = adoptNS([[WKUserScript alloc] _initWithSource:@"alert((new Error).stack)" injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES includeMatchPatternStrings:@[] excludeMatchPatternStrings:@[] associatedURL:scriptURL contentWorld:nil deferRunningUntilNotification:NO]);
+
+    [[webView configuration].userContentController _addUserScriptImmediately:userScript.get()];
+
+    EXPECT_WK_STREQ([delegate waitForAlert], "global code@https://example.com/foo.js:1:17");
 }

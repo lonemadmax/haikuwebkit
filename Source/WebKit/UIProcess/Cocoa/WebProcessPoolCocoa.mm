@@ -369,12 +369,12 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     parameters.useOverlayScrollbars = ([NSScroller preferredScrollerStyle] == NSScrollerStyleOverlay);
 #endif
     
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && HAVE(AGX_COMPILER_SERVICE)
     if (WebCore::deviceHasAGXCompilerService())
         parameters.compilerServiceExtensionHandles = SandboxExtension::createHandlesForMachLookup(WebCore::agxCompilerServices(), std::nullopt);
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY) && HAVE(AGX_COMPILER_SERVICE)
     if (WebCore::deviceHasAGXCompilerService())
         parameters.dynamicIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(WebCore::agxCompilerClasses(), std::nullopt);
 #endif
@@ -440,6 +440,9 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     parameters.bytesPerRowIOSurfaceAlignment = WebCore::IOSurface::bytesPerRowAlignment();
 
     parameters.accessibilityPreferences = accessibilityPreferences();
+#if PLATFORM(IOS_FAMILY)
+    parameters.applicationAccessibilityEnabled = _AXSApplicationAccessibilityEnabled();
+#endif
 }
 
 void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationParameters& parameters)

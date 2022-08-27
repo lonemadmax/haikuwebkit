@@ -179,6 +179,7 @@
 #include "NumberConstructor.h"
 #include "NumberPrototype.h"
 #include "ObjCCallbackFunction.h"
+#include "ObjectAdaptiveStructureWatchpoint.h"
 #include "ObjectConstructor.h"
 #include "ObjectPropertyChangeAdaptiveWatchpoint.h"
 #include "ObjectPropertyConditionSet.h"
@@ -639,15 +640,6 @@ JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectM
     , m_varReadOnlyWatchpoint(WatchpointSet::create(IsWatched))
     , m_regExpRecompiledWatchpoint(WatchpointSet::create(IsWatched))
     , m_weakRandom(Options::forceWeakRandomSeed() ? Options::forcedWeakRandomSeed() : static_cast<unsigned>(randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0)))
-    , m_arrayIteratorProtocolWatchpointSet(IsWatched)
-    , m_mapIteratorProtocolWatchpointSet(IsWatched)
-    , m_setIteratorProtocolWatchpointSet(IsWatched)
-    , m_stringIteratorProtocolWatchpointSet(IsWatched)
-    , m_mapSetWatchpointSet(IsWatched)
-    , m_setAddWatchpointSet(IsWatched)
-    , m_arrayJoinWatchpointSet(IsWatched)
-    , m_numberToStringWatchpointSet(IsWatched)
-    , m_structureCacheClearedWatchpoint(IsWatched)
     , m_runtimeFlags()
     , m_stackTraceLimit(Options::defaultErrorStackTraceLimit())
     , m_customGetterFunctionSet(vm)
@@ -689,7 +681,7 @@ static ObjectPropertyCondition setupAdaptiveWatchpoint(JSGlobalObject* globalObj
 {
     // Performing these gets should not throw.
     VM& vm = globalObject->vm();
-    DeferTermination deferScope(vm);
+    DeferTerminationForAWhile deferScope(vm);
     auto catchScope = DECLARE_CATCH_SCOPE(vm);
     PropertySlot slot(base, PropertySlot::InternalMethodType::Get);
     bool result = base->getOwnPropertySlot(base, globalObject, ident, slot);
@@ -811,11 +803,6 @@ void JSGlobalObject::init(VM& vm)
     m_arrayProtoValuesFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
             init.set(JSFunction::create(init.vm, init.owner, 0, init.vm.propertyNames->builtinNames().valuesPublicName().string(), arrayProtoFuncValues, ArrayValuesIntrinsic));
-        });
-
-    m_iteratorProtocolFunction.initLater(
-        [] (const Initializer<JSFunction>& init) {
-            init.set(JSFunction::create(init.vm, iteratorHelpersPerformIterationCodeGenerator(init.vm), init.owner));
         });
 
     m_promiseResolveFunction.initLater(
@@ -1382,7 +1369,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner); \
             init.set(JSFunction::create(init.vm, code ## CodeGenerator(init.vm), globalObject)); \
         });
-    JSC_FOREACH_BUILTIN_FUNCTION_PRIVATE_GLOBAL_NAME(INIT_PRIVATE_GLOBAL)
+    JSC_FOREACH_BUILTIN_LINK_TIME_CONSTANT(INIT_PRIVATE_GLOBAL)
 #undef INIT_PRIVATE_GLOBAL
 
     // FIXME: Initializing them lazily.
@@ -1444,6 +1431,9 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArrayGetOriginalConstructor)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncGetOriginalConstructor));
         });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArrayClone)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncClone));
+        });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArrayContentType)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncContentType));
         });
@@ -1451,19 +1441,19 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncSort));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isTypedArrayView)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncIsTypedArrayView, IsTypedArrayViewIntrinsic));
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, String(), typedArrayViewPrivateFuncIsTypedArrayView, IsTypedArrayViewIntrinsic));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isSharedTypedArrayView)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncIsSharedTypedArrayView));
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, String(), typedArrayViewPrivateFuncIsSharedTypedArrayView));
+        });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArrayFromFast)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, String(), typedArrayViewPrivateFuncTypedArrayFromFast));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isDetached)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, String(), typedArrayViewPrivateFuncIsDetached));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArrayDefaultComparator)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncDefaultComparator));
-        });
-    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArraySubarrayCreate)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), typedArrayViewPrivateFuncSubarrayCreate));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isBoundFunction)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, String(), isBoundFunction));
@@ -1896,7 +1886,7 @@ private:
     IterationStatus visit(JSObject*);
 
     Vector<JSObject*>& m_foundObjects;
-    JSGlobalObject* m_globalObject { nullptr }; // Only used for SingleBadTimeGlobal mode.
+    JSGlobalObject* const m_globalObject { nullptr }; // Only used for SingleBadTimeGlobal mode.
     HashSet<JSGlobalObject*>* m_globalObjects { nullptr }; // Only used for BadTimeGlobalGraph mode;
     bool m_needsMultiGlobalsScan { false };
 };
@@ -2287,7 +2277,6 @@ void JSGlobalObject::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     thisObject->m_arrayProtoToStringFunction.visit(visitor);
     thisObject->m_arrayProtoValuesFunction.visit(visitor);
     thisObject->m_evalFunction.visit(visitor);
-    thisObject->m_iteratorProtocolFunction.visit(visitor);
     thisObject->m_promiseResolveFunction.visit(visitor);
     visitor.append(thisObject->m_objectProtoValueOfFunction);
     thisObject->m_numberProtoToStringFunction.visit(visitor);
@@ -2472,13 +2461,14 @@ void JSGlobalObject::clearRareData(JSCell* cell)
     jsCast<JSGlobalObject*>(cell)->m_rareData = nullptr;
 }
 
-void JSGlobalObject::tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* constructor, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& constructorWatchpoint, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& speciesWatchpoint, InlineWatchpointSet& speciesWatchpointSet)
+template<typename SpeciesWatchpoint>
+void JSGlobalObject::tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* constructor, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& constructorWatchpoint, std::unique_ptr<SpeciesWatchpoint>& speciesWatchpoint, InlineWatchpointSet& speciesWatchpointSet, HasSpeciesProperty hasSpeciesProperty)
 {
     RELEASE_ASSERT(!constructorWatchpoint);
     RELEASE_ASSERT(!speciesWatchpoint);
 
     VM& vm = this->vm();
-    DeferTermination deferScope(vm);
+    DeferTerminationForAWhile deferScope(vm);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     // First we need to make sure that the %prototype%.constructor property points to a %constructor%
@@ -2511,19 +2501,46 @@ void JSGlobalObject::tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* 
     PropertySlot speciesSlot(constructor, PropertySlot::InternalMethodType::VMInquiry, &vm);
     constructor->getOwnPropertySlot(constructor, this, vm.propertyNames->speciesSymbol, speciesSlot);
     scope.assertNoException();
-    if (speciesSlot.slotBase() != constructor
-        || !speciesSlot.isCacheableGetter()
-        || speciesSlot.getterSetter() != speciesGetterSetter()) {
-        invalidateWatchpoint();
-        return;
+    switch (hasSpeciesProperty) {
+    case HasSpeciesProperty::Yes: {
+        if (speciesSlot.slotBase() != constructor
+            || !speciesSlot.isCacheableGetter()
+            || speciesSlot.getterSetter() != speciesGetterSetter()) {
+            invalidateWatchpoint();
+            return;
+        }
+        break;
+    }
+    case HasSpeciesProperty::No: {
+        if (!speciesSlot.isUnset()) {
+            invalidateWatchpoint();
+            return;
+        }
+        break;
+    }
     }
 
     // Now we need to setup the watchpoints to make sure these conditions remain valid.
-    prototypeStructure->startWatchingPropertyForReplacements(vm, constructorSlot.cachedOffset());
-    constructorStructure->startWatchingPropertyForReplacements(vm, speciesSlot.cachedOffset());
 
-    ObjectPropertyCondition constructorCondition = ObjectPropertyCondition::equivalence(vm, prototype, prototype, vm.propertyNames->constructor.impl(), constructor);
-    ObjectPropertyCondition speciesCondition = ObjectPropertyCondition::equivalence(vm, prototype, constructor, vm.propertyNames->speciesSymbol.impl(), speciesGetterSetter());
+    prototypeStructure->startWatchingPropertyForReplacements(vm, constructorSlot.cachedOffset());
+    switch (hasSpeciesProperty) {
+    case HasSpeciesProperty::Yes:
+        constructorStructure->startWatchingPropertyForReplacements(vm, speciesSlot.cachedOffset());
+        break;
+    case HasSpeciesProperty::No:
+        break;
+    }
+
+    ObjectPropertyCondition constructorCondition = ObjectPropertyCondition::equivalence(vm, this, prototype, vm.propertyNames->constructor.impl(), constructor);
+    ObjectPropertyCondition speciesCondition;
+    switch (hasSpeciesProperty) {
+    case HasSpeciesProperty::Yes:
+        speciesCondition = ObjectPropertyCondition::equivalence(vm, this, constructor, vm.propertyNames->speciesSymbol.impl(), speciesGetterSetter());
+        break;
+    case HasSpeciesProperty::No:
+        speciesCondition = ObjectPropertyCondition::absence(vm, this, constructor, vm.propertyNames->speciesSymbol.impl(), jsDynamicCast<JSObject*>(constructor->getPrototypeDirect()));
+        break;
+    }
 
     if (!constructorCondition.isWatchable(PropertyCondition::MakeNoChanges) || !speciesCondition.isWatchable(PropertyCondition::MakeNoChanges)) {
         invalidateWatchpoint();
@@ -2537,7 +2554,7 @@ void JSGlobalObject::tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* 
     constructorWatchpoint = makeUnique<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>(this, constructorCondition, speciesWatchpointSet);
     constructorWatchpoint->install(vm);
 
-    speciesWatchpoint = makeUnique<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>(this, speciesCondition, speciesWatchpointSet);
+    speciesWatchpoint = makeUnique<SpeciesWatchpoint>(this, speciesCondition, speciesWatchpointSet);
     speciesWatchpoint->install(vm);
 }
 
@@ -2546,7 +2563,7 @@ void JSGlobalObject::tryInstallArraySpeciesWatchpoint()
     RELEASE_ASSERT(!m_arrayPrototypeConstructorWatchpoint);
     RELEASE_ASSERT(!m_arrayConstructorSpeciesWatchpoint);
 
-    tryInstallSpeciesWatchpoint(arrayPrototype(), arrayConstructor(), m_arrayPrototypeConstructorWatchpoint, m_arrayConstructorSpeciesWatchpoint, m_arraySpeciesWatchpointSet);
+    tryInstallSpeciesWatchpoint(arrayPrototype(), arrayConstructor(), m_arrayPrototypeConstructorWatchpoint, m_arrayConstructorSpeciesWatchpoint, m_arraySpeciesWatchpointSet, HasSpeciesProperty::Yes);
 }
 
 void JSGlobalObject::tryInstallArrayBufferSpeciesWatchpoint(ArrayBufferSharingMode sharingMode)
@@ -2554,7 +2571,84 @@ void JSGlobalObject::tryInstallArrayBufferSpeciesWatchpoint(ArrayBufferSharingMo
     static_assert(static_cast<unsigned>(ArrayBufferSharingMode::Default) == 0);
     static_assert(static_cast<unsigned>(ArrayBufferSharingMode::Shared) == 1);
     unsigned index = static_cast<unsigned>(sharingMode);
-    tryInstallSpeciesWatchpoint(arrayBufferPrototype(sharingMode), arrayBufferConstructor(sharingMode), m_arrayBufferPrototypeConstructorWatchpoints[index], m_arrayBufferConstructorSpeciesWatchpoints[index], arrayBufferSpeciesWatchpointSet(sharingMode));
+    tryInstallSpeciesWatchpoint(arrayBufferPrototype(sharingMode), arrayBufferConstructor(sharingMode), m_arrayBufferPrototypeConstructorWatchpoints[index], m_arrayBufferConstructorSpeciesWatchpoints[index], arrayBufferSpeciesWatchpointSet(sharingMode), HasSpeciesProperty::Yes);
+}
+
+void JSGlobalObject::tryInstallTypedArraySpeciesWatchpoint(TypedArrayType type)
+{
+    VM& vm = this->vm();
+    auto* prototype = typedArrayPrototype(type);
+    auto* constructor = typedArrayConstructor(type);
+    auto& watchpointSet = typedArraySpeciesWatchpointSet(type);
+    ASSERT(m_typedArrayConstructorSpeciesWatchpoint);
+    if (constructor->getPrototypeDirect() != m_typedArraySuperConstructor.get(this)) {
+        watchpointSet.invalidate(vm, StringFireDetail("Was not able to set up species watchpoint."));
+        return;
+    }
+    tryInstallSpeciesWatchpoint(prototype, constructor, typedArrayPrototypeConstructorWatchpoint(type), typedArrayConstructorSpeciesAbsenceWatchpoint(type), watchpointSet, HasSpeciesProperty::No);
+}
+
+void JSGlobalObject::installTypedArrayConstructorSpeciesWatchpoint(JSTypedArrayViewConstructor* constructor)
+{
+    VM& vm = this->vm();
+    PropertySlot slot(constructor, PropertySlot::InternalMethodType::VMInquiry, &vm);
+    constructor->getOwnPropertySlot(constructor, this, vm.propertyNames->speciesSymbol.impl(), slot);
+    constructor->structure()->startWatchingPropertyForReplacements(vm, slot.cachedOffset());
+    ObjectPropertyCondition speciesCondition = ObjectPropertyCondition::equivalence(vm, nullptr, constructor, vm.propertyNames->speciesSymbol.impl(), speciesGetterSetter());
+    m_typedArrayConstructorSpeciesWatchpoint = makeUnique<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>(this, speciesCondition, m_typedArrayConstructorSpeciesWatchpointSet);
+    m_typedArrayConstructorSpeciesWatchpoint->install(vm);
+}
+
+void JSGlobalObject::installTypedArrayIteratorProtocolWatchpoint(JSObject* base, TypedArrayType typedArrayType)
+{
+    VM& vm = this->vm();
+
+    DeferTerminationForAWhile deferScope(vm);
+    auto catchScope = DECLARE_CATCH_SCOPE(vm);
+
+    auto absenceCondition = [&](PropertyName propertyName) {
+        PropertySlot slot(base, PropertySlot::InternalMethodType::VMInquiry, &vm);
+        bool result = base->getOwnPropertySlot(base, this, propertyName, slot);
+        RELEASE_ASSERT(!result);
+        catchScope.assertNoException();
+        RELEASE_ASSERT(slot.isUnset());
+        RELEASE_ASSERT(base->getPrototypeDirect() == m_typedArrayProto.get(this));
+        return ObjectPropertyCondition::absence(vm, this, base, propertyName.uid(), m_typedArrayProto.get(this));
+    };
+
+    ObjectPropertyCondition lengthCondition = absenceCondition(vm.propertyNames->length);
+    ObjectPropertyCondition iteratorCondition = absenceCondition(vm.propertyNames->iteratorSymbol);
+
+    if (!lengthCondition.isWatchable(PropertyCondition::EnsureWatchability) || !iteratorCondition.isWatchable(PropertyCondition::EnsureWatchability)) {
+        typedArrayIteratorProtocolWatchpointSet(typedArrayType).invalidate(vm, StringFireDetail("Was not able to set up iterator protocol watchpoint."));
+        return;
+    }
+
+    RELEASE_ASSERT(!typedArrayIteratorProtocolWatchpointSet(typedArrayType).isBeingWatched());
+    typedArrayIteratorProtocolWatchpointSet(typedArrayType).touch(vm, "Set up iterator protocol watchpoint.");
+
+    typedArrayPrototypeLengthAbsenceWatchpoint(typedArrayType) = makeUnique<ObjectAdaptiveStructureWatchpoint>(this, lengthCondition, typedArrayIteratorProtocolWatchpointSet(typedArrayType));
+    typedArrayPrototypeLengthAbsenceWatchpoint(typedArrayType)->install(vm);
+    typedArrayPrototypeSymbolIteratorAbsenceWatchpoint(typedArrayType) = makeUnique<ObjectAdaptiveStructureWatchpoint>(this, iteratorCondition, typedArrayIteratorProtocolWatchpointSet(typedArrayType));
+    typedArrayPrototypeSymbolIteratorAbsenceWatchpoint(typedArrayType)->install(vm);
+}
+
+void JSGlobalObject::installTypedArrayPrototypeIteratorProtocolWatchpoint(JSTypedArrayViewPrototype* prototype, GetterSetter* lengthGetterSetter)
+{
+    VM& vm = this->vm();
+    {
+        ObjectPropertyCondition condition = setupAdaptiveWatchpoint(this, prototype, vm.propertyNames->iteratorSymbol);
+        m_typedArrayPrototypeSymbolIteratorWatchpoint = makeUnique<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>(this, condition, m_typedArrayPrototypeIteratorProtocolWatchpointSet);
+        m_typedArrayPrototypeSymbolIteratorWatchpoint->install(vm);
+    }
+    {
+        PropertySlot slot(prototype, PropertySlot::InternalMethodType::VMInquiry, &vm);
+        prototype->getOwnPropertySlot(prototype, this, vm.propertyNames->length.impl(), slot);
+        prototype->structure()->startWatchingPropertyForReplacements(vm, slot.cachedOffset());
+        ObjectPropertyCondition speciesCondition = ObjectPropertyCondition::equivalence(vm, nullptr, prototype, vm.propertyNames->length.impl(), lengthGetterSetter);
+        m_typedArrayPrototypeLengthWatchpoint = makeUnique<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>(this, speciesCondition, m_typedArrayPrototypeIteratorProtocolWatchpointSet);
+        m_typedArrayPrototypeLengthWatchpoint->install(vm);
+    }
 }
 
 void JSGlobalObject::installNumberPrototypeWatchpoint(NumberPrototype* numberPrototype)
@@ -2649,12 +2743,15 @@ void JSGlobalObject::bumpGlobalLexicalBindingEpoch(VM& vm)
 
 void JSGlobalObject::queueMicrotask(Ref<Microtask>&& task)
 {
-    if (globalObjectMethodTable()->queueMicrotaskToEventLoop) {
-        globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, WTFMove(task));
-        return;
-    }
+    auto& taskRef = task.get();
 
-    vm().queueMicrotask(*this, WTFMove(task));
+    if (globalObjectMethodTable()->queueMicrotaskToEventLoop)
+        globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, WTFMove(task));
+    else
+        vm().queueMicrotask(*this, WTFMove(task));
+
+    if (UNLIKELY(m_debugger))
+        m_debugger->didQueueMicrotask(this, taskRef);
 }
 
 void JSGlobalObject::reportUncaughtExceptionAtEventLoop(JSGlobalObject*, Exception* exception)

@@ -881,6 +881,16 @@ void NetworkProcessProxy::setNotifyPagesWhenDataRecordsWereScanned(PAL::SessionI
     sendWithAsyncReply(Messages::NetworkProcess::SetNotifyPagesWhenDataRecordsWereScanned(sessionID, value), WTFMove(completionHandler));
 }
 
+void NetworkProcessProxy::setResourceLoadStatisticsTimeAdvanceForTesting(PAL::SessionID sessionID, Seconds time, CompletionHandler<void()>&& completionHandler)
+{
+    if (!canSendMessage()) {
+        completionHandler();
+        return;
+    }
+
+    sendWithAsyncReply(Messages::NetworkProcess::SetResourceLoadStatisticsTimeAdvanceForTesting(sessionID, time), WTFMove(completionHandler));
+}
+
 void NetworkProcessProxy::setIsRunningResourceLoadStatisticsTest(PAL::SessionID sessionID, bool value, CompletionHandler<void()>&& completionHandler)
 {
     if (!canSendMessage()) {
@@ -1423,10 +1433,11 @@ void NetworkProcessProxy::retrieveCacheStorageParameters(PAL::SessionID sessionI
         return;
     }
 
-    auto& cacheStorageDirectory = store->configuration().cacheStorageDirectory();
+    store->resolveDirectoriesIfNecessary();
+    auto& cacheStorageDirectory = store->resolvedCacheStorageDirectory();
     SandboxExtension::Handle cacheStorageDirectoryExtensionHandle;
     if (!cacheStorageDirectory.isEmpty()) {
-        if (auto handle = SandboxExtension::createHandleForReadWriteDirectory(cacheStorageDirectory))
+        if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(cacheStorageDirectory, SandboxExtension::Type::ReadWrite))
             cacheStorageDirectoryExtensionHandle = WTFMove(*handle);
     }
 
@@ -1766,6 +1777,11 @@ void NetworkProcessProxy::processNotificationEvent(const NotificationData& data,
 }
 #endif // ENABLE(SERVICE_WORKER)
 
+void NetworkProcessProxy::setPushAndNotificationsEnabledForOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, bool enabled, CompletionHandler<void()>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::SetPushAndNotificationsEnabledForOrigin { sessionID, origin, enabled }, WTFMove(callback));
+}
+
 void NetworkProcessProxy::deletePushAndNotificationRegistration(PAL::SessionID sessionID, const SecurityOriginData& origin, CompletionHandler<void(const String&)>&& callback)
 {
     sendWithAsyncReply(Messages::NetworkProcess::DeletePushAndNotificationRegistration { sessionID, origin }, WTFMove(callback));
@@ -1774,6 +1790,11 @@ void NetworkProcessProxy::deletePushAndNotificationRegistration(PAL::SessionID s
 void NetworkProcessProxy::getOriginsWithPushAndNotificationPermissions(PAL::SessionID sessionID, CompletionHandler<void(const Vector<SecurityOriginData>&)>&& callback)
 {
     sendWithAsyncReply(Messages::NetworkProcess::GetOriginsWithPushAndNotificationPermissions { sessionID }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::getOriginsWithPushSubscriptions(PAL::SessionID sessionID, CompletionHandler<void(const Vector<SecurityOriginData>&)>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::GetOriginsWithPushSubscriptions { sessionID }, WTFMove(callback));
 }
 
 void NetworkProcessProxy::hasPushSubscriptionForTesting(PAL::SessionID sessionID, const URL& scopeURL, CompletionHandler<void(bool)>&& callback)
@@ -1822,6 +1843,18 @@ void NetworkProcessProxy::cookiesDidChange(PAL::SessionID sessionID)
     if (auto* websiteDataStore = websiteDataStoreFromSessionID(sessionID))
         websiteDataStore->cookieStore().cookiesDidChange();
 }
+
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+
+void NetworkProcessProxy::setEmulatedConditions(PAL::SessionID sessionID, std::optional<int64_t>&& bytesPerSecondLimit)
+{
+    if (!canSendMessage())
+        return;
+
+    send(Messages::NetworkProcess::SetEmulatedConditions(sessionID, WTFMove(bytesPerSecondLimit)), 0);
+}
+
+#endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
 } // namespace WebKit
 

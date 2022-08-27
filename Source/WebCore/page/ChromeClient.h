@@ -363,7 +363,7 @@ public:
     
     virtual DisplayRefreshMonitorFactory* displayRefreshMonitorFactory() const { return nullptr; }
 
-    virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float, const DestinationColorSpace&, PixelFormat) const { return nullptr; }
+    virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float, const DestinationColorSpace&, PixelFormat, bool avoidBackendSizeCheck = false) const { UNUSED_PARAM(avoidBackendSizeCheck); return nullptr; }
 
 #if ENABLE(WEBGL)
     WEBCORE_EXPORT virtual RefPtr<GraphicsContextGL> createGraphicsContextGL(const GraphicsContextGLAttributes&) const;
@@ -415,7 +415,7 @@ public:
     virtual GraphicsDeviceAdapter* graphicsDeviceAdapter() const { return nullptr; }
 #endif
 
-    virtual bool canEnterVideoFullscreen() const { return false; }
+    virtual bool canEnterVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) const { return false; }
     virtual bool supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) { return false; }
     virtual bool supportsVideoFullscreenStandby() { return false; }
 

@@ -83,6 +83,7 @@ class Frame;
 class GCObservation;
 class HTMLAnchorElement;
 class HTMLAttachmentElement;
+class HTMLCanvasElement;
 class HTMLImageElement;
 class HTMLInputElement;
 class HTMLLinkElement;
@@ -337,7 +338,7 @@ public:
     void setAutofilled(HTMLInputElement&, bool enabled);
     void setAutoFilledAndViewable(HTMLInputElement&, bool enabled);
     void setAutoFilledAndObscured(HTMLInputElement&, bool enabled);
-    enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, CreditCard };
+    enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, CreditCard, Loading };
     void setShowAutoFillButton(HTMLInputElement&, AutoFillButtonType);
     AutoFillButtonType autoFillButtonType(const HTMLInputElement&);
     AutoFillButtonType lastAutoFillButtonType(const HTMLInputElement&);
@@ -485,6 +486,7 @@ public:
 
     void setForceUseGlyphDisplayListForTesting(bool enabled);
     ExceptionOr<String> cachedGlyphDisplayListsForTextNode(Node&, unsigned short flags);
+    void clearGlyphDisplayListCacheForTesting();
 
     ExceptionOr<void> garbageCollectDocumentResources() const;
 
@@ -753,6 +755,7 @@ public:
     bool isPlayerVisibleInViewport(const HTMLMediaElement&) const;
     bool isPlayerMuted(const HTMLMediaElement&) const;
     void beginAudioSessionInterruption();
+    void endAudioSessionInterruption();
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -1317,6 +1320,8 @@ public:
     void modelInlinePreviewUUIDs(ModelInlinePreviewUUIDsPromise&&) const;
     String modelInlinePreviewUUIDForModelElement(const HTMLModelElement&) const;
 #endif
+
+    void avoidIOSurfaceSizeCheckInWebProcess(HTMLCanvasElement&);
 
 private:
     explicit Internals(Document&);

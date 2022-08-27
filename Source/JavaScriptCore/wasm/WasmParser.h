@@ -331,7 +331,7 @@ ALWAYS_INLINE bool Parser<SuccessType>::parseValueType(const ModuleInformation& 
     TypeKind typeKind = static_cast<TypeKind>(kind);
     bool isNullable = true;
     TypeIndex typeIndex = 0;
-    if (Options::useWebAssemblyTypedFunctionReferences() && (typeKind == TypeKind::Funcref || typeKind == TypeKind::Externref)) {
+    if (Options::useWebAssemblyTypedFunctionReferences() && (typeKind == TypeKind::Funcref || typeKind == TypeKind::Externref || typeKind == TypeKind::I31ref)) {
         typeIndex = static_cast<TypeIndex>(typeKind);
         typeKind = TypeKind::RefNull;
     } else if (typeKind == TypeKind::Ref || typeKind == TypeKind::RefNull) {
@@ -340,14 +340,6 @@ ALWAYS_INLINE bool Parser<SuccessType>::parseValueType(const ModuleInformation& 
         if (!parseHeapType(info, heapType))
             return false;
         typeIndex = heapType < 0 ? static_cast<TypeIndex>(heapType) : TypeInformation::get(info.typeSignatures[heapType].get());
-    } else if (Options::useWebAssemblyGC() && typeKind == TypeKind::Rtt) {
-        typeKind = TypeKind::Rtt;
-        isNullable = false;
-
-        int32_t heapType;
-        if (!parseHeapType(info, heapType))
-            return false;
-        typeIndex = static_cast<TypeIndex>(heapType);
     }
 
     Type type = { typeKind, static_cast<Nullable>(isNullable), typeIndex };

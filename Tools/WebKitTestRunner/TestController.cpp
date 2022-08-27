@@ -30,6 +30,7 @@
 #include "EventSenderProxy.h"
 #include "Options.h"
 #include "PlatformWebView.h"
+#include "StringFunctions.h"
 #include "TestCommand.h"
 #include "TestInvocation.h"
 #include "WebCoreTestSupport.h"
@@ -360,8 +361,24 @@ void TestController::setIsMediaKeySystemPermissionGranted(bool granted)
     m_isMediaKeySystemPermissionGranted = granted;
 }
 
-static void queryPermission(WKStringRef, WKSecurityOriginRef, WKQueryPermissionResultCallbackRef callback)
+static void queryPermission(WKStringRef string, WKSecurityOriginRef securityOrigin, WKQueryPermissionResultCallbackRef callback)
 {
+    TestController::singleton().handleQueryPermission(string, securityOrigin, callback);
+}
+
+void TestController::handleQueryPermission(WKStringRef string, WKSecurityOriginRef securityOrigin, WKQueryPermissionResultCallbackRef callback)
+{
+    if (toWTFString(string) == "notifications"_s) {
+        auto permissionState = m_webNotificationProvider.permissionState(securityOrigin);
+        if (permissionState) {
+            if (permissionState.value())
+                WKQueryPermissionResultCallbackCompleteWithGranted(callback);
+            else
+                WKQueryPermissionResultCallbackCompleteWithDenied(callback);
+            return;
+        }
+    }
+
     WKQueryPermissionResultCallbackCompleteWithPrompt(callback);
 }
 
@@ -1085,6 +1102,7 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
     // Reset notification permissions
     m_webNotificationProvider.reset();
     m_notificationOriginsToDenyOnPrompt.clear();
+    WKPageClearNotificationPermissionState(m_mainWebView->page());
 
     // Reset Geolocation permissions.
     m_geolocationPermissionRequests.clear();
@@ -1992,6 +2010,11 @@ void TestController::didReceiveSynchronousMessageFromInjectedBundle(WKStringRef 
         return setHTTPCookieAcceptPolicy(policy, WTFMove(completionHandler));
     }
 
+    if (WKStringIsEqualToUTF8CString(messageName, "RemoveAllCookies")) {
+        removeAllCookies();
+        return completionHandler(nullptr);
+    }
+
     completionHandler(m_currentInvocation->didReceiveSynchronousMessageFromInjectedBundle(messageName, messageBody).get());
 }
 
@@ -2683,11 +2706,21 @@ void TestController::decidePolicyForNotificationPermissionRequest(WKPageRef page
 void TestController::decidePolicyForNotificationPermissionRequest(WKPageRef, WKSecurityOriginRef origin, WKNotificationPermissionRequestRef request)
 {
     auto originName = originUserVisibleName(origin);
-    if (m_notificationOriginsToDenyOnPrompt.contains(originName)) {
+    auto securityOriginString = adoptWK(WKSecurityOriginCopyToString(origin));
+    auto permissionState = m_webNotificationProvider.permissionState(origin);
+
+    if (permissionState && !permissionState.value()) {
         WKNotificationPermissionRequestDeny(request);
         return;
     }
 
+    if (m_notificationOriginsToDenyOnPrompt.contains(originName)) {
+        m_webNotificationProvider.setPermission(toWTFString(securityOriginString.get()), false);
+        WKNotificationPermissionRequestDeny(request);
+        return;
+    }
+
+    m_webNotificationProvider.setPermission(toWTFString(securityOriginString.get()), true);
     WKNotificationPermissionRequestAllow(request);
 }
 
@@ -3002,8 +3035,8 @@ void TestController::clearLoadedSubresourceDomains()
 
 #endif // !PLATFORM(COCOA)
 
-struct ClearServiceWorkerRegistrationsCallbackContext {
-    explicit ClearServiceWorkerRegistrationsCallbackContext(TestController& controller)
+struct GenericVoidContext {
+    explicit GenericVoidContext(TestController& controller)
         : testController(controller)
     {
     }
@@ -3012,18 +3045,18 @@ struct ClearServiceWorkerRegistrationsCallbackContext {
     bool done { false };
 };
 
-static void clearServiceWorkerRegistrationsCallback(void* userData)
+static void genericVoidCallback(void* userData)
 {
-    auto* context = static_cast<ClearServiceWorkerRegistrationsCallbackContext*>(userData);
+    auto* context = static_cast<GenericVoidContext*>(userData);
     context->done = true;
     context->testController.notifyDone();
 }
 
 void TestController::clearServiceWorkerRegistrations()
 {
-    ClearServiceWorkerRegistrationsCallbackContext context(*this);
+    GenericVoidContext context(*this);
 
-    WKWebsiteDataStoreRemoveAllServiceWorkerRegistrations(websiteDataStore(), &context, clearServiceWorkerRegistrationsCallback);
+    WKWebsiteDataStoreRemoveAllServiceWorkerRegistrations(websiteDataStore(), &context, genericVoidCallback);
     runUntil(context.done, noTimeout);
 }
 
@@ -3631,6 +3664,13 @@ void TestController::statisticsResetToConsistentState()
     WKWebsiteDataStoreStatisticsResetToConsistentState(websiteDataStore(), &context, resourceStatisticsVoidResultCallback);
     runUntil(context.done, noTimeout);
     m_currentInvocation->didResetStatisticsToConsistentState();
+}
+
+void TestController::removeAllCookies()
+{
+    GenericVoidContext context(*this);
+    WKHTTPCookieStoreDeleteAllCookies(WKWebsiteDataStoreGetHTTPCookieStore(websiteDataStore()), &context, genericVoidCallback);
+    runUntil(context.done, noTimeout);
 }
 
 void TestController::addMockMediaDevice(WKStringRef persistentID, WKStringRef label, WKStringRef type)

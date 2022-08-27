@@ -67,6 +67,7 @@
 #include "RenderListMarker.h"
 #endif
 #include "RenderFragmentContainer.h"
+#include "RenderSVGViewportContainer.h"
 #include "RenderStyle.h"
 #include "RenderTableCaption.h"
 #include "RenderTableCell.h"
@@ -80,6 +81,7 @@
 #include "SVGImage.h"
 #include "SVGLengthContext.h"
 #include "SVGRenderSupport.h"
+#include "SVGSVGElement.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "StylePendingResources.h"
@@ -644,7 +646,7 @@ static void addLayers(const RenderElement& insertedRenderer, RenderElement& curr
             // The special handling of a toplayer/backdrop content may result in trying to insert the associated
             // layer twice as we connect subtrees.
             if (auto* parentLayer = downcast<RenderLayerModelObject>(currentRenderer).layer()->parent()) {
-                ASSERT(parentLayer == currentRenderer.view().layer());
+                ASSERT_UNUSED(parentLayer, parentLayer == currentRenderer.view().layer());
                 return;
             }
             layerToUse = insertedRenderer.view().layer();
@@ -1965,7 +1967,7 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
 
 static bool usePlatformFocusRingColorForOutlineStyleAuto()
 {
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     return true;
 #else
     return false;
@@ -1974,7 +1976,7 @@ static bool usePlatformFocusRingColorForOutlineStyleAuto()
 
 static bool useShrinkWrappedFocusRingForOutlineStyleAuto()
 {
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     return true;
 #else
     return false;
@@ -2418,7 +2420,7 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
     // is removed this function should be moved to RenderLayerModelObject.
     // As this method is used by both SVG engines, we need to place it
     // here in RenderElement, as temporary solution.
-    if (!is<SVGElement>(element()))
+    if (element() && !is<SVGElement>(element()))
         return { };
 
     auto alignReferenceBox = [&](FloatRect referenceBox) {
@@ -2443,6 +2445,24 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
         return referenceBox;
     };
 
+    auto determineSVGViewport = [&]() {
+        const auto* viewportElement = downcast<SVGElement>(element());
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        // RenderSVGViewportContainer is the only possible anonymous renderer in the SVG tree.
+        if (!viewportElement && document().settings().layerBasedSVGEngineEnabled()) {
+            ASSERT(is<RenderSVGViewportContainer>(this));
+            ASSERT(isAnonymous());
+            viewportElement = &downcast<RenderSVGViewportContainer>(*this).svgSVGElement();
+        }
+#endif
+
+        // FIXME: [LBSE] Upstream: Cache the immutable SVGLengthContext per SVGElement, to avoid the repeated RenderSVGRoot size queries in determineViewport().
+        ASSERT(viewportElement);
+        auto viewportSize = SVGLengthContext(viewportElement).viewportSize().value_or(FloatSize { });
+        return FloatRect { { }, viewportSize };
+    };
+
     switch (boxType) {
     case CSSBoxType::BoxMissing:
     case CSSBoxType::ContentBox:
@@ -2454,9 +2474,7 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
     case CSSBoxType::StrokeBox:
         return alignReferenceBox(strokeBoundingBox());
     case CSSBoxType::ViewBox:
-        // FIXME: [LBSE] Upstream: Cache the immutable SVGLengthContext per SVGElement, to avoid the repeated RenderSVGRoot size queries in determineViewport().
-        auto viewportSize = SVGLengthContext(downcast<SVGElement>(element())).viewportSize().value_or(FloatSize { });
-        return alignReferenceBox({ { }, viewportSize });
+        return alignReferenceBox(determineSVGViewport());
     }
 
     ASSERT_NOT_REACHED();

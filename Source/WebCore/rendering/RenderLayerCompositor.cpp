@@ -2116,7 +2116,7 @@ void RenderLayerCompositor::addToOverlapMap(LayerOverlapMap& overlapMap, const R
         // Compute a clip up to the composited scrolling ancestor, then convert it to absolute coordinates.
         auto& scrollingScope = clippingScopes.last();
         auto& scopeLayer = scrollingScope.layer;
-        clipRect = layer.backgroundClipRect(RenderLayer::ClipRectsContext(&scopeLayer, TemporaryClipRects, IgnoreOverlayScrollbarSize, IgnoreOverflowClip)).rect();
+        clipRect = layer.backgroundClipRect(RenderLayer::ClipRectsContext(&scopeLayer, TemporaryClipRects, { })).rect();
         if (!clipRect.isInfinite())
             clipRect.setLocation(scopeLayer.convertToLayerCoords(&rootRenderLayer(), clipRect.location()));
     } else
@@ -2796,6 +2796,8 @@ OptionSet<CompositingReason> RenderLayerCompositor::reasonsForCompositing(const 
         if (layer.hasBlendMode())
             reasons.add(CompositingReason::BlendingWithCompositedDescendants);
 #endif
+        if (renderer.hasClipPath())
+            reasons.add(CompositingReason::ClipsCompositingDescendants);
         break;
     case IndirectCompositingReason::Perspective:
         reasons.add(CompositingReason::Perspective);
@@ -2936,8 +2938,11 @@ Vector<CompositedClipData> RenderLayerCompositor::computeAncestorClippingStack(c
     const RenderLayer* currentClippedLayer = &layer;
     
     auto pushNonScrollableClip = [&](const RenderLayer& clippedLayer, const RenderLayer& clippingRoot, ShouldRespectOverflowClip respectClip = IgnoreOverflowClip) {
-        // Pass IgnoreOverflowClip to ignore overflow contributed by clippingRoot (which may be a scroller).
-        auto clipRect = clippedLayer.backgroundClipRect(RenderLayer::ClipRectsContext(&clippingRoot, TemporaryClipRects, IgnoreOverlayScrollbarSize, respectClip)).rect();
+        // Use IgnoreOverflowClip to ignore overflow contributed by clippingRoot (which may be a scroller).
+        OptionSet<RenderLayer::ClipRectsOption> options;
+        if (respectClip == RespectOverflowClip)
+            options.add(RenderLayer::ClipRectsOption::RespectOverflowClip);
+        auto clipRect = clippedLayer.backgroundClipRect(RenderLayer::ClipRectsContext(&clippingRoot, TemporaryClipRects, options)).rect();
         auto offset = layer.convertToLayerCoords(&clippingRoot, { }, RenderLayer::AdjustForColumns);
         clipRect.moveBy(-offset);
 
@@ -4853,10 +4858,8 @@ ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingProxyRole(
 {
     auto* scrollingCoordinator = this->scrollingCoordinator();
     auto* clippingStack = layer.backing()->ancestorClippingStack();
-    if (!clippingStack) {
-        ASSERT_NOT_REACHED();
+    if (!clippingStack)
         return treeState.parentNodeID.value_or(0);
-    }
 
     ScrollingNodeID nodeID = 0;
     for (auto& entry : clippingStack->stack()) {

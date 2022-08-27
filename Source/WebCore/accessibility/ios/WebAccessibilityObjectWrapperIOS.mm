@@ -1087,6 +1087,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::SplitGroup:
     case AccessibilityRole::Splitter:
     case AccessibilityRole::Subscript:
+    case AccessibilityRole::Suggestion:
     case AccessibilityRole::Superscript:
     case AccessibilityRole::Summary:
     case AccessibilityRole::SystemWide:
@@ -1166,14 +1167,6 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return NO;
     
     return self.axBackingObject->hasTouchEventListener();
-}
-
-- (BOOL)_accessibilityValueIsAutofilled
-{
-    if (![self _prepareAccessibilityCall])
-        return NO;
-
-    return self.axBackingObject->isValueAutofilled();
 }
 
 - (BOOL)_accessibilityIsStrongPasswordField
@@ -1539,7 +1532,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (value)
         return value;
 
-    auto* backingObject = self.axBackingObject;
+    Ref<AXCoreObject> backingObject = *self.axBackingObject;
     if (backingObject->supportsCheckedState()) {
         switch (backingObject->checkboxOrRadioValue()) {
         case AccessibilityButtonState::Off:
@@ -1558,7 +1551,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 
     // If self has the header trait, value should be the heading level.
     if (self.accessibilityTraits & self._axHeaderTrait) {
-        auto* heading = Accessibility::findAncestor(*backingObject, true, [] (const auto& ancestor) {
+        auto* heading = Accessibility::findAncestor(backingObject.get(), true, [] (const auto& ancestor) {
             return ancestor.roleValue() == AccessibilityRole::Heading;
         });
         ASSERT(heading);
@@ -1589,7 +1582,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return [NSString stringWithFormat:@"%.2f", backingObject->valueForRange()];
     }
 
-    if (is<AccessibilityAttachment>(backingObject) && downcast<AccessibilityAttachment>(backingObject)->hasProgress())
+    if (is<AccessibilityAttachment>(backingObject.get()) && downcast<AccessibilityAttachment>(backingObject.get()).hasProgress())
         return [NSString stringWithFormat:@"%.2f", backingObject->valueForRange()];
 
     return nil;
@@ -2768,6 +2761,64 @@ static RenderObject* rendererForView(WAKView* view)
     if (![self _prepareAccessibilityCall])
         return nil;
     return self.axBackingObject->identifierAttribute();
+}
+
+- (BOOL)accessibilityIsInsertion
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+    
+    return Accessibility::findAncestor(*self.axBackingObject, false, [] (const auto& object) {
+        return object.roleValue() == AccessibilityRole::Insertion;
+    }) != nullptr;
+}
+
+- (BOOL)accessibilityIsDeletion
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+    
+    return Accessibility::findAncestor(*self.axBackingObject, false, [] (const auto& object) {
+        return object.roleValue() == AccessibilityRole::Deletion;
+    }) != nullptr;
+}
+
+- (BOOL)accessibilityIsFirstItemInSuggestion
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+
+    auto* object = self.axBackingObject;
+    auto* parent = object->parentObjectUnignored();
+    
+    while (parent) {
+        if (!parent->children().size() || parent->children()[0] != object)
+            return NO;
+        if (parent->roleValue() == AccessibilityRole::Suggestion)
+            return YES;
+        object = parent;
+        parent = object->parentObjectUnignored();
+    }
+    return NO;
+}
+
+- (BOOL)accessibilityIsLastItemInSuggestion
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+    
+    auto* object = self.axBackingObject;
+    auto* parent = object->parentObjectUnignored();
+    
+    while (parent) {
+        if (!parent->children().size() || parent->children()[parent->children().size() - 1] != object)
+            return NO;
+        if (parent->roleValue() == AccessibilityRole::Suggestion)
+            return YES;
+        object = parent;
+        parent = object->parentObjectUnignored();
+    }
+    return NO;
 }
 
 - (NSArray<NSString *> *)accessibilitySpeechHint

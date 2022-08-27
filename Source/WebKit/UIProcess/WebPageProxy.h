@@ -808,7 +808,9 @@ public:
     void activateMediaStreamCaptureInPage();
     bool isMediaStreamCaptureMuted() const { return m_mutedState.containsAny(WebCore::MediaProducer::MediaStreamCaptureIsMuted); }
     void setMediaStreamCaptureMuted(bool);
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     void isConnectedToHardwareConsoleDidChange();
+#endif
     bool isAllowedToChangeMuteState() const;
 
     void requestFontAttributesAtSelectionStart(CompletionHandler<void(const WebCore::FontAttributes&)>&&);
@@ -1066,6 +1068,12 @@ public:
     void handleTouchEvent(const NativeWebTouchEvent&);
 #endif
 
+#if PLATFORM(MAC)
+    void showFontPanel();
+    void showStylesPanel();
+    void showColorPanel();
+#endif
+
     void cancelPointer(WebCore::PointerID, const WebCore::IntPoint&);
     void touchWithIdentifierWasRemoved(WebCore::PointerID);
 
@@ -1119,9 +1127,15 @@ public:
     float deviceScaleFactor() const;
     void setIntrinsicDeviceScaleFactor(float);
     void setCustomDeviceScaleFactor(float);
+
+    void accessibilitySettingsDidChange();
+
     void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<unsigned> nominalFramesPerSecond);
     std::optional<WebCore::PlatformDisplayID> displayId() const { return m_displayID; }
-    void accessibilitySettingsDidChange();
+
+#if PLATFORM(IOS_FAMILY)
+    WebCore::PlatformDisplayID generateDisplayIDFromPageID() const;
+#endif
 
     void setUseFixedLayout(bool);
     void setFixedLayoutSize(const WebCore::IntSize&);
@@ -1247,6 +1261,8 @@ public:
     void didEndTextSearchOperation();
 
     void requestRectForFoundTextRange(const WebFoundTextRange&, CompletionHandler<void(WebCore::FloatRect)>&&);
+    void addLayerForFindOverlay(CompletionHandler<void(WebCore::GraphicsLayer::PlatformLayerID)>&&);
+    void removeLayerForFindOverlay(CompletionHandler<void()>&&);
 
     void getContentsAsString(ContentAsStringIncludesChildFrames, CompletionHandler<void(const String&)>&&);
 #if PLATFORM(COCOA)
@@ -1781,8 +1797,7 @@ public:
 #if HAVE(QUICKLOOK_THUMBNAILING)
     void updateAttachmentThumbnail(const String&, const RefPtr<ShareableBitmap>&);
     void requestThumbnailWithPath(const String&, const String&);
-    void requestThumbnailWithFileWrapper(NSFileWrapper *, const String&);
-    void requestThumbnailWithOperation(WKQLThumbnailLoadOperation *);
+    void requestThumbnail(const API::Attachment&, const String&);
 #endif
     enum class ShouldUpdateAttachmentAttributes : bool { No, Yes };
     ShouldUpdateAttachmentAttributes willUpdateAttachmentAttributes(const API::Attachment&);
@@ -1914,6 +1929,7 @@ public:
 #endif
 
     bool isHandlingPreventableTouchStart() const { return m_handlingPreventableTouchStartCount; }
+    bool isHandlingPreventableTouchMove() const { return m_touchMovePreventionState == TouchMovePreventionState::Waiting; }
     bool isHandlingPreventableTouchEnd() const { return m_handlingPreventableTouchEndCount; }
 
     bool hasQueuedKeyEvent() const;
@@ -2074,7 +2090,7 @@ public:
     void setCocoaView(WKWebView *);
 #endif
 
-    bool isRunningModalJavaScriptDialog() const { return m_isRunningModalJavaScriptDialog; }
+    bool shouldAvoidSynchronouslyWaitingToPreventDeadlock() const;
 
 #if ENABLE(IMAGE_ANALYSIS) && PLATFORM(MAC)
     WKQuickLookPreviewController *quickLookPreviewController() const { return m_quickLookPreviewController.get(); }
@@ -2107,7 +2123,7 @@ public:
     void cancelTextRecognitionForVideoInElementFullScreen();
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    void replaceImageWithMarkupResults(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
+    void replaceImageForRemoveBackground(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
     void shouldAllowRemoveBackground(const WebCore::ElementContext&, CompletionHandler<void(bool)>&&);
 #endif
 
@@ -2117,6 +2133,10 @@ public:
 
 #if PLATFORM(MAC)
     void updateIconForDirectory(NSFileWrapper *, const String&);
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+    void clearNotificationPermissionState();
 #endif
 
 private:
@@ -2181,6 +2201,7 @@ private:
     void didFinishLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const UserData&);
     void didFailLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const WebCore::ResourceError&, const UserData&);
     void didSameDocumentNavigationForFrame(WebCore::FrameIdentifier, uint64_t navigationID, uint32_t sameDocumentNavigationType, URL&&, const UserData&);
+    void didSameDocumentNavigationForFrameViaJSHistoryAPI(WebCore::FrameIdentifier, uint32_t type, URL, NavigationActionData&&, const UserData&);
     void didChangeMainDocument(WebCore::FrameIdentifier);
     void didExplicitOpenForFrame(WebCore::FrameIdentifier, URL&&, String&& mimeType);
 
@@ -2594,6 +2615,10 @@ private:
     void requestAttachmentIcon(const String& identifier, const String& type, const String& path, const String& title, const WebCore::FloatSize&);
 
     RefPtr<WebKit::ShareableBitmap> iconForAttachment(const String& fileName, const String& contentType, const String& title, WebCore::FloatSize&);
+
+#if HAVE(QUICKLOOK_THUMBNAILING)
+    void requestThumbnail(WKQLThumbnailLoadOperation *);
+#endif
 #endif
 
     void reportPageLoadResult(const WebCore::ResourceError& = { });
@@ -2799,6 +2824,10 @@ private:
 
     HashSet<WebEditCommandProxy*> m_editCommandSet;
 
+#if ENABLE(NOTIFICATIONS)
+    HashSet<WebCore::SecurityOriginData> m_notificationPermissionRequesters;
+#endif
+
 #if PLATFORM(COCOA)
     HashSet<String> m_knownKeypressCommandNames;
 #endif
@@ -2961,9 +2990,10 @@ private:
     Deque<QueuedTouchEvents> m_touchEventQueue;
 #endif
 
-    bool m_handledSynchronousTouchEventWhileDispatchingPreventableTouchStart { false };
     uint64_t m_handlingPreventableTouchStartCount { 0 };
     uint64_t m_handlingPreventableTouchEndCount { 0 };
+    enum class TouchMovePreventionState : uint8_t { NotWaiting, Waiting, ReceivedReply };
+    TouchMovePreventionState m_touchMovePreventionState { TouchMovePreventionState::NotWaiting };
 
 #if ENABLE(INPUT_TYPE_COLOR)
     RefPtr<WebColorPicker> m_colorPicker;
@@ -3057,8 +3087,10 @@ private:
     bool m_mayStartMediaWhenInWindow { true };
     bool m_mediaPlaybackIsSuspended { false };
     bool m_mediaCaptureEnabled { true };
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     bool m_isProcessingIsConnectedToHardwareConsoleDidChangeNotification { false };
-    bool m_captureWasMutedWhenHardwareConsoleDisconnected { false };
+    bool m_captureWasMutedDueToDisconnectedHardwareConsole { false };
+#endif
 
     bool m_waitingForDidUpdateActivityState { false };
 

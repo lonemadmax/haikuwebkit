@@ -185,8 +185,10 @@ public:
     void childrenChanged(Node*, Node* newChild = nullptr);
     void childrenChanged(RenderObject*, RenderObject* newChild = nullptr);
     void childrenChanged(AccessibilityObject*);
+    void valueChanged(Element*);
     void checkedStateChanged(Node*);
-    void handleRoleChange(AccessibilityObject*);
+    void autofillTypeChanged(Node*);
+    void handleRoleChanged(AccessibilityObject*);
     // Called when a node has just been attached, so we can make sure we have the right subclass of AccessibilityObject.
     void updateCacheAfterNodeIsAttached(Node*);
     void updateLoadingProgress(double);
@@ -277,11 +279,16 @@ public:
         AXActiveDescendantChanged,
         AXAriaRoleChanged,
         AXAutocorrectionOccured,
+        AXAutofillTypeChanged,
         AXCheckedStateChanged,
         AXChildrenChanged,
+        AXColumnCountChanged,
+        AXColumnIndexChanged,
+        AXColumnSpanChanged,
         AXCurrentStateChanged,
         AXDescribedByChanged,
         AXDisabledStateChanged,
+        AXDropEffectChanged,
         AXFocusedUIElementChanged,
         AXFrameLoadComplete,
         AXGrabbedStateChanged,
@@ -297,6 +304,8 @@ public:
         AXPageScrolled,
         AXPlaceholderChanged,
         AXPositionInSetChanged,
+        AXRowIndexChanged,
+        AXRowSpanChanged,
         AXSelectedChildrenChanged,
         AXSelectedStateChanged,
         AXSelectedTextChanged,
@@ -377,6 +386,7 @@ public:
 #endif
     void deferRecomputeIsIgnoredIfNeeded(Element*);
     void deferRecomputeIsIgnored(Element*);
+    void deferRecomputeTableIsExposed(Element*);
     void deferTextChangedIfNeeded(Node*);
     void deferSelectedChildrenChangedIfNeeded(Element&);
     void performDeferredCacheUpdate();
@@ -474,12 +484,13 @@ private:
 
     void processDeferredChildrenChangedList();
     void handleChildrenChanged(AccessibilityObject&);
+    void handleRoleChanged(Element*);
     void handleMenuOpened(Node*);
     void handleLiveRegionCreated(Node*);
     void handleMenuItemSelected(Node*);
     void handleRowCountChanged(AXCoreObject*, Document*);
-    void handleAttributeChange(const QualifiedName&, Element*);
-    bool shouldProcessAttributeChange(const QualifiedName&, Element*);
+    void handleAttributeChange(Element*, const QualifiedName&);
+    bool shouldProcessAttributeChange(Element*, const QualifiedName&);
     void selectedChildrenChanged(Node*);
     void selectedChildrenChanged(RenderObject*);
     void selectedStateChanged(Node*);
@@ -560,7 +571,7 @@ private:
     WeakHashSet<Element> m_deferredModalChangedList;
     WeakHashSet<Element> m_deferredMenuListChange;
     HashMap<Element*, String> m_deferredTextFormControlValue;
-    HashMap<Element*, QualifiedName> m_deferredAttributeChange;
+    Vector<std::pair<Element*, QualifiedName>> m_deferredAttributeChange;
     Vector<std::pair<Node*, Node*>> m_deferredFocusedNodeChange;
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     bool m_deferredRegenerateIsolatedTree { false };
@@ -623,9 +634,11 @@ inline const Element* AXObjectCache::rootAXEditableElement(const Node*) { return
 inline Node* AXObjectCache::modalNode() { return nullptr; }
 inline void AXObjectCache::attachWrapper(AXCoreObject*) { }
 inline void AXObjectCache::checkedStateChanged(Node*) { }
+inline void AXObjectCache::autofillTypeChanged(Node*) { }
 inline void AXObjectCache::childrenChanged(Node*, Node*) { }
 inline void AXObjectCache::childrenChanged(RenderObject*, RenderObject*) { }
 inline void AXObjectCache::childrenChanged(AccessibilityObject*) { }
+inline void AXObjectCache::valueChanged(Element*) { }
 inline void AXObjectCache::deferFocusedUIElementChangeIfNeeded(Node*, Node*) { }
 inline void AXObjectCache::deferRecomputeIsIgnoredIfNeeded(Element*) { }
 inline void AXObjectCache::deferRecomputeIsIgnored(Element*) { }
@@ -642,10 +655,10 @@ inline void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityOb
 inline void AXObjectCache::handleActiveDescendantChanged(Element&) { }
 inline void AXObjectCache::handleAriaExpandedChange(Node*) { }
 inline void AXObjectCache::deferModalChange(Element*) { }
-inline void AXObjectCache::handleRoleChange(AccessibilityObject*) { }
+inline void AXObjectCache::handleRoleChanged(AccessibilityObject*) { }
 inline void AXObjectCache::deferAttributeChangeIfNeeded(const QualifiedName&, Element*) { }
-inline void AXObjectCache::handleAttributeChange(const QualifiedName&, Element*) { }
-inline bool AXObjectCache::shouldProcessAttributeChange(const QualifiedName&, Element*) { return false; }
+inline void AXObjectCache::handleAttributeChange(Element*, const QualifiedName&) { }
+inline bool AXObjectCache::shouldProcessAttributeChange(Element*, const QualifiedName&) { return false; }
 inline void AXObjectCache::handleFocusedUIElementChanged(Node*, Node*, UpdateModal) { }
 inline void AXObjectCache::handleScrollbarUpdate(ScrollView*) { }
 inline void AXObjectCache::handleScrolledToAnchor(const Node*) { }

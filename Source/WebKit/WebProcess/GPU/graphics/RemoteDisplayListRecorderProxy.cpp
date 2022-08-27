@@ -187,7 +187,7 @@ void RemoteDisplayListRecorderProxy::recordDrawGlyphs(const Font& font, const Gl
 
 void RemoteDisplayListRecorderProxy::recordDrawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
 {
-    send(Messages::RemoteDisplayListRecorder::DrawDecomposedGlyphs(font.renderingResourceIdentifier(), decomposedGlyphs.renderingResourceIdentifier(), decomposedGlyphs.bounds()));
+    send(Messages::RemoteDisplayListRecorder::DrawDecomposedGlyphs(font.renderingResourceIdentifier(), decomposedGlyphs.renderingResourceIdentifier()));
 }
 
 void RemoteDisplayListRecorderProxy::recordDrawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
@@ -339,6 +339,11 @@ void RemoteDisplayListRecorderProxy::recordStrokeRect(const FloatRect& rect, flo
 void RemoteDisplayListRecorderProxy::recordStrokeLine(const LineData& data)
 {
     send(Messages::RemoteDisplayListRecorder::StrokeLine(data));
+}
+
+void RemoteDisplayListRecorderProxy::recordStrokeLineWithColorAndThickness(SRGBA<uint8_t> color, float thickness, const LineData& data)
+{
+    send(Messages::RemoteDisplayListRecorder::StrokeLineWithColorAndThickness(color, thickness, data));
 }
 
 void RemoteDisplayListRecorderProxy::recordStrokeArc(const ArcData& data)

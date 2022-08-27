@@ -459,8 +459,6 @@ public:
     // FIXME: This can return the RenderView's layer when callers probably want the FrameView as a ScrollableArea.
     RenderLayer* enclosingScrollableLayer(IncludeSelfOrNot, CrossFrameBoundaries) const;
 
-    // "absoluteRect" is in scaled document coordinates.
-    void scrollRectToVisible(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&);
     // Returns true when the layer could do touch scrolling, but doesn't look at whether there is actually scrollable overflow.
     bool canUseCompositedScrolling() const;
     // Returns true when there is actually scrollable overflow (requires layout to be up-to-date).
@@ -474,6 +472,8 @@ public:
     void updateScrollInfoAfterLayout();
     void updateScrollbarSteps();
 
+    // Returns true if this RenderLayer is a candidate for scrolling during scrollIntoView operations.
+    bool shouldTryToScrollForScrollIntoView() const;
     void autoscroll(const IntPoint&);
 
     bool canResize() const;
@@ -647,30 +647,37 @@ public:
     bool hitTest(const HitTestRequest&, HitTestResult&);
     bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
 
+    enum class ClipRectsOption : uint8_t {
+        RespectOverflowClip         = 1 << 0,
+        IncludeOverlayScrollbarSize = 1 << 1,
+    };
+
+    static constexpr OptionSet<ClipRectsOption> clipRectOptionsForPaintingOverflowControls = { };
+    static constexpr OptionSet<ClipRectsOption> clipRectDefaultOptions = { ClipRectsOption::RespectOverflowClip };
+
     struct ClipRectsContext {
-        ClipRectsContext(const RenderLayer* inRootLayer, ClipRectsType inClipRectsType, OverlayScrollbarSizeRelevancy inOverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize, ShouldRespectOverflowClip inRespectOverflowClip = RespectOverflowClip)
+        ClipRectsContext(const RenderLayer* inRootLayer, ClipRectsType inClipRectsType, OptionSet<ClipRectsOption> inOptions = clipRectDefaultOptions)
             : rootLayer(inRootLayer)
             , clipRectsType(inClipRectsType)
-            , overlayScrollbarSizeRelevancy(inOverlayScrollbarSizeRelevancy)
-            , respectOverflowClip(inRespectOverflowClip)
+            , options(inOptions)
         { }
         const RenderLayer* rootLayer;
         ClipRectsType clipRectsType;
-        OverlayScrollbarSizeRelevancy overlayScrollbarSizeRelevancy;
-        ShouldRespectOverflowClip respectOverflowClip;
+        OptionSet<ClipRectsOption> options;
+        
+        bool respectOverflowClip() const { return options.contains(ClipRectsOption::RespectOverflowClip); }
+        OverlayScrollbarSizeRelevancy overlayScrollbarSizeRelevancy() const { return options.contains(ClipRectsOption::IncludeOverlayScrollbarSize) ? IncludeOverlayScrollbarSize : IgnoreOverlayScrollbarSize; }
     };
 
     // This method figures out our layerBounds in coordinates relative to
     // |rootLayer|. It also computes our background and foreground clip rects
     // for painting/event handling.
     // Pass offsetFromRoot if known.
-    void calculateRects(const ClipRectsContext&, const LayoutRect& paintDirtyRect, LayoutRect& layerBounds,
-        ClipRect& backgroundRect, ClipRect& foregroundRect, const LayoutSize& offsetFromRoot) const;
+    void calculateRects(const ClipRectsContext&, const LayoutRect& paintDirtyRect, LayoutRect& layerBounds, ClipRect& backgroundRect, ClipRect& foregroundRect, const LayoutSize& offsetFromRoot) const;
 
     // Public just for RenderTreeAsText.
     void collectFragments(LayerFragments&, const RenderLayer* rootLayer, const LayoutRect& dirtyRect,
-        PaginationInclusionMode,
-        ClipRectsType, OverlayScrollbarSizeRelevancy inOverlayScrollbarSizeRelevancy, ShouldRespectOverflowClip, const LayoutSize& offsetFromRoot,
+        PaginationInclusionMode, ClipRectsType, OptionSet<ClipRectsOption>, const LayoutSize& offsetFromRoot,
         const LayoutRect* layerBoundingBox = nullptr, ShouldApplyRootOffsetToFragments = IgnoreRootOffsetForFragments);
         
     LayoutRect childrenClipRect() const; // Returns the foreground clip rect of the layer in the document's coordinate space.
@@ -1073,8 +1080,6 @@ private:
 
     bool shouldBeSelfPaintingLayer() const;
 
-    bool allowsCurrentScroll() const;
-
     void dirtyAncestorChainVisibleDescendantStatus();
     void setAncestorChainHasVisibleDescendant();
     
@@ -1108,8 +1113,6 @@ private:
     ClipRect backgroundClipRect(const ClipRectsContext&) const;
 
     RenderLayer* enclosingTransformedAncestor() const;
-
-    LayoutRect getRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const;
 
     // Convert a point in absolute coords into layer coords, taking transforms into account
     LayoutPoint absoluteToContents(const LayoutPoint&) const;
@@ -1316,7 +1319,8 @@ WTF::TextStream& operator<<(WTF::TextStream&, PaintBehavior);
 #if ENABLE(TREE_DEBUGGING)
 // Outside the WebCore namespace for ease of invocation from lldb.
 void showLayerTree(const WebCore::RenderLayer*);
-void showPaintOrderTree(const WebCore::RenderLayer*);
 void showLayerTree(const WebCore::RenderObject*);
+void showPaintOrderTree(const WebCore::RenderLayer*);
+void showPaintOrderTree(const WebCore::RenderObject*);
 #endif
 

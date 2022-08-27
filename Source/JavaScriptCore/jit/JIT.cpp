@@ -70,17 +70,16 @@ void ctiPatchCallByReturnAddress(ReturnAddressPtr returnAddress, FunctionPtr<CFu
 
 JIT::JIT(VM& vm, CodeBlock* codeBlock, BytecodeIndex loopOSREntryBytecodeIndex)
     : JSInterfaceJIT(&vm, nullptr)
-    , m_interpreter(vm.interpreter)
     , m_labels(codeBlock ? codeBlock->instructions().size() : 0)
     , m_pcToCodeOriginMapBuilder(vm)
     , m_canBeOptimized(false)
     , m_shouldEmitProfiling(false)
     , m_loopOSREntryBytecodeIndex(loopOSREntryBytecodeIndex)
+    , m_profiledCodeBlock(codeBlock)
+    , m_unlinkedCodeBlock(codeBlock->unlinkedCodeBlock())
 {
     auto globalObjectConstant = addToConstantPool(JITConstantPool::Type::GlobalObject);
     ASSERT_UNUSED(globalObjectConstant, globalObjectConstant == s_globalObjectConstant);
-    m_profiledCodeBlock = codeBlock;
-    m_unlinkedCodeBlock = codeBlock->unlinkedCodeBlock();
 }
 
 JIT::~JIT()
@@ -773,6 +772,7 @@ void JIT::compileAndLinkWithoutFinalizing(JITCompilationEffort effort)
 
     emitFunctionPrologue();
     jitAssertCodeBlockOnCallFrameWithType(regT2, JITType::BaselineJIT);
+    jitAssertCodeBlockMatchesCurrentCalleeCodeBlockOnCallFrame(regT1, regT2, *m_unlinkedCodeBlock);
 
     Label beginLabel(this);
 
@@ -841,6 +841,7 @@ void JIT::compileAndLinkWithoutFinalizing(JITCompilationEffort effort)
         emitFunctionPrologue();
         RELEASE_ASSERT(m_unlinkedCodeBlock->codeType() == FunctionCode);
         jitAssertCodeBlockOnCallFrameWithType(regT2, JITType::BaselineJIT);
+        jitAssertCodeBlockMatchesCurrentCalleeCodeBlockOnCallFrame(regT1, regT2, *m_unlinkedCodeBlock);
         emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, regT0);
         store8(TrustedImm32(0), Address(regT0, CodeBlock::offsetOfShouldAlwaysBeInlined()));
 

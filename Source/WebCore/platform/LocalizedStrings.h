@@ -178,6 +178,7 @@ namespace WebCore {
     String AXDescriptionListTermText();
     String AXDescriptionListDetailText();
     String AXFooterRoleDescriptionText();
+    String AXSuggestionRoleDescriptionText();
     String AXFileUploadButtonText();
     String AXOutputText();
     String AXSearchFieldCancelButtonText();
@@ -238,6 +239,7 @@ namespace WebCore {
     String AXAutoFillContactsLabel();
     String AXAutoFillStrongPasswordLabel();
     String AXAutoFillCreditCardLabel();
+    String AXAutoFillLoadingLabel();
     String autoFillStrongPasswordLabel();
 
     String missingPluginText();

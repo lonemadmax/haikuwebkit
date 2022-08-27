@@ -84,16 +84,6 @@ static inline bool isYahooMail(Document& document)
 }
 #endif
 
-static bool isTwitterDocument(Document& document)
-{
-    return RegistrableDomain(document.url()).string() == "twitter.com"_s;
-}
-
-static bool isYouTubeDocument(Document& document)
-{
-    return RegistrableDomain(document.url()).string() == "youtube.com"_s;
-}
-
 Quirks::Quirks(Document& document)
     : m_document(document)
 {
@@ -405,8 +395,6 @@ bool Quirks::shouldDispatchSimulatedMouseEvents(const EventTarget* target) const
         }
 
         if ((host == "desmos.com"_s || host.endsWith(".desmos.com"_s)) && startsWithLettersIgnoringASCIICase(url.path(), "/calculator/"_s))
-            return ShouldDispatchSimulatedMouseEvents::Yes;
-        if (host == "figma.com"_s || host.endsWith(".figma.com"_s))
             return ShouldDispatchSimulatedMouseEvents::Yes;
         if (host == "trello.com"_s || host.endsWith(".trello.com"_s))
             return ShouldDispatchSimulatedMouseEvents::Yes;
@@ -1392,8 +1380,10 @@ bool Quirks::requiresUserGestureToLoadInPictureInPicture() const
     if (!needsQuirks())
         return false;
 
-    if (!m_requiresUserGestureToLoadInPictureInPicture)
-        m_requiresUserGestureToLoadInPictureInPicture = isTwitterDocument(m_document->topDocument());
+    if (!m_requiresUserGestureToLoadInPictureInPicture) {
+        auto domain = RegistrableDomain(m_document->topDocument().url());
+        m_requiresUserGestureToLoadInPictureInPicture = domain.string() == "twitter.com"_s;
+    }
 
     return *m_requiresUserGestureToLoadInPictureInPicture;
 #else
@@ -1469,17 +1459,6 @@ bool Quirks::needsToForceUserSelectAndUserDragWhenInstallingImageOverlay() const
 
 #endif // ENABLE(IMAGE_ANALYSIS)
 
-bool Quirks::shouldDisableWebSharePolicy() const
-{
-    if (!needsQuirks())
-        return false;
-
-    if (!m_shouldDisableWebSharePolicy)
-        m_shouldDisableWebSharePolicy = isTwitterDocument(*m_document) || isYouTubeDocument(*m_document);
-
-    return *m_shouldDisableWebSharePolicy;
-}
-
 #if PLATFORM(IOS)
 bool Quirks::allowLayeredFullscreenVideos() const
 {
@@ -1495,5 +1474,39 @@ bool Quirks::allowLayeredFullscreenVideos() const
     return *m_allowLayeredFullscreenVideos;
 }
 #endif
+
+bool Quirks::hasBrokenPermissionsAPISupportQuirk() const
+{
+    if (!needsQuirks())
+        return false;
+
+    if (!m_hasBrokenPermissionsAPISupportQuirk) {
+        auto domain = m_document->securityOrigin().domain().convertToASCIILowercase();
+        m_hasBrokenPermissionsAPISupportQuirk = domain.endsWith(".nfl.com"_s);
+    }
+
+    return m_hasBrokenPermissionsAPISupportQuirk.value();
+}
+
+bool Quirks::shouldEnableApplicationCacheQuirk() const
+{
+    bool shouldEnableBySetting = m_document && m_document->settings().offlineWebApplicationCacheEnabled();
+#if PLATFORM(IOS_FAMILY)
+    if (!needsQuirks())
+        return shouldEnableBySetting;
+
+    if (!m_shouldEnableApplicationCacheQuirk) {
+        auto domain = m_document->securityOrigin().domain().convertToASCIILowercase();
+        if (domain.endsWith("mail.google.com"_s))
+            m_shouldEnableApplicationCacheQuirk = true;
+        else
+            m_shouldEnableApplicationCacheQuirk = shouldEnableBySetting;
+    }
+
+    return m_shouldEnableApplicationCacheQuirk.value();
+#else
+    return shouldEnableBySetting;
+#endif
+}
 
 }

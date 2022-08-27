@@ -16,7 +16,6 @@
 		1C33755F27FA23B8002F1644 /* IsValidToUseWith.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C33755D27FA23B8002F1644 /* IsValidToUseWith.h */; };
 		1C5319C027BDC6CC00CD127E /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5319BF27BDC6CC00CD127E /* main.swift */; };
 		1C5319C527BDC72700CD127E /* WebGPU.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CEBD7E32716AFBA00A5254D /* WebGPU.framework */; };
-		1C531A2527BDDF5500CD127E /* Metal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1C531A2427BDDF5500CD127E /* Metal.cpp */; };
 		1C582FF927E04131009B40F0 /* CommandsMixin.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1C582FF727E04131009B40F0 /* CommandsMixin.mm */; };
 		1C582FFA27E04131009B40F0 /* CommandsMixin.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C582FF827E04131009B40F0 /* CommandsMixin.h */; };
 		1C58301827E16823009B40F0 /* APIConversions.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C58301727E16823009B40F0 /* APIConversions.h */; };
@@ -77,8 +76,10 @@
 		33EA188027BC24E200A1DD52 /* AssignmentStatement.h in Headers */ = {isa = PBXBuildFile; fileRef = 33EA187F27BC24E200A1DD52 /* AssignmentStatement.h */; };
 		33EA188227BC25D000A1DD52 /* IdentifierExpression.h in Headers */ = {isa = PBXBuildFile; fileRef = 33EA188127BC25D000A1DD52 /* IdentifierExpression.h */; };
 		33EA188427BC268600A1DD52 /* StructureAccess.h in Headers */ = {isa = PBXBuildFile; fileRef = 33EA188327BC268600A1DD52 /* StructureAccess.h */; };
-		33EA188627BC26DF00A1DD52 /* TypeConversion.h in Headers */ = {isa = PBXBuildFile; fileRef = 33EA188527BC26DF00A1DD52 /* TypeConversion.h */; };
+		33EA188627BC26DF00A1DD52 /* CallableExpression.h in Headers */ = {isa = PBXBuildFile; fileRef = 33EA188527BC26DF00A1DD52 /* CallableExpression.h */; };
 		33EA188827BC361E00A1DD52 /* LiteralExpressions.h in Headers */ = {isa = PBXBuildFile; fileRef = 33EA188727BC361E00A1DD52 /* LiteralExpressions.h */; };
+		6634666B285F0140002ABE8E /* ConstLiteralTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = 6634666A285F0140002ABE8E /* ConstLiteralTests.mm */; };
+		664C92FD286A66090008D143 /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664C92FC286A66090008D143 /* IOSurface.framework */; };
 		66DC575528627E0B0014CABD /* ParserPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 66DC575428627E0B0014CABD /* ParserPrivate.h */; };
 		DD05A35C27BF09C60096EFAB /* libWTF.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 1CEBD8292716CAE700A5254D /* libWTF.a */; };
 /* End PBXBuildFile section */
@@ -332,8 +333,10 @@
 		33EA187F27BC24E200A1DD52 /* AssignmentStatement.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AssignmentStatement.h; sourceTree = "<group>"; };
 		33EA188127BC25D000A1DD52 /* IdentifierExpression.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IdentifierExpression.h; sourceTree = "<group>"; };
 		33EA188327BC268600A1DD52 /* StructureAccess.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StructureAccess.h; sourceTree = "<group>"; };
-		33EA188527BC26DF00A1DD52 /* TypeConversion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TypeConversion.h; sourceTree = "<group>"; };
+		33EA188527BC26DF00A1DD52 /* CallableExpression.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CallableExpression.h; sourceTree = "<group>"; };
 		33EA188727BC361E00A1DD52 /* LiteralExpressions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LiteralExpressions.h; sourceTree = "<group>"; };
+		6634666A285F0140002ABE8E /* ConstLiteralTests.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ConstLiteralTests.mm; sourceTree = "<group>"; };
+		664C92FC286A66090008D143 /* IOSurface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOSurface.framework; path = System/Library/Frameworks/IOSurface.framework; sourceTree = SDKROOT; };
 		66DC575428627E0B0014CABD /* ParserPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ParserPrivate.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -359,6 +362,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				664C92FD286A66090008D143 /* IOSurface.framework in Frameworks */,
 				1CBAB0922718CCA0006080BB /* JavaScriptCore.framework in Frameworks */,
 				1CEBD8262716CACC00A5254D /* libwgsl.a in Frameworks */,
 				1C2CEDEE271E8A7300EDC16F /* Metal.framework in Frameworks */,
@@ -378,6 +382,7 @@
 		1C023D3D27449070001DB734 /* WGSLUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				6664847F28596A3E008FB60E /* Parser */,
 				1C023D3E27449070001DB734 /* WGSLLexerTests.mm */,
 				339B7B1C27D80A1C0072BF9A /* WGSLParserTests.mm */,
 			);
@@ -677,6 +682,7 @@
 		1CEBD8252716CACC00A5254D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				664C92FC286A66090008D143 /* IOSurface.framework */,
 				1CEBD82B2716CAFB00A5254D /* CoreFoundation.framework */,
 				1CEBD82D2716CB1600A5254D /* Foundation.framework */,
 				1C023D4A274495B9001DB734 /* JavaScriptCore.framework */,
@@ -722,12 +728,20 @@
 		33EA187C27BC246000A1DD52 /* Expressions */ = {
 			isa = PBXGroup;
 			children = (
+				33EA188527BC26DF00A1DD52 /* CallableExpression.h */,
 				33EA188127BC25D000A1DD52 /* IdentifierExpression.h */,
 				33EA188727BC361E00A1DD52 /* LiteralExpressions.h */,
 				33EA188327BC268600A1DD52 /* StructureAccess.h */,
-				33EA188527BC26DF00A1DD52 /* TypeConversion.h */,
 			);
 			path = Expressions;
+			sourceTree = "<group>";
+		};
+		6664847F28596A3E008FB60E /* Parser */ = {
+			isa = PBXGroup;
+			children = (
+				6634666A285F0140002ABE8E /* ConstLiteralTests.mm */,
+			);
+			path = Parser;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -754,6 +768,7 @@
 				33EA188027BC24E200A1DD52 /* AssignmentStatement.h in Headers */,
 				33EA185E27BC194F00A1DD52 /* ASTNode.h in Headers */,
 				33EA186A27BC1BE600A1DD52 /* Attribute.h in Headers */,
+				33EA188627BC26DF00A1DD52 /* CallableExpression.h in Headers */,
 				33EA186627BC1AD500A1DD52 /* CompilationMessage.h in Headers */,
 				33EA187B27BC230E00A1DD52 /* CompoundStatement.h in Headers */,
 				33EA186C27BC1CBC00A1DD52 /* Expression.h in Headers */,
@@ -773,7 +788,6 @@
 				33EA188427BC268600A1DD52 /* StructureAccess.h in Headers */,
 				33EA187427BC204900A1DD52 /* StructureDecl.h in Headers */,
 				338BB2CE27B6B60200E066AB /* Token.h in Headers */,
-				33EA188627BC26DF00A1DD52 /* TypeConversion.h in Headers */,
 				33EA186E27BC1D4C00A1DD52 /* TypeDecl.h in Headers */,
 				33EA187227BC1FE100A1DD52 /* VariableQualifier.h in Headers */,
 				1CEBD7F82716B34400A5254D /* WGSL.h in Headers */,
@@ -985,6 +999,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6634666B285F0140002ABE8E /* ConstLiteralTests.mm in Sources */,
 				1C023D3F27449070001DB734 /* WGSLLexerTests.mm in Sources */,
 				339B7B1D27D80A1C0072BF9A /* WGSLParserTests.mm in Sources */,
 			);
@@ -1014,7 +1029,6 @@
 				1C5ACAC1273A426D0095F8D5 /* Device.mm in Sources */,
 				1C0F41EE280940650005886D /* HardwareCapabilities.mm in Sources */,
 				1C5ACA94273A41C20095F8D5 /* Instance.mm in Sources */,
-				1C531A2527BDDF5500CD127E /* Metal.cpp in Sources */,
 				1C5ACAE5273A55DD0095F8D5 /* PipelineLayout.mm in Sources */,
 				1C5ACABD273A426D0095F8D5 /* QuerySet.mm in Sources */,
 				1C5ACACB273A426E0095F8D5 /* Queue.mm in Sources */,

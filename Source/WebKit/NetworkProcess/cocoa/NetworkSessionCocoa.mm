@@ -1286,8 +1286,6 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkProcess& networkProcess, const N
         SandboxExtension::consumePermanently(parameters.alternativeServiceDirectoryExtensionHandle);
         configuration._alternativeServicesStorage = adoptNS([[_NSHTTPAlternativeServicesStorage alloc] initPersistentStoreWithURL:[[NSURL fileURLWithPath:parameters.alternativeServiceDirectory isDirectory:YES] URLByAppendingPathComponent:@"AlternativeService.sqlite" isDirectory:NO]]).get();
     }
-    if (parameters.http3Enabled)
-        configuration._allowsHTTP3 = YES;
 #endif
 
     configuration._preventsSystemHTTPProxyAuthentication = parameters.preventsSystemHTTPProxyAuthentication;
@@ -1824,7 +1822,7 @@ void NetworkSessionCocoa::donateToSKAdNetwork(WebCore::PrivateClickMeasurement&&
     config.get().sourceWebRegistrableDomain = pcm.sourceSite().registrableDomain.string();
     config.get().version = @"3";
     config.get().attributionContext = AttributionTypeDefault;
-    [[ASDInstallAttribution sharedInstance] addInstallWebAttributionParamsWithConfig:config.get() completionHandler:nil];
+    [[ASDInstallAttribution sharedInstance] addInstallWebAttributionParamsWithConfig:config.get() completionHandler:^(NSError *) { }];
 #endif
 
     if (!m_privateClickMeasurementDebugModeEnabled)

@@ -37,6 +37,7 @@
 #include <sys/mman.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 #if PLATFORM(HAIKU)
@@ -428,7 +429,7 @@ String createTemporaryZipArchive(const String&)
     return { };
 }
 
-bool excludeFromBackup(const String&)
+bool setExcludedFromBackup(const String&, bool)
 {
     return false;
 }
@@ -836,6 +837,26 @@ String pathByAppendingComponents(StringView path, const Vector<StringView>& comp
 }
 
 #endif
+
+#if !OS(WINDOWS) && !PLATFORM(COCOA) && !PLATFORM(PLAYSTATION)
+
+String createTemporaryDirectory()
+{
+    std::error_code ec;
+    std::string tempDir = std::filesystem::temp_directory_path(ec);
+    if (ec)
+        return String();
+
+    std::string newTempDirTemplate = tempDir + "XXXXXXXX";
+
+    Vector<char> newTempDir(newTempDirTemplate.c_str(), newTempDirTemplate.size());
+    if (!mkdtemp(newTempDir.data()))
+        return String();
+
+    return stringFromFileSystemRepresentation(newTempDir.data());
+}
+
+#endif // !OS(WINDOWS) && !PLATFORM(COCOA)
 
 #endif // HAVE(STD_FILESYSTEM) || HAVE(STD_EXPERIMENTAL_FILESYSTEM)
 

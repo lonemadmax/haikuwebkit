@@ -199,7 +199,7 @@ bool canUseWebAssemblyFastMemory();
     v(Double, mediumHeapRAMFraction, 0.5, Normal, nullptr) \
     v(Double, mediumHeapGrowthFactor, 1.5, Normal, nullptr) \
     v(Double, largeHeapGrowthFactor, 1.24, Normal, nullptr) \
-    v(Double, miniVMHeapGrowthFactor, 1.27, Normal, nullptr) \
+    v(Double, miniVMHeapGrowthFactor, 1.20, Normal, nullptr) \
     v(Double, criticalGCMemoryThreshold, 0.80, Normal, "percent memory in use the GC considers critical.  The collector is much more aggressive above this threshold") \
     v(Double, customFullGCCallbackBailThreshold, -1.0, Normal, "percent of memory paged out before we bail out of timer based Full GCs. -1.0 means use (maxHeapGrowthFactor - 1)") \
     v(Double, minimumMutatorUtilization, 0, Normal, nullptr) \
@@ -271,9 +271,9 @@ bool canUseWebAssemblyFastMemory();
     \
     v(Unsigned, maximumOptimizationCandidateBytecodeCost, 100000, Normal, nullptr) \
     \
-    v(Unsigned, maximumFunctionForCallInlineCandidateBytecodeCost, 120, Normal, nullptr) \
-    v(Unsigned, maximumFunctionForClosureCallInlineCandidateBytecodeCost, 100, Normal, nullptr) \
-    v(Unsigned, maximumFunctionForConstructInlineCandidateBytecoodeCost, 100, Normal, nullptr) \
+    v(Unsigned, maximumFunctionForCallInlineCandidateBytecodeCost, 100, Normal, nullptr) \
+    v(Unsigned, maximumFunctionForClosureCallInlineCandidateBytecodeCost, 80, Normal, nullptr) \
+    v(Unsigned, maximumFunctionForConstructInlineCandidateBytecoodeCost, 80, Normal, nullptr) \
     \
     v(Unsigned, maximumFTLCandidateBytecodeCost, 20000, Normal, nullptr) \
     \
@@ -536,6 +536,7 @@ bool canUseWebAssemblyFastMemory();
     v(Bool, useDataICSharing, false, Normal, nullptr) \
     v(Bool, useLLIntICs, true, Normal, "Use property and call ICs in LLInt code.") \
     v(Bool, useBaselineJITCodeSharing, is64Bit(), Normal, nullptr) \
+    v(Bool, libpasScavengeContinuously, false, Normal, nullptr) \
     \
     /* Feature Flags */\
     \

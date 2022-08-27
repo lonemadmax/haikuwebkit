@@ -4391,7 +4391,6 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
     }
 
     String draggingPasteboardName = draggingInfo.draggingPasteboard.name;
-    m_page->grantAccessToCurrentPasteboardData(draggingPasteboardName);
     m_page->performDragOperation(*dragData, draggingPasteboardName, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
 
     return true;
@@ -4443,13 +4442,14 @@ void WebViewImpl::writeToURLForFilePromiseProvider(NSFilePromiseProvider *provid
     }
 
     WKPromisedAttachmentContext *info = (WKPromisedAttachmentContext *)userInfo;
-    auto attachment = m_page->attachmentForIdentifier(info.attachmentIdentifier);
-    if (NSFileWrapper *fileWrapper = attachment ? attachment->fileWrapper() : nil) {
+    if (auto attachment = m_page->attachmentForIdentifier(info.attachmentIdentifier)) {
         NSError *attachmentWritingError = nil;
-        if ([fileWrapper writeToURL:fileURL options:0 originalContentsURL:nil error:&attachmentWritingError])
-            completionHandler(nil);
-        else
-            completionHandler(attachmentWritingError);
+        attachment->doWithFileWrapper([&](NSFileWrapper *fileWrapper) {
+            if ([fileWrapper writeToURL:fileURL options:0 originalContentsURL:nil error:&attachmentWritingError])
+                completionHandler(nil);
+            else
+                completionHandler(attachmentWritingError);
+        });
         return;
     }
 
@@ -4817,10 +4817,7 @@ RefPtr<ViewSnapshot> WebViewImpl::takeViewSnapshot()
     if (!surface)
         return nullptr;
 
-    auto snapshot = ViewSnapshot::create(WTFMove(surface));
-    snapshot->setVolatile(true);
-
-    return WTFMove(snapshot);
+    return ViewSnapshot::create(WTFMove(surface));
 }
 
 void WebViewImpl::saveBackForwardSnapshotForCurrentItem()
@@ -5585,11 +5582,17 @@ void WebViewImpl::nativeMouseEventHandlerInternal(NSEvent *event)
 
 void WebViewImpl::mouseEntered(NSEvent *event)
 {
+    if (m_ignoresMouseMoveEvents)
+        return;
+
     nativeMouseEventHandler(event);
 }
 
 void WebViewImpl::mouseExited(NSEvent *event)
 {
+    if (m_ignoresMouseMoveEvents)
+        return;
+
     nativeMouseEventHandler(event);
 }
 
@@ -5645,7 +5648,7 @@ void WebViewImpl::mouseDraggedInternal(NSEvent *event)
 
 void WebViewImpl::mouseMoved(NSEvent *event)
 {
-    if (m_ignoresNonWheelEvents)
+    if (m_ignoresNonWheelEvents || m_ignoresMouseMoveEvents)
         return;
 
 #if ENABLE(UI_PROCESS_PDF_HUD)

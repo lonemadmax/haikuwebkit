@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -372,6 +372,17 @@ public:
             return false;
 
         return shouldSpeculateInt52ForAdd(left) && shouldSpeculateInt52ForAdd(right);
+    }
+
+    bool divShouldSpeculateInt32(Node* node, PredictionPass pass)
+    {
+        // Even if inputs are Int32, div can generate NaN or Infinity.
+        // Thus, Overflow in div can be caused by these non integer values as well as actual Int32 overflow.
+        Node* left = node->child1().node();
+        Node* right = node->child2().node();
+
+        return Node::shouldSpeculateInt32OrBooleanForArithmetic(left, right)
+            && nodeCanSpeculateInt32ForDiv(node->arithNodeFlags(), node->sourceFor(pass));
     }
     
     bool binaryArithShouldSpeculateInt32(Node* node, PredictionPass pass)
@@ -1088,8 +1099,8 @@ public:
     StackCheck m_stackChecker;
     VM& m_vm;
     Plan& m_plan;
-    CodeBlock* m_codeBlock;
-    CodeBlock* m_profiledBlock;
+    CodeBlock* const m_codeBlock;
+    CodeBlock* const m_profiledBlock;
 
     Vector<RefPtr<BasicBlock>, 8> m_blocks;
     Vector<BasicBlock*, 1> m_roots;

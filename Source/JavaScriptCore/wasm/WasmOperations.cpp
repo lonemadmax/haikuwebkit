@@ -97,7 +97,7 @@ static void triggerOMGReplacementCompile(TierUpCount& tierUp, OMGCallee* replace
     if (compile) {
         dataLogLnIf(Options::verboseOSR(), "triggerOMGReplacement for ", functionIndex);
         // We need to compile the code.
-        Ref<Plan> plan = adoptRef(*new OMGPlan(instance->context(), Ref<Wasm::Module>(instance->module()), functionIndex, hasExceptionHandlers, calleeGroup.mode(), Plan::dontFinalize()));
+        Ref<Plan> plan = adoptRef(*new OMGPlan(instance->vm(), Ref<Wasm::Module>(instance->module()), functionIndex, hasExceptionHandlers, calleeGroup.mode(), Plan::dontFinalize()));
         ensureWorklist().enqueue(plan.copyRef());
         if (UNLIKELY(!Options::useConcurrentJIT()))
             plan->waitForCompletion();
@@ -165,7 +165,7 @@ static void doOSREntry(Instance* instance, Probe::Context& context, BBQCallee& c
 
     RELEASE_ASSERT(osrEntryCallee.osrEntryScratchBufferSize() == osrEntryData.values().size());
 
-    uint64_t* buffer = instance->context()->scratchBufferForSize(osrEntryCallee.osrEntryScratchBufferSize());
+    uint64_t* buffer = instance->vm().wasmContext.scratchBufferForSize(osrEntryCallee.osrEntryScratchBufferSize());
     if (!buffer)
         return returnWithoutOSREntry();
 
@@ -397,7 +397,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
 
     if (startOSREntryCompilation) {
         dataLogLnIf(Options::verboseOSR(), "triggerOMGOSR for ", functionIndex);
-        Ref<Plan> plan = adoptRef(*new OSREntryPlan(instance->context(), Ref<Wasm::Module>(instance->module()), Ref<Wasm::BBQCallee>(callee), functionIndex, callee.hasExceptionHandlers(), loopIndex, calleeGroup.mode(), Plan::dontFinalize()));
+        Ref<Plan> plan = adoptRef(*new OSREntryPlan(instance->vm(), Ref<Wasm::Module>(instance->module()), Ref<Wasm::BBQCallee>(callee), functionIndex, callee.hasExceptionHandlers(), loopIndex, calleeGroup.mode(), Plan::dontFinalize()));
         ensureWorklist().enqueue(plan.copyRef());
         if (UNLIKELY(!Options::useConcurrentJIT()))
             plan->waitForCompletion();
@@ -654,13 +654,14 @@ JSC_DEFINE_JIT_OPERATION(operationGrowMemory, int32_t, (void* callFrame, Instanc
     if (delta < 0)
         return -1;
 
-    auto grown = instance->memory()->grow(PageCount(delta));
+    auto grown = instance->memory()->grow(instance->vm(), PageCount(delta));
     if (!grown) {
         switch (grown.error()) {
         case Memory::GrowFailReason::InvalidDelta:
         case Memory::GrowFailReason::InvalidGrowSize:
         case Memory::GrowFailReason::WouldExceedMaximum:
         case Memory::GrowFailReason::OutOfMemory:
+        case Memory::GrowFailReason::GrowSharedUnavailable:
             return -1;
         }
         RELEASE_ASSERT_NOT_REACHED();
@@ -826,12 +827,6 @@ JSC_DEFINE_JIT_OPERATION(operationWasmRefFunc, EncodedJSValue, (Instance* instan
     JSValue value = instance->getFunctionWrapper(index);
     ASSERT(value.isCallable());
     return JSValue::encode(value);
-}
-
-JSC_DEFINE_JIT_OPERATION(operationWasmRttCanon, EncodedJSValue, (Instance*, uint32_t))
-{
-    // FIXME: We don't need real RTT values right now, so let's use jsNull.
-    return JSValue::encode(jsNull());
 }
 
 JSC_DEFINE_JIT_OPERATION(operationGetWasmTableSize, int32_t, (Instance* instance, unsigned tableIndex))

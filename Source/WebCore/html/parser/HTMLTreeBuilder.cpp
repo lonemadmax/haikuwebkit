@@ -1417,14 +1417,23 @@ void HTMLTreeBuilder::processAnyOtherEndTagForInBody(AtomHTMLToken&& token)
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#parsing-main-inbody
 void HTMLTreeBuilder::callTheAdoptionAgency(AtomHTMLToken& token)
 {
-    // The adoption agency algorithm is N^2. We limit the number of iterations
-    // to stop from hanging the whole browser. This limit is specified in the
-    // adoption agency algorithm: 
-    // http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#parsing-main-inbody
+    // The adoption agency algorithm is N^2. We limit the number of iterations to stop from hanging the whole browser.
+    // This limit is specified in the adoption agency algorithm:
+    // https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm
     static const int outerIterationLimit = 8;
     static const int innerIterationLimit = 3;
 
-    // 1, 2, 3 and 16 are covered by the for() loop.
+    // 2. If the current node is an HTML element whose tag name is subject,
+    // and the current node is not in the list of active formatting elements,
+    // then pop the current node off the stack of open elements and return.
+    if (!m_tree.isEmpty() && m_tree.currentStackItem().isElement()
+        && m_tree.currentElement().hasLocalName(token.name())
+        && !m_tree.activeFormattingElements().contains(m_tree.currentElement())) {
+        m_tree.openElements().pop();
+        return;
+    }
+
+    // 4 is covered by the for() loop.
     for (int i = 0; i < outerIterationLimit; ++i) {
         // 4.
         RefPtr<Element> formattingElement = m_tree.activeFormattingElements().closestElementInScopeWithName(token.name());
@@ -2797,6 +2806,12 @@ void HTMLTreeBuilder::processTokenInForeignContent(AtomHTMLToken&& token)
             if (scriptingContentIsAllowed(m_tree.parserContentPolicy()))
                 m_scriptToProcess = &downcast<SVGScriptElement>(m_tree.currentElement());
             m_tree.openElements().pop();
+            return;
+        }
+        if (token.name() == brTag || token.name() == pTag) {
+            parseError(token);
+            m_tree.openElements().popUntilForeignContentScopeMarker();
+            processEndTag(WTFMove(token));
             return;
         }
         if (!isInHTMLNamespace(m_tree.currentStackItem())) {

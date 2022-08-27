@@ -52,6 +52,11 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGModelObject);
 
+RenderSVGModelObject::RenderSVGModelObject(Document& document, RenderStyle&& style)
+    : RenderLayerModelObject(document, WTFMove(style), 0)
+{
+}
+
 RenderSVGModelObject::RenderSVGModelObject(SVGElement& element, RenderStyle&& style)
     : RenderLayerModelObject(element, WTFMove(style), 0)
 {
@@ -61,7 +66,7 @@ void RenderSVGModelObject::updateFromStyle()
 {
     RenderLayerModelObject::updateFromStyle();
 
-    if (is<SVGGraphicsElement>(element()))
+    if (!isAnonymous() && is<SVGGraphicsElement>(element()))
         updateHasSVGTransformFlags(downcast<SVGGraphicsElement>(element()));
 }
 
@@ -162,7 +167,7 @@ void RenderSVGModelObject::styleDidChange(StyleDifference diff, const RenderStyl
     if (hasSVGMask && hasLayer() && style().visibility() != Visibility::Visible)
         layer()->setHasVisibleContent();
 
-    SVGResourcesCache::clientStyleChanged(*this, diff, style());
+    SVGResourcesCache::clientStyleChanged(*this, diff, oldStyle, style());
 }
 
 void RenderSVGModelObject::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode> mode, TransformState& transformState) const

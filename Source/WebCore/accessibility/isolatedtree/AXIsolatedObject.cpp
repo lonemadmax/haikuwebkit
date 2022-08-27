@@ -137,7 +137,6 @@ void AXIsolatedObject::initializeProperties(Ref<AXCoreObject> coreObject, IsRoot
     setProperty(AXPropertyName::IsUnorderedList, object.isUnorderedList());
     setProperty(AXPropertyName::IsUnvisited, object.isUnvisited());
     setProperty(AXPropertyName::IsValueAutofillAvailable, object.isValueAutofillAvailable());
-    setProperty(AXPropertyName::IsValueAutofilled, object.isValueAutofilled());
     setProperty(AXPropertyName::IsVisible, object.isVisible());
     setProperty(AXPropertyName::IsVisited, object.isVisited());
     setProperty(AXPropertyName::RoleDescription, object.roleDescription().isolatedCopy());
@@ -1239,11 +1238,15 @@ bool AXIsolatedObject::replaceTextInRange(const String& replacementText, const P
 
 bool AXIsolatedObject::insertText(const String& text)
 {
-    return Accessibility::retrieveValueFromMainThread<bool>([text = text.isolatedCopy(), this] () -> bool {
+    AXTRACE(makeString("AXIsolatedObject::insertText text = ", text));
+
+    // Dispatch to the main thread without waiting since AXObject::insertText waits for the UI process that can be waiting resulting in a deadlock. That is the case when running LayoutTests.
+    // The return value of insertText is not used, so not waiting does not result in any loss of functionality.
+    callOnMainThread([text = text.isolatedCopy(), this] () {
         if (auto* axObject = associatedAXObject())
-            return axObject->insertText(text);
-        return false;
+            axObject->insertText(text);
     });
+    return true;
 }
 
 void AXIsolatedObject::makeRangeVisible(const PlainTextRange& axRange)

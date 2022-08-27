@@ -75,6 +75,7 @@ class CertificateInfo;
 class RegistrableDomain;
 class SecurityOrigin;
 class LocalWebLockRegistry;
+class PrivateClickMeasurement;
 
 struct MockWebAuthenticationConfiguration;
 struct NotificationData;
@@ -153,16 +154,16 @@ public:
     void isResourceLoadStatisticsEphemeral(CompletionHandler<void(bool)>&&) const;
 
     void setPrivateClickMeasurementDebugMode(bool);
+    void storePrivateClickMeasurement(const WebCore::PrivateClickMeasurement&);
 
     uint64_t perOriginStorageQuota() const { return m_resolvedConfiguration->perOriginStorageQuota(); }
     uint64_t perThirdPartyOriginStorageQuota() const;
-    const String& cacheStorageDirectory() const { return m_resolvedConfiguration->cacheStorageDirectory(); }
 
 #if PLATFORM(IOS_FAMILY)
-    String cookieStorageDirectory() const;
-    String containerCachesDirectory() const;
-    String containerTemporaryDirectory() const;
-    static String defaultContainerTemporaryDirectory();
+    String resolvedCookieStorageDirectory();
+    String resolvedContainerCachesWebContentDirectory();
+    String resolvedContainerTemporaryDirectory();
+    static String defaultResolvedContainerTemporaryDirectory();
     static String cacheDirectoryInContainerOrHomeDirectory(const String& subpath);
 #endif
 
@@ -209,6 +210,7 @@ public:
     void mergeStatisticForTesting(const URL&, const URL& topFrameUrl1, const URL& topFrameUrl2, Seconds lastSeen, bool hadUserInteraction, Seconds mostRecentUserInteraction, bool isGrandfathered, bool isPrevalent, bool isVeryPrevalent, unsigned dataRecordsRemoved, CompletionHandler<void()>&&);
     void insertExpiredStatisticForTesting(const URL&, unsigned numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
     void setNotifyPagesWhenDataRecordsWereScanned(bool, CompletionHandler<void()>&&);
+    void setResourceLoadStatisticsTimeAdvanceForTesting(Seconds, CompletionHandler<void()>&&);
     void setIsRunningResourceLoadStatisticsTest(bool, CompletionHandler<void()>&&);
     void setPruneEntriesDownTo(size_t, CompletionHandler<void()>&&);
     void setSubframeUnderTopFrameDomain(const URL& subframe, const URL& topFrame, CompletionHandler<void()>&&);
@@ -250,6 +252,7 @@ public:
     void resetCacheMaxAgeCapForPrevalentResources(CompletionHandler<void()>&&);
     void resolveDirectoriesIfNecessary();
     const String& applicationCacheFlatFileSubdirectoryName() const { return m_configuration->applicationCacheFlatFileSubdirectoryName(); }
+    const String& resolvedCacheStorageDirectory() const { return m_resolvedConfiguration->cacheStorageDirectory(); }
     const String& resolvedApplicationCacheDirectory() const { return m_resolvedConfiguration->applicationCacheDirectory(); }
     const String& resolvedLocalStorageDirectory() const { return m_resolvedConfiguration->localStorageDirectory(); }
     const String& resolvedNetworkCacheDirectory() const { return m_resolvedConfiguration->networkCacheDirectory(); }
@@ -261,6 +264,7 @@ public:
     const String& resolvedIndexedDBDatabaseDirectory() const { return m_resolvedConfiguration->indexedDBDatabaseDirectory(); }
     const String& resolvedServiceWorkerRegistrationDirectory() const { return m_resolvedConfiguration->serviceWorkerRegistrationDirectory(); }
     const String& resolvedResourceLoadStatisticsDirectory() const { return m_resolvedConfiguration->resourceLoadStatisticsDirectory(); }
+    const String& resolvedPrivateClickMeasurementStorageDirectory() const { return m_resolvedConfiguration->privateClickMeasurementStorageDirectory(); }
     const String& resolvedHSTSStorageDirectory() const { return m_resolvedConfiguration->hstsStorageDirectory(); }
     const String& resolvedGeneralStorageDirectory() const { return m_resolvedConfiguration->generalStorageDirectory(); }
 #if ENABLE(ARKIT_INLINE_PREVIEW)
@@ -357,12 +361,14 @@ public:
     static WTF::String defaultMediaKeysStorageDirectory();
     static WTF::String defaultDeviceIdHashSaltsStorageDirectory();
     static WTF::String defaultJavaScriptConfigurationDirectory();
-    static bool http3Enabled();
     static constexpr uint64_t defaultPerOriginQuota() { return 1000 * MB; }
     static bool defaultShouldUseCustomStoragePaths();
 
     void resetQuota(CompletionHandler<void()>&&);
     void clearStorage(CompletionHandler<void()>&&);
+#if PLATFORM(IOS_FAMILY)
+    void setBackupExclusionPeriodForTesting(Seconds, CompletionHandler<void()>&&);
+#endif
 
 #if ENABLE(APP_BOUND_DOMAINS)
     void hasAppBoundSession(CompletionHandler<void(bool)>&&) const;
@@ -386,6 +392,10 @@ public:
 
     void openWindowFromServiceWorker(const String& urlString, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(std::optional<WebCore::PageIdentifier>)>&&);
 
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+    void setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit);
+#endif
+
 private:
     enum class ForceReinitialization : bool { No, Yes };
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -407,6 +417,7 @@ private:
     static String tempDirectoryFileSystemRepresentation(const String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
     static String cacheDirectoryFileSystemRepresentation(const String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
     static String websiteDataDirectoryFileSystemRepresentation(const String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
+    void createHandleFromResolvedPathIfPossible(const String& resolvedPath, SandboxExtension::Handle&, SandboxExtension::Type = SandboxExtension::Type::ReadWrite);
 
     HashSet<RefPtr<WebProcessPool>> processPools(size_t limit = std::numeric_limits<size_t>::max()) const;
 
@@ -427,7 +438,7 @@ private:
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    String networkingCachesDirectory() const;
+    String resolvedContainerCachesNetworkingDirectory();
     String parentBundleDirectory() const;
 #endif
 
@@ -437,6 +448,12 @@ private:
     Ref<const WebsiteDataStoreConfiguration> m_configuration;
     bool m_hasResolvedDirectories { false };
     const Ref<DeviceIdHashSaltStorage> m_deviceIdHashSaltStorage;
+#if PLATFORM(IOS_FAMILY)
+    String m_resolvedContainerCachesWebContentDirectory;
+    String m_resolvedContainerCachesNetworkingDirectory;
+    String m_resolvedContainerTemporaryDirectory;
+    String m_resolvedCookieStorageDirectory;
+#endif
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     bool m_resourceLoadStatisticsDebugMode { false };

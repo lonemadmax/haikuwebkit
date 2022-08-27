@@ -77,6 +77,7 @@
 #include <WebCore/IntSizeHash.h>
 #include <WebCore/MediaControlsContextMenuItem.h>
 #include <WebCore/MediaKeySystemRequest.h>
+#include <WebCore/NotificationController.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/PageOverlay.h>
@@ -670,6 +671,7 @@ public:
 #endif
 
     void didUpdateRendering();
+    void didPaintLayers();
 
     // A "platform rendering update" here describes the work done by the system graphics framework before work is submitted to the system compositor.
     // On macOS, this is a CoreAnimation commit.
@@ -857,6 +859,7 @@ public:
 
     void updateSelectionWithDelta(int64_t locationDelta, int64_t lengthDelta, CompletionHandler<void()>&&);
     void requestDocumentEditingContext(WebKit::DocumentEditingContextRequest, CompletionHandler<void(WebKit::DocumentEditingContext)>&&);
+    bool shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection);
 #endif
 
     void willChangeSelectionForAccessibility() { m_isChangingSelectionForAccessibility = true; }
@@ -987,7 +990,7 @@ public:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    void replaceImageWithMarkupResults(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
+    void replaceImageForRemoveBackground(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
 #endif
 
     void setCompositionForTesting(const String& compositionString, uint64_t from, uint64_t length, bool suppressUnderline, const Vector<WebCore::CompositionHighlight>&);
@@ -1363,7 +1366,7 @@ public:
     template<typename T>
     SendSyncResult sendSyncWithDelayedReply(T&& message, typename T::Reply&& reply, OptionSet<IPC::SendSyncOption> sendSyncOptions = { })
     {
-        cancelGesturesBlockedOnSynchronousReplies();
+        cancelCurrentInteractionInformationRequest();
         sendSyncOptions = sendSyncOptions | IPC::SendSyncOption::InformPlatformProcessWillSuspend;
         return sendSync(WTFMove(message), WTFMove(reply), Seconds::infinity(), sendSyncOptions);
     }
@@ -1555,6 +1558,10 @@ private:
     WebPage(WebCore::PageIdentifier, WebPageCreationParameters&&);
 
     void updateThrottleState();
+
+#if ENABLE(NOTIFICATIONS)
+    void clearNotificationPermissionState();
+#endif
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
@@ -1835,6 +1842,8 @@ private:
     void didEndTextSearchOperation();
 
     void requestRectForFoundTextRange(const WebFoundTextRange&, CompletionHandler<void(WebCore::FloatRect)>&&);
+    void addLayerForFindOverlay(CompletionHandler<void(WebCore::GraphicsLayer::PlatformLayerID)>&&);
+    void removeLayerForFindOverlay(CompletionHandler<void()>&&);
 
 #if USE(COORDINATED_GRAPHICS)
     void sendViewportAttributesChanged(const WebCore::ViewportArguments&);
@@ -1993,7 +2002,7 @@ private:
 
     bool canShowMIMEType(const String&, const Function<bool(const String&, WebCore::PluginData::AllowedPluginTypes)>& supportsPlugin) const;
 
-    void cancelGesturesBlockedOnSynchronousReplies();
+    void cancelCurrentInteractionInformationRequest();
 
     bool shouldDispatchUpdateAfterFocusingElement(const WebCore::Element&) const;
 
@@ -2297,10 +2306,6 @@ private:
     };
     PendingEditorStateUpdateStatus m_pendingEditorStateUpdateStatus { PendingEditorStateUpdateStatus::NotScheduled };
 
-#if ENABLE(IOS_TOUCH_EVENTS)
-    CompletionHandler<void(bool)> m_pendingSynchronousTouchEventReply;
-#endif
-
 #if ENABLE(META_VIEWPORT)
     WebCore::ViewportConfiguration m_viewportConfiguration;
     bool m_useTestingViewportConfiguration { false };
@@ -2313,6 +2318,8 @@ private:
     WebCore::IntPoint m_lastInteractionLocation;
 
     bool m_isShowingInputViewForFocusedElement { false };
+    bool m_wasShowingInputViewForFocusedElementDuringLastPotentialTap { false };
+    bool m_completingSyntheticClick { false };
     bool m_hasHandledSyntheticClick { false };
     
     enum SelectionAnchor { Start, End };
@@ -2498,7 +2505,7 @@ private:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    WeakHashSet<WebCore::HTMLImageElement> m_elementsToExcludeFromMarkup;
+    WeakHashSet<WebCore::HTMLImageElement> m_elementsToExcludeFromRemoveBackground;
 #endif
 };
 

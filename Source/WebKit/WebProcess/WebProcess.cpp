@@ -595,10 +595,6 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 #endif
     SharedWorkerProvider::setSharedProvider(WebSharedWorkerProvider::singleton());
 
-#if ENABLE(WEBASSEMBLY)
-    JSC::Wasm::enableFastMemory();
-#endif
-
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     WebResourceLoadObserver::setShouldLogUserInteraction(parameters.shouldLogUserInteraction);
 #endif
@@ -1154,7 +1150,7 @@ static NetworkProcessConnectionInfo getNetworkProcessConnection(IPC::Connection&
         return IPC::Connection::identifierIsValid(connectionInfo.identifier());
     };
 
-    static constexpr unsigned maxFailedAttempts = 10;
+    static constexpr unsigned maxFailedAttempts = 30;
     unsigned failedAttempts = 0;
     while (!requestConnection()) {
         if (++failedAttempts >= maxFailedAttempts)

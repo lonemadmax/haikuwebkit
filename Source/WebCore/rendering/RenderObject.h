@@ -31,6 +31,7 @@
 #include "Frame.h"
 #include "FrameDestructionObserverInlines.h"
 #include "HTMLNames.h"
+#include "InspectorInstrumentationPublic.h"
 #include "LayoutRect.h"
 #include "Page.h"
 #include "RenderObjectEnums.h"
@@ -155,9 +156,6 @@ public:
 #endif
 
     WEBCORE_EXPORT RenderLayer* enclosingLayer() const;
-
-    // Scrolling is a RenderBox concept, however some code just cares about recursively scrolling our enclosing ScrollableArea(s).
-    WEBCORE_EXPORT bool scrollRectToVisible(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&);
 
     WEBCORE_EXPORT RenderBox& enclosingBox() const;
     RenderBoxModelObject& enclosingBoxModelObject() const;
@@ -332,6 +330,7 @@ public:
     virtual bool isSVGTransformableContainer() const { return false; }
     virtual bool isLegacySVGTransformableContainer() const { return false; }
     virtual bool isSVGViewportContainer() const { return false; }
+    virtual bool isLegacySVGViewportContainer() const { return false; }
     virtual bool isSVGGradientStop() const { return false; }
     virtual bool isSVGHiddenContainer() const { return false; }
     virtual bool isLegacySVGPath() const { return false; }
@@ -474,7 +473,7 @@ public:
 
     bool hasTransformRelatedProperty() const { return m_bitfields.hasTransformRelatedProperty(); } // Transform, perspective or transform-style: preserve-3d.
     bool hasTransform() const { return hasTransformRelatedProperty() && (style().hasTransform() || style().translate() || style().scale() || style().rotate() || hasSVGTransform()); }
-    bool hasTransformOrPespective() const { return hasTransformRelatedProperty() && (hasTransform() || style().hasPerspective()); }
+    bool hasTransformOrPerspective() const { return hasTransformRelatedProperty() && (hasTransform() || style().hasPerspective()); }
 
     inline bool preservesNewline() const;
 
@@ -1206,6 +1205,9 @@ inline RenderObject::SetLayoutNeededForbiddenScope::SetLayoutNeededForbiddenScop
 inline void Node::setRenderer(RenderObject* renderer)
 {
     m_rendererWithStyleFlags.setPointer(renderer);
+
+    if (UNLIKELY(InspectorInstrumentationPublic::hasFrontends()))
+        notifyInspectorOfRendererChange();
 }
 
 inline RenderObject* RenderObject::previousInFlowSibling() const
@@ -1239,6 +1241,7 @@ inline bool RenderObject::hasPotentiallyScrollableOverflow() const
 WTF::TextStream& operator<<(WTF::TextStream&, const RenderObject&);
 
 #if ENABLE(TREE_DEBUGGING)
+void printPaintOrderTreeForLiveDocuments();
 void printRenderTreeForLiveDocuments();
 void printLayerTreeForLiveDocuments();
 void printGraphicsLayerTreeForLiveDocuments();

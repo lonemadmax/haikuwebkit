@@ -215,7 +215,7 @@ void HTMLElement::collectPresentationalHintsForAttribute(const QualifiedName& na
         if (equalLettersIgnoringASCIICase(value, "true"_s)) {
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueElement);
             if (!isDraggableIgnoringAttributes())
-                addPropertyToPresentationalHintStyle(style, CSSPropertyUserSelect, CSSValueNone);
+                addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserSelect, CSSValueNone);
         } else if (equalLettersIgnoringASCIICase(value, "false"_s))
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueNone);
     } else if (name == dirAttr) {
@@ -511,9 +511,29 @@ void HTMLElement::applyAspectRatioFromWidthAndHeightAttributesToStyle(StringView
     if (!dimensionHeight || dimensionHeight->type != HTMLDimension::Type::Pixel)
         return;
 
+    addParsedWidthAndHeightToAspectRatioList(dimensionWidth->number, dimensionHeight->number, style);
+}
+
+void HTMLElement::applyAspectRatioWithoutDimensionalRulesFromWidthAndHeightAttributesToStyle(StringView widthAttribute, StringView heightAttribute, MutableStyleProperties& style)
+{
+    if (!document().settings().aspectRatioOfImgFromWidthAndHeightEnabled())
+        return;
+
+    auto dimensionWidth = parseHTMLNonNegativeInteger(widthAttribute);
+    if (!dimensionWidth)
+        return;
+    auto dimensionHeight = parseHTMLNonNegativeInteger(heightAttribute);
+    if (!dimensionHeight)
+        return;
+
+    addParsedWidthAndHeightToAspectRatioList(dimensionWidth.value(), dimensionHeight.value(), style);
+}
+
+void HTMLElement::addParsedWidthAndHeightToAspectRatioList(double width, double height, MutableStyleProperties& style)
+{
     auto ratioList = CSSValueList::createSlashSeparated();
-    ratioList->append(CSSValuePool::singleton().createValue(dimensionWidth->number, CSSUnitType::CSS_NUMBER));
-    ratioList->append(CSSValuePool::singleton().createValue(dimensionHeight->number, CSSUnitType::CSS_NUMBER));
+    ratioList->append(CSSValuePool::singleton().createValue(width, CSSUnitType::CSS_NUMBER));
+    ratioList->append(CSSValuePool::singleton().createValue(height, CSSUnitType::CSS_NUMBER));
     auto list = CSSValueList::createSpaceSeparated();
     list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueAuto));
     list->append(ratioList);
@@ -752,10 +772,38 @@ void HTMLElement::childrenChanged(const ChildChange& change)
     adjustDirectionalityIfNeededAfterChildrenChanged(change.previousSiblingElement, change.type);
 }
 
+static bool isValidDirValue(const AtomString& direction)
+{
+    return equalLettersIgnoringASCIICase(direction, "ltr"_s)
+        || equalLettersIgnoringASCIICase(direction, "rtl"_s)
+        || equalLettersIgnoringASCIICase(direction, "auto"_s);
+}
+
 bool HTMLElement::hasDirectionAuto() const
 {
     const AtomString& direction = attributeWithoutSynchronization(dirAttr);
-    return (hasTagName(bdiTag) && direction.isNull()) || equalLettersIgnoringASCIICase(direction, "auto"_s);
+    return (hasTagName(bdiTag) && !isValidDirValue(direction)) || equalLettersIgnoringASCIICase(direction, "auto"_s);
+}
+
+// FIXME: Cache directionality.
+TextDirection HTMLElement::computeDirectionality() const
+{
+    if (auto* inputElement = dynamicDowncast<HTMLInputElement>(const_cast<HTMLElement*>(this))) {
+        auto direction = inputElement->attributeWithoutSynchronization(dirAttr);
+        if (inputElement->isTelephoneField() && !isValidDirValue(direction))
+            return TextDirection::LTR;
+    }
+    for (const Element* element = this; element; element = const_cast<Element*>(element)->parentOrShadowHostElement()) {
+        auto direction = element->attributeWithoutSynchronization(dirAttr);
+        if ((element->hasTagName(bdiTag) && !isValidDirValue(direction)) || equalLettersIgnoringASCIICase(direction, "auto"_s))
+            return directionality();
+
+        if (equalLettersIgnoringASCIICase(direction, "ltr"_s))
+            return TextDirection::LTR;
+        if (equalLettersIgnoringASCIICase(direction, "rtl"_s))
+            return TextDirection::RTL;
+    }
+    return TextDirection::LTR;
 }
 
 TextDirection HTMLElement::directionalityIfhasDirAutoAttribute(bool& isAuto) const
@@ -771,13 +819,15 @@ TextDirection HTMLElement::directionalityIfhasDirAutoAttribute(bool& isAuto) con
 
 TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) const
 {
-    if (isTextField()) {
-        HTMLTextFormControlElement& textElement = downcast<HTMLTextFormControlElement>(const_cast<HTMLElement&>(*this));
-        bool hasStrongDirectionality;
-        UCharDirection textDirection = textElement.value().defaultWritingDirection(&hasStrongDirectionality);
-        if (strongDirectionalityTextNode)
-            *strongDirectionalityTextNode = hasStrongDirectionality ? &textElement : nullptr;
-        return (textDirection == U_LEFT_TO_RIGHT) ? TextDirection::LTR : TextDirection::RTL;
+    if (auto* textControl = dynamicDowncast<HTMLTextFormControlElement>(const_cast<HTMLElement*>(this))) {
+        auto* inputElement = dynamicDowncast<HTMLInputElement>(textControl);
+        if (!inputElement || (inputElement->isTextType() && !inputElement->isPasswordField())) {
+            bool hasStrongDirectionality;
+            UCharDirection textDirection = textControl->value().defaultWritingDirection(&hasStrongDirectionality);
+            if (strongDirectionalityTextNode)
+                *strongDirectionalityTextNode = hasStrongDirectionality ? textControl : nullptr;
+            return (textDirection == U_LEFT_TO_RIGHT) ? TextDirection::LTR : TextDirection::RTL;            
+        }
     }
 
     RefPtr<Node> node = firstChild();
@@ -916,7 +966,7 @@ void HTMLElement::addHTMLNumberToStyle(MutableStyleProperties& style, CSSPropert
 
 // Color parsing that matches HTML's "rules for parsing a legacy color value"
 // https://html.spec.whatwg.org/#rules-for-parsing-a-legacy-colour-value
-static std::optional<SRGBA<uint8_t>> parseLegacyColorValue(StringView string)
+std::optional<SRGBA<uint8_t>> HTMLElement::parseLegacyColorValue(StringView string)
 {
     // An empty string doesn't apply a color.
     if (string.isEmpty())
@@ -989,7 +1039,7 @@ static std::optional<SRGBA<uint8_t>> parseLegacyColorValue(StringView string)
     return { { redValue, greenValue, blueValue } };
 }
 
-void HTMLElement::addHTMLColorToStyle(MutableStyleProperties& style, CSSPropertyID propertyID, const String& attributeValue)
+void HTMLElement::addHTMLColorToStyle(MutableStyleProperties& style, CSSPropertyID propertyID, const AtomString& attributeValue)
 {
     if (auto color = parseLegacyColorValue(attributeValue))
         style.setProperty(propertyID, CSSValuePool::singleton().createColorValue(*color));

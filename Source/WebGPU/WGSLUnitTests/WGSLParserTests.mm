@@ -27,12 +27,12 @@
 #import "Parser.h"
 
 #import "AssignmentStatement.h"
+#import "CallableExpression.h"
 #import "IdentifierExpression.h"
 #import "Lexer.h"
 #import "LiteralExpressions.h"
 #import "ReturnStatement.h"
 #import "StructureAccess.h"
-#import "TypeConversion.h"
 #import "WGSL.h"
 #import <XCTest/XCTest.h>
 #import <wtf/DataLog.h>
@@ -98,7 +98,7 @@
 
 - (void)testParsingFunctionDecl {
     auto shader = WGSL::parseLChar(
-        "@stage(compute)\n"
+        "@compute\n"
         "fn main() {\n"
         "    x.a = 42i;\n"
         "}"_s);
@@ -135,11 +135,11 @@
 
 - (void)testTrivialGraphicsShader {
     auto shader = WGSL::parseLChar(
-        "@stage(vertex)\n"
+        "@vertex\n"
         "fn vertexShader(@location(0) x: vec4<f32>) -> @builtin(position) vec4<f32> {\n"
         "    return x;\n"
         "}\n\n"
-        "@stage(fragment)\n"
+        "@fragment\n"
         "fn fragmentShader() -> @location(0) vec4<f32> {\n"
         "    return vec4<f32>(0.4, 0.4, 0.8, 1.0);\n"
         "}"_s);
@@ -196,14 +196,14 @@
         XCTAssert(func.body().statements()[0]->isReturn());
         WGSL::AST::ReturnStatement& stmt = downcast<WGSL::AST::ReturnStatement>(func.body().statements()[0].get());
         XCTAssert(stmt.maybeExpression());
-        XCTAssert(stmt.maybeExpression()->isTypeConversion());
-        WGSL::AST::TypeConversion& expr = downcast<WGSL::AST::TypeConversion>(*stmt.maybeExpression());
-        XCTAssert(expr.typeDecl()->isParameterized());
+        XCTAssert(stmt.maybeExpression()->isCallableExpression());
+        WGSL::AST::CallableExpression& expr = downcast<WGSL::AST::CallableExpression>(*stmt.maybeExpression());
+        XCTAssert(expr.target().isParameterized());
         XCTAssert(expr.arguments().size() == 4);
-        XCTAssert(expr.arguments()[0]->isFloat32Literal());
-        XCTAssert(expr.arguments()[1]->isFloat32Literal());
-        XCTAssert(expr.arguments()[2]->isFloat32Literal());
-        XCTAssert(expr.arguments()[3]->isFloat32Literal());
+        XCTAssert(expr.arguments()[0].get().isAbstractFloatLiteral());
+        XCTAssert(expr.arguments()[1].get().isAbstractFloatLiteral());
+        XCTAssert(expr.arguments()[2].get().isAbstractFloatLiteral());
+        XCTAssert(expr.arguments()[3].get().isAbstractFloatLiteral());
     }
 }
 

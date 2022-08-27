@@ -1,6 +1,10 @@
-ifeq ($(USE_WORKSPACE),YES)
+ifeq ($(MAKECMDGOALS),installsrc)
+USE_WORKSPACE = NO
+endif
 
-SCHEME = All Modules
+ifneq ($(USE_WORKSPACE),NO)
+
+SCHEME = Everything up to WebKit + Tools
 SCRIPTS_PATH = Tools/Scripts
 include Makefile.shared
 

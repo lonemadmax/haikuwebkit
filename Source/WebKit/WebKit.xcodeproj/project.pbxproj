@@ -434,6 +434,8 @@
 		2749F6442146561B008380BF /* InjectedBundleNodeHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC4BEEAA120A0A5F00FBA0C7 /* InjectedBundleNodeHandle.cpp */; };
 		2749F6452146561E008380BF /* InjectedBundleRangeHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC33E0D012408E8600360F3F /* InjectedBundleRangeHandle.cpp */; };
 		2794980522E80B7D0082E68C /* WKPageStateClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 2794980022E800BF0082E68C /* WKPageStateClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		27A2BDF728932C3200758E99 /* WKInternalDebugFeature.h in Headers */ = {isa = PBXBuildFile; fileRef = 27A2BDF528932C3100758E99 /* WKInternalDebugFeature.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		27A2BDFC28932C4200758E99 /* WKExperimentalFeature.h in Headers */ = {isa = PBXBuildFile; fileRef = 27A2BDFA28932C4200758E99 /* WKExperimentalFeature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		290F4272172A0C7400939FF0 /* AuxiliaryProcessSupplement.h in Headers */ = {isa = PBXBuildFile; fileRef = 290F4271172A0C7400939FF0 /* AuxiliaryProcessSupplement.h */; };
 		29232DF418B29D6800D0596F /* WKAccessibilityWebPageObjectMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 29232DF318B29D6800D0596F /* WKAccessibilityWebPageObjectMac.h */; };
 		293EBEAB1627D9C9005F89F1 /* WKDOMText.h in Headers */ = {isa = PBXBuildFile; fileRef = 293EBEA91627D9C9005F89F1 /* WKDOMText.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -601,6 +603,7 @@
 		2D3A65E31A7C3A9300CAC637 /* WKNavigationRef.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D3A65E11A7C3A9300CAC637 /* WKNavigationRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		2D3A65E71A7C3AA700CAC637 /* WKFrameInfoRef.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D3A65E51A7C3AA700CAC637 /* WKFrameInfoRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		2D3EF4431917646300034184 /* WebMemoryPressureHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D3EF4411917646300034184 /* WebMemoryPressureHandler.h */; };
+		2D478B91288F33A600F3B73A /* CGDisplayList.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D478B8F288F333500F3B73A /* CGDisplayList.h */; };
 		2D47B56D1810714E003A3AEE /* RemoteLayerBackingStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D47B56B1810714E003A3AEE /* RemoteLayerBackingStore.h */; };
 		2D4AF0892044C3C4006C8817 /* FrontBoardServicesSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D4AF0882044C3C4006C8817 /* FrontBoardServicesSPI.h */; };
 		2D4D2C811DF60BF3002EB10C /* InteractionInformationRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D4D2C7F1DF60BF3002EB10C /* InteractionInformationRequest.h */; };
@@ -1068,8 +1071,11 @@
 		5252A51927E048740094BEB9 /* VirtualHidConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = 5252A51727E048740094BEB9 /* VirtualHidConnection.h */; };
 		5252A51A27E048740094BEB9 /* VirtualHidConnection.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5252A51827E048740094BEB9 /* VirtualHidConnection.cpp */; };
 		52688AB427D7CE40003577A2 /* _WKResidentKeyRequirement.h in Headers */ = {isa = PBXBuildFile; fileRef = 52688AB327D7CE40003577A2 /* _WKResidentKeyRequirement.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		526C5722284ADCBC00E08955 /* CtapCcidDriver.h in Headers */ = {isa = PBXBuildFile; fileRef = 526C5720284ADCBC00E08955 /* CtapCcidDriver.h */; };
+		526C5723284ADCBC00E08955 /* CtapCcidDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 526C5721284ADCBC00E08955 /* CtapCcidDriver.cpp */; };
 		5272D4C91E735F0900EB4290 /* WKProtectionSpaceNS.h in Headers */ = {isa = PBXBuildFile; fileRef = 5272D4C71E735F0900EB4290 /* WKProtectionSpaceNS.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		528C37C1195CBB1A00D8B9CC /* WKBackForwardListPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A9F28101958F478008CAC72 /* WKBackForwardListPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52A69BEA286CFFAC00893E8F /* CryptoTokenKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52A69BE9286CFFAC00893E8F /* CryptoTokenKit.framework */; };
 		52C3C26528651F860005BE6E /* WKBrowsingContextHandlePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 52C3C26428651F860005BE6E /* WKBrowsingContextHandlePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52CDC5C42731DA0D00A3E3EB /* VirtualAuthenticatorConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = 52CDC5BD2731DA0C00A3E3EB /* VirtualAuthenticatorConfiguration.h */; };
 		52CDC5C52731DA0D00A3E3EB /* VirtualService.mm in Sources */ = {isa = PBXBuildFile; fileRef = 52CDC5BE2731DA0C00A3E3EB /* VirtualService.mm */; };
@@ -1810,7 +1816,6 @@
 		BCE469561214E6CB000B98EB /* WebFormSubmissionListenerProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = BCE469521214E6CB000B98EB /* WebFormSubmissionListenerProxy.h */; };
 		BCE4695A1214EDF4000B98EB /* WKFormSubmissionListener.h in Headers */ = {isa = PBXBuildFile; fileRef = BCE469581214EDF4000B98EB /* WKFormSubmissionListener.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCE579A62634836700F5C5E9 /* CGDisplayListImageBufferBackend.h in Headers */ = {isa = PBXBuildFile; fileRef = BCE579A42634836700F5C5E9 /* CGDisplayListImageBufferBackend.h */; };
-		BCE579A72634836700F5C5E9 /* CGDisplayListImageBufferBackend.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BCE579A52634836700F5C5E9 /* CGDisplayListImageBufferBackend.cpp */; };
 		BCE81D8D1319F7EF00241910 /* FontInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = BCE81D8B1319F7EF00241910 /* FontInfo.h */; };
 		BCEE7AD012817988009827DA /* WebProcessProxyMessageReceiver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BCEE7ACC12817988009827DA /* WebProcessProxyMessageReceiver.cpp */; };
 		BCEE7AD112817988009827DA /* WebProcessProxyMessages.h in Headers */ = {isa = PBXBuildFile; fileRef = BCEE7ACD12817988009827DA /* WebProcessProxyMessages.h */; };
@@ -3393,6 +3398,8 @@
 		1C56557C2745C5A0006300AF /* UnifiedSource101.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = UnifiedSource101.cpp; path = "DerivedSources/WebKit/unified-sources/UnifiedSource101.cpp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C56557D2745C5A1006300AF /* UnifiedSource102.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = UnifiedSource102.cpp; path = "DerivedSources/WebKit/unified-sources/UnifiedSource102.cpp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C56557E2745C5A1006300AF /* UnifiedSource103.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = UnifiedSource103.cpp; path = "DerivedSources/WebKit/unified-sources/UnifiedSource103.cpp"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C5A104E287BB1E90034FDA4 /* OverrideLanguages.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = OverrideLanguages.cpp; sourceTree = "<group>"; };
+		1C5A104F287BB1E90034FDA4 /* OverrideLanguages.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OverrideLanguages.h; sourceTree = "<group>"; };
 		1C739E852347BCF600C621EC /* CoreTextHelpers.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CoreTextHelpers.mm; sourceTree = "<group>"; };
 		1C739E872347BD0F00C621EC /* CoreTextHelpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CoreTextHelpers.h; sourceTree = "<group>"; };
 		1C77C1951288A872006A742F /* WebInspectorUIProxy.messages.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = WebInspectorUIProxy.messages.in; sourceTree = "<group>"; };
@@ -3771,6 +3778,10 @@
 		26F10BE719187E2E001D0E68 /* WKSyntheticTapGestureRecognizer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = WKSyntheticTapGestureRecognizer.mm; path = ios/WKSyntheticTapGestureRecognizer.mm; sourceTree = "<group>"; };
 		26F9A83A18A3463F00AEB88A /* WKWebViewPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WKWebViewPrivate.h; sourceTree = "<group>"; };
 		2794980022E800BF0082E68C /* WKPageStateClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKPageStateClient.h; sourceTree = "<group>"; };
+		27A2BDF528932C3100758E99 /* WKInternalDebugFeature.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKInternalDebugFeature.h; sourceTree = "<group>"; };
+		27A2BDF628932C3200758E99 /* WKInternalDebugFeature.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WKInternalDebugFeature.cpp; sourceTree = "<group>"; };
+		27A2BDF928932C4100758E99 /* WKExperimentalFeature.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WKExperimentalFeature.cpp; sourceTree = "<group>"; };
+		27A2BDFA28932C4200758E99 /* WKExperimentalFeature.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKExperimentalFeature.h; sourceTree = "<group>"; };
 		290F4271172A0C7400939FF0 /* AuxiliaryProcessSupplement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AuxiliaryProcessSupplement.h; sourceTree = "<group>"; };
 		29232DF118B29D1100D0596F /* WKAccessibilityWebPageObjectMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WKAccessibilityWebPageObjectMac.mm; sourceTree = "<group>"; };
 		29232DF318B29D6800D0596F /* WKAccessibilityWebPageObjectMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKAccessibilityWebPageObjectMac.h; sourceTree = "<group>"; };
@@ -3840,6 +3851,8 @@
 		2D429BFB1721E2BA00EC681F /* PDFPluginPasswordField.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = PDFPluginPasswordField.mm; path = PDF/PDFPluginPasswordField.mm; sourceTree = "<group>"; };
 		2D440B8225EF235E00A98D87 /* PDFKitSoftLink.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = PDFKitSoftLink.mm; sourceTree = "<group>"; };
 		2D440B8325EF235E00A98D87 /* PDFKitSoftLink.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PDFKitSoftLink.h; sourceTree = "<group>"; };
+		2D478B8F288F333500F3B73A /* CGDisplayList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CGDisplayList.h; sourceTree = "<group>"; };
+		2D478B90288F333500F3B73A /* CGDisplayList.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CGDisplayList.cpp; sourceTree = "<group>"; };
 		2D47B56A1810714E003A3AEE /* RemoteLayerBackingStore.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = RemoteLayerBackingStore.mm; sourceTree = "<group>"; };
 		2D47B56B1810714E003A3AEE /* RemoteLayerBackingStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RemoteLayerBackingStore.h; sourceTree = "<group>"; };
 		2D4AF0882044C3C4006C8817 /* FrontBoardServicesSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FrontBoardServicesSPI.h; sourceTree = "<group>"; };
@@ -4913,8 +4926,17 @@
 		5252A51727E048740094BEB9 /* VirtualHidConnection.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VirtualHidConnection.h; sourceTree = "<group>"; };
 		5252A51827E048740094BEB9 /* VirtualHidConnection.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = VirtualHidConnection.cpp; sourceTree = "<group>"; };
 		52688AB327D7CE40003577A2 /* _WKResidentKeyRequirement.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = _WKResidentKeyRequirement.h; path = UIProcess/API/Cocoa/_WKResidentKeyRequirement.h; sourceTree = "<group>"; };
+		526C5718284AD09500E08955 /* CcidConnection.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CcidConnection.h; sourceTree = "<group>"; };
+		526C5719284AD09500E08955 /* CcidConnection.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = CcidConnection.mm; sourceTree = "<group>"; };
+		526C571C284AD0C000E08955 /* CcidService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CcidService.h; sourceTree = "<group>"; };
+		526C571D284AD0C000E08955 /* CcidService.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = CcidService.mm; sourceTree = "<group>"; };
+		526C5720284ADCBC00E08955 /* CtapCcidDriver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CtapCcidDriver.h; sourceTree = "<group>"; };
+		526C5721284ADCBC00E08955 /* CtapCcidDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CtapCcidDriver.cpp; sourceTree = "<group>"; };
 		5272D4C71E735F0900EB4290 /* WKProtectionSpaceNS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WKProtectionSpaceNS.h; path = mac/WKProtectionSpaceNS.h; sourceTree = "<group>"; };
 		5272D4C81E735F0900EB4290 /* WKProtectionSpaceNS.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = WKProtectionSpaceNS.mm; path = mac/WKProtectionSpaceNS.mm; sourceTree = "<group>"; };
+		52A69BE9286CFFAC00893E8F /* CryptoTokenKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoTokenKit.framework; path = System/Library/Frameworks/CryptoTokenKit.framework; sourceTree = SDKROOT; };
+		52C05BA72874996C00D80C59 /* MockCcidService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockCcidService.h; sourceTree = "<group>"; };
+		52C05BA82874996C00D80C59 /* MockCcidService.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = MockCcidService.mm; sourceTree = "<group>"; };
 		52C3C26428651F860005BE6E /* WKBrowsingContextHandlePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WKBrowsingContextHandlePrivate.h; sourceTree = "<group>"; };
 		52CDC5BD2731DA0C00A3E3EB /* VirtualAuthenticatorConfiguration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VirtualAuthenticatorConfiguration.h; sourceTree = "<group>"; };
 		52CDC5BE2731DA0C00A3E3EB /* VirtualService.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VirtualService.mm; sourceTree = "<group>"; };
@@ -4952,11 +4974,9 @@
 		5506409E2407160900AAE045 /* RemoteRenderingBackendProxy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteRenderingBackendProxy.h; sourceTree = "<group>"; };
 		5506409F2407196A00AAE045 /* RenderingBackendIdentifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RenderingBackendIdentifier.h; sourceTree = "<group>"; };
 		550640A0240719E100AAE045 /* RemoteRenderingBackendProxy.messages.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RemoteRenderingBackendProxy.messages.in; sourceTree = "<group>"; };
-		550640A224071A6100AAE045 /* RemoteRenderingBackend.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteRenderingBackend.cpp; sourceTree = "<group>"; };
 		550640A324071A6100AAE045 /* RemoteRenderingBackend.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteRenderingBackend.h; sourceTree = "<group>"; };
 		550640A424071C2100AAE045 /* RemoteRenderingBackend.messages.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RemoteRenderingBackend.messages.in; sourceTree = "<group>"; };
 		55AD09422408A02E00DE4D2F /* RemoteImageBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteImageBuffer.h; sourceTree = "<group>"; };
-		55AD09432408A0E600DE4D2F /* PlatformRemoteImageBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PlatformRemoteImageBuffer.h; sourceTree = "<group>"; };
 		570AB8F220AE3BD700B8BE87 /* SecKeyProxyStore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecKeyProxyStore.h; sourceTree = "<group>"; };
 		570AB90020B2517400B8BE87 /* AuthenticationChallengeProxyCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AuthenticationChallengeProxyCocoa.mm; sourceTree = "<group>"; };
 		570AB90320B2541C00B8BE87 /* SecKeyProxyStore.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = SecKeyProxyStore.mm; sourceTree = "<group>"; };
@@ -5366,8 +5386,9 @@
 		71FB810A2260627A00323677 /* WebsiteSimulatedMouseEventsDispatchPolicy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebsiteSimulatedMouseEventsDispatchPolicy.h; sourceTree = "<group>"; };
 		7203449A26A6C44C000A5F54 /* MonotonicObjectIdentifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MonotonicObjectIdentifier.h; sourceTree = "<group>"; };
 		7203449B26A6C476000A5F54 /* RenderingUpdateID.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RenderingUpdateID.h; sourceTree = "<group>"; };
-		7227800B2408BD7D007D376B /* PlatformRemoteImageBufferProxy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PlatformRemoteImageBufferProxy.h; sourceTree = "<group>"; };
 		722E1CDB2840B7E7005828BD /* PixelBufferReference.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PixelBufferReference.h; sourceTree = "<group>"; };
+		72440D33287CCC0500FADBC4 /* RemoteImageBuffer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteImageBuffer.cpp; sourceTree = "<group>"; };
+		72440D3A287CF58900FADBC4 /* RemoteImageBufferProxy.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteImageBufferProxy.cpp; sourceTree = "<group>"; };
 		7246963A275B7E6700A9156A /* FilterReference.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FilterReference.h; sourceTree = "<group>"; };
 		724DCF21284862FC0026ACF4 /* ImageBufferShareableAllocator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageBufferShareableAllocator.h; sourceTree = "<group>"; };
 		724DCF22284862FC0026ACF4 /* ImageBufferShareableAllocator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageBufferShareableAllocator.cpp; sourceTree = "<group>"; };
@@ -5382,6 +5403,9 @@
 		727A7F492408AEE6004D2931 /* RemoteImageBufferProxy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteImageBufferProxy.h; sourceTree = "<group>"; };
 		728E86EF1795188C0087879E /* WebColorPickerMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebColorPickerMac.h; sourceTree = "<group>"; };
 		728E86F01795188C0087879E /* WebColorPickerMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebColorPickerMac.mm; sourceTree = "<group>"; };
+		72A87BB9287641B600289098 /* ThreadSafeRemoteImageBufferFlusher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ThreadSafeRemoteImageBufferFlusher.h; sourceTree = "<group>"; };
+		72A87BBA287644AC00289098 /* ThreadSafeRemoteImageBufferFlusher.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ThreadSafeRemoteImageBufferFlusher.cpp; sourceTree = "<group>"; };
+		72A87BBB287678A700289098 /* RemoteRenderingBackend.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteRenderingBackend.cpp; sourceTree = "<group>"; };
 		72B53157253C1E4D0049295A /* RemoteResourceCacheProxy.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteResourceCacheProxy.cpp; sourceTree = "<group>"; };
 		72B53158253C1E4D0049295A /* RemoteResourceCacheProxy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteResourceCacheProxy.h; sourceTree = "<group>"; };
 		72C11DB52849933700E826DD /* ShareablePixelBuffer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ShareablePixelBuffer.cpp; sourceTree = "<group>"; };
@@ -6354,7 +6378,7 @@
 		BCE469571214EDF4000B98EB /* WKFormSubmissionListener.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WKFormSubmissionListener.cpp; sourceTree = "<group>"; };
 		BCE469581214EDF4000B98EB /* WKFormSubmissionListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKFormSubmissionListener.h; sourceTree = "<group>"; };
 		BCE579A42634836700F5C5E9 /* CGDisplayListImageBufferBackend.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CGDisplayListImageBufferBackend.h; sourceTree = "<group>"; };
-		BCE579A52634836700F5C5E9 /* CGDisplayListImageBufferBackend.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CGDisplayListImageBufferBackend.cpp; sourceTree = "<group>"; };
+		BCE579A52634836700F5C5E9 /* CGDisplayListImageBufferBackend.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CGDisplayListImageBufferBackend.mm; sourceTree = "<group>"; };
 		BCE81D8A1319F7EF00241910 /* FontInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FontInfo.cpp; sourceTree = "<group>"; };
 		BCE81D8B1319F7EF00241910 /* FontInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FontInfo.h; sourceTree = "<group>"; };
 		BCE9C0CF1485965D00E33D61 /* WebConnectionToUIProcess.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebConnectionToUIProcess.cpp; sourceTree = "<group>"; };
@@ -7254,6 +7278,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52A69BEA286CFFAC00893E8F /* CryptoTokenKit.framework in Frameworks */,
 				3766F9EE189A1241003CF19B /* JavaScriptCore.framework in Frameworks */,
 				3766F9F1189A1254003CF19B /* libicucore.dylib in Frameworks */,
 				3766F9EF189A1244003CF19B /* QuartzCore.framework in Frameworks */,
@@ -8755,8 +8780,10 @@
 		2D2E04761F5BEC4F00BB25ED /* RemoteLayerTree */ = {
 			isa = PBXGroup;
 			children = (
-				BCE579A52634836700F5C5E9 /* CGDisplayListImageBufferBackend.cpp */,
+				2D478B90288F333500F3B73A /* CGDisplayList.cpp */,
+				2D478B8F288F333500F3B73A /* CGDisplayList.h */,
 				BCE579A42634836700F5C5E9 /* CGDisplayListImageBufferBackend.h */,
+				BCE579A52634836700F5C5E9 /* CGDisplayListImageBufferBackend.mm */,
 				2D47B56B1810714E003A3AEE /* RemoteLayerBackingStore.h */,
 				2D47B56A1810714E003A3AEE /* RemoteLayerBackingStore.mm */,
 				2DDF731318E95060004F5A66 /* RemoteLayerBackingStoreCollection.h */,
@@ -10411,7 +10438,6 @@
 				727A7F37240788F0004D2931 /* ImageBufferShareableBitmapBackend.cpp */,
 				727A7F36240788F0004D2931 /* ImageBufferShareableBitmapBackend.h */,
 				727A7F38240788F0004D2931 /* PlatformImageBufferShareableBackend.h */,
-				7227800B2408BD7D007D376B /* PlatformRemoteImageBufferProxy.h */,
 				0F65956C27E10C2C00EE874B /* PrepareBackingStoreBuffersData.h */,
 				F48BB8DE26F9635D001C1C40 /* RemoteDisplayListRecorderProxy.cpp */,
 				F48BB8DD26F9635D001C1C40 /* RemoteDisplayListRecorderProxy.h */,
@@ -10419,6 +10445,7 @@
 				7B904166254AFDEB006EEB8C /* RemoteGraphicsContextGLProxy.h */,
 				7B904167254AFE17006EEB8C /* RemoteGraphicsContextGLProxy.messages.in */,
 				7BE726572574F67200E85D98 /* RemoteGraphicsContextGLProxyFunctionsGenerated.cpp */,
+				72440D3A287CF58900FADBC4 /* RemoteImageBufferProxy.cpp */,
 				727A7F492408AEE6004D2931 /* RemoteImageBufferProxy.h */,
 				5506409D2407160900AAE045 /* RemoteRenderingBackendProxy.cpp */,
 				5506409E2407160900AAE045 /* RemoteRenderingBackendProxy.h */,
@@ -10426,6 +10453,8 @@
 				72B53157253C1E4D0049295A /* RemoteResourceCacheProxy.cpp */,
 				72B53158253C1E4D0049295A /* RemoteResourceCacheProxy.h */,
 				5506409F2407196A00AAE045 /* RenderingBackendIdentifier.h */,
+				72A87BBA287644AC00289098 /* ThreadSafeRemoteImageBufferFlusher.cpp */,
+				72A87BB9287641B600289098 /* ThreadSafeRemoteImageBufferFlusher.h */,
 			);
 			path = graphics;
 			sourceTree = "<group>";
@@ -10436,7 +10465,6 @@
 				1C98C01C27446926002CCB78 /* WebGPU */,
 				724DCF22284862FC0026ACF4 /* ImageBufferShareableAllocator.cpp */,
 				724DCF21284862FC0026ACF4 /* ImageBufferShareableAllocator.h */,
-				55AD09432408A0E600DE4D2F /* PlatformRemoteImageBuffer.h */,
 				1CC54AFD270F9654005BF8BE /* QualifiedRenderingResourceIdentifier.h */,
 				1CBF9012271018B5000C457D /* QualifiedResourceHeap.h */,
 				F48BB8E026F96392001C1C40 /* RemoteDisplayListRecorder.cpp */,
@@ -10447,8 +10475,9 @@
 				7B904168254AFEA7006EEB8C /* RemoteGraphicsContextGL.messages.in */,
 				7BE72668257680EF00E85D98 /* RemoteGraphicsContextGLCocoa.cpp */,
 				7B90416D2550108C006EEB8C /* RemoteGraphicsContextGLFunctionsGenerated.h */,
+				72440D33287CCC0500FADBC4 /* RemoteImageBuffer.cpp */,
 				55AD09422408A02E00DE4D2F /* RemoteImageBuffer.h */,
-				550640A224071A6100AAE045 /* RemoteRenderingBackend.cpp */,
+				72A87BBB287678A700289098 /* RemoteRenderingBackend.cpp */,
 				550640A324071A6100AAE045 /* RemoteRenderingBackend.h */,
 				550640A424071C2100AAE045 /* RemoteRenderingBackend.messages.in */,
 				460889FF261FA8A900E2500D /* RemoteRenderingBackendCreationParameters.h */,
@@ -10487,6 +10516,7 @@
 			isa = PBXGroup;
 			children = (
 				DDAB377528234B2100890546 /* AuthenticationServicesCore.framework */,
+				52A69BE9286CFFAC00893E8F /* CryptoTokenKit.framework */,
 				E34B110C27C46BC6006D2F2E /* libWebCoreTestShim.dylib */,
 				E34B110F27C46D09006D2F2E /* libWebCoreTestSupport.dylib */,
 				DDE992F4278D06D900F60D26 /* libWebKitAdditions.a */,
@@ -10503,6 +10533,8 @@
 			children = (
 				57597EBC2181848F0037F924 /* CtapAuthenticator.cpp */,
 				57597EBB2181848F0037F924 /* CtapAuthenticator.h */,
+				526C5721284ADCBC00E08955 /* CtapCcidDriver.cpp */,
+				526C5720284ADCBC00E08955 /* CtapCcidDriver.h */,
 				570B73CF230236DD00FAEC53 /* CtapDriver.h */,
 				57597EC021818BE20037F924 /* CtapHidDriver.cpp */,
 				57597EB721811D9A0037F924 /* CtapHidDriver.h */,
@@ -10571,6 +10603,10 @@
 				57FABB112581827C0059DC95 /* AuthenticationServicesCoreSoftLink.mm */,
 				5777398F258037430059348B /* AuthenticatorPresenterCoordinator.h */,
 				57773990258037430059348B /* AuthenticatorPresenterCoordinator.mm */,
+				526C5718284AD09500E08955 /* CcidConnection.h */,
+				526C5719284AD09500E08955 /* CcidConnection.mm */,
+				526C571C284AD0C000E08955 /* CcidService.h */,
+				526C571D284AD0C000E08955 /* CcidService.mm */,
 				57AC8F4E217FEED90055438C /* HidConnection.h */,
 				57AC8F4F217FEED90055438C /* HidConnection.mm */,
 				5772F204217DBD6A0056BF2C /* HidService.h */,
@@ -10605,6 +10641,8 @@
 			children = (
 				57DCEDCD214F51680016B847 /* MockAuthenticatorManager.cpp */,
 				57DCEDC9214F4E420016B847 /* MockAuthenticatorManager.h */,
+				52C05BA72874996C00D80C59 /* MockCcidService.h */,
+				52C05BA82874996C00D80C59 /* MockCcidService.mm */,
 				5756DD77218D14A200D4EE6A /* MockHidConnection.cpp */,
 				5756DD76218D14A200D4EE6A /* MockHidConnection.h */,
 				5756DD75218D104900D4EE6A /* MockHidService.cpp */,
@@ -11596,6 +11634,8 @@
 				93425898255B534B0059EEDD /* MediaPermissionUtilities.h */,
 				7137BA7E25F1540B00914EE3 /* ModelElementController.cpp */,
 				7137BA7F25F1540C00914EE3 /* ModelElementController.h */,
+				1C5A104E287BB1E90034FDA4 /* OverrideLanguages.cpp */,
+				1C5A104F287BB1E90034FDA4 /* OverrideLanguages.h */,
 				BC6EDAA5111271C600E7678B /* PageClient.h */,
 				1AC75379183A9FDA0072CB15 /* PageLoadState.cpp */,
 				1AC7537A183A9FDB0072CB15 /* PageLoadState.h */,
@@ -11885,6 +11925,8 @@
 				5C2EBDF92564352000D55B05 /* WKDownloadClient.h */,
 				1AB7D78C1288CD9A00CFD08C /* WKDownloadRef.cpp */,
 				1AB7D78B1288CD9A00CFD08C /* WKDownloadRef.h */,
+				27A2BDF928932C4100758E99 /* WKExperimentalFeature.cpp */,
+				27A2BDFA28932C4200758E99 /* WKExperimentalFeature.h */,
 				BCE469571214EDF4000B98EB /* WKFormSubmissionListener.cpp */,
 				BCE469581214EDF4000B98EB /* WKFormSubmissionListener.h */,
 				BCD01398110FA420003B8A67 /* WKFrame.cpp */,
@@ -11909,6 +11951,8 @@
 				5110AE0B133C16CB0072717A /* WKIconDatabase.h */,
 				1C8E293812761E5B00BC7BD0 /* WKInspector.cpp */,
 				1C8E293712761E5B00BC7BD0 /* WKInspector.h */,
+				27A2BDF628932C3200758E99 /* WKInternalDebugFeature.cpp */,
+				27A2BDF528932C3100758E99 /* WKInternalDebugFeature.h */,
 				51A9E1081315CD18009E7031 /* WKKeyValueStorageManager.cpp */,
 				51A9E1091315CD18009E7031 /* WKKeyValueStorageManager.h */,
 				2D790A9E1AD7164900AB90B3 /* WKLayoutMode.h */,
@@ -13912,6 +13956,7 @@
 				41FABD2A1F4DE001006A6C97 /* CacheStorageEngineCache.h in Headers */,
 				41897EDA1F415D8A0016FA42 /* CacheStorageEngineConnection.h in Headers */,
 				4659F25F275FF6B200BBB369 /* CaptivePortalModeObserver.h in Headers */,
+				2D478B91288F33A600F3B73A /* CGDisplayList.h in Headers */,
 				BCE579A62634836700F5C5E9 /* CGDisplayListImageBufferBackend.h in Headers */,
 				57B4B46020B504AC00D4AD79 /* ClientCertificateAuthenticationXPCConstants.h in Headers */,
 				4482734724528F6000A95493 /* CocoaImage.h in Headers */,
@@ -13927,6 +13972,7 @@
 				37C21CAE1E994C0C0029D5F9 /* CorePredictionSPI.h in Headers */,
 				B878B615133428DC006888E9 /* CorrectionPanel.h in Headers */,
 				57597EBD218184900037F924 /* CtapAuthenticator.h in Headers */,
+				526C5722284ADCBC00E08955 /* CtapCcidDriver.h in Headers */,
 				57597EB921811D9A0037F924 /* CtapHidDriver.h in Headers */,
 				570DAACA230385FD00E8FC04 /* CtapNfcDriver.h in Headers */,
 				5C1579EF27172A8B00ED5280 /* DaemonDecoder.h in Headers */,
@@ -15075,6 +15121,7 @@
 				37B5045219EEF31300CE2CF8 /* WKErrorPrivate.h in Headers */,
 				BC4075FC124FF0270068F20A /* WKErrorRef.h in Headers */,
 				BC40783D1250FADD0068F20A /* WKEvent.h in Headers */,
+				27A2BDFC28932C4200758E99 /* WKExperimentalFeature.h in Headers */,
 				A58B6F0818FCA733008CBA53 /* WKFileUploadPanel.h in Headers */,
 				514AB9F02360D2A900EDC396 /* WKFindConfiguration.h in Headers */,
 				37F623B812A57B6200E3FDF6 /* WKFindOptions.h in Headers */,
@@ -15129,6 +15176,7 @@
 				99A7ACE526012922006D57FD /* WKInspectorResourceURLSchemeHandler.h in Headers */,
 				994BADF41F7D781400B571E7 /* WKInspectorViewController.h in Headers */,
 				A518B5D21FE1D55B00F9FA28 /* WKInspectorWKWebView.h in Headers */,
+				27A2BDF728932C3200758E99 /* WKInternalDebugFeature.h in Headers */,
 				2DD5E129210ADC7B00DB6012 /* WKKeyboardScrollingAnimator.h in Headers */,
 				51A9E10B1315CD18009E7031 /* WKKeyValueStorageManager.h in Headers */,
 				2D790A9F1AD7164900AB90B3 /* WKLayoutMode.h in Headers */,
@@ -15466,7 +15514,7 @@
 				5C1579D227165B2F00ED5280 /* Sources */,
 				5C1579D427165B2F00ED5280 /* Frameworks */,
 				5C1579D527165B2F00ED5280 /* Process webpushd Entitlements */,
-				6508960F28482C6A00A91844 /* Copy launchd plist and create symlink */,
+				6508960F28482C6A00A91844 /* Copy launchd plist */,
 			);
 			buildRules = (
 			);
@@ -15487,7 +15535,7 @@
 				5CAF7A9D26F93A750003F19E /* Sources */,
 				5CAF7A9F26F93A750003F19E /* Frameworks */,
 				5C1578E6270E129400ED5280 /* Process adattributiond Entitlements */,
-				6508961028482D0900A91844 /* Copy launchd plist and create symlink */,
+				6508961028482D0900A91844 /* Copy launchd plist */,
 			);
 			buildRules = (
 			);
@@ -16117,7 +16165,7 @@
 			shellPath = /bin/sh;
 			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" ] || [ \"${ACTION}\" = \"installapi\" ]; then\n    exit 0;\nfi\n\nif [ -f ../../Tools/Scripts/check-for-inappropriate-files-in-framework ]; then\n    ../../Tools/Scripts/check-for-inappropriate-files-in-framework || exit $?\nfi\n";
 		};
-		6508960F28482C6A00A91844 /* Copy launchd plist and create symlink */ = {
+		6508960F28482C6A00A91844 /* Copy launchd plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -16125,10 +16173,10 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/Scripts/copy-launchd-plist-and-create-symlink.sh",
+				"$(SRCROOT)/Scripts/copy-launchd-plist.sh",
 				"$(SRCROOT)/$(LAUNCHD_PLIST_INPUT_FILE)",
 			);
-			name = "Copy launchd plist and create symlink";
+			name = "Copy launchd plist";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -16136,9 +16184,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "Scripts/copy-launchd-plist-and-create-symlink.sh\n";
+			shellScript = "Scripts/copy-launchd-plist.sh\n";
 		};
-		6508961028482D0900A91844 /* Copy launchd plist and create symlink */ = {
+		6508961028482D0900A91844 /* Copy launchd plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -16146,10 +16194,10 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/Scripts/copy-launchd-plist-and-create-symlink.sh",
+				"$(SRCROOT)/Scripts/copy-launchd-plist.sh",
 				"$(SRCROOT)/$(LAUNCHD_PLIST_INPUT_FILE)",
 			);
-			name = "Copy launchd plist and create symlink";
+			name = "Copy launchd plist";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -16157,7 +16205,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "Scripts/copy-launchd-plist-and-create-symlink.sh\n";
+			shellScript = "Scripts/copy-launchd-plist.sh\n";
 		};
 		6517571527C9AB4C00D9FE40 /* Copy Frameworks to Secondary Path */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -16712,8 +16760,8 @@
 				51FAEC3B1B0657680009C4E7 /* AuxiliaryProcessMessageReceiver.cpp in Sources */,
 				E326E357284E580E00157372 /* AuxiliaryProcessProxyCocoa.mm in Sources */,
 				517CF0E3163A486C00C2950F /* CacheStorageEngineConnectionMessageReceiver.cpp in Sources */,
-				BCE579A72634836700F5C5E9 /* CGDisplayListImageBufferBackend.cpp in Sources */,
 				49DC1DE127E5129100C1CB36 /* CSPExtensionUtilities.mm in Sources */,
+				526C5723284ADCBC00E08955 /* CtapCcidDriver.cpp in Sources */,
 				2D0C56FE229F1DEA00BD33E7 /* DeviceManagementSoftLink.mm in Sources */,
 				1AB7D6191288B9D900CFD08C /* DownloadProxyMessageReceiver.cpp in Sources */,
 				1A64229912DD029200CAAE2C /* DrawingAreaMessageReceiver.cpp in Sources */,

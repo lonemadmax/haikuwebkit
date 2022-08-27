@@ -31,7 +31,8 @@
 #include "BufferIdentifierSet.h"
 #include "GPUConnectionToWebProcess.h"
 #include "Logging.h"
-#include "PlatformRemoteImageBufferProxy.h"
+#include "PlatformImageBufferShareableBackend.h"
+#include "RemoteImageBufferProxy.h"
 #include "RemoteRenderingBackendMessages.h"
 #include "RemoteRenderingBackendProxyMessages.h"
 #include "SwapBuffersDisplayRequirement.h"
@@ -127,7 +128,7 @@ void RemoteRenderingBackendProxy::createRemoteImageBuffer(ImageBuffer& imageBuff
     sendToStream(Messages::RemoteRenderingBackend::CreateImageBuffer(logicalSize, imageBuffer.renderingMode(), imageBuffer.renderingPurpose(), imageBuffer.resolutionScale(), imageBuffer.colorSpace(), imageBuffer.pixelFormat(), imageBuffer.renderingResourceIdentifier()));
 }
 
-RefPtr<ImageBuffer> RemoteRenderingBackendProxy::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat)
+RefPtr<ImageBuffer> RemoteRenderingBackendProxy::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, bool avoidBackendSizeCheck)
 {
     RefPtr<ImageBuffer> imageBuffer;
 
@@ -136,13 +137,13 @@ RefPtr<ImageBuffer> RemoteRenderingBackendProxy::createImageBuffer(const FloatSi
         // we need to create ImageBuffers for e.g. Canvas that are actually mapped into the
         // Web Content process, so they can be painted into the tiles.
         if (!WebProcess::singleton().shouldUseRemoteRenderingFor(RenderingPurpose::DOM))
-            imageBuffer = AcceleratedRemoteImageBufferMappedProxy::create(size, resolutionScale, colorSpace, pixelFormat, purpose, *this);
+            imageBuffer = RemoteImageBufferProxy::create<AcceleratedImageBufferShareableMappedBackend>(size, resolutionScale, colorSpace, pixelFormat, purpose, *this, avoidBackendSizeCheck);
         else
-            imageBuffer = AcceleratedRemoteImageBufferProxy::create(size, resolutionScale, colorSpace, pixelFormat, purpose, *this);
+            imageBuffer = RemoteImageBufferProxy::create<AcceleratedImageBufferRemoteBackend>(size, resolutionScale, colorSpace, pixelFormat, purpose, *this, avoidBackendSizeCheck);
     }
 
     if (!imageBuffer)
-        imageBuffer = UnacceleratedRemoteImageBufferProxy::create(size, resolutionScale, colorSpace, pixelFormat, purpose, *this);
+        imageBuffer = RemoteImageBufferProxy::create<UnacceleratedImageBufferShareableBackend>(size, resolutionScale, colorSpace, pixelFormat, purpose, *this, avoidBackendSizeCheck);
 
     if (imageBuffer) {
         createRemoteImageBuffer(*imageBuffer);
@@ -209,20 +210,6 @@ void RemoteRenderingBackendProxy::destroyGetPixelBufferSharedMemory()
     sendToStream(Messages::RemoteRenderingBackend::DestroyGetPixelBufferSharedMemory());
 }
 
-String RemoteRenderingBackendProxy::getDataURLForImageBuffer(const String& mimeType, std::optional<double> quality, PreserveResolution preserveResolution, RenderingResourceIdentifier renderingResourceIdentifier)
-{
-    String urlString;
-    sendSyncToStream(Messages::RemoteRenderingBackend::GetDataURLForImageBuffer(mimeType, quality, preserveResolution, renderingResourceIdentifier), Messages::RemoteRenderingBackend::GetDataURLForImageBuffer::Reply(urlString));
-    return urlString;
-}
-
-Vector<uint8_t> RemoteRenderingBackendProxy::getDataForImageBuffer(const String& mimeType, std::optional<double> quality, RenderingResourceIdentifier renderingResourceIdentifier)
-{
-    Vector<uint8_t> data;
-    sendSyncToStream(Messages::RemoteRenderingBackend::GetDataForImageBuffer(mimeType, quality, renderingResourceIdentifier), Messages::RemoteRenderingBackend::GetDataForImageBuffer::Reply(data));
-    return data;
-}
-
 RefPtr<ShareableBitmap> RemoteRenderingBackendProxy::getShareableBitmap(RenderingResourceIdentifier imageBuffer, PreserveResolution preserveResolution)
 {
     ShareableBitmap::Handle handle;
@@ -266,14 +253,14 @@ void RemoteRenderingBackendProxy::cacheDecomposedGlyphs(Ref<DecomposedGlyphs>&& 
     sendToStream(Messages::RemoteRenderingBackend::CacheDecomposedGlyphs(WTFMove(decomposedGlyphs)));
 }
 
-void RemoteRenderingBackendProxy::deleteAllFonts()
+void RemoteRenderingBackendProxy::releaseAllRemoteResources()
 {
-    sendToStream(Messages::RemoteRenderingBackend::DeleteAllFonts());
+    sendToStream(Messages::RemoteRenderingBackend::ReleaseAllResources());
 }
 
 void RemoteRenderingBackendProxy::releaseRemoteResource(RenderingResourceIdentifier renderingResourceIdentifier)
 {
-    sendToStream(Messages::RemoteRenderingBackend::ReleaseRemoteResource(renderingResourceIdentifier));
+    sendToStream(Messages::RemoteRenderingBackend::ReleaseResource(renderingResourceIdentifier));
 }
 
 auto RemoteRenderingBackendProxy::prepareBuffersForDisplay(const Vector<LayerPrepareBuffersData>& prepareBuffersInput) -> Vector<SwapBuffersResult>
@@ -399,8 +386,14 @@ void RemoteRenderingBackendProxy::finalizeRenderingUpdate()
     if (!m_gpuProcessConnection)
         return;
     sendToStream(Messages::RemoteRenderingBackend::FinalizeRenderingUpdate(m_renderingUpdateID));
-    m_remoteResourceCacheProxy.finalizeRenderingUpdate();
     m_renderingUpdateID.increment();
+}
+
+void RemoteRenderingBackendProxy::didPaintLayers()
+{
+    if (!m_gpuProcessConnection)
+        return;
+    m_remoteResourceCacheProxy.didPaintLayers();
 }
 
 void RemoteRenderingBackendProxy::didCreateImageBufferBackend(ImageBufferBackendHandle handle, RenderingResourceIdentifier renderingResourceIdentifier)
@@ -408,7 +401,10 @@ void RemoteRenderingBackendProxy::didCreateImageBufferBackend(ImageBufferBackend
     auto imageBuffer = m_remoteResourceCacheProxy.cachedImageBuffer(renderingResourceIdentifier);
     if (!imageBuffer)
         return;
-
+    
+    if (imageBuffer->renderingMode() == RenderingMode::Accelerated && std::holds_alternative<ShareableBitmap::Handle>(handle))
+        imageBuffer->setBackendInfo(ImageBuffer::populateBackendInfo<UnacceleratedImageBufferShareableBackend>(imageBuffer->parameters()));
+    
     if (imageBuffer->renderingMode() == RenderingMode::Unaccelerated)
         imageBuffer->setBackend(UnacceleratedImageBufferShareableBackend::create(imageBuffer->parameters(), WTFMove(handle)));
     else if (imageBuffer->canMapBackingStore())

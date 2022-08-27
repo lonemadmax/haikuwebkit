@@ -790,7 +790,7 @@ void Heap::gatherStackRoots(ConservativeRoots& roots)
 void Heap::gatherJSStackRoots(ConservativeRoots& roots)
 {
 #if ENABLE(C_LOOP)
-    vm().interpreter->cloopStack().gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks);
+    vm().interpreter.cloopStack().gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks);
 #else
     UNUSED_PARAM(roots);
 #endif
@@ -2282,7 +2282,7 @@ void Heap::pruneStaleEntriesFromWeakGCHashTables()
 
 void Heap::sweepArrayBuffers()
 {
-    m_arrayBuffers.sweep(vm());
+    m_arrayBuffers.sweep(vm(), collectionScope().value_or(CollectionScope::Eden));
 }
 
 void Heap::snapshotUnswept()

@@ -1994,7 +1994,7 @@ bool AccessibilityUIElement::insertText(JSStringRef text)
         result = [m_element accessibilityInsertText:text];
     });
     END_AX_OBJC_EXCEPTIONS
-    return false;
+    return result;
 }
 
 RefPtr<AccessibilityTextMarker> AccessibilityUIElement::startTextMarkerForBounds(int x, int y, int width, int height)
@@ -2395,6 +2395,26 @@ void AccessibilityUIElement::performAction(NSString *actionName) const
         [m_element accessibilityPerformAction:actionName];
     });
     END_AX_OBJC_EXCEPTIONS
+}
+
+bool AccessibilityUIElement::isInsertion() const
+{
+    return false;
+}
+
+bool AccessibilityUIElement::isDeletion() const
+{
+    return false;
+}
+
+bool AccessibilityUIElement::isFirstItemInSuggestion() const
+{
+    return false;
+}
+
+bool AccessibilityUIElement::isLastItemInSuggestion() const
+{
+    return false;
 }
 
 } // namespace WTR

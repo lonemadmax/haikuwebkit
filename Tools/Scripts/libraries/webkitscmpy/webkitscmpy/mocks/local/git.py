@@ -390,7 +390,7 @@ nothing to commit, working tree clean
                     )
                 ) if self.find(args[4]) else mocks.ProcessCompletion(returncode=128),
             ), mocks.Subprocess.Route(
-                self.executable, 'branch', '--contains', re.compile(r'.+'),
+                self.executable, 'branch', '--contains', re.compile(r'.+'), '-a',
                 cwd=self.path,
                 generator=lambda *args, **kwargs: mocks.ProcessCompletion(
                     returncode=0,
@@ -578,6 +578,14 @@ nothing to commit, working tree clean
                 self.executable, 'reset', re.compile(r'.+'),
                 cwd=self.path,
                 generator=lambda *args, **kwargs: self.reset_commit(args[2]),
+            ),  mocks.Subprocess.Route(
+                self.executable, 'show', re.compile(r'.+'), '--pretty=', '--name-only',
+                cwd=self.path,
+                # FIXME: All mock commits have the same set of files changed with this implementation
+                completion=mocks.ProcessCompletion(
+                    returncode=0,
+                    stdout='Source/main.cpp\nSource/main.h\n',
+                ),
             ),  mocks.Subprocess.Route(
                 self.executable,
                 cwd=self.path,

@@ -68,7 +68,6 @@
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/ColorChooser.h>
-#include <WebCore/ConcreteImageBuffer.h>
 #include <WebCore/ContentRuleListResults.h>
 #include <WebCore/DataListSuggestionPicker.h>
 #include <WebCore/DatabaseTracker.h>
@@ -86,6 +85,7 @@
 #include <WebCore/HTMLParserIdioms.h>
 #include <WebCore/HTMLPlugInImageElement.h>
 #include <WebCore/Icon.h>
+#include <WebCore/ImageBuffer.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/ScriptController.h>
@@ -913,16 +913,16 @@ WebCore::DisplayRefreshMonitorFactory* WebChromeClient::displayRefreshMonitorFac
 }
 
 #if ENABLE(GPU_PROCESS)
-RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat) const
+RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, bool avoidBackendSizeCheck) const
 {
     if (!WebProcess::singleton().shouldUseRemoteRenderingFor(purpose)) {
         if (purpose != RenderingPurpose::ShareableSnapshot)
             return nullptr;
 
-        return ConcreteImageBuffer<ImageBufferShareableBitmapBackend>::create(size, resolutionScale, colorSpace, PixelFormat::BGRA8, RenderingPurpose::ShareableSnapshot, { });
+        return ImageBuffer::create<ImageBufferShareableBitmapBackend>(size, resolutionScale, colorSpace, PixelFormat::BGRA8, RenderingPurpose::ShareableSnapshot, { });
     }
 
-    return m_page.ensureRemoteRenderingBackendProxy().createImageBuffer(size, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat);
+    return m_page.ensureRemoteRenderingBackendProxy().createImageBuffer(size, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, avoidBackendSizeCheck);
 }
 #endif
 
@@ -1029,9 +1029,9 @@ void WebChromeClient::prepareForVideoFullscreen()
     m_page.videoFullscreenManager();
 }
 
-bool WebChromeClient::canEnterVideoFullscreen() const
+bool WebChromeClient::canEnterVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode mode) const
 {
-    return m_page.videoFullscreenManager().canEnterVideoFullscreen();
+    return m_page.videoFullscreenManager().canEnterVideoFullscreen(mode);
 }
 
 bool WebChromeClient::supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode mode)
@@ -1466,6 +1466,14 @@ void WebChromeClient::shouldAllowDeviceOrientationAndMotionAccess(Frame& frame, 
     auto* webFrame = WebFrame::fromCoreFrame(frame);
     ASSERT(webFrame);
     m_page.shouldAllowDeviceOrientationAndMotionAccess(webFrame->frameID(), webFrame->info(), mayPrompt, WTFMove(callback));
+}
+#endif
+
+#if ENABLE(ORIENTATION_EVENTS) && !PLATFORM(IOS_FAMILY)
+int WebChromeClient::deviceOrientation() const
+{
+    notImplemented();
+    return 0;
 }
 #endif
 

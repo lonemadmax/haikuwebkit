@@ -2282,8 +2282,6 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarAgentReceiveBroadcast, (JSGlobalObject* g
             JSWebAssemblyMemory* jsMemory = JSC::JSWebAssemblyMemory::tryCreate(globalObject, vm, globalObject->webAssemblyMemoryStructure());
             scope.releaseAssertNoException();
             Ref<Wasm::Memory> memory = Wasm::Memory::create(std::get<Ref<Wasm::MemoryHandle>>(WTFMove(content)),
-                [&vm] (Wasm::Memory::NotifyPressure) { vm.heap.collectAsync(CollectionScope::Full); },
-                [&vm] (Wasm::Memory::SyncTryToReclaim) { vm.heap.collectSync(CollectionScope::Full); },
                 [&vm, jsMemory] (Wasm::Memory::GrowSuccess, Wasm::PageCount oldPageCount, Wasm::PageCount newPageCount) { jsMemory->growSuccessCallback(vm, oldPageCount, newPageCount); });
             jsMemory->adopt(WTFMove(memory));
             return jsMemory;
@@ -3755,9 +3753,6 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
     VM& vm = VM::create(HeapType::Large).leakRef();
     if (!isWorker && options.m_canBlockIsFalse)
         vm.m_typedArrayController = adoptRef(new JSC::SimpleTypedArrayController(false));
-#if ENABLE(WEBASSEMBLY)
-    Wasm::enableFastMemory();
-#endif
 
     int result;
     bool success = true;

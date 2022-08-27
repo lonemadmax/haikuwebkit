@@ -38,9 +38,11 @@ public:
         Int32Literal,
         Uint32Literal,
         Float32Literal,
+        AbstractIntLiteral,
+        AbstractFloatLiteral,
         Identifier,
         StructureAccess,
-        TypeConversion,
+        CallableExpression,
     };
 
     Expression(SourceSpan span)
@@ -55,9 +57,11 @@ public:
     bool isInt32Literal() const { return kind() == Kind::Int32Literal; }
     bool isUInt32Literal() const { return kind() == Kind::Uint32Literal; }
     bool isFloat32Literal() const { return kind() == Kind::Float32Literal; }
+    bool isAbstractIntLiteral() const { return kind() == Kind::AbstractIntLiteral; }
+    bool isAbstractFloatLiteral() const { return kind() == Kind::AbstractFloatLiteral; }
     bool isIdentifier() const { return kind() == Kind::Identifier; }
     bool isStructureAccess() const { return kind() == Kind::StructureAccess; }
-    bool isTypeConversion() const { return kind() == Kind::TypeConversion; }
+    bool isCallableExpression() const { return kind() == Kind::CallableExpression; }
 };
 
 } // namespace WGSL::AST

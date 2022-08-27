@@ -224,6 +224,7 @@ enum class AccessibilityRole {
     Splitter,
     StaticText,
     Subscript,
+    Suggestion,
     Summary,
     Superscript,
     Switch,
@@ -503,6 +504,8 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "StaticText"_s;
     case AccessibilityRole::Subscript:
         return "Subscript"_s;
+    case AccessibilityRole::Suggestion:
+        return "Suggestion"_s;
     case AccessibilityRole::Summary:
         return "Summary"_s;
     case AccessibilityRole::Superscript:
@@ -843,6 +846,9 @@ public:
     virtual bool isAccessibilitySVGElement() const = 0;
     virtual bool isAccessibilityTableInstance() const = 0;
     virtual bool isAccessibilityTableColumnInstance() const = 0;
+    virtual bool isAccessibilityARIAGridInstance() const = 0;
+    virtual bool isAccessibilityARIAGridRowInstance() const = 0;
+    virtual bool isAccessibilityARIAGridCellInstance() const = 0;
     virtual bool isAccessibilityProgressIndicatorInstance() const = 0;
     virtual bool isAccessibilityListBoxInstance() const = 0;
     virtual bool isAXIsolatedObjectInstance() const = 0;
@@ -1369,7 +1375,6 @@ public:
     virtual AccessibilityRole roleValueForMSAA() const = 0;
 
     virtual String passwordFieldValue() const = 0;
-    virtual bool isValueAutofilled() const = 0;
     virtual bool isValueAutofillAvailable() const = 0;
     virtual AutoFillButtonType valueAutofillButtonType() const = 0;
     virtual bool hasARIAValueNow() const = 0;

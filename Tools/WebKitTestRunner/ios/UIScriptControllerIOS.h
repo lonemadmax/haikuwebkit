@@ -176,6 +176,10 @@ private:
     JSObjectRef toObject(CGRect) const;
 
     bool isWebContentFirstResponder() const override;
+    void becomeFirstResponder() override;
+    void resignFirstResponder() override;
+
+    void simulateRotation(DeviceOrientation, JSValueRef callback);
 };
 
 }

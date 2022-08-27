@@ -399,6 +399,26 @@ RefPtr<WebGLTexture> WebGL2RenderingContext::validateTexImageBinding(const char*
     return validateTexture2DBinding(functionName, target);
 }
 
+RefPtr<WebGLTexture> WebGL2RenderingContext::validateTextureStorage2DBinding(const char* functionName, GCGLenum target)
+{
+    RefPtr<WebGLTexture> texture;
+    switch (target) {
+    case GraphicsContextGL::TEXTURE_2D:
+        texture = m_textureUnits[m_activeTextureUnit].texture2DBinding;
+        break;
+    case GraphicsContextGL::TEXTURE_CUBE_MAP:
+        texture = m_textureUnits[m_activeTextureUnit].textureCubeMapBinding;
+        break;
+    default:
+        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid texture target");
+        return nullptr;
+    }
+
+    if (!texture)
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "no texture");
+    return texture;
+}
+
 RefPtr<WebGLTexture> WebGL2RenderingContext::validateTexture3DBinding(const char* functionName, GCGLenum target)
 {
     RefPtr<WebGLTexture> texture;
@@ -758,7 +778,6 @@ void WebGL2RenderingContext::framebufferTextureLayer(GCGLenum target, GCGLenum a
         return;
     }
     framebufferBinding->setAttachmentForBoundFramebuffer(target, attachment, texTarget, texture, level, layer);
-    applyStencilTest();
 }
 
 WebGLAny WebGL2RenderingContext::getInternalformatParameter(GCGLenum target, GCGLenum internalformat, GCGLenum pname)
@@ -846,7 +865,6 @@ void WebGL2RenderingContext::renderbufferStorageMultisample(GCGLenum target, GCG
     if (!validateSize(functionName, width, height))
         return;
     renderbufferStorageImpl(target, samples, internalformat, width, height, functionName);
-    applyStencilTest();
 }
 
 WebGLAny WebGL2RenderingContext::getTexParameter(GCGLenum target, GCGLenum pname)
@@ -876,7 +894,7 @@ void WebGL2RenderingContext::texStorage2D(GCGLenum target, GCGLsizei levels, GCG
     if (isContextLostOrPending())
         return;
 
-    auto texture = validateTextureBinding("texStorage2D", target);
+    auto texture = validateTextureStorage2DBinding("texStorage2D", target);
     if (!texture)
         return;
 
@@ -1626,7 +1644,7 @@ void WebGL2RenderingContext::drawRangeElements(GCGLenum mode, GCGLuint start, GC
 
 void WebGL2RenderingContext::drawBuffers(const Vector<GCGLenum>& buffers)
 {
-    if (isContextLost())
+    if (isContextLostOrPending())
         return;
     GCGLsizei n = buffers.size();
     const GCGLenum* bufs = buffers.data();
@@ -1892,7 +1910,7 @@ void WebGL2RenderingContext::deleteSampler(WebGLSampler* sampler)
 {
     Locker locker { objectGraphLock() };
 
-    if (isContextLostOrPending())
+    if (!deleteObject(locker, sampler))
         return;
 
     // One sampler can be bound to multiple texture units.
@@ -1902,8 +1920,6 @@ void WebGL2RenderingContext::deleteSampler(WebGLSampler* sampler)
                 samplerSlot = nullptr;
         }
     }
-
-    deleteObject(locker, sampler);
 }
 
 GCGLboolean WebGL2RenderingContext::isSampler(WebGLSampler* sampler)
@@ -1918,16 +1934,11 @@ void WebGL2RenderingContext::bindSampler(GCGLuint unit, WebGLSampler* sampler)
 {
     Locker locker { objectGraphLock() };
 
-    if (isContextLostOrPending())
+    if (!validateNullableWebGLObject("bindSampler", sampler))
         return;
     
     if (unit >= m_boundSamplers.size()) {
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "bindSampler", "invalid texture unit");
-        return;
-    }
-
-    if (sampler && sampler->isDeleted()) {
-        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "bindSampler", "cannot bind a deleted Sampler object");
         return;
     }
 
@@ -1939,7 +1950,7 @@ void WebGL2RenderingContext::bindSampler(GCGLuint unit, WebGLSampler* sampler)
 
 void WebGL2RenderingContext::samplerParameteri(WebGLSampler& sampler, GCGLenum pname, GCGLint value)
 {
-    if (isContextLostOrPending())
+    if (!validateWebGLObject("samplerParameteri", &sampler))
         return;
 
     m_context->samplerParameteri(sampler.object(), pname, value);
@@ -1947,7 +1958,7 @@ void WebGL2RenderingContext::samplerParameteri(WebGLSampler& sampler, GCGLenum p
 
 void WebGL2RenderingContext::samplerParameterf(WebGLSampler& sampler, GCGLenum pname, GCGLfloat value)
 {
-    if (isContextLostOrPending())
+    if (!validateWebGLObject("samplerParameterf", &sampler))
         return;
 
     m_context->samplerParameterf(sampler.object(), pname, value);
@@ -1955,7 +1966,7 @@ void WebGL2RenderingContext::samplerParameterf(WebGLSampler& sampler, GCGLenum p
 
 WebGLAny WebGL2RenderingContext::getSamplerParameter(WebGLSampler& sampler, GCGLenum pname)
 {
-    if (isContextLostOrPending())
+    if (!validateWebGLObject("getSamplerParameter", &sampler))
         return nullptr;
 
     switch (pname) {
@@ -1970,8 +1981,15 @@ WebGLAny WebGL2RenderingContext::getSamplerParameter(WebGLSampler& sampler, GCGL
     case GraphicsContextGL::TEXTURE_MAX_LOD:
     case GraphicsContextGL::TEXTURE_MIN_LOD:
         return m_context->getSamplerParameterf(sampler.object(), pname);
+    // EXT_texture_filter_anisotropic
+    case GraphicsContextGL::TEXTURE_MAX_ANISOTROPY_EXT:
+        if (!m_extTextureFilterAnisotropic) {
+            synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getSamplerParameter", "invalid parameter name, EXT_texture_filter_anisotropic not enabled");
+            return nullptr;
+        }
+        return m_context->getSamplerParameterf(sampler.object(), pname);
     default:
-        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getSamplerParameter", "Invalid pname");
+        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getSamplerParameter", "invalid parameter name");
         return nullptr;
     }
 }
@@ -2085,11 +2103,20 @@ void WebGL2RenderingContext::deleteTransformFeedback(WebGLTransformFeedback* fee
 
     // We have to short-circuit the deletion process if the transform feedback is
     // active. This requires duplication of some validation logic.
-    if (isContextLostOrPending() && feedbackObject && feedbackObject->validate(contextGroup(), *this)) {
-        if (feedbackObject->isActive()) {
-            synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "deleteTransformFeedback", "attempt to delete an active transform feedback object");
-            return;
-        }
+    if (isContextLostOrPending() || !feedbackObject)
+        return;
+
+    if (!feedbackObject->validate(contextGroup(), *this)) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "delete", "object does not belong to this context");
+        return;
+    }
+
+    if (feedbackObject->isDeleted())
+        return;
+
+    if (feedbackObject->isActive()) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "deleteTransformFeedback", "attempt to delete an active transform feedback object");
+        return;
     }
 
     ASSERT(feedbackObject != m_defaultTransformFeedback);
@@ -2276,6 +2303,11 @@ void WebGL2RenderingContext::resumeTransformFeedback()
     m_context->resumeTransformFeedback();
 }
 
+bool WebGL2RenderingContext::isTransformFeedbackActiveAndNotPaused()
+{
+    return m_boundTransformFeedback->isActive() && !m_boundTransformFeedback->isPaused();
+}
+
 bool WebGL2RenderingContext::setIndexedBufferBinding(const char *functionName, GCGLenum target, GCGLuint index, WebGLBuffer* buffer)
 {
     Locker locker { objectGraphLock() };
@@ -2364,18 +2396,21 @@ WebGLAny WebGL2RenderingContext::getIndexedParameter(GCGLenum target, GCGLuint i
             return nullptr;
         }
         return m_boundIndexedUniformBuffers[index];
-    // OES_draw_buffers_indexed state
-    // ANGLE will synthesize an error if the extension
-    // was not enabled or the index is out of bounds
+    // OES_draw_buffers_indexed
     case GraphicsContextGL::BLEND_EQUATION_RGB:
     case GraphicsContextGL::BLEND_EQUATION_ALPHA:
     case GraphicsContextGL::BLEND_SRC_RGB:
     case GraphicsContextGL::BLEND_SRC_ALPHA:
     case GraphicsContextGL::BLEND_DST_RGB:
     case GraphicsContextGL::BLEND_DST_ALPHA:
-        return m_context->getIntegeri(target, index);
     case GraphicsContextGL::COLOR_WRITEMASK:
-        return getIndexedBooleanArrayParameter(target, index);
+        if (!m_oesDrawBuffersIndexed) {
+            synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getIndexedParameter", "invalid parameter name, OES_draw_buffers_indexed not enabled");
+            return nullptr;
+        }
+        if (target == GraphicsContextGL::COLOR_WRITEMASK)
+            return getIndexedBooleanArrayParameter(target, index);
+        return m_context->getIntegeri(target, index);
     default:
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getIndexedParameter", "invalid parameter name");
         return nullptr;
@@ -2483,7 +2518,7 @@ void WebGL2RenderingContext::uniformBlockBinding(WebGLProgram& program, GCGLuint
 
 RefPtr<WebGLVertexArrayObject> WebGL2RenderingContext::createVertexArray()
 {
-    if (isContextLost())
+    if (isContextLostOrPending())
         return nullptr;
 
     auto object = WebGLVertexArrayObject::create(*this, WebGLVertexArrayObject::Type::User);
@@ -2497,11 +2532,11 @@ void WebGL2RenderingContext::deleteVertexArray(WebGLVertexArrayObject* arrayObje
 
     // validateWebGLObject generates an error if the object has already been
     // deleted, so we must replicate most of its checks here.
-    if (!arrayObject || isContextLost())
+    if (isContextLostOrPending() || !arrayObject)
         return;
 
     if (!arrayObject->validate(contextGroup(), *this)) {
-        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "deleteVertexArray", "object does not belong to this context");
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "delete", "object does not belong to this context");
         return;
     }
 
@@ -2509,9 +2544,9 @@ void WebGL2RenderingContext::deleteVertexArray(WebGLVertexArrayObject* arrayObje
         return;
 
     if (!arrayObject->isDefaultObject() && arrayObject == m_boundVertexArrayObject) {
-        // bindVertexArray grabs the lock internally.
-        DropLockForScope noLockScope(locker);
-        bindVertexArray(nullptr); // The default VAO was removed in OpenGL 3.3 but not from WebGL 2; bind the default for WebGL to use.
+        // The default VAO was removed in OpenGL 3.3 but not from WebGL 2; bind the default for WebGL to use.
+        m_context->bindVertexArray(m_defaultVertexArrayObject->object());
+        setBoundVertexArrayObject(locker, m_defaultVertexArrayObject.get());
     }
 
     arrayObject->deleteObject(locker, graphicsContextGL());
@@ -2519,7 +2554,7 @@ void WebGL2RenderingContext::deleteVertexArray(WebGLVertexArrayObject* arrayObje
 
 GCGLboolean WebGL2RenderingContext::isVertexArray(WebGLVertexArrayObject* arrayObject)
 {
-    if (!arrayObject || isContextLost() || !arrayObject->validate(0, *this))
+    if (isContextLostOrPending() || !arrayObject || !arrayObject->validate(contextGroup(), *this))
         return false;
 
     if (!arrayObject->hasEverBeenBound())
@@ -2636,13 +2671,10 @@ std::optional<Vector<String>> WebGL2RenderingContext::getSupportedExtensions()
     return result;
 }
 
-static bool validateDefaultFramebufferAttachment(GCGLenum& attachment)
+static bool validateDefaultFramebufferAttachment(GCGLenum attachment)
 {
     switch (attachment) {
     case GraphicsContextGL::BACK:
-        // Because the backbuffer is simulated on all current WebKit ports, we need to change BACK to COLOR_ATTACHMENT0.
-        attachment = GraphicsContextGL::COLOR_ATTACHMENT0;
-        return true;
     case GraphicsContextGL::DEPTH:
     case GraphicsContextGL::STENCIL:
         return true;
@@ -2883,7 +2915,7 @@ void WebGL2RenderingContext::renderbufferStorageImpl(GCGLenum target, GCGLsizei 
     case GraphicsContextGL::DEPTH_STENCIL:
         // To be WebGL 1 backward compatible.
         if (samples) {
-            synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid internalformat");
+            synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "invalid internalformat for samples > 0");
             return;
         }
         renderbufferStorageHelper(target, 0, GraphicsContextGL::DEPTH24_STENCIL8, width, height);

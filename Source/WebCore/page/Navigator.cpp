@@ -121,7 +121,7 @@ static std::optional<URL> shareableURLForShareData(ScriptExecutionContext& conte
     auto url = context.completeURL(data.url);
     if (!url.isValid())
         return std::nullopt;
-    if (!url.protocolIsInHTTPFamily() && !url.protocolIsData())
+    if (!url.protocolIsInHTTPFamily())
         return std::nullopt;
 
     return url;
@@ -129,7 +129,7 @@ static std::optional<URL> shareableURLForShareData(ScriptExecutionContext& conte
 
 static bool validateWebSharePolicy(Document& document)
 {
-    return isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::WebShare, document, LogFeaturePolicyFailure::Yes) || document.quirks().shouldDisableWebSharePolicy();
+    return isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::WebShare, document, LogFeaturePolicyFailure::Yes);
 }
 
 bool Navigator::canShare(Document& document, const ShareData& data)
@@ -137,15 +137,16 @@ bool Navigator::canShare(Document& document, const ShareData& data)
     if (!document.isFullyActive() || !validateWebSharePolicy(document))
         return false;
 
-    bool hasShareableTitleOrText = !data.title.isNull() || !data.text.isNull();
-    bool hasShareableURL = !!shareableURLForShareData(document, data);
 #if ENABLE(FILE_SHARE)
     bool hasShareableFiles = document.settings().webShareFileAPIEnabled() && !data.files.isEmpty();
 #else
     bool hasShareableFiles = false;
 #endif
 
-    return hasShareableTitleOrText || hasShareableURL || hasShareableFiles;
+    if (data.title.isNull() && data.text.isNull() && data.url.isNull() && !hasShareableFiles)
+        return false;
+
+    return data.url.isNull() || shareableURLForShareData(document, data);
 }
 
 void Navigator::share(Document& document, const ShareData& data, Ref<DeferredPromise>&& promise)

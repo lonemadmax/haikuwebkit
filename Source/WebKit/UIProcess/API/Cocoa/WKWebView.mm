@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -369,6 +369,10 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     _allowsViewportShrinkToFit = defaultAllowsViewportShrinkToFit;
     _allowsLinkPreview = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::LinkPreviewEnabledByDefault);
     _findInteractionEnabled = NO;
+    _needsToPresentLockdownModeMessage = YES;
+
+    _pendingFindLayerID = 0;
+    _committedFindLayerID = 0;
 
     auto fastClickingEnabled = []() {
         if (NSNumber *enabledValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitFastClickingDisabled"])
@@ -1240,7 +1244,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     RetainPtr<WKWebView> strongSelf = self;
     BOOL afterScreenUpdates = snapshotConfiguration && snapshotConfiguration.afterScreenUpdates;
     auto callSnapshotRect = [strongSelf, afterScreenUpdates, rectInViewCoordinates, imageWidth, deviceScale, handler] {
-        [strongSelf _snapshotRectAfterScreenUpdates:afterScreenUpdates rectInViewCoordinates:rectInViewCoordinates intoImageOfWidth:imageWidth completionHandler:[strongSelf, handler, deviceScale](CGImageRef snapshotImage) {
+        [strongSelf _snapshotRectAfterScreenUpdates:afterScreenUpdates rectInViewCoordinates:rectInViewCoordinates intoImageOfWidth:imageWidth completionHandler:[handler, deviceScale](CGImageRef snapshotImage) {
             RetainPtr<NSError> error;
             RetainPtr<UIImage> image;
             
@@ -1601,7 +1605,13 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 {
     auto frame = WebCore::FloatSize(self.frame.size);
 
-    auto maximumViewportInsetSize = WebCore::FloatSize(maximumViewportInset.left + maximumViewportInset.right, maximumViewportInset.top + maximumViewportInset.bottom);
+#if PLATFORM(MAC)
+    CGFloat additionalTopInset = self._topContentInset;
+#else
+    CGFloat additionalTopInset = 0;
+#endif
+
+    auto maximumViewportInsetSize = WebCore::FloatSize(maximumViewportInset.left + maximumViewportInset.right, maximumViewportInset.top + additionalTopInset + maximumViewportInset.bottom);
     auto minimumUnobscuredSize = frame - maximumViewportInsetSize;
     if (minimumUnobscuredSize.isEmpty()) {
         if (!maximumViewportInsetSize.isEmpty()) {
@@ -1616,7 +1626,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
         minimumUnobscuredSize = frame;
     }
 
-    auto minimumViewportInsetSize = WebCore::FloatSize(minimumViewportInset.left + minimumViewportInset.right, minimumViewportInset.top + minimumViewportInset.bottom);
+    auto minimumViewportInsetSize = WebCore::FloatSize(minimumViewportInset.left + minimumViewportInset.right, minimumViewportInset.top + additionalTopInset + minimumViewportInset.bottom);
     auto maximumUnobscuredSize = frame - minimumViewportInsetSize;
     if (maximumUnobscuredSize.isEmpty()) {
         if (!minimumViewportInsetSize.isEmpty()) {
@@ -2875,7 +2885,7 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
             capturedHandler(true);
     });
 #if HAVE(QUICKLOOK_THUMBNAILING)
-    _page->requestThumbnailWithFileWrapper(fileWrapper, identifier);
+    _page->requestThumbnail(attachment, identifier);
 #endif
     return wrapper(attachment);
 #else

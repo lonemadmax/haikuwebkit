@@ -136,6 +136,7 @@ class WrapperMap;
 #endif
 
 template<typename Watchpoint> class ObjectPropertyChangeAdaptiveWatchpoint;
+class ObjectAdaptiveStructureWatchpoint;
 
 constexpr bool typeExposedByDefault = true;
 
@@ -292,7 +293,7 @@ private:
 
     // m_vm must be a pointer (instead of a reference) because the JSCLLIntOffsetsExtractor
     // cannot handle it being a reference.
-    VM* m_vm;
+    VM* const m_vm;
 
 // Our hashtable code-generator tries to access these properties, so we make them public.
 // However, we'd like it better if they could be protected.
@@ -354,7 +355,6 @@ public:
     LazyProperty<JSGlobalObject, JSFunction> m_arrayProtoToStringFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_arrayProtoValuesFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_evalFunction;
-    LazyProperty<JSGlobalObject, JSFunction> m_iteratorProtocolFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_promiseResolveFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_numberProtoToStringFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_typedArrayProtoSort;
@@ -421,7 +421,6 @@ public:
     FunctionStructures m_builtinFunctions;
     FunctionStructures m_ordinaryFunctions;
 
-    PropertyOffset m_functionNameOffset;
     WriteBarrierStructureID m_shadowRealmObjectStructure;
     WriteBarrierStructureID m_regExpStructure;
 
@@ -519,18 +518,26 @@ public:
 
     // If this hasn't been invalidated, it means the array iterator protocol
     // is not observable to user code yet.
-    InlineWatchpointSet m_arrayIteratorProtocolWatchpointSet;
-    InlineWatchpointSet m_mapIteratorProtocolWatchpointSet;
-    InlineWatchpointSet m_setIteratorProtocolWatchpointSet;
-    InlineWatchpointSet m_stringIteratorProtocolWatchpointSet;
-    InlineWatchpointSet m_mapSetWatchpointSet;
-    InlineWatchpointSet m_setAddWatchpointSet;
+    InlineWatchpointSet m_arrayIteratorProtocolWatchpointSet { IsWatched };
+    InlineWatchpointSet m_mapIteratorProtocolWatchpointSet { IsWatched };
+    InlineWatchpointSet m_setIteratorProtocolWatchpointSet { IsWatched };
+    InlineWatchpointSet m_stringIteratorProtocolWatchpointSet { IsWatched };
+    InlineWatchpointSet m_mapSetWatchpointSet { IsWatched };
+    InlineWatchpointSet m_setAddWatchpointSet { IsWatched };
     InlineWatchpointSet m_arraySpeciesWatchpointSet { ClearWatchpoint };
-    InlineWatchpointSet m_arrayJoinWatchpointSet;
-    InlineWatchpointSet m_numberToStringWatchpointSet;
-    InlineWatchpointSet m_structureCacheClearedWatchpoint;
+    InlineWatchpointSet m_arrayJoinWatchpointSet { IsWatched };
+    InlineWatchpointSet m_numberToStringWatchpointSet { IsWatched };
+    InlineWatchpointSet m_structureCacheClearedWatchpoint { IsWatched };
     InlineWatchpointSet m_arrayBufferSpeciesWatchpointSet { ClearWatchpoint };
     InlineWatchpointSet m_sharedArrayBufferSpeciesWatchpointSet { ClearWatchpoint };
+    InlineWatchpointSet m_typedArrayConstructorSpeciesWatchpointSet { IsWatched };
+    InlineWatchpointSet m_typedArrayPrototypeIteratorProtocolWatchpointSet { IsWatched };
+#define DECLARE_TYPED_ARRAY_TYPE_SPECIES_WATCHPOINT_SET(name) \
+    InlineWatchpointSet m_typedArray ## name ## SpeciesWatchpointSet { ClearWatchpoint }; \
+    InlineWatchpointSet m_typedArray ## name ## IteratorProtocolWatchpointSet { ClearWatchpoint };
+    FOR_EACH_TYPED_ARRAY_TYPE(DECLARE_TYPED_ARRAY_TYPE_SPECIES_WATCHPOINT_SET)
+#undef DECLARE_TYPED_ARRAY_TYPE_SPECIES_WATCHPOINT_SET
+
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayConstructorSpeciesWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayPrototypeConstructorWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayPrototypeSymbolIteratorWatchpoint;
@@ -547,6 +554,72 @@ public:
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_numberPrototypeToStringWatchpoint;
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayBufferConstructorSpeciesWatchpoints[2];
     std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_arrayBufferPrototypeConstructorWatchpoints[2];
+    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArrayConstructorSpeciesWatchpoint;
+    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArrayPrototypeSymbolIteratorWatchpoint;
+    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArrayPrototypeLengthWatchpoint;
+#define DECLARE_TYPED_ARRAY_TYPE_WATCHPOINT(name) \
+    std::unique_ptr<ObjectAdaptiveStructureWatchpoint> m_typedArray ## name ## ConstructorSpeciesAbsenceWatchpoint; \
+    std::unique_ptr<ObjectAdaptiveStructureWatchpoint> m_typedArray ## name ## PrototypeLengthAbsenceWatchpoint; \
+    std::unique_ptr<ObjectAdaptiveStructureWatchpoint> m_typedArray ## name ## PrototypeSymbolIteratorAbsenceWatchpoint; \
+    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>> m_typedArray ## name ## PrototypeConstructorWatchpoint;
+    FOR_EACH_TYPED_ARRAY_TYPE(DECLARE_TYPED_ARRAY_TYPE_WATCHPOINT)
+#undef DECLARE_TYPED_ARRAY_TYPE_WATCHPOINT
+
+    std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& typedArrayConstructorSpeciesAbsenceWatchpoint(TypedArrayType type)
+    {
+        switch (type) {
+        case NotTypedArray:
+            RELEASE_ASSERT_NOT_REACHED();
+            return m_typedArrayInt8ConstructorSpeciesAbsenceWatchpoint;
+#define TYPED_ARRAY_TYPE_CASE(name) case Type ## name: return m_typedArray ## name ## ConstructorSpeciesAbsenceWatchpoint;
+            FOR_EACH_TYPED_ARRAY_TYPE(TYPED_ARRAY_TYPE_CASE)
+#undef TYPED_ARRAY_TYPE_CASE
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return m_typedArrayInt8ConstructorSpeciesAbsenceWatchpoint;
+    }
+
+    std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& typedArrayPrototypeLengthAbsenceWatchpoint(TypedArrayType type)
+    {
+        switch (type) {
+        case NotTypedArray:
+            RELEASE_ASSERT_NOT_REACHED();
+            return m_typedArrayInt8PrototypeLengthAbsenceWatchpoint;
+#define TYPED_ARRAY_TYPE_CASE(name) case Type ## name: return m_typedArray ## name ## PrototypeLengthAbsenceWatchpoint;
+            FOR_EACH_TYPED_ARRAY_TYPE(TYPED_ARRAY_TYPE_CASE)
+#undef TYPED_ARRAY_TYPE_CASE
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return m_typedArrayInt8PrototypeLengthAbsenceWatchpoint;
+    }
+
+    std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& typedArrayPrototypeSymbolIteratorAbsenceWatchpoint(TypedArrayType type)
+    {
+        switch (type) {
+        case NotTypedArray:
+            RELEASE_ASSERT_NOT_REACHED();
+            return m_typedArrayInt8PrototypeSymbolIteratorAbsenceWatchpoint;
+#define TYPED_ARRAY_TYPE_CASE(name) case Type ## name: return m_typedArray ## name ## PrototypeSymbolIteratorAbsenceWatchpoint;
+            FOR_EACH_TYPED_ARRAY_TYPE(TYPED_ARRAY_TYPE_CASE)
+#undef TYPED_ARRAY_TYPE_CASE
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return m_typedArrayInt8PrototypeSymbolIteratorAbsenceWatchpoint;
+    }
+
+    std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& typedArrayPrototypeConstructorWatchpoint(TypedArrayType type)
+    {
+        switch (type) {
+        case NotTypedArray:
+            RELEASE_ASSERT_NOT_REACHED();
+            return m_typedArrayInt8PrototypeConstructorWatchpoint;
+#define TYPED_ARRAY_TYPE_CASE(name) case Type ## name: return m_typedArray ## name ## PrototypeConstructorWatchpoint;
+            FOR_EACH_TYPED_ARRAY_TYPE(TYPED_ARRAY_TYPE_CASE)
+#undef TYPED_ARRAY_TYPE_CASE
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return m_typedArrayInt8PrototypeConstructorWatchpoint;
+    }
 
 public:
     JSCallee* stackOverflowFrameCallee() const { return m_stackOverflowFrameCallee.get(); }
@@ -577,7 +650,37 @@ public:
         return m_arrayBufferSpeciesWatchpointSet;
     }
 
+    InlineWatchpointSet& typedArraySpeciesWatchpointSet(TypedArrayType type)
+    {
+        switch (type) {
+        case NotTypedArray:
+            RELEASE_ASSERT_NOT_REACHED();
+            return m_typedArrayInt8SpeciesWatchpointSet;
+#define TYPED_ARRAY_TYPE_CASE(name) case Type ## name: return m_typedArray ## name ## SpeciesWatchpointSet;
+            FOR_EACH_TYPED_ARRAY_TYPE(TYPED_ARRAY_TYPE_CASE)
+#undef TYPED_ARRAY_TYPE_CASE
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return m_typedArrayInt8SpeciesWatchpointSet;
+    }
+    InlineWatchpointSet& typedArrayIteratorProtocolWatchpointSet(TypedArrayType type)
+    {
+        switch (type) {
+        case NotTypedArray:
+            RELEASE_ASSERT_NOT_REACHED();
+            return m_typedArrayInt8IteratorProtocolWatchpointSet;
+#define TYPED_ARRAY_TYPE_CASE(name) case Type ## name: return m_typedArray ## name ## IteratorProtocolWatchpointSet;
+            FOR_EACH_TYPED_ARRAY_TYPE(TYPED_ARRAY_TYPE_CASE)
+#undef TYPED_ARRAY_TYPE_CASE
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return m_typedArrayInt8IteratorProtocolWatchpointSet;
+    }
+    InlineWatchpointSet& typedArrayConstructorSpeciesWatchpointSet() { return m_typedArrayConstructorSpeciesWatchpointSet; }
+    InlineWatchpointSet& typedArrayPrototypeIteratorProtocolWatchpointSet() { return m_typedArrayPrototypeIteratorProtocolWatchpointSet; }
+
     bool isArrayPrototypeIteratorProtocolFastAndNonObservable();
+    bool isTypedArrayPrototypeIteratorProtocolFastAndNonObservable(TypedArrayType);
     bool isMapPrototypeIteratorProtocolFastAndNonObservable();
     bool isSetPrototypeIteratorProtocolFastAndNonObservable();
     bool isStringPrototypeIteratorProtocolFastAndNonObservable();
@@ -720,7 +823,7 @@ public:
     JSFunction* arrayProtoToStringFunction() const { return m_arrayProtoToStringFunction.get(this); }
     JSFunction* arrayProtoValuesFunction() const { return m_arrayProtoValuesFunction.get(this); }
     JSFunction* arrayProtoValuesFunctionConcurrently() const { return m_arrayProtoValuesFunction.getConcurrently(); }
-    JSFunction* iteratorProtocolFunction() const { return m_iteratorProtocolFunction.get(this); }
+    JSFunction* iteratorProtocolFunction() const;
     JSFunction* newPromiseCapabilityFunction() const;
     JSFunction* promiseResolveFunction() const { return m_promiseResolveFunction.get(this); }
     JSFunction* resolvePromiseFunction() const;
@@ -863,7 +966,6 @@ public:
     Structure* customGetterFunctionStructure() const { return m_customGetterFunctionStructure.get(this); }
     Structure* customSetterFunctionStructure() const { return m_customSetterFunctionStructure.get(this); }
     Structure* nativeStdFunctionStructure() const { return m_nativeStdFunctionStructure.get(this); }
-    PropertyOffset functionNameOffset() const { return m_functionNameOffset; }
     Structure* numberObjectStructure() const { return m_numberObjectStructure.get(this); }
     Structure* regExpStructure() const { return m_regExpStructure.get(); }
     Structure* shadowRealmStructure() const { return m_shadowRealmObjectStructure.get(); }
@@ -1043,7 +1145,7 @@ public:
     }
     bool isOriginalTypedArrayStructure(Structure* structure)
     {
-        TypedArrayType type = structure->classInfoForCells()->typedArrayStorageType;
+        TypedArrayType type = typedArrayType(structure->typeInfo().type());
         if (type == NotTypedArray)
             return false;
         return typedArrayStructureConcurrently(type) == structure;
@@ -1053,6 +1155,11 @@ public:
     JSObject* typedArrayConstructor(TypedArrayType type) const
     {
         return lazyTypedArrayStructure(type).constructor(this);
+    }
+
+    JSObject* typedArrayPrototype(TypedArrayType type) const
+    {
+        return lazyTypedArrayStructure(type).prototype(this);
     }
 
     JSCell* linkTimeConstant(LinkTimeConstant value) const
@@ -1197,9 +1304,15 @@ public:
     void installMapPrototypeWatchpoint(MapPrototype*);
     void installSetPrototypeWatchpoint(SetPrototype*);
     void tryInstallArrayBufferSpeciesWatchpoint(ArrayBufferSharingMode);
+    void tryInstallTypedArraySpeciesWatchpoint(TypedArrayType);
+    void installTypedArrayIteratorProtocolWatchpoint(JSObject* prototype, TypedArrayType);
+    void installTypedArrayConstructorSpeciesWatchpoint(JSTypedArrayViewConstructor*);
+    void installTypedArrayPrototypeIteratorProtocolWatchpoint(JSTypedArrayViewPrototype*, GetterSetter*);
 
 protected:
-    void tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* constructor, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& constructorWatchpoint, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& speciesWatchpoint, InlineWatchpointSet& speciesWatchpointSet);
+    enum class HasSpeciesProperty : bool { Yes, No };
+    template<typename SpeciesWatchpoint>
+    void tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* constructor, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& constructorWatchpoint, std::unique_ptr<SpeciesWatchpoint>&, InlineWatchpointSet&, HasSpeciesProperty);
 
     struct GlobalPropertyInfo {
         GlobalPropertyInfo(const Identifier& i, JSValue v, unsigned a)

@@ -896,7 +896,8 @@ void NetworkResourceLoader::sendDidReceiveResponsePotentiallyInNewBrowsingContex
     auto loader = m_connection->takeNetworkResourceLoader(coreIdentifier());
     ASSERT(loader == this);
     auto existingNetworkResourceLoadIdentifierToResume = loader->identifier();
-    m_connection->networkSession()->addLoaderAwaitingWebProcessTransfer(loader.releaseNonNull());
+    if (auto* session = m_connection->networkSession())
+        session->addLoaderAwaitingWebProcessTransfer(loader.releaseNonNull());
     RegistrableDomain responseDomain { response.url() };
     m_connection->networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::TriggerBrowsingContextGroupSwitchForNavigation(m_parameters.webPageProxyID, m_parameters.navigationID, browsingContextGroupSwitchDecision, responseDomain, existingNetworkResourceLoadIdentifierToResume), [existingNetworkResourceLoadIdentifierToResume, session = WeakPtr { connectionToWebProcess().networkSession() }](bool success) {
         if (success)
@@ -1183,8 +1184,10 @@ void NetworkResourceLoader::didFinishWithRedirectResponse(WebCore::ResourceReque
     networkLoadMetrics.responseBodyBytesReceived = 0;
     networkLoadMetrics.responseBodyDecodedSize = 0;
 
+#if ENABLE(SERVICE_WORKER)
     if (m_serviceWorkerFetchTask)
         networkLoadMetrics.fetchStart = m_serviceWorkerFetchTask->startTime();
+#endif
     send(Messages::WebResourceLoader::DidFinishResourceLoad { networkLoadMetrics });
 
     cleanup(LoadResult::Success);

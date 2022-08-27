@@ -66,6 +66,8 @@ Modules/cache/DOMCacheEngine.cpp
 Modules/cache/DOMCacheStorage.cpp
 Modules/cache/WindowOrWorkerGlobalScopeCaches.cpp
 Modules/cache/WorkerCacheStorageConnection.cpp
+Modules/compression/CompressionStreamEncoder.cpp
+Modules/compression/DecompressionStreamDecoder.cpp
 Modules/contact-picker/ContactsManager.cpp
 Modules/contact-picker/NavigatorContacts.cpp
 Modules/cookie-consent/NavigatorCookieConsent.cpp
@@ -1610,6 +1612,7 @@ layout/layouttree/LayoutBoxGeometry.cpp
 layout/layouttree/LayoutInitialContainingBlock.cpp
 layout/layouttree/LayoutInlineTextBox.cpp
 layout/layouttree/LayoutLineBreakBox.cpp
+layout/layouttree/LayoutListMarkerBox.cpp
 layout/layouttree/LayoutReplacedBox.cpp
 layout/layouttree/LayoutTreeBuilder.cpp
 layout/formattingContexts/table/TableFormattingContext.cpp
@@ -1923,6 +1926,7 @@ platform/ReferrerPolicy.cpp
 platform/RemoteCommandListener.cpp
 platform/RuntimeApplicationChecks.cpp
 platform/SSLKeyGenerator.cpp
+platform/ScrollAlignment.cpp
 platform/ScrollAnimation.cpp
 platform/ScrollAnimationKinetic.cpp
 platform/ScrollAnimationMomentum.cpp
@@ -2050,6 +2054,7 @@ platform/graphics/FloatSize.cpp
 platform/graphics/Font.cpp
 platform/graphics/FontCache.cpp
 platform/graphics/FontCascade.cpp
+platform/graphics/FontCascadeCache.cpp
 platform/graphics/FontCascadeDescription.cpp
 platform/graphics/FontCascadeFonts.cpp
 platform/graphics/FontDescription.cpp
@@ -2113,9 +2118,11 @@ platform/graphics/RoundedRect.cpp
 platform/graphics/ShadowBlur.cpp
 platform/graphics/SourceBrush.cpp
 platform/graphics/SourceBufferPrivate.cpp
+platform/graphics/SourceBufferPrivateClient.cpp
 platform/graphics/SourceImage.cpp
 platform/graphics/StringTruncator.cpp
 platform/graphics/SystemFontDatabase.cpp
+platform/graphics/SystemFallbackFontCache.cpp
 platform/graphics/TextRun.cpp
 platform/graphics/TextTrackRepresentation.cpp
 platform/graphics/TrackBuffer.cpp
@@ -2434,7 +2441,6 @@ rendering/RenderVTTCue.cpp
 rendering/RenderVideo.cpp
 rendering/RenderView.cpp
 rendering/RenderWidget.cpp
-rendering/ScrollAlignment.cpp
 rendering/SelectionRangeData.cpp
 rendering/StyledMarkedText.cpp
 rendering/TableLayout.cpp
@@ -2511,15 +2517,16 @@ rendering/style/StyleVisualData.cpp
 rendering/style/TextSizeAdjustment.cpp
 rendering/style/WillChangeData.cpp
 rendering/svg/LegacyRenderSVGContainer.cpp
+rendering/svg/LegacyRenderSVGEllipse.cpp
 rendering/svg/LegacyRenderSVGModelObject.cpp
 rendering/svg/LegacyRenderSVGPath.cpp
 rendering/svg/LegacyRenderSVGRect.cpp
 rendering/svg/LegacyRenderSVGRoot.cpp
 rendering/svg/LegacyRenderSVGShape.cpp
 rendering/svg/LegacyRenderSVGTransformableContainer.cpp
+rendering/svg/LegacyRenderSVGViewportContainer.cpp
 rendering/svg/RenderSVGBlock.cpp
 rendering/svg/RenderSVGContainer.cpp
-rendering/svg/LegacyRenderSVGEllipse.cpp
 rendering/svg/RenderSVGEllipse.cpp
 rendering/svg/RenderSVGForeignObject.cpp
 rendering/svg/RenderSVGGradientStop.cpp
@@ -3042,6 +3049,8 @@ JSComment.cpp
 JSCompositeOperation.cpp
 JSCompositeOperationOrAuto.cpp
 JSCompositionEvent.cpp
+JSCompressionStream.cpp
+JSCompressionStreamEncoder.cpp
 JSComputedEffectTiming.cpp
 JSConstantSourceNode.cpp
 JSConstantSourceOptions.cpp
@@ -3110,6 +3119,8 @@ JSDataTransferItem.cpp
 JSDataTransferItemList.cpp
 JSDatabase.cpp
 JSDatabaseCallback.cpp
+JSDecompressionStream.cpp
+JSDecompressionStreamDecoder.cpp
 JSDedicatedWorkerGlobalScope.cpp
 JSDelayNode.cpp
 JSDelayOptions.cpp
@@ -4117,6 +4128,7 @@ JSWebXRViewport.cpp
 JSWebXRWebGLLayer.cpp
 JSWheelEvent.cpp
 JSWindowEventHandlers.cpp
+JSWindowEventHandlers+Gamepad.cpp
 JSWindowOrWorkerGlobalScope.cpp
 JSWorker.cpp
 JSWorkerGlobalScope.cpp

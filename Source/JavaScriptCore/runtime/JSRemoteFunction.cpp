@@ -91,9 +91,17 @@ JSC_DEFINE_HOST_FUNCTION(remoteFunctionCallForJSFunction, (JSGlobalObject* globa
     JSGlobalObject* targetGlobalObject = targetFunction->globalObject();
 
     MarkedArgumentBuffer args;
+    auto clearArgOverflowCheckAndReturnAbortValue = [&] () -> EncodedJSValue {
+        // This is only called because we'll be imminently returning due to an
+        // exception i.e. we won't be using the args, and we don't care if they
+        // overflowed. However, we still need to call overflowCheckNotNeeded()
+        // to placate an ASSERT in the MarkedArgumentBuffer destructor.
+        args.overflowCheckNotNeeded();
+        return { };
+    };
     for (unsigned i = 0; i < callFrame->argumentCount(); ++i) {
         JSValue wrappedValue = wrapArgument(globalObject, targetGlobalObject, callFrame->uncheckedArgument(i));
-        RETURN_IF_EXCEPTION(scope, { });
+        RETURN_IF_EXCEPTION(scope, clearArgOverflowCheckAndReturnAbortValue());
         args.append(wrappedValue);
     }
     if (UNLIKELY(args.hasOverflowed())) {
@@ -213,8 +221,13 @@ void JSRemoteFunction::copyNameAndLength(JSGlobalObject* globalObject)
 
     JSValue targetName = m_targetFunction->get(globalObject, vm.propertyNames->name);
     RETURN_IF_EXCEPTION(scope, void());
-    if (targetName.isString())
-        m_nameMayBeNull.set(vm, this, asString(targetName));
+    if (targetName.isString()) {
+        auto* targetString = asString(targetName);
+        targetString->value(globalObject); // Resolving rope.
+        RETURN_IF_EXCEPTION(scope, void());
+        m_nameMayBeNull.set(vm, this, targetString);
+    }
+    ASSERT(!m_nameMayBeNull || !m_nameMayBeNull->isRope());
 }
 
 void JSRemoteFunction::finishCreation(JSGlobalObject* globalObject, VM& vm)

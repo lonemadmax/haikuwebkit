@@ -47,6 +47,8 @@ class PlatformCALayerRemote;
 class RemoteLayerBackingStoreCollection;
 enum class SwapBuffersDisplayRequirement : uint8_t;
 
+using UseOutOfLineSurfaces = WebCore::ImageBuffer::CreationContext::UseOutOfLineSurfaces;
+
 class RemoteLayerBackingStore {
     WTF_MAKE_NONCOPYABLE(RemoteLayerBackingStore);
     WTF_MAKE_FAST_ALLOCATED;
@@ -60,7 +62,7 @@ public:
     };
 
     enum class IncludeDisplayList : bool { No, Yes };
-    void ensureBackingStore(Type, WebCore::FloatSize, float scale, bool deepColor, bool isOpaque, IncludeDisplayList);
+    void ensureBackingStore(Type, WebCore::FloatSize, float scale, bool deepColor, bool isOpaque, IncludeDisplayList, UseOutOfLineSurfaces);
 
     void setNeedsDisplay(const WebCore::IntRect);
     void setNeedsDisplay();
@@ -129,9 +131,7 @@ private:
 
     struct Buffer {
         RefPtr<WebCore::ImageBuffer> imageBuffer;
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-        RefPtr<WebCore::ImageBuffer> displayListImageBuffer;
-#endif
+
         explicit operator bool() const
         {
             return !!imageBuffer;
@@ -167,6 +167,7 @@ private:
     std::optional<MachSendRight> m_contentsBufferHandle;
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+    RefPtr<WebCore::ImageBuffer> m_displayListBuffer;
     std::optional<ImageBufferBackendHandle> m_displayListBufferHandle;
 #endif
 
@@ -174,6 +175,7 @@ private:
 
     Type m_type;
     IncludeDisplayList m_includeDisplayList { IncludeDisplayList::No };
+    UseOutOfLineSurfaces m_useOutOfLineSurfaces { UseOutOfLineSurfaces::No };
     bool m_deepColor { false };
 
     WebCore::RepaintRectList m_paintingRects;

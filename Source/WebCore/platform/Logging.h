@@ -99,6 +99,7 @@ namespace WebCore {
     M(Push) \
     M(RemoteInspector) \
     M(RequestAnimationFrame) \
+    M(ResizeObserver) \
     M(ResourceLoading) \
     M(ResourceLoadObserver) \
     M(ResourceLoadStatistics) \
@@ -119,6 +120,7 @@ namespace WebCore {
     M(SVG) \
     M(TextAutosizing) \
     M(TextFragment) \
+    M(TextManipulation) \
     M(TextShaping) \
     M(Tiling) \
     M(Threading) \

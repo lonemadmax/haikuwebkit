@@ -145,6 +145,9 @@
 #include "RuntimeApplicationChecks.h"
 #include "VideoFullscreenInterfaceAVKit.h"
 #endif
+#if HAVE(PIP_CONTROLLER)
+#include "VideoFullscreenInterfacePiP.h"
+#endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #include "RemotePlayback.h"
@@ -1505,6 +1508,11 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
     URL url = initialURL;
 #if PLATFORM(COCOA)
     if (url.isLocalFile() && !frame->loader().willLoadMediaElementURL(url, *this)) {
+        mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
+        return;
+    }
+#elif USE(GSTREAMER)
+    if (!url.isEmpty() && !frame->loader().willLoadMediaElementURL(url, *this)) {
         mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
         return;
     }
@@ -3225,7 +3233,10 @@ void HTMLMediaElement::seekTask()
     MediaTime positiveTolerance = m_pendingSeek->positiveTolerance;
     m_pendingSeek = nullptr;
 
+    ASSERT(negativeTolerance.isValid());
     ASSERT(negativeTolerance >= MediaTime::zeroTime());
+    ASSERT(positiveTolerance.isValid());
+    ASSERT(positiveTolerance >= MediaTime::zeroTime());
 
     // 6 - If the new playback position is later than the end of the media resource, then let it be the end
     // of the media resource instead.
@@ -6091,7 +6102,7 @@ bool HTMLMediaElement::elementIsHidden() const
     if (m_videoFullscreenMode != VideoFullscreenModeNone)
         return false;
 
-    return document().hidden();
+    return document().hidden() && (!m_player || !m_player->isVisibleForCanvas());
 }
 
 void HTMLMediaElement::visibilityStateChanged()
@@ -6399,7 +6410,9 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
         if (is<HTMLVideoElement>(*this)) {
             HTMLVideoElement& asVideo = downcast<HTMLVideoElement>(*this);
             auto& client = document().page()->chrome().client();
-            if (client.supportsVideoFullscreen(mode) && client.canEnterVideoFullscreen()) {
+            auto supportsFullscreen = client.supportsVideoFullscreen(mode);
+            auto canEnterFullscreen = client.canEnterVideoFullscreen(mode);
+            if (supportsFullscreen && canEnterFullscreen) {
                 ALWAYS_LOG(logIdentifier, "Entering fullscreen mode ", mode, ", m_videoFullscreenStandby = ", m_videoFullscreenStandby);
 
                 m_temporarilyAllowingInlinePlaybackAfterFullscreen = false;
@@ -6421,6 +6434,7 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
 
                 return;
             }
+            ALWAYS_LOG(logIdentifier, "Could not enter fullscreen mode ", mode, ", support = ", supportsFullscreen, ", canEnter = ", canEnterFullscreen);
         }
 
         m_changingVideoFullscreenMode = false;
@@ -7445,9 +7459,11 @@ String HTMLMediaElement::mediaPlayerNetworkInterfaceName() const
 void HTMLMediaElement::mediaPlayerGetRawCookies(const URL& url, MediaPlayerClient::GetRawCookiesCallback&& completionHandler) const
 {
     auto* page = document().page();
-    if (!page)
+    if (!page) {
         completionHandler({ });
-    
+        return;
+    }
+
     Vector<Cookie> cookies;
     page->cookieJar().getRawCookies(document(), url, cookies);
     completionHandler(WTFMove(cookies));

@@ -156,12 +156,12 @@ public:
 #if ENABLE(IMAGE_ANALYSIS)
     bool needsToForceUserSelectAndUserDragWhenInstallingImageOverlay() const;
 #endif
-
-    bool shouldDisableWebSharePolicy() const;
     
 #if PLATFORM(IOS)
     WEBCORE_EXPORT bool allowLayeredFullscreenVideos() const;
 #endif
+    bool hasBrokenPermissionsAPISupportQuirk() const;
+    bool shouldEnableApplicationCacheQuirk() const;
     
 private:
     bool needsQuirks() const;
@@ -208,9 +208,12 @@ private:
 #endif
     mutable std::optional<bool> m_blocksReturnToFullscreenFromPictureInPictureQuirk;
     mutable std::optional<bool> m_shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk;
-    mutable std::optional<bool> m_shouldDisableWebSharePolicy;
 #if PLATFORM(IOS)
     mutable std::optional<bool> m_allowLayeredFullscreenVideos;
+#endif
+    mutable std::optional<bool> m_hasBrokenPermissionsAPISupportQuirk;
+#if PLATFORM(IOS_FAMILY)
+    mutable std::optional<bool> m_shouldEnableApplicationCacheQuirk;
 #endif
 };
 

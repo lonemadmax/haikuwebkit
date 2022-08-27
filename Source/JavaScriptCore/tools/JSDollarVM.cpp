@@ -2200,6 +2200,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionDumpAndResetPasDebugSpectrum);
 static JSC_DECLARE_HOST_FUNCTION(functionMonotonicTimeNow);
 static JSC_DECLARE_HOST_FUNCTION(functionWallTimeNow);
 static JSC_DECLARE_HOST_FUNCTION(functionApproximateTimeNow);
+static JSC_DECLARE_HOST_FUNCTION(functionHeapExtraMemorySize);
 #if ENABLE(JIT)
 static JSC_DECLARE_HOST_FUNCTION(functionJITSizeStatistics);
 static JSC_DECLARE_HOST_FUNCTION(functionDumpJITSizeStatistics);
@@ -3222,7 +3223,7 @@ JSC_DEFINE_HOST_FUNCTION(functionCreateBuiltin, (JSGlobalObject* globalObject, C
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     SourceCode source = makeSource(WTFMove(functionText), { });
-    JSFunction* func = JSFunction::create(vm, createBuiltinExecutable(vm, source, Identifier::fromString(vm, "foo"_s), ConstructorKind::None, ConstructAbility::CannotConstruct)->link(vm, nullptr, source), globalObject);
+    JSFunction* func = JSFunction::create(vm, createBuiltinExecutable(vm, source, Identifier::fromString(vm, "foo"_s), ImplementationVisibility::Public, ConstructorKind::None, ConstructAbility::CannotConstruct)->link(vm, nullptr, source), globalObject);
 
     return JSValue::encode(func);
 }
@@ -3865,6 +3866,12 @@ JSC_DEFINE_HOST_FUNCTION(functionApproximateTimeNow, (JSGlobalObject*, CallFrame
     return JSValue::encode(jsNumber(ApproximateTime::now().secondsSinceEpoch().milliseconds()));
 }
 
+JSC_DEFINE_HOST_FUNCTION(functionHeapExtraMemorySize, (JSGlobalObject* globalObject, CallFrame*))
+{
+    DollarVMAssertScope assertScope;
+    return JSValue::encode(jsNumber(globalObject->vm().heap.extraMemorySize()));
+}
+
 #if ENABLE(JIT)
 JSC_DEFINE_HOST_FUNCTION(functionJITSizeStatistics, (JSGlobalObject* globalObject, CallFrame*))
 {
@@ -4100,6 +4107,8 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, "monotonicTimeNow"_s, functionMonotonicTimeNow, 0);
     addFunction(vm, "wallTimeNow"_s, functionWallTimeNow, 0);
     addFunction(vm, "approximateTimeNow"_s, functionApproximateTimeNow, 0);
+
+    addFunction(vm, "heapExtraMemorySize"_s, functionHeapExtraMemorySize, 0);
 
 #if ENABLE(JIT)
     addFunction(vm, "jitSizeStatistics"_s, functionJITSizeStatistics, 0);

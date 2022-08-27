@@ -30,10 +30,10 @@
 
 #include "AST/Attribute.h"
 #include "AST/Expression.h"
+#include "AST/Expressions/CallableExpression.h"
 #include "AST/Expressions/IdentifierExpression.h"
 #include "AST/Expressions/LiteralExpressions.h"
 #include "AST/Expressions/StructureAccess.h"
-#include "AST/Expressions/TypeConversion.h"
 #include "AST/GlobalDecl.h"
 #include "AST/Statement.h"
 #include "AST/Statements/AssignmentStatement.h"
@@ -208,6 +208,7 @@ Expected<UniqueRef<AST::Attribute>, Error> Parser<Lexer>::parseAttribute()
 
     CONSUME_TYPE(Attribute);
     CONSUME_TYPE_NAMED(ident, Identifier);
+
     if (ident.m_ident == "group"_s) {
         CONSUME_TYPE(ParenLeft);
         // FIXME: should more kinds of literals be accepted here?
@@ -215,6 +216,7 @@ Expected<UniqueRef<AST::Attribute>, Error> Parser<Lexer>::parseAttribute()
         CONSUME_TYPE(ParenRight);
         RETURN_NODE_REF(GroupAttribute, id.m_literalValue);
     }
+
     if (ident.m_ident == "binding"_s) {
         CONSUME_TYPE(ParenLeft);
         // FIXME: should more kinds of literals be accepted here?
@@ -222,18 +224,7 @@ Expected<UniqueRef<AST::Attribute>, Error> Parser<Lexer>::parseAttribute()
         CONSUME_TYPE(ParenRight);
         RETURN_NODE_REF(BindingAttribute, id.m_literalValue);
     }
-    if (ident.m_ident == "stage"_s) {
-        CONSUME_TYPE(ParenLeft);
-        CONSUME_TYPE_NAMED(stage, Identifier);
-        CONSUME_TYPE(ParenRight);
-        if (stage.m_ident == "compute"_s)
-            RETURN_NODE_REF(StageAttribute, AST::StageAttribute::Stage::Compute);
-        if (stage.m_ident == "vertex"_s)
-            RETURN_NODE_REF(StageAttribute, AST::StageAttribute::Stage::Vertex);
-        if (stage.m_ident == "fragment"_s)
-            RETURN_NODE_REF(StageAttribute, AST::StageAttribute::Stage::Fragment);
-        FAIL("Invalid stage attribute, the only options are 'compute', 'vertex', 'fragment'."_s);
-    }
+
     if (ident.m_ident == "location"_s) {
         CONSUME_TYPE(ParenLeft);
         // FIXME: should more kinds of literals be accepted here?
@@ -241,13 +232,23 @@ Expected<UniqueRef<AST::Attribute>, Error> Parser<Lexer>::parseAttribute()
         CONSUME_TYPE(ParenRight);
         RETURN_NODE_REF(LocationAttribute, id.m_literalValue);
     }
+
     if (ident.m_ident == "builtin"_s) {
         CONSUME_TYPE(ParenLeft);
         CONSUME_TYPE_NAMED(name, Identifier);
         CONSUME_TYPE(ParenRight);
         RETURN_NODE_REF(BuiltinAttribute, name.m_ident);
     }
-    FAIL("Unknown attribute, the only supported attributes are 'group', 'binding', 'stage'."_s);
+
+    // https://gpuweb.github.io/gpuweb/wgsl/#pipeline-stage-attributes
+    if (ident.m_ident == "vertex"_s)
+        RETURN_NODE_REF(StageAttribute, AST::StageAttribute::Stage::Vertex);
+    if (ident.m_ident == "compute"_s)
+        RETURN_NODE_REF(StageAttribute, AST::StageAttribute::Stage::Compute);
+    if (ident.m_ident == "fragment"_s)
+        RETURN_NODE_REF(StageAttribute, AST::StageAttribute::Stage::Fragment);
+
+    FAIL("Unknown attribute. Supported attributes are 'group', 'binding', 'location', 'builtin', 'vertex', 'compute', 'fragment'."_s);
 }
 
 template<typename Lexer>
@@ -601,12 +602,20 @@ Expected<UniqueRef<AST::Expression>, Error> Parser<Lexer>::parsePostfixExpressio
     return { WTFMove(expr) };
 }
 
+// https://gpuweb.github.io/gpuweb/wgsl/#syntax-primary_expression
+// primary_expression:
+//   | ident
+//   | callable argument_expression_list
+//   | const_literal
+//   | paren_expression
+//   | bitcast less_than type_decl greater_than paren_expression
 template<typename Lexer>
 Expected<UniqueRef<AST::Expression>, Error> Parser<Lexer>::parsePrimaryExpression()
 {
     START_PARSE();
 
     switch (current().m_type) {
+    // paren_expression
     case TokenType::ParenLeft: {
         consume();
         PARSE(expr, Expression);
@@ -615,18 +624,24 @@ Expected<UniqueRef<AST::Expression>, Error> Parser<Lexer>::parsePrimaryExpressio
     }
     case TokenType::Identifier: {
         CONSUME_TYPE_NAMED(ident, Identifier);
-        if (ident.m_ident == "true"_s) {
-            RETURN_NODE_REF(BoolLiteral, true);
-        }
-        if (ident.m_ident == "false"_s) {
-            RETURN_NODE_REF(BoolLiteral, false);
-        }
         if (current().m_type == TokenType::LT || current().m_type == TokenType::ParenLeft) {
             PARSE(type, TypeDeclAfterIdentifier, WTFMove(ident.m_ident), _startOfElementPosition);
             PARSE(arguments, ArgumentExpressionList);
-            RETURN_NODE_REF(TypeConversion, WTFMove(type), WTFMove(arguments));
+            RETURN_NODE_REF(CallableExpression, WTFMove(type), WTFMove(arguments));
         }
         RETURN_NODE_REF(IdentifierExpression, ident.m_ident);
+    }
+
+    // const_literal
+    case TokenType::LiteralTrue:
+        consume();
+        RETURN_NODE_REF(BoolLiteral, true);
+    case TokenType::LiteralFalse:
+        consume();
+        RETURN_NODE_REF(BoolLiteral, false);
+    case TokenType::IntegerLiteral: {
+        CONSUME_TYPE_NAMED(lit, IntegerLiteral);
+        RETURN_NODE_REF(AbstractIntLiteral, lit.m_literalValue);
     }
     case TokenType::IntegerLiteralSigned: {
         CONSUME_TYPE_NAMED(lit, IntegerLiteralSigned);
@@ -638,12 +653,18 @@ Expected<UniqueRef<AST::Expression>, Error> Parser<Lexer>::parsePrimaryExpressio
     }
     case TokenType::DecimalFloatLiteral: {
         CONSUME_TYPE_NAMED(lit, DecimalFloatLiteral);
-        RETURN_NODE_REF(Float32Literal, lit.m_literalValue);
+        RETURN_NODE_REF(AbstractFloatLiteral, lit.m_literalValue);
     }
-    // FIXME: HexFloatLiteral and IntegerLiteral
+    case TokenType::HexFloatLiteral: {
+        CONSUME_TYPE_NAMED(lit, HexFloatLiteral);
+        RETURN_NODE_REF(AbstractFloatLiteral, lit.m_literalValue);
+    }
+    // TODO: bitcast expression
+
     default:
         break;
     }
+
     FAIL("Expected one of '(', a literal, or an identifier"_s);
 }
 

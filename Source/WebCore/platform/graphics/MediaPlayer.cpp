@@ -380,7 +380,7 @@ const MediaPlayerFactory* MediaPlayer::mediaEngine(MediaPlayerEnums::MediaEngine
     return engines[currentIndex].get();
 }
 
-static const MediaPlayerFactory* bestMediaEngineForSupportParameters(const MediaEngineSupportParameters& parameters, const MediaPlayerFactory* current = nullptr)
+static const MediaPlayerFactory* bestMediaEngineForSupportParameters(const MediaEngineSupportParameters& parameters, const HashSet<const MediaPlayerFactory*>& attemptedEngines = { }, const MediaPlayerFactory* current = nullptr)
 {
     if (parameters.type.isEmpty() && !parameters.isMediaSource && !parameters.isMediaStream)
         return nullptr;
@@ -401,6 +401,8 @@ static const MediaPlayerFactory* bestMediaEngineForSupportParameters(const Media
                 current = nullptr;
             continue;
         }
+        if (attemptedEngines.contains(engine.get()))
+            continue;
         MediaPlayer::SupportsType engineSupport = engine->supportsTypeAndCodecs(parameters);
         if (engineSupport > supported) {
             supported = engineSupport;
@@ -436,7 +438,12 @@ const MediaPlayerFactory* MediaPlayer::nextMediaEngine(const MediaPlayerFactory*
     if (currentIndex + 1 >= engines.size())
         return nullptr;
 
-    return engines[currentIndex + 1].get();
+    auto* nextEngine = engines[currentIndex + 1].get();
+    
+    if (m_attemptedEngines.contains(nextEngine))
+        return nextMediaEngine(nextEngine);
+    
+    return nextEngine;
 }
 
 // media player
@@ -577,7 +584,7 @@ const MediaPlayerFactory* MediaPlayer::nextBestMediaEngine(const MediaPlayerFact
         return nullptr;
     }
 
-    return bestMediaEngineForSupportParameters(parameters, current);
+    return bestMediaEngineForSupportParameters(parameters, m_attemptedEngines, current);
 }
 
 void MediaPlayer::reloadAndResumePlaybackIfNeeded()
@@ -608,8 +615,8 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
     if (!m_contentType.isEmpty() || MEDIASTREAM || MEDIASOURCE)
         engine = nextBestMediaEngine(current);
 
-    // If no MIME type is specified or the type was inferred from the file extension, just use the next engine.
-    if (!engine && (m_contentType.isEmpty() || m_contentMIMETypeWasInferredFromExtension))
+    // Exhaust all remaining engines
+    if (!engine)
         engine = nextMediaEngine(current);
 
     // Don't delete and recreate the player unless it comes from a different engine.
@@ -619,6 +626,7 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
         m_private = nullptr;
     } else if (m_currentMediaEngine != engine) {
         m_currentMediaEngine = engine;
+        m_attemptedEngines.add(engine);
         m_private = engine->createMediaEnginePlayer(this);
         if (m_private) {
             client().mediaPlayerEngineUpdated();
@@ -646,7 +654,9 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
         m_private->load(m_url, m_contentMIMETypeWasInferredFromExtension ? ContentType() : m_contentType, m_keySystem);
     } else {
         m_private = makeUnique<NullMediaPlayerPrivate>(this);
-        if (!m_activeEngineIdentifier && installedMediaEngines().size() > 1 && nextBestMediaEngine(m_currentMediaEngine))
+        if (!m_activeEngineIdentifier
+            && installedMediaEngines().size() > 1
+            && (nextBestMediaEngine(m_currentMediaEngine) || nextMediaEngine(m_currentMediaEngine)))
             m_reloadTimer.startOneShot(0_s);
         else {
             client().mediaPlayerEngineUpdated();
@@ -1066,6 +1076,10 @@ void MediaPlayer::setPageIsVisible(bool visible)
 
 void MediaPlayer::setVisibleForCanvas(bool visible)
 {
+    if (visible == m_visibleForCanvas)
+        return;
+
+    m_visibleForCanvas = visible;
     m_private->setVisibleForCanvas(visible);
 }
 
@@ -1362,7 +1376,9 @@ void MediaPlayer::networkStateChanged()
     if (m_private->networkState() >= MediaPlayer::NetworkState::FormatError && m_private->readyState() < MediaPlayer::ReadyState::HaveMetadata) {
         m_lastErrorMessage = m_private->errorMessage();
         client().mediaPlayerEngineFailedToLoad();
-        if (!m_activeEngineIdentifier && installedMediaEngines().size() > 1 && (m_contentType.isEmpty() || nextBestMediaEngine(m_currentMediaEngine))) {
+        if (!m_activeEngineIdentifier
+            && installedMediaEngines().size() > 1
+            && (nextBestMediaEngine(m_currentMediaEngine) || nextMediaEngine(m_currentMediaEngine))) {
             m_reloadTimer.startOneShot(0_s);
             return;
         }
@@ -1804,6 +1820,11 @@ void MediaPlayer::stopVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = false;
     m_private->stopVideoFrameMetadataGathering();
+}
+
+void MediaPlayer::renderVideoWillBeDestroyed()
+{
+    m_private->renderVideoWillBeDestroyed();
 }
 
 void MediaPlayer::playerContentBoxRectChanged(const LayoutRect& rect)

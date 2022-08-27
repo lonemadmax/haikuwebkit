@@ -213,15 +213,12 @@ void FrameViewLayoutContext::performLayout()
     if (view().updateFixedPositionLayoutRect() && subtreeLayoutRoot())
         convertSubtreeLayoutToFullLayout();
 #endif
-    if (handleLayoutWithFrameFlatteningIfNeeded())
-        return;
-
     {
         SetForScope layoutPhase(m_layoutPhase, LayoutPhase::InPreLayout);
 
         if (!frame().document()->isResolvingContainerQueriesForSelfOrAncestor()) {
             // If this is a new top-level layout and there are any remaining tasks from the previous layout, finish them now.
-            if (!isLayoutNested() && m_asynchronousTasksTimer.isActive() && !view().isInChildFrameWithFrameFlattening())
+            if (!isLayoutNested() && m_asynchronousTasksTimer.isActive())
                 runAsynchronousTasks();
 
             updateStyleForLayout();
@@ -288,15 +285,6 @@ void FrameViewLayoutContext::runOrScheduleAsynchronousTasks()
 
     if (frame().document()->isResolvingContainerQueries()) {
         // We are doing layout from style resolution to resolve container queries.
-        m_asynchronousTasksTimer.startOneShot(0_s);
-        return;
-    }
-
-    if (view().isInChildFrameWithFrameFlattening()) {
-        // While flattening frames, we defer post layout tasks to avoid getting stuck in a cycle,
-        // except updateWidgetPositions() which is required to kick off subframe layout in certain cases.
-        if (!m_inAsynchronousTasks)
-            view().updateWidgetPositions();
         m_asynchronousTasksTimer.startOneShot(0_s);
         return;
     }
@@ -396,12 +384,8 @@ void FrameViewLayoutContext::scheduleLayout()
         return;
     if (!frame().document()->shouldScheduleLayout())
         return;
-    InspectorInstrumentation::didInvalidateLayout(frame());
-    // When frame flattening is enabled, the contents of the frame could affect the layout of the parent frames.
-    // Also invalidate parent frame starting from the owner element of this frame.
-    if (frame().ownerRenderer() && view().isInChildFrameWithFrameFlattening())
-        frame().ownerRenderer()->setNeedsLayout(MarkContainingBlockChain);
 
+    InspectorInstrumentation::didInvalidateLayout(frame());
     if (m_layoutTimer.isActive())
         return;
 
@@ -423,7 +407,7 @@ void FrameViewLayoutContext::unscheduleLayout()
 
 #if !LOG_DISABLED
     if (!frame().document()->ownerElement())
-        LOG(Layout, "FrameView %p layout timer unscheduled at %.3fs", this, frame().document()->timeSinceDocumentCreation().value());
+        LOG_WITH_STREAM(Layout, stream << "FrameViewLayoutContext for FrameView " << frame().view() << " layout timer unscheduled at " << frame().document()->timeSinceDocumentCreation().value());
 #endif
 
     m_layoutTimer.stop();
@@ -487,7 +471,7 @@ void FrameViewLayoutContext::layoutTimerFired()
 {
 #if !LOG_DISABLED
     if (!frame().document()->ownerElement())
-        LOG(Layout, "FrameView %p layout timer fired at %.3fs", this, frame().document()->timeSinceDocumentCreation().value());
+        LOG_WITH_STREAM(Layout, stream << "FrameViewLayoutContext for FrameView " << frame().view() << " layout timer fired at " << frame().document()->timeSinceDocumentCreation().value());
 #endif
     layout();
 }
@@ -567,40 +551,6 @@ void FrameViewLayoutContext::updateStyleForLayout()
     // Always ensure our style info is up-to-date. This can happen in situations where
     // the layout beats any sort of style recalc update that needs to occur.
     document.updateStyleIfNeeded();
-}
-
-bool FrameViewLayoutContext::handleLayoutWithFrameFlatteningIfNeeded()
-{
-    if (!view().isInChildFrameWithFrameFlattening())
-        return false;
-    
-    startLayoutAtMainFrameViewIfNeeded();
-    auto* layoutRoot = subtreeLayoutRoot() ? subtreeLayoutRoot() : frame().document()->renderView();
-    return !layoutRoot || !layoutRoot->needsLayout();
-}
-
-void FrameViewLayoutContext::startLayoutAtMainFrameViewIfNeeded()
-{
-    // When we start a layout at the child level as opposed to the topmost frame view and this child
-    // frame requires flattening, we need to re-initiate the layout at the topmost view. Layout
-    // will hit this view eventually.
-    auto* parentView = view().parentFrameView();
-    if (!parentView)
-        return;
-
-    // In the middle of parent layout, no need to restart from topmost.
-    if (parentView->layoutContext().isInLayout())
-        return;
-
-    // Parent tree is clean. Starting layout from it would have no effect.
-    if (!parentView->needsLayout())
-        return;
-
-    while (parentView->parentFrameView())
-        parentView = parentView->parentFrameView();
-
-    LOG(Layout, "  frame flattening, starting from root");
-    parentView->layoutContext().layout();
 }
 
 LayoutSize FrameViewLayoutContext::layoutDelta() const

@@ -148,7 +148,7 @@ GPUProcessProxy::GPUProcessProxy()
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
     auto containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory());
-    auto containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebsiteDataStore::defaultContainerTemporaryDirectory());
+    auto containerTemporaryDirectory = WebsiteDataStore::defaultResolvedContainerTemporaryDirectory();
 
     if (!containerCachesDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(containerCachesDirectory, SandboxExtension::Type::ReadWrite))
@@ -160,7 +160,7 @@ GPUProcessProxy::GPUProcessProxy()
             parameters.containerTemporaryDirectoryExtensionHandle = WTFMove(*handle);
     }
 #endif
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY) && HAVE(AGX_COMPILER_SERVICE)
     if (WebCore::deviceHasAGXCompilerService()) {
         parameters.compilerServiceExtensionHandles = SandboxExtension::createHandlesForMachLookup(WebCore::agxCompilerServices(), std::nullopt);
         parameters.dynamicIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(WebCore::agxCompilerClasses(), std::nullopt);
@@ -172,10 +172,10 @@ GPUProcessProxy::GPUProcessProxy()
     // Initialize the GPU process.
     send(Messages::GPUProcess::InitializeGPUProcess(parameters), 0);
 
-#if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS)
+#if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS) && ENABLE(AUDIO_COMPONENT_SERVER_REGISTRATIONS_IN_GPU_PROCESS)
     auto registrations = fetchAudioComponentServerRegistrations();
-    if (registrations)
-        send(Messages::GPUProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferReference(WTFMove(registrations))), 0);
+    RELEASE_ASSERT(registrations);
+    send(Messages::GPUProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferReference(WTFMove(registrations))), 0);
 #endif
 
     updateProcessAssertion();
@@ -381,8 +381,16 @@ void GPUProcessProxy::processWillShutDown(IPC::Connection& connection)
         singleton() = nullptr;
 }
 
+#if ENABLE(VP9)
+std::optional<bool> GPUProcessProxy::s_hasVP9HardwareDecoder;
+#endif
+
 void GPUProcessProxy::createGPUProcessConnection(WebProcessProxy& webProcessProxy, IPC::Attachment&& connectionIdentifier, GPUProcessConnectionParameters&& parameters)
 {
+#if ENABLE(VP9)
+    parameters.hasVP9HardwareDecoder = s_hasVP9HardwareDecoder;
+#endif
+
     if (auto* store = webProcessProxy.websiteDataStore())
         addSession(*store);
 

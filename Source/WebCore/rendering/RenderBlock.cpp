@@ -58,6 +58,7 @@
 #include "RenderDeprecatedFlexibleBox.h"
 #include "RenderFlexibleBox.h"
 #include "RenderFragmentedFlow.h"
+#include "RenderGrid.h"
 #include "RenderInline.h"
 #include "RenderIterator.h"
 #include "RenderLayer.h"
@@ -431,8 +432,11 @@ void RenderBlock::styleWillChange(StyleDifference diff, const RenderStyle& newSt
     const RenderStyle* oldStyle = hasInitializedStyle() ? &style() : nullptr;
     // FIXME: Should change the expression below to newStyle.display() == DisplayType::InlineBlock.
     setReplacedOrInlineBlock(newStyle.isDisplayInlineType());
-    if (oldStyle)
+    if (oldStyle) {
         removePositionedObjectsIfNeeded(*oldStyle, newStyle);
+        if (isLegend() && !oldStyle->isFloating() && newStyle.isFloating())
+            setIsExcludedFromNormalLayout(false);
+    }
     RenderBox::styleWillChange(diff, newStyle);
 }
 
@@ -1137,19 +1141,25 @@ void RenderBlock::markForPaginationRelayoutIfNeeded()
 
 void RenderBlock::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    LayoutPoint adjustedPaintOffset = paintOffset + location();
+    auto adjustedPaintOffset = paintOffset + location();
     PaintPhase phase = paintInfo.phase;
 
-    // Check if we need to do anything at all.
-    // FIXME: Could eliminate the isDocumentElementRenderer() check if we fix background painting so that the RenderView
-    // paints the root's background.
-    if (!isDocumentElementRenderer() && !paintInfo.paintBehavior.contains(PaintBehavior::CompositedOverflowScrollContent)) {
-        LayoutRect overflowBox = visualOverflowRect();
+    // FIXME: Could eliminate the isDocumentElementRenderer() check if we fix background painting so that the RenderView paints the root's background.
+    auto visualContentIsClippedOut = [&](LayoutRect paintingRect) {
+        if (isDocumentElementRenderer())
+            return false;
+
+        if (paintInfo.paintBehavior.contains(PaintBehavior::CompositedOverflowScrollContent) && hasLayer() && layer()->usesCompositedScrolling())
+            return false;
+
+        auto overflowBox = visualOverflowRect();
         flipForWritingMode(overflowBox);
         overflowBox.moveBy(adjustedPaintOffset);
-        if (!overflowBox.intersects(paintInfo.rect))
-            return;
-    }
+        return !overflowBox.intersects(paintingRect);
+    };
+
+    if (visualContentIsClippedOut(paintInfo.rect))
+        return;
 
     bool pushedClip = pushContentsClip(paintInfo, adjustedPaintOffset);
     paintObject(paintInfo, adjustedPaintOffset);

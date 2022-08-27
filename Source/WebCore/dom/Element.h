@@ -371,7 +371,6 @@ public:
 
     virtual int tabIndexForBindings() const;
     WEBCORE_EXPORT void setTabIndexForBindings(int);
-    virtual RefPtr<Element> focusDelegate();
 
     // Used by the HTMLElement and SVGElement IDLs.
     WEBCORE_EXPORT const AtomString& nonce() const;
@@ -437,6 +436,8 @@ public:
 
     virtual const AtomString& imageSourceURL() const;
     virtual AtomString target() const { return nullAtom(); }
+
+    RefPtr<Element> findFocusDelegate();
 
     static AXTextStateChangeIntent defaultFocusTextStateChangeIntent() { return AXTextStateChangeIntent(AXTextStateChangeTypeSelectionMove, AXTextSelection { AXTextSelectionDirectionDiscontiguous, AXTextSelectionGranularityUnknown, true }); }
     virtual void focus(const FocusOptions& = { });
@@ -511,6 +512,8 @@ public:
     virtual bool isOutOfRange() const { return false; }
     virtual bool isUploadButton() const { return false; }
     virtual bool isSliderContainerElement() const { return false; }
+    virtual bool isSliderThumbElement() const { return false; }
+    virtual bool isHTMLTablePartElement() const { return false; }
 
     bool canContainRangeEndPoint() const override;
 

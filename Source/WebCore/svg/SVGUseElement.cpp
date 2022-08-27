@@ -237,6 +237,7 @@ void SVGUseElement::updateUserAgentShadowTree()
     RELEASE_ASSERT(!isDescendantOf(target));
     {
         auto& shadowRoot = ensureUserAgentShadowRoot();
+        ScriptDisallowedScope::EventAllowedScope eventAllowedScope { shadowRoot };
         cloneTarget(shadowRoot, *target);
         expandUseElementsInShadowTree();
         expandSymbolElementsInShadowTree();
@@ -436,6 +437,7 @@ SVGElement* SVGUseElement::findTarget(AtomString* targetID) const
 void SVGUseElement::cloneTarget(ContainerNode& container, SVGElement& target) const
 {
     Ref<SVGElement> targetClone = static_cast<SVGElement&>(target.cloneElementWithChildren(document()).get());
+    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { targetClone };
     associateClonesWithOriginals(targetClone.get(), target);
     removeDisallowedElementsFromSubtree(targetClone.get());
     removeSymbolElementsFromSubtree(targetClone.get());
@@ -468,6 +470,7 @@ void SVGUseElement::expandUseElementsInShadowTree() const
         // 'use' element except for x, y, width, height and xlink:href are transferred to the generated 'g' element.
 
         auto replacementClone = SVGGElement::create(document());
+        ScriptDisallowedScope::EventAllowedScope eventAllowedScope { replacementClone };
 
         cloneDataAndChildren(replacementClone.get(), originalClone);
 
@@ -503,6 +506,8 @@ void SVGUseElement::expandSymbolElementsInShadowTree() const
         // 'svg' element will use values of 100% for these attributes.
 
         auto replacementClone = SVGSVGElement::create(document());
+        ScriptDisallowedScope::EventAllowedScope eventAllowedScope { replacementClone };
+
         cloneDataAndChildren(replacementClone.get(), originalClone);
 
         originalClone.parentNode()->replaceChild(replacementClone, originalClone);
@@ -581,6 +586,7 @@ void SVGUseElement::updateExternalDocument()
         ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
         options.contentSecurityPolicyImposition = isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
         options.mode = FetchOptions::Mode::SameOrigin;
+        options.destination = FetchOptions::Destination::Image;
         CachedResourceRequest request { ResourceRequest { externalDocumentURL }, options };
         request.setInitiator(*this);
         m_externalDocument = document().cachedResourceLoader().requestSVGDocument(WTFMove(request)).value_or(nullptr);

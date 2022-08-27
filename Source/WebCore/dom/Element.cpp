@@ -136,6 +136,7 @@
 #include "markup.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/Scope.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/TextStream.h>
 
@@ -204,8 +205,9 @@ static bool shouldAutofocus(const Element& element)
         return false;
 
     auto& document = element.document();
-    if (!element.isConnected() || !document.hasBrowsingContext())
+    if (!element.isInDocumentTree() || !document.hasBrowsingContext())
         return false;
+
     if (document.isSandboxed(SandboxAutomaticFeatures)) {
         // FIXME: This message should be moved off the console once a solution to https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
         document.addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Blocked autofocusing on a form control because the form's frame is sandboxed and the 'allow-scripts' permission is not set."_s);
@@ -379,11 +381,6 @@ void Element::hideNonce()
 bool Element::supportsFocus() const
 {
     return !!tabIndexSetExplicitly();
-}
-
-RefPtr<Element> Element::focusDelegate()
-{
-    return this;
 }
 
 int Element::tabIndexForBindings() const
@@ -577,6 +574,7 @@ Ref<Node> Element::cloneNodeInternal(Document& targetDocument, CloningOperation 
 Ref<Element> Element::cloneElementWithChildren(Document& targetDocument)
 {
     Ref<Element> clone = cloneElementWithoutChildren(targetDocument);
+    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { clone };
     cloneChildNodes(clone);
     return clone;
 }
@@ -718,15 +716,14 @@ AtomString Element::getAttributeForBindings(const QualifiedName& name, ResolveUR
     if (!attribute)
         return nullAtom();
 
+    if (!attributeContainsURL(*attribute))
+        return attribute->value();
+
     switch (resolveURLs) {
     case ResolveURLs::Yes:
     case ResolveURLs::YesExcludingURLsForPrivacy:
-        return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
-
     case ResolveURLs::NoExcludingURLsForPrivacy:
-        if (document().hasURLsToMaskForBindings())
-            return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
-        break;
+        return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
 
     case ResolveURLs::No:
         break;
@@ -1043,7 +1040,7 @@ void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOpti
         ShouldAllowCrossOriginScrolling::No,
         options.behavior.value_or(ScrollBehavior::Auto)
     };
-    renderer()->scrollRectToVisible(absoluteBounds, insideFixed, visibleOptions);
+    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, visibleOptions);
 }
 
 void Element::scrollIntoView(bool alignToTop) 
@@ -1061,7 +1058,7 @@ void Element::scrollIntoView(bool alignToTop)
     auto alignX = ScrollAlignment::alignToEdgeIfNeeded;
     alignX.disableLegacyHorizontalVisibilityThreshold();
 
-    renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
+    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
@@ -1078,7 +1075,7 @@ void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
     auto alignX = centerIfNeeded ? ScrollAlignment::alignCenterIfNeeded : ScrollAlignment::alignToEdgeIfNeeded;
     alignX.disableLegacyHorizontalVisibilityThreshold();
 
-    renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
+    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollIntoViewIfNotVisible(bool centerIfNotVisible)
@@ -1090,10 +1087,8 @@ void Element::scrollIntoViewIfNotVisible(bool centerIfNotVisible)
     
     bool insideFixed;
     LayoutRect absoluteBounds = renderer()->absoluteAnchorRectWithScrollMargin(&insideFixed);
-    if (centerIfNotVisible)
-        renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNotVisible, ScrollAlignment::alignCenterIfNotVisible, ShouldAllowCrossOriginScrolling::No });
-    else
-        renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNotVisible, ScrollAlignment::alignToEdgeIfNotVisible, ShouldAllowCrossOriginScrolling::No });
+    auto align = centerIfNotVisible ? ScrollAlignment::alignCenterIfNotVisible : ScrollAlignment::alignToEdgeIfNotVisible;
+    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, align, align, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollBy(const ScrollToOptions& options)
@@ -1819,15 +1814,14 @@ AtomString Element::getAttributeForBindings(const AtomString& qualifiedName, Res
     if (!attribute)
         return nullAtom();
 
+    if (!attributeContainsURL(*attribute))
+        return attribute->value();
+
     switch (resolveURLs) {
     case ResolveURLs::Yes:
     case ResolveURLs::YesExcludingURLsForPrivacy:
-        return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
-
     case ResolveURLs::NoExcludingURLsForPrivacy:
-        if (document().hasURLsToMaskForBindings())
-            return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
-        break;
+        return AtomString(completeURLsInAttributeValue(URL(), *attribute, resolveURLs));
 
     case ResolveURLs::No:
         break;
@@ -2481,10 +2475,12 @@ Node::InsertedIntoAncestorResult Element::insertedIntoAncestor(InsertionType ins
         setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(true);
 #endif
 
-    if (parentNode() == &parentOfInsertedTree) {
-        if (auto* shadowRoot = parentNode()->shadowRoot())
-            shadowRoot->hostChildElementDidChange(*this);
-    }
+    auto hostChildElementDidChange = makeScopeExit([&] () {
+        if (parentNode() == &parentOfInsertedTree) {
+            if (auto* shadowRoot = parentNode()->shadowRoot())
+                shadowRoot->hostChildElementDidChange(*this);
+        }
+    });
 
     if (!parentOfInsertedTree.isInTreeScope())
         return InsertedIntoAncestorResult::Done;
@@ -3209,17 +3205,42 @@ static bool isProgramaticallyFocusable(Element& element)
     return element.supportsFocus();
 }
 
-static RefPtr<Element> findFirstProgramaticallyFocusableElementInComposedTree(Element& host)
+// https://html.spec.whatwg.org/multipage/interaction.html#autofocus-delegate
+static RefPtr<Element> autoFocusDelegate(ContainerNode& target)
 {
-    ASSERT(host.shadowRoot());
-    for (auto& node : composedTreeDescendants(host)) {
-        if (!is<Element>(node))
+    for (auto& element : descendantsOfType<Element>(target)) {
+        if (!element.hasAttributeWithoutSynchronization(HTMLNames::autofocusAttr))
             continue;
-        auto& element = downcast<Element>(node);
+        if (auto root = shadowRootWithDelegatesFocus(element)) {
+            if (auto target = autoFocusDelegate(*root))
+                return target;
+        }
         if (isProgramaticallyFocusable(element))
             return &element;
     }
     return nullptr;
+}
+
+// https://html.spec.whatwg.org/multipage/interaction.html#focus-delegate
+static RefPtr<Element> findFocusDelegateInternal(ContainerNode& target)
+{
+    if (auto element = autoFocusDelegate(target))
+        return element;
+    for (auto& element : childrenOfType<Element>(target)) {
+        if (isProgramaticallyFocusable(element))
+            return &element;
+        if (auto root = shadowRootWithDelegatesFocus(element)) {
+            if (auto target = findFocusDelegateInternal(*root))
+                return target;
+        }
+    }
+    return nullptr;
+}
+
+// https://html.spec.whatwg.org/multipage/interaction.html#focus-delegate
+RefPtr<Element> Element::findFocusDelegate()
+{
+    return findFocusDelegateInternal(*this);
 }
 
 void Element::focus(const FocusOptions& options)
@@ -3252,7 +3273,7 @@ void Element::focus(const FocusOptions& options)
             return;
         }
 
-        newTarget = findFirstProgramaticallyFocusableElementInComposedTree(*this);            
+        newTarget = findFocusDelegateInternal(*root);
         if (!newTarget)
             return;
     } else if (!isProgramaticallyFocusable(*newTarget))
@@ -3829,8 +3850,8 @@ unsigned Element::rareDataChildIndex() const
 AtomString Element::computeInheritedLanguage() const
 {
     // The language property is inherited, so we iterate over the parents to find the first language.
-    for (auto& element : lineageOfType<Element>(*this)) {
-        if (auto* elementData = element.elementData()) {
+    for (auto* element = this; element; element = element->parentOrShadowHostElement()) {
+        if (auto* elementData = element->elementData()) {
             if (auto* attribute = elementData->findLanguageAttribute())
                 return attribute->value();
         }
@@ -4704,6 +4725,7 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
     if (resolveURLs == ResolveURLs::No)
         return urlString;
 
+    static MainThreadNeverDestroyed<const AtomString> maskedURLStringForBindings(document().maskedURLStringForBindings());
     URL completeURL = base.isNull() ? document().completeURL(urlString) : URL(base, urlString);
 
     switch (resolveURLs) {
@@ -4712,7 +4734,7 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
 
     case ResolveURLs::YesExcludingURLsForPrivacy: {
         if (document().shouldMaskURLForBindings(completeURL))
-            return document().maskedURLStringForBindings();
+            return maskedURLStringForBindings.get();
         if (!document().url().isLocalFile())
             return completeURL.string();
         break;
@@ -4720,7 +4742,7 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
 
     case ResolveURLs::NoExcludingURLsForPrivacy:
         if (document().shouldMaskURLForBindings(completeURL))
-            return document().maskedURLStringForBindings();
+            return maskedURLStringForBindings.get();
         break;
 
     case ResolveURLs::No:

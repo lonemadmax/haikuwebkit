@@ -842,6 +842,7 @@ void WebPage::didFinishContentChangeObserving(WKContentChange observedContentCha
 
 void WebPage::completeSyntheticClick(Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebEvent::Modifier> modifiers, SyntheticClickType syntheticClickType, WebCore::PointerID pointerId)
 {
+    SetForScope completeSyntheticClickScope { m_completingSyntheticClick, true };
     IntPoint roundedAdjustedPoint = roundedIntPoint(location);
     Frame& mainframe = m_page->mainFrame();
 
@@ -1111,6 +1112,7 @@ void WebPage::handleTwoFingerTapAtPoint(const WebCore::IntPoint& point, OptionSe
 void WebPage::potentialTapAtPosition(WebKit::TapIdentifier requestID, const WebCore::FloatPoint& position, bool shouldRequestMagnificationInformation)
 {
     m_potentialTapNode = m_page->mainFrame().nodeRespondingToClickEvents(position, m_potentialTapLocation, m_potentialTapSecurityOrigin.get());
+    m_wasShowingInputViewForFocusedElementDuringLastPotentialTap = m_isShowingInputViewForFocusedElement;
 
     if (shouldRequestMagnificationInformation && m_potentialTapNode && m_viewGestureGeometryCollector) {
         // FIXME: Could this be combined into tap highlight?
@@ -1140,6 +1142,8 @@ void WebPage::commitPotentialTap(OptionSet<WebEvent::Modifier> modifiers, Transa
         bool targetRenders = m_potentialTapNode->renderer();
         if (!targetRenders && is<Element>(m_potentialTapNode))
             targetRenders = downcast<Element>(*m_potentialTapNode).renderOrDisplayContentsStyle();
+        if (!targetRenders && is<ShadowRoot>(m_potentialTapNode))
+            targetRenders = downcast<ShadowRoot>(*m_potentialTapNode).host()->renderOrDisplayContentsStyle();
         invalidTargetForSingleClick = !targetRenders && !is<HTMLAreaElement>(m_potentialTapNode);
     }
     if (invalidTargetForSingleClick) {
@@ -2629,13 +2633,19 @@ bool WebPage::applyAutocorrectionInternal(const String& correction, const String
 
 WebAutocorrectionContext WebPage::autocorrectionContext()
 {
+    if (!m_focusedElement)
+        return { };
+
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
+    if (!frame->selection().selection().hasEditableStyle())
+        return { };
+
     String contextBefore;
     String markedText;
     String selectedText;
     String contextAfter;
     EditingRange markedTextRange;
 
-    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     VisiblePosition startPosition = frame->selection().selection().start();
     VisiblePosition endPosition = frame->selection().selection().end();
     const unsigned minContextWordCount = 10;
@@ -2709,12 +2719,6 @@ void WebPage::handleAutocorrectionContextRequest()
 
 void WebPage::prepareToRunModalJavaScriptDialog()
 {
-    if (!m_focusedElement)
-        return;
-
-    if (!m_focusedElement->hasEditableStyle() && !is<HTMLTextFormControlElement>(*m_focusedElement))
-        return;
-
     // When a modal dialog is presented while an editable element is focused, UIKit will attempt to request a
     // WebAutocorrectionContext, which triggers synchronous IPC back to the web process, resulting in deadlock.
     // To avoid this deadlock, we preemptively compute and send autocorrection context data to the UI process,
@@ -4733,6 +4737,17 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest reques
 #endif
 
     completionHandler(context);
+}
+
+bool WebPage::shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection)
+{
+    if (RefPtr editableRoot = newSelection.rootEditableElement(); editableRoot && editableRoot == targetNode.rootEditableElement()) {
+        // Text interaction gestures will handle selection in the case where we are already editing the node. In the case where we're
+        // just starting to focus an editable element by tapping on it, only change the selection if we weren't already showing an
+        // input view prior to handling the tap.
+        return !(m_completingSyntheticClick ? m_wasShowingInputViewForFocusedElementDuringLastPotentialTap : m_isShowingInputViewForFocusedElement);
+    }
+    return true;
 }
 
 void WebPage::setShouldRevealCurrentSelectionAfterInsertion(bool shouldRevealCurrentSelectionAfterInsertion)

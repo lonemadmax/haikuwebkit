@@ -43,6 +43,7 @@
 #include "LayoutIntegrationCoverage.h"
 #include "LayoutIntegrationInlineContentBuilder.h"
 #include "LayoutIntegrationPagination.h"
+#include "LayoutListMarkerBox.h"
 #include "LayoutReplacedBox.h"
 #include "LayoutTreeBuilder.h"
 #include "PaintInfo.h"
@@ -172,7 +173,7 @@ void LineLayout::updateListMarkerDimensions(const RenderListMarker& listMarker)
     updateLayoutBoxDimensions(listMarker);
 
     auto& layoutBox = m_boxTree.layoutBoxForRenderer(listMarker);
-    if (layoutBox.isOutsideListMarker()) {
+    if (downcast<Layout::ListMarkerBox>(layoutBox).isOutside()) {
         auto& rootGeometry = m_layoutState.geometryForRootBox();
         auto& listMarkerGeometry = m_inlineFormattingState.boxGeometry(layoutBox);
         auto horizontalMargin = listMarkerGeometry.horizontalMargin();
@@ -262,6 +263,19 @@ static inline Layout::Edges logicalPadding(const RenderBoxModelObject& renderer,
     return { { paddingLogicalLeft, paddingLogicalRight }, { paddingLogicalTop, paddingLogicalBottom } };
 }
 
+static inline LayoutSize scrollbarLogicalSize(const RenderBox& renderer)
+{
+    // Scrollbars eat into the padding box area. They never stretch the border box but they may shrink the padding box.
+    // In legacy render tree, RenderBox::contentWidth/contentHeight values are adjusted to accomodate the scrollbar width/height.
+    // e.g. <div style="width: 10px; overflow: scroll;">content</div>, RenderBox::contentWidth() won't be returning the value of 10px but instead 0px (10px - 15px).
+    auto isHorizontalWritingMode = renderer.style().isHorizontalWritingMode();
+    auto visualHorizontalSpaceReservedForScrollbar = renderer.paddingBoxRectIncludingScrollbar().width() - renderer.paddingBoxWidth();
+    auto visualVerticalSpaceReservedForScrollbar = renderer.paddingBoxRectIncludingScrollbar().height() - renderer.paddingBoxHeight();
+    if (isHorizontalWritingMode)
+        return { visualHorizontalSpaceReservedForScrollbar, visualVerticalSpaceReservedForScrollbar };
+    return { visualVerticalSpaceReservedForScrollbar, visualHorizontalSpaceReservedForScrollbar };
+}
+
 void LineLayout::updateLayoutBoxDimensions(const RenderBox& replacedOrInlineBlock)
 {
     auto& layoutBox = m_boxTree.layoutBoxForRenderer(replacedOrInlineBlock);
@@ -269,14 +283,9 @@ void LineLayout::updateLayoutBoxDimensions(const RenderBox& replacedOrInlineBloc
     auto& replacedBox = downcast<Layout::ReplacedBox>(layoutBox);
 
     auto& replacedBoxGeometry = m_layoutState.ensureGeometryForBox(replacedBox);
-    // Scrollbars eat into the padding box area. They never stretch the border box but they may shrink the padding box.
-    // In legacy render tree, RenderBox::contentWidth/contentHeight values are adjusted to accomodate the scrollbar width/height.
-    // e.g. <div style="width: 10px; overflow: scroll;">content</div>, RenderBox::contentWidth() won't be returning the value of 10px but instead 0px (10px - 15px).
-    auto horizontalSpaceReservedForScrollbar = replacedOrInlineBlock.paddingBoxRectIncludingScrollbar().width() - replacedOrInlineBlock.paddingBoxWidth();
-    replacedBoxGeometry.setHorizontalSpaceForScrollbar(horizontalSpaceReservedForScrollbar);
-
-    auto verticalSpaceReservedForScrollbar = replacedOrInlineBlock.paddingBoxRectIncludingScrollbar().height() - replacedOrInlineBlock.paddingBoxHeight();
-    replacedBoxGeometry.setVerticalSpaceForScrollbar(verticalSpaceReservedForScrollbar);
+    auto scrollbarSize = scrollbarLogicalSize(replacedOrInlineBlock);
+    replacedBoxGeometry.setHorizontalSpaceForScrollbar(scrollbarSize.width());
+    replacedBoxGeometry.setVerticalSpaceForScrollbar(scrollbarSize.height());
 
     replacedBoxGeometry.setContentBoxWidth(contentLogicalWidthForRenderer(replacedOrInlineBlock));
     replacedBoxGeometry.setContentBoxHeight(contentLogicalHeightForRenderer(replacedOrInlineBlock));
@@ -415,10 +424,13 @@ void LineLayout::updateFormattingRootGeometryAndInvalidate()
     auto updateGeometry = [&](auto& root) {
         auto isLeftToRightInlineDirection = flow.style().isLeftToRightDirection();
         auto writingMode = flow.style().writingMode();
+        auto scrollbarSize = scrollbarLogicalSize(flow);
 
-        root.setContentBoxWidth(writingMode == WritingMode::TopToBottom ? flow.contentWidth() : flow.contentHeight());
+        root.setContentBoxWidth(WebCore::isHorizontalWritingMode(writingMode) ? flow.contentWidth() : flow.contentHeight());
         root.setPadding(logicalPadding(flow, isLeftToRightInlineDirection, writingMode));
         root.setBorder(logicalBorder(flow, isLeftToRightInlineDirection, writingMode));
+        root.setHorizontalSpaceForScrollbar(scrollbarSize.width());
+        root.setVerticalSpaceForScrollbar(scrollbarSize.height());
         root.setHorizontalMargin({ });
         root.setVerticalMargin({ });
     };

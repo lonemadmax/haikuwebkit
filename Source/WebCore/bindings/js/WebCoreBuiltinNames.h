@@ -101,6 +101,9 @@ namespace WebCore {
     macro(Clients) \
     macro(Clipboard) \
     macro(ClipboardItem) \
+    macro(CompressionStream) \
+    macro(CompressionStreamEncoder) \
+    macro(CompressionStreamTransform) \
     macro(ConstantSourceNode) \
     macro(ContactsManager) \
     macro(ConvolverNode) \
@@ -150,6 +153,9 @@ namespace WebCore {
     macro(Database) \
     macro(DataTransferItem) \
     macro(DataTransferItemList) \
+    macro(DecompressionStream) \
+    macro(DecompressionStreamDecoder) \
+    macro(DecompressionStreamTransform) \
     macro(DelayNode) \
     macro(DocumentTimeline) \
     macro(DynamicsCompressorNode) \
@@ -492,6 +498,7 @@ namespace WebCore {
     macro(focus) \
     macro(frames) \
     macro(getInternalWritableStream) \
+    macro(getMatchedCSSRules) \
     macro(getTracks) \
     macro(getUserMedia) \
     macro(gpu) \

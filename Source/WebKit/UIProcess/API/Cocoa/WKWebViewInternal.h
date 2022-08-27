@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -167,6 +167,9 @@ class ViewGestureController;
     RetainPtr<UIFindInteraction> _findInteraction;
 #endif
 
+    WebCore::GraphicsLayer::PlatformLayerID _pendingFindLayerID;
+    WebCore::GraphicsLayer::PlatformLayerID _committedFindLayerID;
+
     RetainPtr<_WKRemoteObjectRegistry> _remoteObjectRegistry;
 
     std::optional<CGSize> _viewLayoutSizeOverride;
@@ -190,6 +193,7 @@ class ViewGestureController;
     UIEdgeInsets _unobscuredSafeAreaInsets;
     BOOL _haveSetUnobscuredSafeAreaInsets;
     BOOL _avoidsUnsafeArea;
+    BOOL _needsToPresentLockdownModeMessage;
     UIRectEdge _obscuredInsetEdgesAffectedBySafeArea;
 
     UIInterfaceOrientation _interfaceOrientationOverride;
@@ -214,6 +218,13 @@ class ViewGestureController;
     CGFloat _lastAdjustmentForScroller;
     std::optional<CGRect> _frozenVisibleContentRect;
     std::optional<CGRect> _frozenUnobscuredContentRect;
+
+    struct LiveResizeParameters {
+        CGFloat viewWidth;
+        CGPoint initialScrollPosition;
+    };
+    std::optional<LiveResizeParameters> _liveResizeParameters;
+    RetainPtr<id> _endLiveResizeNotificationObserver;
 
     BOOL _commitDidRestoreScrollPosition;
     std::optional<WebCore::FloatPoint> _scrollOffsetToRestore;

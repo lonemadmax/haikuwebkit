@@ -53,6 +53,7 @@
          "adachan@apple.com"
       ],
       "expertise" : "WebKit on Windows",
+      "github" : "achan00",
       "name" : "Ada Chan",
       "nicks" : [
          "chanada"
@@ -238,7 +239,8 @@
       "name" : "Alan Coon",
       "nicks" : [
          "alancoon"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -365,6 +367,7 @@
          "alexm@gnome.org"
       ],
       "expertise" : "WebkitGTK, Epiphany",
+      "github" : "Exalm",
       "name" : "Alexander Mikhaylenko",
       "nicks" : [
          "alexm"
@@ -738,6 +741,16 @@
       "name" : "Andy Wingo",
       "nicks" : [
          "wingo"
+      ]
+   },
+   {
+      "emails" : [
+         "aizquierdogarcia@apple.com"
+      ],
+      "github" : "angelaizg",
+      "name" : "Angela Izquierdo Garcia",
+      "nicks" : [
+         "angie"
       ]
    },
    {
@@ -2258,10 +2271,19 @@
    },
    {
       "emails" : [
+         "webkit-early-warning-system@webkit.org",
          "ews@webkit.org"
       ],
       "github" : "webkit-early-warning-system",
       "name" : "EWS",
+      "status" : "bot"
+   },
+   {
+      "emails" : [
+         "webkit-ews-buildbot@webkit.org"
+      ],
+      "github" : "webkit-ews-buildbot",
+      "name" : "EWS buildbot",
       "status" : "bot"
    },
    {
@@ -2419,6 +2441,15 @@
       "name" : "Erik Arvidsson",
       "nicks" : [
          "arv"
+      ]
+   },
+   {
+      "emails" : [
+         "eryn_wells@apple.com"
+      ],
+      "name" : "Eryn Wells",
+      "nicks" : [
+         "erynofwales"
       ]
    },
    {
@@ -2930,6 +2961,14 @@
    },
    {
       "emails" : [
+         "hhjalmarsson@apple.com"
+      ],
+      "github" : "HerculesH",
+      "name" : "Hercules Hjalmarsson",
+      "status" : "committer"
+   },
+   {
+      "emails" : [
          "hclam@google.com",
          "hclam@chromium.org"
       ],
@@ -3226,6 +3265,13 @@
       "nicks" : [
          "jhawkins"
       ]
+   },
+   {
+      "emails" : [
+         "james.hilliard1@gmail.com"
+      ],
+      "github" : "jameshilliard",
+      "name" : "James Hilliard"
    },
    {
       "emails" : [
@@ -3914,7 +3960,7 @@
       "expertise" : "JavaScriptCore",
       "github" : "justinmichaud",
       "name" : "Justin Michaud",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -4183,7 +4229,8 @@
       "name" : "Kiet Ho",
       "nicks" : [
          "tuankiet65"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -4748,7 +4795,6 @@
       "emails" : [
          "jlewis3@apple.com"
       ],
-      "github" : "rancored-mongoose",
       "name" : "Matt Lewis",
       "nicks" : [
          "mattlewis"
@@ -4813,6 +4859,13 @@
       "nicks" : [
          "mmirman"
       ]
+   },
+   {
+      "emails" : [
+         "m_dubet@apple.com"
+      ],
+      "github" : "mdubet",
+      "name" : "Matthieu Dubet"
    },
    {
       "emails" : [
@@ -4941,6 +4994,13 @@
          "magomez"
       ],
       "status" : "reviewer"
+   },
+   {
+      "emails" : [
+         "miguel_salinas@apple.com"
+      ],
+      "github" : "salinas-miguel",
+      "name" : "Miguel Salinas"
    },
    {
       "emails" : [
@@ -5246,7 +5306,7 @@
       "nicks" : [
          "nzimmermann"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -5881,8 +5941,19 @@
    },
    {
       "emails" : [
+         "rmittal2@apple.com"
+      ],
+      "github" : "RupinMittal",
+      "name" : "Rupin Mittal",
+      "nicks" : [
+         "rupin"
+      ]
+   },
+   {
+      "emails" : [
          "repstein@apple.com"
       ],
+      "github" : "rjepstein",
       "name" : "Russell Epstein",
       "status" : "committer"
    },

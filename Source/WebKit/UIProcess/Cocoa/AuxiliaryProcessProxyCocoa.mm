@@ -26,9 +26,9 @@
 #import "config.h"
 #import "AuxiliaryProcessProxy.h"
 
-#if PLATFORM(COCOA)
-
 #import <WebCore/WebMAudioUtilitiesCocoa.h>
+#import <wtf/cocoa/VectorCocoa.h>
+
 #import <pal/cf/AudioToolboxSoftLink.h>
 
 namespace WebKit {
@@ -49,10 +49,14 @@ RefPtr<WebCore::SharedBuffer> AuxiliaryProcessProxy::fetchAudioComponentServerRe
     if (noErr != AudioComponentFetchServerRegistrations(&registrations) || !registrations)
         return nullptr;
 
-    return WebCore::SharedBuffer::create(registrations);
+    return WebCore::SharedBuffer::create(adoptCF(registrations).get());
 }
 #endif
 
-} // namespace WebKit
+Vector<String> AuxiliaryProcessProxy::platformOverrideLanguages() const
+{
+    static const NeverDestroyed<Vector<String>> overrideLanguages = makeVector<String>([[NSUserDefaults standardUserDefaults] valueForKey:@"AppleLanguages"]);
+    return overrideLanguages;
+}
 
-#endif // PLATFORM(COCOA)
+} // namespace WebKit

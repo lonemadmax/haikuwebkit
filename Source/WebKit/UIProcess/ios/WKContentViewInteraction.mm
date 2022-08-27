@@ -984,6 +984,9 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     _touchEndDeferringGestureRecognizerForSyntheticTapGestures = adoptNS([[WKDeferringGestureRecognizer alloc] initWithDeferringGestureDelegate:self]);
     [_touchEndDeferringGestureRecognizerForSyntheticTapGestures setName:@"Deferrer for touch end (synthetic tap)"];
 
+    _touchMoveDeferringGestureRecognizer = adoptNS([[WKDeferringGestureRecognizer alloc] initWithDeferringGestureDelegate:self]);
+    [_touchMoveDeferringGestureRecognizer setName:@"Deferrer for touch move"];
+
 #if ENABLE(IMAGE_ANALYSIS)
     _imageAnalysisDeferringGestureRecognizer = adoptNS([[WKDeferringGestureRecognizer alloc] initWithDeferringGestureDelegate:self]);
     [_imageAnalysisDeferringGestureRecognizer setName:@"Deferrer for image analysis"];
@@ -1755,10 +1758,10 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
     if (!_page->hasRunningProcess())
         return;
 
-    const _UIWebTouchEvent* lastTouchEvent = gestureRecognizer.lastTouchEvent;
+    const auto& lastTouchEvent = *gestureRecognizer.lastTouchEvent;
+    _lastInteractionLocation = lastTouchEvent.locationInDocumentCoordinates;
 
-    _lastInteractionLocation = lastTouchEvent->locationInDocumentCoordinates;
-    if (lastTouchEvent->type == UIWebTouchEventTouchBegin) {
+    if (lastTouchEvent.type == UIWebTouchEventTouchBegin) {
         if (!_failedTouchStartDeferringGestures)
             _failedTouchStartDeferringGestures = { { } };
 
@@ -1776,7 +1779,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
     }
 
 #if ENABLE(TOUCH_EVENTS)
-    WebKit::NativeWebTouchEvent nativeWebTouchEvent { lastTouchEvent, gestureRecognizer.modifierFlags };
+    WebKit::NativeWebTouchEvent nativeWebTouchEvent { &lastTouchEvent, gestureRecognizer.modifierFlags };
     nativeWebTouchEvent.setCanPreventNativeGestures(_touchEventsCanPreventNativeGestures || [gestureRecognizer isDefaultPrevented]);
 
     [self _handleTouchActionsForTouchEvent:nativeWebTouchEvent];
@@ -1795,18 +1798,23 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
         if (nativeWebTouchEvent.isPotentialTap() && self.hasHiddenContentEditable && self._hasFocusedElement && !self.window.keyWindow)
             [self.window makeKeyWindow];
 
-        auto stopDeferringNativeGesturesIfNeeded = [] (NSArray<WKDeferringGestureRecognizer *> *deferringGestures) {
-            for (WKDeferringGestureRecognizer *gesture in deferringGestures) {
-                if (gesture.state == UIGestureRecognizerStatePossible)
-                    gesture.state = UIGestureRecognizerStateFailed;
-            }
+        auto stopDeferringNativeGesturesIfNeeded = [] (WKDeferringGestureRecognizer *gestureRecognizer) {
+            if (gestureRecognizer.state == UIGestureRecognizerStatePossible)
+                gestureRecognizer.state = UIGestureRecognizerStateFailed;
         };
 
-        if (!_page->isHandlingPreventableTouchStart())
-            stopDeferringNativeGesturesIfNeeded(self._touchStartDeferringGestures);
+        if (!_page->isHandlingPreventableTouchStart()) {
+            for (WKDeferringGestureRecognizer *gestureRecognizer in self._touchStartDeferringGestures)
+                stopDeferringNativeGesturesIfNeeded(gestureRecognizer);
+        }
 
-        if (!_page->isHandlingPreventableTouchEnd())
-            stopDeferringNativeGesturesIfNeeded(self._touchEndDeferringGestures);
+        if (!_page->isHandlingPreventableTouchMove())
+            stopDeferringNativeGesturesIfNeeded(_touchMoveDeferringGestureRecognizer.get());
+
+        if (!_page->isHandlingPreventableTouchEnd()) {
+            for (WKDeferringGestureRecognizer *gestureRecognizer in self._touchEndDeferringGestures)
+                stopDeferringNativeGesturesIfNeeded(gestureRecognizer);
+        }
 
         _failedTouchStartDeferringGestures = std::nullopt;
     }
@@ -2012,6 +2020,7 @@ static WebCore::FloatQuad inflateQuad(const WebCore::FloatQuad& quad, float infl
     auto gestures = [NSMutableArray arrayWithCapacity:7];
     [gestures addObjectsFromArray:self._touchStartDeferringGestures];
     [gestures addObjectsFromArray:self._touchEndDeferringGestures];
+    [gestures addObject:_touchMoveDeferringGestureRecognizer.get()];
 #if ENABLE(IMAGE_ANALYSIS)
     [gestures addObject:_imageAnalysisDeferringGestureRecognizer.get()];
 #endif
@@ -2053,6 +2062,11 @@ static WebCore::FloatQuad inflateQuad(const WebCore::FloatQuad& quad, float infl
         if (_failedTouchStartDeferringGestures && !preventNativeGestures)
             _failedTouchStartDeferringGestures->add(gestureRecognizer);
     }
+}
+
+- (void)_doneDeferringTouchMove:(BOOL)preventNativeGestures
+{
+    [_touchMoveDeferringGestureRecognizer endDeferral:preventNativeGestures ? WebKit::ShouldPreventGestures::Yes : WebKit::ShouldPreventGestures::No];
 }
 
 - (void)_doneDeferringTouchEnd:(BOOL)preventNativeGestures
@@ -3978,7 +3992,7 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
     }
 
     if (action == @selector(copy:)) {
-        if (editorState.isInPasswordField)
+        if (editorState.isInPasswordField && !editorState.selectionIsRangeInAutoFilledAndViewableField)
             return NO;
         return editorState.selectionIsRange;
     }
@@ -4059,12 +4073,14 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
     }
 
     if (action == @selector(selectAll:)) {
+        BOOL isPreparingEditMenu = _isPreparingEditMenu;
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        if ([sender isKindOfClass:UIMenuController.class]) {
+        isPreparingEditMenu |= [sender isKindOfClass:UIMenuController.class];
+        ALLOW_DEPRECATED_DECLARATIONS_END
+        if (isPreparingEditMenu) {
             // By platform convention we don't show Select All in the callout menu for a range selection.
             return !editorState.selectionIsRange && self.hasContent;
         }
-        ALLOW_DEPRECATED_DECLARATIONS_END
         return YES;
     }
 
@@ -4094,10 +4110,12 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
         if (!mayContainSelectableText(_focusedElementInformation.elementType) || _focusedElementInformation.isReadOnly)
             return NO;
 
+        BOOL isPreparingEditMenu = _isPreparingEditMenu;
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        if ([sender isKindOfClass:UIMenuController.class] && editorState.selectionIsRange)
-            return NO;
+        isPreparingEditMenu |= [sender isKindOfClass:UIMenuController.class];
         ALLOW_DEPRECATED_DECLARATIONS_END
+        if (isPreparingEditMenu && editorState.selectionIsRange)
+            return NO;
     }
 #endif // ENABLE(IMAGE_ANALYSIS)
 
@@ -4107,6 +4125,16 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
 
     if (action == @selector(findAndReplace:))
         return self.webView._findInteractionEnabled && self.supportsTextReplacement;
+
+    if (action == @selector(useSelectionForFind:) || action == @selector(_findSelected:)) {
+        if (!self.webView._findInteractionEnabled)
+            return NO;
+
+        if (!editorState.selectionIsRange || !self.selectedText.length)
+            return NO;
+
+        return YES;
+    }
 #endif
 
     return [super canPerformAction:action withSender:sender];
@@ -4712,7 +4740,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 
         auto [elementContext, image, preferredMIMEType] = *data;
         if (auto [data, type] = WebKit::imageDataForRemoveBackground(image.get(), preferredMIMEType.createCFString().get()); data)
-            view->_page->replaceImageWithMarkupResults(elementContext, { String { type.get() } }, { static_cast<const uint8_t*>([data bytes]), [data length] });
+            view->_page->replaceImageForRemoveBackground(elementContext, { String { type.get() } }, { static_cast<const uint8_t*>([data bytes]), [data length] });
     }];
 }
 
@@ -5005,7 +5033,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     }
 
     bool respondWithLastKnownAutocorrectionContext = ([&] {
-        if (_page->isRunningModalJavaScriptDialog())
+        if (_page->shouldAvoidSynchronouslyWaitingToPreventDeadlock())
             return true;
 
         if (_domPasteRequestHandler)
@@ -5916,7 +5944,8 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
             traits.smartQuotesType = UITextSmartQuotesTypeNo;
         if ([traits respondsToSelector:@selector(setSmartDashesType:)])
             traits.smartDashesType = UITextSmartDashesTypeNo;
-        traits.spellCheckingType = UITextSpellCheckingTypeNo;
+        if ([traits respondsToSelector:@selector(setSpellCheckingType:)])
+            traits.spellCheckingType = UITextSpellCheckingTypeNo;
     }
 
     switch (_focusedElementInformation.inputMode) {
@@ -7684,8 +7713,13 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 #if ENABLE(REVEAL)
 - (void)requestRVItemInSelectedRangeWithCompletionHandler:(void(^)(RVItem *item))completionHandler
 {
-    _page->requestRVItemInCurrentSelectedRange([revealItemSelectionHandler = makeBlockPtr(completionHandler)](const WebKit::RevealItem& item) {
-        revealItemSelectionHandler(item.item());
+    _page->requestRVItemInCurrentSelectedRange([completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr<WKContentView>(self)](const WebKit::RevealItem& item) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return completionHandler(nil);
+
+        SetForScope editMenuPreparationScope { strongSelf->_isPreparingEditMenu, YES };
+        completionHandler(item.item());
     });
 }
 
@@ -7704,10 +7738,16 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
             [strongSelf->_textInteractionAssistant activateSelection];
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-        [strongSelf doAfterComputingImageAnalysisResultsForBackgroundRemoval:[completionHandler, shouldPresentMenu, item = RetainPtr { item.item() }]() mutable {
+        [strongSelf doAfterComputingImageAnalysisResultsForBackgroundRemoval:[completionHandler, shouldPresentMenu, item = RetainPtr { item.item() }, weakSelf]() mutable {
+            auto strongSelf = weakSelf.get();
+            if (!strongSelf)
+                return completionHandler(false, nil);
+
+            SetForScope editMenuPreparationScope { strongSelf->_isPreparingEditMenu, YES };
             completionHandler(shouldPresentMenu, item.get());
         }];
 #else
+        SetForScope editMenuPreparationScope { strongSelf->_isPreparingEditMenu, YES };
         completionHandler(shouldPresentMenu, item.item());
 #endif
     });
@@ -8423,6 +8463,9 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
     if (_page->isHandlingPreventableTouchStart() && [self _isTouchStartDeferringGesture:deferringGestureRecognizer])
         return;
 
+    if (_page->isHandlingPreventableTouchMove() && deferringGestureRecognizer == _touchMoveDeferringGestureRecognizer)
+        return;
+
     if (_page->isHandlingPreventableTouchEnd() && [self _isTouchEndDeferringGesture:deferringGestureRecognizer])
         return;
 
@@ -8483,19 +8526,22 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
         return [self shouldDeferGestureDueToImageAnalysis:gestureRecognizer];
 #endif
 
-    auto mayDelayResetOfContainingSubgraph = [&](UIGestureRecognizer *gesture) -> BOOL {
+    if (deferringGestureRecognizer == _touchMoveDeferringGestureRecognizer)
+        return [gestureRecognizer isKindOfClass:UIPanGestureRecognizer.class] || [gestureRecognizer isKindOfClass:UIPinchGestureRecognizer.class];
+
+    BOOL mayDelayReset = [&]() -> BOOL {
 #if USE(UICONTEXTMENU) && HAVE(LINK_PREVIEW)
-        if (gesture == [self.contextMenuInteraction gestureRecognizerForFailureRelationships])
+        if (gestureRecognizer == [self.contextMenuInteraction gestureRecognizerForFailureRelationships])
             return YES;
 #endif
 
 #if HAVE(TEXT_INTERACTION_WITH_CONTEXT_MENU_INTERACTION)
-        if (gesture == [_textInteractionAssistant contextMenuInteraction].gestureRecognizerForFailureRelationships)
+        if (gestureRecognizer == [_textInteractionAssistant contextMenuInteraction].gestureRecognizerForFailureRelationships)
             return YES;
 #endif
 
 #if ENABLE(DRAG_SUPPORT)
-        if (gesture.delegate == [_dragInteraction _initiationDriver])
+        if (gestureRecognizer.delegate == [_dragInteraction _initiationDriver])
             return YES;
 #endif
 
@@ -8510,16 +8556,13 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
         if (gestureRecognizer == [_textInteractionAssistant loupeGesture])
             return YES;
 
-        if ([gesture isKindOfClass:UITapGestureRecognizer.class]) {
-            UITapGestureRecognizer *tapGesture = (UITapGestureRecognizer *)gesture;
+        if (auto *tapGesture = dynamic_objc_cast<UITapGestureRecognizer>(gestureRecognizer))
             return tapGesture.numberOfTapsRequired > 1 && tapGesture.numberOfTouchesRequired < 2;
-        }
 
         return NO;
-    };
+    }();
 
     BOOL isSyntheticTap = [gestureRecognizer isKindOfClass:WKSyntheticTapGestureRecognizer.class];
-    BOOL mayDelayReset = mayDelayResetOfContainingSubgraph(gestureRecognizer);
     if ([gestureRecognizer isKindOfClass:UITapGestureRecognizer.class]) {
         if (deferringGestureRecognizer == _touchEndDeferringGestureRecognizerForSyntheticTapGestures)
             return isSyntheticTap;
@@ -8893,14 +8936,15 @@ static NSArray<NSItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
         NSString *temporaryBlobDirectory = FileSystem::createTemporaryDirectory(@"blobs");
         NSURL *destinationURL = [NSURL fileURLWithPath:[temporaryBlobDirectory stringByAppendingPathComponent:[NSUUID UUID].UUIDString] isDirectory:NO];
 
-        auto attachment = strongSelf->_page->attachmentForIdentifier(info.attachmentIdentifier);
-        if (attachment && attachment->fileWrapper()) {
-            RELEASE_LOG(DragAndDrop, "Drag session: %p delivering promised attachment: %s at path: %@", session.get(), info.attachmentIdentifier.utf8().data(), destinationURL.path);
-            NSError *fileWrapperError = nil;
-            if ([attachment->fileWrapper() writeToURL:destinationURL options:0 originalContentsURL:nil error:&fileWrapperError])
-                callback(destinationURL, nil);
-            else
-                callback(nil, fileWrapperError);
+        if (auto attachment = strongSelf->_page->attachmentForIdentifier(info.attachmentIdentifier); attachment && !attachment->isEmpty()) {
+            attachment->doWithFileWrapper([&](NSFileWrapper *fileWrapper) {
+                RELEASE_LOG(DragAndDrop, "Drag session: %p delivering promised attachment: %s at path: %@", session.get(), info.attachmentIdentifier.utf8().data(), destinationURL.path);
+                NSError *fileWrapperError = nil;
+                if ([fileWrapper writeToURL:destinationURL options:0 originalContentsURL:nil error:&fileWrapperError])
+                    callback(destinationURL, nil);
+                else
+                    callback(nil, fileWrapperError);
+            });
         } else
             callback(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorWebViewInvalidated userInfo:nil]);
 
@@ -9666,7 +9710,6 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         WebKit::SandboxExtension::Handle sandboxExtensionHandle;
         Vector<WebKit::SandboxExtension::Handle> sandboxExtensionForUpload;
         auto dragPasteboardName = WebCore::Pasteboard::nameOfDragPasteboard();
-        retainedSelf->_page->grantAccessToCurrentPasteboardData(dragPasteboardName);
         retainedSelf->_page->createSandboxExtensionsIfNeeded(filenames, sandboxExtensionHandle, sandboxExtensionForUpload);
         retainedSelf->_page->performDragOperation(capturedDragData, dragPasteboardName, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
         if (shouldSnapshotView) {
@@ -10027,7 +10070,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     if (!_page->hasRunningProcess())
         return;
 
-    auto event = gestureRecognizer.lastMouseEvent;
+    auto event = gestureRecognizer.takeLastMouseEvent;
     if (!event)
         return;
 
@@ -10301,8 +10344,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     if (![utiType length])
         return { };
 
-    auto fileWrapper = retainPtr(attachment->fileWrapper());
-    if (!fileWrapper)
+    if (attachment->isEmpty())
         return { };
 
     auto item = adoptNS([[NSItemProvider alloc] init]);
@@ -10322,11 +10364,13 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         }
     }
 
-    [item registerDataRepresentationForTypeIdentifier:utiType visibility:NSItemProviderRepresentationVisibilityAll loadHandler:[fileWrapper](void (^completionHandler)(NSData *, NSError *)) -> NSProgress * {
-        if (auto nsData = retainPtr([fileWrapper serializedRepresentation]))
-            completionHandler(nsData.get(), nil);
-        else
-            completionHandler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
+    [item registerDataRepresentationForTypeIdentifier:utiType visibility:NSItemProviderRepresentationVisibilityAll loadHandler:[attachment](void (^completionHandler)(NSData *, NSError *)) -> NSProgress * {
+        attachment->doWithFileWrapper([&](NSFileWrapper *fileWrapper) {
+            if (auto nsData = RetainPtr { fileWrapper.serializedRepresentation })
+                completionHandler(nsData.get(), nil);
+            else
+                completionHandler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
+        });
         return nil;
     }];
 
@@ -10455,6 +10499,24 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     [self.webView._findInteraction presentFindNavigatorShowingReplace:YES];
 }
 
+- (void)useSelectionForFindForWebView:(id)sender
+{
+    if (!_page->hasSelectedRange())
+        return;
+
+    NSString *selectedText = self.selectedText;
+    if (selectedText.length) {
+        [[self.webView findInteraction] setSearchText:selectedText];
+        UIFindInteraction._globalFindBuffer = selectedText;
+    }
+}
+
+- (void)_findSelectedForWebView:(id)sender
+{
+    [self useSelectionForFindForWebView:sender];
+    [self findForWebView:sender];
+}
+
 - (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(UITextSearchOptions *)options resultAggregator:(id<UITextSearchAggregator>)aggregator
 {
     OptionSet<WebKit::FindOptions> findOptions;
@@ -10571,11 +10633,31 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if ENABLE(IMAGE_ANALYSIS)
 
+- (BOOL)hasSelectableTextForImageContextMenu
+{
+    return valueOrDefault(_imageAnalysisContextMenuActionData).hasSelectableText;
+}
+
+- (BOOL)hasVisualSearchResultsForImageContextMenu
+{
+    return valueOrDefault(_imageAnalysisContextMenuActionData).hasVisualSearchResults;
+}
+
+- (CGImageRef)copySubjectResultForImageContextMenu
+{
+    return valueOrDefault(_imageAnalysisContextMenuActionData).copySubjectResult.get();
+}
+
+- (UIMenu *)machineReadableCodeSubMenuForImageContextMenu
+{
+    return valueOrDefault(_imageAnalysisContextMenuActionData).machineReadableCodeMenu.get();
+}
+
 #if USE(QUICK_LOOK)
 
 - (void)presentVisualSearchPreviewControllerForImage:(UIImage *)image imageURL:(NSURL *)imageURL title:(NSString *)title imageBounds:(CGRect)imageBounds appearanceActions:(QLPreviewControllerFirstTimeAppearanceActions)appearanceActions
 {
-    ASSERT(_hasSelectableTextInImage || _hasVisualSearchResults);
+    ASSERT(self.hasSelectableTextForImageContextMenu || self.hasVisualSearchResultsForImageContextMenu);
 
     ASSERT(!_visualSearchPreviewController);
     _visualSearchPreviewController = adoptNS([PAL::allocQLPreviewControllerInstance() init]);
@@ -10657,9 +10739,9 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #pragma mark - WKActionSheetAssistantDelegate
 
-- (bool)actionSheetAssistant:(WKActionSheetAssistant *)assistant shouldIncludeShowTextActionForElement:(_WKActivatedElementInfo *)element
+- (BOOL)actionSheetAssistant:(WKActionSheetAssistant *)assistant shouldIncludeShowTextActionForElement:(_WKActivatedElementInfo *)element
 {
-    return WebKit::isLiveTextAvailableAndEnabled() && _hasSelectableTextInImage;
+    return WebKit::isLiveTextAvailableAndEnabled() && self.hasSelectableTextForImageContextMenu;
 }
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant showTextForImage:(UIImage *)image imageURL:(NSURL *)imageURL title:(NSString *)title imageBounds:(CGRect)imageBounds
@@ -10667,9 +10749,9 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     [self presentVisualSearchPreviewControllerForImage:image imageURL:imageURL title:title imageBounds:imageBounds appearanceActions:QLPreviewControllerFirstTimeAppearanceActionEnableVisualSearchDataDetection];
 }
 
-- (bool)actionSheetAssistant:(WKActionSheetAssistant *)assistant shouldIncludeLookUpImageActionForElement:(_WKActivatedElementInfo *)element
+- (BOOL)actionSheetAssistant:(WKActionSheetAssistant *)assistant shouldIncludeLookUpImageActionForElement:(_WKActivatedElementInfo *)element
 {
-    return WebKit::isLiveTextAvailableAndEnabled() && _hasVisualSearchResults;
+    return WebKit::isLiveTextAvailableAndEnabled() && self.hasVisualSearchResultsForImageContextMenu;
 }
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant lookUpImage:(UIImage *)image imageURL:(NSURL *)imageURL title:(NSString *)title imageBounds:(CGRect)imageBounds
@@ -10708,17 +10790,11 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     [_imageAnalysisTimeoutGestureRecognizer setName:@"Image analysis timeout"];
     [_imageAnalysisTimeoutGestureRecognizer setDelegate:self];
     [self addGestureRecognizer:_imageAnalysisTimeoutGestureRecognizer.get()];
-#if USE(QUICK_LOOK)
-    _hasSelectableTextInImage = NO;
-    _hasVisualSearchResults = NO;
-#endif // USE(QUICK_LOOK)
-#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-    _contextMenuForMachineReadableCode.clear();
-#endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     _removeBackgroundData = std::nullopt;
-    _copySubjectResult = nil;
 #endif
+    _waitingForDynamicImageAnalysisContextMenuActions = NO;
+    _imageAnalysisContextMenuActionData = std::nullopt;
 }
 
 - (void)_tearDownImageAnalysis
@@ -10736,19 +10812,13 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     _isProceedingWithTextSelectionInImage = NO;
     _elementPendingImageAnalysis = std::nullopt;
     [std::exchange(_imageAnalyzer, nil) cancelAllRequests];
-#if USE(QUICK_LOOK)
-    _hasSelectableTextInImage = NO;
-    _hasVisualSearchResults = NO;
-#endif // USE(QUICK_LOOK)
-#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-    _contextMenuForMachineReadableCode.clear();
-#endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
     [self _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     [self uninstallImageAnalysisInteraction];
     _removeBackgroundData = std::nullopt;
-    _copySubjectResult = nil;
 #endif
+    _waitingForDynamicImageAnalysisContextMenuActions = NO;
+    _imageAnalysisContextMenuActionData = std::nullopt;
 }
 
 - (void)_cancelImageAnalysis
@@ -10773,15 +10843,14 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     return [self createImageAnalyzerRequest:analysisTypes image:image imageURL:_positionInformation.imageURL];
 }
 
-#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
 
-- (void)_updateContextMenuForMachineReadableCodeForImageAnalysis:(CocoaImageAnalysis *)analysis
+- (void)updateImageAnalysisForContextMenuPresentation:(CocoaImageAnalysis *)analysis
 {
+#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
     analysis.presentingViewControllerForMrcAction = [UIViewController _viewControllerForFullScreenPresentationFromView:self];
-    _contextMenuForMachineReadableCode = [analysis hasResultsForAnalysisTypes:VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip] ? analysis.mrcMenu : nil;
+#endif
 }
 
-#endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
 
 - (BOOL)validateImageAnalysisRequestIdentifier:(WebKit::ImageAnalysisRequestIdentifier)identifier
 {
@@ -10838,19 +10907,8 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     _pendingImageAnalysisRequestIdentifier = requestIdentifier;
     _isProceedingWithTextSelectionInImage = NO;
     _elementPendingImageAnalysis = std::nullopt;
-
-#if USE(QUICK_LOOK)
-    _hasSelectableTextInImage = NO;
-    _hasVisualSearchResults = NO;
-#endif // USE(QUICK_LOOK)
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    _copySubjectResult = nil;
-#endif
-
-#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-    _contextMenuForMachineReadableCode.clear();
-#endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+    _waitingForDynamicImageAnalysisContextMenuActions = NO;
+    _imageAnalysisContextMenuActionData = std::nullopt;
 
     WebKit::InteractionInformationRequest request { WebCore::roundedIntPoint([gestureRecognizer locationInView:self]) };
     request.includeImageData = true;
@@ -10937,21 +10995,69 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 - (void)_completeImageAnalysisRequestForContextMenu:(CGImageRef)image requestIdentifier:(WebKit::ImageAnalysisRequestIdentifier)requestIdentifier hasTextResults:(BOOL)hasTextResults
 {
-#if USE(QUICK_LOOK)
-    _hasSelectableTextInImage = hasTextResults;
-#endif
+    _waitingForDynamicImageAnalysisContextMenuActions = YES;
+    _imageAnalysisContextMenuActionData = std::nullopt;
+    [self _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
+
+    auto data = Box<WebKit::ImageAnalysisContextMenuActionData>::create();
+    data->hasSelectableText = hasTextResults;
 
     auto weakSelf = WeakObjCPtr<WKContentView>(self);
-    auto aggregator = CallbackAggregator::create([weakSelf, requestIdentifier]() mutable {
-        if (auto strongSelf = weakSelf.get(); [strongSelf validateImageAnalysisRequestIdentifier:requestIdentifier])
-            [strongSelf _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
+    auto aggregator = CallbackAggregator::create([weakSelf, data]() mutable {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf || !strongSelf->_waitingForDynamicImageAnalysisContextMenuActions)
+            return;
+
+        strongSelf->_waitingForDynamicImageAnalysisContextMenuActions = NO;
+        strongSelf->_imageAnalysisContextMenuActionData = WTFMove(*data);
+        [[strongSelf contextMenuInteraction] updateVisibleMenuWithBlock:makeBlockPtr([strongSelf](UIMenu *menu) -> UIMenu * {
+            __block auto indexOfPlaceholder = NSNotFound;
+            __block BOOL foundCopyItem = NO;
+            auto revealImageIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeRevealImage);
+            auto copyIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeCopy);
+            [menu.children enumerateObjectsUsingBlock:^(UIMenuElement *child, NSUInteger index, BOOL* stop) {
+                auto *action = dynamic_objc_cast<UIAction>(child);
+                if ([action.identifier isEqualToString:revealImageIdentifier] && (action.attributes & UIMenuElementAttributesHidden))
+                    indexOfPlaceholder = index;
+                else if ([action.identifier isEqualToString:copyIdentifier])
+                    foundCopyItem = YES;
+            }];
+
+            if (indexOfPlaceholder == NSNotFound)
+                return menu;
+
+            auto adjustedChildren = adoptNS(menu.children.mutableCopy);
+            auto replacements = adoptNS([NSMutableArray<UIMenuElement *> new]);
+
+            auto *elementInfo = [_WKActivatedElementInfo activatedElementInfoWithInteractionInformationAtPosition:strongSelf->_positionInformation userInfo:nil];
+            auto addAction = [&](_WKElementActionType action) {
+                auto *elementAction = [_WKElementAction _elementActionWithType:action info:elementInfo assistant:strongSelf->_actionSheetAssistant.get()];
+                [replacements addObject:[elementAction uiActionForElementInfo:elementInfo]];
+            };
+
+            if (foundCopyItem && [strongSelf copySubjectResultForImageContextMenu])
+                addAction(_WKElementActionTypeCopyCroppedImage);
+
+            if ([strongSelf hasSelectableTextForImageContextMenu])
+                addAction(_WKElementActionTypeImageExtraction);
+
+            if ([strongSelf hasVisualSearchResultsForImageContextMenu])
+                addAction(_WKElementActionTypeRevealImage);
+
+            if (UIMenu *subMenu = [strongSelf machineReadableCodeSubMenuForImageContextMenu])
+                [replacements addObject:subMenu];
+
+            RELEASE_LOG(ImageAnalysis, "Dynamically inserting %zu context menu action(s)", [replacements count]);
+            [adjustedChildren replaceObjectsInRange:NSMakeRange(indexOfPlaceholder, 1) withObjectsFromArray:replacements.get()];
+            return [menu menuByReplacingChildren:adjustedChildren.get()];
+        }).get()];
     });
 
     auto request = [self createImageAnalyzerRequest:VKAnalysisTypeVisualSearch | VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip image:image];
     auto visualSearchAnalysisStartTime = MonotonicTime::now();
-    [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef()] (CocoaImageAnalysis *result, NSError *error) mutable {
+    [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef(), data] (CocoaImageAnalysis *result, NSError *error) mutable {
         auto strongSelf = weakSelf.get();
-        if (![strongSelf validateImageAnalysisRequestIdentifier:requestIdentifier])
+        if (!strongSelf)
             return;
 
 #if USE(QUICK_LOOK)
@@ -10963,19 +11069,20 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         if (!result || error)
             return;
 
+#if ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+        data->machineReadableCodeMenu = result.mrcMenu;
+#endif
 #if USE(QUICK_LOOK)
-        strongSelf->_hasVisualSearchResults = hasVisualSearchResults;
+        data->hasVisualSearchResults = hasVisualSearchResults;
 #endif
-#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-        [strongSelf _updateContextMenuForMachineReadableCodeForImageAnalysis:result];
-#endif
+        [strongSelf updateImageAnalysisForContextMenuPresentation:result];
     }];
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     if (_page->preferences().removeBackgroundEnabled()) {
-        WebKit::requestBackgroundRemoval(image, [weakSelf = WeakObjCPtr<WKContentView>(self), aggregator = aggregator.copyRef()](CGImageRef result) mutable {
+        WebKit::requestBackgroundRemoval(image, [weakSelf = WeakObjCPtr<WKContentView>(self), aggregator = aggregator.copyRef(), data](CGImageRef result) mutable {
             if (auto strongSelf = weakSelf.get())
-                strongSelf->_copySubjectResult = result;
+                data->copySubjectResult = result;
         });
     }
 #endif
@@ -11019,18 +11126,20 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         // FIXME: We need to implement some way to cache image analysis results per element, so that we don't end up
         // making redundant image analysis requests for the same image data.
 
-        auto aggregator = CallbackAggregator::create([weakSelf, location]() mutable {
+        auto data = Box<WebKit::ImageAnalysisContextMenuActionData>::create();
+        auto aggregator = CallbackAggregator::create([weakSelf, location, data]() mutable {
             auto strongSelf = weakSelf.get();
             if (!strongSelf)
                 return;
 
             strongSelf->_contextMenuWasTriggeredByImageAnalysisTimeout = YES;
+            strongSelf->_imageAnalysisContextMenuActionData = WTFMove(*data);
             [strongSelf presentContextMenu:[strongSelf contextMenuInteraction] atLocation:location];
         });
 
         auto visualSearchAnalysisStartTime = MonotonicTime::now();
         auto requestForContextMenu = [strongSelf createImageAnalyzerRequest:VKAnalysisTypeVisualSearch | VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip image:cgImage.get()];
-        [[strongSelf imageAnalyzer] processRequest:requestForContextMenu.get() progressHandler:nil completionHandler:[weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef()] (CocoaImageAnalysis *result, NSError *error) {
+        [[strongSelf imageAnalyzer] processRequest:requestForContextMenu.get() progressHandler:nil completionHandler:[weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef(), data] (CocoaImageAnalysis *result, NSError *error) {
             auto strongSelf = weakSelf.get();
             if (!strongSelf)
                 return;
@@ -11038,22 +11147,19 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 #if USE(QUICK_LOOK)
             BOOL hasVisualSearchResults = [result hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
             RELEASE_LOG(ImageAnalysis, "Image analysis completed in %.0f ms (found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), hasVisualSearchResults);
-            strongSelf->_hasSelectableTextInImage = YES;
-            strongSelf->_hasVisualSearchResults = hasVisualSearchResults;
+            data->hasSelectableText = true;
+            data->hasVisualSearchResults = hasVisualSearchResults;
 #else
             UNUSED_PARAM(visualSearchAnalysisStartTime);
 #endif
-
-#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-            [strongSelf _updateContextMenuForMachineReadableCodeForImageAnalysis:result];
-#endif
+            [strongSelf updateImageAnalysisForContextMenuPresentation:result];
         }];
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
         if (strongSelf->_page->preferences().removeBackgroundEnabled()) {
-            WebKit::requestBackgroundRemoval(cgImage.get(), [weakSelf, aggregator = aggregator.copyRef()](CGImageRef result) mutable {
+            WebKit::requestBackgroundRemoval(cgImage.get(), [weakSelf, aggregator = aggregator.copyRef(), data](CGImageRef result) mutable {
                 if (auto strongSelf = weakSelf.get())
-                    strongSelf->_copySubjectResult = result;
+                    data->copySubjectResult = result;
             });
         }
 #endif
@@ -11071,15 +11177,15 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 - (BOOL)actionSheetAssistantShouldIncludeCopySubjectAction:(WKActionSheetAssistant *)assistant
 {
-    return !!_copySubjectResult;
+    return !!self.copySubjectResultForImageContextMenu;
 }
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant copySubject:(UIImage *)image sourceMIMEType:(NSString *)sourceMIMEType
 {
-    if (!_copySubjectResult)
+    if (!self.copySubjectResultForImageContextMenu)
         return;
 
-    auto [data, type] = WebKit::imageDataForRemoveBackground(_copySubjectResult.get(), (__bridge CFStringRef)sourceMIMEType);
+    auto [data, type] = WebKit::imageDataForRemoveBackground(self.copySubjectResultForImageContextMenu, (__bridge CFStringRef)sourceMIMEType);
     if (!data)
         return;
 
@@ -11254,6 +11360,28 @@ constexpr auto analysisTypesForFullscreenVideo = VKAnalysisTypeAll & ~VKAnalysis
 {
     return _page && _page->editorState().selectionIsRangeInsideImageOverlay;
 }
+
+#if HAVE(UI_EDIT_MENU_INTERACTION)
+
+- (void)willPresentEditMenuWithAnimator:(id<UIEditMenuInteractionAnimating>)animator
+{
+    auto delegate = self.webView.UIDelegate;
+    if (![delegate respondsToSelector:@selector(webView:willPresentEditMenuWithAnimator:)])
+        return;
+
+    [delegate webView:self.webView willPresentEditMenuWithAnimator:animator];
+}
+
+- (void)willDismissEditMenuWithAnimator:(id<UIEditMenuInteractionAnimating>)animator
+{
+    auto delegate = self.webView.UIDelegate;
+    if (![delegate respondsToSelector:@selector(webView:willDismissEditMenuWithAnimator:)])
+        return;
+
+    [delegate webView:self.webView willDismissEditMenuWithAnimator:animator];
+}
+
+#endif // HAVE(UI_EDIT_MENU_INTERACTION)
 
 @end
 
@@ -11430,7 +11558,7 @@ constexpr auto analysisTypesForFullscreenVideo = VKAnalysisTypeAll & ~VKAnalysis
 #if HAVE(LINK_PREVIEW)
     if ([userInterfaceItem isEqualToString:@"contextMenu"]) {
         auto itemTitles = adoptNS([NSMutableArray<NSString *> new]);
-        [_contextMenuInteraction updateVisibleMenuWithBlock:[&itemTitles](UIMenu *menu) -> UIMenu * {
+        [self.contextMenuInteraction updateVisibleMenuWithBlock:[&itemTitles](UIMenu *menu) -> UIMenu * {
             for (UIMenuElement *child in menu.children)
                 [itemTitles addObject:child.title];
             return menu;
@@ -11710,7 +11838,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 
     RetainPtr<UIViewController> previewViewController;
 
-    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithInteractionInformationAtPosition:_positionInformation userInfo:nil]);
+    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithInteractionInformationAtPosition:_positionInformation isUsingAlternateURLForImage:NO userInfo:nil]);
 
     ASSERT_IMPLIES(_positionInformation.isImage, _positionInformation.image);
     if (_positionInformation.isLink) {
@@ -11834,6 +11962,21 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 #endif
 }
 
+- (UIAction *)placeholderForDynamicallyInsertedImageAnalysisActions
+{
+#if ENABLE(IMAGE_ANALYSIS)
+    if (_waitingForDynamicImageAnalysisContextMenuActions) {
+        // FIXME: This placeholder item warrants its own unique item identifier; however, to ensure that internal clients
+        // that already allow image analysis items (e.g. Mail) continue to allow this placeholder item, we reuse an existing
+        // image analysis identifier.
+        RetainPtr placeholder = [UIAction actionWithTitle:@"" image:nil identifier:elementActionTypeToUIActionIdentifier(_WKElementActionTypeRevealImage) handler:^(UIAction *) { }];
+        [placeholder setAttributes:UIMenuElementAttributesHidden];
+        return placeholder.autorelease();
+    }
+#endif // ENABLE(IMAGE_ANALYSIS)
+    return nil;
+}
+
 - (void)continueContextMenuInteraction:(void(^)(UIContextMenuConfiguration *))continueWithContextMenuConfiguration
 {
     if (!self.window)
@@ -11876,6 +12019,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
         _contextMenuLegacyMenu = nullptr;
         _contextMenuHasRequestedLegacyData = NO;
         _contextMenuActionProviderDelegateNeedsOverride = NO;
+        _contextMenuIsUsingAlternateURLForImage = NO;
 
         UIContextMenuActionProvider actionMenuProvider = [weakSelf = WeakObjCPtr<WKContentView>(self)] (NSArray<UIMenuElement *> *) -> UIMenu * {
             auto strongSelf = weakSelf.get();
@@ -11943,7 +12087,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 
             strongSelf->_contextMenuActionProviderDelegateNeedsOverride = NO;
 
-            auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithInteractionInformationAtPosition:strongSelf->_positionInformation userInfo:nil]);
+            auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithInteractionInformationAtPosition:strongSelf->_positionInformation isUsingAlternateURLForImage:strongSelf->_contextMenuIsUsingAlternateURLForImage userInfo:nil]);
 
             UIContextMenuActionProvider actionMenuProvider = [weakSelf, elementInfo] (NSArray<UIMenuElement *> *) -> UIMenu * {
                 auto strongSelf = weakSelf.get();
@@ -11952,10 +12096,12 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 
                 RetainPtr<NSArray<_WKElementAction *>> defaultActionsFromAssistant = [strongSelf->_actionSheetAssistant defaultActionsForImageSheet:elementInfo.get()];
                 auto actions = menuElementsFromDefaultActions(defaultActionsFromAssistant, elementInfo);
-#if ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-                if (UIMenu *menu = strongSelf->_contextMenuForMachineReadableCode.get())
+#if ENABLE(IMAGE_ANALYSIS)
+                if (auto *placeholder = [strongSelf placeholderForDynamicallyInsertedImageAnalysisActions])
+                    [actions addObject:placeholder];
+                else if (UIMenu *menu = [strongSelf machineReadableCodeSubMenuForImageContextMenu])
                     [actions addObject:menu];
-#endif // ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+#endif // ENABLE(IMAGE_ANALYSIS)
                 return [UIMenu menuWithTitle:strongSelf->_positionInformation.title children:actions];
             };
 
@@ -11998,6 +12144,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     });
 
     _contextMenuActionProviderDelegateNeedsOverride = NO;
+    _contextMenuIsUsingAlternateURLForImage = NO;
     _contextMenuElementInfo = wrapper(API::ContextMenuElementInfo::create(_positionInformation, nil));
 
     if (_positionInformation.isImage && _positionInformation.url.isNull() && [uiDelegate respondsToSelector:@selector(_webView:alternateURLFromImage:userInfo:)]) {
@@ -12005,6 +12152,8 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
         NSDictionary *userInfo = nil;
         NSURL *nsURL = [uiDelegate _webView:self.webView alternateURLFromImage:uiImage userInfo:&userInfo];
         _positionInformation.url = nsURL;
+        if (nsURL)
+            _contextMenuIsUsingAlternateURLForImage = YES;
         _contextMenuElementInfo = wrapper(API::ContextMenuElementInfo::create(_positionInformation, userInfo));
     }
 
@@ -12058,7 +12207,10 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     if (!_contextMenuActionProviderDelegateNeedsOverride)
         return nil;
 
-    return [_actionSheetAssistant suggestedActionsForContextMenuWithPositionInformation:_positionInformation];
+    auto *suggestedActions = [_actionSheetAssistant suggestedActionsForContextMenuWithPositionInformation:_positionInformation];
+    if (auto *placeholder = self.placeholderForDynamicallyInsertedImageAnalysisActions)
+        [suggestedActions addObject:placeholder];
+    return suggestedActions;
 }
 
 #if HAVE(UI_CONTEXT_MENU_PREVIEW_ITEM_IDENTIFIER)
@@ -12243,10 +12395,6 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     _contextMenuLegacyMenu = nullptr;
     _contextMenuHasRequestedLegacyData = NO;
     _contextMenuElementInfo = nullptr;
-
-#if ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-    _contextMenuForMachineReadableCode.clear();
-#endif // ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
 
     [animator addCompletion:[weakSelf = WeakObjCPtr<WKContentView>(self)] () {
         auto strongSelf = weakSelf.get();

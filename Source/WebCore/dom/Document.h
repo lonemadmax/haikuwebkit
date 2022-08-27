@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include "CSSPropertyNames.h"
 #include "CSSRegisteredCustomProperty.h"
 #include "CanvasBase.h"
 #include "ClientOrigin.h"
@@ -718,11 +719,10 @@ public:
     WEBCORE_EXPORT URL completeURL(const String&, ForceUTF8 = ForceUTF8::No) const final;
     URL completeURL(const String&, const URL& baseURLOverride, ForceUTF8 = ForceUTF8::No) const;
 
-    bool shouldMaskURLForBindings(const URL&) const;
-    bool hasURLsToMaskForBindings() const;
-    const URL& maskedURLForBindingsIfNeeded(const URL&) const;
-    const AtomString& maskedURLStringForBindings() const;
-    const URL& maskedURLForBindings() const;
+    inline bool shouldMaskURLForBindings(const URL&) const;
+    inline const URL& maskedURLForBindingsIfNeeded(const URL&) const;
+    static StaticStringImpl& maskedURLStringForBindings();
+    static const URL& maskedURLForBindings();
 
     String userAgent(const URL&) const final;
 
@@ -1268,6 +1268,7 @@ public:
     bool hasHadUserInteraction() const { return static_cast<bool>(m_lastHandledUserGestureTimestamp); }
     void updateLastHandledUserGestureTimestamp(MonotonicTime);
     bool processingUserGestureForMedia() const;
+    bool hasRecentUserInteractionForNavigationFromJS() const;
     void userActivatedMediaFinishedPlaying() { m_userActivatedMediaFinishedPlayingTimestamp = MonotonicTime::now(); }
 
     void setUserDidInteractWithPage(bool userDidInteractWithPage) { ASSERT(isTopDocument()); m_userDidInteractWithPage = userDidInteractWithPage; }
@@ -1600,6 +1601,8 @@ public:
     const CSSRegisteredCustomPropertySet& getCSSRegisteredCustomPropertySet() const { return m_CSSRegisteredPropertySet; }
     bool registerCSSProperty(CSSRegisteredCustomProperty&&);
 
+    const FixedVector<CSSPropertyID>& exposedComputedCSSPropertyIDs();
+
 #if ENABLE(CSS_PAINTING_API)
     PaintWorklet& ensurePaintWorklet();
     PaintWorkletGlobalScope* paintWorkletGlobalScopeForName(const String& name);
@@ -1780,6 +1783,8 @@ private:
 
     HttpEquivPolicy httpEquivPolicy() const;
     AXObjectCache* existingAXObjectCacheSlow() const;
+
+    bool shouldMaskURLForBindingsInternal(const URL&) const;
 
     // DOM Cookies caching.
     const String& cachedDOMCookies() const { return m_cachedDOMCookies; }
@@ -2237,6 +2242,8 @@ private:
 #endif
     
     CSSRegisteredCustomPropertySet m_CSSRegisteredPropertySet;
+
+    std::optional<FixedVector<CSSPropertyID>> m_exposedComputedCSSPropertyIDs;
 
 #if ENABLE(CSS_PAINTING_API)
     RefPtr<PaintWorklet> m_paintWorklet;

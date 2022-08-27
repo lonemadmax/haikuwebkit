@@ -90,9 +90,9 @@ imported/w3c/web-platform-tests/speech-api [ Pass ]
 #//////////////////////////////////////////////////////////////////////////////////////////
 
 # webkit.org/b/240843
-fast/images/animated-heics-draw.html [ Skip ]
-fast/images/animated-heics-verify.html [ Skip ]
-fast/images/heic-as-background-image.html [ Skip ]
+fast/images/animated-heics-draw.html [ Pass ]
+fast/images/animated-heics-verify.html [ Pass ]
+fast/images/heic-as-background-image.html [ Pass ]
 
 # <rdar://problem/5647952> fast/events/mouseout-on-window.html needs mac DRT to issue mouse out events
 fast/events/mouseout-on-window.html [ Failure ]
@@ -186,8 +186,6 @@ perf
 
 webkit.org/b/113598 animations/animation-delay-changed.html [ Pass Failure ]
 webkit.org/b/113599 svg/animations/reinserting-svg-into-document.html [ Pass Failure ]
-
-webkit.org/b/174180 svg/animations/smil-leak-elements.svg [ Pass Failure ]
 
 webkit.org/b/184608 [ Debug ] animations/added-while-suspended.html [ Skip ]
 webkit.org/b/184608 [ Debug ] transitions/created-while-suspended.html [ Skip ]
@@ -379,7 +377,6 @@ svg/stroke/zero-length-subpaths-linecap-rendering.svg [ Failure ]
 
 webkit.org/b/110871 compositing/overlap-blending/reflection-opacity-huge.html [ ImageOnlyFailure ]
 webkit.org/b/114340 compositing/overlap-blending/nested-overlap.html [ ImageOnlyFailure ]
-webkit.org/b/114338 compositing/overlap-blending/nested-overlap-overflow.html [ ImageOnlyFailure ]
 webkit.org/b/146523 compositing/masks/compositing-clip-path-origin.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/95027 fast/block/float/016.html [ Failure ]
@@ -459,14 +456,6 @@ webkit.org/b/112616 plugins/plugin-clip-subframe.html [ Failure Pass ]
 webkit.org/b/82752 plugins/netscape-dom-access-and-reload.html [ Failure Pass ]
 
 svg/dom/SVGScriptElement/script-set-href.svg [ Failure Pass ]
-
-# Flakey frame flattening tests
-webkit.org/b/112532 fast/frames/flattening/iframe-flattening-offscreen.html [ Failure Pass ]
-webkit.org/b/112532 fast/frames/flattening/iframe-flattening-out-of-view.html [ Failure Pass ]
-webkit.org/b/112532 fast/frames/flattening/frameset-flattening-advanced.html [ Failure Pass ]
-webkit.org/b/112532 fast/frames/flattening/frameset-flattening-subframesets.html [ Failure Pass ]
-webkit.org/b/106185 fast/frames/flattening/iframe-flattening-fixed-height.html [ Failure Pass ]
-webkit.org/b/106185 fast/frames/flattening/frameset-flattening-grid.html [ Failure Pass ]
 
 webkit.org/b/73766 css3/unicode-bidi-isolate-aharon-failing.html [ ImageOnlyFailure ]
 
@@ -1380,6 +1369,7 @@ css-dark-mode/older-systems [ Skip ]
 inspector/css/force-page-appearance.html [ Pass ]
 editing/pasteboard/paste-dark-mode-color-filtered.html [ Pass ]
 fast/forms/number/number-dark-appearance.html [ Pass ]
+fast/loader/plain-text-document-dark-mode.html [ Pass ]
 
 webkit.org/b/189686 webgl/2.0.0/conformance/textures/misc/tex-image-and-sub-image-2d-with-array-buffer-view.html [ Slow ]
 
@@ -1387,8 +1377,7 @@ webkit.org/b/170877 [ Debug ] webgl/1.0.3/conformance/glsl/misc/shader-with-rese
 
 webkit.org/b/190724 [ Debug ] http/tests/misc/large-js-program.py [ Pass Timeout ]
 
-webkit.org/b/191565 [ Debug ] imported/w3c/web-platform-tests/css/mediaqueries/test_media_queries.html [ Failure Slow ]
-webkit.org/b/225469 [ Release ] imported/w3c/web-platform-tests/css/mediaqueries/test_media_queries.html [ Failure ]
+webkit.org/b/191565 [ Debug ] imported/w3c/web-platform-tests/css/mediaqueries/test_media_queries.html [ Slow ]
 
 webkit.org/b/239405 fast/css/counters/element-removal-crash.xhtml [ Pass Failure ] 
 
@@ -1656,8 +1645,6 @@ webkit.org/b/209353 [ Release ] media/video-background-tab-playback.html [ Pass 
 
 webkit.org/b/215110 [ Release ] imported/w3c/web-platform-tests/css/css-animations/webkit-writing-mode-crash.html [ Pass Failure ]
 
-webkit.org/b/215177 [ Release ] editing/selection/navigation-clears-editor-state.html [ Pass Failure ]
-
 webkit.org/b/215450 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-negative.html [ Pass Failure ]
 
 # <rdar://problem/31017631> Stress GC bot failing LayoutTest step with timeout while running WebCryptoAPI/derive_bits_keys tests
@@ -1890,8 +1877,8 @@ webkit.org/b/186045 imported/w3c/web-platform-tests/html/rendering/replaced-elem
 webkit.org/b/216492 imported/w3c/web-platform-tests/selection/extend-20.html [ Slow ]
 webkit.org/b/216492 imported/w3c/web-platform-tests/selection/extend-00.html [ Slow ]
 
-# This test requires API only availble on BigSur and later
-webkit.org/b/222425 [ BigSur+ ] http/tests/media/hls/hls-hdr-switch.html [ Timeout ]
+# This test is skipped in generic TestExpectations.
+http/tests/media/hls/hls-hdr-switch.html [ Pass ]
 
 # rdar://69347249
 [ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-convolvernode-interface/realtime-conv.html [ Failure ]
@@ -2082,8 +2069,6 @@ webkit.org/b/226299 [ BigSur ] http/tests/performance/performance-resource-timin
 
 webkit.org/b/226520 media/video-played-collapse.html [ Pass Timeout Failure ]
 
-webkit.org/b/226598 animations/leak-document-with-css-animation.html [ Pass Failure ]
-
 webkit.org/b/238824 http/tests/workers/service/openwindow-from-notification-click.html [ Pass Failure ]
 
 webkit.org/b/215335 [ Release ] webanimations/css-transition-retargeting-during-ready-promise.html [ Pass Failure ]
@@ -2101,8 +2086,6 @@ webkit.org/b/226600 imported/w3c/web-platform-tests/navigation-timing/test_navig
 webkit.org/b/228002 transitions/transition-end-event-nested.html [ Pass Failure ]
 
 webkit.org/b/227877 imported/w3c/web-platform-tests/navigation-timing/test_timing_attributes_order.html [ Pass Failure ]
-
-webkit.org/b/214574 svg/animations/smil-leak-list-property-instances.svg [ Pass Failure ]
 
 webkit.org/b/222385 imported/w3c/web-platform-tests/xhr/event-upload-progress-crossorigin.any.worker.html [ Pass Failure ]
 
@@ -2183,7 +2166,7 @@ webkit.org/b/231463 fast/css/accent-color/range.html [ ImageOnlyFailure ]
 
 webkit.org/b/229521 pointer-lock/lock-already-locked.html [ Pass Failure ]
 
-[ Debug ] http/tests/media/user-gesture-preserved-across-xmlhttprequest.html [ Slow ]
+webkit.org/b/242658 http/tests/media/user-gesture-preserved-across-xmlhttprequest.html [ Slow Pass Failure ]
 
 webkit.org/b/228176 [ BigSur Monterey ] fast/text/variable-system-font-2.html [ Pass ]
 
@@ -2208,7 +2191,6 @@ webkit.org/b/230327 imported/w3c/web-platform-tests/css/css-transforms/crashtest
 [ Monterey+ ] editing/spelling/context-menu-suggestions.html [ Crash ]
 [ Monterey+ ] editing/mac/spelling/disable-automatic-spelling-correction-context-menu-item.html [ Crash ]
 [ Monterey+ ] editing/spelling/spellcheck-input-search-crash.html [ Crash ]
-[ Monterey+ ] editing/mac/style/do-not-crash-when-showing-font-panel.html [ Crash ]
 [ Monterey+ ] editing/selection/empty-cell-right-click.html [ Crash ]
 [ Monterey+ ] editing/selection/minimal-user-select-crash.html [ Crash ]
 [ Monterey+ ] fast/events/context-no-deselect.html [ Crash ]
@@ -2293,3 +2275,11 @@ webkit.org/b/227845 [ Debug ] webaudio/audioworket-out-of-memory.html [ Pass Tim
 webkit.org/b/240989 http/tests/media/hls/hls-webvtt-flashing.html [ Pass Failure ]
 
 [ Monterey+ ] fast/text/bulgarian-system-language-shaping.html [ Pass ]
+
+webkit.org/b/242249 [ BigSur+ ] webanimations/accelerated-animation-after-forward-filling-animation.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/242481 fast/css/direct-adjacent-style-sharing-3.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/242484 fast/css/display-contents-all.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/242226 http/tests/media/modern-media-controls/time-control [ Pass Crash ]

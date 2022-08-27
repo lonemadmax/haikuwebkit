@@ -10,6 +10,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/CSSValueKeywords.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/ColorData.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/CommandLineAPIModuleSourceBuiltins.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/CommandLineAPIModuleSourceBuiltins.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/CompressionStreamBuiltins.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/CompressionStreamBuiltins.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/CountQueuingStrategyBuiltins.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/CountQueuingStrategyBuiltins.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DOMClientIsoSubspaces.h
@@ -17,6 +19,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DOMConstructors.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DOMIsoSubspaces.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DOMJITAbstractHeapRepository.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DOMWindowConstructors.idl
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DecompressionStreamBuiltins.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DecompressionStreamBuiltins.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/DedicatedWorkerGlobalScopeConstructors.idl
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/EventFactory.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/EventHeaders.h
@@ -520,6 +524,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompositeOperationOrAuto.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompositeOperationOrAuto.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompositionEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompositionEvent.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompressionStream.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompressionStream.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompressionStreamEncoder.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCompressionStreamEncoder.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSComputedEffectTiming.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSComputedEffectTiming.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSConstantSourceNode.cpp
@@ -688,6 +696,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDatabase.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDatabase.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDatabaseCallback.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDatabaseCallback.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDecompressionStream.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDecompressionStream.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDecompressionStreamDecoder.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDecompressionStreamDecoder.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDedicatedWorkerGlobalScope.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDedicatedWorkerGlobalScope.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDelayNode.cpp
@@ -1204,6 +1216,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGamepadButton.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGamepadButton.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGamepadEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGamepadEvent.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGenericTransformStream.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGenericTransformStream.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGeolocation.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGeolocation.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSGeolocationCoordinates.cpp
@@ -1516,6 +1530,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSKeyframeEffect.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSKeyframeEffect.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSKeyframeEffectOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSKeyframeEffectOptions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSLinkStyle.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSLinkStyle.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSLocation.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSLocation.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSLongRange.cpp
@@ -2868,6 +2884,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebXRWebGLLayer.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebXRWebGLLayer.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWheelEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWheelEvent.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWindowEventHandlers+Gamepad.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWindowEventHandlers+Gamepad.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWindowEventHandlers.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWindowEventHandlers.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWindowLocalStorage.cpp

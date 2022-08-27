@@ -373,11 +373,23 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXAutocorrectionOccured:
         stream << "AXAutocorrectionOccured";
         break;
+    case AXObjectCache::AXNotification::AXAutofillTypeChanged:
+        stream << "AXAutofillTypeChanged";
+        break;
     case AXObjectCache::AXNotification::AXCheckedStateChanged:
         stream << "AXCheckedStateChanged";
         break;
     case AXObjectCache::AXNotification::AXChildrenChanged:
         stream << "AXChildrenChanged";
+        break;
+    case AXObjectCache::AXNotification::AXColumnCountChanged:
+        stream << "AXColumnCountChanged";
+        break;
+    case AXObjectCache::AXNotification::AXColumnIndexChanged:
+        stream << "AXColumnIndexChanged";
+        break;
+    case AXObjectCache::AXNotification::AXColumnSpanChanged:
+        stream << "AXColumnSpanChanged";
         break;
     case AXObjectCache::AXNotification::AXCurrentStateChanged:
         stream << "AXCurrentStateChanged";
@@ -387,6 +399,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXDescribedByChanged:
         stream << "AXDescribedByChanged";
+        break;
+    case AXObjectCache::AXNotification::AXDropEffectChanged:
+        stream << "AXDropEffectChanged";
         break;
     case AXObjectCache::AXNotification::AXFocusedUIElementChanged:
         stream << "AXFocusedUIElementChanged";
@@ -444,6 +459,12 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXPositionInSetChanged:
         stream << "AXPositionInSetChanged";
+        break;
+    case AXObjectCache::AXNotification::AXRowIndexChanged:
+        stream << "AXRowIndexChanged";
+        break;
+    case AXObjectCache::AXNotification::AXRowSpanChanged:
+        stream << "AXRowSpanChanged";
         break;
     case AXObjectCache::AXNotification::AXSelectedChildrenChanged:
         stream << "AXSelectedChildrenChanged";

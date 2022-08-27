@@ -151,15 +151,38 @@ imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.an
 imported/w3c/web-platform-tests/eventsource/eventsource-constructor-url-bogus.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/shared-worker [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/cors/data-url-shared-worker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-nothrow-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-2-import-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-3-dynamic-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/evaluation-order-1-nothrow-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/evaluation-order-1-sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/canvas/element/path-objects/2d.path.roundrect.1.radius.dompoint.single.argument.html [ Skip ]
+imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-content/cross-domain-iframe-in-multicol.sub.html [ Skip ]
+imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/messagechannel.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/charset-bom.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/invalid-content-type.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/non-object.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/repeated-imports.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/import-assertions/dynamic-import-with-assertion-argument.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/microtasks/checkpoint-importScripts.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/microtasks/evaluation-order-1-nothrow-importScripts.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/microtasks/evaluation-order-1-throw-importScripts.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/dynamic-import/blob-url.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask-exceptions.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/integration-with-the-javascript-agent-formalism/requires-success.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/unhandled-promise-rejections/promise-rejection-events.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/claim-shared-worker-fetch.https.html [ Skip ]
 imported/w3c/web-platform-tests/wasm/serialization/module/broadcastchannel-success-and-failure.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/acquire.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/held.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/idlharness.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/ifAvailable.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/lock-attributes.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/mode-exclusive.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/mode-mixed.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/mode-shared.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/non-secure-context.tentative.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/query-empty.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/resource-names.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/secure-context.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/signal.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/steal.tentative.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker_blobUrl.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker-constructor.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker-detach-frame-in-error-event.html [ Skip ]
@@ -471,7 +494,6 @@ http/tests/security/contentSecurityPolicy/upgrade-insecure-requests/upgrade-inse
 imported/w3c/web-platform-tests/xhr/xhr-timeout-longtask.any.html
 
 webkit.org/b/187230 editing/mac/pasteboard/can-copy-url-without-title.html [ Skip ]
-webkit.org/b/187230 editing/mac/style/do-not-crash-when-showing-font-panel.html [ Skip ]
 
 ### END OF (1) Failures with bug reports
 ########################################
@@ -510,6 +532,9 @@ fast/events/ghostly-mousemoves-in-subframe.html [ Skip ]
 # WK1 does not filter response headers.
 http/wpt/loading/redirect-headers.html [ Skip ]
 
+# No shared worker implementation for WK1
+http/wpt/shared-workers [ Skip ]
+
 # No service worker implementation for WK1
 http/tests/appcache/main-resource-redirect-with-sw.html [ Skip ]
 http/tests/cache-storage [ Skip ]
@@ -546,8 +571,16 @@ imported/w3c/web-platform-tests/fetch/range/sw.https.window.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
 imported/w3c/web-platform-tests/push-api [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
+imported/w3c/web-platform-tests/html/anonymous-iframe/cache-storage.tentative.https.window.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/service-worker-clients-claim.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/service-worker-clients-matchall.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/service-worker-controlled-after-restore.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/service-worker-unregister.https.html [ Skip ]
 imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/messagechannel.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/json-module-service-worker-test.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/import-meta/import-meta-object.any.serviceworker-module.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/import-meta/import-meta-resolve.any.serviceworker-module.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/import-meta/import-meta-url.any.serviceworker-module.html [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask-exceptions.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/infrastructure/server/context.any.serviceworker.html [ Skip ]
@@ -647,6 +680,7 @@ imported/w3c/web-platform-tests/streams/transform-streams/strategies.any.service
 imported/w3c/web-platform-tests/streams/transform-streams/terminate.any.serviceworker.html [ Skip ]
 
 # No Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy in WK1.
+imported/w3c/web-platform-tests/html/anonymous-iframe [ Skip ]
 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy [ Skip ]
 imported/w3c/web-platform-tests/html/cross-origin-opener-policy [ Skip ]
 http/wpt/cross-origin-opener-policy [ Skip ]
@@ -983,10 +1017,6 @@ webkit.org/b/175345 fast/images/animated-gif-scrolling-crash.html [ Pass Timeout
 
 webkit.org/b/172877 svg/as-image/svg-image-with-data-uri-background.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/175867 svg/animations/smil-leak-dynamically-added-element-instances.svg [ Pass Failure ]
-
-webkit.org/b/175886 svg/animations/smil-leak-element-instances.svg [ Pass Failure ]
-
 webkit.org/b/214760 imported/w3c/web-platform-tests/svg/path/distance/pathlength-path-mutating.svg [ Pass Failure ]
 
 # <rdar://problem/29201698> DumpRenderTree crashed in com.apple.CoreGraphics: CGDataProviderCopyData + 377
@@ -1020,8 +1050,6 @@ webkit.org/b/181862 [ Debug ] http/tests/images/image-supports-video.html [ Pass
 webkit.org/b/179853 imported/blink/fast/text/international-iteration-simple-text.html [ Pass Failure ]
 
 webkit.org/b/230062 fast/text/FontFaceSet-check-after-style-update.html [ Pass Failure ]
-
-webkit.org/b/232046 [ BigSur Debug ] fast/selectors/pseudo-element-inside-any.html [ Pass Crash ]
 
 # Skip anything related to WebAuthN
 http/wpt/credential-management/ [ Skip ]
@@ -1078,10 +1106,7 @@ media/video-restricted-invisible-autoplay-not-allowed-source.html [ Skip ]
 media/video-restricted-invisible-autoplay-not-allowed.html [ Skip ]
 
 # <rdar://problem/42736213>
-displaylists/extent-includes-shadow.html [ Failure ]
-displaylists/extent-includes-transforms.html [ Failure ]
 displaylists/layer-dispay-list.html [ Failure ]
-displaylists/replay-skip-clipped-rect.html [ Failure ]
 
 webkit.org/b/184611 compositing/layer-creation/fixed-overlap-extent.html [ Pass Failure ]
 
@@ -1258,6 +1283,7 @@ accessibility/mac/line-index-for-textmarker.html [ Skip ]
 accessibility/mac/mathml-elements.html [ Skip ]
 accessibility/mac/mathml-root.html [ Skip ]
 accessibility/deep-tree.html [ Skip ]
+accessibility/mac/table-wrapped-by-role-grid.html [ Skip ]
 
 # <rdar://problem/61066929> [ Stress GC ] flaky JSC::ExceptionScope::assertNoException crash under WebCore::ReadableStreamDefaultController
 webkit.org/b/211923 imported/w3c/web-platform-tests/fetch/api/basic/stream-safe-creation.any.html [ Pass Crash ]
@@ -1278,6 +1304,16 @@ fast/forms/datetimelocal
 fast/forms/month
 fast/forms/time
 fast/forms/week
+imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-rangeOverflow-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-rangeUnderflow-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/datetime-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/input-stepdown-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/input-stepup-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/selection-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/type-change-state-weekmonth.html
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/valueMode-weekmonth.html
 
 # New failure after update of WPT tests in bug 214278
 webkit.org/b/214291 imported/w3c/web-platform-tests/css/css-writing-modes/sizing-orthog-htb-in-vrl-013.xht [ ImageOnlyFailure ]
@@ -1445,13 +1481,11 @@ webkit.org/b/223944 [ BigSur Debug ] imported/w3c/web-platform-tests/xhr/event-u
 [ BigSur ] webanimations/accelerated-translate-animation.html [ Pass ImageOnlyFailure ]
 
 # webkit.org/b/223904 Updating test expectations for 9 tests
-[ BigSur ] transforms/2d/preserve3d-not-fixed-container.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/2d/scale-change-composited.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/2d/scale-composited.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/2d/translate-change-composited.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/2d/translate-composited.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/hittest-translated-content-off-to-infinity-and-back.html [ Pass ImageOnlyFailure ]
-[ BigSur ] transforms/2d/perspective-not-fixed-container.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/2d/rotate-change-composited.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/2d/rotate-composited.html [ Pass ImageOnlyFailure ]
 
@@ -1522,7 +1556,6 @@ webkit.org/b/227085 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-t
 # rdar://80331434 ([ Mac WK1 Release ] accessibility/loading-iframe-sends-notification.html is a flaky timeout)
 [ Release ] accessibility/loading-iframe-sends-notification.html [ Pass Timeout ]
 accessibility/native-text-control-attributed-string.html [ Skip ]
-
 webkit.org/b/227516 fast/shadow-dom/style-resolver-sharing.html [ Pass Failure ]
 
 webkit.org/b/228042 [ Release ] media/modern-media-controls/volume-support/volume-support-drag-to-mute.html [ Pass Timeout Failure ]
@@ -1606,6 +1639,7 @@ webkit.org/b/232852 inspector/page/setShowPaintRects.html [ Skip ]
 webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Skip ]
 
 webkit.org/b/231918 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-autofocus-multiple-times.html [ Pass Failure ]
+imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/show-modal-focusing-steps.html [ Skip ]
 
 # webkit.org/b/234105 Skip 2 imported/w3c/web-platform-tests/speech-api/SpeechSynthesis in mac wk1. 
 imported/w3c/web-platform-tests/speech-api/SpeechSynthesis-speak-events.html [ Skip ]
@@ -1820,7 +1854,13 @@ http/tests/webgpu/webgpu/shader/validation/shader_io/generic.html [ Skip ]
 http/tests/webgpu/webgpu/shader/validation/shader_io/locations.html [ Skip ]
 http/tests/webgpu/webgpu/shader/validation/wgsl/basic.html [ Skip ]
 
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-object-element/object-param-url.html [ ImageOnlyFailure ]
+
 webkit.org/b/238642 imported/w3c/web-platform-tests/css/css-contain/contain-body-overflow-002.html [ ImageOnlyFailure ]
+webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-001.html [ ImageOnlyFailure ]
+webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-002.html [ ImageOnlyFailure ]
+webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-003.html [ ImageOnlyFailure ]
+webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-004.html [ ImageOnlyFailure ]
 
 webkit.org/b/237783 imported/w3c/web-platform-tests/html/semantics/forms/input-change-event-properties.html [ Timeout ]
 
@@ -1831,6 +1871,9 @@ webkit.org/b/240081 [ Debug ]  webaudio/AudioBuffer/huge-buffer.html [ Pass Slow
 # This test has been timing out on WK1 since IntersectionObserver was enabled.
 intersection-observer/observe-then-disconnect-target.html [ Skip ]
 
+# These tests rely on painting during the test, which DRT doesn't do.
+fast/text/glyph-display-lists [ Skip ]
+
 # rdar://82399990 ([ Catalina EWS ] webgl/2.0.0/* tests are flaky crashing ASSERTION FAILED: !needsLayout() (229580)) Disable webgl tests for mac-wk1
 webgl [ Skip ]
 
@@ -1839,9 +1882,18 @@ webkit.org/b/232630 fast/forms/autofocus-opera-003.html [ Failure ]
 
 webkit.org/b/240841 fast/forms/scroll-into-view-and-show-validation-message.html [ Pass Failure ]
 
-webkit.org/b/241048 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video.html [ Failure Timeout ]
-webkit.org/b/241048 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html [ Failure Timeout ]
-
 webkit.org/b/241266 compositing/video/video-border-radius.html [ Pass Timeout ]
 
+imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open-features-non-integer-screeny.html [ Failure Pass ]
+imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open-features-non-integer-top.html [ Failure Pass ]
+
 webkit.org/b/241376 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-035.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/242546 media/video-canvas-createPattern.html [ Pass Failure ]
+
+webkit.org/b/242692 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-shadow-unshared.html [ Pass Failure ]
+webkit.org/b/242692 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-gpu-process-crash.html [ Pass Timeout ]
+webkit.org/b/242692 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-scaled-unshared.html [ Pass Failure ]
+webkit.org/b/242692 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-colr-unshared.html [ Pass Failure ]
+webkit.org/b/242692 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-svg-unshared.html [ Pass Failure ]
+webkit.org/b/242692 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-color.html [ Pass Failure ]

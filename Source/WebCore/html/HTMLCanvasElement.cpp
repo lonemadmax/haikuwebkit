@@ -54,6 +54,7 @@
 #include "InspectorInstrumentation.h"
 #include "JSDOMConvertDictionary.h"
 #include "JSNodeCustom.h"
+#include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "OffscreenCanvas.h"
 #include "PlaceholderRenderingContext.h"
@@ -100,6 +101,7 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include "GPUAvailability.h"
 #include "VideoFrameCV.h"
 #include <pal/cf/CoreMediaSoftLink.h>
 #endif
@@ -149,6 +151,23 @@ HTMLCanvasElement::~HTMLCanvasElement()
 
     m_context = nullptr; // Ensure this goes away before the ImageBuffer.
     setImageBuffer(nullptr);
+}
+
+bool HTMLCanvasElement::hasPresentationalHintsForAttribute(const QualifiedName& name) const
+{
+    if (name == widthAttr || name == heightAttr)
+        return true;
+    return HTMLElement::hasPresentationalHintsForAttribute(name);
+}
+
+void HTMLCanvasElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
+{
+    if (name == widthAttr)
+        applyAspectRatioWithoutDimensionalRulesFromWidthAndHeightAttributesToStyle(value, attributeWithoutSynchronization(heightAttr), style);
+    else if (name == heightAttr)
+        applyAspectRatioWithoutDimensionalRulesFromWidthAndHeightAttributesToStyle(attributeWithoutSynchronization(widthAttr), value, style);
+    else
+        HTMLElement::collectPresentationalHintsForAttribute(name, value, style);
 }
 
 void HTMLCanvasElement::parseAttribute(const QualifiedName& name, const AtomString& value)
@@ -436,6 +455,13 @@ WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(WebGLVersion ty
     if (!shouldEnableWebGL(document().settings()))
         return nullptr;
 
+#if HAVE(GPU_AVAILABILITY_CHECK)
+    if (!document().settings().useGPUProcessForWebGLEnabled() && !isGPUAvailable()) {
+        RELEASE_LOG_FAULT(WebGL, "GPU is not available.");
+        return nullptr;
+    }
+#endif
+
 #if ENABLE(WEBXR)
     // https://immersive-web.github.io/webxr/#xr-compatible
     if (attrs.xrCompatible) {
@@ -659,6 +685,11 @@ void HTMLCanvasElement::setSurfaceSize(const IntSize& size)
     m_hasCreatedImageBuffer = false;
     setImageBuffer(nullptr);
     clearCopiedImage();
+
+    if (!needsPreparationForDisplay()) {
+        document().clearCanvasPreparation(*this);
+        removeObserver(document());
+    }
 }
 
 static String toEncodingMimeType(const String& mimeType)
@@ -728,7 +759,7 @@ ExceptionOr<void> HTMLCanvasElement::toBlob(Ref<BlobCallback>&& callback, const 
 #if USE(CG)
     if (auto imageData = getImageData()) {
         RefPtr<Blob> blob;
-        Vector<uint8_t> blobData = data(imageData->pixelBuffer(), encodingMIMEType, quality);
+        Vector<uint8_t> blobData = encodeData(imageData->pixelBuffer(), encodingMIMEType, quality);
         if (!blobData.isEmpty())
             blob = Blob::create(&document(), WTFMove(blobData), encodingMIMEType);
         callback->scheduleCallback(document(), WTFMove(blob));
@@ -867,6 +898,11 @@ void HTMLCanvasElement::setUsesDisplayListDrawing(bool usesDisplayListDrawing)
     m_usesDisplayListDrawing = usesDisplayListDrawing;
 }
 
+void HTMLCanvasElement::setAvoidIOSurfaceSizeCheckInWebProcessForTesting()
+{
+    m_avoidBackendSizeCheckForTesting = true;
+}
+
 void HTMLCanvasElement::createImageBuffer() const
 {
     ASSERT(!hasCreatedImageBuffer());
@@ -908,8 +944,10 @@ void HTMLCanvasElement::createImageBuffer() const
             return std::pair { m_context->colorSpace(), m_context->pixelFormat() };
         return std::pair { DestinationColorSpace::SRGB(), PixelFormat::BGRA8 };
     }();
-
-    setImageBuffer(ImageBuffer::create(size(), RenderingPurpose::Canvas, 1, colorSpace, pixelFormat, bufferOptions, { hostWindow }));
+    ImageBuffer::CreationContext context = { };
+    context.hostWindow = hostWindow;
+    context.avoidIOSurfaceSizeCheckInWebProcessForTesting = m_avoidBackendSizeCheckForTesting;
+    setImageBuffer(ImageBuffer::create(size(), RenderingPurpose::Canvas, 1, colorSpace, pixelFormat, bufferOptions, context));
 
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
     if (m_context && m_context->is2d()) {

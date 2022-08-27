@@ -2123,6 +2123,8 @@ static AutoFillButtonType toAutoFillButtonType(Internals::AutoFillButtonType typ
         return AutoFillButtonType::StrongPassword;
     case Internals::AutoFillButtonType::CreditCard:
         return AutoFillButtonType::CreditCard;
+    case Internals::AutoFillButtonType::Loading:
+        return AutoFillButtonType::Loading;
     }
     ASSERT_NOT_REACHED();
     return AutoFillButtonType::None;
@@ -2141,6 +2143,8 @@ static Internals::AutoFillButtonType toInternalsAutoFillButtonType(AutoFillButto
         return Internals::AutoFillButtonType::StrongPassword;
     case AutoFillButtonType::CreditCard:
         return Internals::AutoFillButtonType::CreditCard;
+    case AutoFillButtonType::Loading:
+        return Internals::AutoFillButtonType::Loading;
     }
     ASSERT_NOT_REACHED();
     return Internals::AutoFillButtonType::None;
@@ -3265,6 +3269,11 @@ ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, uns
 void Internals::setForceUseGlyphDisplayListForTesting(bool enabled)
 {
     TextPainter::setForceUseGlyphDisplayListForTesting(enabled);
+}
+
+void Internals::clearGlyphDisplayListCacheForTesting()
+{
+    TextPainter::clearGlyphDisplayListCacheForTesting();
 }
 
 ExceptionOr<String> Internals::cachedGlyphDisplayListsForTextNode(Node& node, unsigned short flags)
@@ -4546,9 +4555,18 @@ bool Internals::isPlayerMuted(const HTMLMediaElement& element) const
 void Internals::beginAudioSessionInterruption()
 {
 #if USE(AUDIO_SESSION)
-    AudioSession::sharedSession().beginInterruption();
+    AudioSession::sharedSession().beginInterruptionForTesting();
 #endif
 }
+
+
+void Internals::endAudioSessionInterruption()
+{
+#if USE(AUDIO_SESSION)
+    AudioSession::sharedSession().endInterruptionForTesting();
+#endif
+}
+
 #endif // ENABLE(VIDEO)
 
 #if ENABLE(WEB_AUDIO)
@@ -6818,4 +6836,17 @@ String Internals::modelInlinePreviewUUIDForModelElement(const HTMLModelElement& 
 
 #endif
 
+void Internals::avoidIOSurfaceSizeCheckInWebProcess(HTMLCanvasElement& element)
+{
+    auto* document = contextDocument();
+    if (!document)
+        return;
+    auto* page = document->page();
+    if (!page)
+        return;
+    page->settings().setMaximumAccelerated2dCanvasSize(UINT_MAX);
+    HTMLCanvasElement::setMaxCanvasAreaForTesting(UINT_MAX);
+    HTMLCanvasElement::setMaxPixelMemoryForTesting(UINT_MAX);
+    element.setAvoidIOSurfaceSizeCheckInWebProcessForTesting();
+}
 } // namespace WebCore

@@ -610,11 +610,6 @@ WI.contentLoaded = function()
         WI.diagnosticController.addRecorder(new WI.TabActivityDiagnosticEventRecorder(WI.diagnosticController));
         WI.diagnosticController.addRecorder(new WI.TabNavigationDiagnosticEventRecorder(WI.diagnosticController));
 
-        if (InspectorBackend.hasCommand("DOM.showGridOverlay")) {
-            WI.diagnosticController.addRecorder(new WI.GridOverlayDiagnosticEventRecorder(WI.diagnosticController));
-            WI.diagnosticController.addRecorder(new WI.GridOverlayConfigurationDiagnosticEventRecorder(WI.diagnosticController));
-        }
-
         if (InspectorFrontendHost.supportsWebExtensions)
             WI.diagnosticController.addRecorder(new WI.ExtensionTabActivationDiagnosticEventRecorder(WI.diagnosticController));
     }
@@ -1460,7 +1455,7 @@ WI.showLocalResourceOverride = function(localResourceOverride, options = {})
 {
     console.assert(localResourceOverride instanceof WI.LocalResourceOverride);
 
-    let cookie = {};
+    let cookie = {preventHighlight: true};
 
     switch (localResourceOverride.type) {
     case WI.LocalResourceOverride.InterceptType.Response:

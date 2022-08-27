@@ -808,6 +808,16 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
     return false;
 }
 
+#if ENABLE(IMAGE_ANALYSIS)
+void Page::analyzeImagesForFindInPage()
+{
+    if (settings().imageAnalysisDuringFindInPageEnabled()) {
+        if (RefPtr mainDocument = m_mainFrame->document(); mainDocument && !m_imageAnalysisQueue)
+            imageAnalysisQueue().enqueueAllImages(*mainDocument, { }, { });
+    }
+}
+#endif
+
 auto Page::findTextMatches(const String& target, FindOptions options, unsigned limit, bool markMatches) -> MatchingRanges
 {
     MatchingRanges result;
@@ -1198,6 +1208,7 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
         if (view && !delegatesScaling()) {
             view->setNeedsLayoutAfterViewConfigurationChange();
             view->setNeedsCompositingGeometryUpdate();
+            view->setDescendantsNeedUpdateBackingAndHierarchyTraversal();
 
             document->resolveStyle(Document::ResolveStyleType::Rebuild);
 
@@ -3757,13 +3768,6 @@ bool Page::shouldDisableCorsForRequestTo(const URL& url) const
     });
 }
 
-bool Page::shouldMaskURLForBindings(const URL& url) const
-{
-    if (m_maskedURLSchemes.isEmpty())
-        return false;
-    return m_maskedURLSchemes.contains<StringViewHashTranslator>(url.protocol());
-}
-
 void Page::revealCurrentSelection()
 {
     CheckedRef(focusController())->focusedOrMainFrame().selection().revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded);
@@ -3859,6 +3863,12 @@ ImageOverlayController& Page::imageOverlayController()
     if (!m_imageOverlayController)
         m_imageOverlayController = makeUnique<ImageOverlayController>(*this);
     return *m_imageOverlayController;
+}
+
+Page* Page::serviceWorkerPage(ScriptExecutionContextIdentifier serviceWorkerPageIdentifier)
+{
+    auto* serviceWorkerPageDocument = Document::allDocumentsMap().get(serviceWorkerPageIdentifier);
+    return serviceWorkerPageDocument ? serviceWorkerPageDocument->page() : nullptr;
 }
 
 #if ENABLE(IMAGE_ANALYSIS)

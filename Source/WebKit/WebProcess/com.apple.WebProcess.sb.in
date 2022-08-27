@@ -27,10 +27,6 @@
 (deny system-privilege)
 (allow system-audit file-read-metadata)
 
-;; We can remove the catch once we no longer need to support older macOS
-(catch (lambda)
-    (import "dyld-support.sb"))
-
 ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
 (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
  
@@ -919,6 +915,17 @@
     (iokit-property "IOAVDHEVCDecodeCapabilities") ;; <rdar://problem/71100188>
 #endif
 )
+
+;; <rdar://97677559>
+(deny iokit-get-properties
+    (iokit-property "AppleDiagnosticDataSysCfg")
+    (iokit-property "AppleJPEGNumCores")
+    (iokit-property "als-colorCfg")
+    (iokit-property "ean-storage-present")
+    (iokit-property "noMultiColorSupport")
+    (iokit-property "product-id")
+    (iokit-property "syscfg-v2-data")
+    (with no-report))
 
 ;; <rdar://problem/60088861>
 (if (equal? (param "CPU") "arm64")
@@ -2014,6 +2021,7 @@
         SYS_mkdirat
         SYS_open_dprotected_np
         SYS_setrlimit
+        SYS_shared_region_map_and_slide_2_np
         SYS_ulock_wait2
 #endif
 ))
@@ -2060,6 +2068,12 @@
 
 (with-filter (uid 0)
     (allow syscall-unix (syscall-number SYS_gettid))) ;; Needed for base system, see <rdar://problem/48651255>
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+(with-filter (require-not (state-flag "WebContentProcessLaunched"))
+    (allow syscall-unix
+        (syscall-number SYS_quotactl)))
+#endif
 
 #if HAVE(ADDITIONAL_APPLE_CAMERA_SERVICE)
 (if (equal? (param "CPU") "arm64")
@@ -2119,9 +2133,6 @@
         (apply-message-filter
             (deny mach-message-send (with telemetry))
             (allow mach-message-send
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
-                (with telemetry-backtrace)
-#endif
                 (kernel-mig-routine
                     _mach_make_memory_entry
                     clock_get_time
@@ -2158,6 +2169,7 @@
                     io_service_open_extended
                     mach_exception_raise
                     mach_memory_entry_ownership
+                    mach_port_extract_right
                     mach_port_get_context_from_user
                     mach_port_get_refs
                     mach_port_request_notification

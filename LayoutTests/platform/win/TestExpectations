@@ -246,15 +246,23 @@ imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.an
 imported/w3c/web-platform-tests/eventsource/eventsource-constructor-url-bogus.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/shared-worker [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/cors/data-url-shared-worker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-nothrow-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-2-import-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-3-dynamic-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/evaluation-order-1-nothrow-sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/evaluation-order-1-sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/unhandled-promise-rejections/promise-rejection-events.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/claim-shared-worker-fetch.https.html [ Skip ]
 imported/w3c/web-platform-tests/wasm/serialization/module/broadcastchannel-success-and-failure.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/acquire.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/held.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/idlharness.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/ifAvailable.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/lock-attributes.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/mode-exclusive.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/mode-mixed.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/mode-shared.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/non-secure-context.tentative.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/query-empty.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/resource-names.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/secure-context.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/signal.tentative.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/web-locks/steal.tentative.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker_blobUrl.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker-constructor.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker-detach-frame-in-error-event.html [ Skip ]
@@ -603,6 +611,17 @@ fast/events/scroll-event-during-modal-dialog.html [ Failure ]
 webkit.org/b/151506 fast/events/beforeunload-showModalDialog.html [ Skip ]
 webkit.org/b/151506 fast/events/pagehide-showModalDialog.html [ Skip ]
 webkit.org/b/151506 fast/events/unload-showModalDialog.html [ Skip ]
+
+# ShowModalDialog preference currently cannot be enabled on Windows.
+fast/dom/Window/delete-operations.html [ Skip ]
+fast/dom/Window/forbid-showModalDialog.html [ Skip ]
+fast/dom/Window/showModalDialog-mandatory-parameter.html [ Skip ]
+fast/dom/Window/window-function-frame-getter-precedence.html [ Skip ]
+fast/dom/Window/window-function-name-getter-precedence.html [ Skip ]
+fast/events/show-modal-dialog-onblur-onfocus.html [ Skip ]
+http/tests/cookies/document-cookie-after-showModalDialog.html [ Skip ]
+js/dom/function-length.html [ Skip ]
+js/dom/global-function-resolve.html [ Skip ]
 
 # TODO Color input is not yet enabled.
 fast/forms/color/ [ Skip ]
@@ -984,6 +1003,14 @@ fast/visual-viewport/zoomed-fixed-scroll-down-then-up.html [ Failure ]
 # locale-specific shaping isn't implemented on any non-Cocoa port yet.
 webkit.org/b/77568 fast/text/locale-shaping.html [ ImageOnlyFailure ]
 webkit.org/b/77568 fast/text/locale-shaping-complex.html [ ImageOnlyFailure ]
+
+# WebGL doesn't seem to work on windows
+fast/canvas/toDataURL-alpha-permutation.html [ ImageOnlyFailure ]
+
+# resignFirstResponder is not implemented on Windows
+fast/shadow-dom/focus-ring-on-shadow-host.html [ Skip ]
+fast/shadow-dom/focus-ring-on-shadow-host-focuswithin.html [ Skip ]
+fast/shadow-dom/focus-ring-on-shadow-host-sibling.html [ Skip ]
 
 ################################################################################
 ###########    End Missing Functionality Prevents Testing         ##############
@@ -1624,8 +1651,6 @@ webkit.org/b/140798 [ Debug ] accessibility/aria-tables.html [ Skip ] # Debug as
 webkit.org/b/140798 [ Release ] accessibility/aria-text-role.html [ Failure ]
 webkit.org/b/140798 [ Debug ] accessibility/aria-text-role.html [ Skip ] # Debug assertion
 webkit.org/b/140798 [ Debug ] accessibility/aria-used-on-image-maps.html [ Skip ] # Debug assertion
-webkit.org/b/140798 [ Release ] accessibility/auto-filled-value.html [ Failure ]
-webkit.org/b/140798 [ Debug ] accessibility/auto-filled-value.html [ Skip ] # Debug assertion
 webkit.org/b/140798 [ Release ] accessibility/box-styled-lists.html [ Failure ]
 webkit.org/b/140798 [ Debug ] accessibility/box-styled-lists.html [ Skip ] # Crash (Debug Assertion)
 webkit.org/b/140798 [ Release ] accessibility/canvas-fallback-content-2.html [ Failure ]
@@ -2694,7 +2719,6 @@ webkit.org/b/138041 fast/borders/fieldsetBorderRadius.html [ Failure ]
 fast/events/attempt-scroll-with-no-scrollbars.html [ Failure ]
 
 # Sometimes times out
-fast/frames/flattening/scrolling-in-object.html [ Skip ] # Crashing
 fast/dom/location-new-window-no-crash.html [ Pass Timeout ]
 fast/loader/user-style-sheet-resource-load-callbacks.html [ Pass Timeout ]
 fast/block/positioning/percent-top-left-on-relative-position.html [ Pass Timeout ]
@@ -2788,6 +2812,10 @@ webkit.org/b/150830 fast/text/woff2.html [ Skip ]
 
 webkit.org/b/162668 fast/text/woff2-totalsfntsize.html [ Skip ]
 
+# :dir pseudo class isn't enabled yet.
+fast/css/dir-pseudo-on-bdi-element.html [ Failure ]
+fast/css/dir-pseudo-on-input-element.html [ Failure ]
+
 ################################################################################
 ######################### Start list of UNREVIEWED failures ########################
 ################################################################################
@@ -2852,7 +2880,6 @@ transforms/3d [ Skip ]
 [ Debug ] fast/frames/frame-display-none-focus.html [ Skip ] # Causes later tests to fail
 [ Debug ] fast/frames/frame-focus-blurs-active-element.html [ Skip ] # Causes later tests to fail
 [ Debug ] fast/frames/iframe-window-focus.html [ Skip ] # Causes later tests to fail
-[ Debug ] fast/frames/flattening/iframe-flattening-selection-crash.html
 [ Debug ] fast/frames/lots-of-objects.html [ Skip ] # Causes later tests to fail
 [ Debug ] fast/frames/take-focus-from-iframe.html [ Failure ]
 [ Debug ] fast/history/form-submit-in-frame.html [ Skip ] # Causes later tests to fail
@@ -3952,6 +3979,9 @@ webkit.org/b/174801 fast/text/line-height-minimumFontSize-zoom.html [ ImageOnlyF
 webkit.org/b/174801 fast/text/line-height-minimumFontSize-autosize.html [ Failure ]
 webkit.org/b/174801 fast/text/line-height-minimumFontSize.html [ Failure ]
 
+# No shared worker implementation for WK1
+http/wpt/shared-workers [ Skip ]
+
 # No service worker implementation for WK1
 http/tests/appcache/main-resource-redirect-with-sw.html [ Skip ]
 http/tests/cache-storage [ Skip ]
@@ -4241,10 +4271,8 @@ webkit.org/b/186183 http/tests/security/referrer-policy-header.html [ Skip ]
 webkit.org/b/186183 http/tests/security/referrer-policy-header-multipart.html [ Skip ]
 
 webkit.org/b/186562 [ Release ] accessibility/accessibility-node-memory-management.html [ Failure ]
-webkit.org/b/186562 fast/workers/worker-document-leak.html [ Failure ]
 webkit.org/b/186562 js/dom/line-column-numbers.html [ Failure ]
 webkit.org/b/186562 storage/indexeddb/modern/leak-1.html [ Failure ]
-webkit.org/b/186562 svg/animations/animation-leak-list-property-instances.html [ Failure ]
 webkit.org/b/186562 workers/bomb.html [ Skip ]
 
 webkit.org/b/186807 transitions/transition-to-from-auto.html [ Failure ]
@@ -4412,7 +4440,6 @@ webkit.org/b/190520 editing/pasteboard/copy-paste-across-shadow-boundaries-with-
 
 webkit.org/b/191194 fast/block/basic/inline-content-with-floating-image.html [ Failure ]
 webkit.org/b/191194 fast/block/basic/inline-content-with-floating-images2.html [ Failure ]
-webkit.org/b/191194 fast/dom/inline-event-attributes-release.html [ Failure ]
 webkit.org/b/191194 fast/inline/simple-inline-block.html [ Failure ]
 webkit.org/b/191194 fast/inline/simple-intruding-float1.html [ Failure ]
 webkit.org/b/191194 fast/inline/simple-intruding-floats2.html [ Failure ]
@@ -4451,11 +4478,6 @@ webkit.org/b/193540 editing/style/apply-style-iframe-crash.html [ Failure ]
 webkit.org/b/193540 editing/style/iframe-onload-crash-mac.html [ Failure ]
 webkit.org/b/193540 fast/dom/reference-cycle-leaks.html [ Failure ]
 webkit.org/b/193540 js/dom/stack-trace.html [ Failure ]
-webkit.org/b/193540 svg/animations/smil-leak-dynamically-added-element-instances.svg [ Failure ]
-webkit.org/b/193540 svg/animations/smil-leak-element-instances-noBaseValRef.svg [ Failure ]
-webkit.org/b/193540 svg/animations/smil-leak-element-instances.svg [ Failure ]
-webkit.org/b/193540 svg/animations/smil-leak-elements.svg [ Failure ]
-webkit.org/b/193540 svg/animations/smil-leak-list-property-instances.svg [ Failure ]
 webkit.org/b/193540 webanimations/leak-document-with-web-animation.html [ Failure ]
 
 webkit.org/b/193540 fast/shadow-dom/shadowroot-stylesheets-wrapper-gc.html [ Crash ]

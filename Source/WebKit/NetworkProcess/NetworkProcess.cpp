@@ -750,6 +750,15 @@ void NetworkProcess::setNotifyPagesWhenDataRecordsWereScanned(PAL::SessionID ses
     }
 }
 
+void NetworkProcess::setResourceLoadStatisticsTimeAdvanceForTesting(PAL::SessionID sessionID, Seconds time, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* session = networkSession(sessionID)) {
+        if (auto* resourceLoadStatistics = session->resourceLoadStatistics())
+            return resourceLoadStatistics->setTimeAdvanceForTesting(time, WTFMove(completionHandler));
+    }
+    completionHandler();
+}
+
 void NetworkProcess::setIsRunningResourceLoadStatisticsTest(PAL::SessionID sessionID, bool value, CompletionHandler<void()>&& completionHandler)
 {
     if (auto* session = networkSession(sessionID)) {
@@ -2372,6 +2381,17 @@ void NetworkProcess::processPushMessage(PAL::SessionID, WebPushMessage&&, PushPe
 #endif // ENABLE(BUILT_IN_NOTIFICATIONS)
 #endif // ENABLE(SERVICE_WORKER)
 
+void NetworkProcess::setPushAndNotificationsEnabledForOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, bool enabled, CompletionHandler<void()>&& callback)
+{
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+    if (auto* session = networkSession(sessionID)) {
+        session->notificationManager().setPushAndNotificationsEnabledForOrigin(origin, enabled, WTFMove(callback));
+        return;
+    }
+#endif
+    callback();
+}
+
 void NetworkProcess::deletePushAndNotificationRegistration(PAL::SessionID sessionID, const SecurityOriginData& origin, CompletionHandler<void(const String&)>&& callback)
 {
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
@@ -2394,6 +2414,17 @@ void NetworkProcess::getOriginsWithPushAndNotificationPermissions(PAL::SessionID
     callback({ });
 }
 
+void NetworkProcess::getOriginsWithPushSubscriptions(PAL::SessionID sessionID, CompletionHandler<void(const Vector<WebCore::SecurityOriginData>&)>&& callback)
+{
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+    if (auto* session = networkSession(sessionID)) {
+        session->notificationManager().getOriginsWithPushSubscriptions(WTFMove(callback));
+        return;
+    }
+#endif
+    callback({ });
+}
+
 void NetworkProcess::hasPushSubscriptionForTesting(PAL::SessionID sessionID, URL&& scopeURL, CompletionHandler<void(bool)>&& callback)
 {
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
@@ -2407,6 +2438,16 @@ void NetworkProcess::hasPushSubscriptionForTesting(PAL::SessionID sessionID, URL
 
     callback(false);
 }
+
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+
+void NetworkProcess::setEmulatedConditions(PAL::SessionID sessionID, std::optional<int64_t>&& bytesPerSecondLimit)
+{
+    if (auto* session = networkSession(sessionID))
+        session->setEmulatedConditions(WTFMove(bytesPerSecondLimit));
+}
+
+#endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
 void NetworkProcess::requestStorageSpace(PAL::SessionID sessionID, const ClientOrigin& origin, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(std::optional<uint64_t>)>&& callback)
 {

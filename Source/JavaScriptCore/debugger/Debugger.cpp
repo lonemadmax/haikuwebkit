@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2008-2021 Apple Inc. All rights reserved.
+ *  Copyright (C) 2008-2022 Apple Inc. All rights reserved.
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
  *
@@ -28,6 +28,7 @@
 #include "HeapIterationScope.h"
 #include "JSCInlines.h"
 #include "MarkedSpaceInlines.h"
+#include "Microtask.h"
 #include "VMEntryScope.h"
 #include "VMTrapsInlines.h"
 #include <wtf/HashMap.h>
@@ -703,7 +704,7 @@ public:
     }
 
 private:
-    JSGlobalObject* m_globalObject;
+    JSGlobalObject* const m_globalObject;
 };
 
 void Debugger::clearDebuggerRequests(JSGlobalObject* globalObject)
@@ -1248,17 +1249,24 @@ void Debugger::didReachDebuggerStatement(CallFrame* callFrame)
     updateCallFrame(lexicalGlobalObjectForCallFrame(m_vm, callFrame), callFrame, AttemptPause);
 }
 
-void Debugger::willRunMicrotask()
+void Debugger::didQueueMicrotask(JSGlobalObject* globalObject, const Microtask& microtask)
 {
     dispatchFunctionToObservers([&] (Observer& observer) {
-        observer.willRunMicrotask();
+        observer.didQueueMicrotask(globalObject, microtask);
     });
 }
 
-void Debugger::didRunMicrotask()
+void Debugger::willRunMicrotask(JSGlobalObject* globalObject, const Microtask& microtask)
 {
     dispatchFunctionToObservers([&] (Observer& observer) {
-        observer.didRunMicrotask();
+        observer.willRunMicrotask(globalObject, microtask);
+    });
+}
+
+void Debugger::didRunMicrotask(JSGlobalObject* globalObject, const Microtask& microtask)
+{
+    dispatchFunctionToObservers([&] (Observer& observer) {
+        observer.didRunMicrotask(globalObject, microtask);
     });
 }
 

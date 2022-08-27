@@ -3,7 +3,7 @@ include(VersioningUtils)
 
 WEBKIT_OPTION_BEGIN()
 
-SET_PROJECT_VERSION(2 37 0)
+SET_PROJECT_VERSION(2 37 1)
 
 # This is required because we use the DEPFILE argument to add_custom_command().
 # Remove after upgrading cmake_minimum_required() to 3.20.
@@ -224,14 +224,10 @@ endif ()
 
 if (USE_GTK4)
     set(WEBKITGTK_API_VERSION 5.0)
-    set(WEBKITGTK_API_DOC_VERSION 5.0)
 elseif (USE_SOUP2)
     set(WEBKITGTK_API_VERSION 4.0)
-    set(WEBKITGTK_API_DOC_VERSION 4.0)
 else ()
     set(WEBKITGTK_API_VERSION 4.1)
-    # No API changes in 4.1, so keep using the same API documentation.
-    set(WEBKITGTK_API_DOC_VERSION 4.0)
 endif ()
 
 if (WEBKITGTK_API_VERSION VERSION_EQUAL "4.0")
@@ -333,7 +329,7 @@ endif ()
 
 find_package(GIDocgen)
 if (ENABLE_DOCUMENTATION AND NOT GIDocgen_FOUND)
-    message(FATAL_ERROR "gi-docgen is needed for ENABLE_INTROSPECTION.")
+    message(FATAL_ERROR "ENABLE_INTROSPECTION is needed for gi-docgen.")
 endif ()
 
 if (ENABLE_WEB_CRYPTO)

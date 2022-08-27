@@ -126,7 +126,7 @@ void AccessibilityNodeObject::updateRole()
     m_role = determineAccessibilityRole();
     if (previousRole != m_role) {
         if (auto* cache = axObjectCache())
-            cache->handleRoleChange(this);
+            cache->handleRoleChanged(this);
     }
 }
 
@@ -2223,6 +2223,9 @@ String AccessibilityNodeObject::text() const
             return textOrder[0].text;
     }
 
+    if (isStaticText())
+        return textUnderElement();
+    
     if (!isTextControl())
         return String();
 

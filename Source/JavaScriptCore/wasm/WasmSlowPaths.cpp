@@ -132,9 +132,9 @@ inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance
         uint32_t functionIndex = callee->functionIndex();
         RefPtr<Wasm::Plan> plan;
         if (Options::wasmLLIntTiersUpToBBQ())
-            plan = adoptRef(*new Wasm::BBQPlan(instance->context(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
+            plan = adoptRef(*new Wasm::BBQPlan(instance->vm(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
         else
-            plan = adoptRef(*new Wasm::OMGPlan(instance->context(), Ref<Wasm::Module>(instance->module()), functionIndex, callee->hasExceptionHandlers(), instance->memory()->mode(), Wasm::Plan::dontFinalize()));
+            plan = adoptRef(*new Wasm::OMGPlan(instance->vm(), Ref<Wasm::Module>(instance->module()), functionIndex, callee->hasExceptionHandlers(), instance->memory()->mode(), Wasm::Plan::dontFinalize()));
 
         Wasm::ensureWorklist().enqueue(*plan);
         if (UNLIKELY(!Options::useConcurrentJIT()))
@@ -188,7 +188,7 @@ WASM_SLOW_PATH_DECL(loop_osr)
     unsigned loopOSREntryBytecodeOffset = callee->bytecodeOffset(pc);
     const auto& osrEntryData = tierUpCounter.osrEntryDataForLoop(loopOSREntryBytecodeOffset);
 
-    if (Options::wasmLLIntTiersUpToBBQ()) {
+    if (Options::wasmLLIntTiersUpToBBQ() && Wasm::BBQPlan::planGeneratesLoopOSREntrypoints(instance->module().moduleInformation())) {
         if (!jitCompileAndSetHeuristics(callee, instance))
             WASM_RETURN_TWO(nullptr, nullptr);
 
@@ -201,7 +201,7 @@ WASM_SLOW_PATH_DECL(loop_osr)
 
         size_t osrEntryScratchBufferSize = bbqCallee->osrEntryScratchBufferSize();
         RELEASE_ASSERT(osrEntryScratchBufferSize >= osrEntryData.values.size());
-        uint64_t* buffer = instance->context()->scratchBufferForSize(osrEntryScratchBufferSize);
+        uint64_t* buffer = instance->vm().wasmContext.scratchBufferForSize(osrEntryScratchBufferSize);
         if (!buffer)
             WASM_RETURN_TWO(nullptr, nullptr);
         RELEASE_ASSERT(osrEntryData.loopIndex < bbqCallee->loopEntrypoints().size());
@@ -218,7 +218,7 @@ WASM_SLOW_PATH_DECL(loop_osr)
 
             size_t osrEntryScratchBufferSize = osrEntryCallee->osrEntryScratchBufferSize();
             RELEASE_ASSERT(osrEntryScratchBufferSize == osrEntryData.values.size());
-            uint64_t* buffer = instance->context()->scratchBufferForSize(osrEntryScratchBufferSize);
+            uint64_t* buffer = instance->vm().wasmContext.scratchBufferForSize(osrEntryScratchBufferSize);
             if (!buffer)
                 WASM_RETURN_TWO(nullptr, nullptr);
 
@@ -249,7 +249,7 @@ WASM_SLOW_PATH_DECL(loop_osr)
         }
 
         if (compile) {
-            Ref<Wasm::Plan> plan = adoptRef(*static_cast<Wasm::Plan*>(new Wasm::OSREntryPlan(instance->context(), Ref<Wasm::Module>(instance->module()), Ref<Wasm::Callee>(*callee), callee->functionIndex(), callee->hasExceptionHandlers(), osrEntryData.loopIndex, instance->memory()->mode(), Wasm::Plan::dontFinalize())));
+            Ref<Wasm::Plan> plan = adoptRef(*static_cast<Wasm::Plan*>(new Wasm::OSREntryPlan(instance->vm(), Ref<Wasm::Module>(instance->module()), Ref<Wasm::Callee>(*callee), callee->functionIndex(), callee->hasExceptionHandlers(), osrEntryData.loopIndex, instance->memory()->mode(), Wasm::Plan::dontFinalize())));
             Wasm::ensureWorklist().enqueue(plan.copyRef());
             if (UNLIKELY(!Options::useConcurrentJIT()))
                 plan->waitForCompletion();
@@ -320,12 +320,6 @@ WASM_SLOW_PATH_DECL(ref_func)
 {
     auto instruction = pc->as<WasmRefFunc>();
     WASM_RETURN(Wasm::operationWasmRefFunc(instance, instruction.m_functionIndex));
-}
-
-WASM_SLOW_PATH_DECL(rtt_canon)
-{
-    auto instruction = pc->as<WasmRttCanon>();
-    WASM_RETURN(Wasm::operationWasmRttCanon(instance, instruction.m_typeIndex));
 }
 
 WASM_SLOW_PATH_DECL(table_get)

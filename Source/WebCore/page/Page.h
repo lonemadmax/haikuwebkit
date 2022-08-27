@@ -596,6 +596,8 @@ public:
     bool isServiceWorkerPage() const { return m_isServiceWorkerPage; }
     void markAsServiceWorkerPage() { m_isServiceWorkerPage = true; }
 
+    WEBCORE_EXPORT static Page* serviceWorkerPage(ScriptExecutionContextIdentifier);
+
 #if ENABLE(SERVICE_WORKER)
     // Service worker pages have an associated ServiceWorkerGlobalScope on the main thread.
     void setServiceWorkerGlobalScope(ServiceWorkerGlobalScope&);
@@ -920,8 +922,7 @@ public:
     void forEachFrame(const Function<void(Frame&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
-    bool shouldMaskURLForBindings(const URL&) const;
-    bool hasURLsToMaskForBindings() const { return !m_maskedURLSchemes.isEmpty(); }
+    const HashSet<String>& maskedURLSchemes() const { return m_maskedURLSchemes; }
 
     WEBCORE_EXPORT void injectUserStyleSheet(UserStyleSheet&);
     WEBCORE_EXPORT void removeInjectedUserStyleSheet(UserStyleSheet&);
@@ -973,6 +974,9 @@ public:
 
     WEBCORE_EXPORT void forceRepaintAllFrames();
 
+#if ENABLE(IMAGE_ANALYSIS)
+    WEBCORE_EXPORT void analyzeImagesForFindInPage();
+#endif
 private:
     struct Navigation {
         RegistrableDomain domain;

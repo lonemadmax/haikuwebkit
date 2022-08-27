@@ -1239,7 +1239,7 @@ bool OptionReader::Option::operator==(const Option& other) const
 }
 
 #if ENABLE(JIT_CAGE)
-bool canUseJITCage()
+SUPPRESS_ASAN bool canUseJITCage()
 {
     if (JSC_FORCE_USE_JIT_CAGE)
         return true;

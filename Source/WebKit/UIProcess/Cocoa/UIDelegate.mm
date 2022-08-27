@@ -201,6 +201,7 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 #if ENABLE(WEBXR)
     m_delegateMethods.webViewRequestPermissionForXRSessionOriginModeAndFeaturesWithCompletionHandler = [delegate respondsToSelector:@selector(_webView:requestPermissionForXRSessionOrigin:mode:grantedFeatures:consentRequiredFeatures:consentOptionalFeatures:completionHandler:)];
     m_delegateMethods.webViewStartXRSessionWithCompletionHandler = [delegate respondsToSelector:@selector(_webView:startXRSessionWithCompletionHandler:)];
+    m_delegateMethods.webViewEndXRSession = [delegate respondsToSelector:@selector(_webViewEndXRSession:)];
 #endif
     m_delegateMethods.webViewRequestNotificationPermissionForSecurityOriginDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:)];
     m_delegateMethods.webViewRequestCookieConsentWithMoreInfoHandlerDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestCookieConsentWithMoreInfoHandler:decisionHandler:)];
@@ -1176,23 +1177,25 @@ void UIDelegate::UIClient::promptForDisplayCapturePermission(WebPageProxy& page,
     ASSERT(request.canPromptForGetDisplayMedia());
 
     auto checker = CompletionHandlerCallChecker::create(delegate, @selector(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:));
-    auto decisionHandler = makeBlockPtr([protectedRequest = Ref { request }, checker = WTFMove(checker)](WKDisplayCapturePermissionDecision decision) {
+    auto decisionHandler = makeBlockPtr([protectedRequest = Ref { request }, checker = WTFMove(checker)](WKDisplayCapturePermissionDecision decision) mutable {
         if (checker->completionHandlerHasBeenCalled())
             return;
         checker->didCallCompletionHandler();
 
-        switch (decision) {
-        case WKDisplayCapturePermissionDecisionScreenPrompt:
-            protectedRequest->promptForGetDisplayMedia(UserMediaPermissionRequestProxy::UserMediaDisplayCapturePromptType::Screen);
-            break;
-        case WKDisplayCapturePermissionDecisionWindowPrompt: {
-            protectedRequest->promptForGetDisplayMedia(UserMediaPermissionRequestProxy::UserMediaDisplayCapturePromptType::Window);
-            break;
-        }
-        case WKDisplayCapturePermissionDecisionDeny:
-            protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
-            break;
-        }
+        ensureOnMainRunLoop([protectedRequest = WTFMove(protectedRequest), decision]() {
+            switch (decision) {
+            case WKDisplayCapturePermissionDecisionScreenPrompt:
+                protectedRequest->promptForGetDisplayMedia(UserMediaPermissionRequestProxy::UserMediaDisplayCapturePromptType::Screen);
+                break;
+            case WKDisplayCapturePermissionDecisionWindowPrompt: {
+                protectedRequest->promptForGetDisplayMedia(UserMediaPermissionRequestProxy::UserMediaDisplayCapturePromptType::Window);
+                break;
+            }
+            case WKDisplayCapturePermissionDecisionDeny:
+                protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
+                break;
+            }
+        });
     });
 
     std::optional<WebCore::FrameIdentifier> mainFrameID;
@@ -1229,25 +1232,27 @@ void UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest(WebPageProx
     // FIXME: Provide a specific delegate for display capture.
     if (!request.requiresDisplayCapture() && respondsToRequestMediaCapturePermission) {
         auto checker = CompletionHandlerCallChecker::create(delegate, @selector(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:));
-        auto decisionHandler = makeBlockPtr([protectedRequest = Ref { request }, checker = WTFMove(checker)](WKPermissionDecision decision) {
+        auto decisionHandler = makeBlockPtr([protectedRequest = Ref { request }, checker = WTFMove(checker)](WKPermissionDecision decision) mutable {
             if (checker->completionHandlerHasBeenCalled())
                 return;
             checker->didCallCompletionHandler();
 
-            switch (decision) {
-            case WKPermissionDecisionPrompt:
-                protectedRequest->promptForGetUserMedia();
-                break;
-            case WKPermissionDecisionGrant: {
-                const String& videoDeviceUID = protectedRequest->requiresVideoCapture() ? protectedRequest->videoDeviceUIDs().first() : String();
-                const String& audioDeviceUID = protectedRequest->requiresAudioCapture() ? protectedRequest->audioDeviceUIDs().first() : String();
-                protectedRequest->allow(audioDeviceUID, videoDeviceUID);
-                break;
-            }
-            case WKPermissionDecisionDeny:
-                protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
-                break;
-            }
+            ensureOnMainRunLoop([protectedRequest = WTFMove(protectedRequest), decision] {
+                switch (decision) {
+                case WKPermissionDecisionPrompt:
+                    protectedRequest->promptForGetUserMedia();
+                    break;
+                case WKPermissionDecisionGrant: {
+                    const String& videoDeviceUID = protectedRequest->requiresVideoCapture() ? protectedRequest->videoDeviceUIDs().first() : String();
+                    const String& audioDeviceUID = protectedRequest->requiresAudioCapture() ? protectedRequest->audioDeviceUIDs().first() : String();
+                    protectedRequest->allow(audioDeviceUID, videoDeviceUID);
+                    break;
+                }
+                case WKPermissionDecisionDeny:
+                    protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
+                    break;
+                }
+            });
         });
 
         std::optional<WebCore::FrameIdentifier> mainFrameID;
@@ -1951,6 +1956,18 @@ void UIDelegate::UIClient::startXRSession(WebPageProxy&, CompletionHandler<void(
         completionHandler(result);
     }).get()];
 }
-#endif
+
+void UIDelegate::UIClient::endXRSession(WebPageProxy&)
+{
+    if (!m_uiDelegate || !m_uiDelegate->m_delegateMethods.webViewEndXRSession)
+        return;
+
+    auto delegate = (id<WKUIDelegatePrivate>)m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return;
+
+    [delegate _webViewEndXRSession:m_uiDelegate->m_webView.get().get()];
+}
+#endif // ENABLE(WEBXR)
 
 } // namespace WebKit

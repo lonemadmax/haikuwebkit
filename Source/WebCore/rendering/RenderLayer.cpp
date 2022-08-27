@@ -121,7 +121,6 @@
 #include "RenderView.h"
 #include "SVGNames.h"
 #include "ScaleTransformOperation.h"
-#include "ScriptDisallowedScope.h"
 #include "ScrollAnimator.h"
 #include "ScrollSnapOffsetsInfo.h"
 #include "Scrollbar.h"
@@ -138,12 +137,11 @@
 #include "WheelEventTestMonitor.h"
 #include <stdio.h>
 #include <wtf/HexNumber.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/TextStream.h>
-
-#define MIN_INTERSECT_FOR_REVEAL 32
 
 namespace WebCore {
 
@@ -239,14 +237,14 @@ public:
 #endif
     }
 
-    ClipRects* getClipRects(ClipRectsType clipRectsType, ShouldRespectOverflowClip respectOverflow) const
+    ClipRects* getClipRects(ClipRectsType clipRectsType, bool respectOverflowClip) const
     {
-        return m_clipRects[getIndex(clipRectsType, respectOverflow)].get();
+        return m_clipRects[getIndex(clipRectsType, respectOverflowClip)].get();
     }
 
-    void setClipRects(ClipRectsType clipRectsType, ShouldRespectOverflowClip respectOverflow, RefPtr<ClipRects>&& clipRects)
+    void setClipRects(ClipRectsType clipRectsType, bool respectOverflowClip, RefPtr<ClipRects>&& clipRects)
     {
-        m_clipRects[getIndex(clipRectsType, respectOverflow)] = WTFMove(clipRects);
+        m_clipRects[getIndex(clipRectsType, respectOverflowClip)] = WTFMove(clipRects);
     }
 
 #if ASSERT_ENABLED
@@ -255,10 +253,10 @@ public:
 #endif
 
 private:
-    unsigned getIndex(ClipRectsType clipRectsType, ShouldRespectOverflowClip respectOverflow) const
+    unsigned getIndex(ClipRectsType clipRectsType, bool respectOverflowClip) const
     {
         unsigned index = static_cast<unsigned>(clipRectsType);
-        if (respectOverflow == RespectOverflowClip)
+        if (respectOverflowClip)
             index += static_cast<unsigned>(NumCachedClipRectsTypes);
         ASSERT_WITH_SECURITY_IMPLICATION(index < NumCachedClipRectsTypes * 2);
         return index;
@@ -565,16 +563,6 @@ static bool canCreateStackingContext(const RenderLayer& layer)
         || !renderer.style().hasAutoUsedZIndex()
         || (renderer.style().willChange() && renderer.style().willChange()->canCreateStackingContext())
         || layer.establishesTopLayer();
-}
-
-static void expandScrollRectToVisibleTargetRectToIncludeScrollPadding(RenderBox* renderBox, const LayoutRect& viewRect, LayoutRect& targetRect)
-{
-    if (!renderBox)
-        return;
-    // scroll-padding applies to the scroll container, but expand the rectangle that we want to expose in order
-    // simulate padding the scroll container. This rectangle is passed up the tree of scrolling elements to
-    // ensure that the padding on this scroll container is maintained.
-    targetRect.expand(renderBox->scrollPaddingForViewportRect(viewRect));
 }
 
 bool RenderLayer::shouldBeNormalFlowOnly() const
@@ -2488,22 +2476,7 @@ LayoutSize RenderLayer::offsetFromAncestor(const RenderLayer* ancestorLayer, Col
     return toLayoutSize(convertToLayerCoords(ancestorLayer, LayoutPoint(), adjustForColumns));
 }
 
-static inline bool frameElementAndViewPermitScroll(HTMLFrameElementBase* frameElementBase, FrameView& frameView)
-{
-    // If scrollbars aren't explicitly forbidden, permit scrolling.
-    if (frameElementBase && frameElementBase->scrollingMode() != ScrollbarMode::AlwaysOff)
-        return true;
-
-    // If scrollbars are forbidden, user initiated scrolls should obviously be ignored.
-    if (frameView.wasScrolledByUser())
-        return false;
-
-    // Forbid autoscrolls when scrollbars are off, but permits other programmatic scrolls,
-    // like navigation to an anchor.
-    return !frameView.frame().eventHandler().autoscrollInProgress();
-}
-
-bool RenderLayer::allowsCurrentScroll() const
+bool RenderLayer::shouldTryToScrollForScrollIntoView() const
 {
     if (!renderer().hasNonVisibleOverflow())
         return false;
@@ -2526,251 +2499,10 @@ bool RenderLayer::allowsCurrentScroll() const
     return box.hasPotentiallyScrollableOverflow() && (box.hasHorizontalOverflow() || box.hasVerticalOverflow());
 }
 
-void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions& options)
-{
-    LOG_WITH_STREAM(Scrolling, stream << "Layer " << this << " scrollRectToVisible " << absoluteRect);
-
-    LayoutRect newRect = absoluteRect;
-    FrameView& frameView = renderer().view().frameView();
-    auto* parentLayer = enclosingContainingBlockLayer(CrossFrameBoundaries::No);
-
-    auto scrollPositionChangeOptionsForElement = [this, options](Element* element)
-    {
-        auto scrollPositionOptions = ScrollPositionChangeOptions::createProgrammatic();
-        if (!renderer().frame().eventHandler().autoscrollInProgress() && element && useSmoothScrolling(options.behavior, element))
-            scrollPositionOptions.animated = ScrollIsAnimated::Yes;
-        return scrollPositionOptions;
-    };
-
-    if (allowsCurrentScroll()) {
-        auto* scrollableArea = ensureLayerScrollableArea();
-
-        // Don't scroll to reveal an overflow layer that is restricted by the -webkit-line-clamp property.
-        // This will prevent us from revealing text hidden by the slider in Safari RSS.
-        RenderBox* box = renderBox();
-        ASSERT(box);
-        LayoutRect localExposeRect(box->absoluteToLocalQuad(FloatQuad(FloatRect(absoluteRect))).boundingBox());
-
-        // localExposedRect is now the absolute rect in local coordinates, but relative to the
-        // border edge. Make the rectangle relative to the scrollable area.
-        localExposeRect.moveBy(-LayoutPoint(box->borderLeft(), box->borderTop()));
-
-        if (box->shouldPlaceVerticalScrollbarOnLeft()) {
-            // For `direction: rtl; writing-mode: horizontal-{tb,bt}` and `writing-mode: vertical-rl`
-            // boxes, the scroll bar is on the left side. The visible rect starts from the right side
-            // of the scroll bar. So the x of localExposeRect should start from the same position too.
-            localExposeRect.moveBy(LayoutPoint(-scrollableArea->verticalScrollbarWidth(), 0));
-        }
-        LayoutRect layerBounds(0_lu, 0_lu, box->clientWidth(), box->clientHeight());
-        expandScrollRectToVisibleTargetRectToIncludeScrollPadding(box, layerBounds, localExposeRect);
-        LayoutRect revealRect = getRectToExpose(layerBounds, localExposeRect, insideFixed, options.alignX, options.alignY);
-
-        if (auto result = scrollableArea->updateScrollPosition(scrollPositionChangeOptionsForElement(box->element()), revealRect, localExposeRect))
-            newRect = result.value();
-    } else if (!parentLayer) {
-        HTMLFrameOwnerElement* ownerElement = renderer().document().ownerElement();
-
-        if (ownerElement && ownerElement->renderer()) {
-            HTMLFrameElementBase* frameElementBase = nullptr;
-
-            if (is<HTMLFrameElementBase>(*ownerElement))
-                frameElementBase = downcast<HTMLFrameElementBase>(ownerElement);
-
-            if (frameElementAndViewPermitScroll(frameElementBase, frameView)) {
-                // If this assertion fires we need to protect the ownerElement from being destroyed.
-                ScriptDisallowedScope::InMainThread scriptDisallowedScope;
-
-                LayoutRect viewRect = frameView.visibleContentRect(ScrollableArea::LegacyIOSDocumentVisibleRect);
-
-                auto* element = ownerElement->contentDocument() ? ownerElement->contentDocument()->documentElement() : nullptr;
-                RenderBox* renderer = element ? element->renderBox() : nullptr;
-                expandScrollRectToVisibleTargetRectToIncludeScrollPadding(renderer, viewRect, newRect);
-
-                LayoutRect exposeRect = getRectToExpose(viewRect, newRect, insideFixed, options.alignX, options.alignY);
-                auto scrollPosition = roundedIntPoint(exposeRect.location());
-
-                scrollPosition = frameView.constrainedScrollPosition(scrollPosition);
-
-                // FIXME: Should we use contentDocument()->scrollingElement()?
-                // See https://bugs.webkit.org/show_bug.cgi?id=205059
-                frameView.setScrollPosition(scrollPosition, scrollPositionChangeOptionsForElement(element));
-
-                if (options.shouldAllowCrossOriginScrolling == ShouldAllowCrossOriginScrolling::Yes || frameView.safeToPropagateScrollToParent()) {
-                    if (auto* enclosingLayer = ownerElement->renderer()->enclosingLayer())
-                        parentLayer = enclosingLayer->enclosingScrollableLayer(IncludeSelfOrNot::IncludeSelf, CrossFrameBoundaries::No);
-                    // Convert the rect into the coordinate space of the parent frame's document.
-                    newRect = frameView.contentsToContainingViewContents(enclosingIntRect(newRect));
-                    insideFixed = false; // FIXME: ideally need to determine if this <iframe> is inside position:fixed.
-                } else
-                    parentLayer = nullptr;
-            }
-        } else {
-            if (options.revealMode == SelectionRevealMode::RevealUpToMainFrame && frameView.frame().isMainFrame())
-                return;
-
-            if (options.revealMode == SelectionRevealMode::DelegateMainFrameScroll && frameView.frame().isMainFrame()) {
-                page().chrome().scrollMainFrameToRevealRect(snappedIntRect(absoluteRect));
-                return;
-            }
-
-            auto minScrollPosition = frameView.minimumScrollPosition();
-            auto maxScrollPosition = frameView.maximumScrollPosition();
-
-#if !PLATFORM(IOS_FAMILY)
-            LayoutRect viewRect = frameView.visibleContentRect();
-#else
-            // FIXME: ContentInsets should be taken care of in UI process side. webkit.org/b/199682
-            // To do that, getRectToExpose needs to return the additional scrolling to do beyond content rect.
-            LayoutRect viewRect = frameView.viewRectExpandedByContentInsets();
-
-            // FIXME: webkit.org/b/199683 FrameView::visibleContentRect is wrong when content insets are present
-            maxScrollPosition = frameView.scrollPositionFromOffset(ScrollPosition(frameView.totalContentsSize() - flooredIntSize(viewRect.size())));
-
-            auto contentInsets = page().contentInsets();
-            minScrollPosition.move(-contentInsets.left(), -contentInsets.top());
-            maxScrollPosition.move(contentInsets.right(), contentInsets.bottom());
-#endif
-            // Move the target rect into "scrollView contents" coordinates.
-            LayoutRect targetRect = absoluteRect;
-            targetRect.move(0, frameView.headerHeight());
-
-            auto* element = frameView.frame().document() ? frameView.frame().document()->documentElement() : nullptr;
-            RenderBox* renderer = element ? element->renderBox() : nullptr;
-            expandScrollRectToVisibleTargetRectToIncludeScrollPadding(renderer, viewRect, targetRect);
-
-            LayoutRect revealRect = getRectToExpose(viewRect, targetRect, insideFixed, options.alignX, options.alignY);
-            // Avoid scrolling to the rounded value of revealRect.location() if we don't actually need to scroll
-            if (revealRect != viewRect) {
-                // FIXME: Should we use document()->scrollingElement()?
-                // See https://bugs.webkit.org/show_bug.cgi?id=205059
-                ScrollOffset clampedScrollPosition = roundedIntPoint(revealRect.location()).constrainedBetween(minScrollPosition, maxScrollPosition);
-                frameView.setScrollPosition(clampedScrollPosition, scrollPositionChangeOptionsForElement(element));
-            }
-
-            // This is the outermost view of a web page, so after scrolling this view we
-            // scroll its container by calling Page::scrollMainFrameToRevealRect.
-            // This only has an effect on the Mac platform in applications
-            // that put web views into scrolling containers, such as Mac OS X Mail.
-            // The canAutoscroll function in EventHandler also knows about this.
-            page().chrome().scrollContainingScrollViewsToRevealRect(snappedIntRect(absoluteRect));
-        }
-    }
-    
-    if (parentLayer)
-        parentLayer->scrollRectToVisible(newRect, insideFixed, options);
-}
-
-LayoutRect RenderLayer::getRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const
-{
-    FrameView& frameView = renderer().view().frameView();
-    if (renderer().isRenderView() && insideFixed) {
-        // If the element is inside position:fixed and we're not scaled, no amount of scrolling is going to move things around.
-        if (frameView.frameScaleFactor() == 1)
-            return visibleRect;
-
-        if (renderer().settings().visualViewportEnabled()) {
-            // exposeRect is in absolute coords, affected by page scale. Unscale it.
-            LayoutRect unscaledExposeRect = exposeRect;
-            unscaledExposeRect.scale(1 / frameView.frameScaleFactor());
-            unscaledExposeRect.move(0, -frameView.headerHeight());
-
-            // These are both in unscaled coordinates.
-            LayoutRect layoutViewport = frameView.layoutViewportRect();
-            LayoutRect visualViewport = frameView.visualViewportRect();
-
-            // The rect to expose may be partially offscreen, which we can't do anything about with position:fixed.
-            unscaledExposeRect.intersect(layoutViewport);
-            // Make sure it's not larger than the visual viewport; if so, we'll just move to the top left.
-            unscaledExposeRect.setSize(unscaledExposeRect.size().shrunkTo(visualViewport.size()));
-
-            // Compute how much we have to move the visualViewport to reveal the part of the layoutViewport that contains exposeRect.
-            LayoutRect requiredVisualViewport = getRectToExpose(visualViewport, unscaledExposeRect, false, alignX, alignY);
-            // Scale it back up.
-            requiredVisualViewport.scale(frameView.frameScaleFactor());
-            requiredVisualViewport.move(0, frameView.headerHeight());
-            return requiredVisualViewport;
-        }
-    }
-
-    ScrollAlignment::Behavior scrollX = alignX.getHiddenBehavior();
-    bool intersectsInX = exposeRect.maxX() >= visibleRect.x() && exposeRect.x() <= visibleRect.maxX();
-
-    // Determine the appropriate X behavior.
-    if (intersectsInX) {
-        LayoutUnit intersectWidth = std::max(LayoutUnit(), std::min(visibleRect.maxX(), exposeRect.maxX()) - std::max(visibleRect.x(), exposeRect.x()));
-        if (intersectWidth == exposeRect.width() || (alignX.legacyHorizontalVisibilityThresholdEnabled() && intersectWidth >= MIN_INTERSECT_FOR_REVEAL)) {
-            // If the rectangle is fully visible, use the specified visible behavior.
-            // If the rectangle is partially visible, but over a certain threshold,
-            // then treat it as fully visible to avoid unnecessary horizontal scrolling
-            scrollX = alignX.getVisibleBehavior();
-        } else if (intersectWidth == visibleRect.width()) {
-            // If the rect is bigger than the visible area, don't bother trying to center. Other alignments will work.
-            scrollX = alignX.getVisibleBehavior();
-            if (scrollX == ScrollAlignment::Behavior::AlignCenter)
-                scrollX = ScrollAlignment::Behavior::NoScroll;
-        } else if (intersectWidth > 0) {
-            // If the rectangle is partially visible, but not above the minimum threshold, use the specified partial behavior
-            scrollX = alignX.getPartialBehavior();
-        }
-    }
-    // If we're trying to align to the closest edge, and the exposeRect is further right
-    // than the visibleRect, and not bigger than the visible area, then align with the right.
-    if (scrollX == ScrollAlignment::Behavior::AlignToClosestEdge && exposeRect.maxX() > visibleRect.maxX() && exposeRect.width() < visibleRect.width())
-        scrollX = ScrollAlignment::Behavior::AlignRight;
-
-    // Given the X behavior, compute the X coordinate.
-    LayoutUnit x;
-    if (scrollX == ScrollAlignment::Behavior::NoScroll)
-        x = visibleRect.x();
-    else if (scrollX == ScrollAlignment::Behavior::AlignRight)
-        x = exposeRect.maxX() - visibleRect.width();
-    else if (scrollX == ScrollAlignment::Behavior::AlignCenter)
-        x = exposeRect.x() + (exposeRect.width() - visibleRect.width()) / 2;
-    else
-        x = exposeRect.x();
-
-    ScrollAlignment::Behavior scrollY = alignY.getHiddenBehavior();
-    bool intersectsInY = exposeRect.maxY() >= visibleRect.y() && exposeRect.y() <= visibleRect.maxY();
-
-    // Determine the appropriate Y behavior.
-    if (intersectsInY) {
-        LayoutUnit intersectHeight = std::max(LayoutUnit(), std::min(visibleRect.maxY(), exposeRect.maxY()) - std::max(visibleRect.y(), exposeRect.y()));
-        if (intersectHeight == exposeRect.height()) {
-            // If the rectangle is fully visible, use the specified visible behavior.
-            scrollY = alignY.getVisibleBehavior();
-        } else if (intersectHeight == visibleRect.height()) {
-            // If the rect is bigger than the visible area, don't bother trying to center. Other alignments will work.
-            scrollY = alignY.getVisibleBehavior();
-            if (scrollY == ScrollAlignment::Behavior::AlignCenter)
-                scrollY = ScrollAlignment::Behavior::NoScroll;
-        } else if (intersectHeight > 0) {
-            // If the rectangle is partially visible, use the specified partial behavior
-            scrollY = alignY.getPartialBehavior();
-        }
-    }
-    // If we're trying to align to the closest edge, and the exposeRect is further down
-    // than the visibleRect, and not bigger than the visible area, then align with the bottom.
-    if (scrollY == ScrollAlignment::Behavior::AlignToClosestEdge && exposeRect.maxY() > visibleRect.maxY() && exposeRect.height() < visibleRect.height())
-        scrollY = ScrollAlignment::Behavior::AlignBottom;
-
-    // Given the Y behavior, compute the Y coordinate.
-    LayoutUnit y;
-    if (scrollY == ScrollAlignment::Behavior::NoScroll)
-        y = visibleRect.y();
-    else if (scrollY == ScrollAlignment::Behavior::AlignBottom)
-        y = exposeRect.maxY() - visibleRect.height();
-    else if (scrollY == ScrollAlignment::Behavior::AlignCenter)
-        y = exposeRect.y() + (exposeRect.height() - visibleRect.height()) / 2;
-    else
-        y = exposeRect.y();
-
-    return LayoutRect(LayoutPoint(x, y), visibleRect.size());
-}
-
 void RenderLayer::autoscroll(const IntPoint& positionInWindow)
 {
     IntPoint currentDocumentPosition = renderer().view().frameView().windowToContents(positionInWindow);
-    scrollRectToVisible(LayoutRect(currentDocumentPosition, LayoutSize(1, 1)), false, { SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignToEdgeIfNeeded, ShouldAllowCrossOriginScrolling::Yes });
+    FrameView::scrollRectToVisible(LayoutRect(currentDocumentPosition, LayoutSize(1, 1)), renderer(), false, { SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignToEdgeIfNeeded, ShouldAllowCrossOriginScrolling::Yes });
 }
 
 bool RenderLayer::canResize() const
@@ -3172,8 +2904,8 @@ void RenderLayer::paintLayerWithEffects(GraphicsContext& context, const LayerPai
         GraphicsContextStateSaver stateSaver(context, false);
         EventRegionContextStateSaver eventRegionStateSaver(paintingInfo.eventRegionContext);
         if (parent()) {
-            ClipRectsContext clipRectsContext(paintingInfo.rootLayer, (paintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects,
-                IgnoreOverlayScrollbarSize, (paintFlags & PaintLayerFlag::PaintingOverflowContents) ? IgnoreOverflowClip : RespectOverflowClip);
+            auto options = paintFlags.contains(PaintLayerFlag::PaintingOverflowContents) ? clipRectOptionsForPaintingOverflowControls : clipRectDefaultOptions;
+            auto clipRectsContext = ClipRectsContext(paintingInfo.rootLayer, (paintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, options);
             clipRect = backgroundClipRect(clipRectsContext);
             clipRect.intersect(paintingInfo.paintDirtyRect);
         
@@ -3494,9 +3226,10 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
                 localPaintingInfo.clipToDirtyRect = true;
                 paintDirtyRect = clipRectRelativeToAncestor(localPaintingInfo.rootLayer, offsetFromRoot, LayoutRect::infiniteRect());
             }
+
+            auto clipRectOptions = isPaintingOverflowContents ? clipRectOptionsForPaintingOverflowControls : clipRectDefaultOptions;
             collectFragments(layerFragments, localPaintingInfo.rootLayer, paintDirtyRect, ExcludeCompositedPaginatedLayers,
-                (localPaintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, IgnoreOverlayScrollbarSize,
-                (isPaintingOverflowContents) ? IgnoreOverflowClip : RespectOverflowClip, offsetFromRoot);
+                (localPaintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, clipRectOptions, offsetFromRoot);
             updatePaintingInfoForFragments(layerFragments, localPaintingInfo, localPaintFlags, shouldPaintContent, offsetFromRoot);
         }
         
@@ -3543,9 +3276,9 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
             // Now we need to compute the backgroundRect uncontaminated by filters, in order to clip the filtered result.
             // Note that we also use paintingInfo here, not localPaintingInfo which filters also contaminated.
             LayerFragments layerFragments;
+            auto clipRectOptions = isPaintingOverflowContents ? clipRectOptionsForPaintingOverflowControls : clipRectDefaultOptions;
             collectFragments(layerFragments, paintingInfo.rootLayer, paintingInfo.paintDirtyRect, ExcludeCompositedPaginatedLayers,
-                (localPaintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, IgnoreOverlayScrollbarSize,
-                (isPaintingOverflowContents) ? IgnoreOverflowClip : RespectOverflowClip, offsetFromRoot);
+                (localPaintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, clipRectOptions, offsetFromRoot);
             updatePaintingInfoForFragments(layerFragments, paintingInfo, localPaintFlags, shouldPaintContent, offsetFromRoot);
 
             applyFilters(context, paintingInfo, paintBehavior, layerFragments);
@@ -3672,14 +3405,14 @@ RenderLayer* RenderLayer::enclosingPaginationLayerInSubtree(const RenderLayer* r
 }
 
 void RenderLayer::collectFragments(LayerFragments& fragments, const RenderLayer* rootLayer, const LayoutRect& dirtyRect, PaginationInclusionMode inclusionMode,
-    ClipRectsType clipRectsType, OverlayScrollbarSizeRelevancy inOverlayScrollbarSizeRelevancy, ShouldRespectOverflowClip respectOverflowClip, const LayoutSize& offsetFromRoot,
+    ClipRectsType clipRectsType, OptionSet<ClipRectsOption> clipRectOptions, const LayoutSize& offsetFromRoot,
     const LayoutRect* layerBoundingBox, ShouldApplyRootOffsetToFragments applyRootOffsetToFragments)
 {
     RenderLayer* paginationLayer = enclosingPaginationLayerInSubtree(rootLayer, inclusionMode);
     if (!paginationLayer || hasTransform()) {
         // For unpaginated layers, there is only one fragment.
         LayerFragment fragment;
-        ClipRectsContext clipRectsContext(rootLayer, clipRectsType, inOverlayScrollbarSizeRelevancy, respectOverflowClip);
+        ClipRectsContext clipRectsContext(rootLayer, clipRectsType, clipRectOptions);
         calculateRects(clipRectsContext, dirtyRect, fragment.layerBounds, fragment.backgroundRect, fragment.foregroundRect, offsetFromRoot);
         fragments.append(fragment);
         return;
@@ -3690,7 +3423,7 @@ void RenderLayer::collectFragments(LayerFragments& fragments, const RenderLayer*
     
     // Calculate clip rects relative to the enclosingPaginationLayer. The purpose of this call is to determine our bounds clipped to intermediate
     // layers between us and the pagination context. It's important to minimize the number of fragments we need to create and this helps with that.
-    ClipRectsContext paginationClipRectsContext(paginationLayer, clipRectsType, inOverlayScrollbarSizeRelevancy, respectOverflowClip);
+    ClipRectsContext paginationClipRectsContext(paginationLayer, clipRectsType, clipRectOptions);
     LayoutRect layerBoundsInFragmentedFlow;
     ClipRect backgroundRectInFragmentedFlow;
     ClipRect foregroundRectInFragmentedFlow;
@@ -3713,7 +3446,7 @@ void RenderLayer::collectFragments(LayerFragments& fragments, const RenderLayer*
         layerFragmentBoundingBoxInParentPaginationLayer.move(offsetWithinParentPaginatedLayer);
         
         // Now collect ancestor fragments.
-        parentPaginationLayer->collectFragments(ancestorFragments, rootLayer, dirtyRect, inclusionMode, clipRectsType, inOverlayScrollbarSizeRelevancy, respectOverflowClip,
+        parentPaginationLayer->collectFragments(ancestorFragments, rootLayer, dirtyRect, inclusionMode, clipRectsType, clipRectOptions,
             offsetFromAncestor(rootLayer), &layerFragmentBoundingBoxInParentPaginationLayer, ApplyRootOffsetToFragments);
         
         if (ancestorFragments.isEmpty())
@@ -3775,7 +3508,7 @@ void RenderLayer::collectFragments(LayerFragments& fragments, const RenderLayer*
     // Get the parent clip rects of the pagination layer, since we need to intersect with that when painting column contents.
     ClipRect ancestorClipRect = dirtyRect;
     if (paginationLayer->parent()) {
-        ClipRectsContext clipRectsContext(rootLayer, clipRectsType, inOverlayScrollbarSizeRelevancy, respectOverflowClip);
+        ClipRectsContext clipRectsContext(rootLayer, clipRectsType, clipRectOptions);
         ancestorClipRect = paginationLayer->backgroundClipRect(clipRectsContext);
         ancestorClipRect.intersect(dirtyRect);
     }
@@ -3818,9 +3551,10 @@ void RenderLayer::paintTransformedLayerIntoFragments(GraphicsContext& context, c
     LayoutSize offsetOfPaginationLayerFromRoot;
     RenderLayer* paginatedLayer = enclosingPaginationLayer(ExcludeCompositedPaginatedLayers);
     LayoutRect transformedExtent = transparencyClipBox(*this, paginatedLayer, PaintingTransparencyClipBox, RootOfTransparencyClipBox, paintingInfo.paintBehavior);
+
+    auto clipRectOptions = paintFlags.contains(PaintLayerFlag::PaintingOverflowContents) ? clipRectOptionsForPaintingOverflowControls : clipRectDefaultOptions;
     paginatedLayer->collectFragments(enclosingPaginationFragments, paintingInfo.rootLayer, paintingInfo.paintDirtyRect, ExcludeCompositedPaginatedLayers,
-        (paintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, IgnoreOverlayScrollbarSize,
-        (paintFlags & PaintLayerFlag::PaintingOverflowContents) ? IgnoreOverflowClip : RespectOverflowClip, offsetOfPaginationLayerFromRoot, &transformedExtent);
+        (paintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, clipRectOptions, offsetOfPaginationLayerFromRoot, &transformedExtent);
     
     for (const auto& fragment : enclosingPaginationFragments) {
         // Apply the page/column clip for this fragment, as well as any clips established by layers in between us and
@@ -3830,9 +3564,8 @@ void RenderLayer::paintTransformedLayerIntoFragments(GraphicsContext& context, c
         // Now compute the clips within a given fragment
         if (parent() != paginatedLayer) {
             offsetOfPaginationLayerFromRoot = toLayoutSize(paginatedLayer->convertToLayerCoords(paintingInfo.rootLayer, toLayoutPoint(offsetOfPaginationLayerFromRoot)));
-    
-            ClipRectsContext clipRectsContext(paginatedLayer, (paintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects,
-                IgnoreOverlayScrollbarSize, (paintFlags & PaintLayerFlag::PaintingOverflowContents) ? IgnoreOverflowClip : RespectOverflowClip);
+
+            auto clipRectsContext = ClipRectsContext(paginatedLayer, (paintFlags & PaintLayerFlag::TemporaryClipRects) ? TemporaryClipRects : PaintingClipRects, clipRectOptions);
             LayoutRect parentClipRect = backgroundClipRect(clipRectsContext).rect();
             parentClipRect.move(fragment.paginationOffset + offsetOfPaginationLayerFromRoot);
             clipRect.intersect(parentClipRect);
@@ -4258,7 +3991,7 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
 
         // Make sure the parent's clip rects have been calculated.
         if (parent()) {
-            ClipRectsContext clipRectsContext(rootLayer, RootRelativeClipRects, IncludeOverlayScrollbarSize);
+            ClipRectsContext clipRectsContext(rootLayer, RootRelativeClipRects, { ClipRectsOption::RespectOverflowClip, ClipRectsOption::IncludeOverlayScrollbarSize });
             ClipRect clipRect = backgroundClipRect(clipRectsContext);
             // Test the enclosing clip now.
             if (!clipRect.intersects(hitTestLocation))
@@ -4346,7 +4079,7 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
 
     // Collect the fragments. This will compute the clip rectangles for each layer fragment.
     LayerFragments layerFragments;
-    collectFragments(layerFragments, rootLayer, hitTestRect, IncludeCompositedPaginatedLayers, RootRelativeClipRects, IncludeOverlayScrollbarSize, RespectOverflowClip, offsetFromRoot);
+    collectFragments(layerFragments, rootLayer, hitTestRect, IncludeCompositedPaginatedLayers, RootRelativeClipRects, { ClipRectsOption::RespectOverflowClip, ClipRectsOption::IncludeOverlayScrollbarSize }, offsetFromRoot);
 
     LayoutPoint localPoint;
     if (canResize() && m_scrollableArea && m_scrollableArea->hitTestResizerInFragments(layerFragments, hitTestLocation, localPoint)) {
@@ -4432,7 +4165,7 @@ RenderLayer* RenderLayer::hitTestTransformedLayerInFragments(RenderLayer* rootLa
     RenderLayer* paginatedLayer = enclosingPaginationLayer(IncludeCompositedPaginatedLayers);
     LayoutRect transformedExtent = transparencyClipBox(*this, paginatedLayer, HitTestingTransparencyClipBox, RootOfTransparencyClipBox);
     paginatedLayer->collectFragments(enclosingPaginationFragments, rootLayer, hitTestRect, IncludeCompositedPaginatedLayers,
-        RootRelativeClipRects, IncludeOverlayScrollbarSize, RespectOverflowClip, offsetOfPaginationLayerFromRoot, &transformedExtent);
+        RootRelativeClipRects, { ClipRectsOption::RespectOverflowClip, ClipRectsOption::IncludeOverlayScrollbarSize }, offsetOfPaginationLayerFromRoot, &transformedExtent);
 
     for (int i = enclosingPaginationFragments.size() - 1; i >= 0; --i) {
         const LayerFragment& fragment = enclosingPaginationFragments.at(i);
@@ -4445,7 +4178,7 @@ RenderLayer* RenderLayer::hitTestTransformedLayerInFragments(RenderLayer* rootLa
         if (parent() != paginatedLayer) {
             offsetOfPaginationLayerFromRoot = toLayoutSize(paginatedLayer->convertToLayerCoords(rootLayer, toLayoutPoint(offsetOfPaginationLayerFromRoot)));
     
-            ClipRectsContext clipRectsContext(paginatedLayer, RootRelativeClipRects, IncludeOverlayScrollbarSize);
+            ClipRectsContext clipRectsContext(paginatedLayer, RootRelativeClipRects, { ClipRectsOption::RespectOverflowClip, ClipRectsOption::IncludeOverlayScrollbarSize });
             LayoutRect parentClipRect = backgroundClipRect(clipRectsContext).rect();
             parentClipRect.move(fragment.paginationOffset + offsetOfPaginationLayerFromRoot);
             clipRect.intersect(parentClipRect);
@@ -4564,9 +4297,9 @@ Ref<ClipRects> RenderLayer::updateClipRects(const ClipRectsContext& clipRectsCon
     ClipRectsType clipRectsType = clipRectsContext.clipRectsType;
     ASSERT(clipRectsType < NumCachedClipRectsTypes);
     if (m_clipRectsCache) {
-        if (auto* clipRects = m_clipRectsCache->getClipRects(clipRectsType, clipRectsContext.respectOverflowClip)) {
+        if (auto* clipRects = m_clipRectsCache->getClipRects(clipRectsType, clipRectsContext.respectOverflowClip())) {
             ASSERT(clipRectsContext.rootLayer == m_clipRectsCache->m_clipRectsRoot[clipRectsType]);
-            ASSERT(m_clipRectsCache->m_scrollbarRelevancy[clipRectsType] == clipRectsContext.overlayScrollbarSizeRelevancy);
+            ASSERT(m_clipRectsCache->m_scrollbarRelevancy[clipRectsType] == clipRectsContext.overlayScrollbarSizeRelevancy());
         
 #ifdef CHECK_CACHED_CLIP_RECTS
             // This code is useful to check cached clip rects, but is too expensive to leave enabled in debug builds by default.
@@ -4584,7 +4317,7 @@ Ref<ClipRects> RenderLayer::updateClipRects(const ClipRectsContext& clipRectsCon
         m_clipRectsCache = makeUnique<ClipRectsCache>();
 #if ASSERT_ENABLED
     m_clipRectsCache->m_clipRectsRoot[clipRectsType] = clipRectsContext.rootLayer;
-    m_clipRectsCache->m_scrollbarRelevancy[clipRectsType] = clipRectsContext.overlayScrollbarSizeRelevancy;
+    m_clipRectsCache->m_scrollbarRelevancy[clipRectsType] = clipRectsContext.overlayScrollbarSizeRelevancy();
 #endif
 
     RefPtr<ClipRects> parentClipRects;
@@ -4597,10 +4330,10 @@ Ref<ClipRects> RenderLayer::updateClipRects(const ClipRectsContext& clipRectsCon
     calculateClipRects(clipRectsContext, clipRects);
 
     if (parentClipRects && *parentClipRects == clipRects) {
-        m_clipRectsCache->setClipRects(clipRectsType, clipRectsContext.respectOverflowClip, parentClipRects.copyRef());
+        m_clipRectsCache->setClipRects(clipRectsType, clipRectsContext.respectOverflowClip(), parentClipRects.copyRef());
         return parentClipRects.releaseNonNull();
     }
-    m_clipRectsCache->setClipRects(clipRectsType, clipRectsContext.respectOverflowClip, clipRects.copyRef());
+    m_clipRectsCache->setClipRects(clipRectsType, clipRectsContext.respectOverflowClip(), clipRects.copyRef());
     return clipRects;
 }
 
@@ -4609,7 +4342,7 @@ ClipRects* RenderLayer::clipRects(const ClipRectsContext& context) const
     ASSERT(context.clipRectsType < NumCachedClipRectsTypes);
     if (!m_clipRectsCache)
         return nullptr;
-    return m_clipRectsCache->getClipRects(context.clipRectsType, context.respectOverflowClip);
+    return m_clipRectsCache->getClipRects(context.clipRectsType, context.respectOverflowClip());
 }
 
 bool RenderLayer::clipCrossesPaintingBoundary() const
@@ -4639,7 +4372,7 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
             clipRects = *parentLayer->clipRects(clipRectsContext);
         else {
             ClipRectsContext parentContext(clipRectsContext);
-            parentContext.overlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize; // FIXME: why?
+            parentContext.options.remove(ClipRectsOption::IncludeOverlayScrollbarSize); // FIXME: Why?
             
             if ((parentContext.clipRectsType != TemporaryClipRects && parentContext.clipRectsType != AbsoluteClipRects) && clipCrossesPaintingBoundary())
                 parentContext.clipRectsType = TemporaryClipRects;
@@ -4662,9 +4395,9 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
     
     // Update the clip rects that will be passed to child layers.
 #if PLATFORM(IOS_FAMILY)
-    if (renderer().hasClipOrNonVisibleOverflow() && (clipRectsContext.respectOverflowClip == RespectOverflowClip || this != clipRectsContext.rootLayer)) {
+    if (renderer().hasClipOrNonVisibleOverflow() && (clipRectsContext.respectOverflowClip() || this != clipRectsContext.rootLayer)) {
 #else
-    if ((renderer().hasNonVisibleOverflow() && (clipRectsContext.respectOverflowClip == RespectOverflowClip || this != clipRectsContext.rootLayer)) || renderer().hasClip()) {
+    if ((renderer().hasNonVisibleOverflow() && (clipRectsContext.respectOverflowClip() || this != clipRectsContext.rootLayer)) || renderer().hasClip()) {
 #endif
         // This layer establishes a clip of some kind.
         LayoutPoint offset;
@@ -4679,10 +4412,10 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
         if (renderer().hasNonVisibleOverflow()) {
             ClipRect newOverflowClip;
             if (is<RenderBox>(renderer()))
-                newOverflowClip = downcast<RenderBox>(renderer()).overflowClipRectForChildLayers(offset, nullptr, clipRectsContext.overlayScrollbarSizeRelevancy);
+                newOverflowClip = downcast<RenderBox>(renderer()).overflowClipRectForChildLayers(offset, nullptr, clipRectsContext.overlayScrollbarSizeRelevancy());
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
             else if (is<RenderSVGModelObject>(renderer()))
-                newOverflowClip = downcast<RenderSVGModelObject>(renderer()).overflowClipRectForChildLayers(offset, nullptr, clipRectsContext.overlayScrollbarSizeRelevancy);
+                newOverflowClip = downcast<RenderSVGModelObject>(renderer()).overflowClipRectForChildLayers(offset, nullptr, clipRectsContext.overlayScrollbarSizeRelevancy());
 #endif
             else {
                 ASSERT_NOT_REACHED();
@@ -4691,12 +4424,10 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
 
             newOverflowClip.setAffectedByRadius(renderer().style().hasBorderRadius());
             clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
-            if (renderer().isPositioned())
+            if (renderer().canContainAbsolutelyPositionedObjects())
                 clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
-            if (renderer().shouldApplyPaintContainment()) {
-                clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
+            if (renderer().canContainFixedPositionObjects())
                 clipRects.setFixedClipRect(intersection(newOverflowClip, clipRects.fixedClipRect()));
-            }
         }
         if (renderer().hasClip() && is<RenderBox>(renderer())) {
             LayoutRect newPosClip = downcast<RenderBox>(renderer()).clipRect(offset, nullptr);
@@ -4777,14 +4508,14 @@ void RenderLayer::calculateRects(const ClipRectsContext& clipRectsContext, const
     if (renderer().hasClipOrNonVisibleOverflow()) {
         // This layer establishes a clip of some kind.
         if (renderer().hasNonVisibleOverflow()) {
-            if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip == RespectOverflowClip) {
+            if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip()) {
                 LayoutRect overflowClipRect;
 
                 if (is<RenderBox>(renderer()))
-                    overflowClipRect = downcast<RenderBox>(renderer()).overflowClipRect(toLayoutPoint(offsetFromRootLocal), nullptr, clipRectsContext.overlayScrollbarSizeRelevancy);
+                    overflowClipRect = downcast<RenderBox>(renderer()).overflowClipRect(toLayoutPoint(offsetFromRootLocal), nullptr, clipRectsContext.overlayScrollbarSizeRelevancy());
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
                 else if (is<RenderSVGModelObject>(renderer()))
-                    overflowClipRect = downcast<RenderSVGModelObject>(renderer()).overflowClipRect(toLayoutPoint(offsetFromRootLocal), nullptr, clipRectsContext.overlayScrollbarSizeRelevancy);
+                    overflowClipRect = downcast<RenderSVGModelObject>(renderer()).overflowClipRect(toLayoutPoint(offsetFromRootLocal), nullptr, clipRectsContext.overlayScrollbarSizeRelevancy());
 #endif
                 else {
                     ASSERT_NOT_REACHED();
@@ -4812,14 +4543,14 @@ void RenderLayer::calculateRects(const ClipRectsContext& clipRectsContext, const
             LayoutRect layerBoundsWithVisualOverflow = renderBox()->visualOverflowRect();
             renderBox()->flipForWritingMode(layerBoundsWithVisualOverflow); // Layers are in physical coordinates, so the overflow has to be flipped.
             layerBoundsWithVisualOverflow.move(offsetFromRootLocal);
-            if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip == RespectOverflowClip)
+            if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip())
                 backgroundRect.intersect(layerBoundsWithVisualOverflow);
         } else {
             // Shift the bounds to be for our region only.
             LayoutRect bounds = renderBox()->borderBoxRectInFragment(nullptr);
 
             bounds.move(offsetFromRootLocal);
-            if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip == RespectOverflowClip)
+            if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip())
                 backgroundRect.intersect(bounds);
         }
     }
@@ -5874,7 +5605,7 @@ TextStream& operator<<(TextStream& ts, const RenderLayer::ClipRectsContext& cont
 {
     ts.dumpProperty("root layer:", context.rootLayer);
     ts.dumpProperty("type:", context.clipRectsType);
-    ts.dumpProperty("overflow-clip:", context.respectOverflowClip == IgnoreOverflowClip ? "ignore" : "respect");
+    ts.dumpProperty("overflow-clip:", context.respectOverflowClip() ? "respect" : "ignore");
     
     return ts;
 }
@@ -6113,6 +5844,13 @@ void showPaintOrderTree(const WebCore::RenderLayer* layer)
         outputPaintOrderTreeRecursive(stream, *layer, "");
     
     WTFLogAlways("%s", stream.release().utf8().data());
+}
+
+void showPaintOrderTree(const WebCore::RenderObject* renderer)
+{
+    if (!renderer)
+        return;
+    showPaintOrderTree(renderer->enclosingLayer());
 }
 
 #endif

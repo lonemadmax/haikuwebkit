@@ -122,7 +122,7 @@ void NetworkDataTaskCocoa::applySniffingPoliciesAndBindRequestToInferfaceIfNeede
     if (!boundInterfaceIdentifier.isNull())
         [mutableRequest setBoundInterfaceIdentifier:boundInterfaceIdentifier];
 
-    nsRequest = mutableRequest.autorelease();
+    nsRequest = WTFMove(mutableRequest);
 }
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
@@ -321,7 +321,7 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
     }
 
 #if USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
-    if (!m_initialCredential.isEmpty()) {
+    if (!m_initialCredential.isEmpty() && !request.hasHTTPHeaderField(WebCore::HTTPHeaderName::Authorization)) {
         // FIXME: Support Digest authentication, and Proxy-Authorization.
         applyBasicAuthorizationHeader(request, m_initialCredential);
     }
@@ -372,14 +372,14 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
         break;
     case WebCore::StoredCredentialsPolicy::DoNotUse:
 #if HAVE(NSURLSESSION_EFFECTIVE_CONFIGURATION_OBJECT)
-        NSURLSessionConfiguration *copiedConfiguration = m_sessionWrapper->session.get().configuration;
-        copiedConfiguration.URLCredentialStorage = nil;
-        auto effectiveConfiguration = adoptNS([[NSURLSessionEffectiveConfiguration alloc] _initWithConfiguration:copiedConfiguration]);
+        RetainPtr<NSURLSessionConfiguration> copiedConfiguration = m_sessionWrapper->session.get().configuration;
+        copiedConfiguration.get().URLCredentialStorage = nil;
+        auto effectiveConfiguration = adoptNS([[NSURLSessionEffectiveConfiguration alloc] _initWithConfiguration:copiedConfiguration.get()]);
         [m_task _adoptEffectiveConfiguration:effectiveConfiguration.get()];
 #else
-        NSURLSessionConfiguration *effectiveConfiguration = m_sessionWrapper->session.get().configuration;
-        effectiveConfiguration.URLCredentialStorage = nil;
-        [m_task _adoptEffectiveConfiguration:effectiveConfiguration];
+        RetainPtr<NSURLSessionConfiguration> effectiveConfiguration = m_sessionWrapper->session.get().configuration;
+        effectiveConfiguration.get().URLCredentialStorage = nil;
+        [m_task _adoptEffectiveConfiguration:effectiveConfiguration.get()];
 #endif
         break;
     };
@@ -422,15 +422,19 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
     if (parameters.networkActivityTracker)
         m_task.get()._nw_activity = parameters.networkActivityTracker->getPlatformObject();
 #endif
+
+    m_session->registerNetworkDataTask(*this);
 }
 
 NetworkDataTaskCocoa::~NetworkDataTaskCocoa()
 {
-    if (!m_task || !m_sessionWrapper)
-        return;
+    if (m_task && m_sessionWrapper) {
+        auto dataTask = m_sessionWrapper->dataTaskMap.take([m_task taskIdentifier]);
+        RELEASE_ASSERT(dataTask == this);
+    }
 
-    RELEASE_ASSERT(m_sessionWrapper->dataTaskMap.get([m_task taskIdentifier]) == this);
-    m_sessionWrapper->dataTaskMap.remove([m_task taskIdentifier]);
+    if (m_session)
+        m_session->unregisterNetworkDataTask(*this);
 }
 
 void NetworkDataTaskCocoa::didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend)
@@ -506,8 +510,14 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
         String originalContentType = m_firstRequest.httpContentType();
         if (!originalContentType.isEmpty())
             request.setHTTPHeaderField(WebCore::HTTPHeaderName::ContentType, originalContentType);
-    } else if (redirectResponse.httpStatusCode() == 303 && equalLettersIgnoringASCIICase(m_firstRequest.httpMethod(), "head"_s)) // FIXME: (rdar://problem/13706454).
-        request.setHTTPMethod("HEAD"_s);
+    } else if (redirectResponse.httpStatusCode() == 303) { // FIXME: (rdar://problem/13706454).
+        if (equalLettersIgnoringASCIICase(m_firstRequest.httpMethod(), "head"_s))
+            request.setHTTPMethod("HEAD"_s);
+
+        String originalContentType = m_firstRequest.httpContentType();
+        if (!originalContentType.isEmpty())
+            request.setHTTPHeaderField(WebCore::HTTPHeaderName::ContentType, originalContentType);
+    }
     
     // Should not set Referer after a redirect from a secure resource to non-secure one.
     if (m_shouldClearReferrerOnHTTPSToHTTPRedirect && !request.url().protocolIs("https"_s) && WTF::protocolIs(request.httpReferrer(), "https"_s))
@@ -518,7 +528,12 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
     m_password = url.password();
     m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
-    
+
+    if (auto authorization = m_firstRequest.httpHeaderField(WebCore::HTTPHeaderName::Authorization); !authorization.isNull()
+        && linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::AuthorizationHeaderOnSameOriginRedirects)
+        && protocolHostAndPortAreEqual(m_firstRequest.url(), request.url()))
+        request.setHTTPHeaderField(WebCore::HTTPHeaderName::Authorization, authorization);
+
     if (!protocolHostAndPortAreEqual(request.url(), redirectResponse.url())) {
         // The network layer might carry over some headers from the original request that
         // we want to strip here because the redirect is cross-origin.
@@ -526,9 +541,6 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
         request.clearHTTPOrigin();
 
     } else {
-        if (auto authorization = m_firstRequest.httpHeaderField(WebCore::HTTPHeaderName::Authorization); !authorization.isNull() && linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::AuthorizationHeaderOnSameOriginRedirects))
-            request.setHTTPHeaderField(WebCore::HTTPHeaderName::Authorization, authorization);
-
 #if USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
         // Only consider applying authentication credentials if this is actually a redirect and the redirect
         // URL didn't include credentials of its own.
@@ -605,7 +617,7 @@ bool NetworkDataTaskCocoa::tryPasswordBasedAuthentication(const WebCore::Authent
     if (!challenge.protectionSpace().isPasswordBased())
         return false;
     
-    if (!m_user.isNull() && !m_password.isNull()) {
+    if (!m_user.isEmpty() || !m_password.isEmpty()) {
         auto persistence = m_storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::Use ? WebCore::CredentialPersistenceForSession : WebCore::CredentialPersistenceNone;
         completionHandler(AuthenticationChallengeDisposition::UseCredential, WebCore::Credential(m_user, m_password, persistence));
         m_user = String();
@@ -762,6 +774,15 @@ void NetworkDataTaskCocoa::setPriority(WebCore::ResourceLoadPriority priority)
         return;
     m_task.get().priority = toNSURLSessionTaskPriority(priority);
 }
+
+#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
+
+void NetworkDataTaskCocoa::setEmulatedConditions(const std::optional<int64_t>& bytesPerSecondLimit)
+{
+    m_task.get()._bytesPerSecondLimit = bytesPerSecondLimit.value_or(0);
+}
+
+#endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
 void NetworkDataTaskCocoa::checkTAO(const WebCore::ResourceResponse& response)
 {

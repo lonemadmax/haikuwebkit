@@ -30,7 +30,7 @@
 #import "CGDisplayListImageBufferBackend.h"
 #import "Logging.h"
 #import "PlatformCALayerRemote.h"
-#import "PlatformRemoteImageBufferProxy.h"
+#import "PlatformImageBufferShareableBackend.h"
 #import "RemoteLayerBackingStoreCollection.h"
 #import "RemoteLayerTreeContext.h"
 #import "RemoteLayerTreeLayers.h"
@@ -87,9 +87,9 @@ RemoteLayerBackingStoreCollection* RemoteLayerBackingStore::backingStoreCollecti
     return nullptr;
 }
 
-void RemoteLayerBackingStore::ensureBackingStore(Type type, FloatSize size, float scale, bool deepColor, bool isOpaque, IncludeDisplayList includeDisplayList)
+void RemoteLayerBackingStore::ensureBackingStore(Type type, FloatSize size, float scale, bool deepColor, bool isOpaque, IncludeDisplayList includeDisplayList, UseOutOfLineSurfaces useOutOfLineSurfaces)
 {
-    if (m_type == type && m_size == size && m_scale == scale && m_deepColor == deepColor && m_isOpaque == isOpaque && m_includeDisplayList == includeDisplayList)
+    if (m_type == type && m_size == size && m_scale == scale && m_deepColor == deepColor && m_isOpaque == isOpaque && m_includeDisplayList == includeDisplayList && m_useOutOfLineSurfaces == useOutOfLineSurfaces)
         return;
 
     m_type = type;
@@ -98,6 +98,7 @@ void RemoteLayerBackingStore::ensureBackingStore(Type type, FloatSize size, floa
     m_deepColor = deepColor;
     m_isOpaque = isOpaque;
     m_includeDisplayList = includeDisplayList;
+    m_useOutOfLineSurfaces = useOutOfLineSurfaces;
 
     if (m_frontBuffer) {
         // If we have a valid backing store, we need to ensure that it gets completely
@@ -114,6 +115,9 @@ void RemoteLayerBackingStore::clearBackingStore()
     m_backBuffer.discard();
     m_secondaryBackBuffer.discard();
     m_contentsBufferHandle = std::nullopt;
+#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+    m_displayListBuffer = nullptr;
+#endif
 }
 
 void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
@@ -149,8 +153,8 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     std::optional<ImageBufferBackendHandle> displayListHandle;
-    if (m_frontBuffer.displayListImageBuffer)
-        displayListHandle = handleFromBuffer(*m_frontBuffer.displayListImageBuffer);
+    if (m_displayListBuffer)
+        displayListHandle = handleFromBuffer(*m_displayListBuffer);
 
     encoder << displayListHandle;
 #endif
@@ -244,6 +248,11 @@ SetNonVolatileResult RemoteLayerBackingStore::swapToValidFrontBuffer()
                 m_backBuffer.discard();
         }
     }
+
+#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+    if (m_displayListBuffer)
+        m_displayListBuffer->clearContents();
+#endif
 
     m_contentsBufferHandle = std::nullopt;
     std::swap(m_frontBuffer, m_backBuffer);
@@ -366,8 +375,11 @@ void RemoteLayerBackingStore::ensureFrontBuffer()
     m_frontBuffer.imageBuffer = collection->allocateBufferForBackingStore(*this);
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-    if (m_includeDisplayList == IncludeDisplayList::Yes)
-        m_frontBuffer.displayListImageBuffer = ConcreteImageBuffer<CGDisplayListImageBufferBackend>::create(m_size, m_scale, DestinationColorSpace::SRGB(), pixelFormat(), RenderingPurpose::DOM, { });
+    if (!m_displayListBuffer && m_includeDisplayList == IncludeDisplayList::Yes) {
+        ImageBuffer::CreationContext creationContext;
+        creationContext.useOutOfLineSurfacesForCGDisplayLists = m_useOutOfLineSurfaces;
+        m_displayListBuffer = ImageBuffer::create<CGDisplayListImageBufferBackend>(m_size, m_scale, DestinationColorSpace::SRGB(), pixelFormat(), RenderingPurpose::DOM, WTFMove(creationContext));
+    }
 #endif
 }
 
@@ -425,7 +437,7 @@ void RemoteLayerBackingStore::paintContents()
 
     if (m_includeDisplayList == IncludeDisplayList::Yes) {
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-        BifurcatedGraphicsContext context(m_frontBuffer.imageBuffer->context(), m_frontBuffer.displayListImageBuffer->context());
+        BifurcatedGraphicsContext context(m_frontBuffer.imageBuffer->context(), m_displayListBuffer->context());
 #else
         GraphicsContext& context = m_frontBuffer.imageBuffer->context();
 #endif
@@ -445,7 +457,7 @@ void RemoteLayerBackingStore::paintContents()
     m_frontBufferFlushers.append(m_frontBuffer.imageBuffer->createFlusher());
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     if (m_includeDisplayList == IncludeDisplayList::Yes)
-        m_frontBufferFlushers.append(m_frontBuffer.displayListImageBuffer->createFlusher());
+        m_frontBufferFlushers.append(m_displayListBuffer->createFlusher());
 #endif
 }
 
@@ -567,7 +579,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
                 }
             }
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-            , [&] (IPC::SharedBufferReference& buffer) {
+            , [&] (CGDisplayList& handle) {
                 ASSERT_NOT_REACHED();
             }
 #endif
@@ -585,8 +597,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
             [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
         } else
             layer.opaque = m_isOpaque;
-        auto data = std::get<IPC::SharedBufferReference>(*m_displayListBufferHandle).unsafeBuffer()->createCFData();
-        [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:data.get() replayForTesting:replayCGDisplayListsIntoBackingStore];
+        [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:WTFMove(std::get<CGDisplayList>(*m_displayListBufferHandle)) replayForTesting:replayCGDisplayListsIntoBackingStore];
         return;
     }
 #else
@@ -667,9 +678,6 @@ RefPtr<ImageBuffer> RemoteLayerBackingStore::bufferForType(BufferType bufferType
 void RemoteLayerBackingStore::Buffer::discard()
 {
     imageBuffer = nullptr;
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-    displayListImageBuffer = nullptr;
-#endif
 }
 
 } // namespace WebKit

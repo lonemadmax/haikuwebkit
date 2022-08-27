@@ -73,6 +73,7 @@ public:
     OptionSet<WebsiteDataType> fetchDataTypesInList(OptionSet<WebsiteDataType>);
     void deleteData(OptionSet<WebsiteDataType>, WallTime);
     void moveData(OptionSet<WebsiteDataType>, const String& localStoragePath, const String& idbStoragePath);
+    void deleteEmptyDirectory();
     String resolvedLocalStoragePath();
     String resolvedIDBStoragePath();
     String resolvedPath(WebsiteDataType);
@@ -362,6 +363,22 @@ void OriginStorageManager::StorageBucket::moveData(OptionSet<WebsiteDataType> ty
     }
 }
 
+void OriginStorageManager::StorageBucket::deleteEmptyDirectory()
+{
+    if (m_shouldUseCustomPaths) {
+        FileSystem::deleteEmptyDirectory(m_customLocalStoragePath);
+        FileSystem::deleteEmptyDirectory(m_customIDBStoragePath);
+    } else {
+        auto localStoragePath = typeStoragePath(StorageType::LocalStorage);
+        FileSystem::deleteEmptyDirectory(localStoragePath);
+        auto idbStoragePath = typeStoragePath(StorageType::IndexedDB);
+        FileSystem::deleteEmptyDirectory(idbStoragePath);
+    }
+
+    auto fileSystemStoragePath = typeStoragePath(StorageType::FileSystem);
+    FileSystem::deleteEmptyDirectory(fileSystemStoragePath);
+}
+
 String OriginStorageManager::StorageBucket::resolvedLocalStoragePath()
 {
     if (!m_resolvedLocalStoragePath.isNull())
@@ -369,7 +386,6 @@ String OriginStorageManager::StorageBucket::resolvedLocalStoragePath()
 
     if (m_shouldUseCustomPaths) {
         ASSERT(m_customLocalStoragePath.isEmpty() == m_rootPath.isEmpty());
-        FileSystem::makeAllDirectories(FileSystem::parentPath(m_customLocalStoragePath));
         m_resolvedLocalStoragePath = m_customLocalStoragePath;
     } else if (!m_rootPath.isEmpty()) {
         auto localStorageDirectory = typeStoragePath(StorageType::LocalStorage);
@@ -385,12 +401,6 @@ String OriginStorageManager::StorageBucket::resolvedLocalStoragePath()
         m_resolvedLocalStoragePath = localStoragePath;
     } else
         m_resolvedLocalStoragePath = emptyString();
-
-#if PLATFORM(IOS_FAMILY)
-    // Exclude LocalStorage directory to reduce backup traffic. See https://webkit.org/b/168388.
-    if (!m_resolvedLocalStoragePath.isEmpty())
-        FileSystem::excludeFromBackup(FileSystem::parentPath(m_customLocalStoragePath));
-#endif
 
     return m_resolvedLocalStoragePath;
 }
@@ -573,6 +583,16 @@ void OriginStorageManager::moveData(OptionSet<WebsiteDataType> types, const Stri
     ASSERT(!RunLoop::isMain());
 
     defaultBucket().moveData(types, localStoragePath, idbStoragePath);
+}
+
+void OriginStorageManager::deleteEmptyDirectory()
+{
+    ASSERT(!RunLoop::isMain());
+
+    if (m_path.isEmpty())
+        return;
+
+    defaultBucket().deleteEmptyDirectory();
 }
 
 } // namespace WebKit

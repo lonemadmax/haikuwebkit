@@ -73,10 +73,10 @@ namespace JSC {
     macro(Map) \
     macro(throwTypeErrorFunction) \
     macro(typedArrayLength) \
+    macro(typedArrayClone) \
     macro(typedArrayContentType) \
     macro(typedArraySort) \
     macro(typedArrayGetOriginalConstructor) \
-    macro(typedArraySubarrayCreate) \
     macro(BuiltinLog) \
     macro(BuiltinDescribe) \
     macro(homeObject) \
@@ -130,6 +130,7 @@ namespace JSC {
     macro(isSharedTypedArrayView) \
     macro(isDetached) \
     macro(typedArrayDefaultComparator) \
+    macro(typedArrayFromFast) \
     macro(isBoundFunction) \
     macro(hasInstanceBoundFunction) \
     macro(instanceOf) \
