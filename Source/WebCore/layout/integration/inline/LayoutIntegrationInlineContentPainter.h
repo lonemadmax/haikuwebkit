@@ -27,10 +27,14 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
+#include "LayoutIntegrationBoxTree.h"
 #include "LayoutPoint.h"
+#include "LayoutRect.h"
+#include <wtf/ListHashSet.h>
 
 namespace WebCore {
 
+class RenderBlock;
 class RenderBox;
 class RenderInline;
 
@@ -46,8 +50,6 @@ class ContainerBox;
 
 namespace LayoutIntegration {
 
-class BoxTree;
-
 struct InlineContent;
 
 class InlineContentPainter {
@@ -58,7 +60,9 @@ public:
 
 private:
     void paintDisplayBox(const InlineDisplay::Box&);
+    void paintEllipsis(size_t lineIndex);
     LayoutPoint flippedContentOffsetIfNeeded(const RenderBox&) const;
+    const RenderBlock& root() const { return m_boxTree.rootRenderer(); }
 
     PaintInfo& m_paintInfo;
     const LayoutPoint m_paintOffset;

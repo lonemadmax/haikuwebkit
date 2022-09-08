@@ -1219,6 +1219,8 @@ webkit.org/b/206684 [ Debug ] inspector/heap/tracking.html [ Pass Failure ]
 
 webkit.org/b/205956 inspector/runtime/executionContextCreated-onEnable.html [ Pass Failure ]
 
+webkit.org/b/244492 [ Debug ] inspector/runtime/getDisplayableProperties.html [ Pass Crash ]
+
 webkit.org/b/206668 fast/loader/redirect-to-invalid-url-using-meta-refresh-calls-policy-delegate.html [ Pass Failure ]
 
 webkit.org/b/180760 fast/loader/redirect-to-invalid-url-using-meta-refresh-disallowed-async-delegates.html [ Pass Failure ]
@@ -1602,6 +1604,8 @@ webkit.org/b/228238 [ BigSur Debug arm64 ] imported/w3c/web-platform-tests/Index
 
 webkit.org/b/228245 [ BigSur Release arm64 ] imported/w3c/web-platform-tests/workers/modules/shared-worker-import-csp.html [ Pass Failure ]
 
+webkit.org/b/244499 [ Debug ]  imported/w3c/web-platform-tests/workers/modules/dedicated-worker-import-referrer.html [ Pass Crash ]
+
 webkit.org/b/228260 [ BigSur Debug ] imported/w3c/web-platform-tests/IndexedDB/idb_binary_key_conversion.htm [ Pass Timeout ]
 
 webkit.org/b/227762 imported/w3c/web-platform-tests/html/interaction/focus/the-autofocus-attribute/document-with-fragment-valid.html [ Pass Failure ]
@@ -1957,8 +1961,6 @@ webkit.org/b/244336 fast/canvas/canvas-createPattern-video-loading.html [ Pass T
 webkit.org/b/244347 storage/domstorage/sessionstorage/window-open-remove-item.html [ Pass Failure ]
 
 webkit.org/b/244372 imported/w3c/web-platform-tests/intersection-observer/target-in-different-window.html [ Pass Failure ]
-
-webkit.org/b/244390 editing/selection/cleared-by-relayout.html [ Crash ]
 
 webkit.org/b/244395 [ Release X86_64 ] editing/execCommand/paste-as-quotation-disconnected-paragraph-ancestor-crash.html [ Skip ]
 
