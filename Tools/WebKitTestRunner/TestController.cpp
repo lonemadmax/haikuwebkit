@@ -561,6 +561,7 @@ void TestController::initialize(int argc, const char* argv[])
     JSC::initialize();
     WTF::initializeMainThread();
     WTF::setProcessPrivileges(allPrivileges());
+    WebCoreTestSupport::initializeNames();
     WebCoreTestSupport::populateJITOperations();
 
     Options options;
@@ -990,8 +991,10 @@ void TestController::resetPreferencesToConsistentValues(const TestOptions& optio
     batchUpdatePreferences(platformPreferences(), [options, enableAllExperimentalFeatures = m_enableAllExperimentalFeatures] (auto preferences) {
         WKPreferencesResetTestRunnerOverrides(preferences);
 
-        if (enableAllExperimentalFeatures)
+        if (enableAllExperimentalFeatures) {
             WKPreferencesEnableAllExperimentalFeatures(preferences);
+            WKPreferencesSetExperimentalFeatureForKey(preferences, false, toWK("AlternateWebMPlayerEnabled").get());
+        }
 
         WKPreferencesResetAllInternalDebugFeatures(preferences);
 
@@ -3701,6 +3704,11 @@ bool TestController::isMockRealtimeMediaSourceCenterEnabled() const
 void TestController::setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
 {
     WKPageSetMockCaptureDevicesInterrupted(m_mainWebView->page(), isCameraInterrupted, isMicrophoneInterrupted);
+}
+
+void TestController::triggerMockMicrophoneConfigurationChange()
+{
+    WKPageTriggerMockMicrophoneConfigurationChange(m_mainWebView->page());
 }
 
 struct InAppBrowserPrivacyCallbackContext {

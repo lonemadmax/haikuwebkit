@@ -1403,7 +1403,15 @@ bool WebViewImpl::resignFirstResponder()
 
     resetSecureInputState();
 
-    if (!m_page->maintainsInactiveSelection())
+    auto shouldClearSelection = [&] {
+        if (m_page->maintainsInactiveSelection())
+            return false;
+
+        NSWindow *nextResponderWindow = dynamic_objc_cast<NSView>(nextResponder).window;
+        return !dynamic_objc_cast<NSPanel>(nextResponderWindow);
+    }();
+
+    if (shouldClearSelection)
         m_page->clearSelection();
 
     m_page->activityStateDidChange(WebCore::ActivityState::IsFocused);
@@ -1928,16 +1936,8 @@ void WebViewImpl::updateSupportsArbitraryLayoutModes()
     }
 }
 
-void WebViewImpl::setOverrideDeviceScaleFactor(CGFloat deviceScaleFactor)
-{
-    m_overrideDeviceScaleFactor = deviceScaleFactor;
-    m_page->setIntrinsicDeviceScaleFactor(intrinsicDeviceScaleFactor());
-}
-
 float WebViewImpl::intrinsicDeviceScaleFactor() const
 {
-    if (m_overrideDeviceScaleFactor)
-        return m_overrideDeviceScaleFactor;
     if (m_targetWindowForMovePreparation)
         return [m_targetWindowForMovePreparation backingScaleFactor];
     if (NSWindow *window = [m_view window])

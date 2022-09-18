@@ -162,6 +162,8 @@ public:
     const void* logIdentifier() const final { return m_private->logIdentifier(); }
 #endif
 
+    void setShouldFireMuteEventImmediately(bool value) { m_shouldFireMuteEventImmediately = value; }
+
 protected:
     MediaStreamTrack(ScriptExecutionContext&, Ref<MediaStreamTrackPrivate>&&);
 
@@ -192,6 +194,7 @@ private:
     void trackMutedChanged(MediaStreamTrackPrivate&) final;
     void trackSettingsChanged(MediaStreamTrackPrivate&) final;
     void trackEnabledChanged(MediaStreamTrackPrivate&) final;
+    void trackConfigurationChanged(MediaStreamTrackPrivate&) final;
 
     // PlatformMediaSession::AudioCaptureSource
     bool isCapturingAudio() const final;
@@ -210,6 +213,7 @@ private:
     bool m_ended { false };
     const bool m_isCaptureTrack { false };
     bool m_isInterrupted { false };
+    bool m_shouldFireMuteEventImmediately { false };
 };
 
 typedef Vector<Ref<MediaStreamTrack>> MediaStreamTrackVector;

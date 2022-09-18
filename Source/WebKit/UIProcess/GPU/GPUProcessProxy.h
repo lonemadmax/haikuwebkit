@@ -87,6 +87,7 @@ public:
     void removeMockMediaDevice(const String&);
     void resetMockMediaDevices();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
+    void triggerMockMicrophoneConfigurationChange();
     void updateSandboxAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture);
 #endif
 
@@ -154,6 +155,9 @@ private:
 
 #if ENABLE(VP9)
     void setHasVP9HardwareDecoder(bool hasVP9HardwareDecoder) { s_hasVP9HardwareDecoder = hasVP9HardwareDecoder; }
+#endif
+#if ENABLE(MEDIA_STREAM) && PLATFORM(IOS_FAMILY)
+    void statusBarWasTapped(CompletionHandler<void()>&&);
 #endif
 
     GPUProcessCreationParameters processCreationParameters();

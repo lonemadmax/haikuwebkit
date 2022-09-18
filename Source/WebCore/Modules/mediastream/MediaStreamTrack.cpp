@@ -495,6 +495,10 @@ void MediaStreamTrack::updateToPageMutedState()
 
     switch (source().deviceType()) {
     case CaptureDevice::DeviceType::Microphone:
+#if PLATFORM(IOS_FAMILY)
+        if (document.settings().manageCaptureStatusBarInGPUProcessEnabled() && !document.settings().interruptAudioOnPageVisibilityChangeEnabled())
+            m_private->setIsInBackground(document.hidden());
+#endif
         m_private->setMuted(page->mutedState().contains(MediaProducerMutedState::AudioCaptureIsMuted)
             || (document.hidden() && document.settings().interruptAudioOnPageVisibilityChangeEnabled()));
         break;
@@ -599,12 +603,21 @@ void MediaStreamTrack::trackMutedChanged(MediaStreamTrackPrivate&)
     if (document->activeDOMObjectsAreStopped() || m_ended)
         return;
 
-    queueTaskKeepingObjectAlive(*this, TaskSource::Networking, [this, muted = m_private->muted()] {
+    Function<void()> updateMuted = [this, muted = m_private->muted()] {
         if (!scriptExecutionContext() || scriptExecutionContext()->activeDOMObjectsAreStopped())
             return;
+
+        if (m_muted == muted)
+            return;
+
         m_muted = muted;
         dispatchEvent(Event::create(muted ? eventNames().muteEvent : eventNames().unmuteEvent, Event::CanBubble::No, Event::IsCancelable::No));
-    });
+    };
+    if (m_shouldFireMuteEventImmediately)
+        updateMuted();
+    else
+        queueTaskKeepingObjectAlive(*this, TaskSource::Networking, WTFMove(updateMuted));
+
     configureTrackRendering();
 
     bool wasInterrupted = m_isInterrupted;
@@ -616,6 +629,16 @@ void MediaStreamTrack::trackMutedChanged(MediaStreamTrackPrivate&)
 void MediaStreamTrack::trackSettingsChanged(MediaStreamTrackPrivate&)
 {
     configureTrackRendering();
+}
+
+void MediaStreamTrack::trackConfigurationChanged(MediaStreamTrackPrivate&)
+{
+    queueTaskKeepingObjectAlive(*this, TaskSource::Networking, [this] {
+        if (!scriptExecutionContext() || scriptExecutionContext()->activeDOMObjectsAreStopped() || m_private->muted() || ended())
+            return;
+
+        dispatchEvent(Event::create(eventNames().configurationchangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    });
 }
 
 void MediaStreamTrack::trackEnabledChanged(MediaStreamTrackPrivate&)

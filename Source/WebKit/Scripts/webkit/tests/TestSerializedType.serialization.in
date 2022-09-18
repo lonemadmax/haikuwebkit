@@ -1,0 +1,24 @@
+# test comment
+
+headers requiring ENABLE(TEST_FEATURE): "StructHeader.h" "FirstMemberType.h" "SecondMemberType.h"
+headers: "HeaderWithoutCondition"
+
+#if ENABLE(TEST_FEATURE)
+[AdditionalEncoder=OtherEncoder] struct Namespace::Subnamespace::StructName {
+    FirstMemberType firstMemberName
+    #if ENABLE(SECOND_MEMBER)
+    SecondMemberType secondMemberName;
+    #endif
+    [Nullable] RetainPtr<CFTypeRef> nullableTestMember;
+}
+#endif
+
+class Namespace::OtherClass {
+    int a
+    bool b
+}
+
+[Return=Ref] class Namespace::ReturnRefClass {
+    double functionCall().member1
+    double functionCall().member2
+}

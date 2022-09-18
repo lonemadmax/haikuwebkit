@@ -41,6 +41,7 @@
 #include "ControlFlowProfiler.h"
 #include "CustomGetterSetter.h"
 #include "DOMAttributeGetterSetter.h"
+#include "Debugger.h"
 #include "DeferredWorkTimer.h"
 #include "Disassembler.h"
 #include "DoublePredictionFuzzerAgent.h"
@@ -1473,6 +1474,16 @@ void VM::visitAggregateImpl(Visitor& visitor)
     m_microtaskQueue.visitAggregate(visitor);
 }
 DEFINE_VISIT_AGGREGATE(VM);
+
+void VM::addDebugger(Debugger& debugger)
+{
+    m_debuggers.append(&debugger);
+}
+
+void VM::removeDebugger(Debugger& debugger)
+{
+    m_debuggers.remove(&debugger);
+}
 
 void QueuedTask::run()
 {

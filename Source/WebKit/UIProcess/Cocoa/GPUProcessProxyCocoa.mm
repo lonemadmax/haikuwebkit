@@ -34,6 +34,9 @@
 
 #if HAVE(POWERLOG_TASK_MODE_QUERY)
 #include <pal/spi/mac/PowerLogSPI.h>
+#include <wtf/darwin/WeakLinking.h>
+
+WTF_WEAK_LINK_FORCE_IMPORT(PLQueryRegistered);
 #endif
 
 namespace WebKit {
@@ -47,9 +50,9 @@ void GPUProcessProxy::platformInitializeGPUProcessParameters(GPUProcessCreationP
 #if HAVE(POWERLOG_TASK_MODE_QUERY)
 bool GPUProcessProxy::isPowerLoggingInTaskMode()
 {
-    if (!PLQueryRegistered)
-        return false;
-    auto dictionary = PLQueryRegistered(PLClientIDWebKit, CFSTR("TaskModeQuery"), nullptr);
+    CFDictionaryRef dictionary = nullptr;
+    if (PLQueryRegistered)
+        dictionary = PLQueryRegistered(PLClientIDWebKit, CFSTR("TaskModeQuery"), nullptr);
     if (!dictionary)
         return false;
     CFNumberRef taskModeRef = static_cast<CFNumberRef>(CFDictionaryGetValue(dictionary, CFSTR("Task Mode")));

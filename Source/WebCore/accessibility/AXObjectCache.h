@@ -45,6 +45,7 @@ namespace WebCore {
 
 class Document;
 class HTMLAreaElement;
+class HTMLTableElement;
 class HTMLTextFormControlElement;
 class Node;
 class Page;
@@ -311,6 +312,8 @@ public:
         AXSelectedStateChanged,
         AXSelectedTextChanged,
         AXSetSizeChanged,
+        AXTableHeadersChanged,
+        AXURLChanged,
         AXValueChanged,
         AXScrolledToAnchor,
         AXLiveRegionCreated,

@@ -28,6 +28,7 @@ import sys
 from .blame import Blame
 from .branch import Branch
 from .canonicalize import Canonicalize
+from .cherry_pick import CherryPick
 from .clean import Clean, DeletePRBranches
 from .command import Command
 from .commit import Commit
@@ -44,6 +45,7 @@ from .pull_request import PullRequest
 from .revert import Revert
 from .setup_git_svn import SetupGitSvn
 from .setup import Setup
+from .track import Track
 
 from webkitcorepy import arguments, log as webkitcorepy_log
 from webkitscmpy import local, log, remote
@@ -82,7 +84,7 @@ def main(
         Clean, Find, Info, Land, Log, Pull,
         PullRequest, Revert, Setup, InstallGitLFS,
         Credentials, Commit, DeletePRBranches, Squash,
-        Pickable,
+        Pickable, CherryPick, Track,
     ]
     if subversion:
         programs.append(SetupGitSvn)

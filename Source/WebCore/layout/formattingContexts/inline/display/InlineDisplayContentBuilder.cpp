@@ -26,8 +26,6 @@
 #include "config.h"
 #include "InlineDisplayContentBuilder.h"
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "FontCascade.h"
 #include "InlineFormattingGeometry.h"
 #include "InlineTextBoxStyle.h"
@@ -767,8 +765,8 @@ void InlineDisplayContentBuilder::processFloatBoxes(const LineBuilder::LineConte
         return;
     }
 
-    for (auto* floatBox : lineContent.floats) {
-        auto& boxGeometry = formattingState().boxGeometry(*floatBox);
+    for (auto* inlineFloatItem : lineContent.placedFloats) {
+        auto& boxGeometry = formattingState().boxGeometry(inlineFloatItem->layoutBox());
         auto borderBoxLogicalRect = LayoutRect { BoxGeometry::borderBoxRect(boxGeometry) };
         auto visualRect = flipLogicalRectToVisualForWritingMode(InlineRect { borderBoxLogicalRect }, writingMode);
 
@@ -1021,4 +1019,3 @@ InlineLayoutUnit InlineDisplayContentBuilder::outsideListMarkerVisualPosition(co
 }
 }
 
-#endif

@@ -1461,9 +1461,10 @@ bool AccessibilityObject::replacedNodeNeedsCharacter(Node* replacedNode)
         return false;
 
     // create an AX object, but skip it if it is not supposed to be seen
-    AccessibilityObject* object = replacedNode->renderer()->document().axObjectCache()->getOrCreate(replacedNode);
-    if (object->accessibilityIsIgnored())
-        return false;
+    if (auto* cache = replacedNode->renderer()->document().axObjectCache()) {
+        if (auto* axObject = cache->getOrCreate(replacedNode))
+            return !axObject->accessibilityIsIgnored();
+    }
 
     return true;
 }
@@ -2554,6 +2555,7 @@ static void initializeRoleMap()
         { "main"_s, AccessibilityRole::LandmarkMain },
         { "marquee"_s, AccessibilityRole::ApplicationMarquee },
         { "math"_s, AccessibilityRole::DocumentMath },
+        { "mark"_s, AccessibilityRole::Mark },
         { "menu"_s, AccessibilityRole::Menu },
         { "menubar"_s, AccessibilityRole::MenuBar },
         { "menuitem"_s, AccessibilityRole::MenuItem },
@@ -3138,17 +3140,19 @@ String AccessibilityObject::identifierAttribute() const
     return getAttribute(idAttr);
 }
 
-void AccessibilityObject::classList(Vector<String>& classList) const
+Vector<String> AccessibilityObject::classList() const
 {
-    Node* node = this->node();
-    if (!is<Element>(node))
-        return;
-    
-    Element* element = downcast<Element>(node);
-    DOMTokenList& list = element->classList();
-    unsigned length = list.length();
+    auto* element = this->element();
+    if (!element)
+        return { };
+
+    auto& domClassList = element->classList();
+    Vector<String> classList;
+    unsigned length = domClassList.length();
+    classList.reserveInitialCapacity(length);
     for (unsigned k = 0; k < length; k++)
-        classList.append(list.item(k).string());
+        classList.append(domClassList.item(k).string());
+    return classList;
 }
 
 bool AccessibilityObject::supportsPressed() const

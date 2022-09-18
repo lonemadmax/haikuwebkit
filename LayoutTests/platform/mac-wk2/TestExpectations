@@ -5,7 +5,7 @@
 compositing/shared-backing/overflow-scroll [ Pass ]
 compositing/scrolling/async-overflow-scrolling [ Pass ]
 compositing/layer-creation/clipping-scope [ Pass ]
-editing/find [ Pass ]
+editing/find/cocoa [ Pass ]
 editing/undo-manager [ Pass ]
 editing/pasteboard/dom-paste [ Pass ]
 fast/events/cursors [ Pass ]
@@ -1715,3 +1715,5 @@ webkit.org/b/243589 [ Debug ] imported/w3c/web-platform-tests/service-workers/se
 webkit.org/b/243589 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/update-import-scripts.https.html [ Pass Crash ]
 
 webkit.org/b/244272 [ Monterey ] fast/images/text-recognition/mac/cursor-types-for-recognized-text.html [ Pass Failure ]
+
+webkit.org/b/244740 http/wpt/cross-origin-opener-policy/non-secure-to-secure-context-navigation.https.html [ Pass Failure ]

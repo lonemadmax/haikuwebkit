@@ -1011,7 +1011,8 @@ InterruptAudioOnPageVisibilityChangeEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: WebCore::RealtimeMediaSourceCenter::shouldInterruptAudioOnPageVisibilityChange()
+      "PLATFORM(IOS_FAMILY)": true
+      default: false
     WebCore:
       default: false
 
@@ -2040,7 +2041,7 @@ ShouldPrintBackgrounds:
       "PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
-      "PLATFORM(IOS_FAMILY)": true
+      "PLATFORM(IOS_FAMILY)": WebKit::defaultShouldPrintBackgrounds()
       default: false
     WebCore:
       default: false

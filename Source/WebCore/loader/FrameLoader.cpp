@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008 Alp Toker <alp@atoker.com>
@@ -103,6 +103,7 @@
 #include "PluginDocument.h"
 #include "PolicyChecker.h"
 #include "ProgressTracker.h"
+#include "ReportingScope.h"
 #include "ResourceHandle.h"
 #include "ResourceLoadInfo.h"
 #include "ResourceLoadObserver.h"
@@ -775,6 +776,10 @@ void FrameLoader::didBeginDocument(bool dispatch)
             if (!contentLanguage.isEmpty())
                 m_frame.document()->setContentLanguage(WTFMove(contentLanguage));
         }
+
+        String reportingEndpoints = m_documentLoader->response().httpHeaderField(HTTPHeaderName::ReportingEndpoints);
+        if (!reportingEndpoints.isEmpty())
+            m_frame.document()->reportingScope().parseReportingEndpoints(reportingEndpoints, m_documentLoader->response().url());
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#initialise-the-document-object (Step 7)
         if (m_frame.isMainFrame()) {
@@ -3477,7 +3482,11 @@ void FrameLoader::executeJavaScriptURL(const URL& url, const NavigationAction& a
 {
     ASSERT(url.protocolIsJavaScript());
 
-    bool isFirstNavigationInFrame = m_stateMachine.isDisplayingInitialEmptyDocument();
+    bool isFirstNavigationInFrame = false;
+    if (!m_stateMachine.committedFirstRealDocumentLoad()) {
+        m_stateMachine.advanceTo(FrameLoaderStateMachine::DisplayingInitialEmptyDocumentPostCommit);
+        isFirstNavigationInFrame = true;
+    }
 
     RefPtr ownerDocument = m_frame.ownerElement() ? &m_frame.ownerElement()->document() : nullptr;
     if (ownerDocument)

@@ -31,6 +31,8 @@ messages -> WebPage LegacyReceiver {
     SendCSPViolationReport(WebCore::FrameIdentifier frameID, URL reportURL, IPC::FormDataReference reportData)
     EnqueueSecurityPolicyViolationEvent(WebCore::FrameIdentifier frameID, struct WebCore::SecurityPolicyViolationEventInit eventInit)
 
+    NotifyReportObservers(WebCore::FrameIdentifier frameID, Ref<WebCore::Report> report)
+
     TestProcessIncomingSyncMessagesWhenWaitingForSyncReply() -> (bool handled) Synchronous
 
 #if PLATFORM(COCOA)
@@ -702,4 +704,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
     SetInteractionRegionsEnabled(bool enable)
 #endif
+
+    GenerateTestReport(String message, String group);
 }

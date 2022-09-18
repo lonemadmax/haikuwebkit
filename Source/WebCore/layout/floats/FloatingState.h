@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-
 #include "LayoutBoxGeometry.h"
 #include "LayoutContainerBox.h"
 #include <wtf/IsoMalloc.h>
@@ -80,6 +78,8 @@ public:
     void append(FloatItem);
     void clear() { m_floats.clear(); }
 
+    bool isEmpty() const { return floats().isEmpty(); }
+
 private:
     friend class FloatingContext;
     FloatingState(LayoutState&, const ContainerBox& formattingContextRoot);
@@ -92,4 +92,3 @@ private:
 
 }
 }
-#endif
