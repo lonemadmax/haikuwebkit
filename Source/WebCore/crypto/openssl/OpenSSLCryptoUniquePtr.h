@@ -27,7 +27,7 @@
 #pragma once
 
 #include <memory>
-#include <openssl/X509.h>
+#include <openssl/x509.h>
 #include <openssl/hmac.h>
 
 namespace WebCore {
