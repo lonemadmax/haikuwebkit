@@ -25,6 +25,17 @@
 #include "config.h"
 #include "SerializedTypeInfo.h"
 
+#if ENABLE(TEST_FEATURE)
+#include "FirstMemberType.h"
+#endif
+#include "HeaderWithoutCondition"
+#if ENABLE(TEST_FEATURE)
+#include "SecondMemberType.h"
+#endif
+#if ENABLE(TEST_FEATURE)
+#include "StructHeader.h"
+#endif
+
 #if ENABLE(IPC_TESTING_API)
 
 namespace WebKit {
@@ -38,12 +49,44 @@ Vector<SerializedTypeInfo> allSerializedTypes()
             "RetainPtr<CFTypeRef>"_s,
         } },
         { "Namespace::OtherClass"_s, {
+            "bool"_s,
             "int"_s,
             "bool"_s,
         } },
         { "Namespace::ReturnRefClass"_s, {
             "double"_s,
             "double"_s,
+            "std::unique_ptr<int>"_s,
+        } },
+        { "Namespace::EmptyConstructorStruct"_s, {
+            "int"_s,
+            "double"_s,
+        } },
+        { "Namespace::EmptyConstructorNullable"_s, {
+            "bool"_s,
+            "MemberType"_s,
+            "OtherMemberType"_s,
+        } },
+        { "WithoutNamespace"_s, {
+            "int"_s,
+        } },
+        { "WithoutNamespaceWithAttributes"_s, {
+            "int"_s,
+        } },
+    };
+}
+
+Vector<SerializedEnumInfo> allSerializedEnums()
+{
+    return {
+        { "EnumNamespace::EnumType"_s, sizeof(EnumNamespace::EnumType), false, {
+            static_cast<uint64_t>(EnumNamespace::EnumType::FirstValue),
+            static_cast<uint64_t>(EnumNamespace::EnumType::SecondValue),
+        } },
+        { "EnumNamespace2::OptionSetEnumType"_s, sizeof(EnumNamespace2::OptionSetEnumType), true, {
+            static_cast<uint64_t>(EnumNamespace2::OptionSetEnumType::OptionSetFirstValue),
+            static_cast<uint64_t>(EnumNamespace2::OptionSetEnumType::OptionSetSecondValue),
+            static_cast<uint64_t>(EnumNamespace2::OptionSetEnumType::OptionSetThirdValue),
         } },
     };
 }

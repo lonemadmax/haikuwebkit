@@ -98,7 +98,6 @@
 #include <WebCore/TestReportBody.h>
 #include <WebCore/TextCheckerClient.h>
 #include <WebCore/TextIndicator.h>
-#include <WebCore/TimingFunction.h>
 #include <WebCore/TransformationMatrix.h>
 #include <WebCore/UserStyleSheet.h>
 #include <WebCore/VelocityData.h>
@@ -150,7 +149,6 @@ using namespace WebKit;
     template void ArgumentCoder<Type>::encode<StreamConnectionEncoder>(StreamConnectionEncoder&, const Type&);
 
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(FloatBoxExtent)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(FloatRect)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(FloatRoundedRect)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(FloatSize)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(IntPoint)
@@ -158,13 +156,6 @@ DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(IntRect)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(IntSize)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(LayoutPoint)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(LayoutSize)
-
-#if USE(CG)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(CGRect)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(CGSize)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(CGPoint)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(CGAffineTransform)
-#endif
 
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(DisplayList::SetInlineFillColor)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(DisplayList::SetInlineStrokeColor)
@@ -279,117 +270,6 @@ bool ArgumentCoder<EventTrackingRegions>::decode(Decoder& decoder, EventTracking
         return false;
     eventTrackingRegions.asynchronousDispatchRegion = WTFMove(*asynchronousDispatchRegion);
     eventTrackingRegions.eventSpecificSynchronousDispatchRegions = WTFMove(eventSpecificSynchronousDispatchRegions);
-    return true;
-}
-
-void ArgumentCoder<LinearTimingFunction>::encode(Encoder& encoder, const LinearTimingFunction& timingFunction)
-{
-    encoder << timingFunction.type();
-}
-
-bool ArgumentCoder<LinearTimingFunction>::decode(Decoder&, LinearTimingFunction&)
-{
-    // Type is decoded by the caller. Nothing else to decode.
-    return true;
-}
-
-void ArgumentCoder<CubicBezierTimingFunction>::encode(Encoder& encoder, const CubicBezierTimingFunction& timingFunction)
-{
-    encoder << timingFunction.type();
-    
-    encoder << timingFunction.x1();
-    encoder << timingFunction.y1();
-    encoder << timingFunction.x2();
-    encoder << timingFunction.y2();
-    
-    encoder << timingFunction.timingFunctionPreset();
-}
-
-bool ArgumentCoder<CubicBezierTimingFunction>::decode(Decoder& decoder, CubicBezierTimingFunction& timingFunction)
-{
-    // Type is decoded by the caller.
-    double x1;
-    if (!decoder.decode(x1))
-        return false;
-
-    double y1;
-    if (!decoder.decode(y1))
-        return false;
-
-    double x2;
-    if (!decoder.decode(x2))
-        return false;
-
-    double y2;
-    if (!decoder.decode(y2))
-        return false;
-
-    CubicBezierTimingFunction::TimingFunctionPreset preset;
-    if (!decoder.decode(preset))
-        return false;
-
-    timingFunction.setValues(x1, y1, x2, y2);
-    timingFunction.setTimingFunctionPreset(preset);
-
-    return true;
-}
-
-void ArgumentCoder<StepsTimingFunction>::encode(Encoder& encoder, const StepsTimingFunction& timingFunction)
-{
-    encoder << timingFunction.type();
-    
-    encoder << timingFunction.numberOfSteps();
-    encoder << timingFunction.stepPosition();
-}
-
-bool ArgumentCoder<StepsTimingFunction>::decode(Decoder& decoder, StepsTimingFunction& timingFunction)
-{
-    // Type is decoded by the caller.
-    int numSteps;
-    if (!decoder.decode(numSteps))
-        return false;
-
-    std::optional<StepsTimingFunction::StepPosition> stepPosition;
-    if (!decoder.decode(stepPosition))
-        return false;
-
-    timingFunction.setNumberOfSteps(numSteps);
-    timingFunction.setStepPosition(stepPosition);
-
-    return true;
-}
-
-void ArgumentCoder<SpringTimingFunction>::encode(Encoder& encoder, const SpringTimingFunction& timingFunction)
-{
-    encoder << timingFunction.type();
-    
-    encoder << timingFunction.mass();
-    encoder << timingFunction.stiffness();
-    encoder << timingFunction.damping();
-    encoder << timingFunction.initialVelocity();
-}
-
-bool ArgumentCoder<SpringTimingFunction>::decode(Decoder& decoder, SpringTimingFunction& timingFunction)
-{
-    // Type is decoded by the caller.
-    double mass;
-    if (!decoder.decode(mass))
-        return false;
-
-    double stiffness;
-    if (!decoder.decode(stiffness))
-        return false;
-
-    double damping;
-    if (!decoder.decode(damping))
-        return false;
-
-    double initialVelocity;
-    if (!decoder.decode(initialVelocity))
-        return false;
-
-    timingFunction.setValues(mass, stiffness, damping, initialVelocity);
-
     return true;
 }
 
@@ -1331,38 +1211,6 @@ bool ArgumentCoder<PasteboardCustomData>::decode(Decoder& decoder, PasteboardCus
         return false;
 
     data = PasteboardCustomData(WTFMove(origin), WTFMove(items));
-    return true;
-}
-
-void ArgumentCoder<PasteboardURL>::encode(Encoder& encoder, const PasteboardURL& content)
-{
-    encoder << content.url;
-    encoder << content.title;
-#if PLATFORM(MAC)
-    encoder << content.userVisibleForm;
-#endif
-#if PLATFORM(GTK)
-    encoder << content.markup;
-#endif
-}
-
-bool ArgumentCoder<PasteboardURL>::decode(Decoder& decoder, PasteboardURL& content)
-{
-    if (!decoder.decode(content.url))
-        return false;
-
-    if (!decoder.decode(content.title))
-        return false;
-
-#if PLATFORM(MAC)
-    if (!decoder.decode(content.userVisibleForm))
-        return false;
-#endif
-#if PLATFORM(GTK)
-    if (!decoder.decode(content.markup))
-        return false;
-#endif
-
     return true;
 }
 
@@ -3084,11 +2932,15 @@ void ArgumentCoder<RefPtr<WebCore::ReportBody>>::encode(Encoder& encoder, const 
     encoder << reportBody->reportBodyType();
 
     switch (reportBody->reportBodyType()) {
-    case ReportBodyType::CSPViolation:
+    case ViolationReportType::ContentSecurityPolicy:
         downcast<CSPViolationReportBody>(reportBody.get())->encode(encoder);
         return;
-    case ReportBodyType::Test:
+    case ViolationReportType::Test:
         downcast<TestReportBody>(reportBody.get())->encode(encoder);
+        return;
+    case ViolationReportType::CrossOriginOpenerPolicy:
+    case ViolationReportType::StandardReportingAPIViolation:
+        ASSERT_NOT_REACHED();
         return;
     }
 
@@ -3105,16 +2957,20 @@ std::optional<RefPtr<WebCore::ReportBody>> ArgumentCoder<RefPtr<WebCore::ReportB
     if (!hasReportBody)
         return { result };
 
-    std::optional<ReportBodyType> reportBodyType;
+    std::optional<ViolationReportType> reportBodyType;
     decoder >> reportBodyType;
     if (!reportBodyType)
         return std::nullopt;
 
     switch (*reportBodyType) {
-    case ReportBodyType::CSPViolation:
+    case ViolationReportType::ContentSecurityPolicy:
         return CSPViolationReportBody::decode(decoder);
-    case ReportBodyType::Test:
+    case ViolationReportType::Test:
         return TestReportBody::decode(decoder);
+    case ViolationReportType::CrossOriginOpenerPolicy:
+    case ViolationReportType::StandardReportingAPIViolation:
+        ASSERT_NOT_REACHED();
+        return std::nullopt;
     }
 
     ASSERT_NOT_REACHED();

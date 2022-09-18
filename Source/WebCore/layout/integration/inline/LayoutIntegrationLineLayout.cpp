@@ -409,22 +409,25 @@ void LineLayout::constructContent()
             continue;
 
         auto& renderer = downcast<RenderBox>(*boxAndRenderer.renderer);
-        auto visualRect = LayoutRect { Layout::BoxGeometry::borderBoxRect(m_inlineFormattingState.boxGeometry(layoutBox)) };
+        auto& boxGeometry = m_inlineFormattingState.boxGeometry(layoutBox);
+        auto visualBorderBoxRect = LayoutRect { Layout::BoxGeometry::borderBoxRect(boxGeometry) };
 
         if (layoutBox.isOutOfFlowPositioned()) {
             auto& layer = *renderer.layer();
-            layer.setStaticBlockPosition(visualRect.y());
-            layer.setStaticInlinePosition(visualRect.x());
+            layer.setStaticBlockPosition(visualBorderBoxRect.y());
+            layer.setStaticInlinePosition(visualBorderBoxRect.x());
             continue;
         }
 
         if (layoutBox.isFloatingPositioned()) {
             auto& floatingObject = flow().insertFloatingObjectForIFC(renderer);
-            floatingObject.setFrameRect(visualRect);
+            auto marginBoxRect = LayoutRect { Layout::BoxGeometry::marginBoxRect(boxGeometry) };
+            floatingObject.setFrameRect(marginBoxRect);
+            floatingObject.setMarginOffset({ boxGeometry.marginStart(), boxGeometry.marginBefore() });
             floatingObject.setIsPlaced(true);
         }
 
-        renderer.setLocation(visualRect.location());
+        renderer.setLocation(visualBorderBoxRect.location());
     }
 
     m_inlineContent->clearGapAfterLastLine = m_inlineFormattingState.clearGapAfterLastLine();
@@ -803,6 +806,9 @@ bool LineLayout::hitTest(const HitTestRequest& request, HitTestResult& result, c
     LayerPaintScope layerPaintScope(m_boxTree, layerRenderer);
 
     for (auto& box : makeReversedRange(boxRange)) {
+        if (!box.isVisible())
+            continue;
+
         auto& renderer = m_boxTree.rendererForLayoutBox(box.layoutBox());
 
         if (!layerPaintScope.includes(box))
@@ -814,7 +820,8 @@ bool LineLayout::hitTest(const HitTestRequest& request, HitTestResult& result, c
             continue;
         }
 
-        auto boxRect = flippedRectForWritingMode(flow(), box.visualRectIgnoringBlockDirection());
+        auto& currentLine = m_inlineContent->lines[box.lineIndex()];
+        auto boxRect = flippedRectForWritingMode(flow(), InlineDisplay::Box::visibleRectIgnoringBlockDirection(box, currentLine.visibleRectIgnoringBlockDirection()));
         boxRect.moveBy(accumulatedOffset);
 
         if (!locationInContainer.intersects(boxRect))

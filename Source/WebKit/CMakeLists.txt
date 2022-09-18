@@ -325,6 +325,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/WebCoreSupport/RemoteWebLockRegistry
     WebProcess/WebCoreSupport/WebBroadcastChannelRegistry
     WebProcess/WebCoreSupport/WebFileSystemStorageConnection
+    WebProcess/WebCoreSupport/WebPermissionController
     WebProcess/WebCoreSupport/WebSpeechRecognitionConnection
 
     WebProcess/WebPage/DrawingArea
@@ -527,6 +528,8 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WebGPU/WebGPUOrigin3D.serialization.in
     Shared/WebGPU/WebGPUSupportedFeatures.serialization.in
     Shared/WebGPU/WebGPUValidationError.serialization.in
+
+    Shared/WebsiteData/WebsiteDataFetchOption.serialization.in
 )
 
 list(APPEND WebKit_DERIVED_SOURCES

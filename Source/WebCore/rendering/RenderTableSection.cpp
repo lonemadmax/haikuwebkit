@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "RenderTableSection.h"
+
+#include "BorderPainter.h"
 #include "Document.h"
 #include "HitTestResult.h"
 #include "HTMLNames.h"
@@ -623,6 +625,8 @@ void RenderTableSection::layoutRows()
 
     setLogicalHeight(m_rowPos[totalRows]);
 
+    updateLayerTransform();
+
     computeOverflowFromCells(totalRows, nEffCols);
 }
 
@@ -1128,7 +1132,7 @@ void RenderTableSection::paintRowGroupBorderIfRequired(const PaintInfo& paintInf
         return;
 
     const RenderStyle& style = this->style();
-    bool antialias = shouldAntialiasLines(paintInfo.context());
+    bool antialias = BorderPainter::shouldAntialiasLines(paintInfo.context());
     LayoutRect rowGroupRect = LayoutRect(paintOffset, size());
     rowGroupRect.moveBy(-LayoutPoint(outerBorderLeft(&style), (borderSide == BoxSide::Right) ? 0_lu : outerBorderTop(&style)));
 

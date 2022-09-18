@@ -225,6 +225,7 @@ MESSAGE_RECEIVERS = \
 	WebProcess/WebCoreSupport/WebBroadcastChannelRegistry \
 	WebProcess/WebCoreSupport/WebDeviceOrientationUpdateProvider \
 	WebProcess/WebCoreSupport/WebFileSystemStorageConnection \
+	WebProcess/WebCoreSupport/WebPermissionController \
 	WebProcess/WebCoreSupport/WebSpeechRecognitionConnection \
 	WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager \
 	WebProcess/Storage/WebSharedWorkerContextManagerConnection \
@@ -454,6 +455,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebCoreArgumentCoders.serialization.in \
 	Shared/mac/SecItemResponseData.serialization.in \
 	Shared/WebsiteDataStoreParameters.serialization.in \
+	Shared/WebsiteData/WebsiteDataFetchOption.serialization.in \
 	Shared/WebGPU/WebGPUValidationError.serialization.in \
 	Shared/WebGPU/WebGPUSupportedFeatures.serialization.in \
 	Shared/WebGPU/WebGPUOrigin3D.serialization.in \

@@ -26,6 +26,7 @@
 #import "config.h"
 #import "Parser.h"
 
+#import "ArrayAccess.h"
 #import "AssignmentStatement.h"
 #import "CallableExpression.h"
 #import "IdentifierExpression.h"
@@ -33,6 +34,7 @@
 #import "LiteralExpressions.h"
 #import "ReturnStatement.h"
 #import "StructureAccess.h"
+#import "UnaryExpression.h"
 #import "VariableStatement.h"
 #import "WGSL.h"
 #import <XCTest/XCTest.h>
@@ -208,6 +210,9 @@
     }
 }
 
+#pragma mark -
+#pragma mark Declarations
+
 - (void) testParsingLocalVariable {
     auto shader = WGSL::parseLChar(
         "@vertex\n"
@@ -263,6 +268,85 @@
         XCTAssert(retStmt.maybeExpression()->isIdentifier());
         WGSL::AST::IdentifierExpression retExpr = downcast<WGSL::AST::IdentifierExpression>(*retStmt.maybeExpression());
         XCTAssert(retExpr.identifier() == "x"_s);
+    }
+}
+
+#pragma mark -
+#pragma mark Expressions
+
+- (void) testParsingArrayAccess {
+    auto shader = WGSL::parseLChar("fn test() { return x[42i]; }"_s);
+
+    if (!shader.has_value())
+        dataLogLn(shader.error());
+    XCTAssertTrue(shader.has_value());
+    XCTAssertTrue(shader->directives().isEmpty());
+    XCTAssertTrue(shader->structs().isEmpty());
+    XCTAssertTrue(shader->globalVars().isEmpty());
+    XCTAssertEqual(shader->functions().size(), 1u);
+
+    {
+        WGSL::AST::FunctionDecl& func = shader->functions()[0];
+
+        // fn test() { ... }
+        XCTAssert(func.name() == "test"_s);
+        XCTAssertEqual(func.parameters().size(), 0u);
+        XCTAssertEqual(func.returnAttributes().size(), 0u);
+        XCTAssertFalse(func.maybeReturnType());
+
+        XCTAssertEqual(func.body().statements().size(), 1u);
+        // return x[42];
+        XCTAssert(func.body().statements()[0]->isReturn());
+        WGSL::AST::ReturnStatement& retStmt = downcast<WGSL::AST::ReturnStatement>(func.body().statements()[0].get());
+        XCTAssert(retStmt.maybeExpression());
+        XCTAssert(retStmt.maybeExpression()->isArrayAccess());
+        WGSL::AST::ArrayAccess& arrayAccess = downcast<WGSL::AST::ArrayAccess>(*retStmt.maybeExpression());
+        XCTAssertTrue(arrayAccess.base()->isIdentifier());
+        WGSL::AST::IdentifierExpression& base = downcast<WGSL::AST::IdentifierExpression>(arrayAccess.base().get());
+        XCTAssert(base.identifier() == "x"_s);
+        XCTAssertTrue(arrayAccess.index()->isInt32Literal());
+        WGSL::AST::Int32Literal& index = downcast<WGSL::AST::Int32Literal>(arrayAccess.index().get());
+        XCTAssertEqual(index.value(), 42);
+    }
+}
+
+- (void) testParsingUnaryExpression {
+    auto shader = WGSL::parseLChar(
+        "fn negate(x: f32) -> f32 {\n"
+        "    return -x;\n"
+        "}"_s);
+
+    if (!shader.has_value())
+        dataLogLn(shader.error());
+    XCTAssert(shader.has_value());
+    XCTAssertEqual(shader->directives().size(), 0ull);
+    XCTAssertEqual(shader->structs().size(), 0ull);
+    XCTAssertEqual(shader->globalVars().size(), 0ull);
+    XCTAssertEqual(shader->functions().size(), 1ull);
+
+    {
+        WGSL::AST::FunctionDecl& func = shader->functions()[0];
+        // @vertex
+        XCTAssertTrue(func.attributes().isEmpty());
+
+        // fn negate(x: f32) -> f32 {
+        XCTAssert(func.name() == "negate"_s);
+        XCTAssertEqual(func.parameters().size(), 1u);
+        XCTAssertEqual(func.returnAttributes().size(), 0u);
+        XCTAssert(func.maybeReturnType());
+        XCTAssert(func.maybeReturnType()->isNamed());
+
+        XCTAssertEqual(func.body().statements().size(), 1u);
+        // return x;
+        XCTAssert(func.body().statements()[0]->isReturn());
+        WGSL::AST::ReturnStatement& retStmt = downcast<WGSL::AST::ReturnStatement>(func.body().statements()[0].get());
+        XCTAssert(retStmt.maybeExpression());
+        XCTAssert(retStmt.maybeExpression()->isUnaryExpression());
+        WGSL::AST::UnaryExpression& retExpr = downcast<WGSL::AST::UnaryExpression>(*retStmt.maybeExpression());
+        XCTAssertEqual(retExpr.operation(), WGSL::AST::UnaryOperation::Negate);
+        XCTAssertTrue(retExpr.expression().isIdentifier());
+        WGSL::AST::IdentifierExpression& negateExpr = downcast<WGSL::AST::IdentifierExpression>(retExpr.expression());
+        XCTAssertEqual(negateExpr.identifier(), "x"_s);
     }
 }
 

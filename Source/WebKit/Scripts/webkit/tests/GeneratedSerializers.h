@@ -25,11 +25,20 @@
 #pragma once
 
 #include <wtf/ArgumentCoder.h>
+#include <wtf/OptionSet.h>
 #include <wtf/Ref.h>
 
+namespace EnumNamespace { enum class EnumType : uint16_t; }
+namespace EnumNamespace2 { enum class OptionSetEnumType : uint8_t; }
+#if ENABLE(TEST_FEATURE)
 namespace Namespace::Subnamespace { struct StructName; }
+#endif
 namespace Namespace { class OtherClass; }
 namespace Namespace { class ReturnRefClass; }
+namespace Namespace { struct EmptyConstructorStruct; }
+namespace Namespace { class EmptyConstructorNullable; }
+class WithoutNamespace;
+class WithoutNamespaceWithAttributes;
 
 namespace IPC {
 
@@ -55,4 +64,33 @@ template<> struct ArgumentCoder<Namespace::ReturnRefClass> {
     static std::optional<Ref<Namespace::ReturnRefClass>> decode(Decoder&);
 };
 
+template<> struct ArgumentCoder<Namespace::EmptyConstructorStruct> {
+    static void encode(Encoder&, const Namespace::EmptyConstructorStruct&);
+    static std::optional<Namespace::EmptyConstructorStruct> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<Namespace::EmptyConstructorNullable> {
+    static void encode(Encoder&, const Namespace::EmptyConstructorNullable&);
+    static std::optional<Namespace::EmptyConstructorNullable> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WithoutNamespace> {
+    static void encode(Encoder&, const WithoutNamespace&);
+    static std::optional<WithoutNamespace> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WithoutNamespaceWithAttributes> {
+    static void encode(Encoder&, const WithoutNamespaceWithAttributes&);
+    static void encode(OtherEncoder&, const WithoutNamespaceWithAttributes&);
+    static std::optional<WithoutNamespaceWithAttributes> decode(Decoder&);
+};
+
 } // namespace IPC
+
+
+namespace WTF {
+
+template<> bool isValidEnum<EnumNamespace::EnumType>(uint16_t);
+template<> bool isValidOptionSet<EnumNamespace2::OptionSetEnumType>(OptionSet<EnumNamespace2::OptionSetEnumType>);
+
+} // namespace WTF
