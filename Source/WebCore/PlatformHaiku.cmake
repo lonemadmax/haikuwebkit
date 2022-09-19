@@ -134,6 +134,7 @@ list(APPEND WebCore_SOURCES
   platform/graphics/OpenGLShims.cpp
 
   platform/network/haiku/NetworkStateNotifierHaiku.cpp
+  platform/network/curl/PublicSuffixCurl.cpp
 
   platform/mock/GeolocationClientMock.cpp
 
@@ -211,6 +212,7 @@ list(APPEND WebCore_LIBRARIES
   ${LIBXML2_LIBRARIES}
   ${LIBXSLT_LIBRARIES}
   ${PNG_LIBRARY}
+  psl unistring idn2
   ${SQLITE_LIBRARIES}
   ${WEBP_LIBRARIES}
   ${ZLIB_LIBRARIES}
