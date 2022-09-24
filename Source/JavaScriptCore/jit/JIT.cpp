@@ -72,8 +72,6 @@ JIT::JIT(VM& vm, CodeBlock* codeBlock, BytecodeIndex loopOSREntryBytecodeIndex)
     : JSInterfaceJIT(&vm, nullptr)
     , m_labels(codeBlock ? codeBlock->instructions().size() : 0)
     , m_pcToCodeOriginMapBuilder(vm)
-    , m_canBeOptimized(false)
-    , m_shouldEmitProfiling(false)
     , m_loopOSREntryBytecodeIndex(loopOSREntryBytecodeIndex)
     , m_profiledCodeBlock(codeBlock)
     , m_unlinkedCodeBlock(codeBlock->unlinkedCodeBlock())
@@ -82,9 +80,7 @@ JIT::JIT(VM& vm, CodeBlock* codeBlock, BytecodeIndex loopOSREntryBytecodeIndex)
     ASSERT_UNUSED(globalObjectConstant, globalObjectConstant == s_globalObjectConstant);
 }
 
-JIT::~JIT()
-{
-}
+JIT::~JIT() = default;
 
 JITConstantPool::Constant JIT::addToConstantPool(JITConstantPool::Type type, void* payload)
 {
@@ -301,7 +297,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_bitxor)
         DEFINE_OP(op_call)
         DEFINE_OP(op_tail_call)
-        DEFINE_OP(op_call_eval)
+        DEFINE_OP(op_call_direct_eval)
         DEFINE_OP(op_call_varargs)
         DEFINE_OP(op_tail_call_varargs)
         DEFINE_OP(op_tail_call_forward_arguments)
@@ -536,7 +532,7 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_add)
         DEFINE_SLOWCASE_OP(op_call)
         DEFINE_SLOWCASE_OP(op_tail_call)
-        DEFINE_SLOWCASE_OP(op_call_eval)
+        DEFINE_SLOWCASE_OP(op_call_direct_eval)
         DEFINE_SLOWCASE_OP(op_call_varargs)
         DEFINE_SLOWCASE_OP(op_tail_call_varargs)
         DEFINE_SLOWCASE_OP(op_tail_call_forward_arguments)

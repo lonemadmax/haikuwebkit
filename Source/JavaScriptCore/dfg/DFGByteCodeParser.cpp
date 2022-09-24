@@ -111,8 +111,6 @@ public:
         , m_codeBlock(graph.m_codeBlock)
         , m_profiledBlock(graph.m_profiledBlock)
         , m_graph(graph)
-        , m_currentBlock(nullptr)
-        , m_currentIndex(0)
         , m_constantUndefined(graph.freeze(jsUndefined()))
         , m_constantNull(graph.freeze(jsNull()))
         , m_constantNaN(graph.freeze(jsNumber(PNaN)))
@@ -120,10 +118,6 @@ public:
         , m_numArguments(m_codeBlock->numParameters())
         , m_numLocals(m_codeBlock->numCalleeLocals())
         , m_numTmps(m_codeBlock->numTmps())
-        , m_parameterSlots(0)
-        , m_numPassedVarArgs(0)
-        , m_inlineStackTop(nullptr)
-        , m_currentInstruction(nullptr)
         , m_hasDebuggerEnabled(graph.hasDebuggerEnabled())
     {
         ASSERT(m_profiledBlock);
@@ -540,7 +534,7 @@ private:
 
         // Always flush arguments, except for 'this'. If 'this' is created by us,
         // then make sure that it's never unboxed.
-        if (argument || m_graph.needsFlushedThis()) {
+        if (argument) {
             if (setMode != ImmediateNakedSet)
                 flushDirect(reg);
         } else if (!argument) {
@@ -855,7 +849,7 @@ private:
     
     Node* addCallWithoutSettingResult(
         NodeType op, OpInfo opInfo, Node* callee, int argCount, int registerOffset,
-        OpInfo prediction)
+        OpInfo prediction, Node* thisValueForEval = nullptr, Node* scopeForEval = nullptr)
     {
         addVarArgChild(callee);
         size_t parameterSlots = Graph::parameterSlotsForArgCount(argCount);
@@ -865,13 +859,17 @@ private:
 
         for (int i = 0; i < argCount; ++i)
             addVarArgChild(get(virtualRegisterForArgumentIncludingThis(i, registerOffset)));
+        if (op == CallDirectEval) {
+            addVarArgChild(Edge(thisValueForEval));
+            addVarArgChild(Edge(scopeForEval, KnownCellUse));
+        }
 
         return addToGraph(Node::VarArg, op, opInfo, prediction);
     }
     
     Node* addCall(
         Operand result, NodeType op, OpInfo opInfo, Node* callee, int argCount, int registerOffset,
-        SpeculatedType prediction)
+        SpeculatedType prediction, Node* thisValueForEval = nullptr, Node* scopeForEval = nullptr)
     {
         if (op == TailCall) {
             if (allInlineFramesAreTailCalls())
@@ -880,8 +878,7 @@ private:
         }
 
 
-        Node* call = addCallWithoutSettingResult(
-            op, opInfo, callee, argCount, registerOffset, OpInfo(prediction));
+        Node* call = addCallWithoutSettingResult(op, opInfo, callee, argCount, registerOffset, OpInfo(prediction), thisValueForEval, scopeForEval);
         if (result.isValid())
             set(result, call);
         return call;
@@ -983,13 +980,19 @@ private:
     ArrayMode getArrayMode(Array::Action action)
     {
         CodeBlock* codeBlock = m_inlineStackTop->m_profiledBlock;
-        ArrayProfile* profile = codeBlock->getArrayProfile(codeBlock->bytecodeIndex(m_currentInstruction));
-        return getArrayMode(*profile, action);
+        ConcurrentJSLocker locker(codeBlock->m_lock);
+        ArrayProfile* profile = codeBlock->getArrayProfile(locker, codeBlock->bytecodeIndex(m_currentInstruction));
+        return getArrayMode(locker, *profile, action);
     }
 
     ArrayMode getArrayMode(ArrayProfile& profile, Array::Action action)
     {
         ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->m_lock);
+        return getArrayMode(locker, profile, action);
+    }
+
+    ArrayMode getArrayMode(const ConcurrentJSLocker& locker, ArrayProfile& profile, Array::Action action)
+    {
         profile.computeUpdatedPrediction(locker, m_inlineStackTop->m_profiledBlock);
         bool makeSafe = profile.outOfBounds(locker);
         return ArrayMode::fromObserved(locker, &profile, action, makeSafe);
@@ -1127,9 +1130,9 @@ private:
     Graph& m_graph;
 
     // The current block being generated.
-    BasicBlock* m_currentBlock;
+    BasicBlock* m_currentBlock { nullptr };
     // The bytecode index of the current instruction being generated.
-    BytecodeIndex m_currentIndex;
+    BytecodeIndex m_currentIndex { 0 };
     // The semantic origin of the current node if different from the current Index.
     CodeOrigin m_currentSemanticOrigin;
     // The exit origin of the current node if different from the current Index.
@@ -1156,9 +1159,9 @@ private:
     // number includes the CallFrame slots that we initialize for the callee
     // (but not the callee-initialized CallerFrame and ReturnPC slots).
     // This number is 0 if and only if this function is a leaf.
-    unsigned m_parameterSlots;
+    unsigned m_parameterSlots { 0 };
     // The number of var args passed to the next var arg node.
-    unsigned m_numPassedVarArgs;
+    unsigned m_numPassedVarArgs { 0 };
 
     struct InlineStackEntry {
         ByteCodeParser* const m_byteCodeParser;
@@ -1231,13 +1234,13 @@ private:
             return operand.virtualRegister() + m_inlineCallFrame->stackOffset;
         }
     };
-    
-    InlineStackEntry* m_inlineStackTop;
-    
+
+    InlineStackEntry* m_inlineStackTop { nullptr };
+
     ICStatusContextStack m_icContextStack;
     
     struct DelayedSetLocal {
-        DelayedSetLocal() { }
+        DelayedSetLocal() = default;
         DelayedSetLocal(const CodeOrigin& origin, Operand operand, Node* value, SetMode setMode)
             : m_origin(origin)
             , m_operand(operand)
@@ -1262,7 +1265,7 @@ private:
 
     Vector<DelayedSetLocal, 2> m_setLocalQueue;
 
-    const JSInstruction* m_currentInstruction;
+    const JSInstruction* m_currentInstruction { nullptr };
     const bool m_hasDebuggerEnabled;
     bool m_hasAnyForceOSRExits { false };
 };
@@ -2071,7 +2074,7 @@ bool ByteCodeParser::handleVarargsInlining(Node* callTargetNode, Operand result,
             // arguments received inside the callee. But that probably won't matter for most
             // calls.
             if (codeBlock && argument < static_cast<unsigned>(codeBlock->numParameters())) {
-                ConcurrentJSLocker locker(codeBlock->m_lock);
+                ConcurrentJSLocker locker(codeBlock->valueProfileLock());
                 ValueProfile& profile = codeBlock->valueProfileForArgument(argument);
                 variable->predict(profile.computeUpdatedPrediction(locker));
             }
@@ -2516,6 +2519,9 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
                 return false;
 
             ArrayMode arrayMode = getArrayMode(Array::Read);
+            if (!arrayMode.isJSArray())
+                return false;
+
             if (!arrayMode.isJSArrayWithOriginalStructure())
                 return false;
 
@@ -2602,32 +2608,21 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
                 return false;
 
             ArrayMode arrayMode = getArrayMode(Array::Read);
+            if (!arrayMode.isJSArray())
+                return false;
+
+            if (!arrayMode.isJSArrayWithOriginalStructure())
+                return false;
+
             // We do not want to convert arrays into one type just to perform indexOf.
             if (arrayMode.doesConversion())
                 return false;
-
-            auto addToGraphAndSetResult = [&] {
-                insertChecks();
-
-                Node* array = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
-                addVarArgChild(array);
-                addVarArgChild(get(virtualRegisterForArgumentIncludingThis(1, registerOffset))); // Search element.
-                if (argumentCountIncludingThis >= 3)
-                    addVarArgChild(get(virtualRegisterForArgumentIncludingThis(2, registerOffset))); // Start index.
-                addVarArgChild(nullptr);
-
-                Node* node = addToGraph(Node::VarArg, ArrayIndexOf, OpInfo(arrayMode.asWord()), OpInfo());
-                setResult(node);
-            };
-
-            JSGlobalObject* globalObject = m_graph.globalObjectFor(currentNodeOrigin().semantic);
 
             switch (arrayMode.type()) {
             case Array::Double:
             case Array::Int32:
             case Array::Contiguous: {
-                if (!arrayMode.isJSArrayWithOriginalStructure())
-                    return false;
+                JSGlobalObject* globalObject = m_graph.globalObjectFor(currentNodeOrigin().semantic);
 
                 Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure();
                 Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
@@ -2641,27 +2636,17 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
                     m_graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
                     m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
 
-                    addToGraphAndSetResult();
-                    return true;
-                }
+                    insertChecks();
 
-                return false;
-            }
+                    Node* array = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
+                    addVarArgChild(array);
+                    addVarArgChild(get(virtualRegisterForArgumentIncludingThis(1, registerOffset))); // Search element.
+                    if (argumentCountIncludingThis >= 3)
+                        addVarArgChild(get(virtualRegisterForArgumentIncludingThis(2, registerOffset))); // Start index.
+                    addVarArgChild(nullptr);
 
-            case Array::AlwaysSlowPutContiguous: {
-                if (arrayMode.arrayClass() != Array::OriginalNonArray)
-                    return false;
-
-                Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
-
-                if (globalObject->alwaysSlowPutContiguousPrototypesAreSaneWatchpointSet().isStillValid()
-                    && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                    && globalObject->objectPrototypeIsSaneConcurrently(objectPrototypeStructure)) {
-
-                    m_graph.watchpoints().addLazily(globalObject->alwaysSlowPutContiguousPrototypesAreSaneWatchpointSet());
-                    m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
-
-                    addToGraphAndSetResult();
+                    Node* node = addToGraph(Node::VarArg, ArrayIndexOf, OpInfo(arrayMode.asWord()), OpInfo());
+                    setResult(node);
                     return true;
                 }
 
@@ -7092,9 +7077,9 @@ void ByteCodeParser::parseBlock(unsigned limit)
             HashSet<unsigned, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> seenArguments;
 
             {
-                ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->m_lock);
+                ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->valueProfileLock());
 
-                buffer->forEach([&] (ValueProfileAndVirtualRegister& profile) {
+                buffer->forEach([&](ValueProfileAndVirtualRegister& profile) {
                     VirtualRegister operand(profile.m_operand);
                     SpeculatedType prediction = profile.computeUpdatedPrediction(locker);
                     if (operand.isLocal())
@@ -7248,11 +7233,11 @@ void ByteCodeParser::parseBlock(unsigned limit)
             NEXT_OPCODE(op_construct_varargs);
         }
 
-        case op_call_eval: {
-            auto bytecode = currentInstruction->as<OpCallEval>();
+        case op_call_direct_eval: {
+            auto bytecode = currentInstruction->as<OpCallDirectEval>();
             int registerOffset = -bytecode.m_argv;
-            addCall(bytecode.m_dst, CallEval, OpInfo(bytecode.m_ecmaMode), get(bytecode.m_callee), bytecode.m_argc, registerOffset, getPrediction());
-            NEXT_OPCODE(op_call_eval);
+            addCall(bytecode.m_dst, CallDirectEval, OpInfo(bytecode.m_ecmaMode), get(bytecode.m_callee), bytecode.m_argc, registerOffset, getPrediction(), get(bytecode.m_thisValue), get(bytecode.m_scope));
+            NEXT_OPCODE(op_call_direct_eval);
         }
 
         case op_iterator_open: {

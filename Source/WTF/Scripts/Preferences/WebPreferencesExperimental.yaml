@@ -132,8 +132,8 @@ AsyncClipboardAPIEnabled:
 AudioDescriptionsEnabled:
   type: bool
   condition: ENABLE(VIDEO)
-  humanReadableName: "Audio descriptions for video"
-  humanReadableDescription: "Enable audio descriptions for video"
+  humanReadableName: "Audio descriptions for video - Standard"
+  humanReadableDescription: "Enable standard audio descriptions for video"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -645,6 +645,19 @@ ExposeSpeakersEnabled:
     WebCore:
       default: false
 
+ExtendedAudioDescriptionsEnabled:
+  type: bool
+  condition: ENABLE(VIDEO)
+  humanReadableName: "Audio descriptions for video - Extended"
+  humanReadableDescription: "Enable extended audio descriptions for video"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 FTPEnabled:
   type: bool
   humanReadableName: "FTP support enabled"
@@ -781,6 +794,19 @@ HighlightAPIEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      default: false
+
+ImageAnimationControlEnabled:
+  type: bool
+  webcoreOnChange: setImageAnimationControlEnabledChanged
+  humanReadableName: "Image Animation Control Enabled"
+  humanReadableDescription: "Control image animations."
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 ImageBitmapEnabled:
@@ -1086,7 +1112,6 @@ ModelElementEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "ENABLE(SEPARATED_MODEL)": true
       default: false
     WebCore:
       default: false
@@ -1323,11 +1348,11 @@ ReportingEnabled:
   humanReadableDescription: "Enable Reporting API"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 RequestIdleCallbackEnabled:
   type: bool

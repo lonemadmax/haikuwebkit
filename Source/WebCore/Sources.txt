@@ -257,6 +257,7 @@ Modules/paymentrequest/PaymentRequest.cpp
 Modules/paymentrequest/PaymentRequestUpdateEvent.cpp
 Modules/paymentrequest/PaymentRequestUtilities.cpp
 Modules/paymentrequest/PaymentResponse.cpp
+Modules/permissions/MainThreadPermissionObserver.cpp
 Modules/permissions/NavigatorPermissions.cpp
 Modules/permissions/PermissionController.cpp
 Modules/permissions/PermissionStatus.cpp
@@ -1640,6 +1641,8 @@ layout/formattingContexts/table/TableFormattingState.cpp
 layout/formattingContexts/table/TableGrid.cpp
 layout/formattingContexts/table/TableLayout.cpp
 loader/ApplicationManifestLoader.cpp
+loader/COEPInheritenceViolationReportBody.cpp
+loader/CORPViolationReportBody.cpp
 loader/CanvasActivityRecord.cpp
 loader/ContentFilter.cpp
 loader/CookieJar.cpp
@@ -3031,6 +3034,8 @@ JSCSSStyleSheet.cpp
 JSCSSSupportsRule.cpp
 JSCSSTransition.cpp
 JSCSSUnknownRule.cpp
+JSCOEPInheritenceViolationReportBody.cpp
+JSCORPViolationReportBody.cpp
 JSCacheQueryOptions.cpp
 JSCanvasCaptureMediaStreamTrack.cpp
 JSCanvasCompositing.cpp
@@ -3211,6 +3216,7 @@ JSFetchReferrerPolicy.cpp
 JSFetchRequest.cpp
 JSFetchRequestCache.cpp
 JSFetchRequestCredentials.cpp
+JSFetchRequestDestination.cpp
 JSFetchRequestInit.cpp
 JSFetchRequestMode.cpp
 JSFetchRequestRedirect.cpp

@@ -170,6 +170,7 @@
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MediaStreamRequest.h>
 #include <WebCore/ModalContainerTypes.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/PerformanceLoggingClient.h>
 #include <WebCore/PermissionState.h>
 #include <WebCore/PlatformEvent.h>
@@ -7090,7 +7091,7 @@ void WebPageProxy::setTextIndicator(const TextIndicatorData& indicatorData, uint
 #if PLATFORM(COCOA)
     pageClient().setTextIndicator(TextIndicator::create(indicatorData), static_cast<WebCore::TextIndicatorLifetime>(lifetime));
 #else
-    ASSERT_NOT_REACHED();
+    notImplemented();
 #endif
 }
 
@@ -7099,7 +7100,7 @@ void WebPageProxy::clearTextIndicator()
 #if PLATFORM(COCOA)
     pageClient().clearTextIndicator(WebCore::TextIndicatorDismissalAnimation::FadeOut);
 #else
-    ASSERT_NOT_REACHED();
+    notImplemented();
 #endif
 }
 
@@ -7108,7 +7109,7 @@ void WebPageProxy::setTextIndicatorAnimationProgress(float progress)
 #if PLATFORM(COCOA)
     pageClient().setTextIndicatorAnimationProgress(progress);
 #else
-    ASSERT_NOT_REACHED();
+    notImplemented();
 #endif
 }
 
@@ -8112,15 +8113,16 @@ void WebPageProxy::resetStateAfterProcessTermination(ProcessTerminationReason re
     pageClient().removeAllPDFHUDs();
 #endif
 
-    // For bringup of process swapping, NavigationSwap termination will not go out to clients.
-    // If it does *during* process swapping, and the client triggers a reload, that causes bizarre WebKit re-entry.
-    // FIXME: This might have to change
-    if (reason != ProcessTerminationReason::NavigationSwap)
+    if (reason != ProcessTerminationReason::NavigationSwap) {
+        // For bringup of process swapping, NavigationSwap termination will not go out to clients.
+        // If it does *during* process swapping, and the client triggers a reload, that causes bizarre WebKit re-entry.
+        // FIXME: This might have to change
         navigationState().clearAllNavigations();
 
-    if (m_controlledByAutomation) {
-        if (auto* automationSession = process().processPool().automationSession())
-            automationSession->terminate();
+        if (m_controlledByAutomation) {
+            if (auto* automationSession = process().processPool().automationSession())
+                automationSession->terminate();
+        }
     }
 }
 
@@ -8886,6 +8888,8 @@ void WebPageProxy::queryPermission(const ClientOrigin& clientOrigin, const Permi
     } else if (descriptor.name == PermissionName::Geolocation) {
 #if ENABLE(GEOLOCATION)
         name = "geolocation"_s;
+        // FIXME: We should set shouldChangeDeniedToPrompt after the first
+        // permission request like we do for notifications.
 #endif
     } else if (descriptor.name == PermissionName::Notifications) {
 #if ENABLE(NOTIFICATIONS)
@@ -9177,6 +9181,13 @@ void WebPageProxy::drawFooterForPrinting(WebFrameProxy& frame, FloatRect&& rect)
     if (frame.isDisplayingPDFDocument())
         return;
     m_uiClient->drawFooter(*this, frame, WTFMove(rect));
+}
+
+void WebPageProxy::drawPageBorderForPrinting(WebFrameProxy& frame, WebCore::FloatSize&& size)
+{
+    if (frame.isDisplayingPDFDocument())
+        return;
+    pageClient().drawPageBorderForPrinting(WTFMove(size));
 }
 
 void WebPageProxy::runModal()
@@ -10971,14 +10982,13 @@ void WebPageProxy::resetSpeechSynthesizer()
     synthesisData.speakingStartedCompletionHandler = nullptr;
     synthesisData.speakingPausedCompletionHandler = nullptr;
     synthesisData.speakingResumedCompletionHandler = nullptr;
-    if (synthesisData.synthesizer)
-        synthesisData.synthesizer->resetState();
+    synthesisData.synthesizer->resetState();
 }
 
 WebPageProxy::SpeechSynthesisData& WebPageProxy::speechSynthesisData()
 {
     if (!m_speechSynthesisData)
-        m_speechSynthesisData = SpeechSynthesisData { makeUnique<PlatformSpeechSynthesizer>(this), nullptr, nullptr, nullptr, nullptr, nullptr };
+        m_speechSynthesisData = SpeechSynthesisData { PlatformSpeechSynthesizer::create(*this), nullptr, nullptr, nullptr, nullptr, nullptr };
     return *m_speechSynthesisData;
 }
 

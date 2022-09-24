@@ -260,8 +260,8 @@ ScratchRegisterAllocator AccessGenerationState::makeDefaultScratchAllocator(GPRR
     return allocator;
 }
 
-PolymorphicAccess::PolymorphicAccess() { }
-PolymorphicAccess::~PolymorphicAccess() { }
+PolymorphicAccess::PolymorphicAccess() = default;
+PolymorphicAccess::~PolymorphicAccess() = default;
 
 AccessGenerationResult PolymorphicAccess::addCases(
     const GCSafeConcurrentJSLocker& locker, VM& vm, CodeBlock* codeBlock, StructureStubInfo& stubInfo,
@@ -986,9 +986,6 @@ void printInternal(PrintStream& out, AccessCase::AccessType type)
         return;
     case AccessCase::IndexedContiguousLoad:
         out.print("IndexedContiguousLoad");
-        return;
-    case AccessCase::IndexedAlwaysSlowPutContiguousLoad:
-        out.print("IndexedAlwaysSlowPutContiguousLoad");
         return;
     case AccessCase::IndexedArrayStorageLoad:
         out.print("IndexedArrayStorageLoad");

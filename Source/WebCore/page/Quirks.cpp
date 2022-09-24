@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -237,11 +237,13 @@ bool Quirks::shouldDisableResolutionMediaQuery() const
     if (equalLettersIgnoringASCIICase(host, "www.cheaptickets.com"_s))
         return true;
 
+#if ENABLE(PUBLIC_SUFFIX_LIST)
     if (topPrivatelyControlledDomain(host.toString()).startsWith("ebookers."_s))
         return true;
 
     if (topPrivatelyControlledDomain(host.toString()).startsWith("expedia."_s))
         return true;
+#endif
 
     if (host.endsWithIgnoringASCIICase(".hoteis.com"_s))
         return true;
@@ -1518,19 +1520,6 @@ bool Quirks::allowLayeredFullscreenVideos() const
 }
 #endif
 
-bool Quirks::hasBrokenPermissionsAPISupportQuirk() const
-{
-    if (!needsQuirks())
-        return false;
-
-    if (!m_hasBrokenPermissionsAPISupportQuirk) {
-        auto domain = m_document->securityOrigin().domain().convertToASCIILowercase();
-        m_hasBrokenPermissionsAPISupportQuirk = domain.endsWith(".nfl.com"_s);
-    }
-
-    return m_hasBrokenPermissionsAPISupportQuirk.value();
-}
-
 bool Quirks::shouldEnableApplicationCacheQuirk() const
 {
     bool shouldEnableBySetting = m_document && m_document->settings().offlineWebApplicationCacheEnabled();
@@ -1550,6 +1539,17 @@ bool Quirks::shouldEnableApplicationCacheQuirk() const
 #else
     return shouldEnableBySetting;
 #endif
+}
+
+bool Quirks::shouldEnableFontLoadingAPIQuirk() const
+{
+    if (!needsQuirks() || m_document->settings().downloadableBinaryFontsEnabled())
+        return false;
+
+    if (!m_shouldEnableFontLoadingAPIQuirk)
+        m_shouldEnableFontLoadingAPIQuirk = equalLettersIgnoringASCIICase(m_document->url().host(), "play.hbomax.com"_s);
+
+    return m_shouldEnableFontLoadingAPIQuirk.value();
 }
 
 }

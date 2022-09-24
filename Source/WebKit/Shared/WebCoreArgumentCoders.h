@@ -162,17 +162,12 @@ struct ExceptionDetails;
 struct FontAttributes;
 struct FileChooserSettings;
 struct TextRecognitionDataDetector;
-struct RawFile;
-struct ShareData;
-struct ShareDataWithParsedURL;
 struct Length;
 struct GrammarDetail;
 struct MimeClassInfo;
 struct PasteboardImage;
-struct PluginInfo;
 struct PromisedAttachmentInfo;
 struct RecentSearch;
-struct ResourceLoadStatistics;
 struct ScrollableAreaParameters;
 struct TextCheckingResult;
 struct TextIndicatorData;
@@ -288,11 +283,6 @@ template<> struct ArgumentCoder<WebCore::ViewportArguments> {
 
 #endif
 
-template<> struct ArgumentCoder<WebCore::ViewportAttributes> {
-    static void encode(Encoder&, const WebCore::ViewportAttributes&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ViewportAttributes&);
-};
-
 template<> struct ArgumentCoder<WebCore::Length> {
     static void encode(Encoder&, const WebCore::Length&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::Length&);
@@ -306,11 +296,6 @@ template<> struct ArgumentCoder<WebCore::VelocityData> {
 template<> struct ArgumentCoder<WebCore::MimeClassInfo> {
     static void encode(Encoder&, const WebCore::MimeClassInfo&);
     static std::optional<WebCore::MimeClassInfo> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<WebCore::PluginInfo> {
-    static void encode(Encoder&, const WebCore::PluginInfo&);
-    static std::optional<WebCore::PluginInfo> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<WebCore::AuthenticationChallenge> {
@@ -452,21 +437,6 @@ template<> struct ArgumentCoder<WebCore::FileChooserSettings> {
     static void encode(Encoder&, const WebCore::FileChooserSettings&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::FileChooserSettings&);
 };
-    
-template<> struct ArgumentCoder<WebCore::RawFile> {
-    static void encode(Encoder&, const WebCore::RawFile&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::RawFile&);
-};
-
-template<> struct ArgumentCoder<WebCore::ShareData> {
-    static void encode(Encoder&, const WebCore::ShareData&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ShareData&);
-};
-    
-template<> struct ArgumentCoder<WebCore::ShareDataWithParsedURL> {
-    static void encode(Encoder&, const WebCore::ShareDataWithParsedURL&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ShareDataWithParsedURL&);
-};
 
 template<> struct ArgumentCoder<WebCore::GrammarDetail> {
     static void encode(Encoder&, const WebCore::GrammarDetail&);
@@ -566,11 +536,6 @@ template<> struct ArgumentCoder<WebCore::RecentSearch> {
 template<> struct ArgumentCoder<WebCore::ExceptionDetails> {
     static void encode(Encoder&, const WebCore::ExceptionDetails&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ExceptionDetails&);
-};
-
-template<> struct ArgumentCoder<WebCore::ResourceLoadStatistics> {
-    static void encode(Encoder&, const WebCore::ResourceLoadStatistics&);
-    static std::optional<WebCore::ResourceLoadStatistics> decode(Decoder&);
 };
 
 #if ENABLE(APPLE_PAY)
@@ -726,15 +691,6 @@ template<> struct ArgumentCoder<WebCore::CDMInstanceSession::Message> {
 template<> struct ArgumentCoder<WebCore::PaymentInstallmentConfiguration> {
     static void encode(Encoder&, const WebCore::PaymentInstallmentConfiguration&);
     static std::optional<WebCore::PaymentInstallmentConfiguration> decode(Decoder&);
-};
-#endif
-
-#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
-
-template<> struct ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo> {
-    template<typename Encoder>
-    static void encode(Encoder&, const WebCore::GraphicsContextGL::ActiveInfo&);
-    static std::optional<WebCore::GraphicsContextGL::ActiveInfo> decode(Decoder&);
 };
 #endif
 

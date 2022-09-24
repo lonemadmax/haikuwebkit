@@ -189,6 +189,7 @@ imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtas
 imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/integration-with-the-javascript-agent-formalism/requires-success.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/unhandled-promise-rejections/promise-rejection-events.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/notifications/idlharness.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/claim-shared-worker-fetch.https.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/acquire.tentative.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/held.tentative.https.any.sharedworker.html [ Skip ]
@@ -315,6 +316,11 @@ imported/w3c/web-platform-tests/html/semantics/forms/the-datalist-element [ Wont
 # Default ARIA for custom elements are not yet enabled
 accessibility/custom-elements/role.html [ Skip ]
 
+# Missing necessary testing logic (AccessibilityController::{get,set}RetainedElement)
+accessibility/ax-object-destroyed-on-reload.html [ Skip ]
+
+accessibility/display-contents-dynamically-added-children.html [ Skip ]
+
 # DOM paste access requests are not implemented in WebKit1.
 editing/async-clipboard/clipboard-change-data-while-reading.html [ Skip ]
 editing/async-clipboard/clipboard-do-not-read-text-from-platform-if-text-changes.html [ Skip ]
@@ -417,6 +423,8 @@ imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-below-viewport-dynamic.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-base-url-2.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-base-url.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-data-url-to-https.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-empty-src.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-in-cross-origin-iframe-001.sub.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-in-cross-origin-iframe-002.sub.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-multiple-times.html [ Skip ]
@@ -615,7 +623,7 @@ imported/w3c/web-platform-tests/fetch/metadata/serviceworker-accessors.https.sub
 imported/w3c/web-platform-tests/fetch/metadata/serviceworker.https.sub.html
 imported/w3c/web-platform-tests/fetch/metadata/sharedworker.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/range/sw.https.window.html [ Skip ]
-imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
+imported/w3c/web-platform-tests/server-timing/service_worker_idl.https.html [ Skip ]
 imported/w3c/web-platform-tests/push-api [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
 imported/w3c/web-platform-tests/html/anonymous-iframe/cache-storage.tentative.https.window.html [ Skip ]
@@ -803,6 +811,8 @@ compositing/iframes/overlapped-nested-iframes.html [ Pass Failure ]
 compositing/clipping/border-radius-async-overflow-non-stacking.html [ ImageOnlyFailure ]
 compositing/visibility/visibility-change-in-subframe.html [ Failure ]
 
+webkit.org/b/245250 compositing/tiling/sticky-change-to-tiled.html [ ImageOnlyFailure ]
+
 # Disk cache is WK2 only
 http/tests/cache/disk-cache
 http/tests/inspector/network/resource-response-source-disk-cache.html
@@ -904,7 +914,6 @@ imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/hist
 # Newly imported WPT tests that are flaky only on WK1.
 imported/w3c/web-platform-tests/html/browsers/history/the-location-interface/assign_after_load.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/browsers/history/the-location-interface/assign_before_load.html [ Pass Failure ]
-imported/w3c/web-platform-tests/html/browsers/the-window-object/apis-for-creating-and-navigating-browsing-contexts-by-name/open-features-non-integer-top.html [ Pass Failure ]
 
 # Console logs are flaky.
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/integrity.html [ DumpJSConsoleLogInStdErr ]
@@ -1211,7 +1220,7 @@ webkit.org/b/189756 compositing/filters/opacity-change-on-filtered-paints-into-a
 
 webkit.org/b/189723 http/tests/security/cross-origin-xsl-redirect-BLOCKED.html [ Pass Failure ]
 
-webkit.org/b/190832 [ Debug ] fast/forms/state-restore-to-non-edited-controls.html [ Pass Failure ]
+webkit.org/b/190832 fast/forms/state-restore-to-non-edited-controls.html [ Pass Failure ]
 
 webkit.org/b/190849 http/tests/security/XFrameOptions/x-frame-options-multiple-headers-sameorigin-deny.html [ Pass Failure ]
 
@@ -1356,6 +1365,8 @@ webkit.org/b/209560 imported/w3c/web-platform-tests/xhr/send-response-upload-eve
 webkit.org/b/209882 [ Debug ] inspector/page/overrideSetting-ICECandidateFilteringEnabled.html [ Pass Timeout ]
 
 webkit.org/b/209921 [ Debug ] inspector/css/add-css-property.html [ Pass Timeout ]
+
+webkit.org/b/245038 inspector/css/nodeLayoutFlagsChanged-Scrollable.html [ Pass Failure ]
 
 webkit.org/b/210079 [ Debug ] inspector/debugger/evaluateOnCallFrame-errors.html [ Pass Failure ]
 
@@ -1533,6 +1544,8 @@ fast/layoutformattingcontext/wbr-simple.html [ ImageOnlyFailure ]
 webkit.org/b/219498 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-padding-003.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/244538 [ Debug ] imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-margin-003.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/245034 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-align-003.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/221009 fast/harness/render-tree-as-text-options.html [ Pass Failure ]
 
@@ -1755,8 +1768,8 @@ imported/w3c/web-platform-tests/speech-api/SpeechSynthesis-pause-resume.tentativ
 fast/scrolling/rtl-scrollbars-alternate-iframe-body-dir-attr-does-not-update-scrollbar-placement.html [ ImageOnlyFailure ]
 
 # webkit.org/b/235733 Skip 2 editing/execCommand tests for making subsequent tests fail on wk1 Apple Silicon macs.  
-[ BigSur+ arm64 ] editing/execCommand/insert-newline-in-quoted-content-crash.html [ Skip ]
-[ BigSur+ arm64 ] editing/execCommand/paste-as-quotation-disconnected-paragraph-ancestor-crash.html [ Skip ]
+[ BigSur+ release ] editing/execCommand/insert-newline-in-quoted-content-crash.html [ Skip ]
+[ BigSur+ release ] editing/execCommand/paste-as-quotation-disconnected-paragraph-ancestor-crash.html [ Skip ]
 
 # Push subscription tests don't work without service worker support.
 http/tests/push-api [ Skip ]
@@ -2060,13 +2073,15 @@ webkit.org/b/244312 http/tests/media/fairplay/fps-hls.html [ Pass Failure ]
 
 webkit.org/b/244601 http/tests/media/fairplay/fps-mse-unmuxed-key-renewal.html [ Failure ]
 
+webkit.org/b/245036 http/tests/media/fairplay/fps-hls-key-rotation.html [ Failure ]
+
+webkit.org/b/245037 [ Monterey ] http/tests/media/fairplay/fps-hls-update-reject.html [ Pass Failure ]
+
 webkit.org/b/244336 fast/canvas/canvas-createPattern-video-loading.html [ Pass Timeout ]
 
 webkit.org/b/244347 storage/domstorage/sessionstorage/window-open-remove-item.html [ Pass Failure ]
 
 webkit.org/b/244372 imported/w3c/web-platform-tests/intersection-observer/target-in-different-window.html [ Pass Failure ]
-
-webkit.org/b/244395 [ Release X86_64 ] editing/execCommand/paste-as-quotation-disconnected-paragraph-ancestor-crash.html [ Skip ]
 
 webkit.org/b/244404 js/dom/modules/missing-exception-check-for-import.html [ Crash ]
 
@@ -2086,9 +2101,24 @@ webkit.org/b/244677 media/media-source/media-source-istypesupported-vp8-without-
 
 webkit.org/b/244714 [ Debug ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/read-media/pageload-video.html [ Skip ]
 
+# www.localhost domain is not supported and "Blocked access to external URL" message causes flakiness.
+imported/w3c/web-platform-tests/html/browsers/windows/clear-window-name.https.html [ Failure Pass ]
+
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/redirect-to-unparseable-url.html [ Failure Pass ]
+
+# These tests have been flaky on WK1 since their import.
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-nosrc.html [ Failure Pass ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-src-204-fragment.html [ Failure Pass ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-src-204.html [ Failure Pass ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-src-aboutblank-navigate-immediately.html [ Failure Pass ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-src-aboutblank-wait-for-load.html [ Failure Pass ]
+
 webkit.org/b/245008 fast/attachment/mac/attachment-numbers.html [ Skip ]
 webkit.org/b/245008 fast/attachment/mac/attachment-pages.html [ Skip ]
 webkit.org/b/245008 fast/attachment/mac/attachment-keynote.html [ Skip ]
 
 webkit.org/b/245014 imported/w3c/web-platform-tests/cookies/value/value-ctl.html [ Pass Failure ]
 
+webkit.org/b/245035 imported/w3c/web-platform-tests/fetch/metadata/script.https.sub.html [ Pass Failure ]
+
+webkit.org/b/245102 imported/w3c/web-platform-tests/html/browsers/windows/auxiliary-browsing-contexts/opener-noreferrer.html [ Pass Failure ]

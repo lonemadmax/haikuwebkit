@@ -491,7 +491,8 @@ LineBuilder::CommittedContent LineBuilder::placeInlineContent(const InlineItemRa
         // Now check if we can put this content on the current line.
         if (auto* floatItem = lineCandidate.floatItem) {
             ASSERT(lineCandidate.inlineContent.isEmpty());
-            if (!tryPlacingFloatBox(*floatItem, LineBoxConstraintApplies::Yes))
+            auto evenOverflowingFloatShouldBePlaced = m_line.runs().isEmpty();
+            if (!tryPlacingFloatBox(*floatItem, evenOverflowingFloatShouldBePlaced ? LineBoxConstraintApplies::No : LineBoxConstraintApplies::Yes))
                 m_overflowingFloats.append(floatItem);
             ++committedItemCount;
         } else {
@@ -947,10 +948,10 @@ bool LineBuilder::tryPlacingFloatBox(const InlineItem& floatItem, LineBoxConstra
         return true;
     }
 
-    // Shrink the line box with the intrusive float box' margin box.
+    // Shrink the line box with the intrusive float box's margin box.
     m_contentIsConstrainedByFloat = true;
     auto floatBoxWidth = inlineItemWidth(floatItem, { });
-    if (floatBox.isLeftFloatingPositioned())
+    if (floatingContext.isLeftFloatingPositioned(floatBox))
         m_lineLogicalRect.setLeft(m_lineLogicalRect.left() + floatBoxWidth);
     m_lineLogicalRect.expandHorizontally(-floatBoxWidth);
     return true;

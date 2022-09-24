@@ -750,7 +750,7 @@ public:
         return m_transitionWatchpointSet;
     }
     
-    JS_EXPORT_PRIVATE WatchpointSet* ensurePropertyReplacementWatchpointSet(VM&, PropertyOffset);
+    WatchpointSet* ensurePropertyReplacementWatchpointSet(VM&, PropertyOffset);
     void startWatchingPropertyForReplacements(VM& vm, PropertyOffset offset)
     {
         ensurePropertyReplacementWatchpointSet(vm, offset);
@@ -960,16 +960,16 @@ private:
     TypeInfoBlob m_blob;
     TypeInfo::OutOfLineTypeFlags m_outOfLineTypeFlags;
 
-    uint8_t m_inlineCapacity;
+    uint8_t m_inlineCapacity { 0 };
 
     ConcurrentJSLock m_lock;
 
-    uint32_t m_bitField;
+    uint32_t m_bitField { 0 };
 
     uint16_t m_transitionOffset;
     uint16_t m_maxOffset;
 
-    uint32_t m_propertyHash;
+    uint32_t m_propertyHash { 0 };
     TinyBloomFilter<CompactPtr<UniquedStringImpl>::StorageType> m_seenProperties;
 
 

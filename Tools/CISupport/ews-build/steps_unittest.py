@@ -45,7 +45,7 @@ import send_email
 from steps import (AddReviewerToCommitMessage, AnalyzeAPITestsResults, AnalyzeCompileWebKitResults,
                    AnalyzeJSCTestsResults, AnalyzeLayoutTestsResults, ApplyPatch, ApplyWatchList, ArchiveBuiltProduct, ArchiveTestResults, BugzillaMixin,
                    Canonicalize, CheckOutPullRequest, CheckOutSource, CheckOutSpecificRevision, CheckChangeRelevance, CheckStatusOnEWSQueues, CheckStyle,
-                   CleanBuild, CleanUpGitIndexLock, CleanGitRepo, CleanWorkingDirectory, ClosePullRequest, CompileJSC, CommitPatch, CompileJSCWithoutChange,
+                   CleanBuild, CleanUpGitIndexLock, CleanGitRepo, CleanWorkingDirectory, CompileJSC, CommitPatch, CompileJSCWithoutChange,
                    CompileWebKit, CompileWebKitWithoutChange, ConfigureBuild, ConfigureBuild, Contributors,
                    DetermineLandedIdentifier, DownloadBuiltProduct, DownloadBuiltProductFromMaster, EWS_BUILD_HOSTNAME, ExtractBuiltProduct, ExtractTestResults,
                    FetchBranches, FindModifiedLayoutTests, GitHub,
@@ -3532,6 +3532,34 @@ class TestRevertPullRequestChanges(BuildStepMixinAdditions, unittest.TestCase):
         self.expectOutcome(result=SKIPPED, state_string='Reverted pull request changes (skipped)')
         return self.runStep()
 
+    def test_glib_cleanup(self):
+        self.setupStep(RevertPullRequestChanges())
+        self.setProperty('got_revision', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
+        self.setProperty('github.number', 1234)
+        self.setProperty('platform', 'gtk')
+        self.setProperty('configuration', 'release')
+        self.expectHidden(False)
+        self.expectRemoteCommands(
+            ExpectShell(
+                workdir='wkdir',
+                logEnviron=False,
+                timeout=5 * 60,
+                command=['git', 'clean', '-f', '-d'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                logEnviron=False,
+                timeout=5 * 60,
+                command=['git', 'checkout', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                logEnviron=False,
+                timeout=5 * 60,
+                command=['rm', '-f', 'WebKitBuild/GTK/Release/build-webkit-options.txt'],
+            ) + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Reverted pull request changes')
+        return self.runStep()
+
 
 class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
@@ -6622,34 +6650,6 @@ Date:   Tue Mar 29 16:04:35 2022 -0700
             self.assertEqual(self.getProperty('bug_id'), '238553')
             self.assertEqual(self.getProperty('is_test_gardening'), False)
             return rc
-
-
-class TestClosePullRequest(BuildStepMixinAdditions, unittest.TestCase):
-    def setUp(self):
-        self.longMessage = True
-        return self.setUpBuildStep()
-
-    def tearDown(self):
-        return self.tearDownBuildStep()
-
-    def test_success(self):
-        ClosePullRequest.close_pr = lambda x, pr_number, repository_url=None: True
-        self.setupStep(ClosePullRequest())
-        self.setProperty('github.number', '1234')
-        self.expectOutcome(result=SUCCESS, state_string='Closed PR 1234')
-        return self.runStep()
-
-    def test_failure(self):
-        ClosePullRequest.close_pr = lambda x, pr_number, repository_url=None: False
-        self.setupStep(ClosePullRequest())
-        self.setProperty('github.number', '1234')
-        self.expectOutcome(result=FAILURE, state_string='Failed to close PR 1234')
-        return self.runStep()
-
-    def test_skip(self):
-        self.setupStep(ClosePullRequest())
-        self.expectOutcome(result=SKIPPED, state_string='finished (skipped)')
-        return self.runStep()
 
 
 if __name__ == '__main__':

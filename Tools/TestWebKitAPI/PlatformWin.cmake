@@ -13,7 +13,6 @@ set(test_main_SOURCES
 # TestWTF
 list(APPEND TestWTF_SOURCES
     ${test_main_SOURCES}
-    win/UtilitiesWin.cpp
 )
 
 WEBKIT_WRAP_EXECUTABLE(TestWTF
@@ -119,7 +118,6 @@ endif ()
 if (ENABLE_WEBKIT)
     target_sources(TestWebKitAPIInjectedBundle PRIVATE
         win/PlatformUtilitiesWin.cpp
-        win/UtilitiesWin.cpp
     )
 
     list(APPEND TestWebKit_SOURCES
@@ -129,7 +127,6 @@ if (ENABLE_WEBKIT)
 
         win/PlatformUtilitiesWin.cpp
         win/PlatformWebViewWin.cpp
-        win/UtilitiesWin.cpp
     )
 
     if (${WTF_PLATFORM_WIN_CAIRO})

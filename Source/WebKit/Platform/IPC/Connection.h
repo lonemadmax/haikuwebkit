@@ -47,10 +47,19 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/text/CString.h>
 
-#if OS(DARWIN) && !USE(UNIX_DOMAIN_SOCKETS)
+#if USE(UNIX_DOMAIN_SOCKETS)
+#include <wtf/unix/UnixFileDescriptor.h>
+#endif
+
+#if OS(DARWIN)
 #include <mach/mach_port.h>
+#include <wtf/MachSendRight.h>
 #include <wtf/OSObjectPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
+#endif
+
+#if OS(WINDOWS)
+#include <wtf/win/Win32Handle.h>
 #endif
 
 #if USE(GLIB)
@@ -132,9 +141,21 @@ public:
     };
 #endif
 
+#if USE(UNIX_DOMAIN_SOCKETS)
+    using Handle = UnixFileDescriptor;
+#elif OS(WINDOWS)
+    using Handle = Win32Handle;
+#elif OS(DARWIN)
+    using Handle = MachSendRight;
+#endif
+
     struct Identifier {
         Identifier() = default;
 #if USE(UNIX_DOMAIN_SOCKETS)
+        explicit Identifier(Handle&& handle)
+            : Identifier(handle.release())
+        {
+        }
         explicit Identifier(int handle)
             : handle(handle)
         {
@@ -142,6 +163,10 @@ public:
         operator bool() const { return handle != -1; }
         int handle { -1 };
 #elif OS(WINDOWS)
+        explicit Identifier(Handle&& handle)
+            : Identifier(handle.release())
+        {
+        }
         explicit Identifier(HANDLE handle)
             : handle(handle)
         {
@@ -149,6 +174,10 @@ public:
         operator bool() const { return !!handle; }
         HANDLE handle { 0 };
 #elif OS(DARWIN)
+        explicit Identifier(Handle&& handle)
+            : Identifier(handle.leakSendRight())
+        {
+        }
         explicit Identifier(mach_port_t port)
             : port(port)
         {
@@ -184,18 +213,18 @@ public:
     static bool createServerAndClientIdentifiers(HANDLE& serverIdentifier, HANDLE& clientIdentifier);
 #endif
 
-    static Ref<Connection> createServerConnection(Identifier, Client&);
-    static Ref<Connection> createClientConnection(Identifier, Client&);
+    static Ref<Connection> createServerConnection(Identifier);
+    static Ref<Connection> createClientConnection(Identifier);
 
     struct ConnectionIdentifierPair {
         IPC::Connection::Identifier server;
-        IPC::Attachment client;
+        IPC::Connection::Handle client;
     };
     static std::optional<ConnectionIdentifierPair> createConnectionIdentifierPair();
 
     ~Connection();
 
-    Client& client() const { return m_client; }
+    Client* client() const { return m_client; }
 
     enum UniqueIDType { };
     using UniqueID = ObjectIdentifier<UniqueIDType>;
@@ -235,7 +264,7 @@ public:
     void addMessageReceiver(FunctionDispatcher&, MessageReceiver&, ReceiverName, uint64_t destinationID = 0);
     void removeMessageReceiver(ReceiverName, uint64_t destinationID = 0);
 
-    bool open();
+    bool open(Client&);
     void invalidate();
     void markCurrentlyDispatchedMessageAsInvalid();
 
@@ -322,7 +351,7 @@ public:
     // Can be called from any thread.
     void dispatchDidReceiveInvalidMessage(MessageName);
 private:
-    Connection(Identifier, bool isServer, Client&);
+    Connection(Identifier, bool isServer);
     void platformInitialize(Identifier);
     void platformInvalidate();
 
@@ -387,18 +416,17 @@ private:
     };
 
     static Lock s_connectionMapLock;
-    Client& m_client;
+    Client* m_client { nullptr };
     UniqueID m_uniqueID;
     bool m_isServer;
-    bool m_didInvalidationOnMainThread { false }; // Main thread only.
     std::atomic<bool> m_isValid { true };
 
     bool m_onlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage { false };
     bool m_shouldExitOnSyncMessageSendFailure { false };
     DidCloseOnConnectionWorkQueueCallback m_didCloseOnConnectionWorkQueueCallback { nullptr };
 
-    bool m_isConnected { false };
     Ref<WorkQueue> m_connectionQueue;
+    bool m_isConnected { false };
 
     unsigned m_inSendSyncCount { 0 };
     unsigned m_inDispatchMessageCount { 0 };
@@ -616,9 +644,10 @@ template<typename T> bool Connection::waitForAndDispatchImmediately(uint64_t des
     std::unique_ptr<Decoder> decoder = waitForMessage(T::name(), destinationID, timeout, waitForOptions);
     if (!decoder)
         return false;
-
+    if (!isValid())
+        return false;
     ASSERT(decoder->destinationID() == destinationID);
-    m_client.didReceiveMessage(*this, *decoder);
+    m_client->didReceiveMessage(*this, *decoder);
     return true;
 }
 

@@ -46,7 +46,7 @@ public:
         Auxiliary
     };
     
-    HeapCell() { }
+    HeapCell() = default;
     
     // We're intentionally only zapping the bits for the structureID and leaving
     // the rest of the cell header bits intact for crash analysis uses.
@@ -60,7 +60,7 @@ public:
     }
     bool isZapped() const { return !*bitwise_cast<const uint32_t*>(this); }
 
-    JS_EXPORT_PRIVATE bool isLive();
+    bool isLive();
 
     bool isPreciseAllocation() const;
     CellContainer cellContainer() const;

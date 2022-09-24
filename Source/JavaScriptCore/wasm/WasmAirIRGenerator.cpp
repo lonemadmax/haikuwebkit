@@ -86,8 +86,7 @@ struct ConstrainedTmp {
 class TypedTmp {
 public:
     constexpr TypedTmp()
-        : m_tmp()
-        , m_type(Types::Void)
+        : m_type(Types::Void)
     {
     }
 
@@ -146,7 +145,6 @@ public:
         ControlData(B3::Origin, BlockSignature result, ResultList resultTmps, BlockType type, BasicBlock* continuation, unsigned tryStart, unsigned tryDepth)
             : controlBlockType(type)
             , continuation(continuation)
-            , special(nullptr)
             , results(resultTmps)
             , returnType(result)
             , m_tryStart(tryStart)
@@ -154,9 +152,7 @@ public:
         {
         }
 
-        ControlData()
-        {
-        }
+        ControlData() = default;
 
         static bool isIf(const ControlData& control) { return control.blockType() == BlockType::If; }
         static bool isTry(const ControlData& control) { return control.blockType() == BlockType::Try; }
@@ -285,7 +281,7 @@ public:
         friend class AirIRGenerator;
         BlockType controlBlockType;
         BasicBlock* continuation;
-        BasicBlock* special;
+        BasicBlock* special { nullptr };
         ResultList results;
         BlockSignature returnType;
         unsigned m_tryStart;
@@ -1330,7 +1326,7 @@ auto AirIRGenerator::addRefFunc(uint32_t index, ExpressionType& result) -> Parti
     // FIXME: Emit this inline <https://bugs.webkit.org/show_bug.cgi?id=198506>.
     if (Options::useWebAssemblyTypedFunctionReferences()) {
         TypeIndex typeIndex = m_info.typeIndexFromFunctionIndexSpace(index);
-        result = tmpForType(Type { TypeKind::Ref, Nullable::No, typeIndex });
+        result = tmpForType(Type { TypeKind::Ref, typeIndex });
     } else
         result = tmpForType(Types::Funcref);
     emitCCall(&operationWasmRefFunc, result, instanceValue(), addConstant(Types::I32, index));
@@ -3018,7 +3014,7 @@ auto AirIRGenerator::truncSaturated(Ext1OpType op, ExpressionType arg, Expressio
 auto AirIRGenerator::addI31New(ExpressionType value, ExpressionType& result) -> PartialResult
 {
     auto tmp1 = g32();
-    result = gRef(Type { TypeKind::Ref, Nullable::No, static_cast<TypeIndex>(TypeKind::I31ref) });
+    result = gRef(Type { TypeKind::Ref, static_cast<TypeIndex>(TypeKind::I31ref) });
 
     append(Move, Arg::bigImm(0x7fffffff), tmp1);
     append(And32, tmp1, value, tmp1);

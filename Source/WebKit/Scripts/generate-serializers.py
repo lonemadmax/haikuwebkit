@@ -69,6 +69,11 @@ class SerializedEnum(object):
             return 'isValidOptionSet'
         return 'isValidEnum'
 
+    def additional_template_parameter(self):
+        if self.is_option_set():
+            return ''
+        return ', void'
+
     def parameter(self):
         if self.is_option_set():
             return 'OptionSet<' + self.namespace_and_name() + '>'
@@ -176,7 +181,7 @@ def generate_header(serialized_types, serialized_enums):
     result.append('namespace WTF {')
     result.append('')
     for enum in serialized_enums:
-        result.append('template<> bool ' + enum.function_name() + '<' + enum.namespace_and_name() + '>(' + enum.parameter() + ');')
+        result.append('template<> bool ' + enum.function_name() + '<' + enum.namespace_and_name() + enum.additional_template_parameter() + '>(' + enum.parameter() + ');')
     result.append('')
     result.append('} // namespace WTF')
     result.append('')
@@ -271,7 +276,11 @@ def generate_cpp(serialized_types, serialized_enums, headers):
         if type.populate_from_empty_constructor:
             result.append('    ' + type.namespace_and_name() + ' result;')
             for member in type.members:
+                if member.condition is not None:
+                    result.append('#if ' + member.condition)
                 result.append('    result.' + member.name + ' = WTFMove(*' + member.name + ');')
+                if member.condition is not None:
+                    result.append('#endif')
             result.append('    return { WTFMove(result) };')
         else:
             if type.return_ref:
@@ -298,7 +307,7 @@ def generate_cpp(serialized_types, serialized_enums, headers):
     result.append('namespace WTF {')
     for enum in serialized_enums:
         result.append('')
-        result.append('template<> bool ' + enum.function_name() + '<' + enum.namespace_and_name() + '>(' + enum.parameter() + ' value)')
+        result.append('template<> bool ' + enum.function_name() + '<' + enum.namespace_and_name() + enum.additional_template_parameter() + '>(' + enum.parameter() + ' value)')
         result.append('{')
         if enum.is_option_set():
             result.append('    constexpr ' + enum.underlying_type + ' allValidBitsValue =')
@@ -306,7 +315,7 @@ def generate_cpp(serialized_types, serialized_enums, headers):
                 result.append('        ' + ('' if i == 0 else '| ') + 'static_cast<' + enum.underlying_type + '>(' + enum.namespace_and_name() + '::' + enum.valid_values[i] + ')' + (';' if i == len(enum.valid_values) - 1 else ''))
             result.append('    return (value.toRaw() | allValidBitsValue) == allValidBitsValue;')
         else:
-            result.append('    switch (value) {')
+            result.append('    switch (static_cast<' + enum.namespace_and_name() + '>(value)) {')
             for valid_value in enum.valid_values:
                 result.append('    case ' + enum.namespace_and_name() + '::' + valid_value + ':')
             result.append('        return true;')

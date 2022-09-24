@@ -86,7 +86,6 @@ constexpr ArrayModes asArrayModesIgnoringTypedArrays(IndexingType indexingMode)
     | asArrayModesIgnoringTypedArrays(NonArrayWithInt32)                   \
     | asArrayModesIgnoringTypedArrays(NonArrayWithDouble)                  \
     | asArrayModesIgnoringTypedArrays(NonArrayWithContiguous)              \
-    | asArrayModesIgnoringTypedArrays(NonArrayWithAlwaysSlowPutContiguous) \
     | asArrayModesIgnoringTypedArrays(NonArrayWithArrayStorage)            \
     | asArrayModesIgnoringTypedArrays(NonArrayWithSlowPutArrayStorage)     \
     | ALL_TYPED_ARRAY_MODES)
@@ -163,11 +162,6 @@ inline bool shouldUseFastArrayStorage(ArrayModes arrayModes)
 inline bool shouldUseContiguous(ArrayModes arrayModes)
 {
     return arrayModesIncludeIgnoringTypedArrays(arrayModes, ContiguousShape);
-}
-
-inline bool shouldUseAlwaysSlowPutContiguous(ArrayModes arrayModes)
-{
-    return arrayModesIncludeIgnoringTypedArrays(arrayModes, AlwaysSlowPutContiguousShape);
 }
 
 inline bool shouldUseDouble(ArrayModes arrayModes)
@@ -265,13 +259,7 @@ static_assert(sizeof(ArrayProfile) == 12);
 
 class UnlinkedArrayProfile {
 public:
-    explicit UnlinkedArrayProfile()
-        : m_usesOriginalArrayStructures(true)
-#if USE(LARGE_TYPED_ARRAYS)
-        , m_mayBeLargeTypedArray(false)
-#endif
-    {
-    }
+    explicit UnlinkedArrayProfile() = default;
 
     void update(ArrayProfile& arrayProfile)
     {
@@ -315,9 +303,9 @@ private:
     bool m_mayStoreToHole { false };
     bool m_outOfBounds { false };
     bool m_mayInterceptIndexedAccesses { false };
-    bool m_usesOriginalArrayStructures : 1;
+    bool m_usesOriginalArrayStructures : 1 { true };
 #if USE(LARGE_TYPED_ARRAYS)
-    bool m_mayBeLargeTypedArray : 1;
+    bool m_mayBeLargeTypedArray : 1 { false };
 #endif
 };
 static_assert(sizeof(UnlinkedArrayProfile) <= 8);

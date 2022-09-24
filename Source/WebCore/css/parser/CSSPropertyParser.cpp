@@ -256,6 +256,8 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propertyID, bool important, con
         parseSuccess = parser.parseFontPaletteValuesDescriptor(propertyID);
     else if (ruleType == StyleRuleType::CounterStyle)
         parseSuccess = parser.parseCounterStyleDescriptor(propertyID, context);
+    else if (ruleType == StyleRuleType::Keyframe)
+        parseSuccess = parser.parseKeyframeDescriptor(propertyID, important);
     else
         parseSuccess = parser.parseValueStart(propertyID, important);
 
@@ -2028,9 +2030,10 @@ static RefPtr<CSSValue> consumeTranslate(CSSParserTokenRange& range, CSSParserMo
 
     // If we have a calc() or non-zero y value, we can directly add it to the list. We only
     // want to add a zero y value if a non-zero z value is specified.
+    // Always include 0% in serialization per-spec.
     if (is<CSSPrimitiveValue>(y)) {
         auto& yPrimitiveValue = downcast<CSSPrimitiveValue>(*y);
-        if (yPrimitiveValue.isCalculated() || !*yPrimitiveValue.isZero())
+        if (yPrimitiveValue.isCalculated() || yPrimitiveValue.isPercentage() || !*yPrimitiveValue.isZero())
             list->append(*y);
     }
 
@@ -2039,8 +2042,8 @@ static RefPtr<CSSValue> consumeTranslate(CSSParserTokenRange& range, CSSParserMo
 
     if (is<CSSPrimitiveValue>(z)) {
         auto& zPrimitiveValue = downcast<CSSPrimitiveValue>(*z);
-        // If the z value is a zero value, we have nothing left to add to the list.
-        if (!zPrimitiveValue.isCalculated() && *zPrimitiveValue.isZero())
+        // If the z value is a zero value and not a percent value, we have nothing left to add to the list.
+        if (!zPrimitiveValue.isCalculated() && !zPrimitiveValue.isPercentage() && *zPrimitiveValue.isZero())
             return list;
         // Add the zero value for y if we did not already add a y value.
         if (list->length() == 1)
@@ -5170,6 +5173,27 @@ bool CSSPropertyParser::parseFontFaceDescriptor(CSSPropertyID propId)
     return true;
 }
 
+bool CSSPropertyParser::parseKeyframeDescriptor(CSSPropertyID propertyID, bool important)
+{
+    // https://www.w3.org/TR/css-animations-1/#keyframes
+    // The <declaration-list> inside of <keyframe-block> accepts any CSS property except those
+    // defined in this specification, but does accept the animation-timing-function property and
+    // interprets it specially.
+    switch (propertyID) {
+    case CSSPropertyAnimation:
+    case CSSPropertyAnimationDelay:
+    case CSSPropertyAnimationDirection:
+    case CSSPropertyAnimationDuration:
+    case CSSPropertyAnimationFillMode:
+    case CSSPropertyAnimationIterationCount:
+    case CSSPropertyAnimationName:
+    case CSSPropertyAnimationPlayState:
+        return false;
+    default:
+        return parseValueStart(propertyID, important);
+    }
+}
+
 static RefPtr<CSSPrimitiveValue> consumeBasePaletteDescriptor(CSSParserTokenRange& range)
 {
     if (auto result = consumeIdent<CSSValueLight, CSSValueDark>(range))
@@ -6399,7 +6423,7 @@ bool CSSPropertyParser::consumeListStyleShorthand(bool important)
         return false;
     }
 
-    if (noneCount > (!parsedImage + !parsedType))
+    if (noneCount > (static_cast<unsigned>(!parsedImage + !parsedType)))
         return false;
 
     // Use the implicit initial value for list-style-image, to serialize to "none" instead of "none none".

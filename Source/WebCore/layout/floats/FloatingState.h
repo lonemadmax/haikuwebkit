@@ -51,11 +51,10 @@ public:
 
     class FloatItem {
     public:
-        FloatItem(const Box&, BoxGeometry absoluteBoxGeometry);
-
         // FIXME: This c'tor is only used by the render tree integation codepath.
         enum class Position { Left, Right };
         FloatItem(Position, BoxGeometry absoluteBoxGeometry);
+        FloatItem(const Box&, Position, BoxGeometry absoluteBoxGeometry);
 
         bool isLeftPositioned() const { return m_position == Position::Left; }
         bool isRightPositioned() const { return m_position == Position::Right; }
@@ -84,6 +83,11 @@ public:
     bool hasLeftPositioned() const;
     bool hasRightPositioned() const;
 
+    bool isLeftToRightDirection() const { return m_isLeftToRightDirection; }
+    // FIXME: This should always be floatingState's root().style().isLeftToRightDirection() if we used the actual containing block of the intrusive
+    // floats to initiate the floating state in the integration codepath (i.e. when the float comes from the parent BFC).
+    void setIsLeftToRightDirection(bool isLeftToRightDirection) { m_isLeftToRightDirection = isLeftToRightDirection; }
+
 private:
     friend class FloatingContext;
     FloatingState(LayoutState&, const ContainerBox& formattingContextRoot);
@@ -97,6 +101,7 @@ private:
         Right  = 1 << 1
     };
     OptionSet<PositionType> m_positionTypes;
+    bool m_isLeftToRightDirection { true };
 };
 
 inline bool FloatingState::hasLeftPositioned() const

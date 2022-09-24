@@ -1379,8 +1379,8 @@ private:
         case ConstructForwardVarargs:
             compileCallOrConstructVarargs();
             break;
-        case CallEval:
-            compileCallEval();
+        case CallDirectEval:
+            compileCallDirectEval();
             break;
         case VarargsLength:
             compileVarargsLength();
@@ -3858,7 +3858,6 @@ private:
             case Array::Int32:
             case Array::Double:
             case Array::Contiguous:
-            case Array::AlwaysSlowPutContiguous:
                 speculate(
                     Uncountable, noValue(), nullptr,
                     m_out.aboveOrEqual(property, m_out.constInt32(MIN_SPARSE_ARRAY_INDEX)));
@@ -3876,7 +3875,6 @@ private:
             vmCall(Void, operationEnsureDouble, m_vmValue, cell);
             break;
         case Array::Contiguous:
-        case Array::AlwaysSlowPutContiguous:
             vmCall(Void, operationEnsureContiguous, m_vmValue, cell);
             break;
         case Array::ArrayStorage:
@@ -5153,8 +5151,7 @@ IGNORE_CLANG_WARNINGS_END
         case Array::Undecided:
         case Array::Int32:
         case Array::Double:
-        case Array::Contiguous:
-        case Array::AlwaysSlowPutContiguous: {
+        case Array::Contiguous: {
             setInt32(m_out.load32NonNegative(lowStorage(m_node->child2()), m_heaps.Butterfly_publicLength));
             return;
         }
@@ -5300,8 +5297,7 @@ IGNORE_CLANG_WARNINGS_END
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         switch (m_node->arrayMode().type()) {
         case Array::Int32:
-        case Array::Contiguous:
-        case Array::AlwaysSlowPutContiguous: {
+        case Array::Contiguous: {
             LValue index = lowInt32(m_graph.varArgChild(m_node, 1));
             LValue storage = lowStorage(m_graph.varArgChild(m_node, 2));
             
@@ -5315,13 +5311,13 @@ IGNORE_CLANG_WARNINGS_END
                 LValue isHole = m_out.isZero64(result);
                 if (m_node->arrayMode().isInBoundsSaneChain()) {
                     DFG_ASSERT(
-                        m_graph, m_node, m_node->arrayMode().isAnyKindOfContiguous(), m_node->arrayMode().type());
+                        m_graph, m_node, m_node->arrayMode().type() == Array::Contiguous, m_node->arrayMode().type());
                     result = m_out.select(
                         isHole, m_out.constInt64(JSValue::encode(jsUndefined())), result);
                 } else
                     speculate(LoadFromHole, noValue(), nullptr, isHole);
                 // We have to keep base alive to keep content in storage alive.
-                if (m_node->arrayMode().isAnyKindOfContiguous())
+                if (m_node->arrayMode().type() == Array::Contiguous)
                     ensureStillAliveHere(base);
                 return result;
             }
@@ -5353,7 +5349,7 @@ IGNORE_CLANG_WARNINGS_END
             
             m_out.appendTo(continuation, lastNext);
             // We have to keep base alive to keep content in storage alive.
-            if (m_node->arrayMode().isAnyKindOfContiguous())
+            if (m_node->arrayMode().type() == Array::Contiguous)
                 ensureStillAliveHere(base);
             return m_out.phi(Int64, fastResult, slowResult);
         }
@@ -6233,7 +6229,6 @@ IGNORE_CLANG_WARNINGS_END
         case Array::ForceExit:
         case Array::Generic:
         case Array::ScopedArguments:
-        case Array::AlwaysSlowPutContiguous:
         case Array::SelectUsingArguments:
         case Array::SelectUsingPredictions:
         case Array::Undecided:
@@ -6825,15 +6820,15 @@ IGNORE_CLANG_WARNINGS_END
                 searchElement = lowJSValue(searchElementEdge, ManualOperandSpeculation);
                 break;
             case ObjectUse:
-                ASSERT(m_node->arrayMode().isAnyKindOfContiguous());
+                ASSERT(m_node->arrayMode().type() == Array::Contiguous);
                 searchElement = lowObject(searchElementEdge);
                 break;
             case SymbolUse:
-                ASSERT(m_node->arrayMode().isAnyKindOfContiguous());
+                ASSERT(m_node->arrayMode().type() == Array::Contiguous);
                 searchElement = lowSymbol(searchElementEdge);
                 break;
             case OtherUse:
-                ASSERT(m_node->arrayMode().isAnyKindOfContiguous());
+                ASSERT(m_node->arrayMode().type() == Array::Contiguous);
                 speculate(searchElementEdge);
                 searchElement = lowJSValue(searchElementEdge, ManualOperandSpeculation);
                 break;
@@ -6901,7 +6896,7 @@ IGNORE_CLANG_WARNINGS_END
         }
 
         case StringUse:
-            ASSERT(m_node->arrayMode().isAnyKindOfContiguous());
+            ASSERT(m_node->arrayMode().type() == Array::Contiguous);
             // We have to keep base alive since that keeps storage alive.
             ensureStillAliveHere(base);
             setInt32(m_out.castToInt32(vmCall(Int64, operationArrayIndexOfString, weakPointer(globalObject), storage, lowString(searchElementEdge), startIndex)));
@@ -6913,7 +6908,6 @@ IGNORE_CLANG_WARNINGS_END
                 setInt32(m_out.castToInt32(vmCall(Int64, operationArrayIndexOfValueDouble, weakPointer(globalObject), storage, lowJSValue(searchElementEdge), startIndex)));
                 return;
             case Array::Contiguous:
-            case Array::AlwaysSlowPutContiguous:
                 // We have to keep base alive since that keeps content of storage alive.
                 ensureStillAliveHere(base);
                 FALLTHROUGH;
@@ -11360,12 +11354,14 @@ IGNORE_CLANG_WARNINGS_END
         }
     }
     
-    void compileCallEval()
+    void compileCallDirectEval()
     {
         Node* node = m_node;
-        unsigned numArgs = node->numChildren() - 1;
+        unsigned numArgs = node->numChildren() - 3; // callee, thisValue, scope
         
         LValue jsCallee = lowJSValue(m_graph.varArgChild(node, 0));
+        LValue thisValue = lowJSValue(m_graph.varArgChild(node, node->numChildren() - 2));
+        LValue callerScope = lowCell(m_graph.varArgChild(node, node->numChildren() - 1));
         
         unsigned frameSize = (CallFrame::headerSizeInRegisters + numArgs) * sizeof(EncodedJSValue);
         unsigned alignedFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), frameSize);
@@ -11374,6 +11370,8 @@ IGNORE_CLANG_WARNINGS_END
         
         Vector<ConstrainedValue> arguments;
         arguments.append(ConstrainedValue(jsCallee, ValueRep::reg(GPRInfo::regT0)));
+        arguments.append(ConstrainedValue(callerScope, ValueRep::reg(GPRInfo::regT2)));
+        arguments.append(ConstrainedValue(thisValue, ValueRep::reg(GPRInfo::regT3)));
         
         auto addArgument = [&] (LValue value, VirtualRegister reg, int offset) {
             intptr_t offsetFromSP = 
@@ -11401,7 +11399,7 @@ IGNORE_CLANG_WARNINGS_END
         State* state = &m_ftlState;
         VM& vm = this->vm();
         CodeOrigin semanticNodeOrigin = node->origin.semantic;
-        auto ecmaMode = node->ecmaMode().value();
+        auto ecmaMode = node->ecmaMode();
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         patchpoint->setGenerator(
             [=, &vm] (CCallHelpers& jit, const StackmapGenerationParams& params) {
@@ -11423,15 +11421,14 @@ IGNORE_CLANG_WARNINGS_END
                 jit.storePtr(GPRInfo::callFrameRegister, CCallHelpers::Address(GPRInfo::regT1, CallFrame::callerFrameOffset()));
                 
                 // Now we need to make room for:
-                // - The caller frame and PC for a call to operationCallEval.
+                // - The caller frame and PC for a call to operationCallDirectEvalSloppy/operationCallDirectEvalStrict.
                 // - Potentially two arguments on the stack.
                 unsigned requiredBytes = sizeof(CallerFrameAndPC) + sizeof(CallFrame*) * 2;
                 requiredBytes = WTF::roundUpToMultipleOf(stackAlignmentBytes(), requiredBytes);
                 jit.subPtr(CCallHelpers::TrustedImm32(requiredBytes), CCallHelpers::stackPointerRegister);
-                jit.move(CCallHelpers::TrustedImm32(ecmaMode), GPRInfo::regT2);
-                jit.setupArguments<decltype(operationCallEval)>(CCallHelpers::TrustedImmPtr(globalObject), GPRInfo::regT1, GPRInfo::regT2);
+                jit.setupArguments<decltype(operationCallDirectEvalSloppy)>(GPRInfo::regT1, GPRInfo::regT2, GPRInfo::regT3);
                 jit.prepareCallOperation(vm);
-                jit.move(CCallHelpers::TrustedImmPtr(tagCFunction<OperationPtrTag>(operationCallEval)), GPRInfo::nonPreservedNonArgumentGPR0);
+                jit.move(CCallHelpers::TrustedImmPtr(tagCFunction<OperationPtrTag>(ecmaMode.isStrict() ? operationCallDirectEvalStrict : operationCallDirectEvalSloppy)), GPRInfo::nonPreservedNonArgumentGPR0);
                 jit.call(GPRInfo::nonPreservedNonArgumentGPR0, OperationPtrTag);
                 exceptions->append(jit.emitExceptionCheck(state->vm(), AssemblyHelpers::NormalExceptionCheck, AssemblyHelpers::FarJumpWidth));
                 
@@ -14898,16 +14895,11 @@ IGNORE_CLANG_WARNINGS_END
     }
     
     struct ArgumentsLength {
-        ArgumentsLength()
-            : isKnown(false)
-            , known(UINT_MAX)
-            , value(nullptr)
-        {
-        }
+        ArgumentsLength() = default;
         
-        bool isKnown;
-        unsigned known;
-        LValue value;
+        bool isKnown { false };
+        unsigned known { UINT_MAX };
+        LValue value { nullptr };
     };
     ArgumentsLength getArgumentsLength(InlineCallFrame* inlineCallFrame)
     {
@@ -16516,6 +16508,7 @@ IGNORE_CLANG_WARNINGS_END
             }
             restore();
             jit.moveValue(baselineCodeBlock->globalObject(), JSValueRegs { GPRInfo::returnValueGPR });
+            jit.loadPtr(CCallHelpers::Address(GPRInfo::returnValueGPR, JSGlobalObject::offsetOfGlobalThis()), GPRInfo::returnValueGPR);
             params.code().emitEpilogue(jit); 
 
             skipEarlyReturn.link(&jit);
@@ -17194,20 +17187,16 @@ IGNORE_CLANG_WARNINGS_END
     }
     
     struct ArrayValues {
-        ArrayValues()
-            : array(nullptr)
-            , butterfly(nullptr)
-        {
-        }
-        
+        ArrayValues() = default;
+
         ArrayValues(LValue array, LValue butterfly)
             : array(array)
             , butterfly(butterfly)
         {
         }
         
-        LValue array;
-        LValue butterfly;
+        LValue array { nullptr };
+        LValue butterfly { nullptr };
     };
 
     ArrayValues allocateJSArray(LValue publicLength, LValue vectorLength, LValue structure, LValue indexingType, bool shouldInitializeElements = true, bool shouldLargeArraySizeCreateArrayStorage = true)
@@ -17892,7 +17881,7 @@ IGNORE_CLANG_WARNINGS_END
     // duplicating.
     
     struct StringSwitchCase {
-        StringSwitchCase() { }
+        StringSwitchCase() = default;
         
         StringSwitchCase(StringImpl* string, LBasicBlock target)
             : string(string)
@@ -17910,13 +17899,8 @@ IGNORE_CLANG_WARNINGS_END
     };
     
     struct CharacterCase {
-        CharacterCase()
-            : character(0)
-            , begin(0)
-            , end(0)
-        {
-        }
-        
+        CharacterCase() = default;
+
         CharacterCase(LChar character, unsigned begin, unsigned end)
             : character(character)
             , begin(begin)
@@ -17929,9 +17913,9 @@ IGNORE_CLANG_WARNINGS_END
             return character < other.character;
         }
         
-        LChar character;
-        unsigned begin;
-        unsigned end;
+        LChar character { 0 };
+        unsigned begin { 0 };
+        unsigned end { 0 };
     };
     
     void switchStringRecurse(
@@ -19908,7 +19892,6 @@ IGNORE_CLANG_WARNINGS_END
         case Array::Int32:
         case Array::Double:
         case Array::Contiguous:
-        case Array::AlwaysSlowPutContiguous:
         case Array::Undecided:
         case Array::ArrayStorage: {
             IndexingType indexingModeMask = IsArray | IndexingShapeMask;
@@ -20004,7 +19987,6 @@ IGNORE_CLANG_WARNINGS_END
         case Array::Int32:
         case Array::Double:
         case Array::Contiguous:
-        case Array::AlwaysSlowPutContiguous:
         case Array::Undecided:
         case Array::ArrayStorage:
         case Array::SlowPutArrayStorage:

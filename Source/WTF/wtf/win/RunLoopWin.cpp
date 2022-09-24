@@ -74,15 +74,6 @@ void RunLoop::run()
     }
 }
 
-void RunLoop::iterate()
-{
-    MSG message;
-    while (::PeekMessage(&message, nullptr, 0, 0, PM_REMOVE)) {
-        ::TranslateMessage(&message);
-        ::DispatchMessage(&message);
-    }
-}
-
 void RunLoop::setWakeUpCallback(WTF::Function<void()>&& function)
 {
     RunLoop::current().m_wakeUpCallback = WTFMove(function);
@@ -118,9 +109,7 @@ RunLoop::RunLoop()
     RELEASE_ASSERT(::IsWindow(m_runLoopMessageWindow));
 }
 
-RunLoop::~RunLoop()
-{
-}
+RunLoop::~RunLoop() = default;
 
 void RunLoop::wakeUp()
 {

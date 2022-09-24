@@ -719,7 +719,7 @@ public:
     bool affectedByTransformOrigin() const;
 
     FloatPoint computePerspectiveOrigin(const FloatRect& boundingBox) const;
-    void applyPerspective(TransformationMatrix&, const RenderObject&, const FloatPoint& originTranslate) const;
+    void applyPerspective(TransformationMatrix&, const FloatPoint& originTranslate) const;
 
     FloatPoint3D computeTransformOrigin(const FloatRect& boundingBox) const;
     void applyTransformOrigin(TransformationMatrix&, const FloatPoint3D& originTranslate) const;
@@ -767,7 +767,7 @@ public:
 
     BackfaceVisibility backfaceVisibility() const { return static_cast<BackfaceVisibility>(m_rareNonInheritedData->backfaceVisibility); }
     float perspective() const { return m_rareNonInheritedData->perspective; }
-    float usedPerspective(const RenderObject&) const;
+    float usedPerspective() const { return std::max(1.0f, perspective()); }
     bool hasPerspective() const { return m_rareNonInheritedData->perspective != initialPerspective(); }
     const Length& perspectiveOriginX() const { return m_rareNonInheritedData->perspectiveOriginX; }
     const Length& perspectiveOriginY() const { return m_rareNonInheritedData->perspectiveOriginY; }
@@ -1644,6 +1644,9 @@ public:
     static float initialVerticalBorderSpacing() { return 0; }
     static CursorType initialCursor() { return CursorType::Auto; }
     static Color initialColor() { return Color::black; }
+    static Color initialTextStrokeColor() { return currentColor(); }
+    static Color initialTextFillColor() { return currentColor(); }
+    static Color initialTextDecorationColor() { return currentColor(); }
     static StyleImage* initialListStyleImage() { return 0; }
     static float initialBorderWidth() { return 3; }
     static unsigned short initialColumnRuleWidth() { return 3; }

@@ -249,10 +249,12 @@ void Connection::invokeWriteEventHandler()
     });
 }
 
-bool Connection::open()
+bool Connection::open(Client& client)
 {
+    ASSERT(!m_client);
     // We connected the two ends of the pipe in createServerAndClientIdentifiers.
     m_isConnected = true;
+    m_client = &client;
 
     // Start listening for read and write state events.
     m_readListener.open([this] {
@@ -372,7 +374,7 @@ std::optional<Connection::ConnectionIdentifierPair> Connection::createConnection
         LOG_ERROR("Failed to create server and client identifiers");
         return std::nullopt;
     }
-    return ConnectionIdentifierPair { Identifier { serverIdentifier }, Attachment { Win32Handle { clientIdentifier } } };
+    return ConnectionIdentifierPair { Identifier { Win32Handle { serverIdentifier } }, Win32Handle { clientIdentifier } };
 }
 
 } // namespace IPC

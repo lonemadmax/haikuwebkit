@@ -442,6 +442,13 @@ bool RenderImage::hasNonBitmapImage() const
     return image && !is<BitmapImage>(image);
 }
 
+bool RenderImage::hasAnimatedImage() const
+{
+    if (auto* image = cachedImage() ? cachedImage()->image() : nullptr)
+        return image->isAnimated();
+    return false;
+}
+
 void RenderImage::paintIncompleteImageOutline(PaintInfo& paintInfo, LayoutPoint paintOffset, LayoutUnit borderWidth) const
 {
     auto contentSize = this->contentSize();
@@ -708,14 +715,6 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
     return drawResult;
 }
 
-bool RenderImage::boxShadowShouldBeAppliedToBackground(const LayoutPoint& paintOffset, BackgroundBleedAvoidance bleedAvoidance, const InlineIterator::InlineBoxIterator&) const
-{
-    if (!RenderBoxModelObject::boxShadowShouldBeAppliedToBackground(paintOffset, bleedAvoidance, { }))
-        return false;
-
-    return !const_cast<RenderImage*>(this)->backgroundIsKnownToBeObscured(paintOffset);
-}
-
 bool RenderImage::foregroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect, unsigned maxDepthToTest) const
 {
     UNUSED_PARAM(maxDepthToTest);
@@ -898,6 +897,13 @@ RenderBox* RenderImage::embeddedContentBox() const
         return downcast<SVGImage>(*cachedImage->image()).embeddedContentBox();
 
     return nullptr;
+}
+
+bool RenderImage::allowsAnimation() const
+{
+    if (auto* imageElement = dynamicDowncast<HTMLImageElement>(element()))
+        return imageElement->allowsAnimation();
+    return RenderReplaced::allowsAnimation();
 }
 
 } // namespace WebCore

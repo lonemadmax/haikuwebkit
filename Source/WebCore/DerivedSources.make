@@ -305,6 +305,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/fetch/FetchRequest.idl \
     $(WebCore)/Modules/fetch/FetchRequestCache.idl \
     $(WebCore)/Modules/fetch/FetchRequestCredentials.idl \
+    $(WebCore)/Modules/fetch/FetchRequestDestination.idl \
     $(WebCore)/Modules/fetch/FetchRequestInit.idl \
     $(WebCore)/Modules/fetch/FetchRequestMode.idl \
     $(WebCore)/Modules/fetch/FetchRequestRedirect.idl \
@@ -313,7 +314,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemFileHandle.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemHandle.idl \
-	$(WebCore)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl \
+    $(WebCore)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl \
     $(WebCore)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl \
     $(WebCore)/Modules/gamepad/Gamepad.idl \
     $(WebCore)/Modules/gamepad/GamepadButton.idl \
@@ -1231,7 +1232,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/track/VTTRegion.idl \
     $(WebCore)/html/track/VTTRegionList.idl \
     $(WebCore)/html/track/VideoTrack.idl \
-	$(WebCore)/html/track/VideoTrackConfiguration.idl \
+    $(WebCore)/html/track/VideoTrackConfiguration.idl \
     $(WebCore)/html/track/VideoTrackList.idl \
     $(WebCore)/mathml/MathMLElement.idl \
     $(WebCore)/mathml/MathMLMathElement.idl \
@@ -1240,6 +1241,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/inspector/InspectorAuditDOMObject.idl \
     $(WebCore)/inspector/InspectorAuditResourcesObject.idl \
     $(WebCore)/inspector/InspectorFrontendHost.idl \
+    $(WebCore)/loader/COEPInheritenceViolationReportBody.idl \
+    $(WebCore)/loader/CORPViolationReportBody.idl \
     $(WebCore)/loader/appcache/DOMApplicationCache.idl \
     $(WebCore)/page/BarProp.idl \
     $(WebCore)/page/Crypto.idl \

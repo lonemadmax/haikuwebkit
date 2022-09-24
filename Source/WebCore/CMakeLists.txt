@@ -202,6 +202,7 @@ set(WebCore_IDL_INCLUDES
     fileapi
     html
     inspector
+    loader
     page
     plugins
     storage
@@ -318,6 +319,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/fetch/FetchRequest.idl
     Modules/fetch/FetchRequestCache.idl
     Modules/fetch/FetchRequestCredentials.idl
+    Modules/fetch/FetchRequestDestination.idl
     Modules/fetch/FetchRequestInit.idl
     Modules/fetch/FetchRequestMode.idl
     Modules/fetch/FetchRequestRedirect.idl
@@ -1193,6 +1195,8 @@ set(WebCore_NON_SVG_IDL_FILES
     inspector/InspectorAuditResourcesObject.idl
     inspector/InspectorFrontendHost.idl
 
+    loader/COEPInheritenceViolationReportBody.idl
+    loader/CORPViolationReportBody.idl
     loader/appcache/DOMApplicationCache.idl
 
     mathml/MathMLElement.idl

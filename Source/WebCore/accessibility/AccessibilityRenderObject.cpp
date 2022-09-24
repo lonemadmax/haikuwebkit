@@ -515,6 +515,17 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
             return parent;
     }
 
+#if USE(ATSPI)
+    // Expose markers that are not direct children of a list item too.
+    if (m_renderer->isListMarker()) {
+        if (auto* listItem = ancestorsOfType<RenderListItem>(*m_renderer).first()) {
+            AccessibilityObject* parent = axObjectCache()->getOrCreate(listItem);
+            if (downcast<AccessibilityRenderObject>(*parent).markerRenderer() == m_renderer)
+                return parent;
+        }
+    }
+#endif
+
     AXObjectCache* cache = axObjectCache();
     if (!cache)
         return nullptr;
@@ -527,22 +538,6 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
         return cache->getOrCreate(&m_renderer->view().frameView());
     
     return nullptr;
-}
-
-AccessibilityObject* AccessibilityRenderObject::parentObjectUnignored() const
-{
-#if USE(ATSPI)
-    // Expose markers that are not direct children of a list item too.
-    if (m_renderer && m_renderer->isListMarker()) {
-        if (auto* listItem = ancestorsOfType<RenderListItem>(*m_renderer).first()) {
-            AccessibilityObject* parent = axObjectCache()->getOrCreate(listItem);
-            if (downcast<AccessibilityRenderObject>(*parent).markerRenderer() == m_renderer)
-                return parent;
-        }
-    }
-#endif
-
-    return AccessibilityObject::parentObjectUnignored();
 }
 
 bool AccessibilityRenderObject::isAttachment() const
@@ -779,9 +774,11 @@ String AccessibilityRenderObject::stringValue() const
         int selectedIndex = selectElement.selectedIndex();
         const auto& listItems = selectElement.listItems();
         if (selectedIndex >= 0 && static_cast<size_t>(selectedIndex) < listItems.size()) {
-            const AtomString& overriddenDescription = listItems[selectedIndex]->attributeWithoutSynchronization(aria_labelAttr);
-            if (!overriddenDescription.isNull())
-                return overriddenDescription;
+            if (RefPtr selectedItem = listItems[selectedIndex].get()) {
+                const AtomString& overriddenDescription = selectedItem->attributeWithoutSynchronization(aria_labelAttr);
+                if (!overriddenDescription.isNull())
+                    return overriddenDescription;
+            }
         }
         return renderMenuList->text();
     }
@@ -980,7 +977,7 @@ IntPoint AccessibilityRenderObject::linkClickPoint()
      */
     if (auto range = elementRange()) {
         auto start = VisiblePosition { makeContainerOffsetPosition(range->start) };
-        auto end = nextVisiblePosition(start);
+        auto end = start.next();
         if (contains<ComposedTree>(*range, makeBoundaryPoint(end)))
             return { boundsForRange(*makeSimpleRange(start, end)).center() };
     }
@@ -1827,61 +1824,6 @@ bool AccessibilityRenderObject::isTabItemSelected() const
     return false;
 }
     
-bool AccessibilityRenderObject::isFocused() const
-{
-    if (!m_renderer)
-        return false;
-    
-    Document& document = m_renderer->document();
-
-    Element* focusedElement = document.focusedElement();
-    if (!focusedElement)
-        return false;
-    
-    // A web area is represented by the Document node in the DOM tree, which isn't focusable.
-    // Check instead if the frame's selection controller is focused
-    if (focusedElement == m_renderer->node()
-        || (roleValue() == AccessibilityRole::WebArea && document.frame()->selection().isFocusedAndActive()))
-        return true;
-    
-    return false;
-}
-
-void AccessibilityRenderObject::setFocused(bool on)
-{
-    // Call the base class setFocused to ensure the view is focused and active.
-    AccessibilityObject::setFocused(on);
-
-    if (!canSetFocusAttribute())
-        return;
-
-    Document* document = this->document();
-    Node* node = this->node();
-
-    if (!on || !is<Element>(node)) {
-        document->setFocusedElement(nullptr);
-        return;
-    }
-
-    // When a node is told to set focus, that can cause it to be deallocated, which means that doing
-    // anything else inside this object will crash. To fix this, we added a RefPtr to protect this object
-    // long enough for duration.
-    RefPtr<AccessibilityObject> protectedThis(this);
-
-    // If this node is already the currently focused node, then calling focus() won't do anything.
-    // That is a problem when focus is removed from the webpage to chrome, and then returns.
-    // In these cases, we need to do what keyboard and mouse focus do, which is reset focus first.
-    if (document->focusedElement() == node)
-        document->setFocusedElement(nullptr);
-
-    // If we return from setFocusedElement and our element has been removed from a tree, axObjectCache() may be null.
-    if (AXObjectCache* cache = axObjectCache()) {
-        cache->setIsSynchronizingSelection(true);
-        downcast<Element>(*node).focus();
-        cache->setIsSynchronizingSelection(false);
-    }
-}
-
 void AccessibilityRenderObject::setSelectedRows(AccessibilityChildrenVector& selectedRows)
 {
     // Setting selected only makes sense in trees and tables (and tree-tables).
@@ -2425,21 +2367,6 @@ int AccessibilityRenderObject::index(const VisiblePosition& position) const
     return -1;
 }
 
-void AccessibilityRenderObject::lineBreaks(Vector<int>& lineBreaks) const
-{
-    if (!isTextControl())
-        return;
-
-    VisiblePosition visiblePos = visiblePositionForIndex(0);
-    VisiblePosition savedVisiblePos = visiblePos;
-    visiblePos = nextLinePosition(visiblePos, 0);
-    while (!visiblePos.isNull() && visiblePos != savedVisiblePos) {
-        lineBreaks.append(indexForVisiblePosition(visiblePos));
-        savedVisiblePos = visiblePos;
-        visiblePos = nextLinePosition(visiblePos, 0);
-    }
-}
-
 static bool isHardLineBreak(const VisiblePosition& position)
 {
     if (!isEndOfLine(position))
@@ -2920,12 +2847,6 @@ bool AccessibilityRenderObject::canSetTextRangeAttributes() const
     return isTextControl();
 }
 
-void AccessibilityRenderObject::clearChildren()
-{
-    AccessibilityObject::clearChildren();
-    m_childrenDirty = false;
-}
-
 void AccessibilityRenderObject::addImageMapChildren()
 {
     RenderBoxModelObject* cssBox = renderBoxModelObject();
@@ -2951,14 +2872,6 @@ void AccessibilityRenderObject::addImageMapChildren()
     }
 }
 
-void AccessibilityRenderObject::updateChildrenIfNecessary()
-{
-    if (needsToUpdateChildren())
-        clearChildren();
-    
-    AccessibilityObject::updateChildrenIfNecessary();
-}
-    
 void AccessibilityRenderObject::addTextFieldChildren()
 {
     Node* node = this->node();
@@ -3022,10 +2935,7 @@ AccessibilitySVGRoot* AccessibilityRenderObject::remoteSVGRootElement(CreationCh
     AccessibilityObject* rootSVGObject = createIfNecessary == Create ? cache->getOrCreate(rendererRoot) : cache->get(rendererRoot);
 
     ASSERT(!createIfNecessary || rootSVGObject);
-    if (!is<AccessibilitySVGRoot>(rootSVGObject))
-        return nullptr;
-
-    return downcast<AccessibilitySVGRoot>(rootSVGObject);
+    return dynamicDowncast<AccessibilitySVGRoot>(rootSVGObject);
 }
     
 void AccessibilityRenderObject::addRemoteSVGChildren()

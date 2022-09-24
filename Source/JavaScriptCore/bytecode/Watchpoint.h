@@ -44,16 +44,16 @@ struct ArrayBufferViewWatchpointAdaptor;
 
 class VM;
 
-class JS_EXPORT_PRIVATE FireDetail {
+class FireDetail {
     void* operator new(size_t) = delete;
     
 public:
     FireDetail() = default;
-    virtual ~FireDetail();
+    virtual ~FireDetail() = default;
     virtual void dump(PrintStream&) const = 0;
 };
 
-class JS_EXPORT_PRIVATE StringFireDetail final : public FireDetail {
+class StringFireDetail final : public FireDetail {
 public:
     StringFireDetail(const char* string)
         : m_string(string)
@@ -139,7 +139,7 @@ public:
     void operator delete(Watchpoint*, std::destroying_delete_t);
 
 protected:
-    JS_EXPORT_PRIVATE ~Watchpoint();
+    ~Watchpoint();
 
 private:
     friend class WatchpointSet;
@@ -282,7 +282,7 @@ private:
     friend class InlineWatchpointSet;
 
     int8_t m_state;
-    int8_t m_setIsNotEmpty;
+    int8_t m_setIsNotEmpty { false };
 
     SentinelLinkedList<Watchpoint, PackedRawSentinelNode<Watchpoint>> m_set;
 };

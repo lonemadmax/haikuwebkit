@@ -494,7 +494,7 @@ void WebProcessPool::gpuProcessExited(ProcessID identifier, ProcessTerminationRe
     }
 }
 
-void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy, IPC::Attachment&& connectionIdentifier, WebKit::GPUProcessConnectionParameters&& parameters)
+void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy, IPC::Connection::Handle&& connectionIdentifier, WebKit::GPUProcessConnectionParameters&& parameters)
 {
 #if ENABLE(IPC_TESTING_API)
     parameters.ignoreInvalidMessageForTesting = webProcessProxy.ignoreInvalidMessageForTesting();
@@ -809,7 +809,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     parameters.urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest = copyToVector(m_schemesToRegisterAsCanDisplayOnlyIfCanRequest);
 
     parameters.shouldAlwaysUseComplexTextCodePath = m_alwaysUsesComplexTextCodePath;
-    parameters.shouldUseFontSmoothing = m_shouldUseFontSmoothing;
+    parameters.shouldUseFontSmoothingForTesting = m_shouldUseFontSmoothingForTesting;
 
     parameters.textCheckerState = TextChecker::state();
 
@@ -1282,10 +1282,10 @@ void WebProcessPool::setAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
     sendToAllProcesses(Messages::WebProcess::SetAlwaysUsesComplexTextCodePath(alwaysUseComplexText));
 }
 
-void WebProcessPool::setShouldUseFontSmoothing(bool useFontSmoothing)
+void WebProcessPool::setShouldUseFontSmoothingForTesting(bool useFontSmoothing)
 {
-    m_shouldUseFontSmoothing = useFontSmoothing;
-    sendToAllProcesses(Messages::WebProcess::SetShouldUseFontSmoothing(useFontSmoothing));
+    m_shouldUseFontSmoothingForTesting = useFontSmoothing;
+    sendToAllProcesses(Messages::WebProcess::SetShouldUseFontSmoothingForTesting(useFontSmoothing));
 }
 
 void WebProcessPool::registerURLSchemeAsEmptyDocument(const String& urlScheme)

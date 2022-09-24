@@ -1288,6 +1288,7 @@ public:
     float footerHeightForPrinting(WebFrameProxy&);
     void drawHeaderForPrinting(WebFrameProxy&, WebCore::FloatRect&&);
     void drawFooterForPrinting(WebFrameProxy&, WebCore::FloatRect&&);
+    void drawPageBorderForPrinting(WebFrameProxy&, WebCore::FloatSize&&);
 
 #if PLATFORM(COCOA)
     // Dictionary.
@@ -3230,7 +3231,7 @@ private:
 
 #if ENABLE(SPEECH_SYNTHESIS)
     struct SpeechSynthesisData {
-        std::unique_ptr<WebCore::PlatformSpeechSynthesizer> synthesizer;
+        Ref<WebCore::PlatformSpeechSynthesizer> synthesizer;
         RefPtr<WebCore::PlatformSpeechSynthesisUtterance> utterance;
         CompletionHandler<void()> speakingStartedCompletionHandler;
         CompletionHandler<void()> speakingFinishedCompletionHandler;

@@ -344,3 +344,44 @@ shouldThrow(() => { Temporal.PlainDate.from('2007-01-09').valueOf(); }, TypeErro
     let time = Temporal.PlainDate.from('2007-01-09');
     shouldBe(JSON.stringify(time.getISOFields()), `{"calendar":"iso8601","isoDay":9,"isoMonth":1,"isoYear":2007}`);
 }
+
+{
+    const ones = new Temporal.PlainDate(1,1,1);
+    shouldBe(ones.equals(new Temporal.PlainDate(1,1,1)), true);
+    shouldBe(ones.equals(new Temporal.PlainDate(2,1,1)), false);
+    shouldBe(ones.equals(new Temporal.PlainDate(1,2,1)), false);
+    shouldBe(ones.equals(new Temporal.PlainDate(1,1,2)), false);
+}
+
+shouldBe(Temporal.PlainDate.prototype.add.length, 1);
+shouldBe(Temporal.PlainDate.prototype.subtract.length, 1);
+{
+    const date = Temporal.PlainDate.from('2020-02-28');
+    shouldBe(date.add(new Temporal.Duration()).toString(), '2020-02-28');
+    shouldBe(date.add({ years: 1, months: 1 }).toString(), '2021-03-28');
+    shouldBe(date.add('P1W1D').toString(), '2020-03-07');
+    shouldBe(date.add({ hours: 24 }).toString(), '2020-02-29');
+    shouldBe(date.add({ days: 36500000 }).toString(), '+101953-10-07');
+    shouldBe(date.add(new Temporal.Duration(-1, -1, 0, -1)).toString(), '2019-01-27');
+    shouldBe(Temporal.PlainDate.from('2020-01-30').add({ months: 1 }).toString(), '2020-02-29');
+    shouldThrow(() => { Temporal.PlainDate.from('2020-01-30').add({ months: 1 }, { overflow: 'reject' }); }, RangeError);
+    shouldThrow(() => { date.add({ years: 300000 }); }, RangeError);
+
+    shouldBe(date.subtract(new Temporal.Duration()).toString(), '2020-02-28');
+    shouldBe(date.subtract({ years: 1, months: 1 }).toString(), '2019-01-28');
+    shouldBe(date.subtract('P1W1D').toString(), '2020-02-20');
+    shouldBe(date.subtract({ hours: 24 }).toString(), '2020-02-27');
+    shouldBe(date.subtract({ days: 36500000 }).toString(), '-097914-07-21');
+    shouldBe(date.subtract(new Temporal.Duration(-1, -1, 0, -1)).toString(), '2021-03-29');
+    shouldBe(Temporal.PlainDate.from('2020-03-30').subtract({ months: 1 }).toString(), '2020-02-29');
+    shouldThrow(() => { Temporal.PlainDate.from('2020-03-30').subtract({ months: 1 }, { overflow: 'reject' }); }, RangeError);
+    shouldThrow(() => { date.subtract({ years: 300000 }); }, RangeError);
+}
+
+shouldBe(Temporal.PlainDate.prototype.with.length, 1);
+{
+    const date = new Temporal.PlainDate(2020,1,30);
+    shouldBe(date.with({ year: 2021, month: 3, day: 5 }).toString(), '2021-03-05');
+    shouldBe(date.with({ month: 2 }).toString(), '2020-02-29');
+    shouldThrow(() => { date.with({ month: 2 }, { overflow: 'reject' }); }, RangeError);
+}

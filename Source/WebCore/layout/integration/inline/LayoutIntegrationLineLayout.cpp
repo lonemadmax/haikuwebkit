@@ -402,6 +402,11 @@ void LineLayout::constructContent()
     inlineContentBuilder.build(m_inlineFormattingState, ensureInlineContent());
     ASSERT(m_inlineContent);
 
+    auto& rootGeometry = m_layoutState.geometryForRootBox();
+    auto& rootStyle = rootLayoutBox().style();
+    auto isLeftToRightInlineDirection = rootStyle.isLeftToRightDirection();
+    auto isHorizontalWritingMode = rootStyle.isHorizontalWritingMode();
+    auto isFlippedBlocksWritingMode = rootStyle.isFlippedBlocksWritingMode();
     auto& boxAndRendererList = m_boxTree.boxAndRendererList();
     for (auto& boxAndRenderer : boxAndRendererList) {
         auto& layoutBox = boxAndRenderer.box.get();
@@ -409,25 +414,33 @@ void LineLayout::constructContent()
             continue;
 
         auto& renderer = downcast<RenderBox>(*boxAndRenderer.renderer);
-        auto& boxGeometry = m_inlineFormattingState.boxGeometry(layoutBox);
-        auto visualBorderBoxRect = LayoutRect { Layout::BoxGeometry::borderBoxRect(boxGeometry) };
+        auto& logicalGeometry = m_inlineFormattingState.boxGeometry(layoutBox);
 
         if (layoutBox.isOutOfFlowPositioned()) {
             auto& layer = *renderer.layer();
-            layer.setStaticBlockPosition(visualBorderBoxRect.y());
-            layer.setStaticInlinePosition(visualBorderBoxRect.x());
+            auto logicalBorderBoxRect = LayoutRect { Layout::BoxGeometry::borderBoxRect(logicalGeometry) };
+
+            layer.setStaticBlockPosition(logicalBorderBoxRect.y());
+            layer.setStaticInlinePosition(logicalBorderBoxRect.x());
             continue;
         }
 
         if (layoutBox.isFloatingPositioned()) {
             auto& floatingObject = flow().insertFloatingObjectForIFC(renderer);
-            auto marginBoxRect = LayoutRect { Layout::BoxGeometry::marginBoxRect(boxGeometry) };
-            floatingObject.setFrameRect(marginBoxRect);
-            floatingObject.setMarginOffset({ boxGeometry.marginStart(), boxGeometry.marginBefore() });
-            floatingObject.setIsPlaced(true);
-        }
 
-        renderer.setLocation(visualBorderBoxRect.location());
+            auto visualGeometry = logicalGeometry.geometryForWritingModeAndDirection(isHorizontalWritingMode, isLeftToRightInlineDirection, rootGeometry.borderBoxWidth());
+            auto visualMarginBoxRect = LayoutRect { Layout::BoxGeometry::marginBoxRect(visualGeometry) };
+            floatingObject.setFrameRect(visualMarginBoxRect);
+
+            auto marginLeft = !isFlippedBlocksWritingMode ? visualGeometry.marginStart() : visualGeometry.marginEnd();
+            auto marginTop = visualGeometry.marginBefore();
+            floatingObject.setMarginOffset({ marginLeft, marginTop });
+            floatingObject.setIsPlaced(true);
+
+            renderer.setLocation(Layout::BoxGeometry::borderBoxRect(visualGeometry).topLeft());
+            continue;
+        }
+        renderer.setLocation(Layout::BoxGeometry::borderBoxRect(logicalGeometry).topLeft());
     }
 
     m_inlineContent->clearGapAfterLastLine = m_inlineFormattingState.clearGapAfterLastLine();
@@ -476,6 +489,8 @@ void LineLayout::prepareFloatingState()
     if (!flow().containsFloats())
         return;
 
+    if (flow().containingBlock())
+        floatingState.setIsLeftToRightDirection(flow().containingBlock()->style().isLeftToRightDirection());
     for (auto& floatingObject : *flow().floatingObjectSet()) {
         auto& visualRect = floatingObject->frameRect();
         auto position = floatingObject->type() == FloatingObject::FloatRight

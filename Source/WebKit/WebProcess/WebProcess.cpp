@@ -566,7 +566,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     setAlwaysUsesComplexTextCodePath(parameters.shouldAlwaysUseComplexTextCodePath);
 
-    setShouldUseFontSmoothing(parameters.shouldUseFontSmoothing);
+    setShouldUseFontSmoothingForTesting(parameters.shouldUseFontSmoothingForTesting);
 
     setMemoryCacheDisabled(parameters.memoryCacheDisabled);
 
@@ -777,9 +777,9 @@ void WebProcess::setAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
     WebCore::FontCascade::setCodePath(alwaysUseComplexText ? WebCore::FontCascade::CodePath::Complex : WebCore::FontCascade::CodePath::Auto);
 }
 
-void WebProcess::setShouldUseFontSmoothing(bool useFontSmoothing)
+void WebProcess::setShouldUseFontSmoothingForTesting(bool useFontSmoothing)
 {
-    WebCore::FontCascade::setShouldUseSmoothing(useFontSmoothing);
+    WebCore::FontCascade::setShouldUseSmoothingForTesting(useFontSmoothing);
 }
 
 void WebProcess::userPreferredLanguagesChanged(const Vector<String>& languages) const
@@ -1150,7 +1150,7 @@ static NetworkProcessConnectionInfo getNetworkProcessConnection(IPC::Connection&
             RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed to send or receive message");
             return false;
         }
-        return connectionInfo.identifier();
+        return !!connectionInfo.connection;
     };
 
     static constexpr unsigned maxFailedAttempts = 30;
@@ -1177,7 +1177,7 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
     if (!m_networkProcessConnection) {
         auto connectionInfo = getNetworkProcessConnection(*parentProcessConnection());
 
-        m_networkProcessConnection = NetworkProcessConnection::create(connectionInfo.releaseIdentifier(), connectionInfo.cookieAcceptPolicy);
+        m_networkProcessConnection = NetworkProcessConnection::create(IPC::Connection::Identifier { WTFMove(connectionInfo.connection) }, connectionInfo.cookieAcceptPolicy);
 #if HAVE(AUDIT_TOKEN)
         m_networkProcessConnection->setNetworkProcessAuditToken(WTFMove(connectionInfo.auditToken));
 #endif

@@ -77,20 +77,14 @@ DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SpeculativeJIT);
 SpeculativeJIT::SpeculativeJIT(JITCompiler& jit)
     : m_jit(jit)
     , m_graph(m_jit.graph())
-    , m_currentNode(nullptr)
-    , m_lastGeneratedNode(LastNodeType)
-    , m_indexInBlock(0)
     , m_generationInfo(m_graph.frameRegisterCount())
-    , m_compileOkay(true)
     , m_state(m_graph)
     , m_interpreter(m_graph, m_state)
     , m_minifiedGraph(&jit.jitCode()->minifiedDFG)
 {
 }
 
-SpeculativeJIT::~SpeculativeJIT()
-{
-}
+SpeculativeJIT::~SpeculativeJIT() = default;
 
 void SpeculativeJIT::emitAllocateRawObject(GPRReg resultGPR, RegisteredStructure structure, GPRReg storageGPR, unsigned numElements, unsigned vectorLength)
 {
@@ -780,7 +774,6 @@ JITCompiler::JumpList SpeculativeJIT::jumpSlowForUnwantedArrayMode(GPRReg tempGP
     case Array::Int32:
     case Array::Double:
     case Array::Contiguous:
-    case Array::AlwaysSlowPutContiguous:
     case Array::Undecided:
     case Array::ArrayStorage: {
         IndexingType shape = arrayMode.shapeMask();
@@ -879,7 +872,6 @@ void SpeculativeJIT::checkArray(Node* node)
     case Array::Int32:
     case Array::Double:
     case Array::Contiguous:
-    case Array::AlwaysSlowPutContiguous:
     case Array::Undecided:
     case Array::ArrayStorage:
     case Array::SlowPutArrayStorage: {
@@ -907,11 +899,9 @@ void SpeculativeJIT::checkArray(Node* node)
     case Array::Int32:
     case Array::Double:
     case Array::Contiguous:
-    case Array::AlwaysSlowPutContiguous:
     case Array::Undecided:
     case Array::ArrayStorage:
     case Array::SlowPutArrayStorage: {
-        ASSERT(tempGPR.has_value());
         m_jit.load8(MacroAssembler::Address(baseReg, JSCell::indexingTypeAndMiscOffset()), tempGPR.value());
         speculationCheck(
             BadIndexingType, JSValueSource::unboxedCell(baseReg), nullptr,
@@ -1620,22 +1610,16 @@ void SpeculativeJIT::dump(const char* label)
         dataLogF("</%s>\n", label);
 }
 
-GPRTemporary::GPRTemporary()
-    : m_jit(nullptr)
-    , m_gpr(InvalidGPRReg)
-{
-}
+GPRTemporary::GPRTemporary() = default;
 
 GPRTemporary::GPRTemporary(SpeculativeJIT* jit)
     : m_jit(jit)
-    , m_gpr(InvalidGPRReg)
 {
     m_gpr = m_jit->allocate();
 }
 
 GPRTemporary::GPRTemporary(SpeculativeJIT* jit, GPRReg specific)
     : m_jit(jit)
-    , m_gpr(InvalidGPRReg)
 {
     m_gpr = m_jit->allocate(specific);
 }
@@ -1644,7 +1628,6 @@ GPRTemporary::GPRTemporary(SpeculativeJIT* jit, GPRReg specific)
 GPRTemporary::GPRTemporary(
     SpeculativeJIT* jit, ReuseTag, JSValueOperand& op1, WhichValueWord which)
     : m_jit(jit)
-    , m_gpr(InvalidGPRReg)
 {
     if (!op1.isDouble() && m_jit->canReuse(op1.node()))
         m_gpr = m_jit->reuse(op1.gpr(which));
@@ -1658,7 +1641,7 @@ GPRTemporary::GPRTemporary(SpeculativeJIT* jit, ReuseTag, JSValueOperand& op1, W
 }
 #endif
 
-JSValueRegsTemporary::JSValueRegsTemporary() { }
+JSValueRegsTemporary::JSValueRegsTemporary() = default;
 
 JSValueRegsTemporary::JSValueRegsTemporary(SpeculativeJIT* jit)
 #if USE(JSVALUE64)
@@ -1698,7 +1681,7 @@ JSValueRegsTemporary::JSValueRegsTemporary(SpeculativeJIT* jit, ReuseTag, JSValu
 }
 #endif
 
-JSValueRegsTemporary::~JSValueRegsTemporary() { }
+JSValueRegsTemporary::~JSValueRegsTemporary() = default;
 
 JSValueRegs JSValueRegsTemporary::regs()
 {
@@ -2158,7 +2141,9 @@ void SpeculativeJIT::compileLoopHint(Node* node)
 
             constexpr JSValueRegs resultRegs = JSRInfo::returnValueJSR;
 
-            m_jit.moveValue(baselineCodeBlock->globalObject(), resultRegs);
+            m_jit.loadLinkableConstant(JITCompiler::LinkableConstant(m_jit, baselineCodeBlock->globalObject()), resultRegs.payloadGPR());
+            m_jit.loadPtr(JITCompiler::Address(resultRegs.payloadGPR(), JSGlobalObject::offsetOfGlobalThis()), resultRegs.payloadGPR());
+            m_jit.boxCell(resultRegs.payloadGPR(), resultRegs);
             m_jit.emitRestoreCalleeSaves();
             m_jit.emitFunctionEpilogue();
             m_jit.ret();
@@ -2681,7 +2666,6 @@ void SpeculativeJIT::compilePutByVal(Node* node)
     case Array::String:
     case Array::DirectArguments:
     case Array::ScopedArguments:
-    case Array::AlwaysSlowPutContiguous:
     case Array::Undecided:
 #if USE(JSVALUE32_64)
     case Array::BigInt64Array:
@@ -8631,8 +8615,7 @@ void SpeculativeJIT::compileGetArrayLength(Node* node)
     case Array::Undecided:
     case Array::Int32:
     case Array::Double:
-    case Array::Contiguous:
-    case Array::AlwaysSlowPutContiguous: {
+    case Array::Contiguous: {
         StorageOperand storage(this, node->child2());
         GPRTemporary result(this, Reuse, storage);
         GPRReg storageReg = storage.gpr();
@@ -10137,7 +10120,7 @@ void SpeculativeJIT::compileArrayIndexOf(Node* node)
         }
 
         if (searchElementEdge.useKind() == OtherUse) {
-            ASSERT(node->arrayMode().isAnyKindOfContiguous());
+            ASSERT(node->arrayMode().type() == Array::Contiguous);
             JSValueOperand searchElement(this, searchElementEdge, ManualOperandSpeculation);
             GPRTemporary temp(this);
 
@@ -10157,7 +10140,7 @@ void SpeculativeJIT::compileArrayIndexOf(Node* node)
             return;
         }
 
-        ASSERT(node->arrayMode().isAnyKindOfContiguous());
+        ASSERT(node->arrayMode().type() == Array::Contiguous);
         SpeculateCellOperand searchElement(this, searchElementEdge);
         GPRReg searchElementGPR = searchElement.gpr();
 
@@ -10217,7 +10200,7 @@ void SpeculativeJIT::compileArrayIndexOf(Node* node)
     }
 
     case StringUse: {
-        ASSERT(node->arrayMode().isAnyKindOfContiguous());
+        ASSERT(node->arrayMode().type() == Array::Contiguous);
         SpeculateCellOperand searchElement(this, searchElementEdge);
 
         GPRReg searchElementGPR = searchElement.gpr();

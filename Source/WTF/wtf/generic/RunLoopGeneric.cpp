@@ -119,9 +119,7 @@ private:
     bool m_isScheduled { };
 };
 
-RunLoop::RunLoop()
-{
-}
+RunLoop::RunLoop() = default;
 
 RunLoop::~RunLoop()
 {
@@ -235,11 +233,6 @@ void RunLoop::run()
     RunLoop::current().runImpl(RunMode::Drain);
 }
 
-void RunLoop::iterate()
-{
-    RunLoop::current().runImpl(RunMode::Iterate);
-}
-
 void RunLoop::setWakeUpCallback(WTF::Function<void()>&& function)
 {
     RunLoop::current().m_wakeUpCallback = WTFMove(function);
@@ -279,7 +272,7 @@ void RunLoop::wakeUp()
 
 RunLoop::CycleResult RunLoop::cycle(RunLoopMode)
 {
-    iterate();
+    RunLoop::current().runImpl(RunMode::Iterate);
     return CycleResult::Continue;
 }
 

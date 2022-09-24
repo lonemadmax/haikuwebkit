@@ -143,16 +143,6 @@ TemporalPlainTime* TemporalPlainTime::tryCreateIfValid(JSGlobalObject* globalObj
     return TemporalPlainTime::create(vm, structure, WTFMove(plainTime));
 }
 
-static double nonNegativeModulo(double x, double y)
-{
-    double result = std::fmod(x, y);
-    if (!result)
-        return 0;
-    if (result < 0)
-        result += y;
-    return result;
-}
-
 // https://tc39.es/proposal-temporal/#sec-temporal-balancetime
 static ISO8601::Duration balanceTime(double hour, double minute, double second, double millisecond, double microsecond, double nanosecond)
 {
@@ -183,8 +173,8 @@ ISO8601::Duration TemporalPlainTime::roundTime(ISO8601::PlainTime plainTime, dou
     double quantity = 0;
     switch (unit) {
     case TemporalUnit::Day: {
-        double length = dayLengthNs.value_or(8.64 * 1e+13);
-        quantity = ((((plainTime.hour() * 60.0 + plainTime.minute()) * 60.0 + plainTime.second()) * 1000.0 + plainTime.millisecond()) * 1000.0 + plainTime.nanosecond()) / length;
+        double length = dayLengthNs.value_or(8.64 * 1e13);
+        quantity = (((((plainTime.hour() * 60.0 + plainTime.minute()) * 60.0 + plainTime.second()) * 1000.0 + plainTime.millisecond()) * 1000.0 + plainTime.microsecond()) * 1000.0 + plainTime.nanosecond()) / length;
         auto result = roundNumberToIncrement(quantity, increment, roundingMode);
         return ISO8601::Duration(0, 0, 0, result, 0, 0, 0, 0, 0, 0);
     }
@@ -319,21 +309,21 @@ ISO8601::Duration TemporalPlainTime::toTemporalTimeRecord(JSGlobalObject* global
         double integer = value.toIntegerOrInfinity(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
         if (!std::isfinite(integer)) {
-            throwRangeError(globalObject, scope, "Temporal.PlainTime properties must be finite"_s);
+            throwRangeError(globalObject, scope, "Temporal time properties must be finite"_s);
             return { };
         }
         duration[unit] = integer;
     }
 
     if (!hasRelevantProperty && !skipRelevantPropertyCheck) {
-        throwTypeError(globalObject, scope, "Object must contain at least one Temporal time unit property"_s);
+        throwTypeError(globalObject, scope, "Object must contain at least one Temporal time property"_s);
         return { };
     }
 
     return duration;
 }
 
-static std::array<std::optional<double>, numberOfTemporalPlainTimeUnits> toPartialTime(JSGlobalObject* globalObject, JSObject* temporalTimeLike)
+std::array<std::optional<double>, numberOfTemporalPlainTimeUnits> TemporalPlainTime::toPartialTime(JSGlobalObject* globalObject, JSObject* temporalTimeLike, bool skipRelevantPropertyCheck)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -352,14 +342,14 @@ static std::array<std::optional<double>, numberOfTemporalPlainTimeUnits> toParti
             double doubleValue = value.toIntegerOrInfinity(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             if (!std::isfinite(doubleValue)) {
-                throwRangeError(globalObject, scope, "toPartialTime properties must be finite"_s);
+                throwRangeError(globalObject, scope, "Temporal time properties must be finite"_s);
                 return { };
             }
             partialTime[static_cast<unsigned>(unit) - static_cast<unsigned>(TemporalUnit::Hour)] = doubleValue;
         }
     }
-    if (!hasAnyFields) {
-        throwTypeError(globalObject, scope, "toPartialTime requires at least one property"_s);
+    if (!hasAnyFields && !skipRelevantPropertyCheck) {
+        throwTypeError(globalObject, scope, "Object must contain at least one Temporal time property"_s);
         return { };
     }
     return partialTime;
@@ -482,7 +472,8 @@ int32_t TemporalPlainTime::compare(const ISO8601::PlainTime& t1, const ISO8601::
     return 0;
 }
 
-static ISO8601::Duration addTime(const ISO8601::PlainTime& plainTime, const ISO8601::Duration& duration)
+// https://tc39.es/proposal-temporal/#sec-temporal-addtime
+ISO8601::Duration TemporalPlainTime::addTime(const ISO8601::PlainTime& plainTime, const ISO8601::Duration& duration)
 {
     return balanceTime(
         plainTime.hour() + duration.hours(),
@@ -493,51 +484,13 @@ static ISO8601::Duration addTime(const ISO8601::PlainTime& plainTime, const ISO8
         plainTime.nanosecond() + duration.nanoseconds());
 }
 
-ISO8601::PlainTime TemporalPlainTime::add(JSGlobalObject* globalObject, JSValue temporalDurationLike) const
-{
-    VM& vm = globalObject->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    auto duration = TemporalDuration::toISO8601Duration(globalObject, temporalDurationLike);
-    RETURN_IF_EXCEPTION(scope, { });
-
-    RELEASE_AND_RETURN(scope, toPlainTime(globalObject, addTime(m_plainTime, duration)));
-}
-
-ISO8601::PlainTime TemporalPlainTime::subtract(JSGlobalObject* globalObject, JSValue temporalDurationLike) const
-{
-    VM& vm = globalObject->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    auto duration = TemporalDuration::toISO8601Duration(globalObject, temporalDurationLike);
-    RETURN_IF_EXCEPTION(scope, { });
-
-    RELEASE_AND_RETURN(scope, toPlainTime(globalObject, addTime(m_plainTime, -duration)));
-}
-
 ISO8601::PlainTime TemporalPlainTime::with(JSGlobalObject* globalObject, JSObject* temporalTimeLike, JSValue optionsValue) const
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (temporalTimeLike->inherits<TemporalPlainTime>()) {
-        throwTypeError(globalObject, scope, "argument object must not carry calendar"_s);
-        return { };
-    }
-
-    JSValue calendarProperty = temporalTimeLike->get(globalObject, vm.propertyNames->calendar);
+    rejectObjectWithCalendarOrTimeZone(globalObject, temporalTimeLike);
     RETURN_IF_EXCEPTION(scope, { });
-    if (!calendarProperty.isUndefined()) {
-        throwTypeError(globalObject, scope, "argument object must not carry calendar"_s);
-        return { };
-    }
-
-    JSValue timeZoneProperty = temporalTimeLike->get(globalObject, vm.propertyNames->timeZone);
-    RETURN_IF_EXCEPTION(scope, { });
-    if (!timeZoneProperty.isUndefined()) {
-        throwTypeError(globalObject, scope, "argument object must not carry time zone"_s);
-        return { };
-    }
 
     auto [hourOptional, minuteOptional, secondOptional, millisecondOptional, microsecondOptional, nanosecondOptional] = toPartialTime(globalObject, temporalTimeLike);
     RETURN_IF_EXCEPTION(scope, { });

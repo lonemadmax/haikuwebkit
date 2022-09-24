@@ -98,8 +98,6 @@ public:
     Encoder(VM& vm, FileSystem::PlatformFileHandle fd = FileSystem::invalidPlatformFileHandle)
         : m_vm(vm)
         , m_fd(fd)
-        , m_baseOffset(0)
-        , m_currentPage(nullptr)
     {
         allocateNewPage();
     }
@@ -272,8 +270,8 @@ private:
 
     VM& m_vm;
     FileSystem::PlatformFileHandle m_fd;
-    ptrdiff_t m_baseOffset;
-    Page* m_currentPage;
+    ptrdiff_t m_baseOffset { 0 };
+    Page* m_currentPage { nullptr };
     Vector<Page> m_pages;
     HashMap<const void*, ptrdiff_t> m_ptrToOffsetMap;
     LeafExecutableMap m_leafExecutables;
@@ -1890,7 +1888,6 @@ public:
 
     Ref<UnlinkedMetadataTable> metadata(Decoder& decoder) const { return m_metadata.decode(decoder); }
 
-    unsigned usesCallEval() const { return m_usesCallEval; }
     unsigned isConstructor() const { return m_isConstructor; }
     unsigned hasCapturedVariables() const { return m_hasCapturedVariables; }
     unsigned isBuiltinFunction() const { return m_isBuiltinFunction; }
@@ -1927,7 +1924,6 @@ private:
     VirtualRegister m_thisRegister;
     VirtualRegister m_scopeRegister;
 
-    unsigned m_usesCallEval : 1;
     unsigned m_isConstructor : 1;
     unsigned m_hasCapturedVariables : 1;
     unsigned m_isBuiltinFunction : 1;
@@ -2129,7 +2125,6 @@ ALWAYS_INLINE UnlinkedCodeBlock::UnlinkedCodeBlock(Decoder& decoder, Structure* 
     , m_scopeRegister(cachedCodeBlock.scopeRegister())
 
     , m_numVars(cachedCodeBlock.numVars())
-    , m_usesCallEval(cachedCodeBlock.usesCallEval())
     , m_numCalleeLocals(cachedCodeBlock.numCalleeLocals())
     , m_isConstructor(cachedCodeBlock.isConstructor())
     , m_numParameters(cachedCodeBlock.numParameters())
@@ -2147,7 +2142,6 @@ ALWAYS_INLINE UnlinkedCodeBlock::UnlinkedCodeBlock(Decoder& decoder, Structure* 
     , m_codeType(cachedCodeBlock.codeType())
 
     , m_didOptimize(static_cast<unsigned>(TriState::Indeterminate))
-    , m_age(0)
     , m_hasCheckpoints(cachedCodeBlock.hasCheckpoints())
 
     , m_lexicalScopeFeatures(cachedCodeBlock.lexicalScopeFeatures())
@@ -2253,7 +2247,6 @@ ALWAYS_INLINE UnlinkedFunctionExecutable* CachedFunctionExecutable::decode(Decod
 ALWAYS_INLINE UnlinkedFunctionExecutable::UnlinkedFunctionExecutable(Decoder& decoder, const CachedFunctionExecutable& cachedExecutable)
     : Base(decoder.vm(), decoder.vm().unlinkedFunctionExecutableStructure.get())
     , m_firstLineOffset(cachedExecutable.firstLineOffset())
-    , m_isGeneratedFromCache(true)
     , m_lineCount(cachedExecutable.lineCount())
     , m_hasCapturedVariables(cachedExecutable.hasCapturedVariables())
     , m_unlinkedFunctionNameStart(cachedExecutable.unlinkedFunctionNameStart())
@@ -2267,7 +2260,6 @@ ALWAYS_INLINE UnlinkedFunctionExecutable::UnlinkedFunctionExecutable(Decoder& de
     , m_sourceLength(cachedExecutable.sourceLength())
     , m_superBinding(cachedExecutable.superBinding())
     , m_parametersStartOffset(cachedExecutable.parametersStartOffset())
-    , m_isCached(false)
     , m_typeProfilingStartOffset(cachedExecutable.typeProfilingStartOffset())
     , m_needsClassFieldInitializer(cachedExecutable.needsClassFieldInitializer())
     , m_typeProfilingEndOffset(cachedExecutable.typeProfilingEndOffset())
@@ -2322,7 +2314,6 @@ ALWAYS_INLINE void CachedCodeBlock<CodeBlockType>::encode(Encoder& encoder, cons
 {
     m_thisRegister = codeBlock.m_thisRegister;
     m_scopeRegister = codeBlock.m_scopeRegister;
-    m_usesCallEval = codeBlock.m_usesCallEval;
     m_isConstructor = codeBlock.m_isConstructor;
     m_hasCapturedVariables = codeBlock.m_hasCapturedVariables;
     m_isBuiltinFunction = codeBlock.m_isBuiltinFunction;

@@ -38,6 +38,7 @@
 #include "Page.h"
 #include "RenderDescendantIterator.h"
 #include "RenderGeometryMap.h"
+#include "RenderImage.h"
 #include "RenderIterator.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
@@ -872,6 +873,27 @@ void RenderView::resumePausedImageAnimationsIfNeeded(const IntRect& visibleRect)
     }
     for (auto& pair : toRemove)
         removeRendererWithPausedImageAnimations(*pair.first, *pair.second);
+}
+
+void RenderView::repaintImageAnimationsIfNeeded(const IntRect& visibleRect)
+{
+    for (auto& element : descendantsOfType<RenderElement>(*this)) {
+        if (!element.isVisibleInDocumentRect(visibleRect))
+            continue;
+
+        // FIXME: Check whether the background image(s) can animate before repainting.
+        if (element.style().hasBackgroundImage()) {
+            element.repaint();
+            continue;
+        }
+
+        if (auto* renderImage = dynamicDowncast<RenderImage>(element)) {
+            if (renderImage->hasAnimatedImage()) {
+                element.repaint();
+                continue;
+            }
+        }
+    }
 }
 
 RenderView::RepaintRegionAccumulator::RepaintRegionAccumulator(RenderView* view)

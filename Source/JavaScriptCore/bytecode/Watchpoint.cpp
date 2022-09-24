@@ -43,8 +43,6 @@ namespace JSC {
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Watchpoint);
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(WatchpointSet);
 
-FireDetail::~FireDetail() = default;
-
 void StringFireDetail::dump(PrintStream& out) const
 {
     out.print(m_string);
@@ -94,7 +92,6 @@ void Watchpoint::fire(VM& vm, const FireDetail& detail)
 
 WatchpointSet::WatchpointSet(WatchpointState state)
     : m_state(state)
-    , m_setIsNotEmpty(false)
 {
 }
 

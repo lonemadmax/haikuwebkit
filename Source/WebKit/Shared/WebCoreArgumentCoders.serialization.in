@@ -216,9 +216,9 @@ class WebCore::IDBValue {
 header: <WebCore/IDBRequestData.h>
 class WebCore::IDBRequestData {
     WebCore::IDBConnectionIdentifier m_serverConnectionIdentifier;
-    std::unique_ptr<WebCore::IDBResourceIdentifier> m_requestIdentifier;
-    std::unique_ptr<WebCore::IDBResourceIdentifier> m_transactionIdentifier;
-    std::unique_ptr<WebCore::IDBResourceIdentifier> m_cursorIdentifier;
+    WebCore::IDBResourceIdentifier m_requestIdentifier;
+    std::optional<WebCore::IDBResourceIdentifier> m_transactionIdentifier;
+    std::optional<WebCore::IDBResourceIdentifier> m_cursorIdentifier;
     uint64_t m_objectStoreIdentifier;
     uint64_t m_indexIdentifier;
     WebCore::IndexedDB::IndexRecordType m_indexRecordType;
@@ -330,4 +330,103 @@ header: <WebCore/TimingFunction.h>
     double stiffness()
     double damping()
     double initialVelocity()
+};
+
+header: <WebCore/ResourceLoadStatistics.h>
+[LegacyPopulateFrom=EmptyConstructor] struct WebCore::ResourceLoadStatistics {
+    WebCore::RegistrableDomain registrableDomain;
+    WallTime lastSeen;
+    bool hadUserInteraction;
+    WallTime mostRecentUserInteractionTime;
+    bool grandfathered;
+    HashSet<WebCore::RegistrableDomain> storageAccessUnderTopFrameDomains;
+    HashSet<WebCore::RegistrableDomain> topFrameUniqueRedirectsTo;
+    HashSet<WebCore::RegistrableDomain> topFrameUniqueRedirectsToSinceSameSiteStrictEnforcement;
+    HashSet<WebCore::RegistrableDomain> topFrameUniqueRedirectsFrom;
+    HashSet<WebCore::RegistrableDomain> topFrameLinkDecorationsFrom;
+    bool gotLinkDecorationFromPrevalentResource;
+    HashSet<WebCore::RegistrableDomain> topFrameLoadedThirdPartyScripts;
+    HashSet<WebCore::RegistrableDomain> subframeUnderTopFrameDomains;
+    HashSet<WebCore::RegistrableDomain> subresourceUnderTopFrameDomains;
+    HashSet<WebCore::RegistrableDomain> subresourceUniqueRedirectsTo;
+    HashSet<WebCore::RegistrableDomain> subresourceUniqueRedirectsFrom;
+    bool isPrevalentResource;
+    bool isVeryPrevalentResource;
+    unsigned dataRecordsRemoved;
+    unsigned timesAccessedAsFirstPartyDueToUserInteraction;
+    unsigned timesAccessedAsFirstPartyDueToStorageAccessAPI;
+#if ENABLE(WEB_API_STATISTICS)
+    HashSet<WebCore::RegistrableDomain> topFrameRegistrableDomainsWhichAccessedWebAPIs;
+    HashSet<String> fontsFailedToLoad;
+    HashSet<String> fontsSuccessfullyLoaded;
+    WebCore::CanvasActivityRecord canvasActivityRecord;
+    OptionSet<WebCore::NavigatorAPIsAccessed> navigatorFunctionsAccessed;
+    OptionSet<WebCore::ScreenAPIsAccessed> screenFunctionsAccessed;
+#endif
+};
+
+[OptionSet] enum class WebCore::NavigatorAPIsAccessed : uint64_t {
+    AppVersion,
+    UserAgent,
+    Plugins,
+    MimeTypes,
+    CookieEnabled
+};
+
+[OptionSet] enum class WebCore::ScreenAPIsAccessed : uint64_t {
+    Height,
+    Width,
+    ColorDepth,
+    PixelDepth,
+    AvailLeft,
+    AvailTop,
+    AvailHeight,
+    AvailWidth
+};
+
+#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
+[AdditionalEncoder=StreamConnectionEncoder] struct WebCore::GraphicsContextGLActiveInfo {
+    String name;
+    GCGLenum type;
+    GCGLint size;
+};
+#endif
+
+enum class WebCore::ViewportFit : uint8_t {
+    Auto,
+    Contain,
+    Cover,
+};
+
+header: <WebCore/ViewportArguments.h>
+struct WebCore::ViewportAttributes {
+    WebCore::FloatSize layoutSize;
+
+    float initialScale;
+    float minimumScale;
+    float maximumScale;
+
+    float userScalable;
+    float orientation;
+    float shrinkToFit;
+
+    WebCore::ViewportFit viewportFit;
+};
+
+header: <WebCore/ShareData.h>
+struct WebCore::ShareDataWithParsedURL {
+    WebCore::ShareData shareData;
+    std::optional<URL> url;
+    Vector<WebCore::RawFile> files;
+};
+
+struct WebCore::ShareData {
+    String title;
+    String text;
+    String url;
+};
+
+struct WebCore::RawFile {
+    String fileName;
+    RefPtr<WebCore::SharedBuffer> fileData;
 };

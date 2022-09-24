@@ -38,6 +38,8 @@
 #include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/BlobPart.h>
 #include <WebCore/ByteArrayPixelBuffer.h>
+#include <WebCore/COEPInheritenceViolationReportBody.h>
+#include <WebCore/CORPViolationReportBody.h>
 #include <WebCore/CSPViolationReportBody.h>
 #include <WebCore/CacheQueryOptions.h>
 #include <WebCore/CacheStorageConnection.h>
@@ -79,7 +81,6 @@
 #include <WebCore/Report.h>
 #include <WebCore/ReportBody.h>
 #include <WebCore/ResourceError.h>
-#include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/ScriptBuffer.h>
@@ -304,16 +305,6 @@ std::optional<ViewportArguments> ArgumentCoder<ViewportArguments>::decode(Decode
 
 #endif // ENABLE(META_VIEWPORT)
 
-void ArgumentCoder<ViewportAttributes>::encode(Encoder& encoder, const ViewportAttributes& viewportAttributes)
-{
-    SimpleArgumentCoder<ViewportAttributes>::encode(encoder, viewportAttributes);
-}
-
-bool ArgumentCoder<ViewportAttributes>::decode(Decoder& decoder, ViewportAttributes& viewportAttributes)
-{
-    return SimpleArgumentCoder<ViewportAttributes>::decode(decoder, viewportAttributes);
-}
-
 void ArgumentCoder<RecentSearch>::encode(Encoder& encoder, const RecentSearch& recentSearch)
 {
     encoder << recentSearch.string << recentSearch.time;
@@ -463,46 +454,6 @@ std::optional<MimeClassInfo> ArgumentCoder<MimeClassInfo>::decode(Decoder& decod
         return std::nullopt;
 
     return mimeClassInfo;
-}
-
-
-void ArgumentCoder<PluginInfo>::encode(Encoder& encoder, const PluginInfo& pluginInfo)
-{
-    encoder << pluginInfo.name;
-    encoder << pluginInfo.file;
-    encoder << pluginInfo.desc;
-    encoder << pluginInfo.mimes;
-    encoder << pluginInfo.isApplicationPlugin;
-    encoder << pluginInfo.clientLoadPolicy;
-    encoder << pluginInfo.bundleIdentifier;
-#if PLATFORM(MAC)
-    encoder << pluginInfo.versionString;
-#endif
-}
-
-std::optional<WebCore::PluginInfo> ArgumentCoder<PluginInfo>::decode(Decoder& decoder)
-{
-    PluginInfo pluginInfo;
-    if (!decoder.decode(pluginInfo.name))
-        return std::nullopt;
-    if (!decoder.decode(pluginInfo.file))
-        return std::nullopt;
-    if (!decoder.decode(pluginInfo.desc))
-        return std::nullopt;
-    if (!decoder.decode(pluginInfo.mimes))
-        return std::nullopt;
-    if (!decoder.decode(pluginInfo.isApplicationPlugin))
-        return std::nullopt;
-    if (!decoder.decode(pluginInfo.clientLoadPolicy))
-        return std::nullopt;
-    if (!decoder.decode(pluginInfo.bundleIdentifier))
-        return std::nullopt;
-#if PLATFORM(MAC)
-    if (!decoder.decode(pluginInfo.versionString))
-        return std::nullopt;
-#endif
-
-    return pluginInfo;
 }
 
 void ArgumentCoder<AuthenticationChallenge>::encode(Encoder& encoder, const AuthenticationChallenge& challenge)
@@ -1408,58 +1359,7 @@ bool ArgumentCoder<FileChooserSettings>::decode(Decoder& decoder, FileChooserSet
 
     return true;
 }
-
-void ArgumentCoder<RawFile>::encode(Encoder& encoder, const RawFile& file)
-{
-    encoder << file.fileName;
-    encoder << file.fileData;
-}
-
-bool ArgumentCoder<RawFile>::decode(Decoder& decoder, RawFile& file)
-{
-    if (!decoder.decode(file.fileName))
-        return false;
-    if (!decoder.decode(file.fileData))
-        return false;
-    return true;
-}
     
-void ArgumentCoder<ShareData>::encode(Encoder& encoder, const ShareData& settings)
-{
-    encoder << settings.title;
-    encoder << settings.text;
-    encoder << settings.url;
-}
-
-bool ArgumentCoder<ShareData>::decode(Decoder& decoder, ShareData& settings)
-{
-    if (!decoder.decode(settings.title))
-        return false;
-    if (!decoder.decode(settings.text))
-        return false;
-    if (!decoder.decode(settings.url))
-        return false;
-    return true;
-}
-    
-void ArgumentCoder<ShareDataWithParsedURL>::encode(Encoder& encoder, const ShareDataWithParsedURL& settings)
-{
-    encoder << settings.shareData;
-    encoder << settings.url;
-    encoder << settings.files;
-}
-
-bool ArgumentCoder<ShareDataWithParsedURL>::decode(Decoder& decoder, ShareDataWithParsedURL& settings)
-{
-    if (!decoder.decode(settings.shareData))
-        return false;
-    if (!decoder.decode(settings.url))
-        return false;
-    if (!decoder.decode(settings.files))
-        return false;
-    return true;
-}
-
 void ArgumentCoder<GrammarDetail>::encode(Encoder& encoder, const GrammarDetail& detail)
 {
     encoder << detail.range;
@@ -2158,161 +2058,6 @@ bool ArgumentCoder<ExceptionDetails>::decode(IPC::Decoder& decoder, ExceptionDet
     return true;
 }
 
-void ArgumentCoder<ResourceLoadStatistics>::encode(Encoder& encoder, const WebCore::ResourceLoadStatistics& statistics)
-{
-    encoder << statistics.registrableDomain;
-    
-    encoder << statistics.lastSeen.secondsSinceEpoch().value();
-    
-    // User interaction
-    encoder << statistics.hadUserInteraction;
-    encoder << statistics.mostRecentUserInteractionTime.secondsSinceEpoch().value();
-    encoder << statistics.grandfathered;
-
-    // Storage access
-    encoder << statistics.storageAccessUnderTopFrameDomains;
-
-    // Top frame stats
-    encoder << statistics.topFrameUniqueRedirectsTo;
-    encoder << statistics.topFrameUniqueRedirectsFrom;
-    encoder << statistics.topFrameLoadedThirdPartyScripts;
-
-    // Subframe stats
-    encoder << statistics.subframeUnderTopFrameDomains;
-    
-    // Subresource stats
-    encoder << statistics.subresourceUnderTopFrameDomains;
-    encoder << statistics.subresourceUniqueRedirectsTo;
-    encoder << statistics.subresourceUniqueRedirectsFrom;
-
-    // Prevalent Resource
-    encoder << statistics.isPrevalentResource;
-    encoder << statistics.isVeryPrevalentResource;
-    encoder << statistics.dataRecordsRemoved;
-
-#if ENABLE(WEB_API_STATISTICS)
-    encoder << statistics.fontsFailedToLoad;
-    encoder << statistics.fontsSuccessfullyLoaded;
-    encoder << statistics.topFrameRegistrableDomainsWhichAccessedWebAPIs;
-    
-    encoder << statistics.canvasActivityRecord;
-    
-    encoder << statistics.navigatorFunctionsAccessed;
-    encoder << statistics.screenFunctionsAccessed;
-#endif
-}
-
-std::optional<ResourceLoadStatistics> ArgumentCoder<ResourceLoadStatistics>::decode(Decoder& decoder)
-{
-    ResourceLoadStatistics statistics;
-    std::optional<RegistrableDomain> registrableDomain;
-    decoder >> registrableDomain;
-    if (!registrableDomain)
-        return std::nullopt;
-    statistics.registrableDomain = WTFMove(*registrableDomain);
-
-    double lastSeenTimeAsDouble;
-    if (!decoder.decode(lastSeenTimeAsDouble))
-        return std::nullopt;
-    statistics.lastSeen = WallTime::fromRawSeconds(lastSeenTimeAsDouble);
-    
-    // User interaction
-    if (!decoder.decode(statistics.hadUserInteraction))
-        return std::nullopt;
-
-    double mostRecentUserInteractionTimeAsDouble;
-    if (!decoder.decode(mostRecentUserInteractionTimeAsDouble))
-        return std::nullopt;
-    statistics.mostRecentUserInteractionTime = WallTime::fromRawSeconds(mostRecentUserInteractionTimeAsDouble);
-
-    if (!decoder.decode(statistics.grandfathered))
-        return std::nullopt;
-
-    // Storage access
-    std::optional<HashSet<RegistrableDomain>> storageAccessUnderTopFrameDomains;
-    decoder >> storageAccessUnderTopFrameDomains;
-    if (!storageAccessUnderTopFrameDomains)
-        return std::nullopt;
-    statistics.storageAccessUnderTopFrameDomains = WTFMove(*storageAccessUnderTopFrameDomains);
-
-    // Top frame stats
-    std::optional<HashSet<RegistrableDomain>> topFrameUniqueRedirectsTo;
-    decoder >> topFrameUniqueRedirectsTo;
-    if (!topFrameUniqueRedirectsTo)
-        return std::nullopt;
-    statistics.topFrameUniqueRedirectsTo = WTFMove(*topFrameUniqueRedirectsTo);
-
-    std::optional<HashSet<RegistrableDomain>> topFrameUniqueRedirectsFrom;
-    decoder >> topFrameUniqueRedirectsFrom;
-    if (!topFrameUniqueRedirectsFrom)
-        return std::nullopt;
-    statistics.topFrameUniqueRedirectsFrom = WTFMove(*topFrameUniqueRedirectsFrom);
-
-    std::optional<HashSet<RegistrableDomain>> topFrameLoadedThirdPartyScripts;
-    decoder >> topFrameLoadedThirdPartyScripts;
-    if (!topFrameLoadedThirdPartyScripts)
-        return std::nullopt;
-    statistics.topFrameLoadedThirdPartyScripts = WTFMove(*topFrameLoadedThirdPartyScripts);
-
-    // Subframe stats
-    std::optional<HashSet<RegistrableDomain>> subframeUnderTopFrameDomains;
-    decoder >> subframeUnderTopFrameDomains;
-    if (!subframeUnderTopFrameDomains)
-        return std::nullopt;
-    statistics.subframeUnderTopFrameDomains = WTFMove(*subframeUnderTopFrameDomains);
-
-    // Subresource stats
-    std::optional<HashSet<RegistrableDomain>> subresourceUnderTopFrameDomains;
-    decoder >> subresourceUnderTopFrameDomains;
-    if (!subresourceUnderTopFrameDomains)
-        return std::nullopt;
-    statistics.subresourceUnderTopFrameDomains = WTFMove(*subresourceUnderTopFrameDomains);
-
-    std::optional<HashSet<RegistrableDomain>> subresourceUniqueRedirectsTo;
-    decoder >> subresourceUniqueRedirectsTo;
-    if (!subresourceUniqueRedirectsTo)
-        return std::nullopt;
-    statistics.subresourceUniqueRedirectsTo = WTFMove(*subresourceUniqueRedirectsTo);
-
-    std::optional<HashSet<RegistrableDomain>> subresourceUniqueRedirectsFrom;
-    decoder >> subresourceUniqueRedirectsFrom;
-    if (!subresourceUniqueRedirectsFrom)
-        return std::nullopt;
-    statistics.subresourceUniqueRedirectsFrom = WTFMove(*subresourceUniqueRedirectsFrom);
-
-    // Prevalent Resource
-    if (!decoder.decode(statistics.isPrevalentResource))
-        return std::nullopt;
-
-    if (!decoder.decode(statistics.isVeryPrevalentResource))
-        return std::nullopt;
-    
-    if (!decoder.decode(statistics.dataRecordsRemoved))
-        return std::nullopt;
-    
-#if ENABLE(WEB_API_STATISTICS)
-    if (!decoder.decode(statistics.fontsFailedToLoad))
-        return std::nullopt;
-    
-    if (!decoder.decode(statistics.fontsSuccessfullyLoaded))
-        return std::nullopt;
-    
-    if (!decoder.decode(statistics.topFrameRegistrableDomainsWhichAccessedWebAPIs))
-        return std::nullopt;
-    
-    if (!decoder.decode(statistics.canvasActivityRecord))
-        return std::nullopt;
-    
-    if (!decoder.decode(statistics.navigatorFunctionsAccessed))
-        return std::nullopt;
-    
-    if (!decoder.decode(statistics.screenFunctionsAccessed))
-        return std::nullopt;
-#endif
-
-    return statistics;
-}
-
 #if ENABLE(MEDIA_STREAM)
 void ArgumentCoder<MediaConstraints>::encode(Encoder& encoder, const WebCore::MediaConstraints& constraint)
 {
@@ -2815,35 +2560,6 @@ std::optional<WebCore::CDMInstanceSession::Message>  ArgumentCoder<WebCore::CDMI
 }
 #endif // ENABLE(ENCRYPTED_MEDIA)
 
-#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
-
-template<typename Encoder>
-void ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo>::encode(Encoder& encoder, const WebCore::GraphicsContextGL::ActiveInfo& activeInfo)
-{
-    encoder << activeInfo.name;
-    encoder << activeInfo.type;
-    encoder << activeInfo.size;
-}
-
-template
-void ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo>::encode<Encoder>(Encoder&, const WebCore::GraphicsContextGL::ActiveInfo&);
-template
-void ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo>::encode<StreamConnectionEncoder>(StreamConnectionEncoder&, const WebCore::GraphicsContextGL::ActiveInfo&);
-
-std::optional<WebCore::GraphicsContextGL::ActiveInfo> ArgumentCoder<WebCore::GraphicsContextGL::ActiveInfo>::decode(Decoder& decoder)
-{
-    WebCore::GraphicsContextGL::ActiveInfo activeInfo;
-    if (!decoder.decode(activeInfo.name))
-        return std::nullopt;
-    if (!decoder.decode(activeInfo.type))
-        return std::nullopt;
-    if (!decoder.decode(activeInfo.size))
-        return std::nullopt;
-    return activeInfo;
-}
-
-#endif
-
 #if ENABLE(IMAGE_ANALYSIS) && ENABLE(DATA_DETECTION)
 
 void ArgumentCoder<TextRecognitionDataDetector>::encode(Encoder& encoder, const TextRecognitionDataDetector& info)
@@ -2935,6 +2651,12 @@ void ArgumentCoder<RefPtr<WebCore::ReportBody>>::encode(Encoder& encoder, const 
     case ViolationReportType::ContentSecurityPolicy:
         downcast<CSPViolationReportBody>(reportBody.get())->encode(encoder);
         return;
+    case ViolationReportType::COEPInheritenceViolation:
+        downcast<COEPInheritenceViolationReportBody>(reportBody.get())->encode(encoder);
+        return;
+    case ViolationReportType::CORPViolation:
+        downcast<CORPViolationReportBody>(reportBody.get())->encode(encoder);
+        return;
     case ViolationReportType::Test:
         downcast<TestReportBody>(reportBody.get())->encode(encoder);
         return;
@@ -2965,6 +2687,10 @@ std::optional<RefPtr<WebCore::ReportBody>> ArgumentCoder<RefPtr<WebCore::ReportB
     switch (*reportBodyType) {
     case ViolationReportType::ContentSecurityPolicy:
         return CSPViolationReportBody::decode(decoder);
+    case ViolationReportType::COEPInheritenceViolation:
+        return COEPInheritenceViolationReportBody::decode(decoder);
+    case ViolationReportType::CORPViolation:
+        return CORPViolationReportBody::decode(decoder);
     case ViolationReportType::Test:
         return TestReportBody::decode(decoder);
     case ViolationReportType::CrossOriginOpenerPolicy:

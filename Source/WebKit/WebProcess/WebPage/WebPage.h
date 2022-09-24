@@ -454,7 +454,7 @@ public:
     void enqueueSecurityPolicyViolationEvent(WebCore::FrameIdentifier, WebCore::SecurityPolicyViolationEventInit&&);
 
     void notifyReportObservers(WebCore::FrameIdentifier, Ref<WebCore::Report>&&);
-    void sendReportToEndpoints(WebCore::FrameIdentifier, URL&& baseURL, Vector<String>&& endPoints, IPC::FormDataReference&&, WebCore::ViolationReportType);
+    void sendReportToEndpoints(WebCore::FrameIdentifier, URL&& baseURL, const Vector<String>& endpointURIs, const Vector<String>& endpointTokens, IPC::FormDataReference&&, WebCore::ViolationReportType);
 
     // -- Called by the DrawingArea.
     // FIXME: We could genericize these into a DrawingArea client interface. Would that be beneficial?
@@ -556,6 +556,8 @@ public:
     bool findStringFromInjectedBundle(const String&, OptionSet<FindOptions>);
     void findStringMatchesFromInjectedBundle(const String&, OptionSet<FindOptions>);
     void replaceStringMatchesFromInjectedBundle(const Vector<uint32_t>& matchIndices, const String& replacementText, bool selectionOnly);
+
+    void setTextIndicator(const WebCore::TextIndicatorData&);
 
     WebFrame& mainWebFrame() const { return m_mainFrame; }
 
@@ -1027,7 +1029,7 @@ public:
 #endif
 
 #if ENABLE(DRAG_SUPPORT) && !PLATFORM(GTK)
-    void performDragControllerAction(DragControllerAction, const WebCore::DragData&, SandboxExtension::Handle&&, Vector<SandboxExtension::Handle>&&);
+    void performDragControllerAction(DragControllerAction, WebCore::DragData&&, SandboxExtension::Handle&&, Vector<SandboxExtension::Handle>&&);
 #endif
 
 #if ENABLE(DRAG_SUPPORT)

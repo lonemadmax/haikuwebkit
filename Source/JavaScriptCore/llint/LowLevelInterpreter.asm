@@ -552,17 +552,17 @@ const TagOffset = constexpr TagOffset
 const PayloadOffset = constexpr PayloadOffset
 
 # Constant for reasoning about butterflies.
-const IsArray                      = constexpr IsArray
-const IndexingShapeMask            = constexpr IndexingShapeMask
-const IndexingTypeMask             = constexpr IndexingTypeMask
-const NoIndexingShape              = constexpr NoIndexingShape
-const Int32Shape                   = constexpr Int32Shape
-const DoubleShape                  = constexpr DoubleShape
-const ContiguousShape              = constexpr ContiguousShape
-const AlwaysSlowPutContiguousShape = constexpr AlwaysSlowPutContiguousShape
-const ArrayStorageShape            = constexpr ArrayStorageShape
-const CopyOnWrite                  = constexpr CopyOnWrite
-const ArrayWithUndecided           = constexpr ArrayWithUndecided
+const IsArray                  = constexpr IsArray
+const IndexingShapeMask        = constexpr IndexingShapeMask
+const IndexingTypeMask         = constexpr IndexingTypeMask
+const NoIndexingShape          = constexpr NoIndexingShape
+const Int32Shape               = constexpr Int32Shape
+const DoubleShape              = constexpr DoubleShape
+const ContiguousShape          = constexpr ContiguousShape
+const ArrayStorageShape        = constexpr ArrayStorageShape
+const SlowPutArrayStorageShape = constexpr SlowPutArrayStorageShape
+const CopyOnWrite              = constexpr CopyOnWrite
+const ArrayWithUndecided       = constexpr ArrayWithUndecided
 
 # Type constants.
 const StructureType = constexpr StructureType
@@ -2425,37 +2425,37 @@ end)
 # and a PC to call, and that PC may be a dummy thunk that just
 # returns the JS value that the eval returned.
 
-_llint_op_call_eval:
+_llint_op_call_direct_eval:
     slowPathForCommonCall(
-        op_call_eval,
+        op_call_direct_eval,
         narrow,
-        OpCallEval,
-        macro () dispatchOp(narrow, op_call_eval) end,
-        _llint_slow_path_call_eval,
+        OpCallDirectEval,
+        macro () dispatchOp(narrow, op_call_direct_eval) end,
+        _llint_slow_path_call_direct_eval,
         prepareForRegularCall)
 
-_llint_op_call_eval_wide16:
+_llint_op_call_direct_eval_wide16:
     slowPathForCommonCall(
-        op_call_eval,
+        op_call_direct_eval,
         wide16,
-        OpCallEval,
-        macro () dispatchOp(wide16, op_call_eval) end,
-        _llint_slow_path_call_eval_wide16,
+        OpCallDirectEval,
+        macro () dispatchOp(wide16, op_call_direct_eval) end,
+        _llint_slow_path_call_direct_eval_wide16,
         prepareForRegularCall)
 
-_llint_op_call_eval_wide32:
+_llint_op_call_direct_eval_wide32:
     slowPathForCommonCall(
-        op_call_eval,
+        op_call_direct_eval,
         wide32,
-        OpCallEval,
-        macro () dispatchOp(wide32, op_call_eval) end,
-        _llint_slow_path_call_eval_wide32,
+        OpCallDirectEval,
+        macro () dispatchOp(wide32, op_call_direct_eval) end,
+        _llint_slow_path_call_direct_eval_wide32,
         prepareForRegularCall)
 
 
 commonOp(llint_generic_return_point, macro () end, macro (size)
-    dispatchAfterCall(size, OpCallEval, m_profile, m_dst, macro ()
-        dispatchOp(size, op_call_eval)
+    dispatchAfterCall(size, OpCallDirectEval, m_profile, m_dst, macro ()
+        dispatchOp(size, op_call_direct_eval)
     end)
 end)
 

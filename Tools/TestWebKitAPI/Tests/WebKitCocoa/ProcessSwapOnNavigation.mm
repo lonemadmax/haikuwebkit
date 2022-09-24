@@ -1755,55 +1755,6 @@ TEST(ProcessSwap, ServerRedirect2)
     EXPECT_WK_STREQ(@"pson://www.webkit.org/main1.html", [[webView URL] absoluteString]);
 }
 
-TEST(ProcessSwap, ServerRedirectToAboutBlank)
-{
-    auto processPoolConfiguration = psonProcessPoolConfiguration();
-    auto processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
-
-    auto webViewConfiguration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    [webViewConfiguration setProcessPool:processPool.get()];
-    auto handler = adoptNS([[PSONScheme alloc] init]);
-    [handler addRedirectFromURLString:@"pson://www.webkit.org/main.html" toURLString:@"about:blank"];
-    [webViewConfiguration setURLSchemeHandler:handler.get() forURLScheme:@"pson"];
-
-    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
-    auto delegate = adoptNS([[PSONNavigationDelegate alloc] init]);
-    [webView setNavigationDelegate:delegate.get()];
-
-    NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.google.com/main.html"]];
-    [webView loadRequest:request];
-
-    TestWebKitAPI::Util::run(&done);
-    done = false;
-
-    auto pidAfterFirstLoad = [webView _webProcessIdentifier];
-
-    EXPECT_EQ(1, numberOfDecidePolicyCalls);
-    EXPECT_EQ(1u, seenPIDs.size());
-    EXPECT_TRUE(*seenPIDs.begin() == pidAfterFirstLoad);
-
-    request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.webkit.org/main.html"]];
-    [webView loadRequest:request];
-
-    TestWebKitAPI::Util::run(&serverRedirected);
-    serverRedirected = false;
-
-    seenPIDs.add([webView _webProcessIdentifier]);
-    if (auto provisionalPID = [webView _provisionalWebProcessIdentifier])
-        seenPIDs.add(provisionalPID);
-
-    TestWebKitAPI::Util::run(&done);
-    done = false;
-
-    seenPIDs.add([webView _webProcessIdentifier]);
-    if (auto provisionalPID = [webView _provisionalWebProcessIdentifier])
-        seenPIDs.add(provisionalPID);
-
-    EXPECT_FALSE(serverRedirected);
-    EXPECT_EQ(3, numberOfDecidePolicyCalls);
-    EXPECT_EQ(2u, seenPIDs.size());
-}
-
 enum class ShouldCacheProcessFirst { No, Yes };
 static void runSameOriginServerRedirectTest(ShouldCacheProcessFirst shouldCacheProcessFirst)
 {
@@ -1915,7 +1866,7 @@ TEST(ProcessSwap, TerminateProcessRightAfterSwap)
     request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.apple.com/main.html"]];
     [webView loadRequest:request];
 
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
 }
 
 static const char* linkToWebKitBytes = R"PSONRESOURCE(
@@ -2065,7 +2016,7 @@ TEST(ProcessSwap, SameOriginSystemPreview)
     didStartProvisionalLoad = false;
     [webView evaluateJavaScript:@"testLink.click()" completionHandler:nil];
 
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
 
     // We should still be on webkit.org.
     EXPECT_EQ(pidAfterFirstLoad, [webView _webProcessIdentifier]);
@@ -2101,7 +2052,7 @@ TEST(ProcessSwap, CrossOriginSystemPreview)
     didStartProvisionalLoad = false;
     [webView evaluateJavaScript:@"testLink.click()" completionHandler:nil];
 
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
 
     // We should still be on webkit.org.
     EXPECT_EQ(pidAfterFirstLoad, [webView _webProcessIdentifier]);
@@ -2480,7 +2431,7 @@ static void runQuickBackForwardNavigationTest(ShouldEnablePSON shouldEnablePSON)
 
     for (unsigned i = 0; i < 10; ++i) {
         [webView goBack];
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
         [webView goForward];
         TestWebKitAPI::Util::spinRunLoop();
     }
@@ -3107,7 +3058,7 @@ static unsigned waitUntilClientWidthIs(WKWebView *webView, unsigned expectedClie
     unsigned clientWidth = 0;
     do {
         if (timeout != 10)
-            TestWebKitAPI::Util::sleep(0.1);
+            TestWebKitAPI::Util::runFor(0.1_s);
 
         [webView evaluateJavaScript:@"getClientWidth()" completionHandler: [&] (id result, NSError *error) {
             clientWidth = [result integerValue];
@@ -3425,7 +3376,7 @@ TEST(ProcessSwap, SuspendedPageLimit)
     auto expectedProcessCount = 1 + maximumSuspendedPageCount;
     int timeout = 20;
     while ([processPool _webProcessCountIgnoringPrewarmedAndCached] != expectedProcessCount && timeout >= 0) {
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
         --timeout;
     }
 
@@ -3897,12 +3848,12 @@ TEST(ProcessSwap, ProcessCrashedWhileInTheCache)
     }
 
     while ([processPool _processCacheSize] != 1)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     kill(webkitPID, 9);
 
     while ([processPool _processCacheSize])
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
     [webView setNavigationDelegate:navigationDelegate.get()];
@@ -3946,7 +3897,7 @@ TEST(ProcessSwap, ProcessTerminatedWhileInTheCache)
     }
 
     while ([processPool _processCacheSize] != 1)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     EXPECT_TRUE([processPool _requestWebProcessTermination:webkitPID]);
     TestWebKitAPI::Util::spinRunLoop(100);
@@ -3985,7 +3936,7 @@ TEST(ProcessSwap, UseWebProcessCacheForLoadInNewView)
 
         // Process launch should be delayed until a load actually happens.
         EXPECT_EQ(0, [webView _webProcessIdentifier]);
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
         EXPECT_EQ(0, [webView _webProcessIdentifier]);
 
         NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.webkit.org/main1.html"]];
@@ -3997,7 +3948,7 @@ TEST(ProcessSwap, UseWebProcessCacheForLoadInNewView)
     }
 
     while ([processPool _processCacheSize] != 1)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     EXPECT_EQ(1U, [processPool _webProcessCountIgnoringPrewarmed]);
 
@@ -4015,7 +3966,7 @@ TEST(ProcessSwap, UseWebProcessCacheForLoadInNewView)
     }
 
     while ([processPool _processCacheSize] != 1)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     EXPECT_EQ(1U, [processPool _webProcessCountIgnoringPrewarmed]);
 
@@ -4111,7 +4062,7 @@ TEST(ProcessSwap, NumberOfCachedProcesses)
 
     int timeout = 100;
     while (([processPool _webProcessCount] > (maxSuspendedPageCount + 2) &&  [processPool _webProcessCountIgnoringPrewarmedAndCached] > (maxSuspendedPageCount + 1)) && timeout > 0) {
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
         --timeout;
     }
 
@@ -4127,7 +4078,7 @@ TEST(ProcessSwap, NumberOfCachedProcesses)
 
     timeout = 100;
     while ([processPool _webProcessCount] > 1 && timeout > 0) {
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
         --timeout;
     }
 
@@ -4202,7 +4153,7 @@ TEST(ProcessSwap, PageShowHide)
     done = false;
 
     while ([receivedMessages count] < 7)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     EXPECT_EQ(7u, [receivedMessages count]);
     EXPECT_WK_STREQ(@"pson://www.webkit.org/main.html - pageshow NOT persisted", receivedMessages.get()[0]);
@@ -4294,7 +4245,7 @@ TEST(ProcessSwap, LoadUnload)
     done = false;
 
     while ([receivedMessages count] < 7)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     EXPECT_EQ(7u, [receivedMessages count]);
     EXPECT_WK_STREQ(@"pson://www.webkit.org/main.html - load", receivedMessages.get()[0]);
@@ -4927,7 +4878,7 @@ static void runAPIControlledProcessSwappingThenBackTest(WithDelay withDelay)
     
     // Give time to the suspended WebPage to close.
     if (withDelay == WithDelay::Yes)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
     
     navigationDelegate->decidePolicyForNavigationAction = nil;
     [webView goBack];
@@ -5088,7 +5039,7 @@ TEST(ProcessSwap, ClosePageAfterCrossSiteProvisionalLoad)
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
 }
 
 static Vector<bool> loadingStateChanges;
@@ -5245,7 +5196,7 @@ TEST(ProcessSwap, OpenerLinkAfterAPIControlledProcessSwappingOfOpener)
     int timeout = 50;
     do {
         if (timeout != 50)
-            TestWebKitAPI::Util::sleep(0.1);
+            TestWebKitAPI::Util::runFor(0.1_s);
         
         // Auxiliary window's opener should no longer have an opener.
         [createdWebView evaluateJavaScript:@"window.opener ? 'true' : 'false'" completionHandler: [&] (id hasOpenerString, NSError *error) {
@@ -5582,7 +5533,7 @@ TEST(ProcessSwap, CommittedProcessCrashDuringCrossSiteNavigation)
 
     TestWebKitAPI::Util::run(&didKill);
 
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
 }
 
 TEST(ProcessSwap, NavigateBackAndForth)
@@ -6482,7 +6433,7 @@ TEST(ProcessSwap, ScrollPositionRestoration)
     done = false;
 
     do {
-        TestWebKitAPI::Util::sleep(0.05);
+        TestWebKitAPI::Util::runFor(0.05_s);
     } while (lroundf([[[webView backForwardList] currentItem] _scrollPosition].y) != 5000);
 
     [webView evaluateJavaScript:@"testLink.click()" completionHandler: nil];
@@ -6511,7 +6462,7 @@ TEST(ProcessSwap, ScrollPositionRestoration)
     done = false;
 
     do {
-        TestWebKitAPI::Util::sleep(0.05);
+        TestWebKitAPI::Util::runFor(0.05_s);
     } while (lroundf([[[webView backForwardList] currentItem] _scrollPosition].y) != 4000);
 
     [webView evaluateJavaScript:@"testLink.click()" completionHandler: nil];
@@ -7331,7 +7282,7 @@ TEST(ProcessSwap, ResponsePolicyDownloadAfterCOOPProcessSwap)
     // The layer tree should no longer be frozen since the navigation didn't happen.
     __block bool isFrozen = true;
     do {
-        Util::sleep(0.1);
+        Util::runFor(0.1_s);
         done = false;
         [webView _isLayerTreeFrozenForTesting:^(BOOL frozen) {
             isFrozen = frozen;
@@ -8213,7 +8164,7 @@ TEST(ProcessSwap, CaptivePortalModeSystemSettingChangeDoesNotReloadViewsWhenMode
     [WKProcessPool _setCaptivePortalModeEnabledGloballyForTesting:YES];
 
     // This should not reload the web view since the view has explicitly opted out of captive portal mode.
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
     EXPECT_FALSE(finishedNavigation);
 
     pid_t pid2 = [webView _webProcessIdentifier];
@@ -8258,7 +8209,7 @@ TEST(ProcessSwap, CaptivePortalModeSystemSettingChangeDoesNotReloadViewsWhenMode
     [WKProcessPool _clearCaptivePortalModeEnabledGloballyForTesting];
 
     // This should not reload the web view since the view has explicitly opted out of captive portal mode.
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
     EXPECT_FALSE(finishedNavigation);
 
     pid_t pid2 = [webView _webProcessIdentifier];
@@ -8305,7 +8256,7 @@ TEST(ProcessSwap, CaptivePortalModeSystemSettingChangeDoesNotReloadViewsWhenMode
     [WKProcessPool _setCaptivePortalModeEnabledGloballyForTesting:YES];
 
     // This should not reload the web view since the view has explicitly opted out of captive portal mode.
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
     EXPECT_FALSE(finishedNavigation);
 
     pid_t pid2 = [webView _webProcessIdentifier];
@@ -8355,7 +8306,7 @@ TEST(ProcessSwap, CaptivePortalModeSystemSettingChangeDoesNotReloadViewsWhenMode
     [WKProcessPool _clearCaptivePortalModeEnabledGloballyForTesting];
 
     // This should not reload the web view since the view has explicitly opted out of captive portal mode.
-    TestWebKitAPI::Util::sleep(0.5);
+    TestWebKitAPI::Util::runFor(0.5_s);
     EXPECT_FALSE(finishedNavigation);
 
     pid_t pid2 = [webView _webProcessIdentifier];
@@ -8558,7 +8509,7 @@ TEST(WebProcessCache, ReusedCrashedCachedWebProcess)
 
     // There should now be a process for apple.com in the process cache.
     while ([processPool _processCacheSize] != 1)
-        TestWebKitAPI::Util::sleep(0.1);
+        TestWebKitAPI::Util::runFor(0.1_s);
 
     crashCount = 0;
     done = false;
