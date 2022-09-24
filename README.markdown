@@ -10,13 +10,11 @@ For more information, please visit the [project's wiki and issue tracker](http:/
 This repository is *huge* (about 5 gigabytes). If you are only interested in building
 the latest version of WebKit, remember to use the --depth option to git clone.
 This can be used to download only a limited part of the history and will reduce the
-checkout to about 600MB. Note that WebKit uses SVN and they have the changelog inside the tree in "Changelog"
-files, which you can still use as a primitive way to browse the history. You
-can also use github for that, or download parts of the history later.
+checkout to about 600MB.
 
 ### Requirements ###
 
-- A recent version of Haiku (beta2 is too old, it lacks at least madvise() and support for compositing draw operations)
+- A recent version of Haiku
 - The GCC8 development tools
 - The dependencies as listed below
 - At least about 2G of RAM
@@ -24,21 +22,22 @@ can also use github for that, or download parts of the history later.
 
 Dependencies can be installed (for a gcc2hybrid version) via:
 
-    $ pkgman install cmake_x86 gcc_x86 gperf haiku_x86_devel \
-	libjpeg_turbo_x86_devel sqlite_x86_devel libpng16_x86_devel \
-	libxml2_x86_devel libxslt_x86_devel icu66_x86_devel perl python \
-	ruby_x86 libexecinfo_x86_devel libwebp_x86_devel ninja_x86 \
-	pkgconfig_x86 pywebsocket gnutls_x86 gnutls_x86_devel
+    $ pkgman install cmake_x86 gcc_x86 gperf haiku_x86_devel libjpeg_turbo_x86_devel \
+	sqlite_x86_devel libpng16_x86_devel libxml2_x86_devel libxslt_x86_devel icu66_x86_devel perl \
+	python ruby_x86 libexecinfo_x86_devel libwebp_x86_devel ninja_x86 pkgconfig_x86 pywebsocket \
+	libpsl_x86_devel libidn2_x86_devel libunistring_x86_devel
 
 Additionally if you want to run the tests:
 
-    $ pkgman install php_x86 lighttpd_x86
+    $ pkgman install lighttpd_x86
 
-##### NOTE :
+For the other versions of Haiku, it should be similar but remove all the _x86 suffixes from the
+package names.
+
+##### NOTE:
+
 If you get an _Ruby missing error_ even after you have installed ruby, similar to <br>
 `Could NOT find Ruby  (missing: RUBY_INCLUDE_DIR RUBY_LIBRARY RUBY_CONFIG_INCLUDE_DIR)  (found suitable version "2.2.0", minimum required is "1.9")`, you can skip that.
-
-Packages for other flavors of Haiku may or may not be available. Use [haikuporter](http://haikuports.org) to build them if needed.
 
 ### Building WebKit ###
 
@@ -49,7 +48,7 @@ and bugs with the libnetservices based implementation.
 
 If you want to use curl as a network backend, make sure the needed libraries are installed:
 
-    $ pkgman install devel:libcurl devel:libpsl devel:libidn2 devel:libunistring
+    $ pkgman install devel:libcurl
 
 Edit Source/cmake/OptionsHaiku.cmake and turn USE\_CURL ON (near the bottom of the file). Then
 build as usual following the instructions below, the resulting build will use CURL.
@@ -64,21 +63,23 @@ Note that some things are currently disabled:
 Commands to run from the webkit checkout directory:
 
 On a gcc2hybrid (32bit) Haiku:
+
 	$ PKG_CONFIG_LIBDIR=/boot/system/develop/lib/x86/pkgconfig \
         CC=gcc-x86 CXX=g++-x86 Tools/Scripts/build-webkit \
 		--cmakeargs="-DCMAKE_AR=/bin/ar-x86 -DCMAKE_RANLIB=/bin/ranlib-x86" --haiku
 
 On other versions:
+
     $ Tools/Scripts/build-webkit --haiku
 
 #### Regular build, once configured ####
+
 	$ cd WebKitBuild/Release
 	$ ninja
 
 This will build a release version of WebKit libraries on a quad core cpu.
 
 On a successful build, executables and libraries are generated in the WebKitBuild/Release directory.
-
 
 ### Advanced Build, other targets ###
 
