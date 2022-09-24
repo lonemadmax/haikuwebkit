@@ -49,16 +49,15 @@ struct RunLoopDispatchHandler {
 class LoopHandler: public BHandler
 {
     public:
-        LoopHandler(RunLoop* loop)
+        LoopHandler()
             : BHandler("RunLoop")
-            , m_loop(loop)
         {
         }
 
         void MessageReceived(BMessage* message)
         {
             if (message->what == 'loop')
-                m_loop->iterate();
+                RunLoop::current().cycle(DefaultRunLoopMode);
             else if (message->what == 'tmrf') {
                 RunLoop::TimerBase* timer
                     = (RunLoop::TimerBase*)message->GetPointer("timer");
@@ -71,16 +70,13 @@ class LoopHandler: public BHandler
             } else
                 BHandler::MessageReceived(message);
         }
-
-    private:
-        RunLoop* m_loop;
 };
 
 
 RunLoop::RunLoop()
 	: m_looper(nullptr)
 {
-    m_handler = new LoopHandler(this);
+    m_handler = new LoopHandler();
 }
 
 RunLoop::~RunLoop()
@@ -167,14 +163,9 @@ void RunLoop::TimerBase::stop()
     m_messageRunner = NULL;
 }
 
-void RunLoop::iterate()
-{
-	RunLoop::current().performWork();
-}
-
 RunLoop::CycleResult RunLoop::cycle(RunLoopMode)
 {
-    iterate();
+    RunLoop::current().performWork();
     return CycleResult::Continue;
 }
 
