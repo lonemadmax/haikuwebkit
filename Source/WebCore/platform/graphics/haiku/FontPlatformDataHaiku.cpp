@@ -147,7 +147,27 @@ FontPlatformData FontPlatformData::cloneWithSize(const FontPlatformData& source,
 
 unsigned FontPlatformData::hash() const
 {
-	return PtrHash<BFont*>::hash(m_font.get());
+	float tmp;
+	unsigned result = 0;
+
+	result ^= m_font->FamilyAndStyle();
+	result ^= m_font->Spacing() << 24;
+	result ^= m_font->Encoding() << 16;
+	result ^= m_font->Face();
+
+	tmp = m_font->Size();
+	result ^= *(unsigned*)&tmp;
+
+	tmp = m_font->Shear();
+	result ^= *(unsigned*)&tmp;
+
+	tmp = m_font->Rotation();
+	result ^= *(unsigned*)&tmp;
+
+	tmp = m_font->FalseBoldWidth();
+	result ^= *(unsigned*)&tmp;
+
+	return result;
 }
 
 
@@ -197,12 +217,10 @@ RefPtr<SharedBuffer> FontPlatformData::openTypeTable(uint32_t table) const
 	return nullptr;
 }
 
-#if !LOG_DISABLED
 String FontPlatformData::description() const
 {
-    return String();
+    return familyName();
 }
-#endif
 
 String FontPlatformData::familyName() const
 {

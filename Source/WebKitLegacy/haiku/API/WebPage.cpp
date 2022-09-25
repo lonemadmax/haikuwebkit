@@ -63,6 +63,7 @@
 #include "WebCore/EventHandler.h"
 #include "WebCore/FileChooser.h"
 #include "WebCore/FocusController.h"
+#include "WebCore/FontCache.h"
 #include "WebCore/Frame.h"
 #include "WebCore/FrameLoader.h"
 #include "WebCore/FrameView.h"
@@ -203,6 +204,9 @@ void WebKitInitializeLogChannelsIfNecessary();
 /*static*/ void BWebPage::ShutdownOnce()
 {
 	WebKit::iconDatabase().close();
+
+	// There is a crash on exit if the font cache is not empty, so make sure it is
+	WebCore::FontCache::invalidateAllFontCaches(WebCore::FontCache::ShouldRunInvalidationCallback::No);
 }
 
 /*static*/ void BWebPage::SetCacheModel(BWebKitCacheModel model)

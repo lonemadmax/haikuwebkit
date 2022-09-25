@@ -240,6 +240,8 @@ bool LauncherApp::QuitRequested()
 		settingsArchive.Flatten(&settingsFile);
 	}
 
+	BWebPage::ShutdownOnce();
+
     return true;
 }
 
