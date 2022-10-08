@@ -2279,7 +2279,7 @@ const AtomString& AccessibilityObject::getAttribute(const QualifiedName& attribu
         if (!value.isNull())
             return value;
         if (auto* defaultARIA = element->customElementDefaultARIAIfExists())
-            return defaultARIA->valueForAttribute(attribute);
+            return defaultARIA->valueForAttribute(*element, attribute);
     }
     return nullAtom();
 }
@@ -3739,9 +3739,32 @@ Vector<Element*> AccessibilityObject::elementsFromAttribute(const QualifiedName&
     if (!node || !node->isElementNode())
         return { };
 
+    auto& element = downcast<Element>(*node);
+    if (document()->settings().ariaReflectionForElementReferencesEnabled()) {
+        if (Element::isElementReflectionAttribute(attribute)) {
+            if (auto reflectedElement = element.getElementAttribute(attribute)) {
+                Vector<Element*> elements;
+                elements.append(reflectedElement);
+                return elements;
+            }
+        } else if (Element::isElementsArrayReflectionAttribute(attribute)) {
+            if (auto reflectedElements = element.getElementsArrayAttribute(attribute)) {
+                return WTF::map(reflectedElements.value(), [](RefPtr<Element> element) -> Element* {
+                    return element.get();
+                });
+            }
+        }
+    }
+
     auto& idsString = getAttribute(attribute);
-    if (idsString.isEmpty())
+    if (idsString.isEmpty()) {
+        if (auto* defaultARIA = element.customElementDefaultARIAIfExists()) {
+            return WTF::map(defaultARIA->elementsForAttribute(element, attribute), [](RefPtr<Element> element) -> Element* {
+                return element.get();
+            });
+        }
         return { };
+    }
 
     Vector<Element*> elements;
     auto& treeScope = node->treeScope();

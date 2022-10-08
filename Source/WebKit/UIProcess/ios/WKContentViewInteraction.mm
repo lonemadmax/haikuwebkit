@@ -1878,9 +1878,6 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     if (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch && touch._isPointerTouch)
         return NO;
-    
-    if (gestureRecognizer != _alternateMouseGestureRecognizer && [_alternateMouseGestureRecognizer mouseTouch] == touch)
-        return NO;
 
     if (gestureRecognizer == _doubleTapGestureRecognizer || gestureRecognizer == _nonBlockingDoubleTapGestureRecognizer)
         return touch.type != UITouchTypeIndirectPointer;
@@ -5294,7 +5291,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     auto* accessoryView = self.formAccessoryView; // Creates one, if needed.
 
     if ([accessoryView respondsToSelector:@selector(setNextPreviousItemsVisible:)])
-        [accessoryView setNextPreviousItemsVisible:!self.webView._editable];
+        [accessoryView setNextPreviousItemsVisible:!WebKit::defaultAlternateFormControlDesignEnabled() && !self.webView._editable];
 
     [accessoryView setNextEnabled:_focusedElementInformation.hasNextNode];
     [accessoryView setPreviousEnabled:_focusedElementInformation.hasPreviousNode];
@@ -5358,7 +5355,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 - (void)_didChangeWebViewEditability
 {
     if ([_formAccessoryView respondsToSelector:@selector(setNextPreviousItemsVisible:)])
-        [_formAccessoryView setNextPreviousItemsVisible:!self.webView._editable];
+        [_formAccessoryView setNextPreviousItemsVisible:!WebKit::defaultAlternateFormControlDesignEnabled() && !self.webView._editable];
     
     [_twoFingerSingleTapGestureRecognizer setEnabled:!self.webView._editable];
 }
@@ -6239,6 +6236,7 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
     return YES;
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)_handleKeyUIEvent:(::UIEvent *)event
 {
     bool isHardwareKeyboardEvent = !!event._hidEvent;
@@ -6259,6 +6257,7 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
 
     [super _handleKeyUIEvent:event];
 }
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)generateSyntheticEditingCommand:(WebKit::SyntheticEditingCommandType)command
 {

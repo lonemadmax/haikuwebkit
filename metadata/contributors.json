@@ -217,7 +217,8 @@
       "name" : "Ahmad Saleem",
       "nicks" : [
          "ahmadsaleem"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -1244,7 +1245,7 @@
       "emails" : [
          "bweinstein@apple.com"
       ],
-      "expertise" : "WebKit on Windows, Tools",
+      "github" : "b-weinstein",
       "name" : "Brian Weinstein",
       "nicks" : [
          "bweinstein"
@@ -1668,6 +1669,7 @@
       "emails" : [
          "conrad_shultz@apple.com"
       ],
+      "github" : "shultzc",
       "name" : "Conrad Shultz",
       "nicks" : [
          "shultzc"
@@ -2739,6 +2741,14 @@
       ],
       "expertise" : "Core KHTML Contributor, The QtWebKit Port",
       "name" : "George Staikos"
+   },
+   {
+      "emails" : [
+         "g_squelart@apple.com",
+         "gjs@apple.com"
+      ],
+      "github" : "squelart",
+      "name" : "Gerald Squelart"
    },
    {
       "emails" : [
@@ -4683,6 +4693,17 @@
    },
    {
       "emails" : [
+         "marcosc@apple.com",
+         "marcos@marcosc.com"
+      ],
+      "github" : "marcoscaceres",
+      "name" : "Marcos Caceres",
+      "nicks" : [
+         "marcosc"
+      ]
+   },
+   {
+      "emails" : [
          "bulach@chromium.org"
       ],
       "name" : "Marcus Voltis Bulach"
@@ -5198,6 +5219,13 @@
          "Ms2ger"
       ],
       "status" : "committer"
+   },
+   {
+      "emails" : [
+         "mcobbs@apple.com"
+      ],
+      "github" : "MyahCobbs",
+      "name" : "Myah Cobbs"
    },
    {
       "aliases" : [
@@ -5838,7 +5866,8 @@
       "name" : "Richard Robinson",
       "nicks" : [
          "rr-codes"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -6029,6 +6058,17 @@
          "ryanhaddad"
       ],
       "status" : "reviewer"
+   },
+   {
+      "emails" : [
+         "rreno@apple.com"
+      ],
+      "github" : "rreno",
+      "name" : "Ryan Reno",
+      "nicks" : [
+         "rreno"
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [

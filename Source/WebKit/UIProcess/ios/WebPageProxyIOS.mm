@@ -457,8 +457,8 @@ void WebPageProxy::applyAutocorrection(const String& correction, const String& o
 
 bool WebPageProxy::applyAutocorrection(const String& correction, const String& originalText)
 {
-    bool autocorrectionApplied = false;
-    m_process->sendSync(Messages::WebPage::SyncApplyAutocorrection(correction, originalText), Messages::WebPage::SyncApplyAutocorrection::Reply(autocorrectionApplied), m_webPageID);
+    auto sendSync = m_process->sendSync(Messages::WebPage::SyncApplyAutocorrection(correction, originalText), m_webPageID);
+    auto [autocorrectionApplied] = sendSync.takeReplyOr(false);
     return autocorrectionApplied;
 }
 
@@ -1063,8 +1063,8 @@ size_t WebPageProxy::computePagesForPrintingiOS(FrameIdentifier frameID, const P
     if (!hasRunningProcess())
         return 0;
 
-    size_t pageCount = 0;
-    sendSync(Messages::WebPage::ComputePagesForPrintingiOS(frameID, printInfo), Messages::WebPage::ComputePagesForPrintingiOS::Reply(pageCount), Seconds::infinity());
+    auto sendResult = sendSync(Messages::WebPage::ComputePagesForPrintingiOS(frameID, printInfo), Seconds::infinity());
+    auto [pageCount] = sendResult.takeReplyOr(0);
     return pageCount;
 }
 

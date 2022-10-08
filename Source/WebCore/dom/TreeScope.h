@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "ExceptionOr.h"
 #include "TreeScopeOrderedMap.h"
 #include <memory>
 #include <wtf/Forward.h>
@@ -34,10 +35,13 @@
 
 namespace WebCore {
 
+class CSSStyleSheet;
+class CSSStyleSheetObservableArray;
 class ContainerNode;
 class Document;
 class Element;
 class FloatPoint;
+class JSDOMGlobalObject;
 class HTMLImageElement;
 class HTMLLabelElement;
 class HTMLMapElement;
@@ -112,6 +116,10 @@ public:
 
     RadioButtonGroups& radioButtonGroups();
 
+    JSC::JSValue adoptedStyleSheetWrapper(JSDOMGlobalObject&);
+    const Vector<RefPtr<CSSStyleSheet>>& adoptedStyleSheets() const;
+    ExceptionOr<void> setAdoptedStyleSheets(Vector<RefPtr<CSSStyleSheet>>&&);
+
 protected:
     TreeScope(ShadowRoot&, Document&);
     explicit TreeScope(Document&);
@@ -140,6 +148,7 @@ private:
     std::unique_ptr<IdTargetObserverRegistry> m_idTargetObserverRegistry;
     
     std::unique_ptr<RadioButtonGroups> m_radioButtonGroups;
+    Ref<CSSStyleSheetObservableArray> m_adoptedStyleSheets;
 };
 
 inline bool TreeScope::hasElementWithId(const AtomStringImpl& id) const

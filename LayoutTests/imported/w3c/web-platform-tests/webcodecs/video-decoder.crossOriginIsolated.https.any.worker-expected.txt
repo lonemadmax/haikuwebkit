@@ -1,0 +1,4 @@
+
+NOTRUN Test isConfigSupported() and configure() using a SharedArrayBuffer avc1.64000b unsupported
+NOTRUN Test isConfigSupported() and configure() using a Uint8Array(SharedArrayBuffer) avc1.64000b unsupported
+

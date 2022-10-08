@@ -2666,13 +2666,34 @@ void WebPage::setFooterBannerHeightForTesting(int height)
 
 void WebPage::takeSnapshot(IntRect snapshotRect, IntSize bitmapSize, uint32_t options, CompletionHandler<void(const WebKit::ShareableBitmap::Handle&)>&& completionHandler)
 {
+    ShareableBitmap::Handle handle;
+    Frame* coreFrame = m_mainFrame->coreFrame();
+    if (!coreFrame) {
+        completionHandler(handle);
+        return;
+    }
+
+    FrameView* frameView = coreFrame->view();
+    if (!frameView) {
+        completionHandler(handle);
+        return;
+    }
+
     SnapshotOptions snapshotOptions = static_cast<SnapshotOptions>(options);
     snapshotOptions |= SnapshotOptionsShareable;
 
-    RefPtr<WebImage> image = snapshotAtSize(snapshotRect, bitmapSize, snapshotOptions);
+    if (options & SnapshotOptionsVisibleContentRect)
+        snapshotRect = frameView->visibleContentRect();
+    else if (options & SnapshotOptionsFullContentRect)
+        snapshotRect = IntRect({ 0, 0 }, frameView->contentsSize());
 
-    ShareableBitmap::Handle handle;
-    if (image)
+    if (bitmapSize.isEmpty()) {
+        bitmapSize = snapshotRect.size();
+        if (!(options & SnapshotOptionsExcludeDeviceScaleFactor))
+            bitmapSize.scale(corePage()->deviceScaleFactor());
+    }
+
+    if (auto image = snapshotAtSize(snapshotRect, bitmapSize, snapshotOptions, *coreFrame, *frameView))
         handle = image->createHandle(SharedMemory::Protection::ReadOnly);
 
     completionHandler(handle);
@@ -2680,13 +2701,18 @@ void WebPage::takeSnapshot(IntRect snapshotRect, IntSize bitmapSize, uint32_t op
 
 RefPtr<WebImage> WebPage::scaledSnapshotWithOptions(const IntRect& rect, double additionalScaleFactor, SnapshotOptions options)
 {
+    Frame* coreFrame = m_mainFrame->coreFrame();
+    if (!coreFrame)
+        return nullptr;
+
+    FrameView* frameView = coreFrame->view();
+    if (!frameView)
+        return nullptr;
+
     IntRect snapshotRect = rect;
     IntSize bitmapSize = snapshotRect.size();
     if (options & SnapshotOptionsPrinting) {
         ASSERT(additionalScaleFactor == 1);
-        Frame* coreFrame = m_mainFrame->coreFrame();
-        if (!coreFrame)
-            return nullptr;
         bitmapSize.setHeight(PrintContext::numberOfPages(*coreFrame, bitmapSize) * (bitmapSize.height() + 1) - 1);
     } else {
         double scaleFactor = additionalScaleFactor;
@@ -2695,7 +2721,7 @@ RefPtr<WebImage> WebPage::scaledSnapshotWithOptions(const IntRect& rect, double 
         bitmapSize.scale(scaleFactor);
     }
 
-    return snapshotAtSize(rect, bitmapSize, options);
+    return snapshotAtSize(rect, bitmapSize, options, *coreFrame, *frameView);
 }
 
 void WebPage::paintSnapshotAtSize(const IntRect& rect, const IntSize& bitmapSize, SnapshotOptions options, Frame& frame, FrameView& frameView, GraphicsContext& graphicsContext)
@@ -2712,8 +2738,16 @@ void WebPage::paintSnapshotAtSize(const IntRect& rect, const IntSize& bitmapSize
         return;
     }
 
-    Color documentBackgroundColor = frameView.documentBackgroundColor();
-    Color backgroundColor = (frame.settings().backgroundShouldExtendBeyondPage() && documentBackgroundColor.isValid()) ? documentBackgroundColor : frameView.baseBackgroundColor();
+    Color backgroundColor;
+    Color savedBackgroundColor;
+    if (options & SnapshotOptionsTransparentBackground) {
+        backgroundColor = Color::transparentBlack;
+        savedBackgroundColor = frameView.baseBackgroundColor();
+        frameView.setBaseBackgroundColor(backgroundColor);
+    } else {
+        Color documentBackgroundColor = frameView.documentBackgroundColor();
+        backgroundColor = (frame.settings().backgroundShouldExtendBeyondPage() && documentBackgroundColor.isValid()) ? documentBackgroundColor : frameView.baseBackgroundColor();
+    }
     graphicsContext.fillRect(IntRect(IntPoint(), bitmapSize), backgroundColor);
 
     if (!(options & SnapshotOptionsExcludeDeviceScaleFactor)) {
@@ -2740,6 +2774,9 @@ void WebPage::paintSnapshotAtSize(const IntRect& rect, const IntSize& bitmapSize
         graphicsContext.setStrokeColor(Color::red);
         graphicsContext.strokeRect(selectionRectangle, 1);
     }
+
+    if (options & SnapshotOptionsTransparentBackground)
+        frameView.setBaseBackgroundColor(savedBackgroundColor);
 }
 
 static DestinationColorSpace snapshotColorSpace(SnapshotOptions options, WebPage& page)
@@ -2751,22 +2788,14 @@ static DestinationColorSpace snapshotColorSpace(SnapshotOptions options, WebPage
     return DestinationColorSpace::SRGB();
 }
 
-RefPtr<WebImage> WebPage::snapshotAtSize(const IntRect& rect, const IntSize& bitmapSize, SnapshotOptions options)
+RefPtr<WebImage> WebPage::snapshotAtSize(const IntRect& rect, const IntSize& bitmapSize, SnapshotOptions options, Frame& frame, FrameView& frameView)
 {
-    Frame* coreFrame = m_mainFrame->coreFrame();
-    if (!coreFrame)
-        return nullptr;
-
-    FrameView* frameView = coreFrame->view();
-    if (!frameView)
-        return nullptr;
-
     auto snapshot = WebImage::create(bitmapSize, snapshotOptionsToImageOptions(options), snapshotColorSpace(options, *this), &m_page->chrome().client());
     if (!snapshot)
         return nullptr;
 
     auto& graphicsContext = snapshot->context();
-    paintSnapshotAtSize(rect, bitmapSize, options, *coreFrame, *frameView, graphicsContext);
+    paintSnapshotAtSize(rect, bitmapSize, options, frame, frameView, graphicsContext);
 
     return snapshot;
 }
@@ -3809,29 +3838,29 @@ void WebPage::resume(CompletionHandler<void(bool)>&& completionHandler)
 
 IntPoint WebPage::screenToRootView(const IntPoint& point)
 {
-    IntPoint windowPoint;
-    sendSync(Messages::WebPageProxy::ScreenToRootView(point), Messages::WebPageProxy::ScreenToRootView::Reply(windowPoint));
+    auto sendResult = sendSync(Messages::WebPageProxy::ScreenToRootView(point));
+    auto [windowPoint] = sendResult.takeReplyOr(IntPoint { });
     return windowPoint;
 }
     
 IntRect WebPage::rootViewToScreen(const IntRect& rect)
 {
-    IntRect screenRect;
-    sendSync(Messages::WebPageProxy::RootViewToScreen(rect), Messages::WebPageProxy::RootViewToScreen::Reply(screenRect));
+    auto sendResult = sendSync(Messages::WebPageProxy::RootViewToScreen(rect));
+    auto [screenRect] = sendResult.takeReplyOr(IntRect { });
     return screenRect;
 }
     
 IntPoint WebPage::accessibilityScreenToRootView(const IntPoint& point)
 {
-    IntPoint windowPoint;
-    sendSync(Messages::WebPageProxy::AccessibilityScreenToRootView(point), Messages::WebPageProxy::AccessibilityScreenToRootView::Reply(windowPoint));
+    auto sendResult = sendSync(Messages::WebPageProxy::AccessibilityScreenToRootView(point));
+    auto [windowPoint] = sendResult.takeReplyOr(IntPoint { });
     return windowPoint;
 }
 
 IntRect WebPage::rootViewToAccessibilityScreen(const IntRect& rect)
 {
-    IntRect screenRect;
-    sendSync(Messages::WebPageProxy::RootViewToAccessibilityScreen(rect), Messages::WebPageProxy::RootViewToAccessibilityScreen::Reply(screenRect));
+    auto sendResult = sendSync(Messages::WebPageProxy::RootViewToAccessibilityScreen(rect));
+    auto [screenRect] = sendResult.takeReplyOr(IntRect { });
     return screenRect;
 }
 
@@ -5555,8 +5584,9 @@ void WebPage::didRemoveBackForwardItem(const BackForwardItemIdentifier& itemID)
 
 bool WebPage::isSpeaking()
 {
-    bool result;
-    return sendSync(Messages::WebPageProxy::GetIsSpeaking(), Messages::WebPageProxy::GetIsSpeaking::Reply(result)) && result;
+    auto sendResult = sendSync(Messages::WebPageProxy::GetIsSpeaking());
+    auto [result] = sendResult.takeReplyOr(false);
+    return result;
 }
 
 void WebPage::speak(const String& string)
@@ -7140,13 +7170,14 @@ void WebPage::postMessageIgnoringFullySynchronousMode(const String& messageName,
 
 void WebPage::postSynchronousMessageForTesting(const String& messageName, API::Object* messageBody, RefPtr<API::Object>& returnData)
 {
-    UserData returnUserData;
-
     auto& webProcess = WebProcess::singleton();
-    if (!sendSync(Messages::WebPageProxy::HandleSynchronousMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))), Messages::WebPageProxy::HandleSynchronousMessage::Reply(returnUserData), Seconds::infinity(), IPC::SendSyncOption::UseFullySynchronousModeForTesting))
-        returnData = nullptr;
-    else
+
+    auto sendResult = sendSync(Messages::WebPageProxy::HandleSynchronousMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))), Seconds::infinity(), IPC::SendSyncOption::UseFullySynchronousModeForTesting);
+    if (sendResult) {
+        auto& [returnUserData] = sendResult.reply();
         returnData = webProcess.transformHandlesToObjects(returnUserData.object());
+    } else
+        returnData = nullptr;
 }
 
 void WebPage::clearWheelEventTestMonitor()
@@ -7476,7 +7507,6 @@ void WebPage::showContactPicker(const WebCore::ContactsRequestData& requestData,
 
 WebCore::DOMPasteAccessResponse WebPage::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, const String& originIdentifier)
 {
-    auto response = WebCore::DOMPasteAccessResponse::DeniedForGesture;
 #if PLATFORM(IOS_FAMILY)
     // FIXME: Computing and sending an autocorrection context is a workaround for the fact that autocorrection context
     // requests on iOS are currently synchronous in the web process. This allows us to immediately fulfill pending
@@ -7484,7 +7514,8 @@ WebCore::DOMPasteAccessResponse WebPage::requestDOMPasteAccess(WebCore::DOMPaste
     // should be removed once <rdar://problem/16207002> is resolved.
     preemptivelySendAutocorrectionContext();
 #endif
-    sendSyncWithDelayedReply(Messages::WebPageProxy::RequestDOMPasteAccess(pasteAccessCategory, rectForElementAtInteractionLocation(), originIdentifier), Messages::WebPageProxy::RequestDOMPasteAccess::Reply(response));
+    auto sendResult = sendSyncWithDelayedReply(Messages::WebPageProxy::RequestDOMPasteAccess(pasteAccessCategory, rectForElementAtInteractionLocation(), originIdentifier));
+    auto [response] = sendResult.takeReplyOr(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     return response;
 }
 

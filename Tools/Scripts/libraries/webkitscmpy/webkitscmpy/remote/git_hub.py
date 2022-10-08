@@ -21,6 +21,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import calendar
+import os
 import re
 import requests
 import six
@@ -64,6 +65,7 @@ class GitHub(Scm):
                 opened=dict(
                     open=True,
                     closed=False,
+                    merged=False,
                 ).get(data.get('state').lower(), None),
                 generator=self,
                 metadata=dict(
@@ -210,6 +212,7 @@ class GitHub(Scm):
             pull_request._opened = dict(
                 open=True,
                 closed=False,
+                merged=False,
             ).get(data.get('state'), None)
             pull_request.generator = self
             issue_ref = data.get('_links', {}).get('issue', {}).get('href')
@@ -333,7 +336,7 @@ class GitHub(Scm):
     def is_git(self):
         return True
 
-    def request(self, path=None, params=None, headers=None, authenticated=None, paginate=True, json=None, method='GET'):
+    def request(self, path=None, params=None, headers=None, authenticated=None, paginate=True, json=None, method='GET', endpoint_url=None, files=None, data=None):
         headers = {key: value for key, value in headers.items()} if headers else dict()
         headers['Accept'] = headers.get('Accept', self.ACCEPT_HEADER)
 
@@ -351,15 +354,17 @@ class GitHub(Scm):
 
         json = {key: value for key, value in json.items()} if json else None
 
-        url = '{api_url}/repos/{owner}/{name}{path}'.format(
-            api_url=self.api_url,
-            owner=self.owner,
-            name=self.name,
-            path='/{}'.format(path) if path else '',
-        )
-        response = self.session.request(method, url, params=params, json=json, headers=headers, auth=auth)
+        url = endpoint_url
+        if not url:
+            url = '{api_url}/repos/{owner}/{name}{path}'.format(
+                api_url=self.api_url,
+                owner=self.owner,
+                name=self.name,
+                path='/{}'.format(path) if path else '',
+            )
+        response = self.session.request(method, url, params=params, json=json, headers=headers, auth=auth, files=files, data=data)
         if authenticated is None and not auth and response.status_code // 100 == 4:
-            return self.request(path=path, params=params, headers=headers, authenticated=True, paginate=paginate, json=json, method=method)
+            return self.request(path=path, params=params, headers=headers, authenticated=True, paginate=paginate, json=json, method=method, endpoint_url=endpoint_url, files=files, data=data)
         if response.status_code not in [200, 201]:
             sys.stderr.write("Request to '{}' returned status code '{}'\n".format(url, response.status_code))
             message = response.json().get('message')
@@ -708,3 +713,28 @@ class GitHub(Scm):
             'prerelease': prerelease
         }
         return self.request('releases', json=data, paginate=False, authenticated=True, method='POST')
+
+    def upload_release_asset(self, release_tag_name, source_filename, mime_type, asset_name=None, asset_label=None, file_like_object=None):
+        source_filename = os.path.abspath(os.path.realpath(os.path.expanduser(source_filename)))
+        source_basename = os.path.basename(source_filename)
+        asset_name = asset_name if asset_name else source_basename
+        asset_label = asset_label if asset_label else source_basename
+        headers = dict()
+        headers['Content-Type'] = mime_type
+        params = dict(name=asset_name, label=asset_label)
+        release_info = self.request('releases/tags/{tag}'.format(tag=release_tag_name), authenticated=True)
+        upload_url = release_info['upload_url'][0:release_info['upload_url'].rfind('{?name,label}')]
+        file_object = file_like_object if file_like_object else open(source_filename, 'rb')
+        try:
+            return self.request(
+                params=params,
+                authenticated=True,
+                paginate=False,
+                method='POST',
+                endpoint_url=upload_url,
+                headers=headers,
+                data=file_object
+            )
+        finally:
+            if not file_like_object:
+                file_object.close()

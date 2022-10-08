@@ -36,6 +36,7 @@ class SerializedType(object):
         self.encoders = ['Encoder']
         self.serialize_with_function_calls = False
         self.return_ref = False
+        self.create_using = False
         self.populate_from_empty_constructor = False
         if attributes is not None:
             for attribute in attributes.split(', '):
@@ -44,6 +45,8 @@ class SerializedType(object):
                     self.encoders.append(value)
                 if key == 'Return' and value == 'Ref':
                     self.return_ref = True
+                if key == 'CreateUsing':
+                    self.create_using = value
                 if key == 'LegacyPopulateFrom' and value == 'EmptyConstructor':
                     self.populate_from_empty_constructor = True
 
@@ -181,6 +184,8 @@ def generate_header(serialized_types, serialized_enums):
     result.append('namespace WTF {')
     result.append('')
     for enum in serialized_enums:
+        if enum.underlying_type == 'bool':
+            continue
         result.append('template<> bool ' + enum.function_name() + '<' + enum.namespace_and_name() + enum.additional_template_parameter() + '>(' + enum.parameter() + ');')
     result.append('')
     result.append('} // namespace WTF')
@@ -188,7 +193,7 @@ def generate_header(serialized_types, serialized_enums):
     return '\n'.join(result)
 
 
-def generate_cpp(serialized_types, serialized_enums, headers):
+def generate_impl(serialized_types, serialized_enums, headers):
     result = []
     result.append(_license_header)
     result.append('#include "config.h"')
@@ -285,6 +290,8 @@ def generate_cpp(serialized_types, serialized_enums, headers):
         else:
             if type.return_ref:
                 result.append('    return { ' + type.namespace_and_name() + '::create(')
+            elif type.create_using:
+                result.append('    return { ' + type.namespace_and_name() + '::' + type.create_using + '(')
             else:
                 result.append('    return { ' + type.namespace_and_name() + ' {')
             for i in range(len(type.members)):
@@ -293,7 +300,7 @@ def generate_cpp(serialized_types, serialized_enums, headers):
                 result.append('        WTFMove(*' + sanitize_string_for_variable_name(type.members[i].name) + ')' + ('' if i == len(type.members) - 1 else ','))
                 if type.members[i].condition is not None:
                     result.append('#endif')
-            if type.return_ref:
+            if type.return_ref or type.create_using:
                 result.append('    ) };')
             else:
                 result.append('    } };')
@@ -306,6 +313,8 @@ def generate_cpp(serialized_types, serialized_enums, headers):
     result.append('')
     result.append('namespace WTF {')
     for enum in serialized_enums:
+        if enum.underlying_type == 'bool':
+            continue
         result.append('')
         result.append('template<> bool ' + enum.function_name() + '<' + enum.namespace_and_name() + enum.additional_template_parameter() + '>(' + enum.parameter() + ' value)')
         result.append('{')
@@ -327,7 +336,6 @@ def generate_cpp(serialized_types, serialized_enums, headers):
     result.append('} // namespace WTF')
     result.append('')
     return '\n'.join(result)
-
 
 def generate_serialized_type_info(serialized_types, serialized_enums, headers):
     result = []
@@ -362,8 +370,11 @@ def generate_serialized_type_info(serialized_types, serialized_enums, headers):
     result.append('    return {')
     for enum in serialized_enums:
         result.append('        { "' + enum.namespace_and_name() + '"_s, sizeof(' + enum.namespace_and_name() + '), ' + ('true' if enum.is_option_set() else 'false') + ', {')
-        for valid_value in enum.valid_values:
-            result.append('            static_cast<uint64_t>(' + enum.namespace_and_name() + '::' + valid_value + '),')
+        if enum.underlying_type == 'bool':
+            result.append('            0, 1')
+        else:
+            for valid_value in enum.valid_values:
+                result.append('            static_cast<uint64_t>(' + enum.namespace_and_name() + '::' + valid_value + '),')
         result.append('        } },')
     result.append('    };')
     result.append('}')
@@ -388,6 +399,7 @@ def parse_serialized_types(file, file_name):
     member_condition = None
     struct_or_class = None
     underlying_type = None
+    file_extension = "cpp"
 
     for line in file:
         line = line.strip()
@@ -428,10 +440,20 @@ def parse_serialized_types(file, file_name):
             for header in match.group(1).split():
                 headers.append(ConditionalHeader(header, None))
             continue
+        match = re.search(r'file_extension?: (.*)', line)
+        if match:
+            file_extension = match.groups()
+            continue
 
         match = re.search(r'(.*)enum class (.*)::(.*) : (.*) {', line)
         if match:
             attributes, namespace, name, underlying_type = match.groups()
+            assert underlying_type != 'bool'
+            continue
+
+        match = re.search(r'(.*)enum class (.*)::(.*) : bool', line)
+        if match:
+            serialized_enums.append(SerializedEnum(match.groups()[1], match.groups()[2], 'bool', [], match.groups()[0]))
             continue
 
         match = re.search(r'\[(.*)\] (struct|class) (.*)::(.*) {', line)
@@ -466,30 +488,33 @@ def parse_serialized_types(file, file_name):
                 members.append(MemberVariable(member_type, member_name, member_condition, []))
     if len(headers) == 0 and len(serialized_types) <= 1:
         headers = [ConditionalHeader('"' + file_name[0:len(file_name) - len('.serialization.in')] + '.h"', None)]
-    return [serialized_types, serialized_enums, headers]
+    return [serialized_types, serialized_enums, headers, file_extension]
 
 
 def main(argv):
-    serialized_types = []
-    serialized_enums = []
-    headers = []
+    serialized_types = {}
+    serialized_enums = {}
+    headers = {}
+    file_extensions = set()
     for i in range(2, len(argv)):
         with open(argv[1] + argv[i]) as file:
-            new_types, new_enums, new_headers = parse_serialized_types(file, argv[i])
+            new_types, new_enums, new_headers, file_extension = parse_serialized_types(file, argv[i])
+            file_extensions.add(file_extension)
             for type in new_types:
-                serialized_types.append(type)
+                serialized_types.setdefault(file_extension, []).append(type)
             for enum in new_enums:
-                serialized_enums.append(enum)
+                serialized_enums.setdefault(file_extension, []).append(enum)
             for header in new_headers:
-                headers.append(header)
-    headers.sort()
+                headers.setdefault(file_extension, []).append(header)
+    [v.sort() for v in headers.values()]
 
     with open('GeneratedSerializers.h', "w+") as header_output:
-        header_output.write(generate_header(serialized_types, serialized_enums))
-    with open('GeneratedSerializers.cpp', "w+") as cpp_output:
-        cpp_output.write(generate_cpp(serialized_types, serialized_enums, headers))
+        header_output.write(generate_header(sum(serialized_types.values(), []), sum(serialized_enums.values(), [])))
+    for file_extension in file_extensions:
+        with open('GeneratedSerializers.%s' % file_extension, "w+") as output:
+            output.write(generate_impl(serialized_types.get(file_extension, []), serialized_enums.get(file_extension, []), headers.get(file_extension, [])))
     with open('SerializedTypeInfo.cpp', "w+") as cpp_output:
-        cpp_output.write(generate_serialized_type_info(serialized_types, serialized_enums, headers))
+        cpp_output.write(generate_serialized_type_info(sum(serialized_types.values(), []), serialized_enums.get("cpp", []), headers.get("cpp", [])))
     return 0
 
 

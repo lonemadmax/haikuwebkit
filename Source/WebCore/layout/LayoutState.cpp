@@ -33,6 +33,8 @@
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutContainerBox.h"
+#include "LayoutContainingBlockChainIterator.h"
+#include "LayoutInitialContainingBlock.h"
 #include "RenderBox.h"
 #include "TableFormattingState.h"
 #include <wtf/IsoMallocInlines.h>
@@ -79,11 +81,6 @@ BoxGeometry& LayoutState::ensureGeometryForBoxSlow(const Box& layoutBox)
     return *m_layoutBoxToBoxGeometry.ensure(&layoutBox, [] {
         return makeUnique<BoxGeometry>();
     }).iterator->value;
-}
-
-FormattingState& LayoutState::formattingStateForBox(const Box& layoutBox) const
-{
-    return formattingStateForFormattingContext(layoutBox.formattingContextRoot());
 }
 
 bool LayoutState::hasFormattingState(const ContainerBox& formattingContextRoot) const
@@ -173,16 +170,21 @@ InlineFormattingState& LayoutState::ensureInlineFormattingState(const ContainerB
 
         // Otherwise, the formatting context inherits the floats from the parent formatting context.
         // Find the formatting state in which this formatting root lives, not the one it creates and use its floating state.
-        ASSERT(formattingContextRoot.formattingContextRoot().establishesBlockFormattingContext());
-        auto& parentFormattingState = formattingStateForBlockFormattingContext(formattingContextRoot.formattingContextRoot());
-        auto& parentFloatingState = parentFormattingState.floatingState();
-        return makeUnique<InlineFormattingState>(parentFloatingState, *this);
+        auto parentFormattingState = [&] () -> FormattingState& {
+            for (auto& containingBlock : containingBlockChain(formattingContextRoot)) {
+                if (containingBlock.establishesBlockFormattingContext())
+                    return formattingStateForFormattingContext(containingBlock);
+            }
+            ASSERT_NOT_REACHED();
+            return formattingStateForFormattingContext(FormattingContext::initialContainingBlock(formattingContextRoot));
+        };
+        return makeUnique<InlineFormattingState>(parentFormattingState().floatingState(), *this);
     };
 
     if (isInlineFormattingContextIntegration()) {
         if (!m_rootInlineFormattingStateForIntegration) {
             ASSERT(&formattingContextRoot == m_rootContainer.ptr());
-            m_rootInlineFormattingStateForIntegration = create();
+            m_rootInlineFormattingStateForIntegration = makeUnique<InlineFormattingState>(FloatingState::create(*this, formattingContextRoot), *this);
         }
         return *m_rootInlineFormattingStateForIntegration;
     }

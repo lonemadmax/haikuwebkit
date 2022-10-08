@@ -1482,6 +1482,7 @@ public:
     void compileRegExpTest(Node*);
     void compileRegExpTestInline(Node*);
     void compileStringReplace(Node*);
+    void compileStringReplaceString(Node*);
     void compileIsObject(Node*);
     void compileTypeOfIsObject(Node*);
     void compileIsCallable(Node*, S_JITOperation_GC);
@@ -1514,6 +1515,7 @@ public:
     void compileDefineDataProperty(Node*);
     void compileDefineAccessorProperty(Node*);
     void compileStringSlice(Node*);
+    void compileStringSubstring(Node*);
     void compileToLowerCase(Node*);
     void compileThrow(Node*);
     void compileThrowStaticError(Node*);
@@ -1543,6 +1545,7 @@ public:
     void compileStrCat(Node*);
     void compileNewArrayBuffer(Node*);
     void compileNewArrayWithSize(Node*);
+    void compileNewArrayWithSpecies(Node*);
     void compileNewTypedArray(Node*);
     void compileToThis(Node*);
     void compileObjectKeysOrObjectGetOwnPropertyNames(Node*);

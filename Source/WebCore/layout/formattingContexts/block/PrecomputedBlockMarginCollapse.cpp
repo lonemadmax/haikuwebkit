@@ -40,11 +40,10 @@ namespace Layout {
 
 UsedVerticalMargin::PositiveAndNegativePair::Values BlockMarginCollapse::precomputedPositiveNegativeValues(const Box& layoutBox, const BlockFormattingGeometry& formattingGeometry) const
 {
-    auto& blockFormattingState = downcast<BlockFormattingState>(layoutState().formattingStateForBox(layoutBox));
-    if (blockFormattingState.hasUsedVerticalMargin(layoutBox))
-        return blockFormattingState.usedVerticalMargin(layoutBox).positiveAndNegativeValues.before;
+    if (formattingState().hasUsedVerticalMargin(layoutBox))
+        return formattingState().usedVerticalMargin(layoutBox).positiveAndNegativeValues.before;
 
-    auto horizontalConstraints = formattingGeometry.constraintsForInFlowContent(layoutBox.containingBlock()).horizontal();
+    auto horizontalConstraints = formattingGeometry.constraintsForInFlowContent(FormattingContext::containingBlock(layoutBox)).horizontal();
     auto computedVerticalMargin = formattingGeometry.computedVerticalMargin(layoutBox, horizontalConstraints);
     auto nonCollapsedMargin = UsedVerticalMargin::NonCollapsedValues { computedVerticalMargin.before.value_or(0), computedVerticalMargin.after.value_or(0) };
     return precomputedPositiveNegativeMarginBefore(layoutBox, nonCollapsedMargin, formattingGeometry);
@@ -62,8 +61,7 @@ UsedVerticalMargin::PositiveAndNegativePair::Values BlockMarginCollapse::precomp
         if (!marginBeforeCollapsesWithPreviousSiblingMarginAfter(layoutBox))
             return { };
         auto& previousInFlowSibling = *layoutBox.previousInFlowSibling();
-        auto& blockFormattingState = downcast<BlockFormattingState>(layoutState().formattingStateForBox(previousInFlowSibling));
-        return blockFormattingState.usedVerticalMargin(previousInFlowSibling).positiveAndNegativeValues.after;
+        return formattingState().usedVerticalMargin(previousInFlowSibling).positiveAndNegativeValues.after;
     };
 
     // 1. Gather positive and negative margin values from first child if margins are adjoining.

@@ -43,6 +43,7 @@
 #include "HTMLNames.h"
 #include "InlineIteratorLineBox.h"
 #include "InlineIteratorTextBox.h"
+#include "LayoutContainerBox.h"
 #include "LengthFunctions.h"
 #include "Logging.h"
 #include "Page.h"
@@ -149,6 +150,16 @@ RenderElement::~RenderElement()
 {
     // Do not add any code here. Add it to willBeDestroyed() instead.
     ASSERT(!m_firstChild);
+}
+
+Layout::ContainerBox* RenderElement::layoutBox()
+{
+    return downcast<Layout::ContainerBox>(RenderObject::layoutBox());
+}
+
+const Layout::ContainerBox* RenderElement::layoutBox() const
+{
+    return downcast<Layout::ContainerBox>(RenderObject::layoutBox());
 }
 
 bool RenderElement::isContentDataSupported(const ContentData& contentData)
@@ -1724,12 +1735,12 @@ LayoutRect RenderElement::absoluteAnchorRect(bool* insideFixed) const
     return enclosingLayoutRect(FloatRect(upperLeft, lowerRight.expandedTo(upperLeft) - upperLeft));
 }
 
-LayoutRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) const
+MarginRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) const
 {
     LayoutRect anchorRect = absoluteAnchorRect(insideFixed);
     const LengthBox& scrollMargin = style().scrollMargin();
     if (scrollMargin.isZero())
-        return anchorRect;
+        return { anchorRect, anchorRect };
 
     // The scroll snap specification says that the scroll-margin should be applied in the
     // coordinate system of the scroll container and applied to the rectangular bounding
@@ -1740,8 +1751,9 @@ LayoutRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) 
         valueForLength(scrollMargin.right(), anchorRect.width()),
         valueForLength(scrollMargin.bottom(), anchorRect.height()),
         valueForLength(scrollMargin.left(), anchorRect.width()));
-    anchorRect.expand(margin);
-    return anchorRect;
+    auto marginRect = anchorRect;
+    marginRect.expand(margin);
+    return { marginRect, anchorRect };
 }
 
 static bool usePlatformFocusRingColorForOutlineStyleAuto()

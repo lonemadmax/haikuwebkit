@@ -2614,6 +2614,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case StringSubstring: {
+        compileStringSubstring(node);
+        break;
+    }
+
     case ToLowerCase: {
         compileToLowerCase(node);
         break;
@@ -2714,6 +2719,11 @@ void SpeculativeJIT::compile(Node* node)
     case StringReplace:
     case StringReplaceRegExp: {
         compileStringReplace(node);
+        break;
+    }
+
+    case StringReplaceString: {
+        compileStringReplaceString(node);
         break;
     }
 
@@ -3083,7 +3093,12 @@ void SpeculativeJIT::compile(Node* node)
         compileNewArrayWithSize(node);
         break;
     }
-        
+
+    case NewArrayWithSpecies: {
+        compileNewArrayWithSpecies(node);
+        break;
+    }
+
     case NewArrayBuffer: {
         compileNewArrayBuffer(node);
         break;

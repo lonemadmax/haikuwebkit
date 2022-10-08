@@ -2170,8 +2170,10 @@ void NetworkProcess::terminateRemoteWorkerContextConnectionWhenPossible(RemoteWo
 
 void NetworkProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime, CompletionHandler<void()>&& completionHandler)
 {
+#if !RELEASE_LOG_DISABLED
     auto nowTime = MonotonicTime::now();
     double remainingRunTime = estimatedSuspendTime > nowTime ? (estimatedSuspendTime - nowTime).value() : 0.0;
+#endif
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcess::prepareToSuspend(), isSuspensionImminent=%d, remainingRunTime=%fs", this, isSuspensionImminent, remainingRunTime);
 
     m_isSuspended = true;
@@ -2196,9 +2198,6 @@ void NetworkProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime e
 #endif
         session.storageManager().suspend([callbackAggregator] { });
     });
-
-    for (auto& connection : m_webProcessConnections.values())
-        connection->cleanupForSuspension([callbackAggregator] { });
 }
 
 void NetworkProcess::applicationDidEnterBackground()

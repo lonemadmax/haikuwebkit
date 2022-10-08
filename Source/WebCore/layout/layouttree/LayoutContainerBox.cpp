@@ -34,9 +34,26 @@ namespace Layout {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(ContainerBox);
 
-ContainerBox::ContainerBox(std::optional<ElementAttributes> attributes, RenderStyle&& style, std::unique_ptr<RenderStyle>&& firstLineStyle, OptionSet<BaseTypeFlag> baseTypeFlags)
-    : Box(attributes, WTFMove(style), WTFMove(firstLineStyle), baseTypeFlags | ContainerBoxFlag)
+ContainerBox::ContainerBox(ElementAttributes&& attributes, RenderStyle&& style, std::unique_ptr<RenderStyle>&& firstLineStyle, OptionSet<BaseTypeFlag> baseTypeFlags)
+    : Box(WTFMove(attributes), WTFMove(style), WTFMove(firstLineStyle), baseTypeFlags | ContainerBoxFlag)
 {
+}
+
+ContainerBox::ContainerBox(ElementAttributes&& attributes, OptionSet<ListMarkerAttribute> listMarkerAttributes, RenderStyle&& style, std::unique_ptr<RenderStyle>&& firstLineStyle)
+    : Box(WTFMove(attributes), WTFMove(style), WTFMove(firstLineStyle), ContainerBoxFlag)
+    , m_replacedData(makeUnique<ReplacedData>())
+{
+    ASSERT(isListMarkerBox());
+    m_replacedData->listMarkerAttributes = listMarkerAttributes;
+}
+
+ContainerBox::ContainerBox(ElementAttributes&& attributes, ReplacedAttributes&& replacedAttributes, RenderStyle&& style, std::unique_ptr<RenderStyle>&& firstLineStyle)
+    : Box(WTFMove(attributes), WTFMove(style), WTFMove(firstLineStyle), ContainerBoxFlag)
+    , m_replacedData(makeUnique<ReplacedData>())
+{
+    m_replacedData->intrinsicSize = replacedAttributes.intrinsicSize;
+    m_replacedData->intrinsicRatio = replacedAttributes.intrinsicRatio;
+    m_replacedData->cachedImage = replacedAttributes.cachedImage;
 }
 
 ContainerBox::~ContainerBox()
@@ -87,38 +104,82 @@ const Box* ContainerBox::lastInFlowOrFloatingChild() const
 void ContainerBox::appendChild(UniqueRef<Box> childRef)
 {
     auto childBox = childRef.moveToUniquePtr();
+    ASSERT(!childBox->m_parent);
+    ASSERT(!childBox->m_previousSibling);
+    ASSERT(!childBox->m_nextSibling);
 
-    childBox->setParent(this);
+    childBox->m_parent = this;
+    childBox->m_previousSibling = m_lastChild;
 
-    if (m_lastChild) {
-        m_lastChild->setNextSibling(childBox.get());
-        childBox->setPreviousSibling(m_lastChild.get());
-    } else
-        m_firstChild = childBox.get();
+    auto& nextOrFirst = m_lastChild ? m_lastChild->m_nextSibling : m_firstChild;
+    ASSERT(!nextOrFirst);
 
-    // Ownership has been transferred.
-    m_lastChild = childBox.release();
+    m_lastChild = childBox.get();
+    nextOrFirst = WTFMove(childBox);
 }
 
 void ContainerBox::destroyChildren()
 {
-    std::unique_ptr<Box> childToDestroy { m_firstChild.get() };
-    
-    m_firstChild = nullptr;
     m_lastChild = nullptr;
 
+    auto childToDestroy = std::exchange(m_firstChild, nullptr);
     while (childToDestroy) {
-        childToDestroy->setParent(nullptr);
-
-        std::unique_ptr<Box> nextSibling { childToDestroy->nextSibling() };
-
-        if (nextSibling) {
-            childToDestroy->setNextSibling(nullptr);
-            nextSibling->setPreviousSibling(nullptr);
-        }
-
-        childToDestroy = WTFMove(nextSibling);
+        childToDestroy->m_parent = nullptr;
+        childToDestroy->m_previousSibling = nullptr;
+        if (childToDestroy->m_nextSibling)
+            childToDestroy->m_nextSibling->m_previousSibling = nullptr;
+        childToDestroy = std::exchange(childToDestroy->m_nextSibling, nullptr);
     }
+}
+
+bool ContainerBox::hasIntrinsicWidth() const
+{
+    return (m_replacedData && m_replacedData->intrinsicSize) || style().logicalWidth().isIntrinsic();
+}
+
+bool ContainerBox::hasIntrinsicHeight() const
+{
+    return (m_replacedData && m_replacedData->intrinsicSize) || style().logicalHeight().isIntrinsic();
+}
+
+bool ContainerBox::hasIntrinsicRatio() const
+{
+    if (!hasAspectRatio())
+        return false;
+    return m_replacedData && (m_replacedData->intrinsicSize || m_replacedData->intrinsicRatio);
+}
+
+LayoutUnit ContainerBox::intrinsicWidth() const
+{
+    ASSERT(hasIntrinsicWidth());
+    if (m_replacedData && m_replacedData->intrinsicSize)
+        return m_replacedData->intrinsicSize->width();
+    return LayoutUnit { style().logicalWidth().value() };
+}
+
+LayoutUnit ContainerBox::intrinsicHeight() const
+{
+    ASSERT(hasIntrinsicHeight());
+    if (m_replacedData && m_replacedData->intrinsicSize)
+        return m_replacedData->intrinsicSize->height();
+    return LayoutUnit { style().logicalHeight().value() };
+}
+
+LayoutUnit ContainerBox::intrinsicRatio() const
+{
+    ASSERT(hasIntrinsicRatio() || (hasIntrinsicWidth() && hasIntrinsicHeight()));
+    if (m_replacedData) {
+        if (m_replacedData->intrinsicRatio)
+            return *m_replacedData->intrinsicRatio;
+        if (m_replacedData->intrinsicSize->height())
+            return m_replacedData->intrinsicSize->width() / m_replacedData->intrinsicSize->height();
+    }
+    return 1;
+}
+
+bool ContainerBox::hasAspectRatio() const
+{
+    return isImage();
 }
 
 }

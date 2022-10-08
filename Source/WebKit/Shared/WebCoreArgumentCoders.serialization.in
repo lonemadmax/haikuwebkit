@@ -22,7 +22,7 @@
 
 header: <WebCore/DOMCacheEngine.h>
 struct WebCore::DOMCacheEngine::CacheInfo {
-    uint64_t identifier
+    WebCore::DOMCacheIdentifier identifier
     String name
 }
 
@@ -430,3 +430,106 @@ struct WebCore::RawFile {
     String fileName;
     RefPtr<WebCore::SharedBuffer> fileData;
 };
+
+header: <WebCore/FloatRoundedRect.h>
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::FloatRoundedRect {
+    WebCore::FloatRect rect();
+    WebCore::FloatSize radii().topLeft();
+    WebCore::FloatSize radii().topRight();
+    WebCore::FloatSize radii().bottomLeft();
+    WebCore::FloatSize radii().bottomRight();
+}
+
+header: <WebCore/IntRect.h>
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::IntRect {
+    WebCore::IntPoint location();
+    WebCore::IntSize size();
+}
+
+header: <WebCore/IntPoint.h>
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::IntPoint {
+    int x();
+    int y();
+}
+
+header: <WebCore/IntSize.h>
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::IntSize {
+    int width();
+    int height();
+}
+
+header: <WebCore/FloatSize.h>
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::FloatSize {
+    float width();
+    float height();
+}
+
+header: <WebCore/LayoutUnit.h>
+[AdditionalEncoder=StreamConnectionEncoder, CreateUsing=fromRawValue] class WebCore::LayoutUnit {
+    int rawValue()
+}
+
+header: <WebCore/LayoutPoint.h>
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::LayoutPoint {
+    WebCore::LayoutUnit x();
+    WebCore::LayoutUnit y();
+}
+
+header: <WebCore/LayoutSize.h>
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::LayoutSize {
+    WebCore::LayoutUnit width();
+    WebCore::LayoutUnit height();
+}
+
+header: <WebCore/DictionaryPopupInfo.h>
+struct WebCore::DictionaryPopupInfo {
+    WebCore::FloatPoint origin;
+    WebCore::TextIndicatorData textIndicator;
+#if PLATFORM(COCOA)
+    WebCore::DictionaryPopupInfoCocoa platformData;
+#endif
+};
+
+enum class WebCore::PCM::AttributionEphemeral : bool
+enum class WebCore::PCM::WasSent : bool
+
+header: <WebCore/PrivateClickMeasurement.h>
+class WebCore::PrivateClickMeasurement {
+    uint8_t sourceID()
+    WebCore::PCM::SourceSite sourceSite()
+    WebCore::PCM::AttributionDestinationSite destinationSite()
+    WallTime timeOfAdClick()
+    WebCore::PCM::AttributionEphemeral isEphemeral()
+    std::optional<uint64_t> adamID()
+    std::optional<WebCore::PCM::AttributionTriggerData> attributionTriggerData()
+    WebCore::PCM::AttributionTimeToSendData timesToSend()
+    std::optional<WebCore::PCM::EphemeralNonce> ephemeralSourceNonce()
+    String sourceApplicationBundleID()
+}
+
+struct WebCore::PCM::SourceSite {
+    WebCore::RegistrableDomain registrableDomain
+}
+
+struct WebCore::PCM::AttributionDestinationSite {
+    WebCore::RegistrableDomain registrableDomain
+}
+
+struct WebCore::PCM::EphemeralNonce {
+    String nonce
+}
+
+struct WebCore::PCM::AttributionTriggerData {
+    uint8_t data
+    uint8_t priority;
+    WebCore::PCM::WasSent wasSent;
+    std::optional<WebCore::RegistrableDomain> sourceRegistrableDomain;
+    std::optional<WebCore::PCM::EphemeralNonce> ephemeralDestinationNonce;
+    std::optional<WebCore::RegistrableDomain> destinationSite;
+# destinationUnlinkableToken and destinationSecretToken are not serialized.
+}
+
+struct WebCore::PCM::AttributionTimeToSendData {
+    std::optional<WallTime> sourceEarliestTimeToSend;
+    std::optional<WallTime> destinationEarliestTimeToSend;
+}

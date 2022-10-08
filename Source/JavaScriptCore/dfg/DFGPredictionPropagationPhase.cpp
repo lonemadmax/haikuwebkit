@@ -862,6 +862,7 @@ private:
             break;
         }
 
+        case NewArrayWithSpecies:
         case EnumeratorGetByVal:
         case ArrayPop:
         case ArrayPush:
@@ -873,6 +874,7 @@ private:
         case RegExpMatchFastGlobal:
         case StringReplace:
         case StringReplaceRegExp:
+        case StringReplaceString:
         case GetById:
         case GetByIdFlush:
         case GetByIdWithThis:
@@ -1001,6 +1003,7 @@ private:
 
         case StringValueOf:
         case StringSlice:
+        case StringSubstring:
         case ToLowerCase:
             setPrediction(SpecString);
             break;

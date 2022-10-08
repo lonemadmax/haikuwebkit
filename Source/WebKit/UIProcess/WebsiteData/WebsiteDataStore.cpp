@@ -318,8 +318,6 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         m_resolvedConfiguration->setNetworkCacheDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->networkCacheDirectory()));
     if (!m_configuration->resourceLoadStatisticsDirectory().isEmpty())
         m_resolvedConfiguration->setResourceLoadStatisticsDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->resourceLoadStatisticsDirectory()));
-    if (!m_configuration->privateClickMeasurementStorageDirectory().isEmpty())
-        m_resolvedConfiguration->setPrivateClickMeasurementStorageDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->privateClickMeasurementStorageDirectory()));
     if (!m_configuration->serviceWorkerRegistrationDirectory().isEmpty())
         m_resolvedConfiguration->setServiceWorkerRegistrationDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->serviceWorkerRegistrationDirectory()));
     if (!m_configuration->javaScriptConfigurationDirectory().isEmpty())
@@ -340,24 +338,30 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         auto resolvedCookieDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(FileSystem::parentPath(m_configuration->cookieStorageFile()));
         m_resolvedConfiguration->setCookieStorageFile(FileSystem::pathByAppendingComponent(resolvedCookieDirectory, FileSystem::pathFileName(m_configuration->cookieStorageFile())));
     }
+
+    // Clear data of deprecated types asynchronously.
+    if (auto webSQLDirectory = m_configuration->webSQLDatabaseDirectory(); !webSQLDirectory.isEmpty()) {
+        m_queue->dispatch([webSQLDirectory = webSQLDirectory.isolatedCopy()]() {
+            WebCore::DatabaseTracker::trackerWithDatabasePath(webSQLDirectory)->deleteAllDatabasesImmediately();
+            FileSystem::deleteEmptyDirectory(webSQLDirectory);
+        });
+    }
 }
 
-enum class ProcessAccessType : uint8_t { None, OnlyIfLaunched, Launch };
-
-static ProcessAccessType computeNetworkProcessAccessTypeForDataFetch(OptionSet<WebsiteDataType> dataTypes, bool isNonPersistentStore)
+static WebsiteDataStore::ProcessAccessType computeNetworkProcessAccessTypeForDataFetch(OptionSet<WebsiteDataType> dataTypes, bool isNonPersistentStore)
 {
     for (auto dataType : dataTypes) {
         if (WebsiteData::ownerProcess(dataType) == WebsiteDataProcessType::Network)
-            return isNonPersistentStore ? ProcessAccessType::OnlyIfLaunched : ProcessAccessType::Launch;
+            return isNonPersistentStore ? WebsiteDataStore::ProcessAccessType::OnlyIfLaunched : WebsiteDataStore::ProcessAccessType::Launch;
     }
-    return ProcessAccessType::None;
+    return WebsiteDataStore::ProcessAccessType::None;
 }
 
-static ProcessAccessType computeWebProcessAccessTypeForDataFetch(OptionSet<WebsiteDataType> dataTypes, bool /* isNonPersistentStore */)
+static WebsiteDataStore::ProcessAccessType computeWebProcessAccessTypeForDataFetch(OptionSet<WebsiteDataType> dataTypes, bool /* isNonPersistentStore */)
 {
     if (dataTypes.contains(WebsiteDataType::MemoryCache))
-        return ProcessAccessType::OnlyIfLaunched;
-    return ProcessAccessType::None;
+        return WebsiteDataStore::ProcessAccessType::OnlyIfLaunched;
+    return WebsiteDataStore::ProcessAccessType::None;
 }
 
 void WebsiteDataStore::fetchData(OptionSet<WebsiteDataType> dataTypes, OptionSet<WebsiteDataFetchOption> fetchOptions, Function<void(Vector<WebsiteDataRecord>)>&& completionHandler)
@@ -582,22 +586,22 @@ void WebsiteDataStore::fetchDataForRegistrableDomains(OptionSet<WebsiteDataType>
 }
 #endif
 
-static ProcessAccessType computeNetworkProcessAccessTypeForDataRemoval(OptionSet<WebsiteDataType> dataTypes, bool isNonPersistentStore)
+static WebsiteDataStore::ProcessAccessType computeNetworkProcessAccessTypeForDataRemoval(OptionSet<WebsiteDataType> dataTypes, bool isNonPersistentStore)
 {
-    ProcessAccessType processAccessType = ProcessAccessType::None;
+    auto processAccessType = WebsiteDataStore::ProcessAccessType::None;
     for (auto dataType : dataTypes) {
         if (dataTypes.contains(WebsiteDataType::MemoryCache))
-            processAccessType = ProcessAccessType::OnlyIfLaunched;
+            processAccessType = WebsiteDataStore::ProcessAccessType::OnlyIfLaunched;
         if (WebsiteData::ownerProcess(dataType) != WebsiteDataProcessType::Network)
             continue;
         if (dataType != WebsiteDataType::Cookies || !isNonPersistentStore)
-            return ProcessAccessType::Launch;
-        processAccessType = ProcessAccessType::OnlyIfLaunched;
+            return WebsiteDataStore::ProcessAccessType::Launch;
+        processAccessType = WebsiteDataStore::ProcessAccessType::OnlyIfLaunched;
     }
     return processAccessType;
 }
 
-static ProcessAccessType computeWebProcessAccessTypeForDataRemoval(OptionSet<WebsiteDataType> dataTypes, bool /* isNonPersistentStore */)
+auto WebsiteDataStore::computeWebProcessAccessTypeForDataRemoval(OptionSet<WebsiteDataType> dataTypes, bool /* isNonPersistentStore */) -> ProcessAccessType
 {
     if (dataTypes.contains(WebsiteDataType::MemoryCache))
         return ProcessAccessType::OnlyIfLaunched;
@@ -794,12 +798,12 @@ void WebsiteDataStore::removeData(OptionSet<WebsiteDataType> dataTypes, const Ve
 
 void WebsiteDataStore::setServiceWorkerTimeoutForTesting(Seconds seconds)
 {
-    networkProcess().sendSync(Messages::NetworkProcess::SetServiceWorkerFetchTimeoutForTesting(seconds), Messages::NetworkProcess::SetServiceWorkerFetchTimeoutForTesting::Reply(), 0);
+    networkProcess().sendSync(Messages::NetworkProcess::SetServiceWorkerFetchTimeoutForTesting(seconds), 0);
 }
 
 void WebsiteDataStore::resetServiceWorkerTimeoutForTesting()
 {
-    networkProcess().sendSync(Messages::NetworkProcess::ResetServiceWorkerFetchTimeoutForTesting(), Messages::NetworkProcess::ResetServiceWorkerFetchTimeoutForTesting::Reply(), 0);
+    networkProcess().sendSync(Messages::NetworkProcess::ResetServiceWorkerFetchTimeoutForTesting(), 0);
 }
 
 bool WebsiteDataStore::hasServiceWorkerBackgroundActivityForTesting() const
@@ -1721,7 +1725,7 @@ void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses(CompletionHandl
 
 void WebsiteDataStore::setAllowsAnySSLCertificateForWebSocket(bool allows)
 {
-    networkProcess().sendSync(Messages::NetworkProcess::SetAllowsAnySSLCertificateForWebSocket(allows), Messages::NetworkProcess::SetAllowsAnySSLCertificateForWebSocket::Reply(), 0);
+    networkProcess().sendSync(Messages::NetworkProcess::SetAllowsAnySSLCertificateForWebSocket(allows), 0);
 }
 
 void WebsiteDataStore::clearCachedCredentials()
@@ -1771,10 +1775,6 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     SandboxExtension::Handle resourceLoadStatisticsDirectoryHandle;
     createHandleFromResolvedPathIfPossible(resourceLoadStatisticsDirectory, resourceLoadStatisticsDirectoryHandle);
 
-    auto privateClickMeasurementStorageDirectory = resolvedPrivateClickMeasurementStorageDirectory();
-    SandboxExtension::Handle privateClickMeasurementStorageDirectoryHandle;
-    createHandleFromResolvedPathIfPossible(privateClickMeasurementStorageDirectory, privateClickMeasurementStorageDirectoryHandle);
-
     auto networkCacheDirectory = resolvedNetworkCacheDirectory();
     SandboxExtension::Handle networkCacheDirectoryExtensionHandle;
     createHandleFromResolvedPathIfPossible(networkCacheDirectory, networkCacheDirectoryExtensionHandle);
@@ -1795,8 +1795,6 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     ResourceLoadStatisticsParameters resourceLoadStatisticsParameters = {
         WTFMove(resourceLoadStatisticsDirectory),
         WTFMove(resourceLoadStatisticsDirectoryHandle),
-        WTFMove(privateClickMeasurementStorageDirectory),
-        WTFMove(privateClickMeasurementStorageDirectoryHandle),
         resourceLoadStatisticsEnabled(),
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
         isItpStateExplicitlySet(),

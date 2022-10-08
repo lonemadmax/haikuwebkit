@@ -28,6 +28,7 @@
 #include "AccessibilityPreferences.h"
 #include "AuxiliaryProcess.h"
 #include "CacheModel.h"
+#include "EventDispatcher.h"
 #include "IdentifierTypes.h"
 #include "StorageAreaMapIdentifier.h"
 #include "TextCheckerState.h"
@@ -66,7 +67,7 @@
 #include <wtf/MachSendRight.h>
 #endif
 
-#if PLATFORM(WAYLAND) && USE(WPE_RENDERER)
+#if PLATFORM(WAYLAND)
 #include <WebCore/PlatformDisplayLibWPE.h>
 #endif
 
@@ -110,7 +111,6 @@ struct ServiceWorkerContextData;
 namespace WebKit {
 
 class AudioMediaStreamTrackRendererInternalUnitManager;
-class EventDispatcher;
 class GamepadData;
 class GPUProcessConnection;
 class InjectedBundle;
@@ -124,7 +124,6 @@ class RemoteLegacyCDMFactory;
 class RemoteMediaEngineConfigurationFactory;
 class StorageAreaMap;
 class UserData;
-class WaylandCompositorDisplay;
 class WebAutomationSessionProxy;
 class WebBroadcastChannelRegistry;
 class WebCacheStorageProvider;
@@ -227,7 +226,7 @@ public:
     const TextCheckerState& textCheckerState() const { return m_textCheckerState; }
     void setTextCheckerState(const TextCheckerState&);
 
-    EventDispatcher& eventDispatcher() { return m_eventDispatcher.get(); }
+    EventDispatcher& eventDispatcher() { return m_eventDispatcher; }
 
     NetworkProcessConnection& ensureNetworkProcessConnection();
     void networkProcessConnectionClosed(NetworkProcessConnection*);
@@ -293,10 +292,6 @@ public:
     void sendPrewarmInformation(const URL&);
 
     void isJITEnabled(CompletionHandler<void(bool)>&&);
-
-#if PLATFORM(WAYLAND)
-    WaylandCompositorDisplay* waylandCompositorDisplay() const { return m_waylandCompositorDisplay.get(); }
-#endif
 
     RefPtr<API::Object> transformHandlesToObjects(API::Object*);
     static RefPtr<API::Object> transformObjectsToHandles(API::Object*);
@@ -388,6 +383,8 @@ public:
     void setHadMainFrameMainResourcePrivateRelayed() { m_hadMainFrameMainResourcePrivateRelayed = true; }
     bool hadMainFrameMainResourcePrivateRelayed() const { return m_hadMainFrameMainResourcePrivateRelayed; }
 
+    void deleteWebsiteDataForOrigins(OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, CompletionHandler<void()>&&);
+
 private:
     WebProcess();
     ~WebProcess();
@@ -462,7 +459,6 @@ private:
 
     void fetchWebsiteData(OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData&&)>&&);
     void deleteWebsiteData(OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
-    void deleteWebsiteDataForOrigins(OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, CompletionHandler<void()>&&);
 
     void setMemoryCacheDisabled(bool);
 
@@ -597,11 +593,11 @@ private:
     HashMap<PageGroupIdentifier, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
     RefPtr<InjectedBundle> m_injectedBundle;
 
-    Ref<EventDispatcher> m_eventDispatcher;
+    EventDispatcher m_eventDispatcher;
 #if PLATFORM(IOS_FAMILY)
-    RefPtr<ViewUpdateDispatcher> m_viewUpdateDispatcher;
+    ViewUpdateDispatcher m_viewUpdateDispatcher;
 #endif
-    RefPtr<WebInspectorInterruptDispatcher> m_webInspectorInterruptDispatcher;
+    WebInspectorInterruptDispatcher m_webInspectorInterruptDispatcher;
 
     bool m_hasSetCacheModel { false };
     CacheModel m_cacheModel { CacheModel::DocumentViewer };
@@ -693,10 +689,6 @@ private:
     HashMap<WebCore::UserGestureToken *, uint64_t> m_userGestureTokens;
 
 #if PLATFORM(WAYLAND)
-    std::unique_ptr<WaylandCompositorDisplay> m_waylandCompositorDisplay;
-#endif
-
-#if PLATFORM(WAYLAND) && USE(WPE_RENDERER)
     std::unique_ptr<WebCore::PlatformDisplayLibWPE> m_wpeDisplay;
 #endif
 

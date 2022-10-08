@@ -26,9 +26,8 @@
 #include "config.h"
 #include "FloatingState.h"
 
-#include "FormattingContext.h"
-#include "LayoutBox.h"
-#include "LayoutContainerBox.h"
+#include "LayoutContainingBlockChainIterator.h"
+#include "LayoutInitialContainingBlock.h"
 #include "LayoutState.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -89,6 +88,18 @@ void FloatingState::append(FloatItem floatItem)
             return m_floats.insert(i + 1, floatItem);
     }
     m_floats.insert(0, floatItem);
+}
+
+bool FloatingState::FloatItem::isInFormattingContextOf(const ContainerBox& formattingContextRoot) const
+{
+    ASSERT(formattingContextRoot.establishesFormattingContext());
+    ASSERT(!is<InitialContainingBlock>(m_layoutBox));
+    for (auto& containingBlock : containingBlockChain(*m_layoutBox)) {
+        if (&containingBlock == &formattingContextRoot)
+            return true;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 void FloatingState::clear()

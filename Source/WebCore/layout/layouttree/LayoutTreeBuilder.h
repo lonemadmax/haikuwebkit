@@ -39,6 +39,7 @@ class RenderView;
 
 namespace Layout {
 
+class InitialContainingBlock;
 class LayoutState;
 
 class LayoutTree {
@@ -64,16 +65,15 @@ private:
     void buildTableStructure(const RenderTable& tableRenderer, ContainerBox& tableWrapperBox);
     std::unique_ptr<Box> createLayoutBox(const ContainerBox& parentContainer, const RenderObject& childRenderer);
 
-    std::unique_ptr<Box> createReplacedBox(std::optional<Box::ElementAttributes>, RenderStyle&&);
+    std::unique_ptr<Box> createReplacedBox(Box::ElementAttributes, ContainerBox::ReplacedAttributes&&, RenderStyle&&);
     std::unique_ptr<Box> createTextBox(String text, bool canUseSimplifiedTextMeasuring, bool canUseSimpleFontCodePath, RenderStyle&&);
-    std::unique_ptr<Box> createLineBreakBox(bool isOptional, RenderStyle&&);
-    std::unique_ptr<ContainerBox> createContainer(std::optional<Box::ElementAttributes>, RenderStyle&&);
+    std::unique_ptr<ContainerBox> createContainer(Box::ElementAttributes, RenderStyle&&);
 };
 
 #if ENABLE(TREE_DEBUGGING)
-String layoutTreeAsText(const Box&, const LayoutState*);
-void showLayoutTree(const Box&, const LayoutState*);
-void showLayoutTree(const Box&);
+String layoutTreeAsText(const InitialContainingBlock&, const LayoutState*);
+void showLayoutTree(const InitialContainingBlock&, const LayoutState*);
+void showLayoutTree(const InitialContainingBlock&);
 void showInlineTreeAndRuns(TextStream&, const LayoutState&, const ContainerBox& inlineFormattingRoot, size_t depth);
 void printLayoutTreeForLiveDocuments();
 #endif

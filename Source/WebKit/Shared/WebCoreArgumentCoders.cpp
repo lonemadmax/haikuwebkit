@@ -49,6 +49,7 @@
 #include <WebCore/DOMCacheEngine.h>
 #include <WebCore/DatabaseDetails.h>
 #include <WebCore/DecomposedGlyphs.h>
+#include <WebCore/DeprecationReportBody.h>
 #include <WebCore/DictationAlternative.h>
 #include <WebCore/DictionaryPopupInfo.h>
 #include <WebCore/DisplayListItems.h>
@@ -150,13 +151,6 @@ using namespace WebKit;
     template void ArgumentCoder<Type>::encode<StreamConnectionEncoder>(StreamConnectionEncoder&, const Type&);
 
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(FloatBoxExtent)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(FloatRoundedRect)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(FloatSize)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(IntPoint)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(IntRect)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(IntSize)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(LayoutPoint)
-DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(LayoutSize)
 
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(DisplayList::SetInlineFillColor)
 DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(DisplayList::SetInlineStrokeColor)
@@ -1996,39 +1990,6 @@ bool ArgumentCoder<MediaPlaybackTargetContext>::decode(Decoder& decoder, MediaPl
 }
 #endif
 
-void ArgumentCoder<DictionaryPopupInfo>::encode(IPC::Encoder& encoder, const DictionaryPopupInfo& info)
-{
-    encoder << info.origin;
-    encoder << info.textIndicator;
-
-    if (info.encodingRequiresPlatformData()) {
-        encoder << true;
-        encodePlatformData(encoder, info);
-        return;
-    }
-
-    encoder << false;
-}
-
-bool ArgumentCoder<DictionaryPopupInfo>::decode(IPC::Decoder& decoder, DictionaryPopupInfo& result)
-{
-    if (!decoder.decode(result.origin))
-        return false;
-
-    std::optional<TextIndicatorData> textIndicator;
-    decoder >> textIndicator;
-    if (!textIndicator)
-        return false;
-    result.textIndicator = WTFMove(*textIndicator);
-
-    bool hasPlatformData;
-    if (!decoder.decode(hasPlatformData))
-        return false;
-    if (hasPlatformData)
-        return decodePlatformData(decoder, result);
-    return true;
-}
-
 void ArgumentCoder<ExceptionDetails>::encode(IPC::Encoder& encoder, const ExceptionDetails& info)
 {
     encoder << info.message;
@@ -2657,6 +2618,9 @@ void ArgumentCoder<RefPtr<WebCore::ReportBody>>::encode(Encoder& encoder, const 
     case ViolationReportType::CORPViolation:
         downcast<CORPViolationReportBody>(reportBody.get())->encode(encoder);
         return;
+    case ViolationReportType::Deprecation:
+        downcast<DeprecationReportBody>(reportBody.get())->encode(encoder);
+        return;
     case ViolationReportType::Test:
         downcast<TestReportBody>(reportBody.get())->encode(encoder);
         return;
@@ -2691,6 +2655,8 @@ std::optional<RefPtr<WebCore::ReportBody>> ArgumentCoder<RefPtr<WebCore::ReportB
         return COEPInheritenceViolationReportBody::decode(decoder);
     case ViolationReportType::CORPViolation:
         return CORPViolationReportBody::decode(decoder);
+    case ViolationReportType::Deprecation:
+        return DeprecationReportBody::decode(decoder);
     case ViolationReportType::Test:
         return TestReportBody::decode(decoder);
     case ViolationReportType::CrossOriginOpenerPolicy:

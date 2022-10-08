@@ -43,30 +43,32 @@ class TreeBuilder;
 class Box : public CanMakeCheckedPtr {
     WTF_MAKE_ISO_ALLOCATED(Box);
 public:
-    enum class ElementType {
-        Document,
+    enum class NodeType : uint8_t {
+        Text,
+        GenericElement,
+        ReplacedElement,
+        DocumentElement,
         Body,
         TableWrapperBox, // The table generates a principal block container box called the table wrapper box that contains the table box and any caption boxes.
         TableBox, // The table box is a block-level box that contains the table's internal table boxes.
         Image,
         IFrame,
-        IntegrationBlockContainer,
-        IntegrationInlineBlock, // Integration sets up inline-block boxes as replaced boxes.
-        GenericElement
+        LineBreak,
+        WordBreakOpportunity,
+        ListMarker,
     };
+
+    enum class IsAnonymous : bool { No, Yes };
 
     struct ElementAttributes {
-        ElementType elementType;
+        NodeType nodeType;
+        IsAnonymous isAnonymous;
     };
 
-    enum BaseTypeFlag {
-        BoxFlag                    = 1 << 0,
-        InlineTextBoxFlag          = 1 << 1,
-        LineBreakBoxFlag           = 1 << 2,
-        ListMarkerBoxFlag          = 1 << 3,
-        ReplacedBoxFlag            = 1 << 4,
-        InitialContainingBlockFlag = 1 << 5,
-        ContainerBoxFlag           = 1 << 6
+    enum BaseTypeFlag : uint8_t {
+        InlineTextBoxFlag          = 1 << 0,
+        ContainerBoxFlag           = 1 << 1,
+        InitialContainingBlockFlag = 1 << 2,
     };
 
     virtual ~Box();
@@ -92,15 +94,9 @@ public:
 
     bool isFloatingOrOutOfFlowPositioned() const { return isFloatingPositioned() || isOutOfFlowPositioned(); }
 
-    const ContainerBox& containingBlock() const;
-    const ContainerBox& formattingContextRoot() const;
-    const InitialContainingBlock& initialContainingBlock() const;
-
     bool isContainingBlockForInFlow() const;
     bool isContainingBlockForFixedPosition() const;
     bool isContainingBlockForOutOfFlowPosition() const;
-
-    bool isInFormattingContextOf(const ContainerBox&) const;
 
     bool isAnonymous() const { return m_isAnonymous; }
 
@@ -119,10 +115,10 @@ public:
     bool isLayoutContainmentBox() const;
     bool isSizeContainmentBox() const;
 
-    bool isDocumentBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Document; }
-    bool isBodyBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Body; }
-    bool isTableWrapperBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::TableWrapperBox; }
-    bool isTableBox() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::TableBox; }
+    bool isDocumentBox() const { return m_nodeType == NodeType::DocumentElement; }
+    bool isBodyBox() const { return m_nodeType == NodeType::Body; }
+    bool isTableWrapperBox() const { return m_nodeType == NodeType::TableWrapperBox; }
+    bool isTableBox() const { return m_nodeType == NodeType::TableBox; }
     bool isTableCaption() const { return style().display() == DisplayType::TableCaption; }
     bool isTableHeader() const { return style().display() == DisplayType::TableHeaderGroup; }
     bool isTableBody() const { return style().display() == DisplayType::TableRowGroup; }
@@ -134,12 +130,15 @@ public:
     bool isInternalTableBox() const;
     bool isFlexBox() const { return style().display() == DisplayType::Flex || style().display() == DisplayType::InlineFlex; }
     bool isFlexItem() const;
-    bool isIFrame() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::IFrame; }
-    bool isImage() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Image; }
+    bool isIFrame() const { return m_nodeType == NodeType::IFrame; }
+    bool isImage() const { return m_nodeType == NodeType::Image; }
     bool isInternalRubyBox() const { return false; }
-    bool isIntegrationBlockContainer() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::IntegrationBlockContainer; }
-    bool isIntegrationRoot() const { return isIntegrationBlockContainer() && !m_parent; }
-    bool isIntegrationInlineBlock() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::IntegrationInlineBlock; }
+    bool isLineBreakBox() const { return m_nodeType == NodeType::LineBreak || m_nodeType == NodeType::WordBreakOpportunity; }
+    bool isWordBreakOpportunity() const { return m_nodeType == NodeType::WordBreakOpportunity; }
+    bool isListMarkerBox() const { return m_nodeType == NodeType::ListMarker; }
+    bool isReplacedBox() const { return m_nodeType == NodeType::ReplacedElement || m_nodeType == NodeType::Image || m_nodeType == NodeType::ListMarker; }
+
+    bool isInlineIntegrationRoot() const { return m_isInlineIntegrationRoot; }
 
     const ContainerBox& parent() const { return *m_parent; }
     const Box* nextSibling() const { return m_nextSibling.get(); }
@@ -155,14 +154,11 @@ public:
 
     bool isContainerBox() const { return baseTypeFlags().contains(ContainerBoxFlag); }
     bool isInlineTextBox() const { return baseTypeFlags().contains(InlineTextBoxFlag); }
-    bool isLineBreakBox() const { return baseTypeFlags().contains(LineBreakBoxFlag); }
-    bool isReplacedBox() const { return baseTypeFlags().contains(ReplacedBoxFlag); }
-    bool isListMarkerBox() const { return baseTypeFlags().contains(ListMarkerBoxFlag); }
 
     bool isPaddingApplicable() const;
     bool isOverflowVisible() const;
 
-    void updateStyle(const RenderStyle& newStyle, std::unique_ptr<RenderStyle>&& newFirstLineStyle);
+    void updateStyle(RenderStyle&& newStyle, std::unique_ptr<RenderStyle>&& newFirstLineStyle);
     const RenderStyle& style() const { return m_style; }
     const RenderStyle& firstLineStyle() const { return hasRareData() && rareData().firstLineStyle ? *rareData().firstLineStyle : m_style; }
 
@@ -176,21 +172,22 @@ public:
     void setColumnWidth(LayoutUnit);
     std::optional<LayoutUnit> columnWidth() const;
 
-    void setIsAnonymous() { m_isAnonymous = true; }
+    void setIsInlineIntegrationRoot() { m_isInlineIntegrationRoot = true; }
 
     bool canCacheForLayoutState(const LayoutState&) const;
     BoxGeometry* cachedGeometryForLayoutState(const LayoutState&) const;
     void setCachedGeometryForLayoutState(LayoutState&, std::unique_ptr<BoxGeometry>) const;
 
+    UniqueRef<Box> removeFromParent();
+
+    void incrementPtrCount() const { CanMakeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const { CanMakeCheckedPtr::decrementPtrCount(); }
+
 protected:
-    Box(std::optional<ElementAttributes>, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle, OptionSet<BaseTypeFlag>);
+    Box(ElementAttributes&&, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle, OptionSet<BaseTypeFlag>);
 
 private:
     friend class ContainerBox;
-
-    void setParent(ContainerBox*);
-    void setNextSibling(Box*);
-    void setPreviousSibling(Box*);
 
     class BoxRareData {
         WTF_MAKE_FAST_ALLOCATED;
@@ -215,19 +212,23 @@ private:
     static RareDataMap& rareDataMap();
 
     RenderStyle m_style;
-    std::optional<ElementAttributes> m_elementAttributes;
+
+    NodeType m_nodeType : 4;
+    bool m_isAnonymous : 1;
+
+    unsigned m_baseTypeFlags : 4; // OptionSet<BaseTypeFlag>
+    bool m_hasRareData : 1 { false };
+    bool m_isInlineIntegrationRoot : 1 { false };
 
     CheckedPtr<ContainerBox> m_parent;
-    CheckedPtr<Box> m_previousSibling;
-    CheckedPtr<Box> m_nextSibling;
     
+    std::unique_ptr<Box> m_nextSibling;
+    CheckedPtr<Box> m_previousSibling;
+
     // First LayoutState gets a direct cache.
     mutable WeakPtr<LayoutState> m_cachedLayoutState;
     mutable std::unique_ptr<BoxGeometry> m_cachedGeometryForLayoutState;
 
-    unsigned m_baseTypeFlags : 7; // OptionSet<BaseTypeFlag>
-    bool m_hasRareData : 1;
-    bool m_isAnonymous : 1;
 };
 
 inline bool Box::isContainingBlockForInFlow() const

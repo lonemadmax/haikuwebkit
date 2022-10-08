@@ -178,6 +178,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case AtomicsStore:
         case AtomicsSub:
         case AtomicsXor:
+        case NewArrayWithSpecies:
             return clobberTop();
         default:
             DFG_CRASH(graph, node, "Unhandled ArrayMode opcode.");
@@ -1555,6 +1556,10 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         def(HeapLocation(GlobalVariableLoc, AbstractHeap(Absolute, node->variablePointer())), LazyNode(node->child2().node()));
         return;
 
+    case NewArrayWithSpecies:
+        clobberTop();
+        return;
+
     case NewArrayWithSize:
         read(HeapObjectCount);
         write(HeapObjectCount);
@@ -1813,11 +1818,13 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
             write(RegExpState);
             write(RegExpObject_lastIndex);
             return;
-        } else if (node->child1().useKind() == StringUse
-            && node->child2().useKind() == StringUse
-            && node->child3().useKind() == StringUse) {
-            return;
         }
+        clobberTop();
+        return;
+
+    case StringReplaceString:
+        if (node->child3().useKind() == StringUse)
+            return;
         clobberTop();
         return;
 
@@ -2000,6 +2007,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
 
     case StringSlice:
+    case StringSubstring:
         def(PureValue(node));
         return;
 

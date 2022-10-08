@@ -9,6 +9,7 @@ include(target/WebCore)
 set_property(DIRECTORY . PROPERTY FOLDER "WebKitLegacy")
 
 set(WebKitLegacy_SOURCES
+    Storage/InProcessIDBServer.cpp
     Storage/StorageAreaImpl.cpp
     Storage/StorageAreaSync.cpp
     Storage/StorageNamespaceImpl.cpp
@@ -17,7 +18,6 @@ set(WebKitLegacy_SOURCES
     Storage/StorageTracker.cpp
     Storage/WebDatabaseProvider.cpp
     Storage/WebStorageNamespaceProvider.cpp
-	Storage/InProcessIDBServer.cpp
 
     WebCoreSupport/NetworkStorageSessionMap.cpp
     WebCoreSupport/WebBroadcastChannelRegistry.cpp

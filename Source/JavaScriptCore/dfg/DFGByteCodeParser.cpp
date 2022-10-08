@@ -3055,6 +3055,16 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
             setResult(resultNode);
             return true;
         }
+
+        case StringPrototypeReplaceStringIntrinsic: {
+            if (argumentCountIncludingThis < 3)
+                return false;
+
+            insertChecks();
+            Node* resultNode = addToGraph(StringReplaceString, OpInfo(0), OpInfo(prediction), get(virtualRegisterForArgumentIncludingThis(0, registerOffset)), get(virtualRegisterForArgumentIncludingThis(1, registerOffset)), get(virtualRegisterForArgumentIncludingThis(2, registerOffset)));
+            setResult(resultNode);
+            return true;
+        }
             
         case RoundIntrinsic:
         case FloorIntrinsic:
@@ -3675,6 +3685,7 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
             return true;
         }
 
+        case StringPrototypeSubstringIntrinsic:
         case StringPrototypeSliceIntrinsic: {
             if (argumentCountIncludingThis < 2)
                 return false;
@@ -3688,7 +3699,7 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
             Node* end = nullptr;
             if (argumentCountIncludingThis > 2)
                 end = get(virtualRegisterForArgumentIncludingThis(2, registerOffset));
-            Node* resultNode = addToGraph(StringSlice, thisString, start, end);
+            Node* resultNode = addToGraph(intrinsic == StringPrototypeSubstringIntrinsic ? StringSubstring : StringSlice, thisString, start, end);
             setResult(resultNode);
             return true;
         }
@@ -5701,7 +5712,20 @@ void ByteCodeParser::parseBlock(unsigned limit)
             set(bytecode.m_dst, addToGraph(NewArrayWithSize, OpInfo(profile.selectIndexingTypeConcurrently()), get(bytecode.m_length)));
             NEXT_OPCODE(op_new_array_with_size);
         }
-            
+
+        case op_new_array_with_species: {
+            auto bytecode = currentInstruction->as<OpNewArrayWithSpecies>();
+            SpeculatedType prediction = getPrediction();
+            auto& metadata = bytecode.metadata(codeBlock);
+            ArrayAllocationProfile& profile = metadata.m_arrayAllocationProfile;
+            ArrayMode arrayMode = getArrayMode(metadata.m_arrayProfile, Array::Read);
+            NewArrayWithSpeciesData data { };
+            data.arrayMode = arrayMode.asWord();
+            data.indexingMode = profile.selectIndexingTypeConcurrently();
+            set(bytecode.m_dst, addToGraph(NewArrayWithSpecies, OpInfo(data.asQuadWord()), OpInfo(prediction), Edge(get(bytecode.m_length)), Edge(get(bytecode.m_array), KnownCellUse)));
+            NEXT_OPCODE(op_new_array_with_species);
+        }
+
         case op_new_array_buffer: {
             auto bytecode = currentInstruction->as<OpNewArrayBuffer>();
             // Unfortunately, we can't allocate a new JSImmutableButterfly if the profile tells us new information because we

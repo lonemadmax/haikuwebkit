@@ -59,6 +59,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/push-api"
     "${WEBCORE_DIR}/Modules/remoteplayback"
     "${WEBCORE_DIR}/Modules/reporting"
+    "${WEBCORE_DIR}/Modules/screen-wake-lock"
     "${WEBCORE_DIR}/Modules/speech"
     "${WEBCORE_DIR}/Modules/storage"
     "${WEBCORE_DIR}/Modules/streams"
@@ -556,11 +557,17 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/remoteplayback/RemotePlayback.idl
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
 
+    Modules/reporting/DeprecationReportBody.idl
     Modules/reporting/Report.idl
     Modules/reporting/ReportBody.idl
     Modules/reporting/ReportingObserver.idl
     Modules/reporting/ReportingObserverCallback.idl
     Modules/reporting/TestReportBody.idl
+
+    Modules/screen-wake-lock/Navigator+ScreenWakeLock.idl
+    Modules/screen-wake-lock/WakeLock.idl
+    Modules/screen-wake-lock/WakeLockSentinel.idl
+    Modules/screen-wake-lock/WakeLockType.idl
 
     Modules/speech/DOMWindow+SpeechSynthesis.idl
     Modules/speech/SpeechRecognitionErrorEvent.idl
@@ -699,11 +706,23 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webauthn/ResidentKeyRequirement.idl
     Modules/webauthn/UserVerificationRequirement.idl
 
+    Modules/webcodecs/HardwareAcceleration.idl
+    Modules/webcodecs/PlaneLayout.idl
     Modules/webcodecs/VideoColorPrimaries.idl
     Modules/webcodecs/VideoColorSpace.idl
     Modules/webcodecs/VideoColorSpaceInit.idl
     Modules/webcodecs/VideoMatrixCoefficients.idl
+    Modules/webcodecs/VideoPixelFormat.idl
     Modules/webcodecs/VideoTransferCharacteristics.idl
+    Modules/webcodecs/WebCodecsCodecState.idl
+    Modules/webcodecs/WebCodecsEncodedVideoChunk.idl
+    Modules/webcodecs/WebCodecsEncodedVideoChunkType.idl
+    Modules/webcodecs/WebCodecsErrorCallback.idl
+    Modules/webcodecs/WebCodecsVideoDecoder.idl
+    Modules/webcodecs/WebCodecsVideoDecoderConfig.idl
+    Modules/webcodecs/WebCodecsVideoDecoderSupport.idl
+    Modules/webcodecs/WebCodecsVideoFrameOutputCallback.idl
+    Modules/webcodecs/WebCodecsVideoFrame.idl
 
     Modules/webdatabase/DOMWindow+WebDatabase.idl
     Modules/webdatabase/Database.idl
@@ -1256,6 +1275,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/ResizeObserverOptions.idl
     page/ResizeObserverSize.idl
     page/Screen.idl
+    page/ScreenOrientation.idl
     page/ScrollBehavior.idl
     page/ScrollIntoViewOptions.idl
     page/ScrollLogicalPosition.idl
@@ -1320,6 +1340,7 @@ set(WebCore_NON_SVG_IDL_FILES
 
     xml/CustomXPathNSResolver.idl
     xml/DOMParser.idl
+    xml/ParseFromStringOptions.idl
     xml/XMLHttpRequest.idl
     xml/XMLHttpRequestEventTarget.idl
     xml/XMLHttpRequestProgressEvent.idl
@@ -1477,7 +1498,6 @@ set(WebCore_SVG_IDL_FILES
     svg/SVGViewElement.idl
     svg/SVGViewSpec.idl
     svg/SVGZoomAndPan.idl
-    svg/SVGZoomEvent.idl
 )
 
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
@@ -1966,41 +1986,15 @@ if (ENABLE_WEBGL)
         platform/graphics/FormatConverter.cpp
     )
 
-    if (USE_ANGLE_WEBGL)
-        list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
-            ${WEBCORE_DIR}/platform/graphics/angle
-        )
-        list(APPEND WebCore_SOURCES
-            platform/graphics/angle/ANGLEUtilities.cpp
-            platform/graphics/angle/GraphicsContextGLANGLE.cpp
-        )
+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+        ${WEBCORE_DIR}/platform/graphics/angle
+    )
+    list(APPEND WebCore_SOURCES
+        platform/graphics/angle/ANGLEUtilities.cpp
+        platform/graphics/angle/GraphicsContextGLANGLE.cpp
+    )
 
-        list(APPEND WebCore_LIBRARIES ANGLE::GLES)
-    else ()
-        list(APPEND WebCore_SOURCES
-            platform/graphics/ANGLEWebKitBridge.cpp
-
-            platform/graphics/opengl/ExtensionsGLOpenGLCommon.cpp
-            platform/graphics/opengl/GraphicsContextGLOpenGL.cpp
-            platform/graphics/opengl/TemporaryOpenGLSetting.cpp
-        )
-
-        if (USE_OPENGL_ES)
-            list(APPEND WebCore_SOURCES
-                platform/graphics/opengl/ExtensionsGLOpenGLES.cpp
-                platform/graphics/opengl/GraphicsContextGLOpenGLES.cpp
-            )
-        endif ()
-
-        if (USE_OPENGL)
-            list(APPEND WebCore_SOURCES
-                platform/graphics/opengl/ExtensionsGLOpenGL.cpp
-                platform/graphics/opengl/GraphicsContextGLOpenGLBase.cpp
-            )
-        endif ()
-
-        list(APPEND WebCore_LIBRARIES ANGLE::ANGLE)
-    endif ()
+    list(APPEND WebCore_LIBRARIES ANGLE::GLES)
 elseif (USE_ANGLE_EGL)
     list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
         ${WEBCORE_DIR}/platform/graphics/angle
@@ -2358,7 +2352,6 @@ list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StyleBuilderGenerated.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.cpp)
 list(APPEND WebCore_IDL_FILES ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleDeclaration+PropertyNames.idl)
-ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp CSSValueKeywords.h)
 
 # Generate CSS value keywords
 add_custom_command(
@@ -2370,7 +2363,7 @@ add_custom_command(
     COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/makevalues.pl --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR} ${CSS_VALUE_PLATFORM_DEFINES}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" --gperf-executable "${GPERF_EXECUTABLE}"
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp)
-ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp CSSValueKeywords.h)
+ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/parser/CSSParser.cpp CSSValueKeywords.h)
 ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)
 
 # Generate CSS Selector pseudo type name to value maps.
@@ -2399,7 +2392,8 @@ add_custom_command(
     COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/make-css-file-arrays.pl --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" ${WebCore_DERIVED_SOURCES_DIR}/UserAgentStyleSheets.h ${WebCore_DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp ${WebCore_USER_AGENT_STYLE_SHEETS}
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp)
-ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/StyleResolver.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
+ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/style/StyleResolver.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
+ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/style/UserAgentStyle.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
 if (WebCore_USER_AGENT_SCRIPTS)
     # Necessary variables:
@@ -2425,7 +2419,7 @@ add_custom_command(
     COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/make-css-file-arrays.pl --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" ${WebCore_DERIVED_SOURCES_DIR}/PlugInsResources.h ${WebCore_DERIVED_SOURCES_DIR}/PlugInsResourcesData.cpp ${WebCore_PLUG_INS_RESOURCES}
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/PlugInsResourcesData.cpp)
-ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/StyleResolver.cpp PlugInsResourcesData.cpp PlugInsResources.h)
+ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/dom/Document.cpp PlugInsResourcesData.cpp PlugInsResources.h)
 
 set(FEATURE_DEFINES_JAVASCRIPT "LANGUAGE_JAVASCRIPT ${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}")
 
@@ -2550,7 +2544,7 @@ list(APPEND WebCore_SOURCES
     ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltins.cpp
     ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltinInternals.cpp)
 
-ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLTreeBuilder.cpp MathMLNames.cpp)
+ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/parser/HTMLTreeBuilder.cpp MathMLNames.cpp)
 
 
 GENERATE_DOM_NAMES(HTML ${WEBCORE_DIR}/html/HTMLAttributeNames.in ${WEBCORE_DIR}/html/HTMLTagNames.in)

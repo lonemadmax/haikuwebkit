@@ -160,6 +160,9 @@ public:
     static void applyInheritCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, const AtomString& name);
     static void applyValueCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, CSSCustomPropertyValue&);
 
+    static void applyValueColor(BuilderState&, CSSValue&);
+
+
 private:
     static void resetEffectiveZoom(BuilderState&);
 
@@ -787,7 +790,7 @@ inline void BuilderCustom::applyInitialCaretColor(BuilderState& builderState)
 
 inline void BuilderCustom::applyInheritCaretColor(BuilderState& builderState)
 {
-    Color color = builderState.parentStyle().caretColor();
+    auto color = builderState.parentStyle().caretColor();
     if (builderState.applyPropertyToRegularStyle()) {
         if (builderState.parentStyle().hasAutoCaretColor())
             builderState.style().setHasAutoCaretColor();
@@ -1443,6 +1446,27 @@ inline void BuilderCustom::applyValueCursor(BuilderState& builderState, CSSValue
     }
 }
 
+inline std::pair<StyleColor, SVGPaintType> colorAndSVGPaintType(BuilderState& builderState, const CSSPrimitiveValue& localValue, String& url)
+{
+    StyleColor color;
+    auto paintType = SVGPaintType::RGBColor;
+    if (localValue.isURI()) {
+        paintType = SVGPaintType::URI;
+        url = localValue.stringValue();
+    } else if (localValue.isValueID() && localValue.valueID() == CSSValueNone)
+        paintType = url.isEmpty() ? SVGPaintType::None : SVGPaintType::URINone;
+    else if (StyleColor::isCurrentColor(localValue)) {
+        // FIXME: We should resolve currentcolor at use time, not now.
+        color = builderState.style().color();
+        paintType = url.isEmpty() ? SVGPaintType::CurrentColor : SVGPaintType::URICurrentColor;
+        builderState.style().setDisallowsFastPathInheritance();
+    } else {
+        color = builderState.colorFromPrimitiveValue(localValue);
+        paintType = url.isEmpty() ? SVGPaintType::RGBColor : SVGPaintType::URIRGBColor;
+    }
+    return { color, paintType };
+}
+
 inline void BuilderCustom::applyInitialFill(BuilderState& builderState)
 {
     auto& svgStyle = builderState.style().accessSVGStyle();
@@ -1471,21 +1495,7 @@ inline void BuilderCustom::applyValueFill(BuilderState& builderState, CSSValue& 
     if (!localValue)
         return;
 
-    Color color;
-    auto paintType = SVGPaintType::RGBColor;
-    if (localValue->isURI()) {
-        paintType = SVGPaintType::URI;
-        url = localValue->stringValue();
-    } else if (localValue->isValueID() && localValue->valueID() == CSSValueNone)
-        paintType = url.isEmpty() ? SVGPaintType::None : SVGPaintType::URINone;
-    else if (localValue->isValueID() && localValue->valueID() == CSSValueCurrentcolor) {
-        color = builderState.style().color();
-        paintType = url.isEmpty() ? SVGPaintType::CurrentColor : SVGPaintType::URICurrentColor;
-        builderState.style().setDisallowsFastPathInheritance();
-    } else {
-        color = builderState.colorFromPrimitiveValue(*localValue);
-        paintType = url.isEmpty() ? SVGPaintType::RGBColor : SVGPaintType::URIRGBColor;
-    }
+    auto [color, paintType] = colorAndSVGPaintType(builderState, *localValue, url);
     svgStyle.setFillPaint(paintType, color, url, builderState.applyPropertyToRegularStyle(), builderState.applyPropertyToVisitedLinkStyle());
 }
 
@@ -1516,21 +1526,7 @@ inline void BuilderCustom::applyValueStroke(BuilderState& builderState, CSSValue
     if (!localValue)
         return;
 
-    Color color;
-    auto paintType = SVGPaintType::RGBColor;
-    if (localValue->isURI()) {
-        paintType = SVGPaintType::URI;
-        url = downcast<CSSPrimitiveValue>(localValue)->stringValue();
-    } else if (localValue->isValueID() && localValue->valueID() == CSSValueNone)
-        paintType = url.isEmpty() ? SVGPaintType::None : SVGPaintType::URINone;
-    else if (localValue->isValueID() && localValue->valueID() == CSSValueCurrentcolor) {
-        color = builderState.style().color();
-        paintType = url.isEmpty() ? SVGPaintType::CurrentColor : SVGPaintType::URICurrentColor;
-        builderState.style().setDisallowsFastPathInheritance();
-    } else {
-        color = builderState.colorFromPrimitiveValue(*localValue);
-        paintType = url.isEmpty() ? SVGPaintType::RGBColor : SVGPaintType::URIRGBColor;
-    }
+    auto [color, paintType] = colorAndSVGPaintType(builderState, *localValue, url);
     svgStyle.setStrokePaint(paintType, color, url, builderState.applyPropertyToRegularStyle(), builderState.applyPropertyToVisitedLinkStyle());
 }
 
@@ -2046,6 +2042,30 @@ inline void BuilderCustom::applyValueStrokeColor(BuilderState& builderState, CSS
     if (builderState.applyPropertyToVisitedLinkStyle())
         builderState.style().setVisitedLinkStrokeColor(builderState.colorFromPrimitiveValue(primitiveValue, ForVisitedLink::Yes));
     builderState.style().setHasExplicitlySetStrokeColor(true);
+}
+
+inline void BuilderCustom::applyValueColor(BuilderState& builderState, CSSValue& value)
+{
+    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
+
+    // For the color property, current color is actually the inherited computed color.
+    auto absoluteColorOrInheritColor = [&](const StyleColor& color) {
+        if (color.isCurrentColor()) {
+            auto& parentStyle = builderState.parentStyle();
+            return parentStyle.color();
+        }
+        return color.absoluteColor();
+    };
+    
+    if (builderState.applyPropertyToRegularStyle()) {
+        auto color = builderState.colorFromPrimitiveValue(primitiveValue, ForVisitedLink::No);
+        builderState.style().setColor(absoluteColorOrInheritColor(color));
+    }
+    if (builderState.applyPropertyToVisitedLinkStyle()) {
+        auto color = builderState.colorFromPrimitiveValue(primitiveValue, ForVisitedLink::Yes);
+        builderState.style().setVisitedLinkColor(absoluteColorOrInheritColor(color));
+    }
+    builderState.style().setDisallowsFastPathInheritance();
 }
 
 inline void BuilderCustom::applyInitialCustomProperty(BuilderState& builderState, const CSSRegisteredCustomProperty* registered, const AtomString& name)

@@ -518,12 +518,16 @@ GENERATE_MESSAGE_SOURCES(WebKit_DERIVED_SOURCES "${WebKit_MESSAGES_IN_FILES}")
 set(WebKit_SERIALIZATION_IN_FILES
     NetworkProcess/NetworkProcessCreationParameters.serialization.in
 
+    Shared/FocusedElementInformation.serialization.in
     Shared/FrameInfoData.serialization.in
     Shared/FrameTreeNodeData.serialization.in
+    Shared/LayerTreeContext.serialization.in
     Shared/WebCoreArgumentCoders.serialization.in
     Shared/WebsiteDataStoreParameters.serialization.in
 
     Shared/API/APIGeometry.serialization.in
+
+    Shared/Cocoa/WebCoreArgumentCodersCocoa.serialization.in
 
     Shared/WebGPU/WebGPUBindGroupEntry.serialization.in
     Shared/WebGPU/WebGPUBlendComponent.serialization.in
@@ -535,6 +539,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WebGPU/WebGPUColorTargetState.serialization.in
     Shared/WebGPU/WebGPUComputePassTimestampWrites.serialization.in
     Shared/WebGPU/WebGPUObjectDescriptorBase.serialization.in
+
     Shared/WebGPU/WebGPUOrigin3D.serialization.in
     Shared/WebGPU/WebGPUPrimitiveState.serialization.in
     Shared/WebGPU/WebGPUProgrammableStage.serialization.in

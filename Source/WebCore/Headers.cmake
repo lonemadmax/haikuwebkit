@@ -148,6 +148,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/cache/CacheQueryOptions.h
     Modules/cache/CacheStorageConnection.h
     Modules/cache/DOMCacheEngine.h
+    Modules/cache/DOMCacheIdentifier.h
     Modules/cache/RetrieveRecordsOptions.h
 
     Modules/compression/CompressionStreamEncoder.h
@@ -325,6 +326,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/push-api/PushSubscriptionData.h
     Modules/push-api/PushSubscriptionIdentifier.h
 
+    Modules/reporting/DeprecationReportBody.h
     Modules/reporting/Report.h
     Modules/reporting/ReportBody.h
     Modules/reporting/ReportingClient.h
@@ -750,6 +752,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/ScriptElement.h
     dom/ScriptElementCachedScriptFetcher.h
     dom/ScriptExecutionContext.h
+    dom/ScriptType.h
     dom/SecurityContext.h
     dom/SecurityPolicyViolationEvent.h
     dom/SecurityPolicyViolationEventDisposition.h
@@ -1043,6 +1046,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/layouttree/LayoutInitialContainingBlock.h
     layout/layouttree/LayoutInlineTextBox.h
 
+    loader/AttributionSecondsUntilSendData.h
+    loader/AttributionTimeToSendData.h
+    loader/AttributionTriggerData.h
     loader/COEPInheritenceViolationReportBody.h
     loader/CORPViolationReportBody.h
     loader/CanvasActivityRecord.h
@@ -1058,6 +1064,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/DocumentWriter.h
     loader/EmptyClients.h
     loader/EmptyFrameLoaderClient.h
+    loader/EphemeralNonce.h
     loader/FetchOptions.h
     loader/FontLoadRequest.h
     loader/FormState.h
@@ -1080,6 +1087,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/NavigationAction.h
     loader/NavigationRequester.h
     loader/NetscapePlugInStreamLoader.h
+    loader/PCMSites.h
+    loader/PCMTokens.h
     loader/PingLoader.h
     loader/PolicyChecker.h
     loader/PolicyContainer.h
@@ -1435,6 +1444,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/VideoFrame.h
     platform/VideoFrameMetadata.h
     platform/VideoFrameTimeMetadata.h
+    platform/WebCorePersistentCoders.h
     platform/WebGLStateTracker.h
     platform/Widget.h
     platform/WindowsKeyboardCodes.h
@@ -1487,7 +1497,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/gamepad/SharedGamepadValue.h
 
     platform/graphics/AlphaPremultiplication.h
-    platform/graphics/ANGLEWebKitBridge.h
     platform/graphics/AnimationFrameRate.h
     platform/graphics/AudioTrackPrivate.h
     platform/graphics/AudioTrackPrivateClient.h
@@ -1737,10 +1746,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/libwpe/PlatformDisplayLibWPE.h
 
-    platform/graphics/opengl/ExtensionsGLOpenGL.h
-    platform/graphics/opengl/ExtensionsGLOpenGLCommon.h
-    platform/graphics/opengl/ExtensionsGLOpenGLES.h
-    platform/graphics/opengl/GraphicsContextGLOpenGL.h
     platform/graphics/opengl/TemporaryOpenGLSetting.h
 
     platform/graphics/opentype/OpenTypeMathData.h
@@ -1850,6 +1855,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/ProtectionSpace.h
     platform/network/ProtectionSpaceBase.h
     platform/network/ProtectionSpaceHash.h
+    platform/network/RFC8941.h
     platform/network/ResourceErrorBase.h
     platform/network/ResourceHandle.h
     platform/network/ResourceHandleClient.h

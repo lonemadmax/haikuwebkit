@@ -184,6 +184,8 @@ NetworkProcess/cache/PrefetchCache.cpp
 NetworkProcess/webrtc/NetworkMDNSRegister.cpp
 NetworkProcess/webrtc/RTCDataChannelRemoteManagerProxy.cpp
 
+Platform/IPC/DaemonCoders.cpp
+
 Shared/AccessibilityPreferences.cpp
 Shared/ActivityAssertion.cpp
 Shared/AuxiliaryProcess.cpp
@@ -533,6 +535,8 @@ UIProcess/Automation/WebAutomationSession.cpp @no-unify
 UIProcess/Downloads/DownloadProxy.cpp
 UIProcess/Downloads/DownloadProxyMap.cpp
 
+UIProcess/Extensions/WebExtensionController.cpp
+
 UIProcess/Gamepad/UIGamepad.cpp
 UIProcess/Gamepad/UIGamepadProvider.cpp
 
@@ -566,8 +570,6 @@ UIProcess/Notifications/WebNotificationProvider.cpp
 UIProcess/UserContent/WebScriptMessageHandler.cpp
 UIProcess/UserContent/WebUserContentControllerProxy.cpp
 
-UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp
-UIProcess/WebAuthentication/fido/CtapHidDriver.cpp
 UIProcess/WebAuthentication/fido/CtapNfcDriver.cpp
 UIProcess/WebAuthentication/fido/FidoAuthenticator.cpp
 UIProcess/WebAuthentication/fido/FidoService.cpp
@@ -606,6 +608,8 @@ WebProcess/Databases/WebDatabaseProvider.cpp
 WebProcess/Databases/IndexedDB/WebIDBConnectionToServer.cpp
 
 WebProcess/EncryptedMedia/MediaKeySystemPermissionRequestManager.cpp
+
+WebProcess/Extensions/WebExtensionControllerProxy.cpp
 
 WebProcess/FileAPI/BlobRegistryProxy.cpp
 

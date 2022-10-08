@@ -41,7 +41,9 @@ class FloatingContext;
 class LayoutState;
 class Rect;
 
-// FloatingState holds the floating boxes per formatting context.
+// FloatingState holds the floating boxes for BFC using the BFC's inline direction.
+// FloatingState may be inherited by nested IFCs with mismataching inline direction. In such cases floating boxes
+// are added to the FloatingState as if they had matching inline direction.
 class FloatingState : public RefCounted<FloatingState> {
     WTF_MAKE_ISO_ALLOCATED(FloatingState);
 public:
@@ -58,7 +60,7 @@ public:
 
         bool isLeftPositioned() const { return m_position == Position::Left; }
         bool isRightPositioned() const { return m_position == Position::Right; }
-        bool isInFormattingContextOf(const ContainerBox& formattingContextRoot) const { return m_layoutBox->isInFormattingContextOf(formattingContextRoot); }
+        bool isInFormattingContextOf(const ContainerBox& formattingContextRoot) const;
 
         Rect rectWithMargin() const { return BoxGeometry::marginBoxRect(m_absoluteBoxGeometry); }
         BoxGeometry::HorizontalMargin horizontalMargin() const { return m_absoluteBoxGeometry.horizontalMargin(); }
