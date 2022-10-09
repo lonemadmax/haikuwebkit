@@ -5,28 +5,29 @@
 
 
 #include "NotificationClientHaiku.h"
+#include "WebCore/NotificationData.h"
 
 #include "WebPage.h"
 
 namespace WebCore {
 
 BNotification
-NotificationClientHaiku::fromDescriptor(Notification& descriptor)
+NotificationClientHaiku::fromDescriptor(NotificationData& descriptor)
 {
     BNotification notification(B_INFORMATION_NOTIFICATION);
     notification.SetGroup("WebPositive");
     // Unfortunately, we don't get a website name or so…
-    if (descriptor.body().length() > 0) {
-        notification.SetTitle(descriptor.title());
-        notification.SetContent(descriptor.body());
+    if (descriptor.body.length() > 0) {
+        notification.SetTitle(descriptor.title);
+        notification.SetContent(descriptor.body);
     } else {
-        notification.SetContent(descriptor.title());
+        notification.SetContent(descriptor.title);
     }
 
 #if !USE(CURL)
     // TODO we should cache the data, in case the notification is re-sent
     // with some changes for an update.
-    BUrl iconURL(descriptor.icon());
+    BUrl iconURL(descriptor.iconURL.utf8().data());
     BMallocIO buffer;
     BPrivate::Network::BUrlRequest* request = BPrivate::Network::BUrlProtocolRoster::MakeRequest(iconURL, &buffer);
     if (request) {
@@ -45,7 +46,7 @@ NotificationClientHaiku::fromDescriptor(Notification& descriptor)
     }
 #endif
 
-    notification.SetMessageID(descriptor.tag());
+    notification.SetMessageID(descriptor.tag);
 
     return notification;
 }

@@ -450,7 +450,7 @@ std::optional<WebCore::CertificateInfo> Coder<WebCore::CertificateInfo>::decode(
     return certificateInfo;
 }
 
-#elif PLATFORM(WIN)
+#elif PLATFORM(WIN) || PLATFORM(HAIKU)
 
 void Coder<WebCore::CertificateInfo>::encode(Encoder&, const WebCore::CertificateInfo&)
 {

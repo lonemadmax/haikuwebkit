@@ -63,23 +63,4 @@ private:
 
 } // namespace WebCore
 
-namespace WTF {
-namespace Persistence {
-
-template<> struct Coder<WebCore::CertificateInfo> {
-    static void encode(Encoder&, const WebCore::CertificateInfo&)
-    {
-        notImplemented();
-    }
-
-    static WebCore::CertificateInfo decode(Decoder&)
-    {
-        notImplemented();
-        return WebCore::CertificateInfo();
-    }
-};
-
-} // namespace WTF::Persistence
-} // namespace WTF
-
 #endif // CertificateInfo_h

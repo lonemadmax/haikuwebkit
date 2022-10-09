@@ -290,7 +290,7 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
         html.append(decoder->flush());
 
         if (!html.isEmpty()) {
-            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(*frame.document(), html.toString(), String(), DisallowScriptingContent);
+            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(*frame.document(), html.toString(), String(), {});
             if (fragment)
                 return fragment;
         }
