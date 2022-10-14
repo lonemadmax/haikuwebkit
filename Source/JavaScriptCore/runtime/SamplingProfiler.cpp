@@ -288,7 +288,10 @@ private:
 };
 
 SamplingProfiler::SamplingProfiler(VM& vm, Ref<Stopwatch>&& stopwatch)
-    : m_vm(vm)
+    : m_isPaused(false)
+    , m_isShutDown(false)
+    , m_vm(vm)
+    , m_weakRandom()
     , m_stopwatch(WTFMove(stopwatch))
     , m_timingInterval(Seconds::fromMicroseconds(Options::sampleInterval()))
 {
@@ -301,7 +304,9 @@ SamplingProfiler::SamplingProfiler(VM& vm, Ref<Stopwatch>&& stopwatch)
     vm.heap.objectSpace().enablePreciseAllocationTracking();
 }
 
-SamplingProfiler::~SamplingProfiler() = default;
+SamplingProfiler::~SamplingProfiler()
+{
+}
 
 void SamplingProfiler::createThreadIfNecessary()
 {
@@ -809,7 +814,7 @@ String SamplingProfiler::StackFrame::displayName(VM& vm)
     case FrameType::C:
 #if HAVE(DLADDR)
         if (frameType == FrameType::C) {
-            auto demangled = WTF::StackTrace::demangle(const_cast<void*>(cCodePC));
+            auto demangled = StackTraceSymbolResolver::demangle(const_cast<void*>(cCodePC));
             if (demangled)
                 return String::fromLatin1(demangled->demangledName() ? demangled->demangledName() : demangled->mangledName());
             WTF::dataLog("couldn't get a name");

@@ -29,6 +29,7 @@
 #include "CSSCursorImageValue.h"
 #include "CSSFontFamily.h"
 #include "CSSFontValue.h"
+#include "CSSFontVariantAlternatesValue.h"
 #include "CSSGradientValue.h"
 #include "CSSGridTemplateAreasValue.h"
 #include "CSSPropertyParserHelpers.h"
@@ -95,6 +96,7 @@ public:
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontFamily);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontSize);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontStyle);
+    DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantAlternates);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantLigatures);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantNumeric);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantEastAsian);
@@ -161,7 +163,6 @@ public:
     static void applyValueCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, CSSCustomPropertyValue&);
 
     static void applyValueColor(BuilderState&, CSSValue&);
-
 
 private:
     static void resetEffectiveZoom(BuilderState&);
@@ -233,16 +234,19 @@ inline void BuilderCustom::applyValueZoom(BuilderState& builderState, CSSValue& 
             builderState.setZoom(number);
     }
 }
+
 inline Length BuilderCustom::mmLength(double mm)
 {
     Ref<CSSPrimitiveValue> value(CSSPrimitiveValue::create(mm, CSSUnitType::CSS_MM));
     return value.get().computeLength<Length>({ });
 }
+
 inline Length BuilderCustom::inchLength(double inch)
 {
     Ref<CSSPrimitiveValue> value(CSSPrimitiveValue::create(inch, CSSUnitType::CSS_IN));
     return value.get().computeLength<Length>({ });
 }
+
 bool BuilderCustom::getPageSizeFromName(CSSPrimitiveValue* pageSizeName, CSSPrimitiveValue* pageOrientation, Length& width, Length& height)
 {
     static NeverDestroyed<Length> a5Width(mmLength(148));
@@ -369,9 +373,13 @@ inline void BuilderCustom::applyValueImageResolution(BuilderState& builderState,
 
 #endif // ENABLE(CSS_IMAGE_RESOLUTION)
 
-inline void BuilderCustom::applyInheritSize(BuilderState&) { }
+inline void BuilderCustom::applyInheritSize(BuilderState&)
+{
+}
 
-inline void BuilderCustom::applyInitialSize(BuilderState&) { }
+inline void BuilderCustom::applyInitialSize(BuilderState&)
+{
+}
 
 inline void BuilderCustom::applyValueSize(BuilderState& builderState, CSSValue& value)
 {
@@ -488,7 +496,7 @@ inline void BuilderCustom::applyValueTextIndent(BuilderState& builderState, CSSV
 
 enum BorderImageType { BorderImage, WebkitMaskBoxImage };
 enum BorderImageModifierType { Outset, Repeat, Slice, Width };
-template <BorderImageType type, BorderImageModifierType modifier>
+template<BorderImageType type, BorderImageModifierType modifier>
 class ApplyPropertyBorderImageModifier {
 public:
     static void applyInheritValue(BuilderState& builderState)
@@ -1385,7 +1393,9 @@ inline void BuilderCustom::applyValueCounter(BuilderState& builderState, CSSValu
     }
 }
 
-inline void BuilderCustom::applyInitialCounterIncrement(BuilderState&) { }
+inline void BuilderCustom::applyInitialCounterIncrement(BuilderState&)
+{
+}
 
 inline void BuilderCustom::applyInheritCounterIncrement(BuilderState& builderState)
 {
@@ -1397,7 +1407,9 @@ inline void BuilderCustom::applyValueCounterIncrement(BuilderState& builderState
     applyValueCounter<Increment>(builderState, value);
 }
 
-inline void BuilderCustom::applyInitialCounterReset(BuilderState&) { }
+inline void BuilderCustom::applyInitialCounterReset(BuilderState&)
+{
+}
 
 inline void BuilderCustom::applyInheritCounterReset(BuilderState& builderState)
 {
@@ -1478,7 +1490,6 @@ inline void BuilderCustom::applyInheritFill(BuilderState& builderState)
     auto& svgStyle = builderState.style().accessSVGStyle();
     auto& svgParentStyle = builderState.parentStyle().svgStyle();
     svgStyle.setFillPaint(svgParentStyle.fillPaintType(), svgParentStyle.fillPaintColor(), svgParentStyle.fillPaintUri(), builderState.applyPropertyToRegularStyle(), builderState.applyPropertyToVisitedLinkStyle());
-
 }
 
 inline void BuilderCustom::applyValueFill(BuilderState& builderState, CSSValue& value)
@@ -1718,6 +1729,40 @@ inline void BuilderCustom::applyValueFontVariantEastAsian(BuilderState& builderS
     fontDescription.setVariantEastAsianWidth(variantEastAsian.width);
     fontDescription.setVariantEastAsianRuby(variantEastAsian.ruby);
     builderState.setFontDescription(WTFMove(fontDescription));
+}
+
+inline void BuilderCustom::applyInheritFontVariantAlternates(BuilderState& builderState)
+{
+    auto fontDescription = builderState.fontDescription();
+    fontDescription.setVariantAlternates(builderState.parentFontDescription().variantAlternates());
+    builderState.setFontDescription(WTFMove(fontDescription));
+}
+
+inline void BuilderCustom::applyInitialFontVariantAlternates(BuilderState& builderState)
+{
+    auto fontDescription = builderState.fontDescription();
+    fontDescription.setVariantAlternates(FontVariantAlternates::Normal());
+    builderState.setFontDescription(WTFMove(fontDescription));
+}
+
+inline void BuilderCustom::applyValueFontVariantAlternates(BuilderState& builderState, CSSValue& value)
+{
+    if (is<CSSPrimitiveValue>(value)) {
+        ASSERT(downcast<CSSPrimitiveValue>(value).valueID() == CSSValueNormal);
+        // Apply "normal" value (which is the same as initial).
+        applyInitialFontVariantAlternates(builderState);
+        return;
+    }
+    
+    if (value.isFontVariantAlternatesValue()) {
+        auto alternates = downcast<CSSFontVariantAlternatesValue>(value).value();
+        auto fontDescription = builderState.fontDescription();
+        fontDescription.setVariantAlternates(alternates);
+        builderState.setFontDescription(WTFMove(fontDescription));
+        return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 inline void BuilderCustom::applyInitialFontSize(BuilderState& builderState)

@@ -1245,6 +1245,7 @@
       "emails" : [
          "bweinstein@apple.com"
       ],
+      "expertise" : "Safari Extensions, Web Extensions",
       "github" : "b-weinstein",
       "name" : "Brian Weinstein",
       "nicks" : [
@@ -1724,6 +1725,7 @@
       "emails" : [
          "djg@apple.com"
       ],
+      "expertise" : "WebGL, WebGPU",
       "github" : "djg",
       "name" : "Dan Glastonbury",
       "nicks" : [
@@ -1833,6 +1835,16 @@
    },
    {
       "emails" : [
+         "d_degazio@apple.com"
+      ],
+      "github" : "ddegazio",
+      "name" : "David Degazio",
+      "nicks" : [
+         "ddegazio"
+      ]
+   },
+   {
+      "emails" : [
          "ddorwin@chromium.org"
       ],
       "name" : "David Dorwin",
@@ -1896,6 +1908,14 @@
          "dhyatt",
          "hyatt"
       ]
+   },
+   {
+      "emails" : [
+         "davidjohnson@apple.com"
+      ],
+      "expertise" : "Safari Extensions, Web Extensions",
+      "github" : "davidjohnson91",
+      "name" : "David Johnson"
    },
    {
       "emails" : [
@@ -2315,6 +2335,14 @@
       "nicks" : [
          "efidler"
       ]
+   },
+   {
+      "emails" : [
+         "eepskamphunt@apple.com"
+      ],
+      "expertise" : "Safari Extensions, Web Extensions",
+      "github" : "eepskamp",
+      "name" : "Ellie Epskamp-Hunt"
    },
    {
       "emails" : [
@@ -2745,7 +2773,7 @@
    {
       "emails" : [
          "g_squelart@apple.com",
-         "gjs@apple.com"
+         "squelart@apple.com"
       ],
       "github" : "squelart",
       "name" : "Gerald Squelart"
@@ -4262,6 +4290,14 @@
       "nicks" : [
          "kollivier"
       ]
+   },
+   {
+      "emails" : [
+         "kiara_rose@apple.com"
+      ],
+      "expertise" : "Safari Extensions, Web Extensions",
+      "github" : "kiaraarose",
+      "name" : "Kiara Rose"
    },
    {
       "emails" : [
@@ -6741,10 +6777,9 @@
       ],
       "emails" : [
          "timothy@apple.com",
-         "timothy@hatcher.name",
-         "thatcher@tesla.com"
+         "timothy@hatcher.name"
       ],
-      "expertise" : "WebKit (Mac), Developer Tools (Web Inspector)",
+      "expertise" : "WebKit (Mac), Safari Extensions, Web Extensions, Developer Tools (Web Inspector)",
       "github" : "xeenon",
       "name" : "Timothy Hatcher",
       "nicks" : [

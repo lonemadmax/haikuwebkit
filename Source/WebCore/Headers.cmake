@@ -261,6 +261,21 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/mediarecorder/MediaRecorderProvider.h
 
+    Modules/mediasession/NavigatorMediaSession.h
+    Modules/mediasession/MediaSession.h
+    Modules/mediasession/MediaImage.h
+    Modules/mediasession/MediaMetadata.h
+    Modules/mediasession/MediaSessionActionDetails.h
+    Modules/mediasession/MediaPositionState.h
+    Modules/mediasession/MediaSessionActionHandler.h
+    Modules/mediasession/MediaSessionPlaybackState.h
+    Modules/mediasession/MediaSessionCoordinatorPrivate.h
+    Modules/mediasession/MediaSessionCoordinatorState.h
+    Modules/mediasession/MediaSessionReadyState.h
+    Modules/mediasession/MediaSessionCoordinator.h
+    Modules/mediasession/MediaMetadataInit.h
+    Modules/mediasession/MediaSessionAction.h
+
     Modules/mediasource/SampleMap.h
 
     Modules/mediastream/DetachedRTCDataChannel.h
@@ -1041,8 +1056,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/integration/inline/LayoutIntegrationInlineContent.h
     layout/integration/inline/LayoutIntegrationLine.h
 
-    layout/layouttree/LayoutContainerBox.h
     layout/layouttree/LayoutBox.h
+    layout/layouttree/LayoutElementBox.h
     layout/layouttree/LayoutInitialContainingBlock.h
     layout/layouttree/LayoutInlineTextBox.h
 
@@ -1224,6 +1239,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/RemoteDOMWindow.h
     page/RemoteFrame.h
     page/RenderingUpdateScheduler.h
+    page/ScreenOrientationLockType.h
+    page/ScreenOrientationType.h
     page/ScrollBehavior.h
     page/ScrollIntoViewOptions.h
     page/ScrollLogicalPosition.h
@@ -1374,6 +1391,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PasteboardItemInfo.h
     platform/PasteboardStrategy.h
     platform/PasteboardWriterData.h
+    platform/PlaneLayout.h
     platform/PlatformEvent.h
     platform/PlatformExportMacros.h
     platform/PlatformKeyboardEvent.h
@@ -1403,6 +1421,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/RemoteCommandListener.h
     platform/RuntimeApplicationChecks.h
     platform/SSLKeyGenerator.h
+    platform/ScreenOrientationManager.h
+    platform/ScreenOrientationProvider.h
     platform/ScreenProperties.h
     platform/ScriptExecutionContextIdentifier.h
     platform/ScrollAlignment.h
@@ -1444,6 +1464,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/VideoFrame.h
     platform/VideoFrameMetadata.h
     platform/VideoFrameTimeMetadata.h
+    platform/VideoPixelFormat.h
     platform/WebCorePersistentCoders.h
     platform/WebGLStateTracker.h
     platform/Widget.h

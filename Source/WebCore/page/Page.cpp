@@ -306,6 +306,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_pluginInfoProvider(*WTFMove(pageConfiguration.pluginInfoProvider))
     , m_storageNamespaceProvider(*WTFMove(pageConfiguration.storageNamespaceProvider))
     , m_userContentProvider(WTFMove(pageConfiguration.userContentProvider))
+    , m_screenOrientationManager(WTFMove(pageConfiguration.screenOrientationManager))
     , m_visitedLinkStore(*WTFMove(pageConfiguration.visitedLinkStore))
     , m_broadcastChannelRegistry(WTFMove(pageConfiguration.broadcastChannelRegistry))
     , m_sessionID(pageConfiguration.sessionID)
@@ -1688,12 +1689,12 @@ void Page::updateRendering()
 
     layoutIfNeeded();
 
-    runProcessingStep(RenderingUpdateStep::IntersectionObservations, [] (Document& document) {
-        document.updateIntersectionObservations();
-    });
-
     runProcessingStep(RenderingUpdateStep::ResizeObservations, [&] (Document& document) {
         document.updateResizeObservations(*this);
+    });
+
+    runProcessingStep(RenderingUpdateStep::IntersectionObservations, [] (Document& document) {
+        document.updateIntersectionObservations();
     });
 
     runProcessingStep(RenderingUpdateStep::Images, [] (Document& document) {
@@ -4023,6 +4024,11 @@ void Page::repaintAnimatedImages()
 {
     if (auto* view = mainFrame().view())
         view->repaintVisibleImageAnimationsIncludingSubframes();
+}
+
+ScreenOrientationManager* Page::screenOrientationManager() const
+{
+    return m_screenOrientationManager.get();
 }
 
 } // namespace WebCore

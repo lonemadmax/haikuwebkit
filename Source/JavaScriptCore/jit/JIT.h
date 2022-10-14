@@ -74,7 +74,9 @@ namespace JSC {
         MacroAssembler::Call from;
         CodePtr<tag> callee;
 
-        CallRecord() = default;
+        CallRecord()
+        {
+        }
 
         CallRecord(MacroAssembler::Call from, CodePtr<tag> callee)
             : from(from)
@@ -143,7 +145,7 @@ namespace JSC {
 
     struct CallCompilationInfo {
         MacroAssembler::Label doneLocation;
-        UnlinkedCallLinkInfo* unlinkedCallLinkInfo;
+        BaselineUnlinkedCallLinkInfo* unlinkedCallLinkInfo;
     };
 
     void ctiPatchCallByReturnAddress(ReturnAddressPtr, CodePtr<CFunctionPtrTag> newCalleeFunction);
@@ -290,9 +292,9 @@ namespace JSC {
         , void> compileSetupFrame(const Op&);
 
         template<typename Op>
-        bool compileTailCall(const Op&, UnlinkedCallLinkInfo*, unsigned callLinkInfoIndex);
+        bool compileTailCall(const Op&, BaselineUnlinkedCallLinkInfo*, unsigned callLinkInfoIndex);
         template<typename Op>
-        bool compileCallDirectEval(const Op&);
+        void compileCallDirectEval(const Op&);
         void compileCallDirectEvalSlowCase(const JSInstruction*, Vector<SlowCaseEntry>::iterator&);
         template<typename Op>
         void emitPutCallResult(const Op&);
@@ -896,7 +898,7 @@ namespace JSC {
 
         JITConstantPool::Constant addToConstantPool(JITConstantPool::Type, void* payload = nullptr);
         std::tuple<BaselineUnlinkedStructureStubInfo*, JITConstantPool::Constant> addUnlinkedStructureStubInfo();
-        UnlinkedCallLinkInfo* addUnlinkedCallLinkInfo();
+        BaselineUnlinkedCallLinkInfo* addUnlinkedCallLinkInfo();
 
         Vector<FarCallRecord> m_farCalls;
         Vector<NearCallRecord> m_nearCalls;
@@ -957,8 +959,8 @@ namespace JSC {
         HashMap<const JSInstruction*, void*> m_instructionToMathIC;
         HashMap<const JSInstruction*, UniqueRef<MathICGenerationState>> m_instructionToMathICGenerationState;
 
-        bool m_canBeOptimized { false };
-        bool m_shouldEmitProfiling { false };
+        bool m_canBeOptimized;
+        bool m_shouldEmitProfiling;
         BytecodeIndex m_loopOSREntryBytecodeIndex;
 
         CodeBlock* const m_profiledCodeBlock { nullptr };
@@ -968,7 +970,7 @@ namespace JSC {
         RefPtr<BaselineJITCode> m_jitCode;
 
         Vector<JITConstantPool::Value> m_constantPool;
-        SegmentedVector<UnlinkedCallLinkInfo> m_unlinkedCalls;
+        SegmentedVector<BaselineUnlinkedCallLinkInfo> m_unlinkedCalls;
         SegmentedVector<BaselineUnlinkedStructureStubInfo> m_unlinkedStubInfos;
         FixedVector<SimpleJumpTable> m_switchJumpTables;
         FixedVector<StringJumpTable> m_stringSwitchJumpTables;

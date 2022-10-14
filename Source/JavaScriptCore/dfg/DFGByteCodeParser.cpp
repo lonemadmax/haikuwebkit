@@ -111,6 +111,8 @@ public:
         , m_codeBlock(graph.m_codeBlock)
         , m_profiledBlock(graph.m_profiledBlock)
         , m_graph(graph)
+        , m_currentBlock(nullptr)
+        , m_currentIndex(0)
         , m_constantUndefined(graph.freeze(jsUndefined()))
         , m_constantNull(graph.freeze(jsNull()))
         , m_constantNaN(graph.freeze(jsNumber(PNaN)))
@@ -118,6 +120,10 @@ public:
         , m_numArguments(m_codeBlock->numParameters())
         , m_numLocals(m_codeBlock->numCalleeLocals())
         , m_numTmps(m_codeBlock->numTmps())
+        , m_parameterSlots(0)
+        , m_numPassedVarArgs(0)
+        , m_inlineStackTop(nullptr)
+        , m_currentInstruction(nullptr)
         , m_hasDebuggerEnabled(graph.hasDebuggerEnabled())
     {
         ASSERT(m_profiledBlock);
@@ -155,7 +161,7 @@ private:
 
     // Helper for min and max.
     template<typename ChecksFunctor>
-    bool handleMinMax(Operand result, NodeType op, int registerOffset, int argumentCountIncludingThis, const ChecksFunctor& insertChecks);
+    void handleMinMax(Operand result, NodeType op, int registerOffset, int argumentCountIncludingThis, const ChecksFunctor& insertChecks);
     
     void refineStatically(CallLinkStatus&, Node* callTarget);
     // Blocks can either be targetable (i.e. in the m_blockLinkingTargets of one InlineStackEntry) with a well-defined bytecodeBegin,
@@ -1130,9 +1136,9 @@ private:
     Graph& m_graph;
 
     // The current block being generated.
-    BasicBlock* m_currentBlock { nullptr };
+    BasicBlock* m_currentBlock;
     // The bytecode index of the current instruction being generated.
-    BytecodeIndex m_currentIndex { 0 };
+    BytecodeIndex m_currentIndex;
     // The semantic origin of the current node if different from the current Index.
     CodeOrigin m_currentSemanticOrigin;
     // The exit origin of the current node if different from the current Index.
@@ -1159,9 +1165,9 @@ private:
     // number includes the CallFrame slots that we initialize for the callee
     // (but not the callee-initialized CallerFrame and ReturnPC slots).
     // This number is 0 if and only if this function is a leaf.
-    unsigned m_parameterSlots { 0 };
+    unsigned m_parameterSlots;
     // The number of var args passed to the next var arg node.
-    unsigned m_numPassedVarArgs { 0 };
+    unsigned m_numPassedVarArgs;
 
     struct InlineStackEntry {
         ByteCodeParser* const m_byteCodeParser;
@@ -1234,13 +1240,13 @@ private:
             return operand.virtualRegister() + m_inlineCallFrame->stackOffset;
         }
     };
-
-    InlineStackEntry* m_inlineStackTop { nullptr };
-
+    
+    InlineStackEntry* m_inlineStackTop;
+    
     ICStatusContextStack m_icContextStack;
     
     struct DelayedSetLocal {
-        DelayedSetLocal() = default;
+        DelayedSetLocal() { }
         DelayedSetLocal(const CodeOrigin& origin, Operand operand, Node* value, SetMode setMode)
             : m_origin(origin)
             , m_operand(operand)
@@ -1265,7 +1271,7 @@ private:
 
     Vector<DelayedSetLocal, 2> m_setLocalQueue;
 
-    const JSInstruction* m_currentInstruction { nullptr };
+    const JSInstruction* m_currentInstruction;
     const bool m_hasDebuggerEnabled;
     bool m_hasAnyForceOSRExits { false };
 };
@@ -2294,7 +2300,7 @@ ByteCodeParser::CallOptimizationResult ByteCodeParser::handleInlining(
 }
 
 template<typename ChecksFunctor>
-bool ByteCodeParser::handleMinMax(Operand result, NodeType op, int registerOffset, int argumentCountIncludingThis, const ChecksFunctor& insertChecks)
+void ByteCodeParser::handleMinMax(Operand result, NodeType op, int registerOffset, int argumentCountIncludingThis, const ChecksFunctor& insertChecks)
 {
     ASSERT(op == ArithMin || op == ArithMax);
 
@@ -2302,7 +2308,7 @@ bool ByteCodeParser::handleMinMax(Operand result, NodeType op, int registerOffse
         insertChecks();
         double limit = op == ArithMax ? -std::numeric_limits<double>::infinity() : +std::numeric_limits<double>::infinity();
         set(result, addToGraph(JSConstant, OpInfo(m_graph.freeze(jsDoubleNumber(limit)))));
-        return true;
+        return;
     }
      
     if (argumentCountIncludingThis == 2) {
@@ -2310,17 +2316,14 @@ bool ByteCodeParser::handleMinMax(Operand result, NodeType op, int registerOffse
         Node* resultNode = get(VirtualRegister(virtualRegisterForArgumentIncludingThis(1, registerOffset)));
         addToGraph(Phantom, Edge(resultNode, NumberUse));
         set(result, resultNode);
-        return true;
+        return;
     }
     
-    if (argumentCountIncludingThis == 3) {
-        insertChecks();
-        set(result, addToGraph(op, get(virtualRegisterForArgumentIncludingThis(1, registerOffset)), get(virtualRegisterForArgumentIncludingThis(2, registerOffset))));
-        return true;
-    }
-    
-    // Don't handle >=3 arguments for now.
-    return false;
+    insertChecks();
+    for (int index = 1; index < argumentCountIncludingThis; ++index)
+        addVarArgChild(get(virtualRegisterForArgumentIncludingThis(index, registerOffset)));
+    set(result, addToGraph(Node::VarArg, op, OpInfo(), OpInfo()));
+    return;
 }
 
 template<typename ChecksFunctor>
@@ -2372,11 +2375,9 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
 
         case MinIntrinsic:
         case MaxIntrinsic:
-            if (handleMinMax(result, intrinsic == MinIntrinsic ? ArithMin : ArithMax, registerOffset, argumentCountIncludingThis, insertChecks)) {
-                didSetResult = true;
-                return true;
-            }
-            return false;
+            handleMinMax(result, intrinsic == MinIntrinsic ? ArithMin : ArithMax, registerOffset, argumentCountIncludingThis, insertChecks);
+            didSetResult = true;
+            return true;
 
 #define DFG_ARITH_UNARY(capitalizedName, lowerName) \
         case capitalizedName##Intrinsic:
@@ -2603,8 +2604,11 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, Intrinsic
 
             if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIndexingType)
                 || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantCache)
-                || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadCache)
-                || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType))
+                || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadCache))
+                return false;
+
+            // index parameter's BadType is critical. But the other ones can be relaxed, so not giving up optimization.
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType) && argumentCountIncludingThis > 2)
                 return false;
 
             ArrayMode arrayMode = getArrayMode(Array::Read);

@@ -706,6 +706,8 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webauthn/ResidentKeyRequirement.idl
     Modules/webauthn/UserVerificationRequirement.idl
 
+    Modules/webcodecs/BitrateMode.idl
+    Modules/webcodecs/LatencyMode.idl
     Modules/webcodecs/HardwareAcceleration.idl
     Modules/webcodecs/PlaneLayout.idl
     Modules/webcodecs/VideoColorPrimaries.idl
@@ -716,11 +718,17 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webcodecs/VideoTransferCharacteristics.idl
     Modules/webcodecs/WebCodecsCodecState.idl
     Modules/webcodecs/WebCodecsEncodedVideoChunk.idl
+    Modules/webcodecs/WebCodecsEncodedVideoChunkMetadata.idl
+    Modules/webcodecs/WebCodecsEncodedVideoChunkOutputCallback.idl
     Modules/webcodecs/WebCodecsEncodedVideoChunkType.idl
     Modules/webcodecs/WebCodecsErrorCallback.idl
     Modules/webcodecs/WebCodecsVideoDecoder.idl
     Modules/webcodecs/WebCodecsVideoDecoderConfig.idl
     Modules/webcodecs/WebCodecsVideoDecoderSupport.idl
+    Modules/webcodecs/WebCodecsVideoEncoder.idl
+    Modules/webcodecs/WebCodecsVideoEncoderConfig.idl
+    Modules/webcodecs/WebCodecsVideoEncoderEncodeOptions.idl
+    Modules/webcodecs/WebCodecsVideoEncoderSupport.idl
     Modules/webcodecs/WebCodecsVideoFrameOutputCallback.idl
     Modules/webcodecs/WebCodecsVideoFrame.idl
 
@@ -1861,6 +1869,7 @@ if (ENABLE_WEBGL)
         html/canvas/EXTColorBufferHalfFloat.cpp
         html/canvas/EXTFloatBlend.cpp
         html/canvas/EXTFragDepth.cpp
+        html/canvas/EXTProvokingVertex.cpp
         html/canvas/EXTShaderTextureLOD.cpp
         html/canvas/EXTTextureCompressionBPTC.cpp
         html/canvas/EXTTextureCompressionRGTC.cpp
@@ -1927,6 +1936,7 @@ list(APPEND WebCore_IDL_FILES
     html/canvas/EXTColorBufferHalfFloat.idl
     html/canvas/EXTFloatBlend.idl
     html/canvas/EXTFragDepth.idl
+    html/canvas/EXTProvokingVertex.idl
     html/canvas/EXTShaderTextureLOD.idl
     html/canvas/EXTTextureCompressionBPTC.idl
     html/canvas/EXTTextureCompressionRGTC.idl

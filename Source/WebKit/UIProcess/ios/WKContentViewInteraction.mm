@@ -5270,6 +5270,9 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 
 - (UIWebFormAccessory *)formAccessoryView
 {
+    if (WebKit::defaultAlternateFormControlDesignEnabled())
+        return nil;
+
     if (_formAccessoryView)
         return _formAccessoryView.get();
     _formAccessoryView = adoptNS([[UIWebFormAccessory alloc] initWithInputAssistantItem:self.inputAssistantItem]);
@@ -5291,7 +5294,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     auto* accessoryView = self.formAccessoryView; // Creates one, if needed.
 
     if ([accessoryView respondsToSelector:@selector(setNextPreviousItemsVisible:)])
-        [accessoryView setNextPreviousItemsVisible:!WebKit::defaultAlternateFormControlDesignEnabled() && !self.webView._editable];
+        [accessoryView setNextPreviousItemsVisible:!self.webView._editable];
 
     [accessoryView setNextEnabled:_focusedElementInformation.hasNextNode];
     [accessoryView setPreviousEnabled:_focusedElementInformation.hasPreviousNode];
@@ -5355,7 +5358,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
 - (void)_didChangeWebViewEditability
 {
     if ([_formAccessoryView respondsToSelector:@selector(setNextPreviousItemsVisible:)])
-        [_formAccessoryView setNextPreviousItemsVisible:!WebKit::defaultAlternateFormControlDesignEnabled() && !self.webView._editable];
+        [_formAccessoryView setNextPreviousItemsVisible:!self.webView._editable];
     
     [_twoFingerSingleTapGestureRecognizer setEnabled:!self.webView._editable];
 }
@@ -10846,7 +10849,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     return NO;
 }
 
-- (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmap::Handle&)imageData sourceLanguageIdentifier:(NSString *)sourceLanguageIdentifier targetLanguageIdentifier:(NSString *)targetLanguageIdentifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion
+- (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmapHandle&)imageData sourceLanguageIdentifier:(NSString *)sourceLanguageIdentifier targetLanguageIdentifier:(NSString *)targetLanguageIdentifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion
 {
     auto imageBitmap = WebKit::ShareableBitmap::create(imageData);
     if (!imageBitmap) {
@@ -11209,7 +11212,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 constexpr auto analysisTypesForFullscreenVideo = VKAnalysisTypeAll & ~VKAnalysisTypeVisualSearch;
 #endif
 
-- (void)beginTextRecognitionForFullscreenVideo:(const WebKit::ShareableBitmap::Handle&)imageData playerViewController:(AVPlayerViewController *)controller
+- (void)beginTextRecognitionForFullscreenVideo:(const WebKit::ShareableBitmapHandle&)imageData playerViewController:(AVPlayerViewController *)controller
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     ASSERT(_page->preferences().textRecognitionInVideosEnabled());
@@ -11259,7 +11262,7 @@ constexpr auto analysisTypesForFullscreenVideo = VKAnalysisTypeAll & ~VKAnalysis
 #endif
 }
 
-- (void)beginTextRecognitionForVideoInElementFullscreen:(const WebKit::ShareableBitmap::Handle&)bitmapHandle bounds:(WebCore::FloatRect)bounds
+- (void)beginTextRecognitionForVideoInElementFullscreen:(const WebKit::ShareableBitmapHandle&)bitmapHandle bounds:(WebCore::FloatRect)bounds
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     auto imageBitmap = WebKit::ShareableBitmap::create(bitmapHandle);
@@ -12253,7 +12256,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     return std::exchange(_contextMenuInteractionTargetedPreview, nil).autorelease();
 }
 
-- (nullable _UIContextMenuStyle *)_contextMenuInteraction:(UIContextMenuInteraction *)interaction styleForMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
+- (_UIContextMenuStyle *)_contextMenuInteraction:(UIContextMenuInteraction *)interaction styleForMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
 {
 #if defined(DD_CONTEXT_MENU_SPI_VERSION) && DD_CONTEXT_MENU_SPI_VERSION >= 2
     if ([configuration isKindOfClass:getDDContextMenuConfigurationClass()]) {
@@ -12362,7 +12365,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 #endif
 }
 
-- (void)contextMenuInteraction:(UIContextMenuInteraction *)interaction willEndForConfiguration:(UIContextMenuConfiguration *)configuration animator:(nullable id<UIContextMenuInteractionAnimating>)animator
+- (void)contextMenuInteraction:(UIContextMenuInteraction *)interaction willEndForConfiguration:(UIContextMenuConfiguration *)configuration animator:(id<UIContextMenuInteractionAnimating>)animator
 {
     if (!_webView)
         return;

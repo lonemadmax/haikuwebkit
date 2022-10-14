@@ -245,6 +245,7 @@ set(WebKit_MESSAGES_IN_FILES
     UIProcess/WebPermissionControllerProxy
     UIProcess/WebProcessPool
     UIProcess/WebProcessProxy
+    UIProcess/WebScreenOrientationManagerProxy
 
     UIProcess/Automation/WebAutomationSession
 
@@ -326,6 +327,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/WebCoreSupport/WebBroadcastChannelRegistry
     WebProcess/WebCoreSupport/WebFileSystemStorageConnection
     WebProcess/WebCoreSupport/WebPermissionController
+    WebProcess/WebCoreSupport/WebScreenOrientationManager
     WebProcess/WebCoreSupport/WebSpeechRecognitionConnection
 
     WebProcess/WebPage/DrawingArea
@@ -522,6 +524,8 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/FrameInfoData.serialization.in
     Shared/FrameTreeNodeData.serialization.in
     Shared/LayerTreeContext.serialization.in
+    Shared/ShareableBitmap.serialization.in
+    Shared/TextFlags.serialization.in
     Shared/WebCoreArgumentCoders.serialization.in
     Shared/WebsiteDataStoreParameters.serialization.in
 

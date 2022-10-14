@@ -39,6 +39,7 @@
 #include "EXTColorBufferHalfFloat.h"
 #include "EXTFloatBlend.h"
 #include "EXTFragDepth.h"
+#include "EXTProvokingVertex.h"
 #include "EXTShaderTextureLOD.h"
 #include "EXTTextureCompressionBPTC.h"
 #include "EXTTextureCompressionRGTC.h"
@@ -3014,6 +3015,7 @@ bool WebGLRenderingContextBase::extensionIsEnabled(const String& name)
     CHECK_EXTENSION(m_extColorBufferHalfFloat, "EXT_color_buffer_half_float");
     CHECK_EXTENSION(m_extFloatBlend, "EXT_float_blend");
     CHECK_EXTENSION(m_extFragDepth, "EXT_frag_depth");
+    CHECK_EXTENSION(m_extProvokingVertex, "EXT_provoking_vertex");
     CHECK_EXTENSION(m_extShaderTextureLOD, "EXT_shader_texture_lod");
     CHECK_EXTENSION(m_extTextureCompressionBPTC, "EXT_texture_compression_bptc");
     CHECK_EXTENSION(m_extTextureCompressionRGTC, "EXT_texture_compression_rgtc");
@@ -3317,17 +3319,23 @@ enum class InternalFormatTheme {
     UnsignedInteger
 };
 
-void WebGLRenderingContextBase::readPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, ArrayBufferView& pixels)
+void WebGLRenderingContextBase::readPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, RefPtr<ArrayBufferView>&& maybePixels)
 {
     if (isContextLostOrPending())
         return;
     // Due to WebGL's same-origin restrictions, it is not possible to
     // taint the origin using the WebGL API.
     ASSERT(canvasBase().originClean());
+    if (!maybePixels) {
+        synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "readPixels", "no pixels");
+        return;
+    }
+    ArrayBufferView& pixels = *maybePixels;
+
     // ANGLE will validate the readback from the framebuffer according
     // to WebGL's restrictions. At this level, just validate the type
     // of the readback against the typed array's type.
-    if (!validateArrayBufferType("readPixels", type, std::optional<JSC::TypedArrayType>(pixels.getType())))
+    if (!validateTypeAndArrayBufferType("readPixels", ArrayBufferViewFunctionType::ReadPixels, type, &pixels))
         return;
 
     clearIfComposited(CallerTypeOther);
@@ -3964,56 +3972,80 @@ ExceptionOr<void> WebGLRenderingContextBase::texSubImage2D(GCGLenum target, GCGL
     return texImageSourceHelper(TexImageFunctionID::TexSubImage2D, target, level, 0, 0, format, type, xoffset, yoffset, 0, sentinelEmptyRect(), 1, 0, WTFMove(*source));
 }
 
-bool WebGLRenderingContextBase::validateArrayBufferType(const char* functionName, GCGLenum type, std::optional<JSC::TypedArrayType> arrayType)
+bool WebGLRenderingContextBase::validateTypeAndArrayBufferType(const char* functionName, ArrayBufferViewFunctionType functionType, GCGLenum type, ArrayBufferView* pixels)
 {
-#define TYPE_VALIDATION_CASE(arrayTypeMacro) if (arrayType && arrayType.value() != JSC::arrayTypeMacro) { \
-            synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "ArrayBufferView not " #arrayTypeMacro); \
-            return false; \
-        } \
-        break;
-
-#define TYPE_VALIDATION_CASE_2(arrayTypeMacro, arrayTypeMacro2) if (arrayType && arrayType.value() != JSC::arrayTypeMacro && arrayType.value() != JSC::arrayTypeMacro2) { \
-            synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "ArrayBufferView not " #arrayTypeMacro " or " #arrayTypeMacro2); \
-            return false; \
-        } \
-        break;
-
+    JSC::TypedArrayType expectedArrayType = JSC::NotTypedArray;
+    const char* error = "pixels is not null";
     switch (type) {
-    case GraphicsContextGL::UNSIGNED_BYTE:
-        TYPE_VALIDATION_CASE_2(TypeUint8, TypeUint8Clamped);
+    case GraphicsContextGL::UNSIGNED_BYTE: {
+        if (!pixels)
+            return true;
+        auto type = pixels->getType();
+        if (type == JSC::TypeUint8 || type == JSC::TypeUint8Clamped)
+            return true;
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "pixels is not TypeUint8 or TypeUint8Clamped");
+        return false;
+    }
     case GraphicsContextGL::BYTE:
-        TYPE_VALIDATION_CASE(TypeInt8);
+        expectedArrayType = JSC::TypeInt8;
+        error = "pixels is not TypeInt8";
+        break;
     case GraphicsContextGL::UNSIGNED_SHORT:
     case GraphicsContextGL::UNSIGNED_SHORT_5_6_5:
     case GraphicsContextGL::UNSIGNED_SHORT_4_4_4_4:
     case GraphicsContextGL::UNSIGNED_SHORT_5_5_5_1:
-        TYPE_VALIDATION_CASE(TypeUint16);
+        expectedArrayType = JSC::TypeUint16;
+        error = "pixels is not TypeUint16";
+        break;
     case GraphicsContextGL::SHORT:
-        TYPE_VALIDATION_CASE(TypeInt16);
+        expectedArrayType = JSC::TypeInt16;
+        error = "pixels is not TypeInt16";
+        break;
     case GraphicsContextGL::UNSIGNED_INT_2_10_10_10_REV:
     case GraphicsContextGL::UNSIGNED_INT_10F_11F_11F_REV:
     case GraphicsContextGL::UNSIGNED_INT_5_9_9_9_REV:
     case GraphicsContextGL::UNSIGNED_INT_24_8:
     case GraphicsContextGL::UNSIGNED_INT:
-        TYPE_VALIDATION_CASE(TypeUint32);
+        expectedArrayType = JSC::TypeUint32;
+        error = "pixels is not TypeUint32";
+        break;
     case GraphicsContextGL::INT:
-        TYPE_VALIDATION_CASE(TypeInt32);
+        expectedArrayType = JSC::TypeInt32;
+        error = "pixels is not TypeInt32";
+        break;
     case GraphicsContextGL::FLOAT: // OES_texture_float
-        TYPE_VALIDATION_CASE(TypeFloat32);
+        expectedArrayType = JSC::TypeFloat32;
+        error = "pixels is not TypeFloat32";
+        break;
     case GraphicsContextGL::HALF_FLOAT_OES: // OES_texture_half_float
     case GraphicsContextGL::HALF_FLOAT:
-        TYPE_VALIDATION_CASE(TypeUint16);
-    case GraphicsContextGL::FLOAT_32_UNSIGNED_INT_24_8_REV:
-        if (arrayType)
-            synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "type FLOAT_32_UNSIGNED_INT_24_8_REV but ArrayBufferView is not null");
+        expectedArrayType = JSC::TypeUint16;
+        error = "pixels is not TypeUint16";
         break;
+    case GraphicsContextGL::FLOAT_32_UNSIGNED_INT_24_8_REV:
+        if (functionType == ArrayBufferViewFunctionType::TexImage) {
+            expectedArrayType = JSC::NotTypedArray;
+            error = "type is FLOAT_32_UNSIGNED_INT_24_8_REV but pixels is not null";
+            break;
+        }
+        ASSERT(functionType == ArrayBufferViewFunctionType::ReadPixels);
+        FALLTHROUGH;
     default:
-        // This can now be reached in readPixels' ANGLE code path.
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid type");
         return false;
     }
-#undef TYPE_VALIDATION_CASE
-    return true;
+
+    if (!pixels)
+        return true;
+
+    if (expectedArrayType == JSC::NotTypedArray) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, error);
+        return false;
+    }
+    if (pixels->getType() == expectedArrayType)
+        return true;
+    synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, error);
+    return false;
 }
 
 std::optional<GCGLSpan<const GCGLvoid>> WebGLRenderingContextBase::validateTexFuncData(const char* functionName, TexImageDimension texDimension, GCGLsizei width, GCGLsizei height, GCGLsizei depth, GCGLenum format, GCGLenum type, ArrayBufferView* pixels, NullDisposition disposition, GCGLuint srcOffset)
@@ -4032,8 +4064,7 @@ std::optional<GCGLSpan<const GCGLvoid>> WebGLRenderingContextBase::validateTexFu
     if (pixels && !validateSettableTexInternalFormat(functionName, format))
         return std::nullopt;
 
-    auto arrayType = pixels ? std::make_optional(pixels->getType()) : std::nullopt;
-    if (!validateArrayBufferType(functionName, type, arrayType))
+    if (!validateTypeAndArrayBufferType(functionName, ArrayBufferViewFunctionType::TexImage, type, pixels))
         return std::nullopt;
 
     unsigned totalBytesRequired, skipBytes;
@@ -4064,7 +4095,7 @@ std::optional<GCGLSpan<const GCGLvoid>> WebGLRenderingContextBase::validateTexFu
     auto data = static_cast<uint8_t*>(pixels->baseAddress());
     GCGLsizei byteLength = pixels->byteLength();
     if (srcOffset) {
-        size_t offset = srcOffset * JSC::elementSize(*arrayType);
+        size_t offset = srcOffset * JSC::elementSize(pixels->getType());
         data += offset;
         byteLength -= offset;
     }
@@ -5799,6 +5830,7 @@ void WebGLRenderingContextBase::loseExtensions(LostContextMode mode)
     LOSE_EXTENSION(m_extColorBufferHalfFloat);
     LOSE_EXTENSION(m_extFloatBlend);
     LOSE_EXTENSION(m_extFragDepth);
+    LOSE_EXTENSION(m_extProvokingVertex);
     LOSE_EXTENSION(m_extShaderTextureLOD);
     LOSE_EXTENSION(m_extTextureCompressionBPTC);
     LOSE_EXTENSION(m_extTextureCompressionRGTC);

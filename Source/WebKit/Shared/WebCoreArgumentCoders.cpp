@@ -590,7 +590,7 @@ static void encodeImage(Encoder& encoder, Image& image)
 
     graphicsContext->drawImage(image, IntPoint());
 
-    ShareableBitmap::Handle handle;
+    ShareableBitmapHandle handle;
     bitmap->createHandle(handle);
 
     encoder << handle;
@@ -603,7 +603,7 @@ static WARN_UNUSED_RETURN bool decodeImage(Decoder& decoder, RefPtr<Image>& imag
     if (!didCreateGraphicsContext || !*didCreateGraphicsContext)
         return false;
 
-    ShareableBitmap::Handle handle;
+    ShareableBitmapHandle handle;
     if (!decoder.decode(handle))
         return false;
     
@@ -2165,13 +2165,26 @@ void ArgumentCoder<RefPtr<SecurityOrigin>>::encode(Encoder& encoder, const RefPt
 {
     encoder << *origin;
 }
-    
+
 std::optional<RefPtr<SecurityOrigin>> ArgumentCoder<RefPtr<SecurityOrigin>>::decode(Decoder& decoder)
 {
     auto origin = SecurityOrigin::decode(decoder);
     if (!origin)
         return std::nullopt;
     return origin;
+}
+
+void ArgumentCoder<Ref<SecurityOrigin>>::encode(Encoder& encoder, const Ref<SecurityOrigin>& origin)
+{
+    encoder << origin.get();
+}
+
+std::optional<Ref<SecurityOrigin>> ArgumentCoder<Ref<SecurityOrigin>>::decode(Decoder& decoder)
+{
+    auto origin = SecurityOrigin::decode(decoder);
+    if (!origin)
+        return std::nullopt;
+    return origin.releaseNonNull();
 }
 
 void ArgumentCoder<FontAttributes>::encode(Encoder& encoder, const FontAttributes& attributes)
@@ -2434,11 +2447,11 @@ void ArgumentCoder<SystemImage>::encode(Encoder& encoder, const SystemImage& sys
     switch (systemImage.systemImageType()) {
 #if ENABLE(APPLE_PAY)
     case SystemImageType::ApplePayButton:
-        downcast<ApplePayButtonSystemImage>(systemImage).encode(encoder);
+        encoder << downcast<ApplePayButtonSystemImage>(systemImage);
         return;
 
     case SystemImageType::ApplePayLogo:
-        downcast<ApplePayLogoSystemImage>(systemImage).encode(encoder);
+        encoder << downcast<ApplePayLogoSystemImage>(systemImage);
         return;
 #endif
 #if USE(SYSTEM_PREVIEW)
@@ -2465,11 +2478,21 @@ std::optional<Ref<SystemImage>> ArgumentCoder<SystemImage>::decode(Decoder& deco
 
     switch (*systemImageType) {
 #if ENABLE(APPLE_PAY)
-    case SystemImageType::ApplePayButton:
-        return ApplePayButtonSystemImage::decode(decoder);
+    case SystemImageType::ApplePayButton: {
+        std::optional<Ref<ApplePayButtonSystemImage>> image;
+        decoder >> image;
+        if (!image)
+            return std::nullopt;
+        return WTFMove(*image);
+    }
 
-    case SystemImageType::ApplePayLogo:
-        return ApplePayLogoSystemImage::decode(decoder);
+    case SystemImageType::ApplePayLogo: {
+        std::optional<Ref<ApplePayLogoSystemImage>> image;
+        decoder >> image;
+        if (!image)
+            return std::nullopt;
+        return WTFMove(*image);
+    }
 #endif
 #if USE(SYSTEM_PREVIEW)
     case SystemImageType::ARKitBadge:
@@ -2589,16 +2612,6 @@ void ArgumentCoder<PixelBuffer>::encode<Encoder>(Encoder&, const PixelBuffer&);
 template
 void ArgumentCoder<PixelBuffer>::encode<StreamConnectionEncoder>(StreamConnectionEncoder&, const PixelBuffer&);
 
-void ArgumentCoder<Ref<WebCore::Report>>::encode(Encoder& encoder, const Ref<WebCore::Report>& report)
-{
-    report->encode(encoder);
-}
-
-std::optional<Ref<WebCore::Report>> ArgumentCoder<Ref<WebCore::Report>>::decode(Decoder& decoder)
-{
-    return WebCore::Report::decode(decoder);
-}
-
 void ArgumentCoder<RefPtr<WebCore::ReportBody>>::encode(Encoder& encoder, const RefPtr<WebCore::ReportBody>& reportBody)
 {
     bool hasReportBody = !!reportBody;
@@ -2619,10 +2632,10 @@ void ArgumentCoder<RefPtr<WebCore::ReportBody>>::encode(Encoder& encoder, const 
         downcast<CORPViolationReportBody>(reportBody.get())->encode(encoder);
         return;
     case ViolationReportType::Deprecation:
-        downcast<DeprecationReportBody>(reportBody.get())->encode(encoder);
+        encoder << *downcast<DeprecationReportBody>(reportBody.get());
         return;
     case ViolationReportType::Test:
-        downcast<TestReportBody>(reportBody.get())->encode(encoder);
+        encoder << *downcast<TestReportBody>(reportBody.get());
         return;
     case ViolationReportType::CrossOriginOpenerPolicy:
     case ViolationReportType::StandardReportingAPIViolation:
@@ -2655,10 +2668,20 @@ std::optional<RefPtr<WebCore::ReportBody>> ArgumentCoder<RefPtr<WebCore::ReportB
         return COEPInheritenceViolationReportBody::decode(decoder);
     case ViolationReportType::CORPViolation:
         return CORPViolationReportBody::decode(decoder);
-    case ViolationReportType::Deprecation:
-        return DeprecationReportBody::decode(decoder);
-    case ViolationReportType::Test:
-        return TestReportBody::decode(decoder);
+    case ViolationReportType::Deprecation: {
+        std::optional<Ref<DeprecationReportBody>> deprecationReportBody;
+        decoder >> deprecationReportBody;
+        if (!deprecationReportBody)
+            return std::nullopt;
+        return WTFMove(*deprecationReportBody);
+    }
+    case ViolationReportType::Test: {
+        std::optional<Ref<TestReportBody>> testReportBody;
+        decoder >> testReportBody;
+        if (!testReportBody)
+            return std::nullopt;
+        return WTFMove(*testReportBody);
+    }
     case ViolationReportType::CrossOriginOpenerPolicy:
     case ViolationReportType::StandardReportingAPIViolation:
         ASSERT_NOT_REACHED();

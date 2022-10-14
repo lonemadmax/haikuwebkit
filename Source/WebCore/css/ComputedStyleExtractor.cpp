@@ -31,6 +31,7 @@
 #include "CSSFontFeatureValue.h"
 #include "CSSFontStyleValue.h"
 #include "CSSFontValue.h"
+#include "CSSFontVariantAlternatesValue.h"
 #include "CSSFontVariationValue.h"
 #include "CSSFunctionValue.h"
 #include "CSSGridAutoRepeatValue.h"
@@ -728,7 +729,7 @@ static bool rendererCanBeTransformed(RenderObject* renderer)
     return renderer && !is<RenderInline>(*renderer);
 }
 
-static Ref<CSSValue> computedTransform(RenderElement* renderer, const RenderStyle& style)
+static Ref<CSSValue> computedTransform(RenderElement* renderer, const RenderStyle& style, ComputedStyleExtractor::PropertyValueType valueType)
 {
     auto& cssValuePool = CSSValuePool::singleton();
 
@@ -742,6 +743,12 @@ static Ref<CSSValue> computedTransform(RenderElement* renderer, const RenderStyl
         list->append(matrixTransformValue(transform, style));
         return list;
     }
+
+    // https://w3c.github.io/csswg-drafts/css-transforms-1/#serialization-of-the-computed-value
+    // If we don't have a renderer, then the value should be "none" if we're asking for the
+    // resolved value (such as when calling getComputedStyle()).
+    if (valueType == ComputedStyleExtractor::PropertyValueType::Resolved)
+        return cssValuePool.createIdentifierValue(CSSValueNone);
 
     auto list = CSSValueList::createSpaceSeparated();
 
@@ -1454,16 +1461,10 @@ static Ref<CSSValue> fontVariantNumericPropertyValue(FontVariantNumericFigure fi
 
 static Ref<CSSValue> fontVariantAlternatesPropertyValue(FontVariantAlternates alternates)
 {
-    auto& cssValuePool = CSSValuePool::singleton();
-    CSSValueID valueID = CSSValueNormal;
-    switch (alternates) {
-    case FontVariantAlternates::Normal:
-        break;
-    case FontVariantAlternates::HistoricalForms:
-        valueID = CSSValueHistoricalForms;
-        break;
-    }
-    return cssValuePool.createIdentifierValue(valueID);
+    if (alternates.isNormal())
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueNormal);
+
+    return CSSFontVariantAlternatesValue::create(WTFMove(alternates));
 }
 
 static Ref<CSSValue> fontVariantEastAsianPropertyValue(FontVariantEastAsianVariant variant, FontVariantEastAsianWidth width, FontVariantEastAsianRuby ruby)
@@ -2287,17 +2288,37 @@ Ref<CSSValue> ComputedStyleExtractor::fontVariantShorthandValue()
 
 static Ref<CSSValue> fontSynthesisFromStyle(const RenderStyle& style)
 {
-    if (style.fontDescription().fontSynthesis() == FontSynthesisNone)
-        return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
-
     auto list = CSSValueList::createSpaceSeparated();
-    if (style.fontDescription().fontSynthesis() & FontSynthesisWeight)
+    if (style.fontDescription().hasAutoFontSynthesisWeight())
         list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueWeight));
-    if (style.fontDescription().fontSynthesis() & FontSynthesisStyle)
+    if (style.fontDescription().hasAutoFontSynthesisStyle())
         list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueStyle));
-    if (style.fontDescription().fontSynthesis() & FontSynthesisSmallCaps)
+    if (style.fontDescription().hasAutoFontSynthesisSmallCaps())
         list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueSmallCaps));
+
+    if (!list->length())
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
     return list;
+}
+
+static Ref<CSSValue> fontSynthesisLonghandToCSSValue(FontSynthesisLonghandValue value)
+{
+    return CSSValuePool::singleton().createIdentifierValue(value == FontSynthesisLonghandValue::Auto ? CSSValueAuto : CSSValueNone);
+}
+
+static Ref<CSSValue> fontSynthesisWeightFromStyle(const RenderStyle& style)
+{
+    return fontSynthesisLonghandToCSSValue(style.fontDescription().fontSynthesisWeight());
+}
+
+static Ref<CSSValue> fontSynthesisStyleFromStyle(const RenderStyle& style)
+{
+    return fontSynthesisLonghandToCSSValue(style.fontDescription().fontSynthesisStyle());
+}
+
+static Ref<CSSValue> fontSynthesisSmallCapsFromStyle(const RenderStyle& style)
+{
+    return fontSynthesisLonghandToCSSValue(style.fontDescription().fontSynthesisSmallCaps());
 }
 
 typedef const Length& (RenderStyle::*RenderStyleLengthGetter)() const;
@@ -2816,10 +2837,10 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
     if (!style)
         return nullptr;
 
-    return valueForPropertyInStyle(*style, propertyID, valueType == PropertyValueType::Resolved ? styledRenderer() : nullptr);
+    return valueForPropertyInStyle(*style, propertyID, valueType == PropertyValueType::Resolved ? styledRenderer() : nullptr, valueType);
 }
 
-RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderStyle& style, CSSPropertyID propertyID, RenderElement* renderer)
+RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderStyle& style, CSSPropertyID propertyID, RenderElement* renderer, PropertyValueType valueType)
 {
     auto& cssValuePool = CSSValuePool::singleton();
     propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style.direction(), style.writingMode());
@@ -3170,6 +3191,12 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return fontPaletteFromStyle(style);
     case CSSPropertyFontSynthesis:
         return fontSynthesisFromStyle(style);
+    case CSSPropertyFontSynthesisWeight:
+        return fontSynthesisWeightFromStyle(style);
+    case CSSPropertyFontSynthesisStyle:
+        return fontSynthesisStyleFromStyle(style);
+    case CSSPropertyFontSynthesisSmallCaps:
+        return fontSynthesisSmallCapsFromStyle(style);
     case CSSPropertyFontFeatureSettings: {
         const FontFeatureSettings& featureSettings = style.fontDescription().featureSettings();
         if (!featureSettings.size())
@@ -3784,7 +3811,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertySpeakAs:
         return speakAsToCSSValue(style.speakAs());
     case CSSPropertyTransform:
-        return computedTransform(renderer, style);
+        return computedTransform(renderer, style, valueType);
     case CSSPropertyTransformBox:
         return CSSPrimitiveValue::create(style.transformBox());
     case CSSPropertyTransformOrigin: {

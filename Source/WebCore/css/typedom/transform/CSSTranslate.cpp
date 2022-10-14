@@ -54,7 +54,7 @@ ExceptionOr<Ref<CSSTranslate>> CSSTranslate::create(Ref<CSSNumericValue> x, Ref<
 
     if (!x->type().matchesTypeOrPercentage<CSSNumericBaseType::Length>()
         || !y->type().matchesTypeOrPercentage<CSSNumericBaseType::Length>()
-        || !z->type().matchesTypeOrPercentage<CSSNumericBaseType::Length>())
+        || !z->type().matches<CSSNumericBaseType::Length>())
         return Exception { TypeError };
 
     return adoptRef(*new CSSTranslate(is2D, WTFMove(x), WTFMove(y), z.releaseNonNull()));
@@ -133,10 +133,43 @@ void CSSTranslate::serialize(StringBuilder& builder) const
     builder.append(')');
 }
 
+ExceptionOr<void> CSSTranslate::setZ(Ref<CSSNumericValue> z)
+{
+    if (!z->type().matches<CSSNumericBaseType::Length>())
+        return Exception { TypeError };
+
+    m_z = WTFMove(z);
+    return { };
+}
+
 ExceptionOr<Ref<DOMMatrix>> CSSTranslate::toMatrix()
 {
-    // FIXME: Implement.
-    return DOMMatrix::fromMatrix(DOMMatrixInit { });
+    // https://drafts.css-houdini.org/css-typed-om/#dom-csstransformcomponent-tomatrix
+    // As the entries of such a matrix are defined relative to the px unit, if any <length>s
+    // in this involved in generating the matrix are not compatible units with px (such as
+    // relative lengths or percentages), throw a TypeError.
+    if (!is<CSSUnitValue>(m_x) || !is<CSSUnitValue>(m_y) || !is<CSSUnitValue>(m_z))
+        return Exception { TypeError };
+
+    auto xPx = downcast<CSSUnitValue>(m_x.get()).convertTo(CSSUnitType::CSS_PX);
+    auto yPx = downcast<CSSUnitValue>(m_y.get()).convertTo(CSSUnitType::CSS_PX);
+    auto zPx = downcast<CSSUnitValue>(m_z.get()).convertTo(CSSUnitType::CSS_PX);
+
+    if (!xPx || !yPx || !zPx)
+        return Exception { TypeError };
+
+    auto x = xPx->value();
+    auto y = yPx->value();
+    auto z = zPx->value();
+
+    TransformationMatrix matrix { };
+
+    if (is2D())
+        matrix.translate(x, y);
+    else
+        matrix.translate3d(x, y, z);
+
+    return { DOMMatrix::create(WTFMove(matrix), is2D() ? DOMMatrixReadOnly::Is2D::Yes : DOMMatrixReadOnly::Is2D::No) };
 }
 
 } // namespace WebCore

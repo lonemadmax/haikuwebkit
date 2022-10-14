@@ -1114,7 +1114,7 @@ RefPtr<LegacyPreviewLoaderClient> EmptyFrameLoaderClient::createPreviewLoaderCli
 
 #endif
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
 
 bool EmptyFrameLoaderClient::hasFrameSpecificStorageAccess()
 {

@@ -84,6 +84,10 @@ using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
 }
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebKit {
 
 class AudioSessionRoutingArbitratorProxy;
@@ -249,7 +253,7 @@ public:
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
 
-#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+#if ENABLE(TRACKING_PREVENTION)
     static void notifyPageStatisticsAndDataRecordsProcessed();
 
     static void notifyWebsiteDataDeletionForRegistrableDomainsFinished();
@@ -277,6 +281,7 @@ public:
     void setIsHoldingLockedFiles(bool);
 
     ProcessThrottler& throttler() final { return m_throttler; }
+    const ProcessThrottler& throttler() const { return m_throttler; }
 
     void isResponsive(CompletionHandler<void(bool isWebProcessResponsive)>&&);
     void isResponsiveWithLazyStop();
@@ -284,7 +289,6 @@ public:
 
     void memoryPressureStatusChanged(bool isUnderMemoryPressure) { m_isUnderMemoryPressure = isUnderMemoryPressure; }
     bool isUnderMemoryPressure() const { return m_isUnderMemoryPressure; }
-    void didExceedInactiveMemoryLimitWhileActive();
 
     void processTerminated();
 
@@ -692,5 +696,7 @@ private:
     std::unique_ptr<WebPermissionControllerProxy> m_webPermissionController;
     bool m_isConnectedToHardwareConsole { true };
 };
+
+WTF::TextStream& operator<<(WTF::TextStream&, const WebProcessProxy&);
 
 } // namespace WebKit

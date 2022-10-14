@@ -77,6 +77,15 @@ CSSSkewY::CSSSkewY(Ref<CSSNumericValue> ay)
 {
 }
 
+ExceptionOr<void> CSSSkewY::setAy(Ref<CSSNumericValue> ay)
+{
+    if (!ay->type().matches<CSSNumericBaseType::Angle>())
+        return Exception { TypeError };
+
+    m_ay = WTFMove(ay);
+    return { };
+}
+
 void CSSSkewY::serialize(StringBuilder& builder) const
 {
     // https://drafts.css-houdini.org/css-typed-om/#serialize-a-cssskewy
@@ -87,8 +96,17 @@ void CSSSkewY::serialize(StringBuilder& builder) const
 
 ExceptionOr<Ref<DOMMatrix>> CSSSkewY::toMatrix()
 {
-    // FIXME: Implement.
-    return DOMMatrix::fromMatrix(DOMMatrixInit { });
+    if (!is<CSSUnitValue>(m_ay))
+        return Exception { TypeError };
+
+    auto y = downcast<CSSUnitValue>(m_ay.get()).convertTo(CSSUnitType::CSS_DEG);
+    if (!y)
+        return Exception { TypeError };
+
+    TransformationMatrix matrix { };
+    matrix.skewY(y->value());
+
+    return { DOMMatrix::create(WTFMove(matrix), DOMMatrixReadOnly::Is2D::Yes) };
 }
 
 } // namespace WebCore

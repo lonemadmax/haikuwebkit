@@ -62,7 +62,7 @@ class Plan;
 // about themselves.
 
 struct WeakReferenceTransition {
-    WeakReferenceTransition() = default;
+    WeakReferenceTransition() { }
     
     WeakReferenceTransition(VM& vm, JSCell* owner, JSCell* codeOrigin, JSCell* from, JSCell* to)
         : m_from(vm, owner, from)
@@ -114,11 +114,6 @@ public:
     static ptrdiff_t frameRegisterCountOffset() { return OBJECT_OFFSETOF(CommonData, frameRegisterCount); }
     
     void clearWatchpoints();
-
-    OptimizingCallLinkInfo* addCallLinkInfo(CodeOrigin codeOrigin, CallLinkInfo::UseDataIC useDataIC = CallLinkInfo::UseDataIC::No)
-    {
-        return m_callLinkInfos.add(codeOrigin, useDataIC);
-    }
 
     RefPtr<InlineCallFrameSet> inlineCallFrames;
     Ref<CodeOriginPool> codeOrigins;

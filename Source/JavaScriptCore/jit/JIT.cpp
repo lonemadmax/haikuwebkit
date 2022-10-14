@@ -72,6 +72,8 @@ JIT::JIT(VM& vm, CodeBlock* codeBlock, BytecodeIndex loopOSREntryBytecodeIndex)
     : JSInterfaceJIT(&vm, nullptr)
     , m_labels(codeBlock ? codeBlock->instructions().size() : 0)
     , m_pcToCodeOriginMapBuilder(vm)
+    , m_canBeOptimized(false)
+    , m_shouldEmitProfiling(false)
     , m_loopOSREntryBytecodeIndex(loopOSREntryBytecodeIndex)
     , m_profiledCodeBlock(codeBlock)
     , m_unlinkedCodeBlock(codeBlock->unlinkedCodeBlock())
@@ -80,7 +82,9 @@ JIT::JIT(VM& vm, CodeBlock* codeBlock, BytecodeIndex loopOSREntryBytecodeIndex)
     ASSERT_UNUSED(globalObjectConstant, globalObjectConstant == s_globalObjectConstant);
 }
 
-JIT::~JIT() = default;
+JIT::~JIT()
+{
+}
 
 JITConstantPool::Constant JIT::addToConstantPool(JITConstantPool::Type type, void* payload)
 {
@@ -97,7 +101,7 @@ std::tuple<BaselineUnlinkedStructureStubInfo*, JITConstantPool::Constant> JIT::a
     return std::tuple { stubInfo, stubInfoIndex };
 }
 
-UnlinkedCallLinkInfo* JIT::addUnlinkedCallLinkInfo()
+BaselineUnlinkedCallLinkInfo* JIT::addUnlinkedCallLinkInfo()
 {
     return &m_unlinkedCalls.alloc();
 }
@@ -966,7 +970,7 @@ void JIT::link()
     finalizeICs(m_privateBrandAccesses);
 
     for (auto& compilationInfo : m_callCompilationInfo) {
-        UnlinkedCallLinkInfo& info = *compilationInfo.unlinkedCallLinkInfo;
+        auto& info = *compilationInfo.unlinkedCallLinkInfo;
         info.doneLocation = patchBuffer.locationOf<JSInternalPtrTag>(compilationInfo.doneLocation);
     }
 
@@ -999,7 +1003,7 @@ void JIT::link()
     CodePtr<JSEntryPtrTag> withArityCheck = patchBuffer.locationOf<JSEntryPtrTag>(m_arityCheck);
     m_jitCode = adoptRef(*new BaselineJITCode(result, withArityCheck));
 
-    m_jitCode->m_unlinkedCalls = FixedVector<UnlinkedCallLinkInfo>(m_unlinkedCalls.size());
+    m_jitCode->m_unlinkedCalls = FixedVector<BaselineUnlinkedCallLinkInfo>(m_unlinkedCalls.size());
     if (m_jitCode->m_unlinkedCalls.size())
         std::move(m_unlinkedCalls.begin(), m_unlinkedCalls.end(), m_jitCode->m_unlinkedCalls.begin());
     m_jitCode->m_unlinkedStubInfos = FixedVector<BaselineUnlinkedStructureStubInfo>(m_unlinkedStubInfos.size());

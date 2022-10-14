@@ -143,7 +143,9 @@ Plan::Plan(CodeBlock* passedCodeBlock, CodeBlock* profiledDFGCodeBlock,
     m_inlineCallFrames->disableThreadingChecks();
 }
 
-Plan::~Plan() = default;
+Plan::~Plan()
+{
+}
 
 size_t Plan::codeSize() const
 {
@@ -685,7 +687,7 @@ std::unique_ptr<JITData> Plan::finalizeJITData(const JITCode& jitCode)
 {
     auto osrExitThunk = m_vm->getCTIStub(osrExitGenerationThunkGenerator).retagged<OSRExitPtrTag>();
     auto exits = JITData::ExitVector::createWithSizeAndConstructorArguments(jitCode.m_osrExit.size(), osrExitThunk);
-    auto jitData = JITData::create(jitCode, WTFMove(exits));
+    auto jitData = JITData::create(*m_vm, jitCode, WTFMove(exits));
     return jitData;
 }
 

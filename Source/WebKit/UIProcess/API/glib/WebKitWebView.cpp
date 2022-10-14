@@ -30,7 +30,6 @@
 #include "ImageOptions.h"
 #include "NotificationService.h"
 #include "ProvisionalPageProxy.h"
-#include "WebCertificateInfo.h"
 #include "WebContextMenuItem.h"
 #include "WebContextMenuItemData.h"
 #include "WebKitAuthenticationRequestPrivate.h"
@@ -4601,10 +4600,7 @@ gboolean webkit_web_view_get_tls_info(WebKitWebView* webView, GTlsCertificate** 
     if (!mainFrame)
         return FALSE;
 
-    auto* wkCertificateInfo = mainFrame->certificateInfo();
-    g_return_val_if_fail(wkCertificateInfo, FALSE);
-
-    const auto& certificateInfo = wkCertificateInfo->certificateInfo();
+    const auto& certificateInfo = mainFrame->certificateInfo();
     if (certificate)
         *certificate = certificateInfo.certificate();
     if (errors)
@@ -4651,7 +4647,7 @@ void webkit_web_view_get_snapshot(WebKitWebView* webView, WebKitSnapshotRegion r
         snapshotOptions |= SnapshotOptionsTransparentBackground;
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
-    getPage(webView).takeSnapshot({ }, { }, snapshotOptions, [task = WTFMove(task)](const ShareableBitmap::Handle& handle) {
+    getPage(webView).takeSnapshot({ }, { }, snapshotOptions, [task = WTFMove(task)](const ShareableBitmapHandle& handle) {
         if (!handle.isNull()) {
             if (auto bitmap = ShareableBitmap::create(handle, SharedMemory::Protection::ReadOnly)) {
                 if (auto surface = bitmap->createCairoSurface()) {

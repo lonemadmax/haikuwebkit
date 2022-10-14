@@ -91,7 +91,6 @@
 #include "StyleColorScheme.h"
 #endif
 
-
 #define SET_VAR(group, variable, value) do { \
         if (!compareEqual(group->variable, value)) \
             group.access().variable = value; \
@@ -308,6 +307,7 @@ public:
     const LengthSize& borderTopRightRadius() const { return m_surroundData->border.topRightRadius(); }
     const LengthSize& borderBottomLeftRadius() const { return m_surroundData->border.bottomLeftRadius(); }
     const LengthSize& borderBottomRightRadius() const { return m_surroundData->border.bottomRightRadius(); }
+    const BorderData::Radii& borderRadii() const { return m_surroundData->border.m_radii; }
     bool hasBorderRadius() const { return m_surroundData->border.hasBorderRadius(); }
     bool hasExplicitlySetBorderBottomLeftRadius() const { return m_nonInheritedFlags.hasExplicitlySetBorderBottomLeftRadius; }
     bool hasExplicitlySetBorderBottomRightRadius() const { return m_nonInheritedFlags.hasExplicitlySetBorderBottomRightRadius; }
@@ -930,10 +930,10 @@ public:
     void resetBorderLeft() { SET_VAR(m_surroundData, border.m_left, BorderValue()); }
     void resetBorderImage() { SET_VAR(m_surroundData, border.m_image, NinePieceImage()); }
     void resetBorderRadius() { resetBorderTopLeftRadius(); resetBorderTopRightRadius(); resetBorderBottomLeftRadius(); resetBorderBottomRightRadius(); }
-    void resetBorderTopLeftRadius() { SET_VAR(m_surroundData, border.m_topLeftRadius, initialBorderRadius()); }
-    void resetBorderTopRightRadius() { SET_VAR(m_surroundData, border.m_topRightRadius, initialBorderRadius()); }
-    void resetBorderBottomLeftRadius() { SET_VAR(m_surroundData, border.m_bottomLeftRadius, initialBorderRadius()); }
-    void resetBorderBottomRightRadius() { SET_VAR(m_surroundData, border.m_bottomRightRadius, initialBorderRadius()); }
+    void resetBorderTopLeftRadius() { SET_VAR(m_surroundData, border.m_radii.topLeft, initialBorderRadius()); }
+    void resetBorderTopRightRadius() { SET_VAR(m_surroundData, border.m_radii.topRight, initialBorderRadius()); }
+    void resetBorderBottomLeftRadius() { SET_VAR(m_surroundData, border.m_radii.bottomLeft, initialBorderRadius()); }
+    void resetBorderBottomRightRadius() { SET_VAR(m_surroundData, border.m_radii.bottomRight, initialBorderRadius()); }
 
     void setBackgroundColor(const StyleColor& v) { SET_VAR(m_backgroundData, color, v); }
 
@@ -957,10 +957,10 @@ public:
     void setBorderImageHorizontalRule(NinePieceImageRule);
     void setBorderImageVerticalRule(NinePieceImageRule);
 
-    void setBorderTopLeftRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_topLeftRadius, WTFMove(size)); }
-    void setBorderTopRightRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_topRightRadius, WTFMove(size)); }
-    void setBorderBottomLeftRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_bottomLeftRadius, WTFMove(size)); }
-    void setBorderBottomRightRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_bottomRightRadius, WTFMove(size)); }
+    void setBorderTopLeftRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_radii.topLeft, WTFMove(size)); }
+    void setBorderTopRightRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_radii.topRight, WTFMove(size)); }
+    void setBorderBottomLeftRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_radii.bottomLeft, WTFMove(size)); }
+    void setBorderBottomRightRadius(LengthSize&& size) { SET_VAR(m_surroundData, border.m_radii.bottomRight, WTFMove(size)); }
 
     void setBorderRadius(LengthSize&&);
     void setBorderRadius(const IntSize&);
@@ -974,6 +974,7 @@ public:
 
     RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, LayoutUnit topWidth, LayoutUnit bottomWidth,
         LayoutUnit leftWidth, LayoutUnit rightWidth, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
+    static RoundedRect getRoundedInnerBorderFor(const LayoutRect&, LayoutUnit topWidth, LayoutUnit bottomWidth, LayoutUnit leftWidth, LayoutUnit rightWidth, std::optional<BorderData::Radii>, bool isHorizontal, bool includeLogicalLeftEdge, bool includeLogicalRightEdge);
 
     void setBorderLeftWidth(float v) { SET_VAR(m_surroundData, border.m_left.m_width, v); }
     void setBorderLeftStyle(BorderStyle v) { SET_VAR(m_surroundData, border.m_left.m_style, static_cast<unsigned>(v)); }
@@ -1908,8 +1909,8 @@ public:
     void getShadowInlineDirectionExtent(const ShadowData*, LayoutUnit& logicalLeft, LayoutUnit& logicalRight) const;
     void getShadowBlockDirectionExtent(const ShadowData*, LayoutUnit& logicalTop, LayoutUnit& logicalBottom) const;
 
-    static StyleColor currentColor();
-    static bool isCurrentColor(const StyleColor&);
+    static StyleColor currentColor() { return StyleColor::currentColor(); }
+    static bool isCurrentColor(const StyleColor& color) { return color.isCurrentColor(); }
 
     const StyleColor& borderLeftColor() const { return m_surroundData->border.left().color(); }
     const StyleColor& borderRightColor() const { return m_surroundData->border.right().color(); }

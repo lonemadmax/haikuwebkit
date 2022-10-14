@@ -25,7 +25,7 @@
 #include "CSSParserTokenRange.h"
 #include "CSSPropertyParserHelpers.h"
 #include "CSSPropertyParserWorkerSafe.h"
-#include "StyleRule.h"
+#include "StyleRuleType.h"
 #include <wtf/text/StringView.h>
 
 namespace WebCore {
@@ -106,6 +106,7 @@ private:
     bool consumeFont(bool important);
     bool consumeTextDecorationSkip(bool important);
     bool consumeFontVariantShorthand(bool important);
+    bool consumeFontSynthesis(bool important);
     bool consumeSystemFont(bool important);
 
     bool consumeBorderSpacing(bool important);

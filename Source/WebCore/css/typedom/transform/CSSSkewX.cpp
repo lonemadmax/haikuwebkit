@@ -77,6 +77,15 @@ CSSSkewX::CSSSkewX(Ref<CSSNumericValue> ax)
 {
 }
 
+ExceptionOr<void> CSSSkewX::setAx(Ref<CSSNumericValue> ax)
+{
+    if (!ax->type().matches<CSSNumericBaseType::Angle>())
+        return Exception { TypeError };
+
+    m_ax = WTFMove(ax);
+    return { };
+}
+
 void CSSSkewX::serialize(StringBuilder& builder) const
 {
     // https://drafts.css-houdini.org/css-typed-om/#serialize-a-cssskewx
@@ -87,8 +96,17 @@ void CSSSkewX::serialize(StringBuilder& builder) const
 
 ExceptionOr<Ref<DOMMatrix>> CSSSkewX::toMatrix()
 {
-    // FIXME: Implement.
-    return DOMMatrix::fromMatrix(DOMMatrixInit { });
+    if (!is<CSSUnitValue>(m_ax))
+        return Exception { TypeError };
+
+    auto x = downcast<CSSUnitValue>(m_ax.get()).convertTo(CSSUnitType::CSS_DEG);
+    if (!x)
+        return Exception { TypeError };
+
+    TransformationMatrix matrix { };
+    matrix.skewX(x->value());
+
+    return { DOMMatrix::create(WTFMove(matrix), DOMMatrixReadOnly::Is2D::Yes) };
 }
 
 } // namespace WebCore

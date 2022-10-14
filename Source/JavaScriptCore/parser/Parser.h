@@ -148,7 +148,7 @@ struct Scope {
     WTF_MAKE_NONCOPYABLE(Scope);
 
 public:
-    Scope(const VM& vm, ImplementationVisibility implementationVisibility, LexicalScopeFeatures lexicalScopeFeatures, bool isFunction, bool isGenerator, bool isArrowFunction, bool isAsyncFunction)
+    Scope(const VM& vm, ImplementationVisibility implementationVisibility, LexicalScopeFeatures lexicalScopeFeatures, bool isFunction, bool isGenerator, bool isArrowFunction, bool isAsyncFunction, bool isStaticBlock)
         : m_vm(vm)
         , m_implementationVisibility(implementationVisibility)
         , m_lexicalScopeFeatures(lexicalScopeFeatures)
@@ -156,6 +156,7 @@ public:
         , m_isGenerator(isGenerator)
         , m_isArrowFunction(isArrowFunction)
         , m_isAsyncFunction(isAsyncFunction)
+        , m_isStaticBlock(isStaticBlock)
     {
         m_usedVariables.append(UniquedStringImplPtrSet());
     }
@@ -237,6 +238,11 @@ public:
             setIsFunction();
             break;
 
+        case SourceParseMode::ClassStaticBlockMode:
+            setIsFunction();
+            setIsStaticBlock();
+            break;
+
         case SourceParseMode::ArrowFunctionMode:
             setIsArrowFunction();
             break;
@@ -276,6 +282,14 @@ public:
 
     void setIsCatchBlockScope() { m_isCatchBlockScope = true; }
     bool isCatchBlockScope() { return m_isCatchBlockScope; }
+
+    void setIsStaticBlock()
+    {
+        m_isStaticBlock = true;
+        m_isStaticBlockBoundary = true;
+    }
+    bool isStaticBlock() { return m_isStaticBlock; }
+    bool isStaticBlockBoundary() { return m_isStaticBlockBoundary; }
 
     void setIsLexicalScope() 
     { 
@@ -805,6 +819,8 @@ private:
         m_isArrowFunction = false;
         m_isAsyncFunction = false;
         m_isAsyncFunctionBoundary = false;
+        m_isStaticBlock = false;
+        m_isStaticBlockBoundary = false;
     }
 
     void setIsGeneratorFunction()
@@ -895,6 +911,8 @@ private:
     bool m_isGlobalCodeScope : 1 { false };
     bool m_isSimpleCatchParameterScope : 1 { false };
     bool m_isCatchBlockScope : 1 { false };
+    bool m_isStaticBlock : 1 { false };
+    bool m_isStaticBlockBoundary : 1 { false };
     bool m_isFunctionBoundary : 1 { false };
     bool m_isValidStrictMode : 1 { true };
     bool m_hasArguments : 1 { false };
@@ -1050,7 +1068,11 @@ private:
         // going to create a new lexical scope. If we decide to create a new lexical scope, we
         // can pass the scope into this obejct and it will take care of the cleanup for us if the parse fails.
         // This is helpful if we may fail from syntax errors after creating a lexical scope conditionally.
-        AutoCleanupLexicalScope() = default;
+        AutoCleanupLexicalScope()
+            : m_scope(nullptr, UINT_MAX)
+            , m_parser(nullptr)
+        {
+        }
 
         ~AutoCleanupLexicalScope()
         {
@@ -1078,8 +1100,8 @@ private:
         ScopeRef& scope() { return m_scope; }
 
     private:
-        ScopeRef m_scope { nullptr, UINT_MAX };
-        Parser* m_parser { nullptr };
+        ScopeRef m_scope;
+        Parser* m_parser;
     };
 
     enum ExpressionErrorClass {
@@ -1281,6 +1303,7 @@ private:
         bool isGenerator = false;
         bool isArrowFunction = false;
         bool isAsyncFunction = false;
+        bool isStaticBlock = false;
         if (!m_scopeStack.isEmpty()) {
             implementationVisibility = m_scopeStack.last().implementationVisibility();
             lexicalScopeFeatures = m_scopeStack.last().lexicalScopeFeatures();
@@ -1288,8 +1311,9 @@ private:
             isGenerator = m_scopeStack.last().isGenerator();
             isArrowFunction = m_scopeStack.last().isArrowFunction();
             isAsyncFunction = m_scopeStack.last().isAsyncFunction();
+            isStaticBlock = m_scopeStack.last().isStaticBlock();
         }
-        m_scopeStack.constructAndAppend(m_vm, implementationVisibility, lexicalScopeFeatures, isFunction, isGenerator, isArrowFunction, isAsyncFunction);
+        m_scopeStack.constructAndAppend(m_vm, implementationVisibility, lexicalScopeFeatures, isFunction, isGenerator, isArrowFunction, isAsyncFunction, isStaticBlock);
         return currentScope();
     }
 
@@ -1674,7 +1698,7 @@ private:
     {
         ScopeRef current = currentScope();
         while (!current->breakIsValid()) {
-            if (!current.hasContainingScope())
+            if (!current.hasContainingScope() || current->isStaticBlockBoundary())
                 return false;
             current = current.containingScope();
         }
@@ -1684,7 +1708,7 @@ private:
     {
         ScopeRef current = currentScope();
         while (!current->continueIsValid()) {
-            if (!current.hasContainingScope())
+            if (!current.hasContainingScope() || current->isStaticBlockBoundary())
                 return false;
             current = current.containingScope();
         }
@@ -1751,7 +1775,8 @@ private:
     template <class TreeBuilder> TreeStatement parseExpressionStatement(TreeBuilder&);
     template <class TreeBuilder> TreeStatement parseExpressionOrLabelStatement(TreeBuilder&, bool allowFunctionDeclarationAsStatement);
     template <class TreeBuilder> TreeStatement parseIfStatement(TreeBuilder&);
-    template <class TreeBuilder> TreeStatement parseBlockStatement(TreeBuilder&, bool isCatchBlock = false);
+    enum class BlockType : uint8_t { Normal, CatchBlock, StaticBlock };
+    template <class TreeBuilder> TreeStatement parseBlockStatement(TreeBuilder&, BlockType = BlockType::Normal);
 
     enum class IsOnlyChildOfStatement { Yes, No };
     template <class TreeBuilder> TreeExpression parseExpression(TreeBuilder&, IsOnlyChildOfStatement = IsOnlyChildOfStatement::No);
@@ -1874,7 +1899,7 @@ private:
 
     ALWAYS_INLINE bool canUseIdentifierAwait()
     {
-        return m_parserState.allowAwait && !currentScope()->isAsyncFunction() && m_scriptMode != JSParserScriptMode::Module;
+        return m_parserState.allowAwait && !currentScope()->isAsyncFunction() && !currentScope()->isStaticBlock() && m_scriptMode != JSParserScriptMode::Module;
     }
 
     bool isDisallowedIdentifierYield(const JSToken& token)
@@ -1932,6 +1957,8 @@ private:
     {
         if (!m_parserState.allowAwait || currentScope()->isAsyncFunction())
             return "in an async function";
+        if (currentScope()->isStaticBlock())
+            return "in a static block";
         if (m_scriptMode == JSParserScriptMode::Module)
             return "in a module";
         RELEASE_ASSERT_NOT_REACHED();
@@ -1946,6 +1973,11 @@ private:
             return "in a generator function";
         RELEASE_ASSERT_NOT_REACHED();
         return nullptr;
+    }
+
+    ALWAYS_INLINE bool isArgumentsIdentifier()
+    {
+        return *m_token.m_data.ident == m_vm.propertyNames->arguments;
     }
 
     enum class FunctionParsePhase { Parameters, Body };
@@ -2084,12 +2116,12 @@ private:
 
     ParserState m_parserState;
     
-    bool m_hasStackOverflow { false };
+    bool m_hasStackOverflow;
     String m_errorMessage;
     JSToken m_token;
-    bool m_allowsIn { true };
+    bool m_allowsIn;
     JSTextPosition m_lastTokenEndPosition;
-    int m_statementDepth { 0 };
+    int m_statementDepth;
     RefPtr<SourceProviderCache> m_functionCache;
     ImplementationVisibility m_implementationVisibility;
     bool m_parsingBuiltin;
@@ -2099,7 +2131,7 @@ private:
     ConstructorKind m_defaultConstructorKindForTopLevelFunction;
     ExpressionErrorClassifier* m_expressionErrorClassifier;
     bool m_isEvalContext;
-    bool m_immediateParentAllowsFunctionDeclarationInStatement { false };
+    bool m_immediateParentAllowsFunctionDeclarationInStatement;
     RefPtr<ModuleScopeData> m_moduleScopeData;
     DebuggerParseData* m_debuggerParseData;
     CallOrApplyDepthScope* m_callOrApplyDepthScope { nullptr };

@@ -2945,63 +2945,74 @@ private:
 
     void compileArithMinOrMax()
     {
-        switch (m_node->binaryUseKind()) {
+        switch (m_graph.child(m_node, 0).useKind()) {
         case Int32Use: {
-            LValue left = lowInt32(m_node->child1());
-            LValue right = lowInt32(m_node->child2());
-            
-            setInt32(
-                m_out.select(
-                    m_node->op() == ArithMin
-                        ? m_out.lessThan(left, right)
-                        : m_out.lessThan(right, left),
-                    left, right));
+            LValue left = lowInt32(m_graph.child(m_node, 0));
+            for (unsigned index = 1; index < m_node->numChildren(); ++index) {
+                LValue right = lowInt32(m_graph.child(m_node, index));
+                left = m_out.select(m_node->op() == ArithMin ? m_out.lessThan(left, right) : m_out.lessThan(right, left), left, right);
+            }
+            setInt32(left);
             break;
         }
             
         case DoubleRepUse: {
-            LValue left = lowDouble(m_node->child1());
-            LValue right = lowDouble(m_node->child2());
+            if (m_node->numChildren() == 2) {
+                LValue left = lowDouble(m_graph.child(m_node, 0));
+                LValue right = lowDouble(m_graph.child(m_node, 1));
 
-            LBasicBlock notLessThan = m_out.newBlock();
-            LBasicBlock isEqual = m_out.newBlock();
-            LBasicBlock notEqual = m_out.newBlock();
-            LBasicBlock continuation = m_out.newBlock();
+                LBasicBlock notLessThan = m_out.newBlock();
+                LBasicBlock isEqual = m_out.newBlock();
+                LBasicBlock notEqual = m_out.newBlock();
+                LBasicBlock continuation = m_out.newBlock();
 
-            Vector<ValueFromBlock, 2> results;
+                Vector<ValueFromBlock, 2> results;
 
-            results.append(m_out.anchor(left));
-            m_out.branch(
-                m_node->op() == ArithMin
-                    ? m_out.doubleLessThan(left, right)
-                    : m_out.doubleGreaterThan(left, right),
-                unsure(continuation), unsure(notLessThan));
+                results.append(m_out.anchor(left));
+                m_out.branch(
+                    m_node->op() == ArithMin
+                        ? m_out.doubleLessThan(left, right)
+                        : m_out.doubleGreaterThan(left, right),
+                    unsure(continuation), unsure(notLessThan));
 
-            // The spec for Math.min and Math.max states that +0 is considered to be larger than -0.
-            LBasicBlock lastNext = m_out.appendTo(notLessThan, isEqual);
-            m_out.branch(
-                m_out.doubleEqual(left, right),
-                    rarely(isEqual), usually(notEqual));
+                // The spec for Math.min and Math.max states that +0 is considered to be larger than -0.
+                LBasicBlock lastNext = m_out.appendTo(notLessThan, isEqual);
+                m_out.branch(
+                    m_out.doubleEqual(left, right),
+                        rarely(isEqual), usually(notEqual));
 
-            lastNext = m_out.appendTo(isEqual, notEqual);
-            results.append(m_out.anchor(
-                m_node->op() == ArithMin
-                    ? m_out.bitOr(left, right)
-                    : m_out.bitAnd(left, right)));
-            m_out.jump(continuation);
+                lastNext = m_out.appendTo(isEqual, notEqual);
+                results.append(m_out.anchor(
+                    m_node->op() == ArithMin
+                        ? m_out.bitOr(left, right)
+                        : m_out.bitAnd(left, right)));
+                m_out.jump(continuation);
 
-            lastNext = m_out.appendTo(notEqual, continuation);
-            results.append(
-                m_out.anchor(
-                    m_out.select(
-                        m_node->op() == ArithMin
-                            ? m_out.doubleGreaterThan(left, right)
-                            : m_out.doubleLessThan(left, right),
-                        right, m_out.constDouble(PNaN))));
-            m_out.jump(continuation);
-            
-            m_out.appendTo(continuation, lastNext);
-            setDouble(m_out.phi(Double, results));
+                lastNext = m_out.appendTo(notEqual, continuation);
+                results.append(
+                    m_out.anchor(
+                        m_out.select(
+                            m_node->op() == ArithMin
+                                ? m_out.doubleGreaterThan(left, right)
+                                : m_out.doubleLessThan(left, right),
+                            right, m_out.constDouble(PNaN))));
+                m_out.jump(continuation);
+
+                m_out.appendTo(continuation, lastNext);
+                setDouble(m_out.phi(Double, results));
+                break;
+            }
+
+            size_t scratchSize = sizeof(double) * m_node->numChildren();
+            ScratchBuffer* scratchBuffer = vm().scratchBufferForSize(scratchSize);
+            LValue buffer = m_out.constIntPtr(static_cast<const double*>(scratchBuffer->dataBuffer()));
+
+            for (unsigned index = 1; index < m_node->numChildren(); ++index) {
+                LValue value = lowDouble(m_graph.child(m_node, index));
+                m_out.storeDouble(value, m_out.baseIndex(m_heaps.indexedDoubleProperties, buffer, m_out.constInt32(index), jsNumber(index)));
+            }
+
+            setDouble(m_out.callWithoutSideEffects(Double, m_node->op() == ArithMin ? operationArithMinMultipleDouble : operationArithMaxMultipleDouble, buffer, m_out.constInt32(m_node->numChildren())));
             break;
         }
             
@@ -10403,11 +10414,11 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
 
-                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(nodeSemanticOrigin);
+                auto* callLinkInfo = state->addCallLinkInfo(nodeSemanticOrigin);
                 callLinkInfo->setUpCall(
                     nodeOp == Construct ? CallLinkInfo::Construct : CallLinkInfo::Call, GPRInfo::regT0);
 
-                auto slowPath = callLinkInfo->emitFastPath(jit, GPRInfo::regT0, InvalidGPRReg);
+                auto slowPath = CallLinkInfo::emitFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg);
                 CCallHelpers::Jump done = jit.jump();
 
                 slowPath.link(&jit);
@@ -10537,7 +10548,7 @@ IGNORE_CLANG_WARNINGS_END
                     shuffleData.numParameters = jit.codeBlock()->numParameters();
                     shuffleData.setupCalleeSaveRegisters(state->jitCode->calleeSaveRegisters());
                     
-                    auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                    auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
                     callLinkInfo->setUpCall(CallLinkInfo::DirectTailCall, InvalidGPRReg);
                     
                     CCallHelpers::Label mainPath = jit.label();
@@ -10569,7 +10580,7 @@ IGNORE_CLANG_WARNINGS_END
                     return;
                 }
                 
-                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
                 callLinkInfo->setUpCall(
                     isConstruct ? CallLinkInfo::DirectConstruct : CallLinkInfo::DirectCall, InvalidGPRReg);
 
@@ -10697,10 +10708,10 @@ IGNORE_CLANG_WARNINGS_END
                 
                 shuffleData.setupCalleeSaveRegisters(state->jitCode->calleeSaveRegisters());
 
-                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(codeOrigin);
+                auto* callLinkInfo = state->addCallLinkInfo(codeOrigin);
                 callLinkInfo->setUpCall(CallLinkInfo::TailCall, GPRInfo::regT0);
 
-                auto slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
+                auto slowPath = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
                     callLinkInfo->setFrameShuffleData(shuffleData);
                     CallFrameShuffler(jit, shuffleData).prepareForTailCall();
                 }));
@@ -10902,7 +10913,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
 
-                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
 
                 RegisterSet usedRegisters = RegisterSet::allRegisters();
                 usedRegisters.exclude(RegisterSet::volatileRegistersForJSCall());
@@ -11043,12 +11054,12 @@ IGNORE_CLANG_WARNINGS_END
                 CCallHelpers::JumpList slowPath;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
+                    slowPath = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
                         jit.emitRestoreCalleeSavesFor(state->jitCode->calleeSaveRegisters());
                         jit.prepareForTailCallSlow();
                     }));
                 } else {
-                    slowPath = callLinkInfo->emitFastPath(jit, GPRInfo::regT0, InvalidGPRReg);
+                    slowPath = CallLinkInfo::emitFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg);
                     done = jit.jump();
                 }
                 
@@ -11186,7 +11197,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
 
-                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
 
                 unsigned argIndex = 1;
                 GPRReg calleeGPR = params[argIndex++].gpr();
@@ -11324,12 +11335,12 @@ IGNORE_CLANG_WARNINGS_END
                 CCallHelpers::JumpList slowPath;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
+                    slowPath = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
                         jit.emitRestoreCalleeSavesFor(state->jitCode->calleeSaveRegisters());
                         jit.prepareForTailCallSlow();
                     }));
                 } else {
-                    slowPath = callLinkInfo->emitFastPath(jit, GPRInfo::regT0, InvalidGPRReg);
+                    slowPath = CallLinkInfo::emitFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg);
                     done = jit.jump();
                 }
                 
@@ -11432,7 +11443,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
                 
-                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
                 callLinkInfo->setUpCall(CallLinkInfo::Call, GPRInfo::regT0);
                 
                 jit.addPtr(CCallHelpers::TrustedImm32(-static_cast<ptrdiff_t>(sizeof(CallerFrameAndPC))), CCallHelpers::stackPointerRegister, GPRInfo::regT1);
@@ -14918,11 +14929,16 @@ IGNORE_CLANG_WARNINGS_END
     }
     
     struct ArgumentsLength {
-        ArgumentsLength() = default;
+        ArgumentsLength()
+            : isKnown(false)
+            , known(UINT_MAX)
+            , value(nullptr)
+        {
+        }
         
-        bool isKnown { false };
-        unsigned known { UINT_MAX };
-        LValue value { nullptr };
+        bool isKnown;
+        unsigned known;
+        LValue value;
     };
     ArgumentsLength getArgumentsLength(InlineCallFrame* inlineCallFrame)
     {
@@ -17220,16 +17236,20 @@ IGNORE_CLANG_WARNINGS_END
     }
     
     struct ArrayValues {
-        ArrayValues() = default;
-
+        ArrayValues()
+            : array(nullptr)
+            , butterfly(nullptr)
+        {
+        }
+        
         ArrayValues(LValue array, LValue butterfly)
             : array(array)
             , butterfly(butterfly)
         {
         }
         
-        LValue array { nullptr };
-        LValue butterfly { nullptr };
+        LValue array;
+        LValue butterfly;
     };
 
     ArrayValues allocateJSArray(LValue publicLength, LValue vectorLength, LValue structure, LValue indexingType, bool shouldInitializeElements = true, bool shouldLargeArraySizeCreateArrayStorage = true)
@@ -17914,7 +17934,7 @@ IGNORE_CLANG_WARNINGS_END
     // duplicating.
     
     struct StringSwitchCase {
-        StringSwitchCase() = default;
+        StringSwitchCase() { }
         
         StringSwitchCase(StringImpl* string, LBasicBlock target)
             : string(string)
@@ -17932,8 +17952,13 @@ IGNORE_CLANG_WARNINGS_END
     };
     
     struct CharacterCase {
-        CharacterCase() = default;
-
+        CharacterCase()
+            : character(0)
+            , begin(0)
+            , end(0)
+        {
+        }
+        
         CharacterCase(LChar character, unsigned begin, unsigned end)
             : character(character)
             , begin(begin)
@@ -17946,9 +17971,9 @@ IGNORE_CLANG_WARNINGS_END
             return character < other.character;
         }
         
-        LChar character { 0 };
-        unsigned begin { 0 };
-        unsigned end { 0 };
+        LChar character;
+        unsigned begin;
+        unsigned end;
     };
     
     void switchStringRecurse(
