@@ -123,7 +123,7 @@ public:
     WTF_EXPORT_PRIVATE void observe(const Observer&);
 #endif
 
-#if USE(GENERIC_EVENT_LOOP) || USE(HAIKU_EVENT_LOOP) || USE(WINDOWS_EVENT_LOOP)
+#if USE(GENERIC_EVENT_LOOP) || USE(WINDOWS_EVENT_LOOP)
     WTF_EXPORT_PRIVATE static void setWakeUpCallback(WTF::Function<void()>&&);
 #endif
 
@@ -172,7 +172,9 @@ public:
         bool m_isRepeating { false };
         Seconds m_interval { 0 };
 #elif USE(HAIKU_EVENT_LOOP)
-		BMessageRunner* m_messageRunner;
+        BMessageRunner* m_messageRunner;
+        void timerFired();
+        friend class LoopHandler;
 #elif USE(GENERIC_EVENT_LOOP)
         bool isActiveWithLock() const WTF_REQUIRES_LOCK(m_runLoop->m_loopLock);
         void stopWithLock() WTF_REQUIRES_LOCK(m_runLoop->m_loopLock);
@@ -259,6 +261,7 @@ private:
 #elif USE(HAIKU_EVENT_LOOP)
     BHandler* m_handler;
     BLooper* m_looper;
+    friend class LoopHandler;
 #elif USE(GENERIC_EVENT_LOOP)
     void scheduleWithLock(TimerBase::ScheduledTask&) WTF_REQUIRES_LOCK(m_loopLock);
     void unscheduleWithLock(TimerBase::ScheduledTask&) WTF_REQUIRES_LOCK(m_loopLock);

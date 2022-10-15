@@ -35,17 +35,6 @@
 namespace WTF {
 
 
-struct RunLoopDispatchHandler {
-	RunLoopDispatchHandler(Function<void()>&& f)
-		: function(WTFMove(f))
-	{}
-	~RunLoopDispatchHandler() { delete runner; }
-
-	BMessageRunner* runner;
-	Function<void()>&& function;
-};
-
-
 class LoopHandler: public BHandler
 {
     public:
@@ -54,21 +43,18 @@ class LoopHandler: public BHandler
         {
         }
 
-        void MessageReceived(BMessage* message)
+        void MessageReceived(BMessage* message) override
         {
-            if (message->what == 'loop')
-                RunLoop::current().cycle(DefaultRunLoopMode);
-            else if (message->what == 'tmrf') {
+            if (message->what == 'loop') {
+                RunLoop::current().performWork();
+            } else if (message->what == 'tmrf') {
                 RunLoop::TimerBase* timer
                     = (RunLoop::TimerBase*)message->GetPointer("timer");
-                timer->fired();
-            } else if (message->what == 'daft') {
-                RunLoopDispatchHandler* handler
-                    = (RunLoopDispatchHandler*)message->GetPointer("handler");
-                handler->function();
-                delete handler;
-            } else
+                timer->timerFired();
+            } else {
+                message->PrintToStream();
                 BHandler::MessageReceived(message);
+            }
         }
 };
 
@@ -81,44 +67,48 @@ RunLoop::RunLoop()
 
 RunLoop::~RunLoop()
 {
-	stop();
+    stop();
     delete m_handler;
 }
 
 void RunLoop::run()
 {
-	BLooper* looper = BLooper::LooperForThread(find_thread(NULL));
-	if (!looper) {
-		current().m_looper = looper = new BLooper();
-	} else if (looper != be_app) {
-		fprintf(stderr, "Add handler to existing RunLoop looper\n");
-	}
-	looper->LockLooper();
-	looper->AddHandler(current().m_handler);
-	looper->UnlockLooper();
+    BLooper* looper = BLooper::LooperForThread(find_thread(NULL));
+    if (!looper) {
+        current().m_looper = looper = new BLooper();
+    } else if (looper != be_app) {
+        fprintf(stderr, "Add handler to existing RunLoop looper\n");
+    }
+    looper->LockLooper();
+    looper->AddHandler(current().m_handler);
+    looper->UnlockLooper();
 
-	if (current().m_looper)
-		current().m_looper->Loop();
+    if (current().m_looper) {
+        // Make sure the thread will start calling performWork as soon as it can
+        RunLoop::current().wakeUp();
+        // Then start the normal event loop
+        current().m_looper->Loop();
+    }
 }
 
 void RunLoop::stop()
 {
-	if (!m_handler->LockLooper())
-		return;
+    if (!m_handler->LockLooper())
+        return;
 
-	BLooper* looper = m_handler->Looper();
+    BLooper* looper = m_handler->Looper();
     looper->RemoveHandler(m_handler);
-	looper->Unlock();
+    looper->Unlock();
 
-	if (m_looper) {
-		thread_id thread = m_looper->Thread();
-		status_t ret;
+    if (m_looper) {
+        thread_id thread = m_looper->Thread();
+        status_t ret;
 
-		m_looper->PostMessage(B_QUIT_REQUESTED);
-		m_looper = nullptr;
+        m_looper->PostMessage(B_QUIT_REQUESTED);
+        m_looper = nullptr;
 
-		wait_for_thread(thread, &ret);
-	}
+        wait_for_thread(thread, &ret);
+    }
 }
 
 void RunLoop::wakeUp()
@@ -137,6 +127,23 @@ RunLoop::TimerBase::~TimerBase()
     stop();
 }
 
+void RunLoop::TimerBase::timerFired()
+{
+    // was timer stopped?
+    if (m_messageRunner == nullptr)
+        return;
+
+    // do we need to stop it?
+    bigtime_t interval = 0;
+    int32 count = 0;
+
+    m_messageRunner->GetInfo(&interval, &count);
+    if (count == 1)
+        stop();
+
+    fired();
+}
+
 void RunLoop::TimerBase::start(Seconds nextFireInterval, bool repeat)
 {
 	if (m_messageRunner) {
@@ -153,8 +160,13 @@ void RunLoop::TimerBase::start(Seconds nextFireInterval, bool repeat)
 
 bool RunLoop::TimerBase::isActive() const
 {
-    /* TODO do we need to check if the messages have all been sent already? */
-    return m_messageRunner != NULL;
+	m_runLoop->m_handler->LockLooper();
+
+    bool active = (m_messageRunner != NULL);
+
+	m_runLoop->m_handler->UnlockLooper();
+
+	return active;
 }
 
 void RunLoop::TimerBase::stop()
@@ -166,7 +178,11 @@ void RunLoop::TimerBase::stop()
 RunLoop::CycleResult RunLoop::cycle(RunLoopMode)
 {
     RunLoop::current().performWork();
-    return CycleResult::Continue;
+
+    if (RunLoop::current().m_handler->Looper()->IsMessageWaiting())
+        return CycleResult::Continue;
+    else
+        return CycleResult::Stop;
 }
 
 }
