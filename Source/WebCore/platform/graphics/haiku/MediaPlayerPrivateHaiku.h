@@ -86,8 +86,6 @@ class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
         std::unique_ptr<PlatformTimeRanges> buffered() const override;
         bool didLoadingProgress() const override;
 
-        void setSize(const IntSize&) override;
-
         void paint(GraphicsContext&, const FloatRect&) override;
         DestinationColorSpace colorSpace() override;
 

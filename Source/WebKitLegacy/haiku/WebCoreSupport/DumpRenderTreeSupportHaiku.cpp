@@ -155,10 +155,12 @@ BList DumpRenderTreeClient::frameChildren(BWebFrame* webFrame)
     BList childFrames;
 
     for (unsigned index = 0; index < frame->tree().childCount(); index++) {
-        WebCore::Frame *childFrame = frame->tree().child(index);
+#if 0
+        auto *childFrame = frame->tree().child(index);
         WebCore::FrameLoaderClientHaiku& client = static_cast<WebCore::FrameLoaderClientHaiku&>(childFrame->loader().client());
 
         childFrames.AddItem(client.webFrame());
+#endif
     }
 
     return childFrames;

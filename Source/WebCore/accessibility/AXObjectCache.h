@@ -723,7 +723,6 @@ inline AXTextChange AXObjectCache::textChangeForEditType(AXTextEditType) { retur
 inline void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, const String&) { }
 #endif
 inline AXTreeData AXObjectCache::treeData() { return { }; }
-inline void AXObjectCache::onSelectedChanged(Node*) {}
 
 inline AXAttributeCacheEnabler::AXAttributeCacheEnabler(AXObjectCache*) { }
 inline AXAttributeCacheEnabler::~AXAttributeCacheEnabler() { }

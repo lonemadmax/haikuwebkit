@@ -321,11 +321,6 @@ bool MediaPlayerPrivate::didLoadingProgress() const
     return progress;
 }
 
-void MediaPlayerPrivate::setSize(const IntSize&)
-{
-    notImplemented();
-}
-
 void MediaPlayerPrivate::paint(GraphicsContext& context, const FloatRect& r)
 {
     if (context.paintingDisabled())

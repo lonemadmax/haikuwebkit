@@ -89,7 +89,7 @@ static unsigned touchModifiers;
 
 WTF::Vector<BMessage*>& delayedEventQueue()
 {
-    static NeverDestroyed<WTF::Vector<BMessage*>> staticDelayedEventQueue;
+    static WTF::Vector<BMessage*> staticDelayedEventQueue;
     return staticDelayedEventQueue;
 }
 
