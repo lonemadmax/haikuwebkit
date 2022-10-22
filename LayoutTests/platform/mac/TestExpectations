@@ -94,6 +94,7 @@ http/tests/media/fairplay [ Pass ]
 media/track/track-description-cue.html [ Pass ]
 media/track/track-extended-descriptions.html [ Pass ]
 svg/filters/feDisplacementMap-filterUnits.svg [ Pass ]
+media/media-source/remoteplayback-from-source-element.html [ Pass ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
@@ -1669,11 +1670,6 @@ webkit.org/b/211856 media/video-poster-set-after-playback.html [ Pass Failure ]
 
 http/tests/frame-throttling/raf-throttle-in-cross-origin-subframe.html [ Pass Failure ]
 
-# These tests fail due to slight differences in font rendering.
-webkit.org/b/211891 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-003.xhtml [ ImageOnlyFailure ]
-webkit.org/b/211891 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-004.xhtml [ ImageOnlyFailure ]
-webkit.org/b/211891 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-rtl-001.xhtml [ ImageOnlyFailure ]
-
 webkit.org/b/212215 media/video-isplayingtoautomotiveheadunit.html [ Pass Failure ]
 
 webkit.org/b/212219 media/track/track-cue-missing.html [ Pass Failure ]
@@ -2116,7 +2112,7 @@ webkit.org/b/226299 [ BigSur ] http/tests/performance/performance-resource-timin
 [ Monterey ] imported/w3c/web-platform-tests/css/css-text-decor/text-underline-position-from-font-variable.html [ Pass ImageOnlyFailure ]
 
 # rdar://80340581 ([ Monterey ] http/tests/preload/onload_event.html is a flaky failure)
-[ Monterey ] http/tests/preload/onload_event.html [ Pass Failure ]
+http/tests/preload/onload_event.html [ Pass Failure ]
 
 # rdar://80347712 ([ Monterey ] media/video-src-blob-replay.html is a flaky timeout)
 [ Monterey ] media/video-src-blob-replay.html [ Timeout ]
@@ -2343,6 +2339,9 @@ webkit.org/b/243515 svg/compositing/svg-poster-circle.html [ Pass ImageOnlyFailu
 webkit.org/b/243515 [ Monterey+ ] svg/compositing/outermost-svg-with-border-padding.html [ Pass ImageOnlyFailure ]
 webkit.org/b/243515 [ Monterey+ ] svg/compositing/outermost-svg-directly-composited-transformed-group-child.html [ Pass ImageOnlyFailure ]
 
+webkit.org/b/246356 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/autoplay-allowed-by-feature-policy.https.sub.html [ Pass Failure ]
+webkit.org/b/246356 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/autoplay-default-feature-policy.https.sub.html [ Pass Failure ]
+
 # The following test only fail on Mac EWS bots.
 webkit.org/b/244012 imported/w3c/web-platform-tests/css/css-transforms/transform-3d-rotateY-stair-below-001.xht [ Pass ImageOnlyFailure ]
 
@@ -2357,6 +2356,9 @@ imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allow
 imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-some.https.sub.html [ DumpJSConsoleLogInStdErr Failure Pass ]
 imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-disallowed-for-all.https.sub.html [ DumpJSConsoleLogInStdErr Failure Pass ]
 
+webkit.org/b/246355 imported/w3c/web-platform-tests/import-maps/multiple-import-maps/basic.html [ Pass Failure ]
+webkit.org/b/246355 imported/w3c/web-platform-tests/import-maps/multiple-import-maps/with-errors.html [ Pass Failure ]
+
 # These tests have similar harness errors and timeouts. See webkit.org/b/244900
 [ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html [ Pass Timeout Failure ]
 [ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html [ Pass Timeout Failure ]
@@ -2368,8 +2370,6 @@ webkit.org/b/244943 imported/w3c/web-platform-tests/html/capability-delegation/d
 
 webkit.org/b/245092 webaudio/offlineaudiocontext-gc.html [ Pass Failure ]
 
-webkit.org/b/245733 [ Monterey ] fast/text/hyphenate-avoid-orphaned-word.html [ Failure ]
-
 webkit.org/b/245994 imported/w3c/web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.worker.html [ Pass Failure ]
 
 # webkit.org/b/246170 4X http/wpt/webauthn/public-key-credential(Layout tests) are constant crashes
@@ -2377,3 +2377,11 @@ webkit.org/b/245994 imported/w3c/web-platform-tests/streams/readable-byte-stream
 [ Release ] http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Skip ]
 [ Release ] http/wpt/webauthn/public-key-credential-get-failure-hid-silent.https.html [ Skip ]
 [ Release ] http/wpt/webauthn/public-key-credential-create-success-hid.https.html [ Skip ]
+
+webkit.org/b/246427 [ Debug ] imported/w3c/web-platform-tests/preload/preload-referrer-policy.html [ Pass Failure ]
+
+# webkit.org/b/243681  Newly imported tests that fail on BigSur+
+[ BigSur+ Debug ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.html?101-last [ Failure ]
+[ BigSur+ Release ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.html?101-last [ Pass Failure ]
+[ BigSur+ Debug ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.worker.html?101-last [ Failure ]
+[ BigSur+ Release ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.worker.html?101-last [ Pass Failure ]

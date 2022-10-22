@@ -108,6 +108,10 @@ static uint64_t generateListenerID()
 
 void WebFrame::initWithCoreMainFrame(WebPage& page, Frame& coreFrame)
 {
+    ASSERT(!m_frameID);
+    m_frameID = coreFrame.frameID();
+    WebProcess::singleton().addWebFrame(frameID(), this);
+
     page.send(Messages::WebPageProxy::DidCreateMainFrame(frameID()));
 
     m_coreFrame = coreFrame;
@@ -115,29 +119,28 @@ void WebFrame::initWithCoreMainFrame(WebPage& page, Frame& coreFrame)
     m_coreFrame->init();
 }
 
-Ref<WebFrame> WebFrame::createSubframe(WebPage* page, const AtomString& frameName, HTMLFrameOwnerElement* ownerElement)
+Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const AtomString& frameName, HTMLFrameOwnerElement& ownerElement)
 {
-    auto frame = create();
-    page->send(Messages::WebPageProxy::DidCreateSubframe(frame->frameID()));
-
-    auto coreFrame = Frame::create(page->corePage(), ownerElement, makeUniqueRef<WebFrameLoaderClient>(frame.get()));
+    auto frame = create(page);
+    auto coreFrame = Frame::create(page.corePage(), &ownerElement, makeUniqueRef<WebFrameLoaderClient>(frame.get()));
     frame->m_coreFrame = coreFrame;
 
+    ASSERT(!frame->m_frameID);
+    frame->m_frameID = coreFrame->frameID();
+    WebProcess::singleton().addWebFrame(coreFrame->frameID(), frame.ptr());
+    page.send(Messages::WebPageProxy::DidCreateSubframe(coreFrame->frameID(), parent.frameID()));
+
     coreFrame->tree().setName(frameName);
-    if (ownerElement) {
-        ASSERT(ownerElement->document().frame());
-        ownerElement->document().frame()->tree().appendChild(coreFrame.get());
-    }
+    ASSERT(ownerElement.document().frame());
+    ownerElement.document().frame()->tree().appendChild(coreFrame.get());
     coreFrame->init();
 
     return frame;
 }
 
-WebFrame::WebFrame()
-    : m_frameID(FrameIdentifier::generate())
+WebFrame::WebFrame(WebPage& page)
+    : m_page(page)
 {
-    WebProcess::singleton().addWebFrame(m_frameID, this);
-
 #ifndef NDEBUG
     webFrameCounter.increment();
 #endif
@@ -165,16 +168,19 @@ WebPage* WebFrame::page() const
 {
     if (!m_coreFrame)
         return nullptr;
-    
+
     if (auto* page = m_coreFrame->page())
         return &WebPage::fromCorePage(*page);
 
     return nullptr;
 }
 
-WebFrame* WebFrame::fromCoreFrame(const Frame& frame)
+WebFrame* WebFrame::fromCoreFrame(const AbstractFrame& frame)
 {
-    auto* webFrameLoaderClient = toWebFrameLoaderClient(frame.loader().client());
+    auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+    if (!localFrame)
+        return nullptr;
+    auto* webFrameLoaderClient = toWebFrameLoaderClient(localFrame->loader().client());
     if (!webFrameLoaderClient)
         return nullptr;
 
@@ -196,16 +202,22 @@ FrameInfoData WebFrame::info() const
         ResourceRequest(url()),
         SecurityOriginData::fromFrame(m_coreFrame.get()),
         m_coreFrame ? m_coreFrame->tree().name().string() : String(),
-        m_frameID,
+        frameID(),
         parent ? std::optional<WebCore::FrameIdentifier> { parent->frameID() } : std::nullopt,
     };
 
     return info;
 }
 
+WebCore::FrameIdentifier WebFrame::frameID() const
+{
+    ASSERT(m_frameID);
+    return m_frameID;
+}
+
 void WebFrame::invalidate()
 {
-    WebProcess::singleton().removeWebFrame(m_frameID);
+    WebProcess::singleton().removeWebFrame(frameID(), m_page ? std::optional<WebPageProxyIdentifier>(m_page->webPageProxyIdentifier()) : std::nullopt);
     m_coreFrame = 0;
 }
 
@@ -355,12 +367,14 @@ String WebFrame::contentsAsString() const
 
     if (isFrameSet()) {
         StringBuilder builder;
-        for (Frame* child = m_coreFrame->tree().firstChild(); child; child = child->tree().nextSibling()) {
+        for (AbstractFrame* child = m_coreFrame->tree().firstChild(); child; child = child->tree().nextSibling()) {
             if (!builder.isEmpty())
                 builder.append(' ');
 
             WebFrame* webFrame = WebFrame::fromCoreFrame(*child);
             ASSERT(webFrame);
+            if (!webFrame)
+                continue;
 
             builder.append(webFrame->contentsAsString());
         }
@@ -485,9 +499,11 @@ Ref<API::Array> WebFrame::childFrames()
     Vector<RefPtr<API::Object>> vector;
     vector.reserveInitialCapacity(size);
 
-    for (Frame* child = m_coreFrame->tree().firstChild(); child; child = child->tree().nextSibling()) {
+    for (AbstractFrame* child = m_coreFrame->tree().firstChild(); child; child = child->tree().nextSibling()) {
         WebFrame* webFrame = WebFrame::fromCoreFrame(*child);
         ASSERT(webFrame);
+        if (!webFrame)
+            continue;
         vector.uncheckedAppend(webFrame);
     }
 

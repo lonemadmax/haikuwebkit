@@ -64,7 +64,7 @@ namespace FileSystemImpl {
 // PlatformFileHandle
 #if USE(GLIB) && !OS(WINDOWS)
 typedef GFileIOStream* PlatformFileHandle;
-const PlatformFileHandle invalidPlatformFileHandle = 0;
+const PlatformFileHandle invalidPlatformFileHandle = nullptr;
 #elif OS(WINDOWS)
 typedef HANDLE PlatformFileHandle;
 // FIXME: -1 is INVALID_HANDLE_VALUE, defined in <winbase.h>. Chromium tries to
@@ -77,7 +77,7 @@ const PlatformFileHandle invalidPlatformFileHandle = -1;
 
 // PlatformFileID
 #if USE(GLIB) && !OS(WINDOWS)
-typedef uint64_t PlatformFileID;
+typedef CString PlatformFileID;
 #elif OS(WINDOWS)
 typedef FILE_ID_128 PlatformFileID;
 #else

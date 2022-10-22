@@ -69,7 +69,7 @@ ProvisionalPageProxy::ProvisionalPageProxy(WebPageProxy& page, Ref<WebProcessPro
     , m_processSwapRequestedByClient(processSwapRequestedByClient)
     , m_isProcessSwappingOnNavigationResponse(isProcessSwappingOnNavigationResponse)
     , m_provisionalLoadURL(isProcessSwappingOnNavigationResponse ? request.url() : URL())
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
     , m_provisionalLoadActivity(m_process->throttler().foregroundActivity("Provisional Load"_s))
 #endif
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
@@ -96,8 +96,7 @@ ProvisionalPageProxy::ProvisionalPageProxy(WebPageProxy& page, Ref<WebProcessPro
     if (suspendedPage) {
         ASSERT(&suspendedPage->process() == m_process.ptr());
         suspendedPage->unsuspend();
-        m_mainFrame = WebFrameProxy::create(m_page, suspendedPage->mainFrameID());
-        m_process->frameCreated(suspendedPage->mainFrameID(), *m_mainFrame);
+        m_mainFrame = &suspendedPage->mainFrame();
     }
 
     initializeWebPage(websitePolicies);
@@ -228,13 +227,10 @@ inline bool ProvisionalPageProxy::validateInput(FrameIdentifier frameID, const s
 
 void ProvisionalPageProxy::didCreateMainFrame(FrameIdentifier frameID)
 {
-    PROVISIONALPAGEPROXY_RELEASE_LOG(ProcessSwapping, "didCreateMainFrame: frameID=%" PRIu64, frameID.toUInt64());
+    PROVISIONALPAGEPROXY_RELEASE_LOG(ProcessSwapping, "didCreateMainFrame: frameID=%" PRIu64, frameID.object().toUInt64());
     ASSERT(!m_mainFrame);
 
-    m_mainFrame = WebFrameProxy::create(m_page, frameID);
-
-    // Add the frame to the process wide map.
-    m_process->frameCreated(frameID, *m_mainFrame);
+    m_mainFrame = WebFrameProxy::create(m_page, m_process, frameID);
 
     // This navigation was destroyed so no need to notify of redirect.
     if (!m_page.navigationState().hasNavigation(m_navigationID))
@@ -273,7 +269,7 @@ void ProvisionalPageProxy::didStartProvisionalLoadForFrame(FrameIdentifier frame
     if (!validateInput(frameID, navigationID))
         return;
 
-    PROVISIONALPAGEPROXY_RELEASE_LOG(ProcessSwapping, "didStartProvisionalLoadForFrame: frameID=%" PRIu64, frameID.toUInt64());
+    PROVISIONALPAGEPROXY_RELEASE_LOG(ProcessSwapping, "didStartProvisionalLoadForFrame: frameID=%" PRIu64, frameID.object().toUInt64());
     ASSERT(m_provisionalLoadURL.isNull());
     m_provisionalLoadURL = url;
 
@@ -293,7 +289,7 @@ void ProvisionalPageProxy::didFailProvisionalLoadForFrame(FrameIdentifier frameI
     if (!validateInput(frameID, navigationID))
         return;
 
-    PROVISIONALPAGEPROXY_RELEASE_LOG_ERROR(ProcessSwapping, "didFailProvisionalLoadForFrame: frameID=%" PRIu64, frameID.toUInt64());
+    PROVISIONALPAGEPROXY_RELEASE_LOG_ERROR(ProcessSwapping, "didFailProvisionalLoadForFrame: frameID=%" PRIu64, frameID.object().toUInt64());
     ASSERT(!m_provisionalLoadURL.isNull());
     m_provisionalLoadURL = { };
 
@@ -301,9 +297,8 @@ void ProvisionalPageProxy::didFailProvisionalLoadForFrame(FrameIdentifier frameI
     if (auto* pageMainFrame = m_page.mainFrame())
         pageMainFrame->didFailProvisionalLoad();
 
-    WebFrameProxy* frame = m_process->webFrame(frameID);
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
     MESSAGE_CHECK(m_process, frame);
-
     m_page.didFailProvisionalLoadForFrameShared(m_process.copyRef(), *frame, WTFMove(frameInfo), WTFMove(request), navigationID, provisionalURL, error, willContinueLoading, userData); // May delete |this|.
 }
 
@@ -312,7 +307,7 @@ void ProvisionalPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameI
     if (!validateInput(frameID, navigationID))
         return;
 
-    PROVISIONALPAGEPROXY_RELEASE_LOG(ProcessSwapping, "didCommitLoadForFrame: frameID=%" PRIu64, frameID.toUInt64());
+    PROVISIONALPAGEPROXY_RELEASE_LOG(ProcessSwapping, "didCommitLoadForFrame: frameID=%" PRIu64, frameID.object().toUInt64());
     m_provisionalLoadURL = { };
     m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID);
 

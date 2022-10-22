@@ -29,8 +29,10 @@
 
 #pragma once
 
+#include "CSSAtRuleID.h"
 #include "CSSParser.h"
 #include "CSSParserTokenRange.h"
+#include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include <memory>
 #include <wtf/Vector.h>
@@ -47,7 +49,10 @@ class StyleRuleKeyframe;
 class StyleRule;
 class StyleRuleBase;
 class StyleRuleCharset;
+class StyleRuleContainer;
 class StyleRuleFontFace;
+class StyleRuleFontFeatureValues;
+class StyleRuleFontFeatureValuesBlock;
 class StyleRuleFontPaletteValues;
 class StyleRuleImport;
 class StyleRuleKeyframes;
@@ -80,6 +85,7 @@ public:
         RegularRules,
         KeyframeRules,
         CounterStyleRules,
+        FontFeatureValuesRules,
         NoRules, // For parsing at-rules inside declaration lists
     };
 
@@ -107,7 +113,8 @@ private:
     enum RuleListType {
         TopLevelRuleList,
         RegularRuleList,
-        KeyframesRuleList
+        KeyframesRuleList,
+        FontFeatureValuesRuleList,
     };
 
     // Returns whether the first encountered rule was valid
@@ -125,6 +132,8 @@ private:
     RefPtr<StyleRuleSupports> consumeSupportsRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleViewport> consumeViewportRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleFontFace> consumeFontFaceRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
+    RefPtr<StyleRuleFontFeatureValuesBlock> consumeFontFeatureValuesRuleBlock(CSSAtRuleID, CSSParserTokenRange prelude, CSSParserTokenRange block);
+    RefPtr<StyleRuleFontFeatureValues> consumeFontFeatureValuesRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleFontPaletteValues> consumeFontPaletteValuesRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleKeyframes> consumeKeyframesRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRulePage> consumePageRule(CSSParserTokenRange prelude, CSSParserTokenRange block);

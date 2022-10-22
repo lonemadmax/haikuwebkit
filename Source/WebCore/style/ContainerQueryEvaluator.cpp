@@ -32,7 +32,6 @@
 #include "Document.h"
 #include "MediaFeatureNames.h"
 #include "MediaList.h"
-#include "MediaQuery.h"
 #include "NodeRenderStyle.h"
 #include "RenderView.h"
 #include "StyleRule.h"
@@ -164,19 +163,11 @@ const Element* ContainerQueryEvaluator::selectContainer(OptionSet<CQ::Axis> axes
     return { };
 }
 
-auto ContainerQueryEvaluator::evaluateQueryInParens(const CQ::QueryInParens& queryInParens, const SelectedContainer& container) const -> MQ::EvaluationResult
+auto ContainerQueryEvaluator::evaluateFeature(const MQ::Feature& sizeFeature, const SelectedContainer& container) const -> MQ::EvaluationResult
 {
-    return WTF::switchOn(queryInParens, [&](const CQ::ContainerCondition& containerCondition) {
-        return evaluateCondition(containerCondition, container);
-    }, [&](const CQ::SizeFeature& sizeFeature) {
-        return evaluateSizeFeature(sizeFeature, container);
-    }, [&](const CQ::UnknownQuery&) {
+    if (!sizeFeature.validSchema)
         return MQ::EvaluationResult::Unknown;
-    });
-}
 
-auto ContainerQueryEvaluator::evaluateSizeFeature(const CQ::SizeFeature& sizeFeature, const SelectedContainer& container) const -> MQ::EvaluationResult
-{
     // "If the query container does not have a principal box, or the principal box is not a layout containment box,
     // or the query container does not support container size queries on the relevant axes, then the result of
     // evaluating the size feature is unknown."

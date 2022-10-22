@@ -99,6 +99,7 @@ class WatchpointSet;
     macro(CachedSpecialPropertyAdaptiveStructure, CachedSpecialPropertyAdaptiveStructureWatchpoint) \
     macro(StructureChainInvalidation, StructureChainInvalidationWatchpoint) \
     macro(ObjectAdaptiveStructure, ObjectAdaptiveStructureWatchpoint) \
+    macro(Chained, ChainedWatchpoint) \
 
 #if ENABLE(JIT)
 #define JSC_WATCHPOINT_TYPES_WITHOUT_DFG(macro) \

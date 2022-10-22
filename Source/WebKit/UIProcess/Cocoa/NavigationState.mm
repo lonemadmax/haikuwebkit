@@ -104,7 +104,7 @@ NavigationState::NavigationState(WKWebView *webView)
     : m_webView(webView)
     , m_navigationDelegateMethods()
     , m_historyDelegateMethods()
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
     , m_releaseNetworkActivityTimer(RunLoop::current(), this, &NavigationState::releaseNetworkActivityAfterLoadCompletion)
 #endif
 {
@@ -684,9 +684,11 @@ void NavigationState::NavigationClient::didStartProvisionalNavigation(WebPagePro
         return;
 
     // FIXME: We should assert that navigation is not null here, but it's currently null for some navigations through the back/forward cache.
-    if (m_navigationState->m_navigationDelegateMethods.webViewDidStartProvisionalNavigationUserInfo)
+    if (m_navigationState->m_navigationDelegateMethods.webViewDidStartProvisionalNavigationUserInfo) {
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [(id <WKNavigationDelegatePrivate>)navigationDelegate _webView:m_navigationState->m_webView didStartProvisionalNavigation:wrapper(navigation) userInfo:userInfo ? static_cast<id <NSSecureCoding>>(userInfo->wrapper()) : nil];
-    else if (m_navigationState->m_navigationDelegateMethods.webViewDidStartProvisionalNavigation)
+        ALLOW_DEPRECATED_DECLARATIONS_END
+    } else if (m_navigationState->m_navigationDelegateMethods.webViewDidStartProvisionalNavigation)
         [navigationDelegate webView:m_navigationState->m_webView didStartProvisionalNavigation:wrapper(navigation)];
 }
 
@@ -1364,7 +1366,7 @@ void NavigationState::willChangeIsLoading()
     [m_webView willChangeValueForKey:@"loading"];
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
 void NavigationState::releaseNetworkActivity(NetworkActivityReleaseReason reason)
 {
     if (!m_networkActivity)
@@ -1385,11 +1387,13 @@ void NavigationState::releaseNetworkActivity(NetworkActivityReleaseReason reason
 
 void NavigationState::didChangeIsLoading()
 {
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
     if (m_webView->_page->pageLoadState().isLoading()) {
+#if PLATFORM(IOS_FAMILY)
         // We do not start a network activity if a load starts after the screen has been locked.
         if ([UIApp isSuspendedUnderLock])
             return;
+#endif
 
         if (m_releaseNetworkActivityTimer.isActive()) {
             RELEASE_LOG(ProcessSuspension, "%p - NavigationState keeps its process network assertion because a new page load started", this);
@@ -1514,7 +1518,7 @@ void NavigationState::didChangeWebProcessIsResponsive()
 
 void NavigationState::didSwapWebProcesses()
 {
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
     // Transfer our background assertion from the old process to the new one.
     if (m_networkActivity)
         m_networkActivity = m_webView->_page->process().throttler().backgroundActivity("Page Load"_s).moveToUniquePtr();

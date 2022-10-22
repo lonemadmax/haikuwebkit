@@ -68,6 +68,7 @@
 #include "JSWeakSet.h"
 #include "NumberConstructor.h"
 #include "ObjectConstructorInlines.h"
+#include "ObjectPrototypeInlines.h"
 #include "Operations.h"
 #include "ParseInt.h"
 #include "RegExpGlobalDataInlines.h"
@@ -405,6 +406,24 @@ JSC_DEFINE_JIT_OPERATION(operationObjectAssignUntyped, void, (JSGlobalObject* gl
 
     scope.release();
     objectAssignGeneric(globalObject, vm, target, source);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationObjectToStringUntyped, JSString*, (JSGlobalObject* globalObject, EncodedJSValue encodedValue))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+
+    return objectPrototypeToString(globalObject, JSValue::decode(encodedValue));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationObjectToStringObjectSlow, JSString*, (JSGlobalObject* globalObject, JSObject* object))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+
+    return objectPrototypeToStringSlow(globalObject, object);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationCreateThis, JSCell*, (JSGlobalObject* globalObject, JSObject* constructor, uint32_t inlineCapacity))
@@ -1144,6 +1163,35 @@ JSC_DEFINE_JIT_OPERATION(operationArrayPushDoubleMultiple, EncodedJSValue, (JSGl
         array->pushInline(globalObject, JSValue(JSValue::EncodeAsDouble, values[i]));
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
     }
+    return JSValue::encode(jsNumber(array->length()));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationArrayPushMultipleSlow, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, void* buffer, int32_t elementCount))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    ActiveScratchBufferScope activeScratchBufferScope(ScratchBuffer::fromData(buffer), elementCount);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    // If JS interaction happens, and if it invokes DFG functions, then scratch buffer can be overridden. Thus we first need to copy all of them into the local buffer.
+    MarkedArgumentBuffer arguments;
+    arguments.ensureCapacity(elementCount);
+
+    EncodedJSValue* values = static_cast<EncodedJSValue*>(buffer);
+    for (int32_t i = 0; i < elementCount; ++i)
+        arguments.append(JSValue::decode(values[i]));
+
+    if (UNLIKELY(arguments.hasOverflowed())) {
+        throwOutOfMemoryError(globalObject, scope);
+        return { };
+    }
+
+    for (int32_t i = 0; i < elementCount; ++i) {
+        array->pushInline(globalObject, arguments.at(i));
+        RETURN_IF_EXCEPTION(scope, { });
+    }
+
     return JSValue::encode(jsNumber(array->length()));
 }
 
@@ -2696,15 +2744,24 @@ JSC_DEFINE_JIT_OPERATION(operationStringSubstr, JSCell*, (JSGlobalObject* global
     return jsSubstring(vm, globalObject, jsCast<JSString*>(cell), from, span);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationStringSlice, JSCell*, (JSGlobalObject* globalObject, JSCell* cell, int32_t start, int32_t end))
+JSC_DEFINE_JIT_OPERATION(operationStringSlice, JSString*, (JSGlobalObject* globalObject, JSString* string, int32_t start))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
 
-    JSString* string = asString(cell);
     static_assert(static_cast<uint64_t>(JSString::MaxLength) <= static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
-    return stringSlice(globalObject, vm, string, string->length(), start, end);
+    return stringSlice<int32_t>(globalObject, vm, string, string->length(), start, std::nullopt);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationStringSliceWithEnd, JSString*, (JSGlobalObject* globalObject, JSString* string, int32_t start, int32_t end))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+
+    static_assert(static_cast<uint64_t>(JSString::MaxLength) <= static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
+    return stringSlice<int32_t>(globalObject, vm, string, string->length(), start, end);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationStringSubstring, JSString*, (JSGlobalObject* globalObject, JSString* string, int32_t start))

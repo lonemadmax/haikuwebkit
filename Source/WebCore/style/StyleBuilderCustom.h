@@ -1563,21 +1563,8 @@ inline void BuilderCustom::applyValueContent(BuilderState& builderState, CSSValu
 
     bool didSet = false;
     for (auto& item : downcast<CSSValueList>(value)) {
-        if (is<CSSImageGeneratorValue>(item)) {
-            if (is<CSSGradientValue>(item))
-                builderState.style().setContent(StyleGeneratedImage::create(downcast<CSSGradientValue>(builderState.resolveImageStyles(item.get()).get())), didSet);
-            else
-                builderState.style().setContent(StyleGeneratedImage::create(downcast<CSSImageGeneratorValue>(builderState.resolveImageStyles(item.get()).get())), didSet);
-            didSet = true;
-        }
-
-        if (is<CSSImageSetValue>(item)) {
-            builderState.style().setContent(StyleImageSet::create(downcast<CSSImageSetValue>(builderState.resolveImageStyles(item.get()).get())), didSet);
-            didSet = true;
-        }
-
-        if (is<CSSImageValue>(item)) {
-            builderState.style().setContent(StyleCachedImage::create(downcast<CSSImageValue>(builderState.resolveImageStyles(item.get()).get())), didSet);
+        if (is<CSSImageGeneratorValue>(item) || is<CSSImageSetValue>(item) || is<CSSImageValue>(item)) {
+            builderState.style().setContent(builderState.createStyleImage(item.get()), didSet);
             didSet = true;
             continue;
         }
@@ -1886,7 +1873,7 @@ inline void BuilderCustom::applyValueFontSize(BuilderState& builderState, CSSVal
         case CSSValueLarge:
         case CSSValueXLarge:
         case CSSValueXxLarge:
-        case CSSValueWebkitXxxLarge:
+        case CSSValueXxxLarge:
             size = Style::fontSizeForKeyword(ident, fontDescription.useFixedDefaultSize(), builderState.document());
             fontDescription.setKeywordSizeFromIdentifier(ident);
             break;
@@ -1903,7 +1890,7 @@ inline void BuilderCustom::applyValueFontSize(BuilderState& builderState, CSSVal
             break;
         }
     } else {
-        fontDescription.setIsAbsoluteSize(parentIsAbsoluteSize || !(primitiveValue.isPercentage() || primitiveValue.isFontRelativeLength()));
+        fontDescription.setIsAbsoluteSize(parentIsAbsoluteSize || !primitiveValue.isParentFontRelativeLength());
         if (primitiveValue.isLength()) {
             auto conversionData = builderState.cssToLengthConversionData().copyForFontSize();
             size = primitiveValue.computeLength<float>(conversionData);

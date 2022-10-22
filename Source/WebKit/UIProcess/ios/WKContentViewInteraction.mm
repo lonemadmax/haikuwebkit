@@ -3589,23 +3589,26 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     if (_page->editorState().selectionIsNone)
         return nil;
 
-    static NeverDestroyed plainTextTypes = [] {
-        auto plainTextTypes = adoptNS([[NSMutableArray alloc] init]);
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        [plainTextTypes addObject:(id)kUTTypeURL];
-ALLOW_DEPRECATED_DECLARATIONS_END
-        [plainTextTypes addObjectsFromArray:UIPasteboardTypeListString];
-        return plainTextTypes;
+    static NeverDestroyed supportedTypes = [] {
+        auto types = adoptNS([[NSMutableArray alloc] init]);
+        [types addObject:@(WebCore::PasteboardCustomData::cocoaType().characters())];
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        [types addObject:(id)kUTTypeURL];
+        ALLOW_DEPRECATED_DECLARATIONS_END
+        [types addObjectsFromArray:UIPasteboardTypeListString];
+        return types;
     }();
-    static NeverDestroyed richTypes = [] {
-        auto richTypes = adoptNS([[NSMutableArray alloc] init]);
-        [richTypes addObject:WebCore::WebArchivePboardType];
-        [richTypes addObjectsFromArray:UIPasteboardTypeListImage];
-        [richTypes addObjectsFromArray:plainTextTypes.get().get()];
-        return richTypes;
+    static NeverDestroyed supportedTypesWithImageAndWebArchive = [] {
+        auto types = adoptNS([[NSMutableArray alloc] init]);
+        [types addObject:WebCore::WebArchivePboardType];
+        [types addObjectsFromArray:UIPasteboardTypeListImage];
+        [types addObjectsFromArray:supportedTypes.get().get()];
+        return types;
     }();
 
-    return (_page->editorState().isContentRichlyEditable) ? richTypes.get().get() : plainTextTypes.get().get();
+    if (_page->editorState().isContentRichlyEditable)
+        return supportedTypesWithImageAndWebArchive.get().get();
+    return supportedTypes.get().get();
 }
 
 #define FORWARD_ACTION_TO_WKWEBVIEW(_action) \
@@ -3805,6 +3808,10 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
     changes.setFontSize(font.pointSize);
     changes.setBold(font.traits & UIFontTraitBold);
     changes.setItalic(font.traits & UIFontTraitItalic);
+
+    if (NSString *textStyleAttribute = [font.fontDescriptor.fontAttributes objectForKey:UIFontDescriptorTextStyleAttribute])
+        changes.setFontFamily(textStyleAttribute);
+
     _page->changeFont(WTFMove(changes));
 }
 
@@ -3995,18 +4002,6 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
             }
         }
 #endif // PLATFORM(IOS)
-
-        auto focusedDocumentOrigin = editorState.originIdentifierForPasteboard;
-        if (focusedDocumentOrigin.isEmpty())
-            return NO;
-
-        NSArray *allCustomPasteboardData = [pasteboard dataForPasteboardType:@(WebCore::PasteboardCustomData::cocoaType().characters()) inItemSet:indices];
-        for (NSData *data in allCustomPasteboardData) {
-            auto buffer = WebCore::SharedBuffer::create(data);
-            if (WebCore::PasteboardCustomData::fromSharedBuffer(buffer.get()).origin() == focusedDocumentOrigin)
-                return YES;
-        }
-        return NO;
     }
 
     if (action == @selector(copy:)) {
@@ -8084,6 +8079,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 {
     WebCore::ShareDataWithParsedURL shareData;
     shareData.url = { url };
+    shareData.originator = WebCore::ShareDataOriginator::User;
     [self _showShareSheet:shareData inRect: { [self convertRect:boundingRect toView:self.webView] } completionHandler:nil];
 }
 
@@ -8092,6 +8088,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     WebCore::ShareDataWithParsedURL shareData;
     NSString* fileName = [NSString stringWithFormat:@"%@.png", (NSString*)WEB_UI_STRING("Shared Image", "Default name for the file created for a shared image with no explicit name.")];
     shareData.files = { { fileName, WebCore::SharedBuffer::create(UIImagePNGRepresentation(image)) } };
+    shareData.originator = WebCore::ShareDataOriginator::User;
     [self _showShareSheet:shareData inRect: { [self convertRect:boundingRect toView:self.webView] } completionHandler:nil];
 }
 
@@ -10127,7 +10124,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     interactionInformationRequest.includeCaretContext = true;
     interactionInformationRequest.includeHasDoubleClickHandler = false;
 
-    BOOL didSynchronouslyReplyWithApproximation = false;
+    __block BOOL didSynchronouslyReplyWithApproximation = false;
     if (![self _currentPositionInformationIsValidForRequest:interactionInformationRequest] && self.webView._editable && !_positionInformation.shouldNotUseIBeamInEditableContent) {
         didSynchronouslyReplyWithApproximation = true;
         completion([UIPointerRegion regionWithRect:self.bounds identifier:editablePointerRegionIdentifier]);
@@ -10147,14 +10144,14 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
         if (!_deferredPointerInteractionRequest)
             _hasOutstandingPointerInteractionRequest = NO;
 
-        if (didSynchronouslyReplyWithApproximation) {
+        if (didSynchronouslyReplyWithApproximation)
             [interaction invalidate];
-            return;
-        }
-
-        completion([self pointerRegionForPositionInformation:interactionInformation point:request.location]);
+        else
+            completion([self pointerRegionForPositionInformation:interactionInformation point:request.location]);
 
         if (_deferredPointerInteractionRequest) {
+            didSynchronouslyReplyWithApproximation = false;
+
             auto deferredRequest = std::exchange(_deferredPointerInteractionRequest, std::nullopt);
             [self doAfterPositionInformationUpdate:^(WebKit::InteractionInformationAtPosition interactionInformation) {
                 replyHandler(interactionInformation, deferredRequest->second.get());

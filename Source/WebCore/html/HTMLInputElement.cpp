@@ -70,7 +70,7 @@
 #include "SearchInputType.h"
 #include "Settings.h"
 #include "StepRange.h"
-#include "StyleGeneratedImage.h"
+#include "StyleGradientImage.h"
 #include "TextControlInnerElements.h"
 #include "TypedElementDescendantIterator.h"
 #include <wtf/IsoMallocInlines.h>
@@ -1270,8 +1270,8 @@ ExceptionOr<void> HTMLInputElement::showPicker()
     // In cross-origin iframes it should throw a "SecurityError" DOMException except on file and color. In same-origin iframes it should work fine.
     // https://github.com/whatwg/html/issues/6909#issuecomment-917138991
     if (!m_inputType->allowsShowPickerAcrossFrames()) {
-        Frame& topFrame = frame->tree().top();
-        if (!frame->document()->securityOrigin().isSameOriginAs(topFrame.document()->securityOrigin()))
+        auto* localTopFrame = dynamicDowncast<LocalFrame>(frame->tree().top());
+        if (!localTopFrame || !frame->document()->securityOrigin().isSameOriginAs(localTopFrame->document()->securityOrigin()))
             return Exception { SecurityError, "Input showPicker() called from cross-origin iframe."_s };
     }
 
@@ -2178,7 +2178,7 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
         textBlockStyle.setMaxWidth(Length { 100, LengthType::Percent });
         textBlockStyle.setColor(Color::black.colorWithAlphaByte(153));
         textBlockStyle.setTextOverflow(TextOverflow::Clip);
-        textBlockStyle.setMaskImage(StyleGeneratedImage::create(autoFillStrongPasswordMaskImage()));
+        textBlockStyle.setMaskImage(StyleGradientImage::create(autoFillStrongPasswordMaskImage()));
         // A stacking context is needed for the mask.
         if (textBlockStyle.hasAutoUsedZIndex())
             textBlockStyle.setUsedZIndex(0);

@@ -1271,13 +1271,17 @@ bool EventHandler::scrollRecursively(ScrollDirection direction, ScrollGranularit
     if (scrollOverflow(direction, granularity, startingNode))
         return true;    
     RefPtr frame = &m_frame;
-    RefPtr view = frame->view();
+    RefPtr localFrame = frame;
+    if (!localFrame)
+        return false;
+    RefPtr view = localFrame->view();
     if (view && view->scroll(direction, granularity))
         return true;
-    frame = frame->tree().parent();
-    if (!frame)
+    RefPtr parent = frame->tree().parent();
+    if (!parent)
         return false;
-    return frame->eventHandler().scrollRecursively(direction, granularity, m_frame.ownerElement());
+    RefPtr localParent = dynamicDowncast<LocalFrame>(parent.get());
+    return localParent->eventHandler().scrollRecursively(direction, granularity, m_frame.ownerElement());
 }
 
 bool EventHandler::logicalScrollRecursively(ScrollLogicalDirection direction, ScrollGranularity granularity, Node* startingNode)
@@ -1304,11 +1308,14 @@ bool EventHandler::logicalScrollRecursively(ScrollLogicalDirection direction, Sc
     if (scrolled)
         return true;
 
-    frame = frame->tree().parent();
-    if (!frame)
+    RefPtr parent = frame->tree().parent();
+    if (!parent)
+        return false;
+    RefPtr localParent = dynamicDowncast<LocalFrame>(parent.get());
+    if (!localParent)
         return false;
 
-    return frame->eventHandler().logicalScrollRecursively(direction, granularity, m_frame.ownerElement());
+    return localParent->eventHandler().logicalScrollRecursively(direction, granularity, m_frame.ownerElement());
 }
 
 IntPoint EventHandler::lastKnownMousePosition() const
@@ -2273,7 +2280,7 @@ bool EventHandler::dispatchDragEvent(const AtomString& eventType, Element& dragT
 
     auto dragEvent = DragEvent::create(eventType, Event::CanBubble::Yes, Event::IsCancelable::Yes, Event::IsComposed::Yes,
         event.timestamp().approximateMonotonicTime(), &m_frame.windowProxy(), 0,
-        event.globalPosition(), event.position(), event.movementDelta(),
+        event.globalPosition(), event.position(), event.movementDelta().x(), event.movementDelta().y(),
         event.modifiers(), 0, 0, nullptr, event.force(), NoTap, &dataTransfer);
 
     dragTarget.dispatchEvent(dragEvent);
@@ -4460,11 +4467,14 @@ bool EventHandler::keyboardScrollRecursively(std::optional<ScrollDirection> dire
         return true;
 
     RefPtr frame = &m_frame;
-    frame = frame->tree().parent();
-    if (!frame)
+    RefPtr parent = frame->tree().parent();
+    if (!parent)
+        return false;
+    RefPtr localParent = dynamicDowncast<LocalFrame>(parent.get());
+    if (!localParent)
         return false;
 
-    return frame->eventHandler().keyboardScrollRecursively(direction, granularity, m_frame.ownerElement());
+    return localParent->eventHandler().keyboardScrollRecursively(direction, granularity, m_frame.ownerElement());
 }
 
 void EventHandler::defaultArrowEventHandler(FocusDirection focusDirection, KeyboardEvent& event)

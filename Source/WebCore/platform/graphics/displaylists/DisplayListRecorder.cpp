@@ -112,7 +112,7 @@ const GraphicsContextState& Recorder::state() const
 
 void Recorder::didUpdateState(GraphicsContextState& state)
 {
-    currentState().state.mergeChanges(state, currentState().lastDrawingState);
+    currentState().state.mergeLastChanges(state, currentState().lastDrawingState);
     state.didApplyChanges();
 }
 
@@ -575,6 +575,17 @@ void Recorder::paintFrameForMedia(MediaPlayer& player, const FloatRect& destinat
     }
     ASSERT(player.identifier());
     recordPaintFrameForMedia(player, destination);
+}
+#endif
+
+#if ENABLE(WEB_CODECS)
+void Recorder::paintVideoFrame(VideoFrame& frame, const FloatRect& destination, bool shouldDiscardAlpha)
+{
+    if (!frame.isRemoteProxy()) {
+        GraphicsContext::paintVideoFrame(frame, destination, shouldDiscardAlpha);
+        return;
+    }
+    // FIXME: Implement recording.
 }
 #endif
 

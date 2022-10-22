@@ -147,6 +147,8 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     wasm/js/WebAssemblyModulePrototype.cpp
     wasm/js/WebAssemblyRuntimeErrorConstructor.cpp
     wasm/js/WebAssemblyRuntimeErrorPrototype.cpp
+    wasm/js/WebAssemblyStructConstructor.cpp
+    wasm/js/WebAssemblyStructPrototype.cpp
     wasm/js/WebAssemblyTableConstructor.cpp
     wasm/js/WebAssemblyTablePrototype.cpp
     wasm/js/WebAssemblyTagConstructor.cpp
@@ -633,6 +635,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     bytecode/CallLinkInfo.h
     bytecode/CallMode.h
     bytecode/CallVariant.h
+    bytecode/ChainedWatchpoint.h
     bytecode/CheckPrivateBrandStatus.h
     bytecode/CheckPrivateBrandVariant.h
     bytecode/CodeBlock.h
@@ -894,6 +897,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     jit/SpillRegistersMode.h
     jit/TagRegistersMode.h
     jit/ThunkGenerator.h
+    jit/Width.h
 
     llint/LLIntOpcode.h
 

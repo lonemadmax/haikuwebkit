@@ -1433,6 +1433,10 @@ private:
                         SpecInt32Only,
                         element->prediction()));
             }
+
+            if (!elementCount)
+                node->setArrayMode(node->arrayMode().refine(m_graph, node, arrayEdge->prediction() & SpecCell, SpecInt32Only));
+
             blessArrayOperation(arrayEdge, Edge(), storageEdge);
             fixEdge<KnownCellUse>(arrayEdge);
 
@@ -1458,6 +1462,8 @@ private:
                     break;
                 case Array::Contiguous:
                 case Array::ArrayStorage:
+                case Array::SlowPutArrayStorage:
+                case Array::ForceExit:
                     speculateForBarrier(element);
                     break;
                 default:
@@ -1696,22 +1702,15 @@ private:
             
             watchHavingABadTime(node->child1().node());
 
-            JSGlobalObject* globalObject = m_graph.globalObjectFor(node->child1()->origin.semantic);
             // When we go down the fast path, we don't consult the prototype chain, so we must prove
             // that it doesn't contain any indexed properties, and that any holes will result in
             // jsUndefined().
-            Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure();
-            Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
             if (node->child1()->shouldSpeculateArray()
-                && arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
-                && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                && globalObject->arrayPrototypeChainIsSaneConcurrently(arrayPrototypeStructure, objectPrototypeStructure)
+                && m_graph.isWatchingArrayPrototypeIsSaneChainWatchpoint(node->child1().node())
                 && m_graph.isWatchingArrayIteratorProtocolWatchpoint(node->child1().node())
-                && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node())) {
-                m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
-                m_graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
+                && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node()))
                 fixEdge<ArrayUse>(node->child1());
-            } else
+            else
                 fixEdge<CellUse>(node->child1());
             break;
         }
@@ -2061,6 +2060,14 @@ private:
                 watchHavingABadTime(node);
                 fixEdge<ObjectUse>(node->child1());
             }
+            break;
+        }
+
+        case ObjectToString: {
+#if USE(JSVALUE64)
+            if (node->child1()->shouldSpeculateObject())
+                fixEdge<ObjectUse>(node->child1());
+#endif
             break;
         }
 
@@ -3831,17 +3838,7 @@ private:
 
     bool watchSaneChain(Node* node)
     {
-        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
-        Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure();
-        Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
-        if (arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
-            && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-            && globalObject->arrayPrototypeChainIsSaneConcurrently(arrayPrototypeStructure, objectPrototypeStructure)) {
-            m_graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
-            m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
-            return true;
-        }
-        return false;
+        return m_graph.isWatchingArrayPrototypeIsSaneChainWatchpoint(node);
     }
 
     void setSaneChainIfPossible(Node* node, Array::Speculation speculation)

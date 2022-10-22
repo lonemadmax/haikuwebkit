@@ -78,6 +78,9 @@ http/tests/clear-site-data [ Skip ]
 # The Screen Wake Lock API is not supportted in WebKit1.
 imported/w3c/web-platform-tests/screen-wake-lock [ Skip ]
 
+# The Screen Orientation API is not supportted in WebKit1.
+imported/w3c/web-platform-tests/screen-orientation [ Skip ]
+
 # Shared workers are only implemented for WebKit2.
 http/tests/navigation/page-cache-shared-worker.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-allowed.sub.html [ Skip ]
@@ -2113,6 +2116,9 @@ imported/w3c/web-platform-tests/html/browsers/windows/clear-window-name.https.ht
 
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/redirect-to-unparseable-url.html [ Failure Pass ]
 
+webkit.org/b/246351 imported/w3c/web-platform-tests/reporting/reporting-api-honors-limits.https.sub.html [ Failure ]
+webkit.org/b/246350 imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-sends-reports-on-violation.https.sub.html [ Pass Failure ]
+
 # These tests have been flaky on WK1 since their import.
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-nosrc.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-src-204-fragment.html [ Failure Pass ]
@@ -2140,3 +2146,5 @@ webkit.org/b/245102 imported/w3c/web-platform-tests/html/browsers/windows/auxili
 [ Debug ] imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/worker-module.http-rp/upgrade/worker-module.https.html [ Skip ]
 
 webkit.org/b/245902 [ Debug ] contentfiltering/allow-media-document.html [ Skip ]
+
+webkit.org/b/246653 [ Debug ] media/modern-media-controls/media-documents/click-on-video-should-not-pause.html [ Skip ]

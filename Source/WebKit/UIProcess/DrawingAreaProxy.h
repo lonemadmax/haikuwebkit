@@ -44,6 +44,10 @@ class MachSendRight;
 }
 #endif
 
+namespace WebCore {
+enum class DelegatedScrollingMode : uint8_t;
+}
+
 namespace WebKit {
 
 class LayerTreeContext;
@@ -65,6 +69,8 @@ public:
     DrawingAreaIdentifier identifier() const { return m_identifier; }
 
     void startReceivingMessages();
+
+    virtual WebCore::DelegatedScrollingMode delegatedScrollingMode() const;
 
     virtual void deviceScaleFactorDidChange() = 0;
 

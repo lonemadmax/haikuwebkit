@@ -411,6 +411,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webauthn/fido/U2fCommandConstructor.h
     Modules/webauthn/fido/U2fResponseConverter.h
 
+    Modules/webcodecs/WebCodecsEncodedVideoChunk.h
+    Modules/webcodecs/WebCodecsEncodedVideoChunkData.h
+    Modules/webcodecs/WebCodecsEncodedVideoChunkType.h
+
     Modules/webdatabase/DatabaseDetails.h
     Modules/webdatabase/DatabaseManager.h
     Modules/webdatabase/DatabaseManagerClient.h
@@ -616,8 +620,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/DeprecatedCSSOMValue.h
     css/DeprecatedCSSOMValueList.h
     css/FontLoadTimingOverride.h
+    css/LegacyMediaQueryEvaluator.h
     css/MediaList.h
-    css/MediaQueryEvaluator.h
     css/MediaQueryExpression.h
     css/MediaQueryParserContext.h
     css/Rect.h
@@ -733,6 +737,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/KeyboardEvent.h
     dom/LiveNodeList.h
     dom/LoadableScript.h
+    dom/LoadableScriptError.h
     dom/MessagePort.h
     dom/MessagePortIdentifier.h
     dom/MouseEvent.h

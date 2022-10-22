@@ -1,4 +1,6 @@
-CONSOLE MESSAGE: Error: assert_unreached: Not supported Reached unreachable code
+CONSOLE MESSAGE: Error: assert_unreached: assert_equals: expected 800 but got 640 Reached unreachable code
 
-FAIL Reconfiguring encoder promise_test: Unhandled rejection with value: object "InvalidStateError: VideoEncoder is not configured"
+Harness Error (FAIL), message = Error: assert_unreached: assert_equals: expected 800 but got 640 Reached unreachable code
+
+FAIL Reconfiguring encoder assert_equals: expected 16 but got 1
 

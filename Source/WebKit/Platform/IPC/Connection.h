@@ -355,12 +355,18 @@ public:
     void dispatchMessageReceiverMessage(MessageReceiver&, std::unique_ptr<Decoder>&&);
     // Can be called from any thread.
     void dispatchDidReceiveInvalidMessage(MessageName);
+
+    size_t pendingMessageCountForTesting() const;
+    void dispatchOnReceiveQueueForTesting(Function<void()>&&);
+
 private:
     Connection(Identifier, bool isServer);
     void platformInitialize(Identifier);
+    bool platformPrepareForOpen();
+    void platformOpen();
     void platformInvalidate();
 
-    bool isIncomingMessagesThrottlingEnabled() const { return !!m_incomingMessagesThrottler; }
+    bool isIncomingMessagesThrottlingEnabled() const { return m_incomingMessagesThrottlingLevel.has_value(); }
 
     static HashMap<IPC::Connection::UniqueID, Connection*>& connectionMap() WTF_REQUIRES_LOCK(s_connectionMapLock);
     
@@ -383,7 +389,8 @@ private:
     bool sendOutgoingMessage(UniqueRef<Encoder>&&);
     void connectionDidClose();
     
-    // Called on the listener thread.
+    // Called on the connection run loop.
+    void dispatchSyncStateMessages();
     void dispatchOneIncomingMessage();
     void dispatchIncomingMessages();
     void dispatchMessage(std::unique_ptr<Decoder>);
@@ -403,25 +410,17 @@ private:
 #if PLATFORM(COCOA)
     bool sendMessage(std::unique_ptr<MachMessage>);
 #endif
+    size_t numberOfMessagesToProcess(size_t totalMessages);
+    bool isThrottlingIncomingMessages() const { return *m_incomingMessagesThrottlingLevel > 0; }
 
-    class MessagesThrottler {
-        WTF_MAKE_FAST_ALLOCATED;
-    public:
-        typedef void (Connection::*DispatchMessagesFunction)();
-        MessagesThrottler(Connection&, DispatchMessagesFunction);
-
-        size_t numberOfMessagesToProcess(size_t totalMessages);
-        void scheduleMessagesDispatch();
-
-    private:
-        RunLoop::Timer<Connection> m_dispatchMessagesTimer;
-        Connection& m_connection;
-        DispatchMessagesFunction m_dispatchMessages;
-        unsigned m_throttlingLevel { 0 };
+    class SyncMessageState;
+    struct SyncMessageStateRelease {
+        void operator()(SyncMessageState*) const;
     };
 
     static Lock s_connectionMapLock;
     Client* m_client { nullptr };
+    std::unique_ptr<SyncMessageState, SyncMessageStateRelease> m_syncState;
     UniqueID m_uniqueID;
     bool m_isServer;
     std::atomic<bool> m_isValid { true };
@@ -441,11 +440,11 @@ private:
     bool m_fullySynchronousModeIsAllowedForTesting { false };
     bool m_ignoreTimeoutsForTesting { false };
     bool m_didReceiveInvalidMessage { false };
+    std::optional<uint8_t> m_incomingMessagesThrottlingLevel;
 
     // Incoming messages.
-    Lock m_incomingMessagesLock;
+    mutable Lock m_incomingMessagesLock;
     Deque<std::unique_ptr<Decoder>> m_incomingMessages WTF_GUARDED_BY_LOCK(m_incomingMessagesLock);
-    std::unique_ptr<MessagesThrottler> m_incomingMessagesThrottler;
     MessageReceiveQueueMap m_receiveQueues WTF_GUARDED_BY_LOCK(m_incomingMessagesLock);
 
     // Outgoing messages.
@@ -457,8 +456,6 @@ private:
 
     struct WaitForMessageState;
     WaitForMessageState* m_waitingForMessage WTF_GUARDED_BY_LOCK(m_waitForMessageLock) { nullptr }; // NOLINT
-
-    class SyncMessageState;
 
     Lock m_syncReplyStateLock;
     bool m_shouldWaitForSyncReplies WTF_GUARDED_BY_LOCK(m_syncReplyStateLock) { true };
@@ -500,6 +497,7 @@ private:
     void initializeSendSource();
     void resumeSendSource();
     void cancelReceiveSource();
+    void cancelSendSource();
 
     mach_port_t m_sendPort { MACH_PORT_NULL };
     OSObjectPtr<dispatch_source_t> m_sendSource;
@@ -508,7 +506,6 @@ private:
     OSObjectPtr<dispatch_source_t> m_receiveSource;
 
     std::unique_ptr<MachMessage> m_pendingOutgoingMachMessage;
-    bool m_isInitializingSendSource { false };
 
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
     bool m_wasKilled { false };

@@ -58,17 +58,31 @@
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/NetworkDataTaskCocoaAdditions.h>
 #else
-static void processPCMRequest(WebCore::PrivateClickMeasurement::PcmDataCarried, NSMutableURLRequest *) { }
 namespace WebKit {
-void enableNetworkConnectionIntegrity(NSMutableURLRequest *) { }
+void enableNetworkConnectionIntegrity(NSMutableURLRequest *, bool /* isThirdParty */) { }
 }
 #endif
 
 namespace WebKit {
 
+static NSString *lastRemoteIPAddress(NSURLSessionDataTask *task)
+{
+    // FIXME (246428): In a future patch, this should adopt CFNetwork API that retrieves the original
+    // IP address of the proxied response, rather than the proxy itself.
+    return task._incompleteTaskMetrics.transactionMetrics.lastObject.remoteAddress;
+}
+
 void setPCMDataCarriedOnRequest(WebCore::PrivateClickMeasurement::PcmDataCarried pcmDataCarried, NSMutableURLRequest *request)
 {
-    processPCMRequest(pcmDataCarried, request);
+#if ENABLE(TRACKER_DISPOSITION)
+    if (request._needsNetworkTrackingPrevention || pcmDataCarried == WebCore::PrivateClickMeasurement::PcmDataCarried::PersonallyIdentifiable)
+        return;
+
+    request._needsNetworkTrackingPrevention = YES;
+#else
+    UNUSED_PARAM(pcmDataCarried);
+    UNUSED_PARAM(request);
+#endif
 }
 
 #if USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
@@ -140,15 +154,6 @@ NSHTTPCookieStorage *NetworkDataTaskCocoa::statelessCookieStorage()
     return statelessCookieStorage.get().get();
 }
 
-#if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
-// FIXME: Remove these selector checks when macOS Big Sur has shipped.
-// https://bugs.webkit.org/show_bug.cgi?id=215280
-static bool hasCNAMEAndCookieTransformSPI(NSURLSessionDataTask* task)
-{
-    return [task respondsToSelector:@selector(_cookieTransformCallback)]
-        && [task respondsToSelector:@selector(_resolvedCNAMEChain)];
-}
-
 static WebCore::RegistrableDomain lastCNAMEDomain(NSArray<NSString *> *cnames)
 {
     if (auto* lastResolvedCNAMEInChain = [cnames lastObject]) {
@@ -161,22 +166,32 @@ static WebCore::RegistrableDomain lastCNAMEDomain(NSArray<NSString *> *cnames)
     return { };
 }
 
+bool NetworkDataTaskCocoa::shouldApplyCookiePolicyForThirdPartyCNAMECloaking() const
+{
+    auto* session = networkSession();
+    return session && session->networkStorageSession() && session->networkStorageSession()->resourceLoadStatisticsEnabled();
+}
+
 void NetworkDataTaskCocoa::updateFirstPartyInfoForSession(const URL& requestURL)
 {
-    if (!hasCNAMEAndCookieTransformSPI(m_task.get()) || !networkSession() || !networkSession()->networkStorageSession() || !networkSession()->networkStorageSession()->resourceLoadStatisticsEnabled() || requestURL.host().isEmpty())
+    if (!shouldApplyCookiePolicyForThirdPartyCNAMECloaking() || requestURL.host().isEmpty())
         return;
 
+    auto* session = networkSession();
     auto cnameDomain = lastCNAMEDomain([m_task _resolvedCNAMEChain]);
     if (!cnameDomain.isEmpty())
-        networkSession()->setFirstPartyHostCNAMEDomain(requestURL.host().toString(), WTFMove(cnameDomain));
+        session->setFirstPartyHostCNAMEDomain(requestURL.host().toString(), WTFMove(cnameDomain));
+
+    if (NSString *ipAddress = lastRemoteIPAddress(m_task.get()); ipAddress.length)
+        session->setFirstPartyHostIPAddress(requestURL.host().toString(), ipAddress);
 }
 
 void NetworkDataTaskCocoa::applyCookiePolicyForThirdPartyCNAMECloaking(const WebCore::ResourceRequest& request)
 {
-    if (!hasCNAMEAndCookieTransformSPI(m_task.get()) || isTopLevelNavigation() || !networkSession() || !networkSession()->networkStorageSession() || !networkSession()->networkStorageSession()->resourceLoadStatisticsEnabled())
+    if (isTopLevelNavigation() || !shouldApplyCookiePolicyForThirdPartyCNAMECloaking())
         return;
 
-    if (isThirdPartyRequest(request)) {
+    if (request.isThirdParty()) {
         m_task.get()._cookieTransformCallback = nil;
         return;
     }
@@ -222,7 +237,6 @@ void NetworkDataTaskCocoa::applyCookiePolicyForThirdPartyCNAMECloaking(const Web
         return cookiesSetInResponse;
     }).get();
 }
-#endif
 
 void NetworkDataTaskCocoa::blockCookies()
 {
@@ -356,7 +370,7 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
 #endif
 
     if (parameters.networkConnectionIntegrityEnabled)
-        enableNetworkConnectionIntegrity(mutableRequest.get());
+        enableNetworkConnectionIntegrity(mutableRequest.get(), request.isThirdParty());
 
 #if ENABLE(APP_PRIVACY_REPORT)
     mutableRequest.get().attribution = request.isAppInitiated() ? NSURLRequestAttributionDeveloper : NSURLRequestAttributionUser;
@@ -410,13 +424,11 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
     }
 
 #if ENABLE(TRACKING_PREVENTION)
-#if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
     applyCookiePolicyForThirdPartyCNAMECloaking(request);
-#endif
     if (shouldBlockCookies) {
 #if !RELEASE_LOG_DISABLED
         if (m_session->shouldLogCookieInformation())
-            RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - NetworkDataTaskCocoa::logCookieInformation: pageID=%" PRIu64 ", frameID=%" PRIu64 ", taskID=%lu: Blocking cookies for URL %s", this, pageID().toUInt64(), frameID().toUInt64(), (unsigned long)[m_task taskIdentifier], [nsRequest URL].absoluteString.UTF8String);
+            RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - NetworkDataTaskCocoa::logCookieInformation: pageID=%" PRIu64 ", frameID=%" PRIu64 ", taskID=%lu: Blocking cookies for URL %s", this, pageID().toUInt64(), frameID().object().toUInt64(), (unsigned long)[m_task taskIdentifier], [nsRequest URL].absoluteString.UTF8String);
 #else
         LOG(NetworkSession, "%lu Blocking cookies for URL %s", (unsigned long)[m_task taskIdentifier], [nsRequest URL].absoluteString.UTF8String);
 #endif
@@ -499,10 +511,8 @@ void NetworkDataTaskCocoa::didReceiveData(const WebCore::SharedBuffer& data)
 void NetworkDataTaskCocoa::didReceiveResponse(WebCore::ResourceResponse&& response, NegotiatedLegacyTLS negotiatedLegacyTLS, PrivateRelayed privateRelayed, WebKit::ResponseCompletionHandler&& completionHandler)
 {
     WTFEmitSignpost(m_task.get(), "DataTask", "received response headers");
-#if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
     if (isTopLevelNavigation())
         updateFirstPartyInfoForSession(response.url());
-#endif
     NetworkDataTask::didReceiveResponse(WTFMove(response), negotiatedLegacyTLS, privateRelayed, WTFMove(completionHandler));
 }
 
@@ -575,9 +585,7 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
 #endif
 
 #if ENABLE(TRACKING_PREVENTION)
-#if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
     applyCookiePolicyForThirdPartyCNAMECloaking(request);
-#endif
     if (!m_hasBeenSetToUseStatelessCookieStorage) {
         if (m_storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::EphemeralStateless
             || (m_session->networkStorageSession() && m_session->networkStorageSession()->shouldBlockCookies(request, m_frameID, m_pageID, m_shouldRelaxThirdPartyCookieBlocking)))
@@ -586,7 +594,7 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
         unblockCookies();
 #if !RELEASE_LOG_DISABLED
     if (m_session->shouldLogCookieInformation())
-        RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - NetworkDataTaskCocoa::willPerformHTTPRedirection::logCookieInformation: pageID=%" PRIu64 ", frameID=%" PRIu64 ", taskID=%lu: %s cookies for redirect URL %s", this, m_pageID.toUInt64(), m_frameID.toUInt64(), (unsigned long)[m_task taskIdentifier], (m_hasBeenSetToUseStatelessCookieStorage ? "Blocking" : "Not blocking"), request.url().string().utf8().data());
+        RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - NetworkDataTaskCocoa::willPerformHTTPRedirection::logCookieInformation: pageID=%" PRIu64 ", frameID=%" PRIu64 ", taskID=%lu: %s cookies for redirect URL %s", this, m_pageID.toUInt64(), m_frameID.object().toUInt64(), (unsigned long)[m_task taskIdentifier], (m_hasBeenSetToUseStatelessCookieStorage ? "Blocking" : "Not blocking"), request.url().string().utf8().data());
 #else
     LOG(NetworkSession, "%lu %s cookies for redirect URL %s", (unsigned long)[m_task taskIdentifier], (m_hasBeenSetToUseStatelessCookieStorage ? "Blocking" : "Not blocking"), request.url().string().utf8().data());
 #endif

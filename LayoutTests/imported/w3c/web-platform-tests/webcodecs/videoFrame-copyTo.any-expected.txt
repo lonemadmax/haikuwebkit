@@ -1,17 +1,25 @@
 
 PASS Test closed frame.
-FAIL Test copying I420 frame to a non-shared ArrayBuffer assert_equals: allocationSize() expected 12 but got 0
-FAIL Test copying I420 frame to a non-shared ArrayBufferView assert_equals: allocationSize() expected 12 but got 0
-FAIL Test RGBA frame. assert_equals: allocationSize() expected 16 but got 0
+PASS Test copying I420 frame to a non-shared ArrayBuffer
+PASS Test copying I420 frame to a non-shared ArrayBufferView
+PASS Test RGBA frame.
+PASS Test NV12 frame.
 PASS Test undersized buffer.
-FAIL Test incorrect plane count. assert_throws_js: function "() => frame.allocationSize(options)" did not throw
-FAIL Test stride and offset work. assert_equals: allocationSize() expected 12 but got 0
-FAIL Test stride and offset with padding. assert_equals: allocationSize() expected 19 but got 0
-FAIL Test invalid stride. assert_throws_js: function "() => frame.allocationSize(options)" did not throw
-FAIL Test address overflow. assert_throws_js: function "() => frame.allocationSize(options)" did not throw
-FAIL Test codedRect. assert_equals: allocationSize() expected 12 but got 0
-FAIL Test empty rect. assert_throws_js: function "() => frame.allocationSize(options)" did not throw
-FAIL Test unaligned rect. assert_throws_js: function "() => frame.allocationSize(options)" did not throw
-FAIL Test left crop. assert_equals: allocationSize() expected 6 but got 0
-FAIL Test invalid rect. assert_throws_js: function "() => frame.allocationSize(options)" did not throw
+PASS Test incorrect plane count.
+PASS Test stride and offset work.
+PASS Test stride and offset with padding.
+PASS Test invalid stride.
+PASS Test address overflow.
+PASS Test codedRect.
+PASS Test empty rect.
+PASS Test unaligned rect.
+PASS Test left crop I420.
+PASS Test left crop NV12.
+PASS Test left crop RGBA.
+PASS Test left crop BGRA.
+PASS Test top crop I420.
+PASS Test top crop NV12.
+PASS Test top crop RGBA.
+PASS Test top crop BGRA.
+PASS Test invalid rect.
 

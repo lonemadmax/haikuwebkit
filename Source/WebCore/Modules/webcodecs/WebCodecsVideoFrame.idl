@@ -68,6 +68,7 @@ typedef (HTMLImageElement or HTMLCanvasElement or ImageBitmap
 dictionary VideoFrameInit {
     unsigned long long duration;
     long long timestamp;
+    WebCodecsAlphaOption alpha;
 
     DOMRectInit visibleRect;
 

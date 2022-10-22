@@ -32,6 +32,7 @@
 #include "JSDOMPromiseDeferred.h"
 #include "VideoEncoder.h"
 #include "WebCodecsCodecState.h"
+#include "WebCodecsVideoEncoderConfig.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -40,7 +41,7 @@ class WebCodecsEncodedVideoChunk;
 class WebCodecsErrorCallback;
 class WebCodecsEncodedVideoChunkOutputCallback;
 class WebCodecsVideoFrame;
-struct WebCodecsVideoEncoderConfig;
+struct WebCodecsEncodedVideoChunkMetadata;
 struct WebCodecsVideoEncoderEncodeOptions;
 
 class WebCodecsVideoEncoder
@@ -94,6 +95,7 @@ private:
 
     void queueControlMessageAndProcess(Function<void()>&&);
     void processControlMessageQueue();
+    WebCodecsEncodedVideoChunkMetadata createEncodedChunkMetadata();
 
     WebCodecsCodecState m_state { WebCodecsCodecState::Unconfigured };
     size_t m_encodeQueueSize { 0 };
@@ -106,6 +108,9 @@ private:
     bool m_isKeyChunkRequired { false };
     Deque<Function<void()>> m_controlMessageQueue;
     bool m_isMessageQueueBlocked { false };
+    WebCodecsVideoEncoderConfig m_baseConfiguration;
+    VideoEncoder::ActiveConfiguration m_activeConfiguration;
+    bool m_hasNewActiveConfiguration { false };
 };
 
 }

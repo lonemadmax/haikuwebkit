@@ -390,6 +390,10 @@ class WebWheelEvent;
 class WebWheelEventCoalescer;
 class WebsiteDataStore;
 
+#if ENABLE(WK_WEB_EXTENSIONS)
+class WebExtensionController;
+#endif
+
 struct AppPrivacyReportTestingData;
 struct DataDetectionResult;
 struct DocumentEditingContext;
@@ -499,8 +503,8 @@ public:
 
     void addPreviouslyVisitedPath(const String&);
 
-    bool isCaptivePortalModeExplicitlySet() const { return m_isCaptivePortalModeExplicitlySet; }
-    bool shouldEnableCaptivePortalMode() const;
+    bool isLockdownModeExplicitlySet() const { return m_isLockdownModeExplicitlySet; }
+    bool shouldEnableLockdownMode() const;
 
 #if ENABLE(DATA_DETECTION)
     NSArray *dataDetectionResults() { return m_dataDetectionResults.get(); }
@@ -556,8 +560,8 @@ public:
 
 #if ENABLE(REMOTE_INSPECTOR)
     void setIndicating(bool);
-    bool allowsRemoteInspection() const;
-    void setAllowsRemoteInspection(bool);
+    bool inspectable() const;
+    void setInspectable(bool);
     String remoteInspectionNameOverride() const;
     void setRemoteInspectionNameOverride(const String&);
     void remoteInspectorInformationDidChange();
@@ -748,9 +752,6 @@ public:
     
     void setHasActiveAnimatedScrolls(bool isRunning);
 
-    void setDelegatesScrolling(bool delegatesScrolling) { m_delegatesScrolling = delegatesScrolling; }
-    bool delegatesScrolling() const { return m_delegatesScrolling; }
-
     struct PrivateClickMeasurementAndMetadata {
         WebCore::PrivateClickMeasurement pcm;
         String sourceDescription;
@@ -909,7 +910,7 @@ public:
     void handleSmartMagnificationInformationForPotentialTap(WebKit::TapIdentifier, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel);
     void contentSizeCategoryDidChange(const String& contentSizeCategory);
     void getSelectionContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
-    void handleTwoFingerTapAtPoint(const WebCore::IntPoint&, OptionSet<WebKit::WebEvent::Modifier>, WebKit::TapIdentifier requestID);
+    void handleTwoFingerTapAtPoint(const WebCore::IntPoint&, OptionSet<WebKit::WebEventModifier>, WebKit::TapIdentifier requestID);
     void setForceAlwaysUserScalable(bool);
     bool forceAlwaysUserScalable() const { return m_forceAlwaysUserScalable; }
     double layoutSizeScaleFactor() const { return m_viewportConfigurationLayoutSizeScaleFactor; }
@@ -1510,12 +1511,12 @@ public:
     void willStartUserTriggeredZooming();
 
     void potentialTapAtPosition(const WebCore::FloatPoint&, bool shouldRequestMagnificationInformation, WebKit::TapIdentifier requestID);
-    void commitPotentialTap(OptionSet<WebKit::WebEvent::Modifier>, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID);
+    void commitPotentialTap(OptionSet<WebKit::WebEventModifier>, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID);
     void cancelPotentialTap();
     void tapHighlightAtPosition(const WebCore::FloatPoint&, WebKit::TapIdentifier requestID);
-    void attemptSyntheticClick(const WebCore::FloatPoint&, OptionSet<WebKit::WebEvent::Modifier>, TransactionID layerTreeTransactionIdAtLastTouchStart);
+    void attemptSyntheticClick(const WebCore::FloatPoint&, OptionSet<WebKit::WebEventModifier>, TransactionID layerTreeTransactionIdAtLastTouchStart);
     void didRecognizeLongPress();
-    void handleDoubleTapForDoubleClickAtPoint(const WebCore::IntPoint&, OptionSet<WebEvent::Modifier>, TransactionID layerTreeTransactionIdAtLastTouchStart);
+    void handleDoubleTapForDoubleClickAtPoint(const WebCore::IntPoint&, OptionSet<WebEventModifier>, TransactionID layerTreeTransactionIdAtLastTouchStart);
 
     void inspectorNodeSearchMovedToPosition(const WebCore::FloatPoint&);
     void inspectorNodeSearchEndedAtPosition(const WebCore::FloatPoint&);
@@ -2152,6 +2153,10 @@ public:
 
     void generateTestReport(const String& message, const String& group);
 
+    void frameCreated(WebCore::FrameIdentifier, WebFrameProxy&);
+    void didDestroyFrame(WebCore::FrameIdentifier);
+    void disconnectFramesFromPage();
+
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     void platformInitialize();
@@ -2164,13 +2169,16 @@ private:
 
     bool shouldForceForegroundPriorityForClientNavigation() const;
 
+    using WebFrameProxyMap = HashMap<WebCore::FrameIdentifier, Ref<WebFrameProxy>>;
+    bool canCreateFrame(WebCore::FrameIdentifier) const;
+
     RefPtr<API::Navigation> goToBackForwardItem(WebBackForwardListItem&, WebCore::FrameLoadType);
 
     void updateActivityState(OptionSet<WebCore::ActivityState::Flag> flagsToUpdate = WebCore::ActivityState::allFlags());
     void updateThrottleState();
     void updateHiddenPageThrottlingAutoIncreases();
 
-    bool suspendCurrentPageIfPossible(API::Navigation&, std::optional<WebCore::FrameIdentifier> mainFrameID, ProcessSwapRequestedByClient, ShouldDelayClosingUntilFirstLayerFlush);
+    bool suspendCurrentPageIfPossible(API::Navigation&, RefPtr<WebFrameProxy>&& mainFrame, ProcessSwapRequestedByClient, ShouldDelayClosingUntilFirstLayerFlush);
 
     enum class ResetStateReason {
         PageInvalidated,
@@ -2200,8 +2208,7 @@ private:
 #endif
 
     void didCreateMainFrame(WebCore::FrameIdentifier);
-    void didCreateSubframe(WebCore::FrameIdentifier);
-    void didCreateWindow(WebCore::FrameIdentifier, WebCore::GlobalWindowIdentifier&&);
+    void didCreateSubframe(WebCore::FrameIdentifier, WebCore::FrameIdentifier parentFrameID);
 
     void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, URL&&, URL&& unreachableURL, const UserData&);
     void didReceiveServerRedirectForProvisionalLoadForFrame(WebCore::FrameIdentifier, uint64_t navigationID, WebCore::ResourceRequest&&, const UserData&);
@@ -2693,6 +2700,9 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     static bool isInHardwareKeyboardMode();
+#endif
+
+#if USE(RUNNINGBOARD)
     void clearAudibleActivity();
 #endif
 
@@ -2762,6 +2772,11 @@ private:
     Ref<WebPreferences> m_preferences;
 
     Ref<WebUserContentControllerProxy> m_userContentController;
+
+#if ENABLE(WK_WEB_EXTENSIONS)
+    RefPtr<WebExtensionController> m_webExtensionController;
+#endif
+
     Ref<VisitedLinkStore> m_visitedLinkStore;
     Ref<WebsiteDataStore> m_websiteDataStore;
 
@@ -2873,7 +2888,7 @@ private:
 #if PLATFORM(MACCATALYST)
     bool m_isListeningForUserFacingStateChangeNotification { false };
 #endif
-#if PLATFORM(IOS_FAMILY)
+#if USE(RUNNINGBOARD)
     bool m_allowsMediaDocumentInlinePlayback { false };
     std::unique_ptr<ProcessThrottler::ForegroundActivity> m_isVisibleActivity;
     std::unique_ptr<ProcessThrottler::ForegroundActivity> m_isAudibleActivity;
@@ -3062,8 +3077,6 @@ private:
 
     WebCore::RectEdges<bool> m_mainFramePinnedState { true, true, true, true };
     WebCore::RectEdges<bool> m_rubberBandableEdges { true, true, true, true };
-
-    bool m_delegatesScrolling { false };
 
     bool m_mainFrameHasHorizontalScrollbar { false };
     bool m_mainFrameHasVerticalScrollbar { false };
@@ -3297,7 +3310,7 @@ private:
     bool m_lastNavigationWasAppInitiated { true };
     bool m_isRunningModalJavaScriptDialog { false };
     bool m_isSuspended { false };
-    bool m_isCaptivePortalModeExplicitlySet { false };
+    bool m_isLockdownModeExplicitlySet { false };
 
     std::optional<PrivateClickMeasurementAndMetadata> m_privateClickMeasurement;
 

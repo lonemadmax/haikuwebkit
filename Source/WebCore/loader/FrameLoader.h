@@ -54,6 +54,7 @@
 
 namespace WebCore {
 
+class AbstractFrame;
 class Archive;
 class CachedFrameBase;
 class CachedPage;
@@ -216,7 +217,7 @@ public:
     FrameLoaderClient& client() { return m_client.get(); }
 
     WEBCORE_EXPORT std::optional<PageIdentifier> pageID() const;
-    WEBCORE_EXPORT std::optional<FrameIdentifier> frameID() const;
+    WEBCORE_EXPORT FrameIdentifier frameID() const;
 
     void setDefersLoading(bool);
 
@@ -431,7 +432,7 @@ private:
     void clearProvisionalLoadForPolicyCheck();
     bool hasOpenedFrames() const;
 
-    bool preventsParentFromBeingComplete(const Frame&) const;
+    bool preventsParentFromBeingComplete(const AbstractFrame&) const;
 
     Frame& m_frame;
     UniqueRef<FrameLoaderClient> m_client;

@@ -164,7 +164,7 @@ public:
     unsigned long long totalBytes() const final { return 0; }
     bool didLoadingProgress() const final { return false; }
 
-    void setSize(const IntSize&) final { }
+    void setPresentationSize(const IntSize&) final { }
 
     void paint(GraphicsContext&, const FloatRect&) final { }
     DestinationColorSpace colorSpace() final { return DestinationColorSpace::SRGB(); }
@@ -485,7 +485,7 @@ void MediaPlayer::invalidate()
     m_client = &nullMediaPlayerClient();
 }
 
-bool MediaPlayer::load(const URL& url, const ContentType& contentType, const String& keySystem)
+bool MediaPlayer::load(const URL& url, const ContentType& contentType, const String& keySystem, bool requiresRemotePlayback)
 {
     ASSERT(!m_reloadTimer.isActive());
 
@@ -495,6 +495,7 @@ bool MediaPlayer::load(const URL& url, const ContentType& contentType, const Str
     m_contentType = contentType;
     m_url = url;
     m_keySystem = keySystem.convertToASCIILowercase();
+    m_requiresRemotePlayback = requiresRemotePlayback;
     m_contentMIMETypeWasInferredFromExtension = false;
 
 #if ENABLE(MEDIA_SOURCE)
@@ -536,6 +537,7 @@ bool MediaPlayer::load(const URL& url, const ContentType& contentType, MediaSour
     m_contentType = contentType;
     m_url = url;
     m_keySystem = emptyString();
+    m_requiresRemotePlayback = false;
     m_contentMIMETypeWasInferredFromExtension = false;
     loadWithNextMediaEngine(nullptr);
     return m_currentMediaEngine;
@@ -549,6 +551,7 @@ bool MediaPlayer::load(MediaStreamPrivate& mediaStream)
 
     m_mediaStream = &mediaStream;
     m_keySystem = emptyString();
+    m_requiresRemotePlayback = false;
     m_contentType = { };
     m_contentMIMETypeWasInferredFromExtension = false;
     loadWithNextMediaEngine(nullptr);
@@ -1062,10 +1065,13 @@ void MediaPlayer::didLoadingProgress(DidLoadingProgressCompletionHandler&& callb
     m_private->didLoadingProgressAsync(WTFMove(callback));
 }
 
-void MediaPlayer::setSize(const IntSize& size)
-{ 
-    m_size = size;
-    m_private->setSize(size);
+void MediaPlayer::setPresentationSize(const IntSize& size)
+{
+    if (m_presentationSize == size)
+        return;
+
+    m_presentationSize = size;
+    m_private->setPresentationSize(size);
 }
 
 void MediaPlayer::setPageIsVisible(bool visible)

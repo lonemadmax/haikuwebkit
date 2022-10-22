@@ -180,6 +180,7 @@ MESSAGE_RECEIVERS = \
 	UIProcess/WebProcessPool \
         UIProcess/WebScreenOrientationManagerProxy \
 	UIProcess/Downloads/DownloadProxy \
+	UIProcess/Extensions/WebExtensionContext \
 	UIProcess/Extensions/WebExtensionController \
 	UIProcess/Media/AudioSessionRoutingArbitratorProxy \
 	UIProcess/Media/RemoteMediaSessionCoordinatorProxy \
@@ -187,6 +188,7 @@ MESSAGE_RECEIVERS = \
 	UIProcess/SpeechRecognitionServer \
 	UIProcess/XR/PlatformXRSystem \
 	WebProcess/Databases/IndexedDB/WebIDBConnectionToServer \
+	WebProcess/Extensions/WebExtensionContextProxy \
 	WebProcess/Extensions/WebExtensionControllerProxy \
 	WebProcess/GPU/GPUProcessConnection \
 	WebProcess/GPU/graphics/RemoteRenderingBackendProxy \
@@ -456,13 +458,20 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/API/APIGeometry.serialization.in \
 	Shared/Cocoa/WebCoreArgumentCodersCocoa.serialization.in \
 	Shared/FocusedElementInformation.serialization.in \
-	Shared/ShareableBitmap.serialization.in \
 	Shared/FrameInfoData.serialization.in \
 	Shared/FrameTreeNodeData.serialization.in \
+	Shared/ios/InteractionInformationAtPosition.serialization.in \
 	Shared/LayerTreeContext.serialization.in \
+	Shared/Pasteboard.serialization.in \
+	Shared/ShareableBitmap.serialization.in \
 	Shared/TextFlags.serialization.in \
+	Shared/WTFArgumentCoders.serialization.in \
 	Shared/WebCoreArgumentCoders.serialization.in \
+	Shared/WebExtensionContextParameters.serialization.in \
+	Shared/WebEvent.serialization.in \
 	Shared/WebExtensionControllerParameters.serialization.in \
+	Shared/WebPushDaemonConnectionConfiguration.serialization.in \
+	Shared/WebPushMessage.serialization.in \
 	Shared/mac/SecItemResponseData.serialization.in \
 	Shared/WebsiteDataStoreParameters.serialization.in \
 	Shared/WebsiteData/WebsiteDataFetchOption.serialization.in \

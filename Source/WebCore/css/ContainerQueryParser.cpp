@@ -30,6 +30,20 @@
 
 namespace WebCore {
 
+using namespace MQ;
+
+Vector<MQ::FeatureSchema> ContainerQueryParser::featureSchemas()
+{
+    return {
+        { "width"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
+        { "height"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
+        { "inline-size"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
+        { "block-size"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
+        { "aspect-ratio"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Ratio }, { } },
+        { "orientation"_s, FeatureSchema::Type::Discrete, { }, { CSSValuePortrait, CSSValueLandscape } }
+    };
+}
+
 std::optional<CQ::ContainerQuery> ContainerQueryParser::consumeContainerQuery(CSSParserTokenRange& range, const CSSParserContext& context)
 {
     ContainerQueryParser parser(context);
@@ -51,45 +65,16 @@ std::optional<CQ::ContainerQuery> ContainerQueryParser::consumeContainerQuery(CS
 
     m_requiredAxes = { };
 
-    auto condition = consumeCondition<CQ::ContainerCondition>(range);
+    auto condition = consumeCondition(range);
     if (!condition)
         return { };
 
     return CQ::ContainerQuery { name, m_requiredAxes, *condition };
 }
 
-std::optional<CQ::QueryInParens> ContainerQueryParser::consumeQueryInParens(CSSParserTokenRange& range)
+std::optional<MQ::Feature> ContainerQueryParser::consumeFeature(CSSParserTokenRange& range)
 {
-    if (range.peek().type() == FunctionToken) {
-        auto name = range.peek().value();
-        auto functionRange = range.consumeBlock();
-        // This is where we would support style() queries.
-        return CQ::UnknownQuery { name.toString(), functionRange.serialize() };
-    }
-
-    if (range.peek().type() == LeftParenthesisToken) {
-        auto blockRange = range.consumeBlock();
-        range.consumeWhitespace();
-
-        blockRange.consumeWhitespace();
-
-        // Try to parse as a condition first.
-        auto conditionRange = blockRange;
-        if (auto condition = consumeCondition<CQ::ContainerCondition>(conditionRange))
-            return { condition };
-
-        if (auto sizeFeature = consumeSizeFeature(blockRange))
-            return { *sizeFeature };
-
-        return CQ::UnknownQuery { { }, blockRange.serialize() };
-    }
-
-    return { };
-}
-
-std::optional<CQ::SizeFeature> ContainerQueryParser::consumeSizeFeature(CSSParserTokenRange& range)
-{
-    auto sizeFeature = consumeFeature(range);
+    auto sizeFeature = MQ::GenericMediaQueryParser<ContainerQueryParser>::consumeFeature(range);
     if (!sizeFeature)
         return { };
 

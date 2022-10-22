@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/EnumTraits.h>
+
 namespace WebCore {
 
 enum class ScreenOrientationType : uint8_t {
@@ -33,6 +35,16 @@ enum class ScreenOrientationType : uint8_t {
     LandscapePrimary,
     LandscapeSecondary
 };
+
+constexpr bool isPortait(ScreenOrientationType type)
+{
+    return type == ScreenOrientationType::PortraitPrimary || type == ScreenOrientationType::PortraitSecondary;
+}
+
+constexpr bool isLandscape(ScreenOrientationType type)
+{
+    return type == ScreenOrientationType::LandscapePrimary || type == ScreenOrientationType::LandscapeSecondary;
+}
 
 } // namespace WebCore
 

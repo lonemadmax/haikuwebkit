@@ -73,6 +73,17 @@ private:
     bool m_isClosed { false };
 };
 
+void LibWebRTCVPXVideoDecoder::create(Type type, CreateCallback&& callback, OutputCallback&& outputCallback, PostTaskCallback&& postTaskCallback)
+{
+    auto decoder = makeUniqueRef<LibWebRTCVPXVideoDecoder>(type, WTFMove(outputCallback), WTFMove(postTaskCallback));
+    vpxQueue().dispatch([callback = WTFMove(callback), decoder = WTFMove(decoder)]() mutable {
+        auto internalDecoder = decoder->m_internalDecoder;
+        internalDecoder->postTask([callback = WTFMove(callback), decoder = WTFMove(decoder)]() mutable {
+            callback(UniqueRef<VideoDecoder> { WTFMove(decoder) });
+        });
+    });
+}
+
 LibWebRTCVPXVideoDecoder::LibWebRTCVPXVideoDecoder(Type type, OutputCallback&& outputCallback, PostTaskCallback&& postTaskCallback)
     : m_internalDecoder(LibWebRTCVPXInternalVideoDecoder::create(type, WTFMove(outputCallback), WTFMove(postTaskCallback)))
 {
@@ -122,10 +133,10 @@ void LibWebRTCVPXInternalVideoDecoder::decode(Span<const uint8_t> data, int64_t 
         if (protectedThis->m_isClosed)
             return;
 
-        String result;
         if (error)
-            result = makeString("VPx decoding failed with error ", error);
-        callback(WTFMove(result));
+            protectedThis->m_outputCallback(makeUnexpected(makeString("VPx decoding failed with error ", error)));
+
+        callback({ });
     });
 }
 
@@ -158,7 +169,7 @@ int32_t LibWebRTCVPXInternalVideoDecoder::Decoded(webrtc::VideoFrame& frame)
             return nullptr;
         });
 
-        protectedThis->m_outputCallback({ WTFMove(videoFrame), timestamp, duration });
+        protectedThis->m_outputCallback(VideoDecoder::DecodedFrame { WTFMove(videoFrame), timestamp, duration });
     });
     return 0;
 }

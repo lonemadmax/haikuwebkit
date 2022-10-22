@@ -49,6 +49,7 @@ class Array;
 }
 
 namespace WebCore {
+class AbstractFrame;
 class CertificateInfo;
 class Frame;
 class HTMLFrameOwnerElement;
@@ -70,8 +71,8 @@ struct WebsitePoliciesData;
 
 class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame>, public CanMakeWeakPtr<WebFrame> {
 public:
-    static Ref<WebFrame> create() { return adoptRef(*new WebFrame); }
-    static Ref<WebFrame> createSubframe(WebPage*, const AtomString& frameName, WebCore::HTMLFrameOwnerElement*);
+    static Ref<WebFrame> create(WebPage& page) { return adoptRef(*new WebFrame(page)); }
+    static Ref<WebFrame> createSubframe(WebPage&, WebFrame& parent, const AtomString& frameName, WebCore::HTMLFrameOwnerElement&);
     ~WebFrame();
 
     void initWithCoreMainFrame(WebPage&, WebCore::Frame&);
@@ -81,11 +82,11 @@ public:
 
     WebPage* page() const;
 
-    static WebFrame* fromCoreFrame(const WebCore::Frame&);
+    static WebFrame* fromCoreFrame(const WebCore::AbstractFrame&);
     WebCore::Frame* coreFrame() const;
 
     FrameInfoData info() const;
-    WebCore::FrameIdentifier frameID() const { return m_frameID; }
+    WebCore::FrameIdentifier frameID() const;
 
     enum class ForNavigationAction { No, Yes };
     uint64_t setUpPolicyListener(WebCore::PolicyCheckIdentifier, WebCore::FramePolicyFunction&&, ForNavigationAction);
@@ -200,9 +201,10 @@ public:
 #endif
 
 private:
-    WebFrame();
+    WebFrame(WebPage&);
 
     WeakPtr<WebCore::Frame> m_coreFrame;
+    WeakPtr<WebPage> m_page;
 
     struct PolicyCheck {
         WebCore::PolicyCheckIdentifier corePolicyIdentifier;
@@ -215,7 +217,7 @@ private:
     std::optional<DownloadID> m_policyDownloadID;
 
     WeakPtr<LoadListener> m_loadListener;
-    
+
     WebCore::FrameIdentifier m_frameID;
 
 #if PLATFORM(IOS_FAMILY)

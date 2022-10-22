@@ -47,7 +47,7 @@
 #import "PageClientImplMac.h"
 #import "PasteboardTypes.h"
 #import "PlaybackSessionManagerProxy.h"
-#import "RemoteLayerTreeDrawingAreaProxy.h"
+#import "RemoteLayerTreeDrawingAreaProxyMac.h"
 #import "RemoteObjectRegistry.h"
 #import "RemoteObjectRegistryMessages.h"
 #import "StringUtilities.h"
@@ -259,14 +259,7 @@ WTF_DECLARE_CF_TYPE_TRAIT(CGImage);
 
 @end
 
-@interface WKWindowVisibilityObserver : NSObject {
-    NSView *_view;
-    WebKit::WebViewImpl *_impl;
-
-    BOOL _didRegisterForLookupPopoverCloseNotifications;
-    BOOL _shouldObserveFontPanel;
-}
-
+@interface WKWindowVisibilityObserver : NSObject
 - (instancetype)initWithView:(NSView *)view impl:(WebKit::WebViewImpl&)impl;
 - (void)startObserving:(NSWindow *)window;
 - (void)stopObserving:(NSWindow *)window;
@@ -274,7 +267,14 @@ WTF_DECLARE_CF_TYPE_TRAIT(CGImage);
 - (void)startObservingLookupDismissalIfNeeded;
 @end
 
-@implementation WKWindowVisibilityObserver
+@implementation WKWindowVisibilityObserver {
+    NSView *_view;
+    WebKit::WebViewImpl *_impl;
+    __weak NSWindow *_observedWindow;
+
+    BOOL _didRegisterForLookupPopoverCloseNotifications;
+    BOOL _shouldObserveFontPanel;
+}
 
 - (instancetype)initWithView:(NSView *)view impl:(WebKit::WebViewImpl&)impl
 {
@@ -333,14 +333,15 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     if (_shouldObserveFontPanel)
         [self startObservingFontPanel];
 
-    [window addObserver:self forKeyPath:@"contentLayoutRect" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
-    [window addObserver:self forKeyPath:@"titlebarAppearsTransparent" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
+    [self _observeWindow:window];
 }
 
 - (void)stopObserving:(NSWindow *)window
 {
     if (!window)
         return;
+
+    ASSERT_IMPLIES(_observedWindow, _observedWindow == window);
 
     NSNotificationCenter *defaultNotificationCenter = [NSNotificationCenter defaultCenter];
 
@@ -362,8 +363,26 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
     if (_shouldObserveFontPanel)
         [[NSFontPanel sharedFontPanel] removeObserver:self forKeyPath:@"visible" context:keyValueObservingContext];
-    [window removeObserver:self forKeyPath:@"contentLayoutRect" context:keyValueObservingContext];
-    [window removeObserver:self forKeyPath:@"titlebarAppearsTransparent" context:keyValueObservingContext];
+
+    [self _observeWindow:nil];
+}
+
+- (void)_observeWindow:(NSWindow *)window
+{
+    if (_observedWindow == window)
+        return;
+
+    if (_observedWindow) {
+        [_observedWindow removeObserver:self forKeyPath:@"contentLayoutRect" context:keyValueObservingContext];
+        [_observedWindow removeObserver:self forKeyPath:@"titlebarAppearsTransparent" context:keyValueObservingContext];
+    }
+
+    _observedWindow = window;
+
+    if (window) {
+        [window addObserver:self forKeyPath:@"contentLayoutRect" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
+        [window addObserver:self forKeyPath:@"titlebarAppearsTransparent" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
+    }
 }
 
 - (void)startObservingFontPanel
@@ -1659,7 +1678,7 @@ std::unique_ptr<WebKit::DrawingAreaProxy> WebViewImpl::createDrawingAreaProxy(We
     case DrawingAreaType::TiledCoreAnimation:
         return makeUnique<TiledCoreAnimationDrawingAreaProxy>(m_page, process);
     case DrawingAreaType::RemoteLayerTree:
-        return makeUnique<RemoteLayerTreeDrawingAreaProxy>(m_page, process);
+        return makeUnique<RemoteLayerTreeDrawingAreaProxyMac>(m_page, process);
     }
 
     ASSERT_NOT_REACHED();
@@ -2400,6 +2419,24 @@ void WebViewImpl::prepareForMoveToWindow(NSWindow *targetWindow, WTF::Function<v
     dispatchSetTopContentInset();
     m_page->activityStateDidChange(WebCore::ActivityState::IsInWindow, WebPageProxy::ActivityStateChangeDispatchMode::Immediate);
     m_viewInWindowChangeWasDeferred = false;
+}
+
+void WebViewImpl::setFontForWebView(NSFont *font, id sender)
+{
+    NSFontManager *fontManager = [NSFontManager sharedFontManager];
+    NSFontTraitMask fontTraits = [fontManager traitsOfFont:font];
+
+    WebCore::FontChanges changes;
+    changes.setFontFamily(font.familyName);
+    changes.setFontName(font.fontName);
+    changes.setFontSize(font.pointSize);
+    changes.setBold(fontTraits & NSBoldFontMask);
+    changes.setItalic(fontTraits & NSItalicFontMask);
+
+    if (NSString *textStyleAttribute = [font.fontDescriptor objectForKey:(__bridge NSString *)kCTFontDescriptorTextStyleAttribute])
+        changes.setFontFamily(textStyleAttribute);
+
+    m_page->changeFont(WTFMove(changes));
 }
 
 void WebViewImpl::updateSecureInputState()

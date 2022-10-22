@@ -30,6 +30,7 @@
 
 #include "DOMException.h"
 #include "JSWebCodecsVideoEncoderSupport.h"
+#include "Logging.h"
 #include "WebCodecsEncodedVideoChunkMetadata.h"
 #include "WebCodecsEncodedVideoChunkOutputCallback.h"
 #include "WebCodecsErrorCallback.h"
@@ -85,9 +86,11 @@ ExceptionOr<void> WebCodecsVideoEncoder::configure(WebCodecsVideoEncoderConfig&&
 
     m_state = WebCodecsCodecState::Configured;
     m_isKeyChunkRequired = true;
-    
+
     queueControlMessageAndProcess([this, config = WTFMove(config), identifier = scriptExecutionContext()->identifier()]() mutable {
         m_isMessageQueueBlocked = true;
+        m_baseConfiguration = config;
+
         VideoEncoder::PostTaskCallback postTaskCallback;
         if (isMainThread()) {
             postTaskCallback = [](auto&& task) {
@@ -100,8 +103,9 @@ ExceptionOr<void> WebCodecsVideoEncoder::configure(WebCodecsVideoEncoderConfig&&
                 });
             };
         }
-        VideoEncoder::create(config.codec, { config.width, config.height }, [this, weakedThis = WeakPtr { *this }](auto&& result) {
-            if (!weakedThis)
+        bool useAnnexB = config.avc && config.avc->format == AvcBitstreamFormat::Annexb;
+        VideoEncoder::create(config.codec, { config.width, config.height, useAnnexB, config.bitrate.value_or(0), config.framerate.value_or(0), config.latencyMode == LatencyMode::Realtime }, [this, weakThis = WeakPtr { *this }](auto&& result) {
+            if (!weakThis)
                 return;
 
             if (!result.has_value()) {
@@ -111,8 +115,14 @@ ExceptionOr<void> WebCodecsVideoEncoder::configure(WebCodecsVideoEncoderConfig&&
             setInternalEncoder(WTFMove(result.value()));
             m_isMessageQueueBlocked = false;
             processControlMessageQueue();
-        }, [this, weakedThis = WeakPtr { *this }](auto&& result) {
-            if (!weakedThis || m_state != WebCodecsCodecState::Configured)
+        }, [this, weakThis = WeakPtr { *this }](auto&& configuration) {
+            if (!weakThis)
+                return;
+
+            m_activeConfiguration = WTFMove(configuration);
+            m_hasNewActiveConfiguration = true;
+        }, [this, weakThis = WeakPtr { *this }](auto&& result) {
+            if (!weakThis || m_state != WebCodecsCodecState::Configured)
                 return;
 
             RefPtr<JSC::ArrayBuffer> buffer = JSC::ArrayBuffer::create(result.data.data(), result.data.size());
@@ -122,11 +132,42 @@ ExceptionOr<void> WebCodecsVideoEncoder::configure(WebCodecsVideoEncoderConfig&&
                 result.duration,
                 BufferSource { WTFMove(buffer) }
             });
-            // FIXME: Implement metadata.
-            m_output->handleEvent(WTFMove(chunk), { });
+            m_output->handleEvent(WTFMove(chunk), createEncodedChunkMetadata());
         }, WTFMove(postTaskCallback));
     });
     return { };
+}
+
+WebCodecsEncodedVideoChunkMetadata WebCodecsVideoEncoder::createEncodedChunkMetadata()
+{
+    WebCodecsVideoDecoderConfig decoderConfig;
+    if (!m_hasNewActiveConfiguration)
+        return { };
+
+    m_hasNewActiveConfiguration = false;
+
+    RefPtr<ArrayBuffer> arrayBuffer;
+    if (m_activeConfiguration.description) {
+        auto arrayBuffer = ArrayBuffer::tryCreateUninitialized(m_activeConfiguration.description->size(), 0);
+        RELEASE_LOG_ERROR_IF(!!arrayBuffer, Media, "Cannot create array buffer for WebCodecs encoder description");
+        if (arrayBuffer)
+            memcpy(static_cast<uint8_t*>(arrayBuffer->data()), m_activeConfiguration.description->data(), m_activeConfiguration.description->size());
+    }
+
+    // FIXME: Provide more accurate decoder configuration
+    WebCodecsVideoDecoderConfig config {
+        WTFMove(m_activeConfiguration.codec),
+        WTFMove(arrayBuffer),
+        m_activeConfiguration.visibleWidth ? m_activeConfiguration.visibleWidth : m_baseConfiguration.width,
+        m_activeConfiguration.visibleHeight ? m_activeConfiguration.visibleHeight : m_baseConfiguration.height,
+        m_activeConfiguration.displayWidth ? m_activeConfiguration.displayWidth : m_baseConfiguration.displayWidth,
+        m_activeConfiguration.displayHeight ? m_activeConfiguration.displayHeight : m_baseConfiguration.displayHeight,
+        { },
+        HardwareAcceleration::NoPreference,
+        { }
+    };
+
+    return WebCodecsEncodedVideoChunkMetadata { WTFMove(config) };
 }
 
 ExceptionOr<void> WebCodecsVideoEncoder::encode(Ref<WebCodecsVideoFrame>&& frame, WebCodecsVideoEncoderEncodeOptions&& options)
@@ -192,6 +233,11 @@ void WebCodecsVideoEncoder::isConfigSupported(WebCodecsVideoEncoderConfig&& conf
         promise->reject(Exception { TypeError, "Config is not valid"_s });
         return;
     }
+    if (config.alpha == WebCodecsAlphaOption::Keep) {
+        promise->reject(Exception { NotSupportedError, "Alpha keep is not supported"_s });
+        return;
+    }
+
     // FIXME: Implement accurate checks.
     promise->resolve<IDLDictionary<WebCodecsVideoEncoderSupport>>(WebCodecsVideoEncoderSupport { true, WTFMove(config) });
 }

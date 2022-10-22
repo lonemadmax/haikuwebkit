@@ -147,6 +147,9 @@ webkit.org/b/185076 css3/color-filters [ Skip ]
 # The Screen Wake Lock API is not supportted in WebKit1.
 imported/w3c/web-platform-tests/screen-wake-lock [ Skip ]
 
+# The Screen Orientation API is not supportted in WebKit1.
+imported/w3c/web-platform-tests/screen-orientation [ Skip ]
+
 # IntersectionObserver is off by default
 webkit.org/b/188613 intersection-observer [ Skip ]
 webkit.org/b/188613 http/tests/intersection-observer [ Skip ]
@@ -1802,7 +1805,6 @@ webkit.org/b/193371 accessibility/set-selected-editable.html [ Skip ]
 webkit.org/b/140798 accessibility/aria-expanded-supported-roles.html [ Skip ]
 
 # The following timeouts are caused by the same problem: [ Failure ]
-webkit.org/b/126066 accessibility/loading-iframe-updates-axtree.html [ Skip ]
 webkit.org/b/140798 accessibility/aria-hidden-false-works-in-subtrees.html [ Skip ]
 
 # The following fail because of missing numerical output support.
@@ -2241,9 +2243,10 @@ svg/filters/feImage-self-and-other-referencing.html
 # GCController.collect() issues.
 svg/animations/svglength-element-removed-crash.svg [ Failure ]
 
-# Compositing/z-index needs LBSE enabled builds, which is off by default for this port.
+# The following tests need LBSE enabled builds, which is off by default for this port.
 svg/compositing [ Skip ]
 svg/z-index [ Skip ]
+svg/foreignObject/respect-block-margin.html [ Skip ]
 
 ################################################################################
 ###################          End SVG Issues              #######################
@@ -2516,6 +2519,9 @@ http/tests/security/contentSecurityPolicy/block-mixed-content-hides-warning.html
 http/tests/security/contentSecurityPolicy/object-src-url-allowed.html [ Failure ]
 http/tests/security/contentSecurityPolicy/object-src-url-blocked.html [ Failure ]
 http/tests/security/contentSecurityPolicy/script-src-star-cross-scheme.html [ Failure ]
+http/tests/security/contentSecurityPolicy/prefetch-src/prefetch-allowed.html [ Skip ]
+http/tests/security/contentSecurityPolicy/prefetch-src/prefetch-blocked.html [ Skip ]
+http/tests/security/contentSecurityPolicy/prefetch-src/prefetch-blocked-by-default.html [ Skip ]
 
 # Crashes
 http/tests/misc/drag-not-loaded-image.html [ Skip ] # Crash
@@ -5143,6 +5149,8 @@ fast/custom-elements/perform-microtask-checkpoint-before-construction-xml-parser
 fast/custom-elements/throw-on-dynamic-markup-insertion-counter-construct-xml-parser.xhtml [ Skip ]
 fast/custom-elements/throw-on-dynamic-markup-insertion-counter-reactions-xml-parser.xhtml [ Skip ]
 
+webkit.org/b/246470 http/wpt/selection-live-range [ Skip ]
+
 # css3-text failures.
 fast/css3-text/font-synthesis.html [ ImageOnlyFailure ]
 fast/css3-text/css3-text-decoration/repaint/underline-outside-of-layout-rect-removed.html [ ImageOnlyFailure ]
@@ -5164,6 +5172,12 @@ webkit.org/b/241382 html5lib/generated/run-tests19-data.html [ Pass Crash ]
 webkit.org/b/243648 scrollbars/transparent-scrollbar.html [ ImageOnlyFailure ]
 
 webkit.org/b/243992 fast/text/punctuation-break-all.html [ ImageOnlyFailure ]
+
+webkit.org/b/246536 accessibility/table-row-role-changes.html [ Skip ]
+
+webkit.org/b/246537 fast/block/positioning/border-change-relayout-test.html [ Skip ]
+
+webkit.org/b/246544 fast/events/mouse-cursor-multiframecur.html [ Failure ]
 
 webkit.org/b/142087 fast/css3-text/css3-text-decoration/text-decoration-skip/text-decoration-skip-ink-inherit.html [ ImageOnlyFailure ]
 webkit.org/b/142087 fast/css3-text/css3-text-decoration/no-gap-between-two-rounded-textboxes.html [ ImageOnlyFailure ]

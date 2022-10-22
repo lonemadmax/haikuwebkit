@@ -638,11 +638,6 @@ RefPtr<Widget> EmptyFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInEl
     return nullptr;
 }
 
-std::optional<FrameIdentifier> EmptyFrameLoaderClient::frameID() const
-{
-    return std::nullopt;
-}
-
 std::optional<PageIdentifier> EmptyFrameLoaderClient::pageID() const
 {
     return std::nullopt;

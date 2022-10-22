@@ -213,9 +213,8 @@ public:
 #endif
 
     WebFrame* webFrame(WebCore::FrameIdentifier) const;
-    Vector<WebFrame*> webFrames() const;
     void addWebFrame(WebCore::FrameIdentifier, WebFrame*);
-    void removeWebFrame(WebCore::FrameIdentifier);
+    void removeWebFrame(WebCore::FrameIdentifier, std::optional<WebPageProxyIdentifier>);
 
     WebPageGroupProxy* webPageGroup(WebCore::PageGroup*);
     WebPageGroupProxy* webPageGroup(PageGroupIdentifier);
@@ -379,7 +378,7 @@ public:
     SpeechRecognitionRealtimeMediaSourceManager& ensureSpeechRecognitionRealtimeMediaSourceManager();
 #endif
 
-    bool isCaptivePortalModeEnabled() const { return m_isCaptivePortalModeEnabled; }
+    bool isLockdownModeEnabled() const { return m_isLockdownModeEnabled; }
 
     void setHadMainFrameMainResourcePrivateRelayed() { m_hadMainFrameMainResourcePrivateRelayed = true; }
     bool hadMainFrameMainResourcePrivateRelayed() const { return m_hadMainFrameMainResourcePrivateRelayed; }
@@ -617,7 +616,7 @@ private:
     bool m_hasStylusDevice { false };
 #endif
 
-    HashMap<WebCore::FrameIdentifier, WebFrame*> m_frameMap;
+    HashMap<WebCore::FrameIdentifier, WeakPtr<WebFrame>> m_frameMap;
 
     typedef HashMap<const char*, std::unique_ptr<WebProcessSupplement>, PtrHash<const char*>> WebProcessSupplementMap;
     WebProcessSupplementMap m_supplements;
@@ -698,7 +697,7 @@ private:
 
     bool m_hasSuspendedPageProxy { false };
     bool m_isSuspending { false };
-    bool m_isCaptivePortalModeEnabled { false };
+    bool m_isLockdownModeEnabled { false };
 
 #if ENABLE(MEDIA_STREAM) && ENABLE(SANDBOX_EXTENSIONS)
     HashMap<String, RefPtr<SandboxExtension>> m_mediaCaptureSandboxExtensions;

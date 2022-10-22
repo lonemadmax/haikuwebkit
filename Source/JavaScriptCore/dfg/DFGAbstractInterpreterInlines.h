@@ -2296,14 +2296,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                     }
 
                     if (node->arrayMode().isOutOfBounds()) {
-                        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
-                        Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure();
-                        Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure();
-                        if (arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
-                            && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                            && globalObject->arrayPrototypeChainIsSaneConcurrently(arrayPrototypeStructure, objectPrototypeStructure)) {
-                            m_graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
-                            m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
+                        if (m_graph.isWatchingArrayPrototypeIsSaneChainWatchpoint(node)) {
                             if (node->arrayMode().type() == Array::Double && node->arrayMode().isOutOfBoundsSaneChain() && !(node->flags() & NodeBytecodeUsesAsOther))
                                 setConstant(node, jsNumber(PNaN));
                             else
@@ -2576,6 +2569,13 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
             
     case ArrayPush:
+        switch (node->arrayMode().type()) {
+        case Array::ForceExit:
+            m_state.setIsValid(false);
+            break;
+        default:
+            break;
+        }
         clobberWorld();
         setNonCellTypeForNode(node, SpecBytecodeNumber);
         break;
@@ -3239,6 +3239,12 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
         clobberWorld();
         setTypeForNode(node, SpecArray);
+        break;
+    }
+
+    case ObjectToString: {
+        clobberWorld();
+        setTypeForNode(node, SpecString);
         break;
     }
 

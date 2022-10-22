@@ -36,23 +36,6 @@ class Element;
 
 namespace CQ {
 
-using SizeFeature = MQ::Feature;
-
-struct ContainerCondition;
-struct SizeCondition;
-
-struct UnknownQuery {
-    String name;
-    String text;
-};
-
-using QueryInParens = std::variant<ContainerCondition, SizeFeature, UnknownQuery>;
-
-struct ContainerCondition {
-    MQ::LogicalOperator logicalOperator { MQ::LogicalOperator::And };
-    Vector<QueryInParens> queries;
-};
-
 namespace FeatureNames {
 const AtomString& width();
 const AtomString& height();
@@ -73,10 +56,9 @@ OptionSet<Axis> requiredAxesForFeature(const AtomString&);
 struct ContainerQuery {
     AtomString name;
     OptionSet<CQ::Axis> axisFilter;
-    CQ::ContainerCondition condition;
+    MQ::Condition condition;
 };
 
-void serialize(StringBuilder&, const ContainerCondition&);
 void serialize(StringBuilder&, const ContainerQuery&);
 
 }

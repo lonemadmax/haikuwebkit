@@ -102,7 +102,7 @@
 
 #define PREFIX_PARAMETERS "%p - [webFrame=%p, webFrameID=%" PRIu64 ", webPage=%p, webPageID=%" PRIu64 "] WebFrameLoaderClient::"
 #define WEBFRAME (&webFrame())
-#define WEBFRAMEID (webFrame().frameID().toUInt64())
+#define WEBFRAMEID (webFrame().frameID().object().toUInt64())
 #define WEBPAGE (webFrame().page())
 #define WEBPAGEID (WEBPAGE ? WEBPAGE->identifier().toUInt64() : 0)
 
@@ -137,11 +137,6 @@ std::optional<PageIdentifier> WebFrameLoaderClient::pageID() const
         return m_frame->page()->identifier();
 
     return std::nullopt;
-}
-
-std::optional<FrameIdentifier> WebFrameLoaderClient::frameID() const
-{
-    return m_frame->frameID();
 }
 
 #if ENABLE(TRACKING_PREVENTION)
@@ -1597,7 +1592,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     auto* drawingArea = webPage->drawingArea();
     view->setViewExposedRect(drawingArea->viewExposedRect());
     if (isMainFrame)
-        view->setDelegatesScrolling(drawingArea->usesDelegatedScrolling());
+        view->setDelegatedScrollingMode(drawingArea->delegatedScrollingMode());
 
     webPage->corePage()->setDelegatesScaling(drawingArea->usesDelegatedPageScaling());
 #endif
@@ -1607,7 +1602,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
 
 #if USE(COORDINATED_GRAPHICS)
     if (shouldUseFixedLayout) {
-        view->setDelegatesScrolling(shouldUseFixedLayout);
+        view->setDelegatedScrollingMode(shouldUseFixedLayout ? DelegatedScrollingMode::DelegatedToNativeScrollView : DelegatedScrollingMode::NotDelegated);
         view->setPaintsEntireContents(shouldUseFixedLayout);
         return;
     }
@@ -1634,8 +1629,8 @@ void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader *doc
 RefPtr<Frame> WebFrameLoaderClient::createFrame(const AtomString& name, HTMLFrameOwnerElement& ownerElement)
 {
     auto* webPage = m_frame->page();
-
-    auto subframe = WebFrame::createSubframe(webPage, name, &ownerElement);
+    ASSERT(webPage);
+    auto subframe = WebFrame::createSubframe(*webPage, m_frame, name, ownerElement);
     auto* coreSubframe = subframe->coreFrame();
     if (!coreSubframe)
         return nullptr;
@@ -1951,15 +1946,6 @@ void WebFrameLoaderClient::getLoadDecisionForIcons(const Vector<std::pair<WebCor
 
     for (auto& icon : icons)
         webPage->send(Messages::WebPageProxy::GetLoadDecisionForIcon(icon.first, CallbackID::fromInteger(icon.second)));
-}
-
-void WebFrameLoaderClient::didCreateWindow(DOMWindow& window)
-{
-    auto* webPage = m_frame->page();
-    if (!webPage)
-        return;
-
-    webPage->send(Messages::WebPageProxy::DidCreateWindow(m_frame->frameID(), window.identifier()));
 }
 
 #if ENABLE(SERVICE_WORKER)
