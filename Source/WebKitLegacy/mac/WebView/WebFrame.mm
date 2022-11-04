@@ -101,6 +101,7 @@
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/RenderedDocumentMarker.h>
+#import <WebCore/ReportingScope.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
@@ -305,10 +306,6 @@ WebView *getWebView(WebFrame *webFrame)
     frame->_private->coreFrame = coreFrame.ptr();
 
     coreFrame.get().tree().setName(name);
-    if (ownerElement) {
-        ASSERT(ownerElement->document().frame());
-        ownerElement->document().frame()->tree().appendChild(coreFrame.get());
-    }
 
     coreFrame.get().init();
 
@@ -2324,6 +2321,16 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
 - (NSURL *)_unreachableURL
 {
     return [[self _dataSource] unreachableURL];
+}
+
+- (void)_generateTestReport:(NSString *) message withGroup:(NSString *)group
+{
+    auto coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return;
+
+    if (RefPtr document = coreFrame->document())
+        document->reportingScope().generateTestReport(message, group);
 }
 
 @end

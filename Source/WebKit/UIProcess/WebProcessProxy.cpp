@@ -207,6 +207,16 @@ Ref<WebProcessProxy> WebProcessProxy::createForRemoteWorkers(RemoteWorkerType wo
     return proxy;
 }
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+Ref<WebProcessProxy> WebProcessProxy::createForWebContentCrashy(WebProcessPool& processPool)
+{
+    auto proxy = adoptRef(*new WebProcessProxy(processPool, nullptr, IsPrewarmed::No, CrossOriginMode::Shared, LockdownMode::Disabled));
+    proxy->setIsCrashyProcess();
+    proxy->connect();
+    return proxy;
+}
+#endif
+
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 class UIProxyForCapture final : public UserMediaCaptureManagerProxy::ConnectionProxy {
     WTF_MAKE_FAST_ALLOCATED;
@@ -304,8 +314,7 @@ WebProcessProxy::~WebProcessProxy()
     WebPasteboardProxy::singleton().removeWebProcessProxy(*this);
 
 #if HAVE(CVDISPLAYLINK)
-    if (state() == State::Running)
-        processPool().stopDisplayLinks(*connection());
+    processPool().stopDisplayLinks(*this);
 #endif
 
     auto isResponsiveCallbacks = WTFMove(m_isResponsiveCallbacks);
@@ -436,6 +445,13 @@ void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOpt
         launchOptions.shouldMakeProcessLaunchFailForTesting = true;
     }
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    if (isCrashyProcess()) {
+        launchOptions.customWebContentServiceBundleIdentifier = toCString("com.apple.WebKit.WebContent.Crashy");
+        launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("is-webcontent-crashy"_s, "1"_s);
+    }
+#endif
+
     if (m_serviceWorkerInformation) {
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("service-worker-process"_s, "1"_s);
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("registrable-domain"_s, m_registrableDomain->string());
@@ -490,6 +506,10 @@ void WebProcessProxy::connectionWillOpen(IPC::Connection& connection)
 #if ENABLE(SEC_ITEM_SHIM)
     SecItemShimProxy::singleton().initializeConnection(connection);
 #endif
+
+#if HAVE(CVDISPLAYLINK)
+    m_displayLinkClient.setConnection(&connection);
+#endif
 }
 
 void WebProcessProxy::processWillShutDown(IPC::Connection& connection)
@@ -498,7 +518,8 @@ void WebProcessProxy::processWillShutDown(IPC::Connection& connection)
     ASSERT_UNUSED(connection, this->connection() == &connection);
 
 #if HAVE(CVDISPLAYLINK)
-    processPool().stopDisplayLinks(connection);
+    m_displayLinkClient.setConnection(nullptr);
+    processPool().stopDisplayLinks(*this);
 #endif
 }
 
@@ -604,6 +625,13 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
         RELEASE_ASSERT(m_processPool);
         m_processPool->pageBeginUsingWebsiteDataStore(webPage.identifier(), webPage.websiteDataStore());
     }
+
+#if PLATFORM(MAC) && USE(RUNNINGBOARD)
+    if (webPage.preferences().backgroundWebContentRunningBoardThrottlingEnabled())
+        setRunningBoardThrottlingEnabled();
+#endif
+    if (!webPage.preferences().shouldTakeSuspendedAssertions())
+        m_throttler.setShouldTakeSuspendedAssertion(false);
 
     markProcessAsRecentlyUsed();
     m_pageMap.set(webPage.identifier(), &webPage);
@@ -1071,15 +1099,18 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 
 #if USE(RUNNINGBOARD)
     if (connection()) {
-        if (xpc_connection_t xpcConnection = connection()->xpcConnection()) {
+        if (xpc_connection_t xpcConnection = connection()->xpcConnection())
             m_throttler.didConnectToProcess(xpc_connection_get_pid(xpcConnection));
-#if PLATFORM(MAC)
-            if (!m_isSuspensionEnabled)
-                m_suspensionSuppressionAssertion = ProcessAssertion::create(xpc_connection_get_pid(connection()->xpcConnection()), "Suppress Suspension"_s, ProcessAssertionType::Foreground);
-#endif
-        }
     }
 
+    for (const auto& page : m_pageMap.values()) {
+#if PLATFORM(MAC)
+        if (page->preferences().backgroundWebContentRunningBoardThrottlingEnabled())
+            setRunningBoardThrottlingEnabled();
+#endif
+        if (!page->preferences().shouldTakeSuspendedAssertions())
+            m_throttler.setShouldTakeSuspendedAssertion(false);
+    }
 #endif
 
 #if PLATFORM(COCOA)

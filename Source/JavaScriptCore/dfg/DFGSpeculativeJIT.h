@@ -325,13 +325,9 @@ public:
     
     RegisterSetBuilder usedRegisters();
     
-    bool masqueradesAsUndefinedWatchpointIsStillValid(const CodeOrigin& codeOrigin)
+    bool masqueradesAsUndefinedWatchpointSetIsStillValid()
     {
-        return m_graph.masqueradesAsUndefinedWatchpointIsStillValid(codeOrigin);
-    }
-    bool masqueradesAsUndefinedWatchpointIsStillValid()
-    {
-        return masqueradesAsUndefinedWatchpointIsStillValid(m_currentNode->origin.semantic);
+        return m_graph.isWatchingMasqueradesAsUndefinedWatchpointSet(m_currentNode);
     }
 
     void compileStoreBarrier(Node*);
@@ -1571,6 +1567,7 @@ public:
     void compileClearCatchLocals(Node*);
     void compileProfileType(Node*);
     void compileStringCodePointAt(Node*);
+    void compileStringLocaleCompare(Node*);
     void compileDateGet(Node*);
 
     template<typename JSClass, typename Operation>

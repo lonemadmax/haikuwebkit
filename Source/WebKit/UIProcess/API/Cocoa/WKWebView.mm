@@ -393,7 +393,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     else
         [self _updateScrollViewBackground];
 
-    [self _frameOrBoundsChanged];
+    [self _frameOrBoundsMayHaveChanged];
     [self _registerForNotifications];
 
     _page->contentSizeCategoryDidChange([self _contentSizeCategory]);
@@ -1781,10 +1781,10 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 
 static NSDictionary *dictionaryRepresentationForEditorState(const WebKit::EditorState& state)
 {
-    if (state.isMissingPostLayoutData)
+    if (!state.hasPostLayoutData())
         return @{ @"post-layout-data" : @NO };
 
-    auto& postLayoutData = state.postLayoutData();
+    auto& postLayoutData = *state.postLayoutData;
     return @{
         @"post-layout-data" : @YES,
         @"bold": postLayoutData.typingAttributes & WebKit::AttributeBold ? @YES : @NO,
@@ -2124,6 +2124,11 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 - (BOOL)_negotiatedLegacyTLS
 {
     return _page->pageLoadState().hasNegotiatedLegacyTLS();
+}
+
+- (BOOL)_wasPrivateRelayed
+{
+    return _page->pageLoadState().wasPrivateRelayed();
 }
 
 - (void)_frames:(void (^)(_WKFrameTreeNode *))completionHandler

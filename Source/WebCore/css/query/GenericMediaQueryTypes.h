@@ -24,12 +24,17 @@
 
 #pragma once
 
+#include "CSSToLengthConversionData.h"
 #include "CSSValue.h"
 #include "CSSValueKeywords.h"
 #include <wtf/OptionSet.h>
 #include <wtf/text/AtomString.h>
 
-namespace WebCore::MQ {
+namespace WebCore {
+
+class RenderElement;
+
+namespace MQ {
 
 enum class LogicalOperator : uint8_t { And, Or, Not };
 enum class ComparisonOperator : uint8_t { LessThan, LessThanOrEqual, Equal, GreaterThan, GreaterThanOrEqual };
@@ -49,7 +54,7 @@ struct Feature {
     std::optional<Comparison> leftComparison;
     std::optional<Comparison> rightComparison;
 
-    const FeatureSchema* validSchema { nullptr };
+    const FeatureSchema* schema { nullptr };
 };
 
 struct GeneralEnclosed {
@@ -64,7 +69,17 @@ struct Condition {
     Vector<QueryInParens> queries;
 };
 
+enum class EvaluationResult : uint8_t { False, True, Unknown };
+
+struct FeatureEvaluationContext {
+    const Document& document;
+    CSSToLengthConversionData conversionData { };
+    const RenderElement* renderer { nullptr };
+};
+
 struct FeatureSchema {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
     enum class Type : uint8_t { Discrete, Range };
     enum class ValueType : uint8_t {
         Integer =       1 << 0,
@@ -78,6 +93,17 @@ struct FeatureSchema {
     Type type;
     OptionSet<ValueType> valueTypes;
     Vector<CSSValueID> valueIdentifiers;
+
+    virtual EvaluationResult evaluate(const Feature&, const FeatureEvaluationContext&) const { return EvaluationResult::Unknown; }
+
+    FeatureSchema(const AtomString& name, Type type, OptionSet<ValueType> valueTypes, Vector<CSSValueID>&& valueIdentifiers = { })
+        : name(name)
+        , type(type)
+        , valueTypes(valueTypes)
+        , valueIdentifiers(WTFMove(valueIdentifiers))
+    { }
+    virtual ~FeatureSchema() = default;
 };
 
+}
 }

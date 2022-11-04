@@ -84,7 +84,7 @@ private:
     void dispatchWillClose() final;
     void dispatchDidStartProvisionalLoad() final;
     void dispatchDidReceiveTitle(const StringWithDirection&) final;
-    void dispatchDidCommitLoad(std::optional<HasInsecureContent>, std::optional<UsedLegacyTLS>) final;
+    void dispatchDidCommitLoad(std::optional<HasInsecureContent>, std::optional<UsedLegacyTLS>, std::optional<WasPrivateRelayed>) final;
     void dispatchDidFailProvisionalLoad(const ResourceError&, WillContinueLoading) final;
     void dispatchDidFailLoad(const ResourceError&) final;
     void dispatchDidFinishDocumentLoad() final;
@@ -173,7 +173,6 @@ private:
     bool canCachePage() const final;
     void didDisplayInsecureContent() final;
     void didRunInsecureContent(SecurityOrigin&, const URL&) final;
-    void didDetectXSS(const URL&, bool) final;
     RefPtr<Frame> createFrame(const AtomString&, HTMLFrameOwnerElement&) final;
     RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&, const Vector<AtomString>&, const String&, bool) final;
 

@@ -150,6 +150,7 @@ public:
     static void applyValueWritingMode(BuilderState&, CSSValue&);
     static void applyValueAlt(BuilderState&, CSSValue&);
     static void applyValueWillChange(BuilderState&, CSSValue&);
+    static void applyValueFontSizeAdjust(BuilderState&, CSSValue&);
 
 #if ENABLE(DARK_MODE_CSS)
     static void applyValueColorScheme(BuilderState&, CSSValue&);
@@ -1563,7 +1564,7 @@ inline void BuilderCustom::applyValueContent(BuilderState& builderState, CSSValu
 
     bool didSet = false;
     for (auto& item : downcast<CSSValueList>(value)) {
-        if (is<CSSImageGeneratorValue>(item) || is<CSSImageSetValue>(item) || is<CSSImageValue>(item)) {
+        if (item->isImage()) {
             builderState.style().setContent(builderState.createStyleImage(item.get()), didSet);
             didSet = true;
             continue;
@@ -1907,6 +1908,20 @@ inline void BuilderCustom::applyValueFontSize(BuilderState& builderState, CSSVal
         return;
 
     builderState.setFontSize(fontDescription, std::min(maximumAllowedFontSize, size));
+    builderState.setFontDescription(WTFMove(fontDescription));
+}
+
+inline void BuilderCustom::applyValueFontSizeAdjust(BuilderState& builderState, CSSValue& value)
+{
+    auto fontDescription = builderState.fontDescription();
+    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
+
+    if (primitiveValue.isNumber())
+        fontDescription.setFontSizeAdjust(primitiveValue.floatValue());
+    else {
+        ASSERT(primitiveValue.valueID() == CSSValueNone);
+        fontDescription.setFontSizeAdjust(std::nullopt);
+    }
     builderState.setFontDescription(WTFMove(fontDescription));
 }
 

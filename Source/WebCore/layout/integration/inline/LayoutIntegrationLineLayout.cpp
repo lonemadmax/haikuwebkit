@@ -36,6 +36,7 @@
 #include "InlineFormattingContext.h"
 #include "InlineFormattingState.h"
 #include "InlineInvalidation.h"
+#include "InlineWalker.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutIntegrationCoverage.h"
 #include "LayoutIntegrationInlineContentBuilder.h"
@@ -82,12 +83,17 @@ LineLayout::~LineLayout()
     layoutState().destroyInlineFormattingState(rootLayoutBox());
 }
 
-RenderBlockFlow* LineLayout::blockContainer(RenderObject& renderer)
+static inline bool isContentRenderer(const RenderObject& renderer)
 {
     // FIXME: These fake renderers have their parent set but are not actually in the tree.
-    if (renderer.isReplica() || renderer.isRenderScrollbarPart())
+    return !renderer.isReplica() && !renderer.isRenderScrollbarPart();
+}
+
+RenderBlockFlow* LineLayout::blockContainer(RenderObject& renderer)
+{
+    if (!isContentRenderer(renderer))
         return nullptr;
-    
+
     for (auto* parent = renderer.parent(); parent; parent = parent->parent()) {
         if (!parent->childrenInline())
             return nullptr;
@@ -100,11 +106,15 @@ RenderBlockFlow* LineLayout::blockContainer(RenderObject& renderer)
 
 LineLayout* LineLayout::containing(RenderObject& renderer)
 {
+    if (!isContentRenderer(renderer))
+        return nullptr;
+
     if (!renderer.isInline()) {
-        if (!renderer.isFloatingOrOutOfFlowPositioned())
+        // FIXME: See canUseForChild on out-of-flow nested boxes.
+        if (!renderer.isFloatingOrOutOfFlowPositioned() || renderer.parent() != renderer.containingBlock())
             return nullptr;
-        if (auto* containgBlock = renderer.containingBlock(); containgBlock && is<RenderBlockFlow>(*containgBlock))
-            return downcast<RenderBlockFlow>(*containgBlock).modernLineLayout();
+        if (auto* containingBlock = renderer.containingBlock(); containingBlock && is<RenderBlockFlow>(*containingBlock))
+            return downcast<RenderBlockFlow>(*containingBlock).modernLineLayout();
         return nullptr;
     }
 
@@ -356,6 +366,42 @@ void LineLayout::updateInlineBoxDimensions(const RenderInline& renderInline)
     boxGeometry.setHorizontalMargin(horizontalLogicalMargin(renderInline, isLeftToRightInlineDirection, writingMode == WritingMode::TopToBottom, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
     boxGeometry.setBorder(logicalBorder(renderInline, isLeftToRightInlineDirection, writingMode, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
     boxGeometry.setPadding(logicalPadding(renderInline, isLeftToRightInlineDirection, writingMode, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
+}
+
+void LineLayout::updateInlineContentDimensions()
+{
+    for (auto walker = InlineWalker(flow()); !walker.atEnd(); walker.advance()) {
+        auto& renderer = *walker.current();
+
+        if (is<RenderReplaced>(renderer)) {
+            updateReplacedDimensions(downcast<RenderReplaced>(renderer));
+            continue;
+        }
+        if (is<RenderTable>(renderer)) {
+            updateInlineTableDimensions(downcast<RenderTable>(renderer));
+            continue;
+        }
+        if (is<RenderListMarker>(renderer)) {
+            updateListMarkerDimensions(downcast<RenderListMarker>(renderer));
+            continue;
+        }
+        if (is<RenderListItem>(renderer)) {
+            updateListItemDimensions(downcast<RenderListItem>(renderer));
+            continue;
+        }
+        if (is<RenderBlock>(renderer)) {
+            updateInlineBlockDimensions(downcast<RenderBlock>(renderer));
+            continue;
+        }
+        if (is<RenderLineBreak>(renderer)) {
+            updateLineBreakBoxDimensions(downcast<RenderLineBreak>(renderer));
+            continue;
+        }
+        if (is<RenderInline>(renderer)) {
+            updateInlineBoxDimensions(downcast<RenderInline>(renderer));
+            continue;
+        }
+    }
 }
 
 void LineLayout::updateStyle(const RenderBoxModelObject& renderer, const RenderStyle& oldStyle)

@@ -27,8 +27,10 @@
 #include "WebFrameProxy.h"
 
 #include "APINavigation.h"
+#include "Connection.h"
 #include "ProvisionalPageProxy.h"
 #include "WebFramePolicyListenerProxy.h"
+#include "WebFrameProxyMessages.h"
 #include "WebPageMessages.h"
 #include "WebPasteboardProxy.h"
 #include "WebProcessPool.h"
@@ -39,6 +41,8 @@
 #include <stdio.h>
 #include <wtf/RunLoop.h>
 #include <wtf/text/WTFString.h>
+
+#define MESSAGE_CHECK(process, assertion) MESSAGE_CHECK_BASE(assertion, process->connection())
 
 namespace WebKit {
 using namespace WebCore;
@@ -65,14 +69,15 @@ bool WebFrameProxy::canCreateFrame(FrameIdentifier frameID)
         && !allFrames().contains(frameID);
 }
 
-WebFrameProxy::WebFrameProxy(WebPageProxy& page, WebProcessProxy& process, FrameIdentifier frameID)
+WebFrameProxy::WebFrameProxy(WebPageProxy& page, WebProcessProxy& process, WebCore::PageIdentifier pageID, FrameIdentifier frameID)
     : m_page(page)
     , m_process(process)
+    , m_webPageID(pageID)
     , m_frameID(frameID)
 {
     ASSERT(!allFrames().contains(frameID));
     allFrames().set(frameID, this);
-
+    m_process->addMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object(), *this);
     WebProcessPool::statistics().wkFrameCount++;
 }
 
@@ -85,6 +90,8 @@ WebFrameProxy::~WebFrameProxy()
 
     if (m_navigateCallback)
         m_navigateCallback({ }, { });
+
+    m_process->removeMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object());
 
     ASSERT(allFrames().get(m_frameID) == this);
     allFrames().remove(m_frameID);
@@ -340,10 +347,79 @@ void WebFrameProxy::disconnect()
         m_parentFrame->m_childFrames.remove(*this);
 }
 
-void WebFrameProxy::addChildFrame(Ref<WebFrameProxy>&& child)
+void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID)
 {
+    MESSAGE_CHECK(m_process, WebFrameProxy::canCreateFrame(frameID));
+    MESSAGE_CHECK(m_process, frameID.processIdentifier() == m_process->coreProcessIdentifier());
+    if (!m_page)
+        return;
+    auto child = WebFrameProxy::create(*m_page, m_process, m_webPageID, frameID);
     child->m_parentFrame = *this;
     m_childFrames.add(WTFMove(child));
+}
+
+void WebFrameProxy::swapToProcess(WebProcessProxy& process)
+{
+    ASSERT(!isMainFrame());
+    m_process->removeMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object());
+    m_process = process;
+
+    // FIXME: This identifier may collide with identifiers generated in the new process.
+    m_process->addMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object(), *this);
+
+    // FIXME: Do more here.
+}
+
+IPC::Connection* WebFrameProxy::messageSenderConnection() const
+{
+    return m_process->connection();
+}
+
+uint64_t WebFrameProxy::messageSenderDestinationID() const
+{
+    return m_frameID.object().toUInt64();
+}
+
+void WebFrameProxy::decidePolicyForNavigationActionAsync(FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier, uint64_t navigationID,
+    NavigationActionData&& navigationActionData, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&& request,
+    IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse, const UserData& userData, uint64_t listenerID)
+{
+    if (!m_page)
+        return;
+    m_page->decidePolicyForNavigationActionAsyncShared(m_process.copyRef(), m_webPageID, frameID(), WTFMove(frameInfo), identifier, navigationID, WTFMove(navigationActionData), WTFMove(originatingFrameInfo), originatingPageID, originalRequest, WTFMove(request), WTFMove(requestBody), WTFMove(redirectResponse), userData, listenerID);
+}
+
+void WebFrameProxy::decidePolicyForNavigationActionSync(bool isMainFrame, FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier,
+    uint64_t navigationID, NavigationActionData&& navigationActionData, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID,
+    const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&& request, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse,
+    const UserData& userData, Messages::WebFrameProxy::DecidePolicyForNavigationActionSync::DelayedReply&& reply)
+{
+    if (!m_page)
+        return reply({ });
+    m_page->decidePolicyForNavigationActionSyncShared(m_process.copyRef(), m_webPageID, frameID(), isMainFrame, WTFMove(frameInfo), identifier, navigationID, WTFMove(navigationActionData), WTFMove(originatingFrameInfo), originatingPageID, originalRequest, WTFMove(request), WTFMove(requestBody), WTFMove(redirectResponse), userData, WTFMove(reply));
+}
+
+void WebFrameProxy::decidePolicyForNewWindowAction(FrameInfoData&& frameInfo, WebCore::PolicyCheckIdentifier policyCheckIdentifier, NavigationActionData&& navigationActionData,
+    WebCore::ResourceRequest&& request, const String& frameName, uint64_t listenerID, const UserData& userData)
+{
+    if (!m_page)
+        return;
+    m_page->decidePolicyForNewWindowAction(frameID(), WTFMove(frameInfo), policyCheckIdentifier, WTFMove(navigationActionData), WTFMove(request), frameName, listenerID, userData);
+}
+
+void WebFrameProxy::decidePolicyForResponse(FrameInfoData&& frameInfo, WebCore::PolicyCheckIdentifier policyCheckIdentifier, uint64_t navigationID,
+    const WebCore::ResourceResponse& response, const WebCore::ResourceRequest& request, bool canShowMIMEType, const String& downloadAttribute, uint64_t listenerID, const UserData& userData)
+{
+    if (!m_page)
+        return;
+    m_page->decidePolicyForResponseShared(m_process.copyRef(), m_webPageID, frameID(), WTFMove(frameInfo), policyCheckIdentifier, navigationID, response, request, canShowMIMEType, downloadAttribute, listenerID, userData);
+}
+
+void WebFrameProxy::unableToImplementPolicy(const WebCore::ResourceError& error, const UserData& userData)
+{
+    if (!m_page)
+        return;
+    m_page->unableToImplementPolicy(frameID(), error, userData);
 }
 
 } // namespace WebKit

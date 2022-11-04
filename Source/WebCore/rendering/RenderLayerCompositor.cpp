@@ -885,7 +885,7 @@ bool RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType update
 
         auto& frame = m_renderView.frameView().frame();
         bool isMainFrame = isMainFrameCompositor();
-        LOG_WITH_STREAM(Compositing, stream << "\nUpdate " << m_rootLayerUpdateCount << " of " << (isMainFrame ? "main frame" : frame.tree().uniqueName().string().utf8().data()) << " - compositing policy is " << m_compositingPolicy);
+        LOG_WITH_STREAM(Compositing, stream << "\nUpdate " << m_rootLayerUpdateCount << " of " << (isMainFrame ? "main frame"_s : makeString("frame "_s, frame.frameID().object().toUInt64())) << " - compositing policy is " << m_compositingPolicy);
     }
 #endif
 
@@ -1726,6 +1726,17 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
                         stackingContext->setDescendantsNeedUpdateBackingAndHierarchyTraversal();
                 }
             }
+
+            // This ensures that the viewport anchor layer will be updated when updating compositing layers upon style change
+            auto styleChangeAffectsAnchorLayer = [](const RenderStyle* oldStyle, const RenderStyle& newStyle) {
+                if (!oldStyle)
+                    return false;
+
+                return oldStyle->hasViewportConstrainedPosition() != newStyle.hasViewportConstrainedPosition();
+            };
+
+            if (styleChangeAffectsAnchorLayer(oldStyle, newStyle))
+                layer.setNeedsCompositingConfigurationUpdate();
 
             // These properties trigger compositing if some descendant is composited.
             if (oldStyle && styleChangeMayAffectIndirectCompositingReasons(*oldStyle, newStyle))

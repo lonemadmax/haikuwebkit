@@ -804,30 +804,6 @@ void RenderBlock::addVisualOverflowFromTheme()
         fragmentedFlow->addFragmentsVisualOverflowFromTheme(this);
 }
 
-LayoutUnit RenderBlock::computeStartPositionDeltaForChildAvoidingFloats(const RenderBox& child, LayoutUnit childMarginStart, RenderFragmentContainer* fragment)
-{
-    LayoutUnit startPosition = startOffsetForContent(fragment);
-
-    // Add in our start margin.
-    LayoutUnit oldPosition = startPosition + childMarginStart;
-    LayoutUnit newPosition = oldPosition;
-
-    LayoutUnit blockOffset = logicalTopForChild(child);
-    if (fragment)
-        blockOffset = std::max(blockOffset, blockOffset + (fragment->logicalTopForFragmentedFlowContent() - offsetFromLogicalTopOfFirstPage()));
-
-    LayoutUnit startOff = startOffsetForLineInFragment(blockOffset, DoNotIndentText, fragment, logicalHeightForChild(child));
-
-    if (style().textAlign() != TextAlignMode::WebKitCenter && !child.style().marginStartUsing(&style()).isAuto()) {
-        if (childMarginStart < 0)
-            startOff += childMarginStart;
-        newPosition = std::max(newPosition, startOff); // Let the float sit in the child's margin if it can fit.
-    } else if (startOff != startPosition)
-        newPosition = startOff + childMarginStart;
-
-    return newPosition - oldPosition;
-}
-
 void RenderBlock::setLogicalLeftForChild(RenderBox& child, LayoutUnit logicalLeft, ApplyLayoutDeltaMode applyDelta)
 {
     if (isHorizontalWritingMode()) {
@@ -2208,9 +2184,13 @@ VisiblePosition RenderBlock::positionForPoint(const LayoutPoint& point, const Re
         LayoutUnit pointLogicalLeft = isHorizontalWritingMode() ? point.x() : point.y();
         LayoutUnit pointLogicalTop = isHorizontalWritingMode() ? point.y() : point.x();
 
-        if (pointLogicalTop < 0 || (pointLogicalTop < logicalHeight() && pointLogicalLeft < 0))
+        if (pointLogicalTop < 0)
             return createVisiblePosition(caretMinOffset(), Affinity::Downstream);
-        if (pointLogicalTop >= logicalHeight() || (pointLogicalTop >= 0 && pointLogicalLeft >= logicalWidth()))
+        if (pointLogicalLeft >= logicalWidth())
+            return createVisiblePosition(caretMaxOffset(), Affinity::Downstream);
+        if (pointLogicalTop < 0)
+            return createVisiblePosition(caretMinOffset(), Affinity::Downstream);
+        if (pointLogicalTop >= logicalHeight())
             return createVisiblePosition(caretMaxOffset(), Affinity::Downstream);
     }
     if (isFlexibleBoxIncludingDeprecated() || isRenderGrid())
@@ -2265,8 +2245,12 @@ void RenderBlock::offsetForContents(LayoutPoint& offset) const
 void RenderBlock::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
     ASSERT(!childrenInline());
-    auto shouldIgnoreDescendantContentForLogicalWidth = shouldApplySizeOrInlineSizeContainment();
-    if (!shouldIgnoreDescendantContentForLogicalWidth)
+    if (shouldApplySizeContainment()) {
+        if (auto width = explicitIntrinsicInnerLogicalWidth()) {
+            minLogicalWidth = width.value();
+            maxLogicalWidth = width.value();
+        }
+    } else if (!shouldApplyInlineSizeContainment())
         computeBlockPreferredLogicalWidths(minLogicalWidth, maxLogicalWidth);
 
     maxLogicalWidth = std::max(minLogicalWidth, maxLogicalWidth);

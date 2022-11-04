@@ -1025,6 +1025,51 @@ GraphicsLayer* FrameView::graphicsLayerForPlatformWidget(PlatformWidget platform
     return widgetLayer->backing()->parentForSublayers();
 }
 
+GraphicsLayer* FrameView::graphicsLayerForPageScale()
+{
+    auto* page = frame().page();
+    if (!page)
+        return nullptr;
+
+    if (page->delegatesScaling()) {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+
+    auto* renderView = this->renderView();
+    if (!renderView)
+        return nullptr;
+
+    if (!renderView->hasLayer() || !renderView->layer()->isComposited())
+        return nullptr;
+
+    auto* backing = renderView->layer()->backing();
+    if (auto* contentsContainmentLayer = backing->contentsContainmentLayer())
+        return contentsContainmentLayer;
+
+    return backing->graphicsLayer();
+}
+
+#if HAVE(RUBBER_BANDING)
+GraphicsLayer* FrameView::graphicsLayerForTransientZoomShadow()
+{
+    auto* page = frame().page();
+    if (!page)
+        return nullptr;
+
+    if (page->delegatesScaling()) {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+
+    auto* renderView = this->renderView();
+    if (!renderView)
+        return nullptr;
+
+    return renderView->compositor().layerForContentShadow();
+}
+#endif
+
 LayoutRect FrameView::fixedScrollableAreaBoundsInflatedForScrolling(const LayoutRect& uninflatedBounds) const
 {
     LayoutPoint scrollPosition;
@@ -2832,13 +2877,10 @@ void FrameView::resumeVisibleImageAnimations(const IntRect& visibleRect)
         renderView->resumePausedImageAnimationsIfNeeded(visibleRect);
 }
 
-void FrameView::repaintVisibleImageAnimations(const IntRect& visibleRect)
+void FrameView::updatePlayStateForAllAnimations(const IntRect& visibleRect)
 {
-    if (visibleRect.isEmpty())
-        return;
-
     if (auto* renderView = frame().contentRenderer())
-        renderView->repaintImageAnimationsIfNeeded(visibleRect);
+        renderView->updatePlayStateForAllAnimations(visibleRect);
 }
 
 void FrameView::updateScriptedAnimationsAndTimersThrottlingState(const IntRect& visibleRect)
@@ -2876,10 +2918,10 @@ void FrameView::resumeVisibleImageAnimationsIncludingSubframes()
     });
 }
 
-void FrameView::repaintVisibleImageAnimationsIncludingSubframes()
+void FrameView::updatePlayStateForAllAnimationsIncludingSubframes()
 {
     applyRecursivelyWithVisibleRect([] (FrameView& frameView, const IntRect& visibleRect) {
-        frameView.repaintVisibleImageAnimations(visibleRect);
+        frameView.updatePlayStateForAllAnimations(visibleRect);
     });
 }
 
@@ -3693,7 +3735,12 @@ void FrameView::performPostLayoutTasks()
     // FIXME: We should not run any JavaScript code in this function.
     LOG(Layout, "FrameView %p performPostLayoutTasks", this);
     updateHasReachedSignificantRenderedTextThreshold();
-    frame().selection().updateAppearanceAfterLayout();
+
+    if (auto& selection = frame().selection(); selection.isFocusedAndActive()) {
+        // FIXME (247041): We should be able to remove this appearance update altogether,
+        // and instead defer updates until the next rendering update.
+        selection.updateAppearanceAfterLayout();
+    }
 
     flushPostLayoutTasksQueue();
 
@@ -4357,7 +4404,7 @@ void FrameView::notifyAllFramesThatContentAreaWillPaint() const
 
     for (auto* child = frame().tree().firstRenderedChild(); child; child = child->tree().traverseNextRendered(m_frame.ptr())) {
         auto* localChild = dynamicDowncast<LocalFrame>(child);
-        if (!child)
+        if (!localChild)
             continue;
         if (auto* frameView = localChild->view())
             frameView->notifyScrollableAreasThatContentAreaWillPaint();

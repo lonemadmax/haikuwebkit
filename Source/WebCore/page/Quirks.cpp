@@ -1197,7 +1197,7 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
 
 Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& element, const PlatformMouseEvent& platformEvent, const AtomString& eventType, int detail, Element* relatedTarget, bool isParentProcessAFullWebBrowser, IsSyntheticClick isSyntheticClick) const
 {
-    if (!DeprecatedGlobalSettings::resourceLoadStatisticsEnabled() || !isParentProcessAFullWebBrowser)
+    if (!DeprecatedGlobalSettings::trackingPreventionEnabled() || !isParentProcessAFullWebBrowser)
         return Quirks::StorageAccessResult::ShouldNotCancelEvent;
 
 #if ENABLE(TRACKING_PREVENTION)
@@ -1572,7 +1572,7 @@ bool Quirks::shouldExposeShowModalDialog() const
         return false;
     if (!m_shouldExposeShowModalDialog) {
         auto domain = RegistrableDomain(m_document->url()).string();
-        m_shouldExposeShowModalDialog = domain == "pandora.com"_s;
+        m_shouldExposeShowModalDialog = domain == "pandora.com"_s || domain == "marcus.com"_s;
     }
     return *m_shouldExposeShowModalDialog;
 }

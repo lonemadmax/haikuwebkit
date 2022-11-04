@@ -414,6 +414,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webcodecs/WebCodecsEncodedVideoChunk.h
     Modules/webcodecs/WebCodecsEncodedVideoChunkData.h
     Modules/webcodecs/WebCodecsEncodedVideoChunkType.h
+    Modules/webcodecs/WebCodecsVideoFrame.h
+    Modules/webcodecs/WebCodecsVideoFrameData.h
 
     Modules/webdatabase/DatabaseDetails.h
     Modules/webdatabase/DatabaseManager.h
@@ -605,6 +607,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSStyleSheet.h
     css/CSSSubgridValue.h
     css/CSSToLengthConversionData.h
+    css/CSSTransformListValue.h
     css/CSSUnits.h
     css/CSSUnknownRule.h
     css/CSSValue.h
@@ -642,6 +645,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/parser/CSSParserTokenRange.h
 
     css/query/GenericMediaQueryTypes.h
+    css/query/MediaQuery.h
 
     cssjit/CompiledSelector.h
 
@@ -1574,6 +1578,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontCreationContext.h
     platform/graphics/FontDescription.h
     platform/graphics/FontFamilySpecificationNull.h
+    platform/graphics/FontFeatureValues.h
     platform/graphics/FontGenericFamilies.h
     platform/graphics/FontMetrics.h
     platform/graphics/FontPalette.h
@@ -1596,7 +1601,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GradientColorStop.h
     platform/graphics/GradientColorStops.h
     platform/graphics/GraphicsContext.h
-    platform/graphics/GraphicsContextFlushIdentifier.h
     platform/graphics/GraphicsContextGL.h
     platform/graphics/GraphicsContextGLAttributes.h
     platform/graphics/GraphicsContextGLState.h
@@ -1870,6 +1874,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/HTTPHeaderMap.h
     platform/network/HTTPHeaderValues.h
     platform/network/HTTPParsers.h
+    platform/network/NetworkConnectionIntegrity.h
     platform/network/NetworkLoadInformation.h
     platform/network/NetworkLoadMetrics.h
     platform/network/NetworkStateNotifier.h

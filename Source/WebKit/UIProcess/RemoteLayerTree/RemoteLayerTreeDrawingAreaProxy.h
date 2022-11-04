@@ -69,6 +69,8 @@ public:
 protected:
     void updateDebugIndicatorPosition();
 
+    bool shouldCoalesceVisualEditorStateUpdates() const override { return true; }
+
 private:
     void sizeDidChange() final;
     void deviceScaleFactorDidChange() final;
@@ -79,8 +81,8 @@ private:
     // Once we have other callbacks, it may make sense to have a before-commit/after-commit option.
     void dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&&) final;
     
-    virtual void scheduleDisplayLink() { }
-    virtual void pauseDisplayLink() { }
+    virtual void scheduleDisplayRefreshCallbacks() { }
+    virtual void pauseDisplayRefreshCallbacks() { }
 
     float indicatorScale(WebCore::IntSize contentsSize) const;
     void updateDebugIndicator() final;

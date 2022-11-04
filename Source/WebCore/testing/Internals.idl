@@ -572,6 +572,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     readonly attribute boolean areSVGAnimationsPaused;
     double svgAnimationsInterval(SVGSVGElement element);
+    sequence<SVGSVGElement> allSVGSVGElements();
 
     boolean testProcessIncomingSyncMessagesWhenWaitingForSyncReply();
 
@@ -893,7 +894,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [CallWith=CurrentGlobalObject] boolean isReadableStreamDisturbed(any stream);
 
     DOMString resourceLoadStatisticsForURL(DOMURL url);
-    undefined setResourceLoadStatisticsEnabled(boolean enable);
+    undefined setTrackingPreventionEnabled(boolean enable);
 
     undefined setCanShowModalDialogOverride(boolean allow);
 

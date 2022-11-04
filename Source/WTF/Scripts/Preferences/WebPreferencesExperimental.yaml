@@ -483,7 +483,6 @@ CSSTypedOMEnabled:
   type: bool
   humanReadableName: "CSS Typed OM"
   humanReadableDescription: "Enable the CSS Typed OM"
-  condition: ENABLE(CSS_TYPED_OM)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -858,17 +857,6 @@ ImageAnimationControlEnabled:
     WebCore:
       default: false
 
-ImageBitmapEnabled:
-  type: bool
-  humanReadableName: "ImageBitmap"
-  humanReadableDescription: "Support for the ImageBitmap APIs"
-  webcoreBinding: DeprecatedGlobalSettings
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-
 ImperativeSlotAPIEnabled:
   type: bool
   humanReadableName: "Imperative Slot API"
@@ -1057,6 +1045,18 @@ MaskWebGLStringsEnabled:
       default: true
     WebCore:
       default: true
+
+MasonryEnabled:
+  type: bool
+  humanReadableName: "CSS Masonry Layout"
+  humanReadableDescription: "Enable Masonry Layout for CSS Grid"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 MediaCapabilitiesExtensionsEnabled:
@@ -1516,7 +1516,7 @@ ScreenWakeLockAPIEnabled:
       default: true
     WebCore:
       default: false
-      
+
 ScrollToTextFragmentEnabled:
   type: bool
   humanReadableName: "Scroll To Text Fragment"
@@ -1581,6 +1581,18 @@ ShowMediaStatsContextMenuItemEnabled:
   type: bool
   humanReadableName: "Show Media Stats"
   humanReadableDescription: "Adds a 'Media Stats' context menu item to <video> when the Develop menu is enabled"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+SiteIsolationEnabled:
+  type: bool
+  humanReadableName: "Site Isolation"
+  humanReadableDescription: "Put cross-origin iframes in a different process"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1895,8 +1907,10 @@ WebCodecsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
+      "PLATFORM(COCOA)": true
       default: false
 
 WebGL2Enabled:

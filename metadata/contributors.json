@@ -232,12 +232,11 @@
    {
       "emails" : [
          "zalan@apple.com",
-         "zbujtas@gmail.com",
-         "zalan.bujtas@nokia.com"
+         "zbujtas@gmail.com"
       ],
       "expertise" : "Layout",
-      "github" : "alanbujtas",
-      "name" : "Alan Bujtas",
+      "github" : "alanbaradlay",
+      "name" : "Alan Baradlay",
       "nicks" : [
          "zalan"
       ],
@@ -4490,6 +4489,7 @@
       "emails" : [
          "kpiddington@apple.com"
       ],
+      "github" : "kpiddington",
       "name" : "Kyle Piddington",
       "nicks" : [
          "kpiddington"
@@ -4986,7 +4986,8 @@
          "m_dubet@apple.com"
       ],
       "github" : "mdubet",
-      "name" : "Matthieu Dubet"
+      "name" : "Matthieu Dubet",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -5789,6 +5790,16 @@
       "name" : "Pravin D",
       "nicks" : [
          "pravind"
+      ]
+   },
+   {
+      "emails" : [
+         "pgorszkowski@igalia.com"
+      ],
+      "github" : "pgorszkowski-igalia",
+      "name" : "Przemyslaw Gorszkowski",
+      "nicks" : [
+         "pgorszkowski"
       ]
    },
    {
@@ -7054,6 +7065,18 @@
       "name" : "Vineet Chaudhary",
       "nicks" : [
          "vineetc"
+      ]
+   },
+   {
+      "emails" : [
+         "vitaly@igalia.com",
+         "obyknovenius@me.com",
+         "obyknovenius@gmail.com"
+      ],
+      "github" : "obyknovenius",
+      "name" : "Vitaly Dyachkov",
+      "nicks" : [
+         "obyknovenius"
       ]
    },
    {

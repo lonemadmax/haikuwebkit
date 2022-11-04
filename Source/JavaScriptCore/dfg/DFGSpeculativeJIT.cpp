@@ -1793,7 +1793,7 @@ void SpeculativeJIT::compilePeepHoleObjectEquality(Node* node, Node* branchNode)
     GPRReg op1GPR = op1.gpr();
     GPRReg op2GPR = op2.gpr();
     
-    if (masqueradesAsUndefinedWatchpointIsStillValid()) {
+    if (masqueradesAsUndefinedWatchpointSetIsStillValid()) {
         if (m_state.forNode(node->child1()).m_type & ~SpecObject) {
             speculationCheck(
                 BadType, JSValueSource::unboxedCell(op1GPR), node->child1(), m_jit.branchIfNotObject(op1GPR));
@@ -3000,7 +3000,7 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
         m_jit.move(TrustedImm32(JSValue::CellTag), resultRegs.tagGPR());
 #endif
 
-        if (m_graph.isWatchingStringPrototypeIsSaneChainWatchpoint(node)) {
+        if (m_graph.isWatchingStringPrototypeChainIsSaneWatchpoint(node)) {
             // FIXME: This could be captured using a Speculation mode that means "out-of-bounds
             // loads return a trivial value". Something like OutOfBoundsSaneChain. This should
             // speculate that we don't take negative out-of-bounds, or better yet, it should rely
@@ -7851,7 +7851,7 @@ void SpeculativeJIT::compileObjectEquality(Node* node)
     GPRReg op2GPR = op2.gpr();
     GPRReg resultGPR = result.gpr();
 
-    if (masqueradesAsUndefinedWatchpointIsStillValid()) {
+    if (masqueradesAsUndefinedWatchpointSetIsStillValid()) {
         DFG_TYPE_CHECK(
             JSValueSource::unboxedCell(op1GPR), node->child1(), SpecObject, m_jit.branchIfNotObject(op1GPR));
         DFG_TYPE_CHECK(
@@ -9742,9 +9742,10 @@ void SpeculativeJIT::compileNewArray(Node* node)
 void SpeculativeJIT::compileNewArrayWithSpread(Node* node)
 {
     ASSERT(node->op() == NewArrayWithSpread);
-    JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
 
 #if USE(JSVALUE64)
+    JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+
     if (m_graph.isWatchingHavingABadTimeWatchpoint(node)) {
         GPRTemporary result(this);
         GPRReg resultGPR = result.gpr();
@@ -16587,6 +16588,26 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
         JSValueOperand base(this, baseEdge);
         generate(base.regs());
     }
+}
+
+void SpeculativeJIT::compileStringLocaleCompare(Node* node)
+{
+    SpeculateCellOperand base(this, node->child1());
+    SpeculateCellOperand argument(this, node->child2());
+
+    GPRReg baseGPR = base.gpr();
+    GPRReg argumentGPR = argument.gpr();
+
+    speculateString(node->child1(), baseGPR);
+    speculateString(node->child2(), argumentGPR);
+
+    flushRegisters();
+    GPRFlushedCallResult result(this);
+    GPRReg resultGPR = result.gpr();
+    callOperation(operationStringLocaleCompare, resultGPR, JITCompiler::LinkableConstant::globalObject(m_jit, node), baseGPR, argumentGPR);
+    m_jit.exceptionCheck();
+
+    strictInt32Result(resultGPR, node);
 }
 
 } } // namespace JSC::DFG

@@ -1246,6 +1246,9 @@ private:
         case StringFromCharCode:
             compileStringFromCharCode();
             break;
+        case StringLocaleCompare:
+            compileStringLocaleCompare();
+            break;
         case GetByOffset:
         case GetGetterSetterByOffset:
             compileGetByOffset();
@@ -9157,7 +9160,7 @@ IGNORE_CLANG_WARNINGS_END
             // FIXME: Revisit JSGlobalObject.
             // https://bugs.webkit.org/show_bug.cgi?id=203204
             JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
-            if (m_graph.isWatchingStringPrototypeIsSaneChainWatchpoint(m_node)) {
+            if (m_graph.isWatchingStringPrototypeChainIsSaneWatchpoint(m_node)) {
                 // FIXME: This could be captured using a Speculation mode that means
                 // "out-of-bounds loads return a trivial value", something like
                 // OutOfBoundsSaneChain.
@@ -9337,6 +9340,12 @@ IGNORE_CLANG_WARNINGS_END
         m_out.appendTo(continuation, lastNext);
 
         setJSValue(m_out.phi(Int64, fastResult, slowResult));
+    }
+
+    void compileStringLocaleCompare()
+    {
+        auto* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        setInt32(m_out.castToInt32(vmCall(Int64, operationStringLocaleCompare, weakPointer(globalObject), lowString(m_node->child1()), lowString(m_node->child2()))));
     }
     
     void compileGetByOffset()
@@ -16689,7 +16698,7 @@ IGNORE_CLANG_WARNINGS_END
     
     void speculateTruthyObject(Edge edge, LValue cell, SpeculatedType filter)
     {
-        if (masqueradesAsUndefinedWatchpointIsStillValid()) {
+        if (m_graph.isWatchingMasqueradesAsUndefinedWatchpointSet(m_node)) {
             FTL_TYPE_CHECK(jsValueValue(cell), edge, filter, isNotObject(cell));
             return;
         }
@@ -17595,7 +17604,7 @@ IGNORE_CLANG_WARNINGS_END
             
             m_out.appendTo(notStringNorHeapBigIntCase, notCellCase);
             LValue isTruthyObject;
-            if (masqueradesAsUndefinedWatchpointIsStillValid())
+            if (m_graph.isWatchingMasqueradesAsUndefinedWatchpointSet(m_node))
                 isTruthyObject = m_out.booleanTrue;
             else {
                 LBasicBlock masqueradesCase = m_out.newBlock();
@@ -17680,8 +17689,6 @@ IGNORE_CLANG_WARNINGS_END
         Edge edge, StringOrObjectMode cellMode, EqualNullOrUndefinedMode primitiveMode,
         OperandSpeculationMode operandMode = AutomaticOperandSpeculation)
     {
-        bool validWatchpoint = masqueradesAsUndefinedWatchpointIsStillValid();
-        
         LValue value = lowJSValue(edge, operandMode);
         
         LBasicBlock cellCase = m_out.newBlock();
@@ -17703,7 +17710,7 @@ IGNORE_CLANG_WARNINGS_END
             break;
         }
         
-        if (validWatchpoint) {
+        if (m_graph.isWatchingMasqueradesAsUndefinedWatchpointSet(m_node)) {
             results.append(m_out.anchor(m_out.booleanFalse));
             m_out.jump(continuation);
         } else {
@@ -20504,7 +20511,7 @@ IGNORE_CLANG_WARNINGS_END
     void speculateNonNullObject(Edge edge, LValue cell)
     {
         FTL_TYPE_CHECK(jsValueValue(cell), edge, SpecObject, isNotObject(cell));
-        if (masqueradesAsUndefinedWatchpointIsStillValid())
+        if (m_graph.isWatchingObjectPrototypeChainIsSaneWatchpoint(m_node))
             return;
         
         speculate(
@@ -20654,11 +20661,6 @@ IGNORE_CLANG_WARNINGS_END
         m_out.appendTo(continuation, lastNext);
     }
 
-    bool masqueradesAsUndefinedWatchpointIsStillValid()
-    {
-        return m_graph.masqueradesAsUndefinedWatchpointIsStillValid(m_origin.semantic);
-    }
-    
     LValue loadCellState(LValue base)
     {
         return m_out.load8ZeroExt32(base, m_heaps.JSCell_cellState);

@@ -27,6 +27,7 @@
 
 #include "CSSPropertyParserHelpers.h"
 #include "CSSValue.h"
+#include "MediaQueryParserContext.h"
 
 namespace WebCore {
 namespace MQ {
@@ -58,6 +59,10 @@ std::optional<Feature> GenericMediaQueryParserBase::consumeBooleanOrPlainFeature
             return { StringView(name).substring(4).toAtomString(), ComparisonOperator::GreaterThanOrEqual };
         if (name.startsWith("max-"_s))
             return { StringView(name).substring(4).toAtomString(), ComparisonOperator::LessThanOrEqual };
+        if (name.startsWith("-webkit-min-"_s))
+            return { "-webkit-"_s + StringView(name).substring(12), ComparisonOperator::GreaterThanOrEqual };
+        if (name.startsWith("-webkit-max-"_s))
+            return { "-webkit-"_s + StringView(name).substring(12), ComparisonOperator::LessThanOrEqual };
 
         return { name, ComparisonOperator::Equal };
     };
@@ -194,6 +199,9 @@ RefPtr<CSSValue> GenericMediaQueryParserBase::consumeValue(CSSParserTokenRange& 
         return value;
     if (auto value = CSSPropertyParserHelpers::consumeAspectRatioValue(range))
         return value;
+    if (auto value = CSSPropertyParserHelpers::consumeResolution(range))
+        return value;
+
     return nullptr;
 }
 
@@ -232,7 +240,7 @@ bool GenericMediaQueryParserBase::validateFeatureAgainstSchema(Feature& feature,
 
     auto isValid = [&] {
         if (schema.type == FeatureSchema::Type::Discrete) {
-            if (feature.leftComparison && feature.leftComparison->op != ComparisonOperator::Equal)
+            if (feature.syntax == Syntax::Range)
                 return false;
             if (feature.rightComparison && feature.rightComparison->op != ComparisonOperator::Equal)
                 return false;
@@ -249,7 +257,7 @@ bool GenericMediaQueryParserBase::validateFeatureAgainstSchema(Feature& feature,
         return true;
     }();
 
-    feature.validSchema = isValid ? &schema : nullptr;
+    feature.schema = isValid ? &schema : nullptr;
     return isValid;
 }
 

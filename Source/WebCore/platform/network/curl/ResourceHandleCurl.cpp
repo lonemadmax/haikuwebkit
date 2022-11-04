@@ -144,7 +144,7 @@ Ref<CurlRequest> ResourceHandle::createCurlRequest(ResourceRequest&& request, Re
         addCacheValidationHeaders(request);
 
         auto includeSecureCookies = request.url().protocolIs("https"_s) ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
-        String cookieHeaderField = d->m_context->storageSession()->cookieRequestHeaderFieldValue(request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), std::nullopt, std::nullopt, includeSecureCookies, ShouldAskITP::Yes, ShouldRelaxThirdPartyCookieBlocking::No).first;
+        String cookieHeaderField = d->m_context->storageSession()->cookieRequestHeaderFieldValue(request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), std::nullopt, std::nullopt, includeSecureCookies, ApplyTrackingPrevention::Yes, ShouldRelaxThirdPartyCookieBlocking::No).first;
         if (!cookieHeaderField.isEmpty())
             request.addHTTPHeaderField(HTTPHeaderName::Cookie, cookieHeaderField);
     }
@@ -481,6 +481,12 @@ void ResourceHandle::willSendRequest()
         newRequest.clearHTTPAuthorization();
         newRequest.clearHTTPOrigin();
     }
+
+    // Check if the redirected url is allowed to access the redirecting url's timing information.
+    if (!hasCrossOriginRedirect() && !WebCore::SecurityOrigin::create(newRequest.url())->canRequest(delegate()->response().url()))
+        markAsHavingCrossOriginRedirect();
+
+    incrementRedirectCount();
 
     ResourceResponse responseCopy = delegate()->response();
     client()->willSendRequestAsync(this, WTFMove(newRequest), WTFMove(responseCopy), [this, protectedThis = Ref { *this }] (ResourceRequest&& request) {

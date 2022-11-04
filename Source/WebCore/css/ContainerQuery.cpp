@@ -27,63 +27,25 @@
 
 #include "CSSMarkup.h"
 #include "CSSValue.h"
+#include "ContainerQueryFeatures.h"
 #include "GenericMediaQuerySerialization.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 namespace CQ {
-namespace FeatureNames {
 
-const AtomString& width()
+OptionSet<Axis> requiredAxesForFeature(const MQ::Feature& feature)
 {
-    static MainThreadNeverDestroyed<AtomString> name { "width"_s };
-    return name;
-}
-
-const AtomString& height()
-{
-    static MainThreadNeverDestroyed<AtomString> name { "height"_s };
-    return name;
-}
-
-const AtomString& inlineSize()
-{
-    static MainThreadNeverDestroyed<AtomString> name { "inline-size"_s };
-    return name;
-}
-
-const AtomString& blockSize()
-{
-    static MainThreadNeverDestroyed<AtomString> name { "block-size"_s };
-    return name;
-}
-
-const AtomString& aspectRatio()
-{
-    static MainThreadNeverDestroyed<AtomString> name { "aspect-ratio"_s };
-    return name;
-}
-
-const AtomString& orientation()
-{
-    static MainThreadNeverDestroyed<AtomString> name { "orientation"_s };
-    return name;
-}
-
-}
-
-OptionSet<Axis> requiredAxesForFeature(const AtomString& featureName)
-{
-    if (featureName == FeatureNames::width())
+    if (feature.schema == &Features::width())
         return { Axis::Width };
-    if (featureName == FeatureNames::height())
+    if (feature.schema == &Features::height())
         return { Axis::Height };
-    if (featureName == FeatureNames::inlineSize())
+    if (feature.schema == &Features::inlineSize())
         return { Axis::Inline };
-    if (featureName == FeatureNames::blockSize())
+    if (feature.schema == &Features::blockSize())
         return { Axis::Block };
-    if (featureName == FeatureNames::aspectRatio() || featureName == FeatureNames::orientation())
+    if (feature.schema == &Features::aspectRatio() || feature.schema == &Features::orientation())
         return { Axis::Inline, Axis::Block };
     return { };
 }

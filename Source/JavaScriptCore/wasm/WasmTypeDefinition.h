@@ -29,7 +29,10 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "SIMDInfo.h"
 #include "WasmOps.h"
+#include "WasmSIMDOpcodes.h"
+#include "Width.h"
 #include "WriteBarrier.h"
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/HashSet.h>
@@ -39,14 +42,69 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
+#if ENABLE(WEBASSEMBLY_B3JIT)
+#include "B3Type.h"
+#endif
+
 namespace JSC {
 
 namespace Wasm {
+
+#if ENABLE(B3_JIT)
+#define CREATE_ENUM_VALUE(name, id, ...) name = id,
+enum class ExtSIMDOpType : uint8_t {
+    FOR_EACH_WASM_EXT_SIMD_OP(CREATE_ENUM_VALUE)
+};
+#undef CREATE_ENUM_VALUE
+
+constexpr Type simdScalarType(SIMDLane lane)
+{
+    switch (lane) {
+    case SIMDLane::v128:
+        RELEASE_ASSERT_NOT_REACHED();
+        return Types::Void;
+    case SIMDLane::i64x2:
+        return Types::I64;
+    case SIMDLane::f64x2:
+        return Types::F64;
+    case SIMDLane::i8x16:
+    case SIMDLane::i16x8:
+    case SIMDLane::i32x4:
+        return Types::I32;
+    case SIMDLane::f32x4:
+        return Types::F32;
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+}
+#endif
 
 using FunctionArgCount = uint32_t;
 using StructFieldCount = uint32_t;
 using RecursionGroupCount = uint32_t;
 using ProjectionIndex = uint32_t;
+
+inline Width Type::width() const
+{
+    switch (kind) {
+#define CREATE_CASE(name, id, b3type, inc, wasmName, width, ...) case TypeKind::name: return widthForBytes(width / 8);
+    FOR_EACH_WASM_TYPE(CREATE_CASE)
+#undef CREATE_CASE
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+#if ENABLE(WEBASSEMBLY_B3JIT)
+#define CREATE_CASE(name, id, b3type, ...) case TypeKind::name: return b3type;
+inline B3::Type toB3Type(Type type)
+{
+    switch (type.kind) {
+    FOR_EACH_WASM_TYPE(CREATE_CASE)
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+    return B3::Void;
+}
+#undef CREATE_CASE
+#endif
 
 constexpr size_t typeKindSizeInBytes(TypeKind kind)
 {
@@ -67,6 +125,7 @@ constexpr size_t typeKindSizeInBytes(TypeKind kind)
     case TypeKind::RefNull: {
         return sizeof(WriteBarrierBase<Unknown>);
     }
+    case TypeKind::V128:
     case TypeKind::Array:
     case TypeKind::Func:
     case TypeKind::Struct:
@@ -98,6 +157,16 @@ public:
     Type returnType(FunctionArgCount i) const { ASSERT(i < returnCount()); return const_cast<FunctionSignature*>(this)->getReturnType(i); }
     bool returnsVoid() const { return !returnCount(); }
     Type argumentType(FunctionArgCount i) const { return const_cast<FunctionSignature*>(this)->getArgumentType(i); }
+
+    size_t numVectors() const
+    {
+        size_t n = 0;
+        for (size_t i = 0; i < argumentCount(); ++i) {
+            if (argumentType(i).isV128())
+                ++n;
+        }
+        return n;
+    }
 
     bool operator==(const FunctionSignature& other) const
     {

@@ -78,9 +78,9 @@ static bool isNormalValue(const RefPtr<CSSValue>& value)
     return value && value->isPrimitiveValue() && downcast<CSSPrimitiveValue>(value.get())->isValueID() && downcast<CSSPrimitiveValue>(value.get())->valueID() == CSSValueNormal;
 }
 
-static bool isValueID(const Ref<CSSValue>& value, CSSValueID id)
+static bool isValueID(const CSSValue& value, CSSValueID id)
 {
-    return value->isPrimitiveValue() && downcast<CSSPrimitiveValue>(value.get()).isValueID() && downcast<CSSPrimitiveValue>(value.get()).valueID() == id;
+    return value.isPrimitiveValue() && downcast<CSSPrimitiveValue>(value).isValueID() && downcast<CSSPrimitiveValue>(value).valueID() == id;
 }
 
 static bool isValueID(const RefPtr<CSSValue>& value, CSSValueID id)
@@ -88,12 +88,14 @@ static bool isValueID(const RefPtr<CSSValue>& value, CSSValueID id)
     return value && isValueID(*value, id);
 }
 
-static bool isValueIDIncludingList(const Ref<CSSValue>& value, CSSValueID id)
+static bool isValueIDIncludingList(const CSSValue& value, CSSValueID id)
 {
     if (is<CSSValueList>(value)) {
-        if (downcast<CSSValueList>(value.get()).size() != 1)
+        auto& valueList = downcast<CSSValueList>(value);
+        if (valueList.size() != 1)
             return false;
-        return isValueID(downcast<CSSValueList>(value.get()).item(0), id);
+        auto* item = valueList.item(0);
+        return item && isValueID(*item, id);
     }
     return isValueID(value, id);
 }
@@ -456,7 +458,7 @@ void StyleProperties::appendFontLonghandValueIfExplicit(CSSPropertyID propertyID
         return;
     }
 
-    char prefix = '\0';
+    const char* prefix = "";
     switch (propertyID) {
     case CSSPropertyFontStyle:
         break; // No prefix.
@@ -469,19 +471,17 @@ void StyleProperties::appendFontLonghandValueIfExplicit(CSSPropertyID propertyID
     case CSSPropertyFontVariantEastAsian:
     case CSSPropertyFontWeight:
     case CSSPropertyFontStretch:
-        prefix = ' ';
+        prefix = " ";
         break;
     case CSSPropertyLineHeight:
-        prefix = '/';
+        prefix = " / ";
         break;
     default:
         ASSERT_NOT_REACHED();
     }
 
-    if (prefix && !result.isEmpty())
-        result.append(prefix);
     String value = propertyAt(foundPropertyIndex).value()->cssText();
-    result.append(value);
+    result.append(result.isEmpty() ? "" : prefix, value);
     if (!commonValue.isNull() && commonValue != value)
         commonValue = String();
 }

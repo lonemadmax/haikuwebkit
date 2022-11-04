@@ -25,7 +25,11 @@
 #include "config.h"
 #include "MediaQueryEvaluator.h"
 
+#include "CSSToLengthConversionData.h"
+#include "Document.h"
 #include "MediaQuery.h"
+#include "RenderView.h"
+#include "StyleFontSizeFunctions.h"
 
 namespace WebCore {
 namespace MQ {
@@ -33,12 +37,16 @@ namespace MQ {
 MediaQueryEvaluator::MediaQueryEvaluator(const AtomString& mediaType, const Document& document, const RenderStyle* rootElementStyle)
     : GenericMediaQueryEvaluator()
     , m_mediaType(mediaType)
-    , m_featureContext({ document, rootElementStyle })
+    , m_document(document)
+    , m_rootElementStyle(rootElementStyle)
 {
 }
 
 bool MediaQueryEvaluator::evaluate(const MediaQueryList& list) const
 {
+    if (list.isEmpty())
+        return true;
+
     for (auto& query : list) {
         if (evaluate(query))
             return true;
@@ -53,9 +61,9 @@ bool MediaQueryEvaluator::evaluate(const MediaQuery& query) const
     auto mediaTypeMatches = [&] {
         if (query.mediaType.isEmpty())
             return true;
-        if (query.mediaType == "all"_s)
+        if (equalLettersIgnoringASCIICase(query.mediaType, "all"_s))
             return true;
-        return query.mediaType == m_mediaType;
+        return equalIgnoringASCIICase(query.mediaType, m_mediaType);
     }();
 
     if (!mediaTypeMatches)
@@ -63,18 +71,28 @@ bool MediaQueryEvaluator::evaluate(const MediaQuery& query) const
 
     auto conditionMatches = [&] {
         if (!query.condition)
+            return true;
+
+        if (!m_document.view())
             return false;
-        return evaluateCondition(*query.condition, m_featureContext) == EvaluationResult::True;
+
+        if (!m_document.documentElement())
+            return false;
+
+        auto defaultStyle = RenderStyle::create();
+        auto fontDescription = defaultStyle.fontDescription();
+        auto size = Style::fontSizeForKeyword(CSSValueMedium, false, m_document);
+        fontDescription.setComputedSize(size);
+        fontDescription.setSpecifiedSize(size);
+        defaultStyle.setFontDescription(WTFMove(fontDescription));
+        defaultStyle.fontCascade().update();
+
+        FeatureEvaluationContext context { m_document, { *m_rootElementStyle, &defaultStyle, nullptr, m_document.renderView() }, nullptr };
+        return evaluateCondition(*query.condition, context) == EvaluationResult::True;
     }();
 
     return conditionMatches != isNegated;
 }
-
-EvaluationResult MediaQueryEvaluator::evaluateFeature(const Feature&, const FeatureContext&) const
-{
-    return EvaluationResult::Unknown;
-}
-
 
 }
 }

@@ -252,12 +252,10 @@ Element::~Element()
     if (hasSyntheticAttrChildNodes())
         detachAllAttrNodesFromElement();
 
-#if ENABLE(CSS_TYPED_OM)
     if (hasRareData()) {
         if (auto* map = elementRareData()->attributeStyleMap())
             map->clearElement();
     }
-#endif
 }
 
 inline ElementRareData& Element::ensureElementRareData()
@@ -2006,7 +2004,7 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
                 auto setEffectiveLang = [&](Element& element) {
                     if (!newValue.isNull())
                         element.ensureElementRareData().setEffectiveLang(newValue);
-                    else if (hasRareData())
+                    else if (element.hasRareData())
                         element.elementRareData()->setEffectiveLang(nullAtom());
                 };
                 setEffectiveLang(*this);
@@ -5013,8 +5011,6 @@ Element* Element::fromIdentifier(ElementIdentifier identifier)
     return nullptr;
 }
 
-#if ENABLE(CSS_TYPED_OM)
-
 StylePropertyMap* Element::attributeStyleMap()
 {
     if (!hasRareData())
@@ -5037,7 +5033,5 @@ StylePropertyMapReadOnly* Element::computedStyleMap()
     rareData.setComputedStyleMap(WTFMove(map));
     return rareData.computedStyleMap();
 }
-
-#endif
 
 } // namespace WebCore

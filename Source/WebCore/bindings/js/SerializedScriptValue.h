@@ -39,6 +39,7 @@
 
 #if ENABLE(WEB_CODECS)
 #include "WebCodecsEncodedVideoChunk.h"
+#include "WebCodecsVideoFrame.h"
 #endif
 
 typedef const struct OpaqueJSContext* JSContextRef;
@@ -61,13 +62,10 @@ class MessagePort;
 class ImageBitmapBacking;
 class FragmentedSharedBuffer;
 enum class SerializationReturnCode;
-#if ENABLE(WEB_CODECS)
-class WebCodecsEncodedVideoChunk;
-class WebCodecsEncodedVideoChunkStorage;
-#endif
 
 enum class SerializationErrorMode { NonThrowing, Throwing };
 enum class SerializationContext { Default, WorkerPostMessage, WindowPostMessage };
+enum class SerializationForStorage : bool { No, Yes };
 
 using ArrayBufferContentsArray = Vector<JSC::ArrayBufferContents>;
 #if ENABLE(WEBASSEMBLY)
@@ -79,8 +77,9 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SerializedScriptValue);
 class SerializedScriptValue : public ThreadSafeRefCounted<SerializedScriptValue> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(SerializedScriptValue);
 public:
-    WEBCORE_EXPORT static ExceptionOr<Ref<SerializedScriptValue>> create(JSC::JSGlobalObject&, JSC::JSValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer, Vector<RefPtr<MessagePort>>&, SerializationContext = SerializationContext::Default);
-    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(JSC::JSGlobalObject&, JSC::JSValue, SerializationErrorMode = SerializationErrorMode::Throwing, SerializationContext = SerializationContext::Default);
+    WEBCORE_EXPORT static ExceptionOr<Ref<SerializedScriptValue>> create(JSC::JSGlobalObject&, JSC::JSValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer, Vector<RefPtr<MessagePort>>&, SerializationForStorage = SerializationForStorage::No, SerializationContext = SerializationContext::Default);
+    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(JSC::JSGlobalObject&, JSC::JSValue, SerializationForStorage = SerializationForStorage::No, SerializationErrorMode = SerializationErrorMode::Throwing, SerializationContext = SerializationContext::Default);
+    static RefPtr<SerializedScriptValue> convert(JSC::JSGlobalObject& globalObject, JSC::JSValue value) { return create(globalObject, value, SerializationForStorage::Yes); }
 
     WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(StringView);
 
@@ -118,13 +117,14 @@ public:
     WEBCORE_EXPORT ~SerializedScriptValue();
 
 private:
-    static ExceptionOr<Ref<SerializedScriptValue>> create(JSC::JSGlobalObject&, JSC::JSValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer, Vector<RefPtr<MessagePort>>&, SerializationErrorMode, SerializationContext);
+    static ExceptionOr<Ref<SerializedScriptValue>> create(JSC::JSGlobalObject&, JSC::JSValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer, Vector<RefPtr<MessagePort>>&, SerializationForStorage, SerializationErrorMode, SerializationContext);
     WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&&, std::unique_ptr<ArrayBufferContentsArray>&& = nullptr
 #if ENABLE(WEB_RTC)
         , Vector<std::unique_ptr<DetachedRTCDataChannel>>&& = { }
 #endif
 #if ENABLE(WEB_CODECS)
         , Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>&& = { }
+        , Vector<WebCodecsVideoFrameData>&& = { }
 #endif
         );
 
@@ -141,6 +141,7 @@ private:
 #endif
 #if ENABLE(WEB_CODECS)
         , Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>>&& = { }
+        , Vector<WebCodecsVideoFrameData>&& = { }
 #endif
         );
 
@@ -162,6 +163,7 @@ private:
 #endif
 #if ENABLE(WEB_CODECS)
     Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>> m_serializedVideoChunks;
+    Vector<WebCodecsVideoFrameData> m_serializedVideoFrames;
 #endif
     Vector<URLKeepingBlobAlive> m_blobHandles;
     size_t m_memoryCost { 0 };
@@ -193,6 +195,8 @@ void SerializedScriptValue::encode(Encoder& encoder) const
     encoder << static_cast<uint64_t>(m_serializedVideoChunks.size());
     for (const auto &videoChunk : m_serializedVideoChunks)
         encoder << videoChunk->data();
+
+    // FIXME: encode video frames
 #endif
 }
 
@@ -263,6 +267,8 @@ RefPtr<SerializedScriptValue> SerializedScriptValue::decode(Decoder& decoder)
             return nullptr;
         serializedVideoChunks.append(WebCodecsEncodedVideoChunkStorage::create(WTFMove(*videoChunkData)));
     }
+    // FIXME: decode video frames
+    Vector<WebCodecsVideoFrameData> serializedVideoFrames;
 #endif
 
     return adoptRef(*new SerializedScriptValue(WTFMove(data), WTFMove(arrayBufferContentsArray)
@@ -271,6 +277,9 @@ RefPtr<SerializedScriptValue> SerializedScriptValue::decode(Decoder& decoder)
 #endif
 #if ENABLE(WEB_CODECS)
         , WTFMove(serializedVideoChunks)
+#endif
+#if ENABLE(WEB_CODECS)
+        , WTFMove(serializedVideoFrames)
 #endif
         ));
 }

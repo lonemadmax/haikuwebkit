@@ -1,10 +1,3 @@
-CONSOLE MESSAGE: Unhandled Promise Rejection: TypeError: Type error
 
-Harness Error (FAIL), message = Unhandled rejection: Type error
-
-TIMEOUT Create ImageBitmap for a VideoFrame from VP9 decoder. Test timed out
-
-Harness Error (FAIL), message = Unhandled rejection: Type error
-
-TIMEOUT Create ImageBitmap for a VideoFrame from VP9 decoder. Test timed out
+PASS Create ImageBitmap for a VideoFrame from VP9 decoder.
 

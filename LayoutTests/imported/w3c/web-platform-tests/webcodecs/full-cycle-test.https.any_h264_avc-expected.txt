@@ -1,6 +1,3 @@
-CONSOLE MESSAGE: TypeError: Type error
-CONSOLE MESSAGE: TypeError: Type error
-CONSOLE MESSAGE: TypeError: Type error
 
-FAIL Encoding and decoding cycle promise_test: Unhandled rejection with value: object "InvalidStateError: VideoDecoder is not configured"
+PASS Encoding and decoding cycle
 

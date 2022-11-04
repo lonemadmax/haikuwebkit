@@ -229,7 +229,7 @@ page/mac/TextIndicatorWindow.mm
 page/mac/WheelEventDeltaFilterMac.mm
 page/scrolling/cocoa/ScrollingStateNode.mm
 page/scrolling/cocoa/ScrollingTreeFixedNodeCocoa.mm
-page/scrolling/cocoa/ScrollingTreeOverflowScrollProxyNode.mm
+page/scrolling/cocoa/ScrollingTreeOverflowScrollProxyNodeCocoa.mm
 page/scrolling/cocoa/ScrollingTreePositionedNodeCocoa.mm
 page/scrolling/cocoa/ScrollingTreeStickyNodeCocoa.mm
 page/scrolling/mac/ScrollingCoordinatorMac.mm
@@ -373,6 +373,7 @@ platform/graphics/cg/GradientRendererCG.cpp
 platform/graphics/cg/GraphicsContextCG.cpp
 platform/graphics/cg/GraphicsContextGLCG.cpp
 platform/graphics/cg/IOSurfacePool.cpp
+platform/graphics/cg/ImageBackingStoreCG.cpp
 platform/graphics/cg/ImageBufferCGBackend.cpp
 platform/graphics/cg/ImageBufferCGBitmapBackend.cpp
 platform/graphics/cg/ImageBufferIOSurfaceBackend.cpp
@@ -458,6 +459,10 @@ platform/graphics/mac/SwitchingGPUClient.cpp
 platform/graphics/mac/WebKitNSImageExtras.mm
 platform/graphics/mac/WebLayer.mm
 platform/graphics/opentype/OpenTypeCG.cpp
+platform/image-decoders/avif/AVIFImageDecoder.cpp
+platform/image-decoders/avif/AVIFImageReader.cpp
+platform/image-decoders/ScalableImageDecoder.cpp
+platform/image-decoders/ScalableImageDecoderFrame.cpp
 platform/ios/ColorIOS.mm
 platform/ios/Device.cpp
 platform/ios/DeviceMotionClientIOS.mm
@@ -630,6 +635,7 @@ platform/text/cocoa/LocalizedDateCache.mm
 platform/text/mac/TextBoundaries.mm
 platform/text/mac/TextCheckingMac.mm
 platform/xr/cocoa/PlatformXRCocoa.mm
+rendering/AttachmentLayout.mm
 rendering/RenderThemeCocoa.mm
 rendering/RenderThemeIOS.mm
 rendering/RenderThemeMac.mm

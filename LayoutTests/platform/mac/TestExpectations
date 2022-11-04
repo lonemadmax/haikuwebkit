@@ -93,7 +93,6 @@ imported/w3c/web-platform-tests/speech-api [ Pass ]
 http/tests/media/fairplay [ Pass ]
 media/track/track-description-cue.html [ Pass ]
 media/track/track-extended-descriptions.html [ Pass ]
-svg/filters/feDisplacementMap-filterUnits.svg [ Pass ]
 media/media-source/remoteplayback-from-source-element.html [ Pass ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -106,6 +105,9 @@ fast/images/animated-heics-verify.html [ Pass ]
 fast/images/heic-as-background-image.html [ Pass ]
 
 [ Ventura+ ] fast/images/avif-heif-container-as-image.html [ Pass ]
+http/tests/images/avif-partial-load-crash.html [ Pass ]
+fast/images/avif-image-decoding.html [ Pass ]
+[ Monterey BigSur ] fast/images/avif-as-image.html [ Pass ]
 
 # <rdar://problem/5647952> fast/events/mouseout-on-window.html needs mac DRT to issue mouse out events
 fast/events/mouseout-on-window.html [ Failure ]
@@ -1955,8 +1957,6 @@ webkit.org/b/219555 inspector/animation/effectChanged.html [ Pass Timeout ]
 
 webkit.org/b/219225 http/tests/inspector/dom/disconnect-dom-tree-after-main-frame-navigation.html [ Pass Failure ]
 
-webkit.org/b/219907 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Pass Failure ]
-
 webkit.org/b/219965 [ BigSur+ ] imported/w3c/web-platform-tests/fetch/content-type/script.window.html [ Pass Failure ]
 
 webkit.org/b/217621 media/video-buffering-allowed.html [ Pass Timeout ]
@@ -2308,6 +2308,9 @@ webkit.org/b/237166 [ BigSur+ ] webgl/pending/conformance/textures/misc/tex-imag
 # macOS has a WebGPU implementation.
 http/tests/webgpu [ Pass ]
 
+# Test failures due to framework bugs that occur only with --accelerated-drawing flag turned on
+webkit.org/b/236904 svg/gradients/spreadMethodClose2.svg [ Pass ImageOnlyFailure ]
+
 # fractional pixel diff between modern and legacy line layout.
 imported/blink/fast/multicol/vertical-lr/float-content-break.html [ ImageOnlyFailure ]
 
@@ -2358,11 +2361,6 @@ imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-disal
 
 webkit.org/b/246355 imported/w3c/web-platform-tests/import-maps/multiple-import-maps/basic.html [ Pass Failure ]
 webkit.org/b/246355 imported/w3c/web-platform-tests/import-maps/multiple-import-maps/with-errors.html [ Pass Failure ]
-
-# These tests have similar harness errors and timeouts. See webkit.org/b/244900
-[ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html [ Pass Timeout Failure ]
-[ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html [ Pass Timeout Failure ]
-[ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-indexOf-3.html [ Pass Timeout Failure ]
 
 webkit.org/b/244928 http/tests/media/fairplay/fps-mse-unmuxed-multiple-keys.html [ Pass Failure ]
 

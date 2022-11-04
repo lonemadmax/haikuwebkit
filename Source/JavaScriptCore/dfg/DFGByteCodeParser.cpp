@@ -2535,10 +2535,10 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, CallVaria
                 // FIXME: We could easily relax the Array/Object.prototype transition as long as we OSR exitted if we saw a hole.
                 // https://bugs.webkit.org/show_bug.cgi?id=173171
                 if (globalObject->arraySpeciesWatchpointSet().state() == IsWatched
-                    && globalObject->havingABadTimeWatchpoint()->isStillValid()
+                    && globalObject->havingABadTimeWatchpointSet().isStillValid()
                     && globalObject->arrayPrototypeChainIsSaneWatchpointSet().state() == IsWatched) {
                     m_graph.watchpoints().addLazily(globalObject->arraySpeciesWatchpointSet());
-                    m_graph.watchpoints().addLazily(globalObject->havingABadTimeWatchpoint());
+                    m_graph.watchpoints().addLazily(globalObject->havingABadTimeWatchpointSet());
                     m_graph.watchpoints().addLazily(globalObject->arrayPrototypeChainIsSaneWatchpointSet());
 
                     insertChecks();
@@ -2831,6 +2831,22 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, CallVaria
             setResult(charCode);
             return true;
         }
+
+        case StringPrototypeLocaleCompareIntrinsic: {
+            // Currently, only handling default locale case.
+            if (argumentCountIncludingThis != 2)
+                return false;
+
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType))
+                return false;
+
+            insertChecks();
+            VirtualRegister thisOperand = virtualRegisterForArgumentIncludingThis(0, registerOffset);
+            VirtualRegister indexOperand = virtualRegisterForArgumentIncludingThis(1, registerOffset);
+            setResult(addToGraph(StringLocaleCompare, get(thisOperand), get(indexOperand)));
+            return true;
+        }
+
         case Clz32Intrinsic: {
             insertChecks();
             if (argumentCountIncludingThis == 1)
@@ -3717,7 +3733,7 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, CallVaria
             insertChecks();
             Node* thisNumber = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
             if (argumentCountIncludingThis == 1) {
-                Node* resultNode = addToGraph(ToString, thisNumber);
+                Node* resultNode = addToGraph(NumberToStringWithValidRadixConstant, OpInfo(10), thisNumber);
                 setResult(resultNode);
             } else {
                 Node* radix = get(virtualRegisterForArgumentIncludingThis(1, registerOffset));
@@ -4262,13 +4278,13 @@ bool ByteCodeParser::needsDynamicLookup(ResolveType type, OpcodeID opcode)
     ASSERT(opcode == op_resolve_scope || opcode == op_get_from_scope || opcode == op_put_to_scope);
 
     JSGlobalObject* globalObject = m_inlineStackTop->m_codeBlock->globalObject();
-    if (needsVarInjectionChecks(type) && globalObject->varInjectionWatchpoint()->hasBeenInvalidated())
+    if (needsVarInjectionChecks(type) && globalObject->varInjectionWatchpointSet().hasBeenInvalidated())
         return true;
 
     switch (type) {
     case GlobalVar:
     case GlobalVarWithVarInjectionChecks: {
-        if (opcode == op_put_to_scope && globalObject->varReadOnlyWatchpoint()->hasBeenInvalidated())
+        if (opcode == op_put_to_scope && globalObject->varReadOnlyWatchpointSet().hasBeenInvalidated())
             return true;
 
         return false;
@@ -5493,7 +5509,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 cachedStructure = cachedStructureID.decode();
             if (metadata.m_toThisStatus != ToThisOK
                 || !cachedStructure
-                || cachedStructure->classInfoForCells()->methodTable.toThis != JSObject::info()->methodTable.toThis
+                || !cachedStructure->classInfoForCells()->isSubClassOf(JSObject::info())
+                || cachedStructure->classInfoForCells()->isSubClassOf(JSScope::info())
                 || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadCache)
                 || (op1->op() == GetLocal && op1->variableAccessData()->structureCheckHoistingFailed())) {
                 setThis(addToGraph(ToThis, OpInfo(bytecode.m_ecmaMode), OpInfo(getPrediction()), op1));
@@ -5529,7 +5546,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             if (function) {
                 if (FunctionRareData* rareData = function->rareData()) {
                     JSGlobalObject* globalObject = m_graph.globalObjectFor(currentNodeOrigin().semantic);
-                    if (rareData->allocationProfileWatchpointSet().isStillValid() && m_graph.isWatchingStructureCacheClearedWatchpoint(globalObject)) {
+                    if (rareData->allocationProfileWatchpointSet().isStillValid() && globalObject->structureCacheClearedWatchpointSet().isStillValid()) {
                         Structure* structure = rareData->objectAllocationStructure();
                         JSObject* prototype = rareData->objectAllocationPrototype();
                         if (structure
@@ -5537,6 +5554,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
                             m_graph.freeze(rareData);
                             m_graph.watchpoints().addLazily(rareData->allocationProfileWatchpointSet());
+                            m_graph.freeze(globalObject);
+                            m_graph.watchpoints().addLazily(globalObject->structureCacheClearedWatchpointSet());
                             
                             Node* object = addToGraph(NewObject, OpInfo(m_graph.registerStructure(structure)));
                             if (structure->hasPolyProto()) {
@@ -5610,13 +5629,15 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
                 if (function) {
                     if (FunctionRareData* rareData = function->rareData()) {
-                        if (rareData->allocationProfileWatchpointSet().isStillValid() && m_graph.isWatchingStructureCacheClearedWatchpoint(globalObject)) {
+                        if (rareData->allocationProfileWatchpointSet().isStillValid() && globalObject->structureCacheClearedWatchpointSet().isStillValid()) {
                             Structure* structure = rareData->internalFunctionAllocationStructure();
                             if (structure
                                 && structure->classInfoForCells() == (bytecode.m_isInternalPromise ? JSInternalPromise::info() : JSPromise::info())
                                 && structure->globalObject() == globalObject) {
                                 m_graph.freeze(rareData);
                                 m_graph.watchpoints().addLazily(rareData->allocationProfileWatchpointSet());
+                                m_graph.freeze(globalObject);
+                                m_graph.watchpoints().addLazily(globalObject->structureCacheClearedWatchpointSet());
 
                                 Node* promise = addToGraph(NewInternalFieldObject, OpInfo(m_graph.registerStructure(structure)));
                                 set(VirtualRegister(bytecode.m_dst), promise);
@@ -7736,7 +7757,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
             // get_from_scope and put_to_scope depend on this watchpoint forcing OSR exit, so they don't add their own watchpoints.
             if (needsVarInjectionChecks(resolveType))
-                m_graph.watchpoints().addLazily(m_inlineStackTop->m_codeBlock->globalObject()->varInjectionWatchpoint());
+                m_graph.watchpoints().addLazily(m_inlineStackTop->m_codeBlock->globalObject()->varInjectionWatchpointSet());
 
             if (resolveType == GlobalProperty || resolveType == GlobalPropertyWithVarInjectionChecks) {
                 JSGlobalObject* globalObject = m_inlineStackTop->m_codeBlock->globalObject();
@@ -7928,7 +7949,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     
                     JSValue value = pointer->get();
                     if (value) {
-                        m_graph.watchpoints().addLazily(watchpointSet);
+                        m_graph.watchpoints().addLazily(*watchpointSet);
                         set(bytecode.m_dst, weakJSConstant(value));
                         break;
                     }
@@ -8053,7 +8074,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     addToGraph(CheckNotEmpty, value);
                 }
                 if (resolveType == GlobalVar || resolveType == GlobalVarWithVarInjectionChecks)
-                    m_graph.watchpoints().addLazily(globalObject->varReadOnlyWatchpoint());
+                    m_graph.watchpoints().addLazily(globalObject->varReadOnlyWatchpointSet());
 
                 JSSegmentedVariableObject* scopeObject = jsCast<JSSegmentedVariableObject*>(JSScope::constantScopeForCodeBlock(resolveType, m_inlineStackTop->m_codeBlock));
                 if (watchpoints) {
@@ -9005,13 +9026,15 @@ void ByteCodeParser::handleCreateInternalFieldObject(const ClassInfo* classInfo,
 
     if (function) {
         if (FunctionRareData* rareData = function->rareData()) {
-            if (rareData->allocationProfileWatchpointSet().isStillValid() && m_graph.isWatchingStructureCacheClearedWatchpoint(globalObject)) {
+            if (rareData->allocationProfileWatchpointSet().isStillValid() && globalObject->structureCacheClearedWatchpointSet().isStillValid()) {
                 Structure* structure = rareData->internalFunctionAllocationStructure();
                 if (structure
                     && structure->classInfoForCells() == classInfo
                     && structure->globalObject() == globalObject) {
                     m_graph.freeze(rareData);
                     m_graph.watchpoints().addLazily(rareData->allocationProfileWatchpointSet());
+                    m_graph.freeze(globalObject);
+                    m_graph.watchpoints().addLazily(globalObject->structureCacheClearedWatchpointSet());
 
                     set(VirtualRegister(bytecode.m_dst), addToGraph(newOp, OpInfo(m_graph.registerStructure(structure))));
                     // The callee is still live up to this point.

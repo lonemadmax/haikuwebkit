@@ -1055,6 +1055,7 @@ void TestController::resetPreferencesToConsistentValues(const TestOptions& optio
         if (enableAllExperimentalFeatures) {
             WKPreferencesEnableAllExperimentalFeatures(preferences);
             WKPreferencesSetExperimentalFeatureForKey(preferences, false, toWK("AlternateWebMPlayerEnabled").get());
+            WKPreferencesSetExperimentalFeatureForKey(preferences, false, toWK("SiteIsolationEnabled").get());
         }
 
         WKPreferencesResetAllInternalDebugFeatures(preferences);
@@ -3734,6 +3735,30 @@ void TestController::setAppBoundDomains(WKArrayRef originURLs)
     WKWebsiteDataStoreSetAppBoundDomainsForTesting(originURLs, &context, didSetAppBoundDomainsCallback);
     runUntil(context.done, noTimeout);
     m_currentInvocation->didSetAppBoundDomains();
+}
+
+struct ManagedDomainsCallbackContext {
+    explicit ManagedDomainsCallbackContext(TestController& controller)
+        : testController(controller)
+    {
+    }
+
+    bool done { false };
+    TestController& testController;
+};
+
+static void didSetManagedDomainsCallback(void* callbackContext)
+{
+    auto* context = static_cast<ManagedDomainsCallbackContext*>(callbackContext);
+    context->done = true;
+}
+
+void TestController::setManagedDomains(WKArrayRef originURLs)
+{
+    ManagedDomainsCallbackContext context(*this);
+    WKWebsiteDataStoreSetManagedDomainsForTesting(originURLs, &context, didSetManagedDomainsCallback);
+    runUntil(context.done, noTimeout);
+    m_currentInvocation->didSetManagedDomains();
 }
 
 void TestController::statisticsResetToConsistentState()

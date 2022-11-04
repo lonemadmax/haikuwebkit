@@ -162,6 +162,10 @@ public:
     void setNeedsOneShotDrawingSynchronization();
 
     WEBCORE_EXPORT GraphicsLayer* graphicsLayerForPlatformWidget(PlatformWidget);
+    WEBCORE_EXPORT GraphicsLayer* graphicsLayerForPageScale();
+#if HAVE(RUBBER_BANDING)
+    WEBCORE_EXPORT GraphicsLayer* graphicsLayerForTransientZoomShadow();
+#endif
 
     WEBCORE_EXPORT TiledBacking* tiledBacking() const;
 
@@ -321,7 +325,7 @@ public:
 
     void viewportContentsChanged();
     WEBCORE_EXPORT void resumeVisibleImageAnimationsIncludingSubframes();
-    void repaintVisibleImageAnimationsIncludingSubframes();
+    void updatePlayStateForAllAnimationsIncludingSubframes();
 
     String mediaType() const;
     WEBCORE_EXPORT void setMediaType(const String&);
@@ -774,7 +778,7 @@ private:
 
     void applyRecursivelyWithVisibleRect(const Function<void(FrameView& frameView, const IntRect& visibleRect)>&);
     void resumeVisibleImageAnimations(const IntRect& visibleRect);
-    void repaintVisibleImageAnimations(const IntRect& visibleRect);
+    void updatePlayStateForAllAnimations(const IntRect& visibleRect);
     void updateScriptedAnimationsAndTimersThrottlingState(const IntRect& visibleRect);
 
     WEBCORE_EXPORT void adjustTiledBackingCoverage();

@@ -32,7 +32,7 @@
 #include "ClonedArguments.h"
 #include "CodeBlock.h"
 #include "CodeBlockInlines.h"
-#include "CommonSlowPaths.h"
+#include "CommonSlowPathsInlines.h"
 #include "DFGDriver.h"
 #include "DFGJITCode.h"
 #include "DFGToFTLDeferredCompilationCallback.h"
@@ -46,6 +46,7 @@
 #include "HasOwnPropertyCache.h"
 #include "Interpreter.h"
 #include "InterpreterInlines.h"
+#include "IntlCollator.h"
 #include "JITCodeInlines.h"
 #include "JITWorklist.h"
 #include "JSArrayInlines.h"
@@ -2801,6 +2802,25 @@ JSC_DEFINE_JIT_OPERATION(operationToLowerCase, JSString*, (JSGlobalObject* globa
     RELEASE_AND_RETURN(scope, jsString(vm, WTFMove(lowercasedString)));
 }
 
+JSC_DEFINE_JIT_OPERATION(operationStringLocaleCompare, UCPUStrictInt32, (JSGlobalObject* globalObject, JSString* base, JSString* argument))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    String string = base->value(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    String that = argument->value(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    auto* collator = globalObject->defaultCollator();
+
+    RELEASE_AND_RETURN(scope, toUCPUStrictInt32(collator->compareStrings(globalObject, string, that)));
+}
+
 JSC_DEFINE_JIT_OPERATION(operationInt32ToString, char*, (JSGlobalObject* globalObject, int32_t value, int32_t radix))
 {
     VM& vm = globalObject->vm();
@@ -3469,11 +3489,10 @@ JSC_DEFINE_JIT_OPERATION(operationSpreadGeneric, JSCell*, (JSGlobalObject* globa
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
 
-    if (isJSArray(iterable)) {
-        JSArray* array = jsCast<JSArray*>(iterable);
-        if (array->isIteratorProtocolFastAndNonObservable())
-            RELEASE_AND_RETURN(throwScope, JSImmutableButterfly::createFromArray(globalObject, vm, array));
-    }
+    auto* result = CommonSlowPaths::trySpreadFast(globalObject, iterable);
+    RETURN_IF_EXCEPTION(throwScope, nullptr);
+    if (result)
+        return result;
 
     // FIXME: we can probably make this path faster by having our caller JS code call directly into
     // the iteration protocol builtin: https://bugs.webkit.org/show_bug.cgi?id=164520

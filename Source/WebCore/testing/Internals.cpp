@@ -783,6 +783,17 @@ ExceptionOr<double> Internals::svgAnimationsInterval(SVGSVGElement& element) con
     return element.timeContainer().animationFrameDelay().value();
 }
 
+Vector<Ref<SVGSVGElement>> Internals::allSVGSVGElements() const
+{
+    Vector<Ref<SVGSVGElement>> elements;
+    for (auto* document : Document::allDocuments()) {
+        if (!document->svgExtensions())
+            continue;
+        elements.appendVector(document->accessSVGExtensions().allSVGSVGElements());
+    }
+    return elements;
+}
+
 String Internals::address(Node& node)
 {
     return makeString("0x", hex(reinterpret_cast<uintptr_t>(&node)));
@@ -1051,10 +1062,8 @@ bool Internals::isImageAnimating(HTMLImageElement& element)
 
 void Internals::setImageAnimationEnabled(bool enabled)
 {
-    if (auto* page = contextDocument() ? contextDocument()->page() : nullptr) {
-        if (page->settings().imageAnimationControlEnabled())
-            page->setImageAnimationEnabled(enabled);
-    }
+    if (auto* page = contextDocument() ? contextDocument()->page() : nullptr)
+        page->setImageAnimationEnabled(enabled);
 }
 
 void Internals::resumeImageAnimation(HTMLImageElement& element)
@@ -5205,9 +5214,9 @@ String Internals::resourceLoadStatisticsForURL(const DOMURL& url)
     return ResourceLoadObserver::shared().statisticsForURL(url.href());
 }
 
-void Internals::setResourceLoadStatisticsEnabled(bool enable)
+void Internals::setTrackingPreventionEnabled(bool enable)
 {
-    DeprecatedGlobalSettings::setResourceLoadStatisticsEnabled(enable);
+    DeprecatedGlobalSettings::setTrackingPreventionEnabled(enable);
 }
 
 String Internals::composedTreeAsText(Node& node)

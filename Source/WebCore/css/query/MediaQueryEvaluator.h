@@ -40,15 +40,10 @@ public:
     bool evaluate(const MediaQueryList&) const;
     bool evaluate(const MediaQuery&) const;
 
-    struct FeatureContext {
-        const Document& document;
-        const RenderStyle* rootElementStyle;
-    };
-    EvaluationResult evaluateFeature(const Feature&, const FeatureContext&) const;
-
 private:
     const AtomString m_mediaType;
-    const FeatureContext m_featureContext;
+    const Document& m_document;
+    const RenderStyle* m_rootElementStyle;
 };
 
 }

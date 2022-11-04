@@ -37,11 +37,14 @@
 #include "Shared/Sandbox/preferences.sb"
 
 #if USE(SANDBOX_VERSION_2)
+(with-filter (mac-policy-name "Sandbox")
+    (allow system-mac-syscall (mac-syscall-number 5)))
+
 (with-filter (mac-policy-name "vnguard")
     (allow system-mac-syscall (mac-syscall-number 1)))
 
 (with-filter (mac-policy-name "Quarantine")
-    (allow system-mac-syscall (mac-syscall-number 80)))
+    (allow system-mac-syscall (mac-syscall-number 80 82)))
 
 (allow system-fcntl
     (fcntl-command
@@ -55,6 +58,7 @@
         F_OFD_GETLK
         F_OFD_SETLK
         F_OFD_SETLKWTIMEOUT
+        F_PREALLOCATE
         F_RDADVISE
         F_SETCONFINED
         F_SETFL

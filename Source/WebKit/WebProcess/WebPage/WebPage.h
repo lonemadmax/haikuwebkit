@@ -571,11 +571,6 @@ public:
 
     std::optional<WebCore::SimpleRange> currentSelectionAsRange();
 
-#if ENABLE(WEBGL)
-    WebCore::WebGLLoadPolicy webGLPolicyForURL(WebFrame*, const URL&);
-    WebCore::WebGLLoadPolicy resolveWebGLPolicyForURL(WebFrame*, const URL&);
-#endif
-    
     enum class ShouldPerformLayout : bool { Default, Yes };
     EditorState editorState(ShouldPerformLayout = ShouldPerformLayout::Default) const;
     void updateEditorStateAfterLayoutIfEditabilityChanged();
@@ -1308,6 +1303,8 @@ public:
     void didConcludeDrop();
 #endif
 
+    void updateImageAnimationEnabled();
+
     void didFinishLoadingImageForElement(WebCore::HTMLImageElement&);
 
     WebURLSchemeHandlerProxy* urlSchemeHandlerForScheme(StringView);
@@ -1803,7 +1800,6 @@ private:
 #else
     void didReceivePolicyDecision(WebCore::FrameIdentifier, uint64_t listenerID, PolicyDecision&&, const Vector<SandboxExtension::Handle>&);
 #endif
-    void continueWillSubmitForm(WebCore::FrameIdentifier, FormSubmitListenerIdentifier);
     void setUserAgent(const String&);
     void setCustomTextEncodingName(const String&);
     void suspendActiveDOMObjectsAndAnimations();
@@ -2334,6 +2330,7 @@ private:
         ScheduledDuringAccessibilitySelectionChange,
     };
     PendingEditorStateUpdateStatus m_pendingEditorStateUpdateStatus { PendingEditorStateUpdateStatus::NotScheduled };
+    bool m_needsEditorStateVisualDataUpdate { false };
 
 #if ENABLE(META_VIEWPORT)
     WebCore::ViewportConfiguration m_viewportConfiguration;
@@ -2531,6 +2528,10 @@ private:
     
 #if ENABLE(APP_HIGHLIGHTS)
     WebCore::HighlightVisibility m_appHighlightsVisible { WebCore::HighlightVisibility::Hidden };
+#endif
+
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    bool m_sanitizeLookalikeCharactersInLinksEnabled { false };
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)

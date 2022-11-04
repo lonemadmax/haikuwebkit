@@ -28,7 +28,6 @@
 #include "APIUserInitiatedAction.h"
 #include "AuxiliaryProcessProxy.h"
 #include "BackgroundProcessResponsivenessTimer.h"
-#include "DisplayLinkObserverID.h"
 #include "MessageReceiverMap.h"
 #include "NetworkProcessProxy.h"
 #include "ProcessLauncher.h"
@@ -51,7 +50,6 @@
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/SharedStringHash.h>
 #include <WebCore/SleepDisabler.h>
-#include <memory>
 #include <pal/SessionID.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
@@ -64,6 +62,11 @@
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 #include <WebCore/CaptionUserPreferences.h>
+#endif
+
+#if HAVE(CVDISPLAYLINK)
+#include "DisplayLinkObserverID.h"
+#include "DisplayLinkProcessProxyClient.h"
 #endif
 
 namespace API {
@@ -148,6 +151,10 @@ public:
 
     static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore*, LockdownMode, IsPrewarmed, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared, ShouldLaunchProcess = ShouldLaunchProcess::Yes);
     static Ref<WebProcessProxy> createForRemoteWorkers(RemoteWorkerType, WebProcessPool&, WebCore::RegistrableDomain&&, WebsiteDataStore&);
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    static Ref<WebProcessProxy> createForWebContentCrashy(WebProcessPool&);
+#endif
 
     ~WebProcessProxy();
 
@@ -313,6 +320,8 @@ public:
 #endif
 
 #if HAVE(CVDISPLAYLINK)
+    DisplayLink::Client& displayLinkClient() { return m_displayLinkClient; }
+
     void startDisplayLink(DisplayLinkObserverID, WebCore::PlatformDisplayID, WebCore::FramesPerSecond);
     void stopDisplayLink(DisplayLinkObserverID, WebCore::PlatformDisplayID);
     void setDisplayLinkPreferredFramesPerSecond(DisplayLinkObserverID, WebCore::PlatformDisplayID, WebCore::FramesPerSecond);
@@ -452,10 +461,6 @@ public:
     static void permissionChanged(WebCore::PermissionName, const WebCore::SecurityOriginData&);
     void sendPermissionChanged(WebCore::PermissionName, const WebCore::SecurityOriginData&);
 
-#if PLATFORM(MAC) && USE(RUNNINGBOARD)
-    void enableProcessSuspension();
-#endif
-
 protected:
     WebProcessProxy(WebProcessPool&, WebsiteDataStore*, IsPrewarmed, WebCore::CrossOriginMode, LockdownMode);
 
@@ -480,6 +485,11 @@ protected:
     bool shouldEnableLockdownMode() const final { return m_lockdownMode == LockdownMode::Enabled; }
 
     void validateFreezerStatus();
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool isCrashyProcess() { return m_isWebContentCrashyProcess; }
+    void setIsCrashyProcess() { m_isWebContentCrashyProcess = true; }
+#endif
 
 private:
     static HashMap<WebCore::ProcessIdentifier, WebProcessProxy*>& allProcesses();
@@ -613,6 +623,10 @@ private:
     ForegroundWebProcessToken m_foregroundToken;
     BackgroundWebProcessToken m_backgroundToken;
 
+#if HAVE(CVDISPLAYLINK)
+    DisplayLinkProcessProxyClient m_displayLinkClient;
+#endif
+
 #if ENABLE(ROUTING_ARBITRATION)
     UniqueRef<AudioSessionRoutingArbitratorProxy> m_routingArbitrator;
 #endif
@@ -649,6 +663,10 @@ private:
 #endif
 #if PLATFORM(IOS) && !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     bool m_hasManagedSessionSandboxAccess { false };
+#endif
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool m_isWebContentCrashyProcess { false };
 #endif
 
 #if PLATFORM(WATCHOS)
@@ -693,10 +711,6 @@ private:
     std::unique_ptr<WebLockRegistryProxy> m_webLockRegistry;
     std::unique_ptr<WebPermissionControllerProxy> m_webPermissionController;
     bool m_isConnectedToHardwareConsole { true };
-#if PLATFORM(MAC) && USE(RUNNINGBOARD)
-    bool m_isSuspensionEnabled { false };
-    RefPtr<ProcessAssertion> m_suspensionSuppressionAssertion;
-#endif
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, const WebProcessProxy&);

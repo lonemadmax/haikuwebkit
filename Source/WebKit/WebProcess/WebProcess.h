@@ -379,6 +379,7 @@ public:
 #endif
 
     bool isLockdownModeEnabled() const { return m_isLockdownModeEnabled; }
+    bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
 
     void setHadMainFrameMainResourcePrivateRelayed() { m_hadMainFrameMainResourcePrivateRelayed = true; }
     bool hadMainFrameMainResourcePrivateRelayed() const { return m_hadMainFrameMainResourcePrivateRelayed; }
@@ -430,7 +431,7 @@ private:
     void setDefaultRequestTimeoutInterval(double);
     void setAlwaysUsesComplexTextCodePath(bool);
     void setShouldUseFontSmoothingForTesting(bool);
-    void setResourceLoadStatisticsEnabled(bool);
+    void setTrackingPreventionEnabled(bool);
     void clearResourceLoadStatistics();
     void flushResourceLoadStatistics();
     void seedResourceLoadStatisticsForTesting(const WebCore::RegistrableDomain& firstPartyDomain, const WebCore::RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&&);
@@ -740,6 +741,7 @@ private:
     std::unique_ptr<SpeechRecognitionRealtimeMediaSourceManager> m_speechRecognitionRealtimeMediaSourceManager;
 #endif
     bool m_hadMainFrameMainResourcePrivateRelayed { false };
+    bool m_imageAnimationEnabled { true };
 };
 
 } // namespace WebKit

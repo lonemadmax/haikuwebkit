@@ -35,7 +35,7 @@
 #include "ScrollingTreeFixedNodeNicosia.h"
 #include "ScrollingTreeFrameHostingNode.h"
 #include "ScrollingTreeFrameScrollingNodeNicosia.h"
-#include "ScrollingTreeOverflowScrollProxyNode.h"
+#include "ScrollingTreeOverflowScrollProxyNodeNicosia.h"
 #include "ScrollingTreeOverflowScrollingNodeNicosia.h"
 #include "ScrollingTreePositionedNodeNicosia.h"
 #include "ScrollingTreeStickyNodeNicosia.h"
@@ -63,7 +63,7 @@ Ref<ScrollingTreeNode> ScrollingTreeNicosia::createScrollingTreeNode(ScrollingNo
     case ScrollingNodeType::Overflow:
         return ScrollingTreeOverflowScrollingNodeNicosia::create(*this, nodeID);
     case ScrollingNodeType::OverflowProxy:
-        return ScrollingTreeOverflowScrollProxyNode::create(*this, nodeID);
+        return ScrollingTreeOverflowScrollProxyNodeNicosia::create(*this, nodeID);
     case ScrollingNodeType::Fixed:
         return ScrollingTreeFixedNodeNicosia::create(*this, nodeID);
     case ScrollingNodeType::Sticky:
@@ -83,8 +83,7 @@ static bool collectDescendantLayersAtPoint(Vector<RefPtr<CompositionLayer>>& lay
     bool existsOnDescendent = false;
 
     parent->accessPending([&](const CompositionLayer::LayerState& state) {
-        if (FloatRect(FloatPoint(), state.size).contains(point))
-            existsOnLayer = !!state.scrollingNodeID;
+        existsOnLayer = !!state.scrollingNodeID && FloatRect({ }, state.size).contains(point) && state.eventRegion.contains(roundedIntPoint(point));
 
         for (auto child : state.children) {
             FloatPoint transformedPoint(point);

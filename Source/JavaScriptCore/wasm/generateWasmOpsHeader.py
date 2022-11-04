@@ -160,6 +160,7 @@ defines.append("\n\n")
 defines = "".join(defines)
 
 opValueSet = set([op for op in wasm.opcodeIterator(lambda op: True, lambda op: opcodes[op]["value"])])
+opValueSet.add(0xFD)  # ExtSIMD
 maxOpValue = max(opValueSet)
 
 
@@ -205,15 +206,14 @@ contents = wasm.header + """
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "Width.h"
 #include <cstdint>
 #include <wtf/PrintStream.h>
 
-#if ENABLE(WEBASSEMBLY_B3JIT)
-#include "B3Type.h"
-#endif
+namespace JSC {
 
-namespace JSC { namespace Wasm {
+enum class Width : uint8_t;
+
+namespace Wasm {
 
 static constexpr unsigned expectedVersionNumber = """ + wasm.expectedVersionNumber + """;
 
@@ -257,14 +257,7 @@ struct Type {
         }
     }
 
-    Width width() const
-    {
-        switch (kind) {
-        #define CREATE_CASE(name, id, b3type, inc, wasmName, width, ...) case TypeKind::name: return widthForBytes(width / 8);
-        FOR_EACH_WASM_TYPE(CREATE_CASE)
-        #undef CREATE_CASE
-        }
-    }
+    Width width() const;
 
     // Use Wasm::isFuncref and Wasm::isExternref instead because they check againts all kind of representations of function referenes and external references.
 
@@ -292,19 +285,6 @@ inline bool isValidTypeKind(Int i)
     return false;
 }
 #undef CREATE_CASE
-
-#if ENABLE(WEBASSEMBLY_B3JIT)
-#define CREATE_CASE(name, id, b3type, ...) case TypeKind::name: return b3type;
-inline B3::Type toB3Type(Type type)
-{
-    switch (type.kind) {
-    FOR_EACH_WASM_TYPE(CREATE_CASE)
-    }
-    RELEASE_ASSERT_NOT_REACHED();
-    return B3::Void;
-}
-#undef CREATE_CASE
-#endif
 
 #define CREATE_CASE(name, ...) case TypeKind::name: return #name;
 inline const char* makeString(TypeKind kind)
@@ -349,6 +329,7 @@ inline TypeKind linearizedToType(int i)
     FOR_EACH_WASM_MEMORY_LOAD_OP(macro) \\
     FOR_EACH_WASM_MEMORY_STORE_OP(macro) \\
     macro(Ext1,  0xFC, Oops, 0) \\
+    macro(ExtSIMD, 0xFD, Oops, 0) \\
     macro(GCPrefix,  0xFB, Oops, 0) \\
     macro(ExtAtomic, 0xFE, Oops, 0)
 
@@ -386,6 +367,8 @@ enum class Ext1OpType : uint8_t {
     FOR_EACH_WASM_TABLE_OP(CREATE_ENUM_VALUE)
     FOR_EACH_WASM_TRUNC_SATURATED_OP(CREATE_ENUM_VALUE)
 };
+
+enum class ExtSIMDOpType : uint8_t;
 
 enum class GCOpType : uint8_t {
     FOR_EACH_WASM_GC_OP(CREATE_ENUM_VALUE)

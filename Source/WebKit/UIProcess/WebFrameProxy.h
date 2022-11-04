@@ -28,6 +28,8 @@
 #include "APIObject.h"
 #include "FrameLoadState.h"
 #include "GenericCallback.h"
+#include "MessageReceiver.h"
+#include "MessageSender.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebPageProxy.h"
 #include <WebCore/FrameLoaderTypes.h>
@@ -55,13 +57,14 @@ class WebFramePolicyListenerProxy;
 class WebsiteDataStore;
 enum class ShouldExpectSafeBrowsingResult : bool;
 enum class ProcessSwapRequestedByClient : bool;
+struct NavigationActionData;
 struct WebsitePoliciesData;
 
-class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame>, public CanMakeWeakPtr<WebFrameProxy> {
+class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame>, public IPC::MessageReceiver, public IPC::MessageSender {
 public:
-    static Ref<WebFrameProxy> create(WebPageProxy& page, WebProcessProxy& process, WebCore::FrameIdentifier frameID)
+    static Ref<WebFrameProxy> create(WebPageProxy& page, WebProcessProxy& process, WebCore::PageIdentifier pageID, WebCore::FrameIdentifier frameID)
     {
-        return adoptRef(*new WebFrameProxy(page, process, frameID));
+        return adoptRef(*new WebFrameProxy(page, process, pageID, frameID));
     }
 
     static WebFrameProxy* webFrame(WebCore::FrameIdentifier);
@@ -135,13 +138,32 @@ public:
     void setNavigationCallback(CompletionHandler<void(std::optional<WebCore::PageIdentifier>, std::optional<WebCore::FrameIdentifier>)>&&);
 
     void disconnect();
-    void addChildFrame(Ref<WebFrameProxy>&&);
+    void didCreateSubframe(WebCore::FrameIdentifier);
     ProcessID processIdentifier() const;
+    void swapToProcess(WebProcessProxy&);
+
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
+    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
 private:
-    WebFrameProxy(WebPageProxy&, WebProcessProxy&, WebCore::FrameIdentifier);
+    WebFrameProxy(WebPageProxy&, WebProcessProxy&, WebCore::PageIdentifier, WebCore::FrameIdentifier);
+
+    void decidePolicyForNavigationActionAsync(FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo,
+        std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody,
+        WebCore::ResourceResponse&& redirectResponse, const UserData&, uint64_t listenerID);
+    void decidePolicyForNavigationActionSync(bool isMainFrame, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo,
+        std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody,
+        WebCore::ResourceResponse&& redirectResponse, const UserData&, CompletionHandler<void(const PolicyDecision&)>&&);
+    void decidePolicyForNewWindowAction(FrameInfoData&&, WebCore::PolicyCheckIdentifier, NavigationActionData&&,
+        WebCore::ResourceRequest&&, const String& frameName, uint64_t listenerID, const UserData&);
+    void decidePolicyForResponse(FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID,
+        const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, uint64_t listenerID, const UserData&);
+    void unableToImplementPolicy(const WebCore::ResourceError&, const UserData&);
 
     std::optional<WebCore::PageIdentifier> pageIdentifier() const;
+
+    IPC::Connection* messageSenderConnection() const final;
+    uint64_t messageSenderDestinationID() const final;
 
     WeakPtr<WebPageProxy> m_page;
     Ref<WebProcessProxy> m_process;
@@ -153,6 +175,7 @@ private:
     bool m_containsPluginDocument { false };
     WebCore::CertificateInfo m_certificateInfo;
     RefPtr<WebFramePolicyListenerProxy> m_activeListener;
+    WebCore::PageIdentifier m_webPageID;
     WebCore::FrameIdentifier m_frameID;
     HashSet<Ref<WebFrameProxy>> m_childFrames;
     WeakPtr<WebFrameProxy> m_parentFrame;

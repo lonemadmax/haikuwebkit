@@ -243,12 +243,12 @@ public:
 
 #if HAVE(CVDISPLAYLINK)
     std::optional<WebCore::FramesPerSecond> nominalFramesPerSecondForDisplay(WebCore::PlatformDisplayID);
-    void startDisplayLink(IPC::Connection&, DisplayLinkObserverID, WebCore::PlatformDisplayID, WebCore::FramesPerSecond);
-    void stopDisplayLink(IPC::Connection&, DisplayLinkObserverID, WebCore::PlatformDisplayID);
-    void setDisplayLinkPreferredFramesPerSecond(IPC::Connection&, DisplayLinkObserverID, WebCore::PlatformDisplayID, WebCore::FramesPerSecond);
-    void stopDisplayLinks(IPC::Connection&);
 
-    void setDisplayLinkForDisplayWantsFullSpeedUpdates(IPC::Connection&, WebCore::PlatformDisplayID, bool wantsFullSpeedUpdates);
+    void startDisplayLink(WebProcessProxy&, DisplayLinkObserverID, WebCore::PlatformDisplayID, WebCore::FramesPerSecond);
+    void stopDisplayLink(WebProcessProxy&, DisplayLinkObserverID, WebCore::PlatformDisplayID);
+    void setDisplayLinkPreferredFramesPerSecond(WebProcessProxy&, DisplayLinkObserverID, WebCore::PlatformDisplayID, WebCore::FramesPerSecond);
+    void stopDisplayLinks(WebProcessProxy&);
+    void setDisplayLinkForDisplayWantsFullSpeedUpdates(WebProcessProxy&, WebCore::PlatformDisplayID, bool wantsFullSpeedUpdates);
 #endif
 
     void addSupportedPlugin(String&& matchingDomain, String&& name, HashSet<String>&& mimeTypes, HashSet<String> extensions);
@@ -384,7 +384,7 @@ public:
 
     void updateRemoteWorkerUserAgent(const String& userAgent);
     UserContentControllerIdentifier userContentControllerIdentifierForRemoteWorkers();
-    static void establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType, WebCore::RegistrableDomain&&, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID, CompletionHandler<void()>&&);
+    static void establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType, WebCore::RegistrableDomain&&, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID, CompletionHandler<void(WebCore::ProcessIdentifier)>&&);
 
 #if PLATFORM(COCOA)
     bool processSuppressionEnabled() const;
@@ -445,6 +445,10 @@ public:
     void clearPermanentCredentialsForProtectionSpace(WebCore::ProtectionSpace&&);
 
     void lockdownModeStateChanged();
+#endif
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool shouldCrashWhenCreatingWebProcess() const { return m_shouldCrashWhenCreatingWebProcess; }
 #endif
 
     ForegroundWebProcessToken foregroundWebProcessToken() const { return ForegroundWebProcessToken(m_foregroundWebProcessCounter.count()); }
@@ -742,6 +746,10 @@ private:
 
 #if PLATFORM(COCOA)
     bool m_cookieStoragePartitioningEnabled { false };
+#endif
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    bool m_shouldCrashWhenCreatingWebProcess { false };
 #endif
 
     struct Paths {

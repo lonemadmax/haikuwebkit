@@ -498,6 +498,8 @@ static constexpr CGFloat kTargetWindowAspectRatio = 1.7778;
 
     self._webView = webView;
 
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:[UIApplication sharedApplication]];
+
     return self;
 }
 
@@ -562,12 +564,20 @@ static constexpr CGFloat kTargetWindowAspectRatio = 1.7778;
     [_window setWindowLevel:UIWindowLevelNormal - 1];
     [_window setHidden:NO];
 #if HAVE(UIKIT_WEBKIT_INTERNALS)
-    CGFloat targetWidth = page->preferences().mediaPreferredFullscreenWidth();
-    CGFloat targetHeight = targetWidth / kTargetWindowAspectRatio;
-    CGFloat aspectRatio = videoDimensions.height ? (videoDimensions.width / videoDimensions.height) : kTargetWindowAspectRatio;
-    // FIXME: We should probably set a limit on maximum width here. If the incoming video has a huge aspect ratio, the window
-    // frame could be set to something unreasonably wide.
-    [_window setFrame:CGRectMake(0, 0, targetHeight * aspectRatio, targetHeight)];
+    CGFloat preferredWidth = page->preferences().mediaPreferredFullscreenWidth();
+    CGFloat preferredHeight = preferredWidth / kTargetWindowAspectRatio;
+    CGFloat videoAspectRatio = videoDimensions.height ? (videoDimensions.width / videoDimensions.height) : kTargetWindowAspectRatio;
+
+    CGFloat targetWidth = preferredWidth;
+    CGFloat targetHeight = preferredHeight;
+    if (videoDimensions.height && videoDimensions.width) {
+        if (videoAspectRatio > kTargetWindowAspectRatio)
+            targetHeight = videoDimensions.height * preferredWidth / videoDimensions.width;
+        else
+            targetWidth = videoDimensions.width * preferredHeight / videoDimensions.height;
+    }
+
+    [_window setFrame:CGRectMake(0, 0, targetWidth, targetHeight)];
     [_window setClipsToBounds:YES];
     [_window _setContinuousCornerRadius:kFullScreenWindowCornerRadius];
     [_window setNeedsLayout];
@@ -725,6 +735,8 @@ static constexpr CGFloat kTargetWindowAspectRatio = 1.7778;
             manager->didEnterFullScreen();
             manager->setAnimatingFullScreen(false);
             page->setSuppressVisibilityUpdates(false);
+
+            [_fullscreenViewController showBanner];
 
 #if HAVE(UIKIT_WEBKIT_INTERNALS)
             configureViewForEnteringFullscreen(_fullscreenViewController.get().view, kAnimationDuration, [_window frame].size);
@@ -1287,6 +1299,11 @@ static constexpr CGFloat kTargetWindowAspectRatio = 1.7778;
     [_interactiveDismissTransitionCoordinator updateInteractiveTransition:progress withScale:scale andTranslation:CGSizeMake(translation.x, translation.y)];
 }
 #endif // ENABLE(FULLSCREEN_DISMISSAL_GESTURES)
+
+- (void)_applicationDidBecomeActive:(NSNotification*)notification
+{
+    [_fullscreenViewController showBanner];
+}
 
 @end
 

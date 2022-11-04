@@ -30,7 +30,6 @@
 #include "AbstractFrame.h"
 #include "AdjustViewSizeOrNot.h"
 #include "Document.h"
-#include "FrameIdentifier.h"
 #include "PageIdentifier.h"
 #include "ScrollTypes.h"
 #include "UserScriptTypes.h"
@@ -163,7 +162,6 @@ public:
     void resetScript();
 
     WEBCORE_EXPORT std::optional<PageIdentifier> pageID() const;
-    FrameIdentifier frameID() const { return m_frameID; }
 
     WEBCORE_EXPORT RenderView* contentRenderer() const; // Root of the render tree for the document contained in this frame.
     WEBCORE_EXPORT RenderWidget* ownerRenderer() const; // Renderer for the element that contains this frame.
@@ -307,8 +305,7 @@ private:
 
     void dropChildren();
 
-    bool isLocalFrame() const final { return true; }
-    bool isRemoteFrame() const final { return false; }
+    FrameType frameType() const final { return FrameType::Local; }
 
     AbstractDOMWindow* virtualWindow() const final;
 
@@ -320,7 +317,6 @@ private:
     const RefPtr<Settings> m_settings;
     UniqueRef<FrameLoader> m_loader;
     mutable UniqueRef<NavigationScheduler> m_navigationScheduler;
-    const FrameIdentifier m_frameID;
 
     WeakPtr<HTMLFrameOwnerElement, WeakPtrImplWithEventTargetData> m_ownerElement;
     RefPtr<FrameView> m_view;
@@ -391,5 +387,5 @@ WTF::TextStream& operator<<(WTF::TextStream&, const Frame&);
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::Frame)
-    static bool isType(const WebCore::AbstractFrame& frame) { return frame.isLocalFrame(); }
+static bool isType(const WebCore::AbstractFrame& frame) { return frame.frameType() == WebCore::AbstractFrame::FrameType::Local; }
 SPECIALIZE_TYPE_TRAITS_END()

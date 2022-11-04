@@ -255,8 +255,11 @@ void RemoteVideoEncoder::encode(RawFrame&& rawFrame, bool shouldGenerateKeyFrame
 
 void RemoteVideoEncoder::flush(Function<void()>&& callback)
 {
-    // FIXME: Implement this.
-    callback();
+    WebProcess::singleton().libWebRTCCodecs().flushEncoder(m_internalEncoder, [callback = WTFMove(callback), callbacks = m_callbacks]() mutable {
+        callbacks->postTask([callback = WTFMove(callback)]() mutable {
+            callback();
+        });
+    });
 }
 
 void RemoteVideoEncoder::reset()
@@ -294,7 +297,7 @@ void RemoteVideoEncoderCallbacks::notifyEncoderDescription(Vector<uint8_t>&& des
         if (protectedThis->m_isClosed)
             return;
 
-        protectedThis->m_descriptionCallback(VideoEncoder::ActiveConfiguration { { }, { }, { }, { }, { }, WTFMove(description) });
+        protectedThis->m_descriptionCallback(VideoEncoder::ActiveConfiguration { { }, { }, { }, { }, { }, WTFMove(description), { } });
     });
 }
 

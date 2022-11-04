@@ -217,7 +217,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
         WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
         Process::setIdentifier(WebCore::ProcessIdentifier::generate());
 #if PLATFORM(COCOA)
-        determineITPState();
+        determineTrackingPreventionState();
 
         // This can be removed once Safari calls _setLinkedOnOrAfterEverything everywhere that WebKit deploys.
 #if PLATFORM(IOS_FAMILY)
@@ -510,7 +510,7 @@ void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy
 
 bool WebProcessPool::s_useSeparateServiceWorkerProcess = false;
 
-void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType workerType, RegistrableDomain&& registrableDomain, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType workerType, RegistrableDomain&& registrableDomain, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID, CompletionHandler<void(WebCore::ProcessIdentifier)>&& completionHandler)
 {
     auto* websiteDataStore = WebsiteDataStore::existingDataStoreForSessionID(sessionID);
     if (!websiteDataStore)
@@ -575,7 +575,9 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
     remoteWorkerProcesses().add(*remoteWorkerProcessProxy);
 
     auto& preferencesStore = processPool->m_remoteWorkerPreferences ? processPool->m_remoteWorkerPreferences.value() : processPool->m_defaultPageGroup->preferences().store();
-    remoteWorkerProcessProxy->establishRemoteWorkerContext(workerType, preferencesStore, registrableDomain, serviceWorkerPageIdentifier, WTFMove(completionHandler));
+    remoteWorkerProcessProxy->establishRemoteWorkerContext(workerType, preferencesStore, registrableDomain, serviceWorkerPageIdentifier, [completionHandler = WTFMove(completionHandler), remoteProcessIdentifier = remoteWorkerProcessProxy->coreProcessIdentifier()] () mutable {
+        completionHandler(remoteProcessIdentifier);
+    });
 
     if (!processPool->m_remoteWorkerUserAgent.isNull())
         remoteWorkerProcessProxy->setRemoteWorkerUserAgent(processPool->m_remoteWorkerUserAgent);
@@ -623,14 +625,22 @@ void WebProcessPool::resolvePathsForSandboxExtensions()
 Ref<WebProcessProxy> WebProcessPool::createNewWebProcess(WebsiteDataStore* websiteDataStore, WebProcessProxy::LockdownMode lockdownMode, WebProcessProxy::IsPrewarmed isPrewarmed, CrossOriginMode crossOriginMode)
 {
 #if PLATFORM(COCOA)
-    m_tccPreferenceEnabled = doesAppHaveITPEnabled();
-    if (websiteDataStore && !websiteDataStore->isItpStateExplicitlySet())
-        websiteDataStore->setResourceLoadStatisticsEnabled(m_tccPreferenceEnabled);
+    m_tccPreferenceEnabled = doesAppHaveTrackingPreventionEnabled();
+    if (websiteDataStore && !websiteDataStore->isTrackingPreventionStateExplicitlySet())
+        websiteDataStore->setTrackingPreventionEnabled(m_tccPreferenceEnabled);
 #endif
 
     auto processProxy = WebProcessProxy::create(*this, websiteDataStore, lockdownMode, isPrewarmed, crossOriginMode);
     initializeNewWebProcess(processProxy, websiteDataStore, isPrewarmed);
     m_processes.append(processProxy.copyRef());
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+    if (shouldCrashWhenCreatingWebProcess()) {
+        auto crashyProcessProxy = WebProcessProxy::createForWebContentCrashy(*this);
+        initializeNewWebProcess(crashyProcessProxy, nullptr);
+        m_processes.append(crashyProcessProxy.copyRef());
+    }
+#endif
 
     return processProxy;
 }
@@ -762,7 +772,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
         WTFMove(containerCachesDirectoryExtensionHandle),
         WTFMove(containerTemporaryDirectoryExtensionHandle),
 #endif
-        websiteDataStore.resourceLoadStatisticsEnabled()
+        websiteDataStore.trackingPreventionEnabled()
     };
 }
 
@@ -1110,11 +1120,6 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         enableProcessSwapOnCrossSiteNavigation = false;
 #endif
 
-#if PLATFORM(MAC) && USE(RUNNINGBOARD)
-    if (page->preferences().backgroundWebContentRunningBoardThrottlingEnabled())
-        process->enableProcessSuspension();
-#endif
-
     bool wasProcessSwappingOnNavigationEnabled = m_configuration->processSwapsOnNavigation();
     m_configuration->setProcessSwapsOnNavigationFromExperimentalFeatures(enableProcessSwapOnCrossSiteNavigation);
     if (wasProcessSwappingOnNavigationEnabled != m_configuration->processSwapsOnNavigation())
@@ -1126,9 +1131,6 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         gpuProcess->updateScreenPropertiesIfNeeded();
     }
 #endif
-
-    bool shouldTakeSuspendedAssertions = page->preferences().shouldTakeSuspendedAssertions();
-    process->throttler().setShouldTakeSuspendedAssertion(shouldTakeSuspendedAssertions);
 
     return page;
 }

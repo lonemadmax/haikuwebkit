@@ -860,11 +860,8 @@ private:
                 fixEdge<StringUse>(node->child1());
             else if (node->child1()->shouldSpeculateStringOrOther())
                 fixEdge<StringOrOtherUse>(node->child1());
-            else {
-                WatchpointSet* masqueradesAsUndefinedWatchpoint = m_graph.globalObjectFor(node->origin.semantic)->masqueradesAsUndefinedWatchpoint();
-                if (masqueradesAsUndefinedWatchpoint->isStillValid())
-                    m_graph.watchpoints().addLazily(masqueradesAsUndefinedWatchpoint);
-            }
+            else
+                m_graph.isWatchingMasqueradesAsUndefinedWatchpointSet(node);
             break;
         }
 
@@ -1024,6 +1021,12 @@ private:
             blessArrayOperation(node->child1(), node->child2(), node->child1()); // Rewrite child1 with ResolveRope.
             fixEdge<KnownStringUse>(node->child1());
             fixEdge<Int32Use>(node->child2());
+            break;
+        }
+
+        case StringLocaleCompare: {
+            fixEdge<StringUse>(node->child1());
+            fixEdge<StringUse>(node->child2());
             break;
         }
 
@@ -1584,11 +1587,8 @@ private:
                 fixEdge<StringUse>(node->child1());
             else if (node->child1()->shouldSpeculateStringOrOther())
                 fixEdge<StringOrOtherUse>(node->child1());
-            else {
-                WatchpointSet* masqueradesAsUndefinedWatchpoint = m_graph.globalObjectFor(node->origin.semantic)->masqueradesAsUndefinedWatchpoint();
-                if (masqueradesAsUndefinedWatchpoint->isStillValid())
-                    m_graph.watchpoints().addLazily(masqueradesAsUndefinedWatchpoint);
-            }
+            else
+                m_graph.isWatchingMasqueradesAsUndefinedWatchpointSet(node);
             break;
         }
             
@@ -1706,7 +1706,7 @@ private:
             // that it doesn't contain any indexed properties, and that any holes will result in
             // jsUndefined().
             if (node->child1()->shouldSpeculateArray()
-                && m_graph.isWatchingArrayPrototypeIsSaneChainWatchpoint(node->child1().node())
+                && m_graph.isWatchingArrayPrototypeChainIsSaneWatchpoint(node->child1().node())
                 && m_graph.isWatchingArrayIteratorProtocolWatchpoint(node->child1().node())
                 && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node()))
                 fixEdge<ArrayUse>(node->child1());
@@ -2725,6 +2725,7 @@ private:
             break;
         }
 
+        case NumberToStringWithValidRadixConstant:
         case NumberToStringWithRadix: {
             if (node->child1()->shouldSpeculateInt32())
                 fixEdge<Int32Use>(node->child1());
@@ -2732,7 +2733,13 @@ private:
                 fixEdge<Int52RepUse>(node->child1());
             else
                 fixEdge<DoubleRepUse>(node->child1());
-            fixEdge<Int32Use>(node->child2());
+
+            if (op == NumberToStringWithRadix)
+                fixEdge<Int32Use>(node->child2());
+            else if (node->validRadixConstant() == 10 && node->child1()->shouldSpeculateNumber()) {
+                node->setOp(ToString);
+                node->resetOpInfo();
+            }
             break;
         }
 
@@ -2970,7 +2977,6 @@ private:
         case PutByIdWithThis:
         case PutByValWithThis:
         case CompareEqPtr:
-        case NumberToStringWithValidRadixConstant:
         case GetGlobalThis:
         case ExtractValueFromWeakMapGet:
         case CPUIntrinsic:
@@ -2999,18 +3005,7 @@ private:
 
     void watchHavingABadTime(Node* node)
     {
-        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
-
-        // If this global object is not having a bad time, watch it. We go down this path anytime the code
-        // does an array allocation. The types of array allocations may change if we start to have a bad
-        // time. It's easier to reason about this if we know that whenever the types change after we start
-        // optimizing, the code just gets thrown out. Doing this at FixupPhase is just early enough, since
-        // prior to this point nobody should have been doing optimizations based on the indexing type of
-        // the allocation.
-        if (!globalObject->isHavingABadTime()) {
-            m_graph.watchpoints().addLazily(globalObject->havingABadTimeWatchpoint());
-            m_graph.freeze(globalObject);
-        }
+        m_graph.isWatchingHavingABadTimeWatchpoint(node);
     }
     
     template<UseKind useKind>
@@ -3838,7 +3833,7 @@ private:
 
     bool watchSaneChain(Node* node)
     {
-        return m_graph.isWatchingArrayPrototypeIsSaneChainWatchpoint(node);
+        return m_graph.isWatchingArrayPrototypeChainIsSaneWatchpoint(node);
     }
 
     void setSaneChainIfPossible(Node* node, Array::Speculation speculation)

@@ -27,6 +27,7 @@
 
 #if ENABLE(WEB_CODECS)
 
+#include "PlatformVideoColorSpace.h"
 #include "VideoFrame.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Expected.h>
@@ -53,6 +54,7 @@ public:
         std::optional<size_t> displayWidth;
         std::optional<size_t> displayHeight;
         std::optional<Vector<uint8_t>> description;
+        std::optional<PlatformVideoColorSpace> colorSpace;
     };
     struct EncodedFrame {
         Vector<uint8_t> data;
@@ -70,7 +72,7 @@ public:
     using PostTaskCallback = Function<void(Function<void()>&&)>;
     using DescriptionCallback = Function<void(ActiveConfiguration&&)>;
     using OutputCallback = Function<void(EncodedFrame&&)>;
-    using CreateCallback = CompletionHandler<void(CreateResult&&)>;
+    using CreateCallback = Function<void(CreateResult&&)>;
 
     using CreatorFunction = void(*)(const String&, const Config&, CreateCallback&&, DescriptionCallback&&, OutputCallback&&, PostTaskCallback&&);
     WEBCORE_EXPORT static void setCreatorCallback(CreatorFunction&&);

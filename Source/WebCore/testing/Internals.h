@@ -448,6 +448,8 @@ public:
     unsigned workerThreadCount() const;
     ExceptionOr<bool> areSVGAnimationsPaused() const;
     ExceptionOr<double> svgAnimationsInterval(SVGSVGElement&) const;
+    // Some SVGSVGElements are not accessible via JavaScript (e.g. those in CSS `background: url(data:image/svg+xml;utf8,<svg>...)`, but we need access to them for testing.
+    Vector<Ref<SVGSVGElement>> allSVGSVGElements() const;
 
     enum {
         // Values need to be kept in sync with Internals.idl.
@@ -829,7 +831,7 @@ public:
     void setShowAllPlugins(bool);
 
     String resourceLoadStatisticsForURL(const DOMURL&);
-    void setResourceLoadStatisticsEnabled(bool);
+    void setTrackingPreventionEnabled(bool);
 
     bool isReadableStreamDisturbed(JSC::JSGlobalObject&, JSC::JSValue);
     JSC::JSValue cloneArrayBuffer(JSC::JSGlobalObject&, JSC::JSValue, JSC::JSValue, JSC::JSValue);

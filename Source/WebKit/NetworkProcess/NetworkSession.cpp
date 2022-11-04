@@ -170,7 +170,7 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     m_isStaleWhileRevalidateEnabled = parameters.staleWhileRevalidateEnabled;
 
 #if ENABLE(TRACKING_PREVENTION)
-    setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsParameters.enabled);
+    setTrackingPreventionEnabled(parameters.resourceLoadStatisticsParameters.enabled);
 #endif
 
 #if ENABLE(SERVICE_WORKER)
@@ -230,11 +230,11 @@ void NetworkSession::destroyPrivateClickMeasurementStore(CompletionHandler<void(
 }
 
 #if ENABLE(TRACKING_PREVENTION)
-void NetworkSession::setResourceLoadStatisticsEnabled(bool enable)
+void NetworkSession::setTrackingPreventionEnabled(bool enable)
 {
     ASSERT(!m_isInvalidated);
     if (auto* storageSession = networkStorageSession())
-        storageSession->setResourceLoadStatisticsEnabled(enable);
+        storageSession->setTrackingPreventionEnabled(enable);
     if (!enable) {
         destroyResourceLoadStatistics([] { });
         return;
@@ -263,7 +263,7 @@ void NetworkSession::forwardResourceLoadStatisticsSettings()
     m_resourceLoadStatistics->setStandaloneApplicationDomain(m_standaloneApplicationDomain, [] { });
 }
 
-bool NetworkSession::isResourceLoadStatisticsEnabled() const
+bool NetworkSession::isTrackingPreventionEnabled() const
 {
     return !!m_resourceLoadStatistics;
 }
@@ -360,7 +360,11 @@ std::optional<WebCore::IPAddress> NetworkSession::firstPartyHostIPAddress(const 
     if (firstPartyHost.isEmpty())
         return std::nullopt;
 
-    return m_firstPartyHostIPAddresses.get(firstPartyHost);
+    auto iterator = m_firstPartyHostIPAddresses.find(firstPartyHost);
+    if (iterator == m_firstPartyHostIPAddresses.end())
+        return std::nullopt;
+
+    return { iterator->value };
 }
 #endif // ENABLE(TRACKING_PREVENTION)
 
@@ -555,7 +559,7 @@ void NetworkSession::removeLoaderWaitingWebProcessTransfer(NetworkResourceLoadId
         cachedResourceLoader->takeLoader()->abort();
 }
 
-std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool, bool, bool)
+std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&, bool, bool, OptionSet<WebCore::NetworkConnectionIntegrity>)
 {
     return nullptr;
 }
@@ -654,8 +658,12 @@ SWServer& NetworkSession::ensureSWServer()
             ServiceWorkerSoftUpdateLoader::start(this, WTFMove(jobData), shouldRefreshCache, WTFMove(request), WTFMove(completionHandler));
         }, [this](auto& registrableDomain, std::optional<ProcessIdentifier> requestingProcessIdentifier, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, auto&& completionHandler) {
             ASSERT(!registrableDomain.isEmpty());
-            m_networkProcess->parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::EstablishRemoteWorkerContextConnectionToNetworkProcess { RemoteWorkerType::ServiceWorker, registrableDomain, requestingProcessIdentifier, serviceWorkerPageIdentifier, m_sessionID }, WTFMove(completionHandler), 0);
-        }, WTFMove(appBoundDomainsCallback));
+            m_networkProcess->parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::EstablishRemoteWorkerContextConnectionToNetworkProcess { RemoteWorkerType::ServiceWorker, registrableDomain, requestingProcessIdentifier, serviceWorkerPageIdentifier, m_sessionID }, [completionHandler = WTFMove(completionHandler)] (auto) mutable {
+                completionHandler();
+            }, 0);
+        }, WTFMove(appBoundDomainsCallback), [this](auto webProcessIdentifier, auto&& firstPartyForCookies) {
+            m_networkProcess->addAllowedFirstPartyForCookies(webProcessIdentifier, WTFMove(firstPartyForCookies));
+        });
     }
     return *m_swServer;
 }
@@ -698,5 +706,16 @@ void NetworkSession::setEmulatedConditions(std::optional<int64_t>&& bytesPerSeco
 }
 
 #endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
+
+bool NetworkSession::needsAdditionalNetworkConnectionIntegritySettings(const ResourceRequest& request)
+{
+    if (request.isThirdParty())
+        return false;
+
+    if (request.url().host() == request.firstPartyForCookies().host())
+        return false;
+
+    return true;
+}
 
 } // namespace WebKit

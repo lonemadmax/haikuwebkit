@@ -772,7 +772,6 @@ css/CSSGridIntegerRepeatValue.cpp
 css/CSSGridLineNamesValue.cpp
 css/CSSGridTemplateAreasValue.cpp
 css/CSSGroupingRule.cpp
-css/CSSImageGeneratorValue.cpp
 css/CSSImageSetValue.cpp
 css/CSSImageValue.cpp
 css/CSSImportRule.cpp
@@ -809,6 +808,7 @@ css/CSSSupportsRule.cpp
 css/CSSTimingFunctionValue.cpp
 css/CSSToLengthConversionData.cpp
 css/CSSToStyleMap.cpp
+css/CSSTransformListValue.cpp
 css/CSSUnicodeRangeValue.cpp
 css/CSSUnits.cpp
 css/CSSValue.cpp
@@ -882,10 +882,12 @@ css/parser/LegacyMediaQueryParser.cpp
 css/parser/MediaQueryBlockWatcher.cpp
 css/parser/SizesAttributeParser.cpp
 css/parser/SizesCalcParser.cpp
+css/query/ContainerQueryFeatures.cpp
 css/query/GenericMediaQueryEvaluator.cpp
 css/query/GenericMediaQueryParser.cpp
 css/query/GenericMediaQuerySerialization.cpp
 css/query/MediaQueryEvaluator.cpp
+css/query/MediaQueryFeatures.cpp
 css/query/MediaQueryParser.cpp
 css/typedom/ComputedStylePropertyMapReadOnly.cpp
 css/typedom/StylePropertyMapReadOnly.cpp
@@ -898,7 +900,11 @@ css/typedom/CSSStyleValueFactory.cpp
 css/typedom/CSSUnitValue.cpp
 css/typedom/CSSUnparsedValue.cpp
 css/typedom/CSSOMVariableReferenceValue.cpp
+css/typedom/DeclaredStylePropertyMap.cpp
+css/typedom/MainThreadStylePropertyMapReadOnly.cpp
+css/typedom/StylePropertyMap.cpp
 css/typedom/color/CSSColor.cpp
+css/typedom/color/CSSColorValue.cpp
 css/typedom/color/CSSHSL.cpp
 css/typedom/color/CSSHWB.cpp
 css/typedom/color/CSSLCH.cpp
@@ -1918,6 +1924,7 @@ page/scrolling/ScrollingTreeFrameScrollingNode.cpp
 page/scrolling/ScrollingTreeGestureState.cpp
 page/scrolling/ScrollingTreeLatchingController.cpp
 page/scrolling/ScrollingTreeNode.cpp
+page/scrolling/ScrollingTreeOverflowScrollProxyNode.cpp
 page/scrolling/ScrollingTreeOverflowScrollingNode.cpp
 page/scrolling/ScrollingTreePositionedNode.cpp
 page/scrolling/ScrollingTreeScrollingNode.cpp
@@ -2116,6 +2123,7 @@ platform/graphics/FontCascadeDescription.cpp
 platform/graphics/FontCascadeFonts.cpp
 platform/graphics/FontDescription.cpp
 platform/graphics/FontFamilySpecificationNull.cpp
+platform/graphics/FontFeatureValues.cpp
 platform/graphics/FontGenericFamilies.cpp
 platform/graphics/FontPlatformData.cpp
 platform/graphics/FontRanges.cpp
@@ -2226,6 +2234,7 @@ platform/graphics/filters/FilterImage.cpp
 platform/graphics/filters/FilterOperation.cpp
 platform/graphics/filters/FilterOperations.cpp
 platform/graphics/filters/FilterResults.cpp
+platform/graphics/filters/FilterTargetSwitcher.cpp
 platform/graphics/filters/PointLightSource.cpp
 platform/graphics/filters/SourceAlpha.cpp
 platform/graphics/filters/SourceGraphic.cpp

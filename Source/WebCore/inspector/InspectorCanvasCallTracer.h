@@ -80,13 +80,9 @@ enum class CanvasTextAlign;
 enum class CanvasTextBaseline;
 enum ImageSmoothingQuality;
 
-#if ENABLE(CSS_TYPED_OM)
 #define FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_CSS_TYPED_OM_ARGUMENT(macro) \
     macro(RefPtr<CSSStyleImageValue>&) \
 // end of FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_CSS_TYPED_OM_ARGUMENT
-#else
-#define FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_CSS_TYPED_OM_ARGUMENT(macro)
-#endif // ENABLE(CSS_TYPED_OM)
 
 #if ENABLE(OFFSCREEN_CANVAS)
 #define FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_OFFSCREEN_CANVAS_ARGUMENT(macro) \
@@ -130,7 +126,6 @@ enum ImageSmoothingQuality;
     macro(WebGLSync*) \
     macro(WebGLTexture*) \
     macro(WebGLUniformLocation*) \
-    macro(WebGLVertexArrayObject*) \
 // end of FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_WEBGL_ARGUMENT
 #else
 #define FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_WEBGL_ARGUMENT(macro)
@@ -140,6 +135,7 @@ enum ImageSmoothingQuality;
 #define FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_WEBGL2_ARGUMENT(macro) \
     macro(WebGLTransformFeedback*) \
     macro(WebGL2RenderingContext::Uint32List::VariantType&) \
+    macro(WebGLVertexArrayObject*) \
 // end of FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_WEBGL2_ARGUMENT
 #else
 #define FOR_EACH_INSPECTOR_CANVAS_CALL_TRACER_WEBGL2_ARGUMENT(macro)

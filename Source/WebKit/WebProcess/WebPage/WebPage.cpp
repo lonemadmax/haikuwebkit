@@ -584,9 +584,11 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     ASSERT(m_identifier);
     WEBPAGE_RELEASE_LOG(Loading, "constructor:");
 
+#if PLATFORM(COCOA)
     auto shouldBlockIOKit = parameters.store.getBoolValueForKey(WebPreferencesKey::blockIOKitInWebContentSandboxKey())
 #if ENABLE(WEBGL)
         && m_shouldRenderWebGLInGPUProcess
+        && m_drawingAreaType == DrawingAreaType::RemoteLayerTree
 #endif
         && m_shouldRenderCanvasInGPUProcess
         && m_shouldRenderDOMInGPUProcess
@@ -599,6 +601,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         ProcessCapabilities::setHardwareAcceleratedDecodingDisabled(true);
         ProcessCapabilities::setCanUseAcceleratedBuffers(false);
     }
+#endif
 
     m_pageGroup = WebProcess::singleton().webPageGroup(parameters.pageGroupData);
 
@@ -959,7 +962,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         sandbox_enable_state_flag("EnableExperimentalSandbox", *auditToken);
 #if USE(APPLE_INTERNAL_SDK)
     uint64_t bootTime = mach_boottime_usec();
-    if (!(bootTime & 0x7)) {
+    if (!(bootTime & 0x7) || isRunningTest(WebCore::applicationBundleIdentifier())) {
         // Set sandbox state variable with probability of 1/8.
         sandbox_enable_state_flag("EnableExperimentalSandboxWithProbability", *auditToken);
     }
@@ -967,6 +970,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif // HAVE(SANDBOX_STATE_FLAGS)
 
     updateThrottleState();
+    updateImageAnimationEnabled();
 }
 
 #if ENABLE(GPU_PROCESS)
@@ -1225,18 +1229,6 @@ void WebPage::initializeInjectedBundleFullScreenClient(WKBundlePageFullScreenCli
 }
 #endif
 
-#if ENABLE(WEBGL) && !PLATFORM(MAC)
-WebCore::WebGLLoadPolicy WebPage::webGLPolicyForURL(WebFrame*, const URL&)
-{
-    return WebGLLoadPolicy::WebGLAllowCreation;
-}
-
-WebCore::WebGLLoadPolicy WebPage::resolveWebGLPolicyForURL(WebFrame*, const URL&)
-{
-    return WebGLLoadPolicy::WebGLAllowCreation;
-}
-#endif
-
 bool WebPage::hasPendingEditorStateUpdate() const
 {
     return m_pendingEditorStateUpdateStatus != PendingEditorStateUpdateStatus::NotScheduled;
@@ -1292,15 +1284,17 @@ EditorState WebPage::editorState(ShouldPerformLayout shouldPerformLayout) const
         document->updateLayout(); // May cause document destruction
 
     if (auto* frameView = document->view(); frameView && !frameView->needsLayout()) {
-        result.isMissingPostLayoutData = false;
+        if (!result.postLayoutData)
+            result.postLayoutData = std::optional<EditorState::PostLayoutData> { EditorState::PostLayoutData { } };
+        result.postLayoutData->canCut = editor.canCut();
+        result.postLayoutData->canCopy = editor.canCopy();
+        result.postLayoutData->canPaste = editor.canPaste();
 
-        auto& postLayoutData = result.postLayoutData();
-        postLayoutData.canCut = editor.canCut();
-        postLayoutData.canCopy = editor.canCopy();
-        postLayoutData.canPaste = editor.canPaste();
+        if (!result.visualData)
+            result.visualData = std::optional<EditorState::VisualData> { EditorState::VisualData { } };
 
         if (m_needsFontAttributes)
-            postLayoutData.fontAttributes = editor.fontAttributesAtSelectionStart();
+            result.postLayoutData->fontAttributes = editor.fontAttributesAtSelectionStart();
     }
 
     getPlatformEditorState(frame, result);
@@ -3711,14 +3705,6 @@ void WebPage::didReceivePolicyDecision(FrameIdentifier frameID, uint64_t listene
     frame->didReceivePolicyDecision(listenerID, WTFMove(policyDecision));
 }
 
-void WebPage::continueWillSubmitForm(FrameIdentifier frameID, FormSubmitListenerIdentifier listenerID)
-{
-    WebFrame* frame = WebProcess::singleton().webFrame(frameID);
-    if (!frame)
-        return;
-    frame->continueWillSubmitForm(listenerID);
-}
-
 void WebPage::didStartPageTransition()
 {
     freezeLayerTree(LayerTreeFreezeReason::PageTransition);
@@ -4341,6 +4327,10 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     m_useSceneKitForModel = store.getBoolValueForKey(WebPreferencesKey::useSceneKitForModelKey());
 #endif
 
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    m_sanitizeLookalikeCharactersInLinksEnabled = store.getBoolValueForKey(WebPreferencesKey::sanitizeLookalikeCharactersInLinksEnabledKey());
+#endif
+
     if (settings.showMediaStatsContextMenuItemEnabled())
         settings.setTrackConfigurationEnabled(true);
 
@@ -4445,9 +4435,10 @@ void WebPage::willCommitLayerTree(RemoteLayerTreeTransaction& layerTransaction)
     m_pendingPageExtendedBackgroundColorChange = false;
     m_pendingSampledPageTopColorChange = false;
 
-    if (hasPendingEditorStateUpdate()) {
+    if (hasPendingEditorStateUpdate() || m_needsEditorStateVisualDataUpdate) {
         layerTransaction.setEditorState(editorState());
         m_pendingEditorStateUpdateStatus = PendingEditorStateUpdateStatus::NotScheduled;
+        m_needsEditorStateVisualDataUpdate = false;
     }
 }
 
@@ -6964,6 +6955,8 @@ void WebPage::reportUsedFeatures()
 
 void WebPage::sendEditorStateUpdate()
 {
+    m_needsEditorStateVisualDataUpdate = true;
+
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     if (frame->editor().ignoreSelectionChanges() || !frame->document() || !frame->document()->hasLivingRenderTree())
         return;
@@ -6975,12 +6968,14 @@ void WebPage::sendEditorStateUpdate()
     // next layer tree commit to compute and send the complete EditorState over.
     auto state = editorState();
     send(Messages::WebPageProxy::EditorStateChanged(state));
-    if (state.isMissingPostLayoutData && !shouldAvoidComputingPostLayoutDataForEditorState())
+    if (!state.hasPostLayoutData() && !shouldAvoidComputingPostLayoutDataForEditorState())
         scheduleFullEditorStateUpdate();
 }
 
 void WebPage::scheduleFullEditorStateUpdate()
 {
+    m_needsEditorStateVisualDataUpdate = true;
+
     if (hasPendingEditorStateUpdate()) {
         if (m_isChangingSelectionForAccessibility)
             m_pendingEditorStateUpdateStatus = PendingEditorStateUpdateStatus::ScheduledDuringAccessibilitySelectionChange;
@@ -8340,6 +8335,12 @@ void WebPage::generateTestReport(String&& message, String&& group)
 {
     if (RefPtr document = m_page->mainFrame().document())
         document->reportingScope().generateTestReport(WTFMove(message), WTFMove(group));
+}
+
+void WebPage::updateImageAnimationEnabled()
+{
+    bool enabled = !m_page->settings().imageAnimationControlEnabled() || WebProcess::singleton().imageAnimationEnabled();
+    corePage()->setImageAnimationEnabled(enabled);
 }
 
 } // namespace WebKit

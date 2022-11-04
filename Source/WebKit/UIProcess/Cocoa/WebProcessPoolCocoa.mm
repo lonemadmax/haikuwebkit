@@ -69,6 +69,7 @@
 #import <pal/Logging.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cf/CFNotificationCenterSPI.h>
+#import <pal/spi/cocoa/AccessibilitySupportSoftLink.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <sys/param.h>
 #import <wtf/FileSystem.h>
@@ -128,6 +129,32 @@
 #include <WebCore/MediaAccessibilitySoftLink.h>
 #endif
 
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+#if __has_include(<WebKitAdditions/InternalBuildAdditions.h>)
+#include <WebKitAdditions/InternalBuildAdditions.h>
+#else
+static bool isInternalBuild()
+{
+    return false;
+}
+#endif
+
+#if __has_include(<WebKitAdditions/InternalCanaryState.h>)
+#include <WebKitAdditions/InternalCanaryState.h>
+#else
+static bool canaryInBaseState()
+{
+    return true;
+}
+#endif
+
+#include <OSAnalytics/OSASystemConfiguration_Public.h>
+
+SOFT_LINK_FRAMEWORK_OPTIONAL(OSAnalytics)
+
+SOFT_LINK_CLASS(OSAnalytics, OSASystemConfiguration)
+#endif
+
 #import <pal/cf/CoreMediaSoftLink.h>
 #import <pal/cocoa/MediaToolboxSoftLink.h>
 
@@ -154,6 +181,12 @@ static NSString * const kPLTaskingStartNotificationGlobal = @"kPLTaskingStartNot
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
 SOFT_LINK_PRIVATE_FRAMEWORK(BackBoardServices)
 SOFT_LINK(BackBoardServices, BKSDisplayBrightnessGetCurrent, float, (), ());
+#endif
+
+#if HAVE(ACCESSIBILITY_ANIMATED_IMAGES)
+SOFT_LINK_LIBRARY_OPTIONAL(libAccessibility)
+SOFT_LINK_OPTIONAL(libAccessibility, _AXSReduceMotionAutoplayAnimatedImagesEnabled, Boolean, (), ());
+SOFT_LINK_CONSTANT_MAY_FAIL(libAccessibility, kAXSReduceMotionAutoplayAnimatedImagesChangedNotification, CFStringRef)
 #endif
 
 #define WEBPROCESSPOOL_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - WebProcessPool::" fmt, this, ##__VA_ARGS__)
@@ -234,6 +267,10 @@ static AccessibilityPreferences accessibilityPreferences()
     preferences.invertColorsEnabled = _AXSInvertColorsEnabledApp(appId.get());
 #endif
     preferences.enhanceTextLegibilityOverall = _AXSEnhanceTextLegibilityEnabled();
+#if HAVE(ACCESSIBILITY_ANIMATED_IMAGES)
+    if (auto* functionPointer = _AXSReduceMotionAutoplayAnimatedImagesEnabledPtr())
+        preferences.imageAnimationEnabled = functionPointer();
+#endif
     return preferences;
 }
 
@@ -261,6 +298,24 @@ static void logProcessPoolState(const WebProcessPool& pool)
         RELEASE_LOG(Process, "WebProcessProxy %p - %" PUBLIC_LOG_STRING ", domain: %" PRIVATE_LOG_STRING, process.ptr(), stream.release().utf8().data(), domain.utf8().data());
     }
 }
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+static bool determineIfWeShouldCrashWhenCreatingWebProcess()
+{
+    static bool shouldCrashResult { false };
+    static std::once_flag onceFlag;
+    std::call_once(
+        onceFlag,
+        [&] {
+            if (isInternalBuild()
+                && ![[getOSASystemConfigurationClass() automatedDeviceGroup] isEqualToString:@"CanaryExperimentOptOut"]
+                && !canaryInBaseState())
+                shouldCrashResult = true;
+        });
+
+    return shouldCrashResult;
+}
+#endif
 
 void WebProcessPool::platformInitialize()
 {
@@ -294,6 +349,17 @@ void WebProcessPool::platformInitialize()
                 logProcessPoolState(pool.get());
         });
     });
+
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+#if PLATFORM(IOS_FAMILY)
+    bool isSafari = WebCore::IOSApplication::isMobileSafari();
+#elif PLATFORM(MAC)
+    bool isSafari = WebCore::MacApplication::isSafari();
+#endif
+
+    if (isSafari)
+        m_shouldCrashWhenCreatingWebProcess = determineIfWeShouldCrashWhenCreatingWebProcess();
+#endif
 }
 
 void WebProcessPool::platformResolvePathsForSandboxExtensions()
@@ -346,7 +412,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     if (WebProcessProxy::shouldEnableRemoteInspector()) {
-        if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.webinspector"_s, std::nullopt))
+        if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.webinspector"_s, process.auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
             parameters.enableRemoteWebInspectorExtensionHandle = WTFMove(*handle);
     }
 #endif
@@ -762,6 +828,10 @@ void WebProcessPool::registerNotificationObservers()
     addCFNotificationObserver(accessibilityPreferencesChangedCallback, kAXSDarkenSystemColorsEnabledNotification);
     addCFNotificationObserver(accessibilityPreferencesChangedCallback, kAXSInvertColorsEnabledNotification);
 #endif
+#if HAVE(ACCESSIBILITY_ANIMATED_IMAGES)
+    if (canLoadkAXSReduceMotionAutoplayAnimatedImagesChangedNotification())
+        addCFNotificationObserver(accessibilityPreferencesChangedCallback, getkAXSReduceMotionAutoplayAnimatedImagesChangedNotification());
+#endif
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     addCFNotificationObserver(mediaAccessibilityPreferencesChangedCallback, kMAXCaptionAppearanceSettingsChangedNotification);
 #endif
@@ -832,6 +902,7 @@ bool WebProcessPool::isURLKnownHSTSHost(const String& urlString) const
 }
 
 #if HAVE(CVDISPLAYLINK)
+
 std::optional<unsigned> WebProcessPool::nominalFramesPerSecondForDisplay(WebCore::PlatformDisplayID displayID)
 {
     if (auto* displayLink = m_displayLinks.displayLinkForDisplay(displayID))
@@ -844,45 +915,45 @@ std::optional<unsigned> WebProcessPool::nominalFramesPerSecondForDisplay(WebCore
     return frameRate;
 }
 
-void WebProcessPool::startDisplayLink(IPC::Connection& connection, DisplayLinkObserverID observerID, PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
+void WebProcessPool::startDisplayLink(WebProcessProxy& processProxy, DisplayLinkObserverID observerID, PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
 {
     if (auto* displayLink = m_displayLinks.displayLinkForDisplay(displayID)) {
-        displayLink->addObserver(connection.uniqueID(), observerID, preferredFramesPerSecond);
+        displayLink->addObserver(processProxy.displayLinkClient(), observerID, preferredFramesPerSecond);
         return;
     }
 
     auto displayLink = makeUnique<DisplayLink>(displayID);
-    displayLink->addObserver(connection.uniqueID(), observerID, preferredFramesPerSecond);
+    displayLink->addObserver(processProxy.displayLinkClient(), observerID, preferredFramesPerSecond);
     m_displayLinks.add(WTFMove(displayLink));
 }
 
-void WebProcessPool::stopDisplayLink(IPC::Connection& connection, DisplayLinkObserverID observerID, PlatformDisplayID displayID)
+void WebProcessPool::stopDisplayLink(WebProcessProxy& processProxy, DisplayLinkObserverID observerID, PlatformDisplayID displayID)
 {
     if (auto* displayLink = m_displayLinks.displayLinkForDisplay(displayID))
-        displayLink->removeObserver(connection.uniqueID(), observerID);
+        displayLink->removeObserver(processProxy.displayLinkClient(), observerID);
 }
 
-void WebProcessPool::stopDisplayLinks(IPC::Connection& connection)
+void WebProcessPool::stopDisplayLinks(WebProcessProxy& processProxy)
 {
     for (auto& displayLink : m_displayLinks.displayLinks())
-        displayLink->removeObservers(connection.uniqueID());
+        displayLink->removeClient(processProxy.displayLinkClient());
 }
 
-void WebProcessPool::setDisplayLinkPreferredFramesPerSecond(IPC::Connection& connection, DisplayLinkObserverID observerID, PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
+void WebProcessPool::setDisplayLinkPreferredFramesPerSecond(WebProcessProxy& processProxy, DisplayLinkObserverID observerID, PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
 {
     LOG_WITH_STREAM(DisplayLink, stream << "[UI ] WebProcessPool::setDisplayLinkPreferredFramesPerSecond - display " << displayID << " observer " << observerID << " fps " << preferredFramesPerSecond);
 
     if (auto* displayLink = m_displayLinks.displayLinkForDisplay(displayID))
-        displayLink->setPreferredFramesPerSecond(connection.uniqueID(), observerID, preferredFramesPerSecond);
+        displayLink->setObserverPreferredFramesPerSecond(processProxy.displayLinkClient(), observerID, preferredFramesPerSecond);
 }
 
-void WebProcessPool::setDisplayLinkForDisplayWantsFullSpeedUpdates(IPC::Connection& connection, WebCore::PlatformDisplayID displayID, bool wantsFullSpeedUpdates)
+void WebProcessPool::setDisplayLinkForDisplayWantsFullSpeedUpdates(WebProcessProxy& processProxy, WebCore::PlatformDisplayID displayID, bool wantsFullSpeedUpdates)
 {
     if (auto* displayLink = m_displayLinks.displayLinkForDisplay(displayID)) {
         if (wantsFullSpeedUpdates)
-            displayLink->incrementFullSpeedRequestClientCount(connection.uniqueID());
+            displayLink->incrementFullSpeedRequestClientCount(processProxy.displayLinkClient());
         else
-            displayLink->decrementFullSpeedRequestClientCount(connection.uniqueID());
+            displayLink->decrementFullSpeedRequestClientCount(processProxy.displayLinkClient());
     }
 }
 

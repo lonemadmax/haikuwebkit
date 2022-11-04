@@ -83,7 +83,7 @@ public:
     void dispatchWillClose() override;
     void dispatchDidStartProvisionalLoad() override;
     void dispatchDidReceiveTitle(const WebCore::StringWithDirection&) override;
-    void dispatchDidCommitLoad(std::optional<WebCore::HasInsecureContent>, std::optional<WebCore::UsedLegacyTLS>) override;
+    void dispatchDidCommitLoad(std::optional<WebCore::HasInsecureContent>, std::optional<WebCore::UsedLegacyTLS>, std::optional<WebCore::WasPrivateRelayed>) override;
     void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&, WebCore::WillContinueLoading) override;
     void dispatchDidFailLoad(const WebCore::ResourceError&) override;
     void dispatchDidFinishDocumentLoad() override;
@@ -126,7 +126,6 @@ public:
 
     void didDisplayInsecureContent() override;
     void didRunInsecureContent(WebCore::SecurityOrigin&, const URL&) override;
-    void didDetectXSS(const URL&, bool didBlockEntirePage) override;
 
     WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&) const override;
     WebCore::ResourceError blockedError(const WebCore::ResourceRequest&) const override;

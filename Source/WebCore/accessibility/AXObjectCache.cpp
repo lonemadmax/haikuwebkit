@@ -86,6 +86,7 @@
 #include "HTMLOptGroupElement.h"
 #include "HTMLOptionElement.h"
 #include "HTMLParserIdioms.h"
+#include "HTMLProgressElement.h"
 #include "HTMLSelectElement.h"
 #include "HTMLTableElement.h"
 #include "HTMLTablePartElement.h"
@@ -639,37 +640,34 @@ static Ref<AccessibilityObject> createFromRenderer(RenderObject* renderer)
         return AccessibilityMathMLElement::create(renderer, isAnonymousOperator);
 #endif
 
-    if (is<RenderBoxModelObject>(*renderer)) {
-        RenderBoxModelObject& cssBox = downcast<RenderBoxModelObject>(*renderer);
-        if (is<RenderListBox>(cssBox))
-            return AccessibilityListBox::create(&downcast<RenderListBox>(cssBox));
-        if (is<RenderMenuList>(cssBox))
-            return AccessibilityMenuList::create(&downcast<RenderMenuList>(cssBox));
+    if (is<RenderListBox>(renderer))
+        return AccessibilityListBox::create(renderer);
+    if (is<RenderMenuList>(renderer))
+        return AccessibilityMenuList::create(downcast<RenderMenuList>(renderer));
 
-        // standard tables
-        if (is<RenderTable>(cssBox))
-            return AccessibilityTable::create(&downcast<RenderTable>(cssBox));
-        if (is<RenderTableRow>(cssBox))
-            return AccessibilityTableRow::create(&downcast<RenderTableRow>(cssBox));
-        if (is<RenderTableCell>(cssBox))
-            return AccessibilityTableCell::create(&downcast<RenderTableCell>(cssBox));
+    // standard tables
+    if (is<RenderTable>(renderer))
+        return AccessibilityTable::create(renderer);
+    if (is<RenderTableRow>(renderer))
+        return AccessibilityTableRow::create(renderer);
+    if (is<RenderTableCell>(renderer))
+        return AccessibilityTableCell::create(renderer);
 
-        // progress bar
-        if (is<RenderProgress>(cssBox))
-            return AccessibilityProgressIndicator::create(&downcast<RenderProgress>(cssBox));
+    // progress bar
+    if (is<RenderProgress>(renderer) || is<HTMLProgressElement>(node))
+        return AccessibilityProgressIndicator::create(renderer);
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-        if (is<RenderAttachment>(cssBox))
-            return AccessibilityAttachment::create(&downcast<RenderAttachment>(cssBox));
+    if (is<RenderAttachment>(renderer))
+        return AccessibilityAttachment::create(downcast<RenderAttachment>(renderer));
 #endif
 
-        if (is<RenderMeter>(cssBox))
-            return AccessibilityProgressIndicator::create(&downcast<RenderMeter>(cssBox));
+    if (is<RenderMeter>(renderer) || is<HTMLMeterElement>(node))
+        return AccessibilityProgressIndicator::create(renderer);
 
-        // input type=range
-        if (is<RenderSlider>(cssBox))
-            return AccessibilitySlider::create(&downcast<RenderSlider>(cssBox));
-    }
+    // input type=range
+    if (is<RenderSlider>(renderer))
+        return AccessibilitySlider::create(renderer);
 
     return AccessibilityRenderObject::create(renderer);
 }
@@ -829,10 +827,7 @@ AXCoreObject* AXObjectCache::rootObject()
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 RefPtr<AXIsolatedTree> AXObjectCache::getOrCreateIsolatedTree() const
 {
-    if (!m_pageID)
-        return nullptr;
-
-    auto tree = AXIsolatedTree::treeForPageID(*m_pageID);
+    RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID);
     if (!tree) {
         tree = Accessibility::retrieveValueFromMainThread<RefPtr<AXIsolatedTree>>([this] () -> RefPtr<AXIsolatedTree> {
             return AXIsolatedTree::create(const_cast<AXObjectCache*>(this));
@@ -915,10 +910,8 @@ void AXObjectCache::remove(AXID axID)
         return;
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    if (m_pageID) {
-        if (auto tree = AXIsolatedTree::treeForPageID(*m_pageID))
-            tree->removeNode(*object);
-    }
+    if (auto tree = AXIsolatedTree::treeForPageID(m_pageID))
+        tree->removeNode(*object);
 #endif
 
     object->detach(AccessibilityDetachmentType::ElementDestroyed);
@@ -3598,8 +3591,8 @@ void AXObjectCache::performDeferredCacheUpdate()
     m_deferredMenuListChange.clear();
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    if (m_deferredRegenerateIsolatedTree && m_pageID) {
-        if (auto tree = AXIsolatedTree::treeForPageID(*m_pageID)) {
+    if (m_deferredRegenerateIsolatedTree) {
+        if (auto tree = AXIsolatedTree::treeForPageID(m_pageID)) {
             if (auto* webArea = rootWebArea()) {
                 AXLOG("Regenerating isolated tree from AXObjectCache::performDeferredCacheUpdate().");
                 tree->generateSubtree(*webArea);
@@ -4136,8 +4129,8 @@ void AXObjectCache::relationsNeedUpdate(bool needUpdate)
     m_relationsNeedUpdate = needUpdate;
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    if (m_relationsNeedUpdate && m_pageID) {
-        if (auto tree = AXIsolatedTree::treeForPageID(*m_pageID))
+    if (m_relationsNeedUpdate) {
+        if (auto tree = AXIsolatedTree::treeForPageID(m_pageID))
             tree->relationsNeedUpdate(true);
     }
 #endif

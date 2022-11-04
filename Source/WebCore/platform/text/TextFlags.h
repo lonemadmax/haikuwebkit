@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "FontTaggedSettings.h"
 #include <optional>
 #include <variant>
 #include <vector>
@@ -36,6 +37,8 @@ class TextStream;
 }
 
 namespace WebCore {
+
+class FontFeatureValues;
 
 enum class TextRenderingMode : uint8_t {
     AutoTextRendering,
@@ -191,6 +194,8 @@ struct FontVariantAlternatesValues {
     }
 
     std::optional<String> stylistic;
+    // FIXME: supports a list of strings for styleset and characterVariant.
+    // https://bugs.webkit.org/show_bug.cgi?id=246811
     std::optional<String> styleset;
     std::optional<String> characterVariant;
     std::optional<String> swash;
@@ -480,5 +485,8 @@ enum class AllowUserInstalledFonts : uint8_t {
     No,
     Yes
 };
+
+using FeaturesMap = HashMap<FontTag, int, FourCharacterTagHash, FourCharacterTagHashTraits>;
+FeaturesMap computeFeatureSettingsFromVariants(const FontVariantSettings&, RefPtr<FontFeatureValues>);
 
 }

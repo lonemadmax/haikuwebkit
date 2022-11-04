@@ -27,26 +27,27 @@
 
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyParserHelpers.h"
+#include "ContainerQueryFeatures.h"
 
 namespace WebCore {
 
 using namespace MQ;
 
-Vector<MQ::FeatureSchema> ContainerQueryParser::featureSchemas()
+Vector<const FeatureSchema*> ContainerQueryParser::featureSchemas()
 {
     return {
-        { "width"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
-        { "height"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
-        { "inline-size"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
-        { "block-size"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Length }, { } },
-        { "aspect-ratio"_s, FeatureSchema::Type::Range, { FeatureSchema::ValueType::Ratio }, { } },
-        { "orientation"_s, FeatureSchema::Type::Discrete, { }, { CSSValuePortrait, CSSValueLandscape } }
+        &CQ::Features::width(),
+        &CQ::Features::height(),
+        &CQ::Features::inlineSize(),
+        &CQ::Features::blockSize(),
+        &CQ::Features::aspectRatio(),
+        &CQ::Features::orientation(),
     };
 }
 
-std::optional<CQ::ContainerQuery> ContainerQueryParser::consumeContainerQuery(CSSParserTokenRange& range, const CSSParserContext& context)
+std::optional<CQ::ContainerQuery> ContainerQueryParser::consumeContainerQuery(CSSParserTokenRange& range, const MediaQueryParserContext& context)
 {
-    ContainerQueryParser parser(context);
+    ContainerQueryParser parser({ context });
     return parser.consumeContainerQuery(range);
 }
 
@@ -78,7 +79,7 @@ std::optional<MQ::Feature> ContainerQueryParser::consumeFeature(CSSParserTokenRa
     if (!sizeFeature)
         return { };
 
-    m_requiredAxes.add(CQ::requiredAxesForFeature(sizeFeature->name));
+    m_requiredAxes.add(CQ::requiredAxesForFeature(*sizeFeature));
     return sizeFeature;
 }
 
