@@ -70,6 +70,7 @@ public:
 
 	virtual	void				Show();
 	virtual	void				Hide();
+	virtual	void				Draw(BRect rect);
 
 	virtual	void				FrameResized(float width, float height);
 	virtual	void				GetPreferredSize(float* width, float* height);

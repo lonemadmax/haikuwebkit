@@ -63,7 +63,7 @@ BWebView::UserData::~UserData()
 
 
 BWebView::BWebView(const char* name, BPrivate::Network::BUrlContext* urlContext)
-    : BView(name, B_FRAME_EVENTS | B_FULL_UPDATE_ON_RESIZE
+    : BView(name, B_WILL_DRAW | B_FRAME_EVENTS | B_FULL_UPDATE_ON_RESIZE
     	| B_NAVIGABLE | B_PULSE_NEEDED)
     , fLastMouseButtons(0)
     , fLastMouseMovedTime(-2000000)
@@ -86,7 +86,8 @@ BWebView::BWebView(const char* name, BPrivate::Network::BUrlContext* urlContext)
 
     FrameResized(Bounds().Width(), Bounds().Height());
 
-    // Disable default background painting, we only need bitmap painting
+    // Disable default background painting, we manage it ourselves to avoid
+    // flickering
     SetViewColor(B_TRANSPARENT_COLOR);
 
     // Default value for dark mode depending on the document background color
@@ -239,6 +240,24 @@ void BWebView::Hide()
 {
     fWebPage->setVisible(false);
     BView::Hide();
+}
+
+void BWebView::Draw(BRect rect)
+{
+    SetDrawingMode(B_OP_COPY);
+
+    // Draw the page that was already rendered as an offscreen bitmap
+    if (fOffscreenBitmap == NULL || !fOffscreenBitmap->Lock()) {
+        SetHighColor(255, 255, 255);
+        FillRect(rect);
+        return;
+    }
+
+    DrawBitmap(fOffscreenBitmap, rect, rect);
+
+    fOffscreenBitmap->Unlock();
+
+    GraphicsContextHaiku g(this);
 }
 
 void BWebView::FrameResized(float width, float height)
@@ -486,8 +505,11 @@ void BWebView::SetRootLayer(WebCore::GraphicsLayer* layer)
 
 void BWebView::SetOffscreenViewClean(BRect cleanRect, bool immediate)
 {
-    if(LockLooper()) {
-        Invalidate(cleanRect);
+    if (LockLooper()) {
+        if (immediate)
+            Draw(cleanRect);
+        else
+            Invalidate(cleanRect);
         UnlockLooper();
     }
 }
@@ -571,11 +593,9 @@ void BWebView::_ResizeOffscreenView(int width, int height)
         region.Exclude(oldViewBounds);
         fOffscreenView->DrawBitmap(oldBitmap, oldViewBounds, oldViewBounds);
         fOffscreenView->FillRegion(&region, B_SOLID_LOW);
-        SetViewBitmap(fOffscreenBitmap);
         delete oldBitmap;
             // Takes care of old fOffscreenView too.
-    } else
-        SetViewBitmap(fOffscreenBitmap);
+    }
 
     fOffscreenBitmap->Unlock();
 }
