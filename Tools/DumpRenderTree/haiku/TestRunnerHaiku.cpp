@@ -618,3 +618,11 @@ void TestRunner::closeIdleLocalStorageDatabases()
     notImplemented();
 }
 
+void TestRunner::generateTestReport(JSStringRef message, JSStringRef group)
+{
+    UNUSED_PARAM(message);
+    UNUSED_PARAM(group);
+
+    fprintf(testResult, "ERROR: TestRunner::generateTestReport() not implemented\n");
+}
+

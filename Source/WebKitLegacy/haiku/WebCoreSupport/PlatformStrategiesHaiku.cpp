@@ -125,7 +125,7 @@ bool PlatformStrategiesHaiku::getRawCookies(const NetworkStorageSession& session
 	std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID,
 	Vector<Cookie>& rawCookies)
 {
-    return session.getRawCookies(firstParty, sameSite, url, frameID, pageID, ShouldAskITP::No, ShouldRelaxThirdPartyCookieBlocking::Yes, rawCookies);
+    return session.getRawCookies(firstParty, sameSite, url, frameID, pageID, ApplyTrackingPrevention::No, ShouldRelaxThirdPartyCookieBlocking::Yes, rawCookies);
 }
 
 

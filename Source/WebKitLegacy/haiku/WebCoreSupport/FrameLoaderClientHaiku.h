@@ -89,7 +89,7 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
         const CertificateInfo& certificate, const char* message) override;
 
     void dispatchDidCommitLoad(std::optional<WebCore::HasInsecureContent>,
-        std::optional<WebCore::UsedLegacyTLS>) override;
+        std::optional<WebCore::UsedLegacyTLS>, std::optional<WasPrivateRelayed>) override;
     void dispatchDidReceiveResponse(DocumentLoader*, ResourceLoaderIdentifier,
         const ResourceResponse&) override;
     void dispatchDidReceiveContentLength(DocumentLoader*, ResourceLoaderIdentifier, int) override;
@@ -163,7 +163,6 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
     void didDisplayInsecureContent() override;
 
     void didRunInsecureContent(SecurityOrigin&, const URL&) override;
-    void didDetectXSS(const URL&, bool didBlockEntirePage) override;
 
     ResourceError cancelledError(const ResourceRequest&) const override;
     ResourceError blockedError(const ResourceRequest&) const override;

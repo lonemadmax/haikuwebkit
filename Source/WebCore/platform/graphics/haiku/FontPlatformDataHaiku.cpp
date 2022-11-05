@@ -136,12 +136,10 @@ FontPlatformData::operator=(const FontPlatformData& other)
 	return *this;
 }
 
-FontPlatformData FontPlatformData::cloneWithSize(const FontPlatformData& source, float size)
+void FontPlatformData::updateSize(float size)
 {
-    FontPlatformData copy(source);
-    copy.m_size = size;
-	copy.m_font->SetSize(size);
-    return copy;
+	m_size = size;
+	m_font->SetSize(size);
 }
 
 

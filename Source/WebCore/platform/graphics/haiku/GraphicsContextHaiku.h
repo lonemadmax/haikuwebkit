@@ -48,7 +48,6 @@ public:
     PlatformGraphicsContext* platformContext() const { return m_view; }
 
     void didUpdateState(GraphicsContextState&) override;
-    FloatRect roundToDevicePixels(const FloatRect&, RoundingMode = RoundAllSides) override;
     void drawRect(const FloatRect&, float borderThickness = 1) override;
     void drawLine(const FloatPoint&, const FloatPoint&) override;
     void drawEllipse(const FloatRect&) override;

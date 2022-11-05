@@ -9,4 +9,4 @@ list(APPEND PAL_SOURCES
     unix/LoggingUnix.cpp
 )
 
-list(APPEND PAL_LIBRARIES OpenSSL::Crypto)
+list(APPEND PAL_LIBRARIES crypto)

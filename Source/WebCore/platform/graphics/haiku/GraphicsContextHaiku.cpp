@@ -454,16 +454,6 @@ void GraphicsContextHaiku::drawDotsForDocumentMarker(WebCore::FloatRect const&,
 	notImplemented();
 }
 
-FloatRect GraphicsContextHaiku::roundToDevicePixels(const FloatRect& rect, RoundingMode /* mode */)
-{
-    FloatRect rounded(rect);
-    rounded.setX(roundf(rect.x()));
-    rounded.setY(roundf(rect.y()));
-    rounded.setWidth(roundf(rect.width()));
-    rounded.setHeight(roundf(rect.height()));
-    return rounded;
-}
-
 /* Used by canvas.clearRect. Must clear the given rectangle with transparent black. */
 void GraphicsContextHaiku::clearRect(const FloatRect& rect)
 {

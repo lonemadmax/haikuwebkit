@@ -389,7 +389,7 @@ void FrameLoaderClientHaiku::dispatchDidReceiveTitle(const StringWithDirection& 
 
 void FrameLoaderClientHaiku::dispatchDidCommitLoad(
 	std::optional<WebCore::HasInsecureContent>,
-	std::optional<WebCore::UsedLegacyTLS>)
+	std::optional<WebCore::UsedLegacyTLS>, std::optional<WasPrivateRelayed>)
 {
     CALLED();
     if (m_loadingErrorPage) {
@@ -678,11 +678,6 @@ void FrameLoaderClientHaiku::didDisplayInsecureContent()
 }
 
 void FrameLoaderClientHaiku::didRunInsecureContent(WebCore::SecurityOrigin&, const WTF::URL&)
-{
-    notImplemented();
-}
-
-void FrameLoaderClientHaiku::didDetectXSS(const URL&, bool)
 {
     notImplemented();
 }

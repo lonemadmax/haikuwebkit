@@ -75,10 +75,12 @@ FontPlatformData FontPlatformData::cloneWithSize(const FontPlatformData& source,
     return copy;
 }
 
+#if !PLATFORM(HAIKU)
 void FontPlatformData::updateSize(float size)
 {
     m_size = size;
 }
+#endif
 #endif
 
 void FontPlatformData::updateSizeWithFontSizeAdjust(const std::optional<float>& fontSizeAdjust)
