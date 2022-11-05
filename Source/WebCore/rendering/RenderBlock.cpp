@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2022 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -1134,7 +1134,7 @@ void RenderBlock::paintContents(PaintInfo& paintInfo, const LayoutPoint& paintOf
     // Style is non-final if the element has a pending stylesheet before it. We end up with renderers with such styles if a script
     // forces renderer construction by querying something layout dependent.
     // Avoid FOUC by not painting. Switching to final style triggers repaint.
-    if (style().isNotFinal())
+    if (style().isNotFinal() || shouldSkipContent())
         return;
 
     if (childrenInline())
@@ -1810,8 +1810,11 @@ void RenderBlock::removePositionedObjects(const RenderBlock* newContainingBlockC
         if (newContainingBlockCandidate && !renderer->isDescendantOf(newContainingBlockCandidate))
             continue;
         renderersToRemove.append(renderer);
-        if (containingBlockState == NewContainingBlock)
+        if (containingBlockState == NewContainingBlock) {
             renderer->setChildNeedsLayout(MarkOnlyThis);
+            if (renderer->needsPreferredWidthsRecalculation())
+                renderer->setPreferredLogicalWidthsDirty(true, MarkOnlyThis);
+        }
         // It is the parent block's job to add positioned children to positioned objects list of its containing block.
         // Dirty the parent to ensure this happens. We also need to make sure the new containing block is dirty as well so
         // that it gets to these new positioned objects.

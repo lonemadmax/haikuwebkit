@@ -57,12 +57,6 @@ static const int testFooterBannerHeight = 58;
 
 @implementation MiniBrowserNSTextFinder
 
-- (void)dealloc
-{
-    [_hideInterfaceCallback release];
-    [super dealloc];
-}
-
 - (void)performAction:(NSTextFinderAction)op
 {
     [super performAction:op];
@@ -172,13 +166,6 @@ static const int testFooterBannerHeight = 58;
     
     [progressIndicator unbind:NSHiddenBinding];
     [progressIndicator unbind:NSValueBinding];
-
-    [_textFinder release];
-
-    [_webView release];
-    [_configuration release];
-
-    [super dealloc];
 }
 
 - (void)userAgentDidChange:(NSNotification *)notification
@@ -316,7 +303,7 @@ static BOOL areEssentiallyEqual(double a, double b)
 #pragma clang diagnostic pop
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSInteger result) {
         if (result == NSModalResponseOK) {
-            [_webView _retrieveAccessibilityTreeData:^(NSData *data, NSError *error) {
+            [self->_webView _retrieveAccessibilityTreeData:^(NSData *data, NSError *error) {
                 [data writeToURL:[panel URL] options:0 error:nil];
             }];
         }
@@ -442,7 +429,6 @@ static BOOL areEssentiallyEqual(double a, double b)
 - (void)windowWillClose:(NSNotification *)notification
 {
     [[[NSApplication sharedApplication] browserAppDelegate] browserWindowWillClose:self.window];
-    [self autorelease];
 }
 
 #define DefaultMinimumZoomFactor (.5)
@@ -502,7 +488,6 @@ static BOOL areEssentiallyEqual(double a, double b)
     preferences._acceleratedDrawingEnabled = settings.acceleratedDrawingEnabled;
     preferences._resourceUsageOverlayVisible = settings.resourceUsageOverlayVisible;
     preferences._displayListDrawingEnabled = settings.displayListDrawingEnabled;
-    preferences._subpixelAntialiasedLayerTextEnabled = settings.subpixelAntialiasedLayerTextEnabled;
     preferences._largeImageAsyncDecodingEnabled = settings.largeImageAsyncDecodingEnabled;
     preferences._animatedImageAsyncDecodingEnabled = settings.animatedImageAsyncDecodingEnabled;
     preferences._colorFilterEnabled = settings.appleColorFilterEnabled;
@@ -600,7 +585,6 @@ static BOOL areEssentiallyEqual(double a, double b)
 
     [alert beginSheetModalForWindow:self.window completionHandler:^void (NSModalResponse response) {
         completionHandler();
-        [alert release];
     }];
 }
 
@@ -616,7 +600,6 @@ static BOOL areEssentiallyEqual(double a, double b)
 
     [alert beginSheetModalForWindow:self.window completionHandler:^void (NSModalResponse response) {
         completionHandler(response == NSAlertFirstButtonReturn);
-        [alert release];
     }];
 }
 
@@ -637,7 +620,6 @@ static BOOL areEssentiallyEqual(double a, double b)
     [alert beginSheetModalForWindow:self.window completionHandler:^void (NSModalResponse response) {
         [input validateEditing];
         completionHandler(response == NSAlertFirstButtonReturn ? [input stringValue] : nil);
-        [alert release];
     }];
 }
 
@@ -675,7 +657,6 @@ static BOOL areEssentiallyEqual(double a, double b)
 
     [alert beginSheetModalForWindow:self.window completionHandler:^void (NSModalResponse response) {
         completionHandler(response == NSAlertFirstButtonReturn);
-        [alert release];
     }];
 }
 
@@ -730,8 +711,8 @@ static NSSet *dataTypes(void)
 - (IBAction)fetchAndClearWebsiteData:(id)sender
 {
     [_configuration.websiteDataStore fetchDataRecordsOfTypes:dataTypes() completionHandler:^(NSArray *websiteDataRecords) {
-        [_configuration.websiteDataStore removeDataOfTypes:dataTypes() forDataRecords:websiteDataRecords completionHandler:^{
-            [_configuration.websiteDataStore fetchDataRecordsOfTypes:dataTypes() completionHandler:^(NSArray *websiteDataRecords) {
+        [self->_configuration.websiteDataStore removeDataOfTypes:dataTypes() forDataRecords:websiteDataRecords completionHandler:^{
+            [self->_configuration.websiteDataStore fetchDataRecordsOfTypes:dataTypes() completionHandler:^(NSArray *websiteDataRecords) {
                 NSLog(@"did clear website data, after clearing data is %@.", websiteDataRecords);
             }];
         }];
@@ -813,9 +794,9 @@ static BOOL isJavaScriptURL(NSURL *url)
     LOG(@"didReceiveAuthenticationChallenge: %@", challenge);
     if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodHTTPBasic]) {
         NSAlert *alert = [[NSAlert alloc] init];
-        NSView *container = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 200, 48)] autorelease];
-        NSTextField *userInput = [[[NSTextField alloc] initWithFrame:NSMakeRect(0, 24, 200, 24)] autorelease];
-        NSTextField *passwordInput = [[[NSSecureTextField alloc] initWithFrame:NSMakeRect(0, 0, 200, 24)] autorelease];
+        NSView *container = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 200, 48)];
+        NSTextField *userInput = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 24, 200, 24)];
+        NSTextField *passwordInput = [[NSSecureTextField alloc] initWithFrame:NSMakeRect(0, 0, 200, 24)];
         
         [alert setMessageText:[NSString stringWithFormat:@"Log in to %@:%lu.", challenge.protectionSpace.host, challenge.protectionSpace.port]];
         [alert addButtonWithTitle:@"Log in"];
@@ -829,10 +810,9 @@ static BOOL isJavaScriptURL(NSURL *url)
         [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response) {
             [userInput validateEditing];
             if (response == NSAlertFirstButtonReturn)
-                completionHandler(NSURLSessionAuthChallengeUseCredential, [[[NSURLCredential alloc] initWithUser:[userInput stringValue] password:[passwordInput stringValue] persistence:NSURLCredentialPersistenceForSession] autorelease]);
+                completionHandler(NSURLSessionAuthChallengeUseCredential, [[NSURLCredential alloc] initWithUser:[userInput stringValue] password:[passwordInput stringValue] persistence:NSURLCredentialPersistenceForSession]);
             else
                 completionHandler(NSURLSessionAuthChallengeRejectProtectionSpace, nil);
-            [alert release];
         }];
         return;
     }
@@ -928,7 +908,7 @@ static BOOL isJavaScriptURL(NSURL *url)
 #pragma clang diagnostic pop
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSInteger result) {
         if (result == NSModalResponseOK) {
-            [_webView createPDFWithConfiguration:nil completionHandler:^(NSData *pdfSnapshotData, NSError *error) {
+            [self->_webView createPDFWithConfiguration:nil completionHandler:^(NSData *pdfSnapshotData, NSError *error) {
                 [pdfSnapshotData writeToURL:[panel URL] options:0 error:nil];
             }];
         }
@@ -945,7 +925,7 @@ static BOOL isJavaScriptURL(NSURL *url)
 #pragma clang diagnostic pop
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSInteger result) {
         if (result == NSModalResponseOK) {
-            [_webView createWebArchiveDataWithCompletionHandler:^(NSData *archiveData, NSError *error) {
+            [self->_webView createWebArchiveDataWithCompletionHandler:^(NSData *archiveData, NSError *error) {
                 [archiveData writeToURL:[panel URL] options:0 error:nil];
             }];
         }

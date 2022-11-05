@@ -60,10 +60,9 @@ WorkerScriptLoader::WorkerScriptLoader()
 
 WorkerScriptLoader::~WorkerScriptLoader()
 {
-    if (!m_clientIdentifier)
-        return;
+    if (m_didAddToWorkerScriptLoaderMap)
+        scriptExecutionContextIdentifierToWorkerScriptLoaderMap().remove(m_clientIdentifier);
 
-    scriptExecutionContextIdentifierToWorkerScriptLoaderMap().remove(m_clientIdentifier);
 #if ENABLE(SERVICE_WORKER)
     if (m_activeServiceWorkerData) {
         if (auto* serviceWorkerConnection = ServiceWorkerProvider::singleton().existingServiceWorkerConnection())
@@ -168,8 +167,10 @@ void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext& scriptExecut
         // In case of blob URLs, we reuse the document controlling service worker.
         if (request->url().protocolIsBlob() && scriptExecutionContext.activeServiceWorker())
             setControllingServiceWorker(ServiceWorkerData { scriptExecutionContext.activeServiceWorker()->data() });
-        else
+        else {
             scriptExecutionContextIdentifierToWorkerScriptLoaderMap().add(m_clientIdentifier, this);
+            m_didAddToWorkerScriptLoaderMap = true;
+        }
     } else if (auto* activeServiceWorker = scriptExecutionContext.activeServiceWorker())
         options.serviceWorkerRegistrationIdentifier = activeServiceWorker->registrationIdentifier();
 #endif

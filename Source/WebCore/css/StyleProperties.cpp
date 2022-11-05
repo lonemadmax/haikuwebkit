@@ -575,6 +575,8 @@ static std::optional<CSSValueID> fontStretchKeyword(double value)
 
 String StyleProperties::fontValue() const
 {
+    // FIXME: This should check more font subproperties aand return empty string when they do not have their initial values. https://bugs.webkit.org/show_bug.cgi?id=247498
+
     int fontSizePropertyIndex = findPropertyIndex(CSSPropertyFontSize);
     int fontFamilyPropertyIndex = findPropertyIndex(CSSPropertyFontFamily);
     if (fontSizePropertyIndex == -1 || fontFamilyPropertyIndex == -1)
@@ -586,7 +588,7 @@ String StyleProperties::fontValue() const
         return emptyString();
 
     if (auto shorthand = isSingleFontShorthand())
-        return getValueNameAtomString(shorthand.value());
+        return nameString(shorthand.value());
 
     // Font stretch values can only be serialized in the font shorthand as keywords, since percentages are also valid font sizes.
     // If a font stretch percentage can be expressed as a keyword, then do that.
@@ -601,7 +603,7 @@ String StyleProperties::fontValue() const
                 keyword = fontStretchKeyword(fontStretch->doubleValue());
                 if (!keyword)
                     return emptyString();
-                fontStretchPercentageAsKeyword = getValueName(*keyword);
+                fontStretchPercentageAsKeyword = nameLiteral(*keyword);
             }
             fontStretchIsNormal = keyword == CSSValueNormal;
         }
@@ -819,11 +821,11 @@ String StyleProperties::get2Values(const StylePropertyShorthand& shorthand) cons
         return { };
 
     if (start.isInherited() && end.isInherited())
-        return getValueName(CSSValueInherit);
+        return nameString(CSSValueInherit);
 
     if (start.value()->isInitialValue() || end.value()->isInitialValue()) {
         if (start.value()->isInitialValue() && end.value()->isInitialValue() && !start.isImplicit())
-            return getValueName(CSSValueInitial);
+            return nameString(CSSValueInitial);
         return { };
     }
 
@@ -861,12 +863,12 @@ String StyleProperties::get4Values(const StylePropertyShorthand& shorthand) cons
         return String();
 
     if (top.isInherited() && right.isInherited() && bottom.isInherited() && left.isInherited())
-        return getValueName(CSSValueInherit);
+        return nameString(CSSValueInherit);
 
     if (top.value()->isInitialValue() || right.value()->isInitialValue() || bottom.value()->isInitialValue() || left.value()->isInitialValue()) {
         if (top.value()->isInitialValue() && right.value()->isInitialValue() && bottom.value()->isInitialValue() && left.value()->isInitialValue() && !top.isImplicit()) {
             // All components are "initial" and "top" is not implicit.
-            return getValueName(CSSValueInitial);
+            return nameString(CSSValueInitial);
         }
         return String();
     }
@@ -956,7 +958,7 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
 
                         auto maskId = downcast<CSSPrimitiveValue>(*value).valueID();
                         auto originId = originValue ? downcast<CSSPrimitiveValue>(*originValue).valueID() : CSSValueInitial;
-                        return maskId == originId && (!isCSSWideValueKeyword(StringView { getValueName(maskId) }) || value->isImplicitInitialValue());
+                        return maskId == originId && (!isCSSWideValueKeyword(StringView { nameLiteral(maskId) }) || value->isImplicitInitialValue());
                     }
                     if (property == CSSPropertyMaskOrigin) {
                         // We can skip serializing mask-origin if it's the initial value, but only if we're also going to skip serializing
@@ -988,14 +990,14 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
 
                 if (useRepeatXShorthand) {
                     useRepeatXShorthand = false;
-                    layerResult.append(getValueName(CSSValueRepeatX));
+                    layerResult.append(nameLiteral(CSSValueRepeatX));
                 } else if (useRepeatYShorthand) {
                     useRepeatYShorthand = false;
-                    layerResult.append(getValueName(CSSValueRepeatY));
+                    layerResult.append(nameLiteral(CSSValueRepeatY));
                 } else if (shorthand.id() == CSSPropertyMask && property == CSSPropertyMaskOrigin && value->isImplicitInitialValue()) {
                     // If we're about to write the value for mask-origin, but it's an implicit initial value that's just a placeholder
                     // for a 'real' mask-clip value, then write the actual value not 'initial'.
-                    layerResult.append(getValueName(CSSValueBorderBox));
+                    layerResult.append(nameLiteral(CSSValueBorderBox));
                 } else {
                     if (useSingleWordShorthand)
                         useSingleWordShorthand = false;
@@ -1014,7 +1016,7 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
         }
 
         if (shorthand.id() == CSSPropertyMask && layerResult.isEmpty())
-            layerResult.append(getValueName(CSSValueNone));
+            layerResult.append(nameLiteral(CSSValueNone));
 
         if (!layerResult.isEmpty())
             result.append(result.isEmpty() ? "" : ", ", layerResult.toString());
@@ -1417,7 +1419,13 @@ RefPtr<CSSValue> StyleProperties::getPropertyCSSValue(CSSPropertyID propertyID) 
     int foundPropertyIndex = findPropertyIndex(propertyID);
     if (foundPropertyIndex == -1)
         return nullptr;
-    return propertyAt(foundPropertyIndex).value();
+    auto property = propertyAt(foundPropertyIndex);
+    auto value = property.value();
+    // System fonts are represented as CSSPrimitiveValue for various font subproperties, but these must serialize as the empty string.
+    // It might be better to implement this as a special CSSValue type instead of turning them into null here.
+    if (property.id() != CSSPropertyFont && is<CSSPrimitiveValue>(value) && CSSPropertyParserHelpers::isSystemFontShorthand(downcast<CSSPrimitiveValue>(*value).valueID()))
+        return nullptr;
+    return value;
 }
 
 RefPtr<CSSValue> StyleProperties::getCustomPropertyCSSValue(const String& propertyName) const
@@ -1512,7 +1520,7 @@ String StyleProperties::getPropertyShorthand(CSSPropertyID propertyID) const
     int foundPropertyIndex = findPropertyIndex(propertyID);
     if (foundPropertyIndex == -1)
         return String();
-    return getPropertyNameString(propertyAt(foundPropertyIndex).shorthandID());
+    return nameString(propertyAt(foundPropertyIndex).shorthandID());
 }
 
 bool StyleProperties::isPropertyImplicit(CSSPropertyID propertyID) const
@@ -1523,9 +1531,9 @@ bool StyleProperties::isPropertyImplicit(CSSPropertyID propertyID) const
     return propertyAt(foundPropertyIndex).isImplicit();
 }
 
-bool MutableStyleProperties::setProperty(CSSPropertyID propertyID, const String& value, bool important, CSSParserContext parserContext)
+bool MutableStyleProperties::setProperty(CSSPropertyID propertyID, const String& value, bool important, CSSParserContext parserContext, bool* didFailParsing)
 {
-    if (!isCSSPropertyExposed(propertyID, &parserContext.propertySettings) && !isInternalCSSProperty(propertyID)) {
+    if (!isExposed(propertyID, &parserContext.propertySettings) && !isInternal(propertyID)) {
         // Allow internal properties as we use them to handle certain DOM-exposed values
         // (e.g. -webkit-font-size-delta from execCommand('FontSizeDelta')).
         ASSERT_NOT_REACHED();
@@ -1541,13 +1549,16 @@ bool MutableStyleProperties::setProperty(CSSPropertyID propertyID, const String&
 
     // When replacing an existing property value, this moves the property to the end of the list.
     // Firefox preserves the position, and MSIE moves the property to the beginning.
-    return CSSParser::parseValue(*this, propertyID, value, important, parserContext) == CSSParser::ParseResult::Changed;
+    auto parseResult = CSSParser::parseValue(*this, propertyID, value, important, parserContext);
+    if (didFailParsing)
+        *didFailParsing = parseResult == CSSParser::ParseResult::Error;
+    return parseResult == CSSParser::ParseResult::Changed;
 }
 
-bool MutableStyleProperties::setProperty(CSSPropertyID propertyID, const String& value, bool important)
+bool MutableStyleProperties::setProperty(CSSPropertyID propertyID, const String& value, bool important, bool* didFailParsing)
 {
     CSSParserContext parserContext(cssParserMode());
-    return setProperty(propertyID, value, important, parserContext);
+    return setProperty(propertyID, value, important, parserContext, didFailParsing);
 }
 
 bool MutableStyleProperties::setCustomProperty(const Document* document, const String& propertyName, const String& value, bool important, CSSParserContext parserContext)
@@ -1722,8 +1733,7 @@ StringBuilder StyleProperties::asTextInternal() const
                 // These are the only longhands not included in the 'all' shorthand.
                 break;
             default:
-                ASSERT(propertyID >= firstCSSProperty);
-                ASSERT(propertyID < firstShorthandProperty);
+                ASSERT(isLonghand(propertyID));
                 shorthands.append(CSSPropertyAll);
             }
 
@@ -1815,12 +1825,28 @@ StringBuilder StyleProperties::asTextInternal() const
                 shorthands.append(CSSPropertyWebkitBorderImage);
                 break;
             case CSSPropertyFontFamily:
-            case CSSPropertyLineHeight:
+            case CSSPropertyFontFeatureSettings:
+            case CSSPropertyFontKerning:
+#if ENABLE(VARIATION_FONTS)
+            case CSSPropertyFontOpticalSizing:
+#endif
+            case CSSPropertyFontPalette:
             case CSSPropertyFontSize:
+            case CSSPropertyFontSizeAdjust:
+            case CSSPropertyFontStretch:
             case CSSPropertyFontStyle:
+            case CSSPropertyFontVariantAlternates:
             case CSSPropertyFontVariantCaps:
+            case CSSPropertyFontVariantEastAsian:
+            case CSSPropertyFontVariantLigatures:
+            case CSSPropertyFontVariantNumeric:
+            case CSSPropertyFontVariantPosition:
+#if ENABLE(VARIATION_FONTS)
+            case CSSPropertyFontVariationSettings:
+#endif
             case CSSPropertyFontWeight:
-                // Don't use CSSPropertyFont because old UAs can't recognize them but are important for editing.
+            case CSSPropertyLineHeight:
+                // We are not yet adding the CSSPropertyFont shorthand here because our editing code is currently incompatble.
                 break;
             case CSSPropertyTop:
             case CSSPropertyRight:
@@ -1939,7 +1965,6 @@ StringBuilder StyleProperties::asTextInternal() const
                 break;
             case CSSPropertyWebkitMaskClip:
             case CSSPropertyWebkitMaskPosition:
-                // TODO: A lot of the above properties can be both prefixed and unprefixed?
                 shorthands.append(CSSPropertyWebkitMask);
                 break;
             case CSSPropertyPerspectiveOriginX:
@@ -2006,7 +2031,7 @@ StringBuilder StyleProperties::asTextInternal() const
         if (propertyID == CSSPropertyCustom)
             result.append(downcast<CSSCustomPropertyValue>(*property.value()).name());
         else
-            result.append(getPropertyName(propertyID));
+            result.append(nameLiteral(propertyID));
 
         result.append(": ", value, property.isImportant() ? " !important" : "", ';');
     }
@@ -2291,7 +2316,7 @@ String StyleProperties::PropertyReference::cssName() const
 {
     if (id() == CSSPropertyCustom)
         return downcast<CSSCustomPropertyValue>(*value()).name();
-    return getPropertyNameString(id());
+    return nameString(id());
 }
 
 String StyleProperties::PropertyReference::cssText() const

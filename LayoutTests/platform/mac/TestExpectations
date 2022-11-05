@@ -727,7 +727,6 @@ webkit.org/b/114744 media/video-layer-crash.html [ Pass Timeout Failure ]
 webkit.org/b/115048 media/media-element-play-after-eos.html [ Pass Timeout ]
 webkit.org/b/116277 media/video-buffered.html [ Pass Failure ]
 webkit.org/b/121803 media/video-object-fit-change.html [ Pass ImageOnlyFailure ]
-webkit.org/b/121803 media/video-object-fit.html [ Pass ImageOnlyFailure ]
 webkit.org/b/122033 media/video-duration-known-after-eos.html [ Pass Timeout ]
 webkit.org/b/122042 media/media-controller-playback.html [ Pass Timeout ]
 webkit.org/b/123099 media/media-controller-time-clamp.html [ Pass Timeout ]
@@ -2042,6 +2041,10 @@ webkit.org/b/222239 webgl/2.0.0/conformance/uniforms/uniform-default-values.html
 webkit.org/b/222844 fast/canvas/webgl/match-page-color-space.html [ Pass ImageOnlyFailure ]
 webkit.org/b/222844 imported/blink/compositing/draws-content/webgl-simple-background.html [ Pass ImageOnlyFailure ]
 
+# No WebGL drawingBufferColorSpace (because no PREDEFINED_COLOR_SPACE_DISPLAY_P3) until Monterey.
+webkit.org/b/247165 [ BigSur ] fast/canvas/webgl/colorspaces-test.html [ Failure ]
+webkit.org/b/247165 [ BigSur ] fast/canvas/webgl/context-lost-restored-p3.html [ Failure ]
+
 # ASTC may be supported on M1 macs, but we should skip it for now
 fast/canvas/webgl/webgl-compressed-texture-astc.html [ Skip ]
 
@@ -2295,9 +2298,6 @@ fast/text/font-lookup-dot-prefix-case-sensitive.html [ Pass ]
 [ BigSur Monterey ] fast/text/locale-shaping-2.html [ Pass ImageOnlyFailure ]
 [ BigSur Monterey ] fast/text/locale-shaping-3.html [ Pass ImageOnlyFailure ]
 
-#rdar://80333071
-[ BigSur+ ] compositing/iframes/border-radius-composited-frame.html [ ImageOnlyFailure ]
-
 [ BigSur ] imported/w3c/web-platform-tests/url/toascii.window.html [ Skip ]
 
 # Was in LayoutTests/Expectations, now only happening on Mac
@@ -2359,9 +2359,6 @@ imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allow
 imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-some.https.sub.html [ DumpJSConsoleLogInStdErr Failure Pass ]
 imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-disallowed-for-all.https.sub.html [ DumpJSConsoleLogInStdErr Failure Pass ]
 
-webkit.org/b/246355 imported/w3c/web-platform-tests/import-maps/multiple-import-maps/basic.html [ Pass Failure ]
-webkit.org/b/246355 imported/w3c/web-platform-tests/import-maps/multiple-import-maps/with-errors.html [ Pass Failure ]
-
 webkit.org/b/244928 http/tests/media/fairplay/fps-mse-unmuxed-multiple-keys.html [ Pass Failure ]
 
 webkit.org/b/244943 imported/w3c/web-platform-tests/html/capability-delegation/delegate-fullscreen-request-subframe-cross-origin.https.sub.tentative.html [ Pass Timeout ]
@@ -2370,12 +2367,6 @@ webkit.org/b/245092 webaudio/offlineaudiocontext-gc.html [ Pass Failure ]
 
 webkit.org/b/245994 imported/w3c/web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.worker.html [ Pass Failure ]
 
-# webkit.org/b/246170 4X http/wpt/webauthn/public-key-credential(Layout tests) are constant crashes
-[ Release ] http/wpt/webauthn/public-key-credential-get-failure-u2f.https.html [ Skip ]
-[ Release ] http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Skip ]
-[ Release ] http/wpt/webauthn/public-key-credential-get-failure-hid-silent.https.html [ Skip ]
-[ Release ] http/wpt/webauthn/public-key-credential-create-success-hid.https.html [ Skip ]
-
 webkit.org/b/246427 [ Debug ] imported/w3c/web-platform-tests/preload/preload-referrer-policy.html [ Pass Failure ]
 
 # webkit.org/b/243681  Newly imported tests that fail on BigSur+
@@ -2383,3 +2374,4 @@ webkit.org/b/246427 [ Debug ] imported/w3c/web-platform-tests/preload/preload-re
 [ BigSur+ Release ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.html?101-last [ Pass Failure ]
 [ BigSur+ Debug ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.worker.html?101-last [ Failure ]
 [ BigSur+ Release ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.worker.html?101-last [ Pass Failure ]
+

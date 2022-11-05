@@ -2600,6 +2600,9 @@ bool FrameView::scrollRectToVisible(const LayoutRect& absoluteRect, const Render
     if (options.revealMode == SelectionRevealMode::DoNotReveal)
         return false;
 
+    if (renderer.isSkippedContent())
+        return false;
+
     auto* layer = renderer.enclosingLayer();
     if (!layer)
         return false;
@@ -3007,6 +3010,22 @@ bool FrameView::isRubberBandInProgress() const
 
     if (auto scrollAnimator = existingScrollAnimator())
         return scrollAnimator->isRubberBandInProgress();
+
+    return false;
+}
+
+bool FrameView::requestStartKeyboardScrollAnimation(const KeyboardScroll& scrollData)
+{
+    if (auto scrollingCoordinator = this->scrollingCoordinator())
+        return scrollingCoordinator->requestStartKeyboardScrollAnimation(*this, scrollData);
+
+    return false;
+}
+
+bool FrameView::requestStopKeyboardScrollAnimation(bool immediate)
+{
+    if (auto scrollingCoordinator = this->scrollingCoordinator())
+        return scrollingCoordinator->requestStopKeyboardScrollAnimation(*this, immediate);
 
     return false;
 }

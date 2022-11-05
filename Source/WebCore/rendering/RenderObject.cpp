@@ -115,11 +115,12 @@ struct SameSizeAsRenderObject {
     bool weakPtrFactorWasConstructedOnMainThread;
     HashSet<void*> cachedResourceClientAssociatedResources;
 #endif
-    void* pointers[6];
+    void* pointers[5];
 #if ASSERT_ENABLED
     unsigned m_debugBitfields : 2;
 #endif
     unsigned m_bitfields;
+    WeakPtr<Node> m_node;
 };
 
 #if CPU(ADDRESS64)
@@ -2551,6 +2552,16 @@ String RenderObject::debugDescription() const
         builder.append(' ', node()->debugDescription());
     
     return builder.toString();
+}
+
+bool RenderObject::isSkippedContent() const
+{
+    return parent() && parent()->style().effectiveSkipsContent();
+}
+
+bool RenderObject::shouldSkipContent() const
+{
+    return style().contentVisibility() == ContentVisibility::Hidden;
 }
 
 TextStream& operator<<(TextStream& ts, const RenderObject& renderer)

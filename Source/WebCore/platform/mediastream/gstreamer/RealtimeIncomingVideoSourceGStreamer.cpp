@@ -33,8 +33,7 @@ GST_DEBUG_CATEGORY_EXTERN(webkit_webrtc_endpoint_debug);
 namespace WebCore {
 
 RealtimeIncomingVideoSourceGStreamer::RealtimeIncomingVideoSourceGStreamer(AtomString&& videoTrackId)
-    : RealtimeMediaSource(RealtimeMediaSource::Type::Video, WTFMove(videoTrackId))
-    , RealtimeIncomingSourceGStreamer()
+    : RealtimeIncomingSourceGStreamer(CaptureDevice { WTFMove(videoTrackId), CaptureDevice::DeviceType::Camera, emptyString() })
 {
     static Atomic<uint64_t> sourceCounter = 0;
     gst_element_set_name(bin(), makeString("incoming-video-source-", sourceCounter.exchangeAdd(1)).ascii().data());
@@ -65,23 +64,6 @@ RealtimeIncomingVideoSourceGStreamer::RealtimeIncomingVideoSourceGStreamer(AtomS
     start();
 }
 
-void RealtimeIncomingVideoSourceGStreamer::startProducingData()
-{
-    GST_DEBUG_OBJECT(bin(), "Starting data flow");
-    openValve();
-}
-
-void RealtimeIncomingVideoSourceGStreamer::stopProducingData()
-{
-    GST_DEBUG_OBJECT(bin(), "Stopping data flow");
-    closeValve();
-}
-
-const RealtimeMediaSourceCapabilities& RealtimeIncomingVideoSourceGStreamer::capabilities()
-{
-    return RealtimeMediaSourceCapabilities::emptyCapabilities();
-}
-
 const RealtimeMediaSourceSettings& RealtimeIncomingVideoSourceGStreamer::settings()
 {
     if (m_currentSettings)
@@ -107,10 +89,10 @@ void RealtimeIncomingVideoSourceGStreamer::settingsDidChange(OptionSet<RealtimeM
         m_currentSettings = std::nullopt;
 }
 
-void RealtimeIncomingVideoSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& gstSample)
+void RealtimeIncomingVideoSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& sample)
 {
-    auto* buffer = gst_sample_get_buffer(gstSample.get());
-    videoFrameAvailable(VideoFrameGStreamer::createWrappedSample(gstSample, fromGstClockTime(GST_BUFFER_PTS(buffer))), { });
+    auto* buffer = gst_sample_get_buffer(sample.get());
+    videoFrameAvailable(VideoFrameGStreamer::create(WTFMove(sample), size(), fromGstClockTime(GST_BUFFER_PTS(buffer))), { });
 }
 
 } // namespace WebCore

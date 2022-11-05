@@ -32,6 +32,7 @@
 #include "GPUBasedCanvasRenderingContext.h"
 #include "GraphicsContextGL.h"
 #include "ImageBuffer.h"
+#include "PredefinedColorSpace.h"
 #include "SuspendableTimer.h"
 #include "Timer.h"
 #include "WebGLAny.h"
@@ -81,7 +82,6 @@ class EXTColorBufferFloat;
 class EXTColorBufferHalfFloat;
 class EXTFloatBlend;
 class EXTFragDepth;
-class EXTProvokingVertex;
 class EXTShaderTextureLOD;
 class EXTTextureCompressionBPTC;
 class EXTTextureCompressionRGTC;
@@ -126,6 +126,7 @@ class WebGLLoseContext;
 class WebGLMultiDraw;
 class WebGLMultiDrawInstancedBaseVertexBaseInstance;
 class WebGLObject;
+class WebGLProvokingVertex;
 class WebGLShader;
 class WebGLShaderPrecisionFormat;
 class WebGLSharedObject;
@@ -182,6 +183,9 @@ public:
 
     int drawingBufferWidth() const;
     int drawingBufferHeight() const;
+
+    PredefinedColorSpace drawingBufferColorSpace() const { return m_drawingBufferColorSpace; }
+    void setDrawingBufferColorSpace(PredefinedColorSpace);
 
     void activeTexture(GCGLenum texture);
     void attachShader(WebGLProgram&, WebGLShader&);
@@ -694,6 +698,8 @@ protected:
     std::optional<ContextLostState>  m_contextLostState;
     WebGLContextAttributes m_attributes;
 
+    PredefinedColorSpace m_drawingBufferColorSpace { PredefinedColorSpace::SRGB };
+
     bool m_layerCleared;
     GCGLfloat m_clearColor[4];
     bool m_scissorEnabled;
@@ -730,7 +736,6 @@ protected:
     RefPtr<EXTColorBufferHalfFloat> m_extColorBufferHalfFloat;
     RefPtr<EXTFloatBlend> m_extFloatBlend;
     RefPtr<EXTFragDepth> m_extFragDepth;
-    RefPtr<EXTProvokingVertex> m_extProvokingVertex;
     RefPtr<EXTShaderTextureLOD> m_extShaderTextureLOD;
     RefPtr<EXTTextureCompressionBPTC> m_extTextureCompressionBPTC;
     RefPtr<EXTTextureCompressionRGTC> m_extTextureCompressionRGTC;
@@ -763,6 +768,7 @@ protected:
     RefPtr<WebGLLoseContext> m_webglLoseContext;
     RefPtr<WebGLMultiDraw> m_webglMultiDraw;
     RefPtr<WebGLMultiDrawInstancedBaseVertexBaseInstance> m_webglMultiDrawInstancedBaseVertexBaseInstance;
+    RefPtr<WebGLProvokingVertex> m_webglProvokingVertex;
 
     bool m_areWebGL2TexImageSourceFormatsAndTypesAdded { false };
     bool m_areOESTextureFloatFormatsAndTypesAdded { false };

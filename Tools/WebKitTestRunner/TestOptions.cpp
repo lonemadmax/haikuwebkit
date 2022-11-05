@@ -63,9 +63,6 @@ const TestFeatures& TestOptions::defaults()
             // an experimental feature which gets enabled by default automatically)
             // as it adds a small amount of unnecessary work per-test.
 
-#if !PLATFORM(IOS_SIMULATOR)
-            { "AcceleratedDrawingEnabled", false },
-#endif
             { "AllowFileAccessFromFileURLs", true },
             { "AllowTopNavigationToDataURLs", true },
             { "AllowUniversalAccessFromFileURLs", true },
@@ -120,7 +117,6 @@ const TestFeatures& TestOptions::defaults()
             { "RequiresUserGestureForVideoPlayback", false },
             { "ShowModalDialogEnabled", false },
             { "SpeakerSelectionRequiresUserGesture", false },
-            { "SubpixelAntialiasedLayerTextEnabled", false },
             { "TabsToLinks", false },
             { "TextAutosizingEnabled", false },
             { "TextAutosizingUsesIdempotentMode", false },

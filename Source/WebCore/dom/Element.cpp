@@ -751,7 +751,8 @@ bool Element::isFocusable() const
         // focusable as long as their canvas is displayed and visible.
         if (auto* canvas = ancestorsOfType<HTMLCanvasElement>(*this).first())
             return canvas->isFocusableWithoutResolvingFullStyle();
-    }
+    } else if (renderer()->isSkippedContent())
+        return false;
 
     return isFocusableWithoutResolvingFullStyle();
 }
@@ -2476,7 +2477,7 @@ Node::InsertedIntoAncestorResult Element::insertedIntoAncestor(InsertionType ins
                 updateIdForDocument(*newDocument, nullAtom(), idValue, AlwaysUpdateHTMLDocumentNamedItemMaps);
         }
 
-        if (auto& nameValue = getNameAttribute(); !nameValue.isNull()) {
+        if (auto& nameValue = getNameAttribute(); !nameValue.isEmpty()) {
             if (newScope)
                 newScope->addElementByName(*nameValue.impl(), *this);
             if (newDocument)
