@@ -25,7 +25,7 @@ Dependencies can be installed (for a gcc2hybrid version) via:
     $ pkgman install cmake_x86 gcc_x86 gperf haiku_x86_devel libjpeg_turbo_x86_devel \
 	sqlite_x86_devel libpng16_x86_devel libxml2_x86_devel libxslt_x86_devel icu66_x86_devel perl \
 	python ruby_x86 libexecinfo_x86_devel libwebp_x86_devel ninja_x86 pkgconfig_x86 pywebsocket \
-	libpsl_x86_devel libidn2_x86_devel libunistring_x86_devel
+	libpsl_x86_devel libidn2_x86_devel libunistring_x86_devel libavif_x86_devel
 
 Additionally if you want to run the tests:
 
@@ -64,18 +64,19 @@ Commands to run from the webkit checkout directory:
 
 On a gcc2hybrid (32bit) Haiku:
 
-	$ PKG_CONFIG_LIBDIR=/boot/system/develop/lib/x86/pkgconfig \
+    $ PKG_CONFIG_LIBDIR=/boot/system/develop/lib/x86/pkgconfig \
         CC=gcc-x86 CXX=g++-x86 Tools/Scripts/build-webkit \
-		--cmakeargs="-DCMAKE_AR=/bin/ar-x86 -DCMAKE_RANLIB=/bin/ranlib-x86" --haiku
+        --cmakeargs="-DCMAKE_AR=/bin/ar-x86 -DCMAKE_RANLIB=/bin/ranlib-x86" --haiku \
+        --no-fatal-warnings
 
 On other versions:
 
-    $ Tools/Scripts/build-webkit --haiku
+    $ Tools/Scripts/build-webkit --haiku --no-fatal-warnings
 
 #### Regular build, once configured ####
 
-	$ cd WebKitBuild/Release
-	$ ninja
+    $ cd WebKitBuild/Release
+    $ ninja
 
 This will build a release version of WebKit libraries on a quad core cpu.
 
