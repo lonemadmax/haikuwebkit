@@ -230,6 +230,11 @@ void WebFrameLoaderClient::assignIdentifierToInitialRequest(ResourceLoaderIdenti
         pageIsProvisionallyLoading = frameLoader->provisionalDocumentLoader() == loader;
 
     webPage->injectedBundleResourceLoadClient().didInitiateLoadForResource(*webPage, m_frame, identifier, request, pageIsProvisionallyLoading);
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    webPage->send(Messages::WebPageProxy::DidInitiateLoadForResource(identifier, m_frame->frameID(), request));
+#endif
+
     webPage->addResourceRequest(identifier, request);
 }
 
@@ -247,6 +252,10 @@ void WebFrameLoaderClient::dispatchWillSendRequest(DocumentLoader*, ResourceLoad
     if (!request.isNull()) {
         request.setRequester(requester);
         request.setIsAppInitiated(appInitiatedValue);
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+        webPage->send(Messages::WebPageProxy::DidSendRequestForResource(identifier, m_frame->frameID(), request, redirectResponse));
+#endif
     }
 }
 
@@ -286,6 +295,10 @@ void WebFrameLoaderClient::dispatchDidReceiveResponse(DocumentLoader*, ResourceL
         return;
 
     webPage->injectedBundleResourceLoadClient().didReceiveResponseForResource(*webPage, m_frame, identifier, response);
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    webPage->send(Messages::WebPageProxy::DidReceiveResponseForResource(identifier, m_frame->frameID(), response));
+#endif
 }
 
 void WebFrameLoaderClient::dispatchDidReceiveContentLength(DocumentLoader*, ResourceLoaderIdentifier identifier, int dataLength)
@@ -314,6 +327,11 @@ void WebFrameLoaderClient::dispatchDidFinishLoading(DocumentLoader*, ResourceLoa
         return;
 
     webPage->injectedBundleResourceLoadClient().didFinishLoadForResource(*webPage, m_frame, identifier);
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    webPage->send(Messages::WebPageProxy::DidFinishLoadForResource(identifier, m_frame->frameID(), { }));
+#endif
+
     webPage->removeResourceRequest(identifier);
 }
 
@@ -324,6 +342,11 @@ void WebFrameLoaderClient::dispatchDidFailLoading(DocumentLoader*, ResourceLoade
         return;
 
     webPage->injectedBundleResourceLoadClient().didFailLoadForResource(*webPage, m_frame, identifier, error);
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    webPage->send(Messages::WebPageProxy::DidFinishLoadForResource(identifier, m_frame->frameID(), error));
+#endif
+
     webPage->removeResourceRequest(identifier);
 }
 

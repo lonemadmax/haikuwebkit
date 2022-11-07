@@ -3134,8 +3134,14 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyWebkitCursorVisibility:
         return cssValuePool.createValue(style.cursorVisibility());
 #endif
-    case CSSPropertyDirection:
-        return cssValuePool.createValue(style.direction());
+    case CSSPropertyDirection:  {
+        auto direction = [&] {
+            if (m_element == m_element->document().documentElement() && !style.hasExplicitlySetDirection())
+                return RenderStyle::initialDirection();
+            return style.direction();
+        }();
+        return cssValuePool.createValue(direction);
+    }
     case CSSPropertyDisplay:
         return cssValuePool.createValue(style.display());
     case CSSPropertyEmptyCells:
@@ -3215,12 +3221,17 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     }
 #if ENABLE(VARIATION_FONTS)
     case CSSPropertyFontVariationSettings: {
-        const FontVariationSettings& variationSettings = style.fontDescription().variationSettings();
+        auto& variationSettings = style.fontDescription().variationSettings();
         if (variationSettings.isEmpty())
             return cssValuePool.createIdentifierValue(CSSValueNormal);
-        auto list = CSSValueList::createCommaSeparated();
+        HashCountedSet<FontTag, FourCharacterTagHash, FourCharacterTagHashTraits> duplicateTagChecker;
         for (auto& feature : variationSettings)
-            list->append(CSSFontVariationValue::create(feature.tag(), feature.value()));
+            duplicateTagChecker.add(feature.tag());
+        auto list = CSSValueList::createCommaSeparated();
+        for (auto& feature : variationSettings) {
+            if (duplicateTagChecker.remove(feature.tag()))
+                list->append(CSSFontVariationValue::create(feature.tag(), feature.value()));
+        }
         return list;
     }
     case CSSPropertyFontOpticalSizing:
@@ -3873,8 +3884,14 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return CSSPrimitiveValue::create(style.lineSnap());
     case CSSPropertyWebkitLineAlign:
         return CSSPrimitiveValue::create(style.lineAlign());
-    case CSSPropertyWritingMode:
-        return cssValuePool.createValue(style.writingMode());
+    case CSSPropertyWritingMode: {
+        auto writingMode = [&] {
+            if (m_element == m_element->document().documentElement() && !style.hasExplicitlySetWritingMode())
+                return RenderStyle::initialWritingMode();
+            return style.writingMode();
+        }();
+        return cssValuePool.createValue(writingMode);
+    }
     case CSSPropertyWebkitTextCombine:
         if (style.textCombine() == TextCombine::All)
             return CSSPrimitiveValue::createIdentifier(CSSValueHorizontal);
@@ -4356,14 +4373,12 @@ Ref<MutableStyleProperties> ComputedStyleExtractor::copyPropertiesInSet(const CS
 
 Ref<MutableStyleProperties> ComputedStyleExtractor::copyProperties()
 {
-    Vector<CSSProperty> list;
-    list.reserveInitialCapacity(numCSSPropertyLonghands);
-    for (auto propertyID : allLonghandCSSProperties()) {
-        if (auto value = propertyValue(propertyID))
-            list.append(CSSProperty(propertyID, WTFMove(value)));
-    }
-    list.shrinkToFit();
-    return MutableStyleProperties::create(WTFMove(list));
+    return MutableStyleProperties::create(WTF::compactMap(allLonghandCSSProperties(), [this] (auto property) -> std::optional<CSSProperty> {
+        auto value = propertyValue(property);
+        if (!value)
+            return std::nullopt;
+        return { { property, WTFMove(value) } };
+    }));
 }
 
 size_t ComputedStyleExtractor::getLayerCount(CSSPropertyID property)
