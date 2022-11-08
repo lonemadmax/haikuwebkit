@@ -37,7 +37,6 @@ BPrivate::Network::BUrlRequest* ResourceRequest::toNetworkRequest(BPrivate::Netw
     BPrivate::Network::BUrlRequest* request = BPrivate::Network::BUrlProtocolRoster::MakeRequest(url(), nullptr);
 
     if (!request) {
-        m_url = WTF::aboutBlankURL(); // This tells the ResourceLoader we failed.
         return NULL;
     }
 
