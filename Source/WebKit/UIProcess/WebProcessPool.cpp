@@ -820,7 +820,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     parameters.urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest = copyToVector(m_schemesToRegisterAsCanDisplayOnlyIfCanRequest);
 
     parameters.shouldAlwaysUseComplexTextCodePath = m_alwaysUsesComplexTextCodePath;
-    parameters.shouldUseFontSmoothingForTesting = m_shouldUseFontSmoothingForTesting;
+    parameters.disableFontSubpixelAntialiasingForTesting = m_disableFontSubpixelAntialiasingForTesting;
 
     parameters.textCheckerState = TextChecker::state();
 
@@ -1293,10 +1293,10 @@ void WebProcessPool::setAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
     sendToAllProcesses(Messages::WebProcess::SetAlwaysUsesComplexTextCodePath(alwaysUseComplexText));
 }
 
-void WebProcessPool::setShouldUseFontSmoothingForTesting(bool useFontSmoothing)
+void WebProcessPool::setDisableFontSubpixelAntialiasingForTesting(bool disable)
 {
-    m_shouldUseFontSmoothingForTesting = useFontSmoothing;
-    sendToAllProcesses(Messages::WebProcess::SetShouldUseFontSmoothingForTesting(useFontSmoothing));
+    m_disableFontSubpixelAntialiasingForTesting = disable;
+    sendToAllProcesses(Messages::WebProcess::SetDisableFontSubpixelAntialiasingForTesting(disable));
 }
 
 void WebProcessPool::registerURLSchemeAsEmptyDocument(const String& urlScheme)
@@ -1827,8 +1827,6 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, const API::Navigat
             configuration().setClientWouldBenefitFromAutomaticProcessPrewarming(true);
         }
 
-        page->websiteDataStore().networkProcess().send(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(process->coreProcessIdentifier(), RegistrableDomain(navigation->currentRequest().url())), 0);
-
         if (m_configuration->alwaysKeepAndReuseSwappedProcesses() && process.ptr() != sourceProcess.ptr()) {
             static std::once_flag onceFlag;
             std::call_once(onceFlag, [] {
@@ -1840,7 +1838,10 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, const API::Navigat
             LOG(ProcessSwapping, "(ProcessSwapping) Navigating from %s to %s, keeping around old process. Now holding on to old processes for %u origins.", sourceURL.string().utf8().data(), navigation->currentRequest().url().string().utf8().data(), m_swappedProcessesPerRegistrableDomain.size());
         }
 
-        completionHandler(WTFMove(process), suspendedPage, reason);
+        auto processIdentifier = process->coreProcessIdentifier();
+        page->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(processIdentifier, RegistrableDomain(navigation->currentRequest().url())), [completionHandler = WTFMove(completionHandler), process = WTFMove(process), suspendedPage = WTFMove(suspendedPage), reason] () mutable {
+            completionHandler(WTFMove(process), suspendedPage, reason);
+        });
     });
 }
 
@@ -2129,6 +2130,19 @@ bool WebProcessPool::anyProcessPoolNeedsUIBackgroundAssertion()
             return true;
     }
     return false;
+}
+
+void WebProcessPool::forEachProcessForSession(PAL::SessionID sessionID, const Function<void(WebProcessProxy&)>& apply)
+{
+    for (auto& process : m_processes) {
+#if ENABLE(WEBCONTENT_CRASH_TESTING)
+        if (process->isCrashyProcess())
+            continue;
+#endif
+        if (process->isPrewarmed() || process->sessionID() != sessionID)
+            continue;
+        apply(process.get());
+    }
 }
 
 #if ENABLE(SERVICE_WORKER)

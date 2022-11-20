@@ -132,7 +132,6 @@ public:
     virtual ~MediaPlayerPrivateGStreamer();
 
     static void registerMediaEngine(MediaEngineRegistrar);
-    static MediaPlayer::SupportsType extendedSupportsType(const MediaEngineSupportParameters&, MediaPlayer::SupportsType);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
 
     bool hasVideo() const final { return m_hasVideo; }
@@ -384,9 +383,6 @@ protected:
 
 #if USE(GSTREAMER_GL)
     std::unique_ptr<VideoTextureCopierGStreamer> m_videoTextureCopier;
-    GRefPtr<GstGLColorConvert> m_colorConvert;
-    GRefPtr<GstCaps> m_colorConvertInputCaps;
-    GRefPtr<GstCaps> m_colorConvertOutputCaps;
 #endif
 
     ImageOrientation m_videoSourceOrientation;

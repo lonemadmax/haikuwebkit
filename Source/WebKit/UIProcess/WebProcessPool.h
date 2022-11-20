@@ -200,6 +200,7 @@ public:
     // null checks in WebPageProxy.
     WebProcessProxy* dummyProcessProxy(PAL::SessionID sessionID) const { return m_dummyProcessProxies.get(sessionID).get(); }
 
+    void forEachProcessForSession(PAL::SessionID, const Function<void(WebProcessProxy&)>&);
     template<typename T> void sendToAllProcesses(const T& message);
     template<typename T> void sendToAllProcessesForSession(const T& message, PAL::SessionID);
 
@@ -262,7 +263,7 @@ public:
     WebPageGroup& defaultPageGroup() { return m_defaultPageGroup.get(); }
 
     void setAlwaysUsesComplexTextCodePath(bool);
-    void setShouldUseFontSmoothingForTesting(bool);
+    void setDisableFontSubpixelAntialiasingForTesting(bool);
     
     void registerURLSchemeAsEmptyDocument(const String&);
     void registerURLSchemeAsSecure(const String&);
@@ -530,6 +531,9 @@ public:
     void hardwareConsoleStateChanged();
 #endif
 
+    bool operator==(const WebProcessPool& other) const { return (this == &other); }
+    bool operator!=(const WebProcessPool& other) const { return !(this == &other); }
+
 private:
     void platformInitialize();
 
@@ -671,7 +675,7 @@ private:
     HashSet<String> m_schemesToRegisterAsCanDisplayOnlyIfCanRequest;
 
     bool m_alwaysUsesComplexTextCodePath { false };
-    bool m_shouldUseFontSmoothingForTesting { true };
+    bool m_disableFontSubpixelAntialiasingForTesting { false };
 
     Vector<String> m_fontAllowList;
 
@@ -844,14 +848,9 @@ void WebProcessPool::sendToAllProcesses(const T& message)
 template<typename T>
 void WebProcessPool::sendToAllProcessesForSession(const T& message, PAL::SessionID sessionID)
 {
-    for (auto& process : m_processes) {
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-        if (process->isCrashyProcess())
-            continue;
-#endif
-        if (process->canSendMessage() && !process->isPrewarmed() && process->sessionID() == sessionID)
-            process->send(T(message), 0);
-    }
+    forEachProcessForSession(sessionID, [&](auto& process) {
+        process.send(T(message), 0);
+    });
 }
 
 template<typename T>

@@ -958,7 +958,7 @@ void HTMLMediaElement::didAttachRenderers()
         if (m_mediaSession && m_mediaSession->wantsToObserveViewportVisibilityForAutoplay())
             renderer->registerForVisibleInViewportCallback();
     }
-    updateShouldAutoplay();
+    scheduleUpdateShouldAutoplay();
 }
 
 void HTMLMediaElement::willDetachRenderers()
@@ -969,7 +969,7 @@ void HTMLMediaElement::willDetachRenderers()
 
 void HTMLMediaElement::didDetachRenderers()
 {
-    updateShouldAutoplay();
+    scheduleUpdateShouldAutoplay();
 }
 
 void HTMLMediaElement::didRecalcStyle(Style::Change)
@@ -1229,6 +1229,10 @@ void HTMLMediaElement::prepareForLoad()
 
     m_loadState = WaitingForSource;
     m_currentSourceNode = nullptr;
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    m_playbackBlockedWaitingForKey = false;
+#endif
 
     if (!document().hasBrowsingContext())
         return;
@@ -3505,9 +3509,9 @@ void HTMLMediaElement::seekTask()
         noSeekRequired = true;
 
 #if ENABLE(MEDIA_SOURCE)
-    // Always notify the media engine of a seek if the source is not closed. This ensures that the source is
-    // always in a flushed state when the 'seeking' event fires.
-    if (m_mediaSource && !m_mediaSource->isClosed())
+    // Always notify the media engine of a seek if the source is not closed and there is seekable ranges.
+    // This ensures that the source is always in a flushed state when the 'seeking' event fires.
+    if (m_mediaSource && !m_mediaSource->isClosed() && seekableRanges->length())
         noSeekRequired = false;
 #endif
 
@@ -4984,7 +4988,7 @@ void HTMLMediaElement::layoutSizeChanged()
 
 void HTMLMediaElement::visibilityDidChange()
 {
-    updateShouldAutoplay();
+    scheduleUpdateShouldAutoplay();
 }
 
 void HTMLMediaElement::setSelectedTextTrack(TextTrack* trackToSelect)
@@ -6072,6 +6076,7 @@ void HTMLMediaElement::cancelPendingTasks()
     m_resumeTaskCancellationGroup.cancel();
     m_seekTaskCancellationGroup.cancel();
     m_playbackControlsManagerBehaviorRestrictionsTaskCancellationGroup.cancel();
+    m_updateShouldAutoplayTaskCancellationGroup.cancel();
 #if !HAVE(MEDIA_VOLUME_PER_ELEMENT)
     m_volumeRevertTaskCancellationGroup.cancel();
 #endif
@@ -8626,6 +8631,16 @@ void HTMLMediaElement::isVisibleInViewportChanged()
         mediaSession().isVisibleInViewportChanged();
         updateShouldAutoplay();
         schedulePlaybackControlsManagerUpdate();
+    });
+}
+
+void HTMLMediaElement::scheduleUpdateShouldAutoplay()
+{
+    if (m_updateShouldAutoplayTaskCancellationGroup.hasPendingTask())
+        return;
+
+    queueCancellableTaskKeepingObjectAlive(*this, TaskSource::MediaElement, m_updateShouldAutoplayTaskCancellationGroup, [this] () {
+        updateShouldAutoplay();
     });
 }
 

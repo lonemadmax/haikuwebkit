@@ -326,11 +326,6 @@ template<> struct ArgumentCoder<WebCore::ResourceError> {
     static WARN_UNUSED_RETURN bool decodePlatformData(Decoder&, WebCore::ResourceError&);
 };
 
-template<> struct ArgumentCoder<WebCore::WindowFeatures> {
-    static void encode(Encoder&, const WebCore::WindowFeatures&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::WindowFeatures&);
-};
-
 #if ENABLE(DRAG_SUPPORT)
 template<> struct ArgumentCoder<WebCore::DragData> {
     static void encode(Encoder&, const WebCore::DragData&);
@@ -348,11 +343,6 @@ template<> struct ArgumentCoder<WebCore::KeypressCommand> {
 #endif // PLATFORM(COCOA)
 
 #if PLATFORM(IOS_FAMILY)
-template<> struct ArgumentCoder<WebCore::SelectionGeometry> {
-    static void encode(Encoder&, const WebCore::SelectionGeometry&);
-    static std::optional<WebCore::SelectionGeometry> decode(Decoder&);
-};
-
 template<> struct ArgumentCoder<WebCore::InspectorOverlay::Highlight> {
     static void encode(Encoder&, const WebCore::InspectorOverlay::Highlight&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::InspectorOverlay::Highlight&);
@@ -379,11 +369,6 @@ template<> struct ArgumentCoder<WebCore::CurlProxySettings> {
 };
 #endif
 
-template<> struct ArgumentCoder<WebCore::CompositionUnderline> {
-    static void encode(Encoder&, const WebCore::CompositionUnderline&);
-    static std::optional<WebCore::CompositionUnderline> decode(Decoder&);
-};
-
 template<> struct ArgumentCoder<WebCore::DatabaseDetails> {
     static void encode(Encoder&, const WebCore::DatabaseDetails&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::DatabaseDetails&);
@@ -392,26 +377,6 @@ template<> struct ArgumentCoder<WebCore::DatabaseDetails> {
 template<> struct ArgumentCoder<WebCore::DictationAlternative> {
     static void encode(Encoder&, const WebCore::DictationAlternative&);
     static std::optional<WebCore::DictationAlternative> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<WebCore::FileChooserSettings> {
-    static void encode(Encoder&, const WebCore::FileChooserSettings&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::FileChooserSettings&);
-};
-
-template<> struct ArgumentCoder<WebCore::GrammarDetail> {
-    static void encode(Encoder&, const WebCore::GrammarDetail&);
-    static std::optional<WebCore::GrammarDetail> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<WebCore::TextCheckingRequestData> {
-    static void encode(Encoder&, const WebCore::TextCheckingRequestData&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::TextCheckingRequestData&);
-};
-
-template<> struct ArgumentCoder<WebCore::TextCheckingResult> {
-    static void encode(Encoder&, const WebCore::TextCheckingResult&);
-    static std::optional<WebCore::TextCheckingResult> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<WebCore::UserStyleSheet> {

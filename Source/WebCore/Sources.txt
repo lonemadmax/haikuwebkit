@@ -46,6 +46,8 @@ Modules/WebGPU/GPUSampler.cpp
 Modules/WebGPU/GPUShaderModule.cpp
 Modules/WebGPU/GPUSupportedFeatures.cpp
 Modules/WebGPU/GPUSupportedLimits.cpp
+Modules/WebGPU/GPUSurface.cpp
+Modules/WebGPU/GPUSwapChain.cpp
 Modules/WebGPU/GPUTexture.cpp
 Modules/WebGPU/GPUTextureView.cpp
 Modules/WebGPU/GPUUncapturedErrorEvent.cpp
@@ -229,14 +231,6 @@ Modules/mediastream/SFrameUtils.cpp
 Modules/mediastream/STUNMessageParsing.cpp
 Modules/mediastream/UserMediaController.cpp
 Modules/mediastream/UserMediaRequest.cpp
-Modules/mediastream/libwebrtc/LibWebRTCCertificateGenerator.cpp
-Modules/mediastream/libwebrtc/LibWebRTCDtlsTransportBackend.cpp
-Modules/mediastream/libwebrtc/LibWebRTCIceTransportBackend.cpp
-Modules/mediastream/libwebrtc/LibWebRTCRtpReceiverTransformBackend.cpp
-Modules/mediastream/libwebrtc/LibWebRTCRtpSenderTransformBackend.cpp
-Modules/mediastream/libwebrtc/LibWebRTCRtpTransformBackend.cpp
-Modules/mediastream/libwebrtc/LibWebRTCRtpTransformableFrame.cpp
-Modules/mediastream/libwebrtc/LibWebRTCSctpTransportBackend.cpp
 Modules/model-element/HTMLModelElement.cpp
 Modules/model-element/ModelPlayer.cpp
 Modules/model-element/ModelPlayerClient.cpp
@@ -1223,7 +1217,6 @@ fileapi/ThreadableBlobRegistry.cpp
 fileapi/URLKeepingBlobAlive.cpp
 history/BackForwardCache.cpp
 history/BackForwardController.cpp
-history/BackForwardItemIdentifier.cpp
 history/CachedFrame.cpp
 history/CachedPage.cpp
 history/HistoryItem.cpp
@@ -1251,8 +1244,8 @@ html/EnterKeyHint.cpp
 html/FTPDirectoryDocument.cpp
 html/FeaturePolicy.cpp
 html/FileInputType.cpp
-html/FormAssociatedElement.cpp
 html/FormController.cpp
+html/FormListedElement.cpp
 html/GenericCachedHTMLCollection.cpp
 html/HTMLAllCollection.cpp
 html/HTMLAnchorElement.cpp
@@ -1368,6 +1361,7 @@ html/MediaElementSession.cpp
 html/MediaFragmentURIParser.cpp
 html/ModelDocument.cpp
 html/MonthInputType.cpp
+html/NavigatorUserActivation.cpp
 html/NumberInputType.cpp
 html/OffscreenCanvas.cpp
 html/PasswordInputType.cpp
@@ -1395,6 +1389,7 @@ html/URLDecomposition.cpp
 html/URLInputType.cpp
 html/URLRegistry.cpp
 html/URLSearchParams.cpp
+html/UserActivation.cpp
 html/ValidationMessage.cpp
 html/WeekInputType.cpp
 html/canvas/ANGLEInstancedArrays.cpp
@@ -1957,7 +1952,6 @@ platform/LengthBox.cpp
 platform/LengthFunctions.cpp
 platform/LengthPoint.cpp
 platform/LengthSize.cpp
-platform/LibWebRTCVPXVideoDecoder.cpp
 platform/LocalizedStrings.cpp
 platform/LogInitialization.cpp
 platform/Logging.cpp
@@ -1984,7 +1978,6 @@ platform/ProcessIdentity.cpp
 platform/ReferrerPolicy.cpp
 platform/RemoteCommandListener.cpp
 platform/RuntimeApplicationChecks.cpp
-platform/SSLKeyGenerator.cpp
 platform/ScreenOrientationManager.cpp
 platform/ScreenOrientationProvider.cpp
 platform/ScrollAlignment.cpp
@@ -2018,6 +2011,7 @@ platform/ThreadGlobalData.cpp
 platform/ThreadTimers.cpp
 platform/Timer.cpp
 platform/UserActivity.cpp
+platform/VideoEncoder.cpp
 platform/VideoDecoder.cpp
 platform/VideoFrame.cpp
 platform/VideoPixelFormat.cpp
@@ -2030,6 +2024,7 @@ platform/animation/AnimationList.cpp
 platform/animation/TimingFunction.cpp
 platform/audio/AudioBus.cpp
 platform/audio/AudioChannel.cpp
+platform/audio/AudioDestinationResampler.cpp
 platform/audio/AudioDSPKernelProcessor.cpp
 platform/audio/AudioHardwareListener.cpp
 platform/audio/AudioResampler.cpp
@@ -2303,9 +2298,6 @@ platform/mediastream/RealtimeOutgoingVideoSource.cpp
 platform/mediastream/RealtimeVideoCaptureSource.cpp
 platform/mediastream/RealtimeVideoSource.cpp
 platform/mediastream/WebRTCProvider.cpp
-platform/mediastream/libwebrtc/LibWebRTCDTMFSenderBackend.cpp
-platform/mediastream/libwebrtc/LibWebRTCProvider.cpp
-platform/mediastream/libwebrtc/VideoFrameLibWebRTC.cpp
 platform/mock/DeviceOrientationClientMock.cpp
 platform/mock/GeolocationClientMock.cpp
 platform/mock/MediaEngineConfigurationFactoryMock.cpp
@@ -2966,6 +2958,7 @@ xml/parser/XMLDocumentParserScope.cpp
 
 // Derived Sources
 
+CSSPropertyParsing.cpp
 CSSValueKeywords.cpp
 ColorData.cpp
 EventFactory.cpp
@@ -3640,6 +3633,7 @@ JSMessageEvent.cpp
 JSMessagePort.cpp
 JSMouseEvent.cpp
 JSMouseEventInit.cpp
+JSMultiCacheQueryOptions.cpp
 JSMutationCallback.cpp
 JSMutationEvent.cpp
 JSMutationObserver.cpp
@@ -4119,6 +4113,7 @@ JSFullscreenOptions.cpp
 JSUIEvent.cpp
 JSUIEventInit.cpp
 JSURLSearchParams.cpp
+JSUserActivation.cpp
 JSUndoItem.cpp
 JSUndoManager.cpp
 JSUserMessageHandler.cpp

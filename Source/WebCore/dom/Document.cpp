@@ -281,6 +281,7 @@
 #include <JavaScriptCore/ScriptCallStack.h>
 #include <JavaScriptCore/VM.h>
 #include <ctime>
+#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/HexNumber.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
@@ -460,7 +461,7 @@ uint64_t Document::s_globalTreeVersion = 0;
 
 static const void* sharedLoggerOwner()
 {
-    static uint64_t owner = cryptographicallyRandomNumber();
+    static uint64_t owner = cryptographicallyRandomNumber<uint32_t>();
     return reinterpret_cast<const void*>(owner);
 }
 
@@ -3052,7 +3053,8 @@ ExceptionOr<void> Document::open(Document* entryDocument)
         bool isNavigating = m_frame->loader().policyChecker().delegateIsDecidingNavigationPolicy() || m_frame->loader().state() == FrameState::Provisional || m_frame->navigationScheduler().hasQueuedNavigation();
         if (m_frame->loader().policyChecker().delegateIsDecidingNavigationPolicy())
             m_frame->loader().policyChecker().stopCheck();
-        if (isNavigating)
+        // Null-checking m_frame again as `policyChecker().stopCheck()` may have cleared it.
+        if (isNavigating && m_frame)
             m_frame->loader().stopAllLoaders();
     }
 
@@ -3281,9 +3283,7 @@ void Document::implicitClose()
         // For now, only do this when there is a Frame, otherwise this could cause JS reentrancy
         // below SVG font parsing, for example. <https://webkit.org/b/136269>
         if (auto* currentPage = page()) {
-            ImageLoader::dispatchPendingBeforeLoadEvents(currentPage);
             ImageLoader::dispatchPendingLoadEvents(currentPage);
-            ImageLoader::dispatchPendingErrorEvents(currentPage);
             HTMLLinkElement::dispatchPendingLoadEvents(currentPage);
             HTMLStyleElement::dispatchPendingLoadEvents(currentPage);
         }
@@ -4780,7 +4780,17 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
             return false;
     }
 
-    if (newFocusedElement && newFocusedElement->isFocusable()) {
+    auto isNewElementFocusable = [&] {
+        if (!newFocusedElement)
+            return false;
+        // Resolving isFocusable() may require matching :focus-within as if the focus was already on the new element.
+        newFocusedElement->setHasTentativeFocus(true);
+        bool isFocusable = newFocusedElement->isFocusable();
+        newFocusedElement->setHasTentativeFocus(false);
+        return isFocusable;
+    }();
+
+    if (isNewElementFocusable) {
         if (&newFocusedElement->document() != this) {
             // Bluring oldFocusedElement may have moved newFocusedElement across documents.
             return false;
@@ -5455,8 +5465,8 @@ String Document::referrer()
 
 String Document::referrerForBindings()
 {
-    if (auto* page = this->page(); page
-        && page->usesEphemeralSession()
+    if (auto* loader = topDocument().loader(); loader
+        && loader->networkConnectionIntegrityPolicy().contains(WebCore::NetworkConnectionIntegrity::Enabled)
         && !RegistrableDomain { URL { frame()->loader().referrer() } }.matches(securityOrigin().data()))
         return String();
     return referrer();
@@ -6660,7 +6670,7 @@ std::optional<RenderingContext> Document::getCSSCanvasContext(const String& type
     if (is<ImageBitmapRenderingContext>(*context))
         return RenderingContext { RefPtr<ImageBitmapRenderingContext> { &downcast<ImageBitmapRenderingContext>(*context) } };
 
-#if ENABLE(WEBGPU)
+#if HAVE(WEBGPU_IMPLEMENTATION)
     if (is<GPUCanvasContext>(*context))
         return RenderingContext { RefPtr<GPUCanvasContext> { &downcast<GPUCanvasContext>(*context) } };
 #endif
@@ -8944,14 +8954,6 @@ void Document::navigateFromServiceWorker(const URL& url, CompletionHandler<void(
 }
 #endif
 
-String Document::signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const URL& url)
-{
-    Page* page = this->page();
-    if (!page)
-        return emptyString();
-    return page->chrome().client().signedPublicKeyAndChallengeString(keySizeIndex, challengeString, url);
-}
-
 bool Document::registerCSSProperty(CSSRegisteredCustomProperty&& prop)
 {
     return m_CSSRegisteredPropertySet.add(prop.name, makeUnique<CSSRegisteredCustomProperty>(WTFMove(prop))).isNewEntry;
@@ -9120,7 +9122,7 @@ void Document::dispatchSystemPreviewActionEvent(const SystemPreviewInfo& systemP
     if (!is<HTMLAnchorElement>(element))
         return;
 
-    if (!element->isConnected() || &element->document() != this)
+    if (&element->document() != this)
         return;
 
     auto event = MessageEvent::create(message, securityOrigin().toString());
@@ -9330,6 +9332,11 @@ void Document::sendReportToEndpoints(const URL& baseURL, const Vector<String>& e
         if (auto url = endpointURIForToken(token); !url.isEmpty())
             PingLoader::sendViolationReport(*frame(), URL { baseURL, url }, report.copyRef(), reportType);
     }
+}
+
+bool Document::lazyImageLoadingEnabled() const
+{
+    return m_settings->lazyImageLoadingEnabled() && !m_quirks->shouldDisableLazyImageLoadingQuirk();
 }
 
 } // namespace WebCore

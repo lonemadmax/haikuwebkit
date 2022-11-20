@@ -326,7 +326,6 @@ public:
     ExceptionOr<void> setMarkedTextMatchesAreHighlighted(bool);
 
     void invalidateFontCache();
-    void setFontSmoothingEnabled(bool);
 
     ExceptionOr<void> setLowPowerModeEnabled(bool);
     ExceptionOr<void> setOutsideViewportThrottlingEnabled(bool);
@@ -1357,6 +1356,8 @@ public:
 
     void avoidIOSurfaceSizeCheckInWebProcess(HTMLCanvasElement&);
     bool hasSleepDisabler() const;
+
+    void acceptTypedArrays(Int32Array&);
 
 private:
     explicit Internals(Document&);

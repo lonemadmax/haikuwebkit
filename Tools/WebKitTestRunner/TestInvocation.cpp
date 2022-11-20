@@ -735,6 +735,16 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
         return;
     }
 
+    if (WKStringIsEqualToUTF8CString(messageName, "DumpPolicyDelegateCallbacks")) {
+        TestController::singleton().dumpPolicyDelegateCallbacks();
+        return;
+    }
+
+    if (WKStringIsEqualToUTF8CString(messageName, "RemoveAllCookies")) {
+        TestController::singleton().removeAllCookies();
+        return;
+    }
+
     if (WKStringIsEqualToUTF8CString(messageName, "StatisticsClearInMemoryAndPersistentStore")) {
         TestController::singleton().statisticsClearInMemoryAndPersistentStore();
         return;
@@ -835,6 +845,11 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
     if (WKStringIsEqualToUTF8CString(messageName, "SetManagedDomains")) {
         ASSERT(WKGetTypeID(messageBody) == WKArrayGetTypeID());
         TestController::singleton().setManagedDomains(static_cast<WKArrayRef>(messageBody));
+        return;
+    }
+
+    if (WKStringIsEqualToUTF8CString(messageName, "SkipPolicyDelegateNotifyDone")) {
+        TestController::singleton().skipPolicyDelegateNotifyDone();
         return;
     }
 
@@ -1644,6 +1659,11 @@ void TestInvocation::didSetVeryPrevalentResource()
 void TestInvocation::didSetHasHadUserInteraction()
 {
     postPageMessage("CallDidSetHasHadUserInteraction");
+}
+
+void TestInvocation::didRemoveAllCookies()
+{
+    postPageMessage("CallDidRemoveAllCookies");
 }
 
 void TestInvocation::didReceiveAllStorageAccessEntries(Vector<String>&& domains)

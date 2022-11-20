@@ -411,6 +411,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webauthn/fido/U2fCommandConstructor.h
     Modules/webauthn/fido/U2fResponseConverter.h
 
+    Modules/webcodecs/VideoColorSpaceInit.h
+    Modules/webcodecs/WebCodecsAlphaOption.h
     Modules/webcodecs/WebCodecsEncodedVideoChunk.h
     Modules/webcodecs/WebCodecsEncodedVideoChunkData.h
     Modules/webcodecs/WebCodecsEncodedVideoChunkType.h
@@ -892,7 +894,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/EnterKeyHint.h
     html/FeaturePolicy.h
     html/FormAssociatedElement.h
-    html/FormNamedItem.h
+    html/FormListedElement.h
     html/HTMLAnchorElement.h
     html/HTMLAnchorElementInlines.h
     html/HTMLAreaElement.h
@@ -1429,7 +1431,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/RegistrableDomain.h
     platform/RemoteCommandListener.h
     platform/RuntimeApplicationChecks.h
-    platform/SSLKeyGenerator.h
     platform/ScreenOrientationManager.h
     platform/ScreenOrientationProvider.h
     platform/ScreenProperties.h
@@ -1488,6 +1489,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/audio/AudioBus.h
     platform/audio/AudioChannel.h
     platform/audio/AudioDestination.h
+    platform/audio/AudioDestinationResampler.h
     platform/audio/AudioHardwareListener.h
     platform/audio/AudioIOCallback.h
     platform/audio/AudioSession.h
@@ -1686,6 +1688,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/RenderingResourceIdentifier.h
     platform/graphics/RenderingMode.h
     platform/graphics/RoundedRect.h
+    platform/graphics/ScreenDataOverrides.h
     platform/graphics/ShouldLocalizeAxisNames.h
     platform/graphics/SourceBrush.h
     platform/graphics/SourceBufferPrivate.h
@@ -2172,6 +2175,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     xml/XPathValue.h
 
     ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.h
+    ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.h
     ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.h
     ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSourceBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/ElementName.h

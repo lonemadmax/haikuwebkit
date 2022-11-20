@@ -254,7 +254,7 @@ class ContentChangeObserver;
 class DOMTimerHoldingTank;
 #endif
 
-#if ENABLE(WEBGPU)
+#if HAVE(WEBGPU_IMPLEMENTATION)
 class GPUCanvasContext;
 #endif
 
@@ -335,7 +335,7 @@ using RenderingContext = std::variant<
 #if ENABLE(WEBGL2)
     RefPtr<WebGL2RenderingContext>,
 #endif
-#if ENABLE(WEBGPU)
+#if HAVE(WEBGPU_IMPLEMENTATION)
     RefPtr<GPUCanvasContext>,
 #endif
     RefPtr<ImageBitmapRenderingContext>,
@@ -1615,8 +1615,6 @@ public:
     void downgradeReferrerToRegistrableDomain();
 #endif
 
-    String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const URL&);
-
     void registerArticleElement(Element&);
     void unregisterArticleElement(Element&);
     void updateMainArticleElementAfterLayout();
@@ -1724,6 +1722,9 @@ public:
     void notifyReportObservers(Ref<Report>&&) final;
     void sendReportToEndpoints(const URL& baseURL, const Vector<String>& endpointURIs, const Vector<String>& endpointTokens, Ref<FormData>&& report, ViolationReportType) final;
     String httpUserAgent() const final;
+
+    // This should be used over the settings lazy loading image flag due to a quirk, which may occur causing website images to fail to load properly.
+    bool lazyImageLoadingEnabled() const;
 
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };

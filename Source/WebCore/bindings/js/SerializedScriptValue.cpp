@@ -274,6 +274,15 @@ enum DestinationColorSpaceTag {
 #endif
 };
 
+#if ENABLE(WEBASSEMBLY)
+static String agentClusterIDFromGlobalObject(JSGlobalObject& globalObject)
+{
+    if (!globalObject.inherits<JSDOMGlobalObject>())
+        return JSDOMGlobalObject::defaultAgentClusterID();
+    return jsCast<JSDOMGlobalObject*>(&globalObject)->agentClusterID();
+}
+#endif
+
 #if ENABLE(WEB_CRYPTO)
 
 const uint32_t currentKeyFormatVersion = 1;
@@ -356,8 +365,9 @@ static unsigned countUsages(CryptoKeyUsageBitmap usages)
  * Version 9. added support for ImageBitmap color space.
  * Version 10. changed the length (and offsets) of ArrayBuffers (and ArrayBufferViews) from 32 to 64 bits.
  * Version 11. added support for Blob's memory cost.
+ * Version 12. added support for agent cluster ID.
  */
-static const unsigned CurrentVersion = 11;
+static const unsigned CurrentVersion = 12;
 static const unsigned TerminatorTag = 0xFFFFFFFF;
 static const unsigned StringPoolTag = 0xFFFFFFFE;
 static const unsigned NonIndexPropertiesTag = 0xFFFFFFFD;
@@ -1466,11 +1476,12 @@ private:
                 uint32_t index = m_wasmModules.size(); 
                 m_wasmModules.append(&module->module());
                 write(WasmModuleTag);
+                write(agentClusterIDFromGlobalObject(*m_lexicalGlobalObject));
                 write(index);
                 return true;
             }
             if (JSWebAssemblyMemory* memory = jsDynamicCast<JSWebAssemblyMemory*>(obj)) {
-                if (!JSC::Options::useSharedArrayBuffer() || memory->memory().sharingMode() != JSC::Wasm::MemorySharingMode::Shared) {
+                if (!JSC::Options::useSharedArrayBuffer() || memory->memory().sharingMode() != JSC::MemorySharingMode::Shared) {
                     code = SerializationReturnCode::DataCloneError;
                     return true;
                 }
@@ -1479,8 +1490,9 @@ private:
                     return true;
                 }
                 uint32_t index = m_wasmMemoryHandles.size();
-                m_wasmMemoryHandles.append(&memory->memory().handle());
+                m_wasmMemoryHandles.append(memory->memory().shared());
                 write(WasmMemoryTag);
+                write(agentClusterIDFromGlobalObject(*m_lexicalGlobalObject));
                 write(index);
                 return true;
             }
@@ -3861,6 +3873,15 @@ private:
         }
 #if ENABLE(WEBASSEMBLY)
         case WasmModuleTag: {
+            if (m_version >= 12) {
+                // https://webassembly.github.io/spec/web-api/index.html#serialization
+                CachedStringRef agentClusterID;
+                bool agentClusterIDSuccessfullyRead = readStringData(agentClusterID);
+                if (!agentClusterIDSuccessfullyRead || agentClusterID->string() != agentClusterIDFromGlobalObject(*m_globalObject)) {
+                    fail();
+                    return JSValue();
+                }
+            }
             uint32_t index;
             bool indexSuccessfullyRead = read(index);
             if (!indexSuccessfullyRead || !m_wasmModules || index >= m_wasmModules->size()) {
@@ -3877,17 +3898,21 @@ private:
             return result;
         }
         case WasmMemoryTag: {
+            if (m_version >= 12) {
+                CachedStringRef agentClusterID;
+                bool agentClusterIDSuccessfullyRead = readStringData(agentClusterID);
+                if (!agentClusterIDSuccessfullyRead || agentClusterID->string() != agentClusterIDFromGlobalObject(*m_globalObject)) {
+                    fail();
+                    return JSValue();
+                }
+            }
             uint32_t index;
             bool indexSuccessfullyRead = read(index);
             if (!indexSuccessfullyRead || !m_wasmMemoryHandles || index >= m_wasmMemoryHandles->size() || !JSC::Options::useSharedArrayBuffer()) {
                 fail();
                 return JSValue();
             }
-            RefPtr<Wasm::MemoryHandle> handle = m_wasmMemoryHandles->at(index);
-            if (!handle) {
-                fail();
-                return JSValue();
-            }
+
             auto& vm = m_lexicalGlobalObject->vm();
             auto scope = DECLARE_THROW_SCOPE(vm);
             JSWebAssemblyMemory* result = JSC::JSWebAssemblyMemory::tryCreate(m_lexicalGlobalObject, vm, m_globalObject->webAssemblyMemoryStructure());
@@ -3895,9 +3920,21 @@ private:
             // module to not have been a valid module. Therefore, createStub should
             // not throw.
             scope.releaseAssertNoException();
-            Ref<Wasm::Memory> memory = Wasm::Memory::create(handle.releaseNonNull(),
-                [&vm, result] (Wasm::Memory::GrowSuccess, Wasm::PageCount oldPageCount, Wasm::PageCount newPageCount) { result->growSuccessCallback(vm, oldPageCount, newPageCount); });
-            result->adopt(WTFMove(memory));
+
+            RefPtr<Wasm::Memory> memory;
+            auto handler = [&vm, result] (Wasm::Memory::GrowSuccess, PageCount oldPageCount, PageCount newPageCount) { result->growSuccessCallback(vm, oldPageCount, newPageCount); };
+            if (RefPtr<SharedArrayBufferContents> contents = m_wasmMemoryHandles->at(index)) {
+                if (!contents->memoryHandle()) {
+                    fail();
+                    return JSValue();
+                }
+                memory = Wasm::Memory::create(contents.releaseNonNull(), WTFMove(handler));
+            } else {
+                // zero size & max-size.
+                memory = Wasm::Memory::createZeroSized(JSC::MemorySharingMode::Shared, WTFMove(handler));
+            }
+
+            result->adopt(memory.releaseNonNull());
             m_gcBuffer.appendWithCrashOnOverflow(result);
             return result;
         }
@@ -4361,7 +4398,7 @@ size_t SerializedScriptValue::computeMemoryCost() const
     // We are not supporting WebAssembly Module memory estimation yet.
     if (m_wasmMemoryHandlesArray) {
         for (auto& content : *m_wasmMemoryHandlesArray)
-            cost += content->size();
+            cost += content->sizeInBytes(std::memory_order_relaxed);
     }
 #endif
 #if ENABLE(WEB_CODECS)
@@ -4369,7 +4406,8 @@ size_t SerializedScriptValue::computeMemoryCost() const
         if (chunk)
             cost += chunk->memoryCost();
     }
-    // FIXME: Add memory cost to serialized video frames.
+    for (auto& frame : m_serializedVideoFrames)
+        cost += frame.memoryCost();
 #endif
 
     for (auto& handle : m_blobHandles)

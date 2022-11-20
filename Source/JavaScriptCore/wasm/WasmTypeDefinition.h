@@ -273,6 +273,8 @@ public:
     {
     }
 
+    void cleanup();
+
     RecursionGroupCount typeCount() const { return m_typeCount; }
     TypeIndex type(RecursionGroupCount i) const { return const_cast<RecursionGroup*>(this)->getType(i); }
 
@@ -306,6 +308,8 @@ public:
         : m_payload(payload)
     {
     }
+
+    void cleanup();
 
     TypeIndex recursionGroup() const { return const_cast<Projection*>(this)->getRecursionGroup(); }
     ProjectionIndex index() const { return const_cast<Projection*>(this)->getIndex(); }
@@ -342,6 +346,8 @@ public:
         , m_displaySize(displaySize)
     {
     }
+
+    void cleanup();
 
     TypeIndex superType() const { return const_cast<Subtype*>(this)->getSuperType(); }
     TypeIndex underlyingType() const { return const_cast<Subtype*>(this)->getUnderlyingType(); }
@@ -439,6 +445,12 @@ public:
     const TypeDefinition& expand() const;
     bool hasRecursiveReference() const;
 
+    // Type definitions that are compound and contain references to other definitions
+    // via a type index should ref() the other definition when new unique instances are
+    // constructed, and need to be cleaned up and have deref() called through this cleanup()
+    // method when the containing module is destroyed.
+    void cleanup();
+
     // Type definitions are uniqued and, for call_indirect, validated at runtime. Tables can create invalid TypeIndex values which cause call_indirect to fail. We use 0 as the invalidIndex so that the codegen can easily test for it and trap, and we add a token invalid entry in TypeInformation.
     static const constexpr TypeIndex invalidIndex = 0;
 
@@ -463,6 +475,31 @@ private:
     std::variant<FunctionSignature, StructType, ArrayType, RecursionGroup, Projection, Subtype> m_typeHeader;
     // Payload is stored here.
 };
+
+inline void Type::dump(PrintStream& out) const
+{
+    TypeKind kindToPrint = kind;
+    if (index != TypeDefinition::invalidIndex) {
+        auto signedIndex = static_cast<std::make_signed<TypeIndex>::type>(index);
+        if (signedIndex < 0) {
+            // If the index is negative, we assume we're using it to represent a TypeKind.
+            // FIXME: Reusing index to store a typekind is kind of messy? We should consider
+            // refactoring Type to handle this case more explicitly, since it's used in
+            // funcrefType() and externrefType().
+            // https://bugs.webkit.org/show_bug.cgi?id=247454
+            kindToPrint = static_cast<TypeKind>(signedIndex);
+        } else {
+            // Assume the index is a pointer to a TypeDefinition.
+            out.print(*reinterpret_cast<TypeDefinition*>(index));
+            return;
+        }
+    }
+    switch (kindToPrint) {
+#define CREATE_CASE(name, ...) case TypeKind::name: out.print(#name); break;
+        FOR_EACH_WASM_TYPE(CREATE_CASE)
+#undef CREATE_CASE
+    }
+}
 
 struct TypeHash {
     RefPtr<TypeDefinition> key { nullptr };

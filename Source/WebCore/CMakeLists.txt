@@ -47,7 +47,6 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/mediasession"
     "${WEBCORE_DIR}/Modules/mediasource"
     "${WEBCORE_DIR}/Modules/mediastream"
-    "${WEBCORE_DIR}/Modules/mediastream/libwebrtc"
     "${WEBCORE_DIR}/Modules/model-element"
     "${WEBCORE_DIR}/Modules/model-element/dummy"
     "${WEBCORE_DIR}/Modules/navigatorcontentutils"
@@ -151,7 +150,6 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/mediacapabilities"
     "${WEBCORE_DIR}/platform/mediarecorder"
     "${WEBCORE_DIR}/platform/mediastream"
-    "${WEBCORE_DIR}/platform/mediastream/libwebrtc"
     "${WEBCORE_DIR}/platform/mediarecorder"
     "${WEBCORE_DIR}/platform/mock"
     "${WEBCORE_DIR}/platform/mock/mediasource"
@@ -266,6 +264,7 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/cache/CacheQueryOptions.idl
     Modules/cache/DOMCache.idl
+    Modules/cache/MultiCacheQueryOptions.idl
     Modules/cache/DOMCacheStorage.idl
     Modules/cache/WindowOrWorkerGlobalScope+Caches.idl
 
@@ -1165,6 +1164,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/TextMetrics.idl
     html/TimeRanges.idl
     html/URLSearchParams.idl
+    html/UserActivation.idl
     html/ValidityState.idl
     html/VideoFrameMetadata.idl
     html/VideoFrameRequestCallback.idl
@@ -1252,6 +1252,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/IntersectionObserverCallback.idl
     page/IntersectionObserverEntry.idl
     page/Location.idl
+    page/Navigator+UserActivation.idl
     page/Navigator.idl
     page/NavigatorCookies.idl
     page/NavigatorID.idl
@@ -2041,20 +2042,20 @@ if (USE_XDGMIME)
 endif ()
 
 if (USE_LIBWEBRTC)
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES "${THIRDPARTY_DIR}/libwebrtc/Source/"
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        "${THIRDPARTY_DIR}/libwebrtc/Source"
         "${THIRDPARTY_DIR}/libwebrtc/Source/webrtc"
         "${THIRDPARTY_DIR}/libwebrtc/Source/third_party/libvpx/source/libvpx"
-        "${THIRDPARTY_DIR}/libwebrtc/Source/third_party/abseil-cpp")
+        "${THIRDPARTY_DIR}/libwebrtc/Source/third_party/abseil-cpp"
+    )
+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/Modules/mediastream/libwebrtc"
+        "${WEBCORE_DIR}/platform/libwebrtc"
+        "${WEBCORE_DIR}/platform/mediastream/libwebrtc"
+    )
     list(APPEND WebCore_LIBRARIES webrtc)
-    list(APPEND WebCore_SOURCES
-        Modules/mediastream/libwebrtc/LibWebRTCDataChannelHandler.cpp
-        Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp
-        Modules/mediastream/libwebrtc/LibWebRTCPeerConnectionBackend.cpp
-        Modules/mediastream/libwebrtc/LibWebRTCRtpReceiverBackend.cpp
-        Modules/mediastream/libwebrtc/LibWebRTCRtpSenderBackend.cpp
-        Modules/mediastream/libwebrtc/LibWebRTCRtpTransceiverBackend.cpp
-        Modules/mediastream/libwebrtc/LibWebRTCStatsCollector.cpp
-        Modules/mediastream/libwebrtc/LibWebRTCUtils.cpp
+    list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
+        "platform/SourcesLibWebRTC.txt"
     )
 endif ()
 
@@ -2345,7 +2346,7 @@ list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/HTTPHeaderNames.cpp)
 
 # Generate CSS property names
 add_custom_command(
-    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CSSProperties.json ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.h ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.gperf ${WebCore_DERIVED_SOURCES_DIR}/StyleBuilderGenerated.cpp ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.h ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleDeclaration+PropertyNames.idl
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CSSProperties.json ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.h ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.gperf ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.h ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.cpp ${WebCore_DERIVED_SOURCES_DIR}/StyleBuilderGenerated.cpp ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.h ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleDeclaration+PropertyNames.idl
     MAIN_DEPENDENCY ${WEBCORE_DIR}/css/process-css-properties.py
     DEPENDS ${WebCore_CSS_PROPERTY_NAMES}
     WORKING_DIRECTORY ${WebCore_DERIVED_SOURCES_DIR}
@@ -2353,6 +2354,7 @@ add_custom_command(
     COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/process-css-properties.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --gperf-executable "${GPERF_EXECUTABLE}"
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StyleBuilderGenerated.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.cpp)
 list(APPEND WebCore_IDL_FILES ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleDeclaration+PropertyNames.idl)
@@ -2360,11 +2362,11 @@ list(APPEND WebCore_IDL_FILES ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleDeclaration
 # Generate CSS value keywords
 add_custom_command(
     OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.in ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.h ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.gperf
-    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/makevalues.pl
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/process-css-values.py
     DEPENDS ${WebCore_CSS_VALUE_KEYWORDS}
     WORKING_DIRECTORY ${WebCore_DERIVED_SOURCES_DIR}
     COMMAND ${PERL_EXECUTABLE} -ne "print" ${WebCore_CSS_VALUE_KEYWORDS} > ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.in
-    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/makevalues.pl --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR} ${CSS_VALUE_PLATFORM_DEFINES}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" --gperf-executable "${GPERF_EXECUTABLE}"
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/process-css-values.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR} ${CSS_VALUE_PLATFORM_DEFINES}" --gperf-executable "${GPERF_EXECUTABLE}"
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp)
 ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/parser/CSSParser.cpp CSSValueKeywords.h)

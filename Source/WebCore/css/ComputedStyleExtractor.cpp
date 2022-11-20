@@ -725,12 +725,6 @@ static Ref<CSSFunctionValue> matrixTransformValue(const TransformationMatrix& tr
     return transformValue.releaseNonNull();
 }
 
-static bool rendererCanBeTransformed(RenderObject* renderer)
-{
-    // Inline renderers do not support transforms.
-    return renderer && !is<RenderInline>(*renderer);
-}
-
 static Ref<CSSValue> computedTransform(RenderElement* renderer, const RenderStyle& style, ComputedStyleExtractor::PropertyValueType valueType)
 {
     auto& cssValuePool = CSSValuePool::singleton();
@@ -899,7 +893,7 @@ static Ref<CSSValue> computedTransform(RenderElement* renderer, const RenderStyl
 static Ref<CSSValue> computedTranslate(RenderObject* renderer, const RenderStyle& style)
 {
     auto* translate = style.translate();
-    if (!translate || !rendererCanBeTransformed(renderer) || translate->isIdentity())
+    if (!translate || is<RenderInline>(renderer) || translate->isIdentity())
         return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
 
     auto list = CSSValueList::createSpaceSeparated();
@@ -922,7 +916,7 @@ static Ref<CSSValue> computedScale(RenderObject* renderer, const RenderStyle& st
 {
     auto* scale = style.scale();
     auto& cssValuePool = CSSValuePool::singleton();
-    if (!scale || !rendererCanBeTransformed(renderer) || scale->isIdentity())
+    if (!scale || is<RenderInline>(renderer) || scale->isIdentity())
         return cssValuePool.createIdentifierValue(CSSValueNone);
 
     auto list = CSSValueList::createSpaceSeparated();
@@ -939,7 +933,7 @@ static Ref<CSSValue> computedRotate(RenderObject* renderer, const RenderStyle& s
 {
     auto* rotate = style.rotate();
     auto& cssValuePool = CSSValuePool::singleton();
-    if (!rotate || !rendererCanBeTransformed(renderer) || rotate->isIdentity())
+    if (!rotate || is<RenderInline>(renderer) || rotate->isIdentity())
         return cssValuePool.createIdentifierValue(CSSValueNone);
 
     if (!rotate->is3DOperation() || (!rotate->x() && !rotate->y() && rotate->z()))
@@ -2490,6 +2484,11 @@ static inline bool hasValidStyleForProperty(Element& element, CSSPropertyID prop
     if (!element.document().childNeedsStyleRecalc())
         return true;
 
+    if (auto* keyframeEffectStack = Styleable(element, PseudoId::None).keyframeEffectStack()) {
+        if (keyframeEffectStack->containsProperty(propertyID))
+            return false;
+    }
+
     auto isQueryContainer = [&](Element& element) {
         auto* style = element.renderStyle();
         return style && style->containerType() != ContainerType::Normal;
@@ -2767,12 +2766,12 @@ static Ref<CSSFontValue> fontShorthandValue(const RenderStyle& style, ComputedSt
         if (variantSettingsOmittingExpressible.caps == FontVariantCaps::Small)
             variantSettingsOmittingExpressible.caps = FontVariantCaps::Normal;
 
-        // FIXME: This also needs to check for the effects of CSSPropertyFontKerning.
         // When we add font-language-override, also add code to check for non-expressible values for it here.
         return variantSettingsOmittingExpressible.isAllNormal()
             && fontStretch
             && fontStyle
             && !description.fontSizeAdjust()
+            && description.kerning() == Kerning::Auto
             && description.featureSettings().isEmpty()
             && description.opticalSizing() == FontOpticalSizing::Enabled
             && description.variationSettings().isEmpty()
@@ -2805,7 +2804,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
     if (!styledElement)
         return nullptr;
 
-    if (!isExposed(propertyID, &m_element->document().settings())) {
+    if (!isExposed(propertyID, m_element->document().settings())) {
         // Exit quickly, and avoid us ever having to update layout in this case.
         return nullptr;
     }
@@ -2855,7 +2854,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     auto& cssValuePool = CSSValuePool::singleton();
     propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style.direction(), style.writingMode());
 
-    ASSERT(isExposed(propertyID, &m_element->document().settings()));
+    ASSERT(isExposed(propertyID, m_element->document().settings()));
 
     switch (propertyID) {
     case CSSPropertyInvalid:

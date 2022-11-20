@@ -58,6 +58,8 @@ $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteRenderPipeline.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteSampler.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteShaderModule.messages.in
+$(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteSurface.messages.in
+$(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteSwapChain.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteTexture.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteTextureView.messages.in
 $(PROJECT_DIR)/GPUProcess/mac/com.apple.WebKit.GPUProcess.sb.in
@@ -159,6 +161,7 @@ $(PROJECT_DIR)/Shared/IPCStreamTesterProxy.messages.in
 $(PROJECT_DIR)/Shared/IPCTester.messages.in
 $(PROJECT_DIR)/Shared/IPCTesterReceiver.messages.in
 $(PROJECT_DIR)/Shared/LayerTreeContext.serialization.in
+$(PROJECT_DIR)/Shared/Model.serialization.in
 $(PROJECT_DIR)/Shared/Notifications/NotificationManagerMessageHandler.messages.in
 $(PROJECT_DIR)/Shared/Notifications/NotificationManagerProxy.messages.in
 $(PROJECT_DIR)/Shared/Pasteboard.serialization.in
@@ -196,6 +199,7 @@ $(PROJECT_DIR)/Shared/WebGPU/WebGPUDeviceDescriptor.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUExtent3D.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUExternalTextureBindingLayout.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUExternalTextureDescriptor.serialization.in
+$(PROJECT_DIR)/Shared/WebGPU/WebGPUFeatureName.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUFragmentState.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUImageCopyBuffer.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUImageCopyExternalImage.serialization.in
@@ -229,6 +233,8 @@ $(PROJECT_DIR)/Shared/WebGPU/WebGPUStencilFaceState.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUStorageTextureBindingLayout.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUSupportedFeatures.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUSupportedLimits.serialization.in
+$(PROJECT_DIR)/Shared/WebGPU/WebGPUSurfaceDescriptor.serialization.in
+$(PROJECT_DIR)/Shared/WebGPU/WebGPUSwapChainDescriptor.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUTextureBindingLayout.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUTextureDescriptor.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUTextureViewDescriptor.serialization.in
@@ -240,6 +246,7 @@ $(PROJECT_DIR)/Shared/WebPushDaemonConnectionConfiguration.serialization.in
 $(PROJECT_DIR)/Shared/WebPushMessage.serialization.in
 $(PROJECT_DIR)/Shared/WebsiteData/WebsiteDataFetchOption.serialization.in
 $(PROJECT_DIR)/Shared/WebsiteDataStoreParameters.serialization.in
+$(PROJECT_DIR)/Shared/XR/XRSystem.serialization.in
 $(PROJECT_DIR)/Shared/ios/InteractionInformationAtPosition.serialization.in
 $(PROJECT_DIR)/Shared/mac/SecItemRequestData.serialization.in
 $(PROJECT_DIR)/Shared/mac/SecItemResponseData.serialization.in
@@ -313,6 +320,7 @@ $(PROJECT_DIR)/WebProcess/GPU/media/RemoteCDMInstanceSession.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteImageDecoderAVF.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteImageDecoderAVFManager.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteLegacyCDMSession.messages.in
+$(PROJECT_DIR)/WebProcess/GPU/media/RemoteMediaPlayerState.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteRemoteCommandListener.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/SourceBufferPrivateRemote.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/ios/RemoteMediaSessionHelper.messages.in

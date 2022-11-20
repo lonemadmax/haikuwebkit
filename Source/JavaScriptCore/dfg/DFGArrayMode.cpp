@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -414,8 +414,9 @@ Structure* ArrayMode::originalArrayStructure(Graph& graph, const CodeOrigin& cod
         TypedArrayType type = typedArrayType();
         if (type == NotTypedArray)
             return nullptr;
-        
-        return globalObject->typedArrayStructureConcurrently(type);
+
+        bool isResizableOrGrowableShared = false;
+        return globalObject->typedArrayStructureConcurrently(type, isResizableOrGrowableShared);
     }
         
     default:
@@ -762,6 +763,7 @@ IndexingType toIndexingShape(Array::Type type)
     case Array::Int32:
         return Int32Shape;
     case Array::Double:
+        ASSERT(Options::allowDoubleShape());
         return DoubleShape;
     case Array::Contiguous:
         return ContiguousShape;
@@ -888,6 +890,10 @@ bool ArrayMode::permitsBoundsCheckLowering() const
 void ArrayMode::dump(PrintStream& out) const
 {
     out.print(type(), "+", arrayClass(), "+", speculation(), "+", conversion(), "+", action());
+    if (mayBeLargeTypedArray())
+        out.print("+LargeTypedArray");
+    if (mayBeResizableOrGrowableSharedTypedArray())
+        out.print("+ResizableOrGrowableSharedTypedArray");
 }
 
 } } // namespace JSC::DFG

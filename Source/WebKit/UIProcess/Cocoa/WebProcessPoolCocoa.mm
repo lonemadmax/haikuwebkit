@@ -183,7 +183,7 @@ SOFT_LINK_PRIVATE_FRAMEWORK(BackBoardServices)
 SOFT_LINK(BackBoardServices, BKSDisplayBrightnessGetCurrent, float, (), ());
 #endif
 
-#if HAVE(ACCESSIBILITY_ANIMATED_IMAGES)
+#if HAVE(ACCESSIBILITY_ANIMATED_IMAGE_CONTROL)
 SOFT_LINK_LIBRARY_OPTIONAL(libAccessibility)
 SOFT_LINK_OPTIONAL(libAccessibility, _AXSReduceMotionAutoplayAnimatedImagesEnabled, Boolean, (), ());
 SOFT_LINK_CONSTANT_MAY_FAIL(libAccessibility, kAXSReduceMotionAutoplayAnimatedImagesChangedNotification, CFStringRef)
@@ -267,7 +267,7 @@ static AccessibilityPreferences accessibilityPreferences()
     preferences.invertColorsEnabled = _AXSInvertColorsEnabledApp(appId.get());
 #endif
     preferences.enhanceTextLegibilityOverall = _AXSEnhanceTextLegibilityEnabled();
-#if HAVE(ACCESSIBILITY_ANIMATED_IMAGES)
+#if HAVE(ACCESSIBILITY_ANIMATED_IMAGE_CONTROL)
     if (auto* functionPointer = _AXSReduceMotionAutoplayAnimatedImagesEnabledPtr())
         preferences.imageAnimationEnabled = functionPointer();
 #endif
@@ -307,10 +307,15 @@ static bool determineIfWeShouldCrashWhenCreatingWebProcess()
     std::call_once(
         onceFlag,
         [&] {
-            if (isInternalBuild()
-                && ![[getOSASystemConfigurationClass() automatedDeviceGroup] isEqualToString:@"CanaryExperimentOptOut"]
-                && !canaryInBaseState())
-                shouldCrashResult = true;
+            if (isInternalBuild()) {
+                auto resultAutomatedDeviceGroup = [getOSASystemConfigurationClass() automatedDeviceGroup];
+
+                RELEASE_LOG(Process, "shouldCrashWhenCreatingWebProcess: automatedDeviceGroup default: %s , canaryInBaseState: %s", resultAutomatedDeviceGroup ? [resultAutomatedDeviceGroup UTF8String] : "[nil]", canaryInBaseState() ? "true" : "false");
+
+                if (![resultAutomatedDeviceGroup isEqualToString:@"CanaryExperimentOptOut"]
+                    && !canaryInBaseState())
+                    shouldCrashResult = true;
+            }
         });
 
     return shouldCrashResult;
@@ -501,7 +506,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC)
-    if (!isFullWebBrowser()) {
+    if (!isFullWebBrowser() || isRunningTest(WebCore::applicationBundleIdentifier())) {
         if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
             parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
         parameters.enableDecodingHEIC = true;
@@ -826,7 +831,7 @@ void WebProcessPool::registerNotificationObservers()
     addCFNotificationObserver(accessibilityPreferencesChangedCallback, kAXSDarkenSystemColorsEnabledNotification);
     addCFNotificationObserver(accessibilityPreferencesChangedCallback, kAXSInvertColorsEnabledNotification);
 #endif
-#if HAVE(ACCESSIBILITY_ANIMATED_IMAGES)
+#if HAVE(ACCESSIBILITY_ANIMATED_IMAGE_CONTROL)
     if (canLoadkAXSReduceMotionAutoplayAnimatedImagesChangedNotification())
         addCFNotificationObserver(accessibilityPreferencesChangedCallback, getkAXSReduceMotionAutoplayAnimatedImagesChangedNotification());
 #endif

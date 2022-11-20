@@ -33,8 +33,6 @@
 
 namespace WebCore {
 
-static CurlSSLVerifier::SSLCertificateFlags convertToSSLCertificateFlags(unsigned);
-
 CurlSSLVerifier::CurlSSLVerifier(void* sslCtx)
 {
     auto* ctx = static_cast<SSL_CTX*>(sslCtx);
@@ -49,27 +47,32 @@ CurlSSLVerifier::CurlSSLVerifier(void* sslCtx)
 #endif
 
 #if (!defined(LIBRESSL_VERSION_NUMBER))
-    const auto& signatureAlgorithmsList = sslHandle.getSignatureAlgorithmsList();
-    if (!signatureAlgorithmsList.isEmpty())
-        SSL_CTX_set1_sigalgs_list(ctx, signatureAlgorithmsList.utf8().data());
+    if (const auto& signatureAlgorithmsList = sslHandle.signatureAlgorithmsList(); !signatureAlgorithmsList.isNull())
+        SSL_CTX_set1_sigalgs_list(ctx, signatureAlgorithmsList.data());
 #endif
-
-    const auto& curvesList = sslHandle.getCurvesList();
-    if (!curvesList.isEmpty())
-        SSL_CTX_set1_curves_list(ctx, curvesList.utf8().data());
 
 #if ENABLE(TLS_DEBUG)
     SSL_CTX_set_info_callback(ctx, infoCallback);
 #endif
 }
 
+std::unique_ptr<WebCore::CertificateInfo> CurlSSLVerifier::createCertificateInfo(std::optional<long>&& verifyResult)
+{
+    if (!verifyResult)
+        return nullptr;
+
+    if (m_certificateChain.isEmpty())
+        return nullptr;
+
+    return makeUnique<CertificateInfo>(*verifyResult, WTFMove(m_certificateChain));
+}
+
 void CurlSSLVerifier::collectInfo(X509_STORE_CTX* ctx)
 {
-    if (auto certificateInfo = OpenSSL::createCertificateInfo(ctx))
-        m_certificateInfo = WTFMove(*certificateInfo);
+    if (!ctx)
+        return;
 
-    if (auto error = m_certificateInfo.verificationError())
-        m_sslErrors = static_cast<int>(convertToSSLCertificateFlags(error));
+    m_certificateChain = OpenSSL::createCertificateChain(ctx);
 }
 
 int CurlSSLVerifier::verifyCallback(int preverified, X509_STORE_CTX* ctx)
@@ -139,7 +142,7 @@ void CurlSSLVerifier::logTLSKey(const SSL* ssl)
 
 #endif
 
-static CurlSSLVerifier::SSLCertificateFlags convertToSSLCertificateFlags(unsigned sslError)
+CurlSSLVerifier::SSLCertificateFlags CurlSSLVerifier::convertToSSLCertificateFlags(unsigned sslError)
 {
     switch (sslError) {
     case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT : // the issuer certificate could not be found: this occurs if the issuer certificate of an untrusted certificate cannot be found.

@@ -37,27 +37,22 @@ namespace WebKit {
 
 using namespace WebCore;
 
-static HashMap<WebExtensionControllerIdentifier, WebExtensionController*>& webExtensionControllers()
+static HashMap<WebExtensionControllerIdentifier, WeakPtr<WebExtensionController>>& webExtensionControllers()
 {
-    static MainThreadNeverDestroyed<HashMap<WebExtensionControllerIdentifier, WebExtensionController*>> controllers;
+    static MainThreadNeverDestroyed<HashMap<WebExtensionControllerIdentifier, WeakPtr<WebExtensionController>>> controllers;
     return controllers;
 }
 
 WebExtensionController* WebExtensionController::get(WebExtensionControllerIdentifier identifier)
 {
-    return webExtensionControllers().get(identifier);
+    return webExtensionControllers().get(identifier).get();
 }
 
 WebExtensionController::WebExtensionController()
     : m_identifier(WebExtensionControllerIdentifier::generate())
 {
+    ASSERT(!webExtensionControllers().contains(m_identifier));
     webExtensionControllers().add(m_identifier, this);
-}
-
-WebExtensionController::~WebExtensionController()
-{
-    ASSERT(webExtensionControllers().contains(m_identifier));
-    webExtensionControllers().remove(m_identifier);
 }
 
 WebExtensionControllerParameters WebExtensionController::parameters() const
@@ -65,6 +60,16 @@ WebExtensionControllerParameters WebExtensionController::parameters() const
     WebExtensionControllerParameters parameters;
 
     parameters.identifier = identifier();
+
+#if PLATFORM(COCOA)
+    Vector<WebExtensionContextParameters> contextParameters;
+    contextParameters.reserveInitialCapacity(extensionContexts().size());
+
+    for (auto& context : extensionContexts())
+        contextParameters.append(context->parameters());
+
+    parameters.contextParameters = contextParameters;
+#endif
 
     return parameters;
 }

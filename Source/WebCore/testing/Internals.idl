@@ -439,7 +439,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined setMarkedTextMatchesAreHighlighted(boolean flag);
 
     undefined invalidateFontCache();
-    undefined setFontSmoothingEnabled(boolean enabled);
 
     undefined setScrollViewPosition(long x, long y);
 
@@ -1179,4 +1178,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined avoidIOSurfaceSizeCheckInWebProcess(HTMLCanvasElement element);
 
     boolean hasSleepDisabler();
+
+    undefined acceptTypedArrays(Int32Array target);
 };

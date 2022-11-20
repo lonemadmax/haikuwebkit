@@ -55,7 +55,7 @@ private:
     RemoteAudioSourceProviderManager();
 
     // Messages
-    void audioStorageChanged(WebCore::MediaPlayerIdentifier, ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames);
+    void audioStorageChanged(WebCore::MediaPlayerIdentifier, ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&);
     void audioSamplesAvailable(WebCore::MediaPlayerIdentifier, uint64_t startFrame, uint64_t numberOfFrames);
 
     void setConnection(IPC::Connection*);
@@ -65,12 +65,12 @@ private:
     public:
         explicit RemoteAudio(Ref<RemoteAudioSourceProvider>&&);
 
-        void setStorage(ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames);
+        void setStorage(ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&);
         void audioSamplesAvailable(uint64_t startFrame, uint64_t numberOfFrames);
 
     private:
         Ref<RemoteAudioSourceProvider> m_provider;
-        WebCore::CAAudioStreamDescription m_description;
+        std::optional<WebCore::CAAudioStreamDescription> m_description;
         std::unique_ptr<ConsumerSharedCARingBuffer> m_ringBuffer;
         std::unique_ptr<WebCore::WebAudioBufferList> m_buffer;
     };

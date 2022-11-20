@@ -626,7 +626,14 @@ auto KeyframeEffect::getKeyframes(Document& document) -> Vector<ComputedKeyframe
 
     if (!m_parsedKeyframes.isEmpty() || m_blendingKeyframesSource == BlendingKeyframesSource::WebAnimation || !m_blendingKeyframes.containsAnimatableProperty()) {
         for (size_t i = 0; i < m_parsedKeyframes.size(); ++i) {
-            ComputedKeyframe computedKeyframe { m_parsedKeyframes[i] };
+            auto& parsedKeyframe = m_parsedKeyframes[i];
+            ComputedKeyframe computedKeyframe { parsedKeyframe };
+            for (auto& [cssPropertyId, stringValue] : computedKeyframe.styleStrings) {
+                if (cssPropertyId == CSSPropertyCustom)
+                    continue;
+                if (auto cssValue = parsedKeyframe.style->getPropertyCSSValue(cssPropertyId))
+                    stringValue = cssValue->cssText();
+            }
             computedKeyframe.easing = timingFunctionForKeyframeAtIndex(i)->cssText();
             computedKeyframes.append(WTFMove(computedKeyframe));
         }
@@ -933,6 +940,21 @@ bool KeyframeEffect::animatesProperty(CSSPropertyID property) const
                 return true;
         }
     }
+    return false;
+}
+
+bool KeyframeEffect::animatesDirectionAwareProperty() const
+{
+    if (!m_blendingKeyframes.isEmpty())
+        return m_blendingKeyframes.containsDirectionAwareProperty();
+
+    for (auto& keyframe : m_parsedKeyframes) {
+        for (auto property : keyframe.styleStrings.keys()) {
+            if (CSSProperty::isDirectionAwareProperty(property))
+                return true;
+        }
+    }
+
     return false;
 }
 

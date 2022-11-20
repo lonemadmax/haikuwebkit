@@ -162,7 +162,7 @@ public:
     float cornerRadius() const override;
     void setCornerRadius(float) override;
 
-    void setEdgeAntialiasingMask(unsigned) override;
+    void setAntialiasesEdges(bool) override;
 
     // FIXME: Having both shapeRoundedRect and shapePath is redundant. We could use shapePath for everything.
     WebCore::FloatRoundedRect shapeRoundedRect() const override;
@@ -178,6 +178,11 @@ public:
     void updateCustomAppearance(WebCore::GraphicsLayer::CustomAppearance) override;
 
     void setEventRegion(const WebCore::EventRegion&) override;
+
+#if ENABLE(SCROLLING_THREAD)
+    WebCore::ScrollingNodeID scrollingNodeID() const override;
+    void setScrollingNodeID(WebCore::ScrollingNodeID) override;
+#endif
 
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     bool isSeparated() const override;

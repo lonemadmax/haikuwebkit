@@ -681,7 +681,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if ENABLE(WK_WEB_EXTENSIONS)
     if (parameters.webExtensionControllerParameters)
-        m_webExtensionController = WebExtensionControllerProxy::getOrCreate(parameters.webExtensionControllerParameters.value().identifier);
+        m_webExtensionController = WebExtensionControllerProxy::getOrCreate(parameters.webExtensionControllerParameters.value());
 #endif
 
     m_corsDisablingPatterns = WTFMove(parameters.corsDisablingPatterns);
@@ -866,7 +866,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if ENABLE(SCROLLING_THREAD)
     if (m_useAsyncScrolling)
-        webProcess.eventDispatcher().addScrollingTreeForPage(this);
+        m_drawingArea->registerScrollingTree();
 #endif
 
     for (auto& mimeType : parameters.mimeTypesWithCustomContentProviders)
@@ -1198,11 +1198,6 @@ void WebPage::setInjectedBundlePageLoaderClient(std::unique_ptr<API::InjectedBun
     // for backwards compatibility.
     if (auto milestones = m_loaderClient->layoutMilestones())
         listenForLayoutMilestones(milestones);
-}
-
-void WebPage::initializeInjectedBundlePolicyClient(WKBundlePagePolicyClientBase* client)
-{
-    m_policyClient.initialize(client);
 }
 
 void WebPage::setInjectedBundleResourceLoadClient(std::unique_ptr<API::InjectedBundle::ResourceLoadClient>&& client)
@@ -1622,7 +1617,6 @@ void WebPage::close()
     m_editorClient = makeUnique<API::InjectedBundle::EditorClient>();
     m_formClient = makeUnique<API::InjectedBundle::FormClient>();
     m_loaderClient = makeUnique<API::InjectedBundle::PageLoaderClient>();
-    m_policyClient.initialize(0);
     m_resourceLoadClient = makeUnique<API::InjectedBundle::ResourceLoadClient>();
     m_uiClient = makeUnique<API::InjectedBundle::PageUIClient>();
 #if ENABLE(FULLSCREEN_API)
@@ -1631,6 +1625,12 @@ void WebPage::close()
 
     m_printContext = nullptr;
     m_mainFrame->coreFrame()->loader().detachFromParent();
+
+#if ENABLE(SCROLLING_THREAD)
+    if (m_useAsyncScrolling)
+        m_drawingArea->unregisterScrollingTree();
+#endif
+
     m_drawingArea = nullptr;
 
     DeferredPageDestructor::createDeferredPageDestructor(WTFMove(m_page), this);
@@ -1638,16 +1638,13 @@ void WebPage::close()
     bool isRunningModal = m_isRunningModal;
     m_isRunningModal = false;
 
-    auto& webProcess = WebProcess::singleton();
 #if PLATFORM(COCOA)
     if (m_remoteObjectRegistry)
         m_remoteObjectRegistry->close();
     ASSERT(!m_remoteObjectRegistry);
 #endif
-#if ENABLE(SCROLLING_THREAD)
-    if (m_useAsyncScrolling)
-        webProcess.eventDispatcher().removeScrollingTreeForPage(this);
-#endif
+
+    auto& webProcess = WebProcess::singleton();
     webProcess.removeMessageReceiver(Messages::WebPage::messageReceiverName(), m_identifier);
     // FIXME: This should be done in the object destructors, and the objects themselves should be message receivers.
     webProcess.removeMessageReceiver(Messages::WebInspector::messageReceiverName(), m_identifier);
@@ -1925,9 +1922,9 @@ void WebPage::reload(uint64_t navigationID, OptionSet<WebCore::ReloadOption> rel
     }
 }
 
-void WebPage::goToBackForwardItem(uint64_t navigationID, const BackForwardItemIdentifier& backForwardItemID, FrameLoadType backForwardType, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&& websitePolicies, bool lastNavigationWasAppInitiated, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume)
+void WebPage::goToBackForwardItem(uint64_t navigationID, const BackForwardItemIdentifier& backForwardItemID, FrameLoadType backForwardType, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&& websitePolicies, bool lastNavigationWasAppInitiated, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, std::optional<String> topPrivatelyControlledDomain)
 {
-    WEBPAGE_RELEASE_LOG(Loading, "goToBackForwardItem: navigationID=%" PRIu64 ", backForwardItemID=%s, shouldTreatAsContinuingLoad=%u, lastNavigationWasAppInitiated=%d, existingNetworkResourceLoadIdentifierToResume=%" PRIu64, navigationID, backForwardItemID.string().utf8().data(), static_cast<unsigned>(shouldTreatAsContinuingLoad), lastNavigationWasAppInitiated, valueOrDefault(existingNetworkResourceLoadIdentifierToResume).toUInt64());
+    WEBPAGE_RELEASE_LOG(Loading, "goToBackForwardItem: navigationID=%" PRIu64 ", backForwardItemID=%s, shouldTreatAsContinuingLoad=%u, lastNavigationWasAppInitiated=%d, existingNetworkResourceLoadIdentifierToResume=%" PRIu64, navigationID, backForwardItemID.toString().utf8().data(), static_cast<unsigned>(shouldTreatAsContinuingLoad), lastNavigationWasAppInitiated, valueOrDefault(existingNetworkResourceLoadIdentifierToResume).toUInt64());
     SendStopResponsivenessTimer stopper;
 
     m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated;
@@ -1947,6 +1944,11 @@ void WebPage::goToBackForwardItem(uint64_t navigationID, const BackForwardItemId
         return;
 
     LOG(Loading, "In WebProcess pid %i, WebPage %" PRIu64 " is navigating to back/forward URL %s", getCurrentProcessID(), m_identifier.toUInt64(), item->url().string().utf8().data());
+
+#if ENABLE(PUBLIC_SUFFIX_LIST)
+    if (topPrivatelyControlledDomain)
+        WebCore::setTopPrivatelyControlledDomain(item->url().string(), *topPrivatelyControlledDomain);
+#endif
 
     ASSERT(!m_pendingNavigationID);
     m_pendingNavigationID = navigationID;
@@ -5899,10 +5901,7 @@ void WebPage::drawPagesForPrinting(FrameIdentifier frameID, const PrintInfo& pri
             std::optional<SharedMemory::Handle> ipcHandle;
             if (error.isNull()) {
                 auto sharedMemory = SharedMemory::copyBuffer(*data);
-                SharedMemory::Handle handle;
-                sharedMemory->createHandle(handle, SharedMemory::Protection::ReadOnly);
-                if (!handle.isNull())
-                    ipcHandle = WTFMove(handle);
+                ipcHandle = sharedMemory->createHandle(SharedMemory::Protection::ReadOnly);
             }
             completionHandler(WTFMove(ipcHandle), WTFMove(error));
         });
@@ -6838,6 +6837,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     
     bool viewportChanged = false;
 
+    m_viewportConfiguration.setCanIgnoreViewportArgumentsToAvoidExcessiveZoom(shouldIgnoreMetaViewport());
     m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
 
     LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier.toUInt64() << " didCommitLoad setting content size to " << coreFrame->view()->contentsSize());
@@ -7069,6 +7069,10 @@ void WebPage::updateWebsitePolicies(WebsitePoliciesData&& websitePolicies)
     
 #if ENABLE(VIDEO)
     m_page->updateMediaElementRateChangeRestrictions();
+#endif
+
+#if ENABLE(META_VIEWPORT)
+    m_viewportConfiguration.setCanIgnoreViewportArgumentsToAvoidExcessiveZoom(shouldIgnoreMetaViewport());
 #endif
 }
 
@@ -7963,9 +7967,8 @@ void WebPage::requestTextRecognition(Element& element, TextRecognitionOptions&& 
         return;
     }
 
-    ShareableBitmapHandle bitmapHandle;
-    bitmap->createHandle(bitmapHandle);
-    if (bitmapHandle.isNull()) {
+    auto bitmapHandle = bitmap->createHandle();
+    if (!bitmapHandle) {
         if (completion)
             completion({ });
         return;
@@ -7978,7 +7981,7 @@ void WebPage::requestTextRecognition(Element& element, TextRecognitionOptions&& 
 
     auto cachedImage = renderImage.cachedImage();
     auto imageURL = cachedImage ? element.document().completeURL(cachedImage->url().string()) : URL { };
-    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(bitmapHandle), options.sourceLanguageIdentifier, options.targetLanguageIdentifier), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
+    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(*bitmapHandle), options.sourceLanguageIdentifier, options.targetLanguageIdentifier), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
         RefPtr protectedPage { webPage.get() };
         if (!protectedPage)
             return;
@@ -8077,9 +8080,8 @@ void WebPage::requestImageBitmap(const ElementContext& context, CompletionHandle
         return;
     }
 
-    ShareableBitmapHandle handle;
-    bitmap->createHandle(handle);
-    if (handle.isNull()) {
+    auto handle = bitmap->createHandle();
+    if (!handle) {
         completion({ }, { });
         return;
     }
@@ -8090,7 +8092,7 @@ void WebPage::requestImageBitmap(const ElementContext& context, CompletionHandle
             mimeType = image->mimeType();
     }
     ASSERT(!mimeType.isEmpty());
-    completion(handle, mimeType);
+    completion(*handle, mimeType);
 }
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)

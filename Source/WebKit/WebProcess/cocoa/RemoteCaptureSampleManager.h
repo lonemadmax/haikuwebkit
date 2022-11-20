@@ -69,7 +69,7 @@ public:
 
 private:
     // Messages
-    void audioStorageChanged(WebCore::RealtimeMediaSourceIdentifier, ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames, IPC::Semaphore&&, const MediaTime&, size_t frameSampleSize);
+    void audioStorageChanged(WebCore::RealtimeMediaSourceIdentifier, ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&, IPC::Semaphore&&, const MediaTime&, size_t frameSampleSize);
     void audioSamplesAvailable(WebCore::RealtimeMediaSourceIdentifier, MediaTime, uint64_t numberOfFrames);
     void videoFrameAvailable(WebCore::RealtimeMediaSourceIdentifier, RemoteVideoFrameProxy::Properties&&, WebCore::VideoFrameTimeMetadata);
     // FIXME: Will be removed once RemoteVideoFrameProxy providers are the only ones sending data.
@@ -83,14 +83,14 @@ private:
         explicit RemoteAudio(Ref<RemoteRealtimeAudioSource>&&);
         ~RemoteAudio();
 
-        void setStorage(ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames, IPC::Semaphore&&, const MediaTime&, size_t frameChunkSize);
+        void setStorage(ConsumerSharedCARingBuffer::Handle&&, const WebCore::CAAudioStreamDescription&, IPC::Semaphore&&, const MediaTime&, size_t frameChunkSize);
 
     private:
         void stopThread();
         void startThread();
 
         Ref<RemoteRealtimeAudioSource> m_source;
-        WebCore::CAAudioStreamDescription m_description;
+        std::optional<WebCore::CAAudioStreamDescription> m_description;
         std::unique_ptr<WebCore::WebAudioBufferList> m_buffer;
         std::unique_ptr<ConsumerSharedCARingBuffer> m_ringBuffer;
         int64_t m_readOffset { 0 };

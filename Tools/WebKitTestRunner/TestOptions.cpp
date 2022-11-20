@@ -51,6 +51,12 @@ static constexpr bool fullGPUProcessEnabledValue = true;
 static constexpr bool fullGPUProcessEnabledValue = false;
 #endif
 
+#if PLATFORM(MAC)
+static constexpr bool eventHandlerDrivenSmoothKeyboardScrollingEnabledValue = true;
+#else
+static constexpr bool eventHandlerDrivenSmoothKeyboardScrollingEnabledValue = false;
+#endif
+
 const TestFeatures& TestOptions::defaults()
 {
     static TestFeatures features;
@@ -82,6 +88,7 @@ const TestFeatures& TestOptions::defaults()
             { "DataTransferItemsEnabled", true },
             { "DeveloperExtrasEnabled", true },
             { "DirectoryUploadEnabled", true },
+            { "EventHandlerDrivenSmoothKeyboardScrollingEnabled", eventHandlerDrivenSmoothKeyboardScrollingEnabledValue },
             { "ExposeSpeakersEnabled", true },
             { "FrameFlatteningEnabled", false },
             { "FullScreenEnabled", true },
@@ -115,6 +122,7 @@ const TestFeatures& TestOptions::defaults()
             { "RequiresUserGestureForAudioPlayback", false },
             { "RequiresUserGestureForMediaPlayback", false },
             { "RequiresUserGestureForVideoPlayback", false },
+            { "ScrollToTextFragmentIndicatorEnabled", false },
             { "ShowModalDialogEnabled", false },
             { "SpeakerSelectionRequiresUserGesture", false },
             { "TabsToLinks", false },
@@ -158,6 +166,7 @@ const TestFeatures& TestOptions::defaults()
             { "ignoresViewportScaleLimits", false },
             { "isAppBoundWebView", false },
             { "isAppInitiated", true },
+            { "networkConnectionIntegrityEnabled", false },
             { "runSingly", false },
             { "shouldHandleRunOpenPanel", true },
             { "shouldPresentPopovers", true },
@@ -215,6 +224,7 @@ const std::unordered_map<std::string, TestHeaderKeyType>& TestOptions::keyTypeMa
         { "ignoresViewportScaleLimits", TestHeaderKeyType::BoolTestRunner },
         { "isAppBoundWebView", TestHeaderKeyType::BoolTestRunner },
         { "isAppInitiated", TestHeaderKeyType::BoolTestRunner },
+        { "networkConnectionIntegrityEnabled", TestHeaderKeyType::BoolTestRunner },
         { "runSingly", TestHeaderKeyType::BoolTestRunner },
         { "shouldHandleRunOpenPanel", TestHeaderKeyType::BoolTestRunner },
         { "shouldPresentPopovers", TestHeaderKeyType::BoolTestRunner },

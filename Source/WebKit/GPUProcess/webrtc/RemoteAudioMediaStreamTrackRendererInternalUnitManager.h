@@ -62,9 +62,9 @@ public:
 
 private:
     // Messages
-    void createUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier, CompletionHandler<void(const WebCore::CAAudioStreamDescription&, size_t)>&& callback);
+    void createUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier, CompletionHandler<void(std::optional<WebCore::CAAudioStreamDescription>, size_t)>&& callback);
     void deleteUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier);
-    void startUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier, ConsumerSharedCARingBuffer::Handle&& , const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames, IPC::Semaphore&&);
+    void startUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier, ConsumerSharedCARingBuffer::Handle&&, IPC::Semaphore&&);
     void stopUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier);
     void setAudioOutputDevice(AudioMediaStreamTrackRendererInternalUnitIdentifier, const String&);
 

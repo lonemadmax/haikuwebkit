@@ -38,7 +38,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <wtf/Assertions.h>
-#include <wtf/RandomNumber.h>
+#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/SafeStrerror.h>
 #include <wtf/UniStdExtras.h>
 #include <wtf/text/CString.h>
@@ -129,7 +129,7 @@ static UnixFileDescriptor createSharedMemory()
 #else
     CString tempName;
     for (int tries = 0; fileDescriptor == -1 && tries < 10; ++tries) {
-        auto name = makeString("/WK2SharedMemory.", WTF::cryptographicallyRandomUint32());
+        auto name = makeString("/WK2SharedMemory.", cryptographicallyRandomNumber<unsigned>());
         tempName = name.utf8();
 
         do {
@@ -202,8 +202,9 @@ SharedMemory::~SharedMemory()
     munmap(m_data, m_size);
 }
 
-bool SharedMemory::createHandle(Handle& handle, Protection)
+auto SharedMemory::createHandle(Protection) -> std::optional<Handle>
 {
+    Handle handle;
     ASSERT_ARG(handle, handle.isNull());
     ASSERT(m_fileDescriptor);
 
@@ -213,11 +214,11 @@ bool SharedMemory::createHandle(Handle& handle, Protection)
     UnixFileDescriptor duplicate { m_fileDescriptor.value(), UnixFileDescriptor::Duplicate };
     if (!duplicate) {
         ASSERT_NOT_REACHED();
-        return false;
+        return std::nullopt;
     }
     handle.m_handle = WTFMove(duplicate);
     handle.m_size = m_size;
-    return true;
+    return { WTFMove(handle) };
 }
 
 } // namespace WebKit

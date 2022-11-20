@@ -633,7 +633,11 @@ static InlineCacheAction tryCacheArrayGetByVal(JSGlobalObject* globalObject, Cod
         else if (base->type() == StringType)
             accessType = AccessCase::IndexedStringLoad;
         else if (isTypedView(base->type())) {
-            switch (base->type()) {
+            auto* typedArray = jsCast<JSArrayBufferView*>(base);
+            if (typedArray->isResizableOrGrowableShared())
+                return GiveUpOnCache;
+
+            switch (typedArray->type()) {
             case Int8ArrayType:
                 accessType = AccessCase::IndexedTypedArrayInt8Load;
                 break;
@@ -676,6 +680,7 @@ static InlineCacheAction tryCacheArrayGetByVal(JSGlobalObject* globalObject, Cod
                 accessType = AccessCase::IndexedInt32Load;
                 break;
             case DoubleShape:
+                ASSERT(Options::allowDoubleShape());
                 accessType = AccessCase::IndexedDoubleLoad;
                 break;
             case ContiguousShape:
@@ -1072,7 +1077,11 @@ static InlineCacheAction tryCacheArrayPutByVal(JSGlobalObject* globalObject, Cod
 
         AccessCase::AccessType accessType;
         if (isTypedView(base->type())) {
-            switch (base->type()) {
+            auto* typedArray = jsCast<JSArrayBufferView*>(base);
+            if (typedArray->isResizableOrGrowableShared())
+                return GiveUpOnCache;
+
+            switch (typedArray->type()) {
             case Int8ArrayType:
                 accessType = AccessCase::IndexedTypedArrayInt8Store;
                 break;
@@ -1115,6 +1124,7 @@ static InlineCacheAction tryCacheArrayPutByVal(JSGlobalObject* globalObject, Cod
                 accessType = AccessCase::IndexedInt32Store;
                 break;
             case DoubleShape:
+                ASSERT(Options::allowDoubleShape());
                 accessType = AccessCase::IndexedDoubleStore;
                 break;
             case ContiguousShape:

@@ -36,6 +36,8 @@ class WebMessagePortChannelProvider final : public WebCore::MessagePortChannelPr
 public:
     static WebMessagePortChannelProvider& singleton();
 
+    void messagePortSentToRemote(const WebCore::MessagePortIdentifier&);
+
 private:
     WebMessagePortChannelProvider();
     ~WebMessagePortChannelProvider() final;
@@ -46,7 +48,6 @@ private:
     void messagePortClosed(const WebCore::MessagePortIdentifier& local) final;
     void takeAllMessagesForPort(const WebCore::MessagePortIdentifier&, CompletionHandler<void(Vector<WebCore::MessageWithMessagePorts>&&, CompletionHandler<void()>&&)>&&) final;
     void postMessageToRemote(WebCore::MessageWithMessagePorts&&, const WebCore::MessagePortIdentifier& remoteTarget) final;
-    void checkRemotePortForActivity(const WebCore::MessagePortIdentifier& remoteTarget, CompletionHandler<void(HasActivity)>&& callback) final;
 
     HashMap<WebCore::MessagePortIdentifier, Vector<WebCore::MessageWithMessagePorts>> m_inProcessPortMessages;
 };

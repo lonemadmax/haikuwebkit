@@ -25,7 +25,7 @@
 
 #include "ActiveDOMObject.h"
 #include "DecodingOptions.h"
-#include "FormNamedItem.h"
+#include "FormAssociatedElement.h"
 #include "GraphicsLayer.h"
 #include "GraphicsTypes.h"
 #include "HTMLElement.h"
@@ -46,15 +46,19 @@ struct ImageCandidate;
 enum class ReferrerPolicy : uint8_t;
 enum class RelevantMutation : bool;
 
-class HTMLImageElement : public HTMLElement, public FormNamedItem, public ActiveDOMObject {
+class HTMLImageElement : public HTMLElement, public FormAssociatedElement, public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED(HTMLImageElement);
-    friend class HTMLFormElement;
 public:
     static Ref<HTMLImageElement> create(Document&);
     static Ref<HTMLImageElement> create(const QualifiedName&, Document&, HTMLFormElement* = nullptr);
     static Ref<HTMLImageElement> createForLegacyFactoryFunction(Document&, std::optional<unsigned> width, std::optional<unsigned> height);
 
     virtual ~HTMLImageElement();
+
+    using HTMLElement::ref;
+    using HTMLElement::deref;
+
+    void formOwnerRemovedFromTree(const Node& formRoot);
 
     WEBCORE_EXPORT unsigned width(bool ignorePendingStylesheets = false);
     WEBCORE_EXPORT unsigned height(bool ignorePendingStylesheets = false);
@@ -165,6 +169,12 @@ protected:
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) override;
 
 private:
+    HTMLFormElement* form() const final { return FormAssociatedElement::form(); }
+    void resetFormOwner() final;
+    void refFormAssociatedElement() final { HTMLElement::ref(); }
+    void derefFormAssociatedElement() final { HTMLElement::deref(); }
+    void setFormInternal(HTMLFormElement*) final;
+
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;
     void parseAttribute(const QualifiedName&, const AtomString&) override;
     bool hasPresentationalHintsForAttribute(const QualifiedName&) const override;
@@ -195,8 +205,8 @@ private:
     InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) override;
     void removedFromAncestor(RemovalType, ContainerNode&) override;
 
-    bool isFormAssociatedElement() const final { return false; }
-    FormNamedItem* asFormNamedItem() final { return this; }
+    bool isFormListedElement() const final { return false; }
+    FormAssociatedElement* asFormAssociatedElement() final { return this; }
     HTMLImageElement& asHTMLElement() final { return *this; }
     const HTMLImageElement& asHTMLElement() const final { return *this; }
 
@@ -218,8 +228,6 @@ private:
     void setSourceElement(HTMLSourceElement*);
 
     std::unique_ptr<HTMLImageLoader> m_imageLoader;
-    WeakPtr<HTMLFormElement, WeakPtrImplWithEventTargetData> m_form;
-    WeakPtr<HTMLFormElement, WeakPtrImplWithEventTargetData> m_formSetByParser;
 
     CompositeOperator m_compositeOperator;
     AtomString m_bestFitImageURL;

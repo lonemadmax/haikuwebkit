@@ -36,37 +36,31 @@
 namespace WebKit {
 
 class SharedCARingBufferBase : public WebCore::CARingBuffer {
-public:
-    void flush() final;
-
 protected:
     SharedCARingBufferBase(size_t bytesPerFrame, size_t frameCount, uint32_t numChannelStream, Ref<SharedMemory>);
-    void* data() final;
-    void getCurrentFrameBoundsWithoutUpdate(uint64_t& startTime, uint64_t& endTime) final;
-    uint64_t currentStartFrame() const final { return m_startFrame; }
-    uint64_t currentEndFrame() const final { return m_endFrame; }
-    void updateFrameBounds() final;
-    size_t size() const final;
-
-    static constexpr unsigned boundsBufferSize { 32 };
-    struct FrameBounds {
-        std::pair<uint64_t, uint64_t> boundsBuffer[boundsBufferSize];
-        Atomic<unsigned> boundsBufferIndex { 0 };
-    };
-    FrameBounds& sharedFrameBounds() const;
+    void* data() final { return static_cast<Byte*>(m_storage->data()) + sizeof(TimeBoundsBuffer); }
+    TimeBoundsBuffer& timeBoundsBuffer() final { return *reinterpret_cast<TimeBoundsBuffer*>(m_storage->data()); }
 
     Ref<SharedMemory> m_storage;
-    uint64_t m_startFrame { 0 };
-    uint64_t m_endFrame { 0 };
 };
 
 class ConsumerSharedCARingBuffer final : public SharedCARingBufferBase {
 public:
-    using Handle = SharedMemory::Handle;
-    static std::unique_ptr<ConsumerSharedCARingBuffer> map(const WebCore::CAAudioStreamDescription& format, size_t frameCount, Handle&&);
+    struct Handle {
+        SharedMemory::Handle memory;
+        size_t frameCount;
+        void takeOwnershipOfMemory(MemoryLedger ledger) { memory.takeOwnershipOfMemory(ledger); }
+        template <typename Encoder> void encode(Encoder&) const;
+        template <typename Decoder> static std::optional<Handle> decode(Decoder&);
+    };
+    // FIXME: Remove this deprecated constructor.
+    static std::unique_ptr<ConsumerSharedCARingBuffer> map(const WebCore::CAAudioStreamDescription& format, Handle&& handle)
+    {
+        return map(format.bytesPerFrame(), format.numberOfChannelStreams(), WTFMove(handle));
+    }
+    static std::unique_ptr<ConsumerSharedCARingBuffer> map(uint32_t bytesPerFrame, uint32_t numChannelStreams, Handle&&);
 protected:
     using SharedCARingBufferBase::SharedCARingBufferBase;
-    void setCurrentFrameBounds(uint64_t startFrame, uint64_t endFrame) final { }
 };
 
 class ProducerSharedCARingBuffer final : public SharedCARingBufferBase {
@@ -78,8 +72,23 @@ public:
     static Pair allocate(const WebCore::CAAudioStreamDescription& format, size_t frameCount);
 protected:
     using SharedCARingBufferBase::SharedCARingBufferBase;
-    void setCurrentFrameBounds(uint64_t startFrame, uint64_t endFrame) final;
 };
+
+template <typename Encoder>
+void ConsumerSharedCARingBuffer::Handle::encode(Encoder& encoder) const
+{
+    encoder << memory << frameCount;
+}
+
+template <typename Decoder>
+std::optional<ConsumerSharedCARingBuffer::Handle> ConsumerSharedCARingBuffer::Handle::decode(Decoder& decoder)
+{
+    auto memory = decoder.template decode<SharedMemory::Handle>();
+    auto frameCount = decoder.template decode<size_t>();
+    if (UNLIKELY(!decoder.isValid()))
+        return std::nullopt;
+    return Handle { WTFMove(*memory), *frameCount };
+}
 
 }
 

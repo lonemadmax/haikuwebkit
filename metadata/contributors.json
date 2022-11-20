@@ -766,6 +766,7 @@
    },
    {
       "emails" : [
+         "a_izquierdogarcia@apple.com",
          "aizquierdogarcia@apple.com"
       ],
       "github" : "angelaizg",
@@ -1574,6 +1575,17 @@
    },
    {
       "emails" : [
+         "cgibb2@apple.com"
+      ],
+      "github" : "chgibb-apple",
+      "name" : "Chris Gibb",
+      "nicks" : [
+         "chgibb-apple"
+      ],
+      "status" : "committer"
+   },
+   {
+      "emails" : [
          "ctguil@chromium.org",
          "chris.guillory@google.com"
       ],
@@ -1887,7 +1899,8 @@
       "name" : "David Degazio",
       "nicks" : [
          "ddegazio"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -7460,6 +7473,13 @@
       "nicks" : [
          "yuzo"
       ]
+   },
+   {
+      "emails" : [
+         "yvlai@apple.com"
+      ],
+      "github" : "yvonne-lai1",
+      "name" : "Yvonne Lai"
    },
    {
       "emails" : [

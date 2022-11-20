@@ -198,8 +198,13 @@ bool RemoteLayerBackingStore::usesDeepColorBackingStore() const
 
 DestinationColorSpace RemoteLayerBackingStore::colorSpace() const
 {
+#if PLATFORM(MAC)
+    if (auto* context = m_layer->context())
+        return context->displayColorSpace().value_or(DestinationColorSpace::SRGB());
+#else
     if (usesDeepColorBackingStore())
         return DestinationColorSpace { extendedSRGBColorSpaceRef() };
+#endif
     return DestinationColorSpace::SRGB();
 }
 
@@ -566,7 +571,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
                 ASSERT(m_parameters.type == Type::IOSurface);
                 switch (contentsType) {
                 case RemoteLayerBackingStore::LayerContentsType::IOSurface: {
-                    auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(machSendRight), DestinationColorSpace::SRGB());
+                    auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(machSendRight));
                     contents = surface ? surface->asLayerContents() : nil;
                     break;
                 }
@@ -592,7 +597,6 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
         if (!replayCGDisplayListsIntoBackingStore) {
             [layer setValue:@1 forKeyPath:WKCGDisplayListEnabledKey];
             [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
-            layer.drawsAsynchronously = (m_parameters.type == Type::IOSurface);
         } else
             layer.opaque = m_parameters.isOpaque;
         [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:WTFMove(std::get<CGDisplayList>(*m_displayListBufferHandle)) replayForTesting:replayCGDisplayListsIntoBackingStore];

@@ -776,136 +776,6 @@ bool ArgumentCoder<ResourceError>::decode(Decoder& decoder, ResourceError& resou
     return true;
 }
 
-#if PLATFORM(IOS_FAMILY)
-
-void ArgumentCoder<SelectionGeometry>::encode(Encoder& encoder, const SelectionGeometry& selectionGeometry)
-{
-    encoder << selectionGeometry.quad();
-    encoder << selectionGeometry.behavior();
-    encoder << static_cast<uint32_t>(selectionGeometry.direction());
-    encoder << selectionGeometry.minX();
-    encoder << selectionGeometry.maxX();
-    encoder << selectionGeometry.maxY();
-    encoder << selectionGeometry.lineNumber();
-    encoder << selectionGeometry.isLineBreak();
-    encoder << selectionGeometry.isFirstOnLine();
-    encoder << selectionGeometry.isLastOnLine();
-    encoder << selectionGeometry.containsStart();
-    encoder << selectionGeometry.containsEnd();
-    encoder << selectionGeometry.isHorizontal();
-}
-
-std::optional<SelectionGeometry> ArgumentCoder<SelectionGeometry>::decode(Decoder& decoder)
-{
-    SelectionGeometry selectionGeometry;
-    FloatQuad quad;
-    if (!decoder.decode(quad))
-        return std::nullopt;
-    selectionGeometry.setQuad(quad);
-
-    std::optional<SelectionRenderingBehavior> behavior;
-    decoder >> behavior;
-    if (!behavior)
-        return std::nullopt;
-    selectionGeometry.setBehavior(*behavior);
-
-    uint32_t direction;
-    if (!decoder.decode(direction))
-        return std::nullopt;
-    selectionGeometry.setDirection((TextDirection)direction);
-
-    int intValue;
-    if (!decoder.decode(intValue))
-        return std::nullopt;
-    selectionGeometry.setMinX(intValue);
-
-    if (!decoder.decode(intValue))
-        return std::nullopt;
-    selectionGeometry.setMaxX(intValue);
-
-    if (!decoder.decode(intValue))
-        return std::nullopt;
-    selectionGeometry.setMaxY(intValue);
-
-    if (!decoder.decode(intValue))
-        return std::nullopt;
-    selectionGeometry.setLineNumber(intValue);
-
-    bool boolValue;
-    if (!decoder.decode(boolValue))
-        return std::nullopt;
-    selectionGeometry.setIsLineBreak(boolValue);
-
-    if (!decoder.decode(boolValue))
-        return std::nullopt;
-    selectionGeometry.setIsFirstOnLine(boolValue);
-
-    if (!decoder.decode(boolValue))
-        return std::nullopt;
-    selectionGeometry.setIsLastOnLine(boolValue);
-
-    if (!decoder.decode(boolValue))
-        return std::nullopt;
-    selectionGeometry.setContainsStart(boolValue);
-
-    if (!decoder.decode(boolValue))
-        return std::nullopt;
-    selectionGeometry.setContainsEnd(boolValue);
-
-    if (!decoder.decode(boolValue))
-        return std::nullopt;
-    selectionGeometry.setIsHorizontal(boolValue);
-
-    return selectionGeometry;
-}
-
-#endif
-
-void ArgumentCoder<WindowFeatures>::encode(Encoder& encoder, const WindowFeatures& windowFeatures)
-{
-    encoder << windowFeatures.x;
-    encoder << windowFeatures.y;
-    encoder << windowFeatures.width;
-    encoder << windowFeatures.height;
-    encoder << windowFeatures.menuBarVisible;
-    encoder << windowFeatures.statusBarVisible;
-    encoder << windowFeatures.toolBarVisible;
-    encoder << windowFeatures.locationBarVisible;
-    encoder << windowFeatures.scrollbarsVisible;
-    encoder << windowFeatures.resizable;
-    encoder << windowFeatures.fullscreen;
-    encoder << windowFeatures.dialog;
-}
-
-bool ArgumentCoder<WindowFeatures>::decode(Decoder& decoder, WindowFeatures& windowFeatures)
-{
-    if (!decoder.decode(windowFeatures.x))
-        return false;
-    if (!decoder.decode(windowFeatures.y))
-        return false;
-    if (!decoder.decode(windowFeatures.width))
-        return false;
-    if (!decoder.decode(windowFeatures.height))
-        return false;
-    if (!decoder.decode(windowFeatures.menuBarVisible))
-        return false;
-    if (!decoder.decode(windowFeatures.statusBarVisible))
-        return false;
-    if (!decoder.decode(windowFeatures.toolBarVisible))
-        return false;
-    if (!decoder.decode(windowFeatures.locationBarVisible))
-        return false;
-    if (!decoder.decode(windowFeatures.scrollbarsVisible))
-        return false;
-    if (!decoder.decode(windowFeatures.resizable))
-        return false;
-    if (!decoder.decode(windowFeatures.fullscreen))
-        return false;
-    if (!decoder.decode(windowFeatures.dialog))
-        return false;
-    return true;
-}
-
 #if ENABLE(DRAG_SUPPORT)
 void ArgumentCoder<DragData>::encode(Encoder& encoder, const DragData& dragData)
 {
@@ -963,33 +833,6 @@ bool ArgumentCoder<DragData>::decode(Decoder& decoder, DragData& dragData)
     return true;
 }
 #endif
-
-void ArgumentCoder<CompositionUnderline>::encode(Encoder& encoder, const CompositionUnderline& underline)
-{
-    encoder << underline.startOffset;
-    encoder << underline.endOffset;
-    encoder << underline.thick;
-    encoder << underline.compositionUnderlineColor;
-    encoder << underline.color;
-}
-
-std::optional<CompositionUnderline> ArgumentCoder<CompositionUnderline>::decode(Decoder& decoder)
-{
-    CompositionUnderline underline;
-
-    if (!decoder.decode(underline.startOffset))
-        return std::nullopt;
-    if (!decoder.decode(underline.endOffset))
-        return std::nullopt;
-    if (!decoder.decode(underline.thick))
-        return std::nullopt;
-    if (!decoder.decode(underline.compositionUnderlineColor))
-        return std::nullopt;
-    if (!decoder.decode(underline.color))
-        return std::nullopt;
-
-    return underline;
-}
 
 void ArgumentCoder<DatabaseDetails>::encode(Encoder& encoder, const DatabaseDetails& details)
 {
@@ -1131,127 +974,6 @@ std::optional<DictationAlternative> ArgumentCoder<DictationAlternative>::decode(
         return std::nullopt;
 
     return {{ *range, *context }};
-}
-
-void ArgumentCoder<FileChooserSettings>::encode(Encoder& encoder, const FileChooserSettings& settings)
-{
-    encoder << settings.allowsDirectories;
-    encoder << settings.allowsMultipleFiles;
-    encoder << settings.acceptMIMETypes;
-    encoder << settings.acceptFileExtensions;
-    encoder << settings.selectedFiles;
-#if ENABLE(MEDIA_CAPTURE)
-    encoder << settings.mediaCaptureType;
-#endif
-}
-
-bool ArgumentCoder<FileChooserSettings>::decode(Decoder& decoder, FileChooserSettings& settings)
-{
-    if (!decoder.decode(settings.allowsDirectories))
-        return false;
-    if (!decoder.decode(settings.allowsMultipleFiles))
-        return false;
-    if (!decoder.decode(settings.acceptMIMETypes))
-        return false;
-    if (!decoder.decode(settings.acceptFileExtensions))
-        return false;
-    if (!decoder.decode(settings.selectedFiles))
-        return false;
-#if ENABLE(MEDIA_CAPTURE)
-    if (!decoder.decode(settings.mediaCaptureType))
-        return false;
-#endif
-
-    return true;
-}
-    
-void ArgumentCoder<GrammarDetail>::encode(Encoder& encoder, const GrammarDetail& detail)
-{
-    encoder << detail.range;
-    encoder << detail.guesses;
-    encoder << detail.userDescription;
-}
-
-std::optional<GrammarDetail> ArgumentCoder<GrammarDetail>::decode(Decoder& decoder)
-{
-    std::optional<CharacterRange> range;
-    decoder >> range;
-    if (!range)
-        return std::nullopt;
-
-    std::optional<Vector<String>> guesses;
-    decoder >> guesses;
-    if (!guesses)
-        return std::nullopt;
-
-    std::optional<String> userDescription;
-    decoder >> userDescription;
-    if (!userDescription)
-        return std::nullopt;
-
-    return { { *range, WTFMove(*guesses), WTFMove(*userDescription) } };
-}
-
-void ArgumentCoder<TextCheckingRequestData>::encode(Encoder& encoder, const TextCheckingRequestData& request)
-{
-    encoder << request.identifier();
-    encoder << request.text();
-    encoder << request.checkingTypes();
-    encoder << request.processType();
-}
-
-bool ArgumentCoder<TextCheckingRequestData>::decode(Decoder& decoder, TextCheckingRequestData& request)
-{
-    std::optional<TextCheckingRequestIdentifier> identifier;
-    if (!decoder.decode(identifier))
-        return false;
-
-    String text;
-    if (!decoder.decode(text))
-        return false;
-
-    OptionSet<TextCheckingType> checkingTypes;
-    if (!decoder.decode(checkingTypes))
-        return false;
-
-    TextCheckingProcessType processType;
-    if (!decoder.decode(processType))
-        return false;
-
-    request = TextCheckingRequestData { identifier, text, checkingTypes, processType };
-    return true;
-}
-
-void ArgumentCoder<TextCheckingResult>::encode(Encoder& encoder, const TextCheckingResult& result)
-{
-    encoder << result.type;
-    encoder << result.range;
-    encoder << result.details;
-    encoder << result.replacement;
-}
-
-std::optional<TextCheckingResult> ArgumentCoder<TextCheckingResult>::decode(Decoder& decoder)
-{
-    TextCheckingType type;
-    if (!decoder.decode(type))
-        return std::nullopt;
-    
-    std::optional<CharacterRange> range;
-    decoder >> range;
-    if (!range)
-        return std::nullopt;
-
-    std::optional<Vector<GrammarDetail>> details;
-    decoder >> details;
-    if (!details)
-        return std::nullopt;
-
-    std::optional<String> replacement;
-    decoder >> replacement;
-    if (!replacement)
-        return std::nullopt;
-
-    return { { type, *range, WTFMove(*details), WTFMove(*replacement) } };
 }
 
 void ArgumentCoder<UserStyleSheet>::encode(Encoder& encoder, const UserStyleSheet& userStyleSheet)
@@ -2102,7 +1824,8 @@ void ArgumentCoder<WebCore::FragmentedSharedBuffer>::encode(Encoder& encoder, co
     SharedMemory::Handle handle;
     {
         auto sharedMemoryBuffer = SharedMemory::copyBuffer(buffer);
-        sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
+        if (auto memoryHandle = sharedMemoryBuffer->createHandle(SharedMemory::Protection::ReadOnly))
+            handle = WTFMove(*memoryHandle);
     }
     encoder << WTFMove(handle);
 #endif
@@ -2171,8 +1894,9 @@ static ShareableResource::Handle tryConvertToShareableResourceHandle(const Scrip
         return ShareableResource::Handle { };
 
     ShareableResource::Handle shareableResourceHandle;
-    shareableResource->createHandle(shareableResourceHandle);
-    return shareableResourceHandle;
+    if (auto handle = shareableResource->createHandle())
+        return WTFMove(*handle);
+    return ShareableResource::Handle { };
 }
 
 static std::optional<WebCore::ScriptBuffer> decodeScriptBufferAsShareableResourceHandle(Decoder& decoder)

@@ -1743,24 +1743,30 @@ void testSuspendServiceWorkerProcessBasedOnClientProcesses(UseSeparateServiceWor
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
 
     [webView loadRequest:server.request()];
+    [webView _test_waitForDidFinishNavigation];
 
     EXPECT_TRUE(waitUntilEvaluatesToTrue([&] { return [processPool _serviceWorkerProcessCount] == 1; }));
 
     auto webView2 = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
     [webView2 loadRequest:server.request()];
+    [webView2 _test_waitForDidFinishNavigation];
 
     auto webViewToUpdate = useSeparateServiceWorkerProcess == UseSeparateServiceWorkerProcess::Yes ? webView : webView2;
-    [webViewToUpdate _setThrottleStateForTesting: 1];
-    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] { return ![webViewToUpdate _hasServiceWorkerForegroundActivityForTesting]; }));
-    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] { return [webViewToUpdate _hasServiceWorkerBackgroundActivityForTesting]; }));
 
-    [webViewToUpdate _setThrottleStateForTesting: 2];
-    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] { return [webViewToUpdate _hasServiceWorkerForegroundActivityForTesting]; }));
-    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] { return ![webViewToUpdate _hasServiceWorkerBackgroundActivityForTesting]; }));
+    [webViewToUpdate _setThrottleStateForTesting:1];
+    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] {
+        return ![webViewToUpdate _hasServiceWorkerForegroundActivityForTesting] && [webViewToUpdate _hasServiceWorkerBackgroundActivityForTesting];
+    }));
 
-    [webViewToUpdate _setThrottleStateForTesting: 0];
-    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] { return ![webViewToUpdate _hasServiceWorkerForegroundActivityForTesting]; }));
-    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] { return ![webViewToUpdate _hasServiceWorkerBackgroundActivityForTesting]; }));
+    [webViewToUpdate _setThrottleStateForTesting:2];
+    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] {
+        return [webViewToUpdate _hasServiceWorkerForegroundActivityForTesting] && ![webViewToUpdate _hasServiceWorkerBackgroundActivityForTesting];
+    }));
+
+    [webViewToUpdate _setThrottleStateForTesting:0];
+    EXPECT_TRUE(waitUntilEvaluatesToTrue([&] {
+        return ![webViewToUpdate _hasServiceWorkerForegroundActivityForTesting] && ![webViewToUpdate _hasServiceWorkerBackgroundActivityForTesting];
+    }));
 
     [webView _close];
     webView = nullptr;
@@ -2578,7 +2584,7 @@ static bool didStartURLSchemeTaskForImportedScript = false;
 
 - (void)addMappingFromURLString:(NSString *)urlString toData:(const char*)data
 {
-    _dataMappings.set(urlString, [NSData dataWithBytesNoCopy:(void*)data length:strlen(data) freeWhenDone:NO]);
+    _dataMappings.set(urlString, [NSData dataWithBytes:(void*)data length:strlen(data)]);
 }
 
 - (void)webView:(WKWebView *)webView startURLSchemeTask:(id <WKURLSchemeTask>)task
@@ -2969,6 +2975,17 @@ static constexpr auto ServiceWorkerWindowClientFocusJS =
 "   });"
 "});"_s;
 
+#if PLATFORM(MAC)
+void miniaturizeWebView(TestWKWebView* webView)
+{
+    [[webView hostWindow] miniaturize:[webView hostWindow]];
+
+    int cptr = 0;
+    while ([webView hostWindow].isVisible && ++cptr < 1000)
+        TestWebKitAPI::Util::spinRunLoop(10);
+}
+#endif // PLATFORM(MAC)
+
 TEST(ServiceWorker, ServiceWorkerWindowClientFocus)
 {
     [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
@@ -3006,9 +3023,10 @@ TEST(ServiceWorker, ServiceWorkerWindowClientFocus)
     EXPECT_WK_STREQ([webView2 _test_waitForAlert], "already active");
 
 #if PLATFORM(MAC)
-    [[webView1 hostWindow] miniaturize:[webView1 hostWindow]];
-    [[webView2 hostWindow] miniaturize:[webView2 hostWindow]];
+    miniaturizeWebView(webView1.get());
     EXPECT_FALSE([webView1 hostWindow].isVisible);
+
+    miniaturizeWebView(webView2.get());
     EXPECT_FALSE([webView2 hostWindow].isVisible);
 #endif
 

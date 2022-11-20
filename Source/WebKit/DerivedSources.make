@@ -285,6 +285,8 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/graphics/WebGPU/RemoteRenderPipeline \
 	GPUProcess/graphics/WebGPU/RemoteSampler \
 	GPUProcess/graphics/WebGPU/RemoteShaderModule \
+	GPUProcess/graphics/WebGPU/RemoteSurface \
+	GPUProcess/graphics/WebGPU/RemoteSwapChain \
 	GPUProcess/graphics/WebGPU/RemoteTexture \
 	GPUProcess/graphics/WebGPU/RemoteTextureView \
 	GPUProcess/webrtc/LibWebRTCCodecsProxy \
@@ -480,6 +482,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/FrameTreeNodeData.serialization.in \
 	Shared/ios/InteractionInformationAtPosition.serialization.in \
 	Shared/LayerTreeContext.serialization.in \
+	Shared/Model.serialization.in \
 	Shared/Pasteboard.serialization.in \
 	Shared/SessionState.serialization.in \
 	Shared/ShareableBitmap.serialization.in \
@@ -509,6 +512,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebGPU/WebGPUExtent3D.serialization.in \
 	Shared/WebGPU/WebGPUExternalTextureBindingLayout.serialization.in \
 	Shared/WebGPU/WebGPUExternalTextureDescriptor.serialization.in \
+	Shared/WebGPU/WebGPUFeatureName.serialization.in \
 	Shared/WebGPU/WebGPUFragmentState.serialization.in \
 	Shared/WebGPU/WebGPUImageCopyBuffer.serialization.in \
 	Shared/WebGPU/WebGPUImageCopyExternalImage.serialization.in \
@@ -531,6 +535,8 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebGPU/WebGPUSamplerDescriptor.serialization.in \
 	Shared/WebGPU/WebGPUShaderModuleCompilationHint.serialization.in \
 	Shared/WebGPU/WebGPUShaderModuleDescriptor.serialization.in \
+	Shared/WebGPU/WebGPUSurfaceDescriptor.serialization.in \
+	Shared/WebGPU/WebGPUSwapChainDescriptor.serialization.in \
 	Shared/WebGPU/WebGPUTextureDescriptor.serialization.in \
 	Shared/WebGPU/WebGPUTextureViewDescriptor.serialization.in \
 	Shared/WebGPU/WebGPUVertexState.serialization.in \
@@ -558,6 +564,8 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebGPU/WebGPUBlendState.serialization.in \
 	Shared/WebGPU/WebGPUBlendComponent.serialization.in \
 	Shared/WebGPU/WebGPUBindGroupEntry.serialization.in \
+	Shared/XR/XRSystem.serialization.in \
+	WebProcess/GPU/media/RemoteMediaPlayerState.serialization.in \
 #
 
 all : GeneratedSerializers.h GeneratedSerializers.cpp GeneratedSerializers.mm SerializedTypeInfo.cpp

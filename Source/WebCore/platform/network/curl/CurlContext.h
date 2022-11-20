@@ -278,6 +278,7 @@ public:
     void setSslCertType(const char*);
     void setSslKeyPassword(const char*);
     void setSslCipherList(const char*);
+    void setSslECCurves(const char*);
 
     void enableProxyIfExists();
 
@@ -300,6 +301,7 @@ public:
     std::optional<long> getHttpAuthAvail();
     std::optional<long> getProxyAuthAvail();
     std::optional<long> getHttpVersion();
+    std::optional<long> getSSLVerifyResult() const;
     std::optional<NetworkLoadMetrics> getNetworkLoadMetrics(MonotonicTime startTime);
     void addExtraNetworkLoadMetrics(NetworkLoadMetrics&);
 
