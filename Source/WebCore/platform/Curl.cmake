@@ -72,5 +72,5 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 list(APPEND WebCore_LIBRARIES
     CURL::libcurl
     LibPSL::LibPSL
-    OpenSSL::SSL
+    ssl
 )
