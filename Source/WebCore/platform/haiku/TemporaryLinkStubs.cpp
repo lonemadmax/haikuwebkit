@@ -35,10 +35,7 @@
 
 #include "wtf/URL.h"
 #include "NotImplemented.h"
-#include "SSLKeyGenerator.h"
 #include <InterfaceDefs.h>
-
-using namespace WebCore;
 
 Vector<char> loadResourceIntoArray(const char*)
 {

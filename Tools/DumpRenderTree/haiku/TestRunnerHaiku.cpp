@@ -497,7 +497,7 @@ void TestRunner::evaluateScriptInIsolatedWorld(unsigned worldID, JSObjectRef glo
     notImplemented();
 }
 
-void TestRunner::removeAllCookies()
+void TestRunner::removeAllCookies(JSValueRef callback)
 {
     notImplemented();
 }
