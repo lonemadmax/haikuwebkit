@@ -29,7 +29,6 @@
 
 #include "ResourceRequestBase.h"
 
-#include <Referenceable.h>
 #include <String.h>
 #include <UrlRequest.h>
 
