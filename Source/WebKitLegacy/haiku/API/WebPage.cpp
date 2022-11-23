@@ -125,7 +125,9 @@
 #include <wtf/Assertions.h>
 #include <wtf/Threading.h>
 
+#if USE(GCRYPT)
 #include <gcrypt.h>
+#endif
 
 /*
      The basic idea here is to dispatch all public methods to the BLooper
