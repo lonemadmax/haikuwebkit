@@ -88,6 +88,9 @@ ImageBufferData::~ImageBufferData()
 
 WTF::RefPtr<WebCore::NativeImage> ImageBufferHaikuSurfaceBackend::copyNativeImage(WebCore::BackingStoreCopy doCopy) const
 {
+    if (m_data.m_view)
+        m_data.m_view->Sync();
+
     if (doCopy == DontCopyBackingStore) {
         PlatformImagePtr ref = m_data.m_image;
         return NativeImage::create(std::move(ref));
