@@ -44,7 +44,7 @@ template<typename Encoder>
 void ArgumentCoder<CertificateInfo>::encode(Encoder& encoder, const CertificateInfo& certificateInfo)
 {
     encoder << certificateInfo.verificationError();
-    encoder << certificateInfo.certificateChain().size();
+    encoder << (uint64_t)certificateInfo.certificateChain().size();
 
     for (auto certificate : certificateInfo.certificateChain())
         encoder << certificate;
@@ -59,7 +59,7 @@ std::optional<CertificateInfo> ArgumentCoder<CertificateInfo>::decode(Decoder& d
     if (!verificationError)
         return std::nullopt;
 
-    std::optional<size_t> certificateChainSize;
+    std::optional<uint64_t> certificateChainSize;
     decoder >> certificateChainSize;
     if (!certificateChainSize)
         return std::nullopt;
