@@ -29,6 +29,8 @@
 
 #include <support/Locker.h>
 #include <UrlContext.h>
+#include <UrlProtocolRoster.h>
+#include <UrlRequest.h>
 
 #include "Cookie.h"
 #include "CookieRequestHeaderFieldProxy.h"
@@ -234,8 +236,19 @@ std::pair<String, bool> NetworkStorageSession::cookieRequestHeaderFieldValue(
 
 BPrivate::Network::BUrlContext& NetworkStorageSession::platformSession() const
 {
-    static BPrivate::Network::BUrlContext sDefaultContext;
-    return m_context ? *m_context : sDefaultContext;
+    if (m_context)
+        return *m_context;
+
+    // This is the only way to access the default context in the netservces lib
+    static BPrivate::Network::BUrlContext* sDefaultContext = nullptr;
+
+    if (sDefaultContext == nullptr) {
+        BPrivate::Network::BUrlRequest* fakeRequest
+            = BPrivate::Network::BUrlProtocolRoster::MakeRequest(BUrl("data:"), NULL, NULL);
+        sDefaultContext = fakeRequest->Context();
+        delete fakeRequest;
+    }
+    return *sDefaultContext;
 }
 
 void NetworkStorageSession::setPlatformSession(BPrivate::Network::BUrlContext* context)
