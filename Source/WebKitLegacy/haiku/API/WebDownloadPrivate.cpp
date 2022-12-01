@@ -56,7 +56,7 @@ static const int kMaxMimeTypeGuessTries	= 5;
 WebDownloadPrivate::WebDownloadPrivate(const ResourceRequest& request,
         WebCore::NetworkingContext* context)
     : m_webDownload(0)
-    , m_resourceHandle(ResourceHandle::create(context, request, this, false, false,
+    , m_resourceHandle(ResourceHandle::create(context, request, nullptr, false, false,
          WebCore::ContentEncodingSniffingPolicy::Disable, WebCore::SecurityOrigin::createOpaque(), false))
     , m_currentSize(0)
     , m_expectedSize(0)
@@ -68,9 +68,17 @@ WebDownloadPrivate::WebDownloadPrivate(const ResourceRequest& request,
     , m_file()
     , m_lastProgressReportTime(0)
 {
+#if USE(CURL)
+	m_download = adoptRef(new WebCore::CurlDownload());
+	m_download->init(*this, m_resourceHandle.get(), request, m_response);
+#endif
 }
 
+#if USE(CURL)
+void WebDownloadPrivate::didReceiveResponse(const ResourceResponse& response)
+#else
 void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceResponse&& response, WTF::CompletionHandler<void()>&& handler)
+#endif
 {
     if (!response.isNull()) {
     	if (!response.suggestedFilename().isEmpty())
@@ -100,6 +108,29 @@ void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceRespon
     m_url = response.url().string();
 }
 
+#if USE(CURL)
+void WebDownloadPrivate::didReceiveDataOfLength(int encodedDataLength)
+{
+    m_currentSize += encodedDataLength;
+
+    // FIXME: Report total size update, if m_currentSize greater than previous total size
+    BMessage message(B_DOWNLOAD_PROGRESS);
+    message.AddFloat("progress", m_currentSize * 100.0 / m_expectedSize);
+    message.AddInt64("current size", m_currentSize);
+    message.AddInt64("expected size", m_expectedSize);
+    m_progressListener.SendMessage(&message);
+}
+
+void WebDownloadPrivate::didFinish()
+{
+    handleFinished(m_resourceHandle.get(), B_DOWNLOAD_FINISHED);
+}
+
+void WebDownloadPrivate::didFail()
+{
+    handleFinished(m_resourceHandle.get(), B_DOWNLOAD_FAILED);
+}
+#else
 void WebDownloadPrivate::didReceiveData(ResourceHandle*, const WebCore::SharedBuffer& buffer, int /*encodedDataLength*/)
 {
 	if (m_file.InitCheck() != B_OK)
@@ -159,6 +190,7 @@ void WebDownloadPrivate::cannotShowURL(ResourceHandle* handle)
     // and error handling.
     handleFinished(handle, B_DOWNLOAD_CANNOT_SHOW_URL);
 }
+#endif
 
 void WebDownloadPrivate::setDownload(BWebDownload* download)
 {

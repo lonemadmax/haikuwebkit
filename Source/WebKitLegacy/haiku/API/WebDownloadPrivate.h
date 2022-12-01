@@ -28,6 +28,7 @@
 #ifndef WebDownload_h
 #define WebDownload_h
 
+#include "WebCore/CurlDownload.h"
 #include "WebCore/ResourceHandle.h"
 #include "WebCore/ResourceHandleClient.h"
 #include <File.h>
@@ -54,11 +55,23 @@ class BWebPage;
 
 namespace BPrivate {
 
-class WebDownloadPrivate : public WebCore::ResourceHandleClient {
-	WTF_MAKE_NONCOPYABLE(WebDownloadPrivate);
+class WebDownloadPrivate
+#if USE(CURL)
+    : public WebCore::CurlDownloadListener
+#else
+    : public WebCore::ResourceHandleClient
+#endif
+{
+    WTF_MAKE_NONCOPYABLE(WebDownloadPrivate);
 public:
     WebDownloadPrivate(const ResourceRequest&, WebCore::NetworkingContext*);
 
+#if USE(CURL)
+    virtual void didReceiveResponse(const ResourceResponse&) override;
+    virtual void didReceiveDataOfLength(int) override;
+    virtual void didFinish() override;
+    virtual void didFail() override;
+#else
     // ResourceHandleClient implementation
     virtual void didReceiveResponseAsync(ResourceHandle*, ResourceResponse&&, WTF::CompletionHandler<void()>&&) override;
     void didReceiveData(ResourceHandle*, const WebCore::SharedBuffer&, int /*encodedDataLength*/) override;
@@ -66,7 +79,9 @@ public:
     virtual void didFail(ResourceHandle*, const ResourceError&) override;
     virtual void wasBlocked(ResourceHandle*) override;
     virtual void cannotShowURL(ResourceHandle*) override;
+
 	void willSendRequestAsync(ResourceHandle*, ResourceRequest&&, ResourceResponse&&, CompletionHandler<void(ResourceRequest&&)>&&) override {}
+#endif
 
     void setDownload(BWebDownload*);
     void start(const BPath& path);
@@ -88,6 +103,10 @@ private:
 private:
     BWebDownload* m_webDownload;
 
+#if USE(CURL)
+    RefPtr<WebCore::CurlDownload> m_download;
+    ResourceResponse m_response;
+#endif
     RefPtr<ResourceHandle> m_resourceHandle;
     off_t m_currentSize;
     off_t m_expectedSize;
