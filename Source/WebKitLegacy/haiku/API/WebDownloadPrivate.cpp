@@ -65,7 +65,6 @@ WebDownloadPrivate::WebDownloadPrivate(const ResourceRequest& request,
     , m_filename("Download")
     , m_mimeType()
     , m_mimeTypeGuessTries(kMaxMimeTypeGuessTries)
-    , m_file()
     , m_lastProgressReportTime(0)
 {
 #if USE(CURL)
@@ -106,6 +105,10 @@ void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceRespon
     }
 
     m_url = response.url().string();
+
+#if USE(CURL)
+	createFile();
+#endif
 }
 
 #if USE(CURL)
@@ -201,6 +204,10 @@ void WebDownloadPrivate::start(const BPath& path)
 {
 	if (path.InitCheck() == B_OK)
 		m_path = path;
+
+#if USE(CURL)
+	m_download->start();
+#endif
 }
 
 void WebDownloadPrivate::hasMovedTo(const BPath& path)
@@ -225,8 +232,15 @@ void WebDownloadPrivate::handleFinished(WebCore::ResourceHandle* handle, uint32 
     if (m_mimeTypeGuessTries != -1 && m_mimeType.Length() > 0) {
         // In last resort, use the MIME type provided
         // by the response, which pass our validation
+#if USE(CURL)
+        BNode node(m_filename);
+        BNodeInfo info(&node);
+        info.SetType(m_mimeType);
+        node.WriteAttrString("META:url", &m_url);
+#else
         BNodeInfo info(&m_file);
         info.SetType(m_mimeType);
+#endif
     }
 
     if (m_progressListener.IsValid()) {
@@ -244,8 +258,12 @@ void WebDownloadPrivate::createFile()
     // Don't overwrite existing files
     findAvailableFilename();
 
+#if USE(CURL)
+	m_download->setDestination(WTF::String::fromUTF8(m_path.Path()));
+#else
     if (m_file.SetTo(m_path.Path(), B_CREATE_FILE | B_ERASE_FILE | B_WRITE_ONLY) == B_OK)
         m_file.WriteAttrString("META:url", &m_url);
+#endif
 
     if (m_progressListener.IsValid()) {
         BMessage message(B_DOWNLOAD_STARTED);

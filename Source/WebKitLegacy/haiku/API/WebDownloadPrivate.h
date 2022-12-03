@@ -66,6 +66,8 @@ class WebDownloadPrivate
 public:
     WebDownloadPrivate(const ResourceRequest&, WebCore::NetworkingContext*);
 
+    virtual ~WebDownloadPrivate() = default;
+
 #if USE(CURL)
     virtual void didReceiveResponse(const ResourceResponse&) override;
     virtual void didReceiveDataOfLength(int) override;
@@ -106,6 +108,8 @@ private:
 #if USE(CURL)
     RefPtr<WebCore::CurlDownload> m_download;
     ResourceResponse m_response;
+#else
+    BFile m_file;
 #endif
     RefPtr<ResourceHandle> m_resourceHandle;
     off_t m_currentSize;
@@ -115,7 +119,6 @@ private:
     BString m_filename;
     BString m_mimeType;
     int m_mimeTypeGuessTries;
-    BFile m_file;
     bigtime_t m_lastProgressReportTime;
 
     BMessenger m_progressListener;
