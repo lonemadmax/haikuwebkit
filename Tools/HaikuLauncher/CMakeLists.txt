@@ -1,4 +1,6 @@
 SET(HaikuLauncher_SOURCES
+	${TOOLS_DIR}/HaikuLauncher/DownloadProgressView.cpp
+	${TOOLS_DIR}/HaikuLauncher/DownloadWindow.cpp
     ${TOOLS_DIR}/HaikuLauncher/LauncherApp.cpp
     ${TOOLS_DIR}/HaikuLauncher/LauncherWindow.cpp
     ${TOOLS_DIR}/HaikuLauncher/AuthenticationPanel.cpp

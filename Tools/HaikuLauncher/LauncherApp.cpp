@@ -28,10 +28,12 @@
 
 #include "LauncherApp.h"
 
+#include "DownloadWindow.h"
 #include "LauncherWindow.h"
 #include "WebPage.h"
 #include "WebView.h"
 #include "WebViewConstants.h"
+
 #include <Alert.h>
 #include <Autolock.h>
 #include <Directory.h>
@@ -115,6 +117,10 @@ void LauncherApp::ReadyToRun()
 	    LauncherWindow* window = new LauncherWindow(m_lastWindowFrame);
 	    window->Show();
 	}
+
+    m_downloadWindow = new DownloadWindow(BRect(10, 10, 100, 100), true);
+    BWebPage::SetDownloadListener(BMessenger(m_downloadWindow));
+    m_downloadWindow->Show();
 }
 
 void LauncherApp::MessageReceived(BMessage* message)

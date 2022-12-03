@@ -415,7 +415,7 @@ void LauncherWindow::init(BWebView* webView, ToolbarPolicy toolbarPolicy)
         const float kElementSpacing = 7;
 
         // Layout
-        AddChild(BGroupLayoutBuilder(B_VERTICAL)
+        AddChild(BGroupLayoutBuilder(B_VERTICAL, 0)
             .Add(m_menuBar)
             .Add(BGridLayoutBuilder(kElementSpacing, kElementSpacing)
                 .Add(m_BackButton, 0, 0)

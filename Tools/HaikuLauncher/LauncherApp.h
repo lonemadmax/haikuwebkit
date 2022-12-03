@@ -34,6 +34,7 @@
 #include <Rect.h>
 
 class BFile;
+class DownloadWindow;
 class LauncherWindow;
 
 class LauncherApp : public BApplication {
@@ -55,6 +56,7 @@ private:
     int m_windowCount;
     BRect m_lastWindowFrame;
     BMessage* m_launchRefsMessage;
+    DownloadWindow* m_downloadWindow;
     bool m_initialized;
 };
 
