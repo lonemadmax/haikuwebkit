@@ -414,14 +414,17 @@ String MIMETypeRegistry::mimeTypeForPath(StringView path)
     // If this is a local path, get an entry while also resolving symbolic
     // links and get the mime type info.
     BString localPath(path.utf8().data());
+    int offset = 0;
     if (localPath.FindFirst("file://") == 0 && localPath.Length() > 7) {
-        BEntry entry(localPath.String() + 7, true);
-        if (entry.Exists()) {
-            BNode node(&entry);
-            BNodeInfo nodeInfo(&node);
-            char mimeType[B_MIME_TYPE_LENGTH];
-            if (nodeInfo.GetType(mimeType) == B_OK)
-                return String::fromUTF8(mimeType);
+        offset = 7;
+    }
+    BEntry entry(localPath.String() + offset, true);
+    if (entry.Exists()) {
+        BNode node(&entry);
+        BNodeInfo nodeInfo(&node);
+        char mimeType[B_MIME_TYPE_LENGTH];
+        if (nodeInfo.GetType(mimeType) == B_OK) {
+            return String::fromUTF8(mimeType);
         }
     }
 #endif
