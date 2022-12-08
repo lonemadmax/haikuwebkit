@@ -217,7 +217,11 @@ void WebDownloadPrivate::hasMovedTo(const BPath& path)
 
 void WebDownloadPrivate::cancel()
 {
+#if USE(CURL)
+    m_download->cancel();
+#else
     m_resourceHandle->cancel();
+#endif
 }
 
 void WebDownloadPrivate::setProgressListener(const BMessenger& listener)
