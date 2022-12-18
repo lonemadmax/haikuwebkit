@@ -101,6 +101,23 @@ FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const
 	m_size = m_font->Size();
 }
 
+FontPlatformData::FontPlatformData(const BFont& font, const FontDescription& fontDescription)
+{
+    m_font = std::make_unique<BFont>(font);
+    m_font->SetSize(fontDescription.computedSize());
+
+    font_family fontFamily;
+    font_style fontStyle;
+
+    font.GetFamilyAndStyle(&fontFamily, &fontStyle);
+
+    findMatchingFontStyle(fontFamily, fontDescription.weight() == boldWeightValue(), fontDescription.italic() != std::nullopt, &fontStyle);
+
+    m_font->SetFamilyAndStyle(fontFamily, fontStyle);
+
+    m_size = m_font->Size();
+}
+
 FontPlatformData::FontPlatformData(const FontPlatformData& other)
     : m_isHashTableDeletedValue(other.m_isHashTableDeletedValue)
     , m_size(other.m_size)
@@ -111,9 +128,9 @@ FontPlatformData::FontPlatformData(const FontPlatformData& other)
     , m_widthVariant(other.m_widthVariant)
     , m_textRenderingMode(other.m_textRenderingMode)
 {
-	if (other.m_font != nullptr) {
-		m_font = std::make_unique<BFont>(other.m_font.get());
-	}
+    if (other.m_font != nullptr) {
+        m_font = std::make_unique<BFont>(other.m_font.get());
+    }
 }
 
 WebCore::FontPlatformData&

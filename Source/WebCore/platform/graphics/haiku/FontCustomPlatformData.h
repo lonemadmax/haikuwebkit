@@ -26,6 +26,8 @@
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
+#include <Font.h>
+
 namespace WebCore {
 
     class FontCreationContext;
@@ -35,11 +37,15 @@ namespace WebCore {
     struct FontCustomPlatformData {
         WTF_MAKE_NONCOPYABLE(FontCustomPlatformData); WTF_MAKE_FAST_ALLOCATED;
     public:
-        FontCustomPlatformData() { }
+        FontCustomPlatformData(area_id area, BFont font) : m_font(font), m_area(area) { }
         ~FontCustomPlatformData();
 
         FontPlatformData fontPlatformData(const FontDescription& description, bool& bold, bool& italic, const FontCreationContext&);
-	    static bool supportsFormat(const String&);
+        static bool supportsFormat(const String&);
+
+    private:
+        BFont m_font;
+		area_id m_area;
     };
 
     std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer&, const String&);

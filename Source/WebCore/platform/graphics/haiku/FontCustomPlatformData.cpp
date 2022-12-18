@@ -28,17 +28,25 @@ namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData()
 {
+	delete_area(m_area);
 }
 
 FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& description, bool& bold, bool& italic, const FontCreationContext&)
 {
-    return FontPlatformData(description.computedSize(), bold, italic);
+    return FontPlatformData(m_font, description);
 }
 
-std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String&)
+std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String& description)
 {
-    // FIXME: We need support in Haiku to read fonts from memory to implement this.
-    return 0;
+	void* sharedData;
+	area_id area = create_area("web font", &sharedData, B_ANY_ADDRESS, buffer.size(), B_NO_LOCK, B_WRITE_AREA | B_READ_AREA | B_CLONEABLE_AREA);
+
+
+	memcpy(sharedData, buffer.data(), buffer.size());
+	BFont font;
+
+	status_t result = font.LoadFont(area, buffer.size(), 0);
+	return std::make_unique<FontCustomPlatformData>(area, font);
 }
 
 bool FontCustomPlatformData::supportsFormat(const String& format)

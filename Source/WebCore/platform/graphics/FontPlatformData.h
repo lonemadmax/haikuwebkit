@@ -126,6 +126,7 @@ public:
 
 #if PLATFORM(HAIKU)
     FontPlatformData(const FontDescription& fontDescription, const AtomString& familyName);
+    FontPlatformData(const BFont&, const FontDescription& fontDescription);
     static void SetFallBackSerifFont(const BString& font);
     static void SetFallBackSansSerifFont(const BString& font);
     static void SetFallBackFixedFont(const BString& font);
