@@ -127,11 +127,6 @@ CurlContext::CurlContext()
     if (logFile)
         m_logFile = fopen(logFile, "a");
 #endif
-
-#if ENABLE(TLS_DEBUG)
-    if (auto filePath = envVar.read("SSLKEYLOGFILE"))
-        m_tlsKeyLogFilePath = filePath;
-#endif
 }
 
 CurlContext::~CurlContext()
@@ -354,6 +349,8 @@ void CurlHandle::enableSSLForHost(const String& host)
 #else
     if (auto* path = std::get_if<String>(&sslHandle.getCACertInfo()))
         setCACertPath(path->utf8().data());
+    else if (auto data = std::get_if<CertificateInfo::Certificate>(&sslHandle.getCACertInfo()))
+        setCACertBlob(const_cast<uint8_t*>(data->data()), data->size());
 #endif
 }
 
@@ -377,14 +374,6 @@ CURLcode CurlHandle::willSetupSslCtx(void* sslCtx)
 CURLcode CurlHandle::willSetupSslCtxCallback(CURL*, void* sslCtx, void* userData)
 {
     return static_cast<CurlHandle*>(userData)->willSetupSslCtx(sslCtx);
-}
-
-int CurlHandle::sslErrors() const
-{
-    if (auto verifyResult = getSSLVerifyResult(); verifyResult && *verifyResult != X509_V_OK)
-        return static_cast<int>(CurlSSLVerifier::convertToSSLCertificateFlags(*verifyResult));
-
-    return 0;
 }
 
 CURLcode CurlHandle::perform()
@@ -566,6 +555,19 @@ void CurlHandle::setCACertPath(const char* path)
 {
     if (path)
         curl_easy_setopt(m_handle, CURLOPT_CAINFO, path);
+}
+
+void CurlHandle::setCACertBlob(void* data, size_t length)
+{
+    if (!data || !length)
+        return;
+
+    curl_blob blob;
+    blob.data = data;
+    blob.len = length;
+    blob.flags = CURL_BLOB_NOCOPY;
+
+    curl_easy_setopt(m_handle, CURLOPT_CAINFO_BLOB, &blob);
 }
 
 void CurlHandle::setSslVerifyPeer(VerifyPeer verifyPeer)

@@ -761,7 +761,9 @@ set(WebCore_NON_SVG_IDL_FILES
     animation/AnimationPlaybackEventInit.idl
     animation/AnimationTimeline.idl
     animation/CSSAnimation.idl
+    animation/CSSAnimationEvent.idl
     animation/CSSTransition.idl
+    animation/CSSTransitionEvent.idl
     animation/CompositeOperation.idl
     animation/CompositeOperationOrAuto.idl
     animation/ComputedEffectTiming.idl
@@ -919,7 +921,6 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/AbortSignal.idl
     dom/AbstractRange.idl
     dom/AddEventListenerOptions.idl
-    dom/AnimationEvent.idl
     dom/Attr.idl
     dom/BeforeUnloadEvent.idl
     dom/BroadcastChannel.idl
@@ -1046,7 +1047,6 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/Touch.idl
     dom/TouchEvent.idl
     dom/TouchList.idl
-    dom/TransitionEvent.idl
     dom/TreeWalker.idl
     dom/UIEvent.idl
     dom/UIEventInit.idl
@@ -1726,6 +1726,7 @@ set(WebCore_CSS_VALUE_KEYWORDS
 set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/dialog.css
     ${WEBCORE_DIR}/css/fullscreen.css
+    ${WEBCORE_DIR}/css/horizontalFormControls.css
     ${WEBCORE_DIR}/css/html.css
     ${WEBCORE_DIR}/css/mathml.css
     ${WEBCORE_DIR}/css/plugIns.css
@@ -1877,7 +1878,6 @@ if (ENABLE_WEBGL)
         html/canvas/WebGLBuffer.cpp
         html/canvas/WebGLColorBufferFloat.cpp
         html/canvas/WebGLCompressedTextureASTC.cpp
-        html/canvas/WebGLCompressedTextureATC.cpp
         html/canvas/WebGLCompressedTextureETC.cpp
         html/canvas/WebGLCompressedTextureETC1.cpp
         html/canvas/WebGLCompressedTexturePVRTC.cpp
@@ -1946,7 +1946,6 @@ list(APPEND WebCore_IDL_FILES
     html/canvas/WebGLBuffer.idl
     html/canvas/WebGLColorBufferFloat.idl
     html/canvas/WebGLCompressedTextureASTC.idl
-    html/canvas/WebGLCompressedTextureATC.idl
     html/canvas/WebGLCompressedTextureETC.idl
     html/canvas/WebGLCompressedTextureETC1.idl
     html/canvas/WebGLCompressedTexturePVRTC.idl

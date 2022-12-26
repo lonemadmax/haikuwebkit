@@ -102,12 +102,9 @@ WebKitWebsiteDataManager* webkitWebViewGetWebsiteDataManager(WebKitWebView*);
 
 #if PLATFORM(GTK)
 bool webkitWebViewEmitRunColorChooser(WebKitWebView*, WebKitColorChooserRequest*);
-bool webkitWebViewShowOptionMenu(WebKitWebView*, const WebCore::IntRect&, WebKitOptionMenu*, const GdkEvent*);
 #endif
 
-#if PLATFORM(WPE)
 bool webkitWebViewShowOptionMenu(WebKitWebView*, const WebCore::IntRect&, WebKitOptionMenu*);
-#endif
 
 gboolean webkitWebViewAuthenticate(WebKitWebView*, WebKitAuthenticationRequest*);
 gboolean webkitWebViewScriptDialog(WebKitWebView*, WebKitScriptDialog*);
@@ -128,3 +125,4 @@ void webkitWebViewDeleteSurrounding(WebKitWebView*, int offset, unsigned charact
 void webkitWebViewSetIsWebProcessResponsive(WebKitWebView*, bool);
 
 guint createShowOptionMenuSignal(WebKitWebViewClass*);
+guint createContextMenuSignal(WebKitWebViewClass*);

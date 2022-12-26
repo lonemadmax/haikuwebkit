@@ -490,8 +490,10 @@ animation/AnimationEventBase.cpp
 animation/AnimationPlaybackEvent.cpp
 animation/AnimationTimeline.cpp
 animation/CSSAnimation.cpp
+animation/CSSAnimationEvent.cpp
 animation/CSSPropertyAnimation.cpp
 animation/CSSTransition.cpp
+animation/CSSTransitionEvent.cpp
 animation/CompositeOperation.cpp
 animation/CustomEffect.cpp
 animation/DeclarativeAnimation.cpp
@@ -570,8 +572,6 @@ bindings/js/JSExecState.cpp
 bindings/js/JSExtendableMessageEventCustom.cpp
 bindings/js/JSFetchEventCustom.cpp
 bindings/js/JSFileSystemEntryCustom.cpp
-bindings/js/JSFileSystemDirectoryHandleCustom.cpp
-bindings/js/JSFileSystemDirectoryHandleIterator.cpp
 bindings/js/JSFileSystemHandleCustom.cpp
 bindings/js/JSHTMLAllCollectionCustom.cpp
 bindings/js/JSHTMLCanvasElementCustom.cpp
@@ -951,7 +951,6 @@ dom/AbstractRange.cpp
 dom/ActiveDOMCallback.cpp
 dom/ActiveDOMObject.cpp
 dom/AllDescendantsCollection.cpp
-dom/AnimationEvent.cpp
 dom/Attr.cpp
 dom/BeforeTextInsertedEvent.cpp
 dom/BeforeUnloadEvent.cpp
@@ -1112,7 +1111,6 @@ dom/Touch.cpp @no-unify
 dom/TouchEvent.cpp @no-unify
 dom/TouchList.cpp @no-unify
 dom/TransformSourceLibxslt.cpp
-dom/TransitionEvent.cpp
 dom/Traversal.cpp
 dom/TreeScope.cpp
 dom/TreeScopeOrderedMap.cpp
@@ -1433,7 +1431,6 @@ html/canvas/WebGL2RenderingContext.cpp
 html/canvas/WebGLBuffer.cpp
 html/canvas/WebGLColorBufferFloat.cpp
 html/canvas/WebGLCompressedTextureASTC.cpp
-html/canvas/WebGLCompressedTextureATC.cpp
 html/canvas/WebGLCompressedTextureETC.cpp
 html/canvas/WebGLCompressedTextureETC1.cpp
 html/canvas/WebGLCompressedTexturePVRTC.cpp
@@ -2140,6 +2137,7 @@ platform/graphics/GraphicsLayer.cpp
 platform/graphics/GraphicsLayerContentsDisplayDelegate.cpp
 platform/graphics/GraphicsLayerTransform.cpp
 platform/graphics/GraphicsLayerUpdater.cpp
+platform/graphics/GraphicsStyle.cpp
 platform/graphics/GraphicsTypes.cpp
 platform/graphics/HEVCUtilities.cpp
 platform/graphics/Icon.cpp
@@ -2227,6 +2225,7 @@ platform/graphics/filters/Filter.cpp
 platform/graphics/filters/FilterEffect.cpp
 platform/graphics/filters/FilterFunction.cpp
 platform/graphics/filters/FilterImage.cpp
+platform/graphics/filters/FilterImageTargetSwitcher.cpp
 platform/graphics/filters/FilterOperation.cpp
 platform/graphics/filters/FilterOperations.cpp
 platform/graphics/filters/FilterResults.cpp
@@ -2995,7 +2994,6 @@ JSAesKeyParams.cpp
 JSAnalyserNode.cpp
 JSAnalyserOptions.cpp
 JSAnimationEffect.cpp
-JSAnimationEvent.cpp
 JSAnimationFrameRatePreset.cpp
 JSAnimationPlaybackEvent.cpp
 JSAnimationPlaybackEventInit.cpp
@@ -3058,6 +3056,7 @@ JSByteLengthQueuingStrategy.cpp
 JSCDATASection.cpp
 JSCSPViolationReportBody.cpp
 JSCSSAnimation.cpp
+JSCSSAnimationEvent.cpp
 JSCSSConditionRule.cpp
 JSCSSContainerRule.cpp
 JSCSSCounterStyleRule.cpp
@@ -3082,6 +3081,7 @@ JSCSSStyleRule.cpp
 JSCSSStyleSheet.cpp
 JSCSSSupportsRule.cpp
 JSCSSTransition.cpp
+JSCSSTransitionEvent.cpp
 JSCSSUnknownRule.cpp
 JSCOEPInheritenceViolationReportBody.cpp
 JSCORPViolationReportBody.cpp
@@ -4068,7 +4068,6 @@ JSTrackEvent.cpp
 JSTransferFunction.cpp
 JSTransformStream.cpp
 JSTransformStreamDefaultController.cpp
-JSTransitionEvent.cpp
 JSTreeWalker.cpp
 JSCSSKeywordValue.cpp
 JSCSSStyleImageValue.cpp
@@ -4166,7 +4165,6 @@ JSWebGLActiveInfo.cpp
 JSWebGLBuffer.cpp
 JSWebGLColorBufferFloat.cpp
 JSWebGLCompressedTextureASTC.cpp
-JSWebGLCompressedTextureATC.cpp
 JSWebGLCompressedTextureETC.cpp
 JSWebGLCompressedTextureETC1.cpp
 JSWebGLCompressedTexturePVRTC.cpp

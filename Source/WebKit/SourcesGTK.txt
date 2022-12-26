@@ -52,6 +52,7 @@ NetworkProcess/webrtc/LibWebRTCSocketClient.cpp
 NetworkProcess/webrtc/NetworkRTCMonitor.cpp
 NetworkProcess/webrtc/NetworkRTCProvider.cpp
 
+Platform/IPC/unix/ArgumentCodersUnix.cpp
 Platform/IPC/unix/ConnectionUnix.cpp
 Platform/IPC/unix/IPCSemaphoreUnix.cpp
 
@@ -216,6 +217,8 @@ UIProcess/API/gtk/WebKitWebInspector.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewBase.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewDialog.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewGtk.cpp @no-unify
+UIProcess/API/gtk/WebKitWebViewGtk3.cpp @no-unify
+UIProcess/API/gtk/WebKitWebViewGtk4.cpp @no-unify
 
 UIProcess/API/soup/HTTPCookieStoreSoup.cpp
 

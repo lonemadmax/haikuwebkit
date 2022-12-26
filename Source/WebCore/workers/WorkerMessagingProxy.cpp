@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
- * Copyright (C) 2009 Google Inc. All Rights Reserved.
+ * Copyright (C) 2009-2022 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -123,6 +123,11 @@ void WorkerMessagingProxy::startWorkerGlobalScope(const URL& scriptURL, PAL::Ses
 {
     if (!m_scriptExecutionContext)
         return;
+    
+    if (m_askedToTerminate) {
+        // Worker.terminate() could be called from JS before the thread was created.
+        return;
+    }
 
     auto* parentWorkerGlobalScope = dynamicDowncast<WorkerGlobalScope>(m_scriptExecutionContext.get());
     WorkerThreadStartMode startMode = m_inspectorProxy->workerStartMode(*m_scriptExecutionContext.get());
@@ -165,8 +170,16 @@ void WorkerMessagingProxy::postMessageToWorkerObject(MessageWithMessagePorts&& m
 
         auto ports = MessagePort::entanglePorts(context, WTFMove(message.transferredPorts));
         ActiveDOMObject::queueTaskKeepingObjectAlive(*workerObject, TaskSource::PostedMessageQueue, [worker = Ref { *workerObject }, message = WTFMove(message), userGestureForwarder = WTFMove(userGestureForwarder), ports = WTFMove(ports)] () mutable {
+            if (!worker->scriptExecutionContext())
+                return;
+
+            auto* globalObject = worker->scriptExecutionContext()->globalObject();
+            if (!globalObject)
+                return;
+
             UserGestureIndicator userGestureIndicator(userGestureForwarder ? userGestureForwarder->userGestureToForward() : nullptr);
-            worker->dispatchEvent(MessageEvent::create(message.message.releaseNonNull(), { }, { }, std::nullopt, WTFMove(ports)));
+            auto event = MessageEvent::create(*globalObject, message.message.releaseNonNull(), { }, { }, { }, WTFMove(ports));
+            worker->dispatchEvent(event.event);
         });
     });
 }
@@ -193,14 +206,18 @@ void WorkerMessagingProxy::postMessageToWorkerGlobalScope(MessageWithMessagePort
     postTaskToWorkerGlobalScope([this, protectedThis = Ref { *this }, message = WTFMove(message), userGestureForwarder = WTFMove(userGestureForwarder)](auto& scriptContext) mutable {
         ASSERT_WITH_SECURITY_IMPLICATION(scriptContext.isWorkerGlobalScope());
         auto& context = static_cast<DedicatedWorkerGlobalScope&>(scriptContext);
-        auto ports = MessagePort::entanglePorts(scriptContext, WTFMove(message.transferredPorts));
+        auto* globalObject = context.globalObject();
+        if (!globalObject)
+            return;
 
         // Setting m_userGestureForwarder here, before dispatching the MessageEvent, will allow all calls to
         // worker.postMessage() made during the handling of that MessageEvent to inherit the UserGestureToken
         // held by the forwarder; see postMessageToWorkerObject() above.
         m_userGestureForwarder = WTFMove(userGestureForwarder);
 
-        context.dispatchEvent(MessageEvent::create(message.message.releaseNonNull(), { }, { }, std::nullopt, WTFMove(ports)));
+        auto ports = MessagePort::entanglePorts(scriptContext, WTFMove(message.transferredPorts));
+        auto event = MessageEvent::create(*globalObject, message.message.releaseNonNull(), { }, { }, std::nullopt, WTFMove(ports));
+        context.dispatchEvent(event.event);
 
         // Because WorkerUserGestureForwarder is defined as DestructionThread::Main, releasing this Ref
         // on the Worker thread will cause the forwarder to be destroyed on the main thread.
@@ -313,21 +330,17 @@ void WorkerMessagingProxy::setResourceCachingDisabledByWebInspector(bool disable
 
 void WorkerMessagingProxy::workerThreadCreated(DedicatedWorkerThread& workerThread)
 {
+    ASSERT(!m_askedToTerminate);
     m_workerThread = &workerThread;
 
-    if (m_askedToTerminate) {
-        // Worker.terminate() could be called from JS before the thread was created.
-        m_workerThread->stop(nullptr);
-    } else {
-        if (m_askedToSuspend) {
-            m_askedToSuspend = false;
-            m_workerThread->suspend();
-        }
-
-        auto queuedEarlyTasks = WTFMove(m_queuedEarlyTasks);
-        for (auto& task : queuedEarlyTasks)
-            m_workerThread->runLoop().postTask(WTFMove(*task));
+    if (m_askedToSuspend) {
+        m_askedToSuspend = false;
+        m_workerThread->suspend();
     }
+
+    auto queuedEarlyTasks = std::exchange(m_queuedEarlyTasks, { });
+    for (auto& task : queuedEarlyTasks)
+        m_workerThread->runLoop().postTask(WTFMove(*task));
 }
 
 void WorkerMessagingProxy::workerObjectDestroyed()
