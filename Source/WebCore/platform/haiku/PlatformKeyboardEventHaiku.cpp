@@ -690,20 +690,23 @@ void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCom
     }
 }
 
-bool PlatformKeyboardEvent::currentCapsLockState()
+OptionSet<WebCore::PlatformEvent::Modifier> PlatformKeyboardEvent::currentStateOfModifierKeys()
 {
-    return ::modifiers() & B_CAPS_LOCK;
+    int32 nativeModifiers = ::modifiers();
+    OptionSet<Modifier> modifiers;
+
+    if (nativeModifiers & B_SHIFT_KEY)
+        modifiers.add(PlatformEvent::Modifier::ShiftKey);
+    if (nativeModifiers & B_COMMAND_KEY)
+        modifiers.add(PlatformEvent::Modifier::ControlKey);
+    if (nativeModifiers & B_CONTROL_KEY)
+        modifiers.add(PlatformEvent::Modifier::AltKey);
+    if (nativeModifiers & B_OPTION_KEY)
+        modifiers.add(PlatformEvent::Modifier::MetaKey);
+
+    return modifiers;
 }
 
-void PlatformKeyboardEvent::getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey)
-{
-    // FIXME: copied on Qt, check this
-    notImplemented();
-    shiftKey = false;
-    ctrlKey = false;
-    altKey = false;
-    metaKey = false;
-}
 
 } // namespace WebCore
 
