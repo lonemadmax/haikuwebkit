@@ -204,7 +204,7 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
 
     ObjectContentType objectContentType(const URL&, const String& mimeType) override;
 
-    String overrideMediaType() const override;
+    AtomString overrideMediaType() const override;
 
     void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld&) override;
 

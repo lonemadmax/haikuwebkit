@@ -418,8 +418,8 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
     if (!frame)
         return nullptr;
 
-    data->frame = WebCore::Frame::create(fData->page,
-        ownerElement, makeUniqueRef<FrameLoaderClientHaiku>(page));
+    data->frame = WebCore::Frame::create(fData->page, ownerElement,
+        makeUniqueRef<FrameLoaderClientHaiku>(page), WebCore::FrameIdentifier::generate());
     FrameLoaderClientHaiku& client = static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
     client.setFrame(frame);
     data->frame->tree().setName(AtomString::fromUTF8(name.String()));

@@ -960,7 +960,7 @@ void FrameLoaderClientHaiku::redirectDataToPlugin(Widget& pluginWidge)
     debugger("plugins are not implemented on Haiku!");
 }
 
-String FrameLoaderClientHaiku::overrideMediaType() const
+AtomString FrameLoaderClientHaiku::overrideMediaType() const
 {
     // This will do, until we support printing.
     return ASCIILiteral::fromLiteralUnsafe("screen");
