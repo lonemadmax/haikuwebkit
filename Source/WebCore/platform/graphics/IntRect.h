@@ -193,8 +193,8 @@ public:
     bool isValid() const;
 
 #if PLATFORM(WIN)
-    IntRect(const RECT&);
-    operator RECT() const;
+    WEBCORE_EXPORT IntRect(const RECT&);
+    WEBCORE_EXPORT operator RECT() const;
 #elif PLATFORM(HAIKU)
     explicit IntRect(const BRect&);
     operator BRect() const;

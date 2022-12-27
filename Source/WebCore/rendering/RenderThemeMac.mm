@@ -2369,8 +2369,14 @@ RetainPtr<NSImage> RenderThemeMac::iconForAttachment(const String& fileName, con
     if (fileName.isNull() && attachmentType.isNull() && title.isNull())
         return nil;
 
-    if (auto icon = WebCore::iconForAttachment(fileName, attachmentType, title))
-        return adoptNS([[NSImage alloc] initWithCGImage:icon->image()->platformImage().get() size:NSZeroSize]);
+    if (auto icon = WebCore::iconForAttachment(fileName, attachmentType, title)) {
+        auto imageForIcon = adoptNS([[NSImage alloc] initWithCGImage:icon->image()->platformImage().get() size:NSZeroSize]);
+        // Need this because WebCore uses AppKit's flipped coordinate system exclusively.
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        [imageForIcon setFlipped:YES];
+        ALLOW_DEPRECATED_DECLARATIONS_END
+        return imageForIcon;
+    }
 
     return nil;
 }
@@ -2436,10 +2442,17 @@ static void paintAttachmentIcon(const RenderAttachment& attachment, GraphicsCont
         attachment.attachmentElement().requestIconWithSize(layout.iconRect.size());
         return;
     }
+
+    auto image = icon->nsImage();
+    if (!image)
+        return;
     
     if (!shouldDrawIcon(attachment.attachmentElement().attachmentTitleForDisplay()))
         return;
-    context.drawImage(*icon, layout.iconRect);
+
+    LocalCurrentGraphicsContext localCurrentGC(context);
+
+    [image drawInRect:layout.iconRect fromRect:NSMakeRect(0, 0, [image size].width, [image size].height) operation:NSCompositingOperationSourceOver fraction:1.0f];
 }
 
 static std::pair<RefPtr<Image>, float> createAttachmentPlaceholderImage(float deviceScaleFactor, const AttachmentLayout& layout)

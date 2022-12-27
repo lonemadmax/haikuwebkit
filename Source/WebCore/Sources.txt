@@ -60,6 +60,8 @@ Modules/async-clipboard/ClipboardItem.cpp
 Modules/async-clipboard/ClipboardItemBindingsDataSource.cpp
 Modules/async-clipboard/ClipboardItemPasteboardDataSource.cpp
 Modules/async-clipboard/NavigatorClipboard.cpp
+Modules/audiosession/DOMAudioSession.cpp
+Modules/audiosession/NavigatorAudioSession.cpp
 Modules/beacon/NavigatorBeacon.cpp
 Modules/cache/CacheStorageConnection.cpp
 Modules/cache/DOMCache.cpp
@@ -497,6 +499,7 @@ animation/CSSTransitionEvent.cpp
 animation/CompositeOperation.cpp
 animation/CustomEffect.cpp
 animation/DeclarativeAnimation.cpp
+animation/DeclarativeAnimationEvent.cpp
 animation/DocumentTimeline.cpp
 animation/DocumentTimelinesController.cpp
 animation/ElementAnimationRareData.cpp
@@ -821,11 +824,7 @@ css/DeprecatedCSSOMValueList.cpp
 css/FontFace.cpp
 css/FontFaceSet.cpp
 css/FontVariantBuilder.cpp
-css/LegacyMediaQueryEvaluator.cpp
-css/LegacyMediaQuery.cpp
-css/MediaFeatureNames.cpp
 css/MediaList.cpp
-css/MediaQueryExpression.cpp
 css/MediaQueryList.cpp
 css/MediaQueryListEvent.cpp
 css/MediaQueryMatcher.cpp
@@ -868,10 +867,10 @@ css/parser/CSSPropertyParserHelpers.cpp
 css/parser/CSSPropertyParserWorkerSafe.cpp
 css/parser/CSSSelectorParser.cpp
 css/parser/CSSSupportsParser.cpp
+css/parser/CSSPropertySyntax.cpp
 css/parser/CSSTokenizer.cpp
 css/parser/CSSTokenizerInputStream.cpp
 css/parser/CSSVariableParser.cpp
-css/parser/LegacyMediaQueryParser.cpp
 css/parser/MediaQueryBlockWatcher.cpp
 css/parser/SizesAttributeParser.cpp
 css/parser/SizesCalcParser.cpp
@@ -883,6 +882,7 @@ css/query/MediaQueryEvaluator.cpp
 css/query/MediaQueryFeatures.cpp
 css/query/MediaQueryParser.cpp
 css/typedom/ComputedStylePropertyMapReadOnly.cpp
+css/typedom/InlineStylePropertyMap.cpp
 css/typedom/StylePropertyMapReadOnly.cpp
 css/typedom/CSSKeywordValue.cpp
 css/typedom/CSSStyleImageValue.cpp
@@ -894,6 +894,7 @@ css/typedom/CSSUnitValue.cpp
 css/typedom/CSSUnparsedValue.cpp
 css/typedom/CSSOMVariableReferenceValue.cpp
 css/typedom/DeclaredStylePropertyMap.cpp
+css/typedom/HashMapStylePropertyMapReadOnly.cpp
 css/typedom/MainThreadStylePropertyMapReadOnly.cpp
 css/typedom/StylePropertyMap.cpp
 css/typedom/color/CSSColor.cpp
@@ -1744,7 +1745,7 @@ loader/cache/CachedResource.cpp
 loader/cache/CachedResourceHandle.cpp
 loader/cache/CachedResourceLoader.cpp
 loader/cache/CachedResourceRequest.cpp
-loader/cache/CachedResourceRequestInitiators.cpp
+loader/cache/CachedResourceRequestInitiatorTypes.cpp
 loader/cache/CachedSVGDocument.cpp
 loader/cache/CachedSVGDocumentReference.cpp
 loader/cache/CachedSVGFont.cpp
@@ -1925,6 +1926,7 @@ page/scrolling/ScrollingTreeStickyNode.cpp
 page/scrolling/ThreadedScrollingCoordinator.cpp
 page/scrolling/ThreadedScrollingTree.cpp
 page/scrolling/ThreadedScrollingTreeScrollingNodeDelegate.cpp
+platform/CaretAnimator.cpp
 platform/CommonAtomStrings.cpp
 platform/ContentType.cpp
 platform/ContextMenu.cpp
@@ -1998,6 +2000,7 @@ platform/SerializedPlatformDataCue.cpp
 platform/SharedBuffer.cpp
 platform/SharedBufferChunkReader.cpp
 platform/SharedStringHash.cpp
+platform/SimpleCaretAnimator.cpp
 platform/SleepDisabler.cpp
 platform/SleepDisablerClient.cpp
 platform/SystemSoundManager.cpp
@@ -2229,6 +2232,7 @@ platform/graphics/filters/FilterImageTargetSwitcher.cpp
 platform/graphics/filters/FilterOperation.cpp
 platform/graphics/filters/FilterOperations.cpp
 platform/graphics/filters/FilterResults.cpp
+platform/graphics/filters/FilterStyleTargetSwitcher.cpp
 platform/graphics/filters/FilterTargetSwitcher.cpp
 platform/graphics/filters/PointLightSource.cpp
 platform/graphics/filters/SourceAlpha.cpp
@@ -2262,6 +2266,7 @@ platform/graphics/iso/ISOTrackEncryptionBox.cpp
 platform/graphics/iso/ISOVTTCue.cpp
 platform/graphics/opentype/OpenTypeMathData.cpp
 platform/graphics/transforms/AffineTransform.cpp
+platform/graphics/transforms/IdentityTransformOperation.cpp
 platform/graphics/transforms/Matrix3DTransformOperation.cpp
 platform/graphics/transforms/MatrixTransformOperation.cpp
 platform/graphics/transforms/PerspectiveTransformOperation.cpp
@@ -2397,6 +2402,7 @@ rendering/FloatingObjects.cpp
 rendering/Grid.cpp
 rendering/GridBaselineAlignment.cpp
 rendering/GridLayoutFunctions.cpp
+rendering/GridMasonryLayout.cpp
 rendering/GridTrackSizingAlgorithm.cpp
 rendering/GlyphDisplayListCache.cpp
 rendering/HighlightData.cpp
@@ -3163,6 +3169,7 @@ JSCustomEffectCallback.cpp
 JSCustomElementRegistry.cpp
 JSCustomEvent.cpp
 JSDOMApplicationCache.cpp
+JSDOMAudioSession.cpp
 JSDOMCSSCustomPropertyDescriptor.cpp
 JSDOMCSSNamespace.cpp
 JSDOMCache.cpp
@@ -3295,6 +3302,7 @@ JSFormDataEvent.cpp
 JSGPU.cpp
 JSGPUAdapter.cpp
 JSGPUAddressMode.cpp
+JSGPUAutoLayoutMode.cpp
 JSGPUBindGroup.cpp
 JSGPUBindGroupDescriptor.cpp
 JSGPUBindGroupEntry.cpp

@@ -387,6 +387,10 @@
 #include "ImageControlsMac.h"
 #endif
 
+#if ENABLE(GAMEPAD)
+#include "MockGamepadProvider.h"
+#endif
+
 using JSC::CallData;
 using JSC::CodeBlock;
 using JSC::FunctionExecutable;
@@ -540,7 +544,6 @@ void Internals::resetToConsistentState(Page& page)
 {
     page.setPageScaleFactor(1, IntPoint(0, 0));
     page.setPagination(Pagination());
-    page.setPaginationLineGridEnabled(false);
 
     page.setDefersLoading(false);
 
@@ -664,6 +667,11 @@ void Internals::resetToConsistentState(Page& page)
 #endif
 
     TextPainter::setForceUseGlyphDisplayListForTesting(false);
+
+#if USE(AUDIO_SESSION)
+    AudioSession::sharedSession().setCategoryOverride(AudioSessionCategory::None);
+    AudioSession::sharedSession().tryToSetActive(false);
+#endif
 }
 
 Internals::Internals(Document& document)
@@ -713,6 +721,10 @@ Internals::Internals(Document& document)
     VP9TestingOverrides::singleton().setHardwareDecoderDisabled(std::nullopt);
     VP9TestingOverrides::singleton().setVP9DecoderDisabled(std::nullopt);
     VP9TestingOverrides::singleton().setVP9ScreenSizeAndScale(std::nullopt);
+#endif
+
+#if ENABLE(GAMEPAD)
+    MockGamepadProvider::singleton().clearMockGamepads();
 #endif
 }
 
@@ -1065,6 +1077,7 @@ bool Internals::isImageAnimating(HTMLImageElement& element)
     return image && (image->isAnimating() || image->animationPending());
 }
 
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 void Internals::setImageAnimationEnabled(bool enabled)
 {
     if (auto* page = contextDocument() ? contextDocument()->page() : nullptr)
@@ -1080,6 +1093,7 @@ void Internals::pauseImageAnimation(HTMLImageElement& element)
 {
     element.setAllowsAnimation(false);
 }
+#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 
 unsigned Internals::imagePendingDecodePromisesCountForTesting(HTMLImageElement& element)
 {
@@ -2080,15 +2094,6 @@ ExceptionOr<void> Internals::setPagination(const String& mode, int gap, int page
     pagination.pageLength = pageLength;
     document->page()->setPagination(pagination);
 
-    return { };
-}
-
-ExceptionOr<void> Internals::setPaginationLineGridEnabled(bool enabled)
-{
-    Document* document = contextDocument();
-    if (!document || !document->page())
-        return Exception { InvalidAccessError };
-    document->page()->setPaginationLineGridEnabled(enabled);
     return { };
 }
 
@@ -4748,7 +4753,6 @@ ExceptionOr<Internals::MediaUsageState> Internals::mediaUsageState(HTMLMediaElem
         info.value().isMediaDocumentAndNotOwnerElement,
         info.value().pageExplicitlyAllowsElementToAutoplayInline,
         info.value().requiresFullscreenForVideoPlaybackAndFullscreenNotPermitted,
-        info.value().hasHadUserInteractionAndQuirksContainsShouldAutoplayForArbitraryUserGesture,
         info.value().isVideoAndRequiresUserGestureForVideoRateChange,
         info.value().isAudioAndRequiresUserGestureForAudioRateChange,
         info.value().isVideoAndRequiresUserGestureForVideoDueToLowPowerMode,

@@ -1,4 +1,4 @@
-//@ requireOptions("--useWebAssemblySIMD=1")
+//@ requireOptions("--useWebAssemblySIMD=1", "--useBBQJIT=1", "--webAssemblyBBQAirModeThreshold=0", "--wasmBBQUsesAir=1", "--useWasmLLInt=1", "--wasmLLIntTiersUpToBBQ=1")
 //@ skip if $architecture != "arm64"
 // Copyright 2018 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -10,7 +10,7 @@ load("wasm-module-builder.js");
 load("exceptions-utils.js");
 
 (function TestThrowS128Default() {
-  print(arguments.callee.name);
+  // print(arguments.callee.name);
   var builder = new WasmModuleBuilder();
   var kSig_v_s = makeSig([kWasmS128], []);
   var except = builder.addTag(kSig_v_s);
@@ -28,7 +28,7 @@ load("exceptions-utils.js");
 })();
 
 (function TestThrowCatchS128Default() {
-  print(arguments.callee.name);
+  // print(arguments.callee.name);
   var builder = new WasmModuleBuilder();
   var kSig_v_s = makeSig([kWasmS128], []);
   var except = builder.addTag(kSig_v_s);
@@ -51,7 +51,7 @@ load("exceptions-utils.js");
 })();
 
 (function TestThrowCatchS128WithValue() {
-  print(arguments.callee.name);
+  // print(arguments.callee.name);
   var builder = new WasmModuleBuilder();
   var kSig_v_s = makeSig([kWasmS128], []);
   var except = builder.addTag(kSig_v_s);

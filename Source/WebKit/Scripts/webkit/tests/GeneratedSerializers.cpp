@@ -115,11 +115,11 @@ std::optional<Namespace::Subnamespace::StructName> ArgumentCoder<Namespace::Subn
 
     return {
         Namespace::Subnamespace::StructName {
-            WTFMove(*firstMemberName)
+            WTFMove(*firstMemberName),
 #if ENABLE(SECOND_MEMBER)
-            , WTFMove(*secondMemberName)
+            WTFMove(*secondMemberName),
 #endif
-            , WTFMove(*nullableTestMember)
+            WTFMove(*nullableTestMember)
         }
     };
 }
@@ -167,10 +167,10 @@ std::optional<Namespace::OtherClass> ArgumentCoder<Namespace::OtherClass>::decod
 
     return {
         Namespace::OtherClass {
-            WTFMove(*isNull)
-            , WTFMove(*a)
-            , WTFMove(*b)
-            , WTFMove(*dataDetectorResults)
+            WTFMove(*isNull),
+            WTFMove(*a),
+            WTFMove(*b),
+            WTFMove(*dataDetectorResults)
         }
     };
 }
@@ -216,9 +216,9 @@ std::optional<Ref<Namespace::ReturnRefClass>> ArgumentCoder<Namespace::ReturnRef
 
     return {
         Namespace::ReturnRefClass::create(
-            WTFMove(*functionCallmember1)
-            , WTFMove(*functionCallmember2)
-            , WTFMove(*uniqueMember)
+            WTFMove(*functionCallmember1),
+            WTFMove(*functionCallmember2),
+            WTFMove(*uniqueMember)
         )
     };
 }
@@ -378,9 +378,8 @@ std::optional<WebCore::InheritsFrom> ArgumentCoder<WebCore::InheritsFrom>::decod
         WebCore::InheritsFrom {
             WithoutNamespace {
                 WTFMove(*a)
-            }
-            
-            , WTFMove(*b)
+            },
+            WTFMove(*b)
         }
     };
 }
@@ -418,12 +417,10 @@ std::optional<WebCore::InheritanceGrandchild> ArgumentCoder<WebCore::Inheritance
             WebCore::InheritsFrom {
                 WithoutNamespace {
                     WTFMove(*a)
-                }
-                
-                , WTFMove(*b)
-            }
-            
-            , WTFMove(*c)
+                },
+                WTFMove(*b)
+            },
+            WTFMove(*c)
         }
     };
 }
@@ -511,6 +508,44 @@ std::optional<WebCore::FloatBoxExtent> ArgumentCoder<WebCore::FloatBoxExtent>::d
             WTFMove(*right),
             WTFMove(*bottom),
             WTFMove(*left)
+        }
+    };
+}
+
+
+void ArgumentCoder<NullableSoftLinkedMember>::encode(Encoder& encoder, const NullableSoftLinkedMember& instance)
+{
+    static_assert(std::is_same_v<std::remove_cvref_t<decltype(instance.firstMember)>, RetainPtr<DDActionContext>>);
+    static_assert(std::is_same_v<std::remove_cvref_t<decltype(instance.secondMember)>, RetainPtr<DDActionContext>>);
+    encoder << !!instance.firstMember;
+    if (!!instance.firstMember)
+        encoder << instance.firstMember;
+    encoder << instance.secondMember;
+}
+
+std::optional<NullableSoftLinkedMember> ArgumentCoder<NullableSoftLinkedMember>::decode(Decoder& decoder)
+{
+    std::optional<RetainPtr<DDActionContext>> firstMember;
+    std::optional<bool> hasfirstMember;
+    decoder >> hasfirstMember;
+    if (!hasfirstMember)
+        return std::nullopt;
+    if (*hasfirstMember) {
+        firstMember = IPC::decode<DDActionContext>(decoder, PAL::getDDActionContextClass());
+        if (!firstMember)
+            return std::nullopt;
+    } else
+        firstMember = std::optional<RetainPtr<DDActionContext>> { RetainPtr<DDActionContext> { } };
+
+    std::optional<RetainPtr<DDActionContext>> secondMember;
+    secondMember = IPC::decode<DDActionContext>(decoder, PAL::getDDActionContextClass());
+    if (!secondMember)
+        return std::nullopt;
+
+    return {
+        NullableSoftLinkedMember {
+            WTFMove(*firstMember),
+            WTFMove(*secondMember)
         }
     };
 }

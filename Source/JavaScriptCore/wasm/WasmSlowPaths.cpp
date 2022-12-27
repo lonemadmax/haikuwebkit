@@ -83,6 +83,13 @@ namespace JSC { namespace LLInt {
 #if ENABLE(WEBASSEMBLY_B3JIT)
 enum class RequiredWasmJIT { Any, OMG };
 
+extern "C" void wasm_log_crash(CallFrame*, Wasm::Instance* instance)
+{
+    dataLogLn("Reached LLInt code that should never have been executed.");
+    dataLogLn("Module internal function count: ", instance->module().moduleInformation().internalFunctionCount());
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
 inline bool shouldJIT(Wasm::LLIntCallee* callee, RequiredWasmJIT requiredJIT = RequiredWasmJIT::Any)
 {
     if (requiredJIT == RequiredWasmJIT::OMG) {
@@ -101,6 +108,8 @@ inline bool shouldJIT(Wasm::LLIntCallee* callee, RequiredWasmJIT requiredJIT = R
 
 inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
 {
+    ASSERT(!instance->module().moduleInformation().isSIMDFunction(callee->functionIndex()));
+
     Wasm::LLIntTierUpCounter& tierUpCounter = callee->tierUpCounter();
     if (!tierUpCounter.checkIfOptimizationThresholdReached()) {
         dataLogLnIf(Options::verboseOSR(), "    JIT threshold should be lifted.");
@@ -145,6 +154,46 @@ inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance
     }
 
     return !!callee->replacement(instance->memory()->mode());
+}
+
+inline bool jitCompileSIMDFunction(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
+{
+    Wasm::LLIntTierUpCounter& tierUpCounter = callee->tierUpCounter();
+
+    if (callee->replacement(instance->memory()->mode()))  {
+        dataLogLnIf(Options::verboseOSR(), "    SIMD code was already compiled.");
+        return true;
+    }
+
+    bool compile = false;
+    while (!compile) {
+        Locker locker { tierUpCounter.m_lock };
+        switch (tierUpCounter.m_compilationStatus) {
+        case Wasm::LLIntTierUpCounter::CompilationStatus::NotCompiled:
+            compile = true;
+            tierUpCounter.m_compilationStatus = Wasm::LLIntTierUpCounter::CompilationStatus::Compiling;
+            break;
+        case Wasm::LLIntTierUpCounter::CompilationStatus::Compiling:
+            // This spinlock is bad, but this is only temporary.
+            continue;
+        case Wasm::LLIntTierUpCounter::CompilationStatus::Compiled:
+            RELEASE_ASSERT(!!callee->replacement(instance->memory()->mode()));
+            return true;
+        }
+    }
+
+    uint32_t functionIndex = callee->functionIndex();
+    ASSERT(instance->module().moduleInformation().isSIMDFunction(functionIndex));
+    RefPtr<Wasm::Plan> plan = adoptRef(*new Wasm::BBQPlan(instance->vm(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
+
+    Wasm::ensureWorklist().enqueue(*plan);
+    plan->waitForCompletion();
+
+    Locker locker { tierUpCounter.m_lock };
+    RELEASE_ASSERT(tierUpCounter.m_compilationStatus == Wasm::LLIntTierUpCounter::CompilationStatus::Compiled);
+    RELEASE_ASSERT(!!callee->replacement(instance->memory()->mode()));
+
+    return true;
 }
 
 WASM_SLOW_PATH_DECL(prologue_osr)
@@ -281,6 +330,21 @@ WASM_SLOW_PATH_DECL(epilogue_osr)
     jitCompileAndSetHeuristics(callee, instance);
     WASM_END_IMPL();
 }
+
+WASM_SLOW_PATH_DECL(simd_go_straight_to_bbq_osr)
+{
+    UNUSED_PARAM(pc);
+    Wasm::LLIntCallee* callee = CALLEE();
+
+    if (!Options::useWebAssemblySIMD())
+        RELEASE_ASSERT_NOT_REACHED();
+    RELEASE_ASSERT(shouldJIT(callee));
+
+    dataLogLnIf(Options::verboseOSR(), *callee, ": Entered simd_go_straight_to_bbq_osr with tierUpCounter = ", callee->tierUpCounter());
+
+    RELEASE_ASSERT(jitCompileSIMDFunction(callee, instance));
+    WASM_RETURN_TWO(callee->replacement(instance->memory()->mode())->entrypoint().taggedPtr(), nullptr);
+}
 #endif
 
 WASM_SLOW_PATH_DECL(trace)
@@ -338,7 +402,7 @@ WASM_SLOW_PATH_DECL(array_new_default)
 
     Wasm::TypeDefinition& arraySignature = instance->module().moduleInformation().typeSignatures[instruction.m_typeIndex];
     ASSERT(arraySignature.is<Wasm::ArrayType>());
-    Wasm::Type elementType = arraySignature.as<Wasm::ArrayType>()->elementType().type;
+    Wasm::StorageType elementType = arraySignature.as<Wasm::ArrayType>()->elementType().type;
 
     EncodedJSValue value = 0;
     if (Wasm::isRefType(elementType))
@@ -347,21 +411,46 @@ WASM_SLOW_PATH_DECL(array_new_default)
     WASM_RETURN(Wasm::operationWasmArrayNew(instance, instruction.m_typeIndex, size, value));
 }
 
-WASM_SLOW_PATH_DECL(array_get)
+template <typename WasmOp>
+static auto ArrayGetOperation(CallFrame* callFrame, const WasmInstruction* pc, Wasm::Instance* instance, std::function<EncodedJSValue(Wasm::StorageType, EncodedJSValue)> callback)
 {
-    auto instruction = pc->as<WasmArrayGet>();
+    auto instruction = pc->as<WasmOp>();
     EncodedJSValue arrayref = READ(instruction.m_arrayref).encodedJSValue();
     if (JSValue::decode(arrayref).isNull())
         WASM_THROW(Wasm::ExceptionType::NullArrayGet);
     uint32_t index = READ(instruction.m_index).unboxedUInt32();
-
     JSValue arrayValue = JSValue::decode(arrayref);
     ASSERT(arrayValue.isObject());
     JSWebAssemblyArray* arrayObject = jsCast<JSWebAssemblyArray*>(arrayValue.getObject());
     if (index >= arrayObject->size())
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsArrayGet);
+    WASM_RETURN(callback(arrayObject->elementType().type, Wasm::operationWasmArrayGet(instance, instruction.m_typeIndex, arrayref, index)));
+}
 
-    WASM_RETURN(Wasm::operationWasmArrayGet(instance, instruction.m_typeIndex, arrayref, index));
+WASM_SLOW_PATH_DECL(array_get)
+{
+    return ArrayGetOperation<WasmArrayGet>(callFrame, pc, instance, [=](auto, auto result) {
+        return result;
+    });
+}
+
+WASM_SLOW_PATH_DECL(array_get_s)
+{
+    auto callback = [=](Wasm::StorageType type, EncodedJSValue value) {
+        size_t elementSize = *type.as<Wasm::PackedType>() == Wasm::PackedType::I8 ? sizeof(uint8_t) : sizeof(uint16_t);
+        uint8_t bitShift = (sizeof(uint32_t) - elementSize) * 8;
+        int32_t result = static_cast<int32_t>(value);
+        result = result << bitShift;
+        return static_cast<EncodedJSValue>(result >> bitShift);
+    };
+    return ArrayGetOperation<WasmArrayGetS>(callFrame, pc, instance, callback);
+}
+
+WASM_SLOW_PATH_DECL(array_get_u)
+{
+    return ArrayGetOperation<WasmArrayGetU>(callFrame, pc, instance, [=](auto, auto result) {
+        return result;
+    });
 }
 
 WASM_SLOW_PATH_DECL(array_set)

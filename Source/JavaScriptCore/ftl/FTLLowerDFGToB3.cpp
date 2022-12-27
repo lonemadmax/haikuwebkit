@@ -3018,7 +3018,7 @@ private:
                 m_out.storeDouble(value, m_out.baseIndex(m_heaps.indexedDoubleProperties, buffer, m_out.constInt32(index), jsNumber(index)));
             }
 
-            setDouble(m_out.callWithoutSideEffects(Double, m_node->op() == ArithMin ? operationArithMinMultipleDouble : operationArithMaxMultipleDouble, buffer, m_out.constInt32(m_node->numChildren())));
+            setDouble(vmCall(Double, m_node->op() == ArithMin ? operationArithMinMultipleDouble : operationArithMaxMultipleDouble, buffer, m_out.constInt32(m_node->numChildren())));
             break;
         }
             
@@ -10686,7 +10686,7 @@ IGNORE_CLANG_WARNINGS_END
                     jit.jump().linkTo(mainPath, &jit);
                     callLinkInfo->setExecutableDuringCompilation(executable);
                     if (numAllocatedArgs > numPassedArgs)
-                        callLinkInfo->setMaxArgumentCountIncludingThis(numAllocatedArgs);
+                        callLinkInfo->setDirectCallMaxArgumentCountIncludingThis(numAllocatedArgs);
                     
                     jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
                         callLinkInfo->setCodeLocations(
@@ -10711,7 +10711,7 @@ IGNORE_CLANG_WARNINGS_END
                 
                 callLinkInfo->setExecutableDuringCompilation(executable);
                 if (numAllocatedArgs > numPassedArgs)
-                    callLinkInfo->setMaxArgumentCountIncludingThis(numAllocatedArgs);
+                    callLinkInfo->setDirectCallMaxArgumentCountIncludingThis(numAllocatedArgs);
                 
                 params.addLatePath(
                     [=] (CCallHelpers& jit) {

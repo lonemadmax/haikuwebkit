@@ -93,9 +93,6 @@ public:
     virtual String mediaControlsFormattedStringForDuration(double) { return String(); }
 #endif // ENABLE(MODERN_MEDIA_CONTROLS)
 #endif // ENABLE(VIDEO)
-#if ENABLE(FULLSCREEN_API)
-    virtual String extraFullScreenStyleSheet() { return String(); }
-#endif
 #if ENABLE(ATTACHMENT_ELEMENT)
     virtual String attachmentStyleSheet() const;
 #endif
@@ -157,8 +154,8 @@ public:
     Color inactiveSelectionForegroundColor(OptionSet<StyleColorOptions>) const;
 
     // List box selection colors
-    Color activeListBoxSelectionBackgroundColor(OptionSet<StyleColorOptions>) const;
-    Color activeListBoxSelectionForegroundColor(OptionSet<StyleColorOptions>) const;
+    WEBCORE_EXPORT Color activeListBoxSelectionBackgroundColor(OptionSet<StyleColorOptions>) const;
+    WEBCORE_EXPORT Color activeListBoxSelectionForegroundColor(OptionSet<StyleColorOptions>) const;
     Color inactiveListBoxSelectionBackgroundColor(OptionSet<StyleColorOptions>) const;
     Color inactiveListBoxSelectionForegroundColor(OptionSet<StyleColorOptions>) const;
 

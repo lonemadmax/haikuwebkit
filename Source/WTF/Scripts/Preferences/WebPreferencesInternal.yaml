@@ -416,6 +416,20 @@ GetUserMediaRequiresFocus:
     WebCore:
       default: true
 
+GraphicsContextFiltersEnabled:
+   type: bool
+   webcoreOnChange: setNeedsRelayoutAllFrames
+   humanReadableName: "GraphicsContext Filter Rendering"
+   humanReadableDescription: "GraphicsContext Filter Rendering"
+   condition: USE(GRAPHICS_CONTEXT_FILTERS)
+   defaultValue:
+     WebKitLegacy:
+       default: false
+     WebKit:
+       default: false
+     WebCore:
+       default: false
+
 ICECandidateFilteringEnabled:
   type: bool
   webcoreOnChange: iceCandidateFilteringEnabledChanged
@@ -1147,6 +1161,23 @@ UseGPUProcessForMediaEnabled:
   defaultValue:
     WebKit:
       "ENABLE(GPU_PROCESS_BY_DEFAULT)": true
+      default: false
+
+UseGPUProcessForWebGLEnabled:
+  type: bool
+  humanReadableName: "GPU Process: WebGL"
+  humanReadableDescription: "Process all WebGL operations in GPU Process"
+  condition: ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "ENABLE(GPU_PROCESS_BY_DEFAULT) && !HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(WIN)": true
+      default: false
+    WebCore:
+      "ENABLE(GPU_PROCESS_BY_DEFAULT) && !HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(WIN)": true
       default: false
 
 UseGeneralDirectoryForStorage:

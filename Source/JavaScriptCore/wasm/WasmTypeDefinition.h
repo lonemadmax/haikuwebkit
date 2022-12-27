@@ -149,7 +149,6 @@ public:
         : m_payload(payload)
         , m_argCount(argumentCount)
         , m_retCount(returnCount)
-        , m_hasRecursiveReference(false)
     {
     }
 
@@ -160,12 +159,24 @@ public:
     Type returnType(FunctionArgCount i) const { ASSERT(i < returnCount()); return const_cast<FunctionSignature*>(this)->getReturnType(i); }
     bool returnsVoid() const { return !returnCount(); }
     Type argumentType(FunctionArgCount i) const { return const_cast<FunctionSignature*>(this)->getArgumentType(i); }
+    bool argumentsOrResultsIncludeV128() const { return m_argumentsOrResultsIncludeV128; }
+    void setArgumentsOrResultsIncludeV128(bool value) { m_argumentsOrResultsIncludeV128 = value; }
 
     size_t numVectors() const
     {
         size_t n = 0;
         for (size_t i = 0; i < argumentCount(); ++i) {
             if (argumentType(i).isV128())
+                ++n;
+        }
+        return n;
+    }
+
+    size_t numReturnVectors() const
+    {
+        size_t n = 0;
+        for (size_t i = 0; i < returnCount(); ++i) {
+            if (returnType(i).isV128())
                 ++n;
         }
         return n;
@@ -195,7 +206,8 @@ private:
     Type* m_payload;
     FunctionArgCount m_argCount;
     FunctionArgCount m_retCount;
-    bool m_hasRecursiveReference;
+    bool m_hasRecursiveReference { false };
+    bool m_argumentsOrResultsIncludeV128 { false };
 };
 
 // FIXME auto-generate this. https://bugs.webkit.org/show_bug.cgi?id=165231
@@ -204,8 +216,108 @@ enum Mutability : uint8_t {
     Immutable = 0
 };
 
-struct FieldType {
-    Type type;
+struct StorageType {
+public:
+    template <typename T>
+    bool is() const { return std::holds_alternative<T>(m_storageType); }
+
+    template <typename T>
+    const T* as() const { ASSERT(is<T>()); return std::get_if<T>(&m_storageType); }
+
+    StorageType() = default;
+
+    explicit StorageType(Type t)
+    {
+        m_storageType = std::variant<Type, PackedType>(t);
+    }
+
+    explicit StorageType(PackedType t)
+    {
+        m_storageType = std::variant<Type, PackedType>(t);
+    }
+
+    // Return a value type suitable for validating instruction arguments. Packed types cannot show up as value types and need to be unpacked to I32.
+    Type unpacked() const
+    {
+        if (is<Type>())
+            return *as<Type>();
+        return Types::I32;
+    }
+
+    size_t elementSize() const
+    {
+        if (is<Type>()) {
+            switch (as<Type>()->kind) {
+            case Wasm::TypeKind::I32:
+            case Wasm::TypeKind::F32:
+                return sizeof(uint32_t);
+            default:
+                return sizeof(uint64_t);
+            }
+        }
+        switch (*as<PackedType>()) {
+        case PackedType::I8:
+            return sizeof(uint8_t);
+        case PackedType::I16:
+            return sizeof(uint16_t);
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    bool operator==(const StorageType& rhs) const
+    {
+        if (rhs.is<PackedType>())
+            return (is<PackedType>() && *as<PackedType>() == *rhs.as<PackedType>());
+        if (!is<Type>())
+            return false;
+        return(*as<Type>() == *rhs.as<Type>());
+    }
+    bool operator!=(const StorageType& rhs) const { return !(*this == rhs); };
+
+    int8_t typeCode() const
+    {
+        if (is<Type>())
+            return static_cast<int8_t>(as<Type>()->kind);
+        return static_cast<int8_t>(*as<PackedType>());
+    }
+
+    TypeIndex index() const
+    {
+        if (is<Type>())
+            return as<Type>()->index;
+        return 0;
+    }
+    void dump(WTF::PrintStream& out) const;
+
+private:
+    std::variant<Type, PackedType> m_storageType;
+
+};
+
+inline const char* makeString(const StorageType& storageType)
+{
+    return(storageType.is<Type>() ? makeString(storageType.as<Type>()->kind) :
+        makeString(*storageType.as<PackedType>()));
+}
+
+inline size_t typeSizeInBytes(const StorageType& storageType)
+{
+    if (storageType.is<PackedType>()) {
+        switch (*storageType.as<PackedType>()) {
+        case PackedType::I8: {
+            return 1;
+        }
+        case PackedType::I16: {
+            return 2;
+        }
+        }
+    }
+    return typeKindSizeInBytes(storageType.as<Type>()->kind);
+}
+
+class FieldType {
+public:
+    StorageType type;
     Mutability mutability;
 
     bool operator==(const FieldType& rhs) const { return type == rhs.type && mutability == rhs.mutability; }
@@ -480,14 +592,13 @@ inline void Type::dump(PrintStream& out) const
 {
     TypeKind kindToPrint = kind;
     if (index != TypeDefinition::invalidIndex) {
-        auto signedIndex = static_cast<std::make_signed<TypeIndex>::type>(index);
-        if (signedIndex < 0) {
+        if (typeIndexIsType(index)) {
             // If the index is negative, we assume we're using it to represent a TypeKind.
             // FIXME: Reusing index to store a typekind is kind of messy? We should consider
             // refactoring Type to handle this case more explicitly, since it's used in
             // funcrefType() and externrefType().
             // https://bugs.webkit.org/show_bug.cgi?id=247454
-            kindToPrint = static_cast<TypeKind>(signedIndex);
+            kindToPrint = static_cast<TypeKind>(index);
         } else {
             // Assume the index is a pointer to a TypeDefinition.
             out.print(*reinterpret_cast<TypeDefinition*>(index));

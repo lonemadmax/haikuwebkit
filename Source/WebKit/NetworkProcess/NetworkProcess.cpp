@@ -396,24 +396,31 @@ void NetworkProcess::addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier p
 
 bool NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, const URL& firstParty)
 {
-    if (!decltype(m_allowedFirstPartiesForCookies)::isValidKey(processIdentifier)) {
-        ASSERT_NOT_REACHED();
-        return false;
-    }
-
     // FIXME: This should probably not be necessary. If about:blank is the first party for cookies,
     // we should set it to be the inherited origin then remove this exception.
     if (firstParty.isAboutBlank())
         return true;
+
+    if (firstParty.isNull())
+        return true; // FIXME: This shouldn't be allowed.
+
+    RegistrableDomain firstPartyDomain(firstParty);
+    return allowsFirstPartyForCookies(processIdentifier, firstPartyDomain);
+}
+
+bool NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, const RegistrableDomain& firstPartyDomain)
+{
+    if (!decltype(m_allowedFirstPartiesForCookies)::isValidKey(processIdentifier)) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
 
     auto iterator = m_allowedFirstPartiesForCookies.find(processIdentifier);
     if (iterator == m_allowedFirstPartiesForCookies.end()) {
         ASSERT_NOT_REACHED();
         return false;
     }
-    if (firstParty.isNull())
-        return true; // FIXME: This shouldn't be allowed.
-    RegistrableDomain firstPartyDomain(firstParty);
+
     if (!decltype(iterator->value)::isValidValue(firstPartyDomain)) {
         ASSERT_NOT_REACHED();
         return false;
@@ -2463,17 +2470,6 @@ void NetworkProcess::getOriginsWithPushAndNotificationPermissions(PAL::SessionID
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
     if (auto* session = networkSession(sessionID)) {
         session->notificationManager().getOriginsWithPushAndNotificationPermissions(WTFMove(callback));
-        return;
-    }
-#endif
-    callback({ });
-}
-
-void NetworkProcess::getOriginsWithPushSubscriptions(PAL::SessionID sessionID, CompletionHandler<void(const Vector<WebCore::SecurityOriginData>&)>&& callback)
-{
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
-    if (auto* session = networkSession(sessionID)) {
-        session->notificationManager().getOriginsWithPushSubscriptions(WTFMove(callback));
         return;
     }
 #endif

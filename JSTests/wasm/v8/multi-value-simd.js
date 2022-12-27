@@ -1,4 +1,4 @@
-//@ requireOptions("--useWebAssemblySIMD=1")
+//@ requireOptions("--useWebAssemblySIMD=1", "--useBBQJIT=1", "--webAssemblyBBQAirModeThreshold=0", "--wasmBBQUsesAir=1", "--useWasmLLInt=1", "--wasmLLIntTiersUpToBBQ=1")
 //@ skip if $architecture != "arm64"
 // Copyright 2017 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -9,7 +9,7 @@
 load("wasm-module-builder.js");
 
 (function MultiReturnS128Test() {
-  print("MultiReturnS128Test");
+  // print("MultiReturnS128Test");
   // Most backends only support 2 fp return registers, so the third v128
   // onwards here will written to caller stack slot.
   let builder = new WasmModuleBuilder();

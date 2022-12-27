@@ -1292,7 +1292,7 @@ GstClockTime MediaPlayerPrivateGStreamer::gstreamerPositionFromSinks() const
         GST_TRACE_OBJECT(pipeline(), "Audio position %" GST_TIME_FORMAT, GST_TIME_ARGS(audioPosition));
         query = adoptGRef(gst_query_new_position(GST_FORMAT_TIME));
     }
-    if (m_videoSink && gst_element_query(m_videoSink.get(), query.get())) {
+    if (m_player->isVideoPlayer() && gst_element_query(m_videoSink.get(), query.get())) {
         gint64 videoPosition = GST_CLOCK_TIME_NONE;
         gst_query_parse_position(query.get(), 0, &videoPosition);
         GST_TRACE_OBJECT(pipeline(), "Video position %" GST_TIME_FORMAT, GST_TIME_ARGS(videoPosition));
@@ -2337,9 +2337,12 @@ void MediaPlayerPrivateGStreamer::updateStates()
                 GRefPtr<GstQuery> query = adoptGRef(gst_query_new_buffering(GST_FORMAT_PERCENT));
 
                 m_isBuffering = m_bufferingPercentage < 100;
-                if (gst_element_query(m_pipeline.get(), query.get())) {
+                if ((m_audioSink && gst_element_query(m_audioSink.get(), query.get()))
+                    || (m_videoSink && gst_element_query(m_videoSink.get(), query.get()))
+                    || gst_element_query(m_pipeline.get(), query.get())) {
                     gboolean isBuffering = m_isBuffering;
                     gst_query_parse_buffering_percent(query.get(), &isBuffering, nullptr);
+                    GST_TRACE_OBJECT(pipeline(), "[Buffering] m_isBuffering forcefully updated from %d to %d", m_isBuffering, isBuffering);
                     m_isBuffering = isBuffering;
                 }
 

@@ -30,6 +30,7 @@
 #include "config.h"
 #include "CSSStyleValueFactory.h"
 
+#include "CSSCalcValue.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSKeywordValue.h"
 #include "CSSNumericFactory.h"
@@ -56,35 +57,15 @@
 
 namespace WebCore {
 
-ExceptionOr<RefPtr<CSSStyleValue>> CSSStyleValueFactory::constructStyleValueForShorthandProperty(CSSPropertyID propertyID, const Function<RefPtr<CSSValue>(CSSPropertyID)>& propertyValue, Document* document)
+RefPtr<CSSStyleValue> CSSStyleValueFactory::constructStyleValueForShorthandSerialization(const String& serialization)
 {
-    auto shorthand = shorthandForProperty(propertyID);
-    Vector<Ref<CSSValue>> values;
-    for (auto& longhand : shorthand) {
-        RefPtr value = propertyValue(longhand);
-        if (!value)
-            return nullptr;
-        if (value->isImplicitInitialValue())
-            continue;
-        values.append(value.releaseNonNull());
-        // VariableReference set from the shorthand, value will be the same for all longhands.
-        if (is<CSSPendingSubstitutionValue>(values.last().get()))
-            break;
-    }
-    if (values.isEmpty())
+    if (serialization.isNull())
         return nullptr;
 
-    if (values.size() == 1) {
-        auto reifiedValue = reifyValue(values[0].copyRef(), document);
-        if (reifiedValue.hasException())
-            return reifiedValue.releaseException();
-        return { reifiedValue.releaseReturnValue() };
-    }
-
-    auto valueList = CSSValueList::createSpaceSeparated();
-    for (auto& value : values)
-        valueList->append(WTFMove(value));
-    return { CSSStyleValue::create(WTFMove(valueList)) };
+    CSSTokenizer tokenizer(serialization);
+    if (serialization.contains("var("_s))
+        return CSSUnparsedValue::create(tokenizer.tokenRange());
+    return CSSStyleValue::create(CSSVariableReferenceValue::create(tokenizer.tokenRange(), strictCSSParserContext()));
 }
 
 ExceptionOr<RefPtr<CSSValue>> CSSStyleValueFactory::extractCSSValue(const CSSPropertyID& propertyID, const String& cssText)
@@ -110,9 +91,7 @@ ExceptionOr<RefPtr<CSSStyleValue>> CSSStyleValueFactory::extractShorthandCSSValu
     if (parseResult == CSSParser::ParseResult::Error)
         return Exception { TypeError, makeString(cssText, " cannot be parsed.")};
 
-    return constructStyleValueForShorthandProperty(propertyID, [&](auto longhandPropertyID) {
-        return styleDeclaration->getPropertyCSSValue(longhandPropertyID);
-    });
+    return constructStyleValueForShorthandSerialization(styleDeclaration->getPropertyValue(propertyID));
 }
 
 ExceptionOr<Ref<CSSUnparsedValue>> CSSStyleValueFactory::extractCustomCSSValues(const String& cssText)
@@ -188,6 +167,13 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> c
 {
     if (is<CSSPrimitiveValue>(cssValue)) {
         auto primitiveValue = downcast<CSSPrimitiveValue>(cssValue.ptr());
+        if (primitiveValue->isCalculated()) {
+            auto* calcValue = primitiveValue->cssCalcValue();
+            auto result = CSSNumericValue::reifyMathExpression(calcValue->expressionNode());
+            if (result.hasException())
+                return result.releaseException();
+            return static_reference_cast<CSSStyleValue>(result.releaseReturnValue());
+        }
         switch (primitiveValue->primitiveType()) {
         case CSSUnitType::CSS_NUMBER:
             return Ref<CSSStyleValue> { CSSNumericFactory::number(primitiveValue->doubleValue()) };
@@ -267,13 +253,8 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> c
             return Ref<CSSStyleValue> { CSSNumericFactory::cqmax(primitiveValue->doubleValue()) };
         
         case CSSUnitType::CSS_IDENT:
-        case CSSUnitType::CSS_STRING: {
-            auto value = CSSKeywordValue::create(primitiveValue->stringValue());
-            if (value.hasException())
-                return value.releaseException();
-            
-            return Ref<CSSStyleValue> { value.releaseReturnValue() };
-        }
+        case CSSUnitType::CSS_STRING:
+            return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(primitiveValue->stringValue()));
         default:
             break;
         }
@@ -317,23 +298,27 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> c
     return CSSStyleValue::create(WTFMove(cssValue));
 }
 
-Vector<Ref<CSSStyleValue>> CSSStyleValueFactory::vectorFromStyleValuesOrStrings(const AtomString& property, FixedVector<std::variant<RefPtr<CSSStyleValue>, String>>&& values)
+ExceptionOr<Vector<Ref<CSSStyleValue>>> CSSStyleValueFactory::vectorFromStyleValuesOrStrings(const AtomString& property, FixedVector<std::variant<RefPtr<CSSStyleValue>, String>>&& values)
 {
     Vector<Ref<CSSStyleValue>> styleValues;
     for (auto&& value : WTFMove(values)) {
+        std::optional<Exception> exception;
         switchOn(WTFMove(value), [&](RefPtr<CSSStyleValue>&& styleValue) {
             ASSERT(styleValue);
             styleValues.append(styleValue.releaseNonNull());
         }, [&](String&& string) {
             constexpr bool parseMultiple = true;
             auto result = CSSStyleValueFactory::parseStyleValue(property, string, parseMultiple);
-            if (result.hasException())
+            if (result.hasException()) {
+                exception = result.releaseException();
                 return;
+            }
             styleValues.appendVector(result.releaseReturnValue());
         });
+        if (exception)
+            return { WTFMove(*exception) };
     }
-    return styleValues;
+    return { WTFMove(styleValues) };
 }
-
 
 } // namespace WebCore

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 
 include(WebKitCommon)
 include(target/TargetWTF)
@@ -24,6 +24,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/applepay/paymentrequest"
     "${WEBCORE_DIR}/Modules/applicationmanifest"
     "${WEBCORE_DIR}/Modules/async-clipboard"
+    "${WEBCORE_DIR}/Modules/audiosession"
     "${WEBCORE_DIR}/Modules/beacon"
     "${WEBCORE_DIR}/Modules/cache"
     "${WEBCORE_DIR}/Modules/compression"
@@ -259,6 +260,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/async-clipboard/Clipboard.idl
     Modules/async-clipboard/ClipboardItem.idl
     Modules/async-clipboard/Navigator+Clipboard.idl
+
+    Modules/audiosession/DOMAudioSession.idl
+    Modules/audiosession/Navigator+AudioSession.idl
 
     Modules/beacon/Navigator+Beacon.idl
 
@@ -1575,6 +1579,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPU.idl
     Modules/WebGPU/GPUAdapter.idl
     Modules/WebGPU/GPUAddressMode.idl
+    Modules/WebGPU/GPUAutoLayoutMode.idl
     Modules/WebGPU/GPUBindGroup.idl
     Modules/WebGPU/GPUBindGroupDescriptor.idl
     Modules/WebGPU/GPUBindGroupEntry.idl
@@ -2602,6 +2607,7 @@ list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/Namespace.cpp)
 
 WEBKIT_COMPUTE_SOURCES(WebCore)
 
+# FIXME figure out why we need this here; while all other platforms work fine
 IF (HAIKU)
     # Can't use INCLUDE_DIRECTORIES, because some header file names conflicts between Haiku and WebKit
     foreach(inc ${WebCore_LOCAL_INCLUDE_DIRECTORIES})
@@ -2609,15 +2615,12 @@ IF (HAIKU)
     endforeach(inc)
 
     INCLUDE_DIRECTORIES(${WebCore_INCLUDE_DIRECTORIES} ${WebCoreTestSupport_INCLUDE_DIRECTORIES})
-ELSE (HAIKU)
-    INCLUDE_DIRECTORIES(${WebCore_LOCAL_INCLUDE_DIRECTORIES} ${WebCore_INCLUDE_DIRECTORIES} ${WebCoreTestSupport_INCLUDE_DIRECTORIES})
 ENDIF (HAIKU)
 
 include_directories(SYSTEM ${WebCore_SYSTEM_INCLUDE_DIRECTORIES})
+# end of FIXME
 
-if (MSVC)
-    WEBKIT_ADD_PRECOMPILED_HEADER("WebCorePrefix.h" "WebCorePrefix.cpp" WebCore_SOURCES)
-endif ()
+target_precompile_headers(WebCore PRIVATE WebCorePrefix.h)
 
 WEBKIT_COPY_FILES(WebCore_CopyPrivateHeaders
     DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore
@@ -2648,9 +2651,7 @@ if (CMAKE_COMPILER_IS_GNUCXX AND "${LOWERCASE_CMAKE_HOST_SYSTEM_PROCESSOR}" MATC
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebCore -fno-tree-sra)
 endif ()
 
-if (MSVC)
-    WEBKIT_ADD_PRECOMPILED_HEADER("WebCoreTestSupportPrefix.h" "testing/js/WebCoreTestSupportPrefix.cpp" WebCoreTestSupport_SOURCES)
-endif ()
+target_precompile_headers(WebCoreTestSupport PRIVATE testing/js/WebCoreTestSupportPrefix.h)
 
 WEBKIT_COPY_FILES(Copy_WebCoreTestSupportPrivateHeaders
     DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCoreTestSupport

@@ -426,6 +426,8 @@ macro(ADD_WEBKIT_PREFIX_HEADER _target)
             set(OLD_COMPILE_FLAGS "")
         endif ()
         set_target_properties(${_target} PROPERTIES COMPILE_FLAGS "${OLD_COMPILE_FLAGS} -include ${WEBKIT_DIR}/WebKit2Prefix.h")
+    else ()
+        target_precompile_headers(${_target} PRIVATE WebKit2Prefix.h)
     endif ()
 endmacro()
 
@@ -492,7 +494,6 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
         list(APPEND _outputs
             ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp
             ${WebKit_DERIVED_SOURCES_DIR}/${_name}Messages.h
-            ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessagesReplies.h
         )
         list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp)
     endforeach ()
@@ -546,11 +547,15 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WTFArgumentCoders.serialization.in
     Shared/WebCoreArgumentCoders.serialization.in
     Shared/WebEvent.serialization.in
+    Shared/WebHitTestResultData.serialization.in
+    Shared/WebPopupItem.serialization.in
     Shared/WebPushDaemonConnectionConfiguration.serialization.in
     Shared/WebPushMessage.serialization.in
     Shared/WebsiteDataStoreParameters.serialization.in
 
     Shared/API/APIGeometry.serialization.in
+
+    Shared/Databases/IndexedDB/WebIDBResult.serialization.in
 
     Shared/WebGPU/WebGPUBindGroupDescriptor.serialization.in
     Shared/WebGPU/WebGPUBindGroupEntry.serialization.in
@@ -629,6 +634,7 @@ set(WebKit_SERIALIZATION_IN_FILES
 list(APPEND WebKit_DERIVED_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.h
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/SerializedTypeInfo.cpp
 )
 
 add_custom_command(
@@ -639,7 +645,7 @@ add_custom_command(
     MAIN_DEPENDENCY ${WEBKIT_DIR}/Scripts/generate-serializers.py
     DEPENDS
         ${WebKit_SERIALIZATION_IN_FILES}
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-serializers.py ${WEBKIT_DIR}/ ${WebKit_SERIALIZATION_IN_FILES}
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-serializers.py cpp ${WEBKIT_DIR}/ ${WebKit_SERIALIZATION_IN_FILES}
     WORKING_DIRECTORY ${WebKit_DERIVED_SOURCES_DIR}
     VERBATIM
 )

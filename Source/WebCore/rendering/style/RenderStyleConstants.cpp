@@ -1149,6 +1149,31 @@ TextStream& operator<<(TextStream& ts, TextUnderlinePosition underlinePosition)
     return ts;
 }
 
+TextStream& operator<<(TextStream& ts, LeadingTrim leadingTrim)
+{
+    switch (leadingTrim) {
+    case LeadingTrim::Normal: ts << "Normal"; break;
+    case LeadingTrim::Start: ts << "Start"; break;
+    case LeadingTrim::End: ts << "End"; break;
+    case LeadingTrim::Both: ts << "Both"; break;
+    }
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, TextEdgeType textEdgeType)
+{
+    switch (textEdgeType) {
+    case TextEdgeType::Leading: ts << "half-leading"; break;
+    case TextEdgeType::Text: ts << "text-over/under baseline"; break;
+    case TextEdgeType::CapHeight: ts << "cap-height baseline"; break;
+    case TextEdgeType::ExHeight: ts << "x-height baseline"; break;
+    case TextEdgeType::Alphabetic: ts << "alphabetic baseline"; break;
+    case TextEdgeType::CJKIdeographic: ts << "ideographic-over baseline"; break;
+    case TextEdgeType::CJKIdeographicInk: ts << "ideographic-ink-over/ink-under baseline"; break;
+    }
+    return ts;
+}
+
 TextStream& operator<<(TextStream& ts, TextZoom zoom)
 {
     switch (zoom) {

@@ -29,12 +29,17 @@
 
 #include "APIContentWorld.h"
 #include "APIObject.h"
+#include "APIUserScript.h"
+#include "APIUserStyleSheet.h"
 #include "MessageReceiver.h"
 #include "WebExtension.h"
 #include "WebExtensionContextIdentifier.h"
 #include "WebExtensionController.h"
+#include "WebExtensionEventListenerType.h"
 #include "WebExtensionMatchPattern.h"
+#include "WebPageProxyIdentifier.h"
 #include <wtf/Forward.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -44,9 +49,9 @@
 #include <wtf/UUID.h>
 #include <wtf/WeakPtr.h>
 
-#if PLATFORM(COCOA)
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSMapTable;
+OBJC_CLASS NSMutableDictionary;
 OBJC_CLASS NSString;
 OBJC_CLASS NSURL;
 OBJC_CLASS NSUUID;
@@ -57,12 +62,12 @@ OBJC_CLASS WKWebViewConfiguration;
 OBJC_CLASS _WKWebExtensionContext;
 OBJC_CLASS _WKWebExtensionContextDelegate;
 OBJC_PROTOCOL(_WKWebExtensionTab);
-#endif
 
 namespace WebKit {
 
 class WebExtension;
 class WebExtensionController;
+class WebUserContentControllerProxy;
 struct WebExtensionContextParameters;
 
 class WebExtensionContext : public API::ObjectImpl<API::Object::Type::WebExtensionContext>, public IPC::MessageReceiver {
@@ -82,8 +87,15 @@ public:
     using PermissionsMap = HashMap<String, WallTime>;
     using PermissionMatchPatternsMap = HashMap<Ref<WebExtensionMatchPattern>, WallTime>;
 
+    using UserScriptVector = Vector<Ref<API::UserScript>>;
+    using UserStyleSheetVector = Vector<Ref<API::UserStyleSheet>>;
+
     using PermissionsSet = WebExtension::PermissionsSet;
     using MatchPatternSet = WebExtension::MatchPatternSet;
+    using InjectedContentData = WebExtension::InjectedContentData;
+    using InjectedContentVector = WebExtension::InjectedContentVector;
+
+    using EventListenterTypeCountedSet = HashCountedSet<WebExtensionEventListenerType, WTF::IntHash<WebKit::WebExtensionEventListenerType>, WTF::StrongEnumHashTraits<WebKit::WebExtensionEventListenerType>>;
 
     enum class EqualityOnly : bool { No, Yes };
 
@@ -115,10 +127,11 @@ public:
     bool operator==(const WebExtensionContext& other) const { return (this == &other); }
     bool operator!=(const WebExtensionContext& other) const { return !(this == &other); }
 
-#if PLATFORM(COCOA)
     NSError *createError(Error, NSString *customLocalizedDescription = nil, NSError *underlyingError = nil);
 
-    bool load(WebExtensionController&, NSError ** = nullptr);
+    bool storageIsPersistent() const { return hasCustomUniqueIdentifier(); }
+
+    bool load(WebExtensionController&, String storageDirectory, NSError ** = nullptr);
     bool unload(NSError ** = nullptr);
 
     bool isLoaded() const { return !!m_extensionController; }
@@ -131,8 +144,13 @@ public:
 
     bool isURLForThisExtension(const URL&);
 
+    bool hasCustomUniqueIdentifier() const { return m_customUniqueIdentifier; }
+
     const String& uniqueIdentifier() const { return m_uniqueIdentifier; }
     void setUniqueIdentifier(String&&);
+
+    const InjectedContentVector& injectedContents();
+    bool hasInjectedContentForURL(NSURL *);
 
     const PermissionsMap& grantedPermissions();
     void setGrantedPermissions(PermissionsMap&&);
@@ -193,15 +211,21 @@ public:
     void didFailNavigation(WKWebView *, WKNavigation *, NSError *);
     void webViewWebContentProcessDidTerminate(WKWebView *);
 
+    void addInjectedContent(WebUserContentControllerProxy&);
+    void removeInjectedContent(WebUserContentControllerProxy&);
+
 #ifdef __OBJC__
     _WKWebExtensionContext *wrapper() const { return (_WKWebExtensionContext *)API::ObjectImpl<API::Object::Type::WebExtensionContext>::wrapper(); }
-#endif
 #endif
 
 private:
     explicit WebExtensionContext();
 
-#if PLATFORM(COCOA)
+    String stateFilePath() const;
+    NSDictionary *currentState() const;
+    NSDictionary *readStateFromStorage();
+    void writeStateToStorage() const;
+
     void postAsyncNotification(NSString *notificationName, PermissionsSet&);
     void postAsyncNotification(NSString *notificationName, MatchPatternSet&);
 
@@ -219,7 +243,22 @@ private:
     void loadBackgroundWebView();
     void unloadBackgroundWebView();
 
+    uint64_t loadBackgroundPageListenersVersionNumberFromStorage();
+    void loadBackgroundPageListenersFromStorage();
+    void saveBackgroundPageListenersToStorage();
+
     void performTasksAfterBackgroundContentLoads();
+
+    void addInjectedContent() { addInjectedContent(injectedContents()); }
+    void addInjectedContent(const InjectedContentVector&);
+    void addInjectedContent(const InjectedContentVector&, MatchPatternSet&);
+    void addInjectedContent(const InjectedContentVector&, WebExtensionMatchPattern&);
+
+    void updateInjectedContent() { removeInjectedContent(); addInjectedContent(); }
+
+    void removeInjectedContent();
+    void removeInjectedContent(MatchPatternSet&);
+    void removeInjectedContent(WebExtensionMatchPattern&);
 
     // Test APIs
     void testResult(bool result, String message, String sourceURL, unsigned lineNumber);
@@ -227,19 +266,26 @@ private:
     void testMessage(String message, String sourceURL, unsigned lineNumber);
     void testYielded(String message, String sourceURL, unsigned lineNumber);
     void testFinished(bool result, String message, String sourceURL, unsigned lineNumber);
-#endif
+
+    // Event APIs
+    void addListener(WebPageProxyIdentifier, WebExtensionEventListenerType);
+    void removeListener(WebPageProxyIdentifier, WebExtensionEventListenerType);
 
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     WebExtensionContextIdentifier m_identifier;
 
-#if PLATFORM(COCOA)
+    String m_storageDirectory;
+
+    RetainPtr<NSMutableDictionary> m_state;
+
     RefPtr<WebExtension> m_extension;
     WeakPtr<WebExtensionController> m_extensionController;
 
     URL m_baseURL;
     String m_uniqueIdentifier = UUID::createVersion4().toString();
+    bool m_customUniqueIdentifier { false };
 
     RefPtr<API::ContentWorld> m_contentScriptWorld;
 
@@ -261,9 +307,14 @@ private:
     bool m_testingMode { true };
 #endif
 
+    EventListenterTypeCountedSet m_backgroundPageListeners;
+    bool m_shouldFireStartupEvent { false };
+
     RetainPtr<WKWebView> m_backgroundWebView;
     RetainPtr<_WKWebExtensionContextDelegate> m_delegate;
-#endif
+
+    HashMap<Ref<WebExtensionMatchPattern>, UserScriptVector> m_injectedScriptsPerPatternMap;
+    HashMap<Ref<WebExtensionMatchPattern>, UserStyleSheetVector> m_injectedStyleSheetsPerPatternMap;
 };
 
 } // namespace WebKit

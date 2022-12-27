@@ -102,6 +102,10 @@
 
 #include "CertificateInfo.h"
 
+#if ENABLE(FULLSCREEN_API)
+#include <WebCore/FullscreenManager.h>
+#endif
+
 #define PREFIX_PARAMETERS "%p - [webFrame=%p, webFrameID=%" PRIu64 ", webPage=%p, webPageID=%" PRIu64 "] WebFrameLoaderClient::"
 #define WEBFRAME (&webFrame())
 #define WEBFRAMEID (webFrame().frameID().object().toUInt64())
@@ -527,8 +531,8 @@ void WebFrameLoaderClient::dispatchDidStartProvisionalLoad()
         return;
 
 #if ENABLE(FULLSCREEN_API)
-    Element* documentElement = m_frame->coreFrame()->document()->documentElement();
-    if (documentElement && documentElement->containsFullScreenElement())
+    auto* document = m_frame->coreFrame()->document();
+    if (document && document->fullscreenManager().fullscreenElement())
         webPage->fullScreenManager()->exitFullScreenForElement(webPage->fullScreenManager()->element());
 #endif
 
@@ -1721,12 +1725,12 @@ ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const 
     return ObjectContentType::None;
 }
 
-String WebFrameLoaderClient::overrideMediaType() const
+AtomString WebFrameLoaderClient::overrideMediaType() const
 {
     if (auto* page = m_frame->page())
         return page->overriddenMediaType();
 
-    return String();
+    return nullAtom();
 }
 
 void WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& world)

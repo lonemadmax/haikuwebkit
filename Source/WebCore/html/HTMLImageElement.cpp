@@ -242,7 +242,7 @@ ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
         }
 
         RefPtr documentElement = document().documentElement();
-        MQ::MediaQueryEvaluator evaluator { document().printing() ? "print"_s : "screen"_s, document(), documentElement ? documentElement->computedStyle() : nullptr };
+        MQ::MediaQueryEvaluator evaluator { document().printing() ? printAtom() : screenAtom(), document(), documentElement ? documentElement->computedStyle() : nullptr };
         auto& queries = source.parsedMediaAttribute(document());
         LOG(MediaQueries, "HTMLImageElement %p bestFitSourceFromPictureElement evaluating media queries", this);
 
@@ -273,7 +273,7 @@ ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
 void HTMLImageElement::evaluateDynamicMediaQueryDependencies()
 {
     RefPtr documentElement = document().documentElement();
-    MQ::MediaQueryEvaluator evaluator { document().printing() ? "print"_s : "screen"_s, document(), documentElement ? documentElement->computedStyle() : nullptr };
+    MQ::MediaQueryEvaluator evaluator { document().printing() ? printAtom() : screenAtom(), document(), documentElement ? documentElement->computedStyle() : nullptr };
 
     auto hasChanges = [&] {
         for (auto& results : m_dynamicMediaQueryResults) {
@@ -798,11 +798,16 @@ bool HTMLImageElement::allowsAnimation() const
     return false;
 }
 
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 void HTMLImageElement::setAllowsAnimation(bool allowsAnimation)
 {
+    if (!document().settings().imageAnimationControlEnabled())
+        return;
+
     if (auto* image = this->image())
-        return image->setAllowsAnimation(allowsAnimation);
+        image->setAllowsAnimation(allowsAnimation);
 }
+#endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 

@@ -152,7 +152,6 @@ Shared/Cocoa/AuxiliaryProcessCocoa.mm
 Shared/Cocoa/CodeSigning.mm
 Shared/Cocoa/CompletionHandlerCallChecker.mm
 Shared/Cocoa/CoreTextHelpers.mm
-Shared/Cocoa/DataDetectionResult.mm
 Shared/Cocoa/DefaultWebBrowserChecks.mm
 Shared/Cocoa/InsertTextOptions.cpp
 Shared/Cocoa/LoadParametersCocoa.mm
@@ -210,7 +209,6 @@ Shared/mac/SecItemShim.cpp
 Shared/mac/WebCoreArgumentCodersMac.mm
 Shared/mac/WebEventFactory.mm
 Shared/mac/WebGestureEvent.cpp
-Shared/mac/WebHitTestResultData.mm
 Shared/mac/WebMemorySampler.mac.mm
 
 Shared/mac/MediaFormatReader/CoreMediaWrapped.cpp
@@ -352,8 +350,6 @@ UIProcess/API/Cocoa/WKWindowFeatures.mm
 UIProcess/API/ios/WKWebViewIOS.mm
 UIProcess/API/ios/WKWebViewTestingIOS.mm
 
-UIProcess/API/mac/WKContentViewMac.mm
-UIProcess/API/mac/WKScrollViewMac.mm
 UIProcess/API/mac/WKView.mm
 UIProcess/API/mac/WKWebViewMac.mm
 UIProcess/API/mac/WKWebViewTestingMac.mm
@@ -741,5 +737,6 @@ RemoteRenderingBackendProxyMessageReceiver.cpp
 RemoteSampleBufferDisplayLayerManagerMessageReceiver.cpp
 RemoteSampleBufferDisplayLayerMessageReceiver.cpp
 SampleBufferDisplayLayerMessageReceiver.cpp
+SerializedTypeInfo.mm
 ServiceWorkerFetchTaskMessageReceiver.cpp
 TextCheckingControllerProxyMessageReceiver.cpp

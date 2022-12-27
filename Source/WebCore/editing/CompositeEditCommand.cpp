@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -613,7 +614,10 @@ void CompositeEditCommand::insertNodeAt(Ref<Node>&& insertChild, const Position&
 
 void CompositeEditCommand::appendNode(Ref<Node>&& node, Ref<ContainerNode>&& parent)
 {
-    ASSERT(canHaveChildrenForEditing(parent));
+    // When cloneParagraphUnderNewElement() clones the fallback content of an OBJECT element,
+    // the ASSERT below may fire since the return value of canHaveChildrenForEditing is not reliable
+    // until the render object of the OBJECT is created. Hence we ignore this check for OBJECTs.
+    ASSERT(canHaveChildrenForEditing(parent) || parent->hasTagName(objectTag));
     applyCommandToComposite(AppendNodeCommand::create(WTFMove(parent), WTFMove(node), editingAction()));
 }
 
@@ -955,8 +959,9 @@ void CompositeEditCommand::rebalanceWhitespaceOnTextSubstring(Text& textNode, in
     String string = text.substring(upstream, length);
     // FIXME: Because of the problem mentioned at the top of this function, we must also use nbsps at the start/end of the string because
     // this function doesn't get all surrounding whitespace, just the whitespace in the current text node.
+    const bool nextSiblingIsTextNodeWithoutLeadingSpace = textNode.nextSibling() && textNode.nextSibling()->isTextNode() && downcast<Text>(textNode.nextSibling())->data().length() && !deprecatedIsEditingWhitespace(downcast<Text>(textNode.nextSibling())->data()[0]);
     String rebalancedString = stringWithRebalancedWhitespace(string, isStartOfParagraph(visibleUpstreamPos) || !upstream,
-        isEndOfParagraph(visibleDownstreamPos) || downstream == text.length());
+        (isEndOfParagraph(visibleDownstreamPos) || downstream == text.length()) && !nextSiblingIsTextNodeWithoutLeadingSpace);
 
     if (string != rebalancedString)
         replaceTextInNodePreservingMarkers(textNode, upstream, length, rebalancedString);

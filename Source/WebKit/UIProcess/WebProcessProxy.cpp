@@ -35,6 +35,7 @@
 #include "Logging.h"
 #include "NetworkProcessConnectionInfo.h"
 #include "NotificationManagerMessageHandlerMessages.h"
+#include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemoteWorkerType.h"
 #include "ServiceWorkerNotificationHandler.h"
@@ -420,6 +421,40 @@ void WebProcessProxy::removeProvisionalPageProxy(ProvisionalPageProxy& provision
         maybeShutDown();
 }
 
+void WebProcessProxy::addProvisionalFrameProxy(ProvisionalFrameProxy& provisionalFrame)
+{
+    WEBPROCESSPROXY_RELEASE_LOG(Loading, "addProvisionalFrameProxy: provisionalFrame=%p", &provisionalFrame);
+
+    ASSERT(!m_isInProcessCache);
+    ASSERT(!m_provisionalFrames.contains(provisionalFrame));
+    markProcessAsRecentlyUsed();
+    m_provisionalFrames.add(provisionalFrame);
+    updateRegistrationWithDataStore();
+}
+
+void WebProcessProxy::removeProvisionalFrameProxy(ProvisionalFrameProxy& provisionalFrame)
+{
+    WEBPROCESSPROXY_RELEASE_LOG(Loading, "removeProvisionalFrameProxy: provisionalFrame=%p", &provisionalFrame);
+
+    ASSERT(m_provisionalFrames.contains(provisionalFrame));
+    m_provisionalFrames.remove(provisionalFrame);
+    updateRegistrationWithDataStore();
+    if (m_provisionalFrames.computesEmpty())
+        maybeShutDown();
+}
+
+void WebProcessProxy::provisionalFrameCommitted(WebFrameProxy& frame)
+{
+    ASSERT(!m_frameMap.contains(frame.frameID()));
+    m_frameMap.set(frame.frameID(), WeakPtr { frame });
+}
+
+void WebProcessProxy::removeFrameWithRemoteFrameProcess(WebFrameProxy& frame)
+{
+    ASSERT(m_frameMap.contains(frame.frameID()));
+    m_frameMap.remove(frame.frameID());
+}
+
 void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
     launchOptions.processType = ProcessLauncher::ProcessType::Web;
@@ -613,6 +648,19 @@ Ref<WebPageProxy> WebProcessProxy::createWebPage(PageClient& pageClient, Ref<API
     return webPage;
 }
 
+bool WebProcessProxy::shouldTakeSuspendedAssertion() const
+{
+#if USE(RUNNINGBOARD)
+    for (auto& page : m_pageMap.values()) {
+        bool processSuppressionEnabled = page->preferences().pageVisibilityBasedProcessSuppressionEnabled();
+        bool suspendedAssertionsEnabled = page->preferences().shouldTakeSuspendedAssertions();
+        if (suspendedAssertionsEnabled || !processSuppressionEnabled)
+            return true;
+    }
+#endif
+    return false;
+}
+
 void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataStore beginsUsingDataStore)
 {
     WEBPROCESSPROXY_RELEASE_LOG(Process, "addExistingWebPage: webPage=%p, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64, &webPage, webPage.identifier().toUInt64(), webPage.webPageID().toUInt64());
@@ -631,12 +679,11 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
     if (webPage.preferences().backgroundWebContentRunningBoardThrottlingEnabled())
         setRunningBoardThrottlingEnabled();
 #endif
-    if (!webPage.preferences().shouldTakeSuspendedAssertions())
-        m_throttler.setShouldTakeSuspendedAssertion(false);
-
     markProcessAsRecentlyUsed();
     m_pageMap.set(webPage.identifier(), &webPage);
     globalPageMap().set(webPage.identifier(), &webPage);
+
+    m_throttler.setShouldTakeSuspendedAssertion(shouldTakeSuspendedAssertion());
 
     updateRegistrationWithDataStore();
     updateBackgroundResponsivenessTimer();
@@ -1104,15 +1151,15 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
             m_throttler.didConnectToProcess(xpc_connection_get_pid(xpcConnection));
     }
 
-    for (const auto& page : m_pageMap.values()) {
 #if PLATFORM(MAC)
+    for (const auto& page : m_pageMap.values()) {
         if (page->preferences().backgroundWebContentRunningBoardThrottlingEnabled())
             setRunningBoardThrottlingEnabled();
-#endif
-        if (!page->preferences().shouldTakeSuspendedAssertions())
-            m_throttler.setShouldTakeSuspendedAssertion(false);
     }
-#endif
+#endif // PLATFORM(MAC)
+#endif // USE(RUNNINGBOARD)
+
+    m_throttler.setShouldTakeSuspendedAssertion(shouldTakeSuspendedAssertion());
 
 #if PLATFORM(COCOA)
     unblockAccessibilityServerIfNeeded();
@@ -1204,7 +1251,13 @@ void WebProcessProxy::maybeShutDown()
 
 bool WebProcessProxy::canTerminateAuxiliaryProcess()
 {
-    if (!m_pageMap.isEmpty() || m_suspendedPageCount || !m_provisionalPages.computesEmpty() || m_isInProcessCache || m_shutdownPreventingScopeCounter.value()) {
+    if (!m_pageMap.isEmpty()
+        || !m_frameMap.isEmpty()
+        || m_suspendedPageCount
+        || !m_provisionalPages.computesEmpty()
+        || !m_provisionalFrames.computesEmpty()
+        || m_isInProcessCache
+        || m_shutdownPreventingScopeCounter.value()) {
         WEBPROCESSPROXY_RELEASE_LOG(Process, "canTerminateAuxiliaryProcess: returns false (pageCount=%u, provisionalPageCount=%u, m_suspendedPageCount=%u, m_isInProcessCache=%d, m_shutdownPreventingScopeCounter=%lu)", m_pageMap.size(), m_provisionalPages.computeSize(), m_suspendedPageCount, m_isInProcessCache, m_shutdownPreventingScopeCounter.value());
         return false;
     }
@@ -1865,6 +1918,7 @@ void WebProcessProxy::establishRemoteWorkerContext(RemoteWorkerType workerType, 
     auto& remoteWorkerInformation = workerType == RemoteWorkerType::ServiceWorker ? m_serviceWorkerInformation : m_sharedWorkerInformation;
     sendWithAsyncReply(Messages::WebProcess::EstablishRemoteWorkerContextConnectionToNetworkProcess { workerType, processPool().defaultPageGroup().pageGroupID(), remoteWorkerInformation->remoteWorkerPageProxyID, remoteWorkerInformation->remoteWorkerPageID, store, registrableDomain, serviceWorkerPageIdentifier, remoteWorkerInformation->initializationData }, [this, weakThis = WeakPtr { *this }, workerType, completionHandler = WTFMove(completionHandler)]() mutable {
 #if RELEASE_LOG_DISABLED
+        UNUSED_PARAM(this);
         UNUSED_PARAM(workerType);
 #endif
         if (weakThis)
