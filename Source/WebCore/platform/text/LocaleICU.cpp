@@ -150,12 +150,12 @@ static String getDateFormatPattern(const UDateFormat* dateFormat)
         return emptyString();
 
     UErrorCode status = U_ZERO_ERROR;
-    int32_t length = udat_toPattern(dateFormat, TRUE, 0, 0, &status);
+    int32_t length = udat_toPattern(dateFormat, true, 0, 0, &status);
     if (!needsToGrowToProduceBuffer(status) || !length)
         return emptyString();
     Vector<UChar> buffer(length);
     status = U_ZERO_ERROR;
-    udat_toPattern(dateFormat, TRUE, buffer.data(), length, &status);
+    udat_toPattern(dateFormat, true, buffer.data(), length, &status);
     if (U_FAILURE(status))
         return emptyString();
     return String::adopt(WTFMove(buffer));
