@@ -59,6 +59,7 @@
 #include "WebCore/DummySpeechRecognitionProvider.h"
 #include "WebCore/DummyWebRTCProvider.h"
 #include "WebCore/Editor.h"
+#include "WebCore/EmptyBadgeClient.h"
 #include "WebCore/EmptyClients.h"
 #include "WebCore/EventHandler.h"
 #include "WebCore/FileChooser.h"
@@ -306,7 +307,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
-        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
+        EmptyBadgeClient::create()
     );
 
     // alternativeText

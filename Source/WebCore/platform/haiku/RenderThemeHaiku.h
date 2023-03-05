@@ -42,9 +42,6 @@ public:
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle&) const override { return true; }
 
-    // A method asking if the theme is able to draw the focus ring.
-    bool supportsFocusRing(const RenderStyle&) const override;
-
 #if ENABLE(VIDEO)
     String mediaControlsStyleSheet() override;
     Vector<String, 2> mediaControlsScripts() override;

@@ -70,8 +70,8 @@ public:
     void clipPath(const Path&, WindRule = WindRule::EvenOdd) override;
     void drawLinesForText(const FloatPoint&, float thickness, const DashArray& widths, bool printing, bool doubleLines = false, StrokeStyle = SolidStroke) override;
     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) override;
-    void drawFocusRing(const Vector<FloatRect>&, float width, float offset, const Color&) override;
-    void drawFocusRing(const Path&, float width, float offset, const Color&) override;
+    void drawFocusRing(const Vector<FloatRect>&, float offset, float width, const Color&) override;
+    void drawFocusRing(const Path&, float width, const Color&) override;
     void scale(const FloatSize&) override;
     void rotate(float angleInRadians) override;
     void translate(float x, float y) override;

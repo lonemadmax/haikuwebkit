@@ -59,14 +59,14 @@ PlatformMouseEvent::PlatformMouseEvent(const BMessage* message)
 
     switch (message->what) {
     case B_MOUSE_DOWN:
-        m_type = PlatformEvent::MousePressed;
+        m_type = PlatformEvent::Type::MousePressed;
         break;
     case B_MOUSE_UP:
-        m_type = PlatformEvent::MouseReleased;
+        m_type = PlatformEvent::Type::MouseReleased;
         break;
     case B_MOUSE_MOVED:
     default:
-        m_type = PlatformEvent::MouseMoved;
+        m_type = PlatformEvent::Type::MouseMoved;
         break;
     };
 

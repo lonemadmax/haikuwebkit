@@ -27,6 +27,16 @@
 
 #pragma once
 
+#include "WebCoreSupport/WebPreferencesDefaultValues.h"
+
+#include "WebCore/EditableLinkBehavior.h"
+#include "WebCore/StorageBlockingPolicy.h"
+#include "WebCore/UserInterfaceDirectionPolicy.h"
+
+using namespace WebCore;
+
+#define INITIALIZE_DEFAULT_PREFERENCES_DICTIONARY_FROM_GENERATED_PREFERENCES 
+
 // Default values.
 
 <%- for @pref in @preferences do -%>
@@ -68,8 +78,11 @@
 <%-   end -%>
 <%- end -%>
 
+#if 0
 #define INITIALIZE_DEFAULT_PREFERENCES_DICTIONARY_FROM_GENERATED_PREFERENCES \
 <%- for @pref in @exposedPreferences do -%>
      INITIALIZE_DEFAULT_PREFERENCES_FOR_<%= @pref.name %> \
 <%- end -%>
     \
+
+#endif

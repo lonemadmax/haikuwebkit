@@ -63,23 +63,6 @@ RenderThemeHaiku::~RenderThemeHaiku()
 {
 }
 
-bool RenderThemeHaiku::supportsFocusRing(const RenderStyle& style) const
-{
-    switch (style.appearance()) {
-    case PushButtonPart:
-    case ButtonPart:
-    case TextFieldPart:
-    case TextAreaPart:
-    case SearchFieldPart:
-    case MenulistPart:
-    case RadioPart:
-    case CheckboxPart:
-        return true;
-    default:
-        return false;
-    }
-}
-
 bool RenderThemeHaiku::paintSliderTrack(const RenderObject& object, const PaintInfo& info, const IntRect& intRect)
 {
     rgb_color base = colorForValue(B_CONTROL_BACKGROUND_COLOR, object.useDarkAppearance());
@@ -93,7 +76,7 @@ bool RenderThemeHaiku::paintSliderTrack(const RenderObject& object, const PaintI
     if (isDefault(object))
     	flags |= BControlLook::B_DEFAULT_BUTTON;
     be_control_look->DrawSliderBar(view, rect, view->Bounds(), base, background, flags,
-        object.style().appearance() == SliderHorizontalPart ?
+        object.style().appearance() == StyleAppearance::SliderHorizontal ?
             B_HORIZONTAL : B_VERTICAL);
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -116,11 +99,11 @@ void RenderThemeHaiku::adjustSliderThumbStyle(RenderStyle& style, const Element*
 
 void RenderThemeHaiku::adjustSliderThumbSize(RenderStyle& style, const Element*) const
 {
-    ControlPart part = style.appearance();
-    if (part == SliderThumbVerticalPart) {
+    const StyleAppearance& appearance = style.appearance();
+    if (appearance == StyleAppearance::SliderVertical) {
         style.setWidth(Length(sliderThumbHeight, LengthType::Fixed));
         style.setHeight(Length(sliderThumbWidth, LengthType::Fixed));
-    } else if (part == SliderThumbHorizontalPart) {
+    } else if (appearance == StyleAppearance::SliderHorizontal) {
         style.setWidth(Length(sliderThumbWidth, LengthType::Fixed));
         style.setHeight(Length(sliderThumbHeight, LengthType::Fixed));
     }
@@ -167,7 +150,7 @@ bool RenderThemeHaiku::paintSliderThumb(const RenderObject& object, const PaintI
     if (isDefault(object))
     	flags |= BControlLook::B_DEFAULT_BUTTON;
     be_control_look->DrawSliderThumb(view, rect, view->Bounds(), base, flags,
-        object.style().appearance() == SliderHorizontalPart ?
+        object.style().appearance() == StyleAppearance::SliderHorizontal ?
             B_HORIZONTAL : B_VERTICAL);
 
     return false;

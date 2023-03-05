@@ -657,9 +657,9 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(BMessage* message)
     m_code = KeyCodeForKeyEvent(nativeVirtualKeyCode);
 
     if (message->what == B_KEY_UP)
-        m_type = KeyUp;
+        m_type = PlatformEvent::Type::KeyUp;
     else if (message->what == B_KEY_DOWN)
-        m_type = KeyDown;
+        m_type = PlatformEvent::Type::KeyDown;
 
     int32 modifiers = message->FindInt32("modifiers");
     if (modifiers & B_SHIFT_KEY)
@@ -681,7 +681,7 @@ void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCom
     if (backwardCompatibilityMode)
         return;
 
-    if (type == RawKeyDown) {
+    if (type == PlatformEvent::Type::RawKeyDown) {
         m_text = String();
         m_unmodifiedText = String();
     } else {

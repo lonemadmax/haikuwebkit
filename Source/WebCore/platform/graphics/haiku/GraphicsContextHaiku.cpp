@@ -402,7 +402,7 @@ void GraphicsContextHaiku::clipOut(const FloatRect& rect)
     m_view->ClipToInverseRect(rect);
 }
 
-void GraphicsContextHaiku::drawFocusRing(const Path& path, float width, float /*offset*/, const Color& color)
+void GraphicsContextHaiku::drawFocusRing(const Path& path, float width, const Color& color)
 {
     HGTRACE(("drawFocusRing(path): (--todo print values)\n"));
     if (width <= 0 || !color.isVisible())
@@ -419,7 +419,7 @@ void GraphicsContextHaiku::drawFocusRing(const Path& path, float width, float /*
     m_view->PopState();
 }
 
-void GraphicsContextHaiku::drawFocusRing(const Vector<FloatRect>& rects, float width, float /* offset */, const Color& color)
+void GraphicsContextHaiku::drawFocusRing(const Vector<FloatRect>& rects, float /*offset*/, float width, const Color& color)
 {
     HGTRACE(("drawFocusRing(rects): (--todo print values)\n"));
     if (width <= 0 || !color.isVisible())

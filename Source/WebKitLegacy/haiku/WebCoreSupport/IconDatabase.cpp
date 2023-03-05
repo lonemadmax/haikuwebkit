@@ -1639,7 +1639,7 @@ void IconDatabase::deleteAllPreparedStatements()
 
     m_setIconIDForPageURLStatement = nullptr;
     m_removePageURLStatement = nullptr;
-    m_getIconIDForIconURLStatement = nullptr;
+    m_iconIDForIconURLStatement = nullptr;
     m_getImageDataForIconURLStatement = nullptr;
     m_addIconToIconInfoStatement = nullptr;
     m_addIconToIconDataStatement = nullptr;
@@ -1757,19 +1757,19 @@ int64_t IconDatabase::getIconIDForIconURLFromSQLDatabase(const String& iconURL)
 {
     ASSERT_ICON_SYNC_THREAD();
 
-    readySQLiteStatement(m_getIconIDForIconURLStatement, m_syncDB, "SELECT IconInfo.iconID FROM IconInfo WHERE IconInfo.url = (?);"_s);
-    m_getIconIDForIconURLStatement->bindText(1, iconURL);
+    readySQLiteStatement(m_iconIDForIconURLStatement, m_syncDB, "SELECT IconInfo.iconID FROM IconInfo WHERE IconInfo.url = (?);"_s);
+    m_iconIDForIconURLStatement->bindText(1, iconURL);
 
-    int64_t result = m_getIconIDForIconURLStatement->step();
+    int64_t result = m_iconIDForIconURLStatement->step();
     if (result == SQLITE_ROW)
-        result = m_getIconIDForIconURLStatement->columnInt64(0);
+        result = m_iconIDForIconURLStatement->columnInt64(0);
     else {
         if (result != SQLITE_DONE)
             LOG_ERROR("getIconIDForIconURLFromSQLDatabase failed for url %s", urlForLogging(iconURL).ascii().data());
         result = 0;
     }
 
-    m_getIconIDForIconURLStatement->reset();
+    m_iconIDForIconURLStatement->reset();
     return result;
 }
 

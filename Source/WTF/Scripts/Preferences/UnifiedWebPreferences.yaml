@@ -209,6 +209,7 @@ AllowDisplayOfInsecureContent:
   status: embedder
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": false
       default: WebKit::defaultAllowDisplayOfInsecureContent()
     WebKit:
       default: false
@@ -257,6 +258,7 @@ AllowRunningOfInsecureContent:
   status: embedder
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": false
       default: WebKit::defaultAllowRunningOfInsecureContent()
     WebKit:
       default: false
@@ -2006,6 +2008,7 @@ EditableLinkBehavior:
   status: embedder
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": WebCore::EditableLinkBehavior::Default
       default: WebKitEditableLinkDefaultBehavior
     WebKit:
       default: WebCore::EditableLinkBehavior::NeverLive
@@ -3228,6 +3231,7 @@ JavaScriptRuntimeFlags:
   webKitLegacyPreferenceKey: WebKitJavaScriptRuntimeFlagsPreferenceKey
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": "{ }"
       default: 0
     WebKit:
       default: 0
@@ -4530,6 +4534,7 @@ PitchCorrectionAlgorithm:
   defaultValue:
     WebKitLegacy:
       "PLATFORM(COCOA)": static_cast<uint32_t>(WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm::BestForSpeech)
+      "PLATFORM(HAIKU)": WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm::BestAllAround
       default: static_cast<uint32_t>(WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm::BestAllAround)
     WebKit:
       "PLATFORM(COCOA)": static_cast<uint32_t>(WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm::BestForSpeech)
@@ -5280,6 +5285,7 @@ ShouldConvertInvalidURLsToBlank:
   status: embedder
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": true
       default: WebKit::defaultShouldConvertInvalidURLsToBlank()
     WebKit:
       default: true
@@ -5415,6 +5421,7 @@ ShouldRestrictBaseURLSchemes:
   status: embedder
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": false
       default: WebKit::defaultShouldRestrictBaseURLSchemes()
     WebKit:
       default: false
@@ -5703,6 +5710,7 @@ StorageBlockingPolicy:
   webcoreOnChange: storageBlockingPolicyChanged
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": WebCore::StorageBlockingPolicy::AllowAll
       default: WebAllowAllStorage
     WebKit:
       default: WebCore::StorageBlockingPolicy::BlockThirdParty
@@ -6171,6 +6179,7 @@ UseLegacyBackgroundSizeShorthandBehavior:
   status: embedder
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": false
       default: WebKit::defaultUseLegacyBackgroundSizeShorthandBehavior()
     WebKit:
       default: false

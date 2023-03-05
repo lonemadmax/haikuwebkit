@@ -286,7 +286,7 @@ void EditorClientHaiku::redo()
 void EditorClientHaiku::handleKeyboardEvent(KeyboardEvent& event)
 {
     const PlatformKeyboardEvent* platformEvent = event.underlyingPlatformEvent();
-    if (!platformEvent || platformEvent->type() == PlatformKeyboardEvent::KeyUp)
+    if (!platformEvent || platformEvent->type() == PlatformEvent::Type::KeyUp)
         return;
 
     if (handleEditingKeyboardEvent(&event, platformEvent)) {

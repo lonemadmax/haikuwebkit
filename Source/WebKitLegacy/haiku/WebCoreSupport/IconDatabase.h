@@ -229,7 +229,7 @@ private:
         Deque<Function<void()>> m_notificationQueue;
         Lock m_notificationQueueLock;
         Atomic<bool> m_isActive;
-        RunLoop::Timer<MainThreadNotifier> m_timer;
+        RunLoop::Timer m_timer;
     };
 
 // *** Main Thread Only ***
@@ -272,7 +272,7 @@ private:
     void scheduleOrDeferSyncTimer();
     void syncTimerFired();
 
-    RunLoop::Timer<IconDatabase> m_syncTimer;
+    RunLoop::Timer m_syncTimer;
     RefPtr<Thread> m_syncThread;
     bool m_syncThreadRunning { false };
     bool m_scheduleOrDeferSyncTimerRequested { false };
@@ -370,16 +370,17 @@ private:
 
     WebCore::SQLiteDatabase m_syncDB;
 
+    std::unique_ptr<WebCore::SQLiteStatement> m_iconIDForIconURLStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_setIconIDForPageURLStatement;
-    std::unique_ptr<WebCore::SQLiteStatement> m_removePageURLStatement;
-    std::unique_ptr<WebCore::SQLiteStatement> m_getIconIDForIconURLStatement;
-    std::unique_ptr<WebCore::SQLiteStatement> m_getImageDataForIconURLStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_addIconToIconInfoStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_addIconToIconDataStatement;
-    std::unique_ptr<WebCore::SQLiteStatement> m_getImageDataStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_deletePageURLsForIconURLStatement;
-    std::unique_ptr<WebCore::SQLiteStatement> m_deleteIconFromIconInfoStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_deleteIconFromIconDataStatement;
+    std::unique_ptr<WebCore::SQLiteStatement> m_deleteIconFromIconInfoStatement;
+
+    std::unique_ptr<WebCore::SQLiteStatement> m_getImageDataStatement;
+    std::unique_ptr<WebCore::SQLiteStatement> m_removePageURLStatement;
+    std::unique_ptr<WebCore::SQLiteStatement> m_getImageDataForIconURLStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_updateIconInfoStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_updateIconDataStatement;
     std::unique_ptr<WebCore::SQLiteStatement> m_setIconInfoStatement;
