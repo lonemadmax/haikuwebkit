@@ -573,4 +573,14 @@ ALWAYS_INLINE bool matchesModalPseudoClass(const Element& element)
 #endif
 }
 
+ALWAYS_INLINE bool matchesUserInvalidPseudoClass(const Element& element)
+{
+    return element.matchesUserInvalidPseudoClass();
+}
+
+ALWAYS_INLINE bool matchesUserValidPseudoClass(const Element& element)
+{
+    return element.matchesUserValidPseudoClass();
+}
+
 } // namespace WebCore

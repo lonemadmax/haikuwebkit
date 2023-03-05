@@ -27,6 +27,7 @@
 #include "NetworkSession.h"
 
 #include "CacheStorageEngine.h"
+#include "LoadedWebArchive.h"
 #include "Logging.h"
 #include "NetworkBroadcastChannelRegistry.h"
 #include "NetworkLoadScheduler.h"
@@ -108,11 +109,12 @@ static Ref<NetworkStorageManager> createNetworkStorageManager(IPC::Connection* c
     IPC::Connection::UniqueID connectionID;
     if (connection)
         connectionID = connection->uniqueID();
-    return NetworkStorageManager::create(parameters.sessionID, connectionID, parameters.generalStorageDirectory, parameters.localStorageDirectory, parameters.indexedDBDirectory, parameters.cacheStorageDirectory, parameters.perOriginStorageQuota, parameters.perThirdPartyOriginStorageQuota, parameters.shouldUseCustomStoragePaths);
+    return NetworkStorageManager::create(parameters.sessionID, connectionID, parameters.generalStorageDirectory, parameters.localStorageDirectory, parameters.indexedDBDirectory, parameters.cacheStorageDirectory, parameters.perOriginStorageQuota, parameters.perThirdPartyOriginStorageQuota, parameters.unifiedOriginStorageLevel);
 }
 
 NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
     : m_sessionID(parameters.sessionID)
+    , m_dataStoreIdentifier(parameters.dataStoreIdentifier)
     , m_networkProcess(networkProcess)
 #if ENABLE(TRACKING_PREVENTION)
     , m_resourceLoadStatisticsDirectory(parameters.resourceLoadStatisticsParameters.directory)
@@ -212,8 +214,9 @@ void NetworkSession::destroyResourceLoadStatistics(CompletionHandler<void()>&& c
 
 void NetworkSession::invalidateAndCancel()
 {
-    for (auto& task : m_dataTaskSet)
+    m_dataTaskSet.forEach([] (auto& task) {
         task.invalidateAndCancel();
+    });
 #if ENABLE(TRACKING_PREVENTION)
     if (m_resourceLoadStatistics)
         m_resourceLoadStatistics->invalidateAndCancel();
@@ -572,16 +575,13 @@ std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyI
 
 void NetworkSession::registerNetworkDataTask(NetworkDataTask& task)
 {
+    // Unregistration happens automatically in ThreadSafeWeakHashSet::amortizedCleanupIfNeeded.
     m_dataTaskSet.add(task);
 
+    // FIXME: This is not in a good place. It should probably be in the NetworkDataTask constructor.
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
     task.setEmulatedConditions(m_bytesPerSecondLimit);
 #endif
-}
-
-void NetworkSession::unregisterNetworkDataTask(NetworkDataTask& task)
-{
-    m_dataTaskSet.remove(task);
 }
 
 NetworkLoadScheduler& NetworkSession::networkLoadScheduler()
@@ -595,6 +595,15 @@ String NetworkSession::attributedBundleIdentifierFromPageIdentifier(WebPageProxy
 {
     return m_attributedBundleIdentifierFromPageIdentifiers.get(identifier);
 }
+
+#if ENABLE(NETWORK_ISSUE_REPORTING)
+
+void NetworkSession::reportNetworkIssue(WebPageProxyIdentifier pageIdentifier, const URL& requestURL)
+{
+    m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::ReportNetworkIssue(pageIdentifier, requestURL), 0);
+}
+
+#endif // ENABLE(NETWORK_ISSUE_REPORTING)
 
 void NetworkSession::lowMemoryHandler(Critical)
 {
@@ -672,7 +681,7 @@ SWServer& NetworkSession::ensureSWServer()
                 ASSERT_NOT_REACHED();
                 return;
             }
-            m_networkProcess->addAllowedFirstPartyForCookies(webProcessIdentifier, WTFMove(firstPartyForCookies), [] { });
+            m_networkProcess->addAllowedFirstPartyForCookies(webProcessIdentifier, WTFMove(firstPartyForCookies), LoadedWebArchive::No, [] { });
         });
     }
     return *m_swServer;
@@ -711,8 +720,9 @@ void NetworkSession::setEmulatedConditions(std::optional<int64_t>&& bytesPerSeco
 {
     m_bytesPerSecondLimit = WTFMove(bytesPerSecondLimit);
 
-    for (auto& task : m_dataTaskSet)
+    m_dataTaskSet.forEach([&] (auto& task) {
         task.setEmulatedConditions(m_bytesPerSecondLimit);
+    });
 }
 
 #endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)

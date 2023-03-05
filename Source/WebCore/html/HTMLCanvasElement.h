@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
@@ -44,6 +44,8 @@ namespace WebCore {
 class BlobCallback;
 class CanvasRenderingContext;
 class CanvasRenderingContext2D;
+class GPU;
+class GPUCanvasContext;
 class GraphicsContext;
 class Image;
 class ImageBitmapRenderingContext;
@@ -57,10 +59,6 @@ class WebCoreOpaqueRoot;
 struct CanvasRenderingContext2DSettings;
 struct ImageBitmapRenderingContextSettings;
 struct UncachedString;
-
-#if HAVE(WEBGPU_IMPLEMENTATION)
-class GPUCanvasContext;
-#endif
 
 class HTMLCanvasElement final : public HTMLElement, public CanvasBase, public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED(HTMLCanvasElement);
@@ -96,10 +94,8 @@ public:
     ImageBitmapRenderingContext* getContextBitmapRenderer(const String&, ImageBitmapRenderingContextSettings&&);
 
     static bool isWebGPUType(const String&);
-#if HAVE(WEBGPU_IMPLEMENTATION)
-    GPUCanvasContext* createContextWebGPU(const String&);
-    GPUCanvasContext* getContextWebGPU(const String&);
-#endif // HAVE(WEBGPU_IMPLEMENTATION)
+    GPUCanvasContext* createContextWebGPU(const String&, GPU*);
+    GPUCanvasContext* getContextWebGPU(const String&, GPU*);
 
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType, JSC::JSValue quality);
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType);
@@ -126,17 +122,11 @@ public:
 
     SecurityOrigin* securityOrigin() const final;
 
-    bool shouldAccelerate(const IntSize&) const;
-    bool shouldAccelerate(unsigned area) const;
-
     WEBCORE_EXPORT void setUsesDisplayListDrawing(bool);
 
     // FIXME: Only some canvas rendering contexts need an ImageBuffer.
     // It would be better to have the contexts own the buffers.
     void setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&&) final;
-
-    WEBCORE_EXPORT static void setMaxPixelMemoryForTesting(std::optional<size_t>);
-    WEBCORE_EXPORT static void setMaxCanvasAreaForTesting(std::optional<size_t>);
 
     bool needsPreparationForDisplay();
     void prepareForDisplay();
@@ -145,8 +135,6 @@ public:
     bool isSnapshotting() const { return m_isSnapshotting; }
 
     bool isControlledByOffscreen() const;
-
-    WEBCORE_EXPORT static size_t maxActivePixelMemory();
 
 #if PLATFORM(COCOA)
     GraphicsContext* drawingContext() const final;

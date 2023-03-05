@@ -131,7 +131,7 @@ void RealtimeMediaSource::removeObserver(Observer& observer)
 {
     ASSERT(isMainThread());
     m_observers.remove(observer);
-    if (m_observers.computesEmpty())
+    if (m_observers.isEmptyIgnoringNullReferences())
         stopBeingObserved();
 }
 
@@ -402,7 +402,7 @@ bool RealtimeMediaSource::supportsSizeAndFrameRate(std::optional<IntConstraint> 
     }
 
     // Each of the non-null values is supported individually, see if they all can be applied at the same time.
-    if (!supportsSizeAndFrameRate(WTFMove(width), WTFMove(height), WTFMove(frameRate))) {
+    if (!supportsSizeAndFrameRate(width, height, WTFMove(frameRate))) {
         // Let's try without frame rate constraint if not mandatory.
         if (frameRateConstraint && !frameRateConstraint->isMandatory() && supportsSizeAndFrameRate(WTFMove(width), WTFMove(height), { }))
             return true;
@@ -508,7 +508,7 @@ double RealtimeMediaSource::fitnessDistance(const MediaConstraint& constraint)
         auto supportedModes = capabilities.facingMode().map([](auto& mode) {
             return RealtimeMediaSourceSettings::facingMode(mode);
         });
-        return downcast<StringConstraint>(constraint).fitnessDistance(supportedModes);
+        return downcast<StringConstraint>(constraint).fitnessDistance(supportedModes) + facingModeFitnessDistanceAdjustment();
         break;
     }
 
@@ -1200,7 +1200,7 @@ String convertEnumerationToString(RealtimeMediaSource::Type enumerationValue)
     };
     static_assert(static_cast<size_t>(RealtimeMediaSource::Type::Audio) == 0, "RealtimeMediaSource::Type::Audio is not 0 as expected");
     static_assert(static_cast<size_t>(RealtimeMediaSource::Type::Video) == 1, "RealtimeMediaSource::Type::Video is not 1 as expected");
-    ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
+    ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
 }
 

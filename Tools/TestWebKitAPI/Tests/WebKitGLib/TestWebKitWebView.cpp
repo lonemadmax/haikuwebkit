@@ -219,11 +219,19 @@ static void ephemeralViewloadChanged(WebKitWebView* webView, WebKitLoadEvent loa
 
 static void testWebViewEphemeral(WebViewTest* test, gconstpointer)
 {
+#if ENABLE(2022_GLIB_API)
+    auto* networkSession = webkit_web_view_get_network_session(test->m_webView);
+    g_assert_false(webkit_network_session_is_ephemeral(networkSession));
+    auto* manager = webkit_network_session_get_website_data_manager(networkSession);
+    g_assert_false(webkit_website_data_manager_is_ephemeral(manager));
+    GRefPtr<WebKitNetworkSession> ephemeralSession = adoptGRef(webkit_network_session_new_ephemeral());
+#else
     g_assert_false(webkit_web_view_is_ephemeral(test->m_webView));
     g_assert_false(webkit_web_context_is_ephemeral(webkit_web_view_get_context(test->m_webView)));
     auto* manager = webkit_web_context_get_website_data_manager(test->m_webContext.get());
     g_assert_false(webkit_website_data_manager_is_ephemeral(manager));
     g_assert_true(webkit_web_view_get_website_data_manager(test->m_webView) == manager);
+#endif
     webkit_website_data_manager_clear(manager, WEBKIT_WEBSITE_DATA_DISK_CACHE, 0, nullptr, [](GObject* manager, GAsyncResult* result, gpointer userData) {
         webkit_website_data_manager_clear_finish(WEBKIT_WEBSITE_DATA_MANAGER(manager), result, nullptr);
         static_cast<WebViewTest*>(userData)->quitMainLoop();
@@ -236,11 +244,20 @@ static void testWebViewEphemeral(WebViewTest* test, gconstpointer)
         "backend", Test::createWebViewBackend(),
 #endif
         "web-context", webkit_web_view_get_context(test->m_webView),
+#if ENABLE(2022_GLIB_API)
+        "network-session", ephemeralSession.get(),
+#else
         "is-ephemeral", TRUE,
+#endif
         nullptr));
+#if ENABLE(2022_GLIB_API)
+    g_assert_true(webkit_network_session_is_ephemeral(webkit_web_view_get_network_session(webView.get())));
+    g_assert_true(webkit_web_view_get_network_session(webView.get()) != networkSession);
+#else
     g_assert_true(webkit_web_view_is_ephemeral(webView.get()));
     g_assert_false(webkit_web_context_is_ephemeral(webkit_web_view_get_context(webView.get())));
     g_assert_true(webkit_web_view_get_website_data_manager(webView.get()) != manager);
+#endif
 
     g_signal_connect(webView.get(), "load-changed", G_CALLBACK(ephemeralViewloadChanged), test);
     webkit_web_view_load_uri(webView.get(), gServer->getURIForPath("/").data());
@@ -715,6 +732,7 @@ public:
         quitMainLoop();
     }
 
+#if !USE(GTK4)
     GHashTable* getTextFieldsAsHashTable()
     {
 #pragma GCC diagnostic push
@@ -722,6 +740,7 @@ public:
         return webkit_form_submission_request_get_text_fields(m_request.get());
 #pragma GCC diagnostic pop
     }
+#endif
 
     GPtrArray* getTextFieldNames()
     {
@@ -777,6 +796,7 @@ static void testWebViewSubmitForm(FormClientTest* test, gconstpointer)
     test->loadHtml(formHTML, "file:///");
     test->waitUntilLoadFinished();
 
+#if !USE(GTK4)
     test->submitFormAtPosition(5, 5);
     GHashTable* tableValues = test->getTextFieldsAsHashTable();
     g_assert_nonnull(tableValues);
@@ -785,6 +805,7 @@ static void testWebViewSubmitForm(FormClientTest* test, gconstpointer)
     g_assert_cmpstr(static_cast<char*>(g_hash_table_lookup(tableValues, "")), ==, "value3");
     g_assert_cmpstr(static_cast<char*>(g_hash_table_lookup(tableValues, "text2")), ==, "");
     g_assert_cmpstr(static_cast<char*>(g_hash_table_lookup(tableValues, "password")), ==, "secret");
+#endif
 
     GPtrArray* names = test->getTextFieldNames();
     g_assert_nonnull(names);
@@ -1934,6 +1955,45 @@ static void testWebViewWebExtensionMode(WebViewTest* test, gconstpointer)
     g_assert_true(WebViewTest::javascriptResultToBoolean(javascriptResult));
 }
 
+static void testWebViewDisableWebSecurity(WebViewTest* test, gconstpointer)
+{
+    webkit_web_context_register_uri_scheme(test->m_webContext.get(), "foo",
+        [](WebKitURISchemeRequest* request, gpointer userData) {
+            GRefPtr<GInputStream> inputStream = adoptGRef(g_memory_input_stream_new());
+            const char* data = "<p>foobar!</p>";
+            g_memory_input_stream_add_data(G_MEMORY_INPUT_STREAM(inputStream.get()), data, strlen(data), nullptr);
+            webkit_uri_scheme_request_finish(request, inputStream.get(), strlen(data), "text/html");
+        }, nullptr, nullptr);
+
+    char html[] = "<html><script>let foo = 0; fetch('foo://bar/baz').then(response => { foo = response.status; }).catch(err => { foo = -1; });</script></html>";
+
+    auto waitForFooChanged = [&test]() {
+        int fooValue;
+        do {
+            GUniqueOutPtr<GError> error;
+            JSCValue* jscvalue;
+            WebKitJavascriptResult* result = test->runJavaScriptAndWaitUntilFinished("foo;", &error.outPtr());
+            g_assert_no_error(error.get());
+            jscvalue = webkit_javascript_result_get_js_value(result);
+            fooValue = jsc_value_to_int32(jscvalue);
+        } while (!fooValue);
+        return fooValue;
+    };
+
+    // By default web security is enabled, request is not allowed, foo should be -1.
+    webkit_web_view_load_html(test->m_webView, html, "http://example.com");
+    test->waitUntilLoadFinished();
+    g_assert_cmpint(waitForFooChanged(), ==, -1);
+
+    WebKitSettings* settings = webkit_web_view_get_settings(test->m_webView);
+    // Disable web security, now we can request forbidden content
+    webkit_settings_set_disable_web_security(settings, TRUE);
+
+    webkit_web_view_load_html(test->m_webView, html, "http://example.com");
+    test->waitUntilLoadFinished();
+    g_assert_cmpint(waitForFooChanged(), ==, 200);
+}
+
 #if USE(SOUP2)
 static void serverCallback(SoupServer* server, SoupMessage* message, const char* path, GHashTable*, SoupClientContext*, gpointer)
 #else
@@ -2009,6 +2069,7 @@ void beforeAll()
     WebViewTest::add("WebKitWebView", "cors-allowlist", testWebViewCORSAllowlist);
     WebViewTest::add("WebKitWebView", "default-content-security-policy", testWebViewDefaultContentSecurityPolicy);
     WebViewTest::add("WebKitWebView", "web-extension-mode", testWebViewWebExtensionMode);
+    WebViewTest::add("WebKitWebView", "disable-web-security", testWebViewDisableWebSecurity);
 }
 
 void afterAll()

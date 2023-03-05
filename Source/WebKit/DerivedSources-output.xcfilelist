@@ -52,6 +52,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPIExtension.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPIExtension.mm
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPINamespace.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPINamespace.mm
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPIPermissions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPIPermissions.mm
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPIRuntime.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPIRuntime.mm
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/JSWebExtensionAPITest.h
@@ -244,6 +246,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteObjectRegistryMessageReceiver.
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteObjectRegistryMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemotePipelineLayoutMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemotePipelineLayoutMessages.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemotePresentationContextMessageReceiver.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemotePresentationContextMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteQuerySetMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteQuerySetMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteQueueMessageReceiver.cpp
@@ -429,9 +433,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPermissionControllerProxyMessageR
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPermissionControllerProxyMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesCombined.yaml
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesDefinitions.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesExperimentalFeatures.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesFeatures.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesGetterSetters.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesInternalDebugFeatures.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesKeys.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesKeys.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebPreferencesStoreDefaultsMap.cpp
@@ -488,5 +491,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/com.apple.WebKit.WebAuthnProcess.sb
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/com.apple.WebKit.WebContent.sb
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/com.apple.WebKit.adattributiond.sb
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/com.apple.WebKit.plugin-common.sb
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/com.apple.WebKit.webpushd.mac.sb
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/com.apple.WebKit.webpushd.sb
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/com.apple.WebProcess.sb

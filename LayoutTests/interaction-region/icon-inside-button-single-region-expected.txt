@@ -14,8 +14,8 @@ button
         (rect (0,0) width=800 height=600)
 
       (interaction regions [
-        (region
-            (rect (1,4) width=57 height=28)
+        (interaction
+            (rect (0,3) width=59 height=30)
 )
         (borderRadius 14.00)])
       )

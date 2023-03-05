@@ -45,11 +45,9 @@
 
 namespace WebCore {
 
-struct SameSizeAsScrollableArea {
-    virtual ~SameSizeAsScrollableArea();
-#if ASSERT_ENABLED
-    bool weakPtrFactorWasConstructedOnMainThread;
-#endif
+struct SameSizeAsScrollableArea : public CanMakeWeakPtr<SameSizeAsScrollableArea>, public CanMakeCheckedPtr {
+    ~SameSizeAsScrollableArea() { }
+    SameSizeAsScrollableArea() { }
     void* pointer[3];
     IntPoint origin;
     bool bytes[9];

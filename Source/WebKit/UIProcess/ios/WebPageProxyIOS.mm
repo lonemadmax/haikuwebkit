@@ -35,6 +35,7 @@
 #import "Connection.h"
 #import "DataReference.h"
 #import "DocumentEditingContext.h"
+#import "DrawingAreaProxy.h"
 #import "EditingRange.h"
 #import "GlobalFindInPageState.h"
 #import "InteractionInformationAtPosition.h"
@@ -44,8 +45,7 @@
 #import "PageClient.h"
 #import "PaymentAuthorizationViewController.h"
 #import "PrintInfo.h"
-#import "RemoteLayerTreeDrawingAreaProxy.h"
-#import "RemoteLayerTreeDrawingAreaProxyMessages.h"
+#import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "RevealItem.h"
@@ -84,6 +84,10 @@
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process().connection())
 
 #define WEBPAGEPROXY_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageProxyID=%llu, webPageID=%llu, PID=%i] WebPageProxy::" fmt, this, m_identifier.toUInt64(), m_webPageID.toUInt64(), m_process->processIdentifier(), ##__VA_ARGS__)
+
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+static constexpr CGFloat kTargetFullscreenAspectRatio = 1.7778;
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -336,36 +340,6 @@ void WebPageProxy::setOverrideViewportArguments(const std::optional<ViewportArgu
         m_process->send(Messages::WebPage::SetOverrideViewportArguments(viewportArguments), m_webPageID);
 }
 
-static bool exceedsRenderTreeSizeSizeThreshold(uint64_t thresholdSize, uint64_t committedSize)
-{
-    const double thesholdSizeFraction = 0.5; // Empirically-derived.
-    return committedSize > thresholdSize * thesholdSizeFraction;
-}
-
-void WebPageProxy::didCommitLayerTree(const WebKit::RemoteLayerTreeTransaction& layerTreeTransaction)
-{
-    themeColorChanged(layerTreeTransaction.themeColor());
-    pageExtendedBackgroundColorDidChange(layerTreeTransaction.pageExtendedBackgroundColor());
-    sampledPageTopColorChanged(layerTreeTransaction.sampledPageTopColor());
-
-    if (!m_hasUpdatedRenderingAfterDidCommitLoad) {
-        if (layerTreeTransaction.transactionID() >= m_firstLayerTreeTransactionIdAfterDidCommitLoad) {
-            m_hasUpdatedRenderingAfterDidCommitLoad = true;
-            stopMakingViewBlankDueToLackOfRenderingUpdateIfNecessary();
-            m_lastVisibleContentRectUpdate = VisibleContentRectUpdateInfo();
-        }
-    }
-
-    pageClient().didCommitLayerTree(layerTreeTransaction);
-
-    // FIXME: Remove this special mechanism and fold it into the transaction's layout milestones.
-    if (m_observedLayoutMilestones.contains(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold) && !m_hitRenderTreeSizeThreshold
-        && exceedsRenderTreeSizeSizeThreshold(m_sessionRestorationRenderTreeSize, layerTreeTransaction.renderTreeSize())) {
-        m_hitRenderTreeSizeThreshold = true;
-        didReachLayoutMilestone(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold);
-    }
-}
-
 bool WebPageProxy::updateLayoutViewportParameters(const WebKit::RemoteLayerTreeTransaction& layerTreeTransaction)
 {
     if (m_baseLayoutViewportSize == layerTreeTransaction.baseLayoutViewportSize()
@@ -380,11 +354,6 @@ bool WebPageProxy::updateLayoutViewportParameters(const WebKit::RemoteLayerTreeT
     LOG_WITH_STREAM(VisibleRects, stream << "WebPageProxy::updateLayoutViewportParameters: baseLayoutViewportSize: " << m_baseLayoutViewportSize << " minStableLayoutViewportOrigin: " << m_minStableLayoutViewportOrigin << " maxStableLayoutViewportOrigin: " << m_maxStableLayoutViewportOrigin);
 
     return true;
-}
-
-void WebPageProxy::layerTreeCommitComplete()
-{
-    pageClient().layerTreeCommitComplete();
 }
 
 void WebPageProxy::selectWithGesture(const WebCore::IntPoint point, GestureType gestureType, GestureRecognizerState gestureState, bool isInteractingWithFocusedElement, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<WebKit::SelectionFlags>)>&& callback)
@@ -891,6 +860,13 @@ FloatSize WebPageProxy::availableScreenSize()
 
 FloatSize WebPageProxy::overrideScreenSize()
 {
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+    // Report screen dimensions based on fullscreen preferences.
+    CGFloat preferredWidth = m_preferences->mediaPreferredFullscreenWidth();
+    CGFloat preferredHeight = preferredWidth / kTargetFullscreenAspectRatio;
+    return FloatSize(CGSizeMake(preferredWidth, preferredHeight));
+#endif
+
     return WebCore::overrideScreenSize();
 }
 

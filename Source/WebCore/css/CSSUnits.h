@@ -121,6 +121,8 @@ enum class CSSUnitType : uint8_t {
 
     CSS_FONT_FAMILY,
 
+    CSS_UNRESOLVED_COLOR,
+
     CSS_PROPERTY_ID,
     CSS_VALUE_ID,
     
@@ -149,6 +151,7 @@ enum class CSSUnitCategory : uint8_t {
 
 CSSUnitCategory unitCategory(CSSUnitType);
 CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory);
+CSSUnitType canonicalUnitTypeForUnitType(CSSUnitType);
 
 WTF::TextStream& operator<<(WTF::TextStream&, CSSUnitCategory);
 WTF::TextStream& operator<<(WTF::TextStream&, CSSUnitType);

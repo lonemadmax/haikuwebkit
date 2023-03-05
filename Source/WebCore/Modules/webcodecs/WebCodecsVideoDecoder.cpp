@@ -31,6 +31,7 @@
 #include "DOMException.h"
 #include "Event.h"
 #include "EventNames.h"
+#include "JSDOMPromiseDeferred.h"
 #include "JSWebCodecsVideoDecoderSupport.h"
 #include "ScriptExecutionContext.h"
 #include "WebCodecsEncodedVideoChunk.h"
@@ -159,7 +160,7 @@ ExceptionOr<void> WebCodecsVideoDecoder::configure(ScriptExecutionContext& conte
             init.duration = decodedResult.duration;
             init.colorSpace = decodedResult.frame->colorSpace();
 
-            auto videoFrame = WebCodecsVideoFrame::create(WTFMove(decodedResult.frame), WTFMove(init));
+            auto videoFrame = WebCodecsVideoFrame::create(*scriptExecutionContext(), WTFMove(decodedResult.frame), WTFMove(init));
             m_output->handleEvent(WTFMove(videoFrame));
         }, WTFMove(postTaskCallback));
     });

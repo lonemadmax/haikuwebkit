@@ -29,7 +29,9 @@
 #if ENABLE(DOM_AUDIO_SESSION)
 
 #include "AudioSession.h"
+#include "Document.h"
 #include "EventNames.h"
+#include "FeaturePolicy.h"
 #include "PlatformMediaSessionManager.h"
 
 namespace WebCore {
@@ -76,36 +78,55 @@ DOMAudioSession::~DOMAudioSession()
     AudioSession::sharedSession().removeInterruptionObserver(*this);
 }
 
-DOMAudioSession::Type DOMAudioSession::s_type = DOMAudioSession::Type::Auto;
-
-void DOMAudioSession::setType(Type type)
+ExceptionOr<void> DOMAudioSession::setType(Type type)
 {
-    if (s_type == type)
-        return;
+    auto* document = downcast<Document>(scriptExecutionContext());
+    if (!document)
+        return Exception { InvalidStateError };
 
-    s_type = type;
+    if (!isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::Microphone, *document, LogFeaturePolicyFailure::No))
+        return { };
+
+    document->topDocument().setAudioSessionType(type);
 
     auto categoryOverride = fromDOMAudioSessionType(type);
     AudioSession::sharedSession().setCategoryOverride(categoryOverride);
 
     if (categoryOverride == AudioSessionCategory::None)
         PlatformMediaSessionManager::updateAudioSessionCategoryIfNecessary();
+
+    return { };
 }
 
 DOMAudioSession::Type DOMAudioSession::type() const
 {
-    return s_type;
+    auto* document = downcast<Document>(scriptExecutionContext());
+    if (document && !isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::Microphone, *document, LogFeaturePolicyFailure::No))
+        return DOMAudioSession::Type::Auto;
+
+    return document ? document->topDocument().audioSessionType() : DOMAudioSession::Type::Auto;
+}
+
+static DOMAudioSession::State computeAudioSessionState()
+{
+    if (AudioSession::sharedSession().isInterrupted())
+        return DOMAudioSession::State::Interrupted;
+
+    if (!AudioSession::sharedSession().isActive())
+        return DOMAudioSession::State::Inactive;
+
+    return DOMAudioSession::State::Active;
 }
 
 DOMAudioSession::State DOMAudioSession::state() const
 {
-    if (AudioSession::sharedSession().isInterrupted())
-        return State::Interrupted;
+    auto* document = downcast<Document>(scriptExecutionContext());
+    if (!document || !isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::Microphone, *document, LogFeaturePolicyFailure::No))
+        return DOMAudioSession::State::Inactive;
 
-    if (!AudioSession::sharedSession().isActive())
-        return State::Inactive;
-
-    return State::Active;
+    if (!m_state)
+        m_state = computeAudioSessionState();
+    return *m_state;
 }
 
 void DOMAudioSession::stop()
@@ -139,7 +160,27 @@ void DOMAudioSession::activeStateChanged()
 
 void DOMAudioSession::scheduleStateChangeEvent()
 {
-    queueTaskToDispatchEvent(*this, TaskSource::MediaElement, Event::create(eventNames().statechangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    auto* document = downcast<Document>(scriptExecutionContext());
+    if (document && !isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::Microphone, *document, LogFeaturePolicyFailure::No))
+        return;
+
+    if (m_hasScheduleStateChangeEvent)
+        return;
+
+    m_hasScheduleStateChangeEvent = true;
+    queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
+        if (isContextStopped())
+            return;
+
+        m_hasScheduleStateChangeEvent = false;
+        auto newState = computeAudioSessionState();
+
+        if (m_state && *m_state == newState)
+            return;
+
+        m_state = newState;
+        dispatchEvent(Event::create(eventNames().statechangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    });
 }
 
 } // namespace WebCore

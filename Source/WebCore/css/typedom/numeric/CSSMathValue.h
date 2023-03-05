@@ -30,6 +30,7 @@
 #include "CSSMathOperator.h"
 #include "CSSNumericArray.h"
 #include "CSSNumericValue.h"
+#include "CSSPrimitiveValue.h"
 #include "CSSStyleValue.h"
 
 namespace WebCore {
@@ -68,7 +69,10 @@ public:
         auto node = toCalcExpressionNode();
         if (!node)
             return nullptr;
-        return CSSCalcValue::create(node.releaseNonNull());
+        auto value = CSSCalcValue::create(node.releaseNonNull());
+        if (!value)
+            return nullptr;
+        return CSSPrimitiveValue::create(value.releaseNonNull());
     }
 };
 

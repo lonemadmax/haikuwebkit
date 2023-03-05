@@ -82,7 +82,7 @@ ExceptionOr<void> StylePropertyMap::set(Document& document, const AtomString& pr
     if (!CSSProperty::isListValuedProperty(propertyID) && values.size() > 1)
         return Exception { TypeError, makeString(property, " is not a list-valued property but more than one value was provided"_s) };
 
-    if (isShorthandCSSProperty(propertyID)) {
+    if (isShorthand(propertyID)) {
         if (values.size() != 1)
             return Exception { TypeError, "Wrong number of values for shorthand CSS property"_s };
         String value;
@@ -109,6 +109,15 @@ ExceptionOr<void> StylePropertyMap::set(Document& document, const AtomString& pr
     auto value = cssValueFromStyleValues(propertyID, WTFMove(styleValues));
     if (!value)
         return Exception { TypeError, "Invalid values"_s };
+
+    // The CSS Parser may silently convert number values to lengths. However, CSS Typed OM doesn't allow this so
+    // we do some pre-validation.
+    // FIXME: Eventually, we should be able to generate most of the validation code and not rely on the CSS parser
+    // at all.
+    if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(*value); primitiveValue && primitiveValue->isNumberOrInteger()) {
+        if (!CSSProperty::allowsNumberOrIntegerInput(propertyID))
+            return Exception { TypeError, "Invalid value: This property doesn't allow <number> input"_s };
+    }
 
     if (!setProperty(propertyID, value.releaseNonNull()))
         return Exception { TypeError, "Invalid values"_s };

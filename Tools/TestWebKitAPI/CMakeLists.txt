@@ -48,6 +48,7 @@ set(TestWTF_SOURCES
     Tests/WTF/EnumTraits.cpp
     Tests/WTF/Expected.cpp
     Tests/WTF/FileSystem.cpp
+    Tests/WTF/FixedBitVector.cpp
     Tests/WTF/FixedVector.cpp
     Tests/WTF/Function.cpp
     Tests/WTF/HashCountedSet.cpp
@@ -228,7 +229,12 @@ if (ENABLE_WEBCORE)
         ${TESTWEBKITAPI_DIR}
     )
 
+    set(TestWebCore_DEFINITIONS
+      WEBKIT_SRC_DIR="${CMAKE_SOURCE_DIR}"
+    )
+
     WEBKIT_EXECUTABLE_DECLARE(TestWebCore)
+    target_compile_definitions(TestWebCore PUBLIC TestWebCore_DEFINITIONS)
 endif ()
 
 # TestWebKitLegacy definitions
@@ -240,21 +246,24 @@ if (ENABLE_WEBKIT_LEGACY)
     set(TestWebKitLegacy_LIBRARIES
         WebKit::gtest
     )
+
+    set(TestWebKitLegacy_FRAMEWORKS
+        JavaScriptCore
+        PAL
+        WTF
+        WebCore
+    )
+    if (NOT USE_SYSTEM_MALLOC)
+        list(APPEND TestWebKitLegacy_FRAMEWORKS bmalloc)
+    endif ()
     if (NOT APPLE)
-        list(APPEND TestWebKitLegacy_LIBRARIES
-            WebKitLegacy
-        )
+        list(APPEND TestWebKitLegacy_FRAMEWORKS WebKitLegacy)
     endif ()
 
     set(TestWebKitLegacy_PRIVATE_INCLUDE_DIRECTORIES
         ${CMAKE_BINARY_DIR}
         ${TESTWEBKITAPI_DIR}
-        ${PAL_FRAMEWORK_HEADERS_DIR}
-        ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}
-        ${WebKitLegacy_FRAMEWORK_HEADERS_DIR}
     )
-
-    set(TestWebKitLegacy_DEPENDENCIES WebKitLegacyFrameworkHeaders)
 
     WEBKIT_EXECUTABLE_DECLARE(TestWebKitLegacy)
 endif ()

@@ -60,8 +60,10 @@ public:
     GraphicsContextCGDisplayList(const CGDisplayListImageBufferBackend::Parameters& parameters)
         : GraphicsContextCG(adoptCF(WKCGCommandsContextCreate(parameters.logicalSize, makeContextOptions(parameters))).autorelease())
     {
+#if !HAVE(CG_DISPLAY_LIST_RESPECTING_CONTENTS_FLIPPED)
         m_immutableBaseTransform.scale(1, -1);
         m_immutableBaseTransform.translate(0, -ceilf(parameters.logicalSize.height() * parameters.resolutionScale));
+#endif
         m_immutableBaseTransform.scale(parameters.resolutionScale);
         m_inverseImmutableBaseTransform = *m_immutableBaseTransform.inverse();
         m_resolutionScale = parameters.resolutionScale;
@@ -83,6 +85,8 @@ public:
     }
 
     bool canUseShadowBlur() const final { return false; }
+
+    bool needsCachedNativeImageInvalidationWorkaround(WebCore::RenderingMode) override { return true; }
 
 protected:
     void setCGShadow(WebCore::RenderingMode renderingMode, const WebCore::FloatSize& offset, float blur, const WebCore::Color& color, bool shadowsIgnoreTransforms) override
@@ -109,7 +113,7 @@ size_t CGDisplayListImageBufferBackend::calculateMemoryCost(const Parameters& pa
     return WebCore::ImageBufferBackend::calculateMemoryCost(backendSize, calculateBytesPerRow(backendSize));
 }
 
-std::unique_ptr<CGDisplayListImageBufferBackend> CGDisplayListImageBufferBackend::create(const Parameters& parameters, const WebCore::ImageBuffer::CreationContext& creationContext)
+std::unique_ptr<CGDisplayListImageBufferBackend> CGDisplayListImageBufferBackend::create(const Parameters& parameters, const WebCore::ImageBufferCreationContext& creationContext)
 {
     if (parameters.logicalSize.isEmpty())
         return nullptr;
@@ -117,7 +121,7 @@ std::unique_ptr<CGDisplayListImageBufferBackend> CGDisplayListImageBufferBackend
     return std::unique_ptr<CGDisplayListImageBufferBackend>(new CGDisplayListImageBufferBackend(parameters, creationContext));
 }
 
-CGDisplayListImageBufferBackend::CGDisplayListImageBufferBackend(const Parameters& parameters, const WebCore::ImageBuffer::CreationContext& creationContext)
+CGDisplayListImageBufferBackend::CGDisplayListImageBufferBackend(const Parameters& parameters, const WebCore::ImageBufferCreationContext& creationContext)
     : ImageBufferCGBackend { parameters }
 {
     if (creationContext.useCGDisplayListImageCache == UseCGDisplayListImageCache::Yes)

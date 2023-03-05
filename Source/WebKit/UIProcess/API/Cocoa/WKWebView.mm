@@ -58,6 +58,7 @@
 #import "UIDelegate.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewGestureController.h"
+#import "WKApplicationManifestInternal.h"
 #import "WKBackForwardListInternal.h"
 #import "WKBackForwardListItemInternal.h"
 #import "WKBrowsingContextHandleInternal.h"
@@ -449,6 +450,8 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     pageConfiguration->setPreferences([_configuration preferences]->_preferences.get());
     if (WKWebView *relatedWebView = [_configuration _relatedWebView])
         pageConfiguration->setRelatedPage(relatedWebView->_page.get());
+    if (WKWebView *webViewToCloneSessionStorageFrom = [_configuration _webViewToCloneSessionStorageFrom])
+        pageConfiguration->setPageToCloneSessionStorageFrom(webViewToCloneSessionStorageFrom->_page.get());
 
     pageConfiguration->setUserContentController([_configuration userContentController]->_userContentControllerProxy.get());
     pageConfiguration->setVisitedLinkStore([_configuration _visitedLinkStore]->_visitedLinkStore.get());
@@ -579,6 +582,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 
 #if PLATFORM(IOS_FAMILY)
     pageConfiguration->preferences()->setAlternateFormControlDesignEnabled(WebKit::defaultAlternateFormControlDesignEnabled());
+    pageConfiguration->preferences()->setVideoFullscreenRequiresElementFullscreen(WebKit::defaultVideoFullscreenRequiresElementFullscreen());
 #endif
 }
 
@@ -1961,6 +1965,24 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     _maximumViewportInset = maximumViewportInset;
 }
 
+- (void)getApplicationManifestWithCompletionHandler:(void (^)(WKApplicationManifest *))completionHandler
+{
+    THROW_IF_SUSPENDED;
+#if ENABLE(APPLICATION_MANIFEST)
+    _page->getApplicationManifest([completionHandler = makeBlockPtr(completionHandler)](const std::optional<WebCore::ApplicationManifest>& manifest) {
+        if (manifest) {
+            auto apiManifest = API::ApplicationManifest::create(*manifest);
+            auto wkManifest = adoptNS([[WKApplicationManifest alloc] initWithApplicationManifest:WTFMove(apiManifest)]);
+            completionHandler(wkManifest.get());
+        } else
+            completionHandler(nil);
+    });
+#else
+    if (completionHandler)
+        completionHandler(nil);
+#endif
+}
+
 @end
 
 #pragma mark -
@@ -2304,7 +2326,7 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
         if (coreFailure.index >= items.count)
             return nil;
         auto errorCode = static_cast<NSInteger>(([&coreFailure] {
-            using Type = WebCore::TextManipulationController::ManipulationFailureType;
+            using Type = WebCore::TextManipulationController::ManipulationFailure::Type;
             switch (coreFailure.type) {
             case Type::ContentChanged:
                 return _WKTextManipulationItemErrorContentChanged;
@@ -2458,6 +2480,53 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 #endif
 }
 
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+- (void)_pauseAllAnimationsWithCompletionHandler:(void(^)(void))completionHandler
+{
+    THROW_IF_SUSPENDED;
+    if (!completionHandler) {
+        _page->pauseAllAnimations([] { });
+        return;
+    }
+
+    _page->pauseAllAnimations(makeBlockPtr(completionHandler));
+}
+
+- (void)_playAllAnimationsWithCompletionHandler:(void(^)(void))completionHandler
+{
+    THROW_IF_SUSPENDED;
+    if (!completionHandler) {
+        _page->playAllAnimations([] { });
+        return;
+    }
+
+    _page->playAllAnimations(makeBlockPtr(completionHandler));
+}
+
+- (BOOL)_allowsAnyAnimationToPlay
+{
+    THROW_IF_SUSPENDED;
+    return _page->allowsAnyAnimationToPlay();
+}
+#else // !ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+- (void)_pauseAllAnimationsWithCompletionHandler:(void(^)(void))completionHandler
+{
+    if (completionHandler)
+        completionHandler();
+}
+
+- (void)_playAllAnimationsWithCompletionHandler:(void(^)(void))completionHandler
+{
+    if (completionHandler)
+        completionHandler();
+}
+
+- (BOOL)_allowsAnyAnimationToPlay
+{
+    return YES;
+}
+#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+
 - (_WKMediaMutedState)_mediaMutedState
 {
     return WebKit::toWKMediaMutedState(_page->mutedStateFlags());
@@ -2561,7 +2630,7 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
 - (void)_loadAlternateHTMLString:(NSString *)string baseURL:(NSURL *)baseURL forUnreachableURL:(NSURL *)unreachableURL
 {
     THROW_IF_SUSPENDED;
-    NSData *data = [string dataUsingEncoding:NSUTF8StringEncoding];
+    auto *data = [string dataUsingEncoding:NSUTF8StringEncoding] ?: NSData.data;
     _page->loadAlternateHTML(WebCore::DataSegment::create((__bridge CFDataRef)data), "UTF-8"_s, baseURL, unreachableURL);
 }
 
@@ -3713,7 +3782,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     if (_page->minimumEffectiveDeviceWidth() == minimumEffectiveDeviceWidth)
         return;
 
-    if (_perProcessState.dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing)
+    if (!self._shouldDeferGeometryUpdates)
         _page->setViewportConfigurationViewLayoutSize(_page->viewLayoutSize(), _page->layoutSizeScaleFactor(), minimumEffectiveDeviceWidth);
     else
         _page->setMinimumEffectiveDeviceWidthWithoutViewportConfigurationUpdate(minimumEffectiveDeviceWidth);

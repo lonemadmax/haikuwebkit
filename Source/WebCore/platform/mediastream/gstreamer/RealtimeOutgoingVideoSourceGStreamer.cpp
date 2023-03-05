@@ -23,8 +23,8 @@
 #if USE(GSTREAMER_WEBRTC)
 
 #include "GStreamerRegistryScanner.h"
-#include "GStreamerVideoCaptureSource.h"
-#include "GStreamerVideoEncoder.h"
+#include "VideoEncoderPrivateGStreamer.h"
+
 #include <wtf/glib/WTFGType.h>
 
 GST_DEBUG_CATEGORY_EXTERN(webkit_webrtc_endpoint_debug);
@@ -62,7 +62,7 @@ RealtimeOutgoingVideoSourceGStreamer::RealtimeOutgoingVideoSourceGStreamer(const
     m_videoFlip = makeGStreamerElement("videoflip", nullptr);
     gst_util_set_object_arg(G_OBJECT(m_videoFlip.get()), "method", "automatic");
 
-    m_encoder = gst_element_factory_make("webrtcvideoencoder", nullptr);
+    m_encoder = gst_element_factory_make("webkitvideoencoder", nullptr);
     gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_videoFlip.get(), m_videoConvert.get(), m_encoder.get(), nullptr);
 }
 
@@ -77,6 +77,13 @@ void RealtimeOutgoingVideoSourceGStreamer::updateStats(GstBuffer*)
     uint64_t framesSent = 0;
     gst_structure_get_uint64(m_stats.get(), "frames-sent", &framesSent);
     framesSent++;
+
+    if (m_encoder) {
+        uint32_t bitrate;
+        g_object_get(m_encoder.get(), "bitrate", &bitrate, nullptr);
+        gst_structure_set(m_stats.get(), "bitrate", G_TYPE_DOUBLE, static_cast<double>(bitrate * 1024), nullptr);
+    }
+
     gst_structure_set(m_stats.get(), "frames-sent", G_TYPE_UINT64, framesSent, "frames-encoded", G_TYPE_UINT64, framesSent, nullptr);
 }
 
@@ -114,16 +121,18 @@ bool RealtimeOutgoingVideoSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>
         if (!profile)
             profile = "baseline";
         gst_caps_set_simple(encoderCaps.get(), "profile", G_TYPE_STRING, profile, nullptr);
+    } else if (encoding == "h265"_s) {
+        encoderCaps = adoptGRef(gst_caps_new_empty_simple("video/x-h265"));
+        // FIXME: profile tier level?
     } else {
         GST_ERROR_OBJECT(m_bin.get(), "Unsupported outgoing video encoding: %s", encodingName);
         return false;
     }
 
-    // FIXME: Re-enable auto-header-extension. Currently triggers caps negotiation error.
     // Align MTU with libwebrtc implementation, also helping to reduce packet fragmentation.
-    g_object_set(m_payloader.get(), "auto-header-extension", FALSE, "mtu", 1200, nullptr);
+    g_object_set(m_payloader.get(), "mtu", 1200, nullptr);
 
-    if (!webrtcVideoEncoderSetFormat(WEBKIT_WEBRTC_VIDEO_ENCODER(m_encoder.get()), WTFMove(encoderCaps))) {
+    if (!videoEncoderSetFormat(WEBKIT_VIDEO_ENCODER(m_encoder.get()), WTFMove(encoderCaps))) {
         GST_ERROR_OBJECT(m_bin.get(), "Unable to set encoder format");
         return false;
     }

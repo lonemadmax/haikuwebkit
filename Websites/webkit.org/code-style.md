@@ -354,6 +354,21 @@ x++; y++;
 if (condition) doIt();
 ```
 
+[](#linebreaking-chained-assignments) Chained `=` assignments should be broken up into multiple statements.
+
+###### Right:
+
+```cpp
+rightSpacing = totalSpacing / 2;
+leftSpacing = rightSpacing;
+```
+
+###### Wrong:
+
+```cpp
+leftSpacing = rightSpacing = totalSpacing / 2;
+```
+
 [](#linebreaking-else-braces) An `else` statement should go on the same line as a preceding close brace if one is present, else it should line up with the `if` statement.
 
 ###### Right:
@@ -952,6 +967,44 @@ for (Vector<RefPtr<FrameView> >::iterator it = frameViews.begin(); it != end; ++
 ```cpp
 [this]() { return m_member; }
 []() { return static_cast<unsigned>(-1); }
+```
+
+[](#function-return-arrow) Only use the arrow for function return types if it allows you to omit redundant information.
+
+###### Right:
+
+```cpp
+int foo()
+{
+    ...
+}
+```
+
+###### Wrong:
+
+```cpp
+auto foo() -> int
+{
+    ...
+}
+```
+
+###### Right:
+
+```cpp
+auto Foo::bar() -> Baz
+{
+    ...
+}
+```
+
+###### Wrong:
+
+```cpp
+Foo::Baz Foo::bar()
+{
+    ...
+}
 ```
 
 ### Pointers and References

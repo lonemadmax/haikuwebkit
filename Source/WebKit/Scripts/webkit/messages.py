@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2023 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -21,11 +21,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import collections
+import itertools
 import re
 import sys
 
 from webkit import parser
-from webkit.model import BUILTIN_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, ALLOWEDWHENWAITINGFORSYNCREPLY_ATTRIBUTE, ALLOWEDWHENWAITINGFORSYNCREPLYDURINGUNBOUNDEDIPC_ATTRIBUTE, MAINTHREADCALLBACK_ATTRIBUTE, STREAM_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, WANTS_CONNECTION_ATTRIBUTE, MessageReceiver, Message
+from webkit.model import BUILTIN_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, ALLOWEDWHENWAITINGFORSYNCREPLY_ATTRIBUTE, ALLOWEDWHENWAITINGFORSYNCREPLYDURINGUNBOUNDEDIPC_ATTRIBUTE, MAINTHREADCALLBACK_ATTRIBUTE, STREAM_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, MessageReceiver, Message
 
 _license_header = """/*
  * Copyright (C) 2021 Apple Inc. All rights reserved.
@@ -87,9 +88,20 @@ class MessageEnumerator(object):
             return self.messages[0].name
         return '%s_%s' % (self.receiver.name, self.messages[0].name)
 
+    def condition(self):
+        conditions = [message.condition for message in self.messages]
+        if any([condition is None for condition in conditions]):
+            return None
+        return " || ".join(conditions)
+
+    def synchronous(self):
+        is_synchronous = self.messages[0].has_attribute(SYNCHRONOUS_ATTRIBUTE)
+        assert(all([message.has_attribute(SYNCHRONOUS_ATTRIBUTE) == is_synchronous for message in self.messages]))
+        return is_synchronous
+
     @classmethod
     def sort_key(cls, obj):
-        return obj.messages[0].has_attribute(SYNCHRONOUS_ATTRIBUTE), receiver_enumerator_order_key(obj.receiver.name), str(obj)
+        return obj.synchronous(), receiver_enumerator_order_key(obj.receiver.name), str(obj)
 
 
 def get_message_enumerators(receivers):
@@ -146,21 +158,13 @@ def function_parameter_type(type, kind):
     return 'const %s&' % type
 
 
-def arguments_type(message):
-    return 'std::tuple<%s>' % ', '.join(function_parameter_type(parameter.type, parameter.kind) for parameter in message.parameters)
-
-
-def reply_arguments_type(message):
-    return 'std::tuple<%s>' % (', '.join(parameter.type for parameter in message.reply_parameters))
-
-
 def message_to_struct_declaration(receiver, message):
     result = []
     function_parameters = [(function_parameter_type(x.type, x.kind), x.name) for x in message.parameters]
 
     result.append('class %s {\n' % message.name)
     result.append('public:\n')
-    result.append('    using Arguments = %s;\n' % arguments_type(message))
+    result.append('    using Arguments = std::tuple<%s>;\n' % ', '.join([parameter.type for parameter in message.parameters]))
     result.append('\n')
     result.append('    static IPC::MessageName name() { return IPC::MessageName::%s_%s; }\n' % (receiver.name, message.name))
     result.append('    static constexpr bool isSync = %s;\n' % ('false', 'true')[message.reply_parameters is not None and message.has_attribute(SYNCHRONOUS_ATTRIBUTE)])
@@ -181,20 +185,20 @@ def message_to_struct_declaration(receiver, message):
             result.append('    static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::MainThread;\n')
         else:
             result.append('    static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;\n')
-        result.append('    using ReplyArguments = %s;\n' % reply_arguments_type(message))
+        result.append('    using ReplyArguments = std::tuple<%s>;\n' % ', '.join([parameter.type for parameter in message.reply_parameters]))
 
     if len(function_parameters):
         result.append('    %s%s(%s)' % (len(function_parameters) == 1 and 'explicit ' or '', message.name, ', '.join([' '.join(x) for x in function_parameters])))
         result.append('\n        : m_arguments(%s)\n' % ', '.join([x[1] for x in function_parameters]))
         result.append('    {\n')
         result.append('    }\n\n')
-    result.append('    const Arguments& arguments() const\n')
+    result.append('    const auto& arguments() const\n')
     result.append('    {\n')
     result.append('        return m_arguments;\n')
     result.append('    }\n')
     result.append('\n')
     result.append('private:\n')
-    result.append('    Arguments m_arguments;\n')
+    result.append('    std::tuple<%s> m_arguments;\n' % ', '.join([x[0] for x in function_parameters]))
     result.append('};\n')
     return surround_in_condition(''.join(result), message.condition)
 
@@ -249,6 +253,8 @@ def serialized_identifiers():
         'WebCore::SharedWorkerIdentifier',
         'WebCore::SleepDisablerIdentifier',
         'WebCore::SpeechRecognitionConnectionClientIdentifier',
+        'WebCore::TextCheckingRequestIdentifier',
+        'WebCore::TextManipulationTokenIdentifier',
         'WebCore::UserMediaRequestIdentifier',
         'WebCore::WebSocketIdentifier',
         'WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier',
@@ -260,6 +266,7 @@ def serialized_identifiers():
         'WebKit::GraphicsContextGLIdentifier',
         'WebKit::IPCConnectionTesterIdentifier',
         'WebKit::IPCStreamTesterIdentifier',
+        'WebKit::LegacyCustomProtocolID',
         'WebKit::LibWebRTCResolverIdentifier',
         'WebKit::MDNSRegisterIdentifier',
         'WebKit::MarkSurfacesAsVolatileRequestIdentifier',
@@ -278,9 +285,11 @@ def serialized_identifiers():
         'WebKit::RemoteLegacyCDMIdentifier',
         'WebKit::RemoteLegacyCDMSessionIdentifier',
         'WebKit::RemoteMediaResourceIdentifier',
+        'WebKit::RemoteSerializedImageBufferIdentifier',
         'WebKit::RemoteVideoFrameIdentifier',
         'WebKit::RemoteRemoteCommandListenerIdentifier',
         'WebKit::RenderingBackendIdentifier',
+        'WebKit::RenderingUpdateID',
         'WebKit::SampleBufferDisplayLayerIdentifier',
         'WebKit::StorageAreaIdentifier',
         'WebKit::StorageAreaImplIdentifier',
@@ -288,6 +297,7 @@ def serialized_identifiers():
         'WebKit::StorageNamespaceIdentifier',
         'WebKit::TapIdentifier',
         'WebKit::TrackPrivateRemoteIdentifier',
+        'WebKit::TransactionID',
         'WebKit::UserContentControllerIdentifier',
         'WebKit::VideoDecoderIdentifier',
         'WebKit::VideoEncoderIdentifier',
@@ -315,12 +325,14 @@ def types_that_cannot_be_forward_declared():
         'PlatformXR::VisibilityState',
         'String',
         'WebCore::BackForwardItemIdentifier',
+        'WebCore::ControlStyle',
         'WebCore::DestinationColorSpace',
         'WebCore::DiagnosticLoggingDomain',
         'WebCore::DictationContext',
         'WebCore::DragApplicationFlags',
         'WebCore::FrameIdentifier',
         'WebCore::GraphicsContextGLAttributes',
+        'WebCore::GraphicsLayer::PlatformLayerID',
         'WebCore::ModalContainerControlType',
         'WebCore::NativeImageReference',
         'WebCore::PluginLoadClientPolicy',
@@ -349,6 +361,8 @@ def types_that_cannot_be_forward_declared():
         'WebKit::RemoteSourceBufferIdentifier',
         'WebKit::RemoteVideoFrameWriteReference',
         'WebKit::RemoteVideoFrameReadReference',
+        'WebKit::RemoteSerializedImageBufferWriteReference',
+        'WebKit::RemoteSerializedImageBufferReadReference',
         'WebKit::RenderingUpdateID',
         'WebKit::TextCheckerRequestID',
         'WebKit::TransactionID',
@@ -483,9 +497,6 @@ def async_message_statement(receiver, message):
     if message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
         dispatch_function += 'Async'
 
-    if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
-        dispatch_function += 'WantsConnection'
-
     connection = 'connection'
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         connection = 'connection.connection()'
@@ -493,7 +504,7 @@ def async_message_statement(receiver, message):
     result = []
     result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
     result.append('        return IPC::%s<Messages::%s::%s>(%s, %s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
-    return surround_in_condition(''.join(result), message.condition)
+    return result
 
 
 def sync_message_statement(receiver, message):
@@ -502,8 +513,6 @@ def sync_message_statement(receiver, message):
         dispatch_function += 'Synchronous'
     elif message.reply_parameters is not None:
         dispatch_function += 'Async'
-    if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
-        dispatch_function += 'WantsConnection'
 
     maybe_reply_encoder = ", *replyEncoder"
     if receiver.has_attribute(STREAM_ATTRIBUTE):
@@ -514,7 +523,7 @@ def sync_message_statement(receiver, message):
     result = []
     result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
     result.append('        return IPC::%s<Messages::%s::%s>(connection, decoder%s, this, &%s);\n' % (dispatch_function, receiver.name, message.name, maybe_reply_encoder, handler_function(receiver, message)))
-    return surround_in_condition(''.join(result), message.condition)
+    return result
 
 
 def class_template_headers(template_string):
@@ -591,10 +600,10 @@ def headers_for_type(type):
     special_cases = {
         'CVPixelBufferRef': ['<WebCore/CVUtilities.h>'],
         'GCGLint': ['<WebCore/GraphicsTypesGL.h>'],
-        'IPC::Semaphore': ['"IPCSemaphore.h"'],
         'Inspector::ExtensionError': ['"InspectorExtensionTypes.h"'],
         'Inspector::FrontendChannel::ConnectionType': ['<JavaScriptCore/InspectorFrontendChannel.h>'],
         'Inspector::InspectorTargetType': ['<JavaScriptCore/InspectorTarget.h>'],
+        'IPC::Semaphore': ['"IPCSemaphore.h"'],
         'JSC::MessageLevel': ['<JavaScriptCore/ConsoleTypes.h>'],
         'JSC::MessageSource': ['<JavaScriptCore/ConsoleTypes.h>'],
         'MachSendRight': ['<wtf/MachSendRight.h>'],
@@ -659,6 +668,7 @@ def headers_for_type(type):
         'URL': ['<wtf/URLHash.h>'],
         'UUID': ['<wtf/UUID.h>'],
         'WallTime': ['<wtf/WallTime.h>'],
+        'WebCore::AlternativeTextType': ['<WebCore/AlternativeTextClient.h>'],
         'WebCore::ApplyTrackingPrevention': ['<WebCore/NetworkStorageSession.h>'],
         'WebCore::ArcData': ['<WebCore/InlinePathData.h>'],
         'WebCore::AutoplayEventFlags': ['<WebCore/AutoplayEvent.h>'],
@@ -666,22 +676,23 @@ def headers_for_type(type):
         'WebCore::BezierCurveData': ['<WebCore/InlinePathData.h>'],
         'WebCore::BlendMode': ['<WebCore/GraphicsTypes.h>'],
         'WebCore::BrowsingContextGroupSwitchDecision': ['<WebCore/FrameLoaderTypes.h>'],
-        'WebCore::AlternativeTextType': ['<WebCore/AlternativeTextClient.h>'],
         'WebCore::COEPDisposition': ['<WebCore/CrossOriginEmbedderPolicy.h>'],
-        'WebCore::COOPDisposition': ['<WebCore/CrossOriginOpenerPolicy.h>'],
         'WebCore::ColorSchemePreference': ['<WebCore/DocumentLoader.h>'],
         'WebCore::CompositeOperator': ['<WebCore/GraphicsTypes.h>'],
+        'WebCore::Cookie': ['<WebCore/Cookie.h>'],
+        'WebCore::COOPDisposition': ['<WebCore/CrossOriginOpenerPolicy.h>'],
         'WebCore::CreateNewGroupForHighlight': ['<WebCore/AppHighlight.h>'],
-        'WebCore::DOMPasteAccessCategory': ['<WebCore/DOMPasteAccess.h>'],
-        'WebCore::DOMPasteAccessResponse': ['<WebCore/DOMPasteAccess.h>'],
         'WebCore::DictationContext': ['<WebCore/DictationContext.h>'],
         'WebCore::DisplayList::ItemBufferIdentifier': ['<WebCore/DisplayList.h>'],
         'WebCore::DocumentMarkerLineStyle': ['<WebCore/GraphicsTypes.h>'],
+        'WebCore::DOMPasteAccessCategory': ['<WebCore/DOMPasteAccess.h>'],
+        'WebCore::DOMPasteAccessResponse': ['<WebCore/DOMPasteAccess.h>'],
         'WebCore::DragApplicationFlags': ['<WebCore/DragData.h>'],
         'WebCore::DragHandlingMethod': ['<WebCore/DragActions.h>'],
         'WebCore::DragOperation': ['<WebCore/DragActions.h>'],
         'WebCore::DragSourceAction': ['<WebCore/DragActions.h>'],
         'WebCore::DynamicRangeMode': ['<WebCore/PlatformScreen.h>'],
+        'WebCore::ElementContext': ['<WebCore/ElementContext.h>'],
         'WebCore::EventMakesGamepadsVisible': ['<WebCore/GamepadProviderClient.h>'],
         'WebCore::ExceptionDetails': ['<WebCore/JSDOMExceptionHandling.h>'],
         'WebCore::FileChooserSettings': ['<WebCore/FileChooser.h>'],
@@ -695,11 +706,11 @@ def headers_for_type(type):
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::HighlightRequestOriginatedInApp': ['<WebCore/AppHighlight.h>'],
         'WebCore::HighlightVisibility': ['<WebCore/HighlightVisibility.h>'],
-        'WebCore::ISOWebVTTCue': ['<WebCore/ISOVTTCue.h>'],
         'WebCore::IncludeSecureCookies': ['<WebCore/CookieJar.h>'],
         'WebCore::IndexedDB::ObjectStoreOverwriteMode': ['<WebCore/IndexedDB.h>'],
         'WebCore::InputMode': ['<WebCore/InputMode.h>'],
         'WebCore::InspectorOverlay::Highlight': ['<WebCore/InspectorOverlay.h>'],
+        'WebCore::ISOWebVTTCue': ['<WebCore/ISOVTTCue.h>'],
         'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
         'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
         'WebCore::LastNavigationWasAppInitiated': ['<WebCore/ServiceWorkerClientData.h>'],
@@ -724,6 +735,7 @@ def headers_for_type(type):
         'WebCore::PasteboardWebContent': ['<WebCore/Pasteboard.h>'],
         'WebCore::PixelFormat': ['<WebCore/ImageBufferBackend.h>'],
         'WebCore::PlatformTextTrackData': ['<WebCore/PlatformTextTrack.h>'],
+        'WebCore::PlatformWheelEventPhase': ['<WebCore/PlatformWheelEvent.h>'],
         'WebCore::PlaybackSessionModel::PlaybackState': ['<WebCore/PlaybackSessionModel.h>'],
         'WebCore::PluginInfo': ['<WebCore/PluginData.h>'],
         'WebCore::PluginLoadClientPolicy': ['<WebCore/PluginData.h>'],
@@ -738,7 +750,6 @@ def headers_for_type(type):
         'WebCore::RenderingPurpose': ['<WebCore/RenderingMode.h>'],
         'WebCore::RequestStorageAccessResult': ['<WebCore/DocumentStorageAccess.h>'],
         'WebCore::RouteSharingPolicy': ['<WebCore/AudioSession.h>'],
-        'WebCore::SWServerConnectionIdentifier': ['<WebCore/ServiceWorkerTypes.h>'],
         'WebCore::SameSiteStrictEnforcementEnabled': ['<WebCore/NetworkStorageSession.h>'],
         'WebCore::ScriptExecutionContextIdentifier': ['<WebCore/ProcessQualified.h>', '<WebCore/ScriptExecutionContextIdentifier.h>', '<wtf/ObjectIdentifier.h>'],
         'WebCore::ScrollGranularity': ['<WebCore/ScrollTypes.h>'],
@@ -760,15 +771,19 @@ def headers_for_type(type):
         'WebCore::StorageAccessScope': ['<WebCore/DocumentStorageAccess.h>'],
         'WebCore::StorageAccessWasGranted': ['<WebCore/DocumentStorageAccess.h>'],
         'WebCore::SupportedPluginIdentifier': ['<WebCore/PluginData.h>'],
+        'WebCore::SWServerConnectionIdentifier': ['<WebCore/ServiceWorkerTypes.h>'],
         'WebCore::SystemPreviewInfo': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::TextCheckingRequestData': ['<WebCore/TextChecking.h>'],
         'WebCore::TextCheckingResult': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::TextCheckingType': ['<WebCore/TextChecking.h>'],
         'WebCore::TextIndicatorData': ['<WebCore/TextIndicator.h>'],
+        'WebCore::TextManipulationTokenIdentifier': ['<WebCore/TextManipulationToken.h>'],
         'WebCore::ThirdPartyCookieBlockingMode': ['<WebCore/NetworkStorageSession.h>'],
         'WebCore::UsedLegacyTLS': ['<WebCore/ResourceResponseBase.h>'],
+        'WebCore::VideoPlaybackQualityMetrics': ['<WebCore/VideoPlaybackQualityMetrics.h>'],
         'WebCore::VideoPresetData': ['<WebCore/VideoPreset.h>'],
         'WebCore::ViewportAttributes': ['<WebCore/ViewportArguments.h>'],
+        'WebCore::WheelEventProcessingSteps': ['<WebCore/ScrollingCoordinatorTypes.h>'],
         'WebCore::WillContinueLoading': ['<WebCore/FrameLoaderTypes.h>'],
         'WebKit::ActivityStateChangeID': ['"DrawingAreaInfo.h"'],
         'WebKit::AllowOverwrite': ['"DownloadID.h"'],
@@ -793,13 +808,16 @@ def headers_for_type(type):
         'WebKit::PaymentSetupFeatures': ['"ApplePayPaymentSetupFeaturesWebKit.h"'],
         'WebKit::PrepareBackingStoreBuffersInputData': ['"PrepareBackingStoreBuffersData.h"'],
         'WebKit::PrepareBackingStoreBuffersOutputData': ['"PrepareBackingStoreBuffersData.h"'],
-        'WebKit::RespectSelectionAnchor': ['"GestureTypes.h"'],
+        'WebKit::RemoteSerializedImageBufferReadReference': ['"RemoteSerializedImageBufferIdentifier.h"'],
+        'WebKit::RemoteSerializedImageBufferWriteReference': ['"RemoteSerializedImageBufferIdentifier.h"'],
         'WebKit::RemoteVideoFrameReadReference': ['"RemoteVideoFrameIdentifier.h"'],
         'WebKit::RemoteVideoFrameWriteReference': ['"RemoteVideoFrameIdentifier.h"'],
+        'WebKit::RespectSelectionAnchor': ['"GestureTypes.h"'],
         'WebKit::SelectionFlags': ['"GestureTypes.h"'],
         'WebKit::SelectionTouch': ['"GestureTypes.h"'],
         'WebKit::TapIdentifier': ['"IdentifierTypes.h"'],
         'WebKit::TextCheckerRequestID': ['"IdentifierTypes.h"'],
+        'WebKit::WebEventType': ['"WebEvent.h"'],
         'WebKit::WebGPU::BindGroupDescriptor': ['"WebGPUBindGroupDescriptor.h"'],
         'WebKit::WebGPU::BindGroupEntry': ['"WebGPUBindGroupEntry.h"'],
         'WebKit::WebGPU::BindGroupLayoutDescriptor': ['"WebGPUBindGroupLayoutDescriptor.h"'],
@@ -840,6 +858,8 @@ def headers_for_type(type):
         'WebKit::WebGPU::OutOfMemoryError': ['"WebGPUOutOfMemoryError.h"'],
         'WebKit::WebGPU::PipelineDescriptorBase': ['"WebGPUPipelineDescriptorBase.h"'],
         'WebKit::WebGPU::PipelineLayoutDescriptor': ['"WebGPUPipelineLayoutDescriptor.h"'],
+        'WebKit::WebGPU::PresentationConfiguration': ['"WebGPUPresentationConfiguration.h"'],
+        'WebKit::WebGPU::PresentationContextDescriptor': ['"WebGPUPresentationContextDescriptor.h"'],
         'WebKit::WebGPU::PrimitiveState': ['"WebGPUPrimitiveState.h"'],
         'WebKit::WebGPU::ProgrammableStage': ['"WebGPUProgrammableStage.h"'],
         'WebKit::WebGPU::QuerySetDescriptor': ['"WebGPUQuerySetDescriptor.h"'],
@@ -859,8 +879,6 @@ def headers_for_type(type):
         'WebKit::WebGPU::StorageTextureBindingLayout': ['"WebGPUStorageTextureBindingLayout.h"'],
         'WebKit::WebGPU::SupportedFeatures': ['"WebGPUSupportedFeatures.h"'],
         'WebKit::WebGPU::SupportedLimits': ['"WebGPUSupportedLimits.h"'],
-        'WebKit::WebGPU::SurfaceDescriptor': ['"WebGPUSurfaceDescriptor.h"'],
-        'WebKit::WebGPU::SwapChainDescriptor': ['"WebGPUSwapChainDescriptor.h"'],
         'WebKit::WebGPU::TextureBindingLayout': ['"WebGPUTextureBindingLayout.h"'],
         'WebKit::WebGPU::TextureDescriptor': ['"WebGPUTextureDescriptor.h"'],
         'WebKit::WebGPU::TextureViewDescriptor': ['"WebGPUTextureViewDescriptor.h"'],
@@ -868,9 +886,6 @@ def headers_for_type(type):
         'WebKit::WebGPU::VertexAttribute': ['"WebGPUVertexAttribute.h"'],
         'WebKit::WebGPU::VertexBufferLayout': ['"WebGPUVertexBufferLayout.h"'],
         'WebKit::WebGPU::VertexState': ['"WebGPUVertexState.h"'],
-        'WebCore::Cookie': ['<WebCore/Cookie.h>'],
-        'WebCore::ElementContext': ['<WebCore/ElementContext.h>'],
-        'WebCore::VideoPlaybackQualityMetrics': ['<WebCore/VideoPlaybackQualityMetrics.h>'],
         'WebKit::WebScriptMessageHandlerData': ['"WebUserContentControllerDataTypes.h"'],
         'WebKit::WebUserScriptData': ['"WebUserContentControllerDataTypes.h"'],
         'WebKit::WebUserStyleSheetData': ['"WebUserContentControllerDataTypes.h"'],
@@ -994,16 +1009,28 @@ def generate_message_handler(receiver):
         else:
             async_messages.append(message)
 
+    def collect_message_statements(messages, message_statement_function):
+        result = []
+        for condition, messages in itertools.groupby(messages, lambda m: m.condition):
+            if condition:
+                result.append('#if %s\n' % condition)
+            for message in messages:
+                result += message_statement_function(receiver, message)
+            if condition:
+                result.append('#endif\n')
+        return result
+
+    async_message_statements = collect_message_statements(async_messages, async_message_statement)
+    sync_message_statements = collect_message_statements(sync_messages, sync_message_statement)
+
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         result.append('void %s::didReceiveStreamMessage(IPC::StreamServerConnection& connection, IPC::Decoder& decoder)\n' % (receiver.name))
         result.append('{\n')
         assert(receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_ASYNC_DISPATCH_MESSAGE_ATTRIBUTE))
-
-        result += [async_message_statement(receiver, message) for message in async_messages]
-        result += [sync_message_statement(receiver, message) for message in sync_messages]
-
+        result += async_message_statements
+        result += sync_message_statements
         if (receiver.superclass):
             result.append('    %s::didReceiveStreamMessage(connection, decoder);\n' % (receiver.superclass))
         else:
@@ -1021,9 +1048,7 @@ def generate_message_handler(receiver):
         result.append('{\n')
         if not (receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE) or receiver.has_attribute(STREAM_ATTRIBUTE)):
             result.append('    Ref protectedThis { *this };\n')
-
-        result += [async_message_statement(receiver, message) for message in async_messages]
-
+        result += async_message_statements
         if receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE) or receiver.has_attribute(WANTS_ASYNC_DISPATCH_MESSAGE_ATTRIBUTE):
             result.append('    if (dispatchMessage(connection, decoder))\n')
             result.append('        return;\n')
@@ -1045,7 +1070,7 @@ def generate_message_handler(receiver):
         result.append('{\n')
         if not receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE):
             result.append('    Ref protectedThis { *this };\n')
-        result += [sync_message_statement(receiver, message) for message in sync_messages]
+        result += sync_message_statements
         if receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE):
             result.append('    if (dispatchSyncMessage(connection, decoder, replyEncoder))\n')
             result.append('        return true;\n')
@@ -1060,37 +1085,39 @@ def generate_message_handler(receiver):
         result.append('    return false;\n')
         result.append('}\n')
 
-    result.append('\n} // namespace WebKit\n')
+    result.append('\n')
+    result.append('} // namespace WebKit\n')
 
     result.append('\n')
-    result.append('#if ENABLE(IPC_TESTING_API)\n\n')
-    result.append('namespace IPC {\n\n')
-    previous_message_condition = None
-    for message in receiver.messages:
-        if previous_message_condition != message.condition:
-            if previous_message_condition:
-                result.append('#endif\n')
-            if message.condition:
-                result.append('#if %s\n' % message.condition)
-            previous_message_condition = message.condition
-        result.append('template<> std::optional<JSC::JSValue> jsValueForDecodedMessage<MessageName::%s_%s>(JSC::JSGlobalObject* globalObject, Decoder& decoder)\n' % (receiver.name, message.name))
-        result.append('{\n')
-        result.append('    return jsValueForDecodedArguments<Messages::%s::%s::%s>(globalObject, decoder);\n' % (receiver.name, message.name, 'Arguments'))
-        result.append('}\n')
-        has_reply = message.reply_parameters is not None
-        if not has_reply:
-            continue
-        result.append('template<> std::optional<JSC::JSValue> jsValueForDecodedMessageReply<MessageName::%s_%s>(JSC::JSGlobalObject* globalObject, Decoder& decoder)\n' % (receiver.name, message.name))
-        result.append('{\n')
-        result.append('    return jsValueForDecodedArguments<Messages::%s::%s::%s>(globalObject, decoder);\n' % (receiver.name, message.name, 'ReplyArguments'))
-        result.append('}\n')
-    if previous_message_condition:
-        result.append('#endif\n')
-    result.append('\n}\n\n')
-    result.append('#endif\n\n')
+    result.append('#if ENABLE(IPC_TESTING_API)\n')
+    result.append('\n')
+    result.append('namespace IPC {\n')
+    result.append('\n')
+    for condition, messages in itertools.groupby(receiver.messages, lambda m: m.condition):
+        if condition:
+            result.append('#if %s\n' % condition)
+        for message in messages:
+            result.append('template<> std::optional<JSC::JSValue> jsValueForDecodedMessage<MessageName::%s_%s>(JSC::JSGlobalObject* globalObject, Decoder& decoder)\n' % (receiver.name, message.name))
+            result.append('{\n')
+            result.append('    return jsValueForDecodedArguments<Messages::%s::%s::%s>(globalObject, decoder);\n' % (receiver.name, message.name, 'Arguments'))
+            result.append('}\n')
+            has_reply = message.reply_parameters is not None
+            if has_reply:
+                result.append('template<> std::optional<JSC::JSValue> jsValueForDecodedMessageReply<MessageName::%s_%s>(JSC::JSGlobalObject* globalObject, Decoder& decoder)\n' % (receiver.name, message.name))
+                result.append('{\n')
+                result.append('    return jsValueForDecodedArguments<Messages::%s::%s::%s>(globalObject, decoder);\n' % (receiver.name, message.name, 'ReplyArguments'))
+                result.append('}\n')
+        if condition:
+            result.append('#endif\n')
+    result.append('\n')
+    result.append('}\n')
+    result.append('\n')
+    result.append('#endif\n')
+    result.append('\n')
 
     if receiver.condition:
-        result.append('\n#endif // %s\n' % receiver.condition)
+        result.append('\n')
+        result.append('#endif // %s\n' % receiver.condition)
 
     return ''.join(result)
 
@@ -1100,6 +1127,7 @@ def generate_message_names_header(receivers):
     result.append(_license_header)
     result.append('#pragma once\n')
     result.append('\n')
+    result.append('#include <algorithm>\n')
     result.append('#include <wtf/EnumTraits.h>\n')
     result.append('\n')
     result.append('namespace IPC {\n')
@@ -1112,35 +1140,61 @@ def generate_message_names_header(receivers):
     result.append('\n};\n')
     result.append('\n')
 
+    result.append('enum class MessageName : uint16_t {\n')
     message_enumerators = get_message_enumerators(receivers)
-
-    result.append('enum class MessageName : uint16_t {')
-    result.append('\n    ')
-    result.append('\n    , '.join(str(e) for e in message_enumerators))
-    result.append('\n    , Last = %s' % message_enumerators[-1])
-    result.append('\n};\n')
+    seen_synchronous = False
+    for (condition, synchronous), enumerators in itertools.groupby(message_enumerators, lambda e: (e.condition(), e.synchronous())):
+        if synchronous and not seen_synchronous:
+            result.append('    FirstSynchronous,\n')
+            result.append('    LastAsynchronous = FirstSynchronous - 1,\n')
+            seen_synchronous = True
+        if condition:
+            result.append('#if %s\n' % condition)
+        for enumerator in enumerators:
+            result.append('    %s,\n' % enumerator)
+        if condition:
+            result.append('#endif\n')
+    result.append('    Count,\n')
+    result.append('    Last = Count - 1\n')
+    result.append('};\n')
     result.append('\n')
-    result.append('ReceiverName receiverName(MessageName);\n')
-    result.append('const char* description(MessageName);\n')
+    result.append('namespace Detail {\n')
+    result.append('struct MessageDescription {\n')
+    result.append('    const char* const description;\n')
+    result.append('    ReceiverName receiverName;\n')
+    for fname, _ in sorted(attributes_to_generate_validators.items()):
+        result.append('    bool %s : 1;\n' % fname)
+    result.append('};\n')
+    result.append('\n')
+    result.append('extern const MessageDescription messageDescriptions[static_cast<size_t>(MessageName::Count) + 1];\n')
+    result.append('}\n')
+    result.append('\n')
+    fnames = [('ReceiverName', 'receiverName'), ('const char*', 'description')]
+    fnames += [('bool', fname) for fname, _ in sorted(attributes_to_generate_validators.items())]
+    for returnType, fname in fnames:
+        result.append('inline %s %s(MessageName messageName)\n' % (returnType, fname))
+        result.append('{\n')
+        result.append('    messageName = std::min(messageName, MessageName::Last);\n')
+        result.append('    return Detail::messageDescriptions[static_cast<size_t>(messageName)].%s;\n' % fname)
+        result.append('}\n')
+        result.append('\n')
     result.append('constexpr bool messageIsSync(MessageName name)\n')
     result.append('{\n')
-    first_synchronous = next((e for e in message_enumerators if e.messages[0].has_attribute(SYNCHRONOUS_ATTRIBUTE)), None)
-    if first_synchronous:
-        result.append('    return name >= MessageName::%s;\n' % first_synchronous)
+    if seen_synchronous:
+        result.append('    return name >= MessageName::FirstSynchronous;\n')
     else:
         result.append('    UNUSED_PARAM(name);\n')
         result.append('    return false;\n')
     result.append('}\n')
     result.append('\n')
-
-    for fname, _ in sorted(attributes_to_generate_validators.items()):
-        result.append('bool %s(MessageName);\n' % fname)
-
     result.append('} // namespace IPC\n')
     result.append('\n')
     result.append('namespace WTF {\n')
     result.append('\n')
-    result.append('template<> bool isValidEnum<IPC::MessageName, void>(std::underlying_type_t<IPC::MessageName>);\n')
+    result.append('template<> constexpr bool isValidEnum<IPC::MessageName, void>(std::underlying_type_t<IPC::MessageName> messageName)\n')
+    result.append('{\n')
+    result.append('    return messageName <= WTF::enumToUnderlyingType(IPC::MessageName::Last);\n')
+    result.append('}\n')
     result.append('\n')
     result.append('} // namespace WTF\n')
     return ''.join(result)
@@ -1152,69 +1206,26 @@ def generate_message_names_implementation(receivers):
     result.append('#include "config.h"\n')
     result.append('#include "MessageNames.h"\n')
     result.append('\n')
-    result.append('namespace IPC {\n')
+    result.append('namespace IPC::Detail {\n')
     result.append('\n')
-    result.append('const char* description(MessageName name)\n')
-    result.append('{\n')
-    result.append('    switch (name) {\n')
+    result.append('const MessageDescription messageDescriptions[static_cast<size_t>(MessageName::Count) + 1] = {\n')
 
     message_enumerators = get_message_enumerators(receivers)
-    for enumerator in message_enumerators:
-        result.append('    case MessageName::%s:\n' % enumerator)
-        result.append('        return "%s";\n' % enumerator)
-    result.append('    }\n')
-    result.append('    ASSERT_NOT_REACHED();\n')
-    result.append('    return "<invalid message name>";\n')
-    result.append('}\n')
-    result.append('\n')
-    result.append('ReceiverName receiverName(MessageName messageName)\n')
-    result.append('{\n')
-    result.append('    switch (messageName) {\n')
-    prev_enumerator = None
-    for enumerator in message_enumerators:
-        if prev_enumerator and prev_enumerator.receiver != enumerator.receiver:
-            result.append('        return ReceiverName::%s;\n' % prev_enumerator.receiver.name)
-        result.append('    case MessageName::%s:\n' % enumerator)
-        prev_enumerator = enumerator
-    if prev_enumerator:
-        result.append('        return ReceiverName::%s;\n' % prev_enumerator.receiver.name)
-    result.append('    }\n')
-    result.append('    ASSERT_NOT_REACHED();\n')
-    result.append('    return ReceiverName::Invalid;\n')
-    result.append('}\n')
-    for fnam, attr_list in sorted(attributes_to_generate_validators.items()):
-        result.append('bool %s(MessageName name)\n' % fnam)
-        result.append('{\n')
-        result.append('    switch (name) {\n')
-        for e in message_enumerators:
-            if set(attr_list).intersection(set(e.messages[0].attributes).union(set(e.receiver.attributes))):
-                result.append('    case MessageName::%s:\n' % e)
-        if [e for e in message_enumerators if set(attr_list).intersection(set(e.messages[0].attributes).union(set(e.receiver.attributes)))]:
-            result.append('        return true;\n')
-        result.append('    default:\n')
-        result.append('        return false;\n')
-        result.append('    }\n')
-        result.append('}\n')
-        result.append('\n')
-    result.append('\n')
-    result.append('} // namespace IPC\n')
-    result.append('\n')
-    result.append('namespace WTF {\n')
-    result.append('template<> bool isValidEnum<IPC::MessageName, void>(std::underlying_type_t<IPC::MessageName> underlyingType)\n')
-    result.append('{\n')
-    result.append('    auto messageName = static_cast<IPC::MessageName>(underlyingType);\n')
-    for enumerator in message_enumerators:
-        for message in enumerator.messages:
-            if message.condition:
-                result.append('#if %s\n' % message.condition)
-            result.append('    if (messageName == IPC::MessageName::%s)\n' % enumerator)
-            result.append('        return true;\n')
-            if message.condition:
-                result.append('#endif\n')
-    result.append('    return false;\n')
+    for condition, enumerators in itertools.groupby(message_enumerators, lambda e: e.condition()):
+        if condition:
+            result.append('#if %s\n' % condition)
+        for enumerator in enumerators:
+            result.append('    { "%s", ReceiverName::%s' % (enumerator, enumerator.receiver.name))
+            for attr_list in sorted(attributes_to_generate_validators.values()):
+                value = "true" if set(attr_list).intersection(set(enumerator.messages[0].attributes).union(set(enumerator.receiver.attributes))) else "false"
+                result.append(', %s' % value)
+            result.append(' },\n')
+        if condition:
+            result.append('#endif\n')
+    result.append('    { "<invalid message name>", ReceiverName::Invalid%s }\n' % (", false" * len(attributes_to_generate_validators)))
     result.append('};\n')
     result.append('\n')
-    result.append('} // namespace WTF\n')
+    result.append('} // namespace IPC::Detail\n')
     return ''.join(result)
 
 

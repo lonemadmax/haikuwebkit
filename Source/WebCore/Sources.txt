@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2022 Apple Inc. All rights reserved.
+// Copyright (C) 2017-2023 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@ Modules/WebGPU/GPUDevice.cpp
 Modules/WebGPU/GPUDeviceLostInfo.cpp
 Modules/WebGPU/GPUExternalTexture.cpp
 Modules/WebGPU/GPUPipelineLayout.cpp
+Modules/WebGPU/GPUPresentationContext.cpp
 Modules/WebGPU/GPUQuerySet.cpp
 Modules/WebGPU/GPUQueue.cpp
 Modules/WebGPU/GPURenderBundle.cpp
@@ -46,8 +47,6 @@ Modules/WebGPU/GPUSampler.cpp
 Modules/WebGPU/GPUShaderModule.cpp
 Modules/WebGPU/GPUSupportedFeatures.cpp
 Modules/WebGPU/GPUSupportedLimits.cpp
-Modules/WebGPU/GPUSurface.cpp
-Modules/WebGPU/GPUSwapChain.cpp
 Modules/WebGPU/GPUTexture.cpp
 Modules/WebGPU/GPUTextureView.cpp
 Modules/WebGPU/GPUUncapturedErrorEvent.cpp
@@ -270,6 +269,7 @@ Modules/push-api/PushMessageData.cpp
 Modules/push-api/PushSubscription.cpp
 Modules/push-api/PushSubscriptionChangeEvent.cpp
 Modules/push-api/PushSubscriptionData.cpp
+Modules/push-api/PushSubscriptionIdentifier.cpp
 Modules/push-api/PushSubscriptionOptions.cpp
 Modules/push-api/PushManager.cpp
 Modules/push-api/ServiceWorkerRegistrationPushAPI.cpp
@@ -454,6 +454,7 @@ Modules/webxr/XRSessionEvent.cpp
 accessibility/AXImage.cpp
 accessibility/AXLogger.cpp
 accessibility/AXObjectCache.cpp
+accessibility/AXTextMarker.cpp
 accessibility/AccessibilityARIAGrid.cpp
 accessibility/AccessibilityARIAGridCell.cpp
 accessibility/AccessibilityARIAGridRow.cpp
@@ -708,6 +709,7 @@ crypto/algorithms/CryptoAlgorithmAES_GCM.cpp
 crypto/algorithms/CryptoAlgorithmAES_KW.cpp
 crypto/algorithms/CryptoAlgorithmECDH.cpp
 crypto/algorithms/CryptoAlgorithmECDSA.cpp
+crypto/algorithms/CryptoAlgorithmEd25519.cpp
 crypto/algorithms/CryptoAlgorithmHKDF.cpp
 crypto/algorithms/CryptoAlgorithmHMAC.cpp
 crypto/algorithms/CryptoAlgorithmPBKDF2.cpp
@@ -723,13 +725,11 @@ crypto/algorithms/CryptoAlgorithmSHA512.cpp
 crypto/keys/CryptoKeyAES.cpp
 crypto/keys/CryptoKeyEC.cpp
 crypto/keys/CryptoKeyHMAC.cpp
+crypto/keys/CryptoKeyOKP.cpp
 crypto/keys/CryptoKeyRSA.cpp
 crypto/keys/CryptoKeyRSAComponents.cpp
 crypto/keys/CryptoKeyRaw.cpp
 css/BasicShapeFunctions.cpp
-css/ComputedStyleExtractor.cpp
-css/ContainerQuery.cpp
-css/ContainerQueryParser.cpp
 css/CSSAspectRatioValue.cpp
 css/CSSBackgroundRepeatValue.cpp
 css/CSSBasicShapes.cpp
@@ -741,6 +741,9 @@ css/CSSComputedStyleDeclaration.cpp
 css/CSSConditionRule.cpp
 css/CSSContainerRule.cpp
 css/CSSContentDistributionValue.cpp
+css/CSSCounterStyle.cpp
+css/CSSCounterStyleDescriptors.cpp
+css/CSSCounterStyleRegistry.cpp
 css/CSSCounterStyleRule.cpp
 css/CSSCrossfadeValue.cpp
 css/CSSCursorImageValue.cpp
@@ -785,6 +788,7 @@ css/CSSPageRule.cpp
 css/CSSPaintImageValue.cpp
 css/CSSPrimitiveValue.cpp
 css/CSSProperty.cpp
+css/CSSPropertyRule.cpp
 css/CSSPropertySourceData.cpp
 css/CSSRayValue.cpp
 css/CSSReflectValue.cpp
@@ -813,6 +817,9 @@ css/CSSValuePair.cpp
 css/CSSValuePool.cpp
 css/CSSVariableData.cpp
 css/CSSVariableReferenceValue.cpp
+css/ComputedStyleExtractor.cpp
+css/ContainerQuery.cpp
+css/ContainerQueryParser.cpp
 css/DOMCSSNamespace.cpp
 css/DOMCSSPaintWorklet.cpp
 css/DOMCSSRegisterCustomProperty.cpp
@@ -824,15 +831,18 @@ css/DeprecatedCSSOMValueList.cpp
 css/FontFace.cpp
 css/FontFaceSet.cpp
 css/FontVariantBuilder.cpp
+css/ImmutableStyleProperties.cpp
 css/MediaList.cpp
 css/MediaQueryList.cpp
 css/MediaQueryListEvent.cpp
 css/MediaQueryMatcher.cpp
 css/MediaQueryParserContext.cpp
+css/MutableStyleProperties.cpp
 css/PropertySetCSSStyleDeclaration.cpp
 css/SVGCSSComputedStyleDeclaration.cpp
 css/SelectorChecker.cpp
 css/SelectorFilter.cpp
+css/ShorthandSerializer.cpp
 css/StyleColor.cpp
 css/StyleMedia.cpp
 css/StyleProperties.cpp
@@ -852,7 +862,11 @@ css/calc/CSSCalcOperationNode.cpp
 css/calc/CSSCalcPrimitiveValueNode.cpp
 css/calc/CSSCalcSymbolTable.cpp
 css/calc/CSSCalcValue.cpp
+css/color/CSSResolvedColorMix.cpp
+css/color/CSSUnresolvedColor.cpp
+css/color/CSSUnresolvedColorMix.cpp
 css/parser/CSSAtRuleID.cpp
+css/parser/CSSCustomPropertySyntax.cpp
 css/parser/CSSParser.cpp
 css/parser/CSSParserContext.cpp
 css/parser/CSSParserFastPaths.cpp
@@ -867,7 +881,6 @@ css/parser/CSSPropertyParserHelpers.cpp
 css/parser/CSSPropertyParserWorkerSafe.cpp
 css/parser/CSSSelectorParser.cpp
 css/parser/CSSSupportsParser.cpp
-css/parser/CSSPropertySyntax.cpp
 css/parser/CSSTokenizer.cpp
 css/parser/CSSTokenizerInputStream.cpp
 css/parser/CSSVariableParser.cpp
@@ -1243,6 +1256,7 @@ html/EnterKeyHint.cpp
 html/FTPDirectoryDocument.cpp
 html/FeaturePolicy.cpp
 html/FileInputType.cpp
+html/FormAssociatedCustomElement.cpp
 html/FormController.cpp
 html/FormListedElement.cpp
 html/GenericCachedHTMLCollection.cpp
@@ -1272,7 +1286,7 @@ html/HTMLEmbedElement.cpp
 html/HTMLFieldSetElement.cpp
 html/HTMLFontElement.cpp
 html/HTMLFormControlElement.cpp
-html/HTMLFormControlElementWithState.cpp
+html/HTMLMaybeFormAssociatedCustomElement.cpp
 html/HTMLFormControlsCollection.cpp
 html/HTMLFormElement.cpp
 html/HTMLFrameElement.cpp
@@ -1348,7 +1362,6 @@ html/ImageInputType.cpp
 html/InputMode.cpp
 html/InputType.cpp
 html/InputTypeNames.cpp
-html/LabelableElement.cpp
 html/LabelsNodeList.cpp
 html/LazyLoadFrameObserver.cpp
 html/LazyLoadImageObserver.cpp
@@ -1389,6 +1402,7 @@ html/URLInputType.cpp
 html/URLRegistry.cpp
 html/URLSearchParams.cpp
 html/UserActivation.cpp
+html/ValidatedFormListedElement.cpp
 html/ValidationMessage.cpp
 html/WeekInputType.cpp
 html/canvas/ANGLEInstancedArrays.cpp
@@ -1430,6 +1444,7 @@ html/canvas/PlaceholderRenderingContext.cpp
 html/canvas/PredefinedColorSpace.cpp
 html/canvas/WebGL2RenderingContext.cpp
 html/canvas/WebGLBuffer.cpp
+html/canvas/WebGLClipCullDistance.cpp
 html/canvas/WebGLColorBufferFloat.cpp
 html/canvas/WebGLCompressedTextureASTC.cpp
 html/canvas/WebGLCompressedTextureETC.cpp
@@ -1461,6 +1476,7 @@ html/canvas/WebGLSampler.cpp
 html/canvas/WebGLShader.cpp
 html/canvas/WebGLShaderPrecisionFormat.cpp
 html/canvas/WebGLSharedObject.cpp
+html/canvas/WebGLStateTracker.cpp
 html/canvas/WebGLSync.cpp
 html/canvas/WebGLTexture.cpp
 html/canvas/WebGLTransformFeedback.cpp
@@ -1736,6 +1752,7 @@ loader/archive/ArchiveResource.cpp
 loader/archive/ArchiveResourceCollection.cpp
 loader/archive/mhtml/MHTMLArchive.cpp
 loader/archive/mhtml/MHTMLParser.cpp
+loader/cache/AllowedFonts.cpp
 loader/cache/CachedApplicationManifest.cpp
 loader/cache/CachedCSSStyleSheet.cpp
 loader/cache/CachedFont.cpp
@@ -1852,6 +1869,7 @@ page/ProcessWarming.cpp
 page/Quirks.cpp
 page/RemoteDOMWindow.cpp
 page/RemoteFrame.cpp
+page/RemoteFrameView.cpp
 page/RenderingUpdateScheduler.cpp
 page/ResizeObservation.cpp
 page/ResizeObserver.cpp
@@ -1898,6 +1916,7 @@ page/scrolling/ScrollAnchoringController.cpp
 page/scrolling/ScrollSnapOffsetsInfo.cpp
 page/scrolling/ScrollLatchingController.cpp
 page/scrolling/ScrollingConstraints.cpp
+page/scrolling/ScrollingCoordinatorTypes.cpp
 page/scrolling/ScrollingCoordinator.cpp
 page/scrolling/ScrollingStateFixedNode.cpp
 page/scrolling/ScrollingStateFrameHostingNode.cpp
@@ -2017,7 +2036,6 @@ platform/VideoFrame.cpp
 platform/VideoPixelFormat.cpp
 platform/WebCoreCrossThreadCopier.cpp
 platform/WebCorePersistentCoders.cpp
-platform/WebGLStateTracker.cpp
 platform/Widget.cpp
 platform/animation/Animation.cpp
 platform/animation/AnimationList.cpp
@@ -2194,6 +2212,12 @@ platform/graphics/VelocityData.cpp
 platform/graphics/WebMResourceClient.cpp
 platform/graphics/WOFFFileFormat.cpp
 platform/graphics/WidthIterator.cpp
+platform/graphics/controls/ControlFactory.cpp
+platform/graphics/controls/ControlPart.cpp
+platform/graphics/controls/ControlStyle.cpp
+platform/graphics/controls/MeterPart.cpp
+platform/graphics/controls/ProgressBarPart.cpp
+platform/graphics/controls/SliderTrackPart.cpp
 platform/graphics/cpu/arm/filters/FEBlendNeonApplier.cpp
 platform/graphics/displaylists/DisplayList.cpp
 platform/graphics/displaylists/DisplayListDrawingContext.cpp
@@ -2685,6 +2709,7 @@ style/ChildChangeInvalidation.cpp
 style/ClassChangeInvalidation.cpp
 style/ColorFromPrimitiveValue.cpp
 style/ContainerQueryEvaluator.cpp
+style/CustomPropertyRegistry.cpp
 style/ElementRuleCollector.cpp
 style/FilterOperationsBuilder.cpp
 style/HasSelectorFilter.cpp
@@ -2701,6 +2726,7 @@ style/RuleFeature.cpp
 style/RuleSet.cpp
 style/RuleSetBuilder.cpp
 style/StyleAdjuster.cpp
+style/StyleAppearance.cpp
 style/StyleBuilder.cpp
 style/StyleBuilderState.cpp
 style/StyleChange.cpp
@@ -3080,6 +3106,7 @@ JSCSSNamespaceRule.cpp
 JSCSSPageRule.cpp
 JSCSSPaintCallback.cpp
 JSCSSPaintSize.cpp
+JSCSSPropertyRule.cpp
 JSCSSRule.cpp
 JSCSSRuleList.cpp
 JSCSSStyleDeclaration.cpp
@@ -3439,6 +3466,9 @@ JSGPUVertexStepMode.cpp
 JSGainNode.cpp
 JSGainOptions.cpp
 JSGamepad.cpp
+JSGamepadEffectParameters.cpp
+JSGamepadHapticActuator.cpp
+JSGamepadHapticEffectType.cpp
 JSGamepadButton.cpp
 JSGamepadEvent.cpp
 JSGeolocation.cpp
@@ -4130,6 +4160,7 @@ JSVTTCue.cpp
 JSVTTRegion.cpp
 JSVTTRegionList.cpp
 JSValidityState.cpp
+JSValidityStateFlags.cpp
 JSVideoColorPrimaries.cpp
 JSVideoColorSpace.cpp
 JSVideoColorSpaceInit.cpp
@@ -4171,6 +4202,7 @@ JSWebCodecsVideoFrame.cpp
 JSWebGL2RenderingContext.cpp
 JSWebGLActiveInfo.cpp
 JSWebGLBuffer.cpp
+JSWebGLClipCullDistance.cpp
 JSWebGLColorBufferFloat.cpp
 JSWebGLCompressedTextureASTC.cpp
 JSWebGLCompressedTextureETC.cpp

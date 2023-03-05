@@ -64,7 +64,7 @@
 #include "ScriptElement.h"
 #include "SimplifyMarkupCommand.h"
 #include "SmartReplace.h"
-#include "StyleProperties.h"
+#include "StylePropertiesInlines.h"
 #include "Text.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
@@ -570,7 +570,7 @@ static bool fragmentNeedsColorTransformed(ReplacementFragment& fragment, const P
 
         const auto& colorFilter = editableRootRenderer->style().appleColorFilter();
         for (const auto& colorFilterOperation : colorFilter.operations()) {
-            if (colorFilterOperation->type() != FilterOperation::APPLE_INVERT_LIGHTNESS)
+            if (colorFilterOperation->type() != FilterOperation::Type::AppleInvertLightness)
                 return false;
         }
     }

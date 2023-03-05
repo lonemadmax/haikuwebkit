@@ -125,7 +125,7 @@ AccessibilityRenderObject::AccessibilityRenderObject(RenderObject* renderer)
     : AccessibilityNodeObject(renderer->node())
     , m_renderer(renderer)
 {
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     m_renderer->setHasAXObject(true);
 #endif
 }
@@ -146,7 +146,7 @@ void AccessibilityRenderObject::detachRemoteParts(AccessibilityDetachmentType de
     
     detachRemoteSVGRoot();
     
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     if (m_renderer)
         m_renderer->setHasAXObject(false);
 #endif
@@ -1072,8 +1072,6 @@ void AccessibilityRenderObject::addRadioButtonGroupMembers(AccessibilityChildren
     }
 }
 
-// Linked ui elements could be all the related radio buttons in a group
-// or an internal anchor connection.
 AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::linkedObjects() const
 {
     auto linkedObjects = flowToObjects();
@@ -1086,6 +1084,8 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::linkedObjec
 
     if (roleValue() == AccessibilityRole::RadioButton)
         addRadioButtonGroupMembers(linkedObjects);
+
+    linkedObjects.appendVector(controlledObjects());
 
     return linkedObjects;
 }
@@ -2333,10 +2333,17 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
 
         // descend into widget (FRAME, IFRAME, OBJECT...)
         Widget* widget = downcast<RenderWidget>(*renderer).widget();
-        if (!is<FrameView>(widget))
+        auto* frameView = dynamicDowncast<FrameView>(widget);
+        if (!frameView)
             break;
-        Frame& frame = downcast<FrameView>(*widget).frame();
-        renderView = frame.document()->renderView();
+        auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
+        if (!localFrame)
+            break;
+        auto* document = localFrame->document();
+        if (!document)
+            break;
+
+        renderView = document->renderView();
 #if PLATFORM(MAC)
         frameView = downcast<FrameView>(widget);
 #endif
@@ -2923,7 +2930,11 @@ AccessibilitySVGRoot* AccessibilityRenderObject::remoteSVGRootElement(CreationCh
     if (!frameView)
         return nullptr;
 
-    Document* document = frameView->frame().document();
+    auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
+    if (!localFrame)
+        return nullptr;
+
+    auto* document = localFrame->document();
     if (!is<SVGDocument>(document))
         return nullptr;
 
@@ -3392,7 +3403,7 @@ bool AccessibilityRenderObject::isApplePayButton() const
 {
     if (!m_renderer)
         return false;
-    return m_renderer->style().effectiveAppearance() == ApplePayButtonPart;
+    return m_renderer->style().effectiveAppearance() == StyleAppearance::ApplePayButton;
 }
 
 ApplePayButtonType AccessibilityRenderObject::applePayButtonType() const

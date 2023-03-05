@@ -26,7 +26,7 @@
 #include "config.h"
 #include "testb3.h"
 
-#if ENABLE(B3_JIT)
+#if ENABLE(B3_JIT) && !CPU(ARM)
 
 Lock crashLock;
 
@@ -765,6 +765,8 @@ void run(const char* filter)
     RUN(testTrappingStoreElimination());
     RUN(testMoveConstants());
     RUN(testMoveConstantsWithLargeOffsets());
+    if (Options::useWebAssemblySIMD())
+        RUN(testMoveConstantsSIMD());
     RUN(testPCOriginMapDoesntInsertNops());
     RUN(testPinRegisters());
     RUN(testReduceStrengthReassociation(true));
@@ -813,6 +815,7 @@ void run(const char* filter)
     RUN(testWasmBoundsCheck(std::numeric_limits<unsigned>::max() - 5));
 
     RUN(testWasmAddress());
+    RUN(testWasmAddressWithOffset());
     
     RUN(testFastTLSLoad());
     RUN(testFastTLSStore());
@@ -861,6 +864,20 @@ void run(const char* filter)
     }
 
     RUN(testReportUsedRegistersLateUseFollowedByEarlyDefDoesNotMarkUseAsDead());
+
+    if (isARM64() || isX86()) {
+        RUN(testVectorXorOrAllOnesToVectorAndXor());
+        RUN(testVectorXorAndAllOnesToVectorOrXor());
+        RUN(testVectorOrSelf());
+        RUN(testVectorAndSelf());
+        RUN(testVectorXorSelf());
+        RUN_UNARY(testVectorXorOrAllOnesConstantToVectorAndXor, v128Operands());
+        RUN_UNARY(testVectorXorAndAllOnesConstantToVectorOrXor, v128Operands());
+        RUN_BINARY(testVectorOrConstants, v128Operands(), v128Operands());
+        RUN_BINARY(testVectorAndConstants, v128Operands(), v128Operands());
+        RUN_BINARY(testVectorXorConstants, v128Operands(), v128Operands());
+        RUN_BINARY(testVectorAndConstantConstant, v128Operands(), v128Operands());
+    }
 
     if (tasks.isEmpty())
         usage();

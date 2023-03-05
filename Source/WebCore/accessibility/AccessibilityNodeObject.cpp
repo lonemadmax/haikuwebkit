@@ -64,7 +64,6 @@
 #include "HTMLTextFormControlElement.h"
 #include "HTMLVideoElement.h"
 #include "KeyboardEvent.h"
-#include "LabelableElement.h"
 #include "LocalizedStrings.h"
 #include "MathMLElement.h"
 #include "MathMLNames.h"
@@ -711,16 +710,6 @@ bool AccessibilityNodeObject::isMenuItem() const
     }
 }
 
-bool AccessibilityNodeObject::isNativeCheckboxOrRadio() const
-{
-    Node* node = this->node();
-    if (!is<HTMLInputElement>(node))
-        return false;
-
-    auto& input = downcast<HTMLInputElement>(*node);
-    return input.isCheckbox() || input.isRadioButton();
-}
-
 bool AccessibilityNodeObject::isEnabled() const
 {
     // ARIA says that the disabled status applies to the current element and all descendant elements.
@@ -744,7 +733,14 @@ bool AccessibilityNodeObject::isEnabled() const
 
 bool AccessibilityNodeObject::isIndeterminate() const
 {
-    return equalLettersIgnoringASCIICase(getAttribute(indeterminateAttr), "true"_s);
+    if (supportsCheckedState())
+        return checkboxOrRadioValue() == AccessibilityButtonState::Mixed;
+
+    // We handle this for native <progress> elements in AccessibilityProgressIndicator::isIndeterminate.
+    if (ariaRoleAttribute() == AccessibilityRole::ProgressIndicator)
+        return !hasARIAValueNow();
+
+    return false;
 }
 
 bool AccessibilityNodeObject::isPressed() const
@@ -1066,8 +1062,8 @@ AXCoreObject* AccessibilityNodeObject::selectedTabItem()
 
 AccessibilityButtonState AccessibilityNodeObject::checkboxOrRadioValue() const
 {
-    if (isNativeCheckboxOrRadio())
-        return isIndeterminate() ? AccessibilityButtonState::Mixed : isChecked() ? AccessibilityButtonState::On : AccessibilityButtonState::Off;
+    if (auto* input = dynamicDowncast<HTMLInputElement>(node()); input && (input->isCheckbox() || input->isRadioButton()))
+        return input->indeterminate() ? AccessibilityButtonState::Mixed : isChecked() ? AccessibilityButtonState::On : AccessibilityButtonState::Off;
 
     return AccessibilityObject::checkboxOrRadioValue();
 }

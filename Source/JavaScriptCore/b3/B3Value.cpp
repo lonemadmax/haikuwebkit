@@ -52,7 +52,9 @@ namespace JSC { namespace B3 {
 #if ASSERT_ENABLED
 String Value::generateCompilerConstructionSite()
 {
-    if (!Options::dumpDisassembly())
+    if (!Options::dumpDisassembly() && !Options::dumpBBQDisassembly()
+        && !Options::dumpOMGDisassembly() && !Options::dumpFTLDisassembly()
+        && !Options::dumpDFGDisassembly())
         return emptyString();
 
     StringPrintStream s;
@@ -62,7 +64,9 @@ String Value::generateCompilerConstructionSite()
     int frames = framesToShow + framesToSkip;
 
     WTFGetBacktrace(samples, &frames);
-    StackTraceSymbolResolver stackTrace({ samples + framesToSkip, static_cast<size_t>(frames - framesToSkip) });
+    if (frames > framesToSkip)
+        frames -= framesToSkip;
+    StackTraceSymbolResolver stackTrace({ samples + framesToSkip, static_cast<size_t>(frames) });
 
     s.print("[");
     bool firstPrinted = false;
@@ -197,6 +201,12 @@ void Value::dump(PrintStream& out) const
         out.print("$", asInt64(), "(");
         isConstant = true;
         break;
+    case Const128: {
+        v128_t vector = asV128();
+        out.print("$", vector.u64x2[0], vector.u64x2[1], "(");
+        isConstant = true;
+        break;
+    }
     case ConstFloat:
         out.print("$", asFloat(), "(");
         isConstant = true;
@@ -416,6 +426,21 @@ Value* Value::sqrtConstant(Procedure&) const
     return nullptr;
 }
 
+Value* Value::vectorAndConstant(Procedure&, const Value*) const
+{
+    return nullptr;
+}
+
+Value* Value::vectorOrConstant(Procedure&, const Value*) const
+{
+    return nullptr;
+}
+
+Value* Value::vectorXorConstant(Procedure&, const Value*) const
+{
+    return nullptr;
+}
+
 TriState Value::equalConstant(const Value*) const
 {
     return TriState::Indeterminate;
@@ -574,6 +599,7 @@ Effects Value::effects() const
     case Const64:
     case ConstDouble:
     case ConstFloat:
+    case Const128:
     case BottomTuple:
     case SlotBase:
     case ArgumentReg:
@@ -621,6 +647,62 @@ Effects Value::effects() const
     case Extract:
     case FMin:
     case FMax:
+    case VectorExtractLane:
+    case VectorReplaceLane:
+    case VectorDupElement:
+    case VectorEqual:
+    case VectorNotEqual:
+    case VectorLessThan:
+    case VectorLessThanOrEqual:
+    case VectorBelow:
+    case VectorBelowOrEqual:
+    case VectorGreaterThan:
+    case VectorGreaterThanOrEqual:
+    case VectorAbove:
+    case VectorAboveOrEqual:
+    case VectorAdd:
+    case VectorSub:
+    case VectorAddSat:
+    case VectorSubSat:
+    case VectorMul:
+    case VectorDotProduct:
+    case VectorDiv:
+    case VectorMin:
+    case VectorMax:
+    case VectorPmin:
+    case VectorPmax:
+    case VectorNarrow:
+    case VectorNot:
+    case VectorAnd:
+    case VectorAndnot:
+    case VectorOr:
+    case VectorXor:
+    case VectorShl:
+    case VectorShr:
+    case VectorAbs:
+    case VectorNeg:
+    case VectorPopcnt:
+    case VectorCeil:
+    case VectorFloor:
+    case VectorTrunc:
+    case VectorTruncSat:
+    case VectorConvert:
+    case VectorConvertLow:
+    case VectorNearest:
+    case VectorSqrt:
+    case VectorExtendLow:
+    case VectorExtendHigh:
+    case VectorPromote:
+    case VectorDemote:
+    case VectorSplat:
+    case VectorAnyTrue:
+    case VectorAllTrue:
+    case VectorAvgRound:
+    case VectorBitmask:
+    case VectorBitwiseSelect:
+    case VectorExtaddPairwise:
+    case VectorMulSat:
+    case VectorSwizzle:
         break;
     case Div:
     case UDiv:
@@ -791,6 +873,8 @@ ValueKey Value::key() const
         return ValueKey(Const32, type(), static_cast<int64_t>(asInt32()));
     case Const64:
         return ValueKey(Const64, type(), asInt64());
+    case Const128:
+        return ValueKey(Const128, type(), asV128());
     case ConstDouble:
         return ValueKey(ConstDouble, type(), asDouble());
     case ConstFloat:

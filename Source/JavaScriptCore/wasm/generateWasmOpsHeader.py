@@ -282,6 +282,20 @@ struct Type {
     #define CREATE_PREDICATE(name, ...) bool is ## name() const { return kind == TypeKind::name; }
     FOR_EACH_WASM_TYPE_EXCEPT_FUNCREF_AND_EXTERNREF(CREATE_PREDICATE)
     #undef CREATE_PREDICATE
+
+    bool isGP64() const
+    {
+        switch(kind) {
+        case TypeKind::I64:
+        case TypeKind::Funcref:
+        case TypeKind::Externref:
+        case TypeKind::RefNull:
+        case TypeKind::Ref:
+            return true;
+        default:
+            return false;
+        }
+    }
 };
 
 namespace Types
@@ -289,6 +303,11 @@ namespace Types
 #define CREATE_CONSTANT(name, id, ...) constexpr Type name = Type{TypeKind::name, 0u};
 FOR_EACH_WASM_TYPE(CREATE_CONSTANT)
 #undef CREATE_CONSTANT
+#if USE(JSVALUE64)
+constexpr Type IPtr = I64;
+#elif USE(JSVALUE32_64)
+constexpr Type IPtr = I32;
+#endif
 } // namespace Types
 
 #define CREATE_CASE(name, id, ...) case id: return true;
@@ -370,9 +389,9 @@ inline TypeKind linearizedToType(int i)
     FOR_EACH_WASM_BINARY_OP(macro) \\
     FOR_EACH_WASM_MEMORY_LOAD_OP(macro) \\
     FOR_EACH_WASM_MEMORY_STORE_OP(macro) \\
+    macro(ExtGC,  0xFB, Oops, 0) \\
     macro(Ext1,  0xFC, Oops, 0) \\
     macro(ExtSIMD, 0xFD, Oops, 0) \\
-    macro(GCPrefix,  0xFB, Oops, 0) \\
     macro(ExtAtomic, 0xFE, Oops, 0)
 
 #define CREATE_ENUM_VALUE(name, id, ...) name = id,
@@ -405,18 +424,18 @@ enum class StoreOpType : uint8_t {
     FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_ENUM_VALUE)
 };
 
-enum class Ext1OpType : uint8_t {
+enum class Ext1OpType : uint32_t {
     FOR_EACH_WASM_TABLE_OP(CREATE_ENUM_VALUE)
     FOR_EACH_WASM_TRUNC_SATURATED_OP(CREATE_ENUM_VALUE)
 };
 
-enum class ExtSIMDOpType : uint8_t;
+enum class ExtSIMDOpType : uint32_t;
 
-enum class GCOpType : uint8_t {
+enum class ExtGCOpType : uint32_t {
     FOR_EACH_WASM_GC_OP(CREATE_ENUM_VALUE)
 };
 
-enum class ExtAtomicOpType : uint8_t {
+enum class ExtAtomicOpType : uint32_t {
     FOR_EACH_WASM_EXT_ATOMIC_LOAD_OP(CREATE_ENUM_VALUE)
     FOR_EACH_WASM_EXT_ATOMIC_STORE_OP(CREATE_ENUM_VALUE)
     FOR_EACH_WASM_EXT_ATOMIC_BINARY_RMW_OP(CREATE_ENUM_VALUE)

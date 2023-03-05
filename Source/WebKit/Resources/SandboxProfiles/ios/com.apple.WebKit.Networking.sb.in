@@ -27,6 +27,8 @@
 (allow system-fcntl
     (fcntl-command
         F_BARRIERFSYNC
+        F_CHECK_LV
+        F_GETCONFINED
         F_GETFL
         F_GETPATH
         F_GETPROTECTIONCLASS
@@ -35,6 +37,7 @@
         F_OFD_SETLKWTIMEOUT
         F_RDADVISE
         F_SETCONFINED
+        F_SETFD
         F_SETFL))
 
 (allow file-link)
@@ -49,10 +52,21 @@
 
 (allow socket-option-set
     (require-all
+        (socket-option-level IPPROTO_IPV6)
+        (socket-option-name 27 61)))
+
+(allow socket-option-set
+    (require-all
         (socket-option-level SOL_SOCKET)
         (socket-option-name
+            SO_NECP_LISTENUUID
             SO_NOSIGPIPE
-            SO_RCVBUF)))
+            SO_RCVBUF
+            SO_REUSEADDR
+            SO_REUSEPORT)))
+
+(with-filter (mac-policy-name "vnguard")
+    (allow system-mac-syscall (mac-syscall-number 1)))
 #endif
 
 (allow system-privilege (with grant)
@@ -587,6 +601,14 @@
 (allow mach-lookup 
     (global-name "com.apple.nesessionmanager.content-filter"))
 
+ ;; <rdar://problem/101780002>
+(allow mach-lookup 
+    (global-name "com.apple.mobileasset.autoasset"))
+
+;; <rdar://problem/103895412>
+(allow file-read*
+    (subpath "/private/var/MobileAsset/AssetsV2/com_apple_MobileAsset_WebContentRestrictions"))
+
 ;; Access to ContainerManager
 (allow mach-lookup 
     (global-name
@@ -608,6 +630,7 @@
 )
 
 (allow mach-lookup (with telemetry) (global-name "com.apple.webkit.adattributiond.service"))
+(allow mach-lookup (with telemetry) (global-name "com.apple.webkit.webpushd.service"))
 
 ;; Access to MobileGestalt
 (deny mach-lookup 
@@ -761,6 +784,7 @@
         SYS_sysctlbyname
         SYS_thread_selfid
         SYS_ulock_wait
+        SYS_ulock_wait2
         SYS_ulock_wake
         SYS_unlink
         SYS_workq_kernreturn
@@ -772,51 +796,94 @@
 (when (defined? 'SYS_map_with_linking_np)
     (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
 
-(when (defined? 'syscall-mach)
-    (deny syscall-mach (with telemetry))
-    (allow syscall-mach
-        (machtrap-number
-            MSC__kernelrpc_mach_port_allocate_trap
-            MSC__kernelrpc_mach_port_construct_trap
-            MSC__kernelrpc_mach_port_deallocate_trap
-            MSC__kernelrpc_mach_port_destruct_trap
-            MSC__kernelrpc_mach_port_extract_member_trap
-            MSC__kernelrpc_mach_port_guard_trap
-            MSC__kernelrpc_mach_port_insert_member_trap
-            MSC__kernelrpc_mach_port_insert_right_trap
-            MSC__kernelrpc_mach_port_mod_refs_trap
-            MSC__kernelrpc_mach_port_request_notification_trap
-            MSC__kernelrpc_mach_port_type_trap
-            MSC__kernelrpc_mach_port_unguard_trap
-            MSC__kernelrpc_mach_vm_allocate_trap
-            MSC__kernelrpc_mach_vm_deallocate_trap
-            MSC__kernelrpc_mach_vm_map_trap
-            MSC__kernelrpc_mach_vm_protect_trap
-            MSC__kernelrpc_mach_vm_purgable_control_trap
-            MSC_host_create_mach_voucher_trap
-            MSC_host_self_trap
-            MSC_mach_generate_activity_id
-            MSC_mach_msg_trap
-            MSC_mach_reply_port
-            MSC_mach_timebase_info_trap
-            MSC_mach_voucher_extract_attr_recipe_trap
-            MSC_mk_timer_arm
-            MSC_mk_timer_cancel
-            MSC_mk_timer_create
-            MSC_mk_timer_destroy
-            MSC_semaphore_signal_trap
-            MSC_semaphore_wait_trap
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 160000
-            MSC_swtch_pri
-#endif
-            MSC_syscall_thread_switch
-            MSC_task_self_trap
-            MSC_thread_get_special_reply_port)))
+(deny syscall-mach (with telemetry))
+(allow syscall-mach
+    (machtrap-number
+        MSC__kernelrpc_mach_port_allocate_trap
+        MSC__kernelrpc_mach_port_construct_trap
+        MSC__kernelrpc_mach_port_deallocate_trap
+        MSC__kernelrpc_mach_port_destruct_trap
+        MSC__kernelrpc_mach_port_extract_member_trap
+        MSC__kernelrpc_mach_port_guard_trap
+        MSC__kernelrpc_mach_port_insert_member_trap
+        MSC__kernelrpc_mach_port_insert_right_trap
+        MSC__kernelrpc_mach_port_mod_refs_trap
+        MSC__kernelrpc_mach_port_request_notification_trap
+        MSC__kernelrpc_mach_port_type_trap
+        MSC__kernelrpc_mach_port_unguard_trap
+        MSC__kernelrpc_mach_vm_allocate_trap
+        MSC__kernelrpc_mach_vm_deallocate_trap
+        MSC__kernelrpc_mach_vm_map_trap
+        MSC__kernelrpc_mach_vm_protect_trap
+        MSC__kernelrpc_mach_vm_purgable_control_trap
+        MSC_host_create_mach_voucher_trap
+        MSC_host_self_trap
+        MSC_mach_generate_activity_id
+        MSC_mach_msg_trap
+        MSC_mach_reply_port
+        MSC_mach_timebase_info_trap
+        MSC_mach_voucher_extract_attr_recipe_trap
+        MSC_mk_timer_arm
+        MSC_mk_timer_cancel
+        MSC_mk_timer_create
+        MSC_mk_timer_destroy
+        MSC_semaphore_signal_trap
+        MSC_semaphore_timedwait_trap
+        MSC_semaphore_wait_trap
+        MSC_swtch_pri
+        MSC_syscall_thread_switch
+        MSC_task_self_trap
+        MSC_thread_get_special_reply_port))
 
-(when (defined? 'mach-kernel-endpoint)
-    (allow mach-kernel-endpoint
-        (apply-message-filter
-            (allow mach-message-send (with report) ))))
+(when (defined? 'MSC_mach_msg2_trap)
+    (allow syscall-mach (machtrap-number MSC_mach_msg2_trap)))
+
+(define (kernel-mig-routine-in-use-watchos)
+    (kernel-mig-routine
+        mach_make_memory_entry
+        mach_make_memory_entry_64
+        vm_copy))
+        
+(allow mach-kernel-endpoint
+    (apply-message-filter
+        (deny mach-message-send (with telemetry))
+#if PLATFORM(WATCHOS)
+        (allow mach-message-send
+            (kernel-mig-routine-in-use-watchos))
+#endif
+        (allow mach-message-send
+            (kernel-mig-routine
+                _mach_make_memory_entry
+                host_get_clock_service
+                host_get_io_master
+                host_get_special_port
+                host_info
+                host_request_notification
+                io_connect_method
+                io_registry_entry_from_path
+                io_registry_entry_get_property_bin_buf
+                io_server_version
+                io_service_open_extended
+                mach_exception_raise
+                mach_port_extract_right
+                mach_port_get_context_from_user
+                mach_port_get_refs
+                mach_port_is_connection_for_service
+                mach_port_request_notification
+                mach_port_set_attributes
+                mach_vm_copy
+                mach_vm_map_external
+                mach_vm_remap_external
+                semaphore_create
+                semaphore_destroy
+                task_get_special_port_from_user
+                task_info_from_user
+                task_restartable_ranges_register
+                task_restartable_ranges_synchronize
+                task_set_special_port
+                thread_policy
+                thread_resume
+                thread_suspend))))
 
 #if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
 #include <WebKitAdditions/SystemContentSandbox-ios.defs>
@@ -829,4 +896,8 @@
 
 (allow-read-and-issue-generic-extensions
     (apply subpath issue-extension-secondary-paths))
+#endif
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/com.apple.WebKit.NetworkingAdditions.sb.in>)
+#include <WebKitAdditions/com.apple.WebKit.NetworkingAdditions.sb.in>
 #endif

@@ -108,7 +108,7 @@ inline bool isRefType(Type type)
 inline bool isRefType(StorageType type)
 {
     if (type.is<Type>())
-        return isRefType(*type.as<Type>());
+        return isRefType(type.as<Type>());
     return false;
 }
 
@@ -140,6 +140,13 @@ inline bool isArrayref(Type type)
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Arrayref);
 }
 
+inline bool isStructref(Type type)
+{
+    if (!Options::useWebAssemblyGC())
+        return false;
+    return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Structref);
+}
+
 inline Type funcrefType()
 {
     if (Options::useWebAssemblyTypedFunctionReferences())
@@ -159,7 +166,7 @@ inline bool isRefWithTypeIndex(Type type)
     if (!Options::useWebAssemblyTypedFunctionReferences())
         return false;
 
-    return isRefType(type) && !isExternref(type) && !isFuncref(type) && !isI31ref(type) && !isArrayref(type);
+    return isRefType(type) && !typeIndexIsType(type.index);
 }
 
 // Determine if the ref type has a placeholder type index that is used
@@ -183,7 +190,7 @@ inline bool isRefWithRecursiveReference(StorageType storageType)
     if (storageType.is<PackedType>())
         return false;
 
-    return isRefWithRecursiveReference(*storageType.as<Type>());
+    return isRefWithRecursiveReference(storageType.as<Type>());
 }
 
 inline bool isTypeIndexHeapType(int32_t heapType)
@@ -199,20 +206,11 @@ inline bool isSubtypeIndex(TypeIndex sub, TypeIndex parent)
     if (sub == parent)
         return true;
 
-    const TypeDefinition& sig = TypeInformation::get(sub).unroll();
-    if (sig.is<Subtype>()) {
-        const Subtype& subtype = *sig.as<Subtype>();
-        const TypeDefinition& parentSig = TypeInformation::get(parent).unroll();
-        if (parentSig.is<Subtype>()) {
-            if (subtype.displaySize() < parentSig.as<Subtype>()->displaySize())
-                return false;
-            return parent == subtype.displayType(subtype.displaySize() - parentSig.as<Subtype>()->displaySize() - 1);
-        }
-        // If not a subtype itself, the parent must be at the top of the display.
-        return parent == subtype.displayType(subtype.displaySize() - 1);
-    }
+    auto subRTT = TypeInformation::tryGetCanonicalRTT(sub);
+    auto parentRTT = TypeInformation::tryGetCanonicalRTT(parent);
+    ASSERT(subRTT.has_value() && parentRTT.has_value());
 
-    return false;
+    return subRTT.value()->isSubRTT(*parentRTT.value());
 }
 
 inline bool isSubtype(Type sub, Type parent)
@@ -222,6 +220,9 @@ inline bool isSubtype(Type sub, Type parent)
 
     if (isRefWithTypeIndex(sub)) {
         if (TypeInformation::get(sub.index).expand().is<ArrayType>() && isArrayref(parent))
+            return true;
+
+        if (TypeInformation::get(sub.index).expand().is<StructType>() && isStructref(parent))
             return true;
 
         if (TypeInformation::get(sub.index).expand().is<FunctionSignature>() && isFuncref(parent))
@@ -243,7 +244,7 @@ inline bool isSubtype(StorageType sub, StorageType parent)
         return sub == parent;
 
     ASSERT(sub.is<Type>() && parent.is<Type>());
-    return isSubtype(*sub.as<Type>(), *parent.as<Type>());
+    return isSubtype(sub.as<Type>(), parent.as<Type>());
 }
 
 inline bool isValidHeapTypeKind(TypeKind kind)
@@ -254,6 +255,7 @@ inline bool isValidHeapTypeKind(TypeKind kind)
         return true;
     case TypeKind::I31ref:
     case TypeKind::Arrayref:
+    case TypeKind::Structref:
         return Options::useWebAssemblyGC();
     default:
         break;
@@ -269,7 +271,7 @@ inline bool isDefaultableType(Type type)
 inline bool isDefaultableType(StorageType type)
 {
     if (type.is<Type>())
-        return !type.as<Type>()->isRef();
+        return !type.as<Type>().isRef();
     // All packed types are defaultable.
     return true;
 }
@@ -433,8 +435,7 @@ struct Segment {
 struct Element {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
 
-    // nullFuncIndex represents the case when an element segment (of type funcref)
-    // contains a null element.
+    // nullFuncIndex represents the case when an element segment contains a null element.
     constexpr static uint32_t nullFuncIndex = UINT32_MAX;
 
     enum class Kind : uint8_t {
@@ -541,7 +542,6 @@ struct Entrypoint {
 
 struct InternalFunction {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
-    Vector<CodeLocationDataLabelPtr<WasmEntryPtrTag>> calleeMoveLocations;
 #if ENABLE(WEBASSEMBLY_B3JIT)
     StackMaps stackmaps;
 #endif
@@ -561,10 +561,16 @@ struct WasmToWasmImportableFunction {
 
     // FIXME: Pack type index and code pointer into one 64-bit value. See <https://bugs.webkit.org/show_bug.cgi?id=165511>.
     TypeIndex typeIndex { TypeDefinition::invalidIndex };
-    LoadLocation entrypointLoadLocation;
+    LoadLocation entrypointLoadLocation { };
 };
 using FunctionIndexSpace = Vector<WasmToWasmImportableFunction>;
 
 } } // namespace JSC::Wasm
+
+namespace WTF {
+
+void printInternal(PrintStream&, JSC::Wasm::TableElementType);
+
+} // namespace WTF
 
 #endif // ENABLE(WEBASSEMBLY)

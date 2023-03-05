@@ -89,6 +89,7 @@ imported/w3c/web-platform-tests/fetch [ Skip ]
 # Shared workers are only implemented for WebKit2.
 http/tests/navigation/page-cache-shared-worker.html [ Skip ]
 http/tests/workers/shared [ Skip ]
+imported/w3c/web-platform-tests/WebCryptoAPI/historical.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-allowed.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-blocked.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-classic.http.html [ Skip ]
@@ -623,6 +624,49 @@ imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/int
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/unhandled-promise-rejections/promise-rejection-events.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/notifications/idlharness.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/claim-shared-worker-fetch.https.html [ Skip ]
+imported/w3c/web-platform-tests/streams/idlharness.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/abort.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/close-propagation-backward.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/close-propagation-forward.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/error-propagation-backward.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/error-propagation-forward.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/flow-control.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/general.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/multiple-propagation.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/pipe-through.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/then-interception.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/throwing-options.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/piping/transform-streams.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/queuing-strategies.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-byte-streams/bad-buffers-and-views.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-byte-streams/general.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-byte-streams/non-transferable-buffers.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-byte-streams/tee.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/async-iterator.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/bad-strategies.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/bad-underlying-sources.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/cancel.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/constructor.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/count-queuing-strategy-integration.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/default-reader.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/floating-point-total-queue-size.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/garbage-collection.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/general.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/patched-global.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/reentrant-strategies.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/tee.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/readable-streams/templated.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/backpressure.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/errors.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/flush.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/general.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/lipfuzz.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/patched-global.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/properties.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/reentrant-strategies.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/strategies.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/streams/transform-streams/terminate.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/acquire.tentative.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/held.tentative.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/idlharness.tentative.https.any.sharedworker.html [ Skip ]
@@ -755,6 +799,10 @@ accessibility/custom-elements/ [ Skip ]
 
 # Missing necessary testing logic (AccessibilityController::{get,set}RetainedElement)
 accessibility/ax-object-destroyed-on-reload.html [ Skip ]
+accessibility/page-reload-deadlock.html [ Skip ]
+
+# Missing AccessibilityUIElement::isIndeterminate() implementation.
+accessibility/progress-indeterminate-value.html [ Skip ]
 
 accessibility/display-contents-dynamically-added-children.html [ Skip ]
 
@@ -894,6 +942,7 @@ http/tests/security/contentSecurityPolicy/navigate-self-to-data-url.html [ Skip 
 
 # Color well is turned off.
 accessibility/color-well.html [ Skip ]
+accessibility/color-input-value-changes.html [ Skip ]
 accessibility/mac/media-query-values-change.html [ Skip ]
 editing/pasteboard/drag-and-drop-color-input-events.html [ Skip ]
 editing/pasteboard/drag-and-drop-color-input.html [ Skip ]
@@ -910,6 +959,9 @@ media/now-playing-status-without-media.html [ Skip ]
 
 # WebM not supported in WK1 on macOS.
 http/tests/media/video-webm-stall.html
+
+# Screenshots timeline does not capture screenshots for changes in WebKitLegacy.
+webkit.org/b/251113 inspector/timeline/timeline-event-screenshots.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End features not supported in WebKit1
@@ -1347,6 +1399,8 @@ imported/w3c/web-platform-tests/html/browsers/history/the-location-interface/ass
 # Console logs are flaky.
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/integrity.html [ DumpJSConsoleLogInStdErr ]
 
+imported/w3c/web-platform-tests/secure-contexts/basic-dedicated-worker.html [ DumpJSConsoleLogInStdErr ]
+
 # testRunner.setShouldDownloadUndisplayableMIMETypes() is not supported on WK1.
 fast/dom/HTMLAnchorElement/anchor-file-blob-convert-to-download.html [ Skip ]
 fast/dom/HTMLAnchorElement/anchor-file-blob-convert-to-download-async-delegate.html [ Skip ]
@@ -1382,6 +1436,12 @@ accessibility/visible-character-range-scrolling.html [ Skip ]
 accessibility/visible-character-range-width-changes.html [ Skip ]
 accessibility/model-element-attributes.html [ Skip ]
 accessibility/aria-description.html [ Skip ]
+
+# Missing AccessibilityUIElement::focusableAncestor implementation.
+accessibility/focusable-ancestor.html [ Skip ]
+
+# Missing AccessibilityUIElement::{editableAncestor, highestEditableAncestor} implementations.
+accessibility/editable-ancestor.html [ Skip ]
 
 # <rdar://problem/26050923> The result is probably still a pass, but we don't have a way
 # to have platform specific results that are different between WK1 and WK2.
@@ -1583,8 +1643,6 @@ imported/w3c/web-platform-tests/credential-management/ [ Skip ]
 
 webkit.org/b/182554 transitions/transition-display-property.html [ Pass ImageOnlyFailure ]
 
-imported/w3c/web-platform-tests/css/selectors/selector-placeholder-shown-type-change-002.html [ ImageOnlyFailure ]
-
 webkit.org/b/184456 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-embed-element/embed-in-object-fallback.html [ Pass Failure ]
 
 webkit.org/b/231918 imported/w3c/web-platform-tests/html/semantics/selectors/pseudo-classes/focus-autofocus.html [ Pass Failure ]
@@ -1672,7 +1730,6 @@ webkit.org/b/195098 pointerevents/mouse/pointer-events-before-mouse-events.html 
 webkit.org/b/195098 pointer-lock/pointermove-movement-delta.html [ Failure ]
 
 webkit.org/b/196915 [ Debug ] inspector/timeline/timeline-recording.html [ Pass Failure ]
-webkit.org/b/244301 inspector/timeline/timeline-event-screenshots.html [ Failure ]
 
 webkit.org/b/195623 http/tests/cache/link-prefetch-main-resource.html [ Skip ]
 webkit.org/b/195623 http/tests/cache/link-prefetch-main-resource-iframe.html [ Skip ]
@@ -2022,9 +2079,6 @@ webkit.org/b/223944 [ BigSur Debug ] imported/w3c/web-platform-tests/xhr/event-u
 [ BigSur ] webanimations/accelerated-translate-animation-underlying-transform-changed-in-flight.html [ Pass ImageOnlyFailure ]
 [ BigSur ] webanimations/accelerated-translate-animation.html [ Pass ImageOnlyFailure ]
 
-# rdar://80340735 ([ Monterey wk1 arm64 ] webanimations/accelerated-css-transition-with-easing-y-axis-above-1.html is a flaky image only failure)
-webkit.org/b/244891 webanimations/accelerated-css-transition-with-easing-y-axis-above-1.html [ Pass ImageOnlyFailure Timeout ]
-
 # webkit.org/b/223904 Updating test expectations for 9 tests
 [ BigSur ] transforms/2d/scale-change-composited.html [ Pass ImageOnlyFailure ]
 [ BigSur ] transforms/2d/scale-composited.html [ Pass ImageOnlyFailure ]
@@ -2165,8 +2219,6 @@ webkit.org/b/209878 [ Debug ] webrtc/datachannel/multiple-connections.html [ Pas
 
 webkit.org/b/230055 [ BigSur ] webrtc/datachannel/datachannel-page-cache-send.html [ Pass Timeout ]
 
-webkit.org/b/228211 css2.1/20110323/replaced-intrinsic-003.htm [ Pass Failure ]
-
 webkit.org/b/230425 printing/allowed-breaks.html [ Pass Failure ]
 
 # webkit.org/b/214448 Web Share API is not implemented for mac-wk1
@@ -2200,8 +2252,6 @@ fast/scrolling/rtl-scrollbars-alternate-iframe-body-dir-attr-does-not-update-scr
 # Push subscription tests don't work without service worker support.
 http/tests/push-api [ Skip ]
 
-webkit.org/b/236126 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-pointerevent.html [ Pass Failure ]
-
 # webkit.org/b/236128 [ Mac wk1 ] 7X imported/w3c/web-platform-tests/pointerevents/pointerevent (layout-tests) are flaky text failures 
 imported/w3c/web-platform-tests/pointerevents/pointerevent_boundary_events_at_implicit_release_hoverable_pointers.html [ Pass Failure ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_capture_mouse.html [ Pass Failure ]
@@ -2212,193 +2262,6 @@ imported/w3c/web-platform-tests/pointerevents/pointerevent_mouse_pointercapture_
 imported/w3c/web-platform-tests/pointerevents/pointerevent_pointercapture-in-custom-element.html [ Pass Failure ]
 
 webkit.org/b/236128 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-mouse-right.html [ Skip ]
-
-# WebGPU is not fully implemented yet.
-http/tests/webgpu/webgpu/web_platform/copyToTexture/video.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/copyToTexture/ImageBitmap.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/copyToTexture/canvas.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/external_texture/video.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/canvas/readbackFromWebGPUCanvas.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/canvas/getPreferredFormat.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/canvas/getCurrentTexture.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/canvas/context_creation.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/canvas/configure.html [ Skip ]
-http/tests/webgpu/webgpu/web_platform/worker/worker.html [ Skip ]
-http/tests/webgpu/webgpu/util/texture/texture_ok.html [ Skip ]
-http/tests/webgpu/webgpu/util/texture/texel_data.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/pipeline/default_layout.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/buffers/map.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/buffers/map_detach.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/buffers/map_ArrayBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/buffers/threading.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/buffers/map_oom.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/basic.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/copyBufferToBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/render/state_tracking.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/render/dynamic_state.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/copyTextureToTexture.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/programmable/state_tracking.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/image_copy.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/command_buffer/clearBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/onSubmittedWorkDone.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pipeline/pipeline_output_targets.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pipeline/entry_point_name.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pipeline/alpha_to_coverage.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pipeline/primitive_topology.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pipeline/sample_mask.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pipeline/vertex_only_render_pipeline.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pipeline/culling_tests.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/shader_module/compilation_info.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/resource_init/texture_zero.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/resource_init/buffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/uncapturederror.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/memory_sync/texture/same_subresource.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/ww.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/rw_and_wr.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/single_buffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/multiple_buffers.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/sampling/filter_mode.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/sampling/lod_clamp.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/sampling/anisotropy.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/adapter/requestDevice.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/adapter/requestDevice_limits.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/vertex_state/correctness.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/vertex_state/index_format.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/compute/basic.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/queue/writeBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/texture_view/read.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/texture_view/format_reinterpretation.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/texture_view/write.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/compute_pipeline/entry_point_name.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/device/lost.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/rendering/basic.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/rendering/robust_access_index.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/rendering/blending.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/rendering/indirect_draw.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/rendering/depth.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/rendering/depth_clip_clamp.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/rendering/draw.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pass/storeop2.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pass/storeOp.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pass/clear_value.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/render_pass/resolve.html [ Skip ]
-http/tests/webgpu/webgpu/api/operation/labels.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/createBindGroup.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/createPipelineLayout.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/render_pass_descriptor.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/createBindGroupLayout.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/createRenderPipeline.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/capability_checks/features/query_types.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/capability_checks/features/depth_clip_control.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/capability_checks/features/texture_formats.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/error_scope.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/createRenderBundleEncoder.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/queries/pipeline_statistics.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/queries/begin_end.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/queries/resolveQuerySet.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/queries/general.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/copyBufferToBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/setIndexBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/indirect_draw.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/setPipeline.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/state_tracking.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/draw.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/dynamic_state.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render/setVertexBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/buffer_texture_copies.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/render_pass.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/index_access.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/setBindGroup.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/debug.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/copyTextureToTexture.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/compute_pass.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/cmds/clearBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/programmable/pipeline_bind_group_compat.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/beginRenderPass.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/render_bundle.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/encoding/encoder_state.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/state/device_lost/destroy.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/initialization/requestDevice.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/resource_usages/texture/in_pass_encoder.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/resource_usages/texture/in_render_common.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/resource_usages/texture/in_render_misc.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/layout_shader_compat.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/query_set/create.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/query_set/destroy.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/createComputePipeline.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/createView.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/queue/copyToTexture/CopyExternalImageToTexture.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/queue/writeBuffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/queue/buffer_mapped.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/queue/submit.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/queue/destroyed/query_set.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/queue/destroyed/buffer.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/create_pipeline.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/texture/destroy.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/image_copy/buffer_related.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/image_copy/texture_related.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/image_copy/layout_related.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/vertex_state.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/attachment_compatibility.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/render_pass/storeOp.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/render_pass/resolve.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/buffer/create.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/buffer/threading.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/buffer/mapping.html [ Skip ]
-http/tests/webgpu/webgpu/api/validation/buffer/destroy.html [ Skip ]
-http/tests/webgpu/webgpu/examples.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/memory_model/weak.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/memory_model/coherence.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/memory_model/atomicity.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/memory_model/barrier.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/robust_access.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/sampling/gradients_in_varying_loop.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/zero_init.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/robust_access_vertex.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/evaluation_order.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/unary/f32_arithmetic.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/all.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/select.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/any.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/atan.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/logical_built_in_functions.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/log2.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/countOneBits.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/insertBits.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/fract.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/cos.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/reverseBits.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/firstTrailingBit.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/value_testing_built_in_functions.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/extractBits.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/ceil.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/ldexp.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/max.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/min.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/log.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/abs.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/countTrailingZeros.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/countLeadingZeros.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/inversesqrt.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/atan2.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/floor.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/float_built_functions.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/clamp.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/sin.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/firstLeadingBit.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/binary/bitwise.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/binary/f32_logical.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/expression/binary/f32_arithmetic.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/shader_io/shared_structs.html [ Skip ]
-http/tests/webgpu/webgpu/shader/execution/shader_io/compute_builtins.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/tokens.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/variable_and_const.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/shader_io/builtins.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/shader_io/invariant.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/shader_io/interpolate.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/shader_io/generic.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/shader_io/locations.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/wgsl/basic.html [ Skip ]
 
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-object-element/object-param-url.html [ ImageOnlyFailure ]
 
@@ -2488,11 +2351,7 @@ webkit.org/b/244230 imported/w3c/web-platform-tests/html/browsers/browsing-the-w
 webkit.org/b/244230 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/replace-before-load/history-pushstate-during-pageshow.html [ Pass Failure ]
 webkit.org/b/244230 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/replace-before-load/history-pushstate.html [ Pass Failure ]
 
-webkit.org/b/244277 http/tests/webgpu/webgpu/api/validation/createTexture.html [ Pass Timeout Crash ]
-
 webkit.org/b/241253 fast/text/bulgarian-system-language-shaping.html [ Pass ImageOnlyFailure ]
-
-webkit.org/b/244336 fast/canvas/canvas-createPattern-video-loading.html [ Pass Timeout ]
 
 webkit.org/b/244347 storage/domstorage/sessionstorage/window-open-remove-item.html [ Pass Failure ]
 
@@ -2508,7 +2367,8 @@ webkit.org/b/244649 [ Debug ] imported/w3c/web-platform-tests/css/css-align/base
 
 webkit.org/b/244652 [ Debug ] imported/w3c/web-platform-tests/html/semantics/embedded-content/bfcache/embedded-mp4.html [ Pass Crash ]
 
-webkit.org/b/244677 media/media-source/media-source-istypesupported-vp8-without-vp9.html [ Pass Failure ]
+# VP8/VP9 aren't supported on WK1
+media/media-source/media-source-istypesupported-vp8-without-vp9.html [ Failure ]
 
 webkit.org/b/244714 [ Debug ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/read-media/pageload-video.html [ Skip ]
 
@@ -2524,12 +2384,10 @@ imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-src-aboutblank-navigate-immediately.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/iframe-src-aboutblank-wait-for-load.html [ Failure Pass ]
 
-webkit.org/b/245008 fast/attachment/mac/attachment-numbers.html [ Skip ]
-webkit.org/b/245008 fast/attachment/mac/attachment-pages.html [ Skip ]
-webkit.org/b/245008 fast/attachment/mac/attachment-keynote.html [ Skip ]
-
 webkit.org/b/245816 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/navigate-cross-origin-iframe-to-same-url.html [ Failure Pass ]
 webkit.org/b/245816 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/navigate-cross-origin-iframe-to-same-url-with-fragment.html [ Failure Pass ]
+
+imported/w3c/web-platform-tests/fullscreen/rendering/backdrop-object.html [ Pass ImageOnlyFailure ]
 
 # webkit.org/b/246973 This test renders incorrectly after enabling accelerated drawing
 compositing/geometry/css-clip-oversize.html [ Pass ImageOnlyFailure ]
@@ -2545,8 +2403,15 @@ http/tests/security/basic-auth-subresource.html [ Failure Pass ]
 http/tests/security/contentSecurityPolicy/image-with-https-url-allowed-by-csp-img-src-star.html [ DumpJSConsoleLogInStdErr ]
 http/tests/security/contentSecurityPolicy/video-with-https-url-allowed-by-csp-media-src-star.html [ Failure Pass ]
 http/tests/security/mixedContent/websocket/insecure-websocket-in-iframe.html [ Pass Failure ]
+http/tests/security/contentSecurityPolicy/script-src-parsing-implicit-and-explicit-port-number.html [ DumpJSConsoleLogInStdErr ]
 
-webkit.org/b/248493 http/tests/security/contentSecurityPolicy/script-src-parsing-implicit-and-explicit-port-number.html [ Pass Failure ]
+# These tests have been flaky on WK1 since their import.
+imported/w3c/web-platform-tests/websockets/cookies/005.html?wss&wpt_flags=https [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-arraybuffer.html?wss [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-blob.html?wss [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-getting.html?wss [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-large.html?wss [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-unicode.html?wss [ Pass Failure ]
 
 #webkit.org/b/248537 Batch mark expectations for Ventura test failures
 [ Ventura+ ] transitions/extra-transition.html [ Pass Failure ]
@@ -2579,3 +2444,10 @@ webkit.org/b/248493 http/tests/security/contentSecurityPolicy/script-src-parsing
 [ BigSur+ ] css3/scroll-snap/scroll-padding-mainframe-paging.html [ Failure ]
 [ Ventura+ ] compositing/fixed-with-main-thread-scrolling.html [ ImageOnlyFailure ]
 [ BigSur+ Debug x86_64 ] editing/execCommand/delete-non-editable-range-crash.html [ Pass Timeout ]
+
+# https://bugs.webkit.org/show_bug.cgi?id=249544
+# Generic Permissions API is not supported in WK1
+imported/w3c/web-platform-tests/geolocation-API/permission.https.html [ WontFix ]
+
+# Per-process limit is only for WK2
+http/tests/websocket/tests/hybi/multiple-connections-limit.html [ Skip ]

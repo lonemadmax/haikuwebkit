@@ -83,7 +83,6 @@ axis
 background
 behavior
 bgcolor
-bgproperties
 border
 bordercolor
 capture
@@ -158,7 +157,6 @@ id
 imagesizes
 imagesrcset
 incremental
-indeterminate
 inert
 inputmode
 integrity
@@ -365,10 +363,8 @@ playsinline
 pluginspage
 pluginurl
 poster
-precision
 preload
 primary
-profile
 progress
 prompt
 pseudo
@@ -392,7 +388,7 @@ scrolldelay
 scrolling
 select
 selected
-shadowroot
+shadowrootmode
 shadowrootdelegatesfocus
 shape
 size

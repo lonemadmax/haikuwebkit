@@ -36,8 +36,43 @@ typedef union v128_u {
     uint16_t u16x8[8];
     uint32_t u32x4[4];
     uint64_t u64x2[2] = { 0, 0 };
-    v128_u() = default;
+
+    constexpr v128_u() = default;
+    constexpr v128_u(uint64_t first, uint64_t second)
+        : u64x2 { first, second }
+    { }
 } v128_t;
+
+constexpr v128_t vectorAllOnes()
+{
+    return v128_t { UINT64_MAX, UINT64_MAX };
+}
+
+constexpr v128_t vectorAllZeros()
+{
+    return v128_t { 0, 0 };
+}
+
+// Comparing based on bits. Not using float/double comparison.
+constexpr bool bitEquals(const v128_t& lhs, const v128_t rhs)
+{
+    return lhs.u64x2[0] == rhs.u64x2[0] && lhs.u64x2[1] == rhs.u64x2[1];
+}
+
+constexpr v128_t vectorOr(v128_t lhs, v128_t rhs)
+{
+    return v128_t { lhs.u64x2[0] | rhs.u64x2[0], lhs.u64x2[1] | rhs.u64x2[1] };
+}
+
+constexpr v128_t vectorAnd(v128_t lhs, v128_t rhs)
+{
+    return v128_t { lhs.u64x2[0] & rhs.u64x2[0], lhs.u64x2[1] & rhs.u64x2[1] };
+}
+
+constexpr v128_t vectorXor(v128_t lhs, v128_t rhs)
+{
+    return v128_t { lhs.u64x2[0] ^ rhs.u64x2[0], lhs.u64x2[1] ^ rhs.u64x2[1] };
+}
 
 enum class SIMDLane : uint8_t {
     v128,
@@ -166,50 +201,10 @@ constexpr unsigned elementByteSize(SIMDLane simdLane)
 
 namespace WTF {
 
-inline void printInternal(PrintStream& out, JSC::SIMDLane lane)
-{
-    switch (lane) {
-    case JSC::SIMDLane::i8x16:
-        out.print("i8x16");
-        break;
-    case JSC::SIMDLane::i16x8:
-        out.print("i16x8");
-        break;
-    case JSC::SIMDLane::i32x4:
-        out.print("i32x4");
-        break;
-    case JSC::SIMDLane::f32x4:
-        out.print("f32x4");
-        break;
-    case JSC::SIMDLane::i64x2:
-        out.print("i64x2");
-        break;
-    case JSC::SIMDLane::f64x2:
-        out.print("f64x2");
-        break;
-    case JSC::SIMDLane::v128:
-        out.print("v128");
-        break;
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-    }
-}
+void printInternal(PrintStream& out, JSC::SIMDLane lane);
 
-inline void printInternal(PrintStream& out, JSC::SIMDSignMode mode)
-{
-    switch (mode) {
-    case JSC::SIMDSignMode::None:
-        out.print("SignMode::None");
-        break;
-    case JSC::SIMDSignMode::Signed:
-        out.print("SignMode::Signed");
-        break;
-    case JSC::SIMDSignMode::Unsigned:
-        out.print("SignMode::Unsigned");
-        break;
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-    }
-}
+void printInternal(PrintStream& out, JSC::SIMDSignMode mode);
+
+void printInternal(PrintStream& out, JSC::v128_t v);
 
 } // namespace WTF

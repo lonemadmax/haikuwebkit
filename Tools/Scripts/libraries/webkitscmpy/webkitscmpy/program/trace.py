@@ -1,4 +1,4 @@
-# Copyright (C) 2022 Apple Inc. All rights reserved.
+# Copyright (C) 2022-2023 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@ from webkitscmpy import Commit, local, log, remote
 from webkitbugspy import Tracker
 
 
-COMMIT_REF_BASE = r'r?R?[a-f0-9A-F]+.?\d*@?[0-9a-zA-z\-\/]*'
+COMMIT_REF_BASE = r'r?R?[a-f0-9A-F]+.?\d*@?[0-9a-zA-z\-\/\.]*'
 COMPOUND_COMMIT_REF = r'(?P<primary>{})(?P<secondary> \({}\))?'.format(COMMIT_REF_BASE, COMMIT_REF_BASE)
 CHERRY_PICK_RE = [
     re.compile(r'\S* ?[Cc]herry[- ][Pp]ick of {}'.format(COMPOUND_COMMIT_REF)),
@@ -151,8 +151,17 @@ class CommitsStory(object):
         for commit in commits or []:
             self.add(commit)
 
-    def add(self, commit):
+    def __contains__(self, commit):
         if str(commit) in self.by_ref:
+            return True
+        if commit.hash and commit.hash[:Commit.HASH_LABEL_SIZE] in self.by_ref:
+            return True
+        if commit.revision and 'r{}'.format(commit.revision) in self.by_ref:
+            return True
+        return False
+
+    def add(self, commit):
+        if commit in self:
             return True
         self.commits.append(commit)
         self.by_ref[str(commit)] = commit
@@ -206,7 +215,7 @@ class Trace(Command):
                 if not found:
                     try:
                         found = repository.find(ref)
-                    except ValueError:
+                    except (ValueError, repository.Exception):
                         continue
                 if not found:
                     continue

@@ -28,6 +28,7 @@
 #include "DMABufVideoSinkGStreamer.h"
 #include "GLVideoSinkGStreamer.h"
 #include "GStreamerAudioMixer.h"
+#include "GStreamerRegistryScanner.h"
 #include "GUniquePtrGStreamer.h"
 #include "GstAllocatorFastMalloc.h"
 #include "IntSize.h"
@@ -55,7 +56,10 @@
 
 #if ENABLE(MEDIA_STREAM)
 #include "GStreamerMediaStreamSource.h"
-#include "GStreamerVideoEncoder.h"
+#endif
+
+#if ENABLE(SPEECH_SYNTHESIS)
+#include "WebKitFliteSourceGStreamer.h"
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
@@ -64,6 +68,7 @@
 #endif
 
 #if ENABLE(VIDEO)
+#include "VideoEncoderPrivateGStreamer.h"
 #include "WebKitWebSourceGStreamer.h"
 #endif
 
@@ -332,10 +337,18 @@ bool isThunderRanked()
 }
 #endif
 
+static void registerInternalVideoEncoder()
+{
+#if ENABLE(VIDEO)
+    gst_element_register(nullptr, "webkitvideoencoder", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_VIDEO_ENCODER);
+#endif
+}
+
 void registerWebKitGStreamerElements()
 {
     static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
+    bool registryWasUpdated = false;
+    std::call_once(onceFlag, [&registryWasUpdated] {
 
 #if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
         if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty()) {
@@ -353,11 +366,15 @@ void registerWebKitGStreamerElements()
 
 #if ENABLE(MEDIA_STREAM)
         gst_element_register(nullptr, "mediastreamsrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_STREAM_SRC);
-        gst_element_register(nullptr, "webrtcvideoencoder", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_WEBRTC_VIDEO_ENCODER);
 #endif
+        registerInternalVideoEncoder();
 
 #if ENABLE(MEDIA_SOURCE)
         gst_element_register(nullptr, "webkitmediasrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_SRC);
+#endif
+
+#if ENABLE(SPEECH_SYNTHESIS)
+        gst_element_register(nullptr, "webkitflitesrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_FLITE_SRC);
 #endif
 
 #if ENABLE(VIDEO)
@@ -388,7 +405,7 @@ void registerWebKitGStreamerElements()
         // The new demuxers based on adaptivedemux2 cannot be used in WebKit yet because this new
         // base class does not abstract away network access. They can't work in a sandboxed
         // media process, so demote their rank in order to prevent decodebin3 from auto-plugging them.
-        if (webkitGstCheckVersion(1, 21, 0)) {
+        if (webkitGstCheckVersion(1, 22, 0)) {
             const char* const elementNames[] = { "dashdemux2", "hlsdemux2", "mssdemux2" };
             for (unsigned i = 0; i < G_N_ELEMENTS(elementNames); i++) {
                 if (auto factory = adoptGRef(gst_element_factory_find(elementNames[i])))
@@ -405,7 +422,28 @@ void registerWebKitGStreamerElements()
             if (auto vaapiPlugin = adoptGRef(gst_registry_find_plugin(registry, "vaapi")))
                 gst_registry_remove_plugin(registry, vaapiPlugin.get());
         }
+        registryWasUpdated = true;
     });
+
+    // The GStreamer registry might be updated after the scanner was initialized, so in this situation
+    // we need to reset the internal state of the registry scanner.
+    if (registryWasUpdated && !GStreamerRegistryScanner::singletonNeedsInitialization())
+        GStreamerRegistryScanner::singleton().refresh();
+}
+
+void registerWebKitGStreamerVideoEncoder()
+{
+    static std::once_flag onceFlag;
+    bool registryWasUpdated = false;
+    std::call_once(onceFlag, [&registryWasUpdated] {
+        registerInternalVideoEncoder();
+        registryWasUpdated = true;
+    });
+
+    // The video encoder might be registered after the scanner was initialized, so in this situation
+    // we need to reset the internal state of the registry scanner.
+    if (registryWasUpdated && !GStreamerRegistryScanner::singletonNeedsInitialization())
+        GStreamerRegistryScanner::singleton().refresh();
 }
 
 unsigned getGstPlayFlag(const char* nick)
@@ -481,6 +519,9 @@ void connectSimpleBusMessageCallback(GstElement* pipeline, Function<void(GstMess
             GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
             break;
         }
+        case GST_MESSAGE_LATENCY:
+            gst_bin_recalculate_latency(GST_BIN_CAST(pipeline));
+            break;
         default:
             break;
         }
@@ -998,6 +1039,30 @@ void fillVideoInfoColorimetryFromColorSpace(GstVideoInfo* info, const PlatformVi
         GST_VIDEO_INFO_COLORIMETRY(info).range = *colorSpace.fullRange ? GST_VIDEO_COLOR_RANGE_0_255 : GST_VIDEO_COLOR_RANGE_16_235;
     else
         GST_VIDEO_INFO_COLORIMETRY(info).range = GST_VIDEO_COLOR_RANGE_UNKNOWN;
+}
+
+void configureVideoDecoderForHarnessing(const GRefPtr<GstElement>& element)
+{
+    if (gstObjectHasProperty(element.get(), "max-threads"))
+        g_object_set(element.get(), "max-threads", 1, nullptr);
+
+    if (gstObjectHasProperty(element.get(), "max-errors"))
+        g_object_set(element.get(), "max-errors", 0, nullptr);
+}
+
+static bool gstObjectHasProperty(GstObject* gstObject, const char* name)
+{
+    return g_object_class_find_property(G_OBJECT_GET_CLASS(gstObject), name);
+}
+
+bool gstObjectHasProperty(GstElement* element, const char* name)
+{
+    return gstObjectHasProperty(GST_OBJECT_CAST(element), name);
+}
+
+bool gstObjectHasProperty(GstPad* pad, const char* name)
+{
+    return gstObjectHasProperty(GST_OBJECT_CAST(pad), name);
 }
 
 } // namespace WebCore

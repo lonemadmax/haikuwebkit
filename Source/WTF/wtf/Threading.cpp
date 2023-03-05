@@ -318,12 +318,7 @@ void Thread::didExit()
             Vector<Ref<ThreadGroup>> threadGroups;
             {
                 Locker locker { m_mutex };
-                for (auto& threadGroupPointerPair : m_threadGroupMap) {
-                    // If ThreadGroup is just being destroyed,
-                    // we do not need to perform unregistering.
-                    if (auto retained = threadGroupPointerPair.value.get())
-                        threadGroups.append(retained.releaseNonNull());
-                }
+                threadGroups = m_threadGroups.values();
                 m_isShuttingDown = true;
             }
             for (auto& threadGroup : threadGroups) {
@@ -347,25 +342,16 @@ ThreadGroupAddResult Thread::addToThreadGroup(const AbstractLocker& threadGroupL
     if (m_isShuttingDown)
         return ThreadGroupAddResult::NotAdded;
     if (threadGroup.m_threads.add(*this).isNewEntry) {
-        m_threadGroupMap.add(&threadGroup, ThreadSafeWeakPtr { threadGroup });
+        m_threadGroups.add(threadGroup);
         return ThreadGroupAddResult::NewlyAdded;
     }
     return ThreadGroupAddResult::AlreadyAdded;
 }
 
-void Thread::removeFromThreadGroup(const AbstractLocker& threadGroupLocker, ThreadGroup& threadGroup)
-{
-    UNUSED_PARAM(threadGroupLocker);
-    Locker locker { m_mutex };
-    if (m_isShuttingDown)
-        return;
-    m_threadGroupMap.remove(&threadGroup);
-}
-
 unsigned Thread::numberOfThreadGroups()
 {
     Locker locker { m_mutex };
-    return m_threadGroupMap.size();
+    return m_threadGroups.values().size();
 }
 
 bool Thread::exchangeIsCompilationThread(bool newValue)
@@ -483,6 +469,7 @@ void initialize()
     static std::once_flag onceKey;
     std::call_once(onceKey, [] {
         setPermissionsOfConfigPage();
+        Config::initialize();
         Gigacage::ensureGigacage();
         Config::AssertNotFrozenScope assertScope;
 #if !HAVE(FAST_TLS) && !OS(WINDOWS)

@@ -33,6 +33,7 @@
 #include <glib/gi18n-lib.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
+#include <wtf/glib/GWeakPtr.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
 
@@ -66,19 +67,15 @@ static GParamSpec* sObjProperties[N_PROPERTIES] = { nullptr, };
 enum {
     FINISHED,
     FAILED,
+#if !ENABLE(2022_GLIB_API)
     CREATE_CUSTOM_WIDGET,
+#endif
 
     LAST_SIGNAL
 };
 
 struct _WebKitPrintOperationPrivate {
-    ~_WebKitPrintOperationPrivate()
-    {
-        if (webView)
-            g_object_remove_weak_pointer(G_OBJECT(webView), reinterpret_cast<void**>(&webView));
-    }
-
-    WebKitWebView* webView;
+    GWeakPtr<WebKitWebView> webView;
     PrintInfo::PrintMode printMode;
 
     GRefPtr<GtkPrintSettings> printSettings;
@@ -92,15 +89,7 @@ struct _WebKitPrintOperationPrivate {
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
-WEBKIT_DEFINE_TYPE(WebKitPrintOperation, webkit_print_operation, G_TYPE_OBJECT)
-
-static void webkitPrintOperationConstructed(GObject* object)
-{
-    G_OBJECT_CLASS(webkit_print_operation_parent_class)->constructed(object);
-
-    WebKitPrintOperationPrivate* priv = WEBKIT_PRINT_OPERATION(object)->priv;
-    g_object_add_weak_pointer(G_OBJECT(priv->webView), reinterpret_cast<void**>(&priv->webView));
-}
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitPrintOperation, webkit_print_operation, G_TYPE_OBJECT)
 
 static void webkitPrintOperationGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -108,7 +97,7 @@ static void webkitPrintOperationGetProperty(GObject* object, guint propId, GValu
 
     switch (propId) {
     case PROP_WEB_VIEW:
-        g_value_take_object(value, printOperation->priv->webView);
+        g_value_take_object(value, printOperation->priv->webView.get());
         break;
     case PROP_PRINT_SETTINGS:
         g_value_set_object(value, printOperation->priv->printSettings.get());
@@ -127,7 +116,7 @@ static void webkitPrintOperationSetProperty(GObject* object, guint propId, const
 
     switch (propId) {
     case PROP_WEB_VIEW:
-        printOperation->priv->webView = WEBKIT_WEB_VIEW(g_value_get_object(value));
+        printOperation->priv->webView.reset(WEBKIT_WEB_VIEW(g_value_get_object(value)));
         break;
     case PROP_PRINT_SETTINGS:
         webkit_print_operation_set_print_settings(printOperation, GTK_PRINT_SETTINGS(g_value_get_object(value)));
@@ -140,6 +129,7 @@ static void webkitPrintOperationSetProperty(GObject* object, guint propId, const
     }
 }
 
+#if !ENABLE(2022_GLIB_API)
 static gboolean webkitPrintOperationAccumulatorObjectHandled(GSignalInvocationHint*, GValue* returnValue, const GValue* handlerReturn, gpointer)
 {
     void* object = g_value_get_object(handlerReturn);
@@ -148,11 +138,11 @@ static gboolean webkitPrintOperationAccumulatorObjectHandled(GSignalInvocationHi
 
     return !object;
 }
+#endif
 
 static void webkit_print_operation_class_init(WebKitPrintOperationClass* printOperationClass)
 {
     GObjectClass* gObjectClass = G_OBJECT_CLASS(printOperationClass);
-    gObjectClass->constructed = webkitPrintOperationConstructed;
     gObjectClass->get_property = webkitPrintOperationGetProperty;
     gObjectClass->set_property = webkitPrintOperationSetProperty;
 
@@ -164,8 +154,7 @@ static void webkit_print_operation_class_init(WebKitPrintOperationClass* printOp
     sObjProperties[PROP_WEB_VIEW] =
         g_param_spec_object(
             "web-view",
-            _("Web View"),
-            _("The web view that will be printed"),
+            nullptr, nullptr,
             WEBKIT_TYPE_WEB_VIEW,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
@@ -177,8 +166,7 @@ static void webkit_print_operation_class_init(WebKitPrintOperationClass* printOp
     sObjProperties[PROP_PRINT_SETTINGS] =
         g_param_spec_object(
             "print-settings",
-            _("Print Settings"),
-            _("The initial print settings for the print operation"),
+            nullptr, nullptr,
             GTK_TYPE_PRINT_SETTINGS,
             WEBKIT_PARAM_READWRITE);
     /**
@@ -189,8 +177,7 @@ static void webkit_print_operation_class_init(WebKitPrintOperationClass* printOp
     sObjProperties[PROP_PAGE_SETUP] =
         g_param_spec_object(
             "page-setup",
-            _("Page Setup"),
-            _("The initial page setup for the print operation"),
+            nullptr, nullptr,
             GTK_TYPE_PAGE_SETUP,
             WEBKIT_PARAM_READWRITE);
 
@@ -230,6 +217,9 @@ static void webkit_print_operation_class_init(WebKitPrintOperationClass* printOp
             G_TYPE_NONE, 1,
             G_TYPE_ERROR | G_SIGNAL_TYPE_STATIC_SCOPE);
 
+#if !ENABLE(2022_GLIB_API)
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+
     /**
      * WebKitPrintOperation::create-custom-widget:
      * @print_operation: the #WebKitPrintOperation on which the signal was emitted
@@ -242,6 +232,8 @@ static void webkit_print_operation_class_init(WebKitPrintOperationClass* printOp
      * Returns: (transfer full): A #WebKitPrintCustomWidget that will be embedded in the dialog.
      *
      * Since: 2.16
+     *
+     * Deprecated: 2.40
      */
     signals[CREATE_CUSTOM_WIDGET] =
         g_signal_new(
@@ -252,13 +244,18 @@ static void webkit_print_operation_class_init(WebKitPrintOperationClass* printOp
             webkitPrintOperationAccumulatorObjectHandled, 0,
             g_cclosure_marshal_generic,
             WEBKIT_TYPE_PRINT_CUSTOM_WIDGET, 0);
+
+    ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
 }
 
 #if HAVE(GTK_UNIX_PRINTING)
+#if !ENABLE(2022_GLIB_API)
 static void notifySelectedPrinterCallback(GtkPrintUnixDialog* dialog, GParamSpec*, WebKitPrintCustomWidget* printCustomWidget)
 {
     webkitPrintCustomWidgetEmitUpdateCustomWidgetSignal(printCustomWidget, gtk_print_unix_dialog_get_page_setup(dialog), gtk_print_unix_dialog_get_settings(dialog));
 }
+#endif
 
 static WebKitPrintOperationResponse webkitPrintOperationRunDialog(WebKitPrintOperation* printOperation, GtkWindow* parent)
 {
@@ -284,15 +281,19 @@ static WebKitPrintOperationResponse webkitPrintOperationRunDialog(WebKitPrintOpe
 
     gtk_print_unix_dialog_set_embed_page_setup(printDialog, TRUE);
 
+#if !ENABLE(2022_GLIB_API)
     GRefPtr<WebKitPrintCustomWidget> customWidget;
     g_signal_emit(printOperation, signals[CREATE_CUSTOM_WIDGET], 0, &customWidget.outPtr());
     if (customWidget) {
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         const gchar* widgetTitle = webkit_print_custom_widget_get_title(customWidget.get());
         GtkWidget* widget = webkit_print_custom_widget_get_widget(customWidget.get());
+        ALLOW_DEPRECATED_DECLARATIONS_END
 
         g_signal_connect(printDialog, "notify::selected-printer", G_CALLBACK(notifySelectedPrinterCallback), customWidget.get());
         gtk_print_unix_dialog_add_custom_tab(printDialog, widget, gtk_label_new(widgetTitle));
     }
+#endif
 
     WebKitPrintOperationResponse returnValue = WEBKIT_PRINT_OPERATION_RESPONSE_CANCEL;
     if (gtk_dialog_run(GTK_DIALOG(printDialog)) == GTK_RESPONSE_OK) {
@@ -300,8 +301,10 @@ static WebKitPrintOperationResponse webkitPrintOperationRunDialog(WebKitPrintOpe
         priv->pageSetup = gtk_print_unix_dialog_get_page_setup(printDialog);
         priv->printer = gtk_print_unix_dialog_get_selected_printer(printDialog);
         returnValue = WEBKIT_PRINT_OPERATION_RESPONSE_PRINT;
+#if !ENABLE(2022_GLIB_API)
         if (customWidget)
             webkitPrintCustomWidgetEmitCustomWidgetApplySignal(customWidget.get());
+#endif
     }
 
     gtk_widget_destroy(GTK_WIDGET(printDialog));
@@ -357,12 +360,12 @@ static void webkitPrintOperationPrintPagesForFrame(WebKitPrintOperation* printOp
     cairo_surface_finish(surface);
 
     PrintInfo printInfo(priv->printJob.get(), printOperation->priv->printMode);
-    auto& page = webkitWebViewGetPage(printOperation->priv->webView);
+    auto& page = webkitWebViewGetPage(printOperation->priv->webView.get());
     page.drawPagesForPrinting(webFrame, printInfo, [printOperation = GRefPtr<WebKitPrintOperation>(printOperation)](std::optional<SharedMemory::Handle>&& data, WebCore::ResourceError&& error) mutable {
         auto* priv = printOperation->priv;
         // When running synchronously, WebPageProxy::printFrame() calls endPrinting().
         if (priv->printMode == PrintInfo::PrintModeAsync && priv->webView)
-            webkitWebViewGetPage(priv->webView).endPrinting();
+            webkitWebViewGetPage(priv->webView.get()).endPrinting();
 
         if (!data || !error.isNull()) {
             if (!error.isNull())
@@ -394,7 +397,7 @@ WebKitPrintOperationResponse webkitPrintOperationRunDialogForFrame(WebKitPrintOp
 {
     WebKitPrintOperationPrivate* priv = printOperation->priv;
     if (!parent) {
-        GtkWidget* toplevel = gtk_widget_get_toplevel(GTK_WIDGET(priv->webView));
+        GtkWidget* toplevel = gtk_widget_get_toplevel(GTK_WIDGET(priv->webView.get()));
         if (WebCore::widgetIsOnscreenToplevelWindow(toplevel))
             parent = GTK_WINDOW(toplevel);
     }
@@ -535,7 +538,7 @@ WebKitPrintOperationResponse webkit_print_operation_run_dialog(WebKitPrintOperat
 {
     g_return_val_if_fail(WEBKIT_IS_PRINT_OPERATION(printOperation), WEBKIT_PRINT_OPERATION_RESPONSE_CANCEL);
 
-    auto& page = webkitWebViewGetPage(printOperation->priv->webView);
+    auto& page = webkitWebViewGetPage(printOperation->priv->webView.get());
     return webkitPrintOperationRunDialogForFrame(printOperation, parent, page.mainFrame());
 }
 
@@ -587,6 +590,6 @@ void webkit_print_operation_print(WebKitPrintOperation* printOperation)
     GRefPtr<GtkPageSetup> pageSetup = priv->pageSetup ? priv->pageSetup : adoptGRef(gtk_page_setup_new());
     GRefPtr<GtkPrinter> printer = printerFromSettingsOrDefault(printSettings.get());
 
-    auto& page = webkitWebViewGetPage(printOperation->priv->webView);
+    auto& page = webkitWebViewGetPage(printOperation->priv->webView.get());
     webkitPrintOperationPrintPagesForFrame(printOperation, page.mainFrame(), printer.get(), printSettings.get(), pageSetup.get());
 }

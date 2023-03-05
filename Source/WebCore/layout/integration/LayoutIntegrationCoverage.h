@@ -38,8 +38,8 @@ namespace LayoutIntegration {
 
 enum class AvoidanceReason : uint64_t {
     FlowIsInsideANonMultiColumnThread            = 1LLU  << 0,
-    FlowHasInitialLetter                         = 1LLU  << 1,
-    FlowIsVTTCue                                 = 1LLU  << 2,
+    // Unused                                    = 1LLU  << 1,
+    // Unused                                    = 1LLU  << 2,
     ContentIsRuby                                = 1LLU  << 3,
     FlowIsPaginated                              = 1LLU  << 4,
     // Unused                                    = 1LLU  << 5,
@@ -47,7 +47,7 @@ enum class AvoidanceReason : uint64_t {
     // Unused                                    = 1LLU  << 7,
     // Unused                                    = 1LLU  << 8,
     FlowHasNonSupportedChild                     = 1LLU  << 9,
-    FlowHasUnsupportedFloat                      = 1LLU  << 10,
+    FloatIsShapeOutside                          = 1LLU  << 10,
     // Unused                                    = 1LLU  << 11,
     // Unused                                    = 1LLU  << 12,
     // Unused                                    = 1LLU  << 13,
@@ -81,7 +81,7 @@ enum class AvoidanceReason : uint64_t {
     FeatureIsDisabled                            = 1LLU  << 41,
     FlowDoesNotEstablishInlineFormattingContext  = 1LLU  << 42,
     // Unused                                    = 1LLU  << 43,
-    FlowHasHangingPunctuation                    = 1LLU  << 44,
+    // Unused                                    = 1LLU  << 44,
     // Unused                                    = 1LLU  << 45,
     // Unused                                    = 1LLU  << 46,
     MultiColumnFlowIsNotTopLevel                 = 1LLU  << 47,
@@ -98,7 +98,7 @@ enum class AvoidanceReason : uint64_t {
     // Unused                                    = 1LLU  << 58,
     // Unused                                    = 1LLU  << 59,
     // Unused                                    = 1LLU  << 60,
-    ChildIsUnsupportedListItem                   = 1LLU  << 61,
+    // Unused                                    = 1LLU  << 61,
     EndOfReasons                                 = 1LLU  << 62
 };
 

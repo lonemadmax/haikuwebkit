@@ -40,6 +40,13 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#if HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
+@interface WKWebView ()
+- (void)_beginLiveResize;
+- (void)_endLiveResize;
+@end
+#endif
+
 static bool didLayout;
 static bool didEndAnimatedResize;
 static bool didChangeSafeAreaShouldAffectObscuredInsets;
@@ -498,6 +505,27 @@ TEST(AnimatedResize, CreateWebPageAfterAnimatedResize)
     EXPECT_EQ(1024, dimensions.lastObject.intValue);
 }
 
+#if HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
+TEST(AnimatedResize, MinimumEffectiveDeviceWidthChangeIsDeferredDuringLiveResize)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 200, 200)]);
+    [webView synchronouslyLoadHTMLString:@"<meta name='viewport' content='initial-scale=1' />"];
+
+    EXPECT_EQ([webView scrollView].zoomScale, 1);
+
+    [webView _beginLiveResize];
+
+    [webView _setMinimumEffectiveDeviceWidth:400];
+    [webView waitForNextPresentationUpdate];
+    EXPECT_EQ([webView scrollView].zoomScale, 1);
+
+    [webView _endLiveResize];
+
+    [webView waitForNextPresentationUpdate];
+    EXPECT_EQ([webView scrollView].zoomScale, 0.5);
+}
+#endif
+
 TEST(AnimatedResize, ResizeWithWithSubsequentNoOpResizeIsNotCancelled)
 {
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)]);
@@ -526,6 +554,25 @@ TEST(AnimatedResize, ResizeWithWithSubsequentNoOpResizeIsNotCancelled)
         if (!contentView.hidden)
             break;
     }
+}
+
+TEST(AnimatedResize, ScaleDuringAnimatedResizeDoesNotMoveContentViewFrameOrigin)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)]);
+    [webView synchronouslyLoadTestPageNamed:@"large-red-square-image"];
+
+    [webView _beginAnimatedResizeWithUpdates:^{
+        [webView setFrame:CGRectMake(0, 0, [webView frame].size.width + 100, 400)];
+    }];
+
+    [webView _endAnimatedResize];
+
+    [[webView scrollView] setZoomScale:2];
+    [webView waitForNextPresentationUpdate];
+
+    auto frameOrigin = [webView wkContentView].frame.origin;
+    EXPECT_EQ(frameOrigin.x, 0);
+    EXPECT_EQ(frameOrigin.y, 0);
 }
 
 #endif

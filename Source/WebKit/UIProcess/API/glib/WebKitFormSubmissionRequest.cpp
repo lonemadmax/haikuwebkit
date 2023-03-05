@@ -52,7 +52,7 @@ struct _WebKitFormSubmissionRequestPrivate {
     bool handledRequest;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitFormSubmissionRequest, webkit_form_submission_request, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitFormSubmissionRequest, webkit_form_submission_request, G_TYPE_OBJECT)
 
 static void webkitFormSubmissionRequestDispose(GObject* object)
 {
@@ -86,7 +86,7 @@ WebKitFormSubmissionRequest* webkitFormSubmissionRequestCreate(const Vector<std:
     return request;
 }
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
 /**
  * webkit_form_submission_request_get_text_fields:
  * @request: a #WebKitFormSubmissionRequest

@@ -47,10 +47,10 @@
 #include "WebKitHitTestResultPrivate.h"
 #include "WebKitIconLoadingClient.h"
 #include "WebKitInputMethodContextPrivate.h"
-#include "WebKitInstallMissingMediaPluginsPermissionRequestPrivate.h"
 #include "WebKitJavascriptResultPrivate.h"
 #include "WebKitNavigationClient.h"
 #include "WebKitNotificationPrivate.h"
+#include "WebKitPermissionStateQueryPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitResponsePolicyDecision.h"
 #include "WebKitScriptDialogPrivate.h"
@@ -71,12 +71,12 @@
 #include "WebPageMessages.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSRetainPtr.h>
-#include <jsc/JSCContextPrivate.h>
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/URLSoup.h>
 #include <glib/gi18n-lib.h>
+#include <jsc/JSCContextPrivate.h>
 #include <libsoup/soup.h>
 #include <wtf/SetForScope.h>
 #include <wtf/URL.h>
@@ -100,6 +100,10 @@
 #include "WebKitOptionMenuPrivate.h"
 #include "WebKitWebViewBackendPrivate.h"
 #include "WebKitWebViewClient.h"
+#endif
+
+#if ENABLE(2022_GLIB_API)
+#include "WebKitNetworkSessionPrivate.h"
 #endif
 
 using namespace WebKit;
@@ -155,7 +159,7 @@ enum {
 
     INSECURE_CONTENT_DETECTED,
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     WEB_PROCESS_CRASHED,
 #endif
     WEB_PROCESS_TERMINATED,
@@ -171,6 +175,8 @@ enum {
 
     USER_MESSAGE_RECEIVED,
 
+    QUERY_PERMISSION_STATE,
+
     LAST_SIGNAL
 };
 
@@ -185,6 +191,9 @@ enum {
     PROP_RELATED_VIEW,
     PROP_SETTINGS,
     PROP_USER_CONTENT_MANAGER,
+#if ENABLE(2022_GLIB_API)
+    PROP_NETWORK_SESSION,
+#endif
     PROP_TITLE,
     PROP_ESTIMATED_LOAD_PROGRESS,
 
@@ -196,7 +205,9 @@ enum {
     PROP_ZOOM_LEVEL,
     PROP_IS_LOADING,
     PROP_IS_PLAYING_AUDIO,
+#if !ENABLE(2022_GLIB_API)
     PROP_IS_EPHEMERAL,
+#endif
     PROP_IS_CONTROLLED_BY_AUTOMATION,
     PROP_AUTOMATION_PRESENTATION_TYPE,
     PROP_EDITABLE,
@@ -271,7 +282,9 @@ struct _WebKitWebViewPrivate {
     CString activeURI;
     bool isActiveURIChangeBlocked;
     bool isLoading;
+#if !ENABLE(2022_GLIB_API)
     bool isEphemeral;
+#endif
     bool isControlledByAutomation;
     WebKitAutomationBrowsingContextPresentation automationPresentationType;
 
@@ -310,7 +323,11 @@ struct _WebKitWebViewPrivate {
 
     GRefPtr<WebKitAuthenticationRequest> authenticationRequest;
 
+#if ENABLE(2022_GLIB_API)
+    GRefPtr<WebKitNetworkSession> networkSession;
+#else
     GRefPtr<WebKitWebsiteDataManager> websiteDataManager;
+#endif
     GRefPtr<WebKitWebsitePolicies> websitePolicies;
 
     CString defaultContentSecurityPolicy;
@@ -457,11 +474,6 @@ GRefPtr<WebKitOptionMenu> WebKitWebViewClient::showOptionMenu(WebKitPopupMenu& p
     return nullptr;
 }
 
-void WebKitWebViewClient::handleDownloadRequest(WKWPE::View&, DownloadProxy& downloadProxy)
-{
-    webkitWebViewHandleDownloadRequest(m_webView, &downloadProxy);
-}
-
 void WebKitWebViewClient::frameDisplayed(WKWPE::View&)
 {
     {
@@ -504,7 +516,11 @@ WebKitWebResourceLoadManager* WebKitWebViewClient::webResourceLoadManager()
 static gboolean webkitWebViewLoadFail(WebKitWebView* webView, WebKitLoadEvent, const char* failingURI, GError* error)
 {
     if (g_error_matches(error, WEBKIT_NETWORK_ERROR, WEBKIT_NETWORK_ERROR_CANCELLED)
+#if ENABLE(2022_GLIB_API)
+        || g_error_matches(error, WEBKIT_MEDIA_ERROR, WEBKIT_MEDIA_ERROR_WILL_HANDLE_LOAD)
+#else
         || g_error_matches(error, WEBKIT_PLUGIN_ERROR, WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD)
+#endif
         || g_error_matches(error, WEBKIT_POLICY_ERROR, WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE))
         return FALSE;
 
@@ -580,6 +596,15 @@ static void userAgentChanged(WebKitSettings* settings, GParamSpec*, WebKitWebVie
     getPage(webView).setCustomUserAgent(String::fromUTF8(webkit_settings_get_user_agent(settings)));
 }
 
+static gboolean webkitWebViewIsEphemeral(WebKitWebView* webView)
+{
+#if ENABLE(2022_GLIB_API)
+    return webkit_network_session_is_ephemeral(webView->priv->networkSession.get());
+#else
+    return webView->priv->isEphemeral;
+#endif
+}
+
 #if PLATFORM(GTK)
 static void enableBackForwardNavigationGesturesChanged(WebKitSettings* settings, GParamSpec*, WebKitWebView* webView)
 {
@@ -618,14 +643,26 @@ static void gotFaviconCallback(GObject* object, GAsyncResult* result, gpointer u
     webView->priv->faviconCancellable = 0;
 }
 
+static WebKitFaviconDatabase* webkitWebViewGetFaviconDatabase(WebKitWebView* webView)
+{
+#if ENABLE(2022_GLIB_API)
+    return webkit_website_data_manager_get_favicon_database(webkitWebViewGetWebsiteDataManager(webView));
+#else
+    return webkit_web_context_get_favicon_database(webView->priv->context.get());
+#endif
+}
+
 static void webkitWebViewRequestFavicon(WebKitWebView* webView)
 {
     webkitWebViewCancelFaviconRequest(webView);
 
     WebKitWebViewPrivate* priv = webView->priv;
+    auto* database = webkitWebViewGetFaviconDatabase(webView);
+    if (!database)
+        return;
+
     priv->faviconCancellable = adoptGRef(g_cancellable_new());
-    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
-    webkitFaviconDatabaseGetFaviconInternal(database, priv->activeURI.data(), priv->isEphemeral, priv->faviconCancellable.get(), gotFaviconCallback, webView);
+    webkitFaviconDatabaseGetFaviconInternal(database, priv->activeURI.data(), webkitWebViewIsEphemeral(webView), priv->faviconCancellable.get(), gotFaviconCallback, webView);
 }
 
 static void webkitWebViewUpdateFaviconURI(WebKitWebView* webView, const char* faviconURI)
@@ -700,16 +737,11 @@ static void webkitWebViewWatchForChangesInFavicon(WebKitWebView* webView)
     if (priv->faviconChangedHandlerID)
         return;
 
-    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
-    priv->faviconChangedHandlerID = g_signal_connect(database, "favicon-changed", G_CALLBACK(faviconChangedCallback), webView);
-}
+    auto* database = webkitWebViewGetFaviconDatabase(webView);
+    if (!database)
+        return;
 
-static void webkitWebViewDisconnectFaviconDatabaseSignalHandlers(WebKitWebView* webView)
-{
-    WebKitWebViewPrivate* priv = webView->priv;
-    if (priv->faviconChangedHandlerID)
-        g_signal_handler_disconnect(webkit_web_context_get_favicon_database(priv->context.get()), priv->faviconChangedHandlerID);
-    priv->faviconChangedHandlerID = 0;
+    priv->faviconChangedHandlerID = g_signal_connect_object(database, "favicon-changed", G_CALLBACK(faviconChangedCallback), webView, static_cast<GConnectFlags>(0));
 }
 #endif
 
@@ -721,12 +753,18 @@ static void webkitWebViewConstructed(GObject* object)
     WebKitWebViewPrivate* priv = webView->priv;
     if (priv->relatedView) {
         priv->context = webkit_web_view_get_context(priv->relatedView);
+#if ENABLE(2022_GLIB_API)
+        priv->networkSession = webkit_web_view_get_network_session(priv->relatedView);
+#else
         priv->isEphemeral = webkit_web_view_is_ephemeral(priv->relatedView);
+#endif
         priv->isControlledByAutomation = webkit_web_view_is_controlled_by_automation(priv->relatedView);
     } else if (!priv->context)
         priv->context = webkit_web_context_get_default();
+#if !ENABLE(2022_GLIB_API)
     else if (!priv->isEphemeral)
         priv->isEphemeral = webkit_web_context_is_ephemeral(priv->context.get());
+#endif
 
     if (!priv->settings)
         priv->settings = adoptGRef(webkit_settings_new());
@@ -734,6 +772,14 @@ static void webkitWebViewConstructed(GObject* object)
     if (!priv->userContentManager)
         priv->userContentManager = adoptGRef(webkit_user_content_manager_new());
 
+#if ENABLE(2022_GLIB_API)
+#if ENABLE(REMOTE_INSPECTOR)
+    if (priv->isControlledByAutomation)
+        priv->networkSession = webkitWebContextGetNetworkSessionForAutomation(priv->context.get());
+#endif
+    if (!priv->networkSession)
+        priv->networkSession = webkit_network_session_get_default();
+#else
     if (priv->isEphemeral && !webkit_web_context_is_ephemeral(priv->context.get())) {
         priv->websiteDataManager = adoptGRef(webkit_website_data_manager_new_ephemeral());
         auto* contextDataManager = webkit_web_context_get_website_data_manager(priv->context.get());
@@ -741,6 +787,7 @@ static void webkitWebViewConstructed(GObject* object)
         auto proxySettings = webkitWebsiteDataManagerGetDataStore(contextDataManager).networkProxySettings();
         webkitWebsiteDataManagerGetDataStore(priv->websiteDataManager.get()).setNetworkProxySettings(WTFMove(proxySettings));
     }
+#endif
 
     if (!priv->websitePolicies)
         priv->websitePolicies = adoptGRef(webkit_website_policies_new());
@@ -823,12 +870,21 @@ static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue
         webView->priv->userContentManager = userContentManager ? WEBKIT_USER_CONTENT_MANAGER(userContentManager) : nullptr;
         break;
     }
+#if ENABLE(2022_GLIB_API)
+    case PROP_NETWORK_SESSION: {
+        gpointer networkSession = g_value_get_object(value);
+        webView->priv->networkSession = networkSession ? WEBKIT_NETWORK_SESSION(networkSession) : nullptr;
+        break;
+    }
+#endif
     case PROP_ZOOM_LEVEL:
         webkit_web_view_set_zoom_level(webView, g_value_get_double(value));
         break;
+#if !ENABLE(2022_GLIB_API)
     case PROP_IS_EPHEMERAL:
         webView->priv->isEphemeral = g_value_get_boolean(value);
         break;
+#endif
     case PROP_IS_CONTROLLED_BY_AUTOMATION:
         webView->priv->isControlledByAutomation = g_value_get_boolean(value);
         break;
@@ -883,6 +939,11 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
     case PROP_USER_CONTENT_MANAGER:
         g_value_set_object(value, webkit_web_view_get_user_content_manager(webView));
         break;
+#if ENABLE(2022_GLIB_API)
+    case PROP_NETWORK_SESSION:
+        g_value_set_object(value, webkit_web_view_get_network_session(webView));
+        break;
+#endif
     case PROP_TITLE:
         g_value_set_string(value, webView->priv->title.data());
         break;
@@ -906,9 +967,11 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
     case PROP_IS_PLAYING_AUDIO:
         g_value_set_boolean(value, webkit_web_view_is_playing_audio(webView));
         break;
+#if !ENABLE(2022_GLIB_API)
     case PROP_IS_EPHEMERAL:
         g_value_set_boolean(value, webkit_web_view_is_ephemeral(webView));
         break;
+#endif
     case PROP_IS_CONTROLLED_BY_AUTOMATION:
         g_value_set_boolean(value, webkit_web_view_is_controlled_by_automation(webView));
         break;
@@ -956,7 +1019,7 @@ static void webkitWebViewDispose(GObject* object)
 
 #if PLATFORM(GTK)
     webkitWebViewCancelFaviconRequest(webView);
-    webkitWebViewDisconnectFaviconDatabaseSignalHandlers(webView);
+    webView->priv->faviconChangedHandlerID = 0;
 #endif
 
     webkitWebViewDisconnectSettingsSignalHandlers(webView);
@@ -1022,8 +1085,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_BACKEND] =
         g_param_spec_boxed(
             "backend",
-            _("Backend"),
-            _("The backend for the web view"),
+            nullptr, nullptr,
             WEBKIT_TYPE_WEB_VIEW_BACKEND,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 #endif
@@ -1036,8 +1098,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_WEB_CONTEXT] =
         g_param_spec_object(
             "web-context",
-            _("Web Context"),
-            _("The web context for the view"),
+            nullptr, nullptr,
             WEBKIT_TYPE_WEB_CONTEXT,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
     /**
@@ -1052,8 +1113,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_RELATED_VIEW] =
         g_param_spec_object(
             "related-view",
-            _("Related WebView"),
-            _("The related WebKitWebView used when creating the view to share the same web process"),
+            nullptr, nullptr,
             WEBKIT_TYPE_WEB_VIEW,
             static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
 
@@ -1067,8 +1127,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_SETTINGS] =
         g_param_spec_object(
             "settings",
-            _("WebView settings"),
-            _("The WebKitSettings of the view"),
+            nullptr, nullptr,
             WEBKIT_TYPE_SETTINGS,
             static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT));
 
@@ -1082,10 +1141,25 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_USER_CONTENT_MANAGER] =
         g_param_spec_object(
             "user-content-manager",
-            _("WebView user content manager"),
-            _("The WebKitUserContentManager of the view"),
+            nullptr, nullptr,
             WEBKIT_TYPE_USER_CONTENT_MANAGER,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+#if ENABLE(2022_GLIB_API)
+    /**
+     * WebKitWebView:network-session:
+     *
+     * The #WebKitNetworkSession of the view
+     *
+     * Since: 2.40
+     */
+    sObjProperties[PROP_NETWORK_SESSION]=
+        g_param_spec_object(
+            "network-session",
+            nullptr, nullptr,
+            WEBKIT_TYPE_NETWORK_SESSION,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+#endif
 
     /**
      * WebKitWebView:title:
@@ -1096,8 +1170,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_TITLE] =
         g_param_spec_string(
             "title",
-            _("Title"),
-            _("Main frame document title"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE);
 
@@ -1115,8 +1188,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_ESTIMATED_LOAD_PROGRESS] =
         g_param_spec_double(
             "estimated-load-progress",
-            _("Estimated Load Progress"),
-            _("An estimate of the percent completion for a document load"),
+            nullptr, nullptr,
             0.0, 1.0, 0.0,
             WEBKIT_PARAM_READABLE);
 
@@ -1130,8 +1202,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_FAVICON] =
         g_param_spec_pointer(
             "favicon",
-            _("Favicon"),
-            _("The favicon associated to the view, if any"),
+            nullptr, nullptr,
             WEBKIT_PARAM_READABLE);
 #endif
 
@@ -1144,8 +1215,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_URI] =
         g_param_spec_string(
             "uri",
-            _("URI"),
-            _("The current active URI of the view"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE);
 
@@ -1158,8 +1228,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_ZOOM_LEVEL] =
         g_param_spec_double(
             "zoom-level",
-            _("Zoom level"),
-            _("The zoom level of the view content"),
+            nullptr, nullptr,
             0, G_MAXDOUBLE, 1,
             WEBKIT_PARAM_READWRITE);
 
@@ -1176,8 +1245,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_IS_LOADING] =
         g_param_spec_boolean(
             "is-loading",
-            _("Is Loading"),
-            _("Whether the view is loading a page"),
+            nullptr, nullptr,
             FALSE,
             WEBKIT_PARAM_READABLE);
 
@@ -1194,11 +1262,11 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_IS_PLAYING_AUDIO] =
         g_param_spec_boolean(
             "is-playing-audio",
-            "Is Playing Audio",
-            _("Whether the view is playing audio"),
+            nullptr, nullptr,
             FALSE,
             WEBKIT_PARAM_READABLE);
 
+#if !ENABLE(2022_GLIB_API)
     /**
      * WebKitWebView:is-ephemeral:
      *
@@ -1220,10 +1288,10 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_IS_EPHEMERAL] =
         g_param_spec_boolean(
             "is-ephemeral",
-            "Is Ephemeral",
-            _("Whether the web view is ephemeral"),
+            nullptr, nullptr,
             FALSE,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+#endif
 
     /**
      * WebKitWebView:is-controlled-by-automation:
@@ -1237,8 +1305,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_IS_CONTROLLED_BY_AUTOMATION] =
         g_param_spec_boolean(
             "is-controlled-by-automation",
-            "Is Controlled By Automation",
-            _("Whether the web view is controlled by automation"),
+            nullptr, nullptr,
             FALSE,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
@@ -1255,8 +1322,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_AUTOMATION_PRESENTATION_TYPE] =
         g_param_spec_enum(
             "automation-presentation-type",
-            "Automation Presentation Type",
-            _("The browsing context presentation type for automation"),
+            nullptr, nullptr,
             WEBKIT_TYPE_AUTOMATION_BROWSING_CONTEXT_PRESENTATION,
             WEBKIT_AUTOMATION_BROWSING_CONTEXT_PRESENTATION_WINDOW,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
@@ -1272,8 +1338,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_EDITABLE] =
         g_param_spec_boolean(
             "editable",
-            _("Editable"),
-            _("Whether the content can be modified by the user."),
+            nullptr, nullptr,
             FALSE,
             WEBKIT_PARAM_READWRITE);
 
@@ -1287,8 +1352,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_PAGE_ID] =
         g_param_spec_uint64(
             "page-id",
-            _("Page Identifier"),
-            _("The page identifier."),
+            nullptr, nullptr,
             0, G_MAXUINT64, 0,
             WEBKIT_PARAM_READABLE);
 
@@ -1303,8 +1367,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_IS_MUTED] =
         g_param_spec_boolean(
             "is-muted",
-            "Is Muted",
-            _("Whether the view audio is muted"),
+            nullptr, nullptr,
             FALSE,
             WEBKIT_PARAM_READWRITE);
 
@@ -1318,8 +1381,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_WEBSITE_POLICIES] =
         g_param_spec_object(
             "website-policies",
-            _("Default Website Policies"),
-            _("The default policy object for sites loaded in this view"),
+            nullptr, nullptr,
             WEBKIT_TYPE_WEBSITE_POLICIES,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
@@ -1333,8 +1395,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     sObjProperties[PROP_IS_WEB_PROCESS_RESPONSIVE] =
         g_param_spec_boolean(
             "is-web-process-responsive",
-            "Is Web Process Responsive",
-            _("Whether the web process currently associated to the web view is responsive"),
+            nullptr, nullptr,
             TRUE,
             WEBKIT_PARAM_READABLE);
 
@@ -1357,8 +1418,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      */
     sObjProperties[PROP_CAMERA_CAPTURE_STATE] = g_param_spec_enum(
         "camera-capture-state",
-        "Camera Capture State",
-        _("The capture state of the camera device"),
+        nullptr, nullptr,
         WEBKIT_TYPE_MEDIA_CAPTURE_STATE,
         WEBKIT_MEDIA_CAPTURE_STATE_NONE,
         WEBKIT_PARAM_READWRITE);
@@ -1382,8 +1442,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      */
     sObjProperties[PROP_MICROPHONE_CAPTURE_STATE] = g_param_spec_enum(
         "microphone-capture-state",
-        "Microphone Capture State",
-        _("The capture state of the microphone device"),
+        nullptr, nullptr,
         WEBKIT_TYPE_MEDIA_CAPTURE_STATE,
         WEBKIT_MEDIA_CAPTURE_STATE_NONE,
         WEBKIT_PARAM_READWRITE);
@@ -1407,8 +1466,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      */
     sObjProperties[PROP_DISPLAY_CAPTURE_STATE] = g_param_spec_enum(
         "display-capture-state",
-        "Display Capture State",
-        _("The capture state of the display device"),
+        nullptr, nullptr,
         WEBKIT_TYPE_MEDIA_CAPTURE_STATE,
         WEBKIT_MEDIA_CAPTURE_STATE_NONE,
         WEBKIT_PARAM_READWRITE);
@@ -1428,8 +1486,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      */
     sObjProperties[PROP_WEB_EXTENSION_MODE] = g_param_spec_enum(
         "web-extension-mode",
-        "WebExtension Mode",
-        _("Enables WebExtension mode"),
+        nullptr, nullptr,
         WEBKIT_TYPE_WEB_EXTENSION_MODE,
         WEBKIT_WEB_EXTENSION_MODE_NONE,
         static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
@@ -1452,8 +1509,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      */
     sObjProperties[PROP_DEFAULT_CONTENT_SECURITY_POLICY] = g_param_spec_string(
         "default-content-security-policy",
-        "Default Content-Security-Policy",
-        _("The default Content-Security-Policy"),
+        nullptr, nullptr,
         nullptr,
         static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
@@ -2081,7 +2137,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_NONE, 1,
             WEBKIT_TYPE_INSECURE_CONTENT_EVENT);
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     /**
      * WebKitWebView::web-process-crashed:
      * @web_view: the #WebKitWebView
@@ -2249,6 +2305,33 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
         g_cclosure_marshal_generic,
         G_TYPE_BOOLEAN, 1,
         WEBKIT_TYPE_USER_MESSAGE);
+
+    /**
+     * WebKitWebView::query-permission-state:
+     * @web_view: the #WebKitWebView on which the signal is emitted
+     * @query: the #WebKitPermissionStateQuery
+     *
+     * This signal allows the User-Agent to respond to permission requests for powerful features, as
+     * specified by the [Permissions W3C Specification](https://w3c.github.io/permissions/).
+     * You can reply to the query using webkit_permission_state_query_finish().
+     *
+     * You can handle the query asynchronously by calling webkit_permission_state_query_ref() on
+     * @query and returning %TRUE. If the last reference of @query is removed and the query has not
+     * been handled, the query result will be set to %WEBKIT_QUERY_PERMISSION_PROMPT.
+     *
+     * Returns: %TRUE if the message was handled, or %FALSE otherwise.
+     *
+     * Since: 2.40
+     */
+    signals[QUERY_PERMISSION_STATE] = g_signal_new(
+        "query-permission-state",
+        G_TYPE_FROM_CLASS(webViewClass),
+        G_SIGNAL_RUN_LAST,
+        G_STRUCT_OFFSET(WebKitWebViewClass, query_permission_state),
+        g_signal_accumulator_true_handled, nullptr /* accumulator data */,
+        g_cclosure_marshal_generic,
+        G_TYPE_BOOLEAN, 1, /* number of parameters */
+        WEBKIT_TYPE_PERMISSION_STATE_QUERY);
 }
 
 static void webkitWebViewCompleteAuthenticationRequest(WebKitWebView* webView)
@@ -2331,9 +2414,10 @@ void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
             g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_URI]);
         }
 #if PLATFORM(GTK)
-        WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
-        GUniquePtr<char> faviconURI(webkit_favicon_database_get_favicon_uri(database, priv->activeURI.data()));
-        webkitWebViewUpdateFaviconURI(webView, faviconURI.get());
+        if (auto* database = webkitWebViewGetFaviconDatabase(webView)) {
+            GUniquePtr<char> faviconURI(webkit_favicon_database_get_favicon_uri(database, priv->activeURI.data()));
+            webkitWebViewUpdateFaviconURI(webView, faviconURI.get());
+        }
 #endif
         break;
     }
@@ -2360,8 +2444,12 @@ void webkitWebViewLoadFailedWithTLSErrors(WebKitWebView* webView, const char* fa
 {
     webkitWebViewCompleteAuthenticationRequest(webView);
 
+#if ENABLE(2022_GLIB_API)
+    WebKitTLSErrorsPolicy tlsErrorsPolicy = webkit_network_session_get_tls_errors_policy(webView->priv->networkSession.get());
+#else
     auto* websiteDataManager = webkit_web_view_get_website_data_manager(webView);
     WebKitTLSErrorsPolicy tlsErrorsPolicy = webkit_website_data_manager_get_tls_errors_policy(websiteDataManager);
+#endif
     if (tlsErrorsPolicy == WEBKIT_TLS_ERRORS_POLICY_FAIL) {
         gboolean returnValue;
         g_signal_emit(webView, signals[LOAD_FAILED_WITH_TLS_ERRORS], 0, failingURI, certificate, tlsErrors, &returnValue);
@@ -2380,14 +2468,23 @@ void webkitWebViewGetLoadDecisionForIcon(WebKitWebView* webView, const LinkIcon&
         completionHandler(false);
         return;
     }
-    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(webView->priv->context.get());
-    webkitFaviconDatabaseGetLoadDecisionForIcon(database, icon, getPage(webView).pageLoadState().activeURL(), webView->priv->isEphemeral, WTFMove(completionHandler));
+
+    auto* database = webkitWebViewGetFaviconDatabase(webView);
+    if (!database) {
+        completionHandler(false);
+        return;
+    }
+
+    webkitFaviconDatabaseGetLoadDecisionForIcon(database, icon, getPage(webView).pageLoadState().activeURL(), webkitWebViewIsEphemeral(webView), WTFMove(completionHandler));
 }
 
 void webkitWebViewSetIcon(WebKitWebView* webView, const LinkIcon& icon, API::Data& iconData)
 {
-    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(webView->priv->context.get());
-    webkitFaviconDatabaseSetIconForPageURL(database, icon, iconData, getPage(webView).pageLoadState().activeURL(), webView->priv->isEphemeral);
+    auto* database = webkitWebViewGetFaviconDatabase(webView);
+    if (!database)
+        return;
+
+    webkitFaviconDatabaseSetIconForPageURL(database, icon, iconData, getPage(webView).pageLoadState().activeURL(), webkitWebViewIsEphemeral(webView));
 }
 #endif
 
@@ -2583,13 +2680,6 @@ void webkitWebViewMouseTargetChanged(WebKitWebView* webView, const WebHitTestRes
     g_signal_emit(webView, signals[MOUSE_TARGET_CHANGED], 0, priv->mouseTargetHitTestResult.get(), toPlatformModifiers(modifiers));
 }
 
-void webkitWebViewHandleDownloadRequest(WebKitWebView* webView, DownloadProxy* downloadProxy)
-{
-    ASSERT(downloadProxy);
-    GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(downloadProxy);
-    webkitDownloadSetWebView(download.get(), webView);
-}
-
 #if PLATFORM(GTK)
 void webkitWebViewPrintFrame(WebKitWebView* webView, WebFrameProxy* frame)
 {
@@ -2706,9 +2796,13 @@ void webkitWebViewSubmitFormRequest(WebKitWebView* webView, WebKitFormSubmission
 
 void webkitWebViewHandleAuthenticationChallenge(WebKitWebView* webView, AuthenticationChallengeProxy* authenticationChallenge)
 {
+#if ENABLE(2022_GLIB_API)
+    bool credentialStorageEnabled = webkit_network_session_get_persistent_credential_storage_enabled(webView->priv->networkSession.get());
+#else
     auto* websiteDataManager = webkit_web_view_get_website_data_manager(webView);
-    webView->priv->authenticationRequest = adoptGRef(webkitAuthenticationRequestCreate(authenticationChallenge,
-        webView->priv->isEphemeral, webkit_website_data_manager_get_persistent_credential_storage_enabled(websiteDataManager)));
+    bool credentialStorageEnabled = webkit_website_data_manager_get_persistent_credential_storage_enabled(websiteDataManager);
+#endif
+    webView->priv->authenticationRequest = adoptGRef(webkitAuthenticationRequestCreate(authenticationChallenge, webkitWebViewIsEphemeral(webView), credentialStorageEnabled));
     gboolean returnValue;
     g_signal_emit(webView, signals[AUTHENTICATE], 0, webView->priv->authenticationRequest.get(), &returnValue);
 }
@@ -2742,19 +2836,13 @@ void webkitWebViewSelectionDidChange(WebKitWebView* webView)
     webkitEditorStateChanged(webView->priv->editorState.get(), getPage(webView).editorState());
 }
 
-void webkitWebViewRequestInstallMissingMediaPlugins(WebKitWebView* webView, InstallMissingMediaPluginsPermissionRequest& request)
-{
-#if ENABLE(VIDEO) && !USE(GSTREAMER_FULL)
-    GRefPtr<WebKitInstallMissingMediaPluginsPermissionRequest> installMediaPluginsPermissionRequest = adoptGRef(webkitInstallMissingMediaPluginsPermissionRequestCreate(request));
-    webkitWebViewMakePermissionRequest(webView, WEBKIT_PERMISSION_REQUEST(installMediaPluginsPermissionRequest.get()));
-#else
-    ASSERT_NOT_REACHED();
-#endif
-}
-
 WebKitWebsiteDataManager* webkitWebViewGetWebsiteDataManager(WebKitWebView* webView)
 {
+#if ENABLE(2022_GLIB_API)
+    return webkit_network_session_get_website_data_manager(webView->priv->networkSession.get());
+#else
     return webView->priv->websiteDataManager.get();
+#endif
 }
 
 #if PLATFORM(GTK)
@@ -2845,6 +2933,12 @@ bool webkitWebViewShowOptionMenu(WebKitWebView* webView, const IntRect& rect, We
 }
 #endif
 
+void webkitWebViewPermissionStateQuery(WebKitWebView* webView, WebKitPermissionStateQuery* query)
+{
+    gboolean result;
+    g_signal_emit(webView, signals[QUERY_PERMISSION_STATE], 0, query, &result);
+}
+
 #if PLATFORM(WPE)
 /**
  * webkit_web_view_get_backend:
@@ -2896,6 +2990,7 @@ WebKitUserContentManager* webkit_web_view_get_user_content_manager(WebKitWebView
     return webView->priv->userContentManager.get();
 }
 
+#if !ENABLE(2022_GLIB_API)
 /**
  * webkit_web_view_is_ephemeral:
  * @web_view: a #WebKitWebView
@@ -2918,6 +3013,7 @@ gboolean webkit_web_view_is_ephemeral(WebKitWebView* webView)
 
     return webView->priv->isEphemeral;
 }
+#endif
 
 /**
  * webkit_web_view_is_controlled_by_automation:
@@ -2957,6 +3053,24 @@ WebKitAutomationBrowsingContextPresentation webkit_web_view_get_automation_prese
     return webView->priv->automationPresentationType;
 }
 
+#if ENABLE(2022_GLIB_API)
+/**
+ * webkit_web_view_get_network_session:
+ * @web_view: a #WebKitWebView
+ *
+ * Get the #WebKitNetworkSession associated to @web_view.
+ *
+ * Returns: (transfer none): a #WebKitNetworkSession
+ *
+ * Since: 2.40
+ */
+WebKitNetworkSession* webkit_web_view_get_network_session(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
+
+    return webView->priv->networkSession.get();
+}
+#else
 /**
  * webkit_web_view_get_website_data_manager:
  * @web_view: a #WebKitWebView
@@ -2980,6 +3094,7 @@ WebKitWebsiteDataManager* webkit_web_view_get_website_data_manager(WebKitWebView
 
     return webkit_web_context_get_website_data_manager(webView->priv->context.get());
 }
+#endif
 
 /**
  * webkit_web_view_try_close:
@@ -3773,7 +3888,7 @@ WebKitFindController* webkit_web_view_get_find_controller(WebKitWebView* webView
     return webView->priv->findController.get();
 }
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
 /**
  * webkit_web_view_get_javascript_global_context: (skip)
  * @web_view: a #WebKitWebView
@@ -4419,7 +4534,25 @@ WebKitDownload* webkit_web_view_download_uri(WebKitWebView* webView, const char*
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
     g_return_val_if_fail(uri, nullptr);
 
-    GRefPtr<WebKitDownload> download = webkitWebContextStartDownload(webView->priv->context.get(), uri, &getPage(webView));
+    auto& page = getPage(webView);
+    auto& downloadProxy = page.process().processPool().download(page.websiteDataStore(), &page, ResourceRequest { String::fromUTF8(uri) });
+    auto download = webkitDownloadCreate(downloadProxy, webView);
+#if ENABLE(2022_GLIB_API)
+    downloadProxy.setDidStartCallback([session = GRefPtr<WebKitNetworkSession> { webView->priv->networkSession }, download = download.get()](auto* downloadProxy) {
+#else
+    downloadProxy.setDidStartCallback([context = GRefPtr<WebKitWebContext> { webView->priv->context }, download = download.get()](auto* downloadProxy) {
+#endif
+        if (!downloadProxy)
+            return;
+
+        webkitDownloadStarted(download);
+#if ENABLE(2022_GLIB_API)
+        webkitNetworkSessionDownloadStarted(session.get(), download);
+#else
+        webkitWebContextDownloadStarted(context.get(), download);
+#endif
+    });
+
     return download.leakRef();
 }
 
@@ -4538,7 +4671,7 @@ cairo_surface_t* webkit_web_view_get_snapshot_finish(WebKitWebView* webView, GAs
 
 void webkitWebViewWebProcessTerminated(WebKitWebView* webView, WebKitWebProcessTerminationReason reason)
 {
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     if (reason == WEBKIT_WEB_PROCESS_CRASHED) {
         gboolean returnValue;
         g_signal_emit(webView, signals[WEB_PROCESS_CRASHED], 0, &returnValue);

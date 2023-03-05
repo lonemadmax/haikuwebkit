@@ -29,11 +29,17 @@
 #include "config.h"
 #include "RuleSetBuilder.h"
 
+#include "CSSCounterStyleRegistry.h"
+#include "CSSCounterStyleRule.h"
 #include "CSSFontSelector.h"
 #include "CSSKeyframesRule.h"
+#include "CSSSelectorParser.h"
+#include "CustomPropertyRegistry.h"
+#include "Document.h"
 #include "MediaQueryEvaluator.h"
 #include "StyleResolver.h"
 #include "StyleRuleImport.h"
+#include "StyleScope.h"
 #include "StyleSheetContents.h"
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -93,62 +99,87 @@ void RuleSetBuilder::addChildRules(const Vector<RefPtr<StyleRuleBase>>& rules)
     for (auto& rule : rules) {
         if (requiresStaticMediaQueryEvaluation)
             return;
+        addChildRule(rule);
+    }
+}
 
-        if (is<StyleRule>(*rule)) {
-            if (m_ruleSet)
-                addStyleRule(downcast<StyleRule>(*rule));
-            continue;
-        }
-        if (is<StyleRulePage>(*rule)) {
-            if (m_ruleSet)
-                m_ruleSet->addPageRule(downcast<StyleRulePage>(*rule));
-            continue;
-        }
-        if (is<StyleRuleMedia>(*rule)) {
-            auto& mediaRule = downcast<StyleRuleMedia>(*rule);
-            if (m_mediaQueryCollector.pushAndEvaluate(mediaRule.mediaQueries()))
-                addChildRules(mediaRule.childRules());
-            m_mediaQueryCollector.pop(mediaRule.mediaQueries());
-            continue;
-        }
-        if (is<StyleRuleContainer>(*rule)) {
-            auto& containerRule = downcast<StyleRuleContainer>(*rule);
-            auto previousContainerQueryIdentifier = m_currentContainerQueryIdentifier;
-            if (m_ruleSet) {
-                m_ruleSet->m_containerQueries.append({ containerRule, previousContainerQueryIdentifier });
-                m_currentContainerQueryIdentifier = m_ruleSet->m_containerQueries.size();
-            }
-            addChildRules(containerRule.childRules());
-            if (m_ruleSet)
-                m_currentContainerQueryIdentifier = previousContainerQueryIdentifier;
-            continue;
-        }
-        if (is<StyleRuleLayer>(*rule)) {
-            disallowDynamicMediaQueryEvaluationIfNeeded();
+void RuleSetBuilder::addChildRule(RefPtr<StyleRuleBase> rule)
+{
+    switch (rule->type()) {
+    case StyleRuleType::Style:
+        if (m_ruleSet)
+            addStyleRule(downcast<StyleRule>(*rule));
+        return;
 
-            auto& layerRule = downcast<StyleRuleLayer>(*rule);
-            if (layerRule.isStatement()) {
-                // Statement syntax just registers the layers.
-                registerLayers(layerRule.nameList());
-                continue;
-            }
-            // Block syntax.
-            pushCascadeLayer(layerRule.name());
-            addChildRules(layerRule.childRules());
-            popCascadeLayer(layerRule.name());
-            continue;
-        }
-        if (is<StyleRuleFontFace>(*rule) || is<StyleRuleFontPaletteValues>(*rule) || is<StyleRuleFontFeatureValues>(*rule) || is<StyleRuleKeyframes>(*rule)) {
-            disallowDynamicMediaQueryEvaluationIfNeeded();
+    case StyleRuleType::Page:
+        if (m_ruleSet)
+            m_ruleSet->addPageRule(downcast<StyleRulePage>(*rule));
+        return;
 
-            if (m_resolver)
-                m_collectedResolverMutatingRules.append({ *rule, m_currentCascadeLayerIdentifier });
-            continue;
+    case StyleRuleType::Media: {
+        auto& mediaRule = downcast<StyleRuleMedia>(*rule);
+        if (m_mediaQueryCollector.pushAndEvaluate(mediaRule.mediaQueries()))
+            addChildRules(mediaRule.childRules());
+        m_mediaQueryCollector.pop(mediaRule.mediaQueries());
+        return;
+    }
+
+    case StyleRuleType::Container: {
+        auto& containerRule = downcast<StyleRuleContainer>(*rule);
+        auto previousContainerQueryIdentifier = m_currentContainerQueryIdentifier;
+        if (m_ruleSet) {
+            m_ruleSet->m_containerQueries.append({ containerRule, previousContainerQueryIdentifier });
+            m_currentContainerQueryIdentifier = m_ruleSet->m_containerQueries.size();
         }
-        if (is<StyleRuleSupports>(*rule) && downcast<StyleRuleSupports>(*rule).conditionIsSupported()) {
+        addChildRules(containerRule.childRules());
+        if (m_ruleSet)
+            m_currentContainerQueryIdentifier = previousContainerQueryIdentifier;
+        return;
+    }
+
+    case StyleRuleType::LayerBlock:
+    case StyleRuleType::LayerStatement: {
+        disallowDynamicMediaQueryEvaluationIfNeeded();
+
+        auto& layerRule = downcast<StyleRuleLayer>(*rule);
+        if (layerRule.isStatement()) {
+            // Statement syntax just registers the layers.
+            registerLayers(layerRule.nameList());
+            return;
+        }
+        // Block syntax.
+        pushCascadeLayer(layerRule.name());
+        addChildRules(layerRule.childRules());
+        popCascadeLayer(layerRule.name());
+        return;
+    }
+    case StyleRuleType::CounterStyle:
+    case StyleRuleType::FontFace:
+    case StyleRuleType::FontPaletteValues:
+    case StyleRuleType::FontFeatureValues:
+    case StyleRuleType::Keyframes:
+    case StyleRuleType::Property:
+        disallowDynamicMediaQueryEvaluationIfNeeded();
+        if (m_resolver)
+            m_collectedResolverMutatingRules.append({ *rule, m_currentCascadeLayerIdentifier });
+        return;
+
+    case StyleRuleType::Supports:
+        if (downcast<StyleRuleSupports>(*rule).conditionIsSupported())
             addChildRules(downcast<StyleRuleSupports>(*rule).childRules());
-            continue;
-        }
+        return;
+
+    case StyleRuleType::Import:
+    case StyleRuleType::Margin:
+    case StyleRuleType::Namespace:
+    case StyleRuleType::FontFeatureValuesBlock:
+        return;
+
+    case StyleRuleType::Unknown:
+    case StyleRuleType::Charset:
+    case StyleRuleType::Keyframe:
+        ASSERT_NOT_REACHED();
+        return;
     }
 }
 
@@ -179,20 +210,36 @@ void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
     addChildRules(sheet.childRules());
 }
 
+void RuleSetBuilder::populateStyleRuleResolvedSelectorList(const StyleRule& rule)
+{
+    // FIXME: handle top-level nesting selector
+    if (!m_styleRuleStack.size()) 
+        return;
+
+    auto resolvedSelectorList = CSSSelectorParser::resolveNestingParent(rule.selectorList(), m_styleRuleStack.last());
+    rule.setResolvedSelectorList(WTFMove(resolvedSelectorList));    
+}
+
 void RuleSetBuilder::addStyleRule(const StyleRule& rule)
 {
-    auto& selectorList = rule.selectorList();
-    if (selectorList.isEmpty())
-        return;
-    unsigned selectorListIndex = 0;
-    for (size_t selectorIndex = 0; selectorIndex != notFound; selectorIndex = selectorList.indexOfNextSelectorAfter(selectorIndex)) {
-        RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleSet->ruleCount());
-        m_mediaQueryCollector.addRuleIfNeeded(ruleData);
-
-        m_ruleSet->addRule(WTFMove(ruleData), m_currentCascadeLayerIdentifier, m_currentContainerQueryIdentifier);
-
-        ++selectorListIndex;
+    populateStyleRuleResolvedSelectorList(rule);
+    
+    auto& selectorList = rule.resolvedSelectorList();
+    if (!selectorList.isEmpty()) {
+        unsigned selectorListIndex = 0;
+        for (size_t selectorIndex = 0; selectorIndex != notFound; selectorIndex = selectorList.indexOfNextSelectorAfter(selectorIndex)) {
+            RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleSet->ruleCount());
+            m_mediaQueryCollector.addRuleIfNeeded(ruleData);
+            m_ruleSet->addRule(WTFMove(ruleData), m_currentCascadeLayerIdentifier, m_currentContainerQueryIdentifier);
+            ++selectorListIndex;
+        }
     }
+
+    // Process nested rules
+    m_styleRuleStack.append(&selectorList);
+    for (auto& nestedRule : rule.nestedRules())
+        addChildRule(nestedRule.ptr());
+    m_styleRuleStack.removeLast();
 }
 
 void RuleSetBuilder::disallowDynamicMediaQueryEvaluationIfNeeded()
@@ -344,6 +391,24 @@ void RuleSetBuilder::addMutatingRulesToResolver()
             m_resolver->addKeyframeStyle(downcast<StyleRuleKeyframes>(rule.get()));
             continue;
         }
+        if (is<StyleRuleCounterStyle>(rule)) {
+            if (m_resolver->scopeType() == Resolver::ScopeType::ShadowTree)
+                continue;
+            auto& registry = m_resolver->document().styleScope().counterStyleRegistry();
+            registry.addCounterStyle(downcast<StyleRuleCounterStyle>(rule.get()).descriptors());
+            // FIXME: we probably need a cache solultion like fontSelector (invalidateMatchedDeclarations)
+            // KeyFrame does it differently, search for keyframesRuleDidChange. (rdar://103018993)
+            continue;
+        }
+        if (is<StyleRuleProperty>(rule)) {
+            // "A @property is invalid if it occurs in a stylesheet inside of a shadow tree, and must be ignored."
+            // https://drafts.css-houdini.org/css-properties-values-api/#at-property-rule
+            if (m_resolver->scopeType() == Resolver::ScopeType::ShadowTree)
+                continue;
+            auto& registry = m_resolver->document().styleScope().customPropertyRegistry();
+            registry.registerFromStylesheet(downcast<StyleRuleProperty>(rule.get()).descriptor());
+            continue;
+        }
     }
 }
 
@@ -383,7 +448,7 @@ bool RuleSetBuilder::MediaQueryCollector::pushAndEvaluate(const MQ::MediaQueryLi
 
 void RuleSetBuilder::MediaQueryCollector::pop(const MQ::MediaQueryList& mediaQueries)
 {
-    if (mediaQueries.isEmpty() || dynamicContextStack.isEmpty())
+    if (dynamicContextStack.isEmpty() || &dynamicContextStack.last().queries != &mediaQueries)
         return;
 
     if (!dynamicContextStack.last().affectedRulePositions.isEmpty() || !collectDynamic) {

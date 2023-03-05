@@ -79,6 +79,7 @@ ThreadableLoaderOptions ThreadableLoaderOptions::isolatedCopy() const
     copy.integrity = this->integrity.isolatedCopy();
     copy.keepAlive = this->keepAlive;
     copy.clientIdentifier = this->clientIdentifier;
+    copy.resultingClientIdentifier = this->resultingClientIdentifier;
 
     // ResourceLoaderOptions
     copy.sendLoadCallbacks = this->sendLoadCallbacks;
@@ -93,6 +94,7 @@ ThreadableLoaderOptions ThreadableLoaderOptions::isolatedCopy() const
     copy.cachingPolicy = this->cachingPolicy;
     copy.sameOriginDataURLFlag = this->sameOriginDataURLFlag;
     copy.initiatorContext = this->initiatorContext;
+    copy.initiator = this->initiator;
     copy.clientCredentialPolicy = this->clientCredentialPolicy;
     copy.maxRedirectCount = this->maxRedirectCount;
     copy.preflightPolicy = this->preflightPolicy;

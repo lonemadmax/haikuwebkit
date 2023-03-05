@@ -36,7 +36,6 @@
 #include "KeyframeEffectOptions.h"
 #include "KeyframeList.h"
 #include "RenderStyle.h"
-#include "StyleProperties.h"
 #include "Styleable.h"
 #include "WebAnimationTypes.h"
 #include <wtf/Ref.h>
@@ -47,18 +46,17 @@ namespace WebCore {
 
 class Element;
 class FilterOperations;
+class MutableStyleProperties;
 
 namespace Style {
 struct ResolutionContext;
 }
 
-class KeyframeEffect : public AnimationEffect
-    , public CSSPropertyBlendingClient {
+class KeyframeEffect : public AnimationEffect, public CSSPropertyBlendingClient {
 public:
     static ExceptionOr<Ref<KeyframeEffect>> create(JSC::JSGlobalObject&, Document&, Element*, JSC::Strong<JSC::JSObject>&&, std::optional<std::variant<double, KeyframeEffectOptions>>&&);
     static Ref<KeyframeEffect> create(Ref<KeyframeEffect>&&);
     static Ref<KeyframeEffect> create(const Element&, PseudoId);
-    ~KeyframeEffect() { }
 
     struct BasePropertyIndexedKeyframe {
         std::variant<std::nullptr_t, Vector<std::optional<double>>, double> offset = Vector<std::optional<double>>();
@@ -96,10 +94,8 @@ public:
         RefPtr<TimingFunction> timingFunction;
         Ref<MutableStyleProperties> style;
 
-        ParsedKeyframe()
-            : style(MutableStyleProperties::create())
-        {
-        }
+        ParsedKeyframe();
+        ~ParsedKeyframe();
     };
 
     const Vector<ParsedKeyframe>& parsedKeyframes() const { return m_parsedKeyframes; }
@@ -135,6 +131,7 @@ public:
 
     void willChangeRenderer();
 
+    Document* document() const override;
     RenderElement* renderer() const override;
     const RenderStyle& currentStyle() const override;
     bool triggersStackingContext() const { return m_triggersStackingContext; }
@@ -152,10 +149,9 @@ public:
 
     void computeDeclarativeAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext&);
     const KeyframeList& blendingKeyframes() const { return m_blendingKeyframes; }
-    const HashSet<CSSPropertyID>& animatedProperties();
-    const HashSet<AtomString>& animatedCustomProperties();
+    const HashSet<AnimatableProperty>& animatedProperties();
     const HashSet<CSSPropertyID>& inheritedProperties() const { return m_inheritedProperties; }
-    bool animatesProperty(CSSPropertyID) const;
+    bool animatesProperty(AnimatableProperty) const;
     bool animatesDirectionAwareProperty() const;
 
     bool computeExtentOfTransformAnimation(LayoutRect&) const;
@@ -203,7 +199,6 @@ private:
         bool m_couldOriginallyPreventAcceleration;
     };
 
-    Document* document() const;
     void updateEffectStackMembership();
     void copyPropertiesFromSource(Ref<KeyframeEffect>&&);
     void didChangeTargetStyleable(const std::optional<const Styleable>&);
@@ -238,14 +233,13 @@ private:
     void animationSuspensionStateDidChange(bool) final;
     void animationTimelineDidChange(AnimationTimeline*) final;
     void setAnimation(WebAnimation*) final;
-    Seconds timeToNextTick(BasicEffectTiming) const final;
+    Seconds timeToNextTick(const BasicEffectTiming&) const final;
     bool ticksContinouslyWhileActive() const final;
     std::optional<double> progressUntilNextStep(double) const final;
 
     AtomString m_keyframesName;
     KeyframeList m_blendingKeyframes { emptyAtom() };
-    HashSet<CSSPropertyID> m_animatedProperties;
-    HashSet<AtomString> m_animatedCustomProperties;
+    HashSet<AnimatableProperty> m_animatedProperties;
     HashSet<CSSPropertyID> m_inheritedProperties;
     Vector<ParsedKeyframe> m_parsedKeyframes;
     Vector<AcceleratedAction> m_pendingAcceleratedActions;

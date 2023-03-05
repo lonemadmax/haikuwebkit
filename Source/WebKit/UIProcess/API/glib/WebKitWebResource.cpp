@@ -76,7 +76,7 @@ struct _WebKitWebResourcePrivate {
     bool isMainResource;
 };
 
-WEBKIT_DEFINE_TYPE(WebKitWebResource, webkit_web_resource, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitWebResource, webkit_web_resource, G_TYPE_OBJECT)
 
 static guint signals[LAST_SIGNAL] = { 0, };
 
@@ -110,8 +110,7 @@ static void webkit_web_resource_class_init(WebKitWebResourceClass* resourceClass
     sObjProperties[PROP_URI] =
         g_param_spec_string(
             "uri",
-            _("URI"),
-            _("The current active URI of the resource"),
+            nullptr, nullptr,
             nullptr,
             WEBKIT_PARAM_READABLE);
 
@@ -123,8 +122,7 @@ static void webkit_web_resource_class_init(WebKitWebResourceClass* resourceClass
     sObjProperties[PROP_RESPONSE] =
         g_param_spec_object(
             "response",
-            _("Response"),
-            _("The response of the resource"),
+            nullptr, nullptr,
             WEBKIT_TYPE_URI_RESPONSE,
             WEBKIT_PARAM_READABLE);
 
@@ -153,6 +151,7 @@ static void webkit_web_resource_class_init(WebKitWebResourceClass* resourceClass
         WEBKIT_TYPE_URI_REQUEST,
         WEBKIT_TYPE_URI_RESPONSE);
 
+#if !ENABLE(2022_GLIB_API)
     /**
      * WebKitWebResource::received-data:
      * @resource: the #WebKitWebResource
@@ -174,6 +173,7 @@ static void webkit_web_resource_class_init(WebKitWebResourceClass* resourceClass
         g_cclosure_marshal_generic,
         G_TYPE_NONE, 1,
         G_TYPE_UINT64);
+#endif
 
     /**
      * WebKitWebResource::finished:

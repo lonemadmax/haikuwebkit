@@ -52,6 +52,8 @@ public:
     void startMonitoringGamepads(GamepadProviderClient&) final;
     void stopMonitoringGamepads(GamepadProviderClient&) final;
     const Vector<PlatformGamepad*>& platformGamepads() final { return m_gamepadVector; }
+    void playEffect(unsigned, const String&, GamepadHapticEffectType, const GamepadEffectParameters&, CompletionHandler<void(bool)>&&) final;
+    void stopEffects(unsigned, const String&, CompletionHandler<void()>&&) final;
 
     enum class ShouldMakeGamepadsVisible : bool { No,
         Yes };
@@ -77,8 +79,8 @@ private:
     std::unique_ptr<struct wpe_gamepad_provider, void (*)(struct wpe_gamepad_provider*)> m_provider;
     struct wpe_gamepad* m_lastActiveGamepad { nullptr };
 
-    RunLoop::Timer<GamepadProviderLibWPE> m_initialGamepadsConnectedTimer;
-    RunLoop::Timer<GamepadProviderLibWPE> m_inputNotificationTimer;
+    RunLoop::Timer m_initialGamepadsConnectedTimer;
+    RunLoop::Timer m_inputNotificationTimer;
 };
 
 } // namespace WebCore

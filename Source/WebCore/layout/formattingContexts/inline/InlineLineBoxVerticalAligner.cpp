@@ -28,6 +28,7 @@
 
 #include "InlineFormattingContext.h"
 #include "LayoutBoxGeometry.h"
+#include "LayoutChildIterator.h"
 
 namespace WebCore {
 namespace Layout {
@@ -160,14 +161,13 @@ LineBoxVerticalAligner::LineBoxAlignmentContent LineBoxVerticalAligner::computeL
 
     Vector<InlineLevelBox*> lineBoxRelativeInlineLevelBoxes;
     for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
-        auto& layoutBox = inlineLevelBox.layoutBox();
         contentHasAnnotation = contentHasAnnotation || inlineLevelBox.hasAnnotation();
 
         if (inlineLevelBox.hasLineBoxRelativeAlignment()) {
             lineBoxRelativeInlineLevelBoxes.append(&inlineLevelBox);
             continue;
         }
-        auto& parentInlineBox = lineBox.inlineLevelBoxForLayoutBox(layoutBox.parent());
+        auto& parentInlineBox = lineBox.parentInlineBox(inlineLevelBox);
         // Logical top is relative to the parent inline box's layout bounds.
         // Note that this logical top is not the final logical top of the inline level box.
         // This is the logical top in the context of the layout bounds geometry which may be very different from the inline box's normal geometry.
@@ -292,8 +292,7 @@ void LineBoxVerticalAligner::computeRootInlineBoxVerticalPosition(LineBox& lineB
                 ASSERT_NOT_REACHED();
             continue;
         }
-        auto& layoutBox = inlineLevelBox.layoutBox();
-        auto& parentInlineBox = lineBox.inlineLevelBoxForLayoutBox(layoutBox.parent());
+        auto& parentInlineBox = lineBox.parentInlineBox(inlineLevelBox);
         auto baselineOffsetFromParentBaseline = InlineLayoutUnit { };
 
         switch (verticalAlign.type) {
@@ -365,11 +364,45 @@ void LineBoxVerticalAligner::computeRootInlineBoxVerticalPosition(LineBox& lineB
     rootInlineBox.setLogicalTop(rootInlineBoxLogicalTop);
 }
 
+InlineLevelBox::LayoutBounds LineBoxVerticalAligner::layoutBoundsForInlineBoxSubtree(const LineBox::InlineLevelBoxList& nonRootInlineLevelBoxes, size_t inlineBoxIndex) const
+{
+    // https://w3c.github.io/csswg-drafts/css2/#propdef-vertical-align
+    //
+    // top/bottom values align the element relative to the line box.
+    // Since the element may have children aligned relative to it (which in turn may have descendants aligned relative to them),
+    // these values use the bounds of the aligned subtree.
+    // The aligned subtree of an inline element contains that element and the aligned subtrees of all children
+    // inline elements whose computed vertical-align value is not top or bottom.
+    // The top of the aligned subtree is the highest of the tops of the boxes in the subtree, and the bottom is analogous.
+    ASSERT(nonRootInlineLevelBoxes[inlineBoxIndex].isInlineBox());
+    auto& formattingGeometry = this->formattingGeometry();
+    auto enclosingLayoutBounds = InlineLevelBox::LayoutBounds { };
+    auto& inlineBoxParent = nonRootInlineLevelBoxes[inlineBoxIndex].layoutBox().parent();
+    for (size_t index = inlineBoxIndex + 1; index < nonRootInlineLevelBoxes.size(); ++index) {
+        auto& descendantInlineLevelBox = nonRootInlineLevelBoxes[index];
+        if (&descendantInlineLevelBox.layoutBox().parent() == &inlineBoxParent) {
+            // We are at the end of the descendant list.
+            break;
+        }
+        if (!formattingGeometry.inlineLevelBoxAffectsLineBox(descendantInlineLevelBox) || descendantInlineLevelBox.hasLineBoxRelativeAlignment())
+            continue;
+        enclosingLayoutBounds.ascent = std::max(descendantInlineLevelBox.ascent(), enclosingLayoutBounds.ascent);
+        enclosingLayoutBounds.descent = std::max(descendantInlineLevelBox.descent().value_or(0.f), enclosingLayoutBounds.descent);
+    }
+    return enclosingLayoutBounds;
+}
+
 void LineBoxVerticalAligner::alignInlineLevelBoxes(LineBox& lineBox, InlineLayoutUnit lineBoxLogicalHeight) const
 {
-    for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
-        auto& layoutBox = inlineLevelBox.layoutBox();
-        auto& parentInlineBox = lineBox.inlineLevelBoxForLayoutBox(layoutBox.parent());
+    Vector<size_t> lineBoxRelativeInlineLevelBoxes;
+    auto& nonRootInlineLevelBoxes = lineBox.nonRootInlineLevelBoxes();
+    for (size_t index = 0; index < nonRootInlineLevelBoxes.size(); ++index) {
+        auto& inlineLevelBox = nonRootInlineLevelBoxes[index];
+        if (inlineLevelBox.hasLineBoxRelativeAlignment()) {
+            lineBoxRelativeInlineLevelBoxes.append(index);
+            continue;
+        }
+        auto& parentInlineBox = lineBox.parentInlineBox(inlineLevelBox);
         auto logicalTop = InlineLayoutUnit { };
         auto verticalAlign = inlineLevelBox.verticalAlign();
 
@@ -413,20 +446,35 @@ void LineBoxVerticalAligner::alignInlineLevelBoxes(LineBox& lineBox, InlineLayou
             logicalTop = parentInlineBox.logicalHeight() - descent - inlineLevelBox.ascent();
             break;
         }
+        default:
+            ASSERT_NOT_IMPLEMENTED_YET();
+            break;
+        }
+        inlineLevelBox.setLogicalTop(logicalTop);
+    }
+
+    for (auto index : lineBoxRelativeInlineLevelBoxes) {
+        auto& inlineLevelBox = nonRootInlineLevelBoxes[index];
+        auto logicalTop = InlineLayoutUnit { };
+        switch (inlineLevelBox.verticalAlign().type) {
         case VerticalAlign::Top: {
             auto ascent = inlineLevelBox.layoutBounds() ? inlineLevelBox.layoutBounds()->ascent : inlineLevelBox.ascent();
+            if (inlineLevelBox.isInlineBox())
+                ascent = std::max(layoutBoundsForInlineBoxSubtree(nonRootInlineLevelBoxes, index).ascent, ascent);
             // Note that this logical top is not relative to the parent inline box.
             logicalTop = ascent - inlineLevelBox.ascent();
             break;
         }
         case VerticalAlign::Bottom: {
             auto descent = inlineLevelBox.layoutBounds() ? inlineLevelBox.layoutBounds()->descent : inlineLevelBox.descent().value_or(0.f);
+            if (inlineLevelBox.isInlineBox())
+                descent = std::max(layoutBoundsForInlineBoxSubtree(nonRootInlineLevelBoxes, index).descent, descent);
             // Note that this logical top is not relative to the parent inline box.
             logicalTop = lineBoxLogicalHeight - (inlineLevelBox.ascent() + descent);
             break;
         }
         default:
-            ASSERT_NOT_IMPLEMENTED_YET();
+            ASSERT_NOT_REACHED();
             break;
         }
         inlineLevelBox.setLogicalTop(logicalTop);

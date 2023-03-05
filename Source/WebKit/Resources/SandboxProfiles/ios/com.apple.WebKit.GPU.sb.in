@@ -28,10 +28,11 @@
     (fcntl-command
         F_ADDFILESIGS_RETURN
         F_CHECK_LV
-        F_GETPATH))
+        F_GETPATH
+        F_SETFD))
 
 (with-filter (mac-policy-name "Sandbox")
-    (allow system-mac-syscall (mac-syscall-number 5)))
+    (allow system-mac-syscall (mac-syscall-number 5 67)))
 #endif
 
 ;;;
@@ -79,9 +80,7 @@
            (global-name "com.apple.coremedia.formatreader.xpc")
            (global-name "com.apple.coremedia.mediaparserd.fairplaypsshatomparser.xpc")
            (global-name "com.apple.coremedia.mediaparserd.formatreader.xpc")
-#if USE(MEDIAPARSERD)
            (global-name "com.apple.coremedia.mediaparserd.manifold.xpc")
-#endif
            (global-name "com.apple.coremedia.player.xpc")
            (global-name "com.apple.coremedia.remaker")
            (global-name "com.apple.coremedia.routediscoverer.xpc")
@@ -93,10 +92,38 @@
            (global-name "com.apple.coremedia.visualcontext.xpc")
            (global-name "com.apple.coremedia.volumecontroller.xpc"))
 
+#if HAVE(MEDIAPLAYBACKD)
+    (allow mach-lookup
+        (global-name
+            "com.apple.coremedia.mediaplaybackd.asset.xpc"
+            "com.apple.coremedia.mediaplaybackd.assetimagegenerator.xpc"
+            "com.apple.coremedia.mediaplaybackd.audiodeviceclock.xpc"
+            "com.apple.coremedia.mediaplaybackd.audioprocessingtap.xpc"
+            "com.apple.coremedia.mediaplaybackd.cpe.xpc"
+            "com.apple.coremedia.mediaplaybackd.cpeprotector.xpc"
+            "com.apple.coremedia.mediaplaybackd.customurlloader.xpc"
+            "com.apple.coremedia.mediaplaybackd.figcontentkeysession.xpc"
+            "com.apple.coremedia.mediaplaybackd.figcontentkeyboss.xpc"
+            "com.apple.coremedia.mediaplaybackd.figcpecryptor.xpc"
+            "com.apple.coremedia.mediaplaybackd.formatreader.xpc"
+            "com.apple.coremedia.mediaplaybackd.player.xpc"
+            "com.apple.coremedia.mediaplaybackd.remaker.xpc"
+            "com.apple.coremedia.mediaplaybackd.samplebufferaudiorenderer.xpc"
+            "com.apple.coremedia.mediaplaybackd.samplebufferrendersynchronizer.xpc"
+            "com.apple.coremedia.mediaplaybackd.sandboxserver.xpc"
+            "com.apple.coremedia.mediaplaybackd.visualcontext.xpc"
+            "com.apple.coremedia.mediaplaybackd.videoqueue"
+            "com.apple.coremedia.videocodecd.compressionsession"
+            "com.apple.coremedia.videocodecd.compressionsession.xpc"
+            "com.apple.coremedia.videocodecd.decompressionsession"
+            "com.apple.coremedia.videocodecd.decompressionsession.xpc"))
+#endif
+
     (allow mach-lookup (with report) (with telemetry)
         (global-name "com.apple.coremedia.cpeprotector.xpc")
         (global-name "com.apple.coremedia.endpoint.xpc")
         (global-name "com.apple.coremedia.figcontentkeysession.xpc")
+        (global-name "com.apple.coremedia.figcontentkeyboss.xpc")
         (global-name "com.apple.coremedia.routingsessionmanager.xpc")
         (global-name "com.apple.coremedia.sts"))
 
@@ -805,6 +832,7 @@
         SYS_sysctlbyname
         SYS_thread_selfid
         SYS_ulock_wait
+        SYS_ulock_wait2
         SYS_ulock_wake
         SYS_work_interval_ctl
         SYS_workq_kernreturn
@@ -815,50 +843,49 @@
 (when (defined? 'SYS_map_with_linking_np)
     (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
 
-(when (defined? 'syscall-mach)
-    (deny syscall-mach (with telemetry))
-    (allow syscall-mach
-        (machtrap-number
-            MSC__kernelrpc_mach_port_allocate_trap
-            MSC__kernelrpc_mach_port_construct_trap
-            MSC__kernelrpc_mach_port_deallocate_trap
-            MSC__kernelrpc_mach_port_destruct_trap
-            MSC__kernelrpc_mach_port_extract_member_trap
-            MSC__kernelrpc_mach_port_get_attributes_trap
-            MSC__kernelrpc_mach_port_guard_trap
-            MSC__kernelrpc_mach_port_insert_member_trap
-            MSC__kernelrpc_mach_port_insert_right_trap
-            MSC__kernelrpc_mach_port_mod_refs_trap
-            MSC__kernelrpc_mach_port_request_notification_trap
-            MSC__kernelrpc_mach_port_type_trap
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 160000
-            MSC__kernelrpc_mach_port_unguard_trap
-#endif
-            MSC__kernelrpc_mach_vm_allocate_trap
-            MSC__kernelrpc_mach_vm_deallocate_trap
-            MSC__kernelrpc_mach_vm_map_trap
-            MSC__kernelrpc_mach_vm_protect_trap
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 160000
-            MSC__kernelrpc_mach_vm_purgable_control_trap
-#endif
-            MSC_host_create_mach_voucher_trap
-            MSC_host_self_trap
-            MSC_mach_generate_activity_id
-            MSC_mach_msg_trap
-            MSC_mach_reply_port
-            MSC_mach_timebase_info_trap
-            MSC_mach_voucher_extract_attr_recipe_trap
-            MSC_mk_timer_arm
-            MSC_mk_timer_cancel
-            MSC_mk_timer_create
-            MSC_pid_for_task
-            MSC_semaphore_signal_trap
-            MSC_semaphore_timedwait_trap
-            MSC_semaphore_wait_trap
-            MSC_syscall_thread_switch
-            MSC_task_name_for_pid
-            MSC_task_self_trap
-            MSC_thread_get_special_reply_port)))
+(deny syscall-mach (with telemetry))
+(allow syscall-mach
+    (machtrap-number
+        MSC__kernelrpc_mach_port_allocate_trap
+        MSC__kernelrpc_mach_port_construct_trap
+        MSC__kernelrpc_mach_port_deallocate_trap
+        MSC__kernelrpc_mach_port_destruct_trap
+        MSC__kernelrpc_mach_port_extract_member_trap
+        MSC__kernelrpc_mach_port_get_attributes_trap
+        MSC__kernelrpc_mach_port_guard_trap
+        MSC__kernelrpc_mach_port_insert_member_trap
+        MSC__kernelrpc_mach_port_insert_right_trap
+        MSC__kernelrpc_mach_port_mod_refs_trap
+        MSC__kernelrpc_mach_port_request_notification_trap
+        MSC__kernelrpc_mach_port_type_trap
+        MSC__kernelrpc_mach_port_unguard_trap
+        MSC__kernelrpc_mach_vm_allocate_trap
+        MSC__kernelrpc_mach_vm_deallocate_trap
+        MSC__kernelrpc_mach_vm_map_trap
+        MSC__kernelrpc_mach_vm_protect_trap
+        MSC__kernelrpc_mach_vm_purgable_control_trap
+        MSC_host_create_mach_voucher_trap
+        MSC_host_self_trap
+        MSC_mach_generate_activity_id
+        MSC_mach_msg_trap
+        MSC_mach_reply_port
+        MSC_mach_timebase_info_trap
+        MSC_mach_voucher_extract_attr_recipe_trap
+        MSC_mk_timer_arm
+        MSC_mk_timer_cancel
+        MSC_mk_timer_create
+        MSC_mk_timer_destroy
+        MSC_pid_for_task
+        MSC_semaphore_signal_trap
+        MSC_semaphore_timedwait_trap
+        MSC_semaphore_wait_trap
+        MSC_syscall_thread_switch
+        MSC_task_name_for_pid
+        MSC_task_self_trap
+        MSC_thread_get_special_reply_port))
+
+(when (defined? 'MSC_mach_msg2_trap)
+    (allow syscall-mach (machtrap-number MSC_mach_msg2_trap)))
 
 #if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
 #include <WebKitAdditions/SystemContentSandbox-ios.defs>

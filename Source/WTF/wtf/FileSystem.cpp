@@ -577,6 +577,22 @@ std::optional<Vector<uint8_t>> readEntireFile(const String& path)
     return contents;
 }
 
+int overwriteEntireFile(const String& path, Span<uint8_t> span)
+{
+    auto fileHandle = FileSystem::openFile(path, FileSystem::FileOpenMode::ReadWrite);
+    auto closeFile = makeScopeExit([&] {
+        FileSystem::closeFile(fileHandle);
+    });
+
+    if (!FileSystem::isHandleValid(fileHandle))
+        return -1;
+
+    if (!FileSystem::truncateFile(fileHandle, 0))
+        return -1;
+
+    return FileSystem::writeToFile(fileHandle, span.data(), span.size());
+}
+
 void deleteAllFilesModifiedSince(const String& directory, WallTime time)
 {
     // This function may delete directory folder.
@@ -666,6 +682,32 @@ std::optional<uint64_t> fileSize(const String& path)
     auto size = std::filesystem::file_size(toStdFileSystemPath(path), ec);
     if (ec)
         return std::nullopt;
+    return size;
+}
+
+std::optional<uint64_t> directorySize(const String& path)
+{
+    if (path.isEmpty())
+        return std::nullopt;
+
+    std::error_code ec;
+    auto stdPath = toStdFileSystemPath(path);
+    if (!std::filesystem::is_directory(stdPath, ec))
+        return std::nullopt;
+
+    CheckedUint64 size = 0;
+    for (auto& entry : std::filesystem::recursive_directory_iterator(stdPath, ec)) {
+        if (ec)
+            return std::nullopt;
+        auto filePath = fromStdFileSystemPath(entry.path());
+        if (entry.is_regular_file(ec) && !ec)
+            size += entry.file_size(ec);
+        if (ec)
+            return std::nullopt;
+        if (size.hasOverflowed())
+            return std::nullopt;
+    }
+
     return size;
 }
 

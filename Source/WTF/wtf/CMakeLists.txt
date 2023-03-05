@@ -1,5 +1,6 @@
 set(WTF_PUBLIC_HEADERS
     ASCIICType.h
+    AccessibleAddress.h
     AggregateLogger.h
     Algorithms.h
     AnsiColors.h
@@ -75,10 +76,12 @@ set(WTF_PUBLIC_HEADERS
     ExportMacros.h
     FailureAction.h
     FastBitVector.h
+    FastFloat.h
     FastMalloc.h
     FastTLS.h
     FilePrintStream.h
     FileSystem.h
+    FixedBitVector.h
     FixedVector.h
     FixedWidthDouble.h
     FlipBytes.h
@@ -292,6 +295,7 @@ set(WTF_PUBLIC_HEADERS
     ThreadMessage.h
     ThreadSafetyAnalysis.h
     ThreadSafeRefCounted.h
+    ThreadSafeWeakHashSet.h
     ThreadSafeWeakPtr.h
     ThreadSanitizerSupport.h
     ThreadSpecific.h
@@ -328,6 +332,7 @@ set(WTF_PUBLIC_HEADERS
     WeakHashCountedSet.h
     WeakHashMap.h
     WeakHashSet.h
+    WeakListHashSet.h
     WeakPtr.h
     WeakRandom.h
     WeakRandomNumber.h
@@ -347,6 +352,16 @@ set(WTF_PUBLIC_HEADERS
     dtoa/ieee.h
     dtoa/strtod.h
     dtoa/utils.h
+
+    fast_float/ascii_number.h
+    fast_float/bigint.h
+    fast_float/decimal_to_binary.h
+    fast_float/digit_comparison.h
+    fast_float/fast_float.h
+    fast_float/fast_table.h
+    fast_float/float_common.h
+    fast_float/parse_number.h
+    fast_float/simple_decimal_conversion.h
 
     persistence/PersistentCoders.h
     persistence/PersistentDecoder.h
@@ -432,6 +447,7 @@ set(WTF_SOURCES
     DateMath.cpp
     DebugHeap.cpp
     FastBitVector.cpp
+    FastFloat.cpp
     FastMalloc.cpp
     FilePrintStream.cpp
     FileSystem.cpp
@@ -559,6 +575,7 @@ set(WTF_PRIVATE_INCLUDE_DIRECTORIES
     "${WTF_DERIVED_SOURCES_DIR}"
     "${WTF_DIR}"
     "${WTF_DIR}/wtf/dtoa"
+    "${WTF_DIR}/wtf/fast_float"
     "${WTF_DIR}/wtf/persistence"
     "${WTF_DIR}/wtf/text"
     "${WTF_DIR}/wtf/text/icu"
@@ -605,7 +622,6 @@ WEBKIT_COPY_FILES(WTF_CopyHeaders
 )
 
 WEBKIT_FRAMEWORK(WTF)
-WEBKIT_FRAMEWORK_TARGET(WTF)
 
 if (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
@@ -637,11 +653,7 @@ file(COPY
 
 set(WTF_PREFERENCES
     ../Scripts/GeneratePreferences.rb
-
-    ../Scripts/Preferences/WebPreferences.yaml
-    ../Scripts/Preferences/WebPreferencesDebug.yaml
-    ../Scripts/Preferences/WebPreferencesExperimental.yaml
-    ../Scripts/Preferences/WebPreferencesInternal.yaml
+    ../Scripts/Preferences/UnifiedWebPreferences.yaml
 )
 
 WEBKIT_COPY_FILES(WTF_CopyPreferences

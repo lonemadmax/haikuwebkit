@@ -30,6 +30,7 @@
 
 #include "ANGLEInstancedArrays.h"
 #include "CachedImage.h"
+#include "Chrome.h"
 #include "DOMWindow.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
@@ -62,6 +63,7 @@
 #include "ImageData.h"
 #include "InspectorInstrumentation.h"
 #include "IntSize.h"
+#include "JSDOMPromiseDeferred.h"
 #include "JSExecState.h"
 #include "KHRParallelShaderCompile.h"
 #include "Logging.h"
@@ -83,6 +85,7 @@
 #include "WebGL2RenderingContext.h"
 #include "WebGLActiveInfo.h"
 #include "WebGLBuffer.h"
+#include "WebGLClipCullDistance.h"
 #include "WebGLColorBufferFloat.h"
 #include "WebGLCompressedTextureASTC.h"
 #include "WebGLCompressedTextureETC.h"
@@ -355,7 +358,7 @@ private:
 };
 
 #define ADD_VALUES_TO_SET(set, arr) \
-    set.add(arr, arr + WTF_ARRAY_LENGTH(arr))
+    set.add(arr, arr + std::size(arr))
 
 InspectorScopedShaderProgramHighlight::InspectorScopedShaderProgramHighlight(WebGLRenderingContextBase& context, WebGLProgram* program)
     : m_context(context)
@@ -484,22 +487,6 @@ static void removeActiveContext(WebGLRenderingContextBase& context)
     ASSERT_UNUSED(didContain, didContain);
 }
 
-static GraphicsClient* getGraphicsClient(CanvasBase& canvas)
-{
-    if (auto* canvasElement = dynamicDowncast<HTMLCanvasElement>(canvas)) {
-        Document& document = canvasElement->document();
-        RefPtr<Frame> frame = document.frame();
-        if (!frame)
-            return nullptr;
-
-        return document.view()->root()->hostWindow();
-    }
-    if (is<WorkerGlobalScope>(canvas.scriptExecutionContext()))
-        return downcast<WorkerGlobalScope>(canvas.scriptExecutionContext())->workerClient();
-
-    return nullptr;
-}
-
 std::unique_ptr<WebGLRenderingContextBase> WebGLRenderingContextBase::create(CanvasBase& canvas, WebGLContextAttributes& attributes, WebGLVersion type)
 {
     auto scriptExecutionContext = canvas.scriptExecutionContext();
@@ -514,7 +501,7 @@ std::unique_ptr<WebGLRenderingContextBase> WebGLRenderingContextBase::create(Can
     UNUSED_PARAM(type);
 #endif
 
-    GraphicsClient* graphicsClient = getGraphicsClient(canvas);
+    GraphicsClient* graphicsClient = canvas.graphicsClient();
 
     auto* canvasElement = dynamicDowncast<HTMLCanvasElement>(canvas);
 
@@ -3015,6 +3002,7 @@ bool WebGLRenderingContextBase::extensionIsEnabled(const String& name)
     CHECK_EXTENSION(m_oesTextureHalfFloat, "OES_texture_half_float");
     CHECK_EXTENSION(m_oesTextureHalfFloatLinear, "OES_texture_half_float_linear");
     CHECK_EXTENSION(m_oesVertexArrayObject, "OES_vertex_array_object");
+    CHECK_EXTENSION(m_webglClipCullDistance, "WEBGL_clip_cull_distance");
     CHECK_EXTENSION(m_webglColorBufferFloat, "WEBGL_color_buffer_float");
     CHECK_EXTENSION(m_webglCompressedTextureASTC, "WEBGL_compressed_texture_astc");
     CHECK_EXTENSION(m_webglCompressedTextureETC, "WEBGL_compressed_texture_etc");
@@ -3737,15 +3725,19 @@ ExceptionOr<void> WebGLRenderingContextBase::texImageSourceHelper(TexImageFuncti
             return { };
         }
 
-        // FIXME: Implement remote video frame optimization.
-        auto internalFrame = frame->internalFrame();
-        IntSize frameSize { static_cast<int>(frame->displayWidth()), static_cast<int>(frame->displayHeight()) };
-        auto imageBuffer = m_generatedImageCache.imageBuffer(frameSize, DestinationColorSpace::SRGB());
-        if (!imageBuffer)
+        auto texture = validateTexImageBinding(functionName, functionID, target);
+        if (!texture)
             return { };
 
-        imageBuffer->context().paintVideoFrame(*internalFrame, { { }, frameSize }, true);
-        auto image = imageBuffer->copyImage(DontCopyBackingStore);
+        auto internalFrame = frame->internalFrame();
+        bool sourceImageRectIsDefault = inputSourceImageRect == sentinelEmptyRect() || inputSourceImageRect == IntRect(0, 0, static_cast<int>(internalFrame->presentationSize().width()), static_cast<int>(internalFrame->presentationSize().height()));
+        if (functionID == TexImageFunctionID::TexImage2D && texture && sourceImageRectIsDefault && type == GraphicsContextGL::UNSIGNED_BYTE && !level) {
+            if (m_context->copyTextureFromVideoFrame(*internalFrame, texture->object(), target, level, internalformat, format, type, m_unpackPremultiplyAlpha, m_unpackFlipY))
+                return { };
+        }
+
+        // Fallback pure SW path.
+        auto image = m_context->videoFrameToImage(*internalFrame);
         if (!image)
             return { };
 
@@ -3849,8 +3841,15 @@ void WebGLRenderingContextBase::texImageImpl(TexImageFunctionID functionID, GCGL
     GraphicsContextGL::DataFormat sourceDataFormat = imageExtractor.imageSourceFormat();
     GraphicsContextGL::AlphaOp alphaOp = imageExtractor.imageAlphaOp();
     const void* imagePixelData = imageExtractor.imagePixelData();
+    CheckedSize imagePixelByteLength(imageExtractor.imageWidth());
+    imagePixelByteLength *= imageExtractor.imageHeight();
+    imagePixelByteLength *= 4u;
+    if (imagePixelByteLength.hasOverflowed()) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "image too large");
+        return;
+    }
 
-    GCGLSpan<const GCGLvoid> pixels { imagePixelData, imageExtractor.imageWidth() * imageExtractor.imageHeight() * 4 };
+    GCGLSpan<const GCGLvoid> pixels { imagePixelData, imagePixelByteLength };
     if (type != GraphicsContextGL::UNSIGNED_BYTE || sourceDataFormat != GraphicsContextGL::DataFormat::RGBA8 || format != GraphicsContextGL::RGBA || alphaOp != GraphicsContextGL::AlphaOp::DoNothing || flipY || selectingSubRectangle || depth != 1) {
         if (!m_context->packImageData(image, imagePixelData, format, type, flipY, alphaOp, sourceDataFormat, imageExtractor.imageWidth(), imageExtractor.imageHeight(), adjustedSourceImageRect, depth, imageExtractor.imageSourceUnpackAlignment(), unpackImageHeight, data)) {
             synthesizeGLError(GraphicsContextGL::INVALID_VALUE, functionName, "packImage error");
@@ -5379,7 +5378,7 @@ ExceptionOr<bool> WebGLRenderingContextBase::validateHTMLImageElement(const char
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, functionName, "invalid image");
         return false;
     }
-    if (wouldTaintOrigin(image))
+    if (taintsOrigin(image))
         return Exception { SecurityError };
     return true;
 }
@@ -5390,7 +5389,7 @@ ExceptionOr<bool> WebGLRenderingContextBase::validateHTMLCanvasElement(const cha
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, functionName, "no canvas");
         return false;
     }
-    if (wouldTaintOrigin(canvas))
+    if (taintsOrigin(canvas))
         return Exception { SecurityError };
     return true;
 }
@@ -5403,7 +5402,7 @@ ExceptionOr<bool> WebGLRenderingContextBase::validateHTMLVideoElement(const char
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, functionName, "no video");
         return false;
     }
-    if (wouldTaintOrigin(video))
+    if (taintsOrigin(video))
         return Exception { SecurityError };
     return true;
 }
@@ -5530,7 +5529,7 @@ void WebGLRenderingContextBase::maybeRestoreContext()
     if (!scriptExecutionContext->settingsValues().webGLEnabled)
         return;
 
-    GraphicsClient* graphicsClient = getGraphicsClient(canvasBase());
+    GraphicsClient* graphicsClient = canvasBase().graphicsClient();
     if (!graphicsClient)
         return;
 
@@ -5814,6 +5813,7 @@ void WebGLRenderingContextBase::loseExtensions(LostContextMode mode)
     LOSE_EXTENSION(m_oesTextureHalfFloat);
     LOSE_EXTENSION(m_oesTextureHalfFloatLinear);
     LOSE_EXTENSION(m_oesVertexArrayObject);
+    LOSE_EXTENSION(m_webglClipCullDistance);
     LOSE_EXTENSION(m_webglColorBufferFloat);
     LOSE_EXTENSION(m_webglCompressedTextureASTC);
     LOSE_EXTENSION(m_webglCompressedTextureETC);

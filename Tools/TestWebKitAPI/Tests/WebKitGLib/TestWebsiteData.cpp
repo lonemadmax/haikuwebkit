@@ -104,9 +104,12 @@ class WebsiteDataTest : public WebViewTest {
 public:
     MAKE_GLIB_TEST_FIXTURE(WebsiteDataTest);
 
-
     WebsiteDataTest()
+#if ENABLE(2022_GLIB_API)
+        : m_manager(webkit_network_session_get_website_data_manager(webkit_web_view_get_network_session(m_webView)))
+#else
         : m_manager(webkit_web_context_get_website_data_manager(webkit_web_view_get_context(m_webView)))
+#endif
     {
         g_assert_true(WEBKIT_IS_WEBSITE_DATA_MANAGER(m_manager));
         assertObjectIsDeletedWhenTestFinishes(G_OBJECT(m_manager));
@@ -162,17 +165,20 @@ public:
 
 static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
 {
+#if !ENABLE(2022_GLIB_API)
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+#endif
 
-    // Base directories are not used by TestMain.
-    g_assert_null(webkit_website_data_manager_get_base_data_directory(test->m_manager));
-    g_assert_null(webkit_website_data_manager_get_base_cache_directory(test->m_manager));
+    g_assert_cmpstr(webkit_website_data_manager_get_base_data_directory(test->m_manager), ==, Test::dataDirectory());
+    g_assert_cmpstr(webkit_website_data_manager_get_base_cache_directory(test->m_manager), ==, Test::dataDirectory());
 
     test->loadURI(kServer->getURIForPath("/empty").data());
     test->waitUntilLoadFinished();
     test->runJavaScriptAndWaitUntilFinished("window.localStorage.myproperty = 42;", nullptr);
-    GUniquePtr<char> localStorageDirectory(g_build_filename(Test::dataDirectory(), "local-storage", nullptr));
+    GUniquePtr<char> localStorageDirectory(g_build_filename(Test::dataDirectory(), "localstorage", nullptr));
+#if !ENABLE(2022_GLIB_API)
     g_assert_cmpstr(localStorageDirectory.get(), ==, webkit_website_data_manager_get_local_storage_directory(test->m_manager));
+#endif
     test->assertFileIsCreated(localStorageDirectory.get());
     g_assert_true(g_file_test(localStorageDirectory.get(), G_FILE_TEST_IS_DIR));
     test->runJavaScriptAndWaitUntilFinished("window.localStorage.clear();", nullptr);
@@ -180,39 +186,53 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     test->loadURI(kServer->getURIForPath("/empty").data());
     test->waitUntilLoadFinished();
     test->runJavaScriptAndWaitUntilFinished("window.indexedDB.open('TestDatabase');", nullptr);
-    GUniquePtr<char> indexedDBDirectory(g_build_filename(Test::dataDirectory(), "indexeddb", nullptr));
-    test->assertFileIsCreated(indexedDBDirectory.get());
+    GUniquePtr<char> indexedDBDirectory(g_build_filename(Test::dataDirectory(), "databases", "indexeddb", nullptr));
+#if !ENABLE(2022_GLIB_API)
     g_assert_cmpstr(indexedDBDirectory.get(), ==, webkit_website_data_manager_get_indexeddb_directory(test->m_manager));
+#endif
+    test->assertFileIsCreated(indexedDBDirectory.get());
     g_assert_true(g_file_test(indexedDBDirectory.get(), G_FILE_TEST_IS_DIR));
 
     test->loadURI(kServer->getURIForPath("/appcache").data());
     test->waitUntilLoadFinished();
-    GUniquePtr<char> applicationCacheDirectory(g_build_filename(Test::dataDirectory(), "appcache", nullptr));
+    GUniquePtr<char> applicationCacheDirectory(g_build_filename(Test::dataDirectory(), "applications", nullptr));
+#if !ENABLE(2022_GLIB_API)
     g_assert_cmpstr(applicationCacheDirectory.get(), ==, webkit_website_data_manager_get_offline_application_cache_directory(test->m_manager));
+#endif
     GUniquePtr<char> applicationCacheDatabase(g_build_filename(applicationCacheDirectory.get(), "ApplicationCache.db", nullptr));
     test->assertFileIsCreated(applicationCacheDatabase.get());
 
-    GUniquePtr<char> diskCacheDirectory(g_build_filename(Test::dataDirectory(), "disk-cache", nullptr));
+    GUniquePtr<char> diskCacheDirectory(g_build_filename(Test::dataDirectory(), nullptr));
+#if !ENABLE(2022_GLIB_API)
     g_assert_cmpstr(diskCacheDirectory.get(), ==, webkit_website_data_manager_get_disk_cache_directory(test->m_manager));
+#endif
     g_assert_true(g_file_test(diskCacheDirectory.get(), G_FILE_TEST_IS_DIR));
 
-    GUniquePtr<char> hstsCacheDirectory(g_build_filename(Test::dataDirectory(), "hsts", nullptr));
+    GUniquePtr<char> hstsCacheDirectory(g_build_filename(Test::dataDirectory(), nullptr));
+#if !ENABLE(2022_GLIB_API)
     g_assert_cmpstr(hstsCacheDirectory.get(), ==, webkit_website_data_manager_get_hsts_cache_directory(test->m_manager));
+#endif
     g_assert_true(g_file_test(hstsCacheDirectory.get(), G_FILE_TEST_IS_DIR));
 
+#if !ENABLE(2022_GLIB_API)
     GUniquePtr<char> itpDirectory(g_build_filename(Test::dataDirectory(), "itp", nullptr));
     g_assert_cmpstr(itpDirectory.get(), ==, webkit_website_data_manager_get_itp_directory(test->m_manager));
+#endif
 
     test->runJavaScriptAndWaitUntilFinished("navigator.serviceWorker.register('./some-dummy.js');", nullptr);
     GUniquePtr<char> swRegistrationsDirectory(g_build_filename(Test::dataDirectory(), "serviceworkers", nullptr));
-    test->assertFileIsCreated(swRegistrationsDirectory.get());
+#if !ENABLE(2022_GLIB_API)
     g_assert_cmpstr(swRegistrationsDirectory.get(), ==, webkit_website_data_manager_get_service_worker_registrations_directory(test->m_manager));
+#endif
+    test->assertFileIsCreated(swRegistrationsDirectory.get());
     g_assert_true(g_file_test(swRegistrationsDirectory.get(), G_FILE_TEST_IS_DIR));
 
     test->runJavaScriptAndWaitUntilFinished("let domCacheOpened = false; caches.open('my-cache').then(() => { domCacheOpened = true});", nullptr);
-    GUniquePtr<char> domCacheDirectory(g_build_filename(Test::dataDirectory(), "dom-cache", nullptr));
-    test->assertFileIsCreated(domCacheDirectory.get());
+    GUniquePtr<char> domCacheDirectory(g_build_filename(Test::dataDirectory(), "CacheStorage", nullptr));
+#if !ENABLE(2022_GLIB_API)
     g_assert_cmpstr(domCacheDirectory.get(), ==, webkit_website_data_manager_get_dom_cache_directory(test->m_manager));
+#endif
+    test->assertFileIsCreated(domCacheDirectory.get());
     g_assert_true(g_file_test(domCacheDirectory.get(), G_FILE_TEST_IS_DIR));
 
     // Make sure the cache was opened before asking to clear it to avoid it being re-created behind our backs.
@@ -226,10 +246,22 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     test->clear(persistentCaches, 0);
     g_assert_null(test->fetch(persistentCaches));
 
-    // The default context should have a different manager with different configuration.
-    WebKitWebsiteDataManager* defaultManager = webkit_web_context_get_website_data_manager(webkit_web_context_get_default());
+    // The default context or session should have a different manager with different configuration.
+#if ENABLE(2022_GLIB_API)
+    auto* defaultManager = webkit_network_session_get_website_data_manager(webkit_network_session_get_default());
+#else
+    auto* defaultManager = webkit_web_context_get_website_data_manager(webkit_web_context_get_default());
+#endif
     g_assert_true(WEBKIT_IS_WEBSITE_DATA_MANAGER(defaultManager));
     g_assert_true(test->m_manager != defaultManager);
+    g_assert_cmpstr(webkit_website_data_manager_get_base_data_directory(test->m_manager), !=, webkit_website_data_manager_get_base_data_directory(defaultManager));
+    g_assert_cmpstr(webkit_website_data_manager_get_base_cache_directory(test->m_manager), !=, webkit_website_data_manager_get_base_cache_directory(defaultManager));
+#if ENABLE(2022_GLIB_API)
+    g_assert_nonnull(webkit_website_data_manager_get_base_data_directory(defaultManager));
+    g_assert_nonnull(webkit_website_data_manager_get_base_cache_directory(defaultManager));
+#else
+    g_assert_null(webkit_website_data_manager_get_base_data_directory(defaultManager));
+    g_assert_null(webkit_website_data_manager_get_base_cache_directory(defaultManager));
     g_assert_cmpstr(webkit_website_data_manager_get_local_storage_directory(test->m_manager), !=, webkit_website_data_manager_get_local_storage_directory(defaultManager));
     g_assert_cmpstr(webkit_website_data_manager_get_indexeddb_directory(test->m_manager), !=, webkit_website_data_manager_get_indexeddb_directory(defaultManager));
     g_assert_cmpstr(webkit_website_data_manager_get_disk_cache_directory(test->m_manager), !=, webkit_website_data_manager_get_disk_cache_directory(defaultManager));
@@ -238,34 +270,18 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     g_assert_cmpstr(webkit_website_data_manager_get_itp_directory(test->m_manager), !=, webkit_website_data_manager_get_itp_directory(defaultManager));
     g_assert_cmpstr(webkit_website_data_manager_get_service_worker_registrations_directory(test->m_manager), !=, webkit_website_data_manager_get_service_worker_registrations_directory(defaultManager));
     g_assert_cmpstr(webkit_website_data_manager_get_dom_cache_directory(test->m_manager), !=, webkit_website_data_manager_get_dom_cache_directory(defaultManager));
+#endif
 
-    // Using Test::dataDirectory() we get the default configuration but for a differrent prefix.
-    GRefPtr<WebKitWebsiteDataManager> baseDataManager = adoptGRef(webkit_website_data_manager_new("base-data-directory", Test::dataDirectory(), "base-cache-directory", Test::dataDirectory(), nullptr));
-    g_assert_true(WEBKIT_IS_WEBSITE_DATA_MANAGER(baseDataManager.get()));
-
-    localStorageDirectory.reset(g_build_filename(Test::dataDirectory(), "localstorage", nullptr));
-    g_assert_cmpstr(webkit_website_data_manager_get_local_storage_directory(baseDataManager.get()), ==, localStorageDirectory.get());
-
-    indexedDBDirectory.reset(g_build_filename(Test::dataDirectory(), "databases", "indexeddb", nullptr));
-    g_assert_cmpstr(webkit_website_data_manager_get_indexeddb_directory(baseDataManager.get()), ==, indexedDBDirectory.get());
-
-    applicationCacheDirectory.reset(g_build_filename(Test::dataDirectory(), "applications", nullptr));
-    g_assert_cmpstr(webkit_website_data_manager_get_offline_application_cache_directory(baseDataManager.get()), ==, applicationCacheDirectory.get());
-
-    g_assert_cmpstr(webkit_website_data_manager_get_itp_directory(baseDataManager.get()), ==, itpDirectory.get());
-
-    g_assert_cmpstr(webkit_website_data_manager_get_service_worker_registrations_directory(baseDataManager.get()), ==, swRegistrationsDirectory.get());
-
-    domCacheDirectory.reset(g_build_filename(Test::dataDirectory(), "CacheStorage", nullptr));
-    g_assert_cmpstr(webkit_website_data_manager_get_dom_cache_directory(baseDataManager.get()), ==, domCacheDirectory.get());
-
-    g_assert_cmpstr(webkit_website_data_manager_get_disk_cache_directory(baseDataManager.get()), ==, Test::dataDirectory());
-
+#if !ENABLE(2022_GLIB_API)
     // Any specific configuration provided takes precedence over base dirs.
     indexedDBDirectory.reset(g_build_filename(Test::dataDirectory(), "mycustomindexeddb", nullptr));
     applicationCacheDirectory.reset(g_build_filename(Test::dataDirectory(), "mycustomappcache", nullptr));
-    baseDataManager = adoptGRef(webkit_website_data_manager_new("base-data-directory", Test::dataDirectory(), "base-cache-directory", Test::dataDirectory(),
-        "indexeddb-directory", indexedDBDirectory.get(), "offline-application-cache-directory", applicationCacheDirectory.get(), nullptr));
+    GRefPtr<WebKitWebsiteDataManager> baseDataManager = adoptGRef(webkit_website_data_manager_new(
+        "base-data-directory", Test::dataDirectory(), "base-cache-directory", Test::dataDirectory(),
+        "indexeddb-directory", indexedDBDirectory.get(), "offline-application-cache-directory", applicationCacheDirectory.get(),
+        nullptr));
+    g_assert_true(WEBKIT_IS_WEBSITE_DATA_MANAGER(baseDataManager.get()));
+
     g_assert_cmpstr(webkit_website_data_manager_get_indexeddb_directory(baseDataManager.get()), ==, indexedDBDirectory.get());
     g_assert_cmpstr(webkit_website_data_manager_get_offline_application_cache_directory(baseDataManager.get()), ==, applicationCacheDirectory.get());
     // The result should be the same as previous manager.
@@ -273,9 +289,10 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     g_assert_cmpstr(webkit_website_data_manager_get_itp_directory(baseDataManager.get()), ==, itpDirectory.get());
     g_assert_cmpstr(webkit_website_data_manager_get_service_worker_registrations_directory(baseDataManager.get()), ==, swRegistrationsDirectory.get());
     g_assert_cmpstr(webkit_website_data_manager_get_dom_cache_directory(baseDataManager.get()), ==, domCacheDirectory.get());
-    g_assert_cmpstr(webkit_website_data_manager_get_disk_cache_directory(baseDataManager.get()), ==, Test::dataDirectory());
+    g_assert_cmpstr(webkit_website_data_manager_get_disk_cache_directory(baseDataManager.get()), ==, diskCacheDirectory.get());
 
     ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
 }
 
 static void ephemeralViewloadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent, WebViewTest* test)
@@ -288,11 +305,17 @@ static void ephemeralViewloadChanged(WebKitWebView* webView, WebKitLoadEvent loa
 
 static void testWebsiteDataEphemeral(WebViewTest* test, gconstpointer)
 {
+#if ENABLE(2022_GLIB_API)
+    GRefPtr<WebKitNetworkSession> session = adoptGRef(webkit_network_session_new_ephemeral());
+    GRefPtr<WebKitWebsiteDataManager> manager = webkit_network_session_get_website_data_manager(session.get());
+#else
     GRefPtr<WebKitWebsiteDataManager> manager = adoptGRef(webkit_website_data_manager_new_ephemeral());
     g_assert_true(webkit_website_data_manager_is_ephemeral(manager.get()));
+#endif
     g_assert_null(webkit_website_data_manager_get_base_data_directory(manager.get()));
     g_assert_null(webkit_website_data_manager_get_base_cache_directory(manager.get()));
 
+#if !ENABLE(2022_GLIB_API)
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     g_assert_null(webkit_website_data_manager_get_local_storage_directory(manager.get()));
     g_assert_null(webkit_website_data_manager_get_disk_cache_directory(manager.get()));
@@ -307,16 +330,30 @@ static void testWebsiteDataEphemeral(WebViewTest* test, gconstpointer)
     manager = adoptGRef(WEBKIT_WEBSITE_DATA_MANAGER(g_object_new(WEBKIT_TYPE_WEBSITE_DATA_MANAGER, "base-data-directory", Test::dataDirectory(), "is-ephemeral", TRUE, nullptr)));
     g_assert_true(webkit_website_data_manager_is_ephemeral(manager.get()));
     g_assert_null(webkit_website_data_manager_get_base_data_directory(manager.get()));
+#endif
 
+#if ENABLE(2022_GLIB_API)
+    webkit_network_session_set_itp_enabled(session.get(), TRUE);
+    g_assert_true(webkit_network_session_get_itp_enabled(session.get()));
+#else
     webkit_website_data_manager_set_itp_enabled(manager.get(), TRUE);
-    g_assert(webkit_website_data_manager_get_itp_enabled(manager.get()));
+    g_assert_true(webkit_website_data_manager_get_itp_enabled(manager.get()));
+#endif
 
     // Non persistent data can be queried in an ephemeral manager.
+#if ENABLE(2022_GLIB_API)
+    auto webView = Test::adoptView(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+        "web-context", webkit_web_view_get_context(test->m_webView),
+        "network-session", session.get(),
+        nullptr));
+    g_assert_true(webkit_web_view_get_network_session(webView.get()) == session.get());
+#else
     GRefPtr<WebKitWebContext> webContext = adoptGRef(webkit_web_context_new_with_website_data_manager(manager.get()));
     g_assert_true(webkit_web_context_is_ephemeral(webContext.get()));
     auto webView = Test::adoptView(Test::createWebView(webContext.get()));
     g_assert_true(webkit_web_view_is_ephemeral(webView.get()));
     g_assert_true(webkit_web_view_get_website_data_manager(webView.get()) == manager.get());
+#endif
 
     g_signal_connect(webView.get(), "load-changed", G_CALLBACK(ephemeralViewloadChanged), test);
     webkit_web_view_load_uri(webView.get(), kServer->getURIForPath("/empty").data());
@@ -340,7 +377,11 @@ static void testWebsiteDataEphemeral(WebViewTest* test, gconstpointer)
     }, test);
     g_main_loop_run(test->m_mainLoop);
 
+#if ENABLE(2022_GLIB_API)
+    webkit_network_session_set_itp_enabled(session.get(), FALSE);
+#else
     webkit_website_data_manager_set_itp_enabled(manager.get(), FALSE);
+#endif
 }
 
 static void testWebsiteDataCache(WebsiteDataTest* test, gconstpointer)
@@ -578,10 +619,7 @@ static void prepopulateHstsData()
     // an IP address instead of a domain. In order to be able to test the data manager API with HSTS website data, we
     // prepopulate the HSTS storage using the libsoup API directly.
 
-    GUniquePtr<char> hstsCacheDirectory(g_build_filename(Test::dataDirectory(), "hsts", nullptr));
-    GUniquePtr<char> hstsDatabase(g_build_filename(hstsCacheDirectory.get(), "hsts-storage.sqlite", nullptr));
-    g_mkdir_with_parents(hstsCacheDirectory.get(), 0700);
-
+    GUniquePtr<char> hstsDatabase(g_build_filename(Test::dataDirectory(), "hsts-storage.sqlite", nullptr));
     GRefPtr<SoupHSTSEnforcer> enforcer = adoptGRef(soup_hsts_enforcer_db_new(hstsDatabase.get()));
     GUniquePtr<SoupHSTSPolicy> policy(soup_hsts_policy_new("webkitgtk.org", 3600, true));
     soup_hsts_enforcer_set_policy(enforcer.get(), policy.get());
@@ -702,28 +740,35 @@ static void testWebsiteDataDeviceIdHashSalt(WebsiteDataTest* test, gconstpointer
 
 static void testWebsiteDataITP(WebsiteDataTest* test, gconstpointer)
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    const char* itpDirectory = webkit_website_data_manager_get_itp_directory(test->m_manager);
-    ALLOW_DEPRECATED_DECLARATIONS_END
-    GUniquePtr<char> itpDatabaseFile(g_build_filename(itpDirectory, "observations.db", nullptr));
+    GUniquePtr<char> itpDirectory(g_build_filename(Test::dataDirectory(), "itp", nullptr));
+    GUniquePtr<char> itpDatabaseFile(g_build_filename(itpDirectory.get(), "observations.db", nullptr));
 
     // Delete any previous data.
     g_unlink(itpDatabaseFile.get());
-    g_rmdir(itpDirectory);
+    g_rmdir(itpDirectory.get());
 
+#if ENABLE(2022_GLIB_API)
+    g_assert_false(webkit_network_session_get_itp_enabled(test->m_networkSession.get()));
+#else
     g_assert_false(webkit_website_data_manager_get_itp_enabled(test->m_manager));
+#endif
     test->loadURI(kServer->getURIForPath("/empty").data());
     test->waitUntilLoadFinished();
 
+#if ENABLE(2022_GLIB_API)
+    webkit_network_session_set_itp_enabled(test->m_networkSession.get(), TRUE);
+    g_assert_true(webkit_network_session_get_itp_enabled(test->m_networkSession.get()));
+#else
     webkit_website_data_manager_set_itp_enabled(test->m_manager, TRUE);
     g_assert_true(webkit_website_data_manager_get_itp_enabled(test->m_manager));
-    g_assert_false(g_file_test(itpDirectory, G_FILE_TEST_IS_DIR));
+#endif
+    g_assert_false(g_file_test(itpDirectory.get(), G_FILE_TEST_IS_DIR));
     g_assert_false(g_file_test(itpDatabaseFile.get(), G_FILE_TEST_IS_REGULAR));
 
     test->loadURI(kServer->getURIForPath("/empty").data());
     test->waitUntilLoadFinished();
     test->assertFileIsCreated(itpDatabaseFile.get());
-    g_assert_true(g_file_test(itpDirectory, G_FILE_TEST_IS_DIR));
+    g_assert_true(g_file_test(itpDirectory.get(), G_FILE_TEST_IS_DIR));
     g_assert_true(g_file_test(itpDatabaseFile.get(), G_FILE_TEST_IS_REGULAR));
 
     // Give some time for the database to be updated.
@@ -748,10 +793,15 @@ static void testWebsiteDataITP(WebsiteDataTest* test, gconstpointer)
     static const WebKitWebsiteDataTypes cacheAndITP = static_cast<WebKitWebsiteDataTypes>(WEBKIT_WEBSITE_DATA_ITP | WEBKIT_WEBSITE_DATA_MEMORY_CACHE | WEBKIT_WEBSITE_DATA_DISK_CACHE);
     test->clear(cacheAndITP, 0);
 
+#if ENABLE(2022_GLIB_API)
+    webkit_network_session_set_itp_enabled(test->m_networkSession.get(), FALSE);
+    g_assert_false(webkit_network_session_get_itp_enabled(test->m_networkSession.get()));
+#else
     webkit_website_data_manager_set_itp_enabled(test->m_manager, FALSE);
     g_assert_false(webkit_website_data_manager_get_itp_enabled(test->m_manager));
+#endif
 
-    g_rmdir(itpDirectory);
+    g_rmdir(itpDirectory.get());
 }
 
 static void testWebsiteDataServiceWorkerRegistrations(WebsiteDataTest* test, gconstpointer)
@@ -818,6 +868,42 @@ g_assert_nonnull(data);
     g_assert_null(dataList);
 }
 
+static void testWebViewHandleCorruptedLocalStorage(WebsiteDataTest* test, gconstpointer)
+{
+    const char html[] = "<html><script>let foo = (window.localStorage.length ? window.localStorage.getItem('item'):''); window.localStorage.setItem('item','value');</script></html>";
+    auto waitForFooChanged = [&test](WebKitWebView* webView) {
+        GUniqueOutPtr<GError> error;
+        JSCValue* jscvalue;
+        WebKitJavascriptResult* result = test->runJavaScriptAndWaitUntilFinished("foo;", &error.outPtr(), webView);
+        g_assert_no_error(error.get());
+        jscvalue = webkit_javascript_result_get_js_value(result);
+        GUniquePtr<char> fooValue(jsc_value_to_string(jscvalue));
+        return fooValue;
+    };
+
+    // Create corrupted database file for local storage of "http://example.com".
+    const GUniquePtr<char> localStorageDirPath(g_build_filename(Test::dataDirectory(), "local-storage", nullptr));
+    const GUniquePtr<char> localStorageFilePath(g_build_filename(localStorageDirPath.get(), "http_example.com_0.localstorage", nullptr));
+    g_mkdir_with_parents(localStorageDirPath.get(), 0755);
+    g_file_set_contents(localStorageFilePath.get(), "GARBAGE", -1, nullptr);
+
+    g_assert_true(g_file_test(localStorageFilePath.get(), G_FILE_TEST_EXISTS));
+
+    // Loading a web page to store an item in localStorage.
+    webkit_web_view_load_html(test->m_webView, html, "http://example.com");
+    test->waitUntilLoadFinished();
+    auto fooValue(waitForFooChanged(test->m_webView));
+    g_assert_cmpstr(fooValue.get(), ==, "");
+
+    // Creating a second web view and loading a web page with the same url to read the item from localStorage.
+    auto webView = Test::adoptView(Test::createWebView(test->m_webContext.get()));
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webView.get()));
+    webkit_web_view_load_html(webView.get(), html, "http://example.com");
+    test->waitUntilLoadFinished(webView.get());
+    fooValue = waitForFooChanged(webView.get());
+    g_assert_cmpstr(fooValue.get(), ==, "value");
+}
+
 class MemoryPressureTest : public WebViewTest {
 public:
     MAKE_GLIB_TEST_FIXTURE_WITH_SETUP_TEARDOWN(MemoryPressureTest, setup, teardown);
@@ -830,13 +916,21 @@ public:
         webkit_memory_pressure_settings_set_kill_threshold(settings, 1);
         webkit_memory_pressure_settings_set_strict_threshold(settings, 0.75);
         webkit_memory_pressure_settings_set_conservative_threshold(settings, 0.5);
+#if ENABLE(2022_GLIB_API)
+        webkit_network_session_set_memory_pressure_settings(settings);
+#else
         webkit_website_data_manager_set_memory_pressure_settings(settings);
+#endif
         webkit_memory_pressure_settings_free(settings);
     }
 
     static void teardown()
     {
+#if ENABLE(2022_GLIB_API)
+        webkit_network_session_set_memory_pressure_settings(nullptr);
+#else
         webkit_website_data_manager_set_memory_pressure_settings(nullptr);
+#endif
     }
 
     static gboolean loadFailedCallback(WebKitWebView* webView, WebKitLoadEvent loadEvent, const char* failingURI, GError* error, MemoryPressureTest* test)
@@ -889,6 +983,7 @@ void beforeAll()
     WebsiteDataTest::add("WebKitWebsiteData", "itp", testWebsiteDataITP);
     WebsiteDataTest::add("WebKitWebsiteData", "service-worker-registrations", testWebsiteDataServiceWorkerRegistrations);
     WebsiteDataTest::add("WebKitWebsiteData", "dom-cache", testWebsiteDataDOMCache);
+    WebsiteDataTest::add("WebKitWebsiteData", "handle-corrupted-local-storage", testWebViewHandleCorruptedLocalStorage);
     MemoryPressureTest::add("WebKitWebsiteData", "memory-pressure", testMemoryPressureSettings);
 }
 

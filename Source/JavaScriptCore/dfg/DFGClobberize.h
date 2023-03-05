@@ -744,6 +744,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ConstructVarargs:
     case ConstructForwardVarargs:
     case CallDirectEval:
+    case CallWasm:
     case ToPrimitive:
     case ToPropertyKey:
     case InByVal:
@@ -762,7 +763,6 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ToObject:
     case GetPropertyEnumerator:
     case InstanceOfCustom:
-    case ToNumber:
     case ToNumeric:
     case NumberToStringWithRadix:
     case CreateThis:
@@ -776,6 +776,16 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ObjectToString:
         clobberTop();
         return;
+
+    case ToNumber:
+        switch (node->child1().useKind()) {
+        case StringUse:
+            def(PureValue(node));
+            return;
+        default:
+            clobberTop();
+            return;
+        }
 
     case CallNumberConstructor:
         switch (node->child1().useKind()) {
@@ -1402,6 +1412,10 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         }
         return;
     }
+
+    case GetWebAssemblyInstanceExports:
+        def(PureValue(node));
+        return;
 
     case GetPrototypeOf: {
         switch (node->child1().useKind()) {
@@ -2031,6 +2045,13 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         Edge& keyEdge = graph.varArgChild(node, 1);
         write(JSMapFields);
         def(HeapLocation(MapBucketLoc, JSMapFields, mapEdge, keyEdge), LazyNode(node));
+        return;
+    }
+
+    case MapOrSetDelete: {
+        Edge& mapEdge = node->child1();
+        AbstractHeapKind heap = (mapEdge.useKind() == MapObjectUse) ? JSMapFields : JSSetFields;
+        write(heap);
         return;
     }
 

@@ -57,7 +57,7 @@
 // This number was chosen arbitrarily based on testing with some popular extensions.
 static constexpr size_t maximumCachedPermissionResults = 256;
 
-static constexpr NSString *backgroundPageListenersStateKey = @"BackgroundPageListenersState";
+static constexpr NSString *backgroundContentEventListenersKey = @"BackgroundContentEventListeners";
 static constexpr NSString *lastSeenBaseURLStateKey = @"LastSeenBaseURL";
 static constexpr NSString *lastSeenVersionStateKey = @"LastSeenVersion";
 
@@ -142,8 +142,8 @@ static _WKWebExtensionContextError toAPI(WebExtensionContext::Error error)
         return _WKWebExtensionContextErrorAlreadyLoaded;
     case WebExtensionContext::Error::NotLoaded:
         return _WKWebExtensionContextErrorNotLoaded;
-    case WebExtensionContext::Error::BaseURLTaken:
-        return _WKWebExtensionContextErrorBaseURLTaken;
+    case WebExtensionContext::Error::BaseURLAlreadyInUse:
+        return _WKWebExtensionContextErrorBaseURLAlreadyInUse;
     }
 }
 
@@ -165,8 +165,8 @@ NSError *WebExtensionContext::createError(Error error, NSString *customLocalized
         localizedDescription = WEB_UI_STRING("Extension context is not loaded.", "WKWebExtensionContextErrorNotLoaded description");
         break;
 
-    case Error::BaseURLTaken:
-        localizedDescription = WEB_UI_STRING("Another extension context is loaded with the same base URL.", "WKWebExtensionContextErrorBaseURLTaken description");
+    case Error::BaseURLAlreadyInUse:
+        localizedDescription = WEB_UI_STRING("Another extension context is loaded with the same base URL.", "WKWebExtensionContextErrorBaseURLAlreadyInUse description");
         break;
     }
 
@@ -196,6 +196,7 @@ bool WebExtensionContext::load(WebExtensionController& controller, String storag
     m_contentScriptWorld = API::ContentWorld::sharedWorldWithName(makeString("WebExtension-", m_uniqueIdentifier));
 
     readStateFromStorage();
+    writeStateToStorage();
 
     // FIXME: <https://webkit.org/b/248430> Move local storage (if base URL changed).
 
@@ -319,6 +320,13 @@ void WebExtensionContext::setUniqueIdentifier(String&& uniqueIdentifier)
         uniqueIdentifier = UUID::createVersion4().toString();
 
     m_uniqueIdentifier = uniqueIdentifier;
+}
+
+void WebExtensionContext::setInspectable(bool inspectable)
+{
+    m_inspectable = inspectable;
+
+    m_backgroundWebView.get().inspectable = inspectable;
 }
 
 const WebExtensionContext::InjectedContentVector& WebExtensionContext::injectedContents()
@@ -722,6 +730,29 @@ bool WebExtensionContext::hasPermission(const URL& url, _WKWebExtensionTab *tab,
     case PermissionState::GrantedExplicitly:
         return true;
     }
+}
+
+bool WebExtensionContext::hasPermissions(PermissionsSet permissions, MatchPatternSet matchPatterns)
+{
+    for (auto& permission : permissions) {
+        if (!m_grantedPermissions.contains(permission))
+            return false;
+    }
+
+    for (auto& pattern : matchPatterns) {
+        bool matchFound = false;
+        for (auto& grantedPattern : currentPermissionMatchPatterns()) {
+            if (pattern->matchesPattern(grantedPattern, { WebExtensionMatchPattern::Options::IgnorePaths })) {
+                matchFound = true;
+                break;
+            }
+        }
+
+        if (!matchFound)
+            return false;
+    }
+
+    return true;
 }
 
 WebExtensionContext::PermissionState WebExtensionContext::permissionState(const String& permission, _WKWebExtensionTab *tab, OptionSet<PermissionStateOptions> options)
@@ -1131,8 +1162,9 @@ WKWebViewConfiguration *WebExtensionContext::webViewConfiguration()
 
 URL WebExtensionContext::backgroundContentURL()
 {
-    ASSERT(extension().hasBackgroundContent());
-    return URL { m_baseURL, extension().backgroundContentPath() };
+    if (!extension().hasBackgroundContent())
+        return { };
+    return { m_baseURL, extension().backgroundContentPath() };
 }
 
 void WebExtensionContext::loadBackgroundWebViewDuringLoad()
@@ -1151,7 +1183,7 @@ void WebExtensionContext::loadBackgroundWebViewDuringLoad()
         loadBackgroundPageListenersFromStorage();
 
         // FIXME: <https://webkit.org/b/248889> Check to see if the extension is being loaded as part of startup.
-        if (m_backgroundPageListeners.isEmpty() || savedVersionNumberDoesNotMatchCurrentVersionNumber || backgroundPageListensToOnStartup)
+        if (m_backgroundContentEventListeners.isEmpty() || savedVersionNumberDoesNotMatchCurrentVersionNumber || backgroundPageListensToOnStartup)
             loadBackgroundWebView();
         else
             m_shouldFireStartupEvent = false;
@@ -1169,8 +1201,11 @@ void WebExtensionContext::loadBackgroundWebView()
     ASSERT(!m_backgroundWebView);
     m_backgroundWebView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:webViewConfiguration()];
 
+    m_lastBackgroundContentLoadDate = NSDate.now;
+
     m_backgroundWebView.get().UIDelegate = m_delegate.get();
     m_backgroundWebView.get().navigationDelegate = m_delegate.get();
+    m_backgroundWebView.get().inspectable = m_inspectable;
 
     if (extension().backgroundContentIsServiceWorker())
         m_backgroundWebView.get()._remoteInspectionNameOverride = WEB_UI_FORMAT_CFSTRING("%@ — Extension Service Worker", "Label for an inspectable Web Extension service worker", (__bridge CFStringRef)extension().displayShortName());
@@ -1205,14 +1240,70 @@ void WebExtensionContext::unloadBackgroundWebView()
     m_backgroundWebView = nil;
 }
 
+void WebExtensionContext::wakeUpBackgroundContentIfNecessary(CompletionHandler<void()>&& completionHandler)
+{
+    if (!extension().backgroundContentPath() || extension().backgroundContentIsPersistent()) {
+        completionHandler();
+        return;
+    }
+
+    if (m_backgroundWebView) {
+        bool backgroundContentIsLoading = !m_actionsToPerformAfterBackgroundContentLoads.isEmpty();
+        if (backgroundContentIsLoading)
+            queueEventToFireAfterBackgroundContentLoads(WTFMove(completionHandler));
+        else {
+            scheduleBackgroundContentToUnload();
+            completionHandler();
+        }
+
+        return;
+    }
+
+    queueEventToFireAfterBackgroundContentLoads(WTFMove(completionHandler));
+    loadBackgroundWebView();
+}
+
+void WebExtensionContext::scheduleBackgroundContentToUnload()
+{
+    if (extension().backgroundContentIsPersistent())
+        return;
+
+    ASSERT(m_backgroundWebView);
+
+    // FIXME: <https://webkit.org/b/246483> Don't unload the background page if there are open ports, pending website requests, or if an inspector window is open.
+}
+
+void WebExtensionContext::queueStartupAndInstallEventsForExtensionIfNecessary()
+{
+    // FIXME: <https://webkit.org/b/248889> Add support for setup and install events for web extensions.
+
+    bool didQueueStartupEvent = false;
+
+    // FIXME: <https://webkit.org/b/249266> The version number changing isn't the most accurate way to determine if an extension was updated.
+    NSString *webExtensionVersion = extension().version();
+    NSString *lastSeenVersion = [m_state objectForKey:lastSeenVersionStateKey];
+    BOOL extensionVersionDidChange = lastSeenVersion && ![lastSeenVersion isEqualToString:webExtensionVersion];
+
+    if (extensionVersionDidChange) {
+        // FIXME: Remove declarative net request modified rulesets.
+        [m_state removeObjectForKey:backgroundContentEventListenersKey];
+
+        // FIXME: <https://webkit.org/b/248889> Set queued install event details.
+    } else if (!didQueueStartupEvent) {
+        // FIXME: <https://webkit.org/b/248889> Set queued install event details.
+    }
+
+    [m_state setObject:webExtensionVersion forKey:lastSeenVersionStateKey];
+}
+
 void WebExtensionContext::loadBackgroundPageListenersFromStorage()
 {
-    NSData *listenersData = [m_state objectForKey:backgroundPageListenersStateKey];
+    NSData *listenersData = [m_state objectForKey:backgroundContentEventListenersKey];
     NSCountedSet *savedListeners = [NSKeyedUnarchiver unarchivedObjectOfClasses:[NSSet setWithArray:@[ NSCountedSet.class, NSNumber.class ]] fromData:listenersData error:nil];
 
-    m_backgroundPageListeners.clear();
+    m_backgroundContentEventListeners.clear();
     for (NSNumber *entry in savedListeners)
-        m_backgroundPageListeners.add(static_cast<WebExtensionEventListenerType>(entry.unsignedIntValue), [savedListeners countForObject:entry]);
+        m_backgroundContentEventListeners.add(static_cast<WebExtensionEventListenerType>(entry.unsignedIntValue), [savedListeners countForObject:entry]);
 }
 
 void WebExtensionContext::saveBackgroundPageListenersToStorage()
@@ -1221,12 +1312,12 @@ void WebExtensionContext::saveBackgroundPageListenersToStorage()
         return;
 
     NSCountedSet *listeners = [NSCountedSet set];
-    for (auto& entry : m_backgroundPageListeners)
-        [listeners addObject:@(static_cast<uint8_t>(entry.key))];
+    for (auto& entry : m_backgroundContentEventListeners)
+        [listeners addObject:@(static_cast<unsigned>(entry.key))];
 
     NSData *newBackgroundPageListenersAsData = [NSKeyedArchiver archivedDataWithRootObject:listeners requiringSecureCoding:YES error:nil];
-    NSData *savedBackgroundPageListenersAsData = [m_state objectForKey:backgroundPageListenersStateKey];
-    [m_state setObject:newBackgroundPageListenersAsData forKey:backgroundPageListenersStateKey];
+    NSData *savedBackgroundPageListenersAsData = [m_state objectForKey:backgroundContentEventListenersKey];
+    [m_state setObject:newBackgroundPageListenersAsData forKey:backgroundContentEventListenersKey];
 
     NSNumber *savedListenerVersionNumber = [m_state objectForKey:lastSeenVersionStateKey];
     [m_state setObject:@(currentBackgroundPageListenerStateVersion) forKey:lastSeenVersionStateKey];
@@ -1244,9 +1335,54 @@ uint64_t WebExtensionContext::loadBackgroundPageListenersVersionNumberFromStorag
 
 void WebExtensionContext::performTasksAfterBackgroundContentLoads()
 {
-    // FIXME: <https://webkit.org/b/246483> Implement. Fire setup and install events (if needed), perform pending actions, schedule non-persistent page to unload (if needed), etc.
+    // FIXME: <https://webkit.org/b/246483> Implement. Fire setup and install events (if needed), etc.
+
+    for (auto& event : m_actionsToPerformAfterBackgroundContentLoads)
+        event();
+    m_actionsToPerformAfterBackgroundContentLoads.clear();
 
     saveBackgroundPageListenersToStorage();
+
+    scheduleBackgroundContentToUnload();
+}
+
+void WebExtensionContext::fireEvents(EventListenerTypeSet types, CompletionHandler<void()>&& completionHandler)
+{
+    if (extension().backgroundContentIsPersistent()) {
+        completionHandler();
+        return;
+    }
+
+    bool backgroundContentListensToAtLeastOneEvent = false;
+    for (auto& type : types) {
+        if (m_backgroundContentEventListeners.contains(type)) {
+            backgroundContentListensToAtLeastOneEvent = true;
+            break;
+        }
+    }
+
+    if (!m_backgroundWebView && backgroundContentListensToAtLeastOneEvent) {
+        queueEventToFireAfterBackgroundContentLoads(WTFMove(completionHandler));
+        loadBackgroundWebView();
+        return;
+    }
+
+    bool backgroundContentIsLoading = !m_actionsToPerformAfterBackgroundContentLoads.isEmpty();
+    if (backgroundContentIsLoading)
+        queueEventToFireAfterBackgroundContentLoads(WTFMove(completionHandler));
+    else {
+        if (backgroundContentListensToAtLeastOneEvent)
+            scheduleBackgroundContentToUnload();
+
+        completionHandler();
+    }
+}
+
+void WebExtensionContext::queueEventToFireAfterBackgroundContentLoads(CompletionHandler<void()> &&completionHandler)
+{
+    ASSERT(extension().backgroundContentPath());
+
+    m_actionsToPerformAfterBackgroundContentLoads.append(WTFMove(completionHandler));
 }
 
 bool WebExtensionContext::decidePolicyForNavigationAction(WKWebView *webView, WKNavigationAction *navigationAction)

@@ -37,13 +37,16 @@
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
+#include <wtf/text/AtomStringHash.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class CSSCounterStyleRegistry;
 class CSSStyleSheet;
 class Document;
 class Element;
@@ -59,6 +62,7 @@ class TreeScope;
 
 namespace Style {
 
+class CustomPropertyRegistry;
 class Resolver;
 
 class Scope : public CanMakeWeakPtr<Scope> {
@@ -137,6 +141,11 @@ public:
         HashSet<Element*> invalidatedContainers;
     };
     bool updateQueryContainerState(QueryContainerUpdateContext&);
+
+    const CustomPropertyRegistry& customPropertyRegistry() const { return m_customPropertyRegistry.get(); }
+    CustomPropertyRegistry& customPropertyRegistry() { return m_customPropertyRegistry.get(); }
+    const CSSCounterStyleRegistry& counterStyleRegistry() const { return m_counterStyleRegistry.get(); }
+    CSSCounterStyleRegistry& counterStyleRegistry() { return m_counterStyleRegistry.get(); }
 
 private:
     Scope& documentScope();
@@ -223,6 +232,9 @@ private:
 
     std::optional<MediaQueryViewportState> m_viewportStateOnPreviousMediaQueryEvaluation;
     WeakHashMap<Element, LayoutSize, WeakPtrImplWithEventTargetData> m_queryContainerStates;
+
+    UniqueRef<CustomPropertyRegistry> m_customPropertyRegistry;
+    UniqueRef<CSSCounterStyleRegistry> m_counterStyleRegistry;
 
     // FIXME: These (and some things above) are only relevant for the root scope.
     HashMap<ResolverSharingKey, Ref<Resolver>> m_sharedShadowTreeResolvers;

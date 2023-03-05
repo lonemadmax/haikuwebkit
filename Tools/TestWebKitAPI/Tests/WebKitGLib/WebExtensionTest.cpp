@@ -66,8 +66,6 @@ static const char introspectionXML[] =
     "  <method name='GetProcessIdentifier'>"
     "   <arg type='u' name='identifier' direction='out'/>"
     "  </method>"
-    "  <method name='RemoveAVPluginsFromGSTRegistry'>"
-    "  </method>"
     "  <signal name='PageCreated'>"
     "   <arg type='t' name='pageID' direction='out'/>"
     "  </signal>"
@@ -159,7 +157,7 @@ static void emitDocumentLoaded(GDBusConnection* connection)
 
 static void documentLoadedCallback(WebKitWebPage* webPage, WebKitWebExtension* extension)
 {
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
     WebKitDOMDocument* document = webkit_web_page_get_dom_document(webPage);
     GRefPtr<WebKitDOMDOMWindow> window = adoptGRef(webkit_dom_document_get_default_view(document));
@@ -298,16 +296,33 @@ static gboolean contextMenuCallback(WebKitWebPage* page, WebKitContextMenu* menu
     }
 
     if (!g_strcmp0(pageURI, "ContextMenuTestNode")) {
-        WebKitDOMNode* node = webkit_web_hit_test_result_get_node(hitTestResult);
-        g_assert_true(WEBKIT_DOM_IS_NODE(node));
-        auto* frame = webkit_web_page_get_main_frame(page);
-        GRefPtr<JSCValue> jsNode = adoptGRef(webkit_frame_get_js_value_for_dom_object(frame, WEBKIT_DOM_OBJECT(node)));
+        GRefPtr<JSCValue> jsNode = adoptGRef(webkit_web_hit_test_result_get_js_node(hitTestResult, nullptr));
         webkit_context_menu_set_user_data(menu, serializeNode(jsNode.get()));
         return TRUE;
     }
 
     return FALSE;
 }
+
+#if !ENABLE(2022_GLIB_API)
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+static void consoleMessageSentCallback(WebKitWebPage* webPage, WebKitConsoleMessage* consoleMessage)
+{
+    g_assert_nonnull(consoleMessage);
+    GRefPtr<GVariant> variant = g_variant_new("(uusus)", webkit_console_message_get_source(consoleMessage),
+        webkit_console_message_get_level(consoleMessage), webkit_console_message_get_text(consoleMessage),
+        webkit_console_message_get_line(consoleMessage), webkit_console_message_get_source_id(consoleMessage));
+    GUniquePtr<char> messageString(g_variant_print(variant.get(), FALSE));
+    GRefPtr<JSCContext> jsContext = adoptGRef(webkit_frame_get_js_context(webkit_web_page_get_main_frame(webPage)));
+    GRefPtr<JSCValue> console = adoptGRef(jsc_context_evaluate(jsContext.get(), "window.webkit.messageHandlers.console", -1));
+    g_assert_true(JSC_IS_VALUE(console.get()));
+    if (jsc_value_is_object(console.get())) {
+        GRefPtr<JSCValue> result = adoptGRef(jsc_value_object_invoke_method(console.get(), "postMessage", G_TYPE_STRING, messageString.get(), G_TYPE_NONE));
+        g_assert_true(JSC_IS_VALUE(result.get()));
+    }
+}
+G_GNUC_END_IGNORE_DEPRECATIONS;
+#endif
 
 static void emitFormControlsAssociated(GDBusConnection* connection, const char* formIds)
 {
@@ -322,10 +337,12 @@ static void emitFormControlsAssociated(GDBusConnection* connection, const char* 
     g_assert_true(ok);
 }
 
+#if !ENABLE(2022_GLIB_API)
 static void formControlsAssociatedForFrameCallback(WebKitWebPage*, GPtrArray*, WebKitFrame*, WebKitWebExtension*)
 {
     g_assert_not_reached();
 }
+#endif
 
 static void formControlsAssociatedCallback(WebKitWebFormManager*, WebKitFrame*, GPtrArray* formElements, WebKitWebExtension* extension)
 {
@@ -363,10 +380,12 @@ static void emitFormSubmissionEvent(GDBusConnection* connection, const char* met
     g_assert_true(ok);
 }
 
+#if !ENABLE(2022_GLIB_API)
 static void willSubmitFormDeprecatedCallback(WebKitWebPage*, WebKitDOMElement*, WebKitFormSubmissionStep, WebKitFrame*, WebKitFrame*, GPtrArray*, GPtrArray*, WebKitWebExtension*)
 {
     g_assert_not_reached();
 }
+#endif
 
 static void handleFormSubmissionCallback(WebKitWebExtension* extension, DelayedSignalType delayedSignalType, const char* methodName, JSCValue* form, WebKitFrame* sourceFrame, WebKitFrame* targetFrame)
 {
@@ -517,8 +536,11 @@ static void pageCreatedCallback(WebKitWebExtension* extension, WebKitWebPage* we
     g_signal_connect(webPage, "notify::uri", G_CALLBACK(uriChangedCallback), extension);
     g_signal_connect(webPage, "send-request", G_CALLBACK(sendRequestCallback), nullptr);
     g_signal_connect(webPage, "context-menu", G_CALLBACK(contextMenuCallback), nullptr);
+#if !ENABLE(2022_GLIB_API)
     g_signal_connect(webPage, "form-controls-associated-for-frame", G_CALLBACK(formControlsAssociatedForFrameCallback), extension);
     g_signal_connect(webPage, "will-submit-form", G_CALLBACK(willSubmitFormDeprecatedCallback), extension);
+    g_signal_connect(webPage, "console-message-sent", G_CALLBACK(consoleMessageSentCallback), nullptr);
+#endif
     g_signal_connect(webPage, "user-message-received", G_CALLBACK(pageMessageReceivedCallback), extension);
 
     auto* formManager = webkit_web_page_get_form_manager(webPage, nullptr);
@@ -634,19 +656,6 @@ static void methodCallCallback(GDBusConnection* connection, const char* sender, 
     } else if (!g_strcmp0(methodName, "GetProcessIdentifier")) {
         g_dbus_method_invocation_return_value(invocation,
             g_variant_new("(u)", static_cast<guint32>(getCurrentProcessID())));
-    } else if (!g_strcmp0(methodName, "RemoveAVPluginsFromGSTRegistry")) {
-#if USE(GSTREAMER)
-        gst_init(nullptr, nullptr);
-        static const char* avPlugins[] = { "libav", "omx", "vaapi", nullptr };
-        GstRegistry* registry = gst_registry_get();
-        for (unsigned i = 0; avPlugins[i]; ++i) {
-            if (GstPlugin* plugin = gst_registry_find_plugin(registry, avPlugins[i])) {
-                gst_registry_remove_plugin(registry, plugin);
-                gst_object_unref(plugin);
-            }
-        }
-#endif
-        g_dbus_method_invocation_return_value(invocation, nullptr);
     }
 }
 

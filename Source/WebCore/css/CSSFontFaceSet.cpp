@@ -27,7 +27,6 @@
 #include "CSSFontFaceSet.h"
 
 #include "CSSFontFaceSource.h"
-#include "CSSFontFamily.h"
 #include "CSSFontSelector.h"
 #include "CSSParser.h"
 #include "CSSPrimitiveValue.h"
@@ -37,6 +36,7 @@
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
 #include "FontCache.h"
+#include "FontSelectionValueInlines.h"
 #include "StyleBuilderConverter.h"
 #include "StyleProperties.h"
 
@@ -141,9 +141,7 @@ void CSSFontFaceSet::ensureLocalFontFacesForFamilyRegistered(const AtomString& f
 String CSSFontFaceSet::familyNameFromPrimitive(const CSSPrimitiveValue& value)
 {
     if (value.isFontFamily())
-        return value.fontFamily().familyName;
-    if (!value.isValueID())
-        return { };
+        return value.stringValue();
 
     // We need to use the raw text for all the generic family types, since @font-face is a way of actually
     // defining what font to use for those types.

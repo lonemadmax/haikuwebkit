@@ -376,6 +376,9 @@ public:
     bool validateUserInterfaceItem(id <NSValidatedUserInterfaceItem>);
     void setEditableElementIsFocused(bool);
 
+    void setCaretDecorationVisibility(bool);
+    void updateCaretDecorationPlacement();
+
     void startSpeaking();
     void stopSpeaking(id);
 
@@ -649,6 +652,9 @@ public:
     
     void setUseSystemAppearance(bool);
     bool useSystemAppearance();
+
+    bool useFormSemanticContext() const;
+    void semanticContextDidChange();
 
     void effectiveAppearanceDidChange();
     bool effectiveAppearanceIsDark();

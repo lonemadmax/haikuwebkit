@@ -28,8 +28,11 @@
 
 #if PLATFORM(MAC)
 
+#import "WebPage.h"
 #import "WebPageCreationParameters.h"
-#import <WebCore/ScrollView.h>
+#import <WebCore/FrameView.h>
+#import <WebCore/GraphicsLayer.h>
+#import <WebCore/RenderLayerBacking.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -50,6 +53,9 @@ DelegatedScrollingMode RemoteLayerTreeDrawingAreaMac::delegatedScrollingMode() c
 void RemoteLayerTreeDrawingAreaMac::setColorSpace(std::optional<WebCore::DestinationColorSpace> colorSpace)
 {
     m_displayColorSpace = colorSpace;
+
+    // We rely on the fact that the full style recalc that happens when moving a window between displays triggers repaints,
+    // which causes PlatformCALayerRemote::updateBackingStore() to re-create backing stores with the new colorspace.
 }
 
 std::optional<WebCore::DestinationColorSpace> RemoteLayerTreeDrawingAreaMac::displayColorSpace() const
@@ -57,6 +63,51 @@ std::optional<WebCore::DestinationColorSpace> RemoteLayerTreeDrawingAreaMac::dis
     return m_displayColorSpace;
 }
 
+void RemoteLayerTreeDrawingAreaMac::applyTransientZoomToPage(double scale, FloatPoint origin)
+{
+    auto& frameView = *m_webPage.mainFrameView();
+
+    auto unscrolledOrigin = origin;
+    FloatRect unobscuredContentRect = frameView.unobscuredContentRectIncludingScrollbars();
+    unscrolledOrigin.moveBy(-unobscuredContentRect.location());
+    m_webPage.scalePage(scale / m_webPage.viewScaleFactor(), roundedIntPoint(-unscrolledOrigin));
+    updateRendering();
+}
+
+void RemoteLayerTreeDrawingAreaMac::adjustTransientZoom(double scale, WebCore::FloatPoint origin)
+{
+    LOG_WITH_STREAM(ViewGestures, stream << "RemoteLayerTreeDrawingAreaMac::adjustTransientZoom - scale " << scale << " origin " << origin);
+
+    auto totalScale = scale * m_webPage.viewScaleFactor();
+
+    // FIXME: Need to trigger some re-rendering here to render at the new scale, so tiles update while zooming.
+
+    prepopulateRectForZoom(totalScale, origin);
+}
+
+void RemoteLayerTreeDrawingAreaMac::commitTransientZoom(double scale, WebCore::FloatPoint origin)
+{
+    LOG_WITH_STREAM(ViewGestures, stream << "RemoteLayerTreeDrawingAreaMac::commitTransientZoom - scale " << scale << " origin " << origin);
+
+    scale *= m_webPage.viewScaleFactor();
+    
+    // FIXME: Constrain scale and origin
+    applyTransientZoomToPage(scale, origin);
+}
+
+void RemoteLayerTreeDrawingAreaMac::willCommitLayerTree(RemoteLayerTreeTransaction& transaction)
+{
+    // FIXME: Probably need something here for PDF.
+    auto* frameView = m_webPage.mainFrameView();
+    if (!frameView)
+        return;
+
+    auto* renderViewGraphicsLayer = frameView->graphicsLayerForPageScale();
+    if (!renderViewGraphicsLayer)
+        return;
+
+    transaction.setPageScalingLayerID(renderViewGraphicsLayer->primaryLayerID());
+}
 
 } // namespace WebKit
 

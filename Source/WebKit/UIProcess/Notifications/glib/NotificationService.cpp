@@ -31,7 +31,6 @@
 #include <WebCore/NotificationResources.h>
 #include <WebCore/RefPtrCairo.h>
 #include <cairo.h>
-#include <gio/gdesktopappinfo.h>
 #include <gio/gio.h>
 #include <glib/gi18n-lib.h>
 #include <mutex>
@@ -49,6 +48,10 @@
 
 #if PLATFORM(GTK)
 #include <WebCore/GtkVersioning.h>
+#endif
+
+#if HAVE(GDESKTOPAPPINFO)
+#include <gio/gdesktopappinfo.h>
 #endif
 
 namespace WebKit {
@@ -215,7 +218,7 @@ public:
 
 private:
     HashMap<String, std::pair<uint32_t, std::variant<CString, GRefPtr<GBytes>>>> m_iconCache;
-    RunLoop::Timer<IconCache> m_timer;
+    RunLoop::Timer m_timer;
 };
 
 static IconCache& iconCache()
@@ -294,6 +297,7 @@ void NotificationService::processCapabilities(GVariant* variant)
 static const char* applicationIcon(const char* applicationID)
 {
     static std::optional<CString> appIcon;
+#if HAVE(GDESKTOPAPPINFO)
     if (!appIcon) {
         appIcon = [applicationID]() -> CString {
             if (!applicationID)
@@ -328,6 +332,7 @@ static const char* applicationIcon(const char* applicationID)
             return { };
         }();
     }
+#endif // HAVE(GDESKTOPAPPINFO)
 
     return appIcon->data();
 }

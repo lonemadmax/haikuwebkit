@@ -78,8 +78,8 @@ RefPtr<CSSValue> CSSKeywordValue::toCSSValue() const
 {
     auto keyword = cssValueKeywordID(m_value);
     if (keyword == CSSValueInvalid)
-        return nullptr;
-    return CSSPrimitiveValue::createIdentifier(keyword);
+        return CSSPrimitiveValue::create(m_value, CSSUnitType::CustomIdent);
+    return CSSPrimitiveValue::create(keyword);
 }
 
 } // namespace WebCore

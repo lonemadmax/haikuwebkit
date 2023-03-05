@@ -29,6 +29,7 @@
 #include "ASTGlobalDirective.h"
 #include "ASTStructureDecl.h"
 #include "ASTVariableDecl.h"
+#include "WGSL.h"
 
 #include <wtf/HashMap.h>
 #include <wtf/text/StringHash.h>
@@ -40,8 +41,10 @@ class ShaderModule final : Node {
     WTF_MAKE_FAST_ALLOCATED;
 
 public:
-    ShaderModule(SourceSpan span, GlobalDirective::List&& directives, Decl::List&& decls)
+    ShaderModule(SourceSpan span, const String& source, const Configuration& configuration, GlobalDirective::List&& directives, Decl::List&& decls)
         : Node(span)
+        , m_source(source)
+        , m_configuration(configuration)
         , m_directives(WTFMove(directives))
     {
         for (size_t i = decls.size(); i > 0; --i) {
@@ -66,12 +69,16 @@ public:
 
     Kind kind() const override;
 
+    const String& source() const { return m_source; }
+    const Configuration& configuration() const { return m_configuration; }
     GlobalDirective::List& directives() { return m_directives; }
     StructDecl::List& structs() { return m_structs; }
     VariableDecl::List& globalVars() { return m_globalVars; }
     FunctionDecl::List& functions() { return m_functions; }
 
 private:
+    String m_source;
+    Configuration m_configuration;
     GlobalDirective::List m_directives;
 
     StructDecl::List m_structs;

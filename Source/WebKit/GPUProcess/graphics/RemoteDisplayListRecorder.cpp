@@ -30,6 +30,7 @@
 
 #include "ImageBufferShareableAllocator.h"
 #include "RemoteDisplayListRecorderMessages.h"
+#include "RemoteImageBuffer.h"
 #include <WebCore/BitmapImage.h>
 #include <WebCore/FilterResults.h>
 
@@ -45,6 +46,9 @@ RemoteDisplayListRecorder::RemoteDisplayListRecorder(ImageBuffer& imageBuffer, Q
     , m_imageBufferIdentifier(imageBufferIdentifier)
     , m_webProcessIdentifier(webProcessIdentifier)
     , m_renderingBackend(&renderingBackend)
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+    , m_sharedVideoFrameReader(Ref { renderingBackend.gpuConnectionToWebProcess().videoFrameObjectHeap() }, renderingBackend.gpuConnectionToWebProcess().webProcessIdentity())
+#endif
 {
 }
 
@@ -317,11 +321,11 @@ void RemoteDisplayListRecorder::drawNativeImageWithQualifiedIdentifier(Qualified
     handleItem(DisplayList::DrawNativeImage(imageIdentifier.object(), imageSize, destRect, srcRect, options), *image);
 }
 
-void RemoteDisplayListRecorder::drawSystemImage(SystemImage& systemImage, const FloatRect& destinationRect)
+void RemoteDisplayListRecorder::drawSystemImage(Ref<SystemImage> systemImage, const FloatRect& destinationRect)
 {
 #if USE(SYSTEM_PREVIEW)
-    if (is<ARKitBadgeSystemImage>(systemImage)) {
-        ARKitBadgeSystemImage& badge = downcast<ARKitBadgeSystemImage>(systemImage);
+    if (is<ARKitBadgeSystemImage>(systemImage.get())) {
+        ARKitBadgeSystemImage& badge = downcast<ARKitBadgeSystemImage>(systemImage.get());
         RefPtr nativeImage = resourceCache().cachedNativeImage({ badge.imageIdentifier(), m_webProcessIdentifier });
         if (!nativeImage) {
             ASSERT_NOT_REACHED();
@@ -391,14 +395,14 @@ void RemoteDisplayListRecorder::drawPath(const Path& path)
     handleItem(DisplayList::DrawPath(path));
 }
 
-void RemoteDisplayListRecorder::drawFocusRingPath(const Path& path, float width, float offset, const Color& color)
+void RemoteDisplayListRecorder::drawFocusRingPath(const Path& path, float outlineWidth, const Color& color)
 {
-    handleItem(DisplayList::DrawFocusRingPath(path, width, offset, color));
+    handleItem(DisplayList::DrawFocusRingPath(path, outlineWidth, color));
 }
 
-void RemoteDisplayListRecorder::drawFocusRingRects(const Vector<FloatRect>& rects, float width, float offset, const Color& color)
+void RemoteDisplayListRecorder::drawFocusRingRects(const Vector<FloatRect>& rects, float outlineOffset, float outlineWidth, const Color& color)
 {
-    handleItem(DisplayList::DrawFocusRingRects(rects, width, offset, color));
+    handleItem(DisplayList::DrawFocusRingRects(rects, outlineOffset, outlineWidth, color));
 }
 
 void RemoteDisplayListRecorder::fillRect(const FloatRect& rect)
@@ -483,6 +487,24 @@ void RemoteDisplayListRecorder::paintFrameForMedia(MediaPlayerIdentifier identif
     });
 }
 
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+void RemoteDisplayListRecorder::paintVideoFrame(SharedVideoFrame&& frame, const WebCore::FloatRect& destination, bool shouldDiscardAlpha)
+{
+    if (auto videoFrame = m_sharedVideoFrameReader.read(WTFMove(frame)))
+        drawingContext().paintVideoFrame(*videoFrame, destination, shouldDiscardAlpha);
+}
+
+void RemoteDisplayListRecorder::setSharedVideoFrameSemaphore(IPC::Semaphore&& semaphore)
+{
+    m_sharedVideoFrameReader.setSemaphore(WTFMove(semaphore));
+}
+
+void RemoteDisplayListRecorder::setSharedVideoFrameMemory(const SharedMemory::Handle& handle)
+{
+    m_sharedVideoFrameReader.setSharedMemory(handle);
+}
+#endif // PLATFORM(COCOA) && ENABLE(VIDEO)
+
 void RemoteDisplayListRecorder::strokeRect(const FloatRect& rect, float lineWidth)
 {
     handleItem(DisplayList::StrokeRect(rect, lineWidth));
@@ -532,6 +554,14 @@ void RemoteDisplayListRecorder::strokeEllipse(const FloatRect& rect)
 void RemoteDisplayListRecorder::clearRect(const FloatRect& rect)
 {
     handleItem(DisplayList::ClearRect(rect));
+}
+
+void RemoteDisplayListRecorder::drawControlPart(Ref<ControlPart> part, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle& style)
+{
+    if (!m_controlFactory)
+        m_controlFactory = ControlFactory::createControlFactory();
+    part->setControlFactory(m_controlFactory.get());
+    handleItem(DisplayList::DrawControlPart(WTFMove(part), borderRect, deviceScaleFactor, style));
 }
 
 #if USE(CG)

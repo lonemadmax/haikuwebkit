@@ -12,10 +12,7 @@ $(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/PlatformHave.h
 $(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/PlatformLegacy.h
 $(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/PlatformOS.h
 $(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/PlatformUse.h
-$(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/Scripts/Preferences/WebPreferences.yaml
-$(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/Scripts/Preferences/WebPreferencesDebug.yaml
-$(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/Scripts/Preferences/WebPreferencesExperimental.yaml
-$(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/Scripts/Preferences/WebPreferencesInternal.yaml
+$(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/Scripts/Preferences/UnifiedWebPreferences.yaml
 $(JAVASCRIPTCORE_PRIVATE_HEADERS_DIR)/UpdateContents.py
 $(JAVASCRIPTCORE_PRIVATE_HEADERS_DIR)/builtins_generate_combined_header.py
 $(JAVASCRIPTCORE_PRIVATE_HEADERS_DIR)/builtins_generate_combined_implementation.py
@@ -231,6 +228,8 @@ $(PROJECT_DIR)/Modules/async-clipboard/ClipboardItem.idl
 $(PROJECT_DIR)/Modules/async-clipboard/Navigator+Clipboard.idl
 $(PROJECT_DIR)/Modules/audiosession/DOMAudioSession.idl
 $(PROJECT_DIR)/Modules/audiosession/Navigator+AudioSession.idl
+$(PROJECT_DIR)/Modules/badge/Navigator+Badge.idl
+$(PROJECT_DIR)/Modules/badge/NavigatorBadge.idl
 $(PROJECT_DIR)/Modules/beacon/Navigator+Beacon.idl
 $(PROJECT_DIR)/Modules/cache/CacheQueryOptions.idl
 $(PROJECT_DIR)/Modules/cache/DOMCache.idl
@@ -301,7 +300,10 @@ $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl
 $(PROJECT_DIR)/Modules/gamepad/Gamepad.idl
 $(PROJECT_DIR)/Modules/gamepad/GamepadButton.idl
+$(PROJECT_DIR)/Modules/gamepad/GamepadEffectParameters.idl
 $(PROJECT_DIR)/Modules/gamepad/GamepadEvent.idl
+$(PROJECT_DIR)/Modules/gamepad/GamepadHapticActuator.idl
+$(PROJECT_DIR)/Modules/gamepad/GamepadHapticEffectType.idl
 $(PROJECT_DIR)/Modules/gamepad/Navigator+Gamepad.idl
 $(PROJECT_DIR)/Modules/gamepad/WindowEventHandlers+Gamepad.idl
 $(PROJECT_DIR)/Modules/geolocation/Coordinates.idl
@@ -959,6 +961,7 @@ $(PROJECT_DIR)/css/CSSPageRule.idl
 $(PROJECT_DIR)/css/CSSPaintCallback.idl
 $(PROJECT_DIR)/css/CSSPaintSize.idl
 $(PROJECT_DIR)/css/CSSProperties.json
+$(PROJECT_DIR)/css/CSSPropertyRule.idl
 $(PROJECT_DIR)/css/CSSRule.idl
 $(PROJECT_DIR)/css/CSSRuleList.idl
 $(PROJECT_DIR)/css/CSSStyleDeclaration.idl
@@ -1197,6 +1200,7 @@ $(PROJECT_DIR)/dom/TransitionEvent.idl
 $(PROJECT_DIR)/dom/TreeWalker.idl
 $(PROJECT_DIR)/dom/UIEvent.idl
 $(PROJECT_DIR)/dom/UIEventInit.idl
+$(PROJECT_DIR)/dom/ValidityStateFlags.idl
 $(PROJECT_DIR)/dom/VisibilityState.idl
 $(PROJECT_DIR)/dom/WheelEvent.idl
 $(PROJECT_DIR)/dom/XMLDocument.idl
@@ -1381,6 +1385,7 @@ $(PROJECT_DIR)/html/canvas/PredefinedColorSpace.idl
 $(PROJECT_DIR)/html/canvas/WebGL2RenderingContext.idl
 $(PROJECT_DIR)/html/canvas/WebGLActiveInfo.idl
 $(PROJECT_DIR)/html/canvas/WebGLBuffer.idl
+$(PROJECT_DIR)/html/canvas/WebGLClipCullDistance.idl
 $(PROJECT_DIR)/html/canvas/WebGLColorBufferFloat.idl
 $(PROJECT_DIR)/html/canvas/WebGLCompressedTextureASTC.idl
 $(PROJECT_DIR)/html/canvas/WebGLCompressedTextureETC.idl

@@ -34,6 +34,7 @@
 #import "Download.h"
 #import "LegacyCustomProtocolManager.h"
 #import "Logging.h"
+#import "NetworkConnectionIntegrityHelpers.h"
 #import "NetworkDataTaskCocoa.h"
 #import "NetworkLoad.h"
 #import "NetworkProcess.h"
@@ -159,9 +160,33 @@ static WebCore::PrivacyStance toPrivacyStance(nw_connection_privacy_stance_t sta
         return WebCore::PrivacyStance::Failed;
     case nw_connection_privacy_stance_direct:
         return WebCore::PrivacyStance::Direct;
+#if defined(NW_CONNECTION_HAS_PRIVACY_STANCE_FAILED_UNREACHABLE)
+    case nw_connection_privacy_stance_failed_unreachable:
+        return WebCore::PrivacyStance::FailedUnreachable;
+#endif
     }
     ASSERT_NOT_REACHED();
     return WebCore::PrivacyStance::Unknown;
+}
+
+static NSString* privacyStanceToString(WebCore::PrivacyStance stance)
+{
+    switch (stance) {
+    case WebCore::PrivacyStance::Unknown:
+        return @"Unknown";
+    case WebCore::PrivacyStance::NotEligible:
+        return @"NotEligible";
+    case WebCore::PrivacyStance::Proxied:
+        return @"Proxied";
+    case WebCore::PrivacyStance::Failed:
+        return @"Failed";
+    case WebCore::PrivacyStance::Direct:
+        return @"Direct";
+    case WebCore::PrivacyStance::FailedUnreachable:
+        return @"FailedUnreachable";
+    }
+    ASSERT_NOT_REACHED();
+    return @"Unknown";
 }
 #endif
 
@@ -445,14 +470,6 @@ static String stringForSSLCipher(SSLCipherSuite cipher)
 }
 #endif // HAVE(CFNETWORK_METRICS_APIS_V4)
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/NetworkSessionCocoaAdditions.mm>)
-#import <WebKitAdditions/NetworkSessionCocoaAdditions.mm>
-#else
-namespace WebKit {
-inline static void applyAdditionalSettings(NSURLSession *) { }
-}
-#endif
-
 @interface WKNetworkSessionDelegate : NSObject <NSURLSessionDataDelegate
 #if HAVE(NSURLSESSION_WEBSOCKET)
     , NSURLSessionWebSocketDelegate
@@ -518,13 +535,13 @@ inline static void applyAdditionalSettings(NSURLSession *) { }
         return;
     }
 
-    auto* body = networkDataTask->firstRequest().httpBody();
+    auto body = networkDataTask->firstRequest().httpBody();
     if (!body) {
         completionHandler(nil);
         return;
     }
 
-    completionHandler(WebCore::createHTTPBodyNSInputStream(*body).get());
+    completionHandler(WebCore::createHTTPBodyNSInputStream(body.releaseNonNull()).get());
 }
 
 #if ENABLE(TRACKING_PREVENTION)
@@ -788,6 +805,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         NSDictionary *oldUserInfo = [error userInfo];
         NSMutableDictionary *newUserInfo = oldUserInfo ? [NSMutableDictionary dictionaryWithDictionary:oldUserInfo] : [NSMutableDictionary dictionary];
         newUserInfo[@"networkTaskDescription"] = [task description];
+#if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
+        if (auto* networkDataTask = [self existingTask:task])
+            newUserInfo[@"networkTaskMetricsPrivacyStance"] = privacyStanceToString(networkDataTask->networkLoadMetrics().privacyStance);
+#endif
         error = [NSError errorWithDomain:[error domain] code:[error code] userInfo:newUserInfo];
     }
 
@@ -1086,7 +1107,9 @@ namespace WebKit {
 static RetainPtr<NSURLSession> createURLSession(NSURLSessionConfiguration *configuration, id<NSURLSessionDelegate> delegate)
 {
     RetainPtr session = [NSURLSession sessionWithConfiguration:configuration delegate:delegate delegateQueue:NSOperationQueue.mainQueue];
-    applyAdditionalSettings(session.get());
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    configureForNetworkConnectionIntegrity(session.get());
+#endif
     return session;
 }
 
@@ -1135,6 +1158,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         configuration._connectionCacheMinimumFastLanePriority = toPlatformRequestPriority(WebCore::ResourceLoadPriority::Medium);
         configuration._connectionCacheNumFastLanes = 1;
     }
+#endif
+
+#if ENABLE(NETWORK_ISSUE_REPORTING)
+    if ([configuration respondsToSelector:@selector(set_skipsStackTraceCapture:)])
+        configuration._skipsStackTraceCapture = YES;
 #endif
 
     return configuration;

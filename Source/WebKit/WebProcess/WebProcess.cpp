@@ -54,6 +54,7 @@
 #include "StorageAreaMap.h"
 #include "UserData.h"
 #include "WebAutomationSessionProxy.h"
+#include "WebBadgeClient.h"
 #include "WebBroadcastChannelRegistry.h"
 #include "WebCacheStorageProvider.h"
 #include "WebConnectionToUIProcess.h"
@@ -101,6 +102,7 @@
 #include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/BackForwardCache.h>
 #include <WebCore/CPUMonitor.h>
+#include <WebCore/ClientOrigin.h>
 #include <WebCore/CommonVM.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
 #include <WebCore/DNS.h>
@@ -275,6 +277,18 @@ NO_RETURN static void callExit(IPC::Connection*)
 }
 #endif
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+static void crashAfter10Seconds(IPC::Connection*)
+{
+    // If the connection has been closed and we haven't responded in the main thread for 10 seconds the process will exit forcibly.
+    static const auto watchdogDelay = 10_s;
+    WorkQueue::create("WebKit.WebProcess.WatchDogQueue")->dispatchAfter(watchdogDelay, [] {
+        // We use g_error() here to cause a crash and allow debugging this unexpected late exit.
+        g_error("WebProcess didn't exit as expected after the UI process connection was closed");
+    });
+}
+#endif
+
 WebProcess& WebProcess::singleton()
 {
     static WebProcess& process = *new WebProcess;
@@ -287,6 +301,7 @@ WebProcess::WebProcess()
     , m_remoteVideoCodecFactory(*this)
 #endif
     , m_cacheStorageProvider(WebCacheStorageProvider::create())
+    , m_badgeClient(WebBadgeClient::create())
     , m_broadcastChannelRegistry(WebBroadcastChannelRegistry::create())
     , m_cookieJar(WebCookieJar::create())
     , m_dnsPrefetchHystereris([this](PAL::HysteresisState state) { if (state == PAL::HysteresisState::Stopped) m_dnsPrefetchedHosts.clear(); })
@@ -373,11 +388,15 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 
 // Do not call exit in background queue for GTK and WPE because we need to ensure
 // atexit handlers are called in the main thread to cleanup resources like EGL displays.
-#if !PLATFORM(GTK) && !PLATFORM(WPE)
+// Unless the main thread doesn't exit after 10 senconds to avoid leaking the process.
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    IPC::Connection::DidCloseOnConnectionWorkQueueCallback callExitCallback = crashAfter10Seconds;
+#else
     // We call _exit() directly from the background queue in case the main thread is unresponsive
     // and AuxiliaryProcess::didClose() does not get called.
-    connection->setDidCloseOnConnectionWorkQueueCallback(callExit);
+    IPC::Connection::DidCloseOnConnectionWorkQueueCallback callExitCallback = callExit;
 #endif
+    connection->setDidCloseOnConnectionWorkQueueCallback(callExitCallback);
 
 #if !PLATFORM(GTK) && !PLATFORM(WPE) && !ENABLE(IPC_TESTING_API)
     connection->setShouldExitOnSyncMessageSendFailure(true);
@@ -944,14 +963,17 @@ void WebProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& de
     LOG_ERROR("Unhandled web process message '%s' (destination: %" PRIu64 " pid: %d)", description(decoder.messageName()), decoder.destinationID(), static_cast<int>(getCurrentProcessID()));
 }
 
-void WebProcess::didClose(IPC::Connection&)
+void WebProcess::didClose(IPC::Connection& connection)
 {
+#if ENABLE(VIDEO)
     FileSystem::markPurgeable(WebCore::HTMLMediaElement::mediaCacheDirectory());
+#endif
     if (m_applicationCacheStorage)
         FileSystem::markPurgeable(m_applicationCacheStorage->cacheDirectory());
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     FileSystem::markPurgeable(ARKitInlinePreviewModelPlayerMac::modelElementCacheDirectory());
 #endif
+    AuxiliaryProcess::didClose(connection);
 }
 
 WebFrame* WebProcess::webFrame(FrameIdentifier frameID) const
@@ -1426,6 +1448,17 @@ void WebProcess::deleteWebsiteData(OptionSet<WebsiteDataType> websiteDataTypes, 
 void WebProcess::deleteAllCookies(CompletionHandler<void()>&& completionHandler)
 {
     m_cookieJar->clearCache();
+    completionHandler();
+}
+
+void WebProcess::deleteWebsiteDataForOrigin(OptionSet<WebsiteDataType> websiteDataTypes, const ClientOrigin& origin, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(websiteDataTypes.contains(WebsiteDataType::MemoryCache)); // This would be useless IPC otherwise.
+    if (websiteDataTypes.contains(WebsiteDataType::MemoryCache)) {
+        MemoryCache::singleton().removeResourcesWithOrigin(origin);
+        if (origin.topOrigin == origin.clientOrigin)
+            BackForwardCache::singleton().clearEntriesForOrigins({ RefPtr<SecurityOrigin> { origin.clientOrigin.securityOrigin() } });
+    }
     completionHandler();
 }
 
@@ -1947,6 +1980,9 @@ void WebProcess::grantUserMediaDeviceSandboxExtensions(MediaDeviceSandboxExtensi
         WEBPROCESS_RELEASE_LOG(WebRTC, "grantUserMediaDeviceSandboxExtensions: granted extension %s", extension.first.utf8().data());
         m_mediaCaptureSandboxExtensions.add(extension.first, extension.second.copyRef());
     }
+    m_machBootstrapExtension = extensions.machBootstrapExtension();
+    if (m_machBootstrapExtension)
+        m_machBootstrapExtension->consume();
 }
 
 static inline void checkDocumentsCaptureStateConsistency(const Vector<String>& extensionIDs)
@@ -1969,7 +2005,7 @@ static inline void checkDocumentsCaptureStateConsistency(const Vector<String>& e
 void WebProcess::revokeUserMediaDeviceSandboxExtensions(const Vector<String>& extensionIDs)
 {
     checkDocumentsCaptureStateConsistency(extensionIDs);
-
+    
     for (const auto& extensionID : extensionIDs) {
         auto extension = m_mediaCaptureSandboxExtensions.take(extensionID);
         ASSERT(extension || MockRealtimeMediaSourceCenter::mockRealtimeMediaSourceCenterEnabled());
@@ -1978,6 +2014,9 @@ void WebProcess::revokeUserMediaDeviceSandboxExtensions(const Vector<String>& ex
             WEBPROCESS_RELEASE_LOG(WebRTC, "revokeUserMediaDeviceSandboxExtensions: revoked extension %s", extensionID.utf8().data());
         }
     }
+    
+    if (m_machBootstrapExtension)
+        m_machBootstrapExtension->revoke();
 }
 #endif
 #endif
@@ -2006,6 +2045,16 @@ bool WebProcess::areAllPagesThrottleable() const
     return WTF::allOf(m_pageMap.values(), [](auto& page) {
         return page->isThrottleable();
     });
+}
+
+void WebProcess::setAppBadge(std::optional<WebPageProxyIdentifier> pageIdentifier, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
+{
+    parentProcessConnection()->send(Messages::WebProcessProxy::SetAppBadge(pageIdentifier, origin, badge), 0);
+}
+
+void WebProcess::setClientBadge(WebPageProxyIdentifier pageIdentifier, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
+{
+    parentProcessConnection()->send(Messages::WebProcessProxy::SetClientBadge(pageIdentifier, origin, badge), 0);
 }
 
 #if HAVE(CVDISPLAYLINK)

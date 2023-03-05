@@ -91,7 +91,6 @@ private:
     void toolTipChanged(const String& oldToolTip, const String& newToolTip) override;
     void didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider) override;
     void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&) override;
-    void handleDownloadRequest(DownloadProxy&) override;
     void didChangeContentSize(const WebCore::IntSize&) override;
     void setCursor(const WebCore::Cursor&) override;
     void setCursorHiddenUntilMouseMoves(bool) override;
@@ -197,6 +196,11 @@ private:
 
     void setEditableElementIsFocused(bool) override;
 
+    void setCaretDecorationVisibility(bool) override;
+
+    void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
+    void layerTreeCommitComplete() override;
+
     void registerInsertionUndoGrouping() override;
 
 #if ENABLE(UI_PROCESS_PDF_HUD)
@@ -260,6 +264,8 @@ private:
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
     bool effectiveAppearanceIsDark() const override;
     bool effectiveUserInterfaceLevelIsElevated() const override;
+
+    bool useFormSemanticContext() const override;
 
     bool isTextRecognitionInFullscreenVideoEnabled() const final { return true; }
     void beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmapHandle&, WebCore::FloatRect) final;

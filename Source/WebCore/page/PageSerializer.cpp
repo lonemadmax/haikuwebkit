@@ -56,7 +56,7 @@
 #include "RenderElement.h"
 #include "StyleCachedImage.h"
 #include "StyleImage.h"
-#include "StyleProperties.h"
+#include "StylePropertiesInlines.h"
 #include "StyleRule.h"
 #include "StyleSheetContents.h"
 #include "Text.h"
@@ -145,7 +145,7 @@ void PageSerializer::SerializerMarkupAccumulator::appendCustomAttributes(StringB
         return;
 
     const HTMLFrameOwnerElement& frameOwner = downcast<HTMLFrameOwnerElement>(element);
-    Frame* frame = frameOwner.contentFrame();
+    auto* frame = dynamicDowncast<LocalFrame>(frameOwner.contentFrame());
     if (!frame)
         return;
 

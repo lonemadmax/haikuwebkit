@@ -32,6 +32,8 @@
 
 namespace WebKit {
 
+enum class UnifiedOriginStorageLevel : uint8_t;
+
 namespace WebPushD {
 struct WebPushDaemonConnectionConfiguration;
 }
@@ -148,10 +150,11 @@ public:
     const String& generalStorageDirectory() const { return m_generalStorageDirectory; }
     void setGeneralStorageDirectory(String&& directory) { m_generalStorageDirectory = WTFMove(directory); }
 
-    // If true, store data in localStorageDirectory and indexedDBDatabaseDirectory. Otherwise,
-    // migrate data from these locations to generalStorageDirectory.
-    bool shouldUseCustomStoragePaths() const { return m_shouldUseCustomStoragePaths; }
-    void setShouldUseCustomStoragePaths(bool use) { m_shouldUseCustomStoragePaths = use; }
+    UnifiedOriginStorageLevel unifiedOriginStorageLevel() const { return m_unifiedOriginStorageLevel; }
+    void setUnifiedOriginStorageLevel(UnifiedOriginStorageLevel level) { m_unifiedOriginStorageLevel = level; }
+
+    const String& webPushPartitionString() const { return m_webPushPartitionString; }
+    void setWebPushPartitionString(String&& string) { m_webPushPartitionString = WTFMove(string); }
 
     const String& applicationCacheFlatFileSubdirectoryName() const { return m_applicationCacheFlatFileSubdirectoryName; }
     void setApplicationCacheFlatFileSubdirectoryName(String&& directory) { m_applicationCacheFlatFileSubdirectoryName = WTFMove(directory); }
@@ -232,7 +235,7 @@ private:
 
     IsPersistent m_isPersistent { IsPersistent::No };
 
-    bool m_shouldUseCustomStoragePaths;
+    UnifiedOriginStorageLevel m_unifiedOriginStorageLevel;
     std::optional<UUID> m_identifier;
     String m_baseCacheDirectory;
     String m_baseDataDirectory;
@@ -290,6 +293,7 @@ private:
     bool m_trackingPreventionDebugModeEnabled { false };
     String m_pcmMachServiceName;
     String m_webPushMachServiceName;
+    String m_webPushPartitionString;
 #if !HAVE(NSURLSESSION_WEBSOCKET)
     bool m_shouldAcceptInsecureCertificatesForWebSockets { false };
 #endif

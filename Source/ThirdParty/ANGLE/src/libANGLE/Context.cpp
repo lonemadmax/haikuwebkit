@@ -1093,13 +1093,13 @@ void Context::deleteRenderbuffer(RenderbufferID renderbuffer)
     mState.mRenderbufferManager->deleteObject(this, renderbuffer);
 }
 
-void Context::deleteSync(GLsync sync)
+void Context::deleteSync(SyncID syncPacked)
 {
     // The spec specifies the underlying Fence object is not deleted until all current
     // wait commands finish. However, since the name becomes invalid, we cannot query the fence,
     // and since our API is currently designed for being called from a single thread, we can delete
     // the fence immediately.
-    mState.mSyncManager->deleteObject(this, static_cast<GLuint>(reinterpret_cast<uintptr_t>(sync)));
+    mState.mSyncManager->deleteObject(this, syncPacked);
 }
 
 void Context::deleteProgramPipeline(ProgramPipelineID pipelineID)
@@ -1187,9 +1187,9 @@ EGLenum Context::getContextPriority() const
     return egl::ToEGLenum(mImplementation->getContextPriority());
 }
 
-Sync *Context::getSync(GLsync handle) const
+Sync *Context::getSync(SyncID syncPacked) const
 {
-    return mState.mSyncManager->getSync(static_cast<GLuint>(reinterpret_cast<uintptr_t>(handle)));
+    return mState.mSyncManager->getSync(syncPacked);
 }
 
 VertexArray *Context::getVertexArray(VertexArrayID handle) const
@@ -1252,7 +1252,7 @@ gl::LabeledObject *Context::getLabeledObject(GLenum identifier, GLuint name) con
 
 gl::LabeledObject *Context::getLabeledObjectFromPtr(const void *ptr) const
 {
-    return getSync(reinterpret_cast<GLsync>(const_cast<void *>(ptr)));
+    return getSync({unsafe_pointer_to_int_cast<uint32_t>(ptr)});
 }
 
 void Context::objectLabel(GLenum identifier, GLuint name, GLsizei length, const GLchar *label)
@@ -2189,7 +2189,7 @@ void Context::getIntegervImpl(GLenum pname, GLint *params) const
         case GL_MAX_CLIP_PLANES:
             if (getClientVersion().major >= 2)
             {
-                // GL_APPLE_clip_distance/GL_EXT_clip_cull_distance
+                // GL_APPLE_clip_distance / GL_EXT_clip_cull_distance / GL_ANGLE_clip_cull_distance
                 *params = mState.mCaps.maxClipDistances;
             }
             else
@@ -2271,6 +2271,10 @@ void Context::getIntegervImpl(GLenum pname, GLint *params) const
             break;
         case GL_MAX_COMBINED_DRAW_BUFFERS_AND_PIXEL_LOCAL_STORAGE_PLANES_ANGLE:
             *params = mState.mCaps.maxCombinedDrawBuffersAndPixelLocalStoragePlanes;
+            break;
+
+        case GL_QUERY_COUNTER_BITS_EXT:
+            *params = mState.mCaps.queryCounterBitsTimestamp;
             break;
 
         default:
@@ -3708,8 +3712,9 @@ Extensions Context::generateSupportedExtensions() const
         // GL_EXT_YUV_target requires ESSL3
         supportedExtensions.YUVTargetEXT = false;
 
-        // GL_EXT_clip_cull_distance requires ESSL3
-        supportedExtensions.clipCullDistanceEXT = false;
+        // GL_EXT_clip_cull_distance / GL_ANGLE_clip_cull_distance require ESSL3
+        supportedExtensions.clipCullDistanceEXT   = false;
+        supportedExtensions.clipCullDistanceANGLE = false;
 
         // ANGLE_shader_pixel_local_storage requires ES3
         supportedExtensions.shaderPixelLocalStorageANGLE         = false;
@@ -4238,14 +4243,18 @@ void Context::initCaps()
         mMemoryProgramCache = nullptr;
     }
 
-    if (mSupportedExtensions.shaderPixelLocalStorageANGLE)
+    // Initialize ANGLE_shader_pixel_local_storage caps based on frontend GL queries.
+    //
+    // The backend may have already initialized these caps with its own custom values, in which case
+    // maxPixelLocalStoragePlanes will already be nonzero and we can skip this step.
+    if (mSupportedExtensions.shaderPixelLocalStorageANGLE &&
+        mState.mCaps.maxPixelLocalStoragePlanes == 0)
     {
         int maxDrawableAttachments =
             std::min(mState.mCaps.maxDrawBuffers, mState.mCaps.maxColorAttachments);
-        switch (mImplementation->getNativePixelLocalStorageType())
+        switch (mImplementation->getNativePixelLocalStorageOptions().type)
         {
-            case ShPixelLocalStorageType::ImageStoreNativeFormats:
-            case ShPixelLocalStorageType::ImageStoreR32PackedFormats:
+            case ShPixelLocalStorageType::ImageLoadStore:
                 mState.mCaps.maxPixelLocalStoragePlanes =
                     mState.mCaps.maxShaderImageUniforms[ShaderType::Fragment];
                 ANGLE_LIMIT_CAP(mState.mCaps.maxPixelLocalStoragePlanes,
@@ -4297,6 +4306,10 @@ void Context::initCaps()
                 break;
         }
     }
+    // Validate that pixel local storage caps were initialized within implementation limits. We
+    // can't just clamp this value here since it would potentially impact other caps.
+    ASSERT(mState.mCaps.maxPixelLocalStoragePlanes <=
+           IMPLEMENTATION_MAX_PIXEL_LOCAL_STORAGE_PLANES);
 
 #undef ANGLE_LIMIT_CAP
 #undef ANGLE_LOG_CAP_LIMIT
@@ -6719,12 +6732,16 @@ void Context::framebufferTexture2DMultisample(GLenum target,
     mState.setObjectDirty(target);
 }
 
-void Context::getSynciv(GLsync sync, GLenum pname, GLsizei bufSize, GLsizei *length, GLint *values)
+void Context::getSynciv(SyncID syncPacked,
+                        GLenum pname,
+                        GLsizei bufSize,
+                        GLsizei *length,
+                        GLint *values)
 {
     const Sync *syncObject = nullptr;
     if (!isContextLost())
     {
-        syncObject = getSync(sync);
+        syncObject = getSync(syncPacked);
     }
     ANGLE_CONTEXT_TRY(QuerySynciv(this, syncObject, pname, bufSize, length, values));
 }
@@ -6853,6 +6870,12 @@ void Context::multiDrawArrays(PrimitiveMode mode,
                               const GLsizei *counts,
                               GLsizei drawcount)
 {
+    if (noopMultiDraw(drawcount))
+    {
+        ANGLE_CONTEXT_TRY(mImplementation->handleNoopDrawEvent());
+        return;
+    }
+
     ANGLE_CONTEXT_TRY(prepareForDraw(mode));
     ANGLE_CONTEXT_TRY(mImplementation->multiDrawArrays(this, mode, firsts, counts, drawcount));
 }
@@ -6863,6 +6886,12 @@ void Context::multiDrawArraysInstanced(PrimitiveMode mode,
                                        const GLsizei *instanceCounts,
                                        GLsizei drawcount)
 {
+    if (noopMultiDraw(drawcount))
+    {
+        ANGLE_CONTEXT_TRY(mImplementation->handleNoopDrawEvent());
+        return;
+    }
+
     ANGLE_CONTEXT_TRY(prepareForDraw(mode));
     ANGLE_CONTEXT_TRY(mImplementation->multiDrawArraysInstanced(this, mode, firsts, counts,
                                                                 instanceCounts, drawcount));
@@ -6885,6 +6914,12 @@ void Context::multiDrawElements(PrimitiveMode mode,
                                 const GLvoid *const *indices,
                                 GLsizei drawcount)
 {
+    if (noopMultiDraw(drawcount))
+    {
+        ANGLE_CONTEXT_TRY(mImplementation->handleNoopDrawEvent());
+        return;
+    }
+
     ANGLE_CONTEXT_TRY(prepareForDraw(mode));
     ANGLE_CONTEXT_TRY(
         mImplementation->multiDrawElements(this, mode, counts, type, indices, drawcount));
@@ -6897,6 +6932,12 @@ void Context::multiDrawElementsInstanced(PrimitiveMode mode,
                                          const GLsizei *instanceCounts,
                                          GLsizei drawcount)
 {
+    if (noopMultiDraw(drawcount))
+    {
+        ANGLE_CONTEXT_TRY(mImplementation->handleNoopDrawEvent());
+        return;
+    }
+
     ANGLE_CONTEXT_TRY(prepareForDraw(mode));
     ANGLE_CONTEXT_TRY(mImplementation->multiDrawElementsInstanced(this, mode, counts, type, indices,
                                                                   instanceCounts, drawcount));
@@ -7019,6 +7060,12 @@ void Context::multiDrawArraysInstancedBaseInstance(PrimitiveMode mode,
                                                    const GLuint *baseInstances,
                                                    GLsizei drawcount)
 {
+    if (noopMultiDraw(drawcount))
+    {
+        ANGLE_CONTEXT_TRY(mImplementation->handleNoopDrawEvent());
+        return;
+    }
+
     ANGLE_CONTEXT_TRY(prepareForDraw(mode));
     ANGLE_CONTEXT_TRY(mImplementation->multiDrawArraysInstancedBaseInstance(
         this, mode, firsts, counts, instanceCounts, baseInstances, drawcount));
@@ -7033,6 +7080,12 @@ void Context::multiDrawElementsInstancedBaseVertexBaseInstance(PrimitiveMode mod
                                                                const GLuint *baseInstances,
                                                                GLsizei drawcount)
 {
+    if (noopMultiDraw(drawcount))
+    {
+        ANGLE_CONTEXT_TRY(mImplementation->handleNoopDrawEvent());
+        return;
+    }
+
     ANGLE_CONTEXT_TRY(prepareForDraw(mode));
     ANGLE_CONTEXT_TRY(mImplementation->multiDrawElementsInstancedBaseVertexBaseInstance(
         this, mode, counts, type, indices, instanceCounts, baseVertices, baseInstances, drawcount));
@@ -8231,27 +8284,25 @@ void Context::uniformBlockBinding(ShaderProgramID program,
 
 GLsync Context::fenceSync(GLenum condition, GLbitfield flags)
 {
-    GLuint handle     = mState.mSyncManager->createSync(mImplementation.get());
-    GLsync syncHandle = reinterpret_cast<GLsync>(static_cast<uintptr_t>(handle));
-
-    Sync *syncObject = getSync(syncHandle);
+    SyncID syncHandle = mState.mSyncManager->createSync(mImplementation.get());
+    Sync *syncObject  = getSync(syncHandle);
     if (syncObject->set(this, condition, flags) == angle::Result::Stop)
     {
         deleteSync(syncHandle);
         return nullptr;
     }
 
-    return syncHandle;
+    return unsafe_int_to_pointer_cast<GLsync>(syncHandle.value);
 }
 
-GLboolean Context::isSync(GLsync sync) const
+GLboolean Context::isSync(SyncID syncPacked) const
 {
-    return (getSync(sync) != nullptr);
+    return (getSync(syncPacked) != nullptr);
 }
 
-GLenum Context::clientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
+GLenum Context::clientWaitSync(SyncID syncPacked, GLbitfield flags, GLuint64 timeout)
 {
-    Sync *syncObject = getSync(sync);
+    Sync *syncObject = getSync(syncPacked);
 
     GLenum result = GL_WAIT_FAILED;
     if (syncObject->clientWait(this, flags, timeout, &result) == angle::Result::Stop)
@@ -8261,9 +8312,9 @@ GLenum Context::clientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
     return result;
 }
 
-void Context::waitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
+void Context::waitSync(SyncID syncPacked, GLbitfield flags, GLuint64 timeout)
 {
-    Sync *syncObject = getSync(sync);
+    Sync *syncObject = getSync(syncPacked);
     ANGLE_CONTEXT_TRY(syncObject->serverWait(this, flags, timeout));
 }
 
@@ -10040,7 +10091,7 @@ void Context::drawPixelLocalStorageEXTEnable(GLsizei n,
                                              const PixelLocalStoragePlane planes[],
                                              const GLenum loadops[])
 {
-    ASSERT(mImplementation->getNativePixelLocalStorageType() ==
+    ASSERT(mImplementation->getNativePixelLocalStorageOptions().type ==
            ShPixelLocalStorageType::PixelLocalStorageEXT);
     ANGLE_CONTEXT_TRY(syncState(mPixelLocalStorageEXTEnableDisableDirtyBits,
                                 mPixelLocalStorageEXTEnableDisableDirtyObjects, Command::Draw));
@@ -10050,7 +10101,7 @@ void Context::drawPixelLocalStorageEXTEnable(GLsizei n,
 void Context::drawPixelLocalStorageEXTDisable(const PixelLocalStoragePlane planes[],
                                               const GLenum storeops[])
 {
-    ASSERT(mImplementation->getNativePixelLocalStorageType() ==
+    ASSERT(mImplementation->getNativePixelLocalStorageOptions().type ==
            ShPixelLocalStorageType::PixelLocalStorageEXT);
     ANGLE_CONTEXT_TRY(syncState(mPixelLocalStorageEXTEnableDisableDirtyBits,
                                 mPixelLocalStorageEXTEnableDisableDirtyObjects, Command::Draw));

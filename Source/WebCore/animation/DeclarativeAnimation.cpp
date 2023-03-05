@@ -29,6 +29,7 @@
 #include "Animation.h"
 #include "CSSAnimation.h"
 #include "CSSTransition.h"
+#include "DeclarativeAnimationEvent.h"
 #include "DocumentTimeline.h"
 #include "Element.h"
 #include "EventNames.h"
@@ -186,11 +187,9 @@ ExceptionOr<void> DeclarativeAnimation::bindingsPause()
 
 void DeclarativeAnimation::flushPendingStyleChanges() const
 {
-    if (auto* animationEffect = effect()) {
-        if (is<KeyframeEffect>(animationEffect)) {
-            if (auto* target = downcast<KeyframeEffect>(animationEffect)->target())
-                target->document().updateStyleIfNeeded();
-        }
+    if (auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(effect())) {
+        if (auto* target = keyframeEffect->target())
+            target->document().updateStyleIfNeeded();
     }
 }
 

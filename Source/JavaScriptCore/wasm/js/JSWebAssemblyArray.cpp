@@ -36,6 +36,22 @@ namespace JSC {
 
 const ClassInfo JSWebAssemblyArray::s_info = { "WebAssembly.Array"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSWebAssemblyArray) };
 
+JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, FixedVector<uint8_t>&& payload)
+    : Base(vm, structure)
+    , m_elementType(elementType)
+    , m_size(size)
+    , m_payload8(WTFMove(payload))
+{
+}
+
+JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, FixedVector<uint16_t>&& payload)
+    : Base(vm, structure)
+    , m_elementType(elementType)
+    , m_size(size)
+    , m_payload16(WTFMove(payload))
+{
+}
+
 JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, FixedVector<uint32_t>&& payload)
     : Base(vm, structure)
     , m_elementType(elementType)
@@ -55,7 +71,7 @@ JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::Field
 JSWebAssemblyArray::~JSWebAssemblyArray()
 {
     if (m_elementType.type.is<Wasm::PackedType>()) {
-        switch (*m_elementType.type.as<Wasm::PackedType>()) {
+        switch (m_elementType.type.as<Wasm::PackedType>()) {
         case Wasm::PackedType::I8:
             m_payload8.~FixedVector<uint8_t>();
             break;
@@ -66,7 +82,7 @@ JSWebAssemblyArray::~JSWebAssemblyArray()
         return;
     }
 
-    switch (m_elementType.type.as<Wasm::Type>()->kind) {
+    switch (m_elementType.type.as<Wasm::Type>().kind) {
     case Wasm::TypeKind::I32:
     case Wasm::TypeKind::F32:
         m_payload32.~FixedVector<uint32_t>();
@@ -75,22 +91,6 @@ JSWebAssemblyArray::~JSWebAssemblyArray()
         m_payload64.~FixedVector<uint64_t>();
         break;
     }
-}
-
-JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, FixedVector<uint8_t>&& payload)
-    : Base(vm, structure)
-    , m_elementType(elementType)
-    , m_size(size)
-    , m_payload8(WTFMove(payload))
-{
-}
-
-JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, FixedVector<uint16_t>&& payload)
-    : Base(vm, structure)
-    , m_elementType(elementType)
-    , m_size(size)
-    , m_payload16(WTFMove(payload))
-{
 }
 
 void JSWebAssemblyArray::finishCreation(VM& vm)

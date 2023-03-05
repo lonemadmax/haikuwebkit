@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004-2016 Apple Inc. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2015 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -101,6 +101,10 @@ HTMLImageElement::~HTMLImageElement()
 {
     document().removeDynamicMediaQueryDependentImage(*this);
     setForm(nullptr);
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+    if (auto* page = document().page())
+        page->removeIndividuallyPlayingAnimationElement(*this);
+#endif
 }
 
 void HTMLImageElement::resetFormOwner()
@@ -501,8 +505,11 @@ void HTMLImageElement::setPictureElement(HTMLPictureElement* pictureElement)
     m_pictureElement = pictureElement;
 }
     
-unsigned HTMLImageElement::width(bool ignorePendingStylesheets)
+unsigned HTMLImageElement::width()
 {
+    if (inRenderedDocument())
+        document().updateLayoutIgnorePendingStylesheets();
+
     if (!renderer()) {
         // check the attribute first for an explicit pixel value
         auto optionalWidth = parseHTMLNonNegativeInteger(attributeWithoutSynchronization(widthAttr));
@@ -514,11 +521,6 @@ unsigned HTMLImageElement::width(bool ignorePendingStylesheets)
             return m_imageLoader->image()->imageSizeForRenderer(renderer(), 1.0f).width().toUnsigned();
     }
 
-    if (ignorePendingStylesheets)
-        document().updateLayoutIgnorePendingStylesheets();
-    else
-        document().updateLayout();
-
     RenderBox* box = renderBox();
     if (!box)
         return 0;
@@ -526,8 +528,11 @@ unsigned HTMLImageElement::width(bool ignorePendingStylesheets)
     return adjustForAbsoluteZoom(snappedIntRect(contentRect).width(), *box);
 }
 
-unsigned HTMLImageElement::height(bool ignorePendingStylesheets)
+unsigned HTMLImageElement::height()
 {
+    if (inRenderedDocument())
+        document().updateLayoutIgnorePendingStylesheets();
+
     if (!renderer()) {
         // check the attribute first for an explicit pixel value
         auto optionalHeight = parseHTMLNonNegativeInteger(attributeWithoutSynchronization(heightAttr));
@@ -538,11 +543,6 @@ unsigned HTMLImageElement::height(bool ignorePendingStylesheets)
         if (m_imageLoader->image())
             return m_imageLoader->image()->imageSizeForRenderer(renderer(), 1.0f).height().toUnsigned();
     }
-
-    if (ignorePendingStylesheets)
-        document().updateLayoutIgnorePendingStylesheets();
-    else
-        document().updateLayout();
 
     RenderBox* box = renderBox();
     if (!box)
@@ -804,8 +804,18 @@ void HTMLImageElement::setAllowsAnimation(bool allowsAnimation)
     if (!document().settings().imageAnimationControlEnabled())
         return;
 
-    if (auto* image = this->image())
+    if (auto* image = this->image()) {
         image->setAllowsAnimation(allowsAnimation);
+        if (auto* renderer = this->renderer())
+            renderer->repaint();
+
+        if (auto* page = document().page()) {
+            if (allowsAnimation)
+                page->addIndividuallyPlayingAnimationElement(*this);
+            else
+                page->removeIndividuallyPlayingAnimationElement(*this);
+        }
+    }
 }
 #endif
 
@@ -921,6 +931,11 @@ bool HTMLImageElement::virtualHasPendingActivity() const
 size_t HTMLImageElement::pendingDecodePromisesCountForTesting() const
 {
     return m_imageLoader->pendingDecodePromisesCountForTesting();
+}
+
+bool HTMLImageElement::usesSrcsetOrPicture() const
+{
+    return !attributeWithoutSynchronization(srcsetAttr).isNull() || !!pictureElement();
 }
 
 AtomString HTMLImageElement::srcsetForBindings() const

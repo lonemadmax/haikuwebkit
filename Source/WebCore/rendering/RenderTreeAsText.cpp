@@ -37,7 +37,6 @@
 #include "HTMLNames.h"
 #include "HTMLSpanElement.h"
 #include "InlineIteratorTextBox.h"
-#include "LegacyInlineTextBox.h"
 #include "LegacyRenderSVGContainer.h"
 #include "LegacyRenderSVGImage.h"
 #include "LegacyRenderSVGRoot.h"
@@ -72,7 +71,7 @@
 #include "RenderWidget.h"
 #include "SVGRenderTreeAsText.h"
 #include "ShadowRoot.h"
-#include "StyleProperties.h"
+#include "StylePropertiesInlines.h"
 #include <wtf/HexNumber.h>
 #include <wtf/Vector.h>
 #include <wtf/text/TextStream.h>
@@ -641,7 +640,8 @@ void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> be
         Widget* widget = downcast<RenderWidget>(o).widget();
         if (is<FrameView>(widget)) {
             FrameView& view = downcast<FrameView>(*widget);
-            if (RenderView* root = view.frame().contentRenderer()) {
+            auto* localFrame = dynamicDowncast<LocalFrame>(view.frame());
+            if (RenderView* root = localFrame ? localFrame->contentRenderer() : nullptr) {
                 if (!(behavior.contains(RenderAsTextFlag::DontUpdateLayout)))
                     view.layoutContext().layout();
                 if (RenderLayer* layer = root->layer())

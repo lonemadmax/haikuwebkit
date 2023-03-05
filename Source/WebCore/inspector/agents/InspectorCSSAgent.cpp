@@ -866,10 +866,10 @@ Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Protocol::CSS::CSSPropertyInfo>>> Insp
                 property->setLonghands(WTFMove(longhands));
         }
 
-        if (CSSParserFastPaths::isKeywordPropertyID(propertyID)) {
+        if (CSSParserFastPaths::isKeywordFastPathEligibleStyleProperty(propertyID)) {
             auto values = JSON::ArrayOf<String>::create();
             for (auto valueID : allCSSValueKeywords()) {
-                if (CSSParserFastPaths::isValidKeywordPropertyAndValue(propertyID, valueID, strictCSSParserContext()))
+                if (CSSParserFastPaths::isKeywordValidForStyleProperty(propertyID, valueID, strictCSSParserContext()))
                     values->addItem(nameString(valueID));
             }
             if (values->length())
@@ -1122,15 +1122,18 @@ void InspectorCSSAgent::nodesWithPendingLayoutFlagsChangeDispatchTimerFired()
             continue;
 
         auto nodeId = domAgent->boundNodeId(&node);
+        auto nodeWasPushedToFrontend = false;
         if (!nodeId && m_layoutContextTypeChangedMode == Protocol::CSS::LayoutContextTypeChangedMode::All && layoutFlagsContainLayoutContextType(layoutFlags)) {
             // FIXME: <https://webkit.org/b/189687> Preserve DOM.NodeId if a node is removed and re-added
             nodeId = domAgent->identifierForNode(node);
+            nodeWasPushedToFrontend = nodeId;
         }
         if (!nodeId)
             continue;
 
         m_lastLayoutFlagsForNode.set(node, layoutFlags);
-        m_frontendDispatcher->nodeLayoutFlagsChanged(nodeId, toProtocol(layoutFlags));
+        if (!nodeWasPushedToFrontend)
+            m_frontendDispatcher->nodeLayoutFlagsChanged(nodeId, toProtocol(layoutFlags));
     }
 }
 
@@ -1268,7 +1271,7 @@ Ref<JSON::ArrayOf<Protocol::CSS::RuleMatch>> InspectorCSSAgent::buildArrayForMat
             continue;
 
         auto matchingSelectors = JSON::ArrayOf<int>::create();
-        const CSSSelectorList& selectorList = matchedRule->selectorList();
+        const CSSSelectorList& selectorList = matchedRule->resolvedSelectorList();
         int index = 0;
         for (const CSSSelector* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
             bool matched = selectorChecker.match(*selector, element, context);
@@ -1290,12 +1293,11 @@ Ref<JSON::ArrayOf<Protocol::CSS::RuleMatch>> InspectorCSSAgent::buildArrayForMat
 RefPtr<Protocol::CSS::CSSStyle> InspectorCSSAgent::buildObjectForAttributesStyle(StyledElement& element)
 {
     // FIXME: Ugliness below.
-    auto* attributeStyle = const_cast<StyleProperties*>(element.presentationalHintStyle());
+    auto* attributeStyle = const_cast<MutableStyleProperties*>(element.presentationalHintStyle());
     if (!attributeStyle)
         return nullptr;
 
-    auto& mutableAttributeStyle = downcast<MutableStyleProperties>(*attributeStyle);
-    auto inspectorStyle = InspectorStyle::create(InspectorCSSId(), mutableAttributeStyle.ensureCSSStyleDeclaration(), nullptr);
+    auto inspectorStyle = InspectorStyle::create(InspectorCSSId(), attributeStyle->ensureCSSStyleDeclaration(), nullptr);
     return inspectorStyle->buildObjectForStyle();
 }
 

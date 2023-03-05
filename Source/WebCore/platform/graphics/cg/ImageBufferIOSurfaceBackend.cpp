@@ -84,7 +84,7 @@ RetainPtr<CGColorSpaceRef> ImageBufferIOSurfaceBackend::contextColorSpace(const 
     return ImageBufferCGBackend::contextColorSpace(context);
 }
 
-std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create(const Parameters& parameters, const ImageBuffer::CreationContext& creationContext)
+std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create(const Parameters& parameters, const ImageBufferCreationContext& creationContext)
 {
     IntSize backendSize = calculateSafeBackendSize(parameters);
     if (backendSize.isEmpty())
@@ -155,6 +155,11 @@ unsigned ImageBufferIOSurfaceBackend::bytesPerRow() const
     return m_surface->bytesPerRow();
 }
 
+void ImageBufferIOSurfaceBackend::transferToNewContext(const ImageBufferCreationContext& creationContext)
+{
+    m_ioSurfacePool = creationContext.surfacePool;
+}
+
 void ImageBufferIOSurfaceBackend::invalidateCachedNativeImage() const
 {
     // Force QuartzCore to invalidate its cached CGImageRef for this IOSurface.
@@ -190,9 +195,7 @@ RefPtr<NativeImage> ImageBufferIOSurfaceBackend::sinkIntoNativeImage()
 
 void ImageBufferIOSurfaceBackend::finalizeDrawIntoContext(GraphicsContext& destinationContext)
 {
-    // Accelerated to unaccelerated image buffers need complex caching. We trust that
-    // this is a one-off draw, and as such we clear the caches of the source image after each draw.
-    if (destinationContext.renderingMode() == RenderingMode::Unaccelerated)
+    if (destinationContext.needsCachedNativeImageInvalidationWorkaround(ImageBufferIOSurfaceBackend::renderingMode))
         invalidateCachedNativeImage();
 }
 

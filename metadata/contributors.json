@@ -740,7 +740,7 @@
       "emails" : [
          "aestes@apple.com"
       ],
-      "expertise" : "Layout and rendering, plug-in loading, HTML parsing, web compatibility",
+      "github" : "aestes",
       "name" : "Andy Estes",
       "nicks" : [
          "estes"
@@ -1292,6 +1292,14 @@
    },
    {
       "emails" : [
+         "bug-bridge@webkit.org"
+      ],
+      "github" : "webkit-bug-bridge",
+      "name" : "Bug Bridge",
+      "status" : "bot"
+   },
+   {
+      "emails" : [
          "font@but.tw"
       ],
       "github" : "ButTaiwan",
@@ -1489,7 +1497,8 @@
          "charliew@apple.com"
       ],
       "github" : "charliewolfe",
-      "name" : "Charlie Wolfe"
+      "name" : "Charlie Wolfe",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -1510,7 +1519,8 @@
       "name" : "Chirag M Shah",
       "nicks" : [
          "chirag_m_shah"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -2396,6 +2406,14 @@
    },
    {
       "emails" : [
+         "eddy_wong@apple.com",
+         "eddydas@gmail.com"
+      ],
+      "github" : "eddydas",
+      "name" : "Eddy Wong"
+   },
+   {
+      "emails" : [
          "efidler@rim.com",
          "efidler@blackberry.com"
       ],
@@ -3188,6 +3206,17 @@
    },
    {
       "emails" : [
+         "iana@apple.com"
+      ],
+      "expertise" : "Clang modules",
+      "github" : "ian-twilightcoder",
+      "name" : "Ian Anderson",
+      "nicks" : [
+         "iana"
+      ]
+   },
+   {
+      "emails" : [
          "ian@ianhenderson.org",
          "ianh@apple.com"
       ],
@@ -3290,6 +3319,14 @@
          "j_pascoe"
       ],
       "status" : "reviewer"
+   },
+   {
+      "emails" : [
+         "joncarlo@apple.com",
+         "joncarloalvarado@gmail.com"
+      ],
+      "github" : "jace0x21",
+      "name" : "JC Alvarado"
    },
    {
       "emails" : [
@@ -4165,6 +4202,18 @@
    },
    {
       "emails" : [
+         "karlcow@apple.com",
+         "karl+webkit@la-grange.net"
+      ],
+      "github" : "karlcow",
+      "name" : "Karl Dubost",
+      "nicks" : [
+         "karlcow"
+      ],
+      "status" : "committer"
+   },
+   {
+      "emails" : [
          "rackler@apple.com"
       ],
       "github" : "karlrackler",
@@ -4376,7 +4425,8 @@
       ],
       "expertise" : "Safari Extensions, Web Extensions",
       "github" : "kiaraarose",
-      "name" : "Kiara Rose"
+      "name" : "Kiara Rose",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -4843,6 +4893,13 @@
    },
    {
       "emails" : [
+         "mark_gee@apple.com"
+      ],
+      "github" : "markcgee",
+      "name" : "Mark Gee"
+   },
+   {
+      "emails" : [
          "mhahnenb@gmail.com",
          "mhahnenberg@apple.com"
       ],
@@ -5017,7 +5074,7 @@
       "nicks" : [
          "mattwoodrow"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -5570,7 +5627,7 @@
       "nicks" : [
          "obrufau"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -6288,8 +6345,8 @@
    },
    {
       "emails" : [
-         "sammy.gill@apple.com",
-         "sgill26@apple.com"
+         "sgill26@apple.com",
+         "sammy.gill@apple.com"
       ],
       "github" : "sgill26",
       "name" : "Sammy Gill",
@@ -6642,6 +6699,7 @@
       "emails" : [
          "tzagallo@apple.com"
       ],
+      "github" : "tadeuzagallo",
       "name" : "Tadeu Zagallo",
       "nicks" : [
          "tadeuzagallo"
@@ -7428,6 +7486,14 @@
          "ykimoto"
       ],
       "status" : "committer"
+   },
+   {
+      "emails" : [
+         "yuki.sekiguchi@access-company.com",
+         "yukiseki712@gmail.com"
+      ],
+      "github" : "aYukiSekiguchi",
+      "name" : "Yuki Sekiguchi"
    },
    {
       "emails" : [

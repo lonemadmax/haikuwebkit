@@ -40,6 +40,7 @@
 #include "Blob.h"
 #include "CSSKeyframesRule.h"
 #include "CSSMediaRule.h"
+#include "CSSParser.h"
 #include "CSSPropertyParser.h"
 #include "CSSStyleRule.h"
 #include "CSSSupportsRule.h"
@@ -47,6 +48,7 @@
 #include "CacheStorageProvider.h"
 #include "CachedImage.h"
 #include "CachedResourceLoader.h"
+#include "CanvasBase.h"
 #include "CertificateInfo.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
@@ -196,6 +198,7 @@
 #include "ScrollingCoordinator.h"
 #include "ScrollingMomentumCalculator.h"
 #include "SecurityOrigin.h"
+#include "SelectorFilter.h"
 #include "SerializedScriptValue.h"
 #include "ServiceWorker.h"
 #include "ServiceWorkerProvider.h"
@@ -349,8 +352,6 @@
 
 #if PLATFORM(MAC)
 #include "GraphicsChecksMac.h"
-#include "NSScrollerImpDetails.h"
-#include "ScrollbarThemeMac.h"
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -385,10 +386,6 @@
 
 #if ENABLE(SERVICE_CONTROLS)
 #include "ImageControlsMac.h"
-#endif
-
-#if ENABLE(GAMEPAD)
-#include "MockGamepadProvider.h"
 #endif
 
 using JSC::CallData;
@@ -649,8 +646,8 @@ void Internals::resetToConsistentState(Page& page)
     WebCore::MediaRecorder::setCustomPrivateRecorderCreator(nullptr);
 #endif
 
-    HTMLCanvasElement::setMaxPixelMemoryForTesting(std::nullopt);
-    HTMLCanvasElement::setMaxCanvasAreaForTesting(std::nullopt);
+    CanvasBase::setMaxPixelMemoryForTesting(std::nullopt);
+    CanvasBase::setMaxCanvasAreaForTesting(std::nullopt);
     DOMWindow::overrideTransientActivationDurationForTesting(std::nullopt);
 
 #if PLATFORM(IOS)
@@ -721,10 +718,6 @@ Internals::Internals(Document& document)
     VP9TestingOverrides::singleton().setHardwareDecoderDisabled(std::nullopt);
     VP9TestingOverrides::singleton().setVP9DecoderDisabled(std::nullopt);
     VP9TestingOverrides::singleton().setVP9ScreenSizeAndScale(std::nullopt);
-#endif
-
-#if ENABLE(GAMEPAD)
-    MockGamepadProvider::singleton().clearMockGamepads();
 #endif
 }
 
@@ -2538,7 +2531,7 @@ String Internals::parserMetaData(JSC::JSValue code)
     ScriptExecutable* executable;
     if (!code || code.isNull() || code.isUndefined()) {
         GetCallerCodeBlockFunctor iter;
-        callFrame->iterate(vm, iter);
+        StackVisitor::visit(callFrame, vm, iter);
         executable = iter.codeBlock()->ownerExecutable();
     } else if (code.isCallable())
         executable = JSC::jsCast<JSFunction*>(code.toObject(globalObject))->jsExecutable();
@@ -2960,7 +2953,7 @@ unsigned Internals::numberOfScrollableAreas()
     unsigned count = 0;
     Frame* frame = document->frame();
     if (frame->view()->scrollableAreas())
-        count += frame->view()->scrollableAreas()->size();
+        count += frame->view()->scrollableAreas()->computeSize();
 
     for (AbstractFrame* child = frame->tree().firstChild(); child; child = child->tree().nextSibling()) {
         auto* localChild = dynamicDowncast<LocalFrame>(child);
@@ -2970,7 +2963,7 @@ unsigned Internals::numberOfScrollableAreas()
         if (!frameView)
             continue;
         if (frameView->scrollableAreas())
-            count += frameView->scrollableAreas()->size();
+            count += frameView->scrollableAreas()->computeSize();
     }
 
     return count;
@@ -3043,7 +3036,7 @@ ExceptionOr<uint64_t> Internals::layerIDForElement(Element& element)
         return Exception { NotFoundError };
 
     auto* backing = layerModelObject.layer()->backing();
-    return backing->graphicsLayer()->primaryLayerID();
+    return backing->graphicsLayer()->primaryLayerID().object().toUInt64();
 }
 
 static OptionSet<PlatformLayerTreeAsTextFlags> toPlatformLayerTreeFlags(unsigned short flags)
@@ -3211,6 +3204,25 @@ ExceptionOr<String> Internals::scrollingTreeAsText() const
 
     scrollingCoordinator->commitTreeStateIfNeeded();
     return scrollingCoordinator->scrollingTreeAsText();
+}
+
+ExceptionOr<bool> Internals::haveScrollingTree() const
+{
+    auto* document = contextDocument();
+    if (!document || !document->frame())
+        return Exception { InvalidAccessError };
+
+    document->updateLayoutIgnorePendingStylesheets();
+
+    auto page = document->page();
+    if (!page)
+        return false;
+
+    auto scrollingCoordinator = page->scrollingCoordinator();
+    if (!scrollingCoordinator)
+        return false;
+
+    return scrollingCoordinator->haveScrollingTree();
 }
 
 ExceptionOr<String> Internals::synchronousScrollingReasons() const
@@ -3989,18 +4001,12 @@ JSC::JSValue Internals::evaluateInWorldIgnoringException(const String& name, con
     return scriptController.executeScriptInWorldIgnoringException(world, source);
 }
 
+#if !PLATFORM(MAC)
 void Internals::setUsesOverlayScrollbars(bool enabled)
 {
     WebCore::DeprecatedGlobalSettings::setUsesOverlayScrollbars(enabled);
-#if PLATFORM(MAC)
-    ScrollerStyle::setUseOverlayScrollbars(enabled);
-    ScrollbarTheme& theme = ScrollbarTheme::theme();
-    if (theme.isMockTheme())
-        return;
-
-    static_cast<ScrollbarThemeMac&>(theme).preferencesChanged();
-#endif
 }
+#endif
 
 void Internals::forceReload(bool endToEnd)
 {
@@ -4061,7 +4067,8 @@ String Internals::toolTipFromElement(Element& element) const
     HitTestResult result;
     result.setInnerNode(&element);
     TextDirection direction;
-    return result.title(direction);
+    auto title = result.title(direction);
+    return !title.isEmpty() ? title : result.innerTextIfTruncated(direction);
 }
 
 String Internals::getImageSourceURL(Element& element)
@@ -6355,11 +6362,11 @@ String Internals::highlightPseudoElementColor(const AtomString& highlightName, E
     if (!parentStyle)
         return { };
 
-    auto style = styleResolver.pseudoStyleForElement(element, { PseudoId::Highlight, highlightName }, { parentStyle });
-    if (!style)
+    auto resolvedStyle = styleResolver.styleForPseudoElement(element, { PseudoId::Highlight, highlightName }, { parentStyle });
+    if (!resolvedStyle)
         return { };
 
-    return serializationForCSS(style->color());
+    return serializationForCSS(resolvedStyle->style->color());
 }
     
 Internals::TextIndicatorInfo::TextIndicatorInfo()
@@ -6403,12 +6410,12 @@ void Internals::setMockWebAuthenticationConfiguration(const MockWebAuthenticatio
 
 void Internals::setMaxCanvasPixelMemory(unsigned size)
 {
-    HTMLCanvasElement::setMaxPixelMemoryForTesting(size);
+    CanvasBase::setMaxPixelMemoryForTesting(size);
 }
 
 void Internals::setMaxCanvasArea(unsigned size)
 {
-    HTMLCanvasElement::setMaxCanvasAreaForTesting(size);
+    CanvasBase::setMaxCanvasAreaForTesting(size);
 }
 
 int Internals::processIdentifier() const
@@ -6881,9 +6888,9 @@ String Internals::dumpStyleResolvers()
 
     dumpResolver("document resolver", document->styleScope().resolver());
 
-    for (auto* shadowRoot : document->inDocumentShadowRoots()) {
-        auto* name = shadowRoot->mode() == ShadowRootMode::UserAgent ? "shadow root resolver (user agent)" : "shadow root resolver (author)";
-        dumpResolver(name, shadowRoot->styleScope().resolver());
+    for (auto& shadowRoot : document->inDocumentShadowRoots()) {
+        auto* name = shadowRoot.mode() == ShadowRootMode::UserAgent ? "shadow root resolver (user agent)" : "shadow root resolver (author)";
+        dumpResolver(name, const_cast<ShadowRoot&>(shadowRoot).styleScope().resolver());
     }
 
     return result.toString();
@@ -6979,8 +6986,8 @@ void Internals::avoidIOSurfaceSizeCheckInWebProcess(HTMLCanvasElement& element)
     if (!page)
         return;
     page->settings().setMaximumAccelerated2dCanvasSize(UINT_MAX);
-    HTMLCanvasElement::setMaxCanvasAreaForTesting(UINT_MAX);
-    HTMLCanvasElement::setMaxPixelMemoryForTesting(UINT_MAX);
+    CanvasBase::setMaxCanvasAreaForTesting(UINT_MAX);
+    CanvasBase::setMaxPixelMemoryForTesting(UINT_MAX);
     element.setAvoidIOSurfaceSizeCheckInWebProcessForTesting();
 }
 
@@ -6993,6 +7000,18 @@ bool Internals::hasSleepDisabler() const
 void Internals::acceptTypedArrays(Int32Array&)
 {
     // Do nothing.
+}
+
+Internals::SelectorFilterHashCounts Internals::selectorFilterHashCounts(const String& selector)
+{
+    auto parser = CSSParser { { *contextDocument() } };
+    auto selectorList = parser.parseSelector(selector);
+    if (!selectorList)
+        return { };
+    
+    auto hashes = SelectorFilter::collectHashesForTesting(*selectorList->first());
+
+    return { hashes.ids.size(), hashes.classes.size(), hashes.tags.size(), hashes.attributes.size() };
 }
 
 } // namespace WebCore

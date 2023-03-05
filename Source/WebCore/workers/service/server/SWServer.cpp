@@ -184,17 +184,20 @@ void SWServer::registrationStoreDatabaseFailedToOpen()
         registrationStoreImportComplete();
 }
 
-void SWServer::addRegistrationFromStore(ServiceWorkerContextData&& data)
+void SWServer::addRegistrationFromStore(ServiceWorkerContextData&& data, CompletionHandler<void()>&& completionHandler)
 {
+    ASSERT(isMainThread());
+
     // Pages should not have been able to make a new registration to this key while the import was still taking place.
     ASSERT(!m_scopeToRegistrationMap.contains(data.registration.key));
 
     LOG(ServiceWorker, "Adding registration from store for %s", data.registration.key.loggingString().utf8().data());
 
     auto registrableDomain = WebCore::RegistrableDomain(data.scriptURL);
-    validateRegistrationDomain(registrableDomain, ServiceWorkerJobType::Register, m_scopeToRegistrationMap.contains(data.registration.key), [this, weakThis = WeakPtr { *this }, data = WTFMove(data)] (bool isValid) mutable {
+    validateRegistrationDomain(registrableDomain, ServiceWorkerJobType::Register, m_scopeToRegistrationMap.contains(data.registration.key), [this, weakThis = WeakPtr { *this }, data = WTFMove(data), completionHandler = WTFMove(completionHandler)] (bool isValid) mutable {
+        ASSERT(isMainThread());
         if (!weakThis)
-            return;
+            return completionHandler();
         if (m_hasServiceWorkerEntitlement || isValid) {
             auto registration = makeUnique<SWServerRegistration>(*this, data.registration.key, data.registration.updateViaCache, data.registration.scopeURL, data.scriptURL, data.serviceWorkerPageIdentifier, WTFMove(data.navigationPreloadState));
             registration->setLastUpdateTime(data.registration.lastUpdateTime);
@@ -205,6 +208,7 @@ void SWServer::addRegistrationFromStore(ServiceWorkerContextData&& data)
             registrationPtr->updateRegistrationState(ServiceWorkerRegistrationState::Active, worker.ptr());
             worker->setState(ServiceWorkerState::Activated);
         }
+        completionHandler();
     });
 }
 
@@ -310,27 +314,41 @@ void SWServer::endSuspension()
 
 void SWServer::clear(const SecurityOriginData& securityOrigin, CompletionHandler<void()>&& completionHandler)
 {
+    clearInternal([securityOrigin](auto& key) {
+        return key.relatesToOrigin(securityOrigin);
+    }, WTFMove(completionHandler));
+}
+
+void SWServer::clear(const ClientOrigin& origin, CompletionHandler<void()>&& completionHandler)
+{
+    clearInternal([origin](auto& key) {
+        return key.topOrigin() == origin.topOrigin && origin.clientOrigin == SecurityOriginData::fromURL(key.scope());
+    }, WTFMove(completionHandler));
+}
+
+void SWServer::clearInternal(Function<bool(const ServiceWorkerRegistrationKey&)>&& matches, CompletionHandler<void()>&& completionHandler)
+{
     if (!m_importCompleted) {
-        m_clearCompletionCallbacks.append([this, securityOrigin, completionHandler = WTFMove(completionHandler)] () mutable {
+        m_clearCompletionCallbacks.append([this, matches = WTFMove(matches), completionHandler = WTFMove(completionHandler)] () mutable {
             ASSERT(m_importCompleted);
-            clear(securityOrigin, WTFMove(completionHandler));
+            clearInternal(WTFMove(matches), WTFMove(completionHandler));
         });
         return;
     }
 
     m_jobQueues.removeIf([&](auto& keyAndValue) {
-        return keyAndValue.key.relatesToOrigin(securityOrigin);
+        return matches(keyAndValue.key);
     });
 
     Vector<SWServerRegistration*> registrationsToRemove;
     for (auto& registration : m_registrations.values()) {
-        if (registration->key().relatesToOrigin(securityOrigin))
+        if (matches(registration->key()))
             registrationsToRemove.append(registration.get());
     }
 
     for (auto& contextDatas : m_pendingContextDatas.values()) {
         contextDatas.removeAllMatching([&](auto& contextData) {
-            return contextData.registration.key.relatesToOrigin(securityOrigin);
+            return matches(contextData.registration.key);
         });
     }
 
@@ -1438,6 +1456,8 @@ void SWServer::processPushMessage(std::optional<Vector<uint8_t>>&& data, URL&& r
             return;
         }
 
+        RELEASE_LOG(Push, "Firing Push event");
+
         fireFunctionalEvent(*registration, [worker = Ref { *worker }, weakThis = WTFMove(weakThis), data = WTFMove(data), callback = WTFMove(callback)](auto&& connectionOrStatus) mutable {
             if (!connectionOrStatus.has_value()) {
                 callback(connectionOrStatus.error() == ShouldSkipEvent::Yes);
@@ -1453,6 +1473,8 @@ void SWServer::processPushMessage(std::optional<Vector<uint8_t>>&& data, URL&& r
             });
             terminateWorkerTimer->startOneShot(weakThis && weakThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
             connectionOrStatus.value()->firePushEvent(serviceWorkerIdentifier, data, [callback = WTFMove(callback), terminateWorkerTimer = WTFMove(terminateWorkerTimer), worker = WTFMove(worker)](bool succeeded) mutable {
+                if (!succeeded)
+                    RELEASE_LOG(Push, "Push event was not successfully handled");
                 if (terminateWorkerTimer->isActive()) {
                     worker->decrementFunctionalEventCounter();
                     terminateWorkerTimer->stop();

@@ -70,6 +70,7 @@
 #include "ImageOverlay.h"
 #include "Model.h"
 #include "MoveSelectionCommand.h"
+#include "MutableStyleProperties.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "PlatformKeyboardEvent.h"
@@ -88,7 +89,6 @@
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "SimpleRange.h"
-#include "StyleProperties.h"
 #include "Text.h"
 #include "TextEvent.h"
 #include "VisiblePosition.h"
@@ -129,7 +129,7 @@ bool isDraggableLink(const Element& element)
 static PlatformMouseEvent createMouseEvent(const DragData& dragData)
 {
     auto modifiers = PlatformKeyboardEvent::currentStateOfModifierKeys();
-    return PlatformMouseEvent(dragData.clientPosition(), dragData.globalPosition(), LeftButton, PlatformEvent::MouseMoved, 0, modifiers, WallTime::now(), ForceAtClick, NoTap);
+    return PlatformMouseEvent(dragData.clientPosition(), dragData.globalPosition(), LeftButton, PlatformEvent::Type::MouseMoved, 0, modifiers, WallTime::now(), ForceAtClick, NoTap);
 }
 
 DragController::DragController(Page& page, std::unique_ptr<DragClient>&& client)

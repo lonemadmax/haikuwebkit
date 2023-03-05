@@ -35,6 +35,7 @@
 #if ENABLE(WEB_RTC)
 
 #include "EventNames.h"
+#include "JSDOMPromiseDeferred.h"
 #include "JSRTCCertificate.h"
 #include "Logging.h"
 #include "Page.h"
@@ -528,7 +529,7 @@ void PeerConnectionBackend::disableICECandidateFiltering()
 
 void PeerConnectionBackend::validateSDP(const String& sdp) const
 {
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     if (!m_shouldFilterICECandidates)
         return;
     sdp.split('\n', [](auto line) {

@@ -45,6 +45,7 @@ from .pull_request import PullRequest
 from .revert import Revert
 from .setup_git_svn import SetupGitSvn
 from .setup import Setup
+from .show import Show
 from .trace import Trace
 from .track import Track
 
@@ -56,7 +57,7 @@ from webkitscmpy import local, log, remote
 def main(
     args=None, path=None, loggers=None, contributors=None,
     identifier_template=None, subversion=None, additional_setup=None, hooks=None,
-    canonical_svn=None,
+    canonical_svn=None, programs=None,
 ):
     logging.basicConfig(level=logging.WARNING)
 
@@ -81,13 +82,17 @@ def main(
     )
 
     subparsers = parser.add_subparsers(help='sub-command help')
+    subparser = subparsers.add_parser('help', help='Print all help messages')
+    arguments.LoggingGroup(subparser, loggers=loggers)
+    subparser.set_defaults(main=lambda *args, **kwargs: parser.print_help())
+
     programs = [
         Blame, Branch, Canonicalize, Checkout,
         Clean, Find, Info, Land, Log, Pull,
         PullRequest, Revert, Setup, InstallGitLFS,
         Credentials, Commit, DeletePRBranches, Squash,
-        Pickable, CherryPick, Trace, Track,
-    ]
+        Pickable, CherryPick, Trace, Track, Show,
+    ] + (programs or [])
     if subversion:
         programs.append(SetupGitSvn)
 

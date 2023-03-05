@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 #import <CoreVideo/CoreVideo.h>
 #import <QuartzCore/QuartzCore.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
-#import <pal/spi/cocoa/IOSurfaceSPI.h>
+#import <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 
@@ -130,6 +130,7 @@ typedef struct _CARenderContext CARenderContext;
 @property BOOL canDrawConcurrently;
 @property BOOL contentsOpaque;
 @property BOOL hitTestsAsOpaque;
+@property BOOL inheritsTiming;
 @property BOOL needsLayoutOnGeometryChange;
 @property BOOL shadowPathIsBounds;
 @property BOOL continuousCorners;
@@ -137,9 +138,6 @@ typedef struct _CARenderContext CARenderContext;
 @property (getter=isSeparated) BOOL separated;
 #endif
 @property BOOL toneMapToStandardDynamicRange;
-#if HAVE(CALAYER_ALLOWS_SORTS_SUBLAYERS)
-@property BOOL allowsSortsSublayers;
-#endif
 @end
 
 #if ENABLE(FILTERS_LEVEL_2)
@@ -206,6 +204,12 @@ typedef enum {
 #endif // __OBJC__
 
 #endif
+
+@interface CALayer ()
+#if HAVE(CALAYER_USES_WEBKIT_BEHAVIOR)
+@property BOOL usesWebKitBehavior;
+#endif
+@end
 
 WTF_EXTERN_C_BEGIN
 

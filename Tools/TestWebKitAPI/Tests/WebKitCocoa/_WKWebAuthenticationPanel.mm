@@ -45,7 +45,7 @@
 #import <WebKit/_WKAuthenticatorAssertionResponse.h>
 #import <WebKit/_WKAuthenticatorAttestationResponse.h>
 #import <WebKit/_WKAuthenticatorSelectionCriteria.h>
-#import <WebKit/_WKExperimentalFeature.h>
+#import <WebKit/_WKFeature.h>
 #import <WebKit/_WKPublicKeyCredentialCreationOptions.h>
 #import <WebKit/_WKPublicKeyCredentialDescriptor.h>
 #import <WebKit/_WKPublicKeyCredentialParameters.h>
@@ -1590,8 +1590,9 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximum1)
     auto usb = adoptNS([NSNumber numberWithInt:_WKWebAuthenticationTransportUSB]);
     auto nfc = adoptNS([NSNumber numberWithInt:_WKWebAuthenticationTransportNFC]);
     auto internal = adoptNS([NSNumber numberWithInt:_WKWebAuthenticationTransportInternal]);
+    auto hybrid = adoptNS([NSNumber numberWithInt:_WKWebAuthenticationTransportHybrid]);
     auto credential = adoptNS([[_WKPublicKeyCredentialDescriptor alloc] initWithIdentifier:nsIdentifier]);
-    [credential setTransports:@[ usb.get(), nfc.get(), internal.get() ]];
+    [credential setTransports:@[ usb.get(), nfc.get(), internal.get(), hybrid.get() ]];
     [options setExcludeCredentials:@[ credential.get(), credential.get() ]];
 
     auto authenticatorSelection = adoptNS([[_WKAuthenticatorSelectionCriteria alloc] init]);
@@ -1626,10 +1627,11 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximum1)
     EXPECT_EQ(result.excludeCredentials[0].type, WebCore::PublicKeyCredentialType::PublicKey);
     EXPECT_EQ(result.excludeCredentials[0].id.length(), sizeof(identifier));
     EXPECT_EQ(memcmp(result.excludeCredentials[0].id.data(), identifier, sizeof(identifier)), 0);
-    EXPECT_EQ(result.excludeCredentials[0].transports.size(), 3lu);
+    EXPECT_EQ(result.excludeCredentials[0].transports.size(), 4lu);
     EXPECT_EQ(result.excludeCredentials[0].transports[0], AuthenticatorTransport::Usb);
     EXPECT_EQ(result.excludeCredentials[0].transports[1], AuthenticatorTransport::Nfc);
     EXPECT_EQ(result.excludeCredentials[0].transports[2], AuthenticatorTransport::Internal);
+    EXPECT_EQ(result.excludeCredentials[0].transports[3], AuthenticatorTransport::Hybrid);
 
     EXPECT_EQ(result.authenticatorSelection->authenticatorAttachment, AuthenticatorAttachment::Platform);
     EXPECT_EQ(result.authenticatorSelection->requireResidentKey, true);
@@ -1939,7 +1941,7 @@ TEST(WebAuthenticationPanel, GetAssertionSPITimeout)
 
         EXPECT_NULL(response);
         EXPECT_EQ(error.domain, WKErrorDomain);
-        EXPECT_EQ(error.code, WKErrorUnknown);
+        EXPECT_EQ(error.code, NotAllowedError);
     }];
     Util::run(&webAuthenticationPanelRan);
 }
@@ -2113,7 +2115,7 @@ TEST(WebAuthenticationPanel, GetAssertionCrossPlatform)
 
         EXPECT_NULL(response);
         EXPECT_EQ(error.domain, WKErrorDomain);
-        EXPECT_EQ(error.code, WKErrorUnknown);
+        EXPECT_EQ(error.code, NotAllowedError);
     }];
     Util::run(&webAuthenticationPanelRan);
 }

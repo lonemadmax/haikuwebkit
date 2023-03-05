@@ -58,25 +58,6 @@ enum class EventListenerRegionType : uint8_t;
 using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
 
-struct WheelEventHandlingResult {
-    OptionSet<WheelEventProcessingSteps> steps;
-    bool wasHandled { false };
-    bool needsMainThreadProcessing() const { return steps.containsAny({ WheelEventProcessingSteps::MainThreadForScrolling, WheelEventProcessingSteps::MainThreadForNonBlockingDOMEventDispatch, WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch }); }
-
-    static WheelEventHandlingResult handled(OptionSet<WheelEventProcessingSteps> steps = { })
-    {
-        return { steps, true };
-    }
-    static WheelEventHandlingResult unhandled(OptionSet<WheelEventProcessingSteps> steps = { })
-    {
-        return { steps, false };
-    }
-    static WheelEventHandlingResult result(bool handled)
-    {
-        return { { }, handled };
-    }
-};
-
 enum class EventTargeting : uint8_t { NodeOnly, Propagate };
 
 class ScrollingTree : public ThreadSafeRefCounted<ScrollingTree> {
@@ -136,7 +117,10 @@ public:
     // Called after a scrolling tree node has handled a scroll and updated its layers.
     // Updates FrameView/RenderLayer scrolling state and GraphicsLayers.
     virtual void scrollingTreeNodeDidScroll(ScrollingTreeScrollingNode&, ScrollingLayerPositionAction = ScrollingLayerPositionAction::Sync) = 0;
+    virtual void scrollingTreeNodeWillStartAnimatedScroll(ScrollingTreeScrollingNode&) { }
     virtual void scrollingTreeNodeDidStopAnimatedScroll(ScrollingTreeScrollingNode&) { }
+    virtual void scrollingTreeNodeWillStartWheelEventScroll(ScrollingTreeScrollingNode&) { }
+    virtual void scrollingTreeNodeDidStopWheelEventScroll(ScrollingTreeScrollingNode&) { }
 
     // Called for requested scroll position updates. Returns true if handled.
     virtual bool scrollingTreeNodeRequestsScroll(ScrollingNodeID, const RequestedScrollData&) { return false; }
@@ -159,10 +143,9 @@ public:
 
     WEBCORE_EXPORT TrackingType eventTrackingTypeForPoint(EventTrackingRegions::EventType, IntPoint);
 
-    WheelEventTestMonitor* wheelEventTestMonitor() { return m_wheelEventTestMonitor.get(); }
-    void setWheelEventTestMonitor(RefPtr<WheelEventTestMonitor>&& monitor) { m_wheelEventTestMonitor = WTFMove(monitor); }
-    void deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason);
-    void removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason);
+    virtual void receivedWheelEventWithPhases(PlatformWheelEventPhase /* phase */, PlatformWheelEventPhase /* momentumPhase */) { }
+    virtual void deferWheelEventTestCompletionForReason(ScrollingNodeID, WheelEventTestMonitor::DeferReason) { }
+    virtual void removeWheelEventTestCompletionDeferralForReason(ScrollingNodeID, WheelEventTestMonitor::DeferReason) { }
 
 #if PLATFORM(MAC)
     virtual void handleWheelEventPhase(ScrollingNodeID, PlatformWheelEventPhase) = 0;
@@ -192,7 +175,7 @@ public:
 
     ScrollingTreeFrameScrollingNode* rootNode() const { return m_rootNode.get(); }
     std::optional<ScrollingNodeID> latchedNodeID() const;
-    void clearLatchedNode();
+    WEBCORE_EXPORT void clearLatchedNode();
 
     bool hasFixedOrSticky() const { return !!m_fixedOrStickyNodeCount; }
     void fixedOrStickyNodeAdded() { ++m_fixedOrStickyNodeCount; }
@@ -213,6 +196,7 @@ public:
     WEBCORE_EXPORT String scrollingTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> = { });
 
     bool isMonitoringWheelEvents() const { return m_isMonitoringWheelEvents; }
+    void setIsMonitoringWheelEvents(bool b) { m_isMonitoringWheelEvents = b; }
     bool inCommitTreeState() const { return m_inCommitTreeState; }
 
     void scrollBySimulatingWheelEventForTesting(ScrollingNodeID, FloatSize);
@@ -279,8 +263,6 @@ private:
 
     OptionSet<WheelEventProcessingSteps> computeWheelProcessingSteps(const PlatformWheelEvent&) WTF_REQUIRES_LOCK(m_treeStateLock);
 
-    void receivedWheelEvent(const PlatformWheelEvent&);
-
     RefPtr<ScrollingTreeFrameScrollingNode> m_rootNode;
 
     using ScrollingTreeNodeMap = HashMap<ScrollingNodeID, RefPtr<ScrollingTreeNode>>;
@@ -329,8 +311,6 @@ private:
     Lock m_lastWheelEventTimeLock;
     MonotonicTime m_lastWheelEventTime WTF_GUARDED_BY_LOCK(m_lastWheelEventTimeLock);
 
-    RefPtr<WheelEventTestMonitor> m_wheelEventTestMonitor;
-
 protected:
     bool m_allowLatching { true };
 
@@ -343,6 +323,27 @@ private:
     bool m_wheelEventGesturesBecomeNonBlocking { false };
     bool m_needsApplyLayerPositionsAfterCommit { false };
     bool m_inCommitTreeState { false };
+};
+
+class ScrollingTreeWheelEventTestMonitorCompletionDeferrer {
+public:
+    ScrollingTreeWheelEventTestMonitorCompletionDeferrer(ScrollingTree& scrollingTree, ScrollingNodeID nodeID, WheelEventTestMonitor::DeferReason reason)
+        : m_scrollingTree(scrollingTree)
+        , m_scrollingNodeID(nodeID)
+        , m_deferReason(reason)
+    {
+        m_scrollingTree->deferWheelEventTestCompletionForReason(m_scrollingNodeID, m_deferReason);
+    }
+    
+    ~ScrollingTreeWheelEventTestMonitorCompletionDeferrer()
+    {
+        m_scrollingTree->removeWheelEventTestCompletionDeferralForReason(m_scrollingNodeID, m_deferReason);
+    }
+
+private:
+    Ref<ScrollingTree> m_scrollingTree;
+    ScrollingNodeID m_scrollingNodeID;
+    WheelEventTestMonitor::DeferReason m_deferReason;
 };
 
 } // namespace WebCore

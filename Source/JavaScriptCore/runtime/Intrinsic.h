@@ -114,6 +114,7 @@ namespace JSC {
     macro(StringPrototypeToLowerCaseIntrinsic) \
     macro(NumberPrototypeToStringIntrinsic) \
     macro(NumberIsIntegerIntrinsic) \
+    macro(NumberConstructorIntrinsic) \
     macro(IMulIntrinsic) \
     macro(RandomIntrinsic) \
     macro(FRoundIntrinsic) \
@@ -127,6 +128,7 @@ namespace JSC {
     macro(JSMapGetIntrinsic) \
     macro(JSMapHasIntrinsic) \
     macro(JSMapSetIntrinsic) \
+    macro(JSMapDeleteIntrinsic) \
     macro(JSMapValuesIntrinsic) \
     macro(JSMapKeysIntrinsic) \
     macro(JSMapEntriesIntrinsic) \
@@ -136,6 +138,7 @@ namespace JSC {
     macro(JSMapBucketValueIntrinsic) \
     macro(JSSetHasIntrinsic) \
     macro(JSSetAddIntrinsic) \
+    macro(JSSetDeleteIntrinsic) \
     macro(JSSetValuesIntrinsic) \
     macro(JSSetEntriesIntrinsic) \
     macro(JSSetBucketHeadIntrinsic) \
@@ -168,6 +171,7 @@ namespace JSC {
     macro(TypedArrayByteLengthIntrinsic) \
     macro(TypedArrayByteOffsetIntrinsic) \
     macro(UnderscoreProtoIntrinsic) \
+    macro(WebAssemblyInstanceExportsIntrinsic) \
     \
     /* Debugging intrinsics. These are meant to be used as testing hacks within jsc.cpp and should never be exposed to users.*/ \
     macro(DFGTrueIntrinsic) \

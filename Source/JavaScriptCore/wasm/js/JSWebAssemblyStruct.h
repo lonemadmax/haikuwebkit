@@ -52,7 +52,7 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(FinalObjectType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
     static JSWebAssemblyStruct* tryCreate(JSGlobalObject*, Structure*, JSWebAssemblyInstance*, uint32_t);
@@ -70,12 +70,12 @@ public:
     uint8_t* fieldPointer(uint32_t fieldIndex);
 
 protected:
-    JSWebAssemblyStruct(VM&, Structure*, Ref<Wasm::TypeDefinition>&&);
+    JSWebAssemblyStruct(VM&, Structure*, Ref<const Wasm::TypeDefinition>&&);
     void finishCreation(VM&);
 
     // FIXME: It is possible to encode the type information in the structure field of Wasm.Struct and remove this field.
     // https://bugs.webkit.org/show_bug.cgi?id=244838
-    Ref<Wasm::TypeDefinition> m_type;
+    Ref<const Wasm::TypeDefinition> m_type;
 
     FixedVector<uint8_t> m_payload;
 };

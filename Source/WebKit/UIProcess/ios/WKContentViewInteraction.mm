@@ -1164,7 +1164,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
         _interactionViewsContainerView = nil;
     }
 
-    _waitingForKeyboardToStartAnimatingInAfterElementFocus = NO;
+    _waitingForKeyboardAppearanceAnimationToStart = NO;
     _lastInsertedCharacterToOverrideCharacterBeforeSelection = std::nullopt;
 
     [_touchEventGestureRecognizer setDelegate:nil];
@@ -1241,7 +1241,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     _pointerInteraction = nil;
 #endif
 
-    [self resetShouldZoomToFocusRectAfterShowingKeyboard];
+    _revealFocusedElementDeferrer = nullptr;
 
 #if HAVE(PENCILKIT_TEXT_INPUT)
     [self cleanUpScribbleInteraction];
@@ -2404,23 +2404,14 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
 
 - (void)_keyboardWillShow
 {
-    _waitingForKeyboardToStartAnimatingInAfterElementFocus = NO;
+    _waitingForKeyboardAppearanceAnimationToStart = NO;
+
+    if (_revealFocusedElementDeferrer)
+        _revealFocusedElementDeferrer->fulfill(WebKit::RevealFocusedElementDeferralReason::KeyboardWillShow);
 }
 
 - (void)_keyboardDidShow
 {
-    [self _zoomToFocusRectAfterShowingKeyboardIfNeeded];
-
-#if USE(UICONTEXTMENU)
-    [_fileUploadPanel repositionContextMenuIfNeeded];
-#endif
-}
-
-- (void)_zoomToFocusRectAfterShowingKeyboardIfNeeded
-{
-    if (!_shouldZoomToFocusRectAfterShowingKeyboard)
-        return;
-
     // FIXME: This deferred call to -_zoomToRevealFocusedElement works around the fact that Mail compose
     // disables automatic content inset adjustment using the keyboard height, and instead has logic to
     // explicitly set WKScrollView's contentScrollInset after receiving UIKeyboardDidShowNotification.
@@ -2428,23 +2419,28 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     // Mail, we won't take the keyboard height into account when scrolling.
     // Mitigate this by deferring the call to -_zoomToRevealFocusedElement in this case until after the
     // keyboard has finished animating. We can revert this once rdar://87733414 is fixed.
-    [self resetShouldZoomToFocusRectAfterShowingKeyboard];
-    [self performSelector:@selector(_zoomToRevealFocusedElement) withObject:nil afterDelay:0];
+    RunLoop::main().dispatch([weakSelf = WeakObjCPtr<WKContentView>(self)] {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf || !strongSelf->_revealFocusedElementDeferrer)
+            return;
+
+        strongSelf->_revealFocusedElementDeferrer->fulfill(WebKit::RevealFocusedElementDeferralReason::KeyboardDidShow);
+    });
+
+#if USE(UICONTEXTMENU)
+    [_fileUploadPanel repositionContextMenuIfNeeded];
+#endif
 }
 
 - (void)_zoomToRevealFocusedElement
 {
+    _revealFocusedElementDeferrer = nullptr;
+
     if (_focusedElementInformation.preventScroll)
         return;
 
     if (_suppressSelectionAssistantReasons || _activeTextInteractionCount)
         return;
-
-    if (!self._scroller.firstResponderKeyboardAvoidanceEnabled
-        && (_page->isKeyboardAnimatingIn() || _waitingForKeyboardToStartAnimatingInAfterElementFocus)) {
-        _shouldZoomToFocusRectAfterShowingKeyboard = YES;
-        return;
-    }
 
     // In case user scaling is force enabled, do not use that scaling when zooming in with an input field.
     // Zooming above the page's default scale factor should only happen when the user performs it.
@@ -2455,12 +2451,6 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
         maximumScale:_focusedElementInformation.maximumScaleFactorIgnoringAlwaysScalable
         allowScaling:_focusedElementInformation.allowsUserScalingIgnoringAlwaysScalable && WebKit::currentUserInterfaceIdiomIsSmallScreen()
         forceScroll:[self requiresAccessoryView]];
-}
-
-- (void)resetShouldZoomToFocusRectAfterShowingKeyboard
-{
-    _shouldZoomToFocusRectAfterShowingKeyboard = NO;
-    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(_zoomToRevealFocusedElement) object:nil];
 }
 
 - (UIView *)inputView
@@ -5676,22 +5666,26 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
     return mergedHighlights;
 }
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/WKContentViewInteractionAdditions.mm>
+#else
 - (void)setAttributedMarkedText:(NSAttributedString *)markedText selectedRange:(NSRange)selectedRange
 {
-    [self _setMarkedText:markedText.string highlights:compositionHighlights(markedText) selectedRange:selectedRange];
+    [self _setMarkedText:markedText.string underlines:Vector<WebCore::CompositionUnderline> { } highlights:compositionHighlights(markedText) selectedRange:selectedRange];
 }
 
 - (void)setMarkedText:(NSString *)markedText selectedRange:(NSRange)selectedRange
 {
-    [self _setMarkedText:markedText highlights:Vector<WebCore::CompositionHighlight> { } selectedRange:selectedRange];
+    [self _setMarkedText:markedText underlines:Vector<WebCore::CompositionUnderline> { } highlights:Vector<WebCore::CompositionHighlight> { } selectedRange:selectedRange];
 }
+#endif
 
-- (void)_setMarkedText:(NSString *)markedText highlights:(const Vector<WebCore::CompositionHighlight>&)highlights selectedRange:(NSRange)selectedRange
+- (void)_setMarkedText:(NSString *)markedText underlines:(const Vector<WebCore::CompositionUnderline>&)underlines highlights:(const Vector<WebCore::CompositionHighlight>&)highlights selectedRange:(NSRange)selectedRange
 {
     _autocorrectionContextNeedsUpdate = YES;
     _candidateViewNeedsUpdate = !self.hasMarkedText;
     _markedText = markedText;
-    _page->setCompositionAsync(markedText, { }, highlights, selectedRange, { });
+    _page->setCompositionAsync(markedText, underlines, highlights, selectedRange, { });
 }
 
 - (void)unmarkText
@@ -5985,6 +5979,7 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
     case WebCore::AutofillFieldName::URL:
         return UITextContentTypeURL;
     case WebCore::AutofillFieldName::Username:
+    case WebCore::AutofillFieldName::WebAuthn:
         return UITextContentTypeUsername;
     case WebCore::AutofillFieldName::None:
     case WebCore::AutofillFieldName::NewPassword:
@@ -6332,6 +6327,7 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
         // Mark to zoom to reveal the newly focused element on the next editor state update.
         // Then tell the web process to reveal the current selection, which will send us (the
         // UI process) an editor state update.
+        _revealFocusedElementDeferrer = WebKit::RevealFocusedElementDeferrer::create(self, WebKit::RevealFocusedElementDeferralReason::EditorState);
         _page->setWaitingForPostLayoutEditorStateUpdateAfterFocusingElement(true);
         _textInteractionDidChangeFocusedElement = NO;
     }
@@ -7043,7 +7039,7 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     }
 
     _inputPeripheral = createInputPeripheralWithView(_focusedElementInformation.elementType, self);
-    _waitingForKeyboardToStartAnimatingInAfterElementFocus = requiresKeyboard;
+    _waitingForKeyboardAppearanceAnimationToStart = requiresKeyboard && !_isChangingFocus;
 
 #if HAVE(PEPPER_UI_CORE)
     [self addFocusedFormControlOverlay];
@@ -7059,6 +7055,13 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
             [self.window makeKeyWindow];
     }
 
+    if (!UIKeyboard.activeKeyboard) {
+        // The lack of keyboard here suggests that we're not running in a context where the keyboard can become visible
+        // (e.g. when running API tests outside of the context of a UI application). In this scenario, don't bother waiting
+        // for keyboard appearance notifications.
+        _waitingForKeyboardAppearanceAnimationToStart = NO;
+    }
+
     // The custom fixed position rect behavior is affected by -isFocusingElement, so if that changes we need to recompute rects.
     if (editableChanged)
         [_webView _scheduleVisibleContentRectUpdate];
@@ -7066,9 +7069,17 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     // For elements that have selectable content (e.g. text field) we need to wait for the web process to send an up-to-date
     // selection rect before we can zoom and reveal the selection. Non-selectable elements (e.g. <select>) can be zoomed
     // immediately because they have no selection to reveal.
-    if (requiresKeyboard)
+    if (requiresKeyboard) {
+        _revealFocusedElementDeferrer = WebKit::RevealFocusedElementDeferrer::create(self, [&] {
+            OptionSet reasons { WebKit::RevealFocusedElementDeferralReason::EditorState };
+            if (!self._scroller.firstResponderKeyboardAvoidanceEnabled)
+                reasons.add(WebKit::RevealFocusedElementDeferralReason::KeyboardDidShow);
+            else if (_waitingForKeyboardAppearanceAnimationToStart)
+                reasons.add(WebKit::RevealFocusedElementDeferralReason::KeyboardWillShow);
+            return reasons;
+        }());
         _page->setWaitingForPostLayoutEditorStateUpdateAfterFocusingElement(true);
-    else
+    } else
         [self _zoomToRevealFocusedElement];
 
     [self _updateAccessory];
@@ -7114,9 +7125,8 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     _focusRequiresStrongPasswordAssistance = NO;
     _autocorrectionContextNeedsUpdate = YES;
     _additionalContextForStrongPasswordAssistance = nil;
-    _waitingForKeyboardToStartAnimatingInAfterElementFocus = NO;
-
-    [self resetShouldZoomToFocusRectAfterShowingKeyboard];
+    _waitingForKeyboardAppearanceAnimationToStart = NO;
+    _revealFocusedElementDeferrer = nullptr;
 
     // When defocusing an editable element reset a seen keydown before calling -_hideKeyboard so that we
     // re-evaluate whether we still need a keyboard when UIKit calls us back in -_requiresKeyboardWhenFirstResponder.
@@ -7255,8 +7265,8 @@ static BOOL allPasteboardItemOriginsMatchOrigin(UIPasteboard *pasteboard, const 
 
     // FIXME: If the initial writing direction just changed, we should wait until we get the next post-layout editor state
     // before zooming to reveal the selection rect.
-    if (mayContainSelectableText(_focusedElementInformation.elementType))
-        [self _zoomToRevealFocusedElement];
+    if (_revealFocusedElementDeferrer)
+        _revealFocusedElementDeferrer->fulfill(WebKit::RevealFocusedElementDeferralReason::EditorState);
 
     _treatAsContentEditableUntilNextEditorStateUpdate = NO;
 
@@ -9199,6 +9209,11 @@ static NSArray<NSItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
     if (platformURL)
         context.get()[@"_WebViewURL"] = platformURL;
 
+    if (_focusedElementInformation.nonAutofillCredentialType == WebCore::NonAutofillCredentialType::WebAuthn) {
+        context.get()[@"_page_id"] = [NSNumber numberWithUnsignedLong:_page->webPageID().toUInt64()];
+        context.get()[@"_frame_id"] = [NSNumber numberWithUnsignedLong:_focusedElementInformation.frameID.object().toUInt64()];
+        context.get()[@"_credential_type"] = WebCore::nonAutofillCredentialTypeString(_focusedElementInformation.nonAutofillCredentialType);
+    }
     return context.autorelease();
 }
 
@@ -10213,14 +10228,14 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     if (!event)
         return;
 
-    if (event->type() == WebKit::WebEvent::MouseDown) {
+    if (event->type() == WebKit::WebEventType::MouseDown) {
         _layerTreeTransactionIdAtLastInteractionStart = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).lastCommittedLayerTreeTransactionID();
 
         if (auto lastMouseLocation = gestureRecognizer.lastMouseLocation)
             _lastInteractionLocation = *lastMouseLocation;
     }
 
-    if (event->type() == WebKit::WebEvent::MouseUp && self.hasHiddenContentEditable && self._hasFocusedElement && !self.window.keyWindow)
+    if (event->type() == WebKit::WebEventType::MouseUp && self.hasHiddenContentEditable && self._hasFocusedElement && !self.window.keyWindow)
         [self.window makeKeyWindow];
 
     _page->handleMouseEvent(*event);
@@ -11202,6 +11217,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
         BOOL hasVisualSearchResults = [result hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
         RELEASE_LOG(ImageAnalysis, "Image analysis completed in %.0f ms (request %" PRIu64 "; found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), requestIdentifier.toUInt64(), hasVisualSearchResults);
 #else
+        UNUSED_PARAM(requestIdentifier);
         UNUSED_PARAM(visualSearchAnalysisStartTime);
 #endif
         if (!result || error)
@@ -12988,7 +13004,6 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 
 @implementation WKFoundTextRange
 
-
 + (WKFoundTextRange *)foundTextRangeWithWebFoundTextRange:(WebKit::WebFoundTextRange)webRange
 {
     auto range = adoptNS([[WKFoundTextRange alloc] init]);
@@ -12997,6 +13012,12 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     [range setFrameIdentifier:webRange.frameIdentifier];
     [range setOrder:webRange.order];
     return range.autorelease();
+}
+
+- (void)dealloc
+{
+    [_frameIdentifier release];
+    [super dealloc];
 }
 
 - (WKFoundTextPosition *)start

@@ -47,7 +47,7 @@
 #include "CSSValueList.h"
 #include "CSSVariableData.h"
 #include "CSSVariableReferenceValue.h"
-#include "StyleProperties.h"
+#include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
 #include <wtf/FixedVector.h>
 #include <wtf/IsoMallocInlines.h>
@@ -120,7 +120,7 @@ ExceptionOr<Vector<Ref<CSSStyleValue>>> CSSStyleValueFactory::parseStyleValue(co
     if (propertyID == CSSPropertyInvalid)
         return Exception { TypeError, "Property String is not a valid CSS property."_s };
 
-    if (isShorthandCSSProperty(propertyID)) {
+    if (isShorthand(propertyID)) {
         auto result = extractShorthandCSSValues(propertyID, cssText);
         if (result.hasException())
             return result.releaseException();
@@ -150,7 +150,7 @@ ExceptionOr<Vector<Ref<CSSStyleValue>>> CSSStyleValueFactory::parseStyleValue(co
     Vector<Ref<CSSStyleValue>> results;
 
     for (auto& cssValue : cssValues) {
-        auto reifiedValue = reifyValue(WTFMove(cssValue));
+        auto reifiedValue = reifyValue(WTFMove(cssValue), propertyID);
         if (reifiedValue.hasException())
             return reifiedValue.releaseException();
 
@@ -163,7 +163,20 @@ ExceptionOr<Vector<Ref<CSSStyleValue>>> CSSStyleValueFactory::parseStyleValue(co
     return results;
 }
 
-ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> cssValue, Document* document)
+static bool mayConvertCSSValueListToSingleValue(std::optional<CSSPropertyID> propertyID)
+{
+    if (!propertyID)
+        return true;
+
+    // Even though the CSS Parser uses a CSSValueList to represent these, they are not
+    // really lists and CSS-Typed-OM does not expect them to treat them as such.
+    return *propertyID != CSSPropertyGridRowStart
+        && *propertyID != CSSPropertyGridRowEnd
+        && *propertyID != CSSPropertyGridColumnStart
+        && *propertyID != CSSPropertyGridColumnEnd;
+}
+
+ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> cssValue, std::optional<CSSPropertyID> propertyID, Document* document)
 {
     if (is<CSSPrimitiveValue>(cssValue)) {
         auto primitiveValue = downcast<CSSPrimitiveValue>(cssValue.ptr());
@@ -176,6 +189,7 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> c
         }
         switch (primitiveValue->primitiveType()) {
         case CSSUnitType::CSS_NUMBER:
+        case CSSUnitType::CSS_INTEGER:
             return Ref<CSSStyleValue> { CSSNumericFactory::number(primitiveValue->doubleValue()) };
         case CSSUnitType::CSS_PERCENTAGE:
             return Ref<CSSStyleValue> { CSSNumericFactory::percent(primitiveValue->doubleValue()) };
@@ -251,10 +265,11 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> c
             return Ref<CSSStyleValue> { CSSNumericFactory::cqmin(primitiveValue->doubleValue()) };
         case CSSUnitType::CSS_CQMAX:
             return Ref<CSSStyleValue> { CSSNumericFactory::cqmax(primitiveValue->doubleValue()) };
-        
         case CSSUnitType::CSS_IDENT:
-        case CSSUnitType::CSS_STRING:
-            return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(primitiveValue->stringValue()));
+            // Per the specification, the CSSKeywordValue's value slot should be set to the serialization
+            // of the identifier. As a result, the identifier will be lowercase:
+            // https://drafts.css-houdini.org/css-typed-om-1/#reify-ident
+            return static_reference_cast<CSSStyleValue>(CSSKeywordValue::rectifyKeywordish(primitiveValue->cssText()));
         default:
             break;
         }
@@ -269,11 +284,21 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> c
         return WTF::switchOn(downcast<CSSCustomPropertyValue>(cssValue.get()).value(), [&](const std::monostate&) {
             return ExceptionOr<Ref<CSSStyleValue>> { CSSStyleValue::create(WTFMove(cssValue)) };
         }, [&](const Ref<CSSVariableReferenceValue>& value) {
-            return reifyValue(value, document);
+            return reifyValue(value, propertyID, document);
         }, [&](Ref<CSSVariableData>& value) {
-            return reifyValue(CSSVariableReferenceValue::create(WTFMove(value)));
+            return reifyValue(CSSVariableReferenceValue::create(WTFMove(value)), propertyID);
         }, [&](const CSSValueID&) {
             return ExceptionOr<Ref<CSSStyleValue>> { CSSStyleValue::create(WTFMove(cssValue)) };
+        }, [&](const CSSCustomPropertyValue::SyntaxValue& syntaxValue) -> ExceptionOr<Ref<CSSStyleValue>> {
+            if (auto styleValue = constructStyleValueForCustomPropertySyntaxValue(syntaxValue))
+                return { *styleValue };
+            CSSTokenizer tokenizer(downcast<CSSCustomPropertyValue>(cssValue.get()).customCSSText());
+            return { CSSUnparsedValue::create(tokenizer.tokenRange()) };
+        }, [&](const CSSCustomPropertyValue::SyntaxValueList& syntaxValueList) -> ExceptionOr<Ref<CSSStyleValue>> {
+            if (auto styleValue = constructStyleValueForCustomPropertySyntaxValue(syntaxValueList.values[0]))
+                return { *styleValue };
+            CSSTokenizer tokenizer(downcast<CSSCustomPropertyValue>(cssValue.get()).customCSSText());
+            return { CSSUnparsedValue::create(tokenizer.tokenRange()) };
         }, [&](auto&) {
             CSSTokenizer tokenizer(downcast<CSSCustomPropertyValue>(cssValue.get()).customCSSText());
             return ExceptionOr<Ref<CSSStyleValue>> { CSSUnparsedValue::create(tokenizer.tokenRange()) };
@@ -291,11 +316,39 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValueFactory::reifyValue(Ref<CSSValue> c
         auto valueList = downcast<CSSValueList>(cssValue.ptr());
         if (!valueList->length())
             return Exception { TypeError, "The CSSValueList should not be empty."_s };
-        
-        return reifyValue(*valueList->begin(), document);
+        if ((valueList->length() == 1 && mayConvertCSSValueListToSingleValue(propertyID)) || (propertyID && CSSProperty::isListValuedProperty(*propertyID)))
+            return reifyValue(*valueList->begin(), propertyID, document);
     }
     
     return CSSStyleValue::create(WTFMove(cssValue));
+}
+
+RefPtr<CSSStyleValue> CSSStyleValueFactory::constructStyleValueForCustomPropertySyntaxValue(const CSSCustomPropertyValue::SyntaxValue& syntaxValue)
+{
+    return WTF::switchOn(syntaxValue, [&](const Length& length) -> RefPtr<CSSStyleValue> {
+        if (length.isFixed())
+            return CSSUnitValue::create(length.value(), CSSUnitType::CSS_PX);
+        if (length.isPercent())
+            return CSSUnitValue::create(length.percent(), CSSUnitType::CSS_PERCENTAGE);
+        // FIXME: Calc.
+        return nullptr;
+    }, [&](const CSSCustomPropertyValue::NumericSyntaxValue& numericValue) -> RefPtr<CSSStyleValue>  {
+        return CSSUnitValue::create(numericValue.value, numericValue.unitType);
+    }, [&](const StyleColor& colorValue) -> RefPtr<CSSStyleValue> {
+        if (colorValue.isCurrentColor())
+            return CSSKeywordValue::rectifyKeywordish(nameLiteral(CSSValueCurrentcolor));
+        return CSSStyleValue::create(CSSValuePool::singleton().createColorValue(colorValue.absoluteColor()));
+    }, [&](const URL& urlValue) -> RefPtr<CSSStyleValue> {
+        return CSSStyleValue::create(CSSPrimitiveValue::create(urlValue.string(), CSSUnitType::CSS_URI));
+    }, [&](const String& identValue) -> RefPtr<CSSStyleValue> {
+        return CSSKeywordValue::rectifyKeywordish(identValue);
+    }, [&](const RefPtr<StyleImage>&) -> RefPtr<CSSStyleValue>  {
+        // FIXME: <image>.
+        return nullptr;
+    }, [&](const CSSCustomPropertyValue::TransformSyntaxValue&) -> RefPtr<CSSStyleValue>  {
+        // FIXME: <transform>, <transform-list>.
+        return nullptr;
+    });
 }
 
 ExceptionOr<Vector<Ref<CSSStyleValue>>> CSSStyleValueFactory::vectorFromStyleValuesOrStrings(const AtomString& property, FixedVector<std::variant<RefPtr<CSSStyleValue>, String>>&& values)

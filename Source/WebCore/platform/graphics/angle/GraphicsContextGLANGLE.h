@@ -28,6 +28,7 @@
 #if ENABLE(WEBGL)
 
 #include "ANGLEUtilities.h"
+#include "GCGLSpan.h"
 #include "GraphicsContextGL.h"
 #include "GraphicsContextGLState.h"
 #include <memory>
@@ -346,7 +347,8 @@ public:
 
     RefPtr<PixelBuffer> readRenderingResultsForPainting();
     RefPtr<PixelBuffer> readCompositedResultsForPainting();
-
+    // Returns true on success.
+    bool readnPixelsWithStatus(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLSpan<GCGLvoid> data);
 protected:
     GraphicsContextGLANGLE(GraphicsContextGLAttributes);
 
@@ -369,7 +371,7 @@ protected:
     void validateDepthStencil(ASCIILiteral packedDepthStencilExtension);
     void validateAttributes();
 
-    void readnPixelsImpl(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLsizei bufSize, GCGLsizei* length, GCGLsizei* columns, GCGLsizei* rows, GCGLvoid* data, bool readingToPixelBufferObject);
+    bool readnPixelsImpl(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLsizei bufSize, GCGLsizei* length, GCGLsizei* columns, GCGLsizei* rows, GCGLvoid* data, bool readingToPixelBufferObject);
 
     // Did the most recent drawing operation leave the GPU in an acceptable state?
     void checkGPUStatus();

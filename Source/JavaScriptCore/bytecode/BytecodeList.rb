@@ -1469,9 +1469,7 @@ op :op_put_by_val_return_location
 op :op_iterator_open_return_location
 op :op_iterator_next_return_location
 op :wasm_function_prologue
-op :wasm_function_prologue_no_tls
 op :wasm_function_prologue_simd
-op :wasm_function_prologue_no_tls_simd
 
 op :op_call_slow_return_location
 op :op_construct_slow_return_location
@@ -1503,11 +1501,10 @@ op :js_trampoline_llint_function_for_call_arity_check_tag
 op :js_trampoline_llint_function_for_construct_arity_check_untag
 op :js_trampoline_llint_function_for_construct_arity_check_tag
 op :wasm_trampoline_wasm_call
-op :wasm_trampoline_wasm_call_no_tls
 op :wasm_trampoline_wasm_call_indirect
-op :wasm_trampoline_wasm_call_indirect_no_tls
 op :wasm_trampoline_wasm_call_ref
-op :wasm_trampoline_wasm_call_ref_no_tls
+op :wasm_trampoline_wasm_tail_call
+op :wasm_trampoline_wasm_tail_call_indirect
 
 end_section :NativeHelpers
 
@@ -1522,15 +1519,11 @@ autogenerate_wasm_opcodes
 # Helpers
 
 op :throw_from_slow_path_trampoline
-op :throw_from_fault_handler_trampoline_fastTLS
 op :throw_from_fault_handler_trampoline_reg_instance
 
 op :call_return_location
-op :call_no_tls_return_location
 op :call_indirect_return_location
-op :call_indirect_no_tls_return_location
 op :call_ref_return_location
-op :call_ref_no_tls_return_location
 
 # FIXME: Wasm and JS LLInt should share common opcodes
 # https://bugs.webkit.org/show_bug.cgi?id=203656
@@ -1595,6 +1588,12 @@ op :ref_func,
         functionIndex: unsigned,
     }
 
+op :ref_as_non_null,
+    args: {
+        dst: VirtualRegister,
+        ref: VirtualRegister,
+    }
+
 op :get_global,
     args: {
         dst: VirtualRegister,
@@ -1654,17 +1653,6 @@ op :table_init,
         tableIndex: unsigned,
     }
 
-op :elem_drop,
-    args: {
-        elementIndex: unsigned,
-    }
-
-op :table_size,
-    args: {
-        dst: VirtualRegister,
-        tableIndex: unsigned,
-    }
-
 op :table_grow,
     args: {
         dst: VirtualRegister,
@@ -1681,15 +1669,6 @@ op :table_fill,
         tableIndex: unsigned,
     }
 
-op :table_copy,
-    args: {
-        dstOffset: VirtualRegister,
-        srcOffset: VirtualRegister,
-        length: VirtualRegister,
-        dstTableIndex: unsigned,
-        srcTableIndex: unsigned,
-    }
-
 op :call,
     args: {
         functionIndex: unsigned,
@@ -1697,11 +1676,12 @@ op :call,
         numberOfStackArgs: unsigned,
     }
 
-op :call_no_tls,
+op :tail_call,
     args: {
         functionIndex: unsigned,
         stackOffset: unsigned,
-        numberOfStackArgs: unsigned,
+        numberOfCalleeStackArgs: unsigned,
+        numberOfCallerStackArgs: unsigned,
     }
 
 op :call_indirect,
@@ -1713,12 +1693,13 @@ op :call_indirect,
         tableIndex: unsigned,
     }
 
-op :call_indirect_no_tls,
+op :tail_call_indirect,
     args: {
         functionIndex: VirtualRegister,
-        typeIndex: unsigned,
+        signatureIndex: unsigned,
         stackOffset: unsigned,
-        numberOfStackArgs: unsigned,
+        numberOfCalleeStackArgs: unsigned,
+        numberOfCallerStackArgs: unsigned,
         tableIndex: unsigned,
     }
 
@@ -1730,50 +1711,17 @@ op :call_ref,
         numberOfStackArgs: unsigned,
     }
 
-op :call_ref_no_tls,
+op :call_builtin,
     args: {
-        functionReference: VirtualRegister,
-        typeIndex: unsigned,
+        builtinIndex: unsigned,
         stackOffset: unsigned,
         numberOfStackArgs: unsigned,
-    }
-
-op :current_memory,
-    args: {
-        dst: VirtualRegister,
     }
 
 op :grow_memory,
     args: {
         dst: VirtualRegister,
         delta: VirtualRegister
-    }
-
-op :memory_fill,
-    args: {
-        dstAddress: VirtualRegister,
-        targetValue: VirtualRegister,
-        count: VirtualRegister,
-    }
-
-op :memory_copy,
-    args: {
-        dstAddress: VirtualRegister,
-        srcAddress: VirtualRegister,
-        count: VirtualRegister,
-    }
-
-op :memory_init,
-    args: {
-        dstAddress: VirtualRegister,
-        srcAddress: VirtualRegister,
-        length: VirtualRegister,
-        dataSegmentIndex: unsigned,
-    }
-
-op :data_drop,
-    args: {
-        dataSegmentIndex: unsigned,
     }
 
 op :select,
@@ -1892,7 +1840,6 @@ op :rethrow,
 op_group :Catch,
     [
         :catch,
-        :catch_no_tls,
     ],
     args: {
         exceptionIndex: unsigned,
@@ -1904,7 +1851,6 @@ op_group :Catch,
 op_group :CatchAll,
     [
         :catch_all,
-        :catch_all_no_tls,
     ],
     args: {
         exception: VirtualRegister,
@@ -1916,16 +1862,11 @@ op :i31_new,
         value: VirtualRegister,
     }
 
-op :i31_get_s,
+op :i31_get,
     args: {
         dst: VirtualRegister,
         ref: VirtualRegister,
-    }
-
-op :i31_get_u,
-    args: {
-        dst: VirtualRegister,
-        ref: VirtualRegister,
+        isSigned: bool,
     }
 
 op :array_new,
@@ -1934,13 +1875,7 @@ op :array_new,
         size: VirtualRegister,
         value: VirtualRegister,
         typeIndex: unsigned,
-    }
-
-op :array_new_default,
-    args: {
-        dst: VirtualRegister,
-        size: VirtualRegister,
-        typeIndex: unsigned,
+        useDefault: bool,
     }
 
 op :array_get,
@@ -1949,22 +1884,7 @@ op :array_get,
         arrayref: VirtualRegister,
         index: VirtualRegister,
         typeIndex: unsigned,
-    }
-
-op :array_get_s,
-    args: {
-        dst: VirtualRegister,
-        arrayref: VirtualRegister,
-        index: VirtualRegister,
-        typeIndex: unsigned,
-    }
-
-op :array_get_u,
-    args: {
-        dst: VirtualRegister,
-        arrayref: VirtualRegister,
-        index: VirtualRegister,
-        typeIndex: unsigned,
+        arrayGetKind: unsigned,
     }
 
 op :array_set,
@@ -1985,6 +1905,7 @@ op :struct_new,
     args: {
         dst: VirtualRegister,
         typeIndex: unsigned,
+        useDefault: bool,
         firstValue: VirtualRegister,
     }
 

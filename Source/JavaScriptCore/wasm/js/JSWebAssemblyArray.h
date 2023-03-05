@@ -72,7 +72,7 @@ public:
     EncodedJSValue get(uint32_t index)
     {
         if (m_elementType.type.is<Wasm::PackedType>()) {
-            switch (*m_elementType.type.as<Wasm::PackedType>()) {
+            switch (m_elementType.type.as<Wasm::PackedType>()) {
             case Wasm::PackedType::I8:
                 return static_cast<EncodedJSValue>(m_payload8[index]);
             case Wasm::PackedType::I16:
@@ -81,7 +81,7 @@ public:
         }
         // m_element_type must be a type, so we can get its kind
         ASSERT(m_elementType.type.is<Wasm::Type>());
-        switch (m_elementType.type.as<Wasm::Type>()->kind) {
+        switch (m_elementType.type.as<Wasm::Type>().kind) {
         case Wasm::TypeKind::I32:
         case Wasm::TypeKind::F32:
             return static_cast<EncodedJSValue>(m_payload32[index]);
@@ -95,7 +95,7 @@ public:
         if (m_elementType.type.is<Wasm::PackedType>()) {
             // `value` is assumed to be an unboxed int32; truncate it to either 8 or 16 bits
             ASSERT(value <= UINT32_MAX);
-            switch (*m_elementType.type.as<Wasm::PackedType>()) {
+            switch (m_elementType.type.as<Wasm::PackedType>()) {
             case Wasm::PackedType::I8:
                 m_payload8[index] = static_cast<uint8_t>(value);
                 break;
@@ -108,7 +108,7 @@ public:
 
         ASSERT(m_elementType.type.is<Wasm::Type>());
 
-        switch (m_elementType.type.as<Wasm::Type>()->kind) {
+        switch (m_elementType.type.as<Wasm::Type>().kind) {
         case Wasm::TypeKind::I32:
         case Wasm::TypeKind::F32:
             m_payload32[index] = static_cast<uint32_t>(value);

@@ -35,6 +35,7 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSFontPaletteValuesOverrideColorsValue.h"
+#include "CSSFontStyleRangeValue.h"
 #include "CSSFontVariantLigaturesParser.h"
 #include "CSSFontVariantNumericParser.h"
 #include "CSSGridLineNamesValue.h"
@@ -45,9 +46,9 @@
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyParsing.h"
+#include "CSSTokenizer.h"
 #include "CSSVariableParser.h"
 #include "CSSVariableReferenceValue.h"
-#include "Counter.h"
 #include "FontFace.h"
 #include "Pair.h"
 #include "ParsingUtilities.h"
@@ -57,6 +58,7 @@
 #include "StylePropertyShorthand.h"
 #include "StylePropertyShorthandFunctions.h"
 #include "TimingFunction.h"
+#include "TransformFunctions.h"
 #include <memory>
 #include <wtf/text/StringBuilder.h>
 
@@ -68,7 +70,7 @@
 
 namespace WebCore {
 
-bool isCustomPropertyName(const String& propertyName)
+bool isCustomPropertyName(StringView propertyName)
 {
     return propertyName.length() > 2 && propertyName.characterAt(0) == '-' && propertyName.characterAt(1) == '-';
 }
@@ -161,7 +163,7 @@ CSSPropertyParser::CSSPropertyParser(const CSSParserTokenRange& range, const CSS
         m_range.consumeWhitespace();
 }
 
-void CSSPropertyParser::addProperty(CSSPropertyID property, CSSPropertyID currentShorthand, Ref<CSSValue>&& value, bool important, bool implicit)
+void CSSPropertyParser::addProperty(CSSPropertyID property, CSSPropertyID currentShorthand, RefPtr<CSSValue>&& value, bool important, bool implicit)
 {
     int shorthandIndex = 0;
     bool setFromShorthand = false;
@@ -179,41 +181,37 @@ void CSSPropertyParser::addProperty(CSSPropertyID property, CSSPropertyID curren
     // execCommand('FontSizeDelta')).
     ASSERT(isExposed(property, &m_context.propertySettings) || setFromShorthand || isInternal(property));
 
-    if (!implicit && value->isImplicitInitialValue())
-        implicit = true;
-
-    m_parsedProperties->append(CSSProperty(property, WTFMove(value), important, setFromShorthand, shorthandIndex, implicit));
+    if (value && !value->isImplicitInitialValue())
+        m_parsedProperties->append(CSSProperty(property, WTFMove(value), important, setFromShorthand, shorthandIndex, implicit));
+    else {
+        ASSERT(setFromShorthand);
+        m_parsedProperties->append(CSSProperty(property, Ref { CSSPrimitiveValue::implicitInitialValue() }, important, setFromShorthand, shorthandIndex, true));
+    }
 }
 
-void CSSPropertyParser::addPropertyWithImplicitDefault(CSSPropertyID property, CSSPropertyID currentShorthand, RefPtr<CSSValue>&& value, Ref<CSSValue>&& implicitDefault, bool important)
+void CSSPropertyParser::addExpandedProperty(CSSPropertyID shorthand, RefPtr<CSSValue>&& value, bool important, bool implicit)
 {
-    if (value)
-        addProperty(property, currentShorthand, value.releaseNonNull(), important, false);
-    else
-        addProperty(property, currentShorthand, WTFMove(implicitDefault), important, true);
-}
-
-void CSSPropertyParser::addExpandedPropertyForValue(CSSPropertyID property, Ref<CSSValue>&& value, bool important)
-{
-    for (auto longhand : shorthandForProperty(property))
-        addProperty(longhand, property, value.copyRef(), important);
+    for (auto longhand : shorthandForProperty(shorthand))
+        addProperty(longhand, shorthand, value.copyRef(), important, implicit);
 }
 
 bool CSSPropertyParser::parseValue(CSSPropertyID propertyID, bool important, const CSSParserTokenRange& range, const CSSParserContext& context, ParsedPropertyVector& parsedProperties, StyleRuleType ruleType)
 {
     int parsedPropertiesSize = parsedProperties.size();
-
+    
     CSSPropertyParser parser(range, context, &parsedProperties);
-    bool parseSuccess;
 
+    bool parseSuccess;
     if (ruleType == StyleRuleType::FontFace)
         parseSuccess = parser.parseFontFaceDescriptor(propertyID);
     else if (ruleType == StyleRuleType::FontPaletteValues)
         parseSuccess = parser.parseFontPaletteValuesDescriptor(propertyID);
     else if (ruleType == StyleRuleType::CounterStyle)
-        parseSuccess = parser.parseCounterStyleDescriptor(propertyID, context);
+        parseSuccess = parser.parseCounterStyleDescriptor(propertyID);
     else if (ruleType == StyleRuleType::Keyframe)
         parseSuccess = parser.parseKeyframeDescriptor(propertyID, important);
+    else if (ruleType == StyleRuleType::Property)
+        parseSuccess = parser.parsePropertyDescriptor(propertyID);
     else
         parseSuccess = parser.parseValueStart(propertyID, important);
 
@@ -223,7 +221,7 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propertyID, bool important, con
     return parseSuccess;
 }
 
-static RefPtr<CSSValue> maybeConsumeCSSWideKeyword(CSSParserTokenRange& range)
+static RefPtr<CSSPrimitiveValue> maybeConsumeCSSWideKeyword(CSSParserTokenRange& range)
 {
     CSSParserTokenRange rangeCopy = range;
     CSSValueID valueID = rangeCopy.consumeIncludingWhitespace().id();
@@ -234,7 +232,7 @@ static RefPtr<CSSValue> maybeConsumeCSSWideKeyword(CSSParserTokenRange& range)
         return nullptr;
 
     range = rangeCopy;
-    return CSSValuePool::singleton().createIdentifierValue(valueID);
+    return CSSPrimitiveValue::create(valueID);
 }
 
 RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, const CSSParserTokenRange& range, const CSSParserContext& context)
@@ -249,13 +247,7 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, con
     return value;
 }
 
-bool CSSPropertyParser::canParseTypedCustomPropertyValue(const String& syntax, const CSSParserTokenRange& tokens, const CSSParserContext& context)
-{
-    CSSPropertyParser parser(tokens, context, nullptr);
-    return parser.canParseTypedCustomPropertyValue(syntax);
-}
-
-RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyValue(const AtomString& name, const String& syntax, const CSSParserTokenRange& tokens, const Style::BuilderState& builderState, const CSSParserContext& context)
+RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyValue(const AtomString& name, const CSSCustomPropertySyntax& syntax, const CSSParserTokenRange& tokens, Style::BuilderState& builderState, const CSSParserContext& context)
 {
     CSSPropertyParser parser(tokens, context, nullptr, false);
     RefPtr<CSSCustomPropertyValue> value = parser.parseTypedCustomPropertyValue(name, syntax, builderState);
@@ -264,10 +256,35 @@ RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyValue(
     return value;
 }
 
-void CSSPropertyParser::collectParsedCustomPropertyValueDependencies(const String& syntax, bool isRoot, HashSet<CSSPropertyID>& dependencies, const CSSParserTokenRange& tokens, const CSSParserContext& context)
+RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyInitialValue(const AtomString& name, const CSSCustomPropertySyntax& syntax, CSSParserTokenRange tokens, Style::BuilderState& builderState, const CSSParserContext& context)
+{
+    if (syntax.isUniversal())
+        return CSSVariableParser::parseInitialValueForUniversalSyntax(name, tokens);
+
+    CSSPropertyParser parser(tokens, context, nullptr, false);
+    RefPtr<CSSCustomPropertyValue> value = parser.parseTypedCustomPropertyValue(name, syntax, builderState);
+    if (!value || !parser.m_range.atEnd())
+        return nullptr;
+
+    if (value->containsCSSWideKeyword())
+        return nullptr;
+
+    return value;
+}
+
+ComputedStyleDependencies CSSPropertyParser::collectParsedCustomPropertyValueDependencies(const CSSCustomPropertySyntax& syntax, const CSSParserTokenRange& tokens, const CSSParserContext& context)
 {
     CSSPropertyParser parser(tokens, context, nullptr);
-    parser.collectParsedCustomPropertyValueDependencies(syntax, isRoot, dependencies);
+    return parser.collectParsedCustomPropertyValueDependencies(syntax);
+}
+
+bool CSSPropertyParser::isValidCustomPropertyValueForSyntax(const CSSCustomPropertySyntax& syntax, CSSParserTokenRange tokens, const CSSParserContext& context)
+{
+    if (syntax.isUniversal())
+        return true;
+
+    CSSPropertyParser parser { tokens, context, nullptr };
+    return !!parser.consumeCustomPropertyValueWithSyntax(syntax).first;
 }
 
 bool CSSPropertyParser::parseValueStart(CSSPropertyID propertyID, bool important)
@@ -276,7 +293,7 @@ bool CSSPropertyParser::parseValueStart(CSSPropertyID propertyID, bool important
         return true;
 
     CSSParserTokenRange originalRange = m_range;
-    bool isShorthand = isShorthandCSSProperty(propertyID);
+    bool isShorthand = WebCore::isShorthand(propertyID);
 
     if (isShorthand) {
         // Variable references will fail to parse here and will fall out to the variable ref parser below.
@@ -285,7 +302,7 @@ bool CSSPropertyParser::parseValueStart(CSSPropertyID propertyID, bool important
     } else {
         RefPtr<CSSValue> parsedValue = parseSingleValue(propertyID);
         if (parsedValue && m_range.atEnd()) {
-            addProperty(propertyID, CSSPropertyInvalid, *parsedValue, important);
+            addProperty(propertyID, CSSPropertyInvalid, WTFMove(parsedValue), important);
             return true;
         }
     }
@@ -293,7 +310,7 @@ bool CSSPropertyParser::parseValueStart(CSSPropertyID propertyID, bool important
     if (CSSVariableParser::containsValidVariableReferences(originalRange, m_context)) {
         auto variable = CSSVariableReferenceValue::create(originalRange, m_context);
         if (isShorthand)
-            addExpandedPropertyForValue(propertyID, CSSPendingSubstitutionValue::create(propertyID, WTFMove(variable)), important);
+            addExpandedProperty(propertyID, CSSPendingSubstitutionValue::create(propertyID, WTFMove(variable)), important);
         else
             addProperty(propertyID, CSSPropertyInvalid, WTFMove(variable), important);
         return true;
@@ -315,409 +332,233 @@ bool CSSPropertyParser::consumeCSSWideKeyword(CSSPropertyID propertyID, bool imp
             return false;
         addProperty(propertyID, CSSPropertyInvalid, value.releaseNonNull(), important);
     } else
-        addExpandedPropertyForValue(propertyID, value.releaseNonNull(), important);
+        addExpandedProperty(propertyID, value.releaseNonNull(), important);
     m_range = rangeCopy;
     return true;
 }
 
 RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSSPropertyID currentShorthand)
 {
-    return CSSPropertyParsing::parse(m_range, property, currentShorthand, m_context);
+    return CSSPropertyParsing::parseStyleProperty(m_range, property, currentShorthand, m_context);
 }
 
-RefPtr<CSSValue> CSSPropertyParser::parseCustomPropertyValueWithSyntaxDefinition(const CSSPropertySyntax::Definition& syntaxDefinition)
+std::pair<RefPtr<CSSValue>, CSSCustomPropertySyntax::Type> CSSPropertyParser::consumeCustomPropertyValueWithSyntax(const CSSCustomPropertySyntax& syntax)
 {
-    ASSERT(!CSSPropertySyntax::isUniversal(syntaxDefinition));
-
-    m_range.consumeWhitespace();
+    ASSERT(!syntax.isUniversal());
 
     auto rangeCopy = m_range;
 
-    auto value = [&]() -> RefPtr<CSSValue>  {
-        for (auto& component : syntaxDefinition) {
-            switch (component.dataType) {
-            case CSSPropertySyntax::DataType::Universal:
-                ASSERT_NOT_REACHED();
-                break;
-            case CSSPropertySyntax::DataType::Length:
-                if (auto value = consumeLength(m_range, m_context.mode, ValueRange::All))
+    auto consumeSingleValue = [&](auto& range, auto& component) -> RefPtr<CSSValue> {
+        switch (component.type) {
+        case CSSCustomPropertySyntax::Type::Length:
+            return consumeLength(range, m_context.mode, ValueRange::All);
+        case CSSCustomPropertySyntax::Type::LengthPercentage:
+            return consumeLengthOrPercent(range, m_context.mode, ValueRange::All);
+        case CSSCustomPropertySyntax::Type::CustomIdent:
+            if (auto value = consumeCustomIdent(range)) {
+                if (component.ident.isNull() || value->stringValue() == component.ident)
                     return value;
-                break;
-            case CSSPropertySyntax::DataType::LengthPercentage:
-                if (auto value = consumeLengthOrPercent(m_range, m_context.mode, ValueRange::All))
-                    return value;
-                break;
-            case CSSPropertySyntax::DataType::CustomIdent:
-                if (auto value = consumeCustomIdent(m_range)) {
-                    if (component.ident.isNull() || value->stringValue() == component.ident)
-                        return value;
-                    m_range = rangeCopy;
-                }
-                break;
-            case CSSPropertySyntax::DataType::Unknown:
-                break;
             }
+            return nullptr;
+        case CSSCustomPropertySyntax::Type::Percentage:
+            return consumePercent(range, ValueRange::All);
+        case CSSCustomPropertySyntax::Type::Integer:
+            return consumeInteger(range);
+        case CSSCustomPropertySyntax::Type::Number:
+            return consumeNumber(range, ValueRange::All);
+        case CSSCustomPropertySyntax::Type::Angle:
+            return consumeAngle(range, m_context.mode);
+        case CSSCustomPropertySyntax::Type::Time:
+            return consumeTime(range, m_context.mode, ValueRange::All);
+        case CSSCustomPropertySyntax::Type::Resolution:
+            return consumeResolution(range);
+        case CSSCustomPropertySyntax::Type::Color:
+            return consumeColor(range, m_context);
+        case CSSCustomPropertySyntax::Type::Image:
+            return consumeImage(range, m_context, { AllowedImageType::URLFunction, AllowedImageType::GeneratedImage });
+        case CSSCustomPropertySyntax::Type::URL:
+            return consumeURL(range);
+        case CSSCustomPropertySyntax::Type::TransformFunction:
+            return consumeTransformFunction(m_range, m_context);
+        case CSSCustomPropertySyntax::Type::TransformList:
+            return consumeTransform(m_range, m_context);
+        case CSSCustomPropertySyntax::Type::Unknown:
+            return nullptr;
         }
+        ASSERT_NOT_REACHED();
         return nullptr;
-    }();
+    };
 
-    if (!m_range.atEnd())
+    auto consumeComponent = [&](auto& range, const auto& component) -> RefPtr<CSSValue> {
+        switch (component.multiplier) {
+        case CSSCustomPropertySyntax::Multiplier::Single:
+            return consumeSingleValue(range, component);
+        case CSSCustomPropertySyntax::Multiplier::CommaList: {
+            return consumeCommaSeparatedListWithoutSingleValueOptimization(range, [&](auto& range) {
+                return consumeSingleValue(range, component);
+            });
+        }
+        case CSSCustomPropertySyntax::Multiplier::SpaceList: {
+            RefPtr<CSSValueList> valueList;
+            while (auto value = consumeSingleValue(range, component)) {
+                if (!valueList)
+                    valueList = CSSValueList::createSpaceSeparated();
+                valueList->append(value.releaseNonNull());
+            }
+            return valueList;
+        }
+        }
+        ASSERT_NOT_REACHED();
         return nullptr;
+    };
 
-    return value;
-}
-
-bool CSSPropertyParser::canParseTypedCustomPropertyValue(const String& syntax)
-{
-    auto syntaxDefinition = CSSPropertySyntax::parse(syntax);
-    if (syntaxDefinition.isEmpty())
-        return false;
-
-    if (CSSPropertySyntax::isUniversal(syntaxDefinition))
-        return true;
-
-    auto value = parseCustomPropertyValueWithSyntaxDefinition(syntaxDefinition);
-    return value && m_range.atEnd();
-}
-
-void CSSPropertyParser::collectParsedCustomPropertyValueDependencies(const String& syntax, bool isRoot, HashSet<CSSPropertyID>& dependencies)
-{
-    auto syntaxDefinition = CSSPropertySyntax::parse(syntax);
-    if (syntaxDefinition.isEmpty())
-        return;
-
-    if (CSSPropertySyntax::isUniversal(syntaxDefinition))
-        return;
-
-    auto value = parseCustomPropertyValueWithSyntaxDefinition(syntaxDefinition);
-
-    if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value.get())) {
-        primitiveValue->collectDirectComputationalDependencies(dependencies);
-        if (isRoot)
-            primitiveValue->collectDirectRootComputationalDependencies(dependencies);
+    for (auto& component : syntax.definition) {
+        if (auto value = consumeComponent(m_range, component)) {
+            if (m_range.atEnd())
+                return { value, component.type };
+        }
+        m_range = rangeCopy;
     }
+    return { nullptr, CSSCustomPropertySyntax::Type::Unknown };
 }
 
-RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyValue(const AtomString& name, const String& syntax, const Style::BuilderState& builderState)
+ComputedStyleDependencies CSSPropertyParser::collectParsedCustomPropertyValueDependencies(const CSSCustomPropertySyntax& syntax)
 {
-    auto syntaxDefinition = CSSPropertySyntax::parse(syntax);
-    if (syntaxDefinition.isEmpty())
-        return nullptr;
+    if (syntax.isUniversal())
+        return { };
 
-    if (CSSPropertySyntax::isUniversal(syntaxDefinition)) {
-        auto propertyValue = CSSCustomPropertyValue::createSyntaxAll(name, CSSVariableData::create(m_range));
-        while (!m_range.atEnd())
-            m_range.consume();
-        return propertyValue;
-    }
+    m_range.consumeWhitespace();
 
-    auto originalRange = m_range;
+    auto [value, syntaxType] = consumeCustomPropertyValueWithSyntax(syntax);
+    if (!value)
+        return { };
 
-    auto value = parseCustomPropertyValueWithSyntaxDefinition(syntaxDefinition);
+    return value->computedStyleDependencies();
+}
+
+RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyValue(const AtomString& name, const CSSCustomPropertySyntax& syntax, Style::BuilderState& builderState)
+{
+    if (syntax.isUniversal())
+        return CSSCustomPropertyValue::createSyntaxAll(name, CSSVariableData::create(m_range.consumeAll()));
+
+    m_range.consumeWhitespace();
+
+    if (auto value = maybeConsumeCSSWideKeyword(m_range))
+        return CSSCustomPropertyValue::createWithID(name, value->valueID());
+
+    auto [value, syntaxType] = consumeCustomPropertyValueWithSyntax(syntax);
     if (!value)
         return nullptr;
 
-    auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value.get());
-    if (primitiveValue && primitiveValue->isLength()) {
-        auto length = Style::BuilderConverter::convertLength(builderState, *primitiveValue);
-        return CSSCustomPropertyValue::createSyntaxLength(name, WTFMove(length));
-    }
-    // FIXME: Handle other types that need resolving.
-    return CSSCustomPropertyValue::createSyntaxAll(name, CSSVariableData::create(originalRange));
-}
+    auto resolveSyntaxValue = [&](const CSSValue& value, CSSCustomPropertySyntax::Type syntaxType) -> std::optional<CSSCustomPropertyValue::SyntaxValue> {
+        auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
 
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-system
-static RefPtr<CSSPrimitiveValue> consumeCounterStyleSystem(CSSParserTokenRange& range)
-{
-    if (auto ident = consumeIdent<CSSValueCyclic, CSSValueNumeric, CSSValueAlphabetic, CSSValueSymbolic, CSSValueAdditive>(range))
-        return ident;
-
-    if (auto ident = consumeIdent<CSSValueFixed>(range)) {
-        if (range.atEnd())
-            return ident;
-        // If we have the `fixed` keyword but the range is not at the end, the next token must be a integer.
-        // If it's not, this value is invalid.
-        auto firstSymbolValue = consumeInteger(range);
-        if (!firstSymbolValue)
-            return nullptr;
-        return createPrimitiveValuePair(ident.releaseNonNull(), firstSymbolValue.releaseNonNull());
-    }
-
-    if (auto ident = consumeIdent<CSSValueExtends>(range)) {
-        // There must be a `<counter-style-name>` following the `extends` keyword. If there isn't, this value is invalid.
-        auto parsedCounterStyleName = consumeCounterStyleName(range);
-        if (!parsedCounterStyleName)
-            return nullptr;
-        return createPrimitiveValuePair(ident.releaseNonNull(), parsedCounterStyleName.releaseNonNull());
-    }
-    return nullptr;
-}
-
-// https://www.w3.org/TR/css-counter-styles-3/#typedef-symbol
-static RefPtr<CSSValue> consumeCounterStyleSymbol(CSSParserTokenRange& range, const CSSParserContext& context)
-{
-    if (auto string = consumeString(range))
-        return string;
-    if (auto customIdent = consumeCustomIdent(range))
-        return customIdent;
-    // There are inherent difficulties in supporting <image> symbols in @counter-styles, so gate them behind a
-    // flag for now. https://bugs.webkit.org/show_bug.cgi?id=167645
-    if (context.counterStyleAtRuleImageSymbolsEnabled) {
-        if (auto image = consumeImage(range, context, { AllowedImageType::URLFunction, AllowedImageType::GeneratedImage }))
-            return image;
-    }
-    return nullptr;
-}
-
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-negative
-static RefPtr<CSSValue> consumeCounterStyleNegative(CSSParserTokenRange& range, const CSSParserContext& context)
-{
-    auto prependValue = consumeCounterStyleSymbol(range, context);
-    if (!prependValue)
-        return nullptr;
-    if (range.atEnd())
-        return prependValue;
-
-    auto appendValue = consumeCounterStyleSymbol(range, context);
-    if (!appendValue || !range.atEnd())
-        return nullptr;
-
-    RefPtr<CSSValueList> values = CSSValueList::createSpaceSeparated();
-    values->append(prependValue.releaseNonNull());
-    values->append(appendValue.releaseNonNull());
-    return values;
-}
-
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-range
-static RefPtr<CSSPrimitiveValue> consumeCounterStyleRangeBound(CSSParserTokenRange& range)
-{
-    if (auto infinite = consumeIdent<CSSValueInfinite>(range))
-        return infinite;
-    if (auto integer = consumeInteger(range))
-        return integer;
-    return nullptr;
-}
-
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-range
-static RefPtr<CSSValue> consumeCounterStyleRange(CSSParserTokenRange& range)
-{
-    if (auto autoValue = consumeIdent<CSSValueAuto>(range))
-        return autoValue;
-
-    auto rangeList = consumeCommaSeparatedListWithoutSingleValueOptimization(range, [](auto& range) -> RefPtr<CSSValue> {
-        auto lowerBound = consumeCounterStyleRangeBound(range);
-        if (!lowerBound)
-            return nullptr;
-        auto upperBound = consumeCounterStyleRangeBound(range);
-        if (!upperBound)
-            return nullptr;
-
-        // If the lower bound of any range is higher than the upper bound, the entire descriptor is invalid and must be
-        // ignored.
-        if (lowerBound->isInteger() && upperBound->isInteger() && lowerBound->intValue() > upperBound->intValue())
-            return nullptr;
-        
-        return createPrimitiveValuePair(lowerBound.releaseNonNull(), upperBound.releaseNonNull(), Pair::IdenticalValueEncoding::DoNotCoalesce);
-    });
-
-    if (!range.atEnd() || !rangeList || !rangeList->length())
-        return nullptr;
-    return rangeList;
-}
-
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-pad
-static RefPtr<CSSValue> consumeCounterStylePad(CSSParserTokenRange& range, const CSSParserContext& context)
-{
-    RefPtr<CSSValue> integer;
-    RefPtr<CSSValue> symbol;
-    while (!integer || !symbol) {
-        if (!integer) {
-            integer = consumeNonNegativeInteger(range);
-            if (integer)
-                continue;
+        switch (syntaxType) {
+        case CSSCustomPropertySyntax::Type::LengthPercentage:
+        case CSSCustomPropertySyntax::Type::Length: {
+            auto length = Style::BuilderConverter::convertLength(builderState, *primitiveValue);
+            return { WTFMove(length) };
         }
-        if (!symbol) {
-            symbol = consumeCounterStyleSymbol(range, context);
-            if (symbol)
-                continue;
+        case CSSCustomPropertySyntax::Type::Percentage:
+        case CSSCustomPropertySyntax::Type::Integer:
+        case CSSCustomPropertySyntax::Type::Number:
+        case CSSCustomPropertySyntax::Type::Angle:
+        case CSSCustomPropertySyntax::Type::Time:
+        case CSSCustomPropertySyntax::Type::Resolution: {
+            auto canonicalUnit = canonicalUnitTypeForUnitType(primitiveValue->primitiveType());
+            auto doubleValue = primitiveValue->doubleValue(canonicalUnit);
+            return { CSSCustomPropertyValue::NumericSyntaxValue { doubleValue, canonicalUnit } };
         }
-        return nullptr;
-    }
-    if (!range.atEnd())
-        return nullptr;
-    auto values = CSSValueList::createSpaceSeparated();
-    values->append(integer.releaseNonNull());
-    values->append(symbol.releaseNonNull());
-    return values;
-}
+        case CSSCustomPropertySyntax::Type::Color: {
+            auto color = builderState.colorFromPrimitiveValue(*primitiveValue, Style::ForVisitedLink::No);
+            return { color };
+        }
+        case CSSCustomPropertySyntax::Type::Image: {
+            auto styleImage = builderState.createStyleImage(value);
+            if (!styleImage)
+                return { };
+            return { WTFMove(styleImage) };
+        }
+        case CSSCustomPropertySyntax::Type::URL: {
+            auto url = m_context.completeURL(primitiveValue->stringValue());
+            return { url.resolvedURL };
+        }
+        case CSSCustomPropertySyntax::Type::CustomIdent:
+            return { primitiveValue->stringValue() };
 
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-symbols
-static RefPtr<CSSValue> consumeCounterStyleSymbols(CSSParserTokenRange& range, const CSSParserContext& context)
-{
-    auto symbols = CSSValueList::createSpaceSeparated();
-    while (!range.atEnd()) {
-        auto symbol = consumeCounterStyleSymbol(range, context);
-        if (!symbol)
-            return nullptr;
-        symbols->append(symbol.releaseNonNull());
-    }
-    if (!symbols->length())
-        return nullptr;
-    return symbols;
-}
+        case CSSCustomPropertySyntax::Type::TransformFunction:
+        case CSSCustomPropertySyntax::Type::TransformList:
+            if (auto transform = transformForValue(value, builderState.cssToLengthConversionData()))
+                return { CSSCustomPropertyValue::TransformSyntaxValue { transform } };
+            return { };
+        case CSSCustomPropertySyntax::Type::Unknown:
+            return { };
+        }
+        ASSERT_NOT_REACHED();
+        return { };
+    };
 
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-symbols
-static RefPtr<CSSValue> consumeCounterStyleAdditiveSymbols(CSSParserTokenRange& range, const CSSParserContext& context)
-{
-    std::optional<int> lastWeight;
-    auto values = consumeCommaSeparatedListWithoutSingleValueOptimization(range, [&lastWeight](auto& range, auto& context) -> RefPtr<CSSValue> {
-        auto integer = consumeNonNegativeInteger(range);
-        auto symbol = consumeCounterStyleSymbol(range, context);
-        if (!integer) {
-            if (!symbol)
+    if (auto* valueList = dynamicDowncast<CSSValueList>(value.get())) {
+        auto syntaxValueList = CSSCustomPropertyValue::SyntaxValueList { { }, valueList->separator() };
+        for (auto& listValue : *valueList) {
+            auto syntaxValue = resolveSyntaxValue(listValue, syntaxType);
+            if (!syntaxValue)
                 return nullptr;
-            integer = consumeNonNegativeInteger(range);
-            if (!integer)
-                return nullptr;
+            syntaxValueList.values.append(WTFMove(*syntaxValue));
         }
+        return CSSCustomPropertyValue::createForSyntaxValueList(name, WTFMove(syntaxValueList));
+    };
 
-        // Additive tuples must be specified in order of strictly descending weight.
-        auto weight = integer->intValue();
-        if (lastWeight && !(weight < lastWeight))
-            return nullptr;
-        lastWeight = weight;
 
-        auto pair = CSSValueList::createSpaceSeparated();
-        pair->append(integer.releaseNonNull());
-        pair->append(symbol.releaseNonNull());
-        return pair;
-    }, context);
-
-    if (!range.atEnd() || !values || !values->length())
+    auto syntaxValue = resolveSyntaxValue(*value, syntaxType);
+    if (!syntaxValue)
         return nullptr;
-    return values;
+
+    return CSSCustomPropertyValue::createForSyntaxValue(name, WTFMove(*syntaxValue));
 }
 
-// https://www.w3.org/TR/css-counter-styles-3/#counter-style-speak-as
-static RefPtr<CSSValue> consumeCounterStyleSpeakAs(CSSParserTokenRange& range)
-{
-    if (auto speakAsIdent = consumeIdent<CSSValueAuto, CSSValueBullets, CSSValueNumbers, CSSValueWords, CSSValueSpellOut>(range))
-        return speakAsIdent;
-    return consumeCounterStyleName(range);
-}
-
-RefPtr<CSSValue> CSSPropertyParser::parseCounterStyleDescriptor(CSSPropertyID propId, CSSParserTokenRange& range, const CSSParserContext& context)
+RefPtr<CSSValue> CSSPropertyParser::parseCounterStyleDescriptor(CSSPropertyID property, CSSParserTokenRange& range, const CSSParserContext& context)
 {
     ASSERT(context.propertySettings.cssCounterStyleAtRulesEnabled);
-    ASSERT(isExposed(propId, &context.propertySettings));
 
-    switch (propId) {
-    case CSSPropertySystem:
-        return consumeCounterStyleSystem(range);
-    case CSSPropertyNegative:
-        return consumeCounterStyleNegative(range, context);
-    case CSSPropertyPrefix:
-    case CSSPropertySuffix:
-        return consumeCounterStyleSymbol(range, context);
-    case CSSPropertyRange:
-        return consumeCounterStyleRange(range);
-    case CSSPropertyPad:
-        return consumeCounterStylePad(range, context);
-    case CSSPropertyFallback:
-        return consumeCounterStyleName(range);
-    case CSSPropertySymbols:
-        return consumeCounterStyleSymbols(range, context);
-    case CSSPropertyAdditiveSymbols:
-        return consumeCounterStyleAdditiveSymbols(range, context);
-    case CSSPropertySpeakAs:
-        return consumeCounterStyleSpeakAs(range);
-    default:
-        ASSERT_NOT_REACHED();
-        return nullptr;
-    }
+    return CSSPropertyParsing::parseCounterStyleDescriptor(range, property, context);
 }
 
-bool CSSPropertyParser::parseCounterStyleDescriptor(CSSPropertyID propId, const CSSParserContext& context)
+bool CSSPropertyParser::parseCounterStyleDescriptor(CSSPropertyID property)
 {
-    auto parsedValue = parseCounterStyleDescriptor(propId, m_range, context);
+    ASSERT(m_context.propertySettings.cssCounterStyleAtRulesEnabled);
+
+    auto parsedValue = CSSPropertyParsing::parseCounterStyleDescriptor(m_range, property, m_context);
     if (!parsedValue || !m_range.atEnd())
         return false;
 
-    addProperty(propId, CSSPropertyInvalid, *parsedValue, false);
+    addProperty(property, CSSPropertyInvalid, WTFMove(parsedValue), false);
     return true;
 }
 
-bool CSSPropertyParser::parseFontFaceDescriptor(CSSPropertyID propId)
+bool CSSPropertyParser::parseFontFaceDescriptor(CSSPropertyID property)
 {
-    ASSERT(isExposed(propId, &m_context.propertySettings));
+    if (isShorthand(property))
+        return parseFontFaceDescriptorShorthand(property);
 
-    RefPtr<CSSValue> parsedValue;
-    switch (propId) {
-    case CSSPropertyFontFamily:
-        parsedValue = consumeFontFamilyDescriptor(m_range);
-        break;
-    case CSSPropertySrc: // This is a list of urls or local references.
-        parsedValue = consumeFontFaceSrc(m_range, m_context);
-        break;
-    case CSSPropertyUnicodeRange:
-        parsedValue = consumeFontFaceUnicodeRange(m_range);
-        break;
-    case CSSPropertyFontDisplay:
-        parsedValue = consumeFontFaceFontDisplay(m_range, CSSValuePool::singleton());
-        break;
-    case CSSPropertyFontWeight:
-#if ENABLE(VARIATION_FONTS)
-        parsedValue = consumeFontWeightAbsoluteRange(m_range, CSSValuePool::singleton());
-#else
-        parsedValue = consumeFontWeightAbsolute(m_range, CSSValuePool::singleton());
-#endif
-        break;
-    case CSSPropertyFontStretch:
-#if ENABLE(VARIATION_FONTS)
-        parsedValue = consumeFontStretchRange(m_range, CSSValuePool::singleton());
-#else
-        parsedValue = consumeFontStretch(m_range, CSSValuePool::singleton());
-#endif
-        break;
-    case CSSPropertyFontStyle:
-#if ENABLE(VARIATION_FONTS)
-        parsedValue = consumeFontStyleRange(m_range, m_context.mode, CSSValuePool::singleton());
-#else
-        parsedValue = consumeFontStyle(m_range, m_context.mode, CSSValuePool::singleton());
-#endif
-        break;
-    case CSSPropertyFontVariantCaps:
-        parsedValue = CSSPropertyParsing::consumeFontVariantCaps(m_range);
-        break;
-    case CSSPropertyFontVariantLigatures:
-        parsedValue = consumeFontVariantLigatures(m_range);
-        break;
-    case CSSPropertyFontVariantNumeric:
-        parsedValue = consumeFontVariantNumeric(m_range);
-        break;
-    case CSSPropertyFontVariantEastAsian:
-        parsedValue = consumeFontVariantEastAsian(m_range);
-        break;
-    case CSSPropertyFontVariantAlternates:
-        parsedValue = consumeFontVariantAlternates(m_range);
-        break;
-    case CSSPropertyFontVariantPosition:
-        parsedValue = CSSPropertyParsing::consumeFontVariantPosition(m_range);
-        break;
+    auto parsedValue = CSSPropertyParsing::parseFontFaceDescriptor(m_range, property, m_context);
+    if (!parsedValue || !m_range.atEnd())
+        return false;
+
+    addProperty(property, CSSPropertyInvalid, WTFMove(parsedValue), false);
+    return true;
+}
+
+bool CSSPropertyParser::parseFontFaceDescriptorShorthand(CSSPropertyID property)
+{
+    ASSERT(isExposed(property, m_context.propertySettings));
+
+    switch (property) {
     case CSSPropertyFontVariant:
         return consumeFontVariantShorthand(false);
-    case CSSPropertyFontFeatureSettings:
-        parsedValue = consumeFontFeatureSettings(m_range, CSSValuePool::singleton());
-        break;
     default:
-        break;
-    }
-
-    if (!parsedValue || !m_range.atEnd())
         return false;
-
-    addProperty(propId, CSSPropertyInvalid, *parsedValue, false);
-    return true;
+    }
 }
 
 bool CSSPropertyParser::parseKeyframeDescriptor(CSSPropertyID propertyID, bool important)
@@ -741,56 +582,23 @@ bool CSSPropertyParser::parseKeyframeDescriptor(CSSPropertyID propertyID, bool i
     }
 }
 
-static RefPtr<CSSPrimitiveValue> consumeBasePaletteDescriptor(CSSParserTokenRange& range)
+bool CSSPropertyParser::parsePropertyDescriptor(CSSPropertyID property)
 {
-    if (auto result = consumeIdent<CSSValueLight, CSSValueDark>(range))
-        return result;
-    return consumeNonNegativeInteger(range);
-}
-
-static RefPtr<CSSValueList> consumeOverrideColorsDescriptor(CSSParserTokenRange& range, const CSSParserContext& context)
-{
-    auto list = consumeCommaSeparatedListWithoutSingleValueOptimization(range, [](auto& range, auto& context) -> RefPtr<CSSValue> {
-        auto key = consumeNonNegativeInteger(range);
-        if (!key)
-            return nullptr;
-
-        auto color = consumeColor(range, context, false, { StyleColor::CSSColorType::Absolute });
-        if (!color)
-            return nullptr;
-
-        return CSSFontPaletteValuesOverrideColorsValue::create(key.releaseNonNull(), color.releaseNonNull());
-    }, context);
-
-    if (!range.atEnd() || !list || !list->length())
-        return nullptr;
-
-    return list;
-}
-
-bool CSSPropertyParser::parseFontPaletteValuesDescriptor(CSSPropertyID propId)
-{
-    ASSERT(isExposed(propId, &m_context.propertySettings));
-
-    RefPtr<CSSValue> parsedValue;
-    switch (propId) {
-    case CSSPropertyFontFamily:
-        parsedValue = consumeFamilyName(m_range);
-        break;
-    case CSSPropertyBasePalette:
-        parsedValue = consumeBasePaletteDescriptor(m_range);
-        break;
-    case CSSPropertyOverrideColors:
-        parsedValue = consumeOverrideColorsDescriptor(m_range, m_context);
-        break;
-    default:
-        break;
-    }
-
+    auto parsedValue = CSSPropertyParsing::parsePropertyDescriptor(m_range, property, m_context);
     if (!parsedValue || !m_range.atEnd())
         return false;
 
-    addProperty(propId, CSSPropertyInvalid, *parsedValue, false);
+    addProperty(property, CSSPropertyInvalid, WTFMove(parsedValue), false);
+    return true;
+}
+
+bool CSSPropertyParser::parseFontPaletteValuesDescriptor(CSSPropertyID property)
+{
+    auto parsedValue = CSSPropertyParsing::parseFontPaletteValuesDescriptor(m_range, property, m_context);
+    if (!parsedValue || !m_range.atEnd())
+        return false;
+
+    addProperty(property, CSSPropertyInvalid, WTFMove(parsedValue), false);
     return true;
 }
 
@@ -807,32 +615,33 @@ bool CSSPropertyParser::consumeFont(bool important)
         // Instead, we store sentinel values, later replaced by environment-sensitive values
         // inside Style::BuilderCustom and Style::BuilderConverter.
         for (auto property : fontShorthand())
-            addProperty(property, CSSPropertyFont, CSSValuePool::singleton().createIdentifierValue(systemFont), important, true);
+            addProperty(property, CSSPropertyFont, CSSPrimitiveValue::create(systemFont), important, true);
 
         return true;
     }
 
     auto range = m_range;
 
-    RefPtr<CSSValue> fontStyle;
-    RefPtr<CSSValue> fontVariantCaps;
-    RefPtr<CSSValue> fontWeight;
-    RefPtr<CSSValue> fontStretch;
-    RefPtr<CSSValue> fontSize;
-    RefPtr<CSSValue> lineHeight;
-    RefPtr<CSSValue> fontFamily;
+    RefPtr<CSSValue> values[7];
+    auto& fontStyle = values[0];
+    auto& fontVariantCaps = values[1];
+    auto& fontWeight = values[2];
+    auto& fontStretch = values[3];
+    auto& fontSize = values[4];
+    auto& lineHeight = values[5];
+    auto& fontFamily = values[6];
 
     // Optional font-style, font-variant, font-stretch and font-weight, in any order.
     for (unsigned i = 0; i < 4 && !range.atEnd(); ++i) {
         if (consumeIdent<CSSValueNormal>(range))
             continue;
-        if (!fontStyle && (fontStyle = consumeFontStyle(range, m_context.mode, CSSValuePool::singleton())))
+        if (!fontStyle && (fontStyle = consumeFontStyle(range, m_context.mode)))
             continue;
         if (!fontVariantCaps && (fontVariantCaps = consumeIdent<CSSValueSmallCaps>(range)))
             continue;
         if (!fontWeight && (fontWeight = consumeFontWeight(range)))
             continue;
-        if (!fontStretch && (fontStretch = consumeFontStretchKeywordValue(range, CSSValuePool::singleton())))
+        if (!fontStretch && (fontStretch = consumeFontStretchKeywordValue(range)))
             continue;
         break;
     }
@@ -858,29 +667,10 @@ bool CSSPropertyParser::consumeFont(bool important)
     if (!fontFamily || !range.atEnd())
         return false;
 
-    auto reset = [&] (CSSPropertyID property, CSSValueID initialValue) {
-        ASSERT(initialValue != CSSValueInvalid);
-        addProperty(property, CSSPropertyFont, CSSValuePool::singleton().createIdentifierValue(initialValue), important, true);
-    };
-    auto add = [&] (CSSPropertyID property, RefPtr<CSSValue>& value) {
-        if (value)
-            addProperty(property, CSSPropertyFont, value.releaseNonNull(), important);
-        else
-            reset(property, CSSValueNormal);
-    };
-
-    // This must be in the same order as the list of shorthands in CSSProperties.json.
-    add(CSSPropertyFontStyle, fontStyle);
-    add(CSSPropertyFontVariantCaps, fontVariantCaps);
-    add(CSSPropertyFontWeight, fontWeight);
-    add(CSSPropertyFontStretch, fontStretch);
-    add(CSSPropertyFontSize, fontSize);
-    add(CSSPropertyLineHeight, lineHeight);
-    add(CSSPropertyFontFamily, fontFamily);
-    for (auto [property, initialValue] : fontShorthandSubpropertiesResetToInitialValues)
-        reset(property, initialValue);
-
     m_range = range;
+    auto shorthand = fontShorthand();
+    for (unsigned i = 0; i < shorthand.length(); ++i)
+        addProperty(shorthand.properties()[i], CSSPropertyFont, i < std::size(values) ? WTFMove(values[i]) : nullptr, important, true);
     return true;
 }
 
@@ -895,7 +685,7 @@ bool CSSPropertyParser::consumeTextDecorationSkip(bool important)
             addProperty(CSSPropertyTextDecorationSkipInk, CSSPropertyTextDecorationSkip, skip.releaseNonNull(), important);
             return m_range.atEnd();
         case CSSValueInk:
-            addProperty(CSSPropertyTextDecorationSkipInk, CSSPropertyTextDecorationSkip, CSSValuePool::singleton().createIdentifierValue(CSSValueAuto), important);
+            addProperty(CSSPropertyTextDecorationSkipInk, CSSPropertyTextDecorationSkip, CSSPrimitiveValue::create(CSSValueAuto), important);
             return m_range.atEnd();
         default:
             ASSERT_NOT_REACHED();
@@ -908,12 +698,12 @@ bool CSSPropertyParser::consumeTextDecorationSkip(bool important)
 bool CSSPropertyParser::consumeFontVariantShorthand(bool important)
 {
     if (identMatches<CSSValueNormal, CSSValueNone>(m_range.peek().id())) {
-        addProperty(CSSPropertyFontVariantLigatures, CSSPropertyFontVariant, consumeIdent(m_range).releaseNonNull(), important);
-        addProperty(CSSPropertyFontVariantCaps, CSSPropertyFontVariant, CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important, true);
-        addProperty(CSSPropertyFontVariantAlternates, CSSPropertyFontVariant, CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important, true);
-        addProperty(CSSPropertyFontVariantNumeric, CSSPropertyFontVariant, CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important, true);
-        addProperty(CSSPropertyFontVariantEastAsian, CSSPropertyFontVariant, CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important, true);
-        addProperty(CSSPropertyFontVariantPosition, CSSPropertyFontVariant, CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important, true);
+        addProperty(CSSPropertyFontVariantLigatures, CSSPropertyFontVariant, consumeIdent(m_range), important);
+        addProperty(CSSPropertyFontVariantCaps, CSSPropertyFontVariant, nullptr, important);
+        addProperty(CSSPropertyFontVariantAlternates, CSSPropertyFontVariant, nullptr, important);
+        addProperty(CSSPropertyFontVariantNumeric, CSSPropertyFontVariant, nullptr, important);
+        addProperty(CSSPropertyFontVariantEastAsian, CSSPropertyFontVariant, nullptr, important);
+        addProperty(CSSPropertyFontVariantPosition, CSSPropertyFontVariant, nullptr, important);
         return m_range.atEnd();
     }
 
@@ -971,13 +761,12 @@ bool CSSPropertyParser::consumeFontVariantShorthand(bool important)
 
     } while (!m_range.atEnd());
 
-    auto& valuePool = CSSValuePool::singleton();
     addProperty(CSSPropertyFontVariantLigatures, CSSPropertyFontVariant, ligaturesParser.finalizeValue().releaseNonNull(), important, implicitLigatures);
-    addPropertyWithImplicitDefault(CSSPropertyFontVariantCaps, CSSPropertyFontVariant, WTFMove(capsValue), valuePool.createIdentifierValue(CSSValueNormal), important);
-    addPropertyWithImplicitDefault(CSSPropertyFontVariantAlternates, CSSPropertyFontVariant, WTFMove(alternatesValue), valuePool.createIdentifierValue(CSSValueNormal), important);
+    addProperty(CSSPropertyFontVariantCaps, CSSPropertyFontVariant, WTFMove(capsValue), important);
+    addProperty(CSSPropertyFontVariantAlternates, CSSPropertyFontVariant, WTFMove(alternatesValue), important);
     addProperty(CSSPropertyFontVariantNumeric, CSSPropertyFontVariant, numericParser.finalizeValue().releaseNonNull(), important, implicitNumeric);
-    addPropertyWithImplicitDefault(CSSPropertyFontVariantEastAsian, CSSPropertyFontVariant, WTFMove(eastAsianValue), valuePool.createIdentifierValue(CSSValueNormal), important);
-    addPropertyWithImplicitDefault(CSSPropertyFontVariantPosition, CSSPropertyFontVariant, WTFMove(positionValue), valuePool.createIdentifierValue(CSSValueNormal), important);
+    addProperty(CSSPropertyFontVariantEastAsian, CSSPropertyFontVariant, WTFMove(eastAsianValue), important);
+    addProperty(CSSPropertyFontVariantPosition, CSSPropertyFontVariant, WTFMove(positionValue), important);
 
     return true;
 }
@@ -987,8 +776,8 @@ bool CSSPropertyParser::consumeFontSynthesis(bool important)
     // none | [ weight || style || small-caps ]
     if (m_range.peek().id() == CSSValueNone) {
         addProperty(CSSPropertyFontSynthesisSmallCaps, CSSPropertyFontSynthesis, consumeIdent(m_range).releaseNonNull(), important);
-        addProperty(CSSPropertyFontSynthesisStyle, CSSPropertyFontSynthesis, CSSValuePool::singleton().createIdentifierValue(CSSValueNone), important);
-        addProperty(CSSPropertyFontSynthesisWeight, CSSPropertyFontSynthesis, CSSValuePool::singleton().createIdentifierValue(CSSValueNone), important);
+        addProperty(CSSPropertyFontSynthesisStyle, CSSPropertyFontSynthesis, CSSPrimitiveValue::create(CSSValueNone), important);
+        addProperty(CSSPropertyFontSynthesisWeight, CSSPropertyFontSynthesis, CSSPrimitiveValue::create(CSSValueNone), important);
         return m_range.atEnd();
     }
 
@@ -1025,9 +814,9 @@ bool CSSPropertyParser::consumeFontSynthesis(bool important)
         }
     }
 
-    addProperty(CSSPropertyFontSynthesisWeight, CSSPropertyFontSynthesis, CSSValuePool::singleton().createIdentifierValue(foundWeight ? CSSValueAuto : CSSValueNone), important);
-    addProperty(CSSPropertyFontSynthesisStyle, CSSPropertyFontSynthesis, CSSValuePool::singleton().createIdentifierValue(foundStyle ? CSSValueAuto : CSSValueNone), important);
-    addProperty(CSSPropertyFontSynthesisSmallCaps, CSSPropertyFontSynthesis, CSSValuePool::singleton().createIdentifierValue(foundSmallCaps ? CSSValueAuto : CSSValueNone), important);
+    addProperty(CSSPropertyFontSynthesisWeight, CSSPropertyFontSynthesis, CSSPrimitiveValue::create(foundWeight ? CSSValueAuto : CSSValueNone), important);
+    addProperty(CSSPropertyFontSynthesisStyle, CSSPropertyFontSynthesis, CSSPrimitiveValue::create(foundStyle ? CSSValueAuto : CSSValueNone), important);
+    addProperty(CSSPropertyFontSynthesisSmallCaps, CSSPropertyFontSynthesis, CSSPrimitiveValue::create(foundSmallCaps ? CSSValueAuto : CSSValueNone), important);
     
     return true;
 }
@@ -1070,14 +859,541 @@ bool CSSPropertyParser::consumeColumns(bool important)
     if (!m_range.atEnd())
         return false;
 
-    // If both values are auto, set column-width explicitly to auto so the shorthand serializes correctly.
-    if (!columnWidth && !columnCount)
-        columnWidth = CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
-
-    addPropertyWithImplicitDefault(CSSPropertyColumnWidth, CSSPropertyColumns, WTFMove(columnWidth), CSSValuePool::singleton().createIdentifierValue(CSSValueAuto), important);
-    addPropertyWithImplicitDefault(CSSPropertyColumnCount, CSSPropertyColumns, WTFMove(columnCount), CSSValuePool::singleton().createIdentifierValue(CSSValueAuto), important);
-
+    addProperty(CSSPropertyColumnWidth, CSSPropertyColumns, WTFMove(columnWidth), important);
+    addProperty(CSSPropertyColumnCount, CSSPropertyColumns, WTFMove(columnCount), important);
     return true;
+}
+
+struct InitialNumericValue {
+    double number;
+    CSSUnitType type { CSSUnitType::CSS_NUMBER };
+};
+using InitialValue = std::variant<CSSValueID, InitialNumericValue>;
+
+static constexpr InitialValue initialValueForLonghand(CSSPropertyID longhand)
+{
+    // Currently, this tries to cover just longhands that can be omitted from shorthands when parsing or serializing.
+    // Later, we likely want to cover all properties, and generate the table from CSSProperties.json.
+    switch (longhand) {
+    case CSSPropertyAccentColor:
+    case CSSPropertyAlignSelf:
+    case CSSPropertyAspectRatio:
+    case CSSPropertyBackgroundSize:
+    case CSSPropertyBlockSize:
+    case CSSPropertyBottom:
+    case CSSPropertyBreakAfter:
+    case CSSPropertyBreakBefore:
+    case CSSPropertyBreakInside:
+    case CSSPropertyCaretColor:
+    case CSSPropertyClip:
+    case CSSPropertyColumnCount:
+    case CSSPropertyColumnWidth:
+    case CSSPropertyCursor:
+    case CSSPropertyDominantBaseline:
+    case CSSPropertyFlexBasis:
+    case CSSPropertyFontKerning:
+    case CSSPropertyFontSynthesisSmallCaps:
+    case CSSPropertyFontSynthesisStyle:
+    case CSSPropertyFontSynthesisWeight:
+    case CSSPropertyGridAutoColumns:
+    case CSSPropertyGridAutoRows:
+    case CSSPropertyGridColumnEnd:
+    case CSSPropertyGridColumnStart:
+    case CSSPropertyGridRowEnd:
+    case CSSPropertyGridRowStart:
+    case CSSPropertyHeight:
+    case CSSPropertyImageRendering:
+    case CSSPropertyInlineSize:
+    case CSSPropertyInputSecurity:
+    case CSSPropertyInsetBlockEnd:
+    case CSSPropertyInsetBlockStart:
+    case CSSPropertyInsetInlineEnd:
+    case CSSPropertyInsetInlineStart:
+    case CSSPropertyJustifySelf:
+    case CSSPropertyLeft:
+    case CSSPropertyLineBreak:
+    case CSSPropertyMaskSize:
+    case CSSPropertyOffsetAnchor:
+    case CSSPropertyOffsetPosition:
+    case CSSPropertyOffsetRotate:
+    case CSSPropertyOverflowAnchor:
+    case CSSPropertyOverscrollBehaviorBlock:
+    case CSSPropertyOverscrollBehaviorInline:
+    case CSSPropertyOverscrollBehaviorX:
+    case CSSPropertyOverscrollBehaviorY:
+    case CSSPropertyPage:
+    case CSSPropertyPointerEvents:
+    case CSSPropertyQuotes:
+    case CSSPropertyRight:
+    case CSSPropertyScrollBehavior:
+    case CSSPropertyScrollPaddingBlockEnd:
+    case CSSPropertyScrollPaddingBlockStart:
+    case CSSPropertyScrollPaddingBottom:
+    case CSSPropertyScrollPaddingInlineEnd:
+    case CSSPropertyScrollPaddingInlineStart:
+    case CSSPropertyScrollPaddingLeft:
+    case CSSPropertyScrollPaddingRight:
+    case CSSPropertyScrollPaddingTop:
+    case CSSPropertySize:
+    case CSSPropertyTableLayout:
+    case CSSPropertyTextAlignLast:
+    case CSSPropertyTextDecorationSkipInk:
+    case CSSPropertyTextDecorationThickness:
+    case CSSPropertyTextJustify:
+    case CSSPropertyTextUnderlineOffset:
+    case CSSPropertyTextUnderlinePosition:
+    case CSSPropertyTop:
+    case CSSPropertyWebkitMaskBoxImageWidth:
+    case CSSPropertyWebkitMaskSourceType:
+    case CSSPropertyWillChange:
+    case CSSPropertyZIndex:
+    case CSSPropertyZoom:
+#if ENABLE(VARIATION_FONTS)
+    case CSSPropertyFontOpticalSizing:
+#endif
+        return CSSValueAuto;
+    case CSSPropertyAlignContent:
+    case CSSPropertyAlignItems:
+    case CSSPropertyAlignTracks:
+    case CSSPropertyAnimationDirection:
+    case CSSPropertyBackgroundBlendMode:
+    case CSSPropertyColumnGap:
+    case CSSPropertyContainerType:
+    case CSSPropertyContent:
+    case CSSPropertyFontFeatureSettings:
+    case CSSPropertyFontPalette:
+    case CSSPropertyFontStretch:
+    case CSSPropertyFontStyle:
+    case CSSPropertyFontVariantAlternates:
+    case CSSPropertyFontVariantCaps:
+    case CSSPropertyFontVariantEastAsian:
+    case CSSPropertyFontVariantLigatures:
+    case CSSPropertyFontVariantNumeric:
+    case CSSPropertyFontVariantPosition:
+    case CSSPropertyFontWeight:
+    case CSSPropertyJustifyContent:
+    case CSSPropertyLeadingTrim:
+    case CSSPropertyLetterSpacing:
+    case CSSPropertyLineHeight:
+    case CSSPropertyOverflowWrap:
+    case CSSPropertyRowGap:
+    case CSSPropertyScrollSnapStop:
+    case CSSPropertySpeakAs:
+    case CSSPropertyWhiteSpace:
+    case CSSPropertyWordBreak:
+    case CSSPropertyWordSpacing:
+#if ENABLE(VARIATION_FONTS)
+    case CSSPropertyFontVariationSettings:
+#endif
+        return CSSValueNormal;
+    case CSSPropertyAlignmentBaseline:
+    case CSSPropertyVerticalAlign:
+        return CSSValueBaseline;
+    case CSSPropertyAnimationDelay:
+    case CSSPropertyAnimationDuration:
+    case CSSPropertyTransitionDelay:
+    case CSSPropertyTransitionDuration:
+        return InitialNumericValue { 0, CSSUnitType::CSS_S };
+    case CSSPropertyAnimationFillMode:
+    case CSSPropertyAnimationName:
+    case CSSPropertyAppearance:
+    case CSSPropertyBackgroundImage:
+    case CSSPropertyBorderBlockEndStyle:
+    case CSSPropertyBorderBlockStartStyle:
+    case CSSPropertyBorderBlockStyle:
+    case CSSPropertyBorderBottomStyle:
+    case CSSPropertyBorderImageSource:
+    case CSSPropertyBorderInlineEndStyle:
+    case CSSPropertyBorderInlineStartStyle:
+    case CSSPropertyBorderInlineStyle:
+    case CSSPropertyBorderLeftStyle:
+    case CSSPropertyBorderRightStyle:
+    case CSSPropertyBorderStyle:
+    case CSSPropertyBorderTopStyle:
+    case CSSPropertyBoxShadow:
+    case CSSPropertyClear:
+    case CSSPropertyClipPath:
+    case CSSPropertyColumnRuleStyle:
+    case CSSPropertyColumnSpan:
+    case CSSPropertyContain:
+    case CSSPropertyContainIntrinsicBlockSize:
+    case CSSPropertyContainIntrinsicHeight:
+    case CSSPropertyContainIntrinsicInlineSize:
+    case CSSPropertyContainIntrinsicWidth:
+    case CSSPropertyContainerName:
+    case CSSPropertyCounterIncrement:
+    case CSSPropertyCounterReset:
+    case CSSPropertyFilter:
+    case CSSPropertyFloat:
+    case CSSPropertyFontSizeAdjust:
+    case CSSPropertyGridTemplateAreas:
+    case CSSPropertyGridTemplateColumns:
+    case CSSPropertyGridTemplateRows:
+    case CSSPropertyHangingPunctuation:
+    case CSSPropertyListStyleImage:
+    case CSSPropertyMarginTrim:
+    case CSSPropertyMarkerEnd:
+    case CSSPropertyMarkerMid:
+    case CSSPropertyMarkerStart:
+    case CSSPropertyMaskImage:
+    case CSSPropertyMaxBlockSize:
+    case CSSPropertyMaxHeight:
+    case CSSPropertyMaxInlineSize:
+    case CSSPropertyMaxWidth:
+    case CSSPropertyMinHeight:
+    case CSSPropertyMinWidth:
+    case CSSPropertyOffsetPath:
+    case CSSPropertyOutlineStyle:
+    case CSSPropertyPerspective:
+    case CSSPropertyResize:
+    case CSSPropertyRotate:
+    case CSSPropertyScale:
+    case CSSPropertyScrollSnapAlign:
+    case CSSPropertyScrollSnapType:
+    case CSSPropertyShapeOutside:
+    case CSSPropertyStrokeDasharray:
+    case CSSPropertyTextCombineUpright:
+    case CSSPropertyTextDecorationLine:
+    case CSSPropertyTextEmphasisStyle:
+    case CSSPropertyTextGroupAlign:
+    case CSSPropertyTextShadow:
+    case CSSPropertyTextTransform:
+    case CSSPropertyTransform:
+    case CSSPropertyTranslate:
+    case CSSPropertyWebkitMaskBoxImageSource:
+    case CSSPropertyWidth:
+        return CSSValueNone;
+    case CSSPropertyAnimationIterationCount:
+    case CSSPropertyBorderImageWidth:
+    case CSSPropertyFillOpacity:
+    case CSSPropertyFlexShrink:
+    case CSSPropertyFloodOpacity:
+    case CSSPropertyStrokeOpacity:
+    case CSSPropertyOpacity:
+        return InitialNumericValue { 1, CSSUnitType::CSS_NUMBER };
+    case CSSPropertyAnimationPlayState:
+        return CSSValueRunning;
+    case CSSPropertyAnimationTimingFunction:
+    case CSSPropertyTransitionTimingFunction:
+        return CSSValueEase;
+    case CSSPropertyBackgroundAttachment:
+        return CSSValueScroll;
+    case CSSPropertyBackfaceVisibility:
+    case CSSPropertyContentVisibility:
+    case CSSPropertyOverflowX:
+    case CSSPropertyOverflowY:
+    case CSSPropertyVisibility:
+        return CSSValueVisible;
+    case CSSPropertyBackgroundClip:
+    case CSSPropertyMaskClip:
+    case CSSPropertyMaskOrigin:
+    case CSSPropertyWebkitMaskClip:
+        return CSSValueBorderBox;
+    case CSSPropertyBackgroundColor:
+        return CSSValueTransparent;
+    case CSSPropertyBackgroundOrigin:
+        return CSSValuePaddingBox;
+    case CSSPropertyBackgroundPositionX:
+    case CSSPropertyBackgroundPositionY:
+    case CSSPropertyWebkitMaskPositionX:
+    case CSSPropertyWebkitMaskPositionY:
+        return InitialNumericValue { 0, CSSUnitType::CSS_PERCENTAGE };
+    case CSSPropertyBackgroundRepeat:
+    case CSSPropertyMaskRepeat:
+        return CSSValueRepeat;
+    case CSSPropertyBorderBlockColor:
+    case CSSPropertyBorderBlockEndColor:
+    case CSSPropertyBorderBlockStartColor:
+    case CSSPropertyBorderBottomColor:
+    case CSSPropertyBorderColor:
+    case CSSPropertyBorderInlineColor:
+    case CSSPropertyBorderInlineEndColor:
+    case CSSPropertyBorderInlineStartColor:
+    case CSSPropertyBorderLeftColor:
+    case CSSPropertyBorderRightColor:
+    case CSSPropertyBorderTopColor:
+    case CSSPropertyColumnRuleColor:
+    case CSSPropertyOutlineColor:
+    case CSSPropertyTextDecorationColor:
+    case CSSPropertyTextEmphasisColor:
+    case CSSPropertyWebkitTextStrokeColor:
+        return CSSValueCurrentcolor;
+    case CSSPropertyBorderBlockEndWidth:
+    case CSSPropertyBorderBlockStartWidth:
+    case CSSPropertyBorderBottomWidth:
+    case CSSPropertyBorderInlineEndWidth:
+    case CSSPropertyBorderInlineStartWidth:
+    case CSSPropertyBorderLeftWidth:
+    case CSSPropertyBorderRightWidth:
+    case CSSPropertyBorderTopWidth:
+    case CSSPropertyColumnRuleWidth:
+    case CSSPropertyFontSize:
+    case CSSPropertyOutlineWidth:
+        return CSSValueMedium;
+    case CSSPropertyBorderCollapse:
+        return CSSValueSeparate;
+    case CSSPropertyBorderImageOutset:
+    case CSSPropertyWebkitMaskBoxImageOutset:
+        return InitialNumericValue { 0, CSSUnitType::CSS_NUMBER };
+    case CSSPropertyBorderImageRepeat:
+    case CSSPropertyWebkitMaskBoxImageRepeat:
+        return CSSValueStretch;
+    case CSSPropertyBorderImageSlice:
+    case CSSPropertyWebkitMaskBoxImageSlice:
+        return InitialNumericValue { 100, CSSUnitType::CSS_PERCENTAGE };
+    case CSSPropertyBoxSizing:
+        return CSSValueContentBox;
+    case CSSPropertyCaptionSide:
+        return CSSValueTop;
+    case CSSPropertyClipRule:
+    case CSSPropertyFillRule:
+        return CSSValueNonzero;
+    case CSSPropertyColor:
+        return CSSValueCanvastext;
+    case CSSPropertyColorInterpolationFilters:
+        return CSSValueLinearRGB;
+    case CSSPropertyColumnFill:
+        return CSSValueBalance;
+    case CSSPropertyDisplay:
+        return CSSValueInline;
+    case CSSPropertyEmptyCells:
+        return CSSValueShow;
+    case CSSPropertyFlexDirection:
+    case CSSPropertyGridAutoFlow:
+        return CSSValueRow;
+    case CSSPropertyFlexWrap:
+        return CSSValueNowrap;
+    case CSSPropertyFloodColor:
+        return CSSValueBlack;
+    case CSSPropertyImageOrientation:
+        return CSSValueFromImage;
+    case CSSPropertyJustifyItems:
+        return CSSValueLegacy;
+    case CSSPropertyLightingColor:
+        return CSSValueWhite;
+    case CSSPropertyListStylePosition:
+        return CSSValueOutside;
+    case CSSPropertyListStyleType:
+        return CSSValueDisc;
+    case CSSPropertyMaskComposite:
+        return CSSValueAdd;
+    case CSSPropertyMaskMode:
+        return CSSValueMatchSource;
+    case CSSPropertyMaskType:
+        return CSSValueLuminance;
+    case CSSPropertyObjectFit:
+        return CSSValueFill;
+    case CSSPropertyOffsetDistance:
+    case CSSPropertyTransformOriginZ:
+    case CSSPropertyWebkitTextStrokeWidth:
+        return InitialNumericValue { 0, CSSUnitType::CSS_PX };
+    case CSSPropertyOrphans:
+    case CSSPropertyWidows:
+        return InitialNumericValue { 2, CSSUnitType::CSS_NUMBER };
+    case CSSPropertyPerspectiveOriginX:
+    case CSSPropertyPerspectiveOriginY:
+    case CSSPropertyTransformOriginX:
+    case CSSPropertyTransformOriginY:
+        return InitialNumericValue { 50, CSSUnitType::CSS_PERCENTAGE };
+    case CSSPropertyPosition:
+        return CSSValueStatic;
+    case CSSPropertyPrintColorAdjust:
+        return CSSValueEconomy;
+    case CSSPropertyStrokeColor:
+        return CSSValueTransparent;
+    case CSSPropertyStrokeLinecap:
+        return CSSValueButt;
+    case CSSPropertyStrokeLinejoin:
+        return CSSValueMiter;
+    case CSSPropertyStrokeMiterlimit:
+        return InitialNumericValue { 4, CSSUnitType::CSS_NUMBER };
+    case CSSPropertyStrokeWidth:
+        return InitialNumericValue { 1, CSSUnitType::CSS_PX };
+    case CSSPropertyTabSize:
+        return InitialNumericValue { 8, CSSUnitType::CSS_NUMBER };
+    case CSSPropertyTextAlign:
+        return CSSValueStart;
+    case CSSPropertyTextDecorationStyle:
+        return CSSValueSolid;
+    case CSSPropertyTextEdge:
+        return CSSValueLeading;
+    case CSSPropertyTextOrientation:
+        return CSSValueMixed;
+    case CSSPropertyTextOverflow:
+        return CSSValueClip;
+    case CSSPropertyTextWrap:
+        return CSSValueWrap;
+    case CSSPropertyTransformBox:
+        return CSSValueViewBox;
+    case CSSPropertyTransformStyle:
+        return CSSValueFlat;
+    case CSSPropertyTransitionProperty:
+        return CSSValueAll;
+    case CSSPropertyWritingMode:
+        return CSSValueHorizontalTb;
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+}
+
+// There are many non-animation values this would not correctly handle.
+static Ref<CSSValue> initialCSSValueForAnimationLonghand(CSSPropertyID longhand)
+{
+    return WTF::switchOn(initialValueForLonghand(longhand), [](CSSValueID value) -> Ref<CSSValue> {
+        return CSSPrimitiveValue::create(value);
+    }, [](InitialNumericValue value) -> Ref<CSSValue> {
+        return CSSPrimitiveValue::create(value.number, value.type);
+    });
+}
+
+static bool isNumber(const CSSPrimitiveValue& value, double number, CSSUnitType type)
+{
+    return value.primitiveType() == type && value.doubleValue() == number;
+}
+
+static bool isNumber(const CSSPrimitiveValue* value, double number, CSSUnitType type)
+{
+    return value && isNumber(*value, number, type);
+}
+
+static bool isNumber(const CSSValue& value, double number, CSSUnitType type)
+{
+    return isNumber(dynamicDowncast<CSSPrimitiveValue>(value), number, type);
+}
+
+static const Pair* pairValue(const CSSValue& value)
+{
+    auto primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
+    return primitiveValue ? primitiveValue->pairValue() : nullptr;
+}
+
+static const Quad* quadValue(const CSSValue& value)
+{
+    auto primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
+    return primitiveValue ? primitiveValue->quadValue() : nullptr;
+}
+
+static bool isValueIDPair(const CSSValue& value, CSSValueID valueID)
+{
+    auto pair = pairValue(value);
+    return pair && isValueID(pair->first(), valueID) && isValueID(pair->second(), valueID);
+}
+
+static bool isNumber(const RectBase& quad, double number, CSSUnitType type)
+{
+    return isNumber(quad.top(), number, type)
+        && isNumber(quad.right(), number, type)
+        && isNumber(quad.bottom(), number, type)
+        && isNumber(quad.left(), number, type);
+}
+
+static bool isNumber(const RectBase* quad, double number, CSSUnitType type)
+{
+    return quad && isNumber(*quad, number, type);
+}
+
+static bool isNumericQuad(const CSSValue& value, double number, CSSUnitType type)
+{
+    return isNumber(quadValue(value), number, type);
+}
+
+bool isInitialValueForLonghand(CSSPropertyID longhand, const CSSValue& value)
+{
+    if (value.isImplicitInitialValue())
+        return true;
+    switch (longhand) {
+    case CSSPropertyBackgroundSize:
+    case CSSPropertyMaskSize:
+        if (isValueIDPair(value, CSSValueAuto))
+            return true;
+        break;
+    case CSSPropertyBorderImageOutset:
+        if (isNumericQuad(value, 0, CSSUnitType::CSS_NUMBER))
+            return true;
+        break;
+    case CSSPropertyBorderImageRepeat:
+        if (isValueIDPair(value, CSSValueStretch))
+            return true;
+        break;
+    case CSSPropertyBorderImageSlice:
+        if (auto sliceValue = dynamicDowncast<CSSBorderImageSliceValue>(value)) {
+            if (!sliceValue->m_fill && isNumber(sliceValue->slices(), 100, CSSUnitType::CSS_PERCENTAGE))
+                return true;
+        }
+        break;
+    case CSSPropertyBorderImageWidth:
+        if (auto widthValue = dynamicDowncast<CSSBorderImageWidthValue>(value)) {
+            if (!widthValue->m_overridesBorderWidths && isNumber(widthValue->widths(), 1, CSSUnitType::CSS_NUMBER))
+                return true;
+        }
+        break;
+    case CSSPropertyOffsetRotate:
+        if (auto rotateValue = dynamicDowncast<CSSOffsetRotateValue>(value)) {
+            if (rotateValue->isInitialValue())
+                return true;
+        }
+        break;
+    default:
+        break;
+    }
+    return WTF::switchOn(initialValueForLonghand(longhand), [&](CSSValueID initialValue) {
+        return isValueID(value, initialValue);
+    }, [&](InitialNumericValue initialValue) {
+        return isNumber(value, initialValue.number, initialValue.type);
+    });
+}
+
+ASCIILiteral initialValueTextForLonghand(CSSPropertyID longhand)
+{
+    return WTF::switchOn(initialValueForLonghand(longhand), [](CSSValueID value) {
+        return nameLiteral(value);
+    }, [](InitialNumericValue initialValue) {
+        switch (initialValue.type) {
+        case CSSUnitType::CSS_NUMBER:
+            if (initialValue.number == 0.0)
+                return "0"_s;
+            if (initialValue.number == 1.0)
+                return "1"_s;
+            if (initialValue.number == 2.0)
+                return "2"_s;
+            if (initialValue.number == 4.0)
+                return "4"_s;
+            if (initialValue.number == 8.0)
+                return "8"_s;
+            break;
+        case CSSUnitType::CSS_PERCENTAGE:
+            if (initialValue.number == 0.0)
+                return "0%"_s;
+            if (initialValue.number == 50.0)
+                return "50%"_s;
+            if (initialValue.number == 100.0)
+                return "100%"_s;
+            break;
+        case CSSUnitType::CSS_PX:
+            if (initialValue.number == 0.0)
+                return "0px"_s;
+            if (initialValue.number == 1.0)
+                return "1px"_s;
+            break;
+        case CSSUnitType::CSS_S:
+            if (initialValue.number == 0.0)
+                return "0s"_s;
+            break;
+        default:
+            break;
+        }
+        ASSERT_NOT_REACHED();
+        return ""_s;
+    });
+}
+
+CSSValueID initialValueIDForLonghand(CSSPropertyID longhand)
+{
+    return WTF::switchOn(initialValueForLonghand(longhand), [](CSSValueID value) {
+        return value;
+    }, [](InitialNumericValue) {
+        return CSSValueInvalid;
+    });
 }
 
 bool CSSPropertyParser::consumeShorthandGreedily(const StylePropertyShorthand& shorthand, bool important)
@@ -1098,9 +1414,8 @@ bool CSSPropertyParser::consumeShorthandGreedily(const StylePropertyShorthand& s
             return false;
     } while (!m_range.atEnd());
 
-    for (size_t i = 0; i < shorthand.length(); ++i) {
-        addPropertyWithImplicitDefault(shorthandProperties[i], shorthand.id(), WTFMove(longhands[i]), CSSValuePool::singleton().createImplicitInitialValue(), important);
-    }
+    for (size_t i = 0; i < shorthand.length(); ++i)
+        addProperty(shorthandProperties[i], shorthand.id(), WTFMove(longhands[i]), important);
     return true;
 }
 
@@ -1114,7 +1429,7 @@ bool CSSPropertyParser::consumeFlex(bool important)
     if (m_range.peek().id() == CSSValueNone) {
         flexGrow = 0;
         flexShrink = 0;
-        flexBasis = CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        flexBasis = CSSPrimitiveValue::create(CSSValueAuto);
         m_range.consumeIncludingWhitespace();
     } else {
         unsigned index = 0;
@@ -1162,8 +1477,11 @@ bool CSSPropertyParser::consumeFlex(bool important)
     return true;
 }
 
-bool CSSPropertyParser::consumeBorder(RefPtr<CSSValue>& width, RefPtr<CSSValue>& style, RefPtr<CSSValue>& color)
+bool CSSPropertyParser::consumeBorderShorthand(CSSPropertyID widthProperty, CSSPropertyID styleProperty, CSSPropertyID colorProperty, bool important)
 {
+    RefPtr<CSSValue> width;
+    RefPtr<CSSValue> style;
+    RefPtr<CSSValue> color;
     while (!width || !style || !color) {
         if (!width) {
             width = CSSPropertyParsing::consumeLineWidth(m_range, m_context);
@@ -1186,14 +1504,13 @@ bool CSSPropertyParser::consumeBorder(RefPtr<CSSValue>& width, RefPtr<CSSValue>&
     if (!width && !style && !color)
         return false;
 
-    if (!width)
-        width = CSSValuePool::singleton().createImplicitInitialValue();
-    if (!style)
-        style = CSSValuePool::singleton().createImplicitInitialValue();
-    if (!color)
-        color = CSSValuePool::singleton().createImplicitInitialValue();
+    if (!m_range.atEnd())
+        return false;
 
-    return m_range.atEnd();
+    addExpandedProperty(widthProperty, WTFMove(width), important);
+    addExpandedProperty(styleProperty, WTFMove(style), important);
+    addExpandedProperty(colorProperty, WTFMove(color), important);
+    return true;
 }
 
 bool CSSPropertyParser::consume2ValueShorthand(const StylePropertyShorthand& shorthand, bool important)
@@ -1259,21 +1576,19 @@ bool CSSPropertyParser::consumeBorderImage(CSSPropertyID property, bool importan
     RefPtr<CSSValue> repeat;
     if (!consumeBorderImageComponents(property, m_range, m_context, source, slice, width, outset, repeat))
         return false;
-
-    auto& valuePool = CSSValuePool::singleton();
-    auto createQuad = [&](double value, CSSUnitType type) {
-        auto quad = Quad::create();
-        quad->setTop(valuePool.createValue(value, type));
-        quad->setRight(valuePool.createValue(value, type));
-        quad->setBottom(valuePool.createValue(value, type));
-        quad->setLeft(valuePool.createValue(value, type));
-        return quad;
-    };
-    addPropertyWithImplicitDefault(CSSPropertyBorderImageSource, property, WTFMove(source), valuePool.createIdentifierValue(CSSValueNone), important);
-    addPropertyWithImplicitDefault(CSSPropertyBorderImageSlice, property, WTFMove(slice), CSSBorderImageSliceValue::create(createQuad(100, CSSUnitType::CSS_PERCENTAGE), false), important);
-    addPropertyWithImplicitDefault(CSSPropertyBorderImageWidth, property, WTFMove(width), CSSBorderImageWidthValue::create(createQuad(1, CSSUnitType::CSS_NUMBER), false), important);
-    addPropertyWithImplicitDefault(CSSPropertyBorderImageOutset, property, WTFMove(outset), valuePool.singleton().createValue(createQuad(0, CSSUnitType::CSS_NUMBER)), important);
-    addPropertyWithImplicitDefault(CSSPropertyBorderImageRepeat, property, WTFMove(repeat), valuePool.createIdentifierValue(CSSValueStretch), important);
+    if (property == CSSPropertyWebkitMaskBoxImage) {
+        addProperty(CSSPropertyWebkitMaskBoxImageSource, property, WTFMove(source), important);
+        addProperty(CSSPropertyWebkitMaskBoxImageSlice, property, WTFMove(slice), important);
+        addProperty(CSSPropertyWebkitMaskBoxImageWidth, property, WTFMove(width), important);
+        addProperty(CSSPropertyWebkitMaskBoxImageOutset, property, WTFMove(outset), important);
+        addProperty(CSSPropertyWebkitMaskBoxImageRepeat, property, WTFMove(repeat), important);
+    } else {
+        addProperty(CSSPropertyBorderImageSource, property, WTFMove(source), important);
+        addProperty(CSSPropertyBorderImageSlice, property, WTFMove(slice), important);
+        addProperty(CSSPropertyBorderImageWidth, property, WTFMove(width), important);
+        addProperty(CSSPropertyBorderImageOutset, property, WTFMove(outset), important);
+        addProperty(CSSPropertyBorderImageRepeat, property, WTFMove(repeat), important);
+    }
     return true;
 }
 
@@ -1345,7 +1660,7 @@ bool CSSPropertyParser::consumeLegacyBreakProperty(CSSPropertyID property, bool 
         return false;
 
     CSSPropertyID genericBreakProperty = mapFromLegacyBreakProperty(property);
-    addProperty(genericBreakProperty, property, CSSValuePool::singleton().createIdentifierValue(value), important);
+    addProperty(genericBreakProperty, property, CSSPrimitiveValue::create(value), important);
     return true;
 }
 
@@ -1356,9 +1671,9 @@ bool CSSPropertyParser::consumeLegacyTextOrientation(bool important)
     RefPtr<CSSPrimitiveValue> keyword;
     auto valueID = m_range.peek().id();
     if (valueID == CSSValueSidewaysRight) {
-        keyword = CSSValuePool::singleton().createIdentifierValue(CSSValueSideways);
+        keyword = CSSPrimitiveValue::create(CSSValueSideways);
         consumeIdentRaw(m_range);
-    } else if (CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyTextOrientation, valueID, m_context))
+    } else if (CSSParserFastPaths::isKeywordValidForStyleProperty(CSSPropertyTextOrientation, valueID, m_context))
         keyword = consumeIdent(m_range);
     if (!keyword || !m_range.atEnd())
         return false;
@@ -1440,10 +1755,9 @@ bool CSSPropertyParser::consumeAnimationShorthand(const StylePropertyShorthand& 
                 return false;
         } while (!m_range.atEnd() && m_range.peek().type() != CommaToken);
 
-        // FIXME: This will make invalid longhands, see crbug.com/386459
         for (size_t i = 0; i < longhandCount; ++i) {
             if (!parsedLonghand[i])
-                ComputedStyleExtractor::addValueForAnimationPropertyToList(*longhands[i], shorthand.properties()[i], nullptr);
+                longhands[i]->append(initialCSSValueForAnimationLonghand(shorthand.properties()[i]));
             parsedLonghand[i] = false;
         }
     } while (consumeCommaIncludingWhitespace(m_range));
@@ -1454,7 +1768,7 @@ bool CSSPropertyParser::consumeAnimationShorthand(const StylePropertyShorthand& 
     }
 
     for (size_t i = 0; i < longhandCount; ++i)
-        addProperty(shorthand.properties()[i], shorthand.id(), *longhands[i], important);
+        addProperty(shorthand.properties()[i], shorthand.id(), WTFMove(longhands[i]), important);
 
     return m_range.atEnd();
 }
@@ -1476,6 +1790,72 @@ static bool consumeBackgroundPosition(CSSParserTokenRange& range, const CSSParse
     return true;
 }
 
+static RefPtr<CSSValue> consumeBackgroundComponent(CSSPropertyID property, CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    switch (property) {
+    // background-*
+    case CSSPropertyBackgroundClip:
+        return CSSPropertyParsing::consumeSingleBackgroundClip(range);
+    case CSSPropertyBackgroundBlendMode:
+        return CSSPropertyParsing::consumeSingleBackgroundBlendMode(range);
+    case CSSPropertyBackgroundAttachment:
+        return CSSPropertyParsing::consumeSingleBackgroundAttachment(range);
+    case CSSPropertyBackgroundOrigin:
+        return CSSPropertyParsing::consumeSingleBackgroundOrigin(range);
+    case CSSPropertyBackgroundImage:
+        return CSSPropertyParsing::consumeSingleBackgroundImage(range, context);
+    case CSSPropertyBackgroundRepeat:
+        return CSSPropertyParsing::consumeSingleBackgroundRepeat(range, context);
+    case CSSPropertyBackgroundPositionX:
+        return CSSPropertyParsing::consumeSingleBackgroundPositionX(range, context);
+    case CSSPropertyBackgroundPositionY:
+        return CSSPropertyParsing::consumeSingleBackgroundPositionY(range, context);
+    case CSSPropertyBackgroundSize:
+        return consumeSingleBackgroundSize(range, context);
+    case CSSPropertyBackgroundColor:
+        return consumeColor(range, context);
+
+    // mask-*
+    case CSSPropertyMaskComposite:
+        return CSSPropertyParsing::consumeSingleMaskComposite(range);
+    case CSSPropertyMaskOrigin:
+        return CSSPropertyParsing::consumeSingleMaskOrigin(range);
+    case CSSPropertyMaskClip:
+        return CSSPropertyParsing::consumeSingleMaskClip(range);
+    case CSSPropertyMaskImage:
+        return CSSPropertyParsing::consumeSingleMaskImage(range, context);
+    case CSSPropertyMaskMode:
+        return CSSPropertyParsing::consumeSingleMaskMode(range);
+    case CSSPropertyMaskRepeat:
+        return CSSPropertyParsing::consumeSingleMaskRepeat(range, context);
+    case CSSPropertyMaskSize:
+        return consumeSingleMaskSize(range, context);
+
+    // -webkit-background-*
+    case CSSPropertyWebkitBackgroundSize:
+        return consumeSingleWebkitBackgroundSize(range, context);
+    case CSSPropertyWebkitBackgroundClip:
+        return CSSPropertyParsing::consumeSingleWebkitBackgroundClip(range);
+    case CSSPropertyWebkitBackgroundOrigin:
+        return CSSPropertyParsing::consumeSingleWebkitBackgroundOrigin(range);
+
+    // -webkit-mask-*
+    case CSSPropertyWebkitMaskClip:
+        return CSSPropertyParsing::consumeSingleWebkitMaskClip(range);
+    case CSSPropertyWebkitMaskComposite:
+        return CSSPropertyParsing::consumeSingleWebkitMaskComposite(range);
+    case CSSPropertyWebkitMaskSourceType:
+        return CSSPropertyParsing::consumeSingleWebkitMaskSourceType(range);
+    case CSSPropertyWebkitMaskPositionX:
+        return CSSPropertyParsing::consumeSingleWebkitMaskPositionX(range, context);
+    case CSSPropertyWebkitMaskPositionY:
+        return CSSPropertyParsing::consumeSingleWebkitMaskPositionY(range, context);
+
+    default:
+        return nullptr;
+    };
+}
+
 // Note: consumeBackgroundShorthand assumes y properties (for example background-position-y) follow
 // the x properties in the shorthand array.
 bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand& shorthand, bool important)
@@ -1484,7 +1864,6 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
     RefPtr<CSSValue> longhands[10];
     ASSERT(longhandCount <= 10);
 
-    bool implicit = false;
     do {
         bool parsedLonghand[10] = { false };
         RefPtr<CSSValue> originValue;
@@ -1551,7 +1930,7 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
                 continue;
             }
             if (!parsedLonghand[i])
-                addBackgroundValue(longhands[i], CSSValuePool::singleton().createImplicitInitialValue());
+                addBackgroundValue(longhands[i], Ref { CSSPrimitiveValue::implicitInitialValue() });
         }
     } while (consumeCommaIncludingWhitespace(m_range));
     if (!m_range.atEnd())
@@ -1561,7 +1940,7 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
         CSSPropertyID property = shorthand.properties()[i];
         if (property == CSSPropertyBackgroundSize && longhands[i] && m_context.useLegacyBackgroundSizeShorthandBehavior)
             continue;
-        addProperty(property, shorthand.id(), *longhands[i], important, implicit);
+        addProperty(property, shorthand.id(), WTFMove(longhands[i]), important);
     }
     return true;
 }
@@ -1569,7 +1948,7 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
 bool CSSPropertyParser::consumeOverflowShorthand(bool important)
 {
     CSSValueID xValueID = m_range.consumeIncludingWhitespace().id();
-    if (!CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyOverflowY, xValueID, m_context))
+    if (!CSSParserFastPaths::isKeywordValidForStyleProperty(CSSPropertyOverflowY, xValueID, m_context))
         return false;
 
     CSSValueID yValueID;
@@ -1585,13 +1964,13 @@ bool CSSPropertyParser::consumeOverflowShorthand(bool important)
     } else 
         yValueID = m_range.consumeIncludingWhitespace().id();
 
-    if (!CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyOverflowY, yValueID, m_context))
+    if (!CSSParserFastPaths::isKeywordValidForStyleProperty(CSSPropertyOverflowY, yValueID, m_context))
         return false;
     if (!m_range.atEnd())
         return false;
 
-    addProperty(CSSPropertyOverflowX, CSSPropertyOverflow, CSSValuePool::singleton().createIdentifierValue(xValueID), important);
-    addProperty(CSSPropertyOverflowY, CSSPropertyOverflow, CSSValuePool::singleton().createIdentifierValue(yValueID), important);
+    addProperty(CSSPropertyOverflowX, CSSPropertyOverflow, CSSPrimitiveValue::create(xValueID), important);
+    addProperty(CSSPropertyOverflowY, CSSPropertyOverflow, CSSPrimitiveValue::create(yValueID), important);
     return true;
 }
 
@@ -1614,7 +1993,7 @@ bool CSSPropertyParser::consumeGridItemPositionShorthand(CSSPropertyID shorthand
         if (!endValue)
             return false;
     } else {
-        endValue = isCustomIdentValue(*startValue) ? startValue : CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        endValue = isCustomIdentValue(*startValue) ? startValue : CSSPrimitiveValue::create(CSSValueAuto);
     }
     if (!m_range.atEnd())
         return false;
@@ -1649,11 +2028,11 @@ bool CSSPropertyParser::consumeGridAreaShorthand(bool important)
     if (!m_range.atEnd())
         return false;
     if (!columnStartValue)
-        columnStartValue = isCustomIdentValue(*rowStartValue) ? rowStartValue : CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        columnStartValue = isCustomIdentValue(*rowStartValue) ? rowStartValue : CSSPrimitiveValue::create(CSSValueAuto);
     if (!rowEndValue)
-        rowEndValue = isCustomIdentValue(*rowStartValue) ? rowStartValue : CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        rowEndValue = isCustomIdentValue(*rowStartValue) ? rowStartValue : CSSPrimitiveValue::create(CSSValueAuto);
     if (!columnEndValue)
-        columnEndValue = isCustomIdentValue(*columnStartValue) ? columnStartValue : CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        columnEndValue = isCustomIdentValue(*columnStartValue) ? columnStartValue : CSSPrimitiveValue::create(CSSValueAuto);
 
     addProperty(CSSPropertyGridRowStart, CSSPropertyGridArea, rowStartValue.releaseNonNull(), important);
     addProperty(CSSPropertyGridColumnStart, CSSPropertyGridArea, columnStartValue.releaseNonNull(), important);
@@ -1688,7 +2067,7 @@ bool CSSPropertyParser::consumeGridTemplateRowsAndAreasAndColumns(CSSPropertyID 
         // Handle template-rows's track-size.
         RefPtr<CSSValue> value = consumeGridTrackSize(m_range, m_context.mode);
         if (!value)
-            value = CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+            value = CSSPrimitiveValue::create(CSSValueAuto);
         templateRows->append(*value);
 
         // This will handle the trailing/leading <custom-ident>* in the grammar.
@@ -1705,7 +2084,7 @@ bool CSSPropertyParser::consumeGridTemplateRowsAndAreasAndColumns(CSSPropertyID 
         if (!columnsValue || !m_range.atEnd())
             return false;
     } else {
-        columnsValue = CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
+        columnsValue = CSSPrimitiveValue::create(CSSValueNone);
     }
     addProperty(CSSPropertyGridTemplateRows, shorthandId, templateRows.releaseNonNull(), important);
     addProperty(CSSPropertyGridTemplateColumns, shorthandId, columnsValue.releaseNonNull(), important);
@@ -1720,9 +2099,9 @@ bool CSSPropertyParser::consumeGridTemplateShorthand(CSSPropertyID shorthandId, 
 
     // 1- 'none' case.
     if (rowsValue && m_range.atEnd()) {
-        addProperty(CSSPropertyGridTemplateRows, shorthandId, CSSValuePool::singleton().createIdentifierValue(CSSValueNone), important);
-        addProperty(CSSPropertyGridTemplateColumns, shorthandId, CSSValuePool::singleton().createIdentifierValue(CSSValueNone), important);
-        addProperty(CSSPropertyGridTemplateAreas, shorthandId, CSSValuePool::singleton().createIdentifierValue(CSSValueNone), important);
+        addProperty(CSSPropertyGridTemplateRows, shorthandId, CSSPrimitiveValue::create(CSSValueNone), important);
+        addProperty(CSSPropertyGridTemplateColumns, shorthandId, CSSPrimitiveValue::create(CSSValueNone), important);
+        addProperty(CSSPropertyGridTemplateAreas, shorthandId, CSSPrimitiveValue::create(CSSValueNone), important);
         return true;
     }
 
@@ -1739,7 +2118,7 @@ bool CSSPropertyParser::consumeGridTemplateShorthand(CSSPropertyID shorthandId, 
 
         addProperty(CSSPropertyGridTemplateRows, shorthandId, rowsValue.releaseNonNull(), important);
         addProperty(CSSPropertyGridTemplateColumns, shorthandId, columnsValue.releaseNonNull(), important);
-        addProperty(CSSPropertyGridTemplateAreas, shorthandId, CSSValuePool::singleton().createIdentifierValue(CSSValueNone), important);
+        addProperty(CSSPropertyGridTemplateAreas, shorthandId, CSSPrimitiveValue::create(CSSValueNone), important);
         return true;
     }
 
@@ -1784,9 +2163,9 @@ bool CSSPropertyParser::consumeGridShorthand(bool important)
     if (consumeGridTemplateShorthand(CSSPropertyGrid, important)) {
         // It can only be specified the explicit or the implicit grid properties in a single grid declaration.
         // The sub-properties not specified are set to their initial value, as normal for shorthands.
-        addProperty(CSSPropertyGridAutoFlow, CSSPropertyGrid, CSSValuePool::singleton().createIdentifierValue(CSSValueRow), important);
-        addProperty(CSSPropertyGridAutoColumns, CSSPropertyGrid, CSSValuePool::singleton().createIdentifierValue(CSSValueAuto), important);
-        addProperty(CSSPropertyGridAutoRows, CSSPropertyGrid, CSSValuePool::singleton().createIdentifierValue(CSSValueAuto), important);
+        addProperty(CSSPropertyGridAutoFlow, CSSPropertyGrid, CSSPrimitiveValue::create(CSSValueRow), important);
+        addProperty(CSSPropertyGridAutoColumns, CSSPropertyGrid, CSSPrimitiveValue::create(CSSValueAuto), important);
+        addProperty(CSSPropertyGridAutoRows, CSSPropertyGrid, CSSPrimitiveValue::create(CSSValueAuto), important);
 
         return true;
     }
@@ -1801,11 +2180,11 @@ bool CSSPropertyParser::consumeGridShorthand(bool important)
     
     if (m_range.peek().id() == CSSValueAutoFlow || m_range.peek().id() == CSSValueDense) {
         // 2- [ auto-flow && dense? ] <grid-auto-rows>? / <grid-template-columns>
-        gridAutoFlow = consumeImplicitGridAutoFlow(m_range, CSSValuePool::singleton().createIdentifierValue(CSSValueRow));
+        gridAutoFlow = consumeImplicitGridAutoFlow(m_range, CSSPrimitiveValue::create(CSSValueRow));
         if (!gridAutoFlow || m_range.atEnd())
             return false;
         if (consumeSlashIncludingWhitespace(m_range))
-            autoRowsValue = CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+            autoRowsValue = CSSPrimitiveValue::create(CSSValueAuto);
         else {
             autoRowsValue = consumeGridTrackList(m_range, m_context, GridAuto);
             if (!autoRowsValue)
@@ -1818,8 +2197,8 @@ bool CSSPropertyParser::consumeGridShorthand(bool important)
         templateColumns = consumeGridTemplatesRowsOrColumns(m_range, m_context);
         if (!templateColumns)
             return false;
-        templateRows = CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
-        autoColumnsValue = CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        templateRows = CSSPrimitiveValue::create(CSSValueNone);
+        autoColumnsValue = CSSPrimitiveValue::create(CSSValueAuto);
     } else {
         // 3- <grid-template-rows> / [ auto-flow && dense? ] <grid-auto-columns>?
         templateRows = consumeGridTemplatesRowsOrColumns(m_range, m_context.mode);
@@ -1827,18 +2206,18 @@ bool CSSPropertyParser::consumeGridShorthand(bool important)
             return false;
         if (!consumeSlashIncludingWhitespace(m_range) || m_range.atEnd())
             return false;
-        gridAutoFlow = consumeImplicitGridAutoFlow(m_range, CSSValuePool::singleton().createIdentifierValue(CSSValueColumn));
+        gridAutoFlow = consumeImplicitGridAutoFlow(m_range, CSSPrimitiveValue::create(CSSValueColumn));
         if (!gridAutoFlow)
             return false;
         if (m_range.atEnd())
-            autoColumnsValue = CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+            autoColumnsValue = CSSPrimitiveValue::create(CSSValueAuto);
         else {
             autoColumnsValue = consumeGridTrackList(m_range, m_context, GridAuto);
             if (!autoColumnsValue)
                 return false;
         }
-        templateColumns = CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
-        autoRowsValue = CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        templateColumns = CSSPrimitiveValue::create(CSSValueNone);
+        autoRowsValue = CSSPrimitiveValue::create(CSSValueAuto);
     }
     
     if (!m_range.atEnd())
@@ -1848,7 +2227,7 @@ bool CSSPropertyParser::consumeGridShorthand(bool important)
     // The sub-properties not specified are set to their initial value, as normal for shorthands.
     addProperty(CSSPropertyGridTemplateColumns, CSSPropertyGrid, templateColumns.releaseNonNull(), important);
     addProperty(CSSPropertyGridTemplateRows, CSSPropertyGrid, templateRows.releaseNonNull(), important);
-    addProperty(CSSPropertyGridTemplateAreas, CSSPropertyGrid, CSSValuePool::singleton().createIdentifierValue(CSSValueNone), important);
+    addProperty(CSSPropertyGridTemplateAreas, CSSPropertyGrid, CSSPrimitiveValue::create(CSSValueNone), important);
     addProperty(CSSPropertyGridAutoFlow, CSSPropertyGrid, gridAutoFlow.releaseNonNull(), important);
     addProperty(CSSPropertyGridAutoColumns, CSSPropertyGrid, autoColumnsValue.releaseNonNull(), important);
     addProperty(CSSPropertyGridAutoRows, CSSPropertyGrid, autoRowsValue.releaseNonNull(), important);
@@ -1956,8 +2335,8 @@ bool CSSPropertyParser::consumeOverscrollBehaviorShorthand(bool important)
             return false;
     }
 
-    addProperty(CSSPropertyOverscrollBehaviorX, CSSPropertyOverscrollBehavior, *overscrollBehaviorX, important);
-    addProperty(CSSPropertyOverscrollBehaviorY, CSSPropertyOverscrollBehavior, *overscrollBehaviorY, important);
+    addProperty(CSSPropertyOverscrollBehaviorX, CSSPropertyOverscrollBehavior, WTFMove(overscrollBehaviorX), important);
+    addProperty(CSSPropertyOverscrollBehaviorY, CSSPropertyOverscrollBehavior, WTFMove(overscrollBehaviorY), important);
     return true;
 }
 
@@ -1984,7 +2363,7 @@ bool CSSPropertyParser::consumeContainerShorthand(bool important)
         return false;
 
     addProperty(CSSPropertyContainerName, CSSPropertyContainer, name.releaseNonNull(), important);
-    addPropertyWithImplicitDefault(CSSPropertyContainerType, CSSPropertyContainer, WTFMove(type), CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important);
+    addProperty(CSSPropertyContainerType, CSSPropertyContainer, WTFMove(type), important);
     return true;
 }
 
@@ -2011,8 +2390,8 @@ bool CSSPropertyParser::consumeContainIntrinsicSizeShorthand(bool important)
             return false;
     }
 
-    addProperty(CSSPropertyContainIntrinsicWidth, CSSPropertyContainIntrinsicSize, *containIntrinsicWidth, important);
-    addProperty(CSSPropertyContainIntrinsicHeight, CSSPropertyContainIntrinsicSize, *containIntrinsicHeight, important);
+    addProperty(CSSPropertyContainIntrinsicWidth, CSSPropertyContainIntrinsicSize, WTFMove(containIntrinsicWidth), important);
+    addProperty(CSSPropertyContainIntrinsicHeight, CSSPropertyContainIntrinsicSize, WTFMove(containIntrinsicHeight), important);
     return true;
 }
 
@@ -2026,7 +2405,7 @@ bool CSSPropertyParser::consumeTransformOrigin(bool important)
             return false;
         addProperty(CSSPropertyTransformOriginX, CSSPropertyTransformOrigin, WTFMove(resultXY->x), important);
         addProperty(CSSPropertyTransformOriginY, CSSPropertyTransformOrigin, WTFMove(resultXY->y), important);
-        addPropertyWithImplicitDefault(CSSPropertyTransformOriginZ, CSSPropertyTransformOrigin, resultZ, CSSValuePool::singleton().createValue(0, CSSUnitType::CSS_PX), important);
+        addProperty(CSSPropertyTransformOriginZ, CSSPropertyTransformOrigin, resultZ, important);
         
         return true;
     }
@@ -2045,7 +2424,7 @@ bool CSSPropertyParser::consumePerspectiveOrigin(bool important)
 
 bool CSSPropertyParser::consumePrefixedPerspective(bool important)
 {
-    if (auto value = consumePerspective(m_range, m_context.mode)) {
+    if (auto value = CSSPropertyParsing::consumePerspective(m_range, m_context)) {
         addProperty(CSSPropertyPerspective, CSSPropertyWebkitPerspective, value.releaseNonNull(), important);
         return m_range.atEnd();
     }
@@ -2063,8 +2442,6 @@ bool CSSPropertyParser::consumePrefixedPerspective(bool important)
 
 bool CSSPropertyParser::consumeOffset(bool important)
 {
-    auto& valuePool = CSSValuePool::singleton();
-
     // The offset shorthand is defined as:
     // [ <'offset-position'>?
     //   [ <'offset-path'>
@@ -2105,18 +2482,17 @@ bool CSSPropertyParser::consumeOffset(bool important)
             return false;
     }
 
-    addPropertyWithImplicitDefault(CSSPropertyOffsetPath, CSSPropertyOffset, WTFMove(offsetPath), valuePool.createIdentifierValue(CSSValueNone), important);
-    addPropertyWithImplicitDefault(CSSPropertyOffsetDistance, CSSPropertyOffset, WTFMove(offsetDistance), valuePool.createValue(0.0, CSSUnitType::CSS_PX), important);
-    addPropertyWithImplicitDefault(CSSPropertyOffsetPosition, CSSPropertyOffset, WTFMove(offsetPosition), valuePool.createIdentifierValue(CSSValueAuto), important);
-    addPropertyWithImplicitDefault(CSSPropertyOffsetAnchor, CSSPropertyOffset, WTFMove(offsetAnchor), valuePool.createIdentifierValue(CSSValueAuto), important);
-    addPropertyWithImplicitDefault(CSSPropertyOffsetRotate, CSSPropertyOffset, WTFMove(offsetRotate), CSSOffsetRotateValue::initialValue(), important);
+    addProperty(CSSPropertyOffsetPath, CSSPropertyOffset, WTFMove(offsetPath), important);
+    addProperty(CSSPropertyOffsetDistance, CSSPropertyOffset, WTFMove(offsetDistance), important);
+    addProperty(CSSPropertyOffsetPosition, CSSPropertyOffset, WTFMove(offsetPosition), important);
+    addProperty(CSSPropertyOffsetAnchor, CSSPropertyOffset, WTFMove(offsetAnchor), important);
+    addProperty(CSSPropertyOffsetRotate, CSSPropertyOffset, WTFMove(offsetRotate), important);
 
     return m_range.atEnd();
 }
 
 bool CSSPropertyParser::consumeListStyleShorthand(bool important)
 {
-    auto& valuePool = CSSValuePool::singleton();
     RefPtr<CSSValue> parsedPosition;
     RefPtr<CSSValue> parsedImage;
     RefPtr<CSSValue> parsedType;
@@ -2155,16 +2531,16 @@ bool CSSPropertyParser::consumeListStyleShorthand(bool important)
     if (noneCount == 2) {
         // Using implicit none for list-style-image is how we serialize "none" instead of "none none".
         parsedImage = nullptr;
-        parsedType = valuePool.createIdentifierValue(CSSValueNone);
+        parsedType = CSSPrimitiveValue::create(CSSValueNone);
     } else if (noneCount == 1) {
         // Use implicit none for list-style-image, but non-implicit for type.
         if (!parsedType)
-            parsedType = valuePool.createIdentifierValue(CSSValueNone);
+            parsedType = CSSPrimitiveValue::create(CSSValueNone);
     }
 
-    addPropertyWithImplicitDefault(CSSPropertyListStylePosition, CSSPropertyListStyle, WTFMove(parsedPosition), valuePool.createIdentifierValue(CSSValueOutside), important);
-    addPropertyWithImplicitDefault(CSSPropertyListStyleImage, CSSPropertyListStyle, WTFMove(parsedImage), valuePool.createIdentifierValue(CSSValueNone), important);
-    addPropertyWithImplicitDefault(CSSPropertyListStyleType, CSSPropertyListStyle, WTFMove(parsedType), valuePool.createIdentifierValue(CSSValueDisc), important);
+    addProperty(CSSPropertyListStylePosition, CSSPropertyListStyle, WTFMove(parsedPosition), important);
+    addProperty(CSSPropertyListStyleImage, CSSPropertyListStyle, WTFMove(parsedImage), important);
+    addProperty(CSSPropertyListStyleType, CSSPropertyListStyle, WTFMove(parsedType), important);
     return m_range.atEnd();
 }
 
@@ -2236,18 +2612,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumeShorthandGreedily(outlineShorthand(), important);
     case CSSPropertyOffset:
         return consumeOffset(important);
-    case CSSPropertyBorderInline: {
-        RefPtr<CSSValue> width;
-        RefPtr<CSSValue> style;
-        RefPtr<CSSValue> color;
-        if (!consumeBorder(width, style, color))
-            return false;
-
-        addExpandedPropertyForValue(CSSPropertyBorderInlineWidth, width.releaseNonNull(), important);
-        addExpandedPropertyForValue(CSSPropertyBorderInlineStyle, style.releaseNonNull(), important);
-        addExpandedPropertyForValue(CSSPropertyBorderInlineColor, color.releaseNonNull(), important);
-        return true;
-    }
+    case CSSPropertyBorderInline:
+        return consumeBorderShorthand(CSSPropertyBorderInlineWidth, CSSPropertyBorderInlineStyle, CSSPropertyBorderInlineColor, important);
     case CSSPropertyBorderInlineColor:
         return consume2ValueShorthand(borderInlineColorShorthand(), important);
     case CSSPropertyBorderInlineStyle:
@@ -2258,18 +2624,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumeShorthandGreedily(borderInlineStartShorthand(), important);
     case CSSPropertyBorderInlineEnd:
         return consumeShorthandGreedily(borderInlineEndShorthand(), important);
-    case CSSPropertyBorderBlock: {
-        RefPtr<CSSValue> width;
-        RefPtr<CSSValue> style;
-        RefPtr<CSSValue> color;
-        if (!consumeBorder(width, style, color))
-            return false;
-
-        addExpandedPropertyForValue(CSSPropertyBorderBlockWidth, width.releaseNonNull(), important);
-        addExpandedPropertyForValue(CSSPropertyBorderBlockStyle, style.releaseNonNull(), important);
-        addExpandedPropertyForValue(CSSPropertyBorderBlockColor, color.releaseNonNull(), important);
-        return true;
-    }
+    case CSSPropertyBorderBlock:
+        return consumeBorderShorthand(CSSPropertyBorderBlockWidth, CSSPropertyBorderBlockStyle, CSSPropertyBorderBlockColor, important);
     case CSSPropertyBorderBlockColor:
         return consume2ValueShorthand(borderBlockColorShorthand(), important);
     case CSSPropertyBorderBlockStyle:
@@ -2327,20 +2683,15 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
     case CSSPropertyBorderLeft:
         return consumeShorthandGreedily(borderLeftShorthand(), important);
     case CSSPropertyBorder: {
-        RefPtr<CSSValue> width;
-        RefPtr<CSSValue> style;
-        RefPtr<CSSValue> color;
-        if (!consumeBorder(width, style, color))
+        if (!consumeBorderShorthand(CSSPropertyBorderWidth, CSSPropertyBorderStyle, CSSPropertyBorderColor, important))
             return false;
-
-        addExpandedPropertyForValue(CSSPropertyBorderWidth, width.releaseNonNull(), important);
-        addExpandedPropertyForValue(CSSPropertyBorderStyle, style.releaseNonNull(), important);
-        addExpandedPropertyForValue(CSSPropertyBorderColor, color.releaseNonNull(), important);
-        addExpandedPropertyForValue(CSSPropertyBorderImage, CSSValuePool::singleton().createImplicitInitialValue(), important);
+        for (auto longhand : borderImageShorthand())
+            addProperty(longhand, CSSPropertyBorder, nullptr, important);
         return true;
     }
     case CSSPropertyBorderImage:
     case CSSPropertyWebkitBorderImage:
+    case CSSPropertyWebkitMaskBoxImage:
         return consumeBorderImage(property, important);
     case CSSPropertyPageBreakAfter:
     case CSSPropertyPageBreakBefore:
@@ -2365,7 +2716,9 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
     case CSSPropertyBackground:
         return consumeBackgroundShorthand(backgroundShorthand(), important);
     case CSSPropertyWebkitBackgroundSize: {
-        auto backgroundSize = consumeCommaSeparatedBackgroundComponent(CSSPropertyWebkitBackgroundSize, m_range, m_context.mode);
+        auto backgroundSize = consumeCommaSeparatedListWithSingleValueOptimization(m_range, [] (auto& range, auto& context) {
+            return consumeSingleWebkitBackgroundSize(range, context);
+        }, m_context);
         if (!backgroundSize || !m_range.atEnd())
             return false;
         addProperty(CSSPropertyBackgroundSize, CSSPropertyWebkitBackgroundSize, backgroundSize.releaseNonNull(), important);

@@ -80,9 +80,7 @@
 #endif
 
 #if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
-#include "ArrayReference.h"
 #include <WebCore/GraphicsContextGL.h>
-#include <WebCore/GraphicsTypesGL.h>
 #endif
 
 #if ENABLE(WEBXR)
@@ -110,6 +108,7 @@ class AuthenticationChallenge;
 class BlobPart;
 class CertificateInfo;
 class Color;
+class ControlPart;
 class SharedBuffer;
 class CSPViolationReportBody;
 class Credential;
@@ -138,13 +137,11 @@ class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
 class ScriptBuffer;
-class SecurityOrigin;
 class SerializedScriptValue;
 class FragmentedSharedBuffer;
 class StickyPositionViewportConstraints;
 class SystemImage;
 class TextCheckingRequestData;
-class TimingFunction;
 class TransformOperation;
 class UserStyleSheet;
 
@@ -155,7 +152,6 @@ struct DictationAlternative;
 struct DictionaryPopupInfo;
 struct EventTrackingRegions;
 struct ExceptionDetails;
-struct FontAttributes;
 struct FileChooserSettings;
 struct TextRecognitionDataDetector;
 struct Length;
@@ -219,19 +215,9 @@ struct Record;
 
 namespace IPC {
 
-template<> struct ArgumentCoder<WebCore::AttributedString> {
-    static void encode(Encoder&, const WebCore::AttributedString&);
-    static std::optional<WebCore::AttributedString> decode(Decoder&);
-};
-
 template<> struct ArgumentCoder<WebCore::DOMCacheEngine::Record> {
     static void encode(Encoder&, const WebCore::DOMCacheEngine::Record&);
     static std::optional<WebCore::DOMCacheEngine::Record> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<WebCore::TouchActionData> {
-    static void encode(Encoder&, const WebCore::TouchActionData&);
-    static std::optional<WebCore::TouchActionData> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<WebCore::RectEdges<bool>> {
@@ -245,7 +231,6 @@ template<> struct ArgumentCoder<WebCore::ViewportArguments> {
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ViewportArguments&);
     static std::optional<WebCore::ViewportArguments> decode(Decoder&);
 };
-
 #endif
 
 template<> struct ArgumentCoder<WebCore::Length> {
@@ -448,21 +433,6 @@ template<> struct ArgumentCoder<WebCore::ServiceWorkerOrClientIdentifier> {
 
 #endif
 
-template<> struct ArgumentCoder<RefPtr<WebCore::SecurityOrigin>> {
-    static void encode(Encoder&, const RefPtr<WebCore::SecurityOrigin>&);
-    static std::optional<RefPtr<WebCore::SecurityOrigin>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<Ref<WebCore::SecurityOrigin>> {
-    static void encode(Encoder&, const Ref<WebCore::SecurityOrigin>&);
-    static std::optional<Ref<WebCore::SecurityOrigin>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<WebCore::FontAttributes> {
-    static void encode(Encoder&, const WebCore::FontAttributes&);
-    static std::optional<WebCore::FontAttributes> decode(Decoder&);
-};
-
 #if ENABLE(ATTACHMENT_ELEMENT)
 
 template<> struct ArgumentCoder<WebCore::SerializedAttachmentData> {
@@ -500,6 +470,12 @@ template<> struct ArgumentCoder<WebCore::SystemImage> {
     template<typename Encoder>
     static void encode(Encoder&, const WebCore::SystemImage&);
     static std::optional<Ref<WebCore::SystemImage>> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::ControlPart> {
+    template<typename Encoder>
+    static void encode(Encoder&, const WebCore::ControlPart&);
+    static std::optional<Ref<WebCore::ControlPart>> decode(Decoder&);
 };
 
 #if ENABLE(DATA_DETECTION)
@@ -562,16 +538,6 @@ template<> struct ArgumentCoder<WebCore::PixelBuffer> {
 template<> struct ArgumentCoder<RefPtr<WebCore::ReportBody>> {
     static void encode(Encoder&, const RefPtr<WebCore::ReportBody>&);
     static std::optional<RefPtr<WebCore::ReportBody>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<WebCore::TimingFunction> {
-    static void encode(Encoder&, const WebCore::TimingFunction&);
-    static std::optional<Ref<WebCore::TimingFunction>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<WebCore::TransformOperation> {
-    static void encode(Encoder&, const WebCore::TransformOperation&);
-    static std::optional<Ref<WebCore::TransformOperation>> decode(Decoder&);
 };
 
 } // namespace IPC

@@ -228,7 +228,7 @@ class TestcheckWorkersAndBuildersForConsistency(unittest.TestCase):
         self.WK2Builder = {'name': 'macOS-High-Sierra-WK2-EWS', 'shortname': 'mac-wk2', 'factory': 'WK2Factory', 'platform': 'mac-sierra', 'workernames': ['ews101', 'ews102']}
         self.ews101 = {'name': 'ews101', 'platform': 'mac-sierra'}
         self.ews102 = {'name': 'ews102', 'platform': 'ios-11'}
-        super(TestcheckWorkersAndBuildersForConsistency, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def test_checkWorkersAndBuildersForConsistency(self):
         with self.assertRaises(Exception) as context:
@@ -277,6 +277,18 @@ class TestPrioritizeBuilders(unittest.TestCase):
             self.MockBuilder('Commit-Queue', oldestRequestTime=datetime.now(timezone.utc) - timedelta(seconds=30)),
             self.MockBuilder('Merge-Queue', oldestRequestTime=datetime.now(timezone.utc) - timedelta(seconds=10)),
             self.MockBuilder('Unsafe-Merge-Queue', oldestRequestTime=datetime.now(timezone.utc) - timedelta(seconds=60)),
+        ]
+        sorted_builders = loadConfig.prioritizeBuilders(None, builders)
+        self.assertEqual(
+            ['Unsafe-Merge-Queue', 'Commit-Queue', 'Merge-Queue'],
+            [builder.name for builder in sorted_builders],
+        )
+
+    def test_starvation_prioritize_commit_queue(self):
+        builders = [
+            self.MockBuilder('Commit-Queue', oldestRequestTime=datetime.now(timezone.utc) - timedelta(seconds=10)),
+            self.MockBuilder('Merge-Queue', oldestRequestTime=datetime.now(timezone.utc) - timedelta(seconds=60)),
+            self.MockBuilder('Unsafe-Merge-Queue', oldestRequestTime=datetime.now(timezone.utc) - timedelta(seconds=20)),
         ]
         sorted_builders = loadConfig.prioritizeBuilders(None, builders)
         self.assertEqual(

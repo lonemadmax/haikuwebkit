@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004-2021 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  *  Copyright (C) 2009 Torch Mobile, Inc.
  *  Copyright (C) 2015 Jordan Harband (ljharb@gmail.com)
  *
@@ -31,7 +31,6 @@
 #include "InterpreterInlines.h"
 #include "IntlCollator.h"
 #include "IntlObjectInlines.h"
-#include "JITCodeInlines.h"
 #include "JSArray.h"
 #include "JSCInlines.h"
 #include "JSStringIterator.h"
@@ -1370,12 +1369,14 @@ static EncodedJSValue toLocaleCase(JSGlobalObject* globalObject, CallFrame* call
     // 3. ReturnIfAbrupt(S).
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
+    JSValue localeValue = callFrame->argument(0);
+
     // Optimization for empty strings.
-    if (s.isEmpty())
+    if (s.isEmpty() && localeValue.isUndefined())
         return JSValue::encode(sVal);
 
     // 4. Let requestedLocales be CanonicalizeLocaleList(locales).
-    Vector<String> requestedLocales = canonicalizeLocaleList(globalObject, callFrame->argument(0));
+    Vector<String> requestedLocales = canonicalizeLocaleList(globalObject, localeValue);
 
     // 5. ReturnIfAbrupt(requestedLocales).
     RETURN_IF_EXCEPTION(scope, encodedJSValue());

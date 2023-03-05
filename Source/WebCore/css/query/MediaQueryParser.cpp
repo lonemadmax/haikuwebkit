@@ -28,6 +28,7 @@
 #include "CSSMarkup.h"
 #include "CSSTokenizer.h"
 #include "CSSValueKeywords.h"
+#include "CommonAtomStrings.h"
 #include "GenericMediaQuerySerialization.h"
 #include "MediaQueryFeatures.h"
 
@@ -78,17 +79,19 @@ std::optional<MediaQuery> MediaQueryParser::parseCondition(CSSParserTokenRange r
 
 MediaQueryList MediaQueryParser::consumeMediaQueryList(CSSParserTokenRange& range)
 {
+    range.consumeWhitespace();
+
+    if (range.atEnd())
+        return { };
+
     MediaQueryList list;
 
-    while (!range.atEnd()) {
+    while (true) {
         auto begin = range.begin();
         while (!range.atEnd() && range.peek().type() != CommaToken)
             range.consumeComponentValue();
 
         auto subrange = range.makeSubRange(begin, &range.peek());
-
-        if (!range.atEnd())
-            range.consumeIncludingWhitespace();
 
         auto consumeMediaQueryOrNotAll = [&] {
             if (auto query = consumeMediaQuery(subrange))
@@ -98,6 +101,10 @@ MediaQueryList MediaQueryParser::consumeMediaQueryList(CSSParserTokenRange& rang
         };
 
         list.append(consumeMediaQueryOrNotAll());
+
+        if (range.atEnd())
+            break;
+        range.consumeIncludingWhitespace();
     }
 
     return list;
@@ -142,7 +149,11 @@ std::optional<MediaQuery> MediaQueryParser::consumeMediaQuery(CSSParserTokenRang
         if (identifier == CSSValueOnly || identifier == CSSValueNot || identifier == CSSValueAnd || identifier == CSSValueOr)
             return { };
 
-        return range.consumeIncludingWhitespace().value().convertToASCIILowercaseAtom();
+        auto mediaType = range.consumeIncludingWhitespace().value().convertToASCIILowercaseAtom();
+        if (mediaType == "layer"_s)
+            return { };
+        
+        return mediaType;
     };
 
     auto prefix = consumePrefix();

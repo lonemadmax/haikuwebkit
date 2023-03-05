@@ -29,6 +29,7 @@
 #include "WebDeviceOrientationAndMotionAccessController.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebPageProxyIdentifier.h"
+#include "WebPreferences.h"
 #include "WebResourceLoadStatisticsStore.h"
 #include "WebsiteDataStoreClient.h"
 #include "WebsiteDataStoreConfiguration.h"
@@ -67,12 +68,15 @@
 #endif
 
 namespace API {
+class Data;
+class DownloadClient;
 class HTTPCookieStore;
 }
 
 namespace WebCore {
 class CertificateInfo;
 class RegistrableDomain;
+class ResourceRequest;
 class SecurityOrigin;
 class LocalWebLockRegistry;
 class PrivateClickMeasurement;
@@ -87,6 +91,7 @@ class AuthenticatorManager;
 class AuxiliaryProcessProxy;
 class SecKeyProxyStore;
 class DeviceIdHashSaltStorage;
+class DownloadProxy;
 class NetworkProcessProxy;
 class SOAuthorizationCoordinator;
 class VirtualAuthenticatorManager;
@@ -95,6 +100,8 @@ class WebProcessPool;
 class WebProcessProxy;
 class WebResourceLoadStatisticsStore;
 enum class CacheModel : uint8_t;
+enum class CallDownloadDidStart : bool;
+enum class UnifiedOriginStorageLevel : uint8_t;
 enum class WebsiteDataFetchOption : uint8_t;
 enum class WebsiteDataType : uint32_t;
 
@@ -371,10 +378,15 @@ public:
     static String defaultJavaScriptConfigurationDirectory(const String& baseDataDirectory = nullString());
 
     static constexpr uint64_t defaultPerOriginQuota() { return 1000 * MB; }
-    static bool defaultShouldUseCustomStoragePaths();
+    static UnifiedOriginStorageLevel defaultUnifiedOriginStorageLevel();
+
+#if USE(GLIB)
+    static const String& defaultBaseCacheDirectory();
+    static const String& defaultBaseDataDirectory();
+#endif
 
     void resetQuota(CompletionHandler<void()>&&);
-    void clearStorage(CompletionHandler<void()>&&);
+    void resetStoragePersistedState(CompletionHandler<void()>&&);
 #if PLATFORM(IOS_FAMILY)
     void setBackupExclusionPeriodForTesting(Seconds, CompletionHandler<void()>&&);
 #endif
@@ -396,9 +408,6 @@ public:
     static void setManagedDomainsForTesting(HashSet<WebCore::RegistrableDomain>&&, CompletionHandler<void()>&&);
 #endif
 
-
-
-
     void updateBundleIdentifierInNetworkProcess(const String&, CompletionHandler<void()>&&);
     void clearBundleIdentifierInNetworkProcess(CompletionHandler<void()>&&);
 
@@ -411,11 +420,20 @@ public:
 
     void openWindowFromServiceWorker(const String& urlString, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(std::optional<WebCore::PageIdentifier>)>&&);
 
+    void workerUpdatedAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t>);
+
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
     void setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit);
 #endif
 
     HashSet<RefPtr<WebProcessPool>> processPools(size_t limit = std::numeric_limits<size_t>::max()) const;
+
+    void setServiceWorkerOverridePreferences(WebPreferences* preferences) { m_serviceWorkerOverridePreferences = preferences; }
+    WebPreferences* serviceWorkerOverridePreferences() const { return m_serviceWorkerOverridePreferences.get(); }
+
+    DownloadProxy& createDownloadProxy(Ref<API::DownloadClient>&&, const WebCore::ResourceRequest&, WebPageProxy* originatingPage, const FrameInfoData&);
+    void download(const DownloadProxy&, const String& suggestedFilename);
+    void resumeDownload(const DownloadProxy&, const API::Data&, const String& path, CallDownloadDidStart);
 
 private:
     enum class ForceReinitialization : bool { No, Yes };
@@ -460,7 +478,7 @@ private:
 #endif
 
 #if ENABLE(MANAGED_DOMAINS)
-    static std::optional<std::reference_wrapper<HashSet<WebCore::RegistrableDomain>>> managedDomainsIfInitialized();
+    static const HashSet<WebCore::RegistrableDomain>* managedDomainsIfInitialized();
     static void forwardManagedDomainsToITPIfInitialized(CompletionHandler<void()>&&);
     void setManagedDomainsForITP(const HashSet<WebCore::RegistrableDomain>&, CompletionHandler<void()>&&);
 #endif
@@ -537,6 +555,8 @@ private:
     mutable std::optional<WebCore::ThirdPartyCookieBlockingMode> m_thirdPartyCookieBlockingMode; // Lazily computed.
 #endif
     Ref<WebCore::LocalWebLockRegistry> m_webLockRegistry;
+
+    RefPtr<WebPreferences> m_serviceWorkerOverridePreferences;
 };
 
 }

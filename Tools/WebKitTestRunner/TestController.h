@@ -279,6 +279,8 @@ public:
     bool didLoadAppInitiatedRequest();
     bool didLoadNonAppInitiatedRequest();
 
+    void reloadFromOrigin();
+
     void updateBundleIdentifierInNetworkProcess(const std::string& bundleIdentifier);
     void clearBundleIdentifierInNetworkProcess();
 
@@ -297,6 +299,7 @@ public:
     void terminateServiceWorkers();
 
     void resetQuota();
+    void resetStoragePersistedState();
     void clearStorage();
 
     void removeAllSessionCredentials();
@@ -679,6 +682,7 @@ private:
     WKRetainPtr<WKArrayRef> m_openPanelFileURLs;
 #if PLATFORM(IOS_FAMILY)
     WKRetainPtr<WKDataRef> m_openPanelFileURLsMediaIcon;
+    bool m_didLockOrientation { false };
 #endif
 
     std::unique_ptr<EventSenderProxy> m_eventSenderProxy;

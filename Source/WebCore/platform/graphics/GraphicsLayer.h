@@ -35,6 +35,8 @@
 #include "GraphicsLayerClient.h"
 #include "Path.h"
 #include "PlatformLayer.h"
+#include "ProcessIdentifier.h"
+#include "ProcessQualified.h"
 #include "Region.h"
 #include "ScrollableArea.h"
 #include "ScrollTypes.h"
@@ -59,6 +61,7 @@ class Animation;
 class GraphicsContext;
 class GraphicsLayerFactory;
 class GraphicsLayerContentsDisplayDelegate;
+class GraphicsLayerAsyncContentsDisplayDelegate;
 class Image;
 class Model;
 class TiledBacking;
@@ -199,7 +202,7 @@ private:
 // FIXME: Should be moved to its own header file.
 class KeyframeValueList {
 public:
-    explicit KeyframeValueList(AnimatedPropertyID property)
+    explicit KeyframeValueList(AnimatedProperty property)
         : m_property(property)
     {
     }
@@ -229,7 +232,7 @@ public:
         m_values.swap(other.m_values);
     }
 
-    AnimatedPropertyID property() const { return m_property; }
+    AnimatedProperty property() const { return m_property; }
 
     size_t size() const { return m_values.size(); }
     const AnimationValue& at(size_t i) const { return *m_values.at(i); }
@@ -239,7 +242,7 @@ public:
 
 protected:
     Vector<std::unique_ptr<const AnimationValue>> m_values;
-    AnimatedPropertyID m_property;
+    AnimatedProperty m_property;
 };
 
 // GraphicsLayer is an abstraction for a rendering surface with backing store,
@@ -274,8 +277,9 @@ public:
 
     virtual void initialize(Type) { }
 
-    using PlatformLayerID = uint64_t;
-    virtual PlatformLayerID primaryLayerID() const { return 0; }
+    enum PlatformLayerIDType { };
+    using PlatformLayerID = ProcessQualified<ObjectIdentifier<PlatformLayerIDType>>;
+    virtual PlatformLayerID primaryLayerID() const { return { }; }
 
     GraphicsLayerClient& client() const { return *m_client; }
 
@@ -485,7 +489,7 @@ public:
     WEBCORE_EXPORT virtual void setEventRegion(EventRegion&&);
 
     // Transitions are identified by a special animation name that cannot clash with a keyframe identifier.
-    static String animationNameForTransition(AnimatedPropertyID);
+    static String animationNameForTransition(AnimatedProperty);
 
     // Return true if the animation is handled by the compositing system.
     virtual bool addAnimation(const KeyframeValueList&, const FloatSize& /*boxSize*/, const Animation*, const String& /*animationName*/, double /*timeOffset*/)  { return false; }
@@ -518,10 +522,11 @@ public:
     virtual void setContentsToSolidColor(const Color&) { }
     virtual void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) { }
     virtual void setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&&, ContentsLayerPurpose);
+    WEBCORE_EXPORT virtual RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate();
 #if ENABLE(MODEL_ELEMENT)
     enum class ModelInteraction : uint8_t { Enabled, Disabled };
     virtual void setContentsToModel(RefPtr<Model>&&, ModelInteraction) { }
-    virtual PlatformLayerID contentsLayerIDForModel() const { return 0; }
+    virtual PlatformLayerID contentsLayerIDForModel() const { return { }; }
 #endif
     virtual bool usesContentsLayer() const { return false; }
 

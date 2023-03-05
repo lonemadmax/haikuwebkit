@@ -27,7 +27,6 @@
 #include "FrameViewLayoutContext.h"
 
 #include "DebugPageOverlays.h"
-#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
 #include "FrameView.h"
 #include "InspectorInstrumentation.h"
@@ -53,7 +52,7 @@ namespace WebCore {
 
 void FrameViewLayoutContext::layoutUsingFormattingContext()
 {
-    if (!DeprecatedGlobalSettings::layoutFormattingContextEnabled())
+    if (!frame().settings().layoutFormattingContextEnabled())
         return;
     // FrameView::setContentsSize temporary disables layout.
     if (m_disableSetNeedsLayoutCount)
@@ -202,7 +201,7 @@ void FrameViewLayoutContext::performLayout()
 
     LayoutScope layoutScope(*this);
     TraceScope tracingScope(LayoutStart, LayoutEnd);
-    InspectorInstrumentation::willLayout(view().frame());
+    InspectorInstrumentation::willLayout(downcast<LocalFrame>(view().frame()));
     WeakPtr<RenderElement> layoutRoot;
     
     m_layoutTimer.stop();
@@ -275,8 +274,8 @@ void FrameViewLayoutContext::performLayout()
         view().didLayout(layoutRoot);
         runOrScheduleAsynchronousTasks();
     }
-    InspectorInstrumentation::didLayout(view().frame(), *layoutRoot);
-    DebugPageOverlays::didLayout(view().frame());
+    InspectorInstrumentation::didLayout(downcast<LocalFrame>(view().frame()), *layoutRoot);
+    DebugPageOverlays::didLayout(downcast<LocalFrame>(view().frame()));
 }
 
 void FrameViewLayoutContext::runOrScheduleAsynchronousTasks()
@@ -633,7 +632,7 @@ void FrameViewLayoutContext::checkLayoutState()
 
 Frame& FrameViewLayoutContext::frame() const
 {
-    return view().frame();
+    return downcast<LocalFrame>(view().frame());
 }
 
 FrameView& FrameViewLayoutContext::view() const

@@ -163,11 +163,27 @@ static inline bool isPageActive(Document* document)
     return document && document->page() && document->page()->focusController().isActive();
 }
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/FrameSelectionAdditions.cpp>
+#else
+#if ENABLE(TEXT_CARET)
+static void fillCaretRect(const Node&, GraphicsContext& context, const FloatRect& caret, const Color&color, const CaretAnimator::PresentationProperties&)
+{
+    context.fillRect(caret, color);
+}
+#endif
+
+static UniqueRef<CaretAnimator> createCaretAnimator(FrameSelection* frameSelection)
+{
+    return makeUniqueRef<SimpleCaretAnimator>(*frameSelection);
+}
+#endif
+
 FrameSelection::FrameSelection(Document* document)
     : m_document(document)
     , m_granularity(TextGranularity::CharacterGranularity)
     , m_appearanceUpdateTimer(*this, &FrameSelection::appearanceUpdateTimerFired)
-    , m_caretAnimator(makeUniqueRef<SimpleCaretAnimator>(*this))
+    , m_caretAnimator(createCaretAnimator(this))
     , m_caretInsidePositionFixed(false)
     , m_absCaretBoundsDirty(true)
     , m_focused(document && document->frame() && document->page() && document->page()->focusController().focusedFrame() == document->frame())
@@ -682,18 +698,29 @@ void FrameSelection::textWasReplaced(CharacterData& node, unsigned offset, unsig
     if (isNone() || !node.isConnected())
         return;
 
+    Position anchor = m_selection.anchor();
+    Position focus = m_selection.focus();
     Position base = m_selection.base();
     Position extent = m_selection.extent();
     Position start = m_selection.start();
     Position end = m_selection.end();
+    if (m_document->settings().liveRangeSelectionEnabled()) {
+        updatePositionAfterAdoptingTextReplacement(anchor, node, offset, oldLength, newLength);
+        updatePositionAfterAdoptingTextReplacement(focus, node, offset, oldLength, newLength);
+    }
     updatePositionAfterAdoptingTextReplacement(base, node, offset, oldLength, newLength);
     updatePositionAfterAdoptingTextReplacement(extent, node, offset, oldLength, newLength);
     updatePositionAfterAdoptingTextReplacement(start, node, offset, oldLength, newLength);
     updatePositionAfterAdoptingTextReplacement(end, node, offset, oldLength, newLength);
 
-    if (base != m_selection.base() || extent != m_selection.extent() || start != m_selection.start() || end != m_selection.end()) {
+    bool liveRangeSelectionEnabled = node.document().settings().liveRangeSelectionEnabled();
+    if ((liveRangeSelectionEnabled && (anchor != m_selection.anchor() || focus != m_selection.focus()))
+        || base != m_selection.base() || extent != m_selection.extent() || start != m_selection.start() || end != m_selection.end()) {
         VisibleSelection newSelection;
-        if (base != extent)
+
+        if (liveRangeSelectionEnabled)
+            newSelection.setWithoutValidation(anchor, focus);
+        else if (base != extent)
             newSelection.setWithoutValidation(base, extent);
         else if (m_selection.isDirectional() && !m_selection.isBaseFirst())
             newSelection.setWithoutValidation(end, start);
@@ -720,6 +747,14 @@ TextDirection FrameSelection::directionOfSelection()
     if (startBox && endBox && startBox->direction() == endBox->direction())
         return startBox->direction();
     return directionOfEnclosingBlock();
+}
+
+static bool selectionIsOrphanedOrBelongsToWrongDocument(const VisibleSelection& selection, RefPtr<Document>&& document)
+{
+    if (selection.isOrphan())
+        return true;
+    RefPtr documentOfSelection = selection.document();
+    return document && documentOfSelection && document != documentOfSelection;
 }
 
 void FrameSelection::willBeModified(EAlteration alter, SelectionDirection direction)
@@ -769,6 +804,8 @@ void FrameSelection::willBeModified(EAlteration alter, SelectionDirection direct
         m_selection.setBase(end);
         m_selection.setExtent(start);
     }
+    if (selectionIsOrphanedOrBelongsToWrongDocument(m_selection, m_document.get()))
+        clear();
 }
 
 VisiblePosition FrameSelection::positionForPlatform(bool isGetStart) const
@@ -1707,15 +1744,6 @@ bool CaretBase::updateCaretRect(Document& document, const VisiblePosition& caret
     return !m_caretLocalRect.isEmpty();
 }
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/FrameSelectionAdditions.cpp>
-#else
-void CaretBase::fillCaretRect(const Node&, GraphicsContext& context, const FloatRect& caret, const Color& color) const
-{
-    context.fillRect(caret, color);
-}
-#endif
-
 RenderBlock* FrameSelection::caretRendererWithoutUpdatingLayout() const
 {
     return rendererForCaretPainting(m_selection.start().deprecatedNode());
@@ -1809,7 +1837,7 @@ bool FrameSelection::recomputeCaretRect()
 bool CaretBase::shouldRepaintCaret(const RenderView* view, bool isContentEditable) const
 {
     ASSERT(view);
-    Frame* frame = &view->frameView().frame(); // The frame where the selection started.
+    auto* frame = dynamicDowncast<LocalFrame>(view->frameView().frame()); // The frame where the selection started.
     bool caretBrowsing = frame && frame->settings().caretBrowsingEnabled();
     return (caretBrowsing || isContentEditable);
 }
@@ -1848,8 +1876,8 @@ void CaretBase::invalidateCaretRect(Node* node, bool caretRectChanged)
 
 void FrameSelection::paintCaret(GraphicsContext& context, const LayoutPoint& paintOffset, const LayoutRect& clipRect)
 {
-    if (m_selection.isCaret() && caretAnimator().isVisible() && m_selection.start().deprecatedNode())
-        CaretBase::paintCaret(*m_selection.start().deprecatedNode(), context, paintOffset, clipRect);
+    if (m_selection.isCaret() && m_selection.start().deprecatedNode())
+        CaretBase::paintCaret(*m_selection.start().deprecatedNode(), context, paintOffset, clipRect, m_caretAnimator->presentationProperties());
 }
 
 Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* node)
@@ -1875,10 +1903,10 @@ Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* 
 #endif
 }
 
-void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const LayoutPoint& paintOffset, const LayoutRect& clipRect) const
+void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const LayoutPoint& paintOffset, const LayoutRect& clipRect, const CaretAnimator::PresentationProperties& caretPresentationProperties) const
 {
 #if ENABLE(TEXT_CARET)
-    if (m_caretVisibility == Hidden)
+    if (m_caretVisibility == Hidden || caretPresentationProperties.blinkState == CaretAnimator::PresentationProperties::BlinkState::Off)
         return;
 
     auto drawingRect = localCaretRectWithoutUpdate();
@@ -1895,12 +1923,13 @@ void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const Lay
         caretColor = CaretBase::computeCaretColor(element->renderer()->style(), &node);
 
     auto pixelSnappedCaretRect = snapRectToDevicePixels(caret, node.document().deviceScaleFactor());
-    fillCaretRect(node, context, pixelSnappedCaretRect, caretColor);
+    fillCaretRect(node, context, pixelSnappedCaretRect, caretColor, caretPresentationProperties);
 #else
     UNUSED_PARAM(node);
     UNUSED_PARAM(context);
     UNUSED_PARAM(paintOffset);
     UNUSED_PARAM(clipRect);
+    UNUSED_PARAM(caretPresentationProperties);
 #endif
 }
 
@@ -1922,71 +1951,6 @@ void FrameSelection::caretAnimationDidUpdate(CaretAnimator&)
 Document* FrameSelection::document()
 {
     return m_document.get();
-}
-
-void FrameSelection::debugRenderer(RenderObject* renderer, bool selected) const
-{
-    if (is<Element>(*renderer->node())) {
-        Element& element = downcast<Element>(*renderer->node());
-        fprintf(stderr, "%s%s\n", selected ? "==> " : "    ", element.localName().string().utf8().data());
-    } else if (is<RenderText>(*renderer)) {
-        RenderText& textRenderer = downcast<RenderText>(*renderer);
-        if (textRenderer.text().isEmpty() || !textRenderer.firstTextBox()) {
-            fprintf(stderr, "%s#text (empty)\n", selected ? "==> " : "    ");
-            return;
-        }
-        
-        static const int max = 36;
-        String text = textRenderer.text();
-        int textLength = text.length();
-        if (selected) {
-            int offset = 0;
-            if (renderer->node() == m_selection.start().containerNode())
-                offset = m_selection.start().computeOffsetInContainerNode();
-            else if (renderer->node() == m_selection.end().containerNode())
-                offset = m_selection.end().computeOffsetInContainerNode();
-
-            int pos;
-            LegacyInlineTextBox* box = textRenderer.findNextInlineTextBox(offset, pos);
-            text = text.substring(box->start(), box->len());
-            
-            String show;
-            int mid = max / 2;
-            int caret = 0;
-            
-            // text is shorter than max
-            if (textLength < max) {
-                show = text;
-                caret = pos;
-            } else if (pos - mid < 0) {
-                // too few characters to left
-                show = makeString(StringView(text).left(max - 3), "...");
-                caret = pos;
-            } else if (pos - mid >= 0 && pos + mid <= textLength) {
-                // enough characters on each side
-                show = makeString("...", StringView(text).substring(pos - mid + 3, max - 6), "...");
-                caret = mid;
-            } else {
-                // too few characters on right
-                show = makeString("...", StringView(text).right(max - 3));
-                caret = pos - (textLength - show.length());
-            }
-            
-            show = makeStringByReplacingAll(show, '\n', ' ');
-            show = makeStringByReplacingAll(show, '\r', ' ');
-            fprintf(stderr, "==> #text : \"%s\" at offset %d\n", show.utf8().data(), pos);
-            fprintf(stderr, "           ");
-            for (int i = 0; i < caret; i++)
-                fprintf(stderr, " ");
-            fprintf(stderr, "^\n");
-        } else {
-            if ((int)text.length() > max)
-                text = text.left(max - 3) + "...";
-            else
-                text = text.left(max);
-            fprintf(stderr, "    #text : \"%s\"\n", text.utf8().data());
-        }
-    }
 }
 
 bool FrameSelection::contains(const LayoutPoint& point) const
@@ -2384,7 +2348,7 @@ void DragCaretController::paintDragCaret(Frame* frame, GraphicsContext& p, const
 {
 #if ENABLE(TEXT_CARET)
     if (m_position.deepEquivalent().deprecatedNode() && m_position.deepEquivalent().deprecatedNode()->document().frame() == frame)
-        paintCaret(*m_position.deepEquivalent().deprecatedNode(), p, paintOffset, clipRect);
+        paintCaret(*m_position.deepEquivalent().deprecatedNode(), p, paintOffset, clipRect, { });
 #else
     UNUSED_PARAM(frame);
     UNUSED_PARAM(p);
@@ -2471,14 +2435,23 @@ static HTMLFormElement* scanForForm(Element* start)
     for (auto& element : descendantsOfType<HTMLElement>(start->document())) {
         if (is<HTMLFormElement>(element))
             return &downcast<HTMLFormElement>(element);
-        if (is<HTMLFormControlElement>(element))
-            return downcast<HTMLFormControlElement>(element).form();
+        if (element.isFormListedElement())
+            return element.asFormListedElement()->form();
         if (is<HTMLFrameElementBase>(element)) {
             if (auto* contentDocument = downcast<HTMLFrameElementBase>(element).contentDocument()) {
                 if (auto* frameResult = scanForForm(contentDocument->documentElement()))
                     return frameResult;
             }
         }
+    }
+    return nullptr;
+}
+
+static ValidatedFormListedElement* findFormControlElementAncestor(Element& element)
+{
+    for (auto& ancestor : lineageOfType<Element>(element)) {
+        if (auto* formControlAncestor = ancestor.asValidatedFormListedElement())
+            return formControlAncestor;
     }
     return nullptr;
 }
@@ -2495,7 +2468,7 @@ HTMLFormElement* FrameSelection::currentForm() const
 
     if (auto form = lineageOfType<HTMLFormElement>(*start).first())
         return form;
-    if (auto formControl = lineageOfType<HTMLFormControlElement>(*start).first())
+    if (auto* formControl = findFormControlElementAncestor(*start))
         return formControl->form();
 
     // Try walking forward in the node tree to find a form element.

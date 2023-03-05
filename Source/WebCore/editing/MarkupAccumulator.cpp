@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2009-2022 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -164,7 +164,7 @@ static inline void appendCharactersReplacingEntitiesInternal(StringBuilder& resu
     size_t positionAfterLastEntity = 0;
     for (size_t i = 0; i < length; ++i) {
         CharacterType character = text[i];
-        uint8_t substitution = character < WTF_ARRAY_LENGTH(entityMap) ? entityMap[character] : static_cast<uint8_t>(EntitySubstitutionNullIndex);
+        uint8_t substitution = character < std::size(entityMap) ? entityMap[character] : static_cast<uint8_t>(EntitySubstitutionNullIndex);
         if (UNLIKELY(substitution != EntitySubstitutionNullIndex) && entitySubstitutionList[substitution].mask & entityMask) {
             result.appendSubstring(source, offset + positionAfterLastEntity, i - positionAfterLastEntity);
             result.appendCharacters(entitySubstitutionList[substitution].characters, entitySubstitutionList[substitution].length);
@@ -312,6 +312,9 @@ void MarkupAccumulator::appendQuotedURLAttributeValue(StringBuilder& result, con
     char quoteChar = '"';
     if (WTF::protocolIsJavaScript(resolvedURLString)) {
         // minimal escaping for javascript urls
+        if (resolvedURLString.contains('&'))
+            resolvedURLString = makeStringByReplacingAll(resolvedURLString, '&', "&amp;"_s);
+
         if (resolvedURLString.contains('"')) {
             if (resolvedURLString.contains('\''))
                 resolvedURLString = makeStringByReplacingAll(resolvedURLString, '"', "&quot;"_s);

@@ -203,7 +203,7 @@ RefPtr<DeprecatedCSSOMValue> PropertySetCSSStyleDeclaration::getPropertyCSSValue
     CSSPropertyID propertyID = cssPropertyID(propertyName);
     if (!isExposed(propertyID))
         return nullptr;
-    return wrapForDeprecatedCSSOM(getPropertyCSSValueInternal(propertyID).get());
+    return wrapForDeprecatedCSSOM(m_propertySet->getPropertyCSSValue(propertyID).get());
 }
 
 String PropertySetCSSStyleDeclaration::getPropertyValue(const String& propertyName)
@@ -260,16 +260,9 @@ ExceptionOr<void> PropertySetCSSStyleDeclaration::setProperty(const String& prop
         return { };
 
     bool changed;
-    if (UNLIKELY(propertyID == CSSPropertyCustom)) {
-        Document* document = nullptr;
-
-        if (parentElement())
-            document = &parentElement()->document();
-        else if (parentStyleSheet())
-            document = parentStyleSheet()->ownerDocument();
-
-        changed = m_propertySet->setCustomProperty(document, propertyName, value, important, cssParserContext());
-    } else
+    if (UNLIKELY(propertyID == CSSPropertyCustom))
+        changed = m_propertySet->setCustomProperty(propertyName, value, important, cssParserContext());
+    else
         changed = m_propertySet->setProperty(propertyID, value, important, cssParserContext());
 
     didMutate(changed ? PropertyChanged : NoChanges);
@@ -305,26 +298,12 @@ ExceptionOr<String> PropertySetCSSStyleDeclaration::removeProperty(const String&
     return result;
 }
 
-RefPtr<CSSValue> PropertySetCSSStyleDeclaration::getPropertyCSSValueInternal(CSSPropertyID propertyID)
-{
-    return m_propertySet->getPropertyCSSValue(propertyID);
-}
-
 String PropertySetCSSStyleDeclaration::getPropertyValueInternal(CSSPropertyID propertyID)
 {
     if (!isExposed(propertyID))
         return { };
 
-    if (auto* wrapper = this->wrapper()) {
-        if (auto* globalObject = wrapper->globalObject()) {
-            if (auto* document = activeDOMWindow(*globalObject).document())
-                CSSPrimitiveValue::setUseLegacyPrecision(document->quirks().needsFlightAwareSerializationQuirk());
-        }
-    }
-
     auto value = m_propertySet->getPropertyValue(propertyID);
-
-    CSSPrimitiveValue::setUseLegacyPrecision(false);
 
     if (!value.isEmpty())
         return value;
@@ -397,7 +376,7 @@ Ref<MutableStyleProperties> PropertySetCSSStyleDeclaration::copyProperties() con
 StyleRuleCSSStyleDeclaration::StyleRuleCSSStyleDeclaration(MutableStyleProperties& propertySet, CSSRule& parentRule)
     : PropertySetCSSStyleDeclaration(propertySet)
     , m_refCount(1)
-    , m_parentRuleType(static_cast<StyleRuleType>(parentRule.type()))
+    , m_parentRuleType(parentRule.styleRuleType())
     , m_parentRule(&parentRule)
 {
     m_propertySet->ref();

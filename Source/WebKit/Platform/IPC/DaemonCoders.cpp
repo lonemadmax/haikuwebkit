@@ -141,10 +141,10 @@ std::optional<WebCore::CertificateInfo> Coder<WebCore::CertificateInfo>::decode(
     decoder >> length;
     if (!length)
         return std::nullopt;
-    auto* bytes = decoder.decodeFixedLengthReference(*length);
-    if (!bytes)
+    Span<const uint8_t> bytes = decoder.decodeFixedLengthReference(*length);
+    if (bytes.size() != *length)
         return std::nullopt;
-    auto trust = adoptCF(SecTrustDeserialize(adoptCF(CFDataCreate(nullptr, bytes, *length)).get(), nullptr));
+    auto trust = adoptCF(SecTrustDeserialize(adoptCF(CFDataCreate(nullptr, bytes.data(), bytes.size())).get(), nullptr));
     if (!trust)
         return std::nullopt;
     return WebCore::CertificateInfo(WTFMove(trust));
@@ -355,30 +355,17 @@ std::optional<WebCore::PCM::AttributionTriggerData> Coder<WebCore::PCM::Attribut
 
 void Coder<WebPushD::WebPushDaemonConnectionConfiguration, void>::encode(Encoder& encoder, const WebPushD::WebPushDaemonConnectionConfiguration& instance)
 {
-    encoder << instance.useMockBundlesForTesting << instance.hostAppAuditTokenData;
+    instance.encode(encoder);
 }
 
 std::optional<WebPushD::WebPushDaemonConnectionConfiguration> Coder<WebPushD::WebPushDaemonConnectionConfiguration, void>::decode(Decoder& decoder)
 {
-    std::optional<bool> useMockBundlesForTesting;
-    decoder >> useMockBundlesForTesting;
-    if (!useMockBundlesForTesting)
-        return std::nullopt;
-
-    std::optional<std::optional<Vector<uint8_t>>> hostAppAuditTokenData;
-    decoder >> hostAppAuditTokenData;
-    if (!hostAppAuditTokenData)
-        return std::nullopt;
-
-    return { {
-        WTFMove(*useMockBundlesForTesting),
-        WTFMove(*hostAppAuditTokenData)
-    } };
+    return WebPushD::WebPushDaemonConnectionConfiguration::decode(decoder);
 }
 
 void Coder<WebPushMessage, void>::encode(Encoder& encoder, const WebPushMessage& instance)
 {
-    encoder << instance.pushData << instance.registrationURL;
+    encoder << instance.pushData << instance.registrationURL << instance.pushPartitionString;
 }
 
 std::optional<WebPushMessage> Coder<WebPushMessage, void>::decode(Decoder& decoder)
@@ -393,8 +380,14 @@ std::optional<WebPushMessage> Coder<WebPushMessage, void>::decode(Decoder& decod
     if (!registrationURL)
         return std::nullopt;
 
+    std::optional<String> pushPartitionString;
+    decoder >> pushPartitionString;
+    if (!pushPartitionString)
+        return std::nullopt;
+
     return { {
         WTFMove(*pushData),
+        WTFMove(*pushPartitionString),
         WTFMove(*registrationURL)
     } };
 }

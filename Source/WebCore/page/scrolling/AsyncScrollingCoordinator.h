@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "pal/HysteresisActivity.h"
 #if ENABLE(ASYNC_SCROLLING)
 
 #include "ScrollingCoordinator.h"
@@ -83,6 +84,8 @@ protected:
 
     WEBCORE_EXPORT String scrollingStateTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> = { }) const override;
     WEBCORE_EXPORT String scrollingTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> = { }) const override;
+    WEBCORE_EXPORT bool haveScrollingTree() const override;
+
     WEBCORE_EXPORT void willCommitTree() override;
     void synchronizeStateFromScrollingTree();
     void scheduleRenderingUpdate();
@@ -160,14 +163,21 @@ private:
     
     void applyScrollPositionUpdate(ScrollUpdate&&, ScrollType);
     void updateScrollPositionAfterAsyncScroll(ScrollingNodeID, const FloatPoint&, std::optional<FloatPoint> layoutViewportOrigin, ScrollingLayerPositionAction, ScrollType);
+    void animatedScrollWillStartForNode(ScrollingNodeID);
     void animatedScrollDidEndForNode(ScrollingNodeID);
+    void wheelEventScrollWillStartForNode(ScrollingNodeID);
+    void wheelEventScrollDidEndForNode(ScrollingNodeID);
 
     FrameView* frameViewForScrollingNode(ScrollingNodeID) const;
+
+    void hysterisisTimerFired(PAL::HysteresisState);
 
     std::unique_ptr<ScrollingStateTree> m_scrollingStateTree;
     RefPtr<ScrollingTree> m_scrollingTree;
 
     bool m_eventTrackingRegionsDirty { false };
+
+    PAL::HysteresisActivity m_hysterisisActivity;
 };
 
 #if ENABLE(SCROLLING_THREAD)

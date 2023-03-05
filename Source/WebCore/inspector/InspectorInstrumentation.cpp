@@ -187,11 +187,19 @@ void InspectorInstrumentation::didChangeRendererForDOMNodeImpl(InstrumentingAgen
 
 void InspectorInstrumentation::didAddOrRemoveScrollbarsImpl(InstrumentingAgents& instrumentingAgents, FrameView& frameView)
 {
-    if (auto* cssAgent = instrumentingAgents.enabledCSSAgent()) {
-        auto* document = frameView.frame().document();
-        if (auto* documentElement = document ? document->documentElement() : nullptr)
-            cssAgent->didChangeRendererForDOMNode(*documentElement);
-    }
+    auto* localFrame = dynamicDowncast<LocalFrame>(frameView.frame());
+    if (!localFrame)
+        return;
+    auto* cssAgent = instrumentingAgents.enabledCSSAgent();
+    if (!cssAgent)
+        return;
+    auto* document = localFrame->document();
+    if (!document)
+        return;
+    auto* documentElement = document->documentElement();
+    if (!documentElement)
+        return;
+    cssAgent->didChangeRendererForDOMNode(*documentElement);
 }
 
 void InspectorInstrumentation::didAddOrRemoveScrollbarsImpl(InstrumentingAgents& instrumentingAgents, RenderObject& renderer)
@@ -851,10 +859,10 @@ void InspectorInstrumentation::accessibilitySettingsDidChangeImpl(InstrumentingA
 }
 
 #if ENABLE(DARK_MODE_CSS) || HAVE(OS_DARK_MODE_SUPPORT)
-void InspectorInstrumentation::defaultAppearanceDidChangeImpl(InstrumentingAgents& instrumentingAgents, bool useDarkAppearance)
+void InspectorInstrumentation::defaultAppearanceDidChangeImpl(InstrumentingAgents& instrumentingAgents)
 {
     if (auto* inspectorPageAgent = instrumentingAgents.enabledPageAgent())
-        inspectorPageAgent->defaultAppearanceDidChange(useDarkAppearance);
+        inspectorPageAgent->defaultAppearanceDidChange();
 }
 #endif
 
@@ -1163,7 +1171,7 @@ bool InspectorInstrumentation::isWebGLProgramHighlightedImpl(InstrumentingAgents
 }
 #endif
 
-void InspectorInstrumentation::willApplyKeyframeEffectImpl(InstrumentingAgents& instrumentingAgents, const Styleable& target, KeyframeEffect& effect, ComputedEffectTiming computedTiming)
+void InspectorInstrumentation::willApplyKeyframeEffectImpl(InstrumentingAgents& instrumentingAgents, const Styleable& target, KeyframeEffect& effect, const ComputedEffectTiming& computedTiming)
 {
     if (auto* animationAgent = instrumentingAgents.trackingAnimationAgent())
         animationAgent->willApplyKeyframeEffect(target, effect, computedTiming);

@@ -332,6 +332,10 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     if (_shouldObserveFontPanel)
         [self startObservingFontPanel];
 
+    if (objc_getAssociatedObject(window, _impl))
+        return;
+
+    objc_setAssociatedObject(window, _impl, @YES, OBJC_ASSOCIATION_COPY_NONATOMIC);
     [window addObserver:self forKeyPath:@"contentLayoutRect" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
     [window addObserver:self forKeyPath:@"titlebarAppearsTransparent" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
 }
@@ -362,6 +366,10 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     if (_shouldObserveFontPanel)
         [[NSFontPanel sharedFontPanel] removeObserver:self forKeyPath:@"visible" context:keyValueObservingContext];
 
+    if (!objc_getAssociatedObject(window, _impl))
+        return;
+
+    objc_setAssociatedObject(window, _impl, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
     [window removeObserver:self forKeyPath:@"contentLayoutRect" context:keyValueObservingContext];
     [window removeObserver:self forKeyPath:@"titlebarAppearsTransparent" context:keyValueObservingContext];
 }
@@ -1156,7 +1164,8 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     [NSApp registerServicesMenuSendTypes:PasteboardTypes::forSelection() returnTypes:PasteboardTypes::forEditing()];
 
-    if ([[[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseRemoteLayerTreeDrawingArea"] boolValue])
+    if ([[[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseRemoteLayerTreeDrawingArea"] boolValue]
+        || m_page->preferences().siteIsolationEnabled())
         m_drawingAreaType = DrawingAreaType::RemoteLayerTree;
 
     [view addTrackingArea:m_primaryTrackingArea.get()];
@@ -1657,7 +1666,7 @@ std::unique_ptr<WebKit::DrawingAreaProxy> WebViewImpl::createDrawingAreaProxy(We
 {
     switch (m_drawingAreaType) {
     case DrawingAreaType::TiledCoreAnimation:
-        return makeUnique<TiledCoreAnimationDrawingAreaProxy>(m_page, process);
+        return makeUnique<TiledCoreAnimationDrawingAreaProxy>(m_page);
     case DrawingAreaType::RemoteLayerTree:
         return makeUnique<RemoteLayerTreeDrawingAreaProxyMac>(m_page, process);
     }
@@ -2033,7 +2042,7 @@ void WebViewImpl::windowDidChangeOcclusionState()
 
 void WebViewImpl::screenDidChangeColorSpace()
 {
-    m_page->process().processPool().screenPropertiesStateChanged();
+    m_page->process().processPool().screenPropertiesChanged();
 }
 
 bool WebViewImpl::mightBeginDragWhileInactive()
@@ -2108,9 +2117,6 @@ bool WebViewImpl::windowResizeMouseLocationIsInVisibleScrollerThumb(CGPoint poin
 
 void WebViewImpl::viewWillMoveToWindowImpl(NSWindow *window)
 {
-    // If we're in the middle of preparing to move to a window, we should only be moved to that window.
-    ASSERT_IMPLIES(m_targetWindowForMovePreparation, m_targetWindowForMovePreparation == window);
-
     NSWindow *currentWindow = [m_view window];
     if (window == currentWindow)
         return;
@@ -2133,6 +2139,8 @@ void WebViewImpl::viewWillMoveToWindowImpl(NSWindow *window)
 
 void WebViewImpl::viewWillMoveToWindow(NSWindow *window)
 {
+    // If we're in the middle of preparing to move to a window, we should only be moved to that window.
+    ASSERT_IMPLIES(m_targetWindowForMovePreparation, m_targetWindowForMovePreparation == window);
     viewWillMoveToWindowImpl(window);
     m_targetWindowForMovePreparation = nil;
     m_isPreparingToUnparentView = false;
@@ -2569,8 +2577,6 @@ static const SelectorNameMap& selectorExceptionMap()
         { @selector(pageDownAndModifySelection:), "MovePageDownAndModifySelection"_s },
         { @selector(pageUp:), "MovePageUp"_s },
         { @selector(pageUpAndModifySelection:), "MovePageUpAndModifySelection"_s },
-        { @selector(scrollPageDown:), "ScrollPageForward"_s },
-        { @selector(scrollPageUp:), "ScrollPageBackward"_s },
         { @selector(_pasteAsQuotation:), "PasteAsQuotation"_s },
     };
 
@@ -2689,6 +2695,9 @@ void WebViewImpl::selectionDidChange()
     if (m_page->editorState().hasPostLayoutData())
         requestCandidatesForSelectionIfNeeded();
 #endif
+
+    if (m_page->editorState().hasPostLayoutData())
+        updateCaretDecorationPlacement();
 
     NSWindow *window = [m_view window];
     if (window.firstResponder == m_view.get().get()) {
@@ -4626,6 +4635,15 @@ NSArray *WebViewImpl::validAttributesForMarkedText()
     return validAttributes.get().get();
 }
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/WebViewImplAdditions.mm>
+#else
+static Vector<WebCore::CompositionUnderline> extractInitialUnderlines(NSAttributedString *string)
+{
+    return { };
+}
+#endif
+
 static Vector<WebCore::CompositionUnderline> extractUnderlines(NSAttributedString *string)
 {
     Vector<WebCore::CompositionUnderline> result;
@@ -4923,7 +4941,8 @@ void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replac
     if (isAttributedString) {
         // FIXME: We ignore most attributes from the string, so an input method cannot specify e.g. a font or a glyph variation.
         text = [string string];
-        underlines = extractUnderlines(string);
+        auto initialUnderlines = extractInitialUnderlines(string);
+        underlines = !initialUnderlines.isEmpty() ? initialUnderlines : extractUnderlines(string);
     } else {
         text = string;
         underlines.append(WebCore::CompositionUnderline(0, [text length], WebCore::CompositionUnderlineColor::TextColor, WebCore::Color::black, false));
@@ -5377,6 +5396,20 @@ bool WebViewImpl::effectiveUserInterfaceLevelIsElevated()
     return false;
 }
 
+bool WebViewImpl::useFormSemanticContext() const
+{
+#if USE(NSVIEW_SEMANTICCONTEXT)
+    return [m_view _semanticContext] == NSViewSemanticContextForm;
+#else
+    return false;
+#endif
+}
+
+void WebViewImpl::semanticContextDidChange()
+{
+    m_page->semanticContextDidChange();
+}
+
 #if HAVE(TOUCH_BAR)
 
 NSTouchBar *WebViewImpl::makeTouchBar()
@@ -5764,6 +5797,16 @@ void WebViewImpl::setEditableElementIsFocused(bool editableElementIsFocused)
 }
 
 #endif // HAVE(TOUCH_BAR)
+
+#if !USE(APPLE_INTERNAL_SDK)
+void WebViewImpl::setCaretDecorationVisibility(bool)
+{
+}
+
+void WebViewImpl::updateCaretDecorationPlacement()
+{
+}
+#endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 void WebViewImpl::setMediaSessionCoordinatorForTesting(MediaSessionCoordinatorProxyPrivate* coordinator)

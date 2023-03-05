@@ -546,6 +546,7 @@ class Benchmark {
                 if (__benchmark.prepareForNextIteration)
                     __benchmark.prepareForNextIteration();
 
+                ${this.preiterationCode}
                 let start = Date.now();
                 __benchmark.runIteration();
                 let end = Date.now();
@@ -566,6 +567,13 @@ class Benchmark {
     }
 
     get prerunCode() { return null; }
+
+    get preiterationCode() {
+        if (this.plan.deterministicRandom)
+            return `Math.random.__resetSeed();`;
+
+        return "";
+    }
 
     async run() {
         let code;
@@ -592,9 +600,11 @@ class Benchmark {
 
         if (!!this.plan.deterministicRandom) {
             addScript(`
-                Math.random = (function() {
-                    var seed = 49734321;
-                    return function() {
+                 (() => {
+                    const initialSeed = 49734321;
+                    let seed = initialSeed;
+
+                    Math.random = () => {
                         // Robert Jenkins' 32 bit integer hash function.
                         seed = ((seed + 0x7ed55d16) + (seed << 12))  & 0xffffffff;
                         seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
@@ -604,9 +614,12 @@ class Benchmark {
                         seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
                         return (seed & 0xfffffff) / 0x10000000;
                     };
+
+                    Math.random.__resetSeed = () => {
+                        seed = initialSeed;
+                    };
                 })();
             `);
-
         }
 
         if (this.plan.preload) {
@@ -954,6 +967,7 @@ class AsyncBenchmark extends DefaultBenchmark {
             let __benchmark = new Benchmark();
             let results = [];
             for (let i = 0; i < ${this.iterations}; i++) {
+                ${this.preiterationCode}
                 let start = Date.now();
                 await __benchmark.runIteration();
                 let end = Date.now();
@@ -1057,10 +1071,6 @@ class WasmBenchmark extends Benchmark {
         return geomean([this.startupTime, this.runTime]);
     }
 
-    get wasmPath() {
-        return this.plan.wasmPath;
-    }
-
     get prerunCode() {
         let str = `
             let verbose = false;
@@ -1115,24 +1125,27 @@ class WasmBenchmark extends Benchmark {
     }
 
     get runnerCode() {
-        let str = "";
+        let str = `function loadBlob(key, path, andThen) {`;
+
         if (isInBrowser) {
             str += `
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', wasmBlobURL, true);
+                xhr.open('GET', path, true);
                 xhr.responseType = 'arraybuffer';
                 xhr.onload = function() {
-                    Module.wasmBinary = xhr.response;
-                    doRun();
+                    Module[key] = new Int8Array(xhr.response);
+                    andThen();
                 };
                 xhr.send(null);
             `;
         } else {
             str += `
-            Module.wasmBinary = read("${this.wasmPath}", "binary");
-            globalObject.read = (...args) => {
-                console.log("should not be inside read: ", ...args);
-                throw new Error;
+            Module[key] = read(path, "binary");
+            if (andThen == doRun) {
+                globalObject.read = (...args) => {
+                    console.log("should not be inside read: ", ...args);
+                    throw new Error;
+                };
             };
 
             Module.setStatus = null;
@@ -1140,14 +1153,36 @@ class WasmBenchmark extends Benchmark {
 
             Promise.resolve(42).then(() => {
                 try {
-                    doRun();
+                    andThen();
                 } catch(e) {
                     console.log("error running wasm:", e);
+                    console.log(e.stack)
                     throw e;
                 }
             })
             `;
         }
+
+        str += "}";
+
+        let keys = Object.keys(this.plan.preload);
+        for (let i = 0; i < keys.length; ++i) {
+            str += `loadBlob("${keys[i]}", "${this.plan.preload[keys[i]]}", () => {\n`;
+        }
+        if (this.plan.async) {
+            str += `doRun().catch((e) => {
+                console.log("error running wasm:", e);
+                console.log(e.stack)
+                throw e;
+            });`;
+        } else {
+            str += `doRun();`
+        }
+        for (let i = 0; i < keys.length; ++i) {
+            str += `})`;
+        }
+        str += `;`;
+
         return str;
     }
 
@@ -1677,60 +1712,55 @@ let testPlans = [
     // Wasm
     {
         name: "HashSet-wasm",
-        wasmPath: "./wasm/HashSet.wasm",
         files: [
             "./wasm/HashSet.js"
         ],
         preload: {
-            wasmBlobURL: "./wasm/HashSet.wasm"
+            wasmBinary: "./wasm/HashSet.wasm"
         },
         benchmarkClass: WasmBenchmark,
         testGroup: WasmGroup
     },
     {
         name: "tsf-wasm",
-        wasmPath: "./wasm/tsf.wasm",
         files: [
             "./wasm/tsf.js"
         ],
         preload: {
-            wasmBlobURL: "./wasm/tsf.wasm"
+            wasmBinary: "./wasm/tsf.wasm"
         },
         benchmarkClass: WasmBenchmark,
         testGroup: WasmGroup
     },
     {
         name: "quicksort-wasm",
-        wasmPath: "./wasm/quicksort.wasm",
         files: [
             "./wasm/quicksort.js"
         ],
         preload: {
-            wasmBlobURL: "./wasm/quicksort.wasm"
+            wasmBinary: "./wasm/quicksort.wasm"
         },
         benchmarkClass: WasmBenchmark,
         testGroup: WasmGroup
     },
     {
         name: "gcc-loops-wasm",
-        wasmPath: "./wasm/gcc-loops.wasm",
         files: [
             "./wasm/gcc-loops.js"
         ],
         preload: {
-            wasmBlobURL: "./wasm/gcc-loops.wasm"
+            wasmBinary: "./wasm/gcc-loops.wasm"
         },
         benchmarkClass: WasmBenchmark,
         testGroup: WasmGroup
     },
     {
         name: "richards-wasm",
-        wasmPath: "./wasm/richards.wasm",
         files: [
             "./wasm/richards.js"
         ],
         preload: {
-            wasmBlobURL: "./wasm/richards.wasm"
+            wasmBinary: "./wasm/richards.wasm"
         },
         benchmarkClass: WasmBenchmark,
         testGroup: WasmGroup

@@ -336,6 +336,18 @@ public:
         store64(dataTempRegister, address.m_ptr);
     }
 
+    void addZeroExtend64(RegisterID src, RegisterID srcExtend, RegisterID dest)
+    {
+        ASSERT(srcExtend != ARM64Registers::sp);
+        m_assembler.add<64>(dest, src, srcExtend, Assembler::UXTW, 0);
+    }
+
+    void addSignExtend64(RegisterID src, RegisterID srcExtend, RegisterID dest)
+    {
+        ASSERT(srcExtend != ARM64Registers::sp);
+        m_assembler.add<64>(dest, src, srcExtend, Assembler::SXTW, 0);
+    }
+
     void addPtrNoFlags(TrustedImm32 imm, RegisterID srcDest)
     {
         add64(imm, srcDest);
@@ -2630,6 +2642,11 @@ public:
         m_assembler.fmov<64>(reg, ARM64Registers::zr);
     }
 
+    void moveZeroToFloat(FPRegisterID reg)
+    {
+        m_assembler.fmov<32>(reg, ARM64Registers::zr);
+    }
+
     void moveDoubleTo64(FPRegisterID src, RegisterID dest)
     {
         m_assembler.fmov<64>(dest, src);
@@ -4139,6 +4156,13 @@ public:
         return Call(m_assembler.labelIgnoringWatchpoints(), Call::LinkableNear);
     }
 
+    ALWAYS_INLINE Call threadSafePatchableNearTailCall()
+    {
+        AssemblerLabel label = m_assembler.label();
+        m_assembler.b();
+        return Call(label, Call::LinkableNearTail);
+    }
+
     ALWAYS_INLINE void ret()
     {
         m_assembler.ret();
@@ -4661,6 +4685,150 @@ public:
     {
         return branchAtomicRelaxedWeakCAS<64>(cond, expectedAndClobbered, newValue, address);
     }
+
+    void atomicXchgAdd8(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldaddal<8>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgAdd16(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldaddal<16>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgAdd32(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldaddal<32>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgAdd64(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldaddal<64>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgXor8(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldeoral<8>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgXor16(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldeoral<16>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgXor32(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldeoral<32>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgXor64(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldeoral<64>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgOr8(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldsetal<8>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgOr16(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldsetal<16>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgOr32(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldsetal<32>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgOr64(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldsetal<64>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgClear8(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldclral<8>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgClear16(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldclral<16>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgClear32(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldclral<32>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchgClear64(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.ldclral<64>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchg8(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.swpal<8>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchg16(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.swpal<16>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchg32(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.swpal<32>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicXchg64(RegisterID src, Address address, RegisterID dest)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.swpal<64>(src, dest, extractSimpleAddress(address));
+    }
+
+    void atomicStrongCAS8(RegisterID expectedAndResult, RegisterID newValue, Address address)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.casal<8>(expectedAndResult, newValue, extractSimpleAddress(address));
+    }
+
+    void atomicStrongCAS16(RegisterID expectedAndResult, RegisterID newValue, Address address)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.casal<16>(expectedAndResult, newValue, extractSimpleAddress(address));
+    }
+
+    void atomicStrongCAS32(RegisterID expectedAndResult, RegisterID newValue, Address address)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.casal<32>(expectedAndResult, newValue, extractSimpleAddress(address));
+    }
+
+    void atomicStrongCAS64(RegisterID expectedAndResult, RegisterID newValue, Address address)
+    {
+        ASSERT(supportsLSE());
+        m_assembler.casal<64>(expectedAndResult, newValue, extractSimpleAddress(address));
+    }
     
     void depend32(RegisterID src, RegisterID dest)
     {
@@ -4670,6 +4838,18 @@ public:
     void depend64(RegisterID src, RegisterID dest)
     {
         m_assembler.eor<64>(dest, src, src);
+    }
+
+    ALWAYS_INLINE static bool supportsLSE()
+    {
+#if HAVE(LSE_INSTRUCTION)
+        return true;
+#else
+        if (s_lseCheckState == CPUIDCheckState::NotChecked)
+            collectCPUFeatures();
+
+        return s_lseCheckState == CPUIDCheckState::Set;
+#endif
     }
 
     ALWAYS_INLINE static bool supportsDoubleToInt32ConversionUsingJavaScriptSemantics()
@@ -4771,6 +4951,14 @@ public:
     }
 
     DEFINE_SIGNED_SIMD_FUNCS(vectorExtractLane);
+
+    // The behavior is the same to vectorExtractLane on ARM64.
+    void vectorDupElement(SIMDLane simdLane, TrustedImm32 lane, FPRegisterID src, FPRegisterID dest)
+    {
+        m_assembler.dupElement(dest, src, simdLane, lane.m_value);
+    }
+
+    DEFINE_SIMD_FUNCS(vectorDupElement);
 
     void compareFloatingPointVector(DoubleCondition cond, SIMDInfo simdInfo, FPRegisterID left, FPRegisterID right, FPRegisterID dest)
     {
@@ -5190,10 +5378,10 @@ public:
         m_assembler.dupElement(dest, src, lane, 0);
     }
 
-    void vectorSplat8(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i8x16, src, dest); }
-    void vectorSplat16(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i16x8, src, dest); }
-    void vectorSplat32(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i32x4, src, dest); }
-    void vectorSplat64(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i64x2, src, dest); }
+    void vectorSplatInt8(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i8x16, src, dest); }
+    void vectorSplatInt16(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i16x8, src, dest); }
+    void vectorSplatInt32(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i32x4, src, dest); }
+    void vectorSplatInt64(RegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::i64x2, src, dest); }
     void vectorSplatFloat32(FPRegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::f32x4, src, dest); }
     void vectorSplatFloat64(FPRegisterID src, FPRegisterID dest) { vectorSplat(SIMDLane::f64x2, src, dest); }
 
@@ -5311,7 +5499,6 @@ public:
     
     void vectorMulSat(FPRegisterID a, FPRegisterID b, FPRegisterID dest)
     {
-        ASSERT(dest != a && dest != b);
         // (i_1 * i_2 + 2^14) >> 15
         // <=>
         // (i_1 * i_2 * 2 + 2^15) >> 16
@@ -5320,7 +5507,7 @@ public:
         m_assembler.sqrdmulhv(dest, a, b, SIMDLane::i16x8);
     }
 
-    void vectorDotProductInt32(FPRegisterID a, FPRegisterID b, FPRegisterID dest, FPRegisterID scratch) 
+    void vectorDotProduct(FPRegisterID a, FPRegisterID b, FPRegisterID dest, FPRegisterID scratch) 
     {
         m_assembler.smullv(scratch, a, b, SIMDLane::i16x8);
         m_assembler.smull2v(dest, a, b, SIMDLane::i16x8);
@@ -5331,13 +5518,6 @@ public:
     {
         RELEASE_ASSERT(b == a + 1);
         m_assembler.tbl2(dest, a, b, control);
-    }
-    void vectorShuffle(TrustedImm64, TrustedImm64, FPRegisterID, FPRegisterID, FPRegisterID) 
-    {
-        // This macro should have been lowered by now.
-        bool hideNoReturn = true;
-        if (hideNoReturn)
-            RELEASE_ASSERT_NOT_REACHED();
     }
 
     // Misc helper functions.
@@ -6135,6 +6315,7 @@ protected:
 
     JS_EXPORT_PRIVATE static void collectCPUFeatures();
 
+    JS_EXPORT_PRIVATE static CPUIDCheckState s_lseCheckState;
     JS_EXPORT_PRIVATE static CPUIDCheckState s_jscvtCheckState;
 
     CachedTempRegister m_dataMemoryTempRegister;

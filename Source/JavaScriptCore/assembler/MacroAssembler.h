@@ -103,10 +103,17 @@ namespace JSC {
 
 namespace Probe {
 
+enum class SavedFPWidth {
+    SaveVectors,
+    DontSaveVectors
+};
+
 class Context;
 typedef void (*Function)(Context&);
 
 } // namespace Probe
+
+using Probe::SavedFPWidth;
 
 namespace Printer {
 
@@ -1324,6 +1331,87 @@ public:
 
 #endif // !CPU(ADDRESS64)
 
+#if CPU(REGISTER64)
+    void loadRegWord(Address address, RegisterID dest)
+    {
+        load64(address, dest);
+    }
+
+    void loadRegWord(BaseIndex address, RegisterID dest)
+    {
+#if CPU(NEEDS_ALIGNED_ACCESS)
+        ASSERT(address.scale == ScaleRegWord || address.scale == TimesOne);
+#endif
+        load64(address, dest);
+    }
+
+    void loadRegWord(const void* address, RegisterID dest)
+    {
+        load64(address, dest);
+    }
+
+    void storeRegWord(RegisterID src, Address address)
+    {
+        store64(src, address);
+    }
+
+    void storeRegWord(RegisterID src, BaseIndex address)
+    {
+        store64(src, address);
+    }
+
+    void storeRegWord(RegisterID src, void* address)
+    {
+        store64(src, address);
+    }
+
+    void storeRegWord(TrustedImm64 imm, Address address)
+    {
+        store64(imm, address);
+    }
+
+#elif CPU(REGISTER32)
+    void loadRegWord(Address address, RegisterID dest)
+    {
+        load32(address, dest);
+    }
+
+    void loadRegWord(BaseIndex address, RegisterID dest)
+    {
+#if CPU(NEEDS_ALIGNED_ACCESS)
+        ASSERT(address.scale == ScaleRegWord || address.scale == TimesOne);
+#endif
+        load32(address, dest);
+    }
+
+    void loadRegWord(const void* address, RegisterID dest)
+    {
+        load32(address, dest);
+    }
+
+    void storeRegWord(RegisterID src, Address address)
+    {
+        store32(src, address);
+    }
+
+    void storeRegWord(RegisterID src, BaseIndex address)
+    {
+        store32(src, address);
+    }
+
+    void storeRegWord(RegisterID src, void* address)
+    {
+        store32(src, address);
+    }
+
+    void storeRegWord(TrustedImm32 imm, Address address)
+    {
+        store32(imm, address);
+    }
+#else
+#  error "Unknown register size"
+#endif
+
 #if USE(JSVALUE64)
     bool shouldBlindDouble(double value)
     {
@@ -2028,7 +2116,6 @@ public:
         MacroAssemblerBase::mul32(imm, src, dest);
     }
 
-    // If the result jump is taken that means the assert passed.
     void jitAssert(const WTF::ScopedLambda<Jump(void)>&);
 
     // This function emits code to preserve the CPUState (e.g. registers),
@@ -2080,7 +2167,7 @@ public:
     //
     // Note: this version of probe() should be implemented by the target specific
     // MacroAssembler.
-    void probe(Probe::Function, void* arg);
+    void probe(Probe::Function, void* arg, SavedFPWidth = SavedFPWidth::DontSaveVectors);
 
     // This leaks memory. Must not be used for production.
     JS_EXPORT_PRIVATE void probeDebug(Function<void(Probe::Context&)>);

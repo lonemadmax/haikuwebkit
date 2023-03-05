@@ -104,7 +104,7 @@ struct _WebKitSettingsPrivate {
  * ```
  */
 
-WEBKIT_DEFINE_TYPE(WebKitSettings, webkit_settings, G_TYPE_OBJECT)
+WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitSettings, webkit_settings, G_TYPE_OBJECT)
 
 enum {
     PROP_0,
@@ -114,10 +114,12 @@ enum {
     PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE,
     PROP_ENABLE_HTML5_LOCAL_STORAGE,
     PROP_ENABLE_HTML5_DATABASE,
+#if !ENABLE(2022_GLIB_API)
     PROP_ENABLE_XSS_AUDITOR,
     PROP_ENABLE_FRAME_FLATTENING,
     PROP_ENABLE_PLUGINS,
     PROP_ENABLE_JAVA,
+#endif
     PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
     PROP_ENABLE_HYPERLINK_AUDITING,
     PROP_DEFAULT_FONT_FAMILY,
@@ -131,7 +133,7 @@ enum {
     PROP_DEFAULT_MONOSPACE_FONT_SIZE,
     PROP_MINIMUM_FONT_SIZE,
     PROP_DEFAULT_CHARSET,
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     PROP_ENABLE_PRIVATE_BROWSING,
 #endif
     PROP_ENABLE_DEVELOPER_EXTRAS,
@@ -153,7 +155,9 @@ enum {
     PROP_ENABLE_PAGE_CACHE,
     PROP_USER_AGENT,
     PROP_ENABLE_SMOOTH_SCROLLING,
+#if !ENABLE(2022_GLIB_API)
     PROP_ENABLE_ACCELERATED_2D_CANVAS,
+#endif
     PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT,
     PROP_ENABLE_MEDIA_STREAM,
     PROP_ENABLE_MOCK_CAPTURE_DEVICES,
@@ -172,6 +176,7 @@ enum {
     PROP_ENABLE_MEDIA,
     PROP_MEDIA_CONTENT_TYPES_REQUIRING_HARDWARE_SUPPORT,
     PROP_ENABLE_WEBRTC,
+    PROP_DISABLE_WEB_SECURITY,
     N_PROPERTIES,
 };
 
@@ -226,6 +231,7 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
     case PROP_ENABLE_HTML5_DATABASE:
         webkit_settings_set_enable_html5_database(settings, g_value_get_boolean(value));
         break;
+#if !ENABLE(2022_GLIB_API)
     case PROP_ENABLE_XSS_AUDITOR:
         break;
     case PROP_ENABLE_FRAME_FLATTENING:
@@ -234,6 +240,7 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
         break;
     case PROP_ENABLE_JAVA:
         break;
+#endif
     case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
         webkit_settings_set_javascript_can_open_windows_automatically(settings, g_value_get_boolean(value));
         break;
@@ -273,7 +280,7 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
     case PROP_DEFAULT_CHARSET:
         webkit_settings_set_default_charset(settings, g_value_get_string(value));
         break;
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     case PROP_ENABLE_PRIVATE_BROWSING:
         G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
         if (g_value_get_boolean(value))
@@ -344,11 +351,13 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
     case PROP_ENABLE_SMOOTH_SCROLLING:
         webkit_settings_set_enable_smooth_scrolling(settings, g_value_get_boolean(value));
         break;
+#if !ENABLE(2022_GLIB_API)
     case PROP_ENABLE_ACCELERATED_2D_CANVAS:
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         webkit_settings_set_enable_accelerated_2d_canvas(settings, g_value_get_boolean(value));
         ALLOW_DEPRECATED_DECLARATIONS_END
         break;
+#endif
     case PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT:
         webkit_settings_set_enable_write_console_messages_to_stdout(settings, g_value_get_boolean(value));
         break;
@@ -399,6 +408,9 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
     case PROP_ENABLE_WEBRTC:
         webkit_settings_set_enable_webrtc(settings, g_value_get_boolean(value));
         break;
+    case PROP_DISABLE_WEB_SECURITY:
+        webkit_settings_set_disable_web_security(settings, g_value_get_boolean(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
         break;
@@ -428,6 +440,7 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
     case PROP_ENABLE_HTML5_DATABASE:
         g_value_set_boolean(value, webkit_settings_get_enable_html5_database(settings));
         break;
+#if !ENABLE(2022_GLIB_API)
     case PROP_ENABLE_XSS_AUDITOR:
         g_value_set_boolean(value, FALSE);
         break;
@@ -440,6 +453,7 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
     case PROP_ENABLE_JAVA:
         g_value_set_boolean(value, FALSE);
         break;
+#endif
     case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
         g_value_set_boolean(value, webkit_settings_get_javascript_can_open_windows_automatically(settings));
         break;
@@ -479,7 +493,7 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
     case PROP_DEFAULT_CHARSET:
         g_value_set_string(value, webkit_settings_get_default_charset(settings));
         break;
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     case PROP_ENABLE_PRIVATE_BROWSING:
         G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
         g_value_set_boolean(value, webkit_settings_get_enable_private_browsing(settings));
@@ -543,11 +557,13 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
     case PROP_ENABLE_SMOOTH_SCROLLING:
         g_value_set_boolean(value, webkit_settings_get_enable_smooth_scrolling(settings));
         break;
+#if !ENABLE(2022_GLIB_API)
     case PROP_ENABLE_ACCELERATED_2D_CANVAS:
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         g_value_set_boolean(value, webkit_settings_get_enable_accelerated_2d_canvas(settings));
         ALLOW_DEPRECATED_DECLARATIONS_END
         break;
+#endif
     case PROP_ENABLE_WRITE_CONSOLE_MESSAGES_TO_STDOUT:
         g_value_set_boolean(value, webkit_settings_get_enable_write_console_messages_to_stdout(settings));
         break;
@@ -597,6 +613,9 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
         break;
     case PROP_ENABLE_WEBRTC:
         g_value_set_boolean(value, webkit_settings_get_enable_webrtc(settings));
+        break;
+    case PROP_DISABLE_WEB_SECURITY:
+        g_value_set_boolean(value, webkit_settings_get_disable_web_security(settings));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
@@ -706,6 +725,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             TRUE,
             readWriteConstructParamFlags);
 
+#if !ENABLE(2022_GLIB_API)
     /**
      * WebKitSettings:enable-xss-auditor:
      *
@@ -766,6 +786,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             _("Whether Java support should be enabled."),
             FALSE,
             readWriteConstructParamFlags);
+#endif
 
     /**
      * WebKitSettings:javascript-can-open-windows-automatically:
@@ -945,7 +966,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             "iso-8859-1",
             readWriteConstructParamFlags);
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
     /**
      * WebKitSettings:enable-private-browsing:
      *
@@ -1260,6 +1281,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             TRUE,
             readWriteConstructParamFlags);
 
+#if !ENABLE(2022_GLIB_API)
     /**
      * WebKitSettings:enable-accelerated-2d-canvas:
      *
@@ -1279,6 +1301,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             _("Whether to enable accelerated 2D canvas"),
             FALSE,
             static_cast<GParamFlags>(readWriteConstructParamFlags | G_PARAM_DEPRECATED));
+#endif
 
     /**
      * WebKitSettings:enable-write-console-messages-to-stdout:
@@ -1581,6 +1604,25 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
         FALSE,
         readWriteConstructParamFlags);
 
+    /**
+     * WebKitSettings:disable-web-security:
+     *
+     * Enable or disable support for Web Security on pages.
+     *
+     * This setting disables the same-origin policy, allowing every website full control over
+     * all other websites. This is for use in special environments where you wish to disable
+     * all security and allow websites to hack each other. It is impossible to use this setting
+     * securely.
+     *
+     * Since: 2.40
+     */
+    sObjProperties[PROP_DISABLE_WEB_SECURITY] = g_param_spec_boolean(
+        "disable-web-security",
+        _("Disable web security"),
+        _("Whether web security should be disabled."),
+        FALSE,
+        readWriteConstructParamFlags);
+
     g_object_class_install_properties(gObjectClass, N_PROPERTIES, sObjProperties);
 }
 
@@ -1835,6 +1877,7 @@ void webkit_settings_set_enable_html5_database(WebKitSettings* settings, gboolea
     g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_HTML5_DATABASE]);
 }
 
+#if !ENABLE(2022_GLIB_API)
 /**
  * webkit_settings_get_enable_xss_auditor:
  * @settings: a #WebKitSettings
@@ -1970,6 +2013,7 @@ void webkit_settings_set_enable_java(WebKitSettings* settings, gboolean enabled)
     if (enabled)
         g_warning("webkit_settings_set_enable_java is deprecated and does nothing. Java is no longer supported.");
 }
+#endif
 
 /**
  * webkit_settings_get_javascript_can_open_windows_automatically:
@@ -2442,7 +2486,7 @@ void webkit_settings_set_default_charset(WebKitSettings* settings, const gchar* 
     g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_DEFAULT_CHARSET]);
 }
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) && !USE(GTK4)
 /**
  * webkit_settings_get_enable_private_browsing:
  * @settings: a #WebKitSettings
@@ -3175,6 +3219,7 @@ void webkit_settings_set_enable_smooth_scrolling(WebKitSettings* settings, gbool
     g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_SMOOTH_SCROLLING]);
 }
 
+#if !ENABLE(2022_GLIB_API)
 /**
  * webkit_settings_get_enable_accelerated_2d_canvas:
  * @settings: a #WebKitSettings
@@ -3209,6 +3254,7 @@ void webkit_settings_set_enable_accelerated_2d_canvas(WebKitSettings* settings, 
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 }
+#endif
 
 /**
  * webkit_settings_get_enable_write_console_messages_to_stdout:
@@ -3943,4 +3989,43 @@ void webkit_settings_set_media_content_types_requiring_hardware_support(WebKitSe
     priv->preferences->setMediaContentTypesRequiringHardwareSupport(mediaContentTypesRequiringHardwareSupportString);
     priv->mediaContentTypesRequiringHardwareSupport = mediaContentTypesRequiringHardwareSupportString.utf8();
     g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_MEDIA_CONTENT_TYPES_REQUIRING_HARDWARE_SUPPORT]);
+}
+
+/**
+ * webkit_settings_get_disable_web_security:
+ * @settings: a #WebKitSettings
+ *
+ * Get the #WebKitSettings:disable-web-security property.
+ *
+ * Returns: %TRUE If web security support is disabled or %FALSE otherwise.
+ *
+ * Since: 2.40
+*/
+gboolean webkit_settings_get_disable_web_security(WebKitSettings* settings)
+{
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+
+    return !settings->priv->preferences->webSecurityEnabled();
+}
+
+/**
+ * webkit_settings_set_disable_web_security:
+ * @settings: a #WebKitSettings
+ * @disabled: Value to be set
+ *
+ * Set the #WebKitSettings:disable-web-security property.
+ *
+ * Since: 2.40
+ */
+void webkit_settings_set_disable_web_security(WebKitSettings* settings, gboolean disabled)
+{
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+
+    WebKitSettingsPrivate* priv = settings->priv;
+    bool currentValue = !priv->preferences->webSecurityEnabled();
+    if (currentValue == disabled)
+        return;
+
+    priv->preferences->setWebSecurityEnabled(!disabled);
+    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_DISABLE_WEB_SECURITY]);
 }

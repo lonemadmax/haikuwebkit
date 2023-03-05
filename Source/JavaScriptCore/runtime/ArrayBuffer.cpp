@@ -239,10 +239,7 @@ Ref<ArrayBuffer> ArrayBuffer::createFromBytes(const void* data, size_t byteLengt
 
 Ref<ArrayBuffer> ArrayBuffer::createShared(Ref<SharedArrayBufferContents>&& shared)
 {
-    void* memory = shared->data();
-    size_t sizeInBytes = shared->sizeInBytes(std::memory_order_seq_cst);
-    auto maxByteLength = shared->maxByteLength();
-    ArrayBufferContents contents(memory, sizeInBytes, maxByteLength, WTFMove(shared));
+    ArrayBufferContents contents(WTFMove(shared));
     return create(WTFMove(contents));
 }
 
@@ -628,7 +625,7 @@ Expected<int64_t, GrowFailReason> SharedArrayBufferContents::grow(const Abstract
     return deltaByteLength;
 }
 
-ASCIILiteral errorMesasgeForTransfer(ArrayBuffer* buffer)
+ASCIILiteral errorMessageForTransfer(ArrayBuffer* buffer)
 {
     ASSERT(buffer->isLocked());
     if (buffer->isShared())

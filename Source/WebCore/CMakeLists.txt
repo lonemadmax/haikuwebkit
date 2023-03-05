@@ -25,6 +25,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/applicationmanifest"
     "${WEBCORE_DIR}/Modules/async-clipboard"
     "${WEBCORE_DIR}/Modules/audiosession"
+    "${WEBCORE_DIR}/Modules/badge"
     "${WEBCORE_DIR}/Modules/beacon"
     "${WEBCORE_DIR}/Modules/cache"
     "${WEBCORE_DIR}/Modules/compression"
@@ -87,6 +88,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/crypto/keys"
     "${WEBCORE_DIR}/crypto/parameters"
     "${WEBCORE_DIR}/css/calc"
+    "${WEBCORE_DIR}/css/color"
     "${WEBCORE_DIR}/css/parser"
     "${WEBCORE_DIR}/css/query"
     "${WEBCORE_DIR}/css/typedom"
@@ -146,6 +148,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/displaylists"
     "${WEBCORE_DIR}/platform/graphics/filters"
     "${WEBCORE_DIR}/platform/graphics/filters/software"
+    "${WEBCORE_DIR}/platform/graphics/controls"
     "${WEBCORE_DIR}/platform/graphics/iso"
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/mediacapabilities"
@@ -212,6 +215,7 @@ set(WebCore_IDL_INCLUDES
 
     Modules/WebGPU
     Modules/airplay
+    Modules/badge
     Modules/cache
     Modules/compression
     Modules/credentialmanagement
@@ -263,6 +267,9 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/audiosession/DOMAudioSession.idl
     Modules/audiosession/Navigator+AudioSession.idl
+
+    Modules/badge/Navigator+Badge.idl
+    Modules/badge/NavigatorBadge.idl
 
     Modules/beacon/Navigator+Beacon.idl
 
@@ -840,6 +847,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSPaintCallback.idl
     css/CSSPaintSize.idl
     css/CSSPageRule.idl
+    css/CSSPropertyRule.idl
     css/CSSRule.idl
     css/CSSRuleList.idl
     css/CSSStyleDeclaration.idl
@@ -1054,6 +1062,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/TreeWalker.idl
     dom/UIEvent.idl
     dom/UIEventInit.idl
+    dom/ValidityStateFlags.idl
     dom/VisibilityState.idl
     dom/WheelEvent.idl
     dom/XMLDocument.idl
@@ -1513,7 +1522,10 @@ list(APPEND WebCore_IDL_INCLUDES
 list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/gamepad/Gamepad.idl
     Modules/gamepad/GamepadButton.idl
+    Modules/gamepad/GamepadEffectParameters.idl
     Modules/gamepad/GamepadEvent.idl
+    Modules/gamepad/GamepadHapticActuator.idl
+    Modules/gamepad/GamepadHapticEffectType.idl
     Modules/gamepad/Navigator+Gamepad.idl
     Modules/gamepad/WindowEventHandlers+Gamepad.idl
 )
@@ -1523,6 +1535,7 @@ if (ENABLE_GAMEPAD)
         Modules/gamepad/Gamepad.cpp
         Modules/gamepad/GamepadButton.cpp
         Modules/gamepad/GamepadEvent.cpp
+        Modules/gamepad/GamepadHapticActuator.cpp
         Modules/gamepad/GamepadManager.cpp
         Modules/gamepad/NavigatorGamepad.cpp
 
@@ -1746,6 +1759,7 @@ set(WebCore_PLUG_INS_RESOURCES
 )
 
 set(WebCore_LIBRARIES
+    ICU::uc
     LibXml2::LibXml2
     SQLite::SQLite3
     ZLIB::ZLIB
@@ -1881,6 +1895,7 @@ if (ENABLE_WEBGL)
         html/canvas/OESVertexArrayObject.cpp
         html/canvas/WebGL2RenderingContext.cpp
         html/canvas/WebGLBuffer.cpp
+        html/canvas/WebGLClipCullDistance.cpp
         html/canvas/WebGLColorBufferFloat.cpp
         html/canvas/WebGLCompressedTextureASTC.cpp
         html/canvas/WebGLCompressedTextureETC.cpp
@@ -1949,6 +1964,7 @@ list(APPEND WebCore_IDL_FILES
     html/canvas/WebGL2RenderingContext.idl
     html/canvas/WebGLActiveInfo.idl
     html/canvas/WebGLBuffer.idl
+    html/canvas/WebGLClipCullDistance.idl
     html/canvas/WebGLColorBufferFloat.idl
     html/canvas/WebGLCompressedTextureASTC.idl
     html/canvas/WebGLCompressedTextureETC.idl
@@ -2293,12 +2309,15 @@ set(WebCoreTestSupport_INTERFACE_INCLUDE_DIRECTORIES
 )
 
 WEBKIT_FRAMEWORK_DECLARE(WebCore)
-WEBKIT_FRAMEWORK_DECLARE(WebCoreTestSupport)
+WEBKIT_LIBRARY_DECLARE(WebCoreTestSupport)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
+
+list(APPEND WebCoreTestSupport_LIBRARIES ${WebCore_LIBRARIES})
+list(APPEND WebCoreTestSupport_PRIVATE_LIBRARIES ${WebCore_PRIVATE_LIBRARIES})
+list(APPEND WebCoreTestSupport_DEPENDENCIES WebCore)
 
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/platform/ColorData)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ColorData.cpp)
-
 
 # Generate DOMJITAbstractHeapRepository.h
 add_custom_command(
@@ -2433,7 +2452,25 @@ ADD_SOURCE_WEBCORE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/dom/Document.cpp PlugInsR
 
 set(FEATURE_DEFINES_JAVASCRIPT "LANGUAGE_JAVASCRIPT ${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}")
 
-GENERATE_SETTINGS_MACROS(${WEBCORE_DIR}/page/Settings.yaml Settings.h)
+set(SETTINGS_TEMPLATES
+    ${WEBCORE_DIR}/Scripts/SettingsTemplates/InternalSettingsGenerated.cpp.erb
+    ${WEBCORE_DIR}/Scripts/SettingsTemplates/InternalSettingsGenerated.idl.erb
+    ${WEBCORE_DIR}/Scripts/SettingsTemplates/InternalSettingsGenerated.h.erb
+    ${WEBCORE_DIR}/Scripts/SettingsTemplates/Settings.cpp.erb
+    ${WEBCORE_DIR}/Scripts/SettingsTemplates/Settings.h.erb)
+set(WTF_WEB_PREFERENCES ${WTF_SCRIPTS_DIR}/Preferences/UnifiedWebPreferences.yaml)
+set_source_files_properties(${WTF_WEB_PREFERENCES} PROPERTIES GENERATED TRUE)
+add_custom_command(
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/Settings.h
+       ${WebCore_DERIVED_SOURCES_DIR}/Settings.cpp
+       ${WebCore_DERIVED_SOURCES_DIR}/InternalSettingsGenerated.h
+       ${WebCore_DERIVED_SOURCES_DIR}/InternalSettingsGenerated.cpp
+       ${WebCore_DERIVED_SOURCES_DIR}/InternalSettingsGenerated.idl
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/page/Settings.yaml
+    DEPENDS ${WEBCORE_DIR}/Scripts/GenerateSettings.rb ${SETTINGS_TEMPLATES} WTF_CopyPreferences ${WTF_WEB_PREFERENCES}
+    COMMAND ${RUBY_EXECUTABLE} ${WEBCORE_DIR}/Scripts/GenerateSettings.rb --outputDir ${WebCore_DERIVED_SOURCES_DIR} --template "$<JOIN:${SETTINGS_TEMPLATES},;--template;>" ${WTF_WEB_PREFERENCES} ${WEBCORE_DIR}/page/Settings.yaml
+    COMMAND_EXPAND_LISTS
+    VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/Settings.h)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/Settings.cpp)
 list(APPEND WebCoreTestSupport_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/InternalSettingsGenerated.cpp)
@@ -2628,6 +2665,7 @@ WEBKIT_COPY_FILES(WebCore_CopyPrivateHeaders
     FLATTENED
 )
 list(APPEND WebCore_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
+list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
 # WebCore_CopyPrivateHeaders needs to have a direct or indirect
 # dependency of WebCore target for CMake Visual Studio generator to
 # eliminate duplicated custom commands. Otherwise, CSSPropertyNames.h
@@ -2637,7 +2675,6 @@ if (NOT INTERNAL_BUILD)
 endif ()
 
 WEBKIT_FRAMEWORK(WebCore)
-WEBKIT_FRAMEWORK_TARGET(WebCore)
 
 if (APPLE)
     set_target_properties(WebCore PROPERTIES LINK_FLAGS "-sub_library libobjc -umbrella WebKit -allowable_client WebCoreTestSupport -allowable_client WebKit2 -allowable_client WebKitLegacy")
@@ -2664,16 +2701,7 @@ list(APPEND WebCoreTestSupport_INCLUDE_DIRECTORIES ${WebCore_INCLUDE_DIRECTORIES
 list(APPEND WebCoreTestSupport_PRIVATE_INCLUDE_DIRECTORIES ${WebCore_PRIVATE_INCLUDE_DIRECTORIES})
 list(APPEND WebCoreTestSupport_SYSTEM_INCLUDE_DIRECTORIES ${WebCore_SYSTEM_INCLUDE_DIRECTORIES})
 
-if (WebCore_LIBRARY_TYPE STREQUAL SHARED)
-    list(APPEND WebCoreTestSupport_PRIVATE_LIBRARIES WebCore)
-else ()
-    list(APPEND WebCoreTestSupport_LIBRARIES ${WebCore_LIBRARIES})
-    list(APPEND WebCoreTestSupport_PRIVATE_LIBRARIES ${WebCore_PRIVATE_LIBRARIES})
-    list(APPEND WebCoreTestSupport_DEPENDENCIES WebCore)
-endif ()
-
-WEBKIT_FRAMEWORK(WebCoreTestSupport)
-WEBKIT_FRAMEWORK_TARGET(WebCoreTestSupport)
+WEBKIT_LIBRARY(WebCoreTestSupport)
 
 if (${WebCore_LIBRARY_TYPE} MATCHES "SHARED")
     set_target_properties(WebCore PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})

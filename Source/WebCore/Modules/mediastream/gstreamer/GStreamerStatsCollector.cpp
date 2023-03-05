@@ -57,8 +57,10 @@ static inline void fillRTCRTPStreamStats(RTCStatsReport::RtpStreamStats& stats, 
     if (gst_structure_get_uint(structure, "ssrc", &value))
         stats.ssrc = value;
 
-    // FIXME:
-    // stats.kind
+    if (const char* kind = gst_structure_get_string(structure, "kind")) {
+        stats.kind = String::fromLatin1(kind);
+        stats.mediaType = stats.kind;
+    }
 }
 
 static inline void fillRTCCodecStats(RTCStatsReport::CodecStats& stats, const GstStructure* structure)
@@ -89,7 +91,7 @@ static inline void fillRemoteInboundRTPStreamStats(RTCStatsReport::RemoteInbound
     if (gst_structure_get_double(structure, "jitter", &jitter))
         stats.jitter = jitter;
 
-#if GST_CHECK_VERSION(1, 21, 0)
+#if GST_CHECK_VERSION(1, 22, 0)
     int64_t packetsLost;
     if (gst_structure_get_int64(structure, "packets-lost", &packetsLost))
         stats.packetsLost = packetsLost;
@@ -119,7 +121,7 @@ static inline void fillInboundRTPStreamStats(RTCStatsReport::InboundRtpStreamSta
     if (gst_structure_get_uint64(structure, "bytes-received", &value))
         stats.bytesReceived = value;
 
-#if GST_CHECK_VERSION(1, 21, 0)
+#if GST_CHECK_VERSION(1, 22, 0)
     int64_t packetsLost;
     if (gst_structure_get_int64(structure, "packets-lost", &packetsLost))
         stats.packetsLost = packetsLost;
@@ -158,8 +160,21 @@ static inline void fillInboundRTPStreamStats(RTCStatsReport::InboundRtpStreamSta
     if (gst_structure_get_uint64(structure, "bytes-received", &bytesReceived))
         stats.bytesReceived = bytesReceived;
 
-    if (additionalStats && gst_structure_get_uint64(additionalStats, "frames-decoded", &value))
+    if (!additionalStats)
+        return;
+
+    if (gst_structure_get_uint64(additionalStats, "frames-decoded", &value))
         stats.framesDecoded = value;
+
+    if (gst_structure_get_uint64(additionalStats, "frames-dropped", &value))
+        stats.framesDropped = value;
+
+    unsigned size;
+    if (gst_structure_get_uint(additionalStats, "frame-width", &size))
+        stats.frameWidth = size;
+
+    if (gst_structure_get_uint(additionalStats, "frame-height", &size))
+        stats.frameHeight = size;
 
     // FIXME:
     // stats.fractionLost =
@@ -198,15 +213,17 @@ static inline void fillOutboundRTPStreamStats(RTCStatsReport::OutboundRtpStreamS
     if (const char* remoteId = gst_structure_get_string(structure, "remote-id"))
         stats.remoteId = String::fromLatin1(remoteId);
 
-    if (additionalStats) {
-        if (gst_structure_get_uint64(additionalStats, "frames-sent", &value))
-            stats.framesSent = value;
-        if (gst_structure_get_uint64(additionalStats, "frames-encoded", &value))
-            stats.framesEncoded = value;
-    }
+    if (!additionalStats)
+        return;
 
-    // FIXME
-    // stats.targetBitrate =
+    if (gst_structure_get_uint64(additionalStats, "frames-sent", &value))
+        stats.framesSent = value;
+    if (gst_structure_get_uint64(additionalStats, "frames-encoded", &value))
+        stats.framesEncoded = value;
+
+    double bitrate;
+    if (gst_structure_get_double(additionalStats, "bitrate", &bitrate))
+        stats.targetBitrate = bitrate;
 }
 
 static inline void fillRTCPeerConnectionStats(RTCStatsReport::PeerConnectionStats& stats, const GstStructure* structure)
@@ -224,11 +241,13 @@ static inline void fillRTCTransportStats(RTCStatsReport::TransportStats& stats, 
 {
     fillRTCStats(stats, structure);
 
+    if (const char* selectedCandidatePairId = gst_structure_get_string(structure, "selected-candidate-pair-id"))
+        stats.selectedCandidatePairId = String::fromLatin1(selectedCandidatePairId);
+
     // FIXME
     // stats.bytesSent =
     // stats.bytesReceived =
     // stats.rtcpTransportStatsId =
-    // stats.selectedCandidatePairId =
     // stats.localCertificateId =
     // stats.remoteCertificateId =
     // stats.dtlsState =

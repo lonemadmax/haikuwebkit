@@ -48,7 +48,7 @@ const double ForceAtForceClick = 2;
     class PlatformMouseEvent : public PlatformEvent {
     public:
         PlatformMouseEvent()
-            : PlatformEvent(PlatformEvent::MouseMoved)
+            : PlatformEvent(Type::MouseMoved)
         {
         }
 

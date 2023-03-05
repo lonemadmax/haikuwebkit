@@ -114,8 +114,6 @@ void TestWithoutAttributes::didReceiveMessage(IPC::Connection& connection, IPC::
 #if PLATFORM(MAC)
     if (decoder.messageName() == Messages::TestWithoutAttributes::DidCreateWebProcessConnection::name())
         return IPC::handleMessage<Messages::TestWithoutAttributes::DidCreateWebProcessConnection>(connection, decoder, this, &TestWithoutAttributes::didCreateWebProcessConnection);
-#endif
-#if PLATFORM(MAC)
     if (decoder.messageName() == Messages::TestWithoutAttributes::InterpretKeyEvent::name())
         return IPC::handleMessageAsync<Messages::TestWithoutAttributes::InterpretKeyEvent>(connection, decoder, this, &TestWithoutAttributes::interpretKeyEvent);
 #endif
@@ -142,7 +140,7 @@ bool TestWithoutAttributes::didReceiveSyncMessage(IPC::Connection& connection, I
     if (decoder.messageName() == Messages::TestWithoutAttributes::GetPluginProcessConnection::name())
         return IPC::handleMessageSynchronous<Messages::TestWithoutAttributes::GetPluginProcessConnection>(connection, decoder, replyEncoder, this, &TestWithoutAttributes::getPluginProcessConnection);
     if (decoder.messageName() == Messages::TestWithoutAttributes::TestMultipleAttributes::name())
-        return IPC::handleMessageSynchronousWantsConnection<Messages::TestWithoutAttributes::TestMultipleAttributes>(connection, decoder, replyEncoder, this, &TestWithoutAttributes::testMultipleAttributes);
+        return IPC::handleMessageSynchronous<Messages::TestWithoutAttributes::TestMultipleAttributes>(connection, decoder, replyEncoder, this, &TestWithoutAttributes::testMultipleAttributes);
     UNUSED_PARAM(connection);
     UNUSED_PARAM(decoder);
     UNUSED_PARAM(replyEncoder);

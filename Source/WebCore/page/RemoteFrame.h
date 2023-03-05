@@ -28,36 +28,48 @@
 #include "AbstractFrame.h"
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/UniqueRef.h>
 
 namespace WebCore {
 
 class RemoteDOMWindow;
+class RemoteFrameClient;
+class RemoteFrameView;
 class WeakPtrImplWithEventTargetData;
 
 class RemoteFrame final : public AbstractFrame {
 public:
-    static Ref<RemoteFrame> create(Page& page, FrameIdentifier frameID, AbstractFrame* parent)
+    static Ref<RemoteFrame> create(Page& page, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, UniqueRef<RemoteFrameClient>&& client)
     {
-        return adoptRef(*new RemoteFrame(page, frameID, parent));
+        return adoptRef(*new RemoteFrame(page, frameID, ownerElement, WTFMove(client)));
     }
     ~RemoteFrame();
 
-    void setWindow(RemoteDOMWindow*);
-    RemoteDOMWindow* window() const;
+    RemoteDOMWindow& window() const;
 
     void setOpener(AbstractFrame* opener) { m_opener = opener; }
     AbstractFrame* opener() const { return m_opener.get(); }
 
+    WEBCORE_EXPORT void didFinishLoadInAnotherProcess();
+
+    const RemoteFrameClient& client() const { return m_client.get(); }
+    RemoteFrameClient& client() { return m_client.get(); }
+
+    RemoteFrameView* view() const { return m_view.get(); }
+    WEBCORE_EXPORT void setView(RefPtr<RemoteFrameView>&&);
+
 private:
-    WEBCORE_EXPORT explicit RemoteFrame(Page&, FrameIdentifier, AbstractFrame* parent);
+    WEBCORE_EXPORT explicit RemoteFrame(Page&, FrameIdentifier, HTMLFrameOwnerElement*, UniqueRef<RemoteFrameClient>&&);
 
     FrameType frameType() const final { return FrameType::Remote; }
 
+    AbstractFrameView* virtualView() const final;
     AbstractDOMWindow* virtualWindow() const final;
 
-    WeakPtr<RemoteDOMWindow, WeakPtrImplWithEventTargetData> m_window;
-
+    Ref<RemoteDOMWindow> m_window;
     RefPtr<AbstractFrame> m_opener;
+    RefPtr<RemoteFrameView> m_view;
+    UniqueRef<RemoteFrameClient> m_client;
 };
 
 } // namespace WebCore

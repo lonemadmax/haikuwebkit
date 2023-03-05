@@ -26,6 +26,7 @@
 #include "DOMTokenList.h"
 #include "DatasetDOMStringMap.h"
 #include "ElementAnimationRareData.h"
+#include "FormAssociatedCustomElement.h"
 #include "IntersectionObserver.h"
 #include "KeyframeEffectStack.h"
 #include "NamedNodeMap.h"
@@ -33,6 +34,7 @@
 #include "PseudoElement.h"
 #include "RenderElement.h"
 #include "ResizeObserver.h"
+#include "ResizeObserverSize.h"
 #include "ShadowRoot.h"
 #include "SpaceSplitString.h"
 #include "StylePropertyMap.h"
@@ -70,6 +72,9 @@ public:
     CustomElementDefaultARIA* customElementDefaultARIA() { return m_customElementDefaultARIA.get(); }
     void setCustomElementDefaultARIA(std::unique_ptr<CustomElementDefaultARIA>&& defaultARIA) { m_customElementDefaultARIA = WTFMove(defaultARIA); }
 
+    FormAssociatedCustomElement* formAssociatedCustomElement() { return m_formAssociatedCustomElement.get(); }
+    void setFormAssociatedCustomElement(std::unique_ptr<FormAssociatedCustomElement>&& element) { m_formAssociatedCustomElement = WTFMove(element); }
+
     NamedNodeMap* attributeMap() const { return m_attributeMap.get(); }
     void setAttributeMap(std::unique_ptr<NamedNodeMap> attributeMap) { m_attributeMap = WTFMove(attributeMap); }
 
@@ -102,6 +107,10 @@ public:
 
     ResizeObserverData* resizeObserverData() { return m_resizeObserverData.get(); }
     void setResizeObserverData(std::unique_ptr<ResizeObserverData>&& data) { m_resizeObserverData = WTFMove(data); }
+
+    ResizeObserverSize* lastRememberedSize() const { return m_lastRememberedSize.get(); }
+    void setLastRememberedSize(RefPtr<ResizeObserverSize>&& size) { m_lastRememberedSize = WTFMove(size); }
+    void clearLastRememberedSize() { m_lastRememberedSize = nullptr; }
 
     const AtomString& nonce() const { return m_nonce; }
     void setNonce(const AtomString& value) { m_nonce = value; }
@@ -136,11 +145,13 @@ public:
             result.add(UseType::CustomElementReactionQueue);
         if (m_customElementDefaultARIA)
             result.add(UseType::CustomElementDefaultARIA);
+        if (m_formAssociatedCustomElement)
+            result.add(UseType::FormAssociatedCustomElement);
         if (m_attributeMap)
             result.add(UseType::AttributeMap);
         if (m_intersectionObserverData)
             result.add(UseType::InteractionObserver);
-        if (m_resizeObserverData)
+        if (m_resizeObserverData || m_lastRememberedSize)
             result.add(UseType::ResizeObserver);
         if (!m_animationRareData.isEmpty())
             result.add(UseType::Animations);
@@ -172,11 +183,13 @@ private:
     RefPtr<ShadowRoot> m_shadowRoot;
     std::unique_ptr<CustomElementReactionQueue> m_customElementReactionQueue;
     std::unique_ptr<CustomElementDefaultARIA> m_customElementDefaultARIA;
+    std::unique_ptr<FormAssociatedCustomElement> m_formAssociatedCustomElement;
     std::unique_ptr<NamedNodeMap> m_attributeMap;
 
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
 
     std::unique_ptr<ResizeObserverData> m_resizeObserverData;
+    RefPtr<ResizeObserverSize> m_lastRememberedSize;
 
     Vector<std::unique_ptr<ElementAnimationRareData>> m_animationRareData;
 

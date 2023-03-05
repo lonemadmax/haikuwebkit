@@ -485,6 +485,7 @@ public:
 
     ExceptionOr<String> scrollingStateTreeAsText() const;
     ExceptionOr<String> scrollingTreeAsText() const;
+    ExceptionOr<bool> haveScrollingTree() const;
     ExceptionOr<String> synchronousScrollingReasons() const;
     ExceptionOr<Ref<DOMRectList>> nonFastScrollableRects() const;
 
@@ -1358,6 +1359,14 @@ public:
     bool hasSleepDisabler() const;
 
     void acceptTypedArrays(Int32Array&);
+
+    struct SelectorFilterHashCounts {
+        size_t ids { 0 };
+        size_t classes { 0 };
+        size_t tags { 0 };
+        size_t attributes { 0 };
+    };
+    SelectorFilterHashCounts selectorFilterHashCounts(const String& selector);
 
 private:
     explicit Internals(Document&);

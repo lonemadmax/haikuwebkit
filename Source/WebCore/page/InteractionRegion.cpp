@@ -105,40 +105,57 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         return std::nullopt;
 
     auto& mainFrameView = *regionRenderer.document().frame()->mainFrame().view();
-    auto layoutArea = mainFrameView.layoutSize().area();
+    auto layoutSize = mainFrameView.layoutSize();
+    // Adding some wiggle room, we use this to avoid extreme cases.
+    layoutSize.scale(1.3, 1.3);
+    auto layoutArea = layoutSize.area();
 
     auto checkedRegionArea = bounds.area<RecordOverflow>();
     if (checkedRegionArea.hasOverflowed())
         return std::nullopt;
 
-    if (checkedRegionArea.value() > layoutArea / 2)
-        return std::nullopt;
-
     auto element = dynamicDowncast<Element>(regionRenderer.node());
     if (!element) 
         element = regionRenderer.node()->parentElement();
+    if (!element)
+        return std::nullopt;
+
     if (auto* linkElement = element->enclosingLinkEventParentOrSelf())
         element = linkElement;
     if (auto* buttonElement = ancestorsOfType<HTMLButtonElement>(*element).first())
         element = buttonElement;
 
-    if (!element || !element->renderer())
-        return std::nullopt;
-
     if (!shouldAllowElement(*element))
         return std::nullopt;
 
+    if (!element->renderer())
+        return std::nullopt;
     auto& renderer = *element->renderer();
 
     if (renderer.style().effectivePointerEvents() == PointerEvents::None)
         return std::nullopt;
 
     // FIXME: Consider also allowing elements that only receive touch events.
-    if (!renderer.style().eventListenerRegionTypes().contains(EventListenerRegionType::MouseClick))
-        return std::nullopt;
+    bool hasListener = renderer.style().eventListenerRegionTypes().contains(EventListenerRegionType::MouseClick);
+    bool hasPointer = cursorTypeForElement(*element) == CursorType::Pointer || shouldAllowNonPointerCursorForElement(*element);
+    if (!hasListener || !hasPointer) {
+        bool isOverlay = checkedRegionArea.value() <= layoutArea && renderer.style().specifiedZIndex() > 0;
+        if (isOverlay) {
+            Region boundsRegion;
+            boundsRegion.unite(bounds);
 
-    auto cursor = cursorTypeForElement(*element);
-    if (cursor != CursorType::Pointer && !shouldAllowNonPointerCursorForElement(*element))
+            return { {
+                element->identifier(),
+                boundsRegion,
+                0,
+                InteractionRegion::Type::Occlusion
+            } };
+        }
+
+        return std::nullopt;
+    }
+
+    if (checkedRegionArea.value() > layoutArea / 2)
         return std::nullopt;
 
     bool isInlineNonBlock = renderer.isInline() && !renderer.isReplacedOrInlineBlock();
@@ -147,8 +164,17 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         bounds.inflate(regionRenderer.document().settings().interactionRegionInlinePadding());
 
     float borderRadius = 0;
-    if (const auto& renderBox = dynamicDowncast<RenderBox>(renderer))
+    if (auto* renderBox = dynamicDowncast<RenderBox>(renderer)) {
         borderRadius = renderBox->borderRadii().minimumRadius();
+
+        auto* input = dynamicDowncast<HTMLInputElement>(element);
+        if (input && input->containerElement()) {
+            auto borderBoxRect = renderBox->borderBoxRect();
+            auto contentBoxRect = renderBox->contentBoxRect();
+            bounds.move(IntSize(borderBoxRect.location() - contentBoxRect.location()));
+            bounds.expand(IntSize(borderBoxRect.size() - contentBoxRect.size()));
+        }
+    }
 
     Region boundsRegion;
     boundsRegion.unite(bounds);
@@ -156,13 +182,14 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     return { {
         element->identifier(),
         boundsRegion,
-        borderRadius
+        borderRadius,
+        InteractionRegion::Type::Interaction
     } };
 }
 
 TextStream& operator<<(TextStream& ts, const InteractionRegion& interactionRegion)
 {
-    ts.dumpProperty("region", interactionRegion.regionInLayerCoordinates);
+    ts.dumpProperty(interactionRegion.type == InteractionRegion::Type::Occlusion ? "occlusion" : "interaction", interactionRegion.regionInLayerCoordinates);
     ts.dumpProperty("borderRadius", interactionRegion.borderRadius);
 
     return ts;

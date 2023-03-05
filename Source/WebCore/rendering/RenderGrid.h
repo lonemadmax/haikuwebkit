@@ -103,6 +103,11 @@ public:
     // nested subgrids, where ancestor may not be our direct parent.
     bool isSubgridOf(GridTrackSizingDirection, const RenderGrid& ancestor);
 
+    bool isMasonry() const;
+    bool isMasonry(GridTrackSizingDirection) const;
+    bool areMasonryRows() const;
+    bool areMasonryColumns() const;
+
     const Grid& currentGrid() const;
     Grid& currentGrid();
 
@@ -209,6 +214,7 @@ private:
     void resetAutoMarginsAndLogicalTopInColumnAxis(RenderBox& child);
     void updateAutoMarginsInColumnAxisIfNeeded(RenderBox&);
     void updateAutoMarginsInRowAxisIfNeeded(RenderBox&);
+    bool shouldTrimChildMargin(MarginTrimType, const RenderBox&) const final;
 
     LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
     std::optional<LayoutUnit> firstLineBaseline() const final;
@@ -235,8 +241,6 @@ private:
 
     bool computeGridPositionsForOutOfFlowChild(const RenderBox&, GridTrackSizingDirection, int&, bool&, int&, bool&) const;
 
-    bool isMasonryRows() const;
-    bool isMasonryColumns() const;
     AutoRepeatType autoRepeatColumnsType() const;
     AutoRepeatType autoRepeatRowsType() const;
 

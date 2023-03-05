@@ -29,6 +29,7 @@
 #include "config.h"
 #include "UserAgentStyle.h"
 
+#include "CSSValuePool.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "FullscreenManager.h"
@@ -44,7 +45,9 @@
 #include "HTMLHtmlElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
+#include "HTMLMeterElement.h"
 #include "HTMLObjectElement.h"
+#include "HTMLProgressElement.h"
 #include "HTMLSpanElement.h"
 #include "MathMLElement.h"
 #include "MediaQueryEvaluator.h"

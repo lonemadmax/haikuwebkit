@@ -124,6 +124,7 @@ CSSUnitCategory unitCategory(CSSUnitType type)
     case CSSUnitType::CSS_STRING:
     case CSSUnitType::CSS_UNICODE_RANGE:
     case CSSUnitType::CSS_UNKNOWN:
+    case CSSUnitType::CSS_UNRESOLVED_COLOR:
     case CSSUnitType::CSS_URI:
     case CSSUnitType::CSS_VALUE_ID:
     case CSSUnitType::CustomIdent:
@@ -141,7 +142,7 @@ CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory category)
     case CSSUnitCategory::AbsoluteLength:
         return CSSUnitType::CSS_PX;
     case CSSUnitCategory::Percent:
-        return CSSUnitType::CSS_UNKNOWN; // Cannot convert between numbers and percent.
+        return CSSUnitType::CSS_PERCENTAGE;
     case CSSUnitCategory::Time:
         return CSSUnitType::CSS_S;
     case CSSUnitCategory::Angle:
@@ -159,6 +160,11 @@ CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory category)
     }
     ASSERT_NOT_REACHED();
     return CSSUnitType::CSS_UNKNOWN;
+}
+
+CSSUnitType canonicalUnitTypeForUnitType(CSSUnitType unitType)
+{
+    return canonicalUnitTypeForCategory(unitCategory(unitType));
 }
 
 TextStream& operator<<(TextStream& ts, CSSUnitCategory category)
@@ -260,6 +266,7 @@ TextStream& operator<<(TextStream& ts, CSSUnitType unitType)
     case CSSUnitType::CSS_CALC: ts << "calc"; break;
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER: ts << "calc_percentage_with_number"; break;
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH: ts << "calc_percentage_with_length"; break;
+    case CSSUnitType::CSS_UNRESOLVED_COLOR: ts << "unresolved_color"; break;
     case CSSUnitType::CSS_FONT_FAMILY: ts << "font_family"; break;
     case CSSUnitType::CSS_PROPERTY_ID: ts << "property_id"; break;
     case CSSUnitType::CSS_VALUE_ID: ts << "value_id"; break;

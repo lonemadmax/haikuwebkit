@@ -170,6 +170,8 @@ static CFStringRef AppleColorPreferencesChangedNotification = CFSTR("AppleColorP
 
 static NSString * const WebKitSuppressMemoryPressureHandlerDefaultsKey = @"WebKitSuppressMemoryPressureHandler";
 
+static NSString * const WebKitMediaStreamingActivity = @"WebKitMediaStreamingActivity";
+
 #if ENABLE(TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
 static NSString * const WebKitLogCookieInformationDefaultsKey = @"WebKitLogCookieInformation";
 #endif
@@ -417,8 +419,8 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     if (WebProcessProxy::shouldEnableRemoteInspector()) {
-        if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.webinspector"_s, process.auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap))
-            parameters.enableRemoteWebInspectorExtensionHandle = WTFMove(*handle);
+        auto handles = SandboxExtension::createHandlesForMachLookup({ "com.apple.webinspector"_s }, process.auditToken());
+        parameters.enableRemoteWebInspectorExtensionHandles = WTFMove(handles);
     }
 #endif
 
@@ -506,7 +508,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC)
-    if (!isFullWebBrowser()) {
+    if (!isFullWebBrowser() || isRunningTest(WebCore::applicationBundleIdentifier())) {
         if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
             parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
         parameters.enableDecodingHEIC = true;
@@ -742,7 +744,7 @@ void WebProcessPool::registerNotificationObservers()
     }];
 
     m_accessibilityDisplayOptionsNotificationObserver = [[NSWorkspace.sharedWorkspace notificationCenter] addObserverForName:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *notification) {
-        screenPropertiesStateChanged();
+        screenPropertiesChanged();
     }];
 
     m_scrollerStyleNotificationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSPreferredScrollerStyleDidChangeNotification object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *notification) {
@@ -779,10 +781,11 @@ void WebProcessPool::registerNotificationObservers()
             for (auto& process : m_processes) {
                 if (!process->canSendMessage())
                     continue;
-                auto handle = SandboxExtension::createHandleForMachLookup("com.apple.system.opendirectoryd.libinfo"_s, process->auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
+                auto handle = SandboxExtension::createHandleForMachLookup("com.apple.system.opendirectoryd.libinfo"_s, std::nullopt);
                 if (!handle)
                     continue;
-                process->send(Messages::WebProcess::OpenDirectoryCacheInvalidated(*handle), 0);
+                auto bootstrapHandle = SandboxExtension::createHandleForMachBootstrapExtension();
+                process->send(Messages::WebProcess::OpenDirectoryCacheInvalidated(*handle, bootstrapHandle), 0);
             }
         });
         m_openDirectoryNotifyTokens.append(notifyToken);
@@ -1180,19 +1183,40 @@ void WebProcessPool::notifyPreferencesChanged(const String& domain, const String
 }
 #endif // ENABLE(CFPREFS_DIRECT_MODE)
 
-#if PLATFORM(MAC)
-static void displayReconfigurationCallBack(CGDirectDisplayID display, CGDisplayChangeSummaryFlags flags, void *userInfo)
+void WebProcessPool::screenPropertiesChanged()
 {
-    RunLoop::main().dispatch([display, flags]() {
+    auto screenProperties = WebCore::collectScreenProperties();
+    sendToAllProcesses(Messages::WebProcess::SetScreenProperties(screenProperties));
+
+#if PLATFORM(MAC) && ENABLE(GPU_PROCESS)
+    if (auto gpuProcess = this->gpuProcess())
+        gpuProcess->setScreenProperties(screenProperties);
+#endif
+}
+
+#if PLATFORM(MAC)
+void WebProcessPool::displayPropertiesChanged(const WebCore::ScreenProperties& screenProperties, WebCore::PlatformDisplayID displayID, CGDisplayChangeSummaryFlags flags)
+{
+    sendToAllProcesses(Messages::WebProcess::SetScreenProperties(screenProperties));
+    sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(displayID, flags));
+
+    if (auto* displayLink = displayLinks().displayLinkForDisplay(displayID))
+        displayLink->displayPropertiesChanged();
+
+#if ENABLE(GPU_PROCESS)
+    if (auto gpuProcess = this->gpuProcess()) {
+        gpuProcess->setScreenProperties(screenProperties);
+        gpuProcess->displayConfigurationChanged(displayID, flags);
+    }
+#endif
+}
+
+static void displayReconfigurationCallBack(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags, void *userInfo)
+{
+    RunLoop::main().dispatch([displayID, flags]() {
         auto screenProperties = WebCore::collectScreenProperties();
-        for (auto& processPool : WebProcessPool::allProcessPools()) {
-            processPool->sendToAllProcesses(Messages::WebProcess::SetScreenProperties(screenProperties));
-            processPool->sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(display, flags));
-            if (auto gpuProcess = processPool->gpuProcess()) {
-                gpuProcess->displayConfigurationChanged(display, flags);
-                gpuProcess->setScreenProperties(screenProperties);
-            }
-        }
+        for (auto& processPool : WebProcessPool::allProcessPools())
+            processPool->displayPropertiesChanged(screenProperties, displayID, flags);
     });
 }
 

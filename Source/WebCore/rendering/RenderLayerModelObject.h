@@ -90,6 +90,8 @@ public:
     void updateHasSVGTransformFlags();
     virtual bool needsHasSVGTransformFlags() const { ASSERT_NOT_REACHED(); return false; }
 
+    void repaintOrRelayoutAfterSVGTransformChange();
+
     LayoutPoint nominalSVGLayoutLocation() const { return flooredLayoutPoint(objectBoundingBoxWithoutTransformations().minXMinYCorner()); }
     virtual LayoutPoint currentSVGLayoutLocation() const { ASSERT_NOT_REACHED(); return { }; }
     virtual void setCurrentSVGLayoutLocation(const LayoutPoint&) { ASSERT_NOT_REACHED(); }
@@ -110,17 +112,13 @@ protected:
 
     virtual void updateFromStyle() { }
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-    void updateHasSVGTransformFlags(bool hasSVGTransform);
-#endif
-
 private:
     std::unique_ptr<RenderLayer> m_layer;
 
     // Used to store state between styleWillChange and styleDidChange
     static bool s_wasFloating;
     static bool s_hadLayer;
-    static bool s_hadTransform;
+    static bool s_wasTransformed;
     static bool s_layerWasSelfPainting;
 };
 

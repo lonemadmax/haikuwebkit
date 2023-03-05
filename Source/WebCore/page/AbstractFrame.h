@@ -34,8 +34,10 @@
 namespace WebCore {
 
 class AbstractDOMWindow;
+class AbstractFrameView;
 class HTMLFrameOwnerElement;
 class Page;
+class WeakPtrImplWithEventTargetData;
 class WindowProxy;
 
 // FIXME: Rename Frame to LocalFrame and AbstractFrame to Frame.
@@ -53,18 +55,22 @@ public:
     FrameIdentifier frameID() const { return m_frameID; }
     WEBCORE_EXPORT Page* page() const;
     WEBCORE_EXPORT void detachFromPage();
+    WEBCORE_EXPORT HTMLFrameOwnerElement* ownerElement() const;
+    WEBCORE_EXPORT void disconnectOwnerElement();
 
 protected:
-    AbstractFrame(Page&, FrameIdentifier, AbstractFrame* parent);
+    AbstractFrame(Page&, FrameIdentifier, HTMLFrameOwnerElement*);
     void resetWindowProxy();
 
 private:
     virtual AbstractDOMWindow* virtualWindow() const = 0;
+    virtual AbstractFrameView* virtualView() const = 0;
 
     WeakPtr<Page> m_page;
     const FrameIdentifier m_frameID;
     mutable FrameTree m_treeNode;
     Ref<WindowProxy> m_windowProxy;
+    WeakPtr<HTMLFrameOwnerElement, WeakPtrImplWithEventTargetData> m_ownerElement;
 };
 
 } // namespace WebCore

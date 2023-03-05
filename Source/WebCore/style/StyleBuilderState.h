@@ -132,10 +132,11 @@ private:
 
     const CSSToLengthConversionData m_cssToLengthConversionData;
 
-    Bitmap<numCSSProperties> m_appliedProperties;
     HashSet<String> m_appliedCustomProperties;
+    HashSet<String> m_inProgressCustomProperties;
+    HashSet<String> m_inCycleCustomProperties;
     Bitmap<numCSSProperties> m_inProgressProperties;
-    HashSet<String> m_inProgressPropertiesCustom;
+    Bitmap<numCSSProperties> m_inUnitCycleProperties;
 
     const PropertyCascade::Property* m_currentProperty { nullptr };
     SelectorChecker::LinkMatchMask m_linkMatch { };

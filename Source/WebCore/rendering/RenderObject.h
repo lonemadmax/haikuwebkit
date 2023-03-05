@@ -50,6 +50,7 @@ namespace WebCore {
 
 class AffineTransform;
 class Color;
+class ControlPart;
 class Cursor;
 class Document;
 class HitTestLocation;
@@ -99,6 +100,7 @@ class RenderObject : public CachedImageClient {
     WTF_MAKE_ISO_ALLOCATED(RenderObject);
     friend class RenderBlock;
     friend class RenderBlockFlow;
+    friend class RenderBox;
     friend class RenderElement;
     friend class RenderLayer;
     friend class RenderLayerScrollableArea;
@@ -477,8 +479,8 @@ public:
     bool hasPotentiallyScrollableOverflow() const;
 
     bool hasTransformRelatedProperty() const { return m_bitfields.hasTransformRelatedProperty(); } // Transform, perspective or transform-style: preserve-3d.
-    bool hasTransform() const { return hasTransformRelatedProperty() && (style().hasTransform() || style().translate() || style().scale() || style().rotate() || hasSVGTransform()); }
-    bool hasTransformOrPerspective() const { return hasTransformRelatedProperty() && (hasTransform() || style().hasPerspective()); }
+    bool isTransformed() const { return hasTransformRelatedProperty() && (style().affectsTransform() || hasSVGTransform()); }
+    bool hasTransformOrPerspective() const { return hasTransformRelatedProperty() && (isTransformed() || style().hasPerspective()); }
 
     inline bool preservesNewline() const;
 
@@ -1004,6 +1006,9 @@ private:
         // From RenderElement
         std::unique_ptr<ReferencedSVGResources> referencedSVGResources;
         WeakPtr<RenderBlockFlow> backdropRenderer;
+
+        // From RenderBox
+        RefPtr<ControlPart> controlPart;
     };
     
     WEBCORE_EXPORT const RenderObject::RenderObjectRareData& rareData() const;

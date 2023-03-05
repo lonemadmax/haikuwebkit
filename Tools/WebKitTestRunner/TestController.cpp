@@ -1110,17 +1110,13 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
 
     WKHTTPCookieStoreDeleteAllCookies(WKWebsiteDataStoreGetHTTPCookieStore(websiteDataStore()), nullptr, nullptr);
 
-    clearIndexedDatabases();
-    clearLocalStorage();
-
-    clearServiceWorkerRegistrations();
-    clearDOMCaches();
-
-    resetQuota();
     clearStorage();
+    resetQuota();
+    resetStoragePersistedState();
 
     WKContextClearCurrentModifierStateForTesting(TestController::singleton().context());
     WKContextSetUseSeparateServiceWorkerProcess(TestController::singleton().context(), false);
+    WKContextClearMockGamepadsForTesting(TestController::singleton().context());
 
     WKPageSetMockCameraOrientation(m_mainWebView->page(), 0);
     resetMockMediaDevices();
@@ -3193,6 +3189,11 @@ void TestController::clearLoadedSubresourceDomains()
 
 #endif // !PLATFORM(COCOA)
 
+void TestController::reloadFromOrigin()
+{
+    WKPageReloadFromOrigin(m_mainWebView->page());
+}
+
 struct GenericVoidContext {
     explicit GenericVoidContext(TestController& controller)
         : testController(controller)
@@ -3302,6 +3303,13 @@ void TestController::resetQuota()
 {
     StorageVoidCallbackContext context(*this);
     WKWebsiteDataStoreResetQuota(TestController::websiteDataStore(), &context, StorageVoidCallback);
+    runUntil(context.done, noTimeout);
+}
+
+void TestController::resetStoragePersistedState()
+{
+    StorageVoidCallbackContext context(*this);
+    WKWebsiteDataStoreResetStoragePersistedState(TestController::websiteDataStore(), &context, StorageVoidCallback);
     runUntil(context.done, noTimeout);
 }
 

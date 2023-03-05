@@ -51,6 +51,9 @@ public:
     static std::unique_ptr<RemoteLayerTreeNode> createWithPlainLayer(WebCore::GraphicsLayer::PlatformLayerID);
 
     CALayer *layer() const { return m_layer.get(); }
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    CALayer *interactionRegionsLayer() const { return m_interactionRegionsLayer.get(); }
+#endif
 #if PLATFORM(IOS_FAMILY)
     UIView *uiView() const { return m_uiView.get(); }
 #endif
@@ -86,6 +89,9 @@ private:
     WebCore::GraphicsLayer::PlatformLayerID m_layerID;
 
     RetainPtr<CALayer> m_layer;
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    RetainPtr<CALayer> m_interactionRegionsLayer;
+#endif
 #if PLATFORM(IOS_FAMILY)
     RetainPtr<UIView> m_uiView;
 #endif
@@ -96,7 +102,7 @@ private:
     WebCore::ScrollingNodeID m_scrollingNodeID { 0 };
 #endif
 
-    WebCore::GraphicsLayer::PlatformLayerID m_actingScrollContainerID { 0 };
+    WebCore::GraphicsLayer::PlatformLayerID m_actingScrollContainerID;
     Vector<WebCore::GraphicsLayer::PlatformLayerID> m_stationaryScrollContainerIDs;
 };
 

@@ -33,7 +33,7 @@
 #import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKWebView.h>
 #import <WebKit/WKWebViewPrivate.h>
-#import <WebKit/_WKInternalDebugFeature.h>
+#import <WebKit/_WKFeature.h>
 #import <WebKit/_WKRemoteObjectInterface.h>
 #import <WebKit/_WKRemoteObjectRegistry.h>
 #import <wtf/RetainPtr.h>
@@ -103,9 +103,9 @@ TEST(IPCTestingAPI, IsDisabledByDefault)
 static RetainPtr<TestWKWebView> createWebViewWithIPCTestingAPI()
 {
     RetainPtr<WKWebViewConfiguration> configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    for (_WKInternalDebugFeature *feature in [WKPreferences _internalDebugFeatures]) {
+    for (_WKFeature *feature in [WKPreferences _features]) {
         if ([feature.key isEqualToString:@"IPCTestingAPIEnabled"]) {
-            [[configuration preferences] _setEnabled:YES forInternalDebugFeature:feature];
+            [[configuration preferences] _setEnabled:YES forFeature:feature];
             break;
         }
     }
@@ -550,7 +550,16 @@ TEST(IPCTestingAPI, SerializedTypeInfo)
 {
     auto webView = createWebViewWithIPCTestingAPI();
     NSDictionary *typeInfo = [webView objectByEvaluatingJavaScript:@"IPC.serializedTypeInfo"];
-    NSArray *expectedArray = @[@"bool", @"bool", @"bool"];
+    NSArray *expectedArray = @[@{
+        @"name": @"ignoreSearch",
+        @"type": @"bool"
+    }, @{
+        @"name": @"ignoreMethod",
+        @"type": @"bool"
+    }, @{
+        @"name": @"ignoreVary",
+        @"type": @"bool"
+    }];
     EXPECT_TRUE([typeInfo[@"WebCore::CacheQueryOptions"] isEqualToArray:expectedArray]);
     NSDictionary *expectedDictionary = @{
         @"isOptionSet" : @1,
@@ -581,8 +590,8 @@ TEST(IPCTestingAPI, SerializedTypeInfo)
         }
     }
     for (NSArray *memberTypes in typeInfo.allValues) {
-        for (NSString *memberType in memberTypes)
-            [typesNeedingDescriptions addObject:memberType];
+        for (NSDictionary *memberType in memberTypes)
+            [typesNeedingDescriptions addObject:memberType[@"type"]];
     }
 
     typesNeedingDescriptions = extractTypesFromContainers(typesNeedingDescriptions);

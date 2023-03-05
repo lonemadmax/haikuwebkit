@@ -196,29 +196,19 @@ bool RemoteLayerBackingStore::usesDeepColorBackingStore() const
     return false;
 }
 
-DestinationColorSpace RemoteLayerBackingStore::colorSpace() const
-{
-#if PLATFORM(MAC)
-    if (auto* context = m_layer->context())
-        return context->displayColorSpace().value_or(DestinationColorSpace::SRGB());
-#else
-    if (usesDeepColorBackingStore())
-        return DestinationColorSpace { extendedSRGBColorSpaceRef() };
-#endif
-    return DestinationColorSpace::SRGB();
-}
-
 PixelFormat RemoteLayerBackingStore::pixelFormat() const
 {
     if (usesDeepColorBackingStore())
         return m_parameters.isOpaque ? PixelFormat::RGB10 : PixelFormat::RGB10A8;
-    return PixelFormat::BGRA8;
+
+    return m_parameters.isOpaque ? PixelFormat::BGRX8 : PixelFormat::BGRA8;
 }
 
 unsigned RemoteLayerBackingStore::bytesPerPixel() const
 {
     switch (pixelFormat()) {
     case PixelFormat::RGBA8: return 4;
+    case PixelFormat::BGRX8: return 4;
     case PixelFormat::BGRA8: return 4;
     case PixelFormat::RGB10: return 4;
     case PixelFormat::RGB10A8: return 5;
@@ -376,7 +366,7 @@ void RemoteLayerBackingStore::ensureFrontBuffer()
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     if (!m_displayListBuffer && m_parameters.includeDisplayList == IncludeDisplayList::Yes) {
-        ImageBuffer::CreationContext creationContext;
+        ImageBufferCreationContext creationContext;
         creationContext.useCGDisplayListImageCache = m_parameters.useCGDisplayListImageCache;
         // FIXME: This should use colorSpace(), not hardcode sRGB.
         m_displayListBuffer = ImageBuffer::create<CGDisplayListImageBufferBackend>(m_parameters.size, m_parameters.scale, DestinationColorSpace::SRGB(), pixelFormat(), RenderingPurpose::DOM, WTFMove(creationContext));
@@ -438,8 +428,15 @@ void RemoteLayerBackingStore::paintContents()
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     if (m_parameters.includeDisplayList == IncludeDisplayList::Yes) {
-        BifurcatedGraphicsContext context(m_frontBuffer.imageBuffer->context(), m_displayListBuffer->context());
-        drawInContext(context);
+        auto& displayListContext = m_displayListBuffer->context();
+
+        BifurcatedGraphicsContext context(m_frontBuffer.imageBuffer->context(), displayListContext);
+        drawInContext(context, [&] {
+#if HAVE(CG_DISPLAY_LIST_RESPECTING_CONTENTS_FLIPPED)
+            displayListContext.scale(FloatSize(1, -1));
+            displayListContext.translate(0, -m_parameters.size.height());
+#endif
+        });
         return;
     }
 #endif
@@ -448,9 +445,12 @@ void RemoteLayerBackingStore::paintContents()
     drawInContext(context);
 }
 
-void RemoteLayerBackingStore::drawInContext(GraphicsContext& context)
+void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, WTF::Function<void()>&& additionalContextSetupCallback)
 {
     GraphicsContextStateSaver stateSaver(context);
+
+    if (additionalContextSetupCallback)
+        additionalContextSetupCallback();
 
     // If we have less than webLayerMaxRectsToPaint rects to paint and they cover less
     // than webLayerWastedSpaceThreshold of the total dirty area, we'll repaint each rect separately.
@@ -554,39 +554,44 @@ void RemoteLayerBackingStore::enumerateRectsBeingDrawn(GraphicsContext& context,
     }
 }
 
+RetainPtr<id> RemoteLayerBackingStore::layerContentsBufferFromBackendHandle(ImageBufferBackendHandle&& backendHandle, LayerContentsType contentsType)
+{
+    RetainPtr<id> contents;
+    WTF::switchOn(backendHandle,
+        [&] (ShareableBitmapHandle& handle) {
+            if (auto bitmap = ShareableBitmap::create(handle))
+                contents = bridge_id_cast(bitmap->makeCGImageCopy());
+        },
+        [&] (MachSendRight& machSendRight) {
+            switch (contentsType) {
+            case RemoteLayerBackingStore::LayerContentsType::IOSurface: {
+                auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(machSendRight));
+                contents = surface ? surface->asLayerContents() : nil;
+                break;
+            }
+            case RemoteLayerBackingStore::LayerContentsType::CAMachPort:
+                contents = bridge_id_cast(adoptCF(CAMachPortCreate(machSendRight.leakSendRight())));
+                break;
+            }
+        }
+#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+        , [&] (CGDisplayList& handle) {
+            ASSERT_NOT_REACHED();
+        }
+#endif
+    );
+
+    return contents;
+}
+
 void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerContentsType contentsType, bool replayCGDisplayListsIntoBackingStore)
 {
     layer.contentsOpaque = m_parameters.isOpaque;
 
     RetainPtr<id> contents;
     // m_bufferHandle can be unset here if IPC with the GPU process timed out.
-    if (m_bufferHandle) {
-        WTF::switchOn(*m_bufferHandle,
-            [&] (ShareableBitmapHandle& handle) {
-                ASSERT(m_parameters.type == Type::Bitmap);
-                if (auto bitmap = ShareableBitmap::create(handle))
-                    contents = bridge_id_cast(bitmap->makeCGImageCopy());
-            },
-            [&] (MachSendRight& machSendRight) {
-                ASSERT(m_parameters.type == Type::IOSurface);
-                switch (contentsType) {
-                case RemoteLayerBackingStore::LayerContentsType::IOSurface: {
-                    auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(machSendRight));
-                    contents = surface ? surface->asLayerContents() : nil;
-                    break;
-                }
-                case RemoteLayerBackingStore::LayerContentsType::CAMachPort:
-                    contents = bridge_id_cast(adoptCF(CAMachPortCreate(machSendRight.leakSendRight())));
-                    break;
-                }
-            }
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-            , [&] (CGDisplayList& handle) {
-                ASSERT_NOT_REACHED();
-            }
-#endif
-        );
-    }
+    if (m_bufferHandle)
+        contents = layerContentsBufferFromBackendHandle(WTFMove(*m_bufferHandle), contentsType);
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     if (m_displayListBufferHandle) {

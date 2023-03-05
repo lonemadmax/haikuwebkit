@@ -3,8 +3,8 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2005, 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2005-2021 Apple Inc. All rights reserved.
- * Copyright (C) 2010, 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2014 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -429,7 +429,7 @@ bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderS
         if (is<RenderLayerModelObject>(*this)) {
             // If we don't have a layer yet, but we are going to get one because of transform or opacity, then we need to repaint the old position of the object.
             bool hasLayer = downcast<RenderLayerModelObject>(*this).hasLayer();
-            bool willHaveLayer = newStyle.hasTransform() || newStyle.hasOpacity() || newStyle.hasFilter() || newStyle.hasBackdropFilter();
+            bool willHaveLayer = newStyle.affectsTransform() || newStyle.hasOpacity() || newStyle.hasFilter() || newStyle.hasBackdropFilter();
             if (!hasLayer && willHaveLayer)
                 return RequiredRepaint::RendererOnly;
         }
@@ -1284,10 +1284,11 @@ bool RenderElement::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* rep
         LayoutUnit boxWidth = is<RenderBox>(*this) ? downcast<RenderBox>(*this).width() : 0_lu;
         LayoutUnit minInsetRightShadowExtent = std::min<LayoutUnit>(-insetShadowExtent.right(), std::min(newBounds.width(), oldBounds.width()));
         LayoutUnit borderWidth = std::max(borderRight, std::max(valueForLength(style().borderTopRightRadius().width, boxWidth), valueForLength(style().borderBottomRightRadius().width, boxWidth)));
-        LayoutUnit decorationsWidth = std::max(LayoutUnit(-outlineStyle.outlineOffset()), borderWidth + minInsetRightShadowExtent) + std::max(outlineWidth, shadowRight);
-        LayoutRect rightRect(newOutlineBox.x() + std::min(newOutlineBox.width(), oldOutlineBox.width()) - decorationsWidth,
+        LayoutUnit decorationsLeftWidth = std::max(LayoutUnit(-outlineStyle.outlineOffset()), borderWidth + minInsetRightShadowExtent) + std::max(outlineWidth, -shadowLeft);
+        LayoutUnit decorationsRightWidth = std::max(LayoutUnit(-outlineStyle.outlineOffset()), borderWidth + minInsetRightShadowExtent) + std::max(outlineWidth, shadowRight);
+        LayoutRect rightRect(newOutlineBox.x() + std::min(newOutlineBox.width(), oldOutlineBox.width()) - decorationsLeftWidth,
             newOutlineBox.y(),
-            width + decorationsWidth,
+            width + decorationsLeftWidth + decorationsRightWidth,
             std::max(newOutlineBox.height(), oldOutlineBox.height()));
         LayoutUnit right = std::min(newBounds.maxX(), oldBounds.maxX());
         if (rightRect.x() < right) {
@@ -1305,11 +1306,12 @@ bool RenderElement::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* rep
         LayoutUnit minInsetBottomShadowExtent = std::min<LayoutUnit>(-insetShadowExtent.bottom(), std::min(newBounds.height(), oldBounds.height()));
         LayoutUnit borderHeight = std::max(borderBottom, std::max(valueForLength(style().borderBottomLeftRadius().height, boxHeight),
             valueForLength(style().borderBottomRightRadius().height, boxHeight)));
-        LayoutUnit decorationsHeight = std::max(LayoutUnit(-outlineStyle.outlineOffset()), borderHeight + minInsetBottomShadowExtent) + std::max(outlineWidth, shadowBottom);
+        LayoutUnit decorationsTopHeight = std::max(LayoutUnit(-outlineStyle.outlineOffset()), borderHeight + minInsetBottomShadowExtent) + std::max(outlineWidth, -shadowTop);
+        LayoutUnit decorationsBottomHeight = std::max(LayoutUnit(-outlineStyle.outlineOffset()), borderHeight + minInsetBottomShadowExtent) + std::max(outlineWidth, shadowBottom);
         LayoutRect bottomRect(newOutlineBox.x(),
-            std::min(newOutlineBox.maxY(), oldOutlineBox.maxY()) - decorationsHeight,
+            std::min(newOutlineBox.maxY(), oldOutlineBox.maxY()) - decorationsTopHeight,
             std::max(newOutlineBox.width(), oldOutlineBox.width()),
-            height + decorationsHeight);
+            height + decorationsTopHeight + decorationsBottomHeight);
         LayoutUnit bottom = std::min(newBounds.maxY(), oldBounds.maxY());
         if (bottomRect.y() < bottom) {
             bottomRect.setHeight(std::min(bottomRect.height(), bottom - bottomRect.y()));
@@ -1526,12 +1528,13 @@ std::unique_ptr<RenderStyle> RenderElement::getUncachedPseudoStyle(const Style::
 
     auto& styleResolver = element()->styleResolver();
 
-    std::unique_ptr<RenderStyle> style = styleResolver.pseudoStyleForElement(*element(), pseudoElementRequest, { parentStyle });
+    auto resolvedStyle = styleResolver.styleForPseudoElement(*element(), pseudoElementRequest, { parentStyle });
+    if (!resolvedStyle)
+        return nullptr;
 
-    if (style)
-        Style::loadPendingResources(*style, document(), element());
+    Style::loadPendingResources(*resolvedStyle->style, document(), element());
 
-    return style;
+    return WTFMove(resolvedStyle->style);
 }
 
 Color RenderElement::selectionColor(CSSPropertyID colorProperty) const
@@ -1770,30 +1773,18 @@ static bool useShrinkWrappedFocusRingForOutlineStyleAuto()
 #endif
 }
 
-static bool drawFocusRing(GraphicsContext& context, Page& page, const Path& path, const RenderStyle& style, Color focusRingColor)
+static void drawFocusRing(GraphicsContext& context, const Path& path, const RenderStyle& style, const Color& color)
 {
-    bool needsRepaint = false;
-#if PLATFORM(MAC)
-    context.drawFocusRing(path, page.focusController().timeSinceFocusWasSet().seconds(), needsRepaint, focusRingColor);
-    UNUSED_PARAM(style);
-#else
-    context.drawFocusRing(path, style.outlineWidth(), style.outlineOffset(), focusRingColor);
-    UNUSED_PARAM(page);
-#endif
-    return needsRepaint;
+    context.drawFocusRing(path, style.outlineWidth(), color);
 }
 
-static bool drawFocusRing(GraphicsContext& context, Page& page, Vector<FloatRect> rects, const RenderStyle& style, Color focusRingColor)
+static void drawFocusRing(GraphicsContext& context, Vector<FloatRect> rects, const RenderStyle& style, const Color& color)
 {
-    bool needsRepaint = false;
 #if PLATFORM(MAC)
-    context.drawFocusRing(rects, page.focusController().timeSinceFocusWasSet().seconds(), needsRepaint, focusRingColor);
-    UNUSED_PARAM(style);
+    context.drawFocusRing(rects, 0, style.outlineWidth(), color);
 #else
-    context.drawFocusRing(rects, style.outlineWidth(), style.outlineOffset(), focusRingColor);
-    UNUSED_PARAM(page);
+    context.drawFocusRing(rects, style.outlineOffset(), style.outlineWidth(), color);
 #endif
-    return needsRepaint;
 }
 
 
@@ -1808,7 +1799,6 @@ void RenderElement::paintFocusRing(const PaintInfo& paintInfo, const RenderStyle
         pixelSnappedFocusRingRects.append(snapRectToDevicePixels(rect, deviceScaleFactor));
     }
     Color focusRingColor = usePlatformFocusRingColorForOutlineStyleAuto() ? RenderTheme::singleton().focusRingColor(styleColorOptions()) : style.visitedDependentColorWithColorFilter(CSSPropertyOutlineColor);
-    bool needsRepaint;
     if (useShrinkWrappedFocusRingForOutlineStyleAuto() && style.hasBorderRadius()) {
         Path path = PathUtilities::pathWithShrinkWrappedRectsForOutline(pixelSnappedFocusRingRects, style.border(), outlineOffset, style.direction(), style.writingMode(),
             document().deviceScaleFactor());
@@ -1816,11 +1806,9 @@ void RenderElement::paintFocusRing(const PaintInfo& paintInfo, const RenderStyle
             for (auto rect : pixelSnappedFocusRingRects)
                 path.addRect(rect);
         }
-        needsRepaint = drawFocusRing(paintInfo.context(), page(), path, style, focusRingColor);
+        drawFocusRing(paintInfo.context(), path, style, focusRingColor);
     } else
-        needsRepaint = drawFocusRing(paintInfo.context(), page(), pixelSnappedFocusRingRects, style, focusRingColor);
-    if (needsRepaint)
-        page().focusController().setFocusedElementNeedsRepaint();
+        drawFocusRing(paintInfo.context(), pixelSnappedFocusRingRects, style, focusRingColor);
 }
 
 void RenderElement::paintOutline(PaintInfo& paintInfo, const LayoutRect& paintRect)
@@ -2022,7 +2010,8 @@ static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderOb
 
 void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWidth)
 {
-    Document* document = view().frameView().frame().document();
+    auto* localFrame = dynamicDowncast<LocalFrame>(view().frameView().frame());
+    auto* document = localFrame ? localFrame->document() : nullptr;
     if (!document)
         return;
 
@@ -2052,7 +2041,8 @@ void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWid
 
 void RenderElement::resetTextAutosizing()
 {
-    Document* document = view().frameView().frame().document();
+    auto* localFrame = dynamicDowncast<LocalFrame>(view().frameView().frame());
+    auto* document = localFrame ? localFrame->document() : nullptr;
     if (!document)
         return;
 

@@ -43,7 +43,7 @@ Ref<VisitedLinkStore> VisitedLinkStore::create()
 
 VisitedLinkStore::~VisitedLinkStore()
 {
-    RELEASE_ASSERT(m_processes.computesEmpty());
+    RELEASE_ASSERT(m_processes.isEmptyIgnoringNullReferences());
 }
 
 VisitedLinkStore::VisitedLinkStore()
@@ -102,8 +102,8 @@ void VisitedLinkStore::removeAll()
 
 void VisitedLinkStore::addVisitedLinkHashFromPage(WebPageProxyIdentifier pageProxyID, SharedStringHash linkHash)
 {
-    if (auto* webPageProxy = WebProcessProxy::webPage(pageProxyID)) {
-        if (!webPageProxy->addsVisitedLinks())
+    if (auto page = WebProcessProxy::webPage(pageProxyID)) {
+        if (!page || !page->addsVisitedLinks())
             return;
     }
 

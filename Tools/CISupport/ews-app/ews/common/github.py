@@ -201,13 +201,14 @@ class GitHubEWS(GitHub):
     STATUS_BUBBLE_START = u'<!--EWS-Status-Bubble-Start-->'
     STATUS_BUBBLE_END = u'<!--EWS-Status-Bubble-End-->'
     STATUS_BUBBLE_ROWS = [['style', 'ios', 'mac', 'wpe', 'win'],  # FIXME: generate this list dynamically to have merge queue show up on top
-                          ['bindings', 'ios-sim', 'mac-debug', 'gtk', 'wincairo'],
-                          ['webkitperl', 'ios-wk2', 'mac-AS-debug', 'gtk-wk2', ''],
-                          ['webkitpy', 'api-ios', 'api-mac', 'api-gtk', ''],
-                          ['jsc', 'tv', 'mac-wk1', 'jsc-armv7', ''],
-                          ['services', 'tv-sim', 'mac-wk2', 'jsc-armv7-tests', ''],
-                          ['merge', 'watch', 'mac-AS-debug-wk2', 'jsc-mips', ''],
-                          ['unsafe-merge', 'watch-sim', 'mac-wk2-stress', 'jsc-mips-tests', '']]
+                          ['bindings', 'ios-sim', 'mac-AS-debug', 'gtk', 'wincairo'],
+                          ['webkitperl', 'ios-wk2', 'api-mac', 'gtk-wk2', ''],
+                          ['webkitpy', 'api-ios', 'mac-wk1', 'api-gtk', ''],
+                          ['jsc', 'tv', 'mac-wk2', 'jsc-armv7', ''],
+                          ['jsc-arm64', 'tv-sim', 'mac-AS-debug-wk2', 'jsc-armv7-tests', ''],
+                          ['services', 'watch', 'mac-wk2-stress', 'jsc-mips', ''],
+                          ['merge', 'watch-sim', '', 'jsc-mips-tests', ''],
+                          ['unsafe-merge', '', '', '', '']]
 
     @classmethod
     def generate_updated_pr_description(self, description, ews_comment):
@@ -266,6 +267,7 @@ class GitHubEWS(GitHub):
             if Buildbot.get_parent_queue(queue):
                 queue = Buildbot.get_parent_queue(queue)
             queue_full_name = Buildbot.queue_name_by_shortname_mapping.get(queue)
+            url = ''
             if queue_full_name:
                 url = 'https://{}/#/builders/{}'.format(config.BUILDBOT_SERVER_HOST, queue_full_name)
             hover_over_text = 'Waiting in queue, processing has not started yet'
@@ -318,6 +320,8 @@ class GitHubEWS(GitHub):
                 hover_over_text += ' Pull Request was already closed when EWS attempted to process it.'
             elif re.search(r'Hash .* on PR .* is outdated', build.state_string):
                 hover_over_text += ' Commit was outdated when EWS attempted to process it.'
+            elif re.search(r'Skipping as PR .* has skip-ews label', build.state_string):
+                hover_over_text = 'EWS skipped this build as PR had skip-ews label when EWS attempted to process it.'
         elif build.result == Buildbot.RETRY:
             hover_over_text = 'Build is being retried. Recent messages:' + self._steps_messages(build)
             icon = GitHubEWS.ICON_BUILD_ONGOING

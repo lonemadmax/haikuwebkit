@@ -92,8 +92,10 @@ private:
     bool addMilestonesToDispatch(OptionSet<WebCore::LayoutMilestone> paintMilestones) override;
 
     void addCommitHandlers();
+
     enum class UpdateRenderingType { Normal, TransientZoom };
     void updateRendering(UpdateRenderingType = UpdateRenderingType::Normal);
+    void didCompleteRenderingUpdateDisplay() override;
 
     // Message handlers.
     void updateGeometry(const WebCore::IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort) override;
@@ -106,7 +108,6 @@ private:
     void addFence(const WTF::MachSendRight&) override;
 
     void addTransactionCallbackID(CallbackID) override;
-    void setShouldScaleViewToFitDocument(bool) override;
 
     void sendEnterAcceleratedCompositingModeIfNeeded() override;
     void sendDidFirstLayerFlushIfNeeded();
@@ -128,16 +129,17 @@ private:
     void setRootCompositingLayer(CALayer *);
     void updateRootLayers();
 
-    WebCore::TiledBacking* mainFrameTiledBacking() const;
     void updateDebugInfoLayer(bool showLayer);
-
-    void scaleViewToFitDocumentIfNeeded();
 
     void sendPendingNewlyReachedPaintingMilestones();
 
-    void updateRenderingRunLoopCallback();
-    void invalidateRenderingUpdateRunLoopObserver();
     void scheduleRenderingUpdateRunLoopObserver();
+    void invalidateRenderingUpdateRunLoopObserver();
+    void renderingUpdateRunLoopCallback();
+
+    void schedulePostRenderingUpdateRunLoopObserver();
+    void invalidatePostRenderingUpdateRunLoopObserver();
+    void postRenderingUpdateRunLoopCallback();
 
     void startRenderThrottlingTimer();
     void renderThrottlingTimerFired();
@@ -151,9 +153,6 @@ private:
 
     std::optional<WebCore::FloatRect> m_viewExposedRect;
 
-    WebCore::IntSize m_lastViewSizeForScaleToFit;
-    WebCore::IntSize m_lastDocumentSizeForScaleToFit;
-
     double m_transientZoomScale { 1 };
     WebCore::FloatPoint m_transientZoomOrigin;
 
@@ -165,16 +164,16 @@ private:
     OptionSet<WebCore::LayoutMilestone> m_pendingNewlyReachedPaintingMilestones;
     Vector<CallbackID> m_pendingCallbackIDs;
 
-    std::unique_ptr<WebCore::RunLoopObserver> m_renderUpdateRunLoopObserver;
+    std::unique_ptr<WebCore::RunLoopObserver> m_renderingUpdateRunLoopObserver;
+    std::unique_ptr<WebCore::RunLoopObserver> m_postRenderingUpdateRunLoopObserver;
 
     bool m_isPaintingSuspended { false };
     bool m_inUpdateGeometry { false };
     bool m_layerTreeStateIsFrozen { false };
-    bool m_shouldScaleViewToFitDocument { false };
-    bool m_isScalingViewToFitDocument { false };
     bool m_needsSendEnterAcceleratedCompositingMode { true };
     bool m_needsSendDidFirstLayerFlush { true };
     bool m_shouldHandleActivityStateChangeCallbacks { false };
+    bool m_haveRegisteredHandlersForNextCommit { false };
 };
 
 inline bool TiledCoreAnimationDrawingArea::addMilestonesToDispatch(OptionSet<WebCore::LayoutMilestone> paintMilestones)

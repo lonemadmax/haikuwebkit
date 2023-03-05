@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,7 +32,7 @@
 #include "ProcessIdentity.h"
 #include <CoreGraphics/CGImage.h>
 #include <objc/objc.h>
-#include <pal/spi/cocoa/IOSurfaceSPI.h>
+#include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST) && !PLATFORM(IOS_FAMILY_SIMULATOR)
 #define HAVE_IOSURFACE_RGB10 1
@@ -58,6 +58,7 @@ class IOSurface final {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class Format {
+        BGRX,
         BGRA,
         YUV422,
 #if HAVE(IOSURFACE_RGB10)
@@ -140,11 +141,11 @@ public:
 
     WEBCORE_EXPORT SetNonVolatileResult setVolatile(bool);
 
+    bool hasFormat(Format format) const { return m_format && *m_format == format; }
     IntSize size() const { return m_size; }
     size_t totalBytes() const { return m_totalBytes; }
 
     WEBCORE_EXPORT DestinationColorSpace colorSpace();
-    WEBCORE_EXPORT Format format() const;
     WEBCORE_EXPORT IOSurfaceID surfaceID() const;
     WEBCORE_EXPORT size_t bytesPerRow() const;
 
@@ -181,6 +182,7 @@ private:
 
     BitmapConfiguration bitmapConfiguration() const;
 
+    std::optional<Format> m_format;
     std::optional<DestinationColorSpace> m_colorSpace;
     IntSize m_size;
     size_t m_totalBytes;
@@ -192,10 +194,11 @@ private:
     RetainPtr<IOSurfaceRef> m_surface;
 
     static std::optional<IntSize> s_maximumSize;
+
+    WEBCORE_EXPORT friend WTF::TextStream& operator<<(WTF::TextStream&, const WebCore::IOSurface&);
 };
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, WebCore::IOSurface::Format);
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const WebCore::IOSurface&);
 
 } // namespace WebCore
 

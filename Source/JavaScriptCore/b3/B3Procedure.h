@@ -81,7 +81,7 @@ class Procedure {
     WTF_MAKE_FAST_ALLOCATED;
 public:
 
-    JS_EXPORT_PRIVATE Procedure();
+    JS_EXPORT_PRIVATE Procedure(bool usesSIMD = false);
     JS_EXPORT_PRIVATE ~Procedure();
 
     template<typename Callback>
@@ -136,6 +136,7 @@ public:
 
     // bits is a bitwise_cast of the constant you want.
     JS_EXPORT_PRIVATE Value* addConstant(Origin, Type, uint64_t bits);
+    JS_EXPORT_PRIVATE Value* addConstant(Origin, Type, v128_t bits);
 
     // You're guaranteed that bottom is zero.
     Value* addBottom(Origin, Type);
@@ -287,7 +288,17 @@ public:
         RELEASE_ASSERT(Options::useWebAssemblySIMD());
         m_usesSIMD = true;
     }
-    bool usesSIMD() const { return m_usesSIMD; }
+    bool usesSIMD() const
+    {
+        // See also: WasmModuleInformation::isSIMDFunction().
+        if (!Options::useWebAssemblySIMD())
+            return false;
+        if (Options::forceAllFunctionsToUseSIMD())
+            return true;
+        // The LLInt discovers this value.
+        ASSERT(Options::useWasmLLInt());
+        return m_usesSIMD;
+    }
 
 private:
     friend class BlockInsertionSet;

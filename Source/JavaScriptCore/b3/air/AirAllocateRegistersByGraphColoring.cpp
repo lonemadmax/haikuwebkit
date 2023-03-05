@@ -40,6 +40,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/HashTraits.h>
 #include <wtf/InterferenceGraph.h>
+#include <wtf/ListDump.h>
 #include <wtf/SmallSet.h>
 #include <wtf/Vector.h>
 
@@ -464,7 +465,7 @@ protected:
         }
 
         m_interferenceEdges.forEach([&out] (std::pair<IndexType, IndexType> edge) {
-            out.print("    ", edge.first, " -- ", edge.second, ";\n");
+            out.print("    ", TmpMapper::tmpFromAbsoluteIndex(edge.first), " -- ", TmpMapper::tmpFromAbsoluteIndex(edge.second), ";\n");
         });
         out.print("}\n");
     }
@@ -1580,13 +1581,13 @@ protected:
             dataLog("Building between ", pointerDump(prevInst), " and ", pointerDump(nextInst), ":\n");
             dataLog("Live values: [");
             for (Tmp liveTmp : localCalc.live())
-                dataLog(liveTmp, ", ");
+                dataLog(liveTmp, ":", m_tmpWidth.useWidth(liveTmp), ", ");
             dataLogLn("]");
         }
 
         Inst::forEachDefWithExtraClobberedRegs<Tmp>(
             prevInst, nextInst,
-            [&] (const Tmp& arg, Arg::Role, Bank argBank, Width) {
+            [&] (const Tmp& arg, Arg::Role, Bank argBank, Width, PreservedWidth argPreservedWidth) {
                 if (argBank != bank)
                     return;
                 
@@ -1595,10 +1596,15 @@ protected:
                 // do not need interference edges in our implementation.
                 Inst::forEachDef<Tmp>(
                     prevInst, nextInst,
-                    [&] (Tmp& otherArg, Arg::Role, Bank argBank, Width) {
+                    [&] (Tmp& otherArg, Arg::Role, Bank argBank, Width defWidth) {
                         if (argBank != bank)
                             return;
-                        
+
+                        if (defWidth <= Width64 && argPreservedWidth >= Preserves64) {
+                            dataLogLnIf(traceDebug, "Skipping def-def edge: ", arg, ", ", otherArg, " since ", arg, " preserves enough lower bits.");
+                            return;
+                        }
+
                         if (traceDebug)
                             dataLog("    Adding def-def edge: ", arg, ", ", otherArg, "\n");
                         this->addEdge(arg, otherArg);
@@ -1685,15 +1691,19 @@ protected:
         // All the Def()s interfere with everthing live.
         Inst::forEachDefWithExtraClobberedRegs<Tmp>(
             prevInst, nextInst,
-            [&] (const Tmp& arg, Arg::Role, Bank argBank, Width) {
+            [&] (const Tmp& arg, Arg::Role, Bank argBank, Width, PreservedWidth preservedArgWidth) {
                 if (argBank != bank)
                     return;
                 
-                for (Tmp liveTmp : liveTmps) {
+                for (auto liveTmp : liveTmps) {
                     ASSERT(liveTmp.isGP() == (bank == GP));
+                    Width liveTmpWidth = m_tmpWidth.useWidth(liveTmp);
 
+                    if (liveTmpWidth <= Width64 && preservedArgWidth >= Preserves64) {
+                        dataLogLnIf(traceDebug, "    Skipping def-live edge: ", arg, ", ", liveTmp, " since def preserves enough lower bits");
+                        continue;
+                    }
                     dataLogLnIf(traceDebug, "    Adding def-live edge: ", arg, ", ", liveTmp);
-                    
                     addEdge(arg, liveTmp);
                 }
                 for (const Tmp& pinnedRegTmp : m_pinnedRegs) {
@@ -1753,12 +1763,11 @@ protected:
         // Note that the input property requires an analysis over ZDef's, so it's only valid so long
         // as the input gets a register. We don't know if the input gets a register, but we do know
         // that if it doesn't get a register then we will still emit this Move32.
-        if (inst.kind.opcode == Move32) {
+        if (inst.kind.opcode == Move32 && !is32Bit()) {
             if (!tmpWidth)
                 return false;
 
-            if (tmpWidth->defWidth(inst.args[0].tmp()) > Width32
-                || tmpWidth->useWidth(inst.args[1].tmp()) > Width32)
+            if (tmpWidth->defWidth(inst.args[0].tmp()) > Width32)
                 return false;
         }
         
@@ -2222,7 +2231,7 @@ private:
 void allocateRegistersByGraphColoring(Code& code)
 {
     PhaseScope phaseScope(code, "allocateRegistersByGraphColoring");
-    
+
     if (traceDebug)
         dataLog("Code before graph coloring:\n", code);
 

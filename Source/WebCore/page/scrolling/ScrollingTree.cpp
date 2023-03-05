@@ -147,7 +147,7 @@ WheelEventHandlingResult ScrollingTree::handleWheelEvent(const PlatformWheelEven
     Locker locker { m_treeLock };
 
     if (isMonitoringWheelEvents())
-        receivedWheelEvent(wheelEvent);
+        receivedWheelEventWithPhases(wheelEvent.phase(), wheelEvent.momentumPhase());
 
     m_latchingController.receivedWheelEvent(wheelEvent, processingSteps, m_allowLatching);
 
@@ -199,9 +199,10 @@ WheelEventHandlingResult ScrollingTree::handleWheelEvent(const PlatformWheelEven
     return result;
 }
 
-WheelEventHandlingResult ScrollingTree::handleWheelEventWithNode(const PlatformWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps, ScrollingTreeNode* node, EventTargeting eventTargeting)
+WheelEventHandlingResult ScrollingTree::handleWheelEventWithNode(const PlatformWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps, ScrollingTreeNode* startingNode, EventTargeting eventTargeting)
 {
     auto adjustedWheelEvent = wheelEvent;
+    RefPtr node = startingNode;
     while (node) {
         if (is<ScrollingTreeScrollingNode>(*node)) {
             auto& scrollingNode = downcast<ScrollingTreeScrollingNode>(*node);
@@ -388,14 +389,14 @@ void ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* s
         auto parentIt = m_nodeMap.find(parentNodeID);
         ASSERT_WITH_SECURITY_IMPLICATION(parentIt != m_nodeMap.end());
         if (parentIt != m_nodeMap.end()) {
-            auto* parent = parentIt->value.get();
+            RefPtr parent = parentIt->value.get();
 
-            auto* oldParent = node->parent();
+            RefPtr oldParent = node->parent();
             if (oldParent)
                 oldParent->removeChild(*node);
 
             if (oldParent != parent)
-                node->setParent(parent);
+                node->setParent(parent.copyRef());
 
             parent->appendChild(*node);
         } else {
@@ -515,30 +516,6 @@ std::optional<ScrollingNodeID> ScrollingTree::latchedNodeID() const
 void ScrollingTree::clearLatchedNode()
 {
     m_latchingController.clearLatchedNode();
-}
-
-void ScrollingTree::receivedWheelEvent(const PlatformWheelEvent& event)
-{
-    if (m_wheelEventTestMonitor)
-        m_wheelEventTestMonitor->receivedWheelEvent(event);
-}
-
-void ScrollingTree::deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason)
-{
-    if (!m_wheelEventTestMonitor)
-        return;
-
-    LOG_WITH_STREAM(WheelEventTestMonitor, stream << "    (!) ScrollingTree::deferForReason: Deferring on " << identifier << " for reason " << reason);
-    m_wheelEventTestMonitor->deferForReason(identifier, reason);
-}
-
-void ScrollingTree::removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason)
-{
-    if (!m_wheelEventTestMonitor)
-        return;
-
-    LOG_WITH_STREAM(WheelEventTestMonitor, stream << "    (!) ScrollingTree::removeDeferralForReason: Removing deferral on " << identifier << " for reason " << reason);
-    m_wheelEventTestMonitor->removeDeferralForReason(identifier, reason);
 }
 
 FloatPoint ScrollingTree::mainFrameScrollPosition() const

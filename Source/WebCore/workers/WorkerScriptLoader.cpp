@@ -161,7 +161,8 @@ void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext& scriptExecut
     if (scriptExecutionContext.settingsValues().serviceWorkersEnabled && clientIdentifier) {
         ASSERT(m_destination == FetchOptions::Destination::Worker || m_destination == FetchOptions::Destination::Sharedworker);
         m_topOriginForServiceWorkerRegistration = SecurityOriginData { scriptExecutionContext.topOrigin().data() };
-        options.clientIdentifier = clientIdentifier;
+        options.clientIdentifier = scriptExecutionContext.identifier();
+        options.resultingClientIdentifier = clientIdentifier;
         m_serviceWorkerDataManager = ServiceWorkerDataManager::create(clientIdentifier);
         m_context = scriptExecutionContext;
 
@@ -179,7 +180,7 @@ void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext& scriptExecut
 #endif
 
     if (m_destination == FetchOptions::Destination::Sharedworker)
-        m_userAgentForSharedWorker = scriptExecutionContext.userAgent(scriptRequest.url());
+        m_userAgentForSharedWorker = scriptExecutionContext.userAgent(m_url);
 
     // During create, callbacks may happen which remove the last reference to this object.
     Ref<WorkerScriptLoader> protectedThis(*this);

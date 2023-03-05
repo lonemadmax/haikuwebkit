@@ -902,6 +902,8 @@ private:
 
             case ToNumber:
             case CallNumberConstructor: {
+                if (node->child1().useKind() != UntypedUse)
+                    break;
                 if (m_state.forNode(node->child1()).m_type & ~SpecBytecodeNumber)
                     break;
 
@@ -940,7 +942,7 @@ private:
                 else
                     radix = m_state.forNode(node->child2()).m_value;
 
-                if (!radix.isNumber())
+                if (!radix.isInt32())
                     break;
 
                 if (radix.asNumber() == 0 || radix.asNumber() == 10) {

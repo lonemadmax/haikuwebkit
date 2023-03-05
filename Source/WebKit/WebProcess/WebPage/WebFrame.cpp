@@ -48,6 +48,7 @@
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
+#include "WebRemoteFrameClient.h"
 #include "WebsitePoliciesData.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSContextRef.h>
@@ -78,6 +79,9 @@
 #include <WebCore/JSRange.h>
 #include <WebCore/Page.h>
 #include <WebCore/PluginDocument.h>
+#include <WebCore/RemoteDOMWindow.h>
+#include <WebCore/RemoteFrame.h>
+#include <WebCore/RemoteFrameView.h>
 #include <WebCore/RenderLayerCompositor.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/RenderView.h>
@@ -184,14 +188,17 @@ WebPage* WebFrame::page() const
 
 WebFrame* WebFrame::fromCoreFrame(const AbstractFrame& frame)
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(frame);
-    if (!localFrame)
-        return nullptr;
-    auto* webFrameLoaderClient = toWebFrameLoaderClient(localFrame->loader().client());
-    if (!webFrameLoaderClient)
-        return nullptr;
-
-    return &webFrameLoaderClient->webFrame();
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(frame)) {
+        auto* webFrameLoaderClient = toWebFrameLoaderClient(localFrame->loader().client());
+        if (!webFrameLoaderClient)
+            return nullptr;
+        return &webFrameLoaderClient->webFrame();
+    }
+    if (auto* remoteFrame = dynamicDowncast<RemoteFrame>(frame)) {
+        auto& client = static_cast<const WebRemoteFrameClient&>(remoteFrame->client());
+        return &client.webFrame();
+    }
+    return nullptr;
 }
 
 WebCore::Frame* WebFrame::coreFrame() const
@@ -214,6 +221,11 @@ FrameInfoData WebFrame::info() const
     };
 
     return info;
+}
+
+void WebFrame::getFrameInfo(CompletionHandler<void(FrameInfoData&&)>&& completionHandler)
+{
+    completionHandler(info());
 }
 
 WebCore::FrameIdentifier WebFrame::frameID() const
@@ -256,14 +268,57 @@ void WebFrame::continueWillSubmitForm(FormSubmitListenerIdentifier listenerID)
 
 void WebFrame::didCommitLoadInAnotherProcess()
 {
-    // FIXME: Replace m_coreFrame with a RemoteFrame.
+    RefPtr coreFrame = m_coreFrame.get();
+    if (!coreFrame)
+        return;
+
+    RefPtr webPage = m_page.get();
+    if (!webPage)
+        return;
+
+    auto* corePage = webPage->corePage();
+    if (!corePage)
+        return;
+
+    RefPtr parent = coreFrame->tree().parent();
+    if (!parent)
+        return;
+
+    auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(coreFrame.get());
+    if (!localFrame)
+        return;
+
+    auto* frameLoaderClient = this->frameLoaderClient();
+    if (!frameLoaderClient)
+        return;
+
+    auto invalidator = frameLoaderClient->takeFrameInvalidator();
+    RefPtr ownerElement = coreFrame->ownerElement();
+    auto* ownerRenderer = localFrame->ownerRenderer();
+    localFrame->setView(nullptr);
+
+    parent->tree().removeChild(*coreFrame);
+    coreFrame->disconnectOwnerElement();
+    auto client = makeUniqueRef<WebRemoteFrameClient>(*this, WTFMove(invalidator));
+
+    auto newFrame = WebCore::RemoteFrame::create(*corePage, m_frameID, ownerElement.get(), WTFMove(client));
+    auto remoteFrameView = WebCore::RemoteFrameView::create(newFrame);
+    // FIXME: We need a corresponding setView(nullptr) during teardown to break the ref cycle.
+    newFrame->setView(remoteFrameView.ptr());
+    if (ownerRenderer)
+        ownerRenderer->setWidget(remoteFrameView.ptr());
+
+    m_coreFrame = newFrame.get();
+    if (ownerElement) {
+        // FIXME: This is also done in the WebCore::Frame constructor. Move one to make this more symmetric.
+        ownerElement->setContentFrame(*m_coreFrame);
+    }
 }
 
 void WebFrame::didFinishLoadInAnotherProcess()
 {
-    // FIXME: m_coreFrame should be a RemoteFrame by now, and this should be a function on RemoteFrame.
-    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get()))
-        localFrame->didFinishLoadInAnotherProcess();
+    if (auto* remoteFrame = dynamicDowncast<WebCore::RemoteFrame>(m_coreFrame.get()))
+        remoteFrame->didFinishLoadInAnotherProcess();
 }
 
 void WebFrame::invalidatePolicyListeners()

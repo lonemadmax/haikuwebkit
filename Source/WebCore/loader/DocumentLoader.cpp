@@ -1208,8 +1208,11 @@ void DocumentLoader::commitLoad(const SharedBuffer& data)
 
 ResourceError DocumentLoader::interruptedForPolicyChangeError() const
 {
-    if (!frameLoader())
-        return {};
+    if (!frameLoader()) {
+        ResourceError error;
+        error.setType(ResourceError::Type::Cancellation);
+        return error;
+    }
 
     auto error = frameLoader()->client().interruptedForPolicyChangeError(request());
     error.setType(ResourceError::Type::Cancellation);
@@ -2183,7 +2186,7 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
         m_resultingClientId = ScriptExecutionContextIdentifier::generate();
         ASSERT(!scriptExecutionContextIdentifierToLoaderMap().contains(m_resultingClientId));
         scriptExecutionContextIdentifierToLoaderMap().add(m_resultingClientId, this);
-        mainResourceLoadOptions.clientIdentifier = m_resultingClientId;
+        mainResourceLoadOptions.resultingClientIdentifier = m_resultingClientId;
     }
 #endif
 

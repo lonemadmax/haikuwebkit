@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,7 @@
 #include "WebGPUOutOfMemoryError.h"
 #include "WebGPUPipelineLayoutDescriptor.h"
 #include "WebGPUPipelineLayoutImpl.h"
+#include "WebGPUPresentationContextImpl.h"
 #include "WebGPUQuerySetDescriptor.h"
 #include "WebGPUQuerySetImpl.h"
 #include "WebGPURenderBundleEncoderDescriptor.h"
@@ -54,10 +55,6 @@
 #include "WebGPUSamplerImpl.h"
 #include "WebGPUShaderModuleDescriptor.h"
 #include "WebGPUShaderModuleImpl.h"
-#include "WebGPUSurfaceDescriptor.h"
-#include "WebGPUSurfaceImpl.h"
-#include "WebGPUSwapChainDescriptor.h"
-#include "WebGPUSwapChainImpl.h"
 #include "WebGPUTextureDescriptor.h"
 #include "WebGPUTextureImpl.h"
 #include "WebGPUTextureViewImpl.h"
@@ -142,9 +139,9 @@ Ref<Texture> DeviceImpl::createTexture(const TextureDescriptor& descriptor)
     return TextureImpl::create(wgpuDeviceCreateTexture(backing(), &backingDescriptor), descriptor.format, descriptor.dimension, m_convertToBackingContext);
 }
 
-Ref<Texture> DeviceImpl::createSurfaceTexture(const TextureDescriptor& descriptor, const Surface& surface)
+Ref<Texture> DeviceImpl::createSurfaceTexture(const TextureDescriptor& descriptor, const PresentationContext& presentationContext)
 {
-    IOSurfaceRef ioSurface = static_cast<const SurfaceImpl&>(surface).drawingBuffer();
+    IOSurfaceRef ioSurface = static_cast<const PresentationContextImpl&>(presentationContext).drawingBuffer();
     ASSERT(ioSurface);
     auto backingTextureFormats = descriptor.viewFormats.map([&] (TextureFormat textureFormat) {
         return m_convertToBackingContext->convertToBacking(textureFormat);
@@ -162,53 +159,6 @@ Ref<Texture> DeviceImpl::createSurfaceTexture(const TextureDescriptor& descripto
     backingViewFormats.chain.next = reinterpret_cast<WGPUChainedStruct*>(&ioSurfaceDescriptor);
     WGPUTextureDescriptor backingDescriptor = createBackingDescriptor(backingViewFormats, descriptor, m_convertToBackingContext);
     return TextureImpl::create(wgpuDeviceCreateTexture(backing(), &backingDescriptor), descriptor.format, descriptor.dimension, m_convertToBackingContext);
-}
-
-static auto convertToWidthHeight(const WebGPU::Extent3D& extent3D)
-{
-    return WTF::switchOn(extent3D, [] (const Vector<PAL::WebGPU::IntegerCoordinate>& vector) {
-        return std::make_pair(vector[0], vector[1]);
-    }, [] (const WebGPU::Extent3DDict& extent3D) {
-        return std::make_pair(extent3D.width, extent3D.height);
-    });
-}
-
-Ref<Surface> DeviceImpl::createSurface(const SurfaceDescriptor& descriptor)
-{
-    auto size = convertToWidthHeight(descriptor.size);
-    auto label = descriptor.label.utf8();
-    WGPUSurfaceDescriptorCocoaCustomSurface cocoaSurface {
-        { nullptr, static_cast<WGPUSType>(WGPUSTypeExtended_SurfaceDescriptorCocoaSurfaceBacking) },
-        size.first,
-        size.second
-    };
-
-    WGPUSurfaceDescriptor surfaceDescriptor {
-        &cocoaSurface.chain,
-        label.data()
-    };
-
-    return SurfaceImpl::create(wgpuInstanceCreateSurface(nullptr, &surfaceDescriptor));
-}
-
-Ref<SwapChain> DeviceImpl::createSwapChain(const Surface& surface, const SwapChainDescriptor& descriptor)
-{
-    auto size = m_convertToBackingContext->convertToBacking(descriptor.size);
-
-    auto label = descriptor.label.utf8();
-
-    WGPUSwapChainDescriptor backingDescriptor {
-        nullptr,
-        label.data(),
-        m_convertToBackingContext->convertTextureUsageFlagsToBacking(descriptor.usage),
-        m_convertToBackingContext->convertToBacking(descriptor.format),
-        size.width,
-        size.height,
-        WGPUPresentMode_Immediate,
-    };
-
-    WGPUSurface wgpuSurface = m_convertToBackingContext->convertToBacking(surface);
-    return SwapChainImpl::create(wgpuSurface, wgpuDeviceCreateSwapChain(backing(), wgpuSurface, &backingDescriptor));
 }
 
 Ref<Sampler> DeviceImpl::createSampler(const SamplerDescriptor& descriptor)

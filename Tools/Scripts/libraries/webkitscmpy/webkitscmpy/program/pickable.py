@@ -111,19 +111,20 @@ class Pickable(Command):
     }
 
     @classmethod
-    def parser(cls, parser, loggers=None):
+    def parser(cls, parser, loggers=None, json=True):
         parser.add_argument(
             'argument', nargs=1,
             type=str, default=None,
             help='String representation of a commit, branch or range of commits to filter for cherry-pickable commits',
         )
-        parser.add_argument(
-            '--json', '-j',
-            help='Convert the commit to a machine-readable JSON object',
-            action='store_true',
-            dest='json',
-            default=False,
-        )
+        if json:
+            parser.add_argument(
+                '--json', '-j',
+                help='Convert the commit to a machine-readable JSON object',
+                action='store_true',
+                dest='json',
+                default=False,
+            )
         parser.add_argument(
             '--into', '-i',
             help='Branch to pick changes into',
@@ -179,20 +180,22 @@ class Pickable(Command):
         ))
 
         for commit in commits:
-            commits_story.add(commit)
             all_commits[str(commit)] = commit
             if any([ex(commit, repository=repository) if callable(ex) else ex.search(commit.message.splitlines()[0]) for ex in excluded]):
+                continue
+            if commit in commits_story:
                 continue
             filtered_in.add(str(commit))
 
         for ref in list(filtered_in):
             commit = all_commits[ref]
-            relationships = Trace.relationships(commit, repository, commits_story=commits_story)
+            relationships = Trace.relationships(commit, repository)
             if not relationships:
                 continue
             for rel in relationships:
                 if rel.type in Relationship.IDENTITY:
-                    filtered_in.remove(ref)
+                    if rel.commit in commits_story:
+                        filtered_in.remove(ref)
                     break
                 if rel.type in Relationship.PAIRED + Relationship.UNDO and str(rel.commit) not in filtered_in:
                     filtered_in.remove(ref)
@@ -201,7 +204,7 @@ class Pickable(Command):
         return [commit for commit in commits if str(commit) in filtered_in]
 
     @classmethod
-    def main(cls, args, repository, **kwargs):
+    def main(cls, args, repository, printer=None, **kwargs):
         if not isinstance(repository, local.Git):
             sys.stderr.write("Can only run '{}' on a native Git repository\n".format(cls.name))
             return 1
@@ -255,6 +258,10 @@ class Pickable(Command):
             story = CommitsStory()
             for commit in repository.commits(begin=dict(argument=branch_point.hash), end=dict(argument=args.into)):
                 story.add(commit)
+                relationships = Trace.relationships(commit, repository)
+                for rel in relationships or []:
+                    if rel.type in Relationship.IDENTITY:
+                        story.add(rel.commit)
 
         commits = cls.pickable(commits, repository, commits_story=story, excluded=args.excluded)
         if not commits:
@@ -271,4 +278,5 @@ class Pickable(Command):
         if filters:
             commits = [commit for commit in commits if any([f(commit) for f in filters])]
 
-        return Info.print_(args, commits, verbose_default=1)
+        printer = printer or Info.print_
+        return printer(args, commits, verbose_default=1)

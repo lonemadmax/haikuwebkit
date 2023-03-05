@@ -1,5 +1,5 @@
 # Copyright (C) 2011 Google Inc. All rights reserved.
-# Copyright (C) 2012-2019 Apple Inc. All rights reserved.
+# Copyright (C) 2012-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -225,6 +225,11 @@ class MacPort(DarwinPort):
     def default_child_processes(self, **kwargs):
         default_count = super(MacPort, self).default_child_processes()
 
+        # FIXME: arm64 Mac hardware can handle more processes than the default number we calculate.
+        # Double the amount of default workers until we implement more sophisticated test scheduling.
+        if self.architecture() == 'arm64':
+            default_count = default_count * 2
+
         # FIXME: https://bugs.webkit.org/show_bug.cgi?id=95906  With too many WebProcess WK2 tests get stuck in resource contention.
         # To alleviate the issue reduce the number of running processes
         # Anecdotal evidence suggests that a 4 core/8 core logical machine may run into this, but that a 2 core/4 core logical machine does not.
@@ -282,7 +287,7 @@ class MacPort(DarwinPort):
                     raise e
 
     def logging_patterns_to_strip(self):
-        logging_patterns = []
+        logging_patterns = super(MacPort, self).logging_patterns_to_strip()
 
         # FIXME: Remove this after <rdar://problem/35954459> is fixed.
         logging_patterns.append(('AVDCreateGPUAccelerator: Error loading GPU renderer\n', ''))
@@ -310,7 +315,7 @@ class MacPort(DarwinPort):
         return logging_detectors
 
     def stderr_patterns_to_strip(self):
-        worthless_patterns = []
+        worthless_patterns = super(MacPort, self).stderr_patterns_to_strip()
         worthless_patterns.append((re.compile('.*(Fig|fig|itemasync|vt|mv_|PullParamSetSPS|ccrp_|client).* signalled err=.*\n'), ''))
         worthless_patterns.append((re.compile('.*<<<< FigFilePlayer >>>>.*\n'), ''))
         worthless_patterns.append((re.compile('.*<<<< FigFile >>>>.*\n'), ''))

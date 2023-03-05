@@ -159,9 +159,15 @@ NSNotificationName const _WKWebExtensionErrorsWereUpdatedNotification = @"_WKWeb
     return _webExtension->manifestVersion();
 }
 
-- (BOOL)usesManifestVersion:(double)version
+- (BOOL)supportsManifestVersion:(double)version
 {
-    return _webExtension->usesManifestVersion(version);
+    return _webExtension->supportsManifestVersion(version);
+}
+
+- (NSLocale *)defaultLocale
+{
+    // FIXME: <https://webkit.org/b/246488> Handle manifest localization.
+    return nil;
 }
 
 - (NSString *)displayName
@@ -244,6 +250,11 @@ NSNotificationName const _WKWebExtensionErrorsWereUpdatedNotification = @"_WKWeb
     return _webExtension->backgroundContentIsPersistent();
 }
 
+- (BOOL)_backgroundContentIsServiceWorker
+{
+    return _webExtension->backgroundContentIsServiceWorker();
+}
+
 - (BOOL)_backgroundContentUsesModules
 {
     return _webExtension->backgroundContentUsesModules();
@@ -315,9 +326,14 @@ NSNotificationName const _WKWebExtensionErrorsWereUpdatedNotification = @"_WKWeb
     return 0;
 }
 
-- (BOOL)usesManifestVersion:(double)version
+- (BOOL)supportsManifestVersion:(double)version
 {
     return NO;
+}
+
+- (NSLocale *)defaultLocale
+{
+    return nil;
 }
 
 - (NSString *)displayName
@@ -396,6 +412,11 @@ NSNotificationName const _WKWebExtensionErrorsWereUpdatedNotification = @"_WKWeb
 }
 
 - (BOOL)backgroundContentIsPersistent
+{
+    return NO;
+}
+
+- (BOOL)_backgroundContentIsServiceWorker
 {
     return NO;
 }

@@ -164,6 +164,7 @@ static CalculationCategory resolvedTypeForMinOrMaxOrClamp(CalculationCategory ca
     case CalculationCategory::Angle:
     case CalculationCategory::Time:
     case CalculationCategory::Frequency:
+    case CalculationCategory::Resolution:
     case CalculationCategory::Other:
         return category;
 
@@ -201,6 +202,7 @@ static SortingCategory sortingCategoryForType(CSSUnitType unitType)
         SortingCategory::Dimension,     // CalculationCategory::Angle,
         SortingCategory::Dimension,     // CalculationCategory::Time,
         SortingCategory::Dimension,     // CalculationCategory::Frequency,
+        SortingCategory::Dimension,     // CalculationCategory::Resolution,
         SortingCategory::Other,         // UOther
     };
 
@@ -1006,6 +1008,7 @@ CSSUnitType CSSCalcOperationNode::primitiveType() const
     case CalculationCategory::Angle:
     case CalculationCategory::Time:
     case CalculationCategory::Frequency:
+    case CalculationCategory::Resolution:
         if (m_children.size() == 1 && !isInverseTrigNode())
             return m_children.first()->primitiveType();
         return canonicalUnitTypeForCalculationCategory(unitCategory);
@@ -1069,16 +1072,10 @@ double CSSCalcOperationNode::computeLengthPx(const CSSToLengthConversionData& co
     }));
 }
 
-void CSSCalcOperationNode::collectDirectComputationalDependencies(HashSet<CSSPropertyID>& values) const
+void CSSCalcOperationNode::collectComputedStyleDependencies(ComputedStyleDependencies& dependencies) const
 {
     for (auto& child : m_children)
-        child->collectDirectComputationalDependencies(values);
-}
-
-void CSSCalcOperationNode::collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>& values) const
-{
-    for (auto& child : m_children)
-        child->collectDirectRootComputationalDependencies(values);
+        child->collectComputedStyleDependencies(dependencies);
 }
 
 bool CSSCalcOperationNode::convertingToLengthRequiresNonNullStyle(int lengthConversion) const

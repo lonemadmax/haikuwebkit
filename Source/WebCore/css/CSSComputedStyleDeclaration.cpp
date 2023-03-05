@@ -37,7 +37,7 @@
 #include "RenderBox.h"
 #include "RenderBoxModelObject.h"
 #include "RenderStyle.h"
-#include "StyleProperties.h"
+#include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
 #include "StyleScope.h"
 #include <wtf/IsoMallocInlines.h>
@@ -162,6 +162,11 @@ CSSRule* CSSComputedStyleDeclaration::parentRule() const
     return nullptr;
 }
 
+CSSRule* CSSComputedStyleDeclaration::cssRules() const
+{
+    return nullptr;
+}
+
 RefPtr<DeprecatedCSSOMValue> CSSComputedStyleDeclaration::getPropertyCSSValue(const String& propertyName)
 {
     if (isCustomPropertyName(propertyName)) {
@@ -217,11 +222,6 @@ ExceptionOr<String> CSSComputedStyleDeclaration::removeProperty(const String&)
     return Exception { NoModificationAllowedError };
 }
     
-RefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValueInternal(CSSPropertyID propertyID)
-{
-    return getPropertyCSSValue(propertyID);
-}
-
 String CSSComputedStyleDeclaration::getPropertyValueInternal(CSSPropertyID propertyID)
 {
     return getPropertyValue(propertyID);

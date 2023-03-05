@@ -28,6 +28,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "DisplayListRecorderFlushIdentifier.h"
+#include "SharedVideoFrame.h"
 #include <WebCore/DisplayListRecorder.h>
 #include <WebCore/DrawGlyphsRecorder.h>
 #include <WebCore/GraphicsContext.h>
@@ -50,6 +51,7 @@ public:
     void convertToLuminanceMask() final;
     void transformToColorSpace(const WebCore::DestinationColorSpace&) final;
     void flushContext(DisplayListRecorderFlushIdentifier);
+    void disconnect();
 
 private:
     template<typename T> void send(T&& message);
@@ -94,8 +96,8 @@ private:
     void recordDrawDotsForDocumentMarker(const WebCore::FloatRect&, const WebCore::DocumentMarkerLineStyle&) final;
     void recordDrawEllipse(const WebCore::FloatRect&) final;
     void recordDrawPath(const WebCore::Path&) final;
-    void recordDrawFocusRingPath(const WebCore::Path&, float width, float offset, const WebCore::Color&) final;
-    void recordDrawFocusRingRects(const Vector<WebCore::FloatRect>&, float width, float offset, const WebCore::Color&) final;
+    void recordDrawFocusRingPath(const WebCore::Path&, float outlineWidth, const WebCore::Color&) final;
+    void recordDrawFocusRingRects(const Vector<WebCore::FloatRect>&, float outlineOffset, float outlineWidth, const WebCore::Color&) final;
     void recordFillRect(const WebCore::FloatRect&) final;
     void recordFillRectWithColor(const WebCore::FloatRect&, const WebCore::Color&) final;
     void recordFillRectWithGradient(const WebCore::FloatRect&, WebCore::Gradient&) final;
@@ -110,7 +112,10 @@ private:
 #endif
     void recordFillPath(const WebCore::Path&) final;
     void recordFillEllipse(const WebCore::FloatRect&) final;
+#if ENABLE(VIDEO)
     void recordPaintFrameForMedia(WebCore::MediaPlayer&, const WebCore::FloatRect& destination) final;
+    void recordPaintVideoFrame(WebCore::VideoFrame&, const WebCore::FloatRect&, bool shouldDiscardAlpha) final;
+#endif
     void recordStrokeRect(const WebCore::FloatRect&, float) final;
 #if ENABLE(INLINE_PATH_DATA)
     void recordStrokeLine(const WebCore::LineData&) final;
@@ -122,6 +127,7 @@ private:
     void recordStrokePath(const WebCore::Path&) final;
     void recordStrokeEllipse(const WebCore::FloatRect&) final;
     void recordClearRect(const WebCore::FloatRect&) final;
+    void recordDrawControlPart(WebCore::ControlPart&, const WebCore::FloatRoundedRect& borderRect, float deviceScaleFactor, const WebCore::ControlStyle&) final;
 #if USE(CG)
     void recordApplyStrokePattern() final;
     void recordApplyFillPattern() final;
@@ -142,6 +148,9 @@ private:
     WebCore::RenderingResourceIdentifier m_destinationBufferIdentifier;
     WeakPtr<RemoteImageBufferProxy> m_imageBuffer;
     WeakPtr<RemoteRenderingBackendProxy> m_renderingBackend;
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+    SharedVideoFrameWriter m_sharedVideoFrameWriter;
+#endif
 };
 
 } // namespace WebKit

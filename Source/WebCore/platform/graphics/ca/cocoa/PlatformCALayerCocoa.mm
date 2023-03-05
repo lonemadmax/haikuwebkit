@@ -313,10 +313,10 @@ void PlatformCALayerCocoa::commonInit()
         m_customSublayers = makeUnique<PlatformCALayerList>(tileController->containerLayers());
     }
 
-#if HAVE(CALAYER_ALLOWS_SORTS_SUBLAYERS)
-    if (m_owner && m_owner->platformCALayerUseCSS3DTransformInteroperability() && [m_layer respondsToSelector:@selector(setAllowsSortsSublayers:)]) {
+#if HAVE(CALAYER_USES_WEBKIT_BEHAVIOR)
+    if (m_owner && m_owner->platformCALayerUseCSS3DTransformInteroperability() && [m_layer respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
+        [m_layer setUsesWebKitBehavior:YES];
         if (m_layerType == LayerTypeTransformLayer) {
-            [m_layer setAllowsSortsSublayers:YES];
             [m_layer setSortsSublayers:YES];
         } else
             [m_layer setSortsSublayers:NO];
@@ -882,9 +882,9 @@ bool PlatformCALayerCocoa::filtersCanBeComposited(const FilterOperations& filter
     for (unsigned i = 0; i < filters.size(); ++i) {
         const FilterOperation* filterOperation = filters.at(i);
         switch (filterOperation->type()) {
-        case FilterOperation::REFERENCE:
+        case FilterOperation::Type::Reference:
             return false;
-        case FilterOperation::DROP_SHADOW:
+        case FilterOperation::Type::DropShadow:
             // FIXME: For now we can only handle drop-shadow is if it's last in the list
             if (i < (filters.size() - 1))
                 return false;
@@ -932,6 +932,9 @@ float PlatformCALayerCocoa::contentsScale() const
 
 void PlatformCALayerCocoa::setContentsScale(float value)
 {
+    if (m_layerType == LayerTypeTransformLayer)
+        return;
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_layer setContentsScale:value];
     [m_layer setRasterizationScale:value];

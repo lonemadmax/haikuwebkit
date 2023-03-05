@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "CPU.h"
+
 #include <wtf/PrintStream.h>
 
 namespace JSC {
@@ -41,6 +43,13 @@ static constexpr Width Width16 = Width::Width16;
 static constexpr Width Width32 = Width::Width32;
 static constexpr Width Width64 = Width::Width64;
 static constexpr Width Width128 = Width::Width128;
+
+enum class PreservedWidth : uint8_t {
+    PreservesNothing = 0,
+    Preserves64 = 1,
+};
+static constexpr PreservedWidth PreservesNothing = PreservedWidth::PreservesNothing;
+static constexpr PreservedWidth Preserves64 = PreservedWidth::Preserves64;
 
 ALWAYS_INLINE constexpr Width widthForBytes(unsigned bytes)
 {
@@ -120,7 +129,14 @@ inline constexpr uint64_t mask(Width width)
 
 constexpr Width pointerWidth()
 {
-    if (sizeof(void*) == 8)
+    if (isAddress64Bit())
+        return Width64;
+    return Width32;
+}
+
+constexpr Width registerWidth()
+{
+    if (isRegister64Bit())
         return Width64;
     return Width32;
 }

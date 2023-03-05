@@ -90,7 +90,7 @@ class WTF::Seconds {
     double value
 }
 
-[Alias=RectEdges<float>] alias WebCore::FloatBoxExtent {
+[Alias=class ScrollSnapOffsetsInfo<float,double>] alias WebCore::FloatBoxExtent {
     float top()
     float right()
     float bottom()
@@ -101,3 +101,12 @@ struct NullableSoftLinkedMember {
     [Nullable, SoftLinkedClass='PAL::getDDActionContextClass()'] RetainPtr<DDActionContext> firstMember;
     [SoftLinkedClass='PAL::getDDActionContextClass()'] RetainPtr<DDActionContext> secondMember;
 }
+
+[RefCounted] class WebCore::TimingFunction subclasses {
+  WebCore::LinearTimingFunction,
+  WebCore::CubicBezierTimingFunction,
+  WebCore::StepsTimingFunction,
+  WebCore::SpringTimingFunction
+}
+
+using WebCore::SharedStringHash = uint32_t

@@ -528,7 +528,10 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaFlowToElementAtIndex(
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaControlsElementAtIndex(unsigned index)
 {
-    return elementForAttributeAtIndex(@"AXARIAControls", index);
+    // Per spec, aria-controls is exposed via AXLinkedUIElements on the Mac.
+    // Note that a few other things are exposed via AXLinkedUIElements (aria-flowto), so this function
+    // may provide unexpected results for tests that use a combination of these attributes.
+    return linkedUIElementAtIndex(index);
 }
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaDetailsElementAtIndex(unsigned index)
@@ -1064,13 +1067,7 @@ bool AccessibilityUIElement::isSelectedOptionActive() const
 
 bool AccessibilityUIElement::isIndeterminate() const
 {
-    BEGIN_AX_OBJC_EXCEPTIONS
-    auto value = attributeValue(NSAccessibilityValueAttribute);
-    if ([value isKindOfClass:[NSNumber class]])
-        return [value intValue] == 2;
-    END_AX_OBJC_EXCEPTIONS
-
-    return false;
+    return boolAttributeValue(@"AXIsIndeterminate");
 }
 
 bool AccessibilityUIElement::isExpanded() const
@@ -1773,6 +1770,36 @@ bool AccessibilityUIElement::hasDocumentRoleAncestor() const
 bool AccessibilityUIElement::hasWebApplicationAncestor() const
 {
     return boolAttributeValue(@"AXHasWebApplicationAncestor");
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::focusableAncestor()
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    if (id ancestor = attributeValue(@"AXFocusableAncestor").get())
+        return AccessibilityUIElement::create(ancestor);
+    END_AX_OBJC_EXCEPTIONS
+
+    return nullptr;
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::editableAncestor()
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    if (id ancestor = attributeValue(@"AXEditableAncestor").get())
+        return AccessibilityUIElement::create(ancestor);
+    END_AX_OBJC_EXCEPTIONS
+
+    return nullptr;
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::highestEditableAncestor()
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    if (id ancestor = attributeValue(@"AXHighestEditableAncestor").get())
+        return AccessibilityUIElement::create(ancestor);
+    END_AX_OBJC_EXCEPTIONS
+
+    return nullptr;
 }
 
 bool AccessibilityUIElement::isInDescriptionListDetail() const

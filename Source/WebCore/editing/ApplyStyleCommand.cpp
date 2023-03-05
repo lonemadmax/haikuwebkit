@@ -427,7 +427,7 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(EditingStyle* style)
             currentFontSize = computedFontSize(node.get());
         }
         if (currentFontSize != desiredFontSize) {
-            inlineStyle->setProperty(CSSPropertyFontSize, CSSValuePool::singleton().createValue(desiredFontSize, CSSUnitType::CSS_PX), false);
+            inlineStyle->setProperty(CSSPropertyFontSize, CSSPrimitiveValue::create(desiredFontSize, CSSUnitType::CSS_PX), false);
             setNodeAttribute(*element, styleAttr, inlineStyle->asTextAtom());
         }
         if (inlineStyle->isEmpty()) {
@@ -589,6 +589,8 @@ void ApplyStyleCommand::applyInlineStyle(EditingStyle& style)
             splitTextAtStart(start, end);
         start = startPosition();
         end = endPosition();
+        if (start.isNull() || end.isNull())
+            return;
         startDummySpanAncestor = dummySpanAncestorForNode(start.deprecatedNode());
     }
 
@@ -601,6 +603,8 @@ void ApplyStyleCommand::applyInlineStyle(EditingStyle& style)
             splitTextAtEnd(start, end);
         start = startPosition();
         end = endPosition();
+        if (start.isNull() || end.isNull())
+            return;
         endDummySpanAncestor = dummySpanAncestorForNode(end.deprecatedNode());
     }
 
@@ -1259,6 +1263,8 @@ bool ApplyStyleCommand::shouldSplitTextElement(Element* element, EditingStyle& s
 
 bool ApplyStyleCommand::isValidCaretPositionInTextNode(const Position& position)
 {
+    ASSERT(position.isNotNull());
+    
     Node* node = position.containerNode();
     if (position.anchorType() != Position::PositionIsOffsetInAnchor || !is<Text>(node))
         return false;

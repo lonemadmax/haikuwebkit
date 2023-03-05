@@ -108,9 +108,11 @@ private:
         void didFinishDocumentLoad(WebPageProxy&, API::Navigation*, API::Object*) override;
         void didFinishNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
         void didFinishLoadForFrame(WebPageProxy&, WebCore::ResourceRequest&&, FrameInfoData&&) override;
+        void didFailLoadDueToNetworkConnectionIntegrity(WebPageProxy&, const URL&) override;
         void didFailNavigationWithError(WebPageProxy&, const FrameInfoData&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
         void didFailLoadWithErrorForFrame(WebPageProxy&, WebCore::ResourceRequest&&, const WebCore::ResourceError&, FrameInfoData&&) override;
         void didSameDocumentNavigation(WebPageProxy&, API::Navigation*, SameDocumentNavigationType, API::Object*) override;
+        void didChangeLookalikeCharacters(WebPageProxy&, const URL&, const URL&) override;
 
         void renderingProgressDidChange(WebPageProxy&, OptionSet<WebCore::LayoutMilestone>) override;
 
@@ -225,6 +227,8 @@ private:
         bool webViewDidFailNavigationWithErrorUserInfo : 1;
         bool webViewDidFailLoadWithRequestInFrameWithError : 1;
         bool webViewNavigationDidSameDocumentNavigation : 1;
+        bool webViewDidFailLoadDueToNetworkConnectionIntegrityWithURL : 1;
+        bool webViewDidChangeLookalikeCharactersFromURLToURL : 1;
 
         bool webViewRenderingProgressDidChange : 1;
         bool webViewDidReceiveAuthenticationChallengeCompletionHandler : 1;
@@ -273,7 +277,7 @@ private:
 
 #if USE(RUNNINGBOARD)
     std::unique_ptr<ProcessThrottler::BackgroundActivity> m_networkActivity;
-    RunLoop::Timer<NavigationState> m_releaseNetworkActivityTimer;
+    RunLoop::Timer m_releaseNetworkActivityTimer;
 #endif
 };
 

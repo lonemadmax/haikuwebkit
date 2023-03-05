@@ -67,12 +67,18 @@ static void checkVec4F32Type(WGSL::AST::TypeDecl& type)
 
 namespace TestWGSLAPI {
 
-TEST(WGSLParserTests, Struct)
+inline Expected<WGSL::AST::ShaderModule, WGSL::Error> parse(const String& wgsl)
 {
-    auto shader = WGSL::parseLChar(
-        "struct B {\n"
-        "    a: i32;\n"
-        "}"_s);
+    WGSL::Configuration configuration;
+    configuration.maxBuffersPlusVertexBuffersForVertexStage = 8;
+    return WGSL::parseLChar(wgsl, configuration);
+}
+
+static void testStruct(ASCIILiteral program, const Vector<String>& fieldNames, const Vector<String>& typeNames)
+{
+    ASSERT(fieldNames.size() == typeNames.size());
+
+    auto shader = parse(program);
 
     EXPECT_SHADER(shader);
     EXPECT_TRUE(shader.has_value());
@@ -83,17 +89,86 @@ TEST(WGSLParserTests, Struct)
     auto& str = shader->structs()[0];
     EXPECT_EQ(str.name(), "B"_s);
     EXPECT_TRUE(str.attributes().isEmpty());
-    EXPECT_EQ(str.members().size(), 1u);
-    EXPECT_TRUE(str.members()[0].attributes().isEmpty());
-    EXPECT_EQ(str.members()[0].name(), "a"_s);
-    EXPECT_TRUE(is<WGSL::AST::NamedType>(str.members()[0].type()));
-    auto& memberType = downcast<WGSL::AST::NamedType>(str.members()[0].type());
-    EXPECT_EQ(memberType.name(), "i32"_s);
+
+    EXPECT_EQ(str.members().size(), fieldNames.size());
+    for (unsigned i = 0; i < fieldNames.size(); ++i) {
+        EXPECT_TRUE(str.members()[i].attributes().isEmpty());
+        EXPECT_EQ(str.members()[i].name(), fieldNames[i]);
+        EXPECT_TRUE(is<WGSL::AST::NamedType>(str.members()[i].type()));
+        auto& memberType = downcast<WGSL::AST::NamedType>(str.members()[i].type());
+        EXPECT_EQ(memberType.name(), typeNames[i]);
+    }
+}
+
+TEST(WGSLParserTests, SourceLifecycle)
+{
+    Expected<WGSL::AST::ShaderModule, WGSL::Error> shader = ([&]() {
+        auto source = makeString(
+            "@group(0)"_s,
+            " "_s,
+            "@binding(0)"_s,
+            "var<storage, read_write>"_s,
+            " "_s,
+            "x: B;"_s
+        );
+        return parse(source);
+    })();
+
+    EXPECT_SHADER(shader);
+    EXPECT_TRUE(shader.has_value());
+    EXPECT_TRUE(shader->directives().isEmpty());
+    EXPECT_TRUE(shader->structs().isEmpty());
+    EXPECT_EQ(shader->globalVars().size(), 1u);
+    EXPECT_TRUE(shader->functions().isEmpty());
+    auto& var = shader->globalVars()[0];
+    EXPECT_EQ(var.attributes().size(), 2u);
+    EXPECT_TRUE(is<WGSL::AST::GroupAttribute>(var.attributes()[0].get()));
+    EXPECT_FALSE(downcast<WGSL::AST::GroupAttribute>(var.attributes()[0].get()).group());
+    EXPECT_TRUE(is<WGSL::AST::BindingAttribute>(var.attributes()[1].get()));
+    EXPECT_FALSE(downcast<WGSL::AST::BindingAttribute>(var.attributes()[1].get()).binding());
+    EXPECT_EQ(var.name(), "x"_s);
+    EXPECT_TRUE(var.maybeQualifier());
+    EXPECT_EQ(var.maybeQualifier()->storageClass(), WGSL::AST::StorageClass::Storage);
+    EXPECT_EQ(var.maybeQualifier()->accessMode(), WGSL::AST::AccessMode::ReadWrite);
+    EXPECT_TRUE(var.maybeTypeDecl());
+    EXPECT_TRUE(is<WGSL::AST::NamedType>(var.maybeTypeDecl()));
+    auto& namedType = downcast<WGSL::AST::NamedType>(*var.maybeTypeDecl());
+    EXPECT_EQ(namedType.name(), "B"_s);
+    EXPECT_FALSE(var.maybeInitializer());
+}
+
+TEST(WGSLParserTests, Struct)
+{
+    // 1 field, without trailing comma
+    testStruct(
+        "struct B {\n"
+        "    a: i32\n"
+        "}"_s, { "a"_s }, { "i32"_s });
+
+    // 1 field, with trailing comma
+    testStruct(
+        "struct B {\n"
+        "    a: i32,\n"
+        "}"_s, { "a"_s }, { "i32"_s });
+
+    // 2 fields, without trailing comma
+    testStruct(
+        "struct B {\n"
+        "    a: i32,\n"
+        "    b: f32\n"
+        "}"_s, { "a"_s, "b"_s }, { "i32"_s, "f32"_s });
+
+    // 2 fields, with trailing comma
+    testStruct(
+        "struct B {\n"
+        "    a: i32,\n"
+        "    b: f32,\n"
+        "}"_s, { "a"_s, "b"_s }, { "i32"_s, "f32"_s });
 }
 
 TEST(WGSLParserTests, GlobalVariable)
 {
-    auto shader = WGSL::parseLChar(
+    auto shader = parse(
         "@group(0) @binding(0)\n"
         "var<storage, read_write> x: B;\n"_s);
 
@@ -105,10 +180,10 @@ TEST(WGSLParserTests, GlobalVariable)
     EXPECT_TRUE(shader->functions().isEmpty());
     auto& var = shader->globalVars()[0];
     EXPECT_EQ(var.attributes().size(), 2u);
-    EXPECT_TRUE(is<WGSL::AST::GroupAttribute>(var.attributes()[0]));
-    EXPECT_FALSE(downcast<WGSL::AST::GroupAttribute>(var.attributes()[0]).group());
-    EXPECT_TRUE(is<WGSL::AST::BindingAttribute>(var.attributes()[1]));
-    EXPECT_FALSE(downcast<WGSL::AST::BindingAttribute>(var.attributes()[1]).binding());
+    EXPECT_TRUE(is<WGSL::AST::GroupAttribute>(var.attributes()[0].get()));
+    EXPECT_FALSE(downcast<WGSL::AST::GroupAttribute>(var.attributes()[0].get()).group());
+    EXPECT_TRUE(is<WGSL::AST::BindingAttribute>(var.attributes()[1].get()));
+    EXPECT_FALSE(downcast<WGSL::AST::BindingAttribute>(var.attributes()[1].get()).binding());
     EXPECT_EQ(var.name(), "x"_s);
     EXPECT_TRUE(var.maybeQualifier());
     EXPECT_EQ(var.maybeQualifier()->storageClass(), WGSL::AST::StorageClass::Storage);
@@ -122,7 +197,7 @@ TEST(WGSLParserTests, GlobalVariable)
 
 TEST(WGSLParserTests, FunctionDecl)
 {
-    auto shader = WGSL::parseLChar(
+    auto shader = parse(
         "@compute\n"
         "fn main() {\n"
         "    x.a = 42i;\n"
@@ -136,8 +211,8 @@ TEST(WGSLParserTests, FunctionDecl)
     EXPECT_EQ(shader->functions().size(), 1u);
     auto& func = shader->functions()[0];
     EXPECT_EQ(func.attributes().size(), 1u);
-    EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0]));
-    EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0]).stage(), WGSL::AST::StageAttribute::Stage::Compute);
+    EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0].get()));
+    EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0].get()).stage(), WGSL::AST::StageAttribute::Stage::Compute);
     EXPECT_EQ(func.name(), "main"_s);
     EXPECT_TRUE(func.parameters().isEmpty());
     EXPECT_TRUE(func.returnAttributes().isEmpty());
@@ -159,7 +234,7 @@ TEST(WGSLParserTests, FunctionDecl)
 
 TEST(WGSLParserTests, TrivialGraphicsShader)
 {
-    auto shader = WGSL::parseLChar(
+    auto shader = parse(
         "@vertex\n"
         "fn vertexShader(@location(0) x: vec4<f32>) -> @builtin(position) vec4<f32> {\n"
         "    return x;\n"
@@ -179,21 +254,21 @@ TEST(WGSLParserTests, TrivialGraphicsShader)
     {
         auto& func = shader->functions()[0];
         EXPECT_EQ(func.attributes().size(), 1u);
-        EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0]));
-        EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0]).stage(), WGSL::AST::StageAttribute::Stage::Vertex);
+        EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0].get()));
+        EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0].get()).stage(), WGSL::AST::StageAttribute::Stage::Vertex);
         EXPECT_EQ(func.name(), "vertexShader"_s);
         EXPECT_EQ(func.parameters().size(), 1u);
         EXPECT_EQ(func.parameters()[0].name(), "x"_s);
         EXPECT_EQ(func.parameters()[0].attributes().size(), 1u);
-        EXPECT_TRUE(is<WGSL::AST::LocationAttribute>(func.parameters()[0].attributes()[0]));
-        EXPECT_EQ(downcast<WGSL::AST::LocationAttribute>(func.parameters()[0].attributes()[0]).location(), 0U);
+        EXPECT_TRUE(is<WGSL::AST::LocationAttribute>(func.parameters()[0].attributes()[0].get()));
+        EXPECT_EQ(downcast<WGSL::AST::LocationAttribute>(func.parameters()[0].attributes()[0].get()).location(), 0U);
         EXPECT_TRUE(is<WGSL::AST::ParameterizedType>(func.parameters()[0].type()));
         auto& paramType = downcast<WGSL::AST::ParameterizedType>(func.parameters()[0].type());
         EXPECT_EQ(paramType.base(), WGSL::AST::ParameterizedType::Base::Vec4);
         EXPECT_TRUE(is<WGSL::AST::NamedType>(paramType.elementType()));
         EXPECT_EQ(downcast<WGSL::AST::NamedType>(paramType.elementType()).name(), "f32"_s);
         EXPECT_EQ(func.returnAttributes().size(), 1u);
-        checkBuiltin(func.returnAttributes()[0], "position"_s);
+        checkBuiltin(func.returnAttributes()[0].get(), "position"_s);
         EXPECT_TRUE(func.maybeReturnType());
         EXPECT_TRUE(is<WGSL::AST::ParameterizedType>(func.maybeReturnType()));
         EXPECT_EQ(func.body().statements().size(), 1u);
@@ -206,13 +281,13 @@ TEST(WGSLParserTests, TrivialGraphicsShader)
     {
         auto& func = shader->functions()[1];
         EXPECT_EQ(func.attributes().size(), 1u);
-        EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0]));
-        EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0]).stage(), WGSL::AST::StageAttribute::Stage::Fragment);
+        EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0].get()));
+        EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0].get()).stage(), WGSL::AST::StageAttribute::Stage::Fragment);
         EXPECT_EQ(func.name(), "fragmentShader"_s);
         EXPECT_TRUE(func.parameters().isEmpty());
         EXPECT_EQ(func.returnAttributes().size(), 1u);
-        EXPECT_TRUE(is<WGSL::AST::LocationAttribute>(func.returnAttributes()[0]));
-        EXPECT_FALSE(downcast<WGSL::AST::LocationAttribute>(func.returnAttributes()[0]).location());
+        EXPECT_TRUE(is<WGSL::AST::LocationAttribute>(func.returnAttributes()[0].get()));
+        EXPECT_FALSE(downcast<WGSL::AST::LocationAttribute>(func.returnAttributes()[0].get()).location());
         EXPECT_TRUE(func.maybeReturnType());
         EXPECT_TRUE(is<WGSL::AST::ParameterizedType>(func.maybeReturnType()));
         EXPECT_EQ(func.body().statements().size(), 1u);
@@ -235,7 +310,7 @@ TEST(WGSLParserTests, TrivialGraphicsShader)
 
 TEST(WGSLParserTests, LocalVariable)
 {
-    auto shader = WGSL::parseLChar(
+    auto shader = parse(
         "@vertex\n"
         "fn main() -> vec4<f32> {\n"
         "    var x = vec4<f32>(0.4, 0.4, 0.8, 1.0);\n"
@@ -253,8 +328,8 @@ TEST(WGSLParserTests, LocalVariable)
         auto& func = shader->functions()[0];
         // @vertex
         EXPECT_EQ(func.attributes().size(), 1u);
-        EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0]));
-        EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0]).stage(), WGSL::AST::StageAttribute::Stage::Vertex);
+        EXPECT_TRUE(is<WGSL::AST::StageAttribute>(func.attributes()[0].get()));
+        EXPECT_EQ(downcast<WGSL::AST::StageAttribute>(func.attributes()[0].get()).stage(), WGSL::AST::StageAttribute::Stage::Vertex);
 
         // fn main() -> vec4<f32> {
         EXPECT_EQ(func.name(), "main"_s);
@@ -296,7 +371,7 @@ TEST(WGSLParserTests, LocalVariable)
 
 TEST(WGSLParserTests, ArrayAccess)
 {
-    auto shader = WGSL::parseLChar("fn test() { return x[42i]; }"_s);
+    auto shader = parse("fn test() { return x[42i]; }"_s);
 
     EXPECT_SHADER(shader);
     EXPECT_TRUE(shader.has_value());
@@ -331,7 +406,7 @@ TEST(WGSLParserTests, ArrayAccess)
 
 TEST(WGSLParserTests, UnaryExpression)
 {
-    auto shader = WGSL::parseLChar(
+    auto shader = parse(
         "fn negate(x: f32) -> f32 {\n"
         "    return -x;\n"
         "}"_s);
@@ -369,12 +444,56 @@ TEST(WGSLParserTests, UnaryExpression)
     }
 }
 
+TEST(WGSLParserTests, BinaryExpression)
+{
+    auto shader = parse(
+        "fn add(x: f32, y: f32) -> f32 {\n"
+        "    return x + y;\n"
+        "}"_s);
+
+    EXPECT_SHADER(shader);
+    EXPECT_TRUE(shader.has_value());
+    EXPECT_TRUE(shader->directives().isEmpty());
+    EXPECT_TRUE(shader->structs().isEmpty());
+    EXPECT_TRUE(shader->globalVars().isEmpty());
+    EXPECT_EQ(shader->functions().size(), 1u);
+
+    {
+        auto& func = shader->functions()[0];
+        EXPECT_TRUE(func.attributes().isEmpty());
+
+        // fn add(x: f32, y: f32) -> f32 {
+        EXPECT_EQ(func.name(), "add"_s);
+        EXPECT_EQ(func.parameters().size(), 2u);
+        EXPECT_TRUE(func.returnAttributes().isEmpty());
+        EXPECT_TRUE(func.maybeReturnType());
+        EXPECT_TRUE(is<WGSL::AST::NamedType>(func.maybeReturnType()));
+
+        EXPECT_EQ(func.body().statements().size(), 1u);
+
+        // return x + y;
+        EXPECT_TRUE(is<WGSL::AST::ReturnStatement>(func.body().statements()[0]));
+        auto& retStmt = downcast<WGSL::AST::ReturnStatement>(func.body().statements()[0]);
+        EXPECT_TRUE(retStmt.maybeExpression());
+        EXPECT_TRUE(is<WGSL::AST::BinaryExpression>(retStmt.maybeExpression()));
+        auto& binaryExpression = downcast<WGSL::AST::BinaryExpression>(*retStmt.maybeExpression());
+        EXPECT_EQ(binaryExpression.operation(), WGSL::AST::BinaryOperation::Add);
+
+        EXPECT_TRUE(is<WGSL::AST::IdentifierExpression>(binaryExpression.lhs()));
+        auto& lhs = downcast<WGSL::AST::IdentifierExpression>(binaryExpression.lhs());
+        EXPECT_EQ(lhs.identifier(), "x"_s);
+
+        EXPECT_TRUE(is<WGSL::AST::IdentifierExpression>(binaryExpression.rhs()));
+        auto& rhs = downcast<WGSL::AST::IdentifierExpression>(binaryExpression.rhs());
+        EXPECT_EQ(rhs.identifier(), "y"_s);
+    }
+}
 #pragma mark -
 #pragma mark WebGPU Example Shaders
 
 TEST(WGSLParserTests, TriangleVert)
 {
-    auto shader = WGSL::parseLChar(
+    auto shader = parse(
         "@vertex\n"
         "fn main(\n"
         "    @builtin(vertex_index) VertexIndex : u32\n"
@@ -407,7 +526,7 @@ TEST(WGSLParserTests, TriangleVert)
         EXPECT_TRUE(func.maybeReturnType());
         checkVec4F32Type(*func.maybeReturnType());
         EXPECT_EQ(func.returnAttributes().size(), 1u);
-        checkBuiltin(func.returnAttributes()[0], "position"_s);
+        checkBuiltin(func.returnAttributes()[0].get(), "position"_s);
     }
 
     // var pos = array<vec2<f32>, 3>(...);
@@ -449,7 +568,7 @@ TEST(WGSLParserTests, TriangleVert)
 
 TEST(WGSLParserTests, RedFrag)
 {
-    auto shader = WGSL::parseLChar(
+    auto shader = parse(
         "@fragment\n"
         "fn main() -> @location(0) vec4<f32> {\n"
         "    return vec4<f32>(1.0, 0.0, 0.0, 1.0);\n"

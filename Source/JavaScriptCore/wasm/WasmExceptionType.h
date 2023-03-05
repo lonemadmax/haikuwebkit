@@ -53,7 +53,10 @@ namespace Wasm {
     macro(NullArrayGet, "array.get to a null reference"_s) \
     macro(NullArraySet, "array.set to a null reference"_s) \
     macro(NullArrayLen, "array.len to a null reference"_s) \
-    macro(TypeErrorInvalidV128Use, "an exported wasm function cannot contain a v128 parameter or return value"_s)
+    macro(NullStructGet, "struct.get to a null reference"_s) \
+    macro(NullStructSet, "struct.set to a null reference"_s) \
+    macro(TypeErrorInvalidV128Use, "an exported wasm function cannot contain a v128 parameter or return value"_s) \
+    macro(NullRefAsNonNull, "ref.as_non_null to a null reference"_s)
 
 enum class ExceptionType : uint32_t {
 #define MAKE_ENUM(enumName, error) enumName,
@@ -76,7 +79,34 @@ ALWAYS_INLINE ASCIILiteral errorMessageForExceptionType(ExceptionType type)
 
 ALWAYS_INLINE bool isTypeErrorExceptionType(ExceptionType type)
 {
-    return type == ExceptionType::TypeErrorInvalidV128Use;
+    switch (type) {
+    case ExceptionType::OutOfBoundsMemoryAccess:
+    case ExceptionType::OutOfBoundsTableAccess:
+    case ExceptionType::OutOfBoundsCallIndirect:
+    case ExceptionType::NullTableEntry:
+    case ExceptionType::NullReference:
+    case ExceptionType::NullI31Get:
+    case ExceptionType::BadSignature:
+    case ExceptionType::OutOfBoundsTrunc:
+    case ExceptionType::Unreachable:
+    case ExceptionType::DivisionByZero:
+    case ExceptionType::IntegerOverflow:
+    case ExceptionType::StackOverflow:
+    case ExceptionType::OutOfBoundsArrayGet:
+    case ExceptionType::OutOfBoundsArraySet:
+    case ExceptionType::NullArrayGet:
+    case ExceptionType::NullArraySet:
+    case ExceptionType::NullArrayLen:
+    case ExceptionType::NullStructGet:
+    case ExceptionType::NullStructSet:
+    case ExceptionType::NullRefAsNonNull:
+        return false;
+    case ExceptionType::FuncrefNotWasm:
+    case ExceptionType::InvalidGCTypeUse:
+    case ExceptionType::TypeErrorInvalidV128Use:
+        return true;
+    }
+    return false;
 }
 
 } } // namespace JSC::Wasm

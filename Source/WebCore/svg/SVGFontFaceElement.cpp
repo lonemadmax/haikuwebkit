@@ -25,6 +25,7 @@
 
 #include "CSSFontFaceSrcValue.h"
 #include "CSSParser.h"
+#include "CSSParserIdioms.h"
 #include "CSSPropertyNames.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
@@ -33,13 +34,13 @@
 #include "ElementIterator.h"
 #include "FontCascade.h"
 #include "Logging.h"
+#include "MutableStyleProperties.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceSrcElement.h"
 #include "SVGGlyphElement.h"
 #include "SVGNames.h"
-#include "StyleProperties.h"
 #include "StyleResolver.h"
 #include "StyleRule.h"
 #include "StyleScope.h"
@@ -82,8 +83,8 @@ void SVGFontFaceElement::parseAttribute(const QualifiedName& name, const AtomStr
             // The above parser is designed for the font-face properties, not descriptors, and the properties accept the global keywords, but descriptors don't.
             // Rather than invasively modifying the parser for the properties to have a special mode, we can simply detect the error condition after-the-fact and
             // avoid it explicitly.
-            if (auto parsedValue = properties.getPropertyCSSValue(propertyId)) {
-                if (parsedValue->isCSSWideKeyword())
+            if (auto parsedValue = properties.propertyAsValueID(propertyId)) {
+                if (isCSSWideKeyword(*parsedValue))
                     properties.removeProperty(propertyId);
             }
         }

@@ -34,12 +34,14 @@ if sys.platform == 'darwin':
 from webkitcorepy import AutoInstall, Package, Version
 AutoInstall.set_directory(os.path.join(libraries, 'autoinstalled', 'python-{}-{}'.format(sys.version_info[0], platform.machine())))
 
-if sys.version_info >= (3, 6):
+if sys.version_info >= (3, 7):
     AutoInstall.register(Package('pylint', Version(2, 6, 0)))
-    AutoInstall.register(Package('pytest_asyncio', Version(0, 14), pypi_name='pytest-asyncio'))
-    AutoInstall.register(Package('pytest_timeout', Version(1, 4, 2), pypi_name='pytest-timeout'))
-    AutoInstall.register(Package('pytest', Version(6, 2, 5), implicit_deps=['pytest_asyncio', 'pytest_timeout']))
+    AutoInstall.register(Package('pytest_asyncio', Version(0, 20, 3), pypi_name='pytest-asyncio'))
+    AutoInstall.register(Package('pytest_timeout', Version(2, 1, 0), pypi_name='pytest-timeout'))
+    AutoInstall.register(Package('pytest', Version(7, 2, 0), implicit_deps=['pytest_asyncio', 'pytest_timeout']))
     AutoInstall.register(Package('websockets', Version(8, 1)))
+    if sys.version_info < (3, 11):
+        AutoInstall.register(Package('exceptiongroup', Version(1, 1, 0), wheel=True))
 elif sys.version_info >= (2, 7) and sys.version_info < (3,):
     AutoInstall.register(Package('pylint', Version(0, 28, 0)))
     AutoInstall.register(Package('logilab.common', Version(0, 58, 1), pypi_name='logilab-common', aliases=['logilab']))
@@ -69,7 +71,7 @@ AutoInstall.register(Package('mozprocess', Version(1, 3, 0)))
 AutoInstall.register(Package('mozlog', Version(7, 1, 0), wheel=True))
 AutoInstall.register(Package('mozterm', Version(1, 0, 0)))
 AutoInstall.register(Package('pluggy', Version(0, 13, 1)))
-AutoInstall.register(Package('py', Version(1, 5, 2)))
+AutoInstall.register(Package('py', Version(1, 11, 0)))
 AutoInstall.register(Package('pycodestyle', Version(2, 5, 0)))
 AutoInstall.register(Package('pyfakefs', Version(3, 7, 2)))
 AutoInstall.register(Package('scandir', Version(1, 10, 0)))

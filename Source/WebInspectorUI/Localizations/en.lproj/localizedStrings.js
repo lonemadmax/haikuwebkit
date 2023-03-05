@@ -1,8 +1,6 @@
 var localizedStrings = new Object;
 
 localizedStrings[" (Prototype)"] = " (Prototype)";
-/* A range and default value for a single variation axis of a font. */
-localizedStrings[" (Range: %s-%s, Default: %s) @ Font Details Sidebar"] = " (Range: %s-%s, Default: %s)";
 localizedStrings[" (line %s)"] = " (line %s)";
 localizedStrings["${expr} = expression"] = "${expr} = expression";
 localizedStrings["%.0f B"] = "%.0f B";
@@ -79,8 +77,6 @@ localizedStrings["%s interval"] = "%s interval";
 localizedStrings["%s requests do not have a body"] = "%s requests do not have a body";
 localizedStrings["%s total"] = "%s total";
 localizedStrings["%s transferred"] = "%s transferred";
-/* A single value expressed as a percentage where the value has already been converted from a number to a string. */
-localizedStrings["%s%% @ Font Details Sidebar"] = "%s%%";
 /* Scope bar button that filter for dynamic resource loads, like from the 'fetch' method. */
 localizedStrings["%s/Fetch @ Network Tab Table Filter"] = "%s/Fetch";
 localizedStrings["%s:"] = "%s:";
@@ -114,7 +110,7 @@ localizedStrings["720p"] = "720p";
 localizedStrings["Access Control @ Local Override Type"] = "Access Control";
 localizedStrings["Accessibility"] = "Accessibility";
 /* Header for section with accessibility user preferences. */
-localizedStrings["Accessibility Preferences @ User Preferences Overrides"] = "Accessibility Preferences";
+localizedStrings["Accessibility @ User Preferences Overrides"] = "Accessibility";
 localizedStrings["Action"] = "Action";
 /* Tooltip for a time range bar that represents when a CSS animation/transition is running */
 localizedStrings["Active"] = "Active";
@@ -194,6 +190,8 @@ localizedStrings["Anonymous Script %d"] = "Anonymous Script %d";
 localizedStrings["Anonymous Scripts"] = "Anonymous Scripts";
 localizedStrings["Anonymous Style Sheet %d"] = "Anonymous Style Sheet %d";
 localizedStrings["Anonymous Style Sheets"] = "Anonymous Style Sheets";
+/* Header for section with appearance user preferences. */
+localizedStrings["Appearance @ User Preferences Overrides"] = "Appearance";
 localizedStrings["Appearance:"] = "Appearance:";
 localizedStrings["Application Cache"] = "Application Cache";
 /* Approximate count of events */
@@ -230,6 +228,8 @@ localizedStrings["Available Style Sheets"] = "Available Style Sheets";
 localizedStrings["Average CPU: %s"] = "Average CPU: %s";
 localizedStrings["Average Time"] = "Average Time";
 localizedStrings["Average: %s"] = "Average: %s";
+/* A warning that is shown in the Font Details Sidebar when the value for a variation axis is outside of the supported range of values */
+localizedStrings["Axis value outside of supported range: %s – %s"] = "Axis value outside of supported range: %s – %s";
 localizedStrings["BMP"] = "BMP";
 localizedStrings["Back (%s)"] = "Back (%s)";
 localizedStrings["Backtrace"] = "Backtrace";
@@ -372,6 +372,8 @@ localizedStrings["Code"] = "Code";
 localizedStrings["Collapse All"] = "Collapse All";
 localizedStrings["Collapse columns"] = "Collapse columns";
 localizedStrings["Collect garbage"] = "Collect garbage";
+/* Label for input to override the preference for color scheme. */
+localizedStrings["Color scheme @ User Preferences Overrides"] = "Color scheme";
 /* Section header for the group of CSS variables with colors as values */
 localizedStrings["Colors @ Computed Style variables section"] = "Colors";
 localizedStrings["Comment"] = "Comment";
@@ -465,6 +467,8 @@ localizedStrings["DSL"] = "DSL";
 localizedStrings["Damping"] = "Damping";
 /* Label of dropdown item used for forcing Web Inspector to be shown using a dark theme */
 localizedStrings["Dark @ Settings General Appearance"] = "Dark";
+/* Label for the dark color scheme preference. */
+localizedStrings["Dark @ User Preferences Overrides"] = "Dark";
 localizedStrings["Data"] = "Data";
 localizedStrings["Data Bindings"] = "Data Bindings";
 localizedStrings["Data returned from the database is too large."] = "Data returned from the database is too large.";
@@ -732,8 +736,6 @@ localizedStrings["Font was synthesized to be bold because no bold font is availa
 /* A warning that is shown in the Font Details Sidebar when the font had to be synthesized to support the provided style. */
 localizedStrings["Font was synthesized to be oblique because no oblique font is available."] = "Font was synthesized to be oblique because no oblique font is available.";
 localizedStrings["Fonts"] = "Fonts";
-localizedStrings["Force Dark Appearance"] = "Force Dark Appearance";
-localizedStrings["Force Light Appearance"] = "Force Light Appearance";
 localizedStrings["Force print media styles"] = "Force print media styles";
 /* Layout phase records that were imperative (forced) */
 localizedStrings["Forced Layout"] = "Forced Layout";
@@ -883,7 +885,7 @@ localizedStrings["Inverted"] = "Inverted";
 localizedStrings["Invisible characters"] = "Invisible characters";
 localizedStrings["Invoke getter"] = "Invoke getter";
 localizedStrings["It is evaluated immediately after the global object is created, before any other content has loaded."] = "It is evaluated immediately after the global object is created, before any other content has loaded.";
-/* Property value for oblique text. */
+/* Property title for `font-style` italic and `ital` variation axis. */
 localizedStrings["Italic @ Font Details Sidebar Property Value"] = "Italic";
 /* Tooltip for a timestamp marker that represents when a CSS animation/transition iterates */
 localizedStrings["Iteration"] = "Iteration";
@@ -924,6 +926,8 @@ localizedStrings["Layout Invalidated"] = "Layout Invalidated";
 localizedStrings["Ligatures @ Font Details Sidebar Property"] = "Ligatures";
 /* Label of dropdown item used for forcing Web Inspector to be shown using a light theme */
 localizedStrings["Light @ Settings General Appearance"] = "Light";
+/* Label for the light color scheme preference. */
+localizedStrings["Light @ User Preferences Overrides"] = "Light";
 localizedStrings["Line %d"] = "Line %d";
 localizedStrings["Line %d:%d"] = "Line %d:%d";
 localizedStrings["Line Number"] = "Line Number";
@@ -1098,8 +1102,8 @@ localizedStrings["Numbers @ Computed Style variables section"] = "Numbers";
 localizedStrings["Numeric @ Font Details Sidebar Property"] = "Numeric";
 localizedStrings["Object Graph"] = "Object Graph";
 localizedStrings["Object Store"] = "Object Store";
-/* Property value for oblique text. */
-localizedStrings["Oblique %ddeg @ Font Details Sidebar Property Value"] = "Oblique %ddeg";
+/* Property title for `font-style` oblique and `slnt` variation axis. */
+localizedStrings["Oblique @ Font Details Sidebar Property Value"] = "Oblique";
 localizedStrings["Observer Callback"] = "Observer Callback";
 localizedStrings["Observer Handlers:"] = "Observer Handlers:";
 localizedStrings["Observers:"] = "Observers:";
@@ -1122,6 +1126,8 @@ localizedStrings["Open"] = "Open";
 localizedStrings["Open closed tabs\u2026"] = "Open closed tabs\u2026";
 /* Context menu item for opening the target item in a new window. */
 localizedStrings["Open in New Window @ Context Menu Item"] = "Open in New Window";
+/* Property title for `font-optical-sizing` and `opzs` variation axis. */
+localizedStrings["Optical Sizing @ Font Details Sidebar Property Value"] = "Optical Sizing";
 localizedStrings["Option-click to pick color from screen."] = "Option-click to pick color from screen.";
 localizedStrings["Option-click to show source"] = "Option-click to show source";
 /* Tooltip with instructions on how to show all hidden CSS variables */
@@ -1677,6 +1683,7 @@ localizedStrings["Timer Fired"] = "Timer Fired";
 localizedStrings["Timer Installed"] = "Timer Installed";
 localizedStrings["Timer Removed"] = "Timer Removed";
 localizedStrings["Timers:"] = "Timers:";
+localizedStrings["Timestamps"] = "Timestamps";
 localizedStrings["Timestamp \u2014 %s"] = "Timestamp \u2014 %s";
 localizedStrings["Timing"] = "Timing";
 /* Property value for `font-variant-capitals: titling-caps`. */
@@ -1734,7 +1741,6 @@ localizedStrings["Update Font"] = "Update Font";
 localizedStrings["Update Image"] = "Update Image";
 localizedStrings["Update Local Override"] = "Update Local Override";
 localizedStrings["Usage: %s"] = "Usage: %s";
-localizedStrings["Use Default Appearance"] = "Use Default Appearance";
 localizedStrings["Use Mock Capture Devices"] = "Use Mock Capture Devices";
 localizedStrings["Use default media styles"] = "Use default media styles";
 localizedStrings["User Agent"] = "User Agent";
@@ -1830,7 +1836,7 @@ localizedStrings["WebP"] = "WebP";
 localizedStrings["WebRTC"] = "WebRTC";
 localizedStrings["WebRTC Logging:"] = "WebRTC Logging:";
 localizedStrings["WebSocket Connection Established"] = "WebSocket Connection Established";
-/* Property title for `font-weight`. */
+/* Property title for `font-weight` and `wght` variation axis. */
 localizedStrings["Weight @ Font Details Sidebar Property"] = "Weight";
 localizedStrings["Whitespace characters"] = "Whitespace characters";
 /* Label indicating that network activity is being simulated with Wi-Fi connectivity */
@@ -1838,6 +1844,8 @@ localizedStrings["Wi-Fi"] = "Wi-Fi";
 /* Label indicating that network activity is being simulated with Wi-Fi 802.11ac connectivity */
 localizedStrings["Wi-Fi 802.11ac"] = "Wi-Fi 802.11ac";
 localizedStrings["Width"] = "Width";
+/* Property title for `font-stretch` and `wdth` variation axis. */
+localizedStrings["Width @ Font Details Sidebar Property"] = "Width";
 localizedStrings["With Object Properties"] = "With Object Properties";
 localizedStrings["Worker"] = "Worker";
 localizedStrings["Worker Thread"] = "Worker Thread";

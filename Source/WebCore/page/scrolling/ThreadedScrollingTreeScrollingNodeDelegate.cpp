@@ -146,9 +146,24 @@ float ThreadedScrollingTreeScrollingNodeDelegate::pageScaleFactor() const
     return 1;
 }
 
+void ThreadedScrollingTreeScrollingNodeDelegate::willStartAnimatedScroll()
+{
+    scrollingNode().willStartAnimatedScroll();
+}
+
 void ThreadedScrollingTreeScrollingNodeDelegate::didStopAnimatedScroll()
 {
     scrollingNode().didStopAnimatedScroll();
+}
+
+void ThreadedScrollingTreeScrollingNodeDelegate::willStartWheelEventScroll()
+{
+    scrollingNode().willStartWheelEventScroll();
+}
+
+void ThreadedScrollingTreeScrollingNodeDelegate::didStopWheelEventScroll()
+{
+    scrollingNode().didStopWheelEventScroll();
 }
 
 void ThreadedScrollingTreeScrollingNodeDelegate::willStartScrollSnapAnimation()
@@ -169,20 +184,22 @@ ScrollExtents ThreadedScrollingTreeScrollingNodeDelegate::scrollExtents() const
     };
 }
 
-void ThreadedScrollingTreeScrollingNodeDelegate::deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason) const
+void ThreadedScrollingTreeScrollingNodeDelegate::deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason reason) const
 {
     if (!scrollingTree().isMonitoringWheelEvents())
         return;
 
-    scrollingTree().deferWheelEventTestCompletionForReason(identifier, reason);
+    // Just use the scrolling node ID as the identifier, since we know this is coming from a ScrollingEffectsController associated with this node.
+    scrollingTree().deferWheelEventTestCompletionForReason(scrollingNode().scrollingNodeID(), reason);
 }
 
-void ThreadedScrollingTreeScrollingNodeDelegate::removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason) const
+void ThreadedScrollingTreeScrollingNodeDelegate::removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason reason) const
 {
     if (!scrollingTree().isMonitoringWheelEvents())
         return;
 
-    scrollingTree().removeWheelEventTestCompletionDeferralForReason(identifier, reason);
+    // Just use the scrolling node ID as the identifier, since we know this is coming from a ScrollingEffectsController associated with this node.
+    scrollingTree().removeWheelEventTestCompletionDeferralForReason(scrollingNode().scrollingNodeID(), reason);
 }
 
 FloatPoint ThreadedScrollingTreeScrollingNodeDelegate::adjustedScrollPosition(const FloatPoint& position) const

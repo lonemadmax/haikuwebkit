@@ -54,6 +54,7 @@
 #include <WebCore/COEPInheritenceViolationReportBody.h>
 #include <WebCore/CORPViolationReportBody.h>
 #include <WebCore/CertificateInfo.h>
+#include <WebCore/ClientOrigin.h>
 #include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/CrossOriginEmbedderPolicy.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
@@ -364,10 +365,10 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
 
     if (m_parameters.pageHasResourceLoadClient) {
         std::optional<IPC::FormDataReference> httpBody;
-        if (auto* formData = request.httpBody()) {
+        if (auto formData = request.httpBody()) {
             static constexpr auto maxSerializedRequestSize = 1024 * 1024;
             if (formData->lengthInBytes() <= maxSerializedRequestSize)
-                httpBody = IPC::FormDataReference { formData };
+                httpBody = IPC::FormDataReference { WTFMove(formData) };
         }
         m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidSendRequest(m_parameters.webPageProxyID, resourceLoadInfo(), request, httpBody), 0);
     }
@@ -591,6 +592,7 @@ void NetworkResourceLoader::transferToNewWebProcess(NetworkConnectionToWebProces
     m_parameters.webPageID = parameters.webPageID;
     m_parameters.webFrameID = parameters.webFrameID;
     m_parameters.options.clientIdentifier = parameters.options.clientIdentifier;
+    m_parameters.options.resultingClientIdentifier = parameters.options.resultingClientIdentifier;
 
 #if ENABLE(SERVICE_WORKER)
     ASSERT(m_responseCompletionHandler || m_cacheEntryWaitingForContinueDidReceiveResponse || m_serviceWorkerFetchTask);
@@ -779,12 +781,25 @@ void NetworkResourceLoader::processClearSiteDataHeader(const WebCore::ResourceRe
     if (!typesToRemove)
         return completionHandler();
 
-    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
-    Vector<SecurityOriginData> origins = { SecurityOrigin::create(response.url())->data() };
-    m_connection->networkProcess().deleteWebsiteDataForOrigins(sessionID(), typesToRemove, origins, { response.url().host().toString() }, { }, { }, [callbackAggregator] { });
+    LOADER_RELEASE_LOG("processClearSiteDataHeader: BEGIN");
+
+    auto origin = SecurityOrigin::create(response.url())->data();
+    ClientOrigin clientOrigin {
+        m_parameters.topOrigin ? m_parameters.topOrigin->data() : origin,
+        origin
+    };
+
+    auto callbackAggregator = CallbackAggregator::create([this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+        if (!weakThis)
+            return completionHandler();
+
+        LOADER_RELEASE_LOG("processClearSiteDataHeader: END");
+        completionHandler();
+    });
+    m_connection->networkProcess().deleteWebsiteDataForOrigin(sessionID(), typesToRemove, clientOrigin, [callbackAggregator] { });
 
     if (WebsiteDataStore::computeWebProcessAccessTypeForDataRemoval(typesToRemove, sessionID().isEphemeral()) != WebsiteDataStore::ProcessAccessType::None)
-        m_connection->deleteWebsiteDataForOrigins(typesToRemove, origins, [callbackAggregator] { });
+        m_connection->networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::DeleteWebsiteDataInWebProcessesForOrigin(typesToRemove, clientOrigin, sessionID()), [callbackAggregator] { });
 }
 
 static BrowsingContextGroupSwitchDecision toBrowsingContextGroupSwitchDecision(const std::optional<CrossOriginOpenerPolicyEnforcementResult>& currentCoopEnforcementResult)
@@ -1078,7 +1093,10 @@ void NetworkResourceLoader::didFailLoading(const ResourceError& error)
 
     if (m_parameters.pageHasResourceLoadClient)
         m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidCompleteWithError(m_parameters.webPageProxyID, resourceLoadInfo(), { }, error), 0);
-
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    if (error.compromisedNetworkConnectionIntegrity())
+        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::DidFailLoadDueToNetworkConnectionIntegrity(m_parameters.webPageProxyID, error.failingURL()), 0);
+#endif
     cleanup(LoadResult::Failure);
 }
 
@@ -1483,6 +1501,12 @@ void NetworkResourceLoader::didReceiveMainResourceResponse(const WebCore::Resour
     if (auto* speculativeLoadManager = m_cache ? m_cache->speculativeLoadManager() : nullptr)
         speculativeLoadManager->registerMainResourceLoadResponse(globalFrameID(), originalRequest(), response);
 #endif
+#if ENABLE(WEB_ARCHIVE)
+    if (equalIgnoringASCIICase(response.mimeType(), "application/x-webarchive"_s)) {
+        auto& connection = connectionToWebProcess();
+        connection.networkProcess().webProcessWillLoadWebArchive(connection.webProcessIdentifier());
+    }
+#endif
 }
 
 void NetworkResourceLoader::initializeReportingEndpoints(const ResourceResponse& response)
@@ -1552,6 +1576,21 @@ void NetworkResourceLoader::didRetrieveCacheEntry(std::unique_ptr<NetworkCache::
 
 void NetworkResourceLoader::sendResultForCacheEntry(std::unique_ptr<NetworkCache::Entry> entry)
 {
+    auto dispatchDidFinishResourceLoad = [&] {
+        NetworkLoadMetrics metrics;
+        metrics.markComplete();
+        if (shouldCaptureExtraNetworkLoadMetrics()) {
+            auto additionalMetrics = WebCore::AdditionalNetworkLoadMetricsForWebInspector::create();
+            additionalMetrics->requestHeaderBytesSent = 0;
+            additionalMetrics->requestBodyBytesSent = 0;
+            additionalMetrics->responseHeaderBytesReceived = 0;
+            metrics.additionalNetworkLoadMetricsForWebInspector = WTFMove(additionalMetrics);
+        }
+        metrics.responseBodyBytesReceived = 0;
+        metrics.responseBodyDecodedSize = 0;
+        send(Messages::WebResourceLoader::DidFinishResourceLoad(WTFMove(metrics)));
+    };
+
     LOADER_RELEASE_LOG("sendResultForCacheEntry:");
 #if ENABLE(SHAREABLE_RESOURCE)
     if (!entry->shareableResourceHandle().isNull()) {
@@ -1559,6 +1598,7 @@ void NetworkResourceLoader::sendResultForCacheEntry(std::unique_ptr<NetworkCache
         if (m_contentFilter && !m_contentFilter->continueAfterDataReceived(entry->buffer()->makeContiguous(), entry->buffer()->size())) {
             m_contentFilter->continueAfterNotifyFinished(m_parameters.request.url());
             m_contentFilter->stopFilteringMainResource();
+            dispatchDidFinishResourceLoad();
             return;
         }
 #endif
@@ -1572,18 +1612,6 @@ void NetworkResourceLoader::sendResultForCacheEntry(std::unique_ptr<NetworkCache
         logCookieInformation();
 #endif
 
-    WebCore::NetworkLoadMetrics networkLoadMetrics;
-    networkLoadMetrics.markComplete();
-    if (shouldCaptureExtraNetworkLoadMetrics()) {
-        auto additionalMetrics = WebCore::AdditionalNetworkLoadMetricsForWebInspector::create();
-        additionalMetrics->requestHeaderBytesSent = 0;
-        additionalMetrics->requestBodyBytesSent = 0;
-        additionalMetrics->responseHeaderBytesReceived = 0;
-        networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector = WTFMove(additionalMetrics);
-    }
-    networkLoadMetrics.responseBodyBytesReceived = 0;
-    networkLoadMetrics.responseBodyDecodedSize = 0;
-
     sendBuffer(*entry->buffer(), entry->buffer()->size());
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     if (m_contentFilter) {
@@ -1591,7 +1619,7 @@ void NetworkResourceLoader::sendResultForCacheEntry(std::unique_ptr<NetworkCache
         m_contentFilter->stopFilteringMainResource();
     }
 #endif
-    send(Messages::WebResourceLoader::DidFinishResourceLoad(networkLoadMetrics));
+    dispatchDidFinishResourceLoad();
 }
 
 void NetworkResourceLoader::validateCacheEntry(std::unique_ptr<NetworkCache::Entry> entry)

@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2022 Apple Inc. All rights reserved.
+# Copyright (C) 2018-2023 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -58,7 +58,7 @@ from steps import (AddReviewerToCommitMessage, AnalyzeAPITestsResults, AnalyzeCo
                    RunWebKitPyPython3Tests, RunWebKitTests, RunWebKitTestsInStressMode, RunWebKitTestsInStressGuardmallocMode,
                    RunWebKitTestsWithoutChange, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutChangeRedTree,
                    RunWebKitTestsWithoutChangeRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount, ShowIdentifier,
-                   Trigger, TransferToS3, UnApplyPatch, UpdatePullRequest, UpdateWorkingDirectory, UploadBuiltProduct,
+                   Trigger, TransferToS3, TwistedAdditions, UnApplyPatch, UpdatePullRequest, UpdateWorkingDirectory, UploadBuiltProduct,
                    UploadTestResults, ValidateCommitMessage, ValidateCommitterAndReviewer, ValidateChange, ValidateRemote, ValidateSquashed)
 
 # Workaround for https://github.com/buildbot/buildbot/issues/4669
@@ -129,11 +129,11 @@ class BuildStepMixinAdditions(BuildStepMixin, TestReactorMixin):
         os.chdir(self._temp_directory)
         self._expected_uploaded_files = []
 
-        super(BuildStepMixinAdditions, self).setUpBuildStep()
+        super().setUpBuildStep()
 
     def tearDownBuildStep(self):
         shutil.rmtree(self._temp_directory)
-        super(BuildStepMixinAdditions, self).tearDownBuildStep()
+        super().tearDownBuildStep()
 
     def fakeBuildFinished(self, text, results):
         self.build.text = text
@@ -144,7 +144,7 @@ class BuildStepMixinAdditions(BuildStepMixin, TestReactorMixin):
         if self.previous_steps:
             del kwargs['previous_steps']
 
-        super(BuildStepMixinAdditions, self).setupStep(step, *args, **kwargs)
+        super().setupStep(step, *args, **kwargs)
         self.build.terminate = False
         self.build.stopped = False
         self.build.executedSteps = self.executedSteps
@@ -228,7 +228,7 @@ class BuildStepMixinAdditions(BuildStepMixin, TestReactorMixin):
                 actual_sources = sorted([source.asDict() for source in self.build.sources], key=operator.itemgetter('codebase'))
                 expected_sources = sorted([source.asDict() for source in self._expected_sources], key=operator.itemgetter('codebase'))
                 self.assertEqual(actual_sources, expected_sources)
-        deferred_result = super(BuildStepMixinAdditions, self).runStep()
+        deferred_result = super().runStep()
         deferred_result.addCallback(check)
         return deferred_result
 
@@ -328,75 +328,89 @@ class TestGitHubMixin(unittest.TestCase):
         def json(self):
             return json.loads(self.text)
 
+    @defer.inlineCallbacks
     def test_no_reviewers(self):
         logs = dict(stdio=[])
         mixin = GitHubMixin()
-        mixin.fetch_data_from_url_with_authentication_github = lambda url: self.Response.fromJson([])
+        mixin.fetch_data_from_url_with_authentication_github = lambda url: defer.succeed(self.Response.fromJson([]))
         mixin._addToLog = lambda logName, message, logs=logs: logs[logName].append(message)
-        self.assertEqual(mixin.get_reviewers(1234), [])
+        reviewers = yield mixin.get_reviewers(1234)
+        self.assertEqual(reviewers, [])
         self.assertEqual(logs, dict(stdio=[]))
 
+    @defer.inlineCallbacks
     def test_single_review(self):
         logs = dict(stdio=[])
         mixin = GitHubMixin()
-        mixin.fetch_data_from_url_with_authentication_github = lambda url: self.Response.fromJson([
+        mixin.fetch_data_from_url_with_authentication_github = lambda url: defer.succeed(self.Response.fromJson([
             dict(id=1, state='APPROVED', user=dict(login='webkit-reviewer')),
-        ], url=url)
+        ], url=url))
         mixin._addToLog = lambda logName, message, logs=logs: logs[logName].append(message)
-        self.assertEqual(mixin.get_reviewers(1234), ['webkit-reviewer'])
+        reviewers = yield mixin.get_reviewers(1234)
+        self.assertEqual(reviewers, ['webkit-reviewer'])
         self.assertEqual(logs, dict(stdio=[]))
 
+    @defer.inlineCallbacks
     def test_multipe_reviews(self):
         logs = dict(stdio=[])
         mixin = GitHubMixin()
-        mixin.fetch_data_from_url_with_authentication_github = lambda url: self.Response.fromJson([
+        mixin.fetch_data_from_url_with_authentication_github = lambda url: defer.succeed(self.Response.fromJson([
             dict(id=1, state='APPROVED', user=dict(login='webkit-reviewer')),
             dict(id=2, state='COMMENTED', user=dict(login='webkit-committer')),
             dict(id=3, state='APPROVED', user=dict(login='webkit-committer')),
-        ], url=url)
+        ], url=url))
         mixin._addToLog = lambda logName, message, logs=logs: logs[logName].append(message)
-        self.assertEqual(mixin.get_reviewers(1234), ['webkit-committer', 'webkit-reviewer'])
+        reviewers = yield mixin.get_reviewers(1234)
+        self.assertEqual(reviewers, ['webkit-committer', 'webkit-reviewer'])
         self.assertEqual(logs, dict(stdio=[]))
 
+    @defer.inlineCallbacks
     def test_retracted_review(self):
         logs = dict(stdio=[])
         mixin = GitHubMixin()
-        mixin.fetch_data_from_url_with_authentication_github = lambda url: self.Response.fromJson([
+        mixin.fetch_data_from_url_with_authentication_github = lambda url: defer.succeed(self.Response.fromJson([
             dict(id=1, state='APPROVED', user=dict(login='webkit-reviewer')),
             dict(id=2, state='CHANGES_REQUESTED', user=dict(login='webkit-reviewer')),
-        ], url=url)
+        ], url=url))
         mixin._addToLog = lambda logName, message, logs=logs: logs[logName].append(message)
-        self.assertEqual(mixin.get_reviewers(1234), [])
+        reviewers = yield mixin.get_reviewers(1234)
+        self.assertEqual(reviewers, [])
         self.assertEqual(logs, dict(stdio=[]))
 
+    @defer.inlineCallbacks
     def test_pagination(self):
         logs = dict(stdio=[])
         mixin = GitHubMixin()
-        mixin.fetch_data_from_url_with_authentication_github = lambda url: self.Response.fromJson([
+        mixin.fetch_data_from_url_with_authentication_github = lambda url: defer.succeed(self.Response.fromJson([
             dict(id=101, state='APPROVED', user=dict(login='webkit-committer')),
-        ], url=url) if 'page=2' in url else self.Response.fromJson([
+        ], url=url)) if 'page=2' in url else defer.succeed(self.Response.fromJson([
             dict(id=1, state='APPROVED', user=dict(login='webkit-reviewer')),
         ] + [
             dict(id=i, state='COMMENTED', user=dict(login='webkit-reviewer')) for i in range(1, 100)
-        ], url=url)
+        ], url=url))
         mixin._addToLog = lambda logName, message, logs=logs: logs[logName].append(message)
-        self.assertEqual(mixin.get_reviewers(1234), ['webkit-committer', 'webkit-reviewer'])
+        reviewers = yield mixin.get_reviewers(1234)
+        self.assertEqual(reviewers, ['webkit-committer', 'webkit-reviewer'])
         self.assertEqual(logs, dict(stdio=[]))
 
+    @defer.inlineCallbacks
     def test_reviewers_invalid_response(self):
         logs = dict(stdio=[])
         mixin = GitHubMixin()
-        mixin.fetch_data_from_url_with_authentication_github = lambda url: self.Response.fromJson({}, url=url)
+        mixin.fetch_data_from_url_with_authentication_github = lambda url: defer.succeed(self.Response.fromJson({}, url=url))
         mixin._addToLog = lambda logName, message, logs=logs: logs[logName].append(message)
-        self.assertEqual(mixin.get_reviewers(1234), [])
+        reviewers = yield mixin.get_reviewers(1234)
+        self.assertEqual(reviewers, [])
         self.assertEqual(logs, dict(stdio=[]))
 
+    @defer.inlineCallbacks
     def test_reviewers_error(self):
         logs = dict(stdio=[])
         mixin = GitHubMixin()
-        mixin.fetch_data_from_url_with_authentication_github = lambda url: None
+        mixin.fetch_data_from_url_with_authentication_github = lambda url: defer.succeed(None)
         mixin._addToLog = lambda logName, message, logs=logs: logs[logName].append(message)
-        self.assertEqual(mixin.get_reviewers(1234), [])
+        reviewers = yield mixin.get_reviewers(1234)
+        self.assertEqual(reviewers, [])
         self.assertEqual(logs, dict(stdio=[]))
 
 
@@ -931,7 +945,7 @@ class TestRunResultsdbpyTests(BuildStepMixinAdditions, unittest.TestCase):
         self.setupStep(RunResultsdbpyTests())
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
-                        timeout=120,
+                        timeout=900,
                         logEnviron=False,
                         command=['python3', 'Tools/Scripts/libraries/resultsdbpy/resultsdbpy/run-tests', '--verbose', '--no-selenium', '--fast-tests'],
                         )
@@ -944,7 +958,7 @@ class TestRunResultsdbpyTests(BuildStepMixinAdditions, unittest.TestCase):
         self.setupStep(RunResultsdbpyTests())
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
-                        timeout=120,
+                        timeout=900,
                         logEnviron=False,
                         command=['python3', 'Tools/Scripts/libraries/resultsdbpy/resultsdbpy/run-tests', '--verbose', '--no-selenium', '--fast-tests'],
                         )
@@ -2277,6 +2291,7 @@ class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase
     def setUp(self):
         self.longMessage = True
         self.jsonFileName = 'layout-test-results/full_results.json'
+        os.environ['RESULTS_SERVER_API_KEY'] = 'test-api-key'
         return self.setUpBuildStep()
 
     def tearDown(self):
@@ -2308,12 +2323,19 @@ class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase
                                  '--results-directory', 'layout-test-results',
                                  '--debug-rwt-logging',
                                  '--exit-after-n-failures', '60',
-                                 '--skip-failing-tests'],
+                                 '--skip-failing-tests',
+                                 '--builder-name', 'iOS-13-Simulator-WK2-Tests-EWS',
+                                 '--build-number', '123',
+                                 '--buildbot-worker', 'ews126',
+                                 '--buildbot-master', EWS_BUILD_HOSTNAME,
+                                 '--report', 'https://results.webkit.org/'],
+                        env={'RESULTS_SERVER_API_KEY': 'test-api-key'},
                         )
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='layout-tests')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
 
     def test_run_subtest_tests_success(self):
         self.configureStep()
@@ -2336,13 +2358,20 @@ class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase
                                  '--debug-rwt-logging',
                                  '--exit-after-n-failures', '60',
                                  '--skip-failing-tests',
+                                 '--builder-name', 'iOS-13-Simulator-WK2-Tests-EWS',
+                                 '--build-number', '123',
+                                 '--buildbot-worker', 'ews126',
+                                 '--buildbot-master', EWS_BUILD_HOSTNAME,
+                                 '--report', 'https://results.webkit.org/',
                                  '--skipped=always',
                                  'test1.html', 'test2.html', 'test3.html', 'test4.html', 'test5.html'],
+                        env={'RESULTS_SERVER_API_KEY': 'test-api-key'},
                         )
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='layout-tests')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
 
     def test_run_subtest_tests_removes_skipped_that_fails(self):
         self.configureStep()
@@ -2365,13 +2394,20 @@ class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase
                                  '--debug-rwt-logging',
                                  '--exit-after-n-failures', '60',
                                  '--skip-failing-tests',
+                                 '--builder-name', 'iOS-13-Simulator-WK2-Tests-EWS',
+                                 '--build-number', '123',
+                                 '--buildbot-worker', 'ews126',
+                                 '--buildbot-master', EWS_BUILD_HOSTNAME,
+                                 '--report', 'https://results.webkit.org/',
                                  '--skipped=always',
                                  'test-was-skipped-patch-removed-expectation-but-still-fails.html'],
+                        env={'RESULTS_SERVER_API_KEY': 'test-api-key'},
                         )
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='layout-tests')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
 
     def test_run_subtest_tests_fail(self):
         self.configureStep()
@@ -2394,14 +2430,21 @@ class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase
                                  '--debug-rwt-logging',
                                  '--exit-after-n-failures', '60',
                                  '--skip-failing-tests',
+                                 '--builder-name', 'iOS-13-Simulator-WK2-Tests-EWS',
+                                 '--build-number', '123',
+                                 '--buildbot-worker', 'ews126',
+                                 '--buildbot-master', EWS_BUILD_HOSTNAME,
+                                 '--report', 'https://results.webkit.org/',
                                  '--skipped=always',
                                  'test-fails-withpatch1.html', 'test-fails-withpatch2.html', 'test-pre-existent-failure1.html', 'test-pre-existent-failure2.html'],
+                        env={'RESULTS_SERVER_API_KEY': 'test-api-key'},
                         )
             + ExpectShell.log('stdio', stdout='2 failures found.')
             + 2,
         )
         self.expectOutcome(result=FAILURE, state_string='layout-tests (failure)')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
 
     def test_run_subtest_tests_limit_exceeded(self):
         self.configureStep()
@@ -2424,12 +2467,19 @@ class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase
                                  '--results-directory', 'layout-test-results',
                                  '--debug-rwt-logging',
                                  '--exit-after-n-failures', '60',
-                                 '--skip-failing-tests'],
+                                 '--skip-failing-tests',
+                                 '--builder-name', 'iOS-13-Simulator-WK2-Tests-EWS',
+                                 '--build-number', '123',
+                                 '--buildbot-worker', 'ews126',
+                                 '--buildbot-master', EWS_BUILD_HOSTNAME,
+                                 '--report', 'https://results.webkit.org/'],
+                        env={'RESULTS_SERVER_API_KEY': 'test-api-key'},
                         )
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='layout-tests')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
 
     def test_failure(self):
         self.configureStep()
@@ -2449,13 +2499,20 @@ class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase
                                  '--results-directory', 'layout-test-results',
                                  '--debug-rwt-logging',
                                  '--exit-after-n-failures', '60',
-                                 '--skip-failing-tests'],
+                                 '--skip-failing-tests',
+                                 '--builder-name', 'iOS-13-Simulator-WK2-Tests-EWS',
+                                 '--build-number', '123',
+                                 '--buildbot-worker', 'ews126',
+                                 '--buildbot-master', EWS_BUILD_HOSTNAME,
+                                 '--report', 'https://results.webkit.org/'],
+                        env={'RESULTS_SERVER_API_KEY': 'test-api-key'}
                         )
             + ExpectShell.log('stdio', stdout='9 failures found.')
             + 2,
         )
         self.expectOutcome(result=FAILURE, state_string='layout-tests (failure)')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
 
 
 class TestRunWebKit1Tests(BuildStepMixinAdditions, unittest.TestCase):
@@ -3732,6 +3789,24 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
 
         self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'JSC-Tests-EWS')
+        self.assertEqual(CheckChangeRelevance.haltOnFailure, True)
+        self.assertEqual(CheckChangeRelevance.flunkOnFailure, True)
+        for file_name in file_names:
+            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
+            self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            rc = self.runStep()
+        return rc
+
+    def test_relevant_jsc_arm64_patch(self):
+        file_names = ['JSTests/', 'Source/JavaScriptCore/', 'Source/WTF/', 'Source/bmalloc/', 'Makefile', 'Makefile.shared',
+                      'Source/Makefile', 'Source/Makefile.shared', 'Tools/Scripts/build-webkit', 'Tools/Scripts/build-jsc',
+                      'Tools/Scripts/jsc-stress-test-helpers/', 'Tools/Scripts/run-jsc', 'Tools/Scripts/run-jsc-benchmarks',
+                      'Tools/Scripts/run-jsc-stress-tests', 'Tools/Scripts/run-javascriptcore-tests', 'Tools/Scripts/run-layout-jsc',
+                      'Tools/Scripts/update-javascriptcore-test-results', 'Tools/Scripts/webkitdirs.pm',
+                      'Source/cmake/OptionsJSCOnly.cmake']
+
+        self.setupStep(CheckChangeRelevance())
+        self.setProperty('buildername', 'JSC-Tests-arm64-EWS')
         self.assertEqual(CheckChangeRelevance.haltOnFailure, True)
         self.assertEqual(CheckChangeRelevance.flunkOnFailure, True)
         for file_name in file_names:
@@ -5506,7 +5581,7 @@ class TestValidateCommitterAndReviewer(BuildStepMixinAdditions, unittest.TestCas
         self.setProperty('remote', 'apple')
         self.expectHidden(False)
         self.assertEqual(ValidateCommitterAndReviewer.haltOnFailure, False)
-        self.expectOutcome(result=FAILURE, state_string="Landing changes on 'apple' remote requires validation from @geoffreygaren, @markcgee, @rjepstein, @JonWBedard or @ryanhaddad")
+        self.expectOutcome(result=FAILURE, state_string="Landing changes on 'apple' remote requires validation from @geoffreygaren, @markcgee, @rjepstein, @JonWBedard, @ryanhaddad, @alancoon or @webkit-bug-bridge")
         return self.runStep()
 
 
@@ -5647,27 +5722,16 @@ class TestDetermineLandedIdentifier(BuildStepMixinAdditions, unittest.TestCase):
         return self.tearDownBuildStep()
 
     def mock_commits_webkit_org(self, identifier=None):
-        class Response(object):
-            def __init__(self, data=None, status_code=200):
-                self.status_code = status_code
-                self.headers = {'Content-Type': 'text/json'}
-                self.text = json.dumps(data or {})
-
-            def json(self):
-                return json.loads(self.text)
-
-        return patch(
-            'requests.get',
-            lambda *args, **kwargs: Response(
-                data=dict(identifier=identifier) if identifier else dict(status='Not Found'),
-                status_code=200 if identifier else 404,
-            )
-        )
+        return patch('steps.TwistedAdditions.request', lambda *args, **kwargs: TwistedAdditions.Response(
+            status_code=200,
+            content=json.dumps(dict(identifier=identifier) if identifier else dict(status='Not Found')).encode('utf-8'),
+        ))
 
     @classmethod
     def mock_sleep(cls):
-        return patch('time.sleep', lambda _: None)
+        return patch('twisted.internet.task.deferLater', lambda *_, **__: None)
 
+    @defer.inlineCallbacks
     def test_success_pr(self):
         with self.mock_commits_webkit_org(), self.mock_sleep():
             self.setupStep(DetermineLandedIdentifier())
@@ -5700,12 +5764,12 @@ Date:   Mon Feb 17 15:09:42 2020 +0000
             )
             self.expectOutcome(result=SUCCESS, state_string='Identifier: 220797@main')
             with current_hostname(EWS_BUILD_HOSTNAME):
-                rc = self.runStep()
+                yield self.runStep()
 
         self.assertEqual(self.getProperty('comment_text'), 'Committed 220797@main (14dbf1155cf5): <https://commits.webkit.org/220797@main>\n\nReviewed commits have been landed. Closing PR #1234 and removing active labels.')
         self.assertEqual(self.getProperty('build_summary'), 'Committed 220797@main')
-        return rc
 
+    @defer.inlineCallbacks
     def test_success_gardening_pr(self):
         with self.mock_commits_webkit_org(), self.mock_sleep():
             self.setupStep(DetermineLandedIdentifier())
@@ -5736,12 +5800,12 @@ Date:   Fri Apr 22 21:24:12 2022 +0000
             )
             self.expectOutcome(result=SUCCESS, state_string='Identifier: 249903@main')
             with current_hostname(EWS_BUILD_HOSTNAME):
-                rc = self.runStep()
+                yield self.runStep()
 
         self.assertEqual(self.getProperty('comment_text'), 'Test gardening commit 249903@main (5dc27962b4c5): <https://commits.webkit.org/249903@main>\n\nReviewed commits have been landed. Closing PR #1234 and removing active labels.')
         self.assertEqual(self.getProperty('build_summary'), 'Committed 249903@main')
-        return rc
 
+    @defer.inlineCallbacks
     def test_success_pr_fallback(self):
         with self.mock_commits_webkit_org(identifier='220797@main'), self.mock_sleep():
             self.setupStep(DetermineLandedIdentifier())
@@ -5757,12 +5821,12 @@ Date:   Fri Apr 22 21:24:12 2022 +0000
             )
             self.expectOutcome(result=SUCCESS, state_string='Identifier: 220797@main')
             with current_hostname(EWS_BUILD_HOSTNAME):
-                rc = self.runStep()
+                yield self.runStep()
 
         self.assertEqual(self.getProperty('comment_text'), 'Committed 220797@main (5dc27962b4c5): <https://commits.webkit.org/220797@main>\n\nReviewed commits have been landed. Closing PR #1234 and removing active labels.')
         self.assertEqual(self.getProperty('build_summary'), 'Committed 220797@main')
-        return rc
 
+    @defer.inlineCallbacks
     def test_pr_no_identifier(self):
         with self.mock_commits_webkit_org(), self.mock_sleep():
             self.setupStep(DetermineLandedIdentifier())
@@ -5778,12 +5842,12 @@ Date:   Fri Apr 22 21:24:12 2022 +0000
             )
             self.expectOutcome(result=FAILURE, state_string='Failed to determine identifier')
             with current_hostname(EWS_BUILD_HOSTNAME):
-                rc = self.runStep()
+                yield self.runStep()
 
         self.assertEqual(self.getProperty('comment_text'), 'Committed ? (5dc27962b4c5): <https://commits.webkit.org/5dc27962b4c5>\n\nReviewed commits have been landed. Closing PR #1234 and removing active labels.')
         self.assertEqual(self.getProperty('build_summary'), 'Committed 5dc27962b4c5')
-        return rc
 
+    @defer.inlineCallbacks
     def test_success_patch(self):
         with self.mock_commits_webkit_org(identifier='220797@main'), self.mock_sleep():
             self.setupStep(DetermineLandedIdentifier())
@@ -5799,12 +5863,12 @@ Date:   Fri Apr 22 21:24:12 2022 +0000
             )
             self.expectOutcome(result=SUCCESS, state_string='Identifier: 220797@main')
             with current_hostname(EWS_BUILD_HOSTNAME):
-                rc = self.runStep()
+                yield self.runStep()
 
         self.assertEqual(self.getProperty('comment_text'), 'Committed 220797@main (5dc27962b4c5): <https://commits.webkit.org/220797@main>\n\nAll reviewed patches have been landed. Closing bug and clearing flags on attachment 1234.')
         self.assertEqual(self.getProperty('build_summary'), 'Committed 220797@main')
-        return rc
 
+    @defer.inlineCallbacks
     def test_patch_no_identifier(self):
         with self.mock_commits_webkit_org(), self.mock_sleep():
             self.setupStep(DetermineLandedIdentifier())
@@ -5820,11 +5884,11 @@ Date:   Fri Apr 22 21:24:12 2022 +0000
             )
             self.expectOutcome(result=FAILURE, state_string='Failed to determine identifier')
             with current_hostname(EWS_BUILD_HOSTNAME):
-                rc = self.runStep()
+                yield self.runStep()
 
         self.assertEqual(self.getProperty('comment_text'), 'Committed ? (5dc27962b4c5): <https://commits.webkit.org/5dc27962b4c5>\n\nAll reviewed patches have been landed. Closing bug and clearing flags on attachment 1234.')
         self.assertEqual(self.getProperty('build_summary'), 'Committed 5dc27962b4c5')
-        return rc
+
 
 class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):
     class MockPreviousStep(object):

@@ -28,7 +28,7 @@
 
 #include <wtf/UniqueArray.h>
 
-#if ENABLE(B3_JIT)
+#if ENABLE(B3_JIT) && !CPU(ARM)
 
 template<typename T>
 void testAtomicWeakCAS()
@@ -41,7 +41,7 @@ void testAtomicWeakCAS()
             checkUsesInstruction(compilation, "lock");
             checkUsesInstruction(compilation, "cmpxchg");
         } else {
-            if (isARM64E())
+            if (isARM64_LSE())
                 checkUsesInstruction(compilation, "casal");
             else {
                 if (fenced) {
@@ -292,7 +292,7 @@ void testAtomicStrongCAS()
             checkUsesInstruction(compilation, "lock");
             checkUsesInstruction(compilation, "cmpxchg");
         } else {
-            if (isARM64E())
+            if (isARM64_LSE())
                 checkUsesInstruction(compilation, "casal");
             else {
                 if (fenced) {
@@ -635,7 +635,7 @@ void testAtomicXchg(B3::Opcode opcode)
             if (AtomicXchg != opcode)
                 checkUsesInstruction(compilation, "lock");
         } else {
-            if (isARM64E()) {
+            if (isARM64_LSE()) {
                 switch (opcode) {
                 case AtomicXchgAdd:
                     checkUsesInstruction(compilation, "ldaddal");

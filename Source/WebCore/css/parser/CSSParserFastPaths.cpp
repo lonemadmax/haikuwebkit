@@ -41,7 +41,6 @@
 #include "CSSTransformListValue.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
-#include "DeprecatedGlobalSettings.h"
 #include "HTMLParserIdioms.h"
 #include "HashTools.h"
 #include "StyleColor.h"
@@ -528,7 +527,7 @@ static RefPtr<CSSValue> parseColor(StringView string, const CSSParserContext& co
     if (StyleColor::isColorKeyword(valueID)) {
         if (!isValueAllowedInMode(valueID, context.mode))
             return nullptr;
-        return CSSValuePool::singleton().createIdentifierValue(valueID);
+        return CSSPrimitiveValue::create(valueID);
     }
     if (auto color = parseNumericColor(string, context))
         return CSSValuePool::singleton().createColorValue(*color);
@@ -586,14 +585,14 @@ std::optional<SRGBA<uint8_t>> CSSParserFastPaths::parseNamedColor(StringView str
     return parseNamedColorInternal(string.characters16(), string.length());
 }
 
-bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID property, CSSValueID value, const CSSParserContext& context)
+bool CSSParserFastPaths::isKeywordValidForStyleProperty(CSSPropertyID property, CSSValueID value, const CSSParserContext& context)
 {
-    return CSSPropertyParsing::isKeywordValidForProperty(property, value, context);
+    return CSSPropertyParsing::isKeywordValidForStyleProperty(property, value, context);
 }
 
-bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID property)
+bool CSSParserFastPaths::isKeywordFastPathEligibleStyleProperty(CSSPropertyID property)
 {
-    return CSSPropertyParsing::isKeywordProperty(property);
+    return CSSPropertyParsing::isKeywordFastPathEligibleStyleProperty(property);
 }
 
 static bool isUniversalKeyword(StringView string)
@@ -614,7 +613,7 @@ static RefPtr<CSSValue> parseKeywordValue(CSSPropertyID propertyId, StringView s
     // FIXME: The "!context.enclosingRuleType" is suspicious.
     ASSERT(!CSSProperty::isDescriptorOnly(propertyId) || parsingDescriptor || !context.enclosingRuleType);
 
-    if (!CSSParserFastPaths::isKeywordPropertyID(propertyId)) {
+    if (!CSSParserFastPaths::isKeywordFastPathEligibleStyleProperty(propertyId)) {
         // All properties, including non-keyword properties, accept the CSS-wide keywords.
         if (!isUniversalKeyword(string))
             return nullptr;
@@ -634,10 +633,10 @@ static RefPtr<CSSValue> parseKeywordValue(CSSPropertyID propertyId, StringView s
         return nullptr;
 
     if (!parsingDescriptor && isCSSWideKeyword(valueID))
-        return CSSValuePool::singleton().createIdentifierValue(valueID);
+        return CSSPrimitiveValue::create(valueID);
 
-    if (CSSParserFastPaths::isValidKeywordPropertyAndValue(propertyId, valueID, context))
-        return CSSValuePool::singleton().createIdentifierValue(valueID);
+    if (CSSParserFastPaths::isKeywordValidForStyleProperty(propertyId, valueID, context))
+        return CSSPrimitiveValue::create(valueID);
     return nullptr;
 }
 
@@ -909,7 +908,7 @@ static RefPtr<CSSValue> parseColorWithAuto(StringView string, const CSSParserCon
 {
     ASSERT(!string.isEmpty());
     if (cssValueKeywordID(string) == CSSValueAuto)
-        return CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+        return CSSPrimitiveValue::create(CSSValueAuto);
     return parseColor(string, context);
 }
 

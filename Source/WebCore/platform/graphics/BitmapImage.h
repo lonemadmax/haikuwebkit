@@ -82,8 +82,6 @@ public:
 
     void updateFromSettings(const Settings&);
 
-    bool hasSingleSecurityOrigin() const override { return true; }
-
     EncodedDataStatus dataChanged(bool allDataReceived) override;
     unsigned decodedSize() const { return m_source->decodedSize(); }
 

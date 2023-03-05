@@ -63,8 +63,10 @@
 #endif
 
 #if ENABLE(WEBXR)
-#include "JSDOMPromiseDeferred.h"
+#include "JSDOMPromiseDeferredForward.h"
 #endif
+
+#include "GCGLSpan.h"
 
 namespace JSC {
 class AbstractSlotVisitor;
@@ -106,6 +108,7 @@ class OffscreenCanvas;
 #endif
 class WebCoreOpaqueRoot;
 class WebGLActiveInfo;
+class WebGLClipCullDistance;
 class WebGLColorBufferFloat;
 class WebGLCompressedTextureASTC;
 class WebGLCompressedTextureETC;
@@ -750,6 +753,7 @@ protected:
     RefPtr<OESTextureHalfFloat> m_oesTextureHalfFloat;
     RefPtr<OESTextureHalfFloatLinear> m_oesTextureHalfFloatLinear;
     RefPtr<OESVertexArrayObject> m_oesVertexArrayObject;
+    RefPtr<WebGLClipCullDistance> m_webglClipCullDistance;
     RefPtr<WebGLColorBufferFloat> m_webglColorBufferFloat;
     RefPtr<WebGLCompressedTextureASTC> m_webglCompressedTextureASTC;
     RefPtr<WebGLCompressedTextureETC> m_webglCompressedTextureETC;

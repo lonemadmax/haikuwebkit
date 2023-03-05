@@ -32,6 +32,7 @@
 namespace WTF {
 
 template<typename> class ThreadSafeWeakPtr;
+template<typename> class ThreadSafeWeakHashSet;
 template<typename, DestructionThread> class ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr;
 
 template<typename T>
@@ -139,6 +140,7 @@ protected:
     ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr() = default;
 private:
     template<typename> friend class ThreadSafeWeakPtr;
+    template<typename> friend class ThreadSafeWeakHashSet;
     ThreadSafeWeakPtrControlBlock<T>& m_controlBlock { *new ThreadSafeWeakPtrControlBlock<T>(static_cast<T&>(*this)) };
 };
 
@@ -152,7 +154,7 @@ public:
     ThreadSafeWeakPtr(const ThreadSafeWeakPtr<T>& other)
         : m_controlBlock(other.m_controlBlock) { }
 
-    template<typename U>
+    template<typename U, std::enable_if_t<!std::is_pointer_v<U>>* = nullptr>
     ThreadSafeWeakPtr(const U& retainedReference)
         : m_controlBlock(controlBlock(retainedReference))
     {
@@ -183,7 +185,7 @@ public:
         return *this;
     }
 
-    template<typename U>
+    template<typename U, std::enable_if_t<!std::is_pointer_v<U>>* = nullptr>
     ThreadSafeWeakPtr& operator=(const U& retainedReference)
     {
         m_controlBlock = controlBlock(retainedReference);
@@ -196,6 +198,12 @@ public:
     {
         m_controlBlock = retainedPointer ? controlBlock(*retainedPointer) : nullptr;
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!retainedPointer || !m_controlBlock->objectHasBeenDeleted());
+        return *this;
+    }
+
+    ThreadSafeWeakPtr& operator=(std::nullptr_t)
+    {
+        m_controlBlock = nullptr;
         return *this;
     }
 
@@ -223,6 +231,7 @@ private:
     }
 
     template<typename, DestructionThread> friend class ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr;
+    template<typename> friend class ThreadSafeWeakHashSet;
     explicit ThreadSafeWeakPtr(ThreadSafeWeakPtrControlBlock<T>& controlBlock)
         : m_controlBlock(&controlBlock) { }
 

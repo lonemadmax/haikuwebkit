@@ -67,6 +67,9 @@ public:
     virtual void visit(StructureAccess&);
     virtual void visit(Uint32Literal&);
     virtual void visit(UnaryExpression&);
+    virtual void visit(BinaryExpression&);
+    virtual void visit(PointerDereference&);
+    virtual void visit(IdentityExpression&);
 
     // Statement
     virtual void visit(Statement&);
@@ -80,6 +83,8 @@ public:
     virtual void visit(ArrayType&);
     virtual void visit(NamedType&);
     virtual void visit(ParameterizedType&);
+    virtual void visit(StructType&);
+    virtual void visit(ReferenceType&);
 
     virtual void visit(Parameter&);
     virtual void visit(StructMember&);
@@ -88,8 +93,17 @@ public:
     bool hasError() const;
     Expected<void, Error> result();
 
-    template<typename T> void checkErrorAndVisit(T&);
-    template<typename T> void maybeCheckErrorAndVisit(T*);
+    template<typename T> void checkErrorAndVisit(T& x)
+    {
+        if (!hasError())
+            visit(x);
+    }
+
+    template<typename T> void maybeCheckErrorAndVisit(T* x)
+    {
+        if (!hasError() && x)
+            visit(*x);
+    }
 
 protected:
     void setError(Error error)

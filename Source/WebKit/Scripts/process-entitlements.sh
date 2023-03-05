@@ -117,6 +117,11 @@ function mac_process_gpu_entitlements()
             plistbuddy Add :com.apple.mediaremote.external-artwork-validation bool YES
         fi
 
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 140000 ))
+        then
+            plistbuddy add :com.apple.private.disable.screencapturekit.alert bool YES
+        fi
+
         plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
         plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
         plistbuddy Add :com.apple.rootless.storage.WebKitGPUSandbox bool YES
@@ -148,6 +153,9 @@ function mac_process_network_entitlements()
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
         then
             plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
+            plistbuddy Add :com.apple.private.assets.bypass-asset-types-check bool YES
+            plistbuddy Add :com.apple.private.assets.accessible-asset-types array
+            plistbuddy Add :com.apple.private.assets.accessible-asset-types:0 string com.apple.MobileAsset.WebContentRestrictions
         fi
 
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications array
@@ -169,11 +177,13 @@ function webcontent_sandbox_entitlements()
     plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string EnableExperimentalSandboxWithProbability
     plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string BlockIOKitInWebContentSandbox
     plistbuddy Add :com.apple.private.security.mutable-state-flags:4 string LockdownModeEnabled
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:5 string WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.enable-state-flags array
     plistbuddy Add :com.apple.private.security.enable-state-flags:0 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:1 string EnableExperimentalSandboxWithProbability
     plistbuddy Add :com.apple.private.security.enable-state-flags:2 string BlockIOKitInWebContentSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:3 string LockdownModeEnabled
+    plistbuddy Add :com.apple.private.security.enable-state-flags:4 string WebContentProcessLaunched
 }
 
 function mac_process_webcontent_shared_entitlements()
@@ -427,9 +437,11 @@ function ios_family_process_adattributiond_entitlements()
 
 function ios_family_process_webpushd_entitlements()
 {
-    # FIXME: Add a sandbox profile for webpushd and add it to the seatbelt-profiles array.
-    echo "webpushd sandbox has not been implemented yet"
+    plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.webpushd
     plistbuddy Add :aps-connection-initiate bool YES
+    plistbuddy Add :com.apple.private.launchservices.allowopenwithanyhandler bool YES
+    plistbuddy Add :com.apple.springboard.opensensitiveurl bool YES
+    plistbuddy Add :com.apple.private.launchservices.canspecifysourceapplication bool YES
 }
 
 function ios_family_process_network_entitlements()
@@ -454,6 +466,10 @@ function ios_family_process_network_entitlements()
 
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.Networking
     plistbuddy Add :com.apple.symptom_analytics.configure bool YES
+
+    plistbuddy Add :com.apple.private.assets.bypass-asset-types-check bool YES
+    plistbuddy Add :com.apple.private.assets.accessible-asset-types array
+    plistbuddy Add :com.apple.private.assets.accessible-asset-types:0 string com.apple.MobileAsset.WebContentRestrictions
 }
 
 rm -f "${WK_PROCESSED_XCENT_FILE}"

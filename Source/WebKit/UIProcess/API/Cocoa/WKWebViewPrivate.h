@@ -193,7 +193,7 @@ for this property.
 */
 @property (nonatomic, readonly) BOOL _negotiatedLegacyTLS WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
 
-@property (nonatomic, readonly) BOOL _wasPrivateRelayed WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+@property (nonatomic, readonly) BOOL _wasPrivateRelayed WK_API_AVAILABLE(macos(13.1), ios(16.2));
 
 - (void)_frames:(void (^)(_WKFrameTreeNode *))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
@@ -502,6 +502,21 @@ typedef NS_OPTIONS(NSUInteger, WKDisplayCaptureSurfaces) {
 - (void)_setSystemAudioCaptureState:(WKSystemAudioCaptureState)state completionHandler:(void (^)(void))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 + (void)_permissionChanged:(NSString *)permissionName forOrigin:(WKSecurityOrigin *)origin WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract `YES` if any animation on the page is allowed to play.
+  @discussion Animations can be disallowed from starting both individually and globally. If even a single animation is allowed to play, this property will be `YES`. Calling @link _pauseAllAnimationsWithCompletionHandler @/link causes this property to become `NO`, while @link _playAllAnimationsWithCompletionHandler @/link causes it to become `YES`.
+*/
+@property (nonatomic, readonly) BOOL _allowsAnyAnimationToPlay WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract Pauses all animations on the page.
+  @discussion Calling this function also results in @link _allowsAnyAnimationToPlay @/link becoming `NO`, meaning animations loaded after a call to this function will be paused until @link _playAllAnimationsWithCompletionHandler @/link is called.
+*/
+- (void)_pauseAllAnimationsWithCompletionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract Plays all animations on the page.
+  @discussion Calling this function also results in @link _allowsAnyAnimationToPlay @/link becoming `YES`, meaning animations loaded after a call to this function will be allowed to begin playing.
+*/
+- (void)_playAllAnimationsWithCompletionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end
 

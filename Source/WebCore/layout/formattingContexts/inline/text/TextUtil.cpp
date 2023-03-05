@@ -70,8 +70,9 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
     if (useSimplifiedContentMeasuring)
         width = fontCascade.widthForSimpleText(StringView(text).substring(from, to - from));
     else {
-        WebCore::TextRun run(StringView(text).substring(from, to - from), contentLogicalLeft);
         auto& style = inlineTextBox.style();
+        auto directionalOverride = style.unicodeBidi() == UnicodeBidi::Override;
+        auto run = WebCore::TextRun { StringView(text).substring(from, to - from), contentLogicalLeft, { }, ExpansionBehavior::defaultBehavior(), directionalOverride ? style.direction() : TextDirection::LTR, directionalOverride };
         if (!style.collapseWhiteSpace() && style.tabSize())
             run.setTabSize(true, style.tabSize());
         width = fontCascade.width(run);
@@ -301,7 +302,7 @@ TextUtil::WordBreakLeft TextUtil::breakWord(const InlineTextBox& inlineTextBox, 
     }
     // This content is not supposed to fit availableWidth.
     ASSERT_NOT_REACHED();
-    return { };
+    return leftSide;
 }
 
 unsigned TextUtil::findNextBreakablePosition(LazyLineBreakIterator& lineBreakIterator, unsigned startPosition, const RenderStyle& style)
@@ -432,6 +433,64 @@ TextRun TextUtil::ellipsisTextRun(bool isHorizontal)
     return TextRun { verticalEllipsisStr->string() };
 }
 
+bool TextUtil::hasHangablePunctuationStart(const InlineTextItem& inlineTextItem, const RenderStyle& style)
+{
+    if (!inlineTextItem.length() || !style.hangingPunctuation().contains(HangingPunctuation::First))
+        return false;
+    auto leadingCharacter = inlineTextItem.inlineTextBox().content()[inlineTextItem.start()];
+    return U_GET_GC_MASK(leadingCharacter) & (U_GC_PS_MASK | U_GC_PI_MASK | U_GC_PF_MASK);
+}
+
+float TextUtil::hangablePunctuationStartWidth(const InlineTextItem& inlineTextItem, const RenderStyle& style)
+{
+    if (!hasHangablePunctuationStart(inlineTextItem, style))
+        return { };
+    ASSERT(inlineTextItem.length());
+    auto leadingPosition = inlineTextItem.start();
+    return width(inlineTextItem, style.fontCascade(), leadingPosition, leadingPosition + 1, { });
+}
+
+bool TextUtil::hasHangablePunctuationEnd(const InlineTextItem& inlineTextItem, const RenderStyle& style)
+{
+    if (!inlineTextItem.length() || !style.hangingPunctuation().contains(HangingPunctuation::Last))
+        return false;
+    auto trailingCharacter = inlineTextItem.inlineTextBox().content()[inlineTextItem.end() - 1];
+    return U_GET_GC_MASK(trailingCharacter) & (U_GC_PE_MASK | U_GC_PI_MASK | U_GC_PF_MASK);
+}
+
+float TextUtil::hangablePunctuationEndWidth(const InlineTextItem& inlineTextItem, const RenderStyle& style)
+{
+    if (!hasHangablePunctuationEnd(inlineTextItem, style))
+        return { };
+    ASSERT(inlineTextItem.length());
+    auto trailingPosition = inlineTextItem.end() - 1;
+    return width(inlineTextItem, style.fontCascade(), trailingPosition, trailingPosition + 1, { });
+}
+
+bool TextUtil::hasHangableStopOrCommaEnd(const InlineTextItem& inlineTextItem, const RenderStyle& style)
+{
+    if (!inlineTextItem.length() || !style.hangingPunctuation().containsAny({ HangingPunctuation::AllowEnd, HangingPunctuation::ForceEnd }))
+        return false;
+    auto trailingPosition = inlineTextItem.end() - 1;
+    auto trailingCharacter = inlineTextItem.inlineTextBox().content()[trailingPosition];
+    auto isHangableStopOrComma = trailingCharacter == 0x002C
+        || trailingCharacter == 0x002E || trailingCharacter == 0x060C
+        || trailingCharacter == 0x06D4 || trailingCharacter == 0x3001
+        || trailingCharacter == 0x3002 || trailingCharacter == 0xFF0C
+        || trailingCharacter == 0xFF0E || trailingCharacter == 0xFE50
+        || trailingCharacter == 0xFE51 || trailingCharacter == 0xFE52
+        || trailingCharacter == 0xFF61 || trailingCharacter == 0xFF64;
+    return isHangableStopOrComma;
+}
+
+float TextUtil::hangableStopOrCommaEndWidth(const InlineTextItem& inlineTextItem, const RenderStyle& style)
+{
+    if (!hasHangableStopOrCommaEnd(inlineTextItem, style))
+        return { };
+    ASSERT(inlineTextItem.length());
+    auto trailingPosition = inlineTextItem.end() - 1;
+    return width(inlineTextItem, style.fontCascade(), trailingPosition, trailingPosition + 1, { });
+}
 
 }
 }

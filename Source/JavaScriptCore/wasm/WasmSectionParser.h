@@ -51,8 +51,6 @@ public:
     PartialResult WARN_UNUSED_RETURN parseCustom();
 
 private:
-    enum class DeferSubtypeCheck { Yes, No };
-
     template <typename ...Args>
     NEVER_INLINE UnexpectedResult WARN_UNUSED_RETURN fail(Args... args) const
     {
@@ -77,19 +75,19 @@ private:
     PartialResult WARN_UNUSED_RETURN parseStructType(uint32_t position, RefPtr<TypeDefinition>&);
     PartialResult WARN_UNUSED_RETURN parseArrayType(uint32_t position, RefPtr<TypeDefinition>&);
     PartialResult WARN_UNUSED_RETURN parseRecursionGroup(uint32_t position, RefPtr<TypeDefinition>&);
-    PartialResult WARN_UNUSED_RETURN parseSubtype(uint32_t position, RefPtr<TypeDefinition>&, Vector<TypeIndex>&, DeferSubtypeCheck = DeferSubtypeCheck::No);
+    PartialResult WARN_UNUSED_RETURN parseSubtype(uint32_t position, RefPtr<TypeDefinition>&, Vector<TypeIndex>&);
 
-    PartialResult WARN_UNUSED_RETURN validateElementTableIdx(uint32_t);
+    PartialResult WARN_UNUSED_RETURN validateElementTableIdx(uint32_t, TableElementType);
     PartialResult WARN_UNUSED_RETURN parseI32InitExprForElementSection(std::optional<I32InitExpr>&);
     PartialResult WARN_UNUSED_RETURN parseElementKind(uint8_t& elementKind);
     PartialResult WARN_UNUSED_RETURN parseIndexCountForElementSection(uint32_t&, const unsigned);
-    PartialResult WARN_UNUSED_RETURN parseElementSegmentVectorOfExpressions(Vector<uint32_t>&, const unsigned, const unsigned);
+    PartialResult WARN_UNUSED_RETURN parseElementSegmentVectorOfExpressions(TableElementType, Vector<uint32_t>&, const unsigned, const unsigned);
     PartialResult WARN_UNUSED_RETURN parseElementSegmentVectorOfIndexes(Vector<uint32_t>&, const unsigned, const unsigned);
 
     PartialResult WARN_UNUSED_RETURN parseI32InitExprForDataSection(std::optional<I32InitExpr>&);
 
     static bool checkStructuralSubtype(const TypeDefinition&, const TypeDefinition&);
-    static bool checkSubtypeValidity(const TypeDefinition&);
+    static bool checkSubtypeValidity(const TypeDefinition&, const TypeDefinition&);
 
     size_t m_offsetInSource;
     Ref<ModuleInformation> m_info;

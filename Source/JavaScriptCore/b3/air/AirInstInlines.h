@@ -80,23 +80,25 @@ template<typename Thing, typename Functor>
 inline void Inst::forEachDefWithExtraClobberedRegs(
     Inst* prevInst, Inst* nextInst, const Functor& functor)
 {
-    forEachDef<Thing>(prevInst, nextInst, functor);
+    forEachDef<Thing>(prevInst, nextInst, [&functor] (Thing thing, Arg::Role role, Bank b,  Width w) {
+        functor(thing, role, b, w, PreservesNothing);
+    });
 
     Arg::Role regDefRole;
-    
-    auto reportReg = [&] (Reg reg, Width width) {
+
+    auto reportReg = [&] (Reg reg, Width width, PreservedWidth preservedWidth) {
         Bank bank = reg.isGPR() ? GP : FP;
-        functor(Thing(reg), regDefRole, bank, width);
+        functor(Thing(reg), regDefRole, bank, width, preservedWidth);
     };
 
     if (prevInst && prevInst->kind.opcode == Patch) {
         regDefRole = Arg::Def;
-        prevInst->extraClobberedRegs().buildWithLowerBits().forEachWithWidth(reportReg);
+        prevInst->extraClobberedRegs().forEachWithWidthAndPreserved(reportReg);
     }
 
     if (nextInst && nextInst->kind.opcode == Patch) {
         regDefRole = Arg::EarlyDef;
-        nextInst->extraEarlyClobberedRegs().buildWithLowerBits().forEachWithWidth(reportReg);
+        nextInst->extraEarlyClobberedRegs().forEachWithWidthAndPreserved(reportReg);
     }
 }
 
@@ -179,6 +181,26 @@ inline std::optional<unsigned> Inst::shouldTryAliasingDef()
         break;
     }
     return std::nullopt;
+}
+
+inline bool isAddZeroExtend64Valid(const Inst& inst)
+{
+#if CPU(ARM64)
+    return inst.args[1] != Tmp(ARM64Registers::sp);
+#else
+    UNUSED_PARAM(inst);
+    return true;
+#endif
+}
+
+inline bool isAddSignExtend64Valid(const Inst& inst)
+{
+#if CPU(ARM64)
+    return inst.args[1] != Tmp(ARM64Registers::sp);
+#else
+    UNUSED_PARAM(inst);
+    return true;
+#endif
 }
 
 inline bool isShiftValid(const Inst& inst)

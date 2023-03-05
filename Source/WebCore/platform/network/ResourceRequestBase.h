@@ -205,7 +205,7 @@ public:
     WEBCORE_EXPORT void setResponseContentDispositionEncodingFallbackArray(const String& encoding1, const String& encoding2 = String(), const String& encoding3 = String());
     void setResponseContentDispositionEncodingFallbackArray(const Vector<String>& array) { m_requestData.m_responseContentDispositionEncodingFallbackArray = array; }
 
-    WEBCORE_EXPORT FormData* httpBody() const;
+    WEBCORE_EXPORT RefPtr<FormData> httpBody() const;
     WEBCORE_EXPORT bool hasUpload() const;
     WEBCORE_EXPORT void setHTTPBody(RefPtr<FormData>&&);
     
@@ -322,7 +322,7 @@ WEBCORE_EXPORT void initializeHTTPConnectionSettingsOnStartup();
 
 namespace WTF {
 
-template<> struct EnumTraits<WebCore::ResourceRequestCachePolicy> {
+template<> struct EnumTraitsForPersistence<WebCore::ResourceRequestCachePolicy> {
     using values = EnumValues<
         WebCore::ResourceRequestCachePolicy,
         WebCore::ResourceRequestCachePolicy::UseProtocolCachePolicy,
@@ -334,7 +334,7 @@ template<> struct EnumTraits<WebCore::ResourceRequestCachePolicy> {
     >;
 };
 
-template<> struct EnumTraits<WebCore::ResourceRequestBase::SameSiteDisposition> {
+template<> struct EnumTraitsForPersistence<WebCore::ResourceRequestBase::SameSiteDisposition> {
     using values = EnumValues<
         WebCore::ResourceRequestBase::SameSiteDisposition,
         WebCore::ResourceRequestBase::SameSiteDisposition::Unspecified,
@@ -343,7 +343,7 @@ template<> struct EnumTraits<WebCore::ResourceRequestBase::SameSiteDisposition> 
     >;
 };
 
-template<> struct EnumTraits<WebCore::ResourceRequestRequester> {
+template<> struct EnumTraitsForPersistence<WebCore::ResourceRequestRequester> {
     using values = EnumValues<
         WebCore::ResourceRequestRequester,
         WebCore::ResourceRequestRequester::Unspecified,

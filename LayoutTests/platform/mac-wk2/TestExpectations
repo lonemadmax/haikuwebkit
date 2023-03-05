@@ -8,6 +8,7 @@ compositing/layer-creation/clipping-scope [ Pass ]
 editing/find/cocoa [ Pass ]
 editing/undo-manager [ Pass ]
 editing/pasteboard/dom-paste [ Pass ]
+fast/attachment/mac [ Pass ]
 fast/events/cursors [ Pass ]
 fast/forms/date/date-editable-components [ Pass ]
 fast/forms/datetimelocal/datetimelocal-editable-components [ Pass ]
@@ -100,6 +101,8 @@ fast/canvas/webgl/context-update-on-display-configuration.html [ Pass ]
 
 fast/misc/valid-primary-screen-displayID.html [ Pass ]
 
+ipc/webpageproxy-correctionpanel-no-crash.html [ Pass ]
+
 # Skipped because of <rdar://problem/45388584>.
 http/tests/webAPIStatistics [ Pass ]
 
@@ -131,6 +134,10 @@ imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-during-x
 webkit.org/b/235072 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-repeating.html [ Skip ]
 
 webanimations/frame-rate [ Pass ]
+
+imported/w3c/web-platform-tests/file-system-access/ [ Pass ]
+imported/w3c/web-platform-tests/fs/ [ Pass ]
+storage/filesystemaccess/ [ Pass ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
@@ -1185,8 +1192,6 @@ webkit.org/b/230105 [ BigSur+ Debug arm64 ] imported/w3c/web-platform-tests/html
 
 webkit.org/b/230691 [ Release ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-unsafe-none-to-unsafe-none.https.html [ Pass Failure ]
 
-webkit.org/b/232105 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-to-same-origin.https.html [ Pass Failure Crash ]
-
 webkit.org/b/230113 [ BigSur+ Debug arm64 ] svg/animations/animate-elem-14-t-drt.html [ Pass Crash ]
 
 # rdar://66806059 (REGRESSION (20A2321a-20A2348b): 4 fast hidpi tests are a flaky image failure)
@@ -1289,8 +1294,6 @@ webanimations/transform-property-and-transform-animation-with-delay-on-forced-la
 
 webkit.org/b/232040 webanimations/marker-opacity-animation-no-effect.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/244891 [ Monterey ] webanimations/accelerated-css-transition-with-easing-y-axis-above-1.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/244916 [ Monterey ] webanimations/relative-ordering-of-translate-and-scale-properties-accelerated.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/221847 platform/mac/media/encrypted-media/fps-encrypted-event.html [ Pass Timeout ]
@@ -1355,8 +1358,6 @@ webkit.org/b/223293 media/media-fullscreen-return-to-inline.html [ Pass Failure 
 webkit.org/b/223462 [ Debug arm64 ] imported/w3c/web-platform-tests/mediacapture-streams/GUM-optional-constraint.https.html [ Pass Crash ]
 
 webkit.org/b/223486 [ arm64 ] inspector/css/modify-inline-style.html [ Pass Failure ]
-
-webkit.org/b/244846 inspector/css/setLayoutContextTypeChangedMode.html [ Pass Failure ]
 
 # webkit.org/b/223488 The following three tests are flakey failing only on Apple Silicon.
 [ arm64 ] http/wpt/beacon/cors/cors-preflight-blob-failure.html [ Pass Failure ]
@@ -1590,9 +1591,6 @@ webkit.org/b/236328 [ Monterey ] webaudio/decode-audio-data-webm-vorbis.html [ F
 
 webkit.org/b/232497 [ BigSur Debug ] media/media-source/media-source-istypesupported-case-sensitive.html [ Pass Crash ]
 
-
-webkit.org/b/233621 http/tests/webgpu [ Skip ]
-
 fast/text/install-font-style-recalc.html [ Pass ]
 
 webkit.org/b/238880 [ Monterey+ Release ] imported/w3c/web-platform-tests/css/css-text/white-space/pre-wrap-012.html [ Pass ImageOnlyFailure ]
@@ -1708,9 +1706,6 @@ imported/w3c/web-platform-tests/clear-site-data/navigation-insecure.html [ Skip 
 imported/w3c/web-platform-tests/clear-site-data/resource.html [ Skip ]
 
 webkit.org/b/240987 fast/images/heic-as-background-image.html [ ImageOnlyFailure ]
-webkit.org/b/240987 fast/images/avif-heif-container-as-image.html [ ImageOnlyFailure ]
-
-webkit.org/b/244740 http/wpt/cross-origin-opener-policy/non-secure-to-secure-context-navigation.https.html [ Pass Failure ]
 
 webkit.org/b/244968 [ arm64 ] imported/w3c/web-platform-tests/web-animations/timing-model/animations/update-playback-rate-zero.html [ Pass ImageOnlyFailure ]
 
@@ -1764,7 +1759,10 @@ webkit.org/b/248734 media/video-inaccurate-duration-ended.html [ Crash ]
 [ Monterey+ ] fast/borders/border-painting-correctness-dotted.html [ ImageOnlyFailure ]
 [ BigSur+ ] fast/canvas/webgl/lose-context-on-timeout.html [ Timeout ]
 [ BigSur+ x86_64 ] css3/blending/background-blend-mode-body-image.html [ ImageOnlyFailure ]
-[ BigSur+ ] fast/images/animated-heics-verify.html [ Timeout Crash ]
+[ BigSur Monterey ] fast/images/animated-heics-draw.html [ Skip ]
+[ Ventura+ ] fast/images/animated-heics-draw.html [ Pass Timeout ]
+[ BigSur Monterey ] fast/images/animated-heics-verify.html [ Skip ]
+[ Ventura+ ] fast/images/animated-heics-verify.html [ Pass Failure ]
 [ Ventura+ ] model-element/model-element-ready.html [ Pass Failure ]
 [ Monterey+ ] model-element/model-element-graphics-layers-opacity.html [ Failure ]
 [ Ventura+ ] http/tests/resourceLoadStatistics/website-data-removal-for-site-without-user-interaction.html [ Failure ]
@@ -1791,7 +1789,6 @@ webkit.org/b/248734 media/video-inaccurate-duration-ended.html [ Crash ]
 [ BigSur+ ] imported/w3c/web-platform-tests/workers/SharedWorker_dataUrl.html [ Pass Failure ]
 [ Bigsur+ x86_64 ] imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-no-sink.https.html [ Pass Failure ]
 [ Monterey+ Debug x86_64 ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/restrict-properties/iframe-popup-to-so.https.html [ Pass Failure ]
-[ Monterey+ Debug x86_64 ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/restrict-properties/iframe-popup.https.html [ Pass Failure ]
 [ Ventura+ Debug x86_64 ] webrtc/datachannel/bufferedAmountLowThreshold-default.html [ Pass Failure ]
 [ Ventura Debug x86_64 ] editing/caret/color-span-inside-editable-background.html [ Pass ImageOnlyFailure ]
 [ Ventura+ x86_64 ] fast/css/text-overflow-input-focus-placeholder.html [ Pass ImageOnlyFailure ]
@@ -1801,13 +1798,13 @@ webkit.org/b/248734 media/video-inaccurate-duration-ended.html [ Crash ]
 [ Ventura+ Debug x86_64 ] webgl/2.0.0/conformance/state/gl-object-get-calls.html [ Pass Timeout ]
 [ Monterey+ Debug x86_64 ] webgl/2.0.0/conformance/context/context-release-with-workers.html [ Pass Timeout ]
 [ BigSur+ x86_64 ] resize-observer/resize-observer-with-zoom.html [ Pass Timeout ]
-[ BigSur+ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-back-to-original-origin.any.html [ Pass Crash ]
 [ Monterey+ Debug x86_64 ] storage/indexeddb/request-with-null-open-db-request.html [ Pass Crash ]
 [ BigSur+ ] imported/w3c/web-platform-tests/service-workers/cache-storage/cross-partition.https.tentative.html [ Pass Failure Crash ]
 
-webkit.org/b/247982 [ Ventura+ ] fast/images/animated-heics-draw.html [ Timeout ]
+# WebGL in OffscreenCanvas requires the GPUP.
+imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.worker.html [ Skip ]
+imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap.w.html [ Skip ]
+imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transferrable.w.html [ Skip ]
+imported/w3c/web-platform-tests/webcodecs/videoFrame-texImage.any.worker.html [ Skip ]
 
-webkit.org/b/248997 [ BigSur+ ] http/tests/navigation/fragment-navigation-policy-ignore.html [ Pass Failure ]
-
-webkit.org/b/249023 [ BigSur+ ] gamepad/gamepad-polling-access.html  [ Pass Failure Crash ]
-
+webkit.org/b/251187 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-back-to-original-origin.any.html [ Pass Crash ]

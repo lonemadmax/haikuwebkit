@@ -138,12 +138,9 @@ public:
     void removeDestructionObserver(FrameDestructionObserver&);
 
     WEBCORE_EXPORT void willDetachPage();
-    void disconnectOwnerElement();
 
     Frame& mainFrame() const;
     bool isMainFrame() const { return this == static_cast<void*>(&m_mainFrame); }
-
-    WEBCORE_EXPORT HTMLFrameOwnerElement* ownerElement() const;
 
     Document* document() const;
     FrameView* view() const;
@@ -298,8 +295,6 @@ public:
 
     WEBCORE_EXPORT bool arePluginsEnabled();
 
-    WEBCORE_EXPORT void didFinishLoadInAnotherProcess();
-
 private:
     friend class NavigationDisabler;
 
@@ -309,6 +304,7 @@ private:
 
     FrameType frameType() const final { return FrameType::Local; }
 
+    AbstractFrameView* virtualView() const final;
     AbstractDOMWindow* virtualWindow() const final;
 
     HashSet<FrameDestructionObserver*> m_destructionObservers;
@@ -320,7 +316,6 @@ private:
     UniqueRef<FrameLoader> m_loader;
     mutable UniqueRef<NavigationScheduler> m_navigationScheduler;
 
-    WeakPtr<HTMLFrameOwnerElement, WeakPtrImplWithEventTargetData> m_ownerElement;
     RefPtr<FrameView> m_view;
     RefPtr<Document> m_doc;
 
@@ -332,7 +327,7 @@ private:
 #if PLATFORM(IOS_FAMILY)
     void betterApproximateNode(const IntPoint& testPoint, const NodeQualifier&, Node*& best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect);
     bool hitTestResultAtViewportLocation(const FloatPoint& viewportLocation, HitTestResult&, IntPoint& center);
-    
+
     enum class ShouldApproximate : bool { No, Yes };
     enum class ShouldFindRootEditableElement : bool { No, Yes };
     Node* qualifyingNodeAtViewportLocation(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation, const NodeQualifier&, ShouldApproximate, ShouldFindRootEditableElement = ShouldFindRootEditableElement::Yes);

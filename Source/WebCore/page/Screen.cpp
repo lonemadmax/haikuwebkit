@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2015 Google Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,7 +31,6 @@
 #include "Screen.h"
 
 #include "DOMWindow.h"
-#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
 #include "FloatRect.h"
 #include "Frame.h"
@@ -53,24 +53,24 @@ Screen::Screen(DOMWindow& window)
 
 Screen::~Screen() = default;
 
-unsigned Screen::height() const
+int Screen::height() const
 {
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::Height);
-    return static_cast<unsigned>(frame->screenSize().height());
+    return static_cast<int>(frame->screenSize().height());
 }
 
-unsigned Screen::width() const
+int Screen::width() const
 {
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::Width);
-    return static_cast<unsigned>(frame->screenSize().width());
+    return static_cast<int>(frame->screenSize().width());
 }
 
 unsigned Screen::colorDepth() const
@@ -78,7 +78,7 @@ unsigned Screen::colorDepth() const
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::ColorDepth);
     return static_cast<unsigned>(screenDepth(frame->view()));
 }
@@ -88,7 +88,7 @@ unsigned Screen::pixelDepth() const
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::PixelDepth);
 
     auto* document = window()->document();
@@ -103,7 +103,7 @@ int Screen::availLeft() const
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailLeft);
     return static_cast<int>(screenAvailableRect(frame->view()).x());
 }
@@ -113,29 +113,29 @@ int Screen::availTop() const
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailTop);
     return static_cast<int>(screenAvailableRect(frame->view()).y());
 }
 
-unsigned Screen::availHeight() const
+int Screen::availHeight() const
 {
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailHeight);
-    return static_cast<unsigned>(screenAvailableRect(frame->view()).height());
+    return static_cast<int>(screenAvailableRect(frame->view()).height());
 }
 
-unsigned Screen::availWidth() const
+int Screen::availWidth() const
 {
     auto* frame = this->frame();
     if (!frame)
         return 0;
-    if (DeprecatedGlobalSettings::webAPIStatisticsEnabled())
+    if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailWidth);
-    return static_cast<unsigned>(screenAvailableRect(frame->view()).width());
+    return static_cast<int>(screenAvailableRect(frame->view()).width());
 }
 
 ScreenOrientation& Screen::orientation()

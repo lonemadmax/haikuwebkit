@@ -38,6 +38,7 @@
 #include "RemoteWorkerInitializationData.h"
 #include "RemoteWorkerLibWebRTCProvider.h"
 #include "ServiceWorkerFetchTaskMessages.h"
+#include "WebBadgeClient.h"
 #include "WebBroadcastChannelRegistry.h"
 #include "WebCacheStorageProvider.h"
 #include "WebCompiledContentRuleListData.h"
@@ -139,7 +140,12 @@ void WebSWContextManagerConnection::updatePreferencesStore(WebPreferencesStore&&
 
 void WebSWContextManagerConnection::updateAppInitiatedValue(ServiceWorkerIdentifier serviceWorkerIdentifier, WebCore::LastNavigationWasAppInitiated lastNavigationWasAppInitiated)
 {
-    ASSERT(isMainRunLoop());
+    if (!isMainRunLoop()) {
+        callOnMainRunLoop([protectedThis = Ref { *this }, serviceWorkerIdentifier, lastNavigationWasAppInitiated]() mutable {
+            protectedThis->updateAppInitiatedValue(serviceWorkerIdentifier, lastNavigationWasAppInitiated);
+        });
+        return;
+    }
 
     if (auto* serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxy(serviceWorkerIdentifier))
         serviceWorkerThreadProxy->setLastNavigationWasAppInitiated(lastNavigationWasAppInitiated == WebCore::LastNavigationWasAppInitiated::Yes);
@@ -150,7 +156,9 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
     assertIsCurrent(m_queue.get());
 
     callOnMainRunLoopAndWait([this, protectedThis = Ref { *this }, contextData = WTFMove(contextData).isolatedCopy(), workerData = WTFMove(workerData).isolatedCopy(), userAgent = WTFMove(userAgent).isolatedCopy(), workerThreadMode]() mutable {
-    auto pageConfiguration = pageConfigurationWithEmptyClients(WebProcess::singleton().sessionID());
+        auto pageConfiguration = pageConfigurationWithEmptyClients(WebProcess::singleton().sessionID());
+
+        pageConfiguration.badgeClient = WebBadgeClient::create();
         pageConfiguration.databaseProvider = WebDatabaseProvider::getOrCreate(m_pageGroupID);
         pageConfiguration.socketProvider = WebSocketProvider::create(m_webPageProxyID);
         pageConfiguration.broadcastChannelRegistry = WebProcess::singleton().broadcastChannelRegistry();

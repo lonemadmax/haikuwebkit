@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2008, 2010 Apple Inc. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2015 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -60,8 +60,8 @@ public:
 
     void formOwnerRemovedFromTree(const Node& formRoot);
 
-    WEBCORE_EXPORT unsigned width(bool ignorePendingStylesheets = false);
-    WEBCORE_EXPORT unsigned height(bool ignorePendingStylesheets = false);
+    WEBCORE_EXPORT unsigned width();
+    WEBCORE_EXPORT unsigned height();
 
     WEBCORE_EXPORT int naturalWidth() const;
     WEBCORE_EXPORT int naturalHeight() const;
@@ -141,6 +141,8 @@ public:
     AtomString srcsetForBindings() const;
     void setSrcsetForBindings(const AtomString&);
 
+    bool usesSrcsetOrPicture() const;
+
     const AtomString& loadingForBindings() const;
     void setLoadingForBindings(const AtomString&);
 
@@ -171,10 +173,9 @@ protected:
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) override;
 
 private:
-    HTMLFormElement* form() const final { return FormAssociatedElement::form(); }
     void resetFormOwner() final;
-    void refFormAssociatedElement() final { HTMLElement::ref(); }
-    void derefFormAssociatedElement() final { HTMLElement::deref(); }
+    void refFormAssociatedElement() const final { HTMLElement::ref(); }
+    void derefFormAssociatedElement() const final { HTMLElement::deref(); }
     void setFormInternal(HTMLFormElement*) final;
 
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;

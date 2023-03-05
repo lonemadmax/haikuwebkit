@@ -52,15 +52,15 @@ namespace WebCore {
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSFontFace);
 
-template<typename T> void iterateClients(HashSet<CSSFontFace::Client*>& clients, T callback)
+template<typename T> void iterateClients(WeakHashSet<CSSFontFace::Client>& clients, T callback)
 {
-    for (auto& client : copyToVectorOf<RefPtr<CSSFontFace::Client>>(clients))
-        callback(*client);
+    for (auto& client : copyToVectorOf<Ref<CSSFontFace::Client>>(clients))
+        callback(client);
 }
 
 void CSSFontFace::appendSources(CSSFontFace& fontFace, CSSValueList& srcList, ScriptExecutionContext* context, bool isInitiatingElementInUserAgentShadowTree)
 {
-    bool allowDownloading = context && context->settingsValues().downloadableBinaryFontsEnabled;
+    bool allowDownloading = context && (context->settingsValues().downloadableBinaryFontAllowedTypes != DownloadableBinaryFontAllowedTypes::None);
     for (auto& src : srcList) {
         // An item in the list either specifies a string (local font name) or a URL (remote font to download).
         if (auto local = dynamicDowncast<CSSFontFaceSrcLocalValue>(src.get())) {
@@ -351,7 +351,7 @@ String CSSFontFace::family() const
     auto firstFamily = dynamicDowncast<CSSPrimitiveValue>(familyList->item(0));
     if (!firstFamily || !firstFamily->isFontFamily())
         return { };
-    return firstFamily->fontFamily().familyName;
+    return firstFamily->stringValue();
 }
 
 String CSSFontFace::style() const
@@ -458,13 +458,13 @@ bool CSSFontFace::computeFailureState() const
 
 void CSSFontFace::addClient(Client& client)
 {
-    m_clients.add(&client);
+    m_clients.add(client);
 }
 
 void CSSFontFace::removeClient(Client& client)
 {
-    ASSERT(m_clients.contains(&client));
-    m_clients.remove(&client);
+    ASSERT(m_clients.contains(client));
+    m_clients.remove(client);
 }
 
 void CSSFontFace::initializeWrapper()

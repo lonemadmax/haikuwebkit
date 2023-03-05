@@ -45,10 +45,12 @@ static constexpr bool mediaSourceEnabledValue = false;
 static constexpr bool mediaSourceEnabledValue = true;
 #endif
 
+#if ENABLE(GPU_PROCESS)
 #if PLATFORM(IOS_FAMILY)
 static constexpr bool fullGPUProcessEnabledValue = true;
 #else
 static constexpr bool fullGPUProcessEnabledValue = false;
+#endif
 #endif
 
 #if PLATFORM(MAC)
@@ -85,6 +87,7 @@ const TestFeatures& TestOptions::defaults()
             { "ContentChangeObserverEnabled", false },
             { "CustomPasteboardDataEnabled", true },
             { "DOMPasteAllowed", true },
+            { "DOMTestingAPIsEnabled", true },
             { "DataTransferItemsEnabled", true },
             { "DeveloperExtrasEnabled", true },
             { "DirectoryUploadEnabled", true },
@@ -114,8 +117,6 @@ const TestFeatures& TestOptions::defaults()
             { "NeedsSiteSpecificQuirks", false },
             { "NeedsStorageAccessFromFileURLsQuirk", false },
             { "OfflineWebApplicationCacheEnabled", true },
-            { "OffscreenCanvasEnabled", true },
-            { "OffscreenCanvasInWorkersEnabled", true },
             { "PageVisibilityBasedProcessSuppressionEnabled", false },
             { "PdfJSViewerEnabled", false },
             { "PluginsEnabled", true },
@@ -131,7 +132,6 @@ const TestFeatures& TestOptions::defaults()
             { "UsesBackForwardCache", false },
             { "WebAuthenticationEnabled", true },
             { "WebRTCRemoteVideoFrameEnabled", true },
-            { "WebRTCMDNSICECandidatesEnabled", false },
             { "XSSAuditorEnabled", false },
 #if PLATFORM(IOS_FAMILY_SIMULATOR)
             { "VP9DecoderEnabled", false },

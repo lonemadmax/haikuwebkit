@@ -87,6 +87,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , translate(RenderStyle::initialTranslate())
     , offsetPath(RenderStyle::initialOffsetPath())
     , touchActions(RenderStyle::initialTouchActions())
+    , marginTrim(RenderStyle::initialMarginTrim())
     , pageSizeType(PAGE_SIZE_AUTO)
     , transformStyle3D(static_cast<unsigned>(RenderStyle::initialTransformStyle3D()))
     , transformStyleForcedToFlat(false)
@@ -98,6 +99,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , effectiveAppearance(static_cast<unsigned>(RenderStyle::initialAppearance()))
     , textDecorationStyle(static_cast<unsigned>(RenderStyle::initialTextDecorationStyle()))
     , textDecorationThickness(RenderStyle::initialTextDecorationThickness())
+    , textGroupAlign(static_cast<unsigned>(RenderStyle::initialTextGroupAlign()))
     , aspectRatioType(static_cast<unsigned>(RenderStyle::initialAspectRatioType()))
     , contentVisibility(static_cast<unsigned>(RenderStyle::initialContentVisibility()))
 #if ENABLE(CSS_COMPOSITING)
@@ -199,6 +201,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , translate(o.translate)
     , offsetPath(o.offsetPath)
     , touchActions(o.touchActions)
+    , marginTrim(o.marginTrim)
     , pageSizeType(o.pageSizeType)
     , transformStyle3D(o.transformStyle3D)
     , transformStyleForcedToFlat(o.transformStyleForcedToFlat)
@@ -210,6 +213,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , effectiveAppearance(o.effectiveAppearance)
     , textDecorationStyle(o.textDecorationStyle)
     , textDecorationThickness(o.textDecorationThickness)
+    , textGroupAlign(o.textGroupAlign)
     , aspectRatioType(o.aspectRatioType)
     , contentVisibility(o.contentVisibility)
 #if ENABLE(CSS_COMPOSITING)
@@ -325,6 +329,7 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && effectiveAppearance == o.effectiveAppearance
         && textDecorationStyle == o.textDecorationStyle
         && textDecorationThickness == o.textDecorationThickness
+        && textGroupAlign == o.textGroupAlign
         && arePointingToEqualData(rotate, o.rotate)
         && arePointingToEqualData(scale, o.scale)
         && arePointingToEqualData(translate, o.translate)
@@ -359,7 +364,8 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && offsetAnchor == o.offsetAnchor
         && offsetRotate == o.offsetRotate
         && overflowAnchor == o.overflowAnchor
-        && leadingTrim == o.leadingTrim;
+        && leadingTrim == o.leadingTrim
+        && marginTrim == o.marginTrim;
 }
 
 bool StyleRareNonInheritedData::contentDataEquivalent(const StyleRareNonInheritedData& other) const

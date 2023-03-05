@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HTMLTextAreaElement.h"
 
+#include "AXObjectCache.h"
 #include "BeforeTextInsertedEvent.h"
 #include "CSSValueKeywords.h"
 #include "DOMFormData.h"
@@ -376,6 +377,9 @@ void HTMLTextAreaElement::setValueCommon(const String& newValue, TextFieldEventB
         cacheSelection(std::min(endOfString, selectionStartValue), std::min(endOfString, selectionEndValue), SelectionHasNoDirection);
 
     setTextAsOfLastFormControlChangeEvent(normalizedValue);
+
+    if (auto* cache = document().existingAXObjectCache())
+        cache->valueChanged(this);
 }
 
 String HTMLTextAreaElement::defaultValue() const
@@ -410,17 +414,17 @@ String HTMLTextAreaElement::validationMessage() const
 
 bool HTMLTextAreaElement::valueMissing() const
 {
-    return willValidate() && valueMissing({ });
+    return valueMissing({ });
 }
 
 bool HTMLTextAreaElement::tooShort() const
 {
-    return willValidate() && tooShort({ }, CheckDirtyFlag);
+    return tooShort({ }, CheckDirtyFlag);
 }
 
 bool HTMLTextAreaElement::tooLong() const
 {
-    return willValidate() && tooLong({ }, CheckDirtyFlag);
+    return tooLong({ }, CheckDirtyFlag);
 }
 
 bool HTMLTextAreaElement::valueMissing(StringView value) const

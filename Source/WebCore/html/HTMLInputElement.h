@@ -83,7 +83,7 @@ public:
     WEBCORE_EXPORT void setType(const AtomString&);
     WEBCORE_EXPORT String value() const final;
     WEBCORE_EXPORT ExceptionOr<void> setValue(const String&, TextFieldEventBehavior = DispatchNoEvent, TextControlSetValueSelection = TextControlSetValueSelection::SetSelectionToEnd) final;
-    void setValueForUser(const String& value) { setValue(value, DispatchChangeEvent); }
+    void setValueForUser(const String& value) { setValue(value, DispatchInputAndChangeEvent); }
     WEBCORE_EXPORT WallTime valueAsDate() const;
     WEBCORE_EXPORT ExceptionOr<void> setValueAsDate(WallTime);
     WEBCORE_EXPORT double valueAsNumber() const;
@@ -355,7 +355,7 @@ private:
     bool isKeyboardFocusable(KeyboardEvent*) const final;
     bool isMouseFocusable() const final;
     bool isEnumeratable() const final;
-    bool supportLabels() const final;
+    bool isLabelable() const final;
     void updateFocusAppearance(SelectionRestorationMode, SelectionRevealMode) final;
     bool shouldUseInputMethod() final;
 

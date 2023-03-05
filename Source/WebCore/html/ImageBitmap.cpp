@@ -123,13 +123,11 @@ RefPtr<ImageBuffer> ImageBitmap::createImageBuffer(ScriptExecutionContext& scrip
 
 Vector<std::optional<ImageBitmapBacking>> ImageBitmap::detachBitmaps(Vector<RefPtr<ImageBitmap>>&& bitmaps)
 {
-    return WTF::map(WTFMove(bitmaps), [](auto&& bitmap) -> std::optional<ImageBitmapBacking> {
+    return WTF::map(WTFMove(bitmaps), [](auto&& bitmap) {
         std::optional<ImageBitmapBacking> backing = bitmap->takeImageBitmapBacking();
-        if (!backing)
-            return std::nullopt;
-        if (auto copyBuffer = backing->takeImageBufferForDifferentThread())
-            return ImageBitmapBacking(WTFMove(copyBuffer), backing->serializationState());
-        return std::nullopt;
+        if (backing)
+            backing->disconnect();
+        return backing;
     });
 }
 
@@ -163,7 +161,7 @@ static bool taintsOrigin(CachedImage& cachedImage)
     if (image->sourceURL().protocolIsData())
         return false;
 
-    if (!image->hasSingleSecurityOrigin())
+    if (image->renderingTaintsOrigin())
         return true;
 
     if (!cachedImage.isCORSSameOrigin())
@@ -175,17 +173,7 @@ static bool taintsOrigin(CachedImage& cachedImage)
 #if ENABLE(VIDEO)
 static bool taintsOrigin(SecurityOrigin* origin, HTMLVideoElement& video)
 {
-    if (!video.hasSingleSecurityOrigin())
-        return true;
-
-    if (!video.player() || video.player()->didPassCORSAccessCheck())
-        return false;
-
-    auto url = video.currentSrc();
-    if (url.protocolIsData())
-        return false;
-
-    return !origin->canRequest(url);
+    return video.taintsOrigin(*origin);
 }
 #endif
 

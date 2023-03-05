@@ -55,6 +55,7 @@ public:
 
     // Returns true if the root layer changed.
     bool updateLayerTree(const RemoteLayerTreeTransaction&, float indicatorScaleFactor  = 1);
+    void asyncSetLayerContents(WebCore::GraphicsLayer::PlatformLayerID, ImageBufferBackendHandle&&);
 
     void setIsDebugLayerTreeHost(bool flag) { m_isDebugLayerTreeHost = flag; }
     bool isDebugLayerTreeHost() const { return m_isDebugLayerTreeHost; }
@@ -75,7 +76,7 @@ public:
     // This avoids keeping an outstanding InUse reference when suspended.
     void mapAllIOSurfaceBackingStore();
 
-    CALayer *layerWithIDForTesting(uint64_t) const;
+    CALayer *layerWithIDForTesting(WebCore::GraphicsLayer::PlatformLayerID) const;
 
     bool replayCGDisplayListsIntoBackingStore() const;
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
