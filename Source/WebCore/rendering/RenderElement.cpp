@@ -1461,6 +1461,8 @@ void RenderElement::notifyFinished(CachedResource& resource, const NetworkLoadMe
 
 bool RenderElement::allowsAnimation() const
 {
+    if (auto* imageElement = dynamicDowncast<HTMLImageElement>(element()))
+        return imageElement->allowsAnimation();
     return page().imageAnimationEnabled();
 }
 
@@ -1479,7 +1481,7 @@ void RenderElement::scheduleRenderingUpdateForImage(CachedImage&)
 bool RenderElement::repaintForPausedImageAnimationsIfNeeded(const IntRect& visibleRect, CachedImage& cachedImage)
 {
     ASSERT(m_hasPausedImageAnimations);
-    if (!page().imageAnimationEnabled() || !isVisibleInDocumentRect(visibleRect))
+    if (!allowsAnimation() || !isVisibleInDocumentRect(visibleRect))
         return false;
 
     repaint();
@@ -1876,7 +1878,7 @@ bool RenderElement::checkForRepaintDuringLayout() const
 ImageOrientation RenderElement::imageOrientation() const
 {
     auto* imageElement = dynamicDowncast<HTMLImageElement>(element());
-    return (imageElement && !imageElement->allowsOrientationOverride()) ? ImageOrientation(ImageOrientation::FromImage) : style().imageOrientation();
+    return (imageElement && !imageElement->allowsOrientationOverride()) ? ImageOrientation(ImageOrientation::Orientation::FromImage) : style().imageOrientation();
 }
 
 void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded(const RenderStyle& oldStyle, const RenderStyle& newStyle)

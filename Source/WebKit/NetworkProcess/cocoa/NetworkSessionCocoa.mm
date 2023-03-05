@@ -34,7 +34,6 @@
 #import "Download.h"
 #import "LegacyCustomProtocolManager.h"
 #import "Logging.h"
-#import "NetworkConnectionIntegrityHelpers.h"
 #import "NetworkDataTaskCocoa.h"
 #import "NetworkLoad.h"
 #import "NetworkProcess.h"
@@ -797,6 +796,71 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     });
 }
 
+#if HAVE(NETWORK_RESOLUTION_FAILURE_REPORT) && defined(NW_CONNECTION_HAS_FAILED_RESOLUTION_REPORT)
+
+static NSString *description(nw_interface_type_t type)
+{
+    switch (type) {
+    case nw_interface_type_other:
+        return @"other";
+    case nw_interface_type_wifi:
+        return @"wifi";
+    case nw_interface_type_cellular:
+        return @"cellular";
+    case nw_interface_type_wired:
+        return @"wired";
+    case nw_interface_type_loopback:
+        return @"loopback";
+    }
+    return @"";
+}
+
+static NSString *description(nw_dns_failure_reason_t reason)
+{
+    switch (reason) {
+    case nw_dns_failure_reason_unknown:
+        return @"unknown";
+    case nw_dns_failure_reason_blocked:
+        return @"blocked";
+    case nw_dns_failure_reason_censored:
+        return @"censored";
+    case nw_dns_failure_reason_filtered:
+        return @"filtered";
+    }
+    return @"";
+}
+
+
+static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
+{
+    auto reportValue = (__bridge CFTypeRef)error.userInfo[@"_NSURLErrorNWResolutionReportKey"];
+    if (!reportValue)
+        return nil;
+
+    auto pathValue = (__bridge CFTypeRef)error.userInfo[@"_NSURLErrorNWPathKey"];
+    if (!pathValue)
+        return nil;
+
+    auto interfaces = adoptNS([[NSMutableArray alloc] initWithCapacity:1]);
+    nw_path_enumerate_interfaces(static_cast<nw_path_t>(pathValue), ^bool(nw_interface_t interface) {
+        [interfaces addObject:@{
+            @"type" : description(nw_interface_get_type(interface)),
+            @"name" : @(nw_interface_get_name(interface) ?: "")
+        }];
+        return true;
+    });
+
+    auto report = static_cast<nw_resolution_report_t>(reportValue);
+    return @{
+        @"provider" : @(nw_resolution_report_get_provider_name(report) ?: ""),
+        @"dnsFailureReason" : description(nw_resolution_report_get_dns_failure_reason(report)),
+        @"extendedDNSErrorExtraText" : @(nw_resolution_report_get_extended_dns_error_extra_text(report) ?: ""),
+        @"interfaces" : interfaces.get(),
+    };
+}
+
+#endif // HAVE(NETWORK_RESOLUTION_FAILURE_REPORT) && defined(NW_CONNECTION_HAS_FAILED_RESOLUTION_REPORT)
+
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error
 {
     LOG(NetworkSession, "%llu didCompleteWithError %@", task.taskIdentifier, error);
@@ -805,10 +869,19 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         NSDictionary *oldUserInfo = [error userInfo];
         NSMutableDictionary *newUserInfo = oldUserInfo ? [NSMutableDictionary dictionaryWithDictionary:oldUserInfo] : [NSMutableDictionary dictionary];
         newUserInfo[@"networkTaskDescription"] = [task description];
+        if (RefPtr networkDataTask = [self existingTask:task]) {
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
-        if (auto* networkDataTask = [self existingTask:task])
             newUserInfo[@"networkTaskMetricsPrivacyStance"] = privacyStanceToString(networkDataTask->networkLoadMetrics().privacyStance);
 #endif
+#if HAVE(NETWORK_RESOLUTION_FAILURE_REPORT) && defined(NW_CONNECTION_HAS_FAILED_RESOLUTION_REPORT)
+            for (NSError *underlyingError in error.underlyingErrors) {
+                if (auto report = extractResolutionReport(underlyingError)) {
+                    newUserInfo[@"networkResolutionReport"] = report;
+                    break;
+                }
+            }
+#endif
+        }
         error = [NSError errorWithDomain:[error domain] code:[error code] userInfo:newUserInfo];
     }
 
@@ -1104,15 +1177,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 namespace WebKit {
 
-static RetainPtr<NSURLSession> createURLSession(NSURLSessionConfiguration *configuration, id<NSURLSessionDelegate> delegate)
-{
-    RetainPtr session = [NSURLSession sessionWithConfiguration:configuration delegate:delegate delegateQueue:NSOperationQueue.mainQueue];
-#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
-    configureForNetworkConnectionIntegrity(session.get());
-#endif
-    return session;
-}
-
 #if ASSERT_ENABLED
 static bool sessionsCreated = false;
 #endif
@@ -1241,7 +1305,7 @@ void SessionWrapper::initialize(NSURLSessionConfiguration *configuration, Networ
         configuration._sourceApplicationSecondaryIdentifier = @"com.apple.WebKit.InAppBrowser";
 
     delegate = adoptNS([[WKNetworkSessionDelegate alloc] initWithNetworkSession:networkSession wrapper:*this withCredentials:storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::Use]);
-    session = createURLSession(configuration, delegate.get());
+    session = [NSURLSession sessionWithConfiguration:configuration delegate:delegate.get() delegateQueue:[NSOperationQueue mainQueue]];
 }
 
 #if HAVE(SESSION_CLEANUP)
@@ -1623,10 +1687,10 @@ void NetworkSessionCocoa::clearCredentials()
     ASSERT(m_downloadMap.isEmpty());
     // FIXME: Use resetWithCompletionHandler instead.
     m_sessionWithCredentialStorage = [NSURLSession sessionWithConfiguration:m_sessionWithCredentialStorage.get().configuration delegate:static_cast<id>(m_sessionWithCredentialStorageDelegate.get()) delegateQueue:[NSOperationQueue mainQueue]];
-    m_statelessSession = createURLSession([m_statelessSession configuration], static_cast<id>(m_statelessSessionDelegate.get()));
+    m_statelessSession = [NSURLSession sessionWithConfiguration:m_statelessSession.get().configuration delegate:static_cast<id>(m_statelessSessionDelegate.get()) delegateQueue:[NSOperationQueue mainQueue]];
     for (auto& entry : m_isolatedSessions.values())
-        entry.session = createURLSession([entry.session configuration], static_cast<id>(entry.delegate.get()));
-    m_appBoundSession.session = createURLSession([m_appBoundSession.session configuration], m_appBoundSession.delegate.get());
+        entry.session = [NSURLSession sessionWithConfiguration:entry.session.get().configuration delegate:static_cast<id>(entry.delegate.get()) delegateQueue:[NSOperationQueue mainQueue]];
+    m_appBoundSession.session = [NSURLSession sessionWithConfiguration:m_appBoundSession.session.get().configuration delegate:static_cast<id>(m_appBoundSession.delegate.get()) delegateQueue:[NSOperationQueue mainQueue]];
 #endif
 }
 

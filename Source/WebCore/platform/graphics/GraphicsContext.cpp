@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -293,6 +293,18 @@ ImageDrawResult GraphicsContext::drawImage(Image& image, const FloatRect& destin
 ImageDrawResult GraphicsContext::drawImage(Image& image, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& options)
 {
     InterpolationQualityMaintainer interpolationQualityForThisScope(*this, options.interpolationQuality());
+
+    auto result = image.drawCachedSubimage(*this, destination, source, options);
+    if (result != ImageDrawResult::DidNothing)
+        return result;
+
+    ASSERT_IMPLIES(image.mustDrawFromCachedSubimage(*this), image.shouldDrawFromCachedSubimage(*this));
+
+    if (image.mustDrawFromCachedSubimage(*this)) {
+        LOG_ERROR("ERROR ImageDrawResult GraphicsContext::drawImage() cached subimage could not been drawn");
+        return ImageDrawResult::DidNothing;
+    }
+
     return image.draw(*this, destination, source, options);
 }
 
@@ -460,7 +472,7 @@ void GraphicsContext::adjustLineToPixelBoundaries(FloatPoint& p1, FloatPoint& p2
     // works out.  For example, with a border width of 3, WebKit will pass us (y1+y2)/2, e.g.,
     // (50+53)/2 = 103/2 = 51 when we want 51.5.  It is always true that an even width gave
     // us a perfect position, but an odd width gave us a position that is off by exactly 0.5.
-    if (penStyle == DottedStroke || penStyle == DashedStroke) {
+    if (penStyle == StrokeStyle::DottedStroke || penStyle == StrokeStyle::DashedStroke) {
         if (p1.x() == p2.x()) {
             p1.setY(p1.y() + strokeWidth);
             p2.setY(p2.y() - strokeWidth);
@@ -557,13 +569,13 @@ FloatRect GraphicsContext::computeLineBoundsAndAntialiasingModeForText(const Flo
 float GraphicsContext::dashedLineCornerWidthForStrokeWidth(float strokeWidth) const
 {
     float thickness = strokeThickness();
-    return strokeStyle() == DottedStroke ? thickness : std::min(2.0f * thickness, std::max(thickness, strokeWidth / 3.0f));
+    return strokeStyle() == StrokeStyle::DottedStroke ? thickness : std::min(2.0f * thickness, std::max(thickness, strokeWidth / 3.0f));
 }
 
 float GraphicsContext::dashedLinePatternWidthForStrokeWidth(float strokeWidth) const
 {
     float thickness = strokeThickness();
-    return strokeStyle() == DottedStroke ? thickness : std::min(3.0f * thickness, std::max(thickness, strokeWidth / 3.0f));
+    return strokeStyle() == StrokeStyle::DottedStroke ? thickness : std::min(3.0f * thickness, std::max(thickness, strokeWidth / 3.0f));
 }
 
 float GraphicsContext::dashedLinePatternOffsetForPatternAndStrokeWidth(float patternWidth, float strokeWidth) const
@@ -613,7 +625,7 @@ void GraphicsContext::paintFrameForMedia(MediaPlayer& player, const FloatRect& d
 
 void GraphicsContext::paintVideoFrame(VideoFrame& frame, const FloatRect& destination, bool shouldDiscardAlpha)
 {
-    frame.paintInContext(*this, destination, ImageOrientation::None, shouldDiscardAlpha);
+    frame.paintInContext(*this, destination, ImageOrientation::Orientation::None, shouldDiscardAlpha);
 }
 #endif
 

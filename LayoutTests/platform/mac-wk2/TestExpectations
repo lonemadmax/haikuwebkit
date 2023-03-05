@@ -1761,8 +1761,6 @@ webkit.org/b/248734 media/video-inaccurate-duration-ended.html [ Crash ]
 [ BigSur+ x86_64 ] css3/blending/background-blend-mode-body-image.html [ ImageOnlyFailure ]
 [ BigSur Monterey ] fast/images/animated-heics-draw.html [ Skip ]
 [ Ventura+ ] fast/images/animated-heics-draw.html [ Pass Timeout ]
-[ BigSur Monterey ] fast/images/animated-heics-verify.html [ Skip ]
-[ Ventura+ ] fast/images/animated-heics-verify.html [ Pass Failure ]
 [ Ventura+ ] model-element/model-element-ready.html [ Pass Failure ]
 [ Monterey+ ] model-element/model-element-graphics-layers-opacity.html [ Failure ]
 [ Ventura+ ] http/tests/resourceLoadStatistics/website-data-removal-for-site-without-user-interaction.html [ Failure ]
@@ -1808,3 +1806,5 @@ imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canva
 imported/w3c/web-platform-tests/webcodecs/videoFrame-texImage.any.worker.html [ Skip ]
 
 webkit.org/b/251187 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-back-to-original-origin.any.html [ Pass Crash ]
+
+webkit.org/b/250046 [ Monterey+ ] svg/clip-path/clip-opacity-translate.svg [ ImageOnlyFailure ]

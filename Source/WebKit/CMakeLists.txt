@@ -149,6 +149,7 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/graphics/WebGPU/RemoteBuffer
     GPUProcess/graphics/WebGPU/RemoteCommandBuffer
     GPUProcess/graphics/WebGPU/RemoteCommandEncoder
+    GPUProcess/graphics/WebGPU/RemoteCompositorIntegration
     GPUProcess/graphics/WebGPU/RemoteComputePassEncoder
     GPUProcess/graphics/WebGPU/RemoteComputePipeline
     GPUProcess/graphics/WebGPU/RemoteDevice
@@ -602,7 +603,6 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WebGPU/WebGPUOutOfMemoryError.serialization.in
     Shared/WebGPU/WebGPUPipelineDescriptorBase.serialization.in
     Shared/WebGPU/WebGPUPipelineLayoutDescriptor.serialization.in
-    Shared/WebGPU/WebGPUPresentationConfiguration.serialization.in
     Shared/WebGPU/WebGPUPresentationContextDescriptor.serialization.in
     Shared/WebGPU/WebGPUPrimitiveState.serialization.in
     Shared/WebGPU/WebGPUProgrammableStage.serialization.in

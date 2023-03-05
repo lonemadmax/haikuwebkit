@@ -28,9 +28,9 @@
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
 
+#include "WebGPUCanvasConfiguration.h"
 #include "WebGPUConvertToBackingContext.h"
 #include "WebGPUDeviceImpl.h"
-#include "WebGPUPresentationConfiguration.h"
 #include "WebGPUTextureDescriptor.h"
 #include "WebGPUTextureImpl.h"
 #include <WebGPU/WebGPUExt.h>
@@ -49,9 +49,6 @@ PresentationContextImpl::PresentationContextImpl(WGPUSurface surface, ConvertToB
 
 PresentationContextImpl::~PresentationContextImpl()
 {
-    if (m_swapChain)
-        wgpuSwapChainRelease(m_swapChain);
-
     ASSERT(m_backing);
     wgpuSurfaceRelease(m_backing);
 }
@@ -61,22 +58,25 @@ IOSurfaceRef PresentationContextImpl::drawingBuffer() const
     return wgpuSurfaceCocoaCustomSurfaceGetDrawingBuffer(m_backing);
 }
 
-void PresentationContextImpl::configure(const PresentationConfiguration& presentationConfiguration)
+void PresentationContextImpl::configure(const CanvasConfiguration& canvasConfiguration)
 {
     if (m_swapChain)
-        wgpuSwapChainRelease(m_swapChain);
+        m_swapChainWrapper = nullptr;
+
+    m_format = canvasConfiguration.format;
 
     WGPUSwapChainDescriptor backingDescriptor {
         nullptr,
         nullptr,
-        m_convertToBackingContext->convertTextureUsageFlagsToBacking(presentationConfiguration.usage),
-        m_convertToBackingContext->convertToBacking(presentationConfiguration.format),
-        presentationConfiguration.width,
-        presentationConfiguration.height,
+        m_convertToBackingContext->convertTextureUsageFlagsToBacking(canvasConfiguration.usage),
+        m_convertToBackingContext->convertToBacking(canvasConfiguration.format),
+        m_width,
+        m_height,
         WGPUPresentMode_Immediate,
     };
 
-    m_swapChain = wgpuDeviceCreateSwapChain(m_convertToBackingContext->convertToBacking(presentationConfiguration.device), m_backing, &backingDescriptor);
+    m_swapChainWrapper = SwapChainWrapper::create(wgpuDeviceCreateSwapChain(m_convertToBackingContext->convertToBacking(canvasConfiguration.device), m_backing, &backingDescriptor));
+    m_swapChain = m_swapChainWrapper->backing();
 }
 
 void PresentationContextImpl::unconfigure()
@@ -84,14 +84,32 @@ void PresentationContextImpl::unconfigure()
     if (!m_swapChain)
         return;
 
-    wgpuSwapChainRelease(m_swapChain);
+    m_swapChainWrapper = nullptr;
+    
+    m_format = TextureFormat::Bgra8unorm;
+    m_width = 0;
+    m_height = 0;
     m_swapChain = nullptr;
+    m_currentTexture = nullptr;
 }
 
-Texture* PresentationContextImpl::getCurrentTexture()
+RefPtr<Texture> PresentationContextImpl::getCurrentTexture()
 {
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=250958 Figure out how the lifetime of these objects should behave.
-    return nullptr;
+    if (!m_swapChain)
+        return nullptr; // FIXME: This should return an invalid texture instead.
+
+    if (!m_currentTexture) {
+        ASSERT(m_swapChainWrapper);
+        m_currentTexture = TextureImpl::create(wgpuSwapChainGetCurrentTexture(m_swapChain), m_format, TextureDimension::_2d, m_convertToBackingContext, *m_swapChainWrapper.copyRef()).ptr();
+    }
+
+    return m_currentTexture;
+}
+
+void PresentationContextImpl::present()
+{
+    wgpuSwapChainPresent(m_swapChain);
+    m_currentTexture = nullptr;
 }
 
 #if PLATFORM(COCOA)

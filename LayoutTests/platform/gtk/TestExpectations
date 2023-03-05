@@ -1010,6 +1010,33 @@ webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/opening-handshake
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/opening-handshake/003.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/security/001.html [ Failure ]
 
+webkit.org/b/251527 imported/w3c/web-platform-tests/css/css-scroll-snap/selection-target.html [ Failure ]
+
+webkit.org/b/251528 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-node-is-uneditable.html [ Failure ]
+
+webkit.org/b/251529 imported/w3c/web-platform-tests/shadow-dom/accesskey.tentative.html [ Failure ]
+
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/delegatesFocus-highlight-sibling.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-fallback-default-tabindex.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-fallback.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-nested-2levels.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-nested-delegatesFocus.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-nested-fallback.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-nested.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-shadow-in-fallback.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-shadow-in-slot.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slot-with-tabindex.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slots-in-slot.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-slots.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-web-component-input-type-radio.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation-with-delegatesFocus.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-navigation.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-nested-slots.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-reverse-unassignable-slot.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-reverse-unassigned-slot.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-unassignable-slot.html [ Failure ]
+webkit.org/b/251530 imported/w3c/web-platform-tests/shadow-dom/focus-navigation/focus-with-negative-index.html [ Failure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Expected failures.
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1023,7 +1050,6 @@ webkit.org/b/120200 [ Debug ] http/tests/security/XFrameOptions/x-frame-options-
 webkit.org/b/152642 http/tests/misc/detached-frame-console.html [ Failure ]
 
 webkit.org/b/188406 [ Debug ] imported/w3c/web-platform-tests/html/semantics/selectors/pseudo-classes/dir.html [ Crash ]
-webkit.org/b/242787 imported/w3c/web-platform-tests/dom/xslt/strip-space-crash.xml [ Crash ]
 
 webkit.org/b/120839 animations/cross-fade-background-image.html [ ImageOnlyFailure Crash ]
 
@@ -1601,6 +1627,7 @@ webkit.org/b/42194 fast/scrolling/scroll-select-list.html [ ImageOnlyFailure ]
 webkit.org/b/250610 fast/events/wheel/wheelevent-in-text-node.html [ Skip ]
 webkit.org/b/250610 fast/scrolling/rtl-scrollbars-listbox-scroll.html [ Skip ]
 webkit.org/b/250610 scrollbars/scroll-rtl-or-bt-layer.html [ Skip ]
+webkit.org/b/250610 fast/events/wheel/wheel-event-destroys-overflow.html [ Skip ]
 
 # Missing glyph symbol is not rendered properly.
 webkit.org/b/140252 fast/css/line-height-determined-by-primary-font.html [ Failure ]
@@ -1665,7 +1692,6 @@ webkit.org/b/172272 fast/visual-viewport/client-coordinates-relative-to-layout-v
 
 webkit.org/b/172273 fast/visual-viewport/client-rects-relative-to-layout-viewport.html [ Failure Crash ]
 
-webkit.org/b/172811 fast/block/float/032.html [ Failure ]
 webkit.org/b/172811 fast/forms/input-text-word-wrap.html [ Failure ]
 webkit.org/b/172811 fast/forms/number/number-appearance-rtl.html [ Failure ]
 webkit.org/b/172811 fast/forms/number/number-appearance-spinbutton-disabled-readonly.html [ Failure ]
@@ -1710,7 +1736,6 @@ webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/word-break/word
 
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-004.html [ Timeout ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-005.html [ Timeout ImageOnlyFailure ]
-webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-force-end-001.xht [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-first-001.xht [ Timeout ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-last-001.xht [ Timeout ImageOnlyFailure ]
 

@@ -67,7 +67,7 @@ public:
     {
         return GraphicsLayer::CompositingCoordinatesOrientation::TopDown;
     }
-    void setDisplayBuffer(WTF::MachSendRight&& displayBuffer)
+    void setDisplayBuffer(WTF::MachSendRight& displayBuffer)
     {
         if (!displayBuffer) {
             m_displayBuffer = { };
@@ -128,16 +128,31 @@ private:
     explicit GPUCanvasContextCocoa(CanvasBase&, GPU&);
 
     void markContextChangedAndNotifyCanvasObservers();
-    void configurePresentationContextIfNeeded();
-    void unconfigurePresentationContextIfNeeded();
 
-    std::optional<GPUCanvasConfiguration> m_configuration;
+    bool isConfigured() const
+    {
+        return static_cast<bool>(m_configuration);
+    }
+
+    struct Configuration {
+        Ref<GPUDevice> device;
+        GPUTextureFormat format { GPUTextureFormat::R8unorm };
+        GPUTextureUsageFlags usage { GPUTextureUsage::RENDER_ATTACHMENT };
+        Vector<GPUTextureFormat> viewFormats;
+        GPUPredefinedColorSpace colorSpace { GPUPredefinedColorSpace::SRGB };
+        GPUCanvasCompositingAlphaMode compositingAlphaMode { GPUCanvasCompositingAlphaMode::Opaque };
+        Vector<MachSendRight> renderBuffers;
+        unsigned frameCount { 0 };
+    };
+    std::optional<Configuration> m_configuration;
+
     Ref<DisplayBufferDisplayDelegate> m_layerContentsDisplayDelegate;
+    Ref<GPUCompositorIntegration> m_compositorIntegration;
     Ref<GPUPresentationContext> m_presentationContext;
+    RefPtr<GPUTexture> m_currentTexture;
 
     int m_width { 0 };
     int m_height { 0 };
-    bool m_presentationContextIsConfigured { false };
     bool m_compositingResultsNeedsUpdating { false };
 };
 

@@ -61,6 +61,7 @@ class GitHub(Scm):
                 body=data.get('body'),
                 author=self.repository.contributors.create((data.get('user') or data.get('author'))['login']),
                 head=(data.get('head') or {}).get('ref', data.get('headRefName')),
+                hash=(data.get('head') or {}).get('sha') or ((data.get('headRef') or {}).get('target') or {}).get('oid'),
                 base=(data.get('base') or {}).get('ref', data.get('baseRefName')),
                 opened=dict(
                     open=True,
@@ -104,6 +105,11 @@ class GitHub(Scm):
           }}
           baseRefName
           headRefName
+          headRef {{
+            target {{
+              oid
+            }}
+          }}
           headRepository {{
             nameWithOwner
           }}
@@ -750,13 +756,15 @@ class GitHub(Scm):
     def files_changed(self, argument=None):
         if not argument:
             return self.modified()
-        commit = self.find(argument, include_log=False, include_identifier=False)
-        if not commit:
-            raise ValueError("'{}' is not an argument recognized by git".format(argument))
+        if not Commit.HASH_RE.match(argument):
+            commit = self.find(argument, include_log=False, include_identifier=False)
+            if not commit:
+                raise ValueError("'{}' is not an argument recognized by git".format(argument))
+            argument = commit.hash
 
         return [
             file.get('filename')
-            for file in self.request('commits/{}'.format(commit.hash)).get('files', [])
+            for file in self.request('commits/{}'.format(argument)).get('files', [])
             if file.get('filename')
         ]
 

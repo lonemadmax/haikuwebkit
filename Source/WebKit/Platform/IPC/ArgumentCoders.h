@@ -62,12 +62,12 @@ template<typename T> struct SimpleArgumentCoder {
     template<typename Encoder>
     static void encode(Encoder& encoder, const T& t)
     {
-        encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(&t), sizeof(T), alignof(T));
+        encoder.encodeObject(t);
     }
 
-    static WARN_UNUSED_RETURN bool decode(Decoder& decoder, T& t)
+    static std::optional<T> decode(Decoder& decoder)
     {
-        return decoder.decodeFixedLengthData(reinterpret_cast<uint8_t*>(&t), sizeof(T), alignof(T));
+        return decoder.decodeObject<T>();
     }
 };
 
@@ -468,13 +468,27 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
             return std::nullopt;
 
         Vector<T, inlineCapacity, OverflowHandler, minCapacity> vector;
-        vector.reserveInitialCapacity(*size);
+
+        // Calls to reserveInitialCapacity with untrusted large sizes can cause allocator crashes.
+        // Limit allocations from untrusted sources to 1MB.
+        if (LIKELY(*size < 1024 * 1024 / sizeof(T))) {
+            vector.reserveInitialCapacity(*size);
+            for (size_t i = 0; i < *size; ++i) {
+                auto element = decoder.template decode<T>();
+                if (!element)
+                    return std::nullopt;
+                vector.uncheckedAppend(WTFMove(*element));
+            }
+            return vector;
+        }
+
         for (size_t i = 0; i < *size; ++i) {
             auto element = decoder.template decode<T>();
             if (!element)
                 return std::nullopt;
-            vector.uncheckedAppend(WTFMove(*element));
+            vector.append(WTFMove(*element));
         }
+        vector.shrinkToFit();
         return vector;
     }
 };

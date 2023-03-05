@@ -4668,6 +4668,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             setNonCellTypeForNode(node, SpecInt32Only);
             break;
         }
+        case Wasm::TypeKind::I64: {
+            setTypeForNode(node, SpecBigInt);
+            break;
+        }
         case Wasm::TypeKind::Ref:
         case Wasm::TypeKind::RefNull:
         case Wasm::TypeKind::Funcref:
@@ -4680,7 +4684,9 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             setNonCellTypeForNode(node, SpecBytecodeDouble);
             break;
         }
+        case Wasm::TypeKind::V128:
         default: {
+            RELEASE_ASSERT_NOT_REACHED();
             break;
         }
         }

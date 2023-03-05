@@ -131,7 +131,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/airplay/PlaybackTargetClientContextIdentifier.h
 
-    Modules/applepay/ApplePayButtonSystemImage.h
     Modules/applepay/ApplePayLogoSystemImage.h
     Modules/applepay/ApplePaySessionPaymentRequest.h
     Modules/applepay/Payment.h
@@ -786,6 +785,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/OverflowEvent.h
     dom/PointerEvent.h
     dom/PointerEventTypeNames.h
+    dom/PortIdentifier.h
     dom/Position.h
     dom/ProcessingInstruction.h
     dom/ProgressEvent.h
@@ -1267,7 +1267,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/MemoryRelease.h
     page/ModalContainerTypes.h
     page/NavigatorIsLoggedIn.h
-    page/PDFImageCachingPolicy.h
     page/Page.h
     page/PageColorSampler.h
     page/PageConfiguration.h
@@ -1582,6 +1581,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/BifurcatedGraphicsContext.h
     platform/graphics/BitmapImage.h
     platform/graphics/ByteArrayPixelBuffer.h
+    platform/graphics/CachedSubimage.h
     platform/graphics/Color.h
     platform/graphics/ColorComponents.h
     platform/graphics/ColorConversion.h
@@ -1651,7 +1651,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GradientColorStops.h
     platform/graphics/GraphicsContext.h
     platform/graphics/GraphicsContextGL.h
+    platform/graphics/GraphicsContextGLActiveInfo.h
     platform/graphics/GraphicsContextGLAttributes.h
+    platform/graphics/GraphicsContextGLEnums.h
     platform/graphics/GraphicsContextGLState.h
     platform/graphics/GraphicsContextState.h
     platform/graphics/GraphicsContextStateSaver.h
@@ -1670,6 +1672,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ImageBuffer.h
     platform/graphics/ImageBufferAllocator.h
     platform/graphics/ImageBufferBackend.h
+    platform/graphics/ImageBufferBackendParameters.h
+    platform/graphics/ImageDecoder.h
     platform/graphics/ImageDecoderIdentifier.h
     platform/graphics/ImageFrame.h
     platform/graphics/ImageObserver.h
@@ -1688,6 +1692,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/IntRectHash.h
     platform/graphics/IntSize.h
     platform/graphics/IntSizeHash.h
+    platform/graphics/LayerHostingContextIdentifier.h
     platform/graphics/LayerTreeAsTextOptions.h
     platform/graphics/LayoutPoint.h
     platform/graphics/LayoutRect.h
@@ -1779,6 +1784,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/controls/ProgressBarPart.h
     platform/graphics/controls/SearchFieldCancelButtonPart.h
     platform/graphics/controls/SearchFieldPart.h
+    platform/graphics/controls/SearchFieldResultsPart.h
     platform/graphics/controls/SliderThumbPart.h
     platform/graphics/controls/SliderTrackPart.h
     platform/graphics/controls/TextAreaPart.h
@@ -2170,6 +2176,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     svg/graphics/filters/SVGFilter.h
     svg/graphics/filters/SVGFilterExpression.h
+    svg/graphics/filters/SVGFilterExpressionReference.h
 
     svg/properties/SVGList.h
     svg/properties/SVGPrimitiveList.h
@@ -2235,6 +2242,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/server/RegistrationDatabase.h
     workers/service/server/SWOriginStore.h
     workers/service/server/SWServer.h
+    workers/service/server/SWServerDelegate.h
     workers/service/server/SWServerRegistration.h
     workers/service/server/SWServerToContextConnection.h
     workers/service/server/SWServerWorker.h

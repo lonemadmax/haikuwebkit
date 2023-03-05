@@ -53,6 +53,7 @@
 #include "ContentData.h"
 #include "CursorList.h"
 #include "CustomPropertyRegistry.h"
+#include "FontCascade.h"
 #include "FontSelectionValueInlines.h"
 #include "GridPositionsResolver.h"
 #include "NodeRenderStyle.h"
@@ -975,11 +976,6 @@ static Ref<CSSValue> computedRotate(RenderObject* renderer, const RenderStyle& s
     list->append(CSSPrimitiveValue::create(rotate->angle(), CSSUnitType::CSS_DEG));
 
     return list;
-}
-
-static inline Ref<CSSPrimitiveValue> adjustLengthForZoom(double length, const RenderStyle& style, ComputedStyleExtractor::AdjustPixelValuesForComputedStyle adjust)
-{
-    return adjust == ComputedStyleExtractor::AdjustPixelValuesForComputedStyle::Yes ? zoomAdjustedPixelValue(length, style) : CSSPrimitiveValue::create(length, CSSUnitType::CSS_PX);
 }
 
 static inline Ref<CSSPrimitiveValue> adjustLengthForZoom(const Length& length, const RenderStyle& style, ComputedStyleExtractor::AdjustPixelValuesForComputedStyle adjust)
@@ -2729,7 +2725,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::customPropertyValue(const AtomString& p
     if (!style)
         return nullptr;
 
-    auto* value = style->customPropertyValue(propertyName, styledElement->document().customPropertyRegistry());
+    auto* value = style->customPropertyValue(propertyName);
 
     return const_cast<CSSCustomPropertyValue*>(value);
 }
@@ -3334,7 +3330,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return CSSPrimitiveValue::create(CSSValueNoLimit);
         return CSSPrimitiveValue::create(style.hyphenationLimitLines(), CSSUnitType::CSS_NUMBER);
     case CSSPropertyImageOrientation:
-        if (style.imageOrientation() == ImageOrientation::FromImage)
+        if (style.imageOrientation() == ImageOrientation::Orientation::FromImage)
             return CSSPrimitiveValue::create(CSSValueFromImage);
         return CSSPrimitiveValue::create(CSSValueNone);
     case CSSPropertyImageRendering:

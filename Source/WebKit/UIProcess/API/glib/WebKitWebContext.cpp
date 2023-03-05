@@ -32,7 +32,6 @@
 #include "WebAutomationSession.h"
 #include "WebKitAutomationSessionPrivate.h"
 #include "WebKitDownloadPrivate.h"
-#include "WebKitFaviconDatabasePrivate.h"
 #include "WebKitGeolocationManagerPrivate.h"
 #include "WebKitInitialize.h"
 #include "WebKitInjectedBundleClient.h"
@@ -83,6 +82,10 @@
 
 #if ENABLE(2022_GLIB_API)
 #include "WebKitNetworkSession.h"
+#endif
+
+#if !ENABLE(2022_GLIB_API)
+#include "WebKitFaviconDatabasePrivate.h"
 #endif
 
 using namespace WebKit;
@@ -315,20 +318,8 @@ void webkitWebContextWillCloseAutomationSession(WebKitWebContext* webContext)
 {
     webContext->priv->processPool->setAutomationSession(nullptr);
     webContext->priv->automationSession = nullptr;
-#if ENABLE(2022_GLIB_API)
-    webContext->priv->automationNetworkSession = nullptr;
-#endif
-}
-
-#if ENABLE(2022_GLIB_API)
-WebKitNetworkSession* webkitWebContextGetNetworkSessionForAutomation(WebKitWebContext* webContext)
-{
-    if (!webContext->priv->automationNetworkSession && webContext->priv->automationClient)
-        webContext->priv->automationNetworkSession = adoptGRef(webkit_network_session_new_ephemeral());
-    return webContext->priv->automationNetworkSession.get();
 }
 #endif
-#endif // ENABLE(REMOTE_INSPECTOR)
 
 WEBKIT_DEFINE_FINAL_TYPE_IN_2022_API(WebKitWebContext, webkit_web_context, G_TYPE_OBJECT)
 
@@ -346,14 +337,8 @@ static const char* injectedBundleDirectory()
         return bundleDirectory;
 #endif
 
-#if PLATFORM(GTK)
-    static const char* injectedBundlePath = LIBDIR G_DIR_SEPARATOR_S "webkit" WEBKITGTK_API_INFIX "gtk-" WEBKITGTK_API_VERSION
-        G_DIR_SEPARATOR_S "injected-bundle" G_DIR_SEPARATOR_S;
-    return injectedBundlePath;
-#elif PLATFORM(WPE)
     static const char* injectedBundlePath = PKGLIBDIR G_DIR_SEPARATOR_S "injected-bundle" G_DIR_SEPARATOR_S;
     return injectedBundlePath;
-#endif
 }
 
 static void webkitWebContextGetProperty(GObject* object, guint propID, GValue* value, GParamSpec* paramSpec)
@@ -469,6 +454,7 @@ static void webkitWebContextConstructed(GObject* object)
 #if ENABLE(2022_GLIB_API)
     priv->processPool->setSandboxEnabled(true);
 #endif
+    priv->processPool->addSandboxPath(injectedBundleDirectory(), SandboxPermission::ReadOnly);
 
 #if ENABLE(MEMORY_SAMPLER)
     if (getenv("WEBKIT_SAMPLE_MEMORY"))
@@ -913,6 +899,30 @@ void webkit_web_context_set_automation_allowed(WebKitWebContext* context, gboole
 #endif
 }
 
+#if ENABLE(2022_GLIB_API)
+/**
+ * webkit_web_context_get_network_session_for_automation:
+ * @context: the #WebKitWebContext
+ *
+ * Get the #WebKitNetworkSession used for automation sessions started in @context.
+ *
+ * Returns: (transfer none) (nullable): a #WebKitNetworkSession, or %NULL if automation is not enabled
+ *
+ * Since: 2.40
+ */
+WebKitNetworkSession* webkit_web_context_get_network_session_for_automation(WebKitWebContext* context)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
+
+#if ENABLE(REMOTE_INSPECTOR)
+    if (!context->priv->automationNetworkSession && context->priv->automationClient)
+        context->priv->automationNetworkSession = adoptGRef(webkit_network_session_new_ephemeral());
+    return context->priv->automationNetworkSession.get();
+#else
+    return nullptr;
+#endif
+}
+#endif
 /**
  * webkit_web_context_set_cache_model:
  * @context: the #WebKitWebContext

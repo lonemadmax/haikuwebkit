@@ -25,7 +25,6 @@
 #pragma once
 
 #include "AnimationList.h"
-#include "ApplePayButtonSystemImage.h"
 #include "BorderValue.h"
 #include "CSSLineBoxContainValue.h"
 #include "CSSPrimitiveValue.h"
@@ -82,6 +81,10 @@
 
 #include "StyleGridData.h"
 #include "StyleGridItemData.h"
+
+#if ENABLE(APPLE_PAY)
+#include "ApplePayButtonPart.h"
+#endif
 
 #if ENABLE(TEXT_AUTOSIZING)
 #include "TextSizeAdjustment.h"
@@ -156,6 +159,7 @@ public:
 
     static RenderStyle create();
     static std::unique_ptr<RenderStyle> createPtr();
+    static std::unique_ptr<RenderStyle> createPtrWithRegisteredInitialValues(const Style::CustomPropertyRegistry&);
 
     static RenderStyle clone(const RenderStyle&);
     static RenderStyle cloneIncludingPseudoElements(const RenderStyle&);
@@ -172,6 +176,7 @@ public:
     bool operator!=(const RenderStyle& other) const { return !(*this == other); }
 
     void inheritFrom(const RenderStyle&);
+    void inheritIgnoringCustomPropertiesFrom(const RenderStyle&);
     void fastPathInheritFrom(const RenderStyle&);
     void copyNonInheritedFrom(const RenderStyle&);
     void copyContentFrom(const RenderStyle&);
@@ -198,12 +203,10 @@ public:
 
     const CustomPropertyValueMap& inheritedCustomProperties() const { return m_rareInheritedData->customProperties->values; }
     const CustomPropertyValueMap& nonInheritedCustomProperties() const { return m_rareNonInheritedData->customProperties->values; }
-    const CSSCustomPropertyValue* customPropertyValue(const AtomString&, const Style::CustomPropertyRegistry&) const;
-    const CSSCustomPropertyValue* customPropertyValueWithoutResolvingInitial(const AtomString&) const;
+    const CSSCustomPropertyValue* customPropertyValue(const AtomString&) const;
 
-    void deduplicateInheritedCustomProperties(const RenderStyle&);
-    void setInheritedCustomPropertyValue(const AtomString& name, Ref<CSSCustomPropertyValue>&&);
-    void setNonInheritedCustomPropertyValue(const AtomString& name, Ref<CSSCustomPropertyValue>&&);
+    void deduplicateCustomProperties(const RenderStyle&);
+    void setCustomPropertyValue(Ref<const CSSCustomPropertyValue>&&, bool isInherited);
     bool customPropertiesEqual(const RenderStyle&) const;
 
     void setUsesViewportUnits() { m_nonInheritedFlags.usesViewportUnits = true; }
@@ -1816,7 +1819,7 @@ public:
     static OptionSet<TextEmphasisPosition> initialTextEmphasisPosition() { return { TextEmphasisPosition::Over, TextEmphasisPosition::Right }; }
     static RubyPosition initialRubyPosition() { return RubyPosition::Before; }
     static OptionSet<LineBoxContain> initialLineBoxContain() { return { LineBoxContain::Block, LineBoxContain::Inline, LineBoxContain::Replaced }; }
-    static ImageOrientation initialImageOrientation() { return ImageOrientation::FromImage; }
+    static ImageOrientation initialImageOrientation() { return ImageOrientation::Orientation::FromImage; }
     static ImageRendering initialImageRendering() { return ImageRendering::Auto; }
     static ImageResolutionSource initialImageResolutionSource() { return ImageResolutionSource::Specified; }
     static ImageResolutionSnap initialImageResolutionSnap() { return ImageResolutionSnap::None; }
