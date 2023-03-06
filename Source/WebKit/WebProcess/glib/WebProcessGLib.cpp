@@ -69,6 +69,8 @@
 #include <gtk/gtk.h>
 #endif
 
+#include <WebCore/CairoUtilities.h>
+
 namespace WebKit {
 
 using namespace WebCore;
@@ -155,10 +157,12 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     AccessibilityAtspi::singleton().connect(parameters.accessibilityBusAddress);
 #endif
 
+    if (parameters.disableFontHintingForTesting)
+        disableCairoFontHintingForTesting();
+
 #if PLATFORM(GTK)
     GtkSettingsManagerProxy::singleton().applySettings(WTFMove(parameters.gtkSettings));
 #endif
-
 }
 
 void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&&)

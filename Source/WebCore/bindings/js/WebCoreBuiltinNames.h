@@ -91,6 +91,11 @@ namespace WebCore {
     macro(AuthenticatorAssertionResponse) \
     macro(AuthenticatorAttestationResponse) \
     macro(AuthenticatorResponse) \
+    macro(BackgroundFetchEvent) \
+    macro(BackgroundFetchManager) \
+    macro(BackgroundFetchRecord) \
+    macro(BackgroundFetchRegistration) \
+    macro(BackgroundFetchUpdateUIEvent) \
     macro(BaseAudioContext) \
     macro(BiquadFilterNode) \
     macro(BlobEvent) \
@@ -253,6 +258,8 @@ namespace WebCore {
     macro(KeyframeEffect) \
     macro(Lock) \
     macro(LockManager) \
+    macro(ManagedMediaSource) \
+    macro(ManagedSourceBuffer) \
     macro(MathMLElement) \
     macro(MathMLMathElement) \
     macro(MediaCapabilities) \
@@ -398,6 +405,7 @@ namespace WebCore {
     macro(TextEncoderStreamEncoder) \
     macro(TextTrackCue) \
     macro(TextTrackCueGeneric) \
+    macro(ToggleEvent) \
     macro(TransformStream) \
     macro(TransformStreamDefaultController) \
     macro(UndoItem) \
@@ -549,6 +557,10 @@ namespace WebCore {
     macro(makeThisTypeError) \
     macro(matchingElementInFlatTree) \
     macro(mediaStreamTrackConstraints) \
+    macro(onbackgroundfetchsuccess) \
+    macro(onbackgroundfetchfail) \
+    macro(onbackgroundfetchabort) \
+    macro(onbackgroundfetchclick) \
     macro(onnotificationclick) \
     macro(onnotificationclose) \
     macro(onpush) \

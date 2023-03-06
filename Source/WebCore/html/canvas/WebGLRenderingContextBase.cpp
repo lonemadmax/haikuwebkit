@@ -38,6 +38,8 @@
 #include "EXTBlendMinMax.h"
 #include "EXTColorBufferFloat.h"
 #include "EXTColorBufferHalfFloat.h"
+#include "EXTDisjointTimerQuery.h"
+#include "EXTDisjointTimerQueryWebGL2.h"
 #include "EXTFloatBlend.h"
 #include "EXTFragDepth.h"
 #include "EXTShaderTextureLOD.h"
@@ -81,6 +83,7 @@
 #include "Page.h"
 #include "RenderBox.h"
 #include "Settings.h"
+#include "WebCodecsVideoFrame.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WebGL2RenderingContext.h"
 #include "WebGLActiveInfo.h"
@@ -142,6 +145,10 @@
 #include <wtf/UniqueArray.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
+
+#if ENABLE(MEDIA_STREAM)
+#include "VideoFrame.h"
+#endif
 
 #if ENABLE(OFFSCREEN_CANVAS)
 #include "OffscreenCanvas.h"
@@ -2434,6 +2441,15 @@ WebGLAny WebGLRenderingContextBase::getParameter(GCGLenum pname)
             return getUnsignedIntParameter(GraphicsContextGL::MAX_TEXTURE_MAX_ANISOTROPY_EXT);
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getParameter", "invalid parameter name, EXT_texture_filter_anisotropic not enabled");
         return nullptr;
+    case GraphicsContextGL::TIMESTAMP_EXT: // EXT_disjoint_timer_query
+    case GraphicsContextGL::GPU_DISJOINT_EXT:
+        if (m_extDisjointTimerQuery || m_extDisjointTimerQueryWebGL2) {
+            if (pname == GraphicsContextGL::GPU_DISJOINT_EXT)
+                return getBooleanParameter(pname);
+            return getInt64Parameter(pname);
+        }
+        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getParameter", "invalid parameter name, EXT_disjoint_timer_query or EXT_disjoint_timer_query_webgl2 not enabled");
+        return nullptr;
     case GraphicsContextGL::MAX_COLOR_ATTACHMENTS_EXT: // EXT_draw_buffers BEGIN
         if (m_webglDrawBuffers || isWebGL2())
             return getMaxColorAttachments();
@@ -2975,6 +2991,8 @@ bool WebGLRenderingContextBase::extensionIsEnabled(const String& name)
     CHECK_EXTENSION(m_extBlendMinMax, "EXT_blend_minmax");
     CHECK_EXTENSION(m_extColorBufferFloat, "EXT_color_buffer_float");
     CHECK_EXTENSION(m_extColorBufferHalfFloat, "EXT_color_buffer_half_float");
+    CHECK_EXTENSION(m_extDisjointTimerQuery, "EXT_disjoint_timer_query");
+    CHECK_EXTENSION(m_extDisjointTimerQueryWebGL2, "EXT_disjoint_timer_query_webgl2");
     CHECK_EXTENSION(m_extFloatBlend, "EXT_float_blend");
     CHECK_EXTENSION(m_extFragDepth, "EXT_frag_depth");
     CHECK_EXTENSION(m_extShaderTextureLOD, "EXT_shader_texture_lod");
@@ -5788,6 +5806,8 @@ void WebGLRenderingContextBase::loseExtensions(LostContextMode mode)
     LOSE_EXTENSION(m_extBlendMinMax);
     LOSE_EXTENSION(m_extColorBufferFloat);
     LOSE_EXTENSION(m_extColorBufferHalfFloat);
+    LOSE_EXTENSION(m_extDisjointTimerQuery);
+    LOSE_EXTENSION(m_extDisjointTimerQueryWebGL2);
     LOSE_EXTENSION(m_extFloatBlend);
     LOSE_EXTENSION(m_extFragDepth);
     LOSE_EXTENSION(m_extShaderTextureLOD);

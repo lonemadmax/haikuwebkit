@@ -175,6 +175,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/fetch/FetchBodyConsumer.h
     Modules/fetch/FetchBodySource.h
     Modules/fetch/FetchHeaders.h
+    Modules/fetch/FetchHeadersGuard.h
     Modules/fetch/FetchIdentifier.h
     Modules/fetch/FetchLoader.h
     Modules/fetch/FetchLoaderClient.h
@@ -603,6 +604,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSCounterStyleDescriptors.h
     css/CSSCounterStyleRegistry.h
     css/CSSCounterStyleRule.h
+    css/CSSCounterValue.h
     css/CSSCustomPropertyValue.h
     css/CSSFontFaceRule.h
     css/CSSFontPaletteValuesRule.h
@@ -615,6 +617,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSPrimitiveValue.h
     css/CSSPrimitiveValueMappings.h
     css/CSSProperty.h
+    css/CSSQuadValue.h
+    css/CSSRectValue.h
     css/CSSRegisteredCustomProperty.h
     css/CSSRule.h
     css/CSSRuleList.h
@@ -645,7 +649,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/MediaList.h
     css/MediaQueryParserContext.h
     css/MutableStyleProperties.h
+    css/Quad.h
     css/Rect.h
+    css/RectBase.h
     css/ShorthandSerializer.h
     css/StyleColor.h
     css/StyleProperties.h
@@ -785,6 +791,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/OverflowEvent.h
     dom/PointerEvent.h
     dom/PointerEventTypeNames.h
+    dom/PopoverData.h
     dom/PortIdentifier.h
     dom/Position.h
     dom/ProcessingInstruction.h
@@ -817,6 +824,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/Text.h
     dom/TextEvent.h
     dom/TextEventInputType.h
+    dom/ToggleEvent.h
     dom/Touch.h
     dom/Traversal.h
     dom/TreeScope.h
@@ -1078,10 +1086,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     layout/formattingContexts/inline/InlineItem.h
     layout/formattingContexts/inline/InlineLine.h
+    layout/formattingContexts/inline/InlineLineTypes.h
     layout/formattingContexts/inline/InlineRect.h
     layout/formattingContexts/inline/InlineTextItem.h
 
     layout/formattingContexts/inline/display/InlineDisplayBox.h
+    layout/formattingContexts/inline/display/InlineDisplayLine.h
 
     layout/formattingContexts/inline/text/TextUtil.h
 
@@ -1098,7 +1108,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/integration/inline/InlineIteratorLogicalOrderTraversal.h
     layout/integration/inline/InlineIteratorTextBox.h
     layout/integration/inline/LayoutIntegrationInlineContent.h
-    layout/integration/inline/LayoutIntegrationLine.h
 
     layout/layouttree/LayoutBox.h
     layout/layouttree/LayoutElementBox.h
@@ -1624,6 +1633,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontCascadeDescription.h
     platform/graphics/FontCascadeFonts.h
     platform/graphics/FontCreationContext.h
+    platform/graphics/FontCustomPlatformData.h
     platform/graphics/FontDescription.h
     platform/graphics/FontFamilySpecificationNull.h
     platform/graphics/FontFeatureValues.h
@@ -1899,6 +1909,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mediastream/RTCDataChannelHandler.h
     platform/mediastream/RTCDataChannelHandlerClient.h
     platform/mediastream/RTCDataChannelIdentifier.h
+    platform/mediastream/RTCDataChannelLocalIdentifier.h
     platform/mediastream/RTCDataChannelRemoteHandlerConnection.h
     platform/mediastream/RTCDataChannelRemoteSourceConnection.h
     platform/mediastream/RTCDataChannelState.h
@@ -1996,6 +2007,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/sql/SQLiteStatementAutoResetScope.h
     platform/sql/SQLiteTransaction.h
 
+    platform/text/CharacterProperties.h
     platform/text/BidiContext.h
     platform/text/FontRenderingMode.h
     platform/text/StringWithDirection.h
@@ -2005,6 +2017,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/text/TextCheckingRequestIdentifier.h
     platform/text/TextDirection.h
     platform/text/TextFlags.h
+    platform/text/TextSpacing.h
     platform/text/UnicodeBidi.h
     platform/text/WritingMode.h
 
@@ -2122,7 +2135,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/StyleImage.h
     rendering/style/StyleInheritedData.h
     rendering/style/StyleMarqueeData.h
+    rendering/style/StyleMiscNonInheritedData.h
     rendering/style/StyleMultiColData.h
+    rendering/style/StyleNonInheritedData.h
     rendering/style/StyleRareInheritedData.h
     rendering/style/StyleRareNonInheritedData.h
     rendering/style/StyleReflection.h
@@ -2131,7 +2146,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/StyleSurroundData.h
     rendering/style/StyleTextEdge.h
     rendering/style/StyleTransformData.h
-    rendering/style/StyleVisualData.h
+    rendering/style/StyleVisitedLinkColorData.h
     rendering/style/TextDecorationThickness.h
     rendering/style/TextSizeAdjustment.h
     rendering/style/TextUnderlineOffset.h
@@ -2231,6 +2246,16 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/ServiceWorkerRegistrationOptions.h
     workers/service/ServiceWorkerTypes.h
     workers/service/ServiceWorkerUpdateViaCache.h
+
+    workers/service/background-fetch/BackgroundFetchFailureReason.h
+    workers/service/background-fetch/BackgroundFetchInformation.h
+    workers/service/background-fetch/BackgroundFetchOptions.h
+    workers/service/background-fetch/BackgroundFetchRecordIdentifier.h
+    workers/service/background-fetch/BackgroundFetchRecordInformation.h
+    workers/service/background-fetch/BackgroundFetchRequest.h
+    workers/service/background-fetch/BackgroundFetchResult.h
+    workers/service/background-fetch/BackgroundFetchUIOptions.h
+    workers/service/background-fetch/ImageResource.h
 
     workers/service/context/SWContextManager.h
     workers/service/context/ServiceWorkerDebuggable.h

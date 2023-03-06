@@ -41,6 +41,10 @@ namespace LayoutIntegration {
 class LineLayout;
 }
 
+namespace InlineIterator {
+class LineBoxIterator;
+}
+
 #if ENABLE(TEXT_AUTOSIZING)
 enum LineCount {
     NOT_SET = 0, NO_LINE = 1, ONE_LINE = 2, MULTI_LINE = 3
@@ -226,6 +230,8 @@ public:
     LayoutUnit marginOffsetForSelfCollapsingBlock();
 
     bool shouldTrimChildMargin(MarginTrimType, const RenderBox&) const final;
+    void trimFloatBlockEndMargins(LayoutUnit blockFormattingContextInFlowContentHeight);
+    bool shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType, const RenderElement&) const;
 
     void layoutBlockChild(RenderBox& child, MarginInfo&, LayoutUnit& previousFloatLogicalBottom, LayoutUnit& maxFloatLogicalBottom);
     void adjustPositionedBlock(RenderBox& child, const MarginInfo&);
@@ -331,6 +337,7 @@ public:
         else
             floatingObject.setMarginOffset(LayoutSize(logicalBeforeMargin, logicalLeftMargin));
     }
+    void trimMarginForFloat(FloatingObject&, MarginTrimType, LayoutUnit trimAmount = 0);
 
     LayoutPoint flipFloatForWritingModeForChild(const FloatingObject&, const LayoutPoint&) const;
 
@@ -400,6 +407,7 @@ public:
 
     std::optional<LayoutUnit> lowestInitialLetterLogicalBottom() const;
 
+    LayoutUnit blockFormattingContextInFlowBlockLevelContentHeight() const;
 protected:
     bool shouldResetLogicalHeightBeforeLayout() const override { return true; }
 
@@ -541,10 +549,14 @@ private:
     std::optional<LayoutUnit> m_previousModernLineLayoutContentBoxLogicalHeight;
 
 public:
-    // FIXME-BLOCKFLOW: These can be made protected again once all callers have been moved here.
-    void adjustLinePositionForPagination(LegacyRootInlineBox*, LayoutUnit& deltaOffset, bool& overflowsFragment, RenderFragmentedFlow*); // Computes a deltaOffset value that put a line at the top of the next page if it doesn't fit on the current page.
+    // Computes a deltaOffset value that put a line at the top of the next page if it doesn't fit on the current page.
+    void adjustLinePositionForPagination(LegacyRootInlineBox*, LayoutUnit& deltaOffset);
 
-    // Pagination routines.
+    struct LinePaginationAdjustment {
+        LayoutUnit strut { 0_lu };
+        bool isFirstAfterPageBreak { false };
+    };
+    LinePaginationAdjustment computeLineAdjustmentForPagination(const InlineIterator::LineBoxIterator&, LayoutUnit deltaOffset);
     bool relayoutForPagination();
 
     bool hasRareBlockFlowData() const { return m_rareBlockFlowData.get(); }

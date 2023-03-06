@@ -74,7 +74,6 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::traits() { return nullptr; }
 int AccessibilityUIElement::elementTextPosition() { return 0; }
 int AccessibilityUIElement::elementTextLength() { return 0; }
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringForSelection() { return nullptr; }
-JSValueRef AccessibilityUIElement::elementsForRange(unsigned, unsigned) { return nullptr; }
 void AccessibilityUIElement::increaseTextSelection() { }
 void AccessibilityUIElement::decreaseTextSelection() { }
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::linkedElement() { return nullptr; }
@@ -105,6 +104,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::sentenceAtOffset(int) { return 
 #endif
 
 #if !PLATFORM(MAC) || !ENABLE(ACCESSIBILITY)
+bool AccessibilityUIElement::isTextMarkerNull(AccessibilityTextMarker* marker) { return !isTextMarkerValid(marker); }
 int AccessibilityUIElement::lineIndexForTextMarker(AccessibilityTextMarker*) const { return -1; }
 RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::textMarkerRangeForRange(unsigned, unsigned) { return nullptr; }
 RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::selectedTextMarkerRange() { return nullptr; }

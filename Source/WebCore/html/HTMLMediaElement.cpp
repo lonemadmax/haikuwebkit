@@ -5601,18 +5601,6 @@ bool HTMLMediaElement::mediaPlayerAcceleratedCompositingEnabled()
     return document().settings().acceleratedCompositingEnabled();
 }
 
-#if PLATFORM(WIN) && USE(AVFOUNDATION)
-
-GraphicsDeviceAdapter* HTMLMediaElement::mediaPlayerGraphicsDeviceAdapter() const
-{
-    auto* page = document().page();
-    if (!page)
-        return nullptr;
-    return page->chrome().client().graphicsDeviceAdapter();
-}
-
-#endif
-
 void HTMLMediaElement::scheduleMediaEngineWasUpdated()
 {
     if (m_mediaEngineUpdatedTaskCancellationGroup.hasPendingTask())
@@ -6470,8 +6458,10 @@ void HTMLMediaElement::enqueuePlaybackTargetAvailabilityChangedEvent(EnqueueBeha
 
     ALWAYS_LOG(LOGIDENTIFIER, "hasTargets = ", hasTargets);
     m_lastTargetAvailabilityEventState = hasTargets;
+#if ENABLE(WIRELESS_PLAYBACK_TARGET_AVAILABILITY_API)
     auto event = WebKitPlaybackTargetAvailabilityEvent::create(eventNames().webkitplaybacktargetavailabilitychangedEvent, hasTargets);
     scheduleEvent(WTFMove(event));
+#endif
     scheduleUpdateMediaState();
 }
 
@@ -6680,11 +6670,8 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
     }
 #endif
 
-    ALWAYS_LOG(LOGIDENTIFIER, ", transient activation = ", window->hasTransientActivation());
-    if (mediaSession().hasBehaviorRestriction(MediaElementSession::RequireUserGestureForFullscreen) && !window->consumeTransientActivation()) {
-        ERROR_LOG(LOGIDENTIFIER, "User activation required to enter fullscreen");
-        return;
-    }
+    if (mediaSession().hasBehaviorRestriction(MediaElementSession::RequireUserGestureForFullscreen))
+        window->consumeTransientActivation();
 
     queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this, mode, logIdentifier = LOGIDENTIFIER] {
         if (isContextStopped())

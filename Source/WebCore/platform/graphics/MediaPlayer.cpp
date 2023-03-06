@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,8 @@
 #include "PlatformTextTrack.h"
 #include "PlatformTimeRanges.h"
 #include "SecurityOrigin.h"
+#include "VideoFrame.h"
+#include "VideoFrameMetadata.h"
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/Lock.h>
 #include <wtf/NeverDestroyed.h>
@@ -88,10 +90,6 @@
 #endif
 
 #endif // PLATFORM(COCOA)
-
-#if PLATFORM(WIN) && USE(AVFOUNDATION) && !USE(GSTREAMER)
-#include "MediaPlayerPrivateAVFoundationCF.h"
-#endif
 
 #if PLATFORM(HAIKU)
 #include "MediaPlayerPrivateHaiku.h"
@@ -299,10 +297,6 @@ static void buildMediaEnginesVector() WTF_REQUIRES_LOCK(mediaEngineVectorLock)
 
 #if ENABLE(MEDIA_STREAM)
         MediaPlayerPrivateMediaStreamAVFObjC::registerMediaEngine(addMediaEngine);
-#endif
-
-#if PLATFORM(WIN)
-        MediaPlayerPrivateAVFoundationCF::registerMediaEngine(addMediaEngine);
 #endif
     }
 #endif // USE(AVFOUNDATION)
@@ -1525,13 +1519,6 @@ long MediaPlayer::platformErrorCode() const
 
     return m_private->platformErrorCode();
 }
-
-#if PLATFORM(WIN) && USE(AVFOUNDATION)
-GraphicsDeviceAdapter* MediaPlayer::graphicsDeviceAdapter() const
-{
-    return client().mediaPlayerGraphicsDeviceAdapter();
-}
-#endif
 
 CachedResourceLoader* MediaPlayer::cachedResourceLoader()
 {

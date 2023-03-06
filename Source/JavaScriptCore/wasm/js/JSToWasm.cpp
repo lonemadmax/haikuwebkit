@@ -235,7 +235,8 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, Calle
     jit.store32(CCallHelpers::TrustedImm32(JSValue::WasmTag), calleeSlot.withOffset(TagOffset));
 #endif
 
-    RegisterSetBuilder toSave = RegisterSetBuilder::wasmPinnedRegisters(mode);
+    // Pessimistically save callee saves in BoundsChecking mode since the LLInt / single-pass BBQ always can clobber bound checks
+    RegisterSetBuilder toSave = RegisterSetBuilder::wasmPinnedRegisters();
 
 #if ASSERT_ENABLED
     unsigned toSaveSize = toSave.numberOfSetGPRs();
@@ -325,7 +326,9 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, Calle
         }
     }
 
-#if !CPU(ARM) // ARM has no pinned registers for Wasm Memory, so no need to set them up
+#if CPU(ARM) // ARM has no pinned registers for Wasm Memory, so no need to set them up
+    UNUSED_PARAM(mode);
+#else
     if (!!info.memory) {
         GPRReg size = wasmCallingConvention().prologueScratchGPRs[0];
         GPRReg scratch = wasmCallingConvention().prologueScratchGPRs[1];

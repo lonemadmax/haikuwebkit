@@ -43,16 +43,16 @@ NSString * const WKWebsiteDataTypeWebSQLDatabases = @"WKWebsiteDataTypeWebSQLDat
 NSString * const WKWebsiteDataTypeIndexedDBDatabases = @"WKWebsiteDataTypeIndexedDBDatabases";
 NSString * const WKWebsiteDataTypeServiceWorkerRegistrations = @"WKWebsiteDataTypeServiceWorkerRegistrations";
 NSString * const WKWebsiteDataTypeFileSystem = @"WKWebsiteDataTypeFileSystem";
+NSString * const WKWebsiteDataTypeSearchFieldRecentSearches = @"WKWebsiteDataTypeSearchFieldRecentSearches";
 
 NSString * const _WKWebsiteDataTypeMediaKeys = @"_WKWebsiteDataTypeMediaKeys";
 NSString * const _WKWebsiteDataTypeHSTSCache = @"_WKWebsiteDataTypeHSTSCache";
-NSString * const _WKWebsiteDataTypeSearchFieldRecentSearches = @"_WKWebsiteDataTypeSearchFieldRecentSearches";
+NSString * const _WKWebsiteDataTypeSearchFieldRecentSearches = WKWebsiteDataTypeSearchFieldRecentSearches;
 NSString * const _WKWebsiteDataTypeResourceLoadStatistics = @"_WKWebsiteDataTypeResourceLoadStatistics";
 NSString * const _WKWebsiteDataTypeCredentials = @"_WKWebsiteDataTypeCredentials";
 NSString * const _WKWebsiteDataTypeAdClickAttributions = @"_WKWebsiteDataTypeAdClickAttributions";
 NSString * const _WKWebsiteDataTypePrivateClickMeasurements = @"_WKWebsiteDataTypePrivateClickMeasurements";
 NSString * const _WKWebsiteDataTypeAlternativeServices = @"_WKWebsiteDataTypeAlternativeServices";
-NSString * const _WKWebsiteDataTypeFileSystem = WKWebsiteDataTypeFileSystem;
 
 #if PLATFORM(MAC)
 NSString * const _WKWebsiteDataTypePlugInData = @"_WKWebsiteDataTypePlugInData";
@@ -98,7 +98,7 @@ static NSString *dataTypesToString(NSSet *dataTypes)
         [array addObject:@"HSTS Cache"];
     if ([dataTypes containsObject:_WKWebsiteDataTypeMediaKeys])
         [array addObject:@"Media Keys"];
-    if ([dataTypes containsObject:_WKWebsiteDataTypeSearchFieldRecentSearches])
+    if ([dataTypes containsObject:WKWebsiteDataTypeSearchFieldRecentSearches])
         [array addObject:@"Search Field Recent Searches"];
     if ([dataTypes containsObject:WKWebsiteDataTypeFileSystem])
         [array addObject:@"File System"];
@@ -114,8 +114,6 @@ static NSString *dataTypesToString(NSSet *dataTypes)
         [array addObject:@"Private Click Measurements"];
     if ([dataTypes containsObject:_WKWebsiteDataTypeAlternativeServices])
         [array addObject:@"Alternative Services"];
-    if ([dataTypes containsObject:_WKWebsiteDataTypeFileSystem])
-        [array addObject:@"File System"];
 
     return [array componentsJoinedByString:@", "];
 }

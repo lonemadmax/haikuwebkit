@@ -1814,7 +1814,7 @@ void FrameLoader::reload(OptionSet<ReloadOption> options)
     loader->setIsRequestFromClientOrUserInput(m_documentLoader->isRequestFromClientOrUserInput());
     applyShouldOpenExternalURLsPolicyToNewDocumentLoader(m_frame, loader, InitiatedByMainFrame::Unknown, m_documentLoader->shouldOpenExternalURLsPolicyToPropagate());
 
-    loader->setDisabledContentExtensions({ options.contains(ReloadOption::DisableContentBlockers) ? DisabledContentExtensionsMode::All : DisabledContentExtensionsMode::None });
+    loader->setContentExtensionEnablement({ options.contains(ReloadOption::DisableContentBlockers) ? ContentExtensionDefaultEnablement::Disabled : ContentExtensionDefaultEnablement::Enabled, { } });
     
     ResourceRequest& request = loader->request();
 
@@ -2525,7 +2525,7 @@ CachePolicy FrameLoader::subresourceCachePolicy(const URL& url) const
     return CachePolicy::Verify;
 }
 
-void FrameLoader::dispatchDidFailProvisionalLoad(DocumentLoader& provisionalDocumentLoader, const ResourceError& error)
+void FrameLoader::dispatchDidFailProvisionalLoad(DocumentLoader& provisionalDocumentLoader, const ResourceError& error, WillInternallyHandleFailure willInternallyHandleFailure)
 {
     m_provisionalLoadErrorBeingHandledURL = provisionalDocumentLoader.url();
 
@@ -2543,7 +2543,7 @@ void FrameLoader::dispatchDidFailProvisionalLoad(DocumentLoader& provisionalDocu
     }
 #endif
 
-    m_client->dispatchDidFailProvisionalLoad(error, willContinueLoading);
+    m_client->dispatchDidFailProvisionalLoad(error, willContinueLoading, willInternallyHandleFailure);
 
 #if ENABLE(CONTENT_FILTERING)
     if (contentFilterWillContinueLoading)
@@ -2551,6 +2551,27 @@ void FrameLoader::dispatchDidFailProvisionalLoad(DocumentLoader& provisionalDocu
 #endif
 
     m_provisionalLoadErrorBeingHandledURL = { };
+}
+
+void FrameLoader::handleLoadFailureRecovery(DocumentLoader& documentLoader, const ResourceError& error, bool isHTTPSFirstApplicable)
+{
+    FRAMELOADER_RELEASE_LOG(ResourceLoading, "handleLoadFailureRecovery: errorRecoveryMethod: %hhu, isHTTPSFirstApplicable: %d, isHTTPFallbackInProgress: %d", error.errorRecoveryMethod(), isHTTPSFirstApplicable, isHTTPFallbackInProgress());
+    if (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::NoRecovery || !isHTTPSFirstApplicable || isHTTPFallbackInProgress()) {
+        if (isHTTPFallbackInProgress())
+            setHTTPFallbackInProgress(false);
+        return;
+    }
+
+    ASSERT(documentLoader.request().url().protocolIs("https"_s));
+    ASSERT(error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::HTTPFallback && isHTTPSFirstApplicable);
+
+    auto request = documentLoader.request();
+    auto url = request.url();
+    url.setProtocol("http"_s);
+    if (url.port() && WTF::isDefaultPortForProtocol(url.port().value(), "https"_s))
+        url.setPort(WTF::defaultPortForProtocol(url.protocol()));
+    setHTTPFallbackInProgress(true);
+    m_frame.navigationScheduler().scheduleRedirect(*m_frame.document(), 0, url, IsMetaRefresh::No);
 }
 
 void FrameLoader::checkLoadCompleteForThisFrame()
@@ -2589,12 +2610,16 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             }
         }
 
+        bool isHTTPSFirstApplicable = protector->networkConnectionIntegrityPolicy().contains(NetworkConnectionIntegrity::HTTPSFirst) && !protector->networkConnectionIntegrityPolicy().contains(NetworkConnectionIntegrity::HTTPSOnly) && !isHTTPFallbackInProgress() && (!protector->mainResourceLoader() || !protector->mainResourceLoader()->redirectCount());
+
         // Only reset if we aren't already going to a new provisional item.
         bool shouldReset = !history().provisionalItem();
         if (!protector->isLoadingInAPISense() || protector->isStopping()) {
-            FRAMELOADER_RELEASE_LOG(ResourceLoading, "checkLoadCompleteForThisFrame: Failed provisional load (isTimeout = %d, isCancellation = %d, errorCode = %d)", error.isTimeout(), error.isCancellation(), error.errorCode());
+            FRAMELOADER_RELEASE_LOG(ResourceLoading, "checkLoadCompleteForThisFrame: Failed provisional load (isTimeout = %d, isCancellation = %d, errorCode = %d, httpsFirstApplicable = %d)", error.isTimeout(), error.isCancellation(), error.errorCode(), isHTTPSFirstApplicable);
 
-            dispatchDidFailProvisionalLoad(*protector, error);
+            auto willInternallyHandleFailure = (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::NoRecovery || (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::HTTPFallback && (!isHTTPSFirstApplicable || isHTTPFallbackInProgress()))) ? WillInternallyHandleFailure::No : WillInternallyHandleFailure::Yes;
+            dispatchDidFailProvisionalLoad(*protector, error, willInternallyHandleFailure);
+
             ASSERT(!protector->isLoading());
 
             // If we're in the middle of loading multipart data, we need to restore the document loader.
@@ -2615,6 +2640,8 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             if (Page* page = m_frame.page())
                 page->backForward().setCurrentItem(*item);
         }
+
+        handleLoadFailureRecovery(*protector, error, isHTTPSFirstApplicable);
         return;
     }
         
@@ -2695,6 +2722,7 @@ void FrameLoader::checkLoadCompleteForThisFrame()
     }
         
     case FrameState::Complete:
+        setHTTPFallbackInProgress(false);
         m_loadType = FrameLoadType::Standard;
         frameLoadCompleted();
         return;
@@ -2858,12 +2886,13 @@ int FrameLoader::numPendingOrLoadingRequests(bool recurse) const
 String FrameLoader::userAgent(const URL& url) const
 {
     String userAgent;
-
-    if (auto* documentLoader = m_frame.mainFrame().loader().activeDocumentLoader()) {
-        if (m_frame.settings().needsSiteSpecificQuirks())
-            userAgent = documentLoader->customUserAgentAsSiteSpecificQuirks();
-        if (userAgent.isEmpty())
-            userAgent = documentLoader->customUserAgent();
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_frame.mainFrame())) {
+        if (auto* documentLoader = localFrame->loader().activeDocumentLoader()) {
+            if (m_frame.settings().needsSiteSpecificQuirks())
+                userAgent = documentLoader->customUserAgentAsSiteSpecificQuirks();
+            if (userAgent.isEmpty())
+                userAgent = documentLoader->customUserAgent();
+        }
     }
 
     InspectorInstrumentation::applyUserAgentOverride(m_frame, userAgent);
@@ -2876,10 +2905,12 @@ String FrameLoader::userAgent(const URL& url) const
 
 String FrameLoader::navigatorPlatform() const
 {
-    if (auto* documentLoader = m_frame.mainFrame().loader().activeDocumentLoader()) {
-        auto& customNavigatorPlatform = documentLoader->customNavigatorPlatform();
-        if (!customNavigatorPlatform.isEmpty())
-            return customNavigatorPlatform;
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_frame.mainFrame())) {
+        if (auto* documentLoader = localFrame->loader().activeDocumentLoader()) {
+            auto& customNavigatorPlatform = documentLoader->customNavigatorPlatform();
+            if (!customNavigatorPlatform.isEmpty())
+                return customNavigatorPlatform;
+        }
     }
     return String();
 }
@@ -3060,8 +3091,12 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
         request.setResponseContentDispositionEncodingFallbackArray("UTF-8"_s, m_frame.document()->encoding(), m_frame.settings().defaultTextEncodingName());
     }
 
-    if (shouldUpdate == ShouldUpdateAppInitiatedValue::Yes && m_frame.mainFrame().loader().documentLoader())
-        request.setIsAppInitiated(m_frame.mainFrame().loader().documentLoader()->lastNavigationWasAppInitiated());
+    auto* localFrame = dynamicDowncast<LocalFrame>(m_frame.mainFrame());
+    if (!localFrame)
+        return;
+
+    if (shouldUpdate == ShouldUpdateAppInitiatedValue::Yes && localFrame->loader().documentLoader())
+        request.setIsAppInitiated(localFrame->loader().documentLoader()->lastNavigationWasAppInitiated());
 }
 
 void FrameLoader::scheduleRefreshIfNeeded(Document& document, const String& content, IsMetaRefresh isMetaRefresh)
@@ -3210,7 +3245,8 @@ ResourceLoaderIdentifier FrameLoader::loadResourceSynchronously(const ResourceRe
         initialRequest.setHTTPReferrer(referrer);
     addHTTPOriginIfNeeded(initialRequest, outgoingOrigin());
 
-    initialRequest.setFirstPartyForCookies(m_frame.mainFrame().loader().documentLoader()->request().url());
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_frame.mainFrame()))
+        initialRequest.setFirstPartyForCookies(localFrame->loader().documentLoader()->request().url());
     
     updateRequestAndAddExtraFields(initialRequest, IsMainResource::No);
 
@@ -3620,8 +3656,10 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
         // we only do this when punting a navigation for the target frame or top-level frame.  
         if ((isTargetItem || m_frame.isMainFrame()) && isBackForwardLoadType(policyChecker().loadType())) {
             if (Page* page = m_frame.page()) {
-                if (HistoryItem* resetItem = m_frame.mainFrame().loader().history().currentItem())
-                    page->backForward().setCurrentItem(*resetItem);
+                if (auto* localFrame = dynamicDowncast<LocalFrame>(m_frame.mainFrame())) {
+                    if (HistoryItem* resetItem = localFrame->loader().history().currentItem())
+                        page->backForward().setCurrentItem(*resetItem);
+                }
             }
         }
         return;
@@ -3957,8 +3995,10 @@ void FrameLoader::loadDifferentDocumentItem(HistoryItem& item, HistoryItem* from
     bool isFormSubmission = false;
     Event* event = nullptr;
 
-    if (auto* documentLoader = m_frame.mainFrame().loader().documentLoader())
-        request.setIsAppInitiated(documentLoader->lastNavigationWasAppInitiated());
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_frame.mainFrame())) {
+        if (auto* documentLoader = localFrame->loader().documentLoader())
+            request.setIsAppInitiated(documentLoader->lastNavigationWasAppInitiated());
+    }
 
     // If this was a repost that failed the page cache, we might try to repost the form.
     NavigationAction action;
@@ -4225,8 +4265,10 @@ NetworkingContext* FrameLoader::networkingContext() const
 
 void FrameLoader::loadProgressingStatusChanged()
 {
-    if (auto* view = m_frame.mainFrame().view())
-        view->loadProgressingStatusChanged();
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_frame.mainFrame())) {
+        if (auto* view = localFrame->view())
+            view->loadProgressingStatusChanged();
+    }
 }
 
 void FrameLoader::completePageTransitionIfNeeded()

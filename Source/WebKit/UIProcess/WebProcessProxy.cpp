@@ -191,7 +191,7 @@ Vector<RefPtr<WebPageProxy>> WebProcessProxy::pages() const
 void WebProcessProxy::forWebPagesWithOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, const Function<void(WebPageProxy&)>& callback)
 {
     for (auto& page : globalPages()) {
-        if (!page || page->sessionID() != sessionID || SecurityOriginData::fromURL(URL { page->currentURL() }) != origin)
+        if (!page || page->sessionID() != sessionID || SecurityOriginData::fromURLWithoutStrictOpaqueness(URL { page->currentURL() }) != origin)
             continue;
         callback(*page);
     }
@@ -340,7 +340,7 @@ WebProcessProxy::~WebProcessProxy()
     WebPasteboardProxy::singleton().removeWebProcessProxy(*this);
 
 #if HAVE(CVDISPLAYLINK)
-    processPool().stopDisplayLinks(*this);
+    processPool().displayLinks().stopDisplayLinks(m_displayLinkClient);
 #endif
 
     auto isResponsiveCallbacks = WTFMove(m_isResponsiveCallbacks);
@@ -576,7 +576,7 @@ void WebProcessProxy::processWillShutDown(IPC::Connection& connection)
 
 #if HAVE(CVDISPLAYLINK)
     m_displayLinkClient.setConnection(nullptr);
-    processPool().stopDisplayLinks(*this);
+    processPool().displayLinks().stopDisplayLinks(m_displayLinkClient);
 #endif
 }
 
@@ -1232,13 +1232,18 @@ auto WebProcessProxy::visiblePageToken() const -> VisibleWebPageToken
 void WebProcessProxy::addPreviouslyApprovedFileURL(const URL& url)
 {
     ASSERT(url.isLocalFile());
-    m_previouslyApprovedFilePaths.add(url.fileSystemPath());
+    auto fileSystemPath = url.fileSystemPath();
+    if (!fileSystemPath.isEmpty())
+        m_previouslyApprovedFilePaths.add(fileSystemPath);
 }
 
 bool WebProcessProxy::wasPreviouslyApprovedFileURL(const URL& url) const
 {
     ASSERT(url.isLocalFile());
-    return m_previouslyApprovedFilePaths.contains(url.fileSystemPath());
+    auto fileSystemPath = url.fileSystemPath();
+    if (fileSystemPath.isEmpty())
+        return false;
+    return m_previouslyApprovedFilePaths.contains(fileSystemPath);
 }
 
 RefPtr<API::UserInitiatedAction> WebProcessProxy::userInitiatedActivity(uint64_t identifier)
@@ -1612,6 +1617,17 @@ void WebProcessProxy::didChangeThrottleState(ProcessThrottleState type)
     }
 
     ASSERT(!m_backgroundToken || !m_foregroundToken);
+}
+
+String WebProcessProxy::environmentIdentifier() const
+{
+    if (m_environmentIdentifier.isEmpty()) {
+        StringBuilder builder;
+        builder.append(clientName());
+        builder.append(processIdentifier());
+        m_environmentIdentifier = builder.toString();
+    }
+    return m_environmentIdentifier;
 }
 
 void WebProcessProxy::updateAudibleMediaAssertions()

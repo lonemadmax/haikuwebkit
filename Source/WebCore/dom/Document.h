@@ -228,7 +228,6 @@ class WakeLockManager;
 class WebAnimation;
 class WebGL2RenderingContext;
 class WebGLRenderingContext;
-class WhitespaceCache;
 class WindowEventLoop;
 class WindowProxy;
 class XPathEvaluator;
@@ -584,6 +583,9 @@ public:
     bool sawElementsInKnownNamespaces() const { return m_sawElementsInKnownNamespaces; }
 
     Style::Resolver& userAgentShadowTreeStyleResolver();
+
+    bool isDirAttributeDirty() const { return m_isDirAttributeDirty; }
+    void setIsDirAttributeDirty() { m_isDirAttributeDirty = true; }
 
     CSSFontSelector& fontSelector() { return m_fontSelector; }
     const CSSFontSelector& fontSelector() const { return m_fontSelector; }
@@ -1414,6 +1416,7 @@ public:
     Document& ensureTemplateDocument();
     void setTemplateDocumentHost(Document* templateDocumentHost) { m_templateDocumentHost = templateDocumentHost; }
     Document* templateDocumentHost() { return m_templateDocumentHost.get(); }
+    bool isTemplateDocument() const { return !!m_templateDocumentHost; }
 
     Ref<DocumentFragment> documentFragmentForInnerOuterHTML();
 
@@ -1524,6 +1527,11 @@ public:
     void setHasSkippedResizeObservations(bool);
     void updateResizeObservations(Page&);
 
+    size_t gatherResizeObservationsForContainIntrinsicSize();
+    void observeForContainIntrinsicSize(Element&);
+    void unobserveForContainIntrinsicSize(Element&);
+    void resetObservationSizeForContainIntrinsicSize(Element&);
+
 #if ENABLE(MEDIA_STREAM)
     void setHasCaptureMediaStreamTrack() { m_hasHadCaptureMediaStreamTrack = true; }
     bool hasHadCaptureMediaStreamTrack() const { return m_hasHadCaptureMediaStreamTrack; }
@@ -1602,8 +1610,6 @@ public:
     bool hasTopLayerElement() const { return !m_topLayerElements.isEmpty(); }
 
     HTMLDialogElement* activeModalDialog() const;
-
-    WhitespaceCache& whitespaceCache() { return m_whitespaceCache; }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     void registerAttachmentIdentifier(const String&, const HTMLImageElement&);
@@ -1876,6 +1882,8 @@ private:
 
     void updateSleepDisablerIfNeeded();
 
+    RefPtr<ResizeObserver> ensureResizeObserverForContainIntrinsicSize();
+
     const Ref<const Settings> m_settings;
 
     UniqueRef<Quirks> m_quirks;
@@ -2134,7 +2142,7 @@ private:
 
     String m_cachedDOMCookies;
 
-    Markable<WallTime, WallTime::MarkableTraits> m_overrideLastModified;
+    Markable<WallTime> m_overrideLastModified;
 
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_associatedFormControls;
 
@@ -2178,7 +2186,6 @@ private:
     Ref<UndoManager> m_undoManager;
     UniqueRef<Editor> m_editor;
     UniqueRef<FrameSelection> m_selection;
-    UniqueRef<WhitespaceCache> m_whitespaceCache;
         
     String m_fragmentDirective;
 
@@ -2362,8 +2369,11 @@ private:
     bool m_inHitTesting { false };
     bool m_didDispatchViewportPropertiesChanged { false };
 #endif
+    bool m_isDirAttributeDirty { false };
 
     static bool hasEverCreatedAnAXObjectCache;
+
+    RefPtr<ResizeObserver> m_resizeObserverForContainIntrinsicSize;
 };
 
 Element* eventTargetElementForDocument(Document*);

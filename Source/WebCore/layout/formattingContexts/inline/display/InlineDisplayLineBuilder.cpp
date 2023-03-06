@@ -66,7 +66,7 @@ InlineDisplayLineBuilder::EnclosingLineGeometry InlineDisplayLineBuilder::collec
         };
     };
     auto [enclosingTop, enclosingBottom] = initialEnclosingTopAndBottom();
-    auto scrollableOverflowRect = [&]() -> InlineRect {
+    auto contentOverflowRect = [&]() -> InlineRect {
         auto rect = lineBoxRect;
         auto rootInlineBoxWidth = lineBox.logicalRectForRootInlineBox().width();
         auto isLeftToRightDirection = root().style().isLeftToRightDirection();
@@ -104,7 +104,7 @@ InlineDisplayLineBuilder::EnclosingLineGeometry InlineDisplayLineBuilder::collec
             // Collect scrollable overflow from inline boxes. All other inline level boxes (e.g atomic inline level boxes) stretch the line.
             if (lineBox.hasContent()) {
                 // Empty lines (e.g. continuation pre/post blocks) don't expect scrollbar overflow.
-                scrollableOverflowRect.expandVerticallyToContain(borderBox);
+                contentOverflowRect.expandVerticallyToContain(borderBox);
             }
         } else if (inlineLevelBox.isLineBreakBox()) {
             borderBox = lineBox.logicalBorderBoxForInlineBox(layoutBox, formattingContext().geometryForBox(layoutBox));
@@ -117,7 +117,7 @@ InlineDisplayLineBuilder::EnclosingLineGeometry InlineDisplayLineBuilder::collec
         enclosingTop = std::min(enclosingTop.value_or(adjustedBorderBoxTop), adjustedBorderBoxTop);
         enclosingBottom = std::max(enclosingBottom.value_or(adjustedBorderBoxBottom), adjustedBorderBoxBottom);
     }
-    return { { enclosingTop.value_or(lineBoxRect.top()), enclosingBottom.value_or(lineBoxRect.top()) }, scrollableOverflowRect };
+    return { { enclosingTop.value_or(lineBoxRect.top()), enclosingBottom.value_or(lineBoxRect.top()) }, contentOverflowRect };
 }
 
 InlineDisplay::Line InlineDisplayLineBuilder::build(const LineBuilder::LineContent& lineContent, const LineBox& lineBox, const ConstraintsForInlineContent& constraints) const
@@ -140,13 +140,14 @@ InlineDisplay::Line InlineDisplayLineBuilder::build(const LineBuilder::LineConte
     auto writingMode = root().style().writingMode();
     return InlineDisplay::Line { lineBoxLogicalRect
         , flipLogicalLineRectToVisualForWritingMode(lineBoxVisualRectInInlineDirection, writingMode)
-        , flipLogicalLineRectToVisualForWritingMode(enclosingLineGeometry.scrollableOverflowRect, writingMode)
+        , flipLogicalLineRectToVisualForWritingMode(enclosingLineGeometry.contentOverflowRect, writingMode)
         , enclosingLineGeometry.enclosingTopAndBottom
         , rootInlineBox.logicalTop() + rootInlineBox.ascent()
         , lineBox.baselineType()
         , rootInlineBoxRect.left()
         , contentVisualOffsetInInlineDirection
         , rootInlineBox.logicalWidth()
+        , isLeftToRightDirection
         , lineBox.isHorizontal()
     };
 }
@@ -175,18 +176,18 @@ static float truncateOverflowingDisplayBoxes(const InlineDisplay::Line& displayL
 
             auto& inlineTextBox = downcast<InlineTextBox>(displayBox.layoutBox());
             auto& textContent = displayBox.text();
-            auto leftSide = TextUtil::breakWord(inlineTextBox, textContent->start(), textContent->length(), width(displayBox), visibleWidth, { }, displayBox.style().fontCascade());
+            auto leftSide = TextUtil::breakWord(inlineTextBox, textContent.start(), textContent.length(), width(displayBox), visibleWidth, { }, displayBox.style().fontCascade());
             if (leftSide.length) {
-                textContent->setPartiallyVisibleContentLength(leftSide.length);
+                textContent.setPartiallyVisibleContentLength(leftSide.length);
                 return isLeftToRightDirection ? left(displayBox) + leftSide.logicalWidth : right(displayBox) - leftSide.logicalWidth;
             }
             if (canFullyTruncate) {
                 displayBox.setIsFullyTruncated();
                 return isLeftToRightDirection ? left(displayBox) : right(displayBox);
             }
-            auto firstCharacterLength = TextUtil::firstUserPerceivedCharacterLength(inlineTextBox, textContent->start(), textContent->length());
-            auto firstCharacterWidth = TextUtil::width(inlineTextBox, displayBox.style().fontCascade(), textContent->start(), textContent->start() + firstCharacterLength, { }, TextUtil::UseTrailingWhitespaceMeasuringOptimization::No);
-            textContent->setPartiallyVisibleContentLength(firstCharacterLength);
+            auto firstCharacterLength = TextUtil::firstUserPerceivedCharacterLength(inlineTextBox, textContent.start(), textContent.length());
+            auto firstCharacterWidth = TextUtil::width(inlineTextBox, displayBox.style().fontCascade(), textContent.start(), textContent.start() + firstCharacterLength, { }, TextUtil::UseTrailingWhitespaceMeasuringOptimization::No);
+            textContent.setPartiallyVisibleContentLength(firstCharacterLength);
             return isLeftToRightDirection ? left(displayBox) + firstCharacterWidth : right(displayBox) - firstCharacterWidth;
         }
         if (canFullyTruncate) {
@@ -230,22 +231,22 @@ static float truncateOverflowingDisplayBoxes(const InlineDisplay::Line& displayL
     return truncateLeft.value_or(ellipsisWidth) - ellipsisWidth;
 }
 
-std::optional<FloatRect> InlineDisplayLineBuilder::trailingEllipsisVisualRectAfterTruncation(LineBuilder::LineEndingEllipsisPolicy lineEndingEllipsisPolicy, const InlineDisplay::Line& displayLine, DisplayBoxes& displayBoxes, bool isLastLineWithInlineContent)
+std::optional<FloatRect> InlineDisplayLineBuilder::trailingEllipsisVisualRectAfterTruncation(LineEndingEllipsisPolicy lineEndingEllipsisPolicy, const InlineDisplay::Line& displayLine, DisplayBoxes& displayBoxes, bool isLastLineWithInlineContent)
 {
     if (displayBoxes.isEmpty())
         return { };
 
     auto contentNeedsEllipsis = [&] {
         switch (lineEndingEllipsisPolicy) {
-        case LineBuilder::LineEndingEllipsisPolicy::No:
+        case LineEndingEllipsisPolicy::No:
             return false;
-        case LineBuilder::LineEndingEllipsisPolicy::WhenContentOverflowsInInlineDirection:
+        case LineEndingEllipsisPolicy::WhenContentOverflowsInInlineDirection:
             return displayLine.contentLogicalWidth() > displayLine.lineBoxLogicalRect().width();
-        case LineBuilder::LineEndingEllipsisPolicy::WhenContentOverflowsInBlockDirection:
+        case LineEndingEllipsisPolicy::WhenContentOverflowsInBlockDirection:
             if (isLastLineWithInlineContent)
                 return false;
             FALLTHROUGH;
-        case LineBuilder::LineEndingEllipsisPolicy::Always:
+        case LineEndingEllipsisPolicy::Always:
             return true;
         default:
             ASSERT_NOT_REACHED();
@@ -262,11 +263,11 @@ std::optional<FloatRect> InlineDisplayLineBuilder::trailingEllipsisVisualRectAft
 
     auto contentNeedsTruncation = [&] {
         switch (lineEndingEllipsisPolicy) {
-        case LineBuilder::LineEndingEllipsisPolicy::WhenContentOverflowsInInlineDirection:
+        case LineEndingEllipsisPolicy::WhenContentOverflowsInInlineDirection:
             ASSERT(displayLine.contentLogicalWidth() > displayLine.lineBoxLogicalRect().width());
             return true;
-        case LineBuilder::LineEndingEllipsisPolicy::WhenContentOverflowsInBlockDirection:
-        case LineBuilder::LineEndingEllipsisPolicy::Always:
+        case LineEndingEllipsisPolicy::WhenContentOverflowsInBlockDirection:
+        case LineEndingEllipsisPolicy::Always:
             return displayLine.contentLogicalLeft() + displayLine.contentLogicalWidth() + ellipsisWidth > displayLine.lineBoxLogicalRect().maxX();
         default:
             ASSERT_NOT_REACHED();

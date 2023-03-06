@@ -318,25 +318,6 @@ bool ensureGStreamerInitialized()
     return isGStreamerInitialized;
 }
 
-#if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
-// WebM does not specify a protection system ID so it can happen that
-// the ClearKey decryptor is chosen instead of the Thunder one for
-// Widevine (and viceversa) which can can create chaos. This is an
-// environment variable to set in run time if we prefer to rank higher
-// Thunder or ClearKey. If we want to run tests with Thunder, we need
-// to set this environment variable to Thunder and that decryptor will
-// be ranked higher when there is no protection system set (as in
-// WebM).
-// FIXME: In https://bugs.webkit.org/show_bug.cgi?id=214826 we say we
-// should migrate to use GST_PLUGIN_FEATURE_RANK but we can't yet
-// because our lowest dependency is 1.16.
-bool isThunderRanked()
-{
-    const char* value = g_getenv("WEBKIT_GST_EME_RANK_PRIORITY");
-    return value && equalIgnoringASCIICase(value, "Thunder"_s);
-}
-#endif
-
 static void registerInternalVideoEncoder()
 {
 #if ENABLE(VIDEO)
@@ -350,18 +331,16 @@ void registerWebKitGStreamerElements()
     bool registryWasUpdated = false;
     std::call_once(onceFlag, [&registryWasUpdated] {
 
-#if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
-        if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty()) {
-            unsigned thunderRank = isThunderRanked() ? 300 : 100;
-            gst_element_register(nullptr, "webkitthunder", GST_RANK_PRIMARY + thunderRank, WEBKIT_TYPE_MEDIA_THUNDER_DECRYPT);
-        }
-#ifndef NDEBUG
-        else if (isThunderRanked()) {
-            GST_WARNING("Thunder is up-ranked as preferred decryptor but Thunder is not supporting any encryption system. Is "
-                "Thunder running? Are the plugins built?");
-        }
-#endif
+        // Rank guidelines are as following:
+        // - Use GST_RANK_PRIMARY for elements meant to be auto-plugged and for which we know
+        //   there's no other alternative outside of WebKit.
+        // - Use GST_RANK_PRIMARY+100 for elements meant to be auto-plugged and that we know there
+        //   is an alternative outside of WebKit.
+        // - Use GST_RANK_NONE for elements explicitely created by WebKit (no auto-plugging).
 
+#if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
+        if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty())
+            gst_element_register(nullptr, "webkitthunder", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_THUNDER_DECRYPT);
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -370,11 +349,11 @@ void registerWebKitGStreamerElements()
         registerInternalVideoEncoder();
 
 #if ENABLE(MEDIA_SOURCE)
-        gst_element_register(nullptr, "webkitmediasrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_SRC);
+        gst_element_register(nullptr, "webkitmediasrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_SRC);
 #endif
 
 #if ENABLE(SPEECH_SYNTHESIS)
-        gst_element_register(nullptr, "webkitflitesrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_FLITE_SRC);
+        gst_element_register(nullptr, "webkitflitesrc", GST_RANK_NONE, WEBKIT_TYPE_FLITE_SRC);
 #endif
 
 #if ENABLE(VIDEO)
@@ -400,6 +379,14 @@ void registerWebKitGStreamerElements()
                 if (avAACDecoderFactory)
                     gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(avAACDecoderFactory.get()), GST_RANK_MARGINAL);
             }
+        }
+
+        // Prevent decodebin(3) from auto-plugging hlsdemux if it was disabled. UAs should be able
+        // to fallback to MSE when this happens.
+        const char* hlsSupport = g_getenv("WEBKIT_GST_ENABLE_HLS_SUPPORT");
+        if (!hlsSupport || !g_strcmp0(hlsSupport, "0")) {
+            if (auto factory = adoptGRef(gst_element_factory_find("hlsdemux")))
+                gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(factory.get()), GST_RANK_NONE);
         }
 
         // The new demuxers based on adaptivedemux2 cannot be used in WebKit yet because this new

@@ -62,7 +62,7 @@ enum class CachePolicy : uint8_t;
 // from CachedResourceClient, to get the function calls in case the requested data has arrived.
 // This class also does the actual communication with the loader to obtain the resource from the network.
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CachedResource);
-class CachedResource {
+class CachedResource : public CanMakeWeakPtr<CachedResource> {
     WTF_MAKE_NONCOPYABLE(CachedResource);
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CachedResource);
     friend class MemoryCache;
@@ -258,7 +258,7 @@ public:
     bool isPreloaded() const { return m_preloadCount; }
     void increasePreloadCount() { ++m_preloadCount; }
     void decreasePreloadCount() { ASSERT(m_preloadCount); --m_preloadCount; }
-    bool isLinkPreload() { return m_isLinkPreload; }
+    bool isLinkPreload() const { return m_isLinkPreload; }
     void setLinkPreload() { m_isLinkPreload = true; }
     bool hasUnknownEncoding() { return m_hasUnknownEncoding; }
     void setHasUnknownEncoding(bool hasUnknownEncoding) { m_hasUnknownEncoding = hasUnknownEncoding; }
@@ -348,7 +348,7 @@ private:
     MonotonicTime m_lastDecodedAccessTime; // Used as a "thrash guard" in the cache
     PAL::SessionID m_sessionID;
     RefPtr<const CookieJar> m_cookieJar;
-    WallTime m_responseTimestamp;
+    WallTime m_responseTimestamp { WallTime::now() };
     ResourceLoaderIdentifier m_identifierForLoadWithoutResourceLoader;
 
     WeakHashMap<CachedResourceClient, std::unique_ptr<Callback>> m_clientsAwaitingCallback;
@@ -384,16 +384,16 @@ private:
     Type m_type : bitWidthOfType;
 
     PreloadResult m_preloadResult : bitWidthOfPreloadResult;
-    ResourceResponse::Tainting m_responseTainting : ResourceResponse::bitWidthOfTainting;
+    ResourceResponse::Tainting m_responseTainting : ResourceResponse::bitWidthOfTainting { ResourceResponse::Tainting::Basic };
     ResourceLoadPriority m_loadPriority : bitWidthOfResourceLoadPriority;
 
     Status m_status : bitWidthOfStatus;
-    bool m_requestedFromNetworkingLayer : 1;
-    bool m_inCache : 1;
-    bool m_loading : 1;
+    bool m_requestedFromNetworkingLayer : 1 { false };
+    bool m_inCache : 1 { false };
+    bool m_loading : 1 { false };
     bool m_isLinkPreload : 1;
     bool m_hasUnknownEncoding : 1;
-    bool m_switchingClientsToRevalidatedResource : 1;
+    bool m_switchingClientsToRevalidatedResource : 1 { false };
     bool m_ignoreForRequestCount : 1;
 
 #if ASSERT_ENABLED

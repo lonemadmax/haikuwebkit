@@ -333,6 +333,11 @@ static OptionSet<AvoidanceReason> canUseForChild(const RenderBlockFlow& flow, co
         return reasons;
     }
 
+    if (flow.fragmentedFlowState() != RenderObject::NotInsideFragmentedFlow) {
+        if (child.isFloating() || child.isOutOfFlowPositioned())
+            SET_REASON_AND_RETURN_IF_NEEDED(FlowHasNonSupportedChild, reasons, includeReasons);
+    }
+
     if (is<RenderLineBreak>(child))
         return reasons;
 
@@ -363,10 +368,6 @@ static OptionSet<AvoidanceReason> canUseForChild(const RenderBlockFlow& flow, co
             if (renderer.isFloating() && !renderer.parent()->style().isHorizontalWritingMode())
                 return false;
 #endif
-            if (renderer.isFloating() && flow.fragmentedFlowState() != RenderObject::NotInsideFragmentedFlow) {
-                // Floats inside fragmentation need integration support.
-                return false;
-            }
             if (renderer.isOutOfFlowPositioned()) {
                 if (!renderer.parent()->style().isLeftToRightDirection())
                     return false;
@@ -494,6 +495,12 @@ bool canUseForLineLayoutAfterStyleChange(const RenderBlockFlow& blockContainer, 
     }
     ASSERT_NOT_REACHED();
     return canUseForLineLayout(blockContainer);
+}
+
+bool shouldInvalidateLineLayoutPathAfterContentChangeFor(const RenderBlockFlow&, const RenderObject&, const LineLayout&)
+{
+    // FIXME: Add partial support starting with a simple "a new RenderText has been appeared" case.
+    return true;
 }
 
 bool canUseForLineLayoutAfterInlineBoxStyleChange(const RenderInline& renderer, StyleDifference)

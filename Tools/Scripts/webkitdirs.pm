@@ -204,6 +204,7 @@ BEGIN {
        &wrapperPrefixIfNeeded
        &xcodeSDK
        &xcodeSDKPlatformName
+       &xcodeVersion
        DO_NOT_USE_OPEN_COMMAND
        Mac
        USE_OPEN_COMMAND
@@ -356,6 +357,12 @@ sub determineXcodeVersion
     return if defined $xcodeVersion;
     my $xcodebuildVersionOutput = `xcodebuild -version`;
     $xcodeVersion = ($xcodebuildVersionOutput =~ /Xcode ([0-9]+(\.[0-9]+)*)/) ? $1 : "3.0";
+}
+
+sub xcodeVersion
+{
+    determineXcodeVersion();
+    return $xcodeVersion;
 }
 
 sub readXcodeUserDefault($)
@@ -1240,6 +1247,9 @@ sub XcodeOptions
     push @options, @baseProductDirOption;
     push @options, "ARCHS=$architecture" if $architecture;
     push @options, "SDKROOT=$xcodeSDK" if $xcodeSDK;
+    if (xcodeVersion() lt "15.0") {
+        push @options, "TAPI_USE_SRCROOT=YES" if $ENV{UseSRCROOTSupportForTAPI};
+    }
 
     my @features = webkitperl::FeatureList::getFeatureOptionList();
     foreach (@features) {
@@ -1606,7 +1616,7 @@ sub determinePortName()
     # Port was not selected via command line, use appropriate default value
 
     if (isAnyWindows()) {
-        $portName = AppleWin;
+        $portName = WinCairo;
     } elsif (isDarwin()) {
         determineXcodeSDKPlatformName();
         if (willUseIOSDeviceSDK() || willUseIOSSimulatorSDK()) {
@@ -2623,11 +2633,6 @@ sub cmakeCachePath()
     return File::Spec->catdir(productDirForCMake(), "CMakeCache.txt");
 }
 
-sub cmakeFilesPath()
-{
-    return File::Spec->catdir(productDirForCMake(), "CMakeFiles");
-}
-
 sub shouldRemoveCMakeCache(@)
 {
     # For this check, ignore all arguments that do not begin with a dash. These
@@ -2701,9 +2706,7 @@ sub removeCMakeCache(@)
     my (@buildArgs) = @_;
     if (shouldRemoveCMakeCache(@buildArgs)) {
         my $cmakeCache = cmakeCachePath();
-        my $cmakeFiles = cmakeFilesPath();
         unlink($cmakeCache) if -e $cmakeCache;
-        rmtree($cmakeFiles) if -d $cmakeFiles;
     }
 }
 

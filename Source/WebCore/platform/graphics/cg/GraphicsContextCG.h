@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,14 +36,12 @@ class WEBCORE_EXPORT GraphicsContextCG : public GraphicsContext {
 public:
     GraphicsContextCG(CGContextRef);
 
-#if PLATFORM(WIN)
-    GraphicsContextCG(HDC, bool hasAlpha = false); // FIXME: To be removed.
-#endif
-
     ~GraphicsContextCG();
 
     bool hasPlatformContext() const final;
     CGContextRef platformContext() const final;
+
+    const DestinationColorSpace& colorSpace() const final;
 
     void save() final;
     void restore() final;
@@ -94,7 +92,6 @@ public:
     void setLineJoin(LineJoin) final;
     void setMiterLimit(float) final;
 
-    void drawNativeImage(NativeImage&, const FloatSize& selfSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& = { }) final;
     void drawPattern(NativeImage&, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { }) final;
     bool needsCachedNativeImageInvalidationWorkaround(RenderingMode) override;
 
@@ -137,10 +134,12 @@ protected:
 
 private:
     void convertToDestinationColorSpaceIfNeeded(RetainPtr<CGImageRef>&);
+    void drawNativeImageInternal(NativeImage&, const FloatSize& selfSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& = { }) final;
 
     void clearCGShadow();
 
     GraphicsContextPlatformPrivate* m_data { nullptr };
+    mutable std::optional<DestinationColorSpace> m_colorSpace;
 };
 
 CGAffineTransform getUserToBaseCTM(CGContextRef);

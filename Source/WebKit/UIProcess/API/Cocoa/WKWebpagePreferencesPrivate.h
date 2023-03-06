@@ -84,6 +84,7 @@ typedef NS_OPTIONS(NSUInteger, _WKWebsiteNetworkConnectionIntegrityPolicy) {
     _WKWebsiteNetworkConnectionIntegrityPolicyFailClosed = 1 << 4,
     _WKWebsiteNetworkConnectionIntegrityPolicyWebSearchContent = 1 << 5,
     _WKWebsiteNetworkConnectionIntegrityPolicyEnhancedTelemetry = 1 << 6,
+    _WKWebsiteNetworkConnectionIntegrityPolicyRequestValidation = 1 << 7,
 } WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @class _WKCustomHeaderFields;
@@ -93,7 +94,6 @@ typedef NS_OPTIONS(NSUInteger, _WKWebsiteNetworkConnectionIntegrityPolicy) {
 @interface WKWebpagePreferences (WKPrivate)
 
 @property (nonatomic, setter=_setContentBlockersEnabled:) BOOL _contentBlockersEnabled;
-@property (nonatomic, copy, setter=_setDisabledContentRuleListIdentifiers:) NSSet<NSString *> *_disabledContentRuleListIdentifiers WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 @property (nonatomic, copy, setter=_setActiveContentRuleListActionPatterns:) NSDictionary<NSString *, NSSet<NSString *> *> *_activeContentRuleListActionPatterns WK_API_AVAILABLE(macos(13.0), ios(16.0));
 @property (nonatomic, setter=_setAllowedAutoplayQuirks:) _WKWebsiteAutoplayQuirk _allowedAutoplayQuirks;
 @property (nonatomic, setter=_setAutoplayPolicy:) _WKWebsiteAutoplayPolicy _autoplayPolicy;
@@ -119,5 +119,7 @@ typedef NS_OPTIONS(NSUInteger, _WKWebsiteNetworkConnectionIntegrityPolicy) {
 
 @property (nonatomic, setter=_setNetworkConnectionIntegrityEnabled:) BOOL _networkConnectionIntegrityEnabled WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 @property (nonatomic, setter=_setNetworkConnectionIntegrityPolicy:) _WKWebsiteNetworkConnectionIntegrityPolicy _networkConnectionIntegrityPolicy WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+- (void)_setContentRuleListsEnabled:(BOOL)enabled exceptions:(NSSet<NSString *> *)exceptions WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end

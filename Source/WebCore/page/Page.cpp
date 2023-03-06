@@ -1734,6 +1734,13 @@ void Page::updateRendering()
         document.updateResizeObservations(*this);
     });
 
+    runProcessingStep(RenderingUpdateStep::FocusFixup, [&] (Document& document) {
+        if (RefPtr focusedElement = document.focusedElement()) {
+            if (!focusedElement->isFocusable())
+                document.setFocusedElement(nullptr);
+        }
+    });
+
     runProcessingStep(RenderingUpdateStep::IntersectionObservations, [] (Document& document) {
         document.updateIntersectionObservations();
     });
@@ -2771,6 +2778,16 @@ void Page::whenUnnested(Function<void()>&& callback)
 void Page::setCurrentKeyboardScrollingAnimator(KeyboardScrollingAnimator* animator)
 {
     m_currentKeyboardScrollingAnimator = animator;
+}
+
+bool Page::isLoadingInHeadlessMode() const
+{
+    RefPtr document = mainFrame().document();
+    if (!document)
+        return false;
+
+    RefPtr loader = document->loader();
+    return loader && loader->isLoadingInHeadlessMode();
 }
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -3956,6 +3973,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
     case RenderingUpdateStep::VideoFrameCallbacks: ts << "VideoFrameCallbacks"; break;
     case RenderingUpdateStep::PrepareCanvasesForDisplay: ts << "PrepareCanvasesForDisplay"; break;
     case RenderingUpdateStep::CaretAnimation: ts << "CaretAnimation"; break;
+    case RenderingUpdateStep::FocusFixup: ts << "FocusFixup"; break;
     }
     return ts;
 }

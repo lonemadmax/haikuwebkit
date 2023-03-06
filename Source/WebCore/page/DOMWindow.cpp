@@ -1249,16 +1249,6 @@ bool DOMWindow::offscreenBuffering() const
 
 int DOMWindow::outerHeight() const
 {
-#if PLATFORM(IOS_FAMILY)
-    if (!frame())
-        return 0;
-
-    RefPtr view = frame()->isMainFrame() ? frame()->view() : frame()->mainFrame().view();
-    if (!view)
-        return 0;
-
-    return view->frameRect().height();
-#else
     RefPtr frame = this->frame();
     if (!frame)
         return 0;
@@ -1267,22 +1257,26 @@ int DOMWindow::outerHeight() const
     if (!page)
         return 0;
 
+    if (page->isLoadingInHeadlessMode())
+        return innerHeight();
+
+#if PLATFORM(IOS_FAMILY)
+    auto* localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame());
+    if (!localFrame)
+        return 0;
+
+    RefPtr view = frame->isMainFrame() ? frame->view() : localFrame->view();
+    if (!view)
+        return 0;
+
+    return view->frameRect().height();
+#else
     return static_cast<int>(page->chrome().windowRect().height());
 #endif
 }
 
 int DOMWindow::outerWidth() const
 {
-#if PLATFORM(IOS_FAMILY)
-    if (!frame())
-        return 0;
-
-    RefPtr view = frame()->isMainFrame() ? frame()->view() : frame()->mainFrame().view();
-    if (!view)
-        return 0;
-
-    return view->frameRect().width();
-#else
     RefPtr frame = this->frame();
     if (!frame)
         return 0;
@@ -1291,6 +1285,20 @@ int DOMWindow::outerWidth() const
     if (!page)
         return 0;
 
+    if (page->isLoadingInHeadlessMode())
+        return innerWidth();
+
+#if PLATFORM(IOS_FAMILY)
+    auto* localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame());
+    if (!localFrame)
+        return 0;
+
+    RefPtr view = frame->isMainFrame() ? frame->view() : localFrame->view();
+    if (!view)
+        return 0;
+
+    return view->frameRect().width();
+#else
     return static_cast<int>(page->chrome().windowRect().width());
 #endif
 }
@@ -1335,16 +1343,6 @@ int DOMWindow::innerWidth() const
     return view->mapFromLayoutToCSSUnits(static_cast<int>(view->unobscuredContentRectIncludingScrollbars().width()));
 }
 
-static bool isLoadingInHeadlessMode(const Page& page)
-{
-    RefPtr document = page.mainFrame().document();
-    if (!document)
-        return false;
-
-    RefPtr loader = document->loader();
-    return loader && loader->isLoadingInHeadlessMode();
-}
-
 int DOMWindow::screenX() const
 {
     RefPtr frame = this->frame();
@@ -1352,7 +1350,7 @@ int DOMWindow::screenX() const
         return 0;
 
     Page* page = frame->page();
-    if (!page || isLoadingInHeadlessMode(*page))
+    if (!page || page->isLoadingInHeadlessMode())
         return 0;
 
     return static_cast<int>(page->chrome().windowRect().x());
@@ -1365,7 +1363,7 @@ int DOMWindow::screenY() const
         return 0;
 
     Page* page = frame->page();
-    if (!page || isLoadingInHeadlessMode(*page))
+    if (!page || page->isLoadingInHeadlessMode())
         return 0;
 
     return static_cast<int>(page->chrome().windowRect().y());
@@ -1998,7 +1996,11 @@ bool DOMWindow::isSameSecurityOriginAsMainFrame() const
     if (frame->isMainFrame())
         return true;
 
-    Document* mainFrameDocument = frame->mainFrame().document();
+    auto* localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame());
+    if (!localFrame)
+        return false;
+
+    Document* mainFrameDocument = localFrame->document();
 
     if (mainFrameDocument && document()->securityOrigin().isSameOriginDomain(mainFrameDocument->securityOrigin()))
         return true;
@@ -2658,7 +2660,12 @@ ExceptionOr<RefPtr<WindowProxy>> DOMWindow::open(DOMWindow& activeWindow, DOMWin
 #if ENABLE(CONTENT_EXTENSIONS)
     auto* page = firstFrame->page();
     RefPtr firstFrameDocument = firstFrame->document();
-    RefPtr mainFrameDocument = firstFrame->mainFrame().document();
+
+    auto* localFrame = dynamicDowncast<LocalFrame>(firstFrame->mainFrame());
+    if (!localFrame)
+        return RefPtr<WindowProxy> { nullptr };
+
+    RefPtr mainFrameDocument = localFrame->document();
     RefPtr mainFrameDocumentLoader = mainFrameDocument ? mainFrameDocument->loader() : nullptr;
     if (firstFrameDocument && page && mainFrameDocumentLoader) {
         auto results = page->userContentProvider().processContentRuleListsForLoad(*page, firstFrameDocument->completeURL(urlString), ContentExtensions::ResourceType::Popup, *mainFrameDocumentLoader);

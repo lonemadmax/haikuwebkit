@@ -32,6 +32,7 @@
 
 #include "DOMWindow.h"
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -53,9 +54,23 @@ Screen::Screen(DOMWindow& window)
 
 Screen::~Screen() = default;
 
+static bool isLoadingInHeadlessMode(const Frame& frame)
+{
+    auto* localFrame = dynamicDowncast<LocalFrame>(frame.mainFrame());
+    if (!localFrame)
+        return false;
+
+    RefPtr mainDocument = localFrame->document();
+    if (!mainDocument)
+        return false;
+
+    RefPtr loader = mainDocument->loader();
+    return loader && loader->isLoadingInHeadlessMode();
+}
+
 int Screen::height() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
     if (frame->settings().webAPIStatisticsEnabled())
@@ -65,7 +80,7 @@ int Screen::height() const
 
 int Screen::width() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
     if (frame->settings().webAPIStatisticsEnabled())
@@ -75,7 +90,7 @@ int Screen::width() const
 
 unsigned Screen::colorDepth() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
     if (frame->settings().webAPIStatisticsEnabled())
@@ -85,7 +100,7 @@ unsigned Screen::colorDepth() const
 
 unsigned Screen::pixelDepth() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
     if (frame->settings().webAPIStatisticsEnabled())
@@ -100,41 +115,61 @@ unsigned Screen::pixelDepth() const
 
 int Screen::availLeft() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
+
     if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailLeft);
+
+    if (isLoadingInHeadlessMode(*frame))
+        return 0;
+
     return static_cast<int>(screenAvailableRect(frame->view()).x());
 }
 
 int Screen::availTop() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
+
     if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailTop);
+
+    if (isLoadingInHeadlessMode(*frame))
+        return 0;
+
     return static_cast<int>(screenAvailableRect(frame->view()).y());
 }
 
 int Screen::availHeight() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
+
     if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailHeight);
+
+    if (isLoadingInHeadlessMode(*frame))
+        return static_cast<int>(frame->screenSize().height());
+
     return static_cast<int>(screenAvailableRect(frame->view()).height());
 }
 
 int Screen::availWidth() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return 0;
+
     if (frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logScreenAPIAccessed(*frame->document(), ScreenAPIsAccessed::AvailWidth);
+
+    if (isLoadingInHeadlessMode(*frame))
+        return static_cast<int>(frame->screenSize().width());
+
     return static_cast<int>(screenAvailableRect(frame->view()).width());
 }
 

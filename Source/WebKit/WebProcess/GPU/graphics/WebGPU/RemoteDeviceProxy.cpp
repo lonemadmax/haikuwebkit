@@ -102,21 +102,6 @@ Ref<PAL::WebGPU::Texture> RemoteDeviceProxy::createTexture(const PAL::WebGPU::Te
     return RemoteTextureProxy::create(root(), m_convertToBackingContext, identifier);
 }
 
-Ref<PAL::WebGPU::Texture> RemoteDeviceProxy::createSurfaceTexture(const PAL::WebGPU::TextureDescriptor& descriptor, const PAL::WebGPU::PresentationContext& presentationContext)
-{
-    auto convertedDescriptor = m_convertToBackingContext->convertToBacking(descriptor);
-    if (!convertedDescriptor) {
-        // FIXME: Implement error handling.
-        return RemoteTextureProxy::create(root(), m_convertToBackingContext, WebGPUIdentifier::generate());
-    }
-
-    auto identifier = WebGPUIdentifier::generate();
-    auto sendResult = send(Messages::RemoteDevice::CreateSurfaceTexture(m_convertToBackingContext->convertToBacking(presentationContext), *convertedDescriptor, identifier));
-    UNUSED_VARIABLE(sendResult);
-
-    return RemoteTextureProxy::create(root(), m_convertToBackingContext, identifier);
-}
-
 Ref<PAL::WebGPU::Sampler> RemoteDeviceProxy::createSampler(const PAL::WebGPU::SamplerDescriptor& descriptor)
 {
     auto convertedDescriptor = m_convertToBackingContext->convertToBacking(descriptor);
@@ -323,19 +308,20 @@ void RemoteDeviceProxy::pushErrorScope(PAL::WebGPU::ErrorFilter errorFilter)
 
 void RemoteDeviceProxy::popErrorScope(CompletionHandler<void(std::optional<PAL::WebGPU::Error>&&)>&& callback)
 {
-    auto sendResult = sendSync(Messages::RemoteDevice::PopErrorScope());
-    auto [error] = sendResult.takeReplyOr(std::nullopt);
+    auto sendResult = sendWithAsyncReply(Messages::RemoteDevice::PopErrorScope(), [callback = WTFMove(callback)](auto error) mutable {
+        if (!error) {
+            callback(std::nullopt);
+            return;
+        }
 
-    if (!error) {
-        callback(std::nullopt);
-        return;
-    }
-
-    WTF::switchOn(WTFMove(*error), [&] (OutOfMemoryError&& outOfMemoryError) {
-        callback({ PAL::WebGPU::OutOfMemoryError::create() });
-    }, [&] (ValidationError&& validationError) {
-        callback({ PAL::WebGPU::ValidationError::create(WTFMove(validationError.message)) });
+        WTF::switchOn(WTFMove(*error), [&] (OutOfMemoryError&& outOfMemoryError) {
+            callback({ PAL::WebGPU::OutOfMemoryError::create() });
+        }, [&] (ValidationError&& validationError) {
+            callback({ PAL::WebGPU::ValidationError::create(WTFMove(validationError.message)) });
+        });
     });
+
+    UNUSED_PARAM(sendResult);
 }
 
 void RemoteDeviceProxy::setLabelInternal(const String& label)

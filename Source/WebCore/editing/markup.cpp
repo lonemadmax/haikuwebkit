@@ -79,6 +79,7 @@
 #include "TextManipulationController.h"
 #include "VisibleSelection.h"
 #include "VisibleUnits.h"
+#include <JavaScriptCore/JSCJSValueInlines.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/URL.h>
 #include <wtf/URLParser.h>
@@ -892,8 +893,7 @@ static bool propertyMissingOrEqualToNone(const StyleProperties* style, CSSProper
 {
     if (!style)
         return false;
-    auto value = style->getPropertyCSSValue(propertyID);
-    return !value || (is<CSSPrimitiveValue>(*value) && downcast<CSSPrimitiveValue>(*value).valueID() == CSSValueNone);
+    return style->propertyAsValueID(propertyID).value_or(CSSValueNone) == CSSValueNone;
 }
 
 static bool needInterchangeNewlineAfter(const VisiblePosition& v)

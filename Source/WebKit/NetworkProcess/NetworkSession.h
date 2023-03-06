@@ -49,7 +49,6 @@
 #include <wtf/Ref.h>
 #include <wtf/Seconds.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
-#include <wtf/UUID.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -64,7 +63,7 @@ enum class IncludeHttpOnlyCookies : bool;
 enum class NetworkConnectionIntegrity : uint8_t;
 enum class ShouldSample : bool;
 struct ClientOrigin;
-struct SecurityOriginData;
+class SecurityOriginData;
 }
 
 namespace WTF {
@@ -112,14 +111,15 @@ public:
     virtual ~NetworkSession();
 
     virtual void invalidateAndCancel();
-    virtual void clearCredentials() { };
     virtual bool shouldLogCookieInformation() const { return false; }
     virtual Vector<WebCore::SecurityOriginData> hostNamesWithAlternativeServices() const { return { }; }
     virtual void deleteAlternativeServicesForHostNames(const Vector<String>&) { }
     virtual void clearAlternativeServices(WallTime) { }
+    virtual HashSet<WebCore::SecurityOriginData> originsWithCredentials() { return { }; }
+    virtual void removeCredentialsForOrigins(const Vector<WebCore::SecurityOriginData>&) { }
+    virtual void clearCredentials(WallTime) { }
 
     PAL::SessionID sessionID() const { return m_sessionID; }
-    std::optional<UUID> dataStoreIdentifier() const { return m_dataStoreIdentifier; }
     NetworkProcess& networkProcess() { return m_networkProcess; }
     WebCore::NetworkStorageSession* networkStorageSession() const;
 
@@ -277,7 +277,6 @@ protected:
 #endif
 
     PAL::SessionID m_sessionID;
-    Markable<UUID> m_dataStoreIdentifier;
     Ref<NetworkProcess> m_networkProcess;
     ThreadSafeWeakHashSet<NetworkDataTask> m_dataTaskSet;
 #if ENABLE(TRACKING_PREVENTION)

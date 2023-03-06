@@ -387,7 +387,6 @@ platform/graphics/cg/ImageBufferCGBitmapBackend.cpp
 platform/graphics/cg/ImageBufferIOSurfaceBackend.cpp
 platform/graphics/cg/ImageBufferUtilitiesCG.cpp
 platform/graphics/cg/ImageDecoderCG.cpp
-platform/graphics/cg/ImageSourceCGMac.mm
 platform/graphics/cg/ImageUtilitiesCG.cpp
 platform/graphics/cg/IntPointCG.cpp
 platform/graphics/cg/IntRectCG.cpp
@@ -426,6 +425,7 @@ platform/graphics/cocoa/SourceBufferParserWebM.cpp
 platform/graphics/cocoa/SystemFontDatabaseCocoa.mm
 platform/graphics/cocoa/SystemFontDatabaseCoreText.cpp
 platform/graphics/cocoa/TextTrackRepresentationCocoa.mm
+platform/graphics/cocoa/UnrealizedCoreTextFont.cpp
 platform/graphics/cocoa/VP9UtilitiesCocoa.mm @no-unify
 platform/graphics/cocoa/WebActionDisablingCALayerDelegate.mm
 platform/graphics/cocoa/WebCoreCALayerExtras.mm
@@ -457,7 +457,7 @@ platform/graphics/mac/ComplexTextControllerCoreText.mm
 platform/graphics/mac/DisplayConfigurationMonitor.cpp
 platform/graphics/mac/FloatPointMac.mm
 platform/graphics/mac/FloatSizeMac.mm
-platform/graphics/mac/FontCustomPlatformData.cpp
+platform/graphics/mac/FontCustomPlatformDataMac.cpp
 platform/graphics/mac/GraphicsChecksMac.cpp
 platform/graphics/mac/IconMac.mm
 platform/graphics/mac/ImageMac.mm
@@ -667,6 +667,8 @@ platform/text/cocoa/LocalizedDateCache.mm
 platform/text/mac/TextBoundaries.mm
 platform/text/mac/TextCheckingMac.mm
 platform/xr/cocoa/PlatformXRCocoa.mm
+platform/text/mac/CoreTextChineseCompositionEngine.cpp
+platform/text/mac/CoreTextCompositionEngine.cpp
 rendering/AttachmentLayout.mm
 rendering/RenderThemeCocoa.mm
 rendering/RenderThemeIOS.mm

@@ -43,6 +43,7 @@
 #include "PlatformLayer.h"
 #include "RealtimeMediaSourceSettings.h"
 #include "RealtimeVideoSource.h"
+#include "VideoFrame.h"
 #include <math.h>
 #include <wtf/UUID.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -76,6 +77,7 @@ static HashSet<MockRealtimeVideoSource*>& allMockRealtimeVideoSource()
 MockRealtimeVideoSource::MockRealtimeVideoSource(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts, PageIdentifier pageIdentifier)
     : RealtimeVideoCaptureSource(CaptureDevice { WTFMove(deviceID), CaptureDevice::DeviceType::Camera, WTFMove(name) }, WTFMove(hashSalts), pageIdentifier)
     , m_emitFrameTimer(RunLoop::current(), this, &MockRealtimeVideoSource::generateFrame)
+    , m_deviceOrientation { VideoFrame::Rotation::None }
 {
     allMockRealtimeVideoSource().add(this);
 
@@ -170,7 +172,7 @@ const RealtimeMediaSourceSettings& MockRealtimeVideoSource::settings()
         settings.setFacingMode(facingMode());
         settings.setDeviceId(hashedId());
     } else {
-        settings.setDisplaySurface(mockScreen() ? RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor : RealtimeMediaSourceSettings::DisplaySurfaceType::Window);
+        settings.setDisplaySurface(mockScreen() ? DisplaySurfaceType::Monitor : DisplaySurfaceType::Window);
         settings.setLogicalSurface(false);
     }
     settings.setDeviceId(hashedId());
@@ -394,19 +396,19 @@ void MockRealtimeVideoSource::drawText(GraphicsContext& context)
 
         const char* camera;
         switch (facingMode()) {
-        case RealtimeMediaSourceSettings::User:
+        case VideoFacingMode::User:
             camera = "User facing";
             break;
-        case RealtimeMediaSourceSettings::Environment:
+        case VideoFacingMode::Environment:
             camera = "Environment facing";
             break;
-        case RealtimeMediaSourceSettings::Left:
+        case VideoFacingMode::Left:
             camera = "Left facing";
             break;
-        case RealtimeMediaSourceSettings::Right:
+        case VideoFacingMode::Right:
             camera = "Right facing";
             break;
-        case RealtimeMediaSourceSettings::Unknown:
+        case VideoFacingMode::Unknown:
             camera = "Unknown";
             break;
         }

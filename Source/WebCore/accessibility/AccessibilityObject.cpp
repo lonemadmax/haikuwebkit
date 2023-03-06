@@ -1199,7 +1199,11 @@ Frame* AccessibilityObject::mainFrame() const
     if (!frame)
         return nullptr;
     
-    return &frame->mainFrame();
+    auto* localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame());
+    if (!localFrame)
+        return nullptr;
+
+    return localFrame;
 }
 
 Document* AccessibilityObject::topDocument() const
@@ -2133,11 +2137,10 @@ String AccessibilityObject::invalidStatus() const
     String ariaInvalid = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_invalidAttr));
     
     if (ariaInvalid.isEmpty()) {
-        // We should expose invalid status for input types.
-        Node* node = this->node();
-        if (node && is<HTMLInputElement>(*node)) {
-            HTMLInputElement& input = downcast<HTMLInputElement>(*node);
-            if (input.hasBadInput() || input.typeMismatch())
+        auto* htmlElement = dynamicDowncast<HTMLElement>(this->node());
+        if (auto* validatedFormListedElement = htmlElement ? htmlElement->asValidatedFormListedElement() : nullptr) {
+            // "willValidate" is true if the element is able to be validated.
+            if (validatedFormListedElement->willValidate() && !validatedFormListedElement->isValidFormControlElement())
                 return trueValue;
         }
         return falseValue;
@@ -2920,8 +2923,14 @@ void AccessibilityObject::setFocused(bool focus)
         // Legacy WebKit1 case.
         if (frameView->platformWidget())
             page->chrome().client().makeFirstResponder((NSResponder *)frameView->platformWidget());
+#endif
+#if PLATFORM(MAC)
         else
             page->chrome().client().assistiveTechnologyMakeFirstResponder();
+        // WebChromeClient::assistiveTechnologyMakeFirstResponder (the WebKit2 codepath) is intentionally
+        // not called on iOS because stealing first-respondership causes issues such as:
+        //   1. VoiceOver Speak Screen focus erroneously jumping to the top of the page when encountering an embedded WKWebView
+        //   2. Third-party apps relying on WebKit to not steal first-respondership (https://bugs.webkit.org/show_bug.cgi?id=249976)
 #endif
     }
 }

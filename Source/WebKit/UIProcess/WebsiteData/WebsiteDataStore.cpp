@@ -196,7 +196,7 @@ static IsPersistent defaultDataStoreIsPersistent()
     // GTK and WPE ports require explicit configuration of a WebsiteDataStore. All default storage
     // locations are relative to the base directories configured by the
     // WebsiteDataStoreConfiguration. The default data store should (probably?) only be used for
-    // prewarmed processes, and should certainly never be allowed to store anything on disk.
+    // prewarmed processes and C API tests, and should certainly never be allowed to store anything on disk.
     return IsPersistent::No;
 #else
     // Other ports allow general use of the default WebsiteDataStore, and so need to persist data.
@@ -211,7 +211,9 @@ Ref<WebsiteDataStore> WebsiteDataStore::defaultDataStore()
     if (globalDatasStore)
         return Ref { *globalDatasStore };
 
-    auto newDataStore = adoptRef(new WebsiteDataStore(WebsiteDataStoreConfiguration::create(defaultDataStoreIsPersistent()), PAL::SessionID::defaultSessionID()));
+    auto isPersistent = defaultDataStoreIsPersistent();
+    auto newDataStore = adoptRef(new WebsiteDataStore(WebsiteDataStoreConfiguration::create(isPersistent),
+        isPersistent == IsPersistent::Yes ? PAL::SessionID::defaultSessionID() : PAL::SessionID::generateEphemeralSessionID()));
     globalDatasStore = newDataStore.get();
     protectedDefaultDataStore() = newDataStore.get();
 
@@ -334,6 +336,8 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
     if (!m_configuration->modelElementCacheDirectory().isEmpty())
         m_resolvedConfiguration->setModelElementCacheDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->modelElementCacheDirectory()));
 #endif
+    if (!m_configuration->searchFieldHistoryDirectory().isEmpty())
+        m_resolvedConfiguration->setSearchFieldHistoryDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->searchFieldHistoryDirectory()));
 
     // Resolve file paths.
     if (!m_configuration->cookieStorageFile().isEmpty()) {
@@ -341,7 +345,7 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         m_resolvedConfiguration->setCookieStorageFile(FileSystem::pathByAppendingComponent(resolvedCookieDirectory, FileSystem::pathFileName(m_configuration->cookieStorageFile())));
     }
 
-    // Default paths of WebsiteDataStore created with identifer are not under caches or tmp directory,
+    // Default paths of WebsiteDataStore created with identifier are not under caches or tmp directory,
     // so we need to explicitly exclude them from backup.
     if (m_configuration->identifier()) {
         Vector<String> allCacheDirectories = {
@@ -428,8 +432,8 @@ void WebsiteDataStore::fetchDataAndApply(OptionSet<WebsiteDataType> dataTypes, O
                     if (!allowsWebsiteDataRecordsForAllOrigins)
                         continue;
 
-                    String hostString = entry.origin.host.isEmpty() ? emptyString() : makeString(" ", entry.origin.host);
-                    displayName = makeString(entry.origin.protocol, hostString);
+                    String hostString = entry.origin.host().isEmpty() ? emptyString() : makeString(" ", entry.origin.host());
+                    displayName = makeString(entry.origin.protocol(), hostString);
                 }
 
                 auto& record = m_websiteDataRecords.add(displayName, WebsiteDataRecord { }).iterator->value;
@@ -699,11 +703,8 @@ void WebsiteDataStore::removeData(OptionSet<WebsiteDataType> dataTypes, WallTime
         });
     }
 
-    if (dataTypes.contains(WebsiteDataType::SearchFieldRecentSearches) && isPersistent()) {
-        m_queue->dispatch([modifiedSince, callbackAggregator] {
-            platformRemoveRecentSearches(modifiedSince);
-        });
-    }
+    if (dataTypes.contains(WebsiteDataType::SearchFieldRecentSearches) && isPersistent())
+        removeRecentSearches(modifiedSince, [callbackAggregator] { });
 
 #if ENABLE(TRACKING_PREVENTION)
     if (dataTypes.contains(WebsiteDataType::ResourceLoadStatistics)) {
@@ -1753,11 +1754,6 @@ void WebsiteDataStore::setAllowsAnySSLCertificateForWebSocket(bool allows)
     networkProcess().sendSync(Messages::NetworkProcess::SetAllowsAnySSLCertificateForWebSocket(allows), 0);
 }
 
-void WebsiteDataStore::clearCachedCredentials()
-{
-    networkProcess().send(Messages::NetworkProcess::ClearCachedCredentials(sessionID()), 0);
-}
-
 void WebsiteDataStore::dispatchOnQueue(Function<void()>&& function)
 {
     m_queue->dispatch(WTFMove(function));
@@ -1973,21 +1969,143 @@ void WebsiteDataStore::resetStoragePersistedState(CompletionHandler<void()>&& co
 }
 
 #if !PLATFORM(COCOA)
-String WebsiteDataStore::defaultMediaCacheDirectory(const String&)
+String WebsiteDataStore::defaultCacheStorageDirectory(const String& baseCacheDirectory)
 {
-    // FIXME: Implement. https://bugs.webkit.org/show_bug.cgi?id=156369 and https://bugs.webkit.org/show_bug.cgi?id=156370
-    return String();
+    // CacheStorage is really data, not cache, as its lifetime should be controlled by web clients.
+    // https://w3c.github.io/ServiceWorker/#cache-lifetimes
+    //
+    // Keep using baseCacheDirectory for now for compatibility, to avoid leaking existing storage.
+    // Soon, it will be migrated to GeneralStorageDirectory.
+    return cacheDirectoryFileSystemRepresentation("CacheStorage"_s, baseCacheDirectory);
 }
 
-String WebsiteDataStore::defaultAlternativeServicesDirectory(const String&)
+String WebsiteDataStore::defaultGeneralStorageDirectory(const String& baseDataDirectory)
 {
-    // FIXME: Implement.
-    return String();
+#if PLATFORM(PLAYSTATION) || USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation("storage"_s, baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("Storage"_s, baseDataDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultNetworkCacheDirectory(const String& baseCacheDirectory)
+{
+#if PLATFORM(PLAYSTATION) || USE(GLIB)
+    return cacheDirectoryFileSystemRepresentation("WebKitCache"_s, baseCacheDirectory);
+#else
+    return cacheDirectoryFileSystemRepresentation("NetworkCache"_s, baseCacheDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultApplicationCacheDirectory(const String& baseCacheDirectory)
+{
+#if PLATFORM(PLAYSTATION) || USE(GLIB)
+    return cacheDirectoryFileSystemRepresentation("applications"_s, baseCacheDirectory);
+#else
+    return cacheDirectoryFileSystemRepresentation("ApplicationCache"_s, baseCacheDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultMediaCacheDirectory(const String& baseCacheDirectory)
+{
+    return cacheDirectoryFileSystemRepresentation("MediaCache"_s, baseCacheDirectory);
+}
+
+String WebsiteDataStore::defaultIndexedDBDatabaseDirectory(const String& baseDataDirectory)
+{
+#if PLATFORM(PLAYSTATION)
+    return websiteDataDirectoryFileSystemRepresentation("indexeddb"_s, baseDataDirectory);
+#elif USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation(String::fromUTF8("databases" G_DIR_SEPARATOR_S "indexeddb"), baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("IndexedDB"_s, baseDataDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultServiceWorkerRegistrationDirectory(const String& baseDataDirectory)
+{
+#if PLATFORM(PLAYSTATION) || USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation("serviceworkers"_s, baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("ServiceWorkers"_s, baseDataDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultWebSQLDatabaseDirectory(const String& baseDataDirectory)
+{
+#if PLATFORM(PLAYSTATION)
+    return websiteDataDirectoryFileSystemRepresentation("websql"_s, baseDataDirectory);
+#elif USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation("databases"_s, baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("WebSQL"_s, baseDataDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultHSTSStorageDirectory(const String& baseCacheDirectory)
+{
+#if USE(GLIB) && ENABLE(2022_GLIB_API)
+    // Bug: HSTS storage goes in the data directory when baseCacheDirectory is not specified, but
+    // it should go in the cache directory. Do not fix this because it would cause the old HSTS
+    // cache to be leaked on disk.
+    return websiteDataDirectoryFileSystemRepresentation(""_s, baseCacheDirectory);
+#else
+    return cacheDirectoryFileSystemRepresentation("HSTS"_s, baseCacheDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultLocalStorageDirectory(const String& baseDataDirectory)
+{
+#if PLATFORM(PLAYSTATION)
+    return websiteDataDirectoryFileSystemRepresentation("local"_s, baseDataDirectory);
+#elif USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation("localstorage"_s, baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("LocalStorage"_s, baseDataDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultMediaKeysStorageDirectory(const String& baseDataDirectory)
+{
+#if PLATFORM(PLAYSTATION) || USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation("mediakeys"_s, baseDataDirectory);
+#elif OS(WINDOWS)
+    return websiteDataDirectoryFileSystemRepresentation("MediaKeyStorage"_s, baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("MediaKeys"_s, baseDataDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultAlternativeServicesDirectory(const String& baseCacheDirectory)
+{
+    return cacheDirectoryFileSystemRepresentation("AlternativeServices"_s, baseCacheDirectory);
+}
+
+String WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory(const String& baseDataDirectory)
+{
+#if USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation("deviceidhashsalts"_s, baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("DeviceIdHashSalts"_s, baseDataDirectory);
+#endif
+}
+
+String WebsiteDataStore::defaultResourceLoadStatisticsDirectory(const String& baseDataDirectory)
+{
+#if PLATFORM(PLAYSTATION) || USE(GLIB)
+    return websiteDataDirectoryFileSystemRepresentation("itp"_s, baseDataDirectory);
+#else
+    return websiteDataDirectoryFileSystemRepresentation("ResourceLoadStatistics"_s, baseDataDirectory);
+#endif
 }
 
 String WebsiteDataStore::defaultJavaScriptConfigurationDirectory(const String&)
 {
-    // FIXME: Implement.
+    // FIXME: This is currently only used on Cocoa ports. If implementing, note that it should not
+    // use websiteDataDirectoryFileSystemRepresentation or cacheDirectoryFileSystemRepresentation
+    // because it is not data or cache. It is a config file. We need to add a third type of
+    // directory configDirectoryFileSystemRepresentation, and the parameter to this function should
+    // be renamed accordingly.
     return String();
 }
 
@@ -1996,29 +2114,30 @@ bool WebsiteDataStore::networkProcessHasEntitlementForTesting(const String&)
     return false;
 }
 
-UnifiedOriginStorageLevel WebsiteDataStore::defaultUnifiedOriginStorageLevel()
+void WebsiteDataStore::saveRecentSearches(const String& name, const Vector<WebCore::RecentSearch>&)
 {
-    return UnifiedOriginStorageLevel::None;
+}
+
+void WebsiteDataStore::loadRecentSearches(const String& name, CompletionHandler<void(Vector<WebCore::RecentSearch>&&)>&& completionHandler)
+{
+    completionHandler({ });
+}
+
+void WebsiteDataStore::removeRecentSearches(WallTime, CompletionHandler<void()>&& completionHandler)
+{
+    completionHandler();
 }
 
 #endif // !PLATFORM(COCOA)
 
-#if !USE(GLIB) && !PLATFORM(COCOA)
-String WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory(const String&)
+void WebsiteDataStore::renameOriginInWebsiteData(WebCore::SecurityOriginData&& oldOrigin, WebCore::SecurityOriginData&& newOrigin, OptionSet<WebsiteDataType> dataTypes, CompletionHandler<void()>&& completionHandler)
 {
-    // Not implemented.
-    return String();
-}
-#endif
-
-void WebsiteDataStore::renameOriginInWebsiteData(URL&& oldName, URL&& newName, OptionSet<WebsiteDataType> dataTypes, CompletionHandler<void()>&& completionHandler)
-{
-    networkProcess().renameOriginInWebsiteData(m_sessionID, oldName, newName, dataTypes, WTFMove(completionHandler));
+    networkProcess().renameOriginInWebsiteData(m_sessionID, oldOrigin, newOrigin, dataTypes, WTFMove(completionHandler));
 }
 
-void WebsiteDataStore::originDirectoryForTesting(URL&& origin, URL&& topOrigin, WebsiteDataType type, CompletionHandler<void(const String&)>&& completionHandler)
+void WebsiteDataStore::originDirectoryForTesting(WebCore::ClientOrigin&& origin, WebsiteDataType type, CompletionHandler<void(const String&)>&& completionHandler)
 {
-    networkProcess().websiteDataOriginDirectoryForTesting(m_sessionID, WTFMove(origin), WTFMove(topOrigin), type, WTFMove(completionHandler));
+    networkProcess().websiteDataOriginDirectoryForTesting(m_sessionID, WTFMove(origin), type, WTFMove(completionHandler));
 }
 
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -2130,7 +2249,7 @@ void WebsiteDataStore::showServiceWorkerNotification(IPC::Connection& connection
     if (m_client->showNotification(notificationData))
         return;
 
-    WebNotificationManagerProxy::sharedServiceWorkerManager().show(nullptr, connection, notificationData, nullptr);
+    WebNotificationManagerProxy::sharedServiceWorkerManager().show(*this, connection, notificationData, nullptr);
 }
 
 void WebsiteDataStore::cancelServiceWorkerNotification(const UUID& notificationID)

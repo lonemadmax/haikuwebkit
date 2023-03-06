@@ -81,6 +81,10 @@
 #include <wtf/SystemTracing.h>
 #include <wtf/text/TextStream.h>
 
+#if ENABLE(FULLSCREEN_API)
+#include "FullscreenManager.h"
+#endif
+
 #if PLATFORM(IOS_FAMILY)
 #include "RuntimeApplicationChecks.h"
 #endif
@@ -218,6 +222,11 @@ RenderLayerBacking::RenderLayerBacking(RenderLayer& layer)
             return false;
 
         if (!is<RenderBox>(renderer))
+            return false;
+
+        // Only use background layers on the fullscreen element's backdrop.
+        auto* fullscreenElement = renderer.document().fullscreenManager().fullscreenElement();
+        if (!fullscreenElement || !fullscreenElement->renderer() || fullscreenElement->renderer()->backdropRenderer() != &renderer)
             return false;
 
         auto rendererRect = downcast<RenderBox>(renderer).frameRect();
@@ -2279,9 +2288,9 @@ static bool ancestorLayerIsDOMParent(RenderLayer& layer, const RenderLayer* comp
 {
     if (!compositingAncestor)
         return false;
-    if (!layer.renderer().element() || !layer.renderer().element()->parentElement())
+    if (!layer.renderer().element() || !layer.renderer().element()->parentElementInComposedTree())
         return false;
-    return compositingAncestor->renderer().element() == layer.renderer().element()->parentElement();
+    return compositingAncestor->renderer().element() == layer.renderer().element()->parentElementInComposedTree();
 }
 
 static bool ancestorLayerWillCombineTransform(const RenderLayer* compositingAncestor)

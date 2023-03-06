@@ -23,6 +23,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     cocoa/PassKitSoftLink.h
     cocoa/RevealSoftLink.h
     cocoa/SpeechSoftLink.h
+    cocoa/TranslationUIServicesSoftLink.h
     cocoa/UsageTrackingSoftLink.h
     cocoa/VisionKitCoreSoftLink.h
 
@@ -74,7 +75,6 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/NSAttributedStringSPI.h
     spi/cocoa/NSButtonCellSPI.h
     spi/cocoa/NSCalendarDateSPI.h
-    spi/cocoa/NSColorSPI.h
     spi/cocoa/NSExtensionSPI.h
     spi/cocoa/NSFileManagerSPI.h
     spi/cocoa/NSFileSizeFormatterSPI.h
@@ -114,6 +114,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/mac/NSAppearanceSPI.h
     spi/mac/NSApplicationSPI.h
     spi/mac/NSCellSPI.h
+    spi/mac/NSColorSPI.h
     spi/mac/NSColorWellSPI.h
     spi/mac/NSEventSPI.h
     spi/mac/NSFontSPI.h
@@ -178,6 +179,7 @@ list(APPEND PAL_SOURCES
     cocoa/PassKitSoftLink.mm
     cocoa/RevealSoftLink.mm
     cocoa/SpeechSoftLink.mm
+    cocoa/TranslationUIServicesSoftLink.mm
     cocoa/UsageTrackingSoftLink.mm
     cocoa/VisionKitCoreSoftLink.mm
 

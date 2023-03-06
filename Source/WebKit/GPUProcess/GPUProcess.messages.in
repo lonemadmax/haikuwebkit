@@ -40,7 +40,7 @@ messages -> GPUProcess LegacyReceiver {
     SetOrientationForMediaCapture(uint64_t orientation);
     UpdateSandboxAccess(Vector<WebKit::SandboxExtension::Handle> extensions);
     UpdateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier processID) -> ()
-    UpdateCaptureOrigin(struct WebCore::SecurityOriginData originData, WebCore::ProcessIdentifier processID)
+    UpdateCaptureOrigin(WebCore::SecurityOriginData originData, WebCore::ProcessIdentifier processID)
     AddMockMediaDevice(struct WebCore::MockMediaDevice device)
     ClearMockMediaDevices()
     RemoveMockMediaDevice(String persistentId)
@@ -61,7 +61,9 @@ messages -> GPUProcess LegacyReceiver {
     ShowScreenPicker() -> (std::optional<WebCore::CaptureDevice> device)
 #endif
 
+#if ENABLE(VIDEO)
     RequestBitmapImageForCurrentTime(WebCore::ProcessIdentifier processIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier) -> (WebKit::ShareableBitmapHandle handle)
+#endif
 
 #if ENABLE(CFPREFS_DIRECT_MODE)
     NotifyPreferencesChanged(String domain, String key, std::optional<String> encodedValue)

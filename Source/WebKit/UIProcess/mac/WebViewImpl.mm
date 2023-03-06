@@ -36,7 +36,6 @@
 #import "CoreTextHelpers.h"
 #import "FontInfo.h"
 #import "FullscreenClient.h"
-#import "GenericCallback.h"
 #import "InsertTextOptions.h"
 #import "Logging.h"
 #import "NativeWebGestureEvent.h"
@@ -148,17 +147,9 @@
 #include "MediaSessionCoordinatorProxyPrivate.h"
 #endif
 
-#if HAVE(TRANSLATION_UI_SERVICES)
-#import <TranslationUIServices/LTUISourceMeta.h>
-#import <TranslationUIServices/LTUITranslationViewController.h>
-
-SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(TranslationUIServices)
-SOFT_LINK_CLASS_OPTIONAL(TranslationUIServices, LTUISourceMeta)
-SOFT_LINK_CLASS_OPTIONAL(TranslationUIServices, LTUITranslationViewController)
-#endif
-
 #import <pal/cocoa/RevealSoftLink.h>
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
+#import <pal/cocoa/TranslationUIServicesSoftLink.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
 
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
@@ -2025,7 +2016,7 @@ void WebViewImpl::windowDidChangeScreen()
 {
     NSWindow *window = m_targetWindowForMovePreparation ? m_targetWindowForMovePreparation.get() : [m_view window];
     auto displayID = WebCore::displayID(window.screen);
-    auto framesPerSecond = m_page->process().processPool().nominalFramesPerSecondForDisplay(displayID);
+    auto framesPerSecond = m_page->process().nominalFramesPerSecondForDisplay(displayID);
     m_page->windowScreenDidChange(displayID, framesPerSecond);
 }
 
@@ -4625,6 +4616,8 @@ NSArray *WebViewImpl::validAttributesForMarkedText()
         NSMarkedClauseSegmentAttributeName,
         NSTextAlternativesAttributeName,
         NSTextInsertionUndoableAttributeName,
+        NSBackgroundColorAttributeName,
+        NSForegroundColorAttributeName,
     ];
     // NSText also supports the following attributes, but it's
     // hard to tell which are really required for text input to
@@ -5819,7 +5812,7 @@ void WebViewImpl::setMediaSessionCoordinatorForTesting(MediaSessionCoordinatorPr
 
 bool WebViewImpl::canHandleContextMenuTranslation() const
 {
-    return TranslationUIServicesLibrary() && [getLTUITranslationViewControllerClass() isAvailable];
+    return PAL::isTranslationUIServicesFrameworkAvailable() && [PAL::getLTUITranslationViewControllerClass() isAvailable];
 }
 
 void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo& info)
@@ -5830,7 +5823,7 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
     }
 
     auto view = m_view.get();
-    auto translationViewController = adoptNS([allocLTUITranslationViewControllerInstance() init]);
+    auto translationViewController = adoptNS([PAL::allocLTUITranslationViewControllerInstance() init]);
     [translationViewController setText:adoptNS([[NSAttributedString alloc] initWithString:info.text]).get()];
     if (info.mode == WebCore::TranslationContextMenuMode::Editable) {
         [translationViewController setIsSourceEditable:YES];
@@ -5840,7 +5833,7 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
         }];
     }
 
-    auto sourceMetadata = adoptNS([allocLTUISourceMetaInstance() init]);
+    auto sourceMetadata = adoptNS([PAL::allocLTUISourceMetaInstance() init]);
     [sourceMetadata setOrigin:info.source == WebCore::TranslationContextMenuSource::Image ? LTUISourceMetaOriginImage : LTUISourceMetaOriginUnspecified];
     [translationViewController setSourceMeta:sourceMetadata.get()];
 

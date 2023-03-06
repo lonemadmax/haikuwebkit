@@ -216,12 +216,16 @@ class FindMatchesClient;
 class FormClient;
 class FullscreenClient;
 class HistoryClient;
+class HitTestResult;
 class IconLoadingClient;
 class LoaderClient;
 class Navigation;
+class NavigationAction;
 class NavigationClient;
+class NavigationResponse;
 class PolicyClient;
 class ResourceLoadClient;
+class SerializedScriptValue;
 class UIClient;
 class URLRequest;
 }
@@ -317,7 +321,7 @@ struct MediaUsageInfo;
 struct MockWebAuthenticationConfiguration;
 struct PermissionDescriptor;
 struct PrewarmInformation;
-struct SecurityOriginData;
+class SecurityOriginData;
 struct ShareData;
 struct SpeechRecognitionError;
 struct TextAlternativeWithRange;
@@ -350,6 +354,7 @@ typedef HWND PlatformViewWidget;
 namespace WebKit {
 
 class AudioSessionRoutingArbitratorProxy;
+class CallbackID;
 class DrawingAreaProxy;
 class GamepadData;
 class MediaUsageManager;
@@ -377,6 +382,7 @@ class WebBackForwardListItem;
 class WebContextMenuProxy;
 class WebEditCommandProxy;
 class WebFullScreenManagerProxy;
+class WebInspectorUIProxy;
 class PlaybackSessionManagerProxy;
 class UserMediaPermissionRequestProxy;
 class VideoFullscreenManagerProxy;
@@ -432,6 +438,8 @@ struct WebNavigationDataStore;
 struct WebPopupItem;
 struct WebSpeechSynthesisVoice;
 
+enum class FindDecorationStyle : uint8_t;
+enum class FindOptions : uint16_t;
 enum class TextRecognitionUpdateResult : uint8_t;
 enum class NegotiatedLegacyTLS : bool;
 enum class ProcessSwapRequestedByClient : bool;
@@ -442,6 +450,7 @@ enum class WebContentMode : uint8_t;
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
 using LayerHostingContextID = uint32_t;
 #endif
+using SnapshotOptions = uint32_t;
 
 #if ENABLE(TOUCH_EVENTS)
 struct QueuedTouchEvents {
@@ -829,6 +838,8 @@ public:
 #if ENABLE(UI_SIDE_COMPOSITING)
     void updateVisibleContentRects(const VisibleContentRectUpdateInfo&, bool sendEvenIfUnchanged);
 #endif
+        
+    void adjustLayersForLayoutViewport(const WebCore::FloatPoint& scrollPosition, const WebCore::FloatRect& layoutViewport, double scale);
 
 #if PLATFORM(IOS_FAMILY)
     void textInputContextsInRect(WebCore::FloatRect, CompletionHandler<void(const Vector<WebCore::ElementContext>&)>&&);
@@ -854,7 +865,6 @@ public:
     WebCore::FloatRect computeLayoutViewportRect(const WebCore::FloatRect& unobscuredContentRect, const WebCore::FloatRect& unobscuredContentRectRespectingInputViewBounds, const WebCore::FloatRect& currentLayoutViewportRect, double displayedContentScale, WebCore::FrameView::LayoutViewportConstraint = WebCore::FrameView::LayoutViewportConstraint::Unconstrained) const;
 
     WebCore::FloatRect unconstrainedLayoutViewportRect() const;
-    void adjustLayersForLayoutViewport(const WebCore::FloatRect& layoutViewport);
 
     void scrollingNodeScrollViewWillStartPanGesture(WebCore::ScrollingNodeID);
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID);
@@ -1180,6 +1190,7 @@ public:
 
     WebCore::RectEdges<bool> pinnedState() const { return m_mainFramePinnedState; }
 
+    WebCore::RectEdges<bool> rubberBandableEdgesRespectingHistorySwipe() const;
     WebCore::RectEdges<bool> rubberBandableEdges() const { return m_rubberBandableEdges; }
     void setRubberBandableEdges(WebCore::RectEdges<bool> edges) { m_rubberBandableEdges = edges; }
     void setRubberBandsAtLeft(bool);
@@ -1465,7 +1476,7 @@ public:
 #if PLATFORM(COCOA)
     IPC::Connection::AsyncReplyID drawRectToImage(WebFrameProxy*, const PrintInfo&, const WebCore::IntRect&, const WebCore::IntSize&, CompletionHandler<void(const WebKit::ShareableBitmapHandle&)>&&);
     IPC::Connection::AsyncReplyID drawPagesToPDF(WebFrameProxy*, const PrintInfo&, uint32_t first, uint32_t count, CompletionHandler<void(API::Data*)>&&);
-    void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
+    void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, bool allowTransparentBackground,  CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
 #if PLATFORM(IOS_FAMILY)
     size_t computePagesForPrintingiOS(WebCore::FrameIdentifier, const PrintInfo&);
     IPC::Connection::AsyncReplyID drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t pageCount, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
@@ -1731,7 +1742,7 @@ public:
 
     // For testing
     void clearWheelEventTestMonitor();
-    void callAfterNextPresentationUpdate(WTF::Function<void (CallbackBase::Error)>&&);
+    void callAfterNextPresentationUpdate(CompletionHandler<void()>&&);
 
     void didReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone>);
 
@@ -1856,7 +1867,7 @@ public:
 
     // Logic shared between the WebPageProxy and the ProvisionalPageProxy.
     void didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, URL&&, URL&& unreachableURL, const UserData&);
-    void didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebFrameProxy&, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&);
+    void didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebFrameProxy&, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&, WebCore::WillInternallyHandleFailure);
     void didReceiveServerRedirectForProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, uint64_t navigationID, WebCore::ResourceRequest&&, const UserData&);
     void didPerformServerRedirectShared(Ref<WebProcessProxy>&&, const String& sourceURLString, const String& destinationURLString, WebCore::FrameIdentifier);
     void didPerformClientRedirectShared(Ref<WebProcessProxy>&&, const String& sourceURLString, const String& destinationURLString, WebCore::FrameIdentifier);
@@ -2144,8 +2155,10 @@ public:
     }
 #endif
 
+#if ENABLE(VIDEO)
     void beginTextRecognitionForVideoInElementFullScreen(WebCore::MediaPlayerIdentifier, WebCore::FloatRect videoBounds);
     void cancelTextRecognitionForVideoInElementFullScreen();
+#endif
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     void replaceImageForRemoveBackground(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
@@ -2251,7 +2264,7 @@ private:
     void willPerformClientRedirectForFrame(WebCore::FrameIdentifier, const String& url, double delay, WebCore::LockBackForwardList);
     void didCancelClientRedirectForFrame(WebCore::FrameIdentifier);
     void didChangeProvisionalURLForFrame(WebCore::FrameIdentifier, uint64_t navigationID, URL&&);
-    void didFailProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&);
+    void didFailProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&, WebCore::WillInternallyHandleFailure);
     void didFinishDocumentLoadForFrame(WebCore::FrameIdentifier, uint64_t navigationID, const UserData&);
     void didFinishLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const UserData&);
     void didFailLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const WebCore::ResourceError&, const UserData&);
@@ -2270,6 +2283,8 @@ private:
     void didChangeProgress(double);
     void didFinishProgress();
     void setNetworkRequestsInProgress(bool);
+
+    void updateRemoteFrameSize(WebCore::FrameIdentifier, WebCore::IntSize);
 
     void didDestroyNavigation(uint64_t navigationID);
 
@@ -2583,7 +2598,8 @@ private:
 
     void setRenderTreeSize(uint64_t treeSize) { m_renderTreeSize = treeSize; }
 
-    void sendWheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>);
+    void sendWheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, WebCore::RectEdges<bool> rubberBandableEdges);
+    void wheelEventWasNotHandled(const NativeWebWheelEvent&);
 
     WebWheelEventCoalescer& wheelEventCoalescer();
 
@@ -3193,7 +3209,7 @@ private:
     HiddenPageThrottlingAutoIncreasesCounter::Token m_hiddenPageDOMTimerThrottlingAutoIncreasesCount;
     VisibleWebPageToken m_visiblePageToken;
         
-    WebCore::ScrollPinningBehavior m_scrollPinningBehavior { WebCore::DoNotPin };
+    WebCore::ScrollPinningBehavior m_scrollPinningBehavior { WebCore::ScrollPinningBehavior::DoNotPin };
     std::optional<WebCore::ScrollbarOverlayStyle> m_scrollbarOverlayStyle;
 
     ActivityStateChangeID m_currentActivityStateChangeID { ActivityStateChangeAsynchronous };

@@ -117,6 +117,7 @@ UIProcess/WebViewportAttributes.cpp
 UIProcess/API/C/WKGrammarDetail.cpp
 UIProcess/API/C/WKViewportAttributes.cpp
 
+UIProcess/API/C/glib/WKContextConfigurationGlib.cpp
 UIProcess/API/C/glib/WKTextCheckerGLib.cpp
 
 UIProcess/API/C/gtk/WKView.cpp
@@ -248,6 +249,7 @@ UIProcess/Notifications/glib/NotificationService.cpp
 
 UIProcess/linux/MemoryPressureMonitor.cpp
 
+UIProcess/WebsiteData/glib/WebsiteDataStoreGLib.cpp
 UIProcess/WebsiteData/soup/WebsiteDataStoreSoup.cpp
 UIProcess/WebsiteData/unix/WebsiteDataStoreUnix.cpp
 
@@ -256,7 +258,6 @@ UIProcess/cairo/BackingStoreCairo.cpp @no-unify
 UIProcess/glib/WebPageProxyGLib.cpp
 UIProcess/glib/WebProcessPoolGLib.cpp
 UIProcess/glib/WebProcessProxyGLib.cpp
-UIProcess/glib/WebsiteDataStoreGLib.cpp @no-unify
 
 UIProcess/gstreamer/WebPageProxyGStreamer.cpp
 

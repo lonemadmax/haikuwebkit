@@ -218,6 +218,7 @@
 #include <WebCore/LegacySchemeRegistry.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/MIMETypeRegistry.h>
+#include <WebCore/MemoryCache.h>
 #include <WebCore/MouseEvent.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
@@ -922,13 +923,13 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     PlatformMediaSessionManager::setShouldDeactivateAudioSession(true);
 #endif
 
-#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+#if HAVE(VISIBILITY_PROPAGATION_VIEW) && !HAVE(NON_HOSTING_VISIBILITY_PROPAGATION_VIEW)
     m_contextForVisibilityPropagation = LayerHostingContext::createForExternalHostingProcess({
         m_canShowWhileLocked
     });
     WEBPAGE_RELEASE_LOG(Process, "WebPage: Created context with ID %u for visibility propagation from UIProcess", m_contextForVisibilityPropagation->contextID());
     send(Messages::WebPageProxy::DidCreateContextInWebProcessForVisibilityPropagation(m_contextForVisibilityPropagation->contextID()));
-#endif // HAVE(VISIBILITY_PROPAGATION_VIEW)
+#endif // HAVE(VISIBILITY_PROPAGATION_VIEW) && !HAVE(NON_HOSTING_VISIBILITY_PROPAGATION_VIEW)
 
 #if ENABLE(IPC_TESTING_API)
     m_visitedLinkTableID = parameters.visitedLinkTableID;
@@ -1758,10 +1759,6 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
     // Let the InjectedBundle know we are about to start the load, passing the user data from the UIProcess
     // to all the client to set up any needed state.
     m_loaderClient->willLoadURLRequest(*this, loadParameters.request, WebProcess::singleton().transformHandlesToObjects(loadParameters.userData.object()).get());
-
-#if ENABLE(PUBLIC_SUFFIX_LIST)
-    WebCore::setTopPrivatelyControlledDomain(loadParameters.request.url().host().toString(), loadParameters.topPrivatelyControlledDomain);
-#endif
 
     platformDidReceiveLoadParameters(loadParameters);
 
@@ -4273,7 +4270,9 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 
 #if ENABLE(GPU_PROCESS)
     static_cast<WebMediaStrategy&>(platformStrategies()->mediaStrategy()).setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
+#if ENABLE(VIDEO)
     WebProcess::singleton().supplement<RemoteMediaPlayerManager>()->setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
+#endif
 #if HAVE(AVASSETREADER)
     WebProcess::singleton().supplement<RemoteImageDecoderAVFManager>()->setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
 #endif
@@ -5602,7 +5601,7 @@ bool WebPage::hasLocalDataForURL(const URL& url)
         return true;
 
     DocumentLoader* documentLoader = m_page->mainFrame().loader().documentLoader();
-    if (documentLoader && documentLoader->subresource(url))
+    if (documentLoader && documentLoader->subresource(MemoryCache::removeFragmentIdentifierIfNeeded(url)))
         return true;
 
     return false;
@@ -5773,7 +5772,7 @@ void WebPage::computePagesForPrintingImpl(FrameIdentifier frameID, const PrintIn
 }
 
 #if PLATFORM(COCOA)
-void WebPage::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>& rect, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
+void WebPage::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>& rect, bool allowTransparentBackground,  CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
     auto& frameView = *m_page->mainFrame().view();
     IntSize snapshotSize;
@@ -5791,9 +5790,21 @@ void WebPage::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>&
     auto originalLayoutViewportOverrideRect = frameView.layoutViewportOverrideRect();
     frameView.setLayoutViewportOverrideRect(LayoutRect(snapshotRect));
     auto originalPaintBehavior = frameView.paintBehavior();
+
     frameView.setPaintBehavior(originalPaintBehavior | PaintBehavior::AnnotateLinks);
 
+    auto originalColor = frameView.baseBackgroundColor();
+    if (allowTransparentBackground) {
+        frameView.setTransparent(true);
+        frameView.setBaseBackgroundColor(Color::transparentBlack);
+    }
+
     auto pdfData = pdfSnapshotAtSize(snapshotRect, snapshotSize, 0);
+
+    if (allowTransparentBackground) {
+        frameView.setTransparent(false);
+        frameView.setBaseBackgroundColor(originalColor);
+    }
 
     frameView.setLayoutViewportOverrideRect(originalLayoutViewportOverrideRect);
     frameView.setPaintBehavior(originalPaintBehavior);
@@ -7127,9 +7138,9 @@ void WebPage::stopExtendingIncrementalRenderingSuppression(unsigned token)
     m_page->mainFrame().view()->setVisualUpdatesAllowedByClient(!shouldExtendIncrementalRenderingSuppression());
 }
     
-void WebPage::setScrollPinningBehavior(uint32_t pinning)
+void WebPage::setScrollPinningBehavior(WebCore::ScrollPinningBehavior pinning)
 {
-    m_scrollPinningBehavior = static_cast<ScrollPinningBehavior>(pinning);
+    m_scrollPinningBehavior = pinning;
     m_page->mainFrame().view()->setScrollPinningBehavior(m_scrollPinningBehavior);
 }
 

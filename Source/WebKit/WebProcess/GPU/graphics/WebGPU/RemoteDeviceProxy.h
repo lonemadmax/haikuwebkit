@@ -74,6 +74,11 @@ private:
     {
         return root().streamClientConnection().sendSync(WTFMove(message), backing(), defaultSendTimeout);
     }
+    template<typename T, typename C>
+    WARN_UNUSED_RETURN IPC::StreamClientConnection::AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler)
+    {
+        return root().streamClientConnection().sendWithAsyncReply(WTFMove(message), completionHandler, backing(), defaultSendTimeout);
+    }
 
     Ref<PAL::WebGPU::Queue> queue() final;
 
@@ -81,7 +86,6 @@ private:
 
     Ref<PAL::WebGPU::Buffer> createBuffer(const PAL::WebGPU::BufferDescriptor&) final;
     Ref<PAL::WebGPU::Texture> createTexture(const PAL::WebGPU::TextureDescriptor&) final;
-    Ref<PAL::WebGPU::Texture> createSurfaceTexture(const PAL::WebGPU::TextureDescriptor&, const PAL::WebGPU::PresentationContext&) final;
     Ref<PAL::WebGPU::Sampler> createSampler(const PAL::WebGPU::SamplerDescriptor&) final;
     Ref<PAL::WebGPU::ExternalTexture> importExternalTexture(const PAL::WebGPU::ExternalTextureDescriptor&) final;
 

@@ -40,12 +40,12 @@ public:
 
     InlineDisplay::Line build(const LineBuilder::LineContent&, const LineBox&, const ConstraintsForInlineContent&) const;
 
-    static std::optional<FloatRect> trailingEllipsisVisualRectAfterTruncation(LineBuilder::LineEndingEllipsisPolicy, const InlineDisplay::Line&, DisplayBoxes&, bool isLastLineWithInlineContent);
+    static std::optional<FloatRect> trailingEllipsisVisualRectAfterTruncation(LineEndingEllipsisPolicy, const InlineDisplay::Line&, DisplayBoxes&, bool isLastLineWithInlineContent);
 
 private:
     struct EnclosingLineGeometry {
         InlineDisplay::Line::EnclosingTopAndBottom enclosingTopAndBottom;
-        InlineRect scrollableOverflowRect;
+        InlineRect contentOverflowRect;
     };
     EnclosingLineGeometry collectEnclosingLineGeometry(const LineBuilder::LineContent&, const LineBox&, const InlineRect& lineBoxRect) const;
 

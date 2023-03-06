@@ -1,5 +1,6 @@
 {
     "workers":     [
+                    { "name": "bot165", "platform": "mac-ventura" },
                     { "name": "bot211", "platform": "mac-ventura" },
                     { "name": "bot212", "platform": "mac-ventura" },
                     { "name": "bot215", "platform": "mac-ventura" },
@@ -20,7 +21,6 @@
                     { "name": "bot138", "platform": "mac-monterey" },
                     { "name": "bot139", "platform": "mac-monterey" },
                     { "name": "bot141", "platform": "mac-monterey" },
-                    { "name": "bot165", "platform": "mac-monterey" },
                     { "name": "bot179", "platform": "mac-monterey" },
                     { "name": "bot185", "platform": "mac-monterey" },
                     { "name": "bot187", "platform": "mac-monterey" },
@@ -170,6 +170,10 @@
                     "additionalArguments": ["--no-retry-failures"],
                     "workernames": ["bot211"]
                     },
+                    { "name": "Apple-Ventura-AppleSilicon-Release-Test262-Tests", "factory": "Test262Factory",
+                    "platform": "mac-ventura", "configuration": "release", "architectures": ["x86_64", "arm64"],
+                    "workernames": ["bot165"]
+                    },
                     { "name": "Apple-Ventura-Debug-Build", "factory": "BuildFactory",
                     "platform": "mac-ventura", "configuration": "debug", "architectures": ["x86_64", "arm64"],
                     "triggers": [
@@ -211,10 +215,6 @@
                           "monterey-release-tests-wk2-accessibility-isolated-tree"
                       ],
                       "workernames": ["bot185", "bot187"]
-                    },
-                    { "name": "Apple-Ventura-AppleSilicon-Release-Test262-Tests", "factory": "Test262Factory",
-                      "platform": "mac-monterey", "configuration": "release", "architectures": ["x86_64", "arm64"],
-                      "workernames": ["bot165"]
                     },
                     { "name": "Apple-Monterey-Release-Test262-Tests", "factory": "Test262Factory",
                       "platform": "mac-monterey", "configuration": "release", "architectures": ["x86_64", "arm64"],

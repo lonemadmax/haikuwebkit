@@ -27,7 +27,6 @@
 
 #include "APIObject.h"
 #include "FrameLoadState.h"
-#include "GenericCallback.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include "WebFramePolicyListenerProxy.h"
@@ -149,6 +148,8 @@ public:
     void commitProvisionalFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType, const WebCore::CertificateInfo&, bool usedLegacyTLS, bool privateRelayed, bool containsPluginDocument, WebCore::HasInsecureContent, WebCore::MouseEventPolicy, const UserData&);
 
     void getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&&);
+
+    void updateRemoteFrameSize(WebCore::IntSize);
 
     WebFrameProxy* parentFrame() { return m_parentFrame.get(); }
 

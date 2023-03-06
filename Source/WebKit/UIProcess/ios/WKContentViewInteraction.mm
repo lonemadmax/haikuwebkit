@@ -186,6 +186,7 @@
 #endif
 
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
+#import <pal/cocoa/TranslationUIServicesSoftLink.h>
 #import <pal/ios/ManagedConfigurationSoftLink.h>
 #import <pal/ios/QuickLookSoftLink.h>
 
@@ -1763,6 +1764,12 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
         && [uiDelegate _webView:webView touchEventsMustRequireGestureRecognizerToFail:gestureRecognizer];
 }
 
+- (BOOL)_gestureRecognizerCanBePreventedByTouchEvents:(UIGestureRecognizer *)gestureRecognizer
+{
+    id<WKUIDelegatePrivate> uiDelegate = static_cast<id<WKUIDelegatePrivate>>([self.webView UIDelegate]);
+    return [uiDelegate respondsToSelector:@selector(_webView:gestureRecognizerCanBePreventedByTouchEvents:)] && [uiDelegate _webView:self.webView gestureRecognizerCanBePreventedByTouchEvents:gestureRecognizer];
+}
+
 - (void)_webTouchEventsRecognized:(UIWebTouchEventsGestureRecognizer *)gestureRecognizer
 {
     if (!_page->hasRunningProcess())
@@ -2493,7 +2500,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     if (_page->waitingForPostLayoutEditorStateUpdateAfterFocusingElement())
         return _focusedElementInformation.interactionRect;
 
-    if (!_page->editorState().visualData->selectionClipRect.isEmpty())
+    if (_page->editorState().hasVisualData() && !_page->editorState().visualData->selectionClipRect.isEmpty())
         return _page->editorState().visualData->selectionClipRect;
 
     return CGRectNull;
@@ -4074,8 +4081,13 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
         return UIKeyboardEnabledInputModesAllowChineseTransliterationForText([self selectedText]);
     }
 
-    if (action == @selector(_translate:))
+#if HAVE(TRANSLATION_UI_SERVICES)
+    if (action == @selector(_translate:)) {
+        if (!PAL::isTranslationUIServicesFrameworkAvailable() || ![PAL::getLTUITranslationViewControllerClass() isAvailable])
+            return NO;
         return !editorState.isInPasswordField && editorState.selectionIsRange;
+    }
+#endif // HAVE(TRANSLATION_UI_SERVICES)
 
     if (action == @selector(select:)) {
         // Disable select in password fields so that you can't see word boundaries.
@@ -5459,7 +5471,7 @@ static void logTextInteractionAssistantSelectionChange(const char* methodName, U
 {
     _ignoreSelectionCommandFadeCount++;
     _page->scheduleFullEditorStateUpdate();
-    _page->callAfterNextPresentationUpdate([weakSelf = WeakObjCPtr<WKContentView>(self)] (auto) {
+    _page->callAfterNextPresentationUpdate([weakSelf = WeakObjCPtr<WKContentView>(self)] {
         if (auto strongSelf = weakSelf.get())
             strongSelf->_ignoreSelectionCommandFadeCount--;
     });
@@ -5640,10 +5652,15 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
         if (!attributes[NSMarkedClauseSegmentAttributeName])
             return;
 
-        WebCore::Color highlightColor { WebCore::CompositionHighlight::defaultCompositionFillColor };
-        if (UIColor *uiColor = attributes[NSBackgroundColorAttributeName])
-            highlightColor = WebCore::colorFromCocoaColor(uiColor);
-        highlights.append({ static_cast<unsigned>(range.location), static_cast<unsigned>(NSMaxRange(range)), highlightColor });
+        WebCore::Color backgroundHighlightColor { WebCore::CompositionHighlight::defaultCompositionFillColor };
+        if (UIColor *backgroundColor = attributes[NSBackgroundColorAttributeName])
+            backgroundHighlightColor = WebCore::colorFromCocoaColor(backgroundColor);
+
+        std::optional<WebCore::Color> foregroundHighlightColor;
+        if (UIColor *foregroundColor = attributes[NSForegroundColorAttributeName])
+            foregroundHighlightColor = WebCore::colorFromCocoaColor(foregroundColor);
+
+        highlights.append({ static_cast<unsigned>(range.location), static_cast<unsigned>(NSMaxRange(range)), backgroundHighlightColor, foregroundHighlightColor });
     }];
 
     std::sort(highlights.begin(), highlights.end(), [](auto& a, auto& b) {
@@ -5657,7 +5674,7 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
     Vector<WebCore::CompositionHighlight> mergedHighlights;
     mergedHighlights.reserveInitialCapacity(highlights.size());
     for (auto& highlight : highlights) {
-        if (mergedHighlights.isEmpty() || mergedHighlights.last().color != highlight.color)
+        if (mergedHighlights.isEmpty() || mergedHighlights.last().backgroundColor != highlight.backgroundColor || mergedHighlights.last().foregroundColor != highlight.foregroundColor)
             mergedHighlights.append(highlight);
         else
             mergedHighlights.last().endOffset = highlight.endOffset;
@@ -8638,7 +8655,7 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
         view = view.superview;
     }
 
-    if (!gestureIsInstalledOnOrUnderWebView)
+    if (!gestureIsInstalledOnOrUnderWebView && ![self _gestureRecognizerCanBePreventedByTouchEvents:gestureRecognizer])
         return NO;
 
     if ([gestureRecognizer isKindOfClass:WKDeferringGestureRecognizer.class])
@@ -9730,7 +9747,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         RELEASE_LOG(DragAndDrop, "Drag interaction willAnimateCancelWithAnimator (animation completion block fired)");
         page->dragCancelled();
         if (auto completion = protectedSelf->_dragDropInteractionState.takeDragCancelSetDownBlock()) {
-            page->callAfterNextPresentationUpdate([completion, protectedSelf] (WebKit::CallbackBase::Error) {
+            page->callAfterNextPresentationUpdate([completion, protectedSelf] {
                 completion();
                 protectedSelf->_isAnimatingDragCancel = NO;
             });

@@ -194,32 +194,26 @@ private:
 
 - (void)_setContentBlockersEnabled:(BOOL)contentBlockersEnabled
 {
-    _websitePolicies->setContentBlockersEnabled(contentBlockersEnabled);
+    auto defaultEnablement = contentBlockersEnabled ? WebCore::ContentExtensionDefaultEnablement::Enabled : WebCore::ContentExtensionDefaultEnablement::Disabled;
+    _websitePolicies->setContentExtensionEnablement({ defaultEnablement, { } });
 }
 
 - (BOOL)_contentBlockersEnabled
 {
-    return _websitePolicies->contentBlockersEnabled();
+    // Note that this only reports default state, and ignores exceptions. This should be turned into a no-op and
+    // eventually removed, once no more internal clients rely on it.
+    return _websitePolicies->contentExtensionEnablement().first == WebCore::ContentExtensionDefaultEnablement::Enabled;
 }
 
-- (void)_setDisabledContentRuleListIdentifiers:(NSSet<NSString *> *)identifiers
+- (void)_setContentRuleListsEnabled:(BOOL)enabled exceptions:(NSSet<NSString *> *)identifiers
 {
-    _websitePolicies->setDisabledContentRuleListIdentifiers([&] {
-        HashSet<String> result;
-        result.reserveInitialCapacity(identifiers.count);
-        for (NSString *identifier in identifiers)
-            result.add(identifier);
-        return result;
-    }());
-}
+    HashSet<String> exceptions;
+    exceptions.reserveInitialCapacity(identifiers.count);
+    for (NSString *identifier in identifiers)
+        exceptions.add(identifier);
 
-- (NSSet<NSString *> *)_disabledContentRuleListIdentifiers
-{
-    auto identifiers = _websitePolicies->disabledContentRuleListIdentifiers();
-    auto result = adoptNS([[NSMutableSet alloc] initWithCapacity:identifiers.size()]);
-    for (auto& identifier : identifiers)
-        [result addObject:identifier];
-    return result.get();
+    auto defaultEnablement = enabled ? WebCore::ContentExtensionDefaultEnablement::Enabled : WebCore::ContentExtensionDefaultEnablement::Disabled;
+    _websitePolicies->setContentExtensionEnablement({ defaultEnablement, WTFMove(exceptions) });
 }
 
 - (void)_setActiveContentRuleListActionPatterns:(NSDictionary<NSString *, NSSet<NSString *> *> *)patterns
@@ -608,13 +602,19 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (BOOL)_networkConnectionIntegrityEnabled
 {
-    return _websitePolicies->networkConnectionIntegrityPolicy().contains(WebCore::NetworkConnectionIntegrity::Enabled);
+    return _websitePolicies->networkConnectionIntegrityPolicy().containsAll({
+        WebCore::NetworkConnectionIntegrity::Enabled,
+        WebCore::NetworkConnectionIntegrity::EnhancedTelemetry,
+        WebCore::NetworkConnectionIntegrity::RequestValidation,
+    });
 }
 
 - (void)_setNetworkConnectionIntegrityEnabled:(BOOL)enabled
 {
     auto webCorePolicy = _websitePolicies->networkConnectionIntegrityPolicy();
     webCorePolicy.set(WebCore::NetworkConnectionIntegrity::Enabled, enabled);
+    webCorePolicy.set(WebCore::NetworkConnectionIntegrity::EnhancedTelemetry, enabled);
+    webCorePolicy.set(WebCore::NetworkConnectionIntegrity::RequestValidation, enabled);
     _websitePolicies->setNetworkConnectionIntegrityPolicy(webCorePolicy);
 }
 
@@ -644,6 +644,9 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     if (webCorePolicy.contains(WebCore::NetworkConnectionIntegrity::EnhancedTelemetry))
         policy |= _WKWebsiteNetworkConnectionIntegrityPolicyEnhancedTelemetry;
 
+    if (webCorePolicy.contains(WebCore::NetworkConnectionIntegrity::RequestValidation))
+        policy |= _WKWebsiteNetworkConnectionIntegrityPolicyRequestValidation;
+
     return policy;
 }
 
@@ -671,6 +674,9 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
     if (networkConnectionIntegrityPolicy & _WKWebsiteNetworkConnectionIntegrityPolicyEnhancedTelemetry)
         webCorePolicy.add(WebCore::NetworkConnectionIntegrity::EnhancedTelemetry);
+
+    if (networkConnectionIntegrityPolicy & _WKWebsiteNetworkConnectionIntegrityPolicyRequestValidation)
+        webCorePolicy.add(WebCore::NetworkConnectionIntegrity::RequestValidation);
 
     _websitePolicies->setNetworkConnectionIntegrityPolicy(webCorePolicy);
 }

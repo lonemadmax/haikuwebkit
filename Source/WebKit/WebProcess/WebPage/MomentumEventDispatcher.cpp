@@ -28,11 +28,7 @@
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
 
-#include "EventDispatcher.h"
 #include "Logging.h"
-#include "WebProcess.h"
-#include "WebProcessProxyMessages.h"
-#include <WebCore/DisplayRefreshMonitor.h>
 #include <WebCore/Scrollbar.h>
 #include <wtf/SystemTracing.h>
 
@@ -43,9 +39,8 @@ static constexpr Seconds deltaHistoryMaximumInterval = 150_ms;
 static constexpr WebCore::FramesPerSecond idealCurveFrameRate = 60;
 static constexpr Seconds idealCurveFrameInterval = 1_s / idealCurveFrameRate;
 
-MomentumEventDispatcher::MomentumEventDispatcher(EventDispatcher& dispatcher)
-    : m_observerID(DisplayLinkObserverID::generate())
-    , m_dispatcher(dispatcher)
+MomentumEventDispatcher::MomentumEventDispatcher(Client& client)
+    : m_client(client)
 {
 }
 
@@ -193,7 +188,8 @@ void MomentumEventDispatcher::dispatchSyntheticMomentumEvent(WebWheelEvent::Phas
         time,
         { },
         WebWheelEvent::MomentumEndType::Unknown);
-    m_dispatcher.internalWheelEvent(m_currentGesture.pageIdentifier, syntheticEvent, m_lastRubberBandableEdges, EventDispatcher::WheelEventOrigin::MomentumEventDispatcher);
+
+    m_client.handleSyntheticWheelEvent(m_currentGesture.pageIdentifier, syntheticEvent, m_lastRubberBandableEdges);
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
     m_currentLogState.totalGeneratedOffset += appKitAcceleratedDelta.height();
@@ -246,9 +242,7 @@ void MomentumEventDispatcher::didEndMomentumPhase()
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
     RELEASE_LOG(ScrollAnimations, "MomentumEventDispatcher ending synthetic momentum phase with total offset %.1f %.1f, duration %f (event offset would have been %.1f %.1f) (tail index %d of %zu)", m_currentGesture.currentOffset.width(), m_currentGesture.currentOffset.height(), (MonotonicTime::now() - m_currentGesture.startTime).seconds(), m_currentGesture.accumulatedEventOffset.width(), m_currentGesture.accumulatedEventOffset.height(), m_currentGesture.currentTailDeltaIndex, m_currentGesture.tailDeltaTable.size());
-    m_dispatcher.queue().dispatchAfter(1_s, [this] {
-        flushLog();
-    });
+    m_client.flushMomentumEventLoggingSoon();
 #endif
 
     stopDisplayLink();
@@ -286,7 +280,7 @@ void MomentumEventDispatcher::startDisplayLink()
     }
 
     // FIXME: Switch down to lower-than-full-speed frame rates for the tail end of the curve.
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebProcessProxy::StartDisplayLink(m_observerID, displayProperties->displayID, WebCore::FullSpeedFramesPerSecond), 0);
+    m_client.startDisplayWasRefreshedCallbacks(displayProperties->displayID);
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
     RELEASE_LOG(ScrollAnimations, "MomentumEventDispatcher starting display link for display %d", displayProperties->displayID);
 #endif
@@ -300,7 +294,7 @@ void MomentumEventDispatcher::stopDisplayLink()
         return;
     }
 
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebProcessProxy::StopDisplayLink(m_observerID, displayProperties->displayID), 0);
+    m_client.stopDisplayWasRefreshedCallbacks(displayProperties->displayID);
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
     RELEASE_LOG(ScrollAnimations, "MomentumEventDispatcher stopping display link for display %d", displayProperties->displayID);
 #endif

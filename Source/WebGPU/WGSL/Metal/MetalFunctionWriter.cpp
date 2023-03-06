@@ -30,7 +30,9 @@
 #include "AST.h"
 #include "ASTStringDumper.h"
 #include "ASTVisitor.h"
-#include "ShaderModule.h"
+#include "WGSLShaderModule.h"
+
+#include <wtf/SortedArrayMap.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WGSL {
@@ -86,8 +88,8 @@ public:
     void visit(AST::ReferenceTypeName&) override;
     void visit(AST::StructTypeName&) override;
 
-    void visit(AST::ParameterValue&) override;
-    void visitArgumentBufferParameter(AST::ParameterValue&);
+    void visit(AST::Parameter&) override;
+    void visitArgumentBufferParameter(AST::Parameter&);
 
 private:
     StringBuilder& m_stringBuilder;
@@ -193,18 +195,25 @@ void FunctionDefinitionWriter::visit(AST::Attribute& attribute)
 void FunctionDefinitionWriter::visit(AST::BuiltinAttribute& builtin)
 {
     // FIXME: we should replace this with something more efficient, like a trie
-    if (builtin.name() == "vertex_index"_s) {
-        m_stringBuilder.append("[[vertex_id]]");
-        return;
-    }
+    static constexpr std::pair<ComparableASCIILiteral, ASCIILiteral> builtinMappings[] {
+        { "frag_depth", "depth(any)"_s },
+        { "front_facing", "front_facing"_s },
+        { "global_invocation_id", "thread_position_in_grid"_s },
+        { "instance_index", "instance_id"_s },
+        { "local_invocation_id", "thread_position_in_threadgroup"_s },
+        { "local_invocation_index", "thread_index_in_threadgroup"_s },
+        { "num_workgroups", "threadgroups_per_grid"_s },
+        { "position", "position"_s },
+        { "sample_index", "sample_id"_s },
+        { "sample_mask", "sample_mask"_s },
+        { "vertex_index", "vertex_id"_s },
+        { "workgroup_id", "threadgroup_position_in_grid"_s },
+    };
+    static constexpr SortedArrayMap builtins { builtinMappings };
 
-    if (builtin.name() == "position"_s) {
-        m_stringBuilder.append("[[position]]");
-        return;
-    }
-
-    if (builtin.name() == "global_invocation_id"_s) {
-        m_stringBuilder.append("[[thread_position_in_grid]]");
+    auto mappedBuiltin = builtins.get(builtin.name().id());
+    if (mappedBuiltin) {
+        m_stringBuilder.append("[[", mappedBuiltin, "]]");
         return;
     }
 
@@ -363,7 +372,7 @@ void FunctionDefinitionWriter::visit(AST::StructTypeName& structType)
     m_stringBuilder.append(structType.structure().name());
 }
 
-void FunctionDefinitionWriter::visit(AST::ParameterValue& parameter)
+void FunctionDefinitionWriter::visit(AST::Parameter& parameter)
 {
     visit(parameter.typeName());
     m_stringBuilder.append(" ", parameter.name());
@@ -373,7 +382,7 @@ void FunctionDefinitionWriter::visit(AST::ParameterValue& parameter)
     }
 }
 
-void FunctionDefinitionWriter::visitArgumentBufferParameter(AST::ParameterValue& parameter)
+void FunctionDefinitionWriter::visitArgumentBufferParameter(AST::Parameter& parameter)
 {
     m_stringBuilder.append("constant ");
     visit(parameter.typeName());

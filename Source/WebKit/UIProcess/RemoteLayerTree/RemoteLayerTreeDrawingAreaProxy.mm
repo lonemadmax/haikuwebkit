@@ -31,6 +31,8 @@
 #import "RemoteLayerTreeDrawingAreaProxyMessages.h"
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "RemoteScrollingCoordinatorTransaction.h"
+#import "SubframePageProxy.h"
+#import "WebPageMessages.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import <QuartzCore/QuartzCore.h>
@@ -40,6 +42,7 @@
 #import <WebCore/ScrollView.h>
 #import <WebCore/WebActionDisablingCALayerDelegate.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/CallbackAggregator.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/SystemTracing.h>
 
@@ -63,7 +66,6 @@ RemoteLayerTreeDrawingAreaProxy::RemoteLayerTreeDrawingAreaProxy(WebPageProxy& p
 
 RemoteLayerTreeDrawingAreaProxy::~RemoteLayerTreeDrawingAreaProxy()
 {
-    m_callbacks.invalidate(CallbackBase::Error::OwnerWasInvalidated);
     for (auto& process : m_processesWithRegisteredRemoteLayerTreeDrawingAreaProxyMessageReceiver)
         process->removeMessageReceiver(Messages::RemoteLayerTreeDrawingAreaProxy::messageReceiverName(), m_identifier);
 }
@@ -118,7 +120,11 @@ void RemoteLayerTreeDrawingAreaProxy::sendUpdateGeometry()
 {
     m_lastSentSize = m_size;
     m_isWaitingForDidUpdateGeometry = true;
-    m_webPageProxy.send(Messages::DrawingArea::UpdateGeometry(m_size, false /* flushSynchronously */, MachSendRight()), m_identifier);
+    m_webPageProxy.sendWithAsyncReply(Messages::DrawingArea::UpdateGeometry(m_size, false /* flushSynchronously */, MachSendRight()), [weakThis = WeakPtr { this }] {
+        if (!weakThis)
+            return;
+        weakThis->didUpdateGeometry();
+    }, m_identifier);
 }
 
 void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(TransactionID transactionID)
@@ -126,7 +132,7 @@ void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(TransactionID transact
     m_pendingLayerTreeTransactionID = transactionID;
 }
 
-void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction)
+void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connection, const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction)
 {
     TraceScope tracingScope(CommitLayerTreeStart, CommitLayerTreeEnd);
 
@@ -157,12 +163,12 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
 #endif
 
     m_webPageProxy.didCommitLayerTree(layerTreeTransaction);
-    didCommitLayerTree(layerTreeTransaction, scrollingTreeTransaction);
+    didCommitLayerTree(connection, layerTreeTransaction, scrollingTreeTransaction);
 
 #if ENABLE(ASYNC_SCROLLING)
     m_webPageProxy.scrollingCoordinatorProxy()->applyScrollingTreeLayerPositionsAfterCommit();
 #if PLATFORM(IOS_FAMILY)
-    m_webPageProxy.adjustLayersForLayoutViewport(m_webPageProxy.unconstrainedLayoutViewportRect());
+    m_webPageProxy.adjustLayersForLayoutViewport(m_webPageProxy.unobscuredContentRect().location(), m_webPageProxy.unconstrainedLayoutViewportRect(), m_webPageProxy.displayedContentScale());
 #endif
 
     // Handle requested scroll position updates from the scrolling tree transaction after didCommitLayerTree()
@@ -184,7 +190,9 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
 
     m_webPageProxy.layerTreeCommitComplete();
 
-    if (std::exchange(m_didUpdateMessageState, NeedsDidUpdate) == MissedCommit)
+    if (!layerTreeTransaction.isMainFrameProcessTransaction())
+        connection.send(Messages::DrawingArea::DisplayDidRefresh(), m_identifier);
+    else if (std::exchange(m_didUpdateMessageState, NeedsDidUpdate) == MissedCommit)
         didRefreshDisplay();
 
     scheduleDisplayRefreshCallbacks();
@@ -196,8 +204,8 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
         m_webPageProxy.didReachLayoutMilestone(milestones);
 
     for (auto& callbackID : layerTreeTransaction.callbackIDs()) {
-        if (auto callback = m_callbacks.take<VoidCallback>(callbackID))
-            callback->performCallback();
+        if (auto callback = connection.takeAsyncReplyHandler(callbackID))
+            callback(nullptr);
     }
 }
 
@@ -354,7 +362,9 @@ void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay()
     // if we find API to do so, but for now we will make extra buffers if need be.
     m_webPageProxy.send(Messages::DrawingArea::DisplayDidRefresh(), m_identifier);
 
+#if ASSERT_ENABLED
     m_lastVisibleTransactionID = m_transactionIDForPendingCACommit;
+#endif
 
     m_webPageProxy.didUpdateActivityState();
 }
@@ -382,14 +392,17 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStat
     }
 }
 
-void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&& callbackFunction)
+void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(CompletionHandler<void()>&& callbackFunction)
 {
     if (!m_webPageProxy.hasRunningProcess()) {
-        callbackFunction(CallbackBase::Error::OwnerWasInvalidated);
+        callbackFunction();
         return;
     }
 
-    m_webPageProxy.send(Messages::DrawingArea::AddTransactionCallbackID(m_callbacks.put(WTFMove(callbackFunction), m_webPageProxy.process().throttler().backgroundActivity("RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing"_s))), m_identifier);
+    auto aggregator = CallbackAggregator::create(WTFMove(callbackFunction));
+    m_webPageProxy.sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [aggregator] { }, m_identifier);
+    for (auto& process : m_processesWithRegisteredRemoteLayerTreeDrawingAreaProxyMessageReceiver)
+        process->sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [aggregator] { }, m_identifier);
 }
 
 void RemoteLayerTreeDrawingAreaProxy::hideContentUntilPendingUpdate()

@@ -102,6 +102,10 @@
 #include <WebKit/WKPagePrivateMac.h>
 #endif
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+#include <WebKit/WKContextConfigurationGlib.h>
+#endif
+
 #if PLATFORM(WIN)
 #include <direct.h>
 #define getcwd _getcwd
@@ -323,16 +327,6 @@ static bool shouldAllowDeviceOrientationAndMotionAccess(WKPageRef, WKSecurityOri
 // A placeholder to tell WebKit the client is WebKitTestRunner.
 static void runWebAuthenticationPanel()
 {
-}
-
-static void decidePolicyForSpeechRecognitionPermissionRequest(WKPageRef, WKSecurityOriginRef, WKSpeechRecognitionPermissionCallbackRef callback)
-{
-    TestController::singleton().completeSpeechRecognitionPermissionCheck(callback);
-}
-
-void TestController::completeSpeechRecognitionPermissionCheck(WKSpeechRecognitionPermissionCallbackRef callback)
-{
-    WKSpeechRecognitionPermissionCallbackComplete(callback, m_isSpeechRecognitionPermissionGranted);
 }
 
 void TestController::setIsSpeechRecognitionPermissionGranted(bool granted)
@@ -660,6 +654,10 @@ WKRetainPtr<WKContextConfigurationRef> TestController::generateContextConfigurat
 
     WKContextConfigurationSetShouldConfigureJSCForTesting(configuration.get(), true);
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    WKContextConfigurationSetDisableFontHintingForTesting(configuration.get(), true);
+#endif
+
     return configuration;
 }
 
@@ -941,7 +939,7 @@ void TestController::createWebViewWithOptions(const TestOptions& options)
         0, // requestStorageAccessConfirm
         shouldAllowDeviceOrientationAndMotionAccess,
         runWebAuthenticationPanel,
-        decidePolicyForSpeechRecognitionPermissionRequest,
+        0,
         decidePolicyForMediaKeySystemPermissionRequest,
         nullptr, // requestWebAuthenticationNoGesture
         queryPermission,
@@ -1102,7 +1100,6 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
 
     WKContextSetCacheModel(TestController::singleton().context(), kWKCacheModelDocumentBrowser);
 
-    WKWebsiteDataStoreClearCachedCredentials(websiteDataStore());
     WKWebsiteDataStoreResetServiceWorkerFetchTimeoutForTesting(websiteDataStore());
 
     WKWebsiteDataStoreSetResourceLoadStatisticsEnabled(websiteDataStore(), true);

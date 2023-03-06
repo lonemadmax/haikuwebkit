@@ -89,21 +89,14 @@ CachedResource::CachedResource(CachedResourceRequest&& request, Type type, PAL::
     , m_decodedDataDeletionTimer(*this, &CachedResource::destroyDecodedData, deadDecodedDataDeletionIntervalForResourceType(type))
     , m_sessionID(sessionID)
     , m_cookieJar(cookieJar)
-    , m_responseTimestamp(WallTime::now())
     , m_fragmentIdentifierForRequest(request.releaseFragmentIdentifier())
     , m_origin(request.releaseOrigin())
     , m_initiatorType(request.initiatorType())
     , m_type(type)
     , m_preloadResult(PreloadResult::PreloadNotReferenced)
-    , m_responseTainting(ResourceResponse::Tainting::Basic)
-    , m_loadPriority(DefaultResourceLoadPriority::forResourceType(type))
     , m_status(Pending)
-    , m_requestedFromNetworkingLayer(false)
-    , m_inCache(false)
-    , m_loading(false)
     , m_isLinkPreload(request.isLinkPreload())
     , m_hasUnknownEncoding(request.isLinkPreload())
-    , m_switchingClientsToRevalidatedResource(false)
     , m_ignoreForRequestCount(request.ignoreForRequestCount())
 {
     ASSERT(m_sessionID.isValid());
@@ -126,18 +119,12 @@ CachedResource::CachedResource(const URL& url, Type type, PAL::SessionID session
     , m_decodedDataDeletionTimer(*this, &CachedResource::destroyDecodedData, deadDecodedDataDeletionIntervalForResourceType(type))
     , m_sessionID(sessionID)
     , m_cookieJar(cookieJar)
-    , m_responseTimestamp(WallTime::now())
     , m_fragmentIdentifierForRequest(CachedResourceRequest::splitFragmentIdentifierFromRequestURL(m_resourceRequest))
     , m_type(type)
     , m_preloadResult(PreloadResult::PreloadNotReferenced)
-    , m_responseTainting(ResourceResponse::Tainting::Basic)
     , m_status(Cached)
-    , m_requestedFromNetworkingLayer(false)
-    , m_inCache(false)
-    , m_loading(false)
     , m_isLinkPreload(false)
     , m_hasUnknownEncoding(false)
-    , m_switchingClientsToRevalidatedResource(false)
     , m_ignoreForRequestCount(false)
 {
     ASSERT(m_sessionID.isValid());
@@ -184,21 +171,23 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
     // We query the top document because new frames may be created in pagehide event handlers
     // and their backForwardCacheState will not reflect the fact that they are about to enter page
     // cache.
-    if (auto* topDocument = frame.mainFrame().document()) {
-        switch (topDocument->backForwardCacheState()) {
-        case Document::NotInBackForwardCache:
-            break;
-        case Document::AboutToEnterBackForwardCache:
-            // Beacons are allowed to go through in 'pagehide' event handlers.
-            if (m_options.keepAlive || shouldUsePingLoad(type()))
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(frame.mainFrame())) {
+        if (auto* topDocument = localFrame->document()) {
+            switch (topDocument->backForwardCacheState()) {
+            case Document::NotInBackForwardCache:
                 break;
-            CACHEDRESOURCE_RELEASE_LOG_WITH_FRAME("load: About to enter back/forward cache", frame);
-            failBeforeStarting();
-            return;
-        case Document::InBackForwardCache:
-            CACHEDRESOURCE_RELEASE_LOG_WITH_FRAME("load: Already in back/forward cache", frame);
-            failBeforeStarting();
-            return;
+            case Document::AboutToEnterBackForwardCache:
+                // Beacons are allowed to go through in 'pagehide' event handlers.
+                if (m_options.keepAlive || shouldUsePingLoad(type()))
+                    break;
+                CACHEDRESOURCE_RELEASE_LOG_WITH_FRAME("load: About to enter back/forward cache", frame);
+                failBeforeStarting();
+                return;
+            case Document::InBackForwardCache:
+                CACHEDRESOURCE_RELEASE_LOG_WITH_FRAME("load: Already in back/forward cache", frame);
+                failBeforeStarting();
+                return;
+            }
         }
     }
 

@@ -259,6 +259,8 @@ public:
     void didPopValueFromStack() { --m_stackSize; }
     void notifyFunctionUsesSIMD() { ASSERT(Options::useWebAssemblySIMD()); m_usesSIMD = true; }
 
+    PartialResult WARN_UNUSED_RETURN addDrop(ExpressionType);
+
     PartialResult WARN_UNUSED_RETURN addArguments(const TypeDefinition&);
     PartialResult WARN_UNUSED_RETURN addLocal(Type, uint32_t);
     ExpressionType addConstant(Type, int64_t);
@@ -550,7 +552,7 @@ private:
     HashMap<Label*, Vector<SwitchEntry>> m_switches;
     ExpressionType m_jsNullConstant;
     ExpressionType m_zeroConstant;
-    ResultList m_unitializedLocals;
+    ResultList m_uninitializedLocals;
     HashMap<EncodedJSValue, VirtualRegister, WTF::IntHash<EncodedJSValue>, ConstantMapHashTraits> m_constantMap;
     Vector<VirtualRegister, 2> m_results;
     Checked<unsigned> m_stackSize { 0 };
@@ -821,6 +823,11 @@ auto LLIntGenerator::callInformationForCallee(const FunctionSignature& signature
     return m_results;
 }
 
+auto LLIntGenerator::addDrop(ExpressionType) -> PartialResult
+{
+    return { };
+}
+
 auto LLIntGenerator::addArguments(const TypeDefinition& signature) -> PartialResult
 {
     checkConsistency();
@@ -886,9 +893,11 @@ auto LLIntGenerator::addLocal(Type type, uint32_t count) -> PartialResult
     checkConsistency();
 
     m_codeBlock->m_numVars += count;
-    if (isFuncref(type) || isExternref(type)) {
+    // All ref-typed locals (funcref, externref, GC types) have to be
+    // initialized to the JS null value (not 0)
+    if (isRefType(type)) {
         while (count--)
-            m_unitializedLocals.append(push(NoConsistencyCheck));
+            m_uninitializedLocals.append(push(NoConsistencyCheck));
     } else
         m_stackSize += count;
     return { };
@@ -896,13 +905,13 @@ auto LLIntGenerator::addLocal(Type type, uint32_t count) -> PartialResult
 
 void LLIntGenerator::didFinishParsingLocals()
 {
-    if (m_unitializedLocals.isEmpty())
+    if (m_uninitializedLocals.isEmpty())
         return;
 
     auto null = jsNullConstant();
-    for (auto local : m_unitializedLocals)
+    for (auto local : m_uninitializedLocals)
         WasmMov::emit(this, local, null);
-    m_unitializedLocals.clear();
+    m_uninitializedLocals.clear();
 }
 
 auto LLIntGenerator::addConstantWithoutPush(Type type, int64_t value) -> ExpressionType

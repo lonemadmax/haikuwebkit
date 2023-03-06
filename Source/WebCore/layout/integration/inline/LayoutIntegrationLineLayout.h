@@ -58,6 +58,7 @@ class InlineDamage;
 namespace LayoutIntegration {
 
 struct InlineContent;
+struct LineAdjustment;
 
 class LineLayout : public CanMakeCheckedPtr {
     WTF_MAKE_FAST_ALLOCATED;
@@ -73,6 +74,7 @@ public:
     static bool canUseFor(const RenderBlockFlow&);
     static bool canUseForAfterStyleChange(const RenderBlockFlow&, StyleDifference);
     static bool canUseForAfterInlineBoxStyleChange(const RenderInline&, StyleDifference);
+    static bool shouldInvalidateLineLayoutPathAfterContentChange(const RenderBlockFlow& parent, const RenderObject& newChild, const LineLayout&);
 
     bool shouldSwitchToLegacyOnInvalidation() const;
 
@@ -87,6 +89,9 @@ public:
     void paint(PaintInfo&, const LayoutPoint& paintOffset, const RenderInline* layerRenderer = nullptr);
     bool hitTest(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint& accumulatedOffset, HitTestAction, const RenderInline* layerRenderer = nullptr);
     void adjustForPagination();
+
+    // FIXME: Partial content mutation may need to talk to the box tree directly.
+    void insertedIntoTree(const RenderElement& parent, RenderObject& child);
 
     void collectOverflow();
     LayoutRect visualOverflowBoundingBoxRectFor(const RenderInline&) const;
@@ -131,6 +136,9 @@ private:
     void prepareLayoutState();
     void prepareFloatingState();
     void constructContent();
+    Vector<LineAdjustment> adjustContent();
+    void updateRenderTreePositions(const Vector<LineAdjustment>&);
+
     InlineContent& ensureInlineContent();
     void updateLayoutBoxDimensions(const RenderBox&);
 
@@ -144,7 +152,7 @@ private:
     void releaseCaches();
     std::optional<size_t> lastLineIndexForContentHeight() const;
 
-    LayoutUnit physicalBaselineForLine(LayoutIntegration::Line&) const;
+    LayoutUnit physicalBaselineForLine(const InlineDisplay::Line&) const;
     
     BoxTree m_boxTree;
     WeakPtr<Layout::LayoutState> m_layoutState;

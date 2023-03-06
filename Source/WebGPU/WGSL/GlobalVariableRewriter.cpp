@@ -30,8 +30,8 @@
 #include "ASTIdentifier.h"
 #include "ASTVisitor.h"
 #include "CallGraph.h"
-#include "ShaderModule.h"
 #include "WGSL.h"
+#include "WGSLShaderModule.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 
@@ -224,7 +224,7 @@ void RewriteGlobalVariables::insertStructs()
         }
 
         m_callGraph.ast().structures().append(makeUniqueRef<AST::Structure>(
-            SourceSpan(0, 0, 0, 0),
+            SourceSpan::empty(),
             WTFMove(structName),
             WTFMove(structMembers),
             AST::Attribute::List { },
@@ -237,7 +237,7 @@ void RewriteGlobalVariables::insertParameters(AST::Function& function, const Ind
 {
     auto span = function.span();
     for (unsigned group : requiredGroups) {
-        function.parameters().append(makeUniqueRef<AST::ParameterValue>(
+        function.parameters().append(makeUniqueRef<AST::Parameter>(
             span,
             argumentBufferParameterName(group),
             adoptRef(*new AST::NamedTypeName(span, argumentBufferStructName(group))),

@@ -56,6 +56,7 @@
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefCounter.h>
+#include <wtf/WeakHashMap.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
 
@@ -103,7 +104,7 @@ struct MessageWithMessagePorts;
 struct MockMediaDevice;
 struct PluginInfo;
 struct PrewarmInformation;
-struct SecurityOriginData;
+class SecurityOriginData;
 
 #if ENABLE(SERVICE_WORKER)
 struct ServiceWorkerContextData;
@@ -702,7 +703,7 @@ private:
     ProcessType m_processType { ProcessType::WebContent };
 #endif
 
-    HashMap<WebCore::UserGestureToken *, uint64_t> m_userGestureTokens;
+    WeakHashMap<WebCore::UserGestureToken, uint64_t> m_userGestureTokens;
 
 #if PLATFORM(WAYLAND)
     std::unique_ptr<WebCore::PlatformDisplayLibWPE> m_wpeDisplay;

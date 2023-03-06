@@ -203,7 +203,6 @@ set(WTF_PUBLIC_HEADERS
     PlatformEnable.h
     PlatformEnableCocoa.h
     PlatformEnablePlayStation.h
-    PlatformEnableWinApple.h
     PlatformEnableWinCairo.h
     PlatformHave.h
     PlatformLegacy.h
@@ -447,6 +446,7 @@ set(WTF_SOURCES
     DataLog.cpp
     DateMath.cpp
     DebugHeap.cpp
+    EmbeddedFixedVector.cpp
     FastBitVector.cpp
     FastFloat.cpp
     FastMalloc.cpp
@@ -627,20 +627,6 @@ WEBKIT_FRAMEWORK(WTF)
 if (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
-endif ()
-
-if (USE_VERSION_STAMPER)
-    add_custom_command(
-        TARGET WTF
-        PRE_BUILD
-        COMMAND ${PERL_EXECUTABLE} ${WEBKIT_LIBRARIES_DIR}/tools/scripts/auto-version.pl ${WTF_DERIVED_SOURCES_DIR}
-        VERBATIM)
-
-    add_custom_command(
-        TARGET WTF
-        POST_BUILD
-        COMMAND ${PERL_EXECUTABLE} ${WEBKIT_LIBRARIES_DIR}/tools/scripts/version-stamp.pl ${WTF_DERIVED_SOURCES_DIR} $<TARGET_FILE:WTF>
-        VERBATIM)
 endif ()
 
 file(MAKE_DIRECTORY ${WTF_SCRIPTS_DIR})

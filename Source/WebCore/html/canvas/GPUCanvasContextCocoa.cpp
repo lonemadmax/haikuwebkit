@@ -62,8 +62,7 @@ static GPUPresentationContextDescriptor presentationContextDescriptor(GPUComposi
 static int getCanvasWidth(const GPUCanvasContext::CanvasType& canvas)
 {
     return WTF::switchOn(canvas, [](const RefPtr<HTMLCanvasElement>& htmlCanvas) -> int {
-        auto scaleFactor = htmlCanvas->document().deviceScaleFactor();
-        return scaleFactor * htmlCanvas->width();
+        return htmlCanvas->width();
     }
 #if ENABLE(OFFSCREEN_CANVAS)
     , [](const RefPtr<OffscreenCanvas>& offscreenCanvas) -> int {
@@ -76,8 +75,7 @@ static int getCanvasWidth(const GPUCanvasContext::CanvasType& canvas)
 static int getCanvasHeight(const GPUCanvasContext::CanvasType& canvas)
 {
     return WTF::switchOn(canvas, [](const RefPtr<HTMLCanvasElement>& htmlCanvas) -> int {
-        auto scaleFactor = htmlCanvas->document().deviceScaleFactor();
-        return scaleFactor * htmlCanvas->height();
+        return htmlCanvas->height();
     }
 #if ENABLE(OFFSCREEN_CANVAS)
     , [](const RefPtr<OffscreenCanvas>& offscreenCanvas) -> int {
@@ -171,20 +169,8 @@ RefPtr<GPUTexture> GPUCanvasContextCocoa::getCurrentTexture()
     if (m_currentTexture)
         return m_currentTexture;
 
-    GPUTextureDescriptor descriptor = {
-        { "WebGPU Display texture"_s },
-        GPUExtent3DDict { static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height), 1 },
-        1 /* mipMapCount */,
-        1 /* sampleCount */,
-        GPUTextureDimension::_2d,
-        m_configuration->format,
-        m_configuration->usage,
-        m_configuration->viewFormats
-    };
-
     markContextChangedAndNotifyCanvasObservers();
-    // FIXME: This should use PresentationContext::getCurrentTexture() instead.
-    m_currentTexture = m_configuration->device->createSurfaceTexture(descriptor, m_presentationContext);
+    m_currentTexture = m_presentationContext->getCurrentTexture();
     return m_currentTexture;
 }
 
@@ -215,6 +201,7 @@ void GPUCanvasContextCocoa::prepareForDisplay()
         m_compositingResultsNeedsUpdating = false;
         m_configuration->frameCount = (m_configuration->frameCount + 1) % m_configuration->renderBuffers.size();
         m_currentTexture = nullptr;
+        m_presentationContext->present();
     });
 }
 

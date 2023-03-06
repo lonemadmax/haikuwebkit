@@ -189,6 +189,17 @@ angle::Result ConvertUniformBufferData(ContextMtl *contextMtl,
     return angle::Result::Continue;
 }
 
+size_t GetAlignmentOfUniformGroup(sh::BlockLayoutMap *blockLayoutMap)
+{
+    size_t align = 1;
+    for (auto layoutIter = blockLayoutMap->begin(); layoutIter != blockLayoutMap->end();
+         ++layoutIter)
+    {
+        align = std::max(mtl::GetMetalAlignmentForGLType(layoutIter->second.type), align);
+    }
+    return align;
+}
+
 void InitDefaultUniformBlock(const std::vector<sh::Uniform> &uniforms,
                              gl::Shader *shader,
                              sh::BlockLayoutMap *blockLayoutMapOut,
@@ -202,8 +213,8 @@ void InitDefaultUniformBlock(const std::vector<sh::Uniform> &uniforms,
 
     mtl::BlockLayoutEncoderMTL blockEncoder;
     sh::GetActiveUniformBlockInfo(uniforms, "", &blockEncoder, blockLayoutMapOut);
-
-    size_t blockSize = blockEncoder.getCurrentOffset();
+    size_t blockAlign = GetAlignmentOfUniformGroup(blockLayoutMapOut);
+    size_t blockSize  = roundUp(blockEncoder.getCurrentOffset(), blockAlign);
 
     // TODO(jmadill): I think we still need a valid block for the pipeline even if zero sized.
     if (blockSize == 0)
@@ -216,9 +227,9 @@ void InitDefaultUniformBlock(const std::vector<sh::Uniform> &uniforms,
     return;
 }
 
-inline NSDictionary<NSString *, NSObject *> *getDefaultSubstitutionDictionary()
+inline std::map<std::string, std::string> getDefaultSubstitutionDictionary()
 {
-    return @{};
+    return {};
 }
 
 template <typename T>
@@ -337,6 +348,13 @@ void InitArgumentBufferEncoder(mtl::Context *context,
     }
 }
 
+constexpr size_t PipelineParametersToFragmentShaderVariantIndex(bool emulateCoverageMask,
+                                                                bool allowFragDepthWrite)
+{
+    const size_t index = (allowFragDepthWrite << 1) | emulateCoverageMask;
+    ASSERT(index < kFragmentShaderVariants);
+    return index;
+}
 }  // namespace
 
 // TODO(angleproject:7979) Upgrade ANGLE Uniform buffer remapper to compute shaders
@@ -388,8 +406,9 @@ void ProgramMtl::initUniformBlocksRemapper(gl::Shader *shader, const gl::Context
             std::sort(stdConversions.begin(), stdConversions.end(), compareBlockInfo);
             std::sort(mtlConversions.begin(), mtlConversions.end(), compareBlockInfo);
 
-            size_t stdSize   = encoder->getCurrentOffset();
-            size_t metalSize = metalEncoder.getCurrentOffset();
+            size_t stdSize    = encoder->getCurrentOffset();
+            size_t metalAlign = GetAlignmentOfUniformGroup(&blockLayoutMapOut);
+            size_t metalSize  = roundUp(metalEncoder.getCurrentOffset(), metalAlign);
 
             conversionMap.insert(
                 {ib.name, UBOConversionInfo(stdConversions, mtlConversions, stdSize, metalSize)});
@@ -767,7 +786,7 @@ angle::Result ProgramMtl::getSpecializedShader(ContextMtl *context,
                 gl::InfoLog infoLog;
                 ANGLE_TRY(createMslShaderLib(context, shaderType, infoLog,
                                              &mMslXfbOnlyVertexShaderInfo,
-                                             @{@"TRANSFORM_FEEDBACK_ENABLED" : @"1"}));
+                                             {{"TRANSFORM_FEEDBACK_ENABLED", "1"}}));
                 translatedMslInfo->metalLibrary.get().label = @"TransformFeedback";
             }
         }
@@ -788,10 +807,13 @@ angle::Result ProgramMtl::getSpecializedShader(ContextMtl *context,
     }  // if (shaderType == gl::ShaderType::Vertex)
     else if (shaderType == gl::ShaderType::Fragment)
     {
-        // For fragment shader, we need to create 2 variants, one with sample coverage mask
-        // disabled, one with the mask enabled.
-        BOOL emulateCoverageMask = renderPipelineDesc.emulateCoverageMask;
-        shaderVariant            = &mFragmentShaderVariants[emulateCoverageMask];
+        // For fragment shader, we need to create 4 variants,
+        // combining sample coverage mask and depth write enabled states.
+        const bool emulateCoverageMask = renderPipelineDesc.emulateCoverageMask;
+        const bool allowFragDepthWrite =
+            renderPipelineDesc.outputDescriptor.depthAttachmentPixelFormat != 0;
+        shaderVariant = &mFragmentShaderVariants[PipelineParametersToFragmentShaderVariantIndex(
+            emulateCoverageMask, allowFragDepthWrite)];
         if (shaderVariant->metalShader)
         {
             // Already created.
@@ -811,11 +833,7 @@ angle::Result ProgramMtl::getSpecializedShader(ContextMtl *context,
             [funcConstants setConstantValue:&emulateCoverageMask
                                        type:MTLDataTypeBool
                                    withName:coverageMaskEnabledStr];
-            
-            MTLPixelFormat depthPixelFormat =
-                (MTLPixelFormat)renderPipelineDesc.outputDescriptor.depthAttachmentPixelFormat;
-            BOOL fragDepthWriteEnabled = depthPixelFormat != MTLPixelFormatInvalid;
-            [funcConstants setConstantValue:&fragDepthWriteEnabled
+            [funcConstants setConstantValue:&allowFragDepthWrite
                                        type:MTLDataTypeBool
                                    withName:depthWriteEnabledStr];
         }
@@ -868,19 +886,19 @@ angle::Result ProgramMtl::createMslShaderLib(
     gl::ShaderType shaderType,
     gl::InfoLog &infoLog,
     mtl::TranslatedShaderInfo *translatedMslInfo,
-    NSDictionary<NSString *, NSObject *> *substitutionMacros)
+    const std::map<std::string, std::string> &substitutionMacros)
 {
     ANGLE_MTL_OBJC_SCOPE
     {
-        const mtl::ContextDevice &metalDevice = context->getMetalDevice();
+        mtl::LibraryCache &libraryCache = context->getDisplay()->getLibraryCache();
 
         // Convert to actual binary shader
         mtl::AutoObjCPtr<NSError *> err = nil;
         bool disableFastMath = (context->getDisplay()->getFeatures().intelDisableFastMath.enabled &&
                                 translatedMslInfo->hasInvariantOrAtan);
         translatedMslInfo->metalLibrary =
-            mtl::CreateShaderLibrary(metalDevice, translatedMslInfo->metalShaderSource,
-                                     substitutionMacros, !disableFastMath, &err);
+            libraryCache.getOrCompileShaderLibrary(context, translatedMslInfo->metalShaderSource,
+                                                   substitutionMacros, !disableFastMath, &err);
         if (err && !translatedMslInfo->metalLibrary)
         {
             std::ostringstream ss;
@@ -1449,9 +1467,14 @@ angle::Result ProgramMtl::setupDraw(const gl::Context *glContext,
         // Cache current shader variant references for easier querying.
         mCurrentShaderVariants[gl::ShaderType::Vertex] =
             &mVertexShaderVariants[pipelineDesc.rasterizationType];
+
+        const bool emulateCoverageMask = pipelineDesc.emulateCoverageMask;
+        const bool allowFragDepthWrite =
+            pipelineDesc.outputDescriptor.depthAttachmentPixelFormat != 0;
         mCurrentShaderVariants[gl::ShaderType::Fragment] =
             pipelineDesc.rasterizationEnabled()
-                ? &mFragmentShaderVariants[pipelineDesc.emulateCoverageMask]
+                ? &mFragmentShaderVariants[PipelineParametersToFragmentShaderVariantIndex(
+                      emulateCoverageMask, allowFragDepthWrite)]
                 : nullptr;
     }
 
@@ -1713,7 +1736,7 @@ angle::Result ProgramMtl::legalizeUniformBufferOffsets(
             // Has the content of the buffer has changed since last conversion?
             if (conversion->dirty)
             {
-                const uint8_t *srcBytes = bufferMtl->getBufferDataReadOnly(context);
+                const uint8_t *srcBytes = bufferMtl->getClientShadowCopyData(context);
                 srcBytes += srcOffset;
                 size_t sizeToCopy = bufferMtl->size() - srcOffset;
 
@@ -1799,6 +1822,10 @@ angle::Result ProgramMtl::encodeUniformBuffersInfoArgumentBuffer(
         context, bufferEncoder.metalArgBufferEncoder.get().encodedLength, nullptr, &argumentBuffer,
         &argumentBufferOffset));
 
+    // MTLArgumentEncoder is modifying the buffer indirectly on CPU. We need to call map()
+    // so that the buffer's data changes could be flushed to the GPU side later.
+    ANGLE_UNUSED_VARIABLE(argumentBuffer->mapWithOpt(context, /*readonly=*/false, /*noSync=*/true));
+
     [bufferEncoder.metalArgBufferEncoder setArgumentBuffer:argumentBuffer->get()
                                                     offset:argumentBufferOffset];
 
@@ -1835,7 +1862,9 @@ angle::Result ProgramMtl::encodeUniformBuffersInfoArgumentBuffer(
                                                atIndex:actualBufferIdx];
     }
 
-    ANGLE_TRY(bufferEncoder.bufferPool.commit(context));
+    // Flush changes made by MTLArgumentEncoder to GPU.
+    argumentBuffer->unmapAndFlushSubset(context, argumentBufferOffset,
+                                        bufferEncoder.metalArgBufferEncoder.get().encodedLength);
 
     cmdEncoder->setBuffer(shaderType, argumentBuffer, static_cast<uint32_t>(argumentBufferOffset),
                           mtl::kUBOArgumentBufferBindingIndex);

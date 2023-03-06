@@ -612,6 +612,8 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
         return remoteFunctionCallGenerator;
     case NumberConstructorIntrinsic:
         return numberConstructorCallThunkGenerator;
+    case StringConstructorIntrinsic:
+        return stringConstructorCallThunkGenerator;
     default:
         return nullptr;
     }
@@ -673,7 +675,7 @@ NativeExecutable* VM::getBoundFunction(bool isJSFunction, bool canConstruct)
             return cached;
         NativeExecutable* result = getHostFunction(
             slowCase ? boundFunctionCall : boundThisNoArgsFunctionCall,
-            ImplementationVisibility::Public,
+            ImplementationVisibility::Private, // Bound function's visibility is private on the stack.
             slowCase ? NoIntrinsic : BoundFunctionCallIntrinsic,
             canConstruct ? (slowCase ? boundFunctionConstruct : boundThisNoArgsFunctionConstruct) : callHostFunctionAsConstructor, nullptr, String());
         slot = Weak<NativeExecutable>(result);

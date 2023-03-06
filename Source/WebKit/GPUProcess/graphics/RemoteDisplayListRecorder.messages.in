@@ -43,7 +43,7 @@ messages -> RemoteDisplayListRecorder NotRefCounted Stream {
     ClipOut(WebCore::FloatRect rect)
     ClipToImageBuffer(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, WebCore::FloatRect destinationRect)
     ClipOutToPath(WebCore::Path path)
-    ClipPath(WebCore::Path path, enum:uint8_t WebCore::WindRule windRule)
+    ClipPath(WebCore::Path path, enum:bool WebCore::WindRule windRule)
     DrawGlyphs(WebCore::DisplayList::DrawGlyphs item)
     DrawDecomposedGlyphs(WebCore::RenderingResourceIdentifier fontIdentifier, WebCore::RenderingResourceIdentifier decomposedGlyphsIdentifier)
     DrawFilteredImageBuffer(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, WebCore::FloatRect sourceImageRect, Ref<WebCore::Filter> filter)
@@ -77,7 +77,9 @@ messages -> RemoteDisplayListRecorder NotRefCounted Stream {
     FillEllipse(WebCore::FloatRect rect)
     ConvertToLuminanceMask()
     TransformToColorSpace(WebCore::DestinationColorSpace colorSpace)
+#if ENABLE(VIDEO)
     PaintFrameForMedia(WebCore::MediaPlayerIdentifier identifier, WebCore::FloatRect destination)
+#endif
     StrokeRect(WebCore::FloatRect rect, float lineWidth)
 #if ENABLE(INLINE_PATH_DATA)
     StrokeLine(struct WebCore::LineData data) StreamBatched

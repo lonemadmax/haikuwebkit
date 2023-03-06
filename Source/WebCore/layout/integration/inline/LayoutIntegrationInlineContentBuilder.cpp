@@ -57,8 +57,15 @@ InlineContentBuilder::InlineContentBuilder(const RenderBlockFlow& blockFlow, Box
 
 void InlineContentBuilder::build(Layout::InlineFormattingState& inlineFormattingState, InlineContent& inlineContent) const
 {
-    // FIXME: This might need a different approach with partial layout where the layout code needs to know about the boxes.
-    inlineContent.boxes = WTFMove(inlineFormattingState.boxes());
+    if (inlineContent.boxes.isEmpty()) {
+        inlineContent.boxes = WTFMove(inlineFormattingState.boxes());
+        inlineContent.lines = WTFMove(inlineFormattingState.lines());
+    } else {
+        inlineContent.boxes.appendVector(WTFMove(inlineFormattingState.boxes()));
+        inlineContent.lines.appendVector(WTFMove(inlineFormattingState.lines()));
+        inlineFormattingState.boxes().clear();
+        inlineFormattingState.lines().clear();
+    }
 
     auto updateIfTextRenderersNeedVisualReordering = [&] {
         // FIXME: We may want to have a global, "is this a bidi paragraph" flag to avoid this loop for non-rtl, non-bidi content. 
@@ -71,28 +78,27 @@ void InlineContentBuilder::build(Layout::InlineFormattingState& inlineFormatting
         }
     };
     updateIfTextRenderersNeedVisualReordering();
-    createDisplayLines(inlineFormattingState, inlineContent);
+    adjustDisplayLines(inlineContent);
 }
 
-void InlineContentBuilder::updateLineOverflow(Layout::InlineFormattingState& inlineFormattingState, InlineContent& inlineContent) const
+void InlineContentBuilder::updateLineOverflow(InlineContent& inlineContent) const
 {
-    inlineContent.lines.clear();
-    createDisplayLines(inlineFormattingState, inlineContent);
+    adjustDisplayLines(inlineContent);
 }
 
-void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inlineFormattingState, InlineContent& inlineContent) const
+void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent) const
 {
-    auto& lines = inlineFormattingState.lines();
+    auto& lines = inlineContent.lines;
     auto& boxes = inlineContent.boxes;
+
     size_t boxIndex = 0;
     auto& rootBoxStyle = m_blockFlow.style();
-    inlineContent.lines.reserveInitialCapacity(lines.size());
     auto isLeftToRightInlineDirection = rootBoxStyle.isLeftToRightDirection();
     auto isHorizontalWritingMode = rootBoxStyle.isHorizontalWritingMode();
 
     for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
         auto& line = lines[lineIndex];
-        auto scrollableOverflowRect = line.scrollableOverflow();
+        auto scrollableOverflowRect = line.contentOverflow();
         auto adjustOverflowLogicalWidthWithBlockFlowQuirk = [&] {
             auto scrollableOverflowLogicalWidth = isHorizontalWritingMode ? scrollableOverflowRect.width() : scrollableOverflowRect.height();
             if (!isLeftToRightInlineDirection && line.contentLogicalWidth() > scrollableOverflowLogicalWidth) {
@@ -112,7 +118,7 @@ void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inl
         adjustOverflowLogicalWidthWithBlockFlowQuirk();
 
         auto firstBoxIndex = boxIndex;
-        auto lineInkOverflowRect = scrollableOverflowRect;
+        auto inkOverflowRect = scrollableOverflowRect;
         // Collect overflow from boxes.
         // Note while we compute ink overflow for all type of boxes including atomic inline level boxes (e.g. <iframe> <img>) as part of constructing
         // display boxes (see InlineDisplayContentBuilder) RenderBlockFlow expects visual overflow.
@@ -125,7 +131,7 @@ void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inl
                 continue;
 
             if (box.isText()) {
-                lineInkOverflowRect.unite(box.inkOverflow());
+                inkOverflowRect.unite(box.inkOverflow());
                 continue;
             }
 
@@ -134,7 +140,7 @@ void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inl
                 if (!renderer.hasSelfPaintingLayer()) {
                     auto childInkOverflow = renderer.logicalVisualOverflowRectForPropagation(&renderer.parent()->style());
                     childInkOverflow.move(box.left(), box.top());
-                    lineInkOverflowRect.unite(childInkOverflow);
+                    inkOverflowRect.unite(childInkOverflow);
                 }
                 auto childScrollableOverflow = renderer.layoutOverflowRectForPropagation(&renderer.parent()->style());
                 childScrollableOverflow.move(box.left(), box.top());
@@ -144,23 +150,22 @@ void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inl
 
             if (box.isInlineBox()) {
                 if (!downcast<RenderElement>(m_boxTree.rendererForLayoutBox(box.layoutBox())).hasSelfPaintingLayer())
-                    lineInkOverflowRect.unite(box.inkOverflow());
+                    inkOverflowRect.unite(box.inkOverflow());
             }
         }
 
-        if (!inlineContent.lines.isEmpty()) {
-            auto& lastInkOverflow = inlineContent.lines.last().inkOverflow();
-            if (lineInkOverflowRect.y() <= lastInkOverflow.y() || lastInkOverflow.maxY() >= lineInkOverflowRect.maxY())
+        line.setScrollableOverflow(scrollableOverflowRect);
+        line.setInkOverflow(inkOverflowRect);
+        line.setFirstBoxIndex(firstBoxIndex);
+        line.setBoxCount(boxIndex - firstBoxIndex);
+
+        if (lineIndex) {
+            auto& lastInkOverflow = lines[lineIndex - 1].inkOverflow();
+            if (inkOverflowRect.y() <= lastInkOverflow.y() || lastInkOverflow.maxY() >= inkOverflowRect.maxY())
                 inlineContent.hasMultilinePaintOverlap = true;
         }
-
-        auto boxCount = boxIndex - firstBoxIndex;
-        if (!inlineContent.hasVisualOverflow() && lineInkOverflowRect != line.scrollableOverflow())
+        if (!inlineContent.hasVisualOverflow() && inkOverflowRect != scrollableOverflowRect)
             inlineContent.setHasVisualOverflow();
-        auto ellipsis = std::optional<Line::Ellipsis> { };
-        if (auto ellipsisVisualRect = line.ellipsisVisualRect())
-            ellipsis = { *ellipsisVisualRect, rootBoxStyle.isLeftToRightDirection() };
-        inlineContent.lines.append({ firstBoxIndex, boxCount, line.lineBoxLogicalRect(), line.lineBoxRect(), line.enclosingLogicalTopAndBottom().top, line.enclosingLogicalTopAndBottom().bottom, scrollableOverflowRect, lineInkOverflowRect, line.baseline(), line.baselineType(), line.contentLogicalLeft(), line.contentLogicalLeftIgnoringInlineDirection(), line.contentLogicalWidth(), line.isHorizontal(), ellipsis });
     }
 }
 
