@@ -128,7 +128,7 @@ void GraphicsContextHaiku::drawBitmap(BBitmap* image, const FloatSize& imageSize
 void GraphicsContextHaiku::drawLine(const FloatPoint& point1, const FloatPoint& point2)
 {
     HGTRACE(("drawline: [%f:%f] [%f:%f])\n", point1.x(), point1.y(), point2.x(), point2.y()));
-    if (strokeStyle() == NoStroke || !strokeColor().isVisible())
+    if (strokeStyle() == WebCore::StrokeStyle::NoStroke || !strokeColor().isVisible())
         return;
 
     BPoint start = point1;
@@ -163,14 +163,14 @@ void GraphicsContextHaiku::drawEllipse(const FloatRect& rect)
     }
 
     // TODO: Support gradients
-    if (strokeStyle() != NoStroke && strokeThickness() > 0.0f && strokeColor().isVisible())
+    if (strokeStyle() != WebCore::StrokeStyle::NoStroke && strokeThickness() > 0.0f && strokeColor().isVisible())
         m_view->StrokeEllipse(rect, m_strokeStyle);
 }
 
 void GraphicsContextHaiku::strokeRect(const FloatRect& rect, float width)
 {
     HGTRACE(("strokeRect: [%f:%f] [%f:%f] width:%f\n", rect.x(), rect.y(), rect.width(), rect.height(), width));
-    if (strokeStyle() == NoStroke || width <= 0.0f || !strokeColor().isVisible())
+    if (strokeStyle() == WebCore::StrokeStyle::NoStroke || width <= 0.0f || !strokeColor().isVisible())
         return;
 
     float oldSize = m_view->PenSize();
@@ -451,7 +451,7 @@ void GraphicsContextHaiku::drawLinesForText(const FloatPoint& point,
     bool doubleUnderlines, WebCore::StrokeStyle style)
 {
     HGTRACE(("drawLinesForText: (--todo print values)\n"));
-    if (widths.isEmpty() || style == NoStroke)
+    if (widths.isEmpty() || style == WebCore::StrokeStyle::NoStroke)
         return;
 
     Color lineColor(strokeColor());
@@ -615,25 +615,25 @@ void GraphicsContextHaiku::didUpdateState(GraphicsContextState& state)
     }
     if (state.changes().contains(GraphicsContextState::Change::StrokeStyle)) {
         switch (strokeStyle()) {
-            case DoubleStroke:
-            case WavyStroke:
+			case WebCore::StrokeStyle::DoubleStroke:
+			case WebCore::StrokeStyle::WavyStroke:
                 notImplemented();
                 m_strokeStyle = B_SOLID_HIGH;
                 break;
-            case SolidStroke:
+			case WebCore::StrokeStyle::SolidStroke:
                 m_strokeStyle = B_SOLID_HIGH;
                 break;
-            case DottedStroke:
+			case WebCore::StrokeStyle::DottedStroke:
                 m_view->SetLowColor(B_TRANSPARENT_COLOR);
                 m_strokeStyle = B_MIXED_COLORS;
                 break;
-            case DashedStroke:
+			case WebCore::StrokeStyle::DashedStroke:
                 // FIXME: use a better dashed stroke!
                 notImplemented();
                 m_view->SetLowColor(B_TRANSPARENT_COLOR);
                 m_strokeStyle = B_MIXED_COLORS;
                 break;
-            case NoStroke:
+            case WebCore::StrokeStyle::NoStroke:
                 m_strokeStyle = B_SOLID_LOW;
                 break;
         }
