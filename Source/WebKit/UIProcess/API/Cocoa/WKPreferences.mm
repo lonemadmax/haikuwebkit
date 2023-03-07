@@ -885,6 +885,26 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->mediaSourceEnabled();
 }
 
+- (void)_setManagedMediaSourceLowThreshold:(double)threshold
+{
+    _preferences->setManagedMediaSourceLowThreshold(threshold);
+}
+
+- (double)_managedMediaSourceLowThreshold
+{
+    return _preferences->managedMediaSourceLowThreshold();
+}
+
+- (void)_setManagedMediaSourceHighThreshold:(double)threshold
+{
+    _preferences->setManagedMediaSourceHighThreshold(threshold);
+}
+
+- (double)_managedMediaSourceHighThreshold
+{
+    return _preferences->managedMediaSourceHighThreshold();
+}
+
 - (BOOL)_secureContextChecksEnabled
 {
     return _preferences->secureContextChecksEnabled();
@@ -1630,6 +1650,41 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (BOOL)_clientBadgeEnabled
 {
     return _preferences->clientBadgeEnabled();
+}
+
+- (void)setInactiveSchedulingPolicy:(WKInactiveSchedulingPolicy)policy
+{
+    switch (policy) {
+    case WKInactiveSchedulingPolicySuspend:
+        _preferences->setShouldTakeSuspendedAssertions(false);
+        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(true);
+        break;
+    case WKInactiveSchedulingPolicyThrottle:
+        _preferences->setShouldTakeSuspendedAssertions(true);
+        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(true);
+        break;
+    case WKInactiveSchedulingPolicyNone:
+        _preferences->setShouldTakeSuspendedAssertions(true);
+        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(false);
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+}
+
+- (WKInactiveSchedulingPolicy)inactiveSchedulingPolicy
+{
+    return _preferences->backgroundWebContentRunningBoardThrottlingEnabled() ? (_preferences->shouldTakeSuspendedAssertions() ? WKInactiveSchedulingPolicyThrottle : WKInactiveSchedulingPolicySuspend) : WKInactiveSchedulingPolicyNone;
+}
+
+- (void)_setVerifyWindowOpenUserGestureFromUIProcess:(BOOL)enabled
+{
+    _preferences->setVerifyWindowOpenUserGestureFromUIProcess(enabled);
+}
+
+- (BOOL)_verifyWindowOpenUserGestureFromUIProcess
+{
+    return _preferences->verifyWindowOpenUserGestureFromUIProcess();
 }
 
 @end

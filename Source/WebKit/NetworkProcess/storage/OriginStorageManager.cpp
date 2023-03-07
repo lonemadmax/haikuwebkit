@@ -26,6 +26,7 @@
 #include "config.h"
 #include "OriginStorageManager.h"
 
+#include "BackgroundFetchStoreManager.h"
 #include "CacheStorageManager.h"
 #include "CacheStorageRegistry.h"
 #include "FileSystemStorageHandleRegistry.h"
@@ -56,7 +57,10 @@ public:
         LocalStorage,
         SessionStorage,
         IndexedDB,
-        CacheStorage
+        CacheStorage,
+#if ENABLE(SERVICE_WORKER)
+        BackgroundFetchStorage,
+#endif
     };
     std::optional<StorageType> toStorageType(WebsiteDataType) const;
     String toStorageIdentifier(StorageType) const;
@@ -75,6 +79,9 @@ public:
     IDBStorageManager* existingIDBStorageManager() { return m_idbStorageManager.get(); }
     CacheStorageManager& cacheStorageManager(CacheStorageRegistry&, const WebCore::ClientOrigin&, CacheStorageManager::QuotaCheckFunction&&, Ref<WorkQueue>&&);
     CacheStorageManager* existingCacheStorageManager() { return m_cacheStorageManager.get(); }
+#if ENABLE(SERVICE_WORKER)
+    BackgroundFetchStoreManager& backgroundFetchManager(Ref<WorkQueue>&&, BackgroundFetchStoreManager::QuotaCheckFunction&&);
+#endif
     uint64_t cacheStorageSize();
     void closeCacheStorageManager();
     bool isActive() const;
@@ -86,6 +93,9 @@ public:
     String resolvedLocalStoragePath();
     String resolvedIDBStoragePath();
     String resolvedCacheStoragePath();
+#if ENABLE(SERVICE_WORKER)
+    String resolvedBackgroundFetchStoragePath();
+#endif
     String resolvedPath(WebsiteDataType);
 
 private:
@@ -112,6 +122,9 @@ private:
     String m_customCacheStoragePath;
     String m_resolvedCacheStoragePath;
     UnifiedOriginStorageLevel m_level;
+#if ENABLE(SERVICE_WORKER)
+    std::unique_ptr<BackgroundFetchStoreManager> m_backgroundFetchManager;
+#endif
 };
 
 OriginStorageManager::StorageBucket::StorageBucket(const String& rootPath, const String& identifier, const String& localStoragePath, const String& idbStoragePath, const String& cacheStoragePath, UnifiedOriginStorageLevel level)
@@ -152,6 +165,10 @@ std::optional<OriginStorageManager::StorageBucket::StorageType> OriginStorageMan
         return StorageType::IndexedDB;
     case WebsiteDataType::DOMCache:
         return StorageType::CacheStorage;
+#if ENABLE(SERVICE_WORKER)
+    case WebsiteDataType::BackgroundFetchStorage:
+        return StorageType::BackgroundFetchStorage;
+#endif
     default:
         break;
     }
@@ -173,6 +190,10 @@ String OriginStorageManager::StorageBucket::toStorageIdentifier(StorageType type
         return "IndexedDB"_s;
     case StorageType::CacheStorage:
         return "CacheStorage"_s;
+#if ENABLE(SERVICE_WORKER)
+    case StorageType::BackgroundFetchStorage:
+        return "BackgroundFetchStorage"_s;
+#endif
     default:
         break;
     }
@@ -232,6 +253,16 @@ CacheStorageManager& OriginStorageManager::StorageBucket::cacheStorageManager(Ca
 
     return *m_cacheStorageManager;
 }
+
+#if ENABLE(SERVICE_WORKER)
+BackgroundFetchStoreManager& OriginStorageManager::StorageBucket::backgroundFetchManager(Ref<WorkQueue>&& queue, BackgroundFetchStoreManager::QuotaCheckFunction&& quotaCheckFunction)
+{
+    if (!m_backgroundFetchManager)
+        m_backgroundFetchManager = makeUnique<BackgroundFetchStoreManager>(resolvedBackgroundFetchStoragePath(), WTFMove(queue), WTFMove(quotaCheckFunction));
+
+    return *m_backgroundFetchManager;
+}
+#endif
 
 bool OriginStorageManager::StorageBucket::isActive() const
 {
@@ -539,6 +570,16 @@ String OriginStorageManager::StorageBucket::resolvedCacheStoragePath()
     return m_resolvedCacheStoragePath;
 }
 
+#if ENABLE(SERVICE_WORKER)
+String OriginStorageManager::StorageBucket::resolvedBackgroundFetchStoragePath()
+{
+    if (m_resolvedCacheStoragePath.isNull())
+        m_resolvedCacheStoragePath = typeStoragePath(StorageType::BackgroundFetchStorage);
+
+    return m_resolvedCacheStoragePath;
+}
+#endif
+
 String OriginStorageManager::StorageBucket::resolvedPath(WebsiteDataType webisteDataType)
 {
     auto type = toStorageType(webisteDataType);
@@ -552,6 +593,10 @@ String OriginStorageManager::StorageBucket::resolvedPath(WebsiteDataType webiste
         return resolvedIDBStoragePath();
     case StorageType::CacheStorage:
         return resolvedCacheStoragePath();
+#if ENABLE(SERVICE_WORKER)
+    case StorageType::BackgroundFetchStorage:
+        return resolvedBackgroundFetchStoragePath();
+#endif
     case StorageType::SessionStorage:
     case StorageType::FileSystem:
         return typeStoragePath(*type);
@@ -697,6 +742,20 @@ CacheStorageManager& OriginStorageManager::cacheStorageManager(CacheStorageRegis
         });
     }, WTFMove(queue));
 }
+
+#if ENABLE(SERVICE_WORKER)
+BackgroundFetchStoreManager& OriginStorageManager::backgroundFetchManager(Ref<WorkQueue>&& queue)
+{
+    return defaultBucket().backgroundFetchManager(WTFMove(queue), [quotaManager = ThreadSafeWeakPtr { this->quotaManager() }](uint64_t spaceRequested, CompletionHandler<void(bool)>&& completionHandler) mutable {
+        if (!quotaManager.get())
+            return completionHandler(false);
+
+        quotaManager.get()->requestSpace(spaceRequested, [completionHandler = WTFMove(completionHandler)](auto decision) mutable {
+            completionHandler(decision == QuotaManager::Decision::Grant);
+        });
+    });
+}
+#endif
 
 String OriginStorageManager::resolvedPath(WebsiteDataType type)
 {

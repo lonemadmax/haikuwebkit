@@ -93,6 +93,14 @@
 #include "LocalDefaultSystemAppearance.h"
 #endif
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#include "AcceleratedEffect.h"
+#include "AcceleratedEffectStack.h"
+#include "AcceleratedEffectValues.h"
+#include "KeyframeEffect.h"
+#include "KeyframeEffectStack.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -1131,8 +1139,8 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
         updateContentsRects();
     }
 #endif
-    else if (auto* remoteFrame = is<RenderWidget>(renderer()) ? downcast<RenderWidget>(renderer()).remoteFrame() : nullptr)
-        m_graphicsLayer->setContentsToPlatformLayerHost(remoteFrame->layerHostingContextIdentifier());
+    else if (auto* remoteFrame = is<RenderWidget>(renderer()) ? downcast<RenderWidget>(renderer()).remoteFrame() : nullptr; remoteFrame && remoteFrame->layerHostingContextIdentifier())
+        m_graphicsLayer->setContentsToPlatformLayerHost(*remoteFrame->layerHostingContextIdentifier());
     else if (shouldSetContentsDisplayDelegate()) {
         auto* canvas = downcast<HTMLCanvasElement>(renderer().element());
         if (auto* context = canvas->renderingContext())
@@ -3975,6 +3983,50 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation& anim
 
     return didAnimate;
 }
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+bool RenderLayerBacking::updateAcceleratedEffectsAndBaseValues()
+{
+    if (!renderer().settings().acceleratedCompositedAnimationsEnabled())
+        return false;
+
+    auto target = Styleable::fromRenderer(renderer());
+    ASSERT(target);
+
+    bool hasInterpolatingEffect = false;
+    auto borderBoxRect = snappedIntRect(m_owningLayer.rendererBorderBoxRect());
+
+    AcceleratedEffects acceleratedEffects;
+    if (auto* effectStack = target->keyframeEffectStack()) {
+        for (const auto& effect : effectStack->sortedEffects()) {
+            if (!effect || !effect->canBeAccelerated())
+                continue;
+            if (!hasInterpolatingEffect && effect->isRunningAccelerated())
+                hasInterpolatingEffect = true;
+            acceleratedEffects.append(AcceleratedEffect::create(*effect, borderBoxRect));
+        }
+    }
+
+    // If all of the effects in the stack are either idle, paused or filling, then the
+    // effect stack will not produce an interpolated value and we don't need to run
+    // any of these effects.
+    if (!hasInterpolatingEffect)
+        acceleratedEffects.clear();
+
+    auto baseValues = [&]() -> AcceleratedEffectValues {
+        if (auto* style = target->lastStyleChangeEventStyle())
+            return { *style, borderBoxRect };
+        return { };
+    }();
+
+    m_graphicsLayer->setAcceleratedEffectsAndBaseValues(WTFMove(acceleratedEffects), WTFMove(baseValues));
+
+    m_owningLayer.setNeedsPostLayoutCompositingUpdate();
+    m_owningLayer.setNeedsCompositingGeometryUpdate();
+
+    return hasInterpolatingEffect;
+}
+#endif
 
 void RenderLayerBacking::animationPaused(double timeOffset, const String& animationName)
 {

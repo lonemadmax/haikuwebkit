@@ -76,6 +76,7 @@
 #include "DragEvent.h"
 #include "Editing.h"
 #include "Editor.h"
+#include "ElementAncestorIteratorInlines.h"
 #include "ElementChildIteratorInlines.h"
 #include "ElementIterator.h"
 #include "ElementRareData.h"
@@ -169,6 +170,7 @@
 #include "NodeIterator.h"
 #include "NodeRareData.h"
 #include "NodeWithIndex.h"
+#include "NoiseInjectionPolicy.h"
 #include "NotificationController.h"
 #include "OverflowEvent.h"
 #include "PageConsoleClient.h"
@@ -185,6 +187,7 @@
 #include "PlugInsResources.h"
 #include "PluginDocument.h"
 #include "PointerCaptureController.h"
+#include "PointerEvent.h"
 #include "PointerLockController.h"
 #include "PolicyChecker.h"
 #include "PopStateEvent.h"
@@ -364,6 +367,10 @@
 #include "HTMLVideoElement.h"
 #endif
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#include "AcceleratedTimeline.h"
+#endif
+
 #define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).object().toUInt64(), this == &topDocument(), ##__VA_ARGS__)
 #define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).object().toUInt64(), this == &topDocument(), ##__VA_ARGS__)
 
@@ -394,7 +401,8 @@ static void CallbackForContainIntrinsicSize(const Vector<Ref<ResizeObserverEntry
         if (auto* target = entry->target()) {
             if (!target->isConnected()) {
                 observer.unobserve(*target);
-                target->clearLastRememberedSize();
+                target->clearLastRememberedLogicalWidth();
+                target->clearLastRememberedLogicalHeight();
                 continue;
             }
 
@@ -407,7 +415,10 @@ static void CallbackForContainIntrinsicSize(const Vector<Ref<ResizeObserverEntry
             ASSERT(box->style().hasAutoLengthContainIntrinsicSize());
 
             auto contentBoxSize = entry->contentBoxSize().at(0);
-            target->setLastRememberedSize(ResizeObserverSize::create(contentBoxSize->inlineSize(), contentBoxSize->blockSize()));
+            if (box->style().containIntrinsicLogicalWidthType() == ContainIntrinsicSizeType::AutoAndLength)
+                target->setLastRememberedLogicalWidth(LayoutUnit(contentBoxSize->inlineSize()));
+            if (box->style().containIntrinsicLogicalHeightType() == ContainIntrinsicSizeType::AutoAndLength)
+                target->setLastRememberedLogicalHeight(LayoutUnit(contentBoxSize->blockSize()));
         }
     }
 }
@@ -2020,11 +2031,6 @@ void Document::setStateForNewFormElements(const Vector<AtomString>& stateVector)
 FrameView* Document::view() const
 {
     return m_frame ? m_frame->view() : nullptr;
-}
-
-Page* Document::page() const
-{
-    return m_frame ? m_frame->page() : nullptr;
 }
 
 Ref<Range> Document::createRange()
@@ -4949,9 +4955,13 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
     }
 
     if (m_focusedElement) {
-        // Create the AXObject cache in a focus change because GTK relies on it.
-        if (AXObjectCache* cache = axObjectCache())
-            cache->deferFocusedUIElementChangeIfNeeded(oldFocusedElement.get(), newFocusedElement.get());
+#if PLATFORM(GTK)
+        // GTK relies on creating the AXObjectCache when a focus change happens.
+        if (auto* cache = axObjectCache())
+#else
+        if (auto* cache = existingAXObjectCache())
+#endif
+            cache->onFocusChange(oldFocusedElement.get(), newFocusedElement.get());
     }
 
     if (page())
@@ -8848,6 +8858,15 @@ DocumentTimeline& Document::timeline()
     return *m_timeline;
 }
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+AcceleratedTimeline& Document::acceleratedTimeline()
+{
+    if (!m_acceleratedTimeline)
+        m_acceleratedTimeline = makeUnique<AcceleratedTimeline>(*this);
+    return *m_acceleratedTimeline;
+}
+#endif
+
 Vector<RefPtr<WebAnimation>> Document::getAnimations()
 {
     return matchingAnimations([] (Element& target) -> bool {
@@ -8931,6 +8950,68 @@ HTMLDialogElement* Document::activeModalDialog() const
     }
 
     return nullptr;
+}
+
+HTMLElement* Document::topmostAutoPopover() const
+{
+    for (auto& element : makeReversedRange(m_topLayerElements)) {
+        if (auto* candidate = dynamicDowncast<HTMLElement>(element.get()); candidate->popoverState() == PopoverState::Auto)
+            return candidate;
+    }
+
+    return nullptr;
+}
+
+// https://html.spec.whatwg.org/#hide-all-popovers-until
+void Document::hideAllPopoversUntil(Element* endpoint, FocusPreviousElement focusPreviousElement, FireEvents fireEvents)
+{
+    Vector<Ref<HTMLElement>> popoversToHide;
+    for (auto& item : makeReversedRange(m_topLayerElements)) {
+        if (!is<HTMLElement>(item))
+            continue;
+        auto& element = downcast<HTMLElement>(item.get());
+        if (element.popoverState() == PopoverState::Auto) {
+            if (&element == endpoint)
+                break;
+            popoversToHide.append(element);
+        }
+    }
+
+    for (auto& popover : popoversToHide)
+        popover->hidePopoverInternal(focusPreviousElement, fireEvents);
+}
+
+void Document::handlePopoverLightDismiss(PointerEvent& event)
+{
+    ASSERT(event.isTrusted());
+
+    RefPtr topmostAutoPopover = this->topmostAutoPopover();
+    if (!topmostAutoPopover)
+        return;
+
+    RefPtr popoverToAvoidHiding = [&]() -> HTMLElement* {
+        auto& target = downcast<Node>(*event.target());
+        auto* startElement = is<Element>(target) ? &downcast<Element>(target) : target.parentElement();
+        for (auto& element : lineageOfType<HTMLElement>(*startElement)) {
+            if (element.popoverState() != PopoverState::Auto)
+                continue;
+            if (element.popoverData()->visibilityState() != PopoverVisibilityState::Showing)
+                continue;
+            return &element;
+        }
+        // FIXME: Handle popovertarget attributes.
+        return nullptr;
+    }();
+
+    if (event.type() == eventNames().pointerdownEvent) {
+        m_popoverPointerDownTarget = popoverToAvoidHiding;
+        return;
+    }
+
+    ASSERT(event.type() == eventNames().pointerupEvent);
+    if (m_popoverPointerDownTarget == popoverToAvoidHiding.get())
+        hideAllPopoversUntil(popoverToAvoidHiding.get(), FocusPreviousElement::No, FireEvents::Yes);
+    m_popoverPointerDownTarget = nullptr;
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -9538,6 +9619,22 @@ void Document::resetObservationSizeForContainIntrinsicSize(Element& target)
     if (!m_resizeObserverForContainIntrinsicSize)
         return;
     m_resizeObserverForContainIntrinsicSize->resetObservationSize(target);
+}
+
+#if __has_include(<WebKitAdditions/DocumentAdditions.cpp>)
+#include <WebKitAdditions/DocumentAdditions.cpp>
+#else
+NoiseInjectionPolicy Document::noiseInjectionPolicy() const
+{
+    return NoiseInjectionPolicy::None;
+}
+#endif
+
+std::optional<uint64_t> Document::noiseInjectionHashSalt() const
+{
+    if (!page() || noiseInjectionPolicy() == NoiseInjectionPolicy::None)
+        return std::nullopt;
+    return page()->noiseInjectionHashSaltForDomain(RegistrableDomain { m_url });
 }
 
 } // namespace WebCore

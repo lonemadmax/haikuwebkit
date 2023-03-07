@@ -466,6 +466,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     accessibility/isolatedtree/AXIsolatedObject.h
     accessibility/isolatedtree/AXIsolatedTree.h
 
+    animation/AcceleratedTimeline.h
     animation/AnimationFrameRatePreset.h
     animation/CSSPropertyBlendingClient.h
     animation/CustomAnimationOptions.h
@@ -668,6 +669,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/parser/CSSParser.h
     css/parser/CSSParserContext.h
+    css/parser/CSSParserEnum.h
     css/parser/CSSParserMode.h
     css/parser/CSSParserSelector.h
     css/parser/CSSParserToken.h
@@ -894,6 +896,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     editing/TextManipulationControllerExclusionRule.h
     editing/TextManipulationControllerManipulationFailure.h
     editing/TextManipulationItem.h
+    editing/TextManipulationItemIdentifier.h
     editing/TextManipulationToken.h
     editing/UndoStep.h
     editing/VisiblePosition.h
@@ -1164,6 +1167,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/HTTPHeaderField.h
     loader/HistoryController.h
     loader/ImageLoader.h
+    loader/LinkHeader.h
     loader/LinkLoader.h
     loader/LinkLoaderClient.h
     loader/LoadSchedulingMode.h
@@ -1547,6 +1551,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/Widget.h
     platform/WindowsKeyboardCodes.h
 
+    platform/animation/AcceleratedEffect.h
+    platform/animation/AcceleratedEffectStack.h
+    platform/animation/AcceleratedEffectValues.h
     platform/animation/Animation.h
     platform/animation/AnimationList.h
     platform/animation/AnimationUtilities.h
@@ -1914,6 +1921,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mediastream/CaptureDevice.h
     platform/mediastream/CaptureDeviceManager.h
     platform/mediastream/DisplayCaptureManager.h
+    platform/mediastream/DisplayCapturePromptType.h
     platform/mediastream/MDNSRegisterError.h
     platform/mediastream/MediaConstraints.h
     platform/mediastream/MediaStreamPrivate.h
@@ -2022,7 +2030,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/text/CharacterProperties.h
     platform/text/BidiContext.h
-    platform/text/FontRenderingMode.h
     platform/text/StringWithDirection.h
     platform/text/TextBoundaries.h
     platform/text/TextCheckerClient.h
@@ -2262,13 +2269,17 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/ServiceWorkerTypes.h
     workers/service/ServiceWorkerUpdateViaCache.h
 
+    workers/service/background-fetch/BackgroundFetch.h
+    workers/service/background-fetch/BackgroundFetchEngine.h
     workers/service/background-fetch/BackgroundFetchFailureReason.h
     workers/service/background-fetch/BackgroundFetchInformation.h
     workers/service/background-fetch/BackgroundFetchOptions.h
     workers/service/background-fetch/BackgroundFetchRecordIdentifier.h
     workers/service/background-fetch/BackgroundFetchRecordInformation.h
+    workers/service/background-fetch/BackgroundFetchRecordLoader.h
     workers/service/background-fetch/BackgroundFetchRequest.h
     workers/service/background-fetch/BackgroundFetchResult.h
+    workers/service/background-fetch/BackgroundFetchStore.h
     workers/service/background-fetch/BackgroundFetchUIOptions.h
     workers/service/background-fetch/ImageResource.h
 

@@ -5115,7 +5115,7 @@ static void logTextInteractionAssistantSelectionChange(const char* methodName, U
 }
 
 // The completion handler should pass the rect of the correction text after replacing the input text, or nil if the replacement could not be performed.
-- (void)applyAutocorrection:(NSString *)correction toString:(NSString *)input withCompletionHandler:(void (^)(UIWKAutocorrectionRects *rectsForCorrection))completionHandler
+- (void)applyAutocorrection:(NSString *)correction toString:(NSString *)input isCandidate:(BOOL)isCandidate withCompletionHandler:(void (^)(UIWKAutocorrectionRects *rectsForCorrection))completionHandler
 {
     if ([self _disableAutomaticKeyboardUI]) {
         if (completionHandler)
@@ -5128,14 +5128,19 @@ static void logTextInteractionAssistantSelectionChange(const char* methodName, U
 
     if (useSyncRequest) {
         if (completionHandler)
-            completionHandler(_page->applyAutocorrection(correction, input) ? [WKAutocorrectionRects autocorrectionRectsWithFirstCGRect:_autocorrectionData.textFirstRect lastCGRect:_autocorrectionData.textLastRect] : nil);
+            completionHandler(_page->applyAutocorrection(correction, input, isCandidate) ? [WKAutocorrectionRects autocorrectionRectsWithFirstCGRect:_autocorrectionData.textFirstRect lastCGRect:_autocorrectionData.textLastRect] : nil);
         return;
     }
 
-    _page->applyAutocorrection(correction, input, [view = retainPtr(self), completion = makeBlockPtr(completionHandler)](auto& string) {
+    _page->applyAutocorrection(correction, input, isCandidate, [view = retainPtr(self), completion = makeBlockPtr(completionHandler)](auto& string) {
         if (completion)
             completion(!string.isNull() ? [WKAutocorrectionRects autocorrectionRectsWithFirstCGRect:view->_autocorrectionData.textFirstRect lastCGRect:view->_autocorrectionData.textLastRect] : nil);
     });
+}
+
+- (void)applyAutocorrection:(NSString *)correction toString:(NSString *)input withCompletionHandler:(void (^)(UIWKAutocorrectionRects *rectsForCorrection))completionHandler
+{
+    [self applyAutocorrection:correction toString:input isCandidate:NO withCompletionHandler:completionHandler];
 }
 
 - (void)_invokePendingAutocorrectionContextHandler:(WKAutocorrectionContext *)context
@@ -6058,7 +6063,13 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
     return _traits.get();
 }
 
-- (void)_updateTextInputTraits:(id <UITextInputTraits>)traits
+#if !USE(APPLE_INTERNAL_SDK)
+- (void)_updateAdditionalTextInputTraits:(id<UITextInputTraits_Private>)privateTraits
+{
+}
+#endif
+
+- (void)_updateTextInputTraits:(id<UITextInputTraits>)traits
 {
     traits.secureTextEntry = _focusedElementInformation.elementType == WebKit::InputType::Password || [_formInputSession forceSecureTextEntry];
 
@@ -6204,6 +6215,8 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
 
     if ([privateTraits respondsToSelector:@selector(setShortcutConversionType:)])
         privateTraits.shortcutConversionType = _focusedElementInformation.elementType == WebKit::InputType::Password ? UITextShortcutConversionTypeNo : UITextShortcutConversionTypeDefault;
+
+    [self _updateAdditionalTextInputTraits:privateTraits];
 
     if ([traits isKindOfClass:UITextInputTraits.class])
         [self _updateInteractionTintColor:(UITextInputTraits *)traits];

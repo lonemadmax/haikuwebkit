@@ -141,7 +141,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/win/FullScreenController.h
     platform/graphics/win/FullScreenControllerClient.h
     platform/graphics/win/FullScreenWindow.h
-    platform/graphics/win/GraphicsContextWin.h
     platform/graphics/win/LocalWindowsContext.h
     platform/graphics/win/SharedGDIObject.h
 
@@ -238,8 +237,8 @@ if (USE_WOFF2)
     # The WOFF2 libraries don't compile as DLLs on Windows, so add in
     # the additional libraries WOFF2::dec requires
     list(APPEND WebCore_LIBRARIES
+        Brotli::dec
         WOFF2::common
-        brotlidec
     )
 endif ()
 

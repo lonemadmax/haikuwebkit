@@ -624,7 +624,8 @@ class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
         self.remotes = remotes
         self.additionalArguments = additionalArguments
 
-    def start(self):
+    @defer.inlineCallbacks
+    def run(self):
         if self.platform and self.platform != '*':
             self.setProperty('platform', self.platform, 'config.json')
         if self.fullPlatform and self.fullPlatform != '*':
@@ -645,10 +646,9 @@ class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
             self.setProperty('additionalArguments', self.additionalArguments, 'config.json')
 
         self.add_patch_id_url()
-        self.add_pr_details()
+        yield self.add_pr_details()
 
-        self.finished(SUCCESS)
-        return defer.succeed(None)
+        defer.returnValue(SUCCESS)
 
     def add_patch_id_url(self):
         patch_id = self.getProperty('patch_id', '')
@@ -657,6 +657,7 @@ class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
             self.setProperty('change_id', patch_id, 'ConfigureBuild')
             self.addURL('Patch {}'.format(patch_id), Bugzilla.patch_url(patch_id))
 
+    @defer.inlineCallbacks
     def add_pr_details(self):
         pr_number = self.getProperty('github.number')
         if not pr_number:
@@ -685,7 +686,7 @@ class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
             email, errors = GitHub.email_for_owners(owners)
             for error in errors:
                 print(error)
-                self._addToLog('stdio', error)
+                yield self._addToLog('stdio', error)
             if email:
                 display_name = '{} ({})'.format(email, owners[0])
             else:
@@ -1830,7 +1831,7 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
     descriptionDone = ['Validated commiter and reviewer']
     VALIDATORS_FOR = {
         # FIXME: Remove manual validators once bot is finished
-        'apple': ['geoffreygaren', 'markcgee', 'rjepstein', 'JonWBedard', 'ryanhaddad', 'webkit-bug-bridge'],
+        'apple': ['webkit-bug-bridge'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -2009,7 +2010,12 @@ class BlockPullRequest(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
         repository_url = self.getProperty('repository', '')
         pr_json = self.get_pr_json(pr_number, repository_url)
 
-        if self._is_hash_outdated(pr_json) == 0 and CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME:
+        if CURRENT_HOSTNAME != EWS_BUILD_HOSTNAME:
+            yield self._addToLog('stdio', 'Skipping this step on non-production instance.\n')
+        elif self._is_hash_outdated(pr_json) != 0:
+            pr_sha = (pr_json or {}).get('head', {}).get('sha', '')
+            yield self._addToLog('stdio', f'Skipping this step as hash {pr_sha} is outdated.\n')
+        else:
             repository_url = self.getProperty('repository', '')
             rc = SUCCESS
             did_remove_labels = yield self.remove_labels(pr_number, [self.MERGE_QUEUE_LABEL, self.UNSAFE_MERGE_QUEUE_LABEL, self.REQUEST_MERGE_QUEUE_LABEL], repository_url=repository_url)
@@ -2368,7 +2374,7 @@ class RunWebKitPerlTests(shell.ShellCommandNewStyle):
         return {'step': 'Failed webkitperl tests'}
 
     def evaluateCommand(self, cmd):
-        rc = shell.ShellCommand.evaluateCommand(self, cmd)
+        rc = shell.ShellCommandNewStyle.evaluateCommand(self, cmd)
         if rc == FAILURE:
             self.build.addStepsAfterCurrentStep([KillOldProcesses(), ReRunWebKitPerlTests()])
         return rc
@@ -2380,7 +2386,7 @@ class ReRunWebKitPerlTests(RunWebKitPerlTests):
     haltOnFailure = True
 
     def evaluateCommand(self, cmd):
-        return shell.ShellCommand.evaluateCommand(self, cmd)
+        return shell.ShellCommandNewStyle.evaluateCommand(self, cmd)
 
 
 class RunBuildWebKitOrgUnitTests(shell.ShellCommandNewStyle):
@@ -2740,14 +2746,14 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
     description = ['analyze-compile-webkit-results']
     descriptionDone = ['analyze-compile-webkit-results']
 
-    def start(self):
+    @defer.inlineCallbacks
+    def run(self):
         self.error_logs = {}
         self.compile_webkit_step = CompileWebKit.name
         if self.getProperty('group') == 'jsc':
             self.compile_webkit_step = CompileJSC.name
-        d = self.getResults(self.compile_webkit_step)
-        d.addCallback(lambda res: self.analyzeResults())
-        return defer.succeed(None)
+        yield self.getResults(self.compile_webkit_step)
+        defer.returnValue(self.analyzeResults())
 
     def analyzeResults(self):
         compile_without_patch_step = CompileWebKitWithoutChange.name
@@ -2762,16 +2768,14 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
             if pr_number and self.getProperty('github.base.ref') != 'main':
                 message = 'Unable to build WebKit without PR, please check manually'
                 self.descriptionDone = message
-                self.finished(FAILURE)
                 self.build.buildFinished([message], FAILURE)
-                return defer.succeed(None)
+                return FAILURE
 
             message = 'Unable to build WebKit without {}, retrying build'.format('PR' if pr_number else 'patch')
             self.descriptionDone = message
             self.send_email_for_preexisting_build_failure()
-            self.finished(FAILURE)
             self.build.buildFinished([message], RETRY)
-            return defer.succeed(None)
+            return FAILURE
 
         self.build.results = FAILURE
         sha = self.getProperty('github.head.sha')
@@ -2782,7 +2786,6 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
         self.send_email_for_new_build_failure()
 
         self.descriptionDone = message
-        self.finished(FAILURE)
         self.setProperty('build_finish_summary', message)
 
         if patch_id:
@@ -2794,16 +2797,20 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
         else:
             self.build.addStepsAfterCurrentStep([BlockPullRequest()])
 
+        return FAILURE
+
     @defer.inlineCallbacks
     def getResults(self, name):
         step = self.getBuildStepByName(name)
         if not step:
             defer.returnValue(None)
+            return
 
         logs = yield self.master.db.logs.getLogs(step.stepid)
         log = next((log for log in logs if log['name'] == 'errors'), None)
         if not log:
             defer.returnValue(None)
+            return
 
         lastline = int(max(0, log['num_lines'] - 1))
         logLines = yield self.master.db.logs.getLogLines(log['id'], 0, lastline)
@@ -2811,6 +2818,7 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
             logLines = '\n'.join([line[1:] for line in logLines.splitlines()])
 
         self.error_logs[name] = logLines
+        defer.returnValue(logLines)
 
     def getStepResult(self, step_name):
         for step in self.build.executedSteps:
@@ -4043,8 +4051,9 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
             self.build.addStepsAfterCurrentStep(next_steps)
         return rc
 
-    def commandComplete(self, cmd):
-        shell.Test.commandComplete(self, cmd)
+    @defer.inlineCallbacks
+    def runCommand(self, command):
+        yield shell.Test.runCommand(self, command)
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
         logTextJson = self.log_observer_json.getStdout()
         with_change_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
@@ -4090,8 +4099,9 @@ class RunWebKitTestsRepeatFailuresWithoutChangeRedTree(RunWebKitTestsRedTree):
         self.build.addStepsAfterCurrentStep([ArchiveTestResults(), UploadTestResults(identifier='repeat-failures-without-change'), ExtractTestResults(identifier='repeat-failures-without-change'), AnalyzeLayoutTestsResultsRedTree()])
         return rc
 
-    def commandComplete(self, cmd):
-        shell.Test.commandComplete(self, cmd)
+    @defer.inlineCallbacks
+    def runCommand(self, command):
+        yield shell.Test.runCommand(self, command)
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
         logTextJson = self.log_observer_json.getStdout()
         without_change_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
@@ -5016,8 +5026,8 @@ class PushCommitToWebKitRepo(shell.ShellCommand):
                         ShowIdentifier(),
                         CheckOutPullRequest(),
                         AddReviewerToCommitMessage(),
-                        ValidateChange(verifyMergeQueue=True, verifyNoDraftForMergeQueue=True, verifyObsolete=False, enableSkipEWSLabel=False),
                         Canonicalize(),
+                        ValidateChange(verifyMergeQueue=True, verifyNoDraftForMergeQueue=True, verifyObsolete=False, enableSkipEWSLabel=False),
                         PushPullRequestBranch(),
                         UpdatePullRequest(),
                         PushCommitToWebKitRepo(),
@@ -5031,8 +5041,8 @@ class PushCommitToWebKitRepo(shell.ShellCommand):
                         ShowIdentifier(),
                         CommitPatch(),
                         AddReviewerToCommitMessage(),
-                        ValidateChange(addURLs=False, verifycqplus=True),
                         Canonicalize(),
+                        ValidateChange(addURLs=False, verifycqplus=True),
                         PushCommitToWebKitRepo(),
                     ])
                 return rc

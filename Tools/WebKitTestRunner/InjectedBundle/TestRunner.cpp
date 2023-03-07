@@ -51,6 +51,7 @@
 #include <WebKit/WKPagePrivate.h>
 #include <WebKit/WKRetainPtr.h>
 #include <WebKit/WKSerializedScriptValue.h>
+#include <WebKit/WKStringPrivate.h>
 #include <WebKit/WebKit2_C.h>
 #include <wtf/HashMap.h>
 #include <wtf/StdLibExtras.h>
@@ -454,6 +455,24 @@ void TestRunner::setAllowsAnySSLCertificate(bool enabled)
 void TestRunner::setBackgroundFetchPermission(bool enabled)
 {
     postSynchronousPageMessage("SetBackgroundFetchPermission", enabled);
+}
+
+JSRetainPtr<JSStringRef>  TestRunner::lastAddedBackgroundFetchIdentifier() const
+{
+    auto identifier = InjectedBundle::singleton().lastAddedBackgroundFetchIdentifier();
+    return WKStringCopyJSString(identifier.get());
+}
+
+JSRetainPtr<JSStringRef>  TestRunner::lastRemovedBackgroundFetchIdentifier() const
+{
+    auto identifier = InjectedBundle::singleton().lastRemovedBackgroundFetchIdentifier();
+    return WKStringCopyJSString(identifier.get());
+}
+
+JSRetainPtr<JSStringRef> TestRunner::lastUpdatedBackgroundFetchIdentifier() const
+{
+    auto identifier = InjectedBundle::singleton().lastUpdatedBackgroundFetchIdentifier();
+    return WKStringCopyJSString(identifier.get());
 }
 
 void TestRunner::setShouldSwapToEphemeralSessionOnNextNavigation(bool shouldSwap)
@@ -916,6 +935,32 @@ void TestRunner::simulateWebNotificationClick(JSValueRef notification)
 void TestRunner::simulateWebNotificationClickForServiceWorkerNotifications()
 {
     InjectedBundle::singleton().postSimulateWebNotificationClickForServiceWorkerNotifications();
+}
+
+JSRetainPtr<JSStringRef> TestRunner::getBackgroundFetchIdentifier()
+{
+    auto identifier = InjectedBundle::singleton().getBackgroundFetchIdentifier();
+    return WKStringCopyJSString(identifier.get());
+}
+
+void TestRunner::abortBackgroundFetch(JSStringRef identifier)
+{
+    postSynchronousPageMessageWithReturnValue("AbortBackgroundFetch", toWK(identifier));
+}
+
+void TestRunner::pauseBackgroundFetch(JSStringRef identifier)
+{
+    postSynchronousPageMessageWithReturnValue("PauseBackgroundFetch", toWK(identifier));
+}
+
+void TestRunner::resumeBackgroundFetch(JSStringRef identifier)
+{
+    postSynchronousPageMessageWithReturnValue("ResumeBackgroundFetch", toWK(identifier));
+}
+
+void TestRunner::simulateClickBackgroundFetch(JSStringRef identifier)
+{
+    postSynchronousPageMessageWithReturnValue("SimulateClickBackgroundFetch", toWK(identifier));
 }
 
 void TestRunner::setGeolocationPermission(bool enabled)

@@ -29,6 +29,7 @@ import sys
 #
 # AdditionalEncoder - generate serializers for StreamConnectionEncoder in addition to IPC::Encoder.
 # CreateUsing - use a custom function to call instead of the constructor or create.
+# CustomHeader - don't include a header based on the struct/class name. Only needed for non-enum types.
 # Alias - this type is not a struct or class, but a typedef.
 # Nested - this type is only serialized as a member of its parent, so work around the need for http://wg21.link/P0289 and don't forward declare it in the header.
 # RefCounted - deserializer returns a std::optional<Ref<T>> instead of a std::optional<T>.
@@ -40,6 +41,7 @@ import sys
 #
 # BitField - work around the need for http://wg21.link/P0572 and don't check that the serialization order matches the memory layout.
 # Nullable - check if the member is truthy before serializing.
+# Validator - additional C++ to validate the value when decoding
 
 class SerializedType(object):
     def __init__(self, struct_or_class, namespace, name, parent_class_name, members, condition, attributes, other_metadata=None):
@@ -604,14 +606,15 @@ def generate_impl(serialized_types, serialized_enums, headers):
         result.append('template<> bool ' + enum.function_name() + '<' + enum.namespace_and_name() + enum.additional_template_parameter() + '>(' + enum.parameter() + ' value)')
         result.append('{')
         if enum.is_option_set():
-            result.append('    constexpr ' + enum.underlying_type + ' allValidBitsValue =')
+            result.append('    constexpr ' + enum.underlying_type + ' allValidBitsValue = 0')
             for i in range(0, len(enum.valid_values)):
                 valid_value = enum.valid_values[i]
                 if valid_value.condition is not None:
                     result.append('#if ' + valid_value.condition)
-                result.append('        ' + ('' if i == 0 else '| ') + 'static_cast<' + enum.underlying_type + '>(' + enum.namespace_and_name() + '::' + valid_value.name + ')' + (';' if i == len(enum.valid_values) - 1 else ''))
+                result.append('        | static_cast<' + enum.underlying_type + '>(' + enum.namespace_and_name() + '::' + valid_value.name + ')')
                 if valid_value.condition is not None:
                     result.append('#endif')
+            result.append('        | 0;')
             result.append('    return (value.toRaw() | allValidBitsValue) == allValidBitsValue;')
         else:
             result.append('    switch (static_cast<' + enum.namespace_and_name() + '>(value)) {')

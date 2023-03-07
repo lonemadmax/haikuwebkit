@@ -261,7 +261,9 @@ void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& re
     if (focusedElement && options.shouldSimulateKeyboardInput)
         focusedElement->dispatchEvent(Event::create(eventNames().keydownEvent, Event::CanBubble::Yes, Event::IsCancelable::Yes));
 
-    ASSERT(!frame->editor().hasComposition());
+    if (frame->editor().hasComposition())
+        return;
+
     frame->editor().insertDictatedText(text, dictationAlternativeLocations, nullptr /* triggeringEvent */);
 
     if (focusedElement && options.shouldSimulateKeyboardInput) {
@@ -384,7 +386,8 @@ WebRemoteObjectRegistry* WebPage::remoteObjectRegistry()
 
 void WebPage::updateMockAccessibilityElementAfterCommittingLoad()
 {
-    auto* document = mainFrame()->document();
+    auto* mainFrame = dynamicDowncast<WebCore::LocalFrame>(this->mainFrame());
+    auto* document = mainFrame ? mainFrame->document() : nullptr;
     [m_mockAccessibilityElement setHasMainFramePlugin:document ? document->isPluginDocument() : false];
 }
 

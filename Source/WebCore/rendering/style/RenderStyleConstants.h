@@ -726,6 +726,7 @@ enum class TextTransform : uint8_t {
     Uppercase,
     Lowercase,
     FullSizeKana,
+    FullWidth,
     None
 };
 
@@ -781,7 +782,9 @@ enum class TextUnderlinePosition : uint8_t {
     // FIXME: Implement support for 'under left' and 'under right' values.
     Auto,
     Under,
-    FromFont
+    FromFont,
+    Left,
+    Right
 };
 
 enum class LeadingTrim : uint8_t {
@@ -1258,6 +1261,11 @@ enum class ContentVisibility : uint8_t {
     Hidden,
 };
 
+enum class BlockStepInsert : uint8_t {
+    Margin,
+    Padding
+};
+
 CSSBoxType transformBoxToCSSBoxType(TransformBox);
 
 extern const float defaultMiterLimit;
@@ -1486,6 +1494,7 @@ template<> struct EnumTraits<WebCore::ListStyleType> {
         WebCore::ListStyleType::TraditionalChineseInformal,
         WebCore::ListStyleType::TraditionalChineseFormal,
         WebCore::ListStyleType::EthiopicNumeric,
+        WebCore::ListStyleType::CustomCounterStyle,
         WebCore::ListStyleType::String,
         WebCore::ListStyleType::None
     >;

@@ -1138,6 +1138,11 @@ WebCore::ResourceError WebFrameLoaderClient::fileDoesNotExistError(const WebCore
     return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist URL:response.url()];    
 }
 
+WebCore::ResourceError WebFrameLoaderClient::httpsUpgradeRedirectLoopError(const WebCore::ResourceRequest& request) const
+{
+    RELEASE_ASSERT_NOT_REACHED(); // This error should never be created in WebKit1 because HTTPSOnly/First aren't available.
+}
+
 WebCore::ResourceError WebFrameLoaderClient::pluginWillHandleLoadError(const WebCore::ResourceResponse& response) const
 {
     return adoptNS([[NSError alloc] _initWithPluginErrorCode:WebKitErrorPlugInWillHandleLoad
@@ -1575,9 +1580,20 @@ RefPtr<WebCore::Frame> WebFrameLoaderClient::createFrame(const AtomString& name,
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     
     ASSERT(m_webFrame);
-    
+
+    auto* ownerFrame = ownerElement.document().frame();
+    if (!ownerFrame) {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+    auto* page = ownerFrame->page();
+    if (!page) {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+
     auto childView = adoptNS([[WebFrameView alloc] init]);
-    auto result = [WebFrame _createSubframeWithOwnerElement:&ownerElement frameName:name frameView:childView.get()];
+    auto result = [WebFrame _createSubframeWithOwnerElement:ownerElement page:*page frameName:name frameView:childView.get()];
     auto newFrame = kit(result.ptr());
 
     if ([newFrame _dataSource])

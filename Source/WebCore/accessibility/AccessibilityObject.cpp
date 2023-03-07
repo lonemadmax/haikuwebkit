@@ -31,6 +31,7 @@
 
 #include "AXLogger.h"
 #include "AXObjectCache.h"
+#include "AXTextMarker.h"
 #include "AccessibilityRenderObject.h"
 #include "AccessibilityScrollView.h"
 #include "AccessibilityTable.h"
@@ -41,6 +42,7 @@
 #include "DocumentInlines.h"
 #include "Editing.h"
 #include "Editor.h"
+#include "ElementInlines.h"
 #include "ElementIterator.h"
 #include "Event.h"
 #include "EventDispatcher.h"
@@ -731,12 +733,17 @@ std::optional<SimpleRange> AccessibilityObject::selectionRange() const
     return { { { document, 0 }, { document, 0 } } };
 }
 
-std::optional<SimpleRange> AccessibilityObject::elementRange() const
+std::optional<SimpleRange> AccessibilityObject::simpleRange() const
 {
-    auto node = this->node();
+    auto* node = this->node();
     if (!node)
-        return { };
+        return std::nullopt;
     return AXObjectCache::rangeForNodeContents(*node);
+}
+
+AXTextMarkerRange AccessibilityObject::textMarkerRange() const
+{
+    return simpleRange();
 }
 
 Vector<BoundaryPoint> AccessibilityObject::previousLineStartBoundaryPoints(const VisiblePosition& startingPosition, const SimpleRange& targetRange, unsigned positionsToRetrieve) const
@@ -795,7 +802,7 @@ bool AccessibilityObject::boundaryPointsContainedInRect(const BoundaryPoint& sta
 
 std::optional<SimpleRange> AccessibilityObject::visibleCharacterRange() const
 {
-    auto range = elementRange();
+    auto range = simpleRange();
     auto contentRect = unobscuredContentRect();
     auto elementRect = snappedIntRect(this->elementRect());
     auto inputs = std::make_tuple(range, contentRect, elementRect);
@@ -933,7 +940,7 @@ Vector<SimpleRange> AccessibilityObject::findTextRanges(const AccessibilitySearc
     if (criteria.start == AccessibilitySearchTextStartFrom::Selection)
         range = selectionRange();
     else
-        range = elementRange();
+        range = simpleRange();
     if (!range)
         return { };
 
@@ -2795,6 +2802,14 @@ AutoFillButtonType AccessibilityObject::valueAutofillButtonType() const
     return downcast<HTMLInputElement>(*this->node()).autoFillButtonType();
 }
 
+String AccessibilityObject::textContent() const
+{
+    auto title = this->title();
+    if (!title.isEmpty())
+        return title;
+    return description();
+}
+
 const String AccessibilityObject::placeholderValue() const
 {
     const AtomString& placeholder = getAttribute(placeholderAttr);
@@ -4103,8 +4118,7 @@ static bool isAccessibilityTextSearchMatch(RefPtr<AXCoreObject> axObject, const 
     if (criteria.searchText.isEmpty())
         return true;
 
-    return containsPlainText(axObject->title(), criteria.searchText, CaseInsensitive)
-        || containsPlainText(axObject->accessibilityDescription(), criteria.searchText, CaseInsensitive)
+    return containsPlainText(axObject->textContent(), criteria.searchText, CaseInsensitive)
         || containsPlainText(axObject->stringValue(), criteria.searchText, CaseInsensitive);
 }
 

@@ -34,8 +34,23 @@
 
 namespace WebCore {
 
-RemoteFrame::RemoteFrame(Page& page, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, UniqueRef<RemoteFrameClient>&& client, LayerHostingContextIdentifier layerHostingContextIdentifier)
-    : AbstractFrame(page, frameID, ownerElement)
+Ref<RemoteFrame> RemoteFrame::createMainFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier)
+{
+    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, nullptr, std::nullopt));
+}
+
+Ref<RemoteFrame> RemoteFrame::createSubframe(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, AbstractFrame& parent)
+{
+    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, &parent, std::nullopt));
+}
+
+Ref<RemoteFrame> RemoteFrame::createSubframeWithContentsInAnotherProcess(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, HTMLFrameOwnerElement& ownerElement, LayerHostingContextIdentifier layerHostingContextIdentifier)
+{
+    return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame(), layerHostingContextIdentifier));
+}
+
+RemoteFrame::RemoteFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, AbstractFrame* parent, Markable<LayerHostingContextIdentifier> layerHostingContextIdentifier)
+    : AbstractFrame(page, frameID, ownerElement, parent)
     , m_window(RemoteDOMWindow::create(*this, GlobalWindowIdentifier { Process::identifier(), WindowIdentifier::generate() }))
     , m_client(WTFMove(client))
     , m_layerHostingContextIdentifier(layerHostingContextIdentifier)
@@ -56,13 +71,15 @@ RemoteDOMWindow& RemoteFrame::window() const
 
 void RemoteFrame::didFinishLoadInAnotherProcess()
 {
-    auto* ownerElement = this->ownerElement();
-    if (!ownerElement)
-        return;
+    m_preventsParentFromBeingComplete = false;
 
-    // FIXME: Do something so that this would not have caused the load event to fire before a state change
-    // but now does cause the load event to fire.
-    ownerElement->document().checkCompleted();
+    if (auto* ownerElement = this->ownerElement())
+        ownerElement->document().checkCompleted();
+}
+
+bool RemoteFrame::preventsParentFromBeingComplete() const
+{
+    return m_preventsParentFromBeingComplete;
 }
 
 AbstractFrameView* RemoteFrame::virtualView() const

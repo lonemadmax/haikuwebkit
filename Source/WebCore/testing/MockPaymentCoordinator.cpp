@@ -62,7 +62,7 @@ MockPaymentCoordinator::MockPaymentCoordinator(Page& page)
     m_availablePaymentNetworks.add("visa"_s);
 }
 
-std::optional<String> MockPaymentCoordinator::validatedPaymentNetwork(const String& paymentNetwork)
+std::optional<String> MockPaymentCoordinator::validatedPaymentNetwork(const String& paymentNetwork) const
 {
     auto result = m_availablePaymentNetworks.find(paymentNetwork);
     if (result == m_availablePaymentNetworks.end())
@@ -91,6 +91,11 @@ void MockPaymentCoordinator::openPaymentSetup(const String&, const String&, Comp
 
 static uint64_t showCount;
 static uint64_t hideCount;
+
+MockPaymentCoordinator::~MockPaymentCoordinator()
+{
+    ASSERT(showCount == hideCount);
+}
 
 void MockPaymentCoordinator::dispatchIfShowing(Function<void()>&& function)
 {
@@ -127,6 +132,9 @@ bool MockPaymentCoordinator::showPaymentUI(const URL&, const Vector<URL>&, const
 #if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
     m_multiTokenContexts = request.multiTokenContexts();
 #endif
+#if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
+    m_deferredPaymentRequest = request.deferredPaymentRequest();
+#endif
 
     ASSERT(showCount == hideCount);
     ++showCount;
@@ -162,6 +170,9 @@ void MockPaymentCoordinator::completeShippingMethodSelection(std::optional<Apple
 #if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
     m_multiTokenContexts = WTFMove(shippingMethodUpdate->newMultiTokenContexts);
 #endif
+#if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
+    m_deferredPaymentRequest = WTFMove(shippingMethodUpdate->newDeferredPaymentRequest);
+#endif
 }
 
 static Vector<MockPaymentError> convert(Vector<RefPtr<ApplePayError>>&& errors)
@@ -192,6 +203,9 @@ void MockPaymentCoordinator::completeShippingContactSelection(std::optional<Appl
 #if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
     m_multiTokenContexts = WTFMove(shippingContactUpdate->newMultiTokenContexts);
 #endif
+#if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
+    m_deferredPaymentRequest = WTFMove(shippingContactUpdate->newDeferredPaymentRequest);
+#endif
 }
 
 void MockPaymentCoordinator::completePaymentMethodSelection(std::optional<ApplePayPaymentMethodUpdate>&& paymentMethodUpdate)
@@ -214,6 +228,9 @@ void MockPaymentCoordinator::completePaymentMethodSelection(std::optional<AppleP
 #if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
     m_multiTokenContexts = WTFMove(paymentMethodUpdate->newMultiTokenContexts);
 #endif
+#if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
+    m_deferredPaymentRequest = WTFMove(paymentMethodUpdate->newDeferredPaymentRequest);
+#endif
 }
 
 #if ENABLE(APPLE_PAY_COUPON_CODE)
@@ -235,6 +252,9 @@ void MockPaymentCoordinator::completeCouponCodeChange(std::optional<ApplePayCoup
 #endif
 #if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
     m_multiTokenContexts = WTFMove(couponCodeUpdate->newMultiTokenContexts);
+#endif
+#if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
+    m_deferredPaymentRequest = WTFMove(couponCodeUpdate->newDeferredPaymentRequest);
 #endif
 }
 
@@ -307,12 +327,6 @@ void MockPaymentCoordinator::cancelPaymentSession()
 {
     ++hideCount;
     ASSERT(showCount == hideCount);
-}
-
-void MockPaymentCoordinator::paymentCoordinatorDestroyed()
-{
-    ASSERT(showCount == hideCount);
-    delete this;
 }
 
 void MockPaymentCoordinator::addSetupFeature(ApplePaySetupFeatureState state, ApplePaySetupFeatureType type, bool supportsInstallments)

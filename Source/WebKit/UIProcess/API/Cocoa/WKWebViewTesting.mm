@@ -113,6 +113,9 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     if (layer.anchorPointZ)
         ts.dumpProperty("layer anchorPointZ", makeString(layer.anchorPointZ));
 
+    if (layer.opacity != 1.0)
+        ts.dumpProperty("layer opacity", makeString(layer.opacity));
+
     if (traverse && layer.sublayers.count > 0) {
         TextStream::GroupScope scope(ts);
         ts << "sublayers";
@@ -319,7 +322,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setIndexOfGetDisplayMediaDeviceSelectedForTesting:(NSNumber *)nsIndex
 {
-#if HAVE(SCREEN_CAPTURE_KIT)
+#if ENABLE(MEDIA_STREAM)
     if (!_page)
         return;
 
@@ -328,6 +331,16 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
         index = nsIndex.unsignedIntValue;
 
     _page->setIndexOfGetDisplayMediaDeviceSelectedForTesting(index);
+#endif
+}
+
+- (void)_setSystemCanPromptForGetDisplayMediaForTesting:(BOOL)canPrompt
+{
+#if ENABLE(MEDIA_STREAM)
+    if (!_page)
+        return;
+
+    _page->setSystemCanPromptForGetDisplayMediaForTesting(!!canPrompt);
 #endif
 }
 

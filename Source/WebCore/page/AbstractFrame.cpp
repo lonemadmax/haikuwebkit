@@ -34,19 +34,16 @@
 
 namespace WebCore {
 
-static AbstractFrame* parentFrame(HTMLFrameOwnerElement* ownerElement)
-{
-    return ownerElement ? ownerElement->document().frame() : nullptr;
-}
-
-AbstractFrame::AbstractFrame(Page& page, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement)
+AbstractFrame::AbstractFrame(Page& page, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, AbstractFrame* parent)
     : m_page(page)
     , m_frameID(frameID)
-    , m_treeNode(*this, parentFrame(ownerElement))
+    , m_treeNode(*this, parent)
     , m_windowProxy(WindowProxy::create(*this))
     , m_ownerElement(ownerElement)
+    , m_mainFrame(parent ? page.mainFrame() : *this)
+    , m_settings(page.settings())
 {
-    if (auto* parent = parentFrame(ownerElement))
+    if (parent)
         parent->tree().appendChild(*this);
 }
 
@@ -59,16 +56,6 @@ void AbstractFrame::resetWindowProxy()
 {
     m_windowProxy->detachFromFrame();
     m_windowProxy = WindowProxy::create(*this);
-}
-
-Page* AbstractFrame::page() const
-{
-    return m_page.get();
-}
-
-HTMLFrameOwnerElement* AbstractFrame::ownerElement() const
-{
-    return m_ownerElement.get();
 }
 
 void AbstractFrame::detachFromPage()

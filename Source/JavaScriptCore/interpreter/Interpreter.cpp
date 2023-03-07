@@ -44,6 +44,7 @@
 #include "EvalCodeBlock.h"
 #include "ExecutableBaseInlines.h"
 #include "FrameTracers.h"
+#include "GlobalObjectMethodTable.h"
 #include "InterpreterInlines.h"
 #include "JITCode.h"
 #include "JSArrayInlines.h"
@@ -72,6 +73,7 @@
 #include "VMInlines.h"
 #include "VMTrapsInlines.h"
 #include "VirtualRegister.h"
+#include "WasmThunks.h"
 #include <stdio.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
@@ -554,10 +556,16 @@ CatchInfo::CatchInfo(const Wasm::HandlerInfo* handler, const Wasm::Callee* calle
     if (m_valid) {
         m_type = HandlerType::Catch;
         m_nativeCode = handler->m_nativeCode;
+        m_nativeCodeForDispatchAndCatch = nullptr;
+        m_catchPCForInterpreter = { static_cast<WasmInstruction*>(nullptr) };
         if (callee->compilationMode() == Wasm::CompilationMode::LLIntMode)
             m_catchPCForInterpreter = { static_cast<const Wasm::LLIntCallee*>(callee)->instructions().at(handler->m_target).ptr() };
-        else
-            m_catchPCForInterpreter = { static_cast<WasmInstruction*>(nullptr) };
+        else {
+#if USE(JSVALUE64)
+            m_nativeCode = Wasm::Thunks::singleton().stub(Wasm::catchInWasmThunkGenerator).template retagged<ExceptionHandlerPtrTag>().code();
+            m_nativeCodeForDispatchAndCatch = handler->m_nativeCode;
+#endif
+        }
     }
 }
 #endif
@@ -1044,7 +1052,7 @@ JSValue Interpreter::executeBoundCall(VM& vm, JSBoundFunction* function, const A
     auto callData = JSC::getCallData(targetFunction);
     ASSERT(callData.type != CallData::Type::None);
 
-    return executeCallImpl(vm, targetFunction, callData, boundThis, combinedArgs);
+    RELEASE_AND_RETURN(scope, executeCallImpl(vm, targetFunction, callData, boundThis, combinedArgs));
 }
 
 ALWAYS_INLINE JSValue Interpreter::executeCallImpl(VM& vm, JSObject* function, const CallData& callData, JSValue thisValue, const ArgList& args)

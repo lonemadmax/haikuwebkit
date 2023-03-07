@@ -34,6 +34,7 @@
 #include "APINavigation.h"
 #include "AuthenticationChallengeProxy.h"
 #include "AuthenticationManager.h"
+#include "BackgroundFetchState.h"
 #include "DownloadProxyMap.h"
 #include "DownloadProxyMessages.h"
 #include "FrameInfoData.h"
@@ -41,6 +42,7 @@
 #include "Logging.h"
 #include "NetworkContentRuleListManagerMessages.h"
 #include "NetworkProcessConnectionInfo.h"
+#include "NetworkProcessConnectionParameters.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessMessages.h"
 #include "NetworkProcessProxyMessages.h"
@@ -301,7 +303,7 @@ void NetworkProcessProxy::getNetworkProcessConnection(WebProcessProxy& webProces
 {
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::NetworkProcess::CreateNetworkConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID() }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto cookieAcceptPolicy) mutable {
+    sendWithAsyncReply(Messages::NetworkProcess::CreateNetworkConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), { webProcessProxy.allowTestOnlyIPC() } }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto cookieAcceptPolicy) mutable {
         if (!weakThis) {
             RELEASE_LOG_ERROR(Process, "NetworkProcessProxy::getNetworkProcessConnection: NetworkProcessProxy deallocated during connection establishment");
             return reply({ });
@@ -1519,7 +1521,7 @@ void NetworkProcessProxy::endServiceWorkerBackgroundProcessing(WebCore::ProcessI
 
 void NetworkProcessProxy::requestBackgroundFetchPermission(PAL::SessionID sessionID, const WebCore::ClientOrigin& origin, CompletionHandler<void(bool)>&& callback)
 {
-    RELEASE_LOG(Storage, "%p - NetworkProcessProxy::requestStorageSpace", this);
+    RELEASE_LOG(ServiceWorker, "%p - NetworkProcessProxy::requestBackgroundFetchPermission", this);
     auto* store = websiteDataStoreFromSessionID(sessionID);
 
     if (!store) {
@@ -1529,6 +1531,54 @@ void NetworkProcessProxy::requestBackgroundFetchPermission(PAL::SessionID sessio
 
     store->client().requestBackgroundFetchPermission(origin.topOrigin, origin.clientOrigin, WTFMove(callback));
 }
+
+void NetworkProcessProxy::getAllBackgroundFetchIdentifiers(PAL::SessionID sessionID, CompletionHandler<void(Vector<String>&&)>&& callback)
+{
+    if (!canSendMessage()) {
+        callback({ });
+        return;
+    }
+    sendWithAsyncReply(Messages::NetworkProcess::GetAllBackgroundFetchIdentifiers { sessionID }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::getBackgroundFetchState(PAL::SessionID sessionID, const String& identifier, CompletionHandler<void(std::optional<BackgroundFetchState>&&)>&& callback)
+{
+    if (!canSendMessage()) {
+        callback({ });
+        return;
+    }
+
+    sendWithAsyncReply(Messages::NetworkProcess::GetBackgroundFetchState { sessionID, identifier }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::abortBackgroundFetch(PAL::SessionID sessionID, const String& identifier, CompletionHandler<void()>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::AbortBackgroundFetch { sessionID, identifier }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::pauseBackgroundFetch(PAL::SessionID sessionID, const String& identifier, CompletionHandler<void()>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::PauseBackgroundFetch { sessionID, identifier }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::resumeBackgroundFetch(PAL::SessionID sessionID, const String& identifier, CompletionHandler<void()>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::ResumeBackgroundFetch { sessionID, identifier }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::clickBackgroundFetch(PAL::SessionID sessionID, const String& identifier, CompletionHandler<void()>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::ClickBackgroundFetch { sessionID, identifier }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::notifyBackgroundFetchChange(PAL::SessionID sessionID, const String& backgroundFetchIdentifier, BackgroundFetchChange backgroundFetchChange)
+{
+    auto* store = websiteDataStoreFromSessionID(sessionID);
+    if (!store)
+        return;
+    store->client().notifyBackgroundFetchChange(backgroundFetchIdentifier, backgroundFetchChange);
+}
+
 #endif // ENABLE(SERVICE_WORKER)
 
 void NetworkProcessProxy::requestStorageSpace(PAL::SessionID sessionID, const WebCore::ClientOrigin& origin, uint64_t currentQuota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(std::optional<uint64_t> quota)>&& completionHandler)

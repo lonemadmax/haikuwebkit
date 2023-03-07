@@ -23,8 +23,13 @@
 
 #include "Shared/Sandbox/iOS/common.sb"
 
+(define (lockdown-mode)
+    (require-not (require-entitlement "com.apple.private.verified-jit")))
+
 #if USE(SANDBOX_VERSION_3)
 (allow dynamic-code-generation)
+(with-filter (lockdown-mode)
+    (deny dynamic-code-generation))
 
 (with-filter (mac-policy-name "Sandbox")
     (allow system-mac-syscall (mac-syscall-number 65 67)))
@@ -299,8 +304,9 @@
         (global-name "com.apple.frontboard.systemappservices")                 ; -[UIViewServiceInterface _createProcessAssertion] -> SBSProcessIDForDisplayIdentifier()
     )
 
-    (allow mach-lookup
-        (global-name "com.apple.CARenderServer"))
+#if !ENABLE(CARENDERSERVER_BLOCKING_IN_WEBCONTENT)
+    (allow mach-lookup (global-name "com.apple.CARenderServer"))
+#endif
 
     ; UIKit-required IOKit nodes.
     (deny iokit-open-user-client (with telemetry)
@@ -457,10 +463,10 @@
         (extension-class "com.apple.app-sandbox.read-write" "com.apple.app-sandbox.read")
         (extension "com.apple.fileprovider.read-write")))
 
-(allow mach-lookup
-    (global-name "com.apple.logd")
-    (global-name "com.apple.logd.events")
-)
+(with-filter (require-not (state-flag "DisableLogging"))
+    (allow mach-lookup (global-name
+        "com.apple.logd"
+        "com.apple.logd.events")))
 
 (deny mach-lookup (with no-report)
     (global-name "com.apple.distributed_notifications@1v3"))
@@ -1158,9 +1164,6 @@
 
 (with-filter (system-attribute apple-internal)
     (allow syscall-unix (syscall-number SYS_kdebug_trace_string))) ;; Needed for performance sampling, see <rdar://problem/48829655>.
-
-(define (lockdown-mode)
-    (require-not (require-entitlement "com.apple.private.verified-jit")))
     
 (with-filter (lockdown-mode)
     (allow syscall-unix (with report) (with telemetry) (with message "Lockdown mode")
@@ -1397,7 +1400,6 @@
         task_restartable_ranges_synchronize
         thread_get_state_to_user
         thread_resume
-        thread_set_exception_ports
         thread_suspend))
 
 (define (kernel-mig-routine-blocked-in-lockdown-mode)
@@ -1460,6 +1462,9 @@
                 (kernel-mig-routine-only-in-use-during-launch)))
 #endif
 
+        (with-filter (require-not (lockdown-mode))
+            (allow mach-message-send (kernel-mig-routine thread_set_exception_ports)))
+
         (with-filter (lockdown-mode)
             (allow mach-message-send (with report) (with telemetry) (with message "Lockdown mode")
                 (kernel-mig-routine-blocked-in-lockdown-mode))
@@ -1490,6 +1495,10 @@
         "com.apple.accessibility.wob.status"
         "com.apple.automation.stringlookupinfoenabled"
         "com.apple.webinspectord.availability_check"))
+
+(with-filter (state-flag "WebContentProcessLaunched")
+    (allow mach-task-special-port-get (with report) (with telemetry))
+    (allow mach-task-special-port-set (with report) (with telemetry)))
 
 #if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
 #include <WebKitAdditions/SystemContentSandbox-ios.defs>

@@ -49,8 +49,9 @@
 #include "WebGLTransformFeedback.h"
 #include "WebGLVertexArrayObject.h"
 #include "WebGLVertexArrayObjectOES.h"
-#include <JavaScriptCore/ArrayBufferView.h>
 #include <JavaScriptCore/ConsoleTypes.h>
+#include <JavaScriptCore/GenericTypedArrayView.h>
+#include <JavaScriptCore/TypedArrayAdaptors.h>
 #include <limits>
 #include <memory>
 #include <wtf/CheckedArithmetic.h>
@@ -439,7 +440,7 @@ public:
     void prepareForDisplayWithPaint() final;
     void paintRenderingResultsToCanvas() final;
     RefPtr<PixelBuffer> paintRenderingResultsToPixelBuffer();
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
     RefPtr<VideoFrame> paintCompositedResultsToVideoFrame();
 #endif
 

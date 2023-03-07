@@ -52,6 +52,7 @@ $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteComputePipeline.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteDevice.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteExternalTexture.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteGPU.messages.in
+$(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteGPURequestAdapterResponse.serialization.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemotePipelineLayout.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemotePresentationContext.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteQuerySet.messages.in
@@ -67,6 +68,7 @@ $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteSwapChain.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteTexture.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteTextureView.messages.in
 $(PROJECT_DIR)/GPUProcess/mac/com.apple.WebKit.GPUProcess.sb.in
+$(PROJECT_DIR)/GPUProcess/media/AudioTrackPrivateRemoteConfiguration.serialization.in
 $(PROJECT_DIR)/GPUProcess/media/InitializationSegmentInfo.serialization.in
 $(PROJECT_DIR)/GPUProcess/media/MediaDescriptionInfo.serialization.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteAudioDestinationManager.messages.in
@@ -93,6 +95,8 @@ $(PROJECT_DIR)/GPUProcess/media/RemoteTextTrackProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteVideoFrameObjectHeap.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteVideoTrackProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/TextTrackPrivateRemoteConfiguration.serialization.in
+$(PROJECT_DIR)/GPUProcess/media/TrackPrivateRemoteConfiguration.serialization.in
+$(PROJECT_DIR)/GPUProcess/media/VideoTrackPrivateRemoteConfiguration.serialization.in
 $(PROJECT_DIR)/GPUProcess/media/ios/RemoteMediaSessionHelperProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/webrtc/LibWebRTCCodecsProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/webrtc/RemoteAudioMediaStreamTrackRenderer.messages.in
@@ -163,6 +167,7 @@ $(PROJECT_DIR)/Shared/ApplePay/PaymentSetupConfiguration.serialization.in
 $(PROJECT_DIR)/Shared/ApplePay/WebPaymentCoordinatorProxy.messages.in
 $(PROJECT_DIR)/Shared/Authentication/AuthenticationManager.messages.in
 $(PROJECT_DIR)/Shared/AuxiliaryProcess.messages.in
+$(PROJECT_DIR)/Shared/BackgroundFetchState.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/CacheStoragePolicy.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/DataDetectionResult.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/RevealItem.serialization.in
@@ -177,6 +182,7 @@ $(PROJECT_DIR)/Shared/FocusedElementInformation.serialization.in
 $(PROJECT_DIR)/Shared/FrameInfoData.serialization.in
 $(PROJECT_DIR)/Shared/FrameTreeNodeData.serialization.in
 $(PROJECT_DIR)/Shared/Gamepad/GamepadData.serialization.in
+$(PROJECT_DIR)/Shared/GPUProcessConnectionParameters.serialization.in
 $(PROJECT_DIR)/Shared/HTTPSUpgrade/HTTPSUpgradeList.txt
 $(PROJECT_DIR)/Shared/IPCConnectionTester.messages.in
 $(PROJECT_DIR)/Shared/IPCStreamTester.messages.in
@@ -185,6 +191,7 @@ $(PROJECT_DIR)/Shared/IPCTester.messages.in
 $(PROJECT_DIR)/Shared/IPCTesterReceiver.messages.in
 $(PROJECT_DIR)/Shared/LayerTreeContext.serialization.in
 $(PROJECT_DIR)/Shared/Model.serialization.in
+$(PROJECT_DIR)/Shared/NetworkProcessConnectionParameters.serialization.in
 $(PROJECT_DIR)/Shared/Notifications/NotificationManagerMessageHandler.messages.in
 $(PROJECT_DIR)/Shared/Notifications/NotificationManagerProxy.messages.in
 $(PROJECT_DIR)/Shared/NavigationActionData.serialization.in
@@ -417,6 +424,7 @@ $(PROJECT_DIR)/WebProcess/WebCoreSupport/WebFileSystemStorageConnection.messages
 $(PROJECT_DIR)/WebProcess/WebCoreSupport/WebPermissionController.messages.in
 $(PROJECT_DIR)/WebProcess/WebCoreSupport/WebScreenOrientationManager.messages.in
 $(PROJECT_DIR)/WebProcess/WebCoreSupport/WebSpeechRecognitionConnection.messages.in
+$(PROJECT_DIR)/WebProcess/WebCoreSupport/WebSpeechSynthesisVoice.serialization.in
 $(PROJECT_DIR)/WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.messages.in
 $(PROJECT_DIR)/WebProcess/WebPage/DrawingArea.messages.in
 $(PROJECT_DIR)/WebProcess/WebPage/EventDispatcher.messages.in

@@ -149,10 +149,8 @@ static inline float parentTextZoomFactor(Frame* frame)
     return parent->textZoomFactor();
 }
 
-Frame::Frame(Page& page, HTMLFrameOwnerElement* ownerElement, UniqueRef<FrameLoaderClient>&& frameLoaderClient, FrameIdentifier identifier)
-    : AbstractFrame(page, identifier, ownerElement)
-    , m_mainFrame(ownerElement ? page.mainFrame() : *this)
-    , m_settings(&page.settings())
+Frame::Frame(Page& page, UniqueRef<FrameLoaderClient>&& frameLoaderClient, FrameIdentifier identifier, HTMLFrameOwnerElement* ownerElement, AbstractFrame* parent)
+    : AbstractFrame(page, identifier, ownerElement, parent)
     , m_loader(makeUniqueRef<FrameLoader>(*this, WTFMove(frameLoaderClient)))
     , m_navigationScheduler(makeUniqueRef<NavigationScheduler>(*this))
     , m_script(makeUniqueRef<ScriptController>(*this))
@@ -164,7 +162,7 @@ Frame::Frame(Page& page, HTMLFrameOwnerElement* ownerElement, UniqueRef<FrameLoa
     StaticCSSValuePool::init();
 
     if (ownerElement) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame))
+        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame()))
             localMainFrame->selfOnlyRef();
         ownerElement->setContentFrame(*this);
     }
@@ -183,10 +181,19 @@ void Frame::init()
     m_loader->init();
 }
 
-Ref<Frame> Frame::create(Page* page, HTMLFrameOwnerElement* ownerElement, UniqueRef<FrameLoaderClient>&& client, FrameIdentifier identifier)
+Ref<Frame> Frame::createMainFrame(Page& page, UniqueRef<FrameLoaderClient>&& client, FrameIdentifier identifier)
 {
-    ASSERT(page);
-    return adoptRef(*new Frame(*page, ownerElement, WTFMove(client), identifier));
+    return adoptRef(*new Frame(page, WTFMove(client), identifier, nullptr, nullptr));
+}
+
+Ref<Frame> Frame::createSubframe(Page& page, UniqueRef<FrameLoaderClient>&& client, FrameIdentifier identifier, HTMLFrameOwnerElement& ownerElement)
+{
+    return adoptRef(*new Frame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame()));
+}
+
+Ref<Frame> Frame::createSubframeHostedInAnotherProcess(Page& page, UniqueRef<FrameLoaderClient>&& client, FrameIdentifier identifier, AbstractFrame& parent)
+{
+    return adoptRef(*new Frame(page, WTFMove(client), identifier, nullptr, &parent));
 }
 
 Frame::~Frame()
@@ -211,7 +218,7 @@ Frame::~Frame()
     while (auto* destructionObserver = m_destructionObservers.takeAny())
         destructionObserver->frameDestroyed();
 
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame);
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
     if (!isMainFrame() && localMainFrame)
         localMainFrame->selfOnlyDeref();
 }
@@ -312,6 +319,11 @@ void Frame::setDocument(RefPtr<Document>&& newDocument)
 void Frame::frameDetached()
 {
     m_loader->frameDetached();
+}
+
+bool Frame::preventsParentFromBeingComplete() const
+{
+    return !m_loader->isComplete() && (!ownerElement() || !ownerElement()->isLazyLoadObserverActive());
 }
 
 void Frame::invalidateContentEventRegionsIfNeeded(InvalidateContentEventRegionsReason reason)
@@ -548,7 +560,7 @@ bool Frame::selectionChangeCallbacksDisabled() const
 
 bool Frame::requestDOMPasteAccess(DOMPasteAccessCategory pasteAccessCategory)
 {
-    if (m_settings->javaScriptCanAccessClipboard() && m_settings->domPasteAllowed())
+    if (settings().javaScriptCanAccessClipboard() && settings().domPasteAllowed())
         return true;
 
     if (!m_doc)
@@ -557,7 +569,7 @@ bool Frame::requestDOMPasteAccess(DOMPasteAccessCategory pasteAccessCategory)
     if (editor().isPastingFromMenuOrKeyBinding())
         return true;
 
-    if (!m_settings->domPasteAccessRequestsEnabled())
+    if (!settings().domPasteAccessRequestsEnabled())
         return false;
 
     auto gestureToken = UserGestureIndicator::currentUserGesture();

@@ -47,6 +47,7 @@
 #include "APINavigationAction.h"
 #include "APINavigationClient.h"
 #include "APINavigationResponse.h"
+#include "APINumber.h"
 #include "APIOpenPanelParameters.h"
 #include "APIPageConfiguration.h"
 #include "APIPolicyClient.h"
@@ -54,6 +55,7 @@
 #include "APISecurityOrigin.h"
 #include "APISerializedScriptValue.h"
 #include "APIUIClient.h"
+#include "APIURL.h"
 #include "APIURLRequest.h"
 #include "APIWebsitePolicies.h"
 #include "AuthenticationChallengeProxy.h"
@@ -320,11 +322,11 @@
 #include <WebCore/HighlightVisibility.h>
 #endif
 
-#if HAVE(SCREEN_CAPTURE_KIT)
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 #import "DisplayCaptureSessionManager.h"
 #endif
 
-#if HAVE(SC_CONTENT_SHARING_SESSION)
+#if HAVE(SCREEN_CAPTURE_KIT)
 #import <WebCore/ScreenCaptureKitSharingSessionManager.h>
 #endif
 
@@ -470,9 +472,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref
     , m_fullscreenClient(makeUnique<API::FullscreenClient>())
 #endif
     , m_geolocationPermissionRequestManager(*this)
-#if USE(RUNNINGBOARD)
     , m_audibleActivityTimer(RunLoop::main(), this, &WebPageProxy::clearAudibleActivity)
-#endif
     , m_initialCapitalizationEnabled(m_configuration->initialCapitalizationEnabled())
     , m_cpuLimit(m_configuration->cpuLimit())
     , m_backForwardList(WebBackForwardList::create(*this))
@@ -891,6 +891,9 @@ void WebPageProxy::launchProcess(const RegistrableDomain& registrableDomain, Pro
     if (m_preferences->store().getBoolValueForKey(WebPreferencesKey::ipcTestingAPIEnabledKey()))
         m_process->setIgnoreInvalidMessageForTesting();
 #endif
+    
+    if (m_configuration->allowTestOnlyIPC())
+        m_process->setAllowTestOnlyIPC(true);
 
     finishAttachingToWebProcess(reason);
 
@@ -1140,6 +1143,11 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
 
 void WebPageProxy::setDrawingArea(std::unique_ptr<DrawingAreaProxy>&& drawingArea)
 {
+#if ENABLE(ASYNC_SCROLLING) && PLATFORM(COCOA)
+    // The scrolling coordinator needs to do cleanup before the drawing area goes away.
+    m_scrollingCoordinatorProxy = nullptr;
+#endif
+
     m_drawingArea = WTFMove(drawingArea);
     if (!m_drawingArea)
         return;
@@ -1260,14 +1268,12 @@ void WebPageProxy::close()
     // Null out related WebPageProxy to avoid leaks.
     m_configuration->setRelatedPage(nullptr);
 
-#if PLATFORM(IOS_FAMILY)
     // Make sure we don't hold a process assertion after getting closed.
     m_isVisibleActivity = nullptr;
     m_isAudibleActivity = nullptr;
     m_isCapturingActivity = nullptr;
     m_openingAppLinkActivity = nullptr;
     m_audibleActivityTimer.stop();
-#endif
 
     stopAllURLSchemeTasks();
     updatePlayingMediaDidChange(MediaProducer::IsNotPlaying);
@@ -2442,13 +2448,11 @@ void WebPageProxy::updateThrottleState()
 #endif
 }
 
-#if USE(RUNNINGBOARD)
 void WebPageProxy::clearAudibleActivity()
 {
     WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "updateThrottleState: UIProcess is releasing a foreground assertion because we are no longer playing audio");
     m_isAudibleActivity = nullptr;
 }
-#endif
 
 void WebPageProxy::updateHiddenPageThrottlingAutoIncreases()
 {
@@ -3012,6 +3016,7 @@ void WebPageProxy::processNextQueuedMouseEvent()
 #endif
 
     LOG_WITH_STREAM(MouseHandling, stream << "UIProcess: sent mouse event " << eventType << " (queue size " << m_mouseEventQueue.size() << ")");
+    m_process->recordUserGestureAuthorizationToken(event.authorizationToken());
     send(Messages::WebPage::MouseEvent(event, sandboxExtensions));
 }
 
@@ -3058,8 +3063,7 @@ void WebPageProxy::handleWheelEvent(const NativeWebWheelEvent& event)
         if (event.momentumPhase() == WebWheelEvent::PhaseBegan && preferences().momentumScrollingAnimatorEnabled())
             m_scrollingAccelerationCurve = ScrollingAccelerationCurve::fromNativeWheelEvent(event);
 #endif
-        // "MainThreadForScrolling" here means "needs sending to the web process".
-        continueWheelEventHandling(event, { WheelEventProcessingSteps::MainThreadForScrolling, false });
+        continueWheelEventHandling(event, { WheelEventProcessingSteps::SynchronousScrolling, false });
         return;
     }
 
@@ -3176,6 +3180,7 @@ bool WebPageProxy::handleKeyboardEvent(const NativeWebKeyboardEvent& event)
 
     if (m_keyEventQueue.size() == 1) { // Otherwise, sent from DidReceiveEvent message handler.
         LOG(KeyHandling, " UI process: sent keyEvent from handleKeyboardEvent");
+        m_process->recordUserGestureAuthorizationToken(event.authorizationToken());
         send(Messages::WebPage::KeyEvent(event));
     }
 
@@ -5351,7 +5356,7 @@ void WebPageProxy::didFinishLoadForFrame(FrameIdentifier frameID, FrameInfoData&
                 automationSession->navigationOccurredForFrame(*frame);
         }
 
-        frame->didFinishLoad();
+        frame->didFinishLoad(request.url().isAboutBlank());
 
         m_pageLoadState.commitChanges();
     }
@@ -5641,11 +5646,13 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL&, bool, WebFramePolicyListen
 }
 #endif
 
-void WebPageProxy::decidePolicyForNavigationActionAsync(FrameIdentifier frameID, FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier, uint64_t navigationID,
+void WebPageProxy::decidePolicyForNavigationActionAsync(IPC::Connection& connection, FrameIdentifier frameID, FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier, uint64_t navigationID,
     NavigationActionData&& navigationActionData, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&& request,
     IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse, uint64_t listenerID)
 {
-    decidePolicyForNavigationActionAsyncShared(m_process.copyRef(), m_webPageID, frameID, WTFMove(frameInfo), identifier, navigationID, WTFMove(navigationActionData), WTFMove(originatingFrameInfo), originatingPageID, originalRequest, WTFMove(request), WTFMove(requestBody), WTFMove(redirectResponse), listenerID);
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    MESSAGE_CHECK_BASE(frame, &connection);
+    decidePolicyForNavigationActionAsyncShared(Ref { frame->process() }, m_webPageID, frameID, WTFMove(frameInfo), identifier, navigationID, WTFMove(navigationActionData), WTFMove(originatingFrameInfo), originatingPageID, originalRequest, WTFMove(request), WTFMove(requestBody), WTFMove(redirectResponse), listenerID);
 }
 
 void WebPageProxy::decidePolicyForNavigationActionAsyncShared(Ref<WebProcessProxy>&& process, PageIdentifier webPageID, FrameIdentifier frameID, FrameInfoData&& frameInfo,
@@ -5981,7 +5988,7 @@ void WebPageProxy::decidePolicyForNavigationActionSync(FrameIdentifier frameID, 
         }
     }
 
-    decidePolicyForNavigationActionSyncShared(m_process.copyRef(), m_webPageID, frameID, isMainFrame, WTFMove(frameInfo), identifier, navigationID, WTFMove(navigationActionData), WTFMove(originatingFrameInfo), originatingPageID, originalRequest, WTFMove(request), WTFMove(requestBody), WTFMove(redirectResponse), WTFMove(reply));
+    decidePolicyForNavigationActionSyncShared(Ref { frame->process() }, m_webPageID, frameID, isMainFrame, WTFMove(frameInfo), identifier, navigationID, WTFMove(navigationActionData), WTFMove(originatingFrameInfo), originatingPageID, originalRequest, WTFMove(request), WTFMove(requestBody), WTFMove(redirectResponse), WTFMove(reply));
 }
 
 void WebPageProxy::decidePolicyForNavigationActionSyncShared(Ref<WebProcessProxy>&& process, PageIdentifier webPageID, FrameIdentifier frameID, bool isMainFrame, FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier, uint64_t navigationID, NavigationActionData&& navigationActionData, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&& request, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(PolicyDecision&&)>&& reply)
@@ -6035,10 +6042,12 @@ void WebPageProxy::decidePolicyForNewWindowAction(FrameIdentifier frameID, Frame
         m_navigationClient->decidePolicyForNavigationAction(*this, navigationAction.get(), WTFMove(listener));
 }
 
-void WebPageProxy::decidePolicyForResponse(FrameIdentifier frameID, FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier,
+void WebPageProxy::decidePolicyForResponse(IPC::Connection& connection, FrameIdentifier frameID, FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier,
     uint64_t navigationID, const ResourceResponse& response, const ResourceRequest& request, bool canShowMIMEType, const String& downloadAttribute, uint64_t listenerID)
 {
-    decidePolicyForResponseShared(m_process.copyRef(), m_webPageID, frameID, WTFMove(frameInfo), identifier, navigationID, response, request, canShowMIMEType, downloadAttribute, listenerID);
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    MESSAGE_CHECK_BASE(frame, &connection);
+    decidePolicyForResponseShared(Ref { frame->process() }, m_webPageID, frameID, WTFMove(frameInfo), identifier, navigationID, response, request, canShowMIMEType, downloadAttribute, listenerID);
 }
 
 void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process, PageIdentifier webPageID, FrameIdentifier frameID, FrameInfoData&& frameInfo, PolicyCheckIdentifier identifier, uint64_t navigationID, const ResourceResponse& response, const ResourceRequest& request, bool canShowMIMEType, const String& downloadAttribute, uint64_t listenerID)
@@ -6288,6 +6297,9 @@ void WebPageProxy::createNewPage(FrameInfoData&& originatingFrameInfoData, WebPa
     else
 #endif
         userInitiatedActivity = m_process->userInitiatedActivity(navigationActionData.userGestureTokenIdentifier);
+
+    if (userInitiatedActivity && m_preferences->verifyWindowOpenUserGestureFromUIProcess() && request.url().string() != Quirks::staticRadioPlayerURLString())
+        m_process->consumeIfNotVerifiablyFromUIProcess(*userInitiatedActivity, navigationActionData.userGestureAuthorizationToken);
 
     bool shouldOpenAppLinks = originatingFrameInfo->request().url().host() != request.url().host();
     auto navigationAction = API::NavigationAction::create(WTFMove(navigationActionData), originatingFrameInfo.ptr(), nullptr, std::nullopt, WTFMove(request), URL(), shouldOpenAppLinks, WTFMove(userInitiatedActivity));
@@ -7935,7 +7947,9 @@ void WebPageProxy::didReceiveEvent(WebEventType eventType, bool handled)
 
         bool canProcessMoreKeyEvents = !m_keyEventQueue.isEmpty();
         if (canProcessMoreKeyEvents) {
+            auto nextEvent = m_keyEventQueue.first();
             LOG(KeyHandling, " UI process: sent keyEvent from didReceiveEvent");
+            m_process->recordUserGestureAuthorizationToken(nextEvent.authorizationToken());
             send(Messages::WebPage::KeyEvent(m_keyEventQueue.first()));
         }
 
@@ -8375,7 +8389,7 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
             m_frozenRemoteLayerTreeHost = downcast<RemoteLayerTreeDrawingAreaProxy>(*m_drawingArea).detachRemoteLayerTreeHost();
         }
 #endif
-        m_drawingArea = nullptr;
+        setDrawingArea(nullptr);
     }
     closeOverlayedViews();
 
@@ -8519,11 +8533,12 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
 
 #if PLATFORM(IOS_FAMILY)
     m_waitingForPostLayoutEditorStateUpdateAfterFocusingElement = false;
+#endif
+
     m_isVisibleActivity = nullptr;
     m_isAudibleActivity = nullptr;
     m_isCapturingActivity = nullptr;
     m_openingAppLinkActivity = nullptr;
-#endif
 
     m_pageIsUserObservableCount = nullptr;
     m_visiblePageToken = nullptr;
@@ -8878,7 +8893,7 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.allowedLookalikeCharacterStrings = cachedAllowedLookalikeStrings();
 #endif
 
-#if HAVE(MACH_BOOTSTRAP_EXTENSION)
+#if !ENABLE(LAUNCHD_BLOCKING_IN_WEBCONTENT) && HAVE(MACH_BOOTSTRAP_EXTENSION)
     if (!preferences().experimentalSandboxEnabled())
         parameters.machBootstrapHandle = SandboxExtension::createHandleForMachBootstrapExtension();
 #endif
@@ -8928,7 +8943,7 @@ void WebPageProxy::backForwardClear()
 
 #if ENABLE(GAMEPAD)
 
-void WebPageProxy::gamepadActivity(const Vector<GamepadData>& gamepadDatas, EventMakesGamepadsVisible eventVisibility)
+void WebPageProxy::gamepadActivity(const Vector<std::optional<GamepadData>>& gamepadDatas, EventMakesGamepadsVisible eventVisibility)
 {
     send(Messages::WebPage::GamepadActivity(gamepadDatas, eventVisibility));
 }
@@ -10266,6 +10281,11 @@ void WebPageProxy::handleAutoplayEvent(WebCore::AutoplayEvent event, OptionSet<A
 }
 
 #if PLATFORM(MAC)
+void WebPageProxy::setCaretAnimatorType(WebCore::CaretAnimatorType caretType)
+{
+    send(Messages::WebPage::SetCaretAnimatorType(caretType));
+}
+
 void WebPageProxy::performImmediateActionHitTestAtLocation(FloatPoint point)
 {
     send(Messages::WebPage::PerformImmediateActionHitTestAtLocation(point));
@@ -11583,10 +11603,15 @@ WebCore::CaptureSourceOrError WebPageProxy::createRealtimeMediaSourceForSpeechRe
 
 #endif
 
-#if HAVE(SCREEN_CAPTURE_KIT)
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 void WebPageProxy::setIndexOfGetDisplayMediaDeviceSelectedForTesting(std::optional<unsigned> index)
 {
     DisplayCaptureSessionManager::singleton().setIndexOfDeviceSelectedForTesting(index);
+}
+
+void WebPageProxy::setSystemCanPromptForGetDisplayMediaForTesting(bool canPrompt)
+{
+    DisplayCaptureSessionManager::singleton().setSystemCanPromptForTesting(canPrompt);
 }
 #endif
 

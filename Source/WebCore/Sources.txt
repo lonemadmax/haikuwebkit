@@ -491,6 +491,7 @@ accessibility/AccessibilityTree.cpp
 accessibility/AccessibilityTreeItem.cpp
 accessibility/isolatedtree/AXIsolatedObject.cpp
 accessibility/isolatedtree/AXIsolatedTree.cpp
+animation/AcceleratedTimeline.cpp
 animation/AnimationEffect.cpp
 animation/AnimationEventBase.cpp
 animation/AnimationPlaybackEvent.cpp
@@ -2052,6 +2053,8 @@ platform/VideoPixelFormat.cpp
 platform/WebCoreCrossThreadCopier.cpp
 platform/WebCorePersistentCoders.cpp
 platform/Widget.cpp
+platform/animation/AcceleratedEffect.cpp
+platform/animation/AcceleratedEffectValues.cpp
 platform/animation/Animation.cpp
 platform/animation/AnimationList.cpp
 platform/animation/TimingFunction.cpp
@@ -2223,6 +2226,7 @@ platform/graphics/SystemFontDatabase.cpp
 platform/graphics/SystemFallbackFontCache.cpp
 platform/graphics/TextRun.cpp
 platform/graphics/TextTrackRepresentation.cpp
+platform/graphics/TextTransform.cpp
 platform/graphics/TrackBuffer.cpp
 platform/graphics/TrackPrivateBase.cpp
 platform/graphics/VP9Utilities.cpp
@@ -2623,6 +2627,7 @@ rendering/style/StyleGridData.cpp
 rendering/style/StyleGridItemData.cpp
 rendering/style/StyleImageSet.cpp
 rendering/style/StyleInheritedData.cpp
+rendering/style/StyleInvalidImage.cpp
 rendering/style/StyleMarqueeData.cpp
 rendering/style/StyleMiscNonInheritedData.cpp
 rendering/style/StyleMultiColData.cpp
@@ -2947,6 +2952,8 @@ workers/service/ServiceWorkerRegistrationKey.cpp
 workers/service/ServiceWorkerRegistrationOptions.cpp
 workers/service/ServiceWorkerWindowClient.cpp
 workers/service/WorkerSWClientConnection.cpp
+workers/service/background-fetch/BackgroundFetch.cpp
+workers/service/background-fetch/BackgroundFetchEngine.cpp
 workers/service/background-fetch/BackgroundFetchEvent.cpp
 workers/service/background-fetch/BackgroundFetchManager.cpp
 workers/service/background-fetch/BackgroundFetchRecord.cpp

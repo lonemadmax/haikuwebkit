@@ -68,7 +68,7 @@ class InspectorController final : public Inspector::InspectorEnvironment {
     WTF_MAKE_NONCOPYABLE(InspectorController);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    InspectorController(Page&, InspectorClient*);
+    InspectorController(Page&, std::unique_ptr<InspectorClient>&&);
     ~InspectorController() override;
 
     void inspectedPageDestroyed();
@@ -111,7 +111,7 @@ public:
     WEBCORE_EXPORT unsigned flexOverlayCount() const;
     WEBCORE_EXPORT unsigned paintRectCount() const;
 
-    InspectorClient* inspectorClient() const { return m_inspectorClient; }
+    InspectorClient* inspectorClient() const { return m_inspectorClient.get(); }
     InspectorFrontendClient* inspectorFrontendClient() const { return m_inspectorFrontendClient; }
 
     Inspector::InspectorAgent& ensureInspectorAgent();
@@ -144,7 +144,7 @@ private:
     Inspector::AgentRegistry m_agents;
 
     Page& m_page;
-    InspectorClient* m_inspectorClient;
+    std::unique_ptr<InspectorClient> m_inspectorClient;
     InspectorFrontendClient* m_inspectorFrontendClient { nullptr };
 
     // Lazy, but also on-demand agents.

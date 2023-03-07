@@ -88,15 +88,6 @@ public:
 
     bool needsCachedNativeImageInvalidationWorkaround(WebCore::RenderingMode) override { return true; }
 
-protected:
-    void setCGShadow(WebCore::RenderingMode renderingMode, const WebCore::FloatSize& offset, float blur, const WebCore::Color& color, bool shadowsIgnoreTransforms) override
-    {
-        // This doesn't use `m_immutableBaseTransform.mapSize` because it doesn't output negative lengths.
-        WebCore::FloatSize scaledOffset = offset;
-        scaledOffset.scale(m_resolutionScale, -m_resolutionScale);
-        GraphicsContextCG::setCGShadow(renderingMode, scaledOffset, blur * m_resolutionScale, color, shadowsIgnoreTransforms);
-    }
-
 private:
     WebCore::AffineTransform m_immutableBaseTransform;
     WebCore::AffineTransform m_inverseImmutableBaseTransform;
@@ -161,7 +152,7 @@ ImageBufferBackendHandle CGDisplayListImageBufferBackend::createBackendHandle(Sh
     return CGDisplayList { WebCore::SharedBuffer::create(data.get()), WTFMove(sendRights) };
 }
 
-WebCore::GraphicsContext& CGDisplayListImageBufferBackend::context() const
+WebCore::GraphicsContext& CGDisplayListImageBufferBackend::context()
 {
     if (!m_context)
         m_context = makeUnique<GraphicsContextCGDisplayList>(m_parameters);
@@ -178,18 +169,18 @@ unsigned CGDisplayListImageBufferBackend::bytesPerRow() const
     return calculateBytesPerRow(backendSize());
 }
 
-void CGDisplayListImageBufferBackend::clearContents()
+void CGDisplayListImageBufferBackend::releaseGraphicsContext()
 {
     m_context = nullptr;
 }
 
-RefPtr<WebCore::NativeImage> CGDisplayListImageBufferBackend::copyNativeImage(WebCore::BackingStoreCopy) const
+RefPtr<WebCore::NativeImage> CGDisplayListImageBufferBackend::copyNativeImage(WebCore::BackingStoreCopy)
 {
     ASSERT_NOT_REACHED();
     return nullptr;
 }
 
-RefPtr<WebCore::PixelBuffer> CGDisplayListImageBufferBackend::getPixelBuffer(const WebCore::PixelBufferFormat&, const WebCore::IntRect&, const WebCore::ImageBufferAllocator&) const
+RefPtr<WebCore::PixelBuffer> CGDisplayListImageBufferBackend::getPixelBuffer(const WebCore::PixelBufferFormat&, const WebCore::IntRect&, const WebCore::ImageBufferAllocator&)
 {
     ASSERT_NOT_REACHED();
     return nullptr;

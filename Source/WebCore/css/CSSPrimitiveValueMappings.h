@@ -216,6 +216,13 @@ template<> constexpr OutlineIsAuto fromCSSValueID(CSSValueID valueID)
     return OutlineIsAuto::Off;
 }
 
+template<> constexpr BlockStepInsert fromCSSValueID(CSSValueID valueID)
+{
+    if (valueID == CSSValueMargin)
+        return BlockStepInsert::Margin;
+    return BlockStepInsert::Padding;
+}
+
 constexpr CSSValueID toCSSValueID(CompositeOperator e, CSSPropertyID propertyID)
 {
     if (propertyID == CSSPropertyMaskComposite) {
@@ -1164,7 +1171,7 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 
 // FIXME: Implement support for 'under left' and 'under right' values.
 #define TYPE TextUnderlinePosition
-#define FOR_EACH(CASE) CASE(Auto) CASE(Under) CASE(FromFont)
+#define FOR_EACH(CASE) CASE(Auto) CASE(Under) CASE(FromFont) CASE(Left) CASE(Right)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -1182,7 +1189,7 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef FOR_EACH
 
 #define TYPE TextTransform
-#define FOR_EACH(CASE) CASE(Capitalize) CASE(Uppercase) CASE(Lowercase) CASE(FullSizeKana) CASE(None)
+#define FOR_EACH(CASE) CASE(Capitalize) CASE(Uppercase) CASE(Lowercase) CASE(FullSizeKana) CASE(FullWidth) CASE(None)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH

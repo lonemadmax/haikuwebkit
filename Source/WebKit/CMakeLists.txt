@@ -520,14 +520,20 @@ set(WebKit_SERIALIZATION_IN_FILES
     GPUProcess/graphics/InlinePathData.serialization.in
     GPUProcess/graphics/RemoteRenderingBackendCreationParameters.serialization.in
 
+    GPUProcess/graphics/WebGPU/RemoteGPURequestAdapterResponse.serialization.in
+
+    GPUProcess/media/AudioTrackPrivateRemoteConfiguration.serialization.in
     GPUProcess/media/InitializationSegmentInfo.serialization.in
     GPUProcess/media/MediaDescriptionInfo.serialization.in
     GPUProcess/media/RemoteMediaPlayerProxyConfiguration.serialization.in
     GPUProcess/media/TextTrackPrivateRemoteConfiguration.serialization.in
+    GPUProcess/media/TrackPrivateRemoteConfiguration.serialization.in
+    GPUProcess/media/VideoTrackPrivateRemoteConfiguration.serialization.in
 
     NetworkProcess/NetworkProcessCreationParameters.serialization.in
     NetworkProcess/NetworkResourceLoadParameters.serialization.in
 
+    Shared/BackgroundFetchState.serialization.in
     Shared/CallbackID.serialization.in
     Shared/DisplayListArgumentCoders.serialization.in
     Shared/EditorState.serialization.in
@@ -535,9 +541,11 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/FocusedElementInformation.serialization.in
     Shared/FrameInfoData.serialization.in
     Shared/FrameTreeNodeData.serialization.in
+    Shared/GPUProcessConnectionParameters.serialization.in
     Shared/LayerTreeContext.serialization.in
     Shared/Model.serialization.in
     Shared/NavigationActionData.serialization.in
+    Shared/NetworkProcessConnectionParameters.serialization.in
     Shared/PALArgumentCoders.serialization.in
     Shared/Pasteboard.serialization.in
     Shared/PlatformPopupMenuData.serialization.in
@@ -654,6 +662,8 @@ set(WebKit_SERIALIZATION_IN_FILES
     WebProcess/GPU/media/RemoteCDMConfiguration.serialization.in
     WebProcess/GPU/media/RemoteMediaPlayerConfiguration.serialization.in
     WebProcess/GPU/media/RemoteMediaPlayerState.serialization.in
+
+    WebProcess/WebCoreSupport/WebSpeechSynthesisVoice.serialization.in
 )
 
 list(APPEND WebKit_DERIVED_SOURCES

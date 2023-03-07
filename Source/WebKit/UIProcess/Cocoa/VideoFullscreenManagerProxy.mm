@@ -127,8 +127,6 @@
 
 #endif
 
-#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_page->process().connection())
-
 namespace WebKit {
 using namespace WebCore;
 
@@ -252,6 +250,12 @@ void VideoFullscreenModelContext::returnVideoContentLayer()
 {
     if (m_manager)
         m_manager->returnVideoContentLayer(m_contextId);
+}
+
+void VideoFullscreenModelContext::returnVideoView()
+{
+    if (m_manager)
+        m_manager->returnVideoView(m_contextId);
 }
 
 void VideoFullscreenModelContext::didSetupFullscreen()
@@ -636,8 +640,6 @@ void VideoFullscreenManagerProxy::willRemoveLayerForID(PlaybackSessionContextIde
 
 void VideoFullscreenManagerProxy::setupFullscreenWithID(PlaybackSessionContextIdentifier contextId, WebKit::LayerHostingContextID videoLayerID, const WebCore::FloatRect& initialRect, const WebCore::FloatSize& videoDimensions, float hostingDeviceScaleFactor, HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode, bool allowsPictureInPicture, bool standby, bool blocksReturnToFullscreenFromPictureInPicture)
 {
-    MESSAGE_CHECK(videoLayerID);
-
     auto& [model, interface] = ensureModelAndInterface(contextId);
     addClientForContext(contextId);
 
@@ -894,6 +896,23 @@ void VideoFullscreenManagerProxy::returnVideoContentLayer(PlaybackSessionContext
     m_page->send(Messages::VideoFullscreenManager::ReturnVideoContentLayer(contextId));
 }
 
+void VideoFullscreenManagerProxy::returnVideoView(PlaybackSessionContextIdentifier contextId)
+{
+#if PLATFORM(IOS_FAMILY)
+    auto& model = ensureModel(contextId);
+    auto *playerView = model.playerView();
+    auto *videoView = model.layerHostView();
+    if (playerView && videoView) {
+        auto *playerLayer = (WebAVPlayerLayer *)[model.playerView() layer];
+        [playerLayer addSublayer:[videoView layer]];
+        [playerView setNeedsLayout];
+        [playerView layoutIfNeeded];
+    }
+#else
+    UNUSED_PARAM(contextId);
+#endif
+}
+
 void VideoFullscreenManagerProxy::didSetupFullscreen(PlaybackSessionContextIdentifier contextId)
 {
 #if PLATFORM(IOS_FAMILY)
@@ -1005,7 +1024,5 @@ AVPlayerViewController *VideoFullscreenManagerProxy::playerViewController(Playba
 #endif // PLATFORM(IOS_FAMILY)
 
 } // namespace WebKit
-
-#undef MESSAGE_CHECK
 
 #endif // ENABLE(VIDEO_PRESENTATION_MODE)

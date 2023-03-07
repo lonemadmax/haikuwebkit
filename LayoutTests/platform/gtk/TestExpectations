@@ -2170,9 +2170,6 @@ webkit.org/b/234782 imported/w3c/web-platform-tests/css/css-writing-modes/text-s
 # WPT css/css-pseudo import (webkit.org/b/235197)
 imported/w3c/web-platform-tests/css/css-pseudo/selection-background-painting-order.html [ ImageOnlyFailure ]
 
-# WebGL on GTK renders pixels with opacity slightly differently
-fast/canvas/toDataURL-alpha-permutation.html [ ImageOnlyFailure ]
-
 # Failing preload tests
 imported/w3c/web-platform-tests/preload/link-header-preload-nonce.html [ Failure ]
 imported/w3c/web-platform-tests/preload/onerror-event.html [ Failure ]
@@ -2247,6 +2244,11 @@ webkit.org/b/238885 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_key
 webkit.org/b/238885 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html?6001-7000 [ Failure Timeout ]
 webkit.org/b/238885 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html?7001-8000 [ Failure Timeout ]
 webkit.org/b/238885 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html?8001-last [ Failure Timeout ]
+
+# text-transform: full-width
+webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-002.xht [ ImageOnlyFailure ]
+webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-004.xht [ ImageOnlyFailure ]
+webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-005.xht [ ImageOnlyFailure ]
 
 # mime-type is different due to different networking implementation.
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/content-type-checking.html [ Pass Failure ]

@@ -69,6 +69,8 @@
 #include "JSWeakMapInlines.h"
 #include "JSWeakSet.h"
 #include "NumberConstructor.h"
+#include "NumberObject.h"
+#include "NumberPrototype.h"
 #include "ObjectConstructorInlines.h"
 #include "ObjectPrototypeInlines.h"
 #include "Operations.h"
@@ -1322,7 +1324,7 @@ JSC_DEFINE_JIT_OPERATION(operationRegExpMatchFastGlobalString, EncodedJSValue, (
     String s = string->value(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    if (regExp->unicode()) {
+    if (regExp->eitherUnicode()) {
         unsigned stringLength = s.length();
         RELEASE_AND_RETURN(scope, JSValue::encode(collectMatches(
             vm, globalObject, string, s, regExp,

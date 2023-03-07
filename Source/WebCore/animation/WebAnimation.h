@@ -122,6 +122,7 @@ public:
     virtual FinishedPromise& bindingsFinished() { return finished(); }
     virtual ExceptionOr<void> bindingsPlay() { return play(); }
     virtual ExceptionOr<void> bindingsPause() { return pause(); }
+    std::optional<Seconds> holdTime() const { return m_holdTime; }
 
     virtual std::variant<FramesPerSecond, AnimationFrameRatePreset> bindingsFrameRate() const { return m_bindingsFrameRate; }
     virtual void setBindingsFrameRate(std::variant<FramesPerSecond, AnimationFrameRatePreset>&&);
@@ -165,7 +166,7 @@ protected:
 
     void initialize();
     void enqueueAnimationEvent(Ref<AnimationEventBase>&&);
-    virtual void animationDidFinish() { };
+    virtual void animationDidFinish();
 
 private:
     enum class DidSeek : uint8_t { Yes, No };

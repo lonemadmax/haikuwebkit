@@ -34,6 +34,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
+#include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 
@@ -55,12 +56,12 @@ enum class AXPropertyName : uint16_t {
     ARIATreeItemContent,
     ARIATreeRows,
     ARIARoleAttribute,
+    AttributedText,
     AXColumnCount,
     AXColumnIndex,
     AXRowCount,
     AXRowIndex,
     AccessKey,
-    AccessibilityDescription,
     AccessibilityText,
     ActionVerb,
     AncestorFlags,
@@ -253,8 +254,7 @@ enum class AXPropertyName : uint16_t {
     SupportsSetSize,
     TabChildren,
     TableLevel,
-    TextLength,
-    Title,
+    TextContent,
     TitleAttributeValue,
     TitleUIElement,
     URL,
@@ -266,7 +266,7 @@ enum class AXPropertyName : uint16_t {
     VisibleRows,
 };
 
-using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, AccessibilityButtonState, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>>;
+using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, AccessibilityButtonState, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>, RetainPtr<NSAttributedString>>;
 using AXPropertyMap = HashMap<AXPropertyName, AXPropertyValueVariant, IntHash<AXPropertyName>, WTF::StrongEnumHashTraits<AXPropertyName>>;
 
 struct AXPropertyChange {

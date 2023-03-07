@@ -26,29 +26,32 @@
 #include "config.h"
 #include "WasmBBQJIT.h"
 
+#include "B3Common.h"
+#include "B3ValueRep.h"
 #include "BinarySwitch.h"
 #include "BytecodeStructs.h"
+#include "CCallHelpers.h"
+#include "CPU.h"
+#include "CompilerTimingScope.h"
+#include "GPRInfo.h"
+#include "JSCast.h"
+#include "JSWebAssemblyException.h"
+#include "MacroAssembler.h"
+#include "RegisterSet.h"
+#include "WasmB3IRGenerator.h"
 #include "WasmCallingConvention.h"
 #include "WasmCompilationMode.h"
 #include "WasmFormat.h"
 #include "WasmFunctionParser.h"
+#include "WasmIRGeneratorHelpers.h"
+#include "WasmInstance.h"
 #include "WasmMemoryInformation.h"
 #include "WasmModule.h"
 #include "WasmModuleInformation.h"
+#include "WasmOperations.h"
 #include "WasmOps.h"
+#include "WasmThunks.h"
 #include "WasmTypeDefinition.h"
-#include "assembler/AbstractMacroAssembler.h"
-#include "assembler/AssemblerBuffer.h"
-#include "assembler/CPU.h"
-#include "assembler/MacroAssembler.h"
-#include "b3/B3Common.h"
-#include "b3/B3ValueRep.h"
-#include "bytecompiler/RegisterID.h"
-#include "jit/CCallHelpers.h"
-#include "jit/GPRInfo.h"
-#include "jit/RegisterSet.h"
-#include "runtime/JSCast.h"
-#include "tools/CompilerTimingScope.h"
 #include <wtf/Assertions.h>
 #include <wtf/Compiler.h>
 #include <wtf/HashFunctions.h>
@@ -339,6 +342,36 @@ private:
     }
 
 public:
+    static ALWAYS_INLINE uint32_t sizeOfType(TypeKind type)
+    {
+        switch (type) {
+        case TypeKind::I32:
+        case TypeKind::F32:
+        case TypeKind::I31ref:
+            return 4;
+        case TypeKind::I64:
+        case TypeKind::F64:
+            return 8;
+        case TypeKind::V128:
+            return 16;
+        case TypeKind::Func:
+        case TypeKind::Funcref:
+        case TypeKind::Ref:
+        case TypeKind::RefNull:
+        case TypeKind::Rec:
+        case TypeKind::Sub:
+        case TypeKind::Struct:
+        case TypeKind::Structref:
+        case TypeKind::Externref:
+        case TypeKind::Array:
+        case TypeKind::Arrayref:
+            return sizeof(EncodedJSValue);
+        case TypeKind::Void:
+            return 0;
+        }
+        return 0;
+    }
+
     class Value {
     public:
         // Represents the location in which this value is stored.
@@ -513,31 +546,7 @@ public:
 
         ALWAYS_INLINE uint32_t size() const
         {
-            switch (m_type) {
-            case TypeKind::I32:
-            case TypeKind::F32:
-            case TypeKind::I31ref:
-                return 4;
-            case TypeKind::I64:
-            case TypeKind::F64:
-                return 8;
-            case TypeKind::V128:
-                return 16;
-            case TypeKind::Func:
-            case TypeKind::Funcref:
-            case TypeKind::Ref:
-            case TypeKind::RefNull:
-            case TypeKind::Rec:
-            case TypeKind::Sub:
-            case TypeKind::Struct:
-            case TypeKind::Structref:
-            case TypeKind::Externref:
-            case TypeKind::Array:
-            case TypeKind::Arrayref:
-                return sizeof(EncodedJSValue);
-            case TypeKind::Void:
-                return 0;
-            }
+            return sizeOfType(m_type);
         }
 
         ALWAYS_INLINE bool isFloat() const
@@ -730,48 +739,50 @@ public:
                 // Abide by calling convention instead.
                 CallInformation wasmCallInfo = wasmCallingConvention().callInformationFor(*signature, CallRole::Callee);
                 for (unsigned i = 0; i < signature->as<FunctionSignature>()->argumentCount(); ++i)
-                    m_arguments.append(Location::fromArgumentLocation(wasmCallInfo.params[i]));
+                    m_argumentLocations.append(Location::fromArgumentLocation(wasmCallInfo.params[i]));
                 for (unsigned i = 0; i < signature->as<FunctionSignature>()->returnCount(); ++i)
-                    m_results.append(Location::fromArgumentLocation(wasmCallInfo.results[i]));
+                    m_resultLocations.append(Location::fromArgumentLocation(wasmCallInfo.results[i]));
                 return;
             }
+
+            // This function is intentionally not using implicitSlots since arguments and results should not include implicit slot.
+            auto allocateArgumentOrResult = [&](BBQJIT& generator, TypeKind type, unsigned i, RegisterSet& remainingGPRs, RegisterSet& remainingFPRs) -> Location {
+                switch (type) {
+                case TypeKind::V128:
+                case TypeKind::F32:
+                case TypeKind::F64: {
+                    if (remainingFPRs.isEmpty())
+                        return generator.canonicalSlot(Value::fromTemp(type, this->enclosedHeight() + i));
+                    auto reg = *remainingFPRs.begin();
+                    remainingFPRs.remove(reg);
+                    return Location::fromFPR(reg.fpr());
+                }
+                default:
+                    if (remainingGPRs.isEmpty())
+                        return generator.canonicalSlot(Value::fromTemp(type, this->enclosedHeight() + i));
+                    auto reg = *remainingGPRs.begin();
+                    remainingGPRs.remove(reg);
+                    return Location::fromGPR(reg.gpr());
+                }
+            };
+
             const auto& functionSignature = signature->as<FunctionSignature>();
             auto gprSetCopy = generator.m_validGPRs;
             auto fprSetCopy = generator.m_validFPRs;
-            for (unsigned i = 0; i < functionSignature->argumentCount(); ++i)
-                m_arguments.append(allocateArgumentOrResult(generator, functionSignature->argumentType(i).kind, i, gprSetCopy, fprSetCopy));
+            if (!isAnyCatch(*this)) {
+                for (unsigned i = 0; i < functionSignature->argumentCount(); ++i)
+                    m_argumentLocations.append(allocateArgumentOrResult(generator, functionSignature->argumentType(i).kind, i, gprSetCopy, fprSetCopy));
+            }
+
             gprSetCopy = generator.m_validGPRs;
             fprSetCopy = generator.m_validFPRs;
             for (unsigned i = 0; i < functionSignature->returnCount(); ++i)
-                m_results.append(allocateArgumentOrResult(generator, functionSignature->returnType(i).kind, i, gprSetCopy, fprSetCopy));
-        }
-
-        Location allocateArgumentOrResult(BBQJIT& generator, TypeKind type, unsigned i, RegisterSet& remainingGPRs, RegisterSet& remainingFPRs)
-        {
-            switch (type) {
-            case TypeKind::V128:
-            case TypeKind::F32:
-            case TypeKind::F64: {
-                if (remainingFPRs.isEmpty())
-                    return generator.canonicalSlot(Value::fromTemp(type, m_enclosedHeight + i));
-                auto reg = *remainingFPRs.begin();
-                remainingFPRs.remove(reg);
-                return Location::fromFPR(reg.fpr());
-            }
-            default:
-                if (remainingGPRs.isEmpty())
-                    return generator.canonicalSlot(Value::fromTemp(type, m_enclosedHeight + i));
-                auto reg = *remainingGPRs.begin();
-                remainingGPRs.remove(reg);
-                return Location::fromGPR(reg.gpr());
-            }
+                m_resultLocations.append(allocateArgumentOrResult(generator, functionSignature->returnType(i).kind, i, gprSetCopy, fprSetCopy));
         }
 
         template<typename Stack>
-        void endBlock(BBQJIT& generator, ControlData& target, Stack& expressionStack, bool isChildBlock, bool endOfWasmBlock)
+        void flushAtBlockBoundary(BBQJIT& generator, unsigned targetArity, Stack& expressionStack, bool endOfWasmBlock)
         {
-            unsigned targetArity = isChildBlock ? target.argumentLocations().size() : target.branchTargetArity();
-
             // First, we flush all locals that were allocated outside of their designated slots in this block.
             for (unsigned i = 0; i < expressionStack.size(); ++i) {
                 if (expressionStack[i].value().isLocal())
@@ -783,6 +794,15 @@ public:
                     generator.flushValue(value);
             }
 
+            // If we are a catch block, we need to flush the exception value, since it's not represented on the expression stack.
+            if (isAnyCatch(*this)) {
+                Value value = generator.exception(*this);
+                if (!endOfWasmBlock)
+                    generator.flushValue(value);
+                else
+                    generator.consume(value);
+            }
+
             for (unsigned i = 0; i < expressionStack.size(); ++i) {
                 Value& value = expressionStack[i].value();
                 int resultIndex = static_cast<int>(i) - static_cast<int>(expressionStack.size() - targetArity);
@@ -791,7 +811,7 @@ public:
                 // If this is the end of the enclosing wasm block, we know we won't need them again, so this can be skipped.
                 if (value.isConst() && (resultIndex < 0 || !endOfWasmBlock)) {
                     Value constant = value;
-                    value = Value::fromTemp(value.type(), static_cast<LocalOrTempIndex>(m_enclosedHeight + i));
+                    value = Value::fromTemp(value.type(), static_cast<LocalOrTempIndex>(enclosedHeight() + implicitSlots() + i));
                     Location slot = generator.locationOf(value);
                     generator.emitMoveConst(constant, slot);
                 }
@@ -804,46 +824,69 @@ public:
                         generator.consume(value);
                 }
             }
+        }
 
+        template<typename Stack, size_t N>
+        void addExit(BBQJIT& generator, const Vector<Location, N>& targetLocations, Stack& expressionStack)
+        {
+            unsigned targetArity = targetLocations.size();
+
+            if (!targetArity)
+                return;
+
+            // We move all passed temporaries to the successor, in its argument slots.
             unsigned offset = expressionStack.size() - targetArity;
 
-            // Finally, we move all passed temporaries to the successor, in its argument slots.
-            auto& targetLocations = target.blockType() == BlockType::Loop || isChildBlock
-                ? target.argumentLocations()
-                : target.resultLocations();
-            if (targetArity == 1) {
-                Value value = expressionStack[offset].value();
-                generator.emitMove(value, targetLocations[0]);
-                generator.consume(value); // We consider a value consumed when we pass it to a successor.
-            } else {
-                Vector<Value, 8> resultValues;
-                Vector<Location, 8> resultLocations;
-                for (unsigned i = 0; i < targetArity; ++i) {
-                    resultValues.append(expressionStack[i + offset].value());
-                    resultLocations.append(targetLocations[i]);
-                }
-                generator.emitShuffle(resultValues, resultLocations);
-                for (const Value& value : resultValues)
-                    generator.consume(value);
+            Vector<Value, 8> resultValues;
+            Vector<Location, 8> resultLocations;
+            for (unsigned i = 0; i < targetArity; ++i) {
+                resultValues.append(expressionStack[i + offset].value());
+                resultLocations.append(targetLocations[i]);
             }
+            generator.emitShuffle(resultValues, resultLocations);
+        }
 
-            // As one final step, we convert any constants into temporaries on the stack, so we don't blindly assume they have
+        template<typename Stack>
+        void finalizeBlock(BBQJIT& generator, unsigned targetArity, Stack& expressionStack, bool preserveArguments)
+        {
+            // Finally, as we are leaving the block, we convert any constants into temporaries on the stack, so we don't blindly assume they have
             // the same constant values in the successor.
+            unsigned offset = expressionStack.size() - targetArity;
             for (unsigned i = 0; i < targetArity; ++i) {
                 Value& value = expressionStack[i + offset].value();
-                if (value.isConst())
-                    value = Value::fromTemp(value.type(), static_cast<LocalOrTempIndex>(m_enclosedHeight + i));
+                if (value.isConst()) {
+                    Value constant = value;
+                    value = Value::fromTemp(value.type(), static_cast<LocalOrTempIndex>(enclosedHeight() + implicitSlots() + i + offset));
+                    if (preserveArguments)
+                        generator.emitMoveConst(constant, generator.canonicalSlot(value));
+                } else if (value.isTemp()) {
+                    if (preserveArguments)
+                        generator.flushValue(value);
+                    else
+                        generator.consume(value);
+                }
             }
+        }
+
+        template<typename Stack>
+        void flushAndSingleExit(BBQJIT& generator, ControlData& target, Stack& expressionStack, bool isChildBlock, bool endOfWasmBlock, bool unreachable = false)
+        {
+            // Helper to simplify the common case where we don't need to handle multiple exits.
+            const auto& targetLocations = isChildBlock ? target.argumentLocations() : target.targetLocations();
+            flushAtBlockBoundary(generator, targetLocations.size(), expressionStack, endOfWasmBlock);
+            if (!unreachable)
+                addExit(generator, targetLocations, expressionStack);
+            finalizeBlock(generator, targetLocations.size(), expressionStack, false);
         }
 
         template<typename Stack>
         void startBlock(BBQJIT& generator, Stack& expressionStack)
         {
-            ASSERT(expressionStack.size() >= m_arguments.size());
+            ASSERT(expressionStack.size() >= m_argumentLocations.size());
 
-            for (unsigned i = 0; i < m_arguments.size(); ++i) {
-                ASSERT(!expressionStack[i + expressionStack.size() - m_arguments.size()].value().isConst());
-                generator.bind(expressionStack[i].value(), m_arguments[i]);
+            for (unsigned i = 0; i < m_argumentLocations.size(); ++i) {
+                ASSERT(!expressionStack[i + expressionStack.size() - m_argumentLocations.size()].value().isConst());
+                generator.bind(expressionStack[i].value(), m_argumentLocations[i]);
             }
         }
 
@@ -854,7 +897,8 @@ public:
 
             for (unsigned i = 0; i < predecessor.resultLocations().size(); ++i) {
                 unsigned offset = expressionStack.size() - predecessor.resultLocations().size();
-                expressionStack[i + offset].value() = Value::fromTemp(expressionStack[i].type().kind, predecessor.enclosedHeight() + i);
+                // Intentionally not using implicitSlots since results should not include implicit slot.
+                expressionStack[i + offset].value() = Value::fromTemp(expressionStack[i + offset].type().kind, predecessor.enclosedHeight() + i);
                 generator.bind(expressionStack[i + offset].value(), predecessor.resultLocations()[i]);
             }
         }
@@ -898,6 +942,12 @@ public:
                 m_ifBranch.link(masm);
         }
 
+        JumpList releaseJumps()
+        {
+            auto branchList = std::exchange(m_branchList, { });
+            return branchList;
+        }
+
         void dump(PrintStream& out) const
         {
             UNUSED_PARAM(out);
@@ -908,14 +958,23 @@ public:
             return m_enclosedHeight;
         }
 
+        unsigned implicitSlots() const { return isAnyCatch(*this) ? 1 : 0; }
+
+        const Vector<Location, 2>& targetLocations() const
+        {
+            return blockType() == BlockType::Loop
+                ? argumentLocations()
+                : resultLocations();
+        }
+
         const Vector<Location, 2>& argumentLocations() const
         {
-            return m_arguments;
+            return m_argumentLocations;
         }
 
         const Vector<Location, 2>& resultLocations() const
         {
-            return m_results;
+            return m_resultLocations;
         }
 
         BlockType blockType() const { return m_blockType; }
@@ -936,10 +995,44 @@ public:
             return m_signature->as<FunctionSignature>()->returnType(i);
         }
 
+        Type argumentType(unsigned i) const
+        {
+            ASSERT(i < m_signature->as<FunctionSignature>()->argumentCount());
+            return m_signature->as<FunctionSignature>()->argumentType(i);
+        }
+
         CatchKind catchKind() const
         {
             ASSERT(m_blockType == BlockType::Catch);
             return m_catchKind;
+        }
+
+        void setCatchKind(CatchKind catchKind)
+        {
+            ASSERT(m_blockType == BlockType::Catch);
+            m_catchKind = catchKind;
+        }
+
+        unsigned tryStart() const
+        {
+            return m_tryStart;
+        }
+
+        unsigned tryEnd() const
+        {
+            return m_tryEnd;
+        }
+
+        unsigned tryCatchDepth() const
+        {
+            return m_tryCatchDepth;
+        }
+
+        void setTryInfo(unsigned tryStart, unsigned tryEnd, unsigned tryCatchDepth)
+        {
+            m_tryStart = tryStart;
+            m_tryEnd = tryEnd;
+            m_tryCatchDepth = tryCatchDepth;
         }
 
         void setIfBranch(MacroAssembler::Jump branch)
@@ -963,19 +1056,23 @@ public:
         {
             m_touchedLocals.add(local);
         }
+
     private:
         friend class BBQJIT;
 
         BlockSignature m_signature;
         BlockType m_blockType;
-        CatchKind m_catchKind;
-        Vector<Location, 2> m_arguments; // List of input locations to write values into when entering this block.
-        Vector<Location, 2> m_results; // List of result locations to write values into when exiting this block.
+        CatchKind m_catchKind { CatchKind::Catch };
+        Vector<Location, 2> m_argumentLocations; // List of input locations to write values into when entering this block.
+        Vector<Location, 2> m_resultLocations; // List of result locations to write values into when exiting this block.
         JumpList m_branchList; // List of branch control info for branches targeting the end of this block.
         MacroAssembler::Label m_loopLabel;
         MacroAssembler::Jump m_ifBranch;
         LocalOrTempIndex m_enclosedHeight; // Height of enclosed expression stack, used as the base for all temporary locations.
         BitVector m_touchedLocals; // Number of locals allocated to registers in this block.
+        unsigned m_tryStart { 0 };
+        unsigned m_tryEnd { 0 };
+        unsigned m_tryCatchDepth { 0 };
     };
 
     friend struct ControlData;
@@ -1133,7 +1230,7 @@ private:
 public:
     static constexpr bool tierSupportsSIMD = true;
 
-    BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, Callee& callee, const FunctionData& function, uint32_t functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation, TierUpCount* tierUp)
+    BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, Callee& callee, const FunctionData& function, uint32_t functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
         : m_jit(jit)
         , m_callee(callee)
         , m_function(function)
@@ -1142,7 +1239,9 @@ public:
         , m_info(info)
         , m_mode(mode)
         , m_unlinkedWasmToWasmCalls(unlinkedWasmToWasmCalls)
+        , m_hasExceptionHandlers(hasExceptionHandlers)
         , m_tierUp(tierUp)
+        , m_loopIndexForOSREntry(loopIndexForOSREntry)
         , m_gprBindings(jit.numberOfRegisters(), RegisterBinding::none())
         , m_fprBindings(jit.numberOfFPRegisters(), RegisterBinding::none())
         , m_gprLRU(jit.numberOfRegisters())
@@ -1170,7 +1269,6 @@ public:
         RegisterSetBuilder callerSaveFprs = fprSetBuilder;
 
         gprSetBuilder.remove(m_scratchGPR);
-        gprSetBuilder.remove(m_dataScratchGPR);
         fprSetBuilder.remove(m_scratchFPR);
 
         m_gprSet = m_validGPRs = gprSetBuilder.buildAndValidate();
@@ -1322,6 +1420,9 @@ public:
         LOG_INSTRUCTION("TableSet", tableIndex, index, value);
 
         throwExceptionIf(ExceptionType::OutOfBoundsTableAccess, m_jit.branchTest32(ResultCondition::Zero, shouldThrowLocation.asGPR()));
+
+        consume(shouldThrow);
+
         return { };
     }
 
@@ -1346,6 +1447,9 @@ public:
         LOG_INSTRUCTION("TableInit", tableIndex, dstOffset, srcOffset, length);
 
         throwExceptionIf(ExceptionType::OutOfBoundsTableAccess, m_jit.branchTest32(ResultCondition::Zero, shouldThrowLocation.asGPR()));
+
+        consume(shouldThrow);
+
         return { };
     }
 
@@ -1405,6 +1509,9 @@ public:
         LOG_INSTRUCTION("TableFill", tableIndex, fill, offset, count);
 
         throwExceptionIf(ExceptionType::OutOfBoundsTableAccess, m_jit.branchTest32(ResultCondition::Zero, shouldThrowLocation.asGPR()));
+
+        consume(shouldThrow);
+
         return { };
     }
 
@@ -1427,6 +1534,9 @@ public:
         LOG_INSTRUCTION("TableCopy", dstTableIndex, srcTableIndex, dstOffset, srcOffset, length);
 
         throwExceptionIf(ExceptionType::OutOfBoundsTableAccess, m_jit.branchTest32(ResultCondition::Zero, shouldThrowLocation.asGPR()));
+
+        consume(shouldThrow);
+
         return { };
     }
 
@@ -1494,7 +1604,13 @@ public:
 
     Value topValue(TypeKind type)
     {
-        return Value::fromTemp(type, currentControlData().enclosedHeight() + m_parser->expressionStack().size());
+        return Value::fromTemp(type, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size());
+    }
+
+    Value exception(const ControlData& control)
+    {
+        ASSERT(ControlData::isAnyCatch(control));
+        return Value::fromTemp(TypeKind::Externref, control.enclosedHeight());
     }
 
     PartialResult WARN_UNUSED_RETURN getGlobal(uint32_t index, Value& result)
@@ -1513,7 +1629,13 @@ public:
         case Wasm::GlobalInformation::BindingMode::Portable:
             ASSERT(global.mutability == Wasm::Mutability::Mutable);
             m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, offset), m_scratchGPR);
-            result = emitLoadOp(loadOpForTypeKind(type.kind), Location::fromGPR(m_scratchGPR), 0);
+            if (type.kind == TypeKind::V128) {
+                // Vectors aren't handled by the normal load-op helper, but since we know the offset is zero
+                // we don't need the song and dance of addSIMDLoad.
+                result = topValue(type.kind);
+                m_jit.loadVector(Address(m_scratchGPR), loadIfNecessary(result).asFPR());
+            } else
+                result = emitLoadOp(loadOpForTypeKind(type.kind), Location::fromGPR(m_scratchGPR), 0);
             break;
         }
 
@@ -1596,10 +1718,12 @@ public:
         Type type = global.type;
 
         int32_t offset = Instance::offsetOfGlobalPtr(m_info.importFunctionCount(), m_info.tableCount(), index);
+        Location valueLocation = locationOf(value);
 
         switch (global.bindingMode) {
         case Wasm::GlobalInformation::BindingMode::EmbeddedInInstance: {
             emitMove(value, Location::fromGlobal(offset));
+            consume(value);
             if (isRefType(type)) {
                 m_jit.load64(Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfOwner()), m_scratchGPR);
                 emitWriteBarrier(m_scratchGPR);
@@ -1609,7 +1733,13 @@ public:
         case Wasm::GlobalInformation::BindingMode::Portable: {
             ASSERT(global.mutability == Wasm::Mutability::Mutable);
             m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, offset), m_scratchGPR);
-            emitStoreOp(storeOpForTypeKind(type.kind), Location::fromGPR(m_scratchGPR), value, 0);
+            if (type.kind == TypeKind::V128) {
+                // Vectors aren't handled by the normal load-op helper, but since we know the offset is zero
+                // we don't need the song and dance of addSIMDStore.
+                m_jit.storeVector(loadIfNecessary(value).asFPR(), Address(m_scratchGPR));
+            } else
+                emitStoreOp(storeOpForTypeKind(type.kind), Location::fromGPR(m_scratchGPR), value, 0);
+            consume(value);
             if (isRefType(type)) {
                 m_jit.loadPtr(Address(m_scratchGPR, Wasm::Global::offsetOfOwner() - Wasm::Global::offsetOfValue()), m_scratchGPR);
                 emitWriteBarrier(m_scratchGPR);
@@ -1618,7 +1748,7 @@ public:
         }
         }
 
-        LOG_INSTRUCTION("SetGlobal", index, value);
+        LOG_INSTRUCTION("SetGlobal", index, value, valueLocation);
 
         return { };
     }
@@ -1981,6 +2111,8 @@ public:
 
         LOG_INSTRUCTION("MemoryFill", dstAddress, targetValue, count);
 
+        consume(shouldThrow);
+
         return { };
     }
 
@@ -2001,6 +2133,8 @@ public:
         throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchTest32(ResultCondition::Zero, shouldThrowLocation.asGPR()));
 
         LOG_INSTRUCTION("MemoryCopy", dstAddress, srcAddress, count);
+
+        consume(shouldThrow);
 
         return { };
     }
@@ -2023,6 +2157,8 @@ public:
         throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchTest32(ResultCondition::Zero, shouldThrowLocation.asGPR()));
 
         LOG_INSTRUCTION("MemoryInit", dataSegmentIndex, dstAddress, srcAddress, length);
+
+        consume(shouldThrow);
 
         return { };
     }
@@ -2804,7 +2940,7 @@ public:
             m_jit.add64(TrustedImm64(static_cast<int64_t>(uoffset)), pointer.asGPR());
         Address address = Address(pointer.asGPR());
         Width valueWidth = widthForType(toB3Type(valueType));
-        Width accessWidth = Wasm::accessWidth(op);
+        Width accessWidth = this->accessWidth(op);
 
         if (accessWidth != Width8)
             throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(op) - 1)));
@@ -3163,12 +3299,14 @@ public:
             m_jit.truncateDoubleToInt64(operandLocation.asFPR(), resultLocation.asGPR());
             break;
         case TruncationKind::I64TruncF32U: {
-            emitMoveConst(Value::fromF32(static_cast<float>(std::numeric_limits<int64_t>::min())), Location::fromFPR(scratch2FPR));
+            if constexpr (isX86())
+                emitMoveConst(Value::fromF32(static_cast<float>(std::numeric_limits<uint64_t>::max() - std::numeric_limits<int64_t>::max())), Location::fromFPR(scratch2FPR));
             m_jit.truncateFloatToUint64(operandLocation.asFPR(), resultLocation.asGPR(), scratch1FPR, scratch2FPR);
             break;
         }
         case TruncationKind::I64TruncF64U: {
-            emitMoveConst(Value::fromF64(static_cast<double>(std::numeric_limits<int64_t>::min())), Location::fromFPR(scratch2FPR));
+            if constexpr (isX86())
+                emitMoveConst(Value::fromF64(static_cast<double>(std::numeric_limits<uint64_t>::max() - std::numeric_limits<int64_t>::max())), Location::fromFPR(scratch2FPR));
             m_jit.truncateDoubleToUint64(operandLocation.asFPR(), resultLocation.asGPR(), scratch1FPR, scratch2FPR);
             break;
         }
@@ -3768,8 +3906,8 @@ public:
             flag,
             []() {
                 RegisterSetBuilder builder;
-                builder.add(X86Registers::eax, Width::Width64);
-                builder.add(X86Registers::edx, Width::Width64);
+                builder.add(X86Registers::eax, IgnoreVectors);
+                builder.add(X86Registers::edx, IgnoreVectors);
                 x86DivClobbers = builder.buildAndValidate();
             });
         return x86DivClobbers;
@@ -4267,13 +4405,13 @@ public:
         // Left is strictly greater than right
         isGreaterThan.link(&m_jit);
         auto isGreaterThanResult = IsMinOrMax == MinOrMax::Max ? left : right;
-        m_jit.move(isGreaterThanResult, result);
+        m_jit.moveDouble(isGreaterThanResult, result);
         Jump afterGreaterThan = m_jit.jump();
 
         // Left is strictly less than right
         isLessThan.link(&m_jit);
         auto isLessThanResult = IsMinOrMax == MinOrMax::Max ? right : left;
-        m_jit.move(isLessThanResult, result);
+        m_jit.moveDouble(isLessThanResult, result);
         Jump afterLessThan = m_jit.jump();
 
         // Left is equal to right
@@ -5121,8 +5259,8 @@ public:
     PartialResult WARN_UNUSED_RETURN addI64Eqz(Value operand, Value& result)
     {
         EMIT_UNARY(
-            "I64Eqz", TypeKind::I64,
-            BLOCK(Value::fromI64(!operand.asI64())),
+            "I64Eqz", TypeKind::I32,
+            BLOCK(Value::fromI32(!operand.asI64())),
             BLOCK(
                 m_jit.test64(ResultCondition::Zero, operandLocation.asGPR(), operandLocation.asGPR(), resultLocation.asGPR());
             )
@@ -5244,10 +5382,12 @@ public:
             "F32ConvertUI32", TypeKind::F32,
             BLOCK(Value::fromF32(static_cast<uint32_t>(operand.asI32()))),
             BLOCK(
-                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
 #if CPU(X86_64)
-                m_jit.convertUInt64ToFloat(m_scratchGPR, resultLocation.asFPR(), m_dataScratchGPR);
+                ScratchScope<1, 0> scratches(*this);
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
+                m_jit.convertUInt64ToFloat(m_scratchGPR, resultLocation.asFPR(), scratches.gpr(0));
 #else
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
                 m_jit.convertUInt64ToFloat(m_scratchGPR, resultLocation.asFPR());
 #endif
             )
@@ -5272,7 +5412,7 @@ public:
             BLOCK(Value::fromF32(static_cast<uint64_t>(operand.asI64()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.convertUInt64ToFloat(operandLocation.asGPR(), resultLocation.asFPR(), m_dataScratchGPR);
+                m_jit.convertUInt64ToFloat(operandLocation.asGPR(), resultLocation.asFPR(), m_scratchGPR);
 #else
                 m_jit.convertUInt64ToFloat(operandLocation.asGPR(), resultLocation.asFPR());
 #endif
@@ -5297,10 +5437,12 @@ public:
             "F64ConvertUI32", TypeKind::F64,
             BLOCK(Value::fromF64(static_cast<uint32_t>(operand.asI32()))),
             BLOCK(
-                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
 #if CPU(X86_64)
-                m_jit.convertUInt64ToDouble(m_scratchGPR, resultLocation.asFPR(), m_dataScratchGPR);
+                ScratchScope<1, 0> scratches(*this);
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
+                m_jit.convertUInt64ToDouble(m_scratchGPR, resultLocation.asFPR(), scratches.gpr(0));
 #else
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
                 m_jit.convertUInt64ToDouble(m_scratchGPR, resultLocation.asFPR());
 #endif
             )
@@ -5325,7 +5467,7 @@ public:
             BLOCK(Value::fromF64(static_cast<uint64_t>(operand.asI64()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.convertUInt64ToDouble(operandLocation.asGPR(), resultLocation.asFPR(), m_dataScratchGPR);
+                m_jit.convertUInt64ToDouble(operandLocation.asGPR(), resultLocation.asFPR(), m_scratchGPR);
 #else
                 m_jit.convertUInt64ToDouble(operandLocation.asGPR(), resultLocation.asFPR());
 #endif
@@ -5342,15 +5484,18 @@ public:
                 // FIXME: Better than what we have in the Air backend, but still not great. I think
                 // there's some vector instruction we can use to do this much quicker.
 
-                m_jit.moveFloatTo32(rhsLocation.asFPR(), m_scratchGPR);
-                m_jit.and32(Imm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
-                m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
 #if CPU(X86_64)
-                m_jit.move(Imm32(0x7fffffff), m_scratchGPR);
+                m_jit.moveFloatTo32(lhsLocation.asFPR(), m_scratchGPR);
+                m_jit.and32(TrustedImm32(0x7fffffff), m_scratchGPR);
+                m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
+                m_jit.moveFloatTo32(rhsLocation.asFPR(), m_scratchGPR);
+                m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
                 m_jit.move32ToFloat(m_scratchGPR, resultLocation.asFPR());
-                m_jit.andFloat(lhsLocation.asFPR(), resultLocation.asFPR());
                 m_jit.orFloat(resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
 #else
+                m_jit.moveFloatTo32(rhsLocation.asFPR(), m_scratchGPR);
+                m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
+                m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
                 m_jit.absFloat(lhsLocation.asFPR(), lhsLocation.asFPR());
                 m_jit.orFloat(lhsLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
 #endif
@@ -5358,7 +5503,7 @@ public:
             BLOCK(
                 if (lhs.isConst()) {
                     m_jit.moveFloatTo32(rhsLocation.asFPR(), m_scratchGPR);
-                    m_jit.and32(Imm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
+                    m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
                     m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
 
                     emitMoveConst(Value::fromF32(std::fabsf(lhs.asF32())), resultLocation);
@@ -5366,9 +5511,9 @@ public:
                 } else {
                     bool signBit = bitwise_cast<uint32_t>(rhs.asF32()) & 0x80000000u;
 #if CPU(X86_64)
-                    m_jit.move(Imm32(0x7fffffff), m_scratchGPR);
-                    m_jit.move32ToFloat(m_scratchGPR, resultLocation.asFPR());
-                    m_jit.andFloat(lhsLocation.asFPR(), resultLocation.asFPR());
+                    m_jit.moveDouble(lhsLocation.asFPR(), resultLocation.asFPR());
+                    m_jit.move32ToFloat(TrustedImm32(0x7fffffff), m_scratchFPR);
+                    m_jit.andFloat(m_scratchFPR, resultLocation.asFPR());
                     if (signBit) {
                         m_jit.xorFloat(m_scratchFPR, m_scratchFPR);
                         m_jit.subFloat(m_scratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
@@ -5395,6 +5540,16 @@ public:
                 // FIXME: Better than what we have in the Air backend, but still not great. I think
                 // there's some vector instruction we can use to do this much quicker.
 
+#if CPU(X86_64)
+                m_jit.moveDoubleTo64(lhsLocation.asFPR(), m_scratchGPR);
+                m_jit.and64(TrustedImm64(0x7fffffffffffffffll), m_scratchGPR);
+                m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
+                m_jit.moveDoubleTo64(rhsLocation.asFPR(), m_scratchGPR);
+                m_jit.urshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
+                m_jit.lshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
+                m_jit.move64ToDouble(m_scratchGPR, resultLocation.asFPR());
+                m_jit.orDouble(resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+#else
                 m_jit.moveDoubleTo64(rhsLocation.asFPR(), m_scratchGPR);
 
                 // Probably saves us a bit of space compared to reserving another register and
@@ -5403,12 +5558,6 @@ public:
                 m_jit.lshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
                 m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
 
-#if CPU(X86_64)
-                m_jit.move(TrustedImm64(0x7fffffffffffffffll), m_scratchGPR);
-                m_jit.move64ToDouble(m_scratchGPR, resultLocation.asFPR());
-                m_jit.andDouble(lhsLocation.asFPR(), resultLocation.asFPR());
-                m_jit.orDouble(resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
-#else
                 m_jit.absDouble(lhsLocation.asFPR(), lhsLocation.asFPR());
                 m_jit.orDouble(lhsLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
 #endif
@@ -5426,9 +5575,9 @@ public:
                 } else {
                     bool signBit = bitwise_cast<uint64_t>(rhs.asF64()) & 0x8000000000000000ull;
 #if CPU(X86_64)
-                    m_jit.move(TrustedImm64(0x7fffffffffffffffll), m_scratchGPR);
-                    m_jit.move64ToDouble(m_scratchGPR, resultLocation.asFPR());
-                    m_jit.andDouble(lhsLocation.asFPR(), resultLocation.asFPR());
+                    m_jit.moveDouble(lhsLocation.asFPR(), resultLocation.asFPR());
+                    m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), m_scratchFPR);
+                    m_jit.andDouble(m_scratchFPR, resultLocation.asFPR());
                     if (signBit) {
                         m_jit.xorDouble(m_scratchFPR, m_scratchFPR);
                         m_jit.subDouble(m_scratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
@@ -5494,8 +5643,7 @@ public:
             BLOCK(Value::fromF32(std::abs(operand.asF32()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.move(Imm32(0x7fffffffll), m_scratchGPR);
-                m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
+                m_jit.move32ToFloat(TrustedImm32(0x7fffffffll), m_scratchFPR);
                 m_jit.andFloat(operandLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
 #else
                 m_jit.absFloat(operandLocation.asFPR(), resultLocation.asFPR());
@@ -5511,8 +5659,7 @@ public:
             BLOCK(Value::fromF64(std::abs(operand.asF64()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.move(TrustedImm64(0x7fffffffffffffffll), m_scratchGPR);
-                m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
+                m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), m_scratchFPR);
                 m_jit.andDouble(operandLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
 #else
                 m_jit.absDouble(operandLocation.asFPR(), resultLocation.asFPR());
@@ -5550,8 +5697,9 @@ public:
             BLOCK(Value::fromF32(-operand.asF32())),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.xorFloat(m_scratchFPR, m_scratchFPR);
-                m_jit.subFloat(operandLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.moveFloatTo32(operandLocation.asFPR(), m_scratchGPR);
+                m_jit.xor32(TrustedImm32(bitwise_cast<uint32_t>(static_cast<float>(-0.0))), m_scratchGPR);
+                m_jit.move32ToFloat(m_scratchGPR, resultLocation.asFPR());
 #else
                 m_jit.negateFloat(operandLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -5566,8 +5714,9 @@ public:
             BLOCK(Value::fromF64(-operand.asF64())),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.xorDouble(m_scratchFPR, m_scratchFPR);
-                m_jit.subDouble(operandLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.moveDoubleTo64(operandLocation.asFPR(), m_scratchGPR);
+                m_jit.xor64(TrustedImm64(bitwise_cast<uint64_t>(static_cast<double>(-0.0))), m_scratchGPR);
+                m_jit.move64ToDouble(m_scratchGPR, resultLocation.asFPR());
 #else
                 m_jit.negateDouble(operandLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -5730,9 +5879,9 @@ public:
             MacroAssembler::Call call = jit.nearCall();
             jit.jump(tierUpResume);
 
-            bool isSIMD = generator.m_isSIMD;
+            bool usesSIMD = generator.m_usesSIMD;
             jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                MacroAssembler::repatchNearCall(linkBuffer.locationOfNearCall<NoPtrTag>(call), CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(triggerOMGEntryTierUpThunkGenerator(isSIMD)).code()));
+                MacroAssembler::repatchNearCall(linkBuffer.locationOfNearCall<NoPtrTag>(call), CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(triggerOMGEntryTierUpThunkGenerator(usesSIMD)).code()));
             });
         });
     }
@@ -5766,7 +5915,11 @@ public:
         } else
             m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, m_scratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
 
-        m_frameSizeLabel = m_jit.moveWithPatch(TrustedImmPtr(nullptr), m_scratchGPR);
+        m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), m_scratchGPR));
+
+        bool mayHaveExceptionHandlers = !m_hasExceptionHandlers || m_hasExceptionHandlers.value();
+        if (mayHaveExceptionHandlers)
+            m_jit.store32(CCallHelpers::TrustedImm32(PatchpointExceptionHandle::s_invalidCallSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
 
         // Because we compile in a single pass, we always need to pessimistically check for stack underflow/overflow.
         ASSERT(m_scratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
@@ -5785,34 +5938,92 @@ public:
         });
         m_jit.move(m_scratchGPR, MacroAssembler::stackPointerRegister);
 
+        LocalOrTempIndex i = 0;
+        for (; i < m_arguments.size(); ++i)
+            flushValue(Value::fromLocal(m_parser->typeOfLocal(i).kind, i));
+
         // Zero all locals that aren't initialized by arguments.
-        // This is kind of icky...we can evaluate replacing this a memset() or a tracker for which
-        // locals have been initialized.
-        for (LocalOrTempIndex i = 0; i < m_locals.size(); ++i) {
-            if (i < m_arguments.size()) {
-                flushValue(Value::fromLocal(m_parser->typeOfLocal(i).kind, i));
-                continue;
+        enum class ClearMode { Zero, JSNull };
+        std::optional<int32_t> highest;
+        std::optional<int32_t> lowest;
+        auto flushZeroClear = [&]() {
+            if (!lowest)
+                return;
+            size_t size = highest.value() - lowest.value();
+            int32_t pointer = lowest.value();
+
+            // Adjust pointer offset to be efficient for paired-stores.
+            if (pointer & 4 && size >= 4) {
+                m_jit.store32(TrustedImm32(0), Address(GPRInfo::callFrameRegister, pointer));
+                pointer += 4;
+                size -= 4;
             }
 
-            Value zero;
-            switch (m_parser->typeOfLocal(i).kind) {
+#if CPU(ARM64)
+            if (pointer & 8 && size >= 8) {
+                m_jit.store64(TrustedImm64(0), Address(GPRInfo::callFrameRegister, pointer));
+                pointer += 8;
+                size -= 8;
+            }
+
+            unsigned count = size / 16;
+            for (unsigned i = 0; i < count; ++i) {
+                m_jit.storePair64(ARM64Registers::zr, ARM64Registers::zr, GPRInfo::callFrameRegister, TrustedImm32(pointer));
+                pointer += 16;
+                size -= 16;
+            }
+            if (size & 8) {
+                m_jit.store64(TrustedImm64(0), Address(GPRInfo::callFrameRegister, pointer));
+                pointer += 8;
+                size -= 8;
+            }
+#else
+            unsigned count = size / 8;
+            for (unsigned i = 0; i < count; ++i) {
+                m_jit.store64(TrustedImm64(0), Address(GPRInfo::callFrameRegister, pointer));
+                pointer += 8;
+                size -= 8;
+            }
+#endif
+
+            if (size & 4) {
+                m_jit.store32(TrustedImm32(0), Address(GPRInfo::callFrameRegister, pointer));
+                pointer += 4;
+                size -= 4;
+            }
+            ASSERT(size == 0);
+
+            highest = std::nullopt;
+            lowest = std::nullopt;
+        };
+
+        auto clear = [&](ClearMode mode, TypeKind type, Location location) {
+            if (mode == ClearMode::JSNull) {
+                flushZeroClear();
+                emitStoreConst(Value::fromI64(bitwise_cast<uint64_t>(JSValue::encode(jsNull()))), location);
+                return;
+            }
+            if (!highest)
+                highest = location.asStackOffset() + sizeOfType(type);
+            lowest = location.asStackOffset();
+        };
+
+        JIT_COMMENT(m_jit, "initialize locals");
+        for (; i < m_locals.size(); ++i) {
+            TypeKind type = m_parser->typeOfLocal(i).kind;
+            switch (type) {
             case TypeKind::I32:
             case TypeKind::I31ref:
-                emitStoreConst(Value::fromI32(0), m_locals[i]);
-                break;
             case TypeKind::F32:
-                emitStoreConst(Value::fromF32(0), m_locals[i]);
-                break;
             case TypeKind::F64:
-                emitStoreConst(Value::fromF64(0), m_locals[i]);
-                break;
             case TypeKind::I64:
             case TypeKind::Struct:
             case TypeKind::Rec:
             case TypeKind::Func:
             case TypeKind::Array:
             case TypeKind::Sub:
-                emitStoreConst(Value::fromI64(0), m_locals[i]);
+            case TypeKind::V128:
+                clear(ClearMode::Zero, type, m_locals[i]);
                 break;
             case TypeKind::Externref:
             case TypeKind::Funcref:
@@ -5820,17 +6031,14 @@ public:
             case TypeKind::RefNull:
             case TypeKind::Structref:
             case TypeKind::Arrayref:
-                emitStoreConst(Value::fromI64(bitwise_cast<uint64_t>(JSValue::encode(jsNull()))), m_locals[i]);
+                clear(ClearMode::JSNull, type, m_locals[i]);
                 break;
-            case TypeKind::V128: {
-                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR);
-                m_jit.storeVector(m_scratchFPR, m_locals[i].asAddress());
-                break;
-            }
             default:
                 RELEASE_ASSERT_NOT_REACHED();
             }
         }
+        flushZeroClear();
+        JIT_COMMENT(m_jit, "initialize locals done");
 
         for (size_t i = 0; i < m_functionSignature->argumentCount(); i ++)
             m_topLevel.touch(i); // Ensure arguments are flushed to persistent locations when this block ends.
@@ -5841,10 +6049,64 @@ public:
         return m_topLevel;
     }
 
+    bool hasLoops() const
+    {
+        return m_compilation->bbqLoopEntrypoints.size();
+    }
+
+    MacroAssembler::Label addLoopOSREntrypoint()
+    {
+        // To handle OSR entry into loops, we emit a second entrypoint, which sets up our call frame then calls an
+        // operation to get the address of the loop we're trying to enter. Unlike the normal prologue, by the time
+        // we emit this entry point, we:
+        //  - Know the frame size, so we don't need to patch the constant.
+        //  - Can omit the entry tier-up check, since this entry point is only reached when we initially tier up into a loop.
+        //  - Don't need to zero our locals, since they are restored from the OSR entry scratch buffer anyway.
+        auto label = m_jit.label();
+        m_jit.emitFunctionPrologue();
+
+        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(&m_callee)), m_scratchGPR);
+        static_assert(CallFrameSlot::codeBlock + 1 == CallFrameSlot::callee);
+        if constexpr (is32Bit()) {
+            CCallHelpers::Address calleeSlot { GPRInfo::callFrameRegister, CallFrameSlot::callee * sizeof(Register) };
+            m_jit.storePtr(m_scratchGPR, calleeSlot.withOffset(PayloadOffset));
+            m_jit.store32(CCallHelpers::TrustedImm32(JSValue::WasmTag), calleeSlot.withOffset(TagOffset));
+            m_jit.storePtr(GPRInfo::wasmContextInstancePointer, CCallHelpers::addressFor(CallFrameSlot::codeBlock));
+        } else
+            m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, m_scratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
+
+        int frameSize = m_frameSize + m_maxCalleeStackSize;
+        int roundedFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), frameSize);
+        m_jit.subPtr(GPRInfo::callFrameRegister, TrustedImm32(roundedFrameSize), MacroAssembler::stackPointerRegister);
+
+        MacroAssembler::JumpList underflow;
+        underflow.append(m_jit.branchPtr(CCallHelpers::Above, MacroAssembler::stackPointerRegister, GPRInfo::callFrameRegister));
+        m_jit.addLinkTask([underflow] (LinkBuffer& linkBuffer) {
+            linkBuffer.link(underflow, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()));
+        });
+
+        MacroAssembler::JumpList overflow;
+        m_jit.loadPtr(CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfVM()), GPRInfo::nonPreservedNonArgumentGPR0);
+        overflow.append(m_jit.branchPtr(CCallHelpers::Below, MacroAssembler::stackPointerRegister, CCallHelpers::Address(GPRInfo::nonPreservedNonArgumentGPR0, VM::offsetOfSoftStackLimit())));
+        m_jit.addLinkTask([overflow] (LinkBuffer& linkBuffer) {
+            linkBuffer.link(overflow, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()));
+        });
+
+        // This operation shuffles around values on the stack, until everything is in the right place. Then,
+        // it returns the address of the loop we're jumping to in m_scratchGPR (so we don't interfere with
+        // anything we just loaded from the scratch buffer into a register)
+        m_jit.probe(tagCFunction<JITProbePtrTag>(operationWasmLoopOSREnterBBQJIT), m_tierUp, m_usesSIMD ? SavedFPWidth::SaveVectors : SavedFPWidth::DontSaveVectors);
+
+        // We expect the loop address to be populated by the probe operation.
+        ASSERT(m_scratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
+        m_jit.farJump(m_scratchGPR, WasmEntryPtrTag);
+        return label;
+    }
+
     PartialResult WARN_UNUSED_RETURN addBlock(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack)
     {
-        result = ControlData(*this, BlockType::Block, signature, currentControlData().enclosedHeight() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
-        currentControlData().endBlock(*this, result, enclosingStack, true, false);
+        result = ControlData(*this, BlockType::Block, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
+        currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
 
         LOG_INSTRUCTION("Block", *signature);
         LOG_INDENT();
@@ -5853,16 +6115,125 @@ public:
         return { };
     }
 
-    PartialResult WARN_UNUSED_RETURN addLoop(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack, uint32_t)
+    B3::Type toB3Type(Type type)
     {
-        result = ControlData(*this, BlockType::Loop, signature, currentControlData().enclosedHeight() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
-        currentControlData().endBlock(*this, result, enclosingStack, true, false);
+        return Wasm::toB3Type(type);
+    }
+
+    B3::Type toB3Type(TypeKind kind)
+    {
+        switch (kind) {
+        case TypeKind::I31ref:
+        case TypeKind::I32:
+            return B3::Type(B3::Int32);
+        case TypeKind::I64:
+            return B3::Type(B3::Int64);
+        case TypeKind::Ref:
+        case TypeKind::RefNull:
+        case TypeKind::Structref:
+        case TypeKind::Arrayref:
+        case TypeKind::Funcref:
+        case TypeKind::Externref:
+            return B3::Type(is32Bit() ? B3::Int32 : B3::Int64);
+        case TypeKind::F32:
+            return B3::Type(B3::Float);
+        case TypeKind::F64:
+            return B3::Type(B3::Double);
+        case TypeKind::V128:
+            return B3::Type(B3::V128);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return B3::Void;
+        }
+    }
+
+    B3::ValueRep toB3Rep(Location location)
+    {
+        if (location.isRegister())
+            return B3::ValueRep(location.isGPR() ? Reg(location.asGPR()) : Reg(location.asFPR()));
+        if (location.isStack())
+            return B3::ValueRep(ValueLocation::stack(location.asStackOffset()));
+
+        RELEASE_ASSERT_NOT_REACHED();
+        return B3::ValueRep();
+    }
+
+    StackMap makeStackMap(const ControlData& data, Stack& enclosingStack)
+    {
+        unsigned numElements = m_locals.size() + data.enclosedHeight() + data.argumentLocations().size();
+
+        StackMap stackMap(numElements);
+        unsigned stackMapIndex = 0;
+        for (unsigned i = 0; i < m_locals.size(); i ++)
+            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(m_locals[i]), toB3Type(m_localTypes[i]));
+        for (const ControlEntry& entry : m_parser->controlStack()) {
+            for (const TypedExpression& expr : entry.enclosedExpressionStack)
+                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+            if (ControlData::isAnyCatch(entry.controlData)) {
+                for (unsigned i = 0; i < entry.controlData.implicitSlots(); i ++) {
+                    Value exception = this->exception(entry.controlData);
+                    stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(exception)), B3::Int64); // Exceptions are EncodedJSValues, so they are always Int64
+                }
+            }
+        }
+        for (const TypedExpression& expr : enclosingStack)
+            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+        for (unsigned i = 0; i < data.argumentLocations().size(); i ++)
+            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
+        RELEASE_ASSERT(stackMapIndex == numElements);
+
+        m_osrEntryScratchBufferSize = std::max(m_osrEntryScratchBufferSize, numElements + BBQCallee::extraOSRValuesForLoopIndex);
+        return stackMap;
+    }
+
+    void emitLoopTierUpCheck(const ControlData& data, Stack& enclosingStack, unsigned loopIndex)
+    {
+        ASSERT(m_tierUp->osrEntryTriggers().size() == loopIndex);
+        m_tierUp->osrEntryTriggers().append(TierUpCount::TriggerReason::DontTrigger);
+
+        unsigned outerLoops = m_outerLoops.isEmpty() ? UINT32_MAX : m_outerLoops.last();
+        m_tierUp->outerLoops().append(outerLoops);
+        m_outerLoops.append(loopIndex);
+
+        m_jit.move(TrustedImm64(bitwise_cast<uintptr_t>(&m_tierUp->m_counter)), m_scratchGPR);
+
+        TierUpCount::TriggerReason* forceEntryTrigger = &(m_tierUp->osrEntryTriggers().last());
+        static_assert(!static_cast<uint8_t>(TierUpCount::TriggerReason::DontTrigger), "the JIT code assumes non-zero means 'enter'");
+        static_assert(sizeof(TierUpCount::TriggerReason) == 1, "branchTest8 assumes this size");
+
+        Jump forceOSREntry = m_jit.branchTest8(ResultCondition::NonZero, CCallHelpers::AbsoluteAddress(forceEntryTrigger));
+        Jump tierUp = m_jit.branchAdd32(ResultCondition::PositiveOrZero, TrustedImm32(TierUpCount::loopIncrement()), CCallHelpers::Address(m_scratchGPR));
+        MacroAssembler::Label tierUpResume = m_jit.label();
+
+        OSREntryData& osrEntryData = m_tierUp->addOSREntryData(m_functionIndex, loopIndex, makeStackMap(data, enclosingStack));
+        OSREntryData* osrEntryDataPtr = &osrEntryData;
+
+        addLatePath([forceOSREntry, tierUp, tierUpResume, osrEntryDataPtr](BBQJIT& generator, CCallHelpers& jit) {
+            forceOSREntry.link(&jit);
+            tierUp.link(&jit);
+
+            Probe::SavedFPWidth savedFPWidth = generator.m_usesSIMD ? Probe::SavedFPWidth::SaveVectors : Probe::SavedFPWidth::DontSaveVectors; // By the time we reach the late path, we should know whether or not the function uses SIMD.
+            jit.probe(tagCFunction<JITProbePtrTag>(operationWasmTriggerOSREntryNow), osrEntryDataPtr, savedFPWidth);
+            jit.branchTestPtr(CCallHelpers::Zero, GPRInfo::argumentGPR0).linkTo(tierUpResume, &jit);
+            jit.farJump(GPRInfo::argumentGPR1, WasmEntryPtrTag);
+        });
+    }
+
+    PartialResult WARN_UNUSED_RETURN addLoop(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack, uint32_t loopIndex)
+    {
+        result = ControlData(*this, BlockType::Loop, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
+        currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
 
         LOG_INSTRUCTION("Loop", *signature);
         LOG_INDENT();
         splitStack(signature, enclosingStack, newStack);
         result.startBlock(*this, newStack);
         result.setLoopLabel(m_jit.label());
+
+        RELEASE_ASSERT(m_compilation->bbqLoopEntrypoints.size() == loopIndex);
+        m_compilation->bbqLoopEntrypoints.append(result.loopLabel());
+
+        emitLoopTierUpCheck(result, enclosingStack, loopIndex);
         return { };
     }
 
@@ -5873,8 +6244,10 @@ public:
             emitMove(condition, conditionLocation);
         consume(condition);
 
-        result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
-        currentControlData().endBlock(*this, result, enclosingStack, true, false);
+        result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
+
+        // Despite being conditional, if doesn't need to worry about diverging expression stacks at block boundaries, so it doesn't need multiple exits.
+        currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
 
         LOG_INSTRUCTION("If", *signature, condition, conditionLocation);
         LOG_INDENT();
@@ -5890,7 +6263,7 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addElse(ControlData& data, Stack& expressionStack)
     {
-        data.endBlock(*this, data, expressionStack, false, true);
+        data.flushAndSingleExit(*this, data, expressionStack, false, true);
         ControlData dataElse(*this, BlockType::Block, data.signature(), data.enclosedHeight());
         data.linkJumps(&m_jit);
         dataElse.addBranch(m_jit.jump());
@@ -5904,7 +6277,7 @@ public:
         expressionStack.clear();
         while (expressionStack.size() < data.signature()->as<FunctionSignature>()->argumentCount()) {
             Type type = data.signature()->as<FunctionSignature>()->argumentType(expressionStack.size());
-            expressionStack.constructAndAppend(type, Value::fromTemp(type.kind, dataElse.enclosedHeight() + expressionStack.size()));
+            expressionStack.constructAndAppend(type, Value::fromTemp(type.kind, dataElse.enclosedHeight() + dataElse.implicitSlots() + expressionStack.size()));
         }
 
         dataElse.startBlock(*this, expressionStack);
@@ -5916,9 +6289,9 @@ public:
     {
         // Since the end of the block was unreachable, we don't need to call endBlock() here, since the
         // block will never actually end.
-        ControlData elseData(*this, BlockType::Block, data.signature(), data.enclosedHeight());
+        ControlData dataElse(*this, BlockType::Block, data.signature(), data.enclosedHeight());
         data.linkJumps(&m_jit);
-        elseData.addBranch(m_jit.jump()); // Still needed even when the parent was unreachable to avoid running code within the else block.
+        dataElse.addBranch(m_jit.jump()); // Still needed even when the parent was unreachable to avoid running code within the else block.
         data.linkIfBranch(&m_jit); // Link specifically the conditional branch of the preceding If
         LOG_DEDENT();
         LOG_INSTRUCTION("Else");
@@ -5927,39 +6300,283 @@ public:
         // We don't have anything left on the expression stack after an unreachable block. So let's make a fake
         // one, containing one temp for each of the parameters we are expecting.
         Stack expressionStack;
-        auto functionSignature = elseData.signature()->as<FunctionSignature>();
+        auto functionSignature = dataElse.signature()->as<FunctionSignature>();
         for (unsigned i = 0; i < functionSignature->argumentCount(); i ++)
-            expressionStack.constructAndAppend(functionSignature->argumentType(i), Value::fromTemp(functionSignature->argumentType(i).kind, data.enclosedHeight() + i));
-        elseData.startBlock(*this, expressionStack);
-        data = elseData;
+            expressionStack.constructAndAppend(functionSignature->argumentType(i), Value::fromTemp(functionSignature->argumentType(i).kind, dataElse.enclosedHeight() + dataElse.implicitSlots() + i));
+        dataElse.startBlock(*this, expressionStack);
+        data = dataElse;
         return { };
     }
 
-    PartialResult WARN_UNUSED_RETURN addTry(BlockSignature, Stack&, ControlType&, Stack&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addCatch(unsigned, const TypeDefinition&, Stack&, ControlType&, ResultList&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addCatchToUnreachable(unsigned, const TypeDefinition&, ControlType&, ResultList&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addCatchAll(Stack&, ControlType&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addCatchAllToUnreachable(ControlType&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addDelegate(ControlType&, ControlType&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addDelegateToUnreachable(ControlType&, ControlType&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addThrow(unsigned, Vector<ExpressionType>&, Stack&) BBQ_STUB
-    PartialResult WARN_UNUSED_RETURN addRethrow(unsigned, ControlType&) BBQ_STUB
+    PartialResult WARN_UNUSED_RETURN addTry(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack)
+    {
+        m_usesExceptions = true;
+        ++m_tryCatchDepth;
+        ++m_callSiteIndex;
+        result = ControlData(*this, BlockType::Try, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount());
+        result.setTryInfo(m_callSiteIndex, m_callSiteIndex, m_tryCatchDepth);
+        currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
+
+        LOG_INSTRUCTION("Try", *signature);
+        LOG_INDENT();
+        splitStack(signature, enclosingStack, newStack);
+        result.startBlock(*this, newStack);
+        return { };
+    }
+
+    void emitCatchPrologue()
+    {
+        m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), GPRInfo::nonPreservedNonArgumentGPR0));
+        m_jit.subPtr(GPRInfo::callFrameRegister, GPRInfo::nonPreservedNonArgumentGPR0, MacroAssembler::stackPointerRegister);
+        if (!!m_info.memory) {
+            m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
+            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_scratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+        }
+        static_assert(noOverlap(GPRInfo::nonPreservedNonArgumentGPR0, GPRInfo::returnValueGPR, GPRInfo::returnValueGPR2));
+    }
+
+    void emitCatchAllImpl(ControlData& dataCatch)
+    {
+        m_catchEntrypoints.append(m_jit.label());
+        emitCatchPrologue();
+        bind(this->exception(dataCatch), Location::fromGPR(GPRInfo::returnValueGPR));
+        Stack emptyStack { };
+        dataCatch.startBlock(*this, emptyStack);
+    }
+
+    void emitCatchImpl(ControlData& dataCatch, const TypeDefinition& exceptionSignature, ResultList& results)
+    {
+        m_catchEntrypoints.append(m_jit.label());
+        emitCatchPrologue();
+        bind(this->exception(dataCatch), Location::fromGPR(GPRInfo::returnValueGPR));
+        Stack emptyStack { };
+        dataCatch.startBlock(*this, emptyStack);
+
+        if (exceptionSignature.as<FunctionSignature>()->argumentCount()) {
+            ScratchScope<1, 0> scratches(*this);
+            GPRReg bufferGPR = scratches.gpr(0);
+            m_jit.loadPtr(Address(GPRInfo::returnValueGPR, JSWebAssemblyException::offsetOfPayload() + JSWebAssemblyException::Payload::offsetOfStorage()), bufferGPR);
+            for (unsigned i = 0; i < exceptionSignature.as<FunctionSignature>()->argumentCount(); ++i) {
+                Type type = exceptionSignature.as<FunctionSignature>()->argumentType(i);
+                Value result = Value::fromTemp(type.kind, dataCatch.enclosedHeight() + dataCatch.implicitSlots() + i);
+                Location slot = canonicalSlot(result);
+                switch (type.kind) {
+                case TypeKind::I32:
+                    m_jit.load32(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchGPR);
+                    m_jit.store32(m_scratchGPR, slot.asAddress());
+                    break;
+                case TypeKind::I31ref:
+                case TypeKind::I64:
+                case TypeKind::Ref:
+                case TypeKind::RefNull:
+                case TypeKind::Arrayref:
+                case TypeKind::Structref:
+                case TypeKind::Funcref:
+                case TypeKind::Externref:
+                case TypeKind::Rec:
+                case TypeKind::Sub:
+                case TypeKind::Array:
+                case TypeKind::Struct:
+                case TypeKind::Func: {
+                    m_jit.load64(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchGPR);
+                    m_jit.store64(m_scratchGPR, slot.asAddress());
+                    break;
+                }
+                case TypeKind::F32:
+                    m_jit.loadFloat(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchFPR);
+                    m_jit.storeFloat(m_scratchFPR, slot.asAddress());
+                    break;
+                case TypeKind::F64:
+                    m_jit.loadDouble(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchFPR);
+                    m_jit.storeDouble(m_scratchFPR, slot.asAddress());
+                    break;
+                case TypeKind::V128:
+                    materializeVectorConstant(v128_t { }, Location::fromFPR(m_scratchFPR));
+                    m_jit.storeVector(m_scratchFPR, slot.asAddress());
+                    break;
+                case TypeKind::Void:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    break;
+                }
+                bind(result, slot);
+                results.append(result);
+            }
+        }
+    }
+
+    PartialResult WARN_UNUSED_RETURN addCatch(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, Stack& expressionStack, ControlType& data, ResultList& results)
+    {
+        m_usesExceptions = true;
+        data.flushAndSingleExit(*this, data, expressionStack, false, true);
+        ControlData dataCatch(*this, BlockType::Catch, data.signature(), data.enclosedHeight());
+        dataCatch.setCatchKind(CatchKind::Catch);
+        if (ControlData::isTry(data)) {
+            ++m_callSiteIndex;
+            data.setTryInfo(data.tryStart(), m_callSiteIndex, data.tryCatchDepth());
+        }
+        dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
+
+        dataCatch.addBranch(data.releaseJumps());
+        dataCatch.addBranch(m_jit.jump());
+        LOG_DEDENT();
+        LOG_INSTRUCTION("Catch");
+        LOG_INDENT();
+        emitCatchImpl(dataCatch, exceptionSignature, results);
+        data = WTFMove(dataCatch);
+        m_exceptionHandlers.append({ HandlerType::Catch, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, exceptionIndex });
+        return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addCatchToUnreachable(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, ControlType& data, ResultList& results)
+    {
+        m_usesExceptions = true;
+        ControlData dataCatch(*this, BlockType::Catch, data.signature(), data.enclosedHeight());
+        dataCatch.setCatchKind(CatchKind::Catch);
+        if (ControlData::isTry(data)) {
+            ++m_callSiteIndex;
+            data.setTryInfo(data.tryStart(), m_callSiteIndex, data.tryCatchDepth());
+        }
+        dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
+
+        dataCatch.addBranch(data.releaseJumps());
+        LOG_DEDENT();
+        LOG_INSTRUCTION("Catch");
+        LOG_INDENT();
+        emitCatchImpl(dataCatch, exceptionSignature, results);
+        data = WTFMove(dataCatch);
+        m_exceptionHandlers.append({ HandlerType::Catch, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, exceptionIndex });
+        return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addCatchAll(Stack& expressionStack, ControlType& data)
+    {
+        m_usesExceptions = true;
+        data.flushAndSingleExit(*this, data, expressionStack, false, true);
+        ControlData dataCatch(*this, BlockType::Catch, data.signature(), data.enclosedHeight());
+        dataCatch.setCatchKind(CatchKind::CatchAll);
+        if (ControlData::isTry(data)) {
+            ++m_callSiteIndex;
+            data.setTryInfo(data.tryStart(), m_callSiteIndex, data.tryCatchDepth());
+        }
+        dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
+
+        dataCatch.addBranch(data.releaseJumps());
+        dataCatch.addBranch(m_jit.jump());
+        LOG_DEDENT();
+        LOG_INSTRUCTION("CatchAll");
+        LOG_INDENT();
+        emitCatchAllImpl(dataCatch);
+        data = WTFMove(dataCatch);
+        m_exceptionHandlers.append({ HandlerType::CatchAll, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, 0 });
+        return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addCatchAllToUnreachable(ControlType& data)
+    {
+        m_usesExceptions = true;
+        ControlData dataCatch(*this, BlockType::Catch, data.signature(), data.enclosedHeight());
+        dataCatch.setCatchKind(CatchKind::CatchAll);
+        if (ControlData::isTry(data)) {
+            ++m_callSiteIndex;
+            data.setTryInfo(data.tryStart(), m_callSiteIndex, data.tryCatchDepth());
+        }
+        dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
+
+        dataCatch.addBranch(data.releaseJumps());
+        LOG_DEDENT();
+        LOG_INSTRUCTION("CatchAll");
+        LOG_INDENT();
+        emitCatchAllImpl(dataCatch);
+        data = WTFMove(dataCatch);
+        m_exceptionHandlers.append({ HandlerType::CatchAll, data.tryStart(), data.tryEnd(), 0, m_tryCatchDepth, 0 });
+        return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addDelegate(ControlType& target, ControlType& data)
+    {
+        return addDelegateToUnreachable(target, data);
+    }
+
+    PartialResult WARN_UNUSED_RETURN addDelegateToUnreachable(ControlType& target, ControlType& data)
+    {
+        unsigned depth = 0;
+        if (ControlType::isTry(target))
+            depth = target.tryCatchDepth();
+
+        if (ControlData::isTry(data)) {
+            ++m_callSiteIndex;
+            data.setTryInfo(data.tryStart(), m_callSiteIndex, data.tryCatchDepth());
+        }
+        m_exceptionHandlers.append({ HandlerType::Delegate, data.tryStart(), m_callSiteIndex, 0, m_tryCatchDepth, depth });
+        return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addThrow(unsigned exceptionIndex, Vector<ExpressionType>& arguments, Stack&)
+    {
+        Checked<int32_t> calleeStackSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), arguments.size() * sizeof(uint64_t));
+        m_maxCalleeStackSize = std::max<int>(calleeStackSize, m_maxCalleeStackSize);
+
+        LOG_INSTRUCTION("Throw", arguments);
+
+        for (unsigned i = 0; i < arguments.size(); i++) {
+            Location stackLocation = Location::fromStackArgument(i * sizeof(uint64_t));
+            Value argument = arguments[i];
+            if (argument.type() == TypeKind::V128)
+                emitMove(Value::fromF64(0), stackLocation);
+            else
+                emitMove(argument, stackLocation);
+            consume(argument);
+        }
+
+        ++m_callSiteIndex;
+        bool mayHaveExceptionHandlers = !m_hasExceptionHandlers || m_hasExceptionHandlers.value();
+        if (mayHaveExceptionHandlers) {
+            m_jit.store32(CCallHelpers::TrustedImm32(m_callSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
+            flushRegisters();
+        }
+        m_jit.move(GPRInfo::wasmContextInstancePointer, GPRInfo::argumentGPR0);
+        emitThrowImpl(m_jit, exceptionIndex);
+
+        return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addRethrow(unsigned, ControlType& data)
+    {
+        LOG_INSTRUCTION("Rethrow", exception(data));
+
+        ++m_callSiteIndex;
+        bool mayHaveExceptionHandlers = !m_hasExceptionHandlers || m_hasExceptionHandlers.value();
+        if (mayHaveExceptionHandlers) {
+            m_jit.store32(CCallHelpers::TrustedImm32(m_callSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
+            flushRegisters();
+        }
+        emitMove(this->exception(data), Location::fromGPR(GPRInfo::argumentGPR1));
+        m_jit.move(GPRInfo::wasmContextInstancePointer, GPRInfo::argumentGPR0);
+        emitRethrowImpl(m_jit);
+        return { };
+    }
+
+    void prepareForExceptions()
+    {
+        ++m_callSiteIndex;
+        bool mayHaveExceptionHandlers = !m_hasExceptionHandlers || m_hasExceptionHandlers.value();
+        if (mayHaveExceptionHandlers) {
+            m_jit.store32(CCallHelpers::TrustedImm32(m_callSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
+            flushRegistersForException();
+        }
+    }
 
     PartialResult WARN_UNUSED_RETURN addReturn(const ControlData& data, const Stack& returnValues)
     {
         CallInformation wasmCallInfo = wasmCallingConvention().callInformationFor(*data.signature(), CallRole::Callee);
 
-        if (LIKELY(wasmCallInfo.results.size() == 1)) {
-            ASSERT(returnValues.size() >= 1);
-            emitMove(returnValues.last(), Location::fromArgumentLocation(wasmCallInfo.results[0]));
-            LOG_INSTRUCTION("Return", Location::fromArgumentLocation(wasmCallInfo.results[0]));
-        } else if (wasmCallInfo.results.size()) {
-            // For multi-value return, a parallel move might be necessary. This is comparatively complex
-            // and slow, so we limit it to this slow path.
+        if (!wasmCallInfo.results.isEmpty()) {
+            ASSERT(returnValues.size() >= wasmCallInfo.results.size());
+            unsigned offset = returnValues.size() - wasmCallInfo.results.size();
             Vector<Value, 8> returnValuesForShuffle;
             Vector<Location, 8> returnLocationsForShuffle;
             for (unsigned i = 0; i < wasmCallInfo.results.size(); ++i) {
-                returnValuesForShuffle.append(returnValues[i]);
+                returnValuesForShuffle.append(returnValues[offset + i]);
                 returnLocationsForShuffle.append(Location::fromArgumentLocation(wasmCallInfo.results[i]));
             }
             emitShuffle(returnValuesForShuffle, returnLocationsForShuffle);
@@ -5987,7 +6604,6 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addBranch(ControlData& target, Value condition, Stack& results)
     {
-        UNUSED_PARAM(results);
         if (condition.isConst() && !condition.asI32()) // If condition is known to be false, this is a no-op.
             return { };
 
@@ -5995,17 +6611,24 @@ public:
         if (!condition.isNone() && !condition.isConst())
             emitMove(condition, conditionLocation);
         consume(condition);
-        currentControlData().endBlock(*this, target, results, false, condition.isNone());
 
         if (condition.isNone())
             LOG_INSTRUCTION("Branch");
         else
             LOG_INSTRUCTION("Branch", condition, conditionLocation);
 
-        if (condition.isConst() || condition.isNone())
+        if (condition.isConst() || condition.isNone()) {
+            currentControlData().flushAndSingleExit(*this, target, results, false, condition.isNone());
             target.addBranch(m_jit.jump()); // We know condition is true, since if it was false we would have returned early.
-        else
-            target.addBranch(m_jit.branchTest32(ResultCondition::NonZero, m_scratchGPR));
+        } else {
+            currentControlData().flushAtBlockBoundary(*this, 0, results, condition.isNone());
+            Jump ifNotTaken = m_jit.branchTest32(ResultCondition::Zero, m_scratchGPR);
+            currentControlData().addExit(*this, target.targetLocations(), results);
+            target.addBranch(m_jit.jump());
+            ifNotTaken.link(&m_jit);
+            currentControlData().finalizeBlock(*this, target.targetLocations().size(), results, true);
+        }
+
         return { };
     }
 
@@ -6018,17 +6641,22 @@ public:
         if (!condition.isConst())
             emitMove(condition, Location::fromGPR(m_scratchGPR));
         consume(condition);
-        currentControlData().endBlock(*this, defaultTarget, results, false, true);
 
         if (condition.isConst()) {
             // If we know the condition statically, we emit one direct branch to the known target.
             int targetIndex = condition.asI32();
-            if (targetIndex >= 0 && targetIndex < static_cast<int>(targets.size()))
+            if (targetIndex >= 0 && targetIndex < static_cast<int>(targets.size())) {
+                currentControlData().flushAndSingleExit(*this, *targets[targetIndex], results, false, true);
                 targets[targetIndex]->addBranch(m_jit.jump());
-            else
+            } else {
+                currentControlData().flushAndSingleExit(*this, defaultTarget, results, false, true);
                 defaultTarget.addBranch(m_jit.jump());
+            }
             return { };
         }
+
+        // Flush everything below the top N values.
+        currentControlData().flushAtBlockBoundary(*this, defaultTarget.targetLocations().size(), results, true);
 
         Vector<int64_t> cases;
         cases.reserveInitialCapacity(targets.size());
@@ -6041,53 +6669,78 @@ public:
             unsigned index = binarySwitch.caseIndex();
             ASSERT_UNUSED(value, value == index);
             ASSERT(index < targets.size());
+            currentControlData().addExit(*this, targets[index]->targetLocations(), results);
             targets[index]->addBranch(m_jit.jump());
         }
 
-        defaultTarget.addBranch(binarySwitch.fallThrough());
+        binarySwitch.fallThrough().link(&m_jit);
+        currentControlData().addExit(*this, defaultTarget.targetLocations(), results);
+        defaultTarget.addBranch(m_jit.jump());
 
+        currentControlData().finalizeBlock(*this, defaultTarget.targetLocations().size(), results, false);
         return { };
     }
 
     PartialResult WARN_UNUSED_RETURN endBlock(ControlEntry& entry, Stack& stack)
     {
-        return addEndToUnreachable(entry, stack);
+        return addEndToUnreachable(entry, stack, false);
     }
 
-    PartialResult WARN_UNUSED_RETURN addEndToUnreachable(ControlEntry& entry, Stack& stack)
+    PartialResult WARN_UNUSED_RETURN addEndToUnreachable(ControlEntry& entry, Stack& stack, bool unreachable = true)
     {
         ControlData& entryData = entry.controlData;
 
         unsigned returnCount = entryData.signature()->as<FunctionSignature>()->returnCount();
-        unsigned offset = stack.size() - returnCount;
-        for (unsigned i = 0; i < returnCount; ++i) {
-            if (i < stack.size())
-                entry.enclosedExpressionStack.append(stack[i + offset]);
-            else {
+        if (unreachable) {
+            for (unsigned i = 0; i < returnCount; ++i) {
                 Type type = entryData.signature()->as<FunctionSignature>()->returnType(i);
-                entry.enclosedExpressionStack.constructAndAppend(type, Value::fromTemp(type.kind, i + entryData.enclosedHeight()));
+                entry.enclosedExpressionStack.constructAndAppend(type, Value::fromTemp(type.kind, entryData.enclosedHeight() + entryData.implicitSlots() + i));
             }
+            for (const auto& binding : m_gprBindings) {
+                if (!binding.isNone())
+                    consume(binding.toValue());
+            }
+            for (const auto& binding : m_fprBindings) {
+                if (!binding.isNone())
+                    consume(binding.toValue());
+            }
+        } else {
+            unsigned offset = stack.size() - returnCount;
+            for (unsigned i = 0; i < returnCount; ++i)
+                entry.enclosedExpressionStack.append(stack[i + offset]);
         }
+
         switch (entryData.blockType()) {
         case BlockType::TopLevel:
-            entryData.endBlock(*this, entryData, entry.enclosedExpressionStack, false, true);
+            entryData.flushAndSingleExit(*this, entryData, entry.enclosedExpressionStack, false, true, unreachable);
             entryData.linkJumps(&m_jit);
             for (unsigned i = 0; i < returnCount; ++i) {
                 // Make sure we expect the stack values in the correct locations.
                 if (!entry.enclosedExpressionStack[i].value().isConst()) {
                     Value& value = entry.enclosedExpressionStack[i].value();
                     value = Value::fromTemp(value.type(), i);
-                    bind(value, entryData.resultLocations()[i]);
+                    Location valueLocation = locationOf(value);
+                    if (valueLocation.isRegister())
+                        RELEASE_ASSERT(valueLocation == entryData.resultLocations()[i]);
+                    else
+                        bind(value, entryData.resultLocations()[i]);
                 }
             }
             return addReturn(entryData, entry.enclosedExpressionStack);
         case BlockType::Loop:
             entryData.convertLoopToBlock();
-            entryData.endBlock(*this, entryData, entry.enclosedExpressionStack, false, true);
+            entryData.flushAndSingleExit(*this, entryData, entry.enclosedExpressionStack, false, true, unreachable);
             entryData.linkJumpsTo(entryData.loopLabel(), &m_jit);
+            m_outerLoops.takeLast();
+            break;
+        case BlockType::Try:
+        case BlockType::Catch:
+            --m_tryCatchDepth;
+            entryData.flushAndSingleExit(*this, entryData, entry.enclosedExpressionStack, false, true, unreachable);
+            entryData.linkJumps(&m_jit);
             break;
         default:
-            entryData.endBlock(*this, entryData, entry.enclosedExpressionStack, false, true);
+            entryData.flushAndSingleExit(*this, entryData, entry.enclosedExpressionStack, false, true, unreachable);
             entryData.linkJumps(&m_jit);
             break;
         }
@@ -6103,11 +6756,11 @@ public:
     PartialResult WARN_UNUSED_RETURN endTopLevel(BlockSignature, const Stack&)
     {
         int frameSize = m_frameSize + m_maxCalleeStackSize;
-        DataLabelPtr frameSizeLabel = m_frameSizeLabel;
         CCallHelpers& jit = m_jit;
-        m_jit.addLinkTask([frameSize, frameSizeLabel, &jit](LinkBuffer& linkBuffer) {
+        m_jit.addLinkTask([frameSize, labels = WTFMove(m_frameSizeLabels), &jit](LinkBuffer& linkBuffer) {
             int roundedFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), frameSize);
-            jit.repatchPointer(linkBuffer.locationOf<NoPtrTag>(frameSizeLabel), bitwise_cast<void*>(static_cast<uintptr_t>(roundedFrameSize)));
+            for (auto label : labels)
+                jit.repatchPointer(linkBuffer.locationOf<NoPtrTag>(label), bitwise_cast<void*>(static_cast<uintptr_t>(roundedFrameSize)));
         });
 
         LOG_DEDENT();
@@ -6124,6 +6777,7 @@ public:
             }
         }
 
+        m_compilation->osrEntryScratchBufferSize = m_osrEntryScratchBufferSize;
         return { };
     }
 
@@ -6151,7 +6805,21 @@ public:
         // FIXME: We should just store these registers on stack and load them.
         if (!!m_info.memory) {
             m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
-            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_dataScratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_scratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+        }
+    }
+
+    void flushRegistersForException()
+    {
+        // Flush all locals.
+        for (RegisterBinding& binding : m_gprBindings) {
+            if (binding.toValue().isLocal())
+                flushValue(binding.toValue());
+        }
+
+        for (RegisterBinding& binding : m_fprBindings) {
+            if (binding.toValue().isLocal())
+                flushValue(binding.toValue());
         }
     }
 
@@ -6214,7 +6882,7 @@ public:
     void returnValuesFromCall(Vector<Value, N>& results, const FunctionSignature& functionType, const CallInformation& callInfo)
     {
         for (size_t i = 0; i < callInfo.results.size(); i ++) {
-            Value result = Value::fromTemp(functionType.returnType(i).kind, currentControlData().enclosedHeight() + m_parser->expressionStack().size() + i);
+            Value result = Value::fromTemp(functionType.returnType(i).kind, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size() + i);
             Location returnLocation = Location::fromArgumentLocation(callInfo.results[i]);
             if (returnLocation.isRegister()) {
                 RegisterBinding& currentBinding = returnLocation.isGPR() ? m_gprBindings[returnLocation.asGPR()] : m_fprBindings[returnLocation.asFPR()];
@@ -6223,10 +6891,13 @@ public:
                     // will never be live across a call. So far, this is probably true, but it's fragile. Probably the fix here is to
                     // exclude all possible return value registers from ScratchScope so we can guarantee there's never any interference.
                     currentBinding = RegisterBinding::none();
-                    if (returnLocation.isGPR())
-                        m_gprSet.add(returnLocation.asGPR(), Width::Width64);
-                    else
+                    if (returnLocation.isGPR()) {
+                        ASSERT(m_validGPRs.contains(returnLocation.asGPR(), IgnoreVectors));
+                        m_gprSet.add(returnLocation.asGPR(), IgnoreVectors);
+                    } else {
+                        ASSERT(m_validFPRs.contains(returnLocation.asFPR(), Width::Width128));
                         m_fprSet.add(returnLocation.asFPR(), Width::Width128);
+                    }
                 }
             }
             bind(result, returnLocation);
@@ -6251,6 +6922,7 @@ public:
         m_jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
 
         // Preserve caller-saved registers and other info
+        prepareForExceptions();
         saveValuesAcrossCall(callInfo);
 
         // Move argument values to parameter locations
@@ -6279,6 +6951,7 @@ public:
         m_jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
 
         // Preserve caller-saved registers and other info
+        prepareForExceptions();
         saveValuesAcrossCall(callInfo);
 
         // Move argument values to parameter locations
@@ -6290,7 +6963,7 @@ public:
         m_jit.call(m_scratchGPR, OperationPtrTag);
 
         // FIXME: Probably we should make CCall more lower level, and we should bind the result to Value separately.
-        result = Value::fromTemp(returnType, currentControlData().enclosedHeight() + m_parser->expressionStack().size());
+        result = Value::fromTemp(returnType, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size());
         Location resultLocation;
         switch (returnType) {
         case TypeKind::I32:
@@ -6308,12 +6981,18 @@ public:
         case TypeKind::Struct:
         case TypeKind::Func: {
             resultLocation = Location::fromGPR(GPRInfo::returnValueGPR);
+            ASSERT(m_validGPRs.contains(GPRInfo::returnValueGPR, IgnoreVectors));
             break;
         }
         case TypeKind::F32:
-        case TypeKind::F64:
+        case TypeKind::F64: {
+            resultLocation = Location::fromFPR(FPRInfo::returnValueFPR);
+            ASSERT(m_validFPRs.contains(FPRInfo::returnValueFPR, Width::Width128));
+            break;
+        }
         case TypeKind::V128: {
             resultLocation = Location::fromFPR(FPRInfo::returnValueFPR);
+            ASSERT(m_validFPRs.contains(FPRInfo::returnValueFPR, Width::Width128));
             break;
         }
         case TypeKind::Void:
@@ -6336,6 +7015,7 @@ public:
         m_maxCalleeStackSize = std::max<int>(calleeStackSize, m_maxCalleeStackSize);
 
         // Preserve caller-saved registers and other info
+        prepareForExceptions();
         saveValuesAcrossCall(callInfo);
 
         // Move argument values to parameter locations
@@ -6382,7 +7062,7 @@ public:
         Jump isSameInstance = m_jit.branchPtr(RelationalCondition::Equal, calleeInstance, GPRInfo::wasmContextInstancePointer);
         m_jit.move(calleeInstance, GPRInfo::wasmContextInstancePointer);
         m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
-        m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_dataScratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+        m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_scratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
         isSameInstance.link(&m_jit);
 
         // Since this can switch instance, we need to keep JSWebAssemblyInstance anchored in the stack.
@@ -6390,6 +7070,7 @@ public:
 
         // Safe to use across saveValues/passParameters since neither clobber the scratch GPR.
         m_jit.loadPtr(Address(calleeCode), m_scratchGPR);
+        prepareForExceptions();
         saveValuesAcrossCall(wasmCalleeInfo);
         passParametersToCall(arguments, wasmCalleeInfo);
         m_jit.call(m_scratchGPR, WasmEntryPtrTag);
@@ -6500,7 +7181,7 @@ public:
 
     void notifyFunctionUsesSIMD()
     {
-        m_isSIMD = true;
+        m_usesSIMD = true;
     }
 
     PartialResult WARN_UNUSED_RETURN addSIMDLoad(ExpressionType pointer, uint32_t uoffset, ExpressionType& result)
@@ -6768,7 +7449,7 @@ public:
 
         LOG_INSTRUCTION("Vector", op, pointer, pointerLocation, uoffset, RESULT(result));
 
-        m_jit.move(vectorLocation.asFPR(), resultLocation.asFPR());
+        m_jit.moveVector(vectorLocation.asFPR(), resultLocation.asFPR());
         switch (op) {
         case SIMDLaneOperation::LoadLane8:
             m_jit.vectorLoad8Lane(address, TrustedImm32(lane), resultLocation.asFPR());
@@ -6897,12 +7578,8 @@ public:
 #else
             m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::Unsigned }, result.asFPR(), result.asFPR(), result.asFPR());
 #endif
-        else {
-            m_jit.move(TrustedImm64(value.u64x2[0]), m_dataScratchGPR);
-            m_jit.vectorReplaceLaneInt64(TrustedImm32(0), m_dataScratchGPR, result.asFPR());
-            m_jit.move(TrustedImm64(value.u64x2[1]), m_dataScratchGPR);
-            m_jit.vectorReplaceLaneInt64(TrustedImm32(1), m_dataScratchGPR, result.asFPR());
-        }
+        else
+            m_jit.materializeVector(value, result.asFPR());
     }
 
     ExpressionType WARN_UNUSED_RETURN addConstant(v128_t value)
@@ -7096,12 +7773,10 @@ public:
             }
             if (scalarTypeIsFloatingPoint(info.lane)) {
                 if (info.lane == SIMDLane::f32x4) {
-                    m_jit.move(TrustedImm32(0x7fffffff), m_scratchGPR);
-                    m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
+                    m_jit.move32ToFloat(TrustedImm32(0x7fffffff), m_scratchFPR);
                     m_jit.vectorSplatFloat32(m_scratchFPR, m_scratchFPR);
                 } else {
-                    m_jit.move(TrustedImm64(0x7fffffffffffffffll), m_scratchGPR);
-                    m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
+                    m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), m_scratchFPR);
                     m_jit.vectorSplatFloat64(m_scratchFPR, m_scratchFPR);
                 }
                 m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
@@ -7238,14 +7913,12 @@ public:
                 break;
             case SIMDLane::f32x4:
                 // For floats, we unfortunately have to flip the sign bit using XOR.
-                m_jit.move(TrustedImm32(-0x80000000), m_scratchGPR);
-                m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
+                m_jit.move32ToFloat(TrustedImm32(-0x80000000), m_scratchFPR);
                 m_jit.vectorSplatFloat32(m_scratchFPR, m_scratchFPR);
                 m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
                 break;
             case SIMDLane::f64x2:
-                m_jit.move(TrustedImm64(-0x8000000000000000ll), m_scratchGPR);
-                m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
+                m_jit.move64ToDouble(TrustedImm64(-0x8000000000000000ll), m_scratchFPR);
                 m_jit.vectorSplatFloat64(m_scratchFPR, m_scratchFPR);
                 m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
                 break;
@@ -7288,7 +7961,7 @@ public:
         return { };
     }
 
-    PartialResult WARN_UNUSED_RETURN addSIMDRelOp(SIMDLaneOperation op, SIMDInfo info, ExpressionType left, ExpressionType right, Air::Arg relOp, ExpressionType& result)
+    PartialResult WARN_UNUSED_RETURN addSIMDRelOp(SIMDLaneOperation op, SIMDInfo info, ExpressionType left, ExpressionType right, B3::Air::Arg relOp, ExpressionType& result)
     {
         Location leftLocation = loadIfNecessary(left);
         Location rightLocation = loadIfNecessary(right);
@@ -7366,13 +8039,15 @@ public:
         if (info.lane == SIMDLane::i64x2) {
             // Multiplication of 64-bit ints isn't natively supported on ARM or Intel (at least the ones we're targeting)
             // so we scalarize it instead.
+            ScratchScope<1, 0> scratches(*this);
+            GPRReg dataScratchGPR = scratches.gpr(0);
             m_jit.vectorExtractLaneInt64(TrustedImm32(0), left.asFPR(), m_scratchGPR);
-            m_jit.vectorExtractLaneInt64(TrustedImm32(0), right.asFPR(), m_dataScratchGPR);
-            m_jit.mul64(m_scratchGPR, m_dataScratchGPR, m_scratchGPR);
+            m_jit.vectorExtractLaneInt64(TrustedImm32(0), right.asFPR(), dataScratchGPR);
+            m_jit.mul64(m_scratchGPR, dataScratchGPR, m_scratchGPR);
             m_jit.vectorReplaceLane(SIMDLane::i64x2, TrustedImm32(0), m_scratchGPR, m_scratchFPR);
             m_jit.vectorExtractLaneInt64(TrustedImm32(1), left.asFPR(), m_scratchGPR);
-            m_jit.vectorExtractLaneInt64(TrustedImm32(1), right.asFPR(), m_dataScratchGPR);
-            m_jit.mul64(m_scratchGPR, m_dataScratchGPR, m_scratchGPR);
+            m_jit.vectorExtractLaneInt64(TrustedImm32(1), right.asFPR(), dataScratchGPR);
+            m_jit.mul64(m_scratchGPR, dataScratchGPR, m_scratchGPR);
             m_jit.vectorReplaceLane(SIMDLane::i64x2, TrustedImm32(1), m_scratchGPR, m_scratchFPR);
             m_jit.moveVector(m_scratchFPR, result.asFPR());
         } else
@@ -7548,12 +8223,20 @@ public:
 #undef BBQ_STUB
 #undef BBQ_CONTROL_STUB
 
+    Vector<UnlinkedHandlerInfo>&& takeExceptionHandlers()
+    {
+        return WTFMove(m_exceptionHandlers);
+    }
+
+    Vector<CCallHelpers::Label>&& takeCatchEntrypoints()
+    {
+        return WTFMove(m_catchEntrypoints);
+    }
+
 private:
     bool isScratch(Location loc)
     {
-        return (loc.isGPR() && loc.asGPR() == m_dataScratchGPR)
-            || (loc.isGPR() && loc.asGPR() == m_scratchGPR)
-            || (loc.isFPR() && loc.asFPR() == m_scratchFPR);
+        return (loc.isGPR() && loc.asGPR() == m_scratchGPR) || (loc.isFPR() && loc.asFPR() == m_scratchFPR);
     }
 
     void emitStoreConst(Value constant, Location loc)
@@ -7615,12 +8298,10 @@ private:
             m_jit.move(TrustedImm64(constant.asRef()), loc.asGPR());
             break;
         case TypeKind::F32:
-            m_jit.move(Imm32(constant.asI32()), m_dataScratchGPR);
-            m_jit.move32ToFloat(m_dataScratchGPR, loc.asFPR());
+            m_jit.moveFloat(Imm32(constant.asI32()), loc.asFPR());
             break;
         case TypeKind::F64:
-            m_jit.move(Imm64(constant.asI64()), m_dataScratchGPR);
-            m_jit.move64ToDouble(m_dataScratchGPR, loc.asFPR());
+            m_jit.moveDouble(Imm64(constant.asI64()), loc.asFPR());
             break;
         default:
             RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented constant typekind.");
@@ -7658,7 +8339,7 @@ private:
         case TypeKind::Funcref:
         case TypeKind::Arrayref:
         case TypeKind::Structref:
-            m_jit.storePtr(srcLocation.asGPR(), dst.asAddress());
+            m_jit.store64(srcLocation.asGPR(), dst.asAddress());
             break;
         case TypeKind::V128:
             m_jit.storeVector(srcLocation.asFPR(), dst.asAddress());
@@ -7682,12 +8363,10 @@ private:
         case TypeKind::I32:
         case TypeKind::I31ref:
         case TypeKind::F32:
-            m_jit.load32(srcLocation.asAddress(), m_dataScratchGPR);
-            m_jit.store32(m_dataScratchGPR, dst.asAddress());
+            m_jit.transfer32(srcLocation.asAddress(), dst.asAddress());
             break;
         case TypeKind::I64:
-            m_jit.load64(srcLocation.asAddress(), m_dataScratchGPR);
-            m_jit.store64(m_dataScratchGPR, dst.asAddress());
+            m_jit.transfer64(srcLocation.asAddress(), dst.asAddress());
             break;
         case TypeKind::F64:
             m_jit.loadDouble(srcLocation.asAddress(), m_scratchFPR);
@@ -7699,8 +8378,7 @@ private:
         case TypeKind::Funcref:
         case TypeKind::Structref:
         case TypeKind::Arrayref:
-            m_jit.loadPtr(srcLocation.asAddress(), m_dataScratchGPR);
-            m_jit.storePtr(m_dataScratchGPR, dst.asAddress());
+            m_jit.transfer64(srcLocation.asAddress(), dst.asAddress());
             break;
         case TypeKind::V128: {
             // We do two scalar load/store pairs instead of one vector load/store in order to avoid
@@ -7744,7 +8422,7 @@ private:
             break;
         case TypeKind::F32:
         case TypeKind::F64:
-            m_jit.move(srcLocation.asFPR(), dst.asFPR());
+            m_jit.moveDouble(srcLocation.asFPR(), dst.asFPR());
             break;
         case TypeKind::V128:
             m_jit.moveVector(srcLocation.asFPR(), dst.asFPR());
@@ -7756,7 +8434,6 @@ private:
 
     void emitLoad(Value src, Location dst)
     {
-
         ASSERT(dst.isRegister());
         Location srcLocation = locationOf(src);
         ASSERT(srcLocation.isMemory());
@@ -7784,7 +8461,7 @@ private:
         case TypeKind::Funcref:
         case TypeKind::Arrayref:
         case TypeKind::Structref:
-            m_jit.loadPtr(srcLocation.asAddress(), dst.asGPR());
+            m_jit.load64(srcLocation.asAddress(), dst.asGPR());
             break;
         case TypeKind::V128:
             m_jit.loadVector(srcLocation.asAddress(), dst.asFPR());
@@ -7860,6 +8537,13 @@ private:
     {
         ASSERT(srcVector.size() == dstVector.size());
 
+        if (srcVector.size() == 1) {
+            emitMove(srcVector[0], dstVector[0]);
+            return;
+        }
+
+        // For multi-value return, a parallel move might be necessary. This is comparatively complex
+        // and slow, so we limit it to this slow path.
         ScratchScope<1, 1> scratches(*this);
         Location gpTemp = Location::fromGPR(scratches.gpr(0));
         Location fpTemp = Location::fromFPR(scratches.fpr(0));
@@ -7913,18 +8597,22 @@ private:
         // The most common example of this is returned values (that use registers from the calling convention) or
         // values passed between control blocks. In these cases, we just leave it in its register unmoved.
         Location existingLocation = locationOf(value);
-        if (existingLocation.isRegister())
+        if (existingLocation.isRegister()) {
+            ASSERT(value.isFloat() == existingLocation.isFPR());
             return existingLocation;
+        }
 
         Location reg = hint;
         if (reg.kind() == Location::None
             || value.isFloat() != reg.isFPR()
-            || (reg.isGPR() && !m_gprSet.contains(reg.asGPR(), Width::Width64))
+            || (reg.isGPR() && !m_gprSet.contains(reg.asGPR(), IgnoreVectors))
             || (reg.isFPR() && !m_fprSet.contains(reg.asFPR(), Width::Width128)))
             reg = allocateRegister(value);
         increaseKey(reg);
         if (value.isLocal())
             currentControlData().touch(value.asLocal());
+        if (UNLIKELY(Options::verboseBBQJITAllocation()))
+            dataLogLn("BBQ\tAllocated ", value, " with type ", makeString(value.type()), " to ", reg);
         return bind(value, reg);
     }
 
@@ -8020,7 +8708,7 @@ private:
                 m_fprSet.remove(loc.asFPR());
                 m_fprBindings[loc.asFPR()] = RegisterBinding::fromValue(value);
             } else {
-                ASSERT(m_gprSet.contains(loc.asGPR(), Width::Width64));
+                ASSERT(m_gprSet.contains(loc.asGPR(), IgnoreVectors));
                 m_gprSet.remove(loc.asGPR());
                 m_gprBindings[loc.asGPR()] = RegisterBinding::fromValue(value);
             }
@@ -8044,10 +8732,12 @@ private:
         // Unbind a value from a location. Doesn't touch the LRU, but updates the register set
         // and local/temp tables accordingly.
         if (loc.isFPR()) {
+            ASSERT(m_validFPRs.contains(loc.asFPR(), Width::Width128));
             m_fprSet.add(loc.asFPR(), Width::Width128);
             m_fprBindings[loc.asFPR()] = RegisterBinding::none();
         } else if (loc.isGPR()) {
-            m_gprSet.add(loc.asGPR(), Width::Width64);
+            ASSERT(m_validGPRs.contains(loc.asGPR(), IgnoreVectors));
+            m_gprSet.add(loc.asGPR(), IgnoreVectors);
             m_gprBindings[loc.asGPR()] = RegisterBinding::none();
         }
         if (value.isLocal())
@@ -8157,7 +8847,7 @@ private:
             dataLogLn("BBQ\tEvicting GPR ", MacroAssembler::gprName(lruGPR), " currently bound to ", lruBinding);
         flushValue(lruBinding.toValue());
 
-        ASSERT(m_gprSet.contains(lruGPR, Width::Width64));
+        ASSERT(m_gprSet.contains(lruGPR, IgnoreVectors));
         ASSERT(m_gprBindings[lruGPR].m_kind == RegisterBinding::None);
         return lruGPR;
     }
@@ -8180,7 +8870,7 @@ private:
 
     void clobber(RegisterID gpr)
     {
-        if (m_validGPRs.contains(gpr, Width::Width64) && !m_gprSet.contains(gpr, Width::Width64)) {
+        if (m_validGPRs.contains(gpr, IgnoreVectors) && !m_gprSet.contains(gpr, IgnoreVectors)) {
             RegisterBinding& binding = m_gprBindings[gpr];
             if (UNLIKELY(Options::verboseBBQJITAllocation()))
                 dataLogLn("BBQ\tClobbering GPR ", MacroAssembler::gprName(gpr), " currently bound to ", binding);
@@ -8256,8 +8946,10 @@ private:
     private:
         RegisterID bindGPRToScratch(RegisterID reg)
         {
+            if (!m_generator.m_validGPRs.contains(reg, IgnoreVectors))
+                return reg;
             RegisterBinding& binding = m_generator.m_gprBindings[reg];
-            if (m_preserved.contains(reg, Width::Width64) && !binding.isNone()) {
+            if (m_preserved.contains(reg, IgnoreVectors) && !binding.isNone()) {
                 if (UNLIKELY(Options::verboseBBQJITAllocation()))
                     dataLogLn("BBQ\tPreserving GPR ", MacroAssembler::gprName(reg), " currently bound to ", binding);
                 return reg; // If the register is already bound, we don't need to preserve it ourselves.
@@ -8273,6 +8965,8 @@ private:
 
         FPRegisterID bindFPRToScratch(FPRegisterID reg)
         {
+            if (!m_generator.m_validFPRs.contains(reg, Width::Width128))
+                return reg;
             RegisterBinding& binding = m_generator.m_fprBindings[reg];
             if (m_preserved.contains(reg, Width::Width128) && !binding.isNone()) {
                 if (UNLIKELY(Options::verboseBBQJITAllocation()))
@@ -8290,19 +8984,23 @@ private:
 
         void unbindGPRFromScratch(RegisterID reg)
         {
+            if (!m_generator.m_validGPRs.contains(reg, IgnoreVectors))
+                return;
             RegisterBinding& binding = m_generator.m_gprBindings[reg];
             if (UNLIKELY(Options::verboseBBQJITAllocation()))
                 dataLogLn("BBQ\tReleasing GPR ", MacroAssembler::gprName(reg));
-            if (m_preserved.contains(reg, Width::Width64) && !binding.isScratch())
+            if (m_preserved.contains(reg, IgnoreVectors) && !binding.isScratch())
                 return; // It's okay if the register isn't bound to a scratch if we meant to preserve it - maybe it was just already bound to something.
             ASSERT(binding.isScratch());
             binding = RegisterBinding::none();
-            m_generator.m_gprSet.add(reg, Width::Width64);
+            m_generator.m_gprSet.add(reg, IgnoreVectors);
             m_generator.m_gprLRU.unlock(reg);
         }
 
         void unbindFPRFromScratch(FPRegisterID reg)
         {
+            if (!m_generator.m_validFPRs.contains(reg, Width::Width128))
+                return;
             RegisterBinding& binding = m_generator.m_fprBindings[reg];
             if (UNLIKELY(Options::verboseBBQJITAllocation()))
                 dataLogLn("BBQ\tReleasing FPR ", MacroAssembler::fprName(reg));
@@ -8318,7 +9016,7 @@ private:
         void initializedPreservedSet(Location location, Args... args)
         {
             if (location.isGPR())
-                m_preserved.add(location.asGPR(), Width::Width64);
+                m_preserved.add(location.asGPR(), IgnoreVectors);
             else if (location.isFPR())
                 m_preserved.add(location.asFPR(), Width::Width128);
             initializedPreservedSet(args...);
@@ -8329,7 +9027,7 @@ private:
         {
             for (JSC::Reg reg : registers) {
                 if (reg.isGPR())
-                    m_preserved.add(reg.gpr(), Width::Width64);
+                    m_preserved.add(reg.gpr(), IgnoreVectors);
                 else
                     m_preserved.add(reg.fpr(), Width::Width128);
             }
@@ -8382,6 +9080,8 @@ private:
         return Location::fromStack(-m_frameSize);
     }
 
+    constexpr static int tempSlotSize = 16; // Size of the stack slot for a stack temporary. Currently the size of the largest possible temporary (a v128).
+
 #undef LOG_INSTRUCTION
 #undef RESULT
 
@@ -8393,10 +9093,14 @@ private:
     const ModuleInformation& m_info;
     MemoryMode m_mode;
     Vector<UnlinkedWasmToWasmCall>& m_unlinkedWasmToWasmCalls;
+    std::optional<bool> m_hasExceptionHandlers;
     TierUpCount* m_tierUp;
     FunctionParser<BBQJIT>* m_parser;
     Vector<uint32_t, 4> m_arguments;
     ControlData m_topLevel;
+    unsigned m_loopIndexForOSREntry;
+    Vector<unsigned> m_outerLoops;
+    unsigned m_osrEntryScratchBufferSize { 1 };
 
     Vector<RegisterBinding, 32> m_gprBindings; // Tables mapping from each register to the current value bound to it.
     Vector<RegisterBinding, 32> m_fprBindings;
@@ -8411,17 +9115,17 @@ private:
     uint32_t m_lastUseTimestamp; // Monotonically increasing integer incrementing with each register use.
     Vector<RefPtr<SharedTask<void(BBQJIT&, CCallHelpers&)>>, 8> m_latePaths; // Late paths to emit after the rest of the function body.
 
-    DataLabelPtr m_frameSizeLabel;
+    Vector<DataLabelPtr, 1> m_frameSizeLabels;
     int m_frameSize { 0 };
     int m_maxCalleeStackSize { 0 };
     int m_localStorage { 0 }; // Stack offset pointing to the local with the lowest address.
-    constexpr static int tempSlotSize { 16 }; // Size of the stack slot for a stack temporary. Currently the size of the largest possible temporary (a v128).
-    int m_blockCount;
-    bool m_isSIMD { false }; // Whether the function we are compiling uses SIMD instructions or not.
+    bool m_usesSIMD { false }; // Whether the function we are compiling uses SIMD instructions or not.
+    bool m_usesExceptions { false };
+    Checked<unsigned> m_tryCatchDepth { 0 };
+    Checked<unsigned> m_callSiteIndex { 0 };
 
     RegisterID m_scratchGPR { GPRInfo::nonPreservedNonArgumentGPR0 }; // Scratch registers to hold temporaries in operations.
     FPRegisterID m_scratchFPR { FPRInfo::nonPreservedNonArgumentFPR0 };
-    RegisterID m_dataScratchGPR { GPRInfo::wasmScratchGPR0 }; // Used specifically as a temporary for complex moves.
 
 #if CPU(X86) || CPU(X86_64)
     RegisterID m_shiftRCX { X86Registers::ecx };
@@ -8436,21 +9140,29 @@ private:
     InternalFunction* m_compilation;
 
     std::array<JumpList, numberOfExceptionTypes> m_exceptions { };
+    Vector<UnlinkedHandlerInfo> m_exceptionHandlers;
+    Vector<CCallHelpers::Label> m_catchEntrypoints;
 };
 
-Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext& compilationContext, Callee& callee, const FunctionData& function, const TypeDefinition& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, const ModuleInformation& info, MemoryMode mode, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, TierUpCount* tierUp)
+Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext& compilationContext, Callee& callee, const FunctionData& function, const TypeDefinition& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, const ModuleInformation& info, MemoryMode mode, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
 {
     CompilerTimingScope totalTime("BBQ", "Total BBQ");
 
-    UNUSED_PARAM(hasExceptionHandlers);
-    UNUSED_PARAM(tierUp);
+    Thunks::singleton().stub(catchInWasmThunkGenerator);
+
     auto result = makeUnique<InternalFunction>();
 
     compilationContext.wasmEntrypointJIT = makeUnique<CCallHelpers>();
 
-    BBQJIT irGenerator(*compilationContext.wasmEntrypointJIT, signature, callee, function, functionIndex, info, unlinkedWasmToWasmCalls, mode, result.get(), tierUp);
+    BBQJIT irGenerator(*compilationContext.wasmEntrypointJIT, signature, callee, function, functionIndex, info, unlinkedWasmToWasmCalls, mode, result.get(), hasExceptionHandlers, loopIndexForOSREntry, tierUp);
     FunctionParser<BBQJIT> parser(irGenerator, function.data.data(), function.data.size(), signature, info);
     WASM_FAIL_IF_HELPER_FAILS(parser.parse());
+
+    result->exceptionHandlers = irGenerator.takeExceptionHandlers();
+    compilationContext.catchEntrypoints = irGenerator.takeCatchEntrypoints();
+
+    if (irGenerator.hasLoops())
+        result->bbqSharedLoopEntrypoint = irGenerator.addLoopOSREntrypoint();
 
     return result;
 }

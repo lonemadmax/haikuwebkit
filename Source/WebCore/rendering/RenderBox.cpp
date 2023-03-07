@@ -4986,7 +4986,7 @@ bool RenderBox::establishesBlockFormattingContext() const
     || isInlineBlockOrInlineTable() || isTableCell() || isTableCaption() || isBlockWithOverFlowOtherThanVisibleAndClip()
     || boxStyle.display() == DisplayType::FlowRoot || boxStyle.containsLayoutOrPaint()
     || isFlexItemIncludingDeprecated() || isGridItem() || boxStyle.specifiesColumns()
-    || boxStyle.columnSpan() == ColumnSpan::All;
+    || boxStyle.columnSpan() == ColumnSpan::All || style().blockStepSize();
 }
 
 bool RenderBox::avoidsFloats() const
@@ -5607,8 +5607,6 @@ LayoutUnit synthesizedBaseline(const RenderBox& box, const RenderStyle& parentSt
 
 LayoutUnit RenderBox::intrinsicLogicalWidth() const
 {
-    if (shouldApplyInlineSizeContainment())
-        return LayoutUnit();
     return style().isHorizontalWritingMode() ? intrinsicSize().width() : intrinsicSize().height();
 }
 
@@ -5619,13 +5617,13 @@ bool RenderBox::shouldIgnoreMinMaxSizes() const
 
 std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerWidth() const
 {
-    ASSERT(shouldApplySizeContainment());
+    ASSERT(isHorizontalWritingMode() ? shouldApplySizeOrInlineSizeContainment() : shouldApplySizeContainment());
     if (style().containIntrinsicWidthType() == ContainIntrinsicSizeType::None)
         return std::nullopt;
 
     if (element() && style().containIntrinsicWidthType() == ContainIntrinsicSizeType::AutoAndLength && shouldSkipContent()) {
-        if (auto lastRememberedSize = element()->lastRememberedSize())
-            return isHorizontalWritingMode() ? LayoutUnit(lastRememberedSize->inlineSize()) : LayoutUnit(lastRememberedSize->blockSize());
+        if (auto width = isHorizontalWritingMode() ? element()->lastRememberedLogicalWidth() : element()->lastRememberedLogicalHeight())
+            return width;
     }
 
     auto width = style().containIntrinsicWidth();
@@ -5635,13 +5633,13 @@ std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerWidth() const
 
 std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerHeight() const
 {
-    ASSERT(shouldApplySizeContainment());
+    ASSERT(isHorizontalWritingMode() ? shouldApplySizeContainment() : shouldApplySizeOrInlineSizeContainment());
     if (style().containIntrinsicHeightType() == ContainIntrinsicSizeType::None)
         return std::nullopt;
 
     if (element() && style().containIntrinsicHeightType() == ContainIntrinsicSizeType::AutoAndLength && shouldSkipContent()) {
-        if (auto lastRememberedSize = element()->lastRememberedSize())
-            return isHorizontalWritingMode() ? LayoutUnit(lastRememberedSize->blockSize()) : LayoutUnit(lastRememberedSize->inlineSize());
+        if (auto height = isHorizontalWritingMode() ? element()->lastRememberedLogicalHeight() : element()->lastRememberedLogicalWidth())
+            return height;
     }
 
     auto height = style().containIntrinsicHeight();

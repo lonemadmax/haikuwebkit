@@ -45,7 +45,7 @@ class TypeChecker : public AST::Visitor, public ContextProvider<Type*> {
 public:
     TypeChecker(ShaderModule&);
 
-    void check();
+    std::optional<FailedCheck> check();
 
     // Declarations
     void visit(AST::Structure&) override;
@@ -102,8 +102,7 @@ private:
     ShaderModule& m_shaderModule;
     Type* m_inferredType { nullptr };
 
-    // FIXME: move this into a class that contains the AST
-    TypeStore m_types;
+    TypeStore& m_types;
     Vector<Error> m_errors;
     // FIXME: maybe these should live in the context
     HashMap<String, WTF::Vector<OverloadCandidate>> m_overloadedOperations;
@@ -111,6 +110,7 @@ private:
 
 TypeChecker::TypeChecker(ShaderModule& shaderModule)
     : m_shaderModule(shaderModule)
+    , m_types(shaderModule.types())
 {
     introduceVariable(AST::Identifier::make("void"_s), m_types.voidType());
     introduceVariable(AST::Identifier::make("bool"_s), m_types.boolType());
@@ -118,36 +118,11 @@ TypeChecker::TypeChecker(ShaderModule& shaderModule)
     introduceVariable(AST::Identifier::make("u32"_s), m_types.u32Type());
     introduceVariable(AST::Identifier::make("f32"_s), m_types.f32Type());
 
-    // FIXME: Add all other overloads
-    // FIXME: we should make this a lot more convenient
-    // operator + [T<:Number](T, T) -> T
-    OverloadCandidate plus1;
-    {
-        TypeVariable T { 0, TypeVariable::Number };
-        plus1.typeVariables.append(T);
-        plus1.parameters.append(T);
-        plus1.parameters.append(T);
-        plus1.result = T;
-    }
-    // operator + [T<:Number, N](vector<T, N>, T) -> vector<T, N>
-    OverloadCandidate plus2;
-    {
-        TypeVariable T { 0, TypeVariable::Number };
-        NumericVariable N { 0 };
-        plus2.typeVariables.append(T);
-        plus2.numericVariables.append(N);
-        plus2.parameters.append(AbstractVector { T, N });
-        plus2.parameters.append(T);
-        plus2.result = AbstractVector { T, N };
-    }
-
-    m_overloadedOperations.add("+"_s, WTF::Vector<OverloadCandidate> ({
-        WTFMove(plus1),
-        WTFMove(plus2),
-    }));
+    // This file contains the declarations generated from `TypeDeclarations.rb`
+#include "TypeDeclarations.h" // NOLINT
 }
 
-void TypeChecker::check()
+std::optional<FailedCheck> TypeChecker::check()
 {
     // FIXME: fill in struct fields in a second pass since declarations might be
     // out of order
@@ -170,6 +145,14 @@ void TypeChecker::check()
         for (auto& error : m_errors)
             dataLogLn(error);
     }
+
+    if (m_errors.isEmpty())
+        return std::nullopt;
+
+
+    // FIXME: add support for warnings
+    Vector<Warning> warnings { };
+    return FailedCheck { WTFMove(m_errors), WTFMove(warnings) };
 }
 
 // Declarations
@@ -508,39 +491,35 @@ Type* TypeChecker::infer(AST::Expression& expression)
     AST::Visitor::visit(expression);
     ASSERT(m_inferredType);
 
-    auto* type = m_inferredType;
-
     if (shouldDumpInferredTypes) {
         dataLog("> Type inference [expression]: ");
         dumpNode(WTF::dataFile(), expression);
         dataLog(" : ");
-        dataLogLn(*type);
+        dataLogLn(*m_inferredType);
     }
 
-    // FIXME: store resolved type in the expression
+    expression.m_inferredType = m_inferredType;
+    Type* inferredType = m_inferredType;
     m_inferredType = nullptr;
 
-    return type;
+    return inferredType;
 }
 
 Type* TypeChecker::resolve(AST::TypeName& type)
 {
     ASSERT(!m_inferredType);
-    // FIXME: this should call the base class and TypeChecker::visit should assert
-    // that it is never called directly on types
     AST::Visitor::visit(type);
     ASSERT(m_inferredType);
-
-    auto* inferredType = m_inferredType;
 
     if (shouldDumpInferredTypes) {
         dataLog("> Type inference [type]: ");
         dumpNode(WTF::dataFile(), type);
         dataLog(" : ");
-        dataLogLn(*inferredType);
+        dataLogLn(*m_inferredType);
     }
 
-    // FIXME: store resolved type in the AST type
+    type.m_resolvedType = m_inferredType;
+    Type* inferredType = m_inferredType;
     m_inferredType = nullptr;
 
     return inferredType;
@@ -588,9 +567,9 @@ void TypeChecker::typeError(InferBottom inferBottom, const SourceSpan& span, Arg
         inferred(m_types.bottomType());
 }
 
-void typeCheck(ShaderModule& shaderModule)
+std::optional<FailedCheck> typeCheck(ShaderModule& shaderModule)
 {
-    TypeChecker(shaderModule).check();
+    return TypeChecker(shaderModule).check();
 }
 
 } // namespace WGSL

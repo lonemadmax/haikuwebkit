@@ -38,6 +38,7 @@
 #include "JSObjectInlines.h"
 #include "JSWebAssemblyInstance.h"
 #include "MathCommon.h"
+#include "NumberPrototype.h"
 #include "RegExpObject.h"
 #include "StringPrototypeInlines.h"
 #include "WasmCallingConvention.h"
@@ -833,7 +834,7 @@ private:
                 if (regExp->globalOrSticky())
                     return false;
 
-                if (regExp->unicode())
+                if (regExp->eitherUnicode())
                     return false;
 
                 auto jitCodeBlock = regExp->getRegExpJITCodeBlock();

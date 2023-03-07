@@ -26,6 +26,7 @@
 #pragma once
 
 #include "FloatRect.h"
+#include "InlineDamage.h"
 #include "InlineFormattingConstraints.h"
 #include "InlineIteratorInlineBox.h"
 #include "InlineIteratorLineBox.h"
@@ -77,6 +78,7 @@ public:
     static bool canUseForAfterStyleChange(const RenderBlockFlow&, StyleDifference);
     static bool canUseForAfterInlineBoxStyleChange(const RenderInline&, StyleDifference);
     static bool shouldInvalidateLineLayoutPathAfterContentChange(const RenderBlockFlow& parent, const RenderObject& rendererWithNewContent, const LineLayout&);
+    static bool shouldInvalidateLineLayoutPathAfterTreeMutation(const RenderBlockFlow& parent, const RenderObject& renderer, const LineLayout&, bool isRemoval);
 
     bool shouldSwitchToLegacyOnInvalidation() const;
 
@@ -86,11 +88,12 @@ public:
     void updateOverflow();
     // Partial invalidation.
     void insertedIntoTree(const RenderElement& parent, RenderObject& child);
+    void removedFromTree(const RenderElement& parent, RenderObject& child);
     void updateTextContent(const RenderText&, size_t offset, int delta);
 
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicWidthConstraints();
 
-    void layout();
+    std::optional<LayoutRect> layout();
     void paint(PaintInfo&, const LayoutPoint& paintOffset, const RenderInline* layerRenderer = nullptr);
     bool hitTest(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint& accumulatedOffset, HitTestAction, const RenderInline* layerRenderer = nullptr);
     void adjustForPagination();
@@ -129,6 +132,7 @@ public:
     // This is temporary, required by partial bailout check.
     bool hasOutOfFlowContent() const;
     bool contentNeedsVisualReordering() const;
+    bool isDamaged() const { return m_lineDamage && m_lineDamage->type() != Layout::InlineDamage::Type::Invalid; }
 
 private:
     void updateReplacedDimensions(const RenderBox&);
@@ -141,7 +145,7 @@ private:
 
     void prepareLayoutState();
     void prepareFloatingState();
-    void constructContent();
+    FloatRect constructContent();
     Vector<LineAdjustment> adjustContent();
     void updateRenderTreePositions(const Vector<LineAdjustment>&);
 

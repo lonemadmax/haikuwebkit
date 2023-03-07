@@ -871,6 +871,7 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
 #if ENABLE(OVERFLOW_SCROLLING_TOUCH)
         || first.useTouchOverflowScrolling != second.useTouchOverflowScrolling
 #endif
+        || first.listStyleStringValue != second.listStyleStringValue
         || first.listStyleImage != second.listStyleImage) // FIXME: needs arePointingToEqualData()?
         return true;
 
@@ -1093,6 +1094,8 @@ static bool rareDataChangeRequiresLayerRepaint(const StyleRareNonInheritedData& 
         changedContextSensitiveProperties.add(StyleDifferenceContextSensitiveProperty::Filter);
         // Don't return true; keep looking for another change.
     }
+#else
+    UNUSED_PARAM(changedContextSensitiveProperties);
 #endif
 
     // FIXME: In SVG this needs to trigger a layout.

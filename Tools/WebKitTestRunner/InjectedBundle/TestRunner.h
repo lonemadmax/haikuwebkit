@@ -114,6 +114,10 @@ public:
     void setAsynchronousSpellCheckingEnabled(bool);
     void setAllowsAnySSLCertificate(bool);
     void setBackgroundFetchPermission(bool);
+    JSRetainPtr<JSStringRef> lastAddedBackgroundFetchIdentifier() const;
+    JSRetainPtr<JSStringRef> lastRemovedBackgroundFetchIdentifier() const;
+    JSRetainPtr<JSStringRef> lastUpdatedBackgroundFetchIdentifier() const;
+
     void setShouldSwapToEphemeralSessionOnNextNavigation(bool);
     void setShouldSwapToDefaultSessionOnNextNavigation(bool);
     void setCustomUserAgent(JSStringRef);
@@ -297,6 +301,12 @@ public:
     static void removeAllWebNotificationPermissions();
     static void simulateWebNotificationClick(JSValueRef notification);
     static void simulateWebNotificationClickForServiceWorkerNotifications();
+
+    JSRetainPtr<JSStringRef> getBackgroundFetchIdentifier();
+    void abortBackgroundFetch(JSStringRef);
+    void pauseBackgroundFetch(JSStringRef);
+    void resumeBackgroundFetch(JSStringRef);
+    void simulateClickBackgroundFetch(JSStringRef);
 
     // Geolocation.
     void setGeolocationPermission(bool);

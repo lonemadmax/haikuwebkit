@@ -60,6 +60,7 @@
 #include "QuotesData.h"
 #include "RenderBox.h"
 #include "RenderStyle.h"
+#include "Settings.h"
 #include "StyleCachedImage.h"
 #include "StyleCrossfadeImage.h"
 #include "StyleFilterImage.h"
@@ -686,7 +687,7 @@ public:
 
     CSSPropertyID property() const { return m_property; }
 
-    virtual bool animationIsAccelerated() const { return false; }
+    virtual bool animationIsAccelerated(const Settings&) const { return false; }
 
 private:
     CSSPropertyID m_property;
@@ -750,6 +751,17 @@ public:
     OffsetRotateWrapper()
         : PropertyWrapperGetter(CSSPropertyOffsetRotate, &RenderStyle::offsetRotate)
     {
+    }
+
+private:
+    bool animationIsAccelerated(const Settings& settings) const final
+    {
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+        return settings.threadedAnimationResolutionEnabled();
+#else
+        UNUSED_PARAM(settings);
+        return false;
+#endif
     }
 
     bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
@@ -986,7 +998,7 @@ private:
 // This class extends LengthPointPropertyWrapper to accommodate `auto` value expressed as
 // LengthPoint(Length(LengthType::Auto), Length(LengthType::Auto)). This is used for 
 // offset-anchor and offset-position, which allows `auto`, and is expressed like so.
-class LengthPointOrAutoPropertyWrapper final : public LengthPointPropertyWrapper {
+class LengthPointOrAutoPropertyWrapper : public LengthPointPropertyWrapper {
 public:
     LengthPointOrAutoPropertyWrapper(CSSPropertyID property, LengthPoint (RenderStyle::*getter)() const, void (RenderStyle::*setter)(LengthPoint&&))
         : LengthPointPropertyWrapper(property, getter, setter)
@@ -1002,6 +1014,25 @@ private:
         bool toIsAuto = value(to).x().isAuto() && value(to).y().isAuto();
 
         return (!fromIsAuto && !toIsAuto); 
+    }
+};
+
+class OffsetLengthPointWrapper final : public LengthPointOrAutoPropertyWrapper {
+public:
+    OffsetLengthPointWrapper(CSSPropertyID property, LengthPoint (RenderStyle::*getter)() const, void (RenderStyle::*setter)(LengthPoint&&))
+        : LengthPointOrAutoPropertyWrapper(property, getter, setter)
+    {
+    }
+
+private:
+    bool animationIsAccelerated(const Settings& settings) const final
+    {
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+        return settings.threadedAnimationResolutionEnabled();
+#else
+        UNUSED_PARAM(settings);
+        return false;
+#endif
     }
 };
 
@@ -1211,7 +1242,7 @@ private:
     }
 };
 
-class PathOperationPropertyWrapper final : public RefCountedPropertyWrapper<PathOperation> {
+class PathOperationPropertyWrapper : public RefCountedPropertyWrapper<PathOperation> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     PathOperationPropertyWrapper(CSSPropertyID property, PathOperation* (RenderStyle::*getter)() const, void (RenderStyle::*setter)(RefPtr<PathOperation>&&))
@@ -1240,6 +1271,26 @@ private:
         if (!clipPathA || !clipPathB)
             return false;
         return *clipPathA == *clipPathB;
+    }
+};
+
+class OffsetPathWrapper final : public PathOperationPropertyWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    OffsetPathWrapper()
+        : PathOperationPropertyWrapper(CSSPropertyOffsetPath, &RenderStyle::offsetPath, &RenderStyle::setOffsetPath)
+    {
+    }
+
+private:
+    bool animationIsAccelerated(const Settings& settings) const final
+    {
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+        return settings.threadedAnimationResolutionEnabled();
+#else
+        UNUSED_PARAM(settings);
+        return false;
+#endif
     }
 };
 
@@ -1347,7 +1398,7 @@ public:
     }
 
 private:
-    bool animationIsAccelerated() const final { return true; }
+    bool animationIsAccelerated(const Settings&) const final { return true; }
     bool requiresBlendingForAccumulativeIteration(const RenderStyle&, const RenderStyle&) const final { return this->property() == CSSPropertyTransform; }
 };
 
@@ -1361,7 +1412,7 @@ public:
     }
 
 private:
-    bool animationIsAccelerated() const final { return true; }
+    bool animationIsAccelerated(const Settings&) const final { return true; }
 
     bool equals(const RenderStyle& a, const RenderStyle& b) const final
     {
@@ -1378,7 +1429,7 @@ public:
     }
 
 private:
-    bool animationIsAccelerated() const final
+    bool animationIsAccelerated(const Settings&) const final
     {
         return property() == CSSPropertyFilter
 #if ENABLE(FILTERS_LEVEL_2)
@@ -2659,6 +2710,26 @@ private:
     }
 };
 
+class OffsetDistanceWrapper final : public LengthPropertyWrapper {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    OffsetDistanceWrapper()
+        : LengthPropertyWrapper(CSSPropertyOffsetDistance, &RenderStyle::offsetDistance, &RenderStyle::setOffsetDistance, LengthPropertyWrapper::Flags::IsLengthPercentage)
+    {
+    }
+
+private:
+    bool animationIsAccelerated(const Settings& settings) const final
+    {
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+        return settings.threadedAnimationResolutionEnabled();
+#else
+        UNUSED_PARAM(settings);
+        return false;
+#endif
+    }
+};
+
 class PerspectiveWrapper final : public FloatPropertyWrapper {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -3531,10 +3602,12 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new PropertyWrapperAspectRatio,
         new DiscretePropertyWrapper<FontPalette>(CSSPropertyFontPalette, &RenderStyle::fontPalette, &RenderStyle::setFontPalette),
 
-        new PathOperationPropertyWrapper(CSSPropertyOffsetPath, &RenderStyle::offsetPath, &RenderStyle::setOffsetPath),
-        new LengthPropertyWrapper(CSSPropertyOffsetDistance, &RenderStyle::offsetDistance, &RenderStyle::setOffsetDistance, LengthPropertyWrapper::Flags::IsLengthPercentage),
-        new LengthPointOrAutoPropertyWrapper(CSSPropertyOffsetPosition, &RenderStyle::offsetPosition, &RenderStyle::setOffsetPosition),
-        new LengthPointOrAutoPropertyWrapper(CSSPropertyOffsetAnchor, &RenderStyle::offsetAnchor, &RenderStyle::setOffsetAnchor),
+        new OffsetPathWrapper,
+        new OffsetDistanceWrapper,
+        new OffsetLengthPointWrapper(CSSPropertyOffsetPosition, &RenderStyle::offsetPosition, &RenderStyle::setOffsetPosition),
+        new OffsetLengthPointWrapper(CSSPropertyOffsetAnchor, &RenderStyle::offsetAnchor, &RenderStyle::setOffsetAnchor),
+        new OffsetRotateWrapper,
+
         new PropertyWrapperContent,
         new OffsetRotateWrapper,
         new DiscretePropertyWrapper<TextDecorationSkipInk>(CSSPropertyTextDecorationSkipInk, &RenderStyle::textDecorationSkipInk, &RenderStyle::setTextDecorationSkipInk),
@@ -3686,6 +3759,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyAnimationPlayState:
         case CSSPropertyAnimationTimingFunction:
         case CSSPropertyAppearance:
+        case CSSPropertyBlockStepInsert:
         case CSSPropertyBlockStepSize:
         case CSSPropertyBorderBlock: // logical shorthand
         case CSSPropertyBorderBlockColor: // logical shorthand
@@ -4103,12 +4177,12 @@ bool CSSPropertyAnimation::propertyRequiresBlendingForAccumulativeIteration(cons
     );
 }
 
-bool CSSPropertyAnimation::animationOfPropertyIsAccelerated(AnimatableProperty property)
+bool CSSPropertyAnimation::animationOfPropertyIsAccelerated(AnimatableProperty property, const Settings& settings)
 {
     return WTF::switchOn(property,
-        [] (CSSPropertyID cssProperty) {
+        [&] (CSSPropertyID cssProperty) {
             if (auto* wrapper = CSSPropertyAnimationWrapperMap::singleton().wrapperForProperty(cssProperty))
-                return wrapper->animationIsAccelerated();
+                return wrapper->animationIsAccelerated(settings);
             return false;
         }, [] (const AtomString&) { return false; }
     );
@@ -4211,6 +4285,22 @@ CSSPropertyID CSSPropertyAnimation::getPropertyAtIndex(int i, std::optional<bool
 
     AnimationPropertyWrapperBase* wrapper = map.wrapperForIndex(i);
     isShorthand = wrapper->isShorthandWrapper();
+    return wrapper->property();
+}
+
+std::optional<CSSPropertyID> CSSPropertyAnimation::getAcceleratedPropertyAtIndex(int i, const Settings& settings)
+{
+    // FIXME: We really ought to expose an iterator to go over all animatable properties.
+    // https://bugs.webkit.org/show_bug.cgi?id=252807
+    auto& map = CSSPropertyAnimationWrapperMap::singleton();
+
+    if (i < 0 || static_cast<unsigned>(i) >= map.size())
+        return std::nullopt;
+
+    auto* wrapper = map.wrapperForIndex(i);
+    if (wrapper->isShorthandWrapper() || !wrapper->animationIsAccelerated(settings))
+        return std::nullopt;
+
     return wrapper->property();
 }
 

@@ -345,21 +345,22 @@ void RenderBlockFlow::adjustIntrinsicLogicalWidthsForColumns(LayoutUnit& minLogi
 
 void RenderBlockFlow::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
-    if (shouldApplySizeContainment()) {
+    bool needAdjustIntrinsicLogicalWidthsForColumns = true;
+    if (shouldApplySizeOrInlineSizeContainment()) {
         if (auto width = explicitIntrinsicInnerLogicalWidth()) {
             minLogicalWidth = width.value();
             maxLogicalWidth = width.value();
+            needAdjustIntrinsicLogicalWidthsForColumns = false;
         }
-    } else if (!shouldApplyInlineSizeContainment()) {
-        if (childrenInline())
-            computeInlinePreferredLogicalWidths(minLogicalWidth, maxLogicalWidth);
-        else
-            computeBlockPreferredLogicalWidths(minLogicalWidth, maxLogicalWidth);
-    }
+    } else if (childrenInline())
+        computeInlinePreferredLogicalWidths(minLogicalWidth, maxLogicalWidth);
+    else
+        computeBlockPreferredLogicalWidths(minLogicalWidth, maxLogicalWidth);
 
     maxLogicalWidth = std::max(minLogicalWidth, maxLogicalWidth);
 
-    adjustIntrinsicLogicalWidthsForColumns(minLogicalWidth, maxLogicalWidth);
+    if (needAdjustIntrinsicLogicalWidthsForColumns)
+        adjustIntrinsicLogicalWidthsForColumns(minLogicalWidth, maxLogicalWidth);
 
     if (!style().autoWrap() && childrenInline()) {
         // A horizontal marquee with inline children has no minimum width.
@@ -1495,7 +1496,7 @@ void RenderBlockFlow::marginBeforeEstimateForChild(RenderBox& child, LayoutUnit&
 {
     // Give up if in quirks mode and we're a body/table cell and the top margin of the child box is quirky.
     // Give up if the child specified -webkit-margin-collapse: separate that prevents collapsing.
-    if (document().inQuirksMode() && hasMarginAfterQuirk(child) && (isTableCell() || isBody()))
+    if (document().inQuirksMode() && hasMarginBeforeQuirk(child) && (isTableCell() || isBody()))
         return;
 
     LayoutUnit beforeChildMargin = marginBeforeForChild(child);
@@ -2883,7 +2884,7 @@ bool RenderBlockFlow::positionNewFloats()
         m_floatingObjects->addPlacedObject(&floatingObject);
 
         if (ShapeOutsideInfo* shapeOutside = childBox.shapeOutsideInfo())
-            shapeOutside->setReferenceBoxLogicalSize(logicalSizeForChild(childBox));
+            shapeOutside->invalidateForSizeChangeIfNeeded();
         // If the child moved, we have to repaint it.
         if (childBox.checkForRepaintDuringLayout())
             childBox.repaintDuringLayoutIfMoved(oldRect);
@@ -3906,12 +3907,16 @@ void RenderBlockFlow::invalidateLineLayoutPath()
             m_previousModernLineLayoutContentBoxLogicalHeight = modernLineLayout()->contentBoxLogicalHeight();
             // Since we eagerly remove the display content here, repaints issued between this invalidation (triggered by style change/content mutation) and the subsequent layout would produce empty rects.
             repaint();
+            for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
+                auto& renderer = *walker.current(); 
+                if (!renderer.isInFlow())
+                    renderer.repaint();
+                renderer.setPreferredLogicalWidthsDirty(true);
+            }
         }
         auto path = UndeterminedPath;
         if (modernLineLayout() && modernLineLayout()->shouldSwitchToLegacyOnInvalidation())
             path = ForcedLegacyPath;
-        for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance())
-            walker.current()->setPreferredLogicalWidthsDirty(true);
         m_lineLayout = std::monostate();
         setLineLayoutPath(path);
         if (selfNeedsLayout() || normalChildNeedsLayout())
@@ -3989,17 +3994,31 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
     auto oldBorderBoxBottom = computeBorderBoxBottom();
     m_previousModernLineLayoutContentBoxLogicalHeight = { };
 
-    layoutFormattingContextLineLayout.layout();
+    auto partialRepaintRect = layoutFormattingContextLineLayout.layout();
 
     auto newBorderBoxBottom = computeBorderBoxBottom();
 
     auto updateRepaintTopAndBottomIfNeeded = [&] {
         auto isFullLayout = selfNeedsLayout() || relayoutChildren;
         if (isFullLayout) {
+            if (!selfNeedsLayout()) {
+                // In order to really trigger full repaint, the block container has to have the self layout flag set (see LegacyLineLayout::layoutRunsAndFloats).
+                // Without having it set, repaint after layout logic (see RenderElement::repaintAfterLayoutIfNeeded) only issues repaint on the diff of
+                // before/after repaint bounds. It results in incorrect repaint when the inline content changes (new text) and expands the same time.
+                // (it only affects shrink-to-fit type of containers).
+                // FIXME: We have the exact damaged rect here, should be able to issue repaint on both inline and block directions.
+                setNeedsLayout(MarkOnlyThis);
+            }
             // Let's trigger full repaint instead for now (matching legacy line layout).
             // FIXME: We should revisit this behavior and run repaints strictly on visual overflow.
             repaintLogicalTop = { };
             repaintLogicalBottom = { };
+            return;
+        }
+
+        if (partialRepaintRect) {
+            repaintLogicalTop = partialRepaintRect->y();
+            repaintLogicalBottom = partialRepaintRect->maxY();
             return;
         }
 
@@ -4556,8 +4575,8 @@ void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogical
                     if (!child->isFloating())
                         lastText = nullptr;
                     LayoutUnit margins;
-                    Length startMargin = childStyle.marginStartUsing(&style());
-                    Length endMargin = childStyle.marginEndUsing(&style());
+                    Length startMargin = shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType::InlineStart, *dynamicDowncast<RenderElement>(child)) ? childStyle.marginStartUsing(&style()) : Length(0, LengthType::Fixed); 
+                    Length endMargin = shouldChildInlineMarginContributeToContainerIntrinsicSize(MarginTrimType::InlineEnd, *dynamicDowncast<RenderElement>(child)) ? childStyle.marginEndUsing(&style()) : Length(0, LengthType::Fixed);
                     if (startMargin.isFixed())
                         margins += LayoutUnit::fromFloatCeil(startMargin.value());
                     if (endMargin.isFixed())

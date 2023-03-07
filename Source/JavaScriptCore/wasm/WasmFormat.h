@@ -27,6 +27,7 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "CCallHelpers.h"
 #include "CodeLocation.h"
 #include "Identifier.h"
 #include "JSString.h"
@@ -365,9 +366,11 @@ struct FunctionData {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
     size_t start;
     size_t end;
-    bool isSIMDFunction = false;
-    bool finishedValidating = false;
     Vector<uint8_t> data;
+    bool usesSIMD : 1 { false };
+    bool usesExceptions : 1 { false };
+    bool usesAtomics : 1 { false };
+    bool finishedValidating : 1 { false };
 };
 
 class I32InitExpr {
@@ -546,6 +549,8 @@ struct InternalFunction {
     StackMaps stackmaps;
 #endif
     Vector<UnlinkedHandlerInfo> exceptionHandlers;
+    Vector<CCallHelpers::Label> bbqLoopEntrypoints;
+    std::optional<CCallHelpers::Label> bbqSharedLoopEntrypoint;
     Entrypoint entrypoint;
     unsigned osrEntryScratchBufferSize { 0 };
 };

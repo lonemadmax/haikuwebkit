@@ -577,7 +577,8 @@ capitalize
 uppercase
 lowercase
 full-size-kana
-//none
+// full-width
+// none
 //
 // CSS_PROP_VISIBILITY:
 //
@@ -912,6 +913,9 @@ padding
 padding-box
 // text
 -webkit-text
+
+// block-step-insert
+margin
 
 //
 // CSS_PROP_MASK_CLIP

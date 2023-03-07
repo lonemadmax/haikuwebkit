@@ -195,11 +195,6 @@ using namespace WebCore;
 #define NSAccessibilityPlaceholderValueAttribute @"AXPlaceholderValue"
 #endif
 
-#define NSAccessibilityTextMarkerIsNullParameterizedAttribute @"AXTextMarkerIsNull"
-#define NSAccessibilityTextMarkerIsValidParameterizedAttribute @"AXTextMarkerIsValid"
-#define NSAccessibilityIndexForTextMarkerParameterizedAttribute @"AXIndexForTextMarker"
-#define NSAccessibilityTextMarkerForIndexParameterizedAttribute @"AXTextMarkerForIndex"
-
 #ifndef NSAccessibilityScrollToVisibleAction
 #define NSAccessibilityScrollToVisibleAction @"AXScrollToVisible"
 #endif
@@ -255,23 +250,6 @@ using namespace WebCore;
 
 #ifndef NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute
 #define NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute @"AXUIElementsForSearchPredicate"
-#endif
-
-// Text markers
-#ifndef NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute
-#define NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute @"AXEndTextMarkerForBounds"
-#endif
-
-#ifndef NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute
-#define NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute @"AXStartTextMarkerForBounds"
-#endif
-
-#ifndef NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute
-#define NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute @"AXLineTextMarkerRangeForTextMarker"
-#endif
-
-#ifndef NSAccessibilityMisspellingTextMarkerRangeParameterizedAttribute
-#define NSAccessibilityMisspellingTextMarkerRangeParameterizedAttribute @"AXMisspellingTextMarkerRange"
 #endif
 
 // Text selection
@@ -741,10 +719,8 @@ static RetainPtr<AXTextMarkerRef> previousTextMarker(AXObjectCache* cache, const
     if (!textMarkerRangeRef)
         return nil;
 
-    return Accessibility::retrieveAutoreleasedValueFromMainThread<NSAttributedString *>([textMarkerRange = retainPtr(textMarkerRangeRef), &spellCheck, protectedSelf = retainPtr(self)] () -> RetainPtr<NSAttributedString> {
-        RefPtr<AXCoreObject> object = protectedSelf.get().axBackingObject;
-        return object ? object->attributedStringForTextMarkerRange(AXTextMarkerRange(textMarkerRange.get()), spellCheck) : nil;
-    });
+    RefPtr<AXCoreObject> object = self.axBackingObject;
+    return object ? object->attributedStringForTextMarkerRange({ textMarkerRangeRef }, spellCheck).autorelease() : nil;
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -922,9 +898,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         NSAccessibilityFocusedAttribute,
         NSAccessibilityEnabledAttribute,
         NSAccessibilityWindowAttribute,
-        @"AXSelectedTextMarkerRange",
-        @"AXStartTextMarker",
-        @"AXEndTextMarker",
+        AXSelectedTextMarkerRangeAttribute,
+        AXStartTextMarkerAttribute,
+        AXEndTextMarkerAttribute,
         @"AXVisited",
         NSAccessibilityLinkedUIElementsAttribute,
         NSAccessibilitySelectedAttribute,
@@ -1672,12 +1648,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if (backingObject->isTextControl()) {
-        if ([attributeName isEqualToString: NSAccessibilityNumberOfCharactersAttribute]) {
-            int length = backingObject->textLength();
-            if (length < 0)
-                return nil;
-            return @(length);
-        }
+        if ([attributeName isEqualToString:NSAccessibilityNumberOfCharactersAttribute])
+            return @(backingObject->textLength());
+
         if ([attributeName isEqualToString: NSAccessibilitySelectedTextAttribute]) {
             String selectedText = backingObject->selectedText();
             if (selectedText.isNull())
@@ -2007,10 +1980,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (backingObject->isList() && [attributeName isEqualToString:NSAccessibilityOrientationAttribute])
         return NSAccessibilityVerticalOrientationValue;
 
-    if ([attributeName isEqualToString:@"AXSelectedTextMarkerRange"])
+    if ([attributeName isEqualToString:AXSelectedTextMarkerRangeAttribute])
         return (id)[self selectedTextMarkerRange];
 
-    if ([attributeName isEqualToString:@"AXStartTextMarker"]) {
+    if ([attributeName isEqualToString:AXStartTextMarkerAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -2020,7 +1993,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attributeName isEqualToString:@"AXEndTextMarker"]) {
+    if ([attributeName isEqualToString:AXEndTextMarkerAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -2368,7 +2341,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!backingObject)
         return NO;
 
-    if ([attributeName isEqualToString: @"AXSelectedTextMarkerRange"])
+    if ([attributeName isEqualToString:AXSelectedTextMarkerRangeAttribute])
         return YES;
 
     if ([attributeName isEqualToString: NSAccessibilityFocusedAttribute])
@@ -2420,7 +2393,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
-- (NSArray* )accessibilityParameterizedAttributeNames
+- (NSArray *)accessibilityParameterizedAttributeNames
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     RefPtr<AXCoreObject> backingObject = self.updateObjectBackingStore;
@@ -2436,42 +2409,42 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     static NSArray *webAreaParamAttrs;
     if (paramAttrs == nil) {
         paramAttrs = [[NSArray alloc] initWithObjects:
-            @"AXUIElementForTextMarker",
-            @"AXTextMarkerRangeForUIElement",
-            @"AXLineForTextMarker",
-            @"AXTextMarkerRangeForLine",
-            @"AXStringForTextMarkerRange",
-            @"AXTextMarkerForPosition",
-            @"AXBoundsForTextMarkerRange",
-            @"AXAttributedStringForTextMarkerRange",
-            @"AXAttributedStringForTextMarkerRangeWithOptions",
-            @"AXTextMarkerRangeForTextMarkers",
-            @"AXTextMarkerRangeForUnorderedTextMarkers",
-            @"AXNextTextMarkerForTextMarker",
-            @"AXPreviousTextMarkerForTextMarker",
-            @"AXLeftWordTextMarkerRangeForTextMarker",
-            @"AXRightWordTextMarkerRangeForTextMarker",
-            @"AXLeftLineTextMarkerRangeForTextMarker",
-            @"AXRightLineTextMarkerRangeForTextMarker",
-            @"AXSentenceTextMarkerRangeForTextMarker",
-            @"AXParagraphTextMarkerRangeForTextMarker",
-            @"AXNextWordEndTextMarkerForTextMarker",
-            @"AXPreviousWordStartTextMarkerForTextMarker",
-            @"AXNextLineEndTextMarkerForTextMarker",
-            @"AXPreviousLineStartTextMarkerForTextMarker",
-            @"AXNextSentenceEndTextMarkerForTextMarker",
-            @"AXPreviousSentenceStartTextMarkerForTextMarker",
-            @"AXNextParagraphEndTextMarkerForTextMarker",
-            @"AXPreviousParagraphStartTextMarkerForTextMarker",
-            @"AXStyleTextMarkerRangeForTextMarker",
-            @"AXLengthForTextMarkerRange",
+            AXUIElementForTextMarkerAttribute,
+            AXTextMarkerRangeForUIElementAttribute,
+            AXLineForTextMarkerAttribute,
+            AXTextMarkerRangeForLineAttribute,
+            AXStringForTextMarkerRangeAttribute,
+            AXTextMarkerForPositionAttribute,
+            AXBoundsForTextMarkerRangeAttribute,
+            AXAttributedStringForTextMarkerRangeAttribute,
+            AXAttributedStringForTextMarkerRangeWithOptionsAttribute,
+            AXTextMarkerRangeForTextMarkersAttribute,
+            AXTextMarkerRangeForUnorderedTextMarkersAttribute,
+            AXNextTextMarkerForTextMarkerAttribute,
+            AXPreviousTextMarkerForTextMarkerAttribute,
+            AXLeftWordTextMarkerRangeForTextMarkerAttribute,
+            AXRightWordTextMarkerRangeForTextMarkerAttribute,
+            AXLeftLineTextMarkerRangeForTextMarkerAttribute,
+            AXRightLineTextMarkerRangeForTextMarkerAttribute,
+            AXSentenceTextMarkerRangeForTextMarkerAttribute,
+            AXParagraphTextMarkerRangeForTextMarkerAttribute,
+            AXNextWordEndTextMarkerForTextMarkerAttribute,
+            AXPreviousWordStartTextMarkerForTextMarkerAttribute,
+            AXNextLineEndTextMarkerForTextMarkerAttribute,
+            AXPreviousLineStartTextMarkerForTextMarkerAttribute,
+            AXNextSentenceEndTextMarkerForTextMarkerAttribute,
+            AXPreviousSentenceStartTextMarkerForTextMarkerAttribute,
+            AXNextParagraphEndTextMarkerForTextMarkerAttribute,
+            AXPreviousParagraphStartTextMarkerForTextMarkerAttribute,
+            AXStyleTextMarkerRangeForTextMarkerAttribute,
+            AXLengthForTextMarkerRangeAttribute,
             NSAccessibilityBoundsForRangeParameterizedAttribute,
             NSAccessibilityStringForRangeParameterizedAttribute,
             NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute,
             NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute,
-            NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute,
-            NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute,
-            NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute,
+            AXEndTextMarkerForBoundsAttribute,
+            AXStartTextMarkerForBoundsAttribute,
+            AXLineTextMarkerRangeForTextMarkerAttribute,
             NSAccessibilitySelectTextWithCriteriaParameterizedAttribute,
             NSAccessibilitySearchTextWithCriteriaParameterizedAttribute,
             NSAccessibilityTextOperationParameterizedAttribute,
@@ -2498,9 +2471,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
     if (!webAreaParamAttrs) {
         auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:paramAttrs]);
-        [tempArray addObject:NSAccessibilityTextMarkerForIndexParameterizedAttribute];
-        [tempArray addObject:NSAccessibilityTextMarkerIsValidParameterizedAttribute];
-        [tempArray addObject:NSAccessibilityIndexForTextMarkerParameterizedAttribute];
+        [tempArray addObject:AXTextMarkerForIndexAttribute];
+        [tempArray addObject:AXTextMarkerIsValidAttribute];
+        [tempArray addObject:AXIndexForTextMarkerAttribute];
         webAreaParamAttrs = [[NSArray alloc] initWithArray:tempArray.get()];
     }
 
@@ -2745,7 +2718,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         array = value;
 
     // handle the command
-    if ([attributeName isEqualToString:@"AXSelectedTextMarkerRange"]) {
+    if ([attributeName isEqualToString:AXSelectedTextMarkerRangeAttribute]) {
         ASSERT(textMarkerRange);
         Accessibility::performFunctionOnMainThread([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] {
             if (auto* backingObject = protectedSelf.get().axBackingObject)
@@ -2894,10 +2867,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 // The RTF representation of the text associated with this accessibility object that is
 // specified by the given range.
-- (NSData*)doAXRTFForRange:(NSRange)range
+- (NSData *)doAXRTFForRange:(NSRange)range
 {
-    NSAttributedString* attrString = [self doAXAttributedStringForRange:range];
-    return [attrString RTFFromRange: NSMakeRange(0, [attrString length]) documentAttributes:@{ }];
+    NSAttributedString *attrString = [self doAXAttributedStringForRange:range];
+    return [attrString RTFFromRange:NSMakeRange(0, attrString.length) documentAttributes:@{ }];
 }
 
 #if ENABLE(TREE_DEBUGGING)
@@ -3244,7 +3217,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // TextMarker attributes.
 
-    if ([attribute isEqualToString:NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute]) {
+    if ([attribute isEqualToString:AXEndTextMarkerForBoundsAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&rect, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3261,7 +3234,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute]) {
+    if ([attribute isEqualToString:AXStartTextMarkerForBoundsAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&rect, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3279,13 +3252,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     // TextMarkerRange attributes.
-    if ([attribute isEqualToString:@"AXTextMarkerRangeForNSRange"])
+    if ([attribute isEqualToString:AXTextMarkerRangeForNSRangeAttribute])
         return (id)backingObject->textMarkerRangeForNSRange(range);
 
-    if ([attribute isEqualToString:NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute])
+    if ([attribute isEqualToString:AXLineTextMarkerRangeForTextMarkerAttribute])
         return (id)[self lineTextMarkerRangeForTextMarker:textMarker forUnit:TextUnit::Line];
 
-    if ([attribute isEqualToString:NSAccessibilityMisspellingTextMarkerRangeParameterizedAttribute]) {
+    if ([attribute isEqualToString:AXMisspellingTextMarkerRangeAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&dictionary, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3303,19 +3276,19 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:NSAccessibilityTextMarkerIsValidParameterizedAttribute])
+    if ([attribute isEqualToString:AXTextMarkerIsValidAttribute])
         return [NSNumber numberWithBool:AXTextMarker(textMarker).isValid()];
 
-    if ([attribute isEqualToString:NSAccessibilityTextMarkerIsNullParameterizedAttribute])
+    if ([attribute isEqualToString:AXTextMarkerIsNullAttribute])
         return [NSNumber numberWithBool:AXTextMarker(textMarker).isNull()];
 
-    if ([attribute isEqualToString:NSAccessibilityIndexForTextMarkerParameterizedAttribute])
+    if ([attribute isEqualToString:AXIndexForTextMarkerAttribute])
         return [NSNumber numberWithInteger:[self _indexForTextMarker:textMarker]];
 
-    if ([attribute isEqualToString:NSAccessibilityTextMarkerForIndexParameterizedAttribute])
+    if ([attribute isEqualToString:AXTextMarkerForIndexAttribute])
         return (id)[self _textMarkerForIndex:[number integerValue]];
 
-    if ([attribute isEqualToString:@"AXUIElementForTextMarker"]) {
+    if ([attribute isEqualToString:AXUIElementForTextMarkerAttribute]) {
         AXTextMarker marker(textMarker);
         auto object = marker.object();
         if (!object)
@@ -3330,13 +3303,15 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return wrapper;
     }
 
-    if ([attribute isEqualToString:@"AXTextMarkerRangeForUIElement"]) {
-        return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&uiElement] () -> RetainPtr<id> {
-            return (id)textMarkerRangeFromRange(uiElement->axObjectCache(), uiElement->elementRange());
-        });
+    if ([attribute isEqualToString:AXTextMarkerRangeForUIElementAttribute]) {
+        if (uiElement) {
+            if (auto markerRange = uiElement->textMarkerRange())
+                return markerRange.platformData().bridgingAutorelease();
+        }
+        return nil;
     }
 
-    if ([attribute isEqualToString:@"AXLineForTextMarker"]) {
+    if ([attribute isEqualToString:AXLineForTextMarkerAttribute]) {
         int result = Accessibility::retrieveValueFromMainThread<int>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> int {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3348,7 +3323,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return @(result);
     }
 
-    if ([attribute isEqualToString:@"AXTextMarkerRangeForLine"]) {
+    if ([attribute isEqualToString:AXTextMarkerRangeForLineAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&number, protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3362,7 +3337,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXStringForTextMarkerRange"]) {
+    if ([attribute isEqualToString:AXStringForTextMarkerRangeAttribute]) {
         return Accessibility::retrieveValueFromMainThread<String>([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] () -> String {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3373,7 +3348,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXTextMarkerForPosition"]) {
+    if ([attribute isEqualToString:AXTextMarkerForPositionAttribute]) {
         if (!pointSet)
             return nil;
         IntPoint webCorePoint = IntPoint(point);
@@ -3387,7 +3362,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXBoundsForTextMarkerRange"]) {
+    if ([attribute isEqualToString:AXBoundsForTextMarkerRangeAttribute]) {
         NSRect rect = Accessibility::retrieveValueFromMainThread<NSRect>([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] () -> NSRect {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3443,10 +3418,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXAttributedStringForTextMarkerRange"])
+    if ([attribute isEqualToString:AXAttributedStringForTextMarkerRangeAttribute])
         return [self attributedStringForTextMarkerRange:textMarkerRange spellCheck:AXCoreObject::SpellCheck::Yes];
 
-    if ([attribute isEqualToString:@"AXAttributedStringForTextMarkerRangeWithOptions"]) {
+    if ([attribute isEqualToString:AXAttributedStringForTextMarkerRangeWithOptionsAttribute]) {
         if (textMarkerRange)
             return [self attributedStringForTextMarkerRange:textMarkerRange spellCheck:AXCoreObject::SpellCheck::No];
 
@@ -3466,7 +3441,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return nil;
     }
 
-    if ([attribute isEqualToString:@"AXTextMarkerRangeForTextMarkers"]) {
+    if ([attribute isEqualToString:AXTextMarkerRangeForTextMarkersAttribute]) {
         if (array.count < 2
             || !AXObjectIsTextMarker([array objectAtIndex:0])
             || !AXObjectIsTextMarker([array objectAtIndex:1]))
@@ -3475,7 +3450,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return AXTextMarkerRange { { (AXTextMarkerRef)[array objectAtIndex:0] }, { (AXTextMarkerRef)[array objectAtIndex:1] } }.platformData().bridgingAutorelease();
     }
 
-    if ([attribute isEqualToString:@"AXTextMarkerRangeForUnorderedTextMarkers"]) {
+    if ([attribute isEqualToString:AXTextMarkerRangeForUnorderedTextMarkersAttribute]) {
         if (array.count < 2
             || !AXObjectIsTextMarker([array objectAtIndex:0])
             || !AXObjectIsTextMarker([array objectAtIndex:1]))
@@ -3501,7 +3476,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXNextTextMarkerForTextMarker"]) {
+    if ([attribute isEqualToString:AXNextTextMarkerForTextMarkerAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3516,7 +3491,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXPreviousTextMarkerForTextMarker"]) {
+    if ([attribute isEqualToString:AXPreviousTextMarkerForTextMarkerAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3531,49 +3506,49 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXLeftWordTextMarkerRangeForTextMarker"])
+    if ([attribute isEqualToString:AXLeftWordTextMarkerRangeForTextMarkerAttribute])
         return (id)[self textMarkerRangeAtTextMarker:textMarker forUnit:TextUnit::LeftWord];
 
-    if ([attribute isEqualToString:@"AXRightWordTextMarkerRangeForTextMarker"])
+    if ([attribute isEqualToString:AXRightWordTextMarkerRangeForTextMarkerAttribute])
         return (id)[self textMarkerRangeAtTextMarker:textMarker forUnit:TextUnit::RightWord];
 
-    if ([attribute isEqualToString:@"AXLeftLineTextMarkerRangeForTextMarker"])
+    if ([attribute isEqualToString:AXLeftLineTextMarkerRangeForTextMarkerAttribute])
         return (id)[self lineTextMarkerRangeForTextMarker:textMarker forUnit:TextUnit::LeftLine];
 
-    if ([attribute isEqualToString:@"AXRightLineTextMarkerRangeForTextMarker"])
+    if ([attribute isEqualToString:AXRightLineTextMarkerRangeForTextMarkerAttribute])
         return (id)[self lineTextMarkerRangeForTextMarker:textMarker forUnit:TextUnit::RightLine];
 
-    if ([attribute isEqualToString:@"AXSentenceTextMarkerRangeForTextMarker"])
+    if ([attribute isEqualToString:AXSentenceTextMarkerRangeForTextMarkerAttribute])
         return (id)[self textMarkerRangeAtTextMarker:textMarker forUnit:TextUnit::Sentence];
 
-    if ([attribute isEqualToString:@"AXParagraphTextMarkerRangeForTextMarker"])
+    if ([attribute isEqualToString:AXParagraphTextMarkerRangeForTextMarkerAttribute])
         return (id)[self textMarkerRangeAtTextMarker:textMarker forUnit:TextUnit::Paragraph];
 
-    if ([attribute isEqualToString:@"AXNextWordEndTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXNextWordEndTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::NextWordEnd];
 
-    if ([attribute isEqualToString:@"AXPreviousWordStartTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXPreviousWordStartTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::PreviousWordStart];
 
-    if ([attribute isEqualToString:@"AXNextLineEndTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXNextLineEndTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::NextLineEnd];
 
-    if ([attribute isEqualToString:@"AXPreviousLineStartTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXPreviousLineStartTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::PreviousLineStart];
 
-    if ([attribute isEqualToString:@"AXNextSentenceEndTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXNextSentenceEndTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::NextSentenceEnd];
 
-    if ([attribute isEqualToString:@"AXPreviousSentenceStartTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXPreviousSentenceStartTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::PreviousSentenceStart];
 
-    if ([attribute isEqualToString:@"AXNextParagraphEndTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXNextParagraphEndTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::NextParagraphEnd];
 
-    if ([attribute isEqualToString:@"AXPreviousParagraphStartTextMarkerForTextMarker"])
+    if ([attribute isEqualToString:AXPreviousParagraphStartTextMarkerForTextMarkerAttribute])
         return (id)[self textMarkerForTextMarker:textMarker atUnit:TextUnit::PreviousParagraphStart];
 
-    if ([attribute isEqualToString:@"AXStyleTextMarkerRangeForTextMarker"]) {
+    if ([attribute isEqualToString:AXStyleTextMarkerRangeForTextMarkerAttribute]) {
         return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([textMarker = retainPtr(textMarker), protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3590,7 +3565,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         });
     }
 
-    if ([attribute isEqualToString:@"AXLengthForTextMarkerRange"]) {
+    if ([attribute isEqualToString:AXLengthForTextMarkerRangeAttribute]) {
         int length = Accessibility::retrieveValueFromMainThread<int>([textMarkerRange = retainPtr(textMarkerRange), protectedSelf = retainPtr(self)] () -> int {
             auto* backingObject = protectedSelf.get().axBackingObject;
             if (!backingObject)
@@ -3607,29 +3582,29 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     // Used only by DumpRenderTree (so far).
-    if ([attribute isEqualToString:@"AXStartTextMarkerForTextMarkerRange"]) {
+    if ([attribute isEqualToString:AXStartTextMarkerForTextMarkerRangeAttribute]) {
         AXTextMarkerRange axTextMarkerRange { textMarkerRange };
         return axTextMarkerRange.start().platformData().bridgingAutorelease();
     }
 
-    if ([attribute isEqualToString:@"AXEndTextMarkerForTextMarkerRange"]) {
+    if ([attribute isEqualToString:AXEndTextMarkerForTextMarkerRangeAttribute]) {
         AXTextMarkerRange axTextMarkerRange { textMarkerRange };
         return axTextMarkerRange.end().platformData().bridgingAutorelease();
     }
 
 #if ENABLE(TREE_DEBUGGING)
-    if ([attribute isEqualToString:@"AXTextMarkerDebugDescription"])
+    if ([attribute isEqualToString:AXTextMarkerDebugDescriptionAttribute])
         return [self debugDescriptionForTextMarker:textMarker];
 
-    if ([attribute isEqualToString:@"AXTextMarkerRangeDebugDescription"])
+    if ([attribute isEqualToString:AXTextMarkerRangeDebugDescriptionAttribute])
         return [self debugDescriptionForTextMarkerRange:textMarkerRange];
 
-    if ([attribute isEqualToString:@"AXTextMarkerNodeDebugDescription"]) {
+    if ([attribute isEqualToString:AXTextMarkerNodeDebugDescriptionAttribute]) {
         [self showNodeForTextMarker:textMarker];
         return nil;
     }
 
-    if ([attribute isEqualToString:@"AXTextMarkerNodeTreeDebugDescription"]) {
+    if ([attribute isEqualToString:AXTextMarkerNodeTreeDebugDescriptionAttribute]) {
         [self showNodeTreeForTextMarker:textMarker];
         return nil;
     }

@@ -1175,6 +1175,7 @@
 		657CF45919BF6662004ACBF2 /* JSCallee.h in Headers */ = {isa = PBXBuildFile; fileRef = 657CF45719BF6662004ACBF2 /* JSCallee.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		658824AF1E5CFDB000FB7359 /* ConfigFile.h in Headers */ = {isa = PBXBuildFile; fileRef = 658824AE1E5CFDB000FB7359 /* ConfigFile.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		658D3A5619638268003C45D6 /* VMEntryRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = 658D3A5519638268003C45D6 /* VMEntryRecord.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		6592B74929AC7C670040308E /* UnicodePatternTables.h in Headers */ = {isa = PBXBuildFile; fileRef = 6592B74829AC7C670040308E /* UnicodePatternTables.h */; };
 		659CDA5B1F6753F200D3E53F /* YarrUnicodeProperties.h in Headers */ = {isa = PBXBuildFile; fileRef = 659CDA5A1F67509800D3E53F /* YarrUnicodeProperties.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		65B8392E1BACAD360044E824 /* CachedRecovery.h in Headers */ = {isa = PBXBuildFile; fileRef = 65B8392C1BACA92A0044E824 /* CachedRecovery.h */; };
 		6A38CFAA1E32B5AB0060206F /* AsyncStackTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 6A38CFA81E32B58B0060206F /* AsyncStackTrace.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1361,6 +1362,7 @@
 		932F5BDD0822A1C700736975 /* jsc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45E12D8806A49B0F00E9DF84 /* jsc.cpp */; };
 		932F5BEA0822A1C700736975 /* JavaScriptCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 932F5BD90822A1C700736975 /* JavaScriptCore.framework */; };
 		933040040E6A749400786E6A /* SmallStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = 93303FEA0E6A72C000786E6A /* SmallStrings.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		93BFC6D929B344C90030D7BE /* GlobalObjectMethodTable.h in Headers */ = {isa = PBXBuildFile; fileRef = 93BFC6D829B344C80030D7BE /* GlobalObjectMethodTable.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		95CA6AD328809E010062D5EC /* ImplementationVisibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95CA6AD228809E010062D5EC /* ImplementationVisibility.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		960097A60EBABB58007A7297 /* LabelScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 960097A50EBABB58007A7297 /* LabelScope.h */; };
 		9688CB150ED12B4E001D649F /* AssemblerBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 9688CB130ED12B4E001D649F /* AssemblerBuffer.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2038,6 +2040,7 @@
 		E3BF3C532390D205008BC752 /* WebAssemblyGlobalConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = E3BF3C512390D1FC008BC752 /* WebAssemblyGlobalConstructor.h */; };
 		E3BFA5D021E853A1009C0EBA /* DFGDesiredGlobalProperty.h in Headers */ = {isa = PBXBuildFile; fileRef = E3BFA5CD21E853A1009C0EBA /* DFGDesiredGlobalProperty.h */; };
 		E3BFD0BC1DAF808E0065DEA2 /* AccessCaseSnippetParams.h in Headers */ = {isa = PBXBuildFile; fileRef = E3BFD0BA1DAF807C0065DEA2 /* AccessCaseSnippetParams.h */; };
+		E3C091E929B07D4C00CD6D97 /* WasmBBQJIT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FED5FA3329A0859C00798A7F /* WasmBBQJIT.cpp */; };
 		E3C295DD1ED2CBDA00D3016F /* ObjectPropertyChangeAdaptiveWatchpoint.h in Headers */ = {isa = PBXBuildFile; fileRef = E3C295DC1ED2CBAA00D3016F /* ObjectPropertyChangeAdaptiveWatchpoint.h */; };
 		E3C4131D289E08EA001150F8 /* SyntheticModuleRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = E3C4131C289E08E5001150F8 /* SyntheticModuleRecord.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3C694B323026877006FBE42 /* WasmOSREntryData.h in Headers */ = {isa = PBXBuildFile; fileRef = E3C694B123026873006FBE42 /* WasmOSREntryData.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -4266,6 +4269,7 @@
 		658824AE1E5CFDB000FB7359 /* ConfigFile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ConfigFile.h; sourceTree = "<group>"; };
 		658824B01E5CFDF400FB7359 /* ConfigFile.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ConfigFile.cpp; sourceTree = "<group>"; };
 		658D3A5519638268003C45D6 /* VMEntryRecord.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = VMEntryRecord.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		6592B74829AC7C670040308E /* UnicodePatternTables.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UnicodePatternTables.h; path = ../../../../../../WebKitBuild/Debug/DerivedSources/JavaScriptCore/UnicodePatternTables.h; sourceTree = "<group>"; };
 		65987F2C167FE84B003C2F8D /* DFGOSRExitCompilationInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGOSRExitCompilationInfo.h; path = dfg/DFGOSRExitCompilationInfo.h; sourceTree = "<group>"; };
 		659CDA591F67509800D3E53F /* YarrUnicodeProperties.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = YarrUnicodeProperties.cpp; path = yarr/YarrUnicodeProperties.cpp; sourceTree = "<group>"; };
 		659CDA5A1F67509800D3E53F /* YarrUnicodeProperties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = YarrUnicodeProperties.h; path = yarr/YarrUnicodeProperties.h; sourceTree = "<group>"; };
@@ -4621,6 +4625,7 @@
 		937B63CC09E766D200A671DD /* DerivedSources.make */ = {isa = PBXFileReference; explicitFileType = sourcecode.make; fileEncoding = 4; path = DerivedSources.make; sourceTree = "<group>"; usesTabs = 1; };
 		938772E5038BFE19008635CE /* JSArray.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = JSArray.h; sourceTree = "<group>"; tabWidth = 8; };
 		93ADFCE60CCBD7AC00D30B08 /* JSArray.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSArray.cpp; sourceTree = "<group>"; };
+		93BFC6D829B344C80030D7BE /* GlobalObjectMethodTable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GlobalObjectMethodTable.h; sourceTree = "<group>"; };
 		93CEDDFB0EA91EE600258EBE /* RegExpMatchesArray.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RegExpMatchesArray.h; sourceTree = "<group>"; };
 		93F0B3A909BB4DC00068FCE3 /* Parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Parser.cpp; sourceTree = "<group>"; };
 		93F0B3AA09BB4DC00068FCE3 /* Parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Parser.h; sourceTree = "<group>"; };
@@ -7433,6 +7438,7 @@
 				F6D67D4526F9130A006E0349 /* TemporalInstantConstructor.lut.h */,
 				F6D67D4626F9130B006E0349 /* TemporalInstantPrototype.lut.h */,
 				F6F150202693D450004B98EF /* TemporalObject.lut.h */,
+				6592B74829AC7C670040308E /* UnicodePatternTables.h */,
 				533B15DE1DC7F463004D500A /* WasmOps.h */,
 				AD2FCC0A1DB59C5900B3E736 /* WebAssemblyCompileErrorConstructor.lut.h */,
 				AD2FCC0B1DB59C5900B3E736 /* WebAssemblyCompileErrorPrototype.lut.h */,
@@ -7906,6 +7912,7 @@
 				FE1D6D6E236258FE007A5C26 /* GetVM.h */,
 				E355D38E2244686C008F1AD6 /* GlobalExecutable.cpp */,
 				E355D38D2244686B008F1AD6 /* GlobalExecutable.h */,
+				93BFC6D829B344C80030D7BE /* GlobalObjectMethodTable.h */,
 				79A0907D1D768465008B889B /* HashMapImpl.cpp */,
 				79A0907E1D768465008B889B /* HashMapImpl.h */,
 				FEF5B4222628A0EE0016E776 /* HashMapImplInlines.h */,
@@ -10575,6 +10582,7 @@
 				0FEC3C5B1F33A48900F59B6C /* GigacageAlignedMemoryAllocator.h in Headers */,
 				14AD910E1DCA92940014F9FE /* GlobalCodeBlock.h in Headers */,
 				E355D38F22446877008F1AD6 /* GlobalExecutable.h in Headers */,
+				93BFC6D929B344C90030D7BE /* GlobalObjectMethodTable.h in Headers */,
 				0F24E54417EA9F5900ABB217 /* GPRInfo.h in Headers */,
 				142E3134134FF0A600AFADB5 /* Handle.h in Headers */,
 				C283190016FE4B7D00157BFD /* HandleBlock.h in Headers */,
@@ -11365,6 +11373,7 @@
 				A7A8AF4217ADB5F3005AB174 /* Uint32Array.h in Headers */,
 				A7A8AF3F17ADB5F3005AB174 /* Uint8Array.h in Headers */,
 				A7A8AF4017ADB5F3005AB174 /* Uint8ClampedArray.h in Headers */,
+				6592B74929AC7C670040308E /* UnicodePatternTables.h in Headers */,
 				A7B601821639FD2A00372BA3 /* UnlinkedCodeBlock.h in Headers */,
 				E32C3C6923E94C1E00BC97C0 /* UnlinkedCodeBlockGenerator.h in Headers */,
 				14AD91241DCA9FA40014F9FE /* UnlinkedEvalCodeBlock.h in Headers */,
@@ -12607,6 +12616,7 @@
 				538F15EF268FBBB600D601C4 /* UnifiedSource155.cpp in Sources */,
 				467DC2F12906EE3600726988 /* WasmAirIRGenerator32_64.cpp in Sources */,
 				467DC2EF2906EE3600726988 /* WasmAirIRGenerator64.cpp in Sources */,
+				E3C091E929B07D4C00CD6D97 /* WasmBBQJIT.cpp in Sources */,
 				E31135C9281B5B0000C1A4A9 /* ZydisFormatterATT.c in Sources */,
 				E31135CA281B5B0300C1A4A9 /* ZydisFormatterBase.c in Sources */,
 				E31135CB281B5B0500C1A4A9 /* ZydisFormatterIntel.c in Sources */,

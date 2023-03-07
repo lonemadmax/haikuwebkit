@@ -138,10 +138,34 @@ void SWContextManager::firePushSubscriptionChangeEvent(ServiceWorkerIdentifier i
 void SWContextManager::fireNotificationEvent(ServiceWorkerIdentifier identifier, NotificationData&& data, NotificationEventType eventType, CompletionHandler<void(bool)>&& callback)
 {
     auto* serviceWorker = serviceWorkerThreadProxy(identifier);
-    if (!serviceWorker)
+    if (!serviceWorker) {
+        callback(false);
         return;
+    }
 
     serviceWorker->fireNotificationEvent(WTFMove(data), eventType, WTFMove(callback));
+}
+
+void SWContextManager::fireBackgroundFetchEvent(ServiceWorkerIdentifier identifier, BackgroundFetchInformation&& info, CompletionHandler<void(bool)>&& callback)
+{
+    auto* serviceWorker = serviceWorkerThreadProxy(identifier);
+    if (!serviceWorker) {
+        callback(false);
+        return;
+    }
+
+    serviceWorker->fireBackgroundFetchEvent(WTFMove(info), WTFMove(callback));
+}
+
+void SWContextManager::fireBackgroundFetchClickEvent(ServiceWorkerIdentifier identifier, BackgroundFetchInformation&& info, CompletionHandler<void(bool)>&& callback)
+{
+    auto* serviceWorker = serviceWorkerThreadProxy(identifier);
+    if (!serviceWorker) {
+        callback(false);
+        return;
+    }
+
+    serviceWorker->fireBackgroundFetchClickEvent(WTFMove(info), WTFMove(callback));
 }
 
 void SWContextManager::terminateWorker(ServiceWorkerIdentifier identifier, Seconds timeout, Function<void()>&& completionHandler)

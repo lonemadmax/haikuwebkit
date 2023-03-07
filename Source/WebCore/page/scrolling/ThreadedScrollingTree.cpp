@@ -75,7 +75,7 @@ bool ThreadedScrollingTree::handleWheelEventAfterMainThread(const PlatformWheelE
     OptionSet<WheelEventProcessingSteps> processingSteps;
     if (gestureState.value_or(WheelScrollGestureState::Blocking) == WheelScrollGestureState::NonBlocking) {
         allowLatching = true;
-        processingSteps = { WheelEventProcessingSteps::ScrollingThread, WheelEventProcessingSteps::MainThreadForNonBlockingDOMEventDispatch };
+        processingSteps = { WheelEventProcessingSteps::AsyncScrolling, WheelEventProcessingSteps::NonBlockingDOMEventDispatch };
     }
 
     SetForScope disallowLatchingScope(m_allowLatching, allowLatching);
@@ -173,8 +173,6 @@ void ThreadedScrollingTree::didCommitTreeOnScrollingThread()
 
         downcast<ScrollingTreeScrollingNode>(*targetNode).startAnimatedScrollToPosition(it.value.scrollPosition);
     }
-
-    m_nodesWithPendingScrollAnimations.clear();
 }
 
 bool ThreadedScrollingTree::scrollingTreeNodeRequestsScroll(ScrollingNodeID nodeID, const RequestedScrollData& request)
@@ -227,12 +225,10 @@ bool ThreadedScrollingTree::canUpdateLayersOnScrollingThread() const
 
 void ThreadedScrollingTree::scrollingTreeNodeDidScroll(ScrollingTreeScrollingNode& node, ScrollingLayerPositionAction scrollingLayerPositionAction)
 {
+    ScrollingTree::scrollingTreeNodeDidScroll(node, scrollingLayerPositionAction);
+
     if (!m_scrollingCoordinator)
         return;
-
-    auto scrollPosition = node.currentScrollPosition();
-    if (node.isRootNode())
-        setMainFrameScrollPosition(scrollPosition);
 
     if (isHandlingProgrammaticScroll())
         return;
@@ -241,6 +237,7 @@ void ThreadedScrollingTree::scrollingTreeNodeDidScroll(ScrollingTreeScrollingNod
     if (is<ScrollingTreeFrameScrollingNode>(node))
         layoutViewportOrigin = downcast<ScrollingTreeFrameScrollingNode>(node).layoutViewport().location();
 
+    auto scrollPosition = node.currentScrollPosition();
     auto scrollUpdate = ScrollUpdate { node.scrollingNodeID(), scrollPosition, layoutViewportOrigin, ScrollUpdateType::PositionUpdate, scrollingLayerPositionAction };
 
     if (RunLoop::isMain()) {

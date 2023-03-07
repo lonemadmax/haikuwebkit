@@ -275,6 +275,7 @@ class TextIndicator;
 class ValidationBubble;
 
 enum class AutoplayEvent : uint8_t;
+enum class CaretAnimatorType : uint8_t;
 enum class CookieConsentDecisionResult : uint8_t;
 enum class CreateNewGroupForHighlight : bool;
 enum class DataOwnerType : uint8_t;
@@ -897,8 +898,8 @@ public:
     void updateSelectionWithExtentPoint(const WebCore::IntPoint, bool isInteractingWithFocusedElement, RespectSelectionAnchor, CompletionHandler<void(bool)>&&);
     void updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void(bool)>&&);
     void requestAutocorrectionData(const String& textForAutocorrection, CompletionHandler<void(WebAutocorrectionData)>&&);
-    void applyAutocorrection(const String& correction, const String& originalText, CompletionHandler<void(const String&)>&&);
-    bool applyAutocorrection(const String& correction, const String& originalText);
+    void applyAutocorrection(const String& correction, const String& originalText, bool isCandidate, CompletionHandler<void(const String&)>&&);
+    bool applyAutocorrection(const String& correction, const String& originalText, bool isCandidate);
     void requestAutocorrectionContext();
     void handleAutocorrectionContext(const WebAutocorrectionContext&);
     void requestDictationContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
@@ -1030,6 +1031,7 @@ public:
     void changeFont(WebCore::FontChanges&&);
 
 #if PLATFORM(MAC)
+    void setCaretAnimatorType(WebCore::CaretAnimatorType);
     void attributedSubstringForCharacterRangeAsync(const EditingRange&, CompletionHandler<void(const WebCore::AttributedString&, const EditingRange&)>&&);
 
     void startWindowDrag();
@@ -1770,7 +1772,7 @@ public:
 #endif
 
 #if ENABLE(GAMEPAD)
-    void gamepadActivity(const Vector<GamepadData>&, WebCore::EventMakesGamepadsVisible);
+    void gamepadActivity(const Vector<std::optional<GamepadData>>&, WebCore::EventMakesGamepadsVisible);
 #endif
 
     void isLoadingChanged() { activityStateDidChange(WebCore::ActivityState::IsLoading); }
@@ -2075,6 +2077,7 @@ public:
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     void setIndexOfGetDisplayMediaDeviceSelectedForTesting(std::optional<unsigned>);
+    void setSystemCanPromptForGetDisplayMediaForTesting(bool);
 #endif
 
 #if PLATFORM(MAC)
@@ -2296,7 +2299,7 @@ private:
     void decidePolicyForNavigationAction(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, WebFrameProxy&, FrameInfoData&&, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo,
         std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody,
         WebCore::ResourceResponse&& redirectResponse, Ref<PolicyDecisionSender>&&);
-    void decidePolicyForNavigationActionAsync(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo,
+    void decidePolicyForNavigationActionAsync(IPC::Connection&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo,
         std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody,
         WebCore::ResourceResponse&& redirectResponse, uint64_t listenerID);
     void decidePolicyForNavigationActionSync(WebCore::FrameIdentifier, bool isMainFrame, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo,
@@ -2304,7 +2307,7 @@ private:
         WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(PolicyDecision&&)>&&);
     void decidePolicyForNewWindowAction(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, NavigationActionData&&,
         WebCore::ResourceRequest&&, const String& frameName, uint64_t listenerID);
-    void decidePolicyForResponse(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID,
+    void decidePolicyForResponse(IPC::Connection&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID,
         const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, uint64_t listenerID);
     void beginSafeBrowsingCheck(const URL&, bool, WebFramePolicyListenerProxy&);
 
@@ -2763,9 +2766,7 @@ private:
     void updateAllowedLookalikeCharacterStringsIfNeeded();
 #endif
 
-#if USE(RUNNINGBOARD)
     void clearAudibleActivity();
-#endif
 
     void tryCloseTimedOut();
     void makeStorageSpaceRequest(WebCore::FrameIdentifier, const String& originIdentifier, const String& databaseName, const String& displayName, uint64_t currentQuota, uint64_t currentOriginUsage, uint64_t currentDatabaseUsage, uint64_t expectedUsage, CompletionHandler<void(uint64_t)>&&);
@@ -2954,14 +2955,13 @@ private:
 #if PLATFORM(MACCATALYST)
     bool m_isListeningForUserFacingStateChangeNotification { false };
 #endif
-#if USE(RUNNINGBOARD)
     bool m_allowsMediaDocumentInlinePlayback { false };
     std::unique_ptr<ProcessThrottler::ForegroundActivity> m_isVisibleActivity;
     std::unique_ptr<ProcessThrottler::ForegroundActivity> m_isAudibleActivity;
     std::unique_ptr<ProcessThrottler::ForegroundActivity> m_isCapturingActivity;
     RunLoop::Timer m_audibleActivityTimer;
     std::unique_ptr<ProcessThrottler::BackgroundActivity> m_openingAppLinkActivity;
-#endif
+
     bool m_initialCapitalizationEnabled { false };
     std::optional<double> m_cpuLimit;
     Ref<WebBackForwardList> m_backForwardList;

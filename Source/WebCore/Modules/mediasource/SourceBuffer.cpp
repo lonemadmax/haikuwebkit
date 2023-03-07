@@ -629,6 +629,8 @@ void SourceBuffer::removeTimerFired()
 
         // 9. Queue a task to fire a simple event named updateend at this SourceBuffer object.
         scheduleEvent(eventNames().updateendEvent);
+
+        m_source->monitorSourceBuffers();
     });
 }
 
@@ -1172,14 +1174,17 @@ void SourceBuffer::sourceBufferPrivateDidParseSample(double frameDuration)
     m_bufferedSinceLastMonitor += frameDuration;
 }
 
-void SourceBuffer::sourceBufferPrivateDurationChanged(const MediaTime& duration)
+void SourceBuffer::sourceBufferPrivateDurationChanged(const MediaTime& duration, CompletionHandler<void()>&& completionHandler)
 {
-    if (isRemoved())
+    if (isRemoved()) {
+        completionHandler();
         return;
+    }
 
     m_source->setDurationInternal(duration);
     if (m_textTracks)
         m_textTracks->setDuration(duration);
+    completionHandler();
 }
 
 void SourceBuffer::sourceBufferPrivateHighestPresentationTimestampChanged(const MediaTime& timestamp)
@@ -1345,6 +1350,8 @@ void SourceBuffer::sourceBufferPrivateBufferedDirtyChanged(bool flag)
     m_bufferedDirty = flag;
     if (!isRemoved())
         m_source->sourceBufferDidChangeBufferedDirty(*this, flag);
+    if (flag && isManaged())
+        scheduleEvent(eventNames().bufferedchangeEvent);
 }
 
 bool SourceBuffer::isBufferedDirty() const
@@ -1376,10 +1383,7 @@ void SourceBuffer::memoryPressure()
 {
     if (!isManaged())
         return;
-    m_private->memoryPressure(maximumBufferSize(), m_source->currentTime(), m_source->isEnded(), [this, protectedThis = Ref { *this }] (bool bufferedChange) {
-        if (bufferedChange)
-            scheduleEvent(eventNames().bufferedchangeEvent);
-    });
+    m_private->memoryPressure(maximumBufferSize(), m_source->currentTime(), m_source->isEnded());
 }
 
 #if !RELEASE_LOG_DISABLED

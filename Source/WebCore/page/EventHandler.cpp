@@ -2169,7 +2169,7 @@ bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& platformMou
         return true;
 #endif
 
-    UserGestureIndicator gestureIndicator(ProcessingUserGesture, m_frame.document());
+    UserGestureIndicator gestureIndicator(ProcessingUserGesture, m_frame.document(), UserGestureType::Other, UserGestureIndicator::ProcessInteractionStyle::Immediate, platformMouseEvent.authorizationToken());
 
 #if ENABLE(PAN_SCROLLING)
     m_autoscrollController->handleMouseReleaseEvent(platformMouseEvent);
@@ -3019,7 +3019,7 @@ bool EventHandler::handleWheelEventInternal(const PlatformWheelEvent& event, Opt
 #endif
 
     m_isHandlingWheelEvent = true;
-    auto allowsScrollingState = SetForScope(m_currentWheelEventAllowsScrolling, processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling));
+    auto allowsScrollingState = SetForScope(m_currentWheelEventAllowsScrolling, processingSteps.contains(WheelEventProcessingSteps::SynchronousScrolling));
     
     setFrameWasScrolledByUser();
 
@@ -3050,7 +3050,7 @@ bool EventHandler::handleWheelEventInternal(const PlatformWheelEvent& event, Opt
             }
         }
 
-        auto isCancelable = processingSteps.contains(WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch) ? Event::IsCancelable::Yes : Event::IsCancelable::No;
+        auto isCancelable = processingSteps.contains(WheelEventProcessingSteps::BlockingDOMEventDispatch) ? Event::IsCancelable::Yes : Event::IsCancelable::No;
         if (!element->dispatchWheelEvent(event, handling, isCancelable)) {
             m_isHandlingWheelEvent = false;
             if (scrollableArea && scrollableArea->scrollShouldClearLatchedState()) {
@@ -3925,6 +3925,8 @@ void EventHandler::defaultKeyboardEventHandler(KeyboardEvent& event)
         if (event.key() == "Escape"_s) {
             if (RefPtr activeModalDialog = m_frame.document()->activeModalDialog())
                 activeModalDialog->queueCancelTask();
+            if (RefPtr topmostAutoPopover = m_frame.document()->topmostAutoPopover())
+                topmostAutoPopover->hidePopover();
         } else if (event.keyIdentifier() == "U+0009"_s)
             defaultTabEventHandler(event);
         else if (event.keyIdentifier() == "U+0008"_s)

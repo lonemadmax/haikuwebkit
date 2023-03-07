@@ -26,7 +26,9 @@
 #include "config.h"
 #include "NetworkResourceLoader.h"
 
+#include "EarlyHintsResourceLoader.h"
 #include "FormDataReference.h"
+#include "LoadedWebArchive.h"
 #include "Logging.h"
 #include "NetworkCache.h"
 #include "NetworkCacheSpeculativeLoadManager.h"
@@ -59,6 +61,7 @@
 #include <WebCore/CrossOriginEmbedderPolicy.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
 #include <WebCore/HTTPParsers.h>
+#include <WebCore/LinkHeader.h>
 #include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/RegistrableDomain.h>
@@ -806,6 +809,16 @@ static BrowsingContextGroupSwitchDecision toBrowsingContextGroupSwitchDecision(c
     if (currentCoopEnforcementResult->crossOriginOpenerPolicy.value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP)
         return BrowsingContextGroupSwitchDecision::NewIsolatedGroup;
     return BrowsingContextGroupSwitchDecision::NewSharedGroup;
+}
+
+void NetworkResourceLoader::didReceiveInformationalResponse(ResourceResponse&& response)
+{
+    if (response.httpStatusCode() != 103)
+        return;
+
+    if (!m_earlyHintsResourceLoader)
+        m_earlyHintsResourceLoader = WTF::makeUnique<EarlyHintsResourceLoader>(*this);
+    m_earlyHintsResourceLoader->handleEarlyHintsResponse(WTFMove(response));
 }
 
 void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedResponse, PrivateRelayed privateRelayed, ResponseCompletionHandler&& completionHandler)

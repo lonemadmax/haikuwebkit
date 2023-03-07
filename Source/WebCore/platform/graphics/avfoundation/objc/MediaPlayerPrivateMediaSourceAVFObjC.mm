@@ -70,6 +70,10 @@
 - (instancetype)initWithStorageDirectoryAtURL:(NSURL *)storageDirectory;
 @end
 
+@interface AVSampleBufferDisplayLayer (Staging_100128644)
+@property (assign, nonatomic) BOOL preventsAutomaticBackgroundingDuringVideoPlayback;
+@end
+
 namespace WebCore {
 
 String convertEnumerationToString(MediaPlayerPrivateMediaSourceAVFObjC::SeekState enumerationValue)
@@ -916,6 +920,9 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayer()
     if ([m_sampleBufferDisplayLayer respondsToSelector:@selector(setPreventsDisplaySleepDuringVideoPlayback:)])
         m_sampleBufferDisplayLayer.get().preventsDisplaySleepDuringVideoPlayback = NO;
 
+    if ([m_sampleBufferDisplayLayer respondsToSelector:@selector(setPreventsAutomaticBackgroundingDuringVideoPlayback:)])
+        m_sampleBufferDisplayLayer.get().preventsAutomaticBackgroundingDuringVideoPlayback = NO;
+
     @try {
         [m_synchronizer addRenderer:m_sampleBufferDisplayLayer.get()];
     } @catch(NSException *exception) {
@@ -1055,8 +1062,6 @@ void MediaPlayerPrivateMediaSourceAVFObjC::updateAllRenderersHaveAvailableSample
 
 void MediaPlayerPrivateMediaSourceAVFObjC::durationChanged()
 {
-    m_player->durationChanged();
-
     if (m_durationObserver)
         [m_synchronizer removeTimeObserver:m_durationObserver.get()];
 
@@ -1064,6 +1069,12 @@ void MediaPlayerPrivateMediaSourceAVFObjC::durationChanged()
         return;
 
     MediaTime duration = m_mediaSourcePrivate->duration();
+    // Avoid emiting durationchanged in the case where the previous duration was unkniwn as that case is already handled
+    // by the HTMLMediaElement.
+    if (m_mediaTimeDuration != duration && m_mediaTimeDuration.isValid())
+        m_player->durationChanged();
+    m_mediaTimeDuration = duration;
+
     NSArray* times = @[[NSValue valueWithCMTime:PAL::toCMTime(duration)]];
 
     auto logSiteIdentifier = LOGIDENTIFIER;

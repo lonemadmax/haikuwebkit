@@ -297,12 +297,12 @@ WebView *getWebView(WebFrame *webFrame)
     return kit(coreFrame->page());
 }
 
-+ (Ref<WebCore::Frame>)_createFrameWithPage:(WebCore::Page*)page frameName:(const AtomString&)name frameView:(WebFrameView *)frameView ownerElement:(WebCore::HTMLFrameOwnerElement*)ownerElement
++ (Ref<WebCore::Frame>)_createFrameWithPage:(WebCore::Page&)page frameName:(const AtomString&)name frameView:(WebFrameView *)frameView ownerElement:(WebCore::HTMLFrameOwnerElement&)ownerElement
 {
-    WebView *webView = kit(page);
+    WebView *webView = kit(&page);
 
     RetainPtr<WebFrame> frame = adoptNS([[self alloc] _initWithWebFrameView:frameView webView:webView]);
-    auto coreFrame = WebCore::Frame::create(page, ownerElement, makeUniqueRef<WebFrameLoaderClient>(frame.get()), WebCore::FrameIdentifier::generate());
+    auto coreFrame = WebCore::Frame::createSubframe(page, makeUniqueRef<WebFrameLoaderClient>(frame.get()), WebCore::FrameIdentifier::generate(), ownerElement);
     frame->_private->coreFrame = coreFrame.ptr();
 
     coreFrame.get().tree().setName(name);
@@ -331,9 +331,9 @@ WebView *getWebView(WebFrame *webFrame)
     [webView _setZoomMultiplier:[webView _realZoomMultiplier] isTextOnly:[webView _realZoomMultiplierIsTextOnly]];
 }
 
-+ (Ref<WebCore::Frame>)_createSubframeWithOwnerElement:(WebCore::HTMLFrameOwnerElement*)ownerElement frameName:(const AtomString&)name frameView:(WebFrameView *)frameView
++ (Ref<WebCore::Frame>)_createSubframeWithOwnerElement:(WebCore::HTMLFrameOwnerElement&)ownerElement page:(WebCore::Page&)page frameName:(const AtomString&)name frameView:(WebFrameView *)frameView
 {
-    return [self _createFrameWithPage:ownerElement->document().frame()->page() frameName:name frameView:frameView ownerElement:ownerElement];
+    return [self _createFrameWithPage:page frameName:name frameView:frameView ownerElement:ownerElement];
 }
 
 - (BOOL)_isIncludedInWebKitStatistics
@@ -634,16 +634,6 @@ static NSURL *createUniqueWebDataURL();
     CGContextRef ctx = WKGetCurrentGraphicsContext();
 #endif
     WebCore::GraphicsContextCG context(ctx);
-
-#if PLATFORM(IOS_FAMILY)
-    WebCore::Frame *frame = core(self);
-    if (WebCore::Page* page = frame->page())
-        context.setIsAcceleratedContext(page->settings().acceleratedDrawingEnabled());
-#elif PLATFORM(MAC)
-    if (WebHTMLView *htmlDocumentView = [self _webHTMLDocumentView])
-        context.setIsAcceleratedContext([htmlDocumentView _web_isDrawingIntoAcceleratedLayer]);
-#endif
-
     auto* view = _private->coreFrame->view();
     
     OptionSet<WebCore::PaintBehavior> oldBehavior = view->paintBehavior();

@@ -28,6 +28,8 @@
 
 #import "APIString.h"
 #import "AuthenticationChallengeDispositionCocoa.h"
+#import "BackgroundFetchChange.h"
+#import "BackgroundFetchState.h"
 #import "CompletionHandlerCallChecker.h"
 #import "NetworkProcessProxy.h"
 #import "ShouldGrandfatherStatistics.h"
@@ -56,6 +58,10 @@
 #import <wtf/URL.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+
+#if HAVE(NW_PROXY_CONFIG)
+#import <Network/Network.h>
+#endif
 
 class WebsiteDataStoreClient final : public WebKit::WebsiteDataStoreClient {
 public:
@@ -173,7 +179,7 @@ private:
         [m_delegate.getAutoreleased() websiteDataStore:m_dataStore.getAutoreleased() workerOrigin:wrapper(apiOrigin.get()) updatedAppBadge:(NSNumber *)nsBadge];
     }
 
-    void requestBackgroundFetchPermission(const WebCore::SecurityOriginData& topOrigin, const WebCore::SecurityOriginData& frameOrigin, CompletionHandler<void(bool)>&& completionHandler)
+    void requestBackgroundFetchPermission(const WebCore::SecurityOriginData& topOrigin, const WebCore::SecurityOriginData& frameOrigin, CompletionHandler<void(bool)>&& completionHandler) final
     {
         if (!m_hasRequestBackgroundFetchPermissionSelector) {
             completionHandler(false);
@@ -192,6 +198,23 @@ private:
         URL frameURL { frameOrigin.toString() };
 
         [m_delegate.getAutoreleased() requestBackgroundFetchPermission:mainFrameURL frameOrigin:frameURL decisionHandler:decisionHandler.get()];
+    }
+
+    void notifyBackgroundFetchChange(const String& backgroundFetchIdentifier, WebKit::BackgroundFetchChange backgroundFetchChange) final
+    {
+        WKBackgroundFetchChange change;
+        switch (backgroundFetchChange) {
+        case WebKit::BackgroundFetchChange::Addition:
+            change = WKBackgroundFetchChangeAddition;
+            break;
+        case WebKit::BackgroundFetchChange::Removal:
+            change = WKBackgroundFetchChangeRemoval;
+            break;
+        case WebKit::BackgroundFetchChange::Update:
+            change = WKBackgroundFetchChangeUpdate;
+            break;
+        }
+        [m_delegate.getAutoreleased() notifyBackgroundFetchChange:backgroundFetchIdentifier change:change];
     }
 
     WeakObjCPtr<WKWebsiteDataStore> m_dataStore;
@@ -273,7 +296,7 @@ private:
     static dispatch_once_t onceToken;
     static NeverDestroyed<RetainPtr<NSSet>> allWebsiteDataTypes;
     dispatch_once(&onceToken, ^{
-        allWebsiteDataTypes.get() = adoptNS([[NSSet alloc] initWithArray:@[ WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeFetchCache, WKWebsiteDataTypeMemoryCache, WKWebsiteDataTypeOfflineWebApplicationCache, WKWebsiteDataTypeCookies, WKWebsiteDataTypeSessionStorage, WKWebsiteDataTypeLocalStorage, WKWebsiteDataTypeIndexedDBDatabases, WKWebsiteDataTypeServiceWorkerRegistrations, WKWebsiteDataTypeWebSQLDatabases, WKWebsiteDataTypeFileSystem, WKWebsiteDataTypeSearchFieldRecentSearches, WKWebsiteDataTypeMediaKeys ]]);
+        allWebsiteDataTypes.get() = adoptNS([[NSSet alloc] initWithArray:@[ WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeFetchCache, WKWebsiteDataTypeMemoryCache, WKWebsiteDataTypeOfflineWebApplicationCache, WKWebsiteDataTypeCookies, WKWebsiteDataTypeSessionStorage, WKWebsiteDataTypeLocalStorage, WKWebsiteDataTypeIndexedDBDatabases, WKWebsiteDataTypeServiceWorkerRegistrations, WKWebsiteDataTypeWebSQLDatabases, WKWebsiteDataTypeFileSystem, WKWebsiteDataTypeSearchFieldRecentSearches, WKWebsiteDataTypeMediaKeys, WKWebsiteDataTypeHashSalt ]]);
     });
 
     return allWebsiteDataTypes.get().get();
@@ -321,6 +344,23 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
         completionHandlerCopy();
     });
 }
+
+#if HAVE(NW_PROXY_CONFIG)
+- (void)setProxyConfiguration:(nw_proxy_config_t)proxyConfig
+{
+    if (!proxyConfig) {
+        _websiteDataStore->clearProxyConfigData();
+        return;
+    }
+
+    uuid_t proxyIdentifier;
+    nw_proxy_config_get_identifier(proxyConfig, proxyIdentifier);
+
+    auto proxyConfigData = API::Data::createWithoutCopying((NSData *)nw_proxy_config_copy_agent_data(proxyConfig));
+    
+    _websiteDataStore->setProxyConfigData(proxyConfigData.get(), proxyIdentifier);
+}
+#endif // HAVE(NW_PROXY_CONFIG)
 
 #pragma mark WKObject protocol implementation
 
@@ -971,6 +1011,89 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
         RELEASE_LOG(Push, "Notification close event processing complete. Callback result: %d", wasProcessed);
         completionHandler(wasProcessed);
     });
+#endif
+}
+
+-(void)_getAllBackgroundFetchIdentifiers:(void(^)(NSArray<NSString *> *identifiers))completionHandler
+{
+#if ENABLE(SERVICE_WORKER)
+    _websiteDataStore->networkProcess().getAllBackgroundFetchIdentifiers(_websiteDataStore->sessionID(), [completionHandler = makeBlockPtr(completionHandler)] (auto identifiers) {
+        auto result = adoptNS([[NSMutableArray alloc] initWithCapacity:identifiers.size()]);
+        for (auto identifier : identifiers)
+            [result addObject:(NSString *)identifier];
+        completionHandler(result.autorelease());
+    });
+#else
+    completionHandler(nil);
+#endif
+}
+
+-(void)_getBackgroundFetchState:(NSString *) identifier completionHandler:(void(^)(NSDictionary *state))completionHandler
+{
+#if ENABLE(SERVICE_WORKER)
+    _websiteDataStore->networkProcess().getBackgroundFetchState(_websiteDataStore->sessionID(), identifier, [completionHandler = makeBlockPtr(completionHandler)] (auto state) {
+        completionHandler(state ? state->toDictionary() : nil);
+    });
+#else
+    completionHandler(nil);
+#endif
+}
+
+-(void)_abortBackgroundFetch:(NSString *) identifier completionHandler:(void(^)(void))completionHandler
+{
+    if (!completionHandler)
+        completionHandler = [] { };
+
+#if ENABLE(SERVICE_WORKER)
+    _websiteDataStore->networkProcess().abortBackgroundFetch(_websiteDataStore->sessionID(), identifier, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+#else
+    completionHandler();
+#endif
+}
+-(void)_pauseBackgroundFetch:(NSString *) identifier completionHandler:(void(^)(void))completionHandler
+{
+    if (!completionHandler)
+        completionHandler = [] { };
+
+#if ENABLE(SERVICE_WORKER)
+    _websiteDataStore->networkProcess().pauseBackgroundFetch(_websiteDataStore->sessionID(), identifier, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+#else
+    completionHandler();
+#endif
+}
+
+-(void)_resumeBackgroundFetch:(NSString *) identifier completionHandler:(void(^)(void))completionHandler
+{
+    if (!completionHandler)
+        completionHandler = [] { };
+
+#if ENABLE(SERVICE_WORKER)
+    _websiteDataStore->networkProcess().resumeBackgroundFetch(_websiteDataStore->sessionID(), identifier, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+#else
+    completionHandler();
+#endif
+}
+
+-(void)_clickBackgroundFetch:(NSString *) identifier completionHandler:(void(^)(void))completionHandler
+{
+    if (!completionHandler)
+        completionHandler = [] { };
+
+#if ENABLE(SERVICE_WORKER)
+    if (!completionHandler)
+        completionHandler = [] { };
+
+    _websiteDataStore->networkProcess().clickBackgroundFetch(_websiteDataStore->sessionID(), identifier, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+#else
+    completionHandler();
 #endif
 }
 

@@ -101,7 +101,7 @@ private:
     void updateTrackIds(Vector<std::pair<AtomString, AtomString>>&&) final;
     uint64_t totalTrackBufferSizeInBytes() const final;
 
-    void memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded, CompletionHandler<void(bool)>&&) final;
+    void memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded) final;
 
     bool isActive() const final { return m_isActive; }
 
@@ -115,7 +115,7 @@ private:
     void sourceBufferPrivateAppendError(bool decodeError);
     void sourceBufferPrivateAppendComplete(WebCore::SourceBufferPrivateClient::AppendResult, const WebCore::PlatformTimeRanges& buffered, uint64_t totalTrackBufferSizeInBytes, const MediaTime& timestampOffset);
     void sourceBufferPrivateHighestPresentationTimestampChanged(const MediaTime&);
-    void sourceBufferPrivateDurationChanged(const MediaTime&);
+    void sourceBufferPrivateDurationChanged(const MediaTime&, CompletionHandler<void()>&&);
     void sourceBufferPrivateDidParseSample(double sampleDuration);
     void sourceBufferPrivateDidDropSample();
     void sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode);

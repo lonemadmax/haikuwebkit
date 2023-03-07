@@ -151,6 +151,7 @@ SOFT_LINK_CLASS_OPTIONAL(AVKit, __AVPlayerLayerView)
         // The initial resize will have an empty videoLayerFrame, which makes
         // the subsequent calculations incorrect. When this happens, just do
         // the synchronous resize step instead.
+        _targetVideoFrame = targetVideoFrame;
         [self resolveBounds];
         return;
     }
@@ -190,7 +191,7 @@ SOFT_LINK_CLASS_OPTIONAL(AVKit, __AVPlayerLayerView)
     [CATransaction setAnimationDuration:0];
     [CATransaction setDisableActions:YES];
 
-    if (auto* model = _fullscreenInterface->videoFullscreenModel())
+    if (auto* model = _fullscreenInterface ? _fullscreenInterface->videoFullscreenModel() : nullptr)
         model->setVideoLayerFrame(_targetVideoFrame);
 
     _previousVideoGravity = _videoGravity;
@@ -226,7 +227,7 @@ SOFT_LINK_CLASS_OPTIONAL(AVKit, __AVPlayerLayerView)
     else
         ASSERT_NOT_REACHED();
 
-    if (auto* model = _fullscreenInterface->videoFullscreenModel())
+    if (auto* model = _fullscreenInterface ? _fullscreenInterface->videoFullscreenModel() : nullptr)
         model->setVideoLayerGravity(gravity);
 
     [self setNeedsLayout];

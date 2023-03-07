@@ -30,6 +30,7 @@
 
 #include "BackgroundFetchInformation.h"
 #include "BackgroundFetchOptions.h"
+#include "BackgroundFetchRecordInformation.h"
 #include "BackgroundFetchRequest.h"
 #include "CacheQueryOptions.h"
 #include "NotificationData.h"
@@ -490,15 +491,14 @@ void WorkerSWClientConnection::matchBackgroundFetch(ServiceWorkerRegistrationIde
     });
 }
 
-using CrossThreadResponseDataOrException = ExceptionOr<ResourceResponse::CrossThreadData>;
-static CrossThreadResponseDataOrException toCrossThreadData(ExceptionOr<ResourceResponse>&& data)
+static ExceptionOr<ResourceResponse::CrossThreadData> toCrossThreadData(ExceptionOr<ResourceResponse>&& data)
 {
     if (data.hasException())
         return data.releaseException().isolatedCopy();
     return data.releaseReturnValue().crossThreadData();
 }
 
-static ExceptionOr<ResourceResponse> fromCrossThreadData(CrossThreadResponseDataOrException&& data)
+static ExceptionOr<ResourceResponse> fromCrossThreadData(ExceptionOr<ResourceResponse::CrossThreadData>&& data)
 {
     if (data.hasException())
         return data.releaseException();
@@ -542,6 +542,7 @@ void WorkerSWClientConnection::retrieveRecordResponseBody(BackgroundFetchRecordI
                 if (!error.isNull()) {
                     iterator->value(makeUnexpected(WTFMove(error)));
                     callbacks.remove(iterator);
+                    return;
                 }
                 bool isDone = !buffer;
                 iterator->value(WTFMove(buffer));

@@ -383,23 +383,24 @@ public:
     // Accessibility Text
     void accessibilityText(Vector<AccessibilityText>&) const override { };
     // A single method for getting a computed label for an AXObject. It condenses the nuances of accessibilityText. Used by Inspector.
-    String computedLabel() override;
+    WEBCORE_EXPORT String computedLabel();
 
     // A programmatic way to set a name on an AccessibleObject.
     void setAccessibleName(const AtomString&) override { }
     bool hasAttributesRequiredForInclusion() const override;
 
-    // Accessibility Text - (To be deprecated).
-    String accessibilityDescription() const override { return String(); }
-    String title() const override { return String(); }
-    virtual String helpText() const { return String(); }
+    virtual String title() const { return { }; }
+    virtual String description() const { return { }; }
+    virtual String helpText() const { return { }; }
+
+    String textContent() const override;
 
     // Methods for determining accessibility text.
     bool isARIAStaticText() const { return ariaRoleAttribute() == AccessibilityRole::StaticText; }
-    String stringValue() const override { return String(); }
-    String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const override { return String(); }
+    String stringValue() const override { return { }; }
+    String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const override { return { }; }
     String text() const override { return { }; }
-    int textLength() const override { return 0; }
+    unsigned textLength() const override { return 0; }
 #if PLATFORM(COCOA)
     // Returns an array of strings and AXObject wrappers corresponding to the
     // textruns and replacement nodes included in the given range.
@@ -438,7 +439,7 @@ public:
     virtual Element* anchorElement() const { return nullptr; }
     bool supportsPressAction() const override;
     Element* actionElement() const override { return nullptr; }
-    LayoutRect boundingBoxRect() const override { return LayoutRect(); }
+    virtual LayoutRect boundingBoxRect() const { return { }; }
     LayoutRect elementRect() const override = 0;
     IntPoint clickPoint() override;
     static IntRect boundingBoxForQuads(RenderObject*, const Vector<FloatQuad>&);
@@ -536,11 +537,13 @@ public:
     AtomString tagName() const override;
     bool hasDisplayContents() const;
 
+    std::optional<SimpleRange> simpleRange() const override;
+    VisiblePositionRange visiblePositionRange() const override { return { }; }
+    AXTextMarkerRange textMarkerRange() const override;
+
     std::optional<SimpleRange> visibleCharacterRange() const override;
-    VisiblePositionRange visiblePositionRange() const override { return VisiblePositionRange(); }
     VisiblePositionRange visiblePositionRangeForLine(unsigned) const override { return VisiblePositionRange(); }
 
-    std::optional<SimpleRange> elementRange() const override;
     static bool replacedNodeNeedsCharacter(Node* replacedNode);
 
     VisiblePositionRange visiblePositionRangeForUnorderedPositions(const VisiblePosition&, const VisiblePosition&) const override;

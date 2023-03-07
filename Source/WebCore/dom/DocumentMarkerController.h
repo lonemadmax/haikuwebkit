@@ -108,7 +108,7 @@ private:
 
     bool possiblyHasMarkers(OptionSet<DocumentMarker::MarkerType>);
     void removeMarkers(OptionSet<DocumentMarker::MarkerType>, const Function<FilterMarkerResult(const RenderedDocumentMarker&)>& filterFunction);
-    void removeMarkersFromList(MarkerMap::iterator, OptionSet<DocumentMarker::MarkerType>, const Function<FilterMarkerResult(const RenderedDocumentMarker&)>& filterFunction = nullptr);
+    OptionSet<DocumentMarker::MarkerType> removeMarkersFromList(MarkerMap::iterator, OptionSet<DocumentMarker::MarkerType>, const Function<FilterMarkerResult(const RenderedDocumentMarker&)>& filterFunction = nullptr);
 
     void fadeAnimationTimerFired();
 
@@ -120,7 +120,7 @@ private:
     Timer m_fadeAnimationTimer;
 };
 
-void addMarker(const SimpleRange&, DocumentMarker::MarkerType, const DocumentMarker::Data& = { });
+WEBCORE_EXPORT void addMarker(const SimpleRange&, DocumentMarker::MarkerType, const DocumentMarker::Data& = { });
 void addMarker(Text&, unsigned startOffset, unsigned length, DocumentMarker::MarkerType, DocumentMarker::Data&& = { });
 void removeMarkers(const SimpleRange&, OptionSet<DocumentMarker::MarkerType> = DocumentMarker::allMarkers(), RemovePartiallyOverlappingMarker = RemovePartiallyOverlappingMarker::No);
 

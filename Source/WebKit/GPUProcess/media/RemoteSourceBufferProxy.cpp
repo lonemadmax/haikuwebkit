@@ -137,12 +137,14 @@ void RemoteSourceBufferProxy::sourceBufferPrivateHighestPresentationTimestampCha
     m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemote::SourceBufferPrivateHighestPresentationTimestampChanged(timestamp), m_identifier);
 }
 
-void RemoteSourceBufferProxy::sourceBufferPrivateDurationChanged(const MediaTime& duration)
+void RemoteSourceBufferProxy::sourceBufferPrivateDurationChanged(const MediaTime& duration, CompletionHandler<void()>&& completionHandler)
 {
-    if (!m_connectionToWebProcess)
+    if (!m_connectionToWebProcess) {
+        completionHandler();
         return;
+    }
 
-    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemote::SourceBufferPrivateDurationChanged(duration), m_identifier);
+    m_connectionToWebProcess->connection().sendWithAsyncReply(Messages::SourceBufferPrivateRemote::SourceBufferPrivateDurationChanged(duration), WTFMove(completionHandler), m_identifier);
 }
 
 void RemoteSourceBufferProxy::sourceBufferPrivateDidParseSample(double sampleDuration)
@@ -366,10 +368,9 @@ void RemoteSourceBufferProxy::enqueuedSamplesForTrackID(TrackPrivateRemoteIdenti
 
 void RemoteSourceBufferProxy::memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded, CompletionHandler<void(WebCore::PlatformTimeRanges&&, uint64_t)>&& completionHandler)
 {
-    m_sourceBufferPrivate->memoryPressure(maximumBufferSize, currentTime, isEnded, [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](bool) mutable {
-        auto buffered = m_sourceBufferPrivate->buffered()->ranges();
-        completionHandler(WTFMove(buffered), m_sourceBufferPrivate->totalTrackBufferSizeInBytes());
-    });
+    m_sourceBufferPrivate->memoryPressure(maximumBufferSize, currentTime, isEnded);
+    auto buffered = m_sourceBufferPrivate->buffered()->ranges();
+    completionHandler(WTFMove(buffered), m_sourceBufferPrivate->totalTrackBufferSizeInBytes());
 }
 
 } // namespace WebKit

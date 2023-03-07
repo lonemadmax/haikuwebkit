@@ -26,6 +26,8 @@
 #include "config.h"
 #include "NetworkStorageManager.h"
 
+#include "BackgroundFetchChange.h"
+#include "BackgroundFetchStoreManager.h"
 #include "CacheStorageCache.h"
 #include "CacheStorageManager.h"
 #include "CacheStorageRegistry.h"
@@ -47,6 +49,7 @@
 #include "StorageUtilities.h"
 #include "UnifiedOriginStorageLevel.h"
 #include "WebsiteDataType.h"
+#include <WebCore/ClientOrigin.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/UniqueIDBDatabaseConnection.h>
 #include <WebCore/UniqueIDBDatabaseTransaction.h>
@@ -187,6 +190,8 @@ void NetworkStorageManager::close(CompletionHandler<void()>&& completionHandler)
     });
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+        assertIsCurrent(workQueue());
+
         m_originStorageManagers.clear();
         m_fileSystemStorageHandleRegistry = nullptr;
 
@@ -251,6 +256,7 @@ void NetworkStorageManager::includeOriginInBackupIfNecessary(OriginStorageManage
 
 void NetworkStorageManager::writeOriginToFileIfNecessary(const WebCore::ClientOrigin& origin, StorageAreaBase* storageArea)
 {
+    assertIsCurrent(workQueue());
     auto* manager = m_originStorageManagers.get(origin);
     if (!manager)
         return;
@@ -285,7 +291,7 @@ void NetworkStorageManager::writeOriginToFileIfNecessary(const WebCore::ClientOr
 
 OriginStorageManager& NetworkStorageManager::originStorageManager(const WebCore::ClientOrigin& origin, ShouldWriteOriginFile shouldWriteOriginFile)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     auto& originStorageManager = *m_originStorageManagers.ensure(origin, [&] {
         auto originDirectory = originDirectoryPath(m_path, origin, m_salt);
@@ -308,6 +314,8 @@ OriginStorageManager& NetworkStorageManager::originStorageManager(const WebCore:
 
 bool NetworkStorageManager::removeOriginStorageManagerIfPossible(const WebCore::ClientOrigin& origin)
 {
+    assertIsCurrent(workQueue());
+
     auto iterator = m_originStorageManagers.find(origin);
     if (iterator == m_originStorageManagers.end())
         return true;
@@ -325,14 +333,14 @@ bool NetworkStorageManager::removeOriginStorageManagerIfPossible(const WebCore::
 
 void NetworkStorageManager::persisted(const WebCore::ClientOrigin& origin, CompletionHandler<void(bool)>&& completionHandler)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     completionHandler(originStorageManager(origin).persisted());
 }
 
 void NetworkStorageManager::persist(const WebCore::ClientOrigin& origin, CompletionHandler<void(bool)>&& completionHandler)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     originStorageManager(origin).setPersisted(true);
     completionHandler(true);
@@ -340,7 +348,7 @@ void NetworkStorageManager::persist(const WebCore::ClientOrigin& origin, Complet
 
 void NetworkStorageManager::estimate(const WebCore::ClientOrigin& origin, CompletionHandler<void(std::optional<WebCore::StorageEstimate>)>&& completionHandler)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     completionHandler(originStorageManager(origin).estimate());
 }
@@ -351,6 +359,7 @@ void NetworkStorageManager::resetStoragePersistedState(CompletionHandler<void()>
     ASSERT(!m_closed);
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+        assertIsCurrent(workQueue());
         // Reset persisted value.
         for (auto& manager : m_originStorageManagers.values())
             manager->setPersisted(false);
@@ -367,6 +376,7 @@ void NetworkStorageManager::clearStorageForWebPage(WebPageProxyIdentifier pageId
     ASSERT(!m_closed);
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, pageIdentifier]() mutable {
+        assertIsCurrent(workQueue());
         for (auto& manager : m_originStorageManagers.values()) {
             if (auto* sessionStorageManager = manager->existingSessionStorageManager())
                 sessionStorageManager->removeNamespace(makeObjectIdentifier<StorageNamespaceIdentifierType>(pageIdentifier.toUInt64()));
@@ -380,6 +390,7 @@ void NetworkStorageManager::cloneSessionStorageForWebPage(WebPageProxyIdentifier
     ASSERT(!m_closed);
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, fromIdentifier, toIdentifier]() mutable {
+        assertIsCurrent(workQueue());
         cloneSessionStorageNamespace(makeObjectIdentifier<StorageNamespaceIdentifierType>(fromIdentifier.toUInt64()), makeObjectIdentifier<StorageNamespaceIdentifierType>(toIdentifier.toUInt64()));
     });
 }
@@ -390,6 +401,7 @@ void NetworkStorageManager::didIncreaseQuota(WebCore::ClientOrigin&& origin, Quo
     ASSERT(!m_closed);
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, origin = crossThreadCopy(WTFMove(origin)), identifier, newQuota]() mutable {
+        assertIsCurrent(workQueue());
         if (auto manager = m_originStorageManagers.get(origin))
             manager->quotaManager().didIncreaseQuota(identifier, newQuota);
     });
@@ -563,6 +575,8 @@ void NetworkStorageManager::forEachOriginDirectory(const Function<void(const Str
 
 HashSet<WebCore::ClientOrigin> NetworkStorageManager::getAllOrigins()
 {
+    assertIsCurrent(workQueue());
+
     HashSet<WebCore::ClientOrigin> allOrigins;
     for (auto& origin : m_originStorageManagers.keys())
         allOrigins.add(origin);
@@ -767,6 +781,7 @@ void NetworkStorageManager::suspend(CompletionHandler<void()>&& completionHandle
 
     RELEASE_LOG(ProcessSuspension, "%p - NetworkStorageManager::suspend()", this);
     m_queue->suspend([this, protectedThis = Ref { *this }] {
+        assertIsCurrent(workQueue());
         for (auto& manager : m_originStorageManagers.values()) {
             if (auto localStorageManager = manager->existingLocalStorageManager())
                 localStorageManager->syncLocalStorage();
@@ -793,6 +808,7 @@ void NetworkStorageManager::handleLowMemoryWarning()
     ASSERT(!m_closed);
 
     m_queue->dispatch([this, protectedThis = Ref { *this }] {
+        assertIsCurrent(workQueue());
         for (auto& manager : m_originStorageManagers.values()) {
             if (auto localStorageManager = manager->existingLocalStorageManager())
                 localStorageManager->handleLowMemoryWarning();
@@ -808,6 +824,7 @@ void NetworkStorageManager::syncLocalStorage(CompletionHandler<void()>&& complet
     ASSERT(!m_closed);
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+        assertIsCurrent(workQueue());
         for (auto& manager : m_originStorageManagers.values()) {
             if (auto localStorageManager = manager->existingLocalStorageManager())
                 localStorageManager->syncLocalStorage();
@@ -850,6 +867,7 @@ void NetworkStorageManager::resetQuotaForTesting(CompletionHandler<void()>&& com
     ASSERT(RunLoop::isMain());
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
+        assertIsCurrent(workQueue());
         for (auto& manager : m_originStorageManagers.values())
             manager->quotaManager().resetQuotaForTesting();
         RunLoop::main().dispatch(WTFMove(completionHandler));
@@ -861,6 +879,7 @@ void NetworkStorageManager::resetQuotaUpdatedBasedOnUsageForTesting(WebCore::Cli
     ASSERT(RunLoop::isMain());
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, origin = crossThreadCopy(WTFMove(origin))]() mutable {
+        assertIsCurrent(workQueue());
         if (auto manager = m_originStorageManagers.get(origin))
             manager->quotaManager().resetQuotaUpdatedBasedOnUsageForTesting();
     });
@@ -918,6 +937,8 @@ void NetworkStorageManager::connectToStorageAreaSync(IPC::Connection& connection
 
 void NetworkStorageManager::cancelConnectToStorageArea(IPC::Connection& connection, WebCore::StorageType type, std::optional<StorageNamespaceIdentifier> namespaceIdentifier, const WebCore::ClientOrigin& origin)
 {
+    assertIsCurrent(workQueue());
+
     auto iterator = m_originStorageManagers.find(origin);
     if (iterator == m_originStorageManagers.end())
         return;
@@ -957,7 +978,7 @@ void NetworkStorageManager::disconnectFromStorageArea(IPC::Connection& connectio
 
 void NetworkStorageManager::cloneSessionStorageNamespace(StorageNamespaceIdentifier fromIdentifier, StorageNamespaceIdentifier toIdentifier)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     for (auto& manager : m_originStorageManagers.values()) {
         if (auto* sessionStorageManager = manager->existingSessionStorageManager())
@@ -1283,6 +1304,8 @@ void NetworkStorageManager::cacheStoragePutRecords(WebCore::DOMCacheIdentifier c
 
 void NetworkStorageManager::cacheStorageClearMemoryRepresentation(const WebCore::ClientOrigin& origin, CompletionHandler<void(std::optional<WebCore::DOMCacheEngine::Error>&&)>&& callback)
 {
+    assertIsCurrent(workQueue());
+
     auto iterator = m_originStorageManagers.find(origin);
     if (iterator == m_originStorageManagers.end())
         return callback(std::nullopt);
@@ -1320,6 +1343,27 @@ void NetworkStorageManager::cacheStorageRepresentation(CompletionHandler<void(St
     builder.append("]}");
     callback(builder.toString());
 }
+
+#if ENABLE(SERVICE_WORKER)
+void NetworkStorageManager::dispatchTaskToBackgroundFetchManager(const WebCore::ClientOrigin& origin, Function<void(BackgroundFetchStoreManager*)>&& callback)
+{
+    ASSERT(RunLoop::isMain());
+
+    if (m_closed) {
+        callback(nullptr);
+        return;
+    }
+    m_queue->dispatch([this, protectedThis = Ref { *this }, queue = Ref { m_queue }, origin = crossThreadCopy(origin), callback = WTFMove(callback)]() mutable {
+        auto& originStorageManager = this->originStorageManager(origin);
+        callback(&originStorageManager.backgroundFetchManager(WTFMove(queue)));
+    });
+}
+
+void NetworkStorageManager::notifyBackgroundFetchChange(const String& identifier, BackgroundFetchChange change)
+{
+    IPC::Connection::send(m_parentConnection, Messages::NetworkProcessProxy::NotifyBackgroundFetchChange(m_sessionID, identifier, change), 0);
+}
+#endif // ENABLE(SERVICE_WORKER)
 
 } // namespace WebKit
 

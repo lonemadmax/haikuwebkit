@@ -748,6 +748,13 @@ bool InjectedBundle::isGeolocationProviderActive() const
     return booleanValue(adoptWK(result).get());
 }
 
+WKRetainPtr<WKStringRef> InjectedBundle::getBackgroundFetchIdentifier()
+{
+    WKTypeRef result = nullptr;
+    WKBundlePagePostSynchronousMessageForTesting(page()->page(), toWK("GetBackgroundFetchIdentifier").get(), 0, &result);
+    return static_cast<WKStringRef>(result);
+}
+
 unsigned InjectedBundle::imageCountInGeneralPasteboard() const
 {
     WKTypeRef result = nullptr;
@@ -901,6 +908,27 @@ void InjectedBundle::setAllowsAnySSLCertificate(bool allowsAnySSLCertificate)
 bool InjectedBundle::statisticsNotifyObserver()
 {
     return WKBundleResourceLoadStatisticsNotifyObserver(m_bundle.get());
+}
+
+WKRetainPtr<WKStringRef> InjectedBundle::lastAddedBackgroundFetchIdentifier() const
+{
+    WKTypeRef result = nullptr;
+    WKBundlePagePostSynchronousMessageForTesting(page()->page(), toWK("LastAddedBackgroundFetchIdentifier").get(), 0, &result);
+    return static_cast<WKStringRef>(result);
+}
+
+WKRetainPtr<WKStringRef> InjectedBundle::lastRemovedBackgroundFetchIdentifier() const
+{
+    WKTypeRef result = nullptr;
+    WKBundlePagePostSynchronousMessageForTesting(page()->page(), toWK("LastRemovedBackgroundFetchIdentifier").get(), 0, &result);
+    return static_cast<WKStringRef>(result);
+}
+
+WKRetainPtr<WKStringRef> InjectedBundle::lastUpdatedBackgroundFetchIdentifier() const
+{
+    WKTypeRef result = nullptr;
+    WKBundlePagePostSynchronousMessageForTesting(page()->page(), toWK("LastUpdatedBackgroundFetchIdentifier").get(), 0, &result);
+    return static_cast<WKStringRef>(result);
 }
 
 void InjectedBundle::textDidChangeInTextField()

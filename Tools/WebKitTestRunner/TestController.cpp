@@ -842,6 +842,29 @@ bool TestController::denyNotificationPermissionOnPrompt(WKStringRef originString
     return true;
 }
 
+#if !PLATFORM(COCOA)
+WKRetainPtr<WKStringRef> TestController::getBackgroundFetchIdentifier()
+{
+    return { };
+}
+
+void TestController::abortBackgroundFetch(WKStringRef)
+{
+}
+
+void TestController::pauseBackgroundFetch(WKStringRef)
+{
+}
+
+void TestController::resumeBackgroundFetch(WKStringRef)
+{
+}
+
+void TestController::simulateClickBackgroundFetch(WKStringRef)
+{
+}
+#endif
+
 void TestController::createWebViewWithOptions(const TestOptions& options)
 {
     auto applicationBundleIdentifier = options.applicationBundleIdentifier();
@@ -1415,6 +1438,22 @@ void TestController::setBackgroundFetchPermission(bool)
 {
     // FIXME: Add support.
 }
+
+WKRetainPtr<WKStringRef> TestController::lastAddedBackgroundFetchIdentifier() const
+{
+    return adoptWK(WKStringCreateWithUTF8CString("not implemented"));
+}
+
+WKRetainPtr<WKStringRef> TestController::lastRemovedBackgroundFetchIdentifier() const
+{
+    return adoptWK(WKStringCreateWithUTF8CString("not implemented"));
+}
+
+WKRetainPtr<WKStringRef> TestController::lastUpdatedBackgroundFetchIdentifier() const
+{
+    return adoptWK(WKStringCreateWithUTF8CString("not implemented"));
+}
+
 #endif
 
 WKURLRef TestController::createTestURL(const char* pathOrURL)

@@ -95,7 +95,6 @@ class RenderView;
 class RenderWidget;
 class ScriptController;
 class SecurityOrigin;
-class Settings;
 class VisiblePosition;
 class Widget;
 
@@ -117,7 +116,9 @@ using NodeQualifier = Function<Node* (const HitTestResult&, Node* terminationNod
 // FIXME: Rename Frame to LocalFrame and AbstractFrame to Frame.
 class Frame final : public AbstractFrame {
 public:
-    WEBCORE_EXPORT static Ref<Frame> create(Page*, HTMLFrameOwnerElement*, UniqueRef<FrameLoaderClient>&&, FrameIdentifier);
+    WEBCORE_EXPORT static Ref<Frame> createMainFrame(Page&, UniqueRef<FrameLoaderClient>&&, FrameIdentifier);
+    WEBCORE_EXPORT static Ref<Frame> createSubframe(Page&, UniqueRef<FrameLoaderClient>&&, FrameIdentifier, HTMLFrameOwnerElement&);
+    WEBCORE_EXPORT static Ref<Frame> createSubframeHostedInAnotherProcess(Page&, UniqueRef<FrameLoaderClient>&&, FrameIdentifier, AbstractFrame& parent);
 
     WEBCORE_EXPORT void init();
 #if PLATFORM(IOS_FAMILY)
@@ -138,9 +139,6 @@ public:
     void removeDestructionObserver(FrameDestructionObserver&);
 
     WEBCORE_EXPORT void willDetachPage();
-
-    AbstractFrame& mainFrame() const;
-    bool isMainFrame() const { return this == static_cast<void*>(&m_mainFrame); }
 
     Document* document() const;
     FrameView* view() const;
@@ -186,8 +184,6 @@ public:
     WEBCORE_EXPORT String trackedRepaintRectsAsText() const;
 
     WEBCORE_EXPORT static Frame* frameForWidget(const Widget&);
-
-    Settings& settings() const { return *m_settings; }
 
     WEBCORE_EXPORT void setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio, AdjustViewSizeOrNot);
     bool shouldUsePrintingLayout() const;
@@ -298,12 +294,13 @@ public:
 private:
     friend class NavigationDisabler;
 
-    Frame(Page&, HTMLFrameOwnerElement*, UniqueRef<FrameLoaderClient>&&, FrameIdentifier);
+    Frame(Page&, UniqueRef<FrameLoaderClient>&&, FrameIdentifier, HTMLFrameOwnerElement*, AbstractFrame* parent);
 
     void dropChildren();
 
     FrameType frameType() const final { return FrameType::Local; }
-    void frameDetached();
+    void frameDetached() final;
+    bool preventsParentFromBeingComplete() const final;
 
     AbstractFrameView* virtualView() const final;
     AbstractDOMWindow* virtualWindow() const final;
@@ -312,8 +309,6 @@ private:
 
     Vector<std::pair<Ref<DOMWrapperWorld>, UniqueRef<UserScript>>> m_userScriptsAwaitingNotification;
 
-    AbstractFrame& m_mainFrame;
-    const RefPtr<Settings> m_settings;
     UniqueRef<FrameLoader> m_loader;
     mutable UniqueRef<NavigationScheduler> m_navigationScheduler;
 
@@ -373,11 +368,6 @@ inline FrameView* Frame::view() const
 inline Document* Frame::document() const
 {
     return m_doc.get();
-}
-
-inline AbstractFrame& Frame::mainFrame() const
-{
-    return m_mainFrame;
 }
 
 WTF::TextStream& operator<<(WTF::TextStream&, const Frame&);

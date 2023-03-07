@@ -59,6 +59,7 @@ http/tests/paymentrequest/ApplePayModifier-automaticReloadPaymentRequest.https.h
 http/tests/paymentrequest/ApplePayModifier-multiTokenContexts.https.html [ Skip ]
 http/tests/paymentrequest/ApplePayModifier-additionalLineItems.https.html [ Skip ]
 http/tests/paymentrequest/ApplePayModifier-additionalShippingMethods.https.html [ Skip ]
+http/tests/paymentrequest/ApplePayModifier-deferredPaymentRequest.https.html [ Skip ]
 http/tests/paymentrequest/ApplePayModifier-recurringPaymentRequest.https.html [ Skip ]
 http/tests/paymentrequest/ApplePayModifier-total.https.html [ Skip ]
 http/tests/paymentrequest/ApplePayPaymentCompleteDetails-orderDetails.https.html [ Skip ]
@@ -1600,8 +1601,6 @@ webkit.org/b/238880 [ Monterey+ Release ] imported/w3c/web-platform-tests/css/cs
 
 webkit.org/b/239095 http/wpt/cache-storage/cache-storage-networkprocess-crash.html [ Pass Crash ]
 
-webkit.org/b/239308 media/media-source/media-source-webm-vorbis-partial.html [ Failure ]
-
 webkit.org/b/239304 http/tests/cache-storage/cache-origins.https.html [ Pass Failure ]
 
 # [ Monterey wk2 debug ] WebGL conformance tests are a flaky time out
@@ -1685,7 +1684,7 @@ webkit.org/b/241283 fast/animation/request-animation-frame-throttling-detached-i
 
 # NOTIFICATION_EVENT is Ventura+
 [ Ventura+ ] http/tests/workers/service/shownotification-allowed-document.html [ Pass ]
-[ Ventura+ ] http/tests/workers/service/shownotification-allowed.html [ Pass ]
+webkit.org/b/253343 [ Ventura+ ] http/tests/workers/service/shownotification-allowed.html [ Pass Failure ]
 [ Ventura+ ] http/tests/workers/service/shownotification-invalid-data.html [ Pass ]
 [ Ventura+ ] http/wpt/push-api/pushEvent.any.serviceworker.html [ Pass ]
 [ Ventura+ ] imported/w3c/web-platform-tests/notifications/idlharness.https.any.html [ Pass ]
@@ -1732,6 +1731,9 @@ webkit.org/b/245727 [ Monterey ] imported/w3c/web-platform-tests/notifications/i
 [ Debug ] imported/w3c/web-platform-tests/html/browsers/windows/browsing-context-names/choose-default-001.html [ Skip ]
 
 webkit.org/b/248734 media/video-inaccurate-duration-ended.html [ Crash ]
+
+webkit.org/b/252866 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-svg-unshared.html [ Pass Failure ]
+webkit.org/b/252866 [ Debug ] fast/text/glyph-display-lists/glyph-display-list-colr-unshared.html [ Pass Failure ]
 
 #webkit.org/b/248537 Batch mark expectations for Ventura test failures
 [ Ventura+ ] webrtc/canvas-to-peer-connection-2d.html [ Pass Timeout ]
@@ -1806,7 +1808,26 @@ imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canva
 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap.w.html [ Skip ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transferrable.w.html [ Skip ]
 imported/w3c/web-platform-tests/webcodecs/videoFrame-texImage.any.worker.html [ Skip ]
+webgl/2.0.y/conformance/offscreencanvas/context-creation-worker.html [ Skip ]
+webgl/2.0.y/conformance/offscreencanvas/context-lost-restored-worker.html [ Skip ]
+webgl/2.0.y/conformance/offscreencanvas/context-lost-worker.html [ Skip ]
+webgl/2.0.y/conformance/offscreencanvas/methods-worker.html [ Skip ]
+webgl/2.0.y/conformance/offscreencanvas/offscreencanvas-timer-query.html [ Skip ]
+webgl/2.0.y/conformance/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Skip ]
+webgl/2.0.y/conformance2/offscreencanvas/context-creation-worker.html [ Skip ]
+webgl/2.0.y/conformance2/offscreencanvas/methods-2-worker.html [ Skip ]
+webgl/2.0.y/conformance2/offscreencanvas/offscreencanvas-query.html [ Skip ]
+webgl/2.0.y/conformance2/offscreencanvas/offscreencanvas-sync.html [ Skip ]
+webgl/2.0.y/conformance2/offscreencanvas/offscreencanvas-timer-query.html [ Skip ]
+webgl/2.0.y/conformance2/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Skip ]
 
 webkit.org/b/251187 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-back-to-original-origin.any.html [ Pass Crash ]
 
 webkit.org/b/250046 [ Monterey+ ] svg/clip-path/clip-opacity-translate.svg [ ImageOnlyFailure ]
+
+webkit.org/b/253153 [ BigSur+ ] media/media-source/media-source-webm-append-buffer-after-abort.html [ Pass Failure ]
+webkit.org/b/253153 [ BigSur+ ] media/media-source/media-source-webm-init-inside-segment.html [ Pass Failure ]
+webkit.org/b/253153 [ BigSur+ ] media/media-source/media-source-webm.html [ Pass Failure ]
+
+# Early hints require network callbacks that are only present in macOS 12 / iOS 15 or greater.
+[ Monterey+ ] http/wpt/loading/early-hints [ Pass ]

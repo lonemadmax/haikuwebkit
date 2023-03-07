@@ -263,17 +263,17 @@ static constexpr OptionSet<ActivityState::Flag> pageInitialActivityState()
 }
 
 Page::Page(PageConfiguration&& pageConfiguration)
-    : m_chrome(makeUnique<Chrome>(*this, *pageConfiguration.chromeClient))
+    : m_chrome(makeUnique<Chrome>(*this, WTFMove(pageConfiguration.chromeClient)))
     , m_dragCaretController(makeUnique<DragCaretController>())
 #if ENABLE(DRAG_SUPPORT)
     , m_dragController(makeUnique<DragController>(*this, WTFMove(pageConfiguration.dragClient)))
 #endif
     , m_focusController(makeUnique<FocusController>(*this, pageInitialActivityState()))
 #if ENABLE(CONTEXT_MENUS)
-    , m_contextMenuController(makeUnique<ContextMenuController>(*this, *pageConfiguration.contextMenuClient))
+    , m_contextMenuController(makeUnique<ContextMenuController>(*this, WTFMove(pageConfiguration.contextMenuClient)))
 #endif
     , m_userInputBridge(makeUnique<UserInputBridge>(*this))
-    , m_inspectorController(makeUnique<InspectorController>(*this, pageConfiguration.inspectorClient))
+    , m_inspectorController(makeUnique<InspectorController>(*this, WTFMove(pageConfiguration.inspectorClient)))
     , m_pointerCaptureController(makeUnique<PointerCaptureController>(*this))
 #if ENABLE(POINTER_LOCK)
     , m_pointerLockController(makeUnique<PointerLockController>(*this))
@@ -281,7 +281,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_settings(Settings::create(this))
     , m_progress(makeUnique<ProgressTracker>(*this, WTFMove(pageConfiguration.progressTrackerClient)))
     , m_backForwardController(makeUnique<BackForwardController>(*this, WTFMove(pageConfiguration.backForwardClient)))
-    , m_mainFrame(Frame::create(this, nullptr, WTFMove(pageConfiguration.loaderClientForMainFrame), pageConfiguration.mainFrameIdentifier ? *pageConfiguration.mainFrameIdentifier : FrameIdentifier::generate()))
+    , m_mainFrame(Frame::createMainFrame(*this, WTFMove(pageConfiguration.loaderClientForMainFrame), pageConfiguration.mainFrameIdentifier ? *pageConfiguration.mainFrameIdentifier : FrameIdentifier::generate()))
     , m_editorClient(WTFMove(pageConfiguration.editorClient))
     , m_validationMessageClient(WTFMove(pageConfiguration.validationMessageClient))
     , m_diagnosticLoggingClient(WTFMove(pageConfiguration.diagnosticLoggingClient))
@@ -328,7 +328,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_recentWheelEventDeltaFilter(WheelEventDeltaFilter::create())
     , m_pageOverlayController(makeUnique<PageOverlayController>(*this))
 #if ENABLE(APPLE_PAY)
-    , m_paymentCoordinator(makeUnique<PaymentCoordinator>(*pageConfiguration.paymentCoordinatorClient))
+    , m_paymentCoordinator(makeUnique<PaymentCoordinator>(WTFMove(pageConfiguration.paymentCoordinatorClient)))
 #endif
 #if ENABLE(WEB_AUTHN)
     , m_authenticatorCoordinator(makeUniqueRef<AuthenticatorCoordinator>(WTFMove(pageConfiguration.authenticatorCoordinatorClient)))
@@ -1906,18 +1906,19 @@ auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
         document.prepareCanvasesForDisplayIfNeeded();
     });
 
-    ASSERT(localMainFrame);
-    ASSERT(!localMainFrame->view() || !localMainFrame->view()->needsLayout());
+    if (localMainFrame) {
+        ASSERT(!localMainFrame->view() || !localMainFrame->view()->needsLayout());
 #if ASSERT_ENABLED
-    for (AbstractFrame* child = localMainFrame->tree().firstRenderedChild(); child; child = child->tree().traverseNextRendered()) {
-        auto* localFrame = dynamicDowncast<LocalFrame>(child);
-        auto* frameView = localFrame->view();
-        ASSERT(!frameView || !frameView->needsLayout());
-    }
+        for (AbstractFrame* child = localMainFrame->tree().firstRenderedChild(); child; child = child->tree().traverseNextRendered()) {
+            auto* localFrame = dynamicDowncast<LocalFrame>(child);
+            auto* frameView = localFrame->view();
+            ASSERT(!frameView || !frameView->needsLayout());
+        }
 #endif
 
-    if (auto* view = localMainFrame->view())
-        view->notifyAllFramesThatContentAreaWillPaint();
+        if (auto* view = localMainFrame->view())
+            view->notifyAllFramesThatContentAreaWillPaint();
+    }
 
     if (!m_sampledPageTopColor) {
         m_sampledPageTopColor = PageColorSampler::sampleTop(*this);
@@ -3274,6 +3275,16 @@ void Page::setVisitedLinkStore(Ref<VisitedLinkStore>&& visitedLinkStore)
     m_visitedLinkStore->addPage(*this);
 
     invalidateStylesForAllLinks();
+}
+
+std::optional<uint64_t> Page::noiseInjectionHashSaltForDomain(const RegistrableDomain& domain)
+{
+    if (!m_noiseInjectionHashSalts.isValidKey(domain))
+        return std::nullopt;
+
+    return m_noiseInjectionHashSalts.ensure(domain, [] {
+        return cryptographicallyRandomNumber<uint64_t>();
+    }).iterator->value;
 }
 
 PAL::SessionID Page::sessionID() const

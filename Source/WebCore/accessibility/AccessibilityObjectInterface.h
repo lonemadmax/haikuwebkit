@@ -1124,22 +1124,17 @@ public:
 
     // Accessibility Text
     virtual void accessibilityText(Vector<AccessibilityText>&) const = 0;
-    // A single method for getting a computed label for an AXObject. It condenses the nuances of accessibilityText. Used by Inspector.
-    virtual String computedLabel() = 0;
-
     // A programmatic way to set a name on an AccessibleObject.
     virtual void setAccessibleName(const AtomString&) = 0;
     virtual bool hasAttributesRequiredForInclusion() const = 0;
 
-    // Accessibility Text - (To be deprecated).
-    virtual String accessibilityDescription() const = 0;
-    virtual String title() const = 0;
+    virtual String textContent() const = 0;
 
     // Methods for determining accessibility text.
     virtual String stringValue() const = 0;
     virtual String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const = 0;
     virtual String text() const = 0;
-    virtual int textLength() const = 0;
+    virtual unsigned textLength() const = 0;
 #if PLATFORM(COCOA)
     enum class SpellCheck : bool { No, Yes };
     virtual RetainPtr<NSAttributedString> attributedStringForTextMarkerRange(AXTextMarkerRange&&, SpellCheck) const = 0;
@@ -1167,8 +1162,6 @@ public:
 
     virtual bool supportsPressAction() const = 0;
     virtual Element* actionElement() const = 0;
-    virtual LayoutRect boundingBoxRect() const = 0;
-    IntRect pixelSnappedBoundingBoxRect() const { return snappedIntRect(boundingBoxRect()); }
     virtual LayoutRect elementRect() const = 0;
     LayoutSize size() const { return elementRect().size(); }
     virtual IntPoint clickPoint() = 0;
@@ -1242,9 +1235,11 @@ public:
     virtual std::optional<String> attributeValue(const String&) const = 0;
     virtual AtomString tagName() const = 0;
 
+    virtual std::optional<SimpleRange> simpleRange() const = 0;
     virtual VisiblePositionRange visiblePositionRange() const = 0;
+    virtual AXTextMarkerRange textMarkerRange() const = 0;
+
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const = 0;
-    virtual std::optional<SimpleRange> elementRange() const = 0;
     virtual VisiblePositionRange visiblePositionRangeForUnorderedPositions(const VisiblePosition&, const VisiblePosition&) const = 0;
     virtual VisiblePositionRange positionOfLeftWord(const VisiblePosition&) const = 0;
     virtual VisiblePositionRange positionOfRightWord(const VisiblePosition&) const = 0;

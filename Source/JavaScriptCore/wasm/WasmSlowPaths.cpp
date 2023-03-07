@@ -112,7 +112,7 @@ inline bool shouldJIT(Wasm::LLIntCallee* callee, RequiredWasmJIT requiredJIT = R
 
 inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
 {
-    ASSERT(!instance->module().moduleInformation().isSIMDFunction(callee->functionIndex()));
+    ASSERT(!instance->module().moduleInformation().usesSIMD(callee->functionIndex()));
 
     Wasm::LLIntTierUpCounter& tierUpCounter = callee->tierUpCounter();
     if (!tierUpCounter.checkIfOptimizationThresholdReached()) {
@@ -187,7 +187,7 @@ inline bool jitCompileSIMDFunction(Wasm::LLIntCallee* callee, Wasm::Instance* in
     }
 
     uint32_t functionIndex = callee->functionIndex();
-    ASSERT(instance->module().moduleInformation().isSIMDFunction(functionIndex));
+    ASSERT(instance->module().moduleInformation().usesSIMD(functionIndex));
     RefPtr<Wasm::Plan> plan;
     if (Options::wasmLLIntTiersUpToBBQ())
         plan = adoptRef(*new Wasm::BBQPlan(instance->vm(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
@@ -246,7 +246,33 @@ WASM_SLOW_PATH_DECL(loop_osr)
     unsigned loopOSREntryBytecodeOffset = callee->bytecodeOffset(pc);
     const auto& osrEntryData = tierUpCounter.osrEntryDataForLoop(loopOSREntryBytecodeOffset);
 
-    if (Options::wasmLLIntTiersUpToBBQ() && Wasm::BBQPlan::planGeneratesLoopOSREntrypoints(instance->module().moduleInformation())) {
+    if (Options::wasmLLIntTiersUpToBBQ() && Options::useSinglePassBBQJIT()) {
+        if (!jitCompileAndSetHeuristics(callee, instance))
+            WASM_RETURN_TWO(nullptr, nullptr);
+
+        Wasm::BBQCallee* bbqCallee;
+        {
+            Locker locker { instance->calleeGroup()->m_lock };
+            bbqCallee = instance->calleeGroup()->bbqCallee(locker, callee->functionIndex());
+        }
+        RELEASE_ASSERT(bbqCallee);
+
+        size_t osrEntryScratchBufferSize = bbqCallee->osrEntryScratchBufferSize();
+        RELEASE_ASSERT(osrEntryScratchBufferSize >= osrEntryData.values.size());
+        uint64_t* buffer = instance->vm().wasmContext.scratchBufferForSize(osrEntryScratchBufferSize);
+        if (!buffer)
+            WASM_RETURN_TWO(nullptr, nullptr);
+
+        uint32_t index = 0;
+        buffer[index ++] = osrEntryData.loopIndex; // First entry is the loop index.
+        for (VirtualRegister reg : osrEntryData.values)
+            buffer[index++] = READ(reg).encodedJSValue();
+
+        auto sharedLoopEntrypoint = bbqCallee->sharedLoopEntrypoint();
+        RELEASE_ASSERT(sharedLoopEntrypoint);
+
+        WASM_RETURN_TWO(buffer, sharedLoopEntrypoint->taggedPtr());
+    } else if (Options::wasmLLIntTiersUpToBBQ() && Wasm::BBQPlan::planGeneratesLoopOSREntrypoints(instance->module().moduleInformation())) {
         if (!jitCompileAndSetHeuristics(callee, instance))
             WASM_RETURN_TWO(nullptr, nullptr);
 

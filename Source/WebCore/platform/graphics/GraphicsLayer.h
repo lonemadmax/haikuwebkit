@@ -53,6 +53,10 @@
 #include "GraphicsTypes.h"
 #endif
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#include "AcceleratedEffectStack.h"
+#endif
+
 namespace WTF {
 class TextStream;
 }
@@ -67,9 +71,14 @@ class GraphicsLayerAsyncContentsDisplayDelegate;
 class HTMLVideoElement;
 class Image;
 class Model;
+class Settings;
 class TiledBacking;
 class TimingFunction;
 class TransformationMatrix;
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+struct AcceleratedEffectValues;
+#endif
 
 namespace DisplayList {
 enum class AsTextFlag : uint8_t;
@@ -511,7 +520,7 @@ public:
     WEBCORE_EXPORT virtual void suspendAnimations(MonotonicTime);
     WEBCORE_EXPORT virtual void resumeAnimations();
 
-    virtual Vector<std::pair<String, double>> acceleratedAnimationsForTesting() const { return { }; }
+    virtual Vector<std::pair<String, double>> acceleratedAnimationsForTesting(const Settings&) const { return { }; }
 
     // Layer contents
     virtual void setContentsToImage(Image*) { }
@@ -666,6 +675,11 @@ public:
 
     static void traverse(GraphicsLayer&, const Function<void(GraphicsLayer&)>&);
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    AcceleratedEffectStack* acceleratedEffectStack() const { return m_effectStack.get(); }
+    WEBCORE_EXPORT virtual void setAcceleratedEffectsAndBaseValues(AcceleratedEffects&&, AcceleratedEffectValues&&);
+#endif
+
 protected:
     WEBCORE_EXPORT explicit GraphicsLayer(Type, GraphicsLayerClient&);
 
@@ -702,6 +716,10 @@ protected:
     virtual void dumpAdditionalProperties(WTF::TextStream&, OptionSet<LayerTreeAsTextOptions>) const { }
 
     WEBCORE_EXPORT virtual void getDebugBorderInfo(Color&, float& width) const;
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    std::unique_ptr<AcceleratedEffectStack> m_effectStack;
+#endif
 
     GraphicsLayerClient* m_client; // Always non-null.
     String m_name;

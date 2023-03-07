@@ -237,6 +237,7 @@ class VisiblePosition;
 
 enum SyntheticClickType : int8_t;
 enum class COEPDisposition : bool;
+enum class CaretAnimatorType : uint8_t;
 enum class CreateNewGroupForHighlight : bool;
 enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
@@ -580,7 +581,7 @@ public:
 
     WebFrame& mainWebFrame() const { return m_mainFrame; }
 
-    WebCore::Frame* mainFrame() const; // May return nullptr.
+    WebCore::AbstractFrame* mainFrame() const; // May return nullptr.
     WebCore::FrameView* mainFrameView() const; // May return nullptr.
 
     std::optional<WebCore::SimpleRange> currentSelectionAsRange();
@@ -842,8 +843,8 @@ public:
     void replaceDictatedText(const String& oldText, const String& newText);
     void replaceSelectedText(const String& oldText, const String& newText);
     void requestAutocorrectionData(const String& textForAutocorrection, CompletionHandler<void(WebAutocorrectionData)>&& reply);
-    void applyAutocorrection(const String& correction, const String& originalText, CompletionHandler<void(const String&)>&&);
-    void syncApplyAutocorrection(const String& correction, const String& originalText, CompletionHandler<void(bool)>&&);
+    void applyAutocorrection(const String& correction, const String& originalText, bool isCandidate, CompletionHandler<void(const String&)>&&);
+    void syncApplyAutocorrection(const String& correction, const String& originalText, bool isCandidate, CompletionHandler<void(bool)>&&);
     void handleAutocorrectionContextRequest();
     void preemptivelySendAutocorrectionContext();
     void requestPositionInformation(const InteractionInformationRequest&);
@@ -1011,6 +1012,7 @@ public:
 #endif // PLATFORM(COCOA)
 
 #if PLATFORM(MAC)
+    void setCaretAnimatorType(WebCore::CaretAnimatorType);
     void attributedSubstringForCharacterRangeAsync(const EditingRange&, CompletionHandler<void(const WebCore::AttributedString&, const EditingRange&)>&&);
     void requestAcceptsFirstMouse(int eventNumber, const WebKit::WebMouseEvent&);
 #endif
@@ -1028,7 +1030,7 @@ public:
     void confirmCompositionForTesting(const String& compositionString);
 
 #if PLATFORM(COCOA)
-    bool isSpeaking();
+    bool isSpeaking() const;
     void speak(const String&);
     void stopSpeaking();
 
@@ -1312,7 +1314,7 @@ public:
 #endif
 
 #if ENABLE(GAMEPAD)
-    void gamepadActivity(const Vector<GamepadData>&, WebCore::EventMakesGamepadsVisible);
+    void gamepadActivity(const Vector<std::optional<GamepadData>>&, WebCore::EventMakesGamepadsVisible);
 #endif
     
 #if ENABLE(POINTER_LOCK)
@@ -1665,7 +1667,7 @@ private:
     void sendPositionInformation(InteractionInformationAtPosition&&);
     RefPtr<ShareableBitmap> shareableBitmapSnapshotForNode(WebCore::Element&);
     WebAutocorrectionContext autocorrectionContext();
-    bool applyAutocorrectionInternal(const String& correction, const String& originalText);
+    bool applyAutocorrectionInternal(const String& correction, const String& originalText, bool isCandidate);
     void clearSelectionAfterTapIfNeeded();
 #endif
 

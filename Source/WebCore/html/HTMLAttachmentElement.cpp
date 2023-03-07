@@ -30,7 +30,7 @@
 
 #include "AddEventListenerOptions.h"
 #include "AttachmentElementClient.h"
-#include "CustomEvent.h"
+#include "DOMRectReadOnly.h"
 #include "DOMURL.h"
 #include "Document.h"
 #include "Editor.h"
@@ -45,6 +45,7 @@
 #include "HTMLNames.h"
 #include "HTMLStyleElement.h"
 #include "MIMETypeRegistry.h"
+#include "MouseEvent.h"
 #include "RenderAttachment.h"
 #include "ShadowRoot.h"
 #include "SharedBuffer.h"
@@ -136,9 +137,15 @@ static QualifiedName subtitleAttr()
     return QualifiedName { nullAtom(), "subtitle"_s, nullAtom() };
 }
 
+static const AtomString& saveAtom()
+{
+    static MainThreadNeverDestroyed<const AtomString> identifier("save"_s);
+    return identifier;
+}
+
 static QualifiedName saveAttr()
 {
-    return QualifiedName { nullAtom(), "save"_s, nullAtom() };
+    return QualifiedName { nullAtom(), saveAtom(), nullAtom() };
 }
 
 template <typename ElementType>
@@ -186,7 +193,7 @@ void HTMLAttachmentElement::ensureModernShadowTree(ShadowRoot& root)
 
     m_subtitleElement = createContainedElement<HTMLDivElement>(*m_containerElement, attachmentSubtitleIdentifier(), attachmentSubtitleForDisplay());
 
-    updateSaveButton(attributeWithoutSynchronization(saveAttr()));
+    updateSaveButton(!attributeWithoutSynchronization(saveAttr()).isNull());
 }
 
 class AttachmentSaveEventListener final : public EventListener {
@@ -201,15 +208,16 @@ public:
     void handleEvent(ScriptExecutionContext&, Event& event) final
     {
         if (event.type() == eventNames().clickEvent) {
+            auto& mouseEvent = downcast<MouseEvent>(event);
+            auto copiedEvent = MouseEvent::create(saveAtom(), Event::CanBubble::No, Event::IsCancelable::No, Event::IsComposed::No,
+                mouseEvent.view(), mouseEvent.detail(), mouseEvent.screenX(), mouseEvent.screenY(), mouseEvent.clientX(), mouseEvent.clientY(),
+                mouseEvent.modifierKeys(), mouseEvent.button(), mouseEvent.buttons(), mouseEvent.syntheticClickType(), nullptr);
+
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
 
-            CustomEvent::Init init;
-            init.bubbles = true;
-            init.cancelable = true;
-            init.composed = true;
-            m_attachment->dispatchEvent(CustomEvent::create(m_attachment->attributeWithoutSynchronization(saveAttr()), init, event.isTrusted() ? Event::IsTrusted::Yes : Event::IsTrusted::No));
+            m_attachment->dispatchEvent(copiedEvent);
         } else
             ASSERT_NOT_REACHED();
     }
@@ -224,12 +232,12 @@ private:
     WeakPtr<HTMLAttachmentElement, WeakPtrImplWithEventTargetData> m_attachment;
 };
 
-void HTMLAttachmentElement::updateSaveButton(const AtomString& eventTypeName)
+void HTMLAttachmentElement::updateSaveButton(bool show)
 {
     if (!m_containerElement)
         return;
 
-    if (eventTypeName.isNull()) {
+    if (!show) {
         if (m_saveButton) {
             m_containerElement->removeChild(*m_saveButton);
             m_saveButton = nullptr;
@@ -243,6 +251,16 @@ void HTMLAttachmentElement::updateSaveButton(const AtomString& eventTypeName)
     }
 }
 
+DOMRectReadOnly* HTMLAttachmentElement::saveButtonClientRect() const
+{
+    if (!m_saveButton)
+        return nullptr;
+
+    bool unusedIsReplaced;
+    auto rect = m_saveButton->pixelSnappedRenderRect(&unusedIsReplaced);
+    m_saveButtonClientRect = DOMRectReadOnly::create(rect.x(), rect.y(), rect.width(), rect.height());
+    return m_saveButtonClientRect.get();
+}
 
 RenderPtr<RenderElement> HTMLAttachmentElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition& position)
 {
@@ -375,7 +393,7 @@ void HTMLAttachmentElement::parseAttribute(const QualifiedName& name, const Atom
         if (m_subtitleElement)
             m_subtitleElement->setTextContent(String(value.string()));
     } else if (name == saveAttr())
-        updateSaveButton(value);
+        updateSaveButton(!value.isNull());
 
     if (m_innerLegacyAttachment)
         m_innerLegacyAttachment->setAttributeWithoutSynchronization(name, value);

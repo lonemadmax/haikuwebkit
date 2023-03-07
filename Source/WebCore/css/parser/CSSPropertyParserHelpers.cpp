@@ -4766,7 +4766,7 @@ RefPtr<CSSPrimitiveValue> consumeCounterStyleName(CSSParserTokenRange& range)
 }
 
 // https://www.w3.org/TR/css-counter-styles-3/#typedef-counter-style-name
-AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange& prelude)
+AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange& prelude, CSSParserMode mode)
 {
     auto nameToken = prelude.consumeIncludingWhitespace();
     if (!prelude.atEnd())
@@ -4777,7 +4777,8 @@ AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange& prelude)
     // In the context of the prelude of an @counter-style rule, a <counter-style-name> must not be an ASCII
     // case-insensitive match for "decimal" or "disc". No <counter-style-name>, prelude or not, may be an ASCII
     // case-insensitive match for "none".
-    if (identMatches<CSSValueDecimal, CSSValueDisc, CSSValueNone>(nameToken.id()))
+    auto id = nameToken.id();
+    if (identMatches<CSSValueNone>(id) || (mode != CSSParserMode::UASheetMode && identMatches<CSSValueDecimal, CSSValueDisc>(id)))
         return AtomString();
     auto name = nameToken.value();
     return isPredefinedCounterStyle(nameToken.id()) ? name.convertToASCIILowercaseAtom() : name.toAtomString();
@@ -6866,6 +6867,22 @@ RefPtr<CSSValue> consumePathOperation(CSSParserTokenRange& range, const CSSParse
     return consumeBasicShapeOrBox(range, context);
 }
 
+RefPtr<CSSValue> consumeListStyleType(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    if (range.peek().id() == CSSValueNone)
+        return consumeIdent(range);
+    if (range.peek().type() == StringToken)
+        return consumeString(range);
+
+    if (auto predefinedValues = consumeIdentRange(range, CSSValueDisc, CSSValueEthiopicNumeric))
+        return predefinedValues;
+
+    if (context.counterStyleAtRuleEnabled)
+        return consumeCustomIdent(range);
+
+    return nullptr;
+}
+
 RefPtr<CSSValue> consumeShapeOutside(CSSParserTokenRange& range, const CSSParserContext& context)
 {
     if (auto imageValue = consumeImageOrNone(range, context))
@@ -8280,6 +8297,8 @@ RefPtr<CSSValue> consumeCounterStyleAdditiveSymbols(CSSParserTokenRange& range, 
             if (!integer)
                 return nullptr;
         }
+        if (!symbol)
+            return nullptr;
 
         // Additive tuples must be specified in order of strictly descending weight.
         auto weight = integer->intValue();
@@ -8287,7 +8306,7 @@ RefPtr<CSSValue> consumeCounterStyleAdditiveSymbols(CSSParserTokenRange& range, 
             return nullptr;
         lastWeight = weight;
 
-        return CSSValueList::createSpaceSeparated(integer.releaseNonNull(), symbol.releaseNonNull());
+        return CSSValuePair::create(integer.releaseNonNull(), symbol.releaseNonNull());
     }, context);
 
     if (!range.atEnd() || !values || !values->length())

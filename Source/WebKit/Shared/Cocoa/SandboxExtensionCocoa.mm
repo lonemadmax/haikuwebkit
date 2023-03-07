@@ -280,11 +280,8 @@ auto SandboxExtension::createHandleForTemporaryFile(StringView prefix, Type type
     // Shrink the vector.   
     path.shrink(strlen(path.data()));
 
-    // FIXME: Change to a runtime assertion that the path ends with a slash once <rdar://problem/23579077> is
-    // fixed in all iOS Simulator versions that we use.
-    if (path.last() != '/')
-        path.append('/');
-    
+    ASSERT(path.last() == '/');
+
     // Append the file name.
     auto prefixAsUTF8 = prefix.utf8();
     path.append(prefixAsUTF8.data(), prefixAsUTF8.length());
@@ -357,7 +354,7 @@ auto SandboxExtension::createHandlesForMachLookup(Span<const ASCIILiteral> servi
 
 auto SandboxExtension::createHandlesForMachLookup(std::initializer_list<const ASCIILiteral> services, std::optional<audit_token_t> auditToken, MachBootstrapOptions machBootstrapOptions, OptionSet<Flags> flags) -> Vector<Handle>
 {
-    return createHandlesForMachLookup(Span { services.begin(), services.size() }, auditToken, machBootstrapOptions, flags);
+    return createHandlesForMachLookup(makeSpan(services.begin(), services.size()), auditToken, machBootstrapOptions, flags);
 }
 
 auto SandboxExtension::createHandleForReadByAuditToken(StringView path, audit_token_t auditToken) -> std::optional<Handle>

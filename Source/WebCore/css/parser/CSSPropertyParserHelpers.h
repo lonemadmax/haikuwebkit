@@ -190,7 +190,7 @@ struct FontRaw {
 };
 
 RefPtr<CSSPrimitiveValue> consumeCounterStyleName(CSSParserTokenRange&);
-AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange&);
+AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange&, CSSParserMode = CSSParserMode::HTMLStandardMode);
 RefPtr<CSSPrimitiveValue> consumeSingleContainerName(CSSParserTokenRange&);
 
 std::optional<CSSValueID> consumeFontStretchKeywordValueRaw(CSSParserTokenRange&);
@@ -255,6 +255,7 @@ RefPtr<CSSValue> consumeRepeatStyle(CSSParserTokenRange&, const CSSParserContext
 RefPtr<CSSValue> consumePositionX(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumePositionY(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumePaintStroke(CSSParserTokenRange&, const CSSParserContext&);
+RefPtr<CSSValue> consumeListStyleType(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumePaintOrder(CSSParserTokenRange&);
 RefPtr<CSSValue> consumeStrokeDasharray(CSSParserTokenRange&);
 RefPtr<CSSValue> consumeCursor(CSSParserTokenRange&, const CSSParserContext&, bool inQuirksMode);

@@ -118,7 +118,7 @@ public:
     virtual size_t platformMaximumBufferSize() const { return 0; }
 
     // Methods for ManagedSourceBuffer
-    WEBCORE_EXPORT virtual void memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded, CompletionHandler<void(bool)>&&);
+    WEBCORE_EXPORT virtual void memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded);
 
     // Internals Utility methods
     WEBCORE_EXPORT virtual void bufferedSamplesForTrackId(const AtomString&, CompletionHandler<void(Vector<String>&&)>&&);
@@ -150,12 +150,14 @@ protected:
     virtual void setMinimumUpcomingPresentationTime(const AtomString&, const MediaTime&) { }
     virtual void clearMinimumUpcomingPresentationTime(const AtomString&) { }
 
-    void appendCompleted(bool parsingSucceeded, bool isEnded);
     void reenqueSamples(const AtomString& trackID);
     WEBCORE_EXPORT void didReceiveInitializationSegment(SourceBufferPrivateClient::InitializationSegment&&, CompletionHandler<void(SourceBufferPrivateClient::ReceiveResult)>&&);
     WEBCORE_EXPORT void didReceiveSample(Ref<MediaSample>&&);
     WEBCORE_EXPORT void setBufferedRanges(const PlatformTimeRanges&);
     void provideMediaData(const AtomString& trackID);
+
+    // Must be called once all samples have been processed.
+    WEBCORE_EXPORT void appendCompleted(bool parsingSucceeded, bool isEnded);
 
     WeakPtr<SourceBufferPrivateClient> m_client;
 

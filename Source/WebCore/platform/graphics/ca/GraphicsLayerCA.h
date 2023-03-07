@@ -196,11 +196,15 @@ public:
 
     WEBCORE_EXPORT TiledBacking* tiledBacking() const override;
 
-    WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForTesting() const final;
+    WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForTesting(const Settings&) const final;
 
     constexpr static CompositingCoordinatesOrientation defaultContentsOrientation = CompositingCoordinatesOrientation::TopDown;
 
     WEBCORE_EXPORT RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate() override;
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    WEBCORE_EXPORT void setAcceleratedEffectsAndBaseValues(AcceleratedEffects&&, AcceleratedEffectValues&&) override;
+#endif
 
 private:
     bool isGraphicsLayerCA() const override { return true; }

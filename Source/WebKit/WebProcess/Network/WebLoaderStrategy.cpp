@@ -108,12 +108,11 @@ WebLoaderStrategy::~WebLoaderStrategy()
 void WebLoaderStrategy::loadResource(Frame& frame, CachedResource& resource, ResourceRequest&& request, const ResourceLoaderOptions& options, CompletionHandler<void(RefPtr<SubresourceLoader>&&)>&& completionHandler)
 {
     if (resource.type() != CachedResource::Type::MainResource || !frame.isMainFrame()) {
-        auto* localMainFrame = dynamicDowncast<LocalFrame>(frame.mainFrame());
-        if (!localMainFrame)
-            return;
-        if (auto* document = localMainFrame->document()) {
-            if (document && document->loader())
-                request.setIsAppInitiated(document->loader()->lastNavigationWasAppInitiated());
+        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(frame.mainFrame())) {
+            if (auto* document = localMainFrame->document()) {
+                if (document && document->loader())
+                    request.setIsAppInitiated(document->loader()->lastNavigationWasAppInitiated());
+            }
         }
     }
 
@@ -350,6 +349,9 @@ static void addParametersShared(const Frame* frame, NetworkResourceLoadParameter
 
     auto networkConnectionIntegrityPolicy = mainFrameDocumentLoader ? mainFrameDocumentLoader->networkConnectionIntegrityPolicy() : OptionSet<NetworkConnectionIntegrity> { };
     parameters.networkConnectionIntegrityPolicy = networkConnectionIntegrityPolicy;
+
+    if (isMainFrameNavigation)
+        parameters.linkPreconnectEarlyHintsEnabled = mainFrame.settings().linkPreconnectEarlyHintsEnabled();
 }
 
 void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceLoader, const ResourceRequest& request, const WebResourceLoader::TrackingParameters& trackingParameters, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Seconds maximumBufferingTime)
@@ -884,7 +886,8 @@ void WebLoaderStrategy::preconnectTo(WebCore::ResourceRequest&& request, WebPage
         return;
     }
 
-    if (auto* document = webPage.mainFrame()->document()) {
+    auto* mainFrame = dynamicDowncast<WebCore::LocalFrame>(webPage.mainFrame());
+    if (auto* document = mainFrame ? mainFrame->document() : nullptr) {
         if (shouldPreconnectAsFirstParty == ShouldPreconnectAsFirstParty::Yes)
             request.setFirstPartyForCookies(request.url());
         else

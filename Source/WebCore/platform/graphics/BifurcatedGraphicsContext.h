@@ -77,10 +77,7 @@ public:
     void strokeEllipse(const FloatRect& ellipse) final;
 
 #if USE(CG)
-    void setIsCALayerContext(bool) final;
     bool isCALayerContext() const final;
-
-    void setIsAcceleratedContext(bool) final;
 #endif
 
     RenderingMode renderingMode() const final;
@@ -91,6 +88,8 @@ public:
     void clipOut(const Path&) final;
 
     void clipPath(const Path&, WindRule = WindRule::EvenOdd) final;
+
+    void clipToImageBuffer(ImageBuffer&, const FloatRect&) final;
 
     IntRect clipBounds() const final;
 
@@ -142,10 +141,6 @@ public:
     bool supportsInternalLinks() const final;
 
     void didUpdateState(GraphicsContextState&) final;
-
-#if OS(WINDOWS) && !USE(CAIRO)
-    GraphicsContextPlatformPrivate* deprecatedPrivateContext() const final;
-#endif
 
 private:
     void verifyStateSynchronization();

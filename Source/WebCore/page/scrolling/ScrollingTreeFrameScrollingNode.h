@@ -51,13 +51,12 @@ public:
     FloatRect layoutViewportRespectingRubberBanding() const;
 
     float frameScaleFactor() const { return m_frameScaleFactor; }
-
-protected:
-    ScrollingTreeFrameScrollingNode(ScrollingTree&, ScrollingNodeType, ScrollingNodeID);
-
     int headerHeight() const { return m_headerHeight; }
     int footerHeight() const { return m_footerHeight; }
     float topContentInset() const { return m_topContentInset; }
+
+protected:
+    ScrollingTreeFrameScrollingNode(ScrollingTree&, ScrollingNodeType, ScrollingNodeID);
 
     FloatPoint minLayoutViewportOrigin() const { return m_minLayoutViewportOrigin; }
     FloatPoint maxLayoutViewportOrigin() const { return m_maxLayoutViewportOrigin; }

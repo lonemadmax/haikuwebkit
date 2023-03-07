@@ -24,8 +24,13 @@
 #include "Shared/Sandbox/macOS/common.sb"
 #include "Shared/Sandbox/preferences.sb"
 
+(define (lockdown-mode)
+    (require-not (require-entitlement "com.apple.security.cs.allow-jit")))
+
 #if USE(SANDBOX_VERSION_3)
 (allow dynamic-code-generation)
+(with-filter (lockdown-mode)
+    (deny dynamic-code-generation))
 
 (with-filter (mac-policy-name "Sandbox")
     (allow system-mac-syscall (mac-syscall-number 5 65)))
@@ -1382,12 +1387,24 @@
         (extension "com.apple.webkit.extension.mach")
         (global-name "com.apple.trustd.agent")))
 
-;; Various services required by AppKit and other frameworks
-(allow mach-lookup
-       (global-name "com.apple.logd")
-       (global-name "com.apple.logd.events")
-       (global-name "com.apple.CARenderServer") ; Needed for [CAContext remoteContextWithOptions]
-)
+#if HAVE(SANDBOX_STATE_FLAGS)
+(with-filter (require-not (state-flag "DisableLogging"))
+    (allow mach-lookup (global-name
+        "com.apple.logd"
+        "com.apple.logd.events")))
+#else
+(allow mach-lookup (global-name
+    "com.apple.logd"
+    "com.apple.logd.events"))
+#endif
+
+; Needed for [CAContext remoteContextWithOptions]
+#if HAVE(SANDBOX_STATE_FLAGS)
+(with-filter (require-not (state-flag "EnableExperimentalSandbox"))
+    (allow mach-lookup (global-name "com.apple.CARenderServer")))
+#else
+(allow mach-lookup (global-name "com.apple.CARenderServer"))
+#endif
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED <= 110000
 (allow mach-lookup
@@ -2130,7 +2147,6 @@
     task_policy_set
     task_restartable_ranges_synchronize
     thread_resume
-    thread_set_exception_ports
     thread_suspend))
 
 (define (kernel-mig-routines-blocked-in-lockdown-mode) (kernel-mig-routine
@@ -2166,6 +2182,9 @@
 #else
             (allow mach-message-send (kernel-mig-routines-blocked-in-lockdown-mode))
 #endif
+            (with-filter (require-not (lockdown-mode))
+                (allow mach-message-send (kernel-mig-routine thread_set_exception_ports)))
+
             (allow mach-message-send (kernel-mig-routines-common)))))
 
 (define (syscall-mach-common) (machtrap-number
@@ -2377,4 +2396,10 @@
     (literal "/Library/Preferences/com.apple.networkd.plist")
 #endif
 )
+#endif
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000
+(with-filter (state-flag "WebContentProcessLaunched")
+    (allow mach-task-special-port-get (with report) (with telemetry))
+    (allow mach-task-special-port-set (with report) (with telemetry)))
 #endif

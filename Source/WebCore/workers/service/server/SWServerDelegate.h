@@ -27,6 +27,7 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "BackgroundFetchRecordLoader.h"
 #include "ProcessIdentifier.h"
 #include "ScriptExecutionContextIdentifier.h"
 #include <wtf/CompletionHandler.h>
@@ -35,21 +36,28 @@
 
 namespace WebCore {
 
+class BackgroundFetchEngine;
+class BackgroundFetchRecordLoader;
+class BackgroundFetchStore;
 class RegistrableDomain;
 class ResourceRequest;
+
+struct BackgroundFetchRequest;
 struct ServiceWorkerJobData;
 struct WorkerFetchResult;
 
 class SWServerDelegate : public CanMakeWeakPtr<SWServerDelegate> {
 public:
     virtual ~SWServerDelegate() = default;
-    
+
     virtual void softUpdate(ServiceWorkerJobData&&, bool shouldRefreshCache, ResourceRequest&&, CompletionHandler<void(WorkerFetchResult&&)>&&) = 0;
     virtual void createContextConnection(const RegistrableDomain&, std::optional<ProcessIdentifier>, std::optional<ScriptExecutionContextIdentifier>, CompletionHandler<void()>&&) = 0;
     virtual void appBoundDomains(CompletionHandler<void(HashSet<RegistrableDomain>&&)>&&) = 0;
     virtual void addAllowedFirstPartyForCookies(ProcessIdentifier, std::optional<ProcessIdentifier>, RegistrableDomain&&) = 0;
-    
+
     virtual void requestBackgroundFetchPermission(const ClientOrigin&, CompletionHandler<void(bool)>&&) = 0;
+    virtual std::unique_ptr<BackgroundFetchRecordLoader> createBackgroundFetchRecordLoader(BackgroundFetchRecordLoader::Client&, const BackgroundFetchRequest&, const WebCore::ClientOrigin&) = 0;
+    virtual Ref<BackgroundFetchStore> createBackgroundFetchStore() = 0;
 };
 
 } // namespace WebCore

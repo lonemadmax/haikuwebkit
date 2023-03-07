@@ -29,6 +29,7 @@
 #include "BlobDataFileReferenceWithSandboxExtension.h"
 #include "CacheStorageEngineConnectionMessages.h"
 #include "DataReference.h"
+#include "LogInitialization.h"
 #include "Logging.h"
 #include "NetworkBroadcastChannelRegistry.h"
 #include "NetworkBroadcastChannelRegistryMessages.h"
@@ -76,6 +77,7 @@
 #include <WebCore/ClientOrigin.h>
 #include <WebCore/DocumentStorageAccess.h>
 #include <WebCore/HTTPCookieAcceptPolicy.h>
+#include <WebCore/LogInitialization.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceLoadObserver.h>
@@ -83,6 +85,7 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SameSiteInfo.h>
 #include <WebCore/SecurityPolicy.h>
+#include <wtf/LogInitialization.h>
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
 #include "WebPaymentCoordinatorProxyMessages.h"
@@ -113,12 +116,12 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<NetworkConnectionToWebProcess> NetworkConnectionToWebProcess::create(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, IPC::Connection::Identifier connectionIdentifier)
+Ref<NetworkConnectionToWebProcess> NetworkConnectionToWebProcess::create(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, NetworkProcessConnectionParameters parameters, IPC::Connection::Identifier connectionIdentifier)
 {
-    return adoptRef(*new NetworkConnectionToWebProcess(networkProcess, webProcessIdentifier, sessionID, connectionIdentifier));
+    return adoptRef(*new NetworkConnectionToWebProcess(networkProcess, webProcessIdentifier, sessionID, parameters, connectionIdentifier));
 }
 
-NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, IPC::Connection::Identifier connectionIdentifier)
+NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& networkProcess, WebCore::ProcessIdentifier webProcessIdentifier, PAL::SessionID sessionID, NetworkProcessConnectionParameters parameters, IPC::Connection::Identifier connectionIdentifier)
     : m_connection(IPC::Connection::createServerConnection(connectionIdentifier))
     , m_networkProcess(networkProcess)
     , m_sessionID(sessionID)
@@ -128,6 +131,7 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& net
 #endif
     , m_webProcessIdentifier(webProcessIdentifier)
     , m_schemeRegistry(NetworkSchemeRegistry::create())
+    , m_allowTestOnlyIPC(parameters.allowTestOnlyIPC)
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
@@ -411,6 +415,7 @@ bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& conne
 
 void NetworkConnectionToWebProcess::updateQuotaBasedOnSpaceUsageForTesting(ClientOrigin&& origin)
 {
+    NETWORK_PROCESS_MESSAGE_CHECK(allowTestOnlyIPC());
     if (auto* session = m_networkProcess->networkSession(sessionID()))
         session->storageManager().resetQuotaUpdatedBasedOnUsageForTesting(WTFMove(origin));
 }
@@ -1428,6 +1433,61 @@ RefPtr<NetworkResourceLoader> NetworkConnectionToWebProcess::takeNetworkResource
 void NetworkConnectionToWebProcess::installMockContentFilter(WebCore::MockContentFilterSettings&& settings)
 {
     MockContentFilterSettings::singleton() = WTFMove(settings);
+}
+#endif
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+void NetworkConnectionToWebProcess::logOnBehalfOfWebContent(const String& logChannel, const String& logString, uint8_t logType)
+{
+    WTFLogChannel* channel = getLogChannel(logChannel);
+    if (!channel)
+        channel = WebCore::getLogChannel(logChannel);
+    if (!channel)
+        channel = WTF::getLogChannel(logChannel);
+
+    CString string = logString.ascii();
+
+    // Truncate long log strings and only log printable characters
+    constexpr unsigned maxLength = 256;
+    auto stringLength = string.length();
+
+    if (stringLength > maxLength) {
+        string.mutableData()[maxLength] = 0;
+        stringLength = maxLength;
+    }
+
+    for (unsigned i = 0; i < stringLength; i++) {
+        char c = string.data()[i];
+        if (c >= 32 && c <= 126)
+            continue;
+
+        string.mutableData()[i] = ' ';
+    }
+
+#define LOGFORMATSTRING "WebContent (%llu): %s"
+
+    if (!channel) {
+        os_log(OS_LOG_DEFAULT, LOGFORMATSTRING, m_webProcessIdentifier.toUInt64(), string.data());
+        return;
+    }
+
+    switch (logType) {
+    case OS_LOG_TYPE_DEFAULT:
+        os_log(channel->osLogChannel, LOGFORMATSTRING, m_webProcessIdentifier.toUInt64(), string.data());
+        break;
+    case OS_LOG_TYPE_INFO:
+        os_log_info(channel->osLogChannel, LOGFORMATSTRING, m_webProcessIdentifier.toUInt64(), string.data());
+        break;
+    case OS_LOG_TYPE_DEBUG:
+        os_log_debug(channel->osLogChannel, LOGFORMATSTRING, m_webProcessIdentifier.toUInt64(), string.data());
+        break;
+    case OS_LOG_TYPE_ERROR:
+        os_log_error(channel->osLogChannel, LOGFORMATSTRING, m_webProcessIdentifier.toUInt64(), string.data());
+        break;
+    case OS_LOG_TYPE_FAULT:
+        os_log_fault(channel->osLogChannel, LOGFORMATSTRING, m_webProcessIdentifier.toUInt64(), string.data());
+        break;
+    }
 }
 #endif
 

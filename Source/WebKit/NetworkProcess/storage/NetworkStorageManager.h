@@ -70,6 +70,7 @@ enum class StorageType : uint8_t;
 
 namespace WebKit {
 
+enum class BackgroundFetchChange : uint8_t;
 enum class UnifiedOriginStorageLevel : uint8_t;
 class FileSystemStorageHandleRegistry;
 class IDBStorageRegistry;
@@ -109,6 +110,11 @@ public:
 #if PLATFORM(IOS_FAMILY)
     void setBackupExclusionPeriodForTesting(Seconds, CompletionHandler<void()>&&);
 #endif
+
+#if ENABLE(SERVICE_WORKER)
+    void dispatchTaskToBackgroundFetchManager(const WebCore::ClientOrigin&, Function<void(BackgroundFetchStoreManager*)>&&);
+    void notifyBackgroundFetchChange(const String&, BackgroundFetchChange);
+#endif // ENABLE(SERVICE_WORKER)
 
 private:
     NetworkStorageManager(PAL::SessionID, IPC::Connection::UniqueID, const String& path, const String& customLocalStoragePath, const String& customIDBStoragePath, const String& customCacheStoragePath, uint64_t defaultOriginQuota, uint64_t defaultThirdPartyOriginQuota, UnifiedOriginStorageLevel);
@@ -206,7 +212,7 @@ private:
     String m_path;
     FileSystem::Salt m_salt;
     bool m_closed { false };
-    HashMap<WebCore::ClientOrigin, std::unique_ptr<OriginStorageManager>> m_originStorageManagers;
+    HashMap<WebCore::ClientOrigin, std::unique_ptr<OriginStorageManager>> m_originStorageManagers WTF_GUARDED_BY_CAPABILITY(workQueue());
     ThreadSafeWeakHashSet<IPC::Connection> m_connections;
     std::unique_ptr<FileSystemStorageHandleRegistry> m_fileSystemStorageHandleRegistry;
     std::unique_ptr<StorageAreaRegistry> m_storageAreaRegistry;

@@ -28,6 +28,7 @@
 #if ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE)
 
 #include "MediaSource.h"
+#include <optional>
 
 namespace WebCore {
 
@@ -46,8 +47,16 @@ public:
     static bool isTypeSupported(ScriptExecutionContext&, const String& type);
 
     bool isManaged() const final { return true; }
+
 private:
     explicit ManagedMediaSource(ScriptExecutionContext&);
+    void monitorSourceBuffers() final;
+    bool isBuffered(const PlatformTimeRanges&) const;
+    void startStreaming();
+    void endStreaming();
+    bool m_streaming { false };
+    std::optional<double> m_lowThreshold;
+    std::optional<double> m_highThreshold;
 };
 
 } // namespace WebCore

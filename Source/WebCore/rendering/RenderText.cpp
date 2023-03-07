@@ -58,6 +58,7 @@
 #include "Settings.h"
 #include "Text.h"
 #include "TextResourceDecoder.h"
+#include "TextTransform.h"
 #include "VisiblePosition.h"
 #include "WidthIterator.h"
 #include <wtf/IsoMallocInlines.h>
@@ -1387,6 +1388,8 @@ String applyTextTransform(const RenderStyle& style, const String& text, UChar pr
         return text.convertToLowercaseWithLocale(style.computedLocale());
     case TextTransform::FullSizeKana:
         return convertToFullSizeKana(text);
+    case TextTransform::FullWidth:
+        return transformToFullWidth(text);
     }
     ASSERT_NOT_REACHED();
     return text;
@@ -1478,7 +1481,6 @@ void RenderText::secureText(UChar maskingCharacter)
         characters[revealedCharactersOffset] = characterToReveal;
 }
 
-#define ALLOW_PARTIAL_CONTENT_INVALIDATION 0
 static void invalidateLineLayoutPathOnContentChangeIfNeeded(const RenderText& renderer, size_t offset, int delta)
 {
     auto* container = LayoutIntegration::LineLayout::blockContainer(renderer);
@@ -1493,13 +1495,9 @@ static void invalidateLineLayoutPathOnContentChangeIfNeeded(const RenderText& re
         container->invalidateLineLayoutPath();
         return;
     }
-#if ALLOW_PARTIAL_CONTENT_INVALIDATION
     modernLineLayout->updateTextContent(renderer, offset, delta);
-#else
-    UNUSED_PARAM(offset);
-    UNUSED_PARAM(delta);
-    container->invalidateLineLayoutPath();
-#endif
+    if (!modernLineLayout->isDamaged())
+        container->invalidateLineLayoutPath();
 }
 
 void RenderText::setTextInternal(const String& text, bool force)

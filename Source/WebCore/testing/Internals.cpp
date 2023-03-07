@@ -706,8 +706,8 @@ Internals::Internals(Document& document)
 #if ENABLE(APPLE_PAY)
     auto* frame = document.frame();
     if (frame && frame->page() && frame->isMainFrame()) {
-        auto mockPaymentCoordinator = new MockPaymentCoordinator(*frame->page());
-        frame->page()->setPaymentCoordinator(makeUnique<PaymentCoordinator>(*mockPaymentCoordinator));
+        auto mockPaymentCoordinator = makeUniqueRef<MockPaymentCoordinator>(*frame->page());
+        frame->page()->setPaymentCoordinator(makeUnique<PaymentCoordinator>(WTFMove(mockPaymentCoordinator)));
     }
 #endif
 
@@ -6089,7 +6089,8 @@ static TextRecognitionLineData makeDataForLine(const Internals::ImageOverlayLine
         line.children.map([](auto& textChild) -> TextRecognitionWordData {
             return { textChild.text, getQuad(textChild), textChild.hasLeadingWhitespace };
         }),
-        line.hasTrailingNewline
+        line.hasTrailingNewline,
+        line.isVertical
     };
 }
 

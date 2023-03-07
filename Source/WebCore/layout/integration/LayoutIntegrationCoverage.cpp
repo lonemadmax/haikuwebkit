@@ -361,6 +361,9 @@ static OptionSet<AvoidanceReason> canUseForChild(const RenderBlockFlow& flow, co
             if (renderer.isFloating() && !renderer.parent()->style().isHorizontalWritingMode())
                 return false;
 #endif
+            // Floats where the block container specifies margin-tirm need IFC implementation (geometry adjustment)
+            if (!flow.style().marginTrim().isEmpty())
+                return false;
             if (renderer.isOutOfFlowPositioned()) {
                 if (!renderer.parent()->style().isLeftToRightDirection())
                     return false;
@@ -482,23 +485,49 @@ bool canUseForLineLayoutAfterStyleChange(const RenderBlockFlow& blockContainer, 
     return canUseForLineLayout(blockContainer);
 }
 
-bool shouldInvalidateLineLayoutPathAfterContentChangeFor(const RenderBlockFlow& rootBlockContainer, const RenderObject& rendererWithNewContent, const LineLayout& lineLayout)
+bool shouldInvalidateLineLayoutPathAfterChangeFor(const RenderBlockFlow& rootBlockContainer, const RenderObject& renderer, const LineLayout& lineLayout, TypeOfChangeForInvalidation typeOfChange)
 {
-    UNUSED_PARAM(rootBlockContainer);
-    if (!is<RenderText>(rendererWithNewContent) || !is<RenderBlockFlow>(rendererWithNewContent.parent()))
+    auto isSupportedRenderer = [](auto& renderer) {
+        return is<RenderText>(renderer) || is<RenderLineBreak>(renderer);
+    };
+    if (!isSupportedRenderer(renderer) || !is<RenderBlockFlow>(renderer.parent()))
         return true;
-    if (!rendererWithNewContent.style().isLeftToRightDirection() || !rendererWithNewContent.style().isHorizontalWritingMode())
-        return true;
-    if (rendererWithNewContent.nextSibling())
+    if (!renderer.style().isLeftToRightDirection())
         return true;
     if (lineLayout.hasOutOfFlowContent())
         return true;
-    if (Layout::TextUtil::containsStrongDirectionalityText(downcast<RenderText>(rendererWithNewContent).text()))
+    if (is<RenderText>(renderer) && Layout::TextUtil::containsStrongDirectionalityText(downcast<RenderText>(renderer).text()))
         return true;
     if (lineLayout.contentNeedsVisualReordering())
         return true;
-    // Simple text content append only.
-    return false;
+    if (lineLayout.isDamaged()) {
+        // Single mutation only atm.
+        return true;
+    }
+
+    auto rootHasNonSupportedRenderer = [&] {
+        for (auto* sibling = rootBlockContainer.firstChild(); sibling; sibling = sibling->nextSibling()) {
+            if (!isSupportedRenderer(sibling))
+                return true;
+        }
+        return false;
+    };
+    switch (typeOfChange) {
+    case TypeOfChangeForInvalidation::NodeRemoval:
+        // Last text child?
+        if (!renderer.previousSibling() && !renderer.nextSibling())
+            return true;
+        return rootHasNonSupportedRenderer();
+    case TypeOfChangeForInvalidation::NodeInsertion:
+        if (renderer.nextSibling())
+            return true;
+        return rootHasNonSupportedRenderer();
+    case TypeOfChangeForInvalidation::NodeMutation:
+        return rootHasNonSupportedRenderer();
+    default:
+        ASSERT_NOT_REACHED();
+        return true;
+    }
 }
 
 bool canUseForLineLayoutAfterInlineBoxStyleChange(const RenderInline& renderer, StyleDifference)

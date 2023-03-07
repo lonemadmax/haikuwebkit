@@ -58,6 +58,7 @@ RemoteScrollingCoordinatorProxy::~RemoteScrollingCoordinatorProxy()
 
 ScrollingNodeID RemoteScrollingCoordinatorProxy::rootScrollingNodeID() const
 {
+    // FIXME: Locking
     if (!m_scrollingTree->rootNode())
         return 0;
 
@@ -101,6 +102,7 @@ std::optional<RequestedScrollData> RemoteScrollingCoordinatorProxy::commitScroll
 
 void RemoteScrollingCoordinatorProxy::handleWheelEvent(const NativeWebWheelEvent& wheelEvent, RectEdges<bool> rubberBandableEdges)
 {
+#if !(PLATFORM(MAC) && ENABLE(UI_SIDE_COMPOSITING))
     if (!m_scrollingTree)
         return;
 
@@ -112,8 +114,7 @@ void RemoteScrollingCoordinatorProxy::handleWheelEvent(const NativeWebWheelEvent
         m_scrollingTree->setMainFrameCanRubberBand(rubberBandableEdges);
 
     auto processingSteps = m_scrollingTree->determineWheelEventProcessing(platformWheelEvent);
-    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinatorProxy::handleWheelEvent " << platformWheelEvent << " - steps " << processingSteps);
-    if (!processingSteps.contains(WheelEventProcessingSteps::ScrollingThread)) {
+    if (!processingSteps.contains(WheelEventProcessingSteps::AsyncScrolling)) {
         continueWheelEventHandling(wheelEvent, { processingSteps, false });
         return;
     }
@@ -125,6 +126,10 @@ void RemoteScrollingCoordinatorProxy::handleWheelEvent(const NativeWebWheelEvent
     didReceiveWheelEvent(result.wasHandled);
 
     continueWheelEventHandling(wheelEvent, result);
+#else
+    UNUSED_PARAM(wheelEvent);
+    UNUSED_PARAM(rubberBandableEdges);
+#endif
 }
 
 void RemoteScrollingCoordinatorProxy::continueWheelEventHandling(const NativeWebWheelEvent& wheelEvent, WheelEventHandlingResult result)
@@ -250,13 +255,58 @@ String RemoteScrollingCoordinatorProxy::scrollingTreeAsText() const
 
 bool RemoteScrollingCoordinatorProxy::hasScrollableMainFrame() const
 {
+    // FIXME: Locking
     auto* rootNode = m_scrollingTree->rootNode();
     return rootNode && rootNode->canHaveScrollbars();
 }
 
-ScrollingTreeScrollingNode* RemoteScrollingCoordinatorProxy::rootNode() const
+OverscrollBehavior RemoteScrollingCoordinatorProxy::mainFrameHorizontalOverscrollBehavior() const
 {
-    return m_scrollingTree->rootNode();
+    return m_scrollingTree->mainFrameHorizontalOverscrollBehavior();
+}
+
+OverscrollBehavior RemoteScrollingCoordinatorProxy::mainFrameVerticalOverscrollBehavior() const
+{
+    return m_scrollingTree->mainFrameVerticalOverscrollBehavior();
+}
+
+WebCore::FloatRect RemoteScrollingCoordinatorProxy::computeVisibleContentRect()
+{
+    auto scrollPosition = currentMainFrameScrollPosition();
+    auto visibleContentRect = scrollingTree()->layoutViewport();
+    visibleContentRect.setX(scrollPosition.x());
+    visibleContentRect.setY(scrollPosition.y());
+    return visibleContentRect;
+}
+
+WebCore::FloatPoint RemoteScrollingCoordinatorProxy::currentMainFrameScrollPosition() const
+{
+    return m_scrollingTree->mainFrameScrollPosition();
+}
+
+IntPoint RemoteScrollingCoordinatorProxy::scrollOrigin() const
+{
+    return m_scrollingTree->mainFrameScrollOrigin();
+}
+
+int RemoteScrollingCoordinatorProxy::headerHeight() const
+{
+    return m_scrollingTree->mainFrameHeaderHeight();
+}
+
+int RemoteScrollingCoordinatorProxy::footerHeight() const
+{
+    return m_scrollingTree->mainFrameFooterHeight();
+}
+
+float RemoteScrollingCoordinatorProxy::mainFrameScaleFactor() const
+{
+    return m_scrollingTree->mainFrameScaleFactor();
+}
+
+FloatSize RemoteScrollingCoordinatorProxy::totalContentsSize() const
+{
+    return m_scrollingTree->totalContentsSize();
 }
 
 void RemoteScrollingCoordinatorProxy::displayDidRefresh(PlatformDisplayID displayID)
@@ -266,6 +316,7 @@ void RemoteScrollingCoordinatorProxy::displayDidRefresh(PlatformDisplayID displa
 
 bool RemoteScrollingCoordinatorProxy::hasScrollableOrZoomedMainFrame() const
 {
+    // FIXME: Locking
     auto* rootNode = m_scrollingTree->rootNode();
     if (!rootNode)
         return false;

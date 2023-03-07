@@ -32,6 +32,7 @@
 #include "DownloadID.h"
 #include "DownloadManager.h"
 #include "NetworkContentRuleListManager.h"
+#include "NetworkProcessConnectionParameters.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "QuotaIncreaseRequestIdentifier.h"
 #include "RTCDataChannelRemoteManagerProxy.h"
@@ -116,6 +117,7 @@ enum class ShouldGrandfatherStatistics : bool;
 enum class StorageAccessStatus : uint8_t;
 enum class WebsiteDataFetchOption : uint8_t;
 enum class WebsiteDataType : uint32_t;
+struct BackgroundFetchState;
 struct NetworkProcessCreationParameters;
 struct WebPushMessage;
 struct WebsiteDataStoreParameters;
@@ -383,6 +385,13 @@ public:
     void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
     void processPushMessage(PAL::SessionID, WebPushMessage&&, WebCore::PushPermissionState, CompletionHandler<void(bool)>&&);
     void processNotificationEvent(WebCore::NotificationData&&, WebCore::NotificationEventType, CompletionHandler<void(bool)>&&);
+
+    void getAllBackgroundFetchIdentifiers(PAL::SessionID, CompletionHandler<void(Vector<String>&&)>&&);
+    void getBackgroundFetchState(PAL::SessionID, const String&, CompletionHandler<void(std::optional<BackgroundFetchState>&&)>&&);
+    void abortBackgroundFetch(PAL::SessionID, const String&, CompletionHandler<void()>&&);
+    void pauseBackgroundFetch(PAL::SessionID, const String&, CompletionHandler<void()>&&);
+    void resumeBackgroundFetch(PAL::SessionID, const String&, CompletionHandler<void()>&&);
+    void clickBackgroundFetch(PAL::SessionID, const String&, CompletionHandler<void()>&&);
 #endif
 
     void setPushAndNotificationsEnabledForOrigin(PAL::SessionID, const WebCore::SecurityOriginData&, bool, CompletionHandler<void()>&&);
@@ -438,7 +447,7 @@ private:
     // Message Handlers
     bool didReceiveSyncNetworkProcessMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
     void initializeNetworkProcess(NetworkProcessCreationParameters&&, CompletionHandler<void()>&&);
-    void createNetworkConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, CompletionHandler<void(std::optional<IPC::Connection::Handle>&&, WebCore::HTTPCookieAcceptPolicy)>&&);
+    void createNetworkConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, NetworkProcessConnectionParameters,  CompletionHandler<void(std::optional<IPC::Connection::Handle>&&, WebCore::HTTPCookieAcceptPolicy)>&&);
 
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData&&)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
@@ -470,6 +479,11 @@ private:
     void removeWebPageNetworkParameters(PAL::SessionID, WebPageProxyIdentifier);
     void countNonDefaultSessionSets(PAL::SessionID, CompletionHandler<void(size_t)>&&);
 
+#if HAVE(NW_PROXY_CONFIG)
+    void clearProxyConfigData(PAL::SessionID);
+    void setProxyConfigData(PAL::SessionID, const IPC::DataReference& proxyConfigData, const IPC::DataReference& proxyIdentifierData);
+#endif
+    
 #if USE(SOUP)
     void setIgnoreTLSErrors(PAL::SessionID, bool);
     void userPreferredLanguagesChanged(const Vector<String>&);
