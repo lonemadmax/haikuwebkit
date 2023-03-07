@@ -425,7 +425,7 @@ void FrameLoaderClientHaiku::dispatchDidCommitLoad(
     dispatchMessage(titleMessage);
 }
 
-void FrameLoaderClientHaiku::dispatchDidFailProvisionalLoad(const ResourceError& error, WillContinueLoading)
+void FrameLoaderClientHaiku::dispatchDidFailProvisionalLoad(const ResourceError& error, WillContinueLoading, WillInternallyHandleFailure)
 {
     dispatchDidFailLoad(error);
 }

@@ -32,7 +32,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
 	delete_area(m_area);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& description, bool& bold, bool& italic, const FontCreationContext&)
+FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& description, bool bold, bool italic, const FontCreationContext&)
 {
     return FontPlatformData(m_font, description);
 }

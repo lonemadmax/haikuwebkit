@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "NativeImage.h"
+
+#include "GraphicsContext.h"
 #include "NotImplemented.h"
 
 #include <Bitmap.h>
@@ -53,6 +55,11 @@ DestinationColorSpace NativeImage::colorSpace() const
 {
     notImplemented();
     return DestinationColorSpace::SRGB();
+}
+
+void NativeImage::draw(GraphicsContext& context, const FloatSize& imageSize, const FloatRect& destinationRect, const FloatRect& sourceRect, const ImagePaintingOptions& options)
+{
+    context.drawNativeImageInternal(*this, imageSize, destinationRect, sourceRect, options);
 }
 
 void NativeImage::clearSubimages()

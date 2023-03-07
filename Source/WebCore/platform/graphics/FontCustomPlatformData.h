@@ -37,6 +37,8 @@
 
 typedef struct CGFont* CGFontRef;
 typedef const struct __CTFontDescriptor* CTFontDescriptorRef;
+#elif USE(HAIKU)
+#include <Font.h>
 #else
 #include "RefPtrCairo.h"
 
@@ -65,6 +67,12 @@ public:
         , creationData(WTFMove(creationData))
     {
     }
+#elif USE(HAIKU)
+    FontCustomPlatformData(area_id area, BFont font)
+        : m_font(font)
+        , m_area(area)
+    {
+    }
 #else
     FontCustomPlatformData(FT_Face, FragmentedSharedBuffer&);
 #endif
@@ -80,6 +88,9 @@ public:
 #elif USE(CORE_TEXT)
     RetainPtr<CTFontDescriptorRef> fontDescriptor;
     FontPlatformData::CreationData creationData;
+#elif USE(HAIKU)
+    BFont m_font;
+    area_id m_area;
 #else
     RefPtr<cairo_font_face_t> m_fontFace;
 #endif
