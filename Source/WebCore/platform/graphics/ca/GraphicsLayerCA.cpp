@@ -36,6 +36,7 @@
 #include "GraphicsLayerAsyncContentsDisplayDelegateCocoa.h"
 #include "GraphicsLayerContentsDisplayDelegate.h"
 #include "GraphicsLayerFactory.h"
+#include "HTMLVideoElement.h"
 #include "Image.h"
 #include "InMemoryDisplayList.h"
 #include "Logging.h"
@@ -344,6 +345,12 @@ Ref<PlatformCALayer> GraphicsLayerCA::createPlatformCALayer(Ref<WebCore::Model>,
 Ref<PlatformCALayer> GraphicsLayerCA::createPlatformCALayerHost(LayerHostingContextIdentifier, PlatformCALayerClient* owner)
 {
     ASSERT_NOT_REACHED_WITH_MESSAGE("GraphicsLayerCARemote::createPlatformCALayerHost should always be called instead of this, but this symbol is needed to compile WebKitLegacy.");
+    return GraphicsLayerCA::createPlatformCALayer(PlatformCALayer::LayerTypeLayer, owner);
+}
+
+Ref<PlatformCALayer> GraphicsLayerCA::createPlatformVideoLayer(HTMLVideoElement&, PlatformCALayerClient* owner)
+{
+    // By default, just make a plain layer; subclasses can override to provide a custom PlatformCALayer for hosting context id.
     return GraphicsLayerCA::createPlatformCALayer(PlatformCALayer::LayerTypeLayer, owner);
 }
 
@@ -1285,6 +1292,23 @@ void GraphicsLayerCA::setContentsToPlatformLayerHost(LayerHostingContextIdentifi
     m_contentsDisplayDelegate = nullptr;
     noteSublayersChanged();
     noteLayerPropertyChanged(ContentsPlatformLayerChanged);
+}
+
+void GraphicsLayerCA::setContentsToVideoElement(HTMLVideoElement& videoElement, ContentsLayerPurpose purpose)
+{
+#if HAVE(AVKIT)
+    auto hostingContextID = videoElement.layerHostingContextID();
+    if (hostingContextID != m_layerHostingContextID) {
+        m_contentsLayer = createPlatformVideoLayer(videoElement, this);
+        m_layerHostingContextID = hostingContextID;
+    }
+    m_contentsLayerPurpose = purpose;
+    m_contentsDisplayDelegate = nullptr;
+    noteSublayersChanged();
+    noteLayerPropertyChanged(ContentsPlatformLayerChanged);
+#else
+    setContentsToPlatformLayer(videoElement.platformLayer(), purpose);
+#endif
 }
 
 void GraphicsLayerCA::setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&& delegate, ContentsLayerPurpose purpose)
@@ -2998,8 +3022,7 @@ GraphicsLayerCA::CloneID GraphicsLayerCA::ReplicaState::cloneID() const
     const size_t bitsPerUChar = sizeof(UChar) * 8;
     size_t vectorSize = (depth + bitsPerUChar - 1) / bitsPerUChar;
     
-    Vector<UChar> result(vectorSize);
-    result.fill(0);
+    Vector<UChar> result(vectorSize, 0);
 
     // Create a string from the bit sequence which we can use to identify the clone.
     // Note that the string may contain embedded nulls, but that's OK.

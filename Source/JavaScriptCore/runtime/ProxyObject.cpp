@@ -131,24 +131,35 @@ static JSValue performProxyGet(JSGlobalObject* globalObject, ProxyObject* proxyO
     JSValue trapResult = call(globalObject, getHandler, callData, handler, arguments);
     RETURN_IF_EXCEPTION(scope, { });
 
-    PropertyDescriptor descriptor;
-    bool result = target->getOwnPropertyDescriptor(globalObject, propertyName, descriptor);
-    EXCEPTION_ASSERT(!scope.exception() || !result);
-    if (result) {
-        if (descriptor.isDataDescriptor() && !descriptor.configurable() && !descriptor.writable()) {
-            bool isSame = sameValue(globalObject, descriptor.value(), trapResult);
-            RETURN_IF_EXCEPTION(scope, { });
-            if (!isSame)
-                return throwTypeError(globalObject, scope, "Proxy handler's 'get' result of a non-configurable and non-writable property should be the same value as the target's property"_s);
-        } else if (descriptor.isAccessorDescriptor() && !descriptor.configurable() && descriptor.getter().isUndefined()) {
-            if (!trapResult.isUndefined())
-                return throwTypeError(globalObject, scope, "Proxy handler's 'get' result of a non-configurable accessor property without a getter should be undefined"_s);
-        }
-    }
-
+    ProxyObject::validateGetTrapResult(globalObject, trapResult, target, propertyName);
     RETURN_IF_EXCEPTION(scope, { });
 
     return trapResult;
+}
+
+void ProxyObject::validateGetTrapResult(JSGlobalObject* globalObject, JSValue trapResult, JSObject* target, PropertyName propertyName)
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    PropertyDescriptor descriptor;
+    bool result = target->getOwnPropertyDescriptor(globalObject, propertyName, descriptor);
+    RETURN_IF_EXCEPTION(scope, void());
+    if (result) {
+        if (descriptor.isDataDescriptor() && !descriptor.configurable() && !descriptor.writable()) {
+            bool isSame = sameValue(globalObject, descriptor.value(), trapResult);
+            RETURN_IF_EXCEPTION(scope, void());
+            if (!isSame) {
+                throwTypeError(globalObject, scope, "Proxy handler's 'get' result of a non-configurable and non-writable property should be the same value as the target's property"_s);
+                return;
+            }
+        } else if (descriptor.isAccessorDescriptor() && !descriptor.configurable() && descriptor.getter().isUndefined()) {
+            if (!trapResult.isUndefined()) {
+                throwTypeError(globalObject, scope, "Proxy handler's 'get' result of a non-configurable accessor property without a getter should be undefined"_s);
+                return;
+            }
+        }
+    }
 }
 
 bool ProxyObject::performGet(JSGlobalObject* globalObject, PropertyName propertyName, PropertySlot& slot)
@@ -433,6 +444,14 @@ bool ProxyObject::performPut(JSGlobalObject* globalObject, JSValue putValue, JSV
     ASSERT(!arguments.hasOverflowed());
     JSValue trapResult = call(globalObject, setMethod, callData, handler, arguments);
     RETURN_IF_EXCEPTION(scope, false);
+    RELEASE_AND_RETURN(scope, validateSetTrapResult(globalObject, trapResult, target, propertyName, putValue, shouldThrow));
+}
+
+bool ProxyObject::validateSetTrapResult(JSGlobalObject* globalObject, JSValue trapResult, JSObject* target, PropertyName propertyName, JSValue putValue, bool shouldThrow)
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     bool trapResultAsBool = trapResult.toBoolean(globalObject);
     RETURN_IF_EXCEPTION(scope, false);
     if (!trapResultAsBool) {
@@ -457,6 +476,7 @@ bool ProxyObject::performPut(JSGlobalObject* globalObject, JSValue putValue, JSV
             return false;
         }
     }
+
     return true;
 }
 

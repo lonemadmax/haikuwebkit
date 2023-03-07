@@ -4008,8 +4008,10 @@ static void removeDraggedContentDocumentMarkersFromAllFramesInPage(Page& page)
         document.markers().removeMarkers(DocumentMarker::DraggedContent);
     });
 
-    if (auto* mainFrameRenderer = page.mainFrame().contentRenderer())
-        mainFrameRenderer->repaintRootContents();
+    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame())) {
+        if (auto* mainFrameRenderer = localMainFrame->contentRenderer())
+            mainFrameRenderer->repaintRootContents();
+    }
 }
 
 void EventHandler::dragCancelled()
@@ -4346,7 +4348,7 @@ bool EventHandler::defaultKeyboardScrollEventHandler(KeyboardEvent& event, Scrol
 
 void EventHandler::defaultPageUpDownEventHandler(KeyboardEvent& event)
 {
-#if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN_CAIRO) || PLATFORM(COCOA)
+#if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN) || PLATFORM(COCOA)
     ASSERT(event.type() == eventNames().keydownEvent);
 
     if (event.ctrlKey() || event.metaKey() || event.altKey() || event.altGraphKey() || event.shiftKey())
@@ -4362,7 +4364,7 @@ void EventHandler::defaultPageUpDownEventHandler(KeyboardEvent& event)
 
 void EventHandler::defaultHomeEndEventHandler(KeyboardEvent& event)
 {
-#if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN_CAIRO)
+#if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN)
     ASSERT(event.type() == eventNames().keydownEvent);
 
     if (event.ctrlKey() || event.metaKey() || event.altKey() || event.altGraphKey() || event.shiftKey())

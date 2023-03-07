@@ -328,6 +328,7 @@ struct TextAlternativeWithRange;
 struct TextCheckingResult;
 struct TextRecognitionResult;
 struct ViewportAttributes;
+struct WheelEventHandlingResult;
 struct WindowFeatures;
 
 template<typename> class RectEdges;
@@ -1070,6 +1071,7 @@ public:
 
     bool isProcessingWheelEvents() const;
     void handleWheelEvent(const NativeWebWheelEvent&);
+    void continueWheelEventHandling(const NativeWebWheelEvent&, const WebCore::WheelEventHandlingResult&);
 
     bool isProcessingKeyboardEvents() const;
     bool handleKeyboardEvent(const NativeWebKeyboardEvent&);
@@ -1479,6 +1481,7 @@ public:
     void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, bool allowTransparentBackground,  CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
 #if PLATFORM(IOS_FAMILY)
     size_t computePagesForPrintingiOS(WebCore::FrameIdentifier, const PrintInfo&);
+    IPC::Connection::AsyncReplyID drawToImage(WebCore::FrameIdentifier, const PrintInfo&, size_t pageCount, CompletionHandler<void(WebKit::ShareableBitmapHandle&&)>&&);
     IPC::Connection::AsyncReplyID drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t pageCount, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
 #endif
 #elif PLATFORM(GTK)
@@ -2086,7 +2089,9 @@ public:
     bool isServiceWorkerPage() const { return false; }
 #endif
 
+#if PLATFORM(IOS_FAMILY)
     void dispatchWheelEventWithoutScrolling(const WebWheelEvent&, CompletionHandler<void(bool)>&&);
+#endif
 
 #if ENABLE(CONTEXT_MENUS)
 #if ENABLE(IMAGE_ANALYSIS)

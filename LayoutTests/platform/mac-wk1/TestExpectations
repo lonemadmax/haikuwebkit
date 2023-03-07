@@ -1089,6 +1089,7 @@ http/tests/cookies/same-site/fetch-in-same-origin-service-worker.html [ Skip ]
 http/wpt/cache-storage [ Skip ]
 http/wpt/push-api [ Skip ]
 http/wpt/service-workers [ Skip ]
+http/wpt/background-fetch [ Skip ]
 imported/w3c/web-platform-tests/background-fetch [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/inside-worker/serviceworker-report-only.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/sandbox/service-worker-sandbox.https.html [ Skip ]
@@ -2459,3 +2460,5 @@ http/tests/websocket/tests/hybi/multiple-connections-limit.html [ Skip ]
 
 # Displays blank on WK1
 fullscreen/fullscreen-iframe-navigation.html [ Skip ]
+
+webkit.org/b/252942 imported/w3c/web-platform-tests/preload/modulepreload.html [ Pass Failure ]

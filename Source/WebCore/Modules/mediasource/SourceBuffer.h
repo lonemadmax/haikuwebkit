@@ -107,7 +107,7 @@ public:
     void removedFromMediaSource();
     void seekToTime(const MediaTime&);
 
-    bool canPlayThroughRange(PlatformTimeRanges&);
+    bool canPlayThroughRange(const PlatformTimeRanges&);
 
     bool hasVideo() const;
 
@@ -146,6 +146,7 @@ public:
     WebCoreOpaqueRoot opaqueRoot();
 
     virtual bool isManaged() const { return false; }
+    void memoryPressure();
 
 protected:
     SourceBuffer(Ref<SourceBufferPrivate>&&, MediaSource&);

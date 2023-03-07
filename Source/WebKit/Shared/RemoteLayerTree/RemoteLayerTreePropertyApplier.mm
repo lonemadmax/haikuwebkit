@@ -33,6 +33,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/PlatformCAFilters.h>
 #import <WebCore/ScrollbarThemeMac.h>
+#import <WebCore/WebCoreCALayerExtras.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -146,7 +147,7 @@ static void updateCustomAppearance(CALayer *layer, GraphicsLayer::CustomAppearan
 #endif
 }
 
-static void applyGeometryPropertiesToLayer(CALayer *layer, const RemoteLayerTreeTransaction::LayerProperties& properties)
+static void applyCommonPropertiesToLayer(CALayer *layer, const RemoteLayerTreeTransaction::LayerProperties& properties)
 {
     if (properties.changedProperties & LayerChange::PositionChanged) {
         layer.position = CGPointMake(properties.position.x(), properties.position.y());
@@ -177,11 +178,14 @@ static void applyGeometryPropertiesToLayer(CALayer *layer, const RemoteLayerTree
         layer.contentsScale = properties.contentsScale;
         layer.rasterizationScale = properties.contentsScale;
     }
+
+    if (properties.changedProperties & LayerChange::MasksToBoundsChanged)
+        layer.masksToBounds = properties.masksToBounds;
 }
 
 void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, RemoteLayerTreeHost* layerTreeHost, const RemoteLayerTreeTransaction::LayerProperties& properties, RemoteLayerBackingStore::LayerContentsType layerContentsType)
 {
-    applyGeometryPropertiesToLayer(layer, properties);
+    applyCommonPropertiesToLayer(layer, properties);
 
     if (properties.changedProperties & LayerChange::NameChanged)
         layer.name = properties.name;
@@ -200,9 +204,6 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
 
     if (properties.changedProperties & LayerChange::DoubleSidedChanged)
         layer.doubleSided = properties.doubleSided;
-
-    if (properties.changedProperties & LayerChange::MasksToBoundsChanged)
-        layer.masksToBounds = properties.masksToBounds;
 
     if (properties.changedProperties & LayerChange::OpaqueChanged)
         layer.opaque = properties.opaque;
@@ -257,10 +258,8 @@ void RemoteLayerTreePropertyApplier::applyPropertiesToLayer(CALayer *layer, Remo
         auto* backingStore = properties.backingStore.get();
         if (backingStore && properties.backingStoreAttached)
             backingStore->applyBackingStoreToLayer(layer, layerContentsType, layerTreeHost->replayCGDisplayListsIntoBackingStore());
-        else {
-            layer.contents = nil;
-            layer.contentsOpaque = NO;
-        }
+        else
+            [layer _web_clearContents];
     }
 
     if (properties.changedProperties & LayerChange::FiltersChanged)
@@ -300,7 +299,7 @@ void RemoteLayerTreePropertyApplier::applyProperties(RemoteLayerTreeNode& node, 
 
     applyPropertiesToLayer(node.layer(), layerTreeHost, properties, layerContentsType);
 #if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
-    applyGeometryPropertiesToLayer(node.interactionRegionsLayer(), properties);
+    applyCommonPropertiesToLayer(node.interactionRegionsLayer(), properties);
     if (properties.changedProperties & LayerChange::EventRegionChanged)
         updateLayersForInteractionRegions(node.interactionRegionsLayer(), *layerTreeHost, properties);
 #endif

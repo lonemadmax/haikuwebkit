@@ -52,7 +52,7 @@
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
-#include "ElementChildIterator.h"
+#include "ElementChildIteratorInlines.h"
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "Frame.h"
@@ -8428,6 +8428,33 @@ bool HTMLMediaElement::shouldOverridePauseDuringRouteChange() const
 #endif
 }
 
+LayerHostingContextID HTMLMediaElement::layerHostingContextID()
+{
+    if (m_player)
+        return m_player->hostingContextID();
+    return { };
+}
+
+FloatSize HTMLMediaElement::naturalSize()
+{
+    if (m_player)
+        return m_player->naturalSize();
+    return { };
+}
+
+FloatSize HTMLMediaElement::videoInlineSize() const
+{
+    if (m_player)
+        return m_player->videoInlineSize();
+    return { };
+}
+
+void HTMLMediaElement::setVideoInlineSizeFenced(const FloatSize& size, const WTF::MachSendRight& fence)
+{
+    if (m_player)
+        m_player->setVideoInlineSizeFenced(size, fence);
+}
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 void HTMLMediaElement::scheduleUpdateMediaState()
@@ -8606,6 +8633,10 @@ void HTMLMediaElement::setBufferingPolicy(BufferingPolicy policy)
     m_bufferingPolicy = policy;
     if (m_player)
         m_player->setBufferingPolicy(policy);
+#if ENABLE(MEDIA_SOURCE)
+    if (m_mediaSource && policy == BufferingPolicy::PurgeResources)
+        m_mediaSource->memoryPressure();
+#endif
 }
 
 void HTMLMediaElement::purgeBufferedDataIfPossible()

@@ -1212,6 +1212,7 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
 #endif
 
     setAllowsAnySSLCertificate(true);
+    setBackgroundFetchPermission(true);
 
     statisticsResetToConsistentState();
     clearLoadedSubresourceDomains();
@@ -1409,6 +1410,11 @@ void TestController::setAllowsAnySSLCertificate(bool allows)
     m_allowsAnySSLCertificate = allows;
     WKWebsiteDataStoreSetAllowsAnySSLCertificateForWebSocketTesting(websiteDataStore(), allows);
 }
+
+void TestController::setBackgroundFetchPermission(bool)
+{
+    // FIXME: Add support.
+}
 #endif
 
 WKURLRef TestController::createTestURL(const char* pathOrURL)
@@ -1538,7 +1544,6 @@ void TestController::configureContentExtensionForTest(const TestInvocation& test
         contentExtensionsPath = "/tmp/wktr-contentextensions";
 
     if (!test.urlContains("contentextensions/"_s)) {
-        WKPageSetUserContentExtensionsEnabled(m_mainWebView->page(), false);
         return;
     }
 
@@ -1564,7 +1569,6 @@ void TestController::configureContentExtensionForTest(const TestInvocation& test
     ASSERT(context.status == kWKUserContentExtensionStoreSuccess);
     ASSERT(context.filter);
 
-    WKPageSetUserContentExtensionsEnabled(mainWebView()->page(), true);
     WKUserContentControllerAddUserContentFilter(userContentController(), context.filter.get());
 }
 
@@ -1572,8 +1576,6 @@ void TestController::resetContentExtensions()
 {
     if (!mainWebView())
         return;
-
-    WKPageSetUserContentExtensionsEnabled(mainWebView()->page(), false);
 
     const char* contentExtensionsPath = libraryPathForTesting();
     if (!contentExtensionsPath)
@@ -3079,6 +3081,7 @@ UniqueRef<PlatformWebView> TestController::platformCreateOtherPage(PlatformWebVi
 
 WKContextRef TestController::platformAdjustContext(WKContextRef context, WKContextConfigurationRef)
 {
+    WKPageGroupSetPreferences(m_pageGroup.get(), adoptWK(WKPreferencesCreate()).get());
     return context;
 }
 

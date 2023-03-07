@@ -46,7 +46,7 @@
 #include "Editing.h"
 #include "Editor.h"
 #include "EditorClient.h"
-#include "ElementIterator.h"
+#include "ElementChildIteratorInlines.h"
 #include "ElementRareData.h"
 #include "EmptyClients.h"
 #include "File.h"
@@ -77,6 +77,7 @@
 #include "SocketProvider.h"
 #include "TextIterator.h"
 #include "TextManipulationController.h"
+#include "TypedElementDescendantIteratorInlines.h"
 #include "VisibleSelection.h"
 #include "VisibleUnits.h"
 #include <JavaScriptCore/JSCJSValueInlines.h>
@@ -193,7 +194,11 @@ std::unique_ptr<Page> createPageForSanitizingWebContent()
     page->settings().setPluginsEnabled(false);
     page->settings().setAcceleratedCompositingEnabled(false);
 
-    Frame& frame = page->mainFrame();
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
+    if (!localMainFrame)
+        return page; 
+
+    Frame& frame = *localMainFrame;
     frame.setView(FrameView::create(frame, IntSize { 800, 600 }));
     frame.init();
 
@@ -205,7 +210,7 @@ std::unique_ptr<Page> createPageForSanitizingWebContent()
     writer.begin();
     writer.insertDataSynchronously(markup);
     writer.end();
-    RELEASE_ASSERT(page->mainFrame().document()->body());
+    RELEASE_ASSERT(frame.document()->body());
 
     return page;
 }
@@ -213,7 +218,11 @@ std::unique_ptr<Page> createPageForSanitizingWebContent()
 String sanitizeMarkup(const String& rawHTML, MSOListQuirks msoListQuirks, std::optional<Function<void(DocumentFragment&)>> fragmentSanitizer)
 {
     auto page = createPageForSanitizingWebContent();
-    Document* stagingDocument = page->mainFrame().document();
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
+    if (!localMainFrame)
+        return String();
+
+    Document* stagingDocument = localMainFrame->document();
     ASSERT(stagingDocument);
 
     auto fragment = createFragmentFromMarkup(*stagingDocument, rawHTML, emptyString(), { });

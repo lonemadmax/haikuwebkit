@@ -60,7 +60,7 @@ class ResourceRequest;
 class ResourceError;
 class SWServer;
 enum class IncludeHttpOnlyCookies : bool;
-enum class NetworkConnectionIntegrity : uint8_t;
+enum class NetworkConnectionIntegrity : uint16_t;
 enum class ShouldSample : bool;
 struct ClientOrigin;
 class SecurityOriginData;
@@ -260,8 +260,6 @@ public:
     void setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit);
 #endif
 
-    static bool needsAdditionalNetworkConnectionIntegritySettings(const WebCore::ResourceRequest&);
-
 protected:
     NetworkSession(NetworkProcess&, const NetworkSessionCreationParameters&);
 
@@ -274,7 +272,8 @@ protected:
     void createContextConnection(const WebCore::RegistrableDomain&, std::optional<WebCore::ProcessIdentifier>, std::optional<WebCore::ScriptExecutionContextIdentifier>, CompletionHandler<void()>&&) final;
     void appBoundDomains(CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&) final;
     void addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier, std::optional<WebCore::ProcessIdentifier>, WebCore::RegistrableDomain&&) final;
-#endif
+    void requestBackgroundFetchPermission(const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&) final;
+#endif // ENABLE(SERVICE_WORKER)
 
     PAL::SessionID m_sessionID;
     Ref<NetworkProcess> m_networkProcess;

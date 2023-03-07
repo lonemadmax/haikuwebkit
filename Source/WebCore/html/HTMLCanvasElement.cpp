@@ -55,7 +55,7 @@
 #include "InMemoryDisplayList.h"
 #include "InspectorInstrumentation.h"
 #include "JSDOMConvertDictionary.h"
-#include "JSNodeCustom.h"
+#include "JSNodeCustomInlines.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "Navigator.h"
@@ -380,7 +380,7 @@ CanvasRenderingContext2D* HTMLCanvasElement::getContext2d(const String& type, Ca
 
 static bool requiresAcceleratedCompositingForWebGL()
 {
-#if PLATFORM(GTK) || PLATFORM(WIN_CAIRO)
+#if PLATFORM(GTK) || PLATFORM(WIN)
     return false;
 #else
     return true;

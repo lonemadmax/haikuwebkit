@@ -48,9 +48,13 @@ public:
 
     void didRefreshDisplay() override;
 
+    DisplayLink& displayLink();
+
 private:
     WebCore::DelegatedScrollingMode delegatedScrollingMode() const override;
     std::unique_ptr<RemoteScrollingCoordinatorProxy> createScrollingCoordinatorProxy() const override;
+
+    bool isRemoteLayerTreeDrawingAreaProxyMac() const override { return true; }
 
     void didCommitLayerTree(IPC::Connection&, const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&) override;
 
@@ -73,7 +77,8 @@ private:
     void removeObserver(std::optional<DisplayLinkObserverID>&);
 
     DisplayLink* exisingDisplayLink();
-    DisplayLink& ensureDisplayLink();
+
+    WTF::MachSendRight createFence() override;
 
     std::optional<WebCore::PlatformDisplayID> m_displayID; // Would be nice to make this non-optional, and ensure we always get one on creation.
     std::optional<WebCore::FramesPerSecond> m_displayNominalFramesPerSecond;

@@ -847,6 +847,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTFloatBlend.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTFloatBlend.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTFragDepth.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTFragDepth.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTPolygonOffsetClamp.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTPolygonOffsetClamp.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTShaderTextureLOD.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTShaderTextureLOD.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSEXTTextureCompressionBPTC.cpp
@@ -2275,6 +2277,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRequestAnimationFrameCallback.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRequestAnimationFrameCallback.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRequestCookieConsentOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRequestCookieConsentOptions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRequestPriority.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRequestPriority.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSResidentKeyRequirement.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSResidentKeyRequirement.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSResizeObserver.cpp

@@ -2237,6 +2237,18 @@ ExperimentalSandboxEnabled:
     WebKit:
       default: false
 
+ExperimentalSandboxWithProbabilityEnabled:
+  type: bool
+  status: internal
+  category: security
+  humanReadableName: "Enable experimental sandbox features with probability"
+  humanReadableDescription: "Enable experimental sandbox features with probability"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: true
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 ExposeSpeakersEnabled:
   type: bool
@@ -3557,6 +3569,20 @@ LineHeightUnitsEnabled:
     WebCore:
       default: true
 
+LinkModulePreloadEnabled:
+  type: bool
+  status: preview
+  category: networking
+  humanReadableName: "Link rel=modulepreload"
+  humanReadableDescription: "Enable Link rel=modulepreload"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 LinkPreconnect:
   type: bool
   status: embedder
@@ -3785,6 +3811,17 @@ ManagedMediaSourceEnabled:
       default: WebKit::defaultManagedMediaSourceEnabled()
     WebCore:
       default: true
+
+MarkedTextInputEnabled:
+  type: bool
+  status: embedder
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 MaskWebGLStringsEnabled:
   type: bool
@@ -4412,10 +4449,10 @@ NotificationEventEnabled:
   condition: ENABLE(NOTIFICATION_EVENT)
   defaultValue:
     WebCore:
-      "ENABLE(NOTIFICATION_EVENT)": true
+      "ENABLE(NOTIFICATION_EVENT) && !PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
-      "ENABLE(NOTIFICATION_EVENT)": true
+      "ENABLE(NOTIFICATION_EVENT) && !PLATFORM(IOS_FAMILY)": true
       default: false
 
 NotificationsEnabled:
@@ -4423,7 +4460,7 @@ NotificationsEnabled:
   status: developer
   category: dom
   humanReadableName: "Notifications"
-  humanReadableDescription: "Enable push notifications"
+  humanReadableDescription: "Enable the Notifications API"
   condition: ENABLE(NOTIFICATIONS)
   defaultValue:
     WebKitLegacy:
@@ -4835,6 +4872,20 @@ PreferSandboxedMediaParsing:
       default: true
     WebKit:
       default: true
+
+PriorityHintsEnabled:
+  type: bool
+  status: testable
+  category: networking
+  humanReadableName: "Priority hints"
+  humanReadableDescription: "Enable priority hints support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 PrivateClickMeasurementDebugModeEnabled:
   type: bool
@@ -5311,7 +5362,21 @@ ScreenOrientationAPIEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: true
+      default: WebKit::defaultShouldEnableScreenOrientationAPI()
+    WebCore:
+      default: false
+
+ScreenOrientationLockingAPIEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Screen Orientation API (Locking / Unlocking)"
+  humanReadableDescription: "Enable Screen Orientation API (Locking / Unlocking)"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
     WebCore:
       default: false
 
@@ -6198,6 +6263,7 @@ ThirdPartyIframeRedirectBlockingEnabled:
 ThreadedAnimationResolutionEnabled:
   type: bool
   status: unstable
+  category: animation
   humanReadableName: "Threaded animation resolution"
   humanReadableDescription: "Run accelerated animations on a separate thread"
   condition: ENABLE(THREADED_ANIMATION_RESOLUTION)
@@ -6795,7 +6861,7 @@ WebAPIsInShadowRealmEnabled:
 WebAnimationsCompositeOperationsEnabled:
   type: bool
   status: stable
-  category: dom
+  category: animation
   humanReadableName: "Web Animations composite operations"
   humanReadableDescription: "Support for the CompositeOperation enum and properties consuming it"
   defaultValue:
@@ -6809,7 +6875,7 @@ WebAnimationsCompositeOperationsEnabled:
 WebAnimationsCustomEffectsEnabled:
   type: bool
   status: testable
-  category: dom
+  category: animation
   humanReadableName: "Web Animations custom effects"
   humanReadableDescription: "Support for the CustomEffect interface"
   defaultValue:
@@ -6823,7 +6889,7 @@ WebAnimationsCustomEffectsEnabled:
 WebAnimationsCustomFrameRateEnabled:
   type: bool
   status: testable
-  category: dom
+  category: animation
   humanReadableName: "Web Animations custom frame rate"
   humanReadableDescription: "Support for specifying a custom frame rate for Web Animations"
   defaultValue:
@@ -6837,7 +6903,7 @@ WebAnimationsCustomFrameRateEnabled:
 WebAnimationsIterationCompositeEnabled:
   type: bool
   status: stable
-  category: dom
+  category: animation
   humanReadableName: "Web Animations iteration composite"
   humanReadableDescription: "Support for the KeyframeEffect.iterationComposite property"
   defaultValue:
@@ -6851,7 +6917,7 @@ WebAnimationsIterationCompositeEnabled:
 WebAnimationsMutableTimelinesEnabled:
   type: bool
   status: stable
-  category: dom
+  category: animation
   humanReadableName: "Web Animations mutable timelines"
   humanReadableDescription: "Support for setting the timeline property of an Animation object"
   defaultValue:

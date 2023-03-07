@@ -1208,8 +1208,8 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
     if (auto* parentFrame = dynamicDowncast<LocalFrame>(m_frame.tree().parent()); parentFrame
         && (m_frame.document()->processingLoadEvent() || m_frame.document()->loadEventFinished())
         && !m_frame.document()->securityOrigin().isSameOriginAs(parentFrame->document()->securityOrigin()))
-        m_frame.document()->dispatchWindowLoadEvent();
-    
+        m_frame.ownerElement()->dispatchEvent(Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No));
+
     // FrameLoaderClient::didFinishLoad() tells the internal load delegate the load finished with no error
     m_client->didFinishLoad();
 }
@@ -2606,7 +2606,8 @@ void FrameLoader::checkLoadCompleteForThisFrame()
         if (Page* page = m_frame.page()) {
             if (isBackForwardLoadType(loadType())) {
                 // Reset the back forward list to the last committed history item at the top level.
-                item = page->mainFrame().loader().history().currentItem();
+                if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame()))
+                    item = localMainFrame->loader().history().currentItem();
             }
         }
 
@@ -4339,7 +4340,9 @@ RefPtr<Frame> createWindow(Frame& openerFrame, Frame& lookupFrame, FrameLoadRequ
     if (!page)
         return nullptr;
 
-    RefPtr<Frame> frame = &page->mainFrame();
+    RefPtr<Frame> frame = dynamicDowncast<LocalFrame>(page->mainFrame());
+    if (!frame)
+        return nullptr;
 
     if (isDocumentSandboxed(openerFrame, SandboxPropagatesToAuxiliaryBrowsingContexts))
         frame->loader().forceSandboxFlags(openerFrame.document()->sandboxFlags());

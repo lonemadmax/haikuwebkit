@@ -29,7 +29,6 @@
 #include "CSSFontSelector.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ComposedTreeIterator.h"
-#include "ElementIterator.h"
 #include "Frame.h"
 #include "HTMLBodyElement.h"
 #include "HTMLInputElement.h"
@@ -53,6 +52,7 @@
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "Text.h"
+#include "TypedElementDescendantIteratorInlines.h"
 #include "WebAnimationTypes.h"
 #include "WebAnimationUtilities.h"
 
@@ -611,7 +611,8 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
         if (resolvedStyle.matchResult) {
             auto animatedStyleBeforeCascadeApplication = RenderStyle::clonePtr(*animatedStyle);
             // The cascade may override animated properties and have dependencies to them.
-            applyCascadeAfterAnimation(*animatedStyle, animatedProperties, *resolvedStyle.matchResult, element, resolutionContext);
+            // FIXME: This is wrong if there are both transitions and animations running on the same element.
+            applyCascadeAfterAnimation(*animatedStyle, animatedProperties, styleable.hasRunningTransitions(), *resolvedStyle.matchResult, element, resolutionContext);
             ASSERT(styleable.keyframeEffectStack());
             styleable.keyframeEffectStack()->didApplyCascade(*animatedStyleBeforeCascadeApplication, *animatedStyle, animatedProperties, document);
         }
@@ -649,7 +650,7 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
     return { WTFMove(newStyle), change, shouldRecompositeLayer };
 }
 
-void TreeResolver::applyCascadeAfterAnimation(RenderStyle& animatedStyle, const HashSet<AnimatableProperty>& animatedProperties, const MatchResult& matchResult, const Element& element, const ResolutionContext& resolutionContext)
+void TreeResolver::applyCascadeAfterAnimation(RenderStyle& animatedStyle, const HashSet<AnimatableProperty>& animatedProperties, bool isTransition, const MatchResult& matchResult, const Element& element, const ResolutionContext& resolutionContext)
 {
     auto builderContext = BuilderContext {
         m_document,
@@ -663,7 +664,7 @@ void TreeResolver::applyCascadeAfterAnimation(RenderStyle& animatedStyle, const 
         WTFMove(builderContext),
         matchResult,
         CascadeLevel::Author,
-        PropertyCascade::IncludedProperties::AfterAnimation,
+        isTransition ? PropertyCascade::IncludedProperties::AfterTransition : PropertyCascade::IncludedProperties::AfterAnimation,
         &animatedProperties
     };
 
@@ -1031,7 +1032,8 @@ static void suspendMemoryCacheClientCalls(Document& document)
 
     page->setMemoryCacheClientCallsEnabled(false);
 
-    memoryCacheClientCallsResumeQueue().append(&page->mainFrame());
+    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame()))
+        memoryCacheClientCallsResumeQueue().append(localMainFrame);
 }
 
 static unsigned resolutionNestingDepth;

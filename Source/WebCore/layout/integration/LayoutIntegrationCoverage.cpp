@@ -29,6 +29,7 @@
 #include "DeprecatedGlobalSettings.h"
 #include "HTMLTextFormControlElement.h"
 #include "InlineWalker.h"
+#include "LayoutIntegrationLineLayout.h"
 #include "Logging.h"
 #include "RenderBlockFlow.h"
 #include "RenderChildIterator.h"
@@ -46,6 +47,7 @@
 #include "RenderVTTCue.h"
 #include "RenderView.h"
 #include "Settings.h"
+#include "TextUtil.h"
 #include <pal/Logging.h>
 #include <wtf/OptionSet.h>
 
@@ -88,9 +90,6 @@ namespace LayoutIntegration {
 static void printReason(AvoidanceReason reason, TextStream& stream)
 {
     switch (reason) {
-    case AvoidanceReason::FlowIsInsideANonMultiColumnThread:
-        stream << "flow is inside a non-multicolumn container";
-        break;
     case AvoidanceReason::ContentIsRuby:
         stream << "ruby";
         break;
@@ -115,14 +114,8 @@ static void printReason(AvoidanceReason reason, TextStream& stream)
     case AvoidanceReason::FlowTextIsSVGInlineText:
         stream << "SVGInlineText";
         break;
-    case AvoidanceReason::MultiColumnFlowIsNotTopLevel:
-        stream << "non top level column";
-        break;
-    case AvoidanceReason::MultiColumnFlowHasColumnSpanner:
-        stream << "column has spanner";
-        break;
-    case AvoidanceReason::MultiColumnFlowVerticalAlign:
-        stream << "column with vertical-align != baseline";
+    case AvoidanceReason::MultiColumnFlowHasVerticalWritingMode:
+        stream << "column has vertical writing mode";
         break;
     case AvoidanceReason::MultiColumnFlowIsFloating:
         stream << "column with floating objects";
@@ -430,17 +423,9 @@ OptionSet<AvoidanceReason> canUseForLineLayoutWithReason(const RenderBlockFlow& 
     if (!establishesInlineFormattingContext())
         SET_REASON_AND_RETURN_IF_NEEDED(FlowDoesNotEstablishInlineFormattingContext, reasons, includeReasons);
     if (flow.fragmentedFlowState() != RenderObject::NotInsideFragmentedFlow) {
-        auto* fragmentedFlow = flow.enclosingFragmentedFlow();
-        if (!is<RenderMultiColumnFlow>(fragmentedFlow))
-            SET_REASON_AND_RETURN_IF_NEEDED(FlowIsInsideANonMultiColumnThread, reasons, includeReasons);
-        auto& columnThread = downcast<RenderMultiColumnFlow>(*fragmentedFlow);
-        if (columnThread.parent() != &flow.view() || !flow.style().isHorizontalWritingMode())
-            SET_REASON_AND_RETURN_IF_NEEDED(MultiColumnFlowIsNotTopLevel, reasons, includeReasons);
-        if (columnThread.hasColumnSpanner())
-            SET_REASON_AND_RETURN_IF_NEEDED(MultiColumnFlowHasColumnSpanner, reasons, includeReasons);
         auto& style = flow.style();
-        if (style.verticalAlign() != VerticalAlign::Baseline)
-            SET_REASON_AND_RETURN_IF_NEEDED(MultiColumnFlowVerticalAlign, reasons, includeReasons);
+        if (!style.isHorizontalWritingMode())
+            SET_REASON_AND_RETURN_IF_NEEDED(MultiColumnFlowHasVerticalWritingMode, reasons, includeReasons);
         if (style.isFloating())
             SET_REASON_AND_RETURN_IF_NEEDED(MultiColumnFlowIsFloating, reasons, includeReasons);
     }
@@ -497,10 +482,23 @@ bool canUseForLineLayoutAfterStyleChange(const RenderBlockFlow& blockContainer, 
     return canUseForLineLayout(blockContainer);
 }
 
-bool shouldInvalidateLineLayoutPathAfterContentChangeFor(const RenderBlockFlow&, const RenderObject&, const LineLayout&)
+bool shouldInvalidateLineLayoutPathAfterContentChangeFor(const RenderBlockFlow& rootBlockContainer, const RenderObject& rendererWithNewContent, const LineLayout& lineLayout)
 {
-    // FIXME: Add partial support starting with a simple "a new RenderText has been appeared" case.
-    return true;
+    UNUSED_PARAM(rootBlockContainer);
+    if (!is<RenderText>(rendererWithNewContent) || !is<RenderBlockFlow>(rendererWithNewContent.parent()))
+        return true;
+    if (!rendererWithNewContent.style().isLeftToRightDirection() || !rendererWithNewContent.style().isHorizontalWritingMode())
+        return true;
+    if (rendererWithNewContent.nextSibling())
+        return true;
+    if (lineLayout.hasOutOfFlowContent())
+        return true;
+    if (Layout::TextUtil::containsStrongDirectionalityText(downcast<RenderText>(rendererWithNewContent).text()))
+        return true;
+    if (lineLayout.contentNeedsVisualReordering())
+        return true;
+    // Simple text content append only.
+    return false;
 }
 
 bool canUseForLineLayoutAfterInlineBoxStyleChange(const RenderInline& renderer, StyleDifference)

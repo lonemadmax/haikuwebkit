@@ -38,6 +38,7 @@
 #import <WebCore/FloatPoint.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/ScrollingTreeFrameScrollingNode.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 
 namespace WebKit {
@@ -107,7 +108,7 @@ DisplayLink* RemoteLayerTreeDrawingAreaProxyMac::exisingDisplayLink()
     return m_webPageProxy.process().processPool().displayLinks().existingDisplayLinkForDisplay(*m_displayID);
 }
 
-DisplayLink& RemoteLayerTreeDrawingAreaProxyMac::ensureDisplayLink()
+DisplayLink& RemoteLayerTreeDrawingAreaProxyMac::displayLink()
 {
     ASSERT(m_displayID);
 
@@ -250,7 +251,7 @@ void RemoteLayerTreeDrawingAreaProxyMac::scheduleDisplayRefreshCallbacks()
         return;
     }
 
-    auto& displayLink = ensureDisplayLink();
+    auto& displayLink = this->displayLink();
     m_displayRefreshObserverID = DisplayLinkObserverID::generate();
     displayLink.addObserver(*m_displayLinkClient, *m_displayRefreshObserverID, m_clientPreferredFramesPerSecond);
 }
@@ -280,7 +281,7 @@ void RemoteLayerTreeDrawingAreaProxyMac::setDisplayLinkWantsFullSpeedUpdates(boo
     if (!m_displayID)
         return;
 
-    auto& displayLink = ensureDisplayLink();
+    auto& displayLink = this->displayLink();
 
     // Use a second observer for full-speed updates (used to drive scroll animations).
     if (wantsFullSpeedUpdates) {
@@ -307,6 +308,8 @@ void RemoteLayerTreeDrawingAreaProxyMac::windowScreenDidChange(PlatformDisplayID
     m_displayID = displayID;
     m_displayNominalFramesPerSecond = nominalFramesPerSecond;
 
+    m_webPageProxy.scrollingCoordinatorProxy()->windowScreenDidChange(displayID, nominalFramesPerSecond);
+
     scheduleDisplayRefreshCallbacks();
     if (hadFullSpeedOberver) {
         m_fullSpeedUpdateObserverID = DisplayLinkObserverID::generate();
@@ -332,6 +335,45 @@ void RemoteLayerTreeDrawingAreaProxyMac::colorSpaceDidChange()
 {
     m_webPageProxy.send(Messages::DrawingArea::SetColorSpace(m_webPageProxy.colorSpace()), m_identifier);
 }
+
+MachSendRight RemoteLayerTreeDrawingAreaProxyMac::createFence()
+{
+    if (!m_webPageProxy.hasRunningProcess())
+        return MachSendRight();
+
+    RetainPtr<CAContext> rootLayerContext = [m_webPageProxy.acceleratedCompositingRootLayer() context];
+    if (!rootLayerContext)
+        return MachSendRight();
+
+    // Don't fence if we don't have a connection, because the message
+    // will likely get dropped on the floor (if the Web process is terminated)
+    // or queued up until process launch completes, and there's nothing useful
+    // to synchronize in these cases.
+    if (!m_webPageProxy.process().connection())
+        return MachSendRight();
+
+    // Don't fence if we have incoming synchronous messages, because we may not
+    // be able to reply to the message until the fence times out.
+    if (m_webPageProxy.process().connection()->hasIncomingSyncMessage())
+        return MachSendRight();
+
+    MachSendRight fencePort = MachSendRight::adopt([rootLayerContext createFencePort]);
+
+    // Invalidate the fence if a synchronous message arrives while it's installed,
+    // because we won't be able to reply during the fence-wait.
+    uint64_t callbackID = m_webPageProxy.process().connection()->installIncomingSyncMessageCallback([rootLayerContext] {
+        [rootLayerContext invalidateFences];
+    });
+    [CATransaction addCommitHandler:[callbackID, protectedPage = Ref { m_webPageProxy }] {
+        if (!protectedPage->hasRunningProcess())
+            return;
+        if (auto* connection = protectedPage->process().connection())
+            connection->uninstallIncomingSyncMessageCallback(callbackID);
+    } forPhase:kCATransactionPhasePostCommit];
+
+    return fencePort;
+}
+
 
 } // namespace WebKit
 

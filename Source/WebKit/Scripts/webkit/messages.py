@@ -226,6 +226,7 @@ def forward_declarations_for_namespace(namespace, kind_and_types):
 # When updating this list, run "make -C Source/WebKit/Scripts/webkit/tests" to keep the webkitpy tests passing.
 def serialized_identifiers():
     return [
+        'WebCore::BackgroundFetchRecordIdentifier',
         'WebCore::BroadcastChannelIdentifier',
         'WebCore::DOMCacheIdentifier',
         'WebCore::DictationContext',
@@ -265,6 +266,7 @@ def serialized_identifiers():
         'WebKit::AuthenticationChallengeIdentifier',
         'WebKit::ContentWorldIdentifier',
         'WebKit::DataTaskIdentifier',
+        'WebKit::DownloadID',
         'WebKit::FormSubmitListenerIdentifier',
         'WebKit::GeolocationIdentifier',
         'WebKit::GraphicsContextGLIdentifier',
@@ -294,6 +296,7 @@ def serialized_identifiers():
         'WebKit::RemoteRemoteCommandListenerIdentifier',
         'WebKit::RenderingBackendIdentifier',
         'WebKit::RenderingUpdateID',
+        'WebKit::RetrieveRecordResponseBodyCallbackIdentifier',
         'WebKit::SampleBufferDisplayLayerIdentifier',
         'WebKit::StorageAreaIdentifier',
         'WebKit::StorageAreaImplIdentifier',

@@ -45,7 +45,7 @@
 #include <WebCore/RenderLayerBacking.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/Settings.h>
-#include <WebCore/TypedElementDescendantIterator.h>
+#include <WebCore/TypedElementDescendantIteratorInlines.h>
 #include <WebCore/UserGestureIndicator.h>
 
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
@@ -381,12 +381,14 @@ void WebFullScreenManager::close()
 
 void WebFullScreenManager::saveScrollPosition()
 {
-    m_scrollPosition = m_page->corePage()->mainFrame().view()->scrollPosition();
+    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page->corePage()->mainFrame()))
+        m_scrollPosition = localMainFrame->view()->scrollPosition();
 }
 
 void WebFullScreenManager::restoreScrollPosition()
 {
-    m_page->corePage()->mainFrame().view()->setScrollPosition(m_scrollPosition);
+    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page->corePage()->mainFrame()))
+        localMainFrame->view()->setScrollPosition(m_scrollPosition);
 }
 
 void WebFullScreenManager::setFullscreenInsets(const WebCore::FloatBoxExtent& insets)

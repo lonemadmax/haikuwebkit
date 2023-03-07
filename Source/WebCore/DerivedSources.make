@@ -315,6 +315,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/fetch/FetchRequestMode.idl \
     $(WebCore)/Modules/fetch/FetchRequestRedirect.idl \
     $(WebCore)/Modules/fetch/FetchResponse.idl \
+    $(WebCore)/Modules/fetch/RequestPriority.idl \
     $(WebCore)/Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemFileHandle.idl \
@@ -1205,6 +1206,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/EXTDisjointTimerQueryWebGL2.idl \
     $(WebCore)/html/canvas/EXTFloatBlend.idl \
     $(WebCore)/html/canvas/EXTFragDepth.idl \
+    $(WebCore)/html/canvas/EXTPolygonOffsetClamp.idl \
     $(WebCore)/html/canvas/EXTShaderTextureLOD.idl \
     $(WebCore)/html/canvas/EXTTextureCompressionBPTC.idl \
     $(WebCore)/html/canvas/EXTTextureCompressionRGTC.idl \
@@ -1879,6 +1881,7 @@ POSSIBLE_ADDITIONAL_USER_AGENT_STYLE_SHEETS = \
             $(ADDITIONS_PATH)/$(STYLE_SHEET)))))
 
 USER_AGENT_STYLE_SHEETS = \
+    $(WebCore)/css/counterStyles.css \
     $(WebCore)/css/dialog.css \
     $(WebCore)/css/fullscreen.css \
     $(WebCore)/css/horizontalFormControls.css \

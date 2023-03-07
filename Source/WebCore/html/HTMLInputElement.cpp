@@ -73,7 +73,7 @@
 #include "StepRange.h"
 #include "StyleGradientImage.h"
 #include "TextControlInnerElements.h"
-#include "TypedElementDescendantIterator.h"
+#include "TypedElementDescendantIteratorInlines.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 #include <wtf/MathExtras.h>
@@ -288,8 +288,7 @@ bool HTMLInputElement::tooShort(StringView value, NeedsToCheckDirtyFlag check) c
     if (value.isEmpty())
         return false;
 
-    // FIXME: The HTML specification says that the "number of characters" is measured using code-unit length.
-    return numGraphemeClusters(value) < static_cast<unsigned>(min);
+    return value.length() < static_cast<unsigned>(min);
 }
 
 bool HTMLInputElement::tooLong(StringView value, NeedsToCheckDirtyFlag check) const
@@ -303,8 +302,7 @@ bool HTMLInputElement::tooLong(StringView value, NeedsToCheckDirtyFlag check) co
         if (!hasDirtyValue() || !m_wasModifiedByUser)
             return false;
     }
-    // FIXME: The HTML specification says that the "number of characters" is measured using code-unit length.
-    return numGraphemeClusters(value) > max;
+    return value.length() > max;
 }
 
 bool HTMLInputElement::rangeUnderflow() const
@@ -928,8 +926,10 @@ bool HTMLInputElement::appendFormData(DOMFormData& formData)
 
 void HTMLInputElement::reset()
 {
-    if (m_inputType->storesValueSeparateFromAttribute())
+    if (m_inputType->storesValueSeparateFromAttribute()) {
         setValue({ });
+        updateValidity();
+    }
 
     setAutoFilled(false);
     setAutoFilledAndViewable(false);

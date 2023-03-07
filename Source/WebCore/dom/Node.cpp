@@ -57,8 +57,10 @@
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "KeyboardEvent.h"
+#include "LiveNodeListInlines.h"
 #include "Logging.h"
 #include "MutationEvent.h"
+#include "NodeRareDataInlines.h"
 #include "NodeRenderStyle.h"
 #include "ProcessingInstruction.h"
 #include "ProgressEvent.h"
@@ -1517,6 +1519,11 @@ static const AtomString& locateDefaultNamespace(const Node& node, const AtomStri
 {
     switch (node.nodeType()) {
     case Node::ELEMENT_NODE: {
+        if (prefix == xmlAtom())
+            return XMLNames::xmlNamespaceURI.get();
+        if (prefix == xmlnsAtom())
+            return XMLNSNames::xmlnsNamespaceURI.get();
+
         auto& element = downcast<Element>(node);
         auto& namespaceURI = element.namespaceURI();
         if (!namespaceURI.isNull() && element.prefix() == prefix)

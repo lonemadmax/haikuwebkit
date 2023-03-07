@@ -1486,7 +1486,7 @@ void MediaPlayerPrivateGStreamer::handleStreamCollectionMessage(GstMessage* mess
     // WebKitMediaSrc) parsebin and decodebin3 emit their own stream-collection messages, but late,
     // and sometimes with duplicated streams. Let's only listen for stream-collection messages from
     // the source to avoid these issues.
-    if (isMediaSource() && GST_MESSAGE_SRC(message) != GST_OBJECT(m_source.get())) {
+    if (GST_MESSAGE_SRC(message) != GST_OBJECT(m_source.get())) {
         GST_DEBUG_OBJECT(pipeline(), "Ignoring redundant STREAM_COLLECTION from %" GST_PTR_FORMAT, message->src);
         return;
     }
@@ -1499,10 +1499,9 @@ void MediaPlayerPrivateGStreamer::handleStreamCollectionMessage(GstMessage* mess
             player->updateTracks(owner);
     };
 
-    if (isMediaSource())
-        callOnMainThreadAndWait(WTFMove(callback));
-    else
-        callOnMainThread(WTFMove(callback));
+    GST_DEBUG_OBJECT(pipeline(), "Updating tracks");
+    callOnMainThreadAndWait(WTFMove(callback));
+    GST_DEBUG_OBJECT(pipeline(), "Updating tracks DONE");
 }
 
 bool MediaPlayerPrivateGStreamer::handleNeedContextMessage(GstMessage* message)
@@ -1552,22 +1551,6 @@ bool MediaPlayerPrivateGStreamer::handleNeedContextMessage(GstMessage* message)
 // Returns the size of the video.
 FloatSize MediaPlayerPrivateGStreamer::naturalSize() const
 {
-#if ENABLE(MEDIA_STREAM)
-    if (!m_isLegacyPlaybin && !m_wantedVideoStreamId.isEmpty()) {
-        RefPtr<VideoTrackPrivateGStreamer> videoTrack = m_videoTracks.get(m_wantedVideoStreamId);
-
-        if (videoTrack) {
-            if (auto stream = videoTrack->stream()) {
-                auto tags = adoptGRef(gst_stream_get_tags(stream));
-                gint width, height;
-
-                if (tags && gst_tag_list_get_int(tags.get(), WEBKIT_MEDIA_TRACK_TAG_WIDTH, &width) && gst_tag_list_get_int(tags.get(), WEBKIT_MEDIA_TRACK_TAG_HEIGHT, &height))
-                    return FloatSize(width, height);
-            }
-        }
-    }
-#endif // ENABLE(MEDIA_STREAM)
-
     if (!hasVideo())
         return FloatSize();
 
@@ -2132,7 +2115,7 @@ void MediaPlayerPrivateGStreamer::processTableOfContentsEntry(GstTocEntry* entry
 
 void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
 {
-#if PLATFORM(BROADCOM) || USE(WESTEROS_SINK)
+#if PLATFORM(BROADCOM) || USE(WESTEROS_SINK) || PLATFORM(AMLOGIC)
     configureElementPlatformQuirks(element);
 #endif
 
@@ -2140,7 +2123,9 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
     auto elementClass = makeString(gst_element_get_metadata(element, GST_ELEMENT_METADATA_KLASS));
     auto classifiers = elementClass.split('/');
 
-    if (g_str_has_prefix(elementName.get(), "urisourcebin") && (isMediaSource() || isMediaStreamPlayer()))
+    // In GStreamer 1.20 and older urisourcebin mishandles source elements with dynamic pads. This
+    // is not an issue in 1.22.
+    if (webkitGstCheckVersion(1, 22, 0) && g_str_has_prefix(elementName.get(), "urisourcebin") && (isMediaSource() || isMediaStreamPlayer()))
         g_object_set(element, "use-buffering", FALSE, nullptr);
 
     // Collect processing time metrics for video decoders and converters.
@@ -2173,10 +2158,19 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
         g_object_set(G_OBJECT(element), "high-watermark", 0.10, nullptr);
 }
 
-#if PLATFORM(BROADCOM) || USE(WESTEROS_SINK)
+#if PLATFORM(BROADCOM) || USE(WESTEROS_SINK) || PLATFORM(AMLOGIC)
 void MediaPlayerPrivateGStreamer::configureElementPlatformQuirks(GstElement* element)
 {
     GST_DEBUG_OBJECT(pipeline(), "Element set-up for %s", GST_ELEMENT_NAME(element));
+
+#if PLATFORM(AMLOGIC)
+    if (!g_strcmp0(G_OBJECT_TYPE_NAME(G_OBJECT(element)), "GstAmlHalAsink")) {
+        GST_INFO_OBJECT(pipeline(), "Set property disable-xrun to TRUE");
+        g_object_set(element, "disable-xrun", TRUE, nullptr);
+        if (hasVideo())
+            g_object_set(G_OBJECT(element), "wait-video", TRUE, nullptr);
+    }
+#endif
 
 #if PLATFORM(BROADCOM)
     if (g_str_has_prefix(GST_ELEMENT_NAME(element), "brcmaudiosink"))
@@ -2212,12 +2206,12 @@ void MediaPlayerPrivateGStreamer::configureElementPlatformQuirks(GstElement* ele
     }
 #endif
     // FIXME: Following is a hack needed to get westeros-sink autoplug correctly with playbin3.
-    if (!m_isLegacyPlaybin && westerosSinkCaps && g_str_has_prefix(GST_ELEMENT_NAME(element), "decodebin3")) {
+    if (!m_isLegacyPlaybin && westerosSinkCaps && g_str_has_prefix(GST_ELEMENT_NAME(element), "uridecodebin3")) {
         GRefPtr<GstCaps> defaultCaps;
         g_object_get(element, "caps", &defaultCaps.outPtr(), NULL);
-        defaultCaps = adoptGRef(gst_caps_merge(defaultCaps.leakRef(), gst_caps_ref(westerosSinkCaps)));
+        defaultCaps = adoptGRef(gst_caps_merge(gst_caps_ref(westerosSinkCaps), defaultCaps.leakRef()));
         g_object_set(element, "caps", defaultCaps.get(), NULL);
-        GST_ERROR_OBJECT(pipeline(), "setting stop caps tp %" GST_PTR_FORMAT, defaultCaps.get());
+        GST_INFO_OBJECT(pipeline(), "setting stop caps tp %" GST_PTR_FORMAT, defaultCaps.get());
     }
 #endif
 }
@@ -2821,10 +2815,8 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
     // In the MSE case stream collection messages are emitted from the main thread right before the
     // initilization segment is parsed and "updateend" is fired. We need therefore to handle these
     // synchronously in the same main thread tick to make the tracks information available to JS no
-    // later than "updateend". There is no such limitation otherwise (if playbin3 is enabled or in
-    // MediaStream cases).
-    auto streamCollectionSignalName = makeString(isMediaSource() ? "sync-" : "", "message::stream-collection");
-    g_signal_connect_swapped(bus.get(), streamCollectionSignalName.ascii().data(), G_CALLBACK(+[](MediaPlayerPrivateGStreamer* player, GstMessage* message) {
+    // later than "updateend".
+    g_signal_connect_swapped(bus.get(), "sync-message::stream-collection", G_CALLBACK(+[](MediaPlayerPrivateGStreamer* player, GstMessage* message) {
         player->handleStreamCollectionMessage(message);
     }), this);
 
@@ -3237,6 +3229,9 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
                 // but left for later.
                 object.releaseFlag = DMABufReleaseFlag { };
 
+                // No way (yet) to retrieve the modifier information. Until then, no modifiers are specified
+                // for this DMABufObject (via the modifierPresent and modifierValue member variables).
+
                 // For each plane, the relevant data (stride, offset, skip, dmabuf fd) is retrieved and assigned
                 // as appropriate. Modifier values are zeroed out for now, since GStreamer doesn't yet provide
                 // the information.
@@ -3256,7 +3251,6 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
                     gst_video_format_info_component(videoInfo.finfo, i, comp);
                     object.offset[i] = offset;
                     object.stride[i] = GST_VIDEO_INFO_PLANE_STRIDE(&videoInfo, i);
-                    object.modifier[i] = 0;
                 }
                 return WTFMove(object);
             });

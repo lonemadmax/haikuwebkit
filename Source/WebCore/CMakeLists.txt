@@ -331,6 +331,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/fetch/FetchRequestMode.idl
     Modules/fetch/FetchRequestRedirect.idl
     Modules/fetch/FetchResponse.idl
+    Modules/fetch/RequestPriority.idl
     Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl
 
     Modules/filesystemaccess/FileSystemDirectoryHandle.idl
@@ -1756,6 +1757,7 @@ set(WebCore_CSS_VALUE_KEYWORDS
 )
 
 set(WebCore_USER_AGENT_STYLE_SHEETS
+    ${WEBCORE_DIR}/css/counterStyles.css
     ${WEBCORE_DIR}/css/dialog.css
     ${WEBCORE_DIR}/css/fullscreen.css
     ${WEBCORE_DIR}/css/horizontalFormControls.css
@@ -1895,6 +1897,7 @@ if (ENABLE_WEBGL)
         html/canvas/EXTDisjointTimerQueryWebGL2.cpp
         html/canvas/EXTFloatBlend.cpp
         html/canvas/EXTFragDepth.cpp
+        html/canvas/EXTPolygonOffsetClamp.cpp
         html/canvas/EXTShaderTextureLOD.cpp
         html/canvas/EXTTextureCompressionBPTC.cpp
         html/canvas/EXTTextureCompressionRGTC.cpp
@@ -1965,6 +1968,7 @@ list(APPEND WebCore_IDL_FILES
     html/canvas/EXTDisjointTimerQueryWebGL2.idl
     html/canvas/EXTFloatBlend.idl
     html/canvas/EXTFragDepth.idl
+    html/canvas/EXTPolygonOffsetClamp.idl
     html/canvas/EXTShaderTextureLOD.idl
     html/canvas/EXTTextureCompressionBPTC.idl
     html/canvas/EXTTextureCompressionRGTC.idl

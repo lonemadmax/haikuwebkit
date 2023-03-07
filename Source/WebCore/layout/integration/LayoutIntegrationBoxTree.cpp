@@ -195,7 +195,9 @@ UniqueRef<Layout::Box> BoxTree::createLayoutBox(RenderObject& renderer)
         auto text = style.textSecurity() == TextSecurity::None
             ? (isCombinedText ? textRenderer.originalText() : textRenderer.text())
             : RenderBlock::updateSecurityDiscCharacters(style, isCombinedText ? textRenderer.originalText() : textRenderer.text());
-        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, textRenderer.canUseSimplifiedTextMeasuring(), textRenderer.canUseSimpleFontCodePath(), WTFMove(style), WTFMove(firstLineStyle));
+        auto canUseSimpleFontCodePath = textRenderer.canUseSimpleFontCodePath();
+        auto canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath && Layout::TextUtil::canUseSimplifiedTextMeasuring(text, style, firstLineStyle.get());
+        return makeUniqueRef<Layout::InlineTextBox>(text, isCombinedText, canUseSimplifiedTextMeasuring, canUseSimpleFontCodePath, WTFMove(style), WTFMove(firstLineStyle));
     }
 
     auto& renderElement = downcast<RenderElement>(renderer);
@@ -266,9 +268,25 @@ void BoxTree::updateStyle(const RenderBoxModelObject& renderer)
     }
 }
 
-const Layout::Box& BoxTree::insert(const RenderElement&, RenderObject& child)
+void BoxTree::updateContent(const RenderText& textRenderer)
 {
+    auto& inlineTextBox = downcast<Layout::InlineTextBox>(layoutBoxForRenderer(textRenderer));
+    auto& style = inlineTextBox.style();
+    auto isCombinedText = is<RenderCombineText>(textRenderer) && downcast<RenderCombineText>(textRenderer).isCombined();
+    auto text = style.textSecurity() == TextSecurity::None ? (isCombinedText ? textRenderer.originalText() : textRenderer.text()) : RenderBlock::updateSecurityDiscCharacters(style, isCombinedText ? textRenderer.originalText() : textRenderer.text());
+    auto canUseSimpleFontCodePath = textRenderer.canUseSimpleFontCodePath();
+    auto canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath && Layout::TextUtil::canUseSimplifiedTextMeasuring(text, style, &inlineTextBox.firstLineStyle());
+
+    inlineTextBox.updateContent(text, canUseSimpleFontCodePath, canUseSimplifiedTextMeasuring);
+}
+
+const Layout::Box& BoxTree::insert(const RenderElement& parent, RenderObject& child)
+{
+    UNUSED_PARAM(parent);
+
     appendChild(createLayoutBox(child), child);
+    if (!m_boxToRendererMap.isEmpty())
+        m_boxToRendererMap.add(*child.layoutBox(), child);
     return layoutBoxForRenderer(child);
 }
 

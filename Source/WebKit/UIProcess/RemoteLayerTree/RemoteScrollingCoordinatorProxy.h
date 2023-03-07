@@ -47,6 +47,7 @@ class PlatformWheelEvent;
 
 namespace WebKit {
 
+class NativeWebWheelEvent;
 class RemoteLayerTreeHost;
 class RemoteScrollingCoordinatorTransaction;
 class RemoteScrollingTree;
@@ -91,7 +92,9 @@ public:
 
     void currentSnapPointIndicesDidChange(WebCore::ScrollingNodeID, std::optional<unsigned> horizontal, std::optional<unsigned> vertical);
 
-    WebCore::WheelEventHandlingResult handleWheelEvent(const WebCore::PlatformWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    virtual void handleWheelEvent(const NativeWebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    void continueWheelEventHandling(const NativeWebWheelEvent&, WebCore::WheelEventHandlingResult);
+
     void handleMouseEvent(const WebCore::PlatformMouseEvent&);
     
     virtual WebCore::PlatformWheelEvent filteredWheelEvent(const WebCore::PlatformWheelEvent& wheelEvent) { return wheelEvent; }
@@ -127,6 +130,8 @@ public:
     void receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase);
     void deferWheelEventTestCompletionForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
     void removeWheelEventTestCompletionDeferralForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
+
+    virtual void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<WebCore::FramesPerSecond>) { }
 
 protected:
     RemoteScrollingTree* scrollingTree() const { return m_scrollingTree.get(); }

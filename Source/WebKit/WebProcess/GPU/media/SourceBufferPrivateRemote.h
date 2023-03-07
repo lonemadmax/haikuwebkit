@@ -84,7 +84,7 @@ private:
     void reenqueueMediaIfNeeded(const MediaTime& currentMediaTime) final;
     void addTrackBuffer(const AtomString& trackId, RefPtr<WebCore::MediaDescription>&&) final;
     void resetTrackBuffers() final;
-    void clearTrackBuffers() final;
+    void clearTrackBuffers(bool) final;
     void setAllTrackBuffersNeedRandomAccess() final;
     void setGroupStartTimestamp(const MediaTime&) final;
     void setGroupStartTimestampToEndTimestamp() final;
@@ -100,6 +100,8 @@ private:
     void seekToTime(const MediaTime&) final;
     void updateTrackIds(Vector<std::pair<AtomString, AtomString>>&&) final;
     uint64_t totalTrackBufferSizeInBytes() const final;
+
+    void memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded, CompletionHandler<void(bool)>&&) final;
 
     bool isActive() const final { return m_isActive; }
 

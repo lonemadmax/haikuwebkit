@@ -32,7 +32,9 @@
 #include "CommonVM.h"
 #include "ContainerNodeAlgorithms.h"
 #include "Editor.h"
+#include "ElementChildIteratorInlines.h"
 #include "ElementRareData.h"
+#include "ElementTraversal.h"
 #include "EventNames.h"
 #include "FloatRect.h"
 #include "FrameView.h"
@@ -42,7 +44,7 @@
 #include "HTMLSlotElement.h"
 #include "HTMLTableRowsCollection.h"
 #include "InspectorInstrumentation.h"
-#include "JSNode.h"
+#include "JSNodeCustom.h"
 #include "LabelsNodeList.h"
 #include "MutationEvent.h"
 #include "NameNodeList.h"
@@ -665,7 +667,8 @@ ExceptionOr<void> ContainerNode::removeChild(Node& oldChild)
     // If it is, it can be deleted as a side effect of sending mutation events.
     ASSERT(refCount() || parentOrShadowHostNode());
 
-    Ref<ContainerNode> protectedThis(*this);
+    Ref protectedThis { *this };
+    Ref protectedOldChild { oldChild };
 
     // NotFoundError: Raised if oldChild is not a child of this node.
     if (oldChild.parentNode() != this)

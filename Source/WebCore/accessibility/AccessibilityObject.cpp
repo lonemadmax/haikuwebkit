@@ -1529,7 +1529,7 @@ String AccessibilityObject::stringForRange(const SimpleRange& range) const
     TextIterator it(range);
     if (it.atEnd())
         return String();
-    
+
     StringBuilder builder;
     for (; !it.atEnd(); it.advance()) {
         // non-zero length means textual node, zero length means replaced node (AKA "attachments" in AX)
@@ -1546,7 +1546,7 @@ String AccessibilityObject::stringForRange(const SimpleRange& range) const
                 builder.append(objectReplacementCharacter);
         }
     }
-    
+
     return builder.toString();
 }
 
@@ -2481,7 +2481,7 @@ static void initializeRoleMap()
         { "tablist"_s, AccessibilityRole::TabList },
         { "tabpanel"_s, AccessibilityRole::TabPanel },
         { "text"_s, AccessibilityRole::StaticText },
-        { "textbox"_s, AccessibilityRole::TextArea },
+        { "textbox"_s, AccessibilityRole::TextField },
         { "term"_s, AccessibilityRole::Term },
         { "time"_s, AccessibilityRole::Time },
         { "timer"_s, AccessibilityRole::ApplicationTimer },
@@ -2500,6 +2500,7 @@ static void initializeRoleMap()
         gAriaReverseRoleMap->set(static_cast<int>(roles[i].webcoreRole), roles[i].ariaRole);
     }
     gAriaReverseRoleMap->set(static_cast<int>(AccessibilityRole::Image), "image"_s);
+    gAriaReverseRoleMap->set(static_cast<int>(AccessibilityRole::TextArea), "textbox"_s);
 }
 
 static ARIARoleMap& ariaRoleMap()
@@ -2571,6 +2572,11 @@ bool AccessibilityObject::hasHighlighting() const
     }
     
     return false;
+}
+
+SRGBA<uint8_t> AccessibilityObject::colorValue() const
+{
+    return Color::transparentBlack;
 }
 
 #if !PLATFORM(MAC)

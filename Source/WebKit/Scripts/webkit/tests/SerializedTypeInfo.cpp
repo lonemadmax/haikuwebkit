@@ -60,7 +60,7 @@ Vector<SerializedTypeInfo> allSerializedTypes()
                 "SecondMemberType"_s,
                 "secondMemberName"_s
             }, {
-                "RetainPtr<CFTypeRef>"_s,
+                "std::optional<RetainPtr<CFTypeRef>>"_s,
                 "nullableTestMember"_s
             }
         } },
@@ -165,12 +165,15 @@ Vector<SerializedTypeInfo> allSerializedTypes()
         } },
         { "NullableSoftLinkedMember"_s, {
             {
-                "RetainPtr<DDActionContext>"_s,
+                "std::optional<RetainPtr<DDActionContext>>"_s,
                 "firstMember"_s
             }, {
                 "RetainPtr<DDActionContext>"_s,
                 "secondMember"_s
             }
+        } },
+        { "WebCore::TimingFunction"_s, {
+            { "std::variant<WebCore::LinearTimingFunction, WebCore::CubicBezierTimingFunction, WebCore::StepsTimingFunction, WebCore::SpringTimingFunction>"_s, "subclasses"_s }
         } },
         { "WebCore::SharedStringHash"_s, {
             { "uint32_t"_s, "alias"_s }

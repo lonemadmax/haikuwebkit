@@ -536,6 +536,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     pageConfiguration->preferences()->setInvisibleAutoplayNotPermitted(!![_configuration _invisibleAutoplayNotPermitted]);
     pageConfiguration->preferences()->setMediaDataLoadsAutomatically(!![_configuration _mediaDataLoadsAutomatically]);
     pageConfiguration->preferences()->setAttachmentElementEnabled(!![_configuration _attachmentElementEnabled]);
+    pageConfiguration->preferences()->setAttachmentWideLayoutEnabled(!![_configuration _attachmentWideLayoutEnabled]);
 
 #if ENABLE(DATA_DETECTION) && PLATFORM(IOS_FAMILY)
     pageConfiguration->preferences()->setDataDetectorTypes(fromWKDataDetectorTypes([_configuration dataDetectorTypes]).toRaw());
@@ -583,6 +584,8 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     pageConfiguration->preferences()->setAlternateFormControlDesignEnabled(WebKit::defaultAlternateFormControlDesignEnabled());
     pageConfiguration->preferences()->setVideoFullscreenRequiresElementFullscreen(WebKit::defaultVideoFullscreenRequiresElementFullscreen());
 #endif
+
+    pageConfiguration->preferences()->setMarkedTextInputEnabled(!![_configuration _markedTextInputEnabled]);
 }
 
 - (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration
@@ -2112,21 +2115,6 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
         transformed.addVoid(extensionID);
     _page->inspectorController().browserExtensionsDisabled(WTFMove(transformed));
 }
-
-#if HAVE(SAFARI_FOR_WEBKIT_DEVELOPMENT_REQUIRING_EXTRA_SYMBOLS)
-- (id <_WKInspectorDelegate>)_inspectorDelegate
-{
-    // This is needed to launch SafariForWebKitDevelopment on Big Sur with an open source WebKit build.
-    // FIXME: Remove this after we release a Safari after Safari 14.
-    return nil;
-}
-
-- (void)_setInspectorDelegate:(id<_WKInspectorDelegate>)delegate
-{
-    // This is needed to launch SafariForWebKitDevelopment on Big Sur with an open source WebKit build.
-    // FIXME: Remove this after we release a Safari after Safari 14.
-}
-#endif
 
 - (_WKFrameHandle *)_mainFrame
 {

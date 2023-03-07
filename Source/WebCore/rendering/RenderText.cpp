@@ -195,14 +195,7 @@ String capitalize(const String& string, UChar previousCharacter)
 
 inline RenderText::RenderText(Node& node, const String& text)
     : RenderObject(node)
-    , m_hasTab(false)
-    , m_linesDirty(false)
-    , m_needsVisualReordering(false)
     , m_isAllASCII(text.impl()->isAllASCII())
-    , m_knownToHaveNoOverflowAndNoFallbackFonts(false)
-    , m_useBackslashAsYenSymbol(false)
-    , m_originalTextDiffersFromRendered(false)
-    , m_hasInlineWrapperForDisplayContents(false)
     , m_text(text)
 {
     ASSERT(!m_text.isNull());
@@ -275,9 +268,6 @@ void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
         m_useBackslashAsYenSymbol = computeUseBackslashAsYenSymbol();
         needsResetText = true;
     }
-
-    if (!oldStyle || oldStyle->fontCascade() != newStyle.fontCascade())
-        m_canUseSimplifiedTextMeasuring = computeCanUseSimplifiedTextMeasuring();
 
     TextTransform oldTransform = oldStyle ? oldStyle->textTransform() : TextTransform::None;
     TextSecurity oldSecurity = oldStyle ? oldStyle->textSecurity() : TextSecurity::None;
@@ -1298,19 +1288,6 @@ void RenderText::setSelectionState(HighlightState state)
         containingBlock->setSelectionState(state);
 }
 
-void RenderText::setTextWithOffset(const String& newText, unsigned offset, unsigned length, bool force)
-{
-    if (!force && text() == newText)
-        return;
-
-    int delta = newText.length() - text().length();
-    unsigned end = offset + length;
-
-    m_linesDirty = m_lineBoxes.dirtyRange(*this, offset, end, delta);
-
-    setText(newText, force || m_linesDirty);
-}
-
 static inline bool isInlineFlowOrEmptyText(const RenderObject& renderer)
 {
     return is<RenderInline>(renderer) || (is<RenderText>(renderer) && downcast<RenderText>(renderer).text().isEmpty());
@@ -1459,7 +1436,6 @@ void RenderText::setRenderedText(const String& newText)
 
     m_isAllASCII = text().isAllASCII();
     m_canUseSimpleFontCodePath = computeCanUseSimpleFontCodePath();
-    m_canUseSimplifiedTextMeasuring = computeCanUseSimplifiedTextMeasuring();
     
     if (m_text != originalText) {
         originalTextMap().set(this, originalText);
@@ -1502,43 +1478,31 @@ void RenderText::secureText(UChar maskingCharacter)
         characters[revealedCharactersOffset] = characterToReveal;
 }
 
-bool RenderText::computeCanUseSimplifiedTextMeasuring() const
+#define ALLOW_PARTIAL_CONTENT_INVALIDATION 0
+static void invalidateLineLayoutPathOnContentChangeIfNeeded(const RenderText& renderer, size_t offset, int delta)
 {
-    if (!m_canUseSimpleFontCodePath)
-        return false;
-    
-    // FIXME: All these checks should be more fine-grained at the inline item level.
-    auto& style = this->style();
-    auto& fontCascade = style.fontCascade();
-    if (fontCascade.wordSpacing() || fontCascade.letterSpacing())
-        return false;
+    auto* container = LayoutIntegration::LineLayout::blockContainer(renderer);
+    if (!container)
+        return;
 
-    // Additional check on the font codepath.
-    TextRun run(m_text);
-    run.setCharacterScanForCodePath(false);
-    if (fontCascade.codePath(run) != FontCascade::CodePath::Simple)
-        return false;
+    auto* modernLineLayout = container->modernLineLayout();
+    if (!modernLineLayout)
+        return;
 
-    if (&style != &firstLineStyle() && fontCascade != firstLineStyle().fontCascade())
-        return false;
-
-    auto& primaryFont = fontCascade.primaryFont();
-    if (primaryFont.syntheticBoldOffset())
-        return false;
-
-    auto whitespaceIsCollapsed = style.collapseWhiteSpace();
-    for (unsigned i = 0; i < text().length(); ++i) {
-        auto character = text()[i];
-        if (!WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed))
-            return false;
-        auto glyphData = fontCascade.glyphDataForCharacter(character, false);
-        if (!glyphData.isValid() || glyphData.font != &primaryFont)
-            return false;
+    if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterContentChange(*container, renderer, *modernLineLayout)) {
+        container->invalidateLineLayoutPath();
+        return;
     }
-    return true;
+#if ALLOW_PARTIAL_CONTENT_INVALIDATION
+    modernLineLayout->updateTextContent(renderer, offset, delta);
+#else
+    UNUSED_PARAM(offset);
+    UNUSED_PARAM(delta);
+    container->invalidateLineLayoutPath();
+#endif
 }
 
-void RenderText::setText(const String& text, bool force)
+void RenderText::setTextInternal(const String& text, bool force)
 {
     ASSERT(!text.isNull());
 
@@ -1556,11 +1520,28 @@ void RenderText::setText(const String& text, bool force)
     setNeedsLayoutAndPrefWidthsRecalc();
     m_knownToHaveNoOverflowAndNoFallbackFonts = false;
 
-    if (auto* container = LayoutIntegration::LineLayout::blockContainer(*this))
-        container->invalidateLineLayoutPath();
-
     if (AXObjectCache* cache = document().existingAXObjectCache())
         cache->deferTextChangedIfNeeded(textNode());
+}
+
+void RenderText::setText(const String& newContent, bool force)
+{
+    setTextInternal(newContent, force);
+    invalidateLineLayoutPathOnContentChangeIfNeeded(*this, 0, text().length());
+}
+
+void RenderText::setTextWithOffset(const String& newText, unsigned offset, unsigned length, bool force)
+{
+    if (!force && text() == newText)
+        return;
+
+    int delta = newText.length() - text().length();
+    unsigned end = offset + length;
+
+    m_linesDirty = m_lineBoxes.dirtyRange(*this, offset, end, delta);
+
+    setTextInternal(newText, force || m_linesDirty);
+    invalidateLineLayoutPathOnContentChangeIfNeeded(*this, offset, delta);
 }
 
 String RenderText::textWithoutConvertingBackslashToYenSymbol() const
@@ -1628,7 +1609,7 @@ float RenderText::width(unsigned from, unsigned length, const FontCascade& fontC
         return *width;
 
     if (length == 1 && (characterAt(from) == space))
-        return canUseSimplifiedTextMeasuring() ? fontCascade.primaryFont().spaceWidth() : fontCascade.widthOfSpaceString();
+        return fontCascade.widthOfSpaceString();
 
     float width = 0.f;
     if (&fontCascade == &style.fontCascade()) {

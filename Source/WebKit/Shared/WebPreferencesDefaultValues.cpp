@@ -169,7 +169,7 @@ bool defaultManageCaptureStatusBarInGPUProcessEnabled()
 
 #endif // ENABLE(MEDIA_STREAM)
 
-#if ENABLE(MANAGED_MEDIA_SOURCE)
+#if ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE)
 bool defaultManagedMediaSourceEnabled()
 {
     // TBD
@@ -222,5 +222,17 @@ bool defaultGamepadVibrationActuatorEnabled()
 #endif
 }
 #endif
+
+bool defaultShouldEnableScreenOrientationAPI()
+{
+#if PLATFORM(MAC)
+    return true;
+#elif PLATFORM(IOS_FAMILY)
+    static bool shouldEnableScreenOrientationAPI = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ScreenOrientationAPIEnabled);
+    return shouldEnableScreenOrientationAPI;
+#else
+    return false;
+#endif
+}
 
 } // namespace WebKit

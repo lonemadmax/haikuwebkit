@@ -26,7 +26,7 @@
 #include "config.h"
 #include "EventRegion.h"
 
-#include "ElementAncestorIterator.h"
+#include "ElementAncestorIteratorInlines.h"
 #include "HTMLFormControlElement.h"
 #include "Logging.h"
 #include "Path.h"
@@ -138,6 +138,38 @@ void EventRegionContext::copyInteractionRegionsToEventRegion()
 #endif
 
 EventRegion::EventRegion() = default;
+
+EventRegion::EventRegion(Region&& region
+#if ENABLE(TOUCH_ACTION_REGIONS)
+    , Vector<WebCore::Region> touchActionRegions
+#endif
+#if ENABLE(WHEEL_EVENT_REGIONS)
+    , WebCore::Region wheelEventListenerRegion
+    , WebCore::Region nonPassiveWheelEventListenerRegion
+#endif
+#if ENABLE(EDITABLE_REGION)
+    , std::optional<WebCore::Region> editableRegion
+#endif
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    , Vector<WebCore::InteractionRegion> interactionRegions
+#endif
+    )
+    : m_region(WTFMove(region))
+#if ENABLE(TOUCH_ACTION_REGIONS)
+    , m_touchActionRegions(WTFMove(touchActionRegions))
+#endif
+#if ENABLE(WHEEL_EVENT_REGIONS)
+    , m_wheelEventListenerRegion(WTFMove(wheelEventListenerRegion))
+    , m_nonPassiveWheelEventListenerRegion(WTFMove(nonPassiveWheelEventListenerRegion))
+#endif
+#if ENABLE(EDITABLE_REGION)
+    , m_editableRegion(WTFMove(editableRegion))
+#endif
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    , m_interactionRegions(WTFMove(interactionRegions))
+#endif
+{
+}
 
 bool EventRegion::operator==(const EventRegion& other) const
 {

@@ -27,6 +27,8 @@
 #include "config.h"
 #include "OpenTypeMathData.h"
 
+#if ENABLE(MATHML)
+
 #include "Font.h"
 #include "FontPlatformData.h"
 #if ENABLE(OPENTYPE_MATH)
@@ -389,3 +391,5 @@ void OpenTypeMathData::getMathVariants(Glyph, bool, Vector<Glyph>&, Vector<Assem
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(MATHML)

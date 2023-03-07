@@ -76,7 +76,7 @@ bool defaultManageCaptureStatusBarInGPUProcessEnabled();
 bool defaultMediaSourceEnabled();
 #endif
 
-#if ENABLE(MANAGED_MEDIA_SOURCE)
+#if ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE)
 bool defaultManagedMediaSourceEnabled();
 #endif
 
@@ -96,5 +96,7 @@ bool defaultGamepadVibrationActuatorEnabled();
 
 bool defaultShouldTakeSuspendedAssertions();
 bool defaultShowModalDialogEnabled();
+
+bool defaultShouldEnableScreenOrientationAPI();
 
 } // namespace WebKit

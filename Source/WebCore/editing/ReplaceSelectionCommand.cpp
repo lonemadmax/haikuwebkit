@@ -40,7 +40,7 @@
 #include "DocumentFragment.h"
 #include "Editing.h"
 #include "EditingBehavior.h"
-#include "ElementIterator.h"
+#include "ElementIteratorInlines.h"
 #include "ElementName.h"
 #include "EventNames.h"
 #include "Frame.h"
@@ -67,6 +67,7 @@
 #include "StylePropertiesInlines.h"
 #include "Text.h"
 #include "TextIterator.h"
+#include "TypedElementDescendantIteratorInlines.h"
 #include "VisibleUnits.h"
 #include "markup.h"
 #include <wtf/NeverDestroyed.h>
@@ -182,7 +183,11 @@ ReplacementFragment::ReplacementFragment(DocumentFragment* fragment, const Visib
     }
 
     auto page = createPageForSanitizingWebContent();
-    RefPtr stagingDocument { page->mainFrame().document() };
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
+    if (!localMainFrame)
+        return;
+
+    RefPtr stagingDocument { localMainFrame->document() };
     ASSERT(stagingDocument->body());
 
     ComputedStyleExtractor computedStyleOfEditableRoot(editableRoot.get());

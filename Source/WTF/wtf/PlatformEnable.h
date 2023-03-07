@@ -85,8 +85,8 @@
 #include <wtf/PlatformEnableCocoa.h>
 #endif
 
-/* --------- Windows CAIRO port --------- */
-#if PLATFORM(WIN_CAIRO)
+/* --------- Windows port --------- */
+#if PLATFORM(WIN)
 #include <wtf/PlatformEnableWinCairo.h>
 #endif
 
@@ -885,7 +885,7 @@
 #define ENABLE_OPENTYPE_VERTICAL 1
 #endif
 
-#if !defined(ENABLE_OPENTYPE_MATH) && (OS(DARWIN) && USE(CG)) || (USE(FREETYPE) && !PLATFORM(GTK)) || (PLATFORM(WIN) && (USE(CG) || USE(CAIRO)))
+#if !defined(ENABLE_OPENTYPE_MATH) && (OS(DARWIN) && USE(CG)) || PLATFORM(WIN) || PLATFORM(PLAYSTATION)
 #define ENABLE_OPENTYPE_MATH 1
 #endif
 

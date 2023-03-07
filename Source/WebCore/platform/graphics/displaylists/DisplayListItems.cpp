@@ -237,7 +237,7 @@ void DrawLine::apply(GraphicsContext& context) const
     context.drawLine(m_point1, m_point2);
 }
 
-DrawLinesForText::DrawLinesForText(const FloatPoint& blockLocation, const FloatSize& localAnchor, float thickness, const DashArray& widths, bool printing, bool doubleLines, StrokeStyle style)
+DrawLinesForText::DrawLinesForText(const FloatPoint& blockLocation, const FloatSize& localAnchor, const DashArray& widths, float thickness, bool printing, bool doubleLines, StrokeStyle style)
     : m_blockLocation(blockLocation)
     , m_localAnchor(localAnchor)
     , m_widths(widths)
@@ -255,10 +255,7 @@ void DrawLinesForText::apply(GraphicsContext& context) const
 
 void DrawDotsForDocumentMarker::apply(GraphicsContext& context) const
 {
-    context.drawDotsForDocumentMarker(m_rect, {
-        static_cast<DocumentMarkerLineStyleMode>(m_styleMode),
-        m_styleShouldUseDarkAppearance,
-    });
+    context.drawDotsForDocumentMarker(m_rect, m_style);
 }
 
 void DrawEllipse::apply(GraphicsContext& context) const
@@ -294,6 +291,12 @@ void FillRectWithColor::apply(GraphicsContext& context) const
 FillRectWithGradient::FillRectWithGradient(const FloatRect& rect, Gradient& gradient)
     : m_rect(rect)
     , m_gradient(gradient)
+{
+}
+
+FillRectWithGradient::FillRectWithGradient(FloatRect&& rect, Ref<Gradient>&& gradient)
+    : m_rect(WTFMove(rect))
+    , m_gradient(WTFMove(gradient))
 {
 }
 

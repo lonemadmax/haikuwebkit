@@ -383,6 +383,10 @@ window.test_driver_internal.action_sequence = async function(sources)
 window.test_driver_internal.set_permission = async function(permission_params)
 {
     switch (permission_params.descriptor.name) {
+    case "background-fetch":
+        if (window.testRunner && testRunner.setBackgroundFetchPermission)
+            testRunner.setBackgroundFetchPermission(permission_params.state === "granted");
+        break;
     case "geolocation":
         const granted = permission_params.state === "granted";
         testRunner.setGeolocationPermission(granted);
