@@ -490,7 +490,7 @@ Frame* FrameLoaderClientHaiku::dispatchCreatePage(const NavigationAction& /*acti
     CALLED();
     WebCore::Page* page = m_webPage->createNewPage();
     if (page)
-        return &page->mainFrame();
+        return static_cast<WebCore::Frame*>(&page->mainFrame());
 
     return 0;
 }

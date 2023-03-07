@@ -97,7 +97,7 @@ BWebView::BWebView(const char* name, BPrivate::Network::BUrlContext* urlContext)
 
     // doesn't seem to affect the "background" for css, but it does fix the glaring
     // white screen between page loads (or when no page is open)
-    fWebPage->page()->mainFrame().view()->setBaseBackgroundColor(background);
+    static_cast<WebCore::Frame&>(fWebPage->page()->mainFrame()).view()->setBaseBackgroundColor(background);
 }
 
 BWebView::~BWebView()

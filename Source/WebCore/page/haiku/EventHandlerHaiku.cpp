@@ -102,7 +102,7 @@ bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widge
         return false;
 
     auto& localFrame = static_cast<LocalFrame&>(static_cast<FrameView&>(widget).frame());
-    localFrame.eventHandler().handleWheelEvent(event, processingSteps);
+    return localFrame.eventHandler().handleWheelEvent(event, processingSteps);
 }
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame& subframe)

@@ -78,7 +78,7 @@ BWebFrame::BWebFrame(BWebPage* webPage, BWebFrame* parentFrame,
     if (!parentFrame) {
         // No parent, we are creating the main BWebFrame.
         // mainframe is already created in WebCore::Page, just use it.
-        fData->frame = &webPage->page()->mainFrame();
+        fData->frame = static_cast<WebCore::Frame*>(&webPage->page()->mainFrame());
 		FrameLoaderClientHaiku& client
 			= static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
 		client.setFrame(this);
