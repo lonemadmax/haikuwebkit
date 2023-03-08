@@ -47,9 +47,9 @@ public:
     static std::unique_ptr<ImageBufferHaikuSurfaceBackend> create(const ImageBufferBackend::Parameters&, const GraphicsContext&);
     ~ImageBufferHaikuSurfaceBackend();
 
-    GraphicsContext& context() const override;
-    WTF::RefPtr<WebCore::NativeImage> copyNativeImage(BackingStoreCopy) const override;
-    RefPtr<WebCore::PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator& allocator) const override;
+    GraphicsContext& context() override;
+    WTF::RefPtr<WebCore::NativeImage> copyNativeImage(BackingStoreCopy) override;
+    RefPtr<WebCore::PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator& allocator) override;
     void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) override;
     unsigned bytesPerRow() const override;
 

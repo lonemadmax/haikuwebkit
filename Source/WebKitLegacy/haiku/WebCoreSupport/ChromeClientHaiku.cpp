@@ -81,12 +81,12 @@ void ChromeClientHaiku::setWindowRect(const FloatRect& rect)
     m_webPage->setWindowBounds(BRect(rect));
 }
 
-FloatRect ChromeClientHaiku::windowRect()
+FloatRect ChromeClientHaiku::windowRect() const
 {
     return FloatRect(m_webPage->windowBounds());
 }
 
-FloatRect ChromeClientHaiku::pageRect()
+FloatRect ChromeClientHaiku::pageRect() const
 {
 	IntSize size = m_webPage->MainFrame()->Frame()->view()->contentsSize();
 	return FloatRect(0, 0, size.width(), size.height());
@@ -108,7 +108,7 @@ void ChromeClientHaiku::unfocus()
     }
 }
 
-bool ChromeClientHaiku::canTakeFocus(FocusDirection)
+bool ChromeClientHaiku::canTakeFocus(FocusDirection) const
 {
     return true;
 }
@@ -178,7 +178,7 @@ void ChromeClientHaiku::show()
     }
 }
 
-bool ChromeClientHaiku::canRunModal()
+bool ChromeClientHaiku::canRunModal() const
 {
     notImplemented();
     return false;
@@ -194,7 +194,7 @@ void ChromeClientHaiku::setToolbarsVisible(bool visible)
     m_webPage->setToolbarsVisible(visible);
 }
 
-bool ChromeClientHaiku::toolbarsVisible()
+bool ChromeClientHaiku::toolbarsVisible() const
 {
     return m_webPage->areToolbarsVisible();
 }
@@ -204,7 +204,7 @@ void ChromeClientHaiku::setStatusbarVisible(bool visible)
     m_webPage->setStatusbarVisible(visible);
 }
 
-bool ChromeClientHaiku::statusbarVisible()
+bool ChromeClientHaiku::statusbarVisible() const
 {
     return m_webPage->isStatusbarVisible();
 }
@@ -214,7 +214,7 @@ void ChromeClientHaiku::setScrollbarsVisible(bool visible)
     m_webPage->MainFrame()->SetAllowsScrolling(visible);
 }
 
-bool ChromeClientHaiku::scrollbarsVisible()
+bool ChromeClientHaiku::scrollbarsVisible() const
 {
     return m_webPage->MainFrame()->AllowsScrolling();
 }
@@ -224,7 +224,7 @@ void ChromeClientHaiku::setMenubarVisible(bool visible)
     m_webPage->setMenubarVisible(visible);
 }
 
-bool ChromeClientHaiku::menubarVisible()
+bool ChromeClientHaiku::menubarVisible() const
 {
     return m_webPage->isMenubarVisible();
 }

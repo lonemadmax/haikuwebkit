@@ -47,20 +47,22 @@ namespace WebCore {
     struct FrameLoadRequest;
 
     class ChromeClientHaiku : public ChromeClient {
+        WTF_MAKE_FAST_ALLOCATED;
+
     public:
         ChromeClientHaiku(BWebPage*, BWebView*);
         virtual ~ChromeClientHaiku();
         void chromeDestroyed() override;
 
         void setWindowRect(const FloatRect&) override;
-        FloatRect windowRect() override;
+        FloatRect windowRect() const override;
 
-        FloatRect pageRect() override;
+        FloatRect pageRect() const override;
 
         void focus() override;
         void unfocus() override;
 
-        bool canTakeFocus(FocusDirection) override;
+        bool canTakeFocus(FocusDirection) const override;
         void takeFocus(FocusDirection) override;
 
         void focusedElementChanged(Element*) override;
@@ -71,20 +73,20 @@ namespace WebCore {
 
         void show() override;
 
-        bool canRunModal() override;
+        bool canRunModal() const override;
         void runModal() override;
 
         void setToolbarsVisible(bool) override;
-        bool toolbarsVisible() override;
+        bool toolbarsVisible() const override;
 
         void setStatusbarVisible(bool) override;
-        bool statusbarVisible() override;
+        bool statusbarVisible() const override;
 
         void setScrollbarsVisible(bool) override;
-        bool scrollbarsVisible() override;
+        bool scrollbarsVisible() const override;
 
         void setMenubarVisible(bool) override;
-        bool menubarVisible() override;
+        bool menubarVisible() const override;
 
         void setResizable(bool) override;
 

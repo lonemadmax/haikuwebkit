@@ -335,6 +335,11 @@ void GraphicsContextHaiku::clipPath(const Path& path, WindRule windRule)
     m_view->SetFillRule(fillRule);
 }
 
+void GraphicsContextHaiku::clipToImageBuffer(WebCore::ImageBuffer&, WebCore::FloatRect const&)
+{
+	notImplemented();
+}
+
 
 void GraphicsContextHaiku::drawPattern(NativeImage& image, const FloatRect& destRect,
     const FloatRect& tileRect, const AffineTransform& transform,

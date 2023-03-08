@@ -37,15 +37,15 @@ namespace WebCore {
 class ContextMenu;
 
 class ContextMenuClientHaiku : public ContextMenuClient {
+    WTF_MAKE_FAST_ALLOCATED;
+
 public:
     ContextMenuClientHaiku(BWebPage*);
-
-    void contextMenuDestroyed() override;
 
     void downloadURL(const URL& url) override;
     void lookUpInDictionary(Frame*) override;
     void speak(const String&) override;
-    bool isSpeaking() override;
+    bool isSpeaking() const override;
     void stopSpeaking() override;
     void searchWithGoogle(const Frame*) override;
 

@@ -33,6 +33,8 @@
 
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoaderClient.h>
+#include <WebCore/ResourceError.h>
+
 #include "wtf/URL.h"
 #include <Messenger.h>
 #include <unicode/uidna.h>
@@ -216,6 +218,7 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
     void didRestoreFromBackForwardCache() final {}
 
     void sendH2Ping(const WTF::URL&, WTF::CompletionHandler<void(std::experimental::fundamentals_v3::expected<WTF::Seconds, WebCore::ResourceError>&&)>&&) final { notImplemented(); }
+    ResourceError httpsUpgradeRedirectLoopError(const ResourceRequest&) const final { notImplemented(); }
  private:
     bool isTertiaryMouseButton(const NavigationAction& action) const;
 

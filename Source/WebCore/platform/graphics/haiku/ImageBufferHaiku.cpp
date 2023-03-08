@@ -86,7 +86,7 @@ ImageBufferData::~ImageBufferData()
 }
 
 
-WTF::RefPtr<WebCore::NativeImage> ImageBufferHaikuSurfaceBackend::copyNativeImage(WebCore::BackingStoreCopy doCopy) const
+WTF::RefPtr<WebCore::NativeImage> ImageBufferHaikuSurfaceBackend::copyNativeImage(WebCore::BackingStoreCopy doCopy)
 {
     if (m_data.m_view)
         m_data.m_view->Sync();
@@ -133,7 +133,7 @@ ImageBufferHaikuSurfaceBackend::~ImageBufferHaikuSurfaceBackend()
 {
 }
 
-GraphicsContext& ImageBufferHaikuSurfaceBackend::context() const
+GraphicsContext& ImageBufferHaikuSurfaceBackend::context()
 {
     return *m_data.m_context;
 }
@@ -141,7 +141,7 @@ GraphicsContext& ImageBufferHaikuSurfaceBackend::context() const
 
 RefPtr<PixelBuffer> ImageBufferHaikuSurfaceBackend::getPixelBuffer(
     const PixelBufferFormat& outputFormat, const IntRect& srcRect,
-    const ImageBufferAllocator& allocator) const
+    const ImageBufferAllocator& allocator)
 {
     return ImageBufferBackend::getPixelBuffer(outputFormat, srcRect, m_data.m_image->Bits(), allocator);
 }

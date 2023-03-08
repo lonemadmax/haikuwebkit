@@ -308,14 +308,14 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         WebBroadcastChannelRegistry::getOrCreate(false),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
-        EmptyBadgeClient::create()
+        EmptyBadgeClient::create(),
+        makeUniqueRef<ContextMenuClientHaiku>(this),
+        makeUniqueRef<ChromeClientHaiku>(this, webView)
     );
 
     // alternativeText
-    pageClients.chromeClient = new ChromeClientHaiku(this, webView);
-    pageClients.contextMenuClient = new ContextMenuClientHaiku(this);
     pageClients.dragClient = std::make_unique<DragClientHaiku>(webView);
-    pageClients.inspectorClient = new InspectorClientHaiku();
+    pageClients.inspectorClient = std::make_unique<InspectorClientHaiku>();
     pageClients.diagnosticLoggingClient = std::make_unique<WebKit::WebDiagnosticLoggingClient>();
     pageClients.applicationCacheStorage = &WebApplicationCache::storage();
     pageClients.databaseProvider = &WebDatabaseProvider::singleton();
@@ -1346,8 +1346,8 @@ void BWebPage::handleMouseWheelChanged(BMessage* message)
     PlatformWheelEvent event(IntPoint(position), IntPoint(globalPosition), deltaX, deltaY,
         wheelTicksX, wheelTicksY, ScrollByPixelWheelEvent, modifiers & B_SHIFT_KEY,
         modifiers & B_COMMAND_KEY, modifiers & B_CONTROL_KEY, modifiers & B_OPTION_KEY);
-    frame->eventHandler().handleWheelEvent(event, { WheelEventProcessingSteps::MainThreadForScrolling,
-        WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch });
+    frame->eventHandler().handleWheelEvent(event, { WheelEventProcessingSteps::SynchronousScrolling,
+        WheelEventProcessingSteps::NonBlockingDOMEventDispatch });
 }
 
 void BWebPage::handleKeyEvent(BMessage* message)

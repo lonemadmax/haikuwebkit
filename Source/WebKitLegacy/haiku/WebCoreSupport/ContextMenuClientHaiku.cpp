@@ -49,22 +49,16 @@ ContextMenuClientHaiku::ContextMenuClientHaiku(BWebPage* webPage)
 {
 }
 
-void ContextMenuClientHaiku::contextMenuDestroyed()
-{
-    delete this;
-}
-
 void ContextMenuClientHaiku::downloadURL(const URL& url)
 {
-	ResourceRequest request(url);
+    ResourceRequest request(url);
     m_webPage->requestDownload(request);
 }
 
 void ContextMenuClientHaiku::searchWithGoogle(const Frame* frame)
 {
     String searchString = frame->editor().selectedText();
-    searchString.stripWhiteSpace();
-    String encoded = encodeWithURLEscapeSequences(searchString);
+    String encoded = encodeWithURLEscapeSequences(searchString.stripWhiteSpace());
     encoded = makeStringByReplacingAll(encoded, ASCIILiteral::fromLiteralUnsafe("%20"),
         ASCIILiteral::fromLiteralUnsafe("+"));
 
@@ -90,7 +84,7 @@ void ContextMenuClientHaiku::speak(const String&)
     notImplemented();
 }
 
-bool ContextMenuClientHaiku::isSpeaking()
+bool ContextMenuClientHaiku::isSpeaking() const
 {
     notImplemented();
     return false;

@@ -68,6 +68,7 @@ public:
     void clipOut(const FloatRect&) override;
     void clipOut(const Path&) override;
     void clipPath(const Path&, WindRule = WindRule::EvenOdd) override;
+	void clipToImageBuffer(ImageBuffer&, const FloatRect&) override;
     void drawLinesForText(const FloatPoint&, float thickness, const DashArray& widths, bool printing, bool doubleLines = false, StrokeStyle = WebCore::StrokeStyle::SolidStroke) override;
     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) override;
     void drawFocusRing(const Vector<FloatRect>&, float offset, float width, const Color&) override;
