@@ -27,7 +27,7 @@ else()
     platform/network/haiku/NetworkStorageSessionHaiku.cpp
   )
 
-  list(APPEND WebCore_LIBRARIES netservices)
+  list(APPEND WebCore_LIBRARIES netservices shared)
   list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/haiku/AuthenticationChallenge.h
     platform/network/haiku/CertificateInfo.h
