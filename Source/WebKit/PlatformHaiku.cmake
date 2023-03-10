@@ -3,7 +3,6 @@ list(APPEND WebKit_SOURCES
     NetworkProcess/cache/NetworkCacheIOChannelHaiku.cpp
     NetworkProcess/haiku/NetworkProcessHaiku.cpp
     NetworkProcess/haiku/NetworkProcessMainHaiku.cpp
-    NetworkProcess/haiku/RemoteNetworkingContextHaiku.cpp
 
     Platform/IPC/unix/AttachmentUnix.cpp
     Platform/IPC/unix/ConnectionUnix.cpp
