@@ -1412,7 +1412,7 @@ void Connection::dispatchToClient(F&& clientRunLoopTask)
     dispatcher().dispatch(WTFMove(clientRunLoopTask));
 }
 
-#if !USE(UNIX_DOMAIN_SOCKETS) && !OS(DARWIN) && !OS(WINDOWS)
+#if !USE(UNIX_DOMAIN_SOCKETS) && !OS(DARWIN) && !OS(WINDOWS) && !OS(HAIKU)
 std::optional<Connection::ConnectionIdentifierPair> Connection::createConnectionIdentifierPair()
 {
     notImplemented();
