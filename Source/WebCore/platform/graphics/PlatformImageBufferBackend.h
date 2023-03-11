@@ -29,6 +29,8 @@
 #include "ImageBufferCGBackend.h"
 #elif USE(CAIRO)
 #include "ImageBufferCairoBackend.h"
+#elif USE(HAIKU)
+#include "ImageBufferHaikuSurfaceBackend.h"
 #endif
 
 namespace WebCore {
@@ -37,6 +39,8 @@ namespace WebCore {
 using PlatformImageBufferBackend = ImageBufferCGBackend;
 #elif USE(CAIRO)
 using PlatformImageBufferBackend = ImageBufferCairoBackend;
+#elif USE(HAIKU)
+using PlatformImageBufferBackend = ImageBufferHaikuSurfaceBackend;
 #endif
 
 } // namespace WebCore
