@@ -81,7 +81,7 @@ String WebMemorySampler::processName() const
 {
     team_info info;
     if (get_team_info(B_CURRENT_TEAM, &info) == B_OK)
-        return String(info.args);
+        return String::fromUTF8(info.args);
     return String();
 }
 
