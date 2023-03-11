@@ -129,6 +129,13 @@ ImageBufferHaikuSurfaceBackend::ImageBufferHaikuSurfaceBackend(
 {
 }
 
+ImageBufferHaikuSurfaceBackend::ImageBufferHaikuSurfaceBackend(
+    const Parameters& parameters)
+    : ImageBufferBackend(parameters)
+    , m_data({0, 0})
+{
+}
+
 ImageBufferHaikuSurfaceBackend::~ImageBufferHaikuSurfaceBackend()
 {
 }

@@ -55,9 +55,11 @@ public:
 
     static size_t calculateMemoryCost(const Parameters&);
 
-private:
+protected:
     ImageBufferHaikuSurfaceBackend(const Parameters& parameters, const IntSize& backendSize);
+    ImageBufferHaikuSurfaceBackend(const Parameters& parameters);
 
+private:
     ImageBufferData m_data;
 };
 
