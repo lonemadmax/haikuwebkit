@@ -56,6 +56,18 @@ public:
 
     const BCertificate& certificate() const { return *m_certificate; }
 
+    bool operator==(const CertificateInfo& other) const
+    {
+        if (m_certificate == nullptr && other.m_certificate == nullptr)
+            return true;
+        else if (m_certificate == nullptr)
+            return false;
+        else if (other.m_certificate == nullptr)
+            return false;
+        else
+            return *m_certificate == *other.m_certificate;
+    }
+
     bool containsNonRootSHA1SignedCertificate() const { notImplemented(); return false; }
 private:
     const BCertificate* m_certificate;
