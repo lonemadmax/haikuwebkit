@@ -160,11 +160,11 @@ void RunLoop::TimerBase::start(Seconds nextFireInterval, bool repeat)
 
 bool RunLoop::TimerBase::isActive() const
 {
-	m_runLoop->m_handler->LockLooper();
-
-    bool active = (m_messageRunner != NULL);
-
-	m_runLoop->m_handler->UnlockLooper();
+	bool active = false;
+	if (m_runLoop->m_handler->LockLooper()) {
+		active = (m_messageRunner != NULL);
+		m_runLoop->m_handler->UnlockLooper();
+	}
 
 	return active;
 }
