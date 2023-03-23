@@ -179,6 +179,12 @@ Vector<Cookie> NetworkStorageSession::getCookies(const URL&)
     return { };
 }
 
+void NetworkStorageSession::hasCookies(const RegistrableDomain&, CompletionHandler<void(bool)>&& completionHandler) const
+{
+    // FIXME: Implement.
+    completionHandler(false);
+}
+
 bool NetworkStorageSession::getRawCookies(const URL& firstParty,
 	const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID,
 	std::optional<PageIdentifier> pageID, ApplyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking, Vector<Cookie>& rawCookies) const
