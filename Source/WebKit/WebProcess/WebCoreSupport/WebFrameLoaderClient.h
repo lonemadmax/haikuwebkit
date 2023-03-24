@@ -29,7 +29,7 @@
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/FrameLoaderClient.h>
-#include "CertificateInfo.h"
+#include <WebCore/CertificateInfo.h>
 #include <pal/SessionID.h>
 #include <wtf/Scope.h>
 

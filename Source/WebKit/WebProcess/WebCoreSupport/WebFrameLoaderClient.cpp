@@ -100,8 +100,6 @@
 #include <wtf/ProcessID.h>
 #include <wtf/ProcessPrivilege.h>
 
-#include "CertificateInfo.h"
-
 #if ENABLE(FULLSCREEN_API)
 #include <WebCore/FullscreenManager.h>
 #endif
