@@ -30,7 +30,7 @@
 
 #if ENABLE(INSPECTOR)
 
-#include "NotImplemented.h"
+#include <WebCore/NotImplemented.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -48,10 +48,10 @@ String WebInspectorUI::localizedStringsURL()
 
 String RemoteWebInspectorUI::localizedStringsURL()
 {
-	notImplemented();
+    notImplemented();
     return "file:///localizedStrings.js";
 }
-	
+    
 } // namespace WebKit
 
 #endif // ENABLE(INSPECTOR)
