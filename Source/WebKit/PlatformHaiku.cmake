@@ -1,3 +1,5 @@
+include(Headers.cmake)
+
 list(APPEND WebKit_SOURCES
     NetworkProcess/cache/NetworkCacheDataHaiku.cpp
     NetworkProcess/cache/NetworkCacheIOChannelHaiku.cpp
@@ -43,8 +45,7 @@ list(APPEND WebKit_SOURCES
 )
 
 list(APPEND WebKit_INCLUDE_DIRECTORIES
-    #"${WEBCORE_DIR}/platform/graphics/opentype"
-    #"${WEBCORE_DIR}/platform/network/haiku"
+    "${DERIVED_SOURCES_HAIKU_API_DIR}"
     "${WEBKIT_DIR}/NetworkProcess/unix"
     "${WEBKIT_DIR}/Platform"
     "${WEBKIT_DIR}/Platform/IPC/unix"
@@ -64,22 +65,8 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
     ${LIBXSLT_INCLUDE_DIRS}
     ${SQLITE_INCLUDE_DIRS}
     ${WTF_DIR}
-    ${WTF_DIR}
     "${DERIVED_SOURCES_WEBCORE_DIR}"
-    "${WEBCORE_DIR}/platform"
-    "${WEBCORE_DIR}/platform/text"
-    "${WEBCORE_DIR}/fileapi"
 )
-
-list(APPEND WebKit_LOCAL_INCLUDE_DIRECTORIES
-    "${WEBCORE_DIR}/platform/graphics"
-    "${WEBCORE_DIR}/platform/graphics/transforms"
-    "${WEBCORE_DIR}/rendering/shapes"
-)
-
-foreach(inc ${WebKitLegacy_LOCAL_INCLUDE_DIRECTORIES})
-    ADD_DEFINITIONS(-iquote ${inc})
-endforeach(inc)
 
 list(APPEND WebKit_LIBRARIES
     ${CMAKE_DL_LIBS}
@@ -130,11 +117,8 @@ set(WebKit_FORWARDING_HEADERS_DIRECTORIES
    Platform/IPC/unix
    WebProcess/InjectedBundle/API/c
 )
-set(WebKit_FORWARDING_HEADERS_FILES
-    #Platform/classifier/ResourceLoadStatisticsClassifier.h
-    Platform/IPC/unix/UnixMessage.h
-)
 
-#WEBKIT_CREATE_FORWARDING_HEADERS(WebKit FILES ${WebKit_FORWARDING_HEADERS_FILES} DIRECTORIES 
-#${WebKit_FORWARDING_HEADERS_DIRECTORIES})
+list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
+    Shared/API/c/haiku/WKBaseHaiku.h
+)
 
