@@ -571,6 +571,7 @@ AsyncClipboardAPIEnabled:
   humanReadableDescription: "Enable the async clipboard API"
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)" : true
       default: false
     WebKit:
       "PLATFORM(COCOA)" : true
