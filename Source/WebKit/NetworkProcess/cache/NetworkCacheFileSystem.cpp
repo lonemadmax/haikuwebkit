@@ -70,6 +70,11 @@ FileTimes fileTimes(const String& path)
     if (stat(FileSystem::fileSystemRepresentation(path).data(), &fileInfo))
         return { };
     return { WallTime::fromRawSeconds(fileInfo.st_birthtime), WallTime::fromRawSeconds(fileInfo.st_mtime) };
+#elif USE(HAIKU)
+    struct stat fileInfo;
+    if (stat(FileSystem::fileSystemRepresentation(path).data(), &fileInfo))
+        return { };
+    return { WallTime::fromRawSeconds(fileInfo.st_ctime), WallTime::fromRawSeconds(fileInfo.st_mtime) };
 #elif USE(SOUP)
     // There's no st_birthtime in some operating systems like Linux, so we use xattrs to set/get the creation time.
     GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(FileSystem::fileSystemRepresentation(path).data()));
