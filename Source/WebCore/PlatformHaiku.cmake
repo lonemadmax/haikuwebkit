@@ -46,7 +46,6 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
   "${WEBCORE_DIR}/page/scrolling/coordinatedgraphics"
   "${WEBCORE_DIR}/platform/haiku"
   "${WEBCORE_DIR}/platform/graphics/egl"
-  "${WEBCORE_DIR}/platform/graphics/haiku"
   "${WEBCORE_DIR}/platform/graphics/opengl"
   "${WEBCORE_DIR}/platform/graphics/opentype"
   "${WEBCORE_DIR}/platform/graphics/texmap/coordinated"
