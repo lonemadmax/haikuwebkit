@@ -4,4 +4,5 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 	platform/graphics/haiku/GraphicsContextHaiku.h
+	platform/graphics/haiku/ImageBufferHaikuSurfaceBackend.h
 )
