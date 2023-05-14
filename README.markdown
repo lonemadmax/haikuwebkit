@@ -225,7 +225,7 @@ Same as above, but:
     $ python Tools/Scripts/run-webkit-tests --platform=haiku-wk2 --no-build \
         --no-retry-failures --clobber-old-results --no-new-test-results
 
-Note that this is currently not working.
+This is currently broken.
 
 ### Others ###
 
@@ -241,9 +241,22 @@ crash or freeze when it hits a problematic website).
 
 The work on WebKit2 is found in the GSoC2019 tag. It has not been updated since
 and the internals of WebKit have changed a bit. An attempt to rebase it is found
-in the webkit2 branch, but it's completely broken. The best thing to do is
-probably to enable webkit2 in the current rebased branch, see what breaks, and
-cherry-pick the relevant changes from the GSoC2019 tag (and the commit history leading to it).
+in the haiku-webkit2 branch, but it's broken. This branch is a bit more than a rebase,
+there is also a lot of cleanup of the commit history, and some obsolete changes were removed.
+It is a good starting point to get WebKit2 running on Haiku, but a lot of things will need
+to be added or debugged. It is possible to build the MiniBrowser test browser, but inter-process
+communications are not working, and so, it is not possible to even start loading a page at the
+moment. There is some ongoing work to restore this to a working state.
+
+### Logging ###
+
+To facilitate debugging with multiple processes, logging is done using the DevConsole tool. This
+allows clearly tagging each log with the originating process (especially useful for WebKit2 where
+there are multiple processes).
+
+Logging can be controlled using the WEBKIT_DEBUG environment variable. The default is to have
+all logs disabled. You can enable everythin by setting the variable to "all", or enable specific
+debug sources. Most logs require some compile time options as well.
 
 ## Notes ##
 
