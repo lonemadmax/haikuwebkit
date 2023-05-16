@@ -280,6 +280,9 @@ WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
     WTFBreakpointTrapUnderConstexprContext(); \
     __builtin_unreachable(); \
 } while (0)
+#elif PLATFORM(HAIKU)
+#define CRASH() (debugger(__PRETTY_FUNCTION__), abort())
+#define CRASH_UNDER_CONSTEXPR_CONTEXT() WTFBreakpointTrapUnderConstexprContext()
 #elif !ENABLE(DEVELOPER_MODE) && !OS(DARWIN)
 #ifdef __cplusplus
 #define CRASH() std::abort()
@@ -770,12 +773,19 @@ NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char*
     WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason), wtfCrashArg(misc1), wtfCrashArg(misc2), wtfCrashArg(misc3), wtfCrashArg(misc4), wtfCrashArg(misc5), wtfCrashArg(misc6));
 }
 
-inline void WTFCrashWithInfo(int, const char*, const char*, int)
+inline void WTFCrashWithInfo(int line, const char* filename, const char* function, int d)
 #if COMPILER(CLANG)
     __attribute__((optnone))
 #endif
 {
+#if PLATFORM(HAIKU)
+    BString str;
+    str.SetToFormat("%s:%d: %s, %d", filename, line, function, d);
+    debugger(str.String());
+    abort();
+#else
     CRASH();
+#endif
 }
 
 namespace WTF {
