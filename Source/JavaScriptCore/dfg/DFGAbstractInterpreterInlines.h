@@ -1296,7 +1296,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         switch (node->child1().useKind()) {
         case Int32Use:
             if (std::optional<double> number = child.toNumberFromPrimitive()) {
-                JSValue result = jsNumber(fabs(*number));
+                JSValue result = jsNumber(std::abs(*number));
                 if (result.isInt32()) {
                     setConstant(node, result);
                     break;
@@ -1306,7 +1306,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             break;
         case DoubleRepUse:
             if (std::optional<double> number = child.toNumberFromPrimitive()) {
-                setConstant(node, jsDoubleNumber(fabs(*number)));
+                setConstant(node, jsDoubleNumber(std::abs(*number)));
                 break;
             }
             setNonCellTypeForNode(node, typeOfDoubleAbs(forNode(node->child1()).m_type));
@@ -3347,10 +3347,6 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             break;
         }
         setForNode(node, m_codeBlock->globalObjectFor(node->origin.semantic)->clonedArgumentsStructure());
-        break;
-
-    case CreateArgumentsButterflyExcludingThis:
-        setForNode(node, m_vm.immutableButterflyStructures[arrayIndexFromIndexingType(CopyOnWriteArrayWithContiguous) - NumberOfIndexingShapes].get());
         break;
 
     case NewGeneratorFunction:

@@ -32,9 +32,7 @@
 #include "Editing.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "FloatQuad.h"
-#include "Frame.h"
 #include "FrameSelection.h"
-#include "FrameView.h"
 #include "GeometryUtilities.h"
 #include "GraphicsContext.h"
 #include "HTMLBRElement.h"
@@ -46,6 +44,8 @@
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyRenderSVGModelObject.h"
 #include "LegacyRenderSVGRoot.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "LogicalSelectionOffsetCaches.h"
 #include "Page.h"
 #include "PseudoElement.h"
@@ -573,7 +573,7 @@ void RenderObject::markContainingBlocksForLayout(ScheduleRelayout scheduleRelayo
     auto ancestor = container();
 
     bool simplifiedNormalFlowLayout = needsSimplifiedNormalFlowLayout() && !selfNeedsLayout() && !normalChildNeedsLayout();
-    bool hasOutOfFlowPosition = !isText() && style().hasOutOfFlowPosition();
+    bool hasOutOfFlowPosition = isOutOfFlowPositioned();
 
     while (ancestor) {
         // FIXME: Remove this once we remove the special cases for counters, quotes and mathml calling setNeedsLayout during preferred width computation.
@@ -612,7 +612,7 @@ void RenderObject::markContainingBlocksForLayout(ScheduleRelayout scheduleRelayo
         if (scheduleRelayout == ScheduleRelayout::Yes && objectIsRelayoutBoundary(ancestor))
             break;
 
-        hasOutOfFlowPosition = ancestor->style().hasOutOfFlowPosition();
+        hasOutOfFlowPosition = ancestor->isOutOfFlowPositioned();
         ancestor = container;
     }
 
@@ -1728,7 +1728,7 @@ static void invalidateLineLayoutAfterTreeMutationIfNeeded(RenderObject& renderer
     auto shouldInvalidateLineLayoutPath = true;
     if (auto* modernLineLayout = container->modernLineLayout()) {
         shouldInvalidateLineLayoutPath = LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterTreeMutation(*container, renderer, *modernLineLayout, isRemoval == IsRemoval::Yes);
-        if (!shouldInvalidateLineLayoutPath && LayoutIntegration::LineLayout::canUseFor(*container)) {
+        if (!shouldInvalidateLineLayoutPath) {
             isRemoval == IsRemoval::Yes ? modernLineLayout->removedFromTree(*renderer.parent(), renderer) : modernLineLayout->insertedIntoTree(*renderer.parent(), renderer);
             shouldInvalidateLineLayoutPath = !modernLineLayout->isDamaged();
         }

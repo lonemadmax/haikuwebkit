@@ -52,7 +52,7 @@
 #include "NetworkSessionCreationParameters.h"
 #include "NetworkStorageManager.h"
 #include "PreconnectTask.h"
-#include "PrivateClickMeasurementStore.h"
+#include "PrivateClickMeasurementPersistentStore.h"
 #include "RemoteWorkerType.h"
 #include "ShouldGrandfatherStatistics.h"
 #include "StorageAccessStatus.h"
@@ -395,6 +395,9 @@ void NetworkProcess::createNetworkConnectionToWebProcess(ProcessIdentifier ident
 
 void NetworkProcess::addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, WebCore::RegistrableDomain&& firstPartyForCookies, LoadedWebArchive loadedWebArchive, CompletionHandler<void()>&& completionHandler)
 {
+    if (!HashSet<WebCore::RegistrableDomain>::isValidValue(firstPartyForCookies))
+        return completionHandler();
+
     auto& pair = m_allowedFirstPartiesForCookies.ensure(processIdentifier, [] {
         return std::make_pair(LoadedWebArchive::No, HashSet<RegistrableDomain> { });
     }).iterator->value;
@@ -1416,6 +1419,12 @@ void NetworkProcess::setPrivateClickMeasurementDebugMode(PAL::SessionID sessionI
         session->setPrivateClickMeasurementDebugMode(enabled);
 }
 
+void NetworkProcess::setBlobRegistryTopOriginPartitioningEnabled(PAL::SessionID sessionID, bool enabled) const
+{
+    if (auto* session = networkSession(sessionID))
+        session->setBlobRegistryTopOriginPartitioningEnabled(enabled);
+}
+
 void NetworkProcess::preconnectTo(PAL::SessionID sessionID, WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, const URL& url, const String& userAgent, WebCore::StoredCredentialsPolicy storedCredentialsPolicy, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, LastNavigationWasAppInitiated lastNavigationWasAppInitiated)
 {
     LOG(Network, "(NetworkProcess) Preconnecting to URL %s (storedCredentialsPolicy %i)", url.string().utf8().data(), (int)storedCredentialsPolicy);
@@ -2232,7 +2241,7 @@ void NetworkProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime e
 #if ENABLE(TRACKING_PREVENTION)
     WebResourceLoadStatisticsStore::suspend([callbackAggregator] { });
 #endif
-    PCM::Store::prepareForProcessToSuspend([callbackAggregator] { });
+    PCM::PersistentStore::prepareForProcessToSuspend([callbackAggregator] { });
 
     forEachNetworkSession([&] (auto& session) {
         platformFlushCookies(session.sessionID(), [callbackAggregator] { });
@@ -2269,7 +2278,7 @@ void NetworkProcess::processDidResume(bool forForegroundActivity)
 #if ENABLE(TRACKING_PREVENTION)
     WebResourceLoadStatisticsStore::resume();
 #endif
-    PCM::Store::processDidResume();
+    PCM::PersistentStore::processDidResume();
 
     forEachNetworkSession([](auto& session) {
 #if ENABLE(SERVICE_WORKER)

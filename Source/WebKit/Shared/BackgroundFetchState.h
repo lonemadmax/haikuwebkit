@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if ENABLE(SERVICE_WORKER)
+
 #include <WebCore/BackgroundFetchFailureReason.h>
 #include <WebCore/BackgroundFetchOptions.h>
 #include <WebCore/BackgroundFetchResult.h>
@@ -52,7 +54,7 @@ struct BackgroundFetchState {
     WebCore::BackgroundFetchResult result { WebCore::BackgroundFetchResult::EmptyString };
     WebCore::BackgroundFetchFailureReason failureReason { WebCore::BackgroundFetchFailureReason::EmptyString };
     
-    bool isActive { false };
+    bool isPaused { false };
     
 #if PLATFORM(COCOA)
     NSDictionary *toDictionary() const;
@@ -61,3 +63,4 @@ struct BackgroundFetchState {
 
 } // namespace WebKit
 
+#endif

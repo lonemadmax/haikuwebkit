@@ -90,9 +90,11 @@ private:
     void createLayer(const RemoteLayerTreeTransaction::LayerCreationProperties&);
     std::unique_ptr<RemoteLayerTreeNode> makeNode(const RemoteLayerTreeTransaction::LayerCreationProperties&);
 
+    bool updateBannerLayers(const RemoteLayerTreeTransaction&);
+
     void layerWillBeRemoved(WebCore::GraphicsLayer::PlatformLayerID);
 
-    RemoteLayerBackingStore::LayerContentsType layerContentsType() const;
+    RemoteLayerBackingStoreProperties::LayerContentsType layerContentsType() const;
 
     RemoteLayerTreeDrawingAreaProxy* m_drawingArea { nullptr };
     WeakPtr<RemoteLayerTreeNode> m_rootNode;

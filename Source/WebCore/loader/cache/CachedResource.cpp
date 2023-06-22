@@ -36,7 +36,6 @@
 #include "DiagnosticLoggingKeys.h"
 #include "Document.h"
 #include "DocumentLoader.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTTPHeaderNames.h"
@@ -44,6 +43,7 @@
 #include "InspectorInstrumentation.h"
 #include "LegacySchemeRegistry.h"
 #include "LoaderStrategy.h"
+#include "LocalFrame.h"
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "PlatformStrategies.h"
@@ -101,7 +101,7 @@ CachedResource::CachedResource(CachedResourceRequest&& request, Type type, PAL::
 {
     ASSERT(m_sessionID.isValid());
 
-    setLoadPriority(request.priority());
+    setLoadPriority(request.priority(), request.fetchPriorityHint());
 #ifndef NDEBUG
     cachedResourceLeakCounter.increment();
 #endif
@@ -164,7 +164,7 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
         failBeforeStarting();
         return;
     }
-    Frame& frame = *cachedResourceLoader.frame();
+    LocalFrame& frame = *cachedResourceLoader.frame();
 
     // Prevent new loads if we are in the BackForwardCache or being added to the BackForwardCache.
     // We query the top document because new frames may be created in pagehide event handlers
@@ -310,6 +310,7 @@ void CachedResource::loadFrom(const CachedResource& resource)
 void CachedResource::setBodyDataFrom(const CachedResource& resource)
 {
     m_data = resource.m_data;
+    m_cryptographicDigests = resource.m_cryptographicDigests;
     mutableResponse() = resource.response();
     mutableResponse().setTainting(m_responseTainting);
     setDecodedSize(resource.decodedSize());
@@ -338,6 +339,7 @@ void CachedResource::updateData(const SharedBuffer&)
 
 void CachedResource::finishLoading(const FragmentedSharedBuffer*, const NetworkLoadMetrics& metrics)
 {
+    clearCachedCryptographicDigests();
     setLoading(false);
     checkNotify(metrics);
 }
@@ -348,8 +350,14 @@ void CachedResource::error(CachedResource::Status status)
     ASSERT(errorOccurred());
     m_data = nullptr;
 
+    clearCachedCryptographicDigests();
     setLoading(false);
     checkNotify({ });
+}
+
+void CachedResource::clearCachedCryptographicDigests()
+{
+    m_cryptographicDigests.fill(std::nullopt);
 }
     
 void CachedResource::cancelLoad()
@@ -896,12 +904,17 @@ unsigned CachedResource::overheadSize() const
     return sizeof(CachedResource) + response().memoryUsage() + kAverageClientsHashMapSize + m_resourceRequest.url().string().length() * 2;
 }
 
-void CachedResource::setLoadPriority(const std::optional<ResourceLoadPriority>& loadPriority)
+void CachedResource::setLoadPriority(const std::optional<ResourceLoadPriority>& loadPriority, RequestPriority fetchPriorityHint)
 {
-    if (loadPriority)
-        m_loadPriority = loadPriority.value();
-    else
-        m_loadPriority = DefaultResourceLoadPriority::forResourceType(type());
+    ResourceLoadPriority priority = loadPriority ? loadPriority.value() : DefaultResourceLoadPriority::forResourceType(type());
+    if (fetchPriorityHint == RequestPriority::Low) {
+        if (priority != ResourceLoadPriority::Lowest)
+            --priority;
+    } else if (fetchPriorityHint == RequestPriority::High) {
+        if (priority != ResourceLoadPriority::Highest)
+            ++priority;
+    }
+    m_loadPriority = priority;
 }
 
 CachedResource::ResponseData::ResponseData(CachedResource& resource)
@@ -1035,6 +1048,17 @@ void CachedResource::previewResponseReceived(const ResourceResponse& response)
 }
 
 #endif
+
+ResourceCryptographicDigest CachedResource::cryptographicDigest(ResourceCryptographicDigest::Algorithm algorithm) const
+{
+    unsigned digestIndex = WTF::fastLog2(static_cast<unsigned>(algorithm));
+    RELEASE_ASSERT(digestIndex < m_cryptographicDigests.size());
+    ASSERT(static_cast<std::underlying_type_t<ResourceCryptographicDigest::Algorithm>>(algorithm) == (1 << digestIndex));
+    auto& existingDigest = m_cryptographicDigests[digestIndex];
+    if (!existingDigest)
+        existingDigest = cryptographicDigestForSharedBuffer(algorithm, resourceBuffer());
+    return *existingDigest;
+}
 
 }
 

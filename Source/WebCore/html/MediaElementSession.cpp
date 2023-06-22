@@ -34,14 +34,14 @@
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "ElementInlines.h"
-#include "Frame.h"
-#include "FrameView.h"
 #include "FullscreenManager.h"
 #include "HTMLAudioElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "HTMLVideoElement.h"
 #include "HitTestResult.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "Logging.h"
 #include "MediaUsageInfo.h"
 #include "NowPlayingInfo.h"
@@ -1134,7 +1134,8 @@ bool MediaElementSession::allowsPlaybackControlsForAutoplayingAudio() const
 static bool isDocumentPlayingSeveralMediaStreams(Document& document)
 {
     // We restrict to capturing document for now, until we have a good way to state to the UIProcess application that audio rendering is muted from here.
-    return document.activeMediaElementsWithMediaStreamCount() > 1 && MediaProducer::isCapturing(document.mediaState());
+    auto* page = document.page();
+    return document.activeMediaElementsWithMediaStreamCount() > 1 && page && MediaProducer::isCapturing(page->mediaState());
 }
 
 static bool processRemoteControlCommandIfPlayingMediaStreams(Document& document, PlatformMediaSession::RemoteControlCommandType commandType)

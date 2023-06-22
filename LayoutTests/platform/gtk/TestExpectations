@@ -102,8 +102,6 @@ http/tests/cookies/same-site [ Pass ]
 
 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-audio-tainting.https.html [ Pass ]
 
-fast/text/zero-width-characters-complex-script.html [ Pass ]
-
 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-descendant-text-mutated-001.html [ Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -600,13 +598,13 @@ webkit.org/b/251107 webgl/2.0.0/conformance2/textures/video/tex-2d-srgb8-rgb-uns
 webkit.org/b/251107 webgl/2.0.0/conformance2/textures/webgl_canvas/tex-2d-r8-red-unsigned_byte.html [ Pass Timeout ]
 webkit.org/b/251107 webgl/2.0.0/conformance2/transform_feedback/transform_feedback.html [ Failure Timeout ]
 webkit.org/b/251107 webgl/2.0.0/conformance2/vertex_arrays/vertex-array-object.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/buffers/buffer-uninitialized.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/buffers/element-array-buffer-delete-recreate.html [ Pass Failure Timeout ]
-webkit.org/b/251107 webgl/2.0.0/conformance/buffers/index-validation-copies-indices.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/buffers/index-validation.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/buffers/index-validation-large-buffer.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/buffers/index-validation-verifies-too-many-indices.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/buffers/index-validation-with-resized-buffer.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/buffers/buffer-uninitialized.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/buffers/element-array-buffer-delete-recreate.html [ Pass Failure Timeout ]
+webkit.org/b/251107 webgl/2.0.y/conformance/buffers/index-validation-copies-indices.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/buffers/index-validation.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/buffers/index-validation-large-buffer.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/buffers/index-validation-verifies-too-many-indices.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/buffers/index-validation-with-resized-buffer.html [ Pass Failure ]
 webkit.org/b/251107 webgl/2.0.0/conformance/context/context-attributes-alpha-depth-stencil-antialias.html [ Pass Timeout ]
 webkit.org/b/251107 webgl/2.0.0/conformance/extensions/angle-instanced-arrays-out-of-bounds.html [ Pass Failure ]
 webkit.org/b/251107 webgl/2.0.0/conformance/extensions/oes-texture-float.html [ Pass Failure ]
@@ -851,21 +849,17 @@ fast/forms/range/input-appearance-range-rtl.html [ ImageOnlyFailure ]
 
 # Service-workers tests that fail, time out or crash.
 
-# GTK ought to support async clipboard
-webkit.org/b/211979 editing/async-clipboard/clipboard-change-data-while-writing.html [ Failure ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-read-text-from-platform.html [ Failure ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-change-data-while-getting-type.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-change-data-while-reading.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-get-type-with-old-items.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-read-basic.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-read-text-same-origin.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-write-basic.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-write-items-twice.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-write-text.html [ Timeout ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-item-get-type-basic.html [ Failure ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-read-text.html [ Failure ]
-webkit.org/b/211979 editing/async-clipboard/clipboard-read-write-images.html [ Failure ]
-webkit.org/b/211979 editing/async-clipboard/sanitize-when-reading-markup.html [ Failure ]
+# GTK doesn't support multiple items in the clipboard
+# FIXME: add platform specific tests equivalent to these but using single item.
+editing/async-clipboard/clipboard-read-write-images.html [ Skip ]
+editing/async-clipboard/clipboard-write-basic.html [ Skip ]
+editing/async-clipboard/sanitize-when-reading-markup.html [ Skip ]
+
+# These tests are intended to exercise programmatic paste mechanism specific to Apple ports.
+editing/async-clipboard/clipboard-change-data-while-reading.html [ Skip ]
+editing/async-clipboard/clipboard-read-text-from-platform.html [ Skip ]
+editing/async-clipboard/clipboard-read-text-same-origin.html [ Skip ]
+editing/async-clipboard/clipboard-read-while-pasting.html [ Skip ]
 
 webkit.org/b/180062 fast/text/user-installed-fonts [ Skip ]
 
@@ -892,6 +886,8 @@ webkit.org/b/168466 http/tests/security/bypassing-cors-checks-for-extension-urls
 
 # The test directly sends Cocoa events
 swipe/pushState-programmatic-back-while-swiping-crash.html [ Skip ]
+swipe/swipe-back-with-passive-wheel-listener.html [ Skip ]
+swipe/swipe-back-with-active-wheel-listener.html [ Skip ]
 
 # GTK port doesn't suport datalist in range elements
 fast/forms/datalist/input-appearance-range-with-datalist-rtl.html [ Skip ]
@@ -1070,8 +1066,6 @@ webkit.org/b/120839 animations/cross-fade-background-image.html [ ImageOnlyFailu
 webkit.org/b/207605 [ Debug ] http/tests/workers/service/registration-clear-redundant-worker.html [ Crash ]
 webkit.org/b/207605 [ Debug ] http/tests/websocket/tests/hybi/no-subprotocol.html [ Crash ]
 
-webkit.org/b/212232 editing/async-clipboard/clipboard-read-while-pasting.html [ Crash ]
-
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Crashing tests
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1125,13 +1119,6 @@ webkit.org/b/158918 fast/css3-text/css3-text-decoration/text-decoration-dashed.h
 webkit.org/b/158918 fast/css3-text/css3-text-decoration/text-decoration-dotted-dashed.html [ ImageOnlyFailure ]
 webkit.org/b/158918 fast/css3-text/css3-text-decoration/text-decoration-dotted.html [ ImageOnlyFailure ]
 
-# These are expected mismatches, so they should fail, and the bug is they sometimes pass.
-webkit.org/b/153941 fast/text/control-characters/visible-control-characters-1.html [ ImageOnlyFailure ]
-webkit.org/b/153941 fast/text/control-characters/visible-control-characters-2.html [ ImageOnlyFailure Pass ]
-webkit.org/b/153941 fast/text/control-characters/visible-control-characters-2.xhtml [ ImageOnlyFailure ]
-webkit.org/b/153941 fast/text/control-characters/visible-control-characters-3.html [ ImageOnlyFailure Pass ]
-webkit.org/b/153941 fast/text/control-characters/visible-control-characters-3.xhtml [ ImageOnlyFailure ]
-
 webkit.org/b/170337 fast/repaint/obscured-background-no-repaint.html [ Failure ]
 
 webkit.org/b/172283 inspector/worker/debugger-multiple-targets-pause.html [ Timeout Pass Failure ]
@@ -1158,6 +1145,13 @@ webkit.org/b/128255 compositing/columns/composited-lr-paginated-repaint.html [ P
 webkit.org/b/128255 compositing/columns/composited-rl-paginated-repaint.html [ Pass Failure ]
 
 webkit.org/b/194382 mathml/presentation/stretchy-depth-height-symmetric.html [ Failure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/mi-fontstyle-fontweight.html [ Pass ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-double-struck-font-style-font-weight.html [ Pass ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/tables/table-002.html [ Pass ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/ignored-properties-001.html [ Pass ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/not-participating-to-parent-layout.html [ Pass ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/margin-003.html [ Pass ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/padding-002.html [ Pass ]
 
 webkit.org/b/195466 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/ready-states/autoplay.html [ Failure ]
 
@@ -1941,8 +1935,6 @@ webkit.org/b/144673 fast/forms/button-line-height.html [ ImageOnlyFailure ]
 webkit.org/b/144763 fast/events/scroll-in-scaled-page-with-overflow-hidden.html
 
 webkit.org/b/148932 imported/w3c/web-platform-tests/css/css-color/t425-hsla-clip-outside-device-gamut-b.xht [ ImageOnlyFailure ]
-
-webkit.org/b/149128 fast/text/control-characters [ ImageOnlyFailure ]
 
 # web-platform-tests XHR tests
 imported/w3c/web-platform-tests/xhr/event-readystatechange-loaded.any.js [ Slow ]

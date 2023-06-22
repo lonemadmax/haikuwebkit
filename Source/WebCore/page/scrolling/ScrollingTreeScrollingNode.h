@@ -59,15 +59,14 @@ class WEBCORE_EXPORT ScrollingTreeScrollingNode : public ScrollingTreeNode {
 public:
     virtual ~ScrollingTreeScrollingNode();
 
-    void handleKeyboardScrollRequest(const RequestedKeyboardScrollData&);
-
     void commitStateBeforeChildren(const ScrollingStateNode&) override;
     void commitStateAfterChildren(const ScrollingStateNode&) override;
     void didCompleteCommitForNode() final;
 
     virtual bool canHandleWheelEvent(const PlatformWheelEvent&, EventTargeting) const;
     virtual WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&, EventTargeting = EventTargeting::Propagate);
-
+    virtual void handleWheelEventPhase(const PlatformWheelEventPhase) { }
+    
     FloatPoint currentScrollPosition() const { return m_currentScrollPosition; }
     FloatPoint currentScrollOffset() const { return ScrollableArea::scrollOffsetFromPosition(m_currentScrollPosition, toFloatSize(m_scrollOrigin)); }
     FloatPoint lastCommittedScrollPosition() const { return m_lastCommittedScrollPosition; }
@@ -93,6 +92,9 @@ public:
     void scrollBy(const FloatSize&, ScrollClamping = ScrollClamping::Clamped);
 
     void handleScrollPositionRequest(const RequestedScrollData&);
+
+    void handleKeyboardScrollRequest(const RequestedKeyboardScrollData&);
+    void requestKeyboardScroll(const RequestedKeyboardScrollData&);
 
     void wasScrolledByDelegatedScrolling(const FloatPoint& position, std::optional<FloatRect> overrideLayoutViewport = { }, ScrollingLayerPositionAction = ScrollingLayerPositionAction::Sync);
     

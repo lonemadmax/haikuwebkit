@@ -146,3 +146,20 @@ gained parameters to specify the script world to use.
 [method@WebKit.Download.set_destination], [method@WebKit.Download.get_destination],
 [property@WebKit.Download:destination], and [signal@WebKit.Download::created-destination]
 now all use a filesystem path rather than a URI. All uses must be updated accordingly.
+
+## JavaScript Results
+
+WebKitJavascriptResult has been removed. [signal@WebKit.UserContentManager::script-message-received]
+now directly returns a [class@JSC.Value] instead.
+
+## Web Process Extension
+
+WebKitWebExtension has been renamed to WebKitWebProcessExtension to avoid
+confusion with WebExtensions, which are unrelated. This affects many methods and
+signals of other objects as well, e.g. [signal@WebKit.WebContext::initialize-web-process-extensions].
+The name of your extension's entry point must now be `webkit_web_process_extension_initialize()`
+or `webkit_web_process_extension_initialize_with_user_data()`.
+
+Beware that as of WebKitGTK 2.40, the entire web process API may unfortunately
+be removed in the future. For more information on why, see
+[this mailing list thread](https://lists.webkit.org/pipermail/webkit-dev/2022-August/032329.html).

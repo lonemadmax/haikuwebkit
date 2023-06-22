@@ -66,31 +66,31 @@ bool ManagedMediaSource::isTypeSupported(ScriptExecutionContext& context, const 
     return MediaSource::isTypeSupported(context, type);
 }
 
-void ManagedMediaSource::startStreaming()
+void ManagedMediaSource::setStreaming(bool streaming)
 {
-    if (m_streaming)
+    if (m_streaming == streaming)
         return;
-    m_streaming = true;
-    scheduleEvent(eventNames().startstreamingEvent);
-}
-
-void ManagedMediaSource::endStreaming()
-{
-    if (!m_streaming)
-        return;
-    m_streaming = false;
-    scheduleEvent(eventNames().endstreamingEvent);
+    m_streaming = streaming;
+    if (streaming)
+        scheduleEvent(eventNames().startstreamingEvent);
+    else
+        scheduleEvent(eventNames().endstreamingEvent);
+    notifyElementUpdateMediaState();
 }
 
 bool ManagedMediaSource::isBuffered(const PlatformTimeRanges& ranges) const
 {
+    ASSERT(m_buffered, "Should always been called after updateBufferedIfNeeded");
+    if (!m_buffered)
+        return false;
+
     if (ranges.length() < 1)
         return true;
 
     ASSERT(ranges.length() == 1);
 
-    auto bufferedRanges = buffered();
-    if (!bufferedRanges || !bufferedRanges->length())
+    auto bufferedRanges = makeUnique<PlatformTimeRanges>(*m_buffered);
+    if (!bufferedRanges->length())
         return false;
     bufferedRanges->intersectWith(ranges);
 
@@ -119,14 +119,14 @@ bool ManagedMediaSource::isBuffered(const PlatformTimeRanges& ranges) const
 void ManagedMediaSource::monitorSourceBuffers()
 {
     if (isClosed()) {
-        endStreaming();
+        setStreaming(false);
         return;
     }
 
     MediaSource::monitorSourceBuffers();
 
     if (!activeSourceBuffers() || !activeSourceBuffers()->length()) {
-        startStreaming();
+        setStreaming(true);
         return;
     }
     auto currentTime = this->currentTime();
@@ -140,14 +140,14 @@ void ManagedMediaSource::monitorSourceBuffers()
         MediaTime aheadTime = std::min(duration(), currentTime + MediaTime::createWithDouble(*m_lowThreshold));
         PlatformTimeRanges neededBufferedRange { currentTime, std::max(currentTime, aheadTime) };
         if (!isBuffered(neededBufferedRange))
-            startStreaming();
+            setStreaming(true);
         return;
     }
 
     MediaTime aheadTime = std::min(duration(), currentTime + MediaTime::createWithDouble(*m_highThreshold));
     PlatformTimeRanges neededBufferedRange { currentTime, aheadTime };
     if (isBuffered(neededBufferedRange))
-        endStreaming();
+        setStreaming(false);
 }
 
 }

@@ -77,6 +77,12 @@ bool RemoteScrollingCoordinatorProxyMac::scrollingTreeNodeRequestsScroll(Scrolli
     return false;
 }
 
+bool RemoteScrollingCoordinatorProxyMac::scrollingTreeNodeRequestsKeyboardScroll(ScrollingNodeID, const RequestedKeyboardScrollData&)
+{
+    // Unlike iOS, we handle scrolling requests for the main frame in the same way we handle them for subscrollers.
+    return false;
+}
+
 void RemoteScrollingCoordinatorProxyMac::hasNodeWithAnimatedScrollChanged(bool hasAnimatedScrolls)
 {
 #if ENABLE(SCROLLING_THREAD)
@@ -88,6 +94,18 @@ void RemoteScrollingCoordinatorProxyMac::hasNodeWithAnimatedScrollChanged(bool h
 
     drawingArea->setDisplayLinkWantsFullSpeedUpdates(hasAnimatedScrolls);
 #endif
+}
+
+void RemoteScrollingCoordinatorProxyMac::scrollingTreeNodeWillStartScroll(ScrollingNodeID nodeID)
+{
+    m_uiState.addNodeWithActiveUserScroll(nodeID);
+    sendUIStateChangedIfNecessary();
+}
+
+void RemoteScrollingCoordinatorProxyMac::scrollingTreeNodeDidEndScroll(ScrollingNodeID nodeID)
+{
+    m_uiState.removeNodeWithActiveUserScroll(nodeID);
+    sendUIStateChangedIfNecessary();
 }
 
 void RemoteScrollingCoordinatorProxyMac::connectStateNodeLayers(ScrollingStateTree& stateTree, const RemoteLayerTreeHost& layerTreeHost)
@@ -176,6 +194,16 @@ void RemoteScrollingCoordinatorProxyMac::windowScreenDidChange(PlatformDisplayID
 #if ENABLE(SCROLLING_THREAD)
     m_wheelEventDispatcher->windowScreenDidChange(displayID, nominalFramesPerSecond);
 #endif
+}
+
+void RemoteScrollingCoordinatorProxyMac::willCommitLayerAndScrollingTrees()
+{
+    scrollingTree()->lockLayersForHitTesting();
+}
+
+void RemoteScrollingCoordinatorProxyMac::didCommitLayerAndScrollingTrees()
+{
+    scrollingTree()->unlockLayersForHitTesting();
 }
 
 } // namespace WebKit

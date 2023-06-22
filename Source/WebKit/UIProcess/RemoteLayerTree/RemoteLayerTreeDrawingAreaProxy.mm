@@ -110,14 +110,19 @@ void RemoteLayerTreeDrawingAreaProxy::didUpdateGeometry()
 
     m_isWaitingForDidUpdateGeometry = false;
 
+    IntSize minimumSizeForAutoLayout = m_webPageProxy.minimumSizeForAutoLayout();
+    IntSize sizeToContentAutoSizeMaximumSize = m_webPageProxy.sizeToContentAutoSizeMaximumSize();
+
     // If the WKView was resized while we were waiting for a DidUpdateGeometry reply from the web process,
     // we need to resend the new size here.
-    if (m_lastSentSize != m_size)
+    if (m_lastSentSize != m_size || m_lastSentMinimumSizeForAutoLayout != minimumSizeForAutoLayout || m_lastSentSizeToContentAutoSizeMaximumSize != sizeToContentAutoSizeMaximumSize)
         sendUpdateGeometry();
 }
 
 void RemoteLayerTreeDrawingAreaProxy::sendUpdateGeometry()
 {
+    m_lastSentMinimumSizeForAutoLayout = m_webPageProxy.minimumSizeForAutoLayout();
+    m_lastSentSizeToContentAutoSizeMaximumSize = m_webPageProxy.sizeToContentAutoSizeMaximumSize();
     m_lastSentSize = m_size;
     m_isWaitingForDidUpdateGeometry = true;
     m_webPageProxy.sendWithAsyncReply(Messages::DrawingArea::UpdateGeometry(m_size, false /* flushSynchronously */, MachSendRight()), [weakThis = WeakPtr { this }] {
@@ -148,19 +153,31 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
         didUpdateEditorState = layerTreeTransaction.hasEditorState() && m_webPageProxy.updateEditorState(layerTreeTransaction.editorState(), WebPageProxy::ShouldMergeVisualEditorState::Yes);
     }
 
-    if (m_remoteLayerTreeHost->updateLayerTree(layerTreeTransaction)) {
-        if (layerTreeTransaction.transactionID() >= m_transactionIDForUnhidingContent)
-            m_webPageProxy.setRemoteLayerTreeRootNode(m_remoteLayerTreeHost->rootNode());
-        else
-            m_remoteLayerTreeHost->detachRootLayer();
-    }
-
 #if ENABLE(ASYNC_SCROLLING)
     std::optional<RequestedScrollData> requestedScroll;
-    // FIXME: Making scrolling trees work with site isolation.
-    if (layerTreeTransaction.isMainFrameProcessTransaction())
-        requestedScroll = m_webPageProxy.scrollingCoordinatorProxy()->commitScrollingTreeState(scrollingTreeTransaction);
 #endif
+
+    auto commitLayerAndScrollingTrees = [&] {
+        if (layerTreeTransaction.hasAnyLayerChanges())
+            ++m_countOfTransactionsWithNonEmptyLayerChanges;
+
+        if (m_remoteLayerTreeHost->updateLayerTree(layerTreeTransaction)) {
+            if (layerTreeTransaction.transactionID() >= m_transactionIDForUnhidingContent)
+                m_webPageProxy.setRemoteLayerTreeRootNode(m_remoteLayerTreeHost->rootNode());
+            else
+                m_remoteLayerTreeHost->detachRootLayer();
+        }
+
+#if ENABLE(ASYNC_SCROLLING)
+        // FIXME: Making scrolling trees work with site isolation.
+        if (layerTreeTransaction.isMainFrameProcessTransaction())
+            requestedScroll = m_webPageProxy.scrollingCoordinatorProxy()->commitScrollingTreeState(scrollingTreeTransaction);
+#endif
+    };
+
+    m_webPageProxy.scrollingCoordinatorProxy()->willCommitLayerAndScrollingTrees();
+    commitLayerAndScrollingTrees();
+    m_webPageProxy.scrollingCoordinatorProxy()->didCommitLayerAndScrollingTrees();
 
     m_webPageProxy.didCommitLayerTree(layerTreeTransaction);
     didCommitLayerTree(connection, layerTreeTransaction, scrollingTreeTransaction);
@@ -435,6 +452,28 @@ void RemoteLayerTreeDrawingAreaProxy::windowKindDidChange()
 {
     if (m_webPageProxy.windowKind() == WindowKind::InProcessSnapshotting)
         m_remoteLayerTreeHost->mapAllIOSurfaceBackingStore();
+}
+
+void RemoteLayerTreeDrawingAreaProxy::minimumSizeForAutoLayoutDidChange()
+{
+    if (!m_webPageProxy.hasRunningProcess())
+        return;
+
+    if (m_isWaitingForDidUpdateGeometry)
+        return;
+
+    sendUpdateGeometry();
+}
+
+void RemoteLayerTreeDrawingAreaProxy::sizeToContentAutoSizeMaximumSizeDidChange()
+{
+    if (!m_webPageProxy.hasRunningProcess())
+        return;
+
+    if (m_isWaitingForDidUpdateGeometry)
+        return;
+
+    sendUpdateGeometry();
 }
 
 } // namespace WebKit

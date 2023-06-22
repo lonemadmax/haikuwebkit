@@ -33,11 +33,11 @@
 #include "DocumentLoader.h"
 #include "DOMApplicationCache.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "InspectorInstrumentation.h"
+#include "LocalFrame.h"
 #include "Page.h"
 #include "ProgressEvent.h"
 #include "ResourceHandle.h"
@@ -246,12 +246,7 @@ bool ApplicationCacheHost::maybeLoadFallbackForError(ResourceLoader* resourceLoa
 
 URL ApplicationCacheHost::createFileURL(const String& path)
 {
-#if USE(CF) && PLATFORM(WIN)
-    // FIXME: Is this correct? Seems improbable that the passed-in paths would be in the Windows path style.
-    return adoptCF(CFURLCreateWithFileSystemPath(0, path.createCFString().get(), kCFURLWindowsPathStyle, false)).get();
-#else
     return URL::fileURLWithFileSystemPath(path);
-#endif
 }
 
 static inline RefPtr<SharedBuffer> bufferFromResource(ApplicationCacheResource& resource)
@@ -319,7 +314,7 @@ void ApplicationCacheHost::notifyDOMApplicationCache(const AtomString& eventType
     dispatchDOMEvent(eventType, total, done);
 }
 
-void ApplicationCacheHost::stopLoadingInFrame(Frame& frame)
+void ApplicationCacheHost::stopLoadingInFrame(LocalFrame& frame)
 {
     ASSERT(!m_applicationCache || !m_candidateApplicationCacheGroup || m_applicationCache->group() == m_candidateApplicationCacheGroup);
 

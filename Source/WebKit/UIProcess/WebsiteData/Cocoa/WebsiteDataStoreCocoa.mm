@@ -279,14 +279,30 @@ void WebsiteDataStore::removeDataStoreWithIdentifier(const UUID& identifier, Com
 {
     ASSERT(isMainRunLoop());
 
-    if (!identifier)
+    if (!identifier.isValid())
         return completionHandler("Identifier is invalid"_s);
+
+    if (auto existingDataStore = existingDataStoreForIdentifier(identifier)) {
+        if (existingDataStore->hasActivePages())
+            return completionHandler("Data store is in use"_s);
+        
+        // FIXME: Try removing session from network process instead of returning error.
+        if (existingDataStore->networkProcessIfExists())
+            return completionHandler("Data store is in use (by network process)"_s);
+    }
+
+    auto nsCredentialStorage = adoptNS([[NSURLCredentialStorage alloc] _initWithIdentifier:identifier.toString() private:NO]);
+    auto* credentials = [nsCredentialStorage.get() allCredentials];
+    for (NSURLProtectionSpace *space in credentials) {
+        for (NSURLCredential *credential in [credentials[space] allValues])
+            [nsCredentialStorage.get() removeCredential:credential forProtectionSpace:space];
+    }
 
     websiteDataStoreIOQueue().dispatch([completionHandler = WTFMove(completionHandler), directory = defaultWebsiteDataStoreDirectory(identifier).isolatedCopy()]() mutable {
         bool deleted = FileSystem::deleteNonEmptyDirectory(directory);
         RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), deleted]() mutable {
             if (!deleted)
-                return completionHandler("WebsiteDataStore with this identifier does not exist or deletion failed"_s);
+                return completionHandler("Failed to delete files on disk"_s);
 
             completionHandler({ });
         });

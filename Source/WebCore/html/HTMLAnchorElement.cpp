@@ -30,7 +30,6 @@
 #include "ElementAncestorIteratorInlines.h"
 #include "EventHandler.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameLoaderTypes.h"
@@ -41,6 +40,7 @@
 #include "HTMLPictureElement.h"
 #include "KeyboardEvent.h"
 #include "LoaderStrategy.h"
+#include "LocalFrame.h"
 #include "MouseEvent.h"
 #include "PingLoader.h"
 #include "PlatformMouseEvent.h"
@@ -86,10 +86,7 @@ Ref<HTMLAnchorElement> HTMLAnchorElement::create(const QualifiedName& tagName, D
     return adoptRef(*new HTMLAnchorElement(tagName, document));
 }
 
-HTMLAnchorElement::~HTMLAnchorElement()
-{
-    clearRootEditableElementForSelectionOnMouseDown();
-}
+HTMLAnchorElement::~HTMLAnchorElement() = default;
 
 bool HTMLAnchorElement::supportsFocus() const
 {
@@ -489,11 +486,9 @@ std::optional<PrivateClickMeasurement> HTMLAnchorElement::parsePrivateClickMeasu
     using SourceSite = PCM::SourceSite;
     using AttributionDestinationSite = PCM::AttributionDestinationSite;
 
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame { document().frame() };
     auto* page = document().page();
-    if (!frame || !page || page->sessionID().isEphemeral()
-        || !document().settings().privateClickMeasurementEnabled()
-        || !UserGestureIndicator::processingUserGesture())
+    if (!frame || !page || !document().settings().privateClickMeasurementEnabled() || !UserGestureIndicator::processingUserGesture())
         return std::nullopt;
 
     if (auto pcm = parsePrivateClickMeasurementForSKAdNetwork(hrefURL))
@@ -551,7 +546,15 @@ std::optional<PrivateClickMeasurement> HTMLAnchorElement::parsePrivateClickMeasu
 #else
     String bundleID;
 #endif
-    auto privateClickMeasurement = PrivateClickMeasurement { SourceID(attributionSourceID.value()), SourceSite(WTFMove(mainDocumentRegistrableDomain)), AttributionDestinationSite(destinationURL), bundleID, WallTime::now(), PCM::AttributionEphemeral::No };
+
+    PrivateClickMeasurement privateClickMeasurement {
+        SourceID(attributionSourceID.value()),
+        SourceSite(WTFMove(mainDocumentRegistrableDomain)),
+        AttributionDestinationSite(destinationURL),
+        bundleID,
+        WallTime::now(),
+        page->sessionID().isEphemeral() ? PCM::AttributionEphemeral::Yes : PCM::AttributionEphemeral::No
+    };
 
     if (auto ephemeralNonce = attributionSourceNonceForPCM())
         privateClickMeasurement.setEphemeralSourceNonce(WTFMove(*ephemeralNonce));
@@ -563,7 +566,7 @@ void HTMLAnchorElement::handleClick(Event& event)
 {
     event.setDefaultHandled();
 
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame { document().frame() };
     if (!frame)
         return;
 

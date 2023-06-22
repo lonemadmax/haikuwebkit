@@ -46,14 +46,15 @@ public:
 
     static bool isTypeSupported(ScriptExecutionContext&, const String& type);
 
+    bool streaming() const { return m_streaming; }
+
     bool isManaged() const final { return true; }
 
 private:
     explicit ManagedMediaSource(ScriptExecutionContext&);
     void monitorSourceBuffers() final;
     bool isBuffered(const PlatformTimeRanges&) const;
-    void startStreaming();
-    void endStreaming();
+    void setStreaming(bool);
     bool m_streaming { false };
     std::optional<double> m_lowThreshold;
     std::optional<double> m_highThreshold;

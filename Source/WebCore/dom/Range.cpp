@@ -30,15 +30,16 @@
 #include "DOMRect.h"
 #include "DOMRectList.h"
 #include "DocumentFragment.h"
+#include "DocumentType.h"
 #include "ElementInlines.h"
 #include "Event.h"
-#include "Frame.h"
 #include "FrameSelection.h"
-#include "FrameView.h"
 #include "GeometryUtilities.h"
 #include "HTMLBodyElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLNames.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "NodeTraversal.h"
 #include "NodeWithIndex.h"
 #include "ProcessingInstruction.h"
@@ -88,7 +89,6 @@ Ref<Range> Range::create(Document& ownerDocument)
 Range::~Range()
 {
     ASSERT(!m_isAssociatedWithSelection);
-
     m_ownerDocument->detachRange(*this);
 
 #ifndef NDEBUG
@@ -311,6 +311,13 @@ ExceptionOr<RefPtr<DocumentFragment>> Range::processContents(ActionType action)
 
     RefPtr<Node> commonRoot = commonAncestorContainer();
     ASSERT(commonRoot);
+    
+    if (action == Extract) {
+        auto& commonRootDocument = commonRoot->document();
+        RefPtr doctype = commonRootDocument.doctype();
+        if (doctype && contains(makeSimpleRange(*this), { *doctype, 0 }))
+            return Exception { HierarchyRequestError };
+    }
 
     if (&startContainer() == &endContainer()) {
         auto result = processContentsBetweenOffsets(action, fragment, &startContainer(), m_start.offset(), m_end.offset());
@@ -1077,7 +1084,7 @@ void Range::updateFromSelection(const SimpleRange& value)
     m_isAssociatedWithSelection = true;
 }
 
-DOMWindow* Range::window() const
+LocalDOMWindow* Range::window() const
 {
     return m_isAssociatedWithSelection ? m_ownerDocument->domWindow() : nullptr;
 }

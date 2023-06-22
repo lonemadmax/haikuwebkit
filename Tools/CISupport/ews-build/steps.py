@@ -320,17 +320,19 @@ class GitHubMixin(object):
             return 1
         return 0
 
+    @defer.inlineCallbacks
     def should_send_email_for_pr(self, pr_number, repository_url=None):
         pr_json = self.get_pr_json(pr_number, repository_url=repository_url)
         if not pr_json:
-            return True
+            return defer.returnValue(True)
 
-        if 1 == self._is_hash_outdated(pr_json):
+        is_hash_outdated = yield self._is_hash_outdated(pr_json)
+        if 1 == is_hash_outdated:
             self._addToLog('stdio', 'Skipping email since hash {} on PR #{} is outdated\n'.format(
                 self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY], pr_number,
             ))
-            return False
-        return True
+            return defer.returnValue(False)
+        return defer.returnValue(True)
 
     def add_label(self, pr_number, label, repository_url=None):
         api_url = GitHub.api_url(repository_url)
@@ -820,13 +822,15 @@ class FetchBranches(steps.ShellSequence, ShellMixin):
         super().__init__(timeout=5 * 60, logEnviron=False, **kwargs)
 
     def run(self):
-        self.commands = [util.ShellArg(command=['git', 'fetch', DEFAULT_REMOTE, '--prune'], logname='stdio')]
+        self.commands = [
+            util.ShellArg(command=['git', 'fetch', DEFAULT_REMOTE, '--prune'], logname='stdio'),
+            util.ShellArg(command=['git', 'config', 'credential.helper', '!echo_credentials() { sleep 1; echo "username=${GIT_USER}"; echo "password=${GIT_PASSWORD}"; }; echo_credentials'], logname='stdio'),
+        ]
 
         project = self.getProperty('project', GITHUB_PROJECTS[0])
         remote = self.getProperty('remote', DEFAULT_REMOTE)
         if remote != DEFAULT_REMOTE:
             for command in [
-                ['git', 'config', 'credential.helper', '!echo_credentials() { sleep 1; echo "username=${GIT_USER}"; echo "password=${GIT_PASSWORD}"; }; echo_credentials'],
                 self.shell_command('git remote add {} {}{}.git || {}'.format(remote, GITHUB_URL, project, self.shell_exit_0())),
                 ['git', 'remote', 'set-url', remote, '{}{}.git'.format(GITHUB_URL, project)],
                 ['git', 'fetch', remote, '--prune'],
@@ -1215,7 +1219,7 @@ class CheckChangeRelevance(AnalyzeChange):
         re.compile(rb'Tools', re.IGNORECASE),
     ]
 
-    big_sur_builder_path_regexes = [
+    monterey_builder_path_regexes = [
         re.compile(rb'Source/', re.IGNORECASE),
         re.compile(rb'Tools/', re.IGNORECASE),
     ]
@@ -1229,7 +1233,7 @@ class CheckChangeRelevance(AnalyzeChange):
 
     group_to_paths_mapping = {
         'bindings': bindings_path_regexes,
-        'bigsur-release-build': big_sur_builder_path_regexes,
+        'monterey-release-build': monterey_builder_path_regexes,
         'services-ews': services_path_regexes,
         'jsc': jsc_path_regexes,
         'webkitpy': webkitpy_path_regexes,
@@ -1822,7 +1826,7 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
             yield self._addToLog('stdio', 'Sending email notification to {}.\nPlease contact an admin to fix the issue.\n'.format(change_author))
             send_email_to_patch_author(change_author, email_subject, email_text, self.getProperty('github.head.sha', ''))
         except Exception as e:
-            print('Error in sending email for github failure: {}'.format(e))
+            yield self._addToLog('stdio', f'Error in sending email for github failure: {e}')
         return defer.returnValue(None)
 
 
@@ -2012,18 +2016,20 @@ class BlockPullRequest(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
 
         if CURRENT_HOSTNAME != EWS_BUILD_HOSTNAME:
             yield self._addToLog('stdio', 'Skipping this step on non-production instance.\n')
-        elif self._is_hash_outdated(pr_json) != 0:
-            pr_sha = (pr_json or {}).get('head', {}).get('sha', '')
-            yield self._addToLog('stdio', f'Skipping this step as hash {pr_sha} is outdated.\n')
         else:
-            repository_url = self.getProperty('repository', '')
-            rc = SUCCESS
-            did_remove_labels = yield self.remove_labels(pr_number, [self.MERGE_QUEUE_LABEL, self.UNSAFE_MERGE_QUEUE_LABEL, self.REQUEST_MERGE_QUEUE_LABEL], repository_url=repository_url)
-            if any((
-                not did_remove_labels,
-                not self.add_label(pr_number, self.BLOCKED_LABEL, repository_url=repository_url),
-            )):
-                rc = FAILURE
+            is_hash_outdated = yield self._is_hash_outdated(pr_json)
+            if is_hash_outdated != 0:
+                pr_sha = (pr_json or {}).get('head', {}).get('sha', '')
+                yield self._addToLog('stdio', f'Skipping this step as hash {pr_sha} is outdated.\n')
+            else:
+                repository_url = self.getProperty('repository', '')
+                rc = SUCCESS
+                did_remove_labels = yield self.remove_labels(pr_number, [self.MERGE_QUEUE_LABEL, self.UNSAFE_MERGE_QUEUE_LABEL, self.REQUEST_MERGE_QUEUE_LABEL], repository_url=repository_url)
+                if any((
+                    not did_remove_labels,
+                    not self.add_label(pr_number, self.BLOCKED_LABEL, repository_url=repository_url),
+                )):
+                    rc = FAILURE
         if build_finish_summary:
             self.build.buildFinished([build_finish_summary], FAILURE)
         defer.returnValue(rc)
@@ -2657,17 +2663,6 @@ class CompileWebKit(shell.Compile, AddToLogMixin):
 
         return shell.Compile.start(self)
 
-    def buildCommandKwargs(self, warnings):
-        kwargs = super().buildCommandKwargs(warnings)
-        # https://bugs.webkit.org/show_bug.cgi?id=239455: The timeout needs to be >20 min to
-        # work around log output delays on slower machines.
-        # https://bugs.webkit.org/show_bug.cgi?id=247506: Only applies to Xcode 12.x.
-        if self.getProperty('fullPlatform') == 'mac-bigsur':
-            kwargs['timeout'] = 60 * 60
-        else:
-            kwargs['timeout'] = 60 * 30
-        return kwargs
-
     def errorReceived(self, error):
         self._addToLog('errors', error + '\n')
 
@@ -2840,6 +2835,7 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
                 filtered_logs.append(line)
         return '\n'.join(filtered_logs[-max_num_lines:])
 
+    @defer.inlineCallbacks
     def send_email_for_new_build_failure(self):
         try:
             patch_id = self.getProperty('patch_id', '')
@@ -2848,10 +2844,12 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
 
             if patch_id and not self.should_send_email_for_patch(patch_id):
                 return
-            if pr_number and not self.should_send_email_for_pr(pr_number, self.getProperty('repository')):
-                return
+            if pr_number:
+                should_send_email = yield self.should_send_email_for_pr(pr_number, self.getProperty('repository'))
+                if not should_send_email:
+                    return
             if not patch_id and not (pr_number and sha):
-                self._addToLog('stderr', 'Unrecognized change type')
+                yield self._addToLog('stderr', 'Unrecognized change type')
                 return
 
             change_string = None
@@ -2864,10 +2862,10 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
                 change_author, errors = GitHub.email_for_owners(self.getProperty('owners', []))
                 for error in errors:
                     print(error)
-                    self._addToLog('stdio', error)
+                    yield self._addToLog('stdio', error)
 
             if not change_author:
-                self._addToLog('stderr', 'Unable to determine email address for {} from metadata/contributors.json. Skipping sending email.'.format(self.getProperty('owners', [])))
+                yield self._addToLog('stderr', 'Unable to determine email address for {} from metadata/contributors.json. Skipping sending email.'.format(self.getProperty('owners', [])))
                 return
 
             builder_name = self.getProperty('buildername', '')
@@ -2896,10 +2894,10 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
                 logs = logs.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                 email_text += '\n\nError lines:\n\n<code>{}</code>'.format(logs)
             email_text += '\n\nTo unsubscribe from these notifications or to provide any feedback please email aakash_jain@apple.com'
-            self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
+            yield self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
             send_email_to_patch_author(change_author, email_subject, email_text, patch_id or self.getProperty('github.head.sha', ''))
         except Exception as e:
-            print('Error in sending email for new build failure: {}'.format(e))
+            yield self._addToLog('stdio', f'Error in sending email for new build failure: {e}')
 
     def send_email_for_preexisting_build_failure(self):
         try:
@@ -3300,6 +3298,9 @@ class RunWebKitTests(shell.Test, AddToLogMixin):
             if self.EXIT_AFTER_FAILURES is not None:
                 self.setCommand(self.command + ['--exit-after-n-failures', '{}'.format(self.EXIT_AFTER_FAILURES)])
             self.setCommand(self.command + ['--skip-failing-tests'])
+
+        if platform in ['gtk', 'wpe']:
+            self.setCommand(self.command + ['--enable-core-dumps-nolimit'])
 
         if additionalArguments:
             self.setCommand(self.command + additionalArguments)
@@ -3811,6 +3812,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
         except Exception as e:
             print('Error in sending email for pre-existing failure: {}'.format(e))
 
+    @defer.inlineCallbacks
     def send_email_for_new_test_failures(self, test_names, exceed_failure_limit=False):
         try:
             patch_id = self.getProperty('patch_id', '')
@@ -3819,10 +3821,12 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
 
             if patch_id and not self.should_send_email_for_patch(patch_id):
                 return
-            if pr_number and not self.should_send_email_for_pr(pr_number, self.getProperty('repository')):
-                return
+            if pr_number:
+                should_send_email = yield self.should_send_email_for_pr(pr_number, self.getProperty('repository'))
+                if not should_send_email:
+                    return
             if not patch_id and not (pr_number and sha):
-                self._addToLog('stderr', 'Unrecognized change type')
+                yield self._addToLog('stderr', 'Unrecognized change type')
                 return
 
             change_string = None
@@ -3835,10 +3839,10 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
                 change_author, errors = GitHub.email_for_owners(self.getProperty('owners', []))
                 for error in errors:
                     print(error)
-                    self._addToLog('stdio', error)
+                    yield self._addToLog('stdio', error)
 
             if not change_author:
-                self._addToLog('stderr', 'Unable to determine email address for {} from metadata/contributors.json. Skipping sending email.'.format(self.getProperty('owners', [])))
+                yield self._addToLog('stderr', 'Unable to determine email address for {} from metadata/contributors.json. Skipping sending email.'.format(self.getProperty('owners', [])))
                 return
 
             builder_name = self.getProperty('buildername', '')
@@ -3869,7 +3873,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
                 email_text += '\n\nAditionally the failure limit has been exceeded, so the test suite has been terminated early. It is likely that there would be more failures than the ones listed below.'
             email_text += '\n\nLayout test failure{}:\n{}'.format(pluralSuffix, test_names_string)
             email_text += '\n\nTo unsubscribe from these notifications or to provide any feedback please email aakash_jain@apple.com'
-            self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
+            yield self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
             send_email_to_patch_author(change_author, email_subject, email_text, patch_id or self.getProperty('github.head.sha', ''))
         except Exception as e:
             print('Error in sending email for new layout test failures: {}'.format(e))
@@ -4024,6 +4028,8 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
 
     def setLayoutTestCommand(self):
         super().setLayoutTestCommand()
+        # On the repeat steps we don't enable coredump generation (makes the run much slower if there are crashes)
+        self.setCommand([arg for arg in self.command if arg != '--enable-core-dumps-nolimit'])
         first_results_failing_tests = set(self.getProperty('first_run_failures', []))
         self.setCommand(self.command + ['--fully-parallel', '--repeat-each=%s' % self.NUM_REPEATS_PER_TEST] + sorted(first_results_failing_tests))
 
@@ -4083,6 +4089,8 @@ class RunWebKitTestsRepeatFailuresWithoutChangeRedTree(RunWebKitTestsRedTree):
 
     def setLayoutTestCommand(self):
         super().setLayoutTestCommand()
+        # On the repeat steps we don't enable coredump generation (makes the run much slower if there are crashes)
+        self.setCommand([arg for arg in self.command if arg != '--enable-core-dumps-nolimit'])
         with_change_nonflaky_failures = set(self.getProperty('with_change_repeat_failures_results_nonflaky_failures', []))
         first_run_failures = set(self.getProperty('first_run_failures', []))
         with_change_repeat_failures_timedout = self.getProperty('with_change_repeat_failures_timedout', False)
@@ -5592,7 +5600,6 @@ class Canonicalize(steps.ShellSequence, ShellMixin, AddToLogMixin):
     description = ['canonicalize-commit']
     descriptionDone = ['Canonicalize Commit']
     haltOnFailure = True
-    env = dict(FILTER_BRANCH_SQUELCH_WARNING='1')
 
     def __init__(self, rebase_enabled=True, **kwargs):
         super().__init__(logEnviron=False, timeout=300, **kwargs)
@@ -5634,6 +5641,13 @@ class Canonicalize(steps.ShellSequence, ShellMixin, AddToLogMixin):
             '--env-filter', f"GIT_AUTHOR_DATE='{date}';GIT_COMMITTER_DATE='{date}';GIT_COMMITTER_NAME='{committer_name}';GIT_COMMITTER_EMAIL='{committer_email}'",
             f'HEAD...HEAD~1',
         ])
+
+        username, access_token = GitHub.credentials(user=GitHub.user_for_queue(self.getProperty('buildername', '')))
+        self.env = dict(
+            GIT_USER=username,
+            GIT_PASSWORD=access_token,
+            FILTER_BRANCH_SQUELCH_WARNING='1',
+        )
 
         for command in commands:
             self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))

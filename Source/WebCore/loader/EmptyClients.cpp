@@ -55,13 +55,13 @@
 #include "EmptyBadgeClient.h"
 #include "EmptyFrameLoaderClient.h"
 #include "FormState.h"
-#include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "FrameNetworkingContext.h"
 #include "HTMLFormElement.h"
 #include "HistoryItem.h"
 #include "IDBConnectionToServer.h"
 #include "InspectorClient.h"
+#include "LocalFrame.h"
 #include "MediaRecorderPrivate.h"
 #include "MediaRecorderProvider.h"
 #include "ModalContainerTypes.h"
@@ -71,6 +71,7 @@
 #include "PaymentCoordinatorClient.h"
 #include "PluginInfoProvider.h"
 #include "ProgressTrackerClient.h"
+#include "RemoteFrameClient.h"
 #include "SecurityOriginData.h"
 #include "SocketProvider.h"
 #include "StorageArea.h"
@@ -118,8 +119,8 @@ class EmptyContextMenuClient final : public ContextMenuClient {
     WTF_MAKE_FAST_ALLOCATED;
 
     void downloadURL(const URL&) final { }
-    void searchWithGoogle(const Frame*) final { }
-    void lookUpInDictionary(Frame*) final { }
+    void searchWithGoogle(const LocalFrame*) final { }
+    void lookUpInDictionary(LocalFrame*) final { }
     bool isSpeaking() const final { return false; }
     void speak(const String&) final { }
     void stopSpeaking() final { }
@@ -133,7 +134,7 @@ class EmptyContextMenuClient final : public ContextMenuClient {
 #endif
 
 #if PLATFORM(GTK)
-    void insertEmoji(Frame&) final { }
+    void insertEmoji(LocalFrame&) final { }
 #endif
 
 #if USE(ACCESSIBILITY_CONTEXT_MENUS)
@@ -242,7 +243,7 @@ class EmptyDragClient final : public DragClient {
     void willPerformDragDestinationAction(DragDestinationAction, const DragData&) final { }
     void willPerformDragSourceAction(DragSourceAction, const IntPoint&, DataTransfer&) final { }
     OptionSet<DragSourceAction> dragSourceActionMaskForPoint(const IntPoint&) final { return { }; }
-    void startDrag(DragItem, DataTransfer&, Frame&) final { }
+    void startDrag(DragItem, DataTransfer&, LocalFrame&) final { }
 };
 
 #endif // ENABLE(DRAG_SUPPORT)
@@ -275,9 +276,9 @@ private:
 
     void didBeginEditing() final { }
     void respondToChangedContents() final { }
-    void respondToChangedSelection(Frame*) final { }
+    void respondToChangedSelection(LocalFrame*) final { }
     void updateEditorStateAfterLayoutIfEditabilityChanged() final { }
-    void discardedComposition(Frame*) final { }
+    void discardedComposition(LocalFrame*) final { }
     void canceledComposition() final { }
     void didUpdateComposition() final { }
     void didEndEditing() final { }
@@ -294,8 +295,8 @@ private:
 
     DOMPasteAccessResponse requestDOMPasteAccess(DOMPasteAccessCategory, const String&) final { return DOMPasteAccessResponse::DeniedForGesture; }
 
-    bool canCopyCut(Frame*, bool defaultValue) const final { return defaultValue; }
-    bool canPaste(Frame*, bool defaultValue) const final { return defaultValue; }
+    bool canCopyCut(LocalFrame*, bool defaultValue) const final { return defaultValue; }
+    bool canPaste(LocalFrame*, bool defaultValue) const final { return defaultValue; }
     bool canUndo() const final { return false; }
     bool canRedo() const final { return false; }
 
@@ -449,7 +450,7 @@ class EmptyPopupMenu : public PopupMenu {
 public:
     EmptyPopupMenu() = default;
 private:
-    void show(const IntRect&, FrameView*, int) final { }
+    void show(const IntRect&, LocalFrameView*, int) final { }
     void hide() final { }
     void updateFromElement() final { }
     void disconnectClient() final { }
@@ -458,9 +459,9 @@ private:
 class EmptyProgressTrackerClient final : public ProgressTrackerClient {
     void willChangeEstimatedProgress() final { }
     void didChangeEstimatedProgress() final { }
-    void progressStarted(Frame&) final { }
-    void progressEstimateChanged(Frame&) final { }
-    void progressFinished(Frame&) final { }
+    void progressStarted(LocalFrame&) final { }
+    void progressEstimateChanged(LocalFrame&) final { }
+    void progressFinished(LocalFrame&) final { }
 };
 
 class EmptySearchPopupMenu : public SearchPopupMenu {
@@ -484,9 +485,9 @@ class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
         unsigned length() final { return 0; }
         String key(unsigned) final { return { }; }
         String item(const String&) final { return { }; }
-        void setItem(Frame&, const String&, const String&, bool&) final { }
-        void removeItem(Frame&, const String&) final { }
-        void clear(Frame&) final { }
+        void setItem(LocalFrame&, const String&, const String&, bool&) final { }
+        void removeItem(LocalFrame&, const String&) final { }
+        void clear(LocalFrame&) final { }
         bool contains(const String&) final { return false; }
         StorageType storageType() const final { return StorageType::Local; }
         size_t memoryBytesUsedByCache() final { return 0; }
@@ -586,7 +587,7 @@ DisplayRefreshMonitorFactory* EmptyChromeClient::displayRefreshMonitorFactory() 
     return EmptyDisplayRefreshMonitorFactory::sharedEmptyDisplayRefreshMonitorFactory();
 }
 
-void EmptyChromeClient::runOpenPanel(Frame&, FileChooser&)
+void EmptyChromeClient::runOpenPanel(LocalFrame&, FileChooser&)
 {
 }
     
@@ -631,7 +632,7 @@ Ref<DocumentLoader> EmptyFrameLoaderClient::createDocumentLoader(const ResourceR
     return DocumentLoader::create(request, substituteData);
 }
 
-RefPtr<Frame> EmptyFrameLoaderClient::createFrame(const AtomString&, HTMLFrameOwnerElement&)
+RefPtr<LocalFrame> EmptyFrameLoaderClient::createFrame(const AtomString&, HTMLFrameOwnerElement&)
 {
     return nullptr;
 }
@@ -820,7 +821,7 @@ void EmptyFrameLoaderClient::dispatchDidReachVisuallyNonEmptyState()
 {
 }
 
-Frame* EmptyFrameLoaderClient::dispatchCreatePage(const NavigationAction&, NewFrameOpenerPolicy)
+LocalFrame* EmptyFrameLoaderClient::dispatchCreatePage(const NavigationAction&, NewFrameOpenerPolicy)
 {
     return nullptr;
 }
@@ -1196,7 +1197,8 @@ PageConfiguration pageConfigurationWithEmptyClients(PAL::SessionID sessionID)
         adoptRef(*new EmptyBackForwardClient),
         CookieJar::create(adoptRef(*new EmptyStorageSessionProvider)),
         makeUniqueRef<EmptyProgressTrackerClient>(),
-        makeUniqueRef<EmptyFrameLoaderClient>(),
+        UniqueRef<FrameLoaderClient>(makeUniqueRef<EmptyFrameLoaderClient>()),
+        FrameIdentifier::generate(),
         makeUniqueRef<DummySpeechRecognitionProvider>(),
         makeUniqueRef<EmptyMediaRecorderProvider>(),
         EmptyBroadcastChannelRegistry::create(),

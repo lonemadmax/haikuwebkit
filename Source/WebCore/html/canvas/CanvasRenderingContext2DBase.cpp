@@ -1065,9 +1065,8 @@ void CanvasRenderingContext2DBase::postProcessPixelBuffer() const
     IntRect dirtyRect { static_cast<int>(m_dirtyRect.x()), static_cast<int>(m_dirtyRect.y()), static_cast<int>(m_dirtyRect.width()) + 1, static_cast<int>(m_dirtyRect.height()) + 1 };
     PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, toDestinationColorSpace(m_settings.colorSpace) };
     auto pixelBuffer = buffer->getPixelBuffer(format, dirtyRect);
-    if (!is<ByteArrayPixelBuffer>(*pixelBuffer))
+    if (!is<ByteArrayPixelBuffer>(pixelBuffer))
         return;
-
 
     if (canvasBase().postProcessPixelBuffer(*pixelBuffer, false, suppliedColors())) {
         IntSize destOffset { 0, 0 };
@@ -1496,12 +1495,6 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(CanvasImageSource&& im
             LayoutSize sourceRectSize = size(*imageElement, ImageSizeType::BeforeDevicePixelRatio);
             return this->drawImage(*imageElement, FloatRect { 0, 0, sourceRectSize.width(), sourceRectSize.height() }, FloatRect { dx, dy, destRectSize.width(), destRectSize.height() });
         },
-#if ENABLE(WEB_CODECS)
-        [&] (RefPtr<WebCodecsVideoFrame>& videoFrame) -> ExceptionOr<void> {
-            auto rectSize = size(*videoFrame);
-            return this->drawImage(*videoFrame, FloatRect { 0, 0, rectSize.width(), rectSize.height() }, FloatRect { dx, dy, rectSize.width(), rectSize.height() });
-        },
-#endif
         [&] (auto& element) -> ExceptionOr<void> {
             FloatSize elementSize = size(*element);
             return this->drawImage(*element, FloatRect { 0, 0, elementSize.width(), elementSize.height() }, FloatRect { dx, dy, elementSize.width(), elementSize.height() });

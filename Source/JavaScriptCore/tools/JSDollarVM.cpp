@@ -34,6 +34,7 @@
 #include "DOMAttributeGetterSetter.h"
 #include "DOMJITGetterSetter.h"
 #include "Debugger.h"
+#include "ExecutableBaseInlines.h"
 #include "FrameTracers.h"
 #include "FunctionCodeBlock.h"
 #include "GetterSetter.h"
@@ -3358,7 +3359,7 @@ JSC_DEFINE_HOST_FUNCTION(functionShadowChickenFunctionsOnStack, (JSGlobalObject*
     RETURN_IF_EXCEPTION(scope, { });
     StackVisitor::visit(callFrame, vm, [&] (StackVisitor& visitor) -> IterationStatus {
         DollarVMAssertScope assertScope;
-        if (visitor->isInlinedFrame())
+        if (visitor->isInlinedDFGFrame())
             return IterationStatus::Continue;
         if (visitor->isWasmFrame())
             return IterationStatus::Continue;

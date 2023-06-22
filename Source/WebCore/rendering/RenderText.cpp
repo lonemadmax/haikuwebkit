@@ -33,8 +33,6 @@
 #include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "FloatQuad.h"
-#include "Frame.h"
-#include "FrameView.h"
 #include "HTMLParserIdioms.h"
 #include "Hyphenation.h"
 #include "InlineIteratorLineBox.h"
@@ -44,6 +42,8 @@
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyEllipsisBox.h"
 #include "LineSelection.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "Range.h"
 #include "RenderBlock.h"
 #include "RenderCombineText.h"
@@ -270,7 +270,7 @@ void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
         needsResetText = true;
     }
 
-    TextTransform oldTransform = oldStyle ? oldStyle->textTransform() : TextTransform::None;
+    auto oldTransform = oldStyle ? oldStyle->textTransform() : OptionSet<TextTransform> { };
     TextSecurity oldSecurity = oldStyle ? oldStyle->textSecurity() : TextSecurity::None;
     if (needsResetText || oldTransform != newStyle.textTransform() || oldSecurity != newStyle.textSecurity())
         RenderText::setText(originalText(), true);
@@ -1377,22 +1377,27 @@ static String convertToFullSizeKana(const String& string)
 
 String applyTextTransform(const RenderStyle& style, const String& text, UChar previousCharacter)
 {
-    switch (style.textTransform()) {
-    case TextTransform::None:
+    auto transform = style.textTransform();
+
+    if (transform.isEmpty())
         return text;
-    case TextTransform::Capitalize:
-        return capitalize(text, previousCharacter); // FIXME: Need to take locale into account.
-    case TextTransform::Uppercase:
-        return text.convertToUppercaseWithLocale(style.computedLocale());
-    case TextTransform::Lowercase:
-        return text.convertToLowercaseWithLocale(style.computedLocale());
-    case TextTransform::FullSizeKana:
-        return convertToFullSizeKana(text);
-    case TextTransform::FullWidth:
-        return transformToFullWidth(text);
-    }
-    ASSERT_NOT_REACHED();
-    return text;
+
+    // https://w3c.github.io/csswg-drafts/css-text/#text-transform-order
+    auto modified = text;
+    if (transform.contains(TextTransform::Capitalize))
+        modified = capitalize(modified, previousCharacter); // FIXME: Need to take locale into account.
+    else if (transform.contains(TextTransform::Uppercase))
+        modified = modified.convertToUppercaseWithLocale(style.computedLocale());
+    else if (transform.contains(TextTransform::Lowercase))
+        modified = modified.convertToLowercaseWithLocale(style.computedLocale());
+
+    if (transform.contains(TextTransform::FullWidth))
+        modified = transformToFullWidth(modified);
+
+    if (transform.contains(TextTransform::FullSizeKana))
+        modified = convertToFullSizeKana(modified);
+
+    return modified;
 }
 
 void RenderText::setRenderedText(const String& newText)

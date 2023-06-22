@@ -28,6 +28,7 @@
 #include "FloatRect.h"
 #include "InlineDamage.h"
 #include "InlineFormattingConstraints.h"
+#include "InlineFormattingContext.h"
 #include "InlineIteratorInlineBox.h"
 #include "InlineIteratorLineBox.h"
 #include "InlineIteratorTextBox.h"
@@ -133,6 +134,9 @@ public:
     bool hasOutOfFlowContent() const;
     bool contentNeedsVisualReordering() const;
     bool isDamaged() const { return m_lineDamage && m_lineDamage->type() != Layout::InlineDamage::Type::Invalid; }
+#ifndef NDEBUG
+    bool hasDetachedContent() const { return m_lineDamage && m_lineDamage->hasDetachedContent(); }
+#endif
 
 private:
     void updateReplacedDimensions(const RenderBox&);
@@ -145,7 +149,7 @@ private:
 
     void prepareLayoutState();
     void prepareFloatingState();
-    FloatRect constructContent();
+    FloatRect constructContent(Layout::InlineLayoutResult&&);
     Vector<LineAdjustment> adjustContent();
     void updateRenderTreePositions(const Vector<LineAdjustment>&);
 

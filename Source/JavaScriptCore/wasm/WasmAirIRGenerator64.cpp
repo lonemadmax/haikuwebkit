@@ -581,6 +581,11 @@ public:
     PartialResult WARN_UNUSED_RETURN addI64Eqz(ExpressionType arg0, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addI64Or(ExpressionType arg0, ExpressionType arg1, ExpressionType& result);
 
+    PartialResult WARN_UNUSED_RETURN addI64ExtendSI32(ExpressionType, ExpressionType&);
+    PartialResult WARN_UNUSED_RETURN addI64Extend8S(ExpressionType, ExpressionType&);
+    PartialResult WARN_UNUSED_RETURN addI64Extend16S(ExpressionType, ExpressionType&);
+    PartialResult WARN_UNUSED_RETURN addI64Extend32S(ExpressionType, ExpressionType&);
+
     Tmp emitCatchImpl(CatchKind, ControlType&, unsigned exceptionIndex = 0);
     template <size_t inlineCapacity>
     Box<PatchpointExceptionHandle> preparePatchpointForExceptions(B3::PatchpointValue*, Vector<ConstrainedTmp, inlineCapacity>& args);
@@ -615,6 +620,9 @@ private:
     void emitCheckI64Zero(ExpressionType, Taken&&);
     template<typename Then>
     void emitCheckForNullReference(const ExpressionType& ref, Then&&);
+    void emitBranchForNullReference(const ExpressionType&);
+    Inst makeBranchNotInt32(const ExpressionType&);
+    Inst makeBranchNotCell(const ExpressionType&);
 
     B3::Type toB3ResultType(BlockSignature);
 
@@ -785,6 +793,27 @@ void AirIRGenerator64::emitCheckForNullReference(const TypedTmp& ref, Taken&& ta
     emitCheck([&] {
         return Inst(Branch64, nullptr, Arg::relCond(MacroAssembler::Equal), ref, tmpForNull);
     }, std::forward<Taken>(taken));
+}
+
+void AirIRGenerator64::emitBranchForNullReference(const TypedTmp& ref)
+{
+    auto tmpForNull = g64();
+    append(Move, Arg::bigImm(JSValue::encode(jsNull())), tmpForNull);
+    append(Branch64, Arg::relCond(MacroAssembler::Equal), ref, tmpForNull);
+}
+
+Inst AirIRGenerator64::makeBranchNotInt32(const TypedTmp& value)
+{
+    auto tmpForTag = g64();
+    append(Move, Arg::bigImm(JSValue::NumberTag), tmpForTag);
+    return Inst(Branch64, nullptr, Arg::relCond(MacroAssembler::Below), value, tmpForTag);
+}
+
+Inst AirIRGenerator64::makeBranchNotCell(const ExpressionType& maybeCell)
+{
+    auto tmpForCellMask = g64();
+    append(Move, Arg::bigImm(JSValue::NotCellMask), tmpForCellMask);
+    return Inst(BranchTest64, nullptr, Arg::resCond(MacroAssembler::NonZero), maybeCell, tmpForCellMask);
 }
 
 B3::Type AirIRGenerator64::toB3ResultType(BlockSignature returnType)
@@ -1049,7 +1078,7 @@ inline TypedTmp AirIRGenerator64::emitLoadOp(LoadOpType op, ExpressionType point
     case LoadOpType::I64Load8S: {
         result = g64();
         appendEffectful(Load8SignedExtendTo32, addrArg, result);
-        append(SignExtend32ToPtr, result, result);
+        append(SignExtend32To64, result, result);
         break;
     }
 
@@ -1074,7 +1103,7 @@ inline TypedTmp AirIRGenerator64::emitLoadOp(LoadOpType op, ExpressionType point
     case LoadOpType::I64Load16S: {
         result = g64();
         appendEffectful(Load16SignedExtendTo32, addrArg, result);
-        append(SignExtend32ToPtr, result, result);
+        append(SignExtend32To64, result, result);
         break;
     }
 
@@ -1104,7 +1133,7 @@ inline TypedTmp AirIRGenerator64::emitLoadOp(LoadOpType op, ExpressionType point
     case LoadOpType::I64Load32S: {
         result = g64();
         appendEffectful(Move32, addrArg, result);
-        append(SignExtend32ToPtr, result, result);
+        append(SignExtend32To64, result, result);
         break;
     }
 
@@ -2602,6 +2631,34 @@ auto AirIRGenerator64::addI64Or(ExpressionType arg0, ExpressionType arg1, Expres
 {
     result = g64();
     append(Or64, arg0, arg1, result);
+    return { };
+}
+
+auto AirIRGenerator64::addI64ExtendSI32(ExpressionType arg0, ExpressionType& result) -> PartialResult
+{
+    result = g64();
+    append(SignExtend32To64, arg0, result);
+    return { };
+}
+
+auto AirIRGenerator64::addI64Extend8S(ExpressionType arg0, ExpressionType& result) -> PartialResult
+{
+    result = g64();
+    append(SignExtend8To64, arg0, result);
+    return { };
+}
+
+auto AirIRGenerator64::addI64Extend16S(ExpressionType arg0, ExpressionType& result) -> PartialResult
+{
+    result = g64();
+    append(SignExtend16To64, arg0, result);
+    return { };
+}
+
+auto AirIRGenerator64::addI64Extend32S(ExpressionType arg0, ExpressionType& result) -> PartialResult
+{
+    result = g64();
+    append(SignExtend32To64, arg0, result);
     return { };
 }
 

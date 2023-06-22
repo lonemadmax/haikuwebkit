@@ -31,9 +31,7 @@
 #include "ElementInlines.h"
 #include "EventRegion.h"
 #include "FloatQuad.h"
-#include "Frame.h"
 #include "FrameSelection.h"
-#include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "HTMLTextFormControlElement.h"
@@ -42,6 +40,8 @@
 #include "ImageBuffer.h"
 #include "InlineIteratorInlineBox.h"
 #include "LayoutRepainter.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "Logging.h"
 #include "LogicalSelectionOffsetCaches.h"
 #include "OverflowEvent.h"
@@ -1285,7 +1285,7 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
 
         if (paintInfo.paintBehavior.contains(PaintBehavior::EventRegionIncludeBackground) && visibleToHitTesting()) {
             auto borderRegion = approximateAsRegion(style().getRoundedBorderFor(borderRect));
-            LOG_WITH_STREAM(EventRegions, stream << "RenderBlock " << *this << " uniting region " << borderRegion);
+            LOG_WITH_STREAM(EventRegions, stream << "RenderBlock " << *this << " uniting region " << borderRegion << " event listener types " << style().eventListenerRegionTypes());
             paintInfo.eventRegionContext->unite(borderRegion, *this, style(), isTextControl() && downcast<RenderTextControl>(*this).textFormControlElement().isInnerTextElementEditable());
         }
 

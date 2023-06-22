@@ -37,7 +37,6 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "ColorInputType.h"
-#include "DOMWindow.h"
 #include "DateComponents.h"
 #include "DateTimeChooser.h"
 #include "DocumentInlines.h"
@@ -48,9 +47,7 @@
 #include "FileInputType.h"
 #include "FileList.h"
 #include "FormController.h"
-#include "Frame.h"
 #include "FrameSelection.h"
-#include "FrameView.h"
 #include "HTMLDataListElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLImageLoader.h"
@@ -58,6 +55,9 @@
 #include "HTMLParserIdioms.h"
 #include "IdTargetObserver.h"
 #include "KeyboardEvent.h"
+#include "LocalDOMWindow.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
 #include "NodeRenderStyle.h"
@@ -113,7 +113,6 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document& docum
     , m_inputType(createdByParser ? nullptr : RefPtr { InputType::createText(*this) })
 {
     ASSERT(hasTagName(inputTag));
-    setHasCustomStyleResolveCallbacks();
 }
 
 Ref<HTMLInputElement> HTMLInputElement::create(const QualifiedName& tagName, Document& document, HTMLFormElement* form, bool createdByParser)
@@ -130,9 +129,6 @@ HTMLImageLoader& HTMLInputElement::ensureImageLoader()
 
 HTMLInputElement::~HTMLInputElement()
 {
-    if (needsSuspensionCallback())
-        document().unregisterForDocumentSuspensionCallbacks(*this);
-
     // Need to remove form association while this is still an HTMLInputElement
     // so that virtual functions are called correctly.
     setForm(nullptr);
@@ -1195,6 +1191,7 @@ void HTMLInputElement::defaultEventHandler(Event& event)
     // must dispatch a DOMActivate event - a click event will not do the job.
     if (event.type() == eventNames().DOMActivateEvent) {
         m_inputType->handleDOMActivateEvent(event);
+        handlePopoverTargetAction();
         if (event.defaultHandled())
             return;
     }
@@ -1400,6 +1397,9 @@ void HTMLInputElement::setAutoFilledAndObscured(bool autoFilledAndObscured)
 
     Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassAutofillAndObscured, autoFilledAndObscured);
     m_isAutoFilledAndObscured = autoFilledAndObscured;
+
+    if (auto* cache = document().existingAXObjectCache())
+        cache->onTextSecurityChanged(*this);
 }
 
 void HTMLInputElement::setShowAutoFillButton(AutoFillButtonType autoFillButtonType)

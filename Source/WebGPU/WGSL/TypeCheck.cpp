@@ -158,7 +158,7 @@ std::optional<FailedCheck> TypeChecker::check()
 // Declarations
 void TypeChecker::visit(AST::Structure& structure)
 {
-    Type* structType = m_types.structType(structure.name());
+    Type* structType = m_types.structType(structure);
     introduceVariable(structure.name(), structType);
 }
 
@@ -194,6 +194,8 @@ void TypeChecker::visit(AST::Variable& variable)
 void TypeChecker::visit(AST::Function& function)
 {
     // FIXME: allocate and build function type fromp parameters and return type
+    if (function.maybeReturnType())
+        resolve(*function.maybeReturnType());
     Type* functionType = nullptr;
     introduceVariable(function.name(), functionType);
 }

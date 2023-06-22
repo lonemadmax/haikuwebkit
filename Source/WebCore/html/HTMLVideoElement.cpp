@@ -34,12 +34,12 @@
 #include "Document.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "ImageBuffer.h"
 #include "JSDOMPromiseDeferred.h"
+#include "LocalFrame.h"
 #include "Logging.h"
 #include "Page.h"
 #include "Performance.h"
@@ -71,7 +71,6 @@ inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document
     : HTMLMediaElement(tagName, document, createdByParser)
 {
     ASSERT(hasTagName(videoTag));
-    setHasCustomStyleResolveCallbacks();
     m_defaultPosterURL = AtomString { document.settings().defaultVideoPosterURL() };
 }
 

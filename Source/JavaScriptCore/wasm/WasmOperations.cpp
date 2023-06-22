@@ -197,7 +197,7 @@ SUPPRESS_ASAN
 static void doOSREntry(Instance* instance, Probe::Context& context, BBQCallee& callee, OSREntryCallee& osrEntryCallee, OSREntryData& osrEntryData)
 {
     auto returnWithoutOSREntry = [&] {
-        context.gpr(GPRInfo::argumentGPR0) = 0;
+        context.gpr(GPRInfo::nonPreservedNonArgumentGPR0) = 0;
     };
 
     unsigned valueSize = (callee.savedFPWidth() == SavedFPWidth::SaveVectors) ? 2 : 1;
@@ -256,8 +256,8 @@ static void doOSREntry(Instance* instance, Probe::Context& context, BBQCallee& c
 #error Unsupported architecture.
 #endif
     // 4. Configure argument registers to jump to OSR entry from the caller of this runtime function.
-    context.gpr(GPRInfo::argumentGPR0) = bitwise_cast<UCPURegister>(buffer);
-    context.gpr(GPRInfo::argumentGPR1) = bitwise_cast<UCPURegister>(osrEntryCallee.entrypoint().taggedPtr<>());
+    context.gpr(GPRInfo::argumentGPR0) = bitwise_cast<UCPURegister>(buffer); // Modify this only when we definitely tier up.
+    context.gpr(GPRInfo::nonPreservedNonArgumentGPR0) = bitwise_cast<UCPURegister>(osrEntryCallee.entrypoint().taggedPtr<>());
 }
 
 inline bool shouldJIT(unsigned functionIndex)
@@ -277,7 +277,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
     Instance* instance = context.gpr<Instance*>(GPRInfo::wasmContextInstancePointer);
 
     auto returnWithoutOSREntry = [&] {
-        context.gpr(GPRInfo::argumentGPR0) = 0;
+        context.gpr(GPRInfo::nonPreservedNonArgumentGPR0) = 0;
     };
 
     Wasm::CalleeGroup& calleeGroup = *instance->calleeGroup();
@@ -837,7 +837,8 @@ JSC_DEFINE_JIT_OPERATION(operationWasmStructNewEmpty, EncodedJSValue, (Instance*
     NativeCallFrameTracer tracer(vm, callFrame);
     JSWebAssemblyInstance* jsInstance = instance->owner();
     JSGlobalObject* globalObject = instance->globalObject();
-    return JSValue::encode(JSWebAssemblyStruct::tryCreate(globalObject, globalObject->webAssemblyStructStructure(), jsInstance, typeIndex));
+    auto structRTT = instance->module().moduleInformation().rtts[typeIndex];
+    return JSValue::encode(JSWebAssemblyStruct::tryCreate(globalObject, globalObject->webAssemblyStructStructure(), jsInstance, typeIndex, structRTT));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationWasmStructGet, EncodedJSValue, (EncodedJSValue encodedStructReference, uint32_t fieldIndex))
@@ -1015,6 +1016,12 @@ JSC_DEFINE_JIT_OPERATION(operationWasmArraySet, void, (Instance* instance, uint3
     VM& vm = instance->vm();
     NativeCallFrameTracer tracer(vm, callFrame);
     return arraySet(instance, typeIndex, arrayValue, index, value);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationWasmIsSubRTT, bool, (RTT* maybeSubRTT, RTT* targetRTT))
+{
+    ASSERT(maybeSubRTT && targetRTT);
+    return maybeSubRTT->isSubRTT(*targetRTT);
 }
 
 } } // namespace JSC::Wasm

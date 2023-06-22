@@ -53,7 +53,7 @@ AXIsolatedObject::AXIsolatedObject(const Ref<AccessibilityObject>& axObject, AXI
     // Every object will have at least this many properties. We can shrink this number
     // to some estimated average once we implement sparse property storage (i.e. only storing
     // a property if it's not the default value for its type).
-    m_propertyMap.reserveInitialCapacity(126);
+    m_propertyMap.reserveInitialCapacity(116);
 
     initializeProperties(axObject, isRoot);
 }
@@ -98,18 +98,15 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::IsMenuButton, object.isMenuButton());
     setProperty(AXPropertyName::IsMenuItem, object.isMenuItem());
     setProperty(AXPropertyName::IsMenuList, object.isMenuList());
-    setProperty(AXPropertyName::IsMenuListOption, object.isMenuListOption());
-    setProperty(AXPropertyName::IsMenuListPopup, object.isMenuListPopup());
     setProperty(AXPropertyName::IsMenuRelated, object.isMenuRelated());
     setProperty(AXPropertyName::IsMultiSelectable, object.isMultiSelectable());
-    setProperty(AXPropertyName::IsPasswordField, object.isPasswordField());
     setProperty(AXPropertyName::IsPressed, object.isPressed());
     setProperty(AXPropertyName::IsProgressIndicator, object.isProgressIndicator());
     setProperty(AXPropertyName::IsRequired, object.isRequired());
     setProperty(AXPropertyName::IsScrollbar, object.isScrollbar());
+    setProperty(AXPropertyName::IsSecureField, object.isSecureField());
     setProperty(AXPropertyName::IsSelected, object.isSelected());
     setProperty(AXPropertyName::IsSlider, object.isSlider());
-    setProperty(AXPropertyName::IsStyleFormatGroup, object.isStyleFormatGroup());
     setProperty(AXPropertyName::IsUnvisited, object.isUnvisited());
     setProperty(AXPropertyName::IsValueAutofillAvailable, object.isValueAutofillAvailable());
     setProperty(AXPropertyName::IsVisited, object.isVisited());
@@ -121,13 +118,11 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::SupportsDatetimeAttribute, object.supportsDatetimeAttribute());
     setProperty(AXPropertyName::DatetimeAttributeValue, object.datetimeAttributeValue().isolatedCopy());
     setProperty(AXPropertyName::CanSetFocusAttribute, object.canSetFocusAttribute());
-    setProperty(AXPropertyName::CanSetTextRangeAttributes, object.canSetTextRangeAttributes());
     setProperty(AXPropertyName::CanSetValueAttribute, object.canSetValueAttribute());
     setProperty(AXPropertyName::CanSetNumericValue, object.canSetNumericValue());
     setProperty(AXPropertyName::SupportsRequiredAttribute, object.supportsRequiredAttribute());
     setProperty(AXPropertyName::CanSetSelectedAttribute, object.canSetSelectedAttribute());
     setProperty(AXPropertyName::CanSetSelectedChildren, object.canSetSelectedChildren());
-    setProperty(AXPropertyName::CanSetExpandedAttribute, object.canSetExpandedAttribute());
     setProperty(AXPropertyName::BlockquoteLevel, object.blockquoteLevel());
     setProperty(AXPropertyName::HeadingLevel, object.headingLevel());
     setProperty(AXPropertyName::ValueDescription, object.valueDescription().isolatedCopy());
@@ -149,7 +144,6 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     // Don't cache ID when logging is disabled because we don't expect non-test AX clients to actually request it.
     setProperty(AXPropertyName::IdentifierAttribute, object.identifierAttribute().isolatedCopy());
 #endif
-    setProperty(AXPropertyName::LinkRelValue, object.linkRelValue().isolatedCopy());
     setProperty(AXPropertyName::CurrentState, static_cast<int>(object.currentState()));
     setProperty(AXPropertyName::SupportsCurrent, object.supportsCurrent());
     setProperty(AXPropertyName::SupportsKeyShortcuts, object.supportsKeyShortcuts());
@@ -161,26 +155,24 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::PosInSet, object.posInSet());
     setProperty(AXPropertyName::SupportsDropping, object.supportsDropping());
     setProperty(AXPropertyName::SupportsDragging, object.supportsDragging());
+    setProperty(AXPropertyName::SupportsPressAction, object.supportsPressAction());
     setProperty(AXPropertyName::IsGrabbed, object.isGrabbed());
     setObjectProperty(AXPropertyName::TitleUIElement, object.titleUIElement());
     setObjectProperty(AXPropertyName::VerticalScrollBar, object.scrollBar(AccessibilityOrientation::Vertical));
     setObjectProperty(AXPropertyName::HorizontalScrollBar, object.scrollBar(AccessibilityOrientation::Horizontal));
-    setProperty(AXPropertyName::ARIARoleAttribute, static_cast<int>(object.ariaRoleAttribute()));
     setProperty(AXPropertyName::PlaceholderValue, object.placeholderValue().isolatedCopy());
     setProperty(AXPropertyName::ExpandedTextValue, object.expandedTextValue().isolatedCopy());
     setProperty(AXPropertyName::SupportsExpandedTextValue, object.supportsExpandedTextValue());
-    setProperty(AXPropertyName::ComputedRoleString, object.computedRoleString().isolatedCopy());
     setProperty(AXPropertyName::ValueAutofillButtonType, static_cast<int>(object.valueAutofillButtonType()));
     setProperty(AXPropertyName::URL, object.url().isolatedCopy());
     setProperty(AXPropertyName::AccessKey, object.accessKey().isolatedCopy());
     setProperty(AXPropertyName::ReadOnlyValue, object.readOnlyValue().isolatedCopy());
     setProperty(AXPropertyName::AutoCompleteValue, object.autoCompleteValue().isolatedCopy());
-    setProperty(AXPropertyName::StringValue, object.stringValue().isolatedCopy());
+    setProperty(AXPropertyName::ColorValue, object.colorValue());
     setProperty(AXPropertyName::Orientation, static_cast<int>(object.orientation()));
     setProperty(AXPropertyName::HierarchicalLevel, object.hierarchicalLevel());
     setProperty(AXPropertyName::Language, object.language().isolatedCopy());
     setProperty(AXPropertyName::SupportsLiveRegion, object.supportsLiveRegion());
-    setProperty(AXPropertyName::IsInsideLiveRegion, object.isInsideLiveRegion());
     setProperty(AXPropertyName::LiveRegionStatus, object.liveRegionStatus().isolatedCopy());
     setProperty(AXPropertyName::LiveRegionRelevant, object.liveRegionRelevant().isolatedCopy());
     setProperty(AXPropertyName::LiveRegionAtomic, object.liveRegionAtomic());
@@ -268,7 +260,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
         object.selectedChildren(selectedChildren);
         setObjectVectorProperty(AXPropertyName::SelectedChildren, selectedChildren);
     }
-    
+
     if (object.isImage())
         setProperty(AXPropertyName::EmbeddedImageDescription, object.embeddedImageDescription().isolatedCopy());
 
@@ -277,21 +269,15 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     AccessibilityChildrenVector visibleChildren;
     object.visibleChildren(visibleChildren);
     setObjectVectorProperty(AXPropertyName::VisibleChildren, visibleChildren);
-
-    AccessibilityChildrenVector tabChildren;
-    object.tabChildren(tabChildren);
-    setObjectVectorProperty(AXPropertyName::TabChildren, tabChildren);
-
     setObjectVectorProperty(AXPropertyName::LinkedObjects, object.linkedObjects());
 
-    // Spin button support.
-    setObjectProperty(AXPropertyName::DecrementButton, object.decrementButton());
-    setObjectProperty(AXPropertyName::IncrementButton, object.incrementButton());
+    if (object.isSpinButton()) {
+        setObjectProperty(AXPropertyName::DecrementButton, object.decrementButton());
+        setObjectProperty(AXPropertyName::IncrementButton, object.incrementButton());
+    }
 
-    setProperty(AXPropertyName::ColorValue, object.colorValue());
-
-    if (bool isMathElement = object.isMathElement()) {
-        setProperty(AXPropertyName::IsMathElement, isMathElement);
+    if (object.isMathElement()) {
+        setProperty(AXPropertyName::IsMathElement, true);
         setProperty(AXPropertyName::IsMathFraction, object.isMathFraction());
         setProperty(AXPropertyName::IsMathFenced, object.isMathFenced());
         setProperty(AXPropertyName::IsMathSubscriptSuperscript, object.isMathSubscriptSuperscript());
@@ -354,7 +340,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::LocalizedActionVerb, object.localizedActionVerb().isolatedCopy());
 #endif
 
-    initializePlatformProperties(axObject, isRoot);
+    initializePlatformProperties(axObject);
 }
 
 AccessibilityObject* AXIsolatedObject::associatedAXObject() const
@@ -915,9 +901,6 @@ T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
             break;
         case AXPropertyName::RowHeaders:
             value = axIDs(axObject->rowHeaders());
-            break;
-        case AXPropertyName::SupportsPressAction:
-            value = axObject->supportsPressAction();
             break;
         default:
             break;
@@ -1574,6 +1557,17 @@ bool AXIsolatedObject::hasSameStyle(const AXCoreObject& otherObject) const
     });
 }
 
+// The attribute this value is exposed as is not used by VoiceOver or any other AX client on macOS, so we intentionally don't cache it.
+// Re-visit if ITM expands to more platforms, or if AX clients need to start using this.
+String AXIsolatedObject::linkRelValue() const
+{
+    return Accessibility::retrieveValueFromMainThread<String>([this] () -> String {
+        if (auto* object = associatedAXObject())
+            return object->linkRelValue().isolatedCopy();
+        return { };
+    });
+}
+
 Element* AXIsolatedObject::element() const
 {
     ASSERT_NOT_REACHED();
@@ -1657,6 +1651,15 @@ bool AXIsolatedObject::hasAttributesRequiredForInclusion() const
     return false;
 }
 
+String AXIsolatedObject::stringValue() const
+{
+    if (m_propertyMap.contains(AXPropertyName::StringValue))
+        return stringAttributeValue(AXPropertyName::StringValue);
+    if (auto value = platformStringValue())
+        return *value;
+    return { };
+}
+
 String AXIsolatedObject::text() const
 {
     ASSERT_NOT_REACHED();
@@ -1726,7 +1729,7 @@ Document* AXIsolatedObject::document() const
     return nullptr;
 }
 
-FrameView* AXIsolatedObject::documentFrameView() const
+LocalFrameView* AXIsolatedObject::documentFrameView() const
 {
     ASSERT(isMainThread());
 
@@ -1795,12 +1798,6 @@ AXCoreObject::AccessibilityChildrenVector AXIsolatedObject::rowHeaders()
     return tree()->objectsForIDs(const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<Vector<AXID>>(AXPropertyName::RowHeaders));
 }
 
-// FIXME: Rather than lazily retrieving this property, we should make it performant enough to retrieve up-front in AXIsolatedObject::initializeProperties.
-bool AXIsolatedObject::supportsPressAction() const
-{
-    return const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<bool>(AXPropertyName::SupportsPressAction);
-}
-
 #if !PLATFORM(MAC)
 IntPoint AXIsolatedObject::clickPoint()
 {
@@ -1827,6 +1824,12 @@ int AXIsolatedObject::layoutCount() const
 }
 
 Vector<String> AXIsolatedObject::classList() const
+{
+    ASSERT_NOT_REACHED();
+    return { };
+}
+
+String AXIsolatedObject::computedRoleString() const
 {
     ASSERT_NOT_REACHED();
     return { };

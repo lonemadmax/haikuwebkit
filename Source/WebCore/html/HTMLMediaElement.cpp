@@ -55,10 +55,8 @@
 #include "ElementChildIteratorInlines.h"
 #include "EventLoop.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
-#include "FrameView.h"
 #include "FullscreenManager.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSourceElement.h"
@@ -74,6 +72,8 @@
 #include "JSHTMLMediaElement.h"
 #include "JSMediaControlsHost.h"
 #include "LoadableTextTrack.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MediaController.h"
@@ -155,8 +155,12 @@
 #endif
 
 #if ENABLE(MEDIA_SOURCE)
-#include "DOMWindow.h"
+#include "LocalDOMWindow.h"
+#if ENABLE(MANAGED_MEDIA_SOURCE)
+#include "ManagedMediaSource.h"
+#else
 #include "MediaSource.h"
+#endif
 #include "SourceBufferList.h"
 #endif
 
@@ -428,7 +432,7 @@ static bool defaultVolumeLocked()
 }
 
 HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& document, bool createdByParser)
-    : HTMLElement(tagName, document)
+    : HTMLElement(tagName, document, CreateHTMLMediaElement)
     , ActiveDOMObject(document)
     , m_progressEventTimer(*this, &HTMLMediaElement::progressEventTimerFired)
     , m_playbackProgressTimer(*this, &HTMLMediaElement::playbackProgressTimerFired)
@@ -491,8 +495,6 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     allMediaElements().add(this);
 
     ALWAYS_LOG(LOGIDENTIFIER);
-
-    setHasCustomStyleResolveCallbacks();
 
     InspectorInstrumentation::addEventListenersToNode(*this);
 }
@@ -1530,7 +1532,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
 
     INFO_LOG(LOGIDENTIFIER, initialURL, contentType, keySystem);
 
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame = document().frame();
     if (!frame) {
         mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
         return;
@@ -2354,7 +2356,7 @@ bool HTMLMediaElement::isSafeToLoadURL(const URL& url, InvalidURLAction actionIf
         return false;
     }
 
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame = document().frame();
     if (!frame || !document().securityOrigin().canDisplay(url)) {
         if (actionIfInvalid == Complain) {
             FrameLoader::reportLocalLoadFailed(frame.get(), url.stringCenterEllipsizedToLength());
@@ -4167,7 +4169,7 @@ void HTMLMediaElement::setLoop(bool loop)
 
 bool HTMLMediaElement::controls() const
 {
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame = document().frame();
 
     // always show controls when scripting is disabled
     if (frame && !frame->script().canExecuteScripts(NotAboutToExecuteScript))
@@ -4414,7 +4416,7 @@ void HTMLMediaElement::endScanning()
 
 double HTMLMediaElement::nextScanRate()
 {
-    double rate = std::min(ScanMaximumRate, fabs(playbackRate() * 2));
+    double rate = std::min(ScanMaximumRate, std::abs(playbackRate() * 2));
     if (m_scanDirection == Backward)
         rate *= -1;
 #if PLATFORM(IOS_FAMILY)
@@ -5580,7 +5582,7 @@ bool HTMLMediaElement::mediaPlayerRenderingCanBeAccelerated()
     // picture-in-picture window or if it is in fullscreen.
     // Otherwise, the MediaPlayerPrivate* may destroy the video layer if
     // the no longer in the DOM.
-    if (m_videoFullscreenLayer)
+    if (m_videoFullscreenMode != VideoFullscreenModeNone)
         return true;
 #endif
     auto* renderer = this->renderer();
@@ -7540,7 +7542,7 @@ HTMLMediaElement::SleepType HTMLMediaElement::shouldDisableSleep() const
 
 String HTMLMediaElement::mediaPlayerReferrer() const
 {
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame = document().frame();
     if (!frame)
         return String();
 
@@ -7549,7 +7551,7 @@ String HTMLMediaElement::mediaPlayerReferrer() const
 
 String HTMLMediaElement::mediaPlayerUserAgent() const
 {
-    RefPtr<Frame> frame = document().frame();
+    RefPtr frame = document().frame();
     if (!frame)
         return String();
 
@@ -7698,7 +7700,7 @@ const String& HTMLMediaElement::mediaPlayerMediaCacheDirectory() const
 
 String HTMLMediaElement::sourceApplicationIdentifier() const
 {
-    if (RefPtr<Frame> frame = document().frame()) {
+    if (RefPtr frame = document().frame()) {
         if (NetworkingContext* networkingContext = frame->loader().networkingContext())
             return networkingContext->sourceApplicationIdentifier();
     }
@@ -7894,7 +7896,7 @@ void HTMLMediaElement::updateRateChangeRestrictions()
 
 RefPtr<VideoPlaybackQuality> HTMLMediaElement::getVideoPlaybackQuality()
 {
-    RefPtr<DOMWindow> domWindow = document().domWindow();
+    RefPtr domWindow = document().domWindow();
     double timestamp = domWindow ? domWindow->nowTimestamp().milliseconds() : 0;
 
     auto metrics = m_player ? m_player->videoPlaybackQualityMetrics() : std::nullopt;
@@ -8518,8 +8520,18 @@ MediaProducerMediaStateFlags HTMLMediaElement::mediaState() const
 #endif
 
 #if ENABLE(MEDIA_SOURCE)
+    bool streaming = false;
+#if ENABLE(MANAGED_MEDIA_SOURCE)
+    RefPtr managedMediasource = is<ManagedMediaSource>(m_mediaSource) ? downcast<ManagedMediaSource>(m_mediaSource.get()) : nullptr;
+    streaming |= managedMediasource && managedMediasource->streaming();
+    if (!managedMediasource) {
+#endif
     // We can assume that if we have active source buffers, later networking activity (such as stream or XHR requests) will be media related.
-    if (m_mediaSource && m_mediaSource->activeSourceBuffers() && m_mediaSource->activeSourceBuffers()->length())
+    streaming |= m_mediaSource && m_mediaSource->activeSourceBuffers() && m_mediaSource->activeSourceBuffers()->length();
+#if ENABLE(MANAGED_MEDIA_SOURCE)
+    }
+#endif
+    if (streaming)
         state.add(MediaProducerMediaState::HasStreamingActivity);
 #endif
 

@@ -91,7 +91,7 @@ editing/pasteboard/dom-paste [ Skip ]
 editing/pasteboard/mac [ Skip ]
 fast/media/ios [ Skip ]
 fast/dom/Range/mac [ Skip ]
-remote-layer-tree/ios [ Skip ]
+remote-layer-tree [ Skip ]
 inspector/page/setScreenSizeOverride.html [ Skip ]
 interaction-region [ Skip ]
 
@@ -710,7 +710,6 @@ webkit.org/b/250171 imported/w3c/web-platform-tests/html/semantics/popovers/popo
 webkit.org/b/250171 imported/w3c/web-platform-tests/html/semantics/popovers/popover-anchor-scroll-display.html [ ImageOnlyFailure ]
 webkit.org/b/250171 imported/w3c/web-platform-tests/html/semantics/popovers/popover-dialog-crash.html [ Skip ]
 webkit.org/b/250171 imported/w3c/web-platform-tests/html/semantics/popovers/popover-manual-crash.html [ Skip ]
-webkit.org/b/250171 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-interactions.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/charset-2.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/charset-bom.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/referrer-policies.sub.html [ Skip ]
@@ -1016,9 +1015,9 @@ http/wpt/service-workers/basic-fetch-with-contentfilter.https.html [ Skip ]
 # Reenable it when having a custom gc exposed in service workers.
 [ Debug ] http/wpt/service-workers/fetchEvent.https.html [ Skip ]
 
-webkit.org/b/248735 http/wpt/service-workers/fetch-service-worker-preload-changing-request.https.html [ Failure ]
-webkit.org/b/248735 http/wpt/service-workers/fetch-service-worker-preload.https.html [ Failure ]
-webkit.org/b/248743 http/wpt/service-workers/fetch-service-worker-preload-download.https.html [ Failure ]
+webkit.org/b/248735 http/wpt/service-workers/fetch-service-worker-preload-changing-request.https.html [ Pass Failure ]
+webkit.org/b/248735 http/wpt/service-workers/fetch-service-worker-preload.https.html [ Pass Failure ]
+webkit.org/b/248743 http/wpt/service-workers/fetch-service-worker-preload-download.https.html [ Pass Failure ]
 webkit.org/b/248743 http/wpt/service-workers/file-upload.html [ Pass Failure ]
 
 [ Debug ] http/tests/workers/worker-messageport-2.html [ Slow ]
@@ -1718,30 +1717,15 @@ imported/w3c/web-platform-tests/html/browsers/windows/nested-browsing-contexts/f
 # These MathML WPT tests fail.
 webkit.org/b/180013 mathml/non-core/lengths-2.html [ ImageOnlyFailure ]
 webkit.org/b/194952 imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-bar-001.html [ ImageOnlyFailure ]
-webkit.org/b/194952 imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-color-001.html  [ ImageOnlyFailure ]
-webkit.org/b/194952 imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-linethickness-003.html [ ImageOnlyFailure ]
 webkit.org/b/187039 imported/w3c/web-platform-tests/mathml/relations/html5-tree/href-click-3.html [ Skip ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-bar-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-default-padding.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-parameters-gap-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-parameters-gap-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-parameters-gap-003.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-parameters-gap-004.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-parameters-gap-005.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-parameters-gap-006.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-rendering-from-in-flow.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-form-dynamic.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-movablelimits-from-in-flow.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/mrow/legacy-mrow-like-elements-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/radicals/radical-rendering-from-in-flow.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathbackground-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathbackground-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathbackground-003.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathbackground-004.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathcolor-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathcolor-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathcolor-003.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/mathcolor-004.html [ ImageOnlyFailure ]
+
 imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-auto.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-case-sensitivity.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/padding-border-margin-001.html [ ImageOnlyFailure ]
@@ -1757,10 +1741,31 @@ imported/w3c/web-platform-tests/mathml/relations/css-styling/clip.html [ ImageOn
 imported/w3c/web-platform-tests/mathml/relations/css-styling/presentational-hints-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/transform.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/mathml/presentation-markup/fractions/frac-bar-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-lspace-rspace-2.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-movablelimits-and-embellished-operator.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/op-dict-8.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/op-dict-9.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/painting-stretchy-operator-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/mover-accent-dynamic-change.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/mprescripts-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/none-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/underover-stretchy-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/underover-stretchy-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/underover-stretchy-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/display-with-overflow.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/floats/floating-inside-mathml-with-block-display.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-basic-transforms-with-default-font.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-double-struck-font-style-font-weight.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/mi-fontstyle-fontweight.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/padding-border-margin-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/padding-border-margin-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/width-height-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/width-height-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/width-height-004.html [ ImageOnlyFailure ]
+
 # This MathML test should be rewritten.
 webkit.org/b/201356 mathml/presentation/stretchy-depth-height-symmetric.html [ Skip ]
-
-webkit.org/b/230171 imported/w3c/web-platform-tests/mathml/presentation-markup/tables/table-002.html [ Failure ]
 
 # These webmessaging WPT tests time out.
 webkit.org/b/187034 imported/w3c/web-platform-tests/webmessaging/MessageEvent_onmessage_postMessage_infinite_loop.html [ Skip ]
@@ -2773,7 +2778,6 @@ imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullw
 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-008.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-009.html [ ImageOnlyFailure ]
 
-webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-multiple-001.html [ ImageOnlyFailure ]
 webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-text/word-boundary/word-boundary-009.html [ ImageOnlyFailure ]
 webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-writing-modes/full-width-003.html [ ImageOnlyFailure ]
 
@@ -2867,25 +2871,8 @@ webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/text-transform/
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-shaping-001.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-upperlower-016.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-upperlower-044.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-auto-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-auto-002.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-bold-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-bold-fraktur-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-bold-italic-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-bold-sans-serif-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-bold-script-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-double-struck-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-fraktur-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-initial-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-italic-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-looped-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-monospace-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-sans-serif-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-sans-serif-bold-italic-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-sans-serif-italic-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-script-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-stretched-001.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-tailed-001.tentative.html [ ImageOnlyFailure ]
+webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-auto-001.html [ ImageOnlyFailure ]
+webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/text-transform/math/text-transform-math-auto-002.html [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/white-space/text-space-collapse-discard-001.xht [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/white-space/text-space-trim-trim-inner-001.xht [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/white-space/tab-stop-threshold-004.html [ ImageOnlyFailure ]
@@ -3811,7 +3798,6 @@ webgl/2.0.0/conformance/more/functions/texSubImage2DHTML.html [ Skip ]
 webkit.org/b/214893 [ Debug ] webgl/2.0.0/conformance/uniforms/gl-uniform-arrays.html [ Slow ]
 
 # webkit.org/b/208211 Additional inconsitencies between Intel bots and AMD machine
-webgl/2.0.0/conformance/buffers/buffer-uninitialized.html [ Pass Failure ]
 webgl/2.0.0/conformance/extensions/angle-instanced-arrays.html [ Pass Failure ]
 webgl/2.0.0/conformance/rendering/clipping-wide-points.html [ Pass Failure ]
 webgl/2.0.0/conformance2/rendering/clipping-wide-points.html [ Pass Failure ]
@@ -3912,10 +3898,6 @@ webkit.org/b/241027 webgl/2.0.0/conformance2/textures/image_bitmap_from_image_bi
 # Failing on certain hardware configurations: macOS with Intel GPUs. Also slow.
 webkit.org/b/220753 webgl/conformance/extensions/webgl-multi-draw.html [ Pass Failure Slow ]
 
-# Timeout testing is not applicable to in-process webgl, only webgl in gpu process.
-fast/canvas/webgl/lose-context-on-timeout-async.html [ Skip ]
-fast/canvas/webgl/lose-context-on-timeout.html [ Skip ]
-
 # WebGL conformance test suite 1.0.x is skipped until 1.0.3 is retired.
 webgl/1.0.x [ Skip ]
 
@@ -3934,6 +3916,10 @@ webgl/1.0.x/conformance/extensions/webgl-draw-buffers.html [ Pass ]
 webgl/1.0.x/conformance/extensions/webgl-multi-draw.html [ Pass Slow ]
 webgl/1.0.x/conformance/programs/program-test.html [ Pass ]
 webgl/1.0.x/conformance/reading/read-pixels-test.html [ Pass ]
+
+webgl/1.0.x/conformance/attribs [ Pass ]
+webgl/1.0.x/conformance/buffers [ Pass ]
+
 
 # Debug builds on slower machines run close to the time out especially with GPUP enabled
 webkit.org/b/238691 [ Debug ] webgl/1.0.3/conformance/state/gl-object-get-calls.html [ Slow ]
@@ -3973,21 +3959,27 @@ webgl/2.0.y/conformance2/rendering/rasterizer-discard-and-implicit-clear.html [ 
 webgl/2.0.y/conformance2/extensions/webgl-clip-cull-distance.html [ Pass ]
 webgl/2.0.y/conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Pass ]
 webgl/2.0.y/conformance/reading/read-pixels-test.html [ Pass ]
+webgl/2.0.y/conformance/attribs [ Pass ]
+webgl/2.0.y/conformance/buffers [ Pass ]
 
 # WebGL 1.0.3 and 2.0.0 tests where behavior is obsolete and WebKit contains implementation
 # and tests for the new behavior. Should be removed once 1.0.3 and 2.0.0 are retired.
 fast/canvas/webgl/invalid-passed-params.html [ Skip ]
+webgl/1.0.3/conformance/attribs [ Skip ]
+webgl/1.0.3/conformance/buffers [ Skip ]
 webgl/1.0.3/conformance/context/constants-and-properties.html  [ Skip ]
 webgl/1.0.3/conformance/glsl/misc/shader-with-define-line-continuation.frag.html [ Skip ]
 webgl/1.0.3/conformance/misc/invalid-passed-params.html [ Skip ]
 webgl/1.0.3/conformance/programs/program-test.html [ Skip ]
 webgl/1.0.3/conformance/reading/read-pixels-test.html [ Skip ]
+webgl/2.0.0/conformance/attribs [ Skip ]
+webgl/2.0.0/conformance/buffers [ Skip ]
 webgl/2.0.0/conformance/context/constants-and-properties.html  [ Skip ]
-webgl/2.0.0/conformance2/context/constants-and-properties-2.html [ Skip ]
 webgl/2.0.0/conformance/glsl/misc/shader-with-define-line-continuation.frag.html [ Skip ]
 webgl/2.0.0/conformance/misc/invalid-passed-params.html [ Skip ]
 webgl/2.0.0/conformance/programs/program-test.html [ Skip ]
 webgl/2.0.0/conformance/reading/read-pixels-test.html [ Skip ]
+webgl/2.0.0/conformance2/context/constants-and-properties-2.html [ Skip ]
 
 
 # https://github.com/KhronosGroup/WebGL/issues/3341
@@ -4895,25 +4887,16 @@ imported/w3c/web-platform-tests/css/css-counter-styles/lower-roman/css3-counter-
 imported/w3c/web-platform-tests/css/css-counter-styles/upper-roman/css3-counter-styles-024.html [ Pass ImageOnlyFailure ]
 
 # Tests that fail because @counter-style is not implemented yet. Could skip the entire directory instead.
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-additive-symbols-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-additive-symbols-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-fallback-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-fallback-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-name-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-name-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-negative-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-negative-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-pad-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-pad-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-prefix-suffix-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-prefix-suffix-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-range-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-range-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-symbols-setter-invalid.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-symbols-setter.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-system-setter-1.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-system-setter-2.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-system-setter-invalid.html [ ImageOnlyFailure ]
 
 # More @counter-style failures due to not being implemented.
 imported/w3c/web-platform-tests/css/css-conditional/at-media-content-004.html [ ImageOnlyFailure ]
@@ -5104,9 +5087,6 @@ webkit.org/b/228176 fast/text/variable-system-font-2.html [ Pass ImageOnlyFailur
 imported/w3c/web-platform-tests/workers/interfaces/WorkerUtils/importScripts/ [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/FileAPI/file/File-constructor.any.worker.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask-exceptions.any.worker.html [ DumpJSConsoleLogInStdErr ]
-
-# It passes in legacy line layout by sheer luck. Fails with FF and Chrome too (it expects "random" code points to be computed to zero width).
-fast/text/zero-width-characters-complex-script.html [ Failure ]
 
 webkit.org/b/230237 imported/w3c/web-platform-tests/css/cssom-view/scrollIntoView-inline-image.html [ Failure ]
 
@@ -6227,9 +6207,7 @@ imported/w3c/web-platform-tests/html/browsers/the-window-object/window-open-noop
 imported/w3c/web-platform-tests/html/browsers/the-window-object/window-open-noopener.html?_parent [ Skip ]
 imported/w3c/web-platform-tests/html/browsers/the-window-object/window-open-noopener.html?_top [ Skip ]
 
-# CSS nesting unsupported yet
 imported/w3c/web-platform-tests/css/css-nesting/nest-containing-forgiving.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-nesting/nesting-basic.html [ ImageOnlyFailure ]
 
 # Needs non-zero line gap in 'Arial'
 fast/text/text-edge-no-half-leading-simple.html [ Skip ]
@@ -6292,12 +6270,66 @@ imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/nam
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/override-in-shadow-dom.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/fallbacks-in-shadow-dom.html [ ImageOnlyFailure ]
 
-# Missing allowing redefinition of predefined counter-styles rdar://106085436
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/redefine-attr-mapping.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/redefine-builtin.html [ ImageOnlyFailure ]
-
 # Missing counter-style integration with symbols() rdar://106084071
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/symbols-function.html [ ImageOnlyFailure ]
+
+# Newly imported ruby WPTs
+imported/w3c/web-platform-tests/css/css-ruby/abs-in-ruby-base-container.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/abs-in-ruby-base.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/block-ruby-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/block-ruby-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/block-ruby-005.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/empty-ruby-base-container.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/empty-ruby-text-container-float.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/improperly-contained-annotation-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/intra-base-white-space-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/nested-ruby-pairing-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/rb-display-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/rbc-rtc-basic-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/root-block-ruby.xhtml [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/root-ruby.xhtml [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/rt-display-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-align-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-align-001a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-align-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-align-002a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-annotation-pairing-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-autohide-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-autohide-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-autohide-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-autohide-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-base-container-float.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-bidi-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-bidi-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-box-generation-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-box-generation-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-box-generation-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-box-generation-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-box-generation-005.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-box-model-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-float-handling-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-inlinize-blocks-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-inlinize-blocks-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-inlinize-blocks-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-inlinize-blocks-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-inlinize-blocks-005.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-intrinsic-isize-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-intrinsic-isize-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-justification-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-lang-specific-style-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-line-break-suppression-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-line-break-suppression-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-line-break-suppression-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-line-break-suppression-005.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-line-breaking-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-line-breaking-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-text-collapse.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-text-combine-upright-002a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-text-combine-upright-002b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-whitespace-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-whitespace-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-with-floats-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-with-floats-003.html [ ImageOnlyFailure ]
 
 # WPT seems to be wrong regarding prefix/suffix fallback (https://github.com/web-platform-tests/wpt/issues/38772)
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-additive.html [ ImageOnlyFailure ]

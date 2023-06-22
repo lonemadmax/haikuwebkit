@@ -551,6 +551,8 @@ private:
 
     void updateBackgroundResponsivenessTimer();
 
+    void updateBlobRegistryPartitioningState() const;
+
     void processDidTerminateOrFailedToLaunch(ProcessTerminationReason);
 
     // IPC::Connection::Client
@@ -602,6 +604,7 @@ private:
 #endif
 
     bool shouldTakeSuspendedAssertion() const;
+    bool shouldDropSuspendedAssertionAfterDelay() const;
 
     enum class IsWeak { No, Yes };
     template<typename T> class WeakOrStrongPtr {

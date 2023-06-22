@@ -67,9 +67,13 @@ static void checkURLArgument(NSURL *url)
         return nil;
 
     if (!identifier)
-        [NSException raise:NSInvalidArgumentException format:@"Identifier cannot be nil"];
+        [NSException raise:NSInvalidArgumentException format:@"Identifier is nil"];
 
-    API::Object::constructInWrapper<WebKit::WebsiteDataStoreConfiguration>(self, UUID(identifier));
+    auto uuid = UUID::fromNSUUID(identifier);
+    if (!uuid || !uuid->isValid())
+        [NSException raise:NSInvalidArgumentException format:@"Identifier (%s) is invalid for data store", String([identifier UUIDString]).utf8().data()];
+
+    API::Object::constructInWrapper<WebKit::WebsiteDataStoreConfiguration>(self, *uuid);
 
     return self;
 }
@@ -496,6 +500,27 @@ static WebKit::UnifiedOriginStorageLevel toUnifiedOriginStorageLevel(_WKUnifiedO
 - (void)setPerOriginStorageQuota:(NSUInteger)quota
 {
     _configuration->setPerOriginStorageQuota(quota);
+}
+
+- (NSNumber *)originQuotaRatio
+{
+    auto ratio = _configuration->originQuotaRatio();
+    if (!ratio)
+        return nil;
+
+    return [NSNumber numberWithFloat:*ratio];
+}
+
+- (void)setOriginQuotaRatio:(NSNumber *)originQuotaRatio
+{
+    std::optional<double> ratio = std::nullopt;
+    if (originQuotaRatio) {
+        ratio = [originQuotaRatio doubleValue];
+        if (!ratio.value())
+            [NSException raise:NSInvalidArgumentException format:@"originQuotaRatio is 0.0"];
+    }
+
+    _configuration->setOriginQuotaRatio(ratio);
 }
 
 - (NSUInteger)testSpeedMultiplier

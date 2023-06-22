@@ -27,6 +27,7 @@
 #include "RemoteFrame.h"
 
 #include "Document.h"
+#include "FrameDestructionObserverInlines.h"
 #include "HTMLFrameOwnerElement.h"
 #include "RemoteDOMWindow.h"
 #include "RemoteFrameClient.h"
@@ -39,7 +40,7 @@ Ref<RemoteFrame> RemoteFrame::createMainFrame(Page& page, UniqueRef<RemoteFrameC
     return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, nullptr, std::nullopt));
 }
 
-Ref<RemoteFrame> RemoteFrame::createSubframe(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, AbstractFrame& parent)
+Ref<RemoteFrame> RemoteFrame::createSubframe(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier identifier, Frame& parent)
 {
     return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, nullptr, &parent, std::nullopt));
 }
@@ -49,8 +50,8 @@ Ref<RemoteFrame> RemoteFrame::createSubframeWithContentsInAnotherProcess(Page& p
     return adoptRef(*new RemoteFrame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame(), layerHostingContextIdentifier));
 }
 
-RemoteFrame::RemoteFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, AbstractFrame* parent, Markable<LayerHostingContextIdentifier> layerHostingContextIdentifier)
-    : AbstractFrame(page, frameID, ownerElement, parent)
+RemoteFrame::RemoteFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, FrameIdentifier frameID, HTMLFrameOwnerElement* ownerElement, Frame* parent, Markable<LayerHostingContextIdentifier> layerHostingContextIdentifier)
+    : Frame(page, frameID, FrameType::Remote, ownerElement, parent)
     , m_window(RemoteDOMWindow::create(*this, GlobalWindowIdentifier { Process::identifier(), WindowIdentifier::generate() }))
     , m_client(WTFMove(client))
     , m_layerHostingContextIdentifier(layerHostingContextIdentifier)
@@ -59,7 +60,7 @@ RemoteFrame::RemoteFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, Fram
 
 RemoteFrame::~RemoteFrame() = default;
 
-AbstractDOMWindow* RemoteFrame::virtualWindow() const
+DOMWindow* RemoteFrame::virtualWindow() const
 {
     return &window();
 }
@@ -82,7 +83,7 @@ bool RemoteFrame::preventsParentFromBeingComplete() const
     return m_preventsParentFromBeingComplete;
 }
 
-AbstractFrameView* RemoteFrame::virtualView() const
+FrameView* RemoteFrame::virtualView() const
 {
     return m_view.get();
 }

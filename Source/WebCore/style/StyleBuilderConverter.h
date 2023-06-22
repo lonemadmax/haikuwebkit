@@ -29,6 +29,7 @@
 #include "BasicShapeFunctions.h"
 #include "CSSCalcValue.h"
 #include "CSSContentDistributionValue.h"
+#include "CSSCounterStyleRegistry.h"
 #include "CSSFontFeatureValue.h"
 #include "CSSFontStyleWithAngleValue.h"
 #include "CSSFontVariationValue.h"
@@ -51,10 +52,11 @@
 #include "CalculationValue.h"
 #include "FontPalette.h"
 #include "FontSelectionValueInlines.h"
-#include "Frame.h"
 #include "FrameDestructionObserverInlines.h"
 #include "GridPositionsResolver.h"
 #include "Length.h"
+#include "ListStyleType.h"
+#include "LocalFrame.h"
 #include "QuotesData.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGPathElement.h"
@@ -89,6 +91,7 @@ public:
     static LengthPoint convertPosition(BuilderState&, const CSSValue&);
     static LengthPoint convertPositionOrAuto(BuilderState&, const CSSValue&);
     static OptionSet<TextDecorationLine> convertTextDecorationLine(BuilderState&, const CSSValue&);
+    static OptionSet<TextTransform> convertTextTransform(BuilderState&, const CSSValue&);
     template<typename T> static T convertNumber(BuilderState&, const CSSValue&);
     template<typename T> static T convertNumberOrAuto(BuilderState&, const CSSValue&);
     static short convertWebkitHyphenateLimitLines(BuilderState&, const CSSValue&);
@@ -136,6 +139,7 @@ public:
     static std::optional<float> convertPerspective(BuilderState&, const CSSValue&);
     static std::optional<Length> convertMarqueeIncrement(BuilderState&, const CSSValue&);
     static std::optional<FilterOperations> convertFilterOperations(BuilderState&, const CSSValue&);
+    static ListStyleType convertListStyleType(const BuilderState&, const CSSValue&);
 #if PLATFORM(IOS_FAMILY)
     static bool convertTouchCallout(BuilderState&, const CSSValue&);
 #endif
@@ -282,6 +286,21 @@ inline Length BuilderConverter::convertLengthSizing(const BuilderState& builderS
         ASSERT_NOT_REACHED();
         return Length();
     }
+}
+
+inline ListStyleType BuilderConverter::convertListStyleType(const BuilderState& builderState, const CSSValue& value)
+{
+    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
+    if (primitiveValue.isValueID()) {
+        if (builderState.document().settings().cssCounterStyleAtRulesEnabled() && !isCounterStyleUnsupportedByUserAgent(primitiveValue.valueID()))
+            return { ListStyleType::Type::CounterStyle, makeAtomString(primitiveValue.stringValue()) };
+        return { fromCSSValue<ListStyleType::Type>(primitiveValue), nullAtom() };
+    }
+    if (primitiveValue.isCustomIdent()) {
+        ASSERT(builderState.document().settings().cssCounterStyleAtRulesEnabled());
+        return { ListStyleType::Type::CounterStyle, makeAtomString(primitiveValue.stringValue()) };
+    }
+    return { ListStyleType::Type::String, makeAtomString(primitiveValue.stringValue()) };
 }
 
 inline Length BuilderConverter::convertLengthMaxSizing(const BuilderState& builderState, const CSSValue& value)
@@ -457,6 +476,16 @@ inline OptionSet<TextDecorationLine> BuilderConverter::convertTextDecorationLine
     if (is<CSSValueList>(value)) {
         for (auto& currentValue : downcast<CSSValueList>(value))
             result.add(fromCSSValue<TextDecorationLine>(currentValue));
+    }
+    return result;
+}
+
+inline OptionSet<TextTransform> BuilderConverter::convertTextTransform(BuilderState&, const CSSValue& value)
+{
+    auto result = RenderStyle::initialTextTransform();
+    if (is<CSSValueList>(value)) {
+        for (auto& currentValue : downcast<CSSValueList>(value))
+            result.add(fromCSSValue<TextTransform>(currentValue));
     }
     return result;
 }
@@ -1635,7 +1664,7 @@ inline StyleContentAlignmentData BuilderConverter::convertContentAlignmentData(B
 
 inline GlyphOrientation BuilderConverter::convertGlyphOrientation(BuilderState&, const CSSValue& value)
 {
-    float angle = fabsf(fmodf(downcast<CSSPrimitiveValue>(value).floatValue(), 360.0f));
+    float angle = std::abs(fmodf(downcast<CSSPrimitiveValue>(value).floatValue(), 360.0f));
     if (angle <= 45.0f || angle > 315.0f)
         return GlyphOrientation::Degrees0;
     if (angle > 45.0f && angle <= 135.0f)

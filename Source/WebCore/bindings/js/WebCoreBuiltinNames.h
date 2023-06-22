@@ -204,11 +204,13 @@ namespace WebCore {
     macro(GPUDevice) \
     macro(GPUDeviceLostInfo) \
     macro(GPUExternalTexture) \
+    macro(GPUInternalError) \
     macro(GPUMapMode) \
     macro(GPUOutOfMemoryError) \
     macro(GPUPipelineLayout) \
     macro(GPUQuerySet) \
     macro(GPUQueue) \
+    macro(GPUPipelineError) \
     macro(GPURenderBundle) \
     macro(GPURenderBundleEncoder) \
     macro(GPURenderPassEncoder) \
@@ -252,6 +254,7 @@ namespace WebCore {
     macro(ImageBitmap) \
     macro(ImageBitmapRenderingContext) \
     macro(IdleDeadline) \
+    macro(InputDeviceInfo) \
     macro(InputEvent) \
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \

@@ -36,8 +36,6 @@
 #include "DebugOverlayRegions.h"
 #include "DebugPageOverlays.h"
 #include "EventRegion.h"
-#include "Frame.h"
-#include "FrameView.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
 #include "HTMLBodyElement.h"
@@ -50,6 +48,8 @@
 #include "InspectorInstrumentation.h"
 #include "KeyframeList.h"
 #include "LayerAncestorClippingStack.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "Logging.h"
 #include "Model.h"
 #include "NullGraphicsContext.h"
@@ -950,7 +950,7 @@ void RenderLayerBacking::updateAllowsBackingStoreDetaching(const LayoutRect& abs
 
     // We'll allow detaching if the layer is outside the layout viewport. Fixed layers inside
     // the layout viewport can be revealed by async scrolling, so we want to pin their backing store.
-    FrameView& frameView = renderer().view().frameView();
+    LocalFrameView& frameView = renderer().view().frameView();
     LayoutRect fixedLayoutRect;
     if (frameView.useFixedLayout())
         fixedLayoutRect = renderer().view().unscaledDocumentRect();
@@ -1117,6 +1117,15 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
         m_graphicsLayer->setAppliesDeviceScale(!unscaledBitmap);
         layerConfigChanged = true;
     }
+
+#if ENABLE(CSS_COMPOSITING)
+    bool shouldPaintUsingCompositeCopy = unscaledBitmap && is<RenderHTMLCanvas>(renderer());
+    if (shouldPaintUsingCompositeCopy != m_owningLayer.shouldPaintUsingCompositeCopy()) {
+        m_owningLayer.setShouldPaintUsingCompositeCopy(shouldPaintUsingCompositeCopy);
+        m_graphicsLayer->setShouldPaintUsingCompositeCopy(shouldPaintUsingCompositeCopy);
+        layerConfigChanged = true;
+    }
+#endif
 
     if (is<RenderEmbeddedObject>(renderer()) && downcast<RenderEmbeddedObject>(renderer()).allowsAcceleratedCompositing()) {
         auto* pluginViewBase = downcast<PluginViewBase>(downcast<RenderWidget>(renderer()).widget());
@@ -1535,7 +1544,7 @@ void RenderLayerBacking::updateGeometry(const RenderLayer* compositedAncestor)
         FloatPoint backgroundPosition;
         FloatSize backgroundSize = primaryGraphicsLayerRect.size();
         if (backgroundLayerPaintsFixedRootBackground()) {
-            const FrameView& frameView = renderer().view().frameView();
+            const LocalFrameView& frameView = renderer().view().frameView();
             backgroundPosition = frameView.scrollPositionForFixedPosition();
             backgroundSize = frameView.layoutSize();
         } else {
@@ -3418,7 +3427,7 @@ void RenderLayerBacking::paintIntoLayer(const GraphicsLayer* graphicsLayer, Grap
     RenderObject::SetLayoutNeededForbiddenScope forbidSetNeedsLayout(renderer());
 
     auto paintOneLayer = [&](RenderLayer& layer, OptionSet<RenderLayer::PaintLayerFlag> paintFlags) {
-        FrameView::PaintingState paintingState;
+        LocalFrameView::PaintingState paintingState;
         if (!eventRegionContext) {
             InspectorInstrumentation::willPaint(layer.renderer());
 

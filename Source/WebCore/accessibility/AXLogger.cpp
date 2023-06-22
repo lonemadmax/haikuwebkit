@@ -34,7 +34,7 @@
 #endif
 #include "AXObjectCache.h"
 #include "Document.h"
-#include "FrameView.h"
+#include "LocalFrameView.h"
 #include "LogInitialization.h"
 #include "Logging.h"
 #include <algorithm>
@@ -612,6 +612,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXTextChanged:
         stream << "AXTextChanged";
+        break;
+    case AXObjectCache::AXNotification::AXTextSecurityChanged:
+        stream << "AXTextSecurityChanged";
         break;
     case AXObjectCache::AXNotification::AXElementBusyChanged:
         stream << "AXElementBusyChanged";

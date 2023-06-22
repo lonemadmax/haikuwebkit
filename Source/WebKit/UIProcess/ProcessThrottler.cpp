@@ -50,7 +50,7 @@ static uint64_t generatePrepareToSuspendRequestID()
 ProcessThrottler::ProcessThrottler(ProcessThrottlerClient& process, bool shouldTakeUIBackgroundAssertion)
     : m_process(process)
     , m_prepareToSuspendTimeoutTimer(RunLoop::main(), this, &ProcessThrottler::prepareToSuspendTimeoutTimerFired)
-    , m_removeAllAssertionsTimer(RunLoop::main(), this, &ProcessThrottler::removeAllAssertionsTimerFired)
+    , m_dropSuspendedAssertionTimer(RunLoop::main(), this, &ProcessThrottler::dropSuspendedAssertionTimerFired)
     , m_shouldTakeUIBackgroundAssertion(shouldTakeUIBackgroundAssertion)
 {
 }
@@ -191,6 +191,14 @@ void ProcessThrottler::setThrottleState(ProcessThrottleState newState)
             weakThis->assertionWasInvalidated();
     });
 
+    if (m_assertion->type() == ProcessAssertionType::Suspended) {
+        if (!m_shouldTakeSuspendedAssertion)
+            m_assertion = nullptr;
+        else
+            m_dropSuspendedAssertionTimer.startOneShot(removeAllAssertionsTimeout);
+    } else
+        m_dropSuspendedAssertionTimer.stop();
+
     m_process.didChangeThrottleState(newState);
 }
     
@@ -207,7 +215,6 @@ void ProcessThrottler::updateThrottleStateIfNeeded()
                 PROCESSTHROTTLER_RELEASE_LOG("updateThrottleStateIfNeeded: sending ProcessDidResume IPC because the WebProcess is still processing request to suspend=%" PRIu64, *m_pendingRequestToSuspendID);
             m_process.sendProcessDidResume(expectedThrottleState() == ProcessThrottleState::Foreground ? ProcessThrottlerClient::ResumeReason::ForegroundActivity : ProcessThrottlerClient::ResumeReason::BackgroundActivity);
             clearPendingRequestToSuspend();
-            m_removeAllAssertionsTimer.stop();
         }
     } else {
         // If the process is currently runnable but will be suspended then first give it a chance to complete what it was doing
@@ -215,7 +222,6 @@ void ProcessThrottler::updateThrottleStateIfNeeded()
         // in the background for too long.
         if (m_state != ProcessThrottleState::Suspended) {
             m_prepareToSuspendTimeoutTimer.startOneShot(processSuspensionTimeout);
-            m_removeAllAssertionsTimer.startOneShot(removeAllAssertionsTimeout);
             sendPrepareToSuspendIPC(IsSuspensionImminent::No);
             return;
         }
@@ -241,12 +247,11 @@ void ProcessThrottler::prepareToSuspendTimeoutTimerFired()
     updateThrottleStateNow();
 }
 
-void ProcessThrottler::removeAllAssertionsTimerFired()
+void ProcessThrottler::dropSuspendedAssertionTimerFired()
 {
-    PROCESSTHROTTLER_RELEASE_LOG("removeAllAssertionsTimerFired: Removing all process assertions");
+    PROCESSTHROTTLER_RELEASE_LOG("dropSuspendedAssertionTimerFired: Removing suspended process assertion");
     RELEASE_ASSERT(m_assertion && m_assertion->type() == ProcessAssertionType::Suspended);
-    if (!m_shouldTakeSuspendedAssertion)
-        m_assertion = nullptr;
+    m_assertion = nullptr;
 }
     
 void ProcessThrottler::processReadyToSuspend()
@@ -333,8 +338,8 @@ void ProcessThrottler::setShouldTakeSuspendedAssertion(bool shouldTakeSuspendedA
 void ProcessThrottler::delaySuspension()
 {
     PROCESSTHROTTLER_RELEASE_LOG("delaySuspension");
-    if (m_removeAllAssertionsTimer.isActive())
-        m_removeAllAssertionsTimer.startOneShot(removeAllAssertionsTimeout);
+    if (m_dropSuspendedAssertionTimer.isActive())
+        m_dropSuspendedAssertionTimer.startOneShot(removeAllAssertionsTimeout);
 }
 
 ProcessThrottler::TimedActivity::TimedActivity(Seconds timeout, ProcessThrottler::ActivityVariant&& activity)

@@ -37,10 +37,6 @@
 #include "GLContextEGL.h"
 #endif
 
-#if USE(GLX)
-#include "GLContextGLX.h"
-#endif
-
 #if USE(HAIKU)
 #include "OpenGLShims.h"
 #endif
@@ -94,10 +90,6 @@ std::unique_ptr<GLContext> GLContext::createContextForWindow(GLNativeWindowType 
         if (sharingContext->isEGLContext())
             return GLContextEGL::createContext(windowHandle, display);
 #endif
-#if USE(GLX)
-        if (display.type() == PlatformDisplay::Type::X11)
-            return GLContextGLX::createContext(windowHandle, display);
-#endif
         return nullptr;
     }
 
@@ -112,13 +104,6 @@ std::unique_ptr<GLContext> GLContext::createContextForWindow(GLNativeWindowType 
 #if USE(EGL)
     if (auto eglContext = GLContextEGL::createContext(windowHandle, display))
         return eglContext;
-#endif
-
-#if USE(GLX)
-    if (display.type() == PlatformDisplay::Type::X11) {
-        if (auto glxContext = GLContextGLX::createContext(windowHandle, display))
-            return glxContext;
-    }
 #endif
 
     return nullptr;
@@ -137,24 +122,9 @@ std::unique_ptr<GLContext> GLContext::createSharingContext(PlatformDisplay& disp
     if (!initializeOpenGLShimsIfNeeded())
         return nullptr;
 
-#if USE(GLX)
-    bool forceGLX = display.type() == PlatformDisplay::Type::X11 && getenv("WEBKIT_FORCE_GLX");
-#else
-    bool forceGLX = false;
-#endif
-
 #if USE(EGL)
-    if (!forceGLX) {
-        if (auto eglContext = GLContextEGL::createSharingContext(display))
-            return eglContext;
-    }
-#endif
-
-#if USE(GLX)
-    if (display.type() == PlatformDisplay::Type::X11) {
-        if (auto glxContext = GLContextGLX::createSharingContext(display))
-            return glxContext;
-    }
+    if (auto eglContext = GLContextEGL::createSharingContext(display))
+        return eglContext;
 #endif
 
     return nullptr;

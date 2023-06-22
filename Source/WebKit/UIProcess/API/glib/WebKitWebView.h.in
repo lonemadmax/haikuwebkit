@@ -36,7 +36,9 @@
 #include <@API_INCLUDE_PREFIX@/WebKitFormSubmissionRequest.h>
 #include <@API_INCLUDE_PREFIX@/WebKitHitTestResult.h>
 #include <@API_INCLUDE_PREFIX@/WebKitInputMethodContext.h>
+#if !ENABLE(2022_GLIB_API)
 #include <@API_INCLUDE_PREFIX@/WebKitJavascriptResult.h>
+#endif
 #include <@API_INCLUDE_PREFIX@/WebKitNavigationAction.h>
 #include <@API_INCLUDE_PREFIX@/WebKitNotification.h>
 #include <@API_INCLUDE_PREFIX@/WebKitOptionMenu.h>
@@ -645,7 +647,7 @@ webkit_web_view_evaluate_javascript                  (WebKitWebView             
                                                       GAsyncReadyCallback        callback,
                                                       gpointer                   user_data);
 
-WEBKIT_API WebKitJavascriptResult *
+WEBKIT_API JSCValue *
 webkit_web_view_evaluate_javascript_finish           (WebKitWebView             *web_view,
                                                       GAsyncResult              *result,
                                                       GError                   **error);
@@ -661,7 +663,7 @@ webkit_web_view_call_async_javascript_function       (WebKitWebView             
                                                       GAsyncReadyCallback        callback,
                                                       gpointer                   user_data);
 
-WEBKIT_API WebKitJavascriptResult *
+WEBKIT_API JSCValue *
 webkit_web_view_call_async_javascript_function_finish(WebKitWebView             *web_view,
                                                       GAsyncResult              *result,
                                                       GError                   **error);

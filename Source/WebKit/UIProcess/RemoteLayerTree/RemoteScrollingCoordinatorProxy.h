@@ -81,6 +81,7 @@ public:
     // Inform the web process that the scroll position changed (called from the scrolling tree)
     void scrollingTreeNodeDidScroll(WebCore::ScrollingNodeID, const WebCore::FloatPoint& newScrollPosition, const std::optional<WebCore::FloatPoint>& layoutViewportOrigin, WebCore::ScrollingLayerPositionAction);
     virtual bool scrollingTreeNodeRequestsScroll(WebCore::ScrollingNodeID, const WebCore::RequestedScrollData&);
+    virtual bool scrollingTreeNodeRequestsKeyboardScroll(WebCore::ScrollingNodeID, const WebCore::RequestedKeyboardScrollData&);
     void scrollingTreeNodeDidStopAnimatedScroll(WebCore::ScrollingNodeID);
 
     WebCore::TrackingType eventTrackingTypeForPoint(WebCore::EventTrackingRegions::EventType, WebCore::IntPoint) const;
@@ -120,6 +121,9 @@ public:
     virtual void scrollingTreeNodeDidEndScroll(WebCore::ScrollingNodeID) { }
     virtual void hasNodeWithAnimatedScrollChanged(bool) { }
     virtual void setRootNodeIsInUserScroll(bool) { }
+    
+    virtual void willCommitLayerAndScrollingTrees() { }
+    virtual void didCommitLayerAndScrollingTrees() { }
 
     String scrollingTreeAsText() const;
 
@@ -134,7 +138,8 @@ public:
     void removeWheelEventTestCompletionDeferralForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
 
     virtual void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<WebCore::FramesPerSecond>) { }
-    
+
+    float topContentInset() const;
     WebCore::FloatPoint currentMainFrameScrollPosition() const;
     WebCore::FloatRect computeVisibleContentRect();
     WebCore::IntPoint scrollOrigin() const;

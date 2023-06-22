@@ -82,6 +82,19 @@ static bool usePersistentCredentialStorage = false;
 }
 @end
 
+@interface WKWebsiteDataStoreMessageHandler : NSObject <WKScriptMessageHandler>
+@end
+
+@implementation WKWebsiteDataStoreMessageHandler
+
+- (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message
+{
+    receivedScriptMessage = true;
+    lastScriptMessage = message;
+}
+
+@end
+
 namespace TestWebKitAPI {
 
 
@@ -527,6 +540,81 @@ TEST(WKWebsiteDataStore, RemoveDataStoreWithIdentifier)
     EXPECT_FALSE([fileManager fileExistsAtPath:generalStorageDirectory.get().path]);
 }
 
+TEST(WKWebsiteDataStore, RemoveDataStoreWithIdentifierRemoveCredentials)
+{
+    // FIXME: we should use persistent credential for test after rdar://100722784 is in build.
+    usePersistentCredentialStorage = false;
+    done = false;
+    auto uuid = adoptNS([[NSUUID alloc] initWithUUIDString:@"68753a44-4d6f-1226-9c60-0050e4c00067"]);
+    auto websiteDataStoreConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initWithIdentifier:uuid.get()]);
+    pid_t networkProcessIdentifier;
+    @autoreleasepool {
+        auto websiteDataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:websiteDataStoreConfiguration.get()]);
+        [websiteDataStore removeDataOfTypes:[WKWebsiteDataStore _allWebsiteDataTypesIncludingPrivate] modifiedSince:[NSDate distantPast] completionHandler:^{
+            done = true;
+        }];
+        TestWebKitAPI::Util::run(&done);
+        done = false;
+
+        HTTPServer server(HTTPServer::respondWithChallengeThenOK);
+        auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [configuration setWebsiteDataStore:websiteDataStore.get()];
+        auto navigationDelegate = adoptNS([[NavigationTestDelegate alloc] init]);
+        auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+        [webView setNavigationDelegate:navigationDelegate.get()];
+        [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"http://127.0.0.1:%d/", server.port()]]]];
+        [navigationDelegate waitForDidFinishNavigation];
+
+        [websiteDataStore fetchDataRecordsOfTypes:[NSSet setWithObject:_WKWebsiteDataTypeCredentials] completionHandler:^(NSArray<WKWebsiteDataRecord *> *dataRecords) {
+            EXPECT_EQ((int)dataRecords.count, 1);
+            for (WKWebsiteDataRecord *record in dataRecords)
+                EXPECT_WK_STREQ([record displayName], @"127.0.0.1");
+            done = true;
+        }];
+        TestWebKitAPI::Util::run(&done);
+        done = false;
+        networkProcessIdentifier = [websiteDataStore.get() _networkProcessIdentifier];
+        EXPECT_NE(networkProcessIdentifier, 0);
+    }
+
+    // Wait until network process exits so we are sure website data files are not in use during removal.
+    while (!kill(networkProcessIdentifier, 0))
+        TestWebKitAPI::Util::spinRunLoop();
+
+    [WKWebsiteDataStore _removeDataStoreWithIdentifier:uuid.get() completionHandler:^(NSError *error) {
+        done = true;
+        EXPECT_NULL(error);
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto websiteDataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:websiteDataStoreConfiguration.get()]);
+    [websiteDataStore fetchDataRecordsOfTypes:[NSSet setWithObject:_WKWebsiteDataTypeCredentials] completionHandler:^(NSArray<WKWebsiteDataRecord *> *dataRecords) {
+        int credentialCount = dataRecords.count;
+        EXPECT_EQ(credentialCount, 0);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+}
+
+TEST(WKWebsiteDataStore, RemoveDataStoreWithIdentifierErrorWhenInUse)
+{
+    auto uuid = adoptNS([[NSUUID alloc] initWithUUIDString:@"68753a44-4d6f-1226-9c60-0050e4c00067"]);
+    auto websiteDataStore = createWebsiteDataStoreAndPrepare(uuid.get(), @"");
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [configuration setWebsiteDataStore:websiteDataStore.get()];
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+    [webView loadHTMLString:@"" baseURL:[NSURL URLWithString:@"https://webkit.org/"]];
+
+    __block bool done = false;
+    [WKWebsiteDataStore _removeDataStoreWithIdentifier:uuid.get() completionHandler:^(NSError *error) {
+        done = true;
+        EXPECT_TRUE(!!error);
+        EXPECT_TRUE([[error description] containsString:@"in use"]);
+    }];
+    TestWebKitAPI::Util::run(&done);
+}
+
 TEST(WKWebsiteDataStore, ListIdentifiers)
 {
     __block auto uuid = [NSUUID UUID];
@@ -590,6 +678,76 @@ TEST(WKWebsiteDataStorePrivate, FetchWithSize)
         readyToContinue = true;
     }];
     TestWebKitAPI::Util::run(&readyToContinue);
+}
+
+TEST(WKWebsiteDataStore, DataStoreForNilIdentifier)
+{
+    bool hasException = false;
+    @try {
+        auto websiteDataStore = [WKWebsiteDataStore dataStoreForIdentifier:[[NSUUID alloc] initWithUUIDString:@"1234"]];
+        EXPECT_NOT_NULL(websiteDataStore);
+    } @catch (NSException *exception) {
+        EXPECT_WK_STREQ(NSInvalidArgumentException, exception.name);
+        EXPECT_WK_STREQ(@"Identifier is nil", exception.reason);
+        hasException = true;
+    }
+    EXPECT_TRUE(hasException);
+}
+
+TEST(WKWebsiteDataStore, DataStoreForEmptyIdentifier)
+{
+    bool hasException = false;
+    @try {
+        auto data = [NSMutableData dataWithLength:16];
+        unsigned char* dataBytes = (unsigned char*) [data mutableBytes];
+        auto emptyUUID = [[NSUUID alloc] initWithUUIDBytes:dataBytes];
+        auto websiteDataStore = [WKWebsiteDataStore dataStoreForIdentifier:emptyUUID];
+        EXPECT_NOT_NULL(websiteDataStore);
+    } @catch (NSException *exception) {
+        EXPECT_WK_STREQ(NSInvalidArgumentException, exception.name);
+        EXPECT_WK_STREQ(@"Identifier (00000000-0000-0000-0000-000000000000) is invalid for data store", exception.reason);
+        hasException = true;
+    }
+    EXPECT_TRUE(hasException);
+}
+
+TEST(WKWebsiteDataStoreConfiguration, OriginQuotaRatio)
+{
+    auto uuid = adoptNS([[NSUUID alloc] initWithUUIDString:@"68753a44-4d6f-1226-9c60-0050e4c00067"]);
+    auto websiteDataStoreConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initWithIdentifier:uuid.get()]);
+    EXPECT_NULL([websiteDataStoreConfiguration.get() originQuotaRatio]);
+    // 1 GB disk has 1 byte quota.
+    auto ratioNumber = [NSNumber numberWithFloat:0.000000001];
+    [websiteDataStoreConfiguration.get() setOriginQuotaRatio:ratioNumber];
+    EXPECT_TRUE([[websiteDataStoreConfiguration.get() originQuotaRatio] isEqualToNumber:ratioNumber]);
+    auto websiteDataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:websiteDataStoreConfiguration.get()]);
+    auto handler = adoptNS([[WKWebsiteDataStoreMessageHandler alloc] init]);
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [[configuration userContentController] addScriptMessageHandler:handler.get() name:@"testHandler"];
+    [configuration setWebsiteDataStore:websiteDataStore.get()];
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+    NSString *htmlString = @"<script> \
+        var messageSent = false; \
+        function sendMessage(message) { \
+            if (messageSent) return; \
+            messageSent = true; \
+            window.webkit.messageHandlers.testHandler.postMessage(message); \
+        }; \
+        indexedDB.deleteDatabase('testRatio'); \
+        var request = indexedDB.open('testRatio'); \
+        request.onupgradeneeded = function(event) { \
+            db = event.target.result; \
+            os = db.createObjectStore('os'); \
+            const item = new Array(100000).join('x');\
+            os.put(item, 'key').onerror = function(event) { sendMessage(event.target.error.name); }; \
+        }; \
+        request.onsuccess = function() { sendMessage('Unexpected success'); }; \
+        request.onerror = function(event) { sendMessage(event.target.error.name); }; \
+    </script>";
+    receivedScriptMessage = false;
+    [webView loadHTMLString:htmlString baseURL:[NSURL URLWithString:@"http://webkit.org/"]];
+    TestWebKitAPI::Util::run(&receivedScriptMessage);
+    EXPECT_WK_STREQ(@"QuotaExceededError", [lastScriptMessage body]);
 }
 
 } // namespace TestWebKitAPI

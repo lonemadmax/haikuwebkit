@@ -31,8 +31,8 @@
 #include "FontDescription.h"
 #include "FontInterrogation.h"
 #include "FontMetricsNormalization.h"
-
 #include <optional>
+#include <pal/spi/cf/CoreTextSPI.h>
 
 namespace WebCore {
 
@@ -284,10 +284,6 @@ void UnrealizedCoreTextFont::modifyFromContext(CFMutableDictionaryRef attributes
 void UnrealizedCoreTextFont::modifyFromContext(const FontDescription& fontDescription, const FontCreationContext& fontCreationContext, FontTypeForPreparation fontTypeForPreparation, ApplyTraitsVariations applyTraitsVariations, bool shouldEnhanceTextLegibility)
 {
     m_applyTraitsVariations = applyTraitsVariations;
-#if USE(NON_VARIABLE_SYSTEM_FONT)
-    if (fontTypeForPreparation == FontTypeForPreparation::SystemFont)
-        m_applyTraitsVariations = ApplyTraitsVariations::No;
-#endif
 
     if (m_applyTraitsVariations == ApplyTraitsVariations::Yes) {
         auto fontSelectionRequest = fontDescription.fontSelectionRequest();

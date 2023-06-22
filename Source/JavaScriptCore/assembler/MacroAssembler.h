@@ -1418,7 +1418,7 @@ public:
         if (bitwise_cast<uint64_t>(value * 1.0) != bitwise_cast<uint64_t>(value))
             return shouldConsiderBlinding();
 
-        value = fabs(value);
+        value = std::abs(value);
         // Only allow a limited set of fractional components
         double scaledValue = value * 8;
         if (scaledValue / 8 != value)
@@ -1612,7 +1612,7 @@ public:
 
 #endif // USE(JSVALUE64)
 
-#if CPU(X86_64)
+#if CPU(X86_64) || CPU(RISCV64)
     void moveFloat(Imm32 imm, FPRegisterID dest)
     {
         move(imm, scratchRegister());

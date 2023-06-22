@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2010, 2011 Research In Motion Limited. All rights reserved.
  *
@@ -244,12 +244,7 @@
 /* Use GLib's event loop abstraction. Primarily GTK port uses it. */
 #define USE_GLIB_EVENT_LOOP 1
 #elif OS(WINDOWS)
-/* Use Windows message pump abstraction.
- * Even if the port is AppleWin, we use the Windows message pump system for the event loop,
- * so that USE(WINDOWS_EVENT_LOOP) && USE(CF) can be true.
- * And PLATFORM(WIN) and PLATFORM(GTK) are exclusive. If the port is GTK,
- * PLATFORM(WIN) should be false. And in that case, GLib's event loop is used.
- */
+/* Use Windows message pump abstraction. */
 #define USE_WINDOWS_EVENT_LOOP 1
 #elif PLATFORM(COCOA)
 /* OS X and IOS. Use CoreFoundation & GCD abstraction. */
@@ -299,30 +294,8 @@
 #define USE_DARWIN_REGISTER_MACROS 1
 #endif
 
-#if PLATFORM(COCOA) && !(PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 110000)
-#define USE_CTFONTSHAPEGLYPHS 1
-#endif
-
-#if PLATFORM(COCOA) && (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 110000)
-#define USE_CTFONTGETADVANCES_WORKAROUND 1
-#endif
-
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 130000)
 #define USE_NSIMAGE_FOR_SVG_SUPPORT 1
-#endif
-
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 120000) \
-    || ((PLATFORM(IOS) || PLATFORM(MACCATALYST)) && __IPHONE_OS_VERSION_MIN_REQUIRED < 150000) \
-    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED < 80000) \
-    || (PLATFORM(APPLETV) && __TV_OS_VERSION_MIN_REQUIRED < 150000)
-#define USE_CTFONTSHAPEGLYPHS_WORKAROUND 1
-#endif
-
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 120000) \
-    || ((PLATFORM(IOS) || PLATFORM(MACCATALYST)) && __IPHONE_OS_VERSION_MIN_REQUIRED < 150000) \
-    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED < 80000) \
-    || (PLATFORM(APPLETV) && __TV_OS_VERSION_MIN_REQUIRED < 150000)
-#define USE_NON_VARIABLE_SYSTEM_FONT 1
 #endif
 
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 130000) \

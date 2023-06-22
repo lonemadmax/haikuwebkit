@@ -44,7 +44,6 @@
 #include "DOMRect.h"
 #include "DOMRectList.h"
 #include "DOMTokenList.h"
-#include "DOMWindow.h"
 #include "DocumentInlines.h"
 #include "DocumentSharedObjectPool.h"
 #include "Editing.h"
@@ -60,9 +59,7 @@
 #include "FocusController.h"
 #include "FocusEvent.h"
 #include "FormAssociatedCustomElement.h"
-#include "Frame.h"
 #include "FrameSelection.h"
-#include "FrameView.h"
 #include "FullscreenManager.h"
 #include "FullscreenOptions.h"
 #include "GetAnimationsOptions.h"
@@ -88,6 +85,9 @@
 #include "KeyboardEvent.h"
 #include "KeyframeAnimationOptions.h"
 #include "KeyframeEffect.h"
+#include "LocalDOMWindow.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "Logging.h"
 #include "MutationObserverInterestGroup.h"
 #include "MutationRecord.h"
@@ -262,14 +262,6 @@ Element::~Element()
 
     if (hasSyntheticAttrChildNodes())
         detachAllAttrNodesFromElement();
-
-    if (hasRareData()) {
-        if (auto* map = elementRareData()->attributeStyleMap())
-            map->clearElement();
-    }
-
-    if (hasLangAttrKnownToMatchDocumentElement())
-        document().removeElementWithLangAttrMatchingDocumentElement(*this);
 }
 
 inline ElementRareData& Element::ensureElementRareData()
@@ -369,11 +361,11 @@ void Element::setNonce(const AtomString& newValue)
     ensureElementRareData().setNonce(newValue);
 }
 
-void Element::hideNonce()
+void Element::hideNonceSlow()
 {
     // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#nonce-attributes
-    if (!isConnected())
-        return;
+    ASSERT(isConnected());
+    ASSERT(hasAttributeWithoutSynchronization(nonceAttr));
 
     const auto& csp = document().contentSecurityPolicy();
     if (!csp->isHeaderDelivered())
@@ -381,10 +373,7 @@ void Element::hideNonce()
 
     // Retain previous IDL nonce.
     AtomString currentNonce = nonce();
-
-    if (!getAttribute(nonceAttr).isEmpty())
-        setAttribute(nonceAttr, emptyAtom());
-
+    setAttribute(nonceAttr, emptyAtom());
     setNonce(currentNonce);
 }
 
@@ -487,7 +476,7 @@ bool Element::dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const 
     
     auto isParentProcessAFullWebBrowser = false;
 #if PLATFORM(IOS_FAMILY)
-    if (Frame* frame = document().frame())
+    if (auto* frame = document().frame())
         isParentProcessAFullWebBrowser = frame->loader().client().isParentProcessAFullWebBrowser();
 #elif PLATFORM(MAC)
     isParentProcessAFullWebBrowser = MacApplication::isSafari();
@@ -555,7 +544,7 @@ bool Element::dispatchKeyEvent(const PlatformKeyboardEvent& platformEvent)
 {
     auto event = KeyboardEvent::create(platformEvent, document().windowProxy());
 
-    if (Frame* frame = document().frame()) {
+    if (auto* frame = document().frame()) {
         if (frame->eventHandler().accessibilityPreventsEventPropagation(event))
             event->stopPropagation();
     }
@@ -1116,7 +1105,7 @@ void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOpti
         ShouldAllowCrossOriginScrolling::No,
         options.behavior.value_or(ScrollBehavior::Auto)
     };
-    FrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, visibleOptions);
+    LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, visibleOptions);
 }
 
 void Element::scrollIntoView(bool alignToTop) 
@@ -1134,7 +1123,7 @@ void Element::scrollIntoView(bool alignToTop)
     auto alignX = ScrollAlignment::alignToEdgeIfNeeded;
     alignX.disableLegacyHorizontalVisibilityThreshold();
 
-    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
+    LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
@@ -1151,7 +1140,7 @@ void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
     auto alignX = centerIfNeeded ? ScrollAlignment::alignCenterIfNeeded : ScrollAlignment::alignToEdgeIfNeeded;
     alignX.disableLegacyHorizontalVisibilityThreshold();
 
-    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
+    LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollIntoViewIfNotVisible(bool centerIfNotVisible)
@@ -1164,7 +1153,7 @@ void Element::scrollIntoViewIfNotVisible(bool centerIfNotVisible)
     bool insideFixed;
     LayoutRect absoluteBounds = renderer()->absoluteAnchorRectWithScrollMargin(&insideFixed).marginRect;
     auto align = centerIfNotVisible ? ScrollAlignment::alignCenterIfNotVisible : ScrollAlignment::alignToEdgeIfNotVisible;
-    FrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, align, align, ShouldAllowCrossOriginScrolling::No });
+    LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer(), insideFixed, { SelectionRevealMode::Reveal, align, align, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollBy(const ScrollToOptions& options)
@@ -1282,7 +1271,7 @@ static double localZoomForRenderer(const RenderElement& renderer)
     return zoomFactor;
 }
 
-static int adjustContentsScrollPositionOrSizeForZoom(int value, const Frame& frame)
+static int adjustContentsScrollPositionOrSizeForZoom(int value, const LocalFrame& frame)
 {
     double zoomFactor = frame.pageZoomFactor() * frame.frameScaleFactor();
     if (zoomFactor == 1)
@@ -1507,7 +1496,7 @@ int Element::clientHeight()
     return 0;
 }
 
-ALWAYS_INLINE Frame* Element::documentFrameWithNonNullView() const
+ALWAYS_INLINE LocalFrame* Element::documentFrameWithNonNullView() const
 {
     auto* frame = document().frame();
     return frame && frame->view() ? frame : nullptr;
@@ -1663,7 +1652,7 @@ IntRect Element::boundsInRootViewSpace()
 {
     document().updateLayoutIgnorePendingStylesheets();
 
-    FrameView* view = document().view();
+    auto* view = document().view();
     if (!view)
         return IntRect();
 
@@ -1797,7 +1786,7 @@ LayoutRect Element::absoluteEventBoundsOfElementAndDescendants(bool& includesFix
 LayoutRect Element::absoluteEventHandlerBounds(bool& includesFixedPositionElements)
 {
     // This is not web-exposed, so don't call the FOUC-inducing updateLayoutIgnorePendingStylesheets().
-    FrameView* frameView = document().view();
+    auto* frameView = document().view();
     if (!frameView)
         return LayoutRect();
 
@@ -2041,13 +2030,16 @@ static inline AtomString makeIdForStyleResolution(const AtomString& value, bool 
     return value;
 }
 
-bool Element::isElementReflectionAttribute(const QualifiedName& name)
+bool Element::isElementReflectionAttribute(const Settings& settings, const QualifiedName& name)
 {
-    return name == HTMLNames::aria_activedescendantAttr;
+    return (settings.ariaReflectionForElementReferencesEnabled() && name == HTMLNames::aria_activedescendantAttr)
+        || (settings.popoverAttributeEnabled() && name == HTMLNames::popovertargetAttr);
 }
 
-bool Element::isElementsArrayReflectionAttribute(const QualifiedName& name)
+bool Element::isElementsArrayReflectionAttribute(const Settings& settings, const QualifiedName& name)
 {
+    if (!settings.ariaReflectionForElementReferencesEnabled())
+        return false;
     return name == HTMLNames::aria_controlsAttr
         || name == HTMLNames::aria_describedbyAttr
         || name == HTMLNames::aria_detailsAttr
@@ -2093,7 +2085,7 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
             }
         } else if (name == HTMLNames::partAttr)
             partAttributeChanged(newValue);
-        else if (document().settings().ariaReflectionForElementReferencesEnabled() && (isElementReflectionAttribute(name) || isElementsArrayReflectionAttribute(name))) {
+        else if (isElementReflectionAttribute(document().settings(), name) || isElementsArrayReflectionAttribute(document().settings(), name)) {
             if (auto* map = explicitlySetAttrElementsMapIfExists())
                 map->remove(name);
         } else if (name == HTMLNames::exportpartsAttr) {
@@ -2158,8 +2150,7 @@ ExplicitlySetAttrElementsMap* Element::explicitlySetAttrElementsMapIfExists() co
 
 Element* Element::getElementAttribute(const QualifiedName& attributeName) const
 {
-    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
-    ASSERT(isElementReflectionAttribute(attributeName));
+    ASSERT(isElementReflectionAttribute(document().settings(), attributeName));
 
     if (auto* map = explicitlySetAttrElementsMapIfExists()) {
         auto it = map->find(attributeName);
@@ -2181,8 +2172,7 @@ Element* Element::getElementAttribute(const QualifiedName& attributeName) const
 
 void Element::setElementAttribute(const QualifiedName& attributeName, Element* element)
 {
-    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
-    ASSERT(isElementReflectionAttribute(attributeName));
+    ASSERT(isElementReflectionAttribute(document().settings(), attributeName));
 
     if (!element) {
         if (auto* map = explicitlySetAttrElementsMapIfExists())
@@ -2198,8 +2188,7 @@ void Element::setElementAttribute(const QualifiedName& attributeName, Element* e
 
 std::optional<Vector<RefPtr<Element>>> Element::getElementsArrayAttribute(const QualifiedName& attributeName) const
 {
-    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
-    ASSERT(isElementsArrayReflectionAttribute(attributeName));
+    ASSERT(isElementsArrayReflectionAttribute(document().settings(), attributeName));
 
     if (auto* map = explicitlySetAttrElementsMapIfExists()) {
         if (auto it = map->find(attributeName); it != map->end()) {
@@ -2229,8 +2218,7 @@ std::optional<Vector<RefPtr<Element>>> Element::getElementsArrayAttribute(const 
 
 void Element::setElementsArrayAttribute(const QualifiedName& attributeName, std::optional<Vector<RefPtr<Element>>>&& elements)
 {
-    ASSERT(document().settings().ariaReflectionForElementReferencesEnabled());
-    ASSERT(isElementsArrayReflectionAttribute(attributeName));
+    ASSERT(isElementsArrayReflectionAttribute(document().settings(), attributeName));
 
     if (!elements) {
         if (auto* map = explicitlySetAttrElementsMapIfExists())
@@ -2751,7 +2739,8 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
     ContainerNode::removedFromAncestor(removalType, oldParentOfRemovedTree);
 
 #if ENABLE(FULLSCREEN_API)
-    document().fullscreenManager().exitRemovedFullscreenElementIfNeeded(*this);
+    if (UNLIKELY(hasFullscreenFlag()))
+        document().fullscreenManager().exitRemovedFullscreenElement(*this);
 #endif
 
     if (!parentNode() && is<Document>(oldParentOfRemovedTree)) {
@@ -2815,21 +2804,19 @@ void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
         didAddUserAgentShadowRoot(shadowRoot);
 }
 
-void Element::removeShadowRoot()
+void Element::removeShadowRootSlow(ShadowRoot& oldRoot)
 {
-    RefPtr<ShadowRoot> oldRoot = shadowRoot();
-    if (!oldRoot)
-        return;
+    ASSERT(&oldRoot == shadowRoot());
 
-    InspectorInstrumentation::willPopShadowRoot(*this, *oldRoot);
-    document().adjustFocusedNodeOnNodeRemoval(*oldRoot);
+    InspectorInstrumentation::willPopShadowRoot(*this, oldRoot);
+    document().adjustFocusedNodeOnNodeRemoval(oldRoot);
 
-    ASSERT(!oldRoot->renderer());
+    ASSERT(!oldRoot.renderer());
 
     elementRareData()->clearShadowRoot();
 
-    oldRoot->setHost(nullptr);
-    oldRoot->setParentTreeScope(document());
+    oldRoot.setHost(nullptr);
+    oldRoot.setParentTreeScope(document());
 }
 
 static bool canAttachAuthorShadowRoot(const Element& element)
@@ -3426,6 +3413,9 @@ static bool isProgramaticallyFocusable(Element& element)
 // https://html.spec.whatwg.org/multipage/interaction.html#autofocus-delegate
 static RefPtr<Element> autoFocusDelegate(ContainerNode& target, FocusTrigger trigger)
 {
+    if (auto* root = target.shadowRoot(); root && !root->delegatesFocus())
+        return nullptr;
+
     for (auto& element : descendantsOfType<Element>(target)) {
         if (!element.hasAttributeWithoutSynchronization(HTMLNames::autofocusAttr))
             continue;
@@ -3451,6 +3441,8 @@ static RefPtr<Element> autoFocusDelegate(ContainerNode& target, FocusTrigger tri
 // https://html.spec.whatwg.org/multipage/interaction.html#focus-delegate
 RefPtr<Element> Element::findFocusDelegateForTarget(ContainerNode& target, FocusTrigger trigger)
 {
+    if (auto* root = target.shadowRoot(); root && !root->delegatesFocus())
+        return nullptr;
     if (auto element = autoFocusDelegate(target, trigger))
         return element;
     for (auto& element : descendantsOfType<Element>(target)) {
@@ -3471,6 +3463,12 @@ RefPtr<Element> Element::findFocusDelegateForTarget(ContainerNode& target, Focus
         }
     }
     return nullptr;
+}
+
+// https://html.spec.whatwg.org/multipage/interaction.html#autofocus-delegate
+RefPtr<Element> Element::findAutofocusDelegate(FocusTrigger trigger)
+{
+    return autoFocusDelegate(*this, trigger);
 }
 
 // https://html.spec.whatwg.org/multipage/interaction.html#focus-delegate
@@ -3569,7 +3567,7 @@ void Element::updateFocusAppearance(SelectionRestorationMode, SelectionRevealMod
 {
     if (isRootEditableElement()) {
         // Keep frame alive in this method, since setSelection() may release the last reference to |frame|.
-        RefPtr<Frame> frame = document().frame();
+        RefPtr frame { document().frame() };
         if (!frame)
             return;
         
@@ -3587,7 +3585,7 @@ void Element::updateFocusAppearance(SelectionRestorationMode, SelectionRevealMod
         }
     }
 
-    if (RefPtr<FrameView> view = document().view())
+    if (RefPtr view = document().view())
         view->scheduleScrollToFocusedElement(revealMode);
 }
 
@@ -3648,7 +3646,7 @@ bool Element::dispatchMouseForceWillBegin()
     if (!document().hasListenerType(Document::FORCEWILLBEGIN_LISTENER))
         return false;
 
-    Frame* frame = document().frame();
+    auto* frame = document().frame();
     if (!frame)
         return false;
 
@@ -4399,23 +4397,19 @@ void Element::requestPointerLock()
 
 #endif
 
-void Element::disconnectFromIntersectionObservers()
+void Element::disconnectFromIntersectionObserversSlow(IntersectionObserverData& observerData)
 {
-    auto* observerData = intersectionObserverDataIfExists();
-    if (!observerData)
-        return;
-
-    for (const auto& registration : observerData->registrations) {
+    for (const auto& registration : observerData.registrations) {
         if (registration.observer)
             registration.observer->targetDestroyed(*this);
     }
-    observerData->registrations.clear();
+    observerData.registrations.clear();
 
-    for (const auto& observer : observerData->observers) {
+    for (const auto& observer : observerData.observers) {
         if (observer)
             observer->rootDestroyed();
     }
-    observerData->observers.clear();
+    observerData.observers.clear();
 }
 
 IntersectionObserverData& Element::ensureIntersectionObserverData()
@@ -4548,15 +4542,11 @@ bool Element::hasPendingKeyframesUpdate(PseudoId pseudoId) const
     return data && data->hasPendingKeyframesUpdate();
 }
 
-void Element::disconnectFromResizeObservers()
+void Element::disconnectFromResizeObserversSlow(ResizeObserverData& observerData)
 {
-    auto* observerData = resizeObserverData();
-    if (!observerData)
-        return;
-
-    for (const auto& observer : observerData->observers)
+    for (const auto& observer : observerData.observers)
         observer->targetDestroyed(*this);
-    observerData->observers.clear();
+    observerData.observers.clear();
 }
 
 ResizeObserverData& Element::ensureResizeObserverData()
@@ -4567,7 +4557,7 @@ ResizeObserverData& Element::ensureResizeObserverData()
     return *rareData.resizeObserverData();
 }
 
-ResizeObserverData* Element::resizeObserverData()
+ResizeObserverData* Element::resizeObserverDataIfExists()
 {
     return hasRareData() ? elementRareData()->resizeObserverData() : nullptr;
 }

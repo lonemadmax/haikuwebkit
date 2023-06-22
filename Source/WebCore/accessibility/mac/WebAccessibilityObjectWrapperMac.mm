@@ -52,7 +52,6 @@
 #import "ElementInlines.h"
 #import "Font.h"
 #import "FontCascade.h"
-#import "Frame.h"
 #import "FrameLoaderClient.h"
 #import "FrameSelection.h"
 #import "HTMLAnchorElement.h"
@@ -61,6 +60,7 @@
 #import "HTMLImageElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
+#import "LocalFrame.h"
 #import "LocalizedStrings.h"
 #import "Page.h"
 #import "PluginDocument.h"
@@ -545,7 +545,7 @@ static inline BOOL AXObjectIsTextMarkerRange(id object)
     if (!document)
         return IntRect();
     
-    FrameView* frameView = document->view();
+    auto* frameView = document->view();
     if (!frameView)
         return IntRect();
     
@@ -742,16 +742,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     // Menu elements allow Press and Cancel.
     static NeverDestroyed<RetainPtr<NSArray>> menuElementActions = [actionElementActions.get() arrayByAddingObject:NSAccessibilityCancelAction];
 
-    // Slider elements allow Increment/Decrement.
-    static NeverDestroyed<RetainPtr<NSArray>> sliderActions = [defaultElementActions.get() arrayByAddingObjectsFromArray:@[NSAccessibilityIncrementAction, NSAccessibilityDecrementAction]];
+    static NeverDestroyed<RetainPtr<NSArray>> incrementorActions = [defaultElementActions.get() arrayByAddingObjectsFromArray:@[NSAccessibilityIncrementAction, NSAccessibilityDecrementAction]];
 
     NSArray *actions;
     if (backingObject->supportsPressAction())
         actions = actionElementActions.get().get();
     else if (backingObject->isMenuRelated())
         actions = menuElementActions.get().get();
-    else if (backingObject->isSlider())
-        actions = sliderActions.get().get();
+    else if (backingObject->isSlider() || (backingObject->isSpinButton() && backingObject->spinButtonType() == SpinButtonType::Standalone)) {
+        // Non-standalone spinbuttons should not advertise the increment and decrement actions because they have separate increment and decrement controls.
+        actions = incrementorActions.get().get();
+    }
     else if (backingObject->isAttachment())
         actions = [[self attachmentView] accessibilityActionNames];
     else
@@ -913,13 +914,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         NSAccessibilityEditableAncestorAttribute,
         NSAccessibilityHighestEditableAncestorAttribute,
     ];
-    static NeverDestroyed incrementorAttrs = [] {
+    static NeverDestroyed spinButtonCommonAttributes = [] {
         auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:attributes.get().get()]);
-        [tempArray addObject:NSAccessibilityIncrementButtonAttribute];
-        [tempArray addObject:NSAccessibilityDecrementButtonAttribute];
         [tempArray addObject:NSAccessibilityValueDescriptionAttribute];
         [tempArray addObject:NSAccessibilityMinValueAttribute];
         [tempArray addObject:NSAccessibilityMaxValueAttribute];
+        return tempArray;
+    }();
+    static NeverDestroyed compositeSpinButtonAttributes = [] {
+        auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:spinButtonCommonAttributes.get().get()]);
+        [tempArray addObject:NSAccessibilityIncrementButtonAttribute];
+        [tempArray addObject:NSAccessibilityDecrementButtonAttribute];
         return tempArray;
     }();
     static NeverDestroyed anchorAttrs = [] {
@@ -1111,7 +1116,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         [tempArray addObject:NSAccessibilityURLAttribute];
         return tempArray;
     }();
-    static NeverDestroyed passwordFieldAttrs = [] {
+    static NeverDestroyed secureFieldAttributes = [] {
         auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:attributes.get().get()]);
         [tempArray addObject:NSAccessibilityTitleUIElementAttribute];
         [tempArray addObject:NSAccessibilityRequiredAttribute];
@@ -1166,8 +1171,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     NSArray *objectAttributes = attributes.get().get();
 
-    if (backingObject->isPasswordField())
-        objectAttributes = passwordFieldAttrs.get().get();
+    if (backingObject->isSecureField())
+        objectAttributes = secureFieldAttributes.get().get();
     else if (backingObject->isWebArea())
         objectAttributes = webAreaAttrs.get().get();
     else if (backingObject->isTextControl())
@@ -1218,8 +1223,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         objectAttributes = tabListAttrs.get().get();
     else if (backingObject->isScrollView())
         objectAttributes = scrollViewAttrs.get().get();
-    else if (backingObject->isSpinButton())
-        objectAttributes = incrementorAttrs.get().get();
+    else if (backingObject->isSpinButton()) {
+        if (backingObject->spinButtonType() == SpinButtonType::Composite)
+            objectAttributes = compositeSpinButtonAttributes.get().get();
+        else
+            objectAttributes = spinButtonCommonAttributes.get().get();
+    }
     else if (backingObject->isMenu())
         objectAttributes = menuAttrs.get().get();
     else if (backingObject->isMenuBar())
@@ -1471,7 +1480,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return NSAccessibilityRoleDescription(NSAccessibilityUnknownRole, nil);
 }
 
-- (NSString *)computedRoleString
+- (NSString *)_computedRoleString
 {
     if (!self.axBackingObject)
         return nil;
@@ -1547,7 +1556,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // AXARIARole is only used by DumpRenderTree (so far).
     if ([attributeName isEqualToString:@"AXARIARole"])
-        return [self computedRoleString];
+        return [self _computedRoleString];
 
     if ([attributeName isEqualToString: NSAccessibilityParentAttribute]) {
         // This will return the parent of the AXWebArea, if this is a web area.
@@ -1668,7 +1677,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if ([attributeName isEqualToString:NSAccessibilityVisibleCharacterRangeAttribute]) {
-        if (backingObject->isPasswordField())
+        if (backingObject->isSecureField())
             return nil;
         // FIXME: Get actual visible range. <rdar://problem/4712101>
         if (backingObject->isTextControl())
@@ -1698,8 +1707,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attributeName isEqualToString: NSAccessibilityTitleAttribute]) {
         if (backingObject->isAttachment()) {
-            if ([[[self attachmentView] accessibilityAttributeNames] containsObject:NSAccessibilityTitleAttribute])
-                return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityTitleAttribute];
+            id attachmentView = [self attachmentView];
+            if ([[attachmentView accessibilityAttributeNames] containsObject:NSAccessibilityTitleAttribute])
+                return [attachmentView accessibilityAttributeValue:NSAccessibilityTitleAttribute];
         }
 
         return backingObject->titleAttributeValue();
@@ -1707,16 +1717,18 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attributeName isEqualToString:NSAccessibilityDescriptionAttribute]) {
         if (backingObject->isAttachment()) {
-            if ([[[self attachmentView] accessibilityAttributeNames] containsObject:NSAccessibilityDescriptionAttribute])
-                return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityDescriptionAttribute];
+            id attachmentView = [self attachmentView];
+            if ([[attachmentView accessibilityAttributeNames] containsObject:NSAccessibilityDescriptionAttribute])
+                return [attachmentView accessibilityAttributeValue:NSAccessibilityDescriptionAttribute];
         }
         return backingObject->descriptionAttributeValue();
     }
 
     if ([attributeName isEqualToString: NSAccessibilityValueAttribute]) {
         if (backingObject->isAttachment()) {
-            if ([[[self attachmentView] accessibilityAttributeNames] containsObject:NSAccessibilityValueAttribute])
-                return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityValueAttribute];
+            id attachmentView = [self attachmentView];
+            if ([[attachmentView accessibilityAttributeNames] containsObject:NSAccessibilityValueAttribute])
+                return [attachmentView accessibilityAttributeValue:NSAccessibilityValueAttribute];
         }
 
         auto value = backingObject->value();
@@ -1799,13 +1811,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if ([attributeName isEqualToString:NSAccessibilityLinkRelationshipTypeAttribute])
         return backingObject->linkRelValue();
 
-    if ([attributeName isEqualToString:NSAccessibilityTabsAttribute]) {
-        if (backingObject->isTabList()) {
-            AccessibilityObject::AccessibilityChildrenVector tabsChildren;
-            backingObject->tabChildren(tabsChildren);
-            return makeNSArray(tabsChildren);
-        }
-    }
+    if ([attributeName isEqualToString:NSAccessibilityTabsAttribute] && backingObject->isTabList())
+        return makeNSArray(backingObject->tabChildren());
 
     if ([attributeName isEqualToString:NSAccessibilityContentsAttribute])
         return makeNSArray(backingObject->contents());
@@ -2315,15 +2322,20 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     id hit = nil;
     if (axObject) {
-        if (axObject->isAttachment() && [axObject->wrapper() attachmentView])
-            return [axObject->wrapper() attachmentView];
+        if (axObject->isAttachment()) {
+            if (id attachmentView = [axObject->wrapper() attachmentView])
+                return attachmentView;
+        }
 
-        hit = Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&axObject, &point] () -> RetainPtr<id> {
-            auto* widget = axObject->widget();
-            if (is<PluginViewBase>(widget))
-                return widget->accessibilityHitTest(IntPoint(point));
-            return nil;
-        });
+        // Only call out to the main-thread if this object has a backing widget to query.
+        if (axObject->isWidget()) {
+            hit = Accessibility::retrieveAutoreleasedValueFromMainThread<id>([&axObject, &point] () -> RetainPtr<id> {
+                auto* widget = axObject->widget();
+                if (is<PluginViewBase>(widget))
+                    return widget->accessibilityHitTest(IntPoint(point));
+                return nil;
+            });
+        }
 
         if (!hit)
             hit = axObject->wrapper();
@@ -2477,7 +2489,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         webAreaParamAttrs = [[NSArray alloc] initWithArray:tempArray.get()];
     }
 
-    if (backingObject->isPasswordField())
+    if (backingObject->isSecureField())
         return @[ NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute ];
 
     if (backingObject->isTextControl())
@@ -2771,7 +2783,7 @@ static RenderObject* rendererForView(NSView* view)
         return nullptr;
     
     NSView<WebCoreFrameView>* frameView = (NSView<WebCoreFrameView>*)view;
-    Frame* frame = [frameView _web_frame];
+    auto frame = [frameView _web_frame];
     if (!frame)
         return nullptr;
     
@@ -3290,7 +3302,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attribute isEqualToString:AXUIElementForTextMarkerAttribute]) {
         AXTextMarker marker(textMarker);
-        auto object = marker.object();
+        RefPtr object = marker.object();
         if (!object)
             return nil;
 
@@ -3298,8 +3310,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         if (!wrapper)
             return nil;
 
-        if (id attachmentView = wrapper.attachmentView)
-            return attachmentView;
+        if (object->isAttachment()) {
+            if (id attachmentView = wrapper.attachmentView)
+                return attachmentView;
+        }
         return wrapper;
     }
 
@@ -3809,9 +3823,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         NSMutableArray *subarray = [NSMutableArray arrayWithCapacity:available];
         for (unsigned added = 0; added < available; ++index, ++added) {
             WebAccessibilityObjectWrapper* wrapper = children[index];
+
             // The attachment view should be returned, otherwise AX palindrome errors occur.
-            BOOL isAttachment = [wrapper isKindOfClass:[WebAccessibilityObjectWrapper class]] && wrapper.axBackingObject && wrapper.axBackingObject->isAttachment() && [wrapper attachmentView];
-            [subarray addObject:isAttachment ? [wrapper attachmentView] : wrapper];
+            id attachmentView = nil;
+            if ([wrapper isKindOfClass:[WebAccessibilityObjectWrapper class]] && wrapper.axBackingObject && wrapper.axBackingObject->isAttachment())
+                attachmentView = [wrapper attachmentView];
+            [subarray addObject:attachmentView ? attachmentView : wrapper];
         }
 
         return subarray;

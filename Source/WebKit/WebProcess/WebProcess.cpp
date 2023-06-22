@@ -73,6 +73,7 @@
 #include "WebPage.h"
 #include "WebPageCreationParameters.h"
 #include "WebPageGroupProxy.h"
+#include "WebPageInlines.h"
 #include "WebPaymentCoordinator.h"
 #include "WebPermissionController.h"
 #include "WebPlatformStrategies.h"
@@ -106,20 +107,20 @@
 #include <WebCore/CommonVM.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
 #include <WebCore/DNS.h>
-#include <WebCore/DOMWindow.h>
 #include <WebCore/DatabaseTracker.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
 #include <WebCore/FontCache.h>
 #include <WebCore/FontCascade.h>
-#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/GCController.h>
 #include <WebCore/GlyphPage.h>
 #include <WebCore/HTMLMediaElement.h>
-#include <WebCore/JSDOMWindow.h>
+#include <WebCore/JSLocalDOMWindow.h>
 #include <WebCore/LegacySchemeRegistry.h>
+#include <WebCore/LocalDOMWindow.h>
+#include <WebCore/LocalFrame.h>
 #include <WebCore/MediaEngineConfigurationFactory.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/MemoryRelease.h>
@@ -1550,11 +1551,13 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estim
         platformMediaSessionManager->processWillSuspend();
 #endif
 
+#if !PLATFORM(MAC)
     if (!m_suppressMemoryPressureHandler) {
         MemoryPressureHandler::singleton().releaseMemory(Critical::Yes, Synchronous::Yes);
         for (auto& page : m_pageMap.values())
             page->releaseMemory(Critical::Yes);
     }
+#endif
 
     freezeAllLayerTrees();
 
@@ -2165,12 +2168,12 @@ void WebProcess::setUseGPUProcessForMedia(bool useGPUProcessForMedia)
 
 #if PLATFORM(COCOA)
     if (useGPUProcessForMedia) {
-        SystemBatteryStatusTestingOverrides::singleton().setConfigurationChangedCallback([this] () {
-            ensureGPUProcessConnection().updateMediaConfiguration();
+        SystemBatteryStatusTestingOverrides::singleton().setConfigurationChangedCallback([this] (bool forceUpdate) {
+            ensureGPUProcessConnection().updateMediaConfiguration(forceUpdate);
         });
 #if ENABLE(VP9)
-        VP9TestingOverrides::singleton().setConfigurationChangedCallback([this] () {
-            ensureGPUProcessConnection().updateMediaConfiguration();
+        VP9TestingOverrides::singleton().setConfigurationChangedCallback([this] (bool forceUpdate) {
+            ensureGPUProcessConnection().updateMediaConfiguration(forceUpdate);
         });
 #endif
     } else {

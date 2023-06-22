@@ -69,6 +69,9 @@ public:
     void updateOverlayRegionIDs(const HashSet<WebCore::GraphicsLayer::PlatformLayerID> &overlayRegionIDs) { m_remoteLayerTreeHost->updateOverlayRegionIDs(overlayRegionIDs); }
 #endif
 
+    // For testing.
+    unsigned countOfTransactionsWithNonEmptyLayerChanges() const { return m_countOfTransactionsWithNonEmptyLayerChanges; }
+    
 protected:
     void updateDebugIndicatorPosition();
 
@@ -78,6 +81,8 @@ private:
     void sizeDidChange() final;
     void deviceScaleFactorDidChange() final;
     void windowKindDidChange() final;
+    void minimumSizeForAutoLayoutDidChange() final;
+    void sizeToContentAutoSizeMaximumSizeDidChange() final;
     void didUpdateGeometry();
     void attachToProvisionalFrameProcess(WebProcessProxy&) final;
     void startReceivingRemoteLayerTreeDrawingAreaProxyMessages(WebProcessProxy&);
@@ -122,6 +127,8 @@ private:
     DidUpdateMessageState m_didUpdateMessageState { DoesNotNeedDidUpdate };
 
     WebCore::IntSize m_lastSentSize;
+    WebCore::IntSize m_lastSentMinimumSizeForAutoLayout;
+    WebCore::IntSize m_lastSentSizeToContentAutoSizeMaximumSize;
 
     std::unique_ptr<RemoteLayerTreeHost> m_debugIndicatorLayerTreeHost;
     RetainPtr<CALayer> m_tileMapHostLayer;
@@ -134,6 +141,8 @@ private:
     TransactionID m_transactionIDForPendingCACommit;
     TransactionID m_transactionIDForUnhidingContent;
     ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
+    
+    unsigned m_countOfTransactionsWithNonEmptyLayerChanges { 0 };
 
     Vector<Ref<WebProcessProxy>> m_processesWithRegisteredRemoteLayerTreeDrawingAreaProxyMessageReceiver;
 };

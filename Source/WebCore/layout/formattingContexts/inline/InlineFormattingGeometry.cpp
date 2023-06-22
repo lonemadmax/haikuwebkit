@@ -29,6 +29,7 @@
 #include "FloatingContext.h"
 #include "FontCascade.h"
 #include "FormattingContext.h"
+#include "InlineDisplayContent.h"
 #include "InlineFormattingContext.h"
 #include "InlineFormattingQuirks.h"
 #include "InlineLineBoxVerticalAligner.h"
@@ -194,7 +195,7 @@ InlineLayoutUnit InlineFormattingGeometry::computedTextIndent(IsIntrinsicWidthMo
     return { minimumValueForLength(textIndent, availableWidth) };
 }
 
-static std::optional<size_t> firstDisplayBoxIndexForLayoutBox(const Box& layoutBox, const DisplayBoxes& displayBoxes)
+static std::optional<size_t> firstDisplayBoxIndexForLayoutBox(const Box& layoutBox, const InlineDisplay::Boxes& displayBoxes)
 {
     // FIXME: Build a first/last hashmap for these boxes.
     for (size_t index = 0; index < displayBoxes.size(); ++index) {
@@ -206,7 +207,7 @@ static std::optional<size_t> firstDisplayBoxIndexForLayoutBox(const Box& layoutB
     return { };
 }
 
-static std::optional<size_t> lastDisplayBoxIndexForLayoutBox(const Box& layoutBox, const DisplayBoxes& displayBoxes)
+static std::optional<size_t> lastDisplayBoxIndexForLayoutBox(const Box& layoutBox, const InlineDisplay::Boxes& displayBoxes)
 {
     // FIXME: Build a first/last hashmap for these boxes.
     for (auto index = displayBoxes.size(); index--;) {
@@ -218,7 +219,7 @@ static std::optional<size_t> lastDisplayBoxIndexForLayoutBox(const Box& layoutBo
     return { };
 }
 
-static std::optional<size_t> previousDisplayBoxIndex(const Box& outOfFlowBox, const DisplayBoxes& displayBoxes)
+static std::optional<size_t> previousDisplayBoxIndex(const Box& outOfFlowBox, const InlineDisplay::Boxes& displayBoxes)
 {
     auto previousDisplayBoxIndexOf = [&] (auto& layoutBox) -> std::optional<size_t> {
         for (auto* box = &layoutBox; box; box = box->previousInFlowSibling()) {
@@ -228,18 +229,18 @@ static std::optional<size_t> previousDisplayBoxIndex(const Box& outOfFlowBox, co
         return { };
     };
 
-    auto* canidateBox = outOfFlowBox.previousInFlowSibling();
-    if (!canidateBox)
-        canidateBox = outOfFlowBox.parent().isInlineBox() ? &outOfFlowBox.parent() : nullptr;
-    while (canidateBox) {
-        if (auto displayBoxIndex = previousDisplayBoxIndexOf(*canidateBox))
+    auto* candidateBox = outOfFlowBox.previousInFlowSibling();
+    if (!candidateBox)
+        candidateBox = outOfFlowBox.parent().isInlineBox() ? &outOfFlowBox.parent() : nullptr;
+    while (candidateBox) {
+        if (auto displayBoxIndex = previousDisplayBoxIndexOf(*candidateBox))
             return displayBoxIndex;
-        canidateBox = canidateBox->parent().isInlineBox() ? &canidateBox->parent() : nullptr;
+        candidateBox = candidateBox->parent().isInlineBox() ? &candidateBox->parent() : nullptr;
     }
     return { };
 }
 
-static std::optional<size_t> nextDisplayBoxIndex(const Box& outOfFlowBox, const DisplayBoxes& displayBoxes)
+static std::optional<size_t> nextDisplayBoxIndex(const Box& outOfFlowBox, const InlineDisplay::Boxes& displayBoxes)
 {
     auto nextDisplayBoxIndexOf = [&] (auto& layoutBox) -> std::optional<size_t> {
         for (auto* box = &layoutBox; box; box = box->nextInFlowSibling()) {
@@ -249,23 +250,22 @@ static std::optional<size_t> nextDisplayBoxIndex(const Box& outOfFlowBox, const 
         return { };
     };
 
-    auto* canidateBox = outOfFlowBox.nextInFlowSibling();
-    if (!canidateBox)
-        canidateBox = outOfFlowBox.parent().isInlineBox() ? &outOfFlowBox.parent() : nullptr;
-    while (canidateBox) {
-        if (auto displayBoxIndex = nextDisplayBoxIndexOf(*canidateBox))
+    auto* candidateBox = outOfFlowBox.nextInFlowSibling();
+    if (!candidateBox)
+        candidateBox = outOfFlowBox.parent().isInlineBox() ? outOfFlowBox.parent().nextInFlowSibling() : nullptr;
+    while (candidateBox) {
+        if (auto displayBoxIndex = nextDisplayBoxIndexOf(*candidateBox))
             return displayBoxIndex;
-        canidateBox = canidateBox->parent().isInlineBox() ? &canidateBox->parent() : nullptr;
+        candidateBox = candidateBox->parent().isInlineBox() ? candidateBox->parent().nextInFlowSibling() : nullptr;
     }
     return { };
 }
 
-LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(const Box& outOfFlowBox, LayoutPoint contentBoxTopLeft) const
+LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(const Box& outOfFlowBox, LayoutPoint contentBoxTopLeft, const InlineDisplay::Content& displayContent) const
 {
     ASSERT(outOfFlowBox.style().isOriginalDisplayInlineType());
-    auto& formattingState = formattingContext().formattingState();
-    auto& lines = formattingState.lines();
-    auto& boxes = formattingState.boxes();
+    auto& lines = displayContent.lines;
+    auto& boxes = displayContent.boxes;
 
     if (lines.isEmpty()) {
         ASSERT(boxes.isEmpty());
@@ -319,14 +319,13 @@ LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(c
     return leftSideToLogicalTopLeft(nextDisplayBox, lines[nextDisplayBox.lineIndex()]);
 }
 
-LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowBlockLevelBox(const Box& outOfFlowBox, LayoutPoint contentBoxTopLeft) const
+LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowBlockLevelBox(const Box& outOfFlowBox, LayoutPoint contentBoxTopLeft, const InlineDisplay::Content& displayContent) const
 {
     ASSERT(outOfFlowBox.style().isDisplayBlockLevel());
 
-    auto& formattingState = formattingContext().formattingState();
     auto isHorizontalWritingMode = formattingContext().root().style().isHorizontalWritingMode();
-    auto& lines = formattingState.lines();
-    auto& boxes = formattingState.boxes();
+    auto& lines = displayContent.lines;
+    auto& boxes = displayContent.boxes;
 
     if (lines.isEmpty()) {
         ASSERT(boxes.isEmpty());

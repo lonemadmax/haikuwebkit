@@ -36,7 +36,6 @@
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "FormController.h"
-#include "Frame.h"
 #include "GenericCachedHTMLCollection.h"
 #include "HTMLFormElement.h"
 #include "HTMLHRElement.h"
@@ -45,6 +44,7 @@
 #include "HTMLOptionsCollectionInlines.h"
 #include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
+#include "LocalFrame.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
 #include "NodeRareData.h"
@@ -430,18 +430,6 @@ void HTMLSelectElement::optionElementChildrenChanged()
     updateValidity();
     if (auto* cache = document().existingAXObjectCache())
         cache->childrenChanged(this);
-}
-
-void HTMLSelectElement::setMultiple(bool multiple)
-{
-    bool oldMultiple = this->multiple();
-    int oldSelectedIndex = selectedIndex();
-    setBooleanAttribute(multipleAttr, multiple);
-
-    // Restore selectedIndex after changing the multiple flag to preserve
-    // selection as single-line and multi-line has different defaults.
-    if (oldMultiple != this->multiple())
-        setSelectedIndex(oldSelectedIndex);
 }
 
 void HTMLSelectElement::setSize(unsigned size)
@@ -1059,10 +1047,18 @@ void HTMLSelectElement::restoreFormControlState(const FormControlState& state)
 void HTMLSelectElement::parseMultipleAttribute(const AtomString& value)
 {
     bool oldUsesMenuList = usesMenuList();
+    bool oldMultiple = m_multiple;
+    int oldSelectedIndex = selectedIndex();
     m_multiple = !value.isNull();
     updateValidity();
     if (oldUsesMenuList != usesMenuList())
         invalidateStyleAndRenderersForSubtree();
+    if (oldMultiple != m_multiple) {
+        if (oldSelectedIndex >= 0)
+            setSelectedIndex(oldSelectedIndex);
+        else
+            reset();
+    }
 }
 
 bool HTMLSelectElement::appendFormData(DOMFormData& formData)

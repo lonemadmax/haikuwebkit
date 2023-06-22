@@ -25,12 +25,16 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
 
 #include "BufferIdentifierSet.h"
 #include "ImageBufferBackendHandle.h"
 #include "SwapBuffersDisplayRequirement.h"
 #include <WebCore/RenderingResourceIdentifier.h>
+
+namespace WTF {
+class TextStream;
+}
 
 namespace WebKit {
 
@@ -46,6 +50,9 @@ struct PrepareBackingStoreBuffersOutputData {
     SwapBuffersDisplayRequirement displayRequirement { SwapBuffersDisplayRequirement::NeedsNoDisplay };
 };
 
+WTF::TextStream& operator<<(WTF::TextStream&, const PrepareBackingStoreBuffersInputData&);
+WTF::TextStream& operator<<(WTF::TextStream&, const PrepareBackingStoreBuffersOutputData&);
+
 } // namespace WebKit
 
-#endif // ENABLE(GPU_PROCESS)
+#endif // ENABLE(GPU_PROCESS) && PLATFORM(COCOA)

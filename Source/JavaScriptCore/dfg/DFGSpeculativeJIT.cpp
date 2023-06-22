@@ -635,7 +635,7 @@ void SpeculativeJIT::runSlowPathGenerators(PCToCodeOriginMapBuilder& pcToCodeOri
     auto markSlowPathIfNeeded = [&] (Node* node) {
         std::optional<JITSizeStatistics::Marker> sizeMarker;
         if (UNLIKELY(Options::dumpDFGJITSizeStatistics())) {
-            String id = makeString("DFG_slow_", m_graph.opName(node->op()));
+            String id = makeString("DFG_slow_"_s, m_graph.opName(node->op()));
             sizeMarker = vm().jitSizeStatistics->markStart(id, *this);
         }
         return sizeMarker;
@@ -2580,7 +2580,7 @@ void SpeculativeJIT::compileCurrentBlock()
 
         std::optional<JITSizeStatistics::Marker> sizeMarker;
         if (UNLIKELY(Options::dumpDFGJITSizeStatistics())) {
-            String id = makeString("DFG_fast_", m_graph.opName(m_currentNode->op()));
+            String id = makeString("DFG_fast_"_s, m_graph.opName(m_currentNode->op()));
             sizeMarker = vm().jitSizeStatistics->markStart(id, *this);
         }
 
@@ -9750,35 +9750,6 @@ void SpeculativeJIT::compileCreateClonedArguments(Node* node)
     appendCallSetResult(operationCreateClonedArguments, resultGPR);
     exceptionCheck();
     
-    cellResult(resultGPR, node);
-}
-
-void SpeculativeJIT::compileCreateArgumentsButterflyExcludingThis(Node* node)
-{
-    SpeculateCellOperand target(this, node->child1());
-    GPRReg targetGPR = target.gpr();
-
-    GPRFlushedCallResult result(this);
-    GPRReg resultGPR = result.gpr();
-    flushRegisters();
-
-    // We set up the arguments ourselves, because we have the whole register file and we can
-    // set them up directly into the argument registers.
-
-    // Arguments: 0:JSGlobalObject*, 1:start, 2:length, 3:target
-
-    // Do the targetGPR first, since it might alias an argument register.
-    setupArgument(3, [&] (GPRReg destGPR) { move(targetGPR, destGPR); });
-    setupArgument(2, [&] (GPRReg destGPR) { emitGetLength(node->origin.semantic, destGPR); });
-    setupArgument(1, [&] (GPRReg destGPR) { emitGetArgumentStart(node->origin.semantic, destGPR); });
-    setupArgument(
-        0, [&] (GPRReg destGPR) {
-            loadLinkableConstant(LinkableConstant::globalObject(*this, node), destGPR);
-        });
-
-    appendCallSetResult(operationCreateArgumentsButterflyExcludingThis, resultGPR);
-    exceptionCheck();
-
     cellResult(resultGPR, node);
 }
 

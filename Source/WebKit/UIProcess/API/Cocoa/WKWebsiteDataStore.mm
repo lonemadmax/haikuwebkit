@@ -75,6 +75,7 @@ public:
         , m_hasNotificationPermissionsSelector([m_delegate.get() respondsToSelector:@selector(notificationPermissionsForWebsiteDataStore:)])
         , m_hasWorkerUpdatedAppBadgeSelector([m_delegate.get() respondsToSelector:@selector(websiteDataStore:workerOrigin:updatedAppBadge:)])
         , m_hasRequestBackgroundFetchPermissionSelector([m_delegate.get() respondsToSelector:@selector(requestBackgroundFetchPermission:frameOrigin:decisionHandler:)])
+        , m_hasNotifyBackgroundFetchChangeSelector([m_delegate.get() respondsToSelector:@selector(notifyBackgroundFetchChange:change:)])
     {
     }
 
@@ -202,6 +203,9 @@ private:
 
     void notifyBackgroundFetchChange(const String& backgroundFetchIdentifier, WebKit::BackgroundFetchChange backgroundFetchChange) final
     {
+        if (!m_hasNotifyBackgroundFetchChangeSelector)
+            return;
+
         WKBackgroundFetchChange change;
         switch (backgroundFetchChange) {
         case WebKit::BackgroundFetchChange::Addition:
@@ -226,6 +230,7 @@ private:
     bool m_hasNotificationPermissionsSelector { false };
     bool m_hasWorkerUpdatedAppBadgeSelector { false };
     bool m_hasRequestBackgroundFetchPermissionSelector { false };
+    bool m_hasNotifyBackgroundFetchChangeSelector { false };
 };
 
 @implementation WKWebsiteDataStore
@@ -345,6 +350,33 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
     });
 }
 
+- (NSUUID *)identifier
+{
+    return [self _identifier];
+}
+
++ (WKWebsiteDataStore *)dataStoreForIdentifier:(NSUUID *)identifier
+{
+    if (!identifier)
+        [NSException raise:NSInvalidArgumentException format:@"Identifier is nil"];
+
+    auto uuid = UUID::fromNSUUID(identifier);
+    if (!uuid || !uuid->isValid())
+        [NSException raise:NSInvalidArgumentException format:@"Identifier (%s) is invalid for data store", String([identifier UUIDString]).utf8().data()];
+
+    return wrapper(WebKit::WebsiteDataStore::dataStoreForIdentifier(*uuid));
+}
+
++ (void)removeDataStoreForIdentifier:(NSUUID *)identifier completionHandler:(void(^)(NSError *))completionHandler
+{
+    [self _removeDataStoreWithIdentifier:identifier completionHandler:completionHandler];
+}
+
++ (void)fetchAllDataStoreIdentifiers:(void(^)(NSArray<NSUUID *> *))completionHandler
+{
+    [self _fetchAllIdentifiers:completionHandler];
+}
+
 #if HAVE(NW_PROXY_CONFIG)
 - (void)setProxyConfiguration:(nw_proxy_config_t)proxyConfig
 {
@@ -418,10 +450,14 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 + (void)_removeDataStoreWithIdentifier:(NSUUID *)identifier completionHandler:(void(^)(NSError* error))completionHandler
 {
     if (!identifier)
-        [NSException raise:NSInvalidArgumentException format:@"Identifier cannot be nil"];
+        return completionHandler([NSError errorWithDomain:@"WKWebSiteDataStore" code:WKErrorUnknown userInfo:@{ NSLocalizedDescriptionKey:@"Identifier is nil" }]);
 
     auto completionHandlerCopy = makeBlockPtr(completionHandler);
-    WebKit::WebsiteDataStore::removeDataStoreWithIdentifier(UUID(identifier), [completionHandlerCopy](const String& errorString) {
+    auto uuid = UUID::fromNSUUID(identifier);
+    if (!uuid)
+        return completionHandler([NSError errorWithDomain:@"WKWebSiteDataStore" code:WKErrorUnknown userInfo:@{ NSLocalizedDescriptionKey:@"Identifier is invalid" }]);
+
+    WebKit::WebsiteDataStore::removeDataStoreWithIdentifier(*uuid, [completionHandlerCopy](const String& errorString) {
         if (errorString.isEmpty())
             return completionHandlerCopy(nil);
 

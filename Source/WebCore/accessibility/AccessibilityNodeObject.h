@@ -69,7 +69,7 @@ public:
     bool isMultiSelectable() const override;
     bool isNativeImage() const;
     bool isNativeTextControl() const override;
-    bool isPasswordField() const override;
+    bool isSecureField() const override;
     bool isProgressIndicator() const override;
     bool isSearchField() const override;
     bool isSlider() const override;
@@ -161,7 +161,7 @@ protected:
         Yes
     };
     AccessibilityRole determineAccessibilityRoleFromNode(TreatStyleFormatGroupAsInline = TreatStyleFormatGroupAsInline::No) const;
-    AccessibilityRole ariaRoleAttribute() const override;
+    AccessibilityRole ariaRoleAttribute() const override { return m_ariaRole; }
     virtual AccessibilityRole determineAriaRoleAttribute() const;
     AccessibilityRole remapAriaRoleDueToParent(AccessibilityRole) const;
 

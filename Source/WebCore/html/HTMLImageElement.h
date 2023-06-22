@@ -45,6 +45,7 @@ struct ImageCandidate;
 
 enum class ReferrerPolicy : uint8_t;
 enum class RelevantMutation : bool;
+enum class RequestPriority : uint8_t;
 
 class HTMLImageElement : public HTMLElement, public FormAssociatedElement, public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED(HTMLImageElement);
@@ -169,8 +170,10 @@ public:
 
     void setFetchPriorityForBindings(const AtomString&);
     String fetchPriorityForBindings() const;
+    RequestPriority fetchPriorityHint() const;
 
 protected:
+    constexpr static auto CreateHTMLImageElement = CreateHTMLElement | NodeFlag::HasCustomStyleResolveCallbacks;
     HTMLImageElement(const QualifiedName&, Document&, HTMLFormElement* = nullptr);
 
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) override;
@@ -179,7 +182,7 @@ private:
     void resetFormOwner() final;
     void refFormAssociatedElement() const final { HTMLElement::ref(); }
     void derefFormAssociatedElement() const final { HTMLElement::deref(); }
-    void setFormInternal(HTMLFormElement*) final;
+    void setFormInternal(RefPtr<HTMLFormElement>&&) final;
 
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;
     void parseAttribute(const QualifiedName&, const AtomString&) override;

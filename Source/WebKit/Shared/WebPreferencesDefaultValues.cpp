@@ -38,6 +38,10 @@
 #import <wtf/cocoa/Entitlements.h>
 #endif
 
+#if USE(LIBWEBRTC)
+#include <WebCore/LibWebRTCProvider.h>
+#endif
+
 namespace WebKit {
 
 #if PLATFORM(IOS_FAMILY)
@@ -202,13 +206,13 @@ bool defaultRunningBoardThrottlingEnabled()
 #endif
 }
 
-bool defaultShouldTakeSuspendedAssertions()
+bool defaultShouldDropSuspendedAssertionAfterDelay()
 {
 #if PLATFORM(COCOA)
     static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::FullySuspendsBackgroundContent);
-    return !newSDK;
+    return newSDK;
 #else
-    return true;
+    return false;
 #endif
 }
 
@@ -244,5 +248,13 @@ bool defaultShouldEnableScreenOrientationAPI()
     return false;
 #endif
 }
+
+#if USE(LIBWEBRTC)
+bool defaultPeerConnectionEnabledAvailable()
+{
+    // This helper function avoid an expensive header include in WebPreferences.h
+    return WebCore::WebRTCProvider::webRTCAvailable();
+}
+#endif
 
 } // namespace WebKit

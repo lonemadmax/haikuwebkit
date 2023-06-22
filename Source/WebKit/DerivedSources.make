@@ -476,6 +476,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/API/APIURL.serialization.in \
 	Shared/API/APIURLRequest.serialization.in \
 	Shared/API/APIURLResponse.serialization.in \
+	Shared/AlternativeTextClient.serialization.in \
 	Shared/Cocoa/CacheStoragePolicy.serialization.in \
 	Shared/Cocoa/DataDetectionResult.serialization.in \
 	Shared/Cocoa/RevealItem.serialization.in \
@@ -488,9 +489,11 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/FileSystemSyncAccessHandleInfo.serialization.in \
 	Shared/FocusedElementInformation.serialization.in \
 	Shared/FrameInfoData.serialization.in \
+	Shared/FrameTreeCreationParameters.serialization.in \
 	Shared/FrameTreeNodeData.serialization.in \
 	Shared/Gamepad/GamepadData.serialization.in \
 	Shared/GPUProcessConnectionParameters.serialization.in \
+	Shared/ios/DynamicViewportSizeUpdate.serialization.in \
 	Shared/ios/InteractionInformationAtPosition.serialization.in \
 	Shared/ios/WebAutocorrectionContext.serialization.in \
 	Shared/ios/WebAutocorrectionData.serialization.in \

@@ -51,7 +51,7 @@ public:
         return vm.boundFunctionSpace<mode>();
     }
 
-    JS_EXPORT_PRIVATE static JSBoundFunction* create(VM&, JSGlobalObject*, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, double length, JSString* nameMayBeNull);
+    JS_EXPORT_PRIVATE static JSBoundFunction* create(VM&, JSGlobalObject*, JSObject* targetFunction, JSObject* flattenedTargetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, double length, JSString* nameMayBeNull);
     
     static bool customHasInstance(JSObject*, JSGlobalObject*, JSValue);
 
@@ -62,15 +62,22 @@ public:
     }
 
     JSObject* targetFunction() { return m_targetFunction.get(); }
+    JSObject* flattenedTargetFunction() { return m_flattendTargetFunction.get(); }
     JSValue boundThis() { return m_boundThis.get(); }
     JSImmutableButterfly* boundArgs() { return m_boundArgs.get(); } // DO NOT allow this array to be mutated!
     unsigned boundArgsLength() const { return m_boundArgs ? m_boundArgs->length() : 0; }
     JSArray* boundArgsCopy(JSGlobalObject*);
     JSString* nameMayBeNull() { return m_nameMayBeNull.get(); }
+    JSString* name()
+    {
+        if (m_nameMayBeNull)
+            return m_nameMayBeNull.get();
+        return nameSlow(vm());
+    }
     String nameString()
     {
         if (!m_nameMayBeNull)
-            return emptyString();
+            name();
         ASSERT(!m_nameMayBeNull->isRope());
         bool allocationAllowed = false;
         return m_nameMayBeNull->tryGetValue(allocationAllowed);
@@ -84,19 +91,22 @@ public:
         return Structure::create(vm, globalObject, prototype, TypeInfo(JSFunctionType, StructureFlags), info()); 
     }
     
-    static ptrdiff_t offsetOfTargetFunction() { return OBJECT_OFFSETOF(JSBoundFunction, m_targetFunction); }
+    static ptrdiff_t offsetOfFlattenedTargetFunction() { return OBJECT_OFFSETOF(JSBoundFunction, m_flattendTargetFunction); }
     static ptrdiff_t offsetOfBoundThis() { return OBJECT_OFFSETOF(JSBoundFunction, m_boundThis); }
     static ptrdiff_t offsetOfBoundArgs() { return OBJECT_OFFSETOF(JSBoundFunction, m_boundArgs); }
 
     DECLARE_INFO;
 
 private:
-    JSBoundFunction(VM&, NativeExecutable*, JSGlobalObject*, Structure*, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, JSString* nameMayBeNull, double length);
+    JSBoundFunction(VM&, NativeExecutable*, JSGlobalObject*, Structure*, JSObject* targetFunction, JSObject* flattenedTargetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, JSString* nameMayBeNull, double length);
+
+    JSString* nameSlow(VM&);
 
     void finishCreation(VM&);
     DECLARE_VISIT_CHILDREN;
 
     WriteBarrier<JSObject> m_targetFunction;
+    WriteBarrier<JSObject> m_flattendTargetFunction;
     WriteBarrier<Unknown> m_boundThis;
     WriteBarrier<JSImmutableButterfly> m_boundArgs;
     WriteBarrier<JSString> m_nameMayBeNull;

@@ -236,6 +236,32 @@ bool WebsiteDataStore::defaultDataStoreExists()
     return !!globalDefaultDataStore();
 }
 
+RefPtr<WebsiteDataStore> WebsiteDataStore::existingDataStoreForIdentifier(const UUID& identifier)
+{
+    for (auto* dataStore : allDataStores().values()) {
+        if (dataStore && dataStore->configuration().identifier() == identifier)
+            return dataStore;
+    }
+
+    return nullptr;
+}
+
+#if PLATFORM(COCOA)
+Ref<WebsiteDataStore> WebsiteDataStore::dataStoreForIdentifier(const UUID& uuid)
+{
+    RELEASE_ASSERT(uuid.isValid());
+
+    InitializeWebKit2();
+    for (auto* dataStore : allDataStores().values()) {
+        if (dataStore && dataStore->configuration().identifier() == uuid)
+            return Ref { *dataStore };
+    }
+
+    auto configuration = WebsiteDataStoreConfiguration::create(uuid);
+    return WebsiteDataStore::create(WTFMove(configuration), PAL::SessionID::generatePersistentSessionID());
+}
+#endif
+
 void WebsiteDataStore::registerWithSessionIDMap()
 {
     auto result = allDataStores().add(m_sessionID, this);
@@ -1755,6 +1781,15 @@ void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses(CompletionHandl
 }
 #endif
 
+bool WebsiteDataStore::isBlobRegistryPartitioningEnabled() const
+{
+    return WTF::anyOf(m_processes, [] (const WebProcessProxy& process) {
+        return WTF::anyOf(process.pages(), [](const auto& page) {
+            return page && page->preferences().blobRegistryTopOriginPartitioningEnabled();
+        });
+    });
+}
+
 void WebsiteDataStore::setAllowsAnySSLCertificateForWebSocket(bool allows)
 {
     networkProcess().sendSync(Messages::NetworkProcess::SetAllowsAnySSLCertificateForWebSocket(allows), 0);
@@ -1881,9 +1916,11 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
 #if !HAVE(NSURLSESSION_WEBSOCKET)
     networkSessionParameters.shouldAcceptInsecureCertificatesForWebSockets = m_configuration->shouldAcceptInsecureCertificatesForWebSockets();
 #endif
+    networkSessionParameters.isBlobRegistryTopOriginPartitioningEnabled = isBlobRegistryPartitioningEnabled();
     networkSessionParameters.unifiedOriginStorageLevel = m_configuration->unifiedOriginStorageLevel();
     networkSessionParameters.perOriginStorageQuota = perOriginStorageQuota();
     networkSessionParameters.perThirdPartyOriginStorageQuota = perThirdPartyOriginStorageQuota();
+    networkSessionParameters.originQuotaRatio = originQuotaRatio();
     networkSessionParameters.localStorageDirectory = resolvedLocalStorageDirectory();
     createHandleFromResolvedPathIfPossible(networkSessionParameters.localStorageDirectory, networkSessionParameters.localStorageDirectoryExtensionHandle);
     networkSessionParameters.indexedDBDirectory = resolvedIndexedDBDatabaseDirectory();
@@ -2350,6 +2387,13 @@ void WebsiteDataStore::resumeDownload(const DownloadProxy& downloadProxy, const 
     }
 
     networkProcess().send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.dataReference(), path, sandboxExtensionHandle, callDownloadDidStart), 0);
+}
+
+bool WebsiteDataStore::hasActivePages()
+{
+    return WTF::anyOf(WebProcessPool::allProcessPools(), [&](auto& pool) {
+        return pool->hasPagesUsingWebsiteDataStore(*this);
+    });
 }
 
 #if HAVE(NW_PROXY_CONFIG)

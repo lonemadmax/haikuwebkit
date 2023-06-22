@@ -43,10 +43,8 @@
 #include "Event.h"
 #include "EventNames.h"
 #include "FloatRect.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
-#include "FrameView.h"
 #include "HTMLAudioElement.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLDetailsElement.h"
@@ -65,6 +63,8 @@
 #include "HTMLTextFormControlElement.h"
 #include "HTMLVideoElement.h"
 #include "KeyboardEvent.h"
+#include "LocalFrame.h"
+#include "LocalFrameView.h"
 #include "LocalizedStrings.h"
 #include "MathMLElement.h"
 #include "MathMLNames.h"
@@ -322,17 +322,18 @@ AccessibilityRole AccessibilityNodeObject::determineAccessibilityRoleFromNode(Tr
     if (headingLevel())
         return AccessibilityRole::Heading;
 
-    if (isStyleFormatGroup()) {
-        if (node()->hasTagName(delTag))
-            return AccessibilityRole::Deletion;
-        if (node()->hasTagName(insTag))
-            return AccessibilityRole::Insertion;
-        if (node()->hasTagName(subTag))
-            return AccessibilityRole::Subscript;
-        if (node()->hasTagName(supTag))
-            return AccessibilityRole::Superscript;
+    if (node()->hasTagName(codeTag))
+        return AccessibilityRole::Code;
+    if (node()->hasTagName(delTag))
+        return AccessibilityRole::Deletion;
+    if (node()->hasTagName(insTag))
+        return AccessibilityRole::Insertion;
+    if (node()->hasTagName(subTag))
+        return AccessibilityRole::Subscript;
+    if (node()->hasTagName(supTag))
+        return AccessibilityRole::Superscript;
+    if (isStyleFormatGroup())
         return treatStyleFormatGroupAsInline == TreatStyleFormatGroupAsInline::Yes ? AccessibilityRole::Inline : AccessibilityRole::TextGroup;
-    }
 
     if (node()->hasTagName(ddTag))
         return AccessibilityRole::DescriptionListDetail;
@@ -353,7 +354,7 @@ AccessibilityRole AccessibilityNodeObject::determineAccessibilityRoleFromNode(Tr
     if (node()->hasTagName(dfnTag))
         return AccessibilityRole::Definition;
     if (node()->hasTagName(divTag))
-        return AccessibilityRole::Div;
+        return AccessibilityRole::Generic;
     if (is<HTMLFormElement>(node()))
         return AccessibilityRole::Form;
     if (node()->hasTagName(articleTag))
@@ -577,15 +578,11 @@ bool AccessibilityNodeObject::isNativeTextControl() const
     if (!node)
         return false;
 
-    if (is<HTMLTextAreaElement>(*node))
+    if (is<HTMLTextAreaElement>(node))
         return true;
 
-    if (is<HTMLInputElement>(*node)) {
-        HTMLInputElement& input = downcast<HTMLInputElement>(*node);
-        return input.isText() || input.isNumberField();
-    }
-
-    return false;
+    auto* input = dynamicDowncast<HTMLInputElement>(node);
+    return input && (input->isText() || input->isNumberField());
 }
 
 bool AccessibilityNodeObject::isSearchField() const
@@ -639,16 +636,13 @@ bool AccessibilityNodeObject::isNativeImage() const
     return false;
 }
 
-bool AccessibilityNodeObject::isPasswordField() const
+bool AccessibilityNodeObject::isSecureField() const
 {
-    auto* node = this->node();
-    if (!is<HTMLInputElement>(node))
+    RefPtr input = dynamicDowncast<HTMLInputElement>(node());
+    if (!input || ariaRoleAttribute() != AccessibilityRole::Unknown)
         return false;
 
-    if (ariaRoleAttribute() != AccessibilityRole::Unknown)
-        return false;
-
-    return downcast<HTMLInputElement>(*node).isPasswordField();
+    return input->isSecureField();
 }
 
 bool AccessibilityNodeObject::isInputImage() const
@@ -1054,9 +1048,6 @@ AXCoreObject* AccessibilityNodeObject::selectedTabItem()
 
     // FIXME: Is this valid? ARIA tab items support aria-selected; not aria-checked.
     // Find the child tab item that is selected (ie. the intValue == 1).
-    AXCoreObject::AccessibilityChildrenVector tabs;
-    tabChildren(tabs);
-
     for (const auto& child : children()) {
         if (child->isTabItem() && (child->isChecked() || child->isSelected()))
             return child.get();
@@ -1444,7 +1435,13 @@ HTMLLabelElement* AccessibilityNodeObject::labelForElement(Element* element) con
             return label;
     }
 
-    return ancestorsOfType<HTMLLabelElement>(*element).first();
+    if (auto* nearestLabel = ancestorsOfType<HTMLLabelElement>(*element).first()) {
+        // Only use the nearest label if it isn't pointing at something else.
+        const auto& forAttribute = nearestLabel->attributeWithoutSynchronization(forAttr);
+        if (forAttribute.isEmpty() || forAttribute == id)
+            return nearestLabel;
+    }
+    return nullptr;
 }
 
 String AccessibilityNodeObject::ariaAccessibilityDescription() const
@@ -1921,7 +1918,7 @@ bool AccessibilityNodeObject::roleIgnoresTitle() const
         return false;
 
     switch (roleValue()) {
-    case AccessibilityRole::Div:
+    case AccessibilityRole::Generic:
     case AccessibilityRole::Unknown:
         return true;
     default:
@@ -2195,7 +2192,12 @@ String AccessibilityNodeObject::title() const
 
 String AccessibilityNodeObject::text() const
 {
-    // If this is a user defined static text, use the accessible name computation.                                      
+    if (isSecureField())
+        return secureFieldValue();
+
+    // Static text can be either an element with role="text", aka ARIA static text, or inline rendered text.
+    // In the former case, prefer any alt text that may have been specified.
+    // If no alt text is present, fallback to the inline static text case where textUnderElement is used.
     if (isARIAStaticText()) {
         Vector<AccessibilityText> textOrder;
         alternativeText(textOrder);
@@ -2203,18 +2205,16 @@ String AccessibilityNodeObject::text() const
             return textOrder[0].text;
     }
 
+    if (roleValue() == AccessibilityRole::StaticText)
+        return textUnderElement();
+
     if (!isTextControl())
-        return String();
+        return { };
 
-    auto node = this->node();
-    if (!is<Element>(node))
-        return String();
-
-    auto& element = downcast<Element>(*node);
+    RefPtr element = dynamicDowncast<Element>(this->node());
     if (isNativeTextControl() && is<HTMLTextFormControlElement>(element))
-        return downcast<HTMLTextFormControlElement>(element).value();
-
-    return element.innerText();
+        return downcast<HTMLTextFormControlElement>(element.get())->value();
+    return element ? element->innerText() : String();
 }
 
 String AccessibilityNodeObject::stringValue() const
@@ -2586,11 +2586,6 @@ AccessibilityRole AccessibilityNodeObject::determineAriaRoleAttribute() const
         return role;
 
     return AccessibilityRole::Unknown;
-}
-
-AccessibilityRole AccessibilityNodeObject::ariaRoleAttribute() const
-{
-    return m_ariaRole;
 }
 
 AccessibilityRole AccessibilityNodeObject::remapAriaRoleDueToParent(AccessibilityRole role) const

@@ -97,9 +97,10 @@ void NetworkSessionCreationParameters::encode(IPC::Encoder& encoder) const
 #if !HAVE(NSURLSESSION_WEBSOCKET)
     encoder << shouldAcceptInsecureCertificatesForWebSockets;
 #endif
+    encoder << isBlobRegistryTopOriginPartitioningEnabled;
 
     encoder << unifiedOriginStorageLevel;
-    encoder << perOriginStorageQuota << perThirdPartyOriginStorageQuota;
+    encoder << perOriginStorageQuota << perThirdPartyOriginStorageQuota << originQuotaRatio;
     encoder << localStorageDirectory << localStorageDirectoryExtensionHandle;
     encoder << indexedDBDirectory << indexedDBDirectoryExtensionHandle;
     encoder << cacheStorageDirectory << cacheStorageDirectoryExtensionHandle;
@@ -356,6 +357,11 @@ std::optional<NetworkSessionCreationParameters> NetworkSessionCreationParameters
         return std::nullopt;
 #endif
 
+    std::optional<bool> isBlobRegistryTopOriginPartitioningEnabled;
+    decoder >> isBlobRegistryTopOriginPartitioningEnabled;
+    if (!isBlobRegistryTopOriginPartitioningEnabled)
+        return std::nullopt;
+
     std::optional<UnifiedOriginStorageLevel> unifiedOriginStorageLevel;
     decoder >> unifiedOriginStorageLevel;
     if (!unifiedOriginStorageLevel)
@@ -369,6 +375,11 @@ std::optional<NetworkSessionCreationParameters> NetworkSessionCreationParameters
     std::optional<uint64_t> perThirdPartyOriginStorageQuota;
     decoder >> perThirdPartyOriginStorageQuota;
     if (!perThirdPartyOriginStorageQuota)
+        return std::nullopt;
+
+    std::optional<std::optional<double>> originQuotaRatio;
+    decoder >> originQuotaRatio;
+    if (!originQuotaRatio)
         return std::nullopt;
 
     std::optional<String> localStorageDirectory;
@@ -491,9 +502,11 @@ std::optional<NetworkSessionCreationParameters> NetworkSessionCreationParameters
 #if !HAVE(NSURLSESSION_WEBSOCKET)
         , WTFMove(*shouldAcceptInsecureCertificatesForWebSockets)
 #endif
+        , *isBlobRegistryTopOriginPartitioningEnabled
         , *unifiedOriginStorageLevel
         , WTFMove(*perOriginStorageQuota)
         , WTFMove(*perThirdPartyOriginStorageQuota)
+        , WTFMove(*originQuotaRatio)
         , WTFMove(*localStorageDirectory)
         , WTFMove(*localStorageDirectoryExtensionHandle)
         , WTFMove(*indexedDBDirectory)

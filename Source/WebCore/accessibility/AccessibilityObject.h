@@ -123,8 +123,8 @@ public:
     virtual bool isAttachmentElement() const { return false; }
     bool isHeading() const override { return false; }
     bool isLink() const override { return false; }
-    bool isPasswordField() const override { return false; }
-    bool isContainedByPasswordField() const;
+    bool isSecureField() const override { return false; }
+    bool isContainedBySecureField() const;
     bool isNativeTextControl() const override { return false; }
     virtual bool isSearchField() const { return false; }
     bool isListBoxOption() const override { return false; }
@@ -195,15 +195,14 @@ public:
     bool isGroup() const override { return false; }
     bool isImageMapLink() const override { return false; }
     bool isMenuList() const override { return false; }
-    bool isMenuListPopup() const override { return false; }
-    bool isMenuListOption() const override { return false; }
+    virtual bool isMenuListPopup() const { return false; }
+    virtual bool isMenuListOption() const { return false; }
     virtual bool isNativeSpinButton() const { return false; }
     AXCoreObject* incrementButton() override { return nullptr; }
     AXCoreObject* decrementButton() override { return nullptr; }
     virtual bool isSpinButtonPart() const { return false; }
     virtual bool isIncrementor() const { return false; }
     bool isMockObject() const override { return false; }
-    virtual bool isMediaControlLabel() const { return false; }
     virtual bool isMediaObject() const { return false; }
     bool isTextControl() const override;
     bool isARIATextControl() const;
@@ -212,7 +211,7 @@ public:
     bool isLandmark() const override;
     bool isRangeControl() const;
     bool isMeter() const;
-    bool isStyleFormatGroup() const override;
+    bool isStyleFormatGroup() const;
     bool isFigureElement() const;
     bool isKeyboardFocusable() const override;
     bool isOutput() const;
@@ -259,12 +258,10 @@ public:
     String datetimeAttributeValue() const override;
 
     bool canSetFocusAttribute() const override { return false; }
-    bool canSetTextRangeAttributes() const override { return false; }
     bool canSetValueAttribute() const override { return false; }
     bool canSetNumericValue() const override { return false; }
     bool canSetSelectedAttribute() const override { return false; }
     bool canSetSelectedChildren() const override { return false; }
-    bool canSetExpandedAttribute() const override { return false; }
 
     Element* element() const override;
     Node* node() const override { return nullptr; }
@@ -375,7 +372,9 @@ public:
     AccessibilityObject* correspondingControlForLabelElement() const override { return nullptr; }
     AccessibilityObject* scrollBar(AccessibilityOrientation) override { return nullptr; }
 
-    AccessibilityRole ariaRoleAttribute() const override { return AccessibilityRole::Unknown; }
+    virtual AccessibilityRole ariaRoleAttribute() const { return AccessibilityRole::Unknown; }
+    bool hasExplicitGenericRole() const { return ariaRoleAttribute() == AccessibilityRole::Generic; }
+    bool hasImplicitGenericRole() const { return roleValue() == AccessibilityRole::Generic && !hasExplicitGenericRole(); }
     virtual bool isPresentationalChildOfAriaRole() const { return false; }
     virtual bool ariaRoleHasPresentationalChildren() const { return false; }
     bool inheritsPresentationalRole() const override { return false; }
@@ -405,6 +404,7 @@ public:
     // Returns an array of strings and AXObject wrappers corresponding to the
     // textruns and replacement nodes included in the given range.
     RetainPtr<NSArray> contentForRange(const SimpleRange&, SpellCheck = SpellCheck::No) const;
+    RetainPtr<NSAttributedString> attributedStringForRange(const SimpleRange&, SpellCheck) const;
     RetainPtr<NSAttributedString> attributedStringForTextMarkerRange(AXTextMarkerRange&&, SpellCheck = SpellCheck::No) const override;
 #endif
     virtual String ariaLabeledByAttribute() const { return String(); }
@@ -468,9 +468,9 @@ public:
 #endif
     Page* page() const override;
     Document* document() const override;
-    FrameView* documentFrameView() const override;
-    Frame* frame() const;
-    Frame* mainFrame() const;
+    LocalFrameView* documentFrameView() const override;
+    LocalFrame* frame() const;
+    LocalFrame* mainFrame() const;
     Document* topDocument() const;
     ScrollView* scrollView() const override { return nullptr; }
     String language() const override;
@@ -524,7 +524,6 @@ public:
     void selectedChildren(AccessibilityChildrenVector&) override { }
     void setSelectedChildren(const AccessibilityChildrenVector&) override { }
     void visibleChildren(AccessibilityChildrenVector&) override { }
-    void tabChildren(AccessibilityChildrenVector&) override { }
     virtual bool shouldFocusActiveDescendant() const { return false; }
     AccessibilityObject* activeDescendant() const override { return nullptr; }
 
@@ -605,7 +604,7 @@ public:
     virtual String descriptionForMSAA() const { return String(); }
     virtual AccessibilityRole roleValueForMSAA() const { return roleValue(); }
 
-    virtual String passwordFieldValue() const { return String(); }
+    virtual String secureFieldValue() const { return String(); }
     bool isValueAutofillAvailable() const override;
     AutoFillButtonType valueAutofillButtonType() const override;
 
@@ -616,8 +615,7 @@ public:
 
     // ARIA live-region features.
     bool supportsLiveRegion(bool excludeIfOff = true) const override;
-    bool isInsideLiveRegion(bool excludeIfOff = true) const override;
-    AccessibilityObject* liveRegionAncestor(bool excludeIfOff = true) const;
+    AccessibilityObject* liveRegionAncestor(bool excludeIfOff = true) const final { return Accessibility::liveRegionAncestor(*this, excludeIfOff); }
     const String liveRegionStatus() const override { return String(); }
     const String liveRegionRelevant() const override { return nullAtom(); }
     bool liveRegionAtomic() const override { return false; }
@@ -727,7 +725,7 @@ public:
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    int accessibilityPasswordFieldLength() override;
+    int accessibilitySecureFieldLength() override;
     bool hasTouchEventListener() const override;
     bool isInputTypePopupButton() const override;
 #endif

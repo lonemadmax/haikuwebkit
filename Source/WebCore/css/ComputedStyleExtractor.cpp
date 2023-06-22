@@ -238,7 +238,7 @@ static Ref<CSSPrimitiveValue> valueForImageSliceSide(const Length& length)
     // a calculation that combines a percentage and a number.
     if (length.isPercent())
         return CSSPrimitiveValue::create(length.percent(), CSSUnitType::CSS_PERCENTAGE);
-    if (length.isAuto() || length.isFixed())
+    if (length.isFixed())
         return CSSPrimitiveValue::create(length.value());
 
     // Calculating the actual length currently in use would require most of the code from RenderBoxModelObject::paintNinePieceImage.
@@ -1817,6 +1817,27 @@ static Ref<CSSValue> touchActionFlagsToCSSValue(OptionSet<TouchAction> touchActi
     return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 
+static Ref<CSSValue> renderTextTransformFlagsToCSSValue(OptionSet<TextTransform> textTransform)
+{
+    CSSValueListBuilder list;
+    if (textTransform.contains(TextTransform::Capitalize))
+        list.append(CSSPrimitiveValue::create(CSSValueCapitalize));
+    else if (textTransform.contains(TextTransform::Uppercase))
+        list.append(CSSPrimitiveValue::create(CSSValueUppercase));
+    else if (textTransform.contains(TextTransform::Lowercase))
+        list.append(CSSPrimitiveValue::create(CSSValueLowercase));
+
+    if (textTransform.contains(TextTransform::FullWidth))
+        list.append(CSSPrimitiveValue::create(CSSValueFullWidth));
+
+    if (textTransform.contains(TextTransform::FullSizeKana))
+        list.append(CSSPrimitiveValue::create(CSSValueFullSizeKana));
+
+    if (list.isEmpty())
+        return CSSPrimitiveValue::create(CSSValueNone);
+    return CSSValueList::createSpaceSeparated(WTFMove(list));
+}
+
 static Ref<CSSValue> renderTextDecorationLineFlagsToCSSValue(OptionSet<TextDecorationLine> textDecorationLine)
 {
     // Blink value is ignored.
@@ -3220,11 +3241,11 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyListStylePosition:
         return createConvertingToCSSValueID(style.listStylePosition());
     case CSSPropertyListStyleType:
-        if (style.listStyleType() == ListStyleType::String)
-            return CSSPrimitiveValue::create(style.listStyleStringValue());
-        if (style.listStyleType() == ListStyleType::CustomCounterStyle)
-            return CSSPrimitiveValue::createCustomIdent(style.listStyleStringValue());
-        return createConvertingToCSSValueID(style.listStyleType());
+        if (style.listStyleType().type == ListStyleType::Type::String)
+            return CSSPrimitiveValue::create(style.listStyleType().identifier);
+        if (style.listStyleType().type == ListStyleType::Type::CounterStyle)
+            return CSSPrimitiveValue::createCustomIdent(style.listStyleType().identifier);
+        return createConvertingToCSSValueID(style.listStyleType().type);
     case CSSPropertyWebkitLocale:
         if (style.specifiedLocale().isNull())
             return CSSPrimitiveValue::create(CSSValueAuto);
@@ -3458,7 +3479,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyWebkitTextStrokeWidth:
         return zoomAdjustedPixelValue(style.textStrokeWidth(), style);
     case CSSPropertyTextTransform:
-        return createConvertingToCSSValueID(style.textTransform());
+        return renderTextTransformFlagsToCSSValue(style.textTransform());
     case CSSPropertyTextWrap:
         return createConvertingToCSSValueID(style.textWrap());
     case CSSPropertyTop:

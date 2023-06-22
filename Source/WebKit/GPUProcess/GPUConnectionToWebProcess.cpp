@@ -639,6 +639,14 @@ void GPUConnectionToWebProcess::createRemoteGPU(WebGPUIdentifier identifier, Ren
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
 
+void GPUConnectionToWebProcess::releaseRemoteGPU(WebGPUIdentifier identifier)
+{
+    bool result = m_remoteGPUMap.remove(identifier);
+    ASSERT_UNUSED(result, result);
+    if (m_remoteGPUMap.isEmpty())
+        gpuProcess().tryExitIfUnusedAndUnderMemoryPressure();
+}
+
 void GPUConnectionToWebProcess::clearNowPlayingInfo()
 {
     m_isActiveNowPlayingProcess = false;
@@ -962,7 +970,7 @@ const String& GPUConnectionToWebProcess::mediaKeysStorageDirectory() const
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-void GPUConnectionToWebProcess::setOrientationForMediaCapture(uint64_t orientation)
+void GPUConnectionToWebProcess::setOrientationForMediaCapture(IntDegrees orientation)
 {
 // FIXME: <https://bugs.webkit.org/show_bug.cgi?id=211085>
 #if PLATFORM(COCOA)

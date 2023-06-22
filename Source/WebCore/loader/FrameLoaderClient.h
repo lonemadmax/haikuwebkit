@@ -71,13 +71,12 @@ class AuthenticationChallenge;
 class CachedFrame;
 class CachedResourceRequest;
 class Color;
-class DOMWindow;
+class LocalDOMWindow;
 class DOMWindowExtension;
 class DOMWrapperWorld;
 class DocumentLoader;
 class Element;
 class FormState;
-class Frame;
 class FrameLoader;
 class FrameNetworkingContext;
 class HTMLFormElement;
@@ -86,6 +85,7 @@ class HTMLPlugInElement;
 class HistoryItem;
 class IntSize;
 class LegacyPreviewLoaderClient;
+class LocalFrame;
 class MessageEvent;
 class NavigationAction;
 class Page;
@@ -188,7 +188,7 @@ public:
     virtual void dispatchDidReachLayoutMilestone(OptionSet<LayoutMilestone>) { }
     virtual void dispatchDidReachVisuallyNonEmptyState() { }
 
-    virtual Frame* dispatchCreatePage(const NavigationAction&, NewFrameOpenerPolicy) = 0;
+    virtual LocalFrame* dispatchCreatePage(const NavigationAction&, NewFrameOpenerPolicy) = 0;
     virtual void dispatchShow() = 0;
 
     virtual void dispatchDecidePolicyForResponse(const ResourceResponse&, const ResourceRequest&, PolicyCheckIdentifier, const String& downloadAttribute, FramePolicyFunction&&) = 0;
@@ -285,7 +285,7 @@ public:
     virtual bool canCachePage() const = 0;
     virtual void convertMainResourceLoadToDownload(DocumentLoader*, const ResourceRequest&, const ResourceResponse&) = 0;
 
-    virtual RefPtr<Frame> createFrame(const AtomString& name, HTMLFrameOwnerElement&) = 0;
+    virtual RefPtr<LocalFrame> createFrame(const AtomString& name, HTMLFrameOwnerElement&) = 0;
     virtual RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&, const Vector<AtomString>&, const String&, bool loadManually) = 0;
     virtual void redirectDataToPlugin(Widget&) = 0;
 

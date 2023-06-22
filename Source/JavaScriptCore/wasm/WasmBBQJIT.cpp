@@ -39,6 +39,7 @@
 #include "MacroAssembler.h"
 #include "RegisterSet.h"
 #include "WasmB3IRGenerator.h"
+#include "WasmBBQDisassembler.h"
 #include "WasmCallingConvention.h"
 #include "WasmCompilationMode.h"
 #include "WasmFormat.h"
@@ -67,11 +68,10 @@ namespace JSC { namespace Wasm {
 
 class BBQJIT {
 public:
-    using RegisterID = MacroAssembler::RegisterID;
-    using FPRegisterID = MacroAssembler::FPRegisterID;
     using ErrorType = String;
     using PartialResult = Expected<void, ErrorType>;
     using Address = MacroAssembler::Address;
+    using BaseIndex = MacroAssembler::BaseIndex;
     using Imm32 = MacroAssembler::Imm32;
     using Imm64 = MacroAssembler::Imm64;
     using TrustedImm32 = MacroAssembler::TrustedImm32;
@@ -90,6 +90,15 @@ public:
 
     static constexpr unsigned LocalIndexBits = 21;
     static_assert(maxFunctionLocals < 1 << LocalIndexBits);
+
+    static constexpr GPRReg wasmScratchGPR = GPRInfo::nonPreservedNonArgumentGPR0; // Scratch registers to hold temporaries in operations.
+    static constexpr FPRReg wasmScratchFPR = FPRInfo::nonPreservedNonArgumentFPR0;
+
+#if CPU(X86) || CPU(X86_64)
+    static constexpr GPRReg shiftRCX = X86Registers::ecx;
+#else
+    static constexpr GPRReg shiftRCX = InvalidGPRReg;
+#endif
 
 private:
     struct Location {
@@ -127,7 +136,7 @@ private:
             return loc;
         }
 
-        static Location fromGPR(RegisterID gpr)
+        static Location fromGPR(GPRReg gpr)
         {
             Location loc;
             loc.m_kind = Gpr;
@@ -135,7 +144,7 @@ private:
             return loc;
         }
 
-        static Location fromFPR(FPRegisterID fpr)
+        static Location fromFPR(FPRReg fpr)
         {
             Location loc;
             loc.m_kind = Fpr;
@@ -163,6 +172,7 @@ private:
             case ValueLocation::Kind::Stack:
                 return Location::fromStack(argLocation.location.offsetFromFP());
             }
+            RELEASE_ASSERT_NOT_REACHED();
         }
 
         bool isNone() const
@@ -255,13 +265,13 @@ private:
             }
         }
 
-        RegisterID asGPR() const
+        GPRReg asGPR() const
         {
             ASSERT(isGPR());
             return m_gpr;
         }
 
-        FPRegisterID asFPR() const
+        FPRReg asFPR() const
         {
             ASSERT(isFPR());
             return m_fpr;
@@ -311,6 +321,11 @@ private:
             }
         }
 
+        bool operator!=(Location other) const
+        {
+            return !(*this == other);
+        }
+
         Kind kind() const
         {
             return Kind(m_kind);
@@ -325,11 +340,11 @@ private:
             };
             struct {
                 Kind m_padGpr;
-                RegisterID m_gpr;
+                GPRReg m_gpr;
             };
             struct {
                 Kind m_padFpr;
-                FPRegisterID m_fpr;
+                FPRReg m_fpr;
             };
         };
     };
@@ -365,6 +380,9 @@ public:
         case TypeKind::Externref:
         case TypeKind::Array:
         case TypeKind::Arrayref:
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
             return sizeof(EncodedJSValue);
         case TypeKind::Void:
             return 0;
@@ -827,12 +845,12 @@ public:
         }
 
         template<typename Stack, size_t N>
-        void addExit(BBQJIT& generator, const Vector<Location, N>& targetLocations, Stack& expressionStack)
+        bool addExit(BBQJIT& generator, const Vector<Location, N>& targetLocations, Stack& expressionStack)
         {
             unsigned targetArity = targetLocations.size();
 
             if (!targetArity)
-                return;
+                return false;
 
             // We move all passed temporaries to the successor, in its argument slots.
             unsigned offset = expressionStack.size() - targetArity;
@@ -844,6 +862,7 @@ public:
                 resultLocations.append(targetLocations[i]);
             }
             generator.emitShuffle(resultValues, resultLocations);
+            return true;
         }
 
         template<typename Stack>
@@ -920,19 +939,27 @@ public:
             m_branchList.append(jump);
         }
 
-        void addBranch(const JumpList& jumpList)
+        void addLabel(Box<CCallHelpers::Label>&& label)
         {
-            m_branchList.append(jumpList);
+            m_labels.append(WTFMove(label));
+        }
+
+        void delegateJumpsTo(ControlData& delegateTarget)
+        {
+            delegateTarget.m_branchList.append(std::exchange(m_branchList, { }));
+            delegateTarget.m_labels.appendVector(std::exchange(m_labels, { }));
         }
 
         void linkJumps(MacroAssembler::AbstractMacroAssemblerType* masm)
         {
             m_branchList.link(masm);
+            fillLabels(masm->label());
         }
 
         void linkJumpsTo(MacroAssembler::Label label, MacroAssembler::AbstractMacroAssemblerType* masm)
         {
             m_branchList.linkTo(label, masm);
+            fillLabels(label);
         }
 
         void linkIfBranch(MacroAssembler::AbstractMacroAssemblerType* masm)
@@ -940,12 +967,6 @@ public:
             ASSERT(m_blockType == BlockType::If);
             if (m_ifBranch.isSet())
                 m_ifBranch.link(masm);
-        }
-
-        JumpList releaseJumps()
-        {
-            auto branchList = std::exchange(m_branchList, { });
-            return branchList;
         }
 
         void dump(PrintStream& out) const
@@ -1060,12 +1081,19 @@ public:
     private:
         friend class BBQJIT;
 
+        void fillLabels(CCallHelpers::Label label)
+        {
+            for (auto& box : m_labels)
+                *box = label;
+        }
+
         BlockSignature m_signature;
         BlockType m_blockType;
         CatchKind m_catchKind { CatchKind::Catch };
         Vector<Location, 2> m_argumentLocations; // List of input locations to write values into when entering this block.
         Vector<Location, 2> m_resultLocations; // List of result locations to write values into when exiting this block.
         JumpList m_branchList; // List of branch control info for branches targeting the end of this block.
+        Vector<Box<CCallHelpers::Label>> m_labels; // List of labels filled.
         MacroAssembler::Label m_loopLabel;
         MacroAssembler::Jump m_ifBranch;
         LocalOrTempIndex m_enclosedHeight; // Height of enclosed expression stack, used as the base for all temporary locations.
@@ -1230,7 +1258,7 @@ private:
 public:
     static constexpr bool tierSupportsSIMD = true;
 
-    BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, Callee& callee, const FunctionData& function, uint32_t functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
+    BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, BBQCallee& callee, const FunctionData& function, uint32_t functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
         : m_jit(jit)
         , m_callee(callee)
         , m_function(function)
@@ -1248,6 +1276,7 @@ public:
         , m_fprLRU(jit.numberOfFPRegisters())
         , m_lastUseTimestamp(0)
         , m_compilation(compilation)
+        , m_pcToCodeOriginMapBuilder(Options::useSamplingProfiler())
     {
         RegisterSetBuilder gprSetBuilder = RegisterSetBuilder::allGPRs();
         gprSetBuilder.exclude(RegisterSetBuilder::specialRegisters());
@@ -1268,8 +1297,8 @@ public:
         RegisterSetBuilder callerSaveGprs = gprSetBuilder;
         RegisterSetBuilder callerSaveFprs = fprSetBuilder;
 
-        gprSetBuilder.remove(m_scratchGPR);
-        fprSetBuilder.remove(m_scratchFPR);
+        gprSetBuilder.remove(wasmScratchGPR);
+        fprSetBuilder.remove(wasmScratchFPR);
 
         m_gprSet = m_validGPRs = gprSetBuilder.buildAndValidate();
         m_fprSet = m_validFPRs = fprSetBuilder.buildAndValidate();
@@ -1282,6 +1311,11 @@ public:
 
         if ((Options::verboseBBQJITAllocation()))
             dataLogLn("BBQ\tUsing GPR set: ", m_gprSet, "\n   \tFPR set: ", m_fprSet);
+
+        if (UNLIKELY(shouldDumpDisassemblyFor(CompilationMode::BBQMode))) {
+            m_disassembler = makeUnique<BBQDisassembler>();
+            m_disassembler->setStartOfCode(m_jit.label());
+        }
 
         CallInformation callInfo = wasmCallingConvention().callInformationFor(signature, CallRole::Callee);
         ASSERT(callInfo.params.size() == m_functionSignature->argumentCount());
@@ -1342,6 +1376,9 @@ public:
         case TypeKind::Arrayref:
         case TypeKind::Funcref:
         case TypeKind::Externref:
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
             result = Value::fromRef(type.kind, static_cast<EncodedJSValue>(value));
             LOG_INSTRUCTION("RefConst", makeString(type.kind), RESULT(result));
             break;
@@ -1569,39 +1606,6 @@ public:
 
     // Globals
 
-    LoadOpType loadOpForTypeKind(TypeKind type)
-    {
-        switch (type) {
-        case TypeKind::I32:
-        case TypeKind::I31ref:
-            return LoadOpType::I32Load;
-        case TypeKind::I64:
-            return LoadOpType::I64Load;
-        case TypeKind::F32:
-            return LoadOpType::F32Load;
-        case TypeKind::F64:
-            return LoadOpType::F64Load;
-        case TypeKind::Ref:
-        case TypeKind::RefNull:
-        case TypeKind::Arrayref:
-        case TypeKind::Structref:
-        case TypeKind::Funcref:
-        case TypeKind::Externref:
-            return loadOpForTypeKind(Types::IPtr.kind);
-        case TypeKind::V128:
-            RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Should be handling vectors separately (use V128Load, not a LoadOpType)");
-            return LoadOpType::I64Load;
-        case TypeKind::Void:
-        case TypeKind::Rec:
-        case TypeKind::Sub:
-        case TypeKind::Array:
-        case TypeKind::Struct:
-        case TypeKind::Func:
-            RELEASE_ASSERT_NOT_REACHED();
-            return LoadOpType::I64Load;
-        }
-    }
-
     Value topValue(TypeKind type)
     {
         return Value::fromTemp(type, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size());
@@ -1628,53 +1632,51 @@ public:
             break;
         case Wasm::GlobalInformation::BindingMode::Portable:
             ASSERT(global.mutability == Wasm::Mutability::Mutable);
-            m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, offset), m_scratchGPR);
-            if (type.kind == TypeKind::V128) {
-                // Vectors aren't handled by the normal load-op helper, but since we know the offset is zero
-                // we don't need the song and dance of addSIMDLoad.
-                result = topValue(type.kind);
-                m_jit.loadVector(Address(m_scratchGPR), loadIfNecessary(result).asFPR());
-            } else
-                result = emitLoadOp(loadOpForTypeKind(type.kind), Location::fromGPR(m_scratchGPR), 0);
+            m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, offset), wasmScratchGPR);
+            result = topValue(type.kind);
+            Location resultLocation = allocate(result);
+            switch (type.kind) {
+            case TypeKind::I32:
+            case TypeKind::I31ref:
+                m_jit.load32(Address(wasmScratchGPR), resultLocation.asGPR());
+                break;
+            case TypeKind::I64:
+                m_jit.load64(Address(wasmScratchGPR), resultLocation.asGPR());
+                break;
+            case TypeKind::F32:
+                m_jit.loadFloat(Address(wasmScratchGPR), resultLocation.asFPR());
+                break;
+            case TypeKind::F64:
+                m_jit.loadDouble(Address(wasmScratchGPR), resultLocation.asFPR());
+                break;
+            case TypeKind::V128:
+                m_jit.loadVector(Address(wasmScratchGPR), resultLocation.asFPR());
+                break;
+            case TypeKind::Func:
+            case TypeKind::Funcref:
+            case TypeKind::Ref:
+            case TypeKind::RefNull:
+            case TypeKind::Rec:
+            case TypeKind::Sub:
+            case TypeKind::Struct:
+            case TypeKind::Structref:
+            case TypeKind::Externref:
+            case TypeKind::Array:
+            case TypeKind::Arrayref:
+            case TypeKind::Eqref:
+            case TypeKind::Anyref:
+            case TypeKind::Nullref:
+                m_jit.load64(Address(wasmScratchGPR), resultLocation.asGPR());
+                break;
+            case TypeKind::Void:
+                break;
+            }
             break;
         }
 
         LOG_INSTRUCTION("GetGlobal", index, RESULT(result));
 
         return { };
-    }
-
-    StoreOpType storeOpForTypeKind(TypeKind type)
-    {
-        switch (type) {
-        case TypeKind::I32:
-        case TypeKind::I31ref:
-            return StoreOpType::I32Store;
-        case TypeKind::I64:
-            return StoreOpType::I64Store;
-        case TypeKind::F32:
-            return StoreOpType::F32Store;
-        case TypeKind::F64:
-            return StoreOpType::F64Store;
-        case TypeKind::Rec:
-        case TypeKind::Ref:
-        case TypeKind::Sub:
-        case TypeKind::RefNull:
-        case TypeKind::Array:
-        case TypeKind::Arrayref:
-        case TypeKind::Struct:
-        case TypeKind::Structref:
-        case TypeKind::Func:
-        case TypeKind::Funcref:
-        case TypeKind::Externref:
-            return storeOpForTypeKind(Types::IPtr.kind);
-        case TypeKind::V128:
-            RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Should be handling vectors separately (use V128Store, not a StoreOpType)");
-            return StoreOpType::I64Store;
-        case TypeKind::Void:
-            RELEASE_ASSERT_NOT_REACHED();
-            return StoreOpType::I64Store;
-        }
     }
 
     void emitWriteBarrier(GPRReg cellGPR)
@@ -1725,24 +1727,68 @@ public:
             emitMove(value, Location::fromGlobal(offset));
             consume(value);
             if (isRefType(type)) {
-                m_jit.load64(Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfOwner()), m_scratchGPR);
-                emitWriteBarrier(m_scratchGPR);
+                m_jit.load64(Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfOwner()), wasmScratchGPR);
+                emitWriteBarrier(wasmScratchGPR);
             }
             break;
         }
         case Wasm::GlobalInformation::BindingMode::Portable: {
             ASSERT(global.mutability == Wasm::Mutability::Mutable);
-            m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, offset), m_scratchGPR);
-            if (type.kind == TypeKind::V128) {
-                // Vectors aren't handled by the normal load-op helper, but since we know the offset is zero
-                // we don't need the song and dance of addSIMDStore.
-                m_jit.storeVector(loadIfNecessary(value).asFPR(), Address(m_scratchGPR));
+            m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, offset), wasmScratchGPR);
+
+            Location valueLocation;
+            if (value.isConst() && value.isFloat()) {
+                ScratchScope<0, 1> scratches(*this);
+                valueLocation = Location::fromFPR(scratches.fpr(0));
+                emitMoveConst(value, valueLocation);
+            } else if (value.isConst()) {
+                ScratchScope<1, 0> scratches(*this);
+                valueLocation = Location::fromGPR(scratches.gpr(0));
+                emitMoveConst(value, valueLocation);
             } else
-                emitStoreOp(storeOpForTypeKind(type.kind), Location::fromGPR(m_scratchGPR), value, 0);
+                valueLocation = loadIfNecessary(value);
+            ASSERT(valueLocation.isRegister());
             consume(value);
+
+            switch (type.kind) {
+            case TypeKind::I32:
+            case TypeKind::I31ref:
+                m_jit.store32(valueLocation.asGPR(), Address(wasmScratchGPR));
+                break;
+            case TypeKind::I64:
+                m_jit.store64(valueLocation.asGPR(), Address(wasmScratchGPR));
+                break;
+            case TypeKind::F32:
+                m_jit.storeFloat(valueLocation.asFPR(), Address(wasmScratchGPR));
+                break;
+            case TypeKind::F64:
+                m_jit.storeDouble(valueLocation.asFPR(), Address(wasmScratchGPR));
+                break;
+            case TypeKind::V128:
+                m_jit.storeVector(valueLocation.asFPR(), Address(wasmScratchGPR));
+                break;
+            case TypeKind::Func:
+            case TypeKind::Funcref:
+            case TypeKind::Ref:
+            case TypeKind::RefNull:
+            case TypeKind::Rec:
+            case TypeKind::Sub:
+            case TypeKind::Struct:
+            case TypeKind::Structref:
+            case TypeKind::Externref:
+            case TypeKind::Array:
+            case TypeKind::Arrayref:
+            case TypeKind::Eqref:
+            case TypeKind::Anyref:
+            case TypeKind::Nullref:
+                m_jit.store64(valueLocation.asGPR(), Address(wasmScratchGPR));
+                break;
+            case TypeKind::Void:
+                break;
+            }
             if (isRefType(type)) {
-                m_jit.loadPtr(Address(m_scratchGPR, Wasm::Global::offsetOfOwner() - Wasm::Global::offsetOfValue()), m_scratchGPR);
-                emitWriteBarrier(m_scratchGPR);
+                m_jit.loadPtr(Address(wasmScratchGPR, Wasm::Global::offsetOfOwner() - Wasm::Global::offsetOfValue()), wasmScratchGPR);
+                emitWriteBarrier(wasmScratchGPR);
             }
             break;
         }
@@ -1770,10 +1816,10 @@ public:
         case MemoryMode::BoundsChecking: {
             // We're not using signal handling only when the memory is not shared.
             // Regardless of signaling, we must check that no memory access exceeds the current memory size.
-            m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), m_scratchGPR);
+            m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
             if (boundary)
-                m_jit.add64(TrustedImm64(boundary), m_scratchGPR);
-            throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, m_scratchGPR, GPRInfo::wasmBoundsCheckingSizeRegister));
+                m_jit.add64(TrustedImm64(boundary), wasmScratchGPR);
+            throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, wasmScratchGPR, GPRInfo::wasmBoundsCheckingSizeRegister));
             break;
         }
 
@@ -1790,24 +1836,108 @@ public:
             // any access equal to or greater than 4GiB will trap, no need to add the redzone.
             if (uoffset >= Memory::fastMappedRedzoneBytes()) {
                 uint64_t maximum = m_info.memory.maximum() ? m_info.memory.maximum().bytes() : std::numeric_limits<uint32_t>::max();
-                m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), m_scratchGPR);
+                m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
                 if (boundary)
-                    m_jit.add64(TrustedImm64(boundary), m_scratchGPR);
-                throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, m_scratchGPR, TrustedImm64(static_cast<int64_t>(maximum))));
+                    m_jit.add64(TrustedImm64(boundary), wasmScratchGPR);
+                throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, wasmScratchGPR, TrustedImm64(static_cast<int64_t>(maximum))));
             }
             break;
         }
         }
 
 #if CPU(ARM64)
-        m_jit.addZeroExtend64(GPRInfo::wasmBaseMemoryPointer, pointerLocation.asGPR(), m_scratchGPR);
+        m_jit.addZeroExtend64(GPRInfo::wasmBaseMemoryPointer, pointerLocation.asGPR(), wasmScratchGPR);
 #else
-        m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), m_scratchGPR);
-        m_jit.addPtr(GPRInfo::wasmBaseMemoryPointer, m_scratchGPR);
+        m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
+        m_jit.addPtr(GPRInfo::wasmBaseMemoryPointer, wasmScratchGPR);
 #endif
 
         consume(pointer);
-        return Location::fromGPR(m_scratchGPR);
+        return Location::fromGPR(wasmScratchGPR);
+    }
+
+    template<typename Functor>
+    auto emitCheckAndPrepareAndMaterializePointerApply(Value pointer, uint32_t uoffset, uint32_t sizeOfOperation, Functor&& functor) -> decltype(auto)
+    {
+        uint64_t boundary = static_cast<uint64_t>(sizeOfOperation) + uoffset - 1;
+
+        ScratchScope<1, 0> scratches(*this);
+        Location pointerLocation;
+        if (pointer.isConst()) {
+            uint64_t constantPointer = static_cast<uint64_t>(static_cast<uint32_t>(pointer.asI32()));
+            uint64_t finalOffset = constantPointer + uoffset;
+            if (!(finalOffset > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || !B3::Air::Arg::isValidAddrForm(B3::Air::Move, finalOffset, Width::Width128))) {
+                switch (m_mode) {
+                case MemoryMode::BoundsChecking: {
+                    m_jit.move(TrustedImm64(constantPointer + boundary), wasmScratchGPR);
+                    throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, wasmScratchGPR, GPRInfo::wasmBoundsCheckingSizeRegister));
+                    break;
+                }
+                case MemoryMode::Signaling: {
+                    if (uoffset >= Memory::fastMappedRedzoneBytes()) {
+                        uint64_t maximum = m_info.memory.maximum() ? m_info.memory.maximum().bytes() : std::numeric_limits<uint32_t>::max();
+                        if ((constantPointer + boundary) >= maximum)
+                            throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.jump());
+                    }
+                    break;
+                }
+                }
+                return functor(CCallHelpers::Address(GPRInfo::wasmBaseMemoryPointer, static_cast<int32_t>(finalOffset)));
+            }
+            pointerLocation = Location::fromGPR(scratches.gpr(0));
+            emitMoveConst(pointer, pointerLocation);
+        } else
+            pointerLocation = loadIfNecessary(pointer);
+        ASSERT(pointerLocation.isGPR());
+
+        switch (m_mode) {
+        case MemoryMode::BoundsChecking: {
+            // We're not using signal handling only when the memory is not shared.
+            // Regardless of signaling, we must check that no memory access exceeds the current memory size.
+            m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
+            if (boundary)
+                m_jit.add64(TrustedImm64(boundary), wasmScratchGPR);
+            throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, wasmScratchGPR, GPRInfo::wasmBoundsCheckingSizeRegister));
+            break;
+        }
+
+        case MemoryMode::Signaling: {
+            // We've virtually mapped 4GiB+redzone for this memory. Only the user-allocated pages are addressable, contiguously in range [0, current],
+            // and everything above is mapped PROT_NONE. We don't need to perform any explicit bounds check in the 4GiB range because WebAssembly register
+            // memory accesses are 32-bit. However WebAssembly register + offset accesses perform the addition in 64-bit which can push an access above
+            // the 32-bit limit (the offset is unsigned 32-bit). The redzone will catch most small offsets, and we'll explicitly bounds check any
+            // register + large offset access. We don't think this will be generated frequently.
+            //
+            // We could check that register + large offset doesn't exceed 4GiB+redzone since that's technically the limit we need to avoid overflowing the
+            // PROT_NONE region, but it's better if we use a smaller immediate because it can codegens better. We know that anything equal to or greater
+            // than the declared 'maximum' will trap, so we can compare against that number. If there was no declared 'maximum' then we still know that
+            // any access equal to or greater than 4GiB will trap, no need to add the redzone.
+            if (uoffset >= Memory::fastMappedRedzoneBytes()) {
+                uint64_t maximum = m_info.memory.maximum() ? m_info.memory.maximum().bytes() : std::numeric_limits<uint32_t>::max();
+                m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
+                if (boundary)
+                    m_jit.add64(TrustedImm64(boundary), wasmScratchGPR);
+                throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, wasmScratchGPR, TrustedImm64(static_cast<int64_t>(maximum))));
+            }
+            break;
+        }
+        }
+
+#if CPU(ARM64)
+        if (!(static_cast<uint64_t>(uoffset) > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || !B3::Air::Arg::isValidAddrForm(B3::Air::Move, uoffset, Width::Width128)))
+            return functor(CCallHelpers::BaseIndex(GPRInfo::wasmBaseMemoryPointer, pointerLocation.asGPR(), CCallHelpers::TimesOne, static_cast<int32_t>(uoffset), CCallHelpers::Extend::ZExt32));
+
+        m_jit.addZeroExtend64(GPRInfo::wasmBaseMemoryPointer, pointerLocation.asGPR(), wasmScratchGPR);
+#else
+        m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
+        m_jit.addPtr(GPRInfo::wasmBaseMemoryPointer, wasmScratchGPR);
+#endif
+
+        if (static_cast<uint64_t>(uoffset) > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || !B3::Air::Arg::isValidAddrForm(B3::Air::Move, uoffset, Width::Width128)) {
+            m_jit.add64(TrustedImm64(static_cast<int64_t>(uoffset)), wasmScratchGPR);
+            return functor(Address(wasmScratchGPR));
+        }
+        return functor(Address(wasmScratchGPR, static_cast<int32_t>(uoffset)));
     }
 
     static inline uint32_t sizeOfLoadOp(LoadOpType op)
@@ -1856,9 +1986,8 @@ public:
             return TypeKind::F32;
         case LoadOpType::F64Load:
             return TypeKind::F64;
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
         }
+        RELEASE_ASSERT_NOT_REACHED();
     }
 
     Address materializePointer(Location pointerLocation, uint32_t uoffset)
@@ -1868,65 +1997,6 @@ public:
             return Address(pointerLocation.asGPR());
         }
         return Address(pointerLocation.asGPR(), static_cast<int32_t>(uoffset));
-    }
-
-    Value WARN_UNUSED_RETURN emitLoadOp(LoadOpType loadOp, Location pointer, uint32_t uoffset)
-    {
-        ASSERT(pointer.isGPR());
-
-        Address address = materializePointer(pointer, uoffset);
-        Value result = topValue(typeOfLoadOp(loadOp));
-        Location resultLocation = allocate(result);
-
-        switch (loadOp) {
-        case LoadOpType::I32Load8S:
-            m_jit.load8SignedExtendTo32(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I64Load8S:
-            m_jit.load8SignedExtendTo32(address, resultLocation.asGPR());
-            m_jit.signExtend32ToPtr(resultLocation.asGPR(), resultLocation.asGPR());
-            break;
-        case LoadOpType::I32Load8U:
-            m_jit.load8(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I64Load8U:
-            m_jit.load8(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I32Load16S:
-            m_jit.load16SignedExtendTo32(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I64Load16S:
-            m_jit.load16SignedExtendTo32(address, resultLocation.asGPR());
-            m_jit.signExtend32ToPtr(resultLocation.asGPR(), resultLocation.asGPR());
-            break;
-        case LoadOpType::I32Load16U:
-            m_jit.load16(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I64Load16U:
-            m_jit.load16(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I32Load:
-            m_jit.load32(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I64Load32U:
-            m_jit.load32(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::I64Load32S:
-            m_jit.load32(address, resultLocation.asGPR());
-            m_jit.signExtend32ToPtr(resultLocation.asGPR(), resultLocation.asGPR());
-            break;
-        case LoadOpType::I64Load:
-            m_jit.load64(address, resultLocation.asGPR());
-            break;
-        case LoadOpType::F32Load:
-            m_jit.loadFloat(address, resultLocation.asFPR());
-            break;
-        case LoadOpType::F64Load:
-            m_jit.loadDouble(address, resultLocation.asFPR());
-            break;
-        }
-
-        return result;
     }
 
 #define CREATE_OP_STRING(name, ...) #name,
@@ -1969,8 +2039,63 @@ public:
                 result = Value::fromF64(0);
                 break;
             }
-        } else
-            result = emitLoadOp(loadOp, emitCheckAndPreparePointer(pointer, uoffset, sizeOfLoadOp(loadOp)), uoffset);
+        } else {
+            result = emitCheckAndPrepareAndMaterializePointerApply(pointer, uoffset, sizeOfLoadOp(loadOp), [&](auto location) -> Value {
+                consume(pointer);
+                Value result = topValue(typeOfLoadOp(loadOp));
+                Location resultLocation = allocate(result);
+
+                switch (loadOp) {
+                case LoadOpType::I32Load8S:
+                    m_jit.load8SignedExtendTo32(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I64Load8S:
+                    m_jit.load8SignedExtendTo32(location, resultLocation.asGPR());
+                    m_jit.signExtend32To64(resultLocation.asGPR(), resultLocation.asGPR());
+                    break;
+                case LoadOpType::I32Load8U:
+                    m_jit.load8(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I64Load8U:
+                    m_jit.load8(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I32Load16S:
+                    m_jit.load16SignedExtendTo32(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I64Load16S:
+                    m_jit.load16SignedExtendTo32(location, resultLocation.asGPR());
+                    m_jit.signExtend32To64(resultLocation.asGPR(), resultLocation.asGPR());
+                    break;
+                case LoadOpType::I32Load16U:
+                    m_jit.load16(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I64Load16U:
+                    m_jit.load16(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I32Load:
+                    m_jit.load32(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I64Load32U:
+                    m_jit.load32(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::I64Load32S:
+                    m_jit.load32(location, resultLocation.asGPR());
+                    m_jit.signExtend32To64(resultLocation.asGPR(), resultLocation.asGPR());
+                    break;
+                case LoadOpType::I64Load:
+                    m_jit.load64(location, resultLocation.asGPR());
+                    break;
+                case LoadOpType::F32Load:
+                    m_jit.loadFloat(location, resultLocation.asFPR());
+                    break;
+                case LoadOpType::F64Load:
+                    m_jit.loadDouble(location, resultLocation.asFPR());
+                    break;
+                }
+
+                return result;
+            });
+        }
 
         LOG_INSTRUCTION(LOAD_OP_NAMES[(unsigned)loadOp - (unsigned)I32Load], pointer, uoffset, RESULT(result));
 
@@ -1997,51 +2122,6 @@ public:
         RELEASE_ASSERT_NOT_REACHED();
     }
 
-    void emitStoreOp(StoreOpType storeOp, Location pointer, Value value, uint32_t uoffset)
-    {
-        ASSERT(pointer.isGPR());
-
-        Address address = materializePointer(pointer, uoffset);
-        Location valueLocation;
-        if (value.isConst() && value.isFloat()) {
-            ScratchScope<0, 1> scratches(*this);
-            valueLocation = Location::fromFPR(scratches.fpr(0));
-            emitMoveConst(value, valueLocation);
-        } else if (value.isConst()) {
-            ScratchScope<1, 0> scratches(*this);
-            valueLocation = Location::fromGPR(scratches.gpr(0));
-            emitMoveConst(value, valueLocation);
-        } else
-            valueLocation = loadIfNecessary(value);
-        ASSERT(valueLocation.isRegister());
-
-        consume(value);
-
-        switch (storeOp) {
-        case StoreOpType::I64Store8:
-        case StoreOpType::I32Store8:
-            m_jit.store8(valueLocation.asGPR(), address);
-            return;
-        case StoreOpType::I64Store16:
-        case StoreOpType::I32Store16:
-            m_jit.store16(valueLocation.asGPR(), address);
-            return;
-        case StoreOpType::I64Store32:
-        case StoreOpType::I32Store:
-            m_jit.store32(valueLocation.asGPR(), address);
-            return;
-        case StoreOpType::I64Store:
-            m_jit.store64(valueLocation.asGPR(), address);
-            return;
-        case StoreOpType::F32Store:
-            m_jit.storeFloat(valueLocation.asFPR(), address);
-            return;
-        case StoreOpType::F64Store:
-            m_jit.storeDouble(valueLocation.asFPR(), address);
-            return;
-        }
-    }
-
     constexpr static const char* STORE_OP_NAMES[9] = {
         "I32Store", "I64Store", "F32Store", "F64Store",
         "I32Store8", "I32Store16",
@@ -2056,8 +2136,49 @@ public:
             emitThrowException(ExceptionType::OutOfBoundsMemoryAccess);
             consume(pointer);
             consume(value);
-        } else
-            emitStoreOp(storeOp, emitCheckAndPreparePointer(pointer, uoffset, sizeOfStoreOp(storeOp)), value, uoffset);
+        } else {
+            emitCheckAndPrepareAndMaterializePointerApply(pointer, uoffset, sizeOfStoreOp(storeOp), [&](auto location) -> void {
+                Location valueLocation;
+                if (value.isConst() && value.isFloat()) {
+                    ScratchScope<0, 1> scratches(*this);
+                    valueLocation = Location::fromFPR(scratches.fpr(0));
+                    emitMoveConst(value, valueLocation);
+                } else if (value.isConst()) {
+                    ScratchScope<1, 0> scratches(*this);
+                    valueLocation = Location::fromGPR(scratches.gpr(0));
+                    emitMoveConst(value, valueLocation);
+                } else
+                    valueLocation = loadIfNecessary(value);
+                ASSERT(valueLocation.isRegister());
+
+                consume(value);
+                consume(pointer);
+
+                switch (storeOp) {
+                case StoreOpType::I64Store8:
+                case StoreOpType::I32Store8:
+                    m_jit.store8(valueLocation.asGPR(), location);
+                    return;
+                case StoreOpType::I64Store16:
+                case StoreOpType::I32Store16:
+                    m_jit.store16(valueLocation.asGPR(), location);
+                    return;
+                case StoreOpType::I64Store32:
+                case StoreOpType::I32Store:
+                    m_jit.store32(valueLocation.asGPR(), location);
+                    return;
+                case StoreOpType::I64Store:
+                    m_jit.store64(valueLocation.asGPR(), location);
+                    return;
+                case StoreOpType::F32Store:
+                    m_jit.storeFloat(valueLocation.asFPR(), location);
+                    return;
+                case StoreOpType::F64Store:
+                    m_jit.storeDouble(valueLocation.asFPR(), location);
+                    return;
+                }
+            });
+        }
 
         LOG_INSTRUCTION(STORE_OP_NAMES[(unsigned)storeOp - (unsigned)I32Store], pointer, uoffset, value, valueLocation);
 
@@ -2079,14 +2200,14 @@ public:
     {
         result = topValue(TypeKind::I32);
         Location resultLocation = allocate(result);
-        m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfMemory()), m_scratchGPR);
-        m_jit.loadPtr(Address(m_scratchGPR, Memory::offsetOfHandle()), m_scratchGPR);
-        m_jit.loadPtr(Address(m_scratchGPR, BufferMemoryHandle::offsetOfSize()), m_scratchGPR);
+        m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfMemory()), wasmScratchGPR);
+        m_jit.loadPtr(Address(wasmScratchGPR, Memory::offsetOfHandle()), wasmScratchGPR);
+        m_jit.loadPtr(Address(wasmScratchGPR, BufferMemoryHandle::offsetOfSize()), wasmScratchGPR);
 
         constexpr uint32_t shiftValue = 16;
         static_assert(PageCount::pageSize == 1ull << shiftValue, "This must hold for the code below to be correct.");
-        m_jit.urshiftPtr(Imm32(shiftValue), m_scratchGPR);
-        m_jit.zeroExtend32ToWord(m_scratchGPR, resultLocation.asGPR());
+        m_jit.urshiftPtr(Imm32(shiftValue), wasmScratchGPR);
+        m_jit.zeroExtend32ToWord(wasmScratchGPR, resultLocation.asGPR());
 
         LOG_INSTRUCTION("CurrentMemory", RESULT(result));
 
@@ -3319,7 +3440,7 @@ public:
 
         Location operandLocation;
         if (operand.isConst()) {
-            operandLocation = Location::fromFPR(m_scratchFPR);
+            operandLocation = Location::fromFPR(wasmScratchFPR);
             emitMoveConst(operand, operandLocation);
         } else
             operandLocation = loadIfNecessary(operand);
@@ -3403,7 +3524,7 @@ public:
 
         Location operandLocation;
         if (operand.isConst()) {
-            operandLocation = Location::fromFPR(m_scratchFPR);
+            operandLocation = Location::fromFPR(wasmScratchFPR);
             emitMoveConst(operand, operandLocation);
         } else
             operandLocation = loadIfNecessary(operand);
@@ -3478,15 +3599,30 @@ public:
     PartialResult WARN_UNUSED_RETURN addArraySet(uint32_t, ExpressionType, ExpressionType, ExpressionType) BBQ_STUB
     PartialResult WARN_UNUSED_RETURN addArrayLen(ExpressionType, ExpressionType&) BBQ_STUB
     PartialResult WARN_UNUSED_RETURN addStructNewDefault(uint32_t, ExpressionType&) BBQ_STUB
+    PartialResult WARN_UNUSED_RETURN addRefCast(ExpressionType, bool, int32_t, ExpressionType&) BBQ_STUB
+    PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType, bool, int32_t, ExpressionType&) BBQ_STUB
 
     // Basic operators
     PartialResult WARN_UNUSED_RETURN addSelect(Value condition, Value lhs, Value rhs, Value& result)
     {
         if (condition.isConst()) {
-            result = condition.asI32() ? lhs : rhs;
+            Value src = condition.asI32() ? lhs : rhs;
+            Location srcLocation;
+            if (src.isConst())
+                result = src;
+            else {
+                result = topValue(lhs.type());
+                srcLocation = loadIfNecessary(src);
+            }
+
             LOG_INSTRUCTION("Select", condition, lhs, rhs, RESULT(result));
             consume(condition);
-            consume(condition.asI32() ? rhs : lhs); // Kill whichever one we didn't choose.
+            consume(lhs);
+            consume(rhs);
+            if (!result.isConst()) {
+                Location resultLocation = allocate(result);
+                emitMove(lhs.type(), srcLocation, resultLocation);
+            }
         } else {
             Location conditionLocation = loadIfNecessary(condition);
             Location lhsLocation = Location::none(), rhsLocation = Location::none();
@@ -3519,20 +3655,21 @@ public:
             // If the condition location and the result alias, we want to make sure the condition is
             // preserved no matter what.
             if (conditionLocation == resultLocation) {
-                m_jit.move(conditionLocation.asGPR(), m_scratchGPR);
-                conditionLocation = Location::fromGPR(m_scratchGPR);
+                m_jit.move(conditionLocation.asGPR(), wasmScratchGPR);
+                conditionLocation = Location::fromGPR(wasmScratchGPR);
             }
 
-            if (lhs.isTemp())
-                lhs = Value::pinned(lhs.type(), lhsLocation);
-            if (rhs.isTemp())
-                rhs = Value::pinned(rhs.type(), rhsLocation);
-
             // Kind of gross isel, but it should handle all use/def aliasing cases correctly.
-            emitMove(lhs, resultLocation);
+            if (lhs.isConst())
+                emitMoveConst(lhs, resultLocation);
+            else
+                emitMove(lhs.type(), lhsLocation, resultLocation);
             Jump ifZero = m_jit.branchTest32(inverted ? ResultCondition::Zero : ResultCondition::NonZero, conditionLocation.asGPR(), conditionLocation.asGPR());
             consume(condition);
-            emitMove(rhs, resultLocation);
+            if (rhs.isConst())
+                emitMoveConst(rhs, resultLocation);
+            else
+                emitMove(rhs.type(), rhsLocation, resultLocation);
             ifZero.link(&m_jit);
 
             LOG_DEDENT();
@@ -3703,8 +3840,8 @@ public:
                 m_jit.addFloat(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.addFloat(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -3719,8 +3856,8 @@ public:
                 m_jit.addDouble(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.addDouble(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -3740,8 +3877,8 @@ public:
                     m_jit.move(lhsLocation.asGPR(), resultLocation.asGPR());
                     m_jit.add32(Imm32(-rhs.asI32()), resultLocation.asGPR());
                 } else {
-                    emitMoveConst(lhs, Location::fromGPR(m_scratchGPR));
-                    m_jit.sub32(m_scratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
+                    emitMoveConst(lhs, Location::fromGPR(wasmScratchGPR));
+                    m_jit.sub32(wasmScratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
         );
@@ -3761,8 +3898,8 @@ public:
                     m_jit.move(lhsLocation.asGPR(), resultLocation.asGPR());
                     m_jit.add64(TrustedImm64(-rhs.asI64()), resultLocation.asGPR());
                 } else {
-                    emitMoveConst(lhs, Location::fromGPR(m_scratchGPR));
-                    m_jit.sub64(m_scratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
+                    emitMoveConst(lhs, Location::fromGPR(wasmScratchGPR));
+                    m_jit.sub64(wasmScratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
         );
@@ -3779,11 +3916,11 @@ public:
             BLOCK(
                 if (rhs.isConst()) {
                     // Add a negative if rhs is a constant.
-                    emitMoveConst(Value::fromF32(-rhs.asF32()), Location::fromFPR(m_scratchFPR));
-                    m_jit.addFloat(lhsLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                    emitMoveConst(Value::fromF32(-rhs.asF32()), Location::fromFPR(wasmScratchFPR));
+                    m_jit.addFloat(lhsLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 } else {
-                    emitMoveConst(lhs, Location::fromFPR(m_scratchFPR));
-                    m_jit.subFloat(m_scratchFPR, rhsLocation.asFPR(), resultLocation.asFPR());
+                    emitMoveConst(lhs, Location::fromFPR(wasmScratchFPR));
+                    m_jit.subFloat(wasmScratchFPR, rhsLocation.asFPR(), resultLocation.asFPR());
                 }
             )
         );
@@ -3800,11 +3937,11 @@ public:
             BLOCK(
                 if (rhs.isConst()) {
                     // Add a negative if rhs is a constant.
-                    emitMoveConst(Value::fromF64(-rhs.asF64()), Location::fromFPR(m_scratchFPR));
-                    m_jit.addDouble(lhsLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                    emitMoveConst(Value::fromF64(-rhs.asF64()), Location::fromFPR(wasmScratchFPR));
+                    m_jit.addDouble(lhsLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 } else {
-                    emitMoveConst(lhs, Location::fromFPR(m_scratchFPR));
-                    m_jit.subDouble(m_scratchFPR, rhsLocation.asFPR(), resultLocation.asFPR());
+                    emitMoveConst(lhs, Location::fromFPR(wasmScratchFPR));
+                    m_jit.subDouble(wasmScratchFPR, rhsLocation.asFPR(), resultLocation.asFPR());
                 }
             )
         );
@@ -3837,8 +3974,8 @@ public:
                 m_jit.mul64(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromGPR(m_scratchGPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromGPR(m_scratchGPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromGPR(wasmScratchGPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromGPR(wasmScratchGPR));
                 m_jit.mul64(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
             )
         );
@@ -3853,8 +3990,8 @@ public:
                 m_jit.mulFloat(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.mulFloat(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -3869,8 +4006,8 @@ public:
                 m_jit.mulDouble(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.mulDouble(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -3932,9 +4069,9 @@ public:
 
         ASSERT(lhsLocation.isRegister() || rhsLocation.isRegister());
         if (lhs.isConst())
-            emitMoveConst(lhs, lhsLocation = Location::fromGPR(m_scratchGPR));
+            emitMoveConst(lhs, lhsLocation = Location::fromGPR(wasmScratchGPR));
         else if (rhs.isConst())
-            emitMoveConst(rhs, rhsLocation = Location::fromGPR(m_scratchGPR));
+            emitMoveConst(rhs, rhsLocation = Location::fromGPR(wasmScratchGPR));
         ASSERT(lhsLocation.isRegister() && rhsLocation.isRegister());
 
         ASSERT(resultLocation.isRegister());
@@ -4062,7 +4199,7 @@ public:
                 if constexpr (IsMod) {
                     Location originalResult = resultLocation;
                     if constexpr (isSigned)
-                        resultLocation = Location::fromGPR(m_scratchGPR);
+                        resultLocation = Location::fromGPR(wasmScratchGPR);
 
                     if constexpr (is32)
                         m_jit.and32(Imm32(static_cast<uint32_t>(divisor) - 1), lhsLocation.asGPR(), resultLocation.asGPR());
@@ -4074,11 +4211,11 @@ public:
                             ? m_jit.branch32(RelationalCondition::GreaterThanOrEqual, lhsLocation.asGPR(), TrustedImm32(0))
                             : m_jit.branch64(RelationalCondition::GreaterThanOrEqual, lhsLocation.asGPR(), TrustedImm64(0));
                         if constexpr (is32)
-                            m_jit.neg32(m_scratchGPR, m_scratchGPR);
+                            m_jit.neg32(wasmScratchGPR, wasmScratchGPR);
                         else
-                            m_jit.neg64(m_scratchGPR, m_scratchGPR);
+                            m_jit.neg64(wasmScratchGPR, wasmScratchGPR);
                         isNonNegative.link(&m_jit);
-                        m_jit.move(m_scratchGPR, originalResult.asGPR());
+                        m_jit.move(wasmScratchGPR, originalResult.asGPR());
                     }
                     return;
                 }
@@ -4102,7 +4239,7 @@ public:
             // TODO: try generating integer reciprocal instead.
             checkedForNegativeOne = true;
             checkedForZero = true;
-            rhsLocation = Location::fromGPR(m_scratchGPR);
+            rhsLocation = Location::fromGPR(wasmScratchGPR);
             emitMoveConst(rhs, rhsLocation);
             // Fall through to register/register div.
         } else if (lhs.isConst()) {
@@ -4129,7 +4266,7 @@ public:
                 checkedForNegativeOne = true;
             }
 
-            lhsLocation = Location::fromGPR(m_scratchGPR);
+            lhsLocation = Location::fromGPR(wasmScratchGPR);
             emitMoveConst(lhs, lhsLocation);
             // Fall through to register/register div.
         }
@@ -4144,21 +4281,21 @@ public:
         ScratchScope<1, 0> scratches(*this, lhsLocation, rhsLocation, resultLocation);
         if (isSigned && !IsMod && !checkedForNegativeOne) {
             if constexpr (is32)
-                m_jit.compare32(RelationalCondition::Equal, rhsLocation.asGPR(), TrustedImm32(-1), m_scratchGPR);
+                m_jit.compare32(RelationalCondition::Equal, rhsLocation.asGPR(), TrustedImm32(-1), wasmScratchGPR);
             else
-                m_jit.compare64(RelationalCondition::Equal, rhsLocation.asGPR(), TrustedImm32(-1), m_scratchGPR);
+                m_jit.compare64(RelationalCondition::Equal, rhsLocation.asGPR(), TrustedImm32(-1), wasmScratchGPR);
             if constexpr (is32)
                 m_jit.compare32(RelationalCondition::Equal, lhsLocation.asGPR(), TrustedImm32(std::numeric_limits<int32_t>::min()), scratches.gpr(0));
             else {
                 m_jit.move(TrustedImm64(std::numeric_limits<int64_t>::min()), scratches.gpr(0));
                 m_jit.compare64(RelationalCondition::Equal, lhsLocation.asGPR(), scratches.gpr(0), scratches.gpr(0));
             }
-            m_jit.and64(m_scratchGPR, scratches.gpr(0), m_scratchGPR);
-            Jump isNegativeOne = m_jit.branchTest64(ResultCondition::NonZero, m_scratchGPR);
+            m_jit.and64(wasmScratchGPR, scratches.gpr(0), wasmScratchGPR);
+            Jump isNegativeOne = m_jit.branchTest64(ResultCondition::NonZero, wasmScratchGPR);
             throwExceptionIf(ExceptionType::IntegerOverflow, isNegativeOne);
         }
 
-        RegisterID divResult = IsMod ? scratches.gpr(0) : resultLocation.asGPR();
+        GPRReg divResult = IsMod ? scratches.gpr(0) : resultLocation.asGPR();
         if (is32 && isSigned)
             m_jit.div32(lhsLocation.asGPR(), rhsLocation.asGPR(), divResult);
         else if (is32)
@@ -4339,8 +4476,8 @@ public:
                 m_jit.divFloat(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.divFloat(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -4355,8 +4492,8 @@ public:
                 m_jit.divDouble(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.divDouble(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -4365,7 +4502,7 @@ public:
     enum class MinOrMax { Min, Max };
 
     template<typename FloatType, MinOrMax IsMinOrMax>
-    void emitFloatingPointMinOrMax(FPRegisterID left, FPRegisterID right, FPRegisterID result)
+    void emitFloatingPointMinOrMax(FPRReg left, FPRReg right, FPRReg result)
     {
         constexpr bool is32 = sizeof(FloatType) == 4;
 
@@ -4441,8 +4578,8 @@ public:
                 emitFloatingPointMinOrMax<float, MinOrMax::Min>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 emitFloatingPointMinOrMax<float, MinOrMax::Min>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -4457,8 +4594,8 @@ public:
                 emitFloatingPointMinOrMax<double, MinOrMax::Min>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 emitFloatingPointMinOrMax<double, MinOrMax::Min>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -4473,8 +4610,8 @@ public:
                 emitFloatingPointMinOrMax<float, MinOrMax::Max>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 emitFloatingPointMinOrMax<float, MinOrMax::Max>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -4489,8 +4626,8 @@ public:
                 emitFloatingPointMinOrMax<double, MinOrMax::Max>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 emitFloatingPointMinOrMax<double, MinOrMax::Max>(lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asFPR());
             )
         );
@@ -4609,9 +4746,9 @@ public:
 #if CPU(X86_64)
 #define PREPARE_FOR_SHIFT \
     do { \
-        clobber(m_shiftRCX); \
+        clobber(shiftRCX); \
     } while (false); \
-    ScratchScope<0, 0> scratches(*this, Location::fromGPR(m_shiftRCX))
+    ScratchScope<0, 0> scratches(*this, Location::fromGPR(shiftRCX))
 #else
 #define PREPARE_FOR_SHIFT
 #endif
@@ -4619,8 +4756,8 @@ public:
     void moveShiftAmountIfNecessary(Location& rhsLocation)
     {
         if constexpr (isX86()) {
-            m_jit.move(rhsLocation.asGPR(), m_shiftRCX);
-            rhsLocation = Location::fromGPR(m_shiftRCX);
+            m_jit.move(rhsLocation.asGPR(), shiftRCX);
+            rhsLocation = Location::fromGPR(shiftRCX);
         }
     }
 
@@ -4639,7 +4776,7 @@ public:
                     m_jit.lshift32(lhsLocation.asGPR(), m_jit.trustedImm32ForShift(Imm32(rhs.asI32())), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(m_scratchGPR));
+                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(wasmScratchGPR));
                     m_jit.lshift32(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
@@ -4661,7 +4798,7 @@ public:
                     m_jit.lshift64(lhsLocation.asGPR(), TrustedImm32(rhs.asI64()), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(m_scratchGPR));
+                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(wasmScratchGPR));
                     m_jit.lshift64(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
@@ -4683,7 +4820,7 @@ public:
                     m_jit.rshift32(lhsLocation.asGPR(), m_jit.trustedImm32ForShift(Imm32(rhs.asI32())), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(m_scratchGPR));
+                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(wasmScratchGPR));
                     m_jit.rshift32(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
@@ -4705,7 +4842,7 @@ public:
                     m_jit.rshift64(lhsLocation.asGPR(), TrustedImm32(rhs.asI64()), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(m_scratchGPR));
+                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(wasmScratchGPR));
                     m_jit.rshift64(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
@@ -4727,7 +4864,7 @@ public:
                     m_jit.urshift32(lhsLocation.asGPR(), m_jit.trustedImm32ForShift(Imm32(rhs.asI32())), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(m_scratchGPR));
+                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(wasmScratchGPR));
                     m_jit.urshift32(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
@@ -4749,7 +4886,7 @@ public:
                     m_jit.urshift64(lhsLocation.asGPR(), TrustedImm32(rhs.asI64()), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(m_scratchGPR));
+                    emitMoveConst(lhs, lhsLocation = Location::fromGPR(wasmScratchGPR));
                     m_jit.urshift64(lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
@@ -4779,17 +4916,17 @@ public:
 #else
             BLOCK(
                 moveShiftAmountIfNecessary(rhsLocation);
-                m_jit.neg32(rhsLocation.asGPR(), m_scratchGPR);
-                m_jit.rotateRight32(lhsLocation.asGPR(), m_scratchGPR, resultLocation.asGPR());
+                m_jit.neg32(rhsLocation.asGPR(), wasmScratchGPR);
+                m_jit.rotateRight32(lhsLocation.asGPR(), wasmScratchGPR, resultLocation.asGPR());
             ),
             BLOCK(
                 if (rhs.isConst())
                     m_jit.rotateRight32(lhsLocation.asGPR(), m_jit.trustedImm32ForShift(Imm32(-rhs.asI32())), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    m_jit.neg32(rhsLocation.asGPR(), m_scratchGPR);
+                    m_jit.neg32(rhsLocation.asGPR(), wasmScratchGPR);
                     emitMoveConst(lhs, resultLocation);
-                    m_jit.rotateRight32(resultLocation.asGPR(), m_scratchGPR, resultLocation.asGPR());
+                    m_jit.rotateRight32(resultLocation.asGPR(), wasmScratchGPR, resultLocation.asGPR());
                 }
             )
 #endif
@@ -4819,17 +4956,17 @@ public:
 #else
             BLOCK(
                 moveShiftAmountIfNecessary(rhsLocation);
-                m_jit.neg64(rhsLocation.asGPR(), m_scratchGPR);
-                m_jit.rotateRight64(lhsLocation.asGPR(), m_scratchGPR, resultLocation.asGPR());
+                m_jit.neg64(rhsLocation.asGPR(), wasmScratchGPR);
+                m_jit.rotateRight64(lhsLocation.asGPR(), wasmScratchGPR, resultLocation.asGPR());
             ),
             BLOCK(
                 if (rhs.isConst())
                     m_jit.rotateRight64(lhsLocation.asGPR(), TrustedImm32(-rhs.asI64()), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    m_jit.neg64(rhsLocation.asGPR(), m_scratchGPR);
+                    m_jit.neg64(rhsLocation.asGPR(), wasmScratchGPR);
                     emitMoveConst(lhs, resultLocation);
-                    m_jit.rotateRight64(resultLocation.asGPR(), m_scratchGPR, resultLocation.asGPR());
+                    m_jit.rotateRight64(resultLocation.asGPR(), wasmScratchGPR, resultLocation.asGPR());
                 }
             )
 #endif
@@ -4851,8 +4988,8 @@ public:
                     m_jit.rotateRight32(lhsLocation.asGPR(), m_jit.trustedImm32ForShift(Imm32(rhs.asI32())), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, Location::fromGPR(m_scratchGPR));
-                    m_jit.rotateRight32(m_scratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
+                    emitMoveConst(lhs, Location::fromGPR(wasmScratchGPR));
+                    m_jit.rotateRight32(wasmScratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
         );
@@ -4873,8 +5010,8 @@ public:
                     m_jit.rotateRight64(lhsLocation.asGPR(), TrustedImm32(rhs.asI64()), resultLocation.asGPR());
                 else {
                     moveShiftAmountIfNecessary(rhsLocation);
-                    emitMoveConst(lhs, Location::fromGPR(m_scratchGPR));
-                    m_jit.rotateRight64(m_scratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
+                    emitMoveConst(lhs, Location::fromGPR(wasmScratchGPR));
+                    m_jit.rotateRight64(wasmScratchGPR, rhsLocation.asGPR(), resultLocation.asGPR());
                 }
             )
         );
@@ -4945,13 +5082,13 @@ public:
     {
         EMIT_BINARY(
             opcode, TypeKind::I32,
-            BLOCK(Value::fromI64(static_cast<int64_t>(comparator(lhs.asI64(), rhs.asI64())))),
+            BLOCK(Value::fromI32(static_cast<int32_t>(comparator(lhs.asI64(), rhs.asI64())))),
             BLOCK(
                 m_jit.compare64(condition, lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromGPR(m_scratchGPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromGPR(m_scratchGPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromGPR(wasmScratchGPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromGPR(wasmScratchGPR));
                 m_jit.compare64(condition, lhsLocation.asGPR(), rhsLocation.asGPR(), resultLocation.asGPR());
             )
         )
@@ -5069,8 +5206,8 @@ public:
                 m_jit.compareFloat(condition, lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asGPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.compareFloat(condition, lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asGPR());
             )
         )
@@ -5085,8 +5222,8 @@ public:
                 m_jit.compareDouble(condition, lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asGPR());
             ),
             BLOCK(
-                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(m_scratchFPR);
-                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(m_scratchFPR));
+                ImmHelpers::immLocation(lhsLocation, rhsLocation) = Location::fromFPR(wasmScratchFPR);
+                emitMoveConst(ImmHelpers::imm(lhs, rhs), Location::fromFPR(wasmScratchFPR));
                 m_jit.compareDouble(condition, lhsLocation.asFPR(), rhsLocation.asFPR(), resultLocation.asGPR());
             )
         )
@@ -5194,8 +5331,7 @@ public:
             "I64Extend8S", TypeKind::I64,
             BLOCK(Value::fromI64(static_cast<int64_t>(static_cast<int8_t>(operand.asI64())))),
             BLOCK(
-                m_jit.signExtend8To32(operandLocation.asGPR(), resultLocation.asGPR());
-                m_jit.signExtend32ToPtr(resultLocation.asGPR(), resultLocation.asGPR());
+                m_jit.signExtend8To64(operandLocation.asGPR(), resultLocation.asGPR());
             )
         )
     }
@@ -5206,8 +5342,7 @@ public:
             "I64Extend16S", TypeKind::I64,
             BLOCK(Value::fromI64(static_cast<int64_t>(static_cast<int16_t>(operand.asI64())))),
             BLOCK(
-                m_jit.signExtend16To32(operandLocation.asGPR(), resultLocation.asGPR());
-                m_jit.signExtend32ToPtr(resultLocation.asGPR(), resultLocation.asGPR());
+                m_jit.signExtend16To64(operandLocation.asGPR(), resultLocation.asGPR());
             )
         )
     }
@@ -5218,7 +5353,7 @@ public:
             "I64Extend32S", TypeKind::I64,
             BLOCK(Value::fromI64(static_cast<int64_t>(static_cast<int32_t>(operand.asI64())))),
             BLOCK(
-                m_jit.signExtend32ToPtr(operandLocation.asGPR(), resultLocation.asGPR());
+                m_jit.signExtend32To64(operandLocation.asGPR(), resultLocation.asGPR());
             )
         )
     }
@@ -5229,7 +5364,7 @@ public:
             "I64ExtendSI32", TypeKind::I64,
             BLOCK(Value::fromI64(static_cast<int64_t>(operand.asI32()))),
             BLOCK(
-                m_jit.signExtend32ToPtr(operandLocation.asGPR(), resultLocation.asGPR());
+                m_jit.signExtend32To64(operandLocation.asGPR(), resultLocation.asGPR());
             )
         )
     }
@@ -5384,11 +5519,11 @@ public:
             BLOCK(
 #if CPU(X86_64)
                 ScratchScope<1, 0> scratches(*this);
-                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
-                m_jit.convertUInt64ToFloat(m_scratchGPR, resultLocation.asFPR(), scratches.gpr(0));
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), wasmScratchGPR);
+                m_jit.convertUInt64ToFloat(wasmScratchGPR, resultLocation.asFPR(), scratches.gpr(0));
 #else
-                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
-                m_jit.convertUInt64ToFloat(m_scratchGPR, resultLocation.asFPR());
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), wasmScratchGPR);
+                m_jit.convertUInt64ToFloat(wasmScratchGPR, resultLocation.asFPR());
 #endif
             )
         )
@@ -5412,7 +5547,7 @@ public:
             BLOCK(Value::fromF32(static_cast<uint64_t>(operand.asI64()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.convertUInt64ToFloat(operandLocation.asGPR(), resultLocation.asFPR(), m_scratchGPR);
+                m_jit.convertUInt64ToFloat(operandLocation.asGPR(), resultLocation.asFPR(), wasmScratchGPR);
 #else
                 m_jit.convertUInt64ToFloat(operandLocation.asGPR(), resultLocation.asFPR());
 #endif
@@ -5439,11 +5574,11 @@ public:
             BLOCK(
 #if CPU(X86_64)
                 ScratchScope<1, 0> scratches(*this);
-                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
-                m_jit.convertUInt64ToDouble(m_scratchGPR, resultLocation.asFPR(), scratches.gpr(0));
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), wasmScratchGPR);
+                m_jit.convertUInt64ToDouble(wasmScratchGPR, resultLocation.asFPR(), scratches.gpr(0));
 #else
-                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), m_scratchGPR);
-                m_jit.convertUInt64ToDouble(m_scratchGPR, resultLocation.asFPR());
+                m_jit.zeroExtend32ToWord(operandLocation.asGPR(), wasmScratchGPR);
+                m_jit.convertUInt64ToDouble(wasmScratchGPR, resultLocation.asFPR());
 #endif
             )
         )
@@ -5467,7 +5602,7 @@ public:
             BLOCK(Value::fromF64(static_cast<uint64_t>(operand.asI64()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.convertUInt64ToDouble(operandLocation.asGPR(), resultLocation.asFPR(), m_scratchGPR);
+                m_jit.convertUInt64ToDouble(operandLocation.asGPR(), resultLocation.asFPR(), wasmScratchGPR);
 #else
                 m_jit.convertUInt64ToDouble(operandLocation.asGPR(), resultLocation.asFPR());
 #endif
@@ -5485,38 +5620,38 @@ public:
                 // there's some vector instruction we can use to do this much quicker.
 
 #if CPU(X86_64)
-                m_jit.moveFloatTo32(lhsLocation.asFPR(), m_scratchGPR);
-                m_jit.and32(TrustedImm32(0x7fffffff), m_scratchGPR);
-                m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
-                m_jit.moveFloatTo32(rhsLocation.asFPR(), m_scratchGPR);
-                m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
-                m_jit.move32ToFloat(m_scratchGPR, resultLocation.asFPR());
-                m_jit.orFloat(resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.moveFloatTo32(lhsLocation.asFPR(), wasmScratchGPR);
+                m_jit.and32(TrustedImm32(0x7fffffff), wasmScratchGPR);
+                m_jit.move32ToFloat(wasmScratchGPR, wasmScratchFPR);
+                m_jit.moveFloatTo32(rhsLocation.asFPR(), wasmScratchGPR);
+                m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), wasmScratchGPR, wasmScratchGPR);
+                m_jit.move32ToFloat(wasmScratchGPR, resultLocation.asFPR());
+                m_jit.orFloat(resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
-                m_jit.moveFloatTo32(rhsLocation.asFPR(), m_scratchGPR);
-                m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
-                m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
+                m_jit.moveFloatTo32(rhsLocation.asFPR(), wasmScratchGPR);
+                m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), wasmScratchGPR, wasmScratchGPR);
+                m_jit.move32ToFloat(wasmScratchGPR, wasmScratchFPR);
                 m_jit.absFloat(lhsLocation.asFPR(), lhsLocation.asFPR());
-                m_jit.orFloat(lhsLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.orFloat(lhsLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #endif
             ),
             BLOCK(
                 if (lhs.isConst()) {
-                    m_jit.moveFloatTo32(rhsLocation.asFPR(), m_scratchGPR);
-                    m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), m_scratchGPR, m_scratchGPR);
-                    m_jit.move32ToFloat(m_scratchGPR, m_scratchFPR);
+                    m_jit.moveFloatTo32(rhsLocation.asFPR(), wasmScratchGPR);
+                    m_jit.and32(TrustedImm32(static_cast<int32_t>(0x80000000u)), wasmScratchGPR, wasmScratchGPR);
+                    m_jit.move32ToFloat(wasmScratchGPR, wasmScratchFPR);
 
-                    emitMoveConst(Value::fromF32(std::fabsf(lhs.asF32())), resultLocation);
-                    m_jit.orFloat(resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                    emitMoveConst(Value::fromF32(std::abs(lhs.asF32())), resultLocation);
+                    m_jit.orFloat(resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 } else {
                     bool signBit = bitwise_cast<uint32_t>(rhs.asF32()) & 0x80000000u;
 #if CPU(X86_64)
                     m_jit.moveDouble(lhsLocation.asFPR(), resultLocation.asFPR());
-                    m_jit.move32ToFloat(TrustedImm32(0x7fffffff), m_scratchFPR);
-                    m_jit.andFloat(m_scratchFPR, resultLocation.asFPR());
+                    m_jit.move32ToFloat(TrustedImm32(0x7fffffff), wasmScratchFPR);
+                    m_jit.andFloat(wasmScratchFPR, resultLocation.asFPR());
                     if (signBit) {
-                        m_jit.xorFloat(m_scratchFPR, m_scratchFPR);
-                        m_jit.subFloat(m_scratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
+                        m_jit.xorFloat(wasmScratchFPR, wasmScratchFPR);
+                        m_jit.subFloat(wasmScratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
                     }
 #else
                     m_jit.absFloat(lhsLocation.asFPR(), resultLocation.asFPR());
@@ -5531,7 +5666,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addF64Copysign(Value lhs, Value rhs, Value& result)
     {
         if constexpr (isX86())
-            clobber(m_shiftRCX);
+            clobber(shiftRCX);
 
         EMIT_BINARY(
             "F64Copysign", TypeKind::F64,
@@ -5541,46 +5676,46 @@ public:
                 // there's some vector instruction we can use to do this much quicker.
 
 #if CPU(X86_64)
-                m_jit.moveDoubleTo64(lhsLocation.asFPR(), m_scratchGPR);
-                m_jit.and64(TrustedImm64(0x7fffffffffffffffll), m_scratchGPR);
-                m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
-                m_jit.moveDoubleTo64(rhsLocation.asFPR(), m_scratchGPR);
-                m_jit.urshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
-                m_jit.lshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
-                m_jit.move64ToDouble(m_scratchGPR, resultLocation.asFPR());
-                m_jit.orDouble(resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.moveDoubleTo64(lhsLocation.asFPR(), wasmScratchGPR);
+                m_jit.and64(TrustedImm64(0x7fffffffffffffffll), wasmScratchGPR);
+                m_jit.move64ToDouble(wasmScratchGPR, wasmScratchFPR);
+                m_jit.moveDoubleTo64(rhsLocation.asFPR(), wasmScratchGPR);
+                m_jit.urshift64(wasmScratchGPR, TrustedImm32(63), wasmScratchGPR);
+                m_jit.lshift64(wasmScratchGPR, TrustedImm32(63), wasmScratchGPR);
+                m_jit.move64ToDouble(wasmScratchGPR, resultLocation.asFPR());
+                m_jit.orDouble(resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
-                m_jit.moveDoubleTo64(rhsLocation.asFPR(), m_scratchGPR);
+                m_jit.moveDoubleTo64(rhsLocation.asFPR(), wasmScratchGPR);
 
                 // Probably saves us a bit of space compared to reserving another register and
                 // materializing a 64-bit constant.
-                m_jit.urshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
-                m_jit.lshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
-                m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
+                m_jit.urshift64(wasmScratchGPR, TrustedImm32(63), wasmScratchGPR);
+                m_jit.lshift64(wasmScratchGPR, TrustedImm32(63), wasmScratchGPR);
+                m_jit.move64ToDouble(wasmScratchGPR, wasmScratchFPR);
 
                 m_jit.absDouble(lhsLocation.asFPR(), lhsLocation.asFPR());
-                m_jit.orDouble(lhsLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.orDouble(lhsLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #endif
             ),
             BLOCK(
                 if (lhs.isConst()) {
-                    m_jit.moveDoubleTo64(rhsLocation.asFPR(), m_scratchGPR);
-                    m_jit.urshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
-                    m_jit.lshift64(m_scratchGPR, TrustedImm32(63), m_scratchGPR);
-                    m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
+                    m_jit.moveDoubleTo64(rhsLocation.asFPR(), wasmScratchGPR);
+                    m_jit.urshift64(wasmScratchGPR, TrustedImm32(63), wasmScratchGPR);
+                    m_jit.lshift64(wasmScratchGPR, TrustedImm32(63), wasmScratchGPR);
+                    m_jit.move64ToDouble(wasmScratchGPR, wasmScratchFPR);
 
-                    // Moving this constant clobbers m_scratchGPR, but not m_scratchFPR
-                    emitMoveConst(Value::fromF64(std::fabs(lhs.asF64())), resultLocation);
-                    m_jit.orDouble(resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                    // Moving this constant clobbers wasmScratchGPR, but not wasmScratchFPR
+                    emitMoveConst(Value::fromF64(std::abs(lhs.asF64())), resultLocation);
+                    m_jit.orDouble(resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 } else {
                     bool signBit = bitwise_cast<uint64_t>(rhs.asF64()) & 0x8000000000000000ull;
 #if CPU(X86_64)
                     m_jit.moveDouble(lhsLocation.asFPR(), resultLocation.asFPR());
-                    m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), m_scratchFPR);
-                    m_jit.andDouble(m_scratchFPR, resultLocation.asFPR());
+                    m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), wasmScratchFPR);
+                    m_jit.andDouble(wasmScratchFPR, resultLocation.asFPR());
                     if (signBit) {
-                        m_jit.xorDouble(m_scratchFPR, m_scratchFPR);
-                        m_jit.subDouble(m_scratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
+                        m_jit.xorDouble(wasmScratchFPR, wasmScratchFPR);
+                        m_jit.subDouble(wasmScratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
                     }
 #else
                     m_jit.absDouble(lhsLocation.asFPR(), resultLocation.asFPR());
@@ -5643,8 +5778,8 @@ public:
             BLOCK(Value::fromF32(std::abs(operand.asF32()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.move32ToFloat(TrustedImm32(0x7fffffffll), m_scratchFPR);
-                m_jit.andFloat(operandLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.move32ToFloat(TrustedImm32(0x7fffffffll), wasmScratchFPR);
+                m_jit.andFloat(operandLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
                 m_jit.absFloat(operandLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -5659,8 +5794,8 @@ public:
             BLOCK(Value::fromF64(std::abs(operand.asF64()))),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), m_scratchFPR);
-                m_jit.andDouble(operandLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), wasmScratchFPR);
+                m_jit.andDouble(operandLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
                 m_jit.absDouble(operandLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -5697,9 +5832,9 @@ public:
             BLOCK(Value::fromF32(-operand.asF32())),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.moveFloatTo32(operandLocation.asFPR(), m_scratchGPR);
-                m_jit.xor32(TrustedImm32(bitwise_cast<uint32_t>(static_cast<float>(-0.0))), m_scratchGPR);
-                m_jit.move32ToFloat(m_scratchGPR, resultLocation.asFPR());
+                m_jit.moveFloatTo32(operandLocation.asFPR(), wasmScratchGPR);
+                m_jit.xor32(TrustedImm32(bitwise_cast<uint32_t>(static_cast<float>(-0.0))), wasmScratchGPR);
+                m_jit.move32ToFloat(wasmScratchGPR, resultLocation.asFPR());
 #else
                 m_jit.negateFloat(operandLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -5714,9 +5849,9 @@ public:
             BLOCK(Value::fromF64(-operand.asF64())),
             BLOCK(
 #if CPU(X86_64)
-                m_jit.moveDoubleTo64(operandLocation.asFPR(), m_scratchGPR);
-                m_jit.xor64(TrustedImm64(bitwise_cast<uint64_t>(static_cast<double>(-0.0))), m_scratchGPR);
-                m_jit.move64ToDouble(m_scratchGPR, resultLocation.asFPR());
+                m_jit.moveDoubleTo64(operandLocation.asFPR(), wasmScratchGPR);
+                m_jit.xor64(TrustedImm64(bitwise_cast<uint64_t>(static_cast<double>(-0.0))), wasmScratchGPR);
+                m_jit.move64ToDouble(wasmScratchGPR, resultLocation.asFPR());
 #else
                 m_jit.negateDouble(operandLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -5827,7 +5962,7 @@ public:
     {
         Location valueLocation;
         if (value.isConst()) {
-            valueLocation = Location::fromGPR(m_scratchGPR);
+            valueLocation = Location::fromGPR(wasmScratchGPR);
             emitMoveConst(value, valueLocation);
         } else
             valueLocation = loadIfNecessary(value);
@@ -5841,6 +5976,11 @@ public:
         m_jit.move(valueLocation.asGPR(), resultLocation.asGPR());
 
         return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addRefEq(Value ref0, Value ref1, Value& result)
+    {
+        return addI64Eq(ref0, ref1, result);
     }
 
     PartialResult WARN_UNUSED_RETURN addRefFunc(uint32_t index, Value& result)
@@ -5866,16 +6006,14 @@ public:
         if (!m_tierUp)
             return;
 
-        clobber(GPRInfo::argumentGPR0);
-        clobber(GPRInfo::argumentGPR1);
-
-        m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(&m_tierUp->m_counter)), m_scratchGPR);
-        Jump tierUp = m_jit.branchAdd32(CCallHelpers::PositiveOrZero, TrustedImm32(TierUpCount::functionEntryIncrement()), Address(m_scratchGPR));
+        static_assert(GPRInfo::nonPreservedNonArgumentGPR0 == wasmScratchGPR);
+        m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(&m_tierUp->m_counter)), wasmScratchGPR);
+        Jump tierUp = m_jit.branchAdd32(CCallHelpers::PositiveOrZero, TrustedImm32(TierUpCount::functionEntryIncrement()), Address(wasmScratchGPR));
         MacroAssembler::Label tierUpResume = m_jit.label();
         auto functionIndex = m_functionIndex;
         addLatePath([tierUp, tierUpResume, functionIndex](BBQJIT& generator, CCallHelpers& jit) {
             tierUp.link(&jit);
-            jit.move(TrustedImm32(functionIndex), GPRInfo::argumentGPR1);
+            jit.move(TrustedImm32(functionIndex), GPRInfo::nonPreservedNonArgumentGPR0);
             MacroAssembler::Call call = jit.nearCall();
             jit.jump(tierUpResume);
 
@@ -5902,41 +6040,42 @@ public:
             LOG_INDENT();
         }
 
+        m_pcToCodeOriginMapBuilder.appendItem(m_jit.label(), PCToCodeOriginMapBuilder::defaultCodeOrigin());
         m_jit.emitFunctionPrologue();
         m_topLevel = ControlData(*this, BlockType::TopLevel, signature, 0);
 
-        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(&m_callee)), m_scratchGPR);
+        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(&m_callee)), wasmScratchGPR);
         static_assert(CallFrameSlot::codeBlock + 1 == CallFrameSlot::callee);
         if constexpr (is32Bit()) {
             CCallHelpers::Address calleeSlot { GPRInfo::callFrameRegister, CallFrameSlot::callee * sizeof(Register) };
-            m_jit.storePtr(m_scratchGPR, calleeSlot.withOffset(PayloadOffset));
+            m_jit.storePtr(wasmScratchGPR, calleeSlot.withOffset(PayloadOffset));
             m_jit.store32(CCallHelpers::TrustedImm32(JSValue::WasmTag), calleeSlot.withOffset(TagOffset));
             m_jit.storePtr(GPRInfo::wasmContextInstancePointer, CCallHelpers::addressFor(CallFrameSlot::codeBlock));
         } else
-            m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, m_scratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
+            m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, wasmScratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
 
-        m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), m_scratchGPR));
+        m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), wasmScratchGPR));
 
         bool mayHaveExceptionHandlers = !m_hasExceptionHandlers || m_hasExceptionHandlers.value();
         if (mayHaveExceptionHandlers)
             m_jit.store32(CCallHelpers::TrustedImm32(PatchpointExceptionHandle::s_invalidCallSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
 
         // Because we compile in a single pass, we always need to pessimistically check for stack underflow/overflow.
-        ASSERT(m_scratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
-        m_jit.subPtr(GPRInfo::callFrameRegister, m_scratchGPR, m_scratchGPR);
+        static_assert(wasmScratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
+        m_jit.subPtr(GPRInfo::callFrameRegister, wasmScratchGPR, wasmScratchGPR);
         MacroAssembler::JumpList underflow;
-        underflow.append(m_jit.branchPtr(CCallHelpers::Above, m_scratchGPR, GPRInfo::callFrameRegister));
+        underflow.append(m_jit.branchPtr(CCallHelpers::Above, wasmScratchGPR, GPRInfo::callFrameRegister));
         m_jit.addLinkTask([underflow] (LinkBuffer& linkBuffer) {
             linkBuffer.link(underflow, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()));
         });
 
         MacroAssembler::JumpList overflow;
         m_jit.loadPtr(CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfVM()), GPRInfo::nonPreservedNonArgumentGPR1);
-        overflow.append(m_jit.branchPtr(CCallHelpers::Below, m_scratchGPR, CCallHelpers::Address(GPRInfo::nonPreservedNonArgumentGPR1, VM::offsetOfSoftStackLimit())));
+        overflow.append(m_jit.branchPtr(CCallHelpers::Below, wasmScratchGPR, CCallHelpers::Address(GPRInfo::nonPreservedNonArgumentGPR1, VM::offsetOfSoftStackLimit())));
         m_jit.addLinkTask([overflow] (LinkBuffer& linkBuffer) {
             linkBuffer.link(overflow, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()));
         });
-        m_jit.move(m_scratchGPR, MacroAssembler::stackPointerRegister);
+        m_jit.move(wasmScratchGPR, MacroAssembler::stackPointerRegister);
 
         LocalOrTempIndex i = 0;
         for (; i < m_arguments.size(); ++i)
@@ -6031,6 +6170,9 @@ public:
             case TypeKind::RefNull:
             case TypeKind::Structref:
             case TypeKind::Arrayref:
+            case TypeKind::Eqref:
+            case TypeKind::Anyref:
+            case TypeKind::Nullref:
                 clear(ClearMode::JSNull, type, m_locals[i]);
                 break;
             default:
@@ -6043,7 +6185,6 @@ public:
         for (size_t i = 0; i < m_functionSignature->argumentCount(); i ++)
             m_topLevel.touch(i); // Ensure arguments are flushed to persistent locations when this block ends.
 
-        // This clobbers argumentGPR0 and argumentGPR1. So call it after flushing arguments.
         emitEntryTierUpCheck();
 
         return m_topLevel;
@@ -6065,15 +6206,15 @@ public:
         auto label = m_jit.label();
         m_jit.emitFunctionPrologue();
 
-        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(&m_callee)), m_scratchGPR);
+        m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(&m_callee)), wasmScratchGPR);
         static_assert(CallFrameSlot::codeBlock + 1 == CallFrameSlot::callee);
         if constexpr (is32Bit()) {
             CCallHelpers::Address calleeSlot { GPRInfo::callFrameRegister, CallFrameSlot::callee * sizeof(Register) };
-            m_jit.storePtr(m_scratchGPR, calleeSlot.withOffset(PayloadOffset));
+            m_jit.storePtr(wasmScratchGPR, calleeSlot.withOffset(PayloadOffset));
             m_jit.store32(CCallHelpers::TrustedImm32(JSValue::WasmTag), calleeSlot.withOffset(TagOffset));
             m_jit.storePtr(GPRInfo::wasmContextInstancePointer, CCallHelpers::addressFor(CallFrameSlot::codeBlock));
         } else
-            m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, m_scratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
+            m_jit.storePairPtr(GPRInfo::wasmContextInstancePointer, wasmScratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
 
         int frameSize = m_frameSize + m_maxCalleeStackSize;
         int roundedFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), frameSize);
@@ -6093,13 +6234,13 @@ public:
         });
 
         // This operation shuffles around values on the stack, until everything is in the right place. Then,
-        // it returns the address of the loop we're jumping to in m_scratchGPR (so we don't interfere with
+        // it returns the address of the loop we're jumping to in wasmScratchGPR (so we don't interfere with
         // anything we just loaded from the scratch buffer into a register)
         m_jit.probe(tagCFunction<JITProbePtrTag>(operationWasmLoopOSREnterBBQJIT), m_tierUp, m_usesSIMD ? SavedFPWidth::SaveVectors : SavedFPWidth::DontSaveVectors);
 
         // We expect the loop address to be populated by the probe operation.
-        ASSERT(m_scratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
-        m_jit.farJump(m_scratchGPR, WasmEntryPtrTag);
+        static_assert(wasmScratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
+        m_jit.farJump(wasmScratchGPR, WasmEntryPtrTag);
         return label;
     }
 
@@ -6134,6 +6275,9 @@ public:
         case TypeKind::Arrayref:
         case TypeKind::Funcref:
         case TypeKind::Externref:
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
             return B3::Type(is32Bit() ? B3::Int32 : B3::Int64);
         case TypeKind::F32:
             return B3::Type(B3::Float);
@@ -6195,14 +6339,15 @@ public:
         m_tierUp->outerLoops().append(outerLoops);
         m_outerLoops.append(loopIndex);
 
-        m_jit.move(TrustedImm64(bitwise_cast<uintptr_t>(&m_tierUp->m_counter)), m_scratchGPR);
+        static_assert(GPRInfo::nonPreservedNonArgumentGPR0 == wasmScratchGPR);
+        m_jit.move(TrustedImm64(bitwise_cast<uintptr_t>(&m_tierUp->m_counter)), wasmScratchGPR);
 
         TierUpCount::TriggerReason* forceEntryTrigger = &(m_tierUp->osrEntryTriggers().last());
         static_assert(!static_cast<uint8_t>(TierUpCount::TriggerReason::DontTrigger), "the JIT code assumes non-zero means 'enter'");
         static_assert(sizeof(TierUpCount::TriggerReason) == 1, "branchTest8 assumes this size");
 
         Jump forceOSREntry = m_jit.branchTest8(ResultCondition::NonZero, CCallHelpers::AbsoluteAddress(forceEntryTrigger));
-        Jump tierUp = m_jit.branchAdd32(ResultCondition::PositiveOrZero, TrustedImm32(TierUpCount::loopIncrement()), CCallHelpers::Address(m_scratchGPR));
+        Jump tierUp = m_jit.branchAdd32(ResultCondition::PositiveOrZero, TrustedImm32(TierUpCount::loopIncrement()), CCallHelpers::Address(wasmScratchGPR));
         MacroAssembler::Label tierUpResume = m_jit.label();
 
         OSREntryData& osrEntryData = m_tierUp->addOSREntryData(m_functionIndex, loopIndex, makeStackMap(data, enclosingStack));
@@ -6214,8 +6359,8 @@ public:
 
             Probe::SavedFPWidth savedFPWidth = generator.m_usesSIMD ? Probe::SavedFPWidth::SaveVectors : Probe::SavedFPWidth::DontSaveVectors; // By the time we reach the late path, we should know whether or not the function uses SIMD.
             jit.probe(tagCFunction<JITProbePtrTag>(operationWasmTriggerOSREntryNow), osrEntryDataPtr, savedFPWidth);
-            jit.branchTestPtr(CCallHelpers::Zero, GPRInfo::argumentGPR0).linkTo(tierUpResume, &jit);
-            jit.farJump(GPRInfo::argumentGPR1, WasmEntryPtrTag);
+            jit.branchTestPtr(CCallHelpers::Zero, GPRInfo::nonPreservedNonArgumentGPR0).linkTo(tierUpResume, &jit);
+            jit.farJump(GPRInfo::nonPreservedNonArgumentGPR0, WasmEntryPtrTag);
         });
     }
 
@@ -6239,7 +6384,7 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addIf(Value condition, BlockSignature signature, Stack& enclosingStack, ControlData& result, Stack& newStack)
     {
-        Location conditionLocation = Location::fromGPR(m_scratchGPR);
+        Location conditionLocation = Location::fromGPR(wasmScratchGPR);
         if (!condition.isConst())
             emitMove(condition, conditionLocation);
         consume(condition);
@@ -6257,7 +6402,7 @@ public:
         if (condition.isConst() && !condition.asI32())
             result.setIfBranch(m_jit.jump()); // Emit direct branch if we know the condition is false.
         else if (!condition.isConst()) // Otherwise, we only emit a branch at all if we don't know the condition statically.
-            result.setIfBranch(m_jit.branchTest32(ResultCondition::Zero, m_scratchGPR, m_scratchGPR));
+            result.setIfBranch(m_jit.branchTest32(ResultCondition::Zero, wasmScratchGPR, wasmScratchGPR));
         return { };
     }
 
@@ -6287,8 +6432,10 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addElseToUnreachable(ControlData& data)
     {
-        // Since the end of the block was unreachable, we don't need to call endBlock() here, since the
-        // block will never actually end.
+        // We want to flush or consume all values on the stack to reset the allocator
+        // state entering the else block.
+        data.flushAtBlockBoundary(*this, 0, m_parser->expressionStack(), true);
+
         ControlData dataElse(*this, BlockType::Block, data.signature(), data.enclosedHeight());
         data.linkJumps(&m_jit);
         dataElse.addBranch(m_jit.jump()); // Still needed even when the parent was unreachable to avoid running code within the else block.
@@ -6297,8 +6444,8 @@ public:
         LOG_INSTRUCTION("Else");
         LOG_INDENT();
 
-        // We don't have anything left on the expression stack after an unreachable block. So let's make a fake
-        // one, containing one temp for each of the parameters we are expecting.
+        // We don't have easy access to the original expression stack we had entering the if block,
+        // so we construct a local stack just to set up temp bindings as we enter the else.
         Stack expressionStack;
         auto functionSignature = dataElse.signature()->as<FunctionSignature>();
         for (unsigned i = 0; i < functionSignature->argumentCount(); i ++)
@@ -6330,7 +6477,7 @@ public:
         m_jit.subPtr(GPRInfo::callFrameRegister, GPRInfo::nonPreservedNonArgumentGPR0, MacroAssembler::stackPointerRegister);
         if (!!m_info.memory) {
             m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
-            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_scratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, wasmScratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
         }
         static_assert(noOverlap(GPRInfo::nonPreservedNonArgumentGPR0, GPRInfo::returnValueGPR, GPRInfo::returnValueGPR2));
     }
@@ -6362,8 +6509,8 @@ public:
                 Location slot = canonicalSlot(result);
                 switch (type.kind) {
                 case TypeKind::I32:
-                    m_jit.load32(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchGPR);
-                    m_jit.store32(m_scratchGPR, slot.asAddress());
+                    m_jit.load32(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), wasmScratchGPR);
+                    m_jit.store32(wasmScratchGPR, slot.asAddress());
                     break;
                 case TypeKind::I31ref:
                 case TypeKind::I64:
@@ -6373,26 +6520,29 @@ public:
                 case TypeKind::Structref:
                 case TypeKind::Funcref:
                 case TypeKind::Externref:
+                case TypeKind::Eqref:
+                case TypeKind::Anyref:
+                case TypeKind::Nullref:
                 case TypeKind::Rec:
                 case TypeKind::Sub:
                 case TypeKind::Array:
                 case TypeKind::Struct:
                 case TypeKind::Func: {
-                    m_jit.load64(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchGPR);
-                    m_jit.store64(m_scratchGPR, slot.asAddress());
+                    m_jit.load64(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), wasmScratchGPR);
+                    m_jit.store64(wasmScratchGPR, slot.asAddress());
                     break;
                 }
                 case TypeKind::F32:
-                    m_jit.loadFloat(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchFPR);
-                    m_jit.storeFloat(m_scratchFPR, slot.asAddress());
+                    m_jit.loadFloat(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), wasmScratchFPR);
+                    m_jit.storeFloat(wasmScratchFPR, slot.asAddress());
                     break;
                 case TypeKind::F64:
-                    m_jit.loadDouble(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), m_scratchFPR);
-                    m_jit.storeDouble(m_scratchFPR, slot.asAddress());
+                    m_jit.loadDouble(Address(bufferGPR, JSWebAssemblyException::Payload::Storage::offsetOfData() + i * sizeof(uint64_t)), wasmScratchFPR);
+                    m_jit.storeDouble(wasmScratchFPR, slot.asAddress());
                     break;
                 case TypeKind::V128:
-                    materializeVectorConstant(v128_t { }, Location::fromFPR(m_scratchFPR));
-                    m_jit.storeVector(m_scratchFPR, slot.asAddress());
+                    materializeVectorConstant(v128_t { }, Location::fromFPR(wasmScratchFPR));
+                    m_jit.storeVector(wasmScratchFPR, slot.asAddress());
                     break;
                 case TypeKind::Void:
                     RELEASE_ASSERT_NOT_REACHED();
@@ -6416,7 +6566,7 @@ public:
         }
         dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
 
-        dataCatch.addBranch(data.releaseJumps());
+        data.delegateJumpsTo(dataCatch);
         dataCatch.addBranch(m_jit.jump());
         LOG_DEDENT();
         LOG_INSTRUCTION("Catch");
@@ -6438,7 +6588,7 @@ public:
         }
         dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
 
-        dataCatch.addBranch(data.releaseJumps());
+        data.delegateJumpsTo(dataCatch);
         LOG_DEDENT();
         LOG_INSTRUCTION("Catch");
         LOG_INDENT();
@@ -6460,7 +6610,7 @@ public:
         }
         dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
 
-        dataCatch.addBranch(data.releaseJumps());
+        data.delegateJumpsTo(dataCatch);
         dataCatch.addBranch(m_jit.jump());
         LOG_DEDENT();
         LOG_INSTRUCTION("CatchAll");
@@ -6482,7 +6632,7 @@ public:
         }
         dataCatch.setTryInfo(data.tryStart(), data.tryEnd(), data.tryCatchDepth());
 
-        dataCatch.addBranch(data.releaseJumps());
+        data.delegateJumpsTo(dataCatch);
         LOG_DEDENT();
         LOG_INSTRUCTION("CatchAll");
         LOG_INDENT();
@@ -6607,7 +6757,7 @@ public:
         if (condition.isConst() && !condition.asI32()) // If condition is known to be false, this is a no-op.
             return { };
 
-        Location conditionLocation = Location::fromGPR(m_scratchGPR);
+        Location conditionLocation = Location::fromGPR(wasmScratchGPR);
         if (!condition.isNone() && !condition.isConst())
             emitMove(condition, conditionLocation);
         consume(condition);
@@ -6622,7 +6772,7 @@ public:
             target.addBranch(m_jit.jump()); // We know condition is true, since if it was false we would have returned early.
         } else {
             currentControlData().flushAtBlockBoundary(*this, 0, results, condition.isNone());
-            Jump ifNotTaken = m_jit.branchTest32(ResultCondition::Zero, m_scratchGPR);
+            Jump ifNotTaken = m_jit.branchTest32(ResultCondition::Zero, wasmScratchGPR);
             currentControlData().addExit(*this, target.targetLocations(), results);
             target.addBranch(m_jit.jump());
             ifNotTaken.link(&m_jit);
@@ -6639,7 +6789,7 @@ public:
         LOG_INSTRUCTION("BrTable", condition);
 
         if (!condition.isConst())
-            emitMove(condition, Location::fromGPR(m_scratchGPR));
+            emitMove(condition, Location::fromGPR(wasmScratchGPR));
         consume(condition);
 
         if (condition.isConst()) {
@@ -6658,22 +6808,55 @@ public:
         // Flush everything below the top N values.
         currentControlData().flushAtBlockBoundary(*this, defaultTarget.targetLocations().size(), results, true);
 
-        Vector<int64_t> cases;
-        cases.reserveInitialCapacity(targets.size());
-        for (size_t i = 0; i < targets.size(); ++i)
-            cases.uncheckedAppend(i);
+        constexpr unsigned minCasesForTable = 7;
+        if (minCasesForTable <= targets.size()) {
+            Vector<Box<CCallHelpers::Label>> labels;
+            labels.reserveInitialCapacity(targets.size());
+            auto* jumpTable = m_callee.addJumpTable(targets.size());
+            auto fallThrough = m_jit.branch32(RelationalCondition::AboveOrEqual, wasmScratchGPR, TrustedImm32(targets.size()));
+            m_jit.zeroExtend32ToWord(wasmScratchGPR, wasmScratchGPR);
+            m_jit.lshiftPtr(TrustedImm32(3), wasmScratchGPR);
+            m_jit.addPtr(TrustedImmPtr(jumpTable->data()), wasmScratchGPR);
+            m_jit.farJump(Address(wasmScratchGPR), JSSwitchPtrTag);
 
-        BinarySwitch binarySwitch(m_scratchGPR, cases, BinarySwitch::Int32);
-        while (binarySwitch.advance(m_jit)) {
-            unsigned value = binarySwitch.caseValue();
-            unsigned index = binarySwitch.caseIndex();
-            ASSERT_UNUSED(value, value == index);
-            ASSERT(index < targets.size());
-            currentControlData().addExit(*this, targets[index]->targetLocations(), results);
-            targets[index]->addBranch(m_jit.jump());
+            for (unsigned index = 0; index < targets.size(); ++index) {
+                Box<CCallHelpers::Label> label = Box<CCallHelpers::Label>::create(m_jit.label());
+                labels.uncheckedAppend(label);
+                bool isCodeEmitted = currentControlData().addExit(*this, targets[index]->targetLocations(), results);
+                if (isCodeEmitted)
+                    targets[index]->addBranch(m_jit.jump());
+                else {
+                    // It is common that we do not need to emit anything before jumping to the target block.
+                    // In that case, we put Box<Label> which will be filled later when the end of the block is linked.
+                    // We put direct jump to that block in the link task.
+                    targets[index]->addLabel(WTFMove(label));
+                }
+            }
+
+            m_jit.addLinkTask([labels = WTFMove(labels), jumpTable](LinkBuffer& linkBuffer) {
+                for (unsigned index = 0; index < labels.size(); ++index)
+                    jumpTable->at(index) = linkBuffer.locationOf<JSSwitchPtrTag>(*labels[index]);
+            });
+
+            fallThrough.link(&m_jit);
+        } else {
+            Vector<int64_t> cases;
+            cases.reserveInitialCapacity(targets.size());
+            for (size_t i = 0; i < targets.size(); ++i)
+                cases.uncheckedAppend(i);
+
+            BinarySwitch binarySwitch(wasmScratchGPR, cases, BinarySwitch::Int32);
+            while (binarySwitch.advance(m_jit)) {
+                unsigned value = binarySwitch.caseValue();
+                unsigned index = binarySwitch.caseIndex();
+                ASSERT_UNUSED(value, value == index);
+                ASSERT(index < targets.size());
+                currentControlData().addExit(*this, targets[index]->targetLocations(), results);
+                targets[index]->addBranch(m_jit.jump());
+            }
+
+            binarySwitch.fallThrough().link(&m_jit);
         }
-
-        binarySwitch.fallThrough().link(&m_jit);
         currentControlData().addExit(*this, defaultTarget.targetLocations(), results);
         defaultTarget.addBranch(m_jit.jump());
 
@@ -6766,6 +6949,9 @@ public:
         LOG_DEDENT();
         LOG_INSTRUCTION("End");
 
+        if (UNLIKELY(m_disassembler))
+            m_disassembler->setEndOfOpcode(m_jit.label());
+
         for (const auto& latePath : m_latePaths)
             latePath->run(*this, m_jit);
 
@@ -6805,7 +6991,7 @@ public:
         // FIXME: We should just store these registers on stack and load them.
         if (!!m_info.memory) {
             m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
-            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_scratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, wasmScratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
         }
     }
 
@@ -6930,8 +7116,8 @@ public:
 
         // Materialize address of native function and call register
         void* taggedFunctionPtr = tagCFunctionPtr<void*, OperationPtrTag>(function);
-        m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(taggedFunctionPtr)), m_scratchGPR);
-        m_jit.call(m_scratchGPR, OperationPtrTag);
+        m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(taggedFunctionPtr)), wasmScratchGPR);
+        m_jit.call(wasmScratchGPR, OperationPtrTag);
     }
 
     template<typename Func, size_t N>
@@ -6959,8 +7145,8 @@ public:
 
         // Materialize address of native function and call register
         void* taggedFunctionPtr = tagCFunctionPtr<void*, OperationPtrTag>(function);
-        m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(taggedFunctionPtr)), m_scratchGPR);
-        m_jit.call(m_scratchGPR, OperationPtrTag);
+        m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(taggedFunctionPtr)), wasmScratchGPR);
+        m_jit.call(wasmScratchGPR, OperationPtrTag);
 
         // FIXME: Probably we should make CCall more lower level, and we should bind the result to Value separately.
         result = Value::fromTemp(returnType, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size());
@@ -6975,6 +7161,9 @@ public:
         case TypeKind::Structref:
         case TypeKind::Funcref:
         case TypeKind::Externref:
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
         case TypeKind::Rec:
         case TypeKind::Sub:
         case TypeKind::Array:
@@ -7022,11 +7211,11 @@ public:
         passParametersToCall(arguments, callInfo);
 
         if (m_info.isImportedFunctionFromFunctionIndexSpace(functionIndex)) {
-            m_jit.move(TrustedImmPtr(Instance::offsetOfImportFunctionStub(functionIndex)), m_scratchGPR);
-            m_jit.addPtr(GPRInfo::wasmContextInstancePointer, m_scratchGPR);
-            m_jit.loadPtr(Address(m_scratchGPR), m_scratchGPR);
+            m_jit.move(TrustedImmPtr(Instance::offsetOfImportFunctionStub(functionIndex)), wasmScratchGPR);
+            m_jit.addPtr(GPRInfo::wasmContextInstancePointer, wasmScratchGPR);
+            m_jit.loadPtr(Address(wasmScratchGPR), wasmScratchGPR);
 
-            m_jit.call(m_scratchGPR, WasmEntryPtrTag);
+            m_jit.call(wasmScratchGPR, WasmEntryPtrTag);
         } else {
             // Emit the call.
             Vector<UnlinkedWasmToWasmCall>* unlinkedWasmToWasmCalls = &m_unlinkedWasmToWasmCalls;
@@ -7047,7 +7236,7 @@ public:
         return { };
     }
 
-    void emitIndirectCall(const char* opcode, const Value& calleeIndex, RegisterID calleeInstance, RegisterID calleeCode, RegisterID jsCalleeAnchor, const TypeDefinition& signature, Vector<Value>& arguments, ResultList& results, CallType callType = CallType::Call)
+    void emitIndirectCall(const char* opcode, const Value& calleeIndex, GPRReg calleeInstance, GPRReg calleeCode, GPRReg jsCalleeAnchor, const TypeDefinition& signature, Vector<Value>& arguments, ResultList& results, CallType callType = CallType::Call)
     {
         // TODO: Support tail calls
         UNUSED_PARAM(jsCalleeAnchor);
@@ -7062,18 +7251,18 @@ public:
         Jump isSameInstance = m_jit.branchPtr(RelationalCondition::Equal, calleeInstance, GPRInfo::wasmContextInstancePointer);
         m_jit.move(calleeInstance, GPRInfo::wasmContextInstancePointer);
         m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
-        m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, m_scratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+        m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, wasmScratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
         isSameInstance.link(&m_jit);
 
         // Since this can switch instance, we need to keep JSWebAssemblyInstance anchored in the stack.
         m_jit.storePtr(jsCalleeAnchor, Location::fromArgumentLocation(wasmCalleeInfo.thisArgument).asAddress());
 
         // Safe to use across saveValues/passParameters since neither clobber the scratch GPR.
-        m_jit.loadPtr(Address(calleeCode), m_scratchGPR);
+        m_jit.loadPtr(Address(calleeCode), wasmScratchGPR);
         prepareForExceptions();
         saveValuesAcrossCall(wasmCalleeInfo);
         passParametersToCall(arguments, wasmCalleeInfo);
-        m_jit.call(m_scratchGPR, WasmEntryPtrTag);
+        m_jit.call(wasmScratchGPR, WasmEntryPtrTag);
         returnValuesFromCall(results, *signature.as<FunctionSignature>(), wasmCalleeInfo);
 
         // The call could have been to another WebAssembly instance, and / or could have modified our Memory.
@@ -7091,7 +7280,7 @@ public:
         ASSERT(m_info.tables[tableIndex].type() == TableElementType::Funcref);
 
         Location calleeIndexLocation;
-        RegisterID calleeInstance, calleeCode, jsCalleeAnchor;
+        GPRReg calleeInstance, calleeCode, jsCalleeAnchor;
 
         {
             ScratchScope<3, 0> scratches(*this);
@@ -7101,8 +7290,8 @@ public:
             else
                 calleeIndexLocation = loadIfNecessary(calleeIndex);
 
-            RegisterID callableFunctionBufferLength = scratches.gpr(0);
-            RegisterID callableFunctionBuffer = scratches.gpr(1);
+            GPRReg callableFunctionBufferLength = scratches.gpr(0);
+            GPRReg callableFunctionBuffer = scratches.gpr(1);
 
             ASSERT(tableIndex < m_info.tableCount());
 
@@ -7134,7 +7323,7 @@ public:
             jsCalleeAnchor = scratches.gpr(2);
 
             static_assert(sizeof(TypeIndex) == sizeof(void*));
-            RegisterID calleeSignatureIndex = m_scratchGPR;
+            GPRReg calleeSignatureIndex = wasmScratchGPR;
 
             // Compute the offset in the table index space we are looking for.
             m_jit.move(TrustedImmPtr(sizeof(FuncRefTable::Function)), calleeSignatureIndex);
@@ -7177,6 +7366,17 @@ public:
         return { };
     }
 
+    ALWAYS_INLINE void willParseOpcode()
+    {
+        m_pcToCodeOriginMapBuilder.appendItem(m_jit.label(), CodeOrigin(BytecodeIndex(m_parser->currentOpcodeStartingOffset())));
+        if (UNLIKELY(m_disassembler))
+            m_disassembler->setOpcode(m_jit.label(), m_parser->currentOpcode(), m_parser->currentOpcodeStartingOffset());
+    }
+
+    ALWAYS_INLINE void didParseOpcode()
+    {
+    }
+
     // SIMD
 
     void notifyFunctionUsesSIMD()
@@ -7186,25 +7386,26 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addSIMDLoad(ExpressionType pointer, uint32_t uoffset, ExpressionType& result)
     {
-        Location pointerLocation = emitCheckAndPreparePointer(pointer, uoffset, bytesForWidth(Width::Width128));
-        Address address = materializePointer(pointerLocation, uoffset);
-        result = topValue(TypeKind::V128);
-        Location resultLocation = allocate(result);
-        m_jit.loadVector(address, resultLocation.asFPR());
-        LOG_INSTRUCTION("V128Load", pointer, pointerLocation, uoffset, RESULT(result));
-
+        result = emitCheckAndPrepareAndMaterializePointerApply(pointer, uoffset, bytesForWidth(Width::Width128), [&](auto location) -> Value {
+            consume(pointer);
+            Value result = topValue(TypeKind::V128);
+            Location resultLocation = allocate(result);
+            m_jit.loadVector(location, resultLocation.asFPR());
+            LOG_INSTRUCTION("V128Load", pointer, uoffset, RESULT(result));
+            return result;
+        });
         return { };
     }
 
     PartialResult WARN_UNUSED_RETURN addSIMDStore(ExpressionType value, ExpressionType pointer, uint32_t uoffset)
     {
-        Location valueLocation = loadIfNecessary(value);
-        Location pointerLocation = emitCheckAndPreparePointer(pointer, uoffset, bytesForWidth(Width::Width128));
-        consume(value);
-        Address address = materializePointer(pointerLocation, uoffset);
-        m_jit.storeVector(valueLocation.asFPR(), address);
-        LOG_INSTRUCTION("V128Store", pointer, pointerLocation, uoffset, value, valueLocation);
-
+        emitCheckAndPrepareAndMaterializePointerApply(pointer, uoffset, bytesForWidth(Width::Width128), [&](auto location) -> void {
+            Location valueLocation = loadIfNecessary(value);
+            consume(pointer);
+            consume(value);
+            m_jit.storeVector(valueLocation.asFPR(), location);
+            LOG_INSTRUCTION("V128Store", pointer, uoffset, value, valueLocation);
+        });
         return { };
     }
 
@@ -7271,21 +7472,21 @@ public:
 
             // Store each byte (w/ index - 16 >= 0) of `b` to result2
             // and zero clear each byte (w/ index - 16 < 0) in result2.
-            materializeVectorConstant(rightImm, Location::fromFPR(m_scratchFPR));
-            m_jit.vectorSwizzle(bLocation.asFPR(), m_scratchFPR, m_scratchFPR);
-            m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, scratches.fpr(0), m_scratchFPR, resultLocation.asFPR());
+            materializeVectorConstant(rightImm, Location::fromFPR(wasmScratchFPR));
+            m_jit.vectorSwizzle(bLocation.asFPR(), wasmScratchFPR, wasmScratchFPR);
+            m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, scratches.fpr(0), wasmScratchFPR, resultLocation.asFPR());
             return { };
         }
 
 #if CPU(ARM64)
-        materializeVectorConstant(imm, Location::fromFPR(m_scratchFPR));
+        materializeVectorConstant(imm, Location::fromFPR(wasmScratchFPR));
         if (unsigned(aLocation.asFPR()) + 1 != unsigned(bLocation.asFPR())) {
             m_jit.moveVector(aLocation.asFPR(), ARM64Registers::q28);
             m_jit.moveVector(bLocation.asFPR(), ARM64Registers::q29);
             aLocation = Location::fromFPR(ARM64Registers::q28);
             bLocation = Location::fromFPR(ARM64Registers::q29);
         }
-        m_jit.vectorSwizzle2(aLocation.asFPR(), bLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+        m_jit.vectorSwizzle2(aLocation.asFPR(), bLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
         UNREACHABLE_FOR_PLATFORM();
 #endif
@@ -7297,13 +7498,13 @@ public:
     {
 #if CPU(X86_64)
         // Clobber and preserve RCX on x86, since we need it to do shifts.
-        clobber(m_shiftRCX);
-        ScratchScope<2, 2> scratches(*this, Location::fromGPR(m_shiftRCX));
+        clobber(shiftRCX);
+        ScratchScope<2, 2> scratches(*this, Location::fromGPR(shiftRCX));
 #endif
         Location srcLocation = loadIfNecessary(src);
         Location shiftLocation;
         if (shift.isConst()) {
-            shiftLocation = Location::fromGPR(m_scratchGPR);
+            shiftLocation = Location::fromGPR(wasmScratchGPR);
             emitMoveConst(shift, shiftLocation);
         } else
             shiftLocation = loadIfNecessary(shift);
@@ -7318,29 +7519,29 @@ public:
         LOG_INSTRUCTION("Vector", op, src, srcLocation, shift, shiftLocation, RESULT(result));
 
 #if CPU(ARM64)
-        m_jit.and32(Imm32(mask), shiftLocation.asGPR(), m_scratchGPR);
+        m_jit.and32(Imm32(mask), shiftLocation.asGPR(), wasmScratchGPR);
         if (op == SIMDLaneOperation::Shr) {
             // ARM64 doesn't have a version of this instruction for right shift. Instead, if the input to
             // left shift is negative, it's a right shift by the absolute value of that amount.
-            m_jit.neg32(m_scratchGPR);
+            m_jit.neg32(wasmScratchGPR);
         }
-        m_jit.vectorSplatInt8(m_scratchGPR, m_scratchFPR);
+        m_jit.vectorSplatInt8(wasmScratchGPR, wasmScratchFPR);
         if (info.signMode == SIMDSignMode::Signed)
-            m_jit.vectorSshl(info, srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.vectorSshl(info, srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
         else
-            m_jit.vectorUshl(info, srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.vectorUshl(info, srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
         ASSERT(isX86());
-        m_jit.move(shiftLocation.asGPR(), m_scratchGPR);
-        m_jit.and32(Imm32(mask), m_scratchGPR);
+        m_jit.move(shiftLocation.asGPR(), wasmScratchGPR);
+        m_jit.and32(Imm32(mask), wasmScratchGPR);
 
         if (op == SIMDLaneOperation::Shr && info.signMode == SIMDSignMode::Signed && info.lane == SIMDLane::i64x2) {
             // x86 has no SIMD 64-bit signed right shift instruction, so we scalarize it here.
-            m_jit.move(m_scratchGPR, m_shiftRCX);
+            m_jit.move(wasmScratchGPR, shiftRCX);
             m_jit.vectorExtractLaneInt64(TrustedImm32(0), srcLocation.asFPR(), scratches.gpr(0));
             m_jit.vectorExtractLaneInt64(TrustedImm32(1), srcLocation.asFPR(), scratches.gpr(1));
-            m_jit.rshift64(m_shiftRCX, scratches.gpr(0));
-            m_jit.rshift64(m_shiftRCX, scratches.gpr(1));
+            m_jit.rshift64(shiftRCX, scratches.gpr(0));
+            m_jit.rshift64(shiftRCX, scratches.gpr(1));
             m_jit.vectorReplaceLaneInt64(TrustedImm32(0), scratches.gpr(0), resultLocation.asFPR());
             m_jit.vectorReplaceLaneInt64(TrustedImm32(1), scratches.gpr(1), resultLocation.asFPR());
             return { };
@@ -7348,27 +7549,27 @@ public:
 
         // Unlike ARM, x86 expects the shift provided as a *scalar*, stored in the lower 64 bits of a vector register.
         // So, we don't need to splat the shift amount like we do on ARM.
-        m_jit.move64ToDouble(m_scratchGPR, m_scratchFPR);
+        m_jit.move64ToDouble(wasmScratchGPR, wasmScratchFPR);
 
         // 8-bit shifts are pretty involved to implement on Intel, so they get their own instruction type with extra temps.
         if (op == SIMDLaneOperation::Shl && info.lane == SIMDLane::i8x16) {
-            m_jit.vectorUshl8(srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR(), scratches.fpr(0), scratches.fpr(1));
+            m_jit.vectorUshl8(srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR(), scratches.fpr(0), scratches.fpr(1));
             return { };
         }
         if (op == SIMDLaneOperation::Shr && info.lane == SIMDLane::i8x16) {
             if (info.signMode == SIMDSignMode::Signed)
-                m_jit.vectorSshr8(srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR(), scratches.fpr(0), scratches.fpr(1));
+                m_jit.vectorSshr8(srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR(), scratches.fpr(0), scratches.fpr(1));
             else
-                m_jit.vectorUshr8(srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR(), scratches.fpr(0), scratches.fpr(1));
+                m_jit.vectorUshr8(srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR(), scratches.fpr(0), scratches.fpr(1));
             return { };
         }
 
         if (op == SIMDLaneOperation::Shl)
-            m_jit.vectorUshl(info, srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.vectorUshl(info, srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
         else if (info.signMode == SIMDSignMode::Signed)
-            m_jit.vectorSshr(info, srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.vectorSshr(info, srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
         else
-            m_jit.vectorUshr(info, srcLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.vectorUshr(info, srcLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #endif
         return { };
     }
@@ -7388,14 +7589,14 @@ public:
         LOG_INSTRUCTION("Vector", op, left, leftLocation, right, rightLocation, RESULT(result));
 
         if (op == SIMDLaneOperation::ExtmulLow) {
-            m_jit.vectorExtendLow(info, leftLocation.asFPR(), m_scratchFPR);
+            m_jit.vectorExtendLow(info, leftLocation.asFPR(), wasmScratchFPR);
             m_jit.vectorExtendLow(info, rightLocation.asFPR(), resultLocation.asFPR());
         } else {
             ASSERT(op == SIMDLaneOperation::ExtmulHigh);
-            m_jit.vectorExtendHigh(info, leftLocation.asFPR(), m_scratchFPR);
+            m_jit.vectorExtendHigh(info, leftLocation.asFPR(), wasmScratchFPR);
             m_jit.vectorExtendHigh(info, rightLocation.asFPR(), resultLocation.asFPR());
         }
-        emitVectorMul(info, Location::fromFPR(m_scratchFPR), resultLocation, resultLocation);
+        emitVectorMul(info, Location::fromFPR(wasmScratchFPR), resultLocation, resultLocation);
 
         return { };
     }
@@ -7413,7 +7614,7 @@ public:
         switch (op) {
 #if CPU(X86_64)
         case SIMDLaneOperation::LoadSplat8:
-            m_jit.vectorLoad8Splat(address, resultLocation.asFPR(), m_scratchFPR);
+            m_jit.vectorLoad8Splat(address, resultLocation.asFPR(), wasmScratchFPR);
             break;
 #else
         case SIMDLaneOperation::LoadSplat8:
@@ -7534,37 +7735,38 @@ public:
             RELEASE_ASSERT_NOT_REACHED();
         }
 
-        Location pointerLocation = emitCheckAndPreparePointer(pointer, uoffset, bytesForWidth(Width::Width128));
-        Address address = materializePointer(pointerLocation, uoffset);
+        result = emitCheckAndPrepareAndMaterializePointerApply(pointer, uoffset, sizeof(double), [&](auto location) -> Value {
+            consume(pointer);
+            Value result = topValue(TypeKind::V128);
+            Location resultLocation = allocate(result);
 
-        result = topValue(TypeKind::V128);
-        Location resultLocation = allocate(result);
+            LOG_INSTRUCTION("Vector", op, pointer, uoffset, RESULT(result));
 
-        LOG_INSTRUCTION("Vector", op, pointer, pointerLocation, uoffset, RESULT(result));
+            m_jit.loadDouble(location, resultLocation.asFPR());
+            m_jit.vectorExtendLow(SIMDInfo { lane, signMode }, resultLocation.asFPR(), resultLocation.asFPR());
 
-        m_jit.loadDouble(address, resultLocation.asFPR());
-        m_jit.vectorExtendLow(SIMDInfo { lane, signMode }, resultLocation.asFPR(), resultLocation.asFPR());
-
+            return result;
+        });
         return { };
     }
 
     PartialResult WARN_UNUSED_RETURN addSIMDLoadPad(SIMDLaneOperation op, ExpressionType pointer, uint32_t uoffset, ExpressionType& result)
     {
-        Location pointerLocation = emitCheckAndPreparePointer(pointer, uoffset, bytesForWidth(Width::Width128));
-        Address address = materializePointer(pointerLocation, uoffset);
+        result = emitCheckAndPrepareAndMaterializePointerApply(pointer, uoffset, op == SIMDLaneOperation::LoadPad32 ? sizeof(float) : sizeof(double), [&](auto location) -> Value {
+            consume(pointer);
+            Value result = topValue(TypeKind::V128);
+            Location resultLocation = allocate(result);
 
-        result = topValue(TypeKind::V128);
-        Location resultLocation = allocate(result);
+            LOG_INSTRUCTION("Vector", op, pointer, uoffset, RESULT(result));
 
-        LOG_INSTRUCTION("Vector", op, pointer, pointerLocation, uoffset, RESULT(result));
-
-        if (op == SIMDLaneOperation::LoadPad32)
-            m_jit.loadFloat(address, resultLocation.asFPR());
-        else {
-            ASSERT(op == SIMDLaneOperation::LoadPad64);
-            m_jit.loadDouble(address, resultLocation.asFPR());
-        }
-
+            if (op == SIMDLaneOperation::LoadPad32)
+                m_jit.loadFloat(location, resultLocation.asFPR());
+            else {
+                ASSERT(op == SIMDLaneOperation::LoadPad64);
+                m_jit.loadDouble(location, resultLocation.asFPR());
+            }
+            return result;
+        });
         return { };
     }
 
@@ -7574,7 +7776,7 @@ public:
             m_jit.moveZeroToVector(result.asFPR());
         else if (value.u64x2[0] == 0xffffffffffffffffull && value.u64x2[1] == 0xffffffffffffffffull)
 #if CPU(X86_64)
-            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::Unsigned }, result.asFPR(), result.asFPR(), result.asFPR(), m_scratchFPR);
+            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::Unsigned }, result.asFPR(), result.asFPR(), result.asFPR(), wasmScratchFPR);
 #else
             m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::Unsigned }, result.asFPR(), result.asFPR(), result.asFPR());
 #endif
@@ -7616,7 +7818,7 @@ public:
         Location vectorLocation = loadIfNecessary(vector);
         Location scalarLocation;
         if (scalar.isConst()) {
-            scalarLocation = scalar.isFloat() ? Location::fromFPR(m_scratchFPR) : Location::fromGPR(m_scratchGPR);
+            scalarLocation = scalar.isFloat() ? Location::fromFPR(wasmScratchFPR) : Location::fromGPR(wasmScratchGPR);
             emitMoveConst(scalar, scalarLocation);
         } else
             scalarLocation = loadIfNecessary(scalar);
@@ -7627,8 +7829,8 @@ public:
         Location resultLocation = allocate(result);
 
         if (scalarLocation == resultLocation) {
-            m_jit.moveVector(scalarLocation.asFPR(), m_scratchFPR);
-            scalarLocation = Location::fromFPR(m_scratchFPR);
+            m_jit.moveVector(scalarLocation.asFPR(), wasmScratchFPR);
+            scalarLocation = Location::fromFPR(wasmScratchFPR);
         }
 
         LOG_INSTRUCTION("VectorReplaceLane", info.lane, lane, vector, vectorLocation, scalar, scalarLocation, RESULT(result));
@@ -7656,11 +7858,11 @@ public:
 #if CPU(ARM64)
             if (info.lane == SIMDLane::i64x2) {
                 // This might look bad, but remember: every bit of information we destroy contributes to the heat death of the universe.
-                m_jit.vectorSshr8(SIMDInfo { SIMDLane::i64x2, SIMDSignMode::None }, valueLocation.asFPR(), TrustedImm32(63), m_scratchFPR);
-                m_jit.vectorUnzipEven(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR);
-                m_jit.moveDoubleTo64(m_scratchFPR, m_scratchGPR);
-                m_jit.rshift64(m_scratchGPR, TrustedImm32(31), m_scratchGPR);
-                m_jit.and32(Imm32(0b11), m_scratchGPR, resultLocation.asGPR());
+                m_jit.vectorSshr8(SIMDInfo { SIMDLane::i64x2, SIMDSignMode::None }, valueLocation.asFPR(), TrustedImm32(63), wasmScratchFPR);
+                m_jit.vectorUnzipEven(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR, wasmScratchFPR);
+                m_jit.moveDoubleTo64(wasmScratchFPR, wasmScratchGPR);
+                m_jit.rshift64(wasmScratchGPR, TrustedImm32(31), wasmScratchGPR);
+                m_jit.and32(Imm32(0b11), wasmScratchGPR, resultLocation.asGPR());
                 return { };
             }
 
@@ -7686,18 +7888,18 @@ public:
                 }
 
                 // FIXME: this is bad, we should load
-                materializeVectorConstant(towerOfPower, Location::fromFPR(m_scratchFPR));
+                materializeVectorConstant(towerOfPower, Location::fromFPR(wasmScratchFPR));
             }
 
             {
                 ScratchScope<0, 1> scratches(*this, valueLocation, resultLocation);
 
                 m_jit.vectorSshr8(info, valueLocation.asFPR(), TrustedImm32(elementByteSize(info.lane) * 8 - 1), scratches.fpr(0));
-                m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, scratches.fpr(0), m_scratchFPR, scratches.fpr(0));
+                m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, scratches.fpr(0), wasmScratchFPR, scratches.fpr(0));
 
                 if (info.lane == SIMDLane::i8x16) {
-                    m_jit.vectorExtractPair(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, TrustedImm32(8), scratches.fpr(0), scratches.fpr(0), m_scratchFPR);
-                    m_jit.vectorZipUpper(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, scratches.fpr(0), m_scratchFPR, scratches.fpr(0));
+                    m_jit.vectorExtractPair(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, TrustedImm32(8), scratches.fpr(0), scratches.fpr(0), wasmScratchFPR);
+                    m_jit.vectorZipUpper(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, scratches.fpr(0), wasmScratchFPR, scratches.fpr(0));
                     info.lane = SIMDLane::i16x8;
                 }
 
@@ -7706,13 +7908,13 @@ public:
             }
 #else
             ASSERT(isX86());
-            m_jit.vectorBitmask(info, valueLocation.asFPR(), resultLocation.asGPR(), m_scratchFPR);
+            m_jit.vectorBitmask(info, valueLocation.asFPR(), resultLocation.asGPR(), wasmScratchFPR);
 #endif
             return { };
         case JSC::SIMDLaneOperation::AnyTrue:
 #if CPU(ARM64)
-            m_jit.vectorUnsignedMax(SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, valueLocation.asFPR(), m_scratchFPR);
-            m_jit.moveFloatTo32(m_scratchFPR, resultLocation.asGPR());
+            m_jit.vectorUnsignedMax(SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, valueLocation.asFPR(), wasmScratchFPR);
+            m_jit.moveFloatTo32(wasmScratchFPR, resultLocation.asGPR());
             m_jit.test32(ResultCondition::NonZero, resultLocation.asGPR(), resultLocation.asGPR(), resultLocation.asGPR());
 #else
             m_jit.vectorAnyTrue(valueLocation.asFPR(), resultLocation.asGPR());
@@ -7723,23 +7925,23 @@ public:
             ASSERT(scalarTypeIsIntegral(info.lane));
             switch (info.lane) {
             case SIMDLane::i64x2:
-                m_jit.compareIntegerVectorWithZero(RelationalCondition::NotEqual, info, valueLocation.asFPR(), m_scratchFPR);
-                m_jit.vectorUnsignedMin(SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR);
+                m_jit.compareIntegerVectorWithZero(RelationalCondition::NotEqual, info, valueLocation.asFPR(), wasmScratchFPR);
+                m_jit.vectorUnsignedMin(SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR);
                 break;
             case SIMDLane::i32x4:
             case SIMDLane::i16x8:
             case SIMDLane::i8x16:
-                m_jit.vectorUnsignedMin(info, valueLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorUnsignedMin(info, valueLocation.asFPR(), wasmScratchFPR);
                 break;
             default:
                 RELEASE_ASSERT_NOT_REACHED();
             }
 
-            m_jit.moveFloatTo32(m_scratchFPR, m_scratchGPR);
-            m_jit.test32(ResultCondition::NonZero, m_scratchGPR, m_scratchGPR, resultLocation.asGPR());
+            m_jit.moveFloatTo32(wasmScratchFPR, wasmScratchGPR);
+            m_jit.test32(ResultCondition::NonZero, wasmScratchGPR, wasmScratchGPR, resultLocation.asGPR());
 #else
             ASSERT(isX86());
-            m_jit.vectorAllTrue(info, valueLocation.asFPR(), resultLocation.asGPR(), m_scratchFPR);
+            m_jit.vectorAllTrue(info, valueLocation.asFPR(), resultLocation.asGPR(), wasmScratchFPR);
 #endif
             return { };
         default:
@@ -7768,18 +7970,18 @@ public:
         case JSC::SIMDLaneOperation::Abs:
 #if CPU(X86_64)
             if (info.lane == SIMDLane::i64x2) {
-                m_jit.vectorAbsInt64(valueLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorAbsInt64(valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
                 return { };
             }
             if (scalarTypeIsFloatingPoint(info.lane)) {
                 if (info.lane == SIMDLane::f32x4) {
-                    m_jit.move32ToFloat(TrustedImm32(0x7fffffff), m_scratchFPR);
-                    m_jit.vectorSplatFloat32(m_scratchFPR, m_scratchFPR);
+                    m_jit.move32ToFloat(TrustedImm32(0x7fffffff), wasmScratchFPR);
+                    m_jit.vectorSplatFloat32(wasmScratchFPR, wasmScratchFPR);
                 } else {
-                    m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), m_scratchFPR);
-                    m_jit.vectorSplatFloat64(m_scratchFPR, m_scratchFPR);
+                    m_jit.move64ToDouble(TrustedImm64(0x7fffffffffffffffll), wasmScratchFPR);
+                    m_jit.vectorSplatFloat64(wasmScratchFPR, wasmScratchFPR);
                 }
-                m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 return { };
             }
 #endif
@@ -7802,14 +8004,14 @@ public:
                 popcntConst.u64x2[1] = 0x0403030203020201;
 
                 materializeVectorConstant(bottomNibbleConst, Location::fromFPR(scratches.fpr(0)));
-                m_jit.vectorAndnot(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), scratches.fpr(0), m_scratchFPR);
+                m_jit.vectorAndnot(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), scratches.fpr(0), wasmScratchFPR);
                 m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), scratches.fpr(0), resultLocation.asFPR());
-                m_jit.vectorUshr8(SIMDInfo { SIMDLane::i16x8, SIMDSignMode::None }, m_scratchFPR, TrustedImm32(4), m_scratchFPR);
+                m_jit.vectorUshr8(SIMDInfo { SIMDLane::i16x8, SIMDSignMode::None }, wasmScratchFPR, TrustedImm32(4), wasmScratchFPR);
 
                 materializeVectorConstant(popcntConst, Location::fromFPR(scratches.fpr(0)));
                 m_jit.vectorSwizzle(scratches.fpr(0), resultLocation.asFPR(), resultLocation.asFPR());
-                m_jit.vectorSwizzle(scratches.fpr(0), m_scratchFPR, m_scratchFPR);
-                m_jit.vectorAdd(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.vectorSwizzle(scratches.fpr(0), wasmScratchFPR, wasmScratchFPR);
+                m_jit.vectorAdd(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::None }, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             }
 #else
             m_jit.vectorPopcnt(info, valueLocation.asFPR(), resultLocation.asFPR());
@@ -7833,10 +8035,10 @@ public:
         case JSC::SIMDLaneOperation::ExtaddPairwise:
 #if CPU(X86_64)
             if (info.lane == SIMDLane::i16x8 && info.signMode == SIMDSignMode::Unsigned) {
-                m_jit.vectorExtaddPairwiseUnsignedInt16(valueLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorExtaddPairwiseUnsignedInt16(valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
                 return { };
             }
-            m_jit.vectorExtaddPairwise(info, valueLocation.asFPR(), resultLocation.asFPR(), m_scratchGPR, m_scratchFPR);
+            m_jit.vectorExtaddPairwise(info, valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchGPR, wasmScratchFPR);
 #else
             m_jit.vectorExtaddPairwise(info, valueLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -7844,7 +8046,7 @@ public:
         case JSC::SIMDLaneOperation::Convert:
 #if CPU(X86_64)
             if (info.signMode == SIMDSignMode::Unsigned) {
-                m_jit.vectorConvertUnsigned(valueLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorConvertUnsigned(valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
                 return { };
             }
 #endif
@@ -7855,7 +8057,7 @@ public:
             if (info.signMode == SIMDSignMode::Signed)
                 m_jit.vectorConvertLowSignedInt32(valueLocation.asFPR(), resultLocation.asFPR());
             else
-                m_jit.vectorConvertLowUnsignedInt32(valueLocation.asFPR(), resultLocation.asFPR(), m_scratchGPR, m_scratchFPR);
+                m_jit.vectorConvertLowUnsignedInt32(valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchGPR, wasmScratchFPR);
 #else
             m_jit.vectorConvertLow(info, valueLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -7871,16 +8073,16 @@ public:
             switch (info.lane) {
             case SIMDLane::f64x2:
                 if (info.signMode == SIMDSignMode::Signed)
-                    m_jit.vectorTruncSatSignedFloat64(valueLocation.asFPR(), resultLocation.asFPR(), m_scratchGPR, m_scratchFPR);
+                    m_jit.vectorTruncSatSignedFloat64(valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchGPR, wasmScratchFPR);
                 else
-                    m_jit.vectorTruncSatUnsignedFloat64(valueLocation.asFPR(), resultLocation.asFPR(), m_scratchGPR, m_scratchFPR);
+                    m_jit.vectorTruncSatUnsignedFloat64(valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchGPR, wasmScratchFPR);
                 break;
             case SIMDLane::f32x4: {
                 ScratchScope<0, 1> scratches(*this, valueLocation, resultLocation);
                 if (info.signMode == SIMDSignMode::Signed)
-                    m_jit.vectorTruncSat(info, valueLocation.asFPR(), resultLocation.asFPR(), m_scratchGPR, m_scratchFPR, scratches.fpr(0));
+                    m_jit.vectorTruncSat(info, valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchGPR, wasmScratchFPR, scratches.fpr(0));
                 else
-                    m_jit.vectorTruncSatUnsignedFloat32(valueLocation.asFPR(), resultLocation.asFPR(), m_scratchGPR, m_scratchFPR, scratches.fpr(0));
+                    m_jit.vectorTruncSatUnsignedFloat32(valueLocation.asFPR(), resultLocation.asFPR(), wasmScratchGPR, wasmScratchFPR, scratches.fpr(0));
                 break;
             }
             default:
@@ -7893,8 +8095,8 @@ public:
         case JSC::SIMDLaneOperation::Not: {
 #if CPU(X86_64)
             ScratchScope<0, 1> scratches(*this, valueLocation, resultLocation);
-            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR, scratches.fpr(0));
-            m_jit.vectorXor(info, valueLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR, wasmScratchFPR, scratches.fpr(0));
+            m_jit.vectorXor(info, valueLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
             m_jit.vectorNot(info, valueLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -7908,19 +8110,19 @@ public:
             case SIMDLane::i32x4:
             case SIMDLane::i64x2:
                 // For integers, we can negate by subtracting our input from zero.
-                m_jit.moveZeroToVector(m_scratchFPR);
-                m_jit.vectorSub(info, m_scratchFPR, valueLocation.asFPR(), resultLocation.asFPR());
+                m_jit.moveZeroToVector(wasmScratchFPR);
+                m_jit.vectorSub(info, wasmScratchFPR, valueLocation.asFPR(), resultLocation.asFPR());
                 break;
             case SIMDLane::f32x4:
                 // For floats, we unfortunately have to flip the sign bit using XOR.
-                m_jit.move32ToFloat(TrustedImm32(-0x80000000), m_scratchFPR);
-                m_jit.vectorSplatFloat32(m_scratchFPR, m_scratchFPR);
-                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.move32ToFloat(TrustedImm32(-0x80000000), wasmScratchFPR);
+                m_jit.vectorSplatFloat32(wasmScratchFPR, wasmScratchFPR);
+                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 break;
             case SIMDLane::f64x2:
-                m_jit.move64ToDouble(TrustedImm64(-0x8000000000000000ll), m_scratchFPR);
-                m_jit.vectorSplatFloat64(m_scratchFPR, m_scratchFPR);
-                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.move64ToDouble(TrustedImm64(-0x8000000000000000ll), wasmScratchFPR);
+                m_jit.vectorSplatFloat64(wasmScratchFPR, wasmScratchFPR);
+                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, valueLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 break;
             default:
                 RELEASE_ASSERT_NOT_REACHED();
@@ -7950,13 +8152,13 @@ public:
         LOG_INSTRUCTION("VectorBitwiseSelect", left, leftLocation, right, rightLocation, selector, selectorLocation, RESULT(result));
 
 #if CPU(X86_64)
-        m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, leftLocation.asFPR(), selectorLocation.asFPR(), m_scratchFPR);
+        m_jit.vectorAnd(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, leftLocation.asFPR(), selectorLocation.asFPR(), wasmScratchFPR);
         m_jit.vectorAndnot(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, rightLocation.asFPR(), selectorLocation.asFPR(), resultLocation.asFPR());
-        m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+        m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
 #else
-        m_jit.moveVector(selectorLocation.asFPR(), m_scratchFPR);
-        m_jit.vectorBitwiseSelect(leftLocation.asFPR(), rightLocation.asFPR(), m_scratchFPR);
-        m_jit.moveVector(m_scratchFPR, resultLocation.asFPR());
+        m_jit.moveVector(selectorLocation.asFPR(), wasmScratchFPR);
+        m_jit.vectorBitwiseSelect(leftLocation.asFPR(), rightLocation.asFPR(), wasmScratchFPR);
+        m_jit.moveVector(wasmScratchFPR, resultLocation.asFPR());
 #endif
         return { };
     }
@@ -7986,23 +8188,23 @@ public:
         switch (relOp.asRelationalCondition()) {
         case MacroAssembler::NotEqual: {
             ScratchScope<0, 1> scratches(*this, leftLocation, rightLocation, resultLocation);
-            m_jit.compareIntegerVector(RelationalCondition::Equal, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
-            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR, scratches.fpr(0));
-            m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.compareIntegerVector(RelationalCondition::Equal, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
+            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR, wasmScratchFPR, scratches.fpr(0));
+            m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             break;
         }
         case MacroAssembler::Above: {
             ScratchScope<0, 1> scratches(*this, leftLocation, rightLocation, resultLocation);
-            m_jit.compareIntegerVector(RelationalCondition::BelowOrEqual, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
-            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR, scratches.fpr(0));
-            m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.compareIntegerVector(RelationalCondition::BelowOrEqual, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
+            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR, wasmScratchFPR, scratches.fpr(0));
+            m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             break;
         }
         case MacroAssembler::Below: {
             ScratchScope<0, 1> scratches(*this, leftLocation, rightLocation, resultLocation);
-            m_jit.compareIntegerVector(RelationalCondition::AboveOrEqual, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
-            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR, scratches.fpr(0));
-            m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+            m_jit.compareIntegerVector(RelationalCondition::AboveOrEqual, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
+            m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR, wasmScratchFPR, scratches.fpr(0));
+            m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             break;
         }
         case MacroAssembler::GreaterThanOrEqual:
@@ -8010,23 +8212,23 @@ public:
                 // Note: rhs and lhs are reversed here, we are semantically negating LessThan. GreaterThan is
                 // just better supported on AVX.
                 ScratchScope<0, 1> scratches(*this, leftLocation, rightLocation, resultLocation);
-                m_jit.compareIntegerVector(RelationalCondition::GreaterThan, info, rightLocation.asFPR(), leftLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
-                m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR, scratches.fpr(0));
-                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.compareIntegerVector(RelationalCondition::GreaterThan, info, rightLocation.asFPR(), leftLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
+                m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR, wasmScratchFPR, scratches.fpr(0));
+                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             } else
-                m_jit.compareIntegerVector(relOp.asRelationalCondition(), info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+                m_jit.compareIntegerVector(relOp.asRelationalCondition(), info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
             break;
         case MacroAssembler::LessThanOrEqual:
             if (info.lane == SIMDLane::i64x2) {
                 ScratchScope<0, 1> scratches(*this, leftLocation, rightLocation, resultLocation);
-                m_jit.compareIntegerVector(RelationalCondition::GreaterThan, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
-                m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, m_scratchFPR, m_scratchFPR, m_scratchFPR, scratches.fpr(0));
-                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.compareIntegerVector(RelationalCondition::GreaterThan, info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
+                m_jit.compareIntegerVector(RelationalCondition::Equal, SIMDInfo { SIMDLane::i32x4, SIMDSignMode::None }, wasmScratchFPR, wasmScratchFPR, wasmScratchFPR, scratches.fpr(0));
+                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             } else
-                m_jit.compareIntegerVector(relOp.asRelationalCondition(), info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+                m_jit.compareIntegerVector(relOp.asRelationalCondition(), info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
             break;
         default:
-            m_jit.compareIntegerVector(relOp.asRelationalCondition(), info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+            m_jit.compareIntegerVector(relOp.asRelationalCondition(), info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
         }
 #else
         m_jit.compareIntegerVector(relOp.asRelationalCondition(), info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
@@ -8041,15 +8243,15 @@ public:
             // so we scalarize it instead.
             ScratchScope<1, 0> scratches(*this);
             GPRReg dataScratchGPR = scratches.gpr(0);
-            m_jit.vectorExtractLaneInt64(TrustedImm32(0), left.asFPR(), m_scratchGPR);
+            m_jit.vectorExtractLaneInt64(TrustedImm32(0), left.asFPR(), wasmScratchGPR);
             m_jit.vectorExtractLaneInt64(TrustedImm32(0), right.asFPR(), dataScratchGPR);
-            m_jit.mul64(m_scratchGPR, dataScratchGPR, m_scratchGPR);
-            m_jit.vectorReplaceLane(SIMDLane::i64x2, TrustedImm32(0), m_scratchGPR, m_scratchFPR);
-            m_jit.vectorExtractLaneInt64(TrustedImm32(1), left.asFPR(), m_scratchGPR);
+            m_jit.mul64(wasmScratchGPR, dataScratchGPR, wasmScratchGPR);
+            m_jit.vectorReplaceLane(SIMDLane::i64x2, TrustedImm32(0), wasmScratchGPR, wasmScratchFPR);
+            m_jit.vectorExtractLaneInt64(TrustedImm32(1), left.asFPR(), wasmScratchGPR);
             m_jit.vectorExtractLaneInt64(TrustedImm32(1), right.asFPR(), dataScratchGPR);
-            m_jit.mul64(m_scratchGPR, dataScratchGPR, m_scratchGPR);
-            m_jit.vectorReplaceLane(SIMDLane::i64x2, TrustedImm32(1), m_scratchGPR, m_scratchFPR);
-            m_jit.moveVector(m_scratchFPR, result.asFPR());
+            m_jit.mul64(wasmScratchGPR, dataScratchGPR, wasmScratchGPR);
+            m_jit.vectorReplaceLane(SIMDLane::i64x2, TrustedImm32(1), wasmScratchGPR, wasmScratchFPR);
+            m_jit.moveVector(wasmScratchFPR, result.asFPR());
         } else
             m_jit.vectorMul(info, left.asFPR(), right.asFPR(), result.asFPR());
     }
@@ -8064,9 +8266,9 @@ public:
         v128_t mask;
         mask.u64x2[0] = 0x7070707070707070;
         mask.u64x2[1] = 0x7070707070707070;
-        materializeVectorConstant(mask, Location::fromFPR(m_scratchFPR));
-        m_jit.vectorAddSat(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::Unsigned }, m_scratchFPR, b.asFPR(), m_scratchFPR);
-        m_jit.vectorSwizzle(a.asFPR(), m_scratchFPR, result.asFPR());
+        materializeVectorConstant(mask, Location::fromFPR(wasmScratchFPR));
+        m_jit.vectorAddSat(SIMDInfo { SIMDLane::i8x16, SIMDSignMode::Unsigned }, wasmScratchFPR, b.asFPR(), wasmScratchFPR);
+        m_jit.vectorSwizzle(a.asFPR(), wasmScratchFPR, result.asFPR());
         return { };
     }
 
@@ -8094,7 +8296,7 @@ public:
             return { };
         case SIMDLaneOperation::DotProduct:
 #if CPU(ARM64)
-            m_jit.vectorDotProduct(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+            m_jit.vectorDotProduct(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
 #else
             m_jit.vectorDotProduct(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -8107,7 +8309,7 @@ public:
             return { };
         case SIMDLaneOperation::MulSat:
 #if CPU(X86_64)
-            m_jit.vectorMulSat(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchGPR, m_scratchFPR);
+            m_jit.vectorMulSat(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchGPR, wasmScratchFPR);
 #else
             m_jit.vectorMulSat(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -8120,14 +8322,14 @@ public:
             return { };
         case SIMDLaneOperation::Pmax:
 #if CPU(ARM64)
-            m_jit.vectorPmax(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+            m_jit.vectorPmax(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
 #else
             m_jit.vectorPmax(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 #endif
             return { };
         case SIMDLaneOperation::Pmin:
 #if CPU(ARM64)
-            m_jit.vectorPmin(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+            m_jit.vectorPmin(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
 #else
             m_jit.vectorPmin(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 #endif
@@ -8144,7 +8346,7 @@ public:
             m_jit.vectorXor(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
             return { };
         case SIMDLaneOperation::Narrow:
-            m_jit.vectorNarrow(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), m_scratchFPR);
+            m_jit.vectorNarrow(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
             return { };
         case SIMDLaneOperation::AddSat:
             m_jit.vectorAddSat(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
@@ -8162,22 +8364,22 @@ public:
                 // the necessary edge cases.
 
                 // Compute result in both directions.
-                m_jit.vectorPmax(info, rightLocation.asFPR(), leftLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorPmax(info, rightLocation.asFPR(), leftLocation.asFPR(), wasmScratchFPR);
                 m_jit.vectorPmax(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 
                 // Check for discrepancies by XORing the two results together.
-                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, m_scratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
+                m_jit.vectorXor(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, wasmScratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
 
                 // OR results, propagating the sign bit for negative zeroes, and NaNs.
-                m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, m_scratchFPR, resultLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, wasmScratchFPR, resultLocation.asFPR(), wasmScratchFPR);
 
                 // Propagate discrepancies in the sign bit.
-                m_jit.vectorSub(info, m_scratchFPR, resultLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorSub(info, wasmScratchFPR, resultLocation.asFPR(), wasmScratchFPR);
 
                 // Canonicalize NaNs by checking for unordered values and clearing payload if necessary.
-                m_jit.compareFloatingPointVectorUnordered(info, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
+                m_jit.compareFloatingPointVectorUnordered(info, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
                 m_jit.vectorUshr8(SIMDInfo { info.lane == SIMDLane::f32x4 ? SIMDLane::i32x4 : SIMDLane::i64x2, SIMDSignMode::None }, resultLocation.asFPR(), TrustedImm32(info.lane == SIMDLane::f32x4 ? 10 : 13), resultLocation.asFPR());
-                m_jit.vectorAndnot(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, m_scratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
+                m_jit.vectorAndnot(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, wasmScratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
             } else
                 m_jit.vectorMax(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 #else
@@ -8194,17 +8396,17 @@ public:
                 // the necessary edge cases.
 
                 // Compute result in both directions.
-                m_jit.vectorPmin(info, rightLocation.asFPR(), leftLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorPmin(info, rightLocation.asFPR(), leftLocation.asFPR(), wasmScratchFPR);
                 m_jit.vectorPmin(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 
                 // OR results, propagating the sign bit for negative zeroes, and NaNs.
-                m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, m_scratchFPR, resultLocation.asFPR(), m_scratchFPR);
+                m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, wasmScratchFPR, resultLocation.asFPR(), wasmScratchFPR);
 
                 // Canonicalize NaNs by checking for unordered values and clearing payload if necessary.
-                m_jit.compareFloatingPointVectorUnordered(info, resultLocation.asFPR(), m_scratchFPR, resultLocation.asFPR());
-                m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, m_scratchFPR, resultLocation.asFPR(), m_scratchFPR);
+                m_jit.compareFloatingPointVectorUnordered(info, resultLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
+                m_jit.vectorOr(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, wasmScratchFPR, resultLocation.asFPR(), wasmScratchFPR);
                 m_jit.vectorUshr8(SIMDInfo { info.lane == SIMDLane::f32x4 ? SIMDLane::i32x4 : SIMDLane::i64x2, SIMDSignMode::None }, resultLocation.asFPR(), TrustedImm32(info.lane == SIMDLane::f32x4 ? 10 : 13), resultLocation.asFPR());
-                m_jit.vectorAndnot(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, m_scratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
+                m_jit.vectorAndnot(SIMDInfo { SIMDLane::v128, SIMDSignMode::None }, wasmScratchFPR, resultLocation.asFPR(), resultLocation.asFPR());
             } else
                 m_jit.vectorMin(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
 #else
@@ -8220,6 +8422,12 @@ public:
     void dump(const ControlStack&, const Stack*) { }
     void didFinishParsingLocals() { }
     void didPopValueFromStack() { }
+
+    void finalize()
+    {
+        if (UNLIKELY(m_disassembler))
+            m_disassembler->setEndOfCode(m_jit.label());
+    }
 #undef BBQ_STUB
 #undef BBQ_CONTROL_STUB
 
@@ -8233,10 +8441,22 @@ public:
         return WTFMove(m_catchEntrypoints);
     }
 
-private:
-    bool isScratch(Location loc)
+    Box<PCToCodeOriginMapBuilder> takePCToCodeOriginMapBuilder()
     {
-        return (loc.isGPR() && loc.asGPR() == m_scratchGPR) || (loc.isFPR() && loc.asFPR() == m_scratchFPR);
+        if (m_pcToCodeOriginMapBuilder.didBuildMapping())
+            return Box<PCToCodeOriginMapBuilder>::create(WTFMove(m_pcToCodeOriginMapBuilder));
+        return nullptr;
+    }
+
+    std::unique_ptr<BBQDisassembler> takeDisassembler()
+    {
+        return WTFMove(m_disassembler);
+    }
+
+private:
+    static bool isScratch(Location loc)
+    {
+        return (loc.isGPR() && loc.asGPR() == wasmScratchGPR) || (loc.isFPR() && loc.asFPR() == wasmScratchFPR);
     }
 
     void emitStoreConst(Value constant, Location loc)
@@ -8257,6 +8477,9 @@ private:
         case TypeKind::Structref:
         case TypeKind::RefNull:
         case TypeKind::Externref:
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
             m_jit.store64(TrustedImm64(constant.asRef()), loc.asAddress());
             break;
         case TypeKind::I64:
@@ -8273,7 +8496,7 @@ private:
     {
         ASSERT(constant.isConst());
 
-        if (loc.isStack() || loc.isGlobal())
+        if (loc.isMemory())
             return emitStoreConst(constant, loc);
 
         ASSERT(loc.isRegister());
@@ -8295,6 +8518,9 @@ private:
         case TypeKind::Structref:
         case TypeKind::RefNull:
         case TypeKind::Externref:
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
             m_jit.move(TrustedImm64(constant.asRef()), loc.asGPR());
             break;
         case TypeKind::F32:
@@ -8309,29 +8535,24 @@ private:
         }
     }
 
-    void emitStore(Value src, Location dst)
+    void emitStore(TypeKind type, Location src, Location dst)
     {
-        if (src.isConst())
-            return emitStoreConst(src, dst);
-
-        LOG_INSTRUCTION("Store", src, RESULT(dst));
-
         ASSERT(dst.isMemory());
-        Location srcLocation = locationOf(src);
-        ASSERT(srcLocation.isRegister());
-        switch (src.type()) {
+        ASSERT(src.isRegister());
+
+        switch (type) {
         case TypeKind::I32:
         case TypeKind::I31ref:
-            m_jit.store32(srcLocation.asGPR(), dst.asAddress());
+            m_jit.store32(src.asGPR(), dst.asAddress());
             break;
         case TypeKind::I64:
-            m_jit.store64(srcLocation.asGPR(), dst.asAddress());
+            m_jit.store64(src.asGPR(), dst.asAddress());
             break;
         case TypeKind::F32:
-            m_jit.storeFloat(srcLocation.asFPR(), dst.asAddress());
+            m_jit.storeFloat(src.asFPR(), dst.asAddress());
             break;
         case TypeKind::F64:
-            m_jit.storeDouble(srcLocation.asFPR(), dst.asAddress());
+            m_jit.storeDouble(src.asFPR(), dst.asAddress());
             break;
         case TypeKind::Externref:
         case TypeKind::Ref:
@@ -8339,38 +8560,48 @@ private:
         case TypeKind::Funcref:
         case TypeKind::Arrayref:
         case TypeKind::Structref:
-            m_jit.store64(srcLocation.asGPR(), dst.asAddress());
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
+            m_jit.store64(src.asGPR(), dst.asAddress());
             break;
         case TypeKind::V128:
-            m_jit.storeVector(srcLocation.asFPR(), dst.asAddress());
+            m_jit.storeVector(src.asFPR(), dst.asAddress());
             break;
         default:
             RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind store.");
         }
     }
 
-    void emitMoveMemory(Value src, Location dst)
+    void emitStore(Value src, Location dst)
+    {
+        if (src.isConst())
+            return emitStoreConst(src, dst);
+
+        LOG_INSTRUCTION("Store", src, RESULT(dst));
+        emitStore(src.type(), locationOf(src), dst);
+    }
+
+    void emitMoveMemory(TypeKind type, Location src, Location dst)
     {
         ASSERT(dst.isMemory());
-        Location srcLocation = locationOf(src);
-        ASSERT(srcLocation.isMemory());
+        ASSERT(src.isMemory());
 
-        if (srcLocation == dst)
+        if (src == dst)
             return;
-        LOG_INSTRUCTION("Move", src, RESULT(dst));
 
-        switch (src.type()) {
+        switch (type) {
         case TypeKind::I32:
         case TypeKind::I31ref:
         case TypeKind::F32:
-            m_jit.transfer32(srcLocation.asAddress(), dst.asAddress());
+            m_jit.transfer32(src.asAddress(), dst.asAddress());
             break;
         case TypeKind::I64:
-            m_jit.transfer64(srcLocation.asAddress(), dst.asAddress());
+            m_jit.transfer64(src.asAddress(), dst.asAddress());
             break;
         case TypeKind::F64:
-            m_jit.loadDouble(srcLocation.asAddress(), m_scratchFPR);
-            m_jit.storeDouble(m_scratchFPR, dst.asAddress());
+            m_jit.loadDouble(src.asAddress(), wasmScratchFPR);
+            m_jit.storeDouble(wasmScratchFPR, dst.asAddress());
             break;
         case TypeKind::Externref:
         case TypeKind::Ref:
@@ -8378,19 +8609,59 @@ private:
         case TypeKind::Funcref:
         case TypeKind::Structref:
         case TypeKind::Arrayref:
-            m_jit.transfer64(srcLocation.asAddress(), dst.asAddress());
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
+            m_jit.transfer64(src.asAddress(), dst.asAddress());
             break;
         case TypeKind::V128: {
-            // We do two scalar load/store pairs instead of one vector load/store in order to avoid
-            // clobbering m_scratchFPR or reserving an FPR for data scratch. This should probably be
-            // a very uncommon operation and if it's ever the bottleneck let's just assume OMG will
-            // handle it.
-            Address srcAddress = srcLocation.asAddress();
+            Address srcAddress = src.asAddress();
             Address dstAddress = dst.asAddress();
-            m_jit.loadVector(srcAddress, m_scratchFPR);
-            m_jit.storeVector(m_scratchFPR, dstAddress);
+            m_jit.loadVector(srcAddress, wasmScratchFPR);
+            m_jit.storeVector(wasmScratchFPR, dstAddress);
             break;
         }
+        default:
+            RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind move.");
+        }
+    }
+
+    void emitMoveMemory(Value src, Location dst)
+    {
+        LOG_INSTRUCTION("Move", src, RESULT(dst));
+        emitMoveMemory(src.type(), locationOf(src), dst);
+    }
+
+    void emitMoveRegister(TypeKind type, Location src, Location dst)
+    {
+        ASSERT(dst.isRegister());
+        ASSERT(src.isRegister());
+
+        if (src == dst)
+            return;
+
+        switch (type) {
+        case TypeKind::I32:
+        case TypeKind::I31ref:
+        case TypeKind::I64:
+        case TypeKind::Externref:
+        case TypeKind::Ref:
+        case TypeKind::RefNull:
+        case TypeKind::Funcref:
+        case TypeKind::Arrayref:
+        case TypeKind::Structref:
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
+            m_jit.move(src.asGPR(), dst.asGPR());
+            break;
+        case TypeKind::F32:
+        case TypeKind::F64:
+            m_jit.moveDouble(src.asFPR(), dst.asFPR());
+            break;
+        case TypeKind::V128:
+            m_jit.moveVector(src.asFPR(), dst.asFPR());
+            break;
         default:
             RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind move.");
         }
@@ -8398,76 +8669,70 @@ private:
 
     void emitMoveRegister(Value src, Location dst)
     {
-        ASSERT(dst.isRegister());
-        Location srcLocation = locationOf(src);
-
-        if (srcLocation == dst)
-            return;
-
-        if (!isScratch(srcLocation) && !isScratch(dst))
+        if (!isScratch(locationOf(src)) && !isScratch(dst))
             LOG_INSTRUCTION("Move", src, RESULT(dst));
 
-        ASSERT(srcLocation.isRegister());
-        switch (src.type()) {
+        emitMoveRegister(src.type(), locationOf(src), dst);
+    }
+
+    void emitLoad(TypeKind type, Location src, Location dst)
+    {
+        ASSERT(dst.isRegister());
+        ASSERT(src.isMemory());
+
+        switch (type) {
         case TypeKind::I32:
         case TypeKind::I31ref:
+            m_jit.load32(src.asAddress(), dst.asGPR());
+            break;
         case TypeKind::I64:
-        case TypeKind::Externref:
+            m_jit.load64(src.asAddress(), dst.asGPR());
+            break;
+        case TypeKind::F32:
+            m_jit.loadFloat(src.asAddress(), dst.asFPR());
+            break;
+        case TypeKind::F64:
+            m_jit.loadDouble(src.asAddress(), dst.asFPR());
+            break;
         case TypeKind::Ref:
         case TypeKind::RefNull:
+        case TypeKind::Externref:
         case TypeKind::Funcref:
         case TypeKind::Arrayref:
         case TypeKind::Structref:
-            m_jit.move(srcLocation.asGPR(), dst.asGPR());
-            break;
-        case TypeKind::F32:
-        case TypeKind::F64:
-            m_jit.moveDouble(srcLocation.asFPR(), dst.asFPR());
+        case TypeKind::Eqref:
+        case TypeKind::Anyref:
+        case TypeKind::Nullref:
+            m_jit.load64(src.asAddress(), dst.asGPR());
             break;
         case TypeKind::V128:
-            m_jit.moveVector(srcLocation.asFPR(), dst.asFPR());
+            m_jit.loadVector(src.asAddress(), dst.asFPR());
             break;
         default:
-            RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind move.");
+            RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind load.");
         }
     }
 
     void emitLoad(Value src, Location dst)
     {
-        ASSERT(dst.isRegister());
-        Location srcLocation = locationOf(src);
-        ASSERT(srcLocation.isMemory());
-
         if (!isScratch(dst))
             LOG_INSTRUCTION("Load", src, RESULT(dst));
 
-        switch (src.type()) {
-        case TypeKind::I32:
-        case TypeKind::I31ref:
-            m_jit.load32(srcLocation.asAddress(), dst.asGPR());
-            break;
-        case TypeKind::I64:
-            m_jit.load64(srcLocation.asAddress(), dst.asGPR());
-            break;
-        case TypeKind::F32:
-            m_jit.loadFloat(srcLocation.asAddress(), dst.asFPR());
-            break;
-        case TypeKind::F64:
-            m_jit.loadDouble(srcLocation.asAddress(), dst.asFPR());
-            break;
-        case TypeKind::Ref:
-        case TypeKind::RefNull:
-        case TypeKind::Externref:
-        case TypeKind::Funcref:
-        case TypeKind::Arrayref:
-        case TypeKind::Structref:
-            m_jit.load64(srcLocation.asAddress(), dst.asGPR());
-            break;
-        case TypeKind::V128:
-            m_jit.loadVector(srcLocation.asAddress(), dst.asFPR());
-            break;
-        default:
-            RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind load.");
+        emitLoad(src.type(), locationOf(src), dst);
+    }
+
+    void emitMove(TypeKind type, Location src, Location dst)
+    {
+        if (src.isRegister()) {
+            if (dst.isMemory())
+                emitStore(type, src, dst);
+            else
+                emitMoveRegister(type, src, dst);
+        } else {
+            if (dst.isMemory())
+                emitMoveMemory(type, src, dst);
+            else
+                emitLoad(type, src, dst);
         }
     }
 
@@ -8480,17 +8745,7 @@ private:
                 emitMoveConst(src, dst);
         } else {
             Location srcLocation = locationOf(src);
-            if (srcLocation.isRegister()) {
-                if (dst.isMemory())
-                    emitStore(src, dst);
-                else
-                    emitMoveRegister(src, dst);
-            } else {
-                if (dst.isMemory())
-                    emitMoveMemory(src, dst);
-                else
-                    emitLoad(src, dst);
-            }
+            emitMove(src.type(), srcLocation, dst);
         }
     }
 
@@ -8622,7 +8877,7 @@ private:
         if (value.isPinned())
             return value.asPinned();
         if (value.isLocal()) {
-            ASSERT(value.asLocal() >= 0 && value.asLocal() < m_locals.size());
+            ASSERT(value.asLocal() < m_locals.size());
             return m_locals[value.asLocal()];
         }
         if (value.isTemp()) {
@@ -8669,9 +8924,9 @@ private:
     {
         // Called whenever a value is popped from the expression stack. Mostly, we
         // use this to release the registers temporaries are bound to.
-        Location result = locationOf(value);
-        if (value.isTemp() && result.isRegister())
-            unbind(value, result);
+        Location location = locationOf(value);
+        if (value.isTemp() && location != canonicalSlot(value))
+            unbind(value, location);
     }
 
     Location allocateRegister(TypeKind type)
@@ -8750,20 +9005,17 @@ private:
     }
 
     template<typename Register>
-    static Register fromJSCReg(Reg);
-
-    template<>
-    RegisterID fromJSCReg<RegisterID>(Reg gpr)
+    static Register fromJSCReg(Reg reg)
     {
-        ASSERT(gpr.isGPR());
-        return gpr.gpr();
-    }
-
-    template<>
-    FPRegisterID fromJSCReg<FPRegisterID>(Reg fpr)
-    {
-        ASSERT(fpr.isFPR());
-        return fpr.fpr();
+        // This pattern avoids an explicit template specialization in class scope, which GCC does not support.
+        if constexpr (std::is_same_v<Register, GPRReg>) {
+            ASSERT(reg.isGPR());
+            return reg.gpr();
+        } else if constexpr (std::is_same_v<Register, FPRReg>) {
+            ASSERT(reg.isFPR());
+            return reg.fpr();
+        }
+        ASSERT_NOT_REACHED();
     }
 
     template<typename Register>
@@ -8820,25 +9072,25 @@ private:
         RegisterSet m_locked;
     };
 
-    RegisterID nextGPR()
+    GPRReg nextGPR()
     {
         auto next = m_gprSet.begin();
         ASSERT(next != m_gprSet.end());
-        RegisterID reg = (*next).gpr();
+        GPRReg reg = (*next).gpr();
         ASSERT(m_gprBindings[reg].m_kind == RegisterBinding::None);
         return reg;
     }
 
-    FPRegisterID nextFPR()
+    FPRReg nextFPR()
     {
         auto next = m_fprSet.begin();
         ASSERT(next != m_fprSet.end());
-        FPRegisterID reg = (*next).fpr();
+        FPRReg reg = (*next).fpr();
         ASSERT(m_fprBindings[reg].m_kind == RegisterBinding::None);
         return reg;
     }
 
-    RegisterID evictGPR()
+    GPRReg evictGPR()
     {
         auto lruGPR = m_gprLRU.findMin();
         auto lruBinding = m_gprBindings[lruGPR];
@@ -8852,7 +9104,7 @@ private:
         return lruGPR;
     }
 
-    FPRegisterID evictFPR()
+    FPRReg evictFPR()
     {
         auto lruFPR = m_fprLRU.findMin();
         auto lruBinding = m_fprBindings[lruFPR];
@@ -8868,7 +9120,7 @@ private:
 
     // We use this to free up specific registers that might get clobbered by an instruction.
 
-    void clobber(RegisterID gpr)
+    void clobber(GPRReg gpr)
     {
         if (m_validGPRs.contains(gpr, IgnoreVectors) && !m_gprSet.contains(gpr, IgnoreVectors)) {
             RegisterBinding& binding = m_gprBindings[gpr];
@@ -8879,7 +9131,7 @@ private:
         }
     }
 
-    void clobber(FPRegisterID fpr)
+    void clobber(FPRReg fpr)
     {
         if (m_validFPRs.contains(fpr, Width::Width128) && !m_fprSet.contains(fpr, Width::Width128)) {
             RegisterBinding& binding = m_fprBindings[fpr];
@@ -8929,14 +9181,14 @@ private:
             unbind();
         }
 
-        inline RegisterID gpr(unsigned i) const
+        inline GPRReg gpr(unsigned i) const
         {
             ASSERT(i < GPRs);
             ASSERT(!m_endedEarly);
             return m_tempGPRs[i];
         }
 
-        inline FPRegisterID fpr(unsigned i) const
+        inline FPRReg fpr(unsigned i) const
         {
             ASSERT(i < FPRs);
             ASSERT(!m_endedEarly);
@@ -8944,7 +9196,7 @@ private:
         }
 
     private:
-        RegisterID bindGPRToScratch(RegisterID reg)
+        GPRReg bindGPRToScratch(GPRReg reg)
         {
             if (!m_generator.m_validGPRs.contains(reg, IgnoreVectors))
                 return reg;
@@ -8963,7 +9215,7 @@ private:
             return reg;
         }
 
-        FPRegisterID bindFPRToScratch(FPRegisterID reg)
+        FPRReg bindFPRToScratch(FPRReg reg)
         {
             if (!m_generator.m_validFPRs.contains(reg, Width::Width128))
                 return reg;
@@ -8982,7 +9234,7 @@ private:
             return reg;
         }
 
-        void unbindGPRFromScratch(RegisterID reg)
+        void unbindGPRFromScratch(GPRReg reg)
         {
             if (!m_generator.m_validGPRs.contains(reg, IgnoreVectors))
                 return;
@@ -8997,7 +9249,7 @@ private:
             m_generator.m_gprLRU.unlock(reg);
         }
 
-        void unbindFPRFromScratch(FPRegisterID reg)
+        void unbindFPRFromScratch(FPRReg reg)
         {
             if (!m_generator.m_validFPRs.contains(reg, Width::Width128))
                 return;
@@ -9053,8 +9305,8 @@ private:
         }
 
         BBQJIT& m_generator;
-        RegisterID m_tempGPRs[GPRs];
-        FPRegisterID m_tempFPRs[FPRs];
+        GPRReg m_tempGPRs[GPRs];
+        FPRReg m_tempFPRs[FPRs];
         RegisterSet m_preserved;
         bool m_endedEarly;
     };
@@ -9086,7 +9338,7 @@ private:
 #undef RESULT
 
     CCallHelpers& m_jit;
-    Callee& m_callee;
+    BBQCallee& m_callee;
     const FunctionData& m_function;
     const FunctionSignature* m_functionSignature;
     uint32_t m_functionIndex;
@@ -9110,8 +9362,8 @@ private:
     Vector<Location, 8> m_temps;
     Vector<Location, 8> m_localSlots; // Persistent stack slots for local variables.
     Vector<TypeKind, 8> m_localTypes; // Types of all non-argument locals in this function.
-    LRU<RegisterID> m_gprLRU; // LRU cache tracking when general-purpose registers were last used.
-    LRU<FPRegisterID> m_fprLRU; // LRU cache tracking when floating-point registers were last used.
+    LRU<GPRReg> m_gprLRU; // LRU cache tracking when general-purpose registers were last used.
+    LRU<FPRReg> m_fprLRU; // LRU cache tracking when floating-point registers were last used.
     uint32_t m_lastUseTimestamp; // Monotonically increasing integer incrementing with each register use.
     Vector<RefPtr<SharedTask<void(BBQJIT&, CCallHelpers&)>>, 8> m_latePaths; // Late paths to emit after the rest of the function body.
 
@@ -9124,15 +9376,6 @@ private:
     Checked<unsigned> m_tryCatchDepth { 0 };
     Checked<unsigned> m_callSiteIndex { 0 };
 
-    RegisterID m_scratchGPR { GPRInfo::nonPreservedNonArgumentGPR0 }; // Scratch registers to hold temporaries in operations.
-    FPRegisterID m_scratchFPR { FPRInfo::nonPreservedNonArgumentFPR0 };
-
-#if CPU(X86) || CPU(X86_64)
-    RegisterID m_shiftRCX { X86Registers::ecx };
-#else
-    RegisterID m_shiftRCX { RegisterID::InvalidGPRReg };
-#endif
-
     RegisterSet m_callerSaveGPRs;
     RegisterSet m_callerSaveFPRs;
     RegisterSet m_callerSaves;
@@ -9142,9 +9385,12 @@ private:
     std::array<JumpList, numberOfExceptionTypes> m_exceptions { };
     Vector<UnlinkedHandlerInfo> m_exceptionHandlers;
     Vector<CCallHelpers::Label> m_catchEntrypoints;
+
+    PCToCodeOriginMapBuilder m_pcToCodeOriginMapBuilder;
+    std::unique_ptr<BBQDisassembler> m_disassembler;
 };
 
-Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext& compilationContext, Callee& callee, const FunctionData& function, const TypeDefinition& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, const ModuleInformation& info, MemoryMode mode, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
+Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext& compilationContext, BBQCallee& callee, const FunctionData& function, const TypeDefinition& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, const ModuleInformation& info, MemoryMode mode, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
 {
     CompilerTimingScope totalTime("BBQ", "Total BBQ");
 
@@ -9158,11 +9404,15 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(Compilati
     FunctionParser<BBQJIT> parser(irGenerator, function.data.data(), function.data.size(), signature, info);
     WASM_FAIL_IF_HELPER_FAILS(parser.parse());
 
-    result->exceptionHandlers = irGenerator.takeExceptionHandlers();
-    compilationContext.catchEntrypoints = irGenerator.takeCatchEntrypoints();
-
     if (irGenerator.hasLoops())
         result->bbqSharedLoopEntrypoint = irGenerator.addLoopOSREntrypoint();
+
+    irGenerator.finalize();
+
+    result->exceptionHandlers = irGenerator.takeExceptionHandlers();
+    compilationContext.catchEntrypoints = irGenerator.takeCatchEntrypoints();
+    compilationContext.pcToCodeOriginMapBuilder = irGenerator.takePCToCodeOriginMapBuilder();
+    compilationContext.bbqDisassembler = irGenerator.takeDisassembler();
 
     return result;
 }

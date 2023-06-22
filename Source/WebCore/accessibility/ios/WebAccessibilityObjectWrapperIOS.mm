@@ -37,13 +37,13 @@
 #import "Chrome.h"
 #import "ChromeClient.h"
 #import "FontCascade.h"
-#import "Frame.h"
 #import "FrameSelection.h"
 #import "HitTestResult.h"
 #import "HTMLFrameOwnerElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
 #import "IntRect.h"
+#import "LocalFrame.h"
 #import "LocalizedStrings.h"
 #import "Page.h"
 #import "Range.h"
@@ -814,7 +814,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     auto* backingObject = self.axBackingObject;
     if (backingObject->isFocused())
         traits |= ([self _axHasTextCursorTrait] | [self _axTextOperationsAvailableTrait]);
-    if (backingObject->isPasswordField())
+    if (backingObject->isSecureField())
         traits |= [self _axSecureTextFieldTrait];
 
     switch (backingObject->roleValue()) {
@@ -1018,6 +1018,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::Canvas:
     case AccessibilityRole::Caption:
     case AccessibilityRole::Cell:
+    case AccessibilityRole::Code:
     case AccessibilityRole::Column:
     case AccessibilityRole::ColumnHeader:
     case AccessibilityRole::Definition:
@@ -1027,7 +1028,6 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::DescriptionListDetail:
     case AccessibilityRole::Details:
     case AccessibilityRole::Directory:
-    case AccessibilityRole::Div:
     case AccessibilityRole::Document:
     case AccessibilityRole::DocumentArticle:
     case AccessibilityRole::DocumentNote:
@@ -1038,6 +1038,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::Footer:
     case AccessibilityRole::Footnote:
     case AccessibilityRole::Form:
+    case AccessibilityRole::Generic:
     case AccessibilityRole::GraphicsDocument:
     case AccessibilityRole::GraphicsObject:
     case AccessibilityRole::GraphicsSymbol:
@@ -1176,7 +1177,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return NO;
     
-    if (!self.axBackingObject->isPasswordField())
+    if (!self.axBackingObject->isSecureField())
         return NO;
     
     return self.axBackingObject->valueAutofillButtonType() == AutoFillButtonType::StrongPassword;
@@ -1563,10 +1564,10 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     }
 
     // rdar://8131388 WebKit should expose the same info as UIKit for its password fields.
-    if (backingObject->isPasswordField() && ![self _accessibilityIsStrongPasswordField]) {
-        int passwordLength = backingObject->accessibilityPasswordFieldLength();
+    if (backingObject->isSecureField() && ![self _accessibilityIsStrongPasswordField]) {
+        int secureTextLength = backingObject->accessibilitySecureFieldLength();
         NSMutableString* string = [NSMutableString string];
-        for (int k = 0; k < passwordLength; ++k)
+        for (int k = 0; k < secureTextLength; ++k)
             [string appendString:@"•"];
         return string;
     }
@@ -1785,8 +1786,8 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     ASSERT(self.axBackingObject->isScrollView());
 
     // Verify this is the top document. If not, we might need to go through the platform widget.
-    FrameView* frameView = self.axBackingObject->documentFrameView();
-    Document* document = self.axBackingObject->document();
+    auto* frameView = self.axBackingObject->documentFrameView();
+    auto* document = self.axBackingObject->document();
     if (document && frameView && document != &document->topDocument())
         return frameView->platformWidget();
     
@@ -1981,7 +1982,7 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    if (self.axBackingObject->node() && self.axBackingObject->node()->hasTagName(codeTag))
+    if (self.axBackingObject->isCode())
         return UIAccessibilityTextualContextSourceCode;
     
     return nil;
@@ -2020,7 +2021,7 @@ static RenderObject* rendererForView(WAKView* view)
         return nil;
     
     WAKView<WebCoreFrameView>* frameView = (WAKView<WebCoreFrameView>*)view;
-    Frame* frame = [frameView _web_frame];
+    auto frame = [frameView _web_frame];
     if (!frame)
         return nil;
     

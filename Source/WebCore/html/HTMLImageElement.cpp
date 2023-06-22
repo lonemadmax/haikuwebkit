@@ -34,7 +34,6 @@
 #include "ElementRareData.h"
 #include "EventLoop.h"
 #include "EventNames.h"
-#include "FrameView.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAttachmentElement.h"
 #include "HTMLDocument.h"
@@ -47,6 +46,7 @@
 #include "HTMLSrcsetParser.h"
 #include "JSRequestPriority.h"
 #include "LazyLoadImageObserver.h"
+#include "LocalFrameView.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MediaQueryEvaluator.h"
@@ -74,7 +74,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLImageElement);
 using namespace HTMLNames;
 
 HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
-    : HTMLElement(tagName, document)
+    : HTMLElement(tagName, document, CreateHTMLImageElement)
     , FormAssociatedElement(form)
     , ActiveDOMObject(document)
     , m_imageLoader(makeUnique<HTMLImageLoader>(*this))
@@ -82,7 +82,6 @@ HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document& docum
     , m_imageDevicePixelRatio(1.0f)
 {
     ASSERT(hasTagName(imgTag));
-    setHasCustomStyleResolveCallbacks();
 }
 
 Ref<HTMLImageElement> HTMLImageElement::create(Document& document)
@@ -114,11 +113,11 @@ void HTMLImageElement::resetFormOwner()
     setForm(HTMLFormElement::findClosestFormAncestor(*this));
 }
 
-void HTMLImageElement::setFormInternal(HTMLFormElement* newForm)
+void HTMLImageElement::setFormInternal(RefPtr<HTMLFormElement>&& newForm)
 {
     if (auto* form = FormAssociatedElement::form())
         form->unregisterImgElement(*this);
-    FormAssociatedElement::setFormInternal(newForm);
+    FormAssociatedElement::setFormInternal(newForm.copyRef());
     if (newForm)
         newForm->registerImgElement(*this);
 }
@@ -707,12 +706,15 @@ void HTMLImageElement::setDecoding(AtomString&& decodingMode)
 String HTMLImageElement::decoding() const
 {
     switch (decodingMode()) {
+    case DecodingMode::Auto:
+        break;
+    case DecodingMode::SynchronousThumbnail:
+        ASSERT_NOT_REACHED();
+        break;
     case DecodingMode::Synchronous:
         return "sync"_s;
     case DecodingMode::Asynchronous:
         return "async"_s;
-    case DecodingMode::Auto:
-        break;
     }
     return autoAtom();
 }
@@ -1029,7 +1031,12 @@ void HTMLImageElement::setFetchPriorityForBindings(const AtomString& value)
 
 String HTMLImageElement::fetchPriorityForBindings() const
 {
-    return convertEnumerationToString(parseEnumerationFromString<RequestPriority>(attributeWithoutSynchronization(fetchpriorityAttr)).value_or(RequestPriority::Auto));
+    return convertEnumerationToString(fetchPriorityHint());
+}
+
+RequestPriority HTMLImageElement::fetchPriorityHint() const
+{
+    return parseEnumerationFromString<RequestPriority>(attributeWithoutSynchronization(fetchpriorityAttr)).value_or(RequestPriority::Auto);
 }
 
 }

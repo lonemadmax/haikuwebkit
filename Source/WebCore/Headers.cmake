@@ -18,6 +18,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/GPUBufferBindingLayout.h
     Modules/WebGPU/GPUBufferBindingType.h
     Modules/WebGPU/GPUBufferDescriptor.h
+    Modules/WebGPU/GPUBufferMapState.h
     Modules/WebGPU/GPUBufferUsage.h
     Modules/WebGPU/GPUCanvasCompositingAlphaMode.h
     Modules/WebGPU/GPUCanvasConfiguration.h
@@ -69,6 +70,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/GPUOrigin3DDict.h
     Modules/WebGPU/GPUOutOfMemoryError.h
     Modules/WebGPU/GPUPipelineDescriptorBase.h
+    Modules/WebGPU/GPUPipelineError.h
+    Modules/WebGPU/GPUPipelineErrorInit.h
+    Modules/WebGPU/GPUPipelineErrorReason.h
     Modules/WebGPU/GPUPipelineLayout.h
     Modules/WebGPU/GPUPipelineLayoutDescriptor.h
     Modules/WebGPU/GPUPowerPreference.h
@@ -180,6 +184,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/fetch/FetchLoader.h
     Modules/fetch/FetchLoaderClient.h
     Modules/fetch/FetchRequestCredentials.h
+    Modules/fetch/RequestPriority.h
 
     Modules/filesystemaccess/FileSystemDirectoryHandle.h
     Modules/filesystemaccess/FileSystemFileHandle.h
@@ -292,6 +297,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/LongRange.h
     Modules/mediastream/MediaDeviceHashSalts.h
     Modules/mediastream/MediaStreamTrack.h
+    Modules/mediastream/MediaTrackCapabilities.h
     Modules/mediastream/MediaTrackConstraints.h
     Modules/mediastream/RTCController.h
     Modules/mediastream/RTCDataChannel.h
@@ -1106,6 +1112,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/formattingContexts/inline/InlineRect.h
     layout/formattingContexts/inline/InlineTextItem.h
 
+    layout/formattingContexts/inline/display/InlineDisplayContent.h
     layout/formattingContexts/inline/display/InlineDisplayBox.h
     layout/formattingContexts/inline/display/InlineDisplayLine.h
 
@@ -1229,9 +1236,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/cache/KeepaliveRequestTracker.h
     loader/cache/MemoryCache.h
 
-    page/AbstractDOMWindow.h
-    page/AbstractFrame.h
-    page/AbstractFrameView.h
     page/ActivityState.h
     page/ActivityStateChangeObserver.h
     page/AdjustViewSizeOrNot.h
@@ -1253,7 +1257,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/DOMTimer.h
     page/DOMWindow.h
     page/DOMWindowExtension.h
-    page/DOMWindowProperty.h
     page/DatabaseProvider.h
     page/DebugOverlayRegions.h
     page/DebugPageOverlays.h
@@ -1280,12 +1283,16 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/FrameSnapshotting.h
     page/FrameTree.h
     page/FrameView.h
-    page/FrameViewLayoutContext.h
     page/GlobalFrameIdentifier.h
     page/GlobalWindowIdentifier.h
     page/ImageAnalysisQueue.h
     page/InteractionRegion.h
     page/LayoutMilestone.h
+    page/LocalDOMWindow.h
+    page/LocalDOMWindowProperty.h
+    page/LocalFrame.h
+    page/LocalFrameView.h
+    page/LocalFrameViewLayoutContext.h
     page/LookalikeCharactersSanitizationData.h
     page/MediaCanStartListener.h
     page/MediaControlsContextMenuItem.h
@@ -1716,6 +1723,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/InbandTextTrackPrivate.h
     platform/graphics/InbandTextTrackPrivateClient.h
     platform/graphics/InlinePathData.h
+    platform/graphics/IntDegrees.h
     platform/graphics/IntPoint.h
     platform/graphics/IntPointHash.h
     platform/graphics/IntRect.h
@@ -1920,6 +1928,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/mediastream/CaptureDevice.h
     platform/mediastream/CaptureDeviceManager.h
+    platform/mediastream/CaptureDeviceWithCapabilities.h
     platform/mediastream/DisplayCaptureManager.h
     platform/mediastream/DisplayCapturePromptType.h
     platform/mediastream/MDNSRegisterError.h
@@ -2134,6 +2143,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/GridPosition.h
     rendering/style/GridTrackSize.h
     rendering/style/LineClampValue.h
+    rendering/style/ListStyleType.h
     rendering/style/NinePieceImage.h
     rendering/style/OffsetRotation.h
     rendering/style/OutlineValue.h
@@ -2332,7 +2342,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/JSCSSStyleDeclaration.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSDOMBindingInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSDOMImplementation.h
-    ${WebCore_DERIVED_SOURCES_DIR}/JSDOMWindow.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSDeprecatedCSSOMCounter.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSDeprecatedCSSOMRGBColor.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSDeprecatedCSSOMRect.h
@@ -2345,6 +2354,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/JSHTMLCollection.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSHTMLElement.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSHTMLOptionsCollection.h
+    ${WebCore_DERIVED_SOURCES_DIR}/JSLocalDOMWindow.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSMediaList.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSNamedNodeMap.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSNode.h

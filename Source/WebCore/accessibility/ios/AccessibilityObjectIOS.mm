@@ -30,9 +30,9 @@
 
 #import "AccessibilityRenderObject.h"
 #import "EventNames.h"
-#import "FrameView.h"
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
+#import "LocalFrameView.h"
 #import "RenderObject.h"
 #import "WAKView.h"
 #import "WebAccessibilityObjectWrapperIOS.h"
@@ -82,9 +82,9 @@ void AccessibilityObject::overrideAttachmentParent(AXCoreObject*)
 }
     
 // In iPhone only code for now. It's debateable whether this is desired on all platforms.
-int AccessibilityObject::accessibilityPasswordFieldLength()
+int AccessibilityObject::accessibilitySecureFieldLength()
 {
-    if (!isPasswordField())
+    if (!isSecureField())
         return 0;
     RenderObject* renderObject = downcast<AccessibilityRenderObject>(*this).renderer();
     
@@ -201,7 +201,7 @@ static void attributeStringSetStyle(NSMutableAttributedString *attrString, Rende
     // Add code context if this node is within a <code> block.
     RefPtr object = renderer->document().axObjectCache()->getOrCreate(renderer);
     auto matchFunc = [] (const auto& axObject) {
-        return axObject.node() && axObject.node()->hasTagName(HTMLNames::codeTag);
+        return axObject.isCode();
     };
 
     if (const auto* parent = Accessibility::findAncestor<AccessibilityObject>(*object, true, WTFMove(matchFunc)))

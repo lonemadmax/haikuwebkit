@@ -204,7 +204,7 @@ void RemoteScrollingCoordinatorProxy::sendScrollingTreeNodeDidScroll()
         bool isLastUpdate = i == scrollUpdates.size() - 1;
 
         LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinatorProxy::sendScrollingTreeNodeDidScroll - node " << update.nodeID << " scroll position " << update.scrollPosition << " isLastUpdate " << isLastUpdate);
-        m_webPageProxy.sendWithAsyncReply(Messages::RemoteScrollingCoordinator::ScrollPositionChangedForNode(update.nodeID, update.scrollPosition, update.updateLayerPositionAction == ScrollingLayerPositionAction::Sync), [weakThis = WeakPtr { *this }, isLastUpdate] {
+        m_webPageProxy.sendWithAsyncReply(Messages::RemoteScrollingCoordinator::ScrollPositionChangedForNode(update.nodeID, update.scrollPosition, update.layoutViewportOrigin, update.updateLayerPositionAction == ScrollingLayerPositionAction::Sync), [weakThis = WeakPtr { *this }, isLastUpdate] {
             if (!weakThis)
                 return;
 
@@ -245,6 +245,11 @@ bool RemoteScrollingCoordinatorProxy::scrollingTreeNodeRequestsScroll(ScrollingN
     return false;
 }
 
+bool RemoteScrollingCoordinatorProxy::scrollingTreeNodeRequestsKeyboardScroll(ScrollingNodeID scrolledNodeID, const RequestedKeyboardScrollData&)
+{
+    return false;
+}
+
 String RemoteScrollingCoordinatorProxy::scrollingTreeAsText() const
 {
     if (m_scrollingTree)
@@ -277,6 +282,11 @@ WebCore::FloatRect RemoteScrollingCoordinatorProxy::computeVisibleContentRect()
     visibleContentRect.setX(scrollPosition.x());
     visibleContentRect.setY(scrollPosition.y());
     return visibleContentRect;
+}
+
+float RemoteScrollingCoordinatorProxy::topContentInset() const
+{
+    return m_scrollingTree->mainFrameTopContentInset();
 }
 
 WebCore::FloatPoint RemoteScrollingCoordinatorProxy::currentMainFrameScrollPosition() const

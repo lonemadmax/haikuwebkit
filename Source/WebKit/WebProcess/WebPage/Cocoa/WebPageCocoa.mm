@@ -44,7 +44,6 @@
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/FocusController.h>
-#import <WebCore/FrameView.h>
 #import <WebCore/GeometryUtilities.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/HTMLBodyElement.h>
@@ -54,6 +53,7 @@
 #import <WebCore/HTMLUListElement.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/ImageOverlay.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/MutableStyleProperties.h>
 #import <WebCore/NetworkExtensionContentFilter.h>
 #import <WebCore/NodeRenderStyle.h>
@@ -65,6 +65,7 @@
 #import <WebCore/RenderedDocumentMarker.h>
 #import <WebCore/TextIterator.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
 #include "LibWebRTCCodecs.h"
@@ -91,6 +92,12 @@ void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
 #if USE(LIBWEBRTC)
     LibWebRTCCodecs::setCallbacks(m_page->settings().webRTCPlatformCodecsInGPUProcessEnabled(), m_page->settings().webRTCRemoteVideoFrameEnabled());
     LibWebRTCCodecs::setWebRTCMediaPipelineAdditionalLoggingEnabled(m_page->settings().webRTCMediaPipelineAdditionalLoggingEnabled());
+#endif    
+#if PLATFORM(MAC)
+    // In order to be able to block launchd on macOS, we need to eagerly open up a connection to CARenderServer here.
+    // This is because PDF rendering on macOS requires access to CARenderServer, unless we're in Lockdown mode.
+    if (!WebProcess::singleton().isLockdownModeEnabled())
+        CARenderServerGetServerPort(nullptr);
 #endif
 }
 
@@ -159,7 +166,7 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
     performDictionaryLookupForRange(*frame, range, options, TextIndicatorPresentationTransition::Bounce);
 }
 
-void WebPage::performDictionaryLookupForSelection(Frame& frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
+void WebPage::performDictionaryLookupForSelection(LocalFrame& frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
 {
     auto result = DictionaryLookup::rangeForSelection(selection);
     if (!result)
@@ -175,12 +182,12 @@ void WebPage::performDictionaryLookupOfCurrentSelection()
     performDictionaryLookupForSelection(frame, frame->selection().selection(), TextIndicatorPresentationTransition::BounceAndCrossfade);
 }
     
-void WebPage::performDictionaryLookupForRange(Frame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
+void WebPage::performDictionaryLookupForRange(LocalFrame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
 {
     send(Messages::WebPageProxy::DidPerformDictionaryLookup(dictionaryPopupInfoForRange(frame, range, options, presentationTransition)));
 }
 
-DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
+DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, const SimpleRange& range, NSDictionary *options, TextIndicatorPresentationTransition presentationTransition)
 {
     Editor& editor = frame.editor();
     editor.setIsGettingDictionaryPopupInfo(true);
@@ -393,11 +400,11 @@ void WebPage::updateMockAccessibilityElementAfterCommittingLoad()
 
 RetainPtr<CFDataRef> WebPage::pdfSnapshotAtSize(IntRect rect, IntSize bitmapSize, SnapshotOptions options)
 {
-    Frame* coreFrame = m_mainFrame->coreFrame();
+    auto* coreFrame = m_mainFrame->coreFrame();
     if (!coreFrame)
         return nullptr;
 
-    FrameView* frameView = coreFrame->view();
+    auto* frameView = coreFrame->view();
     if (!frameView)
         return nullptr;
 
@@ -455,7 +462,7 @@ void WebPage::getProcessDisplayName(CompletionHandler<void(String&&)>&& completi
 #endif
 }
 
-void WebPage::getPlatformEditorStateCommon(const Frame& frame, EditorState& result) const
+void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState& result) const
 {
     if (!result.hasPostLayoutAndVisualData())
         return;

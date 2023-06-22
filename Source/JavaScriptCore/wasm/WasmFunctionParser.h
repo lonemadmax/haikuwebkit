@@ -32,6 +32,7 @@
 #include "WasmParser.h"
 #include "WasmTypeDefinitionInlines.h"
 #include <wtf/DataLog.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/ListDump.h>
 
 namespace JSC { namespace Wasm {
@@ -112,6 +113,7 @@ struct FunctionParserTypes {
 
 template<typename Context>
 class FunctionParser : public Parser<void>, public FunctionParserTypes<typename Context::ControlType, typename Context::ExpressionType, typename Context::CallType> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     using CallType = typename FunctionParser::CallType;
     using ControlType = typename FunctionParser::ControlType;
@@ -352,11 +354,12 @@ auto FunctionParser<Context>::parseBody() -> PartialResult
             m_context.dump(m_controlStack, &m_expressionStack);
         }
 
+        m_context.willParseOpcode();
         if (m_unreachableBlocks)
             WASM_FAIL_IF_HELPER_FAILS(parseUnreachableExpression());
-        else {
+        else
             WASM_FAIL_IF_HELPER_FAILS(parseExpression());
-        }
+        m_context.didParseOpcode();
     }
     WASM_FAIL_IF_HELPER_FAILS(m_context.endTopLevel(&m_signature, m_expressionStack));
 
@@ -1963,6 +1966,58 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             WASM_TRY_ADD_TO_CONTEXT(addStructSet(structSetInput.structReference, structType, structSetInput.indices.fieldIndex, value));
             return { };
         }
+        case ExtGCOpType::RefTest:
+        case ExtGCOpType::RefTestNull:
+        case ExtGCOpType::RefCast:
+        case ExtGCOpType::RefCastNull: {
+            const char* opName = op == ExtGCOpType::RefCast || op == ExtGCOpType::RefCastNull ? "ref.cast" : "ref.test";
+            int32_t heapType;
+            WASM_PARSER_FAIL_IF(!parseHeapType(m_info, heapType), "can't get heap type for ", opName);
+
+            TypedExpression ref;
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(ref, opName);
+            WASM_VALIDATOR_FAIL_IF(!isRefType(ref.type()), opName, " to type ", ref.type(), " expected a reference type");
+
+            TypeIndex resultTypeIndex = static_cast<TypeIndex>(heapType);
+            switch (static_cast<TypeKind>(heapType)) {
+            case TypeKind::Funcref:
+                WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), funcrefType()), opName, " to type ", ref.type(), " expected a funcref");
+                break;
+            case TypeKind::Externref:
+                WASM_VALIDATOR_FAIL_IF(!isExternref(ref.type()), opName, " to type ", ref.type(), " expected an externref");
+                break;
+            case TypeKind::Eqref:
+            case TypeKind::Anyref:
+            case TypeKind::Nullref:
+            case TypeKind::I31ref:
+            case TypeKind::Arrayref:
+            case TypeKind::Structref:
+                WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), anyrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
+                break;
+            default:
+                ASSERT(heapType >= 0);
+                const TypeDefinition& signature = m_info.typeSignatures[heapType];
+                if (signature.expand().is<FunctionSignature>())
+                    WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), funcrefType()), opName, " to type ", ref.type(), " expected a funcref");
+                else
+                    // FIXME: once anyref is added this can allow any subtype of that.
+                    WASM_VALIDATOR_FAIL_IF(isExternref(ref.type()) || isSubtype(ref.type(), funcrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
+                resultTypeIndex = signature.index();
+                break;
+            }
+
+            ExpressionType result;
+            bool allowNull = op == ExtGCOpType::RefCastNull || op == ExtGCOpType::RefTestNull;
+            if (op == ExtGCOpType::RefCast || op == ExtGCOpType::RefCastNull) {
+                WASM_TRY_ADD_TO_CONTEXT(addRefCast(ref, allowNull, heapType, result));
+                m_expressionStack.constructAndAppend(Type { ref.type().kind, resultTypeIndex }, result);
+            } else {
+                WASM_TRY_ADD_TO_CONTEXT(addRefTest(ref, allowNull, heapType, result));
+                m_expressionStack.constructAndAppend(Types::I32, result);
+            }
+
+            return { };
+        }
         default:
             WASM_PARSER_FAIL_IF(true, "invalid extended GC op ", extOp);
             break;
@@ -2068,6 +2123,23 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_TRY_ADD_TO_CONTEXT(addRefAsNonNull(ref, result));
 
         m_expressionStack.constructAndAppend(Type { TypeKind::Ref, ref.type().index }, result);
+        return { };
+    }
+
+    case RefEq: {
+        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyGC(), "Wasm GC is not enabled");
+
+        TypedExpression ref0;
+        TypedExpression ref1;
+        WASM_TRY_POP_EXPRESSION_STACK_INTO(ref0, "ref.eq");
+        WASM_TRY_POP_EXPRESSION_STACK_INTO(ref1, "ref.eq");
+        WASM_VALIDATOR_FAIL_IF(!isSubtype(ref0.type(), eqrefType()), "ref.eq ref0 to type ", ref0.type().kind, " expected ", TypeKind::Eqref);
+        WASM_VALIDATOR_FAIL_IF(!isSubtype(ref1.type(), eqrefType()), "ref.eq ref1 to type ", ref1.type().kind, " expected ", TypeKind::Eqref);
+
+        ExpressionType result;
+        WASM_TRY_ADD_TO_CONTEXT(addRefEq(ref0, ref1, result));
+
+        m_expressionStack.constructAndAppend(Types::I32, result);
         return { };
     }
 
@@ -3003,7 +3075,8 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
         return { };
     }
 
-    case RefAsNonNull: {
+    case RefAsNonNull:
+    case RefEq: {
         return { };
     }
 
@@ -3075,6 +3148,15 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
         case ExtGCOpType::StructSet: {
             StructTypeIndexAndFieldIndex unused;
             WASM_FAIL_IF_HELPER_FAILS(parseStructTypeIndexAndFieldIndex(unused, "struct.set"));
+            return { };
+        }
+        case ExtGCOpType::RefTest:
+        case ExtGCOpType::RefTestNull:
+        case ExtGCOpType::RefCast:
+        case ExtGCOpType::RefCastNull: {
+            const char* opName = op == ExtGCOpType::RefCast || op == ExtGCOpType::RefCastNull ? "ref.cast" : "ref.test";
+            int32_t unused;
+            WASM_PARSER_FAIL_IF(!parseHeapType(m_info, unused), "can't get heap type for ", opName);
             return { };
         }
         default:

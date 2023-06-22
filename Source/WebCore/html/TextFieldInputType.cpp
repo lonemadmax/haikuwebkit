@@ -40,12 +40,12 @@
 #include "ElementRareData.h"
 #include "EventLoop.h"
 #include "EventNames.h"
-#include "Frame.h"
 #include "FrameSelection.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
+#include "LocalFrame.h"
 #include "LocalizedStrings.h"
 #include "NodeRenderStyle.h"
 #include "Page.h"
@@ -83,8 +83,6 @@ TextFieldInputType::TextFieldInputType(Type type, HTMLInputElement& element)
 
 TextFieldInputType::~TextFieldInputType()
 {
-    if (m_innerSpinButton)
-        m_innerSpinButton->removeSpinButtonOwner();
 #if ENABLE(DATALIST_ELEMENT)
     closeSuggestions();
 #endif
@@ -787,7 +785,7 @@ bool TextFieldInputType::shouldDrawCapsLockIndicator() const
     if (element()->hasAutoFillStrongPasswordButton())
         return false;
 
-    RefPtr<Frame> frame = element()->document().frame();
+    RefPtr frame { element()->document().frame() };
     if (!frame)
         return false;
 

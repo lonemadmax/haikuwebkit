@@ -50,7 +50,6 @@
 #include "EventNames.h"
 #include "FloatRect.h"
 #include "FocusController.h"
-#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "HTMLBodyElement.h"
@@ -64,6 +63,7 @@
 #include "HTMLParserIdioms.h"
 #include "HTMLTextAreaElement.h"
 #include "HitTestResult.h"
+#include "LocalFrame.h"
 #include "LocalizedStrings.h"
 #include "MathMLNames.h"
 #include "NodeList.h"
@@ -364,7 +364,7 @@ bool AccessibilityObject::hasMisspelling() const
     if (!node())
         return false;
     
-    Frame* frame = node()->document().frame();
+    auto* frame = node()->document().frame();
     if (!frame)
         return false;
     
@@ -399,7 +399,7 @@ std::optional<SimpleRange> AccessibilityObject::misspellingRange(const SimpleRan
     if (!node)
         return std::nullopt;
 
-    Frame* frame = node->document().frame();
+    auto* frame = node->document().frame();
     if (!frame)
         return std::nullopt;
 
@@ -563,7 +563,7 @@ static void appendAccessibilityObject(RefPtr<AXCoreObject> object, Accessibility
     // Find the next descendant of this attachment object so search can continue through frames.
     if (object->isAttachment()) {
         Widget* widget = object->widgetForAttachmentView();
-        auto* frameView = dynamicDowncast<FrameView>(widget);
+        auto* frameView = dynamicDowncast<LocalFrameView>(widget);
         if (!frameView)
             return;
         auto* localFrame = dynamicDowncast<LocalFrame>(frameView->frame());
@@ -691,7 +691,7 @@ static std::optional<SimpleRange> rangeClosestToRange(const SimpleRange& referen
 
 std::optional<SimpleRange> AccessibilityObject::rangeOfStringClosestToRangeInDirection(const SimpleRange& referenceRange, AccessibilitySearchDirection searchDirection, const Vector<String>& searchStrings) const
 {
-    Frame* frame = this->frame();
+    auto* frame = this->frame();
     if (!frame)
         return std::nullopt;
     
@@ -980,7 +980,7 @@ Vector<String> AccessibilityObject::performTextOperation(const AccessibilityText
     if (operation.textRanges.isEmpty())
         return result;
 
-    Frame* frame = this->frame();
+    auto* frame = this->frame();
     if (!frame)
         return result;
 
@@ -1138,8 +1138,8 @@ bool AccessibilityObject::press()
     Element* actionElem = actionElement();
     if (!actionElem)
         return false;
-    if (Frame* f = actionElem->document().frame())
-        f->loader().resetMultipleFormSubmissionProtection();
+    if (auto* frame = actionElem->document().frame())
+        frame->loader().resetMultipleFormSubmissionProtection();
     
     // Hit test at this location to determine if there is a sub-node element that should act
     // as the target of the action.
@@ -1190,19 +1190,19 @@ bool AccessibilityObject::dispatchTouchEvent()
     return false;
 }
 
-Frame* AccessibilityObject::frame() const
+LocalFrame* AccessibilityObject::frame() const
 {
     Node* node = this->node();
     return node ? node->document().frame() : nullptr;
 }
 
-Frame* AccessibilityObject::mainFrame() const
+LocalFrame* AccessibilityObject::mainFrame() const
 {
-    Document* document = topDocument();
+    auto* document = topDocument();
     if (!document)
         return nullptr;
     
-    Frame* frame = document->frame();
+    auto* frame = document->frame();
     if (!frame)
         return nullptr;
     
@@ -1693,7 +1693,7 @@ bool AccessibilityObject::supportsReadOnly() const
         || role == AccessibilityRole::Switch
         || role == AccessibilityRole::TextField
         || role == AccessibilityRole::TreeGrid
-        || isPasswordField();
+        || isSecureField();
 }
 
 String AccessibilityObject::readOnlyValue() const
@@ -1852,7 +1852,7 @@ RemoteAXObjectRef AccessibilityObject::remoteParentObject() const
 
 Document* AccessibilityObject::document() const
 {
-    FrameView* frameView = documentFrameView();
+    auto* frameView = documentFrameView();
     if (!frameView)
         return nullptr;
 
@@ -1871,7 +1871,7 @@ Page* AccessibilityObject::page() const
     return document->page();
 }
 
-FrameView* AccessibilityObject::documentFrameView() const 
+LocalFrameView* AccessibilityObject::documentFrameView() const 
 { 
     const AccessibilityObject* object = this;
     while (object && !object->isAccessibilityRenderObject()) 
@@ -2330,8 +2330,8 @@ bool AccessibilityObject::insertText(const String& text)
         return false;
 
     auto& element = downcast<Element>(*node());
-    // Only try to insert text if the field is in editing mode (excluding password fields, which we do still want to try to insert into).
-    if (!isPasswordField() && !element.shouldUseInputMethod())
+    // Only try to insert text if the field is in editing mode (excluding secure fields, which we do still want to try to insert into).
+    if (!isSecureField() && !element.shouldUseInputMethod())
         return false;
 
     // Use Editor::insertText to mimic typing into the field.
@@ -2377,6 +2377,7 @@ static void initializeRoleMap()
         { "blockquote"_s, AccessibilityRole::Blockquote },
         { "button"_s, AccessibilityRole::Button },
         { "caption"_s, AccessibilityRole::Caption },
+        { "code"_s, AccessibilityRole::Code },
         { "checkbox"_s, AccessibilityRole::CheckBox },
         { "complementary"_s, AccessibilityRole::LandmarkComplementary },
         { "contentinfo"_s, AccessibilityRole::LandmarkContentInfo },
@@ -2425,6 +2426,7 @@ static void initializeRoleMap()
         { "doc-tip"_s, AccessibilityRole::DocumentNote },
         { "doc-toc"_s, AccessibilityRole::LandmarkNavigation },
         { "figure"_s, AccessibilityRole::Figure },
+        { "generic"_s, AccessibilityRole::Generic },
         // The mappings for 'graphics-*' roles are defined in this spec: https://w3c.github.io/graphics-aam/
         { "graphics-document"_s, AccessibilityRole::GraphicsDocument },
         { "graphics-object"_s, AccessibilityRole::GraphicsObject },
@@ -2667,7 +2669,7 @@ bool AccessibilityObject::supportsARIARoleDescription() const
 {
     auto role = this->roleValue();
     switch (role) {
-    case AccessibilityRole::Div:
+    case AccessibilityRole::Generic:
     case AccessibilityRole::Unknown:
         return false;
     default:
@@ -2709,27 +2711,57 @@ bool AccessibilityObject::supportsPressAction() const
     if (roleValue() == AccessibilityRole::Details)
         return true;
     
-    Element* actionElement = this->actionElement();
+    RefPtr actionElement = this->actionElement();
     if (!actionElement)
         return false;
-    
+
+    // [Bug: 133613] Heuristic: If the action element is presentational, we shouldn't expose press as a supported action.
+    if (nodeHasPresentationRole(actionElement.get()))
+        return false;
+
+    auto* axObject = actionElement != element() ? axObjectCache()->getOrCreate(actionElement.get()) : nullptr;
+    if (!axObject)
+        return true;
+
     // [Bug: 136247] Heuristic: element handlers that have more than one accessible descendant should not be exposed as supporting press.
-    if (actionElement != element()) {
-        if (AccessibilityObject* axObj = axObjectCache()->getOrCreate(actionElement)) {
-            AccessibilityChildrenVector results;
-            // Search within for immediate descendants that are static text. If we find more than one
-            // then this is an event delegator actionElement and we should expose the press action.
-            Vector<AccessibilitySearchKey> keys({ AccessibilitySearchKey::StaticText, AccessibilitySearchKey::Control, AccessibilitySearchKey::Graphic, AccessibilitySearchKey::Heading, AccessibilitySearchKey::Link });
-            AccessibilitySearchCriteria criteria(axObj, AccessibilitySearchDirection::Next, emptyString(), 2, false, false);
-            criteria.searchKeys = keys;
-            axObj->findMatchingObjects(&criteria, results);
-            if (results.size() > 1)
+    constexpr unsigned searchLimit = 512;
+    constexpr unsigned halfSearchLimit = searchLimit / 2;
+    unsigned candidatesChecked = 0;
+    unsigned matches = 0;
+
+    Vector<RefPtr<AXCoreObject>> candidates;
+    candidates.reserveInitialCapacity(std::min(static_cast<size_t>(searchLimit), axObject->children().size() + 1));
+    candidates.uncheckedAppend(axObject);
+
+    while (!candidates.isEmpty()) {
+        RefPtr candidate = candidates.takeLast();
+        if (!candidate)
+            continue;
+
+        if (candidate->isStaticText() || candidate->isControl() || candidate->isImage() || candidate->isHeading() || candidate->isLink()) {
+            matches += 1;
+            if (matches >= 2)
                 return false;
         }
+
+        candidatesChecked += 1;
+        // For performance, cut the search off at the limit and return false because
+        // we cannot reasonably determine whether this should support a press action.
+        if (candidatesChecked >= searchLimit)
+            return false;
+
+        size_t candidateCount = candidatesChecked + candidates.size();
+        size_t candidatesLeftUntilLimit = searchLimit > candidateCount ? searchLimit - candidateCount : 0;
+        // Limit the amount of children we take. Some objects can have tens of thousands of children, so we don't want to unconditionally append `children()` to the candidate pool.
+        const auto& children = candidate->children();
+        if (size_t maxChildrenToTake = std::min(static_cast<size_t>(halfSearchLimit), candidatesLeftUntilLimit))
+            candidates.append(children.span().subspan(0, std::min(children.size(), maxChildrenToTake)));
+
+        // `candidates` should never be allowed to grow past `searchLimit`.
+        ASSERT(searchLimit >= candidates.size());
     }
-    
-    // [Bug: 133613] Heuristic: If the action element is presentational, we shouldn't expose press as a supported action.
-    return !nodeHasPresentationRole(actionElement);
+
+    return true;
 }
 
 bool AccessibilityObject::supportsDatetimeAttribute() const
@@ -2823,18 +2855,6 @@ const String AccessibilityObject::placeholderValue() const
     return nullAtom();
 }
     
-bool AccessibilityObject::isInsideLiveRegion(bool excludeIfOff) const
-{
-    return liveRegionAncestor(excludeIfOff);
-}
-    
-AccessibilityObject* AccessibilityObject::liveRegionAncestor(bool excludeIfOff) const
-{
-    return Accessibility::findAncestor<AccessibilityObject>(*this, true, [excludeIfOff] (const AccessibilityObject& object) {
-        return object.supportsLiveRegion(excludeIfOff);
-    });
-}
-
 bool AccessibilityObject::supportsARIAAttributes() const
 {
     // This returns whether the element supports any global ARIA attributes.
@@ -3344,7 +3364,7 @@ void AccessibilityObject::scrollToMakeVisible(const ScrollRectToVisibleOptions& 
         parentObject()->scrollToMakeVisible();
 
     if (auto* renderer = this->renderer())
-        FrameView::scrollRectToVisible(boundingBoxRect(), *renderer, false, options);
+        LocalFrameView::scrollRectToVisible(boundingBoxRect(), *renderer, false, options);
 }
 
 void AccessibilityObject::scrollToMakeVisibleWithSubFocus(const IntRect& subfocus) const
@@ -3499,12 +3519,9 @@ IntRect AccessibilityObject::scrollVisibleContentRect() const
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityObject::contents()
 {
-    if (isTabList()) {
-        AccessibilityChildrenVector tabs;
-        tabChildren(tabs);
-        return tabs;
-    }
-    
+    if (isTabList())
+        return tabChildren();
+
     if (isScrollView()) {
         // A scroll view's contents are everything except the scroll bars.
         AccessibilityChildrenVector nonScrollbarChildren;
@@ -3746,13 +3763,13 @@ Vector<Element*> AccessibilityObject::elementsFromAttribute(const QualifiedName&
 
     auto& element = downcast<Element>(*node);
     if (document()->settings().ariaReflectionForElementReferencesEnabled()) {
-        if (Element::isElementReflectionAttribute(attribute)) {
+        if (Element::isElementReflectionAttribute(document()->settings(), attribute)) {
             if (auto reflectedElement = element.getElementAttribute(attribute)) {
                 Vector<Element*> elements;
                 elements.append(reflectedElement);
                 return elements;
             }
-        } else if (Element::isElementsArrayReflectionAttribute(attribute)) {
+        } else if (Element::isElementsArrayReflectionAttribute(document()->settings(), attribute)) {
             if (auto reflectedElements = element.getElementsArrayAttribute(attribute)) {
                 return WTF::map(reflectedElements.value(), [](RefPtr<Element> element) -> Element* {
                     return element.get();
@@ -3785,13 +3802,13 @@ Vector<Element*> AccessibilityObject::elementsFromAttribute(const QualifiedName&
 #if PLATFORM(COCOA)
 bool AccessibilityObject::preventKeyboardDOMEventDispatch() const
 {
-    Frame* frame = this->frame();
+    auto* frame = this->frame();
     return frame && frame->settings().preventKeyboardDOMEventDispatch();
 }
 
 void AccessibilityObject::setPreventKeyboardDOMEventDispatch(bool on)
 {
-    Frame* frame = this->frame();
+    auto* frame = this->frame();
     if (!frame)
         return;
     frame->settings().setPreventKeyboardDOMEventDispatch(on);
@@ -3838,6 +3855,9 @@ AtomString AccessibilityObject::tagName() const
 
 bool AccessibilityObject::isStyleFormatGroup() const
 {
+    if (isCode())
+        return true;
+
     Node* node = this->node();
     if (!node)
         return false;
@@ -3868,7 +3888,7 @@ bool AccessibilityObject::isOutput() const
     return node && node->hasTagName(outputTag);
 }
     
-bool AccessibilityObject::isContainedByPasswordField() const
+bool AccessibilityObject::isContainedBySecureField() const
 {
     Node* node = this->node();
     if (!node)
@@ -3878,7 +3898,7 @@ bool AccessibilityObject::isContainedByPasswordField() const
         return false;
 
     Element* element = node->shadowHost();
-    return is<HTMLInputElement>(element) && downcast<HTMLInputElement>(*element).isPasswordField();
+    return is<HTMLInputElement>(element) && downcast<HTMLInputElement>(*element).isSecureField();
 }
     
 AccessibilityObject* AccessibilityObject::selectedListItem()

@@ -92,7 +92,7 @@ void LLIntPlan::compileFunction(uint32_t functionIndex)
         Locker locker { m_lock };
         if (!m_errorMessage) {
             // Multiple compiles could fail simultaneously. We arbitrarily choose the first.
-            fail(makeString(parseAndCompileResult.error(), ", in function at index ", String::number(functionIndex))); // FIXME make this an Expected.
+            fail(makeString(parseAndCompileResult.error(), ", in function at index "_s, functionIndex)); // FIXME make this an Expected.
         }
         m_currentIndex = m_moduleInformation->functions.size();
         return;
@@ -138,7 +138,7 @@ void LLIntPlan::didCompleteCompilation()
             jumps[i] = jit.jump();
         }
 
-        LinkBuffer linkBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::Wasm, JITCompilationCanFail);
+        LinkBuffer linkBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::WasmThunk, JITCompilationCanFail);
         if (UNLIKELY(linkBuffer.didFailToAllocate())) {
             Base::fail("Out of executable memory in Wasm LLInt entry thunks"_s);
             return;
@@ -172,9 +172,9 @@ void LLIntPlan::didCompleteCompilation()
             Ref<JSEntrypointCallee> callee = JSEntrypointCallee::create();
             std::unique_ptr<InternalFunction> function = createJSToWasmWrapper(jit, callee.get(), signature, &m_unlinkedWasmToWasmCalls[functionIndex], m_moduleInformation.get(), mode, functionIndex);
 
-            LinkBuffer linkBuffer(jit, nullptr, LinkBuffer::Profile::Wasm, JITCompilationCanFail);
+            LinkBuffer linkBuffer(jit, nullptr, LinkBuffer::Profile::WasmThunk, JITCompilationCanFail);
             if (UNLIKELY(linkBuffer.didFailToAllocate())) {
-                Base::fail(makeString("Out of executable memory in function entrypoint at index ", String::number(functionIndex)));
+                Base::fail(makeString("Out of executable memory in function entrypoint at index "_s, functionIndex));
                 return;
             }
 

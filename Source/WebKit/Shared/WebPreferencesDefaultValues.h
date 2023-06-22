@@ -95,13 +95,17 @@ bool defaultGamepadVibrationActuatorEnabled();
 #endif
 
 bool defaultRunningBoardThrottlingEnabled();
-bool defaultShouldTakeSuspendedAssertions();
+bool defaultShouldDropSuspendedAssertionAfterDelay();
 bool defaultShowModalDialogEnabled();
 
 bool defaultShouldEnableScreenOrientationAPI();
 
 #if HAVE(SC_CONTENT_SHARING_PICKER)
 bool defaultUseSCContentSharingPicker();
+#endif
+
+#if USE(LIBWEBRTC)
+bool defaultPeerConnectionEnabledAvailable();
 #endif
 
 } // namespace WebKit

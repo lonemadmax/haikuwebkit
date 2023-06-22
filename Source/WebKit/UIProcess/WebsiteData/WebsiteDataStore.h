@@ -121,9 +121,13 @@ public:
     static Ref<WebsiteDataStore> defaultDataStore();
     static bool defaultDataStoreExists();
     static void deleteDefaultDataStoreForTesting();
+    static RefPtr<WebsiteDataStore> existingDataStoreForIdentifier(const UUID&);
     
     static Ref<WebsiteDataStore> createNonPersistent();
     static Ref<WebsiteDataStore> create(Ref<WebsiteDataStoreConfiguration>&&, PAL::SessionID);
+#if PLATFORM(COCOA)
+    static Ref<WebsiteDataStore> dataStoreForIdentifier(const UUID&);
+#endif
 
     WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&&, PAL::SessionID);
     ~WebsiteDataStore();
@@ -169,6 +173,9 @@ public:
 
     uint64_t perOriginStorageQuota() const { return m_resolvedConfiguration->perOriginStorageQuota(); }
     uint64_t perThirdPartyOriginStorageQuota() const;
+    std::optional<double> originQuotaRatio() { return m_resolvedConfiguration->originQuotaRatio(); }
+
+    bool isBlobRegistryPartitioningEnabled() const;
 
 #if PLATFORM(IOS_FAMILY)
     String resolvedCookieStorageDirectory();
@@ -477,6 +484,7 @@ private:
     static void removeMediaKeys(const String& mediaKeysStorageDirectory, const HashSet<WebCore::SecurityOriginData>&);
 
     void registerWithSessionIDMap();
+    bool hasActivePages();
 
 #if ENABLE(APP_BOUND_DOMAINS)
     static std::optional<HashSet<WebCore::RegistrableDomain>> appBoundDomainsIfInitialized();

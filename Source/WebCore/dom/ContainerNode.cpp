@@ -37,7 +37,6 @@
 #include "ElementTraversal.h"
 #include "EventNames.h"
 #include "FloatRect.h"
-#include "FrameView.h"
 #include "GenericCachedHTMLCollection.h"
 #include "HTMLFormControlsCollection.h"
 #include "HTMLOptionsCollection.h"
@@ -46,6 +45,7 @@
 #include "InspectorInstrumentation.h"
 #include "JSNodeCustom.h"
 #include "LabelsNodeList.h"
+#include "LocalFrameView.h"
 #include "MutationEvent.h"
 #include "NameNodeList.h"
 #include "NodeRareData.h"
@@ -389,9 +389,6 @@ static inline bool isChildTypeAllowed(ContainerNode& newParent, Node& child)
 
 static bool containsIncludingHostElements(const Node& possibleAncestor, const Node& node)
 {
-    if (LIKELY(!node.isInShadowTree() && !node.document().templateDocumentHost()))
-        return possibleAncestor.contains(node);
-
     const Node* currentNode = &node;
     do {
         if (currentNode == &possibleAncestor)

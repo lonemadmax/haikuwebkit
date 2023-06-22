@@ -98,7 +98,7 @@ NetworkStorageSession* NetworkSession::networkStorageSession() const
 
 static UniqueRef<PCM::ManagerInterface> managerOrProxy(NetworkSession& networkSession, NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
 {
-    if (!parameters.pcmMachServiceName.isEmpty())
+    if (!parameters.pcmMachServiceName.isEmpty() && !networkSession.sessionID().isEphemeral())
         return makeUniqueRef<PCM::ManagerProxy>(parameters.pcmMachServiceName, networkSession);
     return makeUniqueRef<PrivateClickMeasurementManager>(makeUniqueRef<PCM::ClientImpl>(networkSession, networkProcess), parameters.resourceLoadStatisticsParameters.directory);
 }
@@ -112,7 +112,7 @@ static Ref<NetworkStorageManager> createNetworkStorageManager(IPC::Connection* c
     IPC::Connection::UniqueID connectionID;
     if (connection)
         connectionID = connection->uniqueID();
-    return NetworkStorageManager::create(parameters.sessionID, connectionID, parameters.generalStorageDirectory, parameters.localStorageDirectory, parameters.indexedDBDirectory, parameters.cacheStorageDirectory, parameters.perOriginStorageQuota, parameters.perThirdPartyOriginStorageQuota, parameters.unifiedOriginStorageLevel);
+    return NetworkStorageManager::create(parameters.sessionID, connectionID, parameters.generalStorageDirectory, parameters.localStorageDirectory, parameters.indexedDBDirectory, parameters.cacheStorageDirectory, parameters.perOriginStorageQuota, parameters.perThirdPartyOriginStorageQuota, parameters.originQuotaRatio, parameters.unifiedOriginStorageLevel);
 }
 
 NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
@@ -176,6 +176,8 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
 #if ENABLE(TRACKING_PREVENTION)
     setTrackingPreventionEnabled(parameters.resourceLoadStatisticsParameters.enabled);
 #endif
+
+    setBlobRegistryTopOriginPartitioningEnabled(parameters.isBlobRegistryTopOriginPartitioningEnabled);
 
 #if ENABLE(SERVICE_WORKER)
     SandboxExtension::consumePermanently(parameters.serviceWorkerRegistrationDirectoryExtensionHandle);
@@ -402,11 +404,20 @@ void NetworkSession::handlePrivateClickMeasurementConversion(WebCore::PCM::Attri
         appBundleID = WebCore::applicationBundleIdentifier();
 #endif
 
+    if (!m_ephemeralMeasurement && m_sessionID.isEphemeral())
+        return;
+
     if (m_ephemeralMeasurement) {
         auto ephemeralMeasurement = *std::exchange(m_ephemeralMeasurement, std::nullopt);
 
         auto redirectDomain = RegistrableDomain(redirectRequest.url());
         auto firstPartyForCookies = redirectRequest.firstPartyForCookies();
+
+        bool hasAgedOut = WallTime::now() - ephemeralMeasurement.timeOfAdClick() > WebCore::PrivateClickMeasurement::maxAge();
+        if (hasAgedOut) {
+            networkProcess().broadcastConsoleMessage(m_sessionID, JSC::MessageSource::PrivateClickMeasurement, JSC::MessageLevel::Info, "[Private Click Measurement] Aging out ephemeral click measurement."_s);
+            return;
+        }
 
         // Ephemeral measurement can only have one pending click.
         if (ephemeralMeasurement.isNeitherSameSiteNorCrossSiteTriggeringEvent(redirectDomain, firstPartyForCookies, attributionTriggerData))
@@ -496,6 +507,12 @@ void NetworkSession::setPrivateClickMeasurementDebugMode(bool enabled)
 void NetworkSession::firePrivateClickMeasurementTimerImmediatelyForTesting()
 {
     privateClickMeasurement().startTimerImmediatelyForTesting();
+}
+
+void NetworkSession::setBlobRegistryTopOriginPartitioningEnabled(bool enabled)
+{
+    RELEASE_LOG(Storage, "NetworkSession::setBlobRegistryTopOriginPartitioningEnabled as %" PUBLIC_LOG_STRING " for session %" PRIu64, enabled ? "enabled" : "disabled", m_sessionID.toUInt64());
+    m_blobRegistry.setPartitioningEnabled(enabled);
 }
 
 void NetworkSession::allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo& certificateInfo)
@@ -742,9 +759,9 @@ void NetworkSession::addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier w
     m_networkProcess->addAllowedFirstPartyForCookies(webProcessIdentifier, WTFMove(firstPartyForCookies), LoadedWebArchive::No, [] { });
 }
 
-std::unique_ptr<BackgroundFetchRecordLoader> NetworkSession::createBackgroundFetchRecordLoader(BackgroundFetchRecordLoader::Client& client, const WebCore::BackgroundFetchRequest& request, const ClientOrigin& clientOrigin)
+std::unique_ptr<BackgroundFetchRecordLoader> NetworkSession::createBackgroundFetchRecordLoader(BackgroundFetchRecordLoader::Client& client, const WebCore::BackgroundFetchRequest& request, size_t responseDataSize, const ClientOrigin& clientOrigin)
 {
-    return makeUnique<BackgroundFetchLoad>(m_networkProcess.get(), m_sessionID, client, request, clientOrigin);
+    return makeUnique<BackgroundFetchLoad>(m_networkProcess.get(), m_sessionID, client, request, responseDataSize, clientOrigin);
 }
 
 Ref<BackgroundFetchStore> NetworkSession::createBackgroundFetchStore()

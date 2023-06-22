@@ -1447,13 +1447,7 @@ private:
 
         // https://drafts.fxtf.org/filter-effects/#interpolation-of-filters
 
-        auto listContainsReference = [](auto& filterOperations) {
-            return filterOperations.operations().findIf([](auto& filterOperation) {
-                return filterOperation->type() == FilterOperation::Type::Reference;
-            }) != notFound;
-        };
-
-        if (listContainsReference(fromFilterOperations) || listContainsReference(toFilterOperations))
+        if (fromFilterOperations.hasReferenceFilter() || toFilterOperations.hasReferenceFilter())
             return false;
 
         // If one filter is none and the other is a <filter-value-list> without <url>
@@ -3581,7 +3575,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<TextJustify>(CSSPropertyTextJustify, &RenderStyle::textJustify, &RenderStyle::setTextJustify),
         new DiscretePropertyWrapper<TextOverflow>(CSSPropertyTextOverflow, &RenderStyle::textOverflow, &RenderStyle::setTextOverflow),
         new DiscretePropertyWrapper<OptionSet<TouchAction>>(CSSPropertyTouchAction, &RenderStyle::touchActions, &RenderStyle::setTouchActions),
-        new DiscretePropertyWrapper<TextTransform>(CSSPropertyTextTransform, &RenderStyle::textTransform, &RenderStyle::setTextTransform),
+        new DiscretePropertyWrapper<OptionSet<TextTransform>>(CSSPropertyTextTransform, &RenderStyle::textTransform, &RenderStyle::setTextTransform),
         new DiscretePropertyWrapper<TextWrap>(CSSPropertyTextWrap, &RenderStyle::textWrap, &RenderStyle::setTextWrap),
         new DiscretePropertyWrapper<TransformBox>(CSSPropertyTransformBox, &RenderStyle::transformBox, &RenderStyle::setTransformBox),
         new DiscretePropertyWrapper<TransformStyle3D>(CSSPropertyTransformStyle, &RenderStyle::transformStyle3D, &RenderStyle::setTransformStyle3D),

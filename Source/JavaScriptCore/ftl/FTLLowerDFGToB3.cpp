@@ -1127,9 +1127,6 @@ private:
         case CreateClonedArguments:
             compileCreateClonedArguments();
             break;
-        case CreateArgumentsButterflyExcludingThis:
-            compileCreateArgumentsButterflyExcludingThis();
-            break;
         case ObjectAssign:
             compileObjectAssign();
             break;
@@ -7423,13 +7420,6 @@ IGNORE_CLANG_WARNINGS_END
                 m_graph.globalObjectFor(m_origin.semantic)->clonedArgumentsStructure()),
             getArgumentsStart(), getArgumentsLength().value, getCurrentCallee());
         
-        setJSValue(result);
-    }
-
-    void compileCreateArgumentsButterflyExcludingThis()
-    {
-        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
-        LValue result = vmCall(Int64, operationCreateArgumentsButterflyExcludingThis, weakPointer(globalObject), getArgumentsStart(), getArgumentsLength().value, lowCell(m_node->child1()));
         setJSValue(result);
     }
 
@@ -19556,7 +19546,7 @@ IGNORE_CLANG_WARNINGS_END
             return result;
         }
         
-        DFG_CRASH(m_graph, m_node, makeString("Value not defined: ", String::number(edge.node()->index())).ascii().data());
+        DFG_CRASH(m_graph, m_node, makeString("Value not defined: "_s, edge.node()->index()).ascii().data());
         return nullptr;
     }
 

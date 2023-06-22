@@ -124,6 +124,7 @@ public:
 
     // Called for requested scroll position updates. Returns true if handled.
     virtual bool scrollingTreeNodeRequestsScroll(ScrollingNodeID, const RequestedScrollData&) { return false; }
+    virtual bool scrollingTreeNodeRequestsKeyboardScroll(ScrollingNodeID, const RequestedKeyboardScrollData&) { return false; }
 
     // Delegated scrolling/zooming has caused the viewport to change, so update viewport-constrained layers
     WEBCORE_EXPORT void mainFrameViewportChangedViaDelegatedScrolling(const FloatPoint& scrollPosition, const WebCore::FloatRect& layoutViewport, double scale);
@@ -137,9 +138,9 @@ public:
 
 #if PLATFORM(IOS_FAMILY)
     virtual void scrollingTreeNodeWillStartPanGesture(ScrollingNodeID) { }
+#endif
     virtual void scrollingTreeNodeWillStartScroll(ScrollingNodeID) { }
     virtual void scrollingTreeNodeDidEndScroll(ScrollingNodeID) { }
-#endif
 
     WEBCORE_EXPORT TrackingType eventTrackingTypeForPoint(EventTrackingRegions::EventType, IntPoint);
 
@@ -222,6 +223,8 @@ public:
     WEBCORE_EXPORT bool hasPendingScrollUpdates();
 
     virtual void removePendingScrollAnimationForNode(ScrollingNodeID) { }
+
+    WEBCORE_EXPORT float mainFrameTopContentInset() const;
 
     WEBCORE_EXPORT FloatPoint mainFrameScrollPosition() const;
 

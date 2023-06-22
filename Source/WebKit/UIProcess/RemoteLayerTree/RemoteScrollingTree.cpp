@@ -96,6 +96,28 @@ bool RemoteScrollingTree::scrollingTreeNodeRequestsScroll(ScrollingNodeID nodeID
     return m_scrollingCoordinatorProxy->scrollingTreeNodeRequestsScroll(nodeID, request);
 }
 
+bool RemoteScrollingTree::scrollingTreeNodeRequestsKeyboardScroll(ScrollingNodeID nodeID, const RequestedKeyboardScrollData& request)
+{
+    ASSERT(isMainRunLoop());
+
+    if (!m_scrollingCoordinatorProxy)
+        return false;
+
+    return m_scrollingCoordinatorProxy->scrollingTreeNodeRequestsKeyboardScroll(nodeID, request);
+}
+
+void RemoteScrollingTree::scrollingTreeNodeWillStartScroll(ScrollingNodeID nodeID)
+{
+    if (m_scrollingCoordinatorProxy)
+        m_scrollingCoordinatorProxy->scrollingTreeNodeWillStartScroll(nodeID);
+}
+
+void RemoteScrollingTree::scrollingTreeNodeDidEndScroll(ScrollingNodeID nodeID)
+{
+    if (m_scrollingCoordinatorProxy)
+        m_scrollingCoordinatorProxy->scrollingTreeNodeDidEndScroll(nodeID);
+}
+
 Ref<ScrollingTreeNode> RemoteScrollingTree::createScrollingTreeNode(ScrollingNodeType nodeType, ScrollingNodeID nodeID)
 {
     switch (nodeType) {

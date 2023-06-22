@@ -326,6 +326,12 @@ InlineLayoutUnit LineBuilder::inlineItemWidth(const InlineItem& inlineItem, Inli
     if (inlineItem.isInlineBoxEnd())
         return boxGeometry.marginEnd() + boxGeometry.borderEnd() + boxGeometry.paddingEnd().value_or(0);
 
+    // FIXME: The overhang should be computed to not overlap the neighboring runs or overflow the line.
+    if (auto* rubyAdjustments = layoutBox.rubyAdjustments()) {
+        auto& overhang = isFirstFormattedLine() ? rubyAdjustments->firstLineOverhang : rubyAdjustments->overhang;
+        return boxGeometry.marginBoxWidth() - (overhang.start + overhang.end);
+    }
+
     // Non-replaced inline box (e.g. inline-block)
     return boxGeometry.marginBoxWidth();
 }
@@ -1146,7 +1152,6 @@ bool LineBuilder::tryPlacingFloatBox(const InlineItem& floatItem, MayOverConstra
         return false;
 
     auto floatBoxItem = floatingContext.toFloatItem(floatBox);
-    auto isLogicalLeftPositionedInFloatingState = floatBoxItem.isLeftPositioned();
     auto placeFloatBox = [&] {
         floatingState()->append(floatBoxItem);
         m_placedFloats.append(&floatItem);
@@ -1158,25 +1163,17 @@ bool LineBuilder::tryPlacingFloatBox(const InlineItem& floatItem, MayOverConstra
             // This float is placed outside the line box. No need to shrink the current line.
             return;
         }
-        // Shrink the line box with the intrusive float box's margin box.
-        m_lineIsConstrainedByFloat = true;
-        auto shouldAdjustLineLogicalLeft = [&] {
-            auto matchingInlineDirection = floatingState()->isLeftToRightDirection() == formattingContext().root().style().isLeftToRightDirection();
-            // Floating state inherited from the parent BFC with mismatching inline direction (ltr vs. rtl) puts
-            // a right float (float: right in direction: ltr but parent direction: rtl) to logical left.
-            return (matchingInlineDirection && isLogicalLeftPositionedInFloatingState) || (!matchingInlineDirection && !isLogicalLeftPositionedInFloatingState);
-        };
 
-        // FIXME: In quirks mode some content may sneak above this float.
-        if (shouldAdjustLineLogicalLeft()) {
-            auto floatLogicalRight = InlineLayoutUnit { floatBoxItem.rectWithMargin().right() };
-            auto lineMarginLogicalLeft = m_lineLogicalRect.left() - m_lineMarginStart;
-            m_lineLogicalRect.shiftLeftTo(m_lineMarginStart + std::max(lineMarginLogicalLeft, floatLogicalRight));
-            return;
-        }
-        auto floatLogicalLeft = InlineLayoutUnit { floatBoxItem.rectWithMargin().left() };
-        auto shrinkLineBy = m_lineLogicalRect.right() - floatLogicalLeft;
-        m_lineLogicalRect.expandHorizontally(std::min(0.f, -shrinkLineBy));
+        auto lineConstraints = floatConstraints(m_lineLogicalRect);
+
+        auto adjustedRect = m_lineLogicalRect;
+        if (lineConstraints.left)
+            adjustedRect.shiftLeftTo(std::max<InlineLayoutUnit>(adjustedRect.left(), lineConstraints.left->x + m_lineMarginStart));
+        if (lineConstraints.right)
+            adjustedRect.setRight(std::max(adjustedRect.left(), std::min<InlineLayoutUnit>(adjustedRect.right(), lineConstraints.right->x)));
+
+        m_lineIsConstrainedByFloat = m_lineIsConstrainedByFloat || adjustedRect != m_lineLogicalRect;
+        m_lineLogicalRect = adjustedRect;
     };
     adjustLineRectIfNeeded();
 
