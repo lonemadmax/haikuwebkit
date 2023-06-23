@@ -24,7 +24,7 @@
 #include "config.h"
 #include "PopupMenuHaiku.h"
 
-#include "FrameView.h"
+#include "LocalFrameView.h"
 
 #include "NotImplemented.h"
 #include <Application.h>
@@ -95,7 +95,7 @@ public:
         }
     }
 
-    void show(const IntRect& rect, FrameView* view, int index)
+    void show(const IntRect& rect, LocalFrameView* view, int index)
     {
         // Clean out the menu first
         for (int32 i = CountItems() - 1; i >= 0; i--)
@@ -172,7 +172,7 @@ void PopupMenuHaiku::disconnectClient()
     m_popupClient = 0;
 }
 
-void PopupMenuHaiku::show(const IntRect& rect, FrameView* view, int index)
+void PopupMenuHaiku::show(const IntRect& rect, LocalFrameView* view, int index)
 {
     // The menu will update itself from the PopupMenuClient before showing.
     m_menu->show(rect, view, index);

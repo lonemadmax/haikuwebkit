@@ -45,7 +45,7 @@ ProgressTrackerClientHaiku::ProgressTrackerClientHaiku(BWebPage* view)
     ASSERT(m_view);
 }
 
-void ProgressTrackerClientHaiku::progressStarted(Frame& originatingProgressFrame)
+void ProgressTrackerClientHaiku::progressStarted(LocalFrame& originatingProgressFrame)
 {
     BMessage message(LOAD_STARTED);
     message.AddString("url", originatingProgressFrame.document()->url().string());
@@ -57,12 +57,12 @@ void ProgressTrackerClientHaiku::progressStarted(Frame& originatingProgressFrame
     triggerNavigationHistoryUpdate(originatingProgressFrame);
 }
 
-void ProgressTrackerClientHaiku::progressEstimateChanged(Frame& originatingProgressFrame)
+void ProgressTrackerClientHaiku::progressEstimateChanged(LocalFrame& originatingProgressFrame)
 {
     m_view->setLoadingProgress(originatingProgressFrame.page()->progress().estimatedProgress() * 100);
 }
 
-void ProgressTrackerClientHaiku::progressFinished(Frame& frame)
+void ProgressTrackerClientHaiku::progressFinished(LocalFrame& frame)
 {
     BMessage message(LOAD_DL_COMPLETED);
     message.AddString("url", frame.document()->url().string());
@@ -72,7 +72,7 @@ void ProgressTrackerClientHaiku::progressFinished(Frame& frame)
     triggerNavigationHistoryUpdate(frame);
 }
 
-void ProgressTrackerClientHaiku::triggerNavigationHistoryUpdate(Frame& frame) const
+void ProgressTrackerClientHaiku::triggerNavigationHistoryUpdate(LocalFrame& frame) const
 {
     WebCore::Page* page = frame.page();
     WebCore::FrameLoader& loader = frame.loader();

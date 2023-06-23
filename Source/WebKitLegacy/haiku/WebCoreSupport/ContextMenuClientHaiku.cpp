@@ -55,7 +55,7 @@ void ContextMenuClientHaiku::downloadURL(const URL& url)
     m_webPage->requestDownload(request);
 }
 
-void ContextMenuClientHaiku::searchWithGoogle(const Frame* frame)
+void ContextMenuClientHaiku::searchWithGoogle(const LocalFrame* frame)
 {
     String searchString = frame->editor().selectedText();
     String encoded = encodeWithURLEscapeSequences(searchString.stripWhiteSpace());
@@ -68,13 +68,13 @@ void ContextMenuClientHaiku::searchWithGoogle(const Frame* frame)
 
     if (Page* page = frame->page()) {
         UserGestureIndicator indicator(ProcessingUserGesture);
-        static_cast<WebCore::Frame&>(page->mainFrame()).loader().changeLocation(URL({ }, url.toString()),
+        static_cast<WebCore::LocalFrame&>(page->mainFrame()).loader().changeLocation(URL({ }, url.toString()),
             ASCIILiteral::fromLiteralUnsafe("_blank"), 0, ReferrerPolicy::EmptyString,
             frame->document()->shouldOpenExternalURLsPolicyToPropagate());
     }
 }
 
-void ContextMenuClientHaiku::lookUpInDictionary(Frame*)
+void ContextMenuClientHaiku::lookUpInDictionary(LocalFrame*)
 {
     notImplemented();
 }

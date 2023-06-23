@@ -66,9 +66,9 @@ namespace WebCore {
         void takeFocus(FocusDirection) override;
 
         void focusedElementChanged(Element*) override;
-        void focusedFrameChanged(Frame*) override;
+        void focusedFrameChanged(LocalFrame*) override;
 
-        Page* createWindow(Frame&, const WindowFeatures&, const NavigationAction&) override;
+        Page* createWindow(LocalFrame&, const WindowFeatures&, const NavigationAction&) override;
         void closeWindow() override;
 
         void show() override;
@@ -94,11 +94,11 @@ namespace WebCore {
                                          const String& message, unsigned int lineNumber, unsigned columnNumber, const String& sourceID) override;
 
         bool canRunBeforeUnloadConfirmPanel() override;
-        bool runBeforeUnloadConfirmPanel(const String& message, Frame& frame) override;
+        bool runBeforeUnloadConfirmPanel(const String& message, LocalFrame& frame) override;
 
-        void runJavaScriptAlert(Frame&, const String&) override;
-        bool runJavaScriptConfirm(Frame&, const String&) override;
-        bool runJavaScriptPrompt(Frame&, const String& message, const String& defaultValue, String& result) override;
+        void runJavaScriptAlert(LocalFrame&, const String&) override;
+        bool runJavaScriptConfirm(LocalFrame&, const String&) override;
+        bool runJavaScriptPrompt(LocalFrame&, const String& message, const String& defaultValue, String& result) override;
         std::unique_ptr<ColorChooser> createColorChooser(ColorChooserClient&, const Color&) override;
 
         KeyboardUIMode keyboardUIMode() override;
@@ -115,7 +115,7 @@ namespace WebCore {
         IntRect rootViewToScreen(const IntRect&) const override;
 
         PlatformPageClient platformPageClient() const override;
-        void contentsSizeChanged(Frame&, const IntSize&) const override;
+        void contentsSizeChanged(LocalFrame&, const IntSize&) const override;
         void intrinsicContentsSizeChanged(const IntSize&) const override;
         void scrollContainingScrollViewsToRevealRect(const IntRect&) const override;
         void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer* layer) override;
@@ -135,13 +135,13 @@ namespace WebCore {
         OptionSet<PointerCharacteristics> pointerCharacteristicsOfAllAvailablePointingDevices() const override { return WebCore::PointerCharacteristics::Fine; }
         void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned int, const WTF::String&, WebCore::TextDirection) override;
 
-        void print(Frame&, const WebCore::StringWithDirection&) override;
+        void print(LocalFrame&, const WebCore::StringWithDirection&) override;
 
-        void exceededDatabaseQuota(Frame&, const String& databaseName, DatabaseDetails) override;
+        void exceededDatabaseQuota(LocalFrame&, const String& databaseName, DatabaseDetails) override;
         void reachedMaxAppCacheSize(int64_t spaceNeeded) override;
         void reachedApplicationCacheOriginQuota(SecurityOrigin&, int64_t totalSpaceNeeded) override;
 
-        void attachRootGraphicsLayer(Frame&, GraphicsLayer*) override;
+        void attachRootGraphicsLayer(LocalFrame&, GraphicsLayer*) override;
         void setNeedsOneShotDrawingSynchronization() override;
         void triggerRenderingUpdate() override;
 
@@ -150,7 +150,7 @@ namespace WebCore {
             return static_cast<CompositingTriggerFlags>(0);
         }
 
-        void runOpenPanel(Frame&, FileChooser&) override;
+        void runOpenPanel(LocalFrame&, FileChooser&) override;
         void setPanelDirectory(entry_ref dir) { m_filePanelDirectory = dir; }
 
         // Asynchronous request to load an icon for specified filenames.

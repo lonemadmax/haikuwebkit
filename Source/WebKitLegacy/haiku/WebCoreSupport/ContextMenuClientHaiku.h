@@ -43,11 +43,11 @@ public:
     ContextMenuClientHaiku(BWebPage*);
 
     void downloadURL(const URL& url) override;
-    void lookUpInDictionary(Frame*) override;
+    void lookUpInDictionary(LocalFrame*) override;
     void speak(const String&) override;
     bool isSpeaking() const override;
     void stopSpeaking() override;
-    void searchWithGoogle(const Frame*) override;
+    void searchWithGoogle(const LocalFrame*) override;
 
 private:
     BWebPage* m_webPage;

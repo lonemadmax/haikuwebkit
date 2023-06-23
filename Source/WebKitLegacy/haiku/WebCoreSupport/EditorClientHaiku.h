@@ -80,16 +80,16 @@ public:
     void getClientPasteboardData(const std::optional<SimpleRange>&, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer> >& pasteboardData) override;
 
     void respondToChangedContents() override;
-    void respondToChangedSelection(Frame*) override;
-    void discardedComposition(Frame*) override;
+    void respondToChangedSelection(LocalFrame*) override;
+    void discardedComposition(LocalFrame*) override;
     void canceledComposition() override;
 
     void registerUndoStep(UndoStep&) override;
     void registerRedoStep(UndoStep&) override;
     void clearUndoRedoOperations() override;
 
-    bool canCopyCut(Frame*, bool defaultValue) const override;
-    bool canPaste(Frame*, bool defaultValue) const override;
+    bool canCopyCut(LocalFrame*, bool defaultValue) const override;
+    bool canPaste(LocalFrame*, bool defaultValue) const override;
     bool canUndo() const override;
     bool canRedo() const override;
 

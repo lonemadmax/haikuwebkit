@@ -31,12 +31,13 @@
 
 #include "FullscreenVideoController.h"
 #include "WebCore/Frame.h"
-#include "WebCore/FrameView.h"
 #include "WebCore/GraphicsContextHaiku.h"
 #include "WebCore/InspectorController.h"
+#include "WebCore/LocalFrameView.h"
 #include "WebCore/NotImplemented.h"
 #include "WebCore/Page.h"
 #include "WebCore/PointerLockController.h"
+#include "WebCore/RemoteFrameClient.h"
 #include "WebCore/ScrollableArea.h"
 #include "WebCore/Scrollbar.h"
 #include "WebPage.h"
@@ -97,7 +98,7 @@ BWebView::BWebView(const char* name, BPrivate::Network::BUrlContext* urlContext)
 
     // doesn't seem to affect the "background" for css, but it does fix the glaring
     // white screen between page loads (or when no page is open)
-    static_cast<WebCore::Frame&>(fWebPage->page()->mainFrame()).view()->setBaseBackgroundColor(background);
+    static_cast<WebCore::LocalFrame&>(fWebPage->page()->mainFrame()).view()->setBaseBackgroundColor(background);
 }
 
 BWebView::~BWebView()

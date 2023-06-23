@@ -124,12 +124,12 @@ void ChromeClientHaiku::focusedElementChanged(Element* node)
         unfocus();
 }
 
-void ChromeClientHaiku::focusedFrameChanged(Frame*)
+void ChromeClientHaiku::focusedFrameChanged(LocalFrame*)
 {
     notImplemented();
 }
 
-Page* ChromeClientHaiku::createWindow(Frame& /*frame*/, const WindowFeatures& features, const NavigationAction& /*action*/)
+Page* ChromeClientHaiku::createWindow(LocalFrame& /*frame*/, const WindowFeatures& features, const NavigationAction& /*action*/)
 {
 	// FIXME: I believe the frame is important for cloning session information.
 	// From looking through the Chromium port code, it is passed to the
@@ -245,7 +245,7 @@ bool ChromeClientHaiku::canRunBeforeUnloadConfirmPanel()
     return true;
 }
 
-bool ChromeClientHaiku::runBeforeUnloadConfirmPanel(const String& message, Frame& frame)
+bool ChromeClientHaiku::runBeforeUnloadConfirmPanel(const String& message, LocalFrame& frame)
 {
     return runJavaScriptConfirm(frame, message);
 }
@@ -261,19 +261,19 @@ void ChromeClientHaiku::closeWindow()
     m_webPage->closeWindow();
 }
 
-void ChromeClientHaiku::runJavaScriptAlert(Frame&, const String& msg)
+void ChromeClientHaiku::runJavaScriptAlert(LocalFrame&, const String& msg)
 {
     m_webPage->runJavaScriptAlert(BString(msg));
 }
 
-bool ChromeClientHaiku::runJavaScriptConfirm(Frame&, const String& msg)
+bool ChromeClientHaiku::runJavaScriptConfirm(LocalFrame&, const String& msg)
 {
     return m_webPage->runJavaScriptConfirm(BString(msg));
     BAlert* alert = new BAlert("JavaScript", BString(msg).String(), "Yes", "No");
     return !alert->Go();
 }
 
-bool ChromeClientHaiku::runJavaScriptPrompt(Frame&, const String& /*message*/, const String& /*defaultValue*/, String& /*result*/)
+bool ChromeClientHaiku::runJavaScriptPrompt(LocalFrame&, const String& /*message*/, const String& /*defaultValue*/, String& /*result*/)
 {
     notImplemented();
     return false;
@@ -352,7 +352,7 @@ PlatformPageClient ChromeClientHaiku::platformPageClient() const
     return m_webView;
 }
 
-void ChromeClientHaiku::contentsSizeChanged(Frame&, const IntSize&) const
+void ChromeClientHaiku::contentsSizeChanged(LocalFrame&, const IntSize&) const
 {
 }
 
@@ -391,12 +391,12 @@ void ChromeClientHaiku::mouseDidMoveOverElement(const WebCore::HitTestResult& re
 	m_webView->UnlockLooper();
 }
 
-void ChromeClientHaiku::print(Frame&, const WebCore::StringWithDirection&)
+void ChromeClientHaiku::print(LocalFrame&, const WebCore::StringWithDirection&)
 {
     notImplemented();
 }
 
-void ChromeClientHaiku::exceededDatabaseQuota(Frame&, const String& /*databaseName*/, DatabaseDetails)
+void ChromeClientHaiku::exceededDatabaseQuota(LocalFrame&, const String& /*databaseName*/, DatabaseDetails)
 {
     notImplemented();
 }
@@ -411,7 +411,7 @@ void ChromeClientHaiku::reachedApplicationCacheOriginQuota(SecurityOrigin&, int6
     notImplemented();
 }
 
-void ChromeClientHaiku::runOpenPanel(Frame&, FileChooser& chooser)
+void ChromeClientHaiku::runOpenPanel(LocalFrame&, FileChooser& chooser)
 {
     BMessage message(B_REFS_RECEIVED);
     message.AddPointer("chooser", &chooser);
@@ -489,7 +489,7 @@ bool ChromeClientHaiku::isPointerLocked() {
 #endif
 
 
-void ChromeClientHaiku::attachRootGraphicsLayer(Frame&, GraphicsLayer* layer)
+void ChromeClientHaiku::attachRootGraphicsLayer(LocalFrame&, GraphicsLayer* layer)
 {
     m_webView->SetRootLayer(layer);
 }

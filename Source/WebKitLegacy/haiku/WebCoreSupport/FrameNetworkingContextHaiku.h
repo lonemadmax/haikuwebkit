@@ -38,7 +38,7 @@ namespace WebCore {
 
 class FrameNetworkingContextHaiku : public WebCore::FrameNetworkingContext {
 public:
-    static Ref<FrameNetworkingContextHaiku> create(Frame*, BPrivate::Network::BUrlContext* context);
+    static Ref<FrameNetworkingContextHaiku> create(LocalFrame*, BPrivate::Network::BUrlContext* context);
     virtual ~FrameNetworkingContextHaiku();
 
     WebCore::Frame* coreFrame() const { return frame(); }
@@ -47,7 +47,7 @@ public:
     BPrivate::Network::BUrlContext* context();
 
 private:
-    FrameNetworkingContextHaiku(Frame*, BPrivate::Network::BUrlContext* context);
+    FrameNetworkingContextHaiku(LocalFrame*, BPrivate::Network::BUrlContext* context);
     WebCore::NetworkStorageSession* storageSession() const override;
 };
 

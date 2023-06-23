@@ -55,7 +55,7 @@ public:
     WTF::String requestedURL;
     WebCore::HTMLFrameOwnerElement* ownerElement;
     WebCore::Page* page;
-    RefPtr<WebCore::Frame> frame;
+    RefPtr<WebCore::LocalFrame> frame;
 };
 
 #endif // WebFramePrivate_h

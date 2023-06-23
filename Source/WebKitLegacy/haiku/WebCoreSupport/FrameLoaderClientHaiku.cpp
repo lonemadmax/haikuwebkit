@@ -485,12 +485,12 @@ void FrameLoaderClientHaiku::dispatchWillSubmitForm(FormState&, WTF::CompletionH
     function();
 }
 
-Frame* FrameLoaderClientHaiku::dispatchCreatePage(const NavigationAction& /*action*/, NewFrameOpenerPolicy)
+LocalFrame* FrameLoaderClientHaiku::dispatchCreatePage(const NavigationAction& /*action*/, NewFrameOpenerPolicy)
 {
     CALLED();
     WebCore::Page* page = m_webPage->createNewPage();
     if (page)
-        return static_cast<WebCore::Frame*>(&page->mainFrame());
+        return static_cast<WebCore::LocalFrame*>(&page->mainFrame());
 
     return 0;
 }
@@ -652,7 +652,7 @@ void FrameLoaderClientHaiku::finishedLoading(DocumentLoader* /*documentLoader*/)
 
 void FrameLoaderClientHaiku::updateGlobalHistory()
 {
-    WebCore::Frame* frame = m_webFrame->Frame();
+    WebCore::LocalFrame* frame = m_webFrame->Frame();
     if (!frame)
         return;
 
@@ -859,7 +859,7 @@ void FrameLoaderClientHaiku::transitionToCommittedForNewPage()
     CALLED();
     ASSERT(m_webFrame);
 
-    Frame* frame = m_webFrame->Frame();
+    LocalFrame* frame = m_webFrame->Frame();
 
     assert(frame);
 
@@ -889,7 +889,7 @@ bool FrameLoaderClientHaiku::canCachePage() const
     return true;
 }
 
-RefPtr<Frame> FrameLoaderClientHaiku::createFrame(const AtomString& name,
+RefPtr<LocalFrame> FrameLoaderClientHaiku::createFrame(const AtomString& name,
     HTMLFrameOwnerElement& ownerElement)
 {
     ASSERT(m_webFrame);
@@ -899,7 +899,7 @@ RefPtr<Frame> FrameLoaderClientHaiku::createFrame(const AtomString& name,
     if (!subFrame)
         return nullptr;
 
-    RefPtr<WebCore::Frame> coreSubFrame = subFrame->Frame();
+    RefPtr<WebCore::LocalFrame> coreSubFrame = subFrame->Frame();
     ASSERT(coreSubFrame);
 
     subFrame->SetListener(m_messenger);

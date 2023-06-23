@@ -181,7 +181,7 @@ void EditorClientHaiku::respondToChangedContents()
     dispatchMessage(message);
 }
 
-void EditorClientHaiku::respondToChangedSelection(Frame* frame)
+void EditorClientHaiku::respondToChangedSelection(LocalFrame* frame)
 {
     if (!frame)
         return;
@@ -215,7 +215,7 @@ void EditorClientHaiku::getClientPasteboardData(const std::optional<SimpleRange>
 {
 }
 
-void EditorClientHaiku::discardedComposition(Frame*)
+void EditorClientHaiku::discardedComposition(LocalFrame*)
 {
 }
 
@@ -241,12 +241,12 @@ void EditorClientHaiku::clearUndoRedoOperations()
     m_redoStack.clear();
 }
 
-bool EditorClientHaiku::canCopyCut(WebCore::Frame*, bool defaultValue) const
+bool EditorClientHaiku::canCopyCut(WebCore::LocalFrame*, bool defaultValue) const
 {
     return defaultValue;
 }
 
-bool EditorClientHaiku::canPaste(WebCore::Frame*, bool defaultValue) const
+bool EditorClientHaiku::canPaste(WebCore::LocalFrame*, bool defaultValue) const
 {
     return defaultValue;
 }
@@ -416,7 +416,7 @@ bool EditorClientHaiku::performTwoStepDrop(DocumentFragment&, const SimpleRange&
 bool EditorClientHaiku::handleEditingKeyboardEvent(KeyboardEvent* event,
     const PlatformKeyboardEvent* platformEvent)
 {
-    Frame& frame = m_page->page()->focusController().focusedOrMainFrame();
+    LocalFrame& frame = m_page->page()->focusController().focusedOrMainFrame();
     if (!frame.document())
         return false;
 

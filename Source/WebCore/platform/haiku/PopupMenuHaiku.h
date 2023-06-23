@@ -37,7 +37,7 @@ public:
     PopupMenuHaiku(PopupMenuClient*);
     ~PopupMenuHaiku();
 
-    virtual void show(const IntRect&, FrameView*, int index);
+    virtual void show(const IntRect&, LocalFrameView*, int index);
     virtual void hide();
     virtual void updateFromElement();
     virtual void disconnectClient();

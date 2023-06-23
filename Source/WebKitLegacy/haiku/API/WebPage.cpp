@@ -86,6 +86,7 @@
 #include "WebCore/PointerLockController.h"
 #include "WebCore/ProgressTracker.h"
 #include "WebCore/ProgressTrackerClient.h"
+#include "WebCore/RemoteFrameClient.h"
 #include "WebCore/ResourceHandle.h"
 #include "WebCore/ResourceRequest.h"
 #include "WebCore/ScriptController.h"
@@ -302,7 +303,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         BackForwardList::create(),
         CookieJar::create(storageProvider.copyRef()),
         makeUniqueRef<ProgressTrackerClientHaiku>(this),
-        makeUniqueRef<FrameLoaderClientHaiku>(this),
+        UniqueRef<FrameLoaderClient>(makeUniqueRef<FrameLoaderClientHaiku>(this)),
+        WebCore::FrameIdentifier::generate(),
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
@@ -803,8 +805,8 @@ void BWebPage::paint(BRect rect, bool immediate)
     // this ought to be avoided also for start-up speed reasons!
     if (!fMainFrame)
         return;
-    WebCore::Frame* frame = fMainFrame->Frame();
-    WebCore::FrameView* view = frame->view();
+    WebCore::LocalFrame* frame = fMainFrame->Frame();
+    WebCore::LocalFrameView* view = frame->view();
 
     if (!view || !frame->contentRenderer())
         return;
@@ -1186,7 +1188,7 @@ void BWebPage::handleFrameResized(const BMessage* message)
     message->FindFloat("width", &width);
     message->FindFloat("height", &height);
 
-    WebCore::Frame* frame = fMainFrame->Frame();
+    WebCore::LocalFrame* frame = fMainFrame->Frame();
     frame->view()->resize(width + 1, height + 1);
     frame->view()->forceLayout();
     frame->view()->adjustViewSize();
@@ -1245,7 +1247,7 @@ createPlatformContextMenu(ContextMenu& contents)
 
 void BWebPage::handleMouseEvent(const BMessage* message)
 {
-    WebCore::Frame* frame = fMainFrame->Frame();
+    WebCore::LocalFrame* frame = fMainFrame->Frame();
     if (!frame->view() || !frame->document())
         return;
 
@@ -1266,7 +1268,7 @@ void BWebPage::handleMouseEvent(const BMessage* message)
         if (event.button() == RightButton) {
             fPage->contextMenuController().clearContextMenu();
 
-            WebCore::Frame& focusedFrame = fPage->focusController().focusedOrMainFrame();
+            WebCore::LocalFrame& focusedFrame = fPage->focusController().focusedOrMainFrame();
             if (!focusedFrame.eventHandler().sendContextMenuEvent(event)) {
                 // event is swallowed.
                 return;
@@ -1327,7 +1329,7 @@ void BWebPage::handleMouseEvent(const BMessage* message)
 
 void BWebPage::handleMouseWheelChanged(BMessage* message)
 {
-    WebCore::Frame* frame = fMainFrame->Frame();
+    WebCore::LocalFrame* frame = fMainFrame->Frame();
     if (!frame->view() || !frame->document())
         return;
 
@@ -1352,7 +1354,7 @@ void BWebPage::handleMouseWheelChanged(BMessage* message)
 
 void BWebPage::handleKeyEvent(BMessage* message)
 {
-    WebCore::Frame& frame = fPage->focusController().focusedOrMainFrame();
+    WebCore::LocalFrame& frame = fPage->focusController().focusedOrMainFrame();
     if (!frame.view() || !frame.document())
         return;
 
@@ -1476,7 +1478,7 @@ void BWebPage::handleSendEditingCapabilities(BMessage*)
     bool canCopy = false;
     bool canPaste = false;
 
-    WebCore::Frame& frame = fPage->focusController().focusedOrMainFrame();
+    WebCore::LocalFrame& frame = fPage->focusController().focusedOrMainFrame();
     WebCore::Editor& editor = frame.editor();
 
     canCut = editor.canCut() || editor.canDHTMLCut();

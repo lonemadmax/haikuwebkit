@@ -78,7 +78,7 @@ BWebFrame::BWebFrame(BWebPage* webPage, BWebFrame* parentFrame,
     if (!parentFrame) {
         // No parent, we are creating the main BWebFrame.
         // mainframe is already created in WebCore::Page, just use it.
-        fData->frame = static_cast<WebCore::Frame*>(&webPage->page()->mainFrame());
+        fData->frame = static_cast<WebCore::LocalFrame*>(&webPage->page()->mainFrame());
 		FrameLoaderClientHaiku& client
 			= static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
 		client.setFrame(this);
@@ -400,7 +400,7 @@ JSGlobalContextRef BWebFrame::GlobalContext() const
 }
 
 
-WebCore::Frame* BWebFrame::Frame() const
+WebCore::LocalFrame* BWebFrame::Frame() const
 {
     return fData->frame.get();
 }
@@ -419,11 +419,11 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
         return nullptr;
 
     if (ownerElement) {
-        data->frame = WebCore::Frame::createSubframe(*fData->page,
+        data->frame = WebCore::LocalFrame::createSubframe(*fData->page,
                 makeUniqueRef<FrameLoaderClientHaiku>(page), WebCore::FrameIdentifier::generate(),
                 *ownerElement);
     } else {
-        data->frame = WebCore::Frame::createMainFrame(*fData->page,
+        data->frame = WebCore::LocalFrame::createMainFrame(*fData->page,
                 makeUniqueRef<FrameLoaderClientHaiku>(page), WebCore::FrameIdentifier::generate());
     }
     FrameLoaderClientHaiku& client = static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());

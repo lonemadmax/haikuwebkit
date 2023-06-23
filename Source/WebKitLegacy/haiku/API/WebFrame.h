@@ -129,7 +129,7 @@ private:
 								~BWebFrame();
 
 			void				LoadURL(WTF::URL);
-			WebCore::Frame*		Frame() const;
+			WebCore::LocalFrame*	Frame() const;
 
             BWebFrame*          AddChild(BWebPage* page, BString name,
                                     WebCore::HTMLFrameOwnerElement* ownerElement);
