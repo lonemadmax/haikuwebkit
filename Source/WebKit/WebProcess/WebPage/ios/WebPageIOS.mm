@@ -776,6 +776,7 @@ void WebPage::handleSyntheticClick(Node& nodeRespondingToClick, const WebCore::F
 
     if (targetNodeWentFromHiddenToVisible) {
         LOG(ContentObservation, "handleSyntheticClick: target node was hidden and now is visible -> hover.");
+        send(Messages::WebPageProxy::DidHandleTapAsHover());
         return;
     }
 
@@ -815,6 +816,7 @@ void WebPage::handleSyntheticClick(Node& nodeRespondingToClick, const WebCore::F
             if (auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(protectedThis->corePage()->mainFrame()))
                 dispatchSyntheticMouseMove(*localMainFrame, location, modifiers, pointerId);
             LOG(ContentObservation, "handleSyntheticClick: Observed meaningful visible change -> hover.");
+            protectedThis->send(Messages::WebPageProxy::DidHandleTapAsHover());
             return;
         }
         LOG(ContentObservation, "handleSyntheticClick: calling completeSyntheticClick -> click.");
@@ -835,7 +837,7 @@ void WebPage::didFinishContentChangeObserving(WKContentChange observedContentCha
 
         // Only dispatch the click if the document didn't get changed by any timers started by the move event.
         if (observedContentChange == WKContentNoChange) {
-            LOG(ContentObservation, "No chage was observed -> click.");
+            LOG(ContentObservation, "No change was observed -> click.");
             protectedThis->completeSyntheticClick(targetNode, location, modifiers, WebCore::OneFingerTap, pointerId);
             return;
         }
@@ -843,6 +845,8 @@ void WebPage::didFinishContentChangeObserving(WKContentChange observedContentCha
         LOG(ContentObservation, "Observed meaningful visible change -> hover.");
         if (auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(protectedThis->corePage()->mainFrame()))
             dispatchSyntheticMouseMove(*localMainFrame, location, modifiers, pointerId);
+
+        protectedThis->send(Messages::WebPageProxy::DidHandleTapAsHover());
     });
     m_pendingSyntheticClickNode = nullptr;
     m_pendingSyntheticClickLocation = { };
@@ -4035,7 +4039,13 @@ void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale
     updateSizeForCSSSmallViewportUnits();
     updateSizeForCSSLargeViewportUnits();
 
-    auto& frameView = *mainFrameView();
+    auto* mainFrameView = this->mainFrameView();
+    if (!mainFrameView) {
+        // FIXME: This is hit in some site isolation tests on iOS. Investigate and fix.
+        return;
+    }
+
+    auto& frameView = *mainFrameView;
     IntPoint scrollPosition = frameView.scrollPosition();
     if (!m_hasReceivedVisibleContentRectsAfterDidCommitLoad) {
         FloatSize minimumLayoutSizeInScrollViewCoordinates = m_viewportConfiguration.viewLayoutSize();
@@ -4366,6 +4376,8 @@ void WebPage::computePagesForPrintingiOS(WebCore::FrameIdentifier frameID, const
     auto margin = printInfo.margin;
     computePagesForPrintingImpl(frameID, printInfo, pageRects, totalScaleFactor, margin);
 
+    RELEASE_LOG(Printing, "Computing pages for printing. Page rects size = %zu", pageRects.size());
+
     ASSERT(pageRects.size() >= 1);
     reply(pageRects.size());
 }
@@ -4376,6 +4388,8 @@ void WebPage::drawToImage(WebCore::FrameIdentifier frameID, const PrintInfo& pri
     double totalScaleFactor;
     auto margin = printInfo.margin;
     computePagesForPrintingImpl(frameID, printInfo, pageRects, totalScaleFactor, margin);
+
+    RELEASE_LOG(Printing, "Drawing to image. Page rects size = %zu", pageRects.size());
 
     ASSERT(pageRects.size() >= 1);
 
@@ -4464,7 +4478,13 @@ String WebPage::platformUserAgent(const URL&) const
     if (!m_page->settings().needsSiteSpecificQuirks())
         return String();
 
-    auto document = m_mainFrame->coreFrame()->document();
+    auto* mainFrame = m_mainFrame->coreFrame();
+    if (!mainFrame) {
+        // FIXME: Add a user agent for loads from iframe processes.
+        return { };
+    }
+
+    auto document = mainFrame->document();
     if (!document)
         return String();
 

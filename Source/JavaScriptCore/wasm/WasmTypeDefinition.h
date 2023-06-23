@@ -36,6 +36,7 @@
 #include "Width.h"
 #include "WriteBarrier.h"
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/FixedVector.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/HashTraits.h>
@@ -508,9 +509,12 @@ public:
     FieldType* storage(StructFieldCount i) { return i + m_payload; }
     const FieldType* storage(StructFieldCount i) const { return const_cast<StructType*>(this)->storage(i); }
 
-    const unsigned* getFieldOffset(StructFieldCount i) const { ASSERT(i < fieldCount()); return bitwise_cast<const unsigned*>(m_payload + m_fieldCount) + i; }
-    unsigned* getFieldOffset(StructFieldCount i) { return const_cast<unsigned*>(const_cast<const StructType*>(this)->getFieldOffset(i)); }
+    // Returns the offset relative to `m_payload` (the internal vector of fields)
+    const unsigned* offsetOfField(StructFieldCount i) const { ASSERT(i < fieldCount()); return bitwise_cast<const unsigned*>(m_payload + m_fieldCount) + i; }
+    unsigned* offsetOfField(StructFieldCount i) { return const_cast<unsigned*>(const_cast<const StructType*>(this)->offsetOfField(i)); }
 
+    // Returns the offset relative to `m_payload.storage` (the internal storage for the internal vector of fields)
+    unsigned offsetOfFieldInternal(StructFieldCount i) const { ASSERT(i < fieldCount()); return(*offsetOfField(i) - FixedVector<uint8_t>::Storage::offsetOfData()); }
     size_t instancePayloadSize() const { return m_instancePayloadSize; }
 
 private:
@@ -899,6 +903,7 @@ private:
     RefPtr<TypeDefinition> m_I32_I32;
     RefPtr<TypeDefinition> m_I32_RefI32I32;
     RefPtr<TypeDefinition> m_Ref_RefI32I32;
+    RefPtr<TypeDefinition> m_Ref_I32I32I32I32;
     Lock m_lock;
 };
 

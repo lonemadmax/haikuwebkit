@@ -443,7 +443,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webdatabase/OriginLock.h
 
     Modules/websockets/ThreadableWebSocketChannel.h
-    Modules/websockets/WebSocketChannel.h
     Modules/websockets/WebSocketChannelClient.h
     Modules/websockets/WebSocketChannelInspector.h
     Modules/websockets/WebSocketDeflateFramer.h
@@ -1676,7 +1675,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontTaggedSettings.h
     platform/graphics/FourCC.h
     platform/graphics/GCGLSpan.h
-    platform/graphics/GLContext.h
     platform/graphics/GeometryUtilities.h
     platform/graphics/Glyph.h
     platform/graphics/GlyphBuffer.h
@@ -1765,6 +1763,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformImageBuffer.h
     platform/graphics/PlatformImageBufferBackend.h
     platform/graphics/PlatformLayer.h
+    platform/graphics/PlatformLayerIdentifier.h
     platform/graphics/PlatformMediaResourceLoader.h
     platform/graphics/PlatformTextTrack.h
     platform/graphics/PlatformTimeRanges.h
@@ -1776,6 +1775,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformVideoTransferCharacteristics.h
     platform/graphics/PositionedGlyphs.h
     platform/graphics/Region.h
+    platform/graphics/RenderingResource.h
     platform/graphics/RenderingResourceIdentifier.h
     platform/graphics/RenderingMode.h
     platform/graphics/RoundedRect.h
@@ -1844,6 +1844,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/displaylists/InMemoryDisplayList.h
 
     platform/graphics/cv/ImageTransferSessionVT.h
+
+    platform/graphics/egl/GLContext.h
 
     platform/graphics/filters/DistantLightSource.h
     platform/graphics/filters/FEBlend.h
@@ -2021,8 +2023,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/SameSiteInfo.h
     platform/network/ShouldRelaxThirdPartyCookieBlocking.h
     platform/network/SocketStreamError.h
-    platform/network/SocketStreamHandle.h
-    platform/network/SocketStreamHandleClient.h
     platform/network/StorageSessionProvider.h
     platform/network/StoredCredentialsPolicy.h
     platform/network/SynchronousLoaderClient.h

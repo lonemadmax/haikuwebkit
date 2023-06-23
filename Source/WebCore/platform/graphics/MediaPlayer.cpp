@@ -777,6 +777,11 @@ MediaTime MediaPlayer::currentTime() const
     return m_private->currentMediaTime();
 }
 
+bool MediaPlayer::currentTimeMayProgress() const
+{
+    return m_private->currentMediaTimeMayProgress();
+}
+
 bool MediaPlayer::setCurrentTimeDidChangeCallback(CurrentTimeDidChangeCallback&& callback)
 {
     return m_private->setCurrentTimeDidChangeCallback(WTFMove(callback));
@@ -943,7 +948,7 @@ MediaPlayer::NetworkState MediaPlayer::networkState()
     return m_private->networkState();
 }
 
-MediaPlayer::ReadyState MediaPlayer::readyState()
+MediaPlayer::ReadyState MediaPlayer::readyState() const
 {
     return m_private->readyState();
 }

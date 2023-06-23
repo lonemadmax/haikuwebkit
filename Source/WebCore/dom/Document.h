@@ -618,7 +618,7 @@ public:
     void updateElementsAffectedByMediaQueries();
     void evaluateMediaQueriesAndReportChanges();
 
-    FormController& formController();
+    WEBCORE_EXPORT FormController& formController();
     Vector<AtomString> formElementsState() const;
     void setStateForNewFormElements(const Vector<AtomString>&);
 
@@ -767,7 +767,7 @@ public:
     static StaticStringImpl& maskedURLStringForBindings();
     static const URL& maskedURLForBindings();
 
-    String userAgent(const URL&) const final;
+    WEBCORE_EXPORT String userAgent(const URL&) const final;
 
     void disableEval(const String& errorMessage) final;
     void disableWebAssembly(const String& errorMessage) final;
@@ -866,7 +866,7 @@ public:
     void hoveredElementDidDetach(Element&);
     void elementInActiveChainDidDetach(Element&);
 
-    enum class CaptureChange : uint8_t { Yes, No };
+    enum class CaptureChange : bool { No, Yes };
     void updateHoverActiveState(const HitTestRequest&, Element*, CaptureChange = CaptureChange::No);
 
     // Updates for :target (CSS3 selector).
@@ -958,6 +958,7 @@ public:
         FORCEUP_LISTENER                     = 1 << 12,
         FOCUSIN_LISTENER                     = 1 << 13,
         FOCUSOUT_LISTENER                    = 1 << 14,
+        TRANSITION_ANIMATION_LISTENER        = 1 << 15
     };
 
     bool hasListenerType(ListenerType listenerType) const { return (m_listenerTypes & listenerType); }

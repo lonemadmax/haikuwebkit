@@ -1615,20 +1615,10 @@ int Element::scrollHeight()
 inline bool shouldObtainBoundsFromSVGModel(const Element* element)
 {
     ASSERT(element);
-    if (!element->isSVGElement() || !element->renderer())
-        return false;
+    if (auto* svg = dynamicDowncast<SVGElement>(element))
+        return svg->hasAssociatedSVGLayoutBox();
 
-    // Legacy SVG engine specific condition.
-    if (element->renderer()->isLegacySVGRoot())
-        return false;
-
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-    // LBSE specific condition.
-    if (element->document().settings().layerBasedSVGEngineEnabled())
-        return false;
-#endif
-
-    return true;
+    return false;
 }
 
 inline bool shouldObtainBoundsFromBoxModel(const Element* element)
@@ -5221,7 +5211,7 @@ ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlob
         return keyframeEffectResult.releaseException();
 
     auto animation = WebAnimation::create(document(), &keyframeEffectResult.returnValue().get());
-    animation->setId(id);
+    animation->setId(WTFMove(id));
     if (timeline)
         animation->setTimeline(timeline->get());
     animation->setBindingsFrameRate(WTFMove(frameRate));

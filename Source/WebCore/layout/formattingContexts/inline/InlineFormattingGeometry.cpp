@@ -261,7 +261,7 @@ static std::optional<size_t> nextDisplayBoxIndex(const Box& outOfFlowBox, const 
     return { };
 }
 
-LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(const Box& outOfFlowBox, LayoutPoint contentBoxTopLeft, const InlineDisplay::Content& displayContent) const
+LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(const Box& outOfFlowBox, const ConstraintsForInFlowContent& constraints, const InlineDisplay::Content& displayContent) const
 {
     ASSERT(outOfFlowBox.style().isOriginalDisplayInlineType());
     auto& lines = displayContent.lines;
@@ -269,7 +269,8 @@ LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(c
 
     if (lines.isEmpty()) {
         ASSERT(boxes.isEmpty());
-        return contentBoxTopLeft;
+        auto alignmentOffset = horizontalAlignmentOffset(constraints.horizontal().logicalWidth, IsLastLineOrAfterLineBreak::Yes);
+        return { constraints.horizontal().logicalLeft + alignmentOffset, constraints.logicalTop() };
     }
 
     auto isHorizontalWritingMode = formattingContext().root().style().isHorizontalWritingMode();
@@ -312,20 +313,21 @@ LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(c
     auto nextDisplayBoxIndexAfterOutOfFlow = nextDisplayBoxIndex(outOfFlowBox, boxes);
     if (!nextDisplayBoxIndexAfterOutOfFlow) {
         // This is the last content on the block and it does not fit the last line.
-        // FIXME: This still has line type of constraints like text-align.
-        return LayoutPoint { contentBoxTopLeft.x(), isHorizontalWritingMode ? currentLine.bottom() : currentLine.right() };
+        auto alignmentOffset = horizontalAlignmentOffset(constraints.horizontal().logicalWidth, IsLastLineOrAfterLineBreak::Yes);
+        return { constraints.horizontal().logicalLeft + alignmentOffset, isHorizontalWritingMode ? currentLine.bottom() : currentLine.right() };
     }
     auto& nextDisplayBox = boxes[*nextDisplayBoxIndexAfterOutOfFlow];
     return leftSideToLogicalTopLeft(nextDisplayBox, lines[nextDisplayBox.lineIndex()]);
 }
 
-LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowBlockLevelBox(const Box& outOfFlowBox, LayoutPoint contentBoxTopLeft, const InlineDisplay::Content& displayContent) const
+LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowBlockLevelBox(const Box& outOfFlowBox, const ConstraintsForInFlowContent& constraints, const InlineDisplay::Content& displayContent) const
 {
     ASSERT(outOfFlowBox.style().isDisplayBlockLevel());
 
     auto isHorizontalWritingMode = formattingContext().root().style().isHorizontalWritingMode();
     auto& lines = displayContent.lines;
     auto& boxes = displayContent.boxes;
+    auto contentBoxTopLeft = LayoutPoint { constraints.horizontal().logicalLeft, constraints.logicalTop() };
 
     if (lines.isEmpty()) {
         ASSERT(boxes.isEmpty());
@@ -361,6 +363,71 @@ void InlineFormattingGeometry::adjustMarginStartForListMarker(const ElementBox& 
     // Make sure that the line content does not get pulled in to logical left direction due to
     // the large negative margin (i.e. this ensures that logical left of the list content stays at the line start)
     listMarkerGeometry.setHorizontalMargin({ listMarkerGeometry.marginStart() + nestedListMarkerMarginStart - LayoutUnit { rootInlineBoxOffset }, listMarkerGeometry.marginEnd() - nestedListMarkerMarginStart + LayoutUnit { rootInlineBoxOffset } });
+}
+
+InlineLayoutUnit InlineFormattingGeometry::horizontalAlignmentOffset(InlineLayoutUnit horizontalAvailableSpace, IsLastLineOrAfterLineBreak isLastLineOrAfterLineBreak, std::optional<TextDirection> inlineBaseDirectionOverride) const
+{
+    if (horizontalAvailableSpace <= 0)
+        return { };
+
+    auto& rootStyle = formattingContext().root().style();
+    auto isLeftToRightDirection = inlineBaseDirectionOverride.value_or(rootStyle.direction()) == TextDirection::LTR;
+
+    auto computedHorizontalAlignment = [&] {
+        auto textAlign = rootStyle.textAlign();
+        if (isLastLineOrAfterLineBreak == IsLastLineOrAfterLineBreak::No)
+            return textAlign;
+        // The last line before a forced break or the end of the block is aligned according to text-align-last.
+        switch (rootStyle.textAlignLast()) {
+        case TextAlignLast::Auto:
+            if (textAlign == TextAlignMode::Justify)
+                return TextAlignMode::Start;
+            return textAlign;
+        case TextAlignLast::Start:
+            return TextAlignMode::Start;
+        case TextAlignLast::End:
+            return TextAlignMode::End;
+        case TextAlignLast::Left:
+            return TextAlignMode::Left;
+        case TextAlignLast::Right:
+            return TextAlignMode::Right;
+        case TextAlignLast::Center:
+            return TextAlignMode::Center;
+        case TextAlignLast::Justify:
+            return TextAlignMode::Justify;
+        default:
+            ASSERT_NOT_REACHED();
+            return TextAlignMode::Start;
+        }
+    };
+
+    switch (computedHorizontalAlignment()) {
+    case TextAlignMode::Left:
+    case TextAlignMode::WebKitLeft:
+        if (!isLeftToRightDirection)
+            return horizontalAvailableSpace;
+        FALLTHROUGH;
+    case TextAlignMode::Start:
+        return { };
+    case TextAlignMode::Right:
+    case TextAlignMode::WebKitRight:
+        if (!isLeftToRightDirection)
+            return { };
+        FALLTHROUGH;
+    case TextAlignMode::End:
+        return horizontalAvailableSpace;
+    case TextAlignMode::Center:
+    case TextAlignMode::WebKitCenter:
+        return horizontalAvailableSpace / 2;
+    case TextAlignMode::Justify:
+        // TextAlignMode::Justify is a run alignment (and we only do inline box alignment here)
+        return { };
+    default:
+        ASSERT_NOT_IMPLEMENTED_YET();
+        return { };
+    }
+    ASSERT_NOT_REACHED();
+    return { };
 }
 
 }

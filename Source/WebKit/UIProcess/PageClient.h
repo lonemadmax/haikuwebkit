@@ -47,6 +47,7 @@
 #include <WebCore/FocusDirection.h>
 #include <WebCore/InputMode.h>
 #include <WebCore/MediaControlsContextMenuItem.h>
+#include <WebCore/ScrollTypes.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ValidationBubble.h>
 #include <variant>
@@ -56,7 +57,6 @@
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
-#include "RemoteLayerTreeNode.h"
 #include "WKFoundation.h"
 
 #if PLATFORM(IOS_FAMILY)
@@ -80,6 +80,7 @@ OBJC_CLASS UIScrollView;
 OBJC_CLASS _WKRemoteObjectRegistry;
 
 #if USE(APPKIT)
+OBJC_CLASS NSWindow;
 OBJC_CLASS WKView;
 #endif
 #endif
@@ -114,7 +115,7 @@ enum class TextIndicatorLifetime : uint8_t;
 enum class TextIndicatorDismissalAnimation : uint8_t;
 enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
-enum class ScrollIsAnimated : uint8_t;
+enum class ScrollIsAnimated : bool;
 
 struct AppHighlight;
 struct DataDetectorElementInfo;
@@ -150,6 +151,7 @@ class NativeWebGestureEvent;
 class NativeWebKeyboardEvent;
 class NativeWebMouseEvent;
 class NativeWebWheelEvent;
+class RemoteLayerTreeNode;
 class RemoteLayerTreeTransaction;
 class SafeBrowsingWarning;
 class UserData;
@@ -349,6 +351,7 @@ public:
 #endif
 #if PLATFORM(IOS_FAMILY)
     virtual void didNotHandleTapAsClick(const WebCore::IntPoint&) = 0;
+    virtual void didHandleTapAsHover() = 0;
     virtual void didCompleteSyntheticClick() = 0;
 #endif
 

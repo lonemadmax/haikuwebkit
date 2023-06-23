@@ -232,7 +232,7 @@ function pipeToDoReadWrite(pipeState)
             if (!canWrite)
                 return;
 
-            pipeState.pendingWritePromise = @writableStreamDefaultWriterWrite(pipeState.writer, result.value);
+            pipeState.pendingWritePromise = @writableStreamDefaultWriterWrite(pipeState.writer, result.value).@then(@undefined, () => { });
         }, (e) => {
             pipeState.pendingReadPromiseCapability.@resolve.@call(@undefined, false);
         });
@@ -294,7 +294,7 @@ function pipeToClosingMustBePropagatedForward(pipeState)
         action();
         return;
     }
-    @getByIdDirectPrivate(pipeState.reader, "closedPromiseCapability").@promise.@then(action, @undefined);
+    @getByIdDirectPrivate(pipeState.reader, "closedPromiseCapability").@promise.@then(action, () => { });
 }
 
 function pipeToClosingMustBePropagatedBackward(pipeState)
@@ -454,7 +454,7 @@ function readableStreamTeePullFunction(teeState, reader, shouldClone)
                 @readableStreamDefaultControllerEnqueue(teeState.branch1.@readableStreamController, result.value);
             if (!teeState.canceled2)
                 @readableStreamDefaultControllerEnqueue(teeState.branch2.@readableStreamController, shouldClone ? @structuredCloneForStream(result.value) : result.value);
-        });
+        }, () => { });
     }
 }
 

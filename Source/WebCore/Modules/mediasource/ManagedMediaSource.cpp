@@ -30,6 +30,7 @@
 
 #include "Event.h"
 #include "EventNames.h"
+#include "MediaSourcePrivate.h"
 #include "SourceBufferList.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -80,16 +81,12 @@ void ManagedMediaSource::setStreaming(bool streaming)
 
 bool ManagedMediaSource::isBuffered(const PlatformTimeRanges& ranges) const
 {
-    ASSERT(m_buffered, "Should always been called after updateBufferedIfNeeded");
-    if (!m_buffered)
-        return false;
-
-    if (ranges.length() < 1)
+    if (ranges.length() < 1 || isClosed())
         return true;
 
     ASSERT(ranges.length() == 1);
 
-    auto bufferedRanges = makeUnique<PlatformTimeRanges>(*m_buffered);
+    auto bufferedRanges = buffered();
     if (!bufferedRanges->length())
         return false;
     bufferedRanges->intersectWith(ranges);
@@ -98,7 +95,7 @@ bool ManagedMediaSource::isBuffered(const PlatformTimeRanges& ranges) const
         return false;
 
     auto hasBufferedTime = [&] (const MediaTime& time) {
-        return abs(bufferedRanges->nearest(time) - time) <= currentTimeFudgeFactor();
+        return abs(bufferedRanges->nearest(time) - time) <= m_private->timeFudgeFactor();
     };
 
     if (!hasBufferedTime(ranges.minimumBufferedTime()) || !hasBufferedTime(ranges.maximumBufferedTime()))
@@ -109,7 +106,7 @@ bool ManagedMediaSource::isBuffered(const PlatformTimeRanges& ranges) const
 
     // Ensure that if we have a gap in the buffered range, it is smaller than the fudge factor;
     for (unsigned i = 1; i < bufferedRanges->length(); i++) {
-        if (bufferedRanges->end(i) - bufferedRanges->start(i-1) > currentTimeFudgeFactor())
+        if (bufferedRanges->end(i) - bufferedRanges->start(i-1) > m_private->timeFudgeFactor())
             return false;
     }
 

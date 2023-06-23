@@ -319,6 +319,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addArrayNew(uint32_t index, ExpressionType size, ExpressionType value, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addArrayNewDefault(uint32_t index, ExpressionType size, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addArrayGet(ExtGCOpType arrayGetKind, uint32_t typeIndex, ExpressionType arrayref, ExpressionType index, ExpressionType& result);
+    PartialResult WARN_UNUSED_RETURN addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType size, ExpressionType offset, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addArraySet(uint32_t typeIndex, ExpressionType arrayref, ExpressionType index, ExpressionType value);
     PartialResult WARN_UNUSED_RETURN addArrayLen(ExpressionType arrayref, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addStructNew(uint32_t index, Vector<ExpressionType>& args, ExpressionType& result);
@@ -2007,6 +2008,14 @@ auto LLIntGenerator::addArrayNewDefault(uint32_t index, ExpressionType size, Exp
     return { };
 }
 
+auto LLIntGenerator::addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType size, ExpressionType offset, ExpressionType& result) -> PartialResult
+{
+    ResultList results;
+    addCallBuiltin(LLIntBuiltin::ArrayNewData, { addConstantWithoutPush(Types::I32, typeIndex), addConstantWithoutPush(Types::I32, dataIndex), size, offset }, results);
+    result = results.at(0);
+    return { };
+}
+
 auto LLIntGenerator::addArrayGet(ExtGCOpType arrayGetKind, uint32_t typeIndex, ExpressionType arrayref, ExpressionType index, ExpressionType& result) -> PartialResult
 {
     result = push();
@@ -2032,21 +2041,37 @@ auto LLIntGenerator::addArrayLen(ExpressionType arrayref, ExpressionType& result
 
 auto LLIntGenerator::addStructNew(uint32_t index, Vector<ExpressionType>& args, ExpressionType& result) -> PartialResult
 {
+    // Allocate space for the return value
     result = push();
 
+    // Special-case the 0-arguments case since the logic below only makes sense with at least one argument
+    if (!args.size()) {
+        WasmStructNew::emit(this, result, index, static_cast<bool>(UseDefaultValue::No), VirtualRegister());
+        return { };
+    }
+
+    // "Pop" the stack in order to use the same slot for the result and the first arg
+    m_stackSize--;
+
+    // By similar reasoning to the `addThrow` operation:
     // We have to materialize the arguments here since it might include constants or
     // delayed moves, but the wasm_struct_new opcode expects all the arguments to be contiguous
     // in the stack.
-    for (unsigned i = args.size(); i > 0; --i) {
-        auto& arg = args[i - 1];
+    for (unsigned i = 0; i < args.size(); ++i) {
+        auto& arg = args[i];
         ExpressionType argLoc = push();
         WasmMov::emit(this, argLoc, arg);
         arg = argLoc;
     }
 
-    WasmStructNew::emit(this, result, index, static_cast<bool>(UseDefaultValue::No), args.isEmpty() ? VirtualRegister() : args[0]);
+    // Arguments are passed in reverse order (the last arg will be at the highest virtual register index, which
+    // will have the lowest address.)
+    // The implementation of struct_new has to iterate over its arguments in reverse order.
+    WasmStructNew::emit(this, result, index, static_cast<bool>(UseDefaultValue::No), args.last());
 
-    m_stackSize -= args.size();
+    // Subtract 1 from the arg length to account for leaving the return value on the stack
+    m_stackSize -= args.size() - 1;
+
     return { };
 }
 

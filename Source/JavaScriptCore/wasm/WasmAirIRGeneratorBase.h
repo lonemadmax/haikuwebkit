@@ -30,6 +30,7 @@
 
 #if ENABLE(WEBASSEMBLY_B3JIT)
 
+#include "AirCCallSpecial.h"
 #include "AirCode.h"
 #include "AirGenerate.h"
 #include "AirHelpers.h"
@@ -409,6 +410,7 @@ struct AirIRGeneratorBase {
     // GC (in derived classes)
     PartialResult WARN_UNUSED_RETURN addArrayNew(uint32_t typeIndex, ExpressionType size, ExpressionType value, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addArrayNewDefault(uint32_t index, ExpressionType size, ExpressionType& result);
+    PartialResult WARN_UNUSED_RETURN addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addArrayGet(ExtGCOpType arrayGetKind, uint32_t typeIndex, ExpressionType arrayref, ExpressionType index, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addArraySet(uint32_t typeIndex, ExpressionType arrayref, ExpressionType index, ExpressionType value);
     PartialResult WARN_UNUSED_RETURN addArrayLen(ExpressionType arrayref, ExpressionType& result);
@@ -833,7 +835,7 @@ protected:
         B3::Value* dummyFunc = m_proc.addConstant(B3::Origin(), B3::pointerType(), bitwise_cast<uintptr_t>(func));
         B3::Value* origin = m_proc.add<B3::CCallValue>(resultType, B3::Origin(), B3::Effects::none(), dummyFunc, makeDummyValue(theArgs)...);
 
-        Inst inst(CCall, origin);
+        Inst inst(CCall, origin, Arg::special(m_proc.code().cCallSpecial()));
 
         auto callee = self().gPtr();
         append(block, Move, Arg::immPtr(tagCFunctionPtr<void*, OperationPtrTag>(func)), callee);
@@ -2463,7 +2465,10 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addArrayNew(uint32_t typeIndex
     ASSERT(arraySignature.is<ArrayType>());
 
     ExpressionType tmpForValue;
+    // FIXME: This will need to be changed to support arrays of vectors:
+    // https://bugs.webkit.org/show_bug.cgi?id=251330
     self().emitCoerceToI64(value, tmpForValue);
+
     result = self().tmpForType(Wasm::Type { Wasm::TypeKind::Ref, Wasm::TypeInformation::get(arraySignature) });
     // FIXME: Emit this inline.
     // https://bugs.webkit.org/show_bug.cgi?id=245405
@@ -2495,6 +2500,28 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addArrayNewDefault(uint32_t ty
     return { };
 }
 
+template<typename Derived, typename ExpressionType>
+auto AirIRGeneratorBase<Derived, ExpressionType>::addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result) -> PartialResult
+{
+    Wasm::TypeDefinition& arraySignature = m_info.typeSignatures[typeIndex];
+    ASSERT(arraySignature.is<ArrayType>());
+
+    // The result type is a non-nullable reference to an array
+    result = tmpForType(Wasm::Type { Wasm::TypeKind::Ref, Wasm::TypeInformation::get(arraySignature) });
+
+    emitCCall(&operationWasmArrayNewData,
+        result,
+        instanceValue(),
+        self().addConstant(Types::I32, typeIndex),
+        self().addConstant(Types::I32, dataIndex),
+        arraySize,
+        offset);
+
+    // Check for null return value (indicating that this access is out of bounds for the segment)
+    emitThrowOnNullReference(result, ExceptionType::OutOfBoundsDataSegmentAccess);
+    return { };
+}
+
 template <typename Derived, typename ExpressionType>
 auto AirIRGeneratorBase<Derived, ExpressionType>::addArrayGet(ExtGCOpType arrayGetKind, uint32_t typeIndex, ExpressionType arrayref, ExpressionType index, ExpressionType& result) -> PartialResult
 {
@@ -2522,6 +2549,8 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addArrayGet(ExtGCOpType arrayG
     // https://bugs.webkit.org/show_bug.cgi?id=245405
     emitCCall(&operationWasmArrayGet, getValue, instanceValue(), self().addConstant(Types::I32, typeIndex), arrayref, index);
 
+    // FIXME: This will need to be changed to support arrays of vectors:
+    // https://bugs.webkit.org/show_bug.cgi?id=251330
     self().emitCoerceFromI64(resultType, getValue, result);
 
     if (elementType.is<PackedType>()) {
@@ -2633,8 +2662,8 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addStructGet(ExpressionType st
     auto payload = self().gPtr();
     auto structBase = self().extractJSValuePointer(structReference);
     self().emitLoad(structBase, JSWebAssemblyStruct::offsetOfPayload(), payload);
+    uint32_t fieldOffset = fixupPointerPlusOffset(payload, *structType.offsetOfField(fieldIndex));
 
-    uint32_t fieldOffset = fixupPointerPlusOffset(payload, *structType.getFieldOffset(fieldIndex));
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=246981
     ASSERT(structType.field(fieldIndex).type.is<Type>());
     Type fieldType = structType.field(fieldIndex).type.as<Type>();
@@ -2651,8 +2680,8 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addStructSet(ExpressionType st
     auto payload = self().gPtr();
     auto structBase = self().extractJSValuePointer(structReference);
     self().emitLoad(structBase, JSWebAssemblyStruct::offsetOfPayload(), payload);
+    uint32_t fieldOffset = fixupPointerPlusOffset(payload, *structType.offsetOfField(fieldIndex));
 
-    uint32_t fieldOffset = fixupPointerPlusOffset(payload, *structType.getFieldOffset(fieldIndex));
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=246981
     ASSERT(structType.field(fieldIndex).type.is<Type>());
     Type fieldType = structType.field(fieldIndex).type.as<Type>();
@@ -2669,6 +2698,10 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addStructSet(ExpressionType st
 template <typename Derived, typename ExpressionType>
 auto AirIRGeneratorBase<Derived, ExpressionType>::addRefCast(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result) -> PartialResult
 {
+    // Ensure that the result expression is typed with the type it's being cast to
+    result = tmpForType(Type { reference.type().kind, static_cast<TypeIndex>(heapType) });
+    self().emitMoveWithoutTypeCheck(reference, result);
+
     emitRefTestOrCast(CastKind::Cast, reference, allowNull, heapType, result);
     return { };
 }
@@ -2676,6 +2709,7 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addRefCast(ExpressionType refe
 template <typename Derived, typename ExpressionType>
 auto AirIRGeneratorBase<Derived, ExpressionType>::addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result) -> PartialResult
 {
+    result = self().g32();
     emitRefTestOrCast(CastKind::Test, reference, allowNull, heapType, result);
     return { };
 }
@@ -2683,11 +2717,6 @@ auto AirIRGeneratorBase<Derived, ExpressionType>::addRefTest(ExpressionType refe
 template <typename Derived, typename ExpressionType>
 void AirIRGeneratorBase<Derived, ExpressionType>::emitRefTestOrCast(CastKind castKind, ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result)
 {
-    if (castKind == CastKind::Cast)
-        result = reference;
-    else
-        result = self().g32();
-
     BasicBlock* continuation = m_code.addBlock();
     BasicBlock* trueBlock = nullptr;
     BasicBlock* falseBlock = nullptr;

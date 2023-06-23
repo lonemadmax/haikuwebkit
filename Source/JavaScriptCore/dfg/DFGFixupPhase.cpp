@@ -2007,6 +2007,11 @@ private:
             break;
         }
 
+        case FunctionBind: {
+            fixEdge<ObjectUse>(m_graph.child(node, 0));
+            break;
+        }
+
         case SetPrivateBrand: {
             fixEdge<CellUse>(node->child1());
             fixEdge<SymbolUse>(node->child2());
@@ -2413,11 +2418,15 @@ private:
             fixEdge<KnownInt32Use>(index);
             fixEdge<KnownInt32Use>(m_graph.varArgChild(node, 2));
             fixEdge<KnownCellUse>(m_graph.varArgChild(node, 3));
+
+            m_graph.m_tupleData.at(node->tupleOffset()).resultFlags = NodeResultInt32;
+            m_graph.m_tupleData.at(node->tupleOffset() + 1).resultFlags = NodeResultInt32;
             break;
         }
 
-        case EnumeratorNextExtractIndex:
-        case EnumeratorNextExtractMode: {
+        case ExtractFromTuple: {
+            node->setResult(m_graph.m_tupleData.at(node->tupleIndex()).resultFlags);
+            ASSERT(node->hasResult());
             break;
         }
 
@@ -3016,6 +3025,7 @@ private:
         case FilterSetPrivateBrandStatus:
         case InvalidationPoint:
         case GetWebAssemblyInstanceExports:
+        case NewBoundFunction:
             break;
 #else // not ASSERT_ENABLED
         default:

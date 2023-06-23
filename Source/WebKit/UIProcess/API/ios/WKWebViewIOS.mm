@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -190,7 +190,8 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
 
     [self addSubview:_scrollView.get()];
 
-    [self _dispatchSetDeviceOrientation:[self _deviceOrientation]];
+    [self _dispatchSetDeviceOrientation:[self _deviceOrientationIgnoringOverrides]];
+    [self _dispatchSetOrientationForMediaCapture:[self _deviceOrientationIgnoringOverrides]];
 
     [_contentView layer].anchorPoint = CGPointZero;
     [_contentView setFrame:bounds];
@@ -267,7 +268,7 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
     return _focusPreservationCount || _activeFocusedStateRetainCount;
 }
 
-- (WebCore::IntDegrees)_deviceOrientation
+- (WebCore::IntDegrees)_deviceOrientationIgnoringOverrides
 {
     auto orientation = UIInterfaceOrientationUnknown;
     auto application = UIApplication.sharedApplication;
@@ -1079,7 +1080,7 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
 }
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-static void addOverlayEventRegions(WebCore::GraphicsLayer::PlatformLayerID layerID, const WebKit::RemoteLayerTreeTransaction::LayerPropertiesMap& changedLayerPropertiesMap, HashSet<WebCore::GraphicsLayer::PlatformLayerID>& overlayRegionIDs, const WebKit::RemoteLayerTreeHost& layerTreeHost)
+static void addOverlayEventRegions(WebCore::PlatformLayerIdentifier layerID, const WebKit::RemoteLayerTreeTransaction::LayerPropertiesMap& changedLayerPropertiesMap, HashSet<WebCore::PlatformLayerIdentifier>& overlayRegionIDs, const WebKit::RemoteLayerTreeHost& layerTreeHost)
 {
     using WebKit::RemoteLayerTreeTransaction;
     const auto& it = changedLayerPropertiesMap.find(layerID);
@@ -1095,7 +1096,7 @@ static void addOverlayEventRegions(WebCore::GraphicsLayer::PlatformLayerID layer
         addOverlayEventRegions(childLayerID, changedLayerPropertiesMap, overlayRegionIDs, layerTreeHost);
 }
 
-- (void)_updateOverlayRegions:(const WebKit::RemoteLayerTreeTransaction::LayerPropertiesMap&)changedLayerPropertiesMap destroyedLayers:(const Vector<WebCore::GraphicsLayer::PlatformLayerID>&)destroyedLayers
+- (void)_updateOverlayRegions:(const WebKit::RemoteLayerTreeTransaction::LayerPropertiesMap&)changedLayerPropertiesMap destroyedLayers:(const Vector<WebCore::PlatformLayerIdentifier>&)destroyedLayers
 {
     BOOL skipRecursiveRegionUpdate = !changedLayerPropertiesMap.size() && !destroyedLayers.size();
 
@@ -1673,7 +1674,8 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 - (void)didMoveToWindow
 {
     if (!_overridesInterfaceOrientation)
-        [self _dispatchSetDeviceOrientation:[self _deviceOrientation]];
+        [self _dispatchSetDeviceOrientation:[self _deviceOrientationIgnoringOverrides]];
+    [self _dispatchSetOrientationForMediaCapture:[self _deviceOrientationIgnoringOverrides]];
     _page->activityStateDidChange(WebCore::ActivityState::allFlags());
     _page->webViewDidMoveToWindow();
     [self _presentLockdownModeAlertIfNeeded];
@@ -2117,6 +2119,15 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
     _page->setDeviceOrientation(deviceOrientation);
     _perProcessState.lastSentDeviceOrientation = deviceOrientation;
+}
+
+- (void)_dispatchSetOrientationForMediaCapture:(WebCore::IntDegrees)orientationForMediaCapture
+{
+    if (_perProcessState.lastSentOrientationForMediaCapture && _perProcessState.lastSentOrientationForMediaCapture.value() == orientationForMediaCapture)
+        return;
+
+    _page->setOrientationForMediaCapture(orientationForMediaCapture);
+    _perProcessState.lastSentOrientationForMediaCapture = orientationForMediaCapture;
 }
 
 - (BOOL)_updateScrollViewContentInsetsIfNecessary
@@ -2831,7 +2842,8 @@ static WebCore::IntDegrees activeOrientation(WKWebView *webView)
 - (void)_windowDidRotate:(NSNotification *)notification
 {
     if (!_overridesInterfaceOrientation)
-        [self _dispatchSetDeviceOrientation:[self _deviceOrientation]];
+        [self _dispatchSetDeviceOrientation:[self _deviceOrientationIgnoringOverrides]];
+    [self _dispatchSetOrientationForMediaCapture:[self _deviceOrientationIgnoringOverrides]];
 }
 
 - (void)_contentSizeCategoryDidChange:(NSNotification *)notification
@@ -3796,7 +3808,8 @@ static bool isLockdownModeWarningNeeded()
         CATransform3D transform = CATransform3DMakeScale(imageScaleInViewCoordinates, imageScaleInViewCoordinates, 1);
         transform = CATransform3DTranslate(transform, -rectInViewCoordinates.origin.x, -rectInViewCoordinates.origin.y, 0);
         CARenderServerRenderDisplayLayerWithTransformAndTimeOffset(MACH_PORT_NULL, (CFStringRef)displayName, self.layer.context.contextId, reinterpret_cast<uint64_t>(self.layer), surface->surface(), 0, 0, &transform, 0);
-        completionHandler(WebCore::IOSurface::sinkIntoImage(WTFMove(surface)).get());
+        auto context = surface->createPlatformContext();
+        completionHandler(WebCore::IOSurface::sinkIntoImage(WTFMove(surface), WTFMove(context)).get());
         return;
     }
 #endif
@@ -4098,7 +4111,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!_page || _perProcessState.pendingFindLayerID || _perProcessState.committedFindLayerID)
         return;
 
-    _page->addLayerForFindOverlay([weakSelf = WeakObjCPtr<WKWebView>(self)] (WebCore::GraphicsLayer::PlatformLayerID layerID) {
+    _page->addLayerForFindOverlay([weakSelf = WeakObjCPtr<WKWebView>(self)] (WebCore::PlatformLayerIdentifier layerID) {
         auto strongSelf = weakSelf.get();
         if (strongSelf)
             strongSelf->_perProcessState.pendingFindLayerID = layerID;

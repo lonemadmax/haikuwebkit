@@ -5108,7 +5108,7 @@ void LocalFrameView::checkAndDispatchDidReachVisuallyNonEmptyState()
         return;
 
     m_contentQualifiesAsVisuallyNonEmpty = true;
-    if (m_frame->isMainFrame())
+    if (m_frame->isRootFrame())
         m_frame->loader().didReachVisuallyNonEmptyState();
 }
 
@@ -6238,12 +6238,12 @@ void LocalFrameView::updateScrollbarSteps()
 
     if (horizontalScrollbar()) {
         int pageStep = Scrollbar::pageStep(paddedViewRect.width());
-        horizontalScrollbar()->setSteps(Scrollbar::pixelsPerLineStep(), pageStep);
+        horizontalScrollbar()->setSteps(Scrollbar::pixelsPerLineStep(paddedViewRect.width()), pageStep);
 
     }
     if (verticalScrollbar()) {
         int pageStep = Scrollbar::pageStep(paddedViewRect.height());
-        verticalScrollbar()->setSteps(Scrollbar::pixelsPerLineStep(), pageStep);
+        verticalScrollbar()->setSteps(Scrollbar::pixelsPerLineStep(paddedViewRect.height()), pageStep);
     }
 }
 

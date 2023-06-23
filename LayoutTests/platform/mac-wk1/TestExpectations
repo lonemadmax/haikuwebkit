@@ -1852,6 +1852,8 @@ imported/w3c/web-platform-tests/preload/prefetch-headers.html [ Skip ]
 imported/w3c/web-platform-tests/preload/prefetch-types.html [ Skip ]
 imported/w3c/web-platform-tests/preload/preload-in-data-doc.html [ Skip ]
 
+webkit.org/b/254528 imported/w3c/web-platform-tests/preload/onerror-event.html [ Pass Failure ]
+
 webkit.org/b/208384 imported/w3c/web-platform-tests/requestidlecallback/callback-timeout-when-busy.html [ Pass Failure ]
 
 webkit.org/b/208449 [ Debug ] mathml/presentation/attributes-accent-accentunder-dynamic.html [ Pass ImageOnlyFailure ]
@@ -2078,8 +2080,6 @@ webkit.org/b/223104 compositing/visibility/iframe-visibility-hidden.html [ Pass 
 webkit.org/b/223193 [ BigSur ] imported/w3c/web-platform-tests/html/canvas/element/path-objects/2d.path.stroke.scale2.html [ Failure ]
 
 webkit.org/b/223271 [ BigSur Debug ] imported/w3c/web-platform-tests/xhr/send-response-event-order.htm [ Pass Failure ]
-
-webkit.org/b/223283 fast/repaint/canvas-object-fit.html [ Pass Failure ]
 
 webkit.org/b/222686 imported/w3c/web-platform-tests/css/css-grid/grid-definition/grid-auto-repeat-max-size-001.html [ Pass Failure ]
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,11 +43,11 @@
 #include "MediaKeySystemPermissionRequestManagerProxy.h"
 #include "MediaPlaybackState.h"
 #include "MessageSender.h"
+#include "NavigatingToAppBoundDomain.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "PDFPluginIdentifier.h"
 #include "PageLoadState.h"
 #include "PasteboardAccessIntent.h"
-#include "PolicyDecision.h"
 #include "ProcessTerminationReason.h"
 #include "ProcessThrottler.h"
 #include "SandboxExtension.h"
@@ -55,7 +55,6 @@
 #include "ShareableBitmap.h"
 #include "ShareableResource.h"
 #include "SpeechRecognitionPermissionRequest.h"
-#include "SuspendedPageProxy.h"
 #include "SyntheticEditingCommandType.h"
 #include "SystemPreviewController.h"
 #include "TransactionID.h"
@@ -68,7 +67,6 @@
 #include "WebContextMenuItemData.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebDataListSuggestionsDropdown.h"
-#include "WebFrameProxy.h"
 #include "WebNotificationManagerMessageHandler.h"
 #include "WebPageCreationParameters.h"
 #include "WebPageDiagnosticLoggingClient.h"
@@ -101,6 +99,7 @@
 #include <WebCore/MediaProducer.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/PlatformEvent.h>
+#include <WebCore/PlatformLayerIdentifier.h>
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/PlatformSpeechSynthesisUtterance.h>
 #include <WebCore/PlatformSpeechSynthesizer.h>
@@ -161,7 +160,6 @@
 #if PLATFORM(COCOA)
 #include "NetworkConnectionIntegrityHelpers.h"
 #include "PlaybackSessionContextIdentifier.h"
-#include "RemoteLayerTreeNode.h"
 #include <wtf/WeakObjCPtr.h>
 #endif
 
@@ -208,6 +206,7 @@ namespace API {
 class Attachment;
 class ContentWorld;
 class ContextMenuClient;
+class Data;
 class DataTask;
 class DestinationColorSpace;
 class Error;
@@ -223,11 +222,13 @@ class Navigation;
 class NavigationAction;
 class NavigationClient;
 class NavigationResponse;
+class PageConfiguration;
 class PolicyClient;
 class ResourceLoadClient;
 class SerializedScriptValue;
 class UIClient;
 class URLRequest;
+class WebsitePolicies;
 }
 
 namespace Inspector {
@@ -266,6 +267,7 @@ class FontAttributeChanges;
 class FontChanges;
 class GraphicsLayer;
 class IntSize;
+class PolicyDecision;
 class ProtectionSpace;
 class RunLoopObserver;
 class SelectionData;
@@ -357,7 +359,9 @@ typedef HWND PlatformViewWidget;
 namespace WebKit {
 
 class AudioSessionRoutingArbitratorProxy;
+class AuthenticationChallengeProxy;
 class CallbackID;
+class DownloadProxy;
 class DrawingAreaProxy;
 class GamepadData;
 class MediaUsageManager;
@@ -370,6 +374,7 @@ class MediaSessionCoordinatorProxyPrivate;
 class NetworkIssueReporter;
 class ProvisionalPageProxy;
 class RemoteLayerTreeHost;
+class RemoteLayerTreeNode;
 class RemoteLayerTreeScrollingPerformanceData;
 class RemoteLayerTreeTransaction;
 class RemoteMediaSessionCoordinatorProxy;
@@ -377,6 +382,7 @@ class RemoteScrollingCoordinatorProxy;
 class RevealItem;
 class SecKeyProxyStore;
 class SpeechRecognitionPermissionManager;
+class SuspendedPageProxy;
 class UserData;
 class ViewSnapshot;
 class VisitedLinkStore;
@@ -384,6 +390,7 @@ class WebBackForwardList;
 class WebBackForwardListItem;
 class WebContextMenuProxy;
 class WebEditCommandProxy;
+class WebFramePolicyListenerProxy;
 class WebFullScreenManagerProxy;
 class WebInspectorUIProxy;
 class PlaybackSessionManagerProxy;
@@ -392,6 +399,7 @@ class VideoFullscreenManagerProxy;
 class WebAuthenticatorCoordinatorProxy;
 class WebBackForwardCache;
 class WebDeviceOrientationUpdateProviderProxy;
+class WebFrameProxy;
 class WebKeyboardEvent;
 class WebMouseEvent;
 class WebNavigationState;
@@ -443,10 +451,11 @@ struct WebSpeechSynthesisVoice;
 
 enum class FindDecorationStyle : uint8_t;
 enum class FindOptions : uint16_t;
-enum class TextRecognitionUpdateResult : uint8_t;
 enum class NegotiatedLegacyTLS : bool;
 enum class ProcessSwapRequestedByClient : bool;
 enum class QuickLookPreviewActivity : uint8_t;
+enum class ShouldDelayClosingUntilFirstLayerFlush : bool;
+enum class TextRecognitionUpdateResult : uint8_t;
 enum class UndoOrRedo : bool;
 enum class WebContentMode : uint8_t;
 
@@ -635,8 +644,8 @@ public:
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
     void takeModelElementFullscreen(ModelIdentifier);
     void modelElementSetInteractionEnabled(ModelIdentifier, bool);
-    void modelInlinePreviewDidLoad(WebCore::GraphicsLayer::PlatformLayerID);
-    void modelInlinePreviewDidFailToLoad(WebCore::GraphicsLayer::PlatformLayerID, const WebCore::ResourceError&);
+    void modelInlinePreviewDidLoad(WebCore::PlatformLayerIdentifier);
+    void modelInlinePreviewDidFailToLoad(WebCore::PlatformLayerIdentifier, const WebCore::ResourceError&);
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementCreateRemotePreview(const String&, const WebCore::FloatSize&, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&&);
@@ -709,7 +718,6 @@ public:
     RefPtr<API::Navigation> loadData(const IPC::DataReference&, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData = nullptr, WebCore::ShouldOpenExternalURLsPolicy = WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow);
     RefPtr<API::Navigation> loadSimulatedRequest(WebCore::ResourceRequest&&, WebCore::ResourceResponse&&, const IPC::DataReference&);
     void loadAlternateHTML(Ref<WebCore::DataSegment>&&, const String& encoding, const URL& baseURL, const URL& unreachableURL, API::Object* userData = nullptr);
-    void loadWebArchiveData(API::Data*, API::Object* userData = nullptr);
     void navigateToPDFLinkWithSimulatedClick(const String& url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint);
 
     void simulateDeviceOrientationChange(double alpha, double beta, double gamma);
@@ -932,6 +940,7 @@ public:
     void applicationWillEnterForegroundForMedia();
     void commitPotentialTapFailed();
     void didNotHandleTapAsClick(const WebCore::IntPoint&);
+    void didHandleTapAsHover();
     void didCompleteSyntheticClick();
     void disableDoubleTapGesturesDuringTapIfNecessary(WebKit::TapIdentifier);
     void handleSmartMagnificationInformationForPotentialTap(WebKit::TapIdentifier, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel);
@@ -1081,8 +1090,8 @@ public:
     void flushPendingMouseEventCallbacks();
 
     bool isProcessingWheelEvents() const;
-    void handleWheelEvent(const NativeWebWheelEvent&);
-    void continueWheelEventHandling(const NativeWebWheelEvent&, const WebCore::WheelEventHandlingResult&);
+    void handleNativeWheelEvent(const NativeWebWheelEvent&);
+    void continueWheelEventHandling(const WebWheelEvent&, const WebCore::WheelEventHandlingResult&);
 
     bool isProcessingKeyboardEvents() const;
     bool handleKeyboardEvent(const NativeWebKeyboardEvent&);
@@ -1297,7 +1306,7 @@ public:
     void didEndTextSearchOperation();
 
     void requestRectForFoundTextRange(const WebFoundTextRange&, CompletionHandler<void(WebCore::FloatRect)>&&);
-    void addLayerForFindOverlay(CompletionHandler<void(WebCore::GraphicsLayer::PlatformLayerID)>&&);
+    void addLayerForFindOverlay(CompletionHandler<void(WebCore::PlatformLayerIdentifier)>&&);
     void removeLayerForFindOverlay(CompletionHandler<void()>&&);
 
     void getContentsAsString(ContentAsStringIncludesChildFrames, CompletionHandler<void(const String&)>&&);
@@ -1642,7 +1651,7 @@ public:
     void isPlayingMediaDidChange(WebCore::MediaProducerMediaStateFlags);
     void updateReportedMediaCaptureState();
 
-    enum class CanDelayNotification { No, Yes };
+    enum class CanDelayNotification : bool { No, Yes };
     void updatePlayingMediaDidChange(WebCore::MediaProducerMediaStateFlags, CanDelayNotification = CanDelayNotification::No);
     bool isCapturingAudio() const { return m_mediaState.containsAny(WebCore::MediaProducer::IsCapturingAudioMask); }
     bool isCapturingVideo() const { return m_mediaState.containsAny(WebCore::MediaProducer::IsCapturingVideoMask); }
@@ -2221,6 +2230,11 @@ public:
     bool allowsAnyAnimationToPlay() { return m_allowsAnyAnimationToPlay; }
     void isAnyAnimationAllowedToPlayDidChange(bool anyAnimationCanPlay) { m_allowsAnyAnimationToPlay = anyAnimationCanPlay; }
 #endif
+    String scrollbarStateForScrollingNodeID(int scrollingNodeID, bool isVertical);
+
+#if ENABLE(WEBXR) && !USE(OPENXR)
+    PlatformXRSystem* xrSystem() const { return m_xrSystem.get(); }
+#endif
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2615,8 +2629,13 @@ private:
 
     void setRenderTreeSize(uint64_t treeSize) { m_renderTreeSize = treeSize; }
 
+    void handleWheelEvent(const WebWheelEvent&);
     void sendWheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, WebCore::RectEdges<bool> rubberBandableEdges);
-    void wheelEventWasNotHandled(const NativeWebWheelEvent&);
+
+    void wheelEventHandlingCompleted(bool wasHandled);
+
+    void cacheWheelEventScrollingAccelerationCurve(const NativeWebWheelEvent&);
+    void sendWheelEventScrollingAccelerationCurveIfNecessary(const WebWheelEvent&);
 
     WebWheelEventCoalescer& wheelEventCoalescer();
 
@@ -3241,6 +3260,8 @@ private:
     RunLoop::Timer m_updateReportedMediaCaptureStateTimer;
     static constexpr Seconds DefaultMediaCaptureReportingDelay { 3_s };
     Seconds m_mediaCaptureReportingDelay { DefaultMediaCaptureReportingDelay };
+
+    WebCore::IntDegrees m_orientationForMediaCapture { 0 };
 
     bool m_hasHadSelectionChangesFromUserInteraction { false };
 

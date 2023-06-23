@@ -42,6 +42,7 @@
 #include "MediaUniqueIdentifier.h"
 #include "ReducedResolutionSeconds.h"
 #include "TextTrackClient.h"
+#include "URLKeepingBlobAlive.h"
 #include "VideoTrackClient.h"
 #include "VisibilityChangeClient.h"
 #include <wtf/Function.h>
@@ -955,6 +956,7 @@ private:
     bool shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSession::InterruptionType) const override;
     bool shouldOverrideBackgroundLoadingRestriction() const override;
     bool canProduceAudio() const final;
+    bool isAudible() const final { return canProduceAudio(); };
     bool hasMediaStreamSource() const final;
     void processIsSuspendedChanged() final;
     bool shouldOverridePauseDuringRouteChange() const final;
@@ -1245,7 +1247,7 @@ private:
     friend class TrackDisplayUpdateScope;
 
     RefPtr<Blob> m_blob;
-    URL m_blobURLForReading;
+    URLKeepingBlobAlive m_blobURLForReading;
     MediaProvider m_mediaProvider;
     WTF::Observer<WebCoreOpaqueRoot()> m_opaqueRootProvider;
 

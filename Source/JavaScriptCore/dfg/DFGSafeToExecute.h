@@ -501,9 +501,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     }
 
     case EnumeratorNextUpdateIndexAndMode:
-    // These technically don't have effects but they'll only ever follow a EnumeratorNextUpdateIndexAndMode so we might as well return false.
-    case EnumeratorNextExtractMode:
-    case EnumeratorNextExtractIndex:
+    case ExtractFromTuple:
     case EnumeratorNextUpdatePropertyName:
     case ToThis:
     case CreateThis:
@@ -623,6 +621,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case NewGeneratorFunction:
     case NewAsyncGeneratorFunction:
     case NewAsyncFunction:
+    case NewBoundFunction:
     case Jump:
     case Branch:
     case Switch:
@@ -706,6 +705,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ArithIMul:
     case TryGetById:
     case StringLocaleCompare:
+    case FunctionBind:
         return false;
 
     case StringReplaceString:

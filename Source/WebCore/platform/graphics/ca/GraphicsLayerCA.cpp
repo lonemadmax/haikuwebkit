@@ -480,7 +480,7 @@ String GraphicsLayerCA::debugName() const
 #endif
 }
 
-GraphicsLayer::PlatformLayerID GraphicsLayerCA::primaryLayerID() const
+PlatformLayerIdentifier GraphicsLayerCA::primaryLayerID() const
 {
     return primaryLayer()->layerID();
 }
@@ -1257,9 +1257,9 @@ void GraphicsLayerCA::setContentsToModel(RefPtr<Model>&& model, ModelInteraction
     noteLayerPropertyChanged(ContentsRectsChanged | OpacityChanged);
 }
 
-GraphicsLayer::PlatformLayerID GraphicsLayerCA::contentsLayerIDForModel() const
+PlatformLayerIdentifier GraphicsLayerCA::contentsLayerIDForModel() const
 {
-    return m_contentsLayerPurpose == ContentsLayerPurpose::Model ? m_contentsLayer->layerID() : GraphicsLayer::PlatformLayerID { };
+    return m_contentsLayerPurpose == ContentsLayerPurpose::Model ? m_contentsLayer->layerID() : PlatformLayerIdentifier { };
 }
 
 #endif
@@ -3089,7 +3089,7 @@ void GraphicsLayerCA::updateAnimations()
         m_animationGroups.append(WTFMove(animationGroup));
     };
 
-    enum class Additive { Yes, No };
+    enum class Additive : bool { No, Yes };
     auto prepareAnimationForAddition = [&](LayerPropertyAnimation& animation, Additive additive = Additive::Yes) {
         auto caAnim = animation.m_animation;
         caAnim->setAdditive(additive == Additive::Yes);

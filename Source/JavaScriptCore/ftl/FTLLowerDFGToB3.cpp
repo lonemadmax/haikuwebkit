@@ -159,6 +159,7 @@ public:
         , m_ftlState(state)
         , m_out(state)
         , m_proc(*state.proc)
+        , m_tupleValues(m_graph.m_tupleData.size())
         , m_availabilityCalculator(m_graph)
         , m_state(state.graph)
         , m_interpreter(state.graph, m_state)
@@ -736,6 +737,9 @@ private:
         case DFG::Phi:
             compilePhi();
             break;
+        case ExtractFromTuple:
+            compileExtractFromTuple();
+            break;
         case JSConstant:
             break;
         case DoubleConstant:
@@ -1118,6 +1122,9 @@ private:
         case NewAsyncFunction:
             compileNewFunction();
             break;
+        case NewBoundFunction:
+            compileNewBoundFunction();
+            break;
         case CreateDirectArguments:
             compileCreateDirectArguments();
             break;
@@ -1228,6 +1235,9 @@ private:
             break;
         case FunctionToString:
             compileFunctionToString();
+            break;
+        case FunctionBind:
+            compileFunctionBind();
             break;
         case ToPrimitive:
             compileToPrimitive();
@@ -1565,12 +1575,6 @@ private:
             break;
         case EnumeratorNextUpdateIndexAndMode:
             compileEnumeratorNextUpdateIndexAndMode();
-            break;
-        case EnumeratorNextExtractIndex:
-            compileEnumeratorNextExtractIndex();
-            break;
-        case EnumeratorNextExtractMode:
-            compileEnumeratorNextExtractMode();
             break;
         case EnumeratorNextUpdatePropertyName:
             compileEnumeratorNextUpdatePropertyName();
@@ -7289,7 +7293,63 @@ IGNORE_CLANG_WARNINGS_END
         m_out.appendTo(continuation, lastNext);
         setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
     }
-    
+
+    void compileNewBoundFunction()
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+
+        LValue target = lowObject(m_graph.child(m_node, 0));
+        LValue thisValue = lowJSValue(m_graph.child(m_node, 1));
+        LValue arg0 = lowJSValue(m_graph.child(m_node, 2));
+        LValue arg1 = lowJSValue(m_graph.child(m_node, 3));
+        LValue arg2 = lowJSValue(m_graph.child(m_node, 4));
+
+        NativeExecutable* executable = m_node->castOperand<NativeExecutable*>();
+        RegisteredStructure structure = m_graph.registerStructure(globalObject->boundFunctionStructure());
+
+        LBasicBlock slowPath = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+
+        LBasicBlock lastNext = m_out.insertNewBlocksBefore(slowPath);
+
+        LValue fastObject = allocateObject<JSBoundFunction>(structure, m_out.intPtrZero, slowPath);
+        unsigned numberOfBoundArguments = m_node->numberOfBoundArguments();
+
+        // We don't need memory barriers since we just fast-created the function, so it
+        // must be young.
+        m_out.storePtr(weakPointer(globalObject), fastObject, m_heaps.JSFunction_scope);
+        m_out.storePtr(weakPointer(executable), fastObject, m_heaps.JSFunction_executableOrRareData);
+        m_out.storePtr(target, fastObject, m_heaps.JSBoundFunction_targetFunction);
+        m_out.store64(thisValue, fastObject, m_heaps.JSBoundFunction_boundThis);
+        m_out.store64(arg0, fastObject, m_heaps.JSBoundFunction_boundArg0);
+        m_out.store64(arg1, fastObject, m_heaps.JSBoundFunction_boundArg1);
+        m_out.store64(arg2, fastObject, m_heaps.JSBoundFunction_boundArg2);
+        m_out.storePtr(m_out.intPtrZero, fastObject, m_heaps.JSBoundFunction_nameMayBeNull);
+        m_out.store64(m_out.constInt64(bitwise_cast<uint64_t>(PNaN)), fastObject, m_heaps.JSBoundFunction_length);
+        m_out.store32(m_out.constInt32(numberOfBoundArguments), fastObject, m_heaps.JSBoundFunction_boundArgsLength);
+        m_out.store32As8(m_out.constInt32(static_cast<uint32_t>(TriState::Indeterminate)), fastObject, m_heaps.JSBoundFunction_canConstruct);
+        mutatorFence();
+
+        ValueFromBlock fastResult = m_out.anchor(fastObject);
+        m_out.jump(continuation);
+
+        m_out.appendTo(slowPath, continuation);
+
+        VM& vm = this->vm();
+        LValue callResult = lazySlowPath(
+            [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
+                return createLazyCallGenerator(vm, operationNewBoundFunction, locations[0].directGPR(),
+                    CCallHelpers::TrustedImmPtr(globalObject), locations[1].directGPR(), CCallHelpers::TrustedImm32(numberOfBoundArguments),
+                    locations[2].directGPR(), locations[3].directGPR(), locations[4].directGPR(), locations[5].directGPR());
+            },
+            target, thisValue, arg0, arg1, arg2);
+        ValueFromBlock slowResult = m_out.anchor(callResult);
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
+    }
+
     void compileCreateDirectArguments()
     {
         // FIXME: A more effective way of dealing with the argument count and callee is to have
@@ -8950,7 +9010,14 @@ IGNORE_CLANG_WARNINGS_END
         m_out.appendTo(continuation, lastNext);
         setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
     }
-    
+
+    void compileFunctionBind()
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        unsigned boundArgsLength = m_node->numberOfBoundArguments();
+        setJSValue(vmCall(pointerType(), operationFunctionBind, weakPointer(globalObject), lowObject(m_graph.child(m_node, 0)), m_out.constInt32(boundArgsLength), lowJSValue(m_graph.child(m_node, 1)), lowJSValue(m_graph.child(m_node, 2)), lowJSValue(m_graph.child(m_node, 3)), lowJSValue(m_graph.child(m_node, 4))));
+    }
+
     void compileToPrimitive()
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
@@ -14159,7 +14226,8 @@ IGNORE_CLANG_WARNINGS_END
 
             m_out.appendTo(continuation);
             LValue finalIndex = m_out.phi(Int32, finalIncrementedIndex, finalPropertyIndex);
-            setJSValue(m_out.bitOr(m_out.zeroExt(finalIndex, Int64), m_out.constInt64(JSValue::NumberTag | static_cast<uint64_t>(JSPropertyNameEnumerator::IndexedMode) << 32)));
+            setTuple(0, finalIndex);
+            setTuple(1, m_out.constInt32(static_cast<uint32_t>(JSPropertyNameEnumerator::IndexedMode)));
             return;
         }
 
@@ -14182,27 +14250,47 @@ IGNORE_CLANG_WARNINGS_END
 
             m_out.appendTo(continuation);
             index = m_out.phi(Int32, initialIndex, incrementedIndex);
-            setJSValue(m_out.bitOr(m_out.zeroExt(index, Int64), m_out.constInt64(JSValue::DoubleEncodeOffset | static_cast<uint64_t>(JSPropertyNameEnumerator::OwnStructureMode) << 32)));
+            setTuple(0, index);
+            setTuple(1, m_out.constInt32(static_cast<uint32_t>(JSPropertyNameEnumerator::OwnStructureMode)));
             return;
         }
 
         LValue base = lowJSValue(baseEdge);
-        setJSValue(vmCall(Int64, operationEnumeratorNextUpdateIndexAndMode, weakPointer(globalObject), base, index, mode, enumerator));
+        LValue tuple = vmCall(registerPair(), operationEnumeratorNextUpdateIndexAndMode, weakPointer(globalObject), base, index, mode, enumerator);
+
+        setTuple(0, m_out.castToInt32(m_out.extract(tuple, 0)));
+        setTuple(1, m_out.castToInt32(m_out.extract(tuple, 1)));
     }
 
-    void compileEnumeratorNextExtractIndex()
+    void compileExtractFromTuple()
     {
-        LValue boxedPair = lowJSValue(m_node->child1());
+        auto& loweredNodeValue = m_tupleValues.at(m_node->tupleIndex());
+        ASSERT(isValid(loweredNodeValue));
+        LValue result = loweredNodeValue.value();
 
-        setInt32(m_out.castToInt32(boxedPair));
-    }
+        switch (m_graph.m_tupleData.at(m_node->tupleIndex()).resultFlags) {
+        case NodeResultJS:
+        case NodeResultNumber:
+            setJSValue(result);
+            break;
+        case NodeResultDouble:
+            setDouble(result);
+            break;
+        case NodeResultInt32:
+            setInt32(result);
+            break;
+        case NodeResultBoolean:
+            setBoolean(result);
+            break;
+        case NodeResultStorage:
+            setStorage(result);
+            break;
 
-    void compileEnumeratorNextExtractMode()
-    {
-        LValue boxedPair = lowJSValue(m_node->child1());
-
-        LValue highBits = m_out.castToInt32(m_out.lShr(boxedPair, m_out.constInt32(32)));
-        setInt32(m_out.bitAnd(highBits, m_out.constInt32(JSPropertyNameEnumerator::enumerationModeMask)));
+        // FIXME: These are not supported because it wasn't exactly clear how to implement them and they are not currently used.
+        case NodeResultInt52:
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
     }
 
     // FIXME: We should probably have a method of value recovery for this node since it's "effect" free but always live in bytecode.
@@ -21576,6 +21664,11 @@ IGNORE_CLANG_WARNINGS_END
     {
         m_doubleValues.set(node, LoweredNodeValue(value, m_highBlock));
     }
+    void setTuple(Node* tuple, unsigned index, LValue value)
+    {
+        ASSERT(index < tuple->tupleSize());
+        m_tupleValues.at(tuple->tupleOffset() + index) = LoweredNodeValue(value, m_highBlock);
+    }
 
     void setInt32(LValue value)
     {
@@ -21608,6 +21701,10 @@ IGNORE_CLANG_WARNINGS_END
     void setDouble(LValue value)
     {
         setDouble(m_node, value);
+    }
+    void setTuple(unsigned index, LValue value)
+    {
+        setTuple(m_node, index, value);
     }
     
     bool isValid(const LoweredNodeValue& value)
@@ -21762,6 +21859,13 @@ IGNORE_CLANG_WARNINGS_END
         return abstractStructure(edge.node());
     }
 
+    LType registerPair()
+    {
+        if (!m_registerPair.isTuple())
+            m_registerPair = m_proc.addTuple({ registerType(), registerType() });
+        return m_registerPair;
+    }
+
     void crash()
     {
         crash(m_highBlock, m_node);
@@ -21848,6 +21952,8 @@ IGNORE_CLANG_WARNINGS_END
     HashMap<Node*, LoweredNodeValue> m_storageValues;
     HashMap<Node*, LoweredNodeValue> m_doubleValues;
     
+    Vector<LoweredNodeValue> m_tupleValues;
+
     HashMap<Node*, LValue> m_phis;
     
     LocalOSRAvailabilityCalculator m_availabilityCalculator;
@@ -21866,6 +21972,8 @@ IGNORE_CLANG_WARNINGS_END
     HashMap<Node*, NodeSet> m_liveInToNode;
     HashMap<Node*, AbstractValue> m_aiCheckedNodes;
     String m_graphDump;
+
+    LType m_registerPair;
 };
 
 } // anonymous namespace

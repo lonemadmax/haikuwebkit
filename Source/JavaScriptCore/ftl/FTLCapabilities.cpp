@@ -55,6 +55,7 @@ inline CapabilityLevel canCompile(Node* node)
     case Phantom:
     case Flush:
     case PhantomLocal:
+    case ExtractFromTuple:
     case SetArgumentDefinitely:
     case SetArgumentMaybe:
     case Return:
@@ -144,6 +145,7 @@ inline CapabilityLevel canCompile(Node* node)
     case NewGeneratorFunction:
     case NewAsyncFunction:
     case NewAsyncGeneratorFunction:
+    case NewBoundFunction:
     case GetClosureVar:
     case PutClosureVar:
     case GetInternalField:
@@ -222,6 +224,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ToNumeric:
     case ToString:
     case FunctionToString:
+    case FunctionBind:
     case ToObject:
     case CallObjectConstructor:
     case CallStringConstructor:
@@ -297,8 +300,6 @@ inline CapabilityLevel canCompile(Node* node)
     case ResolveRope:
     case GetPropertyEnumerator:
     case EnumeratorNextUpdateIndexAndMode:
-    case EnumeratorNextExtractMode:
-    case EnumeratorNextExtractIndex:
     case EnumeratorNextUpdatePropertyName:
     case EnumeratorGetByVal:
     case EnumeratorInByVal:

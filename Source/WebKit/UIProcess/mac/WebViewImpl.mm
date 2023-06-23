@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -76,6 +76,7 @@
 #import "WebBackForwardList.h"
 #import "WebEditCommandProxy.h"
 #import "WebEventFactory.h"
+#import "WebFrameProxy.h"
 #import "WebInspectorUIProxy.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
@@ -4560,7 +4561,7 @@ void WebViewImpl::scrollWheel(NSEvent *event)
         return;
 
     NativeWebWheelEvent webEvent = NativeWebWheelEvent(event, m_view.getAutoreleased());
-    m_page->handleWheelEvent(webEvent);
+    m_page->handleNativeWheelEvent(webEvent);
 }
 
 void WebViewImpl::swipeWithEvent(NSEvent *event)

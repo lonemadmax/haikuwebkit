@@ -85,18 +85,20 @@ std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create
         return nullptr;
 
     auto displayID = creationContext.graphicsClient ? creationContext.graphicsClient->displayID() : 0;
-    RetainPtr<CGContextRef> cgContext = surface->ensurePlatformContext(displayID);
+    RetainPtr<CGContextRef> cgContext = surface->createPlatformContext(displayID);
     if (!cgContext)
         return nullptr;
 
     CGContextClearRect(cgContext.get(), FloatRect(FloatPoint::zero(), backendSize));
+    CGContextFlush(cgContext.get());
 
-    return makeUnique<ImageBufferIOSurfaceBackend>(parameters, WTFMove(surface), displayID, creationContext.surfacePool);
+    return makeUnique<ImageBufferIOSurfaceBackend>(parameters, WTFMove(surface), WTFMove(cgContext), displayID, creationContext.surfacePool);
 }
 
-ImageBufferIOSurfaceBackend::ImageBufferIOSurfaceBackend(const Parameters& parameters, std::unique_ptr<IOSurface>&& surface, PlatformDisplayID displayID, IOSurfacePool* ioSurfacePool)
+ImageBufferIOSurfaceBackend::ImageBufferIOSurfaceBackend(const Parameters& parameters, std::unique_ptr<IOSurface> surface, RetainPtr<CGContextRef> platformContext, PlatformDisplayID displayID, IOSurfacePool* ioSurfacePool)
     : ImageBufferCGBackend(parameters)
     , m_surface(WTFMove(surface))
+    , m_platformContext(WTFMove(platformContext))
     , m_displayID(displayID)
     , m_ioSurfacePool(ioSurfacePool)
 {
@@ -107,13 +109,15 @@ ImageBufferIOSurfaceBackend::ImageBufferIOSurfaceBackend(const Parameters& param
 ImageBufferIOSurfaceBackend::~ImageBufferIOSurfaceBackend()
 {
     ensureNativeImagesHaveCopiedBackingStore();
+    releaseGraphicsContext();
     IOSurface::moveToPool(WTFMove(m_surface), m_ioSurfacePool.get());
 }
+
 
 GraphicsContext& ImageBufferIOSurfaceBackend::context()
 {
     if (!m_context) {
-        m_context = makeUnique<GraphicsContextCG>(m_surface->ensurePlatformContext(m_displayID));
+        m_context = makeUnique<GraphicsContextCG>(ensurePlatformContext());
         applyBaseTransform(*m_context);
     }
     return *m_context;
@@ -121,7 +125,26 @@ GraphicsContext& ImageBufferIOSurfaceBackend::context()
 
 void ImageBufferIOSurfaceBackend::flushContext()
 {
-    CGContextFlush(context().platformContext());
+    flushContextDraws();
+}
+
+bool ImageBufferIOSurfaceBackend::flushContextDraws()
+{
+    if (!m_context)
+        return false;
+    if (!m_context->consumeHasDrawn())
+        return false;
+    CGContextFlush(ensurePlatformContext());
+    return true;
+}
+
+CGContextRef ImageBufferIOSurfaceBackend::ensurePlatformContext()
+{
+    if (!m_platformContext) {
+        m_platformContext = m_surface->createPlatformContext(m_displayID);
+        RELEASE_ASSERT(m_platformContext);
+    }
+    return m_platformContext.get();
 }
 
 IntSize ImageBufferIOSurfaceBackend::backendSize() const
@@ -146,14 +169,12 @@ void ImageBufferIOSurfaceBackend::invalidateCachedNativeImage()
     // modified, but QuartzCore may have a cached CGImageRef that does not reflect the
     // current state of the IOSurface.
     // See https://webkit.org/b/157966 and https://webkit.org/b/228682 for more context.
-    context().fillRect({ });
+    CGContextFillRect(ensurePlatformContext(), CGRect { });
 }
-
 
 RefPtr<NativeImage> ImageBufferIOSurfaceBackend::copyNativeImage(BackingStoreCopy)
 {
-    m_mayHaveOutstandingBackingStoreReferences = true;
-    return NativeImage::create(m_surface->createImage());
+    return NativeImage::create(createImage());
 }
 
 RefPtr<NativeImage> ImageBufferIOSurfaceBackend::copyNativeImageForDrawing(GraphicsContext& destination)
@@ -163,15 +184,7 @@ RefPtr<NativeImage> ImageBufferIOSurfaceBackend::copyNativeImageForDrawing(Graph
         // The destination backend needs to read the actual pixels. Returning non-refence will
         // copy the pixels and but still cache the image to the context. This means we must
         // return the reference or cleanup later if we return the non-reference.
-        if (auto image = adoptCF(CGIOSurfaceContextCreateImageReference(m_surface->ensurePlatformContext()))) {
-            // CG has internal caches for some operations related to software bitmap draw. 
-            // One of these caches are per-image color matching cache. Since these will not get any hits
-            // from an image that is recreated every time, mark the image transient to skip these caches.
-            // This also skips WebKit GraphicsContext subimage cache.
-            CGImageSetCachingFlags(image.get(), kCGImageCachingTransient);
-            return NativeImage::create(WTFMove(image));
-        }
-        return nullptr;
+        return NativeImage::create(createImageReference());
     }
     // Other backends are deferred (iosurface, display list) or potentially deferred. Must copy for drawing.
     return ImageBufferIOSurfaceBackend::copyNativeImage(CopyBackingStore);
@@ -179,7 +192,8 @@ RefPtr<NativeImage> ImageBufferIOSurfaceBackend::copyNativeImageForDrawing(Graph
 
 RefPtr<NativeImage> ImageBufferIOSurfaceBackend::sinkIntoNativeImage()
 {
-    return NativeImage::create(IOSurface::sinkIntoImage(WTFMove(m_surface)));
+    ensurePlatformContext();
+    return NativeImage::create(IOSurface::sinkIntoImage(WTFMove(m_surface), WTFMove(m_platformContext)));
 }
 
 RefPtr<PixelBuffer> ImageBufferIOSurfaceBackend::getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& srcRect, const ImageBufferAllocator& allocator)
@@ -210,7 +224,7 @@ bool ImageBufferIOSurfaceBackend::isInUse() const
 void ImageBufferIOSurfaceBackend::releaseGraphicsContext()
 {
     m_context = nullptr;
-    m_surface->releasePlatformContext();
+    m_platformContext = nullptr;
 }
 
 bool ImageBufferIOSurfaceBackend::setVolatile()
@@ -261,15 +275,17 @@ void ImageBufferIOSurfaceBackend::prepareForExternalRead()
 {
     // Ensure that there are no pending draws to this surface. This is ensured by flushing the context
     // through which the draws may have come.
-    flushContext();
+    flushContextDraws();
 }
 
 void ImageBufferIOSurfaceBackend::prepareForExternalWrite()
 {
+    bool needFlush = false;
     // Ensure that there are no future draws from the surface that would use the surface context image cache.
     if (m_mayHaveOutstandingBackingStoreReferences) {
         invalidateCachedNativeImage();
         m_mayHaveOutstandingBackingStoreReferences = false;
+        needFlush = true;
     }
 
     // Ensure that there are no pending draws to this surface. This is ensured by flushing the context
@@ -277,7 +293,36 @@ void ImageBufferIOSurfaceBackend::prepareForExternalWrite()
     // Ensure that there are no pending draws from this surface. This is ensured by drawing the invalidation marker before
     // flushing the the context. The invalidation marker forces the draws from this surface to complete before
     // the invalidation marker completes.
-    flushContext();
+    if (flushContextDraws())
+        needFlush = false;
+    if (needFlush)
+        CGContextFlush(ensurePlatformContext());
+}
+
+RetainPtr<CGImageRef> ImageBufferIOSurfaceBackend::createImage()
+{
+    // CGIOSurfaceContextCreateImage flushes, so clear the flush need.
+    if (m_context)
+        m_context->consumeHasDrawn();
+    // Consumers may hold on to the image, so mark external writes needing the invalidation marker.
+    m_mayHaveOutstandingBackingStoreReferences = true;
+    return m_surface->createImage(ensurePlatformContext());
+}
+
+RetainPtr<CGImageRef> ImageBufferIOSurfaceBackend::createImageReference()
+{
+    // CGIOSurfaceContextCreateImageReference flushes, so clear the flush need.
+    if (m_context)
+        m_context->consumeHasDrawn();
+    // The reference is used only in synchronized manner, so after the use ends, we can update
+    // externally without invalidation marker. Thus we do not set m_mayHaveOutstandingBackingStoreReferences.
+    auto image = adoptCF(CGIOSurfaceContextCreateImageReference(ensurePlatformContext()));
+    // CG has internal caches for some operations related to software bitmap draw.
+    // One of these caches are per-image color matching cache. Since these will not get any hits
+    // from an image that is recreated every time, mark the image transient to skip these caches.
+    // This also skips WebKit GraphicsContext subimage cache.
+    CGImageSetCachingFlags(image.get(), kCGImageCachingTransient);
+    return image;
 }
 
 } // namespace WebCore

@@ -99,7 +99,6 @@ private:
 
     bool prefersPreparationForDisplay() final { return true; }
     
-    void flushContext() final;
     void flushDrawingContext() final;
     bool flushDrawingContextAsync() final;
 
@@ -112,9 +111,7 @@ private:
     Ref<RemoteImageBufferProxyFlushState> m_flushState;
     WeakPtr<RemoteRenderingBackendProxy> m_remoteRenderingBackendProxy;
     RemoteDisplayListRecorderProxy m_remoteDisplayList;
-    // First command might be putPixelBuffer. With canMapBackingStore() == true, it needs to flush
-    // the surface initialization.
-    bool m_needsFlush { true };
+    bool m_needsFlush { false };
 };
 
 class RemoteImageBufferProxyFlushState : public ThreadSafeRefCounted<RemoteImageBufferProxyFlushState> {

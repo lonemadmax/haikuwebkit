@@ -117,20 +117,30 @@ void MediaSourcePrivateRemote::durationChanged(const MediaTime& duration)
     m_gpuProcessConnection->connection().send(Messages::RemoteMediaSourceProxy::DurationChanged(duration), m_identifier);
 }
 
-void MediaSourcePrivateRemote::markEndOfStream(EndOfStreamStatus)
+void MediaSourcePrivateRemote::bufferedChanged(const PlatformTimeRanges& buffered)
 {
-    notImplemented();
+    if (!m_gpuProcessConnection)
+        return;
+
+    m_gpuProcessConnection->connection().send(Messages::RemoteMediaSourceProxy::BufferedChanged(buffered), m_identifier);
+}
+
+void MediaSourcePrivateRemote::markEndOfStream(EndOfStreamStatus status)
+{
+    m_ended = true;
+    m_gpuProcessConnection->connection().send(Messages::RemoteMediaSourceProxy::MarkEndOfStream(status), m_identifier);
 }
 
 void MediaSourcePrivateRemote::unmarkEndOfStream()
 {
-    notImplemented();
+    // FIXME(125159): implement unmarkEndOfStream()
+    m_ended = false;
+    m_gpuProcessConnection->connection().send(Messages::RemoteMediaSourceProxy::UnmarkEndOfStream(), m_identifier);
 }
 
 bool MediaSourcePrivateRemote::isEnded() const
 {
-    notImplemented();
-    return false;
+    return m_ended;
 }
 
 MediaPlayer::ReadyState MediaSourcePrivateRemote::readyState() const

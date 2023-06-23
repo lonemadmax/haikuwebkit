@@ -33,7 +33,6 @@
 #include "FocusDirection.h"
 #include "FrameLoader.h"
 #include "GraphicsContext.h"
-#include "GraphicsLayer.h"
 #include "HTMLMediaElementEnums.h"
 #include "HighlightVisibility.h"
 #include "HostWindow.h"
@@ -632,6 +631,8 @@ public:
 
     virtual void decidePolicyForModalContainer(OptionSet<ModalContainerControlType>, CompletionHandler<void(ModalContainerDecision)>&&) = 0;
 
+    virtual bool isUsingUISideCompositing() const { return false; }
+    
     WEBCORE_EXPORT virtual ~ChromeClient();
 
 protected:

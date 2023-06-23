@@ -198,9 +198,7 @@ public:
     // Update event regions, which only needs to happen once per rendering update.
     void updateEventRegions();
 
-    enum class LayoutUpToDate {
-        Yes, No
-    };
+    enum class LayoutUpToDate : bool { No, Yes };
 
     struct RequiresCompositingData {
         LayoutUpToDate layoutUpToDate { LayoutUpToDate::Yes };
@@ -567,7 +565,7 @@ private:
 #endif
 
     bool documentUsesTiledBacking() const;
-    bool isMainFrameCompositor() const;
+    bool isRootFrameCompositor() const;
 
     void updateCompositingForLayerTreeAsTextDump();
 

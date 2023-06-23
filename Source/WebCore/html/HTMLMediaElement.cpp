@@ -230,11 +230,6 @@ static const Seconds hideMediaControlsAfterEndedDelay { 6_s };
 static constexpr auto mediaSourceBlobProtocol = "blob"_s;
 #endif
 
-#if ENABLE(MEDIA_STREAM)
-// URL protocol used to signal that the media stream API is being used.
-static constexpr auto mediaStreamBlobProtocol = "blob"_s;
-#endif
-
 using namespace HTMLNames;
 
 String convertEnumerationToString(HTMLMediaElement::ReadyState enumerationValue)
@@ -640,9 +635,6 @@ HTMLMediaElement::~HTMLMediaElement()
 
     m_mediaSession = nullptr;
     schedulePlaybackControlsManagerUpdate();
-
-    if (!m_blobURLForReading.isEmpty())
-        ThreadableBlobRegistry::unregisterBlobURL(m_blobURLForReading);
 }
 
 std::optional<MediaPlayerIdentifier> HTMLMediaElement::playerIdentifier() const
@@ -1650,7 +1642,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
         ALWAYS_LOG(LOGIDENTIFIER, "loading generic blob");
         if (!m_blobURLForReading.isEmpty())
             ThreadableBlobRegistry::unregisterBlobURL(m_blobURLForReading);
-        m_blobURLForReading = BlobURL::createPublicURL(&document().securityOrigin());
+        m_blobURLForReading = { BlobURL::createPublicURL(&document().securityOrigin()), document().topOrigin().data() };
         ThreadableBlobRegistry::registerBlobURL(&document().securityOrigin(), document().policyContainer(), m_blobURLForReading, m_blob->url());
 
         if (!m_player->load(m_blobURLForReading, contentType, keySystem, !!m_remotePlaybackConfiguration))
@@ -5210,9 +5202,6 @@ URL HTMLMediaElement::selectNextSourceChild(ContentType* contentType, String* ke
             parameters.url = mediaURL;
 #if ENABLE(MEDIA_SOURCE)
             parameters.isMediaSource = mediaURL.protocolIs(mediaSourceBlobProtocol);
-#endif
-#if ENABLE(MEDIA_STREAM)
-            parameters.isMediaStream = mediaURL.protocolIs(mediaStreamBlobProtocol);
 #endif
             parameters.requiresRemotePlayback = !!m_remotePlaybackConfiguration;
             if (!document().settings().allowMediaContentTypesRequiringHardwareSupportAsFallback() || Traversal<HTMLSourceElement>::nextSkippingChildren(source))

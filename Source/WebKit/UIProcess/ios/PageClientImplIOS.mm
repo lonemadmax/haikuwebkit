@@ -37,6 +37,7 @@
 #import "InteractionInformationAtPosition.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NavigationState.h"
+#import "RemoteLayerTreeNode.h"
 #import "RunningBoardServicesSPI.h"
 #import "StringUtilities.h"
 #import "TapHandlingResult.h"
@@ -233,6 +234,11 @@ void PageClientImpl::toolTipChanged(const String&, const String&)
 void PageClientImpl::didNotHandleTapAsClick(const WebCore::IntPoint& point)
 {
     [m_contentView _didNotHandleTapAsClick:point];
+}
+
+void PageClientImpl::didHandleTapAsHover()
+{
+    [m_contentView _didHandleTapAsHover];
 }
 
 void PageClientImpl::didCompleteSyntheticClick()

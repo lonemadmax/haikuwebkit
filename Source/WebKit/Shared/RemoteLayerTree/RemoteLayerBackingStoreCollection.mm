@@ -1,5 +1,5 @@
  /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,7 +75,7 @@ void RemoteLayerBackingStoreCollection::willFlushLayers()
 void RemoteLayerBackingStoreCollection::willCommitLayerTree(RemoteLayerTreeTransaction& transaction)
 {
     ASSERT(m_inLayerFlush);
-    Vector<WebCore::GraphicsLayer::PlatformLayerID> newlyUnreachableLayerIDs;
+    Vector<WebCore::PlatformLayerIdentifier> newlyUnreachableLayerIDs;
     for (auto& backingStore : m_liveBackingStore) {
         if (!m_reachableBackingStoreInLatestFlush.contains(backingStore))
             newlyUnreachableLayerIDs.append(backingStore->layer()->layerID());
@@ -140,11 +140,13 @@ bool RemoteLayerBackingStoreCollection::backingStoreWillBeDisplayed(RemoteLayerB
     ASSERT(m_inLayerFlush);
     m_reachableBackingStoreInLatestFlush.add(&backingStore);
 
-    if (backingStore.needsDisplay())
+    auto backingStoreIter = m_unparentedBackingStore.find(&backingStore);
+    bool wasUnparented = backingStoreIter != m_unparentedBackingStore.end();
+
+    if (backingStore.needsDisplay() || wasUnparented)
         m_backingStoresNeedingDisplay.add(&backingStore);
 
-    auto backingStoreIter = m_unparentedBackingStore.find(&backingStore);
-    if (backingStoreIter == m_unparentedBackingStore.end())
+    if (!wasUnparented)
         return false;
 
     m_liveBackingStore.add(&backingStore);

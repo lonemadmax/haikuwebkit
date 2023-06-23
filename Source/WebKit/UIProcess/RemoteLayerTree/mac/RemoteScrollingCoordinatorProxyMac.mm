@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,12 +61,21 @@ RemoteScrollingCoordinatorProxyMac::~RemoteScrollingCoordinatorProxyMac()
 #endif
 }
 
-void RemoteScrollingCoordinatorProxyMac::handleWheelEvent(const NativeWebWheelEvent& nativeWheelEvent, RectEdges<bool> rubberBandableEdges)
+void RemoteScrollingCoordinatorProxyMac::cacheWheelEventScrollingAccelerationCurve(const NativeWebWheelEvent& nativeWheelEvent)
 {
 #if ENABLE(SCROLLING_THREAD)
-    m_wheelEventDispatcher->handleWheelEvent(nativeWheelEvent, rubberBandableEdges);
+    m_wheelEventDispatcher->cacheWheelEventScrollingAccelerationCurve(nativeWheelEvent);
 #else
     UNUSED_PARAM(nativeWheelEvent);
+#endif
+}
+
+void RemoteScrollingCoordinatorProxyMac::handleWheelEvent(const WebWheelEvent& wheelEvent, RectEdges<bool> rubberBandableEdges)
+{
+#if ENABLE(SCROLLING_THREAD)
+    m_wheelEventDispatcher->handleWheelEvent(wheelEvent, rubberBandableEdges);
+#else
+    UNUSED_PARAM(wheelEvent);
     UNUSED_PARAM(rubberBandableEdges);
 #endif
 }
@@ -110,7 +119,7 @@ void RemoteScrollingCoordinatorProxyMac::scrollingTreeNodeDidEndScroll(Scrolling
 
 void RemoteScrollingCoordinatorProxyMac::connectStateNodeLayers(ScrollingStateTree& stateTree, const RemoteLayerTreeHost& layerTreeHost)
 {
-    using PlatformLayerID = GraphicsLayer::PlatformLayerID;
+    using PlatformLayerID = PlatformLayerIdentifier;
 
     for (auto& currNode : stateTree.nodeMap().values()) {
         if (currNode->hasChangedProperty(ScrollingStateNode::Property::Layer))

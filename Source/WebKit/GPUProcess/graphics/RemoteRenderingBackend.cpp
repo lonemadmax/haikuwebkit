@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -205,17 +205,18 @@ void RemoteRenderingBackend::createImageBufferWithQualifiedIdentifier(const Floa
 
     RefPtr<RemoteImageBuffer> imageBuffer;
 
+    WebCore::ImageBufferCreationContext creationContext { nullptr };
+#if HAVE(IOSURFACE)
+    creationContext.surfacePool = &ioSurfacePool();
+#endif
+    creationContext.resourceOwner = m_resourceOwner;
+
     if (renderingMode == RenderingMode::Accelerated) {
-        if (auto acceleratedImageBuffer = RemoteImageBuffer::create<AcceleratedImageBufferShareableMappedBackend>(logicalSize, resolutionScale, colorSpace, pixelFormat, purpose, *this, imageBufferResourceIdentifier)) {
-            // Mark the IOSurface as being owned by the WebProcess even though it was constructed by the GPUProcess so that Jetsam knows which process to kill.
-            if (m_resourceOwner)
-                acceleratedImageBuffer->setOwnershipIdentity(m_resourceOwner);
-            imageBuffer = WTFMove(acceleratedImageBuffer);
-        }
+        imageBuffer = RemoteImageBuffer::create<AcceleratedImageBufferShareableMappedBackend>(logicalSize, resolutionScale, colorSpace, pixelFormat, purpose, *this, imageBufferResourceIdentifier, creationContext);
     }
 
     if (!imageBuffer)
-        imageBuffer = RemoteImageBuffer::create<UnacceleratedImageBufferShareableBackend>(logicalSize, resolutionScale, colorSpace, pixelFormat, purpose, *this, imageBufferResourceIdentifier);
+        imageBuffer = RemoteImageBuffer::create<UnacceleratedImageBufferShareableBackend>(logicalSize, resolutionScale, colorSpace, pixelFormat, purpose, *this, imageBufferResourceIdentifier, creationContext);
 
     if (!imageBuffer) {
         ASSERT_NOT_REACHED();
@@ -378,14 +379,14 @@ void RemoteRenderingBackend::releaseAllResources()
     m_remoteResourceCache.releaseAllResources();
 }
 
-void RemoteRenderingBackend::releaseResource(RenderingResourceIdentifier renderingResourceIdentifier)
+void RemoteRenderingBackend::releaseRenderingResource(RenderingResourceIdentifier renderingResourceIdentifier)
 {
     // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
     // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
-    releaseResourceWithQualifiedIdentifier({ renderingResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
+    releaseRenderingResourceWithQualifiedIdentifier({ renderingResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
 }
 
-void RemoteRenderingBackend::releaseResourceWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
+void RemoteRenderingBackend::releaseRenderingResourceWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
 {
     ASSERT(!RunLoop::isMain());
     {
@@ -393,7 +394,7 @@ void RemoteRenderingBackend::releaseResourceWithQualifiedIdentifier(QualifiedRen
         if (auto remoteDisplayList = m_remoteDisplayLists.take(renderingResourceIdentifier))
             remoteDisplayList->clearImageBufferReference();
     }
-    auto success = m_remoteResourceCache.releaseResource(renderingResourceIdentifier);
+    auto success = m_remoteResourceCache.releaseRenderingResource(renderingResourceIdentifier);
     MESSAGE_CHECK(success, "Resource is being released before being cached.");
 }
 

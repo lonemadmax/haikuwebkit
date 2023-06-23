@@ -71,6 +71,26 @@ bool ScrollingTreeFrameScrollingNodeRemoteMac::handleMouseEvent(const PlatformMo
     return m_delegate->handleMouseEventForScrollbars(mouseEvent);
 }
 
+void ScrollingTreeFrameScrollingNodeRemoteMac::viewWillStartLiveResize()
+{
+    m_delegate->viewWillStartLiveResize();
+}
+
+void ScrollingTreeFrameScrollingNodeRemoteMac::viewWillEndLiveResize()
+{
+    m_delegate->viewWillEndLiveResize();
+}
+
+void ScrollingTreeFrameScrollingNodeRemoteMac::viewSizeDidChange()
+{
+    m_delegate->viewSizeDidChange();
+}
+
+String ScrollingTreeFrameScrollingNodeRemoteMac::scrollbarStateForOrientation(ScrollbarOrientation orientation) const
+{
+    return m_delegate->scrollbarStateForOrientation(orientation);
+}
+
 }
 
 #endif

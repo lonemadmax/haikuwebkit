@@ -35,6 +35,7 @@
 #include "DFGAbstractInterpreterClobberState.h"
 #include "DOMJITGetterSetter.h"
 #include "DOMJITSignature.h"
+#include "FunctionPrototype.h"
 #include "GetByStatus.h"
 #include "GetterSetter.h"
 #include "HashMapImplInlines.h"
@@ -384,6 +385,13 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case IdentityWithProfile:
     case Identity: {
         setForNode(node, forNode(node->child1()));
+        if (forNode(node).value())
+            m_state.setShouldTryConstantFolding(true);
+        break;
+    }
+
+    case ExtractFromTuple: {
+        setForNode(node, m_state.forTupleNode(node->child1(), node->extractOffset()));
         if (forNode(node).value())
             m_state.setShouldTryConstantFolding(true);
         break;
@@ -2948,6 +2956,32 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
     }
 
+    case FunctionBind: {
+        if (m_graph.m_plan.isUnlinked()) {
+            clobberWorld();
+            setTypeForNode(node, SpecFunction);
+            break;
+        }
+
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+        Edge target = m_graph.child(node, 0);
+        AbstractValue& targetValue = forNode(target);
+        auto& structureSet = targetValue.m_structure;
+        if (!(targetValue.m_type & ~SpecFunction) && structureSet.isFinite() && structureSet.size() == 1) {
+            RegisteredStructure structure = structureSet.onlyStructure();
+            if (JSBoundFunction::canSkipNameAndLengthMaterialization(globalObject, structure.get())) {
+                m_state.setShouldTryConstantFolding(true);
+                didFoldClobberWorld();
+                setForNode(node, globalObject->boundFunctionStructure());
+                break;
+            }
+        }
+
+        clobberWorld();
+        setTypeForNode(node, SpecFunction);
+        break;
+    }
+
     case NumberToStringWithRadix: {
         JSValue radixValue = forNode(node->child2()).m_value;
         if (radixValue && radixValue.isInt32()) {
@@ -3364,6 +3398,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             m_codeBlock->globalObjectFor(node->origin.semantic)->asyncFunctionStructure());
         break;
 
+    case NewBoundFunction: {
+        setForNode(node, m_codeBlock->globalObjectFor(node->origin.semantic)->boundFunctionStructure());
+        break;
+    }
+
     case NewFunction: {
         JSGlobalObject* globalObject = m_codeBlock->globalObjectFor(node->origin.semantic);
         Structure* structure = JSFunction::selectStructureForNewFuncExp(globalObject, node->castOperand<FunctionExecutable*>());
@@ -3486,9 +3525,22 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case PutClosureVar:
         break;
 
-    case GetInternalField:
+    case GetInternalField: {
+        AbstractValue& child = forNode(node->child1());
+        if (child.m_type && !(child.m_type & ~SpecProxyObject)) {
+            if (node->internalFieldIndex() == static_cast<unsigned>(ProxyObject::Field::Target)) {
+                setTypeForNode(node, SpecObject);
+                break;
+            }
+            if (node->internalFieldIndex() == static_cast<unsigned>(ProxyObject::Field::Handler)) {
+                setTypeForNode(node, SpecObject | SpecOther);
+                break;
+            }
+        }
+
         makeBytecodeTopForNode(node);
         break;
+    }
 
     case PutInternalField:
         break;
@@ -4479,11 +4531,13 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
     case EnumeratorNextUpdateIndexAndMode: {
         ArrayMode arrayMode = node->arrayMode();
-        if (node->enumeratorMetadata() == JSPropertyNameEnumerator::OwnStructureMode && m_graph.varArgChild(node, 0).useKind() == CellUse) {
-            // Do nothing.
-        } else if (node->enumeratorMetadata() != JSPropertyNameEnumerator::IndexedMode)
+        if (node->enumeratorMetadata() == JSPropertyNameEnumerator::OwnStructureMode && m_graph.varArgChild(node, 0).useKind() == CellUse)
+            setTupleConstant(node, 1, jsNumber(static_cast<uint8_t>(JSPropertyNameEnumerator::OwnStructureMode)));
+        else if (node->enumeratorMetadata() != JSPropertyNameEnumerator::IndexedMode) {
+            m_state.setNonCellTypeForTupleNode(node, 1, SpecInt32Only);
             clobberWorld();
-        else {
+        } else {
+            setTupleConstant(node, 1, jsNumber(static_cast<uint8_t>(JSPropertyNameEnumerator::IndexedMode)));
             switch (arrayMode.type()) {
             case Array::Int32:
             case Array::Double:
@@ -4499,25 +4553,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             }
             }
         }
-        setNonCellTypeForNode(node, SpecBytecodeNumber);
-        break;
-    }
-
-    case EnumeratorNextExtractMode: {
-        if (node->child1()->enumeratorMetadata() == JSPropertyNameEnumerator::IndexedMode) {
-            setConstant(node, jsNumber(static_cast<uint8_t>(JSPropertyNameEnumerator::IndexedMode)));
-            break;
-        }
-
-        if (node->child1()->enumeratorMetadata() == JSPropertyNameEnumerator::OwnStructureMode && m_graph.varArgChild(node->child1().node(), 0).useKind() == CellUse) {
-            setConstant(node, jsNumber(static_cast<uint8_t>(JSPropertyNameEnumerator::OwnStructureMode)));
-            break;
-        }
-
-        FALLTHROUGH;
-    }
-    case EnumeratorNextExtractIndex: {
-        setNonCellTypeForNode(node, SpecInt32Only);
+        m_state.setNonCellTypeForTupleNode(node, 0, SpecInt32Only);
         break;
     }
 

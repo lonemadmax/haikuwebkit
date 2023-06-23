@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@
 #include "RemoteScrollingCoordinator.h"
 #include "RemoteScrollingTree.h"
 #include "RemoteScrollingUIState.h"
-#include <WebCore/GraphicsLayer.h>
+#include <WebCore/PlatformLayerIdentifier.h>
 #include <WebCore/ScrollSnapOffsetsInfo.h>
 #include <WebCore/WheelEventTestMonitor.h>
 #include <wtf/Noncopyable.h>
@@ -52,6 +52,7 @@ class RemoteLayerTreeHost;
 class RemoteScrollingCoordinatorTransaction;
 class RemoteScrollingTree;
 class WebPageProxy;
+class WebWheelEvent;
 
 class RemoteScrollingCoordinatorProxy : public CanMakeWeakPtr<RemoteScrollingCoordinatorProxy> {
     WTF_MAKE_FAST_ALLOCATED;
@@ -93,8 +94,9 @@ public:
 
     void currentSnapPointIndicesDidChange(WebCore::ScrollingNodeID, std::optional<unsigned> horizontal, std::optional<unsigned> vertical);
 
-    virtual void handleWheelEvent(const NativeWebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
-    void continueWheelEventHandling(const NativeWebWheelEvent&, WebCore::WheelEventHandlingResult);
+    virtual void cacheWheelEventScrollingAccelerationCurve(const NativeWebWheelEvent&) { }
+    virtual void handleWheelEvent(const WebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    void continueWheelEventHandling(const WebWheelEvent&, WebCore::WheelEventHandlingResult);
 
     void handleMouseEvent(const WebCore::PlatformMouseEvent&);
     
@@ -147,6 +149,11 @@ public:
     int footerHeight() const;
     float mainFrameScaleFactor() const;
     WebCore::FloatSize totalContentsSize() const;
+    
+    void viewWillStartLiveResize();
+    void viewWillEndLiveResize();
+    void viewSizeDidChange();
+    String scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID, bool isVertical);
 
 protected:
     RemoteScrollingTree* scrollingTree() const { return m_scrollingTree.get(); }
@@ -170,7 +177,7 @@ protected:
     std::optional<unsigned> m_currentHorizontalSnapPointIndex;
     std::optional<unsigned> m_currentVerticalSnapPointIndex;
     bool m_waitingForDidScrollReply { false };
-    HashSet<WebCore::GraphicsLayer::PlatformLayerID> m_layersWithScrollingRelations;
+    HashSet<WebCore::PlatformLayerIdentifier> m_layersWithScrollingRelations;
 };
 
 } // namespace WebKit

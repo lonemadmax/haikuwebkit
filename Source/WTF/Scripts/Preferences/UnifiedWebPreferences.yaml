@@ -785,6 +785,22 @@ BlockIOKitInWebContentSandbox:
     WebKit:
       default: true
 
+BlockMediaLayerRehostingInWebContentProcess:
+  type: bool
+  status: internal
+  category: media
+  humanReadableName: "GPU Process: Block Media Layer Re-hosting"
+  humanReadableDescription: "GPU Process: Block Media Layer Re-hosting in WebContent process"
+  condition: ENABLE(GPU_PROCESS)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(MAC)": true
+      default: false
+    WebCore:
+      default: false
+
 # We would have to partition BroadcastChannel based on PageGroups if we wanted to enable this for WebKitLegacy.
 BroadcastChannelEnabled:
   type: bool
@@ -1796,7 +1812,7 @@ DOMPasteAccessRequestsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(IOS) || PLATFORM(MAC)": true
+      "PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(GTK)": true
       default: false
     WebCore:
       default: false
@@ -2091,9 +2107,9 @@ DiagnosticLoggingEnabled:
 DialogElementEnabled:
   type: bool
   status: stable
-  category: dom
-  humanReadableName: "Dialog Element"
-  humanReadableDescription: "Enable the Dialog Element"
+  category: html
+  humanReadableName: "HTML <dialog> element"
+  humanReadableDescription: "Enable HTML <dialog> element"
   defaultValue:
     WebKitLegacy:
       default: true
@@ -2875,9 +2891,9 @@ ImageAnalysisDuringFindInPageEnabled:
 ImageAnimationControlEnabled:
   type: bool
   status: stable
-  category: dom
-  humanReadableName: "Image Animation Control Enabled"
-  humanReadableDescription: "Control image animations."
+  category: animation
+  humanReadableName: "Image Animation Control"
+  humanReadableDescription: "Enable controls for image animations"
   condition: ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
   defaultValue:
     WebKitLegacy:
@@ -2981,8 +2997,8 @@ IndexedDBAPIEnabled:
 InertAttributeEnabled:
   type: bool
   status: stable
-  category: css
-  humanReadableName: "inert attribute"
+  category: html
+  humanReadableName: "HTML inert attribute"
   humanReadableDescription: "Enable inert attribute support"
   defaultValue:
     WebKitLegacy:
@@ -2995,9 +3011,9 @@ InertAttributeEnabled:
 InlineFormattingContextIntegrationEnabled:
   type: bool
   status: stable
-  category: dom
-  humanReadableName: "Next-generation inline layout integration (IFC)"
-  humanReadableDescription: "Enable next-generation inline layout integration (IFC)"
+  category: css
+  humanReadableName: "Next-generation inline layout (IFC)"
+  humanReadableDescription: "Enable next-generation inline layout (IFC)"
   webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
@@ -3163,22 +3179,22 @@ InteractionRegionInlinePadding:
   status: embedder
   defaultValue:
     WebKitLegacy:
-      default: 3
+      default: 4
     WebKit:
-      default: 3
+      default: 4
     WebCore:
-      default: 3
+      default: 4
 
 InteractionRegionMinimumCornerRadius:
   type: double
   status: embedder
   defaultValue:
     WebKitLegacy:
-      default: 4
+      default: 8
     WebKit:
-      default: 4
+      default: 8
     WebCore:
-      default: 4
+      default: 8
 
 InteractionRegionsEnabled:
   type: bool
@@ -3340,23 +3356,6 @@ IsLoggedInAPIEnabled:
       default: false
     WebCore:
       default: false
-
-# FIXME: The 'Is' prefix is inconsistent with most other preferences and should be removed.
-# FIXME: This is not implemented for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
-IsNSURLSessionWebSocketEnabled:
-  type: bool
-  status: stable
-  category: networking
-  humanReadableName: "NSURLSession WebSocket"
-  humanReadableDescription: "Use NSURLSession WebSocket API"
-  condition: HAVE(NSURLSESSION_WEBSOCKET)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 # FIXME: The 'Is' prefix is inconsistent with most other preferences and should be removed.
 IsSameSiteStrictEnforcementEnabled:
@@ -3537,7 +3536,7 @@ LayoutViewportHeightExpansionFactor:
 LazyIframeLoadingEnabled:
   type: bool
   status: stable
-  category: dom
+  category: html
   humanReadableName: "Lazy iframe loading"
   humanReadableDescription: "Enable lazy iframe loading support"
   defaultValue:
@@ -3551,7 +3550,7 @@ LazyIframeLoadingEnabled:
 LazyImageLoadingEnabled:
   type: bool
   status: stable
-  category: dom
+  category: html
   humanReadableName: "Lazy image loading"
   humanReadableDescription: "Enable lazy image loading support"
   defaultValue:
@@ -4375,9 +4374,9 @@ MockScrollbarsEnabled:
 ModelDocumentEnabled:
   type: bool
   status: testable
-  category: dom
+  category: html
   humanReadableName: "HTML <model> elements for stand-alone document"
-  humanReadableDescription: "HTML <model> element for model documents"
+  humanReadableDescription: "Enable HTML <model> element for model documents"
   condition: ENABLE(MODEL_ELEMENT)
   webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
@@ -4389,9 +4388,9 @@ ModelDocumentEnabled:
 ModelElementEnabled:
   type: bool
   status: testable
-  category: dom
+  category: html
   humanReadableName: "HTML <model> element"
-  humanReadableDescription: "HTML <model> element"
+  humanReadableDescription: "Enable HTML <model> element"
   condition: ENABLE(MODEL_ELEMENT)
   defaultValue:
     WebKitLegacy:
@@ -4759,7 +4758,7 @@ PasswordEchoEnabled:
 PdfJSViewerEnabled:
   type: bool
   status: testable
-  category: dom
+  category: html
   humanReadableName: "Enable PDF.js viewer"
   humanReadableDescription: "Enable PDF.js viewer"
   condition: ENABLE(PDFJS)
@@ -4905,7 +4904,7 @@ PluginsEnabled:
 PopoverAttributeEnabled:
   type: bool
   status: stable
-  category: dom
+  category: html
   humanReadableName: "HTML popover attribute"
   humanReadableDescription: "Enable HTML popover attribute support"
   defaultValue:
@@ -6819,7 +6818,7 @@ VerifyWindowOpenUserGestureFromUIProcess:
 VerticalFormControlsEnabled:
   type: bool
   status: testable
-  category: dom
+  category: html
   humanReadableName: "Vertical form control support"
   humanReadableDescription: "Enable support for form controls in vertical writing mode"
   defaultValue:
@@ -7133,9 +7132,9 @@ WebAuthenticationEnabled:
 WebCodecsAV1Enabled:
   type: bool
   status: preview
-  category: dom
+  category: media
   humanReadableName: "WebCodecs AV1 codec"
-  humanReadableDescription: WebCodecs
+  humanReadableDescription: "Enable WebCodecs AV1 codec"
   condition: ENABLE(WEB_CODECS)
   defaultValue:
     WebKitLegacy:
@@ -7148,9 +7147,9 @@ WebCodecsAV1Enabled:
 WebCodecsEnabled:
   type: bool
   status: stable
-  category: dom
-  humanReadableName: "Web Codecs"
-  humanReadableDescription: "Web Codecs"
+  category: media
+  humanReadableName: "WebCodecs API"
+  humanReadableDescription: "Enable WebCodecs API"
   condition: ENABLE(WEB_CODECS)
   defaultValue:
     WebKitLegacy:

@@ -16,21 +16,21 @@ Line
 
       (interaction regions [
         (interaction
-            (rect (-3,-3) width=36 height=25)
+            (rect (-4,-4) width=38 height=27)
 )
-        (borderRadius 0.00),
+        (borderRadius 8.00),
         (interaction
-            (rect (-3,17) width=36 height=25)
+            (rect (-4,23) width=38 height=20)
 )
-        (borderRadius 0.00),
+        (borderRadius 8.00),
         (interaction
-            (rect (-3,37) width=36 height=25)
+            (rect (-4,43) width=38 height=20)
 )
-        (borderRadius 0.00),
+        (borderRadius 8.00),
         (interaction
-            (rect (-3,57) width=36 height=25)
+            (rect (-4,63) width=38 height=20)
 )
-        (borderRadius 0.00)])
+        (borderRadius 8.00)])
       )
     )
   )

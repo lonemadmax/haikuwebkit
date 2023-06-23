@@ -2566,7 +2566,7 @@ static Color parseColorFunctionForRGBTypesRaw(CSSParserTokenRange& args, Consume
     for (auto& channel : channels) {
         auto value = rgbConsumer(args);
         if (!value)
-            break;
+            return { };
 
         channel = WTF::switchOn(*value,
             [] (NumberRaw number) { return number.value; },
@@ -2633,7 +2633,7 @@ static Color parseColorFunctionForXYZTypesRaw(CSSParserTokenRange& args, Consume
     for (auto& channel : channels) {
         auto value = xyzConsumer(args);
         if (!value)
-            break;
+            return { };
 
         channel = WTF::switchOn(*value,
             [] (NumberRaw number) { return number.value; },
@@ -3714,7 +3714,7 @@ static RefPtr<CSSValue> consumeDeprecatedGradient(CSSParserTokenRange& range, co
     }
 }
 
-enum class SupportsColorHints : bool { Yes, No };
+enum class SupportsColorHints : bool { No, Yes };
 
 template<typename Consumer>
 static std::optional<CSSGradientColorStopList> consumeColorStopList(CSSParserTokenRange& range, const CSSParserContext& context, SupportsColorHints supportsColorHints, Consumer&& consumeStopPosition)
@@ -4775,10 +4775,10 @@ AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange& prelude, CSSPar
     if (nameToken.type() != IdentToken || !isValidCustomIdentifier(nameToken.id()))
         return AtomString();
     // In the context of the prelude of an @counter-style rule, a <counter-style-name> must not be an ASCII
-    // case-insensitive match for "decimal" or "disc". No <counter-style-name>, prelude or not, may be an ASCII
+    // case-insensitive match for "decimal", "disc", "square", "circle", "disclosure-open" and "disclosure-closed". No <counter-style-name>, prelude or not, may be an ASCII
     // case-insensitive match for "none".
     auto id = nameToken.id();
-    if (identMatches<CSSValueNone>(id) || (mode != CSSParserMode::UASheetMode && identMatches<CSSValueDecimal, CSSValueDisc>(id)))
+    if (identMatches<CSSValueNone>(id) || (mode != CSSParserMode::UASheetMode && identMatches<CSSValueDecimal, CSSValueDisc, CSSValueCircle, CSSValueSquare, CSSValueDisclosureOpen, CSSValueDisclosureClosed>(id)))
         return AtomString();
     auto name = nameToken.value();
     return isPredefinedCounterStyle(nameToken.id()) ? name.convertToASCIILowercaseAtom() : name.toAtomString();
@@ -6555,7 +6555,7 @@ RefPtr<CSSValue> consumeAttr(CSSParserTokenRange args, const CSSParserContext& c
     return CSSPrimitiveValue::createAttr(WTFMove(attrName));
 }
 
-static RefPtr<CSSValue> consumeCounterContent(CSSParserTokenRange args, bool counters)
+static RefPtr<CSSValue> consumeCounterContent(CSSParserTokenRange args, bool counters, const CSSParserContext& context)
 {
     AtomString identifier { consumeCustomIdentRaw(args) };
     if (identifier.isNull())
@@ -6568,18 +6568,19 @@ static RefPtr<CSSValue> consumeCounterContent(CSSParserTokenRange args, bool cou
         separator = args.consumeIncludingWhitespace().value().toAtomString();
     }
 
-    auto listStyle = CSSValueDecimal;
+    RefPtr<CSSValue> listStyleType = CSSPrimitiveValue::create(CSSValueDecimal);
     if (consumeCommaIncludingWhitespace(args)) {
-        listStyle = args.peek().id();
-        if (listStyle != CSSValueNone && !isPredefinedCounterStyle(listStyle))
+        if (args.peek().id() == CSSValueNone || args.peek().type() == StringToken)
             return nullptr;
-        args.consumeIncludingWhitespace();
+        listStyleType = consumeListStyleType(args, context);
+        if (!listStyleType)
+            return nullptr;
     }
 
     if (!args.atEnd())
         return nullptr;
 
-    return CSSCounterValue::create(WTFMove(identifier), WTFMove(separator), listStyle);
+    return CSSCounterValue::create(WTFMove(identifier), WTFMove(separator), WTFMove(listStyleType));
 }
 
 RefPtr<CSSValue> consumeContent(CSSParserTokenRange& range, const CSSParserContext& context)
@@ -6598,9 +6599,9 @@ RefPtr<CSSValue> consumeContent(CSSParserTokenRange& range, const CSSParserConte
             if (range.peek().functionId() == CSSValueAttr)
                 parsedValue = consumeAttr(consumeFunction(range), context);
             else if (range.peek().functionId() == CSSValueCounter)
-                parsedValue = consumeCounterContent(consumeFunction(range), false);
+                parsedValue = consumeCounterContent(consumeFunction(range), false, context);
             else if (range.peek().functionId() == CSSValueCounters)
-                parsedValue = consumeCounterContent(consumeFunction(range), true);
+                parsedValue = consumeCounterContent(consumeFunction(range), true, context);
             if (!parsedValue)
                 return nullptr;
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,12 +44,14 @@
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManager.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManagerMessages.h"
 #include "SpeechRecognitionServerMessages.h"
+#include "SuspendedPageProxy.h"
 #include "TextChecker.h"
 #include "TextCheckerState.h"
 #include "UserData.h"
 #include "WebAutomationSession.h"
 #include "WebBackForwardCache.h"
 #include "WebBackForwardListItem.h"
+#include "WebFrameProxy.h"
 #include "WebInspectorUtilities.h"
 #include "WebLockRegistryProxy.h"
 #include "WebNavigationDataStore.h"
@@ -637,6 +639,17 @@ RefPtr<WebPageProxy> WebProcessProxy::audioCapturingWebPage()
     }
     return nullptr;
 }
+
+#if ENABLE(WEBXR) && !USE(OPENXR)
+RefPtr<WebPageProxy> WebProcessProxy::webPageWithActiveXRSession()
+{
+    for (auto& page : globalPages()) {
+        if (page && page->xrSystem() && page->xrSystem()->hasActiveSession())
+            return page;
+    }
+    return nullptr;
+}
+#endif
 
 #if ENABLE(TRACKING_PREVENTION)
 void WebProcessProxy::notifyPageStatisticsAndDataRecordsProcessed()

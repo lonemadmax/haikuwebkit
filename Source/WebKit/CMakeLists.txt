@@ -2,9 +2,6 @@ set_property(DIRECTORY . PROPERTY FOLDER "WebKit")
 
 set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
-)
-
-set(WebKit_INCLUDE_DIRECTORIES
     "${PAL_FRAMEWORK_HEADERS_DIR}"
     "${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}"
     "${WebKit_FRAMEWORK_HEADERS_DIR}"
@@ -199,7 +196,6 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/NetworkProcess
     NetworkProcess/NetworkResourceLoader
     NetworkProcess/NetworkSocketChannel
-    NetworkProcess/NetworkSocketStream
 
     NetworkProcess/ServiceWorker/ServiceWorkerDownloadTask
     NetworkProcess/ServiceWorker/ServiceWorkerFetchTask
@@ -311,7 +307,6 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/Network/NetworkProcessConnection
     WebProcess/Network/WebResourceLoader
     WebProcess/Network/WebSocketChannel
-    WebProcess/Network/WebSocketStream
 
     WebProcess/Notifications/WebNotificationManager
 

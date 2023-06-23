@@ -4382,9 +4382,7 @@ webkit.org/b/251889 imported/w3c/web-platform-tests/content-security-policy/repo
 
 webkit.org/b/251875 fast/dynamic/create-renderer-for-whitespace-only-text.html [ Pass Failure ]
 
-webkit.org/b/252191 imported/w3c/web-platform-tests/editing/other/edit-in-textcontrol-immediately-after-hidden.tentative.html [ Skip ]
-
-webkit.org/b/252504 http/tests/site-isolation/basic-iframe.html [ Pass ImageOnlyFailure ]
+webkit.org/b/252504 http/tests/site-isolation [ Skip ]
 
 http/wpt/service-workers/basic-fetch-with-contentfilter.https.html [ Pass ]
 
@@ -4394,3 +4392,6 @@ webkit.org/b/254044 webxr [ Skip ]
 webkit.org/b/254044 imported/w3c/web-platform-tests/webxr [ Skip ]
 webkit.org/b/254044 http/wpt/webxr [ Skip ]
 webkit.org/b/254044 imported/w3c/web-platform-tests/feature-policy/reporting/xr-reporting.https.html [ Skip ]
+
+webkit.org/b/254073 webgl/1.0.x/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]
+webkit.org/b/254073 webgl/2.0.y/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]

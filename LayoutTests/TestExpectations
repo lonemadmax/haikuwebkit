@@ -29,6 +29,7 @@ editing/selection/ios [ Skip ]
 editing/deleting/ios [ Skip ]
 editing/undo-manager [ Skip ]
 tiled-drawing [ Skip ]
+fast/attachment/cocoa [ Skip ]
 fast/attachment/mac [ Skip ]
 fast/css/ios [ Skip ]
 fast/css/watchos [ Skip ]
@@ -67,6 +68,7 @@ fast/scrolling/gtk [ Skip ]
 fast/scrolling/ios [ Skip ]
 fast/scrolling/mac [ Skip ]
 fast/scrolling/ipad [ Skip ]
+fast/speechsynthesis/mac [ Skip ]
 fast/text/mac [ Skip ]
 scrollingcoordinator [ Skip ]
 media/media-vp8-hiddenframes.html [ Skip ] # Requires MediaFormatReader and VP8 decoder
@@ -3705,7 +3707,6 @@ webkit.org/b/214300 imported/w3c/web-platform-tests/css/css-fonts/test-synthetic
 webkit.org/b/214300 imported/w3c/web-platform-tests/css/css-fonts/test-synthetic-italic-3.html [ ImageOnlyFailure ]
 webkit.org/b/214300 imported/w3c/web-platform-tests/css/css-fonts/variations/font-slant-1.html [ ImageOnlyFailure ]
 webkit.org/b/214300 imported/w3c/web-platform-tests/css/css-fonts/variations/font-slant-2a.html [ ImageOnlyFailure ]
-webkit.org/b/252668 imported/w3c/web-platform-tests/css/css-fonts/font-size-adjust-012.html [ Pass ImageOnlyFailure ]
 
 # Untriaged font-style/font-face @font-face descriptor bugs
 webkit.org/b/206881 imported/w3c/web-platform-tests/css/css-fonts/font-face-style-auto-variable.html [ ImageOnlyFailure ]
@@ -3919,7 +3920,7 @@ webgl/1.0.x/conformance/reading/read-pixels-test.html [ Pass ]
 
 webgl/1.0.x/conformance/attribs [ Pass ]
 webgl/1.0.x/conformance/buffers [ Pass ]
-
+webgl/1.0.x/conformance/textures/canvas/ [ Pass ]
 
 # Debug builds on slower machines run close to the time out especially with GPUP enabled
 webkit.org/b/238691 [ Debug ] webgl/1.0.3/conformance/state/gl-object-get-calls.html [ Slow ]
@@ -3950,17 +3951,19 @@ webgl/2.0.y/conformance/offscreencanvas [ Pass ]
 webgl/2.0.y/conformance2/offscreencanvas [ Pass ]
 
 # Explicitly turn on conformance test until all of webgl/2.0.y is enabled
-webgl/2.0.y/conformance/extensions/webgl-compressed-texture-s3tc-srgb.html [ Pass ]
-webgl/2.0.y/conformance2/extensions/ext-texture-norm16.html [ Pass ]
-webgl/2.0.y/conformance2/extensions/webgl-provoking-vertex.html [ Pass ]
-webgl/2.0.y/conformance2/extensions/oes-draw-buffers-indexed.html [ Pass ]
-webgl/2.0.y/conformance2/extensions/promoted-extensions-in-shaders.html [ Pass ]
-webgl/2.0.y/conformance2/rendering/rasterizer-discard-and-implicit-clear.html [ Pass ]
-webgl/2.0.y/conformance2/extensions/webgl-clip-cull-distance.html [ Pass ]
-webgl/2.0.y/conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Pass ]
-webgl/2.0.y/conformance/reading/read-pixels-test.html [ Pass ]
 webgl/2.0.y/conformance/attribs [ Pass ]
 webgl/2.0.y/conformance/buffers [ Pass ]
+webgl/2.0.y/conformance/extensions/webgl-compressed-texture-s3tc-srgb.html [ Pass ]
+webgl/2.0.y/conformance/reading/read-pixels-test.html [ Pass ]
+webgl/2.0.y/conformance/textures/canvas/ [ Pass ]
+webgl/2.0.y/conformance2/extensions/ext-texture-norm16.html [ Pass ]
+webgl/2.0.y/conformance2/extensions/oes-draw-buffers-indexed.html [ Pass ]
+webgl/2.0.y/conformance2/extensions/promoted-extensions-in-shaders.html [ Pass ]
+webgl/2.0.y/conformance2/extensions/webgl-clip-cull-distance.html [ Pass ]
+webgl/2.0.y/conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Pass ]
+webgl/2.0.y/conformance2/extensions/webgl-provoking-vertex.html [ Pass ]
+webgl/2.0.y/conformance2/rendering/rasterizer-discard-and-implicit-clear.html [ Pass ]
+webgl/2.0.y/conformance2/textures/canvas/ [ Pass ]
 
 # WebGL 1.0.3 and 2.0.0 tests where behavior is obsolete and WebKit contains implementation
 # and tests for the new behavior. Should be removed once 1.0.3 and 2.0.0 are retired.
@@ -3979,8 +3982,9 @@ webgl/2.0.0/conformance/glsl/misc/shader-with-define-line-continuation.frag.html
 webgl/2.0.0/conformance/misc/invalid-passed-params.html [ Skip ]
 webgl/2.0.0/conformance/programs/program-test.html [ Skip ]
 webgl/2.0.0/conformance/reading/read-pixels-test.html [ Skip ]
+webgl/2.0.0/conformance/textures/canvas/ [ Skip ]
 webgl/2.0.0/conformance2/context/constants-and-properties-2.html [ Skip ]
-
+webgl/2.0.0/conformance2/textures/canvas/ [ Skip ]
 
 # https://github.com/KhronosGroup/WebGL/issues/3341
 webgl/1.0.x/conformance/textures/misc/texture-corner-case-videos.html [ Failure ]
@@ -4003,8 +4007,6 @@ webkit.org/b/208052 imported/w3c/web-platform-tests/intersection-observer/v2/cro
 webkit.org/b/208052 imported/w3c/web-platform-tests/intersection-observer/v2/cross-origin-occlusion.sub.html [ Skip ]
 
 # wpt css-backgrounds failures
-webkit.org/b/232717 imported/w3c/web-platform-tests/css/css-backgrounds/border-radius-clip-001.html [ ImageOnlyFailure ]
-
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-local/attachment-local-clipping-color-4.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-local/attachment-local-clipping-color-6.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-local/attachment-local-clipping-image-4.html [ ImageOnlyFailure ]
@@ -4012,7 +4014,6 @@ webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/backgrou
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-local/attachment-local-positioning-3.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-local/attachment-local-positioning-4.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size-cover-003.html [ ImageOnlyFailure ]
-webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-cover-svg.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/background-size-vector-003.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/background-size-vector-004.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/background-size-vector-005.html [ ImageOnlyFailure ]
@@ -4134,10 +4135,6 @@ webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/backgrou
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--cover--percent-width-omitted-height-viewbox.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--cover--percent-width-percent-height-viewbox.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--cover--width.html [ Pass ImageOnlyFailure ]
-webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-repeat-round.html [ ImageOnlyFailure ]
-webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-round-and-stretch.html [ ImageOnlyFailure ]
-webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-slice-percentage.html [ ImageOnlyFailure ]
-webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-space-001.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/css-border-radius-001.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/first-letter-space-not-selected.html [ ImageOnlyFailure ]
 
@@ -4566,9 +4563,7 @@ webkit.org/b/214453 imported/w3c/web-platform-tests/css/css-align/baseline-rules
 webkit.org/b/214453 imported/w3c/web-platform-tests/css/css-align/baseline-rules/grid-item-input-type-text.html [ ImageOnlyFailure ]
 webkit.org/b/214453 imported/w3c/web-platform-tests/css/css-align/baseline-rules/synthesized-baseline-table-cell-001.html [ ImageOnlyFailure ]
 
-webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-margin-root-001.html [ ImageOnlyFailure ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-iframe-root.html [ ImageOnlyFailure ]
-webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-root.html [ ImageOnlyFailure ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-transformed-root.html [ ImageOnlyFailure ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-will-change-root.html [ ImageOnlyFailure ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-near-zero-gradient.html [ ImageOnlyFailure ]
@@ -4646,6 +4641,9 @@ webkit.org/b/214456 imported/w3c/web-platform-tests/css/css-images/out-of-range-
 webkit.org/b/214456 imported/w3c/web-platform-tests/css/css-images/tiled-conic-gradients.html [ ImageOnlyFailure ]
 
 webkit.org/b/149828 imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-mask-image.html [ ImageOnlyFailure ]
+
+webkit.org/b/254390 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-negative-resolution-rendering-2.html [ ImageOnlyFailure ]
+webkit.org/b/254390 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-negative-resolution-rendering.html [ ImageOnlyFailure ]
 
 webkit.org/b/214457 imported/w3c/web-platform-tests/css/css-lists/change-list-descendant-display.html [ ImageOnlyFailure ]
 webkit.org/b/214457 imported/w3c/web-platform-tests/css/css-lists/counter-set-001.html [ ImageOnlyFailure ]
@@ -4886,17 +4884,8 @@ imported/w3c/web-platform-tests/css/css-counter-styles/lower-armenian/css3-count
 imported/w3c/web-platform-tests/css/css-counter-styles/lower-roman/css3-counter-styles-020.html [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/upper-roman/css3-counter-styles-024.html [ Pass ImageOnlyFailure ]
 
-# Tests that fail because @counter-style is not implemented yet. Could skip the entire directory instead.
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-additive-symbols-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-fallback-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-name-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-negative-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-pad-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-prefix-suffix-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-range-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-symbols-setter.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-system-setter-1.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/cssom/cssom-system-setter-2.html [ ImageOnlyFailure ]
+# Tests that fail because @counter-style is not implemented yet. Skipping directory until rdar://107184142 is implemented.
+imported/w3c/web-platform-tests/css/css-counter-styles/cssom [ Skip ]
 
 # More @counter-style failures due to not being implemented.
 imported/w3c/web-platform-tests/css/css-conditional/at-media-content-004.html [ ImageOnlyFailure ]
@@ -6220,6 +6209,9 @@ webkit.org/b/245905 imported/w3c/web-platform-tests/css/css-text/line-breaking/l
 # This test can cause OOM error, depending on device and memory usage, and there is no guarantee. Ignore console log, which appears when OOM happens since what we would like to ensure is just no crash.
 js/dom/Promise-reject-large-string.html [ DumpJSConsoleLogInStdErr ]
 
+# Fails and should be fixed on all platforms except glib
+webkit.org/b/254222 media/media-source/media-webm-opus-codecdelay.html [ Failure ]
+
 webkit.org/b/251624 fast/images/animated-heics-verify.html [ Skip ]
 
 # Import-assertion gets reverted to stage-2.
@@ -6261,10 +6253,16 @@ http/tests/misc/heic-accept-header.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/dependent-builtin.html [ ImageOnlyFailure ]
 
 # Missing counter-style integration with counter() rdar://106084053
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/descriptor-prefix.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/descriptor-suffix.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/disclosure-styles.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/name-case-sensitivity.html [ ImageOnlyFailure ]
+
+# WPT seems to be wrong regarding prefix/suffix fallback (https://github.com/web-platform-tests/wpt/issues/38772)
+imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-additive.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-alphabetic.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-extends.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-symbolic.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/suffix-fallback.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/fallback-cycle.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/descriptor-prefix.html [ ImageOnlyFailure ]
 
 # Missing support to counter-style at-rule in shadow scope rdar://103873418
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/override-in-shadow-dom.html [ ImageOnlyFailure ]
@@ -6331,10 +6329,4 @@ imported/w3c/web-platform-tests/css/css-ruby/ruby-whitespace-002.html [ ImageOnl
 imported/w3c/web-platform-tests/css/css-ruby/ruby-with-floats-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ruby/ruby-with-floats-003.html [ ImageOnlyFailure ]
 
-# WPT seems to be wrong regarding prefix/suffix fallback (https://github.com/web-platform-tests/wpt/issues/38772)
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-additive.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-alphabetic.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-extends.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/system-symbolic.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/suffix-fallback.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/fallback-cycle.html [ ImageOnlyFailure ]
+webkit.org/b/254259 http/tests/priority-hints/fetch-api-priority.html [ Failure Pass ]

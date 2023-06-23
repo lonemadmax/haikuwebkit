@@ -314,9 +314,30 @@ void ScrollingTreeScrollingNodeDelegateMac::handleWheelEventPhase(const Platform
 {
     m_scrollerPair.handleWheelEventPhase(wheelEventPhase);
 }
+
 bool ScrollingTreeScrollingNodeDelegateMac::handleMouseEventForScrollbars(const PlatformMouseEvent& mouseEvent)
 {
     return m_scrollerPair.handleMouseEvent(mouseEvent);
+}
+
+void ScrollingTreeScrollingNodeDelegateMac::viewWillStartLiveResize()
+{
+    return m_scrollerPair.viewWillStartLiveResize();
+}
+
+void ScrollingTreeScrollingNodeDelegateMac::viewWillEndLiveResize()
+{
+    return m_scrollerPair.viewWillEndLiveResize();
+}
+
+void ScrollingTreeScrollingNodeDelegateMac::viewSizeDidChange()
+{
+    return m_scrollerPair.contentsSizeChanged();
+}
+
+String ScrollingTreeScrollingNodeDelegateMac::scrollbarStateForOrientation(ScrollbarOrientation orientation) const
+{
+    return m_scrollerPair.scrollbarStateForOrientation(orientation);
 }
 
 } // namespace WebCore
