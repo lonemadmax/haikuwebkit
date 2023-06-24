@@ -30,16 +30,23 @@
 
 #import "DrawingArea.h"
 #import "DrawingAreaMessages.h"
+#import "MessageSenderInlines.h"
+#import "RemoteLayerTreeScrollingPerformanceData.h"
 #import "RemoteScrollingCoordinatorProxyMac.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
 #import <QuartzCore/QuartzCore.h>
+#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/FloatPoint.h>
+#import <WebCore/LocalFrameView.h>
+#import <WebCore/NSScrollerImpDetails.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/ScrollingTreeFrameScrollingNode.h>
 #import <WebCore/ScrollingTreeScrollingNode.h>
+#import <WebCore/TileController.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <pal/spi/mac/NSScrollerImpSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 
 namespace WebKit {
@@ -174,6 +181,22 @@ void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, co
     else if (m_transactionIDAfterEndingTransientZoom && transaction.transactionID() >= m_transactionIDAfterEndingTransientZoom) {
         removeTransientZoomFromLayer();
         m_transactionIDAfterEndingTransientZoom = { };
+    }
+    if (m_usesOverlayScrollbars != m_webPageProxy.scrollingCoordinatorProxy()->overlayScrollbarsEnabled()) {
+        m_usesOverlayScrollbars = m_webPageProxy.scrollingCoordinatorProxy()->overlayScrollbarsEnabled();
+        WebCore::DeprecatedGlobalSettings::setUsesOverlayScrollbars(m_usesOverlayScrollbars);
+        
+        ScrollerStyle::setUseOverlayScrollbars(m_usesOverlayScrollbars);
+        
+        NSScrollerStyle style = m_usesOverlayScrollbars ? NSScrollerStyleOverlay : NSScrollerStyleLegacy;
+        [NSScrollerImpPair _updateAllScrollerImpPairsForNewRecommendedScrollerStyle:style];
+    }
+
+    m_webPageProxy.setScrollPerformanceDataCollectionEnabled(m_webPageProxy.scrollingCoordinatorProxy()->scrollingPerformanceTestingEnabled());
+    
+    if (transaction.createdLayers().size() > 0) {
+        if (WebKit::RemoteLayerTreeScrollingPerformanceData* scrollPerfData = m_webPageProxy.scrollingPerformanceData())
+            scrollPerfData->didCommitLayerTree(LayoutRect(transaction.scrollPosition(),  transaction.baseLayoutViewportSize()));
     }
 
     layoutBannerLayers(transaction);

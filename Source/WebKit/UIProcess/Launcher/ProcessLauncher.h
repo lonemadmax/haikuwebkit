@@ -86,7 +86,6 @@ public:
         HashMap<String, String> extraInitializationData;
         bool nonValidInjectedCodeAllowed { false };
         bool shouldMakeProcessLaunchFailForTesting { false };
-        CString customWebContentServiceBundleIdentifier;
 
 #if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(HAIKU)
         HashMap<CString, SandboxPermission> extraSandboxPaths;

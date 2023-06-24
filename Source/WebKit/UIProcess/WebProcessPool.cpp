@@ -52,6 +52,7 @@
 #include "NetworkProcessMessages.h"
 #include "NetworkProcessProxy.h"
 #include "OverrideLanguages.h"
+#include "PageLoadState.h"
 #include "PerActivityStateCPUUsageSampler.h"
 #include "RemoteWorkerType.h"
 #include "SandboxExtension.h"
@@ -68,12 +69,14 @@
 #include "WebBackForwardListItem.h"
 #include "WebContextSupplement.h"
 #include "WebCoreArgumentCoders.h"
+#include "WebFrameProxy.h"
 #include "WebGeolocationManagerProxy.h"
 #include "WebInspectorUtilities.h"
 #include "WebKit2Initialize.h"
 #include "WebMemorySampler.h"
 #include "WebNotificationManagerProxy.h"
 #include "WebPageGroup.h"
+#include "WebPageProxy.h"
 #include "WebPreferences.h"
 #include "WebPreferencesKeys.h"
 #include "WebProcessCache.h"
@@ -364,15 +367,6 @@ void WebProcessPool::setAutomationClient(std::unique_ptr<API::AutomationClient>&
         m_automationClient = makeUnique<API::AutomationClient>();
     else
         m_automationClient = WTFMove(automationClient);
-}
-
-void WebProcessPool::setCustomWebContentServiceBundleIdentifier(const String& customWebContentServiceBundleIdentifier)
-{
-    // Guard against API misuse.
-    if (!customWebContentServiceBundleIdentifier.isAllASCII())
-        CRASH();
-
-    m_configuration->setCustomWebContentServiceBundleIdentifier(customWebContentServiceBundleIdentifier);
 }
 
 void WebProcessPool::setOverrideLanguages(Vector<String>&& languages)
@@ -1198,16 +1192,16 @@ bool WebProcessPool::hasPagesUsingWebsiteDataStore(WebsiteDataStore& dataStore) 
     return m_sessionToPageIDsMap.contains(dataStore.sessionID());
 }
 
-DownloadProxy& WebProcessPool::download(WebsiteDataStore& dataStore, WebPageProxy* initiatingPage, const ResourceRequest& request, const String& suggestedFilename)
+Ref<DownloadProxy> WebProcessPool::download(WebsiteDataStore& dataStore, WebPageProxy* initiatingPage, const ResourceRequest& request, const String& suggestedFilename)
 {
-    auto& downloadProxy = createDownloadProxy(dataStore, request, initiatingPage, { });
+    auto downloadProxy = createDownloadProxy(dataStore, request, initiatingPage, { });
     dataStore.download(downloadProxy, suggestedFilename);
     return downloadProxy;
 }
 
-DownloadProxy& WebProcessPool::resumeDownload(WebsiteDataStore& dataStore, WebPageProxy* initiatingPage, const API::Data& resumeData, const String& path, CallDownloadDidStart callDownloadDidStart)
+Ref<DownloadProxy> WebProcessPool::resumeDownload(WebsiteDataStore& dataStore, WebPageProxy* initiatingPage, const API::Data& resumeData, const String& path, CallDownloadDidStart callDownloadDidStart)
 {
-    auto& downloadProxy = createDownloadProxy(dataStore, ResourceRequest(), initiatingPage, { });
+    auto downloadProxy = createDownloadProxy(dataStore, ResourceRequest(), initiatingPage, { });
     dataStore.resumeDownload(downloadProxy, resumeData, path, callDownloadDidStart);
     return downloadProxy;
 }
@@ -1420,7 +1414,7 @@ void WebProcessPool::setDefaultRequestTimeoutInterval(double timeoutInterval)
     sendToAllProcesses(Messages::WebProcess::SetDefaultRequestTimeoutInterval(timeoutInterval));
 }
 
-DownloadProxy& WebProcessPool::createDownloadProxy(WebsiteDataStore& dataStore, const ResourceRequest& request, WebPageProxy* originatingPage, const FrameInfoData& frameInfo)
+Ref<DownloadProxy> WebProcessPool::createDownloadProxy(WebsiteDataStore& dataStore, const ResourceRequest& request, WebPageProxy* originatingPage, const FrameInfoData& frameInfo)
 {
     auto client = m_legacyDownloadClient ? Ref<API::DownloadClient>(*m_legacyDownloadClient) : adoptRef(*new API::DownloadClient);
     return dataStore.createDownloadProxy(WTFMove(client), request, originatingPage, frameInfo);

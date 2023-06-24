@@ -35,6 +35,7 @@
 #include "HangDetectionDisabler.h"
 #include "ImageBufferShareableBitmapBackend.h"
 #include "InjectedBundleNodeHandle.h"
+#include "MessageSenderInlines.h"
 #include "NavigationActionData.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
@@ -139,6 +140,10 @@
 
 #if PLATFORM(COCOA)
 #include "WebIconUtilities.h"
+#endif
+
+#if PLATFORM(MAC)
+#include <WebCore/ScrollbarsController.h>
 #endif
 
 namespace WebKit {
@@ -1051,6 +1056,21 @@ RefPtr<ScrollingCoordinator> WebChromeClient::createScrollingCoordinator(Page& p
 }
 
 #endif
+
+#if PLATFORM(MAC)
+std::unique_ptr<ScrollbarsController> WebChromeClient::createScrollbarsController(Page& page, ScrollableArea& area) const
+{
+    ASSERT_UNUSED(page, m_page.corePage() == &page);
+    switch (m_page.drawingArea()->type()) {
+    case DrawingAreaType::RemoteLayerTree:
+        return makeUnique<ScrollbarsController>(area);
+    default:
+        return nullptr;
+    }
+    return nullptr;
+}
+#endif
+
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
 

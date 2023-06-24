@@ -405,7 +405,7 @@ public:
     {
     }
 
-    VectorBuffer(size_t capacity, size_t size = 0)
+    explicit VectorBuffer(size_t capacity, size_t size = 0)
     {
         m_size = size;
         // Calling malloc(0) might take a lock and may actually do an
@@ -481,7 +481,7 @@ public:
     {
     }
 
-    VectorBuffer(size_t capacity, size_t size = 0)
+    explicit VectorBuffer(size_t capacity, size_t size = 0)
         : Base(inlineBuffer(), inlineCapacity, size)
     {
         if (capacity > inlineCapacity)
@@ -997,7 +997,7 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T, inlin
 
     asanBufferSizeWillChangeTo(other.size());
 
-    std::copy(other.begin(), other.begin() + size(), begin());
+    std::copy_n(other.begin(), size(), begin());
     TypeOperations::uninitializedCopy(other.begin() + size(), other.end(), end());
     m_size = other.size();
 
@@ -1025,7 +1025,7 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T, inlin
     
     asanBufferSizeWillChangeTo(other.size());
 
-    std::copy(other.begin(), other.begin() + size(), begin());
+    std::copy_n(other.begin(), size(), begin());
     TypeOperations::uninitializedCopy(other.begin() + size(), other.end(), end());
     m_size = other.size();
 

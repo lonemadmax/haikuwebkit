@@ -2637,11 +2637,6 @@ fast/canvas/webgl/webgl-compressed-texture-size-limit.html [ Failure ]
 fast/canvas/webgl/webgl2-texture-upload-enums.html [ Failure ]
 fast/canvas/webgl/read-pixels-test.html [ Skip ]
 fast/canvas/webgl/webglcontextchangedevent.html [ Skip ]
-webgl/1.0.3/conformance/context/context-creation-and-destruction.html [ Skip ]
-webgl/1.0.3/conformance/ogles/GL/sin/sin_001_to_006.html [ Skip ]
-webgl/1.0.3/conformance/reading/read-pixels-test.html [ Skip ]
-webgl/1.0.3/conformance/rendering/multisample-corruption.html [ Skip ]
-webgl/1.0.3/conformance/uniforms/out-of-bounds-uniform-array-access.html [ Skip ]
 
 fast/canvas/webgl/texImage2D-mse-flipY-false.html [ Skip ]
 fast/canvas/webgl/texImage2D-mse-flipY-true.html [ Skip ]
@@ -2729,10 +2724,6 @@ webkit.org/b/183441 mathml/presentation/multiscripts-equivalence.html [ ImageOnl
 imported/w3c/web-platform-tests/fetch/api/basic/request-headers.any.html [ Failure ]
 imported/w3c/web-platform-tests/fetch/api/basic/request-headers.any.worker.html [ Failure ]
 
-# <rdar://problem/34209038>
-webgl/1.0.3/conformance/ogles/GL/log/log_001_to_008.html [ Skip ]
-webgl/1.0.3/conformance/ogles/GL/log2/log2_001_to_008.html [ Skip ]
-
 # <rdar://problem/30517283>
 security/block-test.html
 security/block-test-no-port.html
@@ -2743,10 +2734,6 @@ svg/W3C-SVG-1.1/text-intro-02-b.svg [ Failure ]
 svg/W3C-SVG-1.1/text-intro-03-b.svg [ Failure ]
 svg/W3C-SVG-1.1/text-intro-04-t.svg [ Failure ]
 svg/custom/acid3-test-77.html [ Failure ]
-
-# <rdar://problem/33381269> REGRESSION: Multiple Layout test from webgl/1.0.3/conformance are timing out.
-webgl/1.0.3/conformance/ogles/GL/acos/acos_001_to_006.html [ Skip  ]
-webgl/1.0.3/conformance/ogles/GL/asin/asin_001_to_006.html [ Skip  ]
 
 fast/text/font-variations-feature-detection.html [ ImageOnlyFailure ]
 fast/text/text-indent-inside-float.html [ ImageOnlyFailure ]
@@ -3172,13 +3159,6 @@ webkit.org/b/207858 webgl/webgl-box-shadow.html [ Pass Failure ImageOnlyFailure 
 webkit.org/b/207858 fast/canvas/webgl/uninitialized-test.html [ Pass Failure ]
 webkit.org/b/207858 fast/canvas/webgl/oes-texture-float-linear.html [ Pass Failure ]
 webkit.org/b/207858 fast/canvas/webgl/tex-image-and-sub-image-2d-with-video.html [ Pass Failure ]
-webkit.org/b/207858 webgl/1.0.3/conformance/context/context-lost-restored.html [ Pass Failure ]
-webkit.org/b/207858 webgl/1.0.3/conformance/glsl/misc/shader-struct-scope.html [ Pass Failure ]
-webkit.org/b/207858 webgl/1.0.3/conformance/misc/uninitialized-test.html [ Pass Failure ]
-
-# rdar://63506750 Now that float/half-float is supported, the video tests don't instantly fail.
-webgl/1.0.3/conformance/extensions/oes-texture-float-with-video.html [ Skip ]
-webgl/1.0.3/conformance/extensions/oes-texture-half-float-with-video.html [ Skip ]
 
 # <rdar://problem/59635486> REGRESSION: http/wpt/webauthn/public-key-credential-get-success-local.https.html is crashing
 http/wpt/webauthn/public-key-credential-get-success-local.https.html [ Skip ]
@@ -3284,10 +3264,6 @@ imported/w3c/web-platform-tests/dom/ranges/Range-surroundContents.html [ Slow ]
 # <rdar://problem/64546452> [ iOS ] mathml/opentype/munderover-stretch-width.html is flaky failing.
 mathml/opentype/munderover-stretch-width.html [ Pass Failure ]
 
-# # <rdar://problem/64701357> REGRESSION: [ iOS wk2 ] webgl/1.0.3/conformance/glsl/functions/glsl-function-sign.html and webgl/1.0.3/conformance/glsl/misc/glsl-function-nodes.html are failing consistently.
-# webgl/1.0.3/conformance/glsl/functions/glsl-function-sign.html [ Failure ]
-# webgl/1.0.3/conformance/glsl/misc/glsl-function-nodes.html [ Failure ]
-
 # <rdar://problem/64816264> [ iOS wk2 ] streams/pipe-to.html is flaky failing.
 streams/pipe-to.html [ Pass Failure ]
 
@@ -3385,8 +3361,6 @@ webkit.org/b/221833 fast/text/image-alt-text-bidi.html [ ImageOnlyFailure ]
 
 webkit.org/b/222844 fast/canvas/webgl/match-page-color-space.html [ Pass ImageOnlyFailure ]
 webkit.org/b/222844 imported/blink/compositing/draws-content/webgl-simple-background.html [ Pass ImageOnlyFailure ]
-
-webkit.org/b/222239 webgl/conformance/extensions/khr-parallel-shader-compile.html [ Skip ]
 
 fast/text/line-break-with-locale.html [ ImageOnlyFailure ]
 
@@ -4071,6 +4045,14 @@ webkit.org/b/251302 accessibility/ios-simulator/table-cell-ranges.html [ Failure
 
 webkit.org/b/251306 http/tests/in-app-browser-privacy/sub-frame-redirect-to-non-app-bound-domain-blocked.html [ Pass Crash ]
 
+webkit.org/b/254630 fast/canvas/offscreen-scaling.html [ Pass Failure ]
+
+webkit.org/b/254714 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-calc-x-rendering-2.html [ ImageOnlyFailure ]
+
+webkit.org/b/254713 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-cover-svg.html [ ImageOnlyFailure ]
+
+webkit.org/b/254707 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-root.html [ ImageOnlyFailure ]
+
 http/tests/webgpu/webgpu/idl/constants/flags.html [ Skip ]
 http/tests/webgpu/webgpu/idl/exposed.https.html [ Skip ]
 http/tests/webgpu/webgpu/idl/exposed.http.html [ Skip ]
@@ -4372,6 +4354,8 @@ http/tests/webgpu/webgpu/shader/validation/shader_io/entry_point.html [ Skip ]
 http/tests/webgpu/webgpu/shader/validation/shader_io/locations.html [ Skip ]
 http/tests/webgpu/cts.https.html [ Pass ]
 
+webkit.org/b/254637 fast/text/web-font-load-invisible-during-loading.html [ Pass Failure ]
+
 webkit.org/b/251417 imported/w3c/web-platform-tests/fetch/metadata/generated/css-font-face.https.sub.tentative.html [ Pass Failure ]
 
 webkit.org/b/251533 imported/w3c/web-platform-tests/workers/baseurl/alpha/import-in-moduleworker.html [ Pass Timeout ]
@@ -4395,3 +4379,10 @@ webkit.org/b/254044 imported/w3c/web-platform-tests/feature-policy/reporting/xr-
 
 webkit.org/b/254073 webgl/1.0.x/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]
 webkit.org/b/254073 webgl/2.0.y/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]
+
+# webkit.org/b/254690 REGRESSION(262009@main): 2X webgl/conformance/textures/canvas (layout-tests) are flaky timeouts
+webgl/1.0.x/conformance/textures/canvas/tex-2d-rgb-rgb-unsigned_byte.html [ Pass Timeout ]
+webgl/2.0.y/conformance/textures/canvas/tex-2d-rgb-rgb-unsigned_byte.html [ Pass Timeout ]
+
+webkit.org/b/229934 webgl/1.0.x/conformance/extensions/webgl-depth-texture.html [ Failure ]
+webkit.org/b/254398 webgl/2.0.y/conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]

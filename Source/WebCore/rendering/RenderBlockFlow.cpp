@@ -824,6 +824,24 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
             continue;
         }
         if (child.isFloating()) {
+            auto markSiblingsIfIntrudingForLayout = [&] {
+                // Let's find out if this float box is (was) intruding to sibling boxes and mark them for layout accordingly. 
+                if (!child.selfNeedsLayout() || !child.everHadLayout()) {
+                    // At this point floatingObjectSet() is purged, we can't check whether
+                    // this is a new or an existing float in this block container.
+                    return;
+                }
+                for (auto* nextSibling = child.nextSibling(); nextSibling; nextSibling = nextSibling->nextSibling()) {
+                    if (!is<RenderBlockFlow>(*nextSibling))
+                        continue;
+                    auto& block = downcast<RenderBlockFlow>(*nextSibling);
+                    if (block.avoidsFloats() && !block.shrinkToAvoidFloats())
+                        continue;
+                    if (block.containsFloat(child))
+                        block.markAllDescendantsWithFloatsForLayout();
+                }
+            };
+            markSiblingsIfIntrudingForLayout();
             insertFloatingObject(child);
             adjustFloatingBlock(marginInfo);
             continue;
@@ -1191,11 +1209,7 @@ LayoutUnit RenderBlockFlow::startAlignedOffsetForLine(LayoutUnit position, Inden
     default:
         shouldApplyIndentText = false;
     }
-    // <rdar://problem/15427571>
-    // https://bugs.webkit.org/show_bug.cgi?id=124522
-    // This quirk is for legacy content that doesn't work properly with the center positioning scheme
-    // being honored (e.g., epubs).
-    if (shouldApplyIndentText || settings().useLegacyTextAlignPositionedElementBehavior()) // FIXME: Handle TextAlignMode::End here
+    if (shouldApplyIndentText) // FIXME: Handle TextAlignMode::End here
         return startOffsetForLine(position, shouldIndentText);
 
     // updateLogicalWidthForAlignment() handles the direction of the block so no need to consider it here
@@ -1445,9 +1459,10 @@ LayoutUnit RenderBlockFlow::collapseMarginsWithChildInfo(RenderBox* child, Rende
     return logicalTop;
 }
 
-bool RenderBlockFlow::shouldTrimChildMargin(MarginTrimType marginTrimType, const RenderBox& child) const
+bool RenderBlockFlow::isChildEligibleForMarginTrim(MarginTrimType marginTrimType, const RenderBox& child) const
 {
-    if (!child.style().isDisplayBlockLevel() || !style().marginTrim().contains(marginTrimType))
+    ASSERT(style().marginTrim().contains(marginTrimType));
+    if (!child.style().isDisplayBlockLevel())
         return false;
     if (marginTrimType == MarginTrimType::BlockStart)
         return firstInFlowChildBox() == &child;
@@ -4313,7 +4328,7 @@ void RenderBlockFlow::checkForPaginationLogicalHeightChange(bool& relayoutChildr
     // We don't actually update any of the variables. We just subclassed to adjust our column height.
     if (RenderMultiColumnFlow* fragmentedFlow = multiColumnFlow()) {
         LayoutUnit newColumnHeight;
-        if (hasDefiniteLogicalHeight() || view().frameView().pagination().mode != Pagination::Unpaginated) {
+        if (hasDefiniteLogicalHeight() || view().frameView().pagination().mode != Unpaginated) {
             auto computedValues = computeLogicalHeight(0_lu, logicalTop());
             newColumnHeight = std::max<LayoutUnit>(computedValues.m_extent - borderAndPaddingLogicalHeight() - scrollbarLogicalHeight(), 0);
             if (fragmentedFlow->columnHeightAvailable() != newColumnHeight)
@@ -4881,6 +4896,9 @@ void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogical
 
 bool RenderBlockFlow::tryComputePreferredWidthsUsingModernPath(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth)
 {
+    if (!firstInFlowChild())
+        return false;
+
     computeAndSetLineLayoutPath();
 
     // FIXME: Pass the replaced and inline block constrainst to IFC.

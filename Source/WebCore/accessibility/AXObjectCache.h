@@ -137,6 +137,7 @@ class AXObjectCache : public CanMakeWeakPtr<AXObjectCache>
     WTF_MAKE_NONCOPYABLE(AXObjectCache);
     WTF_MAKE_FAST_ALLOCATED;
     friend class AXIsolatedTree;
+    friend class AXTextMarker;
     friend WTF::TextStream& operator<<(WTF::TextStream&, AXObjectCache&);
 public:
     explicit AXObjectCache(Document&);
@@ -259,8 +260,8 @@ public:
     AccessibilityObject* accessibilityObjectForTextMarkerData(TextMarkerData&);
     std::optional<SimpleRange> rangeForUnorderedCharacterOffsets(const CharacterOffset&, const CharacterOffset&);
     static SimpleRange rangeForNodeContents(Node&);
-    static int lengthForRange(const std::optional<SimpleRange>&);
-    
+    static unsigned lengthForRange(const SimpleRange&);
+
     // Word boundary
     CharacterOffset nextWordEndCharacterOffset(const CharacterOffset&);
     CharacterOffset previousWordStartCharacterOffset(const CharacterOffset&);

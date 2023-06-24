@@ -30,6 +30,7 @@
 
 #include "DrawingAreaProxyMessages.h"
 #include "LayerTreeHost.h"
+#include "MessageSenderInlines.h"
 #include "ShareableBitmap.h"
 #include "UpdateInfo.h"
 #include "WebPage.h"
@@ -399,7 +400,7 @@ RefPtr<DisplayRefreshMonitor> DrawingAreaCoordinatedGraphics::createDisplayRefre
     return m_layerTreeHost->createDisplayRefreshMonitor(displayID);
 }
 
-void DrawingAreaCoordinatedGraphics::activityStateDidChange(OptionSet<ActivityState::Flag> changed, ActivityStateChangeID, CompletionHandler<void()>&& completionHandler)
+void DrawingAreaCoordinatedGraphics::activityStateDidChange(OptionSet<ActivityState> changed, ActivityStateChangeID, CompletionHandler<void()>&& completionHandler)
 {
     if (changed & ActivityState::IsVisible) {
         if (m_webPage.isVisible())
@@ -681,6 +682,9 @@ void DrawingAreaCoordinatedGraphics::enterAcceleratedCompositingMode(GraphicsLay
         m_layerTreeHost->setShouldNotifyAfterNextScheduledLayerFlush(true);
 
     m_layerTreeHost->setRootCompositingLayer(graphicsLayer);
+
+    send(Messages::DrawingAreaProxy::EnterAcceleratedCompositingMode(m_backingStoreStateID, m_layerTreeHost->layerTreeContext()));
+    m_compositingAccordingToProxyMessages = true;
 
     // Non-composited content will now be handled exclusively by the layer tree host.
     m_dirtyRegion = WebCore::Region();

@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2006-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Google Inc. All rights reserved.
  * Copyright (C) 2019 Adobe. All rights reserved.
  * Copyright (c) 2020, 2021, 2022 Igalia S.L.
  *
@@ -475,6 +476,8 @@ void RenderLayer::removeChild(RenderLayer& oldChild)
     if (oldChild.hasBlendMode() || (oldChild.hasNotIsolatedBlendingDescendants() && !oldChild.isolatesBlending()))
         dirtyAncestorChainHasBlendingDescendants();
 #endif
+    if (renderer().style().visibility() != Visibility::Visible)
+        dirtyVisibleContentStatus();
 }
 
 void RenderLayer::dirtyPaintOrderListsOnChildChange(RenderLayer& child)
@@ -3927,8 +3930,10 @@ void RenderLayer::establishesTopLayerWillChange()
 
 void RenderLayer::establishesTopLayerDidChange()
 {
-    if (auto* parentLayer = renderer().layerParent())
+    if (auto* parentLayer = renderer().layerParent()) {
+        setIsNormalFlowOnly(shouldBeNormalFlowOnly());
         parentLayer->addChild(*this);
+    }
 }
 
 RenderLayer* RenderLayer::enclosingFragmentedFlowAncestor() const

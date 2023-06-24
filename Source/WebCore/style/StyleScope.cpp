@@ -165,6 +165,7 @@ void Scope::clearResolver()
 {
     m_resolver = nullptr;
     customPropertyRegistry().clearRegisteredFromStylesheets();
+    counterStyleRegistry().clearAuthorCounterStyles();
 }
 
 void Scope::releaseMemory()
@@ -602,6 +603,7 @@ void Scope::updateResolver(Vector<RefPtr<CSSStyleSheet>>& activeStyleSheets, Res
 
     if (updateType == ResolverUpdateType::Reset) {
         customPropertyRegistry().clearRegisteredFromStylesheets();
+        counterStyleRegistry().clearAuthorCounterStyles();
         m_resolver->ruleSets().resetAuthorStyle();
         m_resolver->appendAuthorStyleSheets(activeStyleSheets);
         return;
@@ -863,6 +865,8 @@ void Scope::invalidateMatchedDeclarationsCache()
 
 void Scope::pendingUpdateTimerFired()
 {
+    auto protectedShadowRoot = RefPtr { m_shadowRoot };
+    auto protectedDocument = Ref { m_document };
     flushPendingUpdate();
 }
 

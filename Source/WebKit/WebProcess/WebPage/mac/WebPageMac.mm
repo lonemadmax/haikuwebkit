@@ -273,6 +273,9 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
                 eventWasHandled |= frame.editor().insertText(commands[i].text, event);
             }
         } else {
+            if (commands[i].commandName == "scrollPageDown:"_s || commands[i].commandName == "scrollPageUp:"_s)
+                frame.eventHandler().setProcessingKeyRepeatForPotentialScroll(event && event->repeat());
+
             Editor::Command command = frame.editor().command(commandNameForSelectorName(commands[i].commandName));
             if (command.isSupported()) {
                 bool commandExecutedByEditor = command.execute(event);
@@ -346,7 +349,7 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
         return;
     }
 
-    auto attributedString = editingAttributedString(*range, IncludeImages::No).string;
+    auto attributedString = editingAttributedString(*range, IncludeImages::No).nsAttributedString();
 
     // WebCore::editingAttributedStringFromRange() insists on inserting a trailing
     // whitespace at the end of the string which breaks the ATOK input method.  <rdar://problem/5400551>
@@ -361,11 +364,11 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
     ASSERT(rangeToSend.isValid());
     if (!rangeToSend.isValid()) {
         // Send an empty EditingRange as a last resort for <rdar://problem/27078089>.
-        completionHandler({ WTFMove(attributedString), nil }, EditingRange());
+        completionHandler(WebCore::AttributedString::fromNSAttributedString(WTFMove(attributedString)), EditingRange());
         return;
     }
 
-    completionHandler({ WTFMove(attributedString), nil }, rangeToSend);
+    completionHandler(WebCore::AttributedString::fromNSAttributedString(WTFMove(attributedString)), rangeToSend);
 }
 
 #if ENABLE(PDFKIT_PLUGIN)
@@ -748,7 +751,7 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
     if (!range)
         return;
 
-    auto attributedSelection = attributedString(*range).string;
+    auto attributedSelection = attributedString(*range).nsAttributedString();
     if (!attributedSelection)
         return;
 

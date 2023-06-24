@@ -28,6 +28,7 @@
 
 #include "CachePolicy.h"
 #include "CachedResourceLoader.h"
+#include "CachedResourceRequestInitiatorTypes.h"
 #include "ContentExtensionsBackend.h"
 #include "CrossOriginAccessControl.h"
 #include "Document.h"
@@ -35,6 +36,7 @@
 #include "FrameLoader.h"
 #include "HTTPHeaderValues.h"
 #include "ImageDecoder.h"
+#include "LocalFrame.h"
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "SecurityPolicy.h"
@@ -143,6 +145,15 @@ static constexpr ASCIILiteral acceptHeaderValueForAVIFImageResource()
 #endif
 }
 
+static constexpr ASCIILiteral acceptHeaderValueForJPEGXLImageResource()
+{
+#if USE(JPEGXL)
+    return "image/jxl,"_s;
+#else
+    return ""_s;
+#endif
+}
+
 static String acceptHeaderValueForAdditionalSupportedImageMIMETypes()
 {
     StringBuilder sb;
@@ -162,6 +173,7 @@ static String acceptHeaderValueForImageResource()
 {
     return String(acceptHeaderValueForWebPImageResource())
         + acceptHeaderValueForAVIFImageResource()
+        + acceptHeaderValueForJPEGXLImageResource()
         + acceptHeaderValueForAdditionalSupportedImageMIMETypes()
         + acceptHeaderValueForVideoImageResource(ImageDecoder::supportsMediaType(ImageDecoder::MediaType::Video))
         + "image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5"_s;
@@ -285,11 +297,15 @@ void CachedResourceRequest::updateReferrerAndOriginHeaders(FrameLoader& frameLoa
 
     if (!m_resourceRequest.httpOrigin().isEmpty())
         return;
+
+    auto* document = frameLoader.frame().document();
+    auto actualOrigin = (document && m_options.destination == FetchOptionsDestination::EmptyString && m_initiatorType == cachedResourceRequestInitiatorTypes().fetch) ? Ref { document->securityOrigin() } : SecurityOrigin::createFromString(outgoingReferrer);
     String outgoingOrigin;
     if (m_options.mode == FetchOptions::Mode::Cors)
-        outgoingOrigin = SecurityOrigin::createFromString(outgoingReferrer)->toString();
+        outgoingOrigin = actualOrigin->toString();
     else
-        outgoingOrigin = SecurityPolicy::generateOriginHeader(m_options.referrerPolicy, m_resourceRequest.url(), SecurityOrigin::createFromString(outgoingReferrer));
+        outgoingOrigin = SecurityPolicy::generateOriginHeader(m_options.referrerPolicy, m_resourceRequest.url(), actualOrigin);
+
     FrameLoader::addHTTPOriginIfNeeded(m_resourceRequest, outgoingOrigin);
 }
 

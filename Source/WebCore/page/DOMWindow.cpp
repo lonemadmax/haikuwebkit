@@ -26,7 +26,9 @@
 #include "config.h"
 #include "DOMWindow.h"
 
+#include "Document.h"
 #include "HTTPParsers.h"
+#include "SecurityOrigin.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
@@ -52,6 +54,21 @@ DOMWindow::~DOMWindow()
 {
     ASSERT(allWindows().contains(identifier()));
     allWindows().remove(identifier());
+}
+
+ExceptionOr<RefPtr<SecurityOrigin>> DOMWindow::createTargetOriginForPostMessage(const String& targetOrigin, Document& sourceDocument)
+{
+    RefPtr<SecurityOrigin> targetSecurityOrigin;
+    if (targetOrigin == "/"_s)
+        targetSecurityOrigin = &sourceDocument.securityOrigin();
+    else if (targetOrigin != "*"_s) {
+        targetSecurityOrigin = &SecurityOrigin::createFromString(targetOrigin).leakRef();
+        // It doesn't make sense target a postMessage at an opaque origin
+        // because there's no way to represent an opaque origin in a string.
+        if (targetSecurityOrigin->isOpaque())
+            return Exception { SyntaxError };
+    }
+    return targetSecurityOrigin;
 }
 
 } // namespace WebCore

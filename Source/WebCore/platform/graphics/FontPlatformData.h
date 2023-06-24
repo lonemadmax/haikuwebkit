@@ -65,6 +65,7 @@ OBJC_CLASS NSFont;
 #endif
 
 #if USE(CORE_TEXT)
+#include <pal/spi/cf/CoreTextSPI.h>
 typedef const struct __CTFont* CTFontRef;
 #endif
 
@@ -82,6 +83,8 @@ interface IDWriteFontFace;
 namespace WebCore {
 
 class FontDescription;
+struct FontCustomPlatformData;
+struct FontSizeAdjust;
 
 // This class is conceptually immutable. Once created, no instances should ever change (in an observable way).
 class FontPlatformData {
@@ -121,10 +124,10 @@ public:
     FontPlatformData(FontPlatformData&&) = default;
 #endif
 
-    FontPlatformData(float size, bool syntheticBold, bool syntheticOblique, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering, const CreationData* = nullptr);
+    FontPlatformData(float size, bool syntheticBold, bool syntheticOblique, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering, const FontCustomPlatformData* = nullptr);
 
 #if USE(CORE_TEXT)
-    WEBCORE_EXPORT FontPlatformData(RetainPtr<CTFontRef>&&, float size, bool syntheticBold = false, bool syntheticOblique = false, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering, const CreationData* = nullptr);
+    WEBCORE_EXPORT FontPlatformData(RetainPtr<CTFontRef>&&, float size, bool syntheticBold = false, bool syntheticOblique = false, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering, const FontCustomPlatformData* = nullptr);
 #endif
 
 #if PLATFORM(HAIKU)
@@ -137,8 +140,8 @@ public:
 #endif
 
 #if PLATFORM(WIN)
-    WEBCORE_EXPORT FontPlatformData(GDIObject<HFONT>, float size, bool syntheticBold, bool syntheticOblique, const CreationData* = nullptr);
-    FontPlatformData(GDIObject<HFONT>, cairo_font_face_t*, float size, bool bold, bool italic, const CreationData* = nullptr);
+    WEBCORE_EXPORT FontPlatformData(GDIObject<HFONT>, float size, bool syntheticBold, bool syntheticOblique, const FontCustomPlatformData* = nullptr);
+    FontPlatformData(GDIObject<HFONT>, cairo_font_face_t*, float size, bool bold, bool italic, const FontCustomPlatformData* = nullptr);
 #endif
 
 #if USE(FREETYPE)
@@ -149,11 +152,47 @@ public:
     const BFont* font() const { return m_font.get(); }
 #endif
 
+    class Attributes {
+    public:
+        Attributes(float size, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, bool syntheticBold, bool syntheticOblique)
+            : m_size(size)
+            , m_orientation(orientation)
+            , m_widthVariant(widthVariant)
+            , m_textRenderingMode(textRenderingMode)
+            , m_syntheticBold(syntheticBold)
+            , m_syntheticOblique(syntheticOblique)
+        { }
+
+        float m_size { 0 };
+
+        FontOrientation m_orientation { FontOrientation::Horizontal };
+        FontWidthVariant m_widthVariant { FontWidthVariant::RegularWidth };
+        TextRenderingMode m_textRenderingMode { TextRenderingMode::AutoTextRendering };
+
+        bool m_syntheticBold { false };
+        bool m_syntheticOblique { false };
+
+#if PLATFORM(WIN)
+        LOGFONT m_font;
+#elif USE(CORE_TEXT)
+        RetainPtr<CFDictionaryRef> m_attributes;
+        CTFontDescriptorOptions m_options;
+        RetainPtr<CFStringRef> m_url;
+        RetainPtr<CFStringRef> m_psName;
+#endif
+    };
+
+    WEBCORE_EXPORT static FontPlatformData create(const Attributes&, const FontCustomPlatformData*);
+
+    WEBCORE_EXPORT FontPlatformData(const FontPlatformData&);
+    WEBCORE_EXPORT FontPlatformData& operator=(const FontPlatformData&);
+    WEBCORE_EXPORT ~FontPlatformData();
+
     static FontPlatformData cloneWithOrientation(const FontPlatformData&, FontOrientation);
     static FontPlatformData cloneWithSyntheticOblique(const FontPlatformData&, bool);
 
     static FontPlatformData cloneWithSize(const FontPlatformData&, float);
-    void updateSizeWithFontSizeAdjust(const std::optional<float>& fontSizeAdjust);
+    void updateSizeWithFontSizeAdjust(const FontSizeAdjust&);
 
 #if PLATFORM(WIN)
     HFONT hfont() const { return m_font ? m_font->get() : 0; }
@@ -249,10 +288,13 @@ public:
 #endif
     };
 
-    const CreationData* creationData() const
+    WEBCORE_EXPORT const CreationData* creationData() const;
+    const FontCustomPlatformData* customPlatformData() const
     {
-        return m_creationData ? &m_creationData.value() : nullptr;
+        return m_customPlatformData.get();
     }
+
+    WEBCORE_EXPORT Attributes attributes() const;
 
 private:
     bool platformIsEqual(const FontPlatformData&) const;
@@ -307,7 +349,7 @@ private:
 
     // This is conceptually const, but we can't make it actually const,
     // because FontPlatformData is used as a key in a HashMap.
-    std::optional<CreationData> m_creationData;
+    RefPtr<const FontCustomPlatformData> m_customPlatformData;
 
     bool m_syntheticBold { false };
     bool m_syntheticOblique { false };

@@ -207,9 +207,6 @@ public:
 
     virtual bool isScrollingSynchronizedWithMainThread() WTF_REQUIRES_LOCK(m_treeLock) { return true; }
 
-    virtual void willSendEventToMainThread(const PlatformWheelEvent&) { }
-    virtual void waitForEventToBeProcessedByMainThread(const PlatformWheelEvent&) { };
-
     Lock& treeLock() WTF_RETURNS_LOCK(m_treeLock) { return m_treeLock; }
 
     void windowScreenDidChange(PlatformDisplayID, std::optional<FramesPerSecond> nominalFramesPerSecond);
@@ -241,14 +238,15 @@ public:
     WEBCORE_EXPORT void viewWillStartLiveResize();
     WEBCORE_EXPORT void viewWillEndLiveResize();
     WEBCORE_EXPORT void viewSizeDidChange();
+    WEBCORE_EXPORT bool overlayScrollbarsEnabled();
     
 protected:
-    WheelEventHandlingResult handleWheelEventWithNode(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>, ScrollingTreeNode*, EventTargeting = EventTargeting::Propagate);
+    WEBCORE_EXPORT WheelEventHandlingResult handleWheelEventWithNode(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>, ScrollingTreeNode*, EventTargeting = EventTargeting::Propagate);
 
     void setMainFrameScrollPosition(FloatPoint);
 
-    void setGestureState(std::optional<WheelScrollGestureState>);
-    std::optional<WheelScrollGestureState> gestureState();
+    WEBCORE_EXPORT void setGestureState(std::optional<WheelScrollGestureState>);
+    WEBCORE_EXPORT std::optional<WheelScrollGestureState> gestureState();
 
     std::optional<FramesPerSecond> nominalFramesPerSecond();
 
@@ -271,6 +269,8 @@ private:
     void applyLayerPositionsRecursive(ScrollingTreeNode&) WTF_REQUIRES_LOCK(m_treeLock);
     void notifyRelatedNodesRecursive(ScrollingTreeNode&);
     void traverseScrollingTreeRecursive(ScrollingTreeNode&, const VisitorFunction&) WTF_REQUIRES_LOCK(m_treeLock);
+    
+    void setOverlayScrollbarsEnabled(bool);
     
     virtual void didCommitTree() { }
 
@@ -332,6 +332,7 @@ private:
     bool m_isHandlingProgrammaticScroll { false };
     bool m_isMonitoringWheelEvents { false };
     bool m_scrollingPerformanceTestingEnabled { false };
+    bool m_overlayScrollbarsEnabled { false };
     bool m_asyncFrameOrOverflowScrollingEnabled { false };
     bool m_wheelEventGesturesBecomeNonBlocking { false };
     bool m_needsApplyLayerPositionsAfterCommit { false };

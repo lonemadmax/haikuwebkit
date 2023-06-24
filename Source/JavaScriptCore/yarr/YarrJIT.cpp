@@ -294,7 +294,7 @@ class YarrGenerator final : public YarrJITInfo {
 
         static size_t sizeFor(ParenContextSizes& parenContextSizes)
         {
-            return sizeof(ParenContext) + sizeof(Subpatterns) * parenContextSizes.numSubpatterns() + sizeof(uintptr_t) * parenContextSizes.frameSlots();
+            return sizeof(ParenContext) + sizeof(Subpatterns) * parenContextSizes.numSubpatterns() + sizeof(unsigned) * (parenContextSizes.numDuplicateNamedCaptures()) + sizeof(uintptr_t) * parenContextSizes.frameSlots();
         }
 
         static constexpr ptrdiff_t nextOffset()
@@ -447,8 +447,11 @@ class YarrGenerator final : public YarrJITInfo {
                 static_assert(is64Bit());
                 m_jit.load64(MacroAssembler::Address(parenContextReg, ParenContext::subpatternOffset(subpattern)), tempReg);
                 m_jit.store64(tempReg, MacroAssembler::Address(m_regs.output, (subpattern << 1) * sizeof(unsigned)));
-                if (hasNamedCaptures)
-                    duplicateNamedCaptureGroups.set(m_pattern.m_duplicateNamedGroupForSubpatternId[subpattern]);
+                if (hasNamedCaptures) {
+                    unsigned duplicateNamedGroup = m_pattern.m_duplicateNamedGroupForSubpatternId[subpattern];
+                    if (duplicateNamedGroup)
+                        duplicateNamedCaptureGroups.set(duplicateNamedGroup);
+                }
             }
             for (unsigned duplicateNamedGroupId : duplicateNamedCaptureGroups) {
                 m_jit.load32(MacroAssembler::Address(parenContextReg, ParenContext::duplicateNamedCaptureOffset(m_parenContextSizes, duplicateNamedGroupId)), tempReg);
@@ -841,13 +844,13 @@ class YarrGenerator final : public YarrJITInfo {
         MacroAssembler::JumpList finishExiting;
         if (!m_abortExecution.empty()) {
             m_abortExecution.link(&m_jit);
-            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(-2)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), m_regs.returnRegister);
             finishExiting.append(m_jit.jump());
         }
 
         if (!m_hitMatchLimit.empty()) {
             m_hitMatchLimit.link(&m_jit);
-            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(-1)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::ErrorNoMatch)), m_regs.returnRegister);
         }
 
         finishExiting.link(&m_jit);
@@ -4688,16 +4691,20 @@ public:
         RELEASE_ASSERT(!m_containsNestedSubpatterns);
 #endif
 
-        ASSERT(!m_failureReason);
-
-        if (m_usesT2)
-            ASSERT(m_regs.regT2 != MacroAssembler::InvalidGPRReg);
-
         if (UNLIKELY(Options::dumpDisassembly() || Options::dumpRegExpDisassembly()))
             m_disassembler = makeUnique<YarrDisassembler>(this);
 
         if (m_disassembler)
             m_disassembler->setStartOfCode(m_jit.label());
+
+        if (m_failureReason) {
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.returnRegister2);
+            return;
+        }
+
+        if (m_usesT2)
+            ASSERT(m_regs.regT2 != MacroAssembler::InvalidGPRReg);
 
         MacroAssembler::Jump hasInput = checkInput();
         generateFailReturn();
@@ -4706,7 +4713,17 @@ public:
         unsigned callFrameSizeInBytes = alignCallFrameSizeInBytes(m_pattern.m_body->m_callFrameSize);
         if (callFrameSizeInBytes) {
             // Create space on stack for matching context data.
-            m_jit.addPtr(MacroAssembler::TrustedImm32(-callFrameSizeInBytes), MacroAssembler::stackPointerRegister, MacroAssembler::stackPointerRegister);
+            // Note that this stack check cannot clobber m_regs.regT1 as it is needed for the slow path we call if we fail the stack check.
+            m_jit.addPtr(MacroAssembler::TrustedImm32(-callFrameSizeInBytes), MacroAssembler::stackPointerRegister, m_regs.regT0);
+            MacroAssembler::Jump stackOk = m_jit.branchPtr(MacroAssembler::BelowOrEqual, MacroAssembler::AbsoluteAddress(const_cast<VM*>(m_vm)->addressOfSoftStackLimit()), m_regs.regT0);
+
+            // Exceeded stack limit, punt to the interpreter.
+            m_jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), m_regs.returnRegister);
+            m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.returnRegister2);
+            m_inlinedFailedMatch.append(m_jit.jump());
+
+            stackOk.link(&m_jit);
+            m_jit.move(m_regs.regT0, MacroAssembler::stackPointerRegister);
         }
 
 #ifdef JIT_UNICODE_EXPRESSIONS
@@ -5090,6 +5107,12 @@ void jitCompileInlinedTest(StackCheck* m_compilationThreadStackChecker, StringVi
 {
     Yarr::ErrorCode errorCode;
     Yarr::YarrPattern pattern(patternString, flags, errorCode);
+
+    if (errorCode != Yarr::ErrorCode::NoError) {
+        // This path cannot clobber jitRegisters.regT1 as it is needed for the slow path we'll end up in.
+        jit.move(MacroAssembler::TrustedImmPtr((void*)static_cast<size_t>(JSRegExpResult::JITCodeFailure)), jitRegisters.returnRegister);
+        return;
+    }
 
     jitRegisters.validate();
 

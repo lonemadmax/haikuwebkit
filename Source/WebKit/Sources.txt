@@ -166,9 +166,10 @@ NetworkProcess/storage/IDBStorageManager.cpp
 NetworkProcess/storage/IDBStorageRegistry.cpp
 NetworkProcess/storage/LocalStorageManager.cpp
 NetworkProcess/storage/MemoryStorageArea.cpp
+NetworkProcess/storage/NetworkQuotaManager.cpp
 NetworkProcess/storage/NetworkStorageManager.cpp
+NetworkProcess/storage/OriginQuotaManager.cpp
 NetworkProcess/storage/OriginStorageManager.cpp
-NetworkProcess/storage/QuotaManager.cpp
 NetworkProcess/storage/SQLiteStorageArea.cpp
 NetworkProcess/storage/SessionStorageManager.cpp
 NetworkProcess/storage/StorageAreaBase.cpp
@@ -470,6 +471,7 @@ UIProcess/API/APIPageConfiguration.cpp
 UIProcess/API/APIProcessPoolConfiguration.cpp
 UIProcess/API/APIOpenPanelParameters.cpp
 UIProcess/API/APISessionState.cpp
+UIProcess/API/APIUIClient.cpp
 UIProcess/API/APIUserScript.cpp
 UIProcess/API/APIUserStyleSheet.cpp
 UIProcess/API/APIWebAuthenticationAssertionResponse.cpp

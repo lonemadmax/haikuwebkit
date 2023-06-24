@@ -884,6 +884,8 @@ public:
     static std::optional<RefPtr<const RTT>> tryGetCanonicalRTT(TypeIndex);
     static RefPtr<const RTT> getCanonicalRTT(TypeIndex);
 
+    static bool castReference(JSValue, bool, TypeIndex);
+
     static const TypeDefinition& get(TypeIndex);
     static TypeIndex get(const TypeDefinition&);
 
@@ -904,6 +906,7 @@ private:
     RefPtr<TypeDefinition> m_I32_RefI32I32;
     RefPtr<TypeDefinition> m_Ref_RefI32I32;
     RefPtr<TypeDefinition> m_Ref_I32I32I32I32;
+    RefPtr<TypeDefinition> m_Anyref_Externref;
     Lock m_lock;
 };
 

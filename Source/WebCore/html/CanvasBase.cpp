@@ -240,8 +240,9 @@ HashSet<Element*> CanvasBase::cssCanvasClients() const
         if (!is<StyleCanvasImage>(observer))
             continue;
 
-        for (auto& client : downcast<StyleCanvasImage>(observer).clients().values()) {
-            if (auto element = client->element())
+        for (auto entry : downcast<StyleCanvasImage>(observer).clients()) {
+            auto& client = entry.key;
+            if (auto element = client.element())
                 cssCanvasClients.add(element);
         }
     }
@@ -358,9 +359,14 @@ RefPtr<ImageBuffer> CanvasBase::allocateImageBuffer(bool usesDisplayListDrawing,
     return ImageBuffer::create(size(), RenderingPurpose::Canvas, 1, colorSpace, pixelFormat, bufferOptions, context);
 }
 
-bool CanvasBase::postProcessPixelBuffer(Ref<PixelBuffer> pixelBuffer, bool wasLastDrawByBitMap, const HashSet<uint32_t>& suppliedColors) const
+bool CanvasBase::shouldInjectNoiseBeforeReadback() const
 {
-    if (!scriptExecutionContext() || !scriptExecutionContext()->noiseInjectionHashSalt() || wasLastDrawByBitMap || !scriptExecutionContext()->settingsValues().canvasNoiseInjectionEnabled)
+    return scriptExecutionContext() && scriptExecutionContext()->noiseInjectionHashSalt();
+}
+
+bool CanvasBase::postProcessPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, bool wasLastDrawByBitMap, const HashSet<uint32_t>& suppliedColors) const
+{
+    if (!shouldInjectNoiseBeforeReadback() || wasLastDrawByBitMap)
         return false;
 
     ASSERT(pixelBuffer->format().pixelFormat == PixelFormat::RGBA8);

@@ -31,6 +31,7 @@
 #include "IndexingType.h"
 #include "JITOperations.h"
 #include "TypedArrayType.h"
+#include "UGPRPair.h"
 #include <wtf/text/StringSearch.h>
 
 namespace JSC {
@@ -49,20 +50,6 @@ struct UnlinkedStringJumpTable;
 namespace DFG {
 
 struct OSRExitBase;
-
-
-#if USE(JSVALUE64)
-struct UGPRPair {
-    // We carefully use UCPURegister so both parameters are returned in their own registers.
-    UCPURegister first;
-    UCPURegister second;
-};
-constexpr UGPRPair makeUGPRPair(UCPURegister first, UCPURegister second) { return { first, second }; }
-#else
-using UGPRPair = uint64_t;
-constexpr UGPRPair makeUGPRPair(UCPURegister first, UCPURegister second) { return static_cast<uint64_t>(second) << 32 | first; }
-#endif
-
 
 JSC_DECLARE_JIT_OPERATION(operationStringFromCharCode, JSCell*, (JSGlobalObject*, int32_t));
 JSC_DECLARE_JIT_OPERATION(operationStringFromCharCodeUntyped, EncodedJSValue, (JSGlobalObject*, EncodedJSValue));
@@ -287,8 +274,8 @@ JSC_DECLARE_JIT_OPERATION(operationInt32ToStringWithValidRadix, char*, (JSGlobal
 JSC_DECLARE_JIT_OPERATION(operationInt52ToStringWithValidRadix, char*, (JSGlobalObject*, int64_t, int32_t));
 JSC_DECLARE_JIT_OPERATION(operationDoubleToStringWithValidRadix, char*, (JSGlobalObject*, double, int32_t));
 JSC_DECLARE_JIT_OPERATION(operationFunctionToString, JSString*, (JSGlobalObject*, JSFunction*));
-JSC_DECLARE_JIT_OPERATION(operationFunctionBind, JSBoundFunction*, (JSGlobalObject*, JSObject*, unsigned, EncodedJSValue, EncodedJSValue, EncodedJSValue, EncodedJSValue));
-JSC_DECLARE_JIT_OPERATION(operationNewBoundFunction, JSBoundFunction*, (JSGlobalObject*, JSFunction*, unsigned, EncodedJSValue, EncodedJSValue, EncodedJSValue, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationFunctionBind, JSBoundFunction*, (JSGlobalObject*, JSObject*, EncodedJSValue, EncodedJSValue, EncodedJSValue, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationNewBoundFunction, JSBoundFunction*, (JSGlobalObject*, JSFunction*, EncodedJSValue, EncodedJSValue, EncodedJSValue, EncodedJSValue));
 
 JSC_DECLARE_JIT_OPERATION(operationNormalizeMapKeyHeapBigInt, EncodedJSValue, (VM*, JSBigInt*));
 JSC_DECLARE_JIT_OPERATION(operationMapHash, UCPUStrictInt32, (JSGlobalObject*, EncodedJSValue input));

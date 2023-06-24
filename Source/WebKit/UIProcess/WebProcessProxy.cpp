@@ -36,6 +36,7 @@
 #include "Logging.h"
 #include "NetworkProcessConnectionInfo.h"
 #include "NotificationManagerMessageHandlerMessages.h"
+#include "PageLoadState.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemoteWorkerType.h"
@@ -51,6 +52,7 @@
 #include "WebAutomationSession.h"
 #include "WebBackForwardCache.h"
 #include "WebBackForwardListItem.h"
+#include "WebCompiledContentRuleList.h"
 #include "WebFrameProxy.h"
 #include "WebInspectorUtilities.h"
 #include "WebLockRegistryProxy.h"
@@ -488,8 +490,6 @@ void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOpt
 
     AuxiliaryProcessProxy::getLaunchOptions(launchOptions);
 
-    if (!m_processPool->customWebContentServiceBundleIdentifier().isEmpty())
-        launchOptions.customWebContentServiceBundleIdentifier = m_processPool->customWebContentServiceBundleIdentifier().ascii();
     if (WebKit::isInspectorProcessPool(processPool()))
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("inspector-process"_s, "1"_s);
 
@@ -509,10 +509,8 @@ void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOpt
     }
 
 #if ENABLE(WEBCONTENT_CRASH_TESTING)
-    if (isCrashyProcess()) {
-        launchOptions.customWebContentServiceBundleIdentifier = toCString("com.apple.WebKit.WebContent.Crashy");
+    if (isCrashyProcess())
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("is-webcontent-crashy"_s, "1"_s);
-    }
 #endif
 
     if (m_serviceWorkerInformation) {
@@ -1327,6 +1325,13 @@ void WebProcessProxy::didDestroyUserGestureToken(uint64_t identifier)
         m_userInitiatedActionByAuthorizationTokenMap.remove(*removed->authorizationToken());
 }
 
+void WebProcessProxy::postMessageToRemote(WebCore::ProcessIdentifier destinationProcessIdentifier, WebCore::FrameIdentifier identifier, std::optional<WebCore::SecurityOriginData> target, const WebCore::MessageWithMessagePorts& message)
+{
+    auto webProcessProxy = processForIdentifier(destinationProcessIdentifier);
+    if (webProcessProxy)
+        webProcessProxy->send(Messages::WebProcess::RemotePostMessage(identifier, target, message), 0);
+}
+
 bool WebProcessProxy::canBeAddedToWebProcessCache() const
 {
     if (isRunningServiceWorkers()) {
@@ -1489,7 +1494,7 @@ void WebProcessProxy::requestTermination(ProcessTerminationReason reason)
         return;
 
     Ref protectedThis { *this };
-    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "requestTermination: reason=%d", reason);
+    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "requestTermination: reason=%d", static_cast<int>(reason));
 
     AuxiliaryProcessProxy::terminate();
 
@@ -1809,7 +1814,7 @@ void WebProcessProxy::processTerminated()
 void WebProcessProxy::logDiagnosticMessageForResourceLimitTermination(const String& limitKey)
 {
     if (pageCount()) {
-        if (auto& page = pages()[0])
+        if (RefPtr page = pages()[0])
             page->logDiagnosticMessage(DiagnosticLoggingKeys::simulatedPageCrashKey(), limitKey, ShouldSample::No);
     }
 }

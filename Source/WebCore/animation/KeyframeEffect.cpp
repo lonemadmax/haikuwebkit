@@ -68,6 +68,7 @@
 #include "TranslateTransformOperation.h"
 #include "WillChangeData.h"
 #include <JavaScriptCore/Exception.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/UUID.h>
 #include <wtf/text/TextStream.h>
 
@@ -77,6 +78,8 @@
 
 namespace WebCore {
 using namespace JSC;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(KeyframeEffect);
 
 KeyframeEffect::ParsedKeyframe::ParsedKeyframe()
     : style(MutableStyleProperties::create())
@@ -2275,9 +2278,8 @@ bool KeyframeEffect::computeTransformedExtentViaTransformList(const FloatRect& r
 
             if (operation->type() == TransformOperation::Type::Matrix || operation->type() == TransformOperation::Type::Matrix3D) {
                 TransformationMatrix::Decomposed2Type toDecomp;
-                transform.decompose2(toDecomp);
                 // Any rotation prevents us from using a simple start/end rect union.
-                if (toDecomp.angle)
+                if (!transform.decompose2(toDecomp) || toDecomp.angle)
                     return false;
             }
 
@@ -2300,9 +2302,8 @@ bool KeyframeEffect::computeTransformedExtentViaMatrix(const FloatRect& renderer
         return false;
 
     TransformationMatrix::Decomposed2Type fromDecomp;
-    transform.decompose2(fromDecomp);
     // Any rotation prevents us from using a simple start/end rect union.
-    if (fromDecomp.angle)
+    if (!transform.decompose2(fromDecomp) || fromDecomp.angle)
         return false;
 
     bounds = LayoutRect(transform.mapRect(bounds));

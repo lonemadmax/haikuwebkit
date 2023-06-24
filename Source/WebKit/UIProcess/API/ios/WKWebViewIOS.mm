@@ -41,6 +41,7 @@
 #import "UIKitSPI.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewGestureController.h"
+#import "VisibleContentRectUpdateInfo.h"
 #import "WKBackForwardListItemInternal.h"
 #import "WKContentViewInteraction.h"
 #import "WKPasswordView.h"
@@ -57,6 +58,7 @@
 #import "WebIOSEventFactory.h"
 #import "WebPage.h"
 #import "WebPageProxy.h"
+#import "WebPreferences.h"
 #import "_WKActivatedElementInfoInternal.h"
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/GraphicsContextCG.h>
@@ -1205,7 +1207,7 @@ static void addOverlayEventRegions(WebCore::PlatformLayerIdentifier layerID, con
 #else
     WebCore::IOSurface::Format snapshotFormat = WebCore::IOSurface::Format::BGRA;
 #endif
-    auto surface = WebCore::IOSurface::create(nullptr, WebCore::expandedIntSize(snapshotSize), WebCore::DestinationColorSpace::SRGB(), snapshotFormat);
+    auto surface = WebCore::IOSurface::create(nullptr, WebCore::expandedIntSize(snapshotSize), WebCore::DestinationColorSpace::SRGB(), WebCore::IOSurface::Name::Snapshot, snapshotFormat);
     if (!surface)
         return nullptr;
     CARenderServerRenderLayerWithTransform(MACH_PORT_NULL, self.layer.context.contextId, reinterpret_cast<uint64_t>(self.layer), surface->surface(), 0, 0, &transform);
@@ -1214,7 +1216,7 @@ static void addOverlayEventRegions(WebCore::PlatformLayerIdentifier layerID, con
     WebCore::IOSurface::Format compressedFormat = WebCore::IOSurface::Format::YUV422;
     if (WebCore::IOSurface::allowConversionFromFormatToFormat(snapshotFormat, compressedFormat)) {
         auto viewSnapshot = WebKit::ViewSnapshot::create(nullptr);
-        WebCore::IOSurface::convertToFormat(nullptr, WTFMove(surface), WebCore::IOSurface::Format::YUV422, [viewSnapshot](std::unique_ptr<WebCore::IOSurface> convertedSurface) {
+        WebCore::IOSurface::convertToFormat(nullptr, WTFMove(surface), WebCore::IOSurface::Name::Snapshot, WebCore::IOSurface::Format::YUV422, [viewSnapshot](std::unique_ptr<WebCore::IOSurface> convertedSurface) {
             if (convertedSurface)
                 viewSnapshot->setSurface(WTFMove(convertedSurface));
         });
@@ -1676,7 +1678,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (!_overridesInterfaceOrientation)
         [self _dispatchSetDeviceOrientation:[self _deviceOrientationIgnoringOverrides]];
     [self _dispatchSetOrientationForMediaCapture:[self _deviceOrientationIgnoringOverrides]];
-    _page->activityStateDidChange(WebCore::ActivityState::allFlags());
+    _page->activityStateDidChange(WebCore::allActivityStates());
     _page->webViewDidMoveToWindow();
     [self _presentLockdownModeAlertIfNeeded];
 #if HAVE(UIKIT_RESIZABLE_WINDOWS)
@@ -2143,6 +2145,9 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
 - (void)_beginAutomaticLiveResizeIfNeeded
 {
+    if (![self usesStandardContentView])
+        return;
+
     if (_perProcessState.liveResizeParameters)
         return;
 
@@ -3198,7 +3203,7 @@ static bool isLockdownModeWarningNeeded()
             WallTime::now(),
             WebCore::PCM::AttributionEphemeral::No
         );
-        _page->setPrivateClickMeasurement({{ WTFMove(measurement), attribution.sourceDescription, attribution.purchaser }});
+        _page->setPrivateClickMeasurement(WTFMove(measurement), attribution.sourceDescription, attribution.purchaser);
     } else
         _page->setPrivateClickMeasurement(std::nullopt);
 #endif
@@ -3207,12 +3212,12 @@ static bool isLockdownModeWarningNeeded()
 - (UIEventAttribution *)_uiEventAttribution
 {
 #if HAVE(UI_EVENT_ATTRIBUTION)
-    auto& measurement = _page->privateClickMeasurement();
-    if (!measurement)
+    auto attribution = _page->privateClickMeasurementEventAttribution();
+    if (!attribution)
         return nil;
 
-    URL destinationURL { makeString("https://", measurement->pcm.destinationSite().registrableDomain.string()) };
-    return adoptNS([[UIEventAttribution alloc] initWithSourceIdentifier:measurement->pcm.sourceID() destinationURL:destinationURL sourceDescription:measurement->sourceDescription purchaser:measurement->purchaser]).autorelease();
+    URL destinationURL { makeString("https://"_s, attribution->destinationDomain) };
+    return adoptNS([[UIEventAttribution alloc] initWithSourceIdentifier:attribution->sourceID destinationURL:destinationURL sourceDescription:attribution->sourceDescription purchaser:attribution->purchaser]).autorelease();
 #else
     return nil;
 #endif
@@ -3236,7 +3241,7 @@ static bool isLockdownModeWarningNeeded()
             WallTime::now(),
             WebCore::PCM::AttributionEphemeral::Yes
         );
-        _page->setPrivateClickMeasurement({{ WTFMove(measurement), attribution.sourceDescription, attribution.purchaser }});
+        _page->setPrivateClickMeasurement(WTFMove(measurement), attribution.sourceDescription, attribution.purchaser);
     } else
         _page->setPrivateClickMeasurement(std::nullopt);
 #endif
@@ -3797,7 +3802,7 @@ static bool isLockdownModeWarningNeeded()
     NSString *displayName = self.window.screen.displayConfiguration.name;
     if (displayName && !self.window.hidden) {
         TraceScope snapshotScope(RenderServerSnapshotStart, RenderServerSnapshotEnd);
-        auto surface = WebCore::IOSurface::create(nullptr, WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebCore::DestinationColorSpace::SRGB());
+        auto surface = WebCore::IOSurface::create(nullptr, WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebCore::DestinationColorSpace::SRGB(), WebCore::IOSurface::Name::Snapshot);
         if (!surface) {
             completionHandler(nullptr);
             return;

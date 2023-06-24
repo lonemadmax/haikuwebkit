@@ -420,7 +420,6 @@ struct CGAffineTransform {
     Height,
     Width,
     ColorDepth,
-    PixelDepth,
     AvailLeft,
     AvailTop,
     AvailHeight,
@@ -488,7 +487,7 @@ enum class WebCore::ShareDataOriginator : bool
 
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::IntRect {
     WebCore::IntPoint location();
-    WebCore::IntSize size();
+    [Validator='WebCore::IntRect { *location, *size }.isValid()'] WebCore::IntSize size();
 }
 
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::IntPoint {
@@ -770,6 +769,18 @@ struct WebCore::ApplePayCouponCodeUpdate : WebCore::ApplePayDetailsUpdateBase {
 };
 #endif
 
+header: <WebCore/ScreenOrientationLockType.h>
+enum class WebCore::ScreenOrientationLockType : uint8_t {
+    Any
+    Natural
+    Landscape
+    Portrait
+    PortraitPrimary
+    PortraitSecondary
+    LandscapePrimary
+    LandscapeSecondary
+};
+
 #if ENABLE(APPLICATION_MANIFEST)
 [Nested] enum class WebCore::ApplicationManifest::Display : uint8_t {
     Browser
@@ -797,8 +808,10 @@ struct WebCore::ApplicationManifest {
     String description
     URL scope
     WebCore::ApplicationManifest::Display display
+    std::optional<WebCore::ScreenOrientationLockType> orientation
     URL startURL
     URL id
+    WebCore::Color backgroundColor
     WebCore::Color themeColor
     Vector<WebCore::ApplicationManifest::Icon> icons
 }
@@ -1240,6 +1253,12 @@ enum class WebCore::ScrollPinningBehavior : uint8_t {
     PinToBottom
 };
 
+header: <WebCore/PlatformWheelEvent.h>
+enum class WebCore::WheelScrollGestureState : uint8_t {
+    Blocking,
+    NonBlocking
+};
+
 struct WebCore::ExceptionDetails {
     String message;
     int lineNumber;
@@ -1358,6 +1377,7 @@ header: <WebCore/ResourceRequest.h>
 };
 #endif
 
+header: <WebCore/DiagnosticLoggingDomain.h>
 enum class WebCore::DiagnosticLoggingDomain : uint8_t {
     Media
 };
@@ -1372,7 +1392,7 @@ enum class WebCore::DiagnosticLoggingDomain : uint8_t {
         , DisplayP3
 #endif
 };
-    
+
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::PlatformColorSpace {
     WebCore::PlatformColorSpace::Name get();
 };
@@ -1842,7 +1862,7 @@ class WebCore::AuthenticationChallenge {
     unsigned previousFailureCount();
     WebCore::ResourceResponse failureResponse();
     WebCore::ResourceError error();
-    
+
 #if USE(SOUP)
     uint32_t tlsPasswordFlags();
 #endif
@@ -2019,11 +2039,6 @@ class WebCore::TransformOperations {
     WebCore::ColorInterpolationMethod colorInterpolationMethod();
     WebCore::GradientSpreadMethod spreadMethod();
     WebCore::GradientColorStops stops();
-}
-
-[Nested, AdditionalEncoder=StreamConnectionEncoder] class WebCore::SourceBrush::Brush::LogicalGradient {
-    Ref<WebCore::Gradient> gradient;
-    WebCore::AffineTransform spaceTransform;
 }
 
 [Nested, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::Pattern::Parameters {
@@ -2279,7 +2294,7 @@ struct WebCore::MediaDecodingConfiguration : WebCore::MediaConfiguration {
     WebCore::MediaDecodingType type;
     bool canExposeVP9;
 };
-    
+
 enum class WebCore::ResourceRequestCachePolicy : uint8_t {
     UseProtocolCachePolicy,
     ReloadIgnoringCacheData,
@@ -2331,7 +2346,7 @@ enum class WebCore::ResourceLoadPriority : uint8_t {
     Opaque,
     Opaqueredirect
 };
-    
+
 [Nested] enum class WebCore::ResourceResponseBase::Source : uint8_t {
     Unknown,
     Network,
@@ -2357,7 +2372,7 @@ enum class WebCore::ResourceLoadPriority : uint8_t {
 
     short m_httpStatusCode;
     std::optional<WebCore::CertificateInfo> m_certificateInfo;
-    
+
     WebCore::ResourceResponseBase::Source m_source;
     WebCore::ResourceResponseBase::Type m_type;
     WebCore::ResourceResponseBase::Tainting m_tainting;
@@ -2822,10 +2837,10 @@ enum class WebCore::DOMPasteAccessResponse : uint8_t {
 };
 
 header: <WebCore/DeviceOrientationOrMotionPermissionState.h>
-enum class WebCore::DeviceOrientationOrMotionPermissionState : uint8_t { 
+enum class WebCore::DeviceOrientationOrMotionPermissionState : uint8_t {
     Granted,
     Denied,
-    Prompt 
+    Prompt
 };
 
 header: <WebCore/ExceptionDetails.h>
@@ -2839,10 +2854,10 @@ header: <WebCore/SecurityPolicyViolationEventDisposition.h>
 enum class WebCore::SecurityPolicyViolationEventDisposition : bool
 
 header: <WebCore/FontAttributeChanges.h>
-enum class WebCore::VerticalAlignChange : uint8_t { 
+enum class WebCore::VerticalAlignChange : uint8_t {
     Superscript,
     Baseline,
-    Subscript 
+    Subscript
 };
 
 header: <WebCore/TextGranularity.h>
@@ -3029,6 +3044,7 @@ header: <WebCore/ScrollingStateNode.h>
     ViewportConstraints
     OverflowScrollingNode
     KeyboardScrollData
+    OverlayScrollbarsEnabled
 };
 #endif
 
@@ -4720,12 +4736,19 @@ struct WebCore::GlobalWindowIdentifier {
 };
 
 [Nested] enum class WebCore::InteractionRegion::Type : bool;
+[Nested, OptionSet] enum class WebCore::InteractionRegion::CornerMask : uint8_t {
+    MinXMinYCorner
+    MaxXMinYCorner
+    MinXMaxYCorner
+    MaxXMaxYCorner
+};
 
 struct WebCore::InteractionRegion {
-    WebCore::ElementIdentifier elementIdentifier;
-    WebCore::Region regionInLayerCoordinates;
-    float borderRadius;
     WebCore::InteractionRegion::Type type;
+    WebCore::ElementIdentifier elementIdentifier;
+    WebCore::IntRect rectInLayerCoordinates;
+    float borderRadius;
+    OptionSet<WebCore::InteractionRegion::CornerMask> maskedCorners;
 };
 
 [Nested] struct WebCore::Region::Span {
@@ -4749,7 +4772,7 @@ class WebCore::Region {
     HasWidth,
     HasHeight
 };
-    
+
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::FilterEffectGeometry {
     WebCore::FloatRect m_boundaries;
     OptionSet<WebCore::FilterEffectGeometry::Flags> m_flags;

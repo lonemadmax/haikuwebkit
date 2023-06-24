@@ -106,8 +106,10 @@ OptionSet<WheelEventProcessingSteps> ScrollingTree::computeWheelProcessingSteps(
 #if ENABLE(WHEEL_EVENT_REGIONS)
     auto eventListenerTypes = eventListenerRegionTypesForPoint(position);
     if (eventListenerTypes.contains(EventListenerRegionType::NonPassiveWheel)) {
-        if (m_treeState.gestureState.value_or(WheelScrollGestureState::Blocking) == WheelScrollGestureState::NonBlocking)
+        if (m_treeState.gestureState.value_or(WheelScrollGestureState::Blocking) == WheelScrollGestureState::NonBlocking) {
+            LOG_WITH_STREAM(Scrolling, stream << "ScrollingTree::computeWheelProcessingSteps: wheelEvent - gesture state made event non-blocking");
             return { WheelEventProcessingSteps::AsyncScrolling, WheelEventProcessingSteps::NonBlockingDOMEventDispatch };
+        }
 
         return { WheelEventProcessingSteps::SynchronousScrolling, WheelEventProcessingSteps::BlockingDOMEventDispatch };
     }
@@ -125,7 +127,7 @@ OptionSet<WheelEventProcessingSteps> ScrollingTree::determineWheelEventProcessin
 
     auto latchedNodeAndSteps = m_latchingController.latchingDataForEvent(wheelEvent, m_allowLatching);
     if (latchedNodeAndSteps) {
-        LOG_WITH_STREAM(ScrollLatching, stream << "ScrollingTree::determineWheelEventProcessing " << wheelEvent << " have latched node " << latchedNodeAndSteps->scrollingNodeID << " steps " << latchedNodeAndSteps->processingSteps);
+        LOG_WITH_STREAM(ScrollLatching, stream << "ScrollingTree::determineWheelEventProcessing " << wheelEvent << " have latched node " << latchedNodeAndSteps->scrollingNodeID << " steps " << latchedNodeAndSteps->processingSteps << " gesture state " << m_treeState.gestureState);
         return latchedNodeAndSteps->processingSteps;
     }
     if (wheelEvent.isGestureStart() || wheelEvent.isNonGestureEvent())
@@ -299,6 +301,13 @@ void ScrollingTree::mainFrameViewportChangedViaDelegatedScrolling(const FloatPoi
     m_rootNode->wasScrolledByDelegatedScrolling(scrollPosition, layoutViewport);
 }
 
+void ScrollingTree::setOverlayScrollbarsEnabled(bool enabled)
+{
+    if (enabled == m_overlayScrollbarsEnabled)
+        return;
+    m_overlayScrollbarsEnabled = enabled;
+}
+
 void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scrollingStateTree)
 {
     SetForScope inCommitTreeState(m_inCommitTreeState, true);
@@ -316,7 +325,8 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
             || rootNode->hasChangedProperty(ScrollingStateNode::Property::AsyncFrameOrOverflowScrollingEnabled)
             || rootNode->hasChangedProperty(ScrollingStateNode::Property::WheelEventGesturesBecomeNonBlocking)
             || rootNode->hasChangedProperty(ScrollingStateNode::Property::ScrollingPerformanceTestingEnabled)
-            || rootNode->hasChangedProperty(ScrollingStateNode::Property::IsMonitoringWheelEvents))) {
+            || rootNode->hasChangedProperty(ScrollingStateNode::Property::IsMonitoringWheelEvents)
+            || rootNode->hasChangedProperty(ScrollingStateNode::Property::OverlayScrollbarsEnabled))) {
         Locker locker { m_treeStateLock };
 
         if (rootStateNodeChanged || rootNode->hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
@@ -336,6 +346,9 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
 
         if (rootStateNodeChanged || rootNode->hasChangedProperty(ScrollingStateNode::Property::IsMonitoringWheelEvents))
             m_isMonitoringWheelEvents = scrollingStateTree->rootStateNode()->isMonitoringWheelEvents();
+        
+        if (rootStateNodeChanged || rootNode->hasChangedProperty(ScrollingStateNode::Property::OverlayScrollbarsEnabled))
+            setOverlayScrollbarsEnabled(scrollingStateTree->rootStateNode()->overlayScrollbarsEnabled());
     }
 
     m_overflowRelatedNodesMap.clear();
@@ -869,6 +882,12 @@ std::optional<FramesPerSecond> ScrollingTree::nominalFramesPerSecond()
 {
     Locker locker { m_treeStateLock };
     return m_treeState.nominalFramesPerSecond;
+}
+
+bool ScrollingTree::overlayScrollbarsEnabled()
+{
+    Locker locker { m_treeStateLock };
+    return m_overlayScrollbarsEnabled;
 }
 
 String ScrollingTree::scrollingTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> behavior)

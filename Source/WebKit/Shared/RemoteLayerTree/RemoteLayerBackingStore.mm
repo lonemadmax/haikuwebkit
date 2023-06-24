@@ -124,7 +124,7 @@ void RemoteLayerBackingStore::Buffer::encode(IPC::Encoder& encoder) const
         encoder << std::optional<RenderingResourceIdentifier>();
 }
 
-#if ASSERT_ENABLED
+#if !LOG_DISABLED
 static bool hasValue(const ImageBufferBackendHandle& backendHandle)
 {
     return WTF::switchOn(backendHandle,
@@ -158,6 +158,7 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
     };
 
     encoder << m_parameters.isOpaque;
+    encoder << m_parameters.type;
 
     // FIXME: For simplicity this should be moved to the end of display() once the buffer handles can be created once
     // and stored in m_bufferHandle. http://webkit.org/b/234169
@@ -168,7 +169,12 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
     } else if (m_frontBuffer.imageBuffer)
         handle = handleFromBuffer(*m_frontBuffer.imageBuffer);
 
-    ASSERT(handle && hasValue(*handle));
+    // It would be nice to ASSERT(handle && hasValue(*handle)) here, but when we hit the timeout in RemoteImageBufferProxy::ensureBackendCreated(), we don't have a handle.
+#if !LOG_DISABLED
+    if (!(handle && hasValue(*handle)))
+        LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " encode - no buffer handle; did ensureBackendCreated() time out?");
+#endif
+
     encoder << WTFMove(handle);
 
     encoder << m_frontBuffer;
@@ -187,6 +193,9 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
 bool RemoteLayerBackingStoreProperties::decode(IPC::Decoder& decoder, RemoteLayerBackingStoreProperties& result)
 {
     if (!decoder.decode(result.m_isOpaque))
+        return false;
+
+    if (!decoder.decode(result.m_type))
         return false;
 
     if (!decoder.decode(result.m_bufferHandle))
@@ -661,6 +670,7 @@ void RemoteLayerBackingStoreProperties::applyBackingStoreToLayer(CALayer *layer,
         if (!replayCGDisplayListsIntoBackingStore) {
             [layer setValue:@1 forKeyPath:WKCGDisplayListEnabledKey];
             [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
+            layer.drawsAsynchronously = (m_type == RemoteLayerBackingStore::Type::IOSurface);
         } else
             layer.opaque = m_isOpaque;
         [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:WTFMove(std::get<CGDisplayList>(*m_displayListBufferHandle)) replayForTesting:replayCGDisplayListsIntoBackingStore];

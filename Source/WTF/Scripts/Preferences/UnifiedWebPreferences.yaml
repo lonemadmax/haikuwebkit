@@ -172,19 +172,6 @@ AccessHandleEnabled:
       "PLATFORM(COCOA)" : true
       default: false
 
-AdjustURLForBindingsDebugModeEnabled:
-  type: bool
-  status: internal
-  humanReadableName: "Adjust URL for bindings debug mode"
-  humanReadableDescription: "Enable logging for when a URL is adjusted for JavaScript bindings"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 AggressiveTileRetentionEnabled:
   type: bool
   status: embedder
@@ -796,8 +783,7 @@ BlockMediaLayerRehostingInWebContentProcess:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(MAC)": true
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -1129,11 +1115,11 @@ CSSNestingEnabled:
   humanReadableDescription: "Enable support for CSS nesting https://www.w3.org/TR/css-nesting-1/"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSOMViewScrollingAPIEnabled:
   type: bool
@@ -1393,20 +1379,6 @@ CanvasFiltersEnabled:
       default: false
     WebCore:
       default: false
-
-CanvasNoiseInjectionEnabled:
-  type: bool
-  status: stable
-  category: dom
-  humanReadableName: "Canvas Noise Injection"
-  humanReadableDescription: "Enable canvas (2D/WebGL) noise injection"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 CanvasUsesAcceleratedDrawing:
   type: bool
@@ -2849,7 +2821,7 @@ ICECandidateFilteringEnabled:
 
 IOSFormControlRefreshEnabled:
   type: bool
-  status: unstable
+  status: internal
   category: dom
   humanReadableName: "iOS Form Control Refresh"
   humanReadableDescription: "Enable the new appearance for form controls on iOS"
@@ -6648,17 +6620,6 @@ UseLegacyBackgroundSizeShorthandBehavior:
     WebKitLegacy:
       "PLATFORM(HAIKU)": false
       default: WebKit::defaultUseLegacyBackgroundSizeShorthandBehavior()
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
-UseLegacyTextAlignPositionedElementBehavior:
-  type: bool
-  status: embedder
-  defaultValue:
-    WebKitLegacy:
-      default: false
     WebKit:
       default: false
     WebCore:

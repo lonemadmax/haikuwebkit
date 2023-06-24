@@ -97,6 +97,7 @@ public:
     virtual void cacheWheelEventScrollingAccelerationCurve(const NativeWebWheelEvent&) { }
     virtual void handleWheelEvent(const WebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
     void continueWheelEventHandling(const WebWheelEvent&, WebCore::WheelEventHandlingResult);
+    virtual void wheelEventHandlingCompleted(const WebCore::PlatformWheelEvent&, WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>) { }
 
     void handleMouseEvent(const WebCore::PlatformMouseEvent&);
     
@@ -134,7 +135,9 @@ public:
     virtual void displayDidRefresh(WebCore::PlatformDisplayID);
     void reportExposedUnfilledArea(MonotonicTime, unsigned unfilledArea);
     void reportSynchronousScrollingReasonsChanged(MonotonicTime, OptionSet<WebCore::SynchronousScrollingReason>);
-
+    void reportFilledVisibleFreshTile(MonotonicTime, unsigned);
+    bool scrollingPerformanceTestingEnabled() const;
+    
     void receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase);
     void deferWheelEventTestCompletionForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
     void removeWheelEventTestCompletionDeferralForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
@@ -154,6 +157,7 @@ public:
     void viewWillEndLiveResize();
     void viewSizeDidChange();
     String scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID, bool isVertical);
+    bool overlayScrollbarsEnabled();
 
 protected:
     RemoteScrollingTree* scrollingTree() const { return m_scrollingTree.get(); }

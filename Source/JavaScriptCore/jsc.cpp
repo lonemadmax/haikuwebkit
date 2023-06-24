@@ -194,7 +194,11 @@ NO_RETURN_WITH_VALUE static void jscExit(int status)
         }
     }
 #endif // ENABLE(DFG_JIT)
+#if OS(WINDOWS)
+    TerminateProcess(GetCurrentProcess(), status);
+#else
     exit(status);
+#endif
 }
 
 static unsigned asyncTestPasses { 0 };
@@ -1218,6 +1222,9 @@ static bool fetchModuleFromLocalFileSystem(const URL& fileURL, Vector& buffer)
 #if OS(WINDOWS)
     // https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247.aspx#maxpath
     // Use long UNC to pass the long path name to the Windows APIs.
+    // These also appear to turn off handling forward slashes as
+    // directory separators as it disables all string parsing on names.
+    fileName = makeStringByReplacingAll(fileName, '/', '\\');
     auto pathName = makeString("\\\\?\\", fileName).wideCharacters();
     struct _stat status { };
     if (_wstat(pathName.data(), &status))
@@ -3316,6 +3323,7 @@ static void dumpException(GlobalObject* globalObject, JSValue exception)
             printf("%s\n", stackString.utf8().data());
     }
 
+    fflush(stdout);
 #undef CHECK_EXCEPTION
 }
 
@@ -3431,7 +3439,7 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
         } else {
             size_t commandLineLength = strlen(scripts[i].argument);
             scriptBuffer.resize(commandLineLength);
-            std::copy(scripts[i].argument, scripts[i].argument + commandLineLength, scriptBuffer.begin());
+            std::copy_n(scripts[i].argument, commandLineLength, scriptBuffer.begin());
             fileName = "[Command Line]"_s;
         }
 

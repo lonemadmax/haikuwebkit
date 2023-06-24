@@ -548,12 +548,6 @@ static inline Layout::BlockLayoutState::LeadingTrim leadingTrim(const RenderBloc
 
 std::optional<LayoutRect> LineLayout::layout()
 {
-    auto& rootLayoutBox = this->rootLayoutBox();
-    if (!rootLayoutBox.hasInFlowOrFloatingChild()) {
-        ASSERT_NOT_REACHED();
-        return { };
-    }
-
     prepareLayoutState();
     prepareFloatingState();
 
@@ -584,9 +578,12 @@ std::optional<LayoutRect> LineLayout::layout()
         auto partialContentTop = LayoutUnit { m_inlineContent->displayContent().lines[damagedLineIndex - 1].lineBoxLogicalRect().maxY() };
         auto constraintsForInFlowContent = Layout::ConstraintsForInFlowContent { m_inlineContentConstraints->horizontal(), partialContentTop };
         return { constraintsForInFlowContent, m_inlineContentConstraints->visualLeft() };
-    };
+    }();
     auto blockLayoutState = Layout::BlockLayoutState { m_blockFormattingState.floatingState(), lineClamp(flow()), leadingTrim(flow()), intrusiveInitialLetterBottom() };
-    auto layoutResult = Layout::InlineFormattingContext { rootLayoutBox, m_inlineFormattingState, m_lineDamage.get() }.layoutInFlowContentForIntegration(inlineContentConstraints(), blockLayoutState);
+    auto inlineFormattingContext = Layout::InlineFormattingContext { rootLayoutBox(), m_inlineFormattingState, m_lineDamage.get() };
+    auto layoutResult = inlineFormattingContext.layoutInFlowAndFloatContentForIntegration(inlineContentConstraints, blockLayoutState);
+    inlineFormattingContext.layoutOutOfFlowContentForIntegration(inlineContentConstraints, blockLayoutState, layoutResult.displayContent);
+
     auto repaintRect = LayoutRect { constructContent(WTFMove(layoutResult)) };
 
     auto adjustments = adjustContent();
@@ -668,6 +665,8 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
             floatingObject.setIsPlaced(true);
 
             renderer.setLocation(Layout::BoxGeometry::borderBoxRect(visualGeometry).topLeft());
+            renderer.repaint();
+            continue;
         }
 
         if (layoutBox.isOutOfFlowPositioned()) {
@@ -675,12 +674,19 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
             auto& layer = *renderer.layer();
             auto logicalBorderBoxRect = LayoutRect { Layout::BoxGeometry::borderBoxRect(logicalGeometry) };
 
-            if (layoutBox.style().isOriginalDisplayInlineType())
+            if (layoutBox.style().isOriginalDisplayInlineType()) {
+                auto previousStaticPosition = LayoutPoint { layer.staticInlinePosition(), layer.staticBlockPosition() };
                 blockFlow.setStaticInlinePositionForChild(renderer, logicalBorderBoxRect.y(), logicalBorderBoxRect.x());
+
+                auto delta = logicalBorderBoxRect.location() - previousStaticPosition;
+                // A non-statically positioned out-of-flow box's layout will override the top/left values we are setting here.
+                renderer.move(delta.width(), delta.height());
+            }
 
             layer.setStaticBlockPosition(logicalBorderBoxRect.y());
             layer.setStaticInlinePosition(logicalBorderBoxRect.x());
 
+            // FIXME: Figure out if this is really needed (see webkit.org/b/254666).
             if (layoutBox.style().hasStaticInlinePosition(renderer.isHorizontalWritingMode()))
                 renderer.setChildNeedsLayout(MarkOnlyThis);
             continue;
@@ -798,8 +804,7 @@ std::optional<size_t> LineLayout::lastLineIndexForContentHeight() const
 
     auto& lines = m_inlineContent->displayContent().lines;
     if (lines.isEmpty()) {
-        // We should always have at least one line whenever we have inline content.
-        ASSERT_NOT_REACHED();
+        // Out-of-flow only content (and/or with floats) can produce blank inline content.
         return { };
     }
     auto* layoutState = flow().view().frameView().layoutContext().layoutState();

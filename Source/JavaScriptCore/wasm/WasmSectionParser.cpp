@@ -268,9 +268,15 @@ auto SectionParser::parseTableHelper(bool isImport) -> PartialResult
 {
     WASM_PARSER_FAIL_IF(m_info->tableCount() >= maxTables, "Table count of ", m_info->tableCount(), " is too big, maximum ", maxTables);
 
-    int8_t type;
-    WASM_PARSER_FAIL_IF(!parseInt7(type), "can't parse Table type");
-    WASM_PARSER_FAIL_IF(type != static_cast<int8_t>(TypeKind::Funcref) && type != static_cast<int8_t>(TypeKind::Externref), "Table type should be funcref or anyref, got ", type);
+    Type type;
+    WASM_PARSER_FAIL_IF(!parseValueType(m_info, type), "can't parse Table type");
+    WASM_PARSER_FAIL_IF(!isRefType(type), "Table type should be a ref type, got ", type);
+    if (!Options::useWebAssemblyTypedFunctionReferences())
+        WASM_PARSER_FAIL_IF(type.kind != TypeKind::Funcref && type.kind != TypeKind::Externref, "Table type should be funcref or anyref, got ", type);
+
+    // FIXME: This restriction can be adjusted once initializer expressions are implemented.
+    // https://bugs.webkit.org/show_bug.cgi?id=251123
+    WASM_PARSER_FAIL_IF(!isDefaultableType(type), "Table's type must be defaultable");
 
     uint32_t initial;
     std::optional<uint32_t> maximum;
@@ -282,8 +288,8 @@ auto SectionParser::parseTableHelper(bool isImport) -> PartialResult
 
     ASSERT(!maximum || *maximum >= initial);
 
-    TableElementType tableType = type == static_cast<int8_t>(TypeKind::Funcref) ? TableElementType::Funcref : TableElementType::Externref;
-    m_info->tables.append(TableInformation(initial, maximum, isImport, tableType));
+    TableElementType tableType = isSubtype(type, funcrefType()) ? TableElementType::Funcref : TableElementType::Externref;
+    m_info->tables.append(TableInformation(initial, maximum, isImport, tableType, type));
 
     return { };
 }
@@ -557,15 +563,19 @@ auto SectionParser::parseElement() -> PartialResult
         case 0x05: {
             Type refType;
             WASM_PARSER_FAIL_IF(!parseRefType(m_info, refType), "can't parse reftype in elem section");
+
+            // FIXME: Any ref type should be allowed here;
+            // see https://bugs.webkit.org/show_bug.cgi?id=251874
             WASM_PARSER_FAIL_IF(!isFuncref(refType) && refType.isNullable(), "reftype in element section should be funcref");
+            TableElementType tableElementType = TableElementType::Funcref;
 
             uint32_t indexCount;
             WASM_FAIL_IF_HELPER_FAILS(parseIndexCountForElementSection(indexCount, elementNum));
 
-            Element element(Element::Kind::Passive, TableElementType::Funcref);
+            Element element(Element::Kind::Passive, tableElementType);
             WASM_PARSER_FAIL_IF(!element.functionIndices.tryReserveCapacity(indexCount), "can't allocate memory for ", indexCount, " Element indices");
 
-            WASM_FAIL_IF_HELPER_FAILS(parseElementSegmentVectorOfExpressions(TableElementType::Funcref, element.functionIndices, indexCount, elementNum));
+            WASM_FAIL_IF_HELPER_FAILS(parseElementSegmentVectorOfExpressions(tableElementType, element.functionIndices, indexCount, elementNum));
             m_info->elements.uncheckedAppend(WTFMove(element));
             break;
         }

@@ -404,7 +404,7 @@ void PageClientImpl::setPromisedDataForImage(const String& pasteboardName, Ref<F
 {
     auto image = BitmapImage::create();
     image->setData(WTFMove(imageBuffer), true);
-    m_impl->setPromisedDataForImage(image.ptr(), filename, extension, title, url, visibleURL, archiveBuffer.get(), pasteboardName, originIdentifier);
+    m_impl->setPromisedDataForImage(image.get(), filename, extension, title, url, visibleURL, archiveBuffer.get(), pasteboardName, originIdentifier);
 }
 
 void PageClientImpl::updateSecureInputState()
@@ -499,7 +499,7 @@ void PageClientImpl::computeHasVisualSearchResults(const URL& imageURL, Shareabl
 
 RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& page)
 {
-    return WebPopupMenuProxyMac::create(m_view, page);
+    return WebPopupMenuProxyMac::create(m_view, page.popupMenuClient());
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -524,7 +524,7 @@ void PageClientImpl::didDismissContextMenu()
 #if ENABLE(INPUT_TYPE_COLOR)
 RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page, const WebCore::Color& initialColor, const WebCore::IntRect& rect, Vector<WebCore::Color>&& suggestions)
 {
-    return WebColorPickerMac::create(page, initialColor, rect, WTFMove(suggestions), m_view);
+    return WebColorPickerMac::create(&page->colorPickerClient(), initialColor, rect, WTFMove(suggestions), m_view);
 }
 #endif
 

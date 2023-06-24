@@ -82,6 +82,13 @@
    },
    {
       "emails" : [
+         "adarose@apple.com"
+      ],
+      "github" : "AdaRoseCannon",
+      "name" : "Ada Rose Cannon"
+   },
+   {
+      "emails" : [
          "abarth@webkit.org"
       ],
       "expertise" : "Security, HTML parser, webkit-patch, FrameLoader (sadly), V8 Bindings, The Chromium Port",
@@ -4132,6 +4139,13 @@
    },
    {
       "emails" : [
+         "jc_hanson@apple.com"
+      ],
+      "github" : "julia-c-hanson",
+      "name" : "Julia Hanson"
+   },
+   {
+      "emails" : [
          "jparent@google.com",
          "jparent@chromium.org"
       ],
@@ -6128,6 +6142,7 @@
       "emails" : [
          "rmondello@apple.com"
       ],
+      "github" : "rmondello",
       "name" : "Ricky Mondello",
       "nicks" : [
          "rmondello"

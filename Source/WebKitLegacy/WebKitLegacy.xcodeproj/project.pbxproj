@@ -86,7 +86,6 @@
 		1C8CB07A0AE9830C00B1F6E9 /* WebEditingDelegatePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C8CB0790AE9830C00B1F6E9 /* WebEditingDelegatePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1CF18F4126BB71B7004B1722 /* WebKitLogInitialization.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1CF18F4026BB71B7004B1722 /* WebKitLogInitialization.mm */; };
 		22F219CC08D236730030E078 /* WebBackForwardListPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 22F219CB08D236730030E078 /* WebBackForwardListPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		29AEF960134C76FB00FE5096 /* OutlookQuirksUserScript.js in Resources */ = {isa = PBXBuildFile; fileRef = 29AEF95D134C755400FE5096 /* OutlookQuirksUserScript.js */; };
 		2D25396618CE85C200270222 /* WebSharingServicePickerController.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D25396418CE85C200270222 /* WebSharingServicePickerController.h */; };
 		2DD632C219E5D1F0002E9C7B /* WebSelectionServiceController.h in Headers */ = {isa = PBXBuildFile; fileRef = 2DD632C019E5D1F0002E9C7B /* WebSelectionServiceController.h */; };
 		2DD632C319E5D1F0002E9C7B /* WebSelectionServiceController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2DD632C119E5D1F0002E9C7B /* WebSelectionServiceController.mm */; };
@@ -755,7 +754,6 @@
 		1CF18F4226BB71D3004B1722 /* WebKitLogInitialization.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebKitLogInitialization.h; sourceTree = "<group>"; };
 		22F219CB08D236730030E078 /* WebBackForwardListPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebBackForwardListPrivate.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		2568C72C0174912D0ECA149E /* WebKit.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebKit.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
-		29AEF95D134C755400FE5096 /* OutlookQuirksUserScript.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = OutlookQuirksUserScript.js; sourceTree = "<group>"; };
 		2D25396418CE85C200270222 /* WebSharingServicePickerController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebSharingServicePickerController.h; sourceTree = "<group>"; };
 		2D25396518CE85C200270222 /* WebSharingServicePickerController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebSharingServicePickerController.mm; sourceTree = "<group>"; };
 		2D36FD5E03F78F9E00A80166 /* WebFormDelegatePrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebFormDelegatePrivate.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
@@ -1652,7 +1650,6 @@
 			children = (
 				A10C1D2018202FAF0036883A /* ios */,
 				E1531BD72187B8F2002E3F81 /* NSURLDownloadSPI.h */,
-				29AEF95D134C755400FE5096 /* OutlookQuirksUserScript.js */,
 				5241ADF30B1BC48A004012BD /* WebCache.h */,
 				5241ADF40B1BC48A004012BD /* WebCache.mm */,
 				F59EAE3E0253C7EE018635CA /* WebCoreStatistics.h */,
@@ -3099,7 +3096,6 @@
 				5D2F7DB70C687A5A00B5B72B /* Update Info.plist with version information */,
 				7C02321B251B9A8A00BA7BB6 /* Generate Preferences */,
 				9398100D0824BF01008DF038 /* Headers */,
-				DDF74CA027EE3E990011F633 /* (Legacy) Install Headers */,
 				DD7AF5CF298C51C90059E87E /* Migrate WebCore Headers and Generate Export List */,
 				939810B20824BF01008DF038 /* Resources */,
 				1C395DE20C6BE8E0000D1E52 /* Generate Export Files */,
@@ -3173,7 +3169,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1382CDF24B15A51001645B0 /* LaBanquePostaleQuirks.js in Resources */,
-				29AEF960134C76FB00FE5096 /* OutlookQuirksUserScript.js in Resources */,
 				939810B70824BF01008DF038 /* url_icon.tiff in Resources */,
 				939810B50824BF01008DF038 /* WebAuthenticationPanel.xib in Resources */,
 				5DE83A7A0D0F7F9400CAD12A /* WebJavaScriptTextInputPanel.xib in Resources */,
@@ -3394,24 +3389,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "rm -f \"${SCRIPT_OUTPUT_FILE_0}\" && \"${SCRIPT_INPUT_FILE_0}\"\n";
-		};
-		DDF74CA027EE3E990011F633 /* (Legacy) Install Headers */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "(Legacy) Install Headers";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "[ \"${WK_USE_NEW_BUILD_SYSTEM}\" = YES ] && exit 0\n\n# The \"Migrate WebCore Headers\" build rule invokes clang (through tapi), which means that the inferior xcodebuild we invoke here needs access to the current build products. Make an inferior build directory containing symlinks to the _real_ build products, and set the DSTROOT to the superior build directory so that headers are installed to the _real_ WebKitLegacy.framework.\nset -e\nINFERIOR_SYMROOT=\"${TARGET_TEMP_DIR}/LegacyInstallHeaders-build\"\nINFERIOR_BUILT_PRODUCTS_DIR=\"${BUILT_PRODUCTS_DIR/${SYMROOT}/${INFERIOR_SYMROOT}}\"\nmkdir -p \"${INFERIOR_BUILT_PRODUCTS_DIR}\"\nfor p in \"${BUILT_PRODUCTS_DIR}\"/*; do\n    ln -sfhv \"${p}\" \"${INFERIOR_BUILT_PRODUCTS_DIR}/$(basename \"${p}\")\"\ndone\nxcodebuild -project \"${PROJECT_FILE_PATH}\" -target \"${TARGET_NAME}\" -configuration ${CONFIGURATION} installhdrs DSTROOT=\"${BUILT_PRODUCTS_DIR}\" SYMROOT=\"${INFERIOR_SYMROOT}\" DERIVED_FILE_DIR=\"${DERIVED_FILE_DIR}\" SDKROOT=\"${SDKROOT}\" SDK_VARIANT=\"${SDK_VARIANT}\" ARCHS=\"${ARCHS}\" INSTALLHDRS_COPY_PHASE=NO INSTALLHDRS_SCRIPT_PHASE=NO INSTALL_PATH=/ -UseNewBuildSystem=YES\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

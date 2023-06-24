@@ -1353,26 +1353,6 @@ static RetainPtr<CFMutableSetRef>& allWebViewsSet()
     [self registerForDraggedTypes:[types allObjects]];
 }
 
-static bool needsOutlookQuirksScript()
-{
-    static bool isOutlookNeedingQuirksScript = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_HTML5_PARSER)
-        && WebCore::MacApplication::isMicrosoftOutlook();
-    return isOutlookNeedingQuirksScript;
-}
-
-static RetainPtr<NSString> createOutlookQuirksUserScriptContents()
-{
-    NSString *scriptPath = [[NSBundle bundleForClass:[WebView class]] pathForResource:@"OutlookQuirksUserScript" ofType:@"js"];
-    NSStringEncoding encoding;
-    return adoptNS([[NSString alloc] initWithContentsOfFile:scriptPath usedEncoding:&encoding error:0]);
-}
-
--(void)_injectOutlookQuirksScript
-{
-    static NeverDestroyed<RetainPtr<NSString>> outlookQuirksScriptContents = createOutlookQuirksUserScriptContents();
-    _private->group->userContentController().addUserScript(*core([WebScriptWorld world]), makeUnique<WebCore::UserScript>(outlookQuirksScriptContents.get().get(), URL(), Vector<String>(), Vector<String>(), WebCore::UserScriptInjectionTime::DocumentEnd, WebCore::UserContentInjectedFrames::InjectInAllFrames, WebCore::WaitForNotificationBeforeInjecting::No));
-
-}
 #endif
 
 #if PLATFORM(IOS)
@@ -1587,13 +1567,6 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 
     _private->page->setCanStartMedia([self window]);
     _private->page->settings().setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
-
-#if !PLATFORM(IOS_FAMILY)
-    if (needsOutlookQuirksScript()) {
-        _private->page->settings().setShouldInjectUserScriptsInInitialEmptyDocument(true);
-        [self _injectOutlookQuirksScript];
-    }
-#endif
 
 #if PLATFORM(IOS)
     if (needsLaBanquePostaleQuirks())
@@ -4509,19 +4482,19 @@ IGNORE_WARNINGS_END
     auto pagination = page->pagination();
     switch (paginationMode) {
     case WebPaginationModeUnpaginated:
-        pagination.mode = WebCore::Pagination::Unpaginated;
+        pagination.mode = WebCore::Unpaginated;
         break;
     case WebPaginationModeLeftToRight:
-        pagination.mode = WebCore::Pagination::LeftToRightPaginated;
+        pagination.mode = WebCore::LeftToRightPaginated;
         break;
     case WebPaginationModeRightToLeft:
-        pagination.mode = WebCore::Pagination::RightToLeftPaginated;
+        pagination.mode = WebCore::RightToLeftPaginated;
         break;
     case WebPaginationModeTopToBottom:
-        pagination.mode = WebCore::Pagination::TopToBottomPaginated;
+        pagination.mode = WebCore::TopToBottomPaginated;
         break;
     case WebPaginationModeBottomToTop:
-        pagination.mode = WebCore::Pagination::BottomToTopPaginated;
+        pagination.mode = WebCore::BottomToTopPaginated;
         break;
     default:
         return;
@@ -4537,15 +4510,15 @@ IGNORE_WARNINGS_END
         return WebPaginationModeUnpaginated;
 
     switch (page->pagination().mode) {
-    case WebCore::Pagination::Unpaginated:
+    case WebCore::Unpaginated:
         return WebPaginationModeUnpaginated;
-    case WebCore::Pagination::LeftToRightPaginated:
+    case WebCore::LeftToRightPaginated:
         return WebPaginationModeLeftToRight;
-    case WebCore::Pagination::RightToLeftPaginated:
+    case WebCore::RightToLeftPaginated:
         return WebPaginationModeRightToLeft;
-    case WebCore::Pagination::TopToBottomPaginated:
+    case WebCore::TopToBottomPaginated:
         return WebPaginationModeTopToBottom;
-    case WebCore::Pagination::BottomToTopPaginated:
+    case WebCore::BottomToTopPaginated:
         return WebPaginationModeBottomToTop;
     }
 

@@ -49,6 +49,7 @@
 #include "DeprecatedGlobalSettings.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
+#include "DiagnosticLoggingResultType.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
@@ -1140,6 +1141,16 @@ String HTMLMediaElement::canPlayType(const String& mimeType) const
 {
     MediaEngineSupportParameters parameters;
     ContentType contentType(mimeType);
+
+#if PLATFORM(COCOA)
+    if (document().quirks().shouldAdvertiseSupportForHLSSubtitleTypes()
+        && contentType.containerType() == "application/vnd.apple.mpegurl"_s
+        && (contentType.codecs().contains("stpp.ttml.im1t"_s) || contentType.codecs().contains("wvtt"_s))) {
+        ALWAYS_LOG(LOGIDENTIFIER, "Quirk, ", mimeType, ": probably");
+        return "probably"_s;
+    }
+#endif
+
     parameters.type = contentType;
     parameters.contentTypesRequiringHardwareSupport = mediaContentTypesRequiringHardwareSupport();
     parameters.allowedMediaContainerTypes = allowedMediaContainerTypes();
@@ -7146,11 +7157,6 @@ void HTMLMediaElement::clearMediaCache(const String& path, WallTime modifiedSinc
 void HTMLMediaElement::clearMediaCacheForOrigins(const String& path, const HashSet<SecurityOriginData>& origins)
 {
     MediaPlayer::clearMediaCacheForOrigins(path, origins);
-}
-
-void HTMLMediaElement::resetMediaEngines()
-{
-    MediaPlayer::resetMediaEngines();
 }
 
 void HTMLMediaElement::privateBrowsingStateDidChange(PAL::SessionID sessionID)

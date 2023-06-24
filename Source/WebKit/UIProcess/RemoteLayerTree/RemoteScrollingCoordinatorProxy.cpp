@@ -28,8 +28,10 @@
 #if ENABLE(UI_SIDE_COMPOSITING)
 #include "RemoteScrollingCoordinatorProxy.h"
 
+#include "MessageSenderInlines.h"
 #include "NativeWebWheelEvent.h"
 #include "RemoteLayerTreeDrawingAreaProxy.h"
+#include "RemoteLayerTreeScrollingPerformanceData.h"
 #include "RemoteScrollingCoordinator.h"
 #include "RemoteScrollingCoordinatorMessages.h"
 #include "RemoteScrollingCoordinatorTransaction.h"
@@ -134,7 +136,8 @@ void RemoteScrollingCoordinatorProxy::handleWheelEvent(const WebWheelEvent& whee
 
 void RemoteScrollingCoordinatorProxy::continueWheelEventHandling(const WebWheelEvent& wheelEvent, WheelEventHandlingResult result)
 {
-    webPageProxy().continueWheelEventHandling(wheelEvent, result);
+    bool willStartSwipe = m_scrollingTree->willWheelEventStartSwipeGesture(platform(wheelEvent));
+    webPageProxy().continueWheelEventHandling(wheelEvent, result, willStartSwipe);
 }
 
 void RemoteScrollingCoordinatorProxy::handleMouseEvent(const WebCore::PlatformMouseEvent& event)
@@ -154,6 +157,9 @@ void RemoteScrollingCoordinatorProxy::viewportChangedViaDelegatedScrolling(const
 
 void RemoteScrollingCoordinatorProxy::applyScrollingTreeLayerPositionsAfterCommit()
 {
+    // FIXME: (rdar://106293351) Set the `m_needsApplyLayerPositionsAfterCommit` flag in a more
+    // reasonable place once UI-side compositing scrolling synchronization is implemented
+    m_scrollingTree->setNeedsApplyLayerPositionsAfterCommit();
     m_scrollingTree->applyLayerPositionsAfterCommit();
 }
 
@@ -184,6 +190,9 @@ void RemoteScrollingCoordinatorProxy::scrollingTreeNodeDidScroll(ScrollingNodeID
     m_scrollingTree->addPendingScrollUpdate(WTFMove(scrollUpdate));
 
     LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinatorProxy::scrollingTreeNodeDidScroll " << scrolledNodeID << " to " << newScrollPosition << " waitingForDidScrollReply " << m_waitingForDidScrollReply);
+
+    if (WebKit::RemoteLayerTreeScrollingPerformanceData* scrollPerfData = m_webPageProxy.scrollingPerformanceData())
+        scrollPerfData->didScroll(m_scrollingTree->layoutViewport());
 
     if (!m_waitingForDidScrollReply) {
         sendScrollingTreeNodeDidScroll();
@@ -355,14 +364,19 @@ void RemoteScrollingCoordinatorProxy::resetStateAfterProcessExited()
     m_uiState.reset();
 }
 
-void RemoteScrollingCoordinatorProxy::reportExposedUnfilledArea(MonotonicTime timestamp, unsigned unfilledArea)
+void RemoteScrollingCoordinatorProxy::reportFilledVisibleFreshTile(MonotonicTime timestamp, unsigned unfilledArea)
 {
-    m_webPageProxy.logScrollingEvent(static_cast<uint32_t>(PerformanceLoggingClient::ScrollingEvent::ExposedTilelessArea), timestamp, unfilledArea);
+    m_webPageProxy.logScrollingEvent(static_cast<uint32_t>(PerformanceLoggingClient::ScrollingEvent::FilledTile), timestamp, unfilledArea);
+}
+
+void RemoteScrollingCoordinatorProxy::reportExposedUnfilledArea(MonotonicTime, unsigned)
+{
 }
 
 void RemoteScrollingCoordinatorProxy::reportSynchronousScrollingReasonsChanged(MonotonicTime timestamp, OptionSet<SynchronousScrollingReason> reasons)
 {
-    m_webPageProxy.logScrollingEvent(static_cast<uint32_t>(PerformanceLoggingClient::ScrollingEvent::SwitchedScrollingMode), timestamp, reasons.toRaw());
+    if (WebKit::RemoteLayerTreeScrollingPerformanceData* scrollPerfData = m_webPageProxy.scrollingPerformanceData())
+        scrollPerfData->didChangeSynchronousScrollingReasons(timestamp, reasons.toRaw());
 }
 
 void RemoteScrollingCoordinatorProxy::receivedWheelEventWithPhases(PlatformWheelEventPhase phase, PlatformWheelEventPhase momentumPhase)
@@ -398,6 +412,11 @@ void RemoteScrollingCoordinatorProxy::viewSizeDidChange()
         m_scrollingTree->viewSizeDidChange();
 }
 
+bool RemoteScrollingCoordinatorProxy::overlayScrollbarsEnabled()
+{
+    return m_scrollingTree->overlayScrollbarsEnabled();
+}
+
 String RemoteScrollingCoordinatorProxy::scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID scrollingNodeID, bool isVertical)
 {
     if (auto node = m_scrollingTree->nodeForID(scrollingNodeID)) {
@@ -405,6 +424,11 @@ String RemoteScrollingCoordinatorProxy::scrollbarStateForScrollingNodeID(WebCore
             return scrollingNode->scrollbarStateForOrientation(isVertical ? ScrollbarOrientation::Vertical : ScrollbarOrientation::Horizontal);
     }
     return ""_s;
+}
+
+bool RemoteScrollingCoordinatorProxy::scrollingPerformanceTestingEnabled() const
+{
+    return m_scrollingTree->scrollingPerformanceTestingEnabled();
 }
 
 } // namespace WebKit

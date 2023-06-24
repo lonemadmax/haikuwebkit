@@ -30,7 +30,6 @@
 #include "Encoder.h"
 #include <WebCore/AutoplayEvent.h>
 #include <WebCore/ColorSpace.h>
-#include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DisplayListItems.h>
 #include <WebCore/FloatRoundedRect.h>
 #include <WebCore/FloatSize.h>
@@ -103,21 +102,12 @@ typedef struct __CVBuffer* CVPixelBufferRef;
 
 namespace WebCore {
 
-class AbsolutePositionConstraints;
-class AuthenticationChallenge;
+class AppKitControlSystemImage;
 class BlobPart;
-class CertificateInfo;
-class Color;
-class ControlPart;
-class SharedBuffer;
-class CSPViolationReportBody;
 class CSSFilter;
+class ControlPart;
 class Credential;
 class Cursor;
-class DatabaseDetails;
-class DragData;
-class DecomposedGlyphs;
-class File;
 class Filter;
 class FilterEffect;
 class FilterFunction;
@@ -126,91 +116,27 @@ class FilterOperations;
 class FixedPositionViewportConstraints;
 class Font;
 class FontPlatformData;
-class HTTPHeaderMap;
-class KeyframeValueList;
+class FragmentedSharedBuffer;
 class LightSource;
-class Notification;
-class NotificationResources;
-class PasteboardCustomData;
 class PaymentInstallmentConfiguration;
 class PixelBuffer;
-class Region;
-class Report;
-class ReportBody;
 class ResourceError;
-class ResourceRequest;
-class ResourceResponse;
+class SVGFilter;
 class ScriptBuffer;
 class SerializedScriptValue;
-class FragmentedSharedBuffer;
+class SharedBuffer;
 class StickyPositionViewportConstraints;
-class SVGFilter;
 class SystemImage;
-class TextCheckingRequestData;
-class TransformOperation;
-class UserStyleSheet;
 
-struct AttributedString;
 struct CompositionUnderline;
 struct DataDetectorElementInfo;
-struct DictationAlternative;
-struct DictionaryPopupInfo;
-struct EventTrackingRegions;
-struct ExceptionDetails;
-struct FileChooserSettings;
-struct TextRecognitionDataDetector;
-struct Length;
-struct GrammarDetail;
-struct MimeClassInfo;
-struct PasteboardImage;
-struct PromisedAttachmentInfo;
-struct RecentSearch;
-struct ScrollableAreaParameters;
-struct TextCheckingResult;
-struct TextIndicatorData;
-struct TouchActionData;
-struct VelocityData;
-struct ViewportAttributes;
-struct WindowFeatures;
-
-#if PLATFORM(COCOA)
+struct DiagnosticLoggingDictionary;
 struct KeypressCommand;
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-class FloatQuad;
-class SelectionGeometry;
-struct PasteboardImage;
-struct PasteboardWebContent;
-#endif
-
-#if USE(APPKIT)
-class AppKitControlSystemImage;
-#endif
-
-#if ENABLE(META_VIEWPORT)
-struct ViewportArguments;
-#endif
-
-#if USE(SOUP)
-struct SoupNetworkProxySettings;
-#endif
-
-#if USE(LIBWPE)
-struct PasteboardWebContent;
-#endif
-
-#if ENABLE(CONTENT_FILTERING)
-class ContentFilterUnblockHandler;
-#endif
-
-#if ENABLE(MEDIA_STREAM)
-struct MediaConstraints;
-#endif
-
-#if ENABLE(ATTACHMENT_ELEMENT)
+struct Length;
 struct SerializedAttachmentData;
-#endif
+struct SoupNetworkProxySettings;
+struct TextRecognitionDataDetector;
+struct ViewportArguments;
 
 namespace DOMCacheEngine {
 struct Record;
@@ -254,6 +180,11 @@ template<> struct ArgumentCoder<WebCore::Cursor> {
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::Cursor&);
 };
 
+template<> struct ArgumentCoder<WebCore::DiagnosticLoggingDictionary> {
+    static void encode(Encoder&, const WebCore::DiagnosticLoggingDictionary&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::DiagnosticLoggingDictionary&);
+};
+
 template<> struct ArgumentCoder<RefPtr<WebCore::Image>> {
     static void encode(Encoder&, const RefPtr<WebCore::Image>&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, RefPtr<WebCore::Image>&);
@@ -269,6 +200,25 @@ template<> struct ArgumentCoder<WebCore::Font> {
     static std::optional<Ref<WebCore::Font>> decode(Decoder&);
     static void encodePlatformData(Encoder&, const WebCore::Font&);
     static std::optional<WebCore::FontPlatformData> decodePlatformData(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::Font::Attributes> {
+    static void encode(Encoder&, const WebCore::Font::Attributes&);
+    static std::optional<WebCore::Font::Attributes> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::FontPlatformData::Attributes> {
+    static void encode(Encoder&, const WebCore::FontPlatformData::Attributes&);
+    static std::optional<WebCore::FontPlatformData::Attributes> decode(Decoder&);
+    static void encodePlatformData(Encoder&, const WebCore::FontPlatformData::Attributes&);
+    static WARN_UNUSED_RETURN bool decodePlatformData(Decoder&, WebCore::FontPlatformData::Attributes&);
+};
+
+template<> struct ArgumentCoder<WebCore::FontCustomPlatformData> {
+    static void encode(Encoder&, const WebCore::FontCustomPlatformData&);
+    static std::optional<Ref<WebCore::FontCustomPlatformData>> decode(Decoder&);
+    static void encodePlatformData(Encoder&, const WebCore::FontCustomPlatformData&);
+    static std::optional<Ref<WebCore::FontCustomPlatformData>> decodePlatformData(Decoder&);
 };
 
 template<> struct ArgumentCoder<WebCore::ResourceError> {
@@ -351,13 +301,6 @@ template<> struct ArgumentCoder<WebCore::BlobPart> {
     static void encode(Encoder&, const WebCore::BlobPart&);
     static std::optional<WebCore::BlobPart> decode(Decoder&);
 };
-
-#if ENABLE(CONTENT_FILTERING)
-template<> struct ArgumentCoder<WebCore::ContentFilterUnblockHandler> {
-    static void encode(Encoder&, const WebCore::ContentFilterUnblockHandler&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::ContentFilterUnblockHandler&);
-};
-#endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 template<> struct ArgumentCoder<WebCore::MediaPlaybackTargetContext> {

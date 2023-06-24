@@ -50,6 +50,7 @@
 #include "Logging.h"
 #include "MediaKeySystemPermissionRequestManager.h"
 #include "MediaRecorderProvider.h"
+#include "MessageSenderInlines.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
 #include "NotificationPermissionRequestManager.h"
@@ -58,6 +59,7 @@
 #include "PolicyDecision.h"
 #include "PrintInfo.h"
 #include "RemoteRenderingBackendProxy.h"
+#include "RemoteScrollingCoordinator.h"
 #include "RemoteWebInspectorUI.h"
 #include "RemoteWebInspectorUIMessages.h"
 #include "SessionState.h"
@@ -495,16 +497,16 @@ static Vector<UserContentURLPattern> parseAndAllowAccessToCORSDisablingPatterns(
     return parsedPatterns;
 }
 
-static std::variant<UniqueRef<FrameLoaderClient>, UniqueRef<RemoteFrameClient>> clientForMainFrame(Ref<WebFrame>&& mainFrame, bool local)
+static std::variant<UniqueRef<FrameLoaderClient>, PageConfiguration::RemoteMainFrameCreationParameters> clientForMainFrame(Ref<WebFrame>&& mainFrame, std::optional<WebCore::ProcessIdentifier> remoteProcessIdentifier)
 {
-    if (local)
+    if (!remoteProcessIdentifier)
         return UniqueRef<WebCore::FrameLoaderClient>(makeUniqueRef<WebFrameLoaderClient>(WTFMove(mainFrame)));
 
     // FIXME: This is duplicate code with WebFrameLoaderClient ctor.
     auto invalidator = makeScopeExit<Function<void()>>([frame = mainFrame.copyRef()] {
         frame->invalidate();
     });
-    return UniqueRef<RemoteFrameClient>(makeUniqueRef<WebRemoteFrameClient>(WTFMove(mainFrame), WTFMove(invalidator)));
+    return PageConfiguration::RemoteMainFrameCreationParameters { UniqueRef<RemoteFrameClient>(makeUniqueRef<WebRemoteFrameClient>(WTFMove(mainFrame), WTFMove(invalidator))), remoteProcessIdentifier.value() };
 }
 
 WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
@@ -627,6 +629,10 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
     m_pageGroup = WebProcess::singleton().webPageGroup(parameters.pageGroupData);
 
+    std::optional<ProcessIdentifier> remoteProcessIdentifier;
+    if (parameters.subframeProcessFrameTreeInitializationParameters)
+        remoteProcessIdentifier = parameters.subframeProcessFrameTreeInitializationParameters->treeCreationParameters.remoteProcessIdentifier;
+
     PageConfiguration pageConfiguration(
         WebProcess::singleton().sessionID(),
         makeUniqueRef<WebEditorClient>(this),
@@ -637,7 +643,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         WebBackForwardListProxy::create(*this),
         WebProcess::singleton().cookieJar(),
         makeUniqueRef<WebProgressTrackerClient>(*this),
-        clientForMainFrame(m_mainFrame.copyRef(), !parameters.subframeProcessFrameTreeInitializationParameters),
+        clientForMainFrame(m_mainFrame.copyRef(), remoteProcessIdentifier),
         parameters.subframeProcessFrameTreeInitializationParameters ? parameters.subframeProcessFrameTreeInitializationParameters->treeCreationParameters.frameID : WebCore::FrameIdentifier::generate(),
         makeUniqueRef<WebSpeechRecognitionProvider>(m_identifier),
         makeUniqueRef<MediaRecorderProvider>(*this),
@@ -988,9 +994,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     auto experimentalSandbox = parameters.store.getBoolValueForKey(WebPreferencesKey::experimentalSandboxEnabledKey());
     if (experimentalSandbox)
         sandbox_enable_state_flag("EnableExperimentalSandbox", *auditToken);
-#if !ENABLE(LAUNCHD_BLOCKING_IN_WEBCONTENT) && HAVE(MACH_BOOTSTRAP_EXTENSION)
-    if (!shouldBlockIOKit || !experimentalSandbox)
-        SandboxExtension::consumePermanently(parameters.machBootstrapHandle);
+
+#if HAVE(MACH_BOOTSTRAP_EXTENSION)
+    SandboxExtension::consumePermanently(parameters.machBootstrapHandle);
 #endif
 
     if (WebProcess::singleton().isLockdownModeEnabled())
@@ -1012,7 +1018,7 @@ void WebPage::constructFrameTree(WebFrame& parent, WebCore::FrameIdentifier loca
     bool shouldCreateLocalFrame = treeCreationParameters.frameID == localFrameIdentifier;
     auto frame = shouldCreateLocalFrame
         ? WebFrame::createLocalSubframeHostedInAnotherProcess(*this, parent, treeCreationParameters.frameID, localFrameHostLayerIdentifier)
-        : WebFrame::createRemoteSubframe(*this, parent, treeCreationParameters.frameID);
+        : WebFrame::createRemoteSubframe(*this, parent, treeCreationParameters.frameID, treeCreationParameters.remoteProcessIdentifier);
     if (shouldCreateLocalFrame) {
         ASSERT(frame->coreFrame());
         m_page->addRootFrame(*frame->coreFrame());
@@ -2015,9 +2021,10 @@ void WebPage::tryRestoreScrollPosition()
         localMainFrame->loader().history().restoreScrollPositionAndViewState();
 }
 
-WebPage& WebPage::fromCorePage(Page& page)
+WebPage* WebPage::fromCorePage(Page& page)
 {
-    return static_cast<WebChromeClient&>(page.chrome().client()).page();
+    auto& client = page.chrome().client();
+    return client.isEmptyChromeClient() ? nullptr : &static_cast<WebChromeClient&>(client).page();
 }
 
 void WebPage::setSize(const WebCore::IntSize& viewSize)
@@ -3301,9 +3308,26 @@ void WebPage::mouseEvent(const WebMouseEvent& mouseEvent, std::optional<Vector<S
     revokeSandboxExtensions(mouseEventSandboxExtensions);
 }
 
-void WebPage::handleWheelEvent(const WebWheelEvent& event, const OptionSet<WheelEventProcessingSteps>& processingSteps)
+void WebPage::handleWheelEvent(const WebWheelEvent& event, const OptionSet<WheelEventProcessingSteps>& processingSteps, std::optional<bool> willStartSwipe, CompletionHandler<void(WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>)>&& completionHandler)
 {
+#if ENABLE(ASYNC_SCROLLING)
+    auto* remoteScrollingCoordinator = dynamicDowncast<RemoteScrollingCoordinator>(scrollingCoordinator());
+    if (remoteScrollingCoordinator)
+        remoteScrollingCoordinator->setCurrentWheelEventWillStartSwipe(willStartSwipe);
+#else
+    UNUSED_PARAM(willStartSwipe);
+#endif
+
     bool handled = wheelEvent(event, processingSteps, EventDispatcher::WheelEventOrigin::UIProcess);
+    // FIXME: Ideally we'd avoid sending both a reply, and a separate WebPageProxy::DidReceiveEvent IPC, but the latter is generic to all events.
+#if ENABLE(ASYNC_SCROLLING)
+    if (remoteScrollingCoordinator) {
+        auto gestureInfo = remoteScrollingCoordinator->takeCurrentWheelGestureInfo();
+        completionHandler(gestureInfo.wheelGestureNode, gestureInfo.wheelGestureState);
+    } else
+#endif
+        completionHandler(0, { });
+
     send(Messages::WebPageProxy::DidReceiveEvent(event.type(), handled));
 }
 
@@ -3755,7 +3779,7 @@ void WebPage::visibilityDidChange()
     }
 }
 
-void WebPage::setActivityState(OptionSet<ActivityState::Flag> activityState, ActivityStateChangeID activityStateChangeID, CompletionHandler<void()>&& callback)
+void WebPage::setActivityState(OptionSet<ActivityState> activityState, ActivityStateChangeID activityStateChangeID, CompletionHandler<void()>&& callback)
 {
     LOG_WITH_STREAM(ActivityState, stream << "WebPage " << identifier().toUInt64() << " setActivityState to " << activityState);
 

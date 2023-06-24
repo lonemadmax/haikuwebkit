@@ -35,6 +35,7 @@
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "ElementAncestorIteratorInlines.h"
+#include "ElementName.h"
 #include "ElementTraversal.h"
 #include "FragmentScriptingPermission.h"
 #include "HTMLAnchorElement.h"
@@ -100,41 +101,6 @@ template<class Char> static bool operator==(Span<const Char> span, ASCIILiteral 
         return false;
 
     return WTF::equal(span.data(), s.characters8(), span.size());
-}
-
-#if ASSERT_ENABLED
-static constexpr bool onlyContainsLowercaseASCIILetters(ASCIILiteral s)
-{
-    for (size_t i = 0; i < s.length(); ++i) {
-        if (!isASCIILower(s[i]))
-            return false;
-    }
-    return true;
-}
-#endif // ASSERT_ENABLED
-
-// A hash function that is just good enough to distinguish the supported tagNames. It needs to be
-// adapted as soon as we have colliding tagNames. The implementation was chosen to map to a dense
-// integer range to allow for compact switch jump-tables. If adding support for a new tag results
-// in a collision, then pick a new function that minimizes the number of operations and results
-// in a dense integer range.
-static constexpr uint32_t tagNameHash(ASCIILiteral s)
-{
-    // The fast-path parser only scans for letters in tagNames.
-    ASSERT_UNDER_CONSTEXPR_CONTEXT(onlyContainsLowercaseASCIILetters(s));
-    // This function is called with null-termined string, which should be used in the hash
-    // implementation, hence the -2.
-    return (s[0] + 17 * s[s.length() - 1]) & 63;
-}
-
-template<class Char> static constexpr uint32_t tagNameHash(Span<const Char> s)
-{
-    return (s[0] + 17 * s[s.size() - 1]) & 63;
-}
-
-static uint32_t tagNameHash(const String& s)
-{
-    return (s[0] + 17 * s[s.length() - 1]) & 63;
 }
 
 template<typename CharacterType> static inline bool isQuoteCharacter(CharacterType c)
@@ -238,29 +204,17 @@ public:
 
     bool parse(Element& contextElement)
     {
-        auto contextTag = contextElement.tagQName();
-        ASSERT(!contextTag.localName().isEmpty());
-
         // This switch checks that the context element is supported and applies the
         // same restrictions regarding content as the fast-path parser does for a
         // corresponding nested tag.
         // This is to ensure that we preserve correct HTML structure with respect
         // to the context tag.
-        //
-        // If this switch has duplicate cases, then `tagNameHash()` needs to be
-        // updated.
-        switch (tagNameHash(contextTag.localName())) {
+        switch (contextElement.elementName()) {
 #define TAG_CASE(TagName, TagClassName)                                                                      \
-        case tagNameHash(TagInfo::TagClassName::tagName):                                                    \
-            ASSERT(HTMLNames::TagName##Tag->localName() == TagInfo::TagClassName::tagName); \
+        case ElementName::HTML_ ## TagName:                                                                  \
             if constexpr (!TagInfo::TagClassName::isVoid) {                                                  \
-                /* The hash function won't return collisions for the supported tags, but this function */    \
-                /* takes potentially unsupported tags, which may collide. Protect against that by */         \
-                /* checking equality. */                                                                     \
-                if (contextTag == HTMLNames::TagName##Tag) {                                                 \
-                    parseCompleteInput<typename TagInfo::TagClassName>();                                    \
-                    return !m_parsingFailed;                                                                 \
-                }                                                                                            \
+                parseCompleteInput<typename TagInfo::TagClassName>();                                        \
+                return !m_parsingFailed;                                                                     \
             }                                                                                                \
             break;
         FOR_EACH_SUPPORTED_TAG(TAG_CASE)
@@ -350,7 +304,7 @@ private:
         };
 
         struct A : ContainerTag<HTMLAnchorElement, PermittedParents::FlowContent> {
-            static constexpr ASCIILiteral tagName = "a"_s;
+            static constexpr ElementName tagName = ElementName::HTML_a;
 
             static RefPtr<Element> parseChild(HTMLFastPathParser& self)
             {
@@ -363,7 +317,7 @@ private:
         };
 
         struct AWithPhrasingContent : ContainsPhrasingContentTag<HTMLAnchorElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "a"_s;
+            static constexpr ElementName tagName = ElementName::HTML_a;
 
             static RefPtr<Element> parseChild(HTMLFastPathParser& self)
             {
@@ -376,7 +330,7 @@ private:
         };
 
         struct B : ContainsPhrasingContentTag<HTMLElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "b"_s;
+            static constexpr ElementName tagName = ElementName::HTML_b;
 
             static Ref<HTMLElement> create(Document& document)
             {
@@ -385,19 +339,19 @@ private:
         };
 
         struct Br : VoidTag<HTMLBRElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "br"_s;
+            static constexpr ElementName tagName = ElementName::HTML_br;
         };
 
         struct Button : ContainsPhrasingContentTag<HTMLButtonElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "button"_s;
+            static constexpr ElementName tagName = ElementName::HTML_button;
         };
 
         struct Div : ContainerTag<HTMLDivElement, PermittedParents::FlowContent> {
-            static constexpr ASCIILiteral tagName = "div"_s;
+            static constexpr ElementName tagName = ElementName::HTML_div;
         };
 
         struct Footer : ContainerTag<HTMLDivElement, PermittedParents::FlowContent> {
-            static constexpr ASCIILiteral tagName = "footer"_s;
+            static constexpr ElementName tagName = ElementName::HTML_footer;
 
             static Ref<HTMLElement> create(Document& document)
             {
@@ -406,7 +360,7 @@ private:
         };
 
         struct I : ContainsPhrasingContentTag<HTMLElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "i"_s;
+            static constexpr ElementName tagName = ElementName::HTML_i;
 
             static Ref<HTMLElement> create(Document& document)
             {
@@ -415,7 +369,7 @@ private:
         };
 
         struct Input : VoidTag<HTMLInputElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "input"_s;
+            static constexpr ElementName tagName = ElementName::HTML_input;
 
             static Ref<HTMLInputElement> create(Document& document)
             {
@@ -424,15 +378,15 @@ private:
         };
 
         struct Li : ContainerTag<HTMLLIElement, PermittedParents::Special> {
-            static constexpr ASCIILiteral tagName = "li"_s;
+            static constexpr ElementName tagName = ElementName::HTML_li;
         };
 
         struct Label : ContainsPhrasingContentTag<HTMLLabelElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "label"_s;
+            static constexpr ElementName tagName = ElementName::HTML_label;
         };
 
         struct Option : ContainerTag<HTMLOptionElement, PermittedParents::Special> {
-            static constexpr ASCIILiteral tagName = "option"_s;
+            static constexpr ElementName tagName = ElementName::HTML_option;
 
             static RefPtr<Element> parseChild(HTMLFastPathParser& self)
             {
@@ -442,7 +396,7 @@ private:
         };
 
         struct Ol : ContainerTag<HTMLOListElement, PermittedParents::FlowContent> {
-            static constexpr ASCIILiteral tagName = "ol"_s;
+            static constexpr ElementName tagName = ElementName::HTML_ol;
 
             static RefPtr<Element> parseChild(HTMLFastPathParser& self)
             {
@@ -451,11 +405,11 @@ private:
         };
 
         struct P : ContainsPhrasingContentTag<HTMLParagraphElement, PermittedParents::FlowContent> {
-            static constexpr ASCIILiteral tagName = "p"_s;
+            static constexpr ElementName tagName = ElementName::HTML_p;
         };
 
         struct Select : ContainerTag<HTMLSelectElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "select"_s;
+            static constexpr ElementName tagName = ElementName::HTML_select;
 
             static RefPtr<Element> parseChild(HTMLFastPathParser& self)
             {
@@ -464,11 +418,11 @@ private:
         };
 
         struct Span : ContainsPhrasingContentTag<HTMLSpanElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "span"_s;
+            static constexpr ElementName tagName = ElementName::HTML_span;
         };
 
         struct Strong : ContainsPhrasingContentTag<HTMLElement, PermittedParents::PhrasingOrFlowContent> {
-            static constexpr ASCIILiteral tagName = "strong"_s;
+            static constexpr ElementName tagName = ElementName::HTML_strong;
 
             static Ref<HTMLElement> create(Document& document)
             {
@@ -477,7 +431,7 @@ private:
         };
 
         struct Ul : ContainerTag<HTMLUListElement, PermittedParents::FlowContent> {
-            static constexpr ASCIILiteral tagName = "ul"_s;
+            static constexpr ElementName tagName = ElementName::HTML_ul;
 
             static RefPtr<Element> parseChild(HTMLFastPathParser& self)
             {
@@ -541,7 +495,7 @@ private:
     }
 
     // Scan a tagName and convert to lowercase if necessary.
-    CharSpan scanTagName()
+    ElementName scanTagName()
     {
         auto* start = m_parsingBuffer.position();
         skipWhile<isASCIILower>(m_parsingBuffer);
@@ -560,13 +514,13 @@ private:
                 m_charBuffer.append(c);
             }
             if (m_parsingBuffer.atEnd() || !isCharAfterTagNameOrAttribute(*m_parsingBuffer))
-                return didFail(HTMLFastPathResult::FailedParsingTagName, CharSpan { });
+                return didFail(HTMLFastPathResult::FailedParsingTagName, ElementName::Unknown);
             skipWhile<isHTMLSpace>(m_parsingBuffer);
-            return CharSpan { m_charBuffer.data(), m_charBuffer.size() };
+            return findHTMLElementName({ m_charBuffer.data(), m_charBuffer.size() });
         }
-        CharSpan result { start, static_cast<size_t>(m_parsingBuffer.position() - start) };
+        auto tagName = findHTMLElementName({ start, static_cast<size_t>(m_parsingBuffer.position() - start) });
         skipWhile<isHTMLSpace>(m_parsingBuffer);
-        return result;
+        return tagName;
     }
 
     CharSpan scanAttributeName()
@@ -800,7 +754,7 @@ private:
         }
     }
 
-    Attribute processAttribute(CharSpan nameSpan, std::variant<LCharSpan, UCharSpan> valueSpan)
+    static Attribute processAttribute(CharSpan nameSpan, std::variant<LCharSpan, UCharSpan> valueSpan)
     {
         auto name = HTMLNameCache::makeAttributeQualifiedName(nameSpan);
         auto value = std::visit([](auto span) {
@@ -861,16 +815,16 @@ private:
 
     template<class... Tags> RefPtr<Element> parseSpecificElements()
     {
-        CharSpan tagName = scanTagName();
+        auto tagName = scanTagName();
         return parseSpecificElements<Tags...>(tagName);
     }
 
-    template<void* = nullptr> RefPtr<Element> parseSpecificElements(CharSpan)
+    template<void* = nullptr> RefPtr<Element> parseSpecificElements(ElementName)
     {
         return didFail(HTMLFastPathResult::FailedParsingSpecificElements, nullptr);
     }
 
-    template<class Tag, class... OtherTags> RefPtr<Element> parseSpecificElements(CharSpan tagName)
+    template<class Tag, class... OtherTags> RefPtr<Element> parseSpecificElements(ElementName tagName)
     {
         if (tagName == Tag::tagName)
             return parseElementAfterTagName<Tag>();
@@ -880,8 +834,6 @@ private:
     template<bool nonPhrasingContent> RefPtr<Element> parseElement()
     {
         auto tagName = scanTagName();
-        if (tagName.empty())
-            return didFail(HTMLFastPathResult::FailedParsingElement, nullptr);
 
         // HTML has complicated rules around auto-closing tags and re-parenting
         // DOM nodes. We avoid complications with auto-closing rules by disallowing
@@ -893,16 +845,13 @@ private:
         //
         // If this switch has duplicate cases, then `tagNameHash()` needs to be
         // updated.
-        switch (tagNameHash(tagName)) {
+        switch (tagName) {
 #define TAG_CASE(TagName, TagClassName)                                                  \
-        case tagNameHash(TagInfo::TagClassName::tagName):                                \
+        case ElementName::HTML_ ## TagName:                                              \
             if (std::is_same_v<typename TagInfo::A, typename TagInfo::TagClassName>)     \
-                goto caseA;                                                             \
-            if constexpr (nonPhrasingContent ? TagInfo::TagClassName::allowedInFlowContent() : TagInfo::TagClassName::allowedInPhrasingOrFlowContent()) { \
-                /* See comment in parse() for details on why equality is checked here */ \
-                if (tagName == TagInfo::TagClassName::tagName)                           \
-                    return parseElementAfterTagName<typename TagInfo::TagClassName>();   \
-            }                                                                            \
+                goto caseA;                                                              \
+            if constexpr (nonPhrasingContent ? TagInfo::TagClassName::allowedInFlowContent() : TagInfo::TagClassName::allowedInPhrasingOrFlowContent()) \
+                return parseElementAfterTagName<typename TagInfo::TagClassName>();   \
             break;
 
         FOR_EACH_SUPPORTED_TAG(TAG_CASE)
@@ -911,7 +860,7 @@ private:
             caseA:
             // <a> tags must not be nested, because HTML parsing would auto-close
             // the outer one when encountering a nested one.
-            if (tagName == TagInfo::A::tagName && !m_insideOfTagA) {
+            if (!m_insideOfTagA) {
                 return nonPhrasingContent
                     ? parseElementAfterTagName<typename TagInfo::A>()
                     : parseElementAfterTagName<typename TagInfo::AWithPhrasingContent>();

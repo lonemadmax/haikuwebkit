@@ -55,6 +55,7 @@ public:
     // Statements
     void visit(AST::AssignmentStatement&) override;
     void visit(AST::ReturnStatement&) override;
+    void visit(AST::CompoundStatement&) override;
 
     // Expressions
     void visit(AST::Expression&) override;
@@ -63,6 +64,7 @@ public:
     void visit(AST::BinaryExpression&) override;
     void visit(AST::IdentifierExpression&) override;
     void visit(AST::CallExpression&) override;
+    void visit(AST::UnaryExpression&) override;
 
     // Literal Expressions
     void visit(AST::BoolLiteral&) override;
@@ -97,7 +99,7 @@ private:
     bool unify(Type*, Type*) WARN_UNUSED_RETURN;
     bool isBottom(Type*) const;
     std::optional<unsigned> extractInteger(AST::Expression&);
-    Type* chooseOverload(const String&, const WTF::Vector<Type*>&);
+    Type* chooseOverload(const String&, const Vector<Type*>& valueArguments, const Vector<Type*>& typeArguments);
 
     ShaderModule& m_shaderModule;
     Type* m_inferredType { nullptr };
@@ -105,7 +107,7 @@ private:
     TypeStore& m_types;
     Vector<Error> m_errors;
     // FIXME: maybe these should live in the context
-    HashMap<String, WTF::Vector<OverloadCandidate>> m_overloadedOperations;
+    HashMap<String, Vector<OverloadCandidate>> m_overloadedOperations;
 };
 
 TypeChecker::TypeChecker(ShaderModule& shaderModule)
@@ -203,11 +205,11 @@ void TypeChecker::visit(AST::Function& function)
 
 void TypeChecker::visitFunctionBody(AST::Function& function)
 {
-    ContextProvider::ContextScope functionContext(this);
+    ContextScope functionContext(this);
 
     for (auto& parameter : function.parameters()) {
         auto* parameterType = resolve(parameter.typeName());
-        ContextProvider::introduceVariable(parameter.name(), parameterType);
+        introduceVariable(parameter.name(), parameterType);
     }
 
     AST::Visitor::visit(function.body());
@@ -229,6 +231,12 @@ void TypeChecker::visit(AST::ReturnStatement& statement)
 
     // FIXME: unify type with the curent function's return type
     UNUSED_PARAM(type);
+}
+
+void TypeChecker::visit(AST::CompoundStatement& statement)
+{
+    ContextScope blockScope(this);
+    AST::Visitor::visit(statement);
 }
 
 // Expressions
@@ -298,7 +306,7 @@ void TypeChecker::visit(AST::BinaryExpression& binary)
     // FIXME: this needs to resolve overloads, not just unify both types
     auto* leftType = infer(binary.leftExpression());
     auto* rightType = infer(binary.rightExpression());
-    auto* result = chooseOverload(toString(binary.operation()), { leftType, rightType });
+    auto* result = chooseOverload(toString(binary.operation()), { leftType, rightType }, { });
     if (result)
         inferred(result);
     else
@@ -318,9 +326,65 @@ void TypeChecker::visit(AST::IdentifierExpression& identifier)
 
 void TypeChecker::visit(AST::CallExpression& call)
 {
-    auto* target = resolve(call.target());
-    // FIXME: validate arguments
-    inferred(target);
+    Vector<Type*> arguments;
+    arguments.reserveInitialCapacity(call.arguments().size());
+    for (auto& argument : call.arguments())
+        arguments.append(infer(argument));
+
+    auto& target = call.target();
+    bool isNamedType = is<AST::NamedTypeName>(target);
+    bool isParameterizedType = is<AST::ParameterizedTypeName>(target);
+    if (isNamedType || isParameterizedType) {
+        Vector<Type*> typeArguments;
+        String targetName = [&]() -> String {
+            if (isNamedType)
+                return downcast<AST::NamedTypeName>(target).name();
+            auto& parameterizedType = downcast<AST::ParameterizedTypeName>(target);
+            typeArguments.append(resolve(parameterizedType.elementType()));
+            return AST::ParameterizedTypeName::baseToString(parameterizedType.base());
+        }();
+        auto* result = chooseOverload(targetName, arguments, typeArguments);
+        if (result)
+            inferred(result);
+        else {
+            StringPrintStream valueArgumentsStream;
+            bool first = true;
+            for (auto* argument : arguments) {
+                if (!first)
+                    valueArgumentsStream.print(", ");
+                first = false;
+                valueArgumentsStream.print(*argument);
+            }
+            StringPrintStream typeArgumentsStream;
+            first = true;
+            if (typeArguments.size()) {
+                typeArgumentsStream.print("<");
+                for (auto* typeArgument : typeArguments) {
+                    if (!first)
+                        typeArgumentsStream.print(", ");
+                    first = false;
+                    typeArgumentsStream.print(*typeArgument);
+                }
+                typeArgumentsStream.print(">");
+            }
+            typeError(call.span(), "no matching overload for initializer ", targetName, typeArgumentsStream.toString(), "(", valueArgumentsStream.toString(), ")");
+        }
+        return;
+    }
+
+    // FIXME: add support for user-defined function calls
+    auto* result = resolve(target);
+    inferred(result);
+}
+
+void TypeChecker::visit(AST::UnaryExpression& unary)
+{
+    auto* argument = infer(unary.expression());
+    auto* result = chooseOverload(toString(unary.operation()), { argument }, { });
+    if (result)
+        inferred(result);
+    else
+        typeError(unary.span(), "no matching overload for operator ", toString(unary.operation()), " (", *argument, ")");
 }
 
 // Literal Expressions
@@ -387,7 +451,7 @@ void TypeChecker::visit(AST::ArrayTypeName& array)
 
 void TypeChecker::visit(AST::NamedTypeName& namedType)
 {
-    auto* const* type = ContextProvider::readVariable(namedType.name());
+    auto* const* type = readVariable(namedType.name());
     if (type) {
         inferred(*type);
         return;
@@ -480,12 +544,16 @@ void TypeChecker::vectorFieldAccess(const Types::Vector& vector, AST::FieldAcces
     inferred(m_types.constructType(base, vector.element));
 }
 
-Type* TypeChecker::chooseOverload(const String& operation, const WTF::Vector<Type*>& arguments)
+Type* TypeChecker::chooseOverload(const String& operation, const Vector<Type*>& valueArguments, const Vector<Type*>& typeArguments)
 {
     auto it = m_overloadedOperations.find(operation);
     if (it == m_overloadedOperations.end())
         return nullptr;
-    return resolveOverloads(m_types, it->value, arguments);
+    for (auto* argument : valueArguments) {
+        if (isBottom(argument))
+            return m_types.bottomType();
+    }
+    return resolveOverloads(m_types, it->value, valueArguments, typeArguments);
 }
 
 Type* TypeChecker::infer(AST::Expression& expression)

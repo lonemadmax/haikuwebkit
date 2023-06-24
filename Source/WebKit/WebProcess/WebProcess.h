@@ -70,6 +70,10 @@
 #include <wtf/MachSendRight.h>
 #endif
 
+#if PLATFORM(GTK) && USE(EGL)
+#include <WebCore/PlatformDisplay.h>
+#endif
+
 #if PLATFORM(WAYLAND)
 #include <WebCore/PlatformDisplayLibWPE.h>
 #endif
@@ -286,7 +290,7 @@ public:
 
     void updateActivePages(const String& overrideDisplayName);
     void getActivePagesOriginsForTesting(CompletionHandler<void(Vector<String>&&)>&&);
-    void pageActivityStateDidChange(WebCore::PageIdentifier, OptionSet<WebCore::ActivityState::Flag> changed);
+    void pageActivityStateDidChange(WebCore::PageIdentifier, OptionSet<WebCore::ActivityState> changed);
 
     void setHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds);
 
@@ -450,6 +454,7 @@ private:
     void platformSetCacheModel(CacheModel);
 
     void setEnhancedAccessibility(bool);
+    void remotePostMessage(WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&);
     
     void startMemorySampler(SandboxExtension::Handle&&, const String&, const double);
     void stopMemorySampler();
@@ -706,8 +711,8 @@ private:
 
     WeakHashMap<WebCore::UserGestureToken, uint64_t> m_userGestureTokens;
 
-#if PLATFORM(WAYLAND)
-    std::unique_ptr<WebCore::PlatformDisplayLibWPE> m_wpeDisplay;
+#if PLATFORM(GTK) && USE(EGL)
+    std::unique_ptr<WebCore::PlatformDisplay> m_displayForCompositing;
 #endif
 
     bool m_hasSuspendedPageProxy { false };

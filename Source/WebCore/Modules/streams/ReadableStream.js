@@ -39,6 +39,7 @@ function initializeReadableStream(underlyingSource, strategy)
     if (strategy !== @undefined && !@isObject(strategy))
         @throwTypeError("ReadableStream constructor takes an object as second argument, if any");
 
+    @putByIdDirectPrivate(this, "globalObject", @getGlobalObject());
     @putByIdDirectPrivate(this, "state", @streamReadable);
     @putByIdDirectPrivate(this, "reader", @undefined);
     @putByIdDirectPrivate(this, "storedError", @undefined);
@@ -70,12 +71,28 @@ function initializeReadableStream(underlyingSource, strategy)
         let readableByteStreamControllerConstructor = @ReadableByteStreamController;
         @putByIdDirectPrivate(this, "readableStreamController", new @ReadableByteStreamController(this, underlyingSource, strategy.highWaterMark, @isReadableStream));
     } else if (type === @undefined) {
-        if (strategy.highWaterMark === @undefined)
-            strategy.highWaterMark = 1;
+        let highWaterMark = strategy.highWaterMark;
+        if (highWaterMark !== @undefined)
+            highWaterMark = @toNumber(highWaterMark);
+        else
+            highWaterMark = 1;
+        const size = strategy.size;
+        if (size !== @undefined && !@isCallable(size))
+            @throwTypeError("size parameter must be a function");
 
-        @setupReadableStreamDefaultController(this, underlyingSource, strategy.size, strategy.highWaterMark, underlyingSource.start, underlyingSource.pull, underlyingSource.cancel);
+        const cancel = underlyingSource.cancel;
+        if (cancel !== @undefined && !@isCallable(cancel))
+            @throwTypeError("underlyingSource cancel must be a function");
+        const pull = underlyingSource.pull;
+        if (pull !== @undefined && !@isCallable(pull))
+            @throwTypeError("underlyingSource pull must be a function");
+        const start = underlyingSource.start;
+        if (start !== @undefined && !@isCallable(start))
+            @throwTypeError("underlyingSource start must be a function");
+
+        @setupReadableStreamDefaultController(this, underlyingSource, size, highWaterMark, start, pull, cancel);
     } else
-        @throwRangeError("Invalid type for underlying source");
+        @throwTypeError("Invalid type for underlying source");
 
     return this;
 }
@@ -101,12 +118,17 @@ function getReader(options)
         throw @makeThisTypeError("ReadableStream", "getReader");
 
     const mode = @toDictionary(options, { }, "ReadableStream.getReader takes an object as first argument").mode;
-    if (mode === @undefined)
-        return new @ReadableStreamDefaultReader(this);
+    const readableStreamGlobalObject = @getByIdDirectPrivate(this, "globalObject");
+    if (mode === @undefined) {
+        const readableStreamDefaultReaderConstructor = @getByIdDirectPrivate(readableStreamGlobalObject, "ReadableStreamDefaultReader");
+        return new readableStreamDefaultReaderConstructor(this);
+    }
 
     // String conversion is required by spec, hence double equals.
-    if (mode == 'byob')
+    if (mode == 'byob') {
+        const readableStreamBYOBReaderConstructor = @getByIdDirectPrivate(readableStreamGlobalObject, "ReadableStreamBYOBReader");
         return new @ReadableStreamBYOBReader(this);
+    }
 
     @throwTypeError("Invalid mode is specified");
 }

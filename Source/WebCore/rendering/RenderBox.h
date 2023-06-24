@@ -310,7 +310,6 @@ public:
     virtual LayoutUnit collapsedMarginBefore() const { return marginBefore(); }
     virtual LayoutUnit collapsedMarginAfter() const { return marginAfter(); }
 
-    virtual bool shouldTrimChildMargin(MarginTrimType, const RenderBox&) const { return false; }
     LayoutUnit constrainBlockMarginInAvailableSpaceOrTrim(const RenderBox& containingBlock, LayoutUnit availableSpace, MarginTrimType marginSide) const;
 
     void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const override;
@@ -408,7 +407,6 @@ public:
     // Resolve auto margins in the inline direction of the containing block so that objects can be pushed to the start, middle or end
     // of the containing block.
     void computeInlineDirectionMargins(const RenderBlock& containingBlock, LayoutUnit containerWidth, std::optional<LayoutUnit> availableSpaceAdjustedWithFloats, LayoutUnit childWidth, LayoutUnit& marginStart, LayoutUnit& marginEnd) const;
-    LayoutUnit computeOrTrimInlineMargin(const RenderBlock& containingBlock, MarginTrimType marginSide, std::function<LayoutUnit()> computeInlineMargin) const;
 
     // Used to resolve margins in the containing block's block-flow direction.
     void computeBlockDirectionMargins(const RenderBlock& containingBlock, LayoutUnit& marginBefore, LayoutUnit& marginAfter) const;
@@ -732,6 +730,9 @@ protected:
 
     void willBeDestroyed() override;
 
+    bool shouldTrimChildMargin(MarginTrimType, const RenderBox&) const;
+    virtual bool isChildEligibleForMarginTrim(MarginTrimType, const RenderBox&) const { return false; }
+
     virtual bool shouldResetLogicalHeightBeforeLayout() const { return false; }
     void resetLogicalHeightBeforeLayoutIfNeeded();
 
@@ -795,6 +796,8 @@ private:
     bool scrollLayer(ScrollDirection, ScrollGranularity, unsigned stepCount, Element** stopElement);
 
     bool fixedElementLaysOutRelativeToFrame(const LocalFrameView&) const;
+
+    template<typename Function> LayoutUnit computeOrTrimInlineMargin(const RenderBlock& containingBlock, MarginTrimType marginSide, const Function& computeInlineMargin) const;
 
     bool includeVerticalScrollbarSize() const;
     bool includeHorizontalScrollbarSize() const;
@@ -949,6 +952,18 @@ inline void RenderBox::setInlineBoxWrapper(LegacyInlineElementBox* boxWrapper)
     }
 
     m_inlineBoxWrapper = boxWrapper;
+}
+
+inline LayoutRect RenderBox::contentBoxRect() const
+{
+    return { contentBoxLocation(), contentSize() };
+}
+
+inline bool RenderBox::shouldTrimChildMargin(MarginTrimType marginTrimType, const RenderBox& child) const
+{
+    if (!style().marginTrim().contains(marginTrimType))
+        return false;
+    return isChildEligibleForMarginTrim(marginTrimType, child);
 }
 
 LayoutUnit synthesizedBaseline(const RenderBox&, const RenderStyle& parentStyle, LineDirectionMode, BaselineSynthesisEdge);

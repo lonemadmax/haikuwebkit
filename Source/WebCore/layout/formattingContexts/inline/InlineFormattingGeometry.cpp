@@ -68,7 +68,6 @@ InlineLayoutUnit InlineFormattingGeometry::logicalTopForNextLine(const LineBuild
     // The spec is unclear of how much we should move down at this point and while 1px should be the most precise it's also rather expensive. 
     auto inflatedLineRectBottom = lineLogicalRect.top() + formattingContext().root().style().computedLineHeight();
     auto floatConstraints = floatingContext.constraints(toLayoutUnit(lineLogicalRect.top()), toLayoutUnit(inflatedLineRectBottom), FloatingContext::MayBeAboveLastFloat::Yes);
-    ASSERT(floatConstraints.left || floatConstraints.right);
     if (floatConstraints.left && floatConstraints.right) {
         // In case of left and right constraints, we need to pick the one that's closer to the current line.
         return std::min(floatConstraints.left->y, floatConstraints.right->y);
@@ -79,7 +78,7 @@ InlineLayoutUnit InlineFormattingGeometry::logicalTopForNextLine(const LineBuild
         return floatConstraints.right->y;
     ASSERT_NOT_REACHED();
     // Do not get stuck on the same vertical position.
-    return lineLogicalRect.bottom() + 1.0f;
+    return nextafter(lineLogicalRect.bottom(), std::numeric_limits<float>::max());
 }
 
 ContentWidthAndMargin InlineFormattingGeometry::inlineBlockContentWidthAndMargin(const Box& formattingContextRoot, const HorizontalConstraints& horizontalConstraints, const OverriddenHorizontalValues& overriddenHorizontalValues) const
@@ -261,7 +260,30 @@ static std::optional<size_t> nextDisplayBoxIndex(const Box& outOfFlowBox, const 
     return { };
 }
 
-LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(const Box& outOfFlowBox, const ConstraintsForInFlowContent& constraints, const InlineDisplay::Content& displayContent) const
+InlineLayoutUnit InlineFormattingGeometry::contentLeftAfterLastLine(const ConstraintsForInFlowContent& constraints, std::optional<InlineLayoutUnit> lastLineLogicalBottom, const FloatingContext& floatingContext) const
+{
+    auto contentHasPreviousLine = lastLineLogicalBottom ? std::make_optional(true) : std::nullopt;
+    auto textIndent = computedTextIndent(IsIntrinsicWidthMode::No, contentHasPreviousLine, constraints.horizontal().logicalWidth);
+    auto floatConstraints = floatConstraintsForLine(lastLineLogicalBottom.value_or(constraints.logicalTop()), 0, floatingContext);
+    auto lineBoxLeft = constraints.horizontal().logicalLeft;
+    auto lineBoxWidth = constraints.horizontal().logicalWidth;
+    // FIXME: Add missing RTL support.
+    if (floatConstraints.left) {
+        auto floatOffset = std::max(0_lu, floatConstraints.left->x - constraints.horizontal().logicalLeft);
+        lineBoxLeft += floatOffset;
+        lineBoxWidth -= floatOffset;
+    }
+    if (floatConstraints.right) {
+        auto lineBoxRight = (constraints.horizontal().logicalLeft + constraints.horizontal().logicalWidth);
+        auto floatOffset = std::max(0_lu, lineBoxRight - floatConstraints.right->x);
+        lineBoxWidth -= floatOffset;
+    }
+    lineBoxLeft += textIndent;
+    auto rootInlineBoxLeft = horizontalAlignmentOffset(lineBoxWidth, IsLastLineOrAfterLineBreak::Yes);
+    return lineBoxLeft + rootInlineBoxLeft;
+}
+
+LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(const Box& outOfFlowBox, const ConstraintsForInFlowContent& constraints, const InlineDisplay::Content& displayContent, const FloatingContext& floatingContext) const
 {
     ASSERT(outOfFlowBox.style().isOriginalDisplayInlineType());
     auto& lines = displayContent.lines;
@@ -269,8 +291,7 @@ LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(c
 
     if (lines.isEmpty()) {
         ASSERT(boxes.isEmpty());
-        auto alignmentOffset = horizontalAlignmentOffset(constraints.horizontal().logicalWidth, IsLastLineOrAfterLineBreak::Yes);
-        return { constraints.horizontal().logicalLeft + alignmentOffset, constraints.logicalTop() };
+        return { contentLeftAfterLastLine(constraints, { }, floatingContext), constraints.logicalTop() };
     }
 
     auto isHorizontalWritingMode = formattingContext().root().style().isHorizontalWritingMode();
@@ -313,8 +334,7 @@ LayoutPoint InlineFormattingGeometry::staticPositionForOutOfFlowInlineLevelBox(c
     auto nextDisplayBoxIndexAfterOutOfFlow = nextDisplayBoxIndex(outOfFlowBox, boxes);
     if (!nextDisplayBoxIndexAfterOutOfFlow) {
         // This is the last content on the block and it does not fit the last line.
-        auto alignmentOffset = horizontalAlignmentOffset(constraints.horizontal().logicalWidth, IsLastLineOrAfterLineBreak::Yes);
-        return { constraints.horizontal().logicalLeft + alignmentOffset, isHorizontalWritingMode ? currentLine.bottom() : currentLine.right() };
+        return { contentLeftAfterLastLine(constraints, currentLine.bottom(), floatingContext), isHorizontalWritingMode ? currentLine.bottom() : currentLine.right() };
     }
     auto& nextDisplayBox = boxes[*nextDisplayBoxIndexAfterOutOfFlow];
     return leftSideToLogicalTopLeft(nextDisplayBox, lines[nextDisplayBox.lineIndex()]);
@@ -351,8 +371,12 @@ InlineLayoutUnit InlineFormattingGeometry::initialLineHeight(bool isFirstLine) c
 
 FloatingContext::Constraints InlineFormattingGeometry::floatConstraintsForLine(InlineLayoutUnit lineLogicalTop, InlineLayoutUnit contentLogicalHeight, const FloatingContext& floatingContext) const
 {
+    auto logicalTopCandidate = LayoutUnit { lineLogicalTop };
+    auto logicalBottomCandidate = LayoutUnit { lineLogicalTop + contentLogicalHeight };
+    if (logicalTopCandidate.mightBeSaturated() || logicalBottomCandidate.mightBeSaturated())
+        return { };
     // Check for intruding floats and adjust logical left/available width for this line accordingly.
-    return floatingContext.constraints(toLayoutUnit(lineLogicalTop), toLayoutUnit(lineLogicalTop + contentLogicalHeight), FloatingContext::MayBeAboveLastFloat::Yes);
+    return floatingContext.constraints(logicalTopCandidate, logicalBottomCandidate, FloatingContext::MayBeAboveLastFloat::Yes);
 }
 
 void InlineFormattingGeometry::adjustMarginStartForListMarker(const ElementBox& listMarkerBox, LayoutUnit nestedListMarkerMarginStart, InlineLayoutUnit rootInlineBoxOffset) const

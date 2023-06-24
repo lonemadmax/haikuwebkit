@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "FloatRect.h"
 #include "PositionedGlyphs.h"
 #include "RenderingResource.h"
 
@@ -34,13 +33,12 @@ namespace WebCore {
 class DecomposedGlyphs final : public RenderingResource {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static WEBCORE_EXPORT Ref<DecomposedGlyphs> create(const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode, RenderingResourceIdentifier = RenderingResourceIdentifier::generate());
+    static WEBCORE_EXPORT Ref<DecomposedGlyphs> create(const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode, RenderingResourceIdentifier = RenderingResourceIdentifier::generateThreadSafe());
     static WEBCORE_EXPORT Ref<DecomposedGlyphs> create(PositionedGlyphs&&, RenderingResourceIdentifier);
 
     const PositionedGlyphs& positionedGlyphs() const { return m_positionedGlyphs; }
 
 private:
-    DecomposedGlyphs(const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode, RenderingResourceIdentifier);
     DecomposedGlyphs(PositionedGlyphs&&, RenderingResourceIdentifier);
 
     PositionedGlyphs m_positionedGlyphs;

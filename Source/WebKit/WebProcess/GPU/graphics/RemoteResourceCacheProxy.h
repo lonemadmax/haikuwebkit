@@ -29,13 +29,16 @@
 
 #include "RenderingUpdateID.h"
 #include <WebCore/DecomposedGlyphs.h>
+#include <WebCore/Gradient.h>
 #include <WebCore/NativeImage.h>
 #include <WebCore/RenderingResource.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 class Font;
+class Gradient;
 class ImageBuffer;
+struct FontCustomPlatformData;
 }
 
 namespace WebKit {
@@ -57,6 +60,8 @@ public:
     void recordFontUse(WebCore::Font&);
     void recordImageBufferUse(WebCore::ImageBuffer&);
     void recordDecomposedGlyphsUse(WebCore::DecomposedGlyphs&);
+    void recordGradientUse(WebCore::Gradient&);
+    void recordFontCustomPlatformDataUse(const WebCore::FontCustomPlatformData&);
 
     void didPaintLayers();
 
@@ -72,22 +77,29 @@ private:
     using NativeImageHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::NativeImage>>;
     using FontHashMap = HashMap<WebCore::RenderingResourceIdentifier, uint64_t>;
     using DecomposedGlyphsHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::DecomposedGlyphs>>;
-    
+    using GradientHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::Gradient>>;
+
     void releaseRenderingResource(WebCore::RenderingResourceIdentifier) override;
     void clearNativeImageMap();
     void clearDecomposedGlyphsMap();
+    void clearGradientMap();
 
     void finalizeRenderingUpdateForFonts();
     void prepareForNextRenderingUpdate();
     void clearFontMap();
+    void clearFontCustomPlatformDataMap();
     void clearImageBufferBackends();
 
     ImageBufferHashMap m_imageBuffers;
     NativeImageHashMap m_nativeImages;
     FontHashMap m_fonts;
     DecomposedGlyphsHashMap m_decomposedGlyphs;
+    GradientHashMap m_gradients;
+    FontHashMap m_fontCustomPlatformDatas;
 
     unsigned m_numberOfFontsUsedInCurrentRenderingUpdate { 0 };
+    unsigned m_numberOfFontCustomPlatformDatasUsedInCurrentRenderingUpdate { 0 };
+
 
     RemoteRenderingBackendProxy& m_remoteRenderingBackendProxy;
     uint64_t m_renderingUpdateID;

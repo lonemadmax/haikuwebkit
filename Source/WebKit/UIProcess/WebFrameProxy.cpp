@@ -32,6 +32,7 @@
 #include "DrawingAreaProxy.h"
 #include "FrameTreeCreationParameters.h"
 #include "FrameTreeNodeData.h"
+#include "MessageSenderInlines.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "SubframePageProxy.h"
@@ -39,6 +40,7 @@
 #include "WebFramePolicyListenerProxy.h"
 #include "WebFrameProxyMessages.h"
 #include "WebPageMessages.h"
+#include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebPasteboardProxy.h"
 #include "WebProcessPool.h"
@@ -106,6 +108,11 @@ WebFrameProxy::~WebFrameProxy()
 
     if (m_subframePage)
         m_process->removeFrameWithRemoteFrameProcess(*this);
+}
+
+WebPageProxy* WebFrameProxy::page() const
+{
+    return m_page.get();
 }
 
 void WebFrameProxy::webProcessWillShutDown()
@@ -401,7 +408,7 @@ void WebFrameProxy::commitProvisionalFrame(FrameIdentifier frameID, FrameInfoDat
     // FIXME: Not only is this a race condition, but we still want to receive messages,
     // such as if the parent frame navigates the remote frame.
     m_provisionalFrame->process().provisionalFrameCommitted(*this);
-    send(Messages::WebFrame::DidCommitLoadInAnotherProcess(m_provisionalFrame->layerHostingContextIdentifier()));
+    send(Messages::WebFrame::DidCommitLoadInAnotherProcess(m_provisionalFrame->layerHostingContextIdentifier(), m_provisionalFrame->process().coreProcessIdentifier()));
     m_process->removeMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object());
     m_process = std::exchange(m_provisionalFrame, nullptr)->process();
     m_process->addMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frameID.object(), *this);
@@ -475,6 +482,7 @@ FrameTreeCreationParameters WebFrameProxy::frameTreeCreationParameters() const
 {
     return {
         m_frameID,
+        m_process->coreProcessIdentifier(),
         WTF::map(m_childFrames, [] (auto& frame) {
             return frame->frameTreeCreationParameters();
         })

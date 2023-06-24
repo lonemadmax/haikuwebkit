@@ -144,7 +144,13 @@ bool PageClientImpl::isViewVisible()
     
     if ([m_webView _mayAutomaticallyShowVideoPictureInPicture])
         return true;
-    
+
+#if ENABLE(WEBXR) && !USE(OPENXR)
+    auto page = m_webView.get()->_page;
+    if (page && page->xrSystem() && page->xrSystem()->hasActiveSession())
+        return true;
+#endif
+
     return false;
 }
 
@@ -614,7 +620,7 @@ void PageClientImpl::restorePageCenterAndScale(std::optional<WebCore::FloatPoint
     [m_webView _restorePageStateToUnobscuredCenter:center scale:scale];
 }
 
-void PageClientImpl::elementDidFocus(const FocusedElementInformation& nodeInformation, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState::Flag> activityStateChanges, API::Object* userData)
+void PageClientImpl::elementDidFocus(const FocusedElementInformation& nodeInformation, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, API::Object* userData)
 {
     auto userObject = userData ? userData->toNSObject() : RetainPtr<NSObject<NSSecureCoding>>();
     [m_contentView _elementDidFocus:nodeInformation userIsInteracting:userIsInteracting blurPreviousNode:blurPreviousNode activityStateChanges:activityStateChanges userObject:userObject.get()];

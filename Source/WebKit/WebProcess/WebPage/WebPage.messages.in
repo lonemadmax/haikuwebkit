@@ -22,7 +22,7 @@
 
 messages -> WebPage LegacyReceiver {
     SetInitialFocus(bool forward, bool isKeyboardEventValid, WebKit::WebKeyboardEvent event) -> ()
-    SetActivityState(OptionSet<WebCore::ActivityState::Flag> activityState, WebKit::ActivityStateChangeID activityStateChangeID) -> ()
+    SetActivityState(OptionSet<WebCore::ActivityState> activityState, WebKit::ActivityStateChangeID activityStateChangeID) -> ()
     SetLayerHostingMode(enum:uint8_t WebKit::LayerHostingMode layerHostingMode)
 
     SetBackgroundColor(std::optional<WebCore::Color> color)
@@ -676,7 +676,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     SetAppHighlightsVisibility(enum:bool WebCore::HighlightVisibility highlightVisibility)
 #endif
 
-    HandleWheelEvent(WebKit::WebWheelEvent event, OptionSet<WebCore::WheelEventProcessingSteps> processingSteps)
+    HandleWheelEvent(WebKit::WebWheelEvent event, OptionSet<WebCore::WheelEventProcessingSteps> processingSteps, std::optional<bool> willStartSwipe) -> (uint64_t scrollingNodeID, std::optional<WebCore::WheelScrollGestureState> gestureState)
 #if PLATFORM(IOS_FAMILY)
     DispatchWheelEventWithoutScrolling(WebKit::WebWheelEvent event) -> (bool handled)
 #endif

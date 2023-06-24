@@ -40,12 +40,10 @@ class GraphicsContext;
 class NativeImage final : public RenderingResource {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static WEBCORE_EXPORT RefPtr<NativeImage> create(PlatformImagePtr&&, RenderingResourceIdentifier = RenderingResourceIdentifier::generate());
+    static WEBCORE_EXPORT RefPtr<NativeImage> create(PlatformImagePtr&&, RenderingResourceIdentifier = RenderingResourceIdentifier::generateThreadSafe());
 
     WEBCORE_EXPORT void setPlatformImage(PlatformImagePtr&&);
     const PlatformImagePtr& platformImage() const { return m_platformImage; }
-
-    RenderingResourceIdentifier renderingResourceIdentifier() const { return m_renderingResourceIdentifier; }
 
     WEBCORE_EXPORT IntSize size() const;
     bool hasAlpha() const;
@@ -53,7 +51,6 @@ public:
     WEBCORE_EXPORT DestinationColorSpace colorSpace() const;
 
     void draw(GraphicsContext&, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&);
-
     void clearSubimages();
 
 private:

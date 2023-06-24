@@ -146,6 +146,7 @@
 #include "MediaResourceLoader.h"
 #include "MediaSession.h"
 #include "MediaSessionActionDetails.h"
+#include "MediaStrategy.h"
 #include "MediaStreamTrack.h"
 #include "MediaUsageInfo.h"
 #include "MemoryCache.h"
@@ -227,6 +228,7 @@
 #include "ThreadableBlobRegistry.h"
 #include "TreeScope.h"
 #include "TypeConversions.h"
+#include "UserContentURLPattern.h"
 #include "UserGestureIndicator.h"
 #include "UserMediaController.h"
 #include "ViewportArguments.h"
@@ -315,10 +317,6 @@
 
 #if USE(LIBWEBRTC)
 #include "LibWebRTCProvider.h"
-#endif
-
-#if ENABLE(MEDIA_SOURCE)
-#include "MockMediaPlayerMediaSource.h"
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
@@ -2122,15 +2120,15 @@ ExceptionOr<void> Internals::setPagination(const String& mode, int gap, int page
 
     Pagination pagination;
     if (mode == "Unpaginated"_s)
-        pagination.mode = Pagination::Unpaginated;
+        pagination.mode = Unpaginated;
     else if (mode == "LeftToRightPaginated"_s)
-        pagination.mode = Pagination::LeftToRightPaginated;
+        pagination.mode = LeftToRightPaginated;
     else if (mode == "RightToLeftPaginated"_s)
-        pagination.mode = Pagination::RightToLeftPaginated;
+        pagination.mode = RightToLeftPaginated;
     else if (mode == "TopToBottomPaginated"_s)
-        pagination.mode = Pagination::TopToBottomPaginated;
+        pagination.mode = TopToBottomPaginated;
     else if (mode == "BottomToTopPaginated"_s)
-        pagination.mode = Pagination::BottomToTopPaginated;
+        pagination.mode = BottomToTopPaginated;
     else
         return Exception { SyntaxError };
 
@@ -2986,7 +2984,13 @@ RefPtr<WindowProxy> Internals::openDummyInspectorFrontend(const String& url)
 {
     auto* inspectedPage = contextDocument()->frame()->page();
     auto* localMainFrame = dynamicDowncast<LocalFrame>(inspectedPage->mainFrame());
-    auto* window = localMainFrame ? localMainFrame->document()->domWindow() : nullptr;
+    if (!localMainFrame)
+        return nullptr;
+
+    auto* window = localMainFrame->document()->domWindow();
+    if (!window)
+        return nullptr;
+
     auto frontendWindowProxy = window->open(*window, *window, url, emptyAtom(), emptyString()).releaseReturnValue();
     m_inspectorFrontend = makeUnique<InspectorStubFrontend>(*inspectedPage, downcast<LocalDOMWindow>(frontendWindowProxy->window()));
     return frontendWindowProxy;
@@ -4449,13 +4453,7 @@ bool Internals::isPluginSnapshotted(Element&)
 
 void Internals::initializeMockMediaSource()
 {
-#if USE(AVFOUNDATION)
-    WebCore::DeprecatedGlobalSettings::setAVFoundationEnabled(false);
-#endif
-#if USE(GSTREAMER)
-    WebCore::DeprecatedGlobalSettings::setGStreamerEnabled(false);
-#endif
-    MediaPlayerFactorySupport::callRegisterMediaEngine(MockMediaPlayerMediaSource::registerMediaEngine);
+    platformStrategies()->mediaStrategy().enableMockMediaSource();
 }
 
 void Internals::bufferedSamplesForTrackId(SourceBuffer& buffer, const AtomString& trackId, BufferedSamplesPromise&& promise)
@@ -5070,6 +5068,18 @@ ExceptionOr<bool> Internals::pageDefersLoading()
     if (!document || !document->page())
         return Exception { InvalidAccessError };
     return document->page()->defersLoading();
+}
+
+void Internals::grantUniversalAccess()
+{
+    if (auto* document = contextDocument())
+        document->securityOrigin().grantUniversalAccess();
+}
+
+void Internals::disableCORSForURL(const String& url)
+{
+    if (auto* page = contextDocument() ? contextDocument()->page() : nullptr)
+        page->addCORSDisablingPatternForTesting(UserContentURLPattern { url });
 }
 
 RefPtr<File> Internals::createFile(const String& path)
@@ -5715,7 +5725,7 @@ void Internals::setPageIsInWindow(bool isInWindow)
     updatePageActivityState(ActivityState::IsInWindow, isInWindow);
 }
 
-void Internals::updatePageActivityState(OptionSet<ActivityState::Flag> statesToChange, bool newValue)
+void Internals::updatePageActivityState(OptionSet<ActivityState> statesToChange, bool newValue)
 {
     auto* page = contextDocument() ? contextDocument()->page() : nullptr;
     if (!page)

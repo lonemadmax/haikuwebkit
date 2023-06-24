@@ -28,8 +28,11 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "JSWebAssemblyArray.h"
+#include "JSWebAssemblyStruct.h"
 #include "WasmFormat.h"
 #include "WasmTypeDefinitionInlines.h"
+#include "WebAssemblyFunctionBase.h"
 #include <wtf/CommaPrinter.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/StringPrintStream.h>
@@ -571,7 +574,10 @@ const TypeDefinition& TypeInformation::signatureForLLIntBuiltin(LLIntBuiltin bui
     case LLIntBuiltin::RefCast:
         return *singleton().m_Ref_RefI32I32;
     case LLIntBuiltin::ArrayNewData:
+    case LLIntBuiltin::ArrayNewElem:
         return *singleton().m_Ref_I32I32I32I32;
+    case LLIntBuiltin::ExternInternalize:
+        return *singleton().m_Anyref_Externref;
     }
     RELEASE_ASSERT_NOT_REACHED();
     return *singleton().m_I64_Void;
@@ -855,10 +861,11 @@ TypeInformation::TypeInformation()
     m_I32_I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { Wasm::Types::I32 }, { Wasm::Types::I32 } }).iterator->key;
     if (!Options::useWebAssemblyGC())
         return;
-    // FIXME: The Ref type here is only used to compute call information, a heap type of "any" would be better once that's added.
+    m_I32_RefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { Wasm::Types::I32 }, { anyrefType(), Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
+    m_Ref_RefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { anyrefType() }, { anyrefType(), Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_I32_RefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { Wasm::Types::I32 }, { Wasm::Type { Wasm::TypeKind::Ref, static_cast<TypeIndex>(Wasm::TypeKind::Externref) }, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
-    m_Ref_RefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { Wasm::Type { Wasm::TypeKind::Ref, static_cast<TypeIndex>(Wasm::TypeKind::Externref) } },  { Wasm::Type { Wasm::TypeKind::Ref, static_cast<TypeIndex>(Wasm::TypeKind::Externref) }, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Ref_I32I32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { arrayrefType() }, { Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
+    m_Anyref_Externref = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { anyrefType() }, { externrefType() } }).iterator->key;
 }
 
 RefPtr<TypeDefinition> TypeInformation::typeDefinitionForFunction(const Vector<Type, 1>& results, const Vector<Type>& args)
@@ -1006,6 +1013,65 @@ RefPtr<const RTT> TypeInformation::getCanonicalRTT(TypeIndex type)
     }
 
     return { };
+}
+
+bool TypeInformation::castReference(JSValue refValue, bool allowNull, TypeIndex typeIndex)
+{
+    if (refValue.isNull())
+        return allowNull;
+
+    if (typeIndexIsType(typeIndex)) {
+        switch (static_cast<TypeKind>(typeIndex)) {
+        case TypeKind::Funcref:
+        case TypeKind::Externref:
+        case TypeKind::Anyref:
+            // Casts to these types cannot fail as they are the top types of their respective hierarchies, and static type-checking does not allow cross-hierarchy casts.
+            return true;
+        case TypeKind::Eqref:
+            return (refValue.isInt32() && refValue.asInt32() <= maxI31ref && refValue.asInt32() >= minI31ref) || jsDynamicCast<JSWebAssemblyArray*>(refValue) || jsDynamicCast<JSWebAssemblyStruct*>(refValue);
+        case TypeKind::Nullref:
+            return false;
+        case TypeKind::I31ref:
+            return refValue.isInt32() && refValue.asInt32() <= maxI31ref && refValue.asInt32() >= minI31ref;
+        case TypeKind::Arrayref:
+            return jsDynamicCast<JSWebAssemblyArray*>(refValue);
+        case TypeKind::Structref:
+            return jsDynamicCast<JSWebAssemblyStruct*>(refValue);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    } else {
+        const TypeDefinition& signature = TypeInformation::get(typeIndex);
+        auto signatureRTT = TypeInformation::getCanonicalRTT(typeIndex);
+        if (signature.expand().is<FunctionSignature>()) {
+            WebAssemblyFunctionBase* funcRef = jsDynamicCast<WebAssemblyFunctionBase*>(refValue);
+            // Static type-checking should ensure this jsDynamicCast always succeeds.
+            ASSERT(funcRef);
+            auto funcRTT = funcRef->rtt();
+            if (funcRTT.get() == signatureRTT.get())
+                return true;
+            return funcRTT->isSubRTT(*signatureRTT);
+        }
+        if (signature.expand().is<ArrayType>()) {
+            JSWebAssemblyArray* arrayRef = jsDynamicCast<JSWebAssemblyArray*>(refValue);
+            if (!arrayRef)
+                return false;
+            auto arrayRTT = arrayRef->rtt();
+            if (arrayRTT.get() == signatureRTT.get())
+                return true;
+            return arrayRTT->isSubRTT(*signatureRTT);
+        }
+        ASSERT(signature.expand().is<StructType>());
+        JSWebAssemblyStruct* structRef = jsDynamicCast<JSWebAssemblyStruct*>(refValue);
+        if (!structRef)
+            return false;
+        auto structRTT = structRef->rtt();
+        if (structRTT.get() == signatureRTT.get())
+            return true;
+        return structRTT->isSubRTT(*signatureRTT);
+    }
+
+    return false;
 }
 
 void TypeInformation::tryCleanup()

@@ -62,6 +62,9 @@ enum class TableElementType : uint8_t {
     Funcref
 };
 
+constexpr int32_t maxI31ref = 1073741823;
+constexpr int32_t minI31ref = -1073741824;
+
 inline bool isValueType(Type type)
 {
     switch (type.kind) {
@@ -196,10 +199,11 @@ inline Type funcrefType()
     return Types::Funcref;
 }
 
-inline Type externrefType()
+inline Type externrefType(bool isNullable = true)
 {
     if (Options::useWebAssemblyTypedFunctionReferences())
-        return Wasm::Type { Wasm::TypeKind::RefNull, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Externref) };
+        return Wasm::Type { isNullable ? Wasm::TypeKind::RefNull : Wasm::TypeKind::Ref, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Externref) };
+    ASSERT(isNullable);
     return Types::Externref;
 }
 
@@ -209,10 +213,10 @@ inline Type eqrefType()
     return Wasm::Type { Wasm::TypeKind::RefNull, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Eqref) };
 }
 
-inline Type anyrefType()
+inline Type anyrefType(bool isNullable = true)
 {
     ASSERT(Options::useWebAssemblyGC());
-    return Wasm::Type { Wasm::TypeKind::RefNull, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Anyref) };
+    return Wasm::Type { isNullable ? Wasm::TypeKind::RefNull : Wasm::TypeKind::Ref, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Anyref) };
 }
 
 inline Type arrayrefType()
@@ -348,6 +352,17 @@ inline bool isDefaultableType(StorageType type)
         return !type.as<Type>().isRef();
     // All packed types are defaultable.
     return true;
+}
+
+inline JSValue internalizeExternref(JSValue value)
+{
+    if (value.isDouble() && JSC::canBeStrictInt32(value.asDouble())) {
+        int32_t int32Value = JSC::toInt32(value.asDouble());
+        if (int32Value <= Wasm::maxI31ref && int32Value >= Wasm::minI31ref)
+            return jsNumber(int32Value);
+    }
+
+    return value;
 }
 
 enum class ExternalKind : uint8_t {
@@ -555,12 +570,13 @@ public:
         ASSERT(!*this);
     }
 
-    TableInformation(uint32_t initial, std::optional<uint32_t> maximum, bool isImport, TableElementType type)
+    TableInformation(uint32_t initial, std::optional<uint32_t> maximum, bool isImport, TableElementType type, Type wasmType)
         : m_initial(initial)
         , m_maximum(maximum)
         , m_isImport(isImport)
         , m_isValid(true)
         , m_type(type)
+        , m_wasmType(wasmType)
     {
         ASSERT(*this);
     }
@@ -570,7 +586,7 @@ public:
     uint32_t initial() const { return m_initial; }
     std::optional<uint32_t> maximum() const { return m_maximum; }
     TableElementType type() const { return m_type; }
-    Type wasmType() const { return m_type == TableElementType::Funcref ? funcrefType() : externrefType(); }
+    Type wasmType() const { return m_wasmType; }
 
 private:
     uint32_t m_initial;
@@ -578,6 +594,7 @@ private:
     bool m_isImport { false };
     bool m_isValid { false };
     TableElementType m_type;
+    Type m_wasmType;
 };
     
 struct CustomSection {

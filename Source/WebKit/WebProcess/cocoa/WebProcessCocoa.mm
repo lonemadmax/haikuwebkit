@@ -147,6 +147,7 @@
 #import "AppKitSPI.h"
 #import "WKAccessibilityWebPageObjectMac.h"
 #import "WebSwitchingGPUClient.h"
+#import <Security/SecStaticCode.h>
 #import <WebCore/DisplayConfigurationMonitor.h>
 #import <WebCore/ScrollbarThemeMac.h>
 #import <pal/spi/cf/CoreTextSPI.h>
@@ -277,7 +278,18 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC)
-    SandboxExtension::consumePermanently(parameters.trustdExtensionHandle);
+    if (SandboxExtension::consumePermanently(parameters.trustdExtensionHandle)) {
+        // Open up a Mach connection to trustd by doing a code check validation on the main bundle.
+        // This is required since launchd will be blocked after process launch, which prevents new Mach connections to be created.
+        // FIXME: remove this once <rdar://90127163> is fixed.
+        auto bundleURL = adoptCF(CFBundleCopyBundleURL(CFBundleGetMainBundle()));
+        SecStaticCodeRef code = nullptr;
+        SecStaticCodeCreateWithPath(bundleURL.get(), kSecCSDefaultFlags, &code);
+        if (code) {
+            SecStaticCodeCheckValidity(code, kSecCSDoNotValidateResources, nullptr);
+            CFRelease(code);
+        }
+    }
 #endif // PLATFORM(MAC)
 #if USE(APPLE_INTERNAL_SDK)
     OptionSet<VideoDecoderBehavior> videoDecoderBehavior;
@@ -648,15 +660,20 @@ static void registerLogHook()
         return;
 
     os_log_set_hook(OS_LOG_TYPE_DEFAULT, ^(os_log_type_t type, os_log_message_t msg) {
+        if (msg->buffer_sz > 1024)
+            return;
         char* messageString = os_log_copy_message_string(msg);
         String logString = String::fromUTF8(messageString);
         free(messageString);
+
         String logChannel = String::fromUTF8(msg->subsystem);
-        callOnMainRunLoop([logChannel.isolatedCopy(), logString.isolatedCopy(), type] {
+        String logCategory = String::fromUTF8(msg->category);
+
+        callOnMainRunLoop([logChannel = logChannel.isolatedCopy(), logCategory = logCategory.isolatedCopy(), logString = logString.isolatedCopy(), type] {
             auto* connection = WebProcess::singleton().existingNetworkProcessConnection();
             if (!connection)
                 return;
-            connection->connection().send(Messages::NetworkConnectionToWebProcess::LogOnBehalfOfWebContent(logChannel, logString, type), 0);
+            connection->connection().send(Messages::NetworkConnectionToWebProcess::LogOnBehalfOfWebContent(logChannel, logCategory, logString, type, getpid()), 0);
         });
     });
 }

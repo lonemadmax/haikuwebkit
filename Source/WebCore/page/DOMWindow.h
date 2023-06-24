@@ -32,7 +32,9 @@
 
 namespace WebCore {
 
+class Document;
 class Frame;
+class SecurityOrigin;
 
 class DOMWindow : public RefCounted<DOMWindow>, public EventTarget {
     WTF_MAKE_ISO_ALLOCATED(DOMWindow);
@@ -42,7 +44,6 @@ public:
     static HashMap<GlobalWindowIdentifier, DOMWindow*>& allWindows();
 
     const GlobalWindowIdentifier& identifier() const { return m_identifier; }
-
     virtual Frame* frame() const = 0;
 
     virtual bool isLocalDOMWindow() const = 0;
@@ -53,6 +54,8 @@ public:
 
 protected:
     explicit DOMWindow(GlobalWindowIdentifier&&);
+
+    ExceptionOr<RefPtr<SecurityOrigin>> createTargetOriginForPostMessage(const String&, Document&);
 
     EventTargetInterface eventTargetInterface() const final { return LocalDOMWindowEventTargetInterfaceType; }
     void refEventTarget() final { ref(); }

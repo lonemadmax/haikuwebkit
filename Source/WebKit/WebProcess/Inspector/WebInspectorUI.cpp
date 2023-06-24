@@ -78,7 +78,7 @@ void WebInspectorUI::establishConnection(WebPageProxyIdentifier inspectedPageIde
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     if (!m_extensionController)
-        m_extensionController = makeUnique<WebInspectorUIExtensionController>(*this);
+        m_extensionController = makeUnique<WebInspectorUIExtensionController>(*this, m_page.identifier());
 #endif
 
     m_frontendAPIDispatcher->reset();
@@ -351,7 +351,7 @@ bool WebInspectorUI::supportsWebExtensions()
     return true;
 }
 
-void WebInspectorUI::didShowExtensionTab(const String& extensionID, const String& extensionTabID, WebCore::FrameIdentifier frameID)
+void WebInspectorUI::didShowExtensionTab(const String& extensionID, const String& extensionTabID, const WebCore::FrameIdentifier& frameID)
 {
     if (!m_extensionController)
         return;

@@ -67,12 +67,9 @@
 #import "WKQuickLookPreviewController.h"
 #import "WKRevealItemPresenter.h"
 #import "WKSafeBrowsingWarning.h"
-#import <WebKit/WKShareSheet.h>
 #import "WKTextInputWindowController.h"
 #import "WKViewLayoutStrategy.h"
 #import "WKWebViewInternal.h"
-#import <WebKit/WKWebViewPrivate.h>
-#import <WebKit/WebBackForwardList.h>
 #import "WebBackForwardList.h"
 #import "WebEditCommandProxy.h"
 #import "WebEventFactory.h"
@@ -117,6 +114,9 @@
 #import <WebCore/WebCoreFullScreenWindow.h>
 #import <WebCore/WebCoreNSFontManagerExtras.h>
 #import <WebCore/WebPlaybackControlsManager.h>
+#import <WebKit/WKShareSheet.h>
+#import <WebKit/WKWebViewPrivate.h>
+#import <WebKit/WebBackForwardList.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
@@ -2144,7 +2144,7 @@ void WebViewImpl::viewDidMoveToWindow()
     if (window) {
         windowDidChangeScreen();
 
-        OptionSet<WebCore::ActivityState::Flag> activityStateChanges { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsVisible };
+        OptionSet<WebCore::ActivityState> activityStateChanges { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsVisible };
         if (m_shouldDeferViewInWindowChanges)
             m_viewInWindowChangeWasDeferred = true;
         else
@@ -2170,7 +2170,7 @@ void WebViewImpl::viewDidMoveToWindow()
         if (m_immediateActionGestureRecognizer && ![[m_view gestureRecognizers] containsObject:m_immediateActionGestureRecognizer.get()] && !m_ignoresNonWheelEvents && m_allowsLinkPreview)
             [m_view addGestureRecognizer:m_immediateActionGestureRecognizer.get()];
     } else {
-        OptionSet<WebCore::ActivityState::Flag> activityStateChanges { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsVisible };
+        OptionSet<WebCore::ActivityState> activityStateChanges { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsVisible };
         if (m_shouldDeferViewInWindowChanges)
             m_viewInWindowChangeWasDeferred = true;
         else
@@ -3780,7 +3780,7 @@ void WebViewImpl::setThumbnailView(_WKThumbnailView *thumbnailView)
         updateThumbnailViewLayer();
     else {
         setAcceleratedCompositingRootLayer(m_rootLayer.get());
-        m_page->activityStateDidChange(WebCore::ActivityState::allFlags());
+        m_page->activityStateDidChange(WebCore::allActivityStates());
     }
 }
 
@@ -4166,7 +4166,7 @@ static bool matchesExtensionOrEquivalent(const String& filename, const String& e
         || (equalLettersIgnoringASCIICase(extension, "jpeg"_s) && filename.endsWithIgnoringASCIICase(".jpg"_s));
 }
 
-void WebViewImpl::setFileAndURLTypes(NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, NSPasteboard *pasteboard)
+void WebViewImpl::setFileAndURLTypes(NSString *filename, NSString *extension, NSString* uti, NSString *title, NSString *url, NSString *visibleURL, NSPasteboard *pasteboard)
 {
     if (!matchesExtensionOrEquivalent(filename, extension))
         filename = [[filename stringByAppendingString:@"."] stringByAppendingString:extension];
@@ -4175,18 +4175,19 @@ void WebViewImpl::setFileAndURLTypes(NSString *filename, NSString *extension, NS
     [pasteboard setString:visibleURL forType:PasteboardTypes::WebURLPboardType];
     [pasteboard setString:title forType:PasteboardTypes::WebURLNamePboardType];
     [pasteboard setPropertyList:@[@[visibleURL], @[title]] forType:PasteboardTypes::WebURLsWithTitlesPboardType];
-    [pasteboard setPropertyList:@[extension] forType:WebCore::legacyFilesPromisePasteboardType()];
+    [pasteboard setPropertyList:@[uti] forType:WebCore::legacyFilesPromisePasteboardType()];
     m_promisedFilename = filename;
     m_promisedURL = url;
 }
 
-void WebViewImpl::setPromisedDataForImage(WebCore::Image* image, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::FragmentedSharedBuffer* archiveBuffer, NSString *pasteboardName, NSString *originIdentifier)
+void WebViewImpl::setPromisedDataForImage(WebCore::Image& image, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::FragmentedSharedBuffer* archiveBuffer, NSString *pasteboardName, NSString *originIdentifier)
 {
     NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:pasteboardName];
     RetainPtr<NSMutableArray> types = adoptNS([[NSMutableArray alloc] initWithObjects:WebCore::legacyFilesPromisePasteboardType(), nil]);
 
-    if (image && !image->uti().isEmpty() && image->data() && !image->data()->isEmpty())
-        [types addObject:image->uti()];
+    auto uti = image.uti();
+    if (!uti.isEmpty() && image.data() && !image.data()->isEmpty())
+        [types addObject:uti];
 
     RetainPtr<NSData> customDataBuffer;
     if (originIdentifier.length) {
@@ -4198,7 +4199,7 @@ void WebViewImpl::setPromisedDataForImage(WebCore::Image* image, NSString *filen
 
     [types addObjectsFromArray:archiveBuffer ? PasteboardTypes::forImagesWithArchive() : PasteboardTypes::forImages()];
     [pasteboard declareTypes:types.get() owner:m_view.getAutoreleased()];
-    setFileAndURLTypes(filename, extension, title, url, visibleURL, pasteboard);
+    setFileAndURLTypes(filename, extension, uti, title, url, visibleURL, pasteboard);
 
     if (archiveBuffer) {
         auto nsData = archiveBuffer->makeContiguous()->createNSData();
@@ -4211,7 +4212,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (customDataBuffer)
         [pasteboard setData:customDataBuffer.get() forType:@(WebCore::PasteboardCustomData::cocoaType().characters())];
 
-    m_promisedImage = image;
+    m_promisedImage = &image;
 }
 
 void WebViewImpl::clearPromisedDragImage()
@@ -4910,8 +4911,9 @@ void WebViewImpl::attributedSubstringForProposedRange(NSRange proposedRange, voi
 {
     LOG(TextInput, "attributedSubstringFromRange:(%u, %u)", proposedRange.location, proposedRange.length);
     m_page->attributedSubstringForCharacterRangeAsync(proposedRange, [completionHandler = makeBlockPtr(completionHandler)](const WebCore::AttributedString& string, const EditingRange& actualRange) {
-        LOG(TextInput, "    -> attributedSubstringFromRange returned %@", string.string.get());
-        completionHandler(string.string.get(), actualRange);
+        auto attributedString = string.nsAttributedString();
+        LOG(TextInput, "    -> attributedSubstringFromRange returned %@", attributedString.get());
+        completionHandler(attributedString.get(), actualRange);
     });
 }
 

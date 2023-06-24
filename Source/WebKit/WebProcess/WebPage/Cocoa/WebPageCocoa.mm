@@ -29,6 +29,7 @@
 #import "EditorState.h"
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
+#import "MessageSenderInlines.h"
 #import "PluginView.h"
 #import "UserMediaCaptureManager.h"
 #import "WKAccessibilityWebPageObjectBase.h"
@@ -213,7 +214,7 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, cons
     dictionaryPopupInfo.platformData.options = options;
 
 #if PLATFORM(MAC)
-    auto attributedString = editingAttributedString(range, IncludeImages::No).string;
+    auto attributedString = editingAttributedString(range, IncludeImages::No).nsAttributedString();
     auto scaledAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:[attributedString string]]);
     NSFontManager *fontManager = [NSFontManager sharedFontManager];
     [attributedString enumerateAttributesInRange:NSMakeRange(0, [attributedString length]) options:0 usingBlock:^(NSDictionary *attributes, NSRange range, BOOL *stop) {

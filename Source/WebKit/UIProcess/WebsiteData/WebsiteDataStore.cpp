@@ -37,6 +37,7 @@
 #include "MockAuthenticatorManager.h"
 #include "NetworkProcessConnectionInfo.h"
 #include "NetworkProcessMessages.h"
+#include "PageLoadState.h"
 #include "ShouldGrandfatherStatistics.h"
 #include "StorageAccessStatus.h"
 #include "UnifiedOriginStorageLevel.h"
@@ -60,6 +61,7 @@
 #include <WebCore/OriginLock.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/ResourceRequest.h>
+#include <WebCore/SearchPopupMenu.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/WebLockRegistry.h>
@@ -1921,6 +1923,8 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     networkSessionParameters.perOriginStorageQuota = perOriginStorageQuota();
     networkSessionParameters.perThirdPartyOriginStorageQuota = perThirdPartyOriginStorageQuota();
     networkSessionParameters.originQuotaRatio = originQuotaRatio();
+    networkSessionParameters.totalQuotaRatio = m_configuration->totalQuotaRatio();
+    networkSessionParameters.volumeCapacityOverride = m_configuration->volumeCapacityOverride();
     networkSessionParameters.localStorageDirectory = resolvedLocalStorageDirectory();
     createHandleFromResolvedPathIfPossible(networkSessionParameters.localStorageDirectory, networkSessionParameters.localStorageDirectoryExtensionHandle);
     networkSessionParameters.indexedDBDirectory = resolvedIndexedDBDatabaseDirectory();
@@ -2347,7 +2351,7 @@ void WebsiteDataStore::setEmulatedConditions(std::optional<int64_t>&& bytesPerSe
 
 #endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
-DownloadProxy& WebsiteDataStore::createDownloadProxy(Ref<API::DownloadClient>&& client, const WebCore::ResourceRequest& request, WebPageProxy* originatingPage, const FrameInfoData& frameInfo)
+Ref<DownloadProxy> WebsiteDataStore::createDownloadProxy(Ref<API::DownloadClient>&& client, const WebCore::ResourceRequest& request, WebPageProxy* originatingPage, const FrameInfoData& frameInfo)
 {
     return networkProcess().createDownloadProxy(*this, WTFMove(client), request, frameInfo, originatingPage);
 }

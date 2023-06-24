@@ -252,6 +252,9 @@ private:
 
     // FIXME add a macro as above for WASM_TRY_APPEND_TO_CONTROL_STACK https://bugs.webkit.org/show_bug.cgi?id=165862
 
+    void addReferencedFunctions(const Element&);
+    PartialResult WARN_UNUSED_RETURN parseArrayTypeDefinition(const char*, bool, uint32_t&, FieldType&, Type&);
+
     Context& m_context;
     Stack m_expressionStack;
     ControlStack m_controlStack;
@@ -1443,6 +1446,42 @@ auto FunctionParser<Context>::unify(const ControlType& controlData) -> PartialRe
 }
 
 template<typename Context>
+void FunctionParser<Context>::addReferencedFunctions(const Element& segment)
+{
+    ASSERT(segment.elementType == TableElementType::Funcref);
+
+    // Add each function index as a referenced function. This ensures that
+    // wrappers will be created for GC.
+    for (uint32_t functionIndex : segment.functionIndices) {
+        if (functionIndex != Element::nullFuncIndex)
+            m_info.addReferencedFunction(functionIndex);
+    }
+}
+
+template<typename Context>
+auto FunctionParser<Context>::parseArrayTypeDefinition(const char* operation, bool isNullable, uint32_t& typeIndex, FieldType& elementType, Type& arrayRefType) -> PartialResult
+{
+    // Parse type index
+    WASM_PARSER_FAIL_IF(!parseVarUInt32(typeIndex), "can't get type index for ", operation);
+    WASM_VALIDATOR_FAIL_IF(typeIndex >= m_info.typeCount(), operation, " index ", typeIndex, " is out of bounds");
+
+    // Get the corresponding type definition
+    const TypeDefinition& typeDefinition = m_info.typeSignatures[typeIndex].get().expand();
+
+    // Check that it's an array type
+    WASM_VALIDATOR_FAIL_IF(!typeDefinition.is<ArrayType>(), operation, " index ", typeIndex, " does not reference an array definition");
+
+    // Extract the field type
+    elementType = typeDefinition.as<ArrayType>()->elementType();
+
+    // Construct the reference type for references to this array
+    auto typeInfo = TypeInformation::get(typeDefinition);
+    arrayRefType = Type { isNullable ? TypeKind::RefNull : TypeKind::Ref, typeInfo };
+
+    return { };
+}
+
+template<typename Context>
 auto FunctionParser<Context>::parseExpression() -> PartialResult
 {
     switch (m_currentOpcode) {
@@ -1784,13 +1823,10 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         }
         case ExtGCOpType::ArrayNew: {
             uint32_t typeIndex;
-            WASM_PARSER_FAIL_IF(!parseVarUInt32(typeIndex), "can't get type index for array.new");
-            WASM_VALIDATOR_FAIL_IF(typeIndex >= m_info.typeCount(), "array.new index ", typeIndex, " is out of bounds");
-
-            const TypeDefinition& typeDefinition = m_info.typeSignatures[typeIndex].get().expand();
-            WASM_VALIDATOR_FAIL_IF(!typeDefinition.is<ArrayType>(), "array.new index ", typeIndex, " does not reference an array definition");
-            // If this is a packed array, then the value has to have type i32
-            const Type unpackedElementType = typeDefinition.as<ArrayType>()->elementType().type.unpacked();
+            FieldType fieldType;
+            Type arrayRefType;
+            WASM_FAIL_IF_HELPER_FAILS(parseArrayTypeDefinition("array.new", false, typeIndex, fieldType, arrayRefType));
+            Type unpackedElementType = fieldType.type.unpacked();
 
             TypedExpression value, size;
             WASM_TRY_POP_EXPRESSION_STACK_INTO(size, "array.new");
@@ -1801,18 +1837,16 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             ExpressionType result;
             WASM_TRY_ADD_TO_CONTEXT(addArrayNew(typeIndex, size, value, result));
 
-            m_expressionStack.constructAndAppend(Type { TypeKind::Ref, TypeInformation::get(typeDefinition) }, result);
+            m_expressionStack.constructAndAppend(arrayRefType, result);
+
             return { };
         }
         case ExtGCOpType::ArrayNewDefault: {
             uint32_t typeIndex;
-            WASM_PARSER_FAIL_IF(!parseVarUInt32(typeIndex), "can't get type index for array.new_default");
-            WASM_VALIDATOR_FAIL_IF(typeIndex >= m_info.typeCount(), "array.new_default index ", typeIndex, " is out of bounds");
-
-            const TypeDefinition& typeDefinition = m_info.typeSignatures[typeIndex].get().expand();
-            WASM_VALIDATOR_FAIL_IF(!typeDefinition.is<ArrayType>(), "array.new_default index ", typeIndex, " does not reference an array definition");
-            const StorageType elementType = typeDefinition.as<ArrayType>()->elementType().type;
-            WASM_VALIDATOR_FAIL_IF(!isDefaultableType(elementType), "array.new_default index ", typeIndex, " does not reference an array definition with a defaultable type");
+            FieldType fieldType;
+            Type arrayRefType;
+            WASM_FAIL_IF_HELPER_FAILS(parseArrayTypeDefinition("array.new_default", false, typeIndex, fieldType, arrayRefType));
+            WASM_VALIDATOR_FAIL_IF(!isDefaultableType(fieldType.type), "array.new_default index ", typeIndex, " does not reference an array definition with a defaultable type");
 
             TypedExpression size;
             WASM_TRY_POP_EXPRESSION_STACK_INTO(size, "array.new_default");
@@ -1821,7 +1855,43 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             ExpressionType result;
             WASM_TRY_ADD_TO_CONTEXT(addArrayNewDefault(typeIndex, size, result));
 
-            m_expressionStack.constructAndAppend(Type { TypeKind::Ref, TypeInformation::get(typeDefinition) }, result);
+            m_expressionStack.constructAndAppend(arrayRefType, result);
+            return { };
+        }
+        case ExtGCOpType::ArrayNewFixed: {
+            // Get the array type and element type
+            uint32_t typeIndex;
+            FieldType fieldType;
+            Type arrayRefType;
+            WASM_FAIL_IF_HELPER_FAILS(parseArrayTypeDefinition("array.new_fixed", false, typeIndex, fieldType, arrayRefType));
+            const Type elementType = fieldType.type.unpacked();
+
+            // Get number of arguments
+            uint32_t argc;
+            WASM_PARSER_FAIL_IF(!parseVarUInt32(argc), "can't get argument count for array.new_fixed");
+
+            // If more arguments are expected than the current stack size, that's an error
+            WASM_VALIDATOR_FAIL_IF(argc > m_expressionStack.size(), "array_new_fixed: found ", m_expressionStack.size(), " operands on stack; expected ", argc, " operands");
+
+            // Allocate stack space for arguments
+            Vector<ExpressionType> args;
+            size_t firstArgumentIndex = m_expressionStack.size() - argc;
+            WASM_PARSER_FAIL_IF(!args.tryReserveCapacity(argc), "can't allocate enough memory for array.new_fixed ", argc, " values");
+
+            // Start parsing arguments; the expected type for each one is the unpacked version of the array element type
+            for (size_t i = firstArgumentIndex; i < m_expressionStack.size(); ++i) {
+                TypedExpression arg = m_expressionStack.at(i);
+                WASM_VALIDATOR_FAIL_IF(!isSubtype(arg.type(), elementType), "argument type mismatch in array.new_fixed, got ", arg.type(), ", expected a subtype of ", elementType);
+                args.uncheckedAppend(arg);
+                m_context.didPopValueFromStack();
+            }
+            m_expressionStack.shrink(firstArgumentIndex);
+            // We already checked that the expression stack was deep enough, so it's safe to assert this
+            RELEASE_ASSERT(argc == args.size());
+
+            ExpressionType result;
+            WASM_TRY_ADD_TO_CONTEXT(addArrayNewFixed(typeIndex, args, result));
+            m_expressionStack.constructAndAppend(arrayRefType, result);
             return { };
         }
         case ExtGCOpType::ArrayNewData: {
@@ -1875,19 +1945,74 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             m_expressionStack.constructAndAppend(Type { TypeKind::Ref, TypeInformation::get(typeDefinition) }, result);
             return { };
         }
+        case ExtGCOpType::ArrayNewElem: {
+
+            uint32_t typeIndex;
+            WASM_PARSER_FAIL_IF(!parseVarUInt32(typeIndex), "can't get type index for array.new_elem");
+            WASM_VALIDATOR_FAIL_IF(typeIndex >= m_info.typeCount(), "array.new_elem type index ", typeIndex, " is out of bounds");
+
+            const TypeDefinition& typeDefinition = m_info.typeSignatures[typeIndex].get();
+            WASM_VALIDATOR_FAIL_IF(!typeDefinition.is<ArrayType>(), "array.new_elem type index ", typeIndex, " does not reference an array definition");
+            const FieldType& fieldType = typeDefinition.as<ArrayType>()->elementType();
+
+            // Get the element segment index
+            uint32_t elemSegmentIndex;
+            WASM_PARSER_FAIL_IF(!parseVarUInt32(elemSegmentIndex), "can't get elements segment index for array.new_elem");
+            uint32_t numElementsSegments = m_info.elements.size();
+            WASM_VALIDATOR_FAIL_IF(!(numElementsSegments), "array.new_elem in module with no elements segments");
+            WASM_VALIDATOR_FAIL_IF(elemSegmentIndex >= numElementsSegments, "array.new_elem segment index ",
+                elemSegmentIndex, " is out of bounds (maximum element segment index is ", numElementsSegments -1, ")");
+
+            // Get the element type for this segment
+            const Element& elementsSegment = m_info.elements[elemSegmentIndex];
+            TableElementType segmentElementType = elementsSegment.elementType;
+
+            // Array element type must be a supertype of the element type for this element segment
+            const StorageType storageType = fieldType.type;
+            WASM_VALIDATOR_FAIL_IF(storageType.is<PackedType>(), "type mismatch in array.new_elem: expected `funcref` or `externref`");
+
+            // FIXME in the current implementation, segment element types can only be `funcref` or `externref`, so subtyping is trivial
+            // this will need to be extended once https://bugs.webkit.org/show_bug.cgi?id=251874 is fixed
+            switch (segmentElementType) {
+            case TableElementType::Funcref: {
+                WASM_VALIDATOR_FAIL_IF(!isSubtype(funcrefType(), storageType.as<Type>()), "type mismatch in array.new_elem: segment elements have type funcref but array.new_elem operation expects elements of type ", storageType);
+                // Create function wrappers for any functions in this element segment.
+                // We conservatively assume that the `array.new_canon_elem` instruction will be executed.
+                // An optimization would be to lazily create the wrappers when the array is initialized.
+                addReferencedFunctions(elementsSegment);
+                break;
+            }
+            case TableElementType::Externref: {
+                WASM_VALIDATOR_FAIL_IF(!isExternref(storageType.as<Type>()), "type mismatch in array.new_elem: segment elements have type externref but array.new_elem operation expects elements of type ", storageType);
+                break;
+            }
+            }
+
+            // Get the array size
+            TypedExpression size;
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(size, "array.new_elem");
+            WASM_VALIDATOR_FAIL_IF(TypeKind::I32 != size.type().kind, "array.new_elem: size has type ", size.type().kind, " expected ", TypeKind::I32);
+
+            // Get the offset into the data segment
+            TypedExpression offset;
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(offset, "array.new_elem");
+            WASM_VALIDATOR_FAIL_IF(TypeKind::I32 != offset.type().kind, "array.new_elem: offset has type ", offset.type().kind, " expected ", TypeKind::I32);
+
+            ExpressionType result;
+            WASM_TRY_ADD_TO_CONTEXT(addArrayNewElem(typeIndex, elemSegmentIndex, size, offset, result));
+            m_expressionStack.constructAndAppend(Type { TypeKind::Ref, TypeInformation::get(typeDefinition) }, result);
+            return { };
+        }
         case ExtGCOpType::ArrayGet:
         case ExtGCOpType::ArrayGetS:
         case ExtGCOpType::ArrayGetU: {
-            uint32_t typeIndex;
             const char* opName = op == ExtGCOpType::ArrayGet ? "array.get" : op == ExtGCOpType::ArrayGetS ? "array.get_s" : "array.get_u";
-            WASM_PARSER_FAIL_IF(!parseVarUInt32(typeIndex), "can't get type index for ", opName);
-            WASM_VALIDATOR_FAIL_IF(typeIndex >= m_info.typeCount(), opName, " index ", typeIndex, " is out of bounds");
 
-            const TypeDefinition& typeDefinition = m_info.typeSignatures[typeIndex].get().expand();
-            WASM_VALIDATOR_FAIL_IF(!typeDefinition.is<ArrayType>(), opName, " index ", typeIndex, " does not reference an array definition");
-            const StorageType elementType = typeDefinition.as<ArrayType>()->elementType().type;
-            // The type of the result will be unpacked if the array is packed.
-            const Type resultType = elementType.unpacked();
+            uint32_t typeIndex;
+            FieldType fieldType;
+            Type arrayRefType;
+            WASM_FAIL_IF_HELPER_FAILS(parseArrayTypeDefinition(opName, true, typeIndex, fieldType, arrayRefType));
+            StorageType elementType = fieldType.type;
 
             // array.get_s and array.get_u are only valid for packed arrays
             if (op == ExtGCOpType::ArrayGetS || op == ExtGCOpType::ArrayGetU)
@@ -1897,10 +2022,12 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             if (op == ExtGCOpType::ArrayGet)
                 WASM_PARSER_FAIL_IF(elementType.is<PackedType>(), opName, " applied to packed array of ", elementType.as<PackedType>(), " -- use array.get_s or array.get_u");
 
+            // The type of the result will be unpacked if the array is packed.
+            const Type resultType = elementType.unpacked();
             TypedExpression arrayref, index;
             WASM_TRY_POP_EXPRESSION_STACK_INTO(index, "array.get");
             WASM_TRY_POP_EXPRESSION_STACK_INTO(arrayref, "array.get");
-            WASM_VALIDATOR_FAIL_IF(!isSubtype(arrayref.type(), Type { TypeKind::RefNull, TypeInformation::get(typeDefinition) }), opName, " arrayref to type ", arrayref.type().kind, " expected arrayref");
+            WASM_VALIDATOR_FAIL_IF(!isSubtype(arrayref.type(), arrayRefType), opName, " arrayref to type ", arrayref.type().kind, " expected arrayref");
             WASM_VALIDATOR_FAIL_IF(TypeKind::I32 != index.type().kind, "array.get index to type ", index.type(), " expected ", TypeKind::I32);
 
             ExpressionType result;
@@ -1911,22 +2038,20 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         }
         case ExtGCOpType::ArraySet: {
             uint32_t typeIndex;
-            WASM_PARSER_FAIL_IF(!parseVarUInt32(typeIndex), "can't get type index for array.set");
-            WASM_VALIDATOR_FAIL_IF(typeIndex >= m_info.typeCount(), "array.set index ", typeIndex, " is out of bounds");
+            FieldType fieldType;
+            Type arrayRefType;
+            WASM_FAIL_IF_HELPER_FAILS(parseArrayTypeDefinition("array.set", true, typeIndex, fieldType, arrayRefType));
 
-            const TypeDefinition& typeDefinition = m_info.typeSignatures[typeIndex].get().expand();
-            WASM_VALIDATOR_FAIL_IF(!typeDefinition.is<ArrayType>(), "array.set index ", typeIndex, " does not reference an array definition");
-            WASM_VALIDATOR_FAIL_IF(!typeDefinition.is<ArrayType>(), "array.set index ", typeIndex, " does not reference an array definition");
-            const FieldType elementType = typeDefinition.as<ArrayType>()->elementType();
-            const Type unpackedElementType = elementType.type.unpacked();
+            // The type of the result will be unpacked if the array is packed.
+            const Type unpackedElementType = fieldType.type.unpacked();
 
-            WASM_VALIDATOR_FAIL_IF(elementType.mutability != Mutability::Mutable, "array.set index ", typeIndex, " does not reference a mutable array definition");
+            WASM_VALIDATOR_FAIL_IF(fieldType.mutability != Mutability::Mutable, "array.set index ", typeIndex, " does not reference a mutable array definition");
 
             TypedExpression arrayref, index, value;
             WASM_TRY_POP_EXPRESSION_STACK_INTO(value, "array.set");
             WASM_TRY_POP_EXPRESSION_STACK_INTO(index, "array.set");
             WASM_TRY_POP_EXPRESSION_STACK_INTO(arrayref, "array.set");
-            WASM_VALIDATOR_FAIL_IF(!isSubtype(arrayref.type(), Type { TypeKind::RefNull, TypeInformation::get(typeDefinition) }), "array.set arrayref to type ", arrayref.type(), " expected arrayref");
+            WASM_VALIDATOR_FAIL_IF(!isSubtype(arrayref.type(), arrayRefType), "array.set arrayref to type ", arrayref.type(), " expected arrayref");
             WASM_VALIDATOR_FAIL_IF(TypeKind::I32 != index.type().kind, "array.set index to type ", index.type(), " expected ", TypeKind::I32);
             WASM_VALIDATOR_FAIL_IF(!isSubtype(value.type(), unpackedElementType), "array.set value to type ", value.type(), " expected ", unpackedElementType);
 
@@ -2046,13 +2171,12 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
                 WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), anyrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
                 break;
             default:
-                ASSERT(heapType >= 0);
+                ASSERT(isTypeIndexHeapType(heapType));
                 const TypeDefinition& signature = m_info.typeSignatures[heapType];
                 if (signature.expand().is<FunctionSignature>())
                     WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), funcrefType()), opName, " to type ", ref.type(), " expected a funcref");
                 else
-                    // FIXME: once anyref is added this can allow any subtype of that.
-                    WASM_VALIDATOR_FAIL_IF(isExternref(ref.type()) || isSubtype(ref.type(), funcrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
+                    WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), anyrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
                 resultTypeIndex = signature.index();
                 break;
             }
@@ -2067,6 +2191,26 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
                 m_expressionStack.constructAndAppend(Types::I32, result);
             }
 
+            return { };
+        }
+        case ExtGCOpType::ExternInternalize: {
+            TypedExpression reference;
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(reference, "extern.internalize");
+            WASM_VALIDATOR_FAIL_IF(!isExternref(reference.type()), "extern.internalize reference to type ", reference.type(), " expected ", TypeKind::Externref);
+
+            ExpressionType result;
+            WASM_TRY_ADD_TO_CONTEXT(addExternInternalize(reference, result));
+            m_expressionStack.constructAndAppend(anyrefType(reference.type().isNullable()), result);
+            return { };
+        }
+        case ExtGCOpType::ExternExternalize: {
+            TypedExpression reference;
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(reference, "extern.externalize");
+            WASM_VALIDATOR_FAIL_IF(!isSubtype(reference.type(), anyrefType()), "extern.externalize reference to type ", reference.type(), " expected ", TypeKind::Anyref);
+
+            ExpressionType result;
+            WASM_TRY_ADD_TO_CONTEXT(addExternExternalize(reference, result));
+            m_expressionStack.constructAndAppend(externrefType(reference.type().isNullable()), result);
             return { };
         }
         default:

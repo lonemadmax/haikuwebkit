@@ -931,14 +931,12 @@ ExceptionOr<SelectorQuery&> Document::selectorQueryForString(const String& selec
 {
     if (selectorString.isEmpty())
         return Exception { SyntaxError };
-    if (!m_selectorQueryCache)
-        m_selectorQueryCache = makeUnique<SelectorQueryCache>();
-    return m_selectorQueryCache->add(selectorString, *this);
-}
 
-void Document::clearSelectorQueryCache()
-{
-    m_selectorQueryCache = nullptr;
+    auto* query = SelectorQueryCache::singleton().add(selectorString, *this);
+    if (!query)
+        return Exception { SyntaxError };
+
+    return *query;
 }
 
 MediaQueryMatcher& Document::mediaQueryMatcher()
@@ -954,8 +952,6 @@ void Document::setCompatibilityMode(DocumentCompatibilityMode mode)
         return;
     bool wasInQuirksMode = inQuirksMode();
     m_compatibilityMode = mode;
-
-    clearSelectorQueryCache();
 
     if (inQuirksMode() != wasInQuirksMode) {
         // All user stylesheets have to reparse using the different mode.
@@ -2020,11 +2016,6 @@ void Document::setStateForNewFormElements(const Vector<AtomString>& stateVector)
     if (!stateVector.size() && !m_formController)
         return;
     formController().setStateForNewFormElements(stateVector);
-}
-
-LocalFrameView* Document::view() const
-{
-    return m_frame ? m_frame->view() : nullptr;
 }
 
 Ref<Range> Document::createRange()
@@ -3588,7 +3579,7 @@ void Document::setURL(const URL& url)
 const URL& Document::urlForBindings() const
 {
     auto shouldAdjustURL = [this] {
-        if (m_url.url().isEmpty() || m_url.url() == m_adjustedURL || !loader() || !isTopDocument() || !frame())
+        if (m_url.url().isEmpty() || !loader() || !isTopDocument() || !frame())
             return false;
 
         auto* topDocumentLoader = topDocument().loader();
@@ -3602,17 +3593,8 @@ const URL& Document::urlForBindings() const
         return mayBeExecutingThirdPartyScript();
     }();
 
-    if (shouldAdjustURL) {
-        if (settings().adjustURLForBindingsDebugModeEnabled()) {
-            DOCUMENT_RELEASE_LOG(Loading, "Adjusted URL from %s to %s for script %s after navigating from %s", 
-                m_url.url().string().utf8().data(), 
-                m_adjustedURL.string().utf8().data(), 
-                currentSourceURL().string().utf8().data(), 
-                loader()->originalRequest().httpReferrer().utf8().data()
-            );
-        }
+    if (shouldAdjustURL)
         return m_adjustedURL;
-    }
 
     return m_url.url().isEmpty() ? aboutBlankURL() : m_url.url();
 }
@@ -3657,8 +3639,6 @@ void Document::updateBaseURL()
         m_baseURL = m_baseURLOverride;
     else
         m_baseURL = fallbackBaseURL();
-
-    clearSelectorQueryCache();
 
     if (!m_baseURL.isValid())
         m_baseURL = URL();
@@ -5482,7 +5462,9 @@ void Document::addListenerTypeIfNeeded(const AtomString& eventType)
     else if (eventType == eventNames.focusoutEvent)
         addListenerType(FOCUSOUT_LISTENER);
     else if (eventNames.isCSSTransitionEventType(eventType))
-        addListenerType(TRANSITION_ANIMATION_LISTENER);
+        addListenerType(CSS_TRANSITION_LISTENER);
+    else if (eventNames.isCSSAnimationEventType(eventType))
+        addListenerType(CSS_ANIMATION_LISTENER);
 }
 
 HTMLFrameOwnerElement* Document::ownerElement() const
@@ -5861,7 +5843,6 @@ void Document::setBackForwardCacheState(BackForwardCacheState state)
 #endif
 
         styleScope().clearResolver();
-        clearSelectorQueryCache();
         m_styleRecalcTimer.stop();
 
         clearSharedObjectPool();
@@ -6228,15 +6209,10 @@ void Document::setTransformSource(std::unique_ptr<TransformSource> source)
 
 #endif
 
-void Document::setDesignMode(InheritedBool value)
+void Document::setDesignMode(DesignMode value)
 {
     m_designMode = value;
-    for (RefPtr<Frame> frame = m_frame.get(); frame; frame = frame->tree().traverseNext(m_frame.get())) {
-        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
-        if (!localFrame || !localFrame->document())
-            continue;
-        localFrame->document()->scheduleFullStyleRebuild();
-    }
+    scheduleFullStyleRebuild();
 }
 
 String Document::designMode() const
@@ -6246,23 +6222,8 @@ String Document::designMode() const
 
 void Document::setDesignMode(const String& value)
 {
-    InheritedBool mode;
-    if (equalLettersIgnoringASCIICase(value, "on"_s))
-        mode = on;
-    else if (equalLettersIgnoringASCIICase(value, "off"_s))
-        mode = off;
-    else
-        mode = inherit;
+    DesignMode mode = equalLettersIgnoringASCIICase(value, "on"_s) ? DesignMode::On : DesignMode::Off;
     setDesignMode(mode);
-}
-
-bool Document::inDesignMode() const
-{
-    for (const Document* d = this; d; d = d->parentDocument()) {
-        if (d->m_designMode != inherit)
-            return d->m_designMode;
-    }
-    return false;
 }
 
 Document* Document::parentDocument() const
@@ -8995,7 +8956,7 @@ void Document::hideAllPopoversUntil(Element* endpoint, FocusPreviousElement focu
 }
 
 // https://html.spec.whatwg.org/#popover-light-dismiss
-void Document::handlePopoverLightDismiss(PointerEvent& event)
+void Document::handlePopoverLightDismiss(const PointerEvent& event, Node& target)
 {
     ASSERT(event.isTrusted());
 
@@ -9004,7 +8965,6 @@ void Document::handlePopoverLightDismiss(PointerEvent& event)
         return;
 
     RefPtr popoverToAvoidHiding = [&]() -> HTMLElement* {
-        auto& target = downcast<Node>(*event.target());
         auto* startElement = is<Element>(target) ? &downcast<Element>(target) : target.parentElement();
         auto [clickedPopover, invokerPopover] = [&]() {
             RefPtr<HTMLElement> clickedPopover;
