@@ -130,7 +130,6 @@ list(APPEND WebCore_SOURCES
   platform/graphics/haiku/TiledBackingStoreHaiku.cpp
   platform/graphics/haiku/GraphicsLayerHaiku.cpp
 
-  platform/graphics/GLContext.cpp
   platform/graphics/OpenGLShims.cpp
 
   platform/network/haiku/NetworkStateNotifierHaiku.cpp
@@ -142,6 +141,8 @@ list(APPEND WebCore_SOURCES
   platform/text/LocaleICU.cpp
 
   platform/text/haiku/StringHaiku.cpp
+
+  inspector/LegacyWebSocketInspectorInstrumentation.cpp
 )
 
 if (ENABLE_WEB_CRYPTO)
@@ -350,6 +351,10 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/haiku/ImageBufferDataHaiku.h
     platform/graphics/Image.h
+
+    platform/network/haiku/SocketStreamHandleImpl.h
+
+    inspector/LegacyWebSocketInspectorInstrumentation.h
 )
 
 set(CSS_VALUE_PLATFORM_DEFINES "HAVE_OS_DARK_MODE_SUPPORT=1")

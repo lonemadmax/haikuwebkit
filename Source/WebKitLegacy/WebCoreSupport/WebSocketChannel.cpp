@@ -32,7 +32,13 @@
 #include "WebSocketChannel.h"
 
 #include "SocketStreamHandle.h"
+
+#if PLATFORM(HAIKU)
+#include "WebCore/SocketStreamHandleImpl.h"
+#else
 #include "SocketStreamHandleImpl.h"
+#endif
+
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <WebCore/Blob.h>
 #include <WebCore/CookieJar.h>

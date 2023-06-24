@@ -82,6 +82,10 @@ LIST(APPEND WebKitLegacy_SOURCES
     Storage/StorageTracker.cpp
     Storage/WebDatabaseProvider.cpp
     Storage/WebStorageNamespaceProvider.cpp
+
+    WebCoreSupport/LegacySocketProvider.cpp
+    WebCoreSupport/SocketStreamHandle.cpp
+    WebCoreSupport/WebSocketChannel.cpp
 )
 
 LIST(APPEND WebKitLegacy_LIBRARIES

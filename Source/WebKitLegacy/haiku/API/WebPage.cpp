@@ -91,9 +91,10 @@
 #include "WebCore/ResourceRequest.h"
 #include "WebCore/ScriptController.h"
 #include "WebCore/Settings.h"
-#include "WebCore/SocketProvider.h"
 #include "WebCore/UserContentController.h"
 #include <WebCore/WebLockRegistry.h>
+
+#include "LegacySocketProvider.h"
 
 #include "WebApplicationCache.h"
 #include "WebBroadcastChannelRegistry.h"
@@ -292,7 +293,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
     PageConfiguration pageClients(
         PAL::SessionID::defaultSessionID(),
         makeUniqueRef<EditorClientHaiku>(this),
-        SocketProvider::create(),
+        LegacySocketProvider::create(),
 #if USE(WEBRTC)
         makeUniqueRef<LibWebRTCProvider>(),
 #else
