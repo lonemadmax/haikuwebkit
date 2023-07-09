@@ -53,13 +53,13 @@ namespace WebCore {
 class AXObjectCache;
 class ContainerNode;
 class Element;
-class EventRegionContext;
 class FloatSize;
 class Frame;
 class GraphicsContext;
 class HTMLFrameOwnerElement;
 class LocalFrame;
 class Page;
+class RegionContext;
 class RenderBox;
 class RenderElement;
 class RenderEmbeddedObject;
@@ -406,7 +406,7 @@ public:
     void addEmbeddedObjectToUpdate(RenderEmbeddedObject&);
     void removeEmbeddedObjectToUpdate(RenderEmbeddedObject&);
 
-    WEBCORE_EXPORT void paintContents(GraphicsContext&, const IntRect& dirtyRect, SecurityOriginPaintPolicy = SecurityOriginPaintPolicy::AnyOrigin, EventRegionContext* = nullptr) final;
+    WEBCORE_EXPORT void paintContents(GraphicsContext&, const IntRect& dirtyRect, SecurityOriginPaintPolicy = SecurityOriginPaintPolicy::AnyOrigin, RegionContext* = nullptr) final;
 
     struct PaintingState {
         OptionSet<PaintBehavior> paintBehavior;
@@ -420,7 +420,7 @@ public:
         }
     };
 
-    void willPaintContents(GraphicsContext&, const IntRect& dirtyRect, PaintingState&);
+    void willPaintContents(GraphicsContext&, const IntRect& dirtyRect, PaintingState&, RegionContext* = nullptr);
     void didPaintContents(GraphicsContext&, const IntRect& dirtyRect, PaintingState&);
 
 #if PLATFORM(IOS_FAMILY)
@@ -712,6 +712,7 @@ public:
 
     WEBCORE_EXPORT void invalidateControlTints();
     void invalidateImagesWithAsyncDecodes();
+    void updateAccessibilityObjectRegions();
 
     void invalidateScrollbarsForAllScrollableAreas();
 
@@ -823,6 +824,7 @@ private:
 #if HAVE(RUBBER_BANDING)
     GraphicsLayer* layerForOverhangAreas() const final;
 #endif
+    bool isInStableState() const final;
     void contentsResized() final;
 
 #if ENABLE(DARK_MODE_CSS)
@@ -920,6 +922,8 @@ private:
     void scrollRectToVisibleInChildView(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&, const HTMLFrameOwnerElement*);
     void scrollRectToVisibleInTopLevelView(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&);
     LayoutRect getPossiblyFixedRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const;
+
+    float deviceScaleFactor() const final;
 
     const Ref<LocalFrame> m_frame;
     LocalFrameViewLayoutContext m_layoutContext;

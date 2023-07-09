@@ -51,6 +51,7 @@
 #include <WebCore/RuntimeApplicationChecks.h>
 #include <wtf/Algorithms.h>
 #include <wtf/CallbackAggregator.h>
+#include <wtf/Language.h>
 #include <wtf/LogInitialization.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/OptionSet.h>
@@ -69,6 +70,7 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include "ArgumentCodersCocoa.h"
 #include <WebCore/CoreAudioSharedUnit.h>
 #include <WebCore/VP9UtilitiesCocoa.h>
 #endif
@@ -79,6 +81,10 @@
 
 #if HAVE(SCREEN_CAPTURE_KIT)
 #include <WebCore/ScreenCaptureKitCaptureSource.h>
+#endif
+
+#if USE(GBM)
+#include <WebCore/GBMDevice.h>
 #endif
 
 namespace WebKit {
@@ -221,8 +227,9 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
     WebCore::initializeCommonAtomStrings();
 
     auto& memoryPressureHandler = MemoryPressureHandler::singleton();
-    memoryPressureHandler.setLowMemoryHandler([this] (Critical critical, Synchronous synchronous) {
-        lowMemoryHandler(critical, synchronous);
+    memoryPressureHandler.setLowMemoryHandler([weakThis = WeakPtr { *this }] (Critical critical, Synchronous synchronous) {
+        if (RefPtr process = weakThis.get())
+            process->lowMemoryHandler(critical, synchronous);
     });
     memoryPressureHandler.install();
 
@@ -260,12 +267,22 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
     CGImageSourceSetAllowableTypes(emptyArray.get());
 #endif
 
+#if USE(GBM)
+    WebCore::GBMDevice::singleton().initialize(parameters.renderDeviceFile);
+#endif
+
     m_applicationVisibleName = WTFMove(parameters.applicationVisibleName);
+#if PLATFORM(COCOA)
+    IPC::setStrictSecureDecodingForAllObjCEnabled(parameters.strictSecureDecodingForAllObjCEnabled);
+#endif
 
     // Match the QoS of the UIProcess since the GPU process is doing rendering on its behalf.
     WTF::Thread::setCurrentThreadIsUserInteractive(0);
 
     WebCore::setPresentingApplicationPID(parameters.parentPID);
+
+    if (!parameters.overrideLanguages.isEmpty())
+        overrideUserPreferredLanguages(parameters.overrideLanguages);
 
 #if USE(OS_STATE)
     registerWithStateDumper("GPUProcess state"_s);
@@ -328,6 +345,11 @@ bool GPUProcess::updatePreference(std::optional<bool>& oldPreference, std::optio
     }
     
     return false;
+}
+
+void GPUProcess::userPreferredLanguagesChanged(Vector<String>&& languages)
+{
+    overrideUserPreferredLanguages(languages);
 }
 
 void GPUProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime, CompletionHandler<void()>&& completionHandler)
@@ -565,7 +587,7 @@ void GPUProcess::processIsStartingToCaptureAudio(GPUConnectionToWebProcess& proc
 #endif
 
 #if ENABLE(VIDEO)
-void GPUProcess::requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier processIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier, CompletionHandler<void(const ShareableBitmapHandle&)>&& completion)
+void GPUProcess::requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier processIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completion)
 {
     auto iterator = m_webProcessConnections.find(processIdentifier);
     if (iterator == m_webProcessConnections.end()) {

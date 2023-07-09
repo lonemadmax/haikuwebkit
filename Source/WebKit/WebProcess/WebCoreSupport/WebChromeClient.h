@@ -479,6 +479,10 @@ private:
     void abortApplePayAMSUISession() final;
 #endif
 
+#if USE(SYSTEM_PREVIEW)
+    void handleSystemPreview(const URL&, const WebCore::SystemPreviewInfo&) final;
+#endif
+
     void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&) final;
 
     void classifyModalContainerControls(Vector<String>&&, CompletionHandler<void(Vector<WebCore::ModalContainerControlType>&&)>&&) final;
@@ -488,6 +492,8 @@ private:
     const AtomString& searchStringForModalContainerObserver() const final;
     
     bool isUsingUISideCompositing() const;
+
+    bool isInStableState() const final;
 
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };

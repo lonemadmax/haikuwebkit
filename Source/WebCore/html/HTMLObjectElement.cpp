@@ -36,7 +36,6 @@
 #include "HTMLMetaElement.h"
 #include "HTMLNames.h"
 #include "HTMLParamElement.h"
-#include "HTMLParserIdioms.h"
 #include "LocalFrame.h"
 #include "MIMETypeRegistry.h"
 #include "NodeList.h"
@@ -186,17 +185,6 @@ void HTMLObjectElement::parametersForPlugin(Vector<AtomString>& paramNames, Vect
         }
     }
 
-    // When OBJECT is used for an applet via Sun's Java plugin, the CODEBASE attribute in the tag
-    // points to the Java plugin itself (an ActiveX component) while the actual applet CODEBASE is
-    // in a PARAM tag. See <http://java.sun.com/products/plugin/1.2/docs/tags.html>. This means
-    // we have to explicitly suppress the tag's CODEBASE attribute if there is none in a PARAM,
-    // else our Java plugin will misinterpret it. [4004531]
-    String codebase;
-    if (MIMETypeRegistry::isJavaAppletMIMEType(serviceType)) {
-        codebase = "codebase"_s;
-        uniqueParamNames.add(codebase.impl()); // pretend we found it in a PARAM already
-    }
-
     // Turn the attributes of the <object> element into arrays, but don't override <param> values.
     if (hasAttributes()) {
         for (const Attribute& attribute : attributesIterator()) {
@@ -227,22 +215,12 @@ bool HTMLObjectElement::hasFallbackContent() const
     for (RefPtr<Node> child = firstChild(); child; child = child->nextSibling()) {
         // Ignore whitespace-only text, and <param> tags, any other content is fallback content.
         if (is<Text>(*child)) {
-            if (!downcast<Text>(*child).data().isAllSpecialCharacters<isHTMLSpace>())
+            if (!downcast<Text>(*child).data().isAllSpecialCharacters<isASCIIWhitespace>())
                 return true;
         } else if (!is<HTMLParamElement>(*child))
             return true;
     }
     return false;
-}
-
-bool HTMLObjectElement::hasValidClassId()
-{
-    if (MIMETypeRegistry::isJavaAppletMIMEType(serviceType()) && protocolIs(attributeWithoutSynchronization(classidAttr), "java"_s))
-        return true;
-
-    // HTML5 says that fallback content should be rendered if a non-empty
-    // classid is specified for which the UA can't find a suitable plug-in.
-    return attributeWithoutSynchronization(classidAttr).isEmpty();
 }
 
 // FIXME: This should be unified with HTMLEmbedElement::updateWidget and
@@ -289,9 +267,12 @@ void HTMLObjectElement::updateWidget(CreatePlugins createPlugins)
 
     Ref protectedThis = *this; // Plugin loading can make arbitrary DOM mutations.
 
+    // HTML5 says that fallback content should be rendered if a non-empty
+    // classid is specified for which the UA can't find a suitable plug-in.
+    //
     // Dispatching a beforeLoad event could have executed code that changed the document.
     // Make sure the URL is still safe to load.
-    bool success = hasValidClassId() && canLoadURL(url);
+    bool success = attributeWithoutSynchronization(classidAttr).isEmpty() && canLoadURL(url);
     if (success)
         success = requestObject(url, serviceType, paramNames, paramValues);
     if (!success && hasFallbackContent())
@@ -394,7 +375,7 @@ static inline bool preventsParentObjectFromExposure(const Node& child)
     if (is<Element>(child))
         return preventsParentObjectFromExposure(downcast<Element>(child));
     if (is<Text>(child))
-        return !downcast<Text>(child).data().isAllSpecialCharacters<isHTMLSpace>();
+        return !downcast<Text>(child).data().isAllSpecialCharacters<isASCIIWhitespace>();
     return true;
 }
 

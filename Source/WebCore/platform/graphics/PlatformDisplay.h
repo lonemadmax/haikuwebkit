@@ -37,7 +37,6 @@ typedef void *EGLDisplay;
 typedef void *EGLImage;
 typedef unsigned EGLenum;
 #if USE(GBM)
-#include <wtf/unix/UnixFileDescriptor.h>
 typedef void *EGLDeviceEXT;
 struct gbm_device;
 #endif
@@ -118,6 +117,10 @@ public:
     const String& drmRenderNodeFile();
     struct gbm_device* gbmDevice();
 #endif
+
+#if PLATFORM(GTK)
+    virtual EGLDisplay gtkEGLDisplay() { return nullptr; }
+#endif
 #endif
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)
@@ -151,15 +154,12 @@ protected:
     virtual void initializeEGLDisplay();
 
     EGLDisplay m_eglDisplay;
+    bool m_eglDisplayOwned { true };
     std::unique_ptr<GLContext> m_sharingGLContext;
 
 #if USE(GBM)
     std::optional<String> m_drmDeviceFile;
     std::optional<String> m_drmRenderNodeFile;
-    struct {
-        WTF::UnixFileDescriptor deviceFD;
-        std::optional<struct gbm_device*> device;
-    } m_gbm;
 #endif
 #endif
 

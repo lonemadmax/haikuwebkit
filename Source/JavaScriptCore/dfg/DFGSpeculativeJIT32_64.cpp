@@ -3170,8 +3170,10 @@ void SpeculativeJIT::compile(Node* node)
     }
 
     case ObjectKeys:
-    case ObjectGetOwnPropertyNames: {
-        compileObjectKeysOrObjectGetOwnPropertyNames(node);
+    case ObjectGetOwnPropertyNames:
+    case ObjectGetOwnPropertySymbols:
+    case ReflectOwnKeys: {
+        compileOwnPropertyKeysVariant(node);
         break;
     }
 
@@ -4267,6 +4269,8 @@ void SpeculativeJIT::compile(Node* node)
     case FunctionBind:
     case NewBoundFunction:
     case EnumeratorPutByVal:
+    case GetByIdMegamorphic:
+    case GetByValMegamorphic:
         DFG_CRASH(m_graph, node, "unexpected node in DFG backend");
         break;
     }

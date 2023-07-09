@@ -397,7 +397,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (BOOL)_hasSleepDisabler
 {
-    return _page && _page->process().hasSleepDisabler();
+    return _page && _page->hasSleepDisabler();
 }
 
 - (NSString*)_scrollbarStateForScrollingNodeID:(uint64_t)scrollingNodeID isVertical:(bool)isVertical
@@ -480,6 +480,12 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     _page->dumpPrivateClickMeasurement([completionHandler = makeBlockPtr(completionHandler)](const String& privateClickMeasurement) {
         completionHandler(privateClickMeasurement);
     });
+}
+
+- (BOOL)_allowAnimationControlsForTesting
+{
+    // For subclasses to override.
+    return NO;
 }
 
 - (BOOL)_shouldBypassGeolocationPromptForTesting
@@ -568,6 +574,13 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 {
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     WebKit::WindowServerConnection::singleton().hardwareConsoleStateChanged(connected ? WebKit::WindowServerConnection::HardwareConsoleState::Connected : WebKit::WindowServerConnection::HardwareConsoleState::Disconnected);
+#endif
+}
+
+- (void)_setSystemPreviewCompletionHandlerForLoadTesting:(void(^)(bool))completionHandler
+{
+#if USE(SYSTEM_PREVIEW)
+    _page->setSystemPreviewCompletionHandlerForLoadTesting(makeBlockPtr(completionHandler));
 #endif
 }
 

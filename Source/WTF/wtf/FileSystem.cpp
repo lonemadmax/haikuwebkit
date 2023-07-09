@@ -45,11 +45,6 @@
 #define MAP_FILE 0
 #endif
 
-#if USE(GLIB)
-#include <gio/gfiledescriptorbased.h>
-#include <gio/gio.h>
-#endif
-
 #if HAVE(STD_FILESYSTEM) || HAVE(STD_EXPERIMENTAL_FILESYSTEM)
 #include <wtf/StdFilesystem.h>
 #endif
@@ -333,13 +328,7 @@ bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openM
     if (!isHandleValid(handle))
         return false;
 
-    int fd;
-#if USE(GLIB)
-    auto* inputStream = g_io_stream_get_input_stream(G_IO_STREAM(handle));
-    fd = g_file_descriptor_based_get_fd(G_FILE_DESCRIPTOR_BASED(inputStream));
-#else
-    fd = handle;
-#endif
+    int fd = posixFileDescriptor(handle);
 
     struct stat fileStat;
     if (fstat(fd, &fileStat)) {

@@ -1028,6 +1028,20 @@ CSSCustomPropertiesAndValuesEnabled:
     WebCore:
       default: true
 
+CSSFontFaceSizeAdjustEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS @font-face size-adjust"
+  humanReadableDescription: "Enable size-adjust descriptor in @font-face"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSGradientInterpolationColorSpacesEnabled:
   type: bool
   status: stable
@@ -2444,6 +2458,20 @@ FetchMetadataEnabled:
     WebKitLegacy:
       default: true
 
+FetchPriorityEnabled:
+  type: bool
+  status: testable
+  category: networking
+  humanReadableName: "Fetch Priority"
+  humanReadableDescription: "Enable Fetch Priority support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 FileReaderAPIEnabled:
   type: bool
   status: embedder
@@ -3746,23 +3774,6 @@ LoadsImagesAutomatically:
     WebCore:
       default: false
 
-# This preference only affects site icon image loading if the LoadsImagesAutomatically preference is false and
-# this preference is true. All other permutations still heed LoadsImagesAutomatically preference.
-LoadsSiteIconsIgnoringImageLoadingPreference:
-  type: bool
-  status: stable
-  category: networking
-  humanReadableName: "Load site icons ignoring image loading preference"
-  webKitLegacyPreferenceKey: WebKitLoadSiteIconsKey
-  webcoreName: loadsSiteIconsIgnoringImageLoadingSetting
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 LocalFileContentSniffingEnabled:
   type: bool
   status: internal
@@ -4950,20 +4961,6 @@ PreferSandboxedMediaParsing:
     WebKit:
       default: true
 
-PriorityHintsEnabled:
-  type: bool
-  status: testable
-  category: networking
-  humanReadableName: "Priority hints"
-  humanReadableDescription: "Enable priority hints support"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 PrivateClickMeasurementDebugModeEnabled:
   type: bool
   status: developer
@@ -5032,7 +5029,7 @@ PunchOutWhiteBackgroundsInDarkMode:
 
 PushAPIEnabled:
   type: bool
-  status: testable
+  status: embedder
   category: dom
   condition: ENABLE(SERVICE_WORKER)
   humanReadableName: "Push API"
@@ -5254,20 +5251,6 @@ ResizeObserverEnabled:
     WebCore:
       default: true
 
-ResolutionMediaFeatureEnabled:
-  type: bool
-  status: stable
-  category: media
-  humanReadableName: "Resolution media feature"
-  humanReadableDescription: "Enable resolution media feature support"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 ResourceLoadSchedulingEnabled:
   type: bool
   status: internal
@@ -5361,7 +5344,7 @@ SampleBufferContentKeySessionSupportEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: WebKit::defaultSampleBufferContentKeySessionSupportEnabled()
+      default: false
     WebCore:
       default: false
 
@@ -5677,7 +5660,8 @@ ServiceWorkersUserGestureEnabled:
 
 ShapeDetection:
   type: bool
-  status: unstable
+  category: media
+  status: testable
   humanReadableName: "Shape Detection API"
   humanReadableDescription: "Enable the Shape Detection API"
   defaultValue:
@@ -6175,6 +6159,16 @@ StorageBlockingPolicy:
       default: WebCore::StorageBlockingPolicy::BlockThirdParty
     WebCore:
       default: StorageBlockingPolicy::AllowAll
+
+StrictSecureDecodingForAllObjC:
+  type: bool
+  status: internal
+  humanReadableName: "Enable strict decoding of all ObjC classes"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: false
 
 SubgridEnabled:
   type: bool

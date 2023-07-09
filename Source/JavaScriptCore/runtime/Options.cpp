@@ -884,7 +884,7 @@ void Options::finalize()
 
 static bool isSeparator(char c)
 {
-    return isASCIISpace(c) || (c == ',');
+    return isUnicodeCompatibleASCIIWhitespace(c) || (c == ',');
 }
 
 bool Options::setOptions(const char* optionsStr)

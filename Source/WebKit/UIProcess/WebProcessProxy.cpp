@@ -173,14 +173,14 @@ RefPtr<WebProcessProxy> WebProcessProxy::processForIdentifier(ProcessIdentifier 
     return allProcessMap().get(identifier).get();
 }
 
-static WebProcessProxy::WebPageProxyMap& globalPageMap()
+auto WebProcessProxy::globalPageMap() -> WebPageProxyMap&
 {
     ASSERT(isMainThreadOrCheckDisabled());
-    static NeverDestroyed<WebProcessProxy::WebPageProxyMap> pageMap;
+    static NeverDestroyed<WebPageProxyMap> pageMap;
     return pageMap;
 }
 
-static inline Vector<RefPtr<WebPageProxy>> globalPages()
+Vector<RefPtr<WebPageProxy>> WebProcessProxy::globalPages()
 {
     return WTF::map(globalPageMap(), [] (auto& keyValue) -> RefPtr<WebPageProxy> {
         return keyValue.value.get();
@@ -615,7 +615,6 @@ void WebProcessProxy::shutDown()
     m_webUserContentControllerProxies.clear();
 
     m_userInitiatedActionMap.clear();
-    m_sleepDisablers.clear();
 
     if (m_webLockRegistry)
         m_webLockRegistry->processDidExit();
@@ -1099,8 +1098,6 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
         if (page)
             page->dispatchProcessDidTerminate(reason);
     }
-
-    m_sleepDisablers.clear();
 }
 
 void WebProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName)
@@ -2298,23 +2295,6 @@ void WebProcessProxy::enableRemoteWorkers(RemoteWorkerType workerType, const Use
     updateBackgroundResponsivenessTimer();
 
     updateRemoteWorkerProcessAssertion(workerType);
-}
-
-void WebProcessProxy::didCreateSleepDisabler(SleepDisablerIdentifier identifier, const String& reason, bool display)
-{
-    MESSAGE_CHECK(!reason.isNull());
-    auto sleepDisabler = makeUnique<WebCore::SleepDisabler>(reason, display ? PAL::SleepDisabler::Type::Display : PAL::SleepDisabler::Type::System);
-    m_sleepDisablers.add(identifier, WTFMove(sleepDisabler));
-}
-
-void WebProcessProxy::didDestroySleepDisabler(SleepDisablerIdentifier identifier)
-{
-    m_sleepDisablers.remove(identifier);
-}
-
-bool WebProcessProxy::hasSleepDisabler() const
-{
-    return !m_sleepDisablers.isEmpty();
 }
 
 void WebProcessProxy::markProcessAsRecentlyUsed()

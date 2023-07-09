@@ -309,8 +309,8 @@ OptionSet<WebEventModifier> modifiersForNavigationAction(const NavigationAction&
 Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& windowFeatures, const NavigationAction& navigationAction)
 {
 #if ENABLE(FULLSCREEN_API)
-    if (frame.document() && frame.document()->fullscreenManager().currentFullscreenElement())
-        frame.document()->fullscreenManager().cancelFullscreen();
+    if (auto* document = frame.document())
+        document->fullscreenManager().cancelFullscreen();
 #endif
 
     auto& webProcess = WebProcess::singleton();
@@ -341,6 +341,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
         { }, /* clientRedirectSourceForHistory */
         0, /* effectiveSandboxFlags */
         navigationAction.privateClickMeasurement(),
+        { }, /* networkConnectionIntegrityPolicy */
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
         std::nullopt, /* webHitTestResultData */
 #endif
@@ -1682,6 +1683,13 @@ void WebChromeClient::abortApplePayAMSUISession()
 
 #endif // ENABLE(APPLE_PAY_AMS_UI)
 
+#if USE(SYSTEM_PREVIEW)
+void WebChromeClient::handleSystemPreview(const URL& url, const SystemPreviewInfo& systemPreviewInfo)
+{
+    m_page.send(Messages::WebPageProxy::HandleSystemPreview(WTFMove(url), WTFMove(systemPreviewInfo)));
+}
+#endif
+
 void WebChromeClient::requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&& completion)
 {
     m_page.sendWithAsyncReply(Messages::WebPageProxy::RequestCookieConsent(), WTFMove(completion));
@@ -1715,5 +1723,14 @@ bool WebChromeClient::isUsingUISideCompositing() const
 #endif
 }
 
+bool WebChromeClient::isInStableState() const
+{
+#if PLATFORM(IOS_FAMILY)
+    return m_page.isInStableState();
+#else
+    // FIXME (255877): Implement this client hook on macOS.
+    return true;
+#endif
+}
 
 } // namespace WebKit

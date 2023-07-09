@@ -1151,7 +1151,6 @@ public:
     public:
         WEBCORE_EXPORT Client();
         WEBCORE_EXPORT virtual ~Client();
-        virtual void didComposite() = 0;
         virtual void forceContextLost() = 0;
         virtual void dispatchContextChangedNotification() = 0;
     };
@@ -1553,7 +1552,7 @@ public:
 
     // FIXME: these should be removed, caller is interested in buffer clear status and
     // should track that in a variable that the caller holds. Caller should receive
-    // the value from reshape() and didComposite().
+    // the value from reshape().
     bool layerComposited() const;
     void setBuffersToAutoClear(GCGLbitfield);
     GCGLbitfield getBuffersToAutoClear() const;
@@ -1632,7 +1631,7 @@ public:
     WEBCORE_EXPORT static void paintToCanvas(const GraphicsContextGLAttributes&, Ref<PixelBuffer>&&, const IntSize& canvasSize, GraphicsContext&);
 
 protected:
-    WEBCORE_EXPORT void forceContextLost();
+    WEBCORE_EXPORT virtual void forceContextLost();
     WEBCORE_EXPORT void dispatchContextChangedNotification();
 
     int m_currentWidth { 0 };

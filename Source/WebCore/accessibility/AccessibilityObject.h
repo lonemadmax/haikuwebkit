@@ -102,7 +102,7 @@ public:
 
     bool isDetached() const override;
 
-    bool isAccessibilityNodeObject() const override { return false; }
+    virtual bool isAccessibilityNodeObject() const { return false; }
     bool isAccessibilityRenderObject() const override { return false; }
     virtual bool isAccessibilityScrollbar() const { return false; }
     virtual bool isAccessibilityScrollViewInstance() const { return false; }
@@ -112,7 +112,7 @@ public:
     bool isAccessibilityARIAGridInstance() const override { return false; }
     bool isAccessibilityARIAGridRowInstance() const override { return false; }
     bool isAccessibilityARIAGridCellInstance() const override { return false; }
-    bool isAccessibilityListBoxInstance() const override { return false; }
+    virtual bool isAccessibilityListBoxInstance() const { return false; }
     bool isAXIsolatedObjectInstance() const override { return false; }
 
     virtual bool isAttachmentElement() const { return false; }
@@ -149,6 +149,7 @@ public:
     AccessibilityChildrenVector columnHeaders() override { return AccessibilityChildrenVector(); }
     AccessibilityChildrenVector rowHeaders() override { return AccessibilityChildrenVector(); }
     AccessibilityChildrenVector visibleRows() override { return AccessibilityChildrenVector(); }
+    AccessibilityChildrenVector selectedCells() override;
     AXCoreObject* headerContainer() override { return nullptr; }
     int axColumnCount() const override { return 0; }
     int axRowCount() const override { return 0; }
@@ -270,7 +271,7 @@ public:
     virtual float stepValueForRange() const { return 0.0f; }
     AccessibilityObject* selectedListItem();
     int layoutCount() const override { return 0; }
-    double loadingProgress() const override { return 0; }
+    double loadingProgress() const final;
     WEBCORE_EXPORT static bool isARIAControl(AccessibilityRole);
     bool supportsCheckedState() const override;
 
@@ -284,7 +285,7 @@ public:
     bool pressedIsPresent() const override;
     bool ariaIsMultiline() const override;
     String invalidStatus() const override;
-    bool supportsPressed() const override;
+    bool supportsPressed() const;
     bool supportsExpanded() const override;
     bool supportsChecked() const override;
     bool supportsRowCountChange() const;
@@ -428,7 +429,8 @@ public:
     FloatPoint screenRelativePosition() const final { return convertFrameToSpace(elementRect(), AccessibilityConversionSpace::Screen).location(); }
 #endif
     IntSize size() const final { return snappedIntRect(elementRect()).size(); }
-    IntPoint clickPoint() override;
+    IntPoint clickPoint() final;
+    IntPoint clickPointFromElementRect() const;
     static IntRect boundingBoxForQuads(RenderObject*, const Vector<FloatQuad>&);
     Path elementPath() const override { return Path(); }
     bool supportsPath() const override { return false; }
@@ -438,7 +440,7 @@ public:
     int insertionPointLineNumber() const override { return -1; }
 
     URL url() const override { return URL(); }
-    VisibleSelection selection() const override { return VisibleSelection(); }
+    VisibleSelection selection() const final;
     String selectedText() const override { return String(); }
     String accessKey() const override { return nullAtom(); }
     String localizedActionVerb() const override;
@@ -481,7 +483,6 @@ public:
 
     void makeRangeVisible(const PlainTextRange&) override { }
     bool press() override;
-    bool performDefaultAction() override { return press(); }
 
     AccessibilityOrientation orientation() const override;
     void increment() override { }
@@ -507,7 +508,7 @@ public:
 #endif
     bool isDetachedFromParent() override { return false; }
 
-    void selectedChildren(AccessibilityChildrenVector&) override { }
+    AccessibilityChildrenVector selectedChildren() override;
     void setSelectedChildren(const AccessibilityChildrenVector&) override { }
     AccessibilityChildrenVector visibleChildren() override { return { }; }
     bool shouldFocusActiveDescendant() const;
@@ -550,8 +551,8 @@ public:
 
     static String stringForVisiblePositionRange(const VisiblePositionRange&);
     String stringForRange(const SimpleRange&) const override;
-    IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const override { return IntRect(); }
-    IntRect boundsForRange(const SimpleRange&) const override { return IntRect(); }
+    virtual IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const { return IntRect(); }
+    IntRect boundsForRange(const SimpleRange&) const final;
     void setSelectedVisiblePositionRange(const VisiblePositionRange&) const override { }
 
     VisiblePosition visiblePositionForPoint(const IntPoint&) const override { return VisiblePosition(); }
@@ -584,12 +585,6 @@ public:
 
     String computedRoleString() const override;
 
-    virtual String stringValueForMSAA() const { return String(); }
-    virtual String stringRoleForMSAA() const { return String(); }
-    virtual String nameForMSAA() const { return String(); }
-    virtual String descriptionForMSAA() const { return String(); }
-    virtual AccessibilityRole roleValueForMSAA() const { return roleValue(); }
-
     virtual String secureFieldValue() const { return String(); }
     bool isValueAutofillAvailable() const override;
     AutoFillButtonType valueAutofillButtonType() const override;
@@ -619,7 +614,7 @@ public:
     bool supportsARIAAttributes() const;
 
     // CSS3 Speech properties.
-    virtual OptionSet<SpeakAs> speakAsProperty() const { return OptionSet<SpeakAs> { }; }
+    OptionSet<SpeakAs> speakAsProperty() const;
 
     // Make this object visible by scrolling as many nested scrollable views as needed.
     void scrollToMakeVisible() const override;
@@ -803,6 +798,11 @@ private:
     bool accessibilityIsIgnoredWithoutCache(AXObjectCache*) const;
     void setLastKnownIsIgnoredValue(bool);
     void ariaTreeRows(AccessibilityChildrenVector& rows, AccessibilityChildrenVector& ancestors);
+    AccessibilityChildrenVector ariaListboxSelectedChildren();
+    AccessibilityChildrenVector ariaSelectedRows();
+
+    // Special handling of click point for links.
+    IntPoint linkClickPoint();
 
 protected: // FIXME: Make the data members private.
     AccessibilityChildrenVector m_children;

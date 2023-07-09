@@ -713,6 +713,7 @@ public:
     void compilePushWithScope(Node*);
     void compileGetById(Node*, AccessType);
     void compileGetByIdFlush(Node*, AccessType);
+    void compileGetByIdMegamorphic(Node*);
     void compileInById(Node*);
     void compileInByVal(Node*);
     void compileHasPrivate(Node*, AccessType);
@@ -1380,6 +1381,7 @@ public:
     void compileGetCharCodeAt(Node*);
     void compileGetByValOnString(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
     void compileFromCharCode(Node*); 
+    void compileGetByValMegamorphic(Node*);
 
     void compileGetByValOnDirectArguments(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
     void compileGetByValOnScopedArguments(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
@@ -1595,7 +1597,7 @@ public:
     void compileNewArrayWithSpecies(Node*);
     void compileNewTypedArray(Node*);
     void compileToThis(Node*);
-    void compileObjectKeysOrObjectGetOwnPropertyNames(Node*);
+    void compileOwnPropertyKeysVariant(Node*);
     void compileObjectAssign(Node*);
     void compileObjectCreate(Node*);
     void compileObjectToString(Node*);

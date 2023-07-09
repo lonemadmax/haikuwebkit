@@ -282,18 +282,18 @@ void RemoteRenderingBackend::putPixelBufferForImageBuffer(RenderingResourceIdent
     }
 }
 
-void RemoteRenderingBackend::getShareableBitmapForImageBuffer(RenderingResourceIdentifier identifier, PreserveResolution preserveResolution, CompletionHandler<void(ShareableBitmapHandle&&)>&& completionHandler)
+void RemoteRenderingBackend::getShareableBitmapForImageBuffer(RenderingResourceIdentifier identifier, PreserveResolution preserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
 {
     // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
     // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
     getShareableBitmapForImageBufferWithQualifiedIdentifier({ identifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }, preserveResolution, WTFMove(completionHandler));
 }
 
-void RemoteRenderingBackend::getShareableBitmapForImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier identifier, PreserveResolution preserveResolution, CompletionHandler<void(ShareableBitmapHandle&&)>&& completionHandler)
+void RemoteRenderingBackend::getShareableBitmapForImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier identifier, PreserveResolution preserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
-    ShareableBitmapHandle handle;
+    ShareableBitmap::Handle handle;
     [&]() {
         auto imageBuffer = m_remoteResourceCache.cachedImageBuffer(identifier);
         if (!imageBuffer)
@@ -314,11 +314,11 @@ void RemoteRenderingBackend::getShareableBitmapForImageBufferWithQualifiedIdenti
     completionHandler(WTFMove(handle));
 }
 
-void RemoteRenderingBackend::getFilteredImageForImageBuffer(RenderingResourceIdentifier identifier, Ref<Filter> filter, CompletionHandler<void(ShareableBitmapHandle&&)>&& completionHandler)
+void RemoteRenderingBackend::getFilteredImageForImageBuffer(RenderingResourceIdentifier identifier, Ref<Filter> filter, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
-    ShareableBitmapHandle handle;
+    ShareableBitmap::Handle handle;
     [&]() {
         auto imageBuffer = m_remoteResourceCache.cachedImageBuffer({ identifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
         if (!imageBuffer)
@@ -340,18 +340,18 @@ void RemoteRenderingBackend::getFilteredImageForImageBuffer(RenderingResourceIde
     completionHandler(WTFMove(handle));
 }
 
-void RemoteRenderingBackend::cacheNativeImage(const ShareableBitmapHandle& handle, RenderingResourceIdentifier nativeImageResourceIdentifier)
+void RemoteRenderingBackend::cacheNativeImage(ShareableBitmap::Handle&& handle, RenderingResourceIdentifier nativeImageResourceIdentifier)
 {
     // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
     // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
-    cacheNativeImageWithQualifiedIdentifier(handle, { nativeImageResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
+    cacheNativeImageWithQualifiedIdentifier(WTFMove(handle), { nativeImageResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
 }
 
-void RemoteRenderingBackend::cacheNativeImageWithQualifiedIdentifier(const ShareableBitmapHandle& handle, QualifiedRenderingResourceIdentifier nativeImageResourceIdentifier)
+void RemoteRenderingBackend::cacheNativeImageWithQualifiedIdentifier(ShareableBitmap::Handle&& handle, QualifiedRenderingResourceIdentifier nativeImageResourceIdentifier)
 {
     ASSERT(!RunLoop::isMain());
 
-    auto bitmap = ShareableBitmap::create(handle);
+    auto bitmap = ShareableBitmap::create(WTFMove(handle));
     if (!bitmap)
         return;
 
@@ -620,7 +620,7 @@ void RemoteRenderingBackend::createRemoteBarcodeDetector(ShapeDetectionIdentifie
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     auto inner = WebCore::ShapeDetection::BarcodeDetectorImpl::create(barcodeDetectorOptions);
-    auto remoteBarcodeDetector = RemoteBarcodeDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, identifier);
+    auto remoteBarcodeDetector = RemoteBarcodeDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, remoteResourceCache(), identifier, gpuConnectionToWebProcess().webProcessIdentifier());
     m_shapeDetectionObjectHeap->addObject(identifier, remoteBarcodeDetector);
     streamConnection().startReceivingMessages(remoteBarcodeDetector, Messages::RemoteBarcodeDetector::messageReceiverName(), identifier.toUInt64());
 #else
@@ -648,7 +648,7 @@ void RemoteRenderingBackend::createRemoteFaceDetector(ShapeDetectionIdentifier i
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     auto inner = WebCore::ShapeDetection::FaceDetectorImpl::create(faceDetectorOptions);
-    auto remoteFaceDetector = RemoteFaceDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, identifier);
+    auto remoteFaceDetector = RemoteFaceDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, remoteResourceCache(), identifier, gpuConnectionToWebProcess().webProcessIdentifier());
     m_shapeDetectionObjectHeap->addObject(identifier, remoteFaceDetector);
     streamConnection().startReceivingMessages(remoteFaceDetector, Messages::RemoteFaceDetector::messageReceiverName(), identifier.toUInt64());
 #else
@@ -667,7 +667,7 @@ void RemoteRenderingBackend::createRemoteTextDetector(ShapeDetectionIdentifier i
 {
 #if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     auto inner = WebCore::ShapeDetection::TextDetectorImpl::create();
-    auto remoteTextDetector = RemoteTextDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, identifier);
+    auto remoteTextDetector = RemoteTextDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, remoteResourceCache(), identifier, gpuConnectionToWebProcess().webProcessIdentifier());
     m_shapeDetectionObjectHeap->addObject(identifier, remoteTextDetector);
     streamConnection().startReceivingMessages(remoteTextDetector, Messages::RemoteTextDetector::messageReceiverName(), identifier.toUInt64());
 #else

@@ -291,6 +291,7 @@ public:
     CharacterOffset characterOffsetForIndex(int, const AXCoreObject*);
 
     enum AXNotification {
+        AXAccessKeyChanged,
         AXActiveDescendantChanged,
         AXAutocorrectionOccured,
         AXAutofillTypeChanged,
@@ -326,7 +327,7 @@ public:
         AXRowIndexChanged,
         AXRowSpanChanged,
         AXSelectedChildrenChanged,
-        AXSelectedCellChanged,
+        AXSelectedCellsChanged,
         AXSelectedStateChanged,
         AXSelectedTextChanged,
         AXSetSizeChanged,

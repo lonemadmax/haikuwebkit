@@ -29,6 +29,7 @@
 #import "APINavigation.h"
 #import "AccessibilityPreferences.h"
 #import "AccessibilitySupportSPI.h"
+#import "ArgumentCodersCocoa.h"
 #import "CookieStorageUtilsCF.h"
 #import "DefaultWebBrowserChecks.h"
 #import "LegacyCustomProtocolManagerClient.h"
@@ -481,6 +482,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     parameters.systemHasBattery = systemHasBattery();
     parameters.systemHasAC = cachedSystemHasAC().value_or(true);
+    parameters.strictSecureDecodingForAllObjCEnabled = IPC::strictSecureDecodingForAllObjCEnabled();
 
 #if PLATFORM(IOS_FAMILY)
     parameters.currentUserInterfaceIdiomIsSmallScreen = currentUserInterfaceIdiomIsSmallScreen();
@@ -500,16 +502,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC)
-    if (!isFullWebBrowser() || isRunningTest(WebCore::applicationBundleIdentifier())) {
-        if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
-            parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
-        parameters.enableDecodingHEIC = true;
-        parameters.enableDecodingAVIF = true;
-    }
-#else
+    // FIXME: this will not be needed when rdar://74144544 is fixed.
+    if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
+        parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
+#endif
     parameters.enableDecodingHEIC = true;
     parameters.enableDecodingAVIF = true;
-#endif // PLATFORM(MAC)
 #endif // HAVE(VIDEO_RESTRICTED_DECODING)
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(CFPREFS_DIRECT_MODE)
@@ -550,6 +548,7 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 
     parameters.networkATSContext = adoptCF(_CFNetworkCopyATSContext());
+    parameters.strictSecureDecodingForAllObjCEnabled = IPC::strictSecureDecodingForAllObjCEnabled();
 
     parameters.shouldSuppressMemoryPressureHandler = [defaults boolForKey:WebKitSuppressMemoryPressureHandlerDefaultsKey];
 
@@ -783,7 +782,10 @@ void WebProcessPool::registerNotificationObservers()
         m_openDirectoryNotifyTokens.append(notifyToken);
     }
 #elif !PLATFORM(MACCATALYST)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    // FIXME: <https://webkit.org/b/246488> Adopt UIScreenBrightnessDidChangeNotification.
     addCFNotificationObserver(backlightLevelDidChangeCallback, (__bridge CFStringRef)UIBacklightLevelChangedNotification);
+ALLOW_DEPRECATED_DECLARATIONS_END
 #if PLATFORM(IOS)
 #if ENABLE(REMOTE_INSPECTOR)
     addCFNotificationObserver(remoteWebInspectorEnabledCallback, CFSTR(WIRServiceEnabledNotification));
@@ -855,7 +857,10 @@ void WebProcessPool::unregisterNotificationObservers()
     for (auto token : m_openDirectoryNotifyTokens)
         notify_cancel(token);
 #elif !PLATFORM(MACCATALYST)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    // FIXME: <https://webkit.org/b/255833> Adopt UIScreenBrightnessDidChangeNotification.
     removeCFNotificationObserver((__bridge CFStringRef)UIBacklightLevelChangedNotification);
+ALLOW_DEPRECATED_DECLARATIONS_END
 #if PLATFORM(IOS)
 #if ENABLE(REMOTE_INSPECTOR)
     removeCFNotificationObserver(CFSTR(WIRServiceEnabledNotification));

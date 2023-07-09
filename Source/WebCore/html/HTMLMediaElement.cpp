@@ -437,6 +437,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     , m_scanTimer(*this, &HTMLMediaElement::scanTimerFired)
     , m_playbackControlsManagerBehaviorRestrictionsTimer(*this, &HTMLMediaElement::playbackControlsManagerBehaviorRestrictionsTimerFired)
     , m_seekToPlaybackPositionEndedTimer(*this, &HTMLMediaElement::seekToPlaybackPositionEndedTimerFired)
+    , m_checkPlaybackTargetCompatibilityTimer(*this, &HTMLMediaElement::checkPlaybackTargetCompatibility)
     , m_currentIdentifier(MediaUniqueIdentifier::generate())
     , m_lastTimeUpdateEventMovieTime(MediaTime::positiveInfiniteTime())
     , m_firstTimePlaying(true)
@@ -481,6 +482,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     , m_opaqueRootProvider([this] { return opaqueRoot(); })
 #if USE(AUDIO_SESSION)
     , m_categoryAtMostRecentPlayback(AudioSessionCategory::None)
+    , m_modeAtMostRecentPlayback(AudioSessionMode::Default)
 #endif
 #if !RELEASE_LOG_DISABLED
     , m_logger(&document.logger())
@@ -1052,29 +1054,11 @@ bool HTMLMediaElement::hasEverNotifiedAboutPlaying() const
     return m_hasEverNotifiedAboutPlaying;
 }
 
-void HTMLMediaElement::scheduleCheckPlaybackTargetCompatability()
-{
-    if (m_checkPlaybackTargetCompatibilityTaskCancellationGroup.hasPendingTask())
-        return;
-
-    ALWAYS_LOG(LOGIDENTIFIER);
-    queueCancellableTaskKeepingObjectAlive(*this, TaskSource::MediaElement, m_checkPlaybackTargetCompatibilityTaskCancellationGroup, [this] {
-        checkPlaybackTargetCompatibility();
-    });
-}
-
 void HTMLMediaElement::checkPlaybackTargetCompatibility()
 {
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     if (!m_isPlayingToWirelessTarget || m_player->canPlayToWirelessPlaybackTarget())
         return;
-
-    static const Seconds maxIntervalForWirelessPlaybackPlayerUpdate { 500_ms };
-    Seconds delta = MonotonicTime::now() - m_currentPlaybackTargetIsWirelessEventFiredTime;
-    if (delta < maxIntervalForWirelessPlaybackPlayerUpdate) {
-        scheduleCheckPlaybackTargetCompatability();
-        return;
-    }
 
     auto tryToSwitchEngines = !m_remotePlaybackConfiguration && m_loadState == LoadingFromSourceElement;
     if (tryToSwitchEngines) {
@@ -1083,7 +1067,7 @@ void HTMLMediaElement::checkPlaybackTargetCompatibility()
     }
 
     if (!tryToSwitchEngines) {
-        ERROR_LOG(LOGIDENTIFIER, "player incompatible after ", delta.value(), ", calling setShouldPlayToPlaybackTarget(false)");
+        ERROR_LOG(LOGIDENTIFIER, "player incompatible, calling setShouldPlayToPlaybackTarget(false)");
         m_failedToPlayToWirelessTarget = true;
         m_remotePlaybackConfiguration = { };
         m_player->setShouldPlayToPlaybackTarget(false);
@@ -2806,7 +2790,7 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
         if (m_readyState >= HAVE_METADATA && oldState < HAVE_METADATA) {
             prepareMediaFragmentURI();
             durationChanged();
-            scheduleResizeEvent();
+            scheduleResizeEvent(m_player->naturalSize());
             scheduleEvent(eventNames().loadedmetadataEvent);
 
             if (m_defaultPlaybackStartPosition > MediaTime::zeroTime()) {
@@ -5567,14 +5551,20 @@ void HTMLMediaElement::mediaPlayerRepaint()
 
 void HTMLMediaElement::mediaPlayerSizeChanged()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    ASSERT(m_player);
+    if (!m_player)
+        return;
 
-    if (is<MediaDocument>(document()) && m_player)
-        downcast<MediaDocument>(document()).mediaElementNaturalSizeChanged(expandedIntSize(m_player->naturalSize()));
+    auto naturalSize = m_player->naturalSize();
+    ALWAYS_LOG(LOGIDENTIFIER, naturalSize);
+
+    if (is<MediaDocument>(document()))
+        downcast<MediaDocument>(document()).mediaElementNaturalSizeChanged(expandedIntSize(naturalSize));
+
 
     beginProcessingMediaPlayerCallback();
     if (m_readyState > HAVE_NOTHING)
-        scheduleResizeEventIfSizeChanged();
+        scheduleResizeEventIfSizeChanged(naturalSize);
     updateRenderer();
     endProcessingMediaPlayerCallback();
 }
@@ -5708,8 +5698,14 @@ void HTMLMediaElement::mediaPlayerCharacteristicChanged()
 
     beginProcessingMediaPlayerCallback();
 
-    if (captionDisplayMode() == CaptionUserPreferences::Automatic && m_subtitleTrackLanguage != m_player->languageOfPrimaryAudioTrack())
-        markCaptionAndSubtitleTracksAsUnconfigured(AfterDelay);
+    if (captionDisplayMode() == CaptionUserPreferences::Automatic) {
+        auto languageOfPrimaryAudioTrack = m_player->languageOfPrimaryAudioTrack();
+        auto audioLanguageChanged = !m_languageOfPrimaryAudioTrack || *m_languageOfPrimaryAudioTrack != languageOfPrimaryAudioTrack;
+        if (audioLanguageChanged && m_subtitleTrackLanguage != languageOfPrimaryAudioTrack) {
+            m_languageOfPrimaryAudioTrack = languageOfPrimaryAudioTrack;
+            markCaptionAndSubtitleTracksAsUnconfigured(AfterDelay);
+        }
+    }
 
     if (potentiallyPlaying())
         mediaPlayerRenderingModeChanged();
@@ -5999,6 +5995,7 @@ void HTMLMediaElement::playPlayer()
 
 #if USE(AUDIO_SESSION)
     m_categoryAtMostRecentPlayback = AudioSession::sharedSession().category();
+    m_modeAtMostRecentPlayback = AudioSession::sharedSession().mode();
 #endif
 
 #if ENABLE(MEDIA_SESSION) && ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -6078,13 +6075,13 @@ void HTMLMediaElement::stopPeriodicTimers()
 {
     m_progressEventTimer.stop();
     m_playbackProgressTimer.stop();
+    m_checkPlaybackTargetCompatibilityTimer.stop();
 }
 
 void HTMLMediaElement::cancelPendingTasks()
 {
     m_configureTextTracksTaskCancellationGroup.cancel();
     m_updateTextTracksTaskCancellationGroup.cancel();
-    m_checkPlaybackTargetCompatibilityTaskCancellationGroup.cancel();
     m_updateMediaStateTaskCancellationGroup.cancel();
     m_mediaEngineUpdatedTaskCancellationGroup.cancel();
     m_updatePlayStateTaskCancellationGroup.cancel();
@@ -6448,8 +6445,7 @@ void HTMLMediaElement::setIsPlayingToWirelessTarget(bool isPlayingToWirelessTarg
         updateSleepDisabling();
 
         m_failedToPlayToWirelessTarget = false;
-        m_currentPlaybackTargetIsWirelessEventFiredTime = MonotonicTime::now();
-        scheduleCheckPlaybackTargetCompatability();
+        m_checkPlaybackTargetCompatibilityTimer.startOneShot(500_ms);
 
         if (!isContextStopped())
             dispatchEvent(Event::create(eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent, Event::CanBubble::No, Event::IsCancelable::Yes));
@@ -7491,7 +7487,7 @@ void HTMLMediaElement::updateSleepDisabling()
     else if (shouldDisableSleep != SleepType::None) {
         auto type = shouldDisableSleep == SleepType::Display ? PAL::SleepDisabler::Type::Display : PAL::SleepDisabler::Type::System;
         if (!m_sleepDisabler || m_sleepDisabler->type() != type)
-            m_sleepDisabler = makeUnique<SleepDisabler>("com.apple.WebCore: HTMLMediaElement playback"_s, type);
+            m_sleepDisabler = makeUnique<SleepDisabler>("com.apple.WebCore: HTMLMediaElement playback"_s, type, document().pageID());
     }
 
     if (m_player)

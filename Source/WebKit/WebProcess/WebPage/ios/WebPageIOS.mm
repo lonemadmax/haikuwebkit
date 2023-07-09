@@ -253,7 +253,7 @@ static void computeEditableRootHasContentAndPlainText(const VisibleSelection& se
     }
 
     auto* root = selection.rootEditableElement();
-    if (!root)
+    if (!root || editingIgnoresContent(*root))
         return;
 
     auto startInEditableRoot = firstPositionInNode(root);
@@ -360,7 +360,7 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
                 postLayoutData.selectedEditableImage = contextForElement(*imageElement);
         }
         // FIXME: We should disallow replace when the string contains only CJ characters.
-        postLayoutData.isReplaceAllowed = result.isContentEditable && !result.isInPasswordField && !selectedText.isAllSpecialCharacters<isHTMLSpace>();
+        postLayoutData.isReplaceAllowed = result.isContentEditable && !result.isInPasswordField && !selectedText.isAllSpecialCharacters<isASCIIWhitespace>();
     }
 
 #if USE(DICTATION_ALTERNATIVES)
@@ -2477,12 +2477,19 @@ void WebPage::prepareSelectionForContextMenuWithLocationInView(IntPoint point, C
     constexpr OptionSet hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
     auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
     if (!localMainFrame)
-        return;
+        return completionHandler(false, { });
     Ref frame = *localMainFrame;
     auto result = frame->eventHandler().hitTestResultAtPoint(point, hitType);
     RefPtr hitNode = result.innerNonSharedNode();
     if (!hitNode)
         return completionHandler(false, { });
+
+    if (RefPtr view = frame->view()) {
+        auto pointInContents = view->rootViewToContents(point);
+
+        if (frame->selection().contains(pointInContents))
+            return completionHandler(true, revealItemForCurrentSelection());
+    }
 
     auto sendEditorStateAndCallCompletionHandler = [this, completionHandler = WTFMove(completionHandler)](RevealItem&& item) mutable {
         layoutIfNeeded();
@@ -4483,7 +4490,7 @@ void WebPage::computePagesForPrintingiOS(WebCore::FrameIdentifier frameID, const
     reply(pageRects.size());
 }
 
-void WebPage::drawToImage(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(WebKit::ShareableBitmapHandle&&)>&& reply)
+void WebPage::drawToImage(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(WebKit::ShareableBitmap::Handle&&)>&& reply)
 {  
     Vector<WebCore::IntRect> pageRects;
     double totalScaleFactor;

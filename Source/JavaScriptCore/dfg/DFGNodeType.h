@@ -202,6 +202,7 @@ namespace JSC { namespace DFG {
     /* this must be the directly subsequent property put. Note that PutByVal */\
     /* opcodes use VarArgs beause they may have up to 4 children. */\
     macro(GetByVal, NodeResultJS | NodeMustGenerate | NodeHasVarArgs) \
+    macro(GetByValMegamorphic, NodeResultJS | NodeMustGenerate | NodeHasVarArgs) \
     macro(GetByValWithThis, NodeResultJS | NodeMustGenerate) \
     macro(GetMyArgumentByVal, NodeResultJS | NodeMustGenerate) \
     macro(GetMyArgumentByValOutOfBounds, NodeResultJS | NodeMustGenerate) \
@@ -221,6 +222,7 @@ namespace JSC { namespace DFG {
     macro(GetByIdWithThis, NodeResultJS | NodeMustGenerate) \
     macro(GetByIdDirect, NodeResultJS | NodeMustGenerate) \
     macro(GetByIdDirectFlush, NodeResultJS | NodeMustGenerate) \
+    macro(GetByIdMegamorphic, NodeResultJS | NodeMustGenerate) \
     macro(PutById, NodeMustGenerate) \
     macro(PutByIdFlush, NodeMustGenerate) \
     macro(PutByIdDirect, NodeMustGenerate) \
@@ -303,7 +305,9 @@ namespace JSC { namespace DFG {
     macro(ObjectCreate, NodeMustGenerate | NodeResultJS) \
     macro(ObjectKeys, NodeMustGenerate | NodeResultJS) \
     macro(ObjectGetOwnPropertyNames, NodeMustGenerate | NodeResultJS) \
+    macro(ObjectGetOwnPropertySymbols, NodeMustGenerate | NodeResultJS) \
     macro(ObjectToString, NodeMustGenerate | NodeResultJS) \
+    macro(ReflectOwnKeys, NodeMustGenerate | NodeResultJS) \
     \
     /* Atomics object functions. */\
     macro(AtomicsAdd, NodeResultJS | NodeMustGenerate | NodeHasVarArgs) \

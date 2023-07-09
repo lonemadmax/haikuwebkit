@@ -31,7 +31,6 @@
 #include "ComposedTreeIterator.h"
 #include "Document.h"
 #include "Element.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLSlotElement.h"
 #include "LayoutState.h"
 #include "LayoutTreeBuilder.h"
@@ -163,7 +162,7 @@ void RenderTreeUpdater::updateRenderTree(ContainerNode& root)
             auto& text = downcast<Text>(node);
             auto* textUpdate = m_styleUpdate->textUpdate(text);
             bool didCreateParent = parent().update && parent().update->change == Style::Change::Renderer;
-            bool mayNeedUpdateWhitespaceOnlyRenderer = renderingParent().didCreateOrDestroyChildRenderer && text.data().isAllSpecialCharacters<isHTMLSpace>();
+            bool mayNeedUpdateWhitespaceOnlyRenderer = renderingParent().didCreateOrDestroyChildRenderer && text.data().isAllSpecialCharacters<isASCIIWhitespace>();
             if (didCreateParent || textUpdate || mayNeedUpdateWhitespaceOnlyRenderer)
                 updateTextRenderer(text, textUpdate);
 
@@ -326,7 +325,7 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
     bool shouldTearDownRenderers = [&]() {
         if (element.isInTopLayer() && elementUpdate.change == Style::Change::Inherited && elementUpdate.style->effectiveSkipsContent())
             return true;
-        return elementUpdate.change == Style::Change::Renderer && (element.renderer() || element.hasDisplayContents() || element.displayContentsChanged());
+        return elementUpdate.change == Style::Change::Renderer && (element.renderer() || element.hasDisplayContents());
     }();
 
     if (shouldTearDownRenderers) {
@@ -340,8 +339,6 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
         tearDownRenderers(element, teardownType, m_builder);
 
         renderingParent().didCreateOrDestroyChildRenderer = true;
-
-        element.setDisplayContentsChanged(false);
     }
 
     bool hasDisplayContents = elementUpdate.style->display() == DisplayType::Contents;
@@ -443,7 +440,7 @@ bool RenderTreeUpdater::textRendererIsNeeded(const Text& textNode)
         return true;
     if (!textNode.length())
         return false;
-    if (!textNode.data().isAllSpecialCharacters<isHTMLSpace>())
+    if (!textNode.data().isAllSpecialCharacters<isASCIIWhitespace>())
         return true;
     if (is<RenderText>(renderingParent.previousChildRenderer))
         return true;

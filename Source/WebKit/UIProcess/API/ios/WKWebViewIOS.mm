@@ -2347,7 +2347,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (scrollView.isDragging || scrollView.isZooming || scrollView._isInterruptingDeceleration)
         stabilityFlags.add(WebKit::ViewStabilityFlag::ScrollViewInteracting);
 
-    if (scrollView.isDecelerating || scrollView._isAnimatingZoom || scrollView._isScrollingToTop)
+    if (scrollView.isDecelerating || scrollView._isAnimatingZoom || scrollView._isScrollingToTop || scrollView.isZoomBouncing)
         stabilityFlags.add(WebKit::ViewStabilityFlag::ScrollViewAnimatedScrollOrZoom);
 
     if (scrollView == _scrollView.get() && _isChangingObscuredInsetsInteractively)
@@ -3125,7 +3125,11 @@ static bool isLockdownModeWarningNeeded()
     if (!lockdownModeWarningNeeded)
         return;
 
+#if PLATFORM(MACCATALYST)
+    auto message = WEB_UI_NSSTRING(@"Certain experiences and features may not function as expected. You can manage Lockdown Mode in Settings.", "Lockdown Mode alert message");
+#else
     auto message = WEB_UI_NSSTRING(@"Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings.", "Lockdown Mode alert message");
+#endif
 
     auto decisionHandler = makeBlockPtr([message, protectedSelf = retainPtr(self)](WKDialogResult result) mutable {
         if (result == WKDialogResultAskAgain) {
@@ -3475,10 +3479,8 @@ static bool isLockdownModeWarningNeeded()
 
 - (CGRect)_uiTextCaretRect
 {
-    // Force the selection view to update if needed.
-    [_contentView _updateChangedSelection];
-
-    return [[_contentView valueForKeyPath:@"interactionAssistant.selectionView.selection.caretRect"] CGRectValue];
+    // Only here to maintain binary compatibility.
+    return CGRectZero;
 }
 
 - (UIView *)_safeBrowsingWarning
@@ -3840,11 +3842,11 @@ static bool isLockdownModeWarningNeeded()
         return;
     }
 
-    _page->takeSnapshot(WebCore::enclosingIntRect(snapshotRectInContentCoordinates), WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebKit::SnapshotOptionsExcludeDeviceScaleFactor, [completionHandler = makeBlockPtr(completionHandler)](const WebKit::ShareableBitmapHandle& imageHandle) {
+    _page->takeSnapshot(WebCore::enclosingIntRect(snapshotRectInContentCoordinates), WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebKit::SnapshotOptionsExcludeDeviceScaleFactor, [completionHandler = makeBlockPtr(completionHandler)](WebKit::ShareableBitmap::Handle&& imageHandle) {
         if (imageHandle.isNull())
             return completionHandler(nil);
 
-        auto bitmap = WebKit::ShareableBitmap::create(imageHandle, WebKit::SharedMemory::Protection::ReadOnly);
+        auto bitmap = WebKit::ShareableBitmap::create(WTFMove(imageHandle), WebKit::SharedMemory::Protection::ReadOnly);
 
         if (!bitmap)
             return completionHandler(nil);

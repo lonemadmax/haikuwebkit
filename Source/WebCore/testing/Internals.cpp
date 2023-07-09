@@ -5927,6 +5927,15 @@ auto Internals::audioSessionCategory() const -> AudioSessionCategory
 #endif
 }
 
+auto Internals::audioSessionMode() const -> AudioSessionMode
+{
+#if USE(AUDIO_SESSION)
+    return AudioSession::sharedSession().mode();
+#else
+    return AudioSessionMode::Default;
+#endif
+}
+
 auto Internals::routeSharingPolicy() const -> RouteSharingPolicy
 {
 #if USE(AUDIO_SESSION)
@@ -5944,6 +5953,17 @@ auto Internals::categoryAtMostRecentPlayback(HTMLMediaElement& element) const ->
 #else
     UNUSED_PARAM(element);
     return AudioSessionCategory::None;
+#endif
+}
+
+auto Internals::modeAtMostRecentPlayback(HTMLMediaElement& element) const -> AudioSessionMode
+{
+#if USE(AUDIO_SESSION)
+    WTFLogAlways("Internals::modeAtMostRecentPlayback");
+    return element.modeAtMostRecentPlayback();
+#else
+    UNUSED_PARAM(element);
+    return AudioSessionMode::Default;
 #endif
 }
 #endif
@@ -6747,10 +6767,14 @@ String Internals::focusRingColor()
     return serializationForCSS(RenderTheme::singleton().focusRingColor({ }));
 }
 
-unsigned Internals::createSleepDisabler(const String& reason, bool display)
+ExceptionOr<unsigned> Internals::createSleepDisabler(const String& reason, bool display)
 {
+    auto* document = contextDocument();
+    if (!document || !document->pageID())
+        return Exception { InvalidAccessError };
+
     static unsigned lastUsedIdentifier = 0;
-    auto sleepDisabler = makeUnique<WebCore::SleepDisabler>(reason, display ? PAL::SleepDisabler::Type::Display : PAL::SleepDisabler::Type::System);
+    auto sleepDisabler = makeUnique<WebCore::SleepDisabler>(reason, display ? PAL::SleepDisabler::Type::Display : PAL::SleepDisabler::Type::System, *document->pageID());
     m_sleepDisablers.add(++lastUsedIdentifier, WTFMove(sleepDisabler));
     return lastUsedIdentifier;
 }

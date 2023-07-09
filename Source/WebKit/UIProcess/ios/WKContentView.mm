@@ -1022,7 +1022,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
         RELEASE_LOG(Printing, "Beginning to generate print preview image. Page count = %zu", [formatterAttributes pageCount]);
 
         // Begin generating the image in expectation of a (eventual) request for the drawn data.
-        auto callbackID = retainedSelf->_page->drawToImage([formatterAttributes frameID], [formatterAttributes printInfo], [formatterAttributes pageCount], [isPrintingOnBackgroundThread, printFormatter, retainedSelf](WebKit::ShareableBitmapHandle&& imageHandle) mutable {
+        auto callbackID = retainedSelf->_page->drawToImage([formatterAttributes frameID], [formatterAttributes printInfo], [formatterAttributes pageCount], [isPrintingOnBackgroundThread, printFormatter, retainedSelf](WebKit::ShareableBitmap::Handle&& imageHandle) mutable {
             if (!isPrintingOnBackgroundThread)
                 retainedSelf->_printRenderingCallbackID = { };
             else {
@@ -1035,7 +1035,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
                 return;
             }
 
-            auto bitmap = WebKit::ShareableBitmap::create(imageHandle, WebKit::SharedMemory::Protection::ReadOnly);
+            auto bitmap = WebKit::ShareableBitmap::create(WTFMove(imageHandle), WebKit::SharedMemory::Protection::ReadOnly);
             if (!bitmap) {
                 [printFormatter _setPrintPreviewImage:nullptr];
                 return;

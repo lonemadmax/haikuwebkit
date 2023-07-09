@@ -915,6 +915,7 @@ private:
 
         case NewArrayWithSpecies:
         case EnumeratorGetByVal:
+        case GetByValMegamorphic:
         case ArrayPop:
         case ArrayPush:
         case RegExpExec:
@@ -928,6 +929,7 @@ private:
         case StringReplaceString:
         case GetById:
         case GetByIdFlush:
+        case GetByIdMegamorphic:
         case GetByIdWithThis:
         case GetByIdDirect:
         case GetByIdDirectFlush:
@@ -1199,7 +1201,9 @@ private:
         case CreateRest:
         case NewArrayBuffer:
         case ObjectKeys:
-        case ObjectGetOwnPropertyNames: {
+        case ObjectGetOwnPropertyNames:
+        case ObjectGetOwnPropertySymbols:
+        case ReflectOwnKeys: {
             setPrediction(SpecArray);
             break;
         }

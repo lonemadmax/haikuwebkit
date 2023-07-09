@@ -319,8 +319,9 @@ void NetworkProcess::initializeNetworkProcess(NetworkProcessCreationParameters&&
     m_suppressMemoryPressureHandler = parameters.shouldSuppressMemoryPressureHandler;
     if (!m_suppressMemoryPressureHandler) {
         auto& memoryPressureHandler = MemoryPressureHandler::singleton();
-        memoryPressureHandler.setLowMemoryHandler([this] (Critical critical, Synchronous) {
-            lowMemoryHandler(critical);
+        memoryPressureHandler.setLowMemoryHandler([weakThis = WeakPtr { *this }] (Critical critical, Synchronous) {
+            if (RefPtr process = weakThis.get())
+                process->lowMemoryHandler(critical);
         });
         memoryPressureHandler.install();
     }
@@ -458,23 +459,23 @@ bool NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier proce
     return result;
 }
 
-void NetworkProcess::addStorageSession(PAL::SessionID sessionID, bool shouldUseTestingNetworkSession, const Vector<uint8_t>& uiProcessCookieStorageIdentifier, const SandboxExtension::Handle& cookieStoragePathExtensionHandle)
+void NetworkProcess::addStorageSession(PAL::SessionID sessionID, const WebsiteDataStoreParameters& parameters)
 {
     auto addResult = m_networkStorageSessions.add(sessionID, nullptr);
     if (!addResult.isNewEntry)
         return;
 
-    if (shouldUseTestingNetworkSession) {
+    if (parameters.networkSessionParameters.shouldUseTestingNetworkSession) {
         addResult.iterator->value = newTestingSession(sessionID);
         return;
     }
 
 #if PLATFORM(COCOA)
     RetainPtr<CFHTTPCookieStorageRef> uiProcessCookieStorage;
-    if (!sessionID.isEphemeral() && !uiProcessCookieStorageIdentifier.isEmpty()) {
-        SandboxExtension::consumePermanently(cookieStoragePathExtensionHandle);
+    if (!sessionID.isEphemeral() && !parameters.uiProcessCookieStorageIdentifier.isEmpty()) {
+        SandboxExtension::consumePermanently(parameters.cookieStoragePathExtensionHandle);
         if (sessionID != PAL::SessionID::defaultSessionID())
-            uiProcessCookieStorage = cookieStorageFromIdentifyingData(uiProcessCookieStorageIdentifier);
+            uiProcessCookieStorage = cookieStorageFromIdentifyingData(parameters.uiProcessCookieStorageIdentifier);
     }
 
     auto identifierBase = makeString(uiProcessBundleIdentifier(), '.', sessionID.toUInt64());
@@ -492,7 +493,12 @@ void NetworkProcess::addStorageSession(PAL::SessionID sessionID, bool shouldUseT
     }
 
     addResult.iterator->value = makeUnique<NetworkStorageSession>(sessionID, WTFMove(storageSession), WTFMove(uiProcessCookieStorage));
-#elif USE(CURL) || USE(SOUP)
+#elif USE(CURL)
+    if (!parameters.networkSessionParameters.alternativeServiceDirectory.isEmpty())
+        SandboxExtension::consumePermanently(parameters.networkSessionParameters.alternativeServiceDirectoryExtensionHandle);
+
+    addResult.iterator->value = makeUnique<NetworkStorageSession>(sessionID, parameters.networkSessionParameters.alternativeServiceDirectory);
+#elif USE(SOUP)
     addResult.iterator->value = makeUnique<NetworkStorageSession>(sessionID);
 #endif
 }
@@ -511,7 +517,7 @@ void NetworkProcess::addWebsiteDataStore(WebsiteDataStoreParameters&& parameters
         SandboxExtension::consumePermanently(*handle);
 #endif
 
-    addStorageSession(sessionID, parameters.networkSessionParameters.shouldUseTestingNetworkSession, parameters.uiProcessCookieStorageIdentifier, parameters.cookieStoragePathExtensionHandle);
+    addStorageSession(sessionID, parameters);
 
     auto& session = m_networkSessions.ensure(sessionID, [&]() {
         return NetworkSession::create(*this, parameters.networkSessionParameters);
@@ -1434,8 +1440,11 @@ void NetworkProcess::setBlobRegistryTopOriginPartitioningEnabled(PAL::SessionID 
         session->setBlobRegistryTopOriginPartitioningEnabled(enabled);
 }
 
-void NetworkProcess::preconnectTo(PAL::SessionID sessionID, WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, const URL& url, const String& userAgent, WebCore::StoredCredentialsPolicy storedCredentialsPolicy, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, LastNavigationWasAppInitiated lastNavigationWasAppInitiated)
+void NetworkProcess::preconnectTo(PAL::SessionID sessionID, WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, WebCore::ResourceRequest&& request, WebCore::StoredCredentialsPolicy storedCredentialsPolicy, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain)
 {
+    auto url = request.url();
+    auto userAgent = request.httpUserAgent();
+
     LOG(Network, "(NetworkProcess) Preconnecting to URL %s (storedCredentialsPolicy %i)", url.string().utf8().data(), (int)storedCredentialsPolicy);
 
 #if ENABLE(SERVER_PRECONNECT)
@@ -1449,18 +1458,10 @@ void NetworkProcess::preconnectTo(PAL::SessionID sessionID, WebPageProxyIdentifi
         return;
 
     NetworkLoadParameters parameters;
-    parameters.request = ResourceRequest { url };
-    parameters.request.setIsAppInitiated(lastNavigationWasAppInitiated == LastNavigationWasAppInitiated::Yes);
-    parameters.request.setFirstPartyForCookies(url);
-    parameters.request.setPriority(WebCore::ResourceLoadPriority::VeryHigh);
+    parameters.request = WTFMove(request);
     parameters.webPageProxyID = webPageProxyID;
     parameters.webPageID = webPageID;
     parameters.isNavigatingToAppBoundDomain = isNavigatingToAppBoundDomain;
-    if (!userAgent.isEmpty()) {
-        // FIXME: we add user-agent to the preconnect request because otherwise the preconnect
-        // gets thrown away by CFNetwork when using an HTTPS proxy (<rdar://problem/59434166>).
-        parameters.request.setHTTPUserAgent(userAgent);
-    }
     parameters.storedCredentialsPolicy = storedCredentialsPolicy;
     parameters.shouldPreconnectOnly = PreconnectOnly::Yes;
 
@@ -1563,7 +1564,7 @@ void NetworkProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<Websit
         }
     }
 
-#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+#if HAVE(ALTERNATIVE_SERVICE)
     if (websiteDataTypes.contains(WebsiteDataType::AlternativeServices) && session) {
         for (auto& origin : session->hostNamesWithAlternativeServices())
             callbackAggregator->m_websiteData.entries.append({ origin, WebsiteDataType::AlternativeServices, 0 });
@@ -1652,7 +1653,7 @@ void NetworkProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<Websi
     if (websiteDataTypes.contains(WebsiteDataType::PrivateClickMeasurements) && session)
         session->clearPrivateClickMeasurement([clearTasksHandler] { });
 
-#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+#if HAVE(ALTERNATIVE_SERVICE)
     if (websiteDataTypes.contains(WebsiteDataType::AlternativeServices) && session)
         session->clearAlternativeServices(modifiedSince);
 #endif
@@ -1722,7 +1723,7 @@ void NetworkProcess::deleteWebsiteDataForOrigins(PAL::SessionID sessionID, Optio
         deleteHSTSCacheForHostNames(sessionID, HSTSCacheHostNames);
 #endif
 
-#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+#if HAVE(ALTERNATIVE_SERVICE)
     if (websiteDataTypes.contains(WebsiteDataType::AlternativeServices) && session) {
         auto hosts = originDatas.map([](auto& originData) {
             return originData.host();
@@ -1894,7 +1895,7 @@ void NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::Sess
     }
 #endif
 
-#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+#if HAVE(ALTERNATIVE_SERVICE)
     if (websiteDataTypes.contains(WebsiteDataType::AlternativeServices) && session) {
         auto registrableDomainsToDelete = domainsToDeleteAllScriptWrittenStorageFor.map([](auto& domain) {
             return domain.string();

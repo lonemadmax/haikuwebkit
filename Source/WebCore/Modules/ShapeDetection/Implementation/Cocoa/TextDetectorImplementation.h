@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION) && HAVE(VISION)
+
 #include "TextDetectorInterface.h"
 
 namespace WebCore::ShapeDetection {
@@ -47,7 +49,9 @@ private:
     TextDetectorImpl& operator=(const TextDetectorImpl&) = delete;
     TextDetectorImpl& operator=(TextDetectorImpl&&) = delete;
 
-    void detect(CompletionHandler<void(Vector<DetectedText>&&)>&&) final;
+    void detect(Ref<ImageBuffer>&&, CompletionHandler<void(Vector<DetectedText>&&)>&&) final;
 };
 
 } // namespace WebCore::ShapeDetection
+
+#endif // HAVE(SHAPE_DETECTION_API_IMPLEMENTATION) && HAVE(VISION)

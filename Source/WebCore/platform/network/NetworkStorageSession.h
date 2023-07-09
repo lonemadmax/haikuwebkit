@@ -147,7 +147,7 @@ public:
     BPrivate::Network::BUrlContext& platformSession() const;
     void setPlatformSession(BPrivate::Network::BUrlContext*);
 #elif USE(CURL)
-    WEBCORE_EXPORT NetworkStorageSession(PAL::SessionID);
+    WEBCORE_EXPORT NetworkStorageSession(PAL::SessionID, const String& alternativeServicesDirectory = nullString());
     WEBCORE_EXPORT ~NetworkStorageSession();
 
     CookieJarDB& cookieDatabase() const;
@@ -155,6 +155,8 @@ public:
     WEBCORE_EXPORT void setCookiesFromHTTPResponse(const URL& firstParty, const URL&, const String&) const;
     WEBCORE_EXPORT void setCookieAcceptPolicy(CookieAcceptPolicy) const;
     WEBCORE_EXPORT void setProxySettings(const CurlProxySettings&);
+
+    WEBCORE_EXPORT void clearAlternativeServices();
 #else
     WEBCORE_EXPORT NetworkStorageSession(PAL::SessionID, NetworkingContext*);
     ~NetworkStorageSession();

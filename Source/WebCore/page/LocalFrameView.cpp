@@ -61,7 +61,6 @@
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLPlugInImageElement.h"
 #include "HighlightRegister.h"
 #include "ImageDocument.h"
@@ -3052,6 +3051,13 @@ bool LocalFrameView::isRubberBandInProgress() const
     return false;
 }
 
+bool LocalFrameView::isInStableState() const
+{
+    if (auto* page = m_frame->page())
+        return page->chrome().client().isInStableState();
+    return FrameView::isInStableState();
+}
+
 bool LocalFrameView::requestStartKeyboardScrollAnimation(const KeyboardScroll& scrollData)
 {
     if (auto scrollingCoordinator = this->scrollingCoordinator())
@@ -4670,6 +4676,18 @@ void LocalFrameView::invalidateImagesWithAsyncDecodes()
     traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons::InvalidatingImagesWithAsyncDecodes);
 }
 
+void LocalFrameView::updateAccessibilityObjectRegions()
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (!AXObjectCache::accessibilityEnabled() || !AXObjectCache::isIsolatedTreeEnabled())
+        return;
+
+    NullGraphicsContext graphicsContext;
+    AccessibilityRegionContext accessibilityRegionContext;
+    paint(graphicsContext, frameRect(), SecurityOriginPaintPolicy::AnyOrigin, &accessibilityRegionContext);
+#endif
+}
+
 void LocalFrameView::traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons paintInvalidationReasons)
 {
     if (needsLayout())
@@ -4702,7 +4720,7 @@ void LocalFrameView::setWasScrolledByUser(bool wasScrolledByUser)
     adjustTiledBackingCoverage();
 }
 
-void LocalFrameView::willPaintContents(GraphicsContext& context, const IntRect&, PaintingState& paintingState)
+void LocalFrameView::willPaintContents(GraphicsContext& context, const IntRect&, PaintingState& paintingState, RegionContext* regionContext)
 {
     Document* document = m_frame->document();
 
@@ -4732,6 +4750,9 @@ void LocalFrameView::willPaintContents(GraphicsContext& context, const IntRect&,
         m_paintBehavior.add(PaintBehavior::Snapshotting);
     }
 
+    if (is<AccessibilityRegionContext>(regionContext))
+        m_paintBehavior.add(PaintBehavior::FlattenCompositingLayers);
+
     paintingState.isFlatteningPaintOfRootFrame = (m_paintBehavior & PaintBehavior::FlattenCompositingLayers) && !m_frame->ownerElement() && !context.detectingContentfulPaint();
     if (paintingState.isFlatteningPaintOfRootFrame)
         notifyWidgetsInAllFrames(WillPaintFlattened);
@@ -4760,7 +4781,7 @@ void LocalFrameView::didPaintContents(GraphicsContext& context, const IntRect& d
     }
 }
 
-void LocalFrameView::paintContents(GraphicsContext& context, const IntRect& dirtyRect, SecurityOriginPaintPolicy securityOriginPaintPolicy, EventRegionContext* eventRegionContext)
+void LocalFrameView::paintContents(GraphicsContext& context, const IntRect& dirtyRect, SecurityOriginPaintPolicy securityOriginPaintPolicy, RegionContext* regionContext)
 {
 #ifndef NDEBUG
     bool fillWithWarningColor;
@@ -4800,7 +4821,7 @@ void LocalFrameView::paintContents(GraphicsContext& context, const IntRect& dirt
     }
 
     PaintingState paintingState;
-    willPaintContents(context, dirtyRect, paintingState);
+    willPaintContents(context, dirtyRect, paintingState, regionContext);
 
     // m_nodeToDraw is used to draw only one element (and its descendants)
     RenderObject* renderer = m_nodeToDraw ? m_nodeToDraw->renderer() : nullptr;
@@ -4808,9 +4829,9 @@ void LocalFrameView::paintContents(GraphicsContext& context, const IntRect& dirt
 
     RenderObject::SetLayoutNeededForbiddenScope forbidSetNeedsLayout(rootLayer->renderer());
 
-    rootLayer->paint(context, dirtyRect, LayoutSize(), m_paintBehavior, renderer, { }, securityOriginPaintPolicy == SecurityOriginPaintPolicy::AnyOrigin ? RenderLayer::SecurityOriginPaintPolicy::AnyOrigin : RenderLayer::SecurityOriginPaintPolicy::AccessibleOriginOnly, eventRegionContext);
+    rootLayer->paint(context, dirtyRect, LayoutSize(), m_paintBehavior, renderer, { }, securityOriginPaintPolicy == SecurityOriginPaintPolicy::AnyOrigin ? RenderLayer::SecurityOriginPaintPolicy::AnyOrigin : RenderLayer::SecurityOriginPaintPolicy::AccessibleOriginOnly, regionContext);
     if (auto* scrollableRootLayer = rootLayer->scrollableArea()) {
-        if (scrollableRootLayer->containsDirtyOverlayScrollbars() && !eventRegionContext)
+        if (scrollableRootLayer->containsDirtyOverlayScrollbars() && !regionContext)
             scrollableRootLayer->paintOverlayScrollbars(context, dirtyRect, m_paintBehavior, renderer);
     }
 
@@ -4977,7 +4998,7 @@ void LocalFrameView::incrementVisuallyNonEmptyCharacterCount(const String& inlin
     auto nonWhitespaceLength = [](auto& inlineText) {
         auto length = inlineText.length();
         for (unsigned i = 0; i < inlineText.length(); ++i) {
-            if (isNotHTMLSpace(inlineText[i]))
+            if (!isASCIIWhitespace(inlineText[i]))
                 continue;
             --length;
         }
@@ -5939,6 +5960,7 @@ Display::View* LocalFrameView::existingDisplayView() const
 
 Display::View& LocalFrameView::displayView()
 {
+    ASSERT(m_frame->settings().layoutFormattingContextEnabled());
     if (!m_displayView)
         m_displayView = makeUnique<Display::View>(*this);
     return *m_displayView;
@@ -6309,6 +6331,13 @@ LayoutRect LocalFrameView::getPossiblyFixedRectToExpose(const LayoutRect& visibl
     requiredVisualViewport.scale(frameScaleFactor());
     requiredVisualViewport.move(0, headerHeight());
     return requiredVisualViewport;
+}
+
+float LocalFrameView::deviceScaleFactor() const
+{
+    if (auto* page = m_frame->page())
+        return page->deviceScaleFactor();
+    return 1;
 }
 
 } // namespace WebCore

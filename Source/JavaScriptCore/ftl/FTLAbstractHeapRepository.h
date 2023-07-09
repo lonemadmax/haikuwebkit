@@ -158,9 +158,12 @@ namespace JSC { namespace FTL {
     macro(Structure_inlineCapacity, Structure::inlineCapacityOffset()) \
     macro(Structure_outOfLineTypeFlags, Structure::outOfLineTypeFlagsOffset()) \
     macro(Structure_previousOrRareData, Structure::previousOrRareDataOffset()) \
+    macro(Structure_propertyHash, Structure::propertyHashOffset()) \
     macro(Structure_prototype, Structure::prototypeOffset()) \
-    macro(StructureRareData_cachedKeys, StructureRareData::offsetOfCachedPropertyNames(CachedPropertyNamesKind::Keys)) \
-    macro(StructureRareData_cachedGetOwnPropertyNames, StructureRareData::offsetOfCachedPropertyNames(CachedPropertyNamesKind::GetOwnPropertyNames)) \
+    macro(StructureRareData_cachedEnumerableStrings, StructureRareData::offsetOfCachedPropertyNames(CachedPropertyNamesKind::EnumerableStrings)) \
+    macro(StructureRareData_cachedStrings, StructureRareData::offsetOfCachedPropertyNames(CachedPropertyNamesKind::Strings)) \
+    macro(StructureRareData_cachedSymbols, StructureRareData::offsetOfCachedPropertyNames(CachedPropertyNamesKind::Symbols)) \
+    macro(StructureRareData_cachedStringsAndSymbols, StructureRareData::offsetOfCachedPropertyNames(CachedPropertyNamesKind::StringsAndSymbols)) \
     macro(StructureRareData_cachedPropertyNameEnumeratorAndFlag, StructureRareData::offsetOfCachedPropertyNameEnumeratorAndFlag()) \
     macro(StructureRareData_specialPropertyCache, StructureRareData::offsetOfSpecialPropertyCache()) \
     macro(SpecialPropertyCache_cachedToStringTagValue, SpecialPropertyCache::offsetOfCache(CachedSpecialPropertyKey::ToStringTag) + SpecialPropertyCacheEntry::offsetOfValue()) \

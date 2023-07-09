@@ -77,6 +77,12 @@ struct TemplateTypes<TT> {
         return { WTFMove(astNodeResult) }; \
     } while (false)
 
+#define RETURN_ARENA_NODE(type, ...) \
+    do { \
+        AST::type& astNodeResult = m_builder.construct<AST::type>(CURRENT_SOURCE_SPAN() __VA_OPT__(,) __VA_ARGS__); /* NOLINT */ \
+        return { astNodeResult }; \
+    } while (false)
+
 #define RETURN_NODE_REF(type, ...) \
     return { adoptRef(*new AST::type(CURRENT_SOURCE_SPAN(), __VA_ARGS__)) };
 
@@ -213,10 +219,30 @@ static bool canContinueShortCircuitOrExpression(const Token& token)
     return token.type == TokenType::OrOr;
 }
 
+static bool canContinueCompoundAssignmentStatement(const Token& token)
+{
+    switch (token.type) {
+    case TokenType::PlusEq:
+    case TokenType::MinusEq:
+    case TokenType::StarEq:
+    case TokenType::SlashEq:
+    case TokenType::ModuloEq:
+    case TokenType::AndEq:
+    case TokenType::OrEq:
+    case TokenType::XorEq:
+    case TokenType::GtGtEq:
+    case TokenType::LtLtEq:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static AST::BinaryOperation toBinaryOperation(const Token& token)
 {
     switch (token.type) {
     case TokenType::And:
+    case TokenType::AndEq:
         return AST::BinaryOperation::And;
     case TokenType::AndAnd:
         return AST::BinaryOperation::ShortCircuitAnd;
@@ -229,28 +255,37 @@ static AST::BinaryOperation toBinaryOperation(const Token& token)
     case TokenType::GtEq:
         return AST::BinaryOperation::GreaterEqual;
     case TokenType::GtGt:
+    case TokenType::GtGtEq:
         return AST::BinaryOperation::RightShift;
     case TokenType::Lt:
         return AST::BinaryOperation::LessThan;
     case TokenType::LtEq:
         return AST::BinaryOperation::LessEqual;
     case TokenType::LtLt:
+    case TokenType::LtLtEq:
         return AST::BinaryOperation::LeftShift;
     case TokenType::Minus:
+    case TokenType::MinusEq:
         return AST::BinaryOperation::Subtract;
     case TokenType::Modulo:
+    case TokenType::ModuloEq:
         return AST::BinaryOperation::Modulo;
     case TokenType::Or:
+    case TokenType::OrEq:
         return AST::BinaryOperation::Or;
     case TokenType::OrOr:
         return AST::BinaryOperation::ShortCircuitOr;
     case TokenType::Plus:
+    case TokenType::PlusEq:
         return AST::BinaryOperation::Add;
     case TokenType::Slash:
+    case TokenType::SlashEq:
         return AST::BinaryOperation::Divide;
     case TokenType::Star:
+    case TokenType::StarEq:
         return AST::BinaryOperation::Multiply;
     case TokenType::Xor:
+    case TokenType::XorEq:
         return AST::BinaryOperation::Xor;
     default:
         RELEASE_ASSERT_NOT_REACHED();
@@ -483,6 +518,20 @@ Result<Ref<AST::Attribute>> Parser<Lexer>::parseAttribute()
         RETURN_NODE_REF(WorkgroupSizeAttribute, WTFMove(x), WTFMove(maybeY), WTFMove(maybeZ));
     }
 
+    if (ident.ident == "align"_s) {
+        CONSUME_TYPE(ParenLeft);
+        PARSE(alignment, Expression);
+        CONSUME_TYPE(ParenRight);
+        RETURN_NODE_REF(AlignAttribute, WTFMove(alignment));
+    }
+
+    if (ident.ident == "size"_s) {
+        CONSUME_TYPE(ParenLeft);
+        PARSE(size, Expression);
+        CONSUME_TYPE(ParenRight);
+        RETURN_NODE_REF(SizeAttribute, WTFMove(size));
+    }
+
     // https://gpuweb.github.io/gpuweb/wgsl/#pipeline-stage-attributes
     if (ident.ident == "vertex"_s)
         RETURN_NODE_REF(StageAttribute, AST::StageAttribute::Stage::Vertex);
@@ -506,7 +555,7 @@ Result<AST::Structure::Ref> Parser<Lexer>::parseStructure(AST::Attribute::List&&
     AST::StructureMember::List members;
     while (current().type != TokenType::BraceRight) {
         PARSE(member, StructureMember);
-        members.append(makeUniqueRef<AST::StructureMember>(WTFMove(member)));
+        members.append(member);
         if (current().type == TokenType::Comma)
             consume();
         else
@@ -519,7 +568,7 @@ Result<AST::Structure::Ref> Parser<Lexer>::parseStructure(AST::Attribute::List&&
 }
 
 template<typename Lexer>
-Result<AST::StructureMember> Parser<Lexer>::parseStructureMember()
+Result<std::reference_wrapper<AST::StructureMember>> Parser<Lexer>::parseStructureMember()
 {
     START_PARSE();
 
@@ -528,7 +577,7 @@ Result<AST::StructureMember> Parser<Lexer>::parseStructureMember()
     CONSUME_TYPE(Colon);
     PARSE(type, TypeName);
 
-    RETURN_NODE(StructureMember, WTFMove(name), WTFMove(type), WTFMove(attributes));
+    RETURN_ARENA_NODE(StructureMember, WTFMove(name), WTFMove(type), WTFMove(attributes));
 }
 
 template<typename Lexer>
@@ -820,10 +869,31 @@ Result<AST::Statement::Ref> Parser<Lexer>::parseStatement()
     case TokenType::Identifier: {
         // FIXME: there will be other cases here eventually for function calls
         PARSE(lhs, LHSExpression);
+        std::optional<AST::BinaryOperation> maybeOp;
+        if (canContinueCompoundAssignmentStatement(current())) {
+            maybeOp = toBinaryOperation(current());
+            consume();
+        } else
+            CONSUME_TYPE(Equal);
+        PARSE(rhs, Expression);
+        CONSUME_TYPE(Semicolon);
+
+        if (maybeOp)
+            RETURN_NODE_UNIQUE_REF(CompoundAssignmentStatement, WTFMove(lhs), WTFMove(rhs), *maybeOp);
+
+        RETURN_NODE_UNIQUE_REF(AssignmentStatement, WTFMove(lhs), WTFMove(rhs));
+    }
+    case TokenType::KeywordFor: {
+        // FIXME: Handle attributes attached to statement.
+        PARSE(forStmt, ForStatement);
+        return { makeUniqueRef<AST::ForStatement>(WTFMove(forStmt)) };
+    }
+    case TokenType::Underbar : {
+        consume();
         CONSUME_TYPE(Equal);
         PARSE(rhs, Expression);
         CONSUME_TYPE(Semicolon);
-        RETURN_NODE_UNIQUE_REF(AssignmentStatement, WTFMove(lhs), WTFMove(rhs));
+        RETURN_NODE_UNIQUE_REF(PhonyAssignmentStatement, WTFMove(rhs));
     }
     default:
         FAIL("Not a valid statement"_s);
@@ -880,6 +950,43 @@ Result<AST::IfStatement> Parser<Lexer>::parseIfStatementWithAttributes(AST::Attr
     }
 
     RETURN_NODE(IfStatement, WTFMove(testExpr), WTFMove(thenStmt), WTFMove(maybeElseStmt), WTFMove(attributes));
+}
+
+template<typename Lexer>
+Result<AST::ForStatement> Parser<Lexer>::parseForStatement()
+{
+    START_PARSE();
+
+    CONSUME_TYPE(KeywordFor);
+
+    AST::Statement::Ptr maybeInitializer = nullptr;
+    AST::Expression::Ptr maybeTest = nullptr;
+    AST::Statement::Ptr maybeUpdate = nullptr;
+
+    CONSUME_TYPE(ParenLeft);
+
+    if (current().type != TokenType::Semicolon) {
+        // FIXME: this should be for_init
+        PARSE(variable, Variable);
+        maybeInitializer = makeUnique<AST::VariableStatement>(CURRENT_SOURCE_SPAN(), WTFMove(variable));
+    }
+    CONSUME_TYPE(Semicolon);
+
+    if (current().type != TokenType::Semicolon) {
+        PARSE(test, Expression);
+        maybeTest = test.moveToUniquePtr();
+    }
+    CONSUME_TYPE(Semicolon);
+
+    if (current().type != TokenType::ParenRight) {
+        // FIXME: this should be for_update
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+    CONSUME_TYPE(ParenRight);
+
+    PARSE(body, CompoundStatement);
+
+    RETURN_NODE(ForStatement, WTFMove(maybeInitializer), WTFMove(maybeTest), WTFMove(maybeUpdate), WTFMove(body));
 }
 
 template<typename Lexer>

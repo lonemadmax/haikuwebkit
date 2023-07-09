@@ -2492,7 +2492,7 @@ private:
         auto toStyleColor = (to.*m_getter)();
 
         // We don't animate when both are currentcolor
-        if (RenderStyle::isCurrentColor(fromStyleColor) && RenderStyle::isCurrentColor(toStyleColor))
+        if (fromStyleColor.isCurrentColor() && toStyleColor.isCurrentColor())
             return;
 
         auto fromColor = from.colorResolvingCurrentColor(fromStyleColor);
@@ -2592,7 +2592,7 @@ private:
             auto blendedAdjust = blendFunc(*from.fontSizeAdjust().value, *to.fontSizeAdjust().value, context);
 
             ASSERT(from.fontSizeAdjust().metric == to.fontSizeAdjust().metric);
-            return { to.fontSizeAdjust().metric, std::max(blendedAdjust, 0.0f) };
+            return { to.fontSizeAdjust().metric, false, std::max(blendedAdjust, 0.0f) };
         };
 
         destination.setFontSizeAdjust(blendedFontSizeAdjust());
@@ -4051,7 +4051,7 @@ static std::optional<CSSCustomPropertyValue::SyntaxValue> blendSyntaxValues(cons
     if (std::holds_alternative<StyleColor>(from) && std::holds_alternative<StyleColor>(to)) {
         auto& fromStyleColor = std::get<StyleColor>(from);
         auto& toStyleColor = std::get<StyleColor>(to);
-        if (!RenderStyle::isCurrentColor(fromStyleColor) || !RenderStyle::isCurrentColor(toStyleColor))
+        if (!fromStyleColor.isCurrentColor() || !toStyleColor.isCurrentColor())
             return blendFunc(fromStyle.colorResolvingCurrentColor(fromStyleColor), toStyle.colorResolvingCurrentColor(toStyleColor), blendingContext);
     }
 

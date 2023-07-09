@@ -42,10 +42,12 @@ class CachedSpecialPropertyAdaptiveStructureWatchpoint;
 class CachedSpecialPropertyAdaptiveInferredPropertyValueWatchpoint;
 struct SpecialPropertyCache;
 enum class CachedPropertyNamesKind : uint8_t {
-    Keys = 0,
-    GetOwnPropertyNames,
+    EnumerableStrings = 0,
+    Strings,
+    Symbols,
+    StringsAndSymbols,
 };
-static constexpr unsigned numberOfCachedPropertyNames = 2;
+static constexpr unsigned numberOfCachedPropertyNames = 4;
 
 enum class CachedSpecialPropertyKey : uint8_t {
     ToStringTag = 0,
@@ -119,6 +121,11 @@ public:
     static ptrdiff_t offsetOfSpecialPropertyCache()
     {
         return OBJECT_OFFSETOF(StructureRareData, m_specialPropertyCache);
+    }
+
+    static ptrdiff_t offsetOfPrevious()
+    {
+        return OBJECT_OFFSETOF(StructureRareData, m_previous);
     }
 
     DECLARE_EXPORT_INFO;

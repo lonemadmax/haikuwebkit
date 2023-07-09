@@ -144,6 +144,7 @@ public:
     void play() override;
     void pause() override;
     bool paused() const final;
+    bool ended() const final;
     bool seeking() const override { return m_isSeeking; }
     void seek(const MediaTime&) override;
     void setRate(float) override;
@@ -484,7 +485,6 @@ private:
     void configureDownloadBuffer(GstElement*);
     static void downloadBufferFileCreatedCallback(MediaPlayerPrivateGStreamer*);
 
-    void configureDepayloader(GstElement*);
     void configureVideoDecoder(GstElement*);
     void configureElement(GstElement*);
 #if PLATFORM(BROADCOM) || USE(WESTEROS_SINK) || PLATFORM(AMLOGIC) || PLATFORM(REALTEK)
@@ -580,7 +580,6 @@ private:
     uint64_t m_networkReadPosition { 0 };
     mutable uint64_t m_readPositionAtLastDidLoadingProgress { 0 };
 
-    GRefPtr<GstElement> m_fpsSink { nullptr };
     uint64_t m_totalVideoFrames { 0 };
     uint64_t m_droppedVideoFrames { 0 };
     uint64_t m_decodedVideoFrames { 0 };
@@ -611,6 +610,10 @@ private:
     AbortableTaskQueue m_sinkTaskQueue;
 
     bool m_didTryToRecoverPlayingState { false };
+
+    // Specific to MediaStream playback.
+    MediaTime m_startTime;
+    MediaTime m_pausedTime;
 };
 
 }

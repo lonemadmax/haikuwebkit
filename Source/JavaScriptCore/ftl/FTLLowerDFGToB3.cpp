@@ -88,6 +88,7 @@
 #include "JSSetIterator.h"
 #include "JSWebAssemblyInstance.h"
 #include "LLIntThunks.h"
+#include "MegamorphicCache.h"
 #include "OperandsInlines.h"
 #include "PCToCodeOriginMap.h"
 #include "ProbeContext.h"
@@ -956,6 +957,9 @@ private:
         case GetByIdFlush:
             compileGetById(AccessType::GetById);
             break;
+        case GetByIdMegamorphic:
+            compileGetByIdMegamorphic();
+            break;
         case GetByIdWithThis:
             compileGetByIdWithThis();
             break;
@@ -1057,6 +1061,9 @@ private:
         case GetByVal:
             compileGetByVal();
             break;
+        case GetByValMegamorphic:
+            compileGetByValMegamorphic();
+            break;
         case GetMyArgumentByVal:
         case GetMyArgumentByValOutOfBounds:
             compileGetMyArgumentByVal();
@@ -1142,7 +1149,9 @@ private:
             break;
         case ObjectKeys:
         case ObjectGetOwnPropertyNames:
-            compileObjectKeysOrObjectGetOwnPropertyNames();
+        case ObjectGetOwnPropertySymbols:
+        case ReflectOwnKeys:
+            compileOwnPropertyKeysVariant();
             break;
         case ObjectToString:
             compileObjectToString();
@@ -4002,6 +4011,126 @@ private:
         }
     }
 
+    void compileGetByIdMegamorphic()
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        LValue cell = lowCell(m_node->child1());
+
+        PatchpointValue* patchpoint = m_out.patchpoint(Int64);
+        patchpoint->appendSomeRegister(cell);
+        patchpoint->append(m_notCellMask, ValueRep::lateReg(GPRInfo::notCellMaskRegister));
+        patchpoint->append(m_numberTag, ValueRep::lateReg(GPRInfo::numberTagRegister));
+        patchpoint->clobber(RegisterSetBuilder::macroClobberedGPRs());
+        patchpoint->numGPScratchRegisters = 4;
+
+        RefPtr<PatchpointExceptionHandle> exceptionHandle = preparePatchpointForExceptions(patchpoint);
+
+        State* state = &m_ftlState;
+        UniquedStringImpl* uid = m_node->cacheableIdentifier().uid();
+        CodeOrigin nodeSemanticOrigin = m_node->origin.semantic;
+        CacheableIdentifier identifier = m_node->cacheableIdentifier();
+        patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
+            AllowMacroScratchRegisterUsage allowScratch(jit);
+
+            CallSiteIndex callSiteIndex = state->jitCode->common.codeOrigins->addUniqueCallSiteIndex(nodeSemanticOrigin);
+
+            // This is the direct exit target for operation calls.
+            Box<CCallHelpers::JumpList> exceptions = exceptionHandle->scheduleExitCreation(params)->jumps(jit);
+
+            // This is the exit for call IC's created by the IC for getters. We don't have
+            // to do anything weird other than call this, since it will associate the exit with
+            // the callsite index.
+            exceptionHandle->scheduleExitCreationForUnwind(params, callSiteIndex);
+
+            GPRReg resultGPR = params[0].gpr();
+            GPRReg baseGPR = params[1].gpr();
+            GPRReg scratch1GPR = params.gpScratch(0);
+            GPRReg scratch2GPR = params.gpScratch(1);
+            GPRReg scratch3GPR = params.gpScratch(2);
+            GPRReg scratch4GPR = params.gpScratch(3);
+
+            CCallHelpers::JumpList slowCases = jit.loadMegamorphicProperty(state->vm(), baseGPR, InvalidGPRReg, uid, resultGPR, scratch1GPR, scratch2GPR, scratch3GPR, scratch4GPR);
+            CCallHelpers::Label doneForSlow = jit.label();
+
+            params.addLatePath([=](CCallHelpers& jit) {
+                AllowMacroScratchRegisterUsage allowScratch(jit);
+                slowCases.link(&jit);
+                callOperation(
+                    *state, params.unavailableRegisters(), jit, nodeSemanticOrigin,
+                    exceptions.get(), operationGetByIdMegamorphic, resultGPR,
+                    CCallHelpers::TrustedImmPtr(globalObject),
+                    CCallHelpers::TrustedImmPtr(nullptr), baseGPR, CCallHelpers::TrustedImmPtr(identifier.rawBits())).call();
+                jit.jump().linkTo(doneForSlow, &jit);
+            });
+        });
+
+        setJSValue(patchpoint);
+    }
+
+    void compileGetByValMegamorphic()
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        LValue object = lowObject(m_graph.child(m_node, 0));
+        LValue subscript = lowString(m_graph.child(m_node, 1));
+
+        PatchpointValue* patchpoint = m_out.patchpoint(Int64);
+        patchpoint->appendSomeRegister(object);
+        patchpoint->appendSomeRegister(subscript);
+        patchpoint->append(m_notCellMask, ValueRep::lateReg(GPRInfo::notCellMaskRegister));
+        patchpoint->append(m_numberTag, ValueRep::lateReg(GPRInfo::numberTagRegister));
+        patchpoint->clobber(RegisterSetBuilder::macroClobberedGPRs());
+        patchpoint->numGPScratchRegisters = 5;
+
+        RefPtr<PatchpointExceptionHandle> exceptionHandle = preparePatchpointForExceptions(patchpoint);
+
+        State* state = &m_ftlState;
+        CodeOrigin nodeSemanticOrigin = m_node->origin.semantic;
+        patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
+            AllowMacroScratchRegisterUsage allowScratch(jit);
+
+            CallSiteIndex callSiteIndex = state->jitCode->common.codeOrigins->addUniqueCallSiteIndex(nodeSemanticOrigin);
+
+            // This is the direct exit target for operation calls.
+            Box<CCallHelpers::JumpList> exceptions = exceptionHandle->scheduleExitCreation(params)->jumps(jit);
+
+            // This is the exit for call IC's created by the IC for getters. We don't have
+            // to do anything weird other than call this, since it will associate the exit with
+            // the callsite index.
+            exceptionHandle->scheduleExitCreationForUnwind(params, callSiteIndex);
+
+            GPRReg resultGPR = params[0].gpr();
+            GPRReg baseGPR = params[1].gpr();
+            GPRReg subscriptGPR = params[2].gpr();
+            GPRReg scratch1GPR = params.gpScratch(0);
+            GPRReg scratch2GPR = params.gpScratch(1);
+            GPRReg scratch3GPR = params.gpScratch(2);
+            GPRReg scratch4GPR = params.gpScratch(3);
+            GPRReg scratch5GPR = params.gpScratch(4);
+
+            CCallHelpers::JumpList slowCases;
+
+            jit.loadPtr(CCallHelpers::Address(subscriptGPR, JSString::offsetOfValue()), scratch5GPR);
+            slowCases.append(jit.branchIfRopeStringImpl(scratch5GPR));
+            slowCases.append(jit.branchTest32(CCallHelpers::Zero, CCallHelpers::Address(scratch5GPR, StringImpl::flagsOffset()), CCallHelpers::TrustedImm32(StringImpl::flagIsAtom())));
+
+            slowCases.append(jit.loadMegamorphicProperty(state->vm(), baseGPR, scratch5GPR, nullptr, resultGPR, scratch1GPR, scratch2GPR, scratch3GPR, scratch4GPR));
+            CCallHelpers::Label doneForSlow = jit.label();
+
+            params.addLatePath([=](CCallHelpers& jit) {
+                AllowMacroScratchRegisterUsage allowScratch(jit);
+                slowCases.link(&jit);
+                callOperation(
+                    *state, params.unavailableRegisters(), jit, nodeSemanticOrigin,
+                    exceptions.get(), operationGetByValMegamorphic, resultGPR,
+                    CCallHelpers::TrustedImmPtr(globalObject),
+                    CCallHelpers::TrustedImmPtr(nullptr), CCallHelpers::TrustedImmPtr(nullptr), baseGPR, subscriptGPR).call();
+                jit.jump().linkTo(doneForSlow, &jit);
+            });
+        });
+
+        setJSValue(patchpoint);
+    }
+
     void compileGetByIdWithThis()
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
@@ -5641,6 +5770,7 @@ IGNORE_CLANG_WARNINGS_END
             bool propertyIsString = false;
             bool propertyIsInt32 = false;
             bool propertyIsSymbol = false;
+            bool isEnumerator = node->op() == EnumeratorGetByVal;
             if (abstractValue(m_graph.varArgChild(node, 1)).isType(SpecString))
                 propertyIsString = true;
             else if (abstractValue(m_graph.varArgChild(node, 1)).isType(SpecInt32Only))
@@ -5686,6 +5816,7 @@ IGNORE_CLANG_WARNINGS_END
                 generator->stubInfo()->propertyIsString = propertyIsString;
                 generator->stubInfo()->propertyIsInt32 = propertyIsInt32;
                 generator->stubInfo()->propertyIsSymbol = propertyIsSymbol;
+                generator->stubInfo()->isEnumerator = isEnumerator;
 
                 CCallHelpers::Jump notCell;
                 if (!baseIsCell)
@@ -7544,7 +7675,24 @@ IGNORE_CLANG_WARNINGS_END
         setInt32(m_out.phi(Int32, zeroLengthResult, nonZeroLengthResult));
     }
 
-    void compileObjectKeysOrObjectGetOwnPropertyNames()
+    const AbstractHeap& abstractHeapForOwnPropertyKeysCache(NodeType type)
+    {
+        switch (type) {
+        case ObjectKeys:
+            return m_heaps.StructureRareData_cachedEnumerableStrings;
+        case ObjectGetOwnPropertyNames:
+            return m_heaps.StructureRareData_cachedStrings;
+        case ObjectGetOwnPropertySymbols:
+            return m_heaps.StructureRareData_cachedSymbols;
+        case ReflectOwnKeys:
+            return m_heaps.StructureRareData_cachedStringsAndSymbols;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return m_heaps.root;
+        }
+    }
+
+    void compileOwnPropertyKeysVariant()
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         NodeType op = m_node->op();
@@ -7570,7 +7718,7 @@ IGNORE_CLANG_WARNINGS_END
 
                 m_out.appendTo(rareDataCase, useCacheCase);
                 ASSERT(bitwise_cast<uintptr_t>(StructureRareData::cachedPropertyNamesSentinel()) == 1);
-                LValue cached = m_out.loadPtr(previousOrRareData, op == ObjectKeys ? m_heaps.StructureRareData_cachedKeys : m_heaps.StructureRareData_cachedGetOwnPropertyNames);
+                LValue cached = m_out.loadPtr(previousOrRareData, abstractHeapForOwnPropertyKeysCache(op));
                 m_out.branch(m_out.belowOrEqual(cached, m_out.constIntPtr(bitwise_cast<void*>(StructureRareData::cachedPropertyNamesSentinel()))), unsure(slowCase), unsure(useCacheCase));
 
                 m_out.appendTo(useCacheCase, slowButArrayBufferCase);
@@ -7589,7 +7737,7 @@ IGNORE_CLANG_WARNINGS_END
                 LValue slowResultValue = lazySlowPath(
                     [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
                         return createLazyCallGenerator(vm,
-                            op == ObjectKeys ? operationObjectKeysObject : operationObjectGetOwnPropertyNamesObject, locations[0].directGPR(), CCallHelpers::TrustedImmPtr(globalObject), locations[1].directGPR());
+                            operationOwnPropertyKeysVariantObject(op), locations[0].directGPR(), CCallHelpers::TrustedImmPtr(globalObject), locations[1].directGPR());
                     },
                     object);
                 ValueFromBlock slowResult = m_out.anchor(slowResultValue);
@@ -7599,11 +7747,11 @@ IGNORE_CLANG_WARNINGS_END
                 setJSValue(m_out.phi(pointerType(), fastResult, slowButArrayBufferResult, slowResult));
                 break;
             }
-            setJSValue(vmCall(Int64, op == ObjectKeys ? operationObjectKeysObject : operationObjectGetOwnPropertyNamesObject, weakPointer(globalObject), lowObject(m_node->child1())));
+            setJSValue(vmCall(Int64, operationOwnPropertyKeysVariantObject(op), weakPointer(globalObject), lowObject(m_node->child1())));
             break;
         }
         case UntypedUse:
-            setJSValue(vmCall(Int64, op == ObjectKeys ? operationObjectKeys : operationObjectGetOwnPropertyNames, weakPointer(globalObject), lowJSValue(m_node->child1())));
+            setJSValue(vmCall(Int64, operationOwnPropertyKeysVariant(op), weakPointer(globalObject), lowJSValue(m_node->child1())));
             break;
         default:
             RELEASE_ASSERT_NOT_REACHED();
@@ -7670,9 +7818,32 @@ IGNORE_CLANG_WARNINGS_END
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         switch (m_node->child2().useKind()) {
-        case ObjectUse:
-            vmCall(Void, operationObjectAssignObject, weakPointer(globalObject), lowCell(m_node->child1()), lowObject(m_node->child2()));
+        case ObjectUse: {
+            LBasicBlock checkStructure1 = m_out.newBlock();
+            LBasicBlock checkStructure2 = m_out.newBlock();
+            LBasicBlock genericCase = m_out.newBlock();
+            LBasicBlock continuation = m_out.newBlock();
+
+            LValue target = lowCell(m_node->child1());
+            LValue source = lowObject(m_node->child2());
+
+            m_out.branch(m_out.equal(m_out.load8ZeroExt32(source, m_heaps.JSCell_typeInfoType), m_out.constInt32(FinalObjectType)), unsure(checkStructure1), unsure(genericCase));
+
+            LBasicBlock lastNext = m_out.appendTo(checkStructure1, checkStructure2);
+            LValue indexingMode = m_out.load8ZeroExt32(source, m_heaps.JSCell_indexingTypeAndMisc);
+            m_out.branch(m_out.testIsZero32(indexingMode, m_out.constInt32(IndexingShapeMask)), unsure(checkStructure2), unsure(genericCase));
+
+            m_out.appendTo(checkStructure2, genericCase);
+            LValue structure = loadStructure(source);
+            m_out.branch(m_out.isZero32(m_out.load32(structure, m_heaps.Structure_propertyHash)), unsure(continuation), unsure(genericCase));
+
+            m_out.appendTo(genericCase, continuation);
+            vmCall(Void, operationObjectAssignObject, weakPointer(globalObject), target, source);
+            m_out.jump(continuation);
+
+            m_out.appendTo(continuation, lastNext);
             return;
+        }
         case UntypedUse:
             vmCall(Void, operationObjectAssignUntyped, weakPointer(globalObject), lowCell(m_node->child1()), lowJSValue(m_node->child2()));
             return;

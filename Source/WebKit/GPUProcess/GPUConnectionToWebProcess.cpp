@@ -71,7 +71,6 @@
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/NowPlayingManager.h>
-#include <wtf/Language.h>
 
 #if PLATFORM(COCOA)
 #include "RemoteLayerTreeDrawingAreaProxyMessages.h"
@@ -280,9 +279,6 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
     gpuProcess.audioSessionManager().session().setRoutingArbitrationClient(m_routingArbitrator.get());
 #endif
 
-    if (!parameters.overrideLanguages.isEmpty())
-        overrideUserPreferredLanguages(parameters.overrideLanguages);
-
     // Use this flag to force synchronous messages to be treated as asynchronous messages in the WebProcess.
     // Otherwise, the WebProcess would process incoming synchronous IPC while waiting for a synchronous IPC
     // reply from the GPU process, which would be unsafe.
@@ -348,6 +344,7 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
 #endif
 #if ENABLE(VIDEO)
     m_videoFrameObjectHeap->close();
+    m_remoteMediaPlayerManagerProxy->clear();
 #endif
     // RemoteRenderingBackend objects ref their GPUConnectionToWebProcess so we need to make sure
     // to break the reference cycle by destroying them.
@@ -737,11 +734,6 @@ void GPUConnectionToWebProcess::setMediaOverridesForTesting(MediaOverridesForTes
     SystemBatteryStatusTestingOverrides::singleton().setHasAC(WTFMove(overrides.systemHasAC));
     SystemBatteryStatusTestingOverrides::singleton().setHasBattery(WTFMove(overrides.systemHasBattery));
 #endif
-}
-
-void GPUConnectionToWebProcess::setUserPreferredLanguages(const Vector<String>& languages)
-{
-    overrideUserPreferredLanguages(languages);
 }
 
 bool GPUConnectionToWebProcess::dispatchMessage(IPC::Connection& connection, IPC::Decoder& decoder)

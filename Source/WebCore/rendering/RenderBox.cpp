@@ -1389,63 +1389,6 @@ void RenderBox::clearOverridingLogicalWidthLength()
         gOverridingLogicalWidthLengthMap->remove(this);
 }
 
-FlowRelativeDirection RenderBox::physicalToFlowRelativeDirectionMapping(PhysicalDirection direction) const
-{
-    auto determineFormattingContextRootStyle = [&]() -> const RenderStyle& {
-        if (isFlexItem() || isGridItem())
-            return parent()->style();
-        ASSERT_NOT_IMPLEMENTED_YET();
-        return style();
-    };
-    auto& formattingContextRootStyle = determineFormattingContextRootStyle();
-    auto isHorizontalWritingMode = formattingContextRootStyle.isHorizontalWritingMode();
-    auto isLeftToRightDirection = formattingContextRootStyle.isLeftToRightDirection();
-    // vertical-rl and horizontal-bt writing modes
-    auto isFlippedBlocksWritingMode = formattingContextRootStyle.isFlippedBlocksWritingMode();
-
-    if (isHorizontalWritingMode == formattingContextRootStyle.isHorizontalWritingMode()) {
-        switch (direction) {
-        case PhysicalDirection::Top:
-            if (isHorizontalWritingMode)
-                return FlowRelativeDirection::BlockStart;
-            return isLeftToRightDirection ? FlowRelativeDirection::InlineStart : FlowRelativeDirection::InlineEnd;
-        case PhysicalDirection::Right:
-            if (isHorizontalWritingMode)
-                return isLeftToRightDirection ? FlowRelativeDirection::InlineEnd : FlowRelativeDirection::InlineStart;
-            return isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockStart : FlowRelativeDirection::BlockEnd;
-        case PhysicalDirection::Bottom:
-            if (isHorizontalWritingMode)
-                return FlowRelativeDirection::BlockEnd;
-            return isLeftToRightDirection ? FlowRelativeDirection::InlineEnd : FlowRelativeDirection::InlineStart;
-        case PhysicalDirection::Left:
-            if (isHorizontalWritingMode)
-                return isLeftToRightDirection ? FlowRelativeDirection::InlineStart : FlowRelativeDirection::InlineEnd;
-            return isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockEnd : FlowRelativeDirection::BlockStart;
-        default:
-            ASSERT_NOT_IMPLEMENTED_YET();
-        } 
-    } else
-        ASSERT_NOT_IMPLEMENTED_YET();
-    return { };
-}
-
-static MarginTrimType flowRelativeDirectionToMarginTrimType(FlowRelativeDirection direction)
-{
-    switch (direction) {
-    case FlowRelativeDirection::BlockStart:
-        return MarginTrimType::BlockStart;
-    case FlowRelativeDirection::BlockEnd:
-        return MarginTrimType::BlockEnd;
-    case FlowRelativeDirection::InlineStart:
-        return MarginTrimType::InlineStart;
-    case FlowRelativeDirection::InlineEnd:
-        return MarginTrimType::InlineEnd;
-    default:
-        ASSERT_NOT_REACHED();
-        return { };
-    }
-}
-
 void RenderBox::markMarginAsTrimmed(MarginTrimType newTrimmedMargin)
 {
     ensureRareData().setTrimmedMargins(rareData().trimmedMargins() | static_cast<unsigned>(newTrimmedMargin));
@@ -1461,28 +1404,9 @@ bool RenderBox::hasTrimmedMargin(std::optional<MarginTrimType> marginTrimType) c
 {
     if (!isInFlow())
         return false;
-#if ASSERT_ENABLED
-    // We should assert here if this function is called with a layout system and
-    // MarginTrimType combination that is not supported yet (i.e. the layout system
-    // does not set the margin trim rare data bit for that margin)
-
-    // containingBlock->isBlockContainer() can return true even if the item is in a RenderFlexibleBox
-    // (e.g. buttons) so we should explicitly check that the item is not a flex item to catch block containers here
-    auto* containingBlock = this->containingBlock(); 
-    if (containingBlock && !containingBlock->isFlexibleBox() && containingBlock->isBlockContainer()) {
-        ASSERT_NOT_IMPLEMENTED_YET();
-        return false;
-    }
-#endif
     if (!hasRareData())
         return false;
     return marginTrimType ? (rareData().trimmedMargins() & static_cast<unsigned>(*marginTrimType)) : rareData().trimmedMargins();
-}
-
-bool RenderBox::hasTrimmedMargin(PhysicalDirection physicalDirection) const
-{
-    ASSERT(!needsLayout());
-    return hasTrimmedMargin(flowRelativeDirectionToMarginTrimType(physicalToFlowRelativeDirectionMapping(physicalDirection)));
 }
 
 LayoutUnit RenderBox::adjustBorderBoxLogicalWidthForBoxSizing(const Length& logicalWidth) const
@@ -2178,8 +2102,8 @@ bool RenderBox::pushContentsClip(PaintInfo& paintInfo, const LayoutPoint& accumu
         clipContentForBorderRadius(paintInfo.context(), accumulatedOffset, deviceScaleFactor);
     paintInfo.context().clip(clipRect);
 
-    if (paintInfo.phase == PaintPhase::EventRegion)
-        paintInfo.eventRegionContext->pushClip(enclosingIntRect(clipRect));
+    if (paintInfo.phase == PaintPhase::EventRegion || paintInfo.phase == PaintPhase::Accessibility)
+        paintInfo.regionContext->pushClip(enclosingIntRect(clipRect));
 
     return true;
 }
@@ -2188,8 +2112,8 @@ void RenderBox::popContentsClip(PaintInfo& paintInfo, PaintPhase originalPhase, 
 {
     ASSERT(hasControlClip() || (hasNonVisibleOverflow() && !layer()->isSelfPaintingLayer()));
 
-    if (paintInfo.phase == PaintPhase::EventRegion)
-        paintInfo.eventRegionContext->popClip();
+    if (paintInfo.phase == PaintPhase::EventRegion || paintInfo.phase == PaintPhase::Accessibility)
+        paintInfo.regionContext->popClip();
 
     paintInfo.context().restore();
     if (originalPhase == PaintPhase::Outline) {
@@ -3761,7 +3685,7 @@ LayoutUnit RenderBox::availableLogicalHeightUsing(const Length& h, AvailableLogi
     // height, and then when we lay out again we'll use the calculation below.
     if (isTableCell() && (h.isAuto() || h.isPercentOrCalculated())) {
         if (hasOverridingLogicalHeight())
-            return overridingLogicalHeight() - computedCSSPaddingBefore() - computedCSSPaddingAfter() - borderBefore() - borderAfter();
+            return overridingLogicalHeight() - computedCSSPaddingBefore() - computedCSSPaddingAfter() - borderBefore() - borderAfter() - scrollbarLogicalHeight();
         return logicalHeight() - borderAndPaddingLogicalHeight();
     }
 

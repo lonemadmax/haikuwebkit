@@ -64,7 +64,7 @@ messages -> GPUProcess LegacyReceiver {
 #endif
 
 #if ENABLE(VIDEO)
-    RequestBitmapImageForCurrentTime(WebCore::ProcessIdentifier processIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier) -> (WebKit::ShareableBitmapHandle handle)
+    RequestBitmapImageForCurrentTime(WebCore::ProcessIdentifier processIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier) -> (WebKit::ShareableBitmap::Handle handle)
 #endif
 
 #if ENABLE(CFPREFS_DIRECT_MODE)
@@ -82,6 +82,8 @@ messages -> GPUProcess LegacyReceiver {
 #if HAVE(POWERLOG_TASK_MODE_QUERY)
     EnablePowerLogging(WebKit::SandboxExtension::Handle handle)
 #endif
+
+    UserPreferredLanguagesChanged(Vector<String> languages)
 
     WebProcessConnectionCountForTesting() -> (uint64_t count)
 }

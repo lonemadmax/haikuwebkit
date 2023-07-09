@@ -80,10 +80,16 @@ private:
     void lockLayersForHitTesting() final WTF_ACQUIRES_LOCK(m_layerHitTestMutex);
     void unlockLayersForHitTesting() final WTF_RELEASES_LOCK(m_layerHitTestMutex);
 
+    void beginTransactionOnScrollingThread() final;
+    void commitTransactionOnScrollingThread() final;
+
     void startPendingScrollAnimations() WTF_REQUIRES_LOCK(m_treeLock);
 
     void scrollingTreeNodeWillStartScroll(WebCore::ScrollingNodeID) override;
     void scrollingTreeNodeDidEndScroll(WebCore::ScrollingNodeID) override;
+
+    void scrollingTreeNodeDidBeginScrollSnapping(ScrollingNodeID) override;
+    void scrollingTreeNodeDidEndScrollSnapping(ScrollingNodeID) override;
 
     Ref<WebCore::ScrollingTreeNode> createScrollingTreeNode(WebCore::ScrollingNodeType, WebCore::ScrollingNodeID) override;
 

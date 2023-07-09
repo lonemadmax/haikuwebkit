@@ -142,6 +142,7 @@
 #import <wtf/SoftLinking.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/spi/darwin/OSVariantSPI.h>
 #import <wtf/text/StringConcatenate.h>
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -1135,7 +1136,7 @@ static RetainPtr<NSObject> subscribeToTextInputNotifications(WebViewImpl*);
 
 static bool isInRecoveryOS()
 {
-    return !getuid();
+    return os_variant_is_basesystem("WebKit");
 }
 
 WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWebView, WebProcessPool& processPool, Ref<API::PageConfiguration>&& configuration)
@@ -4111,9 +4112,9 @@ void WebViewImpl::startWindowDrag()
     [[m_view window] performWindowDragWithEvent:m_lastMouseDownEvent.get()];
 }
 
-void WebViewImpl::startDrag(const WebCore::DragItem& item, const ShareableBitmapHandle& dragImageHandle)
+void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Handle&& dragImageHandle)
 {
-    auto dragImageAsBitmap = ShareableBitmap::create(dragImageHandle);
+    auto dragImageAsBitmap = ShareableBitmap::create(WTFMove(dragImageHandle));
     if (!dragImageAsBitmap) {
         m_page->dragCancelled();
         return;
@@ -6084,14 +6085,14 @@ static RetainPtr<CocoaImageAnalyzerRequest> createImageAnalyzerRequest(CGImageRe
     return request;
 }
 
-void WebViewImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmapHandle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion)
+void WebViewImpl::requestTextRecognition(const URL& imageURL, ShareableBitmap::Handle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion)
 {
     if (!isLiveTextAvailableAndEnabled()) {
         completion({ });
         return;
     }
 
-    auto imageBitmap = ShareableBitmap::create(imageData);
+    auto imageBitmap = ShareableBitmap::create(WTFMove(imageData));
     if (!imageBitmap) {
         completion({ });
         return;
@@ -6148,10 +6149,10 @@ bool WebViewImpl::imageAnalysisOverlayViewHasCursorAtPoint(NSPoint locationInVie
 #endif
 }
 
-void WebViewImpl::beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmapHandle& bitmapHandle, WebCore::FloatRect bounds)
+void WebViewImpl::beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&& bitmapHandle, WebCore::FloatRect bounds)
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    auto imageBitmap = ShareableBitmap::create(bitmapHandle);
+    auto imageBitmap = ShareableBitmap::create(WTFMove(bitmapHandle));
     if (!imageBitmap)
         return;
 

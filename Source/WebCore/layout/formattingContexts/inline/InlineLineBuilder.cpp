@@ -333,11 +333,11 @@ InlineLayoutUnit LineBuilder::inlineItemWidth(const InlineItem& inlineItem, Inli
     return boxGeometry.marginBoxWidth();
 }
 
-LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, BlockLayoutState& blockLayoutState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
+LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, InlineLayoutState& inlineLayoutState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
     : m_intrinsicWidthMode(intrinsicWidthMode)
     , m_inlineFormattingContext(inlineFormattingContext)
     , m_inlineFormattingState(&inlineFormattingContext.formattingState())
-    , m_blockLayoutState(&blockLayoutState)
+    , m_inlineLayoutState(&inlineLayoutState)
     , m_rootHorizontalConstraints(rootHorizontalConstraints)
     , m_line(inlineFormattingContext)
     , m_inlineItems(inlineItems)
@@ -580,17 +580,10 @@ InlineItemRange LineBuilder::close(const InlineItemRange& needsLayoutRange, cons
         auto lineHasOverflow = [&] {
             return horizontalAvailableSpace < m_line.contentLogicalWidth();
         };
-        auto lineEndsWithLineBreak = [&] {
-            return !m_line.runs().isEmpty() && m_line.runs().last().isLineBreak();
-        };
         auto isLineBreakAfterWhitespace = [&] {
             return (!isLastLine || lineHasOverflow()) && rootStyle.lineBreak() == LineBreak::AfterWhiteSpace;
         };
-        auto shouldApplyPreserveTrailingWhitespaceQuirk = [&] {
-            return quirks.shouldPreserveTrailingWhitespace(isInIntrinsicWidthMode(), m_line.contentNeedsBidiReordering(), horizontalAvailableSpace < m_line.contentLogicalWidth(), lineEndsWithLineBreak());
-        };
-
-        m_line.handleTrailingTrimmableContent(shouldApplyPreserveTrailingWhitespaceQuirk() || isLineBreakAfterWhitespace() ? Line::TrailingContentAction::Preserve : Line::TrailingContentAction::Remove);
+        m_line.handleTrailingTrimmableContent(isLineBreakAfterWhitespace() ? Line::TrailingContentAction::Preserve : Line::TrailingContentAction::Remove);
         if (quirks.trailingNonBreakingSpaceNeedsAdjustment(isInIntrinsicWidthMode(), lineHasOverflow()))
             m_line.handleOverflowingNonBreakingSpace(isLineBreakAfterWhitespace() ? Line::TrailingContentAction::Preserve : Line::TrailingContentAction::Remove, m_line.contentLogicalWidth() - horizontalAvailableSpace);
 
@@ -1015,7 +1008,7 @@ LayoutUnit LineBuilder::adjustGeometryForInitialLetterIfNeeded(const Box& floatB
     auto drop = floatBox.style().initialLetterDrop();
     auto isInitialLetter = floatBox.isFloatingPositioned() && floatBox.style().styleType() == PseudoId::FirstLetter && drop;
     if (!isInitialLetter) {
-        formattingState()->setClearGapBeforeFirstLine({ });
+        inlineLayoutState()->setClearGapBeforeFirstLine({ });
         return { };
     }
     // Here we try to set the vertical start position for the float in flush with the adjoining text content's cap height.
@@ -1024,7 +1017,7 @@ LayoutUnit LineBuilder::adjustGeometryForInitialLetterIfNeeded(const Box& floatB
     // While initial-letter based floats do not set their clear property, intrusive floats from sibling IFCs are supposed to be cleared.
     auto intrusiveBottom = blockLayoutState()->intrusiveInitialLetterLogicalBottom();
     if (!initialLetterCapHeightOffset && !intrusiveBottom) {
-        formattingState()->setClearGapBeforeFirstLine({ });
+        inlineLayoutState()->setClearGapBeforeFirstLine({ });
         return { };
     }
 
@@ -1056,7 +1049,7 @@ LayoutUnit LineBuilder::adjustGeometryForInitialLetterIfNeeded(const Box& floatB
     }
 
     m_lineLogicalRect.moveVertically(clearGapBeforeFirstLine);
-    formattingState()->setClearGapBeforeFirstLine(clearGapBeforeFirstLine);
+    inlineLayoutState()->setClearGapBeforeFirstLine(clearGapBeforeFirstLine);
     return initialLetterCapHeightOffset.value_or(0_lu);
 }
 

@@ -738,15 +738,23 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(BuilderState
         return RayPathOperation::create(rayValue.angle()->computeDegrees(), size, rayValue.isContaining());
     }
 
-    auto referenceBox = CSSBoxType::BoxMissing;
     RefPtr<PathOperation> operation;
-    for (auto& currentValue : downcast<CSSValueList>(value)) {
-        if (!currentValue.isValueID()) {
+    auto referenceBox = CSSBoxType::BoxMissing;
+    auto processSingleValue = [&](const CSSValue& singleValue) {
+        ASSERT(!is<CSSValueList>(singleValue));
+        if (!singleValue.isValueID()) {
             operation = ShapePathOperation::create(basicShapeForValue(builderState.cssToLengthConversionData(),
-                currentValue, builderState.style().effectiveZoom()));
+                singleValue, builderState.style().effectiveZoom()));
         } else
-            referenceBox = fromCSSValue<CSSBoxType>(currentValue);
-    }
+            referenceBox = fromCSSValue<CSSBoxType>(singleValue);
+    };
+
+    if (is<CSSValueList>(value)) {
+        for (auto& currentValue : downcast<CSSValueList>(value))
+            processSingleValue(currentValue);
+    } else
+        processSingleValue(value);
+
     if (operation)
         downcast<ShapePathOperation>(*operation).setReferenceBox(referenceBox);
     else {
@@ -1528,12 +1536,12 @@ inline FontSizeAdjust BuilderConverter::convertFontSizeAdjust(BuilderState& buil
 
         auto defaultMetric = FontSizeAdjust::Metric::ExHeight;
         if (primitiveValue.isNumber())
-            return { defaultMetric, primitiveValue.floatValue(), false };
+            return { defaultMetric, false, primitiveValue.floatValue() };
 
         ASSERT(primitiveValue.valueID() == CSSValueFromFont);
         // The primary font could be null in the current builder state where
         // a fallback font is used. So, we use the parent style instead.
-        return { defaultMetric, aspectValueOfPrimaryFont(builderState.parentStyle(), defaultMetric), true };
+        return { defaultMetric, true, aspectValueOfPrimaryFont(builderState.parentStyle(), defaultMetric) };
     }
 
     ASSERT(value.isPair());
@@ -1542,10 +1550,10 @@ inline FontSizeAdjust BuilderConverter::convertFontSizeAdjust(BuilderState& buil
     auto metric = fromCSSValueID<FontSizeAdjust::Metric>(downcast<CSSPrimitiveValue>(pair.first()).valueID());
     auto& primitiveValue = downcast<CSSPrimitiveValue>(pair.second());
     if (primitiveValue.isNumber())
-        return { metric, primitiveValue.floatValue(), false };
+        return { metric, false, primitiveValue.floatValue() };
 
     ASSERT(primitiveValue.valueID() == CSSValueFromFont);
-    return { metric, aspectValueOfPrimaryFont(builderState.parentStyle(), metric), true };
+    return { metric, true, aspectValueOfPrimaryFont(builderState.parentStyle(), metric) };
 }
 
 #if PLATFORM(IOS_FAMILY)

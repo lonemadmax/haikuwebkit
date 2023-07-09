@@ -15147,7 +15147,7 @@ void SpeculativeJIT::compileToThis(Node* node)
     jsValueResult(tempRegs, node);
 }
 
-void SpeculativeJIT::compileObjectKeysOrObjectGetOwnPropertyNames(Node* node)
+void SpeculativeJIT::compileOwnPropertyKeysVariant(Node* node)
 {
     switch (node->child1().useKind()) {
     case ObjectUse: {
@@ -15175,7 +15175,7 @@ void SpeculativeJIT::compileObjectKeysOrObjectGetOwnPropertyNames(Node* node)
             slowCases.append(branchTestPtr(Zero, scratchGPR));
             slowCases.append(branchIfStructure(scratchGPR));
 
-            loadPtr(Address(scratchGPR, StructureRareData::offsetOfCachedPropertyNames(node->op() == ObjectKeys ? CachedPropertyNamesKind::Keys : CachedPropertyNamesKind::GetOwnPropertyNames)), scratchGPR);
+            loadPtr(Address(scratchGPR, StructureRareData::offsetOfCachedPropertyNames(node->cachedPropertyNamesKind())), scratchGPR);
 
             ASSERT(bitwise_cast<uintptr_t>(StructureRareData::cachedPropertyNamesSentinel()) == 1);
             slowCases.append(branchPtr(BelowOrEqual, scratchGPR, TrustedImmPtr(bitwise_cast<void*>(StructureRareData::cachedPropertyNamesSentinel()))));
@@ -15192,7 +15192,7 @@ void SpeculativeJIT::compileObjectKeysOrObjectGetOwnPropertyNames(Node* node)
 
             addSlowPathGenerator(slowPathCall(slowButArrayBufferCases, this, operationNewArrayBuffer, resultGPR, TrustedImmPtr(&vm()), arrayStructure, scratch3GPR));
 
-            addSlowPathGenerator(slowPathCall(slowCases, this, node->op() == ObjectKeys ? operationObjectKeysObject : operationObjectGetOwnPropertyNamesObject, resultGPR, LinkableConstant::globalObject(*this, node), objectGPR));
+            addSlowPathGenerator(slowPathCall(slowCases, this, operationOwnPropertyKeysVariantObject(node->op()), resultGPR, LinkableConstant::globalObject(*this, node), objectGPR));
 
             cellResult(resultGPR, node);
             break;
@@ -15207,7 +15207,7 @@ void SpeculativeJIT::compileObjectKeysOrObjectGetOwnPropertyNames(Node* node)
         flushRegisters();
         GPRFlushedCallResult result(this);
         GPRReg resultGPR = result.gpr();
-        callOperation(node->op() == ObjectKeys ? operationObjectKeysObject : operationObjectGetOwnPropertyNamesObject, resultGPR, LinkableConstant::globalObject(*this, node), objectGPR);
+        callOperation(operationOwnPropertyKeysVariantObject(node->op()), resultGPR, LinkableConstant::globalObject(*this, node), objectGPR);
         exceptionCheck();
 
         cellResult(resultGPR, node);
@@ -15222,7 +15222,7 @@ void SpeculativeJIT::compileObjectKeysOrObjectGetOwnPropertyNames(Node* node)
         flushRegisters();
         GPRFlushedCallResult result(this);
         GPRReg resultGPR = result.gpr();
-        callOperation(node->op() == ObjectKeys ? operationObjectKeys : operationObjectGetOwnPropertyNames, resultGPR, LinkableConstant::globalObject(*this, node), objectRegs);
+        callOperation(operationOwnPropertyKeysVariant(node->op()), resultGPR, LinkableConstant::globalObject(*this, node), objectRegs);
         exceptionCheck();
 
         cellResult(resultGPR, node);
@@ -15242,16 +15242,29 @@ void SpeculativeJIT::compileObjectAssign(Node* node)
     switch (node->child2().useKind()) {
     case ObjectUse: {
         SpeculateCellOperand source(this, node->child2());
+        GPRTemporary scratch1(this);
 
         GPRReg targetGPR = target.gpr();
         GPRReg sourceGPR = source.gpr();
+        GPRReg scratch1GPR = scratch1.gpr();
 
         speculateObject(node->child2(), sourceGPR);
 
         flushRegisters();
+
+        JumpList doneCases;
+        JumpList genericCases;
+
+        genericCases.append(branchIfNotType(sourceGPR, FinalObjectType));
+        genericCases.append(branchTest8(NonZero, Address(sourceGPR, JSObject::indexingTypeAndMiscOffset()), CCallHelpers::TrustedImm32(IndexingShapeMask)));
+        emitLoadStructure(vm(), sourceGPR, scratch1GPR);
+        doneCases.append(branchTest32(Zero, Address(scratch1GPR, Structure::propertyHashOffset())));
+
+        genericCases.link(this);
         callOperation(operationObjectAssignObject, LinkableConstant::globalObject(*this, node), targetGPR, sourceGPR);
         exceptionCheck();
 
+        doneCases.link(this);
         noResult(node);
         return;
     }

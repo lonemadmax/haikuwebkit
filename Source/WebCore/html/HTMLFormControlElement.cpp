@@ -242,6 +242,8 @@ void HTMLFormControlElement::didRecalcStyle(Style::Change)
 
 bool HTMLFormControlElement::isKeyboardFocusable(KeyboardEvent* event) const
 {
+    if (!!tabIndexSetExplicitly())
+        return Element::isKeyboardFocusable(event);
     return isFocusable()
         && document().frame()
         && document().frame()->eventHandler().tabsToAllFormControls(event);
@@ -252,7 +254,7 @@ bool HTMLFormControlElement::isMouseFocusable() const
 #if (PLATFORM(GTK) || PLATFORM(WPE))
     return HTMLElement::isMouseFocusable();
 #else
-    if (needsMouseFocusableQuirk())
+    if (!!tabIndexSetExplicitly() || needsMouseFocusableQuirk())
         return HTMLElement::isMouseFocusable();
     return false;
 #endif
@@ -348,6 +350,8 @@ static const AtomString& hideAtom()
 HTMLElement* HTMLFormControlElement::popoverTargetElement() const
 {
     auto canInvokePopovers = [](const HTMLFormControlElement& element) -> bool {
+        if (!element.document().settings().popoverAttributeEnabled() || element.document().quirks().shouldDisablePopoverAttributeQuirk())
+            return false;
         if (auto* inputElement = dynamicDowncast<HTMLInputElement>(element))
             return inputElement->isTextButton() || inputElement->isImageButton();
         return is<HTMLButtonElement>(element);

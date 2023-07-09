@@ -1748,7 +1748,7 @@ static String canonicalizedTitle(Document& document, const String& title)
 
     bool previousCharacterWasHTMLSpace = false;
     for (auto character : StringView { title }.codeUnits()) {
-        if (isHTMLSpace(character))
+        if (isASCIIWhitespace(character))
             previousCharacterWasHTMLSpace = true;
         else {
             if (character == '\\')
@@ -3578,8 +3578,11 @@ const URL& Document::urlForBindings() const
         if (m_url.url().isEmpty() || !loader() || !isTopDocument() || !frame())
             return false;
 
-        auto* topDocumentLoader = topDocument().loader();
-        if (!topDocumentLoader || !topDocumentLoader->networkConnectionIntegrityPolicy().contains(NetworkConnectionIntegrity::Enabled))
+        auto* policySourceLoader = topDocument().loader();
+        if (policySourceLoader && !policySourceLoader->request().url().hasSpecialScheme() && url().protocolIsInHTTPFamily())
+            policySourceLoader = loader();
+
+        if (!policySourceLoader || !policySourceLoader->originatorNetworkConnectionIntegrityPolicy().contains(NetworkConnectionIntegrity::Enabled))
             return false;
 
         auto preNavigationURL = loader()->originalRequest().httpReferrer();
@@ -3637,8 +3640,10 @@ URL Document::fallbackBaseURL() const
 
     if (documentURL.isAboutBlank()) {
         auto* creator = parentDocument();
-        if (!creator && frame() && frame()->loader().opener())
-            creator = frame()->loader().opener()->document();
+        if (!creator && frame()) {
+            if (auto* localOpener = dynamicDowncast<LocalFrame>(frame()->loader().opener()))
+                creator = localOpener->document();
+        }
         if (creator)
             return creator->baseURL();
     }
@@ -3870,8 +3875,10 @@ bool Document::canNavigateInternal(LocalFrame& targetFrame)
         if (&targetFrame == m_frame->loader().opener())
             return true;
 
-        if (canAccessAncestor(securityOrigin(), targetFrame.loader().opener()))
-            return true;
+        if (auto* localOpener = dynamicDowncast<LocalFrame>(targetFrame.loader().opener())) {
+            if (canAccessAncestor(securityOrigin(), localOpener))
+                return true;
+        }
     }
 
     printNavigationErrorMessage(targetFrame, url(), "The frame attempting navigation is neither same-origin with the target, nor is it the target's parent or opener.");
@@ -4159,12 +4166,12 @@ static void processColorSchemeString(StringView colorScheme, const Function<void
     unsigned length = colorScheme.length();
     for (unsigned i = 0; i < length; ) {
         // Skip to first non-separator.
-        while (i < length && isHTMLSpace(colorScheme[i]))
+        while (i < length && isASCIIWhitespace(colorScheme[i]))
             ++i;
         unsigned keyBegin = i;
 
         // Skip to first separator.
-        while (i < length && !isHTMLSpace(colorScheme[i]))
+        while (i < length && !isASCIIWhitespace(colorScheme[i]))
             ++i;
         unsigned keyEnd = i;
 
@@ -4762,6 +4769,14 @@ void Document::updateEventRegions()
         if (view->usesCompositing())
             view->compositor().updateEventRegions();
     }
+}
+
+void Document::updateAccessibilityObjectRegions()
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (auto* view = renderView())
+        view->frameView().updateAccessibilityObjectRegions();
+#endif
 }
 
 void Document::invalidateEventRegionsForFrame(HTMLFrameOwnerElement& element)
@@ -5576,8 +5591,14 @@ String Document::referrer()
 
 String Document::referrerForBindings()
 {
-    if (auto* loader = topDocument().loader(); loader
-        && loader->networkConnectionIntegrityPolicy().contains(WebCore::NetworkConnectionIntegrity::Enabled)
+    auto* policySourceLoader = topDocument().loader();
+    if (!policySourceLoader)
+        return referrer();
+
+    if (!policySourceLoader->request().url().hasSpecialScheme() && url().protocolIsInHTTPFamily())
+        policySourceLoader = loader();
+
+    if (policySourceLoader && policySourceLoader->originatorNetworkConnectionIntegrityPolicy().contains(NetworkConnectionIntegrity::Enabled)
         && !RegistrableDomain { URL { frame()->loader().referrer() } }.matches(securityOrigin().data()))
         return String();
     return referrer();
@@ -6568,7 +6589,7 @@ void Document::initSecurityContext()
     // If we do not obtain a meaningful origin from the URL, then we try to
     // find one via the frame hierarchy.
     RefPtr parentFrame = m_frame->tree().parent();
-    RefPtr openerFrame = m_frame->loader().opener();
+    RefPtr openerFrame = dynamicDowncast<LocalFrame>(m_frame->loader().opener());
 
     RefPtr ownerFrame = dynamicDowncast<LocalFrame>(parentFrame.get());
     if (!ownerFrame)
@@ -6625,7 +6646,7 @@ void Document::initContentSecurityPolicy()
     // delivered with a local scheme (e.g. blob, file, data) should inherit a policy.
     if (!isPluginDocument())
         return;
-    RefPtr openerFrame = m_frame->loader().opener();
+    RefPtr openerFrame = dynamicDowncast<LocalFrame>(m_frame->loader().opener());
     bool shouldInhert = parentFrame || (openerFrame && openerFrame->document()->securityOrigin().isSameOriginDomain(securityOrigin()));
     if (!shouldInhert)
         return;
@@ -9454,8 +9475,7 @@ void Document::updateSleepDisablerIfNeeded()
 {
     MediaProducerMediaStateFlags activeVideoCaptureMask { MediaProducerMediaState::HasActiveVideoCaptureDevice, MediaProducerMediaState::HasActiveScreenCaptureDevice, MediaProducerMediaState::HasActiveWindowCaptureDevice };
     if (m_mediaState & activeVideoCaptureMask) {
-        if (!m_sleepDisabler)
-            m_sleepDisabler = makeUnique<SleepDisabler>("com.apple.WebCore: Document doing camera, screen or window capture"_s, PAL::SleepDisabler::Type::Display);
+        m_sleepDisabler = makeUnique<SleepDisabler>("com.apple.WebCore: Document doing camera, screen or window capture"_s, PAL::SleepDisabler::Type::Display, pageID());
         return;
     }
     m_sleepDisabler = nullptr;

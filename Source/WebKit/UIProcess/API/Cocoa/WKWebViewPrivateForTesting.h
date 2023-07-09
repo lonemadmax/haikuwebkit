@@ -84,6 +84,7 @@ struct WKAppPrivacyReportTestingData {
 - (void)_didShowContextMenu;
 - (void)_didDismissContextMenu;
 
+- (BOOL)_allowAnimationControlsForTesting;
 - (BOOL)_shouldBypassGeolocationPromptForTesting;
 
 - (void)_didPresentContactPicker;
@@ -134,6 +135,8 @@ struct WKAppPrivacyReportTestingData {
 - (void)_computePagesForPrinting:(_WKFrameHandle *)handle completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 - (void)_setConnectedToHardwareConsoleForTesting:(BOOL)connected;
+
+- (void)_setSystemPreviewCompletionHandlerForLoadTesting:(void(^)(bool))completionHandler;
 
 @end
 

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "dfg/DFGNodeType.h"
 #if ENABLE(DFG_JIT)
 
 #include "ArrayConstructor.h"
@@ -172,6 +173,14 @@ ALWAYS_INLINE void AbstractInterpreter<AbstractStateType>::filterByType(Edge& ed
 template<typename AbstractStateType>
 void AbstractInterpreter<AbstractStateType>::verifyEdge(Node* node, Edge edge)
 {
+    if (edge.node()->isTuple()) {
+        if (edge.useKind() == UntypedUse && node->op() == ExtractFromTuple)
+            return;
+        DFG_CRASH(m_graph, node, toCString("Tuple edge verification error: ", node, "->", edge, " was expected to have Untyped use kind (had ", edge.useKind(),
+            "). Has type ", SpeculationDump(m_state.forTupleNodeWithoutFastForward(edge.node(), node->extractOffset()).m_type)).data(),
+            AbstractInterpreterInvalidType, node->op(), edge->op(), edge.useKind(), m_state.forNodeWithoutFastForward(node).m_type);
+    }
+
     if (!(m_state.forNodeWithoutFastForward(edge).m_type & ~typeFilterFor(edge.useKind())))
         return;
     
@@ -2238,6 +2247,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case GetByVal:
+    case GetByValMegamorphic:
     case AtomicsAdd:
     case AtomicsAnd:
     case AtomicsCompareExchange:
@@ -2247,7 +2257,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case AtomicsStore:
     case AtomicsSub:
     case AtomicsXor: {
-        if (node->op() == GetByVal) {
+        if (node->op() == GetByVal || node->op() == GetByValMegamorphic) {
             auto foldGetByValOnConstantProperty = [&] (Edge& arrayEdge, Edge& indexEdge) {
                 // FIXME: We can expand this for non x86 environments.
                 // https://bugs.webkit.org/show_bug.cgi?id=134641
@@ -2397,9 +2407,22 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
             if (didFold)
                 break;
-        }
 
-        if (node->op() != GetByVal) {
+            if (m_graph.child(node, 0).useKind() == ObjectUse && node->arrayMode().type() == Array::Generic) {
+                AbstractValue& property = forNode(m_graph.child(node, 1));
+                if (JSValue constant = property.value()) {
+                    if (constant.isString()) {
+                        JSString* string = asString(constant);
+                        if (CacheableIdentifier::isCacheableIdentifierCell(string) && !parseIndex(CacheableIdentifier::createFromCell(string).uid())) {
+                            m_state.setShouldTryConstantFolding(true);
+                            didFoldClobberWorld();
+                            makeHeapTopForNode(node);
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
             unsigned numExtraArgs = numExtraAtomicsArgs(node->op());
             Edge storageEdge = m_graph.child(node, 2 + numExtraArgs);
             if (!storageEdge)
@@ -3286,14 +3309,16 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
     }
 
+    case ObjectKeys:
     case ObjectGetOwnPropertyNames:
-    case ObjectKeys: {
+    case ObjectGetOwnPropertySymbols:
+    case ReflectOwnKeys: {
         if (node->child1().useKind() == ObjectUse) {
             auto& structureSet = forNode(node->child1()).m_structure;
             if (structureSet.isFinite() && structureSet.size() == 1) {
                 RegisteredStructure structure = structureSet.onlyStructure();
                 if (auto* rareData = structure->rareDataConcurrently()) {
-                    if (!!rareData->cachedPropertyNamesConcurrently(node->op() == ObjectGetOwnPropertyNames ? CachedPropertyNamesKind::GetOwnPropertyNames : CachedPropertyNamesKind::Keys)) {
+                    if (!!rareData->cachedPropertyNamesConcurrently(node->cachedPropertyNamesKind())) {
                         if (m_graph.isWatchingHavingABadTimeWatchpoint(node)) {
                             m_state.setShouldTryConstantFolding(true);
                             didFoldClobberWorld();
@@ -3629,7 +3654,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case GetByIdDirect:
     case GetByIdDirectFlush:
     case GetById:
-    case GetByIdFlush: {
+    case GetByIdFlush:
+    case GetByIdMegamorphic: {
         AbstractValue& value = forNode(node->child1());
 
         if (Options::useAccessInlining()

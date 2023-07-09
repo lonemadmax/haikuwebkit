@@ -1868,6 +1868,9 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
     if (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch && touch._isPointerTouch)
         return NO;
 
+    if (gestureRecognizer == _mouseGestureRecognizer && !touch._isPointerTouch)
+        return NO;
+
     if (gestureRecognizer == _doubleTapGestureRecognizer || gestureRecognizer == _nonBlockingDoubleTapGestureRecognizer)
         return touch.type != UITouchTypeIndirectPointer;
 #endif
@@ -2674,7 +2677,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     if (![uiDelegate respondsToSelector:@selector(_webView:showCustomSheetForElement:)])
         return;
 
-    auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment URL:(NSURL *)_positionInformation.url imageURL:(NSURL *)_positionInformation.imageURL location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:nil imageMIMEType:_positionInformation.imageMIMEType]);
+    auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment image:nil information:_positionInformation]);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [uiDelegate _webView:self.webView showCustomSheetForElement:element.get()];
 ALLOW_DEPRECATED_DECLARATIONS_END
@@ -2823,18 +2826,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return _page->dataDetectionResults();
 }
 #endif
-
-- (NSArray<NSValue *> *)_uiTextSelectionRects
-{
-    NSMutableArray *textSelectionRects = [NSMutableArray array];
-
-    if (_textInteractionAssistant) {
-        for (WKTextSelectionRect *selectionRect in [_textInteractionAssistant valueForKeyPath:@"selectionView.selection.selectionRects"])
-            [textSelectionRects addObject:[NSValue valueWithCGRect:selectionRect.rect]];
-    }
-
-    return textSelectionRects;
-}
 
 - (BOOL)_pointIsInsideSelectionRect:(CGPoint)point outBoundingRect:(WebCore::FloatRect *)outBoundingRect
 {
@@ -4868,14 +4859,14 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
             return;
         }
 
-        strongSelf->_page->requestImageBitmap(context, [context, completion = WTFMove(completion), weakSelf = WTFMove(weakSelf)](auto& imageData, auto& sourceMIMEType) mutable {
+        strongSelf->_page->requestImageBitmap(context, [context, completion = WTFMove(completion), weakSelf = WTFMove(weakSelf)](auto&& imageData, auto& sourceMIMEType) mutable {
             auto strongSelf = weakSelf.get();
             if (!strongSelf) {
                 completion();
                 return;
             }
 
-            auto imageBitmap = WebKit::ShareableBitmap::create(imageData);
+            auto imageBitmap = WebKit::ShareableBitmap::create(WTFMove(imageData));
             if (!imageBitmap) {
                 completion();
                 return;
@@ -10310,7 +10301,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     [_mouseGestureRecognizer setEnabled:[self shouldUseMouseGestureRecognizer]];
 #if ENABLE(PENCIL_HOVER)
     [_pencilHoverGestureRecognizer setAllowedTouchTypes:@[ @(UITouchTypePencil)] ];
-    [_mouseGestureRecognizer setAllowedTouchTypes:@[ @(UITouchTypeIndirectPointer)] ];
+    [_mouseGestureRecognizer setAllowedTouchTypes:@[@(UITouchTypeDirect), @(UITouchTypeIndirectPointer)] ];
     [_pencilHoverGestureRecognizer setEnabled:[self shouldUseMouseGestureRecognizer]];
 #endif
 }
@@ -11071,9 +11062,9 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     return NO;
 }
 
-- (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmapHandle&)imageData sourceLanguageIdentifier:(NSString *)sourceLanguageIdentifier targetLanguageIdentifier:(NSString *)targetLanguageIdentifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion
+- (void)requestTextRecognition:(NSURL *)imageURL imageData:(WebKit::ShareableBitmap::Handle&&)imageData sourceLanguageIdentifier:(NSString *)sourceLanguageIdentifier targetLanguageIdentifier:(NSString *)targetLanguageIdentifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion
 {
-    auto imageBitmap = WebKit::ShareableBitmap::create(imageData);
+    auto imageBitmap = WebKit::ShareableBitmap::create(WTFMove(imageData));
     if (!imageBitmap) {
         completion({ });
         return;
@@ -11431,7 +11422,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
-- (void)beginTextRecognitionForFullscreenVideo:(const WebKit::ShareableBitmapHandle&)imageData playerViewController:(AVPlayerViewController *)controller
+- (void)beginTextRecognitionForFullscreenVideo:(WebKit::ShareableBitmap::Handle&&)imageData playerViewController:(AVPlayerViewController *)controller
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     ASSERT(_page->preferences().textRecognitionInVideosEnabled());
@@ -11439,7 +11430,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
     if (_fullscreenVideoImageAnalysisRequestIdentifier)
         return;
 
-    auto imageBitmap = WebKit::ShareableBitmap::create(imageData);
+    auto imageBitmap = WebKit::ShareableBitmap::create(WTFMove(imageData));
     if (!imageBitmap)
         return;
 
@@ -11481,10 +11472,10 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 #endif
 }
 
-- (void)beginTextRecognitionForVideoInElementFullscreen:(const WebKit::ShareableBitmapHandle&)bitmapHandle bounds:(WebCore::FloatRect)bounds
+- (void)beginTextRecognitionForVideoInElementFullscreen:(WebKit::ShareableBitmap::Handle&&)bitmapHandle bounds:(WebCore::FloatRect)bounds
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    auto imageBitmap = WebKit::ShareableBitmap::create(bitmapHandle);
+    auto imageBitmap = WebKit::ShareableBitmap::create(WTFMove(bitmapHandle));
     if (!imageBitmap)
         return;
 
@@ -11824,6 +11815,13 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
     _usingGestureForSelection = YES;
     _lastSelectionDrawingInfo.type = WebKit::WKSelectionDrawingInfo::SelectionType::Range;
 }
+
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+- (BOOL)_allowAnimationControlsForTesting
+{
+    return self.webView._allowAnimationControlsForTesting;
+}
+#endif
 
 #if ENABLE(DATALIST_ELEMENT)
 - (void)_selectDataListOption:(NSInteger)optionIndex
@@ -12732,7 +12730,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         dataForPreview.get()[UIPreviewDataLink] = (NSURL *)_positionInformation.imageURL;
     } else if (canShowAttachmentPreview) {
         *type = UIPreviewItemTypeAttachment;
-        auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment URL:(NSURL *)linkURL imageURL:(NSURL *)_positionInformation.imageURL location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:nil imageMIMEType:_positionInformation.imageMIMEType]);
+        auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment URL:(NSURL *)linkURL image:nil information:_positionInformation]);
         NSUInteger index = [uiDelegate _webView:self.webView indexIntoAttachmentListForElement:element.get()];
         if (index != NSNotFound) {
             BOOL sourceIsManaged = NO;
@@ -12769,7 +12767,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         // Treat animated images like a link preview
         if (isValidURLForImagePreview && _positionInformation.isAnimatedImage) {
-            auto animatedImageElementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get() imageMIMEType:_positionInformation.imageMIMEType]);
+            auto animatedImageElementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL imageURL:nil information:_positionInformation]);
 
             if ([uiDelegate respondsToSelector:@selector(_webView:previewViewControllerForAnimatedImageAtURL:defaultActions:elementInfo:imageSize:)]) {
                 RetainPtr<NSArray> actions = [_actionSheetAssistant defaultActionsForImageSheet:animatedImageElementInfo.get()];
@@ -12779,7 +12777,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             }
         }
 
-        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get() imageMIMEType:_positionInformation.imageMIMEType]);
+        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL imageURL:nil information:_positionInformation]);
 
         auto actions = [_actionSheetAssistant defaultActionsForLinkSheet:elementInfo.get()];
         if ([uiDelegate respondsToSelector:@selector(webView:previewingViewControllerForElement:defaultActions:)]) {
@@ -12824,7 +12822,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             imageInfo = userInfo;
         }
 
-        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:alternateURL.get() imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get() imageMIMEType:_positionInformation.imageMIMEType userInfo:imageInfo.get()]);
+        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:alternateURL.get() imageURL:nil userInfo:imageInfo.get() information:_positionInformation]);
         _page->startInteractionWithPositionInformation(_positionInformation);
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN

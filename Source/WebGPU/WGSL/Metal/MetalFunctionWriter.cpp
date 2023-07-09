@@ -31,6 +31,7 @@
 #include "ASTStringDumper.h"
 #include "ASTVisitor.h"
 #include "CallGraph.h"
+#include "Constraints.h"
 #include "Types.h"
 #include "WGSLShaderModule.h"
 
@@ -85,7 +86,9 @@ public:
     void visit(AST::AssignmentStatement&) override;
     void visit(AST::CompoundStatement&) override;
     void visit(AST::IfStatement&) override;
+    void visit(AST::PhonyAssignmentStatement&) override;
     void visit(AST::ReturnStatement&) override;
+    void visit(AST::ForStatement&) override;
 
     void visit(AST::TypeName&) override;
 
@@ -528,6 +531,19 @@ void FunctionDefinitionWriter::visit(AST::UnaryExpression& unary)
 
 void FunctionDefinitionWriter::visit(AST::BinaryExpression& binary)
 {
+    if (binary.operation() == AST::BinaryOperation::Modulo) {
+        auto* leftType = binary.leftExpression().inferredType();
+        auto* rightType = binary.rightExpression().inferredType();
+        if (satisfies(leftType, Constraints::Float) || satisfies(rightType, Constraints::Float)) {
+            m_stringBuilder.append("fmod(");
+            visit(binary.leftExpression());
+            m_stringBuilder.append(", ");
+            visit(binary.rightExpression());
+            m_stringBuilder.append(")");
+            return;
+        }
+    }
+
     m_stringBuilder.append("(");
     visit(binary.leftExpression());
     switch (binary.operation()) {
@@ -689,6 +705,13 @@ void FunctionDefinitionWriter::visit(AST::IfStatement& statement)
     }
 }
 
+void FunctionDefinitionWriter::visit(AST::PhonyAssignmentStatement& statement)
+{
+    m_stringBuilder.append("(void)(");
+    visit(statement.rhs());
+    m_stringBuilder.append(");\n");
+}
+
 void FunctionDefinitionWriter::visit(AST::ReturnStatement& statement)
 {
     m_stringBuilder.append("return");
@@ -697,6 +720,21 @@ void FunctionDefinitionWriter::visit(AST::ReturnStatement& statement)
         visit(*statement.maybeExpression());
     }
     m_stringBuilder.append(";\n");
+}
+
+void FunctionDefinitionWriter::visit(AST::ForStatement& statement)
+{
+    m_stringBuilder.append("for (");
+    if (auto* initializer = statement.maybeInitializer())
+        visit(*initializer);
+    m_stringBuilder.append(";");
+    if (auto* test = statement.maybeTest())
+        visit(*test);
+    m_stringBuilder.append(";");
+    if (auto* update = statement.maybeUpdate())
+        visit(*update);
+    m_stringBuilder.append(")");
+    visit(statement.body());
 }
 
 void emitMetalFunctions(StringBuilder& stringBuilder, CallGraph& callGraph)

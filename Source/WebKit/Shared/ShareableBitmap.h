@@ -117,12 +117,14 @@ private:
     friend struct IPC::ArgumentCoder<ShareableBitmapHandle, void>;
     friend class ShareableBitmap;
 
-    mutable SharedMemory::Handle m_handle;
+    SharedMemory::Handle m_handle;
     ShareableBitmapConfiguration m_configuration;
 };
 
 class ShareableBitmap : public ThreadSafeRefCounted<ShareableBitmap> {
 public:
+    using Handle = ShareableBitmapHandle;
+
     // Create a shareable bitmap whose backing memory can be shared with another process.
     static RefPtr<ShareableBitmap> create(const ShareableBitmapConfiguration&);
 
@@ -136,15 +138,15 @@ public:
     static RefPtr<ShareableBitmap> createFromImageDraw(WebCore::NativeImage&);
 
     // Create a shareable bitmap from a handle.
-    static RefPtr<ShareableBitmap> create(const ShareableBitmapHandle&, SharedMemory::Protection = SharedMemory::Protection::ReadWrite);
+    static RefPtr<ShareableBitmap> create(const Handle&, SharedMemory::Protection = SharedMemory::Protection::ReadWrite);
     
     // Create a shareable bitmap from a ReadOnly handle.
-    static std::optional<Ref<ShareableBitmap>> createReadOnly(const std::optional<ShareableBitmapHandle>&);
+    static std::optional<Ref<ShareableBitmap>> createReadOnly(const std::optional<Handle>&);
 
-    std::optional<ShareableBitmapHandle> createHandle(SharedMemory::Protection = SharedMemory::Protection::ReadWrite) const;
+    std::optional<Handle> createHandle(SharedMemory::Protection = SharedMemory::Protection::ReadWrite) const;
     
     // Create a ReadOnly handle.
-    std::optional<ShareableBitmapHandle> createReadOnlyHandle() const;
+    std::optional<Handle> createReadOnlyHandle() const;
 
     WebCore::IntSize size() const { return m_configuration.size(); }
     WebCore::IntRect bounds() const { return WebCore::IntRect(WebCore::IntPoint(), size()); }

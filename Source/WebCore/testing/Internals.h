@@ -641,6 +641,8 @@ public:
     ExceptionOr<void> setCompositingPolicyOverride(std::optional<CompositingPolicy>);
     ExceptionOr<std::optional<CompositingPolicy>> compositingPolicyOverride() const;
 
+    ExceptionOr<void> setAllowAnimationControlsOverride(bool);
+
     void updateLayoutAndStyleForAllFrames();
     ExceptionOr<void> updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(Node*);
     unsigned layoutCount() const;
@@ -942,6 +944,7 @@ public:
 
 #if USE(AUDIO_SESSION)
     using AudioSessionCategory = WebCore::AudioSessionCategory;
+    using AudioSessionMode = WebCore::AudioSessionMode;
     using RouteSharingPolicy = WebCore::RouteSharingPolicy;
 #else
     enum class AudioSessionCategory : uint8_t {
@@ -954,6 +957,12 @@ public:
         AudioProcessing,
     };
 
+    enum class AudioSessionMode : uint8_t {
+        Default,
+        VideoChat,
+        MoviePlayback,
+    };
+
     enum class RouteSharingPolicy : uint8_t {
         Default,
         LongFormAudio,
@@ -964,9 +973,11 @@ public:
 
     bool supportsAudioSession() const;
     AudioSessionCategory audioSessionCategory() const;
+    AudioSessionMode audioSessionMode() const;
     RouteSharingPolicy routeSharingPolicy() const;
 #if ENABLE(VIDEO)
     AudioSessionCategory categoryAtMostRecentPlayback(HTMLMediaElement&) const;
+    AudioSessionMode modeAtMostRecentPlayback(HTMLMediaElement&) const;
 #endif
     double preferredAudioBufferSize() const;
     double currentAudioBufferSize() const;
@@ -1286,7 +1297,7 @@ public:
 
     bool isRemoteUIAppForAccessibility();
 
-    unsigned createSleepDisabler(const String& reason, bool display);
+    ExceptionOr<unsigned> createSleepDisabler(const String& reason, bool display);
     bool destroySleepDisabler(unsigned identifier);
         
 #if ENABLE(APP_HIGHLIGHTS)

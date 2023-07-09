@@ -229,11 +229,11 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
             setProperty(AXPropertyName::NameAttribute, nameAttribute->isolatedCopy());
     }
 
-    if (object.canHaveSelectedChildren()) {
-        AccessibilityChildrenVector selectedChildren;
-        object.selectedChildren(selectedChildren);
-        setObjectVectorProperty(AXPropertyName::SelectedChildren, selectedChildren);
-    }
+    if (object.canHaveSelectedChildren())
+        setObjectVectorProperty(AXPropertyName::SelectedChildren, object.selectedChildren());
+
+    if (object.canHaveSelectedCells())
+        setObjectVectorProperty(AXPropertyName::SelectedCells, object.selectedCells());
 
     if (object.isImage())
         setProperty(AXPropertyName::EmbeddedImageDescription, object.embeddedImageDescription().isolatedCopy());
@@ -935,12 +935,6 @@ IntRect AXIsolatedObject::boundsForRange(const SimpleRange& range) const
     return axObject ? axObject->boundsForRange(range) : IntRect();
 }
 
-IntRect AXIsolatedObject::boundsForVisiblePositionRange(const VisiblePositionRange&) const
-{
-    ASSERT_NOT_REACHED();
-    return { };
-}
-
 VisiblePosition AXIsolatedObject::visiblePositionForPoint(const IntPoint& point) const
 {
     ASSERT(isMainThread());
@@ -1125,22 +1119,10 @@ void AXIsolatedObject::decrement()
     });
 }
 
-bool AXIsolatedObject::performDefaultAction()
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
 AtomString AXIsolatedObject::tagName() const
 {
     ASSERT_NOT_REACHED();
     return AtomString();
-}
-
-bool AXIsolatedObject::isAccessibilityNodeObject() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
 }
 
 bool AXIsolatedObject::isAccessibilityRenderObject() const
@@ -1150,12 +1132,6 @@ bool AXIsolatedObject::isAccessibilityRenderObject() const
 }
 
 bool AXIsolatedObject::isAccessibilityTableInstance() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-bool AXIsolatedObject::isAccessibilityListBoxInstance() const
 {
     ASSERT_NOT_REACHED();
     return false;
@@ -1555,12 +1531,6 @@ RenderObject* AXIsolatedObject::renderer() const
 }
 
 bool AXIsolatedObject::supportsHasPopup() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-bool AXIsolatedObject::supportsPressed() const
 {
     ASSERT_NOT_REACHED();
     return false;

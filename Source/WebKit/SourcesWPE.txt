@@ -34,6 +34,8 @@ NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp
 
 NetworkProcess/Cookies/soup/WebCookieManagerSoup.cpp
 
+NetworkProcess/NetworkDataTaskDataURL.cpp
+
 NetworkProcess/cache/NetworkCacheDataGLib.cpp
 NetworkProcess/cache/NetworkCacheIOChannelGLib.cpp
 
@@ -134,6 +136,7 @@ UIProcess/API/glib/WebKitDownload.cpp @no-unify
 UIProcess/API/glib/WebKitDownloadClient.cpp @no-unify
 UIProcess/API/glib/WebKitEditorState.cpp @no-unify
 UIProcess/API/glib/WebKitError.cpp @no-unify
+UIProcess/API/glib/WebKitFeature.cpp @no-unify
 UIProcess/API/glib/WebKitFileChooserRequest.cpp @no-unify
 UIProcess/API/glib/WebKitFindController.cpp @no-unify
 UIProcess/API/glib/WebKitFormClient.cpp @no-unify

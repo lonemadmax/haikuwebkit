@@ -146,7 +146,12 @@ Type* OverloadResolver::materialize(const AbstractType& abstractType) const
             return type;
         },
         [&](TypeVariable variable) -> Type* {
-            return resolve(variable);
+            Type* type = resolve(variable);
+            if (!type)
+                return nullptr;
+            type = satisfyOrPromote(type, variable.constraints, m_types);
+            RELEASE_ASSERT(type);
+            return type;
         },
         [&](const AbstractVector& vector) -> Type* {
             if (auto* element = materialize(vector.element)) {
@@ -395,76 +400,8 @@ bool OverloadResolver::assign(TypeVariable variable, Type* type)
 {
     logLn("assign ", variable, " => ", *type);
     if (variable.constraints) {
-        auto* primitive = std::get_if<Types::Primitive>(type);
-        if (!primitive)
+        if (!satisfies(type, variable.constraints))
             return false;
-
-        switch (primitive->kind) {
-        case Types::Primitive::AbstractInt:
-            if (variable.constraints < TypeVariable::AbstractInt)
-                return false;
-            if (variable.constraints & TypeVariable::AbstractInt)
-                break;
-            if (variable.constraints & TypeVariable::I32) {
-                type = m_types.i32Type();
-                break;
-            }
-            if (variable.constraints & TypeVariable::U32) {
-                type = m_types.u32Type();
-                break;
-            }
-            if (variable.constraints & TypeVariable::AbstractFloat) {
-                type = m_types.abstractFloatType();
-                break;
-            }
-            if (variable.constraints & TypeVariable::F32) {
-                type = m_types.f32Type();
-                break;
-            }
-            if (variable.constraints & TypeVariable::F16) {
-                // FIXME: Add F16 support
-                // https://bugs.webkit.org/show_bug.cgi?id=254668
-                RELEASE_ASSERT_NOT_REACHED();
-            }
-            RELEASE_ASSERT_NOT_REACHED();
-        case Types::Primitive::AbstractFloat:
-            if (variable.constraints < TypeVariable::AbstractFloat)
-                return false;
-            if (variable.constraints & TypeVariable::AbstractFloat)
-                break;
-            if (variable.constraints & TypeVariable::F32) {
-                type = m_types.f32Type();
-                break;
-            }
-            if (variable.constraints & TypeVariable::F16) {
-                // FIXME: Add F16 support
-                // https://bugs.webkit.org/show_bug.cgi?id=254668
-                RELEASE_ASSERT_NOT_REACHED();
-            }
-            RELEASE_ASSERT_NOT_REACHED();
-        case Types::Primitive::I32:
-            if (!(variable.constraints & TypeVariable::I32))
-                return false;
-            break;
-        case Types::Primitive::U32:
-            if (!(variable.constraints & TypeVariable::U32))
-                return false;
-            break;
-        case Types::Primitive::F32:
-            if (!(variable.constraints & TypeVariable::F32))
-                return false;
-            break;
-        // FIXME: Add F16 support
-        // https://bugs.webkit.org/show_bug.cgi?id=254668
-        case Types::Primitive::Bool:
-            if (!(variable.constraints & TypeVariable::Bool))
-                return false;
-            break;
-
-        case Types::Primitive::Void:
-        case Types::Primitive::Sampler:
-            return false;
-        }
     }
     m_typeSubstitutions[variable.id] = type;
     return true;

@@ -132,7 +132,7 @@ public:
     ResourceLoaderIdentifier loadResourceSynchronously(const ResourceRequest&, ClientCredentialPolicy, const FetchOptions&, const HTTPHeaderMap&, ResourceError&, ResourceResponse&, RefPtr<SharedBuffer>& data);
 
     bool upgradeRequestforHTTPSOnlyIfNeeded(const URL&, ResourceRequest&) const;
-    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), const SystemPreviewInfo& = { }, std::optional<PrivateClickMeasurement>&& = std::nullopt);
+    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), std::optional<PrivateClickMeasurement>&& = std::nullopt);
     void changeLocation(FrameLoadRequest&&, Event* = nullptr, std::optional<PrivateClickMeasurement>&& = std::nullopt);
     void submitForm(Ref<FormSubmission>&&);
 
@@ -246,9 +246,9 @@ public:
 
     bool checkIfFormActionAllowedByCSP(const URL&, bool didReceiveRedirectResponse, const URL& preRedirectURL) const;
 
-    WEBCORE_EXPORT LocalFrame* opener();
-    WEBCORE_EXPORT const LocalFrame* opener() const;
-    WEBCORE_EXPORT void setOpener(LocalFrame*);
+    WEBCORE_EXPORT Frame* opener();
+    WEBCORE_EXPORT const Frame* opener() const;
+    WEBCORE_EXPORT void setOpener(Frame*);
     WEBCORE_EXPORT void detachFromAllOpenedFrames();
 
     void resetMultipleFormSubmissionProtection();
@@ -468,6 +468,7 @@ private:
     bool m_inStopAllLoaders;
     bool m_inClearProvisionalLoadForPolicyCheck { false };
     bool m_shouldReportResourceTimingToParentFrame { true };
+    bool m_provisionalLoadHappeningInAnotherProcess { false };
 
     String m_outgoingReferrer;
 
@@ -486,8 +487,8 @@ private:
     bool m_shouldCallCheckCompleted;
     bool m_shouldCallCheckLoadComplete;
 
-    WeakPtr<LocalFrame> m_opener;
-    WeakHashSet<LocalFrame> m_openedFrames;
+    WeakPtr<Frame> m_opener;
+    WeakHashSet<Frame> m_openedFrames;
 
     bool m_loadingFromCachedPage;
 

@@ -600,6 +600,7 @@ private:
             case GetByIdDirectFlush:
             case GetById:
             case GetByIdFlush:
+            case GetByIdMegamorphic:
             case GetPrivateNameById: {
                 Edge childEdge = node->child1();
                 Node* child = childEdge.node();
@@ -693,6 +694,30 @@ private:
                     }
                 }
                 break;
+            }
+
+            case GetByVal:
+            case GetByValMegamorphic: {
+                if (m_graph.child(node, 0).useKind() == ObjectUse && node->arrayMode().type() == Array::Generic) {
+                    AbstractValue& property = m_state.forNode(m_graph.child(node, 1));
+                    if (JSValue constant = property.value()) {
+                        if (constant.isString()) {
+                            JSString* string = asString(constant);
+                            if (CacheableIdentifier::isCacheableIdentifierCell(string) && !parseIndex(CacheableIdentifier::createFromCell(string).uid())) {
+                                const StringImpl* impl = string->tryGetValueImpl();
+                                RELEASE_ASSERT(impl);
+                                m_graph.freezeStrong(string);
+                                m_graph.identifiers().ensure(const_cast<UniquedStringImpl*>(static_cast<const UniquedStringImpl*>(impl)));
+                                m_insertionSet.insertCheck(indexInBlock, node->origin, m_graph.child(node, 0));
+                                node->convertToGetByIdMaybeMegamorphic(m_graph, CacheableIdentifier::createFromCell(string));
+                                changed = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                break;
+
             }
 
             case ToPrimitive: {
@@ -851,14 +876,16 @@ private:
                 break;
             }
 
+            case ObjectKeys:
             case ObjectGetOwnPropertyNames:
-            case ObjectKeys: {
+            case ObjectGetOwnPropertySymbols:
+            case ReflectOwnKeys: {
                 if (node->child1().useKind() == ObjectUse) {
                     auto& structureSet = m_state.forNode(node->child1()).m_structure;
                     if (structureSet.isFinite() && structureSet.size() == 1) {
                         RegisteredStructure structure = structureSet.onlyStructure();
                         if (auto* rareData = structure->rareDataConcurrently()) {
-                            if (auto* immutableButterfly = rareData->cachedPropertyNamesConcurrently(node->op() == ObjectGetOwnPropertyNames ? CachedPropertyNamesKind::GetOwnPropertyNames : CachedPropertyNamesKind::Keys)) {
+                            if (auto* immutableButterfly = rareData->cachedPropertyNamesConcurrently(node->cachedPropertyNamesKind())) {
                                 if (m_graph.isWatchingHavingABadTimeWatchpoint(node)) {
                                     node->convertToNewArrayBuffer(m_graph.freeze(immutableButterfly));
                                     changed = true;

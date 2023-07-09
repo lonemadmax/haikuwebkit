@@ -6888,7 +6888,12 @@ static bool hasOverlay(CALayer *layer)
 }
 #endif
 
+// FIXME when rdar://106098852 is resolved
+#if PLATFORM(MAC) && (__MAC_OS_X_VERSION_MIN_REQUIRED > 130000) || PLATFORM(IOS)
+TEST(ProcessSwap, DISABLED_PageOverlayLayerPersistence)
+#else
 TEST(ProcessSwap, PageOverlayLayerPersistence)
+#endif
 {
     auto processPoolConfiguration = psonProcessPoolConfiguration();
     [processPoolConfiguration setInjectedBundleURL:[[NSBundle mainBundle] URLForResource:@"TestWebKitAPI" withExtension:@"wkbundle"]];
@@ -7941,6 +7946,7 @@ static void configureLockdownWKWebViewConfiguration(WKWebViewConfiguration *conf
     [config.preferences _setMediaDevicesEnabled:YES];
     config.preferences._mediaCaptureRequiresSecureConnection = NO;
     [config.preferences _setNotificationsEnabled:YES];
+    [config.preferences _setPushAPIEnabled: YES];
 
     // Turn on testable and preview features to confirm they are properly turned off in Lockdown Mode.
     for (_WKFeature *feature in [WKPreferences _features]) {

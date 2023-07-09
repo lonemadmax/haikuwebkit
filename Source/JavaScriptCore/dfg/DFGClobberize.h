@@ -163,6 +163,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case PutByVal:
         case PutByValAlias:
         case GetByVal:
+        case GetByValMegamorphic:
         case StringCharAt:
         case StringCharCodeAt:
         case StringCodePointAt:
@@ -702,6 +703,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
 
     case GetById:
     case GetByIdFlush:
+    case GetByIdMegamorphic:
     case GetByIdWithThis:
     case GetByIdDirect:
     case GetByIdDirectFlush:
@@ -772,7 +774,9 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case StringValueOf:
     case ObjectKeys:
     case ObjectGetOwnPropertyNames:
+    case ObjectGetOwnPropertySymbols:
     case ObjectToString:
+    case ReflectOwnKeys:
         clobberTop();
         return;
 
@@ -956,7 +960,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
     }
         
-    case GetByVal: {
+    case GetByVal:
+    case GetByValMegamorphic: {
         ArrayMode mode = node->arrayMode();
         LocationKind indexedPropertyLoc = indexedPropertyLocForResultType(node->result());
         switch (mode.type()) {

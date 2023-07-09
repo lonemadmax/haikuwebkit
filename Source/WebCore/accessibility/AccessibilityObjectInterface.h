@@ -847,13 +847,11 @@ public:
     typedef Vector<RefPtr<AXCoreObject>> AccessibilityChildrenVector;
 
     virtual bool isAccessibilityObject() const = 0;
-    virtual bool isAccessibilityNodeObject() const = 0;
     virtual bool isAccessibilityRenderObject() const = 0;
     virtual bool isAccessibilityTableInstance() const = 0;
     virtual bool isAccessibilityARIAGridInstance() const = 0;
     virtual bool isAccessibilityARIAGridRowInstance() const = 0;
     virtual bool isAccessibilityARIAGridCellInstance() const = 0;
-    virtual bool isAccessibilityListBoxInstance() const = 0;
     virtual bool isAXIsolatedObjectInstance() const = 0;
 
     bool isHeading() const { return roleValue() == AccessibilityRole::Heading; }
@@ -897,6 +895,7 @@ public:
     virtual AccessibilityChildrenVector columnHeaders() = 0;
     virtual AccessibilityChildrenVector rowHeaders() = 0;
     virtual AccessibilityChildrenVector visibleRows() = 0;
+    virtual AccessibilityChildrenVector selectedCells() = 0;
     // Returns an object that contains, as children, all the objects that act as headers.
     virtual AXCoreObject* headerContainer() = 0;
     virtual int axColumnCount() const = 0;
@@ -1065,7 +1064,6 @@ public:
     virtual bool pressedIsPresent() const = 0;
     virtual bool ariaIsMultiline() const = 0;
     virtual String invalidStatus() const = 0;
-    virtual bool supportsPressed() const = 0;
     virtual bool supportsExpanded() const = 0;
     virtual bool supportsChecked() const = 0;
     virtual AccessibilitySortDirection sortDirection() const = 0;
@@ -1235,7 +1233,7 @@ public:
 
     virtual void makeRangeVisible(const PlainTextRange&) = 0;
     virtual bool press() = 0;
-    virtual bool performDefaultAction() = 0;
+    bool performDefaultAction() { return press(); }
     virtual bool performDismissAction() { return false; }
     
     virtual AccessibilityOrientation orientation() const = 0;
@@ -1249,7 +1247,8 @@ public:
     virtual bool isDetachedFromParent() = 0;
 
     bool canHaveSelectedChildren() const;
-    virtual void selectedChildren(AccessibilityChildrenVector&) = 0;
+    bool canHaveSelectedCells() const;
+    virtual AccessibilityChildrenVector selectedChildren() = 0;
     virtual void setSelectedChildren(const AccessibilityChildrenVector&) = 0;
     virtual AccessibilityChildrenVector visibleChildren() = 0;
     AccessibilityChildrenVector tabChildren();
@@ -1283,7 +1282,6 @@ public:
 #endif
 
     virtual String stringForRange(const SimpleRange&) const = 0;
-    virtual IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const = 0;
     virtual IntRect boundsForRange(const SimpleRange&) const = 0;
     virtual void setSelectedVisiblePositionRange(const VisiblePositionRange&) const = 0;
 
@@ -1576,6 +1574,19 @@ inline bool AXCoreObject::supportsLiveRegion(bool excludeIfOff) const
 {
     auto liveRegionStatusValue = liveRegionStatus();
     return excludeIfOff ? liveRegionStatusIsEnabled(AtomString { liveRegionStatusValue }) : !liveRegionStatusValue.isEmpty();
+}
+
+inline bool AXCoreObject::canHaveSelectedCells() const
+{
+    switch (roleValue()) {
+    case AccessibilityRole::Grid:
+    case AccessibilityRole::Table:
+    case AccessibilityRole::Tree:
+    case AccessibilityRole::TreeGrid:
+        return true;
+    default:
+        return false;
+    }
 }
 
 inline bool AXCoreObject::canHaveSelectedChildren() const

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -724,15 +724,15 @@ void VideoFullscreenManager::setVideoLayerFrameFenced(PlaybackSessionContextIden
         interface->layerHostingContext()->setFencePort(machSendRight.sendRight());
         model->setVideoLayerFrame(bounds);
     } else
-        model->setVideoInlineSizeFenced(bounds.size(), machSendRight);
+        model->setVideoSizeFenced(bounds.size(), machSendRight);
 }
 
-void VideoFullscreenManager::updateTextTrackRepresentationForVideoElement(WebCore::HTMLVideoElement& videoElement, const ShareableBitmapHandle& textTrack)
+void VideoFullscreenManager::updateTextTrackRepresentationForVideoElement(WebCore::HTMLVideoElement& videoElement, ShareableBitmap::Handle&& textTrack)
 {
     if (!m_page)
         return;
     auto contextId = m_videoElements.get(&videoElement);
-    m_page->send(Messages::VideoFullscreenManagerProxy::TextTrackRepresentationUpdate(contextId, textTrack));
+    m_page->send(Messages::VideoFullscreenManagerProxy::TextTrackRepresentationUpdate(contextId, WTFMove(textTrack)));
 }
 
 void VideoFullscreenManager::setTextTrackRepresentationContentScaleForVideoElement(WebCore::HTMLVideoElement& videoElement, float scale)

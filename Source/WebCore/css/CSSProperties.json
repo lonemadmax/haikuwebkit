@@ -9617,6 +9617,7 @@
                 "codegen-properties": {
                     "settings-flag": "cssCounterStyleAtRulesEnabled",
                     "parser-function": "consumeCounterStyleSystem",
+                    "parser-function-requires-context": true,
                     "parser-grammar-unused": "cyclic | numeric | alphabetic | symbolic | additive | [ fixed <integer>? ] | [ extends <counter-style-name> ]",
                     "parser-grammar-unused-reason": "Needs support for ordered groups, optionals and applying restrictions to <custom-ident>."
                 },
@@ -9923,6 +9924,16 @@
                     "url": "https://www.w3.org/TR/css-fonts-4/#src-desc"
                 }
             },
+            "size-adjust": {
+                "codegen-properties": {
+                    "settings-flag": "cssFontFaceSizeAdjustEnabled",
+                    "parser-grammar": "<percentage [0,inf]>"
+                },
+                "specification": {
+                    "category": "css-fonts-5",
+                    "url": "https://www.w3.org/TR/css-fonts-5/#size-adjust-desc"
+                }
+            },
             "unicode-range": {
                 "codegen-properties": {
                     "parser-function": "consumeFontFaceUnicodeRange",
@@ -10103,6 +10114,11 @@
             "shortname": "CSS Fonts Level 4",
             "longname": "CSS Fonts Module Level 4",
             "url": "https://drafts.csswg.org/css-fonts-4"
+        },
+        "css-fonts-5": {
+            "shortname": "CSS Fonts Level 5",
+            "longname": "CSS Fonts Module Level 5",
+            "url": "https://www.w3.org/TR/css-fonts-5"
         },
         "css-grid": {
             "shortname": "CSS Grid Layout",

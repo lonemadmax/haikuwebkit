@@ -523,7 +523,7 @@ void VideoFullscreenManagerProxy::forEachSession(Function<void(VideoFullscreenMo
     }
 }
 
-void VideoFullscreenManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(const ShareableBitmapHandle&)>&& completionHandler)
+void VideoFullscreenManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
 {
     auto* gpuProcess = GPUProcessProxy::singletonIfCreated();
     if (!gpuProcess) {
@@ -572,7 +572,12 @@ PlatformLayerContainer VideoFullscreenManagerProxy::createLayerWithID(PlaybackSe
         [playerLayer setFullscreenInterface:interface.get()];
         
         [playerLayer setVideoSublayer:[view layer]];
-        [playerLayer addSublayer:[view layer]];
+
+        // The videoView may already be reparented in fullscreen, so only parent the view
+        // if it has no existing parent:
+        if (![[view layer] superlayer])
+            [playerLayer addSublayer:[view layer]];
+
         model->setPlayerLayer(playerLayer.get());
         [playerLayer setFrame:CGRectMake(0, 0, initialSize.width(), initialSize.height())];
         [playerLayer setNeedsLayout];
@@ -622,7 +627,12 @@ RetainPtr<WebAVPlayerLayerView> VideoFullscreenManagerProxy::createViewWithID(Pl
         [playerLayer setFullscreenInterface:interface.get()];
 
         [playerLayer setVideoSublayer:[view layer]];
-        [playerLayer addSublayer:[view layer]];
+
+        // The videoView may already be reparented in fullscreen, so only parent the view
+        // if it has no existing parent:
+        if (![[view layer] superlayer])
+            [playerLayer addSublayer:[view layer]];
+
         model->setPlayerLayer(playerLayer);
         model->setPlayerView(WTFMove(playerView));
 
@@ -859,9 +869,9 @@ void VideoFullscreenManagerProxy::preparedToExitFullscreen(PlaybackSessionContex
     ensureInterface(contextId).preparedToExitFullscreen();
 }
 
-void VideoFullscreenManagerProxy::textTrackRepresentationUpdate(PlaybackSessionContextIdentifier contextId, const ShareableBitmapHandle& textTrack)
+void VideoFullscreenManagerProxy::textTrackRepresentationUpdate(PlaybackSessionContextIdentifier contextId, ShareableBitmap::Handle&& textTrack)
 {
-    auto bitmap = ShareableBitmap::create(textTrack);
+    auto bitmap = ShareableBitmap::create(WTFMove(textTrack));
     if (!bitmap)
         return;
     

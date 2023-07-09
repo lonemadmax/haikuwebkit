@@ -2199,7 +2199,7 @@ void Page::userStyleSheetLocationChanged()
     if (url.protocolIsData() && url.string().startsWith("data:text/css;charset=utf-8;base64,"_s)) {
         m_didLoadUserStyleSheet = true;
 
-        if (auto styleSheetAsUTF8 = base64Decode(PAL::decodeURLEscapeSequences(StringView(url.string()).substring(35)), Base64DecodeOptions::IgnoreSpacesAndNewLines))
+        if (auto styleSheetAsUTF8 = base64Decode(PAL::decodeURLEscapeSequences(StringView(url.string()).substring(35)), Base64DecodeMode::DefaultValidatePaddingAndIgnoreWhitespace))
             m_userStyleSheet = String::fromUTF8(styleSheetAsUTF8->data(), styleSheetAsUTF8->size());
     }
 
@@ -3902,6 +3902,13 @@ void Page::abortApplePayAMSUISession(ApplePayAMSUIPaymentHandler& paymentHandler
 }
 
 #endif // ENABLE(APPLE_PAY_AMS_UI)
+
+#if USE(SYSTEM_PREVIEW)
+void Page::handleSystemPreview(const URL& url, const SystemPreviewInfo& systemPreviewInfo)
+{
+    chrome().client().handleSystemPreview(url, systemPreviewInfo);
+}
+#endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 void Page::setMediaSessionCoordinator(Ref<MediaSessionCoordinatorPrivate>&& mediaSessionCoordinator)

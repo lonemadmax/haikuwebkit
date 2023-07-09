@@ -83,6 +83,7 @@ JSSpeechSynthesisEventInit.cpp
 Modules/ShapeDetection/Implementation/Cocoa/BarcodeDetectorImplementation.mm
 Modules/ShapeDetection/Implementation/Cocoa/FaceDetectorImplementation.mm
 Modules/ShapeDetection/Implementation/Cocoa/TextDetectorImplementation.mm
+Modules/ShapeDetection/Implementation/Cocoa/VisionUtilities.mm
 Modules/airplay/WebMediaSessionManager.cpp
 Modules/applepay/ApplePayCouponCodeChangedEvent.cpp
 Modules/applepay/ApplePayCancelEvent.cpp
@@ -418,7 +419,6 @@ platform/graphics/cocoa/FontFamilySpecificationCoreText.cpp
 platform/graphics/cocoa/FontFamilySpecificationCoreTextCache.cpp
 platform/graphics/cocoa/FontPlatformDataCocoa.mm
 platform/graphics/cocoa/GraphicsContextCocoa.mm
-platform/graphics/cocoa/GraphicsContextGLIOSurfaceSwapChain.cpp
 platform/graphics/cocoa/HEVCUtilitiesCocoa.mm
 platform/graphics/cocoa/IOSurface.mm
 platform/graphics/cocoa/IOSurfacePoolCocoa.mm

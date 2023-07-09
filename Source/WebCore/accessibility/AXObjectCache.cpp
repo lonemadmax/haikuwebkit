@@ -85,7 +85,6 @@
 #include "HTMLNames.h"
 #include "HTMLOptGroupElement.h"
 #include "HTMLOptionElement.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLProgressElement.h"
 #include "HTMLSelectElement.h"
 #include "HTMLTableElement.h"
@@ -1455,7 +1454,7 @@ static bool isARIATableCell(Node* node)
 void AXObjectCache::onSelectedChanged(Node* node)
 {
     if (isARIATableCell(node))
-        postNotification(node, AXSelectedCellChanged);
+        postNotification(node, AXSelectedCellsChanged);
     else if (is<HTMLOptionElement>(node))
         postNotification(node, AXSelectedStateChanged);
     else if (auto* axObject = getOrCreate(node)) {
@@ -1974,6 +1973,14 @@ void AXObjectCache::handleActiveDescendantChanged(Element& element)
 #endif
 
         postPlatformNotification(target, AXNotification::AXActiveDescendantChanged);
+        
+        // Table cell active descendant changes should trigger selected cell changes.
+        if (target->isTable() && activeDescendant->isTableCell()) {
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+            updateIsolatedTree(target, AXNotification::AXSelectedCellsChanged);
+#endif
+            postPlatformNotification(target, AXSelectedCellsChanged);
+        }
     }
 }
 
@@ -2102,8 +2109,9 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
 #if !LOG_DISABLED
         updateIsolatedTree(get(element), AXIdAttributeChanged);
 #endif
-    }
-#endif
+    } else if (attrName == accesskeyAttr)
+        updateIsolatedTree(get(element), AXAccessKeyChanged);
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     else if (attrName == openAttr && is<HTMLDialogElement>(*element)) {
         deferModalChange(element);
         recomputeIsIgnored(element->parentNode());
@@ -2350,7 +2358,7 @@ CharacterOffset AXObjectCache::traverseToOffsetInRange(const SimpleRange& range,
         } else {
             // Ignore space, new line, tag node.
             if (currentLength == 1) {
-                if (isHTMLSpace(iterator.text()[0])) {
+                if (isASCIIWhitespace(iterator.text()[0])) {
                     // If the node has BR tag, we want to set the currentNode to it.
                     Node* childNode = iterator.node();
                     if (childNode && childNode->renderer() && childNode->renderer()->isBR()) {
@@ -3697,6 +3705,9 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
             continue;
 
         switch (notification.second) {
+        case AXAccessKeyChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::AccessKey);
+            break;
         case AXAutofillTypeChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::ValueAutofillButtonType);
             break;
@@ -3748,7 +3759,9 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         case AXRowIndexChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::AXRowIndex);
             break;
-        case AXSelectedCellChanged:
+        case AXSelectedCellsChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::SelectedCells);
+            break;
         case AXSelectedStateChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsSelected);
             break;

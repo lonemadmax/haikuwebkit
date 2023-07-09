@@ -49,6 +49,8 @@
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <WebCore/WebLayer.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/FastMalloc.h>
+#import <wtf/Noncopyable.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/TextStream.h>
 
@@ -59,6 +61,32 @@
 namespace WebKit {
 
 using namespace WebCore;
+
+namespace {
+
+class DelegatedContentsFenceFlusher final : public ThreadSafeImageBufferFlusher {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(DelegatedContentsFenceFlusher);
+public:
+    static std::unique_ptr<DelegatedContentsFenceFlusher> create(Ref<PlatformCALayerDelegatedContentsFence> fence)
+    {
+        return std::unique_ptr<DelegatedContentsFenceFlusher> { new DelegatedContentsFenceFlusher(WTFMove(fence)) };
+    }
+
+    void flush() final
+    {
+        m_fence->waitFor(delegatedContentsFinishedTimeout);
+    }
+
+private:
+    DelegatedContentsFenceFlusher(Ref<PlatformCALayerDelegatedContentsFence> fence)
+        : m_fence(WTFMove(fence))
+    {
+    }
+    Ref<PlatformCALayerDelegatedContentsFence> m_fence;
+};
+
+}
 
 RemoteLayerBackingStore::RemoteLayerBackingStore(PlatformCALayerRemote* layer)
     : m_layer(layer)
@@ -129,7 +157,7 @@ void RemoteLayerBackingStore::Buffer::encode(IPC::Encoder& encoder) const
 static bool hasValue(const ImageBufferBackendHandle& backendHandle)
 {
     return WTF::switchOn(backendHandle,
-        [&] (const ShareableBitmapHandle& handle) {
+        [&] (const ShareableBitmap::Handle& handle) {
             return !handle.isNull();
         },
         [&] (const MachSendRight& machSendRight) {
@@ -329,15 +357,11 @@ bool RemoteLayerBackingStore::supportsPartialRepaint() const
 #endif
 }
 
-void RemoteLayerBackingStore::setDelegatedContentsFinishedEvent(const WebCore::PlatformCALayerDelegatedContentsFinishedEvent&)
-{
-    // FIXME: To be implemented.
-}
-
 void RemoteLayerBackingStore::setDelegatedContents(const WebCore::PlatformCALayerDelegatedContents& contents)
 {
     m_contentsBufferHandle = contents.surface.copySendRight();
-    // FIXME: m_contentsBufferFinishedIdentifier = contents.finishedIdentifier;
+    if (contents.finishedFence)
+        m_frontBufferFlushers.append(DelegatedContentsFenceFlusher::create(Ref { *contents.finishedFence }));
     m_dirtyRegion = { };
     m_paintingRects.clear();
 }
@@ -440,11 +464,10 @@ void RemoteLayerBackingStore::ensureFrontBuffer()
     if (!m_displayListBuffer && m_parameters.includeDisplayList == IncludeDisplayList::Yes) {
         ImageBufferCreationContext creationContext;
         creationContext.useCGDisplayListImageCache = m_parameters.useCGDisplayListImageCache;
-        // FIXME: This should use colorSpace(), not hardcode sRGB.
         if (type() == RemoteLayerBackingStore::Type::IOSurface)
-            m_displayListBuffer = ImageBuffer::create<CGDisplayListAcceleratedImageBufferBackend>(m_parameters.size, m_parameters.scale, DestinationColorSpace::SRGB(), pixelFormat(), RenderingPurpose::DOM, WTFMove(creationContext));
+            m_displayListBuffer = ImageBuffer::create<CGDisplayListAcceleratedImageBufferBackend>(m_parameters.size, m_parameters.scale, colorSpace(), pixelFormat(), RenderingPurpose::DOM, WTFMove(creationContext));
         else
-            m_displayListBuffer = ImageBuffer::create<CGDisplayListImageBufferBackend>(m_parameters.size, m_parameters.scale, DestinationColorSpace::SRGB(), pixelFormat(), RenderingPurpose::DOM, WTFMove(creationContext));
+            m_displayListBuffer = ImageBuffer::create<CGDisplayListImageBufferBackend>(m_parameters.size, m_parameters.scale, colorSpace(), pixelFormat(), RenderingPurpose::DOM, WTFMove(creationContext));
     }
 #endif
 }
@@ -622,8 +645,8 @@ RetainPtr<id> RemoteLayerBackingStoreProperties::layerContentsBufferFromBackendH
 {
     RetainPtr<id> contents;
     WTF::switchOn(backendHandle,
-        [&] (ShareableBitmapHandle& handle) {
-            if (auto bitmap = ShareableBitmap::create(handle))
+        [&] (ShareableBitmap::Handle& handle) {
+            if (auto bitmap = ShareableBitmap::create(WTFMove(handle)))
                 contents = bridge_id_cast(bitmap->makeCGImageCopy());
         },
         [&] (MachSendRight& machSendRight) {
@@ -674,6 +697,8 @@ void RemoteLayerBackingStoreProperties::applyBackingStoreToLayer(CALayer *layer,
         if (![layer isKindOfClass:[WKCompositingLayer class]])
             return;
 
+        layer.drawsAsynchronously = (m_type == RemoteLayerBackingStore::Type::IOSurface);
+
         if (!replayCGDisplayListsIntoBackingStore) {
             [layer setValue:@1 forKeyPath:WKCGDisplayListEnabledKey];
             [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
@@ -681,7 +706,8 @@ void RemoteLayerBackingStoreProperties::applyBackingStoreToLayer(CALayer *layer,
             layer.opaque = m_isOpaque;
         [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:WTFMove(std::get<CGDisplayList>(*m_displayListBufferHandle)) replayForTesting:replayCGDisplayListsIntoBackingStore];
         return;
-    }
+    } else
+        [layer _web_clearCGDisplayListIfNeeded];
 #else
     UNUSED_PARAM(replayCGDisplayListsIntoBackingStore);
 #endif

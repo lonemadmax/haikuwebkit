@@ -376,6 +376,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
 
     case EnumeratorGetByVal:
     case GetByVal:
+    case GetByValMegamorphic:
     case GetIndexedPropertyStorage:
     case GetArrayLength:
     case GetTypedArrayLengthAsInt52:
@@ -513,7 +514,9 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ObjectCreate:
     case ObjectKeys:
     case ObjectGetOwnPropertyNames:
+    case ObjectGetOwnPropertySymbols:
     case ObjectToString:
+    case ReflectOwnKeys:
     case SetLocal:
     case SetCallee:
     case PutStack:
@@ -529,6 +532,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case DeleteById:
     case DeleteByVal:
     case GetById:
+    case GetByIdMegamorphic:
     case GetByIdWithThis:
     case GetByValWithThis:
     case GetByIdFlush:

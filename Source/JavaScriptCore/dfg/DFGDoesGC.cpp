@@ -297,6 +297,7 @@ bool doesGC(Graph& graph, Node* node)
     case GetByIdDirect:
     case GetByIdDirectFlush:
     case GetByIdFlush:
+    case GetByIdMegamorphic:
     case GetByIdWithThis:
     case GetByValWithThis:
     case GetDynamicVar:
@@ -366,7 +367,9 @@ bool doesGC(Graph& graph, Node* node)
     case ObjectCreate:
     case ObjectKeys:
     case ObjectGetOwnPropertyNames:
+    case ObjectGetOwnPropertySymbols:
     case ObjectToString:
+    case ReflectOwnKeys:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
     case Arrayify:
@@ -511,6 +514,7 @@ bool doesGC(Graph& graph, Node* node)
         return false;
 
     case GetByVal:
+    case GetByValMegamorphic:
     case EnumeratorGetByVal:
         if (node->arrayMode().type() == Array::String)
             return true;

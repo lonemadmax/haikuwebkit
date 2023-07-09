@@ -375,6 +375,11 @@ void WebProcessPool::setOverrideLanguages(Vector<String>&& languages)
 
     LOG_WITH_STREAM(Language, stream << "WebProcessPool is setting OverrideLanguages: " << languages);
     sendToAllProcesses(Messages::WebProcess::UserPreferredLanguagesChanged(overrideLanguages()));
+
+#if ENABLE(GPU_PROCESS)
+    if (auto* gpuProcess = GPUProcessProxy::singletonIfCreated())
+        gpuProcess->send(Messages::GPUProcess::UserPreferredLanguagesChanged(overrideLanguages()), 0);
+#endif
 #if USE(SOUP)
     for (auto networkProcess : NetworkProcessProxy::allNetworkProcesses())
         networkProcess->send(Messages::NetworkProcess::UserPreferredLanguagesChanged(overrideLanguages()), 0);
@@ -1824,11 +1829,12 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
 
     auto [process, suspendedPage, reason] = processForNavigationInternal(page, navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, dataStore.copyRef());
 
-    if (page.preferences().siteIsolationEnabled()) {
-        auto registrableDomain = RegistrableDomain(navigation.currentRequest().url());
-        if (!registrableDomain.isEmpty()) {
+    if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
+        RegistrableDomain navigationDomain(navigation.currentRequest().url());
+        RegistrableDomain mainFrameDomain(URL(page.pageLoadState().activeURL()));
+        if (!navigationDomain.isEmpty() && navigationDomain != mainFrameDomain) {
             auto subFramePageProxy = makeUniqueRef<SubframePageProxy>(page, process, frame.isMainFrame());
-            page.addSubframePageProxyForFrameID(frame.frameID(), registrableDomain, WTFMove(subFramePageProxy));
+            page.addSubframePageProxyForFrameID(frame.frameID(), navigationDomain, WTFMove(subFramePageProxy));
         }
     }
 

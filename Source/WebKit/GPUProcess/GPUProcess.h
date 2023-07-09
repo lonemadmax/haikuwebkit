@@ -126,7 +126,7 @@ public:
 #endif
 
 #if ENABLE(VIDEO)
-    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(const ShareableBitmapHandle&)>&&);
+    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
 #endif
 
 private:
@@ -153,6 +153,7 @@ private:
     void removeSession(PAL::SessionID);
     
     bool updatePreference(std::optional<bool>& oldPreference, std::optional<bool>& newPreference);
+    void userPreferredLanguagesChanged(Vector<String>&&);
 
 #if ENABLE(MEDIA_STREAM)
     void setMockCaptureDevicesEnabled(bool);

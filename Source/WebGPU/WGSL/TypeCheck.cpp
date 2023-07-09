@@ -54,9 +54,12 @@ public:
 
     // Statements
     void visit(AST::AssignmentStatement&) override;
+    void visit(AST::CompoundAssignmentStatement&) override;
     void visit(AST::IfStatement&) override;
+    void visit(AST::PhonyAssignmentStatement&) override;
     void visit(AST::ReturnStatement&) override;
     void visit(AST::CompoundStatement&) override;
+    void visit(AST::ForStatement&) override;
 
     // Expressions
     void visit(AST::Expression&) override;
@@ -229,6 +232,14 @@ void TypeChecker::visit(AST::AssignmentStatement& statement)
         typeError(InferBottom::No, statement.span(), "cannot assign value of type '", *rhs, "' to '", *lhs, "'");
 }
 
+void TypeChecker::visit(AST::CompoundAssignmentStatement& statement)
+{
+    // FIXME: Implement type checking - infer is called to avoid ASSERT in
+    // TypeChecker::visit(AST::Expression&)
+    infer(statement.leftExpression());
+    infer(statement.rightExpression());
+}
+
 void TypeChecker::visit(AST::IfStatement& statement)
 {
     auto* test = infer(statement.test());
@@ -239,6 +250,13 @@ void TypeChecker::visit(AST::IfStatement& statement)
     AST::Visitor::visit(statement.trueBody());
     if (statement.maybeFalseBody())
         AST::Visitor::visit(*statement.maybeFalseBody());
+}
+
+void TypeChecker::visit(AST::PhonyAssignmentStatement& statement)
+{
+    infer(statement.rhs());
+    // There is nothing to unify with since result of the right-hand side is
+    // discarded.
 }
 
 void TypeChecker::visit(AST::ReturnStatement& statement)
@@ -254,6 +272,23 @@ void TypeChecker::visit(AST::CompoundStatement& statement)
 {
     ContextScope blockScope(this);
     AST::Visitor::visit(statement);
+}
+
+void TypeChecker::visit(AST::ForStatement& statement)
+{
+    if (auto* initializer = statement.maybeInitializer())
+        AST::Visitor::visit(*initializer);
+
+    if (auto* test = statement.maybeTest()) {
+        auto* testType = infer(*test);
+        if (!unify(m_types.boolType(), testType))
+            typeError(test->span(), "for-loop condition must be bool, got ", *testType);
+    }
+
+    if (auto* update = statement.maybeUpdate())
+        AST::Visitor::visit(*update);
+
+    visit(statement.body());
 }
 
 // Expressions

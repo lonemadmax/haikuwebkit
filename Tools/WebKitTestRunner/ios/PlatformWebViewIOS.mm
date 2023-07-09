@@ -91,7 +91,10 @@ static Vector<WebKitTestRunnerWindow *> allWindows;
     [super dealloc];
 }
 
+// FIXME: <https://webkit.org/b/255832> Is this override really necessary?
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)setFrameOrigin:(CGPoint)point
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     _fakeOrigin = point;
 }
@@ -397,6 +400,7 @@ RetainPtr<CGImageRef> PlatformWebView::windowSnapshotImage()
     RELEASE_ASSERT(viewSize.width);
     RELEASE_ASSERT(viewSize.height);
 
+    // FIXME: Do we still require this workaround?
     UIView *selectionView = [platformView().contentView valueForKeyPath:@"interactionAssistant.selectionView"];
     UIView *startGrabberView = [selectionView valueForKeyPath:@"rangeView.startGrabber"];
     UIView *endGrabberView = [selectionView valueForKeyPath:@"rangeView.endGrabber"];

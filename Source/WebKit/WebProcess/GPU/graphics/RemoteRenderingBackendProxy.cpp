@@ -226,31 +226,31 @@ void RemoteRenderingBackendProxy::destroyGetPixelBufferSharedMemory()
 RefPtr<ShareableBitmap> RemoteRenderingBackendProxy::getShareableBitmap(RenderingResourceIdentifier imageBuffer, PreserveResolution preserveResolution)
 {
     auto sendResult = sendSync(Messages::RemoteRenderingBackend::GetShareableBitmapForImageBuffer(imageBuffer, preserveResolution));
-    auto [handle] = sendResult.takeReplyOr(ShareableBitmapHandle { });
+    auto [handle] = sendResult.takeReplyOr(ShareableBitmap::Handle { });
     if (handle.isNull())
         return { };
     handle.takeOwnershipOfMemory(MemoryLedger::Graphics);
-    return ShareableBitmap::create(handle);
+    return ShareableBitmap::create(WTFMove(handle));
 }
 
 RefPtr<Image> RemoteRenderingBackendProxy::getFilteredImage(RenderingResourceIdentifier imageBuffer, Filter& filter)
 {
     auto sendResult = sendSync(Messages::RemoteRenderingBackend::GetFilteredImageForImageBuffer(imageBuffer, filter));
-    auto [handle] = sendResult.takeReplyOr(ShareableBitmapHandle { });
+    auto [handle] = sendResult.takeReplyOr(ShareableBitmap::Handle { });
     if (handle.isNull())
         return { };
 
     handle.takeOwnershipOfMemory(MemoryLedger::Graphics);
-    auto bitmap = ShareableBitmap::create(handle);
+    auto bitmap = ShareableBitmap::create(WTFMove(handle));
     if (!bitmap)
         return { };
 
     return bitmap->createImage();
 }
 
-void RemoteRenderingBackendProxy::cacheNativeImage(const ShareableBitmapHandle& handle, RenderingResourceIdentifier renderingResourceIdentifier)
+void RemoteRenderingBackendProxy::cacheNativeImage(ShareableBitmap::Handle&& handle, RenderingResourceIdentifier renderingResourceIdentifier)
 {
-    send(Messages::RemoteRenderingBackend::CacheNativeImage(handle, renderingResourceIdentifier));
+    send(Messages::RemoteRenderingBackend::CacheNativeImage(WTFMove(handle), renderingResourceIdentifier));
 }
 
 void RemoteRenderingBackendProxy::cacheFont(const WebCore::Font::Attributes& fontAttributes, const WebCore::FontPlatformData::Attributes& platformData, std::optional<WebCore::RenderingResourceIdentifier> ident)

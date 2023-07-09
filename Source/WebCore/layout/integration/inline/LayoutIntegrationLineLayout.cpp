@@ -71,6 +71,7 @@
 #include "Settings.h"
 #include "ShapeOutsideInfo.h"
 #include <wtf/Assertions.h>
+#include <wtf/Range.h>
 
 namespace WebCore {
 namespace LayoutIntegration {
@@ -262,7 +263,7 @@ void LineLayout::updateListMarkerDimensions(const RenderListMarker& listMarker)
             // the large negative margin (i.e. this ensures that logical left of the list content stays at the line start)
             listMarkerGeometry.setHorizontalMargin({ listMarkerGeometry.marginStart() + offsetFromParentListItem, listMarkerGeometry.marginEnd() - offsetFromParentListItem });
             if (auto nestedOffset = offsetFromAssociatedListItem - offsetFromParentListItem)
-                m_inlineFormattingState.addNestedListMarkerOffset(layoutBox, nestedOffset);
+                m_nestedListMarkerOffsets.set(&layoutBox, nestedOffset);
         }
     }
 }
@@ -521,18 +522,8 @@ std::pair<LayoutUnit, LayoutUnit> LineLayout::computeIntrinsicWidthConstraints()
 static inline std::optional<Layout::BlockLayoutState::LineClamp> lineClamp(const RenderBlockFlow& rootRenderer)
 {
     auto& layoutState = *rootRenderer.view().frameView().layoutContext().layoutState();
-    if (auto lineClamp = layoutState.lineClamp()) {
-        // FIXME: This is a rather odd behavior when we let line-clamp place ellipsis on a line and still
-        // continue with constructing subsequent, visible lines on the block (other browsers match this exoctic behavior).
-        auto isLineClampRootOverflowHidden = true;
-        for (const RenderBlock* ancestor = &rootRenderer; ancestor; ancestor = ancestor->containingBlock()) {
-            if (!ancestor->style().lineClamp().isNone()) {
-                isLineClampRootOverflowHidden = ancestor->style().overflowY() == Overflow::Hidden;
-                break;
-            }
-        }
-        return Layout::BlockLayoutState::LineClamp { lineClamp->maximumLineCount, lineClamp->currentLineCount, isLineClampRootOverflowHidden };
-    }
+    if (auto lineClamp = layoutState.lineClamp())
+        return Layout::BlockLayoutState::LineClamp { lineClamp->maximumLineCount, lineClamp->currentLineCount };
     return { };
 }
 
@@ -582,12 +573,13 @@ std::optional<LayoutRect> LineLayout::layout()
         auto constraintsForInFlowContent = Layout::ConstraintsForInFlowContent { m_inlineContentConstraints->horizontal(), partialContentTop };
         return { constraintsForInFlowContent, m_inlineContentConstraints->visualLeft() };
     }();
-    auto blockLayoutState = Layout::BlockLayoutState { m_blockFormattingState.floatingState(), lineClamp(flow()), leadingTrim(flow()), intrusiveInitialLetterBottom() };
+    auto parentBlockLayoutState = Layout::BlockLayoutState { m_blockFormattingState.floatingState(), lineClamp(flow()), leadingTrim(flow()), intrusiveInitialLetterBottom() };
+    auto inlineLayoutState = Layout::InlineLayoutState { parentBlockLayoutState, WTFMove(m_nestedListMarkerOffsets) };
     auto inlineFormattingContext = Layout::InlineFormattingContext { rootLayoutBox(), m_inlineFormattingState, m_lineDamage.get() };
-    auto layoutResult = inlineFormattingContext.layoutInFlowAndFloatContentForIntegration(inlineContentConstraints, blockLayoutState);
-    inlineFormattingContext.layoutOutOfFlowContentForIntegration(inlineContentConstraints, blockLayoutState, layoutResult.displayContent);
+    auto layoutResult = inlineFormattingContext.layoutInFlowAndFloatContentForIntegration(inlineContentConstraints, inlineLayoutState);
+    inlineFormattingContext.layoutOutOfFlowContentForIntegration(inlineContentConstraints, inlineLayoutState, layoutResult.displayContent);
 
-    auto repaintRect = LayoutRect { constructContent(WTFMove(layoutResult)) };
+    auto repaintRect = LayoutRect { constructContent(inlineLayoutState, WTFMove(layoutResult)) };
 
     auto adjustments = adjustContent();
 
@@ -598,15 +590,14 @@ std::optional<LayoutRect> LineLayout::layout()
     return isPartialLayout ? std::make_optional(repaintRect) : std::nullopt;
 }
 
-FloatRect LineLayout::constructContent(Layout::InlineLayoutResult&& layoutResult)
+FloatRect LineLayout::constructContent(const Layout::InlineLayoutState& inlineLayoutState, Layout::InlineLayoutResult&& layoutResult)
 {
     auto damagedRect = InlineContentBuilder { flow(), m_boxTree }.build(WTFMove(layoutResult), ensureInlineContent(), m_lineDamage.get());
 
-    m_inlineContent->clearGapBeforeFirstLine = m_inlineFormattingState.clearGapBeforeFirstLine();
-    m_inlineContent->clearGapAfterLastLine = m_inlineFormattingState.clearGapAfterLastLine();
+    m_inlineContent->clearGapBeforeFirstLine = inlineLayoutState.clearGapBeforeFirstLine();
+    m_inlineContent->clearGapAfterLastLine = inlineLayoutState.clearGapAfterLastLine();
     m_inlineContent->shrinkToFit();
 
-    m_inlineFormattingState.resetNestedListMarkerOffsets();
     m_inlineFormattingState.shrinkToFit();
     m_blockFormattingState.shrinkToFit();
 
@@ -800,35 +791,6 @@ void LineLayout::prepareFloatingState()
     }
 }
 
-std::optional<size_t> LineLayout::lastLineIndexForContentHeight() const
-{
-    if (!m_inlineContent)
-        return { };
-
-    auto& lines = m_inlineContent->displayContent().lines;
-    if (lines.isEmpty()) {
-        // Out-of-flow only content (and/or with floats) can produce blank inline content.
-        return { };
-    }
-    auto* layoutState = flow().view().frameView().layoutContext().layoutState();
-    if (!layoutState)
-        return lines.size() - 1;
-
-    auto lineClamp = layoutState->lineClamp();
-    if (!lineClamp)
-        return lines.size() - 1;
-
-    // Let's see if previous block containers have already produced enough lines.
-    if (lineClamp->currentLineCount < lineClamp->maximumLineCount) {
-        auto lastLineIndex = std::min(lines.size(), lineClamp->maximumLineCount - lineClamp->currentLineCount) - 1;
-        // FIXME: Clamped line is supposed to have trailing ellipsis. Assert on lines[lastLineIndex].hasEllipsis() when we have some means to clear
-        // line content after probing layout.
-        return lastLineIndex;
-    }
-    // This block is fully collapsed.
-    return { };
-}
-
 bool LineLayout::isPaginated() const
 {
     return m_inlineContent && m_inlineContent->isPaginated;
@@ -839,14 +801,19 @@ LayoutUnit LineLayout::contentBoxLogicalHeight() const
     if (!m_inlineContent)
         return { };
 
-    auto lastLineIndex = lastLineIndexForContentHeight();
-    if (!lastLineIndex)
+    auto& lines = m_inlineContent->displayContent().lines;
+    auto nonTruncatedRange = [&]() -> WTF::Range<size_t> {
+        for (size_t lineIndex = lines.size(); lineIndex--;) {
+            if (!lines[lineIndex].isTruncatedInBlockDirection())
+                return { 0, lineIndex + 1 };
+        }
+        // Out-of-flow only content (and/or with floats) and line-clamp can produce blank inline content.
+        return { };
+    }();
+    if (!nonTruncatedRange)
         return { };
 
-    auto& firstLine = m_inlineContent->displayContent().lines[0];
-    auto& lastLine = m_inlineContent->displayContent().lines[*lastLineIndex];
-
-    auto lineBoxHeight = lastLine.lineBoxLogicalRect().maxY() - firstLine.lineBoxLogicalRect().y();
+    auto lineBoxHeight = lines[nonTruncatedRange.end() - 1].lineBoxLogicalRect().maxY() - lines[nonTruncatedRange.begin()].lineBoxLogicalRect().y();
     auto additionalHeight = m_inlineContent->firstLinePaginationOffset + m_inlineContent->clearGapBeforeFirstLine + m_inlineContent->clearGapAfterLastLine;
     return LayoutUnit { lineBoxHeight + additionalHeight };
 }
@@ -1131,6 +1098,7 @@ void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, con
 
     auto shouldPaintForPhase = [&] {
         switch (paintInfo.phase) {
+        case PaintPhase::Accessibility:
         case PaintPhase::Foreground:
         case PaintPhase::EventRegion:
         case PaintPhase::TextClip:
@@ -1230,20 +1198,11 @@ void LineLayout::removedFromTree(const RenderElement& parent, RenderObject& chil
         return;
     }
 
-    auto childLayoutBox = m_boxTree.remove(parent, child);
-    if (is<Layout::InlineTextBox>(childLayoutBox.get())) {
-        auto invalidation = Layout::InlineInvalidation { ensureLineDamage(), m_inlineFormattingState.inlineItems(), m_inlineContent->displayContent() };
-        invalidation.textWillBeRemoved(WTFMove(childLayoutBox));
-        return;
-    }
-
-    if (childLayoutBox->isLineBreakBox()) {
-        auto invalidation = Layout::InlineInvalidation { ensureLineDamage(), m_inlineFormattingState.inlineItems(), m_inlineContent->displayContent() };
-        invalidation.inlineLevelBoxWillBeRemoved(WTFMove(childLayoutBox));
-        return;
-    }
-
-    ASSERT_NOT_IMPLEMENTED_YET();
+    auto& childLayoutBox = m_boxTree.layoutBoxForRenderer(child);
+    auto invalidation = Layout::InlineInvalidation { ensureLineDamage(), m_inlineFormattingState.inlineItems(), m_inlineContent->displayContent() };
+    auto boxIsInvalidated = is<Layout::InlineTextBox>(childLayoutBox) ? invalidation.textWillBeRemoved(downcast<Layout::InlineTextBox>(childLayoutBox)) : childLayoutBox.isLineBreakBox() ? invalidation.inlineLevelBoxWillBeRemoved(childLayoutBox) : false;
+    if (boxIsInvalidated)
+        m_lineDamage->addDetachedBox(m_boxTree.remove(parent, child));
 }
 
 void LineLayout::updateTextContent(const RenderText& textRenderer, size_t offset, int delta)

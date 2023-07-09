@@ -104,7 +104,6 @@ protected:
     bool send(T&& message) const { return m_streamConnection->send(WTFMove(message), m_graphicsContextGLIdentifier); }
 
     // GraphicsContextGL::Client overrides.
-    void didComposite() final;
     void forceContextLost() final;
     void dispatchContextChangedNotification() final;
 
@@ -113,7 +112,7 @@ protected:
     void markContextChanged();
     void reshape(int32_t width, int32_t height);
 #if PLATFORM(COCOA)
-    virtual void prepareForDisplay(CompletionHandler<void(WTF::MachSendRight&&)>&&) = 0;
+    virtual void prepareForDisplay(IPC::Semaphore&&, CompletionHandler<void(WTF::MachSendRight&&)>&&) = 0;
 #elif USE(GRAPHICS_LAYER_WC)
     virtual void prepareForDisplay(CompletionHandler<void(std::optional<WCContentBufferIdentifier>)>&&) = 0;
 #elif USE(GBM)

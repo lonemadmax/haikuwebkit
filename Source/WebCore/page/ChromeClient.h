@@ -637,6 +637,10 @@ public:
     virtual void abortApplePayAMSUISession() { }
 #endif
 
+#if USE(SYSTEM_PREVIEW)
+    virtual void handleSystemPreview(const URL&, const SystemPreviewInfo&) { }
+#endif
+
     virtual void requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&&) = 0;
 
     virtual const AtomString& searchStringForModalContainerObserver() const { return nullAtom(); }
@@ -646,6 +650,8 @@ public:
 
     virtual bool isUsingUISideCompositing() const { return false; }
     
+    virtual bool isInStableState() const { return true; }
+
     WEBCORE_EXPORT virtual ~ChromeClient();
 
 protected:

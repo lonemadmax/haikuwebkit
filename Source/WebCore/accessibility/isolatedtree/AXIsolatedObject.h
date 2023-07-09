@@ -233,7 +233,7 @@ private:
     String roleDescription() const override { return stringAttributeValue(AXPropertyName::RoleDescription); }
     String subrolePlatformString() const override { return stringAttributeValue(AXPropertyName::SubrolePlatformString); }
     LayoutRect elementRect() const override;
-    IntPoint clickPoint() override;
+    IntPoint clickPoint() final;
     void accessibilityText(Vector<AccessibilityText>& texts) const override;
     String brailleLabel() const override { return stringAttributeValue(AXPropertyName::BrailleLabel); }
     String brailleRoleDescription() const override { return stringAttributeValue(AXPropertyName::BrailleRoleDescription); }
@@ -292,9 +292,10 @@ private:
     AccessibilityOrientation orientation() const override { return static_cast<AccessibilityOrientation>(intAttributeValue(AXPropertyName::Orientation)); }
     unsigned hierarchicalLevel() const override { return unsignedAttributeValue(AXPropertyName::HierarchicalLevel); }
     String language() const override { return stringAttributeValue(AXPropertyName::Language); }
-    void selectedChildren(AccessibilityChildrenVector& children) override { fillChildrenVectorForProperty(AXPropertyName::SelectedChildren, children); }
+    AccessibilityChildrenVector selectedChildren() final { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::SelectedChildren)); }
     void setSelectedChildren(const AccessibilityChildrenVector&) override;
     AccessibilityChildrenVector visibleChildren() override { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::VisibleChildren)); }
+    AccessibilityChildrenVector selectedCells() override { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::SelectedCells)); }
     AtomString tagName() const override;
     const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) override;
     void updateChildrenIfNecessary() override;
@@ -365,7 +366,6 @@ private:
     AXTextMarkerRange textMarkerRangeForNSRange(const NSRange&) const override;
 #endif
     String stringForRange(const SimpleRange&) const override;
-    IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const override;
     IntRect boundsForRange(const SimpleRange&) const override;
     VisiblePosition visiblePositionForPoint(const IntPoint&) const override;
     VisiblePosition nextLineEndPosition(const VisiblePosition&) const override;
@@ -411,18 +411,15 @@ private:
     bool insertText(const String&) override;
     void makeRangeVisible(const PlainTextRange&) override;
     bool press() override;
-    bool performDefaultAction() override;
 
     bool isAccessibilityObject() const override { return false; }
 
     // Functions that should never be called on an isolated tree object. ASSERT that these are not reached;
-    bool isAccessibilityNodeObject() const override;
     bool isAccessibilityRenderObject() const override;
     bool isAccessibilityTableInstance() const override;
     bool isAccessibilityARIAGridInstance() const override { return false; }
     bool isAccessibilityARIAGridRowInstance() const override { return false; }
     bool isAccessibilityARIAGridCellInstance() const override { return false; }
-    bool isAccessibilityListBoxInstance() const override;
 
     bool isNativeTextControl() const override;
     bool isListBoxOption() const override;
@@ -451,7 +448,6 @@ private:
     AccessibilityChildrenVector relatedObjects(AXRelationType) const override;
 
     bool supportsHasPopup() const override;
-    bool supportsPressed() const override;
     bool supportsPressAction() const final { return boolAttributeValue(AXPropertyName::SupportsPressAction); }
     bool supportsChecked() const override;
     bool isModalNode() const override;
@@ -472,7 +468,6 @@ private:
     unsigned textLength() const override;
 #if PLATFORM(COCOA)
     RetainPtr<NSAttributedString> attributedStringForTextMarkerRange(AXTextMarkerRange&&, SpellCheck) const override;
-    NSAttributedString *cachedAttributedStringForTextMarkerRange(const AXTextMarkerRange&, SpellCheck) const;
 #endif
     AXObjectCache* axObjectCache() const override;
     Element* actionElement() const override;

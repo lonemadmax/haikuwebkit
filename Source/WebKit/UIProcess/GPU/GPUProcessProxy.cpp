@@ -36,6 +36,7 @@
 #include "GPUProcessProxyMessages.h"
 #include "GPUProcessSessionParameters.h"
 #include "Logging.h"
+#include "OverrideLanguages.h"
 #include "ProvisionalPageProxy.h"
 #include "WebPageGroup.h"
 #include "WebPageMessages.h"
@@ -67,6 +68,10 @@
 
 #if PLATFORM(COCOA)
 #include <wtf/BlockPtr.h>
+#endif
+
+#if USE(GBM)
+#include <WebCore/PlatformDisplay.h>
 #endif
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, this->connection())
@@ -132,6 +137,7 @@ GPUProcessProxy::GPUProcessProxy()
 
     GPUProcessCreationParameters parameters;
     parameters.auxiliaryProcessParameters = auxiliaryProcessParameters();
+    parameters.overrideLanguages = overrideLanguages();
 
 #if ENABLE(MEDIA_STREAM)
     parameters.useMockCaptureDevices = m_useMockCaptureDevices;
@@ -166,6 +172,10 @@ GPUProcessProxy::GPUProcessProxy()
         parameters.compilerServiceExtensionHandles = SandboxExtension::createHandlesForMachLookup(WebCore::agxCompilerServices(), std::nullopt);
         parameters.dynamicIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(WebCore::agxCompilerClasses(), std::nullopt);
     }
+#endif
+
+#if USE(GBM)
+    parameters.renderDeviceFile = WebCore::PlatformDisplay::sharedDisplay().drmRenderNodeFile();
 #endif
 
     platformInitializeGPUProcessParameters(parameters);
@@ -213,6 +223,10 @@ void GPUProcessProxy::setOrientationForMediaCapture(WebCore::IntDegrees orientat
     send(Messages::GPUProcess::SetOrientationForMediaCapture { orientation }, 0);
 }
 
+#if HAVE(APPLE_CAMERA_USER_CLIENT)
+static const ASCIILiteral appleCameraUserClientPath { "com.apple.aneuserd"_s };
+#endif
+
 static inline bool addCameraSandboxExtensions(Vector<SandboxExtension::Handle>& extensions)
 {
     auto sandboxExtensionHandle = SandboxExtension::createHandleForGenericExtension("com.apple.webkit.camera"_s);
@@ -227,6 +241,7 @@ static inline bool addCameraSandboxExtensions(Vector<SandboxExtension::Handle>& 
                 RELEASE_LOG_ERROR(WebRTC, "Unable to create com.apple.applecamerad sandbox extension");
                 return false;
             }
+            extensions.append(WTFMove(*appleCameraServicePathSandboxExtensionHandle));
 #if HAVE(ADDITIONAL_APPLE_CAMERA_SERVICE)
             auto additionalAppleCameraServicePathSandboxExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.appleh13camerad"_s, std::nullopt);
             if (!additionalAppleCameraServicePathSandboxExtensionHandle) {
@@ -235,7 +250,15 @@ static inline bool addCameraSandboxExtensions(Vector<SandboxExtension::Handle>& 
             }
             extensions.append(WTFMove(*additionalAppleCameraServicePathSandboxExtensionHandle));
 #endif
-            extensions.append(WTFMove(*appleCameraServicePathSandboxExtensionHandle));
+#if HAVE(APPLE_CAMERA_USER_CLIENT)
+            // Needed for rdar://108282689:
+            auto appleCameraUserClientExtensionHandle = SandboxExtension::createHandleForMachLookup(appleCameraUserClientPath, std::nullopt);
+            if (!appleCameraUserClientExtensionHandle) {
+                RELEASE_LOG_ERROR(WebRTC, "Unable to create %s sandbox extension", appleCameraUserClientPath.characters8());
+                return false;
+            }
+            extensions.append(WTFMove(*appleCameraUserClientExtensionHandle));
+#endif
         }
 #endif // HAVE(AUDIT_TOKEN)
 
@@ -695,7 +718,7 @@ void GPUProcessProxy::platformInitializeGPUProcessParameters(GPUProcessCreationP
 #endif
 
 #if ENABLE(VIDEO)
-void GPUProcessProxy::requestBitmapImageForCurrentTime(ProcessIdentifier processIdentifier, MediaPlayerIdentifier playerIdentifier, CompletionHandler<void(const ShareableBitmapHandle&)>&& completion)
+void GPUProcessProxy::requestBitmapImageForCurrentTime(ProcessIdentifier processIdentifier, MediaPlayerIdentifier playerIdentifier, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completion)
 {
     sendWithAsyncReply(Messages::GPUProcess::RequestBitmapImageForCurrentTime(processIdentifier, playerIdentifier), WTFMove(completion));
 }

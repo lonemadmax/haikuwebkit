@@ -71,6 +71,7 @@ DEFAULT_BRANCH = 'main'
 DEFAULT_REMOTE = 'origin'
 LAYOUT_TESTS_URL = '{}{}/blob/{}/LayoutTests/'.format(GITHUB_URL, GITHUB_PROJECTS[0], DEFAULT_BRANCH)
 MAX_COMMITS_IN_PR_SERIES = 50
+QUEUES_WITH_PUSH_ACCESS = ('commit-queue', 'merge-queue', 'unsafe-merge-queue')
 
 
 class BufferLogHeaderObserver(logobserver.BufferLogObserver):
@@ -95,7 +96,7 @@ class GitHub(object):
 
     @classmethod
     def user_for_queue(cls, queue):
-        if queue.lower() in ['commit-queue', 'merge-queue', 'unsafe-merge-queue']:
+        if queue.lower() in QUEUES_WITH_PUSH_ACCESS:
             return 'merge-queue'
         return None
 
@@ -462,28 +463,6 @@ class GitHubMixin(object):
             yield self._addToLog('stdio', f"Error in updating PR {pr_number}\n    {e}\n")
             defer.returnValue(False)
 
-    def close_pr(self, pr_number, repository_url=None):
-        api_url = GitHub.api_url(repository_url)
-        if not api_url:
-            return False
-
-        update_url = f'{api_url}/pulls/{pr_number}'
-        try:
-            username, access_token = GitHub.credentials(user=GitHub.user_for_queue(self.getProperty('buildername', '')))
-            auth = HTTPBasicAuth(username, access_token) if username and access_token else None
-            response = requests.request(
-                'POST', update_url, timeout=60, auth=auth,
-                headers=dict(Accept='application/vnd.github.v3+json'),
-                json=dict(state='closed'),
-            )
-            if response.status_code // 100 != 2:
-                self._addToLog('stdio', f"Failed to close PR {pr_number}. Unexpected response code from GitHub: {response.status_code}\n")
-                return False
-        except Exception as e:
-            self._addToLog('stdio', f"Error in closing PR {pr_number}\n")
-            return False
-        return True
-
 
 class ShellMixin(object):
     WINDOWS_SHELL_PLATFORMS = ['wincairo']
@@ -741,6 +720,7 @@ class CheckOutSource(git.Git):
             self.repourl = self.default_repourl
         defer.returnValue(rc)
 
+    @defer.inlineCallbacks
     def run(self):
         self.branch = self.getProperty('github.base.ref') or self.branch
 
@@ -750,7 +730,10 @@ class CheckOutSource(git.Git):
             GIT_PASSWORD=access_token,
         )
 
-        return super().run()
+        rc = yield super().run()
+        if rc == SUCCESS and self.getProperty('buildername', '').lower() not in QUEUES_WITH_PUSH_ACCESS:
+            yield self._dovccmd(['remote', 'set-url', '--push', 'origin', 'PUSH_DISABLED_BY_ADMIN'])
+        defer.returnValue(rc)
 
 
 class CleanUpGitIndexLock(shell.ShellCommand):
@@ -1161,7 +1144,7 @@ class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
             ['git', 'config', 'credential.helper', '!echo_credentials() { sleep 1; echo "username=${GIT_USER}"; echo "password=${GIT_PASSWORD}"; }; echo_credentials'],
             self.shell_command('git remote add {} {}{}.git || {}'.format(remote, GITHUB_URL, project, self.shell_exit_0())),
             ['git', 'remote', 'set-url', remote, '{}{}.git'.format(GITHUB_URL, project)],
-            ['git', 'fetch', remote, '--prune'],
+            ['git', 'fetch', remote, pr_branch],
             ['git', 'checkout', '-b', pr_branch],
             ['git', 'cherry-pick', 'HEAD..remotes/{}/{}'.format(remote, pr_branch)],
         ]
@@ -1345,7 +1328,8 @@ class FindModifiedLayoutTests(AnalyzeChange):
     def start(self):
         patch = self._get_patch()
         if not patch:
-            self.finished(SUCCESS)
+            self._addToLog('stdio', 'Unable to access the patch/PR content.')
+            self.finished(WARNINGS)
             return None
 
         tests = self.find_test_names_from_patch(patch)
@@ -2284,11 +2268,12 @@ class RevertPullRequestChanges(steps.ShellSequence):
 
 
 class Trigger(trigger.Trigger):
-    def __init__(self, schedulerNames, include_revision=True, triggers=None, patch=True, pull_request=False, **kwargs):
+    # By default, set updateSourceStamp=False so that the triggered build uses the sourcestamp of the triggering build.
+    def __init__(self, schedulerNames, include_revision=True, triggers=None, patch=True, pull_request=False, updateSourceStamp=False, **kwargs):
         self.include_revision = include_revision
         self.triggers = triggers
         set_properties = self.propertiesToPassToTriggers(patch=patch, pull_request=pull_request) or {}
-        super().__init__(schedulerNames=schedulerNames, set_properties=set_properties, **kwargs)
+        super().__init__(schedulerNames=schedulerNames, set_properties=set_properties, updateSourceStamp=updateSourceStamp, **kwargs)
 
     def propertiesToPassToTriggers(self, patch=True, pull_request=False):
         property_names = [
@@ -2296,6 +2281,7 @@ class Trigger(trigger.Trigger):
             'platform',
             'fullPlatform',
             'architecture',
+            'codebase',
         ]
         if patch:
             property_names += ['patch_id', 'bug_id', 'owner']
@@ -2303,7 +2289,7 @@ class Trigger(trigger.Trigger):
             property_names += [
                 'github.base.ref', 'github.head.ref', 'github.head.sha',
                 'github.head.repo.full_name', 'github.number', 'github.title',
-                'repository', 'project', 'owners',
+                'repository', 'project', 'owners', 'classification',
             ]
         if self.triggers:
             property_names.append('triggers')
@@ -2665,6 +2651,7 @@ class CompileWebKit(shell.Compile, AddToLogMixin):
     warningPattern = '.*arning: .*'
     haltOnFailure = False
     command = ['perl', 'Tools/Scripts/build-webkit', WithProperties('--%(configuration)s')]
+    VALID_ADDITIONAL_ARGUMENTS_LIST = []  # If additionalArguments is added to config.json for CompileWebKit step, it should be added here as well.
 
     def __init__(self, skipUpload=False, **kwargs):
         self.skipUpload = skipUpload
@@ -2677,20 +2664,16 @@ class CompileWebKit(shell.Compile, AddToLogMixin):
         platform = self.getProperty('platform')
         buildOnly = self.getProperty('buildOnly')
         architecture = self.getProperty('architecture')
-        additionalArguments = self.getProperty('additionalArguments')
 
         if platform in ['wincairo']:
             self.addLogObserver('stdio', BuildLogLineObserver(self.errorReceived, searchString='error ', includeRelatedLines=False))
         else:
             self.addLogObserver('stdio', BuildLogLineObserver(self.errorReceived))
 
-        if additionalArguments:
-            # FIXME: These arguments are required for iOS layout tests, but don't apply to compliation. We need to
-            # create a separate property to handle these run-webkit-tests specific arguments.
-            for argument in ["--child-processes=6", "--exclude-tests", "imported/w3c/web-platform-tests"]:
-                if argument in additionalArguments:
-                    additionalArguments.remove(argument)
-            self.setCommand(self.command + additionalArguments)
+        additionalArguments = self.getProperty('additionalArguments')
+        for additionalArgument in (additionalArguments or []):
+            if additionalArgument in self.VALID_ADDITIONAL_ARGUMENTS_LIST:
+                self.command += [additionalArgument]
         if platform in ('mac', 'ios', 'tvos', 'watchos'):
             # FIXME: Once WK_VALIDATE_DEPENDENCIES is set via xcconfigs, it can
             # be removed here. We can't have build-webkit pass this by default
@@ -3326,6 +3309,7 @@ class RunWebKitTests(shell.Test, AddToLogMixin):
     test_failures_log_name = 'test-failures'
     results_db_log_name = 'results-db'
     ENABLE_GUARD_MALLOC = False
+    ENABLE_ADDITIONAL_ARGUMENTS = True
     EXIT_AFTER_FAILURES = '60'
     command = ['python3', 'Tools/Scripts/run-webkit-tests',
                '--no-build',
@@ -3347,7 +3331,6 @@ class RunWebKitTests(shell.Test, AddToLogMixin):
     def setLayoutTestCommand(self):
         platform = self.getProperty('platform')
         self.setCommand(self.command + customBuildFlag(platform, self.getProperty('fullPlatform')))
-        additionalArguments = self.getProperty('additionalArguments')
 
         if self.getProperty('use-dump-render-tree', False):
             self.setCommand(self.command + ['--dump-render-tree'])
@@ -3366,7 +3349,8 @@ class RunWebKitTests(shell.Test, AddToLogMixin):
         if platform in ['gtk', 'wpe']:
             self.setCommand(self.command + ['--enable-core-dumps-nolimit'])
 
-        if additionalArguments:
+        additionalArguments = self.getProperty('additionalArguments')
+        if additionalArguments and self.ENABLE_ADDITIONAL_ARGUMENTS:
             self.setCommand(self.command + additionalArguments)
 
         if self.ENABLE_GUARD_MALLOC:
@@ -3551,6 +3535,7 @@ class RunWebKitTestsInStressMode(RunWebKitTests):
     name = 'run-layout-tests-in-stress-mode'
     suffix = 'stress-mode'
     EXIT_AFTER_FAILURES = '10'
+    ENABLE_ADDITIONAL_ARGUMENTS = False
 
     def __init__(self, num_iterations=100):
         self.num_iterations = num_iterations
@@ -3558,11 +3543,6 @@ class RunWebKitTestsInStressMode(RunWebKitTests):
 
     def setLayoutTestCommand(self):
         RunWebKitTests.setLayoutTestCommand(self)
-
-        # To support stress mode with iOS layout tests in a WPT / no-WPT configuration, we need to remove these arguments.
-        for argument in ["--child-processes=6", "--exclude-tests", "imported/w3c/web-platform-tests"]:
-            if argument in self.command:
-                self.command.remove(argument)
 
         self.setCommand(self.command + ['--iterations', self.num_iterations])
         modified_tests = self.getProperty('modified_tests')

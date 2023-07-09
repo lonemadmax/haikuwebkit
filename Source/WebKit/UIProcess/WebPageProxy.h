@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include <WebCore/SleepDisablerIdentifier.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/ProcessID.h>
 #include <wtf/UniqueRef.h>
@@ -119,6 +120,7 @@ class SecurityOriginData;
 class SelectionData;
 class SelectionGeometry;
 class SharedBuffer;
+class SleepDisabler;
 class SpeechRecognitionRequest;
 class SubstituteData;
 class TextCheckingRequestData;
@@ -331,6 +333,7 @@ class PageLoadStateObserverBase;
 class PlatformXRSystem;
 class PlaybackSessionManagerProxy;
 class ProcessThrottlerActivity;
+class ProcessThrottlerTimedActivity;
 class ProvisionalPageProxy;
 class RemoteLayerTreeHost;
 class RemoteLayerTreeNode;
@@ -590,6 +593,8 @@ public:
     void loadServiceWorker(const URL&, bool usingModules, CompletionHandler<void(bool success)>&&);
 
     WebUserContentControllerProxy& userContentController() { return m_userContentController.get(); }
+
+    bool hasSleepDisabler() const;
 
 #if ENABLE(FULLSCREEN_API)
     WebFullScreenManagerProxy* fullScreenManager();
@@ -1363,12 +1368,12 @@ public:
     void dragCancelled();
     void setDragCaretRect(const WebCore::IntRect&);
 #if PLATFORM(COCOA)
-    void startDrag(const WebCore::DragItem&, const ShareableBitmapHandle& dragImageHandle);
+    void startDrag(const WebCore::DragItem&, ShareableBitmapHandle&& dragImageHandle);
     void setPromisedDataForImage(const String& pasteboardName, const SharedMemoryHandle& imageHandle, const String& filename, const String& extension,
         const String& title, const String& url, const String& visibleURL, const SharedMemoryHandle& archiveHandle, const String& originIdentifier);
 #endif
 #if PLATFORM(GTK)
-    void startDrag(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, const ShareableBitmapHandle& dragImage, WebCore::IntPoint&& dragImageHotspot);
+    void startDrag(WebCore::SelectionData&&, OptionSet<WebCore::DragOperation>, ShareableBitmapHandle&& dragImage, WebCore::IntPoint&& dragImageHotspot);
 #endif
 #endif
 
@@ -1492,7 +1497,7 @@ public:
     IPC::AsyncReplyID computePagesForPrinting(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&)>&&);
     void getPDFFirstPageSize(WebCore::FrameIdentifier, CompletionHandler<void(WebCore::FloatSize)>&&);
 #if PLATFORM(COCOA)
-    IPC::AsyncReplyID drawRectToImage(WebFrameProxy*, const PrintInfo&, const WebCore::IntRect&, const WebCore::IntSize&, CompletionHandler<void(const ShareableBitmapHandle&)>&&);
+    IPC::AsyncReplyID drawRectToImage(WebFrameProxy*, const PrintInfo&, const WebCore::IntRect&, const WebCore::IntSize&, CompletionHandler<void(ShareableBitmapHandle&&)>&&);
     IPC::AsyncReplyID drawPagesToPDF(WebFrameProxy*, const PrintInfo&, uint32_t first, uint32_t count, CompletionHandler<void(API::Data*)>&&);
     void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, bool allowTransparentBackground,  CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
 #if PLATFORM(IOS_FAMILY)
@@ -1627,7 +1632,7 @@ public:
     void unwrapCryptoKey(const Vector<uint8_t>&, CompletionHandler<void(bool, Vector<uint8_t>&&)>&&);
 #endif
 
-    void takeSnapshot(WebCore::IntRect, WebCore::IntSize bitmapSize, SnapshotOptions, CompletionHandler<void(const ShareableBitmapHandle&)>&&);
+    void takeSnapshot(WebCore::IntRect, WebCore::IntSize bitmapSize, SnapshotOptions, CompletionHandler<void(ShareableBitmapHandle&&)>&&);
 
     void navigationGestureDidBegin();
     void navigationGestureWillEnd(bool willNavigate, WebBackForwardListItem&);
@@ -1813,7 +1818,7 @@ public:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, const ShareableBitmapHandle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
+    void requestTextRecognition(const URL& imageURL, ShareableBitmapHandle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
     void updateWithTextRecognitionResult(WebCore::TextRecognitionResult&&, const WebCore::ElementContext&, const WebCore::FloatPoint& location, CompletionHandler<void(TextRecognitionUpdateResult)>&&);
     void computeHasVisualSearchResults(const URL& imageURL, ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&&);
     void startVisualTranslation(const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier);
@@ -2037,7 +2042,7 @@ public:
 
     WebPopupMenuProxy* activePopupMenu() const { return m_activePopupMenu.get(); }
 
-    void preconnectTo(const URL&, const String& userAgent);
+    void preconnectTo(WebCore::ResourceRequest&&);
 
     bool canUseCredentialStorage() { return m_canUseCredentialStorage; }
     void setCanUseCredentialStorage(bool);
@@ -2144,7 +2149,7 @@ public:
     SubframePageProxy* subpageFrameProxyForRegistrableDomain(WebCore::RegistrableDomain) const;
     SubframePageProxy* subframePageProxyForFrameID(WebCore::FrameIdentifier) const;
 
-    void requestImageBitmap(const WebCore::ElementContext&, CompletionHandler<void(const ShareableBitmapHandle&, const String& sourceMIMEType)>&&);
+    void requestImageBitmap(const WebCore::ElementContext&, CompletionHandler<void(ShareableBitmapHandle&&, const String& sourceMIMEType)>&&);
 
 #if PLATFORM(MAC)
     bool isQuarantinedAndNotUserApproved(const String&);
@@ -2154,6 +2159,11 @@ public:
     void cancelNotification(const UUID& notificationID);
     void clearNotifications(const Vector<UUID>& notificationIDs);
     void didDestroyNotification(const UUID& notificationID);
+
+#if USE(SYSTEM_PREVIEW)
+    void handleSystemPreview(const URL&, const WebCore::SystemPreviewInfo&);
+    void setSystemPreviewCompletionHandlerForLoadTesting(CompletionHandler<void(bool)>&&);
+#endif
 
     void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&);
     void classifyModalContainerControls(Vector<String>&& texts, CompletionHandler<void(Vector<WebCore::ModalContainerControlType>&&)>&&);
@@ -2198,6 +2208,9 @@ public:
     void disconnectFramesFromPage();
 
     void didCommitLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType, const WebCore::CertificateInfo&, bool usedLegacyTLS, bool wasPrivateRelayed, bool containsPluginDocument, WebCore::HasInsecureContent, WebCore::MouseEventPolicy, const UserData&);
+
+    void didCreateSleepDisabler(WebCore::SleepDisablerIdentifier, const String& reason, bool display);
+    void didDestroySleepDisabler(WebCore::SleepDisablerIdentifier);
 
 #if PLATFORM(MAC)
     void setCaretDecorationVisibility(bool);
@@ -2632,7 +2645,7 @@ private:
 
 #if USE(QUICK_LOOK)
     void didStartLoadForQuickLookDocumentInMainFrame(const String& fileName, const String& uti);
-    void didFinishLoadForQuickLookDocumentInMainFrame(const ShareableResourceHandle&);
+    void didFinishLoadForQuickLookDocumentInMainFrame(ShareableResourceHandle&&);
     void requestPasswordForQuickLookDocumentInMainFrame(const String& fileName, CompletionHandler<void(const String&)>&&);
 #endif
 
@@ -2712,7 +2725,7 @@ private:
 
     void reportPageLoadResult(const WebCore::ResourceError&);
 
-    void continueNavigationInNewProcess(API::Navigation&, WebFrameProxy&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, bool didCreateNewProcess = true);
+    void continueNavigationInNewProcess(API::Navigation&, WebFrameProxy&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume);
 
     void setNeedsFontAttributes(bool);
     void updateFontAttributesAfterEditorStateChange();
@@ -2780,6 +2793,42 @@ private:
     struct Internals;
     Internals& internals() { return m_internals; }
     const Internals& internals() const { return m_internals; }
+
+    class ProcessActivityState {
+    public:
+        explicit ProcessActivityState(WebPageProxy&);
+        void takeVisibleActivity();
+        void takeAudibleActivity();
+        void takeCapturingActivity();
+
+        void reset();
+        void dropVisibleActivity();
+        void dropAudibleActivity();
+        void dropCapturingActivity();
+
+        bool hasValidVisibleActivity() const;
+        bool hasValidAudibleActivity() const;
+        bool hasValidCapturingActivity() const;
+
+#if PLATFORM(IOS_FAMILY)
+        void takeOpeningAppLinkActivity();
+        void dropOpeningAppLinkActivity();
+        bool hasValidOpeningAppLinkActivity() const;
+#endif
+
+    private:
+        WebPageProxy& m_page;
+
+        std::unique_ptr<ProcessThrottlerActivity> m_isVisibleActivity;
+#if PLATFORM(MAC)
+        UniqueRef<ProcessThrottlerTimedActivity> m_wasRecentlyVisibleActivity;
+#endif
+        std::unique_ptr<ProcessThrottlerActivity> m_isAudibleActivity;
+        std::unique_ptr<ProcessThrottlerActivity> m_isCapturingActivity;
+#if PLATFORM(IOS_FAMILY)
+        std::unique_ptr<ProcessThrottlerActivity> m_openingAppLinkActivity;
+#endif
+    };
 
     UniqueRef<Internals> m_internals;
 
@@ -2917,10 +2966,8 @@ private:
     bool m_isListeningForUserFacingStateChangeNotification { false };
 #endif
     bool m_allowsMediaDocumentInlinePlayback { false };
-    std::unique_ptr<ProcessThrottlerActivity> m_isVisibleActivity;
-    std::unique_ptr<ProcessThrottlerActivity> m_isAudibleActivity;
-    std::unique_ptr<ProcessThrottlerActivity> m_isCapturingActivity;
-    std::unique_ptr<ProcessThrottlerActivity> m_openingAppLinkActivity;
+
+    ProcessActivityState m_processActivityState;
 
     bool m_initialCapitalizationEnabled { false };
     std::optional<double> m_cpuLimit;
@@ -3238,6 +3285,7 @@ private:
 #endif
 
     RefPtr<WebPageProxy> m_pageToCloneSessionStorageFrom;
+    HashMap<WebCore::SleepDisablerIdentifier, std::unique_ptr<WebCore::SleepDisabler>> m_sleepDisablers;
 };
 
 } // namespace WebKit

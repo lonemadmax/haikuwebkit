@@ -53,19 +53,13 @@ OBJC_CLASS NSString;
 typedef void *HANDLE;
 #endif
 
-#if USE(GLIB)
-typedef struct _GFileIOStream GFileIOStream;
-#endif
 
 namespace WTF {
 
 namespace FileSystemImpl {
 
 // PlatformFileHandle
-#if USE(GLIB) && !OS(WINDOWS)
-typedef GFileIOStream* PlatformFileHandle;
-const PlatformFileHandle invalidPlatformFileHandle = nullptr;
-#elif OS(WINDOWS)
+#if OS(WINDOWS)
 typedef HANDLE PlatformFileHandle;
 // FIXME: -1 is INVALID_HANDLE_VALUE, defined in <winbase.h>. Chromium tries to
 // avoid using Windows headers in headers. We'd rather move this into the .cpp.
@@ -76,9 +70,7 @@ const PlatformFileHandle invalidPlatformFileHandle = -1;
 #endif
 
 // PlatformFileID
-#if USE(GLIB) && !OS(WINDOWS)
-typedef CString PlatformFileID;
-#elif OS(WINDOWS)
+#if OS(WINDOWS)
 typedef FILE_ID_128 PlatformFileID;
 #else
 typedef ino_t PlatformFileID;
@@ -200,6 +192,10 @@ WTF_EXPORT_PRIVATE String encodeForFileName(const String&);
 WTF_EXPORT_PRIVATE String decodeFromFilename(const String&);
 
 WTF_EXPORT_PRIVATE bool filesHaveSameVolume(const String&, const String&);
+
+#if !OS(WINDOWS)
+WTF_EXPORT_PRIVATE int posixFileDescriptor(PlatformFileHandle);
+#endif
 
 #if USE(CF)
 WTF_EXPORT_PRIVATE RetainPtr<CFURLRef> pathAsURL(const String&);

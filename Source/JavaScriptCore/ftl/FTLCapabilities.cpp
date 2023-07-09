@@ -233,13 +233,16 @@ inline CapabilityLevel canCompile(Node* node)
     case ObjectCreate:
     case ObjectKeys:
     case ObjectGetOwnPropertyNames:
+    case ObjectGetOwnPropertySymbols:
     case ObjectToString:
+    case ReflectOwnKeys:
     case MakeRope:
     case NewArrayWithSize:
     case NewArrayWithSpecies:
     case TryGetById:
     case GetById:
     case GetByIdFlush:
+    case GetByIdMegamorphic:
     case GetByIdWithThis:
     case GetByIdDirect:
     case GetByIdDirectFlush:
@@ -407,6 +410,7 @@ inline CapabilityLevel canCompile(Node* node)
     case GetTypedArrayLengthAsInt52:
     case GetVectorLength:
     case GetByVal:
+    case GetByValMegamorphic:
     case GetByValWithThis:
     case PutByVal:
     case PutByValAlias:

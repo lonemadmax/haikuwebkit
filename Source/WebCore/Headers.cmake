@@ -1,8 +1,4 @@
 set(WebCore_PRIVATE_FRAMEWORK_HEADERS
-    Modules/ShapeDetection/Implementation/Cocoa/BarcodeDetectorImplementation.h
-    Modules/ShapeDetection/Implementation/Cocoa/FaceDetectorImplementation.h
-    Modules/ShapeDetection/Implementation/Cocoa/TextDetectorImplementation.h
-
     Modules/ShapeDetection/Interfaces/BarcodeDetectorInterface.h
     Modules/ShapeDetection/Interfaces/BarcodeDetectorOptionsInterface.h
     Modules/ShapeDetection/Interfaces/BarcodeFormatInterface.h
@@ -2076,6 +2072,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     plugins/PluginInfoProvider.h
     plugins/PluginViewBase.h
 
+    rendering/AccessibilityRegionContext.h
     rendering/BreakLines.h
     rendering/CaretRectComputation.h
     rendering/CSSFilter.h
@@ -2105,6 +2102,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/PaintInfo.h
     rendering/PaintPhase.h
     rendering/PathOperation.h
+    rendering/RegionContext.h
     rendering/RenderAttachment.h
     rendering/RenderBlock.h
     rendering/RenderBlockFlow.h
