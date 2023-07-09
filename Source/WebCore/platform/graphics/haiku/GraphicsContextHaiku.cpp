@@ -337,7 +337,12 @@ void GraphicsContextHaiku::clipPath(const Path& path, WindRule windRule)
 
 void GraphicsContextHaiku::clipToImageBuffer(WebCore::ImageBuffer&, WebCore::FloatRect const&)
 {
-	notImplemented();
+    notImplemented();
+}
+
+void GraphicsContextHaiku::resetClip()
+{
+    notImplemented();
 }
 
 
