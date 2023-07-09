@@ -208,3 +208,124 @@ fn testUnaryMinus() {
   let x1 = -x;
   let x2 = -vec2(1, 1);
 }
+
+fn testClamp() {
+   let x = clamp(0, 0, 0);
+   let x1 = clamp(0u, 0u, 0u);
+   let x2 = clamp(0i, 0i, 0i);
+   let x3 = clamp(0.0, 0.0, 0.0);
+   let x4 = clamp(0.0f, 0.0f, 0.0f);
+   let x5 = clamp(vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0.0, 0.0));
+   let x6 = clamp(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
+   let x7 = clamp(vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0));
+}
+
+fn testMin() {
+   let x = min(0, 0u);
+   let x1 = min(0u, 0u);
+   let x2 = min(0i, 0i);
+   let x3 = min(0.0, 0.0);
+   let x4 = min(0.0f, 0.0f);
+   let x5 = min(vec2(0.0, 0.0), vec2(0.0, 0.0));
+   let x6 = min(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
+   let x7 = min(vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0));
+}
+
+fn testMax() {
+   let x = max(0, 0u);
+   let x1 = max(0u, 0u);
+   let x2 = max(0i, 0i);
+   let x3 = max(0.0, 0.0);
+   let x4 = max(0.0f, 0.0f);
+   let x5 = max(vec2(0.0, 0.0), vec2(0.0, 0.0));
+   let x6 = max(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
+   let x7 = max(vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0));
+}
+
+fn testTrigonometric() {
+  {
+    let x = acos(0.0);
+    let x1 = acos(vec2(0.0, 0.0));
+    let x2 = acos(vec3(0.0, 0.0, 0.0));
+    let x3 = acos(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = asin(0.0);
+    let x1 = asin(vec2(0.0, 0.0));
+    let x2 = asin(vec3(0.0, 0.0, 0.0));
+    let x3 = asin(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = atan(0.0);
+    let x1 = atan(vec2(0.0, 0.0));
+    let x2 = atan(vec3(0.0, 0.0, 0.0));
+    let x3 = atan(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = cos(0.0);
+    let x1 = cos(vec2(0.0, 0.0));
+    let x2 = cos(vec3(0.0, 0.0, 0.0));
+    let x3 = cos(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = sin(0.0);
+    let x1 = sin(vec2(0.0, 0.0));
+    let x2 = sin(vec3(0.0, 0.0, 0.0));
+    let x3 = sin(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = tan(0.0);
+    let x1 = tan(vec2(0.0, 0.0));
+    let x2 = tan(vec3(0.0, 0.0, 0.0));
+    let x3 = tan(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+}
+
+fn testTrigonometricHyperbolic() {
+  {
+    let x = acosh(0.0);
+    let x1 = acosh(vec2(0.0, 0.0));
+    let x2 = acosh(vec3(0.0, 0.0, 0.0));
+    let x3 = acosh(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = asinh(0.0);
+    let x1 = asinh(vec2(0.0, 0.0));
+    let x2 = asinh(vec3(0.0, 0.0, 0.0));
+    let x3 = asinh(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = atanh(0.0);
+    let x1 = atanh(vec2(0.0, 0.0));
+    let x2 = atanh(vec3(0.0, 0.0, 0.0));
+    let x3 = atanh(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = cosh(0.0);
+    let x1 = cosh(vec2(0.0, 0.0));
+    let x2 = cosh(vec3(0.0, 0.0, 0.0));
+    let x3 = cosh(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = sinh(0.0);
+    let x1 = sinh(vec2(0.0, 0.0));
+    let x2 = sinh(vec3(0.0, 0.0, 0.0));
+    let x3 = sinh(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+
+  {
+    let x = tanh(0.0);
+    let x1 = tanh(vec2(0.0, 0.0));
+    let x2 = tanh(vec3(0.0, 0.0, 0.0));
+    let x3 = tanh(vec4(0.0, 0.0, 0.0, 0.0));
+  }
+}

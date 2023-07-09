@@ -2173,6 +2173,7 @@ accessibility/aria-slider-value.html [ Pass ]
 accessibility/ax-object-destroyed-on-reload.html [ Pass ]
 accessibility/basic-focusability.html [ Pass ]
 accessibility/button-inside-label-ax-text.html [ Pass ]
+accessibility/changing-aria-hidden-with-display-none-parent.html [ Pass ]
 accessibility/checkbox-mixed-value.html [ Pass ]
 accessibility/display-contents-dynamically-added-children.html [ Pass ]
 accessibility/display-contents-element-roles.html [ Pass ]
@@ -3102,8 +3103,11 @@ webkit.org/b/204757 imported/w3c/web-platform-tests/fetch/api/request/destinatio
 
 webkit.org/b/203222 svg/wicd/rightsizing-grid.xhtml [ Pass Failure ]
 
-webkit.org/b/206754 imported/w3c/web-platform-tests/css/css-backgrounds/background-image-centered-with-border-radius.html [ ImageOnlyFailure ]
-webkit.org/b/206754 imported/w3c/web-platform-tests/css/css-backgrounds/box-shadow-body.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-margin-root-001.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-image-centered-with-border-radius.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-root.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-position-subpixel-at-border.tentative.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/box-shadow-body.html [ ImageOnlyFailure ]
 
 webkit.org/b/206897 [ Debug ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--auto-32px--nonpercent-width-omitted-height-viewbox.html [ Skip ]
 webkit.org/b/206897 [ Debug ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--auto-32px--nonpercent-width-percent-height.html [ Skip ]
@@ -3143,6 +3147,8 @@ webkit.org/b/207766 http/wpt/service-workers/header-filtering.https.html [ Pass 
 webkit.org/b/207767 http/wpt/service-workers/online.https.html [ Pass Failure ]
 
 webkit.org/b/207768 http/wpt/service-workers/useragent.https.html [ Pass Failure ]
+
+webkit.org/b/254706 imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Pass Failure ]
 
 webkit.org/b/205216 imported/w3c/web-platform-tests/content-security-policy/reporting/report-same-origin-with-cookies.html [ Pass Failure DumpJSConsoleLogInStdErr ]
 
@@ -4045,13 +4051,7 @@ webkit.org/b/251302 accessibility/ios-simulator/table-cell-ranges.html [ Failure
 
 webkit.org/b/251306 http/tests/in-app-browser-privacy/sub-frame-redirect-to-non-app-bound-domain-blocked.html [ Pass Crash ]
 
-webkit.org/b/254630 fast/canvas/offscreen-scaling.html [ Pass Failure ]
-
 webkit.org/b/254714 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-calc-x-rendering-2.html [ ImageOnlyFailure ]
-
-webkit.org/b/254713 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-cover-svg.html [ ImageOnlyFailure ]
-
-webkit.org/b/254707 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-root.html [ ImageOnlyFailure ]
 
 http/tests/webgpu/webgpu/idl/constants/flags.html [ Skip ]
 http/tests/webgpu/webgpu/idl/exposed.https.html [ Skip ]
@@ -4380,9 +4380,33 @@ webkit.org/b/254044 imported/w3c/web-platform-tests/feature-policy/reporting/xr-
 webkit.org/b/254073 webgl/1.0.x/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]
 webkit.org/b/254073 webgl/2.0.y/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]
 
+# rdar://105509003
+imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-009.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-010.html [ ImageOnlyFailure ]
+
 # webkit.org/b/254690 REGRESSION(262009@main): 2X webgl/conformance/textures/canvas (layout-tests) are flaky timeouts
 webgl/1.0.x/conformance/textures/canvas/tex-2d-rgb-rgb-unsigned_byte.html [ Pass Timeout ]
 webgl/2.0.y/conformance/textures/canvas/tex-2d-rgb-rgb-unsigned_byte.html [ Pass Timeout ]
 
 webkit.org/b/229934 webgl/1.0.x/conformance/extensions/webgl-depth-texture.html [ Failure ]
 webkit.org/b/254398 webgl/2.0.y/conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
+
+# webkit.org/b/255177 Batch mark expectations for newly failing tests introduced with iOS 16.4 update
+compositing/geometry/css-clip-oversize.html [ ImageOnlyFailure ]
+css3/filters/effect-blur.html [ ImageOnlyFailure ]
+css3/filters/effect-invert.html [ ImageOnlyFailure ]
+fast/gradients/linear-two-hints-angle.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-text-multi-line.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-4.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-5.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/linear-gradient-currentcolor-first-line.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-color-mix-function.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-relative-color.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-relative-color.html [ Failure ]
+imported/w3c/web-platform-tests/editing/other/editable-state-and-focus-in-shadow-dom-in-designMode.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/semantics/disabled-elements/event-propagate-disabled-keyboard.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/semantics/disabled-elements/event-propagate-disabled.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-audiobuffersource-connections.html [ Failure ]
+imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-dynamics-compressor-connections.html [ Failure ]
+transforms/3d/hit-testing/overlapping-layers-hit-test.html [ Failure ]
+webaudio/ScriptProcessor/scriptprocessor-offlineaudiocontext.html [ Failure ]

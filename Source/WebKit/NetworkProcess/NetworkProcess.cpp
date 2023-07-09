@@ -96,6 +96,7 @@
 #include <wtf/RunLoop.h>
 #include <wtf/UUID.h>
 #include <wtf/UniqueRef.h>
+#include <wtf/WTFProcess.h>
 #include <wtf/text/AtomString.h>
 
 #if ENABLE(SEC_ITEM_SHIM)
@@ -135,12 +136,7 @@ static void callExitSoon(IPC::Connection*)
         // global destructors or atexit handlers to be called from this thread while the main thread is busy
         // doing its thing.
         RELEASE_LOG_ERROR(IPC, "Exiting process early due to unacknowledged closed-connection");
-#if OS(WINDOWS)
-        // Calling _exit in non-main threads may cause a deadlock in WTF::Thread::ThreadHolder::~ThreadHolder.
-        TerminateProcess(GetCurrentProcess(), EXIT_FAILURE);
-#else
-        _exit(EXIT_FAILURE);
-#endif
+        terminateProcess(EXIT_FAILURE);
     });
 }
 
@@ -2245,10 +2241,6 @@ void NetworkProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime e
 
     forEachNetworkSession([&] (auto& session) {
         platformFlushCookies(session.sessionID(), [callbackAggregator] { });
-#if ENABLE(SERVICE_WORKER)
-        if (auto* swServer = session.swServer())
-            swServer->startSuspension([callbackAggregator] { });
-#endif
         session.storageManager().suspend([callbackAggregator] { });
     });
 
@@ -2281,10 +2273,6 @@ void NetworkProcess::processDidResume(bool forForegroundActivity)
     PCM::PersistentStore::processDidResume();
 
     forEachNetworkSession([](auto& session) {
-#if ENABLE(SERVICE_WORKER)
-        if (auto* swServer = session.swServer())
-            swServer->endSuspension();
-#endif
         session.storageManager().resume();
     });
 
@@ -2323,6 +2311,20 @@ void NetworkProcess::syncLocalStorage(CompletionHandler<void()>&& completionHand
     forEachNetworkSession([&](auto& session) {
         session.storageManager().syncLocalStorage([aggregator] { });
     });
+}
+
+void NetworkProcess::storeServiceWorkerRegistrations(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+{
+#if ENABLE(SERVICE_WORKER)
+    auto* session = networkSession(sessionID);
+    auto* server = session ? session->swServer() : nullptr;
+    if (!server)
+        return completionHandler();
+
+    server->storeRegistrationsOnDisk(WTFMove(completionHandler));
+#else
+    completionHandler();
+#endif
 }
 
 void NetworkProcess::resetQuota(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)

@@ -431,7 +431,7 @@ public:
 
     void centerSelectionInVisibleArea();
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
+#if ENABLE(PDFKIT_PLUGIN)
     void createPDFHUD(PDFPlugin&, const WebCore::IntRect&);
     void updatePDFHUDLocation(PDFPlugin&, const WebCore::IntRect&);
     void removePDFHUD(PDFPlugin&);
@@ -457,6 +457,7 @@ public:
     void didCompleteRenderingFrame();
 
     void releaseMemory(WTF::Critical);
+    void willDestroyDecodedDataForAllImages();
 
     unsigned remoteImagesCountForTesting() const;
 
@@ -1018,11 +1019,6 @@ public:
     void addDictationAlternative(const String& text, WebCore::DictationContext, CompletionHandler<void(bool)>&&);
     void dictationAlternativesAtSelection(CompletionHandler<void(Vector<WebCore::DictationContext>&&)>&&);
     void clearDictationAlternatives(Vector<WebCore::DictationContext>&&);
-
-    WebCore::Node* clickableNodeAtLocation(const WebCore::FloatPoint&, WebCore::FloatPoint&) const;
-    bool isTransparentOrFullyClipped(const WebCore::Element&) const;
-
-    Vector<WebCore::FloatRect> getEvasionRectsAroundSelection(const Vector<WebCore::FloatPoint>&, bool = true) const;
 #endif // PLATFORM(COCOA)
 
 #if PLATFORM(MAC)
@@ -1220,11 +1216,6 @@ public:
     void setSelectionFlippingEnabled(bool enabled) { m_selectionFlippingEnabled = enabled; }
 
     NSDictionary *dataDetectionContext() const { return m_dataDetectionContext.get(); }
-#endif
-
-#if ENABLE(PDFKIT_PLUGIN) && !ENABLE(UI_PROCESS_PDF_HUD)
-    void savePDFToFileInDownloadsFolder(const String& suggestedFilename, const URL& originatingURL, const uint8_t* data, unsigned long size);
-    void savePDFToTemporaryFolderAndOpenWithNativeApplication(const String& suggestedFilename, FrameInfoData&&, const uint8_t* data, unsigned long size, const String& pdfUUID);
 #endif
 
     bool mainFrameIsScrollable() const { return m_mainFrameIsScrollable; }
@@ -1943,6 +1934,7 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     void didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<String>&, const String& displayString, const IPC::DataReference& iconData, WebKit::SandboxExtension::Handle&&, WebKit::SandboxExtension::Handle&&, WebKit::SandboxExtension::Handle&&);
+    bool isTransparentOrFullyClipped(const WebCore::Element&) const;
 #endif
 
 #if ENABLE(SANDBOX_EXTENSIONS)
@@ -2133,7 +2125,7 @@ private:
 
     WebCore::Color m_underlayColor;
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
+#if ENABLE(PDFKIT_PLUGIN)
     HashMap<PDFPluginIdentifier, WeakPtr<PDFPlugin>> m_pdfPlugInsWithHUD;
 #endif
 

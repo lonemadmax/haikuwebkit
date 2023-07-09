@@ -72,6 +72,9 @@ public:
     bool scrollAnimatorEnabled() const;
 
     virtual void hasNodeWithAnimatedScrollChanged(bool) { };
+    
+    WEBCORE_EXPORT void setMouseIsOverContentArea(ScrollableArea&, bool) override;
+    WEBCORE_EXPORT void setMouseMovedInContentArea(ScrollableArea&) override;
 
 protected:
     WEBCORE_EXPORT AsyncScrollingCoordinator(Page*);
@@ -167,6 +170,8 @@ private:
     void animatedScrollDidEndForNode(ScrollingNodeID);
     void wheelEventScrollWillStartForNode(ScrollingNodeID);
     void wheelEventScrollDidEndForNode(ScrollingNodeID);
+    
+    WEBCORE_EXPORT void setMouseIsOverScrollbar(Scrollbar*, bool isOverScrollbar) override;
 
     LocalFrameView* frameViewForScrollingNode(ScrollingNodeID) const;
 

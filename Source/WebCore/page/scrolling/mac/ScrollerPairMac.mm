@@ -28,6 +28,7 @@
 
 #if PLATFORM(MAC)
 
+#import "Logging.h"
 #import "ScrollTypesMac.h"
 #import <WebCore/FloatPoint.h>
 #import <WebCore/IntRect.h>
@@ -345,6 +346,58 @@ void ScrollerPairMac::ensureOnMainThreadWithProtectedThis(Function<void()>&& tas
     ensureOnMainThread([protectedThis = Ref { *this }, task = WTFMove(task)]() mutable {
         task();
     });
+}
+
+void ScrollerPairMac::mouseEnteredContentArea()
+{
+    LOG_WITH_STREAM(OverlayScrollbars, stream << "ScrollerPairMac for [" << m_scrollingNode.scrollingNodeID() << "] mouseEnteredContentArea");
+
+    ensureOnMainThreadWithProtectedThis([this] {
+        if ([m_scrollerImpPair overlayScrollerStateIsLocked])
+            return;
+
+        [m_scrollerImpPair mouseEnteredContentArea];
+    });
+}
+
+void ScrollerPairMac::mouseExitedContentArea()
+{
+    LOG_WITH_STREAM(OverlayScrollbars, stream << "ScrollerPairMac for [" << m_scrollingNode.scrollingNodeID() << "] mouseExitedContentArea");
+    
+    ensureOnMainThreadWithProtectedThis([this] {
+        if ([m_scrollerImpPair overlayScrollerStateIsLocked])
+            return;
+
+        [m_scrollerImpPair mouseExitedContentArea];
+    });
+}
+
+void ScrollerPairMac::mouseMovedInContentArea()
+{
+    ensureOnMainThreadWithProtectedThis([this] {
+        if ([m_scrollerImpPair overlayScrollerStateIsLocked])
+            return;
+        
+        [m_scrollerImpPair mouseMovedInContentArea];
+    });
+}
+
+void ScrollerPairMac::mouseIsInScrollbar(ScrollbarHoverState hoverState)
+{
+    if (m_scrollbarHoverState.mouseIsOverVerticalScrollbar != hoverState.mouseIsOverVerticalScrollbar) {
+        if (hoverState.mouseIsOverVerticalScrollbar)
+            verticalScroller().mouseEnteredScrollbar();
+        else
+            verticalScroller().mouseExitedScrollbar();
+    }
+
+    if (m_scrollbarHoverState.mouseIsOverHorizontalScrollbar != hoverState.mouseIsOverHorizontalScrollbar) {
+        if (hoverState.mouseIsOverHorizontalScrollbar)
+            horizontalScroller().mouseEnteredScrollbar();
+        else
+            horizontalScroller().mouseExitedScrollbar();
+    }
+    m_scrollbarHoverState = hoverState;
 }
 
 } // namespace WebCore

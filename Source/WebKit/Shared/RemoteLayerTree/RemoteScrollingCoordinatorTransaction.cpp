@@ -152,6 +152,7 @@ void ArgumentCoder<ScrollingStateScrollingNode>::encode(Encoder& encoder, const 
     SCROLLING_NODE_ENCODE(ScrollingStateNode::Property::ScrollableAreaParams, scrollableAreaParameters)
     SCROLLING_NODE_ENCODE(ScrollingStateNode::Property::RequestedScrollPosition, requestedScrollData)
     SCROLLING_NODE_ENCODE(ScrollingStateNode::Property::KeyboardScrollData, keyboardScrollData)
+    SCROLLING_NODE_ENCODE(ScrollingStateNode::Property::ContentAreaHoverState, mouseIsOverContentArea)
 
     if (node.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
         encoder << node.scrollContainerLayer().layerIDForEncoding();
@@ -164,6 +165,12 @@ void ArgumentCoder<ScrollingStateScrollingNode>::encode(Encoder& encoder, const 
 
     if (node.hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
         encoder << node.verticalScrollbarLayer().layerIDForEncoding();
+    
+    if (node.hasChangedProperty(ScrollingStateNode::Property::ScrollbarHoverState)) {
+        auto mouseIsInScrollbar = node.scrollbarHoverState();
+        encoder << mouseIsInScrollbar.mouseIsOverHorizontalScrollbar;
+        encoder << mouseIsInScrollbar.mouseIsOverVerticalScrollbar;
+    }
 }
 
 void ArgumentCoder<ScrollingStateFrameScrollingNode>::encode(Encoder& encoder, const ScrollingStateFrameScrollingNode& node)
@@ -257,6 +264,7 @@ bool ArgumentCoder<ScrollingStateScrollingNode>::decode(Decoder& decoder, Scroll
         node.setRequestedScrollData(WTFMove(requestedScrollData), ScrollingStateScrollingNode::CanMergeScrollData::No);
     }
     SCROLLING_NODE_DECODE(ScrollingStateNode::Property::KeyboardScrollData, RequestedKeyboardScrollData, setKeyboardScrollData);
+    SCROLLING_NODE_DECODE(ScrollingStateNode::Property::ContentAreaHoverState, bool, setMouseIsOverContentArea)
 
     if (node.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
         std::optional<PlatformLayerIdentifier> layerID;
@@ -284,6 +292,17 @@ bool ArgumentCoder<ScrollingStateScrollingNode>::decode(Decoder& decoder, Scroll
         if (!decoder.decode(layerID))
             return false;
         node.setVerticalScrollbarLayer(layerID.value_or(PlatformLayerIdentifier { }));
+    }
+    
+    if (node.hasChangedProperty(ScrollingStateNode::Property::ScrollbarHoverState)) {
+        bool didEnterScrollbarHorizontal;
+        if (!decoder.decode(didEnterScrollbarHorizontal))
+            return false;
+
+        bool didEnterScrollbarVertical;
+        if (!decoder.decode(didEnterScrollbarVertical))
+            return false;
+        node.setScrollbarHoverState({ didEnterScrollbarHorizontal, didEnterScrollbarVertical });
     }
 
     return true;

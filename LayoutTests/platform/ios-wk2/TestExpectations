@@ -1275,8 +1275,6 @@ webkit.org/b/181392 imported/w3c/web-platform-tests/service-workers/service-work
 
 webkit.org/b/181821 fast/visual-viewport/ios/caret-after-focus-in-fixed.html [ Pass Failure Timeout ]
 
-webkit.org/b/182144 [ Debug ] webgl/1.0.3/conformance/rendering/many-draw-calls.html [ Skip ]
-
 webkit.org/b/231514 webgl/1.0.3/conformance/uniforms/uniform-default-values.html [ Slow ]
 
 webkit.org/b/183860 http/wpt/service-workers/third-party-registration.html [ Pass Timeout ]
@@ -1842,9 +1840,6 @@ webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/ima
 webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-rendering-2.html [ ImageOnlyFailure ]
 webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-unordered-res-rendering.html [ ImageOnlyFailure ]
 
-webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/background-position-subpixel-at-border.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-8.html [ ImageOnlyFailure ]
-webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/simple-bg-color.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-fonts/font-language-override-02.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-rendering.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-multicol/equal-gap-and-rule.html [ ImageOnlyFailure ]
@@ -1913,6 +1908,10 @@ webkit.org/b/228165 http/wpt/webrtc/transfer-datachannel-service-worker.https.ht
 webkit.org/b/232570 [ Debug ] http/wpt/push-api/pushEvent.any.serviceworker.html [ Pass Failure ]
 webkit.org/b/232570 [ Debug ] http/wpt/push-api/pushManager.any.html [ Pass Failure ]
 webkit.org/b/232570 [ Debug ] http/wpt/push-api/pushManager.any.serviceworker.html [ Pass Failure ]
+http/wpt/service-workers/push-console-messages-no-showNotification.https.html [ Pass ]
+http/wpt/service-workers/push-console-messages-showNotification-async.https.html [ Pass ]
+http/wpt/service-workers/push-console-messages-showNotification-late.https.html [ Pass ]
+http/wpt/service-workers/push-console-messages-showNotification-sync.https.html [ Pass ]
 
 webkit.org/b/215398 [ Release ] imported/w3c/web-platform-tests/css/css-images/idlharness.html [ Pass Timeout ]
 

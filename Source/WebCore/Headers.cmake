@@ -2263,6 +2263,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/NavigationPreloadState.h
     workers/service/SWClientConnection.h
     workers/service/ServiceWorkerClientData.h
+    workers/service/ServiceWorkerClientPendingMessage.h
     workers/service/ServiceWorkerClientQueryOptions.h
     workers/service/ServiceWorkerClientType.h
     workers/service/ServiceWorkerContextData.h
@@ -2302,8 +2303,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/context/ServiceWorkerThread.h
     workers/service/context/ServiceWorkerThreadProxy.h
 
-    workers/service/server/RegistrationDatabase.h
     workers/service/server/SWOriginStore.h
+    workers/service/server/SWRegistrationDatabase.h
+    workers/service/server/SWRegistrationStore.h
     workers/service/server/SWServer.h
     workers/service/server/SWServerDelegate.h
     workers/service/server/SWServerRegistration.h

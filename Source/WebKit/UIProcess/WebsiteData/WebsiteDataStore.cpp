@@ -1474,6 +1474,11 @@ void WebsiteDataStore::syncLocalStorage(CompletionHandler<void()>&& completionHa
     networkProcess().sendWithAsyncReply(Messages::NetworkProcess::SyncLocalStorage(), WTFMove(completionHandler));
 }
 
+void WebsiteDataStore::storeServiceWorkerRegistrations(CompletionHandler<void()>&& completionHandler)
+{
+    networkProcess().sendWithAsyncReply(Messages::NetworkProcess::StoreServiceWorkerRegistrations(m_sessionID), WTFMove(completionHandler));
+}
+
 void WebsiteDataStore::setCacheMaxAgeCapForPrevalentResources(Seconds seconds, CompletionHandler<void()>&& completionHandler)
 {
 #if ENABLE(TRACKING_PREVENTION)
@@ -1802,12 +1807,6 @@ void WebsiteDataStore::dispatchOnQueue(Function<void()>&& function)
     m_queue->dispatch(WTFMove(function));
 }
 
-uint64_t WebsiteDataStore::perThirdPartyOriginStorageQuota() const
-{
-    // FIXME: Consider whether allowing to set a perThirdPartyOriginStorageQuota from a WebsiteDataStore.
-    return perOriginStorageQuota() / 10;
-}
-
 void WebsiteDataStore::setCacheModelSynchronouslyForTesting(CacheModel cacheModel)
 {
     for (auto& processPool : WebProcessPool::allProcessPools())
@@ -1921,7 +1920,6 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     networkSessionParameters.isBlobRegistryTopOriginPartitioningEnabled = isBlobRegistryPartitioningEnabled();
     networkSessionParameters.unifiedOriginStorageLevel = m_configuration->unifiedOriginStorageLevel();
     networkSessionParameters.perOriginStorageQuota = perOriginStorageQuota();
-    networkSessionParameters.perThirdPartyOriginStorageQuota = perThirdPartyOriginStorageQuota();
     networkSessionParameters.originQuotaRatio = originQuotaRatio();
     networkSessionParameters.totalQuotaRatio = m_configuration->totalQuotaRatio();
     networkSessionParameters.volumeCapacityOverride = m_configuration->volumeCapacityOverride();
@@ -2335,6 +2333,11 @@ void WebsiteDataStore::openWindowFromServiceWorker(const String& urlString, cons
     };
 
     m_client->openWindowFromServiceWorker(urlString, serviceWorkerOrigin, WTFMove(innerCallback));
+}
+
+void WebsiteDataStore::reportServiceWorkerConsoleMessage(const URL& scriptURL, const WebCore::SecurityOriginData& clientOrigin, MessageSource source, MessageLevel level, const String& message, unsigned long requestIdentifier)
+{
+    m_client->reportServiceWorkerConsoleMessage(scriptURL, clientOrigin, source, level, message, requestIdentifier);
 }
 
 void WebsiteDataStore::workerUpdatedAppBadge(const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)

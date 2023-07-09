@@ -143,6 +143,27 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'trigger-crash-log-submission',
             'set-build-summary'
         ],
+        'iOS-16-Simulator-WPT-WK2-Tests-EWS': [
+            'configure-build',
+            'validate-change',
+            'configuration',
+            'clean-up-git-repo',
+            'checkout-source',
+            'fetch-branch-references',
+            'checkout-specific-revision',
+            'show-identifier',
+            'apply-patch',
+            'checkout-pull-request',
+            'download-built-product',
+            'extract-built-product',
+            'wait-for-crash-collection',
+            'kill-old-processes',
+            'find-modified-layout-tests',
+            'run-layout-tests-in-stress-mode',
+            'layout-tests',
+            'trigger-crash-log-submission',
+            'set-build-summary'
+        ],
         'macOS-AppleSilicon-Ventura-Debug-Build-EWS': [
             'configure-build',
             'check-change-relevance',

@@ -102,7 +102,7 @@ public:
     WEBCORE_EXPORT bool hasNodeWithActiveScrollAnimations();
 
     virtual void invalidate() { }
-    WEBCORE_EXPORT void commitTreeState(std::unique_ptr<ScrollingStateTree>&&);
+    WEBCORE_EXPORT bool commitTreeState(std::unique_ptr<ScrollingStateTree>&&);
     
     WEBCORE_EXPORT virtual void applyLayerPositions();
     WEBCORE_EXPORT void applyLayerPositionsAfterCommit();
@@ -239,6 +239,9 @@ public:
     WEBCORE_EXPORT void viewWillEndLiveResize();
     WEBCORE_EXPORT void viewSizeDidChange();
     WEBCORE_EXPORT bool overlayScrollbarsEnabled();
+
+    WEBCORE_EXPORT Seconds frameDuration();
+    WEBCORE_EXPORT Seconds maxAllowableRenderingUpdateDurationForSynchronization();
     
 protected:
     WEBCORE_EXPORT WheelEventHandlingResult handleWheelEventWithNode(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>, ScrollingTreeNode*, EventTargeting = EventTargeting::Propagate);
@@ -263,7 +266,7 @@ protected:
     mutable Lock m_treeLock; // Protects the scrolling tree.
 
 private:
-    void updateTreeFromStateNodeRecursive(const ScrollingStateNode*, struct CommitTreeState&) WTF_REQUIRES_LOCK(m_treeLock);
+    bool updateTreeFromStateNodeRecursive(const ScrollingStateNode*, struct CommitTreeState&) WTF_REQUIRES_LOCK(m_treeLock);
     virtual void propagateSynchronousScrollingReasons(const HashSet<ScrollingNodeID>&) WTF_REQUIRES_LOCK(m_treeLock) { }
 
     void applyLayerPositionsRecursive(ScrollingTreeNode&) WTF_REQUIRES_LOCK(m_treeLock);

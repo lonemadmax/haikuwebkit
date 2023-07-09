@@ -37,6 +37,7 @@
 #include "ScriptExecutionContextIdentifier.h"
 #include "SecurityOriginData.h"
 #include "ServiceWorkerClientData.h"
+#include "ServiceWorkerClientPendingMessage.h"
 #include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerJob.h"
 #include "ServiceWorkerRegistrationData.h"
@@ -163,14 +164,12 @@ public:
     WEBCORE_EXPORT void clear(const SecurityOriginData&, CompletionHandler<void()>&&);
     WEBCORE_EXPORT void clear(const ClientOrigin&, CompletionHandler<void()>&&);
 
-    WEBCORE_EXPORT void startSuspension(CompletionHandler<void()>&&);
-    WEBCORE_EXPORT void endSuspension();
-
     SWServerRegistration* getRegistration(ServiceWorkerRegistrationIdentifier identifier) { return m_registrations.get(identifier); }
     WEBCORE_EXPORT SWServerRegistration* getRegistration(const ServiceWorkerRegistrationKey&);
     void addRegistration(std::unique_ptr<SWServerRegistration>&&);
     void removeRegistration(ServiceWorkerRegistrationIdentifier);
     WEBCORE_EXPORT Vector<ServiceWorkerRegistrationData> getRegistrations(const SecurityOriginData& topOrigin, const URL& clientURL);
+    WEBCORE_EXPORT void storeRegistrationsOnDisk(CompletionHandler<void()>&&);
 
     WEBCORE_EXPORT void scheduleJob(ServiceWorkerJobData&&);
     WEBCORE_EXPORT void scheduleUnregisterJob(ServiceWorkerJobDataIdentifier, SWServerRegistration&, ServiceWorkerOrClientIdentifier, URL&&);
@@ -223,7 +222,7 @@ public:
     void resolveRegistrationReadyRequests(SWServerRegistration&);
 
     void addRegistrationFromStore(ServiceWorkerContextData&&, CompletionHandler<void()>&&);
-    void didSaveWorkerScriptsToDisk(ServiceWorkerIdentifier, ScriptBuffer&& mainScript, MemoryCompactRobinHoodHashMap<URL, ScriptBuffer>&& importedScripts);
+    WEBCORE_EXPORT void didSaveWorkerScriptsToDisk(ServiceWorkerIdentifier, ScriptBuffer&& mainScript, MemoryCompactRobinHoodHashMap<URL, ScriptBuffer>&& importedScripts);
     void registrationStoreImportComplete();
     void registrationStoreDatabaseFailedToOpen();
     void storeRegistrationForWorker(SWServerWorker&);
@@ -287,6 +286,9 @@ public:
     Ref<BackgroundFetchStore> createBackgroundFetchStore() { return m_delegate->createBackgroundFetchStore(); }
     WEBCORE_EXPORT BackgroundFetchEngine& backgroundFetchEngine();
 
+    WEBCORE_EXPORT void addServiceWorkerClientPendingMessage(ScriptExecutionContextIdentifier, ServiceWorkerClientPendingMessage&&);
+    WEBCORE_EXPORT Vector<ServiceWorkerClientPendingMessage> releaseServiceWorkerClientPendingMessage(ScriptExecutionContextIdentifier);
+
 private:
     unsigned maxRegistrationCount();
     bool allowLoopbackIPAddress(const String&);
@@ -338,11 +340,12 @@ private:
     HashMap<ClientOrigin, Clients> m_clientIdentifiersPerOrigin;
     HashMap<ScriptExecutionContextIdentifier, WeakPtr<SWServerRegistration>> m_serviceWorkerPageIdentifierToRegistrationMap;
     HashMap<ScriptExecutionContextIdentifier, UniqueRef<ServiceWorkerClientData>> m_clientsById;
+    HashMap<ScriptExecutionContextIdentifier, Vector<ServiceWorkerClientPendingMessage>> m_clientPendingMessagesById;
     HashMap<ScriptExecutionContextIdentifier, ServiceWorkerRegistrationIdentifier> m_clientToControllingRegistration;
     MemoryCompactRobinHoodHashMap<String, ScriptExecutionContextIdentifier> m_visibleClientIdToInternalClientIdMap;
 
     UniqueRef<SWOriginStore> m_originStore;
-    std::unique_ptr<RegistrationStore> m_registrationStore;
+    std::unique_ptr<SWRegistrationStore> m_registrationStore;
     HashMap<RegistrableDomain, Vector<ServiceWorkerContextData>> m_pendingContextDatas;
     HashMap<RegistrableDomain, HashMap<ServiceWorkerIdentifier, Vector<RunServiceWorkerCallback>>> m_serviceWorkerRunRequests;
     PAL::SessionID m_sessionID;

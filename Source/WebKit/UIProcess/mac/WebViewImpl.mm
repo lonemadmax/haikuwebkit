@@ -1151,8 +1151,17 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     [NSApp registerServicesMenuSendTypes:PasteboardTypes::forSelection() returnTypes:PasteboardTypes::forEditing()];
 
-    if ([[[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseRemoteLayerTreeDrawingArea"] boolValue]
-        || m_page->preferences().siteIsolationEnabled())
+#if ENABLE(REMOTE_LAYER_TREE_ON_MAC_BY_DEFAULT)
+    bool useRemoteLayerTree = true;
+#else
+    bool useRemoteLayerTree = false;
+#endif
+    if (id useRemoteLayerTreeBoolean = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseRemoteLayerTreeDrawingArea"])
+        useRemoteLayerTree = [useRemoteLayerTreeBoolean boolValue];
+    if (m_page->preferences().siteIsolationEnabled())
+        useRemoteLayerTree = true;
+
+    if (useRemoteLayerTree)
         m_drawingAreaType = DrawingAreaType::RemoteLayerTree;
 
     [view addTrackingArea:m_primaryTrackingArea.get()];
@@ -1517,8 +1526,6 @@ void WebViewImpl::viewDidEndLiveResize()
     [m_layoutStrategy didEndLiveResize];
 }
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
-
 void WebViewImpl::createPDFHUD(PDFPluginIdentifier identifier, const WebCore::IntRect& rect)
 {
     removePDFHUD(identifier);
@@ -1553,8 +1560,6 @@ NSSet *WebViewImpl::pdfHUDs()
         [set addObject:hud.get()];
     return set;
 }
-
-#endif // ENABLE(UI_PROCESS_PDF_HUD)
 
 void WebViewImpl::renewGState()
 {
@@ -2004,10 +2009,8 @@ void WebViewImpl::windowDidChangeBackingProperties(CGFloat oldBackingScaleFactor
         return;
 
     m_page->setIntrinsicDeviceScaleFactor(newBackingScaleFactor);
-#if ENABLE(UI_PROCESS_PDF_HUD)
     for (auto& hud : _pdfHUDViews.values())
         [hud setDeviceScaleFactor:newBackingScaleFactor];
-#endif
 }
 
 void WebViewImpl::windowDidChangeScreen()
@@ -5352,10 +5355,8 @@ void WebViewImpl::mouseMoved(NSEvent *event)
     if (m_ignoresNonWheelEvents || m_ignoresMouseMoveEvents)
         return;
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
     for (auto& hud : _pdfHUDViews.values())
         [hud mouseMoved:event];
-#endif
 
     // When a view is first responder, it gets mouse moved events even when the mouse is outside its visible rect.
     if (m_view.getAutoreleased() == [m_view window].firstResponder && !NSPointInRect([m_view convertPoint:[event locationInWindow] fromView:nil], [m_view visibleRect]))
@@ -5413,10 +5414,8 @@ void WebViewImpl::mouseDown(NSEvent *event)
     if (m_ignoresNonWheelEvents)
         return;
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
     for (auto& hud : _pdfHUDViews.values())
         [hud mouseDown:event];
-#endif
 
     setLastMouseDownEvent(event);
     setIgnoresMouseDraggedEvents(false);
@@ -5429,10 +5428,8 @@ void WebViewImpl::mouseUp(NSEvent *event)
     if (m_ignoresNonWheelEvents)
         return;
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
     for (auto& hud : _pdfHUDViews.values())
         [hud mouseUp:event];
-#endif
 
     setLastMouseDownEvent(nil);
     mouseUpInternal(event);

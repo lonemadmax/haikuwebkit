@@ -731,7 +731,7 @@ void SubresourceLoader::didFinishLoading(const NetworkLoadMetrics& networkLoadMe
     logResourceLoaded(m_frame.get(), m_resource->type());
 
     Ref<SubresourceLoader> protectedThis(*this);
-    CachedResourceHandle<CachedResource> protectResource(m_resource);
+    CachedResourceHandle<CachedResource> protectResource(m_resource.get());
 
     m_loadTiming.markEndTime();
 
@@ -788,7 +788,7 @@ void SubresourceLoader::didFail(const ResourceError& error)
         m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, error.localizedDescription());
 
     Ref<SubresourceLoader> protectedThis(*this);
-    CachedResourceHandle<CachedResource> protectResource(m_resource);
+    CachedResourceHandle<CachedResource> protectResource(m_resource.get());
     m_state = Finishing;
 
     if (m_resource->type() != CachedResource::Type::MainResource)
@@ -878,6 +878,7 @@ void SubresourceLoader::notifyDone(LoadCompletionType type)
 void SubresourceLoader::releaseResources()
 {
     ASSERT(!reachedTerminalState());
+    m_requestCountTracker = std::nullopt;
 #if PLATFORM(IOS_FAMILY)
     if (m_state != Uninitialized && m_state != CancelledWhileInitializing)
 #else

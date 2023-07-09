@@ -57,9 +57,9 @@ from steps import (AddReviewerToCommitMessage, AnalyzeAPITestsResults, AnalyzeCo
                    RunBuildbotCheckConfigForBuildWebKit, RunBuildbotCheckConfigForEWS, RunEWSUnitTests, RunResultsdbpyTests,
                    RunJavaScriptCoreTests, RunJSCTestsWithoutChange, RunWebKit1Tests, RunWebKitPerlTests, RunWebKitPyPython2Tests,
                    RunWebKitPyPython3Tests, RunWebKitTests, RunWebKitTestsInStressMode, RunWebKitTestsInStressGuardmallocMode,
-                   RunWebKitTestsWithoutChange, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutChangeRedTree,
-                   RunWebKitTestsWithoutChangeRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount, ShowIdentifier,
-                   Trigger, TransferToS3, TwistedAdditions, UnApplyPatch, UpdatePullRequest, UpdateWorkingDirectory, UploadBuiltProduct,
+                   RunWebKitTestsWithoutChange, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree,
+                   RunWebKitTestsRepeatFailuresWithoutChangeRedTree, RunWebKitTestsWithoutChangeRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount,
+                   ShowIdentifier, Trigger, TransferToS3, TwistedAdditions, UnApplyPatch, UpdatePullRequest, UpdateWorkingDirectory, UploadBuiltProduct,
                    UploadTestResults, ValidateCommitMessage, ValidateCommitterAndReviewer, ValidateChange, ValidateRemote, ValidateSquashed)
 
 # Workaround for https://github.com/buildbot/buildbot/issues/4669
@@ -1901,6 +1901,22 @@ ts","version":4,"num_passes":42158,"pixel_tests_enabled":false,"date":"11:28AM o
         self.expectOutcome(result=WARNINGS, state_string='2 flakes')
         return self.runStep()
 
+    def test_success_additional_arguments(self):
+        self.configureStep()
+        self.setProperty('fullPlatform', 'ios-simulator')
+        self.setProperty('configuration', 'release')
+        self.setProperty('additionalArguments', ['--exclude-tests', 'imported/w3c/web-platform-tests'])
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        logfiles={'json': self.jsonFileName},
+                        logEnviron=False,
+                        command=['python3', 'Tools/Scripts/run-webkit-tests', '--no-build', '--no-show-results', '--no-new-test-results', '--clobber-old-results', '--release', '--results-directory', 'layout-test-results', '--debug-rwt-logging', '--exit-after-n-failures', '60', '--skip-failing-tests', '--exclude-tests', 'imported/w3c/web-platform-tests'],
+                        )
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
+        return self.runStep()
+
     def test_skip_for_revert_patches_on_commit_queue(self):
         self.configureStep()
         self.setProperty('buildername', 'Commit-Queue')
@@ -2229,6 +2245,49 @@ class TestRunWebKitTestsInStressMode(BuildStepMixinAdditions, unittest.TestCase)
         rc = self.runStep()
         self.assertEqual(self.getProperty('build_summary'), 'Found test failures')
         return rc
+
+    def test_success(self):
+        self.configureStep()
+        self.setProperty('fullPlatform', 'ios-simulator')
+        self.setProperty('configuration', 'release')
+        self.setProperty('modified_tests', ['test1', 'test2'])
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        logfiles={'json': self.jsonFileName},
+                        logEnviron=False,
+                        command=['python3',
+                                 'Tools/Scripts/run-webkit-tests',
+                                 '--no-build', '--no-show-results', '--no-new-test-results', '--clobber-old-results',
+                                 '--release', '--results-directory', 'layout-test-results', '--debug-rwt-logging',
+                                 '--exit-after-n-failures', '10', '--skip-failing-tests',
+                                 '--iterations', 100, 'test1', 'test2'],
+                        )
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
+        return self.runStep()
+
+    def test_success_additional_arguments(self):
+        self.configureStep()
+        self.setProperty('fullPlatform', 'ios-simulator')
+        self.setProperty('configuration', 'release')
+        self.setProperty('modified_tests', ['test1', 'test2'])
+        self.setProperty('additionalArguments', ['--child-process=5', '--exclude-tests', 'imported/w3c/web-platform-tests'])
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        logfiles={'json': self.jsonFileName},
+                        logEnviron=False,
+                        command=['python3',
+                                 'Tools/Scripts/run-webkit-tests',
+                                 '--no-build', '--no-show-results', '--no-new-test-results', '--clobber-old-results',
+                                 '--release', '--results-directory', 'layout-test-results', '--debug-rwt-logging',
+                                 '--exit-after-n-failures', '10', '--skip-failing-tests',
+                                 '--iterations', 100, 'test1', 'test2'],
+                        )
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
+        return self.runStep()
 
 
 class TestRunWebKitTestsInStressGuardmallocMode(BuildStepMixinAdditions, unittest.TestCase):

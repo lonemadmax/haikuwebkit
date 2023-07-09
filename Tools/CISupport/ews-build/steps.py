@@ -36,6 +36,7 @@ from layout_test_failures import LayoutTestFailures
 from send_email import send_email_to_patch_author, send_email_to_bot_watchers, send_email_to_github_admin, FROM_EMAIL
 from results_db import ResultsDatabase
 from twisted_additions import TwistedAdditions
+from utils import load_password
 
 import json
 import mock
@@ -50,7 +51,7 @@ if sys.version_info < (3, 5):
     print('ERROR: Please use Python 3. This code is not compatible with Python 2.')
     sys.exit(1)
 
-custom_suffix = '-uat' if os.getenv('BUILDBOT_UAT') else ''
+custom_suffix = '-uat' if load_password('BUILDBOT_UAT') else ''
 BUG_SERVER_URL = 'https://bugs.webkit.org/'
 COMMITS_INFO_URL = 'https://commits.webkit.org/'
 S3URL = 'https://s3-us-west-2.amazonaws.com/'
@@ -3527,6 +3528,11 @@ class RunWebKitTestsInStressMode(RunWebKitTests):
 
     def setLayoutTestCommand(self):
         RunWebKitTests.setLayoutTestCommand(self)
+
+        # To support stress mode with iOS layout tests in a WPT / no-WPT configuration, we need to remove these arguments.
+        for argument in ["--child-process=5", "--exclude-tests", "imported/w3c/web-platform-tests"]:
+            if argument in self.command:
+                self.command.remove(argument)
 
         self.setCommand(self.command + ['--iterations', self.num_iterations])
         modified_tests = self.getProperty('modified_tests')

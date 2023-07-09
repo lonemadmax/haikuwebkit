@@ -413,10 +413,6 @@ platform/mac/fast/text/combining-character-sequence-fallback.html [ Pass Failure
 # Mac does not have global selections.
 editing/pasteboard/paste-global-selection.html
 
-# Unexpected WebGL Conformance tests that need to be fixed
-# These tests pass when run through webgl-conformance-tests.html but not when just opened via a browser (or via run-webkit-tests)
-webgl/1.0.3/conformance/rendering/multisample-corruption.html [ Pass Timeout ]
-
 # Sending the mouse down event to the scrollbar starts a nested run loop which causes a hang.
 fast/events/mousedown-in-subframe-scrollbar.html [ Skip ]
 
@@ -1857,14 +1853,10 @@ webkit.org/b/227891 http/tests/appcache/fail-on-update.html [ Pass Timeout DumpJ
 [ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--height.html [ ImageOnlyFailure ]
 [ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--width.html [ ImageOnlyFailure ]
 
-webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip-content-box-002.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/css3-border-image-repeat-repeat.html [ ImageOnlyFailure ]
 
 [ x86_64 ] imported/w3c/web-platform-tests/css/filter-effects/css-filters-animation-opacity.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/filter-effects/css-filters-animation-saturate.html [ ImageOnlyFailure ]
-
-# Small pixel diffs on ASi
-[ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/border-image-repeat-round-1.html [ ImageOnlyFailure ]
 
 # rdar://66661355 ([ASi Layout Tests] 3 compositing tests failing with 0.01% diffs)
 [ arm64 ] compositing/backgrounds/fixed-background-on-descendant.html [ ImageOnlyFailure ]
@@ -1895,8 +1887,6 @@ webkit.org/b/189672 [ Release ] webgl/2.0.0/conformance2/textures/canvas/tex-2d-
 webkit.org/b/191627 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-self-baseline-not-applied-if-sizing-cyclic-dependency-001.html [ Pass ]
 
 webkit.org/b/215817 [ Release ] webgl/2.0.0/conformance2/textures/canvas_sub_rectangle/tex-2d-rgb32f-rgb-float.html [ Pass Failure ]
-
-webkit.org/b/219448 [ Debug ] webgl/2.0.0/conformance/rendering/multisample-corruption.html [ Skip ]
 
 # <rdar://problem/60780398> REGRESSION: (258729?) imported/w3c/web-platform-tests/websockets/opening-handshake/003.html is failing.
 [ BigSur+ ] imported/w3c/web-platform-tests/websockets/opening-handshake/003.html [ Failure ]
@@ -2001,13 +1991,7 @@ webkit.org/b/221833 fast/text/image-alt-text-bidi-2.html [ ImageOnlyFailure ]
 
 webkit.org/b/223484 [ arm64 ] compositing/style-change/backface-visibility-change.html [ Pass ImageOnlyFailure ]
 
-# webkit.org/b/223724 These two tests are flakey timeouts on iOS Debug:
-[ Debug ] http/tests/security/webaudio-render-remote-audio-allowed-crossorigin.html [ Pass Timeout ]
-[ Debug ] http/tests/security/webaudio-render-remote-audio-allowed-crossorigin-redirect.html [ Pass Timeout ]
-
 webkit.org/b/223761 media/modern-media-controls/macos-fullscreen-media-controls/macos-fullscreen-media-controls-drag.html [ Pass Timeout ]
-
-webkit.org/b/223759 [ BigSur Debug ] http/tests/security/webaudio-render-remote-audio-blocked-no-crossorigin-redirect.html [ Pass Timeout ]
 
 webkit.org/b/222239 fast/canvas/webgl/webgl2-texture-upload-enums.html [ Pass Failure ]
 webkit.org/b/222239 webgl/2.0.0/conformance2/extensions/promoted-extensions-in-shaders.html [ Pass Failure ]
@@ -2054,8 +2038,6 @@ webkit.org/b/224631 [ BigSur ] imported/w3c/web-platform-tests/css/css-fonts/fon
 
 # Buttons are not focusable on Mac so this test doesn't work as expected.
 webkit.org/b/22261 imported/w3c/web-platform-tests/css/selectors/focus-visible-005.html [ Skip ]
-
-webkit.org/b/224842 [ BigSur Debug ] http/tests/security/webaudio-render-remote-audio-blocked-no-crossorigin.html [ Pass Timeout ]
 
 webkit.org/b/225421 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-convolvernode-interface/active-processing.https.html [ Pass Failure ]
 
@@ -2772,3 +2754,12 @@ webkit.org/b/254044 webxr [ Skip ]
 webkit.org/b/254044 imported/w3c/web-platform-tests/webxr [ Skip ]
 webkit.org/b/254044 http/wpt/webxr [ Skip ]
 webkit.org/b/254044 imported/w3c/web-platform-tests/feature-policy/reporting/xr-reporting.https.html [ Skip ]
+
+webkit.org/b/237415 webgl/1.0.x/conformance/rendering/clipping-wide-points.html [ Pass Failure ]
+
+# webkit.org/b/255178 [ Ventura iOS arm64 ] 3X imported/w3c/web-platform-tests/css/css-color/parsing (layout-tests) are constant text failures
+[ Ventura ] imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-color-mix-function.html [ Failure ]
+[ Ventura ] imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-relative-color.html [ Failure ]
+[ Ventura ] imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-relative-color.html [ Failure ]
+
+webkit.org/b/255184 [ Ventura ] transforms/3d/hit-testing/overlapping-layers-hit-test.html [ Failure ]

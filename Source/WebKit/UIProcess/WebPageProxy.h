@@ -274,7 +274,7 @@ using PlatformLayerIdentifier = ProcessQualified<ObjectIdentifier<PlatformLayerI
 using PlaybackTargetClientContextIdentifier = ObjectIdentifier<PlaybackTargetClientContextIdentifierType>;
 using PointerID = int32_t;
 using PolicyCheckIdentifier = ProcessQualified<ObjectIdentifier<PolicyCheckIdentifierType>>;
-using ResourceLoaderIdentifier = ObjectIdentifier<ResourceLoader>;
+using ResourceLoaderIdentifier = AtomicObjectIdentifier<ResourceLoader>;
 using ScrollingNodeID = uint64_t;
 using UserMediaRequestIdentifier = ObjectIdentifier<UserMediaRequestIdentifierType>;
 
@@ -327,6 +327,7 @@ class NetworkIssueReporter;
 class PageClient;
 class PageLoadState;
 class PageLoadStateObserverBase;
+class PlatformXRSystem;
 class PlaybackSessionManagerProxy;
 class ProcessThrottlerActivity;
 class ProvisionalPageProxy;
@@ -1380,9 +1381,6 @@ public:
     void processWillBecomeSuspended();
     void processWillBecomeForeground();
 #endif
-#if PLATFORM(MACCATALYST)
-    void isUserFacingChanged(bool) final;
-#endif
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     void didCreateContextInWebProcessForVisibilityPropagation(LayerHostingContextID);
@@ -1513,9 +1511,6 @@ public:
     void savePDFToFileInDownloadsFolder(String&& suggestedFilename, URL&& originatingURL, const IPC::DataReference&);
 #if ENABLE(PDFKIT_PLUGIN)
     void savePDFToTemporaryFolderAndOpenWithNativeApplication(const String& suggestedFilename, FrameInfoData&&, const IPC::DataReference&, const String& pdfUUID);
-#if !ENABLE(UI_PROCESS_PDF_HUD)
-    void openPDFFromTemporaryFolderWithNativeApplication(FrameInfoData&&, const String& pdfUUID);
-#endif
 #endif
 
 #if ENABLE(PDFKIT_PLUGIN)
@@ -2044,7 +2039,7 @@ public:
     bool canUseCredentialStorage() { return m_canUseCredentialStorage; }
     void setCanUseCredentialStorage(bool);
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
+#if ENABLE(PDFKIT_PLUGIN)
     void createPDFHUD(PDFPluginIdentifier, const WebCore::IntRect&);
     void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&);
     void removePDFHUD(PDFPluginIdentifier);
@@ -2215,7 +2210,7 @@ public:
     String scrollbarStateForScrollingNodeID(int scrollingNodeID, bool isVertical);
 
 #if ENABLE(WEBXR) && !USE(OPENXR)
-    PlatformXRSystem* xrSystem() const { return m_xrSystem.get(); }
+    PlatformXRSystem* xrSystem() const;
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)

@@ -37,6 +37,7 @@
 #include "NetworkProcessConnectionInfo.h"
 #include "NotificationManagerMessageHandlerMessages.h"
 #include "PageLoadState.h"
+#include "PlatformXRSystem.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemoteWorkerType.h"
@@ -80,6 +81,7 @@
 #include <WebCore/PlatformMediaSessionManager.h>
 #include <WebCore/PrewarmInformation.h>
 #include <WebCore/PublicSuffix.h>
+#include <WebCore/RealtimeMediaSourceCenter.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SuddenTermination.h>
 #include <pal/system/Sound.h>
@@ -601,6 +603,7 @@ void WebProcessProxy::shutDown()
     m_activityForHoldingLockedFiles = nullptr;
     m_audibleMediaActivity = std::nullopt;
     m_mediaStreamingActivity = std::nullopt;
+    m_throttler.didDisconnectFromProcess();
 
     for (auto& page : pages()) {
         if (page)

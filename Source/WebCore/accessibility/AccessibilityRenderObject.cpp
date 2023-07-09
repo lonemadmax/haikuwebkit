@@ -423,7 +423,8 @@ AccessibilityObject* AccessibilityRenderObject::nextSibling() const
     if (nextObjectParent && nextObjectParent != thisParent) {
         // Unless either object has a parent with display: contents, as display: contents can cause parent differences
         // that we properly account for elsewhere.
-        if (nextObjectParent->hasDisplayContents() || (thisParent && thisParent->hasDisplayContents()))
+        if (nextObjectParent->hasDisplayContents() || (thisParent && thisParent->hasDisplayContents())
+            || thisParent->ownedObjects().contains(this) || nextObjectParent->ownedObjects().contains(nextObject))
             return nextObject;
         return nullptr;
     }
@@ -492,6 +493,9 @@ AccessibilityObject* AccessibilityRenderObject::parentObjectIfExists() const
     if (m_renderer && isWebArea())
         return cache->get(&m_renderer->view().frameView());
 
+    if (auto* ownerParent = ownerParentObject())
+        return ownerParent;
+
     if (auto* displayContentsParent = this->displayContentsParent())
         return displayContentsParent;
 
@@ -500,6 +504,9 @@ AccessibilityObject* AccessibilityRenderObject::parentObjectIfExists() const
     
 AccessibilityObject* AccessibilityRenderObject::parentObject() const
 {
+    if (auto* ownerParent = ownerParentObject())
+        return ownerParent;
+
     if (auto* displayContentsParent = this->displayContentsParent())
         return displayContentsParent;
 
@@ -1072,15 +1079,6 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::linkedObjec
     linkedObjects.appendVector(controlledObjects());
 
     return linkedObjects;
-}
-
-bool AccessibilityRenderObject::hasPopup() const
-{
-    // Return true if this has the aria-haspopup attribute, or if it has an ancestor of type link with the aria-haspopup attribute.
-    return Accessibility::findAncestor<AccessibilityObject>(*this, true, [this] (const AccessibilityObject& object) {
-        return (this == &object) ? !equalLettersIgnoringASCIICase(object.popupValue(), "false"_s)
-            : object.isLink() && !equalLettersIgnoringASCIICase(object.popupValue(), "false"_s);
-    });
 }
 
 bool AccessibilityRenderObject::supportsDropping() const 
@@ -2916,14 +2914,14 @@ AccessibilitySVGRoot* AccessibilityRenderObject::remoteSVGRootElement(CreationCh
     
 void AccessibilityRenderObject::addRemoteSVGChildren()
 {
-    AccessibilitySVGRoot* root = remoteSVGRootElement(Create);
+    RefPtr<AccessibilitySVGRoot> root = remoteSVGRootElement(Create);
     if (!root)
         return;
 
     // In order to connect the AX hierarchy from the SVG root element from the loaded resource
     // the parent must be set, because there's no other way to get back to who created the image.
     root->setParent(this);
-    addChild(root);
+    addChild(root.get());
 }
 
 void AccessibilityRenderObject::addCanvasChildren()
@@ -3088,6 +3086,10 @@ void AccessibilityRenderObject::addChildren()
         if (object.renderer()->isListMarker())
             return;
 #endif
+        auto owners = object.owners();
+        if (owners.size() && !owners.contains(this))
+            return;
+        
         addChild(&object);
     };
 
@@ -3106,6 +3108,7 @@ void AccessibilityRenderObject::addChildren()
 #if PLATFORM(COCOA)
     updateAttachmentViewParents();
 #endif
+    updateOwnedChildren();
 
     m_subtreeDirty = false;
     updateRoleAfterChildrenCreation();
@@ -3116,27 +3119,6 @@ bool AccessibilityRenderObject::canHaveChildren() const
     return m_renderer && AccessibilityNodeObject::canHaveChildren();
 }
 
-bool AccessibilityRenderObject::canHaveSelectedChildren() const
-{
-    switch (roleValue()) {
-    // These roles are containers whose children support aria-selected:
-    case AccessibilityRole::Grid:
-    case AccessibilityRole::ListBox:
-    case AccessibilityRole::TabList:
-    case AccessibilityRole::Tree:
-    case AccessibilityRole::TreeGrid:
-    case AccessibilityRole::List:
-    // These roles are containers whose children are treated as selected by assistive
-    // technologies. We can get the "selected" item via aria-activedescendant or the
-    // focused element.
-    case AccessibilityRole::Menu:
-    case AccessibilityRole::MenuBar:
-        return true;
-    default:
-        return false;
-    }
-}
-    
 void AccessibilityRenderObject::ariaSelectedRows(AccessibilityChildrenVector& result)
 {
     // Determine which rows are selected.

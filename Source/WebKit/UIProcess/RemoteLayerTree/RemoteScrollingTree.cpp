@@ -32,6 +32,7 @@
 #include "RemoteScrollingCoordinatorProxy.h"
 #include <WebCore/ScrollingTreeFixedNodeCocoa.h>
 #include <WebCore/ScrollingTreeFrameHostingNode.h>
+#include <WebCore/ScrollingTreeFrameScrollingNode.h>
 #include <WebCore/ScrollingTreeOverflowScrollProxyNodeCocoa.h>
 #include <WebCore/ScrollingTreePositionedNodeCocoa.h>
 #include <WebCore/ScrollingTreeStickyNodeCocoa.h>
@@ -201,6 +202,21 @@ void RemoteScrollingTree::removeWheelEventTestCompletionDeferralForReason(Scroll
 
     m_scrollingCoordinatorProxy->removeWheelEventTestCompletionDeferralForReason(nodeID, reason);
 }
+
+void RemoteScrollingTree::propagateSynchronousScrollingReasons(const HashSet<ScrollingNodeID>& synchronousScrollingNodes)
+{
+    m_hasNodesWithSynchronousScrollingReasons = !synchronousScrollingNodes.isEmpty();
+}
+
+void RemoteScrollingTree::tryToApplyLayerPositions()
+{
+    Locker locker { m_treeLock };
+    if (m_hasNodesWithSynchronousScrollingReasons)
+        return;
+
+    applyLayerPositionsInternal();
+}
+
 
 } // namespace WebKit
 

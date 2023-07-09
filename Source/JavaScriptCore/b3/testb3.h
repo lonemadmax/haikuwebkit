@@ -79,6 +79,7 @@
 #include <wtf/NumberOfCores.h>
 #include <wtf/StdList.h>
 #include <wtf/Threading.h>
+#include <wtf/WTFProcess.h>
 #include <wtf/text/StringCommon.h>
 
 // We don't have a NO_RETURN_DUE_TO_EXIT, nor should we. That's ridiculous.
@@ -88,7 +89,7 @@ inline void usage()
 {
     dataLog("Usage: testb3 [<filter>]\n");
     if (hiddenTruthBecauseNoReturnIsStupid())
-        exit(1);
+        exitProcess(1);
 }
 
 #if ENABLE(B3_JIT) && !CPU(ARM)

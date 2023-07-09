@@ -39,6 +39,7 @@
 #import "WebPage.h"
 #import "WebProcess.h"
 #import <QuartzCore/CoreAnimation.h>
+#import <WebCore/Chrome.h>
 #import <WebCore/Color.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventNames.h>
@@ -97,6 +98,13 @@ VideoFullscreenInterfaceContext::~VideoFullscreenInterfaceContext()
 void VideoFullscreenInterfaceContext::setLayerHostingContext(std::unique_ptr<LayerHostingContext>&& context)
 {
     m_layerHostingContext = WTFMove(context);
+}
+
+void VideoFullscreenInterfaceContext::setRootLayer(RetainPtr<CALayer> layer)
+{
+    m_rootLayer = layer;
+    if (m_layerHostingContext)
+        m_layerHostingContext->setRootLayer(layer.get());
 }
 
 void VideoFullscreenInterfaceContext::hasVideoChanged(bool hasVideo)
@@ -275,9 +283,8 @@ void VideoFullscreenManager::setupRemoteLayerHosting(HTMLVideoElement& videoElem
     UNUSED_PARAM(addResult);
     ASSERT(addResult.iterator->value == contextId);
 
-    bool blockMediaLayerRehosting = videoElement.document().settings().blockMediaLayerRehostingInWebContentProcess();
+    bool blockMediaLayerRehosting = videoElement.document().settings().blockMediaLayerRehostingInWebContentProcess() && videoElement.document().page() &&  videoElement.document().page()->chrome().client().isUsingUISideCompositing();
     RELEASE_LOG(Fullscreen, "Block Media layer rehosting = %d", blockMediaLayerRehosting);
-
     if (blockMediaLayerRehosting) {
         auto representationFactory = [] (TextTrackRepresentationClient& client, HTMLMediaElement& mediaElement) {
             auto textTrackRepresentation = makeUnique<WebKit::WebTextTrackRepresentationCocoa>(client, mediaElement);
@@ -359,22 +366,31 @@ void VideoFullscreenManager::enterVideoFullscreenForVideoElement(HTMLVideoElemen
         [videoLayer setPosition:CGPointMake(0, 0)];
         [videoLayer setBackgroundColor:cachedCGColor(WebCore::Color::transparentBlack).get()];
         interface->setRootLayer(videoLayer.get());
-        if (interface->layerHostingContext())
-            interface->layerHostingContext()->setRootLayer(videoLayer.get());
     }
+
+    auto setupFullscreen = [protectedThis = Ref { *this }, page = WeakPtr { m_page }, contextId = contextId, videoRect = videoRect, videoElement = WeakPtr { videoElement }, allowsPictureInPicture = allowsPictureInPicture, standby = standby, fullscreenMode = interface->fullscreenMode()] (LayerHostingContextID contextID, const FloatSize& size) {
+        if (!page || !videoElement)
+            return;
+        page->send(Messages::VideoFullscreenManagerProxy::SetupFullscreenWithID(contextId, contextID, videoRect, size, page->deviceScaleFactor(), fullscreenMode, allowsPictureInPicture, standby, videoElement->document().quirks().blocksReturnToFullscreenFromPictureInPictureQuirk()));
+
+        if (auto player = videoElement->player()) {
+            if (auto identifier = player->identifier())
+                protectedThis->setPlayerIdentifier(contextId, identifier);
+        }
+    };
 
     LayerHostingContextID contextID = 0;
-    if (videoElement.document().settings().blockMediaLayerRehostingInWebContentProcess())
+    bool blockMediaLayerRehosting = videoElement.document().settings().blockMediaLayerRehostingInWebContentProcess() && videoElement.document().page() &&  videoElement.document().page()->chrome().client().isUsingUISideCompositing();
+    if (blockMediaLayerRehosting) {
         contextID = videoElement.layerHostingContextID();
-    else
+        if (!contextID) {
+            m_setupFullscreenHandler = WTFMove(setupFullscreen);
+            return;
+        }
+    } else
         contextID = interface->layerHostingContext()->contextID();
 
-    m_page->send(Messages::VideoFullscreenManagerProxy::SetupFullscreenWithID(contextId, contextID, videoRect, FloatSize(videoElement.videoWidth(), videoElement.videoHeight()), m_page->deviceScaleFactor(), interface->fullscreenMode(), allowsPictureInPicture, standby, videoElement.document().quirks().blocksReturnToFullscreenFromPictureInPictureQuirk()));
-
-    if (auto player = videoElement.player()) {
-        if (auto identifier = player->identifier())
-            setPlayerIdentifier(contextId, identifier);
-    }
+    setupFullscreen(contextID, FloatSize(videoElement.videoWidth(), videoElement.videoHeight()));
 }
 
 void VideoFullscreenManager::exitVideoFullscreenForVideoElement(HTMLVideoElement& videoElement, CompletionHandler<void(bool)>&& completionHandler)
@@ -446,6 +462,15 @@ void VideoFullscreenManager::hasVideoChanged(PlaybackSessionContextIdentifier co
 
 void VideoFullscreenManager::videoDimensionsChanged(PlaybackSessionContextIdentifier contextId, const FloatSize& videoDimensions)
 {
+    if (m_setupFullscreenHandler) {
+        auto [model, interface] = ensureModelAndInterface(contextId);
+        auto videoElement = model->videoElement();
+        auto layerHostingContextID = videoElement ? videoElement->layerHostingContextID() : 0;
+        if (layerHostingContextID) {
+            m_setupFullscreenHandler(layerHostingContextID, videoDimensions);
+            m_setupFullscreenHandler = nullptr;
+        }
+    }
     if (m_page)
         m_page->send(Messages::VideoFullscreenManagerProxy::SetVideoDimensions(contextId, videoDimensions));
 }
@@ -519,7 +544,7 @@ void VideoFullscreenManager::didSetupFullscreen(PlaybackSessionContextIdentifier
 
     ASSERT(m_page);
     auto [model, interface] = ensureModelAndInterface(contextId);
-    CALayer* videoLayer = interface->layerHostingContext()->rootLayer();
+    CALayer* videoLayer = interface->rootLayer().get();
 
     model->setVideoFullscreenLayer(videoLayer, [protectedThis = Ref { *this }, this, contextId] () mutable {
         RunLoop::main().dispatch([protectedThis = WTFMove(protectedThis), this, contextId] {
@@ -606,8 +631,8 @@ void VideoFullscreenManager::didExitFullscreen(PlaybackSessionContextIdentifier 
         RunLoop::main().dispatch([protectedThis = WTFMove(protectedThis), contextId, interface, model] () mutable {
             model->setVideoFullscreenLayer(nil, [protectedThis = WTFMove(protectedThis), contextId, interface] () mutable {
                 RunLoop::main().dispatch([protectedThis = WTFMove(protectedThis), contextId, interface] {
-                    if (interface->layerHostingContext()->rootLayer()) {
-                        interface->layerHostingContext()->setRootLayer(nullptr);
+                    if (interface->rootLayer()) {
+                        interface->setRootLayer(nullptr);
                         interface->setLayerHostingContext(nullptr);
                     }
                     if (protectedThis->m_page)
@@ -625,8 +650,8 @@ void VideoFullscreenManager::didCleanupFullscreen(PlaybackSessionContextIdentifi
 
     auto [model, interface] = ensureModelAndInterface(contextId);
 
-    if (interface->layerHostingContext() && interface->layerHostingContext()->rootLayer()) {
-        interface->layerHostingContext()->setRootLayer(nullptr);
+    if (interface->rootLayer()) {
+        interface->setRootLayer(nullptr);
         interface->setLayerHostingContext(nullptr);
     }
 

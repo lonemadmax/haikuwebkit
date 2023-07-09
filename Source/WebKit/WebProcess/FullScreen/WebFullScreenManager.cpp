@@ -50,6 +50,7 @@
 
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 #include "PlaybackSessionManager.h"
+#include "VideoFullscreenManager.h"
 #endif
 
 namespace WebKit {
@@ -194,10 +195,12 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element)
 
     setElement(*element);
 
-    bool isVideoElementWithControls = false;
+    bool isVideoElement = false;
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    if (auto* videoElement = dynamicDowncast<HTMLVideoElement>(element))
-        isVideoElementWithControls = videoElement->controls();
+    isVideoElement = is<HTMLVideoElement>(element);
+
+    if (m_page->videoFullscreenManager().videoElementInPictureInPicture() && m_element->document().quirks().blocksEnteringStandardFullscreenFromPictureInPictureQuirk())
+        return;
 
     if (auto* currentPlaybackControlsElement = m_page->playbackSessionManager().currentPlaybackControlsElement())
         currentPlaybackControlsElement->prepareForVideoFullscreenStandby();
@@ -211,7 +214,7 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element)
     if (m_mainVideoElement)
         videoDimensions = FloatSize(m_mainVideoElement->videoWidth(), m_mainVideoElement->videoHeight());
 #endif
-    m_page->injectedBundleFullScreenClient().enterFullScreenForElement(m_page.get(), element, m_element->document().quirks().blocksReturnToFullscreenFromPictureInPictureQuirk(), isVideoElementWithControls, videoDimensions);
+    m_page->injectedBundleFullScreenClient().enterFullScreenForElement(m_page.get(), element, m_element->document().quirks().blocksReturnToFullscreenFromPictureInPictureQuirk(), isVideoElement, videoDimensions);
 }
 
 void WebFullScreenManager::exitFullScreenForElement(WebCore::Element* element)

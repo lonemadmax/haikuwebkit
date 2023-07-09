@@ -38,22 +38,22 @@ class WebCore::ContentFilterUnblockHandler {
 header: <WebCore/DictionaryPopupInfo.h>
 [CustomHeader] struct WebCore::DictionaryPopupInfoCocoa {
     RetainPtr<NSDictionary> options;
-    RetainPtr<NSAttributedString> attributedString;
+    WebCore::AttributedString attributedString;
 };
 
 header: <WebCore/ResourceRequest.h>
 [CustomHeader] struct WebCore::ResourceRequestPlatformData {
-    RetainPtr<NSURLRequest> m_urlRequest;
+    [SecureCodingAllowed=[NSMutableURLRequest.class, NSURLRequest.class]] RetainPtr<NSURLRequest> m_urlRequest;
     std::optional<bool> m_isAppInitiated;
     std::optional<WebCore::ResourceRequestRequester> m_requester
 };
 
 [Nested] struct WebCore::AttributedString::AttributeValue {
 #if PLATFORM(MAC)
-    std::variant<double, String, URL, Vector<String>, Vector<double>, RetainPtr<NSParagraphStyle>, RetainPtr<NSTextAttachment>, RetainPtr<NSShadow>, RetainPtr<NSDate>, RetainPtr<NSFont>, RetainPtr<NSColor>> value;
+    std::variant<double, String, URL, Ref<WebCore::Font>, Vector<String>, Vector<double>, RetainPtr<NSParagraphStyle>, RetainPtr<NSTextAttachment>, RetainPtr<NSShadow>, RetainPtr<NSDate>, RetainPtr<NSColor>> value;
 #endif
 #if PLATFORM(IOS_FAMILY)
-    std::variant<double, String, URL, Vector<String>, Vector<double>, RetainPtr<NSParagraphStyle>, RetainPtr<NSTextAttachment>, RetainPtr<NSShadow>, RetainPtr<NSDate>, RetainPtr<UIFont>, RetainPtr<UIColor>> value;
+    std::variant<double, String, URL, Ref<WebCore::Font>, Vector<String>, Vector<double>, RetainPtr<NSParagraphStyle>, RetainPtr<NSTextAttachment>, RetainPtr<NSShadow>, RetainPtr<NSDate>, RetainPtr<UIColor>> value;
 #endif
 }
 

@@ -396,7 +396,7 @@ std::unique_ptr<SerializedImageBuffer> RemoteImageBufferProxy::sinkIntoSerialize
 }
 
 RemoteSerializedImageBufferProxy::RemoteSerializedImageBufferProxy(const WebCore::ImageBufferBackend::Parameters& parameters, const WebCore::ImageBufferBackend::Info& info, const WebCore::RenderingResourceIdentifier& renderingResourceIdentifier, RemoteRenderingBackendProxy& backend)
-    : m_referenceTracker(RemoteSerializedImageBufferIdentifier::generateThreadSafe())
+    : m_referenceTracker(RemoteSerializedImageBufferIdentifier::generate())
     , m_parameters(parameters)
     , m_info(info)
     , m_renderingResourceIdentifier(renderingResourceIdentifier)

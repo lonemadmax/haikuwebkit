@@ -244,7 +244,7 @@ ResolvedStyle Resolver::styleForElement(const Element& element, const Resolution
 
     if (state.parentStyle()) {
         state.setStyle(RenderStyle::createPtrWithRegisteredInitialValues(document().customPropertyRegistry()));
-        if (&element == document().documentElement()) {
+        if (&element == document().documentElement() && !context.isSVGUseTreeRoot) {
             // Initial values for custom properties are inserted to the document element style. Don't overwrite them.
             state.style()->inheritIgnoringCustomPropertiesFrom(*state.parentStyle());
         } else
@@ -670,6 +670,20 @@ void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResu
 
     if (MatchedDeclarationsCache::isCacheable(element, style, parentStyle))
         m_matchedDeclarationsCache.add(style, parentStyle, state.userAgentAppearanceStyle(), cacheHash, matchResult);
+}
+
+bool Resolver::hasSelectorForAttribute(const Element& element, const AtomString& attributeName) const
+{
+    ASSERT(!attributeName.isEmpty());
+    if (element.isHTMLElement() && element.document().isHTMLDocument())
+        return m_ruleSets.features().attributeLowercaseLocalNamesInRules.contains(attributeName);
+    return m_ruleSets.features().attributeLocalNamesInRules.contains(attributeName);
+}
+
+bool Resolver::hasSelectorForId(const AtomString& idValue) const
+{
+    ASSERT(!idValue.isEmpty());
+    return m_ruleSets.features().idsInRules.contains(idValue);
 }
 
 bool Resolver::hasViewportDependentMediaQueries() const

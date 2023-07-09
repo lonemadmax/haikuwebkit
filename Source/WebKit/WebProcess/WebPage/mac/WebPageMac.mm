@@ -68,6 +68,7 @@
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/GraphicsContext.h>
+#import <WebCore/GraphicsLayer.h>
 #import <WebCore/HTMLAttachmentElement.h>
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLImageElement.h>
@@ -417,7 +418,7 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelec
     dictionaryPopupInfo.origin = rangeRect.origin;
     dictionaryPopupInfo.platformData.options = options;
     dictionaryPopupInfo.textIndicator = dataForSelection;
-    dictionaryPopupInfo.platformData.attributedString = scaledNSAttributedString;
+    dictionaryPopupInfo.platformData.attributedString = WebCore::AttributedString::fromNSAttributedString(scaledNSAttributedString);
     
     return dictionaryPopupInfo;
 }
@@ -1073,8 +1074,6 @@ void WebPage::setAccentColor(WebCore::Color color)
 
 #endif // HAVE(APP_ACCENT_COLORS)
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
-
 void WebPage::zoomPDFIn(PDFPluginIdentifier identifier)
 {
     auto pdfPlugin = m_pdfPlugInsWithHUD.get(identifier);
@@ -1125,8 +1124,6 @@ void WebPage::removePDFHUD(PDFPlugin& plugin)
     if (m_pdfPlugInsWithHUD.remove(plugin.identifier()))
         send(Messages::WebPageProxy::RemovePDFHUD(plugin.identifier()));
 }
-
-#endif // ENABLE(UI_PROCESS_PDF_HUD)
 
 } // namespace WebKit
 

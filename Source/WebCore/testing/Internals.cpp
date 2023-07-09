@@ -2933,7 +2933,7 @@ uint64_t Internals::messagePortIdentifier(const MessagePort& port) const
 
 bool Internals::isMessagePortAlive(uint64_t messagePortIdentifier) const
 {
-    MessagePortIdentifier portIdentifier { Process::identifier(), makeObjectIdentifier<PortIdentifierType>(messagePortIdentifier) };
+    MessagePortIdentifier portIdentifier { Process::identifier(), AtomicObjectIdentifier<PortIdentifierType>(messagePortIdentifier) };
     return MessagePort::isMessagePortAliveForTesting(portIdentifier);
 }
 
@@ -2953,7 +2953,7 @@ uint64_t Internals::elementIdentifier(Element& element) const
 
 bool Internals::isElementAlive(uint64_t elementIdentifier) const
 {
-    return Element::fromIdentifier(makeObjectIdentifier<ElementIdentifierType>(elementIdentifier));
+    return Element::fromIdentifier(ObjectIdentifier<ElementIdentifierType>(elementIdentifier));
 }
 
 uint64_t Internals::frameIdentifier(const Document& document) const
@@ -5295,9 +5295,9 @@ void Internals::setShowAllPlugins(bool show)
     page->setShowAllPlugins(show);
 }
 
-bool Internals::isReadableStreamDisturbed(JSC::JSGlobalObject& lexicalGlobalObject, JSValue stream)
+bool Internals::isReadableStreamDisturbed(ReadableStream& stream)
 {
-    return ReadableStream::isDisturbed(lexicalGlobalObject, stream);
+    return stream.isDisturbed();
 }
 
 JSValue Internals::cloneArrayBuffer(JSC::JSGlobalObject& lexicalGlobalObject, JSValue buffer, JSValue srcByteOffset, JSValue srcLength)

@@ -1746,6 +1746,7 @@ void Editor::revealSelectionIfNeededAfterLoadingImageForElement(HTMLImageElement
 
     // FIXME: This should be queued as a task for the next rendering update.
     document().updateLayout();
+    document().selection().setCaretRectNeedsUpdate();
     revealSelectionAfterEditingOperation();
 }
 
@@ -3380,7 +3381,7 @@ void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection, O
 {
     Ref<Document> protectedDocument(m_document);
 
-    if (newSelection.isOrphan())
+    if (newSelection.isOrphan() || newSelection.document() != protectedDocument.ptr())
         return;
 
     // If there is no selection change, don't bother sending shouldChangeSelection, but still call setSelection,
@@ -3390,6 +3391,8 @@ void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection, O
     bool selectionDidNotChangeDOMPosition = newSelection == m_document.selection().selection();
     if (selectionDidNotChangeDOMPosition || m_document.selection().shouldChangeSelection(newSelection))
         m_document.selection().setSelection(newSelection, options);
+
+    ASSERT_WITH_SECURITY_IMPLICATION(!m_document.selection().selection().isOrphan());
 
     // Some editing operations change the selection visually without affecting its position within the DOM.
     // For example when you press return in the following (the caret is marked by ^):

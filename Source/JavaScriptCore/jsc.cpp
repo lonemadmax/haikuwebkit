@@ -97,6 +97,7 @@
 #include <wtf/Span.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/URL.h>
+#include <wtf/WTFProcess.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/StringBuilder.h>
@@ -194,11 +195,7 @@ NO_RETURN_WITH_VALUE static void jscExit(int status)
         }
     }
 #endif // ENABLE(DFG_JIT)
-#if OS(WINDOWS)
-    TerminateProcess(GetCurrentProcess(), status);
-#else
-    exit(status);
-#endif
+    exitProcess(status);
 }
 
 static unsigned asyncTestPasses { 0 };
@@ -2321,7 +2318,7 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarAgentStart, (JSGlobalObject* globalObject
                         result = evaluationException->value();
                     checkException(globalObject, true, evaluationException, result, commandLine, success);
                     if (!success)
-                        exit(1);
+                        exitProcess(EXIT_FAILURE);
                 });
         })->detach();
     
@@ -3146,7 +3143,7 @@ static void startTimeoutTimer(Seconds duration)
                 Seconds hardTimeout { hardTimeoutInDouble };
                 sleep(hardTimeout);
                 dataLogLn("HARD TIMEOUT after ", hardTimeout);
-                exit(EXIT_FAILURE);
+                exitProcess(EXIT_FAILURE);
             }
         }
     });
@@ -3680,7 +3677,7 @@ void CommandLine::parseArguments(int argc, char** argv)
 
             SignalAction (*exit)(Signal, SigInfo&, PlatformRegisters&) = [] (Signal, SigInfo&, PlatformRegisters&) {
                 dataLogLn("Signal handler hit. Exiting with status 0");
-                _exit(0);
+                terminateProcess(EXIT_SUCCESS);
                 return SignalAction::ForceDefault;
             };
 
@@ -3961,8 +3958,13 @@ int jscmain(int argc, char** argv)
     // comes first.
     mainCommandLine.construct(argc, argv);
 
-#if OS(UNIX)
+#if OS(WINDOWS)
+    // Needed for complex.yaml tests.
+    if (char* tz = getenv("TZ"))
+        setTimeZoneOverride(StringView::fromLatin1(tz));
+#endif
 
+#if OS(UNIX)
     if (getenv("JS_SHELL_WAIT_FOR_SIGUSR2_TO_EXIT")) {
         initializeSignalHandling();
         addSignalHandler(Signal::Usr, SignalHandler([&] (Signal, SigInfo&, PlatformRegisters&) {

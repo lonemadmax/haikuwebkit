@@ -384,12 +384,6 @@ void DrawingAreaCoordinatedGraphics::layerHostDidFlushLayers()
         sendDidUpdateBackingStoreState();
         return;
     }
-
-    ASSERT(!m_compositingAccordingToProxyMessages);
-    if (!exitAcceleratedCompositingModePending()) {
-        send(Messages::DrawingAreaProxy::EnterAcceleratedCompositingMode(m_backingStoreStateID, m_layerTreeHost->layerTreeContext()));
-        m_compositingAccordingToProxyMessages = true;
-    }
 }
 #endif
 
@@ -851,7 +845,7 @@ void DrawingAreaCoordinatedGraphics::display(UpdateInfo& updateInfo)
     IntSize bitmapSize = bounds.size();
     float deviceScaleFactor = m_webPage.corePage()->deviceScaleFactor();
     bitmapSize.scale(deviceScaleFactor);
-    auto bitmap = ShareableBitmap::create(bitmapSize, { });
+    auto bitmap = ShareableBitmap::create({ bitmapSize });
     if (!bitmap)
         return;
 

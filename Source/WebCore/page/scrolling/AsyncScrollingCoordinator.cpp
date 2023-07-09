@@ -302,6 +302,20 @@ bool AsyncScrollingCoordinator::requestStopKeyboardScrollAnimation(ScrollableAre
     return true;
 }
 
+void AsyncScrollingCoordinator::setMouseIsOverScrollbar(Scrollbar* scrollbar, bool isOverScrollbar)
+{
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+    auto scrollingNodeID = scrollbar->scrollableArea().scrollingNodeID();
+    if (!scrollingNodeID)
+        return;
+
+    auto stateNode = dynamicDowncast<ScrollingStateScrollingNode>(m_scrollingStateTree->stateNodeForID(scrollingNodeID));
+    if (!stateNode)
+        return;
+    stateNode->setScrollbarHoverState({ scrollbar->orientation() == ScrollbarOrientation::Vertical ? false : isOverScrollbar, scrollbar->orientation() == ScrollbarOrientation::Vertical ? isOverScrollbar : false });
+}
+
 bool AsyncScrollingCoordinator::requestScrollPositionUpdate(ScrollableArea& scrollableArea, const ScrollPosition& scrollPosition, ScrollType scrollType, ScrollClamping clamping)
 {
     ASSERT(isMainThread());
@@ -343,6 +357,34 @@ bool AsyncScrollingCoordinator::requestScrollPositionUpdate(ScrollableArea& scro
     // FIXME: This should schedule a rendering update
     commitTreeStateIfNeeded();
     return true;
+}
+
+void AsyncScrollingCoordinator::setMouseIsOverContentArea(ScrollableArea& scrollableArea, bool isOverContentArea)
+{
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+    auto scrollingNodeID = scrollableArea.scrollingNodeID();
+    if (!scrollingNodeID)
+        return;
+    
+    auto stateNode = dynamicDowncast<ScrollingStateScrollingNode>(m_scrollingStateTree->stateNodeForID(scrollingNodeID));
+    if (!stateNode)
+        return;
+    stateNode->setMouseIsOverContentArea(isOverContentArea);
+}
+
+void AsyncScrollingCoordinator::setMouseMovedInContentArea(ScrollableArea& scrollableArea)
+{
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+    auto scrollingNodeID = scrollableArea.scrollingNodeID();
+    if (!scrollingNodeID)
+        return;
+    
+    auto stateNode = dynamicDowncast<ScrollingStateScrollingNode>(m_scrollingStateTree->stateNodeForID(scrollingNodeID));
+    if (!stateNode)
+        return;
+    stateNode->setMouseMovedInContentArea();
 }
 
 bool AsyncScrollingCoordinator::requestAnimatedScrollToPosition(ScrollableArea& scrollableArea, const ScrollPosition& scrollPosition, ScrollClamping clamping)

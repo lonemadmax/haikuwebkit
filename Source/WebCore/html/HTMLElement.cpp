@@ -115,7 +115,7 @@ String HTMLElement::nodeName() const
     // ASCII characters that does not have to copy the string on a hit in the hash.
     if (document().isHTMLDocument()) {
         if (LIKELY(!tagQName().hasPrefix()))
-            return tagQName().localNameUpper();
+            return tagQName().localNameUppercase();
         return Element::nodeName().convertToASCIIUppercase();
     }
     return Element::nodeName();
@@ -358,7 +358,7 @@ Node::Editability HTMLElement::editabilityFromContentEditableAttr(const Node& no
     if (containingShadowRoot && containingShadowRoot->mode() == ShadowRootMode::UserAgent)
         return Editability::ReadOnly;
 
-    if (node.document().inDesignMode())
+    if (node.document().inDesignMode() && node.isInDocumentTree())
         return Editability::CanEditRichly;
 
     return Editability::ReadOnly;
@@ -1374,10 +1374,7 @@ ExceptionOr<void> HTMLElement::showPopover()
 
     popoverData()->setPreviouslyFocusedElement(nullptr);
 
-    Style::PseudoClassChangeInvalidation styleInvalidation(*this, {
-        { CSSSelector::PseudoClassOpen, true },
-        { CSSSelector::PseudoClassClosed, false }
-    });
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassPopoverOpen, true);
     popoverData()->setVisibilityState(PopoverVisibilityState::Showing);
 
     runPopoverFocusingSteps(*this);
@@ -1416,10 +1413,7 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
 
     removeFromTopLayer();
 
-    Style::PseudoClassChangeInvalidation styleInvalidation(*this, {
-        { CSSSelector::PseudoClassClosed, true },
-        { CSSSelector::PseudoClassOpen, false }
-    });
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassPopoverOpen, false);
     popoverData()->setVisibilityState(PopoverVisibilityState::Hidden);
 
     if (fireEvents == FireEvents::Yes)
@@ -1469,10 +1463,7 @@ void HTMLElement::popoverAttributeChanged(const AtomString& value)
     if (newPopoverState == oldPopoverState)
         return;
 
-    Style::PseudoClassChangeInvalidation styleInvalidation(*this, {
-        { CSSSelector::PseudoClassOpen, false },
-        { CSSSelector::PseudoClassClosed, newPopoverState != PopoverState::None }
-    });
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassPopoverOpen, false);
 
     if (oldPopoverState != PopoverState::None)
         hidePopoverInternal(FocusPreviousElement::Yes, FireEvents::No);

@@ -4304,6 +4304,10 @@ static void adjustSettingsForLockdownMode(Settings& settings, const WebPreferenc
     settings.setWebAudioEnabled(false);
 #endif
     settings.setDownloadableBinaryFontAllowedTypes(DownloadableBinaryFontAllowedTypes::Restricted);
+#if ENABLE(WEB_CODECS)
+    settings.setWebCodecsEnabled(false);
+    settings.setWebCodecsAV1Enabled(false);
+#endif
 #if ENABLE(WEB_RTC)
     settings.setPeerConnectionEnabled(false);
     settings.setWebRTCEncodedTransformEnabled(false);
@@ -4696,6 +4700,17 @@ void WebPage::releaseMemory(Critical)
     if (m_remoteRenderingBackendProxy)
         m_remoteRenderingBackendProxy->remoteResourceCacheProxy().releaseMemory();
 #endif
+}
+
+void WebPage::willDestroyDecodedDataForAllImages()
+{
+#if ENABLE(GPU_PROCESS)
+    if (m_remoteRenderingBackendProxy)
+        m_remoteRenderingBackendProxy->remoteResourceCacheProxy().releaseAllImageResources();
+#endif
+
+    if (m_drawingArea)
+        m_drawingArea->setNextRenderingUpdateRequiresSynchronousImageDecoding();
 }
 
 unsigned WebPage::remoteImagesCountForTesting() const
@@ -6099,18 +6114,6 @@ void WebPage::drawPagesForPrinting(FrameIdentifier frameID, const PrintInfo& pri
         return;
     }
     completionHandler(std::nullopt, { });
-}
-#endif
-
-#if ENABLE(PDFKIT_PLUGIN) && !ENABLE(UI_PROCESS_PDF_HUD)
-void WebPage::savePDFToFileInDownloadsFolder(const String& suggestedFilename, const URL& originatingURL, const uint8_t* data, unsigned long size)
-{
-    send(Messages::WebPageProxy::SavePDFToFileInDownloadsFolder(suggestedFilename, originatingURL, IPC::DataReference(data, size)));
-}
-
-void WebPage::savePDFToTemporaryFolderAndOpenWithNativeApplication(const String& suggestedFilename, FrameInfoData&& frameInfo, const uint8_t* data, unsigned long size, const String& pdfUUID)
-{
-    send(Messages::WebPageProxy::SavePDFToTemporaryFolderAndOpenWithNativeApplication(suggestedFilename, frameInfo, IPC::DataReference(data, size), pdfUUID));
 }
 #endif
 

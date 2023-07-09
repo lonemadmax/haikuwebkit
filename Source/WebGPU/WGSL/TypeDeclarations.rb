@@ -69,3 +69,27 @@ operator :vec4, {
         }
     end
 end
+
+operator :clamp, {
+    [T < Number].(T, T, T) => T,
+    [T < Number, N].(Vector[T, N], Vector[T, N], Vector[T, N]) => Vector[T, N],
+}
+
+operator :min, {
+    [T < Number].(T, T) => T,
+    [T < Number, N].(Vector[T, N], Vector[T, N]) => Vector[T, N],
+}
+
+operator :max, {
+    [T < Number].(T, T) => T,
+    [T < Number, N].(Vector[T, N], Vector[T, N]) => Vector[T, N],
+}
+
+# Trigonometric
+["acos", "asin", "atan", "cos", "sin", "tan",
+ "acosh", "asinh", "atanh", "cosh", "sinh", "tanh"].each do |op|
+    operator :"#{op}", {
+        [T < Float].(T) => T,
+        [T < Float, N].(Vector[T, N]) => Vector[T, N],
+    }
+end

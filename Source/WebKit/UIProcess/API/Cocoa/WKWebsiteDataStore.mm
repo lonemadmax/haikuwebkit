@@ -51,7 +51,6 @@
 #import "_WKWebsiteDataStoreConfigurationInternal.h"
 #import "_WKWebsiteDataStoreDelegate.h"
 #import <WebCore/Credential.h>
-#import <WebCore/RegistrationDatabase.h>
 #import <WebCore/ServiceWorkerClientData.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/BlockPtr.h>
@@ -139,6 +138,13 @@ private:
         auto nsURL = (NSURL *)URL { url };
         auto apiOrigin = API::SecurityOrigin::create(serviceWorkerOrigin);
         [m_delegate.getAutoreleased() websiteDataStore:m_dataStore.getAutoreleased() openWindow:nsURL fromServiceWorkerOrigin:wrapper(apiOrigin.get()) completionHandler:completionHandler.get()];
+    }
+
+    void reportServiceWorkerConsoleMessage(const URL&, const WebCore::SecurityOriginData&, MessageSource, MessageLevel, const String& message, unsigned long)
+    {
+        if (![m_delegate.get() respondsToSelector:@selector(websiteDataStore:reportServiceWorkerConsoleMessage:)])
+            return;
+        [m_delegate.getAutoreleased() websiteDataStore:m_dataStore.getAutoreleased() reportServiceWorkerConsoleMessage:message];
     }
 
     bool showNotification(const WebCore::NotificationData& data) final
@@ -815,15 +821,6 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 #endif
 }
 
-- (bool)_hasRegisteredServiceWorker
-{
-#if ENABLE(SERVICE_WORKER)
-    return FileSystem::fileExists(WebCore::serviceWorkerRegistrationDatabaseFilename(_websiteDataStore->configuration().serviceWorkerRegistrationDirectory()));
-#else
-    return NO;
-#endif
-}
-
 - (void)_renameOrigin:(NSURL *)oldName to:(NSURL *)newName forDataOfTypes:(NSSet<NSString *> *)dataTypes completionHandler:(void (^)(void))completionHandler
 {
     if (!dataTypes.count)
@@ -1126,6 +1123,17 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
         completionHandler = [] { };
 
     _websiteDataStore->networkProcess().clickBackgroundFetch(_websiteDataStore->sessionID(), identifier, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+#else
+    completionHandler();
+#endif
+}
+
+-(void)_storeServiceWorkerRegistrations:(void(^)(void))completionHandler
+{
+#if ENABLE(SERVICE_WORKER)
+    _websiteDataStore->storeServiceWorkerRegistrations([completionHandler = makeBlockPtr(completionHandler)] {
         completionHandler();
     });
 #else

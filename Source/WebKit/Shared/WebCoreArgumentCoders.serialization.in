@@ -988,7 +988,6 @@ struct WebCore::WebLockManagerSnapshot {
 
 [LegacyPopulateFromEmptyConstructor] struct WebCore::AuthenticationExtensionsClientInputs {
     String appid;
-    bool googleLegacyAppidSupport;
     std::optional<WebCore::AuthenticationExtensionsClientInputs::LargeBlobInputs> largeBlob;
 }
 
@@ -3018,6 +3017,9 @@ header: <WebCore/ScrollingStateNode.h>
     HorizontalScrollbarLayer
     VerticalScrollbarLayer
     PainterForScrollbar
+    ContentAreaHoverState
+    MouseActivityState
+    ScrollbarHoverState
     FrameScaleFactor
     EventTrackingRegion
     RootContentsLayer
@@ -3963,6 +3965,14 @@ struct WebCore::ServiceWorkerClientData {
     bool isFocused;
     uint64_t focusOrder;
     Vector<String> ancestorOrigins;
+};
+
+
+header: <WebCore/ServiceWorkerClientPendingMessage.h>
+[CustomHeader] struct WebCore::ServiceWorkerClientPendingMessage {
+    WebCore::MessageWithMessagePorts message;
+    WebCore::ServiceWorkerData sourceData;
+    String sourceOrigin;
 };
 
 struct WebCore::ServiceWorkerClientQueryOptions {

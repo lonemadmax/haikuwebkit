@@ -66,7 +66,7 @@ public:
     FontCustomPlatformData(CTFontDescriptorRef fontDescriptor, FontPlatformData::CreationData&& creationData)
         : fontDescriptor(fontDescriptor)
         , creationData(WTFMove(creationData))
-        , m_renderingResourceIdentifier(RenderingResourceIdentifier::generateThreadSafe())
+        , m_renderingResourceIdentifier(RenderingResourceIdentifier::generate())
     {
     }
 #elif USE(HAIKU)

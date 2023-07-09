@@ -31,6 +31,7 @@
 #include "APIAttachment.h"
 #include "APIContentWorld.h"
 #include "APIContextMenuClient.h"
+#include "APIDiagnosticLoggingClient.h"
 #include "APIDictionary.h"
 #include "APIFindClient.h"
 #include "APIFindMatchesClient.h"
@@ -140,6 +141,7 @@
 #include "WebPageDebuggable.h"
 #include "WebPageGroup.h"
 #include "WebPageGroupData.h"
+#include "WebPageInjectedBundleClient.h"
 #include "WebPageInspectorController.h"
 #include "WebPageMessages.h"
 #include "WebPageNetworkParameters.h"
@@ -578,6 +580,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref
 
 #if ENABLE(REMOTE_INSPECTOR)
     m_inspectorDebuggable->setInspectable(JSRemoteInspectorGetInspectionEnabledByDefault());
+    m_inspectorDebuggable->setPresentingApplicationPID(m_process->processPool().configuration().presentingApplicationPID());
     m_inspectorDebuggable->init();
 #endif
     m_inspectorController->init();
@@ -630,7 +633,7 @@ WebPageProxy::~WebPageProxy()
 #endif
 
 #if PLATFORM(MACCATALYST)
-    EndowmentStateTracker::singleton().removeClient(*this);
+    EndowmentStateTracker::singleton().removeClient(internals());
 #endif
     
     for (auto& callback : m_nextActivityStateChangeCallbacks)
@@ -5494,7 +5497,7 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
         requestPointerUnlock();
 #endif
         pageClient().setMouseEventPolicy(mouseEventPolicy);
-#if ENABLE(UI_PROCESS_PDF_HUD)
+#if ENABLE(PDFKIT_PLUGIN)
         pageClient().removeAllPDFHUDs();
 #endif
     }
@@ -7069,6 +7072,13 @@ void WebPageProxy::didChangeIntrinsicContentSize(const IntSize& intrinsicContent
 #endif
 }
 
+#if ENABLE(WEBXR) && !USE(OPENXR)
+PlatformXRSystem* WebPageProxy::xrSystem() const
+{
+    return internals().xrSystem.get();
+}
+#endif
+
 #if ENABLE(INPUT_TYPE_COLOR)
 
 void WebPageProxy::showColorPicker(const WebCore::Color& initialColor, const IntRect& elementRect, Vector<WebCore::Color>&& suggestions)
@@ -8501,7 +8511,7 @@ void WebPageProxy::resetStateAfterProcessTermination(ProcessTerminationReason re
 
     resetStateAfterProcessExited(reason);
     stopAllURLSchemeTasks(m_process.ptr());
-#if ENABLE(UI_PROCESS_PDF_HUD)
+#if ENABLE(PDFKIT_PLUGIN)
     pageClient().removeAllPDFHUDs();
 #endif
 
@@ -8900,6 +8910,7 @@ static bool shouldBlockIOKit(const WebPreferences& preferences)
         || (!preferences.captureAudioInGPUProcessEnabled() && !preferences.captureAudioInUIProcessEnabled())
         || !preferences.webRTCPlatformCodecsInGPUProcessEnabled()
         || !preferences.useGPUProcessForCanvasRenderingEnabled()
+        || !preferences.useGPUProcessForDOMRenderingEnabled()
         || !preferences.useGPUProcessForWebGLEnabled())
         return false;
     return true;
@@ -9003,7 +9014,7 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.additionalSupportedImageTypes = m_configuration->additionalSupportedImageTypes();
 
 #if !ENABLE(WEBCONTENT_GPU_SANDBOX_EXTENSIONS_BLOCKING)
-    if (shouldBlockIOKit(preferences())) {
+    if (!shouldBlockIOKit(preferences())) {
         parameters.gpuIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(gpuIOKitClasses(), std::nullopt);
         parameters.gpuMachExtensionHandles = SandboxExtension::createHandlesForMachLookup(gpuMachServices(), std::nullopt);
     }
@@ -10445,7 +10456,7 @@ void WebPageProxy::updatePlayingMediaDidChange(MediaProducerMediaStateFlags newS
     // the EndowmentStateTracker to get notifications when the application is no longer
     // user-facing, so that we can appropriately suspend all media playback.
     if (!m_isListeningForUserFacingStateChangeNotification) {
-        EndowmentStateTracker::singleton().addClient(*this);
+        EndowmentStateTracker::singleton().addClient(internals());
         m_isListeningForUserFacingStateChangeNotification = true;
     }
 #endif
@@ -12287,12 +12298,12 @@ void WebPageProxy::updateAllowedLookalikeCharacterStringsIfNeeded()
     if (!cachedAllowedLookalikeStrings().isEmpty())
         return;
 
-    requestAllowedLookalikeCharacterStrings([weakPage = WeakPtr { *this }](auto&& data) {
+    requestAllowedLookalikeCharacterStrings([weakPage = WeakPtr { *this }](auto&& data) mutable {
         if (cachedAllowedLookalikeStrings().isEmpty()) {
             cachedAllowedLookalikeStrings() = WTFMove(data);
             cachedAllowedLookalikeStrings().shrinkToFit();
         }
-        
+
         if (RefPtr page = weakPage.get(); page && page->hasRunningProcess())
             page->send(Messages::WebPage::SetAllowedLookalikeCharacterStrings(cachedAllowedLookalikeStrings()));
     });

@@ -54,6 +54,7 @@ class Region;
 class RenderObject;
 class RenderLayer;
 class ScrollableArea;
+class Scrollbar;
 class ViewportConstraints;
 
 struct KeyboardScroll;
@@ -61,7 +62,7 @@ struct KeyboardScroll;
 using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
 
-class ScrollingCoordinator : public ThreadSafeRefCounted<ScrollingCoordinator> {
+class ScrollingCoordinator : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ScrollingCoordinator> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<ScrollingCoordinator> create(Page*);
@@ -204,6 +205,10 @@ public:
     void receivedWheelEventWithPhases(PlatformWheelEventPhase phase, PlatformWheelEventPhase momentumPhase);
     void deferWheelEventTestCompletionForReason(ScrollingNodeID, WheelEventTestMonitor::DeferReason);
     void removeWheelEventTestCompletionDeferralForReason(ScrollingNodeID, WheelEventTestMonitor::DeferReason);
+
+    WEBCORE_EXPORT virtual void setMouseIsOverContentArea(ScrollableArea&, bool) { }
+    WEBCORE_EXPORT virtual void setMouseMovedInContentArea(ScrollableArea&) { }
+    WEBCORE_EXPORT virtual void setMouseIsOverScrollbar(Scrollbar*, bool) { }
 
 protected:
     explicit ScrollingCoordinator(Page*);

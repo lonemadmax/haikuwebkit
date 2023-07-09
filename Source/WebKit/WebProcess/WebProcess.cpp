@@ -153,6 +153,7 @@
 #include <wtf/RunLoop.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/URLParser.h>
+#include <wtf/WTFProcess.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/TextStream.h>
 
@@ -266,12 +267,7 @@ using namespace WebCore;
 #if !PLATFORM(GTK) && !PLATFORM(WPE)
 NO_RETURN static void callExit(IPC::Connection*)
 {
-#if OS(WINDOWS)
-    // Calling _exit in non-main threads may cause a deadlock in WTF::Thread::ThreadHolder::~ThreadHolder.
-    TerminateProcess(GetCurrentProcess(), EXIT_SUCCESS);
-#else
-    _exit(EXIT_SUCCESS);
-#endif
+    terminateProcess(EXIT_SUCCESS);
 }
 #endif
 
@@ -303,7 +299,6 @@ WebProcess::WebProcess()
     , m_broadcastChannelRegistry(WebBroadcastChannelRegistry::create())
     , m_cookieJar(WebCookieJar::create())
     , m_dnsPrefetchHystereris([this](PAL::HysteresisState state) { if (state == PAL::HysteresisState::Stopped) m_dnsPrefetchedHosts.clear(); })
-    , m_nonVisibleProcessEarlyMemoryCleanupTimer(*this, &WebProcess::nonVisibleProcessEarlyMemoryCleanupTimerFired)
 #if ENABLE(NON_VISIBLE_WEBPROCESS_MEMORY_CLEANUP_TIMER)
     , m_nonVisibleProcessMemoryCleanupTimer(*this, &WebProcess::nonVisibleProcessMemoryCleanupTimerFired)
 #endif
@@ -1160,7 +1155,7 @@ NO_RETURN inline void failedToGetNetworkProcessConnection()
     // Web process is still initializing, so we always want to exit instead of crashing. This can
     // happen when the WebView is created and then destroyed quickly.
     // See https://bugs.webkit.org/show_bug.cgi?id=183348.
-    exit(0);
+    exitProcess(0);
 #else
     CRASH();
 #endif
@@ -1675,7 +1670,7 @@ void WebProcess::sendPrewarmInformation(const URL& url)
 void WebProcess::pageDidEnterWindow(PageIdentifier pageID)
 {
     m_pagesInWindows.add(pageID);
-    m_nonVisibleProcessEarlyMemoryCleanupTimer.stop();
+    m_nonVisibleProcessEarlyMemoryCleanupTimer.reset();
 
 #if ENABLE(NON_VISIBLE_WEBPROCESS_MEMORY_CLEANUP_TIMER)
     m_nonVisibleProcessMemoryCleanupTimer.stop();
@@ -1687,8 +1682,9 @@ void WebProcess::pageWillLeaveWindow(PageIdentifier pageID)
     m_pagesInWindows.remove(pageID);
 
     if (m_pagesInWindows.isEmpty()) {
-        if (!m_nonVisibleProcessEarlyMemoryCleanupTimer.isActive())
-            m_nonVisibleProcessEarlyMemoryCleanupTimer.startOneShot(nonVisibleProcessEarlyMemoryCleanupDelay);
+        if (!m_nonVisibleProcessEarlyMemoryCleanupTimer)
+            m_nonVisibleProcessEarlyMemoryCleanupTimer.emplace(*this, &WebProcess::nonVisibleProcessEarlyMemoryCleanupTimerFired, nonVisibleProcessEarlyMemoryCleanupDelay);
+        m_nonVisibleProcessEarlyMemoryCleanupTimer->restart();
 
 #if ENABLE(NON_VISIBLE_WEBPROCESS_MEMORY_CLEANUP_TIMER)
         if (!m_nonVisibleProcessMemoryCleanupTimer.isActive())
@@ -1703,10 +1699,34 @@ void WebProcess::nonVisibleProcessEarlyMemoryCleanupTimerFired()
     if (!m_pagesInWindows.isEmpty())
         return;
 
+    destroyDecodedDataForAllImages();
+
 #if PLATFORM(COCOA)
     destroyRenderingResources();
     releaseSystemMallocMemory();
 #endif
+}
+
+void WebProcess::destroyDecodedDataForAllImages()
+{
+    // Only do this when UI side compositing is enabled, since for now only
+    // RemoteLayerTreeDrawingArea will correctly synchronously decode images
+    // after their decoded data has been destroyed.
+    for (auto& page : m_pageMap.values()) {
+        if (!page->isUsingUISideCompositing())
+            return;
+    }
+
+    for (auto& page : m_pageMap.values())
+        page->willDestroyDecodedDataForAllImages();
+
+    MemoryCache::singleton().destroyDecodedDataForAllImages();
+}
+
+void WebProcess::deferNonVisibleProcessEarlyMemoryCleanupTimer()
+{
+    if (m_nonVisibleProcessEarlyMemoryCleanupTimer)
+        m_nonVisibleProcessEarlyMemoryCleanupTimer->restart();
 }
 
 #if ENABLE(NON_VISIBLE_WEBPROCESS_MEMORY_CLEANUP_TIMER)

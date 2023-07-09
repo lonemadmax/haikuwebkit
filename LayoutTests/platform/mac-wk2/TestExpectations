@@ -580,6 +580,8 @@ webkit.org/b/151455 [ Release ] http/tests/xmlhttprequest/workers/methods-async.
 
 webkit.org/b/150542 fast/forms/state-restore-per-form.html [ Pass Timeout ]
 
+webkit.org/b/254706 imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Pass Failure ]
+
 webkit.org/b/151709 [ Release ] http/tests/xmlhttprequest/workers/methods.html [ Pass Timeout ]
 
 webkit.org/b/231372 [ BigSur arm64 Debug ] http/tests/xmlhttprequest/access-control-response-with-body.html [ Pass Crash ]
@@ -1618,7 +1620,6 @@ webkit.org/b/239386 [ Debug ] webgl/2.0.0/conformance2/buffers/buffer-copying-co
 webkit.org/b/239386 webgl/2.0.0/conformance/textures/image_bitmap_from_canvas/tex-2d-rgba-rgba-unsigned_short_4_4_4_4.html [ Pass Timeout ]
 webkit.org/b/239386 [ Debug ] webgl/2.0.0/conformance/uniforms/uniform-values-per-program.html [ Pass Timeout ]
 webkit.org/b/239386 webgl/2.0.0/conformance/textures/image_bitmap_from_canvas/tex-2d-rgba-rgba-unsigned_short_5_5_5_1.html [ Pass Timeout ]
-webkit.org/b/239386 webgl/2.0.0/conformance/rendering/multisample-corruption.html [ Pass Timeout ]
 
 # [ Monterey wk2 ] WebGL conformance tests are a flaky time out
 webkit.org/b/239388 webgl/1.0.3/conformance/uniforms/out-of-bounds-uniform-array-access.html [ Pass Timeout ]
@@ -1680,6 +1681,10 @@ webkit.org/b/253343 [ Ventura+ ] http/tests/workers/service/shownotification-all
 [ Ventura+ ] imported/w3c/web-platform-tests/notifications/idlharness.https.any.worker.html [ Pass ]
 [ Ventura+ ] http/tests/workers/service/getnotifications-stop.html [ Pass ]
 [ Ventura+ ] http/tests/workers/service/getnotifications.html [ Pass ]
+[ Ventura+ ] http/wpt/service-workers/push-console-messages-no-showNotification.https.html [ Pass ]
+[ Ventura+ ] http/wpt/service-workers/push-console-messages-showNotification-async.https.html [ Pass ]
+[ Ventura+ ] http/wpt/service-workers/push-console-messages-showNotification-late.https.html [ Pass ]
+[ Ventura+ ] http/wpt/service-workers/push-console-messages-showNotification-sync.https.html [ Pass ]
 
 webkit.org/b/242164 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/navigation-timing.https.html [ Failure ]
 
@@ -1721,8 +1726,6 @@ webkit.org/b/245727 [ Monterey ] imported/w3c/web-platform-tests/notifications/i
 [ Debug ] imported/w3c/web-platform-tests/html/browsers/windows/browsing-context-names/choose-default-001.html [ Skip ]
 
 webkit.org/b/248734 media/video-inaccurate-duration-ended.html [ Crash ]
-
-webkit.org/b/254713 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-cover-svg.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/254778 [ Ventura Debug arm64 ] fast/images/avif-image-decoding.html [ Pass Crash ]
 

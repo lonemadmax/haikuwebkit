@@ -60,12 +60,14 @@ extern "C" {
     M(IPCMessages) \
     M(ITPDebug) \
     M(IconDatabase) \
+    M(Images) \
     M(ImageAnalysis) \
     M(IncrementalPDF) \
     M(IncrementalPDFVerbose) \
     M(IndexedDB) \
     M(Inspector) \
     M(KeyHandling) \
+    M(Keychain) \
     M(Language) \
     M(Layers) \
     M(Layout) \
@@ -93,10 +95,10 @@ extern "C" {
     M(RemoteLayerTree) \
     M(Resize) \
     M(ResourceLoadStatistics) \
-    M(RemoteObjectRegistry) \
     M(Sandbox) \
     M(ScrollAnimations) \
     M(Scrolling) \
+    M(SecureCoding) \
     M(Selection) \
     M(ServiceWorker) \
     M(SessionState) \

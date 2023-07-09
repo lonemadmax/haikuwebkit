@@ -2136,7 +2136,6 @@ void Document::resolveStyle(ResolveStyleType type)
 
         if (type == ResolveStyleType::Rebuild) {
             // This may get set again during style resolve.
-            m_hasNodesWithNonFinalStyle = false;
             m_hasNodesWithMissingStyle = false;
 
             auto newStyle = Style::resolveForDocument(*this);
@@ -2187,10 +2186,6 @@ void Document::resolveStyle(ResolveStyleType type)
 
         if (m_renderView->needsLayout())
             frameView.layoutContext().scheduleLayout();
-
-        // Usually this is handled by post-layout.
-        if (!frameView.needsLayout() && is<LocalFrame>(frameView.frame()))
-            downcast<LocalFrame>(frameView.frame()).selection().scheduleAppearanceUpdateAfterStyleChange();
 
         // As a result of the style recalculation, the currently hovered element might have been
         // detached (for example, by setting display:none in the :hover style), schedule another mouseMove event
@@ -4872,7 +4867,7 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
     }
 
     auto isNewElementFocusable = [&] {
-        if (!newFocusedElement)
+        if (!newFocusedElement || !newFocusedElement->isConnected())
             return false;
         // Resolving isFocusable() may require matching :focus-within as if the focus was already on the new element.
         newFocusedElement->setHasTentativeFocus(true);

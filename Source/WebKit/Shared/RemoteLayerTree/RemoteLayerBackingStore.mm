@@ -45,6 +45,7 @@
 #import <WebCore/IOSurfacePool.h>
 #import <WebCore/ImageBuffer.h>
 #import <WebCore/PlatformCALayerClient.h>
+#import <WebCore/PlatformCALayerDelegatedContents.h>
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <WebCore/WebLayer.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
@@ -328,9 +329,15 @@ bool RemoteLayerBackingStore::supportsPartialRepaint() const
 #endif
 }
 
-void RemoteLayerBackingStore::setContents(WTF::MachSendRight&& contents)
+void RemoteLayerBackingStore::setDelegatedContentsFinishedEvent(const WebCore::PlatformCALayerDelegatedContentsFinishedEvent&)
 {
-    m_contentsBufferHandle = WTFMove(contents);
+    // FIXME: To be implemented.
+}
+
+void RemoteLayerBackingStore::setDelegatedContents(const WebCore::PlatformCALayerDelegatedContents& contents)
+{
+    m_contentsBufferHandle = contents.surface.copySendRight();
+    // FIXME: m_contentsBufferFinishedIdentifier = contents.finishedIdentifier;
     m_dirtyRegion = { };
     m_paintingRects.clear();
 }
@@ -670,7 +677,6 @@ void RemoteLayerBackingStoreProperties::applyBackingStoreToLayer(CALayer *layer,
         if (!replayCGDisplayListsIntoBackingStore) {
             [layer setValue:@1 forKeyPath:WKCGDisplayListEnabledKey];
             [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
-            layer.drawsAsynchronously = (m_type == RemoteLayerBackingStore::Type::IOSurface);
         } else
             layer.opaque = m_isOpaque;
         [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:WTFMove(std::get<CGDisplayList>(*m_displayListBufferHandle)) replayForTesting:replayCGDisplayListsIntoBackingStore];
@@ -687,7 +693,7 @@ void RemoteLayerBackingStoreProperties::updateCachedBuffers(RemoteLayerTreeNode&
 {
     Vector<RemoteLayerTreeNode::CachedContentsBuffer> cachedBuffers = node.takeCachedContentsBuffers();
 
-    if (contentsType != LayerContentsType::CachedIOSurface || !m_frontBufferIdentifier)
+    if (contentsType != LayerContentsType::CachedIOSurface || !m_frontBufferIdentifier || !m_bufferHandle || !std::holds_alternative<MachSendRight>(*m_bufferHandle))
         return;
 
     cachedBuffers.removeAllMatching([&](const RemoteLayerTreeNode::CachedContentsBuffer& current) {

@@ -32,6 +32,7 @@
 #import "DataReference.h"
 #import "FrameInfoData.h"
 #import "Logging.h"
+#import "MessageSenderInlines.h"
 #import "PDFAnnotationTextWidgetDetails.h"
 #import "PDFContextMenu.h"
 #import "PDFLayerControllerSPI.h"
@@ -479,16 +480,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)openWithNativeApplication
 {
-#if !ENABLE(UI_PROCESS_PDF_HUD)
-    _pdfPlugin->openWithNativeApplication();
-#endif
 }
 
 - (void)saveToPDF
 {
-#if !ENABLE(UI_PROCESS_PDF_HUD)
-    _pdfPlugin->saveToPDF();
-#endif
 }
 
 - (void)pdfLayerController:(PDFLayerController *)pdfLayerController clickedLinkWithURL:(NSURL *)url
@@ -651,9 +646,9 @@ PDFPlugin::PDFPlugin(HTMLPlugInElement& element)
 {
     auto& document = element.document();
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
-    [m_pdfLayerController setDisplaysPDFHUDController:NO];
-#endif
+    if ([m_pdfLayerController respondsToSelector:@selector(setDisplaysPDFHUDController:)])
+        [m_pdfLayerController setDisplaysPDFHUDController:NO];
+
     m_pdfLayerController.get().delegate = m_pdfLayerControllerDelegate.get();
     m_pdfLayerController.get().parentLayer = m_contentLayer.get();
 
@@ -699,10 +694,8 @@ PDFPlugin::PDFPlugin(HTMLPlugInElement& element)
 
 PDFPlugin::~PDFPlugin()
 {
-#if ENABLE(UI_PROCESS_PDF_HUD)
     if (auto* page = m_frame ? m_frame->page() : nullptr)
         page->removePDFHUD(*this);
-#endif
 }
 
 #if HAVE(INCREMENTAL_PDF_APIS)
@@ -1855,11 +1848,9 @@ void PDFPlugin::calculateSizes()
     m_firstPageHeight = [m_pdfDocument pageCount] ? static_cast<unsigned>(CGCeiling([[m_pdfDocument pageAtIndex:0] boundsForBox:kPDFDisplayBoxCropBox].size.height)) : 0;
     setPDFDocumentSize(IntSize([m_pdfLayerController contentSizeRespectingZoom]));
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
     if (!m_frame || !m_frame->page())
         return;
     m_frame->page()->updatePDFHUDLocation(*this, frameForHUD());
-#endif
 }
 
 void PDFPlugin::setView(PluginView& view)
@@ -1964,7 +1955,7 @@ RefPtr<ShareableBitmap> PDFPlugin::snapshot()
     IntSize backingStoreSize = size();
     backingStoreSize.scale(contentsScaleFactor);
 
-    auto bitmap = ShareableBitmap::create(backingStoreSize, { });
+    auto bitmap = ShareableBitmap::create({ backingStoreSize });
     if (!bitmap)
         return nullptr;
     auto context = bitmap->createGraphicsContext();
@@ -2048,16 +2039,12 @@ IntRect PDFPlugin::boundsOnScreen() const
 
 void PDFPlugin::visibilityDidChange(bool visible)
 {
-#if ENABLE(UI_PROCESS_PDF_HUD)
     if (!m_frame)
         return;
     if (visible)
         m_frame->page()->createPDFHUD(*this, frameForHUD());
     else
         m_frame->page()->removePDFHUD(*this);
-#else
-    UNUSED_PARAM(visible);
-#endif
 }
 
 void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const AffineTransform& pluginToRootViewTransform)
@@ -2497,8 +2484,6 @@ RefPtr<FragmentedSharedBuffer> PDFPlugin::liveResourceData() const
     return SharedBuffer::create(pdfData);
 }
 
-#if ENABLE(UI_PROCESS_PDF_HUD)
-
 void PDFPlugin::zoomIn()
 {
     [m_pdfLayerController zoomIn:nil];
@@ -2526,46 +2511,6 @@ void PDFPlugin::openWithPreview(CompletionHandler<void(const String&, FrameInfoD
         frameInfo = m_frame->info();
     completionHandler(m_suggestedFilename, WTFMove(frameInfo), IPC:: DataReference { static_cast<const uint8_t*>(data.bytes), data.length }, createVersion4UUIDString());
 }
-
-#else // ENABLE(UI_PROCESS_PDF_HUD)
-    
-void PDFPlugin::saveToPDF()
-{
-    // FIXME: We should probably notify the user that they can't save before the document is finished loading.
-    // PDFViewController does an NSBeep(), but that seems insufficient.
-    if (!m_documentFinishedLoading)
-        return;
-
-    NSData *data = liveData();
-    if (!m_frame || !m_frame->page())
-        return;
-    m_frame->page()->savePDFToFileInDownloadsFolder(m_suggestedFilename, m_frame->url(), static_cast<const unsigned char *>([data bytes]), [data length]);
-}
-
-void PDFPlugin::openWithNativeApplication()
-{
-    if (!m_frame || !m_frame->page())
-        return;
-
-    if (m_temporaryPDFUUID.isNull()) {
-        // FIXME: We should probably notify the user that they can't save before the document is finished loading.
-        // PDFViewController does an NSBeep(), but that seems insufficient.
-        if (!m_documentFinishedLoading)
-            return;
-
-        NSData *data = liveData();
-
-        m_temporaryPDFUUID = createVersion4UUIDString();
-        ASSERT(m_temporaryPDFUUID);
-
-        m_frame->page()->savePDFToTemporaryFolderAndOpenWithNativeApplication(m_suggestedFilename, m_frame->info(), static_cast<const unsigned char *>([data bytes]), [data length], m_temporaryPDFUUID);
-        return;
-    }
-
-    m_frame->page()->send(Messages::WebPageProxy::OpenPDFFromTemporaryFolderWithNativeApplication(m_frame->info(), m_temporaryPDFUUID));
-}
-
-#endif // ENABLE(UI_PROCESS_PDF_HUD)
 
 void PDFPlugin::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items, NSArray *types)
 {
@@ -2599,7 +2544,7 @@ void PDFPlugin::showDefinitionForAttributedString(NSAttributedString *string, CG
 {
     DictionaryPopupInfo dictionaryPopupInfo;
     dictionaryPopupInfo.origin = convertFromPDFViewToRootView(IntPoint(point));
-    dictionaryPopupInfo.platformData.attributedString = string;
+    dictionaryPopupInfo.platformData.attributedString = WebCore::AttributedString::fromNSAttributedString(string);
     
     
     NSRect rangeRect;

@@ -48,7 +48,7 @@ private:
 
     bool isMenuListPopup() const final { return true; }
 
-    LayoutRect elementRect() const override { return LayoutRect(); }
+    LayoutRect elementRect() const final { return LayoutRect(); }
     AccessibilityRole roleValue() const override { return AccessibilityRole::MenuListPopup; }
 
     bool isVisible() const override;
@@ -56,7 +56,6 @@ private:
     void addChildren() override;
     void handleChildrenChanged();
     bool computeAccessibilityIsIgnored() const override;
-    bool canHaveSelectedChildren() const override;
     void selectedChildren(AccessibilityChildrenVector&) override;
 
     AccessibilityMenuListOption* menuListOptionAccessibilityObject(HTMLElement*) const;

@@ -2743,7 +2743,6 @@ void EventHandler::notifyScrollableAreasOfMouseEvents(const AtomString& eventTyp
         if (elementUnderMouse) {
             if (scrollableAreaForNodeUnderMouse != frameView)
                 frameView->mouseEnteredContentArea();
-
             if (scrollableAreaForNodeUnderMouse)
                 scrollableAreaForNodeUnderMouse->mouseEnteredContentArea();
         } else {

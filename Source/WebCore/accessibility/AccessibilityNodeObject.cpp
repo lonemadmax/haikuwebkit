@@ -188,11 +188,21 @@ AccessibilityObject* AccessibilityNodeObject::parentObjectIfExists() const
     return parentObject();
 }
     
+AccessibilityObject* AccessibilityNodeObject::ownerParentObject() const
+{
+    auto owners = this->owners();
+    ASSERT(owners.size() <= 1);
+    return owners.size() ? dynamicDowncast<AccessibilityObject>(owners.first().get()) : nullptr;
+}
+
 AccessibilityObject* AccessibilityNodeObject::parentObject() const
 {
     if (!node())
         return nullptr;
 
+    if (auto* ownerParent = ownerParentObject())
+        return ownerParent;
+    
     Node* parentObj = node()->parentNode();
     if (!parentObj)
         return nullptr;
@@ -465,6 +475,16 @@ void AccessibilityNodeObject::clearChildren()
     m_childrenDirty = false;
 }
 
+void AccessibilityNodeObject::updateOwnedChildren()
+{
+    for (RefPtr child : ownedObjects()) {
+        // If the child already exists as a DOM child, but is also in the owned objects, then
+        // we need to re-order this child in the aria-owns order.
+        m_children.removeFirst(child);
+        addChild(child.get());
+    }
+}
+
 void AccessibilityNodeObject::addChildren()
 {
     // If the need to add more children in addition to existing children arises, 
@@ -477,16 +497,17 @@ void AccessibilityNodeObject::addChildren()
     m_childrenInitialized = true;
 
     // The only time we add children from the DOM tree to a node with a renderer is when it's a canvas.
-    if (renderer() && !m_node->hasTagName(canvasTag))
+    if (renderer() && !node()->hasTagName(canvasTag))
         return;
 
     auto objectCache = axObjectCache();
     if (!objectCache)
         return;
 
-    for (Node* child = m_node->firstChild(); child; child = child->nextSibling())
+    for (auto* child = node()->firstChild(); child; child = child->nextSibling())
         addChild(objectCache->getOrCreate(child));
     
+    updateOwnedChildren();
     m_subtreeDirty = false;
 }
 
@@ -534,9 +555,9 @@ bool AccessibilityNodeObject::computeAccessibilityIsIgnored() const
 #endif
 
     // Handle non-rendered text that is exposed through aria-hidden=false.
-    if (m_node && m_node->isTextNode() && !renderer()) {
+    if (node() && node()->isTextNode() && !renderer()) {
         // Fallback content in iframe nodes should be ignored.
-        if (m_node->parentNode() && m_node->parentNode()->hasTagName(iframeTag) && m_node->parentNode()->renderer())
+        if (node()->parentNode() && node()->parentNode()->hasTagName(iframeTag) && node()->parentNode()->renderer())
             return true;
 
         // Whitespace only text elements should be ignored when they have no renderer.
@@ -659,53 +680,6 @@ bool AccessibilityNodeObject::isInputImage() const
 bool AccessibilityNodeObject::isProgressIndicator() const
 {
     return roleValue() == AccessibilityRole::ProgressIndicator || roleValue() == AccessibilityRole::Meter;
-}
-
-bool AccessibilityNodeObject::isSlider() const
-{
-    return roleValue() == AccessibilityRole::Slider;
-}
-
-bool AccessibilityNodeObject::isMenuRelated() const
-{
-    switch (roleValue()) {
-    case AccessibilityRole::Menu:
-    case AccessibilityRole::MenuBar:
-    case AccessibilityRole::MenuButton:
-    case AccessibilityRole::MenuItem:
-    case AccessibilityRole::MenuItemCheckbox:
-    case AccessibilityRole::MenuItemRadio:
-        return true;
-    default:
-        return false;
-    }
-}
-
-bool AccessibilityNodeObject::isMenu() const
-{
-    return roleValue() == AccessibilityRole::Menu;
-}
-
-bool AccessibilityNodeObject::isMenuBar() const
-{
-    return roleValue() == AccessibilityRole::MenuBar;
-}
-
-bool AccessibilityNodeObject::isMenuButton() const
-{
-    return roleValue() == AccessibilityRole::MenuButton;
-}
-
-bool AccessibilityNodeObject::isMenuItem() const
-{
-    switch (roleValue()) {
-    case AccessibilityRole::MenuItem:
-    case AccessibilityRole::MenuItemRadio:
-    case AccessibilityRole::MenuItemCheckbox:
-        return true;
-    default:
-        return false;
-    }
 }
 
 bool AccessibilityNodeObject::isEnabled() const
@@ -989,11 +963,6 @@ AccessibilityOrientation AccessibilityNodeObject::orientation() const
     return AccessibilityObject::orientation();
 }
 
-bool AccessibilityNodeObject::isHeading() const
-{
-    return roleValue() == AccessibilityRole::Heading;
-}
-
 bool AccessibilityNodeObject::isLink() const
 {
     return roleValue() == AccessibilityRole::WebCoreLink;
@@ -1020,39 +989,6 @@ bool AccessibilityNodeObject::isFieldset() const
         return false;
 
     return node->hasTagName(fieldsetTag);
-}
-
-bool AccessibilityNodeObject::isGroup() const
-{
-    AccessibilityRole role = roleValue();
-    return role == AccessibilityRole::Group || role == AccessibilityRole::TextGroup || role == AccessibilityRole::ApplicationGroup || role == AccessibilityRole::ApplicationTextGroup;
-}
-
-AXCoreObject* AccessibilityNodeObject::selectedRadioButton()
-{
-    if (!isRadioGroup())
-        return nullptr;
-
-    // Find the child radio button that is selected (ie. the intValue == 1).
-    for (const auto& child : children()) {
-        if (child->roleValue() == AccessibilityRole::RadioButton && child->checkboxOrRadioValue() == AccessibilityButtonState::On)
-            return child.get();
-    }
-    return nullptr;
-}
-
-AXCoreObject* AccessibilityNodeObject::selectedTabItem()
-{
-    if (!isTabList())
-        return nullptr;
-
-    // FIXME: Is this valid? ARIA tab items support aria-selected; not aria-checked.
-    // Find the child tab item that is selected (ie. the intValue == 1).
-    for (const auto& child : children()) {
-        if (child->isTabItem() && (child->isChecked() || child->isSelected()))
-            return child.get();
-    }
-    return nullptr;
 }
 
 AccessibilityButtonState AccessibilityNodeObject::checkboxOrRadioValue() const
@@ -1417,8 +1353,8 @@ AccessibilityObject* AccessibilityNodeObject::correspondingLabelForControlElemen
     if (hasTextAlternative())
         return nullptr;
 
-    if (is<HTMLElement>(m_node)) {
-        if (HTMLLabelElement* label = labelForElement(downcast<HTMLElement>(m_node)))
+    if (auto* element = dynamicDowncast<HTMLElement>(node())) {
+        if (auto* label = labelForElement(element))
             return axObjectCache()->getOrCreate(label);
     }
     return nullptr;
@@ -1573,7 +1509,7 @@ HTMLLabelElement* AccessibilityNodeObject::labelElementContainer() const
         return nullptr;
 
     // Find an ancestor label element.
-    for (auto* parentNode = m_node; parentNode; parentNode = parentNode->parentNode()) {
+    for (auto* parentNode = node(); parentNode; parentNode = parentNode->parentNode()) {
         if (is<HTMLLabelElement>(*parentNode))
             return downcast<HTMLLabelElement>(parentNode);
     }
@@ -1620,7 +1556,7 @@ bool AccessibilityNodeObject::exposesTitleUIElement() const
     // When <label> element has aria-label or aria-labelledby on it, we shouldn't expose it as the
     // titleUIElement, otherwise its inner text will be announced by a screenreader.
     if (isLabelable()) {
-        if (HTMLLabelElement* label = labelForElement(downcast<Element>(m_node))) {
+        if (auto* label = labelForElement(dynamicDowncast<Element>(node()))) {
             if (!label->attributeWithoutSynchronization(aria_labelAttr).isEmpty())
                 return false;
             if (AccessibilityObject* labelObject = axObjectCache()->getOrCreate(label)) {
@@ -1891,7 +1827,7 @@ String AccessibilityNodeObject::description() const
     }
 
 #if ENABLE(MATHML)
-    if (is<MathMLElement>(m_node))
+    if (is<MathMLElement>(node()))
         return getAttribute(MathMLNames::alttextAttr);
 #endif
 
@@ -2100,7 +2036,7 @@ String AccessibilityNodeObject::textUnderElement(AccessibilityTextUnderElementMo
     }
 
     StringBuilder builder;
-    for (AccessibilityObject* child = firstChild(); child; child = child->nextSibling()) {
+    for (RefPtr child = firstChild(); child; child = child->nextSibling()) {
         if (mode.ignoredChildNode && child->node() == mode.ignoredChildNode)
             continue;
         
@@ -2110,7 +2046,7 @@ String AccessibilityNodeObject::textUnderElement(AccessibilityTextUnderElementMo
             continue;
         }
         
-        if (!shouldUseAccessibilityObjectInnerText(child, mode))
+        if (!shouldUseAccessibilityObjectInnerText(child.get(), mode))
             continue;
 
         if (is<AccessibilityNodeObject>(*child)) {
@@ -2426,12 +2362,12 @@ bool AccessibilityNodeObject::isFocused() const
     if (!m_node)
         return false;
 
-    auto& document = m_node->document();
+    auto& document = node()->document();
     auto* focusedElement = document.focusedElement();
     if (!focusedElement)
         return false;
 
-    if (focusedElement == m_node)
+    if (focusedElement == node())
         return true;
 
     // A web area is represented by the Document node in the DOM tree which isn't focusable.
@@ -2452,7 +2388,7 @@ void AccessibilityNodeObject::setFocused(bool on)
         return;
 
     auto* document = this->document();
-    if (!on || !is<Element>(m_node)) {
+    if (!on || !is<Element>(node())) {
         document->setFocusedElement(nullptr);
         return;
     }
@@ -2465,7 +2401,7 @@ void AccessibilityNodeObject::setFocused(bool on)
     // If this node is already the currently focused node, then calling focus() won't do anything.
     // That is a problem when focus is removed from the webpage to chrome, and then returns.
     // In these cases, we need to do what keyboard and mouse focus do, which is reset focus first.
-    if (document->focusedElement() == m_node)
+    if (document->focusedElement() == node())
         document->setFocusedElement(nullptr);
 
     // If we return from setFocusedElement and our element has been removed from a tree, axObjectCache() may be null.

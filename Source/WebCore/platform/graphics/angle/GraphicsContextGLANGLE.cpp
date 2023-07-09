@@ -76,6 +76,10 @@ static void wipeAlphaChannelFromPixels(int width, int height, unsigned char* pix
 }
 #endif
 
+GraphicsContextGLANGLE::GraphicsContextGLANGLE(GraphicsContextGLAttributes attributes)
+    : GraphicsContextGL(attributes)
+{
+}
 
 bool GraphicsContextGLANGLE::initialize()
 {
@@ -564,8 +568,6 @@ void GraphicsContextGLANGLE::validateDepthStencil(ASCIILiteral packedDepthStenci
 
 void GraphicsContextGLANGLE::prepareTexture()
 {
-    ASSERT(!m_layerComposited);
-
     if (contextAttributes().antialias)
         resolveMultisamplingIfNecessary();
 
@@ -1006,23 +1008,6 @@ void GraphicsContextGLANGLE::compileShader(PlatformGLObject shader)
 #endif
 }
 
-void GraphicsContextGLANGLE::compileShaderDirect(PlatformGLObject shader)
-{
-    ASSERT(shader);
-    if (!makeContextCurrent())
-        return;
-
-    GL_CompileShader(shader);
-}
-
-void GraphicsContextGLANGLE::texImage2DDirect(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type, const void* pixels)
-{
-    if (!makeContextCurrent())
-        return;
-    GL_TexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
-    invalidateKnownTextureContent(m_state.currentBoundTexture());
-}
-
 void GraphicsContextGLANGLE::copyTexImage2D(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLint border)
 {
     if (!makeContextCurrent())
@@ -1272,11 +1257,6 @@ int GraphicsContextGLANGLE::getAttribLocation(PlatformGLObject program, const St
         return -1;
 
     return GL_GetAttribLocation(program, name.utf8().data());
-}
-
-int GraphicsContextGLANGLE::getAttribLocationDirect(PlatformGLObject program, const String& name)
-{
-    return getAttribLocation(program, name);
 }
 
 bool GraphicsContextGLANGLE::updateErrors()
@@ -3184,6 +3164,20 @@ bool GraphicsContextGLANGLE::isGLES2Compliant() const
 
 void GraphicsContextGLANGLE::paintRenderingResultsToCanvas(ImageBuffer& imageBuffer)
 {
+    withDrawingBufferAsNativeImage([&](NativeImage& image) {
+        paintToCanvas(image, imageBuffer.backendSize(), imageBuffer.context());
+    });
+}
+
+void GraphicsContextGLANGLE::paintCompositedResultsToCanvas(ImageBuffer& imageBuffer)
+{
+    withDisplayBufferAsNativeImage([&](NativeImage& image) {
+        paintToCanvas(image, imageBuffer.backendSize(), imageBuffer.context());
+    });
+}
+
+void GraphicsContextGLANGLE::withDrawingBufferAsNativeImage(std::function<void(NativeImage&)> func)
+{
     if (!makeContextCurrent())
         return;
     if (getInternalFramebufferSize().isEmpty())
@@ -3191,10 +3185,15 @@ void GraphicsContextGLANGLE::paintRenderingResultsToCanvas(ImageBuffer& imageBuf
     auto pixelBuffer = readRenderingResults();
     if (!pixelBuffer)
         return;
-    paintToCanvas(contextAttributes(), pixelBuffer.releaseNonNull(), imageBuffer.backendSize(), imageBuffer.context());
+
+    auto drawingImage = createNativeImageFromPixelBuffer(contextAttributes(), pixelBuffer.releaseNonNull());
+    if (!drawingImage)
+        return;
+
+    func(*drawingImage);
 }
 
-void GraphicsContextGLANGLE::paintCompositedResultsToCanvas(ImageBuffer& imageBuffer)
+void GraphicsContextGLANGLE::withDisplayBufferAsNativeImage(std::function<void(NativeImage&)> func)
 {
     if (!makeContextCurrent())
         return;
@@ -3203,7 +3202,12 @@ void GraphicsContextGLANGLE::paintCompositedResultsToCanvas(ImageBuffer& imageBu
     auto pixelBuffer = readCompositedResults();
     if (!pixelBuffer)
         return;
-    paintToCanvas(contextAttributes(), pixelBuffer.releaseNonNull(), imageBuffer.backendSize(), imageBuffer.context());
+
+    auto displayImage = createNativeImageFromPixelBuffer(contextAttributes(), pixelBuffer.releaseNonNull());
+    if (!displayImage)
+        return;
+
+    func(*displayImage);
 }
 
 RefPtr<PixelBuffer> GraphicsContextGLANGLE::paintRenderingResultsToPixelBuffer()

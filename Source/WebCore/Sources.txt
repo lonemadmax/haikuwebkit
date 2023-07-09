@@ -54,6 +54,9 @@ Modules/WebGPU/GPUTexture.cpp
 Modules/WebGPU/GPUTextureView.cpp
 Modules/WebGPU/GPUUncapturedErrorEvent.cpp
 Modules/WebGPU/GPUValidationError.cpp
+Modules/ShapeDetection/BarcodeDetector.cpp
+Modules/ShapeDetection/FaceDetector.cpp
+Modules/ShapeDetection/TextDetector.cpp
 Modules/airplay/WebKitPlaybackTargetAvailabilityEvent.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/async-clipboard/Clipboard.cpp
@@ -310,6 +313,7 @@ Modules/speech/SpeechSynthesisUtterance.cpp
 Modules/speech/SpeechSynthesisVoice.cpp
 Modules/storage/StorageManager.cpp
 Modules/storage/WorkerStorageConnection.cpp
+Modules/streams/ReadableStream.cpp
 Modules/streams/ReadableStreamSink.cpp
 Modules/streams/ReadableStreamSource.cpp
 Modules/streams/WritableStream.cpp
@@ -523,6 +527,7 @@ bindings/js/DOMGCOutputConstraint.cpp
 bindings/js/DOMWrapperWorld.cpp
 bindings/js/GCController.cpp
 bindings/js/IDBBindingUtilities.cpp
+bindings/js/InternalReadableStream.cpp
 bindings/js/InternalWritableStream.cpp
 bindings/js/JSAbortSignalCustom.cpp
 bindings/js/JSAbstractRangeCustom.cpp
@@ -663,7 +668,6 @@ bindings/js/JSWorkletGlobalScopeBase.cpp
 bindings/js/JSXMLDocumentCustom.cpp
 bindings/js/JSXMLHttpRequestCustom.cpp
 bindings/js/JSXPathResultCustom.cpp
-bindings/js/ReadableStream.cpp
 bindings/js/ReadableStreamDefaultController.cpp
 bindings/js/ScheduledAction.cpp
 bindings/js/ScriptCachedFrameData.cpp
@@ -2970,9 +2974,8 @@ workers/service/context/ServiceWorkerFetch.cpp
 workers/service/context/ServiceWorkerInspectorProxy.cpp
 workers/service/context/ServiceWorkerThread.cpp
 workers/service/context/ServiceWorkerThreadProxy.cpp
-workers/service/server/RegistrationDatabase.cpp
-workers/service/server/RegistrationStore.cpp
 workers/service/server/SWOriginStore.cpp
+workers/service/server/SWRegistrationDatabase.cpp
 workers/service/server/SWScriptStorage.cpp
 workers/service/server/SWServer.cpp
 workers/service/server/SWServerJobQueue.cpp
@@ -3127,6 +3130,9 @@ JSBackgroundFetchRegistration.cpp
 JSBackgroundFetchResult.cpp
 JSBackgroundFetchUIOptions.cpp
 JSBackgroundFetchUpdateUIEvent.cpp
+JSBarcodeDetector.cpp
+JSBarcodeDetectorOptions.cpp
+JSBarcodeFormat.cpp
 JSImageResource.cpp
 JSBitrateMode.cpp
 JSBlob.cpp
@@ -3296,6 +3302,9 @@ JSDeprecatedCSSOMRect.cpp
 JSDeprecatedCSSOMValue.cpp
 JSDeprecatedCSSOMValueList.cpp
 JSDeprecationReportBody.cpp
+JSDetectedBarcode.cpp
+JSDetectedFace.cpp
+JSDetectedText.cpp
 JSDeviceMotionEvent.cpp
 JSDeviceOrientationEvent.cpp
 JSDeviceOrientationOrMotionPermissionState.cpp
@@ -3345,6 +3354,8 @@ JSEventTarget.cpp
 JSExtendableEvent.cpp
 JSExtendableEventInit.cpp
 JSExtendableMessageEvent.cpp
+JSFaceDetector.cpp
+JSFaceDetectorOptions.cpp
 JSFetchBody.cpp
 JSFetchEvent.cpp
 JSFetchHeaders.cpp
@@ -3665,6 +3676,8 @@ JSKeyboardEvent.cpp
 JSKeyframeAnimationOptions.cpp
 JSKeyframeEffect.cpp
 JSKeyframeEffectOptions.cpp
+JSLandmark.cpp
+JSLandmarkType.cpp
 JSLatencyMode.cpp
 JSLocalDOMWindow.cpp
 JSLocation.cpp
@@ -3837,6 +3850,7 @@ JSPictureInPictureEvent.cpp
 JSPictureInPictureWindow.cpp
 JSPlaneLayout.cpp
 JSPlaybackDirection.cpp
+JSPoint2D.cpp
 JSPointerEvent.cpp
 JSPopStateEvent.cpp
 JSPositionCallback.cpp
@@ -4155,6 +4169,7 @@ JSText.cpp
 JSTextDecoder.cpp
 JSTextDecoderStream.cpp
 JSTextDecoderStreamDecoder.cpp
+JSTextDetector.cpp
 JSTextEncoder.cpp
 JSTextEncoderStream.cpp
 JSTextEncoderStreamEncoder.cpp

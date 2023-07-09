@@ -110,7 +110,7 @@ void WebSWClientConnection::removeServiceWorkerRegistrationInServer(ServiceWorke
 
 void WebSWClientConnection::scheduleUnregisterJobInServer(ServiceWorkerRegistrationIdentifier registrationIdentifier, WebCore::ServiceWorkerOrClientIdentifier documentIdentifier, CompletionHandler<void(ExceptionOr<bool>&&)>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::WebSWServerConnection::ScheduleUnregisterJobInServer { ServiceWorkerJobIdentifier::generateThreadSafe(), registrationIdentifier, documentIdentifier }, [completionHandler = WTFMove(completionHandler)](auto&& result) mutable {
+    sendWithAsyncReply(Messages::WebSWServerConnection::ScheduleUnregisterJobInServer { ServiceWorkerJobIdentifier::generate(), registrationIdentifier, documentIdentifier }, [completionHandler = WTFMove(completionHandler)](auto&& result) mutable {
         if (!result.has_value())
             return completionHandler(result.error().toException());
         completionHandler(result.value());
@@ -392,6 +392,11 @@ void WebSWClientConnection::notifyRecordResponseBodyEnd(RetrieveRecordResponseBo
 {
     if (auto callback = m_retrieveRecordResponseBodyCallbacks.take(identifier))
         callback(makeUnexpected(WTFMove(error)));
+}
+
+void WebSWClientConnection::getServiceWorkerClientPendingMessages(ScriptExecutionContextIdentifier clientIdentifier, CompletionHandler<void(Vector<ServiceWorkerClientPendingMessage>&&)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebSWServerConnection::GetServiceWorkerClientPendingMessages { clientIdentifier }, WTFMove(completionHandler));
 }
 
 void WebSWClientConnection::focusServiceWorkerClient(ScriptExecutionContextIdentifier clientIdentifier, CompletionHandler<void(std::optional<ServiceWorkerClientData>&&)>&& callback)

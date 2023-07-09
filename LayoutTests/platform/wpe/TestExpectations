@@ -232,9 +232,6 @@ webkit.org/b/215508 [ Release ] scrollingcoordinator/fixed-node-reattach.html [ 
 #Simple Line Layout
 webkit.org/b/219976 fast/text/simple-line-wordspacing.html [ ImageOnlyFailure ]
 
-# Subpixel
-webkit.org/b/216037 imported/w3c/web-platform-tests/css/css-backgrounds/background-position/subpixel-position-center.tentative.html [ Pass ImageOnlyFailure ]
-
 # SVG
 webkit.org/b/220614 imported/w3c/web-platform-tests/svg/linking/reftests/url-reference-local-textpath.svg [ Failure Pass ]
 webkit.org/b/222895 imported/w3c/web-platform-tests/svg/text/reftests/dominant-baseline-hanging-small-font-size.svg [ Failure Pass ]
@@ -720,7 +717,6 @@ webkit.org/b/208992 imported/w3c/web-platform-tests/html/semantics/forms/constra
 fast/events/drag-smooth-scroll-element.html [ Failure ]
 
 webkit.org/b/209275 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-local/attachment-local-positioning-5.html [ ImageOnlyFailure Pass ]
-webkit.org/b/209275 imported/w3c/web-platform-tests/css/css-backgrounds/background-image-cover-zoomed-1.html [ ImageOnlyFailure Pass ]
 webkit.org/b/209275 imported/w3c/web-platform-tests/css/css-writing-modes/background-position-vrl-018.xht [ ImageOnlyFailure Pass ]
 webkit.org/b/209275 imported/w3c/web-platform-tests/css/css-writing-modes/background-position-vrl-020.xht [ ImageOnlyFailure Pass ]
 webkit.org/b/209275 imported/w3c/web-platform-tests/css/css-writing-modes/central-baseline-alignment-002.xht [ ImageOnlyFailure ]
@@ -1061,17 +1057,9 @@ webkit.org/b/252878 imported/blink/paint/deprecatedpaintlayer/non-self-painting-
 webkit.org/b/252878 imported/w3c/web-platform-tests/content-security-policy/script-src/scripthash-changed-1.html [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/content-security-policy/script-src/scripthash-changed-2.html [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/content-security-policy/script-src/scriptnonce-changed-2.html [ Failure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-round-1a.html [ ImageOnlyFailure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-round-1b.html [ ImageOnlyFailure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-round-1c.html [ ImageOnlyFailure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-round-1d.html [ ImageOnlyFailure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-round-1e.html [ ImageOnlyFailure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-round-2.html [ ImageOnlyFailure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-round-3.html [ ImageOnlyFailure Pass ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-margin-root-001.html [ ImageOnlyFailure ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-root.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-space-001.html [ ImageOnlyFailure ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-width-008.html [ ImageOnlyFailure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/css3-border-image-repeat-stretch.html [ ImageOnlyFailure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-024.html [ ImageOnlyFailure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-layout-stale-001.html [ ImageOnlyFailure Pass ]
@@ -1178,8 +1166,8 @@ webkit.org/b/246337 webgl/1.0.x/conformance/glsl/misc/struct-mixed-array-declara
 webkit.org/b/246337 webgl/1.0.x/conformance/glsl/samplers/glsl-function-texture2dprojlod.html [ Pass Timeout ]
 webkit.org/b/246337 webgl/1.0.x/conformance/glsl/variables/gl-fragcoord.html [ Pass Timeout ]
 webkit.org/b/246337 webgl/1.0.x/conformance/glsl/variables/gl-pointcoord.html [ Pass Timeout ]
-webkit.org/b/246337 webgl/1.0.3/conformance/rendering/gl-viewport-test.html [ Pass Timeout ]
-webkit.org/b/246337 webgl/1.0.3/conformance/rendering/multisample-corruption.html [ Pass Timeout ]
+webkit.org/b/246337 webgl/1.0.x/conformance/rendering/gl-viewport-test.html [ Pass Timeout ]
+webkit.org/b/246337 webgl/1.0.x/conformance/rendering/multisample-corruption.html [ Pass Timeout ]
 webkit.org/b/246337 webgl/1.0.3/conformance/uniforms/out-of-bounds-uniform-array-access.html [ Pass Timeout ]
 webkit.org/b/246337 webgl/1.0.3/conformance/uniforms/uniform-default-values.html [ Pass Timeout ]
 webkit.org/b/246337 webgl/1.0.x/conformance/extensions/webgl-draw-buffers.html [ Pass Timeout ]
@@ -1189,7 +1177,7 @@ webkit.org/b/246337 webgl/1.0.3/conformance/textures/copy-tex-image-and-sub-imag
 webkit.org/b/246337 webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-array-buffer-view.html [ Timeout Pass ]
 webkit.org/b/246337 webgl/1.0.3/conformance/uniforms/uniform-values-per-program.html [ Timeout Pass ]
 webkit.org/b/246337 webgl/pending/conformance/glsl/misc/swizzle-as-lvalue.html [ Timeout Pass ]
-webkit.org/b/246337 webgl/1.0.3/conformance/rendering/gl-scissor-test.html [ Pass Failure Timeout ]
+webkit.org/b/246337 webgl/1.0.x/conformance/rendering/gl-scissor-test.html [ Pass Failure Timeout ]
 webkit.org/b/246337 webgl/1.0.x/conformance/glsl/functions/glsl-function-clamp-gentype.html [ Pass Timeout ]
 webkit.org/b/246337 webgl/1.0.3/conformance/textures/gl-teximage.html [ Pass Timeout ]
 
@@ -1233,6 +1221,7 @@ webkit.org/b/180352 imported/w3c/web-platform-tests/html/semantics/embedded-cont
 webkit.org/b/180645 imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/selection-not-application.html [ Failure ]
 webkit.org/b/180645 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/color.html [ Failure ]
 webkit.org/b/180645 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/valueMode.html [ Failure ]
+webkit.org/b/180645 accessibility/color-input-value-changes.html [ Timeout ]
 webkit.org/b/180648 imported/w3c/web-platform-tests/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Failure ]
 webkit.org/b/180648 http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Failure ]
 
@@ -1490,9 +1479,9 @@ webkit.org/b/251107 webgl/2.0.0/conformance/context/context-release-with-workers
 webkit.org/b/251107 webgl/2.0.y/conformance/glsl/constructors/glsl-construct-bvec3.html [ Timeout Pass ]
 webkit.org/b/251107 webgl/2.0.y/conformance/glsl/constructors/glsl-construct-ivec4.html [ Pass Timeout ]
 webkit.org/b/251107 webgl/2.0.y/conformance/limits/gl-min-textures.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/rendering/default-texture-draw-bug.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/rendering/gl-scissor-test.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance/rendering/multisample-corruption.html [ Pass Failure Timeout ]
+webkit.org/b/251107 webgl/2.0.y/conformance/rendering/default-texture-draw-bug.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/rendering/gl-scissor-test.html [ Pass Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance/rendering/multisample-corruption.html [ Pass Failure Timeout ]
 webkit.org/b/251107 webgl/2.0.0/conformance/textures/image_bitmap_from_video/tex-2d-rgb-rgb-unsigned_byte.html [ Pass Failure ]
 webkit.org/b/251107 webgl/2.0.0/conformance/textures/video/tex-2d-rgb-rgb-unsigned_byte.html [ Pass Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/transform_feedback/transform_feedback.html [ Failure Timeout ]

@@ -29,23 +29,49 @@
 #import <wtf/URL.h>
 #import <wtf/Vector.h>
 
+#if PLATFORM(MAC)
+#define PlatformColor               NSColor
+#define PlatformColorClass          NSColor.class
+#define PlatformFont                NSFont
+#define PlatformFontClass           NSFont.class
+#define PlatformImageClass          NSImage
+#define PlatformNSColorClass        NSColor
+#define PlatformNSParagraphStyle    NSParagraphStyle.class
+#define PlatformNSShadow            NSShadow.class
+#define PlatformNSTextAttachment    NSTextAttachment.class
+#define PlatformNSTextList          NSTextList
+#define PlatformNSTextTab           NSTextTab
+#define PlatformNSTextTable         NSTextTable
+#define PlatformNSTextTableBlock    NSTextTableBlock
+#else
+#define PlatformColor               UIColor
+#define PlatformColorClass          PAL::getUIColorClass()
+#define PlatformFont                UIFont
+#define PlatformFontClass           PAL::getUIFontClass()
+#define PlatformImageClass          PAL::getUIImageClass()
+#define PlatformNSColorClass        getNSColorClass()
+#define PlatformNSParagraphStyle    PAL::getNSParagraphStyleClass()
+#define PlatformNSShadow            PAL::getNSShadowClass()
+#define PlatformNSTextAttachment    getNSTextAttachmentClass()
+#define PlatformNSTextList          getNSTextListClass()
+#define PlatformNSTextTab           getNSTextTabClass()
+#define PlatformNSTextTable         getNSTextTableClass()
+#define PlatformNSTextTableBlock    getNSTextTableBlockClass()
+#endif
+
 OBJC_CLASS NSAttributedString;
 OBJC_CLASS NSDate;
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSParagraphStyle;
 OBJC_CLASS NSShadow;
 OBJC_CLASS NSTextAttachment;
-#if PLATFORM(MAC)
-OBJC_CLASS NSColor;
-OBJC_CLASS NSFont;
-#else
-OBJC_CLASS UIColor;
-OBJC_CLASS UIFont;
-#endif
+OBJC_CLASS PlatformColor;
 
 namespace WebCore {
 
-struct AttributedString {
+class Font;
+
+struct WEBCORE_EXPORT AttributedString {
     struct Range {
         size_t location { 0 };
         size_t length { 0 };
@@ -55,17 +81,14 @@ struct AttributedString {
             double,
             String,
             URL,
+            Ref<Font>,
             Vector<String>,
             Vector<double>,
             RetainPtr<NSParagraphStyle>,
             RetainPtr<NSTextAttachment>,
             RetainPtr<NSShadow>,
             RetainPtr<NSDate>,
-#if PLATFORM(MAC)
-            RetainPtr<NSFont>, RetainPtr<NSColor>
-#else
-            RetainPtr<UIFont>, RetainPtr<UIColor>
-#endif
+            RetainPtr<PlatformColor>
         > value;
     };
 
@@ -73,11 +96,19 @@ struct AttributedString {
     Vector<std::pair<Range, HashMap<String, AttributeValue>>> attributes;
     std::optional<HashMap<String, AttributeValue>> documentAttributes;
 
-    WEBCORE_EXPORT static AttributedString fromNSAttributedStringAndDocumentAttributes(RetainPtr<NSAttributedString>&&, RetainPtr<NSDictionary>&& documentAttributes);
-    WEBCORE_EXPORT static AttributedString fromNSAttributedString(RetainPtr<NSAttributedString>&&);
-    WEBCORE_EXPORT static bool rangesAreSafe(const String&, const Vector<std::pair<Range, HashMap<String, AttributeValue>>>&);
-    WEBCORE_EXPORT RetainPtr<NSDictionary> documentAttributesAsNSDictionary() const;
-    WEBCORE_EXPORT RetainPtr<NSAttributedString> nsAttributedString() const;
+    AttributedString();
+    AttributedString(String&&, Vector<std::pair<Range, HashMap<String, AttributeValue>>>&&, std::optional<HashMap<String, AttributeValue>>&&);
+    AttributedString(AttributedString&&);
+    AttributedString(const AttributedString&);
+    AttributedString& operator=(AttributedString&&);
+    AttributedString& operator=(const AttributedString&);
+    ~AttributedString();
+
+    static AttributedString fromNSAttributedStringAndDocumentAttributes(RetainPtr<NSAttributedString>&&, RetainPtr<NSDictionary>&& documentAttributes);
+    static AttributedString fromNSAttributedString(RetainPtr<NSAttributedString>&&);
+    static bool rangesAreSafe(const String&, const Vector<std::pair<Range, HashMap<String, AttributeValue>>>&);
+    RetainPtr<NSDictionary> documentAttributesAsNSDictionary() const;
+    RetainPtr<NSAttributedString> nsAttributedString() const;
 };
 
 } // namespace WebCore

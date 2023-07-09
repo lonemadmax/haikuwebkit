@@ -56,6 +56,8 @@ class Node;
 
 namespace WebKit {
 
+using LayerHostingContextID = uint32_t;
+
 class LayerHostingContext;
 class WebPage;
 class PlaybackSessionInterfaceContext;
@@ -95,7 +97,7 @@ public:
     void setIsFullscreen(bool flag) { m_isFullscreen = flag; }
 
     RetainPtr<CALayer> rootLayer() const { return m_rootLayer; }
-    void setRootLayer(RetainPtr<CALayer> layer) { m_rootLayer = layer; }
+    void setRootLayer(RetainPtr<CALayer>);
 
 private:
     // VideoFullscreenModelClient
@@ -141,6 +143,8 @@ public:
     void updateTextTrackRepresentationForVideoElement(WebCore::HTMLVideoElement&, const ShareableBitmapHandle&);
     void setTextTrackRepresentationContentScaleForVideoElement(WebCore::HTMLVideoElement&, float scale);
     void setTextTrackRepresentationIsHiddenForVideoElement(WebCore::HTMLVideoElement&, bool hidden);
+
+    bool videoElementInPictureInPicture() const { return !!m_videoElementInPictureInPicture; }
 
 protected:
     friend class VideoFullscreenInterfaceContext;
@@ -190,6 +194,7 @@ protected:
     HashMap<PlaybackSessionContextIdentifier, int> m_clientCounts;
     WeakPtr<WebCore::HTMLVideoElement, WebCore::WeakPtrImplWithEventTargetData> m_videoElementInPictureInPicture;
     bool m_currentlyInFullscreen { false };
+    WTF::Function<void(LayerHostingContextID, const WebCore::FloatSize&)> m_setupFullscreenHandler;
 };
 
 } // namespace WebKit

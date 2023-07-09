@@ -28,6 +28,7 @@
 
 #if ENABLE(ASYNC_SCROLLING)
 
+#include "AnimationFrameRate.h"
 #include "EventNames.h"
 #include "Logging.h"
 #include "PlatformWheelEvent.h"
@@ -308,7 +309,7 @@ void ScrollingTree::setOverlayScrollbarsEnabled(bool enabled)
     m_overlayScrollbarsEnabled = enabled;
 }
 
-void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scrollingStateTree)
+bool ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scrollingStateTree)
 {
     SetForScope inCommitTreeState(m_inCommitTreeState, true);
     Locker locker { m_treeLock };
@@ -359,7 +360,10 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
     for (auto nodeID : m_nodeMap.keys())
         commitState.unvisitedNodes.add(nodeID);
 
-    updateTreeFromStateNodeRecursive(rootNode, commitState);
+    bool succeeded = updateTreeFromStateNodeRecursive(rootNode, commitState);
+    if (!succeeded)
+        return false;
+
     propagateSynchronousScrollingReasons(commitState.synchronousScrollingNodes);
 
     for (auto nodeID : commitState.unvisitedNodes) {
@@ -374,14 +378,15 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree>&& scroll
     didCommitTree();
 
     LOG_WITH_STREAM(ScrollingTree, stream << "committed ScrollingTree" << scrollingTreeAsText(debugScrollingStateTreeAsTextBehaviors));
+    return true;
 }
 
-void ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* stateNode, CommitTreeState& state)
+bool ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* stateNode, CommitTreeState& state)
 {
     if (!stateNode) {
         removeAllNodes();
         m_rootNode = nullptr;
-        return;
+        return true;
     }
     
     ScrollingNodeID nodeID = stateNode->scrollingNodeID();
@@ -397,7 +402,8 @@ void ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* s
         node = createScrollingTreeNode(stateNode->nodeType(), nodeID);
         if (!parentNodeID) {
             // This is the root node. Clear the node map.
-            ASSERT(stateNode->isFrameScrollingNode());
+            if (!is<ScrollingTreeFrameScrollingNode>(node.get()))
+                return false;
             m_rootNode = downcast<ScrollingTreeFrameScrollingNode>(node.get());
             removeAllNodes();
         } 
@@ -424,7 +430,8 @@ void ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* s
         }
     }
 
-    node->commitStateBeforeChildren(*stateNode);
+    if (!node->commitStateBeforeChildren(*stateNode))
+        return false;
     
     // Move all children into the orphanNodes map. Live ones will get added back as we recurse over children.
     for (auto& childScrollingNode : node->children()) {
@@ -435,17 +442,22 @@ void ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* s
 
     // Now update the children if we have any.
     if (auto children = stateNode->children()) {
-        for (auto& child : *children)
-            updateTreeFromStateNodeRecursive(child.get(), state);
+        for (auto& child : *children) {
+            if (!updateTreeFromStateNodeRecursive(child.get(), state))
+                return false;
+        }
     }
 
-    node->commitStateAfterChildren(*stateNode);
+    if (!node->commitStateAfterChildren(*stateNode))
+        return false;
+
     node->didCompleteCommitForNode();
 
 #if ENABLE(SCROLLING_THREAD)
     if (is<ScrollingTreeScrollingNode>(*node) && !downcast<ScrollingTreeScrollingNode>(*node).synchronousScrollingReasons().isEmpty())
         state.synchronousScrollingNodes.add(nodeID);
 #endif
+    return true;
 }
 
 void ScrollingTree::removeAllNodes()
@@ -889,6 +901,19 @@ bool ScrollingTree::overlayScrollbarsEnabled()
     Locker locker { m_treeStateLock };
     return m_overlayScrollbarsEnabled;
 }
+
+Seconds ScrollingTree::frameDuration()
+{
+    auto displayFPS = nominalFramesPerSecond().value_or(FullSpeedFramesPerSecond);
+    return 1_s / (double)displayFPS;
+}
+
+Seconds ScrollingTree::maxAllowableRenderingUpdateDurationForSynchronization()
+{
+    constexpr double allowableFrameFraction = 0.5;
+    return allowableFrameFraction * frameDuration();
+}
+
 
 String ScrollingTree::scrollingTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> behavior)
 {

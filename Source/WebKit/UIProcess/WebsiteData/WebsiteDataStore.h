@@ -172,7 +172,6 @@ public:
     void storePrivateClickMeasurement(const WebCore::PrivateClickMeasurement&);
 
     uint64_t perOriginStorageQuota() const { return m_resolvedConfiguration->perOriginStorageQuota(); }
-    uint64_t perThirdPartyOriginStorageQuota() const;
     std::optional<double> originQuotaRatio() { return m_resolvedConfiguration->originQuotaRatio(); }
 
     bool isBlobRegistryPartitioningEnabled() const;
@@ -266,6 +265,7 @@ public:
 #endif // ENABLE(TRACKING_PREVENTION)
     void closeDatabases(CompletionHandler<void()>&&);
     void syncLocalStorage(CompletionHandler<void()>&&);
+    void storeServiceWorkerRegistrations(CompletionHandler<void()>&&);
     void setCacheMaxAgeCapForPrevalentResources(Seconds, CompletionHandler<void()>&&);
     void resetCacheMaxAgeCapForPrevalentResources(CompletionHandler<void()>&&);
     void resolveDirectoriesIfNecessary();
@@ -426,6 +426,7 @@ public:
     void didDestroyServiceWorkerNotification(const UUID& notificationID);
 
     void openWindowFromServiceWorker(const String& urlString, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(std::optional<WebCore::PageIdentifier>)>&&);
+    void reportServiceWorkerConsoleMessage(const URL&, const WebCore::SecurityOriginData&, MessageSource,  MessageLevel, const String& message, unsigned long requestIdentifier);
 
     void workerUpdatedAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t>);
 
