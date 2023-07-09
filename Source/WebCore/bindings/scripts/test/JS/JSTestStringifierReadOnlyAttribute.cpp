@@ -133,18 +133,13 @@ JSTestStringifierReadOnlyAttribute::JSTestStringifierReadOnlyAttribute(Structure
 {
 }
 
-void JSTestStringifierReadOnlyAttribute::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestStringifierReadOnlyAttribute>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestStringifierReadOnlyAttribute>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestStringifierReadOnlyAttribute::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestStringifierReadOnlyAttributePrototype::create(vm, &globalObject, JSTestStringifierReadOnlyAttributePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestStringifierReadOnlyAttributePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestStringifierReadOnlyAttributePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestStringifierReadOnlyAttribute::prototype(VM& vm, JSDOMGlobalObject& globalObject)

@@ -204,19 +204,21 @@ JSTestConditionallyReadWrite::JSTestConditionallyReadWrite(Structure* structure,
 {
 }
 
+static_assert(!std::is_base_of<ActiveDOMObject, TestConditionallyReadWrite>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
 void JSTestConditionallyReadWrite::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestConditionallyReadWrite>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
     putDirectCustomAccessor(vm, builtinNames(vm).enabledConditionallyReadWriteBySettingAttributeUnforgeablePrivatePrivateName(), CustomGetterSetter::create(vm, jsTestConditionallyReadWrite_enabledConditionallyReadWriteBySettingAttributeUnforgeablePrivate, nullptr), attributesForStructure(JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly));
 }
 
 JSObject* JSTestConditionallyReadWrite::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestConditionallyReadWritePrototype::create(vm, &globalObject, JSTestConditionallyReadWritePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestConditionallyReadWritePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestConditionallyReadWritePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestConditionallyReadWrite::prototype(VM& vm, JSDOMGlobalObject& globalObject)

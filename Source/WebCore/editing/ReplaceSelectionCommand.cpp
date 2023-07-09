@@ -41,7 +41,6 @@
 #include "Editing.h"
 #include "EditingBehavior.h"
 #include "ElementIteratorInlines.h"
-#include "ElementName.h"
 #include "EventNames.h"
 #include "FrameSelection.h"
 #include "HTMLBRElement.h"
@@ -56,6 +55,7 @@
 #include "HTMLTitleElement.h"
 #include "LocalFrame.h"
 #include "NodeList.h"
+#include "NodeName.h"
 #include "NodeRenderStyle.h"
 #include "Position.h"
 #include "RenderInline.h"
@@ -441,8 +441,11 @@ inline void ReplaceSelectionCommand::InsertedNodes::willRemoveNode(Node* node)
         m_lastNodeInserted = nullptr;
     } else if (m_firstNodeInserted == node)
         m_firstNodeInserted = NodeTraversal::nextSkippingChildren(*m_firstNodeInserted);
-    else if (m_lastNodeInserted == node)
+    else if (m_lastNodeInserted == node) {
         m_lastNodeInserted = NodeTraversal::previousSkippingChildren(*m_lastNodeInserted);
+        if (!m_lastNodeInserted)
+            m_lastNodeInserted = m_firstNodeInserted;
+    }
 }
 
 inline void ReplaceSelectionCommand::InsertedNodes::didReplaceNode(Node* node, Node* newNode)
@@ -735,7 +738,7 @@ static bool isProhibitedParagraphChild(const QualifiedName& name)
     using namespace ElementNames;
 
     // https://dvcs.w3.org/hg/editing/raw-file/57abe6d3cb60/editing.html#prohibited-paragraph-child
-    switch (name.elementName()) {
+    switch (name.nodeName()) {
     case HTML::address:
     case HTML::article:
     case HTML::aside:

@@ -81,6 +81,7 @@
 #include "LLIntData.h"
 #include "LLIntExceptions.h"
 #include "MarkedBlockInlines.h"
+#include "MegamorphicCache.h"
 #include "MinimumReservedZoneSize.h"
 #include "ModuleProgramCodeBlock.h"
 #include "ModuleProgramExecutable.h"
@@ -284,6 +285,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
         sentinelMapBucket();
         sentinelSetBucket();
         emptyPropertyNameEnumerator();
+        ensureMegamorphicCache();
     }
     {
         auto* bigInt = JSBigInt::tryCreateFrom(*this, 1);
@@ -769,10 +771,6 @@ MacroAssemblerCodeRef<JITStubRoutinePtrTag> VM::getCTIVirtualCall(CallMode callM
         return LLInt::getCodeRef<JITStubRoutinePtrTag>(llint_virtual_construct_trampoline);
     }
     return LLInt::getCodeRef<JITStubRoutinePtrTag>(llint_virtual_call_trampoline);
-}
-
-VM::ClientData::~ClientData()
-{
 }
 
 void VM::whenIdle(Function<void()>&& callback)
@@ -1581,5 +1579,17 @@ void MicrotaskQueue::visitAggregateImpl(Visitor& visitor)
     m_markedBefore = m_queue.size();
 }
 DEFINE_VISIT_AGGREGATE(MicrotaskQueue);
+
+void VM::ensureMegamorphicCacheSlow()
+{
+    ASSERT(!m_megamorphicCache);
+    m_megamorphicCache = makeUnique<MegamorphicCache>();
+}
+
+void VM::invalidateStructureChainIntegrity(StructureChainIntegrityEvent)
+{
+    if (m_megamorphicCache)
+        m_megamorphicCache->bumpEpoch();
+}
 
 } // namespace JSC

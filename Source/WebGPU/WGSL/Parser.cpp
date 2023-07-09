@@ -458,9 +458,29 @@ Result<Ref<AST::Attribute>> Parser<Lexer>::parseAttribute()
     if (ident.ident == "workgroup_size"_s) {
         CONSUME_TYPE(ParenLeft);
         // FIXME: should more kinds of literals be accepted here?
-        CONSUME_TYPE_NAMED(id, IntegerLiteralUnsigned);
+        PARSE(x, Expression);
+        AST::Expression::Ptr maybeY = nullptr;
+        AST::Expression::Ptr maybeZ = nullptr;
+        if (current().type == TokenType::Comma) {
+            consume();
+            if (current().type != TokenType::ParenRight) {
+                PARSE(y, Expression);
+                maybeY = y.moveToUniquePtr();
+
+                if (current().type == TokenType::Comma) {
+                    consume();
+                    if (current().type != TokenType::ParenRight) {
+                        PARSE(z, Expression);
+                        maybeZ = z.moveToUniquePtr();
+
+                        if (current().type == TokenType::Comma)
+                            consume();
+                    }
+                }
+            }
+        }
         CONSUME_TYPE(ParenRight);
-        RETURN_NODE_REF(WorkgroupSizeAttribute, id.literalValue);
+        RETURN_NODE_REF(WorkgroupSizeAttribute, WTFMove(x), WTFMove(maybeY), WTFMove(maybeZ));
     }
 
     // https://gpuweb.github.io/gpuweb/wgsl/#pipeline-stage-attributes
@@ -780,6 +800,11 @@ Result<AST::Statement::Ref> Parser<Lexer>::parseStatement()
         PARSE(compoundStmt, CompoundStatement);
         return { makeUniqueRef<AST::CompoundStatement>(WTFMove(compoundStmt)) };
     }
+    case TokenType::KeywordIf: {
+        // FIXME: Handle attributes attached to statement.
+        PARSE(ifStmt, IfStatement);
+        return { makeUniqueRef<AST::IfStatement>(WTFMove(ifStmt)) };
+    }
     case TokenType::KeywordReturn: {
         PARSE(returnStmt, ReturnStatement);
         CONSUME_TYPE(Semicolon);
@@ -821,6 +846,40 @@ Result<AST::CompoundStatement> Parser<Lexer>::parseCompoundStatement()
     CONSUME_TYPE(BraceRight);
 
     RETURN_NODE(CompoundStatement, WTFMove(statements));
+}
+
+template<typename Lexer>
+Result<AST::IfStatement> Parser<Lexer>::parseIfStatement()
+{
+    START_PARSE();
+
+    PARSE(attributes, Attributes);
+
+    return parseIfStatementWithAttributes(WTFMove(attributes), _startOfElementPosition);
+}
+
+template<typename Lexer>
+Result<AST::IfStatement> Parser<Lexer>::parseIfStatementWithAttributes(AST::Attribute::List&& attributes, SourcePosition _startOfElementPosition)
+{
+    CONSUME_TYPE(KeywordIf);
+    PARSE(testExpr, Expression);
+    PARSE(thenStmt, CompoundStatement);
+
+    AST::Statement::Ptr maybeElseStmt;
+    if (current().type == TokenType::KeywordElse) {
+        consume();
+        // The syntax following an 'else' keyword can be either an 'if'
+        // statement or a brace-delimited compound statement.
+        if (current().type == TokenType::KeywordIf) {
+            PARSE(elseStmt, IfStatementWithAttributes, { }, _startOfElementPosition);
+            maybeElseStmt = WTF::makeUnique<AST::IfStatement>(WTFMove(elseStmt));
+        } else {
+            PARSE(elseStmt, CompoundStatement);
+            maybeElseStmt = WTF::makeUnique<AST::CompoundStatement>(WTFMove(elseStmt));
+        }
+    }
+
+    RETURN_NODE(IfStatement, WTFMove(testExpr), WTFMove(thenStmt), WTFMove(maybeElseStmt), WTFMove(attributes));
 }
 
 template<typename Lexer>

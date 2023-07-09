@@ -507,6 +507,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
         LINK(OpInByVal)
         LINK(OpPutByVal)
         LINK(OpPutByValDirect)
+        LINK(OpEnumeratorPutByVal)
         LINK(OpPutPrivateName)
 
         LINK(OpSetPrivateBrand)
@@ -1617,7 +1618,7 @@ void CodeBlock::finalizeJITInlineCaches()
 }
 #endif
 
-void CodeBlock::finalizeUnconditionally(VM& vm)
+void CodeBlock::finalizeUnconditionally(VM& vm, CollectionScope)
 {
     UNUSED_PARAM(vm);
 

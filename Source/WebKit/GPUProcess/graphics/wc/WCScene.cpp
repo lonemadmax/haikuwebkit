@@ -87,6 +87,7 @@ std::optional<UpdateInfo> WCScene::update(WCUpateInfo&& update)
 {
     if (!m_context->makeContextCurrent())
         return std::nullopt;
+    m_textureMapper->releaseUnusedTexturesNow();
 
     for (auto id : update.addedLayers) {
         auto layer = makeUnique<Layer>();
@@ -221,7 +222,14 @@ std::optional<UpdateInfo> WCScene::update(WCUpateInfo&& update)
     WebCore::IntSize windowSize = expandedIntSize(rootLayer->size());
     glViewport(0, 0, windowSize.width(), windowSize.height());
 
-    m_textureMapper->beginPainting(m_usesOffscreenRendering ? WebCore::TextureMapper::PaintingMirrored : 0);
+    WebCore::BitmapTexture* surface = nullptr;
+    RefPtr<WebCore::BitmapTexture> texture;
+    if (m_usesOffscreenRendering) {
+        texture = m_textureMapper->acquireTextureFromPool(windowSize);
+        surface = texture.get();
+    }
+
+    m_textureMapper->beginPainting(0, surface);
     rootLayer->paint(*m_textureMapper);
     m_fpsCounter.updateFPSAndDisplay(*m_textureMapper);
     m_textureMapper->endPainting();

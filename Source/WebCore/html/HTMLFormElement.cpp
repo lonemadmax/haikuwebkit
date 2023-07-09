@@ -51,6 +51,7 @@
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
 #include "MixedContentChecker.h"
+#include "NodeName.h"
 #include "NodeRareData.h"
 #include "Page.h"
 #include "PseudoClassChangeInvalidation.h"
@@ -502,35 +503,44 @@ void HTMLFormElement::resetListedFormControlElements()
         control->reset();
 }
 
-void HTMLFormElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void HTMLFormElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == actionAttr) {
-        m_attributes.parseAction(value);
-        
+    switch (name.nodeName()) {
+    case AttributeNames::actionAttr:
+        m_attributes.parseAction(newValue);
         if (!m_attributes.action().isEmpty()) {
             if (RefPtr f = document().frame()) {
                 if (auto* topFrame = dynamicDowncast<LocalFrame>(f->tree().top()))
                     MixedContentChecker::checkFormForMixedContent(*topFrame, topFrame->document()->securityOrigin(), document().completeURL(m_attributes.action()));
             }
         }
-    } else if (name == targetAttr)
-        m_attributes.setTarget(value);
-    else if (name == methodAttr)
-        m_attributes.updateMethodType(value, document().settings().dialogElementEnabled());
-    else if (name == enctypeAttr)
-        m_attributes.updateEncodingType(value);
-    else if (name == accept_charsetAttr)
-        m_attributes.setAcceptCharset(value);
-    else if (name == autocompleteAttr) {
+        break;
+    case AttributeNames::targetAttr:
+        m_attributes.setTarget(newValue);
+        break;
+    case AttributeNames::methodAttr:
+        m_attributes.updateMethodType(newValue, document().settings().dialogElementEnabled());
+        break;
+    case AttributeNames::enctypeAttr:
+        m_attributes.updateEncodingType(newValue);
+        break;
+    case AttributeNames::accept_charsetAttr:
+        m_attributes.setAcceptCharset(newValue);
+        break;
+    case AttributeNames::autocompleteAttr:
         if (!shouldAutocomplete())
             document().registerForDocumentSuspensionCallbacks(*this);
         else
             document().unregisterForDocumentSuspensionCallbacks(*this);
-    } else if (name == relAttr) {
+        break;
+    case AttributeNames::relAttr:
         if (m_relList)
-            m_relList->associatedAttributeValueChanged(value);
-    } else
-        HTMLElement::parseAttribute(name, value);
+            m_relList->associatedAttributeValueChanged(newValue);
+        break;
+    default:
+        HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+        break;
+    }
 }
 
 unsigned HTMLFormElement::formElementIndexWithFormAttribute(Element* element, unsigned rangeStart, unsigned rangeEnd)

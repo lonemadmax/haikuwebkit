@@ -33,6 +33,7 @@
 #include "HTMLParserIdioms.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
+#include "NodeName.h"
 #include "PluginDocument.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderWidget.h"
@@ -95,27 +96,33 @@ static bool hasTypeOrSrc(const HTMLEmbedElement& embed)
     return embed.hasAttributeWithoutSynchronization(typeAttr) || embed.hasAttributeWithoutSynchronization(srcAttr);
 }
 
-void HTMLEmbedElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void HTMLEmbedElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == typeAttr) {
-        m_serviceType = value.string().left(value.find(';')).convertToASCIILowercase();
+    HTMLPlugInImageElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+    switch (name.nodeName()) {
+    case AttributeNames::typeAttr:
+        m_serviceType = newValue.string().left(newValue.find(';')).convertToASCIILowercase();
         // FIXME: The only difference between this and HTMLObjectElement's corresponding
         // code is that HTMLObjectElement does setNeedsWidgetUpdate(true). Consider moving
         // this up to the HTMLPlugInImageElement to be shared.
         if (renderer() && !hasTypeOrSrc(*this))
             invalidateStyle();
-    } else if (name == codeAttr) {
-        m_url = stripLeadingAndTrailingHTMLSpaces(value);
+        break;
+    case AttributeNames::codeAttr:
+        m_url = stripLeadingAndTrailingHTMLSpaces(newValue);
         // FIXME: Why no call to updateImageLoaderWithNewURLSoon?
         // FIXME: If both code and src attributes are specified, last one parsed/changed wins. That can't be right!
-    } else if (name == srcAttr) {
-        m_url = stripLeadingAndTrailingHTMLSpaces(value);
+        break;
+    case AttributeNames::srcAttr:
+        m_url = stripLeadingAndTrailingHTMLSpaces(newValue);
         updateImageLoaderWithNewURLSoon();
         if (renderer() && !hasTypeOrSrc(*this))
             invalidateStyle();
         // FIXME: If both code and src attributes are specified, last one parsed/changed wins. That can't be right!
-    } else
-        HTMLPlugInImageElement::parseAttribute(name, value);
+        break;
+    default:
+        break;
+    }
 }
 
 void HTMLEmbedElement::parametersForPlugin(Vector<AtomString>& paramNames, Vector<AtomString>& paramValues)

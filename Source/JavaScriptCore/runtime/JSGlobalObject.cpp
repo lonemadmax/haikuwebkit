@@ -347,10 +347,14 @@ static JSValue createConsoleProperty(VM& vm, JSObject* object)
 
 // FIXME: use a bytecode or intrinsic for creating a private symbol.
 // https://bugs.webkit.org/show_bug.cgi?id=212782
-JSC_DEFINE_HOST_FUNCTION(createPrivateSymbol, (JSGlobalObject* globalObject, CallFrame*))
+JSC_DEFINE_HOST_FUNCTION(createPrivateSymbol, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
-    return JSValue::encode(Symbol::create(vm, PrivateSymbolImpl::createNullSymbol().get()));
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    auto description = callFrame->argument(0).toWTFString(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    return JSValue::encode(Symbol::create(vm, PrivateSymbolImpl::create(*description.impl()).get()));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsonParse, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -824,7 +828,7 @@ void JSGlobalObject::init(VM& vm)
     m_nullSetterStrictFunction.set(vm, this, NullSetterFunction::create(vm, nullSetterFunctionStructure, ECMAMode::strict()));
     m_objectPrototype.set(vm, this, ObjectPrototype::create(vm, this, ObjectPrototype::createStructure(vm, this, jsNull())));
     // We have to manually set this here because we make it a prototype without transition below.
-    m_objectPrototype.get()->didBecomePrototype();
+    m_objectPrototype.get()->didBecomePrototype(vm);
     GetterSetter* protoAccessor = GetterSetter::create(vm, this,
         JSFunction::create(vm, this, 0, makeString("get "_s, vm.propertyNames->underscoreProto.string()), globalFuncProtoGetter, ImplementationVisibility::Public, UnderscoreProtoIntrinsic),
         JSFunction::create(vm, this, 0, makeString("set "_s, vm.propertyNames->underscoreProto.string()), globalFuncProtoSetter, ImplementationVisibility::Public));
@@ -1611,7 +1615,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 
     // PrivateSymbols / PrivateNames
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::createPrivateSymbol)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "createPrivateSymbol"_s, createPrivateSymbol, ImplementationVisibility::Private));
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "createPrivateSymbol"_s, createPrivateSymbol, ImplementationVisibility::Private));
         });
 
     // JSON helpers
@@ -2295,8 +2299,8 @@ void JSGlobalObject::resetPrototype(VM& vm, JSValue prototype)
         return;
     setPrototypeDirect(vm, prototype);
     fixupPrototypeChainWithObjectPrototype(vm);
-    // Whenever we change the prototype of the global object, we need to create a new JSProxy with the correct prototype.
-    setGlobalThis(vm, JSProxy::create(vm, JSProxy::createStructure(vm, this, prototype), this));
+    // Whenever we change the prototype of the global object, we need to create a new JSGlobalProxy with the correct prototype.
+    setGlobalThis(vm, JSGlobalProxy::create(vm, JSGlobalProxy::createStructure(vm, this, prototype), this));
 }
 
 template<typename Visitor>
@@ -3009,7 +3013,7 @@ void JSGlobalObject::finishCreation(VM& vm)
     structure()->setGlobalObject(vm, this);
     m_runtimeFlags = m_globalObjectMethodTable->javaScriptRuntimeFlags(this);
     init(vm);
-    setGlobalThis(vm, JSProxy::create(vm, JSProxy::createStructure(vm, this, getPrototypeDirect()), this));
+    setGlobalThis(vm, JSGlobalProxy::create(vm, JSGlobalProxy::createStructure(vm, this, getPrototypeDirect()), this));
     ASSERT(type() == GlobalObjectType);
 }
 

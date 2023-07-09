@@ -151,18 +151,13 @@ JSTestSetLike::JSTestSetLike(Structure* structure, JSDOMGlobalObject& globalObje
 {
 }
 
-void JSTestSetLike::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestSetLike>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestSetLike>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestSetLike::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestSetLikePrototype::create(vm, &globalObject, JSTestSetLikePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestSetLikePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestSetLikePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestSetLike::prototype(VM& vm, JSDOMGlobalObject& globalObject)

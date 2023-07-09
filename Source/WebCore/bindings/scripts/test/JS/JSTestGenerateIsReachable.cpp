@@ -138,18 +138,13 @@ JSTestGenerateIsReachable::JSTestGenerateIsReachable(Structure* structure, JSDOM
 {
 }
 
-void JSTestGenerateIsReachable::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestGenerateIsReachable>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestGenerateIsReachable>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestGenerateIsReachable::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestGenerateIsReachablePrototype::create(vm, &globalObject, JSTestGenerateIsReachablePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestGenerateIsReachablePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestGenerateIsReachablePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestGenerateIsReachable::prototype(VM& vm, JSDOMGlobalObject& globalObject)

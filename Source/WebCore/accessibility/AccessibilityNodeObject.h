@@ -46,7 +46,7 @@ enum MouseButtonListenerResultFilter {
 
 class AccessibilityNodeObject : public AccessibilityObject {
 public:
-    static Ref<AccessibilityNodeObject> create(Node*);
+    static Ref<AccessibilityNodeObject> create(Node&);
     virtual ~AccessibilityNodeObject();
 
     void init() override;
@@ -63,7 +63,6 @@ public:
     bool isNativeImage() const;
     bool isNativeTextControl() const override;
     bool isSecureField() const override;
-    bool isProgressIndicator() const override;
     bool isSearchField() const override;
 
     bool isChecked() const override;
@@ -156,6 +155,7 @@ protected:
     void clearChildren() override;
     void updateChildrenIfNecessary() override;
     bool canHaveChildren() const override;
+    AccessibilityChildrenVector visibleChildren() override;
     bool isDescendantOfBarrenParent() const override;
     void updateOwnedChildren();
     AccessibilityObject* ownerParentObject() const;

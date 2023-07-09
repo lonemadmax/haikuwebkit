@@ -42,7 +42,20 @@ struct ScrollbarHoverState {
     bool mouseIsOverHorizontalScrollbar { false };
     bool mouseIsOverVerticalScrollbar { false };
 
-    friend bool operator==(ScrollbarHoverState const& lhs, ScrollbarHoverState const& rhs) = default;
+    bool operator==(const ScrollbarHoverState& other) const
+    {
+        return mouseIsOverHorizontalScrollbar == other.mouseIsOverHorizontalScrollbar
+            && mouseIsOverVerticalScrollbar == other.mouseIsOverVerticalScrollbar;
+    }
+    bool operator!=(const ScrollbarHoverState& other) const
+    {
+        return !(*this == other);
+    }
+};
+
+struct MouseLocationState {
+    IntPoint locationInHorizontalScrollbar;
+    IntPoint locationInVerticalScrollbar;
 };
 
 class ScrollingStateScrollingNode : public ScrollingStateNode {
@@ -120,7 +133,8 @@ public:
     WEBCORE_EXPORT void setMouseIsOverContentArea(bool);
     bool mouseIsOverContentArea() const { return m_mouseIsOverContentArea; }
 
-    WEBCORE_EXPORT void setMouseMovedInContentArea();
+    WEBCORE_EXPORT void setMouseMovedInContentArea(const MouseLocationState&);
+    const MouseLocationState& mouseLocationState() const { return m_mouseLocationState; }
 
 protected:
     ScrollingStateScrollingNode(ScrollingStateTree&, ScrollingNodeType, ScrollingNodeID);
@@ -146,6 +160,7 @@ private:
     LayerRepresentation m_verticalScrollbarLayer;
     
     ScrollbarHoverState m_scrollbarHoverState;
+    MouseLocationState m_mouseLocationState;
 
 #if PLATFORM(MAC)
     RetainPtr<NSScrollerImp> m_verticalScrollerImp;

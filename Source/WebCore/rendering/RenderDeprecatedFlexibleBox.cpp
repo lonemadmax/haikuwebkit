@@ -979,32 +979,30 @@ static LegacyRootInlineBox* lineAtIndex(const RenderBlockFlow& flow, int i)
 static std::optional<LayoutUnit> getHeightForLineCount(const RenderBlockFlow& block, size_t lineCount, bool includeBottom, size_t& count)
 {
     if (block.childrenInline()) {
-        for (auto* box = block.firstRootBox(); box; box = box->nextRootBox()) {
+        for (auto lineBox = InlineIterator::firstLineBoxFor(block); lineBox; lineBox.traverseNext()) {
             if (++count == lineCount)
-                return box->lineBottom() + (includeBottom ? (block.borderBottom() + block.paddingBottom()) : 0_lu);
+                return LayoutUnit { lineBox->contentLogicalBottom() } + (includeBottom ? (block.borderBottom() + block.paddingBottom()) : 0_lu);
         }
-    } else {
-        RenderBox* normalFlowChildWithoutLines = nullptr;
-        for (auto* obj = block.firstChildBox(); obj; obj = obj->nextSiblingBox()) {
-            if (is<RenderBlockFlow>(*obj) && shouldIncludeLinesForParentLineCount(downcast<RenderBlockFlow>(*obj))) {
-                if (auto height = getHeightForLineCount(downcast<RenderBlockFlow>(*obj), lineCount, false, count))
-                    return *height + obj->y() + (includeBottom ? (block.borderBottom() + block.paddingBottom()) : 0_lu);
-            } else if (!obj->isFloatingOrOutOfFlowPositioned())
-                normalFlowChildWithoutLines = obj;
-        }
-        if (normalFlowChildWithoutLines && !lineCount)
-            return normalFlowChildWithoutLines->y() + normalFlowChildWithoutLines->height();
+        return { };
     }
 
+    RenderBox* normalFlowChildWithoutLines = nullptr;
+    for (auto* obj = block.firstChildBox(); obj; obj = obj->nextSiblingBox()) {
+        if (is<RenderBlockFlow>(*obj) && shouldIncludeLinesForParentLineCount(downcast<RenderBlockFlow>(*obj))) {
+            if (auto height = getHeightForLineCount(downcast<RenderBlockFlow>(*obj), lineCount, false, count))
+                return *height + obj->y() + (includeBottom ? (block.borderBottom() + block.paddingBottom()) : 0_lu);
+        } else if (!obj->isFloatingOrOutOfFlowPositioned())
+            normalFlowChildWithoutLines = obj;
+    }
+    if (normalFlowChildWithoutLines && !lineCount)
+        return normalFlowChildWithoutLines->y() + normalFlowChildWithoutLines->height();
     return { };
 }
 
-static LayoutUnit heightForLineCount(const RenderBlockFlow& flow, size_t lineCount)
+static std::optional<LayoutUnit> heightForLineCount(const RenderBlockFlow& flow, size_t lineCount)
 {
     size_t count = 0;
-    if (auto height = getHeightForLineCount(flow, lineCount, true, count))
-        return *height;
-    return { };
+    return getHeightForLineCount(flow, lineCount, true, count);
 }
 
 static size_t lineCountFor(const RenderBlockFlow& blockFlow)
@@ -1023,32 +1021,26 @@ static size_t lineCountFor(const RenderBlockFlow& blockFlow)
 
 bool RenderDeprecatedFlexibleBox::applyModernLineClamp(FlexBoxIterator& iterator)
 {
-    auto* firstFlowBlockWithInlineChildren = [&] () -> RenderBlockFlow* {
+    auto* firstBlockFlowWithInlineChildren = [&] () -> RenderBlockFlow* {
         for (auto& descendant : descendantsOfType<RenderBlockFlow>(*this)) {
             if (descendant.childrenInline())
                 return &descendant;
         }
         return nullptr;
     }();
-    if (!firstFlowBlockWithInlineChildren)
+    if (!firstBlockFlowWithInlineChildren)
         return false;
 
     // If the first block with inline content supports modern line layout, all siblings (and descendants) do as well.
     // see LayoutIntegrationCoverage::canUseForStyle.
-    firstFlowBlockWithInlineChildren->computeAndSetLineLayoutPath();
-    if (firstFlowBlockWithInlineChildren->lineLayoutPath() != RenderBlockFlow::ModernPath)
+    firstBlockFlowWithInlineChildren->computeAndSetLineLayoutPath();
+    if (firstBlockFlowWithInlineChildren->lineLayoutPath() != RenderBlockFlow::ModernPath)
         return false;
 
     auto& layoutState = *view().frameView().layoutContext().layoutState();
-    auto currentLineClamp = std::optional<std::pair<size_t, size_t>> { };
-    if (layoutState.hasLineClamp())
-        currentLineClamp = { *layoutState.maximumLineCountForLineClamp(), layoutState.visibleLineCountForLineClamp().value_or(0) };
-
-    auto restoreCurrentLineClamp = makeScopeExit([&] {
-        if (!currentLineClamp)
-            return layoutState.resetLineClamp();
-        layoutState.setMaximumLineCountForLineClamp(currentLineClamp->first);
-        layoutState.setVisibleLineCountForLineClamp(currentLineClamp->second);
+    auto ancestorLineClamp = layoutState.lineClamp();
+    auto restoreAncestorLineClamp = makeScopeExit([&] {
+        layoutState.setLineClamp(ancestorLineClamp);
     });
 
     auto lineCountForLineClamp = [&]() -> size_t {
@@ -1070,8 +1062,7 @@ bool RenderDeprecatedFlexibleBox::applyModernLineClamp(FlexBoxIterator& iterator
         return std::max<size_t>(1, (numberOfLines + 1) * lineClamp.value() / 100.f);
     };
 
-    layoutState.setMaximumLineCountForLineClamp(lineCountForLineClamp());
-    layoutState.setVisibleLineCountForLineClamp({ });
+    layoutState.setLineClamp(RenderLayoutState::LineClamp { lineCountForLineClamp(), { } });
     for (auto* child = iterator.first(); child; child = iterator.next()) {
         if (childDoesNotAffectWidthOrFlexing(child))
             continue;
@@ -1135,7 +1126,7 @@ void RenderDeprecatedFlexibleBox::applyLineClamp(FlexBoxIterator& iterator, bool
         if (lineCount <= numVisibleLines)
             continue;
 
-        auto newHeight = heightForLineCount(blockChild, numVisibleLines);
+        auto newHeight = heightForLineCount(blockChild, numVisibleLines).value_or(0);
         if (newHeight == child->height())
             continue;
 

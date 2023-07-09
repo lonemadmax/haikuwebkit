@@ -785,6 +785,9 @@ WKRetainPtr<WKPageConfigurationRef> TestController::generatePageConfiguration(co
         WKPageConfigurationSetWebsiteDataStore(pageConfiguration.get(), ephemeralDataStore.get());
     }
 
+    if (options.allowTestOnlyIPC())
+        WKPageConfigurationSetAllowTestOnlyIPC(pageConfiguration.get(), true);
+
     m_userContentController = adoptWK(WKUserContentControllerCreate());
     WKPageConfigurationSetUserContentController(pageConfiguration.get(), userContentController());
     return pageConfiguration;
@@ -3920,9 +3923,9 @@ void TestController::removeAllCookies()
     m_currentInvocation->didRemoveAllCookies();
 }
 
-void TestController::addMockMediaDevice(WKStringRef persistentID, WKStringRef label, WKStringRef type)
+void TestController::addMockMediaDevice(WKStringRef persistentID, WKStringRef label, WKStringRef type, WKDictionaryRef properties)
 {
-    WKAddMockMediaDevice(platformContext(), persistentID, label, type);
+    WKAddMockMediaDevice(platformContext(), persistentID, label, type, properties);
 }
 
 void TestController::clearMockMediaDevices()

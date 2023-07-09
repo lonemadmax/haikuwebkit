@@ -125,18 +125,13 @@ JSTestIndexedSetterThrowingException::JSTestIndexedSetterThrowingException(Struc
 {
 }
 
-void JSTestIndexedSetterThrowingException::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestIndexedSetterThrowingException>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestIndexedSetterThrowingException>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestIndexedSetterThrowingException::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestIndexedSetterThrowingExceptionPrototype::create(vm, &globalObject, JSTestIndexedSetterThrowingExceptionPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestIndexedSetterThrowingExceptionPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestIndexedSetterThrowingExceptionPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestIndexedSetterThrowingException::prototype(VM& vm, JSDOMGlobalObject& globalObject)

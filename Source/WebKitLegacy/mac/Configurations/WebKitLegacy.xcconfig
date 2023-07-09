@@ -24,7 +24,7 @@
 #include "../../../../Configurations/Version.xcconfig"
 
 EXCLUDED_SOURCE_FILE_NAMES = $(EXCLUDED_SOURCE_FILE_NAMES_$(WK_COCOA_TOUCH));
-EXCLUDED_SOURCE_FILE_NAMES_cocoatouch = *.defs *.xib *.pdf *.tiff PopupMenuMac.* SearchPopupMenuMac.* WebClipView.* WebDashboardRegion.* WebDynamicScrollBarsView.* WebEventRegion.h WebIconDatabase.* WebInspectorClient.* WebJavaScriptTextInputPanel.* WebNSEventExtras.* WebNSPasteboardExtras.* WebNSWindowExtras.* WebPanelAuthenticationHandler.* WebPluginsPrivate.* WebStringTruncator.* WebTextCompletionController.*;
+EXCLUDED_SOURCE_FILE_NAMES_cocoatouch = *.defs *.xib *.pdf *.tiff PopupMenuMac.* SearchPopupMenuMac.* WebClipView.* WebDynamicScrollBarsView.* WebEventRegion.h WebIconDatabase.* WebInspectorClient.* WebJavaScriptTextInputPanel.* WebNSEventExtras.* WebNSPasteboardExtras.* WebNSWindowExtras.* WebPanelAuthenticationHandler.* WebPluginsPrivate.* WebStringTruncator.* WebTextCompletionController.*;
 EXCLUDED_SOURCE_FILE_NAMES_ = *IOS.mm AbstractPasteboard.h DOMHTMLTextAreaElementPrivate.h DOMUIKitExtensions.h KeyEventCodesIOS.h LaBanquePostaleQuirks.js WAKAppKitStubs.h WAKResponder.h WAKView.h WAKWindow.h WebCaretChangeListener.h WebCoreThread.h WebCoreThreadMessage.h WebCoreThreadRun.h WebEvent.h WebEventRegion.h WebFixedPositionContent.h WebFrameIOS.h WebFrameIPhone.h WebGeolocationCoreLocationProvider.h WebGeolocationPrivate.h WebGeolocationProviderIOS.h WebItemProviderPasteboard.h WebMIMETypeRegistry.h WebNSStringExtrasIOS.h WebNSStringExtrasIPhone.h WebPDFViewIOS.h WebPDFViewIPhone.h WebPDFViewPlaceholder.h WebSelectionRect.h WebUIKitDelegate.h WebUIKitSupport.h WebVisiblePosition.h WKContentObservation.h WKGraphics.h WKTypes.h;
 
 INCLUDED_SOURCE_FILE_NAMES = $(INCLUDED_MIGRATED_HEADERS_$(USE_INTERNAL_SDK)_$(WK_COCOA_TOUCH)) $(INCLUDED_MIGRATED_HEADERS_$(ENABLE_IOS_TOUCH_EVENTS));
@@ -108,7 +108,6 @@ WK_NO_STATIC_INITIALIZERS_Production_NO_ = $(WK_ERROR_WHEN_LINKING_WITH_STATIC_I
 OTHER_LDFLAGS = $(inherited) -lobjc -lsqlite3 -framework CFNetwork -framework CoreFoundation -framework CoreGraphics -framework CoreText -framework Foundation -framework ImageIO -framework IOKit $(WK_APPKIT_LDFLAGS) $(WK_CARBON_LDFLAGS) $(WK_GRAPHICS_SERVICES_LDFLAGS) $(WK_MOBILE_CORE_SERVICES_LDFLAGS) $(WK_MOBILE_GESTALT_LDFLAGS) $(WK_SECURITY_INTERFACE_LDFLAGS) $(WK_WEBINSPECTORUI_LDFLAGS) $(SOURCE_VERSION_LDFLAGS) $(WK_NO_STATIC_INITIALIZERS);
 
 SECTORDER_FLAGS = $(SECTORDER_FLAGS_$(CONFIGURATION));
-SECTORDER_FLAGS_Production[sdk=iphoneos*] = -Wl,-order_file,$(SDKROOT)/AppleInternal/OrderFiles/WebKitLegacy.order;
 SECTORDER_FLAGS_Production[sdk=macosx*] = -Wl,-order_file,mac/WebKit.order;
 
 SUPPORTS_TEXT_BASED_API[sdk=iphone*] = YES;

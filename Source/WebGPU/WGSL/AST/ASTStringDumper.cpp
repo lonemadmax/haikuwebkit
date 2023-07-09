@@ -131,7 +131,17 @@ void StringDumper::visit(StageAttribute& stage)
 
 void StringDumper::visit(WorkgroupSizeAttribute& workgroupSize)
 {
-    m_out.print("@workgroup_size(", workgroupSize.size(), ")");
+    m_out.print("@workgroup_size(");
+    visit(workgroupSize.x());
+    if (auto* y = workgroupSize.maybeY()) {
+        m_out.print(", ");
+        visit(*y);
+        if (auto* z = workgroupSize.maybeZ()) {
+            m_out.print(", ");
+            visit(*z);
+        }
+    }
+    m_out.print(")");
 }
 
 // Declaration
@@ -305,6 +315,22 @@ void StringDumper::visit(CompoundStatement& block)
         m_out.print("\n", m_indent);
     }
     m_out.print("}\n");
+}
+
+void StringDumper::visit(IfStatement& statement)
+{
+    m_out.print(m_indent, "if ");
+    visit(statement.test());
+    m_out.print("\n");
+    visit(statement.trueBody());
+    if (statement.maybeFalseBody()) {
+        m_out.print(m_indent, "else");
+        if (is<IfStatement>(*statement.maybeFalseBody()))
+            m_out.print(" ");
+        else
+            m_out.print("\n");
+        visit(*statement.maybeFalseBody());
+    }
 }
 
 void StringDumper::visit(ReturnStatement& statement)

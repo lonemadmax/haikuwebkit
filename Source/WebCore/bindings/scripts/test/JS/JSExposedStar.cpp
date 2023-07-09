@@ -152,18 +152,13 @@ JSExposedStar::JSExposedStar(Structure* structure, JSDOMGlobalObject& globalObje
 {
 }
 
-void JSExposedStar::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, ExposedStar>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, ExposedStar>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSExposedStar::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSExposedStarPrototype::create(vm, &globalObject, JSExposedStarPrototype::createStructure(vm, &globalObject, JSEventTarget::prototype(vm, globalObject)));
+    auto* structure = JSExposedStarPrototype::createStructure(vm, &globalObject, JSEventTarget::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSExposedStarPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSExposedStar::prototype(VM& vm, JSDOMGlobalObject& globalObject)

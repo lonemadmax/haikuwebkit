@@ -242,16 +242,11 @@ JSTestNode::JSTestNode(Structure* structure, JSDOMGlobalObject& globalObject, Re
 {
 }
 
-void JSTestNode::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-}
-
 JSObject* JSTestNode::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNodePrototype::create(vm, &globalObject, JSTestNodePrototype::createStructure(vm, &globalObject, JSNode::prototype(vm, globalObject)));
+    auto* structure = JSTestNodePrototype::createStructure(vm, &globalObject, JSNode::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSTestNodePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNode::prototype(VM& vm, JSDOMGlobalObject& globalObject)

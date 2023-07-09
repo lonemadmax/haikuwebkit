@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -161,7 +161,7 @@
 #endif
 
 #if ENABLE(DATA_DETECTION) && PLATFORM(IOS_FAMILY)
-#import <pal/spi/ios/DataDetectorsUISPI.h>
+#import <pal/spi/ios/DataDetectorsUISoftLink.h>
 #endif
 
 #import <WebCore/MediaAccessibilitySoftLink.h>
@@ -240,7 +240,7 @@ static void softlinkDataDetectorsFrameworks()
 #if ENABLE(DATA_DETECTION)
     PAL::isDataDetectorsCoreFrameworkAvailable();
 #if PLATFORM(IOS_FAMILY)
-    DataDetectorsUILibrary();
+    PAL::isDataDetectorsUIFrameworkAvailable();
 #endif // PLATFORM(IOS_FAMILY)
 #endif // ENABLE(DATA_DETECTION)
 }
@@ -662,18 +662,35 @@ static void registerLogHook()
     os_log_set_hook(OS_LOG_TYPE_DEFAULT, ^(os_log_type_t type, os_log_message_t msg) {
         if (msg->buffer_sz > 1024)
             return;
-        char* messageString = os_log_copy_message_string(msg);
-        String logString = String::fromUTF8(messageString);
-        free(messageString);
 
-        String logChannel = String::fromUTF8(msg->subsystem);
-        String logCategory = String::fromUTF8(msg->category);
+        CString logFormat(msg->format);
+        CString logChannel(msg->subsystem);
+        CString logCategory(msg->category);
 
-        callOnMainRunLoop([logChannel = logChannel.isolatedCopy(), logCategory = logCategory.isolatedCopy(), logString = logString.isolatedCopy(), type] {
-            auto* connection = WebProcess::singleton().existingNetworkProcessConnection();
-            if (!connection)
+        Vector<uint8_t> buffer(msg->buffer, msg->buffer_sz);
+        Vector<uint8_t> privdata(msg->privdata, msg->privdata_sz);
+
+        static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("Log Queue", WorkQueue::QOS::Background));
+
+        queue.get()->dispatch([logFormat = WTFMove(logFormat), logChannel = WTFMove(logChannel), logCategory = WTFMove(logCategory), type = type, buffer = WTFMove(buffer), privdata = WTFMove(privdata)] {
+            os_log_message_s msg = { 0 };
+
+            msg.format = logFormat.data();
+            msg.buffer = buffer.data();
+            msg.buffer_sz = buffer.size();
+            msg.privdata = privdata.data();
+            msg.privdata_sz = privdata.size();
+
+            char* messageString = os_log_copy_message_string(&msg);
+            if (!messageString)
                 return;
-            connection->connection().send(Messages::NetworkConnectionToWebProcess::LogOnBehalfOfWebContent(logChannel, logCategory, logString, type, getpid()), 0);
+            IPC::DataReference logString(reinterpret_cast<uint8_t*>(messageString), strlen(messageString) + 1);
+
+            auto connectionID = WebProcess::singleton().networkProcessConnectionID();
+            if (connectionID)
+                IPC::Connection::send(connectionID, Messages::NetworkConnectionToWebProcess::LogOnBehalfOfWebContent(logChannel.bytesInludingNullTerminator(), logCategory.bytesInludingNullTerminator(), logString, type, getpid()), 0);
+
+            free(messageString);
         });
     });
 }
@@ -930,10 +947,10 @@ RefPtr<ObjCObjectGraph> WebProcess::transformHandlesToObjects(ObjCObjectGraph& o
             if (dynamic_objc_cast<WKBrowsingContextHandle>(object))
                 return true;
 
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return true;
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return false;
         }
 
@@ -946,10 +963,10 @@ RefPtr<ObjCObjectGraph> WebProcess::transformHandlesToObjects(ObjCObjectGraph& o
                 return [NSNull null];
             }
 
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(m_webProcess.transformHandlesToObjects(toImpl(wrapper.object)).get())]);
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
 
@@ -967,10 +984,10 @@ RefPtr<ObjCObjectGraph> WebProcess::transformObjectsToHandles(ObjCObjectGraph& o
             if (dynamic_objc_cast<WKWebProcessPlugInBrowserContextController>(object))
                 return true;
 
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return true;
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return false;
         }
 
@@ -979,10 +996,10 @@ RefPtr<ObjCObjectGraph> WebProcess::transformObjectsToHandles(ObjCObjectGraph& o
             if (auto* controller = dynamic_objc_cast<WKWebProcessPlugInBrowserContextController>(object))
                 return controller.handle;
 
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(toImpl(wrapper.object)).get())]);
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
     };

@@ -157,18 +157,13 @@ JSTestDomainSecurity::JSTestDomainSecurity(Structure* structure, JSDOMGlobalObje
 {
 }
 
-void JSTestDomainSecurity::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestDomainSecurity>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestDomainSecurity>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestDomainSecurity::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestDomainSecurityPrototype::create(vm, &globalObject, JSTestDomainSecurityPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestDomainSecurityPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestDomainSecurityPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestDomainSecurity::prototype(VM& vm, JSDOMGlobalObject& globalObject)

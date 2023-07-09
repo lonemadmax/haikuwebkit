@@ -106,6 +106,11 @@ void RemoteDevice::destroy()
     m_backing->destroy();
 }
 
+void RemoteDevice::destruct()
+{
+    m_objectHeap.removeObject(m_identifier);
+}
+
 void RemoteDevice::createBuffer(const WebGPU::BufferDescriptor& descriptor, WebGPUIdentifier identifier)
 {
     auto convertedDescriptor = m_objectHeap.convertFromBacking(descriptor);
@@ -321,6 +326,13 @@ void RemoteDevice::popErrorScope(CompletionHandler<void(std::optional<WebGPU::Er
         }, [&] (Ref<PAL::WebGPU::ValidationError> validationError) {
             callback({ WebGPU::ValidationError { validationError->message() } });
         });
+    });
+}
+
+void RemoteDevice::resolveDeviceLostPromise(CompletionHandler<void(PAL::WebGPU::DeviceLostReason)>&& callback)
+{
+    m_backing->resolveDeviceLostPromise([callback = WTFMove(callback)] (PAL::WebGPU::DeviceLostReason reason) mutable {
+        callback(reason);
     });
 }
 

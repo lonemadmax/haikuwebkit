@@ -76,7 +76,7 @@ public:
     {
     }
 #else
-    FontCustomPlatformData(FT_Face, FragmentedSharedBuffer&);
+    FontCustomPlatformData(FT_Face, FontPlatformData::CreationData&&);
 #endif
     WEBCORE_EXPORT ~FontCustomPlatformData();
 
@@ -86,16 +86,15 @@ public:
 
 #if PLATFORM(WIN)
     String name;
-    FontPlatformData::CreationData creationData;
 #elif USE(CORE_TEXT)
     RetainPtr<CTFontDescriptorRef> fontDescriptor;
-    FontPlatformData::CreationData creationData;
 #elif USE(HAIKU)
     BFont m_font;
     area_id m_area;
 #else
     RefPtr<cairo_font_face_t> m_fontFace;
 #endif
+    FontPlatformData::CreationData creationData;
 
     RenderingResourceIdentifier m_renderingResourceIdentifier;
 };

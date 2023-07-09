@@ -106,13 +106,6 @@ Ref<ScrollingTreeNode> RemoteScrollingTreeMac::createScrollingTreeNode(Scrolling
     return ScrollingTreeFixedNodeCocoa::create(*this, nodeID);
 }
 
-void RemoteScrollingTreeMac::handleMouseEvent(const PlatformMouseEvent& event)
-{
-    if (!rootNode())
-        return;
-    static_cast<ScrollingTreeFrameScrollingNodeRemoteMac&>(*rootNode()).handleMouseEvent(event);
-}
-
 void RemoteScrollingTreeMac::didCommitTree()
 {
     ASSERT(isMainRunLoop());
@@ -464,6 +457,14 @@ OptionSet<EventListenerRegionType> RemoteScrollingTreeMac::eventListenerRegionTy
     return eventRegion->eventListenerRegionTypesForPoint(roundedIntPoint(localPoint));
 }
 #endif
+
+void RemoteScrollingTreeMac::scrollingTreeNodeScrollbarVisibilityDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, bool isVisible)
+{
+    RunLoop::main().dispatch([strongThis = Ref { *this }, nodeID, orientation, isVisible] {
+        if (auto* scrollingCoordinatorProxy = strongThis->scrollingCoordinatorProxy())
+            scrollingCoordinatorProxy->scrollingTreeNodeScrollbarVisibilityDidChange(nodeID, orientation, isVisible);
+    });
+}
 
 } // namespace WebKit
 

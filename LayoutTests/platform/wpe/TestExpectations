@@ -617,6 +617,7 @@ fast/events/ondrop-text-html.html
 # WTR needs an implementation for eventSender.continuousMouseScrollBy
 # https://bugs.webkit.org/show_bug.cgi?id=69417
 fast/events/wheel/wheelevent-direction-inverted-from-device.html
+css3/scroll-snap/resnap-after-layout.html [ Skip ]
 
 # These are failures that will be enabled once the relevant parts of implementation land.
 webkit.org/b/133122 crypto/workers/subtle/aes-indexeddb.html [ Skip ]
@@ -1059,6 +1060,7 @@ webkit.org/b/252878 imported/w3c/web-platform-tests/content-security-policy/scri
 webkit.org/b/252878 imported/w3c/web-platform-tests/content-security-policy/script-src/scriptnonce-changed-2.html [ Failure Pass ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-margin-root-001.html [ ImageOnlyFailure ]
 webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-root.html [ ImageOnlyFailure ]
+webkit.org/b/214454 imported/w3c/web-platform-tests/css/css-backgrounds/background-size-percentage-root.html [ ImageOnlyFailure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-space-001.html [ ImageOnlyFailure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-backgrounds/css3-border-image-repeat-stretch.html [ ImageOnlyFailure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-024.html [ ImageOnlyFailure Pass ]
@@ -1313,6 +1315,8 @@ webkit.org/b/173419 fast/events/wheel/wheelevent-basic.html [ Failure Timeout ]
 webkit.org/b/173419 fast/events/wheel/wheelevent-in-horizontal-scrollbar-in-rtl.html [ Failure ]
 webkit.org/b/173419 fast/events/wheel/wheelevent-in-vertical-scrollbar-in-rtl.html [ Failure ]
 webkit.org/b/173419 fast/events/wheel/wheelevent-mousewheel-interaction.html [ Timeout Pass ]
+
+webkit.org/b/212202 fast/scrolling/sync-scroll-overscroll-behavior-unscrollable-iframe.html [ Failure ]
 
 webkit.org/b/186879 fast/events/open-window-from-another-frame.html [ Timeout ]
 webkit.org/b/186879 fast/events/popup-allowed-from-gesture-initiated-event.html [ Timeout ]

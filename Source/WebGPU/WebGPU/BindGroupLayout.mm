@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,10 +48,22 @@ static MTLArgumentDescriptor *createArgumentDescriptor(const WGPUBufferBindingLa
     switch (buffer.type) {
     case WGPUBufferBindingType_Uniform:
     case WGPUBufferBindingType_ReadOnlyStorage:
+#if USE(METAL_ARGUMENT_ACCESS_ENUMS)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         descriptor.access = MTLArgumentAccessReadOnly;
+ALLOW_DEPRECATED_DECLARATIONS_END
+#else
+        descriptor.access = MTLBindingAccessReadOnly;
+#endif
         break;
     case WGPUBufferBindingType_Storage:
+#if USE(METAL_ARGUMENT_ACCESS_ENUMS)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         descriptor.access = MTLArgumentAccessReadWrite;
+ALLOW_DEPRECATED_DECLARATIONS_END
+#else
+        descriptor.access = MTLBindingAccessReadWrite;
+#endif
         break;
     case WGPUBufferBindingType_Undefined:
     case WGPUBufferBindingType_Force32:
@@ -74,7 +86,13 @@ static MTLArgumentDescriptor *createArgumentDescriptor(const WGPUSamplerBindingL
     UNUSED_PARAM(sampler);
     auto descriptor = [MTLArgumentDescriptor new];
     descriptor.dataType = MTLDataTypeSampler;
+#if USE(METAL_ARGUMENT_ACCESS_ENUMS)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     descriptor.access = MTLArgumentAccessReadOnly;
+ALLOW_DEPRECATED_DECLARATIONS_END
+#else
+    descriptor.access = MTLBindingAccessReadOnly;
+#endif
     return descriptor;
 }
 
@@ -92,7 +110,13 @@ static MTLArgumentDescriptor *createArgumentDescriptor(const WGPUTextureBindingL
     UNUSED_PARAM(texture);
     auto descriptor = [MTLArgumentDescriptor new];
     descriptor.dataType = MTLDataTypeTexture;
+#if USE(METAL_ARGUMENT_ACCESS_ENUMS)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     descriptor.access = MTLArgumentAccessReadOnly;
+ALLOW_DEPRECATED_DECLARATIONS_END
+#else
+    descriptor.access = MTLBindingAccessReadOnly;
+#endif
     return descriptor;
 }
 

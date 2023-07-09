@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if ENABLE(JIT)
 
 #include "CacheableIdentifier.h"
@@ -91,6 +93,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessCase);
 
 #define JSC_FOR_EACH_ACCESS_TYPE(macro) \
     macro(Load) \
+    macro(LoadMegamorphic) \
     macro(Transition) \
     macro(Delete) \
     macro(DeleteNonConfigurable) \
@@ -205,7 +208,7 @@ public:
 
     static Ref<AccessCase> createSetPrivateBrand(VM&, JSCell* owner, CacheableIdentifier, Structure* oldStructure, Structure* newStructure);
 
-    static Ref<AccessCase> createReplace(VM&, JSCell* owner, CacheableIdentifier, PropertyOffset, Structure* oldStructure, bool viaProxy);
+    static Ref<AccessCase> createReplace(VM&, JSCell* owner, CacheableIdentifier, PropertyOffset, Structure* oldStructure, bool viaGlobalProxy);
     
     static RefPtr<AccessCase> fromStructureStubInfo(VM&, JSCell* owner, CacheableIdentifier, StructureStubInfo&);
 
@@ -233,7 +236,7 @@ public:
     JSObject* alternateBase() const;
     
     WatchpointSet* additionalSet() const;
-    bool viaProxy() const { return m_viaProxy; }
+    bool viaGlobalProxy() const { return m_viaGlobalProxy; }
 
     // If you supply the optional vector, this will append the set of cells that this will need to keep alive
     // past the call.
@@ -299,7 +302,7 @@ public:
 
     unsigned hash() const
     {
-        return computeHash(m_conditionSet.hash(), static_cast<unsigned>(m_type), m_viaProxy, m_structureID.unvalidatedGet(), m_offset);
+        return computeHash(m_conditionSet.hash(), static_cast<unsigned>(m_type), m_viaGlobalProxy, m_structureID.unvalidatedGet(), m_offset);
     }
 
     static bool canBeShared(const AccessCase&, const AccessCase&);
@@ -314,7 +317,7 @@ protected:
     AccessCase(AccessCase&& other)
         : m_type(WTFMove(other.m_type))
         , m_state(WTFMove(other.m_state))
-        , m_viaProxy(WTFMove(other.m_viaProxy))
+        , m_viaGlobalProxy(WTFMove(other.m_viaGlobalProxy))
         , m_offset(WTFMove(other.m_offset))
         , m_structureID(WTFMove(other.m_structureID))
         , m_conditionSet(WTFMove(other.m_conditionSet))
@@ -325,7 +328,7 @@ protected:
     AccessCase(const AccessCase& other)
         : m_type(other.m_type)
         , m_state(other.m_state)
-        , m_viaProxy(other.m_viaProxy)
+        , m_viaGlobalProxy(other.m_viaGlobalProxy)
         , m_offset(other.m_offset)
         , m_structureID(other.m_structureID)
         , m_conditionSet(other.m_conditionSet)
@@ -372,10 +375,10 @@ private:
     AccessType m_type;
     State m_state { Primordial };
 protected:
-    // m_viaProxy is true only if the instance inherits (or it is) ProxyableAccessCase.
+    // m_viaGlobalProxy is true only if the instance inherits (or it is) ProxyableAccessCase.
     // We put this value here instead of ProxyableAccessCase to reduce the size of ProxyableAccessCase and its
     // derived classes, which are super frequently allocated.
-    bool m_viaProxy { false };
+    bool m_viaGlobalProxy { false };
 private:
     PropertyOffset m_offset;
 

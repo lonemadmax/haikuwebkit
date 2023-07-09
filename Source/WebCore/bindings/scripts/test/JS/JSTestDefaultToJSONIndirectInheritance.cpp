@@ -121,18 +121,13 @@ JSTestDefaultToJSONIndirectInheritance::JSTestDefaultToJSONIndirectInheritance(S
 {
 }
 
-void JSTestDefaultToJSONIndirectInheritance::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONIndirectInheritance>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONIndirectInheritance>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestDefaultToJSONIndirectInheritance::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestDefaultToJSONIndirectInheritancePrototype::create(vm, &globalObject, JSTestDefaultToJSONIndirectInheritancePrototype::createStructure(vm, &globalObject, JSTestDefaultToJSONInherit::prototype(vm, globalObject)));
+    auto* structure = JSTestDefaultToJSONIndirectInheritancePrototype::createStructure(vm, &globalObject, JSTestDefaultToJSONInherit::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSTestDefaultToJSONIndirectInheritancePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestDefaultToJSONIndirectInheritance::prototype(VM& vm, JSDOMGlobalObject& globalObject)

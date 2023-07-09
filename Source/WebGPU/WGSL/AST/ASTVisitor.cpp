@@ -149,8 +149,11 @@ void Visitor::visit(AST::StageAttribute&)
 {
 }
 
-void Visitor::visit(AST::WorkgroupSizeAttribute&)
+void Visitor::visit(AST::WorkgroupSizeAttribute& attribute)
 {
+    checkErrorAndVisit(attribute.x());
+    maybeCheckErrorAndVisit(attribute.maybeY());
+    maybeCheckErrorAndVisit(attribute.maybeZ());
 }
 
 // Expression
@@ -407,9 +410,11 @@ void Visitor::visit(AST::ForStatement& forStatement)
 
 void Visitor::visit(AST::IfStatement& ifStatement)
 {
+    for (auto& attribute : ifStatement.attributes())
+        checkErrorAndVisit(attribute);
     checkErrorAndVisit(ifStatement.test());
     checkErrorAndVisit(ifStatement.trueBody());
-    checkErrorAndVisit(ifStatement.falseBody());
+    maybeCheckErrorAndVisit(ifStatement.maybeFalseBody());
 }
 
 void Visitor::visit(AST::LoopStatement& loopStatement)

@@ -46,7 +46,7 @@ public:
     explicit RemoteScrollingTreeMac(RemoteScrollingCoordinatorProxy&);
     virtual ~RemoteScrollingTreeMac();
 
-    void handleMouseEvent(const WebCore::PlatformMouseEvent&) final;
+    void scrollingTreeNodeScrollbarVisibilityDidChange(WebCore::ScrollingNodeID, ScrollbarOrientation, bool) override;
 
 private:
     void handleWheelEventPhase(WebCore::ScrollingNodeID, WebCore::PlatformWheelEventPhase) override;

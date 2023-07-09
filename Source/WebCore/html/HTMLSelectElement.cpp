@@ -47,6 +47,7 @@
 #include "LocalFrame.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
+#include "NodeName.h"
 #include "NodeRareData.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
@@ -290,11 +291,12 @@ bool HTMLSelectElement::hasPresentationalHintsForAttribute(const QualifiedName& 
     return HTMLFormControlElement::hasPresentationalHintsForAttribute(name);
 }
 
-void HTMLSelectElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void HTMLSelectElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == sizeAttr) {
+    switch (name.nodeName()) {
+    case AttributeNames::sizeAttr: {
         unsigned oldSize = m_size;
-        unsigned size = limitToOnlyHTMLNonNegative(value);
+        unsigned size = limitToOnlyHTMLNonNegative(newValue);
 
         // Ensure that we've determined selectedness of the items at least once prior to changing the size.
         if (oldSize != size)
@@ -307,10 +309,15 @@ void HTMLSelectElement::parseAttribute(const QualifiedName& name, const AtomStri
             setRecalcListItems();
             updateValidity();
         }
-    } else if (name == multipleAttr)
-        parseMultipleAttribute(value);
-    else
-        HTMLFormControlElement::parseAttribute(name, value);
+        break;
+    }
+    case AttributeNames::multipleAttr:
+        parseMultipleAttribute(newValue);
+        break;
+    default:
+        HTMLFormControlElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+        break;
+    }
 }
 
 int HTMLSelectElement::defaultTabIndex() const
@@ -427,6 +434,8 @@ void HTMLSelectElement::childrenChanged(const ChildChange& change)
 
 void HTMLSelectElement::optionElementChildrenChanged()
 {
+    setOptionsChangedOnRenderer();
+    invalidateStyleForSubtree();
     updateValidity();
     if (auto* cache = document().existingAXObjectCache())
         cache->childrenChanged(this);

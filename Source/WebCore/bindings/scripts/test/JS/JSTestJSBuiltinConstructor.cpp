@@ -137,16 +137,11 @@ const ClassInfo JSTestJSBuiltinConstructor::s_info = { "TestJSBuiltinConstructor
 JSTestJSBuiltinConstructor::JSTestJSBuiltinConstructor(Structure* structure, JSDOMGlobalObject& globalObject)
     : JSDOMObject(structure, globalObject) { }
 
-void JSTestJSBuiltinConstructor::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-}
-
 JSObject* JSTestJSBuiltinConstructor::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestJSBuiltinConstructorPrototype::create(vm, &globalObject, JSTestJSBuiltinConstructorPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestJSBuiltinConstructorPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestJSBuiltinConstructorPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestJSBuiltinConstructor::prototype(VM& vm, JSDOMGlobalObject& globalObject)

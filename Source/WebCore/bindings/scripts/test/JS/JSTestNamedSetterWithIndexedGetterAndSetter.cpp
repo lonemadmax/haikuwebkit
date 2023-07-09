@@ -137,18 +137,13 @@ JSTestNamedSetterWithIndexedGetterAndSetter::JSTestNamedSetterWithIndexedGetterA
 {
 }
 
-void JSTestNamedSetterWithIndexedGetterAndSetter::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterWithIndexedGetterAndSetter>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterWithIndexedGetterAndSetter>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestNamedSetterWithIndexedGetterAndSetter::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNamedSetterWithIndexedGetterAndSetterPrototype::create(vm, &globalObject, JSTestNamedSetterWithIndexedGetterAndSetterPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestNamedSetterWithIndexedGetterAndSetterPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestNamedSetterWithIndexedGetterAndSetterPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNamedSetterWithIndexedGetterAndSetter::prototype(VM& vm, JSDOMGlobalObject& globalObject)

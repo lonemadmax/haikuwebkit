@@ -26,6 +26,7 @@
 #include "CSSStyleSheet.h"
 #include "CommonAtomStrings.h"
 #include "Document.h"
+#include "NodeName.h"
 #include "SVGElementInlines.h"
 #include "SVGNames.h"
 #include <wtf/IsoMallocInlines.h>
@@ -91,23 +92,24 @@ String SVGStyleElement::title() const
     return attributeWithoutSynchronization(SVGNames::titleAttr);
 }
 
-void SVGStyleElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void SVGStyleElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == SVGNames::titleAttr) {
-        if (sheet() && !isInShadowTree())
-            sheet()->setTitle(value);
-        return;
-    }
-    if (name == SVGNames::typeAttr) {
-        m_styleSheetOwner.setContentType(value);
-        return;
-    }
-    if (name == SVGNames::mediaAttr) {
-        m_styleSheetOwner.setMedia(value);
-        return;
-    }
+    SVGElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
 
-    SVGElement::parseAttribute(name, value);
+    switch (name.nodeName()) {
+    case AttributeNames::titleAttr:
+        if (sheet() && !isInShadowTree())
+            sheet()->setTitle(newValue);
+        break;
+    case AttributeNames::typeAttr:
+        m_styleSheetOwner.setContentType(newValue);
+        break;
+    case AttributeNames::mediaAttr:
+        m_styleSheetOwner.setMedia(newValue);
+        break;
+    default:
+        break;
+    }
 }
 
 void SVGStyleElement::finishParsingChildren()

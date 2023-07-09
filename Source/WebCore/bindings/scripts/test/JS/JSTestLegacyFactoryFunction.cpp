@@ -180,18 +180,13 @@ JSTestLegacyFactoryFunction::JSTestLegacyFactoryFunction(Structure* structure, J
 {
 }
 
-void JSTestLegacyFactoryFunction::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(std::is_base_of<ActiveDOMObject, TestLegacyFactoryFunction>::value, "Interface is marked as [ActiveDOMObject] but implementation class does not subclass ActiveDOMObject.");
-
-}
+static_assert(std::is_base_of<ActiveDOMObject, TestLegacyFactoryFunction>::value, "Interface is marked as [ActiveDOMObject] but implementation class does not subclass ActiveDOMObject.");
 
 JSObject* JSTestLegacyFactoryFunction::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestLegacyFactoryFunctionPrototype::create(vm, &globalObject, JSTestLegacyFactoryFunctionPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestLegacyFactoryFunctionPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestLegacyFactoryFunctionPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestLegacyFactoryFunction::prototype(VM& vm, JSDOMGlobalObject& globalObject)

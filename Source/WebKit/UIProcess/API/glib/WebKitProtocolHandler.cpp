@@ -50,18 +50,18 @@
 #include <wpe/wpe.h>
 #include <wpe/fdo.h>
 #endif
-#endif
 
-#if USE(EGL)
-#include <epoxy/egl.h>
+#if PLATFORM(X11)
+#include <WebCore/PlatformDisplayX11.h>
 #endif
 
 #if USE(GBM)
 #include "AcceleratedBackingStoreDMABuf.h"
 #endif
+#endif
 
-#if PLATFORM(X11)
-#include <WebCore/PlatformDisplayX11.h>
+#if USE(EGL)
+#include <epoxy/egl.h>
 #endif
 
 #if USE(GSTREAMER)
@@ -277,6 +277,15 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
     addTableRow(hardwareAccelerationObject, "GL_VENDOR"_s, makeString(reinterpret_cast<const char*>(glGetString(GL_VENDOR))));
     addTableRow(hardwareAccelerationObject, "GL_VERSION"_s, makeString(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
     addTableRow(hardwareAccelerationObject, "GL_SHADING_LANGUAGE_VERSION"_s, makeString(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
+
+#if USE(GBM)
+    auto deviceFile = PlatformDisplay::sharedDisplay().drmDeviceFile();
+    if (!deviceFile.isEmpty())
+        addTableRow(hardwareAccelerationObject, "DRM Device"_s, deviceFile);
+    auto renderNode = PlatformDisplay::sharedDisplay().drmRenderNodeFile();
+    if (!renderNode.isEmpty())
+        addTableRow(hardwareAccelerationObject, "DRM Render Node"_s, renderNode);
+#endif
 
 #if USE(OPENGL_ES)
     addTableRow(hardwareAccelerationObject, "GL_EXTENSIONS"_s, makeString(reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS))));

@@ -127,18 +127,13 @@ JSTestException::JSTestException(Structure* structure, JSDOMGlobalObject& global
 {
 }
 
-void JSTestException::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestException>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestException>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestException::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestExceptionPrototype::create(vm, &globalObject, JSTestExceptionPrototype::createStructure(vm, &globalObject, globalObject.errorPrototype()));
+    auto* structure = JSTestExceptionPrototype::createStructure(vm, &globalObject, globalObject.errorPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestExceptionPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestException::prototype(VM& vm, JSDOMGlobalObject& globalObject)

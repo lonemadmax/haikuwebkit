@@ -1845,15 +1845,11 @@ webkit.org/b/227891 http/tests/appcache/fail-on-update.html [ Pass Timeout DumpJ
 # rdar://65641438 ([WebGL2] tex-srgb-mipmap test fails on macOS Intel + iOS (but passes on macOS Apple Silicon) (214392))
 [ arm64 ] webgl/2.0.0/conformance2/textures/misc/tex-srgb-mipmap.html [ Failure ]
 
-# rdar://66660924 ([ASi Layout Tests] 6 WPT css-backgrounds tests consistently failing)
-[ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-contain.xht [ ImageOnlyFailure ]
-[ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-cover.xht [ ImageOnlyFailure ]
-[ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--contain--height.html [ ImageOnlyFailure ]
-[ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--contain--width.html [ ImageOnlyFailure ]
-[ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--height.html [ ImageOnlyFailure ]
-[ arm64 ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--width.html [ ImageOnlyFailure ]
-
-webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/css3-border-image-repeat-repeat.html [ ImageOnlyFailure ]
+# rdar://107964187 Updated Expectations for all macOS ( previous was only for arm64 )
+imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--contain--height.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--contain--width.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--height.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--width.html [ ImageOnlyFailure ]
 
 [ x86_64 ] imported/w3c/web-platform-tests/css/filter-effects/css-filters-animation-opacity.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/filter-effects/css-filters-animation-saturate.html [ ImageOnlyFailure ]
@@ -1970,6 +1966,10 @@ webkit.org/b/222422 imported/w3c/web-platform-tests/media-source/mediasource-dur
 [ BigSur ] fast/text/mending-heart.html [ Failure ]
 
 webkit.org/b/222573 media/media-fullscreen-pause-inline.html [ Pass Failure ]
+
+# webkit.org/b/255294  2 http/tests/media/FairPlay tests are broken.
+http/tests/media/fairplay/legacy-fairplay-mse-v2.html [ Skip ]
+http/tests/media/fairplay/legacy-fairplay-mse-v3.html [ Skip ]
 
 webkit.org/b/222692 inspector/page/empty-or-missing-resources.html [ Pass Timeout ]
 
@@ -2113,6 +2113,8 @@ webkit.org/b/228311 imported/w3c/web-platform-tests/css/css-scoping/css-scoping-
 # webkit.org/b/228200 Setting multiple test expectations for Monterey on OpenSource:
 [ Monterey ] model-element/model-element-graphics-layers-opacity.html [ Pass Failure ]
 [ Monterey Debug arm64 ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-restartIce.https.html [ Pass Failure Crash ]
+
+webkit.org/b/255235 [ Monterey Debug ] imported/w3c/web-platform-tests/css/css-cascade/layer-counter-style-override.html [ Failure ]
 
 webkit.org/b/229291 imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/revoked-blob-print.html [ Pass ImageOnlyFailure ]
 
@@ -2746,6 +2748,7 @@ webkit.org/b/251099 [ Ventura+ ] fast/images/avif-image-document.html [ Pass Cra
 # AVIF overlay images are only supported on macOS and iOS post Ventura.
 [ Ventura+ ] fast/images/image-overlay-mutiple-frames.html [ Pass ImageOnlyFailure ]
 
+http/wpt/service-workers/basic-fetch-with-contentfilter-allow-after-adding-data.html [ Pass ]
 http/wpt/service-workers/basic-fetch-with-contentfilter.https.html [ Pass ]
 
 http/tests/misc/heic-accept-header.html [ Pass ]
@@ -2763,3 +2766,18 @@ webkit.org/b/237415 webgl/1.0.x/conformance/rendering/clipping-wide-points.html 
 [ Ventura ] imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-relative-color.html [ Failure ]
 
 webkit.org/b/255184 [ Ventura ] transforms/3d/hit-testing/overlapping-layers-hit-test.html [ Failure ]
+
+# webkit.org/b/255427 [ Ventura ] 4/13 batch mark expectations and branch bugs
+[ Ventura ] http/tests/media/hls/track-in-band-hls-metadata-cue-duration.html [ Pass Failure ]
+[ Ventura ] imported/w3c/web-platform-tests/svg/import/metadata-example-01-t-manual.svg [ Pass Failure ]
+[ Ventura ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-audiobuffersource-connections.html [ Pass Failure ]
+[ Ventura ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-dynamics-compressor-connections.html [ Pass Failure ]
+[ Ventura ] svg/W3C-SVG-1.1/metadata-example-01-b.svg [ Pass Failure ]
+[ Ventura ] svg/custom/use-on-symbol-inside-pattern.svg [ Pass Failure ]
+[ Ventura ] webaudio/ScriptProcessor/scriptprocessor-offlineaudiocontext.html [ Pass Failure ]
+[ Ventura ] webaudio/audiocontext-large-samplerate.html [ Pass Failure ]
+[ Ventura ] fast/shrink-wrap/rect-shrink-wrap.html [ Pass ImageOnlyFailure ]
+[ Ventura ] imported/mozilla/svg/smil/style/anim-css-fontsize-1-from-by-pct-pct.svg [ Pass ImageOnlyFailure ]
+[ Ventura ] imported/mozilla/svg/smil/style/anim-css-fontsize-1-from-to-pct-pct.svg [ Pass ImageOnlyFailure ]
+[ Ventura ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-009.html [ Pass ImageOnlyFailure ]
+[ Ventura ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-010.html [ Pass ImageOnlyFailure ]

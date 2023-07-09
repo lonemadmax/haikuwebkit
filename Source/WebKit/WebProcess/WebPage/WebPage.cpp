@@ -47,6 +47,7 @@
 #include "LibWebRTCCodecs.h"
 #include "LibWebRTCProvider.h"
 #include "LoadParameters.h"
+#include "LocalFrameCreationParameters.h"
 #include "Logging.h"
 #include "MediaKeySystemPermissionRequestManager.h"
 #include "MediaRecorderProvider.h"
@@ -758,6 +759,10 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
     m_backgroundColor = parameters.backgroundColor;
 
+    // We need to set the device scale factor before creating the drawing area
+    // to ensure it's created with the right size.
+    m_page->setDeviceScaleFactor(parameters.deviceScaleFactor);
+
     m_drawingArea = DrawingArea::create(*this, parameters);
     m_drawingArea->setShouldScaleViewToFitDocument(parameters.shouldScaleViewToFitDocument);
 
@@ -813,7 +818,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         m_page->setOpenedByDOM();
 
     m_page->setGroupName(m_pageGroup->identifier());
-    m_page->setDeviceScaleFactor(parameters.deviceScaleFactor);
     m_page->setUserInterfaceLayoutDirection(m_userInterfaceLayoutDirection);
 #if PLATFORM(IOS_FAMILY)
     m_page->setTextAutosizingWidth(parameters.textAutosizingWidth);
@@ -875,8 +879,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     if (!parameters.itemStates.isEmpty())
         restoreSessionInternal(parameters.itemStates, parameters.itemStatesWereRestoredByAPIRequest ? WasRestoredByAPIRequest::Yes : WasRestoredByAPIRequest::No, WebBackForwardListProxy::OverwriteExistingItem::No);
 
-    m_drawingArea->enablePainting();
-    
     setMediaVolume(parameters.mediaVolume);
 
     setMuted(parameters.muted, [] { });
@@ -1017,7 +1019,7 @@ void WebPage::constructFrameTree(WebFrame& parent, WebCore::FrameIdentifier loca
 {
     bool shouldCreateLocalFrame = treeCreationParameters.frameID == localFrameIdentifier;
     auto frame = shouldCreateLocalFrame
-        ? WebFrame::createLocalSubframeHostedInAnotherProcess(*this, parent, treeCreationParameters.frameID, localFrameHostLayerIdentifier)
+        ? WebFrame::createLocalSubframeHostedInAnotherProcess(*this, parent, treeCreationParameters.frameID, localFrameHostLayerIdentifier, std::nullopt)
         : WebFrame::createRemoteSubframe(*this, parent, treeCreationParameters.frameID, treeCreationParameters.remoteProcessIdentifier);
     if (shouldCreateLocalFrame) {
         ASSERT(frame->coreFrame());
@@ -1093,7 +1095,6 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
         m_drawingArea = DrawingArea::create(*this, parameters);
         m_drawingArea->setShouldScaleViewToFitDocument(parameters.shouldScaleViewToFitDocument);
         m_drawingArea->updatePreferences(parameters.store);
-        m_drawingArea->enablePainting();
 
         m_drawingArea->adoptLayersFromDrawingArea(*oldDrawingArea);
         m_drawingArea->adoptDisplayRefreshMonitorsFromDrawingArea(*oldDrawingArea);
@@ -1779,12 +1780,55 @@ void WebPage::platformDidReceiveLoadParameters(const LoadParameters& loadParamet
 }
 #endif
 
+void WebPage::loadRequestByCreatingNewLocalFrameOrConvertingRemoteFrame(LocalFrameCreationParameters&& localFrameCreationParameters, LoadParameters&& loadParameters)
+{
+    RefPtr frame = WebProcess::singleton().webFrame(localFrameCreationParameters.frameIdentifier);
+    if (frame && frame->coreFrame()) {
+        loadRequest(WTFMove(loadParameters));
+        return;
+    }
+
+    // If there is an existing RemoteFrame, let's remove it and later convert it to a LocalFrame.
+    RefPtr<WebFrame> parentWebFrame;
+    RefPtr<WebCore::RemoteFrame> coreRemoteFrame;
+    std::optional<ScopeExit<Function<void()>>> invalidator;
+    if (frame) {
+        coreRemoteFrame = frame->coreRemoteFrame();
+        auto* parent = coreRemoteFrame->tree().parent();
+        if (!parent) {
+            ASSERT_NOT_REACHED();
+            return;
+        }
+
+        parentWebFrame = WebProcess::singleton().webFrame(parent->frameID());
+        if (!parentWebFrame) {
+            ASSERT_NOT_REACHED();
+            return;
+        }
+
+        parent->tree().removeChild(*coreRemoteFrame);
+        coreRemoteFrame->disconnectOwnerElement();
+        if (auto* remoteFrameClient = static_cast<WebRemoteFrameClient*>(&coreRemoteFrame->client()))
+            invalidator.emplace(remoteFrameClient->takeFrameInvalidator());
+    } else
+        parentWebFrame = WebProcess::singleton().webFrame(localFrameCreationParameters.parentFrameIdentifier);
+
+    if (!parentWebFrame) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    WebFrame::createLocalSubframeHostedInAnotherProcess(*this, *parentWebFrame, localFrameCreationParameters.frameIdentifier, localFrameCreationParameters.layerHostingContextIdentifier, WTFMove(invalidator));
+
+    loadRequest(WTFMove(loadParameters));
+}
+
 void WebPage::loadRequest(LoadParameters&& loadParameters)
 {
     WEBPAGE_RELEASE_LOG(Loading, "loadRequest: navigationID=%" PRIu64 ", shouldTreatAsContinuingLoad=%u, lastNavigationWasAppInitiated=%d, existingNetworkResourceLoadIdentifierToResume=%" PRIu64, loadParameters.navigationID, static_cast<unsigned>(loadParameters.shouldTreatAsContinuingLoad), loadParameters.request.isAppInitiated(), valueOrDefault(loadParameters.existingNetworkResourceLoadIdentifierToResume).toUInt64());
 
     RefPtr frame = loadParameters.frameIdentifier ? WebProcess::singleton().webFrame(*loadParameters.frameIdentifier) : m_mainFrame.ptr();
-    if (!frame) {
+    if (!frame || is<RemoteFrame>(frame->coreAbstractFrame())) {
         ASSERT_NOT_REACHED();
         return;
     }
@@ -4533,7 +4577,7 @@ void WebPage::detectDataInAllFrames(OptionSet<WebCore::DataDetectorType> dataDet
         RefPtr document = localFrame->document();
         if (!document)
             continue;
-        auto results = retainPtr(DataDetection::detectContentInRange(makeRangeSelectingNodeContents(*document), dataDetectorTypes, m_dataDetectionContext.get()));
+        auto results = retainPtr(DataDetection::detectContentInRange(makeRangeSelectingNodeContents(*document), dataDetectorTypes, m_dataDetectionReferenceDate));
         localFrame->dataDetectionResults().setDocumentLevelResults(results.get());
         if (localFrame->isMainFrame())
             mainFrameResult.results = WTFMove(results);
@@ -5810,6 +5854,12 @@ void WebPage::setCaretAnimatorType(WebCore::CaretAnimatorType caretType)
 {
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     frame->selection().caretAnimatorInvalidated(caretType);
+}
+
+void WebPage::setCaretBlinkingSuspended(bool suspended)
+{
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
+    frame->selection().setCaretBlinkingSuspended(suspended);
 }
 
 RetainPtr<PDFDocument> WebPage::pdfDocumentForPrintingFrame(LocalFrame* coreFrame)

@@ -151,18 +151,13 @@ JSTestDefaultToJSONInherit::JSTestDefaultToJSONInherit(Structure* structure, JSD
 {
 }
 
-void JSTestDefaultToJSONInherit::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONInherit>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSONInherit>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestDefaultToJSONInherit::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestDefaultToJSONInheritPrototype::create(vm, &globalObject, JSTestDefaultToJSONInheritPrototype::createStructure(vm, &globalObject, JSTestDefaultToJSON::prototype(vm, globalObject)));
+    auto* structure = JSTestDefaultToJSONInheritPrototype::createStructure(vm, &globalObject, JSTestDefaultToJSON::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSTestDefaultToJSONInheritPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestDefaultToJSONInherit::prototype(VM& vm, JSDOMGlobalObject& globalObject)

@@ -59,6 +59,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FullscreenManager.h"
+#include "HTMLAudioElement.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSourceElement.h"
 #include "HTMLTrackElement.h"
@@ -89,6 +90,7 @@
 #include "MediaResourceLoader.h"
 #include "NavigatorMediaDevices.h"
 #include "NetworkingContext.h"
+#include "NodeName.h"
 #include "PODIntervalTree.h"
 #include "PageGroup.h"
 #include "PageInlines.h"
@@ -771,60 +773,62 @@ bool HTMLMediaElement::isInteractiveContent() const
     return controls();
 }
 
-void HTMLMediaElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason reason)
+void HTMLMediaElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-#if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    if (name == webkitwirelessvideoplaybackdisabledAttr)
-        mediaSession().setWirelessVideoPlaybackDisabled(newValue != nullAtom());
-    else
-#endif
-        HTMLElement::attributeChanged(name, oldValue, newValue, reason);
-}
-
-void HTMLMediaElement::parseAttribute(const QualifiedName& name, const AtomString& value)
-{
-    if (name == idAttr)
-        m_id = value;
-
-    if (name == srcAttr) {
+    switch (name.nodeName()) {
+    case AttributeNames::idAttr:
+        m_id = newValue;
+        break;
+    case AttributeNames::srcAttr:
         // https://html.spec.whatwg.org/multipage/embedded-content.html#location-of-the-media-resource
         // Location of the Media Resource
         // 12 February 2017
 
         // If a src attribute of a media element is set or changed, the user
         // agent must invoke the media element's media element load algorithm.
-        if (!value.isNull())
+        if (!newValue.isNull())
             prepareForLoad();
-    } else if (name == controlsAttr)
+        return;
+    case AttributeNames::controlsAttr:
         configureMediaControls();
-    else if (name == loopAttr)
+        return;
+    case AttributeNames::loopAttr:
         updateSleepDisabling();
-    else if (name == preloadAttr) {
-        if (equalLettersIgnoringASCIICase(value, "none"_s))
+        return;
+    case AttributeNames::preloadAttr:
+        if (equalLettersIgnoringASCIICase(newValue, "none"_s))
             m_preload = MediaPlayer::Preload::None;
-        else if (equalLettersIgnoringASCIICase(value, "metadata"_s))
+        else if (equalLettersIgnoringASCIICase(newValue, "metadata"_s))
             m_preload = MediaPlayer::Preload::MetaData;
         else {
             // The spec does not define an "invalid value default" but "auto" is suggested as the
             // "missing value default", so use it for everything except "none" and "metadata"
             m_preload = MediaPlayer::Preload::Auto;
         }
-
         // The attribute must be ignored if the autoplay attribute is present
         if (!autoplay() && !m_havePreparedToPlay && m_player)
             m_player->setPreload(mediaSession().effectivePreloadForElement());
-
-    } else if (name == mediagroupAttr)
-        setMediaGroup(value);
-    else if (name == autoplayAttr) {
+        return;
+    case AttributeNames::mediagroupAttr:
+        setMediaGroup(newValue);
+        return;
+    case AttributeNames::autoplayAttr:
         if (processingUserGestureForMedia())
             removeBehaviorRestrictionsAfterFirstUserGesture();
-    } else if (name == titleAttr) {
+        return;
+    case AttributeNames::titleAttr:
         if (m_mediaSession)
             m_mediaSession->clientCharacteristicsChanged(false);
+        return;
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    case AttributeNames::webkitwirelessvideoplaybackdisabledAttr:
+        mediaSession().setWirelessVideoPlaybackDisabled(newValue != nullAtom());
+        return;
+#endif
+    default:
+        break;
     }
-    else
-        HTMLElement::parseAttribute(name, value);
+    HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
 }
 
 void HTMLMediaElement::finishParsingChildren()
@@ -4516,10 +4520,10 @@ double HTMLMediaElement::percentLoaded() const
 
     MediaTime buffered = MediaTime::zeroTime();
     bool ignored;
-    std::unique_ptr<PlatformTimeRanges> timeRanges = m_player->buffered();
-    for (unsigned i = 0; i < timeRanges->length(); ++i) {
-        MediaTime start = timeRanges->start(i, ignored);
-        MediaTime end = timeRanges->end(i, ignored);
+    auto& timeRanges = m_player->buffered();
+    for (unsigned i = 0; i < timeRanges.length(); ++i) {
+        MediaTime start = timeRanges.start(i, ignored);
+        MediaTime end = timeRanges.end(i, ignored);
         buffered += end - start;
     }
     return buffered.toDouble() / duration.toDouble();
@@ -5733,10 +5737,10 @@ Ref<TimeRanges> HTMLMediaElement::buffered() const
 
 #if ENABLE(MEDIA_SOURCE)
     if (m_mediaSource)
-        return TimeRanges::create(*m_mediaSource->buffered());
+        return TimeRanges::create(m_mediaSource->buffered());
 #endif
 
-    return TimeRanges::create(*m_player->buffered());
+    return TimeRanges::create(m_player->buffered());
 }
 
 double HTMLMediaElement::maxBufferedTime() const
@@ -5770,7 +5774,7 @@ Ref<TimeRanges> HTMLMediaElement::seekable() const
 #endif
 
     if (m_player)
-        return TimeRanges::create(*m_player->seekable());
+        return TimeRanges::create(m_player->seekable());
 
     return TimeRanges::create();
 }
@@ -7825,22 +7829,18 @@ void HTMLMediaElement::mediaPlayerBufferedTimeRangesChanged()
         if (!m_player || !m_textTracks)
             return;
 
-        std::unique_ptr<PlatformTimeRanges> buffered;
         for (unsigned i = 0; i < m_textTracks->length(); ++i) {
             auto& track = *m_textTracks->item(i);
             if (!track.shouldPurgeCuesFromUnbufferedRanges())
                 continue;
 
-            if (!buffered) {
+            auto& buffered =
 #if ENABLE(MEDIA_SOURCE)
-                if (m_mediaSource)
-                    buffered = m_mediaSource->buffered();
-                else
+                m_mediaSource ? m_mediaSource->buffered() :
 #endif
-                    buffered = m_player->buffered();
+                m_player->buffered();
 
-                track.removeCuesNotInTimeRanges(*buffered);
-            }
+            track.removeCuesNotInTimeRanges(buffered);
         }
     });
 }
@@ -8017,7 +8017,6 @@ bool HTMLMediaElement::ensureMediaControls()
         if (callData.type == JSC::CallData::Type::None)
             return false;
 
-
         auto controllerValue = JSC::call(&lexicalGlobalObject, function, callData, &globalObject, argList);
         RETURN_IF_EXCEPTION(scope, reportExceptionAndReturnFalse());
 
@@ -8060,7 +8059,7 @@ void HTMLMediaElement::setMediaControlsDependOnPageScaleFactor(bool dependsOnPag
 {
     INFO_LOG(LOGIDENTIFIER, dependsOnPageScale);
 
-    if (document().settings().mediaControlsScaleWithPageZoom()) {
+    if (document().settings().mediaControlsScaleWithPageZoom() || (is<HTMLAudioElement>(*this) && document().settings().audioControlsScaleWithPageZoom())) {
         INFO_LOG(LOGIDENTIFIER, "forced to false by Settings value");
         m_mediaControlsDependOnPageScaleFactor = false;
         return;
@@ -8518,7 +8517,7 @@ MediaProducerMediaStateFlags HTMLMediaElement::mediaState() const
     bool streaming = false;
 #if ENABLE(MANAGED_MEDIA_SOURCE)
     RefPtr managedMediasource = is<ManagedMediaSource>(m_mediaSource) ? downcast<ManagedMediaSource>(m_mediaSource.get()) : nullptr;
-    streaming |= managedMediasource && managedMediasource->streaming();
+    streaming |= managedMediasource && managedMediasource->streamingAllowed() && managedMediasource->streaming();
     if (!managedMediasource) {
 #endif
     // We can assume that if we have active source buffers, later networking activity (such as stream or XHR requests) will be media related.

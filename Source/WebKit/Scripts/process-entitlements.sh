@@ -159,6 +159,11 @@ function mac_process_network_entitlements()
             plistbuddy Add :com.apple.private.assets.accessible-asset-types:0 string com.apple.MobileAsset.WebContentRestrictions
         fi
 
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 140000 ))
+        then
+            plistbuddy Add :com.apple.private.ciphermld.allow bool YES
+        fi
+
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications array
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications:0 string LSActivePageUserVisibleOriginsKey
         plistbuddy Add :com.apple.private.launchservices.allowedtochangethesekeysinotherapplications:1 string LSDisplayName
@@ -230,6 +235,7 @@ function mac_process_webcontent_shared_entitlements()
 function mac_process_webpushd_entitlements()
 {
     plistbuddy Add :com.apple.private.aps-connection-initiate bool YES
+    plistbuddy Add :com.apple.private.launchservices.entitledtoaccessothersessions bool YES
 }
 
 # ========================================
@@ -331,6 +337,7 @@ function maccatalyst_process_network_entitlements()
 
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token array
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:0 string kTCCServiceWebKitIntelligentTrackingPrevention
+    plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:1 string kTCCServiceUserTracking
 
     if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
     then
@@ -374,8 +381,11 @@ function ios_family_process_webcontent_shared_entitlements()
 
 function ios_family_process_webcontent_entitlements()
 {
-    plistbuddy Add :com.apple.private.verified-jit bool YES
-    plistbuddy Add :dynamic-codesigning bool YES
+    if [[ "${WK_PLATFORM_NAME}" != watchos ]]
+    then
+        plistbuddy Add :com.apple.private.verified-jit bool YES
+        plistbuddy Add :dynamic-codesigning bool YES
+    fi
 
     ios_family_process_webcontent_shared_entitlements
 }
@@ -454,6 +464,7 @@ function ios_family_process_network_entitlements()
     plistbuddy Add :com.apple.multitasking.systemappassertions bool YES
     plistbuddy Add :com.apple.payment.all-access bool YES
     plistbuddy Add :com.apple.private.accounts.bundleidspoofing bool YES
+    plistbuddy Add :com.apple.private.ciphermld.allow bool YES
     plistbuddy Add :com.apple.private.dmd.policy bool YES
     plistbuddy Add :com.apple.private.memorystatus bool YES
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
@@ -463,6 +474,7 @@ function ios_family_process_network_entitlements()
 
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token array
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:0 string kTCCServiceWebKitIntelligentTrackingPrevention
+    plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:1 string kTCCServiceUserTracking
 
     plistbuddy Add :com.apple.private.appstored array
     plistbuddy Add :com.apple.private.appstored:0 string InstallAttribution

@@ -65,6 +65,7 @@ cap-height
 ch-width
 ic-width
 ic-height
+//from-font
 
 //
 // CSS_PROP_FONT_STYLE:
@@ -1224,6 +1225,11 @@ interlace
 // (forced-colors:) media feature.
 // none
 active
+
+// (overflow-block/inline:) media feature.
+// none
+// scroll
+paged
 
 // blend modes
 // normal

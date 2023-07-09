@@ -36,6 +36,7 @@
 #include "HTMLOptGroupElement.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSelectElement.h"
+#include "NodeName.h"
 #include "NodeRenderStyle.h"
 #include "NodeTraversal.h"
 #include "PseudoClassChangeInvalidation.h"
@@ -173,34 +174,41 @@ int HTMLOptionElement::index() const
     return 0;
 }
 
-void HTMLOptionElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void HTMLOptionElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-#if ENABLE(DATALIST_ELEMENT)
-    if (name == valueAttr) {
-        for (auto& dataList : ancestorsOfType<HTMLDataListElement>(*this))
-            dataList.optionElementChildrenChanged();
-    } else
-#endif
-    if (name == disabledAttr) {
-        bool newDisabled = !value.isNull();
+    switch (name.nodeName()) {
+    case AttributeNames::disabledAttr: {
+        bool newDisabled = !newValue.isNull();
         if (m_disabled != newDisabled) {
             Style::PseudoClassChangeInvalidation disabledInvalidation(*this, { { CSSSelector::PseudoClassDisabled, newDisabled },  { CSSSelector::PseudoClassEnabled, !newDisabled } });
             m_disabled = newDisabled;
             if (renderer() && renderer()->style().hasEffectiveAppearance())
                 renderer()->theme().stateChanged(*renderer(), ControlStates::States::Enabled);
         }
-    } else if (name == selectedAttr) {
+        break;
+    }
+    case AttributeNames::selectedAttr: {
         // FIXME: Use PseudoClassChangeInvalidation in other elements that implement matchesDefaultPseudoClass().
-        Style::PseudoClassChangeInvalidation defaultInvalidation(*this, CSSSelector::PseudoClassDefault, !value.isNull());
-        m_isDefault = !value.isNull();
+        Style::PseudoClassChangeInvalidation defaultInvalidation(*this, CSSSelector::PseudoClassDefault, !newValue.isNull());
+        m_isDefault = !newValue.isNull();
 
         // FIXME: This doesn't match what the HTML specification says.
         // The specification implies that removing the selected attribute or
         // changing the value of a selected attribute that is already present
         // has no effect on whether the element is selected.
-        setSelectedState(!value.isNull());
-    } else
-        HTMLElement::parseAttribute(name, value);
+        setSelectedState(!newValue.isNull());
+        break;
+    }
+#if ENABLE(DATALIST_ELEMENT)
+    case AttributeNames::valueAttr:
+        for (auto& dataList : ancestorsOfType<HTMLDataListElement>(*this))
+            dataList.optionElementChildrenChanged();
+        break;
+#endif
+    default:
+        HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+        break;
+    }
 }
 
 String HTMLOptionElement::value() const

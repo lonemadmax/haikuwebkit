@@ -236,18 +236,13 @@ JSTestPromiseRejectionEvent::JSTestPromiseRejectionEvent(Structure* structure, J
 {
 }
 
-void JSTestPromiseRejectionEvent::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestPromiseRejectionEvent>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestPromiseRejectionEvent>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestPromiseRejectionEvent::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestPromiseRejectionEventPrototype::create(vm, &globalObject, JSTestPromiseRejectionEventPrototype::createStructure(vm, &globalObject, JSEvent::prototype(vm, globalObject)));
+    auto* structure = JSTestPromiseRejectionEventPrototype::createStructure(vm, &globalObject, JSEvent::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSTestPromiseRejectionEventPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestPromiseRejectionEvent::prototype(VM& vm, JSDOMGlobalObject& globalObject)

@@ -57,7 +57,6 @@ namespace WebKit {
 
 class ProvisionalFrameProxy;
 class SafeBrowsingWarning;
-class SubframePageProxy;
 class UserData;
 class WebFramePolicyListenerProxy;
 class WebPageProxy;
@@ -72,7 +71,7 @@ struct FrameTreeCreationParameters;
 struct FrameTreeNodeData;
 struct WebsitePoliciesData;
 
-class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame>, public IPC::MessageReceiver, public IPC::MessageSender {
+class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame>, public IPC::MessageReceiver, public IPC::MessageSender, public CanMakeCheckedPtr {
 public:
     static Ref<WebFrameProxy> create(WebPageProxy& page, WebProcessProxy& process, WebCore::FrameIdentifier frameID)
     {
@@ -152,7 +151,7 @@ public:
     void disconnect();
     void didCreateSubframe(WebCore::FrameIdentifier);
     ProcessID processIdentifier() const;
-    void swapToProcess(Ref<WebProcessProxy>&&, const WebCore::ResourceRequest&);
+    void swapToProcess(Ref<WebProcessProxy>&&, const WebCore::ResourceRequest&, bool didCreateNewProcess);
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
@@ -160,8 +159,6 @@ public:
 
     void getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&&);
     FrameTreeCreationParameters frameTreeCreationParameters() const;
-
-    void updateRemoteFrameSize(WebCore::IntSize);
 
     WebFrameProxy* parentFrame() { return m_parentFrame.get(); }
     WebProcessProxy& process() { return m_process.get(); }
@@ -176,7 +173,6 @@ private:
 
     WeakPtr<WebPageProxy> m_page;
     Ref<WebProcessProxy> m_process;
-    std::unique_ptr<SubframePageProxy> m_subframePage;
     WebCore::PageIdentifier m_webPageID;
 
     FrameLoadState m_frameLoadState;

@@ -155,18 +155,13 @@ JSTestSetLikeWithOverriddenOperations::JSTestSetLikeWithOverriddenOperations(Str
 {
 }
 
-void JSTestSetLikeWithOverriddenOperations::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestSetLikeWithOverriddenOperations>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestSetLikeWithOverriddenOperations>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestSetLikeWithOverriddenOperations::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestSetLikeWithOverriddenOperationsPrototype::create(vm, &globalObject, JSTestSetLikeWithOverriddenOperationsPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestSetLikeWithOverriddenOperationsPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestSetLikeWithOverriddenOperationsPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestSetLikeWithOverriddenOperations::prototype(VM& vm, JSDOMGlobalObject& globalObject)

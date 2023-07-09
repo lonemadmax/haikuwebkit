@@ -41,7 +41,7 @@ struct WebsitePoliciesData;
     
 class WebFrameLoaderClient final : public WebCore::FrameLoaderClient {
 public:
-    explicit WebFrameLoaderClient(Ref<WebFrame>&&);
+    explicit WebFrameLoaderClient(Ref<WebFrame>&&, std::optional<ScopeExit<Function<void()>>>&& = std::nullopt);
     ~WebFrameLoaderClient();
 
     WebFrame& webFrame() const { return m_frame.get(); }
@@ -249,7 +249,7 @@ private:
     
     void willCacheResponse(WebCore::DocumentLoader*, WebCore::ResourceLoaderIdentifier, NSCachedURLResponse*, CompletionHandler<void(NSCachedURLResponse *)>&&) const final;
 
-    NSDictionary *dataDetectionContext() final;
+    std::optional<double> dataDetectionReferenceDate() final;
 #endif
 
     void didChangeScrollOffset() final;

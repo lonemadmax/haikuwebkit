@@ -130,18 +130,13 @@ JSTestStringifierOperationNamedToString::JSTestStringifierOperationNamedToString
 {
 }
 
-void JSTestStringifierOperationNamedToString::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestStringifierOperationNamedToString>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestStringifierOperationNamedToString>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestStringifierOperationNamedToString::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestStringifierOperationNamedToStringPrototype::create(vm, &globalObject, JSTestStringifierOperationNamedToStringPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestStringifierOperationNamedToStringPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestStringifierOperationNamedToStringPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestStringifierOperationNamedToString::prototype(VM& vm, JSDOMGlobalObject& globalObject)

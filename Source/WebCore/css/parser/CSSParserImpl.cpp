@@ -416,7 +416,7 @@ RefPtr<StyleRuleBase> CSSParserImpl::consumeAtRule(CSSParserTokenRange& range, A
 // https://drafts.csswg.org/css-syntax/#consume-a-qualified-rule
 RefPtr<StyleRuleBase> CSSParserImpl::consumeQualifiedRule(CSSParserTokenRange& range, AllowedRulesType allowedRules)
 {
-    auto isNestedStyleRule = [&]() {
+    auto isNestedStyleRule = [&] {
         return isNestedContext() && allowedRules <= RegularRules;
     };
 
@@ -581,7 +581,7 @@ Vector<RefPtr<StyleRuleBase>> CSSParserImpl::consumeRegularRuleList(CSSParserTok
 {
     Vector<RefPtr<StyleRuleBase>> rules;
     if (isNestedContext()) {
-        runInNewNestingContext([&]() {
+        runInNewNestingContext([&] {
             consumeStyleBlock(block, StyleRuleType::Style, ParsingStyleDeclarationsInRuleList::Yes);
             if (!topContext().m_parsedProperties.isEmpty()) {
                 // This at-rule contains orphan declarations, we attach them to an implicit parent nesting rule. Web
@@ -1105,13 +1105,13 @@ RefPtr<StyleRuleBase> CSSParserImpl::consumeStyleRule(CSSParserTokenRange prelud
 void CSSParserImpl::consumeDeclarationListOrStyleBlockHelper(CSSParserTokenRange range, StyleRuleType ruleType, OnlyDeclarations onlyDeclarations, ParsingStyleDeclarationsInRuleList isParsingStyleDeclarationsInRuleList)
 {
     auto nestedRulesAllowed = [&]() {
-        return m_styleRuleNestingDepth && context().cssNestingEnabled && onlyDeclarations == OnlyDeclarations::No;        
+        return isNestedContext() && onlyDeclarations == OnlyDeclarations::No;        
     };
     
     ASSERT(topContext().m_parsedProperties.isEmpty());
     ASSERT(topContext().m_parsedRules.isEmpty());
 
-    bool useObserver = m_observerWrapper && (ruleType == StyleRuleType::Style || ruleType == StyleRuleType::Keyframe || ruleType == StyleRuleType::CounterStyle);
+    bool useObserver = m_observerWrapper && (ruleType == StyleRuleType::Style || ruleType == StyleRuleType::Keyframe);
     if (useObserver) {
         if (isParsingStyleDeclarationsInRuleList == ParsingStyleDeclarationsInRuleList::No)
             m_observerWrapper->observer().startRuleBody(m_observerWrapper->previousTokenStartOffset(range));

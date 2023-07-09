@@ -51,6 +51,7 @@
 #include "MIMETypeRegistry.h"
 #include "MediaQueryEvaluator.h"
 #include "MouseEvent.h"
+#include "NodeName.h"
 #include "NodeTraversal.h"
 #include "PlatformMouseEvent.h"
 #include "RenderImage.h"
@@ -142,33 +143,52 @@ Ref<HTMLImageElement> HTMLImageElement::createForLegacyFactoryFunction(Document&
 
 bool HTMLImageElement::hasPresentationalHintsForAttribute(const QualifiedName& name) const
 {
-    if (name == widthAttr || name == heightAttr || name == borderAttr || name == vspaceAttr || name == hspaceAttr || name == valignAttr)
+    switch (name.nodeName()) {
+    case AttributeNames::widthAttr:
+    case AttributeNames::heightAttr:
+    case AttributeNames::borderAttr:
+    case AttributeNames::vspaceAttr:
+    case AttributeNames::hspaceAttr:
+    case AttributeNames::valignAttr:
         return true;
+    default:
+        break;
+    }
     return HTMLElement::hasPresentationalHintsForAttribute(name);
 }
 
 void HTMLImageElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
 {
-    if (name == widthAttr) {
+    switch (name.nodeName()) {
+    case AttributeNames::widthAttr:
         addHTMLMultiLengthToStyle(style, CSSPropertyWidth, value);
         applyAspectRatioFromWidthAndHeightAttributesToStyle(value, attributeWithoutSynchronization(heightAttr), style);
-    } else if (name == heightAttr) {
+        break;
+    case AttributeNames::heightAttr:
         addHTMLMultiLengthToStyle(style, CSSPropertyHeight, value);
         applyAspectRatioFromWidthAndHeightAttributesToStyle(attributeWithoutSynchronization(widthAttr), value, style);
-    } else if (name == borderAttr)
+        break;
+    case AttributeNames::borderAttr:
         applyBorderAttributeToStyle(value, style);
-    else if (name == vspaceAttr) {
+        break;
+    case AttributeNames::vspaceAttr:
         addHTMLLengthToStyle(style, CSSPropertyMarginTop, value);
         addHTMLLengthToStyle(style, CSSPropertyMarginBottom, value);
-    } else if (name == hspaceAttr) {
+        break;
+    case AttributeNames::hspaceAttr:
         addHTMLLengthToStyle(style, CSSPropertyMarginLeft, value);
         addHTMLLengthToStyle(style, CSSPropertyMarginRight, value);
-    } else if (name == alignAttr)
+        break;
+    case AttributeNames::alignAttr:
         applyAlignmentAttributeToStyle(value, style);
-    else if (name == valignAttr)
+        break;
+    case AttributeNames::valignAttr:
         addPropertyToPresentationalHintStyle(style, CSSPropertyVerticalAlign, value);
-    else
+        break;
+    default:
         HTMLElement::collectPresentationalHintsForAttribute(name, value, style);
+        break;
+    }
 }
 
 void HTMLImageElement::collectExtraStyleForPresentationalHints(MutableStyleProperties& style)
@@ -329,66 +349,74 @@ static CrossOriginState parseCrossoriginState(const AtomString& crossoriginValue
     return equalLettersIgnoringASCIICase(crossoriginValue, "use-credentials"_s) ? UseCredentials : Anonymous;
 }
 
-void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason reason)
+void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    HTMLElement::attributeChanged(name, oldValue, newValue, reason);
+    HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
 
-    if (name == referrerpolicyAttr && document().settings().referrerPolicyAttributeEnabled()) {
-        auto oldReferrerPolicy = parseReferrerPolicy(oldValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
-        auto newReferrerPolicy = parseReferrerPolicy(newValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
-        if (oldReferrerPolicy != newReferrerPolicy)
-            m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
-    } else if (name == crossoriginAttr) {
-        if (parseCrossoriginState(oldValue) != parseCrossoriginState(newValue))
-            m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
-    }
-}
-
-void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomString& value)
-{
-    if (name == altAttr) {
-        if (is<RenderImage>(renderer()))
-            downcast<RenderImage>(*renderer()).updateAltText();
-    } else if (name == srcAttr || name == srcsetAttr || name == sizesAttr)
+    switch (name.nodeName()) {
+    case AttributeNames::altAttr:
+        if (auto* renderImage = dynamicDowncast<RenderImage>(renderer()))
+            renderImage->updateAltText();
+        break;
+    case AttributeNames::srcAttr:
+    case AttributeNames::srcsetAttr:
+    case AttributeNames::sizesAttr:
         selectImageSource(RelevantMutation::Yes);
-    else if (name == usemapAttr) {
+        break;
+    case AttributeNames::usemapAttr:
         if (isInTreeScope() && !m_parsedUsemap.isNull())
             treeScope().removeImageElementByUsemap(*m_parsedUsemap.impl(), *this);
-
-        m_parsedUsemap = parseHTMLHashNameReference(value);
-
+        m_parsedUsemap = parseHTMLHashNameReference(newValue);
         if (isInTreeScope() && !m_parsedUsemap.isNull())
             treeScope().addImageElementByUsemap(*m_parsedUsemap.impl(), *this);
-    } else if (name == compositeAttr) {
+        break;
+    case AttributeNames::compositeAttr: {
         // FIXME: images don't support blend modes in their compositing attribute.
         BlendMode blendOp = BlendMode::Normal;
-        if (!parseCompositeAndBlendOperator(value, m_compositeOperator, blendOp))
+        if (!parseCompositeAndBlendOperator(newValue, m_compositeOperator, blendOp))
             m_compositeOperator = CompositeOperator::SourceOver;
+        break;
+    }
+    case AttributeNames::loadingAttr:
+        // No action needed for eager to lazy transition.
+        if (!hasLazyLoadableAttributeValue(newValue))
+            loadDeferredImage();
+        break;
+    case AttributeNames::referrerpolicyAttr:
+        if (document().settings().referrerPolicyAttributeEnabled()) {
+            auto oldReferrerPolicy = parseReferrerPolicy(oldValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+            auto newReferrerPolicy = parseReferrerPolicy(newValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+            if (oldReferrerPolicy != newReferrerPolicy)
+                m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
+        }
+        break;
+    case AttributeNames::crossoriginAttr:
+        if (parseCrossoriginState(oldValue) != parseCrossoriginState(newValue))
+            m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
+        break;
+    case AttributeNames::nameAttr: {
+        bool willHaveName = !newValue.isEmpty();
+        if (m_hadNameBeforeAttributeChanged != willHaveName && isConnected() && !isInShadowTree() && is<HTMLDocument>(document())) {
+            HTMLDocument& document = downcast<HTMLDocument>(this->document());
+            const AtomString& id = getIdAttribute();
+            if (!id.isEmpty() && id != getNameAttribute()) {
+                if (willHaveName)
+                    document.addDocumentNamedItem(*id.impl(), *this);
+                else
+                    document.removeDocumentNamedItem(*id.impl(), *this);
+            }
+        }
+        m_hadNameBeforeAttributeChanged = willHaveName;
+        break;
+    }
+    default:
+        break;
+    }
+
 #if ENABLE(SERVICE_CONTROLS)
-    } else if (isImageMenuEnabled()) {
+    if (isImageMenuEnabled())
         ImageControlsMac::updateImageControls(*this);
 #endif
-    } else if (name == loadingAttr) {
-        // No action needed for eager to lazy transition.
-        if (!hasLazyLoadableAttributeValue(value))
-            loadDeferredImage();
-    } else {
-        if (name == nameAttr) {
-            bool willHaveName = !value.isEmpty();
-            if (m_hadNameBeforeAttributeChanged != willHaveName && isConnected() && !isInShadowTree() && is<HTMLDocument>(document())) {
-                HTMLDocument& document = downcast<HTMLDocument>(this->document());
-                const AtomString& id = getIdAttribute();
-                if (!id.isEmpty() && id != getNameAttribute()) {
-                    if (willHaveName)
-                        document.addDocumentNamedItem(*id.impl(), *this);
-                    else
-                        document.removeDocumentNamedItem(*id.impl(), *this);
-                }
-            }
-            m_hadNameBeforeAttributeChanged = willHaveName;
-        }
-        HTMLElement::parseAttribute(name, value);
-    }
 }
 
 void HTMLImageElement::loadDeferredImage()

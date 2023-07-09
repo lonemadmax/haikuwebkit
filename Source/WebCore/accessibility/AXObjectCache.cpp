@@ -671,7 +671,7 @@ Ref<AccessibilityObject> AXObjectCache::createObjectFromRenderer(RenderObject* r
     return AccessibilityRenderObject::create(renderer);
 }
 
-static Ref<AccessibilityObject> createFromNode(Node* node)
+static Ref<AccessibilityObject> createFromNode(Node& node)
 {
     return AccessibilityNodeObject::create(node);
 }
@@ -767,20 +767,20 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node* node)
     if (inCanvasSubtree)
         node->document().updateStyleIfNeeded();
 
-    RefPtr<AccessibilityObject> newObj = createFromNode(node);
+    RefPtr<AccessibilityObject> newObject = createFromNode(*node);
 
     // Will crash later if we have two objects for the same node.
     ASSERT(!get(node));
 
-    cacheAndInitializeWrapper(newObj.get(), node);
+    cacheAndInitializeWrapper(newObject.get(), node);
     // Compute the object's initial ignored status.
-    newObj->recomputeIsIgnored();
+    newObject->recomputeIsIgnored();
     // Sometimes asking accessibilityIsIgnored() will cause the newObject to be deallocated, and then
     // it will disappear when this function is finished, leading to a use-after-free.
-    if (newObj->isDetached())
+    if (newObject->isDetached())
         return nullptr;
     
-    return newObj.get();
+    return newObject.get();
 }
 
 AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
@@ -2190,7 +2190,7 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         postNotification(element, AXHasPopupChanged);
     else if (attrName == aria_hiddenAttr) {
         if (RefPtr parent = get(element->parentNode()))
-            handleChildrenChanged(*parent);
+            childrenChanged(parent.get());
 
         if (m_currentModalElement && m_currentModalElement->isDescendantOf(element)) {
             m_modalNodesInitialized = false;
@@ -2660,6 +2660,9 @@ bool AXObjectCache::shouldSkipBoundary(const CharacterOffset& previous, const Ch
 
 TextMarkerData AXObjectCache::textMarkerDataForNextCharacterOffset(const CharacterOffset& characterOffset)
 {
+    if (characterOffset.isNull())
+        return { };
+
     TextMarkerData data;
     auto next = characterOffset;
     auto previous = characterOffset;
@@ -2667,8 +2670,14 @@ TextMarkerData AXObjectCache::textMarkerDataForNextCharacterOffset(const Charact
     do {
         shouldContinue = false;
         next = nextCharacterOffset(next, false);
+        if (next.isNull())
+            return { };
+
         if (shouldSkipBoundary(previous, next))
             next = nextCharacterOffset(next, false);
+        if (next.isNull() || next.isEqual(previous))
+            return { };
+
         data = textMarkerDataForCharacterOffset(next);
 
         // We should skip next CharacterOffset if it's visually the same.
@@ -2688,6 +2697,9 @@ AXTextMarker AXObjectCache::nextTextMarker(const AXTextMarker& marker)
 
 TextMarkerData AXObjectCache::textMarkerDataForPreviousCharacterOffset(const CharacterOffset& characterOffset)
 {
+    if (characterOffset.isNull())
+        return { };
+
     TextMarkerData data;
     auto previous = characterOffset;
     auto next = characterOffset;
@@ -2695,6 +2707,9 @@ TextMarkerData AXObjectCache::textMarkerDataForPreviousCharacterOffset(const Cha
     do {
         shouldContinue = false;
         previous = previousCharacterOffset(previous, false);
+        if (previous.isNull() || previous.isEqual(next))
+            return { };
+
         data = textMarkerDataForCharacterOffset(previous);
 
         // We should skip previous CharacterOffset if it's visually the same.

@@ -1781,6 +1781,7 @@ Bug(GTK) fast/events/wheel/platform-wheelevent-paging-y-in-non-scrolling-div.htm
 Bug(GTK) fast/events/wheel/platform-wheelevent-paging-y-in-non-scrolling-page.html [ Failure ]
 Bug(GTK) fast/events/wheel/platform-wheelevent-paging-y-in-scrolling-div.html [ Failure ]
 Bug(GTK) fast/events/wheel/platform-wheelevent-paging-y-in-scrolling-page.html [ Failure ]
+css3/scroll-snap/resnap-after-layout.html [ Skip ]
 
 # Need to add functionality to DumpRenderTree to handle scrollbar policy changes
 Bug(GTK) fast/overflow/scrollbar-restored-and-then-locked.html [ Failure ]
@@ -2158,13 +2159,7 @@ webkit.org/b/234782 imported/w3c/web-platform-tests/css/css-writing-modes/text-s
 imported/w3c/web-platform-tests/css/css-pseudo/selection-background-painting-order.html [ ImageOnlyFailure ]
 
 # Failing preload tests
-imported/w3c/web-platform-tests/preload/link-header-preload-nonce.html [ Failure ]
 imported/w3c/web-platform-tests/preload/onerror-event.html [ Failure ]
-imported/w3c/web-platform-tests/preload/prefetch-headers.html [ Failure ]
-imported/w3c/web-platform-tests/preload/prefetch-types.html [ Failure ]
-imported/w3c/web-platform-tests/preload/preload-csp.sub.html [ Failure ]
-imported/w3c/web-platform-tests/preload/preload-default-csp.sub.html [ Failure ]
-imported/w3c/web-platform-tests/preload/preload-dynamic-csp.html [ Failure ]
 imported/w3c/web-platform-tests/preload/preload-font-crossorigin.html [ Failure ]
 imported/w3c/web-platform-tests/preload/preload-time-to-fetch.https.html [ Failure ]
 imported/w3c/web-platform-tests/preload/preload-type-match.html [ Failure ]

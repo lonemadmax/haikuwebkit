@@ -72,6 +72,7 @@ AccessCase::AccessCase(VM& vm, JSCell* owner, AccessType type, CacheableIdentifi
 Ref<AccessCase> AccessCase::create(VM& vm, JSCell* owner, AccessType type, CacheableIdentifier identifier, PropertyOffset offset, Structure* structure, const ObjectPropertyConditionSet& conditionSet, RefPtr<PolyProtoAccessChain>&& prototypeAccessChain)
 {
     switch (type) {
+    case LoadMegamorphic:
     case InHit:
     case InMiss:
     case DeleteNonConfigurable:
@@ -137,7 +138,22 @@ Ref<AccessCase> AccessCase::create(VM& vm, JSCell* owner, AccessType type, Cache
     case IndexedResizableTypedArrayFloat64Store:
         RELEASE_ASSERT(!prototypeAccessChain);
         break;
-    default:
+    case Load:
+    case Miss:
+    case Delete:
+    case Transition:
+    case GetGetter:
+    case Getter:
+    case Setter:
+    case CustomValueGetter:
+    case CustomValueSetter:
+    case CustomAccessorGetter:
+    case CustomAccessorSetter:
+    case IntrinsicGetter:
+    case InstanceOfHit:
+    case InstanceOfMiss:
+    case CheckPrivateBrand:
+    case SetPrivateBrand:
         RELEASE_ASSERT_NOT_REACHED();
     };
 
@@ -215,10 +231,10 @@ Ref<AccessCase> AccessCase::createSetPrivateBrand(
     return adoptRef(*new AccessCase(vm, owner, SetPrivateBrand, identifier, invalidOffset, newStructure, { }, { }));
 }
 
-Ref<AccessCase> AccessCase::createReplace(VM& vm, JSCell* owner, CacheableIdentifier identifier, PropertyOffset offset, Structure* oldStructure, bool viaProxy)
+Ref<AccessCase> AccessCase::createReplace(VM& vm, JSCell* owner, CacheableIdentifier identifier, PropertyOffset offset, Structure* oldStructure, bool viaGlobalProxy)
 {
     auto result = adoptRef(*new AccessCase(vm, owner, Replace, identifier, offset, oldStructure, { }, { }));
-    result->m_viaProxy = viaProxy;
+    result->m_viaGlobalProxy = viaGlobalProxy;
     return result;
 }
 
@@ -314,13 +330,14 @@ bool AccessCase::guardedByStructureCheck(const StructureStubInfo& stubInfo) cons
 
 bool AccessCase::guardedByStructureCheckSkippingConstantIdentifierCheck() const
 {
-    if (viaProxy())
+    if (viaGlobalProxy())
         return false;
 
     if (m_polyProtoAccessChain)
         return false;
 
     switch (m_type) {
+    case LoadMegamorphic:
     case ArrayLength:
     case StringLength:
     case DirectArgumentsLength:
@@ -380,16 +397,36 @@ bool AccessCase::guardedByStructureCheckSkippingConstantIdentifierCheck() const
     case IndexedResizableTypedArrayFloat32Store:
     case IndexedResizableTypedArrayFloat64Store:
         return false;
+    case Load:
+    case Miss:
+    case Delete:
+    case DeleteNonConfigurable:
+    case DeleteMiss:
+    case Replace:
     case IndexedNoIndexingMiss:
-    default:
+    case Transition:
+    case GetGetter:
+    case Getter:
+    case Setter:
+    case CustomValueGetter:
+    case CustomValueSetter:
+    case CustomAccessorGetter:
+    case CustomAccessorSetter:
+    case InHit:
+    case InMiss:
+    case IntrinsicGetter:
+    case CheckPrivateBrand:
+    case SetPrivateBrand:
         return true;
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 bool AccessCase::requiresIdentifierNameMatch() const
 {
     switch (m_type) {
     case Load:
+    case LoadMegamorphic:
     // We don't currently have a by_val for these puts, but we do care about the identifier.
     case Transition:
     case Delete:
@@ -478,6 +515,7 @@ bool AccessCase::requiresInt32PropertyCheck() const
 {
     switch (m_type) {
     case Load:
+    case LoadMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -565,6 +603,7 @@ bool AccessCase::needsScratchFPR() const
 {
     switch (m_type) {
     case Load:
+    case LoadMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -705,6 +744,7 @@ void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
     case CustomAccessorGetter:
     case CustomAccessorSetter:
     case Load:
+    case LoadMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -799,6 +839,7 @@ bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) cons
     case DeleteNonConfigurable:
     case DeleteMiss:
     case Load:
+    case LoadMegamorphic:
     case Miss:
     case GetGetter:
     case InHit:
@@ -864,7 +905,7 @@ bool AccessCase::doesCalls(VM& vm, Vector<JSCell*>* cellsToMarkIfDoesCalls) cons
         doesCalls = false;
         break;
     case Replace:
-        doesCalls = viaProxy();
+        doesCalls = viaGlobalProxy();
         break;
     }
 
@@ -901,7 +942,7 @@ bool AccessCase::canReplace(const AccessCase& other) const
     if (m_identifier != other.m_identifier)
         return false;
 
-    if (viaProxy() != other.viaProxy())
+    if (viaGlobalProxy() != other.viaGlobalProxy())
         return false;
 
     auto checkPolyProtoAndStructure = [&] {
@@ -922,6 +963,7 @@ bool AccessCase::canReplace(const AccessCase& other) const
     };
     
     switch (type()) {
+    case LoadMegamorphic:
     case IndexedInt32Load:
     case IndexedDoubleLoad:
     case IndexedContiguousLoad:
@@ -1129,6 +1171,7 @@ template<typename Func>
 inline void AccessCase::runWithDowncast(const Func& func)
 {
     switch (m_type) {
+    case LoadMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:
@@ -1255,7 +1298,7 @@ bool AccessCase::canBeShared(const AccessCase& lhs, const AccessCase& rhs)
         return false;
     if (lhs.m_offset != rhs.m_offset)
         return false;
-    if (lhs.m_viaProxy != rhs.m_viaProxy)
+    if (lhs.m_viaGlobalProxy != rhs.m_viaGlobalProxy)
         return false;
     if (lhs.m_structureID.get() != rhs.m_structureID.get())
         return false;
@@ -1266,6 +1309,7 @@ bool AccessCase::canBeShared(const AccessCase& lhs, const AccessCase& rhs)
 
     switch (lhs.m_type) {
     case Load:
+    case LoadMegamorphic:
     case Transition:
     case Delete:
     case DeleteNonConfigurable:

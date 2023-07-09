@@ -4037,13 +4037,6 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
         else if (!renderer.isOutOfFlowPositioned())
             renderer.clearNeedsLayout();
 
-        if (is<RenderCounter>(renderer)) {
-            // The counter content gets updated unconventionally by involving computePreferredLogicalWidths() (see RenderCounter::updateCounter())
-            // Here we assume that every time the content of a counter changes, we already handled the update by re-constructing the associated InlineTextBox (see BoxTree::buildTreeForInlineContent).
-            if (renderer.preferredLogicalWidthsDirty())
-                downcast<RenderCounter>(renderer).updateCounter();
-            continue;
-        }
         if (is<RenderCombineText>(renderer)) {
             downcast<RenderCombineText>(renderer).combineTextIfNeeded();
             continue;
@@ -4117,8 +4110,8 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
     updateRepaintTopAndBottomIfNeeded();
 
     setLogicalHeight(newBorderBoxBottom);
-    if (layoutState.hasLineClamp())
-        layoutState.setVisibleLineCountForLineClamp(layoutState.visibleLineCountForLineClamp().value_or(0) + layoutFormattingContextLineLayout.lineCount());
+    if (auto lineClamp = layoutState.lineClamp())
+        layoutState.setLineClamp(RenderLayoutState::LineClamp { lineClamp->maximumLineCount, lineClamp->currentLineCount + layoutFormattingContextLineLayout.lineCount() });
 }
 
 #if ENABLE(TREE_DEBUGGING)
@@ -4927,8 +4920,12 @@ bool RenderBlockFlow::tryComputePreferredWidthsUsingModernPath(LayoutUnit& minLo
     modernLineLayout()->updateInlineContentDimensions();
 
     std::tie(minLogicalWidth, maxLogicalWidth) = modernLineLayout()->computeIntrinsicWidthConstraints();
-    for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance())
-        walker.current()->setPreferredLogicalWidthsDirty(false);
+    for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
+        auto* renderer = walker.current();
+        renderer->setPreferredLogicalWidthsDirty(false);
+        if (auto* renderText = dynamicDowncast<RenderText>(renderer))
+            renderText->resetMinMaxWidth();
+    }
     return true;
 }
 

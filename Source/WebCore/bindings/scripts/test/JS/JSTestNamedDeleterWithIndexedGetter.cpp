@@ -126,18 +126,13 @@ JSTestNamedDeleterWithIndexedGetter::JSTestNamedDeleterWithIndexedGetter(Structu
 {
 }
 
-void JSTestNamedDeleterWithIndexedGetter::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedDeleterWithIndexedGetter>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamedDeleterWithIndexedGetter>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestNamedDeleterWithIndexedGetter::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNamedDeleterWithIndexedGetterPrototype::create(vm, &globalObject, JSTestNamedDeleterWithIndexedGetterPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestNamedDeleterWithIndexedGetterPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestNamedDeleterWithIndexedGetterPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNamedDeleterWithIndexedGetter::prototype(VM& vm, JSDOMGlobalObject& globalObject)

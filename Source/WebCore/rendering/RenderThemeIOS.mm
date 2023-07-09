@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -342,6 +342,7 @@ void RenderThemeIOS::adjustStyleForAlternateFormControlDesignTransition(RenderSt
 void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element* element) const
 {
     adjustStyleForAlternateFormControlDesignTransition(style, element);
+    adjustMinimumIntrinsicSizeForAppearance(StyleAppearance::Checkbox, style);
 
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
@@ -488,9 +489,19 @@ bool RenderThemeIOS::isControlStyled(const RenderStyle& style, const RenderStyle
     return RenderTheme::isControlStyled(style, userAgentStyle);
 }
 
+void RenderThemeIOS::adjustMinimumIntrinsicSizeForAppearance(StyleAppearance appearance, RenderStyle& style) const
+{
+    auto minControlSize = Theme::singleton().minimumControlSize(appearance, style.fontCascade(), { style.minWidth(), style.minHeight() }, { style.width(), style.height() }, style.effectiveZoom());
+    if (minControlSize.width.value() > style.minWidth().value())
+        style.setMinWidth(WTFMove(minControlSize.width));
+    if (minControlSize.height.value() > style.minHeight().value())
+        style.setMinHeight(WTFMove(minControlSize.height));
+}
+
 void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element* element) const
 {
     adjustStyleForAlternateFormControlDesignTransition(style, element);
+    adjustMinimumIntrinsicSizeForAppearance(StyleAppearance::Radio, style);
 
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
@@ -1550,9 +1561,9 @@ Color RenderThemeIOS::controlTintColor(const RenderStyle& style, OptionSet<Style
 
 RenderThemeIOS::IconAndSize RenderThemeIOS::iconForAttachment(const String& fileName, const String& attachmentType, const String& title)
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     auto documentInteractionController = adoptNS([PAL::allocUIDocumentInteractionControllerInstance() init]);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     [documentInteractionController setName:fileName.isEmpty() ? title : fileName];
 

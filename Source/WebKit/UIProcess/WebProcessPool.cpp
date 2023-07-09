@@ -56,6 +56,7 @@
 #include "PerActivityStateCPUUsageSampler.h"
 #include "RemoteWorkerType.h"
 #include "SandboxExtension.h"
+#include "SubframePageProxy.h"
 #include "SuspendedPageProxy.h"
 #include "TextChecker.h"
 #include "UIGamepad.h"
@@ -1809,49 +1810,74 @@ void WebProcessPool::removeProcessFromOriginCacheSet(WebProcessProxy& process)
     });
 }
 
-void WebProcessPool::processForNavigation(WebPageProxy& page, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& sourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, const String&)>&& completionHandler)
+void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& frame, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& sourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral, DidCreateNewProcess)>&& completionHandler)
 {
-    processForNavigationInternal(page, navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, dataStore.copyRef(), [this, protectedThis = Ref { *this }, page = Ref { page }, navigation = Ref { navigation }, sourceProcess = sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, dataStore, frameInfo, lockdownMode, completionHandler = WTFMove(completionHandler)](Ref<WebProcessProxy>&& process, SuspendedPageProxy* suspendedPage, const String& reason) mutable {
-        // We are process-swapping so automatic process prewarming would be beneficial if the client has not explicitly enabled / disabled it.
-        bool doingAnAutomaticProcessSwap = processSwapRequestedByClient == ProcessSwapRequestedByClient::No && process.ptr() != sourceProcess.ptr();
-        if (doingAnAutomaticProcessSwap && !configuration().wasAutomaticProcessWarmingSetByClient() && !configuration().clientWouldBenefitFromAutomaticProcessPrewarming()) {
-            WEBPROCESSPOOL_RELEASE_LOG(PerformanceLogging, "processForNavigation: Automatically turning on process prewarming because the client would benefit from it");
-            configuration().setClientWouldBenefitFromAutomaticProcessPrewarming(true);
-        }
-
-        if (m_configuration->alwaysKeepAndReuseSwappedProcesses() && process.ptr() != sourceProcess.ptr()) {
-            static std::once_flag onceFlag;
-            std::call_once(onceFlag, [] {
-                WTFLogAlways("WARNING: The option to always keep swapped web processes alive is active. This is meant for debugging and testing only.");
-            });
-
-            addProcessToOriginCacheSet(sourceProcess, sourceURL);
-
-            LOG(ProcessSwapping, "(ProcessSwapping) Navigating from %s to %s, keeping around old process. Now holding on to old processes for %u origins.", sourceURL.string().utf8().data(), navigation->currentRequest().url().string().utf8().data(), m_swappedProcessesPerRegistrableDomain.size());
-        }
-
-        auto loadedWebArchive = LoadedWebArchive::No;
-#if ENABLE(WEB_ARCHIVE)
-        if (auto& substituteData = navigation->substituteData(); substituteData && equalIgnoringASCIICase(substituteData->MIMEType, "application/x-webarchive"_s))
-            loadedWebArchive = LoadedWebArchive::Yes;
-#endif
-
-        auto processIdentifier = process->coreProcessIdentifier();
-        auto preventProcessShutdownScope = process->shutdownPreventingScope();
-        page->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(processIdentifier, RegistrableDomain(navigation->currentRequest().url()), loadedWebArchive), [this, protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler), page, navigation, process = WTFMove(process), preventProcessShutdownScope = WTFMove(preventProcessShutdownScope), suspendedPage = WTFMove(suspendedPage), reason, dataStore = WTFMove(dataStore), frameInfo, sourceProcess = WTFMove(sourceProcess), sourceURL, lockdownMode, processSwapRequestedByClient] () mutable {
-            // Since the IPC is asynchronous, make sure the destination process and suspended page are still valid.
-            if (process->state() == AuxiliaryProcessProxy::State::Terminated) {
-                processForNavigation(page, navigation, WTFMove(sourceProcess), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, WTFMove(dataStore), WTFMove(completionHandler));
+    if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
+        auto registrableDomain = RegistrableDomain { navigation.currentRequest().url() };
+        if (!registrableDomain.isEmpty()) {
+            if (auto* subframePageProxy = page.subpageFrameProxyForRegistrableDomain(registrableDomain)) {
+                completionHandler(Ref { subframePageProxy->process() }, nullptr, "Found process for the same registration domain"_s, DidCreateNewProcess::No);
                 return;
             }
-            if (suspendedPage && (!navigation->targetItem() || suspendedPage != navigation->targetItem()->suspendedPage()))
-                suspendedPage = nullptr;
-            completionHandler(WTFMove(process), suspendedPage, reason);
+        }
+    }
+
+    auto [process, suspendedPage, reason] = processForNavigationInternal(page, navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, dataStore.copyRef());
+
+    if (page.preferences().siteIsolationEnabled()) {
+        auto registrableDomain = RegistrableDomain(navigation.currentRequest().url());
+        if (!registrableDomain.isEmpty()) {
+            auto subFramePageProxy = makeUniqueRef<SubframePageProxy>(page, process, frame.isMainFrame());
+            page.addSubframePageProxyForFrameID(frame.frameID(), registrableDomain, WTFMove(subFramePageProxy));
+        }
+    }
+
+    // We are process-swapping so automatic process prewarming would be beneficial if the client has not explicitly enabled / disabled it.
+    bool doingAnAutomaticProcessSwap = processSwapRequestedByClient == ProcessSwapRequestedByClient::No && process.ptr() != sourceProcess.ptr();
+    if (doingAnAutomaticProcessSwap && !configuration().wasAutomaticProcessWarmingSetByClient() && !configuration().clientWouldBenefitFromAutomaticProcessPrewarming()) {
+        WEBPROCESSPOOL_RELEASE_LOG(PerformanceLogging, "processForNavigation: Automatically turning on process prewarming because the client would benefit from it");
+        configuration().setClientWouldBenefitFromAutomaticProcessPrewarming(true);
+    }
+
+    if (m_configuration->alwaysKeepAndReuseSwappedProcesses() && process.ptr() != sourceProcess.ptr()) {
+        static std::once_flag onceFlag;
+        std::call_once(onceFlag, [] {
+            WTFLogAlways("WARNING: The option to always keep swapped web processes alive is active. This is meant for debugging and testing only.");
         });
+
+        addProcessToOriginCacheSet(sourceProcess, sourceURL);
+
+        LOG(ProcessSwapping, "(ProcessSwapping) Navigating from %s to %s, keeping around old process. Now holding on to old processes for %u origins.", sourceURL.string().utf8().data(), navigation.currentRequest().url().string().utf8().data(), m_swappedProcessesPerRegistrableDomain.size());
+    }
+
+    auto loadedWebArchive = LoadedWebArchive::No;
+#if ENABLE(WEB_ARCHIVE)
+    if (auto& substituteData = navigation.substituteData(); substituteData && equalIgnoringASCIICase(substituteData->MIMEType, "application/x-webarchive"_s))
+        loadedWebArchive = LoadedWebArchive::Yes;
+#endif
+
+    auto processIdentifier = process->coreProcessIdentifier();
+    auto preventProcessShutdownScope = process->shutdownPreventingScope();
+    auto callCompletionHandler = [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), page = Ref { page }, frame = Ref { frame }, navigation = Ref { navigation }, process = WTFMove(process), preventProcessShutdownScope = WTFMove(preventProcessShutdownScope), reason = reason, dataStore = WTFMove(dataStore), frameInfo, sourceProcess = WTFMove(sourceProcess), sourceURL, lockdownMode, processSwapRequestedByClient](SuspendedPageProxy* suspendedPage) mutable {
+        // Since the IPC is asynchronous, make sure the destination process and suspended page are still valid.
+        if (process->state() == AuxiliaryProcessProxy::State::Terminated) {
+            processForNavigation(page, frame, navigation, WTFMove(sourceProcess), sourceURL, processSwapRequestedByClient, lockdownMode, frameInfo, WTFMove(dataStore), WTFMove(completionHandler));
+            return;
+        }
+        if (suspendedPage && (!navigation->targetItem() || suspendedPage != navigation->targetItem()->suspendedPage()))
+            suspendedPage = nullptr;
+        completionHandler(WTFMove(process), suspendedPage, reason, DidCreateNewProcess::Yes);
+    };
+
+    page.websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(processIdentifier, RegistrableDomain(navigation.currentRequest().url()), loadedWebArchive), [callCompletionHandler = WTFMove(callCompletionHandler), suspendedPage = WeakPtr { suspendedPage }] () mutable {
+        if (suspendedPage)
+            suspendedPage->waitUntilReadyToUnsuspend(WTFMove(callCompletionHandler));
+        else
+            callCompletionHandler(suspendedPage.get());
     });
 }
 
-void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& pageSourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, const String&)>&& completionHandler)
+std::tuple<Ref<WebProcessProxy>, SuspendedPageProxy*, ASCIILiteral> WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& pageSourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore)
 {
     auto& targetURL = navigation.currentRequest().url();
     auto targetRegistrableDomain = WebCore::RegistrableDomain { targetURL };
@@ -1861,43 +1887,37 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
     };
 
     if (usesSingleWebProcess())
-        return completionHandler(WTFMove(sourceProcess), nullptr, "Single WebProcess mode is enabled"_s);
+        return { WTFMove(sourceProcess), nullptr, "Single WebProcess mode is enabled"_s };
 
     if (sourceProcess->lockdownMode() != lockdownMode)
-        return completionHandler(createNewProcess(), nullptr, "Process swap due to Lockdown mode change"_s);
+        return { createNewProcess(), nullptr, "Process swap due to Lockdown mode change"_s };
 
     if (processSwapRequestedByClient == ProcessSwapRequestedByClient::Yes)
-        return completionHandler(createNewProcess(), nullptr, "Process swap was requested by the client"_s);
+        return { createNewProcess(), nullptr, "Process swap was requested by the client"_s };
 
     if (!m_configuration->processSwapsOnNavigation())
-        return completionHandler(WTFMove(sourceProcess), nullptr, "Feature is disabled"_s);
+        return { WTFMove(sourceProcess), nullptr, "Feature is disabled"_s };
 
     if (m_automationSession)
-        return completionHandler(WTFMove(sourceProcess), nullptr, "An automation session is active"_s);
+        return { WTFMove(sourceProcess), nullptr, "An automation session is active"_s };
 
     if (!sourceProcess->hasCommittedAnyProvisionalLoads()) {
         tryPrewarmWithDomainInformation(sourceProcess, targetRegistrableDomain);
-        return completionHandler(WTFMove(sourceProcess), nullptr, "Process has not yet committed any provisional loads"_s);
+        return { WTFMove(sourceProcess), nullptr, "Process has not yet committed any provisional loads"_s };
     }
 
     // FIXME: We should support process swap when a window has been opened via window.open() without 'noopener'.
     // The issue is that the opener has a handle to the WindowProxy.
     if (navigation.openedByDOMWithOpener() && !m_configuration->processSwapsOnWindowOpenWithOpener())
-        return completionHandler(WTFMove(sourceProcess), nullptr, "Browsing context been opened by DOM without 'noopener'"_s);
+        return { WTFMove(sourceProcess), nullptr, "Browsing context been opened by DOM without 'noopener'"_s };
 
     // FIXME: We should support process swap when a window has opened other windows via window.open.
     if (navigation.hasOpenedFrames())
-        return completionHandler(WTFMove(sourceProcess), nullptr, "Browsing context has opened other windows"_s);
+        return { WTFMove(sourceProcess), nullptr, "Browsing context has opened other windows"_s };
 
     if (auto* targetItem = navigation.targetItem()) {
-        if (auto* suspendedPage = targetItem->suspendedPage()) {
-            return suspendedPage->waitUntilReadyToUnsuspend([createNewProcess = WTFMove(createNewProcess), completionHandler = WTFMove(completionHandler)](SuspendedPageProxy* suspendedPage) mutable {
-                if (!suspendedPage)
-                    return completionHandler(createNewProcess(), nullptr, "Using new process because target back/forward item's suspended page is not reusable"_s);
-                Ref<WebProcessProxy> process = suspendedPage->process();
-                completionHandler(WTFMove(process), suspendedPage, "Using target back/forward item's process and suspended page"_s);
-            });
-        }
+        if (auto* suspendedPage = targetItem->suspendedPage())
+            return { suspendedPage->process(), suspendedPage, "Using target back/forward item's process and suspended page"_s };
 
         if (auto process = WebProcessProxy::processForIdentifier(targetItem->lastProcessIdentifier())) {
             if (process->state() != WebProcessProxy::State::Terminated) {
@@ -1907,7 +1927,7 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
                     ASSERT(!process->isInProcessCache());
                 }
 
-                return completionHandler(process.releaseNonNull(), nullptr, "Using target back/forward item's process"_s);
+                return { process.releaseNonNull(), nullptr, "Using target back/forward item's process"_s };
             }
         }
     }
@@ -1917,10 +1937,10 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
     // Note that we currently do not process swap if the window popup has a name. In theory, we should be able to swap in this case too
     // but we would need to transfer over the name to the new process. At this point, it is not clear it is worth the extra complexity.
     if (page.openedByDOM() && !navigation.openedByDOMWithOpener() && !page.hasCommittedAnyProvisionalLoads() && frameInfo.frameName.isEmpty() && !targetURL.protocolIsBlob())
-        return completionHandler(createNewProcess(), nullptr, "Process swap because this is a first navigation in a DOM popup without opener"_s);
+        return { createNewProcess(), nullptr, "Process swap because this is a first navigation in a DOM popup without opener"_s };
 
     if (navigation.treatAsSameOriginNavigation())
-        return completionHandler(WTFMove(sourceProcess), nullptr, "The treatAsSameOriginNavigation flag is set"_s);
+        return { WTFMove(sourceProcess), nullptr, "The treatAsSameOriginNavigation flag is set"_s };
 
     URL sourceURL;
     if (page.isPageOpenedByDOMShowingInitialEmptyDocument() && !navigation.requesterOrigin().isNull())
@@ -1935,12 +1955,12 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
 
     // For non-HTTP(s) URLs, we only swap when navigating to a new scheme, unless processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol is set.
     if (!m_configuration->processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol() && !sourceURL.protocolIsInHTTPFamily() && sourceURL.protocol() == targetURL.protocol())
-        return completionHandler(WTFMove(sourceProcess), nullptr, "Navigation within the same non-HTTP(s) protocol"_s);
+        return { WTFMove(sourceProcess), nullptr, "Navigation within the same non-HTTP(s) protocol"_s };
 
     if (!sourceURL.isValid() || !targetURL.isValid() || sourceURL.isEmpty() || sourceURL.protocolIsAbout() || targetRegistrableDomain.matches(sourceURL))
-        return completionHandler(WTFMove(sourceProcess), nullptr, "Navigation is same-site"_s);
+        return { WTFMove(sourceProcess), nullptr, "Navigation is same-site"_s };
 
-    String reason = "Navigation is cross-site"_s;
+    auto reason = "Navigation is cross-site"_s;
     
     if (m_configuration->alwaysKeepAndReuseSwappedProcesses()) {
         LOG(ProcessSwapping, "(ProcessSwapping) Considering re-use of a previously cached process for domain %s", targetRegistrableDomain.string().utf8().data());
@@ -1949,12 +1969,12 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
             if (process->websiteDataStore() == dataStore.ptr()) {
                 LOG(ProcessSwapping, "(ProcessSwapping) Reusing a previously cached process with pid %i to continue navigation to URL %s", process->processIdentifier(), targetURL.string().utf8().data());
 
-                return completionHandler(*process, nullptr, reason);
+                return { *process, nullptr, reason };
             }
         }
     }
 
-    return completionHandler(createNewProcess(), nullptr, reason);
+    return { createNewProcess(), nullptr, reason };
 }
 
 void WebProcessPool::addMockMediaDevice(const MockMediaDevice& device)

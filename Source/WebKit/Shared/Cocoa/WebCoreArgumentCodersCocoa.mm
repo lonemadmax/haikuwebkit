@@ -193,8 +193,8 @@ void ArgumentCoder<WebCore::ApplePaySessionPaymentRequest>::encode(Encoder& enco
 #if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
     encoder << request.deferredPaymentRequest();
 #endif
-#if ENABLE(APPLE_PAY_LATER_MODE)
-    encoder << request.applePayLaterMode();
+#if ENABLE(APPLE_PAY_LATER_AVAILABILITY)
+    encoder << request.applePayLaterAvailability();
 #endif
 }
 
@@ -341,12 +341,12 @@ bool ArgumentCoder<WebCore::ApplePaySessionPaymentRequest>::decode(Decoder& deco
     request.setDeferredPaymentRequest(WTFMove(*deferredPaymentRequest));
 #endif
 
-#if ENABLE(APPLE_PAY_LATER_MODE)
-    std::optional<std::optional<WebCore::ApplePayLaterMode>> applePayLaterMode;
-    decoder >> applePayLaterMode;
-    if (!applePayLaterMode)
+#if ENABLE(APPLE_PAY_LATER_AVAILABILITY)
+    std::optional<std::optional<WebCore::ApplePayLaterAvailability>> applePayLaterAvailability;
+    decoder >> applePayLaterAvailability;
+    if (!applePayLaterAvailability)
         return false;
-    request.setApplePayLaterMode(WTFMove(*applePayLaterMode));
+    request.setApplePayLaterAvailability(WTFMove(*applePayLaterAvailability));
 #endif
 
     return true;
@@ -576,51 +576,6 @@ std::optional<WebCore::FontPlatformData> ArgumentCoder<WebCore::Font>::decodePla
         return std::nullopt;
 
     return WebCore::FontPlatformData(ctFont.get(), *size, *syntheticBold, *syntheticOblique, *orientation, *widthVariant, *textRenderingMode);
-}
-
-void ArgumentCoder<WebCore::FontCustomPlatformData>::encodePlatformData(Encoder& encoder, const WebCore::FontCustomPlatformData& customPlatformData)
-{
-    WebKit::SharedMemory::Handle handle;
-    {
-        auto sharedMemoryBuffer = WebKit::SharedMemory::copyBuffer(customPlatformData.creationData.fontFaceData);
-        if (auto memoryHandle = sharedMemoryBuffer->createHandle(WebKit::SharedMemory::Protection::ReadOnly))
-            handle = WTFMove(*memoryHandle);
-    }
-    encoder << customPlatformData.creationData.fontFaceData->size();
-    encoder << WTFMove(handle);
-    encoder << customPlatformData.creationData.itemInCollection;
-}
-
-std::optional<Ref<WebCore::FontCustomPlatformData>> ArgumentCoder<WebCore::FontCustomPlatformData>::decodePlatformData(Decoder& decoder)
-{
-    std::optional<uint64_t> bufferSize;
-    decoder >> bufferSize;
-    if (!bufferSize)
-        return std::nullopt;
-
-    std::optional<WebKit::SharedMemory::Handle> handle;
-    decoder >> handle;
-    if (!handle)
-        return std::nullopt;
-
-    auto sharedMemoryBuffer = WebKit::SharedMemory::map(*handle, WebKit::SharedMemory::Protection::ReadOnly);
-    if (!sharedMemoryBuffer)
-        return std::nullopt;
-
-    if (sharedMemoryBuffer->size() < *bufferSize)
-        return std::nullopt;
-
-    auto fontFaceData = sharedMemoryBuffer->createSharedBuffer(*bufferSize);
-
-    std::optional<String> itemInCollection;
-    decoder >> itemInCollection;
-    if (!itemInCollection)
-        return std::nullopt;
-
-    auto fontCustomPlatformData = createFontCustomPlatformData(fontFaceData, *itemInCollection);
-    if (!fontCustomPlatformData)
-        return std::nullopt;
-    return fontCustomPlatformData.releaseNonNull();
 }
 
 void ArgumentCoder<WebCore::FontPlatformData::Attributes>::encodePlatformData(Encoder& encoder, const WebCore::FontPlatformData::Attributes& data)

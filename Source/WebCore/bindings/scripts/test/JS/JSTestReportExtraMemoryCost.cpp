@@ -123,19 +123,21 @@ JSTestReportExtraMemoryCost::JSTestReportExtraMemoryCost(Structure* structure, J
 {
 }
 
+static_assert(!std::is_base_of<ActiveDOMObject, TestReportExtraMemoryCost>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
 void JSTestReportExtraMemoryCost::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestReportExtraMemoryCost>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
     vm.heap.reportExtraMemoryAllocated(wrapped().memoryCost());
 }
 
 JSObject* JSTestReportExtraMemoryCost::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestReportExtraMemoryCostPrototype::create(vm, &globalObject, JSTestReportExtraMemoryCostPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestReportExtraMemoryCostPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestReportExtraMemoryCostPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestReportExtraMemoryCost::prototype(VM& vm, JSDOMGlobalObject& globalObject)

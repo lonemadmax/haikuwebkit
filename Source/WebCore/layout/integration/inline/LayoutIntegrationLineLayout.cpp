@@ -308,7 +308,8 @@ static inline Layout::BoxGeometry::VerticalMargin verticalLogicalMargin(const Re
     }
 }
 
-static inline Layout::Edges logicalBorder(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, WritingMode writingMode, bool retainBorderStart = true, bool retainBorderEnd = true)
+enum class IsPartOfFormattingContext : bool { No, Yes };
+static inline Layout::Edges logicalBorder(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, WritingMode writingMode, IsPartOfFormattingContext isPartOfFormattingContext = IsPartOfFormattingContext::No, bool retainBorderStart = true, bool retainBorderEnd = true)
 {
     auto borderLeft = renderer.borderLeft();
     auto borderRight = renderer.borderRight();
@@ -323,12 +324,13 @@ static inline Layout::Edges logicalBorder(const RenderBoxModelObject& renderer, 
 
     auto borderLogicalLeft = retainBorderStart ? isLeftToRightInlineDirection ? borderTop : borderBottom : 0_lu;
     auto borderLogicalRight = retainBorderEnd ? isLeftToRightInlineDirection ? borderBottom : borderTop : 0_lu;
-    auto borderLogicalTop = writingMode == WritingMode::LeftToRight ? borderLeft : borderRight;
-    auto borderLogicalBottom = writingMode == WritingMode::LeftToRight ? borderRight : borderLeft;
+    // For boxes inside the formatting context, right border (padding) always points up, while when converting the formatting context root's border (padding) the directionality matters.
+    auto borderLogicalTop = isPartOfFormattingContext == IsPartOfFormattingContext::Yes ? borderRight : writingMode == WritingMode::LeftToRight ? borderLeft : borderRight;
+    auto borderLogicalBottom = isPartOfFormattingContext == IsPartOfFormattingContext::Yes ? borderLeft : writingMode == WritingMode::LeftToRight ? borderRight : borderLeft;
     return { { borderLogicalLeft, borderLogicalRight }, { borderLogicalTop, borderLogicalBottom } };
 }
 
-static inline Layout::Edges logicalPadding(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, WritingMode writingMode, bool retainPaddingStart = true, bool retainPaddingEnd = true)
+static inline Layout::Edges logicalPadding(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, WritingMode writingMode, IsPartOfFormattingContext isPartOfFormattingContext = IsPartOfFormattingContext::No, bool retainPaddingStart = true, bool retainPaddingEnd = true)
 {
     auto paddingLeft = renderer.paddingLeft();
     auto paddingRight = renderer.paddingRight();
@@ -343,15 +345,16 @@ static inline Layout::Edges logicalPadding(const RenderBoxModelObject& renderer,
 
     auto paddingLogicalLeft = retainPaddingStart ? isLeftToRightInlineDirection ? paddingTop : paddingBottom : 0_lu;
     auto paddingLogicalRight = retainPaddingEnd ? isLeftToRightInlineDirection ? paddingBottom : paddingTop : 0_lu;
-    auto paddingLogicalTop = writingMode == WritingMode::LeftToRight ? paddingLeft : paddingRight;
-    auto paddingLogicalBottom = writingMode == WritingMode::LeftToRight ? paddingRight : paddingLeft;
+    // For boxes inside the formatting context, right padding (border) always points up, while when converting the formatting context root's padding (border) the directionality matters.
+    auto paddingLogicalTop = isPartOfFormattingContext == IsPartOfFormattingContext::Yes ? paddingRight : writingMode == WritingMode::LeftToRight ? paddingLeft : paddingRight;
+    auto paddingLogicalBottom = isPartOfFormattingContext == IsPartOfFormattingContext::Yes ? paddingLeft : writingMode == WritingMode::LeftToRight ? paddingRight : paddingLeft;
     return { { paddingLogicalLeft, paddingLogicalRight }, { paddingLogicalTop, paddingLogicalBottom } };
 }
 
 static inline LayoutSize scrollbarLogicalSize(const RenderBox& renderer)
 {
     // Scrollbars eat into the padding box area. They never stretch the border box but they may shrink the padding box.
-    // In legacy render tree, RenderBox::contentWidth/contentHeight values are adjusted to accomodate the scrollbar width/height.
+    // In legacy render tree, RenderBox::contentWidth/contentHeight values are adjusted to accommodate the scrollbar width/height.
     // e.g. <div style="width: 10px; overflow: scroll;">content</div>, RenderBox::contentWidth() won't be returning the value of 10px but instead 0px (10px - 15px).
     auto horizontalSpaceReservedForScrollbar = std::max(0_lu, renderer.paddingBoxRectIncludingScrollbar().width() - renderer.paddingBoxWidth());
     auto verticalSpaceReservedForScrollbar = std::max(0_lu, renderer.paddingBoxRectIncludingScrollbar().height() - renderer.paddingBoxHeight());
@@ -453,8 +456,8 @@ void LineLayout::updateInlineBoxDimensions(const RenderInline& renderInline)
 
     boxGeometry.setHorizontalMargin(horizontalLogicalMargin(renderInline, isLeftToRightInlineDirection, writingMode == WritingMode::TopToBottom, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
     boxGeometry.setVerticalMargin(verticalLogicalMargin(renderInline, writingMode));
-    boxGeometry.setBorder(logicalBorder(renderInline, isLeftToRightInlineDirection, writingMode, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
-    boxGeometry.setPadding(logicalPadding(renderInline, isLeftToRightInlineDirection, writingMode, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
+    boxGeometry.setBorder(logicalBorder(renderInline, isLeftToRightInlineDirection, writingMode, IsPartOfFormattingContext::Yes, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
+    boxGeometry.setPadding(logicalPadding(renderInline, isLeftToRightInlineDirection, writingMode, IsPartOfFormattingContext::Yes, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
 }
 
 void LineLayout::updateInlineContentDimensions()
@@ -518,7 +521,7 @@ std::pair<LayoutUnit, LayoutUnit> LineLayout::computeIntrinsicWidthConstraints()
 static inline std::optional<Layout::BlockLayoutState::LineClamp> lineClamp(const RenderBlockFlow& rootRenderer)
 {
     auto& layoutState = *rootRenderer.view().frameView().layoutContext().layoutState();
-    if (layoutState.hasLineClamp()) {
+    if (auto lineClamp = layoutState.lineClamp()) {
         // FIXME: This is a rather odd behavior when we let line-clamp place ellipsis on a line and still
         // continue with constructing subsequent, visible lines on the block (other browsers match this exoctic behavior).
         auto isLineClampRootOverflowHidden = true;
@@ -528,7 +531,7 @@ static inline std::optional<Layout::BlockLayoutState::LineClamp> lineClamp(const
                 break;
             }
         }
-        return Layout::BlockLayoutState::LineClamp { *layoutState.maximumLineCountForLineClamp(), layoutState.visibleLineCountForLineClamp().value_or(0), isLineClampRootOverflowHidden };
+        return Layout::BlockLayoutState::LineClamp { lineClamp->maximumLineCount, lineClamp->currentLineCount, isLineClampRootOverflowHidden };
     }
     return { };
 }
@@ -701,8 +704,8 @@ void LineLayout::updateInlineContentConstraints()
     auto isLeftToRightInlineDirection = flow.style().isLeftToRightDirection();
     auto writingMode = flow.style().writingMode();
 
-    auto padding = logicalPadding(flow, isLeftToRightInlineDirection, writingMode);
-    auto border = logicalBorder(flow, isLeftToRightInlineDirection, writingMode);
+    auto padding = logicalPadding(flow, isLeftToRightInlineDirection, writingMode, IsPartOfFormattingContext::No);
+    auto border = logicalBorder(flow, isLeftToRightInlineDirection, writingMode, IsPartOfFormattingContext::No);
     auto scrollbarSize = scrollbarLogicalSize(flow);
 
     auto contentBoxWidth = WebCore::isHorizontalWritingMode(writingMode) ? flow.contentWidth() : flow.contentHeight();
@@ -808,29 +811,22 @@ std::optional<size_t> LineLayout::lastLineIndexForContentHeight() const
         return { };
     }
     auto* layoutState = flow().view().frameView().layoutContext().layoutState();
-    if (!layoutState || !layoutState->hasLineClamp())
+    if (!layoutState)
         return lines.size() - 1;
 
-    auto maximumLines = *layoutState->maximumLineCountForLineClamp();
-    if (!maximumLines) {
-        ASSERT_NOT_REACHED();
+    auto lineClamp = layoutState->lineClamp();
+    if (!lineClamp)
         return lines.size() - 1;
-    }
-    auto visibleLines = layoutState->visibleLineCountForLineClamp();
-    // Previous block containers may have already produced some lines.
-    auto remainingNumberOfLines = maximumLines - visibleLines.value_or(0);
-    if (!remainingNumberOfLines) {
-        // This block is fully collapsed.
-        return { };
-    }
-    if (remainingNumberOfLines > 0) {
-        auto lastLineIndex = std::min(lines.size(), remainingNumberOfLines) - 1;
+
+    // Let's see if previous block containers have already produced enough lines.
+    if (lineClamp->currentLineCount < lineClamp->maximumLineCount) {
+        auto lastLineIndex = std::min(lines.size(), lineClamp->maximumLineCount - lineClamp->currentLineCount) - 1;
         // FIXME: Clamped line is supposed to have trailing ellipsis. Assert on lines[lastLineIndex].hasEllipsis() when we have some means to clear
         // line content after probing layout.
         return lastLineIndex;
     }
-    ASSERT_NOT_REACHED();
-    return lines.size() - 1;
+    // This block is fully collapsed.
+    return { };
 }
 
 bool LineLayout::isPaginated() const

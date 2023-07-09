@@ -82,14 +82,17 @@ id<MTLLibrary> ShaderModule::createLibrary(id<MTLDevice> device, const String& m
 static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, const WGPUShaderModuleDescriptor& suppliedHints, String&& label)
 {
     HashMap<String, Ref<PipelineLayout>> hints;
-    HashMap<String, WGSL::PipelineLayout> wgslHints;
+    HashMap<String, std::optional<WGSL::PipelineLayout>> wgslHints;
     for (uint32_t i = 0; i < suppliedHints.hintCount; ++i) {
         const auto& hint = suppliedHints.hints[i];
         if (hint.nextInChain)
             return nullptr;
         auto hintKey = fromAPI(hint.entryPoint);
-        hints.add(hintKey, WebGPU::fromAPI(hint.layout));
-        auto convertedPipelineLayout = ShaderModule::convertPipelineLayout(WebGPU::fromAPI(hint.layout));
+        auto& layout = WebGPU::fromAPI(hint.layout);
+        hints.add(hintKey, layout);
+        std::optional<WGSL::PipelineLayout> convertedPipelineLayout { std::nullopt };
+        if (layout.numberOfBindGroupLayouts())
+            convertedPipelineLayout = ShaderModule::convertPipelineLayout(layout);
         wgslHints.add(hintKey, WTFMove(convertedPipelineLayout));
     }
 
@@ -244,6 +247,9 @@ void ShaderModule::setLabel(String&& label)
 
 id<MTLFunction> ShaderModule::getNamedFunction(const String& originalName, const HashMap<String, double>& keyValueReplacements) const
 {
+    if (!m_library)
+        return nil;
+
     const auto* information = entryPointInformation(originalName);
     const String& name = information ? information->mangledName : originalName;
     auto originalFunction = [m_library newFunctionWithName:name];

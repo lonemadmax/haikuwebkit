@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/ProcessID.h>
 #include <wtf/UniqueRef.h>
 
@@ -346,6 +347,7 @@ class ShareableResourceHandle;
 class SharedMemory;
 class SharedMemoryHandle;
 class SpeechRecognitionPermissionManager;
+class SubframePageProxy;
 class SuspendedPageProxy;
 class SystemPreviewController;
 class TouchBarMenuData;
@@ -488,7 +490,7 @@ using WebPageProxyIdentifier = ObjectIdentifier<WebPageProxyIdentifierType>;
 using WebURLSchemeHandlerIdentifier = ObjectIdentifier<WebURLSchemeHandler>;
 using WebUndoStepID = uint64_t;
 
-class WebPageProxy final : public API::ObjectImpl<API::Object::Type::Page>, public IPC::MessageReceiver, public IPC::MessageSender {
+class WebPageProxy final : public API::ObjectImpl<API::Object::Type::Page>, public IPC::MessageReceiver, public IPC::MessageSender, public CanMakeCheckedPtr {
 public:
     static Ref<WebPageProxy> create(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     virtual ~WebPageProxy();
@@ -1045,6 +1047,7 @@ public:
 
 #if PLATFORM(MAC)
     void setCaretAnimatorType(WebCore::CaretAnimatorType);
+    void setCaretBlinkingSuspended(bool);
     void attributedSubstringForCharacterRangeAsync(const EditingRange&, CompletionHandler<void(const WebCore::AttributedString&, const EditingRange&)>&&);
 
     void startWindowDrag();
@@ -1069,8 +1072,8 @@ public:
     const std::optional<WebCore::Color>& backgroundColor() const;
     void setBackgroundColor(const std::optional<WebCore::Color>&);
 
-#if PLATFORM(WIN)
-    HWND viewWidget();
+#if USE(GRAPHICS_LAYER_TEXTURE_MAPPER) || USE(GRAPHICS_LAYER_WC)
+    uint64_t viewWidget();
 #endif
 
 #if USE(LIBWPE)
@@ -2138,6 +2141,9 @@ public:
     WKQuickLookPreviewController *quickLookPreviewController() const { return m_quickLookPreviewController.get(); }
 #endif
 
+    SubframePageProxy* subpageFrameProxyForRegistrableDomain(WebCore::RegistrableDomain) const;
+    SubframePageProxy* subframePageProxyForFrameID(WebCore::FrameIdentifier) const;
+
     void requestImageBitmap(const WebCore::ElementContext&, CompletionHandler<void(const ShareableBitmapHandle&, const String& sourceMIMEType)>&&);
 
 #if PLATFORM(MAC)
@@ -2218,6 +2224,7 @@ public:
 #endif
 
     WebPopupMenuProxyClient& popupMenuClient();
+    void addSubframePageProxyForFrameID(WebCore::FrameIdentifier, WebCore::RegistrableDomain, UniqueRef<SubframePageProxy>&&);
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2705,7 +2712,7 @@ private:
 
     void reportPageLoadResult(const WebCore::ResourceError&);
 
-    void continueNavigationInNewProcess(API::Navigation&, WebFrameProxy&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume);
+    void continueNavigationInNewProcess(API::Navigation&, WebFrameProxy&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, bool didCreateNewProcess = true);
 
     void setNeedsFontAttributes(bool);
     void updateFontAttributesAfterEditorStateChange();

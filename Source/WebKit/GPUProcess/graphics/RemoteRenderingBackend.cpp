@@ -30,27 +30,42 @@
 
 #include "BufferIdentifierSet.h"
 #include "GPUConnectionToWebProcess.h"
+#include "GPUProcess.h"
 #include "Logging.h"
 #include "MessageSenderInlines.h"
 #include "PlatformImageBufferShareableBackend.h"
 #include "QualifiedRenderingResourceIdentifier.h"
+#include "RemoteBarcodeDetector.h"
+#include "RemoteBarcodeDetectorMessages.h"
 #include "RemoteDisplayListRecorder.h"
 #include "RemoteDisplayListRecorderMessages.h"
+#include "RemoteFaceDetector.h"
+#include "RemoteFaceDetectorMessages.h"
 #include "RemoteImageBuffer.h"
 #include "RemoteMediaPlayerManagerProxy.h"
 #include "RemoteMediaPlayerProxy.h"
 #include "RemoteRenderingBackendCreationParameters.h"
 #include "RemoteRenderingBackendMessages.h"
 #include "RemoteRenderingBackendProxyMessages.h"
+#include "RemoteTextDetector.h"
+#include "RemoteTextDetectorMessages.h"
+#include "ShapeDetectionObjectHeap.h"
 #include "SwapBuffersDisplayRequirement.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/HTMLCanvasElement.h>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/RunLoop.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/SystemTracing.h>
 
 #if HAVE(IOSURFACE)
 #include <WebCore/IOSurfacePool.h>
+#endif
+
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
+#import <WebCore/BarcodeDetectorImplementation.h>
+#import <WebCore/FaceDetectorImplementation.h>
+#import <WebCore/TextDetectorImplementation.h>
 #endif
 
 #if ENABLE(IPC_TESTING_API)
@@ -99,6 +114,7 @@ RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuCon
 #if HAVE(IOSURFACE)
     , m_ioSurfacePool(IOSurfacePool::create())
 #endif
+    , m_shapeDetectionObjectHeap(ShapeDetection::ObjectHeap::create())
 {
     ASSERT(RunLoop::isMain());
 }
@@ -440,6 +456,7 @@ void RemoteRenderingBackend::releaseRenderingResourceWithQualifiedIdentifier(Qua
     MESSAGE_CHECK(success, "Resource is being released before being cached.");
 }
 
+#if PLATFORM(COCOA)
 static std::optional<ImageBufferBackendHandle> handleFromBuffer(ImageBuffer& buffer)
 {
     auto* backend = buffer.ensureBackendCreated();
@@ -453,7 +470,6 @@ static std::optional<ImageBufferBackendHandle> handleFromBuffer(ImageBuffer& buf
     return std::nullopt;
 }
 
-#if PLATFORM(COCOA)
 void RemoteRenderingBackend::prepareBuffersForDisplay(Vector<PrepareBackingStoreBuffersInputData> swapBuffersInput, CompletionHandler<void(const Vector<PrepareBackingStoreBuffersOutputData>&)>&& completionHandler)
 {
     Vector<PrepareBackingStoreBuffersOutputData> outputData;
@@ -582,6 +598,87 @@ void RemoteRenderingBackend::lowMemoryHandler(Critical, Synchronous)
 #if HAVE(IOSURFACE)
     m_ioSurfacePool->discardAllSurfaces();
 #endif
+}
+
+void RemoteRenderingBackend::createRemoteGPU(WebGPUIdentifier identifier, IPC::StreamServerConnection::Handle&& connectionHandle)
+{
+    auto addResult = m_remoteGPUMap.ensure(identifier, [&] {
+        return IPC::ScopedActiveMessageReceiveQueue { RemoteGPU::create(identifier, WTFMove(connectionHandle)) };
+    });
+    ASSERT_UNUSED(addResult, addResult.isNewEntry);
+}
+
+void RemoteRenderingBackend::releaseRemoteGPU(WebGPUIdentifier identifier)
+{
+    bool result = m_remoteGPUMap.remove(identifier);
+    ASSERT_UNUSED(result, result);
+    if (m_remoteGPUMap.isEmpty())
+        gpuConnectionToWebProcess().gpuProcess().tryExitIfUnusedAndUnderMemoryPressure();
+}
+
+void RemoteRenderingBackend::createRemoteBarcodeDetector(ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::BarcodeDetectorOptions& barcodeDetectorOptions)
+{
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
+    auto inner = WebCore::ShapeDetection::BarcodeDetectorImpl::create(barcodeDetectorOptions);
+    auto remoteBarcodeDetector = RemoteBarcodeDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, identifier);
+    m_shapeDetectionObjectHeap->addObject(identifier, remoteBarcodeDetector);
+    streamConnection().startReceivingMessages(remoteBarcodeDetector, Messages::RemoteBarcodeDetector::messageReceiverName(), identifier.toUInt64());
+#else
+    UNUSED_PARAM(identifier);
+    UNUSED_PARAM(barcodeDetectorOptions);
+#endif
+}
+
+void RemoteRenderingBackend::releaseRemoteBarcodeDetector(ShapeDetectionIdentifier identifier)
+{
+    streamConnection().stopReceivingMessages(Messages::RemoteBarcodeDetector::messageReceiverName(), identifier.toUInt64());
+    m_shapeDetectionObjectHeap->removeObject(identifier);
+}
+
+void RemoteRenderingBackend::getRemoteBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&& completionHandler)
+{
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
+    WebCore::ShapeDetection::BarcodeDetectorImpl::getSupportedFormats(WTFMove(completionHandler));
+#else
+    completionHandler({ });
+#endif
+}
+
+void RemoteRenderingBackend::createRemoteFaceDetector(ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::FaceDetectorOptions& faceDetectorOptions)
+{
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
+    auto inner = WebCore::ShapeDetection::FaceDetectorImpl::create(faceDetectorOptions);
+    auto remoteFaceDetector = RemoteFaceDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, identifier);
+    m_shapeDetectionObjectHeap->addObject(identifier, remoteFaceDetector);
+    streamConnection().startReceivingMessages(remoteFaceDetector, Messages::RemoteFaceDetector::messageReceiverName(), identifier.toUInt64());
+#else
+    UNUSED_PARAM(identifier);
+    UNUSED_PARAM(faceDetectorOptions);
+#endif
+}
+
+void RemoteRenderingBackend::releaseRemoteFaceDetector(ShapeDetectionIdentifier identifier)
+{
+    streamConnection().stopReceivingMessages(Messages::RemoteFaceDetector::messageReceiverName(), identifier.toUInt64());
+    m_shapeDetectionObjectHeap->removeObject(identifier);
+}
+
+void RemoteRenderingBackend::createRemoteTextDetector(ShapeDetectionIdentifier identifier)
+{
+#if HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
+    auto inner = WebCore::ShapeDetection::TextDetectorImpl::create();
+    auto remoteTextDetector = RemoteTextDetector::create(WTFMove(inner), m_shapeDetectionObjectHeap, identifier);
+    m_shapeDetectionObjectHeap->addObject(identifier, remoteTextDetector);
+    streamConnection().startReceivingMessages(remoteTextDetector, Messages::RemoteTextDetector::messageReceiverName(), identifier.toUInt64());
+#else
+    UNUSED_PARAM(identifier);
+#endif
+}
+
+void RemoteRenderingBackend::releaseRemoteTextDetector(ShapeDetectionIdentifier identifier)
+{
+    streamConnection().stopReceivingMessages(Messages::RemoteTextDetector::messageReceiverName(), identifier.toUInt64());
+    m_shapeDetectionObjectHeap->removeObject(identifier);
 }
 
 } // namespace WebKit

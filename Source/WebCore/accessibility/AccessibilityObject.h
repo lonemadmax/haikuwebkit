@@ -40,18 +40,13 @@
 
 #if PLATFORM(COCOA)
 #include <wtf/RetainPtr.h>
-#endif
-
-#if PLATFORM(COCOA)
 
 OBJC_CLASS NSArray;
-OBJC_CLASS NSAttributedString;
 OBJC_CLASS NSData;
 OBJC_CLASS NSMutableAttributedString;
 OBJC_CLASS NSString;
 OBJC_CLASS NSValue;
 OBJC_CLASS NSView;
-
 #endif
 
 namespace WebCore {
@@ -131,7 +126,6 @@ public:
     bool isMediaTimeline() const { return false; }
     bool isFileUploadButton() const;
     bool isInputImage() const override { return false; }
-    bool isProgressIndicator() const override { return false; }
     virtual bool isSliderThumb() const { return false; }
     bool isControl() const override { return false; }
     virtual bool isLabel() const { return false; }
@@ -207,19 +201,18 @@ public:
 
     bool isChecked() const override { return false; }
     bool isEnabled() const override { return false; }
-    bool isSelected() const override { return false; }
+    bool isSelected() const override;
+    bool isTabItemSelected() const;
     bool isFocused() const override { return false; }
     virtual bool isHovered() const { return false; }
     bool isIndeterminate() const override { return false; }
-    bool isLoaded() const override { return false; }
+    bool isLoaded() const final;
     bool isMultiSelectable() const override { return false; }
     bool isOffScreen() const override { return false; }
     bool isPressed() const override { return false; }
-    bool isUnvisited() const override { return false; }
-    bool isVisited() const override { return false; }
+    InsideLink insideLink() const final;
     bool isRequired() const override { return false; }
     bool supportsRequiredAttribute() const override { return false; }
-    virtual bool isLinked() const { return false; }
     bool isExpanded() const override;
     bool isVisible() const override { return true; }
     virtual bool isCollapsed() const { return false; }
@@ -360,8 +353,8 @@ public:
     virtual AccessibilityRole ariaRoleAttribute() const { return AccessibilityRole::Unknown; }
     bool hasExplicitGenericRole() const { return ariaRoleAttribute() == AccessibilityRole::Generic; }
     bool hasImplicitGenericRole() const { return roleValue() == AccessibilityRole::Generic && !hasExplicitGenericRole(); }
-    virtual bool isPresentationalChildOfAriaRole() const { return false; }
-    virtual bool ariaRoleHasPresentationalChildren() const { return false; }
+    bool isPresentationalChildOfAriaRole() const;
+    bool ariaRoleHasPresentationalChildren() const;
     bool inheritsPresentationalRole() const override { return false; }
 
     // Accessibility Text
@@ -373,18 +366,22 @@ public:
     void setAccessibleName(const AtomString&) override { }
     bool hasAttributesRequiredForInclusion() const override;
 
-    virtual String title() const { return { }; }
-    virtual String description() const { return { }; }
+    String title() const override { return { }; }
+    String description() const override { return { }; }
     virtual String helpText() const { return { }; }
 
-    String textContent() const override;
+    std::optional<String> textContent() const override;
+    bool hasTextContent() const;
+#if PLATFORM(COCOA)
+    bool hasAttributedText() const;
+#endif
 
     // Methods for determining accessibility text.
     bool isARIAStaticText() const { return ariaRoleAttribute() == AccessibilityRole::StaticText; }
     String stringValue() const override { return { }; }
     String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const override { return { }; }
     String text() const override { return { }; }
-    unsigned textLength() const override { return 0; }
+    unsigned textLength() const final;
 #if PLATFORM(COCOA)
     // Returns an array of strings and AXObject wrappers corresponding to the
     // textruns and replacement nodes included in the given range.
@@ -512,9 +509,9 @@ public:
 
     void selectedChildren(AccessibilityChildrenVector&) override { }
     void setSelectedChildren(const AccessibilityChildrenVector&) override { }
-    void visibleChildren(AccessibilityChildrenVector&) override { }
-    virtual bool shouldFocusActiveDescendant() const { return false; }
-    AccessibilityObject* activeDescendant() const override { return nullptr; }
+    AccessibilityChildrenVector visibleChildren() override { return { }; }
+    bool shouldFocusActiveDescendant() const;
+    AccessibilityObject* activeDescendant() const final;
 
     WEBCORE_EXPORT static AccessibilityRole ariaRoleToWebCoreRole(const String&);
     virtual bool hasAttribute(const QualifiedName&) const;
@@ -547,8 +544,8 @@ public:
     VisiblePositionRange selectedVisiblePositionRange() const override { return { }; }
 
     std::optional<SimpleRange> rangeForPlainTextRange(const PlainTextRange&) const override;
-#if PLATFORM(MAC)
-    AXTextMarkerRangeRef textMarkerRangeForNSRange(const NSRange&) const override;
+#if PLATFORM(COCOA)
+    AXTextMarkerRange textMarkerRangeForNSRange(const NSRange&) const override;
 #endif
 
     static String stringForVisiblePositionRange(const VisiblePositionRange&);
@@ -865,6 +862,22 @@ inline void AccessibilityObject::detachPlatformWrapper(AccessibilityDetachmentTy
 #if !(ENABLE(ACCESSIBILITY) && USE(ATSPI))
 inline bool AccessibilityObject::allowsTextRanges() const { return true; }
 inline unsigned AccessibilityObject::getLengthForTextRange() const { return text().length(); }
+#endif
+
+inline bool AccessibilityObject::hasTextContent() const
+{
+    return isStaticText()
+        || roleValue() == AccessibilityRole::WebCoreLink
+        || isTextControl() || isTabItem();
+}
+
+#if PLATFORM(COCOA)
+inline bool AccessibilityObject::hasAttributedText() const
+{
+    return (isStaticText() && !isARIAStaticText())
+        || roleValue() == AccessibilityRole::WebCoreLink
+        || isTextControl() || isTabItem();
+}
 #endif
 
 AccessibilityObject* firstAccessibleObjectFromNode(const Node*, const Function<bool(const AccessibilityObject&)>& isAccessible);

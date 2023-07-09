@@ -150,12 +150,17 @@ Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const At
     return frame;
 }
 
-Ref<WebFrame> WebFrame::createLocalSubframeHostedInAnotherProcess(WebPage& page, WebFrame& parent, WebCore::FrameIdentifier frameID, WebCore::LayerHostingContextIdentifier layerHostingContextIdentifier)
+Ref<WebFrame> WebFrame::createLocalSubframeHostedInAnotherProcess(WebPage& page, WebFrame& parent, WebCore::FrameIdentifier frameID, WebCore::LayerHostingContextIdentifier layerHostingContextIdentifier, std::optional<ScopeExit<Function<void()>>>&& invalidator)
 {
     auto frame = create(page);
     RELEASE_ASSERT(page.corePage());
     RELEASE_ASSERT(parent.coreAbstractFrame());
-    auto coreFrame = LocalFrame::createSubframeHostedInAnotherProcess(*page.corePage(), makeUniqueRef<WebFrameLoaderClient>(frame.get()), frameID, *parent.coreAbstractFrame());
+
+    // FIXME: we should always have an invalidator, and we should unconditionally handle message receiver
+    // addition in the constructor and removal in the destructor.
+    if (invalidator)
+        WebProcess::singleton().removeMessageReceiver(Messages::WebFrame::messageReceiverName(), frameID.object());
+    auto coreFrame = LocalFrame::createSubframeHostedInAnotherProcess(*page.corePage(), makeUniqueRef<WebFrameLoaderClient>(frame.get(), WTFMove(invalidator)), frameID, *parent.coreAbstractFrame());
     frame->m_coreFrame = coreFrame.get();
     frame->setLayerHostingContextIdentifier(layerHostingContextIdentifier);
 

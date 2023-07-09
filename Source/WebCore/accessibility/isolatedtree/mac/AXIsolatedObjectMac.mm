@@ -34,27 +34,26 @@
 
 namespace WebCore {
 
-static bool shouldCacheAttributedText(const AccessibilityObject& axObject)
-{
-    return (axObject.isStaticText() && !axObject.isARIAStaticText())
-        || axObject.roleValue() == AccessibilityRole::WebCoreLink
-        || axObject.isTextControl() || axObject.isTabItem();
-}
-
 void AXIsolatedObject::initializePlatformProperties(const Ref<const AccessibilityObject>& object)
 {
     setProperty(AXPropertyName::HasApplePDFAnnotationAttribute, object->hasApplePDFAnnotationAttribute());
     setProperty(AXPropertyName::SpeechHint, object->speechHintAttributeValue().isolatedCopy());
 
     RetainPtr<NSAttributedString> attributedText;
-    if (shouldCacheAttributedText(object)) {
+    if (object->hasAttributedText()) {
         if (auto range = object->simpleRange()) {
             if ((attributedText = object->attributedStringForRange(*range, SpellCheck::Yes)))
                 setProperty(AXPropertyName::AttributedText, attributedText);
         }
     }
 
-    // Set the StringValue only if it differs from the AttributedText.
+    // Cache the TextContent only if it is not empty and differs from the AttributedText.
+    if (auto text = object->textContent()) {
+        if (!attributedText || (text->length() && *text != String([attributedText string])))
+            setProperty(AXPropertyName::TextContent, text->isolatedCopy());
+    }
+
+    // Cache the StringValue only if it differs from the AttributedText.
     auto value = object->stringValue();
     if (!attributedText || value != String([attributedText string]))
         setProperty(AXPropertyName::StringValue, value.isolatedCopy());
@@ -103,6 +102,15 @@ void AXIsolatedObject::detachPlatformWrapper(AccessibilityDetachmentType detachm
     [wrapper() detachIsolatedObject:detachmentType];
 }
 
+std::optional<String> AXIsolatedObject::textContent() const
+{
+    if (m_propertyMap.contains(AXPropertyName::TextContent))
+        return stringAttributeValue(AXPropertyName::TextContent);
+    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXPropertyName::AttributedText))
+        return String { [attributedText string] };
+    return std::nullopt;
+}
+
 AXTextMarkerRange AXIsolatedObject::textMarkerRange() const
 {
     if (isSecureField()) {
@@ -110,18 +118,8 @@ AXTextMarkerRange AXIsolatedObject::textMarkerRange() const
         return { };
     }
 
-    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXPropertyName::AttributedText)) {
-        String text { [attributedText string] };
-        if (text.length()) {
-            TextMarkerData start(tree()->treeID(), objectID(),
-                nullptr, 0, Position::PositionIsOffsetInAnchor, Affinity::Downstream,
-                0, 0);
-            TextMarkerData end(tree()->treeID(), objectID(),
-                nullptr, text.length(), Position::PositionIsOffsetInAnchor, Affinity::Downstream,
-                0, text.length());
-            return { { start }, { end } };
-        }
-    }
+    if (auto text = textContent())
+        return { tree()->treeID(), objectID(), 0, text->length() };
 
     return Accessibility::retrieveValueFromMainThread<AXTextMarkerRange>([this] () {
         auto* axObject = associatedAXObject();
@@ -129,11 +127,21 @@ AXTextMarkerRange AXIsolatedObject::textMarkerRange() const
     });
 }
 
-AXTextMarkerRangeRef AXIsolatedObject::textMarkerRangeForNSRange(const NSRange& range) const
+AXTextMarkerRange AXIsolatedObject::textMarkerRangeForNSRange(const NSRange& range) const
 {
-    return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRangeRef>([&range, this] () -> RetainPtr<AXTextMarkerRangeRef> {
+    if (range.location == NSNotFound)
+        return { };
+
+    if (auto text = textContent()) {
+        unsigned start = range.location;
+        unsigned end = range.location + range.length;
+        if (start < text->length() && end <= text->length())
+            return { tree()->treeID(), objectID(), start, end };
+    }
+
+    return Accessibility::retrieveValueFromMainThread<AXTextMarkerRange>([&range, this] () -> AXTextMarkerRange {
         auto* axObject = associatedAXObject();
-        return axObject ? axObject->textMarkerRangeForNSRange(range) : nullptr;
+        return axObject ? axObject->textMarkerRangeForNSRange(range) : AXTextMarkerRange();
     });
 }
 
@@ -182,12 +190,26 @@ NSAttributedString *AXIsolatedObject::cachedAttributedStringForTextMarkerRange(c
         return nil;
 
     NSMutableAttributedString *result = [[NSMutableAttributedString alloc] initWithAttributedString:[attributedText attributedSubstringFromRange:*nsRange]];
+    if (!result.length)
+        return result;
 
+    auto resultRange = NSMakeRange(0, result.length);
     // The AttributedString is cached with spelling info. If the caller does not request spelling info, we have to remove it before returning.
     if (spellCheck == SpellCheck::No) {
-        auto fullRange = NSMakeRange(0, result.length);
-        [result removeAttribute:NSAccessibilityMisspelledTextAttribute range:fullRange];
-        [result removeAttribute:NSAccessibilityMarkedMisspelledTextAttribute range:fullRange];
+        [result removeAttribute:NSAccessibilityMisspelledTextAttribute range:resultRange];
+        [result removeAttribute:NSAccessibilityMarkedMisspelledTextAttribute range:resultRange];
+        return result;
+    }
+
+    // For any nsRange different from the full range, remove exissting spell check attribute and spell check the text.
+    auto fullRange = NSMakeRange(0, [attributedText length]);
+    if (!NSEqualRanges(*nsRange, fullRange)) {
+        [result removeAttribute:NSAccessibilityMisspelledTextAttribute range:resultRange];
+        [result removeAttribute:NSAccessibilityMarkedMisspelledTextAttribute range:resultRange];
+        // FIXME: pull attributedStringSetSpelling off the main thread.
+        performFunctionOnMainThread([result = retainPtr(result), &resultRange] (AccessibilityObject* axObject) {
+            attributedStringSetSpelling(result.get(), axObject->node(), String { [result string] }, resultRange);
+        });
     }
 
     return result;
@@ -289,7 +311,7 @@ String AXIsolatedObject::descriptionAttributeValue() const
     if (!shouldComputeDescriptionAttributeValue())
         return { };
 
-    return const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<String>(AXPropertyName::Description);
+    return const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<String>(AXPropertyName::DescriptionAttributeValue);
 }
 
 String AXIsolatedObject::helpTextAttributeValue() const

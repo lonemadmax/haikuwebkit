@@ -131,18 +131,13 @@ JSTestNamedGetterWithIdentifier::JSTestNamedGetterWithIdentifier(Structure* stru
 {
 }
 
-void JSTestNamedGetterWithIdentifier::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedGetterWithIdentifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamedGetterWithIdentifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestNamedGetterWithIdentifier::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNamedGetterWithIdentifierPrototype::create(vm, &globalObject, JSTestNamedGetterWithIdentifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestNamedGetterWithIdentifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestNamedGetterWithIdentifierPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNamedGetterWithIdentifier::prototype(VM& vm, JSDOMGlobalObject& globalObject)

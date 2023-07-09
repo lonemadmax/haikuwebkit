@@ -340,7 +340,7 @@ void NetworkDataTaskSoup::resume()
     if (m_currentRequest.url().protocolIsData() && !m_cancellable) {
         m_networkLoadMetrics.fetchStart = MonotonicTime::now();
         m_cancellable = adoptGRef(g_cancellable_new());
-        DataURLDecoder::decode(m_currentRequest.url(), { }, DataURLDecoder::Mode::Legacy, [this, protectedThis = WTFMove(protectedThis)](auto decodeResult) mutable {
+        DataURLDecoder::decode(m_currentRequest.url(), { }, [this, protectedThis = WTFMove(protectedThis)](auto decodeResult) mutable {
             if (m_state == State::Canceling || m_state == State::Completed || !m_client) {
                 clearRequest();
                 return;
@@ -1620,8 +1620,14 @@ bool NetworkDataTaskSoup::shouldAllowHSTSProtocolUpgrade() const
 
 void NetworkDataTaskSoup::protocolUpgradedViaHSTS(SoupMessage* soupMessage)
 {
-    m_response = ResourceResponse::syntheticRedirectResponse(m_currentRequest.url(), soupURIToURL(soup_message_get_uri(soupMessage)));
-    continueHTTPRedirection();
+    if (!m_response.isNull() && !m_response.httpHeaderField(HTTPHeaderName::Location).isEmpty()) {
+        // We handle HSTS upgrades as a redirection to let Web and UI processes know about the URL change, but in
+        // case of redirection, the new request is originated in the network process, so we can just update the URL.
+        m_currentRequest.setURL(soupURIToURL(soup_message_get_uri(m_soupMessage.get())));
+    } else {
+        m_response = ResourceResponse::syntheticRedirectResponse(m_currentRequest.url(), soupURIToURL(soup_message_get_uri(soupMessage)));
+        continueHTTPRedirection();
+    }
 }
 
 #if USE(SOUP2)

@@ -458,18 +458,13 @@ JSTestConditionalIncludes::JSTestConditionalIncludes(Structure* structure, JSDOM
 {
 }
 
-void JSTestConditionalIncludes::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestConditionalIncludes>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestConditionalIncludes>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestConditionalIncludes::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestConditionalIncludesPrototype::create(vm, &globalObject, JSTestConditionalIncludesPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestConditionalIncludesPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestConditionalIncludesPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestConditionalIncludes::prototype(VM& vm, JSDOMGlobalObject& globalObject)

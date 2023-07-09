@@ -468,6 +468,7 @@ struct WebCore::ShareData {
     String title;
     String text;
     String url;
+    [NotSerialized] Vector<RefPtr<WebCore::File>> files;
 };
 
 enum class WebCore::ShareDataOriginator : bool
@@ -562,7 +563,8 @@ class WebCore::PrivateClickMeasurement {
     std::optional<WebCore::RegistrableDomain> sourceRegistrableDomain;
     std::optional<WebCore::PCM::EphemeralNonce> ephemeralDestinationNonce;
     std::optional<WebCore::RegistrableDomain> destinationSite;
-# destinationUnlinkableToken and destinationSecretToken are not serialized.
+    [NotSerialized] std::optional<WebCore::PCM::DestinationUnlinkableToken> destinationUnlinkableToken;
+    [NotSerialized] std::optional<WebCore::PCM::DestinationSecretToken> destinationSecretToken;
 }
 
 [CustomHeader] struct WebCore::PCM::AttributionTimeToSendData {
@@ -643,6 +645,13 @@ struct WebCore::ApplePayDateComponentsRange {
 #endif // ENABLE(APPLE_PAY_SHIPPING_METHOD_DATE_COMPONENTS_RANGE)
 
 #if ENABLE(APPLE_PAY)
+struct WebCore::ApplePaySetupConfiguration {
+    String merchantIdentifier;
+    String referrerIdentifier;
+    String signature;
+    Vector<String> signedFields;
+};
+
 [Nested] enum class WebCore::ApplePayLineItem::Type : bool;
 
 struct WebCore::ApplePayLineItem {
@@ -988,6 +997,7 @@ struct WebCore::WebLockManagerSnapshot {
 
 [LegacyPopulateFromEmptyConstructor] struct WebCore::AuthenticationExtensionsClientInputs {
     String appid;
+    [NotSerialized] bool credProps;
     std::optional<WebCore::AuthenticationExtensionsClientInputs::LargeBlobInputs> largeBlob;
 }
 
@@ -1073,6 +1083,7 @@ struct WebCore::PublicKeyCredentialRequestOptions {
     Vector<WebCore::PublicKeyCredentialDescriptor> allowCredentials;
     WebCore::UserVerificationRequirement userVerification;
     std::optional<WebCore::AuthenticationExtensionsClientInputs> extensions;
+    [NotSerialized] std::optional<WebCore::AuthenticatorAttachment> authenticatorAttachment;
 #endif // ENABLE(WEB_AUTHN)
 };
 
@@ -1416,6 +1427,10 @@ struct WebCore::WindowFeatures {
 
     bool fullscreen;
     bool dialog;
+    [NotSerialized] bool noopener;
+    [NotSerialized] bool noreferrer;
+
+    [NotSerialized] Vector<String> additionalFeatures;
 };
 
 [Nested] enum class WebCore::CompositionUnderlineColor : bool
@@ -1969,6 +1984,7 @@ header: <WebCore/KeyboardScroll.h>
 };
 
 [RefCounted] class WebCore::IdentityTransformOperation {
+    [NotSerialized] WebCore::TransformOperation::Type type();
 }
 
 [RefCounted] class WebCore::TranslateTransformOperation {
@@ -2099,6 +2115,7 @@ struct WebCore::GraphicsContextGLAttributes {
     bool xrCompatible;
 #endif
     bool failPlatformContextCreationForTesting;
+    [NotSerialized] unsigned remoteIPCBufferSizeLog2ForTesting;
 };
 #endif // ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
 
@@ -4388,6 +4405,8 @@ header: <WebCore/SVGFilterExpressionReference.h>
     bool madeHTTPS;
     bool blockedCookies;
     bool hasNotifications;
+    [NotSerialized] Vector<WebCore::ContentExtensions::ModifyHeadersAction> modifyHeadersActions;
+    [NotSerialized] Vector<std::pair<WebCore::ContentExtensions::RedirectAction, URL>> redirectActions;
 };
 
 struct WebCore::ContentRuleListResults {
@@ -5036,3 +5055,68 @@ class WebCore::ProtectionSpace {
     std::optional<WebCore::ProtectionSpace::PlatformData> getPlatformDataToSerialize();
 #endif
 };
+
+#if ENABLE(GPU_PROCESS)
+header: <WebCore/BarcodeDetectorOptionsInterface.h>
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ShapeDetection::BarcodeDetectorOptions {
+    Vector<WebCore::ShapeDetection::BarcodeFormat> formats;
+};
+
+header: <WebCore/BarcodeFormatInterface.h>
+[AdditionalEncoder=StreamConnectionEncoder] enum class WebCore::ShapeDetection::BarcodeFormat : uint8_t {
+    Aztec,
+    Code_128,
+    Code_39,
+    Code_93,
+    Codabar,
+    Data_matrix,
+    Ean_13,
+    Ean_8,
+    Itf,
+    Pdf417,
+    Qr_code,
+    Unknown,
+    Upc_a,
+    Upc_e,
+};
+
+header: <WebCore/DetectedBarcodeInterface.h>
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ShapeDetection::DetectedBarcode {
+    WebCore::FloatRect boundingBox;
+    String rawValue;
+    WebCore::ShapeDetection::BarcodeFormat format;
+    Vector<WebCore::FloatPoint> cornerPoints;
+};
+
+header: <WebCore/DetectedFaceInterface.h>
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ShapeDetection::DetectedFace {
+    WebCore::FloatRect boundingBox;
+    std::optional<Vector<WebCore::ShapeDetection::Landmark>> landmarks;
+};
+
+header: <WebCore/DetectedTextInterface.h>
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ShapeDetection::DetectedText {
+    WebCore::FloatRect boundingBox;
+    String rawValue;
+    Vector<WebCore::FloatPoint> cornerPoints;
+};
+
+header: <WebCore/FaceDetectorOptionsInterface.h>
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ShapeDetection::FaceDetectorOptions {
+    uint16_t maxDetectedFaces;
+    bool fastMode;
+};
+
+header: <WebCore/LandmarkInterface.h>
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ShapeDetection::Landmark {
+    Vector<WebCore::FloatPoint> locations;
+    WebCore::ShapeDetection::LandmarkType type;
+};
+
+header: <WebCore/LandmarkTypeInterface.h>
+[AdditionalEncoder=StreamConnectionEncoder] enum class WebCore::ShapeDetection::LandmarkType : uint8_t {
+    Mouth,
+    Eye,
+    Nose,
+};
+#endif // GPU_PROCESS

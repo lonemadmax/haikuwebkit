@@ -29,7 +29,6 @@
 #include "CachedImage.h"
 #include "DOMFormData.h"
 #include "ElementChildIteratorInlines.h"
-#include "ElementName.h"
 #include "FrameLoader.h"
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
@@ -41,6 +40,7 @@
 #include "LocalFrame.h"
 #include "MIMETypeRegistry.h"
 #include "NodeList.h"
+#include "NodeName.h"
 #include "Page.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderImage.h"
@@ -100,26 +100,32 @@ void HTMLObjectElement::collectPresentationalHintsForAttribute(const QualifiedNa
         HTMLPlugInImageElement::collectPresentationalHintsForAttribute(name, value, style);
 }
 
-void HTMLObjectElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void HTMLObjectElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
+    HTMLPlugInImageElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+
     bool invalidateRenderer = false;
     bool needsWidgetUpdate = false;
 
-    if (name == typeAttr) {
-        m_serviceType = value.string().left(value.find(';')).convertToASCIILowercase();
+    switch (name.nodeName()) {
+    case AttributeNames::typeAttr:
+        m_serviceType = newValue.string().left(newValue.find(';')).convertToASCIILowercase();
         invalidateRenderer = !hasAttributeWithoutSynchronization(classidAttr);
         needsWidgetUpdate = true;
-    } else if (name == dataAttr) {
-        m_url = stripLeadingAndTrailingHTMLSpaces(value);
+        break;
+    case AttributeNames::dataAttr:
+        m_url = stripLeadingAndTrailingHTMLSpaces(newValue);
         invalidateRenderer = !hasAttributeWithoutSynchronization(classidAttr);
         needsWidgetUpdate = true;
         updateImageLoaderWithNewURLSoon();
-    } else if (name == classidAttr) {
+        break;
+    case AttributeNames::classidAttr:
         invalidateRenderer = true;
         needsWidgetUpdate = true;
-    } else {
-        HTMLPlugInImageElement::parseAttribute(name, value);
-        FormListedElement::parseAttribute(name, value);
+        break;
+    default:
+        FormListedElement::parseAttribute(name, newValue);
+        break;
     }
 
     if (needsWidgetUpdate) {
@@ -431,24 +437,6 @@ void HTMLObjectElement::updateExposedState()
                 document.removeDocumentNamedItem(*name.impl(), *this);
         }
     }
-}
-
-bool HTMLObjectElement::containsJavaApplet() const
-{
-    if (MIMETypeRegistry::isJavaAppletMIMEType(attributeWithoutSynchronization(typeAttr)))
-        return true;
-
-    for (auto& child : childrenOfType<Element>(*this)) {
-        if (child.hasTagName(paramTag) && equalLettersIgnoringASCIICase(child.getNameAttribute(), "type"_s)
-            && MIMETypeRegistry::isJavaAppletMIMEType(child.attributeWithoutSynchronization(valueAttr).string()))
-            return true;
-        if (child.hasTagName(objectTag) && downcast<HTMLObjectElement>(child).containsJavaApplet())
-            return true;
-        if (child.hasTagName(appletTag))
-            return true;
-    }
-
-    return false;
 }
 
 void HTMLObjectElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const

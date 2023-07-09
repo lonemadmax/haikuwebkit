@@ -876,7 +876,7 @@ public:
     bool isMenuButton() const { return roleValue() == AccessibilityRole::MenuButton; }
     bool isMenuItem() const;
     virtual bool isInputImage() const = 0;
-    virtual bool isProgressIndicator() const = 0;
+    bool isProgressIndicator() const { return roleValue() == AccessibilityRole::ProgressIndicator || roleValue() == AccessibilityRole::Meter; }
     bool isSlider() const { return roleValue() == AccessibilityRole::Slider; }
     virtual bool isControl() const = 0;
     // lists support (l, ul, ol, dl)
@@ -979,8 +979,9 @@ public:
     virtual bool isOnScreen() const = 0;
     virtual bool isOffScreen() const = 0;
     virtual bool isPressed() const = 0;
-    virtual bool isUnvisited() const = 0;
-    virtual bool isVisited() const = 0;
+    virtual InsideLink insideLink() const = 0;
+    bool isUnvisited() const { return insideLink() == InsideLink::InsideUnvisited; }
+    bool isVisited() const { return insideLink() == InsideLink::InsideVisited; }
     virtual bool isRequired() const = 0;
     virtual bool supportsRequiredAttribute() const = 0;
     virtual bool isExpanded() const = 0;
@@ -1135,7 +1136,10 @@ public:
     virtual void setAccessibleName(const AtomString&) = 0;
     virtual bool hasAttributesRequiredForInclusion() const = 0;
 
-    virtual String textContent() const = 0;
+    virtual String title() const = 0;
+    virtual String description() const = 0;
+
+    virtual std::optional<String> textContent() const = 0;
 
     // Methods for determining accessibility text.
     virtual String stringValue() const = 0;
@@ -1247,7 +1251,7 @@ public:
     bool canHaveSelectedChildren() const;
     virtual void selectedChildren(AccessibilityChildrenVector&) = 0;
     virtual void setSelectedChildren(const AccessibilityChildrenVector&) = 0;
-    virtual void visibleChildren(AccessibilityChildrenVector&) = 0;
+    virtual AccessibilityChildrenVector visibleChildren() = 0;
     AccessibilityChildrenVector tabChildren();
     virtual AXCoreObject* activeDescendant() const = 0;
     bool isDescendantOfObject(const AXCoreObject*) const;
@@ -1274,9 +1278,8 @@ public:
     virtual VisiblePositionRange selectedVisiblePositionRange() const = 0;
 
     virtual std::optional<SimpleRange> rangeForPlainTextRange(const PlainTextRange&) const = 0;
-#if PLATFORM(MAC)
-    // FIXME: make this a COCOA method.
-    virtual AXTextMarkerRangeRef textMarkerRangeForNSRange(const NSRange&) const = 0;
+#if PLATFORM(COCOA)
+    virtual AXTextMarkerRange textMarkerRangeForNSRange(const NSRange&) const = 0;
 #endif
 
     virtual String stringForRange(const SimpleRange&) const = 0;
@@ -1468,6 +1471,7 @@ inline Vector<AXID> axIDs(const AXCoreObject::AccessibilityChildrenVector& objec
 }
 
 #if PLATFORM(COCOA)
+
 inline bool AXCoreObject::shouldComputeDescriptionAttributeValue() const
 {
     // Static text objects shouldn't return a description. Their content is communicated via AXValue.

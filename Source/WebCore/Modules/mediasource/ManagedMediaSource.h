@@ -28,6 +28,7 @@
 #if ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE)
 
 #include "MediaSource.h"
+#include "Timer.h"
 #include <optional>
 
 namespace WebCore {
@@ -38,15 +39,13 @@ public:
     static Ref<ManagedMediaSource> create(ScriptExecutionContext&);
     ~ManagedMediaSource();
 
-    enum class BufferingPolicy { Low, Medium, High };
-    ExceptionOr<BufferingPolicy> buffering() const;
-
     enum class PreferredQuality { Low, Medium, High };
     ExceptionOr<PreferredQuality> quality() const;
 
     static bool isTypeSupported(ScriptExecutionContext&, const String& type);
 
     bool streaming() const { return m_streaming; }
+    bool streamingAllowed() const { return m_streamingAllowed; }
 
     bool isManaged() const final { return true; }
 
@@ -55,9 +54,14 @@ private:
     void monitorSourceBuffers() final;
     bool isBuffered(const PlatformTimeRanges&) const;
     void setStreaming(bool);
+    void streamingTimerFired();
+    void ensurePrefsRead();
+
     bool m_streaming { false };
     std::optional<double> m_lowThreshold;
     std::optional<double> m_highThreshold;
+    Timer m_streamingTimer;
+    bool m_streamingAllowed { true };
 };
 
 } // namespace WebCore

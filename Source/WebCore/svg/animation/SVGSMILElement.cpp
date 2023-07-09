@@ -36,6 +36,7 @@
 #include "EventSender.h"
 #include "FloatConversion.h"
 #include "LocalFrameView.h"
+#include "NodeName.h"
 #include "Page.h"
 #include "SMILTimeContainer.h"
 #include "SVGDocumentExtensions.h"
@@ -475,32 +476,40 @@ bool SVGSMILElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGSMILElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void SVGSMILElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == SVGNames::beginAttr) {
+    SVGElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+
+    switch (name.nodeName()) {
+    case AttributeNames::beginAttr:
         if (!m_conditions.isEmpty()) {
             disconnectConditions();
             m_conditions.clear();
             parseBeginOrEnd(attributeWithoutSynchronization(SVGNames::endAttr), End);
         }
-        parseBeginOrEnd(value, Begin);
+        parseBeginOrEnd(newValue, Begin);
         if (isConnected())
             connectConditions();
-    } else if (name == SVGNames::endAttr) {
+        break;
+    case AttributeNames::endAttr:
         if (!m_conditions.isEmpty()) {
             disconnectConditions();
             m_conditions.clear();
             parseBeginOrEnd(attributeWithoutSynchronization(SVGNames::beginAttr), Begin);
         }
-        parseBeginOrEnd(value, End);
+        parseBeginOrEnd(newValue, End);
         if (isConnected())
             connectConditions();
-    } else if (name == SVGNames::onendAttr)
-        setAttributeEventListener(eventNames().endEventEvent, name, value);
-    else if (name == SVGNames::onbeginAttr)
-        setAttributeEventListener(eventNames().beginEventEvent, name, value);
-    else
-        SVGElement::parseAttribute(name, value);
+        break;
+    case AttributeNames::onendAttr:
+        setAttributeEventListener(eventNames().endEventEvent, name, newValue);
+        break;
+    case AttributeNames::onbeginAttr:
+        setAttributeEventListener(eventNames().beginEventEvent, name, newValue);
+        break;
+    default:
+        break;
+    }
 }
 
 void SVGSMILElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -510,28 +519,42 @@ void SVGSMILElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
     }
 
-    if (attrName == SVGNames::durAttr)
+    switch (attrName.nodeName()) {
+    case AttributeNames::durAttr:
         m_cachedDur = invalidCachedTime;
-    else if (attrName == SVGNames::repeatDurAttr)
+        break;
+    case AttributeNames::repeatDurAttr:
         m_cachedRepeatDur = invalidCachedTime;
-    else if (attrName == SVGNames::repeatCountAttr)
+        break;
+    case AttributeNames::repeatCountAttr:
         m_cachedRepeatCount = invalidCachedTime;
-    else if (attrName == SVGNames::minAttr)
+        break;
+    case AttributeNames::minAttr:
         m_cachedMin = invalidCachedTime;
-    else if (attrName == SVGNames::maxAttr)
+        break;
+    case AttributeNames::maxAttr:
         m_cachedMax = invalidCachedTime;
-    else if (attrName == SVGNames::attributeNameAttr)
+        break;
+    case AttributeNames::attributeNameAttr:
         updateAttributeName();
-    else if (attrName.matches(SVGNames::hrefAttr) || attrName.matches(XLinkNames::hrefAttr)) {
+        break;
+    case AttributeNames::hrefAttr:
+    case AttributeNames::XLink::hrefAttr: {
         InstanceInvalidationGuard guard(*this);
         buildPendingResource();
-    } else if (isConnected()) {
-        if (attrName == SVGNames::beginAttr)
-            beginListChanged(elapsed());
-        else if (attrName == SVGNames::endAttr)
-            endListChanged(elapsed());
+        break;
     }
-
+    case AttributeNames::beginAttr:
+        if (isConnected())
+            beginListChanged(elapsed());
+        break;
+    case AttributeNames::endAttr:
+        if (isConnected())
+            endListChanged(elapsed());
+        break;
+    default:
+        break;
+    }
     animationAttributeChanged();
 }
 

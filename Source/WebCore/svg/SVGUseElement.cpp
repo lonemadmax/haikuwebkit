@@ -30,10 +30,10 @@
 #include "CachedSVGDocument.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementChildIteratorInlines.h"
-#include "ElementName.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "LegacyRenderSVGTransformableContainer.h"
+#include "NodeName.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGTransformableContainer.h"
 #include "SVGDocumentExtensions.h"
@@ -80,23 +80,30 @@ SVGUseElement::~SVGUseElement()
         m_externalDocument->removeClient(*this);
 }
 
-void SVGUseElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void SVGUseElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
     SVGParsingError parseError = NoError;
 
-    if (name == SVGNames::xAttr)
-        m_x->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Width, value, parseError));
-    else if (name == SVGNames::yAttr)
-        m_y->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Height, value, parseError));
-    else if (name == SVGNames::widthAttr)
-        m_width->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Width, value, parseError, SVGLengthNegativeValuesMode::Forbid));
-    else if (name == SVGNames::heightAttr)
-        m_height->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Height, value, parseError, SVGLengthNegativeValuesMode::Forbid));
+    switch (name.nodeName()) {
+    case AttributeNames::xAttr:
+        m_x->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Width, newValue, parseError));
+        break;
+    case AttributeNames::yAttr:
+        m_y->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Height, newValue, parseError));
+        break;
+    case AttributeNames::widthAttr:
+        m_width->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Width, newValue, parseError, SVGLengthNegativeValuesMode::Forbid));
+        break;
+    case AttributeNames::heightAttr:
+        m_height->setBaseValInternal(SVGLengthValue::construct(SVGLengthMode::Height, newValue, parseError, SVGLengthNegativeValuesMode::Forbid));
+        break;
+    default:
+        break;
+    }
+    reportAttributeParsingError(parseError, name, newValue);
 
-    reportAttributeParsingError(parseError, name, value);
-
-    SVGGraphicsElement::parseAttribute(name, value);
-    SVGURIReference::parseAttribute(name, value);
+    SVGURIReference::parseAttribute(name, newValue);
+    SVGGraphicsElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
 }
 
 Node::InsertedIntoAncestorResult SVGUseElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
@@ -190,7 +197,7 @@ static inline bool isDisallowedElement(const SVGElement& element)
     // (i.e., "instanced") in the SVG document via a 'use' element."
     // "Graphics Element" is defined as 'circle', 'ellipse', 'image', 'line', 'path', 'polygon', 'polyline', 'rect', 'text'
     // Excluded are anything that is used by reference or that only make sense to appear once in a document.
-    switch (element.tagQName().elementName()) {
+    switch (element.elementName()) {
     case SVG::a:
     case SVG::circle:
     case SVG::desc:

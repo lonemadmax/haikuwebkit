@@ -125,18 +125,13 @@ JSTestNamedSetterWithLegacyOverrideBuiltIns::JSTestNamedSetterWithLegacyOverride
 {
 }
 
-void JSTestNamedSetterWithLegacyOverrideBuiltIns::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterWithLegacyOverrideBuiltIns>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterWithLegacyOverrideBuiltIns>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestNamedSetterWithLegacyOverrideBuiltIns::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNamedSetterWithLegacyOverrideBuiltInsPrototype::create(vm, &globalObject, JSTestNamedSetterWithLegacyOverrideBuiltInsPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestNamedSetterWithLegacyOverrideBuiltInsPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestNamedSetterWithLegacyOverrideBuiltInsPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNamedSetterWithLegacyOverrideBuiltIns::prototype(VM& vm, JSDOMGlobalObject& globalObject)

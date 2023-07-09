@@ -1024,7 +1024,7 @@ public:
     }
 
 #if OS(WINDOWS) && CPU(X86_64)
-    JITCompiler::Call appendCallWithUGPRPair(Address address)
+    void appendCallWithUGPRPair(Address address)
     {
         prepareForExternalCall();
         emitStoreCodeOrigin(m_currentNode->origin.semantic);
@@ -1575,6 +1575,7 @@ public:
     void compileEnumeratorHasProperty(Node*, SlowPathFunctionType);
     void compileEnumeratorInByVal(Node*);
     void compileEnumeratorHasOwnProperty(Node*);
+    void compileEnumeratorPutByVal(Node*);
 
     void compilePutByIdFlush(Node*);
     void compilePutById(Node*);

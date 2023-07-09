@@ -909,6 +909,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     jit/Width.h
 
     llint/LLIntOpcode.h
+    llint/LLIntThunks.h
 
     parser/Lexer.h
     parser/ParserArena.h
@@ -1100,6 +1101,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSGlobalObject.h
     runtime/JSGlobalObjectFunctions.h
     runtime/JSGlobalObjectInlines.h
+    runtime/JSGlobalProxy.h
     runtime/JSImmutableButterfly.h
     runtime/JSInternalFieldObjectImpl.h
     runtime/JSInternalPromise.h
@@ -1119,7 +1121,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSPromise.h
     runtime/JSPromiseConstructor.h
     runtime/JSPropertyNameEnumerator.h
-    runtime/JSProxy.h
     runtime/JSRemoteFunction.h
     runtime/JSRunLoopTimer.h
     runtime/JSScope.h
@@ -1146,6 +1147,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/Lookup.h
     runtime/MatchResult.h
     runtime/MathCommon.h
+    runtime/MegamorphicCache.h
     runtime/MemoryMode.h
     runtime/MemoryStatistics.h
     runtime/Microtask.h

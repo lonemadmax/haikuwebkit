@@ -83,8 +83,6 @@ public:
     bool shouldExposeShowModalDialog() const;
     bool shouldNavigatorPluginsBeEmpty() const;
 
-    bool needsMillisecondResolutionForHighResTimeStamp() const;
-
     WEBCORE_EXPORT bool shouldDisableContentChangeObserver() const;
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
     WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreas() const;
@@ -149,10 +147,6 @@ public:
 
     static bool shouldOmitHTMLDocumentSupportedPropertyNames();
 
-#if ENABLE(IMAGE_ANALYSIS)
-    bool needsToForceUserSelectAndUserDragWhenInstallingImageOverlay() const;
-#endif
-
 #if PLATFORM(IOS)
     WEBCORE_EXPORT bool allowLayeredFullscreenVideos() const;
 #endif
@@ -168,6 +162,8 @@ public:
 #if PLATFORM(COCOA)
     bool shouldAdvertiseSupportForHLSSubtitleTypes() const;
 #endif
+
+    bool shouldDisablePopoverAttributeQuirk() const;
 
 private:
     bool needsQuirks() const;

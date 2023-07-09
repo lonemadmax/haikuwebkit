@@ -127,18 +127,13 @@ JSTestInterfaceLeadingUnderscore::JSTestInterfaceLeadingUnderscore(Structure* st
 {
 }
 
-void JSTestInterfaceLeadingUnderscore::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestInterfaceLeadingUnderscore>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestInterfaceLeadingUnderscore>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestInterfaceLeadingUnderscore::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestInterfaceLeadingUnderscorePrototype::create(vm, &globalObject, JSTestInterfaceLeadingUnderscorePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestInterfaceLeadingUnderscorePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestInterfaceLeadingUnderscorePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestInterfaceLeadingUnderscore::prototype(VM& vm, JSDOMGlobalObject& globalObject)

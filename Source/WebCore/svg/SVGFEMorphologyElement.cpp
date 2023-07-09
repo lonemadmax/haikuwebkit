@@ -23,6 +23,7 @@
 #include "SVGFEMorphologyElement.h"
 
 #include "FEMorphology.h"
+#include "NodeName.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include <wtf/IsoMallocInlines.h>
@@ -49,29 +50,29 @@ Ref<SVGFEMorphologyElement> SVGFEMorphologyElement::create(const QualifiedName& 
     return adoptRef(*new SVGFEMorphologyElement(tagName, document));
 }
 
-void SVGFEMorphologyElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void SVGFEMorphologyElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == SVGNames::operatorAttr) {
-        MorphologyOperatorType propertyValue = SVGPropertyTraits<MorphologyOperatorType>::fromString(value);
+    SVGFilterPrimitiveStandardAttributes::attributeChanged(name, oldValue, newValue, attributeModificationReason);
+
+    switch (name.nodeName()) {
+    case AttributeNames::operatorAttr: {
+        MorphologyOperatorType propertyValue = SVGPropertyTraits<MorphologyOperatorType>::fromString(newValue);
         if (propertyValue != MorphologyOperatorType::Unknown)
             m_svgOperator->setBaseValInternal<MorphologyOperatorType>(propertyValue);
-        return;
+        break;
     }
-
-    if (name == SVGNames::inAttr) {
-        m_in1->setBaseValInternal(value);
-        return;
-    }
-
-    if (name == SVGNames::radiusAttr) {
-        if (auto result = parseNumberOptionalNumber(value)) {
+    case AttributeNames::inAttr:
+        m_in1->setBaseValInternal(newValue);
+        break;
+    case AttributeNames::radiusAttr:
+        if (auto result = parseNumberOptionalNumber(newValue)) {
             m_radiusX->setBaseValInternal(result->first);
             m_radiusY->setBaseValInternal(result->second);
         }
-        return;
+        break;
+    default:
+        break;
     }
-
-    SVGFilterPrimitiveStandardAttributes::parseAttribute(name, value);
 }
 
 bool SVGFEMorphologyElement::setFilterEffectAttribute(FilterEffect& effect, const QualifiedName& attrName)
@@ -92,19 +93,22 @@ bool SVGFEMorphologyElement::setFilterEffectAttribute(FilterEffect& effect, cons
 
 void SVGFEMorphologyElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (attrName == SVGNames::inAttr) {
+    switch (attrName.nodeName()) {
+    case AttributeNames::inAttr: {
         InstanceInvalidationGuard guard(*this);
         updateSVGRendererForElementChange();
-        return;
+        break;
     }
-
-    if (attrName == SVGNames::operatorAttr || attrName == SVGNames::radiusAttr) {
+    case AttributeNames::operatorAttr:
+    case AttributeNames::radiusAttr: {
         InstanceInvalidationGuard guard(*this);
         primitiveAttributeChanged(attrName);
-        return;
+        break;
     }
-
-    SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
+    default:
+        SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
+        break;
+    }
 }
 
 bool SVGFEMorphologyElement::isIdentity() const

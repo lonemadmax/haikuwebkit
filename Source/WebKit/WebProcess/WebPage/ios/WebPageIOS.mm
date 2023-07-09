@@ -264,19 +264,6 @@ static void computeEditableRootHasContentAndPlainText(const VisibleSelection& se
     }
 }
 
-bool WebPage::isTransparentOrFullyClipped(const Element& element) const
-{
-    auto* renderer = element.renderer();
-    if (!renderer)
-        return false;
-
-    auto* enclosingLayer = renderer->enclosingLayer();
-    if (enclosingLayer && enclosingLayer->isTransparentRespectingParentFrames())
-        return true;
-
-    return renderer->hasNonEmptyVisibleRectRespectingParentFrames();
-}
-
 bool WebPage::requiresPostLayoutDataForEditorState(const LocalFrame& frame) const
 {
     // If we have a composition or are using a hardware keyboard then we need to send the full
@@ -395,10 +382,6 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
                 postLayoutData.caretColor = CaretBase::computeCaretColor(editableRoot->renderer()->style(), editableRoot.get());
         }
 
-        if (RefPtr editableRootOrFormControl = enclosingTextFormControl(selection.start()) ?: selection.rootEditableElement()) {
-            visualData.selectionClipRect = rootViewInteractionBounds(*editableRootOrFormControl);
-            postLayoutData.editableRootIsTransparentOrFullyClipped = result.isContentEditable && isTransparentOrFullyClipped(*editableRootOrFormControl);
-        }
         computeEditableRootHasContentAndPlainText(selection, postLayoutData);
         postLayoutData.selectionStartIsAtParagraphBoundary = atBoundaryOfGranularity(selection.visibleStart(), TextGranularity::ParagraphGranularity, SelectionDirection::Backward);
         postLayoutData.selectionEndIsAtParagraphBoundary = atBoundaryOfGranularity(selection.visibleEnd(), TextGranularity::ParagraphGranularity, SelectionDirection::Forward);
@@ -4519,6 +4502,17 @@ void WebPage::drawToImage(WebCore::FrameIdentifier frameID, const PrintInfo& pri
 
     Checked<int> pageWidth = pageRects[0].width();
     Checked<int> pageHeight = pageRects[0].height();
+
+    // The thumbnail images are always a maximum of 500 x 500.
+    static constexpr float maximumPrintPreviewDimensionSize = 500.0;
+
+    // If the sizes are too large, the bitmap will not be able to be created,
+    // so scale them down.
+    float scaleFactor = maximumPrintPreviewDimensionSize / static_cast<int>(std::max(pageWidth, pageHeight));
+    if (scaleFactor < 1.0) {
+        pageWidth = static_cast<int>(std::floorf(static_cast<int>(pageWidth) * scaleFactor));
+        pageHeight = static_cast<int>(std::floorf(static_cast<int>(pageHeight) * scaleFactor));
+    }
 
     int imageHeight;
     if (!WTF::safeMultiply(pageHeight.value<size_t>(), pageCount, imageHeight)) {

@@ -53,12 +53,14 @@ RemoteDeviceProxy::RemoteDeviceProxy(Ref<PAL::WebGPU::SupportedFeatures>&& featu
     , m_backing(identifier)
     , m_convertToBackingContext(convertToBackingContext)
     , m_parent(parent)
-    , m_queue(RemoteQueueProxy::create(*this, convertToBackingContext, queueIdentifier))
+    , m_queue(RemoteQueueProxy::create(parent, convertToBackingContext, queueIdentifier))
 {
 }
 
 RemoteDeviceProxy::~RemoteDeviceProxy()
 {
+    auto sendResult = send(Messages::RemoteDevice::Destruct());
+    UNUSED_VARIABLE(sendResult);
 }
 
 Ref<PAL::WebGPU::Queue> RemoteDeviceProxy::queue()
@@ -338,6 +340,15 @@ void RemoteDeviceProxy::setLabelInternal(const String& label)
 {
     auto sendResult = send(Messages::RemoteDevice::SetLabel(label));
     UNUSED_VARIABLE(sendResult);
+}
+
+void RemoteDeviceProxy::resolveDeviceLostPromise(CompletionHandler<void(PAL::WebGPU::DeviceLostReason)>&& callback)
+{
+    auto sendResult = sendWithAsyncReply(Messages::RemoteDevice::ResolveDeviceLostPromise(), [callback = WTFMove(callback)] (PAL::WebGPU::DeviceLostReason reason) mutable {
+        callback(reason);
+    });
+
+    UNUSED_PARAM(sendResult);
 }
 
 } // namespace WebKit::WebGPU

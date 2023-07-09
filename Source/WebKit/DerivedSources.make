@@ -260,6 +260,9 @@ MESSAGE_RECEIVERS = \
 	WebProcess/WebPage/ViewUpdateDispatcher \
 	WebProcess/XR/PlatformXRSystemProxy \
 	GPUProcess/GPUConnectionToWebProcess \
+	GPUProcess/ShapeDetection/RemoteBarcodeDetector \
+	GPUProcess/ShapeDetection/RemoteFaceDetector \
+	GPUProcess/ShapeDetection/RemoteTextDetector \
 	GPUProcess/graphics/RemoteDisplayListRecorder \
 	GPUProcess/graphics/RemoteRenderingBackend \
 	GPUProcess/graphics/RemoteGraphicsContextGL \
@@ -498,6 +501,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/ios/WebAutocorrectionContext.serialization.in \
 	Shared/ios/WebAutocorrectionData.serialization.in \
 	Shared/LayerTreeContext.serialization.in \
+	Shared/LocalFrameCreationParameters.serialization.in \
 	Shared/Model.serialization.in \
 	Shared/NavigationActionData.serialization.in \
 	Shared/NetworkProcessConnectionParameters.serialization.in \

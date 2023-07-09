@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1003,7 +1003,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     static NeverDestroyed menuBarAttrs = [] {
         auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:commonMenuAttrs.get().get()]);
         [tempArray addObject:NSAccessibilitySelectedChildrenAttribute];
-        [tempArray addObject:NSAccessibilityVisibleChildrenAttribute];
         [tempArray addObject:NSAccessibilityTitleUIElementAttribute];
         [tempArray addObject:NSAccessibilityOrientationAttribute];
         return tempArray;
@@ -1011,7 +1010,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     static NeverDestroyed menuAttrs = [] {
         auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:commonMenuAttrs.get().get()]);
         [tempArray addObject:NSAccessibilitySelectedChildrenAttribute];
-        [tempArray addObject:NSAccessibilityVisibleChildrenAttribute];
         [tempArray addObject:NSAccessibilityTitleUIElementAttribute];
         [tempArray addObject:NSAccessibilityOrientationAttribute];
         return tempArray;
@@ -1272,9 +1270,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (child)
         return @[child];
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [backingObject->platformWidget() accessibilityAttributeValue:NSAccessibilityChildrenAttribute];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (id)remoteAccessibilityParentObject
@@ -1391,10 +1389,10 @@ static void WebTransformCGPathToNSBezierPath(void* info, const CGPathElement *el
 
 - (NSString*)role
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (self.axBackingObject->isAttachment())
         return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityRoleAttribute];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     NSString *string = self.axBackingObject->rolePlatformString();
     if (string.length)
@@ -1442,11 +1440,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!backingObject)
         return nil;
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // attachments have the AXImage role, but a different subrole
     if (backingObject->isAttachment())
         return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityRoleDescriptionAttribute];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     String roleDescription = backingObject->roleDescription();
     if (!roleDescription.isEmpty())
@@ -1497,9 +1495,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (id)windowElement:(NSString*)attributeName
 {
     if (id remoteParent = self.remoteAccessibilityParentObject) {
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         return [remoteParent accessibilityAttributeValue:attributeName];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
@@ -1615,11 +1613,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     if ([attributeName isEqualToString: NSAccessibilityVisibleChildrenAttribute]) {
-        if (backingObject->isListBox()) {
-            AccessibilityObject::AccessibilityChildrenVector visibleChildrenCopy;
-            backingObject->visibleChildren(visibleChildrenCopy);
-            return makeNSArray(visibleChildrenCopy);
-        }
+        if (backingObject->isListBox())
+            return makeNSArray(backingObject->visibleChildren());
 
         if (backingObject->isList())
             return [self accessibilityAttributeValue:NSAccessibilityChildrenAttribute];
@@ -3237,7 +3232,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // TextMarkerRange attributes.
     if ([attribute isEqualToString:AXTextMarkerRangeForNSRangeAttribute])
-        return (id)backingObject->textMarkerRangeForNSRange(range);
+        return backingObject->textMarkerRangeForNSRange(range).platformData().bridgingAutorelease();
 
     if ([attribute isEqualToString:AXLineTextMarkerRangeForTextMarkerAttribute])
         return (id)[self lineTextMarkerRangeForTextMarker:textMarker forUnit:TextUnit::Line];

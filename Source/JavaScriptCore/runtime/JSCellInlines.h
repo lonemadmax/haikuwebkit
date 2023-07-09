@@ -241,7 +241,7 @@ inline bool JSCell::isCustomGetterSetter() const
 
 inline bool JSCell::isProxy() const
 {
-    return m_type == PureForwardingProxyType || m_type == ProxyObjectType;
+    return m_type == GlobalProxyType || m_type == ProxyObjectType;
 }
 
 // FIXME: Consider making getCallData concurrency-safe once NPAPI support is removed.
@@ -432,6 +432,25 @@ inline JSObject* JSCell::toObject(JSGlobalObject* globalObject) const
     if (isObject())
         return jsCast<JSObject*>(const_cast<JSCell*>(this));
     return toObjectSlow(globalObject);
+}
+
+ALWAYS_INLINE JSString* JSCell::toStringInline(JSGlobalObject* globalObject) const
+{
+    Structure* structure = this->structure();
+    if (structure->hasRareData()) {
+        auto* rareData = structure->rareData();
+        if (rareData->cachedSpecialProperty(CachedSpecialPropertyKey::ToPrimitive).isUndefinedOrNull()) {
+            if (rareData->cachedSpecialProperty(CachedSpecialPropertyKey::ToString) == globalObject->objectProtoToStringFunction()) {
+                if (auto result = rareData->cachedSpecialProperty(CachedSpecialPropertyKey::ToStringTag))
+                    return asString(result);
+            }
+        }
+    }
+    if (isObject())
+        return asObject(this)->toString(globalObject);
+    if (isString())
+        return asString(this);
+    return toStringSlowCase(globalObject);
 }
 
 ALWAYS_INLINE bool JSCell::putInline(JSGlobalObject* globalObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot)

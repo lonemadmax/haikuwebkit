@@ -114,17 +114,21 @@ JSWorkletGlobalScope::JSWorkletGlobalScope(VM& vm, Structure* structure, Ref<Wor
 {
 }
 
-void JSWorkletGlobalScope::finishCreation(VM& vm, JSProxy* proxy)
+static_assert(!std::is_base_of<ActiveDOMObject, WorkletGlobalScope>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
+#if ASSERT_ENABLED
+void JSWorkletGlobalScope::finishCreation(VM& vm, JSGlobalProxy* proxy)
 {
     Base::finishCreation(vm, proxy);
 
-    static_assert(!std::is_base_of<ActiveDOMObject, WorkletGlobalScope>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
 }
+#endif
 
 JSObject* JSWorkletGlobalScope::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSWorkletGlobalScopePrototype::create(vm, &globalObject, JSWorkletGlobalScopePrototype::createStructure(vm, &globalObject, JSEventTarget::prototype(vm, globalObject)));
+    auto* structure = JSWorkletGlobalScopePrototype::createStructure(vm, &globalObject, JSEventTarget::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSWorkletGlobalScopePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSWorkletGlobalScope::prototype(VM& vm, JSDOMGlobalObject& globalObject)

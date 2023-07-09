@@ -151,18 +151,13 @@ JSTestNamedSetterWithLegacyUnforgeableProperties::JSTestNamedSetterWithLegacyUnf
 {
 }
 
-void JSTestNamedSetterWithLegacyUnforgeableProperties::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterWithLegacyUnforgeableProperties>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterWithLegacyUnforgeableProperties>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestNamedSetterWithLegacyUnforgeableProperties::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNamedSetterWithLegacyUnforgeablePropertiesPrototype::create(vm, &globalObject, JSTestNamedSetterWithLegacyUnforgeablePropertiesPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestNamedSetterWithLegacyUnforgeablePropertiesPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestNamedSetterWithLegacyUnforgeablePropertiesPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNamedSetterWithLegacyUnforgeableProperties::prototype(VM& vm, JSDOMGlobalObject& globalObject)

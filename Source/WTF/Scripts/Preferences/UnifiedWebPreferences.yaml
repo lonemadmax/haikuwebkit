@@ -651,6 +651,24 @@ AttachmentWideLayoutEnabled:
     WebCore:
       default: false
 
+AudioControlsScaleWithPageZoom:
+  type: bool
+  status: embedder
+  category: media
+  defaultValue:
+    WebKitLegacy:
+      "HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
+    WebKit:
+      "HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
+    WebCore:
+      "HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
+
 AudioDescriptionsEnabled:
   type: bool
   status: preview
@@ -1109,7 +1127,7 @@ CSSMotionPathEnabled:
 
 CSSNestingEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "CSS Nesting"
   humanReadableDescription: "Enable support for CSS nesting https://www.w3.org/TR/css-nesting-1/"
@@ -1309,17 +1327,17 @@ CSSTransformStyleOptimized3DEnabled:
 
 CSSTypedOMColorEnabled:
   type: bool
-  status: stable
+  status: testable
   category: css
   humanReadableName: "CSS Typed OM: Color Support"
   humanReadableDescription: "Enable the CSS Typed OM Color support"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 CSSTypedOMEnabled:
   type: bool
@@ -1562,7 +1580,7 @@ ConstantPropertiesEnabled:
 
 ConstructableStylesheetsEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "Constructable Stylesheets"
   humanReadableDescription: "Enable Constructable Stylesheets"
@@ -1746,7 +1764,7 @@ DNSPrefetchingEnabled:
 
 DOMAudioSessionEnabled:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "AudioSession API"
   humanReadableDescription: "Enable AudioSession API"
@@ -1978,7 +1996,7 @@ DefaultTextEncodingName:
 
 DeprecateRSAESPKCSWebCryptoEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "Deprecate RSAES-PKCS1-v1_5 Web Crypto"
   humanReadableDescription: "Enable Deprecation of RSAES-PKCS1-v1_5 Web Crypto"
@@ -2441,7 +2459,7 @@ FileReaderAPIEnabled:
 
 FileSystemAccessEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "File System Access API"
   humanReadableDescription: "Enable File System Access API"
@@ -2623,7 +2641,7 @@ GamepadTriggerRumbleEnabled:
 
 GamepadVibrationActuatorEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "Gamepad.vibrationActuator support"
   humanReadableDescription: "Support for Gamepad.vibrationActuator"
@@ -3595,7 +3613,7 @@ LineHeightUnitsEnabled:
 
 LinkModulePreloadEnabled:
   type: bool
-  status: preview
+  status: stable
   category: networking
   humanReadableName: "Link rel=modulepreload"
   humanReadableDescription: "Enable Link rel=modulepreload"
@@ -3622,7 +3640,7 @@ LinkPreconnect:
 
 LinkPreconnectEarlyHintsEnabled:
   type: bool
-  status: testable
+  status: stable
   category: networking
   humanReadableName: "Link rel=preconnect via HTTP early hints"
   humanReadableDescription: "Enable link rel=preconnect via early hints"
@@ -3690,7 +3708,7 @@ LinkSanitizerEnabled:
 
 LiveRangeSelectionEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "Live Ranges in Selection"
   humanReadableDescription: "Live range behavior for ranges in the Selection object"
@@ -3698,7 +3716,7 @@ LiveRangeSelectionEnabled:
     WebKitLegacy:
       default: true
     WebKit:
-      default: true
+      default: WebKit::defaultLiveRangeSelectionEnabled()
     WebCore:
       default: true
 
@@ -3747,7 +3765,7 @@ LoadsSiteIconsIgnoringImageLoadingPreference:
 
 LocalFileContentSniffingEnabled:
   type: bool
-  status: stable
+  status: internal
   category: networking
   humanReadableName: "Local File Content Sniffing"
   humanReadableDescription: "Enable Local File Content Sniffing"
@@ -3838,7 +3856,7 @@ ManageCaptureStatusBarInGPUProcessEnabled:
 
 ManagedMediaSourceEnabled:
   type: bool
-  status: unstable
+  status: stable
   category: media
   humanReadableName: "Managed Media Source API"
   humanReadableDescription: "Managed Media Source API"
@@ -3958,7 +3976,7 @@ MediaCapabilitiesEnabled:
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 MediaCapabilitiesExtensionsEnabled:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "Media Capabilities Extensions"
   humanReadableDescription: "Media Capabilities Extensions"
@@ -4516,7 +4534,7 @@ NotificationEventEnabled:
 
 NotificationsEnabled:
   type: bool
-  status: developer
+  status: stable
   category: dom
   humanReadableName: "Notifications"
   humanReadableDescription: "Enable the Notifications API"
@@ -4545,7 +4563,7 @@ OfflineWebApplicationCacheEnabled:
 
 OffscreenCanvasEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "OffscreenCanvas"
   humanReadableDescription: "Support for the OffscreenCanvas APIs"
@@ -4563,7 +4581,7 @@ OffscreenCanvasEnabled:
 
 OffscreenCanvasInWorkersEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "OffscreenCanvas in Workers"
   humanReadableDescription: "Support for the OffscreenCanvas APIs in Workers"
@@ -4881,9 +4899,9 @@ PopoverAttributeEnabled:
   humanReadableDescription: "Enable HTML popover attribute support"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: WebKit::defaultPopoverAttributeEnabled()
     WebKit:
-      default: true
+      default: WebKit::defaultPopoverAttributeEnabled()
     WebCore:
       default: true
 
@@ -5541,7 +5559,7 @@ SelectTrailingWhitespaceEnabled:
 
 SelectionAPIForShadowDOMEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "Selection API for shadow DOM"
   humanReadableDescription: "Enable selection API for shadow DOM"
@@ -6299,7 +6317,7 @@ TextAutosizingUsesIdempotentMode:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(IOS_FAMILY)": defaultTextAutosizingUsesIdempotentMode()
+      "PLATFORM(IOS_FAMILY) && !HAVE(UIKIT_WEBKIT_INTERNALS)": defaultTextAutosizingUsesIdempotentMode()
       default: false
     WebCore:
       default: false
@@ -6516,7 +6534,7 @@ UseCGDisplayListsForDOMRendering:
 
 UseGPUProcessForCanvasRenderingEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "GPU Process: Canvas Rendering"
   humanReadableDescription: "Enable canvas rendering in GPU Process"
@@ -6526,12 +6544,12 @@ UseGPUProcessForCanvasRenderingEnabled:
   defaultValue:
     WebKit:
       "ENABLE(GPU_PROCESS_BY_DEFAULT)": true
-      "PLATFORM(WIN)": true
+      "USE(GRAPHICS_LAYER_WC)": true
       default: false
 
 UseGPUProcessForDOMRenderingEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "GPU Process: DOM Rendering"
   humanReadableDescription: "Enable DOM rendering in GPU Process"
@@ -6541,12 +6559,12 @@ UseGPUProcessForDOMRenderingEnabled:
   defaultValue:
     WebKit:
       "ENABLE(GPU_PROCESS_BY_DEFAULT) && ENABLE(GPU_PROCESS_DOM_RENDERING_BY_DEFAULT)": true
-      "PLATFORM(WIN)": true
+      "USE(GRAPHICS_LAYER_WC)": true
       default: false
 
 UseGPUProcessForDisplayCapture:
   type: bool
-  status: preview
+  status: stable
   category: media
   humanReadableName: "GPU Process: Screen and Window capture"
   humanReadableDescription: "Display capture in GPU Process"
@@ -6581,11 +6599,11 @@ UseGPUProcessForWebGLEnabled:
       default: false
     WebKit:
       "ENABLE(GPU_PROCESS_BY_DEFAULT) && ENABLE(GPU_PROCESS_WEBGL_BY_DEFAULT)": true
-      "PLATFORM(WIN)": true
+      "USE(GRAPHICS_LAYER_WC)": true
       default: false
     WebCore:
       "ENABLE(GPU_PROCESS_BY_DEFAULT) && ENABLE(GPU_PROCESS_WEBGL_BY_DEFAULT)": true
-      "PLATFORM(WIN)": true
+      "USE(GRAPHICS_LAYER_WC)": true
       default: false
 
 UseGeneralDirectoryForStorage:
@@ -7139,7 +7157,7 @@ WebCodecsEnabled:
 
 WebCryptoSafeCurvesEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "Web Crypto Safe Curves"
   humanReadableDescription: "Enable Web Crypto Safe Curves"
@@ -7196,7 +7214,7 @@ WebGLTimerQueriesEnabled:
 
 WebGLUsingMetal:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "WebGL via Metal"
   humanReadableDescription: "Use the Metal backend for ANGLE"
@@ -7323,7 +7341,7 @@ WebRTCDTMFEnabled:
 
 WebRTCEncodedTransformEnabled:
   type: bool
-  status: testable
+  status: stable
   category: media
   condition: ENABLE(WEB_RTC)
   humanReadableName: "WebRTC Encoded Transform API"

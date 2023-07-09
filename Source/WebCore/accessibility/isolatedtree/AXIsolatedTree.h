@@ -30,6 +30,7 @@
 #include "AXTreeStore.h"
 #include "AccessibilityObjectInterface.h"
 #include "PageIdentifier.h"
+#include "RenderStyleConstants.h"
 #include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
@@ -87,6 +88,7 @@ enum class AXPropertyName : uint16_t {
     DatetimeAttributeValue,
     DecrementButton,
     Description,
+    DescriptionAttributeValue,
     DisclosedByRow,
     DisclosedRows,
     DocumentEncoding,
@@ -109,6 +111,7 @@ enum class AXPropertyName : uint16_t {
     IdentifierAttribute,
     IncrementButton,
     InnerHTML,
+    InsideLink,
     InvalidStatus,
     IsGrabbed,
     IsARIATreeGridRow,
@@ -143,7 +146,6 @@ enum class AXPropertyName : uint16_t {
     IsMathToken,
     IsMultiSelectable,
     IsPressed,
-    IsProgressIndicator,
     IsRequired,
     IsSecureField,
     IsSelected,
@@ -154,10 +156,8 @@ enum class AXPropertyName : uint16_t {
     IsTableRow,
     IsTree,
     IsTreeItem,
-    IsUnvisited,
     IsValueAutofillAvailable,
     IsVisible,
-    IsVisited,
     IsWidget,
     KeyShortcuts,
     Language,
@@ -224,6 +224,7 @@ enum class AXPropertyName : uint16_t {
     SupportsSetSize,
     TableLevel,
     TextContent,
+    Title,
     TitleAttributeValue,
     TitleUIElement,
     URL,
@@ -235,7 +236,7 @@ enum class AXPropertyName : uint16_t {
     VisibleRows,
 };
 
-using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, AccessibilityButtonState, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>, RetainPtr<NSAttributedString>>;
+using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, AccessibilityButtonState, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>, RetainPtr<NSAttributedString>, InsideLink>;
 using AXPropertyMap = HashMap<AXPropertyName, AXPropertyValueVariant, IntHash<AXPropertyName>, WTF::StrongEnumHashTraits<AXPropertyName>>;
 
 struct AXPropertyChange {

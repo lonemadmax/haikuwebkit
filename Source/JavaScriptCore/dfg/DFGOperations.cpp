@@ -448,7 +448,7 @@ JSC_DEFINE_JIT_OPERATION(operationCreateThis, JSCell*, (JSGlobalObject* globalOb
             JSObject* prototype = allocationProfile->prototype();
             ASSERT(prototype == jsCast<JSFunction*>(constructor)->prototypeForConstruction(vm, globalObject));
             result->putDirectOffset(vm, knownPolyProtoOffset, prototype);
-            prototype->didBecomePrototype();
+            prototype->didBecomePrototype(vm);
             ASSERT_WITH_MESSAGE(!hasIndexedProperties(result->indexingType()), "We rely on JSFinalObject not starting out with an indexing type otherwise we would potentially need to convert to slow put storage");
         }
         return result;
@@ -2447,6 +2447,25 @@ JSC_DEFINE_JIT_OPERATION(operationEnumeratorHasOwnProperty, EncodedJSValue, (JSG
     JSObject* baseObject = base.toObject(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
     RELEASE_AND_RETURN(scope, JSValue::encode(jsBoolean(objectPrototypeHasOwnProperty(globalObject, baseObject, identifier))));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationEnumeratorRecoverNameAndPutByVal, void, (JSGlobalObject* globalObject, EncodedJSValue baseValue, EncodedJSValue valueValue, bool isStrict, uint32_t index, JSPropertyNameEnumerator* enumerator))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSString* string = enumerator->propertyNameAtIndex(index);
+    PropertyName propertyName = string->toIdentifier(globalObject);
+    // This should only really return for TerminationException since we know string is backed by a UUID.
+    RETURN_IF_EXCEPTION(scope, void());
+    JSValue base = JSValue::decode(baseValue);
+    JSValue value = JSValue::decode(valueValue);
+
+    scope.release();
+    PutPropertySlot slot(base, isStrict);
+    base.put(globalObject, propertyName, value, slot);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationNewRegexpWithLastIndex, JSCell*, (JSGlobalObject* globalObject, JSCell* regexpPtr, EncodedJSValue encodedLastIndex))

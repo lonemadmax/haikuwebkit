@@ -66,6 +66,7 @@ public:
     void visit(AST::Structure&) override;
     void visit(AST::Variable&) override;
 
+    void visit(AST::BoolLiteral&) override;
     void visit(AST::AbstractFloatLiteral&) override;
     void visit(AST::AbstractIntegerLiteral&) override;
     void visit(AST::BinaryExpression&) override;
@@ -82,6 +83,8 @@ public:
 
     void visit(AST::Statement&) override;
     void visit(AST::AssignmentStatement&) override;
+    void visit(AST::CompoundStatement&) override;
+    void visit(AST::IfStatement&) override;
     void visit(AST::ReturnStatement&) override;
 
     void visit(AST::TypeName&) override;
@@ -93,6 +96,8 @@ public:
 
 private:
     void visit(const Type*);
+    void visitGlobal(AST::Variable&);
+    void serializeVariable(AST::Variable&);
 
     StringBuilder& m_stringBuilder;
     CallGraph& m_callGraph;
@@ -100,12 +105,15 @@ private:
     std::optional<AST::StructureRole> m_structRole;
     std::optional<AST::StageAttribute::Stage> m_entryPointStage;
     std::optional<String> m_suffix;
+    unsigned m_functionConstantIndex { 0 };
 };
 
 void FunctionDefinitionWriter::write()
 {
     for (auto& structure : m_callGraph.ast().structures())
         visit(structure);
+    for (auto& variable : m_callGraph.ast().variables())
+        visitGlobal(variable);
     for (auto& entryPoint : m_callGraph.entrypoints())
         visit(entryPoint.function);
 }
@@ -146,10 +154,8 @@ void FunctionDefinitionWriter::visit(AST::Function& functionDefinition)
     m_entryPointStage = std::nullopt;
 
     m_stringBuilder.append(")\n");
-    m_stringBuilder.append("{\n");
-    IndentationScope scope(m_indent);
     checkErrorAndVisit(functionDefinition.body());
-    m_stringBuilder.append("}\n\n");
+    m_stringBuilder.append("\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::Structure& structDecl)
@@ -180,7 +186,22 @@ void FunctionDefinitionWriter::visit(AST::Structure& structDecl)
 
 void FunctionDefinitionWriter::visit(AST::Variable& variable)
 {
-    m_stringBuilder.append(m_indent);
+    serializeVariable(variable);
+    m_stringBuilder.append(";\n");
+}
+
+void FunctionDefinitionWriter::visitGlobal(AST::Variable& variable)
+{
+    if (variable.flavor() != AST::VariableFlavor::Override)
+        return;
+
+    m_stringBuilder.append("constant ");
+    serializeVariable(variable);
+    m_stringBuilder.append(" [[function_constant(", m_functionConstantIndex++, ")]];\n");
+}
+
+void FunctionDefinitionWriter::serializeVariable(AST::Variable& variable)
+{
     if (variable.maybeTypeName())
         visit(*variable.maybeTypeName());
     else {
@@ -193,7 +214,6 @@ void FunctionDefinitionWriter::visit(AST::Variable& variable)
         m_stringBuilder.append(" = ");
         visit(*variable.maybeInitializer());
     }
-    m_stringBuilder.append(";\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::Attribute& attribute)
@@ -468,25 +488,35 @@ void FunctionDefinitionWriter::visit(AST::CallExpression& call)
             } },
         };
         static constexpr SortedArrayMap builtins { builtinMappings };
-        if (auto mappedBuiltin = builtins.get(downcast<AST::NamedTypeName>(call.target()).name().id())) {
+        const auto& targetName = downcast<AST::NamedTypeName>(call.target()).name().id();
+        if (auto mappedBuiltin = builtins.get(targetName)) {
             mappedBuiltin(this, call);
             return;
         }
+
+        if (AST::ParameterizedTypeName::stringViewToKind(targetName).has_value())
+            visit(call.inferredType());
+        else
+            m_stringBuilder.append(targetName);
+        visitArguments(this, call);
+        return;
     }
 
-    visit(call.target());
+    visit(call.inferredType());
     visitArguments(this, call);
 }
 
 void FunctionDefinitionWriter::visit(AST::UnaryExpression& unary)
 {
     switch (unary.operation()) {
+    case AST::UnaryOperation::Complement:
+        m_stringBuilder.append("~");
+        break;
     case AST::UnaryOperation::Negate:
         m_stringBuilder.append("-");
         break;
 
     case AST::UnaryOperation::AddressOf:
-    case AST::UnaryOperation::Complement:
     case AST::UnaryOperation::Dereference:
     case AST::UnaryOperation::Not:
         // FIXME: Implement these
@@ -498,6 +528,7 @@ void FunctionDefinitionWriter::visit(AST::UnaryExpression& unary)
 
 void FunctionDefinitionWriter::visit(AST::BinaryExpression& binary)
 {
+    m_stringBuilder.append("(");
     visit(binary.leftExpression());
     switch (binary.operation()) {
     case AST::BinaryOperation::Add:
@@ -509,20 +540,47 @@ void FunctionDefinitionWriter::visit(AST::BinaryExpression& binary)
     case AST::BinaryOperation::Multiply:
         m_stringBuilder.append(" * ");
         break;
-
     case AST::BinaryOperation::Divide:
+        m_stringBuilder.append(" / ");
+        break;
     case AST::BinaryOperation::Modulo:
+        m_stringBuilder.append(" % ");
+        break;
     case AST::BinaryOperation::And:
+        m_stringBuilder.append(" & ");
+        break;
     case AST::BinaryOperation::Or:
+        m_stringBuilder.append(" | ");
+        break;
     case AST::BinaryOperation::Xor:
+        m_stringBuilder.append(" ^ ");
+        break;
+
     case AST::BinaryOperation::LeftShift:
     case AST::BinaryOperation::RightShift:
+        // FIXME: Implement these
+        RELEASE_ASSERT_NOT_REACHED();
+        break;
+
     case AST::BinaryOperation::Equal:
+        m_stringBuilder.append(" == ");
+        break;
     case AST::BinaryOperation::NotEqual:
+        m_stringBuilder.append(" != ");
+        break;
     case AST::BinaryOperation::GreaterThan:
+        m_stringBuilder.append(" > ");
+        break;
     case AST::BinaryOperation::GreaterEqual:
+        m_stringBuilder.append(" >= ");
+        break;
     case AST::BinaryOperation::LessThan:
+        m_stringBuilder.append(" < ");
+        break;
     case AST::BinaryOperation::LessEqual:
+        m_stringBuilder.append(" <= ");
+        break;
+
     case AST::BinaryOperation::ShortCircuitAnd:
     case AST::BinaryOperation::ShortCircuitOr:
         // FIXME: Implement these
@@ -530,6 +588,7 @@ void FunctionDefinitionWriter::visit(AST::BinaryExpression& binary)
         break;
     }
     visit(binary.rightExpression());
+    m_stringBuilder.append(")");
 }
 
 void FunctionDefinitionWriter::visit(AST::PointerDereferenceExpression& pointerDereference)
@@ -555,6 +614,11 @@ void FunctionDefinitionWriter::visit(AST::FieldAccessExpression& access)
 {
     visit(access.base());
     m_stringBuilder.append(".", access.fieldName());
+}
+
+void FunctionDefinitionWriter::visit(AST::BoolLiteral& literal)
+{
+    m_stringBuilder.append(literal.value() ? "true" : "false");
 }
 
 void FunctionDefinitionWriter::visit(AST::AbstractIntegerLiteral& literal)
@@ -594,16 +658,40 @@ void FunctionDefinitionWriter::visit(AST::Statement& statement)
 
 void FunctionDefinitionWriter::visit(AST::AssignmentStatement& assignment)
 {
-    m_stringBuilder.append(m_indent);
     visit(assignment.lhs());
     m_stringBuilder.append(" = ");
     visit(assignment.rhs());
     m_stringBuilder.append(";\n");
 }
 
+void FunctionDefinitionWriter::visit(AST::CompoundStatement& statement)
+{
+    m_stringBuilder.append(m_indent, "{\n");
+    {
+        IndentationScope scope(m_indent);
+        for (auto& statement : statement.statements()) {
+            m_stringBuilder.append(m_indent);
+            checkErrorAndVisit(statement);
+        }
+    }
+    m_stringBuilder.append(m_indent, "}\n");
+}
+
+void FunctionDefinitionWriter::visit(AST::IfStatement& statement)
+{
+    m_stringBuilder.append("if (");
+    visit(statement.test());
+    m_stringBuilder.append(")\n");
+    visit(statement.trueBody());
+    if (statement.maybeFalseBody()) {
+        m_stringBuilder.append(m_indent, "else ");
+        visit(*statement.maybeFalseBody());
+    }
+}
+
 void FunctionDefinitionWriter::visit(AST::ReturnStatement& statement)
 {
-    m_stringBuilder.append(m_indent, "return");
+    m_stringBuilder.append("return");
     if (statement.maybeExpression()) {
         m_stringBuilder.append(" ");
         visit(*statement.maybeExpression());

@@ -34,17 +34,22 @@
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include "QualifiedRenderingResourceIdentifier.h"
+#include "RemoteGPU.h"
 #include "RemoteRenderingBackendCreationParameters.h"
 #include "RemoteResourceCache.h"
 #include "RemoteSerializedImageBufferIdentifier.h"
 #include "RenderingBackendIdentifier.h"
 #include "RenderingUpdateID.h"
+#include "ScopedActiveMessageReceiveQueue.h"
 #include "ScopedRenderingResourcesRequest.h"
+#include "ShapeDetectionIdentifier.h"
 #include "StreamConnectionWorkQueue.h"
 #include "StreamMessageReceiver.h"
 #include "StreamServerConnection.h"
+#include "WebGPUIdentifier.h"
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/ProcessIdentity.h>
+#include <wtf/HashMap.h>
 
 namespace WTF {
 enum class Critical : bool;
@@ -56,8 +61,14 @@ class DestinationColorSpace;
 class FloatSize;
 class MediaPlayer;
 class NativeImage;
-
 enum class RenderingMode : bool;
+
+namespace ShapeDetection {
+struct BarcodeDetectorOptions;
+enum class BarcodeFormat : uint8_t;
+struct FaceDetectorOptions;
+}
+
 }
 
 namespace WebKit {
@@ -69,6 +80,10 @@ struct PrepareBackingStoreBuffersInputData;
 struct PrepareBackingStoreBuffersOutputData;
 struct RemoteRenderingBackendCreationParameters;
 enum class SwapBuffersDisplayRequirement : uint8_t;
+
+namespace ShapeDetection {
+class ObjectHeap;
+}
 
 class RemoteRenderingBackend : private IPC::MessageSender, public IPC::StreamMessageReceiver {
 public:
@@ -148,6 +163,17 @@ private:
     void prepareLayerBuffersForDisplay(const PrepareBackingStoreBuffersInputData&, PrepareBackingStoreBuffersOutputData&);
 #endif
 
+    void createRemoteGPU(WebGPUIdentifier, IPC::StreamServerConnection::Handle&&);
+    void releaseRemoteGPU(WebGPUIdentifier);
+
+    void createRemoteBarcodeDetector(ShapeDetectionIdentifier, const WebCore::ShapeDetection::BarcodeDetectorOptions&);
+    void releaseRemoteBarcodeDetector(ShapeDetectionIdentifier);
+    void getRemoteBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&&);
+    void createRemoteFaceDetector(ShapeDetectionIdentifier, const WebCore::ShapeDetection::FaceDetectorOptions&);
+    void releaseRemoteFaceDetector(ShapeDetectionIdentifier);
+    void createRemoteTextDetector(ShapeDetectionIdentifier);
+    void releaseRemoteTextDetector(ShapeDetectionIdentifier);
+
     Ref<IPC::StreamConnectionWorkQueue> m_workQueue;
     Ref<IPC::StreamServerConnection> m_streamConnection;
     RemoteResourceCache m_remoteResourceCache;
@@ -162,6 +188,11 @@ private:
     Lock m_remoteDisplayListsLock;
     bool m_canRegisterRemoteDisplayLists WTF_GUARDED_BY_LOCK(m_remoteDisplayListsLock) { false };
     HashMap<QualifiedRenderingResourceIdentifier, Ref<RemoteDisplayListRecorder>> m_remoteDisplayLists WTF_GUARDED_BY_CAPABILITY(m_remoteDisplayListsLock);
+
+    using RemoteGPUMap = HashMap<WebGPUIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteGPU>>;
+    RemoteGPUMap m_remoteGPUMap;
+
+    Ref<ShapeDetection::ObjectHeap> m_shapeDetectionObjectHeap;
 };
 
 } // namespace WebKit

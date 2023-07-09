@@ -72,6 +72,7 @@
 #include "LocalFrameView.h"
 #include "MediaControlsHost.h"
 #include "MutableStyleProperties.h"
+#include "NodeName.h"
 #include "NodeTraversal.h"
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
@@ -157,8 +158,18 @@ void HTMLElement::mapLanguageAttributeToLocale(const AtomString& value, MutableS
 
 bool HTMLElement::hasPresentationalHintsForAttribute(const QualifiedName& name) const
 {
-    if (name == alignAttr || name == contenteditableAttr || name == hiddenAttr || name == langAttr || name.matches(XMLNames::langAttr) || name == draggableAttr || name == dirAttr)
+    switch (name.nodeName()) {
+    case AttributeNames::alignAttr:
+    case AttributeNames::contenteditableAttr:
+    case AttributeNames::hiddenAttr:
+    case AttributeNames::langAttr:
+    case AttributeNames::XML::langAttr:
+    case AttributeNames::draggableAttr:
+    case AttributeNames::dirAttr:
         return true;
+    default:
+        break;
+    }
     return StyledElement::hasPresentationalHintsForAttribute(name);
 }
 
@@ -223,12 +234,14 @@ static bool elementAffectsDirectionality(const Node& node)
 
 void HTMLElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
 {
-    if (name == alignAttr) {
+    switch (name.nodeName()) {
+    case AttributeNames::alignAttr:
         if (equalLettersIgnoringASCIICase(value, "middle"_s))
             addPropertyToPresentationalHintStyle(style, CSSPropertyTextAlign, CSSValueCenter);
         else
             addPropertyToPresentationalHintStyle(style, CSSPropertyTextAlign, value);
-    } else if (name == contenteditableAttr) {
+        break;
+    case AttributeNames::contenteditableAttr: {
         CSSValueID userModifyValue = CSSValueReadWrite;
         switch (contentEditableType(value)) {
         case ContentEditableType::Inherit:
@@ -249,16 +262,20 @@ void HTMLElement::collectPresentationalHintsForAttribute(const QualifiedName& na
             break;
         }
         addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserModify, userModifyValue);
-    } else if (name == hiddenAttr) {
+        break;
+    }
+    case AttributeNames::hiddenAttr:
         addPropertyToPresentationalHintStyle(style, CSSPropertyDisplay, CSSValueNone);
-    } else if (name == draggableAttr) {
+        break;
+    case AttributeNames::draggableAttr:
         if (equalLettersIgnoringASCIICase(value, "true"_s)) {
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueElement);
             if (!isDraggableIgnoringAttributes())
                 addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserSelect, CSSValueNone);
         } else if (equalLettersIgnoringASCIICase(value, "false"_s))
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueNone);
-    } else if (name == dirAttr) {
+        break;
+    case AttributeNames::dirAttr:
         if (equalLettersIgnoringASCIICase(value, "auto"_s))
             addPropertyToPresentationalHintStyle(style, CSSPropertyUnicodeBidi, unicodeBidiAttributeForDirAuto(*this));
         else if (equalLettersIgnoringASCIICase(value, "rtl"_s) || equalLettersIgnoringASCIICase(value, "ltr"_s)) {
@@ -266,14 +283,19 @@ void HTMLElement::collectPresentationalHintsForAttribute(const QualifiedName& na
             if (!hasTagName(bdiTag) && !hasTagName(bdoTag) && !hasTagName(outputTag))
                 addPropertyToPresentationalHintStyle(style, CSSPropertyUnicodeBidi, CSSValueIsolate);
         }
-    } else if (name.matches(XMLNames::langAttr))
+        break;
+    case AttributeNames::XML::langAttr:
         mapLanguageAttributeToLocale(value, style);
-    else if (name == langAttr) {
+        break;
+    case AttributeNames::langAttr:
         // xml:lang has a higher priority than lang.
         if (!hasAttributeWithoutSynchronization(XMLNames::langAttr))
             mapLanguageAttributeToLocale(value, style);
-    } else
+        break;
+    default:
         StyledElement::collectPresentationalHintsForAttribute(name, value, style);
+        break;
+    }
 }
 
 const AtomString& HTMLElement::eventNameForEventHandlerAttribute(const QualifiedName& attributeName, const EventHandlerNameMap& map)
@@ -369,38 +391,41 @@ bool HTMLElement::matchesReadWritePseudoClass() const
     return editabilityFromContentEditableAttr(*this, PageIsEditable::No) != Editability::ReadOnly;
 }
 
-void HTMLElement::parseAttribute(const QualifiedName& name, const AtomString& value)
+void HTMLElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    if (name == dirAttr) {
-        dirAttributeChanged(value);
-        return;
-    }
+    StyledElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
 
-    if (name == tabindexAttr) {
-        if (auto optionalTabIndex = parseHTMLInteger(value))
+    switch (name.nodeName()) {
+    case AttributeNames::dirAttr:
+        dirAttributeChanged(newValue);
+        return;
+    case AttributeNames::tabindexAttr:
+        if (auto optionalTabIndex = parseHTMLInteger(newValue))
             setTabIndexExplicitly(optionalTabIndex.value());
         else
             setTabIndexExplicitly(std::nullopt);
         return;
-    }
-
-    if (document().settings().inertAttributeEnabled() && name == inertAttr)
-        invalidateStyleInternal();
-
-    if (name == inputmodeAttr) {
-        auto& document = this->document();
-        if (this == document.focusedElement()) {
+    case AttributeNames::inertAttr:
+        if (document().settings().inertAttributeEnabled())
+            invalidateStyleInternal();
+        return;
+    case AttributeNames::inputmodeAttr:
+        if (auto& document = this->document(); this == document.focusedElement()) {
             if (auto* page = document.page())
                 page->chrome().client().focusedElementDidChangeInputMode(*this, canonicalInputMode());
         }
+        return;
+    case AttributeNames::popoverAttr:
+        if (document().settings().popoverAttributeEnabled() && !document().quirks().shouldDisablePopoverAttributeQuirk())
+            popoverAttributeChanged(newValue);
+        return;
+    default:
+        break;
     }
-
-    if (document().settings().popoverAttributeEnabled() && name == popoverAttr)
-        popoverAttributeChanged(value);
 
     auto& eventName = eventNameForEventHandlerAttribute(name);
     if (!eventName.isNull())
-        setAttributeEventListener(eventName, name, value);
+        setAttributeEventListener(eventName, name, newValue);
 }
 
 Node::InsertedIntoAncestorResult HTMLElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
@@ -1272,10 +1297,10 @@ static HTMLElement* topmostPopoverAncestor(Element& newPopover)
             topmostAncestor = candidateAncestor;
     };
 
-    checkAncestor(newPopover.parentElement());
+    checkAncestor(newPopover.parentElementInComposedTree());
 
     // Iterate over all popover invokers in the document.
-    for (auto& invoker : descendantsOfType<HTMLFormControlElement>(newPopover.document())) {
+    for (auto& invoker : descendantsOfType<HTMLFormControlElement>(newPopover.treeScope().rootNode())) {
         // popoverTargetElement() already checks if the form control can invoke popovers.
         if (invoker.popoverTargetElement() == &newPopover)
             checkAncestor(&invoker);

@@ -28,8 +28,8 @@
 
 namespace WebCore {
 
-enum class ElementName : uint16_t;
 enum class Namespace : uint8_t;
+enum class NodeName : uint16_t;
 
 struct QualifiedNameComponents {
     AtomStringImpl* m_prefix;
@@ -62,7 +62,7 @@ public:
 
         mutable unsigned m_existingHash { 0 };
         Namespace m_namespace;
-        ElementName m_elementName;
+        NodeName m_nodeName;
         const AtomString m_prefix;
         const AtomString m_localName;
         const AtomString m_namespaceURI;
@@ -81,7 +81,7 @@ public:
     };
 
     WEBCORE_EXPORT QualifiedName(const AtomString& prefix, const AtomString& localName, const AtomString& namespaceURI);
-    WEBCORE_EXPORT QualifiedName(const AtomString& prefix, const AtomString& localName, const AtomString& namespaceURI, Namespace, ElementName);
+    WEBCORE_EXPORT QualifiedName(const AtomString& prefix, const AtomString& localName, const AtomString& namespaceURI, Namespace, NodeName);
     QualifiedName(QualifiedNameImpl& impl) : m_impl(&impl) { }
     explicit QualifiedName(WTF::HashTableDeletedValueType) : m_impl(WTF::HashTableDeletedValue) { }
     bool isHashTableDeletedValue() const { return m_impl.isHashTableDeletedValue(); }
@@ -100,7 +100,7 @@ public:
     const AtomString& localNameLowercase() const { return m_impl->m_localNameLower; }
     const AtomString& localNameUppercase() const;
 
-    ElementName elementName() const { return m_impl->m_elementName; }
+    NodeName nodeName() const { return m_impl->m_nodeName; }
     Namespace nodeNamespace() const { return m_impl->m_namespace; }
 
     String toString() const;

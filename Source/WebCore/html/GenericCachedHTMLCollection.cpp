@@ -74,8 +74,6 @@ bool GenericCachedHTMLCollection<traversalType>::elementMatches(Element& element
         return is<HTMLOptionElement>(element);
     case MapAreas:
         return element.hasTagName(areaTag);
-    case DocApplets:
-        return is<HTMLObjectElement>(element) && downcast<HTMLObjectElement>(element).containsJavaApplet();
     case DocEmbeds:
         return element.hasTagName(embedTag);
     case DocLinks:
@@ -89,6 +87,7 @@ bool GenericCachedHTMLCollection<traversalType>::elementMatches(Element& element
     case ByHTMLTag:
     case AllDescendants:
     case DocAll:
+    case DocEmpty:
     case DocumentAllNamedItems:
     case DocumentNamedItems:
     case FormControls:

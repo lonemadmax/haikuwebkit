@@ -145,18 +145,13 @@ JSTestReadOnlySetLike::JSTestReadOnlySetLike(Structure* structure, JSDOMGlobalOb
 {
 }
 
-void JSTestReadOnlySetLike::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestReadOnlySetLike>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestReadOnlySetLike>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestReadOnlySetLike::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestReadOnlySetLikePrototype::create(vm, &globalObject, JSTestReadOnlySetLikePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestReadOnlySetLikePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestReadOnlySetLikePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestReadOnlySetLike::prototype(VM& vm, JSDOMGlobalObject& globalObject)

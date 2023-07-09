@@ -2653,18 +2653,13 @@ JSTestObj::JSTestObj(Structure* structure, JSDOMGlobalObject& globalObject, Ref<
 {
 }
 
-void JSTestObj::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestObj>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestObj>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestObj::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestObjPrototype::create(vm, &globalObject, JSTestObjPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestObjPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestObjPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestObj::prototype(VM& vm, JSDOMGlobalObject& globalObject)

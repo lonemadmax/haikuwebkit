@@ -125,18 +125,13 @@ JSTestNamedDeleterNoIdentifier::JSTestNamedDeleterNoIdentifier(Structure* struct
 {
 }
 
-void JSTestNamedDeleterNoIdentifier::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedDeleterNoIdentifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamedDeleterNoIdentifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestNamedDeleterNoIdentifier::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNamedDeleterNoIdentifierPrototype::create(vm, &globalObject, JSTestNamedDeleterNoIdentifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestNamedDeleterNoIdentifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestNamedDeleterNoIdentifierPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNamedDeleterNoIdentifier::prototype(VM& vm, JSDOMGlobalObject& globalObject)

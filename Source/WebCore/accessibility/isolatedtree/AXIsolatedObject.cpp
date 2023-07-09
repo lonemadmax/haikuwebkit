@@ -53,7 +53,7 @@ AXIsolatedObject::AXIsolatedObject(const Ref<AccessibilityObject>& axObject, AXI
     // Every object will have at least this many properties. We can shrink this number
     // to some estimated average once we implement sparse property storage (i.e. only storing
     // a property if it's not the default value for its type).
-    m_propertyMap.reserveInitialCapacity(96);
+    m_propertyMap.reserveInitialCapacity(94);
 
     initializeProperties(axObject, isRoot);
 }
@@ -90,19 +90,15 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::IsList, object.isList());
     setProperty(AXPropertyName::IsMultiSelectable, object.isMultiSelectable());
     setProperty(AXPropertyName::IsPressed, object.isPressed());
-    setProperty(AXPropertyName::IsProgressIndicator, object.isProgressIndicator());
     setProperty(AXPropertyName::IsRequired, object.isRequired());
     setProperty(AXPropertyName::IsSecureField, object.isSecureField());
     setProperty(AXPropertyName::IsSelected, object.isSelected());
-    setProperty(AXPropertyName::IsUnvisited, object.isUnvisited());
+    setProperty(AXPropertyName::InsideLink, object.insideLink());
     setProperty(AXPropertyName::IsValueAutofillAvailable, object.isValueAutofillAvailable());
-    // FIXME: We should cache AXPropertyName::InsideLink instead of both AXPropertyName::IsVisited and AXPropertyName::IsUnvisited.
-    setProperty(AXPropertyName::IsVisited, object.isVisited());
     setProperty(AXPropertyName::RoleDescription, object.roleDescription().isolatedCopy());
     setProperty(AXPropertyName::RolePlatformString, object.rolePlatformString().isolatedCopy());
     setProperty(AXPropertyName::RoleValue, static_cast<int>(object.roleValue()));
     setProperty(AXPropertyName::SubrolePlatformString, object.subrolePlatformString().isolatedCopy());
-    setProperty(AXPropertyName::TextContent, object.textContent().isolatedCopy());
     setProperty(AXPropertyName::SupportsDatetimeAttribute, object.supportsDatetimeAttribute());
     setProperty(AXPropertyName::DatetimeAttributeValue, object.datetimeAttributeValue().isolatedCopy());
     setProperty(AXPropertyName::CanSetFocusAttribute, object.canSetFocusAttribute());
@@ -242,9 +238,10 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     if (object.isImage())
         setProperty(AXPropertyName::EmbeddedImageDescription, object.embeddedImageDescription().isolatedCopy());
 
-    AccessibilityChildrenVector visibleChildren;
-    object.visibleChildren(visibleChildren);
-    setObjectVectorProperty(AXPropertyName::VisibleChildren, visibleChildren);
+    // On macOS, we only advertise support for the visible children attribute for listboxes.
+    if (object.isListBox())
+        setObjectVectorProperty(AXPropertyName::VisibleChildren, object.visibleChildren());
+
     setObjectVectorProperty(AXPropertyName::LinkedObjects, object.linkedObjects());
 
     if (object.isSpinButton()) {
@@ -303,9 +300,17 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     if (object.isWidget())
         setProperty(AXPropertyName::IsWidget, true);
 
-    auto extendedDescription = object.extendedDescription();
-    if (extendedDescription.length())
-        setProperty(AXPropertyName::ExtendedDescription, extendedDescription.isolatedCopy());
+    auto descriptor = object.title();
+    if (descriptor.length())
+        setProperty(AXPropertyName::Title, descriptor.isolatedCopy());
+
+    descriptor = object.description();
+    if (descriptor.length())
+        setProperty(AXPropertyName::Description, descriptor.isolatedCopy());
+
+    descriptor = object.extendedDescription();
+    if (descriptor.length())
+        setProperty(AXPropertyName::ExtendedDescription, descriptor.isolatedCopy());
 
     // These properties are only needed on the AXCoreObject interface due to their use in ATSPI,
     // so only cache them for ATSPI.
@@ -842,7 +847,7 @@ T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
         AXPropertyValueVariant value;
         switch (propertyName) {
 #if PLATFORM(COCOA)
-        case AXPropertyName::Description:
+        case AXPropertyName::DescriptionAttributeValue:
             value = axObject->descriptionAttributeValue().isolatedCopy();
             break;
         case AXPropertyName::HelpText:

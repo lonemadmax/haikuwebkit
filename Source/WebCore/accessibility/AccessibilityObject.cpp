@@ -1636,6 +1636,14 @@ VisiblePosition AccessibilityObject::previousParagraphStartPosition(const Visibl
     return startOfParagraph(position.previous());
 }
 
+InsideLink AccessibilityObject::insideLink() const
+{
+    auto* style = this->style();
+    if (!style || !style->isLink())
+        return InsideLink::NotInside;
+    return style->insideLink();
+}
+
 // If you call node->hasEditableStyle() since that will return true if an ancestor is editable.
 // This only returns true if this is the element that actually has the contentEditable attribute set.
 bool AccessibilityObject::hasContentEditableAttributeSet() const
@@ -2700,7 +2708,13 @@ String AccessibilityObject::linkRelValue() const
 {
     return getAttribute(relAttr);
 }
-    
+
+bool AccessibilityObject::isLoaded() const
+{
+    auto* document = this->document();
+    return document && !document->parser();
+}
+
 bool AccessibilityObject::isInlineText() const
 {
     return is<RenderInline>(renderer());
@@ -2756,12 +2770,77 @@ AutoFillButtonType AccessibilityObject::valueAutofillButtonType() const
     return downcast<HTMLInputElement>(*this->node()).autoFillButtonType();
 }
 
-String AccessibilityObject::textContent() const
+bool AccessibilityObject::isSelected() const
 {
-    auto title = this->title();
-    if (!title.isEmpty())
-        return title;
-    return description();
+    if (!renderer() && !node())
+        return false;
+
+    if (equalLettersIgnoringASCIICase(getAttribute(aria_selectedAttr), "true"_s))
+        return true;
+
+    if (isTabItem() && isTabItemSelected())
+        return true;
+
+    // Menu items are considered selectable by assistive technologies
+    if (isMenuItem())
+        return isFocused() || parentObjectUnignored()->activeDescendant() == this;
+
+    return false;
+}
+
+bool AccessibilityObject::isTabItemSelected() const
+{
+    if (!isTabItem() || (!renderer() && !node()))
+        return false;
+
+    WeakPtr node = this->node();
+    if (!node || !node->isElementNode())
+        return false;
+
+    // The ARIA spec says a tab item can also be selected if it is aria-labeled by a tabpanel
+    // that has keyboard focus inside of it, or if a tabpanel in its aria-controls list has KB
+    // focus inside of it.
+    auto* focusedElement = static_cast<AccessibilityObject*>(focusedUIElement());
+    if (!focusedElement)
+        return false;
+
+    auto* cache = axObjectCache();
+    if (!cache)
+        return false;
+
+    auto elements = elementsFromAttribute(aria_controlsAttr);
+    for (const auto& element : elements) {
+        auto* tabPanel = cache->getOrCreate(element);
+
+        // A tab item should only control tab panels.
+        if (!tabPanel || tabPanel->roleValue() != AccessibilityRole::TabPanel)
+            continue;
+
+        auto* checkFocusElement = focusedElement;
+        // Check if the focused element is a descendant of the element controlled by the tab item.
+        while (checkFocusElement) {
+            if (tabPanel == checkFocusElement)
+                return true;
+            checkFocusElement = checkFocusElement->parentObject();
+        }
+    }
+    return false;
+}
+
+unsigned AccessibilityObject::textLength() const
+{
+    ASSERT(isTextControl());
+    return text().length();
+}
+
+std::optional<String> AccessibilityObject::textContent() const
+{
+    if (!hasTextContent())
+        return std::nullopt;
+
+    if (auto range = simpleRange())
+        return stringForRange(*range);
+    return std::nullopt;
 }
 
 const String AccessibilityObject::placeholderValue() const
@@ -3576,13 +3655,20 @@ String AccessibilityObject::validationMessage() const
 
 AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
 {
+    if (auto* style = this->style()) {
+        if (style->effectiveInert())
+            return AccessibilityObjectInclusion::IgnoreObject;
+        if (style->visibility() != Visibility::Visible) {
+            // aria-hidden is meant to override visibility as the determinant in AX hierarchy inclusion.
+            if (equalLettersIgnoringASCIICase(getAttribute(aria_hiddenAttr), "false"_s))
+                return AccessibilityObjectInclusion::DefaultBehavior;
+
+            return AccessibilityObjectInclusion::IgnoreObject;
+        }
+    }
+
     bool useParentData = !m_isIgnoredFromParentData.isNull();
-
     if (useParentData ? m_isIgnoredFromParentData.isAXHidden : isAXHidden())
-        return AccessibilityObjectInclusion::IgnoreObject;
-
-    auto* style = this->style();
-    if (style && style->effectiveInert())
         return AccessibilityObjectInclusion::IgnoreObject;
 
     if (useParentData ? m_isIgnoredFromParentData.isPresentationalChildOfAriaRole : isPresentationalChildOfAriaRole())
@@ -3818,6 +3904,44 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityObject::relatedObjects(AX
     return cache->objectsForIDs(*relatedObjectIDs);
 }
 
+bool AccessibilityObject::shouldFocusActiveDescendant() const
+{
+    switch (ariaRoleAttribute()) {
+    case AccessibilityRole::ApplicationGroup:
+    case AccessibilityRole::ListBox:
+    case AccessibilityRole::Menu:
+    case AccessibilityRole::MenuBar:
+    case AccessibilityRole::RadioGroup:
+    case AccessibilityRole::Row:
+    case AccessibilityRole::PopUpButton:
+    case AccessibilityRole::Meter:
+    case AccessibilityRole::ProgressIndicator:
+    case AccessibilityRole::Toolbar:
+    case AccessibilityRole::Outline:
+    case AccessibilityRole::Tree:
+    case AccessibilityRole::Grid:
+    /* FIXME: replace these with actual roles when they are added to AccessibilityRole
+    composite
+    alert
+    alertdialog
+    status
+    timer
+    */
+        return true;
+    default:
+        return false;
+    }
+}
+
+AccessibilityObject* AccessibilityObject::activeDescendant() const
+{
+    auto activeDescendants = relatedObjects(AXRelationType::ActiveDescendant);
+    ASSERT(activeDescendants.size() <= 1);
+    if (!activeDescendants.isEmpty())
+        return dynamicDowncast<AccessibilityObject>(activeDescendants[0].get());
+    return nullptr;
+}
+
 bool AccessibilityObject::isActiveDescendantOfFocusedContainer() const
 {
     auto containers = activeDescendantOfObjects();
@@ -3827,6 +3951,27 @@ bool AccessibilityObject::isActiveDescendantOfFocusedContainer() const
     }
 
     return false;
+}
+
+bool AccessibilityObject::ariaRoleHasPresentationalChildren() const
+{
+    switch (ariaRoleAttribute()) {
+    case AccessibilityRole::Button:
+    case AccessibilityRole::Slider:
+    case AccessibilityRole::Image:
+    case AccessibilityRole::ProgressIndicator:
+    case AccessibilityRole::SpinButton:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool AccessibilityObject::isPresentationalChildOfAriaRole() const
+{
+    return Accessibility::findAncestor(*this, false, [] (const auto& ancestor) {
+        return ancestor.ariaRoleHasPresentationalChildren();
+    });
 }
 
 void AccessibilityObject::setIsIgnoredFromParentDataForChild(AccessibilityObject* child)
@@ -4026,7 +4171,8 @@ static bool isAccessibilityTextSearchMatch(RefPtr<AXCoreObject> axObject, const 
     if (criteria.searchText.isEmpty())
         return true;
 
-    return containsPlainText(axObject->textContent(), criteria.searchText, CaseInsensitive)
+    return containsPlainText(axObject->title(), criteria.searchText, CaseInsensitive)
+        || containsPlainText(axObject->description(), criteria.searchText, CaseInsensitive)
         || containsPlainText(axObject->stringValue(), criteria.searchText, CaseInsensitive);
 }
 

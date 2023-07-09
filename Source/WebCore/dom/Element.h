@@ -102,6 +102,7 @@ struct ScrollToOptions;
 struct SecurityPolicyViolationEventInit;
 struct ShadowRootInit;
 
+using ElementName = NodeName;
 using ExplicitlySetAttrElementsMap = HashMap<QualifiedName, Vector<WeakPtr<Element, WeakPtrImplWithEventTargetData>>>;
 
 namespace Style {
@@ -283,7 +284,7 @@ public:
 
     const AtomString& localNameLowercase() const { return m_tagName.localNameLowercase(); }
 
-    ElementName elementName() const { return m_tagName.elementName(); }
+    ElementName elementName() const { return m_tagName.nodeName(); }
     Namespace nodeNamespace() const { return m_tagName.nodeNamespace(); }
 
     ExceptionOr<void> setPrefix(const AtomString&) final;
@@ -306,9 +307,10 @@ public:
         ModifiedByCloning
     };
 
-    // These functions are called whenever an attribute is added, changed or removed.
+    // This function is called whenever an attribute is added, changed or removed.
+    // Do not call this function directly. notifyAttributeChanged() should be used instead
+    // in order to update state dependent on attribute changes.
     virtual void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason = ModifiedDirectly);
-    virtual void parseAttribute(const QualifiedName&, const AtomString&) { }
 
     // Only called by the parser immediately after element construction.
     void parserSetAttributes(Span<const Attribute>);
@@ -806,6 +808,7 @@ private:
     NodeType nodeType() const final;
     bool childTypeAllowed(NodeType) const final;
 
+    void notifyAttributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason = ModifiedDirectly);
     enum SynchronizationOfLazyAttribute { NotInSynchronizationOfLazyAttribute, InSynchronizationOfLazyAttribute };
     void setAttributeInternal(unsigned index, const QualifiedName&, const AtomString& value, SynchronizationOfLazyAttribute);
     void addAttributeInternal(const QualifiedName&, const AtomString& value, SynchronizationOfLazyAttribute);

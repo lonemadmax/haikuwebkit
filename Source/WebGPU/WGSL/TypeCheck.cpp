@@ -54,6 +54,7 @@ public:
 
     // Statements
     void visit(AST::AssignmentStatement&) override;
+    void visit(AST::IfStatement&) override;
     void visit(AST::ReturnStatement&) override;
     void visit(AST::CompoundStatement&) override;
 
@@ -99,7 +100,9 @@ private:
     bool unify(Type*, Type*) WARN_UNUSED_RETURN;
     bool isBottom(Type*) const;
     std::optional<unsigned> extractInteger(AST::Expression&);
-    Type* chooseOverload(const String&, const Vector<Type*>& valueArguments, const Vector<Type*>& typeArguments);
+
+    template<typename CallArguments>
+    Type* chooseOverload(const char*, const SourceSpan&, const String&, CallArguments&& valueArguments, const Vector<Type*>& typeArguments);
 
     ShaderModule& m_shaderModule;
     Type* m_inferredType { nullptr };
@@ -188,7 +191,9 @@ void TypeChecker::visit(AST::Variable& variable)
         auto* initializerType = infer(*variable.maybeInitializer());
         if (!result)
             result = initializerType;
-        else if (!unify(result, initializerType))
+        else if (unify(result, initializerType))
+            variable.maybeInitializer()->m_inferredType = result;
+        else
             typeError(InferBottom::No, variable.span(), "cannot initialize var of type '", *result, "' with value of type '", *initializerType, "'");
     }
     introduceVariable(variable.name(), result);
@@ -222,6 +227,18 @@ void TypeChecker::visit(AST::AssignmentStatement& statement)
     auto* rhs = infer(statement.rhs());
     if (!unify(lhs, rhs))
         typeError(InferBottom::No, statement.span(), "cannot assign value of type '", *rhs, "' to '", *lhs, "'");
+}
+
+void TypeChecker::visit(AST::IfStatement& statement)
+{
+    auto* test = infer(statement.test());
+
+    if (!unify(test, m_types.boolType()))
+        typeError(statement.test().span(), "expected 'bool', found ", *test);
+
+    AST::Visitor::visit(statement.trueBody());
+    if (statement.maybeFalseBody())
+        AST::Visitor::visit(*statement.maybeFalseBody());
 }
 
 void TypeChecker::visit(AST::ReturnStatement& statement)
@@ -285,7 +302,7 @@ void TypeChecker::visit(AST::IndexAccessExpression& access)
         return;
     }
 
-    if (!unify(index, m_types.i32Type()) && !unify(index, m_types.u32Type()) && !unify(index, m_types.abstractIntType())) {
+    if (!unify(m_types.i32Type(), index) && !unify(m_types.u32Type(), index) && !unify(m_types.abstractIntType(), index)) {
         typeError(access.span(), "index must be of type 'i32' or 'u32', found: '", *index, "'");
         return;
     }
@@ -297,20 +314,20 @@ void TypeChecker::visit(AST::IndexAccessExpression& access)
         return;
     }
 
+    if (std::holds_alternative<Types::Vector>(*base)) {
+        // FIXME: check bounds if index is constant
+        auto& vector = std::get<Types::Vector>(*base);
+        inferred(vector.element);
+        return;
+    }
+
     // FIXME: Implement reference and matrix accesses
     typeError(access.span(), "cannot index type '", *base, "'");
 }
 
 void TypeChecker::visit(AST::BinaryExpression& binary)
 {
-    // FIXME: this needs to resolve overloads, not just unify both types
-    auto* leftType = infer(binary.leftExpression());
-    auto* rightType = infer(binary.rightExpression());
-    auto* result = chooseOverload(toString(binary.operation()), { leftType, rightType }, { });
-    if (result)
-        inferred(result);
-    else
-        typeError(binary.span(), "no matching overload for operator ", toString(binary.operation()), " (", *leftType, ", ", *rightType, ")");
+    chooseOverload("operator", binary.span(), toString(binary.operation()), Vector<AST::Expression*> { &binary.leftExpression(), &binary.rightExpression() }, { });
 }
 
 void TypeChecker::visit(AST::IdentifierExpression& identifier)
@@ -326,11 +343,6 @@ void TypeChecker::visit(AST::IdentifierExpression& identifier)
 
 void TypeChecker::visit(AST::CallExpression& call)
 {
-    Vector<Type*> arguments;
-    arguments.reserveInitialCapacity(call.arguments().size());
-    for (auto& argument : call.arguments())
-        arguments.append(infer(argument));
-
     auto& target = call.target();
     bool isNamedType = is<AST::NamedTypeName>(target);
     bool isParameterizedType = is<AST::ParameterizedTypeName>(target);
@@ -343,33 +355,69 @@ void TypeChecker::visit(AST::CallExpression& call)
             typeArguments.append(resolve(parameterizedType.elementType()));
             return AST::ParameterizedTypeName::baseToString(parameterizedType.base());
         }();
-        auto* result = chooseOverload(targetName, arguments, typeArguments);
-        if (result)
-            inferred(result);
-        else {
-            StringPrintStream valueArgumentsStream;
-            bool first = true;
-            for (auto* argument : arguments) {
-                if (!first)
-                    valueArgumentsStream.print(", ");
-                first = false;
-                valueArgumentsStream.print(*argument);
-            }
-            StringPrintStream typeArgumentsStream;
-            first = true;
-            if (typeArguments.size()) {
-                typeArgumentsStream.print("<");
-                for (auto* typeArgument : typeArguments) {
-                    if (!first)
-                        typeArgumentsStream.print(", ");
-                    first = false;
-                    typeArgumentsStream.print(*typeArgument);
-                }
-                typeArgumentsStream.print(">");
-            }
-            typeError(call.span(), "no matching overload for initializer ", targetName, typeArgumentsStream.toString(), "(", valueArgumentsStream.toString(), ")");
+        auto* result = chooseOverload("initializer", call.span(), targetName, call.arguments(), typeArguments);
+        if (result) {
+            target.m_resolvedType = result;
+            return;
         }
-        target.m_resolvedType = result;
+    }
+
+    if (is<AST::ArrayTypeName>(target)) {
+        AST::ArrayTypeName& array = downcast<AST::ArrayTypeName>(target);
+        Type* elementType = nullptr;
+        unsigned elementCount;
+
+        if (array.maybeElementType()) {
+            if (!array.maybeElementCount()) {
+                typeError(call.span(), "cannot construct a runtime-sized array");
+                return;
+            }
+            elementType = resolve(*array.maybeElementType());
+            elementCount = *extractInteger(*array.maybeElementCount());
+            if (!elementCount) {
+                typeError(call.span(), "array count must be greater than 0");
+                return;
+            }
+            if (call.arguments().size() != elementCount) {
+                const char* errorKind = call.arguments().size() < elementCount ? "few" : "many";
+                typeError(call.span(), "array constructor has too ", errorKind, " elements: expected ", String::number(elementCount), ", found ", String::number(call.arguments().size()));
+                return;
+            }
+            for (auto& argument : call.arguments()) {
+                auto* argumentType = infer(argument);
+                if (!unify(elementType, argumentType)) {
+                    typeError(argument.span(), "'", *argumentType, "' cannot be used to construct an array of '", *elementType, "'");
+                    return;
+                }
+                argument.m_inferredType = elementType;
+            }
+        } else {
+            ASSERT(!array.maybeElementCount());
+            elementCount = call.arguments().size();
+            if (!elementCount) {
+                typeError(call.span(), "cannot infer array element type from constructor");
+                return;
+            }
+            for (auto& argument : call.arguments()) {
+                if (!elementType) {
+                    elementType = infer(argument);
+                    continue;
+                }
+                auto* argumentType = infer(argument);
+                if (unify(elementType, argumentType))
+                    continue;
+                if (unify(argumentType, elementType)) {
+                    elementType = argumentType;
+                    continue;
+                }
+                typeError(argument.span(), "cannot infer common array element type from constructor arguments");
+                return;
+            }
+            for (auto& argument : call.arguments())
+                argument.m_inferredType = elementType;
+        }
+        auto* result = m_types.arrayType(elementType, { elementCount });
+        inferred(result);
         return;
     }
 
@@ -380,12 +428,7 @@ void TypeChecker::visit(AST::CallExpression& call)
 
 void TypeChecker::visit(AST::UnaryExpression& unary)
 {
-    auto* argument = infer(unary.expression());
-    auto* result = chooseOverload(toString(unary.operation()), { argument }, { });
-    if (result)
-        inferred(result);
-    else
-        typeError(unary.span(), "no matching overload for operator ", toString(unary.operation()), " (", *argument, ")");
+    chooseOverload("operator", unary.span(), toString(unary.operation()), Vector<AST::Expression*> { &unary.expression() }, { });
 }
 
 // Literal Expressions
@@ -545,16 +588,55 @@ void TypeChecker::vectorFieldAccess(const Types::Vector& vector, AST::FieldAcces
     inferred(m_types.constructType(base, vector.element));
 }
 
-Type* TypeChecker::chooseOverload(const String& operation, const Vector<Type*>& valueArguments, const Vector<Type*>& typeArguments)
+template<typename CallArguments>
+Type* TypeChecker::chooseOverload(const char* kind, const SourceSpan& span, const String& target, CallArguments&& callArguments, const Vector<Type*>& typeArguments)
 {
-    auto it = m_overloadedOperations.find(operation);
+    auto it = m_overloadedOperations.find(target);
     if (it == m_overloadedOperations.end())
         return nullptr;
-    for (auto* argument : valueArguments) {
-        if (isBottom(argument))
+
+    Vector<Type*> valueArguments;
+    valueArguments.reserveInitialCapacity(callArguments.size());
+    for (unsigned i = 0; i < callArguments.size(); ++i) {
+        auto* type = infer(*callArguments.Vector::at(i));
+        if (isBottom(type)) {
+            inferred(m_types.bottomType());
             return m_types.bottomType();
+        }
+        valueArguments.append(type);
     }
-    return resolveOverloads(m_types, it->value, valueArguments, typeArguments);
+
+    auto overload = resolveOverloads(m_types, it->value, valueArguments, typeArguments);
+    if (overload.has_value()) {
+        ASSERT(overload->parameters.size() == callArguments.size());
+        for (unsigned i = 0; i < callArguments.size(); ++i)
+            callArguments.Vector::at(i)->m_inferredType = overload->parameters[i];
+        inferred(overload->result);
+        return overload->result;
+    }
+
+    StringPrintStream valueArgumentsStream;
+    bool first = true;
+    for (auto* argument : valueArguments) {
+        if (!first)
+            valueArgumentsStream.print(", ");
+        first = false;
+        valueArgumentsStream.print(*argument);
+    }
+    StringPrintStream typeArgumentsStream;
+    first = true;
+    if (typeArguments.size()) {
+        typeArgumentsStream.print("<");
+        for (auto* typeArgument : typeArguments) {
+            if (!first)
+                typeArgumentsStream.print(", ");
+            first = false;
+            typeArgumentsStream.print(*typeArgument);
+        }
+        typeArgumentsStream.print(">");
+    }
+    typeError(span, "no matching overload for ", kind, " ", target, typeArgumentsStream.toString(), "(", valueArgumentsStream.toString(), ")");
+    return m_types.bottomType();
 }
 
 Type* TypeChecker::infer(AST::Expression& expression)
@@ -617,7 +699,7 @@ bool TypeChecker::unify(Type* lhs, Type* rhs)
     if (isBottom(lhs) || isBottom(rhs))
         return true;
 
-    return false;
+    return !!conversionRank(rhs, lhs);
 }
 
 bool TypeChecker::isBottom(Type* type) const

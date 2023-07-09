@@ -30,6 +30,7 @@
 #include "FormDataReference.h"
 #include "LoadedWebArchive.h"
 #include "Logging.h"
+#include "MessageSenderInlines.h"
 #include "NetworkCache.h"
 #include "NetworkCacheSpeculativeLoadManager.h"
 #include "NetworkConnectionToWebProcess.h"
@@ -2023,6 +2024,7 @@ void NetworkResourceLoader::serviceWorkerDidFinish()
 {
     if (!m_contentFilter)
         return;
+    m_contentFilter->continueAfterNotifyFinished(m_parameters.request.url());
     m_contentFilter->stopFilteringMainResource();
 }
 

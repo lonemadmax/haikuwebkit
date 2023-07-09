@@ -240,18 +240,13 @@ JSTestEventConstructor::JSTestEventConstructor(Structure* structure, JSDOMGlobal
 {
 }
 
-void JSTestEventConstructor::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestEventConstructor>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestEventConstructor>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestEventConstructor::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestEventConstructorPrototype::create(vm, &globalObject, JSTestEventConstructorPrototype::createStructure(vm, &globalObject, JSEvent::prototype(vm, globalObject)));
+    auto* structure = JSTestEventConstructorPrototype::createStructure(vm, &globalObject, JSEvent::prototype(vm, globalObject));
+    structure->setMayBePrototype(true);
+    return JSTestEventConstructorPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestEventConstructor::prototype(VM& vm, JSDOMGlobalObject& globalObject)

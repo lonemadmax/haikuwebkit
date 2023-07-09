@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -356,14 +356,14 @@ void MediaPlayerPrivateMediaSourceAVFObjC::playInternal(std::optional<MonotonicT
         return;
 
 #if HAVE(AVSAMPLEBUFFERRENDERSYNCHRONIZER_RATEATHOSTTIME)
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     if (hostTime && [m_synchronizer respondsToSelector:@selector(setRate:time:atHostTime:)]) {
         auto cmHostTime = PAL::CMClockMakeHostTimeFromSystemUnits(hostTime->toMachAbsoluteTime());
         ALWAYS_LOG(LOGIDENTIFIER, "setting rate to ", m_rate, " at host time ", PAL::CMTimeGetSeconds(cmHostTime));
         [m_synchronizer setRate:m_rate time:PAL::kCMTimeInvalid atHostTime:cmHostTime];
     } else
         [m_synchronizer setRate:m_rate];
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 #else
     UNUSED_PARAM(hostTime);
     [m_synchronizer setRate:m_rate];
@@ -382,14 +382,14 @@ void MediaPlayerPrivateMediaSourceAVFObjC::pauseInternal(std::optional<Monotonic
     m_playing = false;
 
 #if HAVE(AVSAMPLEBUFFERRENDERSYNCHRONIZER_RATEATHOSTTIME)
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     if (hostTime && [m_synchronizer respondsToSelector:@selector(setRate:time:atHostTime:)]) {
         auto cmHostTime = PAL::CMClockMakeHostTimeFromSystemUnits(hostTime->toMachAbsoluteTime());
         ALWAYS_LOG(LOGIDENTIFIER, "setting rate to 0 at host time ", PAL::CMTimeGetSeconds(cmHostTime));
         [m_synchronizer setRate:0 time:PAL::kCMTimeInvalid atHostTime:cmHostTime];
     } else
         [m_synchronizer setRate:0];
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 #else
     UNUSED_PARAM(hostTime);
     [m_synchronizer setRate:0];
@@ -469,11 +469,7 @@ MediaTime MediaPlayerPrivateMediaSourceAVFObjC::currentMediaTime() const
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::currentMediaTimeMayProgress() const
 {
-    if (!m_mediaSourcePrivate)
-        return false;
-    if (auto ranges = buffered())
-        return m_mediaSourcePrivate->hasFutureTime(currentMediaTime(), durationMediaTime(), *ranges);
-    return false;
+    return m_mediaSourcePrivate ? m_mediaSourcePrivate->hasFutureTime(currentMediaTime(), durationMediaTime(), buffered()) : false;
 }
 
 MediaTime MediaPlayerPrivateMediaSourceAVFObjC::clampTimeToLastSeekTime(const MediaTime& time) const
@@ -651,11 +647,6 @@ MediaPlayer::ReadyState MediaPlayerPrivateMediaSourceAVFObjC::readyState() const
     return m_readyState;
 }
 
-std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateMediaSourceAVFObjC::seekable() const
-{
-    return makeUnique<PlatformTimeRanges>(minMediaTimeSeekable(), maxMediaTimeSeekable());
-}
-
 MediaTime MediaPlayerPrivateMediaSourceAVFObjC::maxMediaTimeSeekable() const
 {
     return durationMediaTime();
@@ -666,9 +657,9 @@ MediaTime MediaPlayerPrivateMediaSourceAVFObjC::minMediaTimeSeekable() const
     return startTime();
 }
 
-std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateMediaSourceAVFObjC::buffered() const
+const PlatformTimeRanges& MediaPlayerPrivateMediaSourceAVFObjC::buffered() const
 {
-    return m_mediaSourcePrivate ? m_mediaSourcePrivate->buffered() : makeUnique<PlatformTimeRanges>();
+    return m_mediaSourcePrivate ? m_mediaSourcePrivate->buffered() : PlatformTimeRanges::emptyRanges();
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::didLoadingProgress() const
@@ -886,10 +877,10 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateMediaSourceAVFObjC:
         return std::nullopt;
 
     uint32_t displayCompositedFrames = 0;
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     if ([metrics respondsToSelector:@selector(numberOfDisplayCompositedVideoFrames)])
         displayCompositedFrames = [metrics numberOfDisplayCompositedVideoFrames];
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     return VideoPlaybackQualityMetrics {
         static_cast<uint32_t>([metrics totalNumberOfVideoFrames]),
@@ -1298,10 +1289,10 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     [audioRenderer setVolume:m_player->volume()];
     [audioRenderer setAudioTimePitchAlgorithm:(m_player->preservesPitch() ? AVAudioTimePitchAlgorithmSpectral : AVAudioTimePitchAlgorithmVarispeed)];
 #if PLATFORM(MAC)
-    ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     if ([audioRenderer respondsToSelector:@selector(setIsUnaccompaniedByVisuals:)])
         [audioRenderer setIsUnaccompaniedByVisuals:!m_player->isVideoPlayer()];
-    ALLOW_NEW_API_WITHOUT_GUARDS_END
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 #endif
 
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)

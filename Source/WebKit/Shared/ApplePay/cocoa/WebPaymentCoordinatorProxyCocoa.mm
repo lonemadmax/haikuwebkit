@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,6 +57,17 @@
 @interface PKPaymentRequest ()
 @property (nonatomic, strong) NSURL *thumbnailURL;
 @end
+
+#if HAVE(PASSKIT_APPLE_PAY_LATER_AVAILABILITY)
+
+// FIXME: rdar://107955442 Remove staging code.
+
+#define PKApplePayLaterAvailable 0
+#define PKApplePayLaterUnavailableMerchantIneligible 1
+#define PKApplePayLaterUnavailableItemIneligible 2
+#define PKApplePayLaterUnavailableRecurringTransaction 3
+
+#endif
 
 namespace WebKit {
 
@@ -222,38 +233,51 @@ static PKShippingContactEditingMode toPKShippingContactEditingMode(WebCore::Appl
 {
     switch (shippingContactEditingMode) {
     case WebCore::ApplePayShippingContactEditingMode::Enabled:
+#if USE(PKSHIPPINGCONTACTEDITINGMODEENABLED)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         return PKShippingContactEditingModeEnabled;
+ALLOW_DEPRECATED_DECLARATIONS_END
+#else
+        return PKShippingContactEditingModeAvailable;
+#endif
 
     case WebCore::ApplePayShippingContactEditingMode::StorePickup:
         return PKShippingContactEditingModeStorePickup;
     }
 
     ASSERT_NOT_REACHED();
+#if USE(PKSHIPPINGCONTACTEDITINGMODEENABLED)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return PKShippingContactEditingModeEnabled;
+ALLOW_DEPRECATED_DECLARATIONS_END
+#else
+    return PKShippingContactEditingModeAvailable;
+#endif
 }
 
 #endif // HAVE(PASSKIT_SHIPPING_CONTACT_EDITING_MODE)
 
-#if HAVE(PASSKIT_APPLE_PAY_LATER_MODE)
+#if HAVE(PASSKIT_APPLE_PAY_LATER_AVAILABILITY)
 
-static PKApplePayLaterMode toPKApplePayLaterMode(WebCore::ApplePayLaterMode applePayLaterMode)
+static PKApplePayLaterAvailability toPKApplePayLaterAvailability(WebCore::ApplePayLaterAvailability applePayLaterAvailability)
 {
-    switch (applePayLaterMode) {
-    case WebCore::ApplePayLaterMode::Enabled:
-        return PKApplePayLaterModeEnabled;
+    // FIXME: rdar://107955442 Remove staging code.
+    switch (applePayLaterAvailability) {
+    case WebCore::ApplePayLaterAvailability::Available:
+        return (PKApplePayLaterAvailability)PKApplePayLaterAvailable;
 
-    case WebCore::ApplePayLaterMode::DisabledMerchantIneligible:
-        return PKApplePayLaterModeDisabledMerchantIneligible;
+    case WebCore::ApplePayLaterAvailability::UnavailableMerchantIneligible:
+        return (PKApplePayLaterAvailability)PKApplePayLaterUnavailableMerchantIneligible;
 
-    case WebCore::ApplePayLaterMode::DisabledItemIneligible:
-        return PKApplePayLaterModeDisabledItemIneligible;
+    case WebCore::ApplePayLaterAvailability::UnavailableItemIneligible:
+        return (PKApplePayLaterAvailability)PKApplePayLaterUnavailableItemIneligible;
 
-    case WebCore::ApplePayLaterMode::DisabledRecurringTransaction:
-        return PKApplePayLaterModeDisabledRecurringTransaction;
+    case WebCore::ApplePayLaterAvailability::UnavailableRecurringTransaction:
+        return (PKApplePayLaterAvailability)PKApplePayLaterUnavailableRecurringTransaction;
     }
 }
 
-#endif // HAVE(PASSKIT_APPLE_PAY_LATER_MODE)
+#endif // HAVE(PASSKIT_APPLE_PAY_LATER_AVAILABILITY)
 
 static RetainPtr<NSSet> toNSSet(const Vector<String>& strings)
 {
@@ -309,9 +333,9 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
 
     [result setPaymentSummaryItems:WebCore::platformSummaryItems(paymentRequest.total(), paymentRequest.lineItems())];
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [result setExpectsMerchantSession:YES];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (!paymentRequest.applicationData().isNull()) {
         auto applicationData = adoptNS([[NSData alloc] initWithBase64EncodedString:paymentRequest.applicationData() options:0]);
@@ -359,9 +383,12 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
         [result setShippingContactEditingMode:toPKShippingContactEditingMode(*shippingContactEditingMode)];
 #endif
 
-#if HAVE(PASSKIT_APPLE_PAY_LATER_MODE)
-    if (auto& applePayLaterMode = paymentRequest.applePayLaterMode())
-        [result setApplePayLaterMode:toPKApplePayLaterMode(*applePayLaterMode)];
+#if HAVE(PASSKIT_APPLE_PAY_LATER_AVAILABILITY)
+    if (auto& applePayLaterAvailability = paymentRequest.applePayLaterAvailability()) {
+        // FIXME: rdar://107955442 Remove staging code.
+        if ([result respondsToSelector:@selector(setApplePayLaterAvailability:)])
+            [result setApplePayLaterAvailability:toPKApplePayLaterAvailability(*applePayLaterAvailability)];
+    }
 #endif
 
 #if HAVE(PASSKIT_RECURRING_PAYMENTS)
@@ -437,7 +464,7 @@ void WebPaymentCoordinatorProxy::getSetupFeatures(const PaymentSetupConfiguratio
     });
 
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
-    [PAL::getPKPaymentSetupControllerClass() paymentSetupFeaturesForConfiguration:configuration.platformConfiguration() completion:completion.get()];
+    [PAL::getPKPaymentSetupControllerClass() paymentSetupFeaturesForConfiguration:configuration.platformConfiguration().get() completion:completion.get()];
 ALLOW_NEW_API_WITHOUT_GUARDS_END
 }
 
@@ -461,7 +488,7 @@ void WebPaymentCoordinatorProxy::platformBeginApplePaySetup(const PaymentSetupCo
     }
 
     auto request = adoptNS([PAL::allocPKPaymentSetupRequestInstance() init]);
-    [request setConfiguration:configuration.platformConfiguration()];
+    [request setConfiguration:configuration.platformConfiguration().get()];
     [request setPaymentSetupFeatures:features.platformFeatures()];
 
     auto completion = makeBlockPtr([reply = WTFMove(reply)](BOOL success) mutable {
@@ -492,7 +519,7 @@ void WebPaymentCoordinatorProxy::platformBeginApplePaySetup(const PaymentSetupCo
     }
 
     auto request = adoptNS([PAL::allocPKPaymentSetupRequestInstance() init]);
-    [request setConfiguration:configuration.platformConfiguration()];
+    [request setConfiguration:configuration.platformConfiguration().get()];
     [request setPaymentSetupFeatures:features.platformFeatures()];
 
     auto paymentSetupViewController = adoptNS([PAL::allocPKPaymentSetupViewControllerInstance() initWithPaymentSetupRequest:request.get()]);

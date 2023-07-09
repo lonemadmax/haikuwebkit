@@ -2203,7 +2203,6 @@ accessibility/url-test.html [ Pass ]
 accessibility/video-element-url-attribute.html [ Pass ]
 accessibility/visible-character-range-basic.html [ Pass ]
 accessibility/visible-character-range-height-changes.html [ Pass ]
-webkit.org/b/251300 [ Debug ] accessibility/visible-character-range-scrolling.html [ Timeout ]
 accessibility/visible-character-range-width-changes.html [ Pass ]
 accessibility/ancestor-computation.html [ Pass ]
 accessibility/model-element-attributes.html [ Pass ]
@@ -3108,6 +3107,11 @@ webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/backgrou
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-margin-root.html [ ImageOnlyFailure ]
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-position-subpixel-at-border.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/box-shadow-body.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--contain--height.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--contain--width.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--height.html [ ImageOnlyFailure ]
+webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/wide--contain--width.html [ ImageOnlyFailure ]
+
 
 webkit.org/b/206897 [ Debug ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--auto-32px--nonpercent-width-omitted-height-viewbox.html [ Skip ]
 webkit.org/b/206897 [ Debug ] imported/w3c/web-platform-tests/css/css-backgrounds/background-size/vector/tall--auto-32px--nonpercent-width-percent-height.html [ Skip ]
@@ -4368,6 +4372,7 @@ webkit.org/b/251875 fast/dynamic/create-renderer-for-whitespace-only-text.html [
 
 webkit.org/b/252504 http/tests/site-isolation [ Skip ]
 
+http/wpt/service-workers/basic-fetch-with-contentfilter-allow-after-adding-data.html [ Pass ]
 http/wpt/service-workers/basic-fetch-with-contentfilter.https.html [ Pass ]
 
 http/tests/misc/heic-accept-header.html [ Pass ]
@@ -4392,21 +4397,23 @@ webkit.org/b/229934 webgl/1.0.x/conformance/extensions/webgl-depth-texture.html 
 webkit.org/b/254398 webgl/2.0.y/conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
 
 # webkit.org/b/255177 Batch mark expectations for newly failing tests introduced with iOS 16.4 update
-compositing/geometry/css-clip-oversize.html [ ImageOnlyFailure ]
 css3/filters/effect-blur.html [ ImageOnlyFailure ]
 css3/filters/effect-invert.html [ ImageOnlyFailure ]
-fast/gradients/linear-two-hints-angle.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-text-multi-line.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-4.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-5.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-backgrounds/linear-gradient-currentcolor-first-line.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-color-mix-function.html [ Failure ]
+imported/w3c/web-platform-tests/html/semantics/disabled-elements/event-propagate-disabled.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-relative-color.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-relative-color.html [ Failure ]
-imported/w3c/web-platform-tests/editing/other/editable-state-and-focus-in-shadow-dom-in-designMode.tentative.html [ Failure ]
-imported/w3c/web-platform-tests/html/semantics/disabled-elements/event-propagate-disabled-keyboard.tentative.html [ Failure ]
-imported/w3c/web-platform-tests/html/semantics/disabled-elements/event-propagate-disabled.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-audiobuffersource-connections.html [ Failure ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-dynamics-compressor-connections.html [ Failure ]
 transforms/3d/hit-testing/overlapping-layers-hit-test.html [ Failure ]
 webaudio/ScriptProcessor/scriptprocessor-offlineaudiocontext.html [ Failure ]
+
+# webkit.org/b/255631 REGRESSION(262632@main?): [ iOS ] 2X imported/w3c/web-platform-tests/screen-orientation (layout-tests) are consistent text failures
+imported/w3c/web-platform-tests/screen-orientation/nested-documents.html [ Pass Failure ]
+imported/w3c/web-platform-tests/screen-orientation/unlock.html [ Pass Failure ]
+
+webkit.org/b/255704 [ Debug ] editing/inserting/insert-img-uneditable-canonical-position-crash.html [ Skip ]

@@ -38,6 +38,7 @@
 
 namespace PAL::WebGPU {
 class Device;
+enum class DeviceLostReason : uint8_t;
 }
 
 namespace IPC {
@@ -92,6 +93,7 @@ private:
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
     void destroy();
+    void destruct();
 
     void createBuffer(const WebGPU::BufferDescriptor&, WebGPUIdentifier);
     void createTexture(const WebGPU::TextureDescriptor&, WebGPUIdentifier);
@@ -115,6 +117,7 @@ private:
 
     void pushErrorScope(PAL::WebGPU::ErrorFilter);
     void popErrorScope(CompletionHandler<void(std::optional<WebGPU::Error>&&)>&&);
+    void resolveDeviceLostPromise(CompletionHandler<void(PAL::WebGPU::DeviceLostReason)>&&);
 
     void setLabel(String&&);
 

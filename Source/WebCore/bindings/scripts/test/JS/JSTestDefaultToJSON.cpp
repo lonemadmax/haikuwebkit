@@ -224,18 +224,13 @@ JSTestDefaultToJSON::JSTestDefaultToJSON(Structure* structure, JSDOMGlobalObject
 {
 }
 
-void JSTestDefaultToJSON::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSON>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestDefaultToJSON>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestDefaultToJSON::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestDefaultToJSONPrototype::create(vm, &globalObject, JSTestDefaultToJSONPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestDefaultToJSONPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestDefaultToJSONPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestDefaultToJSON::prototype(VM& vm, JSDOMGlobalObject& globalObject)

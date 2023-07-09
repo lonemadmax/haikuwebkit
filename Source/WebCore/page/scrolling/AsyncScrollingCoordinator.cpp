@@ -41,6 +41,7 @@
 #include "RenderLayerCompositor.h"
 #include "RenderView.h"
 #include "ScrollAnimator.h"
+#include "ScrollbarsController.h"
 #include "ScrollingConstraints.h"
 #include "ScrollingStateFixedNode.h"
 #include "ScrollingStateFrameHostingNode.h"
@@ -384,7 +385,13 @@ void AsyncScrollingCoordinator::setMouseMovedInContentArea(ScrollableArea& scrol
     auto stateNode = dynamicDowncast<ScrollingStateScrollingNode>(m_scrollingStateTree->stateNodeForID(scrollingNodeID));
     if (!stateNode)
         return;
-    stateNode->setMouseMovedInContentArea();
+    
+    auto mousePosition = scrollableArea.lastKnownMousePositionInView();
+    auto horizontalScrollbar = scrollableArea.horizontalScrollbar();
+    auto verticalScrollbar = scrollableArea.verticalScrollbar();
+    
+    MouseLocationState state = { horizontalScrollbar ? horizontalScrollbar->convertFromContainingView(mousePosition) : IntPoint(), verticalScrollbar ? verticalScrollbar->convertFromContainingView(mousePosition) : IntPoint() };
+    stateNode->setMouseMovedInContentArea(state);
 }
 
 bool AsyncScrollingCoordinator::requestAnimatedScrollToPosition(ScrollableArea& scrollableArea, const ScrollPosition& scrollPosition, ScrollClamping clamping)
@@ -1185,6 +1192,16 @@ bool AsyncScrollingCoordinator::scrollAnimatorEnabled() const
         return false;
     auto& settings = localMainFrame->settings();
     return settings.scrollAnimatorEnabled();
+}
+
+void AsyncScrollingCoordinator::scrollingTreeNodeScrollbarVisibilityDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, bool isVisible)
+{
+    auto* frameView = frameViewForScrollingNode(nodeID);
+    if (!frameView)
+        return;
+    
+    if (auto* scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
+        scrollableArea->scrollbarsController().setScrollbarVisibilityState(orientation, isVisible);
 }
 
 } // namespace WebCore

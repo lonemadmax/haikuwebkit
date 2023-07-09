@@ -125,18 +125,13 @@ JSTestNamedSetterNoIdentifier::JSTestNamedSetterNoIdentifier(Structure* structur
 {
 }
 
-void JSTestNamedSetterNoIdentifier::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterNoIdentifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestNamedSetterNoIdentifier>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestNamedSetterNoIdentifier::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestNamedSetterNoIdentifierPrototype::create(vm, &globalObject, JSTestNamedSetterNoIdentifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestNamedSetterNoIdentifierPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestNamedSetterNoIdentifierPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestNamedSetterNoIdentifier::prototype(VM& vm, JSDOMGlobalObject& globalObject)

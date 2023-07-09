@@ -189,8 +189,7 @@ public:
 #if PLATFORM(MAC)
             return DisplayCaptureSourceCocoa::create(UniqueRef<DisplayCaptureSourceCocoa::Capturer>(makeUniqueRef<MockDisplayCapturer>(device, pageIdentifier)), device, WTFMove(hashSalts), constraints, pageIdentifier);
 #elif USE(GSTREAMER)
-            UNUSED_PARAM(pageIdentifier);
-            return MockDisplayCaptureSourceGStreamer::create(device, WTFMove(hashSalts), constraints);
+            return MockDisplayCaptureSourceGStreamer::create(device, WTFMove(hashSalts), constraints, pageIdentifier);
 #else
             return MockRealtimeVideoSource::create(String { device.persistentId() }, AtomString { device.label() }, WTFMove(hashSalts), constraints, pageIdentifier);
 #endif
@@ -304,9 +303,12 @@ static CaptureDevice toCaptureDevice(const MockMediaDevice& device)
     return captureDevice;
 }
 
-static void createMockDevice(const MockMediaDevice& device)
+static void createMockDevice(const MockMediaDevice& device, bool isDefault)
 {
-    deviceListForDevice(device).append(toCaptureDevice(device));
+    if (isDefault)
+        deviceListForDevice(device).insert(0, toCaptureDevice(device));
+    else
+        deviceListForDevice(device).append(toCaptureDevice(device));
 }
 
 void MockRealtimeMediaSourceCenter::resetDevices()
@@ -347,16 +349,26 @@ void MockRealtimeMediaSourceCenter::setDevices(Vector<MockMediaDevice>&& newMock
 
     for (const auto& device : mockDevices) {
         map.add(device.persistentId, device);
-        createMockDevice(device);
+        createMockDevice(device, false);
     }
     RealtimeMediaSourceCenter::singleton().captureDevicesChanged();
 }
 
+static bool shouldBeDefaultDevice(const MockMediaDevice& device)
+{
+    auto* cameraProperties = device.cameraProperties();
+    return cameraProperties && cameraProperties->facingMode == VideoFacingMode::Unknown;
+}
+
 void MockRealtimeMediaSourceCenter::addDevice(const MockMediaDevice& device)
 {
-    devices().append(device);
+    bool isDefault = shouldBeDefaultDevice(device);
+    if (isDefault)
+        devices().insert(0, device);
+    else
+        devices().append(device);
     deviceMap().set(device.persistentId, device);
-    createMockDevice(device);
+    createMockDevice(device, isDefault);
     RealtimeMediaSourceCenter::singleton().captureDevicesChanged();
 }
 

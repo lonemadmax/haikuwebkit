@@ -138,18 +138,13 @@ JSTestAsyncIterable::JSTestAsyncIterable(Structure* structure, JSDOMGlobalObject
 {
 }
 
-void JSTestAsyncIterable::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestAsyncIterable>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestAsyncIterable>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestAsyncIterable::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestAsyncIterablePrototype::create(vm, &globalObject, JSTestAsyncIterablePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestAsyncIterablePrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestAsyncIterablePrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestAsyncIterable::prototype(VM& vm, JSDOMGlobalObject& globalObject)

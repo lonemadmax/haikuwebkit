@@ -180,18 +180,13 @@ JSTestCallTracer::JSTestCallTracer(Structure* structure, JSDOMGlobalObject& glob
 {
 }
 
-void JSTestCallTracer::finishCreation(VM& vm)
-{
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-
-    static_assert(!std::is_base_of<ActiveDOMObject, TestCallTracer>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
-
-}
+static_assert(!std::is_base_of<ActiveDOMObject, TestCallTracer>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
 JSObject* JSTestCallTracer::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    return JSTestCallTracerPrototype::create(vm, &globalObject, JSTestCallTracerPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype()));
+    auto* structure = JSTestCallTracerPrototype::createStructure(vm, &globalObject, globalObject.objectPrototype());
+    structure->setMayBePrototype(true);
+    return JSTestCallTracerPrototype::create(vm, &globalObject, structure);
 }
 
 JSObject* JSTestCallTracer::prototype(VM& vm, JSDOMGlobalObject& globalObject)

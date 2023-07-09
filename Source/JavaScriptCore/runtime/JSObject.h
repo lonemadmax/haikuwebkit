@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2022 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -99,7 +99,6 @@ class JSObject : public JSCell {
     friend class JSCell;
     friend class JSFinalObject;
     friend class MarkedBlock;
-    JS_EXPORT_PRIVATE friend bool setUpStaticFunctionSlot(VM&, const HashTableValue*, JSObject*, PropertyName, PropertySlot&);
 
     enum PutMode : uint8_t {
         PutModePut,
@@ -816,6 +815,8 @@ public:
     // This is used by JSLexicalEnvironment.
     bool putOwnDataProperty(VM&, PropertyName, JSValue, PutPropertySlot&);
     bool putOwnDataPropertyMayBeIndex(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
+
+    void putOwnDataPropertyBatching(VM&, const RefPtr<UniquedStringImpl>*, const EncodedJSValue*, unsigned size);
 private:
     void validatePutOwnDataProperty(VM&, PropertyName, JSValue);
 public:
@@ -987,7 +988,7 @@ public:
     bool canPerformFastPutInlineExcludingProto();
 
     bool mayBePrototype() const;
-    void didBecomePrototype();
+    void didBecomePrototype(VM&);
 
     std::optional<Structure::PropertyHashEntry> findPropertyHashEntry(PropertyName) const;
 
@@ -996,7 +997,11 @@ public:
     template<typename Functor>
     bool fastForEachPropertyWithSideEffectFreeFunctor(VM&, const Functor&);
 
+    bool getOwnNonIndexPropertySlot(VM&, Structure*, PropertyName, PropertySlot&);
+    bool getNonIndexPropertySlot(JSGlobalObject*, PropertyName, PropertySlot&);
+
 protected:
+#if ASSERT_ENABLED
     void finishCreation(VM& vm)
     {
         Base::finishCreation(vm);
@@ -1005,6 +1010,7 @@ protected:
         ASSERT(structure()->isObject());
         ASSERT(classInfo());
     }
+#endif
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
@@ -1147,8 +1153,6 @@ private:
     JS_EXPORT_PRIVATE NEVER_INLINE bool putInlineFastReplacingStaticPropertyIfNeeded(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
     bool putInlineFast(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
 
-    bool getNonIndexPropertySlot(JSGlobalObject*, PropertyName, PropertySlot&);
-    bool getOwnNonIndexPropertySlot(VM&, Structure*, PropertyName, PropertySlot&);
     JS_EXPORT_PRIVATE void fillGetterPropertySlot(VM&, PropertySlot&, JSCell*, unsigned, PropertyOffset);
     void fillCustomGetterPropertySlot(PropertySlot&, CustomGetterSetter*, unsigned, Structure*);
 
@@ -1202,12 +1206,14 @@ protected:
     {
     }
 
+#if ASSERT_ENABLED
     void finishCreation(VM& vm)
     {
         Base::finishCreation(vm);
         ASSERT(!this->structure()->hasInlineStorage());
         ASSERT(classInfo());
     }
+#endif
 };
 
 // JSFinalObject is a type of JSObject that contains sufficient internal
@@ -1257,12 +1263,14 @@ private:
         gcSafeZeroMemory(inlineStorageUnsafe(), structure->inlineCapacity() * sizeof(EncodedJSValue));
     }
 
+#if ASSERT_ENABLED
     void finishCreation(VM& vm)
     {
         Base::finishCreation(vm);
         ASSERT(butterfly() || structure()->totalStorageCapacity() == structure()->inlineCapacity());
         ASSERT(classInfo());
     }
+#endif
 };
 
 JS_EXPORT_PRIVATE JSC_DECLARE_HOST_FUNCTION(objectPrivateFuncInstanceOf);

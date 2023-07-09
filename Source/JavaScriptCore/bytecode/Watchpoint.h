@@ -511,8 +511,6 @@ protected:
     WatchpointSet& watchpointsToFire() { return m_watchpointsToFire; }
 
 private:
-    JS_EXPORT_PRIVATE void fireAllSlow();
-
     WatchpointSet m_watchpointsToFire;
 };
 

@@ -367,6 +367,7 @@ struct InsertTextOptions;
 struct InteractionInformationAtPosition;
 struct InteractionInformationRequest;
 struct LoadParameters;
+struct LocalFrameCreationParameters;
 struct PrintInfo;
 struct TextInputContext;
 struct UserMessage;
@@ -704,6 +705,8 @@ public:
     bool hasCachedWindowFrame() const { return m_hasCachedWindowFrame; }
 
     void updateHeaderAndFooterLayersForDeviceScaleChange(float scaleFactor);
+
+    bool isTransparentOrFullyClipped(const WebCore::Element&) const;
 #endif
 
     void didUpdateRendering();
@@ -1023,6 +1026,7 @@ public:
 
 #if PLATFORM(MAC)
     void setCaretAnimatorType(WebCore::CaretAnimatorType);
+    void setCaretBlinkingSuspended(bool);
     void attributedSubstringForCharacterRangeAsync(const EditingRange&, CompletionHandler<void(const WebCore::AttributedString&, const EditingRange&)>&&);
     void requestAcceptsFirstMouse(int eventNumber, const WebKit::WebMouseEvent&);
 #endif
@@ -1215,7 +1219,7 @@ public:
     bool selectionFlippingEnabled() const { return m_selectionFlippingEnabled; }
     void setSelectionFlippingEnabled(bool enabled) { m_selectionFlippingEnabled = enabled; }
 
-    NSDictionary *dataDetectionContext() const { return m_dataDetectionContext.get(); }
+    std::optional<double> dataDetectionReferenceDate() const { return m_dataDetectionReferenceDate; }
 #endif
 
     bool mainFrameIsScrollable() const { return m_mainFrameIsScrollable; }
@@ -1736,6 +1740,7 @@ private:
     // Actions
     void tryClose(CompletionHandler<void(bool)>&&);
     void platformDidReceiveLoadParameters(const LoadParameters&);
+    void loadRequestByCreatingNewLocalFrameOrConvertingRemoteFrame(LocalFrameCreationParameters&&, LoadParameters&&);
     void loadRequest(LoadParameters&&);
     [[noreturn]] void loadRequestWaitingForProcessLaunch(LoadParameters&&, URL&&, WebPageProxyIdentifier, bool);
     void loadData(LoadParameters&&);
@@ -1934,7 +1939,6 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     void didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<String>&, const String& displayString, const IPC::DataReference& iconData, WebKit::SandboxExtension::Handle&&, WebKit::SandboxExtension::Handle&&, WebKit::SandboxExtension::Handle&&);
-    bool isTransparentOrFullyClipped(const WebCore::Element&) const;
 #endif
 
 #if ENABLE(SANDBOX_EXTENSIONS)
@@ -2186,7 +2190,7 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
-    RetainPtr<NSDictionary> m_dataDetectionContext;
+    std::optional<double> m_dataDetectionReferenceDate;
 #endif
 
 #if USE(ATSPI)

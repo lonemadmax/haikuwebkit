@@ -176,8 +176,14 @@ bool defaultManageCaptureStatusBarInGPUProcessEnabled()
 #if ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE)
 bool defaultManagedMediaSourceEnabled()
 {
-    // TBD
+#if PLATFORM(IOS_FAMILY)
+    // Enable everywhere that MediaSource is enabled
+    return defaultMediaSourceEnabled();
+#elif PLATFORM(MAC)
+    return true;
+#else
     return false;
+#endif
 }
 #endif
 
@@ -209,6 +215,16 @@ bool defaultShouldDropSuspendedAssertionAfterDelay()
 #else
     return false;
 #endif
+}
+
+bool defaultLiveRangeSelectionEnabled()
+{
+#if PLATFORM(IOS_FAMILY)
+    static bool enableForAllApps = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::LiveRangeSelectionEnabledForAllApps);
+    if (!enableForAllApps && WebCore::IOSApplication::isGmail())
+        return false;
+#endif
+    return true;
 }
 
 bool defaultShowModalDialogEnabled()
@@ -251,5 +267,15 @@ bool defaultPeerConnectionEnabledAvailable()
     return WebCore::WebRTCProvider::webRTCAvailable();
 }
 #endif
+
+bool defaultPopoverAttributeEnabled()
+{
+#if PLATFORM(COCOA)
+    static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::PopoverAttributeEnabled);
+    return newSDK;
+#else
+    return false;
+#endif
+}
 
 } // namespace WebKit
