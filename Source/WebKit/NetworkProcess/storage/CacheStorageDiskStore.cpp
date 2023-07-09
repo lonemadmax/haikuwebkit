@@ -51,7 +51,7 @@ static bool shouldStoreBodyAsBlob(const Vector<uint8_t>& bodyData)
     return bodyData.size() > WTF::pageSize();
 }
 
-static SHA1::Digest computeSHA1(Span<const uint8_t> span, FileSystem::Salt salt)
+static SHA1::Digest computeSHA1(std::span<const uint8_t> span, FileSystem::Salt salt)
 {
     SHA1 sha1;
     sha1.addBytes(salt.data(), salt.size());
@@ -148,7 +148,7 @@ String CacheStorageDiskStore::blobFilePath(const String& blobFileName) const
     return FileSystem::pathByAppendingComponent(blobsDirectoryPath(), blobFileName);
 }
 
-static std::optional<RecordMetaData> decodeRecordMetaData(Span<const uint8_t> fileData)
+static std::optional<RecordMetaData> decodeRecordMetaData(std::span<const uint8_t> fileData)
 {
     WTF::Persistence::Decoder decoder(fileData);
     RecordMetaData metaData;
@@ -207,7 +207,7 @@ static std::optional<RecordMetaData> decodeRecordMetaData(Span<const uint8_t> fi
     return metaData;
 }
 
-static std::optional<RecordHeader> decodeRecordHeader(Span<const uint8_t> headerData)
+static std::optional<RecordHeader> decodeRecordHeader(std::span<const uint8_t> headerData)
 {
     WTF::Persistence::Decoder decoder(headerData);
     std::optional<double> insertionTime;
@@ -280,7 +280,7 @@ static std::optional<StoredRecordInformation> readRecordInfoFromFileData(const F
     if (buffer.isEmpty())
         return std::nullopt;
 
-    auto fileData = makeSpan(buffer.data(), buffer.size());
+    auto fileData = std::span(buffer.data(), buffer.size());
     auto metaData = decodeRecordMetaData(fileData);
     if (!metaData)
         return std::nullopt;
@@ -314,7 +314,7 @@ std::optional<CacheStorageRecord> CacheStorageDiskStore::readRecordFromFileData(
         if (bodyOffset + bodySize != buffer.size())
             return std::nullopt;
 
-        auto bodyData = makeSpan(buffer.data() + bodyOffset, bodySize);
+        auto bodyData = std::span(buffer.data() + bodyOffset, bodySize);
         if (storedInfo->metaData.bodyHash != computeSHA1(bodyData, m_salt))
             return std::nullopt;
 
@@ -324,7 +324,7 @@ std::optional<CacheStorageRecord> CacheStorageDiskStore::readRecordFromFileData(
             return std::nullopt;
 
         auto sharedBuffer = WebCore::SharedBuffer::create(blobBuffer.data(), blobBuffer.size());
-        auto bodyData = makeSpan(sharedBuffer->data(), sharedBuffer->size());
+        auto bodyData = std::span(sharedBuffer->data(), sharedBuffer->size());
         if (storedInfo->metaData.bodyHash != computeSHA1(bodyData, m_salt))
             return std::nullopt;
 
@@ -535,12 +535,12 @@ void CacheStorageDiskStore::writeRecords(Vector<CacheStorageRecord>&& records, W
             auto recordBlobData = recordBlobDatas[index];
             FileSystem::makeAllDirectories(FileSystem::parentPath(recordFile));
             if (!recordBlobData.isEmpty())  {
-                if (FileSystem::overwriteEntireFile(recordBlobFilePath(recordFile), makeSpan(recordBlobData.data(), recordBlobData.size())) == -1) {
+                if (FileSystem::overwriteEntireFile(recordBlobFilePath(recordFile), std::span(recordBlobData.data(), recordBlobData.size())) == -1) {
                     result = false;
                     continue;
                 }
             }
-            if (FileSystem::overwriteEntireFile(recordFile, makeSpan(recordData.data(), recordData.size())) == -1)
+            if (FileSystem::overwriteEntireFile(recordFile, std::span(recordData.data(), recordData.size())) == -1)
                 result = false;
         }
 

@@ -518,6 +518,7 @@ public:
     void convertToIdentityOn(Node*);
 
     void convertToGetByIdMaybeMegamorphic(Graph&, CacheableIdentifier);
+    void convertToPutByIdMaybeMegamorphic(Graph&, CacheableIdentifier);
 
     bool mustGenerate() const
     {
@@ -556,6 +557,37 @@ public:
             // otherwise wouldn't take kindly to a node that doesn't compute a value.
             return true;
             
+        default:
+            return false;
+        }
+    }
+
+    bool isCheckNode()
+    {
+        switch (op()) {
+        case Check:
+        case CheckVarargs:
+        case CheckTierUpInLoop:
+        case CheckTierUpAndOSREnter:
+        case CheckTierUpAtReturn:
+        case CheckPrivateBrand:
+        case CheckStructure:
+        case CheckStructureOrEmpty:
+        case CheckArray:
+        case CheckArrayOrEmpty:
+        case CheckDetached:
+        case CheckIsConstant:
+        case CheckNotEmpty:
+        case CheckBadValue:
+        case CheckInBounds:
+        case CheckInBoundsInt52:
+        case CheckIdent:
+        case CheckTypeInfoFlags:
+        case CheckJSCast:
+        case CheckNotJSCast:
+        case CheckStructureImmediate:
+        case CheckTraps:
+            return true;
         default:
             return false;
         }
@@ -636,7 +668,7 @@ public:
     
     void convertToPutByOffset(StorageAccessData& data, Edge storage, Edge base)
     {
-        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == MultiPutByOffset || m_op == PutPrivateNameById);
+        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == MultiPutByOffset || m_op == PutPrivateNameById || m_op == PutByIdMegamorphic);
         m_opInfo = &data;
         children.setChild3(children.child2());
         children.setChild2(base);
@@ -646,7 +678,7 @@ public:
     
     void convertToMultiPutByOffset(MultiPutByOffsetData* data)
     {
-        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == PutPrivateNameById);
+        ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == PutPrivateNameById || m_op == PutByIdMegamorphic);
         m_opInfo = data;
         m_op = MultiPutByOffset;
     }
@@ -1107,6 +1139,7 @@ public:
         case GetByIdFlush:
         case GetByIdMegamorphic:
         case GetByIdWithThis:
+        case GetByIdWithThisMegamorphic:
         case GetByIdDirect:
         case GetByIdDirectFlush:
         case GetPrivateNameById:
@@ -1115,6 +1148,7 @@ public:
         case PutById:
         case PutByIdFlush:
         case PutByIdDirect:
+        case PutByIdMegamorphic:
         case PutByIdWithThis:
         case PutPrivateNameById:
             return true;
@@ -1487,6 +1521,17 @@ public:
     {
         return speculationFromJSType(queriedType());
     }
+
+    bool hasStructureFlags()
+    {
+        return op() == HasStructureWithFlags;
+    }
+
+    uint32_t structureFlags()
+    {
+        ASSERT(hasStructureFlags());
+        return m_opInfo.as<uint32_t>();
+    }
     
     bool hasResult()
     {
@@ -1801,10 +1846,6 @@ public:
                 return m_index == other.m_index;
             }
             
-            bool operator!=(const iterator& other) const
-            {
-                return !(*this == other);
-            }
         private:
             Node* m_terminal;
             unsigned m_index;
@@ -1850,6 +1891,7 @@ public:
         case GetByIdFlush:
         case GetByIdMegamorphic:
         case GetByIdWithThis:
+        case GetByIdWithThisMegamorphic:
         case GetByIdDirect:
         case GetByIdDirectFlush:
         case GetPrototypeOf:
@@ -1858,6 +1900,7 @@ public:
         case GetByVal:
         case GetByValMegamorphic:
         case GetByValWithThis:
+        case GetByValWithThisMegamorphic:
         case GetPrivateName:
         case GetPrivateNameById:
         case Call:
@@ -2059,6 +2102,7 @@ public:
         case PutByValDirect:
         case PutByVal:
         case PutByValAlias:
+        case PutByValMegamorphic:
         case AtomicsAdd:
         case AtomicsAnd:
         case AtomicsCompareExchange:
@@ -2094,6 +2138,7 @@ public:
         case PutByValDirect:
         case PutByVal:
         case PutByValAlias:
+        case PutByValMegamorphic:
             return 3;
         case AtomicsAdd:
         case AtomicsAnd:
@@ -2392,6 +2437,7 @@ public:
         case PutByValDirect:
         case PutByVal:
         case PutByValAlias:
+        case PutByValMegamorphic:
         case EnumeratorPutByVal:
         case GetByVal:
         case GetByValMegamorphic:
@@ -2460,9 +2506,11 @@ public:
         case PutById:
         case PutByIdDirect:
         case PutByIdFlush:
+        case PutByIdMegamorphic:
         case PutByIdWithThis:
         case PutByVal:
         case PutByValAlias:
+        case PutByValMegamorphic:
         case PutByValDirect:
         case PutByValWithThis:
         case EnumeratorPutByVal:
@@ -2487,9 +2535,11 @@ public:
         case PutById:
         case PutByIdDirect:
         case PutByIdFlush:
+        case PutByIdMegamorphic:
         case PutByIdWithThis:
         case PutByVal:
         case PutByValAlias:
+        case PutByValMegamorphic:
         case PutByValDirect:
         case EnumeratorPutByVal:
         case PutDynamicVar:

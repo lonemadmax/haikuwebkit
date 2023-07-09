@@ -193,6 +193,16 @@ static HashSet<String, ASCIICaseInsensitiveHash>& globalURLSchemesWithCustomProt
     return set;
 }
 
+bool WebProcessPool::globalDelaysWebProcessLaunchDefaultValue()
+{
+#if PLATFORM(IOS_FAMILY)
+    // FIXME: Delayed process launch is currently disabled on iOS for performance reasons (rdar://problem/49074131).
+    return false;
+#else
+    return true;
+#endif
+}
+
 Vector<String> WebProcessPool::urlSchemesWithCustomProtocolHandlers()
 {
     return copyToVector(globalURLSchemesWithCustomProtocolHandlers());
@@ -573,8 +583,6 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
         processPool->m_processes.append(WTFMove(newProcessProxy));
     }
 
-    remoteWorkerProcesses().add(*remoteWorkerProcessProxy);
-
     const WebPreferencesStore* preferencesStore = nullptr;
     if (workerType == RemoteWorkerType::ServiceWorker) {
         if (auto* preferences = websiteDataStore->serviceWorkerOverridePreferences())
@@ -597,8 +605,17 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
         remoteWorkerProcessProxy->setRemoteWorkerUserAgent(processPool->m_remoteWorkerUserAgent);
 }
 
-void WebProcessPool::removeFromRemoteWorkerProcesses(WebProcessProxy& process)
+void WebProcessPool::addRemoteWorkerProcess(WebProcessProxy& process)
 {
+    ASSERT(&process.processPool() == this);
+    ASSERT(process.isRunningWorkers());
+    remoteWorkerProcesses().add(process);
+}
+
+void WebProcessPool::removeRemoteWorkerProcess(WebProcessProxy& process)
+{
+    ASSERT(!process.isRunningWorkers());
+    ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == &process; }));
     ASSERT(remoteWorkerProcesses().contains(process));
     remoteWorkerProcesses().remove(process);
 }
@@ -1006,12 +1023,13 @@ void WebProcessPool::disconnectProcess(WebProcessProxy& process)
 
     // FIXME (Multi-WebProcess): <rdar://problem/12239765> Some of the invalidation calls of the other supplements are still necessary in multi-process mode, but they should only affect data structures pertaining to the process being disconnected.
     // Clearing everything causes assertion failures, so it's less trouble to skip that for now.
-    Ref<WebProcessProxy> protectedProcess(process);
+    Ref protectedProcess { process };
 
     m_backForwardCache->removeEntriesForProcess(process);
 
     if (process.isRunningWorkers())
-        removeFromRemoteWorkerProcesses(process);
+        process.disableRemoteWorkers({ RemoteWorkerType::ServiceWorker, RemoteWorkerType::SharedWorker });
+    ASSERT(!remoteWorkerProcesses().contains(process));
 
     supplement<WebGeolocationManagerProxy>()->webProcessIsGoingAway(process);
 
@@ -1106,7 +1124,8 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         // We do not support several WebsiteDataStores sharing a single process.
         ASSERT(process->isDummyProcessProxy() || pageConfiguration->websiteDataStore() == process->websiteDataStore());
         ASSERT(&pageConfiguration->relatedPage()->websiteDataStore() == pageConfiguration->websiteDataStore());
-    } else if (!m_isDelayedWebProcessLaunchDisabled) {
+    } else if (pageConfiguration->delaysWebProcessLaunchUntilFirstLoad()) {
+        WEBPROCESSPOOL_RELEASE_LOG(Process, "createWebPage: delaying WebProcess launch until first load");
         // In the common case, we delay process launch until something is actually loaded in the page.
         process = dummyProcessProxy(pageConfiguration->websiteDataStore()->sessionID());
         if (!process) {
@@ -1114,8 +1133,10 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
             m_dummyProcessProxies.add(pageConfiguration->websiteDataStore()->sessionID(), *process);
             m_processes.append(*process);
         }
-    } else
+    } else {
+        WEBPROCESSPOOL_RELEASE_LOG(Process, "createWebPage: Not delaying WebProcess launch");
         process = processForRegistrableDomain(*pageConfiguration->websiteDataStore(), { }, lockdownMode);
+    }
 
     RefPtr<WebUserContentControllerProxy> userContentController = pageConfiguration->userContentController();
     
@@ -1817,9 +1838,14 @@ void WebProcessPool::removeProcessFromOriginCacheSet(WebProcessProxy& process)
 
 void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& frame, const API::Navigation& navigation, Ref<WebProcessProxy>&& sourceProcess, const URL& sourceURL, ProcessSwapRequestedByClient processSwapRequestedByClient, WebProcessProxy::LockdownMode lockdownMode, const FrameInfoData& frameInfo, Ref<WebsiteDataStore>&& dataStore, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral, DidCreateNewProcess)>&& completionHandler)
 {
+    auto registrableDomain = RegistrableDomain { navigation.currentRequest().url() };
+    RegistrableDomain mainFrameDomain(URL(page.pageLoadState().activeURL()));
     if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
-        auto registrableDomain = RegistrableDomain { navigation.currentRequest().url() };
         if (!registrableDomain.isEmpty()) {
+            if (registrableDomain == mainFrameDomain) {
+                completionHandler(Ref { page.mainFrame()->process() }, nullptr, "Found process for the same registration domain as mainFrame domain"_s, DidCreateNewProcess::No);
+                return;
+            }
             if (auto* subframePageProxy = page.subpageFrameProxyForRegistrableDomain(registrableDomain)) {
                 completionHandler(Ref { subframePageProxy->process() }, nullptr, "Found process for the same registration domain"_s, DidCreateNewProcess::No);
                 return;
@@ -1831,9 +1857,8 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
 
     if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
         RegistrableDomain navigationDomain(navigation.currentRequest().url());
-        RegistrableDomain mainFrameDomain(URL(page.pageLoadState().activeURL()));
         if (!navigationDomain.isEmpty() && navigationDomain != mainFrameDomain) {
-            auto subFramePageProxy = makeUniqueRef<SubframePageProxy>(page, process, frame.isMainFrame());
+            auto subFramePageProxy = makeUniqueRef<SubframePageProxy>(page, process);
             page.addSubframePageProxyForFrameID(frame.frameID(), navigationDomain, WTFMove(subFramePageProxy));
         }
     }

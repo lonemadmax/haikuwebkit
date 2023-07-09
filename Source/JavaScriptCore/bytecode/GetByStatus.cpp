@@ -85,6 +85,8 @@ GetByStatus GetByStatus::computeFromLLInt(CodeBlock* profiledBlock, BytecodeInde
         break;
 
     case op_get_by_val:
+    case op_get_by_val_with_this:
+    case op_get_by_id_with_this:
         return GetByStatus(NoInformation, false);
 
     case op_enumerator_get_by_val:
@@ -213,20 +215,6 @@ GetByStatus::GetByStatus(const ProxyObjectAccessCase&)
     : m_state(ProxyObject)
     , m_wasSeenInJIT(true)
 {
-}
-
-static bool isSameStyledCodeOrigin(CodeOrigin lhs, CodeOrigin rhs)
-{
-    while (true) {
-        if (lhs.bytecodeIndex() != rhs.bytecodeIndex())
-            return false;
-        if (!!lhs.inlineCallFrame() != !!rhs.inlineCallFrame())
-            return false;
-        if (!lhs.inlineCallFrame())
-            return true;
-        lhs = lhs.inlineCallFrame()->directCaller;
-        rhs = rhs.inlineCallFrame()->directCaller;
-    }
 }
 
 GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const ConcurrentJSLocker& locker, CodeBlock* profiledBlock, StructureStubInfo* stubInfo, CallLinkStatus::ExitSiteData callExitSiteData, CodeOrigin codeOrigin)

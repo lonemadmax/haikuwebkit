@@ -40,7 +40,6 @@ struct MangledName {
     enum Kind : uint8_t {
         Type,
         Local,
-        Global,
         Parameter,
         Function,
         Field,
@@ -56,7 +55,6 @@ struct MangledName {
         static const ASCIILiteral prefixes[] = {
             "type"_s,
             "local"_s,
-            "global"_s,
             "parameter"_s,
             "function"_s,
             "field"_s,
@@ -138,7 +136,11 @@ void NameManglerVisitor::visitFunctionBody(AST::Function& function)
         introduceVariable(parameter.name(), MangledName::Parameter);
     }
 
+    // It's important that we call the base visitor here directly, otherwise
+    // our overwritten visitor will introduce a new ContextScope for the compound
+    // statement, which would allow shadowing the function's parameters
     AST::Visitor::visit(function.body());
+
     if (function.maybeReturnType())
         AST::Visitor::visit(*function.maybeReturnType());
 }
@@ -164,7 +166,7 @@ void NameManglerVisitor::visit(AST::Variable& variable)
     for (auto& attribute : variable.attributes()) {
         if (is<AST::IdAttribute>(attribute)) {
             unsigned value;
-            auto expression = downcast<AST::IdAttribute>(attribute).value();
+            auto& expression = downcast<AST::IdAttribute>(attribute).value();
             if (is<AST::AbstractIntegerLiteral>(expression))
                 value = downcast<AST::AbstractIntegerLiteral>(expression).value();
             else if (is<AST::Signed32Literal>(expression))
@@ -179,8 +181,6 @@ void NameManglerVisitor::visit(AST::Variable& variable)
             break;
         }
     }
-
-    visitVariableDeclaration(variable, MangledName::Global);
 
     const String& mangledName = variable.name();
 

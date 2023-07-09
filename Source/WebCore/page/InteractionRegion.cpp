@@ -38,6 +38,7 @@
 #include "HTMLFieldSetElement.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLInputElement.h"
+#include "HTMLLabelElement.h"
 #include "HitTestResult.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
@@ -45,7 +46,7 @@
 #include "PathUtilities.h"
 #include "PlatformMouseEvent.h"
 #include "PseudoClassChangeInvalidation.h"
-#include "RenderBox.h"
+#include "RenderBoxInlines.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
 #include "SimpleRange.h"
@@ -192,10 +193,16 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     if (!matchedElement)
         return std::nullopt;
 
-    if (auto* linkElement = matchedElement->enclosingLinkEventParentOrSelf())
-        matchedElement = linkElement;
-    if (auto* buttonElement = ancestorsOfType<HTMLButtonElement>(*matchedElement).first())
-        matchedElement = buttonElement;
+    bool isLabelable = is<HTMLElement>(matchedElement) && downcast<HTMLElement>(matchedElement)->isLabelable();
+    for (Node* node = matchedElement; node; node = node->parentInComposedTree()) {
+        bool matchedButton = is<HTMLButtonElement>(node);
+        bool matchedLabel = isLabelable && is<HTMLLabelElement>(node);
+        bool matchedLink = node->isLink();
+        if (matchedButton || matchedLabel || matchedLink) {
+            matchedElement = downcast<Element>(node);
+            break;
+        }
+    }
 
     if (!shouldAllowElement(*matchedElement))
         return std::nullopt;
@@ -214,12 +221,24 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     bool hasPointer = cursorTypeForElement(*matchedElement) == CursorType::Pointer || shouldAllowNonPointerCursorForElement(*matchedElement);
     bool isTooBigForInteraction = checkedRegionArea.value() > frameViewArea / 2;
 
+    auto elementIdentifier = matchedElement->identifier();
+
+    if (!hasPointer && is<HTMLLabelElement>(matchedElement)) {
+        // Could be a `<label for="...">` or a label with a descendant.
+        // In cases where both elements get a region we want to group them by the same `elementIdentifier`.
+        auto associatedElement = downcast<HTMLLabelElement>(matchedElement)->control();
+        if (associatedElement) {
+            hasPointer = true;
+            elementIdentifier = associatedElement->identifier();
+        }
+    }
+
     bool detectedHoverRules = false;
     if (!hasPointer) {
         // The hover check can be expensive (it may end up doing selector matching), so we only run it on some elements.
-        bool hasVisualEdges = !renderer.style().borderAndBackgroundEqual(RenderStyle::defaultStyle());
+        bool hasVisibleBoxDecorations = renderer.hasVisibleBoxDecorations();
         bool nonScrollable = !renderer.hasPotentiallyScrollableOverflow();
-        if (hasVisualEdges && nonScrollable)
+        if (hasVisibleBoxDecorations && nonScrollable)
             detectedHoverRules = elementMatchesHoverRules(*matchedElement);
     }
 
@@ -228,7 +247,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         if (isOverlay && isOriginalMatch) {
             return { {
                 InteractionRegion::Type::Occlusion,
-                matchedElement->identifier(),
+                elementIdentifier,
                 bounds
             } };
         }
@@ -275,16 +294,16 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         }
     }
 
-    bool hasNoVisualEdges = regionRenderer.style().borderAndBackgroundEqual(RenderStyle::defaultStyle());
-    if (isInlineNonBlock && hasNoVisualEdges)
-        bounds.inflate(regionRenderer.document().settings().interactionRegionInlinePadding());
-
-    if (hasNoVisualEdges)
+    if (!regionRenderer.hasVisibleBoxDecorations() && !renderer.hasVisibleBoxDecorations()) {
+        // We can safely tweak the bounds and radius without causing visual mismatch.
         borderRadius = std::max<float>(borderRadius, regionRenderer.document().settings().interactionRegionMinimumCornerRadius());
+        if (isInlineNonBlock)
+            bounds.inflate(regionRenderer.document().settings().interactionRegionInlinePadding());
+    }
 
     return { {
         InteractionRegion::Type::Interaction,
-        matchedElement->identifier(),
+        elementIdentifier,
         bounds,
         borderRadius,
         maskedCorners
@@ -293,7 +312,10 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
 
 TextStream& operator<<(TextStream& ts, const InteractionRegion& interactionRegion)
 {
-    ts.dumpProperty(interactionRegion.type == InteractionRegion::Type::Occlusion ? "occlusion" : "interaction", interactionRegion.rectInLayerCoordinates);
+    auto regionName = interactionRegion.type == InteractionRegion::Type::Interaction
+        ? "interaction"
+        : (interactionRegion.type == InteractionRegion::Type::Occlusion ? "occlusion" : "guard");
+    ts.dumpProperty(regionName, interactionRegion.rectInLayerCoordinates);
     auto radius = interactionRegion.borderRadius;
     if (interactionRegion.maskedCorners.isEmpty())
         ts.dumpProperty("borderRadius", radius);

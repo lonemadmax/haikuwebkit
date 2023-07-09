@@ -37,7 +37,6 @@
 #include "NetworkProcessMessages.h"
 #include "SubframePageProxy.h"
 #include "WebFrameProxy.h"
-#include "WebFrameProxyMessages.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
@@ -59,7 +58,6 @@ ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, Ref<WebProces
 {
     m_process->markProcessAsRecentlyUsed();
     m_process->addProvisionalFrameProxy(*this);
-    m_process->addMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), frame.frameID().object(), *this);
 
     ASSERT(frame.page());
 
@@ -70,40 +68,20 @@ ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, Ref<WebProces
     // FIXME: Add more parameters as appropriate.
 
     LocalFrameCreationParameters localFrameCreationParameters {
-        frame.frameID(),
-        frame.parentFrame()->frameID(),
         m_layerHostingContextIdentifier
     };
 
     // FIXME: This gives too much cookie access. This should be removed after putting the entire frame tree in all web processes.
     auto giveAllCookieAccess = LoadedWebArchive::Yes;
     frame.page()->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(m_process->coreProcessIdentifier(), WebCore::RegistrableDomain(request.url()), giveAllCookieAccess), [process = m_process, loadParameters = WTFMove(loadParameters), localFrameCreationParameters = WTFMove(localFrameCreationParameters), pageID = m_pageID] () mutable {
-        process->send(Messages::WebPage::LoadRequestByCreatingNewLocalFrameOrConvertingRemoteFrame(localFrameCreationParameters, loadParameters), pageID);
+        process->send(Messages::WebPage::TransitionFrameToLocalAndLoadRequest(localFrameCreationParameters, loadParameters), pageID);
     });
 }
 
 ProvisionalFrameProxy::~ProvisionalFrameProxy()
 {
-    m_process->removeMessageReceiver(Messages::WebFrameProxy::messageReceiverName(), m_frame->frameID().object());
     m_process->removeVisitedLinkStoreUser(m_visitedLinkStore.get(), m_webPageID);
     m_process->removeProvisionalFrameProxy(*this);
-}
-
-void ProvisionalFrameProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
-{
-    if (auto* page = m_frame->page())
-        page->didReceiveMessage(connection, decoder);
-}
-
-IPC::Connection* ProvisionalFrameProxy::messageSenderConnection() const
-{
-    return m_process->connection();
-}
-
-uint64_t ProvisionalFrameProxy::messageSenderDestinationID() const
-{
-    // FIXME: This identifier was generated in another process and can collide with identifiers in this frame's process.
-    return m_frame->frameID().object().toUInt64();
 }
 
 }

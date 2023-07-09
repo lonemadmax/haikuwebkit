@@ -124,9 +124,9 @@ END
     print F "        return Vector<T, inlineCapacity>::at(static_cast<size_t>(i));\n";
     print F "    }\n";
     print F "};\n\n";
-    print F "extern LazyNeverDestroyed<FamilyNamesList<const StaticStringImpl*, ", scalar(keys %parameters), ">> familyNamesData;\n";
-    print F "extern MainThreadLazyNeverDestroyed<FamilyNamesList<AtomStringImpl*, ", scalar(keys %parameters), ">> familyNames;\n\n";
-    printMacros($F, "extern MainThreadLazyNeverDestroyed<const AtomString>", "", \%parameters);
+    print F "extern LazyNeverDestroyed<FamilyNamesList<const StringImpl*, ", scalar(keys %parameters), ">> familyNamesData;\n";
+    print F "extern LazyNeverDestroyed<FamilyNamesList<AtomStringImpl*, ", scalar(keys %parameters), ">> familyNames;\n\n";
+    printMacros($F, "extern LazyNeverDestroyed<const AtomString>", "", \%parameters);
     print F "\n";
     print F "\n";
 
@@ -141,10 +141,10 @@ END
 
     print F StaticString::GenerateStrings(\%parameters);
 
-    print F "LazyNeverDestroyed<FamilyNamesList<const StaticStringImpl*, ", scalar(keys %parameters), ">> familyNamesData;\n";
-    print F "MainThreadLazyNeverDestroyed<FamilyNamesList<AtomStringImpl*, ", scalar(keys %parameters), ">> familyNames;\n\n";
+    print F "LazyNeverDestroyed<FamilyNamesList<const StringImpl*, ", scalar(keys %parameters), ">> familyNamesData;\n";
+    print F "LazyNeverDestroyed<FamilyNamesList<AtomStringImpl*, ", scalar(keys %parameters), ">> familyNames;\n\n";
 
-    printMacros($F, "MainThreadLazyNeverDestroyed<const AtomString>", "", \%parameters);
+    printMacros($F, "LazyNeverDestroyed<const AtomString>", "", \%parameters);
 
     printInit($F, 0);
 
@@ -153,12 +153,12 @@ END
 
     print F "    familyNamesData.construct();\n";
     for my $name (sort keys %parameters) {
-        print F "    familyNamesData->uncheckedAppend(&${name}Data);\n";
+        print F "    familyNamesData->uncheckedAppend(s_${name}Data.get());\n";
     }
 
     print F "\n";
     for my $name (sort keys %parameters) {
-        print F "    ${name}.construct(&${name}Data);\n";
+        print F "    ${name}.construct(s_${name}Data.get());\n";
     }
 
     print F "\n";
@@ -940,7 +940,7 @@ sub printTagNameHeaderFile
     print F "inline LazyNeverDestroyed<EnumeratedArray<TagName, AtomString, lastTagNameEnumValue>> tagNameStrings;\n";
     print F "\n";
     print F "WEBCORE_EXPORT void initializeTagNameStrings();\n";
-    print F "TagName findTagName(Span<const UChar>);\n";
+    print F "TagName findTagName(std::span<const UChar>);\n";
     print F "#if ASSERT_ENABLED\n";
     print F "TagName findTagName(const String&);\n";
     print F "#endif\n";
@@ -998,10 +998,18 @@ sub printTagNameCppFile
     }
     print F "};\n";
     print F "\n";
-    print F "static constexpr StringImpl::StaticStringImpl unadjustedTagNames[] = {\n";
+    my $unadjustedTagNamesCount = 0;
+    print F "static constexpr const char* const unadjustedTagNames[] = {\n";
     for my $elementKey (sort byElementNameOrder keys %allElements) {
         next if $allElements{$elementKey}{unadjustedTagEnumValue} eq "";
-        print F "    StringImpl::StaticStringImpl { \"$allElements{$elementKey}{parsedTagName}\" },\n";
+        ++$unadjustedTagNamesCount;
+        print F "    \"$allElements{$elementKey}{parsedTagName}\",\n";
+    }
+    print F "};\n";
+    print F "static constexpr size_t unadjustedTagNamesLengths[$unadjustedTagNamesCount] = {\n";
+    for my $elementKey (sort byElementNameOrder keys %allElements) {
+        next if $allElements{$elementKey}{unadjustedTagEnumValue} eq "";
+        print F "    \"$allElements{$elementKey}{parsedTagName}\"_s.length(),\n";
     }
     print F "};\n";
     print F "\n";
@@ -1015,20 +1023,21 @@ sub printTagNameCppFile
     print F "    ++tagNamesEntry; // Skip TagName::Unknown\n";
     print F "    for (auto* qualifiedName : tagQualifiedNamePointers)\n";
     print F "        *(tagNamesEntry++) = reinterpret_cast<LazyNeverDestroyed<QualifiedName>*>(qualifiedName)->get().localName();\n";
-    print F "    for (auto& string : unadjustedTagNames) {\n";
-    print F "        reinterpret_cast<const StringImpl&>(string).assertHashIsCorrect();\n";
-    print F "        *(tagNamesEntry++) = AtomString(&string);\n";
+    print F "    for (unsigned i = 0; i < $unadjustedTagNamesCount; ++i) {\n";
+    print F "        auto impl = StringImpl::createStaticStringImpl(unadjustedTagNames[i], unadjustedTagNamesLengths[i]);\n";
+    print F "        impl->assertHashIsCorrect();\n";
+    print F "        *(tagNamesEntry++) = AtomString(impl.get());\n";
     print F "    }\n";
     print F "    ASSERT(tagNamesEntry == tagNameStrings->end());\n";
     print F "}\n";
     print F "\n";
     print F "template <typename characterType>\n";
-    print F "static inline TagName findTagFromBuffer(Span<const characterType> buffer)\n";
+    print F "static inline TagName findTagFromBuffer(std::span<const characterType> buffer)\n";
     print F "{\n";
     generateFindBody(\%allElements, \&byElementNameOrder, "parsedTagName", "TagName", "parsedTagEnumValue");
     print F "}\n";
     print F "\n";
-    print F "TagName findTagName(Span<const UChar> buffer)\n";
+    print F "TagName findTagName(std::span<const UChar> buffer)\n";
     print F "{\n";
     print F "    return findTagFromBuffer(buffer);\n";
     print F "}\n";
@@ -1037,8 +1046,8 @@ sub printTagNameCppFile
     print F "TagName findTagName(const String& name)\n";
     print F "{\n";
     print F "    if (name.is8Bit())\n";
-    print F "        return findTagFromBuffer(makeSpan(name.characters8(), name.length()));\n";
-    print F "    return findTagFromBuffer(makeSpan(name.characters16(), name.length()));\n";
+    print F "        return findTagFromBuffer(std::span(name.characters8(), name.length()));\n";
+    print F "    return findTagFromBuffer(std::span(name.characters16(), name.length()));\n";
     print F "}\n";
     print F "#endif\n";
     print F "\n";
@@ -1110,8 +1119,8 @@ sub printNodeNameHeaderFile
     print F "} // namespace AttributeNames\n";
     print F "\n";
     print F "NodeName findNodeName(Namespace, const String&);\n";
-    print F "ElementName findHTMLElementName(Span<const LChar>);\n";
-    print F "ElementName findHTMLElementName(Span<const UChar>);\n";
+    print F "ElementName findHTMLElementName(std::span<const LChar>);\n";
+    print F "ElementName findHTMLElementName(std::span<const UChar>);\n";
     print F "TagName tagNameForElementName(ElementName);\n";
     print F "ElementName elementNameForTag(Namespace, TagName);\n";
     print F "const QualifiedName& qualifiedNameForNodeName(NodeName);\n";
@@ -1209,7 +1218,7 @@ sub printNodeNameCppFile
     for my $namespace (@allNamespaces) {
         my $namespaceIdentifier = $namespace eq "" ? "NoNamespace" : $namespace;
         print F "template <typename characterType>\n";
-        print F "static inline NodeName find${namespaceIdentifier}NodeName(Span<const characterType> buffer)\n";
+        print F "static inline NodeName find${namespaceIdentifier}NodeName(std::span<const characterType> buffer)\n";
         print F "{\n";
         my %allNodesInNamespace = ();
         for my $elementTag (keys %{$allElementsPerNamespace{$namespace}}) {
@@ -1223,7 +1232,7 @@ sub printNodeNameCppFile
         print F "\n";
     }
     print F "template <typename characterType>\n";
-    print F "static inline NodeName findNodeNameFromBuffer(Namespace ns, Span<const characterType> buffer)\n";
+    print F "static inline NodeName findNodeNameFromBuffer(Namespace ns, std::span<const characterType> buffer)\n";
     print F "{\n";
     print F "    switch (ns) {\n";
     for my $namespace (@allNamespaces) {
@@ -1240,16 +1249,16 @@ sub printNodeNameCppFile
     print F "NodeName findNodeName(Namespace ns, const String& name)\n";
     print F "{\n";
     print F "    if (name.is8Bit())\n";
-    print F "        return findNodeNameFromBuffer(ns, makeSpan(name.characters8(), name.length()));\n";
-    print F "    return findNodeNameFromBuffer(ns, makeSpan(name.characters16(), name.length()));\n";
+    print F "        return findNodeNameFromBuffer(ns, std::span(name.characters8(), name.length()));\n";
+    print F "    return findNodeNameFromBuffer(ns, std::span(name.characters16(), name.length()));\n";
     print F "}\n";
     print F "\n";
-    print F "ElementName findHTMLElementName(Span<const LChar> buffer)\n";
+    print F "ElementName findHTMLElementName(std::span<const LChar> buffer)\n";
     print F "{\n";
     print F "    return findHTMLNodeName(buffer);\n";
     print F "}\n";
     print F "\n";
-    print F "ElementName findHTMLElementName(Span<const UChar> buffer)\n";
+    print F "ElementName findHTMLElementName(std::span<const UChar> buffer)\n";
     print F "{\n";
     print F "    return findHTMLNodeName(buffer);\n";
     print F "}\n";
@@ -1617,7 +1626,7 @@ sub printDefinitions
 
     my @tableEntryFields = (
         "LazyNeverDestroyed<const QualifiedName>* targetAddress",
-        "const StaticStringImpl& name",
+        "StringImpl* name",
         "NodeName nodeName"
     );
 
@@ -1636,13 +1645,13 @@ sub printDefinitions
         my $identifier = $namesRef->{$key}{identifier};
         my $nodeNameEnumValue = $namesRef->{$key}{nodeNameEnumValue} || "Unknown";
         # Attribute names never correspond to a recognized NodeName.
-        print F "        { $cast&$identifier$shortCamelType, *(&${identifier}Data), NodeName::$nodeNameEnumValue },\n";
+        print F "        { $cast&$identifier$shortCamelType, s_${identifier}Data.get(), NodeName::$nodeNameEnumValue },\n";
     }
 
     print F "    };\n";
     print F "\n";
     print F "    for (auto& entry : ${type}Table)\n";
-    print F "        entry.targetAddress->construct(nullAtom(), AtomString(&entry.name), $namespaceURI, Namespace::$namespaceEnumValue, entry.nodeName);\n";
+    print F "        entry.targetAddress->construct(nullAtom(), AtomString(entry.name), $namespaceURI, Namespace::$namespaceEnumValue, entry.nodeName);\n";
 }
 
 ## ElementFactory routines

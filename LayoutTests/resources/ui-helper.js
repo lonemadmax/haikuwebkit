@@ -597,10 +597,22 @@ window.UIHelper = class UIHelper {
         });
     }
 
-    static activateAndWaitForInputSessionAt(x, y)
+    static async activateAndWaitForInputSessionAt(x, y)
     {
         if (!this.isWebKit2() || !this.isIOSFamily())
             return this.activateAt(x, y);
+
+        if (testRunner.isKeyboardImmediatelyAvailable) {
+            await new Promise(resolve => {
+                testRunner.runUIScript(`
+                    (function() {
+                        uiController.singleTapAtPoint(${x}, ${y}, function() { });
+                        uiController.uiScriptComplete();
+                    })()`, resolve);
+            });
+            await this.ensureStablePresentationUpdate();
+            return;
+        }
 
         return new Promise(resolve => {
             testRunner.runUIScript(`
@@ -842,7 +854,8 @@ window.UIHelper = class UIHelper {
         var internalFunctions = scroller ? scroller.ownerDocument.defaultView.internals : internals;
         if (!this.isWebKit2() || this.isIOSFamily())
             return Promise.resolve();
-        if (internals.isUsingUISideCompositing()) {
+
+        if (internals.isUsingUISideCompositing() && scroller.nodeName != "SELECT") {
             return new Promise(resolve => {
                 testRunner.runUIScript(`(function() {
                     uiController.doAfterNextStablePresentationUpdate(function() {
@@ -1000,6 +1013,18 @@ window.UIHelper = class UIHelper {
             testRunner.runUIScript(`(() => {
                 uiController.uiScriptComplete(uiController.selectFormPopoverTitle);
             })()`, resolve);
+        });
+    }
+
+    static selectMenuItems()
+    {
+        return new Promise(resolve => {
+            testRunner.runUIScript(`
+            (function() {
+                uiController.didShowContextMenuCallback = function() {
+                    uiController.uiScriptComplete(JSON.stringify(uiController.contentsOfUserInterfaceItem('selectMenu')));
+                };
+            })();`, result => resolve(JSON.parse(result).selectMenu));
         });
     }
 

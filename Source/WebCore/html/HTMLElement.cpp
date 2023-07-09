@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021 Google Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2011 Motorola Mobility. All rights reserved.
  *
@@ -26,6 +27,7 @@
 #include "HTMLElement.h"
 
 #include "CSSMarkup.h"
+#include "CSSParser.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
@@ -625,7 +627,7 @@ void HTMLElement::applyAlignmentAttributeToStyle(const AtomString& alignment, Mu
     CSSValueID floatValue = CSSValueInvalid;
     CSSValueID verticalAlignValue = CSSValueInvalid;
 
-    if (equalLettersIgnoringASCIICase(alignment, "absmiddle"_s))
+    if (equalLettersIgnoringASCIICase(alignment, "absmiddle"_s) || equalLettersIgnoringASCIICase(alignment, "abscenter"_s))
         verticalAlignValue = CSSValueMiddle;
     else if (equalLettersIgnoringASCIICase(alignment, "absbottom"_s))
         verticalAlignValue = CSSValueBottom;
@@ -780,7 +782,7 @@ bool HTMLElement::rendererIsEverNeeded()
 {
     if (hasTagName(noscriptTag)) {
         RefPtr frame { document().frame() };
-        if (frame && frame->script().canExecuteScripts(NotAboutToExecuteScript))
+        if (frame && frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
             return false;
     } else if (hasTagName(noembedTag)) {
         RefPtr frame { document().frame() };
@@ -1237,19 +1239,19 @@ ExceptionOr<Ref<ElementInternals>> HTMLElement::attachInternals()
     return ElementInternals::create(*this);
 }
 
-static ExceptionOr<void> checkPopoverValidity(HTMLElement& element, PopoverVisibilityState expectedState, Document* expectedDocument = nullptr)
+static ExceptionOr<bool> checkPopoverValidity(HTMLElement& element, PopoverVisibilityState expectedState, Document* expectedDocument = nullptr)
 {
     if (element.popoverState() == PopoverState::None)
         return Exception { NotSupportedError, "Element does not have the popover attribute"_s };
+
+    if (element.popoverData()->visibilityState() != expectedState)
+        return false;
 
     if (!element.isConnected())
         return Exception { InvalidStateError, "Element is not connected"_s };
 
     if (expectedDocument && element.document() != *expectedDocument)
         return Exception { InvalidStateError, "Invalid when the document changes while showing or hiding a popover element"_s };
-
-    if (element.popoverData()->visibilityState() != expectedState)
-        return Exception { InvalidStateError, "Element has unexpected visibility state"_s };
 
     if (is<HTMLDialogElement>(element) && element.hasAttributeWithoutSynchronization(HTMLNames::openAttr))
         return Exception { InvalidStateError, "Element is an open <dialog> element"_s };
@@ -1259,7 +1261,7 @@ static ExceptionOr<void> checkPopoverValidity(HTMLElement& element, PopoverVisib
         return Exception { InvalidStateError, "Element is fullscreen"_s };
 #endif
 
-    return { };
+    return true;
 }
 
 // https://html.spec.whatwg.org/#topmost-popover-ancestor
@@ -1302,36 +1304,19 @@ static HTMLElement* topmostPopoverAncestor(Element& newPopover)
 
     checkAncestor(newPopover.parentElementInComposedTree());
 
-    // Iterate over all popover invokers in the document.
-    for (auto& invoker : descendantsOfType<HTMLFormControlElement>(newPopover.treeScope().rootNode())) {
-        // popoverTargetElement() already checks if the form control can invoke popovers.
-        if (invoker.popoverTargetElement() == &newPopover)
-            checkAncestor(&invoker);
-    }
+    checkAncestor(newPopover.popoverData()->invoker());
 
     return topmostAncestor.get();
-}
-
-void HTMLElement::checkAndPossiblyClosePopoverStackInternal()
-{
-    Vector<RefPtr<Element>> autoPopoverList;
-    for (auto& element : document().topLayerElements()) {
-        if (!is<HTMLElement>(element) || downcast<HTMLElement>(element.get()).popoverState() != PopoverState::Auto)
-            continue;
-        autoPopoverList.append(element.ptr());
-    }
-
-    for (size_t i = autoPopoverList.size(); i-- > 1;) {
-        if (topmostPopoverAncestor(*autoPopoverList[i]) != autoPopoverList[i - 1]) {
-            document().hideAllPopoversUntil(nullptr, FocusPreviousElement::No, FireEvents::No);
-            return;
-        }
-    }
 }
 
 // https://html.spec.whatwg.org/#popover-focusing-steps
 static void runPopoverFocusingSteps(HTMLElement& popover)
 {
+    if (auto* dialog = dynamicDowncast<HTMLDialogElement>(popover)) {
+        dialog->runFocusingSteps();
+        return;
+    }
+
     RefPtr control = popover.hasAttribute(autofocusAttr) ? &popover : popover.findAutofocusDelegate();
 
     if (!control)
@@ -1366,10 +1351,16 @@ void HTMLElement::queuePopoverToggleEventTask(PopoverVisibilityState oldState, P
     });
 }
 
-ExceptionOr<void> HTMLElement::showPopover()
+ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker)
 {
-    if (auto check = checkPopoverValidity(*this, PopoverVisibilityState::Hidden); check.hasException())
+    if (popoverData())
+        popoverData()->setInvoker(invoker);
+
+    auto check = checkPopoverValidity(*this, PopoverVisibilityState::Hidden);
+    if (check.hasException())
         return check.releaseException();
+    if (!check.returnValue())
+        return { };
 
     ASSERT(!isInTopLayer());
 
@@ -1379,8 +1370,11 @@ ExceptionOr<void> HTMLElement::showPopover()
     if (event->defaultPrevented() || event->defaultHandled())
         return { };
 
-    if (auto check = checkPopoverValidity(*this, PopoverVisibilityState::Hidden, document.ptr()); check.hasException())
+    check = checkPopoverValidity(*this, PopoverVisibilityState::Hidden, document.ptr());
+    if (check.hasException())
         return check.releaseException();
+    if (!check.returnValue())
+        return { };
 
     ASSERT(popoverData());
 
@@ -1392,8 +1386,11 @@ ExceptionOr<void> HTMLElement::showPopover()
         if (popoverState() != originalState)
             return Exception { InvalidStateError, "The value of the popover attribute was changed while hiding the popover."_s };
 
-        if (auto check = checkPopoverValidity(*this, PopoverVisibilityState::Hidden, document.ptr()); check.hasException())
+        check = checkPopoverValidity(*this, PopoverVisibilityState::Hidden, document.ptr());
+        if (check.hasException())
             return check.releaseException();
+        if (!check.returnValue())
+            return { };
     }
 
     bool shouldRestoreFocus = !document->topmostAutoPopover();
@@ -1418,16 +1415,23 @@ ExceptionOr<void> HTMLElement::showPopover()
 
 ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPreviousElement, FireEvents fireEvents)
 {
-    if (auto check = checkPopoverValidity(*this, PopoverVisibilityState::Showing); check.hasException())
+    auto check = checkPopoverValidity(*this, PopoverVisibilityState::Showing);
+    if (check.hasException())
         return check.releaseException();
+    if (!check.returnValue())
+        return { };
+
 
     ASSERT(popoverData());
 
     if (popoverState() == PopoverState::Auto) {
         document().hideAllPopoversUntil(this, focusPreviousElement, fireEvents);
 
-        if (auto check = checkPopoverValidity(*this, PopoverVisibilityState::Showing); check.hasException())
+        check = checkPopoverValidity(*this, PopoverVisibilityState::Showing);
+        if (check.hasException())
             return check.releaseException();
+        if (!check.returnValue())
+            return { };
     }
 
     popoverData()->setInvoker(nullptr);
@@ -1435,8 +1439,11 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
     if (fireEvents == FireEvents::Yes)
         dispatchEvent(ToggleEvent::create(eventNames().beforetoggleEvent, { EventInit { }, "open"_s, "closed"_s }, Event::IsCancelable::No));
 
-    if (auto check = checkPopoverValidity(*this, PopoverVisibilityState::Showing); check.hasException())
+    check = checkPopoverValidity(*this, PopoverVisibilityState::Showing);
+    if (check.hasException())
         return check.releaseException();
+    if (!check.returnValue())
+        return { };
 
     ASSERT(popoverData());
 
@@ -1449,7 +1456,7 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
         queuePopoverToggleEventTask(PopoverVisibilityState::Showing, PopoverVisibilityState::Hidden);
 
     if (RefPtr element = popoverData()->previouslyFocusedElement()) {
-        if (focusPreviousElement == FocusPreviousElement::Yes) {
+        if (focusPreviousElement == FocusPreviousElement::Yes && containsIncludingShadowDOM(document().focusedElement())) {
             FocusOptions options;
             options.preventScroll = true;
             element->focus(options);

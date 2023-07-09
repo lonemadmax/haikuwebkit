@@ -26,23 +26,24 @@
 #include "config.h"
 #include "SubframePageProxy.h"
 
+#include "APIWebsitePolicies.h"
+#include "DrawingAreaProxy.h"
 #include "FrameInfoData.h"
 #include "HandleMessage.h"
 #include "WebFrameProxy.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
+#include "WebProcessMessages.h"
 #include "WebProcessProxy.h"
 
 namespace WebKit {
 
-SubframePageProxy::SubframePageProxy(WebPageProxy& page, WebProcessProxy& process, bool isInSameProcessAsMainFrame)
+SubframePageProxy::SubframePageProxy(WebPageProxy& page, WebProcessProxy& process)
     : m_webPageID(page.webPageID())
     , m_process(process)
     , m_page(page)
-    , m_isInSameProcessAsMainFrame(isInSameProcessAsMainFrame)
 {
-    if (!m_isInSameProcessAsMainFrame)
-        m_process->addMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID, *this);
+    m_process->addMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID, *this);
 
     auto* drawingArea = page.drawingArea();
     auto parameters = page.creationParameters(m_process, *drawingArea);
@@ -56,8 +57,7 @@ SubframePageProxy::SubframePageProxy(WebPageProxy& page, WebProcessProxy& proces
 
 SubframePageProxy::~SubframePageProxy()
 {
-    if (!m_isInSameProcessAsMainFrame)
-        m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID);
+    m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID);
 }
 
 IPC::Connection* SubframePageProxy::messageSenderConnection() const
@@ -104,6 +104,7 @@ void SubframePageProxy::decidePolicyForResponse(WebCore::FrameIdentifier frameID
 
 void SubframePageProxy::didCommitLoadForFrame(WebCore::FrameIdentifier frameID, FrameInfoData&& frameInfo, WebCore::ResourceRequest&& request, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType frameLoadType, const WebCore::CertificateInfo& certificateInfo, bool usedLegacyTLS, bool privateRelayed, bool containsPluginDocument, WebCore::HasInsecureContent hasInsecureContent, WebCore::MouseEventPolicy mouseEventPolicy, const UserData& userData)
 {
+    m_process->didCommitProvisionalLoad();
     RefPtr frame = WebFrameProxy::webFrame(frameID);
     if (frame)
         frame->commitProvisionalFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData); // Will delete |this|.

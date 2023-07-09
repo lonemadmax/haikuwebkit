@@ -52,7 +52,6 @@
 #import "ElementInlines.h"
 #import "Font.h"
 #import "FontCascade.h"
-#import "FrameLoaderClient.h"
 #import "FrameSelection.h"
 #import "HTMLAnchorElement.h"
 #import "HTMLAreaElement.h"
@@ -61,6 +60,7 @@
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
 #import "LocalFrame.h"
+#import "LocalFrameLoaderClient.h"
 #import "LocalizedStrings.h"
 #import "Page.h"
 #import "PluginDocument.h"
@@ -1361,16 +1361,6 @@ static void WebTransformCGPathToNSBezierPath(void* info, const CGPathElement *el
     return [self bezierPathFromPath:transformedPath];
 }
 
-- (NSNumber *)primaryScreenHeight
-{
-    // The rect for primary screen should not change in normal use. So cache it
-    // here to avoid hitting the main thread repeatedly.
-    static FloatRect screenRect = Accessibility::retrieveValueFromMainThread<FloatRect>([] () -> FloatRect {
-        return screenRectForPrimaryScreen();
-    });
-    return [NSNumber numberWithFloat:screenRect.height()];
-}
-
 - (size_t)childrenVectorSize
 {
     return self.axBackingObject->children().size();
@@ -1379,13 +1369,6 @@ static void WebTransformCGPathToNSBezierPath(void* info, const CGPathElement *el
 - (NSArray<WebAccessibilityObjectWrapper *> *)childrenVectorArray
 {
     return makeNSArray(self.axBackingObject->children());
-}
-
-- (NSValue *)position
-{
-    if (auto* backingObject = self.axBackingObject)
-        return @(CGPoint(backingObject->screenRelativePosition()));
-    return nil;
 }
 
 - (NSString*)role
@@ -1493,7 +1476,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return backingObject->remoteParentObject();
 }
 
-- (id)windowElement:(NSString*)attributeName
+- (id)windowElement:(NSString *)attributeName
 {
     if (id remoteParent = self.remoteAccessibilityParentObject) {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -1501,16 +1484,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
-    return Accessibility::retrieveAutoreleasedValueFromMainThread<id>([protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
-        auto* backingObject = protectedSelf.get().axBackingObject;
-        if (!backingObject)
-            return nil;
-
-        if (auto* fv = backingObject->documentFrameView())
-            return [fv->platformWidget() window];
-
-        return nil;
-    });
+    RefPtr axScrollView = self.axBackingObject->axScrollView();
+    return axScrollView ? [axScrollView->platformWidget() window] : nil;
 }
 
 // FIXME: split up this function in a better way.
@@ -1643,7 +1618,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         if ([attributeName isEqualToString:NSAccessibilityNumberOfCharactersAttribute])
             return @(backingObject->textLength());
 
-        if ([attributeName isEqualToString: NSAccessibilitySelectedTextAttribute]) {
+        if ([attributeName isEqualToString:NSAccessibilitySelectedTextAttribute]) {
             String selectedText = backingObject->selectedText();
             if (selectedText.isNull())
                 return nil;
@@ -1759,10 +1734,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return [NSValue valueWithSize:NSMakeSize(size.width(), size.height())];
     }
 
-    if ([attributeName isEqualToString: NSAccessibilityPrimaryScreenHeightAttribute])
-        return [self primaryScreenHeight];
-    if ([attributeName isEqualToString: NSAccessibilityPositionAttribute])
-        return [self position];
+    if ([attributeName isEqualToString:NSAccessibilityPrimaryScreenHeightAttribute])
+        return @(backingObject->primaryScreenRect().height());
+
+    if ([attributeName isEqualToString:NSAccessibilityPositionAttribute])
+        return @(CGPoint(backingObject->screenRelativePosition()));
+
     if ([attributeName isEqualToString:NSAccessibilityPathAttribute])
         return [self path];
 
@@ -2355,9 +2332,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if ([attributeName isEqualToString:NSAccessibilitySelectedRowsAttribute])
         return YES;
 
-    if ([attributeName isEqualToString: NSAccessibilitySelectedTextAttribute]
-        || [attributeName isEqualToString: NSAccessibilitySelectedTextRangeAttribute]
-        || [attributeName isEqualToString: NSAccessibilityVisibleCharacterRangeAttribute])
+    if ([attributeName isEqualToString:NSAccessibilitySelectedTextAttribute]
+        || [attributeName isEqualToString:NSAccessibilitySelectedTextRangeAttribute])
         return backingObject->canSetTextRangeAttributes();
 
     if ([attributeName isEqualToString:NSAccessibilityGrabbedAttribute])
@@ -2500,6 +2476,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 
 - (void)_accessibilityPerformPressAction
 {
+    ASSERT(isMainThread());
     auto* backingObject = self.updateObjectBackingStore;
     if (!backingObject)
         return;
@@ -2650,7 +2627,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     else if ([action isEqualToString:NSAccessibilityScrollToVisibleAction])
         [self accessibilityScrollToVisible];
     else if ([action isEqualToString:@"AXDismissAction"])
-        backingObject->performDismissAction();
+        backingObject->performDismissActionIgnoringResult();
 }
 
 - (BOOL)accessibilityReplaceRange:(NSRange)range withText:(NSString *)string
@@ -2720,9 +2697,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         backingObject->setFocused([number boolValue]);
     } else if ([attributeName isEqualToString: NSAccessibilityValueAttribute]) {
         if (number && backingObject->canSetNumericValue())
-            backingObject->setValue([number floatValue]);
+            backingObject->setValueIgnoringResult([number floatValue]);
         else if (string)
-            backingObject->setValue(string);
+            backingObject->setValueIgnoringResult(string);
     } else if ([attributeName isEqualToString: NSAccessibilitySelectedAttribute]) {
         if (!number)
             return;
@@ -2735,20 +2712,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         convertToVector(array, selectedChildren);
         backingObject->setSelectedChildren(selectedChildren);
     } else if (backingObject->isTextControl()) {
-        if ([attributeName isEqualToString: NSAccessibilitySelectedTextAttribute]) {
+        if ([attributeName isEqualToString:NSAccessibilitySelectedTextAttribute])
             backingObject->setSelectedText(string);
-        } else if ([attributeName isEqualToString: NSAccessibilitySelectedTextRangeAttribute]) {
+        else if ([attributeName isEqualToString:NSAccessibilitySelectedTextRangeAttribute])
             backingObject->setSelectedTextRange(PlainTextRange(range.location, range.length));
-        } else if ([attributeName isEqualToString: NSAccessibilityVisibleCharacterRangeAttribute]) {
-            backingObject->makeRangeVisible(PlainTextRange(range.location, range.length));
-        }
     } else if ([attributeName isEqualToString:NSAccessibilityDisclosingAttribute] || [attributeName isEqualToString:NSAccessibilityExpandedAttribute])
         backingObject->setIsExpanded([number boolValue]);
     else if ([attributeName isEqualToString:NSAccessibilitySelectedRowsAttribute]) {
         AccessibilityObject::AccessibilityChildrenVector selectedRows;
         convertToVector(array, selectedRows);
         if (backingObject->isTree() || (backingObject->isTable() && backingObject->isExposable()))
-            backingObject->setSelectedRows(selectedRows);
+            backingObject->setSelectedRows(WTFMove(selectedRows));
     } else if ([attributeName isEqualToString:NSAccessibilityGrabbedAttribute])
         backingObject->setARIAGrabbed([number boolValue]);
     else if (backingObject->isWebArea() && [attributeName isEqualToString:NSAccessibilityPreventKeyboardDOMEventDispatchAttribute])

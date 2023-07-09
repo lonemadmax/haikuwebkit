@@ -1000,6 +1000,10 @@ public:
     bool getOwnNonIndexPropertySlot(VM&, Structure*, PropertyName, PropertySlot&);
     bool getNonIndexPropertySlot(JSGlobalObject*, PropertyName, PropertySlot&);
 
+    JS_EXPORT_PRIVATE NEVER_INLINE bool putInlineSlow(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
+    JS_EXPORT_PRIVATE NEVER_INLINE bool putInlineFastReplacingStaticPropertyIfNeeded(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
+    bool putInlineFast(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
+
 protected:
 #if ASSERT_ENABLED
     void finishCreation(VM& vm)
@@ -1020,7 +1024,13 @@ protected:
     // To instantiate objects you likely want JSFinalObject, below.
     // To create derived types you likely want JSNonFinalObject, below.
     JSObject(VM&, Structure*, Butterfly* = nullptr);
-    
+
+    JSObject(CreatingWellDefinedBuiltinCellTag, StructureID structureID, int32_t blob)
+        : JSCell(CreatingWellDefinedBuiltinCell, structureID, blob)
+        , m_butterfly(nullptr, WriteBarrierEarlyInit)
+    {
+    }
+
     // Visits the butterfly unless there is a race. Returns the structure if there was no race.
     template<typename Visitor> Structure* visitButterfly(Visitor&);
     
@@ -1149,10 +1159,7 @@ private:
     template<PutMode>
     ASCIILiteral putDirectInternal(VM&, PropertyName, JSValue, unsigned attr, PutPropertySlot&);
 
-    JS_EXPORT_PRIVATE NEVER_INLINE bool putInlineSlow(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
-    JS_EXPORT_PRIVATE NEVER_INLINE bool putInlineFastReplacingStaticPropertyIfNeeded(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
-    bool putInlineFast(JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
-
+    JS_EXPORT_PRIVATE NEVER_INLINE ASCIILiteral putDirectToDictionaryWithoutExtensibility(VM&, PropertyName, JSValue, PutPropertySlot&);
     JS_EXPORT_PRIVATE void fillGetterPropertySlot(VM&, PropertySlot&, JSCell*, unsigned, PropertyOffset);
     void fillCustomGetterPropertySlot(PropertySlot&, CustomGetterSetter*, unsigned, Structure*);
 
@@ -1232,9 +1239,13 @@ public:
         return sizeof(JSObject) + inlineCapacity * sizeof(WriteBarrierBase<Unknown>);
     }
 
-    static inline const TypeInfo typeInfo() { return TypeInfo(FinalObjectType, StructureFlags); }
+    static inline constexpr TypeInfo typeInfo() { return TypeInfo(FinalObjectType, StructureFlags); }
     static constexpr IndexingType defaultIndexingType = NonArray;
-        
+    static constexpr int32_t defaultTypeInfoBlob()
+    {
+        return TypeInfoBlob::typeInfoBlob(defaultIndexingType, typeInfo().type(), typeInfo().inlineTypeFlags());
+    }
+
     static constexpr unsigned defaultSizeInBytes = 64;
     static constexpr unsigned defaultInlineCapacity = (defaultSizeInBytes - sizeof(JSObject)) / sizeof(WriteBarrier<Unknown>);
     static_assert(defaultInlineCapacity < firstOutOfLineOffset);
@@ -1250,6 +1261,8 @@ public:
         return Structure::create(vm, globalObject, prototype, typeInfo(), info(), defaultIndexingType, inlineCapacity);
     }
 
+    static JSFinalObject* createDefaultEmptyObject(JSGlobalObject*);
+
     DECLARE_VISIT_CHILDREN_WITH_MODIFIER(JS_EXPORT_PRIVATE);
 
     DECLARE_EXPORT_INFO;
@@ -1257,11 +1270,19 @@ public:
 private:
     friend class LLIntOffsetsExtractor;
 
-    explicit JSFinalObject(VM& vm, Structure* structure, Butterfly* butterfly)
+    explicit JSFinalObject(VM& vm, Structure* structure, Butterfly* butterfly, size_t inlineCapacity)
         : JSObject(vm, structure, butterfly)
     {
-        gcSafeZeroMemory(inlineStorageUnsafe(), structure->inlineCapacity() * sizeof(EncodedJSValue));
+        // We do not need to use gcSafeMemcpy since this object is not exposed yet.
+        memset(inlineStorageUnsafe(), 0, inlineCapacity * sizeof(EncodedJSValue));
     }
+
+    explicit JSFinalObject(CreatingWellDefinedBuiltinCellTag, StructureID structureID)
+        : JSObject(CreatingWellDefinedBuiltinCell, structureID, defaultTypeInfoBlob())
+    {
+        // We do not need to use gcSafeMemcpy since this object is not exposed yet.
+        memset(inlineStorageUnsafe(), 0, defaultInlineCapacity * sizeof(EncodedJSValue));
+     }
 
 #if ASSERT_ENABLED
     void finishCreation(VM& vm)
@@ -1277,10 +1298,11 @@ JS_EXPORT_PRIVATE JSC_DECLARE_HOST_FUNCTION(objectPrivateFuncInstanceOf);
 
 inline JSFinalObject* JSFinalObject::createWithButterfly(VM& vm, Structure* structure, Butterfly* butterfly)
 {
+    size_t inlineCapacity = structure->inlineCapacity();
     JSFinalObject* finalObject = new (
         NotNull,
-        allocateCell<JSFinalObject>(vm, allocationSize(structure->inlineCapacity()))
-    ) JSFinalObject(vm, structure, butterfly);
+        allocateCell<JSFinalObject>(vm, allocationSize(inlineCapacity))
+    ) JSFinalObject(vm, structure, butterfly, inlineCapacity);
     finalObject->finishCreation(vm);
     return finalObject;
 }

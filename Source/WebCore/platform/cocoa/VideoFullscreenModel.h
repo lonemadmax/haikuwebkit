@@ -76,6 +76,12 @@ public:
     virtual UIViewController *presentingViewController() { return nullptr; }
     virtual RetainPtr<UIViewController> createVideoFullscreenViewController(AVPlayerViewController *) { return nullptr; }
 #endif
+
+#if !RELEASE_LOG_DISABLED
+    virtual const void* logIdentifier() const { return nullptr; }
+    virtual const void* nextChildIdentifier() const { return logIdentifier(); }
+    virtual const Logger* loggerPtr() const { return nullptr; }
+#endif
 };
 
 class VideoFullscreenModelClient {

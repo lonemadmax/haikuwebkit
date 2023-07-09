@@ -28,7 +28,6 @@ from buildbot.steps import master, shell, transfer, trigger
 from buildbot.steps.source import git
 from buildbot.steps.worker import CompositeStepMixin
 from datetime import date
-from requests.auth import HTTPBasicAuth
 
 from twisted.internet import defer, reactor, task
 
@@ -42,7 +41,6 @@ import json
 import mock
 import os
 import re
-import requests
 import socket
 import sys
 import time
@@ -769,7 +767,7 @@ class CleanUpGitIndexLock(shell.ShellCommand):
             print('Error in sending email for git issue: {}'.format(e))
 
 
-class CheckOutSpecificRevision(shell.ShellCommand):
+class CheckOutSpecificRevision(shell.ShellCommandNewStyle):
     name = 'checkout-specific-revision'
     descriptionDone = ['Checked out required revision']
     flunkOnFailure = False
@@ -794,9 +792,9 @@ class CheckOutSpecificRevision(shell.ShellCommand):
             result['stdioLogName'] = None
         return result
 
-    def start(self):
-        self.setCommand(['git', 'checkout', self.getProperty('ews_revision')])
-        return shell.ShellCommand.start(self)
+    def run(self):
+        self.command = ['git', 'checkout', self.getProperty('ews_revision')]
+        return super().run()
 
 
 class FetchBranches(steps.ShellSequence, ShellMixin):
@@ -936,7 +934,7 @@ class InstallHooks(steps.ShellSequence):
         return {'step': 'Failed to install hooks to checkout'}
 
 
-class CleanWorkingDirectory(shell.ShellCommand):
+class CleanWorkingDirectory(shell.ShellCommandNewStyle):
     name = 'clean-working-directory'
     description = ['clean-working-directory running']
     descriptionDone = ['Cleaned working directory']
@@ -947,11 +945,11 @@ class CleanWorkingDirectory(shell.ShellCommand):
     def __init__(self, **kwargs):
         super().__init__(logEnviron=False, **kwargs)
 
-    def start(self):
+    def run(self):
         platform = self.getProperty('platform')
         if platform in ('gtk', 'wpe'):
             self.setCommand(self.command + ['--keep-jhbuild-directory'])
-        return shell.ShellCommand.start(self)
+        return super().run()
 
 
 class UpdateWorkingDirectory(steps.ShellSequence, ShellMixin):
@@ -1371,72 +1369,65 @@ class BugzillaMixin(AddToLogMixin):
     bug_closed_statuses = ['RESOLVED', 'VERIFIED', 'CLOSED']
     fast_cq_preambles = ('revert of ', 'fast-cq', '[fast-cq]')
 
+    @defer.inlineCallbacks
     def fetch_data_from_url_with_authentication_bugzilla(self, url):
         response = None
         try:
-            response = requests.get(url, timeout=60, params={'Bugzilla_api_key': self.get_bugzilla_api_key()})
+            response = yield TwistedAdditions.request(
+                url, type=b'GET', timeout=60,
+                params={'Bugzilla_api_key': self.get_bugzilla_api_key()},
+                logger=lambda content: self._addToLog('stdio', content),
+            )
             if response.status_code != 200:
-                self._addToLog('stdio', 'Accessed {url} with unexpected status code {status_code}.\n'.format(url=url, status_code=response.status_code))
-                return None
+                yield self._addToLog('stdio', 'Accessed {url} with unexpected status code {status_code}.\n'.format(url=url, status_code=response.status_code))
+                return defer.returnValue(None)
         except Exception as e:
             # Catching all exceptions here to safeguard api key.
-            self._addToLog('stdio', 'Failed to access {url}.\n'.format(url=url))
-            return None
-        return response
+            yield self._addToLog('stdio', 'Failed to access {url}.\n'.format(url=url))
+            return defer.returnValue(None)
+        return defer.returnValue(response)
 
-    def fetch_data_from_url(self, url):
-        response = None
-        try:
-            response = requests.get(url, timeout=60)
-        except Exception as e:
-            if response:
-                self._addToLog('stdio', 'Failed to access {url} with status code {status_code}.\n'.format(url=url, status_code=response.status_code))
-            else:
-                self._addToLog('stdio', 'Failed to access {url} with exception: {exception}\n'.format(url=url, exception=e))
-            return None
-        if response.status_code != 200:
-            self._addToLog('stdio', 'Accessed {url} with unexpected status code {status_code}.\n'.format(url=url, status_code=response.status_code))
-            return None
-        return response
-
+    @defer.inlineCallbacks
     def get_patch_json(self, patch_id):
         patch_url = '{}rest/bug/attachment/{}'.format(BUG_SERVER_URL, patch_id)
-        patch = self.fetch_data_from_url_with_authentication_bugzilla(patch_url)
+        patch = yield self.fetch_data_from_url_with_authentication_bugzilla(patch_url)
         if not patch:
-            return None
+            return defer.returnValue(None)
         try:
             patch_json = patch.json().get('attachments')
         except Exception as e:
-            print('Failed to fetch patch json from {}, error: {}'.format(patch_url, e))
-            return None
+            yield self._addToLog('stdio', f'Failed to fetch patch json from {patch_url}, error: {e}')
+            return defer.returnValue(None)
         if not patch_json or len(patch_json) == 0:
-            return None
-        return patch_json.get(str(patch_id))
+            return defer.returnValue(None)
+        return defer.returnValue(patch_json.get(str(patch_id)))
 
+    @defer.inlineCallbacks
     def get_bug_json(self, bug_id):
         bug_url = '{}rest/bug/{}'.format(BUG_SERVER_URL, bug_id)
-        bug = self.fetch_data_from_url_with_authentication_bugzilla(bug_url)
+        bug = yield self.fetch_data_from_url_with_authentication_bugzilla(bug_url)
         if not bug:
-            return None
+            return defer.returnValue(None)
         try:
             bugs_json = bug.json().get('bugs')
         except Exception as e:
-            print('Failed to fetch bug json from {}, error: {}'.format(bug_url, e))
-            return None
+            yield self._addToLog('stdio', f'Failed to fetch bug json from {bug_url}, error: {e}')
+            return defer.returnValue(None)
         if not bugs_json or len(bugs_json) == 0:
-            return None
-        return bugs_json[0]
+            return defer.returnValue(None)
+        return defer.returnValue(bugs_json[0])
 
+    @defer.inlineCallbacks
     def get_bug_id_from_patch(self, patch_id):
-        patch_json = self.get_patch_json(patch_id)
+        patch_json = yield self.get_patch_json(patch_id)
         if not patch_json:
-            self._addToLog('stdio', 'Unable to fetch patch {}.\n'.format(patch_id))
-            return -1
-        return patch_json.get('bug_id')
+            yield self._addToLog('stdio', 'Unable to fetch patch {}.\n'.format(patch_id))
+            return defer.returnValue(-1)
+        return defer.returnValue(patch_json.get('bug_id'))
 
     @defer.inlineCallbacks
     def _is_patch_obsolete(self, patch_id):
-        patch_json = self.get_patch_json(patch_id)
+        patch_json = yield self.get_patch_json(patch_id)
         if not patch_json:
             yield self._addToLog('stdio', 'Unable to fetch patch {}.\n'.format(patch_id))
             return defer.returnValue(-1)
@@ -1456,7 +1447,7 @@ class BugzillaMixin(AddToLogMixin):
 
     @defer.inlineCallbacks
     def _is_patch_review_denied(self, patch_id):
-        patch_json = self.get_patch_json(patch_id)
+        patch_json = yield self.get_patch_json(patch_id)
         if not patch_json:
             yield self._addToLog('stdio', 'Unable to fetch patch {}.\n'.format(patch_id))
             return defer.returnValue(-1)
@@ -1468,7 +1459,7 @@ class BugzillaMixin(AddToLogMixin):
 
     @defer.inlineCallbacks
     def _is_patch_cq_plus(self, patch_id):
-        patch_json = self.get_patch_json(patch_id)
+        patch_json = yield self.get_patch_json(patch_id)
         if not patch_json:
             yield self._addToLog('stdio', 'Unable to fetch patch {}.\n'.format(patch_id))
             return defer.returnValue(-1)
@@ -1481,7 +1472,7 @@ class BugzillaMixin(AddToLogMixin):
 
     @defer.inlineCallbacks
     def _does_patch_have_acceptable_review_flag(self, patch_id):
-        patch_json = self.get_patch_json(patch_id)
+        patch_json = yield self.get_patch_json(patch_id)
         if not patch_json:
             yield self._addToLog('stdio', 'Unable to fetch patch {}.\n'.format(patch_id))
             return defer.returnValue(-1)
@@ -1506,7 +1497,7 @@ class BugzillaMixin(AddToLogMixin):
             yield self._addToLog('stdio', 'Skipping bug status validation since bug id is None.\n')
             return defer.returnValue(-1)
 
-        bug_json = self.get_bug_json(bug_id)
+        bug_json = yield self.get_bug_json(bug_id)
         if not bug_json or not bug_json.get('status'):
             yield self._addToLog('stdio', 'Unable to fetch bug {}.\n'.format(bug_id))
             return defer.returnValue(-1)
@@ -1525,7 +1516,7 @@ class BugzillaMixin(AddToLogMixin):
 
     @defer.inlineCallbacks
     def should_send_email_for_patch(self, patch_id):
-        patch_json = self.get_patch_json(patch_id)
+        patch_json = yield self.get_patch_json(patch_id)
         if not patch_json:
             yield self._addToLog('stdio', 'Unable to fetch patch {}'.format(patch_id))
             return defer.returnValue(True)
@@ -1549,16 +1540,21 @@ class BugzillaMixin(AddToLogMixin):
         try:
             builder_name = self.getProperty('buildername', '')
             worker_name = self.getProperty('workername', '')
+            pr_number = self.getProperty('github.number')
+            sha = self.getProperty('github.head.sha', '')[:HASH_LENGTH_TO_DISPLAY]
+            owners = self.getProperty('owners', [])
+            author = owners[0] if owners else '?'
             build_url = '{}#/builders/{}/builds/{}'.format(self.master.config.buildbotURL, self.build._builderid, self.build.number)
-            email_subject = 'Infrastructure issue at {}'.format(builder_name)
-            email_text = 'The following infrastructure issue happened at:\n\n'
-            email_text += '    - Build : <a href="{}">{}</a>\n'.format(build_url, build_url)
-            email_text += '    - Builder : {}\n'.format(builder_name)
-            email_text += '    - Worker : {}\n'.format(worker_name)
-            email_text += '    - Issue: {}\n'.format(infrastructure_issue_text)
-            send_email_to_bot_watchers(email_subject, email_text, builder_name, 'infrastructure-{}'.format(builder_name))
+            email_subject = f'Infrastructure issue at {builder_name}'
+            email_text = f'The following infrastructure issue happened at:\n\n'
+            email_text += f'    - Build : <a href="{build_url}">{build_url}</a>\n'
+            email_text += f'    - Builder : {builder_name}\n'
+            email_text += f'    - Worker : {worker_name}\n'
+            email_text += f'    - PR: {pr_number}, Hash: {sha}, By: {author}\n'
+            email_text += f'    - Issue: {infrastructure_issue_text}\n'
+            send_email_to_bot_watchers(email_subject, email_text, builder_name, f'infrastructure-{builder_name}')
         except Exception as e:
-            print('Error in sending email for infrastructure issue: {}'.format(e))
+            print(f'Error in sending email for infrastructure issue: {e}')
 
     def get_bugzilla_api_key(self):
         try:
@@ -1748,7 +1744,9 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
             self.build.addStepsAfterCurrentStep([LeaveComment(), SetCommitQueueMinusFlagOnPatch()])
             return defer.returnValue(FAILURE)
 
-        bug_id = self.getProperty('bug_id', '') or self.get_bug_id_from_patch(patch_id)
+        bug_id = self.getProperty('bug_id', '')
+        if not bug_id:
+            bug_id = yield self.get_bug_id_from_patch(patch_id)
 
         bug_closed = yield self._is_bug_closed(bug_id) if self.verifyBugClosed else 0
         if bug_closed == 1:
@@ -2458,7 +2456,7 @@ class RunEWSUnitTests(shell.ShellCommandNewStyle):
         return {'step': 'Failed EWS unit tests'}
 
 
-class RunBuildbotCheckConfig(shell.ShellCommand):
+class RunBuildbotCheckConfig(shell.ShellCommandNewStyle):
     name = 'buildbot-check-config'
     description = ['buildbot-checkconfig running']
     command = ['python3', '../buildbot-cmd', 'checkconfig']
@@ -2468,9 +2466,9 @@ class RunBuildbotCheckConfig(shell.ShellCommand):
     def __init__(self, **kwargs):
         super().__init__(workdir=self.directory, timeout=self.timeout, logEnviron=False, **kwargs)
 
-    def start(self):
-        self.workerEnvironment['LC_CTYPE'] = 'en_US.UTF-8'
-        return shell.ShellCommand.start(self)
+    def run(self):
+        self.env['LC_CTYPE'] = 'en_US.UTF-8'
+        return super().run()
 
     def getResultSummary(self):
         if self.results == SUCCESS:
@@ -2580,7 +2578,7 @@ class RunWebKitPyPython3Tests(WebKitPyTest):
     command = ['python3', 'Tools/Scripts/test-webkitpy', '--verbose', '--json-output={0}'.format(jsonFileName)]
 
 
-class InstallGtkDependencies(shell.ShellCommand):
+class InstallGtkDependencies(shell.ShellCommandNewStyle):
     name = 'jhbuild'
     description = ['updating gtk dependencies']
     descriptionDone = ['Updated gtk dependencies']
@@ -2591,7 +2589,7 @@ class InstallGtkDependencies(shell.ShellCommand):
         super().__init__(logEnviron=False, **kwargs)
 
 
-class InstallWpeDependencies(shell.ShellCommand):
+class InstallWpeDependencies(shell.ShellCommandNewStyle):
     name = 'jhbuild'
     description = ['updating wpe dependencies']
     descriptionDone = ['Updated wpe dependencies']
@@ -3229,7 +3227,7 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep, AddToLogMixin):
             print('Error in sending email for pre-existing failure: {}'.format(e))
 
 
-class InstallBuiltProduct(shell.ShellCommand):
+class InstallBuiltProduct(shell.ShellCommandNewStyle):
     name = 'install-built-product'
     description = ['Installing Built Product']
     descriptionDone = ['Installed Built Product']
@@ -4362,7 +4360,7 @@ class AnalyzeLayoutTestsResultsRedTree(AnalyzeLayoutTestsResults):
         return defer.returnValue(self.report_success())
 
 
-class ArchiveBuiltProduct(shell.ShellCommand):
+class ArchiveBuiltProduct(shell.ShellCommandNewStyle):
     command = ['python3', 'Tools/CISupport/built-product-archive',
                WithProperties('--platform=%(fullPlatform)s'), WithProperties('--%(configuration)s'), 'archive']
     name = 'archive-built-product'
@@ -4562,7 +4560,7 @@ class DownloadBuiltProductFromMaster(transfer.FileDownload):
         return super().getResultSummary()
 
 
-class ExtractBuiltProduct(shell.ShellCommand):
+class ExtractBuiltProduct(shell.ShellCommandNewStyle):
     command = ['python3', 'Tools/CISupport/built-product-archive',
                WithProperties('--platform=%(fullPlatform)s'), WithProperties('--%(configuration)s'), 'extract']
     name = 'extract-built-product'
@@ -4893,7 +4891,7 @@ class AnalyzeAPITestsResults(buildstep.BuildStep, AddToLogMixin):
             print('Error in sending email for pre-existing failure: {}'.format(e))
 
 
-class ArchiveTestResults(shell.ShellCommand):
+class ArchiveTestResults(shell.ShellCommandNewStyle):
     command = ['python3', 'Tools/CISupport/test-result-archive',
                Interpolate('--platform=%(prop:platform)s'), Interpolate('--%(prop:configuration)s'), 'archive']
     name = 'archive-test-results'
@@ -5075,7 +5073,7 @@ class CleanGitRepo(steps.ShellSequence, ShellMixin):
         return {'step': 'Cleaned up git repository'}
 
 
-class ApplyWatchList(shell.ShellCommand):
+class ApplyWatchList(shell.ShellCommandNewStyle):
     name = 'apply-watch-list'
     description = ['applying watchilist']
     descriptionDone = ['Applied WatchList']
@@ -5801,7 +5799,7 @@ class Canonicalize(steps.ShellSequence, ShellMixin, AddToLogMixin):
         commands.append([
             'git', 'filter-branch', '-f',
             '--env-filter', f"GIT_AUTHOR_DATE='{date}';GIT_COMMITTER_DATE='{date}';GIT_COMMITTER_NAME='{committer_name}';GIT_COMMITTER_EMAIL='{committer_email}'",
-            f'HEAD...HEAD~1',
+            f"HEAD...HEAD~{self.getProperty('commit_count', 1)}",
         ])
 
         username, access_token = GitHub.credentials(user=GitHub.user_for_queue(self.getProperty('buildername', '')))
@@ -5825,23 +5823,23 @@ class Canonicalize(steps.ShellSequence, ShellMixin, AddToLogMixin):
         return super().getResultSummary()
 
 
-class PushPullRequestBranch(shell.ShellCommand):
+class PushPullRequestBranch(shell.ShellCommandNewStyle):
     name = 'push-pull-request-branch'
     haltOnFailure = True
 
     def __init__(self, **kwargs):
         super().__init__(logEnviron=False, timeout=300, **kwargs)
 
-    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+    def run(self, BufferLogObserverClass=logobserver.BufferLogObserver):
         remote = self.getProperty('github.head.repo.full_name').split('/')[0]
         head_ref = self.getProperty('github.head.ref')
         self.command = ['git', 'push', '-f', remote, f'HEAD:{head_ref}']
 
         username, access_token = GitHub.credentials(user=GitHub.user_for_queue(self.getProperty('buildername', '')))
-        self.workerEnvironment['GIT_USER'] = username
-        self.workerEnvironment['GIT_PASSWORD'] = access_token
+        self.env['GIT_USER'] = username
+        self.env['GIT_PASSWORD'] = access_token
 
-        return super().start()
+        return super().run()
 
     def getResultSummary(self):
         if self.results == SUCCESS:

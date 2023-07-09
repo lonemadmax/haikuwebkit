@@ -678,7 +678,7 @@
                 "url": "https://www.w3.org/TR/css-fonts-4/#font-stretch-prop"
             }
         },
-        "text-edge": {
+        "text-box-edge": {
             "values": [
                 "leading",
                 "text",
@@ -689,9 +689,9 @@
                 "cap"
             ],
             "codegen-properties": {
-                "converter": "TextEdge",
-                "settings-flag": "cssLeadingTrimEnabled",
-                "parser-function": "consumeTextEdge",
+                "converter": "TextBoxEdge",
+                "settings-flag": "cssTextBoxTrimEnabled",
+                "parser-function": "consumeTextBoxEdge",
                 "parser-grammar-unused": "leading | [ [ text | cap | ex | ideographic | ideographic-ink ] [ text | alphabetic | ideographic | ideographic-ink ]? ]",
                 "parser-grammar-unused-reason": "Needs support for 'groups' and 'optional'."
             },
@@ -3071,8 +3071,6 @@
         "caption-side": {
             "inherited": true,
             "values": [
-                "left",
-                "right",
                 "top",
                 "bottom",
                 {
@@ -3353,7 +3351,7 @@
         },
         "cx": {
             "codegen-properties": {
-                "initial": "initialZeroLength",
+                "initial": "zeroLength",
                 "converter": "Length",
                 "parser-grammar": "<length-percentage>"
             },
@@ -3364,7 +3362,7 @@
         },
         "cy": {
             "codegen-properties": {
-                "initial": "initialZeroLength",
+                "initial": "zeroLength",
                 "converter": "Length",
                 "parser-grammar": "<length-percentage>"
             },
@@ -3788,15 +3786,15 @@
                 "url": "https://www.w3.org/TR/SVG11/text.html#KerningProperty"
             }
         },
-        "leading-trim": {
+        "text-box-trim": {
             "values": [
-                "normal",
+                "none",
                 "start",
                 "end",
                 "both"
             ],
             "codegen-properties": {
-                "settings-flag": "cssLeadingTrimEnabled",
+                "settings-flag": "cssTextBoxTrimEnabled",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -5356,7 +5354,7 @@
         },
         "r": {
             "codegen-properties": {
-                "initial": "initialZeroLength",
+                "initial": "zeroLength",
                 "converter": "Length",
                 "parser-grammar": "<length-percentage [0,inf]>"
             },
@@ -5533,7 +5531,7 @@
         "stroke-dashoffset": {
             "inherited": true,
             "codegen-properties": {
-                "initial": "initialZeroLength",
+                "initial": "zeroLength",
                 "name-for-methods": "StrokeDashOffset",
                 "converter": "LengthAllowingNumber",
                 "parser-grammar": "<length-percentage> | <number>"
@@ -5627,7 +5625,7 @@
             "inherited": true,
             "codegen-properties": {
                 "custom": "Value",
-                "initial": "initialOneLength",
+                "initial": "oneLength",
                 "converter": "LengthAllowingNumber",
                 "parser-grammar": "<length-percentage [0,inf]> | <number [0,inf]>"
             },
@@ -6377,7 +6375,7 @@
         },
         "x": {
             "codegen-properties": {
-                "initial": "initialZeroLength",
+                "initial": "zeroLength",
                 "converter": "Length",
                 "parser-grammar": "<length-percentage>"
             },
@@ -6388,7 +6386,7 @@
         },
         "y": {
             "codegen-properties": {
-                "initial": "initialZeroLength",
+                "initial": "zeroLength",
                 "converter": "Length",
                 "parser-grammar": "<length-percentage>"
             },
@@ -9289,6 +9287,16 @@
                 "url": "https://drafts.csswg.org/css-scroll-snap-1/#propdef-scroll-snap-stop"
             }
         },
+        "scrollbar-width": {
+            "codegen-properties": {
+                "parser-grammar": "auto | thin | none",
+                "settings-flag": "cssScrollbarWidthEnabled"
+            },
+            "specification": {
+                "category": "css-scrollbars",
+                "url": "https://drafts.csswg.org/css-scrollbars/#scrollbar-width"
+            }
+        },
         "shape-outside": {
             "codegen-properties": {
                 "aliases": [
@@ -10207,6 +10215,11 @@
             "shortname": "CSS Scroll Snap",
             "longname": "CSS Scroll Snap Module",
             "url": "https://www.w3.org/TR/css-scroll-snap-1/"
+        },
+        "css-scrollbars": {
+            "shortname": "CSS Scrollbars",
+            "longname": "CSS Scrollbars Styling Module",
+            "url": "https://www.w3.org/TR/css-scrollbars-1/"
         },
         "css-shapes": {
             "shortname": "CSS Shapes",

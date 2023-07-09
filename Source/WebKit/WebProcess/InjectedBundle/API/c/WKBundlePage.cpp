@@ -60,6 +60,7 @@
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/AccessibilityObjectInterface.h>
 #include <WebCore/ApplicationCacheStorage.h>
+#include <WebCore/CSSParser.h>
 #include <WebCore/CompositionHighlight.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/LocalFrame.h>
@@ -325,6 +326,11 @@ bool WKAccessibilityCanUseSecondaryAXThread(WKBundlePageRef pageRef)
     UNUSED_PARAM(pageRef);
     return false;
 #endif
+}
+
+void WKAccessibilitySetForceDeferredSpellChecking(bool shouldForce)
+{
+    WebCore::AXObjectCache::setForceDeferredSpellChecking(shouldForce);
 }
 
 void WKAccessibilityEnableEnhancedAccessibility(bool enable)

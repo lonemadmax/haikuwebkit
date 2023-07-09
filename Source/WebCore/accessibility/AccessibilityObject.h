@@ -220,6 +220,9 @@ public:
     void setIsExpanded(bool) override { }
     FloatRect unobscuredContentRect() const override;
     FloatRect relativeFrame() const override;
+#if PLATFORM(MAC)
+    FloatRect primaryScreenRect() const override;
+#endif
     FloatRect convertFrameToSpace(const FloatRect&, AccessibilityConversionSpace) const override;
     HashMap<String, AXEditingStyleValueVariant> resolvedEditingStyles() const override;
     
@@ -398,7 +401,7 @@ public:
     String brailleRoleDescription() const override { return getAttribute(HTMLNames::aria_brailleroledescriptionAttr); }
     String embeddedImageDescription() const override;
     std::optional<AccessibilityChildrenVector> imageOverlayElements() override { return std::nullopt; }
-    String extendedDescription() const override { return getAttribute(HTMLNames::aria_descriptionAttr); }
+    String extendedDescription() const override;
 
     // Abbreviations
     String expandedTextValue() const override { return String(); }
@@ -472,16 +475,18 @@ public:
     void setFocused(bool) override;
 
     void setSelectedText(const String&) override { }
-    void setSelectedTextRange(const PlainTextRange&) override { }
+    void setSelectedTextRange(PlainTextRange&&) override { }
     bool setValue(const String&) override { return false; }
+    void setValueIgnoringResult(const String& value) final { setValue(value); }
     bool replaceTextInRange(const String&, const PlainTextRange&) override;
     bool insertText(const String&) override;
 
     bool setValue(float) override { return false; }
+    void setValueIgnoringResult(float value) final { setValue(value); }
     void setSelected(bool) override { }
-    void setSelectedRows(AccessibilityChildrenVector&) override { }
+    void setSelectedRows(AccessibilityChildrenVector&&) final;
 
-    void makeRangeVisible(const PlainTextRange&) override { }
+    void performDismissActionIgnoringResult() final { performDismissAction(); }
     bool press() override;
 
     AccessibilityOrientation orientation() const override;
@@ -619,9 +624,9 @@ public:
     // Make this object visible by scrolling as many nested scrollable views as needed.
     void scrollToMakeVisible() const override;
     // Same, but if the whole object can't be made visible, try for this subrect, in local coordinates.
-    void scrollToMakeVisibleWithSubFocus(const IntRect&) const override;
+    void scrollToMakeVisibleWithSubFocus(IntRect&&) const override;
     // Scroll this object to a given point in global coordinates of the top-level window.
-    void scrollToGlobalPoint(const IntPoint&) const override;
+    void scrollToGlobalPoint(IntPoint&&) const final;
 
     enum class ScrollByPageDirection { Up, Down, Left, Right };
     bool scrollByPage(ScrollByPageDirection) const;
@@ -731,6 +736,7 @@ public:
     AccessibilityObject* focusableAncestor() override { return Accessibility::focusableAncestor(*this); }
     AccessibilityObject* editableAncestor() override { return Accessibility::editableAncestor(*this); };
     AccessibilityObject* highestEditableAncestor() override { return Accessibility::highestEditableAncestor(*this); }
+    AccessibilityObject* exposedTableAncestor(bool includeSelf = false) const final { return Accessibility::exposedTableAncestor(*this, includeSelf); }
 
     const AccessibilityScrollView* ancestorAccessibilityScrollView(bool includeSelf) const;
     virtual AccessibilityObject* webAreaObject() const { return nullptr; }

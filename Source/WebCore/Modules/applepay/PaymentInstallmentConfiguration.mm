@@ -223,9 +223,8 @@ ExceptionOr<PaymentInstallmentConfiguration> PaymentInstallmentConfiguration::cr
     return PaymentInstallmentConfiguration(ApplePayInstallmentConfiguration(configuration), WTFMove(dictionary));
 }
 
-static ApplePayInstallmentConfiguration addApplicationMetadata(const ApplePayInstallmentConfiguration& input, RetainPtr<NSDictionary>&& applicationMetadata)
+static ApplePayInstallmentConfiguration addApplicationMetadata(ApplePayInstallmentConfiguration configuration, RetainPtr<NSDictionary>&& applicationMetadata)
 {
-    auto configuration = input;
     if (applicationMetadata)
         configuration.applicationMetadata = applicationMetadataString(applicationMetadata.get());
     return configuration;
@@ -236,7 +235,7 @@ PaymentInstallmentConfiguration::PaymentInstallmentConfiguration(const ApplePayI
 {
 }
 
-PaymentInstallmentConfiguration::PaymentInstallmentConfiguration(ApplePayInstallmentConfiguration&& configuration)
+PaymentInstallmentConfiguration::PaymentInstallmentConfiguration(std::optional<ApplePayInstallmentConfiguration>&& configuration)
     : m_configuration { WTFMove(configuration) }
 {
 }
@@ -246,26 +245,29 @@ PaymentInstallmentConfiguration::PaymentInstallmentConfiguration(RetainPtr<PKPay
 {
 }
 
-const ApplePayInstallmentConfiguration& PaymentInstallmentConfiguration::applePayInstallmentConfiguration() const
+const std::optional<ApplePayInstallmentConfiguration>& PaymentInstallmentConfiguration::applePayInstallmentConfiguration() const
 {
     return m_configuration;
 }
 
 RetainPtr<PKPaymentInstallmentConfiguration> PaymentInstallmentConfiguration::platformConfiguration() const
 {
-    return createPlatformConfiguration(m_configuration);
+    return m_configuration ? createPlatformConfiguration(*m_configuration) : nil;
 }
 
-ApplePayInstallmentConfiguration PaymentInstallmentConfiguration::applePayInstallmentConfiguration(PKPaymentInstallmentConfiguration *configuration)
+std::optional<ApplePayInstallmentConfiguration> PaymentInstallmentConfiguration::applePayInstallmentConfiguration(PKPaymentInstallmentConfiguration *configuration)
 {
+    if (!configuration)
+        return std::nullopt;
+
     ApplePayInstallmentConfiguration installmentConfiguration;
     if (!PAL::getPKPaymentInstallmentConfigurationClass())
-        return installmentConfiguration;
+        return std::nullopt;
 
     if (auto featureType = applePaySetupFeatureType([configuration feature]))
         installmentConfiguration.featureType = *featureType;
     else
-        return installmentConfiguration;
+        return std::nullopt;
 
     installmentConfiguration.bindingTotalAmount = fromDecimalNumber([configuration bindingTotalAmount]);
     installmentConfiguration.currencyCode = [configuration currencyCode];
@@ -277,13 +279,13 @@ ApplePayInstallmentConfiguration PaymentInstallmentConfiguration::applePayInstal
     installmentConfiguration.referrerIdentifier = [configuration referrerIdentifier];
 
     if (!PAL::getPKPaymentInstallmentItemClass())
-        return installmentConfiguration;
+        return WTFMove(installmentConfiguration);
 
     installmentConfiguration.items = makeVector<ApplePayInstallmentItem>([configuration installmentItems]);
     installmentConfiguration.applicationMetadata = applicationMetadataString([configuration applicationMetadata]);
     installmentConfiguration.retailChannel = applePayRetailChannel([configuration retailChannel]);
 
-    return installmentConfiguration;
+    return WTFMove(installmentConfiguration);
 }
 
 } // namespace WebCore

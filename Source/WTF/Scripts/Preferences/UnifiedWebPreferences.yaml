@@ -84,6 +84,20 @@ AVFoundationEnabled:
       "PLATFORM(WATCHOS)": false
       default: true
 
+AbortSignalAnyOperationEnabled:
+  type: bool
+  category: dom
+  status: preview
+  humanReadableName: "AbortSignal.any() API"
+  humanReadableDescription: "Enable AbortSignal.any() API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 AcceleratedCompositingEnabled:
   type: bool
   status: embedder
@@ -113,8 +127,8 @@ AcceleratedDrawingEnabled:
   type: bool
   status: internal
   defaultsOverridable: true
-  humanReadableName: "GraphicsLayerCA accelerated drawing"
-  humanReadableDescription: "Enable GraphicsLayerCA accelerated drawing"
+  humanReadableName: "GraphicsLayer accelerated drawing"
+  humanReadableDescription: "Enable GraphicsLayer accelerated drawing"
   defaultValue:
     WebKitLegacy:
       "PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)": true
@@ -785,6 +799,7 @@ BlockIOKitInWebContentSandbox:
   humanReadableName: "IOKit blocking in the WebContent sandbox"
   humanReadableDescription: "Block IOKit access in the WebContent sandbox"
   webcoreBinding: none
+  condition: HAVE(SANDBOX_STATE_FLAGS)
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
@@ -1030,17 +1045,17 @@ CSSCustomPropertiesAndValuesEnabled:
 
 CSSFontFaceSizeAdjustEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS @font-face size-adjust"
   humanReadableDescription: "Enable size-adjust descriptor in @font-face"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSGradientInterpolationColorSpacesEnabled:
   type: bool
@@ -1089,20 +1104,6 @@ CSSInputSecurityEnabled:
   category: css
   humanReadableName: "CSS Input Security"
   humanReadableDescription: "Enable input-security CSS property"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
-CSSLeadingTrimEnabled:
-  type: bool
-  status: preview
-  category: css
-  humanReadableName: "CSS leading-trim property"
-  humanReadableDescription: "Enable leading-trim"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1240,6 +1241,20 @@ CSSScrollAnchoringEnabled:
     WebCore:
       default: false
 
+CSSScrollbarWidthEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS scrollbar-width property"
+  humanReadableDescription: "Enable scrollbar-width CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSTextAlignLastEnabled:
   type: bool
   status: stable
@@ -1253,6 +1268,20 @@ CSSTextAlignLastEnabled:
       default: true
     WebCore:
       default: true
+
+CSSTextBoxTrimEnabled:
+  type: bool
+  status: preview
+  category: css
+  humanReadableName: "CSS text-box-trim property"
+  humanReadableDescription: "Enable text-box-trim"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 CSSTextGroupAlignEnabled:
   type: bool
@@ -2316,6 +2345,7 @@ ExperimentalSandboxEnabled:
   category: security
   humanReadableName: "Enable experimental sandbox features"
   humanReadableDescription: "Enable experimental sandbox features"
+  condition: HAVE(MACH_BOOTSTRAP_EXTENSION) || HAVE(SANDBOX_STATE_FLAGS)
   webcoreBinding: none
   exposed: [ WebKit ]
   defaultValue:
@@ -2898,6 +2928,7 @@ ImageAnalysisDuringFindInPageEnabled:
   status: unstable
   humanReadableName: "Image Analysis for Find-in-Page"
   humanReadableDescription: "Trigger image analysis when performing Find-in-Page"
+  condition: ENABLE(IMAGE_ANALYSIS)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -3264,10 +3295,10 @@ InterruptVideoOnPageVisibilityChangeEnabled:
   condition: ENABLE(MEDIA_STREAM)
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(IOS_FAMILY) && !HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
-      "PLATFORM(IOS_FAMILY) && !HAVE(UIKIT_WEBKIT_INTERNALS)": true
+      "PLATFORM(IOS_FAMILY)": true
       default: false
     WebCore:
       default: false
@@ -3900,6 +3931,21 @@ ManagedMediaSourceLowThreshold:
     WebCore:
       default: 10
 
+ManagedMediaSourceNeedsAirPlay:
+  type: bool
+  status: stable
+  category: media
+  humanReadableName: "Managed Media Source Requires AirPlay source"
+  humanReadableDescription: "Managed Media Source Requires AirPlay source"
+  condition: ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE) && ENABLE(WIRELESS_PLAYBACK_TARGET)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: WebKit::defaultManagedMediaSourceNeedsAirPlay()
+    WebCore:
+      default: false
+
 MarkedTextInputEnabled:
   type: bool
   status: embedder
@@ -4481,6 +4527,7 @@ NeedsInAppBrowserPrivacyQuirks:
   humanReadableDescription: "Enable quirks needed to support In-App Browser privacy"
   webcoreBinding: none
   exposed: [ WebKit ]
+  condition: ENABLE(APP_BOUND_DOMAINS)
   defaultValue:
     WebKit:
       default: false
@@ -5565,6 +5612,20 @@ SelectionFlippingEnabled:
       "HAVE(UIKIT_WEBKIT_INTERNALS)" : false
       default: true
 
+SendMouseEventsToDisabledFormControlsEnabled:
+  type: bool
+  status: preview
+  category: html
+  humanReadableName: "Send mouse events to disabled form controls"
+  humanReadableDescription: "Send mouse events to disabled form controls"
+  defaultValue:
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebCore:
+      default: false
+
 SerifFontFamily:
   type: String
   status: embedder
@@ -5608,6 +5669,7 @@ ServiceWorkerEntitlementDisabledForTesting:
   status: embedder
   webcoreBinding: none
   exposed: [ WebKit ]
+  condition: ENABLE(SERVICE_WORKER)
   defaultValue:
     WebKit:
       default: false
@@ -5658,6 +5720,8 @@ ServiceWorkersUserGestureEnabled:
     WebCore:
       default: true
 
+# When enabling this, don't enable on watchOS or the macOS base system (which don't have Vision.framework).
+# You can detect these by running isVisionFrameworkAvailable().
 ShapeDetection:
   type: bool
   category: media
@@ -5782,16 +5846,16 @@ ShouldDisplayTextDescriptions:
     WebCore:
       default: false
 
-ShouldDropSuspendedAssertionAfterDelay:
+ShouldDropNearSuspendedAssertionAfterDelay:
   type: bool
   status: internal
-  humanReadableName: "Drop Suspended Assertion After Delay"
+  humanReadableName: "Drop Near-Suspended Assertion After Delay"
   humanReadableDescription: "Causes processes to fully suspend after a delay"
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
-      default: WebKit::defaultShouldDropSuspendedAssertionAfterDelay()
+      default: WebKit::defaultShouldDropNearSuspendedAssertionAfterDelay()
     WebCore:
       default: false
 
@@ -5871,12 +5935,12 @@ ShouldSuppressTextInputFromEditingDuringProvisionalNavigation:
     WebCore:
       default: false
 
-ShouldTakeSuspendedAssertions:
+ShouldTakeNearSuspendedAssertions:
   type: bool
   status: internal
   category: dom
-  humanReadableName: "Take WebKit:Suspended assertions on background web content processes"
-  humanReadableDescription: "Take WebKit:Suspended assertions on background web content processes"
+  humanReadableName: "Take WebKit:NearSuspended assertions on background web content processes"
+  humanReadableDescription: "Take WebKit:NearSuspended assertions on background web content processes"
   exposed: [ WebKit ]
   defaultValue:
     WebKitLegacy:
@@ -6168,7 +6232,7 @@ StrictSecureDecodingForAllObjC:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: false
+      default: true
 
 SubgridEnabled:
   type: bool
@@ -6552,9 +6616,7 @@ UseGPUProcessForDOMRenderingEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      "ENABLE(GPU_PROCESS_BY_DEFAULT) && ENABLE(GPU_PROCESS_DOM_RENDERING_BY_DEFAULT)": true
-      "USE(GRAPHICS_LAYER_WC)": true
-      default: false
+      default: defaultUseGPUProcessForDOMRenderingEnabled()
 
 UseGPUProcessForDisplayCapture:
   type: bool
@@ -7126,8 +7188,10 @@ WebCodecsAV1Enabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "USE(GSTREAMER)": true
       default: false
     WebCore:
+      "USE(GSTREAMER)": true
       default: false
 
 WebCodecsEnabled:
@@ -7224,7 +7288,7 @@ WebGLUsingMetal:
       "HAVE(WEBGL_COMPATIBLE_METAL)": true
       default: false
 
-WebGPU:
+WebGPUEnabled:
   type: bool
   status: unstable
   humanReadableName: "WebGPU"
@@ -7300,8 +7364,10 @@ WebRTCAV1CodecEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "USE(GSTREAMER)": true
       default: false
     WebCore:
+      "USE(GSTREAMER)": true
       default: false
 
 WebRTCAudioLatencyAdaptationEnabled:

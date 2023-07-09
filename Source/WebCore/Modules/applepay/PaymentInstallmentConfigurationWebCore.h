@@ -44,16 +44,16 @@ public:
 
     PaymentInstallmentConfiguration() = default;
     PaymentInstallmentConfiguration(RetainPtr<PKPaymentInstallmentConfiguration>&&);
-    PaymentInstallmentConfiguration(ApplePayInstallmentConfiguration&&);
+    PaymentInstallmentConfiguration(std::optional<ApplePayInstallmentConfiguration>&&);
     PaymentInstallmentConfiguration(const ApplePayInstallmentConfiguration&, RetainPtr<NSDictionary>&&);
 
     RetainPtr<PKPaymentInstallmentConfiguration> platformConfiguration() const;
-    const ApplePayInstallmentConfiguration& applePayInstallmentConfiguration() const;
+    const std::optional<ApplePayInstallmentConfiguration>& applePayInstallmentConfiguration() const;
 
 private:
-    static ApplePayInstallmentConfiguration applePayInstallmentConfiguration(PKPaymentInstallmentConfiguration *);
+    static std::optional<ApplePayInstallmentConfiguration> applePayInstallmentConfiguration(PKPaymentInstallmentConfiguration *);
 
-    ApplePayInstallmentConfiguration m_configuration;
+    std::optional<ApplePayInstallmentConfiguration> m_configuration;
 };
 
 } // namespace WebCore

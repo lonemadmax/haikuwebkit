@@ -237,6 +237,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ObjectToString:
     case ReflectOwnKeys:
     case MakeRope:
+    case MakeAtomString:
     case NewArrayWithSize:
     case NewArrayWithSpecies:
     case TryGetById:
@@ -244,6 +245,7 @@ inline CapabilityLevel canCompile(Node* node)
     case GetByIdFlush:
     case GetByIdMegamorphic:
     case GetByIdWithThis:
+    case GetByIdWithThisMegamorphic:
     case GetByIdDirect:
     case GetByIdDirectFlush:
     case ToThis:
@@ -289,6 +291,7 @@ inline CapabilityLevel canCompile(Node* node)
     case IsConstructor:
     case IsTypedArrayView:
     case CheckTypeInfoFlags:
+    case HasStructureWithFlags:
     case OverridesHasInstance:
     case InstanceOf:
     case InstanceOfCustom:
@@ -337,6 +340,7 @@ inline CapabilityLevel canCompile(Node* node)
     case PutById:
     case PutByIdDirect:
     case PutByIdFlush:
+    case PutByIdMegamorphic:
     case PutByIdWithThis:
     case PutGetterById:
     case PutSetterById:
@@ -412,8 +416,10 @@ inline CapabilityLevel canCompile(Node* node)
     case GetByVal:
     case GetByValMegamorphic:
     case GetByValWithThis:
+    case GetByValWithThisMegamorphic:
     case PutByVal:
     case PutByValAlias:
+    case PutByValMegamorphic:
     case PutByValDirect:
     case PutByValWithThis:
     case PutPrivateName:

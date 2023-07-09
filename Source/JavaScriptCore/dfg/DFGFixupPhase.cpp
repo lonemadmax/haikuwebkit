@@ -1200,15 +1200,27 @@ private:
             break;
         }
 
-        case GetByValWithThis: {
+        case GetByValWithThis:
             break;
-        }
+
+        case GetByValWithThisMegamorphic:
+            fixEdge<CellUse>(node->child1());
+            break;
 
         case EnumeratorPutByVal: {
             fixEdge<CellUse>(m_graph.varArgChild(node, 0));
             fixEdge<KnownInt32Use>(m_graph.varArgChild(node, 4));
             fixEdge<KnownInt32Use>(m_graph.varArgChild(node, 5));
             fixEdge<KnownCellUse>(m_graph.varArgChild(node, 6));
+            break;
+        }
+
+        case PutByValMegamorphic: {
+            Edge& child1 = m_graph.varArgChild(node, 0);
+            Edge& child2 = m_graph.varArgChild(node, 1);
+            node->setArrayMode(ArrayMode(Array::Generic, node->arrayMode().action()));
+            fixEdge<CellUse>(child1);
+            fixEdge<StringUse>(child2);
             break;
         }
 
@@ -1254,7 +1266,7 @@ private:
             default:
                 break;
             }
-            
+
             blessArrayOperation(child1, child2, m_graph.varArgChild(node, 3));
             
             switch (node->arrayMode().modeForPut().type()) {
@@ -1976,6 +1988,14 @@ private:
             break;
         }
 
+        case GetByIdWithThisMegamorphic:
+            fixEdge<CellUse>(node->child1());
+            break;
+
+        case PutByIdMegamorphic:
+            fixEdge<CellUse>(node->child1());
+            break;
+
         case PutById:
         case PutByIdFlush:
         case PutByIdDirect: {
@@ -2381,6 +2401,11 @@ private:
 
         case IsCellWithType: {
             fixupIsCellWithType(node);
+            break;
+        }
+
+        case HasStructureWithFlags: {
+            fixEdge<KnownCellUse>(node->child1());
             break;
         }
 
@@ -3049,6 +3074,7 @@ private:
         case InvalidationPoint:
         case GetWebAssemblyInstanceExports:
         case NewBoundFunction:
+        case MakeAtomString:
             break;
 #else // not ASSERT_ENABLED
         default:

@@ -57,6 +57,15 @@ public:
 #endif
     }
 
+    bool isKeyboardImmediatelyAvailable()
+    {
+#if HAVE(UIKIT_WEBKIT_INTERNALS)
+        return true;
+#else
+        return false;
+#endif
+    }
+
     bool isWebKit2() const { return true; }
 
     // The basics.
@@ -319,6 +328,8 @@ public:
     void setScreenWakeLockPermission(bool);
 
     // MediaStream
+    void setCameraPermission(bool);
+    void setMicrophonePermission(bool);
     void setUserMediaPermission(bool);
     void resetUserMediaPermission();
     void setUserMediaPersistentPermissionForOrigin(bool permission, JSStringRef origin, JSStringRef parentOrigin);

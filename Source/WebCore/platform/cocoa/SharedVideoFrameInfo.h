@@ -27,8 +27,8 @@
 
 #if ENABLE(VIDEO) && PLATFORM(COCOA)
 
+#include <span>
 #include <wtf/RetainPtr.h>
-#include <wtf/Span.h>
 
 typedef struct __CVBuffer* CVPixelBufferRef;
 typedef struct __CVPixelBufferPool* CVPixelBufferPoolRef;
@@ -45,7 +45,7 @@ public:
     SharedVideoFrameInfo(OSType, uint32_t width, uint32_t height, uint32_t bytesPerRow, uint32_t widthPlaneB = 0, uint32_t heightPlaneB = 0, uint32_t bytesPerRowPlaneB = 0);
 
     WEBCORE_EXPORT void encode(uint8_t*);
-    WEBCORE_EXPORT static std::optional<SharedVideoFrameInfo> decode(Span<const uint8_t>);
+    WEBCORE_EXPORT static std::optional<SharedVideoFrameInfo> decode(std::span<const uint8_t>);
 
     WEBCORE_EXPORT static SharedVideoFrameInfo fromCVPixelBuffer(CVPixelBufferRef);
     WEBCORE_EXPORT bool writePixelBuffer(CVPixelBufferRef, uint8_t* data);

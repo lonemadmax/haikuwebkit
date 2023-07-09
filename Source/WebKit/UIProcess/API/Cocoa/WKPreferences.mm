@@ -29,6 +29,7 @@
 #import "APIArray.h"
 #import "Logging.h"
 #import "WKNSArray.h"
+#import "WebKit2Initialize.h"
 #import "WebPreferences.h"
 #import "_WKFeatureInternal.h"
 #import <WebCore/SecurityOrigin.h>
@@ -178,6 +179,31 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)setElementFullscreenEnabled:(BOOL)elementFullscreenEnabled
 {
     _preferences->setFullScreenEnabled(elementFullscreenEnabled);
+}
+
+- (void)setInactiveSchedulingPolicy:(WKInactiveSchedulingPolicy)policy
+{
+    switch (policy) {
+    case WKInactiveSchedulingPolicySuspend:
+        _preferences->setShouldTakeNearSuspendedAssertions(false);
+        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(true);
+        break;
+    case WKInactiveSchedulingPolicyThrottle:
+        _preferences->setShouldTakeNearSuspendedAssertions(true);
+        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(true);
+        break;
+    case WKInactiveSchedulingPolicyNone:
+        _preferences->setShouldTakeNearSuspendedAssertions(true);
+        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(false);
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+}
+
+- (WKInactiveSchedulingPolicy)inactiveSchedulingPolicy
+{
+    return _preferences->backgroundWebContentRunningBoardThrottlingEnabled() ? (_preferences->shouldTakeNearSuspendedAssertions() ? WKInactiveSchedulingPolicyThrottle : WKInactiveSchedulingPolicySuspend) : WKInactiveSchedulingPolicyNone;
 }
 
 #pragma mark OS X-specific methods
@@ -539,12 +565,14 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
 
 + (NSArray<_WKFeature *> *)_features
 {
+    WebKit::InitializeWebKit2();
     auto features = WebKit::WebPreferences::features();
     return wrapper(API::Array::create(WTFMove(features)));
 }
 
 + (NSArray<_WKFeature *> *)_internalDebugFeatures
 {
+    WebKit::InitializeWebKit2();
     auto features = WebKit::WebPreferences::internalDebugFeatures();
     return wrapper(API::Array::create(WTFMove(features)));
 }
@@ -561,6 +589,7 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
 
 + (NSArray<_WKExperimentalFeature *> *)_experimentalFeatures
 {
+    WebKit::InitializeWebKit2();
     auto features = WebKit::WebPreferences::experimentalFeatures();
     return wrapper(API::Array::create(WTFMove(features)));
 }
@@ -1660,31 +1689,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (BOOL)_clientBadgeEnabled
 {
     return _preferences->clientBadgeEnabled();
-}
-
-- (void)setInactiveSchedulingPolicy:(WKInactiveSchedulingPolicy)policy
-{
-    switch (policy) {
-    case WKInactiveSchedulingPolicySuspend:
-        _preferences->setShouldTakeSuspendedAssertions(false);
-        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(true);
-        break;
-    case WKInactiveSchedulingPolicyThrottle:
-        _preferences->setShouldTakeSuspendedAssertions(true);
-        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(true);
-        break;
-    case WKInactiveSchedulingPolicyNone:
-        _preferences->setShouldTakeSuspendedAssertions(true);
-        _preferences->setBackgroundWebContentRunningBoardThrottlingEnabled(false);
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-    }
-}
-
-- (WKInactiveSchedulingPolicy)inactiveSchedulingPolicy
-{
-    return _preferences->backgroundWebContentRunningBoardThrottlingEnabled() ? (_preferences->shouldTakeSuspendedAssertions() ? WKInactiveSchedulingPolicyThrottle : WKInactiveSchedulingPolicySuspend) : WKInactiveSchedulingPolicyNone;
 }
 
 - (void)_setVerifyWindowOpenUserGestureFromUIProcess:(BOOL)enabled

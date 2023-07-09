@@ -66,7 +66,7 @@ protected:
     static constexpr size_t INSTRUCTION_SIZE = 4;
 
     // N instructions to load the pointer + 1 call instruction.
-    static constexpr ptrdiff_t REPATCH_OFFSET_CALL_TO_POINTER = -((Assembler::MAX_POINTER_BITS / 16 + 1) * INSTRUCTION_SIZE);
+    static constexpr ptrdiff_t REPATCH_OFFSET_CALL_TO_POINTER = -((Assembler::NUMBER_OF_ADDRESS_ENCODING_INSTRUCTIONS + 1) * INSTRUCTION_SIZE);
 
 public:
     MacroAssemblerARM64()
@@ -297,6 +297,23 @@ public:
         }
 
         signExtend32ToPtr(imm, getCachedDataTempRegisterIDAndInvalidate());
+        m_assembler.add<64>(dest, src, dataTempRegister);
+    }
+
+    void add64(TrustedImm64 imm, RegisterID src, RegisterID dest)
+    {
+        intptr_t immediate = imm.m_value;
+
+        if (isUInt12(immediate)) {
+            m_assembler.add<64>(dest, src, UInt12(static_cast<int32_t>(immediate)));
+            return;
+        }
+        if (isUInt12(-immediate)) {
+            m_assembler.sub<64>(dest, src, UInt12(static_cast<int32_t>(-immediate)));
+            return;
+        }
+
+        move(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.add<64>(dest, src, dataTempRegister);
     }
 
@@ -850,6 +867,22 @@ public:
     void illegalInstruction()
     {
         m_assembler.illegalInstruction();
+    }
+
+    void countPopulation32(RegisterID src, RegisterID dst)
+    {
+        move32ToFloat(src, fpTempRegister);
+        m_assembler.vectorCnt(fpTempRegister, fpTempRegister, SIMDLane::i8x16);
+        m_assembler.addv(fpTempRegister, fpTempRegister, SIMDLane::i8x16);
+        moveFloatTo32(fpTempRegister, dst);
+    }
+
+    void countPopulation64(RegisterID src, RegisterID dst)
+    {
+        move64ToDouble(src, fpTempRegister);
+        m_assembler.vectorCnt(fpTempRegister, fpTempRegister, SIMDLane::i8x16);
+        m_assembler.addv(fpTempRegister, fpTempRegister, SIMDLane::i8x16);
+        moveDoubleTo64(fpTempRegister, dst);
     }
 
     void lshift32(RegisterID src, RegisterID shiftAmount, RegisterID dest)
@@ -1861,7 +1894,7 @@ public:
 
     void zeroExtend16To32(RegisterID src, RegisterID dest)
     {
-        m_assembler.uxth<32>(dest, src);
+        and32(TrustedImm32(0xffff), src, dest);
     }
 
     void signExtend16To32(RegisterID src, RegisterID dest)
@@ -1871,7 +1904,7 @@ public:
 
     void zeroExtend16To64(RegisterID src, RegisterID dest)
     {
-        m_assembler.uxth<64>(dest, src);
+        and64(TrustedImm64(0xffff), src, dest);
     }
 
     void signExtend16To64(RegisterID src, RegisterID dest)
@@ -1948,7 +1981,7 @@ public:
 
     void zeroExtend8To32(RegisterID src, RegisterID dest)
     {
-        m_assembler.uxtb<32>(dest, src);
+        and32(TrustedImm32(0xff), src, dest);
     }
 
     void signExtend8To32(RegisterID src, RegisterID dest)
@@ -1958,7 +1991,7 @@ public:
 
     void zeroExtend8To64(RegisterID src, RegisterID dest)
     {
-        m_assembler.uxtb<64>(dest, src);
+        and64(TrustedImm64(0xff), src, dest);
     }
 
     void signExtend8To64(RegisterID src, RegisterID dest)
@@ -2268,6 +2301,30 @@ public:
         store16(dataTempRegister, address);
     }
 
+    void store16(TrustedImm32 imm, Address address)
+    {
+        TrustedImm32 imm16(static_cast<int16_t>(imm.m_value));
+        if (!imm16.m_value) {
+            store16(ARM64Registers::zr, address);
+            return;
+        }
+
+        move(imm16, getCachedDataTempRegisterIDAndInvalidate());
+        store16(dataTempRegister, address);
+    }
+
+    void store16(TrustedImm32 imm, BaseIndex address)
+    {
+        TrustedImm32 imm16(static_cast<int16_t>(imm.m_value));
+        if (!imm16.m_value) {
+            store16(ARM64Registers::zr, address);
+            return;
+        }
+
+        move(imm16, getCachedDataTempRegisterIDAndInvalidate());
+        store16(dataTempRegister, address);
+    }
+
     void store8(RegisterID src, BaseIndex address)
     {
         if (address.scale == TimesOne) {
@@ -2321,6 +2378,18 @@ public:
         store8(dataTempRegister, address);
     }
 
+    void store8(TrustedImm32 imm, BaseIndex address)
+    {
+        TrustedImm32 imm8(static_cast<int8_t>(imm.m_value));
+        if (!imm8.m_value) {
+            store8(ARM64Registers::zr, address);
+            return;
+        }
+
+        move(imm8, getCachedDataTempRegisterIDAndInvalidate());
+        store8(dataTempRegister, address);
+    }
+
     void store8(RegisterID src, RegisterID dest, PostIndex simm)
     {
         m_assembler.strb(src, dest, simm);
@@ -2340,7 +2409,7 @@ public:
     static bool supportsFloatingPointSqrt() { return true; }
     static bool supportsFloatingPointAbs() { return true; }
     static bool supportsFloatingPointRounding() { return true; }
-    static bool supportsCountPopulation() { return false; }
+    static bool supportsCountPopulation() { return true; }
 
     enum BranchTruncateType { BranchIfTruncateFailed, BranchIfTruncateSuccessful };
 
@@ -3246,7 +3315,7 @@ public:
 
     void zeroExtend32ToWord(RegisterID src, RegisterID dest)
     {
-        m_assembler.uxtw(dest, src);
+        and64(TrustedImm64(0xffffffffU), src, dest);
     }
 
     void moveConditionally32(RelationalCondition cond, RegisterID left, RegisterID right, RegisterID src, RegisterID dest)
@@ -3954,6 +4023,7 @@ public:
 
     Jump branchAdd64(RelationalCondition cond, TrustedImm32 imm, RegisterID dest)
     {
+        // This is not supporting -imm.m_value UInt12. Thus we are not listing BranchAdd64 RelCond, Imm, Tmp in AirOpcode.opcodes.
         ASSERT(isUInt12(imm.m_value));
         m_assembler.add<64, S>(dest, dest, UInt12(imm.m_value));
         return Jump(makeBranch(cond));
@@ -4106,11 +4176,11 @@ public:
 
     Jump branchSub64(RelationalCondition cond, TrustedImm32 imm, RegisterID dest)
     {
+        // This is not supporting -imm.m_value UInt12. Thus we are not listing BranchSub64 RelCond, Imm, Tmp in AirOpcode.opcodes.
         ASSERT(isUInt12(imm.m_value));
         m_assembler.sub<64, S>(dest, dest, UInt12(imm.m_value));
         return Jump(makeBranch(cond));
     }
-
 
     // Jumps, calls, returns
 
@@ -5908,8 +5978,9 @@ protected:
         intptr_t value = reinterpret_cast<intptr_t>(imm.m_value);
         m_assembler.movz<64>(dest, getHalfword(value, 0));
         m_assembler.movk<64>(dest, getHalfword(value, 1), 16);
-        m_assembler.movk<64>(dest, getHalfword(value, 2), 32);
-        if constexpr (Assembler::MAX_POINTER_BITS > 48)
+        if constexpr (Assembler::NUMBER_OF_ADDRESS_ENCODING_INSTRUCTIONS > 2)
+            m_assembler.movk<64>(dest, getHalfword(value, 2), 32);
+        if constexpr (Assembler::NUMBER_OF_ADDRESS_ENCODING_INSTRUCTIONS > 3)
             m_assembler.movk<64>(dest, getHalfword(value, 3), 48);
     }
 

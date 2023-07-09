@@ -66,11 +66,11 @@
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 @interface TestWKWebViewForAnimationControls : TestWKWebView
-- (BOOL)_allowAnimationControlsForTesting;
+- (BOOL)_allowAnimationControls;
 @end
 
 @implementation TestWKWebViewForAnimationControls
-- (BOOL)_allowAnimationControlsForTesting
+- (BOOL)_allowAnimationControls
 {
     return YES;
 }
@@ -377,56 +377,71 @@ TEST(ActionSheetTests, CopyLinkWritesURLAndPlainText)
 #endif // !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
-static bool performLongPressAction(WKWebView *webView, ActionSheetObserver *observer, CGPoint location, _WKElementActionType actionType)
+static void performLongPressAction(WKWebView *webView, ActionSheetObserver *observer, CGPoint originalLocation, _WKElementActionType actionType)
 {
-    // Close any existing open action sheets by pressing outside their bounds.
-    [webView _simulateLongPressActionAtLocation:CGPointMake(10000, 10000)];
-
+    // This function spins until it finds the specified action type.
+    // To avoid hitting InteractionInformationAtPosition caches, use a slightly different long-press location each attempt.
+    bool shouldAlterPressLocation = false;
     __block RetainPtr<_WKElementAction> copyAction;
     __block RetainPtr<_WKActivatedElementInfo> copyElement;
-    __block bool done = false;
-    [observer setPresentationHandler:^(_WKActivatedElementInfo *element, NSArray *actions) {
-        copyElement = element;
-        for (_WKElementAction *action in actions) {
-            if (action.type == actionType)
-                copyAction = action;
-        }
-        done = true;
-        if (copyAction)
-            return @[ copyAction.get() ];
-        return @[ ];
-    }];
-    [webView _simulateLongPressActionAtLocation:location];
-    TestWebKitAPI::Util::run(&done);
+    while (!copyAction) {
+        // First reset interaction state (simulating real behavior in a long-press, dismiss sheet, long-press cycle).
+        [webView _resetInteraction];
 
-    if (!copyAction)
-        return false;
+        CGPoint location = shouldAlterPressLocation ? CGPointMake(originalLocation.x, originalLocation.y - 1) : originalLocation;
+        shouldAlterPressLocation = !shouldAlterPressLocation;
+
+        __block bool done = false;
+        [observer setPresentationHandler:^(_WKActivatedElementInfo *element, NSArray *actions) {
+            copyElement = element;
+            for (_WKElementAction *action in actions) {
+                if (action.type == actionType)
+                    copyAction = action;
+            }
+            done = true;
+            return actions;
+        }];
+        [webView _simulateLongPressActionAtLocation:location];
+        TestWebKitAPI::Util::run(&done);
+
+        // Spin a bit to allow underlying data structures to update, hopefully resulting in our expected action appearing next long-press.
+        if (!copyAction)
+            TestWebKitAPI::Util::runFor(0.1_s);
+    }
 
     EXPECT_TRUE(!!copyElement);
     [copyAction runActionWithElementInfo:copyElement.get()];
-    return true;
 }
 
-TEST(ActionSheetTests, PlayPauseAnimationInsideLink)
+static void playPauseAnimationTest(NSString *testFilename)
 {
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
     auto webView = adoptNS([[TestWKWebViewForAnimationControls alloc] initWithFrame:CGRectMake(0, 0, 320, 500) configuration:configuration addToWindow:YES]);
     auto observer = adoptNS([[ActionSheetObserver alloc] init]);
     [webView setUIDelegate:observer.get()];
-    [webView synchronouslyLoadTestPageNamed:@"img-animation-in-anchor"];
+    [webView synchronouslyLoadTestPageNamed:testFilename];
     [webView stringByEvaluatingJavaScript:@"window.internals.settings.setImageAnimationControlEnabled(true)"];
+    // Pause animations globally to establish a known state.
+    [webView stringByEvaluatingJavaScript:@"window.internals.setImageAnimationEnabled(false)"];
 
     // Start the animation.
-    while (!performLongPressAction(webView.get(), observer.get(), CGPointMake(100, 100), _WKElementActionPlayAnimation))
-        TestWebKitAPI::Util::runFor(0.1_s);
+    performLongPressAction(webView.get(), observer.get(), CGPointMake(100, 100), _WKElementActionPlayAnimation);
 
     // After the animation begins playing again, expect to have "Pause Animation" in the action sheet.
-    while (!performLongPressAction(webView.get(), observer.get(), CGPointMake(100, 100), _WKElementActionPauseAnimation))
-        TestWebKitAPI::Util::runFor(0.1_s);
+    performLongPressAction(webView.get(), observer.get(), CGPointMake(100, 100), _WKElementActionPauseAnimation);
 
     // Wait until we have "Play Animation" again (indicating the animation was successfully paused).
-    while (!performLongPressAction(webView.get(), observer.get(), CGPointMake(100, 100), _WKElementActionPlayAnimation))
-        TestWebKitAPI::Util::runFor(0.1_s);
+    performLongPressAction(webView.get(), observer.get(), CGPointMake(100, 100), _WKElementActionPlayAnimation);
+}
+
+TEST(ActionSheetTests, PlayPauseAnimationInsideLink)
+{
+    playPauseAnimationTest(@"img-animation-in-anchor");
+}
+
+TEST(ActionSheetTests, PlayPauseAnimationCoveredByLink)
+{
+    playPauseAnimationTest(@"img-animation-covered-by-link");
 }
 
 TEST(ActionSheetTests, PlayPauseAnimationSheetActionsNotPresentByDefault)

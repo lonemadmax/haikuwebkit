@@ -26,14 +26,17 @@
 #include "config.h"
 #include "InlineLineBuilder.h"
 
+#include "CSSLineBoxContainValue.h"
 #include "InlineFormattingContext.h"
 #include "InlineFormattingGeometry.h"
 #include "InlineFormattingQuirks.h"
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutState.h"
+#include "RenderStyleInlines.h"
 #include "Shape.h"
 #include "TextUtil.h"
+#include "UnicodeBidi.h"
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
@@ -183,7 +186,7 @@ static inline bool isAtSoftWrapOpportunity(const InlineItem& current, const Inli
         return endsWithSoftWrapOpportunity(currentInlineTextItem, nextInlineTextItem);
     }
     if (current.layoutBox().isListMarkerBox() || next.layoutBox().isListMarkerBox())
-        return false;
+        return true;
     if (current.isBox() || next.isBox()) {
         // [text][inline box start][inline box end][inline box] (text<span></span><img>) : there's a soft wrap opportunity between the [text] and [img].
         // The line breaking behavior of a replaced element or other atomic inline is equivalent to an ideographic character.
@@ -305,7 +308,7 @@ InlineLayoutUnit LineBuilder::inlineItemWidth(const InlineItem& inlineItem, Inli
         return { };
 
     auto& layoutBox = inlineItem.layoutBox();
-    auto& boxGeometry = m_inlineFormattingContext.geometryForBox(layoutBox);
+    auto& boxGeometry = formattingContext().geometryForBox(layoutBox);
 
     if (layoutBox.isReplacedBox())
         return boxGeometry.marginBoxWidth();
@@ -333,20 +336,11 @@ InlineLayoutUnit LineBuilder::inlineItemWidth(const InlineItem& inlineItem, Inli
     return boxGeometry.marginBoxWidth();
 }
 
-LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, InlineLayoutState& inlineLayoutState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
+LineBuilder::LineBuilder(const InlineFormattingContext& inlineFormattingContext, InlineLayoutState& inlineLayoutState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
     : m_intrinsicWidthMode(intrinsicWidthMode)
     , m_inlineFormattingContext(inlineFormattingContext)
-    , m_inlineFormattingState(&inlineFormattingContext.formattingState())
-    , m_inlineLayoutState(&inlineLayoutState)
+    , m_inlineLayoutState(inlineLayoutState)
     , m_rootHorizontalConstraints(rootHorizontalConstraints)
-    , m_line(inlineFormattingContext)
-    , m_inlineItems(inlineItems)
-{
-}
-
-LineBuilder::LineBuilder(const InlineFormattingContext& inlineFormattingContext, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
-    : m_intrinsicWidthMode(intrinsicWidthMode)
-    , m_inlineFormattingContext(inlineFormattingContext)
     , m_line(inlineFormattingContext)
     , m_inlineItems(inlineItems)
 {
@@ -366,6 +360,7 @@ LineBuilder::LineContent LineBuilder::layoutInlineContent(const LineInput& lineI
 
     return { committedRange
         , committedContent.overflowLogicalWidth
+        , WTFMove(m_placedFloats)
         , WTFMove(m_suspendedFloats)
         , m_lineIsConstrainedByFloat
         , m_lineInitialLogicalRect.left() + m_initialIntrusiveFloatsWidth
@@ -395,7 +390,7 @@ LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineIt
     auto committedContent = placeInlineContent(needsLayoutRange);
     auto committedRange = close(needsLayoutRange, committedContent);
     auto contentWidth = lineConstraints.logicalRect.left() + lineConstraints.marginStart + m_line.contentLogicalWidth();
-    return { committedRange, committedContent.overflowLogicalWidth, contentWidth, WTFMove(m_placedFloats) };
+    return { committedRange, committedContent.overflowLogicalWidth, contentWidth, WTFMove(m_placedFloats), WTFMove(m_suspendedFloats) };
 }
 
 void LineBuilder::initialize(const InlineRect& initialLineLogicalRect, const UsedConstraints& lineConstraints, const InlineItemRange& needsLayoutRange, const std::optional<PreviousLine>& previousLine)
@@ -508,11 +503,11 @@ CommittedContent LineBuilder::placeInlineContent(const InlineItemRange& needsLay
         // Now check if we can put this content on the current line.
         if (auto* floatItem = lineCandidate.floatItem) {
             ASSERT(lineCandidate.inlineContent.isEmpty());
-            if (!tryPlacingFloatBox(*floatItem, m_line.runs().isEmpty() ? MayOverConstrainLine::Yes : MayOverConstrainLine::No)) {
+            if (!tryPlacingFloatBox(floatItem->layoutBox(), m_line.runs().isEmpty() ? MayOverConstrainLine::Yes : MayOverConstrainLine::No)) {
                 // This float overconstrains the line (it simply means shrinking the line box by the float would cause inline content overflow.)
                 // At this point we suspend float layout but continue with inline layout.
                 // Such suspended float will be placed at the next available vertical positon when this line "closes".
-                m_suspendedFloats.append(floatItem);
+                m_suspendedFloats.append(&floatItem->layoutBox());
             }
             ++committedItemCount;
         } else {
@@ -576,7 +571,7 @@ InlineItemRange LineBuilder::close(const InlineItemRange& needsLayoutRange, cons
     auto& rootStyle = this->rootStyle();
 
     auto handleTrailingContent = [&] {
-        auto& quirks = m_inlineFormattingContext.formattingQuirks();
+        auto& quirks = formattingContext().formattingQuirks();
         auto lineHasOverflow = [&] {
             return horizontalAvailableSpace < m_line.contentLogicalWidth();
         };
@@ -609,10 +604,10 @@ InlineItemRange LineBuilder::close(const InlineItemRange& needsLayoutRange, cons
 
 FloatingContext::Constraints LineBuilder::floatConstraints(const InlineRect& lineMarginBoxRect) const
 {
-    if (isInIntrinsicWidthMode() || floatingState()->isEmpty())
+    if (isInIntrinsicWidthMode() || floatingState().isEmpty())
         return { };
 
-    return formattingContext().formattingGeometry().floatConstraintsForLine(lineMarginBoxRect.top(), lineMarginBoxRect.height(), FloatingContext { formattingContext(), *floatingState() });
+    return formattingContext().formattingGeometry().floatConstraintsForLine(lineMarginBoxRect.top(), lineMarginBoxRect.height(), FloatingContext { formattingContext(), floatingState() });
 }
 
 LineBuilder::UsedConstraints LineBuilder::initialConstraintsForLine(const InlineRect& initialLineLogicalRect, std::optional<bool> previousLineEndsWithLineBreak) const
@@ -1003,21 +998,21 @@ std::tuple<InlineRect, bool> LineBuilder::lineBoxForCandidateInlineContent(const
     return { adjustedLineRect, lineConstraints.left || lineConstraints.right };
 }
 
-LayoutUnit LineBuilder::adjustGeometryForInitialLetterIfNeeded(const Box& floatBox)
+std::optional<LineBuilder::InitialLetterOffsets> LineBuilder::adjustLineRectForInitialLetterIfApplicable(const Box& floatBox)
 {
     auto drop = floatBox.style().initialLetterDrop();
     auto isInitialLetter = floatBox.isFloatingPositioned() && floatBox.style().styleType() == PseudoId::FirstLetter && drop;
     if (!isInitialLetter) {
-        inlineLayoutState()->setClearGapBeforeFirstLine({ });
+        inlineLayoutState().setClearGapBeforeFirstLine({ });
         return { };
     }
     // Here we try to set the vertical start position for the float in flush with the adjoining text content's cap height.
     // It's a super premature as at this point we don't normally deal with vertical geometry -other than the incoming vertical constraint.
     auto initialLetterCapHeightOffset = formattingContext().formattingQuirks().initialLetterAlignmentOffset(floatBox, rootStyle());
     // While initial-letter based floats do not set their clear property, intrusive floats from sibling IFCs are supposed to be cleared.
-    auto intrusiveBottom = blockLayoutState()->intrusiveInitialLetterLogicalBottom();
+    auto intrusiveBottom = blockLayoutState().intrusiveInitialLetterLogicalBottom();
     if (!initialLetterCapHeightOffset && !intrusiveBottom) {
-        inlineLayoutState()->setClearGapBeforeFirstLine({ });
+        inlineLayoutState().setClearGapBeforeFirstLine({ });
         return { };
     }
 
@@ -1032,6 +1027,7 @@ LayoutUnit LineBuilder::adjustGeometryForInitialLetterIfNeeded(const Box& floatB
         clearGapBeforeFirstLine = *intrusiveBottom;
     }
 
+    auto sunkenBelowFirstLineOffset = LayoutUnit { };
     auto letterHeight = floatBox.style().initialLetterHeight();
     if (drop < letterHeight) {
         // Sunken/raised initial letter pushes contents of the first line down.
@@ -1043,14 +1039,12 @@ LayoutUnit LineBuilder::adjustGeometryForInitialLetterIfNeeded(const Box& floatB
     } else if (drop > letterHeight) {
         // Initial letter is sunken below the first line.
         auto numberOfLinesAboveInitialLetter = drop - letterHeight;
-        auto additialMarginBefore = numberOfLinesAboveInitialLetter * rootStyle().computedLineHeight();
-        auto& floatBoxGeometry = formattingState()->boxGeometry(floatBox);
-        floatBoxGeometry.setVerticalMargin({ floatBoxGeometry.marginBefore() + additialMarginBefore, floatBoxGeometry.marginAfter() });
+        sunkenBelowFirstLineOffset = numberOfLinesAboveInitialLetter * rootStyle().computedLineHeight();
     }
 
     m_lineLogicalRect.moveVertically(clearGapBeforeFirstLine);
-    inlineLayoutState()->setClearGapBeforeFirstLine(clearGapBeforeFirstLine);
-    return initialLetterCapHeightOffset.value_or(0_lu);
+    inlineLayoutState().setClearGapBeforeFirstLine(clearGapBeforeFirstLine);
+    return InitialLetterOffsets { initialLetterCapHeightOffset.value_or(0_lu), sunkenBelowFirstLineOffset };
 }
 
 bool LineBuilder::shouldTryToPlaceFloatBox(const Box& floatBox, LayoutUnit floatBoxMarginBoxWidth, MayOverConstrainLine mayOverConstrainLine) const
@@ -1083,34 +1077,28 @@ static bool haveEnoughSpaceForFloatWithClear(const LayoutRect& floatBoxMarginBox
     return contentLogicalWidth <= availableSpaceForContentWithPlacedFloat;
 }
 
-bool LineBuilder::tryPlacingFloatBox(const InlineItem& floatItem, MayOverConstrainLine mayOverConstrainLine)
+bool LineBuilder::tryPlacingFloatBox(const Box& floatBox, MayOverConstrainLine mayOverConstrainLine)
 {
-    if (isInIntrinsicWidthMode()) {
-        ASSERT_NOT_REACHED();
-        // Floats are not supposed to be added to FloatingState in intrinsic mode.
-        m_placedFloats.append(&floatItem);
-        return true;
-    }
-    ASSERT(formattingState());
     if (isFloatLayoutSuspended())
         return false;
 
-    auto& floatBox = floatItem.layoutBox();
-    auto& boxGeometry = formattingState()->boxGeometry(floatBox);
+    auto boxGeometry = BoxGeometry { formattingContext().geometryForBox(floatBox) };
     if (!shouldTryToPlaceFloatBox(floatBox, boxGeometry.marginBoxWidth(), mayOverConstrainLine))
         return false;
 
     auto lineMarginBoxLeft = std::max(0.f, m_lineLogicalRect.left() - m_lineMarginStart);
-    auto floatingContext = FloatingContext { formattingContext(), *floatingState() };
+    auto floatingContext = FloatingContext { formattingContext(), floatingState() };
     auto computeFloatBoxPosition = [&] {
         // Set static position first.
-        auto additionalOffset = adjustGeometryForInitialLetterIfNeeded(floatBox);
-        auto staticPosition = LayoutPoint { lineMarginBoxLeft, m_lineLogicalRect.top() + additionalOffset };
+        auto staticPosition = LayoutPoint { lineMarginBoxLeft, m_lineLogicalRect.top() };
+        if (auto additionalOffsets = adjustLineRectForInitialLetterIfApplicable(floatBox)) {
+            staticPosition.setY(m_lineLogicalRect.top() + additionalOffsets->capHeightOffset);
+            boxGeometry.setVerticalMargin({ boxGeometry.marginBefore() + additionalOffsets->sunkenBelowFirstLineOffset, boxGeometry.marginAfter() });
+        }
         staticPosition.move(boxGeometry.marginStart(), boxGeometry.marginBefore());
         boxGeometry.setLogicalTopLeft(staticPosition);
-
         // Compute float position by running float layout.
-        auto floatingPosition = floatingContext.positionForFloat(floatBox, *m_rootHorizontalConstraints);
+        auto floatingPosition = floatingContext.positionForFloat(floatBox, boxGeometry, *m_rootHorizontalConstraints);
         boxGeometry.setLogicalTopLeft(floatingPosition);
     };
     computeFloatBoxPosition();
@@ -1142,10 +1130,10 @@ bool LineBuilder::tryPlacingFloatBox(const InlineItem& floatItem, MayOverConstra
     if (floatBox.hasFloatClear() && !willFloatBoxWithClearFit())
         return false;
 
-    auto floatBoxItem = floatingContext.toFloatItem(floatBox);
     auto placeFloatBox = [&] {
-        floatingState()->append(floatBoxItem);
-        m_placedFloats.append(&floatItem);
+        auto floatItem = floatingContext.toFloatItem(floatBox, boxGeometry);
+        floatingState().append(floatItem);
+        m_placedFloats.append(floatItem);
     };
     placeFloatBox();
 
@@ -1186,7 +1174,7 @@ LineBuilder::Result LineBuilder::handleInlineContent(InlineContentBreaker& inlin
     // While the floats are not considered to be on the line, they make the line contentful for line breaking.
     auto [adjustedLineForCandidateContent, candidateContentIsConstrainedByFloat] = lineBoxForCandidateInlineContent(lineCandidate);
     auto availableWidthForCandidateContent = availableWidth(inlineContent, m_line, adjustedLineForCandidateContent.width());
-    auto lineIsConsideredContentful = m_line.hasContent() || m_lineIsConstrainedByFloat || candidateContentIsConstrainedByFloat;
+    auto lineIsConsideredContentful = m_line.hasContentOrListMarker() || m_lineIsConstrainedByFloat || candidateContentIsConstrainedByFloat;
     auto lineStatus = InlineContentBreaker::LineStatus {
         m_line.contentLogicalRight(),
         availableWidthForCandidateContent,
@@ -1206,7 +1194,7 @@ LineBuilder::Result LineBuilder::handleInlineContent(InlineContentBreaker& inlin
             // We are keeping this content on the line but we need to check if we could have wrapped here
             // in order to be able to revert back to this position if needed.
             // Let's just ignore cases like collapsed leading whitespace for now.
-            if (lineCandidate.inlineContent.hasTrailingSoftWrapOpportunity() && m_line.hasContent()) {
+            if (lineCandidate.inlineContent.hasTrailingSoftWrapOpportunity() && m_line.hasContentOrListMarker()) {
                 auto& trailingRun = candidateRuns.last();
                 auto& trailingInlineItem = trailingRun.inlineItem;
 

@@ -28,6 +28,7 @@
 #include "ASTBuilder.h"
 #include "ASTDirective.h"
 #include "ASTFunction.h"
+#include "ASTIdentityExpression.h"
 #include "ASTStructure.h"
 #include "ASTVariable.h"
 #include "TypeStore.h"
@@ -70,7 +71,7 @@ public:
     }
 
     template<typename T>
-    std::enable_if_t<std::is_fundamental_v<T>, void> replace(T* current, T&& replacement)
+    std::enable_if_t<std::is_fundamental_v<T> || std::is_enum_v<T>, void> replace(T* current, T&& replacement)
     {
         std::swap(*current, replacement);
         m_replacements.append([current, replacement = WTFMove(replacement)]() mutable {
@@ -79,17 +80,27 @@ public:
     }
 
     template<typename CurrentType, typename ReplacementType>
-    void replace(CurrentType* current, ReplacementType&& replacement)
+    std::enable_if_t<sizeof(CurrentType) < sizeof(ReplacementType), void> replace(CurrentType& current, ReplacementType& replacement)
     {
-        static_assert(sizeof(ReplacementType) <= sizeof(CurrentType));
-
-        m_replacements.append([current, currentCopy = *current]() mutable {
-            bitwise_cast<ReplacementType*>(current)->~ReplacementType();
-            new (current) CurrentType(WTFMove(currentCopy));
+        m_replacements.append([&current, currentCopy = current]() mutable {
+            bitwise_cast<AST::IdentityExpression*>(&current)->~IdentityExpression();
+            new (&current) CurrentType(WTFMove(currentCopy));
         });
 
-        current->~CurrentType();
-        new (current) ReplacementType(WTFMove(replacement));
+        current.~CurrentType();
+        new (&current) AST::IdentityExpression(replacement.span(), replacement);
+    }
+
+    template<typename CurrentType, typename ReplacementType>
+    std::enable_if_t<sizeof(CurrentType) >= sizeof(ReplacementType), void> replace(CurrentType& current, ReplacementType& replacement)
+    {
+        m_replacements.append([&current, currentCopy = current]() mutable {
+            bitwise_cast<ReplacementType*>(&current)->~ReplacementType();
+            new (bitwise_cast<void*>(&current)) CurrentType(WTFMove(currentCopy));
+        });
+
+        current.~CurrentType();
+        new (bitwise_cast<void*>(&current)) ReplacementType(replacement);
     }
 
     template<typename T, size_t size>
@@ -103,10 +114,10 @@ public:
         return last;
     }
 
-    template<typename T, size_t size>
-    void append(const Vector<T, size>& constVector, T&& value)
+    template<typename T, typename U, size_t size>
+    void append(const Vector<U, size>& constVector, T&& value)
     {
-        auto& vector = const_cast<Vector<T, size>&>(constVector);
+        auto& vector = const_cast<Vector<U, size>&>(constVector);
         vector.append(std::forward<T>(value));
         m_replacements.append([&vector]() {
             vector.takeLast();

@@ -48,6 +48,59 @@ static void enableSiteIsolation(WKWebViewConfiguration *configuration)
     }
 }
 
+enum RemoteFrameTag { RemoteFrame };
+struct ExpectedFrameTree {
+    std::variant<RemoteFrameTag, String> remoteOrOrigin;
+    Vector<ExpectedFrameTree> children { };
+};
+
+static bool frameTreesMatch(_WKFrameTreeNode *actualRoot, const ExpectedFrameTree& expectedRoot)
+{
+    WKFrameInfo *info = actualRoot.info;
+    if (info._isLocalFrame != std::holds_alternative<String>(expectedRoot.remoteOrOrigin))
+        return false;
+
+    if (auto* expectedOrigin = std::get_if<String>(&expectedRoot.remoteOrOrigin)) {
+        WKSecurityOrigin *origin = info.securityOrigin;
+        auto actualOrigin = makeString(String(origin.protocol), "://"_s, String(origin.host), origin.port ? makeString(':', origin.port) : String());
+        if (actualOrigin != *expectedOrigin)
+            return false;
+    }
+
+    if (actualRoot.childFrames.count != expectedRoot.children.size())
+        return false;
+    for (size_t i = 0; i < expectedRoot.children.size(); i++) {
+        if (!frameTreesMatch(actualRoot.childFrames[i], expectedRoot.children[i]))
+            return false;
+    }
+    return true;
+}
+
+static bool frameTreesMatch(NSSet<_WKFrameTreeNode *> *actualFrameTrees, Vector<ExpectedFrameTree>&& expectedFrameTrees)
+{
+    EXPECT_EQ(actualFrameTrees.count, expectedFrameTrees.size());
+
+    for (_WKFrameTreeNode *root in actualFrameTrees) {
+        auto index = expectedFrameTrees.findIf([&] (auto& expectedFrameTree) {
+            return frameTreesMatch(root, expectedFrameTree);
+        });
+        if (index == WTF::notFound)
+            return false;
+        expectedFrameTrees.remove(index);
+    }
+    return expectedFrameTrees.isEmpty();
+}
+
+static void checkFrameTreesInProcesses(WKWebView *webView, Vector<ExpectedFrameTree>&& expectedFrameTrees)
+{
+    bool done { false };
+    [webView _frameTrees:makeBlockPtr([&done, expectedFrameTrees = WTFMove(expectedFrameTrees)] (NSSet<_WKFrameTreeNode *> *actualFrameTrees) mutable {
+        EXPECT_TRUE(frameTreesMatch(actualFrameTrees, WTFMove(expectedFrameTrees)));
+        done = true;
+    }).get()];
+    Util::run(&done);
+}
+
 TEST(SiteIsolation, LoadingCallbacksAndPostMessage)
 {
     auto exampleHTML = "<script>"
@@ -140,16 +193,13 @@ TEST(SiteIsolation, LoadingCallbacksAndPostMessage)
         Util::spinRunLoop();
     EXPECT_WK_STREQ(alert.get(), "parent frame received pingpong");
 
-    __block bool done { false };
-    [webView _frames:^(_WKFrameTreeNode *mainFrame) {
-        pid_t mainFramePid = mainFrame._processIdentifier;
-        pid_t childFramePid = mainFrame.childFrames.firstObject._processIdentifier;
-        EXPECT_NE(mainFramePid, 0);
-        EXPECT_NE(childFramePid, 0);
-        EXPECT_NE(mainFramePid, childFramePid);
-        done = true;
-    }];
-    Util::run(&done);
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://example.com"_s,
+            { { RemoteFrame } }
+        }, { RemoteFrame,
+            { { "https://webkit.org"_s } }
+        },
+    });
 }
 
 TEST(SiteIsolation, PostMessageWithMessagePorts)
@@ -411,7 +461,7 @@ TEST(SiteIsolation, NavigatingCrossOriginIframeToSameOrigin)
         pid_t childFramePid = childFrame._processIdentifier;
         EXPECT_NE(mainFramePid, 0);
         EXPECT_NE(childFramePid, 0);
-        EXPECT_NE(mainFramePid, childFramePid); // FIXME: These should be equal.
+        EXPECT_EQ(mainFramePid, childFramePid);
         EXPECT_WK_STREQ(mainFrame.securityOrigin.host, "example.com");
         EXPECT_WK_STREQ(childFrame.securityOrigin.host, "example.com");
         done = true;
@@ -423,14 +473,14 @@ TEST(SiteIsolation, ParentNavigatingCrossOriginIframeToSameOrigin)
 {
     HTTPServer server({
         { "/example"_s, { "<iframe id='webkit_frame' src='https://webkit.org/webkit'></iframe><script>onload = () => { document.getElementById('webkit_frame').src = 'https://example.com/example_subframe' }</script>"_s } },
-        { "/example_subframe"_s, { "<script>alert('done')</script>"_s } },
+        { "/example_subframe"_s, { "<script>onload = ()=>{ alert('done') }</script>"_s } },
         { "/webkit"_s, { "hi"_s } }
     }, HTTPServer::Protocol::HttpsProxy);
     auto navigationDelegate = adoptNS([TestNavigationDelegate new]);
     [navigationDelegate allowAnyTLSCertificate];
 
     auto configuration = server.httpsProxyConfiguration();
-    // FIXME: call enableSiteIsolation to make this actually use site isolation.
+    enableSiteIsolation(configuration);
 
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration]);
     webView.get().navigationDelegate = navigationDelegate.get();
@@ -450,6 +500,17 @@ TEST(SiteIsolation, ParentNavigatingCrossOriginIframeToSameOrigin)
         done = true;
     }];
     Util::run(&done);
+
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://example.com"_s,
+            { { "https://example.com"_s } }
+        },
+        // FIXME: This process should be torn down when the iframe navigates back to example.com.
+        // The count of local frames going to 0 should remove the SubframePageProxy.
+        { RemoteFrame,
+            { { RemoteFrame } }
+        },
+    });
 }
 
 TEST(SiteIsolation, IframeNavigatesSelfWithoutChangingOrigin)
@@ -612,7 +673,7 @@ TEST(SiteIsolation, ChildNavigatingToMainFrameDomain)
     [navigationDelegate allowAnyTLSCertificate];
 
     auto configuration = server.httpsProxyConfiguration();
-    // FIXME: Enable site isolation once the new frame can be loaded in the same process as mainFrame
+    enableSiteIsolation(configuration);
 
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration]);
     webView.get().navigationDelegate = navigationDelegate.get();

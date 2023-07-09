@@ -142,7 +142,7 @@ void EventRegionContext::uniteInteractionRegions(const Region& region, RenderObj
             auto occlusionRect = guardRectForRegionBounds(tempRegion.bounds());
             if (occlusionRect) {
                 m_interactionRegions.append({
-                    InteractionRegion::Type::Occlusion,
+                    InteractionRegion::Type::Guard,
                     interactionRegion->elementIdentifier,
                     occlusionRect.value()
                 });
@@ -164,7 +164,7 @@ void EventRegionContext::uniteInteractionRegions(const Region& region, RenderObj
         auto occlusionRect = guardRectForRegionBounds(interactionRegion->rectInLayerCoordinates);
         if (occlusionRect) {
             m_interactionRegions.append({
-                InteractionRegion::Type::Occlusion,
+                InteractionRegion::Type::Guard,
                 interactionRegion->elementIdentifier,
                 occlusionRect.value()
             });
@@ -175,7 +175,7 @@ void EventRegionContext::uniteInteractionRegions(const Region& region, RenderObj
 
 bool EventRegionContext::shouldConsolidateInteractionRegion(IntRect bounds, RenderObject& renderer)
 {
-    if (!renderer.style().borderAndBackgroundEqual(RenderStyle::defaultStyle()))
+    if (renderer.hasVisibleBoxDecorations())
         return false;
 
     for (auto& ancestor : ancestorsOfType<RenderElement>(renderer)) {
@@ -206,7 +206,7 @@ bool EventRegionContext::shouldConsolidateInteractionRegion(IntRect bounds, Rend
         }
 
         // If we find a border / background, stop the search.
-        if (!ancestor.style().borderAndBackgroundEqual(RenderStyle::defaultStyle()))
+        if (ancestor.hasVisibleBoxDecorations())
             return false;
     }
 
@@ -217,7 +217,7 @@ bool EventRegionContext::shouldConsolidateInteractionRegion(IntRect bounds, Rend
 void EventRegionContext::shrinkWrapInteractionRegions()
 {
     for (auto& region : m_interactionRegions) {
-        if (region.type == InteractionRegion::Type::Occlusion)
+        if (region.type != InteractionRegion::Type::Interaction)
             continue;
 
         auto regionIterator = m_discoveredRegionsByElement.find(region.elementIdentifier);

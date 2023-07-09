@@ -120,11 +120,17 @@ class InternalSource final : public MediaStreamTrackPrivate::Observer,
     public RealtimeMediaSource::VideoFrameObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    InternalSource(GstElement* parent, MediaStreamTrackPrivate& track, const String& padName)
+    InternalSource(GstElement* parent, MediaStreamTrackPrivate& track, const String& padName, bool consumerIsVideoPlayer)
         : m_parent(parent)
         , m_track(track)
         , m_padName(padName)
+#if USE(GSTREAMER_WEBRTC)
+        , m_consumerIsVideoPlayer(consumerIsVideoPlayer)
+#endif
     {
+#if !USE(GSTREAMER_WEBRTC)
+        UNUSED_PARAM(consumerIsVideoPlayer);
+#endif
         static uint64_t audioCounter = 0;
         static uint64_t videoCounter = 0;
         String elementName;
@@ -168,6 +174,19 @@ public:
                 auto& trackSource = internalSource->m_track.source();
                 ASSERT(internalSource->m_webrtcSourceClientId.has_value());
                 auto clientId = internalSource->m_webrtcSourceClientId.value();
+
+                if (GST_IS_QUERY(info->data)) {
+                    switch (GST_QUERY_TYPE(GST_PAD_PROBE_INFO_QUERY(info))) {
+                    case GST_QUERY_CAPS:
+                    case GST_QUERY_LATENCY:
+                        return GST_PAD_PROBE_OK;
+                    default:
+                        break;
+                    }
+                    GST_DEBUG_OBJECT(internalSource->m_src.get(), "Proxying query %" GST_PTR_FORMAT " to appsink peer", GST_PAD_PROBE_INFO_QUERY(info));
+                } else
+                    GST_DEBUG_OBJECT(internalSource->m_src.get(), "Proxying event %" GST_PTR_FORMAT " to appsink peer", GST_PAD_PROBE_INFO_EVENT(info));
+
                 if (trackSource.isIncomingAudioSource()) {
                     auto& source = static_cast<RealtimeIncomingAudioSourceGStreamer&>(trackSource);
                     if (GST_IS_EVENT(info->data))
@@ -344,12 +363,6 @@ public:
         }
     }
 
-    void handleDownstreamEvent(GRefPtr<GstEvent>&& event) final
-    {
-        auto pad = adoptGRef(gst_element_get_static_pad(m_src.get(), "src"));
-        gst_pad_push_event(pad.get(), event.leakRef());
-    }
-
     void videoFrameAvailable(VideoFrame& videoFrame, VideoFrameTimeMetadata) final
     {
         if (!m_parent || !m_isObserving)
@@ -357,6 +370,18 @@ public:
 
         auto videoFrameSize = videoFrame.presentationSize();
         IntSize captureSize(videoFrameSize.width(), videoFrameSize.height());
+
+        auto gstVideoFrame = static_cast<VideoFrameGStreamer*>(&videoFrame);
+        GRefPtr<GstSample> sample = gstVideoFrame->sample();
+
+#if USE(GSTREAMER_WEBRTC)
+        // Video encoders require a multiple of two frame size. At least x264enc does anyway.
+        if (!m_consumerIsVideoPlayer && !m_track.source().isIncomingVideoSource() && (captureSize.width() % 2 || captureSize.height() % 2)) {
+            captureSize.setWidth(roundUpToMultipleOf(2, captureSize.width()));
+            captureSize.setHeight(roundUpToMultipleOf(2, captureSize.height()));
+            sample = gstVideoFrame->resizedSample(captureSize);
+        }
+#endif
 
         auto settings = m_track.settings();
         m_configuredSize.setWidth(settings.width());
@@ -385,7 +410,6 @@ public:
         }
 
         if (m_track.enabled()) {
-            GRefPtr<GstSample> sample = static_cast<VideoFrameGStreamer*>(&videoFrame)->sample();
             pushSample(WTFMove(sample), "Pushing video frame from enabled track");
             return;
         }
@@ -517,6 +541,9 @@ private:
     Lock m_eosLock;
     bool m_eosPending WTF_GUARDED_BY_LOCK(m_eosLock) { false };
     std::optional<int> m_webrtcSourceClientId;
+#if USE(GSTREAMER_WEBRTC)
+    bool m_consumerIsVideoPlayer { false };
+#endif
 };
 
 struct _WebKitMediaStreamSrcPrivate {
@@ -918,7 +945,7 @@ static GstPadProbeReturn webkitMediaStreamSrcPadProbeCb(GstPad* pad, GstPadProbe
     return GST_PAD_PROBE_OK;
 }
 
-void webkitMediaStreamSrcAddTrack(WebKitMediaStreamSrc* self, MediaStreamTrackPrivate* track, bool onlyTrack)
+void webkitMediaStreamSrcAddTrack(WebKitMediaStreamSrc* self, MediaStreamTrackPrivate* track, bool onlyTrack, bool consumerIsVideoPlayer)
 {
     const char* sourceType;
     unsigned counter;
@@ -938,7 +965,7 @@ void webkitMediaStreamSrcAddTrack(WebKitMediaStreamSrc* self, MediaStreamTrackPr
     GST_DEBUG_OBJECT(self, "Setup %s source for track %s, only track: %s", sourceType, track->id().utf8().data(), boolForPrinting(onlyTrack));
 
     auto padName = makeString(sourceType, "_src", counter);
-    auto source = makeUnique<InternalSource>(GST_ELEMENT_CAST(self), *track, padName);
+    auto source = makeUnique<InternalSource>(GST_ELEMENT_CAST(self), *track, padName, consumerIsVideoPlayer);
     auto* element = source->get();
     gst_bin_add(GST_BIN_CAST(self), element);
 
@@ -981,7 +1008,7 @@ void webkitMediaStreamSrcSetStream(WebKitMediaStreamSrc* self, MediaStreamPrivat
     for (auto& track : tracks) {
         if (!isVideoPlayer && track->isVideo())
             continue;
-        webkitMediaStreamSrcAddTrack(self, track.ptr(), onlyTrack);
+        webkitMediaStreamSrcAddTrack(self, track.ptr(), onlyTrack, isVideoPlayer);
     }
 }
 

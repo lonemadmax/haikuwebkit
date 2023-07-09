@@ -115,6 +115,10 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/unicode/CharacterNames.h>
 
+#if ENABLE(APPLE_PAY)
+#include "ApplePayButtonPart.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -509,9 +513,13 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
 
     if (!m_renderer)
         return nullptr;
-    
+
+    WeakPtr cache = axObjectCache();
+    if (!cache)
+        return nullptr;
+
     if (ariaRoleAttribute() == AccessibilityRole::MenuBar)
-        return axObjectCache()->getOrCreate(m_renderer->parent());
+        return cache->getOrCreate(m_renderer->parent());
 
     // menuButton and its corresponding menu are DOM siblings, but Accessibility needs them to be parent/child
     if (ariaRoleAttribute() == AccessibilityRole::Menu) {
@@ -530,10 +538,6 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
         }
     }
 #endif
-
-    AXObjectCache* cache = axObjectCache();
-    if (!cache)
-        return nullptr;
 
     if (auto* parentObject = renderParentObject())
         return cache->getOrCreate(parentObject);
@@ -1385,8 +1389,8 @@ PlainTextRange AccessibilityRenderObject::selectedTextRange() const
 {
     ASSERT(isTextControl());
 
-    if (isSecureField())
-        return PlainTextRange();
+    if (shouldReturnEmptySelectedText())
+        return { };
 
     // Use the text control native range if it's a native object.
     if (isNativeTextControl()) {
@@ -1444,7 +1448,7 @@ static void clearTextSelectionIntent(AXObjectCache* cache)
     cache->setIsSynchronizingSelection(false);
 }
 
-void AccessibilityRenderObject::setSelectedTextRange(const PlainTextRange& range)
+void AccessibilityRenderObject::setSelectedTextRange(PlainTextRange&& range)
 {
     setTextSelectionIntent(axObjectCache(), range.length ? AXTextStateChangeTypeSelectionExtend : AXTextStateChangeTypeSelectionMove);
 
@@ -1465,7 +1469,7 @@ void AccessibilityRenderObject::setSelectedTextRange(const PlainTextRange& range
         auto end = visiblePositionForIndexUsingCharacterIterator(node, range.start + range.length);
         if (!contains<ComposedTree>(*elementRange, makeBoundaryPoint(end)))
             end = makeContainerOffsetPosition(elementRange->start);
-        m_renderer->frame().selection().setSelection(VisibleSelection(start, end), FrameSelection::defaultSetSelectionOptions(UserTriggered));
+        m_renderer->frame().selection().setSelection(VisibleSelection(start, end), FrameSelection::defaultSetSelectionOptions(UserTriggered::Yes));
     }
 
     clearTextSelectionIntent(axObjectCache());
@@ -1481,30 +1485,14 @@ URL AccessibilityRenderObject::url() const
     return AccessibilityNodeObject::url();
 }
 
-void AccessibilityRenderObject::setSelectedRows(AccessibilityChildrenVector& selectedRows)
-{
-    // Setting selected only makes sense in trees and tables (and tree-tables).
-    AccessibilityRole role = roleValue();
-    if (role != AccessibilityRole::Tree && role != AccessibilityRole::TreeGrid && role != AccessibilityRole::Table && role != AccessibilityRole::Grid)
-        return;
-    
-    bool isMulti = isMultiSelectable();
-    unsigned count = selectedRows.size();
-    if (count > 1 && !isMulti)
-        count = 1;
-    
-    for (const auto& selectedRow : selectedRows)
-        selectedRow->setSelected(true);
-}
-    
 bool AccessibilityRenderObject::setValue(const String& string)
 {
     if (!m_renderer || !is<Element>(m_renderer->node()))
         return false;
-    
+
     Element& element = downcast<Element>(*m_renderer->node());
     RenderObject& renderer = *m_renderer;
-    
+
     // We should use the editor's insertText to mimic typing into the field.
     // Also only do this when the field is in editing mode.
     if (auto* frame = renderer.document().frame()) {
@@ -1524,7 +1512,7 @@ bool AccessibilityRenderObject::setValue(const String& string)
         downcast<HTMLTextAreaElement>(element).setValue(string);
         return true;
     }
-    
+
     return false;
 }
 
@@ -1674,7 +1662,7 @@ VisiblePositionRange AccessibilityRenderObject::visiblePositionRangeForLine(unsi
     // The resulting selection in that case will be a caret at position.
     FrameSelection selection;
     selection.setSelection(position);
-    selection.modify(FrameSelection::AlterationExtend, SelectionDirection::Right, TextGranularity::LineBoundary);
+    selection.modify(FrameSelection::Alteration::Extend, SelectionDirection::Right, TextGranularity::LineBoundary);
     return selection.selection();
 }
 
@@ -1847,12 +1835,12 @@ void AccessibilityRenderObject::setSelectedVisiblePositionRange(const VisiblePos
                     start = makeContainerOffsetPosition(elementRange->start);
             }
 
-            m_renderer->frame().selection().moveTo(start, UserTriggered);
+            m_renderer->frame().selection().moveTo(start, UserTriggered::Yes);
         } else {
             setTextSelectionIntent(axObjectCache(), AXTextStateChangeTypeSelectionExtend);
 
             VisibleSelection newSelection = VisibleSelection(range.start, range.end);
-            m_renderer->frame().selection().setSelection(newSelection, FrameSelection::defaultSetSelectionOptions(UserTriggered));
+            m_renderer->frame().selection().setSelection(newSelection, FrameSelection::defaultSetSelectionOptions(UserTriggered::Yes));
         }
     }
 
@@ -2319,11 +2307,11 @@ bool AccessibilityRenderObject::inheritsPresentationalRole() const
     // those child elements are also presentational. For example, <li> becomes presentational from <ul>.
     // http://www.w3.org/WAI/PF/aria/complete#presentation
 
-    Span<decltype(aTag)* const> parentTags;
+    std::span<decltype(aTag)* const> parentTags;
     switch (roleValue()) {
     case AccessibilityRole::ListItem:
     case AccessibilityRole::ListMarker: {
-        static constexpr std::array listItemParents { &dlTag, &olTag, &ulTag };
+        static constexpr std::array listItemParents { &dlTag, &menuTag, &olTag, &ulTag };
         parentTags = listItemParents;
         break;
     }
@@ -2535,7 +2523,10 @@ void AccessibilityRenderObject::addNodeOnlyChildren()
     
     if (!hasNodeOnlyChildren)
         return;
-    
+
+    WeakPtr cache = axObjectCache();
+    if (!cache)
+        return;
     // Iterate through all of the children, including those that may have already been added, and
     // try to insert the nodes in the correct place in the DOM order.
     unsigned insertionIndex = 0;
@@ -2558,12 +2549,12 @@ void AccessibilityRenderObject::addNodeOnlyChildren()
 
         if (!nodeHasDisplayContents(*child) && !isNodeAriaVisible(child))
             continue;
-        
+
         unsigned previousSize = m_children.size();
         if (insertionIndex > previousSize)
             insertionIndex = previousSize;
-        
-        insertChild(axObjectCache()->getOrCreate(child), insertionIndex);
+
+        insertChild(cache->getOrCreate(child), insertionIndex);
         insertionIndex += (m_children.size() - previousSize);
     }
 }

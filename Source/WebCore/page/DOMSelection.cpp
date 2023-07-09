@@ -30,6 +30,7 @@
 #include "config.h"
 #include "DOMSelection.h"
 
+#include "CommonAtomStrings.h"
 #include "Document.h"
 #include "Editing.h"
 #include "FrameSelection.h"
@@ -308,11 +309,11 @@ ExceptionOr<void> DOMSelection::setPosition(Node* node, unsigned offset)
 
 void DOMSelection::modify(const String& alterString, const String& directionString, const String& granularityString)
 {
-    FrameSelection::EAlteration alter;
+    FrameSelection::Alteration alter;
     if (equalLettersIgnoringASCIICase(alterString, "extend"_s))
-        alter = FrameSelection::AlterationExtend;
+        alter = FrameSelection::Alteration::Extend;
     else if (equalLettersIgnoringASCIICase(alterString, "move"_s))
-        alter = FrameSelection::AlterationMove;
+        alter = FrameSelection::Alteration::Move;
     else
         return;
 

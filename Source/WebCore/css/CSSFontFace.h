@@ -95,7 +95,7 @@ public:
     struct UnicodeRange;
 
     RefPtr<CSSValueList> families() const;
-    Span<const UnicodeRange> ranges() const { ASSERT(m_status != Status::Failure); return m_ranges.span(); }
+    std::span<const UnicodeRange> ranges() const { ASSERT(m_status != Status::Failure); return m_ranges.span(); }
 
     void setFontSelectionCapabilities(FontSelectionCapabilities capabilities) { m_fontSelectionCapabilities = capabilities; }
     FontSelectionCapabilities fontSelectionCapabilities() const { ASSERT(m_status != Status::Failure); return m_fontSelectionCapabilities.computeFontSelectionCapabilities(); }
@@ -139,7 +139,6 @@ public:
         UChar32 from;
         UChar32 to;
         bool operator==(const UnicodeRange& other) const { return from == other.from && to == other.to; }
-        bool operator!=(const UnicodeRange& other) const { return !(*this == other); }
     };
 
     bool rangesMatchCodePoint(UChar32) const;

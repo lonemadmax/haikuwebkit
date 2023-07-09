@@ -27,9 +27,9 @@
 
 #include "SharedMemory.h"
 #include <cstddef>
+#include <span>
 #include <wtf/Atomics.h>
 #include <wtf/Ref.h>
-#include <wtf/Span.h>
 
 namespace IPC {
 class Decoder;
@@ -119,8 +119,8 @@ public:
 
     static constexpr size_t maximumSize() { return std::min(static_cast<size_t>(ClientOffset::serverIsSleepingTag), static_cast<size_t>(ClientOffset::serverIsSleepingTag)) - 1; }
 
-    Span<uint8_t> headerForTesting();
-    Span<uint8_t> dataForTesting();
+    std::span<uint8_t> headerForTesting();
+    std::span<uint8_t> dataForTesting();
 
 protected:
     StreamConnectionBuffer(Ref<WebKit::SharedMemory>&&);

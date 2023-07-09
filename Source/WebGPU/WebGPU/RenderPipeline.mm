@@ -388,6 +388,8 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
 
         const auto& entryPointInformation = libraryCreationResult->entryPointInformation;
         auto vertexFunction = createFunction(libraryCreationResult->library, entryPointInformation, descriptor.vertex.constantCount, descriptor.vertex.constants, label);
+        if (!vertexFunction)
+            return RenderPipeline::createInvalid(*this);
         mtlRenderPipelineDescriptor.vertexFunction = vertexFunction;
     }
 
@@ -409,6 +411,8 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
 
         const auto& entryPointInformation = libraryCreationResult->entryPointInformation;
         auto fragmentFunction = createFunction(libraryCreationResult->library, entryPointInformation, fragmentDescriptor.constantCount, fragmentDescriptor.constants, label);
+        if (!fragmentFunction)
+            return RenderPipeline::createInvalid(*this);
         mtlRenderPipelineDescriptor.fragmentFunction = fragmentFunction;
 
         for (uint32_t i = 0; i < fragmentDescriptor.targetCount; ++i) {
@@ -522,7 +526,7 @@ RefPtr<BindGroupLayout> RenderPipeline::getBindGroupLayout(uint32_t groupIndex)
     if (m_pipelineLayout)
         return const_cast<BindGroupLayout*>(&m_pipelineLayout->bindGroupLayout(groupIndex));
 
-    auto it = m_cachedBindGroupLayouts.find(groupIndex + 1);
+    auto it = m_cachedBindGroupLayouts.find(groupIndex);
     if (it != m_cachedBindGroupLayouts.end())
         return it->value.ptr();
 
@@ -553,7 +557,7 @@ RefPtr<BindGroupLayout> RenderPipeline::getBindGroupLayout(uint32_t groupIndex)
     bindGroupLayoutDescriptor.entryCount = entries.size();
     bindGroupLayoutDescriptor.entries = entries.size() ? &entries[0] : nullptr;
     auto bindGroupLayout = m_device->createBindGroupLayout(bindGroupLayoutDescriptor);
-    m_cachedBindGroupLayouts.add(groupIndex + 1, bindGroupLayout);
+    m_cachedBindGroupLayouts.add(groupIndex, bindGroupLayout);
 
     return WebGPU::releaseToAPI(WTFMove(bindGroupLayout));
 #else

@@ -41,6 +41,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/StringImpl.h>
 #include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/text/TextStream.h>
 
@@ -558,7 +559,7 @@ template<typename StringType>
 static String percentEncodeCharacters(const StringType& input, bool(*shouldEncode)(UChar))
 {
     auto encode = [shouldEncode] (const StringType& input) {
-        auto result = input.tryGetUTF8([&](Span<const char> span) -> String {
+        auto result = input.tryGetUTF8([&](std::span<const char> span) -> String {
             StringBuilder builder;
             for (unsigned j = 0; j < span.size(); j++) {
                 auto c = span[j];
@@ -942,24 +943,26 @@ bool protocolIsInHTTPFamily(StringView url)
 }
 
 
-static StaticStringImpl aboutBlankString { "about:blank" };
 const URL& aboutBlankURL()
 {
+    static LazyNeverDestroyed<StringImpl*> aboutBlankString;
     static LazyNeverDestroyed<URL> staticBlankURL;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [&] {
-        staticBlankURL.construct(&aboutBlankString);
+        aboutBlankString.construct(&StringImpl::createStaticStringImplWithoutCopying("about:blank", "about:blank"_s.length()).leakRef());
+        staticBlankURL.construct(aboutBlankString.get());
     });
     return staticBlankURL;
 }
 
-static StaticStringImpl aboutSrcDocString { "about:srcdoc" };
 const URL& aboutSrcDocURL()
 {
+    static LazyNeverDestroyed<StringImpl*> aboutSrcDocString;
     static LazyNeverDestroyed<URL> staticSrcDocURL;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [&] {
-        staticSrcDocURL.construct(&aboutSrcDocString);
+        aboutSrcDocString.construct(&StringImpl::createStaticStringImplWithoutCopying("about:srcdoc", "about:srcdoc"_s.length()).leakRef());
+        staticSrcDocURL.construct(aboutSrcDocString.get());
     });
     return staticSrcDocURL;
 }

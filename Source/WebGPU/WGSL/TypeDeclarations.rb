@@ -100,16 +100,21 @@ operator :textureSample, {
     # https://bugs.webkit.org/show_bug.cgi?id=254515
 }
 
+operator :textureSampleBaseClampToEdge, {
+  [].(TextureExternal, Sampler, Vector[F32, 2]) => Vector[F32, 4],
+  [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2]) => Vector[F32, 4],
+}
+
 operator :vec2, {
     [T < Scalar].(T) => Vector[T, 2],
-    [S < Scalar, T < ConcreteScalar].(Vector[S, 2]) => Vector[T, 2],
+    [T < ConcreteScalar, S < Scalar].(Vector[S, 2]) => Vector[T, 2],
     [S < Scalar].(Vector[S, 2]) => Vector[S, 2],
     [T < Scalar].(T, T) => Vector[T, 2],
 }
 
 operator :vec3, {
     [T < Scalar].(T) => Vector[T, 3],
-    [S < Scalar, T < ConcreteScalar].(Vector[S, 3]) => Vector[T, 3],
+    [T < ConcreteScalar, S < Scalar].(Vector[S, 3]) => Vector[T, 3],
     [S < Scalar].(Vector[S, 3]) => Vector[S, 3],
     [T < Scalar].(T, T, T) => Vector[T, 3],
     [T < Scalar].(Vector[T, 2], T) => Vector[T, 3],
@@ -118,7 +123,7 @@ operator :vec3, {
 
 operator :vec4, {
     [T < Scalar].(T) => Vector[T, 4],
-    [S < Scalar, T < ConcreteScalar].(Vector[S, 4]) => Vector[T, 4],
+    [T < ConcreteScalar, S < Scalar].(Vector[S, 4]) => Vector[T, 4],
     [S < Scalar].(Vector[S, 4]) => Vector[S, 4],
     [T < Scalar].(T, T, T, T) => Vector[T, 4],
     [T < Scalar].(T, Vector[T, 2], T) => Vector[T, 4],
@@ -140,6 +145,31 @@ operator :vec4, {
         }
     end
 end
+
+# 7.6. Logical Expressions (https://gpuweb.github.io/gpuweb/wgsl/#logical-expr)
+
+operator :!, {
+    [].(Bool) => Bool,
+    [N].(Vector[Bool, N]) => Vector[Bool, N],
+}
+
+operator :'||', {
+    [].(Bool, Bool) => Bool,
+}
+
+operator :'&&', {
+    [].(Bool, Bool) => Bool,
+}
+
+operator :'|', {
+    [].(Bool, Bool) => Bool,
+    [N].(Vector[Bool, N], Vector[Bool, N]) => Vector[Bool, N],
+}
+
+operator :'&', {
+    [].(Bool, Bool) => Bool,
+    [N].(Vector[Bool, N], Vector[Bool, N]) => Vector[Bool, N],
+}
 
 # 17.3. Logical Built-in Functions (https://www.w3.org/TR/WGSL/#logical-builtin-functions)
 

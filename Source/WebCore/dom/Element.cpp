@@ -100,6 +100,8 @@
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "Quirks.h"
+#include "RenderBoxInlines.h"
+#include "RenderElementInlines.h"
 #include "RenderFragmentedFlow.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
@@ -111,6 +113,7 @@
 #include "RenderTreeUpdater.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "ResolvedStyle.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
@@ -410,7 +413,7 @@ bool Element::isMouseFocusable() const
 
 bool Element::shouldUseInputMethod()
 {
-    return computeEditability(UserSelectAllIsAlwaysNonEditable, ShouldUpdateStyle::Update) != Editability::ReadOnly;
+    return computeEditability(UserSelectAllTreatment::NotEditable, ShouldUpdateStyle::Update) != Editability::ReadOnly;
 }
 
 static bool isForceEvent(const PlatformMouseEvent& platformEvent)
@@ -457,7 +460,7 @@ static ShouldIgnoreMouseEvent dispatchPointerEventIfNeeded(Element& element, con
 
 bool Element::dispatchMouseEvent(const PlatformMouseEvent& platformEvent, const AtomString& eventType, int detail, Element* relatedTarget, IsSyntheticClick isSyntheticClick)
 {
-    if (isDisabledFormControl())
+    if (isDisabledFormControl() && !document().settings().sendMouseEventsToDisabledFormControlsEnabled())
         return false;
 
     if (isForceEvent(platformEvent) && !document().hasListenerTypeForEventType(platformEvent.type()))
@@ -626,7 +629,7 @@ Ref<Attr> Element::detachAttribute(unsigned index)
     else
         attrNode = Attr::create(document(), attribute.name(), attribute.value());
 
-    removeAttributeInternal(index, NotInSynchronizationOfLazyAttribute);
+    removeAttributeInternal(index, InSynchronizationOfLazyAttribute::No);
     return attrNode.releaseNonNull();
 }
 
@@ -639,7 +642,7 @@ bool Element::removeAttribute(const QualifiedName& name)
     if (index == ElementData::attributeNotFound)
         return false;
 
-    removeAttributeInternal(index, NotInSynchronizationOfLazyAttribute);
+    removeAttributeInternal(index, InSynchronizationOfLazyAttribute::No);
     return true;
 }
 
@@ -1367,7 +1370,7 @@ int Element::offsetTop()
 
 int Element::offsetWidth()
 {
-    document().updateLayoutIfDimensionsOutOfDate(*this, WidthDimensionsCheck);
+    document().updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Width);
     if (RenderBoxModelObject* renderer = renderBoxModelObject()) {
         auto offsetWidth = LayoutUnit { roundToInt(renderer->offsetWidth()) };
         return convertToNonSubpixelValue(adjustLayoutUnitForAbsoluteZoom(offsetWidth, *renderer).toDouble());
@@ -1377,7 +1380,7 @@ int Element::offsetWidth()
 
 int Element::offsetHeight()
 {
-    document().updateLayoutIfDimensionsOutOfDate(*this, HeightDimensionsCheck);
+    document().updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Height);
     if (RenderBoxModelObject* renderer = renderBoxModelObject()) {
         auto offsetHeight = LayoutUnit { roundToInt(renderer->offsetHeight()) };
         return convertToNonSubpixelValue(adjustLayoutUnitForAbsoluteZoom(offsetHeight, *renderer).toDouble());
@@ -1431,7 +1434,7 @@ int Element::clientTop()
 
 int Element::clientWidth()
 {
-    document().updateLayoutIfDimensionsOutOfDate(*this, WidthDimensionsCheck);
+    document().updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Width);
 
     if (!document().hasLivingRenderTree())
         return 0;
@@ -1465,7 +1468,7 @@ int Element::clientWidth()
 
 int Element::clientHeight()
 {
-    document().updateLayoutIfDimensionsOutOfDate(*this, HeightDimensionsCheck);
+    document().updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Height);
     if (!document().hasLivingRenderTree())
         return 0;
 
@@ -1580,7 +1583,7 @@ void Element::setScrollTop(int newTop)
 
 int Element::scrollWidth()
 {
-    document().updateLayoutIfDimensionsOutOfDate(*this, WidthDimensionsCheck);
+    document().updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Width);
 
     if (document().scrollingElement() == this) {
         // FIXME (webkit.org/b/182289): updateLayoutIfDimensionsOutOfDate seems to ignore zoom level change.
@@ -1597,7 +1600,7 @@ int Element::scrollWidth()
 
 int Element::scrollHeight()
 {
-    document().updateLayoutIfDimensionsOutOfDate(*this, HeightDimensionsCheck);
+    document().updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Height);
 
     if (document().scrollingElement() == this) {
         // FIXME (webkit.org/b/182289): updateLayoutIfDimensionsOutOfDate seems to ignore zoom level change.
@@ -1918,7 +1921,7 @@ const AtomString& Element::getAttributeNS(const AtomString& namespaceURI, const 
 ExceptionOr<bool> Element::toggleAttribute(const AtomString& qualifiedName, std::optional<bool> force)
 {
     if (!Document::isValidName(qualifiedName))
-        return Exception { InvalidCharacterError };
+        return Exception { InvalidCharacterError, makeString("Invalid qualified name: '", qualifiedName, "'") };
 
     synchronizeAttribute(qualifiedName);
 
@@ -1926,14 +1929,14 @@ ExceptionOr<bool> Element::toggleAttribute(const AtomString& qualifiedName, std:
     unsigned index = elementData() ? elementData()->findAttributeIndexByName(caseAdjustedQualifiedName, false) : ElementData::attributeNotFound;
     if (index == ElementData::attributeNotFound) {
         if (!force || *force) {
-            setAttributeInternal(index, QualifiedName { nullAtom(), caseAdjustedQualifiedName, nullAtom() }, emptyAtom(), NotInSynchronizationOfLazyAttribute);
+            setAttributeInternal(index, QualifiedName { nullAtom(), caseAdjustedQualifiedName, nullAtom() }, emptyAtom(), InSynchronizationOfLazyAttribute::No);
             return true;
         }
         return false;
     }
 
     if (!force || !*force) {
-        removeAttributeInternal(index, NotInSynchronizationOfLazyAttribute);
+        removeAttributeInternal(index, InSynchronizationOfLazyAttribute::No);
         return false;
     }
     return true;
@@ -1942,13 +1945,13 @@ ExceptionOr<bool> Element::toggleAttribute(const AtomString& qualifiedName, std:
 ExceptionOr<void> Element::setAttribute(const AtomString& qualifiedName, const AtomString& value)
 {
     if (!Document::isValidName(qualifiedName))
-        return Exception { InvalidCharacterError };
+        return Exception { InvalidCharacterError, makeString("Invalid qualified name: '", qualifiedName, "'") };
 
     synchronizeAttribute(qualifiedName);
     auto caseAdjustedQualifiedName = shouldIgnoreAttributeCase(*this) ? qualifiedName.convertToASCIILowercase() : qualifiedName;
     unsigned index = elementData() ? elementData()->findAttributeIndexByName(caseAdjustedQualifiedName, false) : ElementData::attributeNotFound;
     auto name = index != ElementData::attributeNotFound ? attributeAt(index).name() : QualifiedName { nullAtom(), caseAdjustedQualifiedName, nullAtom() };
-    setAttributeInternal(index, name, value, NotInSynchronizationOfLazyAttribute);
+    setAttributeInternal(index, name, value, InSynchronizationOfLazyAttribute::No);
 
     return { };
 }
@@ -1957,29 +1960,29 @@ void Element::setAttribute(const QualifiedName& name, const AtomString& value)
 {
     synchronizeAttribute(name);
     unsigned index = elementData() ? elementData()->findAttributeIndexByName(name) : ElementData::attributeNotFound;
-    setAttributeInternal(index, name, value, NotInSynchronizationOfLazyAttribute);
+    setAttributeInternal(index, name, value, InSynchronizationOfLazyAttribute::No);
 }
 
 void Element::setAttributeWithoutOverwriting(const QualifiedName& name, const AtomString& value)
 {
     synchronizeAttribute(name);
     if (!elementData() || elementData()->findAttributeIndexByName(name) == ElementData::attributeNotFound)
-        addAttributeInternal(name, value, NotInSynchronizationOfLazyAttribute);
+        addAttributeInternal(name, value, InSynchronizationOfLazyAttribute::No);
 }
 
 void Element::setAttributeWithoutSynchronization(const QualifiedName& name, const AtomString& value)
 {
     unsigned index = elementData() ? elementData()->findAttributeIndexByName(name) : ElementData::attributeNotFound;
-    setAttributeInternal(index, name, value, NotInSynchronizationOfLazyAttribute);
+    setAttributeInternal(index, name, value, InSynchronizationOfLazyAttribute::No);
 }
 
 void Element::setSynchronizedLazyAttribute(const QualifiedName& name, const AtomString& value)
 {
     unsigned index = elementData() ? elementData()->findAttributeIndexByName(name) : ElementData::attributeNotFound;
-    setAttributeInternal(index, name, value, InSynchronizationOfLazyAttribute);
+    setAttributeInternal(index, name, value, InSynchronizationOfLazyAttribute::Yes);
 }
 
-inline void Element::setAttributeInternal(unsigned index, const QualifiedName& name, const AtomString& newValue, SynchronizationOfLazyAttribute inSynchronizationOfLazyAttribute)
+inline void Element::setAttributeInternal(unsigned index, const QualifiedName& name, const AtomString& newValue, InSynchronizationOfLazyAttribute inSynchronizationOfLazyAttribute)
 {
     ASSERT_WITH_MESSAGE(refCount() || parentNode(), "Attribute must not be set on an element before adoptRef");
 
@@ -1994,7 +1997,7 @@ inline void Element::setAttributeInternal(unsigned index, const QualifiedName& n
         return;
     }
 
-    if (inSynchronizationOfLazyAttribute) {
+    if (inSynchronizationOfLazyAttribute == InSynchronizationOfLazyAttribute::Yes) {
         ensureUniqueElementData().attributeAt(index).setValue(newValue);
         return;
     }
@@ -2475,7 +2478,7 @@ void Element::stripScriptingAttributes(Vector<Attribute>& attributeVector) const
     });
 }
 
-void Element::parserSetAttributes(Span<const Attribute> attributes)
+void Element::parserSetAttributes(std::span<const Attribute> attributes)
 {
     ASSERT(!isConnected());
     ASSERT(!parentNode());
@@ -2493,7 +2496,7 @@ void Element::parserSetAttributes(Span<const Attribute> attributes)
 
     // Use attributes instead of m_elementData because attributeChanged might modify m_elementData.
     for (const auto& attribute : attributes)
-        notifyAttributeChanged(attribute.name(), nullAtom(), attribute.value(), ModifiedDirectly);
+        notifyAttributeChanged(attribute.name(), nullAtom(), attribute.value(), AttributeModificationReason::Directly);
 }
 
 void Element::parserDidSetAttributes()
@@ -2775,6 +2778,8 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
 
     if (UNLIKELY(isInTopLayer()))
         removeFromTopLayer();
+
+    document().userActionElements().clearAllForElement(*this);
 }
 
 PopoverData* Element::popoverData() const
@@ -3202,7 +3207,7 @@ ExceptionOr<RefPtr<Attr>> Element::setAttributeNode(Attr& attrNode)
 
     if (existingAttributeIndex == ElementData::attributeNotFound) {
         attachAttributeNodeIfNeeded(attrNode);
-        setAttributeInternal(elementData.findAttributeIndexByName(attrNode.qualifiedName()), attrNode.qualifiedName(), attrNodeValue, NotInSynchronizationOfLazyAttribute);
+        setAttributeInternal(elementData.findAttributeIndexByName(attrNode.qualifiedName()), attrNode.qualifiedName(), attrNodeValue, InSynchronizationOfLazyAttribute::No);
     } else {
         const Attribute& attribute = attributeAt(existingAttributeIndex);
         if (oldAttrNode)
@@ -3213,10 +3218,10 @@ ExceptionOr<RefPtr<Attr>> Element::setAttributeNode(Attr& attrNode)
         attachAttributeNodeIfNeeded(attrNode);
 
         if (attribute.name().matches(attrNode.qualifiedName()))
-            setAttributeInternal(existingAttributeIndex, attrNode.qualifiedName(), attrNodeValue, NotInSynchronizationOfLazyAttribute);
+            setAttributeInternal(existingAttributeIndex, attrNode.qualifiedName(), attrNodeValue, InSynchronizationOfLazyAttribute::No);
         else {
-            removeAttributeInternal(existingAttributeIndex, NotInSynchronizationOfLazyAttribute);
-            setAttributeInternal(ensureUniqueElementData().findAttributeIndexByName(attrNode.qualifiedName()), attrNode.qualifiedName(), attrNodeValue, NotInSynchronizationOfLazyAttribute);
+            removeAttributeInternal(existingAttributeIndex, InSynchronizationOfLazyAttribute::No);
+            setAttributeInternal(ensureUniqueElementData().findAttributeIndexByName(attrNode.qualifiedName()), attrNode.qualifiedName(), attrNodeValue, InSynchronizationOfLazyAttribute::No);
         }
     }
 
@@ -3254,7 +3259,7 @@ ExceptionOr<RefPtr<Attr>> Element::setAttributeNodeNS(Attr& attrNode)
     }
 
     attachAttributeNodeIfNeeded(attrNode);
-    setAttributeInternal(index, attrNode.qualifiedName(), attrNodeValue, NotInSynchronizationOfLazyAttribute);
+    setAttributeInternal(index, attrNode.qualifiedName(), attrNodeValue, InSynchronizationOfLazyAttribute::No);
 
     return oldAttrNode;
 }
@@ -3278,7 +3283,7 @@ ExceptionOr<Ref<Attr>> Element::removeAttributeNode(Attr& attr)
     Ref<Attr> oldAttrNode { attr };
 
     detachAttrNodeFromElementWithValue(&attr, m_elementData->attributeAt(existingAttributeIndex).value());
-    removeAttributeInternal(existingAttributeIndex, NotInSynchronizationOfLazyAttribute);
+    removeAttributeInternal(existingAttributeIndex, InSynchronizationOfLazyAttribute::No);
 
     return oldAttrNode;
 }
@@ -3303,7 +3308,7 @@ ExceptionOr<void> Element::setAttributeNS(const AtomString& namespaceURI, const 
     return { };
 }
 
-void Element::removeAttributeInternal(unsigned index, SynchronizationOfLazyAttribute inSynchronizationOfLazyAttribute)
+void Element::removeAttributeInternal(unsigned index, InSynchronizationOfLazyAttribute inSynchronizationOfLazyAttribute)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(index < attributeCount());
 
@@ -3315,7 +3320,7 @@ void Element::removeAttributeInternal(unsigned index, SynchronizationOfLazyAttri
     if (RefPtr<Attr> attrNode = attrIfExists(name))
         detachAttrNodeFromElementWithValue(attrNode.get(), elementData.attributeAt(index).value());
 
-    if (inSynchronizationOfLazyAttribute) {
+    if (inSynchronizationOfLazyAttribute == InSynchronizationOfLazyAttribute::Yes) {
         elementData.removeAttribute(index);
         return;
     }
@@ -3330,9 +3335,9 @@ void Element::removeAttributeInternal(unsigned index, SynchronizationOfLazyAttri
     didRemoveAttribute(name, valueBeingRemoved);
 }
 
-void Element::addAttributeInternal(const QualifiedName& name, const AtomString& value, SynchronizationOfLazyAttribute inSynchronizationOfLazyAttribute)
+void Element::addAttributeInternal(const QualifiedName& name, const AtomString& value, InSynchronizationOfLazyAttribute inSynchronizationOfLazyAttribute)
 {
-    if (inSynchronizationOfLazyAttribute) {
+    if (inSynchronizationOfLazyAttribute == InSynchronizationOfLazyAttribute::Yes) {
         ensureUniqueElementData().addAttribute(name, value);
         return;
     }
@@ -3358,7 +3363,7 @@ bool Element::removeAttribute(const AtomString& qualifiedName)
         return false;
     }
 
-    removeAttributeInternal(index, NotInSynchronizationOfLazyAttribute);
+    removeAttributeInternal(index, InSynchronizationOfLazyAttribute::No);
     return true;
 }
 
@@ -3628,7 +3633,7 @@ void Element::runFocusingStepsForAutofocus()
 
 void Element::dispatchFocusInEventIfNeeded(RefPtr<Element>&& oldFocusedElement)
 {
-    if (!document().hasListenerType(Document::FOCUSIN_LISTENER))
+    if (!document().hasListenerType(Document::ListenerType::FocusIn))
         return;
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
     dispatchScopedEvent(FocusEvent::create(eventNames().focusinEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(oldFocusedElement)));
@@ -3636,7 +3641,7 @@ void Element::dispatchFocusInEventIfNeeded(RefPtr<Element>&& oldFocusedElement)
 
 void Element::dispatchFocusOutEventIfNeeded(RefPtr<Element>&& newFocusedElement)
 {
-    if (!document().hasListenerType(Document::FOCUSOUT_LISTENER))
+    if (!document().hasListenerType(Document::ListenerType::FocusOut))
         return;
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
     dispatchScopedEvent(FocusEvent::create(eventNames().focusoutEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(newFocusedElement)));
@@ -3665,7 +3670,7 @@ void Element::dispatchWebKitImageReadyEventForTesting()
 bool Element::dispatchMouseForceWillBegin()
 {
 #if ENABLE(MOUSE_FORCE_EVENTS)
-    if (!document().hasListenerType(Document::FORCEWILLBEGIN_LISTENER))
+    if (!document().hasListenerType(Document::ListenerType::ForceWillBegin))
         return false;
 
     auto* frame = document().frame();
@@ -5010,7 +5015,7 @@ void Element::cloneAttributesFromElement(const Element& other)
         m_elementData = other.m_elementData->makeUniqueCopy();
 
     for (const Attribute& attribute : attributesIterator())
-        notifyAttributeChanged(attribute.name(), nullAtom(), attribute.value(), ModifiedByCloning);
+        notifyAttributeChanged(attribute.name(), nullAtom(), attribute.value(), AttributeModificationReason::ByCloning);
 
     setNonce(other.nonce());
 }
@@ -5039,7 +5044,7 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
     if (resolveURLs == ResolveURLs::No)
         return urlString;
 
-    static MainThreadNeverDestroyed<const AtomString> maskedURLStringForBindings(document().maskedURLStringForBindings());
+    const auto& maskedURLStringForBindings = document().maskedURLForBindings().string();
     URL completeURL = base.isNull() ? document().completeURL(urlString) : URL(base, urlString);
 
     switch (resolveURLs) {
@@ -5048,7 +5053,7 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
 
     case ResolveURLs::YesExcludingURLsForPrivacy: {
         if (document().shouldMaskURLForBindings(completeURL))
-            return maskedURLStringForBindings.get();
+            return maskedURLStringForBindings;
         if (!document().url().isLocalFile())
             return completeURL.string();
         break;
@@ -5056,7 +5061,7 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
 
     case ResolveURLs::NoExcludingURLsForPrivacy:
         if (document().shouldMaskURLForBindings(completeURL))
-            return maskedURLStringForBindings.get();
+            return maskedURLStringForBindings;
         break;
 
     case ResolveURLs::No:

@@ -92,6 +92,7 @@
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MutableStyleProperties.h>
+#import <WebCore/OriginAccessPatterns.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PluginData.h>
@@ -100,6 +101,7 @@
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderLayerScrollableArea.h>
+#import <WebCore/RenderStyleInlines.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/RenderedDocumentMarker.h>
@@ -267,7 +269,7 @@ WebFrame *kit(WebCore::LocalFrame* frame)
     if (!frame)
         return nil;
 
-    WebCore::FrameLoaderClient& frameLoaderClient = frame->loader().client();
+    auto& frameLoaderClient = frame->loader().client();
     if (frameLoaderClient.isEmptyFrameLoaderClient())
         return nil;
 
@@ -643,14 +645,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (auto* parentFrame = dynamicDowncast<WebCore::LocalFrame>(_private->coreFrame->tree().parent())) {
         // For subframes, we need to inherit the paint behavior from our parent
         if (auto* parentView = parentFrame ? parentFrame->view() : nullptr) {
-            if (parentView->paintBehavior().contains(WebCore::PaintBehavior::FlattenCompositingLayers))
-                paintBehavior.add(WebCore::PaintBehavior::FlattenCompositingLayers);
-            
-            if (parentView->paintBehavior().contains(WebCore::PaintBehavior::Snapshotting))
-                paintBehavior.add(WebCore::PaintBehavior::Snapshotting);
-            
-            if (parentView->paintBehavior().contains(WebCore::PaintBehavior::TileFirstPaint))
-                paintBehavior.add(WebCore::PaintBehavior::TileFirstPaint);
+            constexpr OptionSet<WebCore::PaintBehavior> flagsToCopy { WebCore::PaintBehavior::FlattenCompositingLayers, WebCore::PaintBehavior::Snapshotting, WebCore::PaintBehavior::DefaultAsynchronousImageDecode, WebCore::PaintBehavior::ForceSynchronousImageDecode };
+            paintBehavior.add(parentView->paintBehavior() & flagsToCopy);
         }
     } else
         paintBehavior.add([self _paintBehaviorForDestinationContext:ctx]);
@@ -779,7 +775,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 #if !PLATFORM(IOS_FAMILY)
-- (DOMRange *)_rangeByAlteringCurrentSelection:(WebCore::FrameSelection::EAlteration)alteration direction:(WebCore::SelectionDirection)direction granularity:(WebCore::TextGranularity)granularity
+- (DOMRange *)_rangeByAlteringCurrentSelection:(WebCore::FrameSelection::Alteration)alteration direction:(WebCore::SelectionDirection)direction granularity:(WebCore::TextGranularity)granularity
 {
     if (_private->coreFrame->selection().isNone())
         return nil;
@@ -1306,7 +1302,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
 - (void)revealSelectionAtExtent:(BOOL)revealExtent
 {
     WebCore::LocalFrame *frame = core(self);
-    WebCore::RevealExtentOption revealExtentOption = revealExtent ? WebCore::RevealExtent : WebCore::DoNotRevealExtent;
+    WebCore::RevealExtentOption revealExtentOption = revealExtent ? WebCore::RevealExtentOption::RevealExtent : WebCore::RevealExtentOption::DoNotRevealExtent;
     frame->selection().revealSelection(WebCore::SelectionRevealMode::Reveal, WebCore::ScrollAlignment::alignToEdgeIfNeeded, revealExtentOption);
 }
 
@@ -1449,7 +1445,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
         frame.page()->chrome().focusNSView(documentView);
 
     auto coreCloseTyping = closeTyping ? FrameSelection::ShouldCloseTyping::Yes : FrameSelection::ShouldCloseTyping::No;
-    auto coreUserTriggered = userTriggered ? UserTriggered : NotUserTriggered;
+    auto coreUserTriggered = userTriggered ? UserTriggered::Yes : UserTriggered::No;
     frame.selection().setSelectedRange(makeSimpleRange(core(range)), core(affinity), coreCloseTyping, coreUserTriggered);
     if (!closeTyping)
         frame.editor().ensureLastEditCommandHasCurrentSelectionIfOpenForMoreTyping();
@@ -1594,7 +1590,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
     auto& coreElement = *core(element);
     unsigned startOffset = range.location;
     unsigned endOffset = NSMaxRange(range);
-    frame->selection().setSelection(WebCore::VisibleSelection { WebCore::SimpleRange { { coreElement, startOffset }, { coreElement, endOffset } } }, { WebCore::FrameSelection::FireSelectEvent });
+    frame->selection().setSelection(WebCore::VisibleSelection { WebCore::SimpleRange { { coreElement, startOffset }, { coreElement, endOffset } } }, { WebCore::FrameSelection::SetSelectionOption::FireSelectEvent });
 }
 
 - (DOMRange *)markedTextDOMRange
@@ -2034,7 +2030,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
 {
     if (!_private->coreFrame)
         return YES;
-    return _private->coreFrame->document()->securityOrigin().canDisplay(URL);
+    return _private->coreFrame->document()->securityOrigin().canDisplay(URL, WebCore::OriginAccessPatternsForWebProcess::singleton());
 }
 
 - (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string withGlobalObject:(JSObjectRef)globalObjectRef inScriptWorld:(WebScriptWorld *)world

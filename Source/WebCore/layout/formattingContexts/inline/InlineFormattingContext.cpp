@@ -46,6 +46,7 @@
 #include "LayoutInlineTextBox.h"
 #include "LayoutState.h"
 #include "Logging.h"
+#include "RenderStyleInlines.h"
 #include "TextUtil.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/text/TextStream.h>
@@ -322,8 +323,9 @@ void InlineFormattingContext::layoutFloatContentOnly(const ConstraintsForInlineC
         staticPosition.move(floatBoxGeometry.marginStart(), floatBoxGeometry.marginBefore());
         floatBoxGeometry.setLogicalTopLeft(staticPosition);
 
-        floatBoxGeometry.setLogicalTopLeft(floatingContext.positionForFloat(floatBox, constraints.horizontal()));
-        floatingState.append(floatingContext.toFloatItem(floatBox));
+        auto floatBoxTopLeft = floatingContext.positionForFloat(floatBox, floatBoxGeometry, constraints.horizontal());
+        floatBoxGeometry.setLogicalTopLeft(floatBoxTopLeft);
+        floatingState.append(floatingContext.toFloatItem(floatBox, floatBoxGeometry));
     }
 }
 
@@ -411,28 +413,41 @@ IntrinsicWidthConstraints InlineFormattingContext::computedIntrinsicWidthConstra
 
 InlineLayoutUnit InlineFormattingContext::computedIntrinsicWidthForConstraint(IntrinsicWidthMode intrinsicWidthMode) const
 {
+    auto floatingState = FloatingState { layoutState(), root() };
+    auto parentBlockLayoutState = BlockLayoutState { floatingState, { } };
+    auto inlineLayoutState = InlineLayoutState { parentBlockLayoutState, { } };
+    auto horizontalConstraints = HorizontalConstraints { };
+    if (intrinsicWidthMode == IntrinsicWidthMode::Maximum)
+        horizontalConstraints.logicalWidth = maxInlineLayoutUnit();
     auto& inlineItems = formattingState().inlineItems();
-    auto lineBuilder = LineBuilder { *this, inlineItems, intrinsicWidthMode };
+    auto lineBuilder = LineBuilder { *this, inlineLayoutState, horizontalConstraints, inlineItems, intrinsicWidthMode };
     auto layoutRange = InlineItemRange { 0 , inlineItems.size() };
-    auto maximumLineWidth = InlineLayoutUnit { };
-    auto maximumFloatWidth = LayoutUnit { };
+    auto maximumContentWidth = InlineLayoutUnit { };
     auto previousLineEnd = std::optional<InlineItemPosition> { };
     auto previousLine = std::optional<PreviousLine> { };
     auto lineIndex = 0lu;
 
     while (!layoutRange.isEmpty()) {
         auto intrinsicContent = lineBuilder.computedIntrinsicWidth(layoutRange, previousLine);
-        maximumLineWidth = std::max(maximumLineWidth, intrinsicContent.contentLogicalWidth);
+        auto floatContentWidth = [&] {
+            auto leftWidth = LayoutUnit { };
+            auto rightWidth = LayoutUnit { };
+            for (auto& floatItem : intrinsicContent.placedFloats) {
+                auto marginBoxRect = BoxGeometry::marginBoxRect(floatItem.boxGeometry());
+                if (floatItem.isLeftPositioned())
+                    leftWidth = std::max(leftWidth, marginBoxRect.right());
+                else
+                    rightWidth = std::max(rightWidth, horizontalConstraints.logicalWidth - marginBoxRect.left());
+            }
+            return InlineLayoutUnit { leftWidth + rightWidth };
+        };
+        maximumContentWidth = std::max(maximumContentWidth, intrinsicContent.contentLogicalWidth + floatContentWidth());
 
         layoutRange.start = leadingInlineItemPositionForNextLine(intrinsicContent.committedRange.end, previousLineEnd, layoutRange.end);
         previousLineEnd = layoutRange.start;
-        previousLine = PreviousLine { lineIndex++, intrinsicContent.trailingOverflowingContentWidth, { }, { }, { } };
-
-        // FIXME: Add support for clear.
-        for (auto* inlineFloatItem : intrinsicContent.placedFloats)
-            maximumFloatWidth += geometryForBox(inlineFloatItem->layoutBox()).marginBoxWidth();
+        previousLine = PreviousLine { lineIndex++, intrinsicContent.trailingOverflowingContentWidth, { }, { }, WTFMove(intrinsicContent.suspendedFloats) };
     }
-    return maximumLineWidth + maximumFloatWidth;
+    return maximumContentWidth;
 }
 
 void InlineFormattingContext::computeIntrinsicWidthForFormattingRoot(const Box& formattingRoot)
@@ -554,11 +569,23 @@ InlineRect InlineFormattingContext::createDisplayContentForLine(size_t lineIndex
 
     displayContent.boxes.appendVector(WTFMove(boxes));
     displayContent.lines.append(displayLine);
+    auto updateBoxGeometryForPlacedFloats = [&] {
+        for (auto& floatItem : lineContent.placedFloats) {
+            if (!floatItem.layoutBox()) {
+                ASSERT_NOT_REACHED();
+                // We should not be placing intrusive floats coming from parent BFC.
+                continue;
+            }
+            auto& boxGeometry = formattingState().boxGeometry(*floatItem.layoutBox());
+            boxGeometry.setLogicalTopLeft(BoxGeometry::borderBoxTopLeft(floatItem.boxGeometry()));
+        }
+    };
+    updateBoxGeometryForPlacedFloats();
 
     return InlineFormattingGeometry::flipVisualRectToLogicalForWritingMode(displayContent.lines.last().lineBoxRect(), root().style().writingMode());
 }
 
-void InlineFormattingContext::resetGeometryForClampedContent(const InlineItemRange& needsDisplayContentRange, const LineBuilder::FloatList& suspendedFloats, LayoutPoint topleft)
+void InlineFormattingContext::resetGeometryForClampedContent(const InlineItemRange& needsDisplayContentRange, const LineBuilder::SuspendedFloatList& suspendedFloats, LayoutPoint topleft)
 {
     if (needsDisplayContentRange.isEmpty() && suspendedFloats.isEmpty())
         return;

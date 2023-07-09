@@ -83,6 +83,8 @@ Ref<ComputePipeline> Device::createComputePipeline(const WGPUComputePipelineDesc
     WGSL::Reflection::Compute computeInformation = std::get<WGSL::Reflection::Compute>(entryPointInformation.typedEntryPoint);
 
     auto function = createFunction(library, entryPointInformation, descriptor.compute.constantCount, descriptor.compute.constants, label);
+    if (!function)
+        return ComputePipeline::createInvalid(*this);
 
     MTLComputePipelineReflection *reflection;
     bool hasBindGroups = pipelineLayout.numberOfBindGroupLayouts() > 0;
@@ -136,7 +138,7 @@ RefPtr<BindGroupLayout> ComputePipeline::getBindGroupLayout(uint32_t groupIndex)
     if (m_pipelineLayout)
         return const_cast<BindGroupLayout*>(&m_pipelineLayout->bindGroupLayout(groupIndex));
 
-    auto it = m_cachedBindGroupLayouts.find(groupIndex + 1);
+    auto it = m_cachedBindGroupLayouts.find(groupIndex);
     if (it != m_cachedBindGroupLayouts.end())
         return it->value.ptr();
 
@@ -157,7 +159,7 @@ RefPtr<BindGroupLayout> ComputePipeline::getBindGroupLayout(uint32_t groupIndex)
     bindGroupLayoutDescriptor.entryCount = entries.size();
     bindGroupLayoutDescriptor.entries = entries.size() ? &entries[0] : nullptr;
     auto bindGroupLayout = m_device->createBindGroupLayout(bindGroupLayoutDescriptor);
-    m_cachedBindGroupLayouts.add(groupIndex + 1, bindGroupLayout);
+    m_cachedBindGroupLayouts.add(groupIndex, bindGroupLayout);
 
     return bindGroupLayout.ptr();
 #else

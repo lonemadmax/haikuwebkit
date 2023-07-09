@@ -306,8 +306,8 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     NSNotificationCenter *defaultNotificationCenter = [NSNotificationCenter defaultCenter];
 
     // An NSView derived object such as WKView cannot observe these notifications, because NSView itself observes them.
-    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidOrderOffScreen:) name:@"NSWindowDidOrderOffScreenNotification" object:window];
-    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidOrderOnScreen:) name:@"_NSWindowDidBecomeVisible" object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidOrderOffScreen:) name:NSWindowDidOrderOffScreenNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidOrderOnScreen:) name:NSWindowDidOrderOnScreenNotification object:window];
 
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidBecomeKey:) name:NSWindowDidBecomeKeyNotification object:nil];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidResignKey:) name:NSWindowDidResignKeyNotification object:nil];
@@ -317,7 +317,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidResize:) name:NSWindowDidResizeNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeBackingProperties:) name:NSWindowDidChangeBackingPropertiesNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeScreen:) name:NSWindowDidChangeScreenNotification object:window];
-    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeLayerHosting:) name:@"_NSWindowDidChangeContentsHostedInLayerSurfaceNotification" object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeLayerHosting:) name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeOcclusionState:) name:NSWindowDidChangeOcclusionStateNotification object:window];
 
     [defaultNotificationCenter addObserver:self selector:@selector(_screenDidChangeColorSpace:) name:NSScreenColorSpaceDidChangeNotification object:nil];
@@ -340,8 +340,8 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
     NSNotificationCenter *defaultNotificationCenter = [NSNotificationCenter defaultCenter];
 
-    [defaultNotificationCenter removeObserver:self name:@"NSWindowDidOrderOffScreenNotification" object:window];
-    [defaultNotificationCenter removeObserver:self name:@"_NSWindowDidBecomeVisible" object:window];
+    [defaultNotificationCenter removeObserver:self name:NSWindowDidOrderOffScreenNotification object:window];
+    [defaultNotificationCenter removeObserver:self name:NSWindowDidOrderOnScreenNotification object:window];
 
     [defaultNotificationCenter removeObserver:self name:NSWindowDidBecomeKeyNotification object:nil];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidResignKeyNotification object:nil];
@@ -351,7 +351,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter removeObserver:self name:NSWindowDidResizeNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeBackingPropertiesNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeScreenNotification object:window];
-    [defaultNotificationCenter removeObserver:self name:@"_NSWindowDidChangeContentsHostedInLayerSurfaceNotification" object:window];
+    [defaultNotificationCenter removeObserver:self name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeOcclusionStateNotification object:window];
 
     [defaultNotificationCenter removeObserver:self name:NSScreenColorSpaceDidChangeNotification object:nil];
@@ -1157,24 +1157,27 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     [NSApp registerServicesMenuSendTypes:PasteboardTypes::forSelection() returnTypes:PasteboardTypes::forEditing()];
 
+    auto useRemoteLayerTree = [&]() {
+        bool result = false;
 #if ENABLE(REMOTE_LAYER_TREE_ON_MAC_BY_DEFAULT)
-    bool useRemoteLayerTree = true;
-#else
-    bool useRemoteLayerTree = false;
+        result = WTF::numberOfPhysicalProcessorCores() >= 4;
 #endif
-    if (id useRemoteLayerTreeBoolean = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseRemoteLayerTreeDrawingArea"])
-        useRemoteLayerTree = [useRemoteLayerTreeBoolean boolValue];
-    if (m_page->preferences().siteIsolationEnabled())
-        useRemoteLayerTree = true;
+        if (id useRemoteLayerTreeBoolean = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2UseRemoteLayerTreeDrawingArea"])
+            result = [useRemoteLayerTreeBoolean boolValue];
 
-    if (isInRecoveryOS()) {
-        // Temporarily disable UI side compositing in Recovery OS.
-        // FIXME: remove this workaround once a proper fix is in place.
-        WTFLogAlways("Disabling UI side compositing in Recovery OS");
-        useRemoteLayerTree = false;
-    }
+        if (m_page->preferences().siteIsolationEnabled())
+            result = true;
 
-    if (useRemoteLayerTree)
+        if (isInRecoveryOS()) {
+            // Temporarily disable UI side compositing in Recovery OS <rdar://107964149>.
+            WTFLogAlways("Disabling UI side compositing in Recovery OS");
+            result = false;
+        }
+
+        return result;
+    };
+
+    if (useRemoteLayerTree())
         m_drawingAreaType = DrawingAreaType::RemoteLayerTree;
 
     [view addTrackingArea:m_primaryTrackingArea.get()];
@@ -4579,7 +4582,7 @@ void WebViewImpl::scrollWheel(NSEvent *event)
     if (m_allowsBackForwardNavigationGestures && ensureGestureController().handleScrollWheelEvent(event))
         return;
 
-    NativeWebWheelEvent webEvent = NativeWebWheelEvent(event, m_view.getAutoreleased());
+    auto webEvent = NativeWebWheelEvent(event, m_view.getAutoreleased());
     m_page->handleNativeWheelEvent(webEvent);
 }
 

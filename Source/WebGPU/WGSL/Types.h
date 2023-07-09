@@ -46,6 +46,7 @@ namespace Types {
     f(Void, "void") \
     f(Bool, "bool") \
     f(Sampler, "sampler") \
+    f(TextureExternal, "texture_external") \
 
 struct Primitive {
     enum Kind : uint8_t {
@@ -128,6 +129,8 @@ struct Type : public std::variant<
         >::variant;
     void dump(PrintStream&) const;
     String toString() const;
+    unsigned size() const;
+    unsigned alignment() const;
 };
 
 using ConversionRank = Markable<unsigned, IntegralMarkableTraits<unsigned, std::numeric_limits<unsigned>::max()>>;

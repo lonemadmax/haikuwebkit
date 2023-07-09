@@ -94,7 +94,10 @@ public:
     void requestCloseAllMediaPresentations(bool finishedWithMedia, CompletionHandler<void()>&&);
 
 private:
+    friend class VideoFullscreenManagerProxy;
     VideoFullscreenModelContext(VideoFullscreenManagerProxy&, PlaybackSessionModelContext&, PlaybackSessionContextIdentifier);
+
+    void setVideoDimensions(const WebCore::FloatSize&);
 
     // VideoFullscreenModel
     void addClient(WebCore::VideoFullscreenModelClient&) override;
@@ -129,6 +132,15 @@ private:
     void didCleanupFullscreen() final;
     void fullscreenMayReturnToInline() final;
 
+#if !RELEASE_LOG_DISABLED
+    const void* logIdentifier() const final;
+    const void* nextChildIdentifier() const final;
+    const Logger* loggerPtr() const final;
+
+    const char* logClassName() const { return "VideoFullscreenModelContext"; };
+    WTFLogChannel& logChannel() const;
+#endif
+
     VideoFullscreenManagerProxy* m_manager;
     Ref<PlaybackSessionModelContext> m_playbackSessionModel;
     PlaybackSessionContextIdentifier m_contextId;
@@ -142,6 +154,10 @@ private:
     HashSet<WebCore::VideoFullscreenModelClient*> m_clients;
     WebCore::FloatSize m_videoDimensions;
     bool m_hasVideo { false };
+
+#if !RELEASE_LOG_DISABLED
+    mutable uint64_t m_childIdentifierSeed { 0 };
+#endif
 };
 
 class VideoFullscreenManagerProxy : public RefCounted<VideoFullscreenManagerProxy>, private IPC::MessageReceiver {
@@ -236,6 +252,13 @@ private:
 
     void requestCloseAllMediaPresentations(PlaybackSessionContextIdentifier, bool finishedWithMedia, CompletionHandler<void()>&&);
     void callCloseCompletionHandlers();
+
+#if !RELEASE_LOG_DISABLED
+    const Logger& logger() const;
+    const void* logIdentifier() const;
+    const char* logClassName() const;
+    WTFLogChannel& logChannel() const;
+#endif
 
     bool m_mockVideoPresentationModeEnabled { false };
     WebCore::FloatSize m_mockPictureInPictureWindowSize { DefaultMockPictureInPictureWindowWidth, DefaultMockPictureInPictureWindowHeight };

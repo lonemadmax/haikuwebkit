@@ -48,10 +48,12 @@
 #include "PaintInfo.h"
 #include "RenderAttachment.h"
 #include "RenderBlockFlow.h"
+#include "RenderBoxInlines.h"
 #include "RenderButton.h"
 #include "RenderChildIterator.h"
 #include "RenderDeprecatedFlexibleBox.h"
 #include "RenderDescendantIterator.h"
+#include "RenderElementInlines.h"
 #include "RenderFlexibleBox.h"
 #include "RenderGrid.h"
 #include "RenderImage.h"
@@ -160,6 +162,12 @@ bool LineLayout::canUseFor(const RenderBlockFlow& flow)
         return false;
 
     return canUseForLineLayout(flow);
+}
+
+bool LineLayout::canUseForPreferredWidthComputation(const RenderBlockFlow& flow)
+{
+    ASSERT(isEnabled());
+    return LayoutIntegration::canUseForPreferredWidthComputation(flow);
 }
 
 bool LineLayout::canUseForAfterStyleChange(const RenderBlockFlow& flow, StyleDifference diff)
@@ -410,10 +418,6 @@ void LineLayout::updateLayoutBoxDimensions(const RenderBox& replacedOrInlineBloc
     }();
     if (hasNonSyntheticBaseline) {
         auto baseline = replacedOrInlineBlock.baselinePosition(AlphabeticBaseline, false /* firstLine */, writingMode == WritingMode::TopToBottom ? HorizontalLine : VerticalLine, PositionOnContainingLine);
-        if (is<RenderListMarker>(replacedOrInlineBlock)) {
-            ASSERT(!downcast<RenderListMarker>(replacedOrInlineBlock).isImage());
-            baseline = replacedOrInlineBlock.style().metricsOfPrimaryFont().ascent();
-        }
         layoutBox.setBaselineForIntegration(roundToInt(baseline));
     }
 
@@ -527,17 +531,17 @@ static inline std::optional<Layout::BlockLayoutState::LineClamp> lineClamp(const
     return { };
 }
 
-static inline Layout::BlockLayoutState::LeadingTrim leadingTrim(const RenderBlockFlow& rootRenderer)
+static inline Layout::BlockLayoutState::TextBoxTrim textBoxTrim(const RenderBlockFlow& rootRenderer)
 {
     auto* layoutState = rootRenderer.view().frameView().layoutContext().layoutState();
     if (!layoutState)
         return { };
-    auto leadingTrimForIFC = Layout::BlockLayoutState::LeadingTrim { };
-    if (layoutState->hasLeadingTrimStart())
-        leadingTrimForIFC.add(Layout::BlockLayoutState::LeadingTrimSide::Start);
-    if (layoutState->hasLeadingTrimEnd(rootRenderer))
-        leadingTrimForIFC.add(Layout::BlockLayoutState::LeadingTrimSide::End);
-    return leadingTrimForIFC;
+    auto textBoxTrimForIFC = Layout::BlockLayoutState::TextBoxTrim { };
+    if (layoutState->hasTextBoxTrimStart())
+        textBoxTrimForIFC.add(Layout::BlockLayoutState::TextBoxTrimSide::Start);
+    if (layoutState->hasTextBoxTrimEnd(rootRenderer))
+        textBoxTrimForIFC.add(Layout::BlockLayoutState::TextBoxTrimSide::End);
+    return textBoxTrimForIFC;
 }
 
 std::optional<LayoutRect> LineLayout::layout()
@@ -573,7 +577,7 @@ std::optional<LayoutRect> LineLayout::layout()
         auto constraintsForInFlowContent = Layout::ConstraintsForInFlowContent { m_inlineContentConstraints->horizontal(), partialContentTop };
         return { constraintsForInFlowContent, m_inlineContentConstraints->visualLeft() };
     }();
-    auto parentBlockLayoutState = Layout::BlockLayoutState { m_blockFormattingState.floatingState(), lineClamp(flow()), leadingTrim(flow()), intrusiveInitialLetterBottom() };
+    auto parentBlockLayoutState = Layout::BlockLayoutState { m_blockFormattingState.floatingState(), lineClamp(flow()), textBoxTrim(flow()), intrusiveInitialLetterBottom() };
     auto inlineLayoutState = Layout::InlineLayoutState { parentBlockLayoutState, WTFMove(m_nestedListMarkerOffsets) };
     auto inlineFormattingContext = Layout::InlineFormattingContext { rootLayoutBox(), m_inlineFormattingState, m_lineDamage.get() };
     auto layoutResult = inlineFormattingContext.layoutInFlowAndFloatContentForIntegration(inlineContentConstraints, inlineLayoutState);
@@ -667,12 +671,11 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
             ASSERT(renderer.layer());
             auto& layer = *renderer.layer();
             auto logicalBorderBoxRect = LayoutRect { Layout::BoxGeometry::borderBoxRect(logicalGeometry) };
+            auto previousStaticPosition = LayoutPoint { layer.staticInlinePosition(), layer.staticBlockPosition() };
+            auto delta = logicalBorderBoxRect.location() - previousStaticPosition;
 
             if (layoutBox.style().isOriginalDisplayInlineType()) {
-                auto previousStaticPosition = LayoutPoint { layer.staticInlinePosition(), layer.staticBlockPosition() };
                 blockFlow.setStaticInlinePositionForChild(renderer, logicalBorderBoxRect.y(), logicalBorderBoxRect.x());
-
-                auto delta = logicalBorderBoxRect.location() - previousStaticPosition;
                 // A non-statically positioned out-of-flow box's layout will override the top/left values we are setting here.
                 renderer.move(delta.width(), delta.height());
             }
@@ -680,8 +683,7 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
             layer.setStaticBlockPosition(logicalBorderBoxRect.y());
             layer.setStaticInlinePosition(logicalBorderBoxRect.x());
 
-            // FIXME: Figure out if this is really needed (see webkit.org/b/254666).
-            if (layoutBox.style().hasStaticInlinePosition(renderer.isHorizontalWritingMode()))
+            if (!delta.isZero() && layoutBox.style().hasStaticInlinePosition(renderer.isHorizontalWritingMode()))
                 renderer.setChildNeedsLayout(MarkOnlyThis);
             continue;
         }
@@ -787,7 +789,7 @@ void LineLayout::prepareFloatingState()
         auto shapeOutsideInfo = floatingObject->renderer().shapeOutsideInfo();
         auto* shape = shapeOutsideInfo ? &shapeOutsideInfo->computedShape() : nullptr;
 
-        floatingState.append({ logicalPosition(), boxGeometry, shape });
+        floatingState.append({ logicalPosition(), boxGeometry, logicalRect.location(), shape });
     }
 }
 
@@ -796,26 +798,50 @@ bool LineLayout::isPaginated() const
     return m_inlineContent && m_inlineContent->isPaginated;
 }
 
+std::optional<LayoutUnit> LineLayout::clampedContentLogicalHeight() const
+{
+    if (!m_inlineContent)
+        return { };
+
+    auto& lines = m_inlineContent->displayContent().lines;
+    if (lines.isEmpty()) {
+        // Out-of-flow only content (and/or with floats) may produce blank inline content.
+        return { };
+    }
+
+    auto firstTruncatedLineIndex = [&]() -> std::optional<size_t> {
+        for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
+            if (lines[lineIndex].isTruncatedInBlockDirection())
+                return lineIndex;
+        }
+        return { };
+    }();
+    if (!firstTruncatedLineIndex)
+        return { };
+    if (!*firstTruncatedLineIndex) {
+        // This content is fully truncated in the block direction.
+        return LayoutUnit { };
+    }
+
+    auto contentHeight = lines[*firstTruncatedLineIndex - 1].lineBoxLogicalRect().maxY() - lines.first().lineBoxLogicalRect().y();
+    auto additionalHeight = m_inlineContent->firstLinePaginationOffset + m_inlineContent->clearGapBeforeFirstLine + m_inlineContent->clearGapAfterLastLine;
+    return LayoutUnit { contentHeight + additionalHeight };
+}
+
 LayoutUnit LineLayout::contentBoxLogicalHeight() const
 {
     if (!m_inlineContent)
         return { };
 
     auto& lines = m_inlineContent->displayContent().lines;
-    auto nonTruncatedRange = [&]() -> WTF::Range<size_t> {
-        for (size_t lineIndex = lines.size(); lineIndex--;) {
-            if (!lines[lineIndex].isTruncatedInBlockDirection())
-                return { 0, lineIndex + 1 };
-        }
-        // Out-of-flow only content (and/or with floats) and line-clamp can produce blank inline content.
+    if (lines.isEmpty()) {
+        // Out-of-flow only content (and/or with floats) may produce blank inline content.
         return { };
-    }();
-    if (!nonTruncatedRange)
-        return { };
+    }
 
-    auto lineBoxHeight = lines[nonTruncatedRange.end() - 1].lineBoxLogicalRect().maxY() - lines[nonTruncatedRange.begin()].lineBoxLogicalRect().y();
+    auto contentHeight = lines.last().lineBoxLogicalRect().maxY() - lines.first().lineBoxLogicalRect().y();
     auto additionalHeight = m_inlineContent->firstLinePaginationOffset + m_inlineContent->clearGapBeforeFirstLine + m_inlineContent->clearGapAfterLastLine;
-    return LayoutUnit { lineBoxHeight + additionalHeight };
+    return LayoutUnit { contentHeight + additionalHeight };
 }
 
 size_t LineLayout::lineCount() const

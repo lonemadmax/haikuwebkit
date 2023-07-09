@@ -32,9 +32,10 @@
 #include "AXObjectCache.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#include "ListStyleType.h"
 #include "PseudoElement.h"
 #include "RenderListItem.h"
-#include "RenderObject.h"
+#include "RenderStyleInlines.h"
 
 namespace WebCore {
     
@@ -66,7 +67,7 @@ bool AccessibilityList::isUnorderedList() const
         return true;
 
     auto* node = this->node();
-    return node && node->hasTagName(ulTag);
+    return node && (node->hasTagName(menuTag) || node->hasTagName(ulTag));
 }
 
 bool AccessibilityList::isOrderedList() const

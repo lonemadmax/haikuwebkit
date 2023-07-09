@@ -37,7 +37,6 @@
 #include "FormData.h"
 #include "FormDataEvent.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClient.h"
 #include "HTMLDialogElement.h"
 #include "HTMLFieldSetElement.h"
 #include "HTMLFormControlsCollection.h"
@@ -50,6 +49,7 @@
 #include "InputTypeNames.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
+#include "LocalFrameLoaderClient.h"
 #include "MixedContentChecker.h"
 #include "NodeName.h"
 #include "NodeRareData.h"
@@ -700,7 +700,7 @@ void HTMLFormElement::unregisterImgElement(HTMLImageElement& element)
 
 Ref<HTMLFormControlsCollection> HTMLFormElement::elements()
 {
-    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLFormControlsCollection>(*this, FormControls);
+    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLFormControlsCollection>(*this, CollectionType::FormControls);
 }
 
 Ref<HTMLCollection> HTMLFormElement::elementsForNativeBindings()

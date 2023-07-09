@@ -133,7 +133,6 @@ public:
     LocalFrameViewLayoutContext& layoutContext() { return m_layoutContext; }
 
     WEBCORE_EXPORT bool didFirstLayout() const;
-    void queuePostLayoutCallback(Function<void()>&&);
 
     WEBCORE_EXPORT bool needsLayout() const;
     WEBCORE_EXPORT void setNeedsLayoutAfterViewConfigurationChange();
@@ -286,8 +285,7 @@ public:
     bool requestStartKeyboardScrollAnimation(const KeyboardScroll&) final;
     bool requestStopKeyboardScrollAnimation(bool immediate) final;
 
-    bool requestScrollPositionUpdate(const ScrollPosition&, ScrollType = ScrollType::User, ScrollClamping = ScrollClamping::Clamped) final;
-    bool requestAnimatedScrollToPosition(const ScrollPosition&, ScrollClamping = ScrollClamping::Clamped) final;
+    bool requestScrollToPosition(const ScrollPosition&, ScrollType = ScrollType::Programmatic, ScrollClamping = ScrollClamping::Clamped, ScrollIsAnimated = ScrollIsAnimated::No) final;
     void stopAsyncAnimatedScroll() final;
 
     bool isUserScrollInProgress() const final;
@@ -443,9 +441,6 @@ public:
     void paintScrollbar(GraphicsContext&, Scrollbar&, const IntRect&) final;
 
     WEBCORE_EXPORT Color documentBackgroundColor() const;
-
-    void startDisallowingLayout() { layoutContext().startDisallowingLayout(); }
-    void endDisallowingLayout() { layoutContext().endDisallowingLayout(); }
 
     static MonotonicTime currentPaintTimeStamp() { return sCurrentPaintTimeStamp; } // returns 0 if not painting
     
@@ -713,6 +708,7 @@ public:
     WEBCORE_EXPORT void invalidateControlTints();
     void invalidateImagesWithAsyncDecodes();
     void updateAccessibilityObjectRegions();
+    AXObjectCache* axObjectCache() const;
 
     void invalidateScrollbarsForAllScrollableAreas();
 
@@ -868,6 +864,8 @@ private:
     void updateWidgetPositionsTimerFired();
 
     bool scrollToFragmentInternal(StringView);
+    void scheduleScrollToAnchorAndTextFragment();
+    void scrollToAnchorAndTextFragmentNowIfNeeded();
     void scrollToAnchor();
     void scrollToTextFragmentRange();
     void scrollPositionChanged(const ScrollPosition& oldPosition, const ScrollPosition& newPosition);
@@ -890,7 +888,6 @@ private:
 
     bool isViewForDocumentInFrame() const;
 
-    AXObjectCache* axObjectCache() const;
     void notifyWidgetsInAllFrames(WidgetNotification);
     void removeFromAXObjectCache();
     void notifyWidgets(WidgetNotification);
@@ -963,7 +960,6 @@ private:
     Vector<FloatRect> m_trackedRepaintRects;
     
     IntRect* m_cachedWindowClipRect { nullptr };
-    Vector<Function<void()>> m_postLayoutCallbackQueue;
 
     LayoutPoint m_layoutViewportOrigin;
     std::optional<LayoutRect> m_layoutViewportOverrideRect;
@@ -1056,6 +1052,7 @@ private:
     // True if autosize has been run since m_shouldAutoSize was set.
     bool m_didRunAutosize { false };
     bool m_inUpdateEmbeddedObjects { false };
+    bool m_scheduledToScrollToAnchor { false };
 };
 
 inline void LocalFrameView::incrementVisuallyNonEmptyPixelCount(const IntSize& size)

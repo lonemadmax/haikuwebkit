@@ -46,6 +46,7 @@
 #include "CSSCursorImageValue.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSFilterImageValue.h"
+#include "CSSFontFaceSrcValue.h"
 #include "CSSFontPaletteValuesOverrideColorsValue.h"
 #include "CSSFontVariantAlternatesValue.h"
 #include "CSSFontVariantLigaturesParser.h"
@@ -84,6 +85,7 @@
 #include "ColorInterpolation.h"
 #include "ColorLuminance.h"
 #include "ColorNormalization.h"
+#include "FontCustomPlatformData.h"
 #include "FontFace.h"
 #include "Logging.h"
 #include "RenderStyleConstants.h"
@@ -835,11 +837,18 @@ struct ImageSetTypeCSSPrimitiveValueKnownTokenTypeFunctionConsumer {
     static RefPtr<CSSPrimitiveValue> consume(CSSParserTokenRange& range, const CSSCalcSymbolTable&, ValueRange, CSSParserMode, UnitlessQuirk, UnitlessZeroQuirk)
     {
         ASSERT(range.peek().type() == FunctionToken);
-        if (range.peek().functionId() != CSSValueType || range.peek(1).type() != StringToken)
+        if (range.peek().functionId() != CSSValueType)
             return nullptr;
 
-        auto typeArg = consumeFunction(range);
-        return consumeString(typeArg);
+        auto rangeCopy = range;
+        auto typeArg = consumeFunction(rangeCopy);
+        auto result = consumeString(typeArg);
+
+        if (!result || !typeArg.atEnd())
+            return nullptr;
+
+        range = rangeCopy;
+        return result;
     }
 };
 
@@ -4466,12 +4475,13 @@ static RefPtr<CSSImageSetOptionValue> consumeImageSetOption(CSSParserTokenRange&
 
     // Optional resolution and type in any order.
     for (size_t i = 0; i < 2 && !range.atEnd(); ++i) {
-        if (auto optionalArgument = consumeMetaConsumer<ImageSetResolutionOrTypeConsumer>(range, { }, { }, { }, { }, { })) {
+        if (auto optionalArgument = consumeMetaConsumer<ImageSetResolutionOrTypeConsumer>(range, { }, ValueRange::NonNegative, { }, { }, { })) {
             if ((resolution && optionalArgument->isResolution()) || (type && optionalArgument->isString()))
                 return nullptr;
 
             if (optionalArgument->isResolution()) {
-                if (optionalArgument->floatValue() <= 0)
+                // ValueRange only clamps calc() expressions so we still need to check for negative "raw" resolutions (e.g. -2x) which are invalid.
+                if (optionalArgument->floatValue() < 0)
                     return nullptr;
                 resolution = optionalArgument;
                 result->setResolution(optionalArgument.releaseNonNull());
@@ -4901,21 +4911,12 @@ RefPtr<CSSValue> consumeFontSizeAdjust(CSSParserTokenRange& range)
     if (range.peek().id() == CSSValueNone || range.peek().id() == CSSValueFromFont)
         return consumeIdent(range);
 
-    if (auto value = consumeNumber(range, ValueRange::NonNegative))
-        return value;
-
     auto metric = consumeIdent<CSSValueExHeight, CSSValueCapHeight, CSSValueChWidth, CSSValueIcWidth, CSSValueIcHeight>(range);
-    if (!metric)
-        return nullptr;
-
     auto value = consumeNumber(range, ValueRange::NonNegative);
-    if (!value) {
+    if (!value)
         value = consumeIdent<CSSValueFromFont>(range);
-        if (!value)
-            return nullptr;
-    }
 
-    if (metric->valueID() == CSSValueExHeight)
+    if (!value || !metric || metric->valueID() == CSSValueExHeight)
         return value;
 
     return CSSValuePair::create(metric.releaseNonNull(), value.releaseNonNull());
@@ -6668,7 +6669,7 @@ RefPtr<CSSValue> consumeScrollSnapType(CSSParserTokenRange& range)
     return CSSValueList::createSpaceSeparated(firstValue.releaseNonNull());
 }
 
-RefPtr<CSSValue> consumeTextEdge(CSSParserTokenRange& range)
+RefPtr<CSSValue> consumeTextBoxEdge(CSSParserTokenRange& range)
 {
     if (range.peek().id() == CSSValueLeading)
         return CSSValueList::createSpaceSeparated(consumeIdent(range).releaseNonNull());
@@ -6957,7 +6958,7 @@ RefPtr<CSSValue> consumeListStyleType(CSSParserTokenRange& range, const CSSParse
     if (range.peek().type() == StringToken)
         return consumeString(range);
 
-    if (auto predefinedValues = consumeIdentRange(range, CSSValueDisc, CSSValueEthiopicNumeric))
+    if (auto predefinedValues = consumeIdent(range, isPredefinedCounterStyle))
         return predefinedValues;
 
     if (context.propertySettings.cssCounterStyleAtRulesEnabled)
@@ -7589,11 +7590,11 @@ bool parseGridTemplateAreasRow(StringView gridRowNames, NamedGridAreaMap& gridAr
         while (lookAheadColumn < columnCount && columnNames[lookAheadColumn] == gridAreaName)
             lookAheadColumn++;
 
-        auto gridAreaIt = gridAreaMap.find(gridAreaName);
-        if (gridAreaIt == gridAreaMap.end())
-            gridAreaMap.add(gridAreaName, GridArea(GridSpan::translatedDefiniteGridSpan(rowCount, rowCount + 1), GridSpan::translatedDefiniteGridSpan(currentColumn, lookAheadColumn)));
-        else {
-            auto& gridArea = gridAreaIt->value;
+        auto result = gridAreaMap.map.ensure(gridAreaName, [&] {
+            return GridArea(GridSpan::translatedDefiniteGridSpan(rowCount, rowCount + 1), GridSpan::translatedDefiniteGridSpan(currentColumn, lookAheadColumn));
+        });
+        if (!result.isNewEntry) {
+            auto& gridArea = result.iterator->value;
 
             // The following checks test that the grid area is a single filled-in rectangle.
             // 1. The new row is adjacent to the previously parsed row.
@@ -8200,17 +8201,38 @@ RefPtr<CSSValue> consumeFontFaceFontFamily(CSSParserTokenRange& range)
     return CSSValueList::createCommaSeparated(name.releaseNonNull());
 }
 
-bool identMatchesSupportedFontFormat(CSSValueID id)
+
+Vector<FontTechnology> consumeFontTech(CSSParserTokenRange& range, bool singleValue)
 {
-    return identMatches<
-        CSSValueCollection,
-        CSSValueEmbeddedOpentype,
-        CSSValueOpentype,
-        CSSValueSvg,
-        CSSValueTruetype,
-        CSSValueWoff,
-        CSSValueWoff2
-    >(id);
+    Vector<FontTechnology> technologies;
+    auto args = consumeFunction(range);
+    do {
+        auto& arg = args.consumeIncludingWhitespace();
+        if (arg.type() != IdentToken)
+            return { };
+        auto technology = fromCSSValueID<FontTechnology>(arg.id());
+        if (technology != FontTechnology::Invalid && FontCustomPlatformData::supportsTechnology(technology))
+            technologies.append(technology);
+    } while (consumeCommaIncludingWhitespace(args) && !singleValue);
+    if (!args.atEnd())
+        return { };
+    return technologies;
+}
+
+String consumeFontFormat(CSSParserTokenRange& range, bool rejectStringValues)
+{
+    // https://drafts.csswg.org/css-fonts/#descdef-font-face-src
+    // FIXME: We allow any identifier here and convert to strings; specification calls for certain keywords and legacy compatibility strings.
+    auto args = CSSPropertyParserHelpers::consumeFunction(range);
+    auto& arg = args.consumeIncludingWhitespace();
+    if (!args.atEnd())
+        return nullString();
+    if (arg.type() != IdentToken && (rejectStringValues || arg.type() != StringToken))
+        return nullString();
+    auto format = arg.value().toString();
+    if (arg.type() == IdentToken && !FontCustomPlatformData::supportsFormat(format))
+        return nullString();
+    return format;
 }
 
 // MARK: @font-palette-values

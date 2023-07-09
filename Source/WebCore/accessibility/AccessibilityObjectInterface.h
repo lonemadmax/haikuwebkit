@@ -28,9 +28,9 @@
 // FIXME: Should rename this file AXCoreObject.h.
 
 #include "ColorConversion.h"
-#include "FrameLoaderClient.h"
 #include "HTMLTextFormControlElement.h"
 #include "LayoutRect.h"
+#include "LocalFrameLoaderClient.h"
 #include "LocalizedStrings.h"
 #include "SimpleRange.h"
 #include "TextIteratorBehavior.h"
@@ -1188,13 +1188,16 @@ public:
 
     // Rect relative to the viewport.
     virtual FloatRect relativeFrame() const = 0;
-
+#if PLATFORM(MAC)
+    virtual FloatRect primaryScreenRect() const = 0;
+#endif
     virtual FloatRect unobscuredContentRect() const = 0;
     virtual IntSize size() const = 0;
     virtual IntPoint clickPoint() = 0;
     virtual Path elementPath() const = 0;
     virtual bool supportsPath() const = 0;
 
+    bool shouldReturnEmptySelectedText() const { return isSecureField(); }
     virtual PlainTextRange selectedTextRange() const = 0;
     virtual int insertionPointLineNumber() const = 0;
 
@@ -1211,10 +1214,14 @@ public:
     virtual PlatformWidget platformWidget() const = 0;
     virtual Widget* widgetForAttachmentView() const = 0;
 
+    // FIXME: Remove the following methods from the AXCoreObject interface and instead use methods such as axScrollView() if needed.
     virtual Page* page() const = 0;
     virtual Document* document() const = 0;
     virtual LocalFrameView* documentFrameView() const = 0;
     virtual ScrollView* scrollView() const = 0;
+    // Should eliminate the need for exposing scrollView().
+    AXCoreObject* axScrollView() const;
+
     virtual String language() const = 0;
     // 1-based, to match the aria-level spec.
     virtual unsigned hierarchicalLevel() const = 0;
@@ -1222,20 +1229,22 @@ public:
     
     virtual void setFocused(bool) = 0;
     virtual void setSelectedText(const String&) = 0;
-    virtual void setSelectedTextRange(const PlainTextRange&) = 0;
+    virtual void setSelectedTextRange(PlainTextRange&&) = 0;
     virtual bool setValue(const String&) = 0;
+    virtual void setValueIgnoringResult(const String&) = 0;
     virtual bool replaceTextInRange(const String&, const PlainTextRange&) = 0;
     virtual bool insertText(const String&) = 0;
 
     virtual bool setValue(float) = 0;
+    virtual void setValueIgnoringResult(float) = 0;
     virtual void setSelected(bool) = 0;
-    virtual void setSelectedRows(AccessibilityChildrenVector&) = 0;
+    virtual void setSelectedRows(AccessibilityChildrenVector&&) = 0;
 
-    virtual void makeRangeVisible(const PlainTextRange&) = 0;
     virtual bool press() = 0;
     bool performDefaultAction() { return press(); }
     virtual bool performDismissAction() { return false; }
-    
+    virtual void performDismissActionIgnoringResult() = 0;
+
     virtual AccessibilityOrientation orientation() const = 0;
     virtual void increment() = 0;
     virtual void decrement() = 0;
@@ -1335,9 +1344,9 @@ public:
     // Make this object visible by scrolling as many nested scrollable views as needed.
     virtual void scrollToMakeVisible() const = 0;
     // Same, but if the whole object can't be made visible, try for this subrect, in local coordinates.
-    virtual void scrollToMakeVisibleWithSubFocus(const IntRect&) const = 0;
+    virtual void scrollToMakeVisibleWithSubFocus(IntRect&&) const = 0;
     // Scroll this object to a given point in global coordinates of the top-level window.
-    virtual void scrollToGlobalPoint(const IntPoint&) const = 0;
+    virtual void scrollToGlobalPoint(IntPoint&&) const = 0;
 
     AccessibilityChildrenVector contents();
 
@@ -1427,6 +1436,7 @@ public:
     virtual AXCoreObject* focusableAncestor() = 0;
     virtual AXCoreObject* editableAncestor() = 0;
     virtual AXCoreObject* highestEditableAncestor() = 0;
+    virtual AXCoreObject* exposedTableAncestor(bool includeSelf = false) const = 0;
 
     virtual PAL::SessionID sessionID() const = 0;
     virtual String documentURI() const = 0;
@@ -1913,6 +1923,14 @@ T* liveRegionAncestor(const T& object, bool excludeIfOff)
     });
 }
 
+template<typename T>
+T* exposedTableAncestor(const T& object, bool includeSelf = false)
+{
+    return findAncestor<T>(object, includeSelf, [] (const T& object) {
+        return object.isTable() && object.isExposable();
+    });
+}
+
 void findMatchingObjects(const AccessibilitySearchCriteria&, AXCoreObject::AccessibilityChildrenVector&);
 
 template<typename T, typename F>
@@ -1935,9 +1953,16 @@ void enumerateDescendants(T& object, bool includeSelf, const F& lambda)
         enumerateDescendants(*child, true, lambda);
 }
 
-template<typename U> inline void performFunctionOnMainThread(U&& lambda)
+template<typename U> inline void performFunctionOnMainThreadAndWait(U&& lambda)
 {
     callOnMainThreadAndWait([lambda = WTFMove(lambda)] () {
+        lambda();
+    });
+}
+
+template<typename U> inline void performFunctionOnMainThread(U&& lambda)
+{
+    ensureOnMainThread([lambda = WTFMove(lambda)] () mutable {
         lambda();
     });
 }
@@ -1974,6 +1999,13 @@ inline bool AXCoreObject::isDescendantOfObject(const AXCoreObject* axObject) con
 inline bool AXCoreObject::isAncestorOfObject(const AXCoreObject* axObject) const
 {
     return axObject && (this == axObject || axObject->isDescendantOfObject(this));
+}
+
+inline AXCoreObject* AXCoreObject::axScrollView() const
+{
+    return Accessibility::findAncestor(*this, true, [] (const auto& ancestor) {
+        return ancestor.isScrollView();
+    });
 }
 
 // Logging helpers.

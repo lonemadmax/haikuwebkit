@@ -157,7 +157,7 @@ void WebSWServerConnection::setRegistrationUpdateViaCache(ServiceWorkerRegistrat
     send(Messages::WebSWClientConnection::SetRegistrationUpdateViaCache(identifier, updateViaCache));
 }
 
-void WebSWServerConnection::notifyClientsOfControllerChange(const HashSet<ScriptExecutionContextIdentifier>& contextIdentifiers, const ServiceWorkerData& newController)
+void WebSWServerConnection::notifyClientsOfControllerChange(const HashSet<ScriptExecutionContextIdentifier>& contextIdentifiers, const std::optional<ServiceWorkerData>& newController)
 {
     send(Messages::WebSWClientConnection::NotifyClientsOfControllerChange(contextIdentifiers, newController));
 }
@@ -468,9 +468,12 @@ void WebSWServerConnection::unregisterServiceWorkerClient(const ScriptExecutionC
     });
 
     if (isDeletedOrigin) {
-        if (auto* contextConnection = server().contextConnectionForRegistrableDomain(RegistrableDomain { clientOrigin.clientOrigin })) {
-            auto& connection = static_cast<WebSWServerToContextConnection&>(*contextConnection);
-            m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::UnregisterRemoteWorkerClientProcess { RemoteWorkerType::ServiceWorker, identifier(), connection.webProcessIdentifier() }, 0);
+        RegistrableDomain potentiallyRemovedDomain { clientOrigin.clientOrigin };
+        if (!hasMatchingClient(potentiallyRemovedDomain)) {
+            if (auto* contextConnection = server().contextConnectionForRegistrableDomain(potentiallyRemovedDomain)) {
+                auto& connection = static_cast<WebSWServerToContextConnection&>(*contextConnection);
+                m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::UnregisterRemoteWorkerClientProcess { RemoteWorkerType::ServiceWorker, identifier(), connection.webProcessIdentifier() }, 0);
+            }
         }
     }
 }

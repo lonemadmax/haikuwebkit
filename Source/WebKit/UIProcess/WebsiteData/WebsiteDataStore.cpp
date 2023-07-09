@@ -178,7 +178,12 @@ WebsiteDataStore::~WebsiteDataStore()
         activeGeneralStorageDirectories().remove(generalStorageDirectory);
     allDataStores().remove(m_sessionID);
     if (m_networkProcess)
-        m_networkProcess->removeSession(*this);
+        m_networkProcess->removeSession(*this, std::exchange(m_completionHandlerForRemovalFromNetworkProcess, { }));
+    if (m_completionHandlerForRemovalFromNetworkProcess) {
+        RunLoop::main().dispatch([completionHandler = std::exchange(m_completionHandlerForRemovalFromNetworkProcess, { })]() mutable {
+            completionHandler({ });
+        });
+    }
 #if ENABLE(GPU_PROCESS)
     if (auto* gpuProcessProxy = GPUProcessProxy::singletonIfCreated())
         gpuProcessProxy->removeSession(m_sessionID);
@@ -1634,6 +1639,9 @@ void WebsiteDataStore::networkProcessDidTerminate(NetworkProcessProxy& networkPr
 {
     ASSERT(!m_networkProcess || m_networkProcess == &networkProcess);
     m_networkProcess = nullptr;
+
+    if (auto completionHandler = std::exchange(m_completionHandlerForRemovalFromNetworkProcess, { }))
+        completionHandler("Network process is terminated"_s);
 }
 
 void WebsiteDataStore::terminateNetworkProcess()
@@ -2355,6 +2363,16 @@ void WebsiteDataStore::workerUpdatedAppBadge(const WebCore::SecurityOriginData& 
     m_client->workerUpdatedAppBadge(origin, badge);
 }
 
+bool WebsiteDataStore::hasClientGetDisplayedNotifications() const
+{
+    return m_client->hasGetDisplayedNotifications();
+}
+
+void WebsiteDataStore::getNotifications(const URL& registrationalURL, CompletionHandler<void(Vector<WebCore::NotificationData>&&)>&& completionHandler)
+{
+    m_client->getDisplayedNotifications(WebCore::SecurityOriginData::fromURL(registrationalURL), WTFMove(completionHandler));
+}
+
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
 void WebsiteDataStore::setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit)
@@ -2419,11 +2437,18 @@ void WebsiteDataStore::clearProxyConfigData()
     networkProcess().send(Messages::NetworkProcess::ClearProxyConfigData(m_sessionID), 0);
 }
 
-void WebsiteDataStore::setProxyConfigData(const API::Data& data, uuid_t proxyIdentifier)
+void WebsiteDataStore::setProxyConfigData(Vector<std::pair<Vector<uint8_t>, UUID>>&& data)
 {
-    auto proxyIdentifierData = IPC::DataReference(reinterpret_cast<uint8_t *>(proxyIdentifier), sizeof(uuid_t));
-    networkProcess().send(Messages::NetworkProcess::SetProxyConfigData(m_sessionID, data.dataReference(), WTFMove(proxyIdentifierData)), 0);
+    networkProcess().send(Messages::NetworkProcess::SetProxyConfigData(m_sessionID, WTFMove(data)), 0);
 }
 #endif // HAVE(NW_PROXY_CONFIG)
+
+void WebsiteDataStore::setCompletionHandlerForRemovalFromNetworkProcess(CompletionHandler<void(String&&)>&& completionHandler)
+{
+    if (m_completionHandlerForRemovalFromNetworkProcess)
+        m_completionHandlerForRemovalFromNetworkProcess("New completion handler is set"_s);
+
+    m_completionHandlerForRemovalFromNetworkProcess = WTFMove(completionHandler);
+}
 
 }

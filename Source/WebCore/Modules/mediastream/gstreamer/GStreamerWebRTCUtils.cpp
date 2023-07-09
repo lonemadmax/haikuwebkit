@@ -557,7 +557,7 @@ GRefPtr<GstCaps> capsFromSDPMedia(const GstSDPMedia* media)
         auto rtpMap = StringView::fromLatin1(rtpMapValue);
         auto components = rtpMap.split(' ');
         auto payloadType = parseInteger<int>(*components.begin());
-        if (!payloadType || !*payloadType) {
+        if (!payloadType) {
             GST_WARNING("Invalid payload type in rtpmap %s", rtpMap.utf8().data());
             continue;
         }
@@ -578,7 +578,7 @@ GRefPtr<GstCaps> capsFromSDPMedia(const GstSDPMedia* media)
             // Remove attributes unrelated with codec preferences, potentially leading to internal
             // webrtcbin confusions such as duplicated RTP direction attributes for instance.
             gst_structure_remove_fields(structure, "a-setup", "a-ice-ufrag", "a-ice-pwd", "a-sendrecv", "a-inactive",
-                "a-sendonly", "a-recvonly", nullptr);
+                "a-sendonly", "a-recvonly", "a-end-of-candidates", nullptr);
 
             // Remove ssrc- attributes that end up being accumulated in fmtp SDP media parameters.
             gst_structure_filter_and_map_in_place(structure, reinterpret_cast<GstStructureFilterMapFunc>(+[](GQuark quark, GValue*, gpointer) -> gboolean {

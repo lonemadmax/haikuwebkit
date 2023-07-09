@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2010 Google, Inc. All Rights Reserved.
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Google, Inc. All Rights Reserved.
+ * Copyright (C) 2011-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -696,6 +696,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomHTMLToken&& token)
     case TagName::nav:
     case TagName::ol:
     case TagName::p:
+    case TagName::search:
     case TagName::section:
     case TagName::summary:
     case TagName::ul:
@@ -964,6 +965,7 @@ void HTMLTreeBuilder::processTemplateStartTag(AtomHTMLToken&& token)
 {
     m_tree.activeFormattingElements().appendMarker();
     m_tree.insertHTMLTemplateElement(WTFMove(token));
+    m_framesetOk = false;
     m_templateInsertionModes.append(InsertionMode::TemplateContents);
     m_insertionMode = InsertionMode::TemplateContents;
 }
@@ -1423,6 +1425,13 @@ void HTMLTreeBuilder::processStartTag(AtomHTMLToken&& token)
             if (m_tree.currentStackItem().elementName() == HTML::optgroup)
                 processFakeEndTag(TagName::optgroup);
             m_tree.insertHTMLElement(WTFMove(token));
+            return;
+        case TagName::hr:
+            if (m_tree.currentStackItem().elementName() == HTML::option)
+                processFakeEndTag(TagName::option);
+            if (m_tree.currentStackItem().elementName() == HTML::optgroup)
+                processFakeEndTag(TagName::optgroup);
+            m_tree.insertSelfClosingHTMLElement(WTFMove(token));
             return;
         case TagName::select: {
             parseError(token);
@@ -1923,6 +1932,7 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomHTMLToken&& token)
     case TagName::nav:
     case TagName::ol:
     case TagName::pre:
+    case TagName::search:
     case TagName::section:
     case TagName::summary:
     case TagName::ul:

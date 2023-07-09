@@ -272,6 +272,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case IsConstructor:
     case IsCellWithType:
     case IsTypedArrayView:
+    case HasStructureWithFlags:
     case TypeOf:
     case ToBoolean:
     case LogicalNot:
@@ -281,6 +282,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case StrCat:
     case CallStringConstructor:
     case MakeRope:
+    case MakeAtomString:
     case GetFromArguments:
     case GetArgument:
     case StringFromCharCode:
@@ -344,7 +346,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
         if (value.isInfinite() || value.size() != 1)
             return false;
 
-        return value[0].get() == graph.m_vm.getterSetterStructure;
+        return value[0].get() == graph.m_vm.getterSetterStructure.get();
     }
 
     case BottomValue:
@@ -398,6 +400,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case PutByValDirect:
     case PutByVal:
     case PutByValAlias:
+    case PutByValMegamorphic:
         return node->arrayMode().modeForPut().alreadyChecked(
             graph, node, state.forNode(graph.varArgChild(node, 0)));
 
@@ -534,12 +537,15 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case GetById:
     case GetByIdMegamorphic:
     case GetByIdWithThis:
+    case GetByIdWithThisMegamorphic:
     case GetByValWithThis:
+    case GetByValWithThisMegamorphic:
     case GetByIdFlush:
     case GetByIdDirect:
     case GetByIdDirectFlush:
     case PutById:
     case PutByIdFlush:
+    case PutByIdMegamorphic:
     case PutByIdWithThis:
     case PutByValWithThis:
     case PutByIdDirect:

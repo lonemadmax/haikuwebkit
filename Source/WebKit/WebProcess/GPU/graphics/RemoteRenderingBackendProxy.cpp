@@ -32,6 +32,7 @@
 #include "GPUConnectionToWebProcess.h"
 #include "Logging.h"
 #include "PlatformImageBufferShareableBackend.h"
+#include "RemoteDisplayListRecorderProxy.h"
 #include "RemoteImageBufferProxy.h"
 #include "RemoteRenderingBackendMessages.h"
 #include "RemoteRenderingBackendProxyMessages.h"
@@ -113,9 +114,6 @@ void RemoteRenderingBackendProxy::disconnectGPUProcess()
     m_didRenderingUpdateID = { };
     m_streamConnection->invalidate();
     m_streamConnection = nullptr;
-    auto pendingFlushes = std::exchange(m_pendingFlushes, { });
-    for (auto& flushState : pendingFlushes.values())
-        flushState->cancel();
 }
 
 RemoteRenderingBackendProxy::DidReceiveBackendCreationResult RemoteRenderingBackendProxy::waitForDidCreateImageBufferBackend()
@@ -123,11 +121,6 @@ RemoteRenderingBackendProxy::DidReceiveBackendCreationResult RemoteRenderingBack
     if (!streamConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives))
         return DidReceiveBackendCreationResult::TimeoutOrIPCFailure;
     return DidReceiveBackendCreationResult::ReceivedAnyResponse;
-}
-
-bool RemoteRenderingBackendProxy::waitForDidFlush()
-{
-    return streamConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidFlush>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void RemoteRenderingBackendProxy::createRemoteImageBuffer(ImageBuffer& imageBuffer)
@@ -170,7 +163,7 @@ void RemoteRenderingBackendProxy::moveToImageBuffer(RemoteSerializedImageBufferW
     send(Messages::RemoteRenderingBackend::MoveToImageBuffer(reference, identifier));
 }
 
-bool RemoteRenderingBackendProxy::getPixelBufferForImageBuffer(RenderingResourceIdentifier imageBuffer, const PixelBufferFormat& destinationFormat, const IntRect& srcRect, Span<uint8_t> result)
+bool RemoteRenderingBackendProxy::getPixelBufferForImageBuffer(RenderingResourceIdentifier imageBuffer, const PixelBufferFormat& destinationFormat, const IntRect& srcRect, std::span<uint8_t> result)
 {
     if (auto handle = updateSharedMemoryForGetPixelBuffer(result.size())) {
         auto sendResult = sendSync(Messages::RemoteRenderingBackend::GetPixelBufferForImageBufferWithNewMemory(imageBuffer, WTFMove(*handle), destinationFormat, srcRect));
@@ -273,6 +266,12 @@ void RemoteRenderingBackendProxy::cacheGradient(Ref<Gradient>&& gradient)
 {
     auto renderingResourceIdentifier = gradient->renderingResourceIdentifier();
     send(Messages::RemoteRenderingBackend::CacheGradient(WTFMove(gradient), renderingResourceIdentifier));
+}
+
+void RemoteRenderingBackendProxy::cacheFilter(Ref<Filter>&& filter)
+{
+    auto renderingResourceIdentifier = filter->renderingResourceIdentifier();
+    send(Messages::RemoteRenderingBackend::CacheFilter(WTFMove(filter), renderingResourceIdentifier));
 }
 
 void RemoteRenderingBackendProxy::releaseAllRemoteResources()
@@ -444,13 +443,6 @@ void RemoteRenderingBackendProxy::didCreateImageBufferBackend(ImageBufferBackend
     imageBuffer->didCreateImageBufferBackend(WTFMove(handle));
 }
 
-void RemoteRenderingBackendProxy::didFlush(DisplayListRecorderFlushIdentifier flushIdentifier)
-{
-    auto flush = m_pendingFlushes.take(flushIdentifier);
-    ASSERT(flush);
-    flush->markCompletedFlush(flushIdentifier);
-}
-
 void RemoteRenderingBackendProxy::didFinalizeRenderingUpdate(RenderingUpdateID didRenderingUpdateID)
 {
     ASSERT(didRenderingUpdateID <= m_renderingUpdateID);
@@ -483,12 +475,6 @@ void RemoteRenderingBackendProxy::didInitialize(IPC::Semaphore&& wakeUp, IPC::Se
         return;
     }
     m_streamConnection->setSemaphores(WTFMove(wakeUp), WTFMove(clientWait));
-}
-
-void RemoteRenderingBackendProxy::addPendingFlush(RemoteImageBufferProxyFlushState& flushState, DisplayListRecorderFlushIdentifier identifier)
-{
-    auto result = m_pendingFlushes.add(identifier, flushState);
-    ASSERT_UNUSED(result, result.isNewEntry);
 }
 
 bool RemoteRenderingBackendProxy::isCached(const ImageBuffer& imageBuffer) const

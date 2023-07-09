@@ -47,6 +47,19 @@ FELighting::FELighting(Type type, const Color& lightingColor, float surfaceScale
 {
 }
 
+bool FELighting::operator==(const FELighting& other) const
+{
+    return FilterEffect::operator==(other)
+        && m_lightingColor == other.m_lightingColor
+        && m_surfaceScale == other.m_surfaceScale
+        && m_diffuseConstant == other.m_diffuseConstant
+        && m_specularConstant == other.m_specularConstant
+        && m_specularExponent == other.m_specularExponent
+        && m_kernelUnitLengthX == other.m_kernelUnitLengthX
+        && m_kernelUnitLengthY == other.m_kernelUnitLengthY
+        && m_lightSource.get() == other.m_lightSource.get();
+}
+
 bool FELighting::setSurfaceScale(float surfaceScale)
 {
     if (m_surfaceScale == surfaceScale)
@@ -83,7 +96,7 @@ bool FELighting::setKernelUnitLengthY(float kernelUnitLengthY)
     return true;
 }
 
-FloatRect FELighting::calculateImageRect(const Filter& filter, Span<const FloatRect>, const FloatRect& primitiveSubregion) const
+FloatRect FELighting::calculateImageRect(const Filter& filter, std::span<const FloatRect>, const FloatRect& primitiveSubregion) const
 {
     return filter.maxEffectRect(primitiveSubregion);
 }

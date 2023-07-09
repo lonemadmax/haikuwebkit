@@ -30,6 +30,7 @@
 
 #include "AtomicsObject.h"
 #include "CallFrameShuffler.h"
+#include "ClonedArguments.h"
 #include "DFGAbstractInterpreterInlines.h"
 #include "DFGDoesGC.h"
 #include "DFGOperations.h"
@@ -3334,6 +3335,10 @@ void SpeculativeJIT::compile(Node* node)
         compileMakeRope(node);
         break;
 
+    case MakeAtomString:
+        compileMakeAtomString(node);
+        break;
+
     case ArithSub:
         compileArithSub(node);
         break;
@@ -3550,6 +3555,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case GetByValWithThisMegamorphic: {
+        compileGetByValWithThisMegamorphic(node);
+        break;
+    }
+
     case PutPrivateName: {
         compilePutPrivateName(node);
         break;
@@ -3576,7 +3586,12 @@ void SpeculativeJIT::compile(Node* node)
         compilePutByVal(node);
         break;
     }
-        
+
+    case PutByValMegamorphic: {
+        compilePutByValMegamorphic(node);
+        break;
+    }
+
     case AtomicsAdd:
     case AtomicsAnd:
     case AtomicsCompareExchange:
@@ -4471,6 +4486,10 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case GetByIdWithThisMegamorphic:
+        compileGetByIdWithThisMegamorphic(node);
+        break;
+
     case GetArrayLength:
         compileGetArrayLength(node);
         break;
@@ -4660,6 +4679,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case PutByIdMegamorphic: {
+        compilePutByIdMegamorphic(node);
+        break;
+    }
+
     case PutByIdWithThis: {
         compilePutByIdWithThis(node);
         break;
@@ -4753,6 +4777,11 @@ void SpeculativeJIT::compile(Node* node)
 
     case CheckTypeInfoFlags: {
         compileCheckTypeInfoFlags(node);
+        break;
+    }
+
+    case HasStructureWithFlags: {
+        compileHasStructureWithFlags(node);
         break;
     }
 
@@ -6597,6 +6626,28 @@ void SpeculativeJIT::compileGetByIdMegamorphic(Node* node)
     jsValueResult(scratch3GPR, node);
 }
 
+void SpeculativeJIT::compileGetByIdWithThisMegamorphic(Node* node)
+{
+    SpeculateCellOperand base(this, node->child1());
+    JSValueOperand thisValue(this, node->child2());
+    GPRTemporary scratch1(this);
+    GPRTemporary scratch2(this);
+    GPRTemporary scratch3(this);
+    GPRTemporary scratch4(this);
+
+    GPRReg baseGPR = base.gpr();
+    JSValueRegs thisValueRegs = thisValue.jsValueRegs();
+    GPRReg scratch1GPR = scratch1.gpr();
+    GPRReg scratch2GPR = scratch2.gpr();
+    GPRReg scratch3GPR = scratch3.gpr();
+    GPRReg scratch4GPR = scratch4.gpr();
+
+    UniquedStringImpl* uid = node->cacheableIdentifier().uid();
+    JumpList slowCases = loadMegamorphicProperty(vm(), baseGPR, InvalidGPRReg, uid, scratch3GPR, scratch1GPR, scratch2GPR, scratch3GPR, scratch4GPR);
+    addSlowPathGenerator(slowPathCall(slowCases, this, operationGetByIdWithThisMegamorphic, scratch3GPR, LinkableConstant::globalObject(*this, node), TrustedImmPtr(nullptr), baseGPR, thisValueRegs, node->cacheableIdentifier().rawBits()));
+    jsValueResult(scratch3GPR, node);
+}
+
 void SpeculativeJIT::compileGetByValMegamorphic(Node* node)
 {
     SpeculateCellOperand base(this, m_graph.child(node, 0));
@@ -6626,6 +6677,39 @@ void SpeculativeJIT::compileGetByValMegamorphic(Node* node)
 
     slowCases.append(loadMegamorphicProperty(vm(), baseGPR, scratch5GPR, nullptr, scratch3GPR, scratch1GPR, scratch2GPR, scratch3GPR, scratch4GPR));
     addSlowPathGenerator(slowPathCall(slowCases, this, operationGetByValMegamorphic, scratch3GPR, LinkableConstant::globalObject(*this, node), TrustedImmPtr(nullptr), TrustedImmPtr(nullptr), baseGPR, subscriptGPR));
+    jsValueResult(scratch3GPR, node);
+}
+
+void SpeculativeJIT::compileGetByValWithThisMegamorphic(Node* node)
+{
+    SpeculateCellOperand base(this, m_graph.child(node, 0));
+    JSValueOperand thisValue(this, m_graph.child(node, 1));
+    JSValueOperand subscript(this, m_graph.child(node, 2));
+    GPRTemporary scratch1(this);
+    GPRTemporary scratch2(this);
+    GPRTemporary scratch3(this);
+    GPRTemporary scratch4(this);
+    GPRTemporary scratch5(this);
+
+    GPRReg baseGPR = base.gpr();
+    JSValueRegs subscriptRegs = subscript.jsValueRegs();
+    JSValueRegs thisValueRegs = thisValue.jsValueRegs();
+    GPRReg scratch1GPR = scratch1.gpr();
+    GPRReg scratch2GPR = scratch2.gpr();
+    GPRReg scratch3GPR = scratch3.gpr();
+    GPRReg scratch4GPR = scratch4.gpr();
+    GPRReg scratch5GPR = scratch5.gpr();
+
+    JumpList slowCases;
+
+    slowCases.append(branchIfNotCell(subscriptRegs));
+    slowCases.append(branchIfNotString(subscriptRegs.payloadGPR()));
+    loadPtr(Address(subscriptRegs.payloadGPR(), JSString::offsetOfValue()), scratch5GPR);
+    slowCases.append(branchIfRopeStringImpl(scratch5GPR));
+    slowCases.append(branchTest32(Zero, Address(scratch5GPR, StringImpl::flagsOffset()), TrustedImm32(StringImpl::flagIsAtom())));
+
+    slowCases.append(loadMegamorphicProperty(vm(), baseGPR, scratch5GPR, nullptr, scratch3GPR, scratch1GPR, scratch2GPR, scratch3GPR, scratch4GPR));
+    addSlowPathGenerator(slowPathCall(slowCases, this, operationGetByValWithThisMegamorphic, scratch3GPR, LinkableConstant::globalObject(*this, node), TrustedImmPtr(nullptr), TrustedImmPtr(nullptr), baseGPR, subscriptRegs, thisValueRegs));
     jsValueResult(scratch3GPR, node);
 }
 
@@ -6744,7 +6828,7 @@ void SpeculativeJIT::compileEnumeratorPutByVal(Node* node)
 
             genericOrRecoverCase.append(branch32(NotEqual, scratchGPR, Address(enumeratorGPR, JSPropertyNameEnumerator::cachedStructureIDOffset())));
             emitNonNullDecodeZeroExtendedStructureID(scratchGPR, scratchGPR);
-            genericOrRecoverCase.append(branchTest32(NonZero, Address(scratchGPR, Structure::bitFieldOffset()), TrustedImm32(Structure::s_didWatchReplacementBits)));
+            genericOrRecoverCase.append(branchTest32(NonZero, Address(scratchGPR, Structure::bitFieldOffset()), TrustedImm32(Structure::s_isWatchingReplacementBits)));
 
             // Compute the offset
             // If index is less than the enumerator's cached inline storage, then it's an inline access
@@ -6775,13 +6859,23 @@ void SpeculativeJIT::compileEnumeratorPutByVal(Node* node)
 
             auto [ stubInfo, stubInfoConstant ] = addStructureStubInfo();
             JITPutByValGenerator gen(
-                codeBlock(), stubInfo, JITType::DFGJIT, codeOrigin, callSite, AccessType::PutByVal, usedRegisters,
-                baseRegs, propertyRegs, valueRegs, InvalidGPRReg, scratchGPR, PutKind::NotDirect, ecmaMode, PrivateFieldPutKind::none());
+                codeBlock(), stubInfo, JITType::DFGJIT, codeOrigin, callSite, ecmaMode.isStrict() ? AccessType::PutByValStrict : AccessType::PutByValSloppy, usedRegisters,
+                baseRegs, propertyRegs, valueRegs, InvalidGPRReg, scratchGPR, ecmaMode);
+
+            std::visit([&](auto* stubInfo) {
+                if (m_state.forNode(m_graph.varArgChild(node, 1)).isType(SpecString))
+                    stubInfo->propertyIsString = true;
+                else if (m_state.forNode(m_graph.varArgChild(node, 1)).isType(SpecInt32Only))
+                    stubInfo->propertyIsInt32 = true;
+                else if (m_state.forNode(m_graph.varArgChild(node, 1)).isType(SpecSymbol))
+                    stubInfo->propertyIsSymbol = true;
+                stubInfo->isEnumerator = true;
+            }, stubInfo);
 
             JumpList slowCases;
 
             std::unique_ptr<SlowPathGenerator> slowPath;
-            auto operation = ecmaMode.isStrict() ? operationPutByValStrictOptimize : operationPutByValNonStrictOptimize;
+            auto operation = ecmaMode.isStrict() ? operationPutByValStrictOptimize : operationPutByValSloppyOptimize;
             if (m_graph.m_plan.isUnlinked()) {
                 gen.generateDFGDataICFastPath(*this, stubInfoConstant.index(), scratchGPR);
                 gen.m_unlinkedStubInfoConstantIndex = stubInfoConstant.index();
@@ -6821,6 +6915,176 @@ void SpeculativeJIT::compileEnumeratorPutByVal(Node* node)
         generate(base.regs());
     }
     noResult(node);
+}
+
+void SpeculativeJIT::compilePutByIdMegamorphic(Node* node)
+{
+    SpeculateCellOperand base(this, m_graph.child(node, 0));
+    JSValueOperand value(this, m_graph.child(node, 1));
+    GPRTemporary scratch1(this);
+    GPRTemporary scratch2(this);
+    GPRTemporary scratch3(this);
+    GPRTemporary scratch4(this);
+
+    GPRReg baseGPR = base.gpr();
+    JSValueRegs valueRegs = value.jsValueRegs();
+    GPRReg scratch1GPR = scratch1.gpr();
+    GPRReg scratch2GPR = scratch2.gpr();
+    GPRReg scratch3GPR = scratch3.gpr();
+    GPRReg scratch4GPR = scratch4.gpr();
+
+    UniquedStringImpl* uid = node->cacheableIdentifier().uid();
+    JumpList slowCases = storeMegamorphicProperty(vm(), baseGPR, InvalidGPRReg, uid, valueRegs.payloadGPR(), scratch1GPR, scratch2GPR, scratch3GPR, scratch4GPR);
+    addSlowPathGenerator(slowPathCall(slowCases, this, node->ecmaMode().isStrict() ? operationPutByIdMegamorphicStrict : operationPutByIdMegamorphicSloppy, NoResult, LinkableConstant::globalObject(*this, node), TrustedImmPtr(nullptr), valueRegs, baseGPR, node->cacheableIdentifier().rawBits()));
+    noResult(node);
+}
+
+void SpeculativeJIT::compilePutByValMegamorphic(Node* node)
+{
+    SpeculateCellOperand base(this, m_graph.child(node, 0));
+    SpeculateCellOperand subscript(this, m_graph.child(node, 1));
+    JSValueOperand value(this, m_graph.child(node, 2));
+    GPRTemporary scratch1(this);
+    GPRTemporary scratch2(this);
+    GPRTemporary scratch3(this);
+    GPRTemporary scratch4(this);
+    GPRTemporary scratch5(this);
+
+    GPRReg baseGPR = base.gpr();
+    GPRReg subscriptGPR = subscript.gpr();
+    JSValueRegs valueRegs = value.jsValueRegs();
+    GPRReg scratch1GPR = scratch1.gpr();
+    GPRReg scratch2GPR = scratch2.gpr();
+    GPRReg scratch3GPR = scratch3.gpr();
+    GPRReg scratch4GPR = scratch4.gpr();
+    GPRReg scratch5GPR = scratch5.gpr();
+
+    speculateString(m_graph.child(node, 1), subscriptGPR);
+
+    JumpList slowCases;
+
+    loadPtr(Address(subscriptGPR, JSString::offsetOfValue()), scratch5GPR);
+    slowCases.append(branchIfRopeStringImpl(scratch5GPR));
+    slowCases.append(branchTest32(Zero, Address(scratch5GPR, StringImpl::flagsOffset()), TrustedImm32(StringImpl::flagIsAtom())));
+
+    slowCases.append(storeMegamorphicProperty(vm(), baseGPR, scratch5GPR, nullptr, valueRegs.payloadGPR(), scratch1GPR, scratch2GPR, scratch3GPR, scratch4GPR));
+    addSlowPathGenerator(slowPathCall(slowCases, this, node->ecmaMode().isStrict() ? operationPutByValMegamorphicStrict : operationPutByValMegamorphicSloppy, NoResult, LinkableConstant::globalObject(*this, node), baseGPR, subscriptGPR, valueRegs, TrustedImmPtr(nullptr), TrustedImmPtr(nullptr)));
+    noResult(node);
+}
+
+void SpeculativeJIT::compileCreateClonedArguments(Node* node)
+{
+    if (m_graph.isWatchingHavingABadTimeWatchpoint(node)) {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+
+        GPRTemporary storage(this);
+        GPRTemporary result(this);
+        GPRTemporary size(this);
+        GPRTemporary scratch(this);
+        GPRTemporary scratch2(this);
+
+        GPRReg storageGPR = storage.gpr();
+        GPRReg resultGPR = result.gpr();
+        GPRReg sizeGPR = size.gpr();
+        GPRReg scratchGPR = scratch.gpr();
+        GPRReg scratch2GPR = scratch2.gpr();
+
+        JumpList slowCases;
+
+        emitGetLength(node->origin.semantic, sizeGPR);
+
+        move(TrustedImmPtr(nullptr), storageGPR);
+        slowCases.append(branch32(AboveOrEqual, sizeGPR, TrustedImm32(MAX_STORAGE_VECTOR_LENGTH)));
+
+        {
+            // ClonedArguments' butterfly requires property storage for "length".
+            size_t outOfLineCapacity = globalObject->clonedArgumentsStructure()->outOfLineCapacity();
+            static_assert((1U << 3) == sizeof(JSValue));
+            lshift32(sizeGPR, TrustedImm32(3), scratchGPR);
+            add32(TrustedImm32(sizeof(IndexingHeader) + outOfLineCapacity * sizeof(JSValue)), scratchGPR, scratch2GPR);
+            emitAllocateVariableSized(storageGPR, vm().jsValueGigacageAuxiliarySpace(), scratch2GPR, scratchGPR, resultGPR, slowCases);
+            addPtr(TrustedImm32(sizeof(IndexingHeader) + outOfLineCapacity * sizeof(JSValue)), storageGPR);
+            ASSERT(Butterfly::offsetOfPublicLength() + static_cast<ptrdiff_t>(sizeof(uint32_t)) == Butterfly::offsetOfVectorLength());
+            storePair32(sizeGPR, sizeGPR, storageGPR, TrustedImm32(Butterfly::offsetOfPublicLength()));
+            emitInitializeOutOfLineStorage(storageGPR, outOfLineCapacity, scratchGPR);
+        }
+
+        emitAllocateJSObject<ClonedArguments>(resultGPR, TrustedImmPtr(m_graph.registerStructure(globalObject->clonedArgumentsStructure())), storageGPR, scratchGPR, scratch2GPR, slowCases);
+
+        emitGetCallee(node->origin.semantic, scratchGPR);
+        storePtr(scratchGPR, Address(resultGPR, ClonedArguments::offsetOfCallee()));
+        boxInt32(sizeGPR, JSValueRegs { scratchGPR });
+        storeValue(JSValueRegs { scratchGPR }, Address(storageGPR, offsetRelativeToBase(clonedArgumentsLengthPropertyOffset)));
+
+        emitGetArgumentStart(node->origin.semantic, scratchGPR);
+        Jump done = branchTest32(Zero, sizeGPR);
+        Label loop = label();
+        sub32(TrustedImm32(1), sizeGPR);
+        loadValue(BaseIndex(scratchGPR, sizeGPR, TimesEight), JSValueRegs { scratch2GPR });
+        storeValue(JSValueRegs { scratch2GPR }, BaseIndex(storageGPR, sizeGPR, TimesEight));
+        branchTest32(NonZero, sizeGPR).linkTo(loop, this);
+        done.link(this);
+
+        mutatorFence(vm());
+
+        Vector<SilentRegisterSavePlan> savePlans;
+        silentSpillAllRegistersImpl(false, savePlans, resultGPR);
+        auto doneFromSlowPath = label();
+        addSlowPathGeneratorLambda([=, this, savePlans = WTFMove(savePlans), slowCases = WTFMove(slowCases)] () {
+            slowCases.link(this);
+            silentSpill(savePlans);
+
+            setupArgument(5, [&] (GPRReg destGPR) { move(storageGPR, destGPR); });
+            setupArgument(4, [&] (GPRReg destGPR) { emitGetCallee(node->origin.semantic, destGPR); });
+            setupArgument(3, [&] (GPRReg destGPR) { emitGetLength(node->origin.semantic, destGPR); });
+            setupArgument(2, [&] (GPRReg destGPR) { emitGetArgumentStart(node->origin.semantic, destGPR); });
+            setupArgument(
+                1, [&] (GPRReg destGPR) {
+                    loadLinkableConstant(LinkableConstant(*this, globalObject->clonedArgumentsStructure()), destGPR);
+                });
+            setupArgument(
+                0, [&] (GPRReg destGPR) {
+                    loadLinkableConstant(LinkableConstant::globalObject(*this, node), destGPR);
+                });
+
+            appendCallSetResult(operationCreateClonedArguments, resultGPR);
+            silentFill(savePlans);
+            exceptionCheck();
+
+            jump().linkTo(doneFromSlowPath, this);
+        });
+
+        cellResult(resultGPR, node);
+        return;
+    }
+
+    GPRFlushedCallResult result(this);
+    GPRReg resultGPR = result.gpr();
+    flushRegisters();
+
+    JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+
+    // We set up the arguments ourselves, because we have the whole register file and we can
+    // set them up directly into the argument registers.
+
+    // Arguments: 0:JSGlobalObject*, 1:structure, 2:start, 3:length, 4:callee, 5:butterfly
+    setupArgument(5, [&] (GPRReg destGPR) { move(TrustedImm32(0), destGPR); });
+    setupArgument(4, [&] (GPRReg destGPR) { emitGetCallee(node->origin.semantic, destGPR); });
+    setupArgument(3, [&] (GPRReg destGPR) { emitGetLength(node->origin.semantic, destGPR); });
+    setupArgument(2, [&] (GPRReg destGPR) { emitGetArgumentStart(node->origin.semantic, destGPR); });
+    setupArgument(
+        1, [&] (GPRReg destGPR) {
+            loadLinkableConstant(LinkableConstant(*this, globalObject->clonedArgumentsStructure()), destGPR);
+        });
+    setupArgument(
+        0, [&] (GPRReg destGPR) {
+            loadLinkableConstant(LinkableConstant::globalObject(*this, node), destGPR);
+        });
+
+    appendCallSetResult(operationCreateClonedArguments, resultGPR);
+    exceptionCheck();
+
+    cellResult(resultGPR, node);
 }
 
 #endif

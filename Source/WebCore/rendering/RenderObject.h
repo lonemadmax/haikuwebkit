@@ -207,7 +207,7 @@ public:
     bool isRenderInline() const;
     bool isRenderLayerModelObject() const;
 
-    bool isAtomicInlineLevelBox() const;
+    inline bool isAtomicInlineLevelBox() const;
 
     virtual bool isCounter() const { return false; }
     virtual bool isQuote() const { return false; }
@@ -480,8 +480,8 @@ public:
     bool hasPotentiallyScrollableOverflow() const;
 
     bool hasTransformRelatedProperty() const { return m_bitfields.hasTransformRelatedProperty(); } // Transform, perspective or transform-style: preserve-3d.
-    bool isTransformed() const { return hasTransformRelatedProperty() && (style().affectsTransform() || hasSVGTransform()); }
-    bool hasTransformOrPerspective() const { return hasTransformRelatedProperty() && (isTransformed() || style().hasPerspective()); }
+    inline bool isTransformed() const;
+    inline bool hasTransformOrPerspective() const;
 
     inline bool preservesNewline() const;
 
@@ -622,6 +622,7 @@ public:
         IgnoreTinyRects = 1 << 2,
         IgnoreEmptyTextSelections = 1 << 3,
         UseSelectionHeight = 1 << 4,
+        ComputeIndividualCharacterRects = 1 << 5,
     };
     WEBCORE_EXPORT static Vector<FloatQuad> absoluteTextQuads(const SimpleRange&, OptionSet<BoundingRectBehavior> = { });
     WEBCORE_EXPORT static Vector<IntRect> absoluteTextRects(const SimpleRange&, OptionSet<BoundingRectBehavior> = { });
@@ -661,10 +662,9 @@ public:
     // Repaint a specific subrectangle within a given object.  The rect |r| is in the object's coordinate space.
     WEBCORE_EXPORT void repaintRectangle(const LayoutRect&, bool shouldClipToLayer = true) const;
 
-    enum class ClipRepaintToContainer : bool { No, Yes };
     enum class ClipRepaintToLayer : bool { No, Yes };
     enum class ForceRepaint : bool { No, Yes };
-    void repaintRectangle(const LayoutRect&, ClipRepaintToLayer, ForceRepaint, ClipRepaintToContainer) const;
+    void repaintRectangle(const LayoutRect&, ClipRepaintToLayer, ForceRepaint, std::optional<LayoutBoxExtent> additionalRepaintOutsets = std::nullopt) const;
 
     // Repaint a slow repaint object, which, at this time, means we are repainting an object with background-attachment:fixed.
     void repaintSlowRepaintObject() const;
@@ -832,7 +832,7 @@ protected:
 
     bool isSetNeedsLayoutForbidden() const;
 
-    void issueRepaint(std::optional<LayoutRect> partialRepaintRect = std::nullopt, ClipRepaintToLayer = ClipRepaintToLayer::No, ForceRepaint = ForceRepaint::No, ClipRepaintToContainer = ClipRepaintToContainer::Yes) const;
+    void issueRepaint(std::optional<LayoutRect> partialRepaintRect = std::nullopt, ClipRepaintToLayer = ClipRepaintToLayer::No, ForceRepaint = ForceRepaint::No, std::optional<LayoutBoxExtent> additionalRepaintOutsets = std::nullopt) const;
 
 private:
     void addAbsoluteRectForLayer(LayoutRect& result);
@@ -1093,14 +1093,6 @@ inline void RenderObject::setNeedsLayout(MarkingBehavior markParents)
         setLayerNeedsFullRepaint();
 }
 
-inline bool RenderObject::preservesNewline() const
-{
-    if (isSVGInlineText())
-        return false;
-        
-    return style().preserveNewline();
-}
-
 inline void RenderObject::setSelectionStateIfNeeded(HighlightState state)
 {
     if (selectionState() == state)
@@ -1252,11 +1244,6 @@ inline RenderObject* RenderObject::nextInFlowSibling() const
     while (nextSibling && !nextSibling->isInFlow())
         nextSibling = nextSibling->nextSibling();
     return nextSibling;
-}
-
-inline bool RenderObject::isAtomicInlineLevelBox() const
-{
-    return style().isDisplayInlineType() && !(style().display() == DisplayType::Inline && !isReplacedOrInlineBlock());
 }
 
 inline bool RenderObject::hasPotentiallyScrollableOverflow() const

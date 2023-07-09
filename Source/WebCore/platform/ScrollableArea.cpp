@@ -163,7 +163,7 @@ void ScrollableArea::scrollToPositionWithAnimation(const FloatPoint& position, S
 {
     LOG_WITH_STREAM(Scrolling, stream << "ScrollableArea " << this << " scrollToPositionWithAnimation " << position);
 
-    bool startedAnimation = requestAnimatedScrollToPosition(roundedIntPoint(position), clamping);
+    bool startedAnimation = requestScrollToPosition(roundedIntPoint(position), ScrollType::Programmatic, clamping, ScrollIsAnimated::Yes);
     if (!startedAnimation)
         startedAnimation = scrollAnimator().scrollToPositionWithAnimation(position, clamping);
 
@@ -261,7 +261,7 @@ void ScrollableArea::setScrollPositionFromAnimation(const ScrollPosition& positi
     // An early return here if the position hasn't changed breaks an iOS RTL scrolling test: webkit.org/b/230450.
     auto scrollType = currentScrollType();
     auto clamping = scrollType == ScrollType::User ? ScrollClamping::Unclamped : ScrollClamping::Clamped;
-    if (requestScrollPositionUpdate(position, scrollType, clamping))
+    if (requestScrollToPosition(position, scrollType, clamping, ScrollIsAnimated::No))
         return;
 
     scrollPositionChanged(position);
@@ -420,6 +420,9 @@ bool ScrollableArea::useDarkAppearanceForScrollbars() const
 
 void ScrollableArea::invalidateScrollbar(Scrollbar& scrollbar, const IntRect& rect)
 {
+    if (!scrollbarsController().shouldDrawIntoScrollbarLayer(scrollbar))
+        return;
+
     if (&scrollbar == horizontalScrollbar()) {
         if (GraphicsLayer* graphicsLayer = layerForHorizontalScrollbar()) {
             graphicsLayer->setNeedsDisplay();

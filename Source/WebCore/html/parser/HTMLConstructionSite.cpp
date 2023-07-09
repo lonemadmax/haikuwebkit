@@ -33,7 +33,6 @@
 #include "DocumentType.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClient.h"
 #include "HTMLElementFactory.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
@@ -51,6 +50,7 @@
 #include "JSCustomElementInterface.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
+#include "LocalFrameLoaderClient.h"
 #include "NodeName.h"
 #include "NotImplemented.h"
 #include "SVGElementInlines.h"
@@ -669,7 +669,16 @@ void HTMLConstructionSite::insertTextNode(const String& characters)
     // FIXME: Splitting text nodes into smaller chunks contradicts HTML5 spec, but is currently necessary
     // for performance, see <https://bugs.webkit.org/show_bug.cgi?id=55898>.
 
-    RefPtr<Node> previousChild = task.nextChild ? task.nextChild->previousSibling() : task.parent->lastChild();
+    RefPtr<Node> previousChild;
+    if (task.nextChild)
+        previousChild = task.nextChild->previousSibling();
+    else {
+        if (auto templateParent = dynamicDowncast<HTMLTemplateElement>(task.parent.get()); UNLIKELY(templateParent)) {
+            auto parentNode = templateParent->contentIfAvailable();
+            previousChild = parentNode ? parentNode->lastChild() : nullptr;
+        } else
+            previousChild = task.parent->lastChild();
+    }
     if (auto* previousTextChild = dynamicDowncast<Text>(previousChild.get()); previousTextChild && previousTextChild->length() < lengthLimit) {
         // FIXME: We're only supposed to append to this text node if it was the last text node inserted by the parser.
         unsigned proposedBreakIndex = std::min(characters.length(), lengthLimit - previousTextChild->length());

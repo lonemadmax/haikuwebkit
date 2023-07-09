@@ -95,6 +95,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessCase);
     macro(Load) \
     macro(LoadMegamorphic) \
     macro(Transition) \
+    macro(StoreMegamorphic) \
     macro(Delete) \
     macro(DeleteNonConfigurable) \
     macro(DeleteMiss) \
@@ -123,6 +124,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessCase);
     macro(InstanceOfGeneric) \
     macro(CheckPrivateBrand) \
     macro(SetPrivateBrand) \
+    macro(IndexedProxyObjectLoad) \
     macro(IndexedMegamorphicLoad) \
     macro(IndexedInt32Load) \
     macro(IndexedDoubleLoad) \
@@ -150,6 +152,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessCase);
     macro(IndexedResizableTypedArrayFloat64Load) \
     macro(IndexedStringLoad) \
     macro(IndexedNoIndexingMiss) \
+    macro(IndexedMegamorphicStore) \
     macro(IndexedInt32Store) \
     macro(IndexedDoubleStore) \
     macro(IndexedContiguousStore) \

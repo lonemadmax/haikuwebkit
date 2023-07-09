@@ -22,6 +22,7 @@
 #include "config.h"
 #include "FontCustomPlatformData.h"
 
+#include "CSSFontFaceSrcValue.h"
 #include "CairoUtilities.h"
 #include "Font.h"
 #include "FontCacheFreeType.h"
@@ -94,10 +95,10 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     }
 #endif
 
-    auto size = description.computedPixelSize();
+    auto size = description.adjustedSizeForFontFace(fontCreationContext.sizeAdjust());
     FontPlatformData platformData(m_fontFace.get(), WTFMove(pattern), size, freeTypeFace->face_flags & FT_FACE_FLAG_FIXED_WIDTH, bold, italic, description.orientation());
 
-    platformData.updateSizeWithFontSizeAdjust(description.fontSizeAdjust());
+    platformData.updateSizeWithFontSizeAdjust(description.fontSizeAdjust(), description.computedPixelSize());
     return platformData;
 }
 
@@ -160,7 +161,14 @@ bool FontCustomPlatformData::supportsFormat(const String& format)
         || equalLettersIgnoringASCIICase(format, "truetype-variations"_s)
         || equalLettersIgnoringASCIICase(format, "opentype-variations"_s)
 #endif
-        || equalLettersIgnoringASCIICase(format, "woff"_s);
+        || equalLettersIgnoringASCIICase(format, "woff"_s)
+        || equalLettersIgnoringASCIICase(format, "svg"_s);
+}
+
+bool FontCustomPlatformData::supportsTechnology(const FontTechnology&)
+{
+    // FIXME: define supported technologies for this platform (webkit.org/b/256310).
+    return true;
 }
 
 }

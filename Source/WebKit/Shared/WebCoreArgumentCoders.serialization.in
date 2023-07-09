@@ -788,7 +788,7 @@ header: <WebCore/ApplePayInstallmentConfigurationWebCore.h>
 };
 header: <WebCore/PaymentInstallmentConfigurationWebCore.h>
 [CustomHeader] class WebCore::PaymentInstallmentConfiguration {
-    WebCore::ApplePayInstallmentConfiguration applePayInstallmentConfiguration()
+    std::optional<WebCore::ApplePayInstallmentConfiguration> applePayInstallmentConfiguration()
 }
 struct WebCore::ApplePayInstallmentItem {
     WebCore::ApplePayInstallmentItemType type;
@@ -1199,7 +1199,8 @@ enum class WebCore::RenderingPurpose : uint8_t {
     LayerBacking,
     Snapshot,
     ShareableSnapshot,
-    MediaPainting
+    ShareableLocalSnapshot,
+    MediaPainting,
 };
 
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
@@ -1366,6 +1367,11 @@ struct WebCore::ElementContext {
     WebCore::PageIdentifier webPageIdentifier;
     WebCore::ScriptExecutionContextIdentifier documentIdentifier;
     WebCore::ElementIdentifier elementIdentifier;
+};
+
+struct WebCore::ElementAnimationContext {
+    WebCore::ElementContext element;
+    bool isAnimating;
 };
 
 header: <WebCore/FrameLoaderTypes.h>
@@ -3183,7 +3189,7 @@ enum class WebCore::MediaDecodingType : uint8_t {
 enum class WebCore::MediaEncodingType : bool;
 
 class WebCore::BufferSource {
-    Span<const uint8_t> span()
+    std::span<const uint8_t> span()
 }
 
 struct WebCore::FontShadow {
@@ -3363,7 +3369,8 @@ enum class WebCore::MediaPlayerMovieLoadType : uint8_t {
     Unknown,
     Download,
     StoredStream,
-    LiveStream
+    LiveStream,
+    HttpLiveStream
 };
 
 enum class WebCore::MediaPlayerPreload : uint8_t {
@@ -4260,7 +4267,6 @@ enum class WebCore::DisplaySurfaceType : uint8_t {
 class WebCore::RealtimeMediaSourceSettings {
     uint32_t width();
     uint32_t height();
-    float aspectRatio();
     float frameRate();
     WebCore::VideoFacingMode facingMode();
     double volume();
@@ -4268,7 +4274,7 @@ class WebCore::RealtimeMediaSourceSettings {
     uint32_t sampleSize();
     bool echoCancellation();
     AtomString deviceId();
-    AtomString groupId();
+    String groupId();
     AtomString label();
     WebCore::DisplaySurfaceType displaySurface();
     bool logicalSurface();
@@ -4420,11 +4426,11 @@ struct WebCore::RTCDataChannelIdentifier {
 
 #endif // ENABLE(WEB_RTC)
 
-header: <WebCore/SVGFilterExpressionReference.h>
-[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::SVGFilterExpressionNode {
+header: <WebCore/SVGFilterExpression.h>
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::SVGFilterExpressionTerm {
     unsigned index;
-    std::optional<WebCore::FilterEffectGeometry> geometry;
     unsigned level;
+    std::optional<WebCore::FilterEffectGeometry> geometry;
 };
 
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::SVGPreserveAspectRatioValue {
@@ -4807,7 +4813,11 @@ struct WebCore::GlobalWindowIdentifier {
     WebCore::WindowIdentifier windowIdentifier;
 };
 
-[Nested] enum class WebCore::InteractionRegion::Type : bool;
+[Nested] enum class WebCore::InteractionRegion::Type : uint8_t {
+    Interaction,
+    Occlusion,
+    Guard
+};
 [Nested, OptionSet] enum class WebCore::InteractionRegion::CornerMask : uint8_t {
     MinXMinYCorner
     MaxXMinYCorner

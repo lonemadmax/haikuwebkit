@@ -53,6 +53,8 @@ public:
 
     void attachPlatformWrapper(AccessibilityObjectWrapper*);
     bool isDetached() const override;
+    bool isTable() const final { return boolAttributeValue(AXPropertyName::IsTable); }
+    bool isExposable() const final { return boolAttributeValue(AXPropertyName::IsExposable); }
 
     AXIsolatedObject* parentObject() const override { return parentObjectUnignored(); }
     AXIsolatedObject* editableAncestor() override { return Accessibility::editableAncestor(*this); };
@@ -97,6 +99,7 @@ private:
     template<typename T> Vector<T> vectorAttributeValue(AXPropertyName) const;
     template<typename T> OptionSet<T> optionSetAttributeValue(AXPropertyName) const;
     template<typename T> std::pair<T, T> pairAttributeValue(AXPropertyName) const;
+    template<typename T> std::optional<T> optionalAttributeValue(AXPropertyName) const;
     template<typename T> T propertyValue(AXPropertyName) const;
 
     // The following method performs a lazy caching of the given property.
@@ -107,11 +110,18 @@ private:
     void fillChildrenVectorForProperty(AXPropertyName, AccessibilityChildrenVector&) const;
     void setMathscripts(AXPropertyName, AXCoreObject&);
     void insertMathPairs(Vector<std::pair<AXID, AXID>>&, AccessibilityMathMultiscriptPairs&);
+    template<typename U> void performFunctionOnMainThreadAndWait(U&& lambda) const
+    {
+        Accessibility::performFunctionOnMainThreadAndWait([&lambda, this] {
+            if (RefPtr object = associatedAXObject())
+                lambda(object.get());
+        });
+    }
     template<typename U> void performFunctionOnMainThread(U&& lambda) const
     {
-        Accessibility::performFunctionOnMainThread([&lambda, this]() {
-            if (auto* object = associatedAXObject())
-                lambda(object);
+        Accessibility::performFunctionOnMainThread([lambda = WTFMove(lambda), protectedThis = Ref { *this }] () mutable {
+            if (RefPtr object = protectedThis->associatedAXObject())
+                lambda(object.get());
         });
     }
 
@@ -126,8 +136,7 @@ private:
     bool isKeyboardFocusable() const override { return boolAttributeValue(AXPropertyName::IsKeyboardFocusable); }
     
     // Table support.
-    bool isTable() const override { return boolAttributeValue(AXPropertyName::IsTable); }
-    bool isExposable() const override { return boolAttributeValue(AXPropertyName::IsExposable); }
+    AXIsolatedObject* exposedTableAncestor(bool includeSelf = false) const final { return Accessibility::exposedTableAncestor(*this, includeSelf); }
     int tableLevel() const override { return intAttributeValue(AXPropertyName::TableLevel); }
     bool supportsSelectedRows() const override { return boolAttributeValue(AXPropertyName::SupportsSelectedRows); }
     AccessibilityChildrenVector columns() override { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::Columns)); }
@@ -178,7 +187,11 @@ private:
     bool isExpanded() const override { return boolAttributeValue(AXPropertyName::IsExpanded); }
     FloatPoint screenRelativePosition() const final;
     FloatRect relativeFrame() const override;
+#if PLATFORM(MAC)
+    FloatRect primaryScreenRect() const override;
+#endif
     IntSize size() const final { return snappedIntRect(LayoutRect(relativeFrame())).size(); }
+    FloatRect relativeFrameFromChildren() const;
     bool supportsDatetimeAttribute() const override { return boolAttributeValue(AXPropertyName::SupportsDatetimeAttribute); }
     String datetimeAttributeValue() const override { return stringAttributeValue(AXPropertyName::DatetimeAttributeValue); }
     bool canSetValueAttribute() const override { return boolAttributeValue(AXPropertyName::CanSetValueAttribute); }
@@ -385,12 +398,14 @@ private:
     void setARIAGrabbed(bool) override;
     void setIsExpanded(bool) override;
     bool setValue(float) override;
+    void setValueIgnoringResult(float) final;
     void setSelected(bool) override;
-    void setSelectedRows(AccessibilityChildrenVector&) override;
+    void setSelectedRows(AccessibilityChildrenVector&&) override;
     void setFocused(bool) override;
     void setSelectedText(const String&) override;
-    void setSelectedTextRange(const PlainTextRange&) override;
+    void setSelectedTextRange(PlainTextRange&&) override;
     bool setValue(const String&) override;
+    void setValueIgnoringResult(const String&) final;
 #if PLATFORM(MAC)
     void setCaretBrowsingEnabled(bool) override;
 #endif
@@ -404,12 +419,12 @@ private:
     void increment() override;
     void decrement() override;
     bool performDismissAction() override;
+    void performDismissActionIgnoringResult() final;
     void scrollToMakeVisible() const override;
-    void scrollToMakeVisibleWithSubFocus(const IntRect&) const override;
-    void scrollToGlobalPoint(const IntPoint&) const override;
+    void scrollToMakeVisibleWithSubFocus(IntRect&&) const override;
+    void scrollToGlobalPoint(IntPoint&&) const final;
     bool replaceTextInRange(const String&, const PlainTextRange&) override;
     bool insertText(const String&) override;
-    void makeRangeVisible(const PlainTextRange&) override;
     bool press() override;
 
     bool isAccessibilityObject() const override { return false; }
@@ -519,6 +534,8 @@ private:
     Vector<AXID> m_childrenIDs;
     Vector<RefPtr<AXCoreObject>> m_children;
     AXPropertyMap m_propertyMap;
+    // Some objects (e.g. display:contents) form their geometry through their children.
+    bool m_getsGeometryFromChildren { false };
 
 #if PLATFORM(COCOA)
     RetainPtr<NSView> m_platformWidget;

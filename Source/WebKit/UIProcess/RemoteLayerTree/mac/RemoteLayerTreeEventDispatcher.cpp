@@ -73,6 +73,9 @@ private:
         if (!eventDispatcher)
             return;
 
+        if (!eventDispatcher->scrollingTreeWasRecentlyActive())
+            return;
+
         ScrollingThread::dispatch([dispatcher = Ref { *eventDispatcher }, displayID] {
             dispatcher->didRefreshDisplay(displayID);
         });
@@ -205,7 +208,6 @@ void RemoteLayerTreeEventDispatcher::scrollingThreadHandleWheelEvent(const WebWh
         return;
 
     auto locker = RemoteLayerTreeHitTestLocker { *scrollingTree };
-    auto transaction = RemoteScrollingTreeTransactionHolder { *scrollingTree };
 
     auto platformWheelEvent = platform(webWheelEvent);
     auto processingSteps = determineWheelEventProcessing(platformWheelEvent, rubberBandableEdges);
@@ -269,23 +271,26 @@ WheelEventHandlingResult RemoteLayerTreeEventDispatcher::internalHandleWheelEven
     scrollingTree->willProcessWheelEvent();
 
     auto filteredEvent = filteredWheelEvent(wheelEvent);
-    auto result = scrollingTree->handleWheelEvent(filteredEvent, processingSteps);
-
-    return result;
+    return scrollingTree->handleWheelEvent(filteredEvent, processingSteps);
 }
 
 void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, ScrollingNodeID scrollingNodeID, std::optional<WheelScrollGestureState> gestureState)
 {
     ASSERT(isMainRunLoop());
 
-    LOG_WITH_STREAM(Scrolling, stream << "RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted " << wheelEvent << " - sending event to scrolling thread, node " << 0 << " gestureState " << gestureState);
+    LOG_WITH_STREAM(WheelEvents, stream << "RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted " << wheelEvent << " - sending event to scrolling thread, node " << 0 << " gestureState " << gestureState);
 
     ScrollingThread::dispatch([protectedThis = Ref { *this }, wheelEvent, scrollingNodeID, gestureState] {
         auto scrollingTree = protectedThis->scrollingTree();
         if (!scrollingTree)
             return;
 
-        scrollingTree->wheelEventDefaultHandlingCompleted(wheelEvent, scrollingNodeID, gestureState);
+        auto result = scrollingTree->handleWheelEventAfterDefaultHandling(wheelEvent, scrollingNodeID, gestureState);
+        RunLoop::main().dispatch([protectedThis, result]() {
+            if (auto* scrollingCoordinator = protectedThis->scrollingCoordinator())
+                scrollingCoordinator->webPageProxy().wheelEventHandlingCompleted(result.wasHandled);
+        });
+
     });
 }
 
@@ -384,6 +389,8 @@ void RemoteLayerTreeEventDispatcher::stopDisplayLinkObserver()
 
 void RemoteLayerTreeEventDispatcher::didRefreshDisplay(PlatformDisplayID displayID)
 {
+    auto traceScope = TraceScope { ScrollingThreadDisplayDidRefreshStart, ScrollingThreadDisplayDidRefreshEnd, displayID };
+
     ASSERT(ScrollingThread::isCurrentThread());
 
     auto scrollingTree = this->scrollingTree();
@@ -450,6 +457,14 @@ void RemoteLayerTreeEventDispatcher::waitForRenderingUpdateCompletionOrTimeout()
     auto estimatedNextDisplayRefreshTime = std::max(m_lastDisplayDidRefreshTime + m_scrollingTree->frameDuration(), currentTime);
     auto timeoutTime = std::min(currentTime + m_scrollingTree->maxAllowableRenderingUpdateDurationForSynchronization(), estimatedNextDisplayRefreshTime);
 
+    constexpr auto maximumTimeoutDelay = 32_ms;
+    auto maximumTimeoutTime = currentTime + maximumTimeoutDelay;
+    if (timeoutTime > maximumTimeoutTime) {
+        RELEASE_LOG_ERROR(DisplayLink, "%p - [webPageID=%" PRIu64 "] RemoteLayerTreeEventDispatcher::waitForRenderingUpdateCompletionOrTimeout - bad timeout %.2fms into the future (frame duration %.2fms)", this, m_pageIdentifier.toUInt64(),
+            (timeoutTime - currentTime).milliseconds(), m_scrollingTree->frameDuration().milliseconds());
+        timeoutTime = maximumTimeoutTime;
+    }
+
     bool becameIdle = m_stateCondition.waitUntil(m_scrollingTreeLock, timeoutTime, [&] {
         assertIsHeld(m_scrollingTreeLock);
         return m_state == SynchronizationState::Idle;
@@ -471,8 +486,22 @@ void RemoteLayerTreeEventDispatcher::waitForRenderingUpdateCompletionOrTimeout()
         tracePoint(ScrollingThreadRenderUpdateSyncEnd);
 }
 
+bool RemoteLayerTreeEventDispatcher::scrollingTreeWasRecentlyActive()
+{
+    auto scrollingTree = this->scrollingTree();
+    if (!scrollingTree)
+        return false;
+
+    return scrollingTree->hasRecentActivity();
+}
+
 void RemoteLayerTreeEventDispatcher::mainThreadDisplayDidRefresh(PlatformDisplayID)
 {
+    if (!scrollingTreeWasRecentlyActive())
+        return;
+
+    tracePoint(ScrollingThreadRenderUpdateSyncStart);
+
     // Wait for the scrolling thread to acquire m_scrollingTreeLock. This ensures that any pending wheel events are processed.
     BinarySemaphore semaphore;
     ScrollingThread::dispatch([protectedThis = Ref { *this }, &semaphore]() {

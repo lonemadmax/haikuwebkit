@@ -32,10 +32,12 @@
 #include "InlineDisplayContent.h"
 #include "InlineFormattingContext.h"
 #include "InlineFormattingQuirks.h"
+#include "InlineLevelBoxInlines.h"
 #include "InlineLineBoxVerticalAligner.h"
 #include "LayoutBox.h"
 #include "LayoutElementBox.h"
 #include "LengthFunctions.h"
+#include "RenderStyleInlines.h"
 
 namespace WebCore {
 namespace Layout {
@@ -55,7 +57,7 @@ InlineLayoutUnit InlineFormattingGeometry::logicalTopForNextLine(const LineBuild
         auto& lastRunLayoutBox = lineContent.runs.last().layoutBox();
         if (!lastRunLayoutBox.hasFloatClear())
             return lineLogicalRect.bottom();
-        auto positionWithClearance = floatingContext.verticalPositionWithClearance(lastRunLayoutBox);
+        auto positionWithClearance = floatingContext.verticalPositionWithClearance(lastRunLayoutBox, formattingContext().geometryForBox(lastRunLayoutBox));
         if (!positionWithClearance)
             return lineLogicalRect.bottom();
         return std::max(lineLogicalRect.bottom(), InlineLayoutUnit(positionWithClearance->position));
@@ -127,7 +129,7 @@ bool InlineFormattingGeometry::inlineLevelBoxAffectsLineBox(const InlineLevelBox
     if (inlineLevelBox.isLineBreakBox())
         return false;
     if (inlineLevelBox.isListMarker())
-        return downcast<ElementBox>(inlineLevelBox.layoutBox()).isListMarkerImage();
+        return true;
     if (inlineLevelBox.isInlineBox())
         return layoutState().inStandardsMode() ? true : formattingContext().formattingQuirks().inlineBoxAffectsLineBox(inlineLevelBox);
     if (inlineLevelBox.isAtomicInlineLevelBox())

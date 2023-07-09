@@ -82,6 +82,12 @@ RemoteAXObjectRef AXIsolatedObject::remoteParentObject() const
     return is<AXIsolatedObject>(scrollView) ? downcast<AXIsolatedObject>(scrollView)->m_remoteParent.get() : nil;
 }
 
+FloatRect AXIsolatedObject::primaryScreenRect() const
+{
+    RefPtr geometryManager = tree()->geometryManager();
+    return geometryManager ? geometryManager->primaryScreenRect() : FloatRect();
+}
+
 FloatRect AXIsolatedObject::convertRectToPlatformSpace(const FloatRect& rect, AccessibilityConversionSpace space) const
 {
     return Accessibility::retrieveValueFromMainThread<FloatRect>([&rect, &space, this] () -> FloatRect {
@@ -197,22 +203,19 @@ RetainPtr<NSAttributedString> AXIsolatedObject::attributedStringForTextMarkerRan
     auto resultRange = NSMakeRange(0, result.length);
     // The AttributedString is cached with spelling info. If the caller does not request spelling info, we have to remove it before returning.
     if (spellCheck == SpellCheck::No) {
+        [result removeAttribute:AXDidSpellCheckAttribute range:resultRange];
         [result removeAttribute:NSAccessibilityMisspelledTextAttribute range:resultRange];
         [result removeAttribute:NSAccessibilityMarkedMisspelledTextAttribute range:resultRange];
-        return result;
-    }
-
-    // For any nsRange different from the full range, remove exissting spell check attribute and spell check the text.
-    auto fullRange = NSMakeRange(0, [attributedText length]);
-    if (!NSEqualRanges(*nsRange, fullRange)) {
-        [result removeAttribute:NSAccessibilityMisspelledTextAttribute range:resultRange];
-        [result removeAttribute:NSAccessibilityMarkedMisspelledTextAttribute range:resultRange];
-        // FIXME: pull attributedStringSetSpelling off the main thread.
-        performFunctionOnMainThread([result = retainPtr(result), &resultRange] (AccessibilityObject* axObject) {
-            attributedStringSetSpelling(result.get(), axObject->node(), String { [result string] }, resultRange);
+    } else if (AXObjectCache::shouldSpellCheck()) {
+        // For ITM, we should only ever eagerly spellcheck for testing purposes.
+        ASSERT(_AXGetClientForCurrentRequestUntrusted() == kAXClientTypeWebKitTesting);
+        // We're going to spellcheck, so remove AXDidSpellCheck: NO.
+        [result removeAttribute:AXDidSpellCheckAttribute range:resultRange];
+        performFunctionOnMainThreadAndWait([result = retainPtr(result), &resultRange] (AccessibilityObject* axObject) {
+            if (auto* node = axObject->node())
+                attributedStringSetSpelling(result.get(), *node, String { [result string] }, resultRange);
         });
     }
-
     return result;
 }
 
@@ -221,9 +224,9 @@ void AXIsolatedObject::setPreventKeyboardDOMEventDispatch(bool value)
     ASSERT(!isMainThread());
     ASSERT(isWebArea());
 
-    performFunctionOnMainThread([&value, this](AXCoreObject* object) {
+    setProperty(AXPropertyName::PreventKeyboardDOMEventDispatch, value);
+    performFunctionOnMainThread([value] (auto* object) {
         object->setPreventKeyboardDOMEventDispatch(value);
-        setProperty(AXPropertyName::PreventKeyboardDOMEventDispatch, value);
     });
 }
 
@@ -232,9 +235,9 @@ void AXIsolatedObject::setCaretBrowsingEnabled(bool value)
     ASSERT(!isMainThread());
     ASSERT(isWebArea());
 
-    performFunctionOnMainThread([&value, this](AXCoreObject* object) {
+    setProperty(AXPropertyName::CaretBrowsingEnabled, value);
+    performFunctionOnMainThread([value] (auto* object) {
         object->setCaretBrowsingEnabled(value);
-        setProperty(AXPropertyName::CaretBrowsingEnabled, value);
     });
 }
 

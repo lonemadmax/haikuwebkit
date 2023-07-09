@@ -56,7 +56,7 @@
 #include "ParsingUtilities.h"
 #include "QualifiedName.h"
 #include "Settings.h"
-#include <wtf/Span.h>
+#include <span>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/StringParsingBuffer.h>
@@ -187,7 +187,7 @@ template<typename T> static bool insertInUniquedSortedVector(Vector<T>& vector, 
 //   may consume preloaded resources.
 template<typename CharacterType>
 class HTMLFastPathParser {
-    using CharacterSpan = Span<const CharacterType>;
+    using CharacterSpan = std::span<const CharacterType>;
     static_assert(std::is_same_v<CharacterType, UChar> || std::is_same_v<CharacterType, LChar>);
 
 public:
@@ -862,7 +862,7 @@ static bool canUseFastPath(Element& contextElement, OptionSet<ParserContentPolic
 }
 
 template<typename CharacterType>
-static bool tryFastParsingHTMLFragmentImpl(const Span<const CharacterType>& source, Document& document, DocumentFragment& fragment, Element& contextElement)
+static bool tryFastParsingHTMLFragmentImpl(const std::span<const CharacterType>& source, Document& document, DocumentFragment& fragment, Element& contextElement)
 {
     HTMLFastPathParser parser { source, document, fragment };
     bool success = parser.parse(contextElement);

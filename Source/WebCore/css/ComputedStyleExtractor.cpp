@@ -63,15 +63,18 @@
 #include "PerspectiveTransformOperation.h"
 #include "QuotesData.h"
 #include "RenderBlock.h"
-#include "RenderBox.h"
+#include "RenderBoxInlines.h"
+#include "RenderElementInlines.h"
 #include "RenderGrid.h"
 #include "RenderInline.h"
 #include "RotateTransformOperation.h"
 #include "SVGElement.h"
+#include "SVGRenderStyle.h"
 #include "ScaleTransformOperation.h"
 #include "SkewTransformOperation.h"
 #include "StylePropertyShorthand.h"
 #include "StylePropertyShorthandFunctions.h"
+#include "StyleReflection.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "Styleable.h"
@@ -95,10 +98,10 @@ public:
     }
     virtual ~OrderedNamedLinesCollector() = default;
 
-    bool isEmpty() const { return m_orderedNamedGridLines.isEmpty() && m_orderedNamedAutoRepeatGridLines.isEmpty(); }
+    bool isEmpty() const { return m_orderedNamedGridLines.map.isEmpty() && m_orderedNamedAutoRepeatGridLines.map.isEmpty(); }
     virtual void collectLineNamesForIndex(Vector<String>&, unsigned index) const = 0;
 
-    virtual int namedGridLineCount() const { return m_orderedNamedGridLines.size(); }
+    virtual int namedGridLineCount() const { return m_orderedNamedGridLines.map.size(); }
 
 protected:
 
@@ -132,14 +135,14 @@ public:
     OrderedNamedLinesCollectorInSubgridLayout(const RenderStyle& style, bool isRowAxis, unsigned totalTracksCount)
         : OrderedNamedLinesCollector(style, isRowAxis)
         , m_insertionPoint(isRowAxis ? style.gridAutoRepeatColumnsInsertionPoint() : style.gridAutoRepeatRowsInsertionPoint())
-        , m_autoRepeatLineSetListLength((isRowAxis ? style.autoRepeatOrderedNamedGridColumnLines() : style.autoRepeatOrderedNamedGridRowLines()).size())
+        , m_autoRepeatLineSetListLength((isRowAxis ? style.autoRepeatOrderedNamedGridColumnLines() : style.autoRepeatOrderedNamedGridRowLines()).map.size())
         , m_totalLines(totalTracksCount + 1)
     {
         if (!m_autoRepeatLineSetListLength) {
             m_autoRepeatTotalLineSets = 0;
             return;
         }
-        unsigned named = (isRowAxis ? style.orderedNamedGridColumnLines() : style.orderedNamedGridRowLines()).size();
+        unsigned named = (isRowAxis ? style.orderedNamedGridColumnLines() : style.orderedNamedGridRowLines()).map.size();
         if (named >= m_totalLines) {
             m_autoRepeatTotalLineSets = 0;
             return;
@@ -158,15 +161,14 @@ private:
     unsigned m_totalLines;
 };
 
-void OrderedNamedLinesCollector::appendLines(Vector<String>& lineNamesValue, unsigned index, NamedLinesType type) const
+void OrderedNamedLinesCollector::appendLines(Vector<String>& lineNames, unsigned index, NamedLinesType type) const
 {
-    auto iter = type == NamedLines ? m_orderedNamedGridLines.find(index) : m_orderedNamedAutoRepeatGridLines.find(index);
-    auto endIter = type == NamedLines ? m_orderedNamedGridLines.end() : m_orderedNamedAutoRepeatGridLines.end();
-    if (iter == endIter)
+    auto& map = (type == NamedLines ? m_orderedNamedGridLines : m_orderedNamedAutoRepeatGridLines).map;
+    auto it = map.find(index);
+    if (it == map.end())
         return;
-
-    for (const auto& lineName : iter->value)
-        lineNamesValue.append(lineName);
+    for (auto& name : it->value)
+        lineNames.append(name);
 }
 
 void OrderedNamedLinesCollectorInGridLayout::collectLineNamesForIndex(Vector<String>& lineNamesValue, unsigned i) const
@@ -913,9 +915,9 @@ Ref<CSSValue> ComputedStyleExtractor::valueForShadow(const ShadowData* shadow, C
         auto y = adjustLengthForZoom(currShadowData->y(), style, adjust);
         auto blur = adjustLengthForZoom(currShadowData->radius(), style, adjust);
         auto spread = propertyID == CSSPropertyTextShadow ? RefPtr<CSSPrimitiveValue>() : adjustLengthForZoom(currShadowData->spread(), style, adjust);
-        auto style = propertyID == CSSPropertyTextShadow || currShadowData->style() == ShadowStyle::Normal ? RefPtr<CSSPrimitiveValue>() : CSSPrimitiveValue::create(CSSValueInset);
-        auto color = cssValuePool.createColorValue(currShadowData->color());
-        list.append(CSSShadowValue::create(WTFMove(x), WTFMove(y), WTFMove(blur), WTFMove(spread), WTFMove(style), WTFMove(color)));
+        auto shadowStyle = propertyID == CSSPropertyTextShadow || currShadowData->style() == ShadowStyle::Normal ? RefPtr<CSSPrimitiveValue>() : CSSPrimitiveValue::create(CSSValueInset);
+        auto color = cssValuePool.createColorValue(style.colorResolvingCurrentColor(currShadowData->color()));
+        list.append(CSSShadowValue::create(WTFMove(x), WTFMove(y), WTFMove(blur), WTFMove(spread), WTFMove(shadowStyle), WTFMove(color)));
     }
     list.reverse();
     return CSSValueList::createCommaSeparated(WTFMove(list));
@@ -1113,7 +1115,7 @@ static Ref<CSSValue> valueForGridTrackList(GridTrackSizingDirection direction, R
     }
 
     // Otherwise, the resolved value is the computed value, preserving repeat().
-    auto& computedTracks = isRowAxis ? style.gridColumnList() : style.gridRowList();
+    auto& computedTracks = (isRowAxis ? style.gridColumnList() : style.gridRowList()).list;
 
     auto repeatVisitor = [&](CSSValueListBuilder& list, const RepeatEntry& entry) {
         if (std::holds_alternative<Vector<String>>(entry)) {
@@ -1212,10 +1214,10 @@ static Ref<CSSValueList> valueForScrollSnapAlignment(const ScrollSnapAlign& alig
         createConvertingToCSSValueID(alignment.inlineAlign));
 }
 
-static Ref<CSSValueList> valueForTextEdge(const TextEdge& textEdge)
+static Ref<CSSValueList> valueForTextBoxEdge(const TextBoxEdge& textBoxEdge)
 {
-    return CSSValueList::createSpaceSeparated(createConvertingToCSSValueID(textEdge.over),
-        createConvertingToCSSValueID(textEdge.under));
+    return CSSValueList::createSpaceSeparated(createConvertingToCSSValueID(textBoxEdge.over),
+        createConvertingToCSSValueID(textBoxEdge.under));
 }
 
 static Ref<CSSValue> willChangePropertyValue(const WillChangeData* willChangeData)
@@ -2062,12 +2064,12 @@ static Ref<CSSValueList> contentToCSSValue(const RenderStyle& style)
 
 static Ref<CSSValue> counterToCSSValue(const RenderStyle& style, CSSPropertyID propertyID)
 {
-    auto* map = style.counterDirectives();
-    if (!map)
+    auto& map = style.counterDirectives().map;
+    if (map.isEmpty())
         return CSSPrimitiveValue::create(CSSValueNone);
 
     CSSValueListBuilder list;
-    for (auto& keyValue : *map) {
+    for (auto& keyValue : map) {
         if (auto number = (propertyID == CSSPropertyCounterIncrement ? keyValue.value.incrementValue : keyValue.value.resetValue)) {
             list.append(CSSPrimitiveValue::createCustomIdent(keyValue.key));
             list.append(CSSPrimitiveValue::createInteger(*number));
@@ -2291,12 +2293,9 @@ static bool rendererCanHaveTrimmedMargin(const RenderBox& renderer, MarginTrimTy
     // specific margin) implemented
     // 2.) The block container/flexbox/grid has this margin specified in its margin-trim style
     // If marginTrimType is empty we will check if any of the supported margins are in the style
-    auto* containingBlock = renderer.containingBlock();
-    if (!containingBlock || containingBlock->isRenderView())
-        return false;
+    if (renderer.isFlexItem() || renderer.isGridItem())
+        return renderer.parent()->style().marginTrim().contains(marginTrimType);
 
-    if (containingBlock->isFlexibleBox() || containingBlock->isRenderGrid())
-        return containingBlock->style().marginTrim().contains(marginTrimType);
     // Even though margin-trim is not inherited, it is possible for nested block level boxes
     // to get placed at the block-start of an containing block ancestor which does have margin-trim.
     // In this case it is not enough to simply check the immediate containing block of the child. It is
@@ -2304,8 +2303,10 @@ static bool rendererCanHaveTrimmedMargin(const RenderBox& renderer, MarginTrimTy
     // of an ancestor containing block with the property, so we will just return true and let
     // the rest of the logic in RenderBox::hasTrimmedMargin to determine if the rare data bit
     // were set at some point during layout
-    if (containingBlock->isBlockContainer() && containingBlock->isHorizontalWritingMode() && renderer.isBlockLevelBox())
-        return true;
+    if (renderer.isBlockLevelBox()) {
+        auto containingBlock = renderer.containingBlock();
+        return containingBlock && containingBlock->isHorizontalWritingMode();
+    }
     return false;
 }
 
@@ -3130,8 +3131,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return m_allowVisitedStyle ? cssValuePool.createColorValue(style.visitedDependentColor(CSSPropertyCaretColor)) : currentColorOrValidColor(style, style.caretColor());
     case CSSPropertyClear:
         return createConvertingToCSSValueID(style.clear());
-    case CSSPropertyLeadingTrim:
-        return createConvertingToCSSValueID(style.leadingTrim());
+    case CSSPropertyTextBoxTrim:
+        return createConvertingToCSSValueID(style.textBoxTrim());
     case CSSPropertyColor:
         return cssValuePool.createColorValue(m_allowVisitedStyle ? style.visitedDependentColor(CSSPropertyColor) : style.color());
     case CSSPropertyPrintColorAdjust:
@@ -4181,10 +4182,12 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return createConvertingToCSSValueID(style.scrollSnapStop());
     case CSSPropertyScrollSnapType:
         return valueForScrollSnapType(style.scrollSnapType());
+    case CSSPropertyScrollbarWidth:
+        return createConvertingToCSSValueID(style.scrollbarWidth());
     case CSSPropertyOverflowAnchor:
         return createConvertingToCSSValueID(style.overflowAnchor());
-    case CSSPropertyTextEdge:
-        return valueForTextEdge(style.textEdge());
+    case CSSPropertyTextBoxEdge:
+        return valueForTextBoxEdge(style.textBoxEdge());
 
 #if ENABLE(APPLE_PAY)
     case CSSPropertyApplePayButtonStyle:
@@ -4474,7 +4477,7 @@ Ref<CSSValueList> ComputedStyleExtractor::getCSSPropertyValuesForGridShorthand(c
     return CSSValueList::createSlashSeparated(WTFMove(builder));
 }
 
-Ref<MutableStyleProperties> ComputedStyleExtractor::copyProperties(Span<const CSSPropertyID> properties)
+Ref<MutableStyleProperties> ComputedStyleExtractor::copyProperties(std::span<const CSSPropertyID> properties)
 {
     Vector<CSSProperty> vector;
     vector.reserveInitialCapacity(properties.size());

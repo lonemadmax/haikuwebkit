@@ -28,6 +28,7 @@
 
 #include "InlineDisplayContentBuilder.h"
 #include "LayoutBoxGeometry.h"
+#include "RenderStyleInlines.h"
 #include "TextUtil.h"
 
 namespace WebCore {
@@ -148,7 +149,7 @@ InlineDisplay::Line InlineDisplayLineBuilder::build(const LineBuilder::LineConte
         , contentVisualOffsetInInlineDirection
         , rootInlineBox.logicalWidth()
         , isLeftToRightDirection
-        , lineBox.isHorizontal()
+        , rootInlineBox.layoutBox().style().isHorizontalWritingMode()
         , lineIsFullyTruncatedInBlockDirection
     };
 }

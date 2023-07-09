@@ -298,11 +298,10 @@
     assert_false(popover3.matches(':popover-open'));
     popover3.showPopover();
     assert_true(popover3.matches(':popover-open'));
-    assert_true(popover5.matches(':popover-open'));
-    popover5.hidePopover();
+    assert_false(popover5.matches(':popover-open'),'Popover 5 was not invoked from popover3\'s invoker');
+    popover3.hidePopover();
     assert_false(popover3.matches(':popover-open'));
-    assert_false(popover5.matches(':popover-open'));
-  },'An invoking element that was not used to invoke the popover can still be part of the ancestor chain');
+  },'An invoking element that was not used to invoke the popover is not part of the ancestor chain');
 </script>
 
 <div popover id=p6>Inside popover 6
@@ -531,7 +530,7 @@ promise_test(async () => {
     p14.hidePopover();
   },{once:true});
   assert_true(p13.matches(':popover-open') && p14.matches(':popover-open') && p15.matches(':popover-open'),'all three should be open');
-  assert_throws_dom('InvalidStateError',() => p14.hidePopover(),'should throw because the event listener has already hidden the popover');
+  p14.hidePopover();
   assert_true(p13.matches(':popover-open'),'p13 should still be open');
   assert_false(p14.matches(':popover-open'));
   assert_false(p15.matches(':popover-open'));

@@ -81,6 +81,7 @@
 #include "WasmCapabilities.h"
 #include "WasmFaultSignalHandler.h"
 #include "WasmMemory.h"
+#include <span>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -94,7 +95,6 @@
 #include <wtf/MonotonicTime.h>
 #include <wtf/SafeStrerror.h>
 #include <wtf/Scope.h>
-#include <wtf/Span.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/URL.h>
 #include <wtf/WTFProcess.h>
@@ -1436,7 +1436,10 @@ JSC_DEFINE_HOST_FUNCTION(functionBtoa, (JSGlobalObject* globalObject, CallFrame*
     if (!stringToEncode.isAllLatin1())
         return JSValue::encode(throwException(globalObject, scope, createError(globalObject, "Invalid character in argument for btoa."_s)));
 
-    String encodedString = base64EncodeToString(stringToEncode.latin1());
+    String encodedString = base64EncodeToStringReturnNullIfOverflow(stringToEncode.latin1());
+    if (!encodedString)
+        return JSValue::encode(throwException(globalObject, scope, createOutOfMemoryError(globalObject)));
+
     return JSValue::encode(jsString(vm, encodedString));
 }
 
@@ -1810,7 +1813,7 @@ JSC_DEFINE_HOST_FUNCTION(functionWriteFile, (JSGlobalObject* globalObject, CallF
     String fileName = callFrame->argument(0).toWTFString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    std::variant<String, Span<const uint8_t>> data;
+    std::variant<String, std::span<const uint8_t>> data;
     JSValue dataValue = callFrame->argument(1);
 
     if (dataValue.isString()) {
@@ -1821,13 +1824,13 @@ JSC_DEFINE_HOST_FUNCTION(functionWriteFile, (JSGlobalObject* globalObject, CallF
         if (arrayBuffer->impl()->isDetached())
             data = emptyString();
         else
-            data = makeSpan(static_cast<const uint8_t*>(arrayBuffer->impl()->data()), arrayBuffer->impl()->byteLength());
+            data = std::span(static_cast<const uint8_t*>(arrayBuffer->impl()->data()), arrayBuffer->impl()->byteLength());
     } else if (dataValue.inherits<JSArrayBufferView>()) {
         auto* view = jsCast<JSArrayBufferView*>(dataValue);
         if (view->isDetached())
             data = emptyString();
         else
-            data = makeSpan(static_cast<const uint8_t*>(view->vector()), view->byteLength());
+            data = std::span(static_cast<const uint8_t*>(view->vector()), view->byteLength());
     } else {
         data = dataValue.toWTFString(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
@@ -1840,7 +1843,7 @@ JSC_DEFINE_HOST_FUNCTION(functionWriteFile, (JSGlobalObject* globalObject, CallF
     int size = std::visit(WTF::makeVisitor([&](const String& string) {
         CString utf8 = string.utf8();
         return FileSystem::writeToFile(handle, utf8.data(), utf8.length());
-    }, [&] (const Span<const uint8_t>& data) {
+    }, [&] (const std::span<const uint8_t>& data) {
         return FileSystem::writeToFile(handle, data.data(), data.size());
     }), data);
 
@@ -3234,6 +3237,18 @@ int main(int argc, char** argv)
     WTF::disableForwardingVPrintfStdErrToOSLog();
 #endif
 
+#if OS(UNIX)
+    if (getenv("JS_SHELL_WAIT_FOR_SIGUSR2_TO_EXIT")) {
+        initializeSignalHandling();
+        addSignalHandler(Signal::Usr, SignalHandler([&] (Signal, SigInfo&, PlatformRegisters&) {
+            dataLogLn("Signal handler hit, we can exit now.");
+            waitToExit.signal();
+            return SignalAction::Handled;
+        }));
+        activateSignalHandlersFor(Signal::Usr);
+    }
+#endif
+
     // We can't use destructors in the following code because it uses Windows
     // Structured Exception Handling
     int res = EXIT_SUCCESS;
@@ -3962,18 +3977,6 @@ int jscmain(int argc, char** argv)
     // Needed for complex.yaml tests.
     if (char* tz = getenv("TZ"))
         setTimeZoneOverride(StringView::fromLatin1(tz));
-#endif
-
-#if OS(UNIX)
-    if (getenv("JS_SHELL_WAIT_FOR_SIGUSR2_TO_EXIT")) {
-        initializeSignalHandling();
-        addSignalHandler(Signal::Usr, SignalHandler([&] (Signal, SigInfo&, PlatformRegisters&) {
-            dataLogLn("Signal handler hit, we can exit now.");
-            waitToExit.signal();
-            return SignalAction::Handled;
-        }));
-        activateSignalHandlersFor(Signal::Usr);
-    }
 #endif
 
     {

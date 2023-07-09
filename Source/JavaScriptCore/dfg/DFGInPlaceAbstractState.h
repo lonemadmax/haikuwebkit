@@ -47,6 +47,11 @@ public:
     
     void createValueForNode(NodeFlowProjection) { }
     
+    ALWAYS_INLINE bool hasClearedAbstractState(NodeFlowProjection node)
+    {
+        return !m_abstractValues.at(node);
+    }
+
     ALWAYS_INLINE AbstractValue& fastForward(AbstractValue& value)
     {
         value.fastForwardTo(m_effectEpoch);
@@ -83,7 +88,6 @@ public:
     
     ALWAYS_INLINE void clearForNode(NodeFlowProjection node)
     {
-        ASSERT(!node->isTuple());
         AbstractValue& value = m_abstractValues.at(node);
         value.clear();
         value.m_effectEpoch = m_effectEpoch;

@@ -78,6 +78,14 @@ public:
 
     WEBCORE_EXPORT void requestRouteSharingPolicyAndContextUID(CompletionHandler<void(RouteSharingPolicy, String)>&&) override;
 
+#if !RELEASE_LOG_DISABLED
+    const Logger* loggerPtr() const final;
+    WEBCORE_EXPORT const void* logIdentifier() const final;
+    WEBCORE_EXPORT const void* nextChildIdentifier() const final;
+    const char* logClassName() const { return "VideoFullscreenModelVideoElement"; }
+    WTFLogChannel& logChannel() const;
+#endif
+
 protected:
     WEBCORE_EXPORT VideoFullscreenModelVideoElement();
 
@@ -92,7 +100,7 @@ private:
     void willExitPictureInPicture() override;
     void didExitPictureInPicture() override;
 
-    static Span<const AtomString> observedEventNames();
+    static std::span<const AtomString> observedEventNames();
     const AtomString& eventNameAll();
 
     RefPtr<HTMLVideoElement> m_videoElement;
@@ -105,6 +113,10 @@ private:
     Vector<RefPtr<TextTrack>> m_legibleTracksForMenu;
     Vector<RefPtr<AudioTrack>> m_audioTracksForMenu;
     std::optional<MediaPlayerIdentifier> m_playerIdentifier;
+
+#if !RELEASE_LOG_DISABLED
+    mutable uint64_t m_childIdentifierSeed { 0 };
+#endif
 };
 
 }

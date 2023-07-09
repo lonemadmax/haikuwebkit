@@ -44,6 +44,7 @@
 #include "NetworkContentRuleListManagerMessages.h"
 #include "NetworkLoad.h"
 #include "NetworkLoadScheduler.h"
+#include "NetworkOriginAccessPatterns.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessPlatformStrategies.h"
 #include "NetworkProcessProxyMessages.h"
@@ -352,6 +353,8 @@ void NetworkProcess::initializeNetworkProcess(NetworkProcessCreationParameters&&
     for (auto&& websiteDataStoreParameters : WTFMove(parameters.websiteDataStoreParameters))
         addWebsiteDataStore(WTFMove(websiteDataStoreParameters));
 
+    m_localhostAliasesForTesting = WTFMove(parameters.localhostAliasesForTesting);
+
     RELEASE_LOG(Process, "%p - NetworkProcess::initializeNetworkProcess: Presenting processPID=%d", this, WebCore::presentingApplicationPID());
 }
 
@@ -579,7 +582,7 @@ void NetworkProcess::setSession(PAL::SessionID sessionID, std::unique_ptr<Networ
     m_networkSessions.set(sessionID, WTFMove(session));
 }
 
-void NetworkProcess::destroySession(PAL::SessionID sessionID)
+void NetworkProcess::destroySession(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
 #if !USE(SOUP) && !USE(CURL)
@@ -592,13 +595,16 @@ void NetworkProcess::destroySession(PAL::SessionID sessionID)
         session->invalidateAndCancel();
         auto& storageManager = session->storageManager();
         m_closingStorageManagers.add(&storageManager);
-        storageManager.close([this, protectedThis = Ref { *this }, storageManager = &storageManager]() {
+        storageManager.close([this, protectedThis = Ref { *this }, storageManager = &storageManager, completionHandler = std::exchange(completionHandler, { })]() mutable {
             m_closingStorageManagers.remove(storageManager);
+            completionHandler();
             stopRunLoopIfNecessary();
         });
     }
     m_networkStorageSessions.remove(sessionID);
     m_sessionsControlledByAutomation.remove(sessionID);
+    if (completionHandler)
+        completionHandler();
 }
 
 void NetworkProcess::registrableDomainsWithLastAccessedTime(PAL::SessionID sessionID, CompletionHandler<void(std::optional<HashMap<RegistrableDomain, WallTime>>)>&& completionHandler)
@@ -612,6 +618,19 @@ void NetworkProcess::registrableDomainsWithLastAccessedTime(PAL::SessionID sessi
     }
 #endif
     completionHandler(std::nullopt);
+}
+
+void NetworkProcess::registrableDomainsExemptFromWebsiteDataDeletion(PAL::SessionID sessionID, CompletionHandler<void(HashSet<RegistrableDomain>)>&& completionHandler)
+{
+#if ENABLE(TRACKING_PREVENTION)
+    if (auto* session = networkSession(sessionID)) {
+        if (auto* resourceLoadStatistics = session->resourceLoadStatistics()) {
+            resourceLoadStatistics->registrableDomainsExemptFromWebsiteDataDeletion(WTFMove(completionHandler));
+            return;
+        }
+    }
+#endif
+    completionHandler({ });
 }
 
 #if ENABLE(TRACKING_PREVENTION)
@@ -2889,14 +2908,14 @@ bool NetworkProcess::shouldDisableCORSForRequestTo(PageIdentifier pageIdentifier
     });
 }
 
-void NetworkProcess::setCORSDisablingPatterns(PageIdentifier pageIdentifier, Vector<String>&& patterns)
+void NetworkProcess::setCORSDisablingPatterns(NetworkConnectionToWebProcess& connection, PageIdentifier pageIdentifier, Vector<String>&& patterns)
 {
     Vector<UserContentURLPattern> parsedPatterns;
     parsedPatterns.reserveInitialCapacity(patterns.size());
     for (auto&& pattern : WTFMove(patterns)) {
         UserContentURLPattern parsedPattern(WTFMove(pattern));
         if (parsedPattern.isValid()) {
-            WebCore::SecurityPolicy::allowAccessTo(parsedPattern);
+            connection.originAccessPatterns().allowAccessTo(parsedPattern);
             parsedPatterns.uncheckedAppend(WTFMove(parsedPattern));
         }
     }

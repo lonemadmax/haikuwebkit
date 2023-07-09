@@ -671,7 +671,8 @@ private:
 
             case PutById:
             case PutByIdDirect:
-            case PutByIdFlush: {
+            case PutByIdFlush:
+            case PutByIdMegamorphic: {
                 bool isDirect = node->op() == PutByIdDirect;
                 tryFoldAsPutByOffset(node, indexInBlock, node->child1(), node->child2(), isDirect, PrivateFieldPutKind::none(), changed, alreadyHandled);
                 break;
@@ -717,7 +718,30 @@ private:
                     }
                 }
                 break;
+            }
 
+            case PutByVal:
+            case PutByValMegamorphic: {
+                if ((m_graph.child(node, 0).useKind() == CellUse && m_graph.child(node, 1).useKind() == StringUse) && node->arrayMode().modeForPut().type() == Array::Generic) {
+                    AbstractValue& property = m_state.forNode(m_graph.child(node, 1));
+                    if (JSValue constant = property.value()) {
+                        if (constant.isString()) {
+                            JSString* string = asString(constant);
+                            if (CacheableIdentifier::isCacheableIdentifierCell(string) && !parseIndex(CacheableIdentifier::createFromCell(string).uid())) {
+                                const StringImpl* impl = string->tryGetValueImpl();
+                                RELEASE_ASSERT(impl);
+                                m_graph.freezeStrong(string);
+                                m_graph.identifiers().ensure(const_cast<UniquedStringImpl*>(static_cast<const UniquedStringImpl*>(impl)));
+                                m_insertionSet.insertCheck(indexInBlock, node->origin, m_graph.child(node, 0));
+                                m_insertionSet.insertCheck(indexInBlock, node->origin, m_graph.child(node, 1));
+                                node->convertToPutByIdMaybeMegamorphic(m_graph, CacheableIdentifier::createFromCell(string));
+                                changed = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                break;
             }
 
             case ToPrimitive: {
@@ -1053,7 +1077,30 @@ private:
                 break;
             }
 
-            case MakeRope: {
+            case StrCat: {
+                bool goodToGo = true;
+                m_graph.doToChildren(
+                    node,
+                    [&](Edge& edge) {
+                        if (m_state.forNode(edge).isType(SpecString))
+                            return;
+                        goodToGo = false;
+                    });
+                if (!goodToGo)
+                    break;
+
+                node->setOpAndDefaultFlags(MakeRope);
+                m_graph.doToChildren(
+                    node,
+                    [&] (Edge& edge) {
+                        edge.setUseKind(KnownStringUse);
+                    });
+                changed = true;
+                FALLTHROUGH;
+            }
+
+            case MakeRope:
+            case MakeAtomString: {
                 for (unsigned i = 0; i < AdjacencyList::Size; ++i) {
                     Edge& edge = node->children.child(i);
                     if (!edge)
@@ -1076,8 +1123,10 @@ private:
 
                 if (!node->child2()) {
                     ASSERT(!node->child3());
-                    node->convertToIdentity();
-                    changed = true;
+                    if (node->op() != MakeAtomString) {
+                        node->convertToIdentity();
+                        changed = true;
+                    }
                 }
                 break;
             }
@@ -1116,6 +1165,35 @@ private:
                         eliminated = true;
                         node->remove(m_graph);
                         break;
+                    }
+                }
+
+                break;
+            }
+
+            case HasStructureWithFlags: {
+                const AbstractValue& child = m_state.forNode(node->child1());
+                unsigned flags = node->structureFlags();
+                ASSERT(flags);
+
+                if (Structure::bitFieldFlagsCantBeChangedWithoutTransition(flags) && child.m_type && !(child.m_type & ~SpecCell) && child.m_structure.isFinite()) {
+                    bool canFoldToTrue = true;
+                    bool canFoldToFalse = true;
+
+                    child.m_structure.forEach([&] (RegisteredStructure structure) {
+                        bool notDictionary = !structure->isDictionary();
+                        bool hasAnyOfBitFieldFlags = structure->hasAnyOfBitFieldFlags(flags);
+
+                        canFoldToTrue &= notDictionary && hasAnyOfBitFieldFlags;
+                        canFoldToFalse &= notDictionary && !hasAnyOfBitFieldFlags;
+                    });
+
+                    if (canFoldToTrue) {
+                        m_graph.convertToConstant(node, jsBoolean(true));
+                        changed = true;
+                    } else if (canFoldToFalse) {
+                        m_graph.convertToConstant(node, jsBoolean(false));
+                        changed = true;
                     }
                 }
 

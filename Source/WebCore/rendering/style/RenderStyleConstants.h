@@ -26,7 +26,6 @@
 #pragma once
 
 #include <initializer_list>
-#include <wtf/EnumTraits.h>
 
 namespace WTF {
 class TextStream;
@@ -39,7 +38,6 @@ enum class DumpStyleValues {
     NonInitial,
 };
 
-static const size_t PrintColorAdjustBits = 1;
 enum class PrintColorAdjust : bool {
     Economy,
     Exact
@@ -55,7 +53,7 @@ enum class PrintColorAdjust : bool {
 // - StyleDifference::SimplifiedLayout - Only overflow needs to be recomputed
 // - StyleDifference::SimplifiedLayoutAndPositionedMovement - Both positioned movement and simplified layout updates are required.
 // - StyleDifference::Layout - A full layout is required.
-enum class StyleDifference {
+enum class StyleDifference : uint8_t {
     Equal,
     RecompositeLayer,
     Repaint,
@@ -72,8 +70,7 @@ enum class StyleDifference {
 // context (e.g. whether the property is changing on an element which has a compositing layer).
 // A simple StyleDifference does not provide enough information so we return a bit mask of
 // StyleDifferenceContextSensitiveProperties from RenderStyle::diff() too.
-enum class StyleDifferenceContextSensitiveProperty {
-    None        = 0,
+enum class StyleDifferenceContextSensitiveProperty : uint8_t {
     Transform   = 1 << 0,
     Opacity     = 1 << 1,
     Filter      = 1 << 2,
@@ -619,23 +616,22 @@ enum class TextAlignMode : uint8_t {
     End,
 };
 
-static const size_t TextTransformLineBits = 5;
 enum class TextTransform : uint8_t {
-    None          = 0,
     Capitalize    = 1 << 0,
     Uppercase     = 1 << 1,
     Lowercase     = 1 << 2,
     FullSizeKana  = 1 << 3,
     FullWidth     = 1 << 4,
 };
+constexpr auto maxTextTransformValue = TextTransform::FullWidth;
 
-static const size_t TextDecorationLineBits = 4;
 enum class TextDecorationLine : uint8_t {
     Underline     = 1 << 0,
     Overline      = 1 << 1,
     LineThrough   = 1 << 2,
     Blink         = 1 << 3,
 };
+constexpr auto maxTextDecorationLineValue = TextDecorationLine::Blink;
 
 enum class TextDecorationStyle : uint8_t {
     Solid,
@@ -686,8 +682,8 @@ enum class TextUnderlinePosition : uint8_t {
     Right
 };
 
-enum class LeadingTrim : uint8_t {
-    Normal,
+enum class TextBoxTrim : uint8_t {
+    None,
     Start,
     End,
     Both
@@ -700,7 +696,7 @@ enum class MarginTrimType : uint8_t {
     InlineEnd = 1 << 3
 };
 
-enum class TextEdgeType : uint8_t {
+enum class TextBoxEdgeType : uint8_t {
     Leading,
     Text,
     CapHeight,
@@ -750,9 +746,7 @@ enum class EmptyCell : bool {
 
 enum class CaptionSide : uint8_t {
     Top,
-    Bottom,
-    Left,
-    Right
+    Bottom
 };
 
 enum class ListStylePosition : bool {
@@ -1002,18 +996,18 @@ enum class ColorScheme : uint8_t {
     Dark = 1 << 1
 };
 
-static const size_t ColorSchemeBits = 2;
+constexpr size_t ColorSchemeBits = 2;
 #endif
 
-static const size_t GridAutoFlowBits = 4;
-enum InternalGridAutoFlow {
+constexpr size_t GridAutoFlowBits = 4;
+enum InternalGridAutoFlow : uint8_t {
     InternalAutoFlowAlgorithmSparse = 1 << 0,
     InternalAutoFlowAlgorithmDense  = 1 << 1,
     InternalAutoFlowDirectionRow    = 1 << 2,
     InternalAutoFlowDirectionColumn = 1 << 3
 };
 
-enum GridAutoFlow {
+enum GridAutoFlow : uint8_t {
     AutoFlowRow = InternalAutoFlowAlgorithmSparse | InternalAutoFlowDirectionRow,
     AutoFlowColumn = InternalAutoFlowAlgorithmSparse | InternalAutoFlowDirectionColumn,
     AutoFlowRowDense = InternalAutoFlowAlgorithmDense | InternalAutoFlowDirectionRow,
@@ -1039,10 +1033,10 @@ enum class AutoRepeatType : uint8_t {
 #if USE(FREETYPE)
 // The maximum allowed font size is 32767 because `hb_position_t` is `int32_t`,
 // where the first 16 bits are used to represent the integer part which effectively makes it `signed short`
-static const float maximumAllowedFontSize = std::numeric_limits<short>::max();
+constexpr float maximumAllowedFontSize = std::numeric_limits<short>::max();
 #else
 // Reasonable maximum to prevent insane font sizes from causing crashes on some platforms (such as Windows).
-static const float maximumAllowedFontSize = 1000000.0f;
+constexpr float maximumAllowedFontSize = 1000000.0f;
 #endif
 
 enum class TextIndentLine : bool {
@@ -1096,6 +1090,12 @@ enum class ScrollSnapAxisAlignType : uint8_t {
 enum class ScrollSnapStop : bool {
     Normal,
     Always,
+};
+
+enum class ScrollbarWidth : uint8_t {
+    Auto,
+    Thin,
+    None
 };
 
 // These are all minimized combinations of paint-order.
@@ -1160,14 +1160,14 @@ enum class ContentVisibility : uint8_t {
     Hidden,
 };
 
-enum class BlockStepInsert : uint8_t {
+enum class BlockStepInsert : bool {
     Margin,
     Padding
 };
 
 CSSBoxType transformBoxToCSSBoxType(TransformBox);
 
-extern const float defaultMiterLimit;
+constexpr float defaultMiterLimit = 4;
 
 WTF::TextStream& operator<<(WTF::TextStream&, AnimationFillMode);
 WTF::TextStream& operator<<(WTF::TextStream&, AnimationPlayState);
@@ -1249,6 +1249,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapAxis);
 WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapAxisAlignType);
 WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapStop);
 WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapStrictness);
+WTF::TextStream& operator<<(WTF::TextStream&, ScrollbarWidth);
 WTF::TextStream& operator<<(WTF::TextStream&, SpeakAs);
 WTF::TextStream& operator<<(WTF::TextStream&, StyleDifference);
 WTF::TextStream& operator<<(WTF::TextStream&, TableLayoutType);
@@ -1269,8 +1270,8 @@ WTF::TextStream& operator<<(WTF::TextStream&, TextSecurity);
 WTF::TextStream& operator<<(WTF::TextStream&, TextTransform);
 WTF::TextStream& operator<<(WTF::TextStream&, TextUnderlinePosition);
 WTF::TextStream& operator<<(WTF::TextStream&, TextWrap);
-WTF::TextStream& operator<<(WTF::TextStream&, LeadingTrim);
-WTF::TextStream& operator<<(WTF::TextStream&, TextEdgeType);
+WTF::TextStream& operator<<(WTF::TextStream&, TextBoxTrim);
+WTF::TextStream& operator<<(WTF::TextStream&, TextBoxEdgeType);
 WTF::TextStream& operator<<(WTF::TextStream&, TextZoom);
 WTF::TextStream& operator<<(WTF::TextStream&, TransformBox);
 WTF::TextStream& operator<<(WTF::TextStream&, TransformStyle3D);
@@ -1285,14 +1286,3 @@ WTF::TextStream& operator<<(WTF::TextStream&, MathStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, ContainIntrinsicSizeType);
 
 } // namespace WebCore
-
-namespace WTF {
-template<> struct EnumTraits<WebCore::ScrollSnapStop> {
-    using values = EnumValues<
-        WebCore::ScrollSnapStop,
-        WebCore::ScrollSnapStop::Normal,
-        WebCore::ScrollSnapStop::Always
-    >;
-};
-
-}

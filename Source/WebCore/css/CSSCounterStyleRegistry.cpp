@@ -30,6 +30,7 @@
 #include "CSSPrimitiveValue.h"
 #include "CSSValuePair.h"
 #include "ListStyleType.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -164,45 +165,6 @@ CounterStyleMap& CSSCounterStyleRegistry::userAgentCounterStyles()
 bool CSSCounterStyleRegistry::operator==(const CSSCounterStyleRegistry& other) const
 {
     return m_authorCounterStyles == other.m_authorCounterStyles;
-}
-
-bool isCounterStyleUnsupportedByUserAgent(CSSValueID valueID)
-{
-    // This list has to be in sync with styles defined in counterStyles.css, once a style is added there, remove it from here.
-    switch (valueID) {
-    // FIXME: Review correctness of Ethiopian counter styles (rdar://108704382).
-    case CSSValueAmharic:
-    case CSSValueAmharicAbegede:
-    case CSSValueAfar:
-    case CSSValueEthiopic:
-    case CSSValueEthiopicAbegede:
-    case CSSValueEthiopicAbegedeAmEt:
-    case CSSValueEthiopicAbegedeGez:
-    case CSSValueEthiopicAbegedeTiEr:
-    case CSSValueEthiopicAbegedeTiEt:
-    case CSSValueEthiopicHalehameAaEr:
-    case CSSValueEthiopicHalehameAaEt:
-    case CSSValueEthiopicHalehameAmEt:
-    case CSSValueEthiopicHalehameGez:
-    case CSSValueEthiopicHalehameOmEt:
-    case CSSValueEthiopicHalehameSidEt:
-    case CSSValueEthiopicHalehameSoEt:
-    case CSSValueEthiopicHalehameTiEr:
-    case CSSValueEthiopicHalehameTiEt:
-    case CSSValueEthiopicHalehameTig:
-    case CSSValueOromo:
-    case CSSValueSidama:
-    case CSSValueSomali:
-    case CSSValueTigre:
-    case CSSValueTigrinyaEr:
-    case CSSValueTigrinyaErAbegede:
-    case CSSValueTigrinyaEt:
-    case CSSValueTigrinyaEtAbegede:
-    case CSSValueNone:
-        return true;
-    default:
-        return false;
-    }
 }
 
 void CSSCounterStyleRegistry::clearAuthorCounterStyles()

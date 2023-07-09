@@ -31,6 +31,7 @@
 
 #include "ArrayPrototype.h"
 #include "CallFrameShuffler.h"
+#include "ClonedArguments.h"
 #include "DFGAbstractInterpreterInlines.h"
 #include "DFGCallArrayAllocatorSlowPathGenerator.h"
 #include "DFGDoesGC.h"
@@ -2409,6 +2410,10 @@ void SpeculativeJIT::compile(Node* node)
         compileMakeRope(node);
         break;
 
+    case MakeAtomString:
+        compileMakeAtomString(node);
+        break;
+
     case ArithSub:
         compileArithSub(node);
         break;
@@ -3565,6 +3570,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case HasStructureWithFlags: {
+        compileHasStructureWithFlags(node);
+        break;
+    }
+
     case OverridesHasInstance: {
         compileOverridesHasInstance(node);
         break;
@@ -4270,7 +4280,11 @@ void SpeculativeJIT::compile(Node* node)
     case NewBoundFunction:
     case EnumeratorPutByVal:
     case GetByIdMegamorphic:
+    case GetByIdWithThisMegamorphic:
     case GetByValMegamorphic:
+    case GetByValWithThisMegamorphic:
+    case PutByIdMegamorphic:
+    case PutByValMegamorphic:
         DFG_CRASH(m_graph, node, "unexpected node in DFG backend");
         break;
     }
@@ -4322,6 +4336,37 @@ void SpeculativeJIT::compileGetByValWithThis(Node* node)
     exceptionCheck();
 
     jsValueResult(resultRegs, node);
+}
+
+void SpeculativeJIT::compileCreateClonedArguments(Node* node)
+{
+    GPRFlushedCallResult result(this);
+    GPRReg resultGPR = result.gpr();
+    flushRegisters();
+
+    JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+
+    // We set up the arguments ourselves, because we have the whole register file and we can
+    // set them up directly into the argument registers.
+
+    // Arguments: 0:JSGlobalObject*, 1:structure, 2:start, 3:length, 4:callee, 5: butterfly
+    setupArgument(5, [&] (GPRReg destGPR) { move(TrustedImm32(0), destGPR); });
+    setupArgument(4, [&] (GPRReg destGPR) { emitGetCallee(node->origin.semantic, destGPR); });
+    setupArgument(3, [&] (GPRReg destGPR) { emitGetLength(node->origin.semantic, destGPR); });
+    setupArgument(2, [&] (GPRReg destGPR) { emitGetArgumentStart(node->origin.semantic, destGPR); });
+    setupArgument(
+        1, [&] (GPRReg destGPR) {
+            loadLinkableConstant(LinkableConstant(*this, globalObject->clonedArgumentsStructure()), destGPR);
+        });
+    setupArgument(
+        0, [&] (GPRReg destGPR) {
+            loadLinkableConstant(LinkableConstant::globalObject(*this, node), destGPR);
+        });
+
+    appendCallSetResult(operationCreateClonedArguments, resultGPR);
+    exceptionCheck();
+
+    cellResult(resultGPR, node);
 }
 
 #endif

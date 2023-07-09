@@ -51,6 +51,7 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/Noncopyable.h>
+#import <wtf/Scope.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/TextStream.h>
 
@@ -332,6 +333,9 @@ void RemoteLayerBackingStore::applySwappedBuffers(RefPtr<ImageBuffer>&& front, R
     ASSERT(WebProcess::singleton().shouldUseRemoteRenderingFor(RenderingPurpose::DOM));
     m_contentsBufferHandle = std::nullopt;
 
+    if (front != m_backBuffer.imageBuffer || back != m_frontBuffer.imageBuffer || displayRequirement != SwapBuffersDisplayRequirement::NeedsNormalDisplay)
+        m_previouslyPaintedRect = std::nullopt;
+
     m_frontBuffer.imageBuffer = WTFMove(front);
     m_backBuffer.imageBuffer = WTFMove(back);
     m_secondaryBackBuffer.imageBuffer = WTFMove(secondaryBack);
@@ -362,6 +366,7 @@ void RemoteLayerBackingStore::setDelegatedContents(const WebCore::PlatformCALaye
     m_contentsBufferHandle = contents.surface.copySendRight();
     if (contents.finishedFence)
         m_frontBufferFlushers.append(DelegatedContentsFenceFlusher::create(Ref { *contents.finishedFence }));
+    m_contentsRenderingResourceIdentifier = contents.surfaceIdentifier;
     m_dirtyRegion = { };
     m_paintingRects.clear();
 }
@@ -459,6 +464,7 @@ void RemoteLayerBackingStore::ensureFrontBuffer()
     }
 
     m_frontBuffer.imageBuffer = collection->allocateBufferForBackingStore(*this);
+    m_frontBuffer.isCleared = true;
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     if (!m_displayListBuffer && m_parameters.includeDisplayList == IncludeDisplayList::Yes) {
@@ -533,6 +539,9 @@ void RemoteLayerBackingStore::paintContents()
 
 void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, WTF::Function<void()>&& additionalContextSetupCallback)
 {
+    auto markFrontBufferNotCleared = makeScopeExit([&]() {
+        m_frontBuffer.isCleared = false;
+    });
     GraphicsContextStateSaver stateSaver(context);
 
     if (additionalContextSetupCallback)
@@ -559,8 +568,17 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, WTF::Funct
     }
 
     IntRect layerBounds(IntPoint(), expandedIntSize(m_parameters.size));
-    if (!m_dirtyRegion.contains(layerBounds) && m_backBuffer.imageBuffer)
-        context.drawImageBuffer(*m_backBuffer.imageBuffer, { 0, 0 }, { CompositeOperator::Copy });
+    if (!m_dirtyRegion.contains(layerBounds) && m_backBuffer.imageBuffer) {
+        if (!m_previouslyPaintedRect)
+            context.drawImageBuffer(*m_backBuffer.imageBuffer, { 0, 0 }, { CompositeOperator::Copy });
+        else {
+            Region copyRegion(*m_previouslyPaintedRect);
+            copyRegion.subtract(m_dirtyRegion);
+            IntRect copyRect = copyRegion.bounds();
+            if (!copyRect.isEmpty())
+                context.drawImageBuffer(*m_backBuffer.imageBuffer, copyRect, copyRect, { CompositeOperator::Copy });
+        }
+    }
 
     if (m_paintingRects.size() == 1)
         context.clip(m_paintingRects[0]);
@@ -571,7 +589,7 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, WTF::Funct
         context.clipPath(clipPath);
     }
 
-    if (!m_parameters.isOpaque && !m_layer->owner()->platformCALayerShouldPaintUsingCompositeCopy())
+    if (!m_parameters.isOpaque && !m_frontBuffer.isCleared && !m_layer->owner()->platformCALayerShouldPaintUsingCompositeCopy())
         context.clearRect(layerBounds);
 
 #ifndef NDEBUG
@@ -579,18 +597,19 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, WTF::Funct
         context.fillRect(layerBounds, SRGBA<uint8_t> { 255, 47, 146 });
 #endif
 
-    // FIXME: Clarify that GraphicsLayerPaintSnapshotting is just about image decoding.
-    auto flags = m_layer->context() && m_layer->context()->nextRenderingUpdateRequiresSynchronousImageDecoding() ? GraphicsLayerPaintSnapshotting : GraphicsLayerPaintNormal;
+    OptionSet<WebCore::GraphicsLayerPaintBehavior> paintBehavior;
+    if (m_layer->context() && m_layer->context()->nextRenderingUpdateRequiresSynchronousImageDecoding())
+        paintBehavior.add(GraphicsLayerPaintBehavior::ForceSynchronousImageDecode);
     
     // FIXME: This should be moved to PlatformCALayerRemote for better layering.
     switch (m_layer->layerType()) {
     case PlatformCALayer::LayerTypeSimpleLayer:
     case PlatformCALayer::LayerTypeTiledBackingTileLayer:
-        m_layer->owner()->platformCALayerPaintContents(m_layer, context, dirtyBounds, flags);
+        m_layer->owner()->platformCALayerPaintContents(m_layer, context, dirtyBounds, paintBehavior);
         break;
     case PlatformCALayer::LayerTypeWebLayer:
     case PlatformCALayer::LayerTypeBackdropLayer:
-        PlatformCALayer::drawLayerContents(context, m_layer, m_paintingRects, flags);
+        PlatformCALayer::drawLayerContents(context, m_layer, m_paintingRects, paintBehavior);
         break;
     case PlatformCALayer::LayerTypeLayer:
     case PlatformCALayer::LayerTypeTransformLayer:
@@ -618,6 +637,7 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, WTF::Funct
     m_layer->owner()->platformCALayerLayerDidDisplay(m_layer);
 
     m_frontBuffer.imageBuffer->flushDrawingContextAsync();
+    m_previouslyPaintedRect = dirtyBounds;
 
     m_frontBufferFlushers.append(m_frontBuffer.imageBuffer->createFlusher());
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
@@ -675,8 +695,11 @@ RetainPtr<id> RemoteLayerBackingStoreProperties::layerContentsBufferFromBackendH
     return contents;
 }
 
-void RemoteLayerBackingStoreProperties::applyBackingStoreToLayer(CALayer *layer, LayerContentsType contentsType, bool replayCGDisplayListsIntoBackingStore)
+void RemoteLayerBackingStoreProperties::applyBackingStoreToLayer(CALayer *layer, LayerContentsType contentsType, std::optional<WebCore::RenderingResourceIdentifier> asyncContentsIdentifier, bool replayCGDisplayListsIntoBackingStore)
 {
+    if (asyncContentsIdentifier && m_frontBufferIdentifier && *asyncContentsIdentifier >= *m_frontBufferIdentifier)
+        return;
+
     layer.contentsOpaque = m_isOpaque;
 
     RetainPtr<id> contents;

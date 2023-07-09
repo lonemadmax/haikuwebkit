@@ -109,6 +109,7 @@
 - (void)clickOnElementID:(NSString *)elementID;
 - (void)waitForPendingMouseEvents;
 - (void)focus;
+- (std::optional<CGPoint>)getElementMidpoint:(NSString *)selector;
 @end
 
 #if PLATFORM(IOS_FAMILY)
@@ -123,6 +124,7 @@
 @end
 
 @interface TestWKWebView (IOSOnly)
+@property (nonatomic) UIEdgeInsets overrideSafeAreaInset;
 @property (nonatomic, readonly) CGRect caretViewRectInContentCoordinates;
 @property (nonatomic, readonly) NSArray<NSValue *> *selectionViewRectsInContentCoordinates;
 - (_WKActivatedElementInfo *)activatedElementAtPosition:(CGPoint)position;

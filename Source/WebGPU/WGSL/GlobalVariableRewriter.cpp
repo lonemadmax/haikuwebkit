@@ -54,12 +54,6 @@ public:
     void visit(AST::IdentifierExpression&) override;
 
 private:
-    template<typename Value>
-    using IndexMap = HashMap<unsigned, Value, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>>;
-
-    using IndexSet = HashSet<unsigned, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>>;
-    using UsedGlobals = IndexMap<IndexSet>;
-
     struct Global {
         struct Resource {
             unsigned group;
@@ -68,6 +62,18 @@ private:
 
         std::optional<Resource> resource;
         AST::Variable* declaration;
+    };
+
+    template<typename Value>
+    using IndexMap = HashMap<unsigned, Value, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>>;
+
+    using IndexSet = HashSet<unsigned, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>>;
+    using UsedResources = IndexMap<IndexSet>;
+    using UsedPrivateGlobals = Vector<Global*>;
+
+    struct UsedGlobals {
+        UsedResources resources;
+        UsedPrivateGlobals privateGlobals;
     };
 
     static AST::Identifier argumentBufferParameterName(unsigned group);
@@ -80,8 +86,9 @@ private:
     void visitEntryPoint(AST::Function&, AST::StageAttribute::Stage, PipelineLayout&);
     UsedGlobals determineUsedGlobals(PipelineLayout&, AST::StageAttribute::Stage);
     void usesOverride(AST::Variable&);
-    void insertStructs(const UsedGlobals&);
-    void insertParameters(AST::Function&, const UsedGlobals&);
+    void insertStructs(const UsedResources&);
+    void insertParameters(AST::Function&, const UsedResources&);
+    void insertLocalDefinitions(AST::Function&, const UsedPrivateGlobals&);
 
     CallGraph& m_callGraph;
     PrepareResult& m_result;
@@ -127,12 +134,14 @@ void RewriteGlobalVariables::visit(AST::Variable& variable)
 
 void RewriteGlobalVariables::visit(AST::IdentifierExpression& identifier)
 {
-    auto name = identifier.identifier();
+    String name = identifier.identifier();
     if (Global* global = read(name)) {
         if (auto resource = global->resource) {
-            auto base = makeUniqueRef<AST::IdentifierExpression>(identifier.span(), argumentBufferParameterName(resource->group));
-            auto structureAccess = makeUniqueRef<AST::FieldAccessExpression>(identifier.span(), WTFMove(base), WTFMove(name));
-            m_callGraph.ast().replace(&identifier, AST::IdentityExpression(identifier.span(), WTFMove(structureAccess)));
+            if (auto* primitive = std::get_if<Types::Primitive>(identifier.inferredType()); primitive && primitive->kind == Types::Primitive::TextureExternal)
+                name = makeString("__"_s, WTFMove(name));
+            auto& base = m_callGraph.ast().astBuilder().construct<AST::IdentifierExpression>(identifier.span(), argumentBufferParameterName(resource->group));
+            auto& structureAccess = m_callGraph.ast().astBuilder().construct<AST::FieldAccessExpression>(identifier.span(), base, AST::Identifier::make(WTFMove(name)));
+            m_callGraph.ast().replace(identifier, structureAccess);
         }
     }
 }
@@ -185,9 +194,9 @@ void RewriteGlobalVariables::visitEntryPoint(AST::Function& function, AST::Stage
         return;
 
     auto usedGlobals = determineUsedGlobals(pipelineLayout, stage);
-    insertStructs(usedGlobals);
-    // FIXME: not all globals are parameters
-    insertParameters(function, usedGlobals);
+    insertStructs(usedGlobals.resources);
+    insertParameters(function, usedGlobals.resources);
+    insertLocalDefinitions(function, usedGlobals.privateGlobals);
 }
 
 
@@ -205,8 +214,10 @@ auto RewriteGlobalVariables::determineUsedGlobals(PipelineLayout& pipelineLayout
             break;
         case AST::VariableFlavor::Var:
         case AST::VariableFlavor::Let:
-            if (!global.resource.has_value())
+            if (!global.resource.has_value()) {
+                usedGlobals.privateGlobals.append(&global);
                 continue;
+            }
             break;
         case AST::VariableFlavor::Const:
             // Constants must be resolved at an earlier phase
@@ -214,7 +225,7 @@ auto RewriteGlobalVariables::determineUsedGlobals(PipelineLayout& pipelineLayout
         }
 
         auto group = global.resource->group;
-        auto result = usedGlobals.add(group, IndexSet());
+        auto result = usedGlobals.resources.add(group, IndexSet());
         result.iterator->value.add(global.resource->binding);
 
         if (pipelineLayout.bindGroupLayouts.size() <= group)
@@ -273,22 +284,23 @@ void RewriteGlobalVariables::usesOverride(AST::Variable& variable)
     case Types::Primitive::AbstractInt:
     case Types::Primitive::AbstractFloat:
     case Types::Primitive::Sampler:
+    case Types::Primitive::TextureExternal:
         RELEASE_ASSERT_NOT_REACHED();
     }
     m_entryPointInformation->specializationConstants.add(variable.name(), Reflection::SpecializationConstant { String(), constantType });
 }
 
-void RewriteGlobalVariables::insertStructs(const UsedGlobals& usedGlobals)
+void RewriteGlobalVariables::insertStructs(const UsedResources& usedResources)
 {
     for (auto& groupBinding : m_groupBindingMap) {
         unsigned group = groupBinding.key;
 
-        auto usedGlobal = usedGlobals.find(group);
-        if (usedGlobal == usedGlobals.end())
+        auto usedResource = usedResources.find(group);
+        if (usedResource == usedResources.end())
             continue;
 
         const auto& bindingGlobalMap = groupBinding.value;
-        const IndexSet& usedBindings = usedGlobal->value;
+        const IndexSet& usedBindings = usedResource->value;
 
         AST::Identifier structName = argumentBufferStructName(group);
         AST::StructureMember::List structMembers;
@@ -302,27 +314,47 @@ void RewriteGlobalVariables::insertStructs(const UsedGlobals& usedGlobals)
 
             auto* type = global->declaration->maybeTypeName()->resolvedType();
             bool shouldBeReference = true;
+            String name = global->declaration->name();
             if (std::get_if<Types::Texture>(type))
                 shouldBeReference = false;
             else if (auto* primitive = std::get_if<Types::Primitive>(type)) {
                 if (primitive->kind == Types::Primitive::Sampler)
                     shouldBeReference = false;
+                else if (primitive->kind == Types::Primitive::TextureExternal) {
+                    // Since we'll use the texture_external variable's name to construct
+                    // the names of the argument buffer's fields, we have to make sure
+                    // that there won't be a naming collision. We do so by prefixing the
+                    // variable's name with `__`, which is not valid according to the
+                    // grammar, so the user can't have another variable with this name.
+                    //
+                    // e.g. @group(0) @binding(0) var t : texture_external;
+                    //
+                    // From `t` we will derive `t_FirstPlane`, `t_SecondPlane`, etc.
+                    // which could colid with user-defined variables. By converting
+                    // it to `__t_FirstPlane` there is no such risk.
+                    shouldBeReference = false;
+                    name = makeString("__"_s, WTFMove(name));
+                }
             }
 
             AST::TypeName::Ref memberType = *global->declaration->maybeTypeName();
-            if (shouldBeReference)
-                memberType = adoptRef(*new AST::ReferenceTypeName(span, WTFMove(memberType)));
+            if (shouldBeReference) {
+                auto* type = memberType.get().resolvedType();
+                memberType = m_callGraph.ast().astBuilder().construct<AST::ReferenceTypeName>(span, WTFMove(memberType));
+                // FIXME: we need to be able to represent reference types in the type system
+                memberType.get().m_resolvedType = type;
+            }
             structMembers.append(m_callGraph.ast().astBuilder().construct<AST::StructureMember>(
                 span,
-                AST::Identifier::make(global->declaration->name()),
+                AST::Identifier::make(WTFMove(name)),
                 WTFMove(memberType),
                 AST::Attribute::List {
-                    adoptRef(*new AST::BindingAttribute(span, binding))
+                    m_callGraph.ast().astBuilder().construct<AST::BindingAttribute>(span, binding)
                 }
             ));
         }
 
-        m_callGraph.ast().append(m_callGraph.ast().structures(), makeUniqueRef<AST::Structure>(
+        m_callGraph.ast().append(m_callGraph.ast().structures(), m_callGraph.ast().astBuilder().construct<AST::Structure>(
             SourceSpan::empty(),
             WTFMove(structName),
             WTFMove(structMembers),
@@ -333,22 +365,33 @@ void RewriteGlobalVariables::insertStructs(const UsedGlobals& usedGlobals)
     }
 }
 
-void RewriteGlobalVariables::insertParameters(AST::Function& function, const UsedGlobals& usedGlobals)
+void RewriteGlobalVariables::insertParameters(AST::Function& function, const UsedResources& usedResources)
 {
     auto span = function.span();
-    for (auto& it : usedGlobals) {
+    for (auto& it : usedResources) {
         unsigned group = it.key;
-        auto type = adoptRef(*new AST::NamedTypeName(span, argumentBufferStructName(group)));
-        type->m_resolvedType = m_structTypes.get(group);
-        m_callGraph.ast().append(function.parameters(), adoptRef(*new AST::Parameter(
+        auto& type = m_callGraph.ast().astBuilder().construct<AST::NamedTypeName>(span, argumentBufferStructName(group));
+        type.m_resolvedType = m_structTypes.get(group);
+        m_callGraph.ast().append(function.parameters(), m_callGraph.ast().astBuilder().construct<AST::Parameter>(
             span,
             argumentBufferParameterName(group),
-            WTFMove(type),
+            type,
             AST::Attribute::List {
-                adoptRef(*new AST::GroupAttribute(span, group))
+                m_callGraph.ast().astBuilder().construct<AST::GroupAttribute>(span, group)
             },
             AST::ParameterRole::BindGroup
-        )));
+        ));
+    }
+}
+
+void RewriteGlobalVariables::insertLocalDefinitions(AST::Function& function, const UsedPrivateGlobals& usedPrivateGlobals)
+{
+    for (auto* global : usedPrivateGlobals) {
+        auto& variableStatement = m_callGraph.ast().astBuilder().construct<AST::VariableStatement>(
+            SourceSpan::empty(),
+            *global->declaration
+        );
+        m_callGraph.ast().insert(function.body().statements(), 0, std::reference_wrapper<AST::Statement>(variableStatement));
     }
 }
 

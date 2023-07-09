@@ -25,18 +25,28 @@
 
 #pragma once
 
-#include "ASTNode.h"
 #include <wtf/MallocPtr.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Nonmovable.h>
 #include <wtf/Vector.h>
 
 #define WGSL_AST_BUILDER_NODE(Node) \
-    WTF_MAKE_NONCOPYABLE(Node); \
-    WTF_MAKE_NONMOVABLE(Node); \
+protected: \
+    Node(const Node&) = default; \
+    Node(Node&&) = default; \
+    Node& operator=(const Node&) = default; \
+    Node& operator=(Node&&) = default; \
+private: \
     friend class Builder; \
+    friend ShaderModule;
 
-namespace WGSL::AST {
+namespace WGSL {
+
+class ShaderModule;
+
+namespace AST {
+
+class Node;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(WGSLAST);
 
@@ -80,4 +90,5 @@ private:
     Vector<Node*> m_nodes;
 };
 
-} // namespace WGSL::AST
+} // namespace AST
+} // namespace WGSL

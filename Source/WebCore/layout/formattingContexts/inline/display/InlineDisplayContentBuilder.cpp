@@ -31,6 +31,7 @@
 #include "InlineTextBoxStyle.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutInitialContainingBlock.h"
+#include "RenderStyleInlines.h"
 #include "TextUtil.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/Range.h>
@@ -85,7 +86,6 @@ InlineDisplayContentBuilder::InlineDisplayContentBuilder(const InlineFormattingC
     , m_formattingState(formattingState)
     , m_displayLine(displayLine)
     , m_lineIndex(lineIndex)
-    , m_lineIsFullyTruncatedInBlockDirection(displayLine.isTruncatedInBlockDirection())
 {
 }
 

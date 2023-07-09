@@ -324,11 +324,6 @@ inline bool operator==(const WKSelectionDrawingInfo& a, const WKSelectionDrawing
     return true;
 }
 
-inline bool operator!=(const WKSelectionDrawingInfo& a, const WKSelectionDrawingInfo& b)
-{
-    return !(a == b);
-}
-
 static TextStream& operator<<(TextStream& stream, WKSelectionDrawingInfo::SelectionType type)
 {
     switch (type) {
@@ -2502,12 +2497,28 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     return CGRectNull;
 }
 
+static BOOL isBuiltInScrollViewPanGestureRecognizer(UIGestureRecognizer *recognizer)
+{
+    static Class scrollViewPanGestureClass;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        scrollViewPanGestureClass = NSClassFromString(@"UIScrollViewPanGestureRecognizer");
+    });
+    return [recognizer isKindOfClass:scrollViewPanGestureClass];
+}
+
 static BOOL isBuiltInScrollViewGestureRecognizer(UIGestureRecognizer *recognizer)
 {
-    return ([recognizer isKindOfClass:NSClassFromString(@"UIScrollViewPanGestureRecognizer")]
-        || [recognizer isKindOfClass:NSClassFromString(@"UIScrollViewPinchGestureRecognizer")]
-        || [recognizer isKindOfClass:NSClassFromString(@"UIScrollViewKnobLongPressGestureRecognizer")]
-        );
+    static Class scrollViewPinchGestureClass;
+    static Class scrollViewKnobLongPressGestureRecognizerClass;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        scrollViewPinchGestureClass = NSClassFromString(@"UIScrollViewPinchGestureRecognizer");
+        scrollViewKnobLongPressGestureRecognizerClass = NSClassFromString(@"UIScrollViewKnobLongPressGestureRecognizer");
+    });
+    return isBuiltInScrollViewPanGestureRecognizer(recognizer)
+        || [recognizer isKindOfClass:scrollViewPinchGestureClass]
+        || [recognizer isKindOfClass:scrollViewKnobLongPressGestureRecognizerClass];
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)preventingGestureRecognizer canPreventGestureRecognizer:(UIGestureRecognizer *)preventedGestureRecognizer
@@ -2569,7 +2580,9 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
         return ![self shouldDeferGestureDueToImageAnalysis:gestureRecognizer];
 #endif
 
-    if (gestureRecognizer == _singleTapGestureRecognizer && [otherGestureRecognizer isKindOfClass:UIPanGestureRecognizer.class]
+    if (gestureRecognizer == _singleTapGestureRecognizer
+        && isBuiltInScrollViewPanGestureRecognizer(otherGestureRecognizer)
+        && [otherGestureRecognizer.view isKindOfClass:UIScrollView.class]
         && ![self _isInterruptingDecelerationForScrollViewOrAncestor:[_singleTapGestureRecognizer lastTouchedScrollView]])
         return YES;
 
@@ -2860,20 +2873,44 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return pointIsInSelectionRect;
 }
 
-- (BOOL)_isInterruptingDecelerationForScrollViewOrAncestor:(UIScrollView *)scrollView
+- (BOOL)_hasEnclosingScrollView:(UIScrollView *)firstView matchingCriteria:(Function<BOOL(UIScrollView *)>&&)matchFunction
 {
-    UIScrollView *mainScroller = self.webView.scrollView;
-    UIView *view = scrollView ?: mainScroller;
-    while (view) {
-        if (dynamic_objc_cast<UIScrollView>(view)._isInterruptingDeceleration)
+    UIView *view = firstView ?: self.webView.scrollView;
+    for (; view; view = view.superview) {
+        if (auto scrollView = dynamic_objc_cast<UIScrollView>(view); scrollView && matchFunction(scrollView))
             return YES;
-
-        if (mainScroller == view)
-            break;
-
-        view = view.superview;
     }
     return NO;
+}
+
+- (BOOL)_isPanningScrollViewOrAncestor:(UIScrollView *)scrollView
+{
+    return [self _hasEnclosingScrollView:scrollView matchingCriteria:[](UIScrollView *scrollView) {
+        if (scrollView.dragging || scrollView.decelerating)
+            return YES;
+
+        if (UIPanGestureRecognizer *panGesture = scrollView.panGestureRecognizer) {
+            switch (panGesture.state) {
+            case UIGestureRecognizerStateBegan:
+            case UIGestureRecognizerStateChanged:
+            case UIGestureRecognizerStateEnded:
+                return YES;
+            case UIGestureRecognizerStatePossible:
+            case UIGestureRecognizerStateCancelled:
+            case UIGestureRecognizerStateFailed:
+                return NO;
+            }
+        }
+        ASSERT_NOT_REACHED();
+        return NO;
+    }];
+}
+
+- (BOOL)_isInterruptingDecelerationForScrollViewOrAncestor:(UIScrollView *)scrollView
+{
+    return [self _hasEnclosingScrollView:scrollView matchingCriteria:[](UIScrollView *scrollView) {
+        return scrollView._isInterruptingDeceleration;
+    }];
 }
 
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
@@ -2883,7 +2920,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (gestureRecognizer == _singleTapGestureRecognizer) {
         if ([self _shouldToggleSelectionCommandsAfterTapAt:point])
             return NO;
-        return ![self _isInterruptingDecelerationForScrollViewOrAncestor:[_singleTapGestureRecognizer lastTouchedScrollView]];
+        auto scrollView = [_singleTapGestureRecognizer lastTouchedScrollView];
+        return ![self _isPanningScrollViewOrAncestor:scrollView] && ![self _isInterruptingDecelerationForScrollViewOrAncestor:scrollView];
     }
 
     if (gestureRecognizer == _doubleTapGestureRecognizerForDoubleClick) {
@@ -2935,6 +2973,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             request.includeSnapshot = true;
             request.includeLinkIndicator = true;
             request.linkIndicatorShouldHaveLegacyMargins = !self._shouldUseContextMenus;
+            request.gatherAnimations = [self.webView _allowAnimationControls];
         }
 
         [self requestAsynchronousPositionInformationUpdate:request];
@@ -3916,6 +3955,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self _updateInteractionTintColor:_traits.get()];
     if (shouldUpdateTextSelection)
         [_textInteractionAssistant activateSelection];
+
+    _page->insertionPointColorDidChange();
 }
 
 #if ENABLE(APP_HIGHLIGHTS)
@@ -5330,6 +5371,9 @@ static void logTextInteractionAssistantSelectionChange(const char* methodName, U
 
 - (void)accessoryDone
 {
+    if ([_webView _resetFocusPreservationCount])
+        RELEASE_LOG_ERROR(ViewState, "Keyboard dismissed with nonzero focus preservation count; check for unbalanced calls to -_incrementFocusPreservationCount");
+
     [self stopRelinquishingFirstResponderToFocusedElement];
     [self endEditingAndUpdateFocusAppearanceWithReason:EndEditingReasonAccessoryDone];
     _page->setIsShowingInputViewForFocusedElement(false);
@@ -7164,6 +7208,8 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
 {
     SetForScope isBlurringFocusedElementForScope { _isBlurringFocusedElement, YES };
 
+    [_webView _resetFocusPreservationCount];
+
     [self _endEditing];
 
     [_formInputSession invalidate];
@@ -8250,6 +8296,8 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     request.includeSnapshot = true;
     request.includeLinkIndicator = assistant.needsLinkIndicator;
     request.linkIndicatorShouldHaveLegacyMargins = !self._shouldUseContextMenus;
+    request.gatherAnimations = [self.webView _allowAnimationControls];
+
     if (![self ensurePositionInformationIsUpToDate:request])
         return std::nullopt;
 
@@ -8263,6 +8311,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     request.includeSnapshot = true;
     request.includeLinkIndicator = assistant.needsLinkIndicator;
     request.linkIndicatorShouldHaveLegacyMargins = !self._shouldUseContextMenus;
+    request.gatherAnimations = [self.webView _allowAnimationControls];
 
     [self requestAsynchronousPositionInformationUpdate:request];
 }
@@ -8270,6 +8319,11 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant performAction:(WebKit::SheetAction)action
 {
     _page->performActionOnElement((uint32_t)action);
+}
+
+- (void)_actionSheetAssistant:(WKActionSheetAssistant *)assistant performAction:(WebKit::SheetAction)action onElements:(Vector<WebCore::ElementContext>&&)elements
+{
+    _page->performActionOnElements((uint32_t)action, WTFMove(elements));
 }
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant openElementAtLocation:(CGPoint)location
@@ -11799,7 +11853,13 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
             return @{ userInterfaceItem: @[] };
         return @{ userInterfaceItem: [_fileUploadPanel currentAvailableActionTitles] };
     }
-    
+
+    if ([userInterfaceItem isEqualToString:@"selectMenu"]) {
+        if (auto *menuItemTitles = [self.selectControl menuItemTitles])
+            return @{ userInterfaceItem: menuItemTitles };
+        return @{ userInterfaceItem: @[] };
+    }
+
     return nil;
 }
 
@@ -11810,6 +11870,11 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 #endif
 }
 
+- (UITapGestureRecognizer *)singleTapGestureRecognizer
+{
+    return _singleTapGestureRecognizer.get();
+}
+
 - (void)_simulateSelectionStart
 {
     _usingGestureForSelection = YES;
@@ -11817,9 +11882,9 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 }
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
-- (BOOL)_allowAnimationControlsForTesting
+- (BOOL)_allowAnimationControls
 {
-    return self.webView._allowAnimationControlsForTesting;
+    return self.webView._allowAnimationControls;
 }
 #endif
 
@@ -12159,6 +12224,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         request.includeLinkIndicator = true;
         request.disallowUserAgentShadowContent = triggeredByImageAnalysisTimeout;
         request.linkIndicatorShouldHaveLegacyMargins = ![strongSelf _shouldUseContextMenus];
+        request.gatherAnimations = [strongSelf->_webView _allowAnimationControls];
 
         [strongSelf doAfterPositionInformationUpdate:[weakSelf = WeakObjCPtr<WKContentView>(strongSelf.get()), completion] (WebKit::InteractionInformationAtPosition) {
             if (auto strongSelf = weakSelf.get())
@@ -12631,6 +12697,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     request.includeSnapshot = true;
     request.includeLinkIndicator = true;
     request.linkIndicatorShouldHaveLegacyMargins = !self._shouldUseContextMenus;
+    request.gatherAnimations = [self.webView _allowAnimationControls];
     if (![self ensurePositionInformationIsUpToDate:request])
         return NO;
     if (!_positionInformation.isLink && !_positionInformation.isImage && !_positionInformation.isAttachment)

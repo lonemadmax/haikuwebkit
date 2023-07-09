@@ -41,32 +41,67 @@
 namespace WebKit {
 using namespace WebCore;
 
+
+class RemoteImageBufferProxyFlushFence : public ThreadSafeRefCounted<RemoteImageBufferProxyFlushFence> {
+    WTF_MAKE_NONCOPYABLE(RemoteImageBufferProxyFlushFence);
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    static Ref<RemoteImageBufferProxyFlushFence> create(IPC::Semaphore semaphore)
+    {
+        return adoptRef(*new RemoteImageBufferProxyFlushFence { WTFMove(semaphore) });
+    }
+
+    ~RemoteImageBufferProxyFlushFence()
+    {
+        if (!m_signaled)
+            tracePoint(FlushRemoteImageBufferEnd, reinterpret_cast<uintptr_t>(this), 1u);
+    }
+
+    bool waitFor(Seconds timeout)
+    {
+        Locker locker { m_lock };
+        if (m_signaled)
+            return true;
+        m_signaled = m_semaphore.waitFor(timeout);
+        if (m_signaled)
+            tracePoint(FlushRemoteImageBufferEnd, reinterpret_cast<uintptr_t>(this), 0u);
+        return m_signaled;
+    }
+
+private:
+    RemoteImageBufferProxyFlushFence(IPC::Semaphore semaphore)
+        : m_semaphore(WTFMove(semaphore))
+    {
+        tracePoint(FlushRemoteImageBufferStart, reinterpret_cast<uintptr_t>(this));
+    }
+    Lock m_lock;
+    bool m_signaled WTF_GUARDED_BY_LOCK(m_lock) { false };
+    IPC::Semaphore m_semaphore;
+};
+
 namespace {
 
 class RemoteImageBufferProxyFlusher final : public ThreadSafeImageBufferFlusher {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    RemoteImageBufferProxyFlusher(RemoteImageBufferProxyFlushState& flushState, DisplayListRecorderFlushIdentifier identifier)
-        : m_flushState(flushState)
-        , m_targetFlushIdentifier(identifier)
+    RemoteImageBufferProxyFlusher(Ref<RemoteImageBufferProxyFlushFence> flushState)
+        : m_flushState(WTFMove(flushState))
     {
     }
 
     void flush() final
     {
-        m_flushState->waitForDidFlushOnSecondaryThread(m_targetFlushIdentifier);
+        m_flushState->waitFor(RemoteDisplayListRecorderProxy::defaultSendTimeout);
     }
 
 private:
-    Ref<RemoteImageBufferProxyFlushState> m_flushState;
-    DisplayListRecorderFlushIdentifier m_targetFlushIdentifier;
+    Ref<RemoteImageBufferProxyFlushFence> m_flushState;
 };
 
 }
 
 RemoteImageBufferProxy::RemoteImageBufferProxy(const ImageBufferBackend::Parameters& parameters, const ImageBufferBackend::Info& info, RemoteRenderingBackendProxy& remoteRenderingBackendProxy, std::unique_ptr<ImageBufferBackend>&& backend, RenderingResourceIdentifier identifier)
     : ImageBuffer(parameters, info, WTFMove(backend), identifier)
-    , m_flushState(adoptRef(*new RemoteImageBufferProxyFlushState))
     , m_remoteRenderingBackendProxy(remoteRenderingBackendProxy)
     , m_remoteDisplayList(*this, remoteRenderingBackendProxy, { { }, ImageBuffer::logicalSize() }, ImageBuffer::baseTransform())
 {
@@ -91,12 +126,6 @@ void RemoteImageBufferProxy::assertDispatcherIsCurrent() const
         assertIsCurrent(m_remoteRenderingBackendProxy->dispatcher());
 }
 
-bool RemoteImageBufferProxy::hasPendingFlush() const
-{
-    assertDispatcherIsCurrent();
-    return m_sentFlushIdentifier != m_flushState->identifierForCompletedFlush();
-}
-
 void RemoteImageBufferProxy::backingStoreWillChange()
 {
     if (m_needsFlush)
@@ -110,7 +139,7 @@ void RemoteImageBufferProxy::backingStoreWillChange()
     // handled by the m_needsFlush case above.
 
     // If we already have a pending flush, this cannot be the first notification for change.
-    if (hasPendingFlush())
+    if (m_pendingFlush)
         return;
 
     prepareForBackingStoreChange();
@@ -128,29 +157,6 @@ void RemoteImageBufferProxy::didCreateImageBufferBackend(ImageBufferBackendHandl
         m_backend = AcceleratedImageBufferShareableMappedBackend::create(parameters(), WTFMove(handle));
     else
         m_backend = AcceleratedImageBufferRemoteBackend::create(parameters(), WTFMove(handle));
-}
-
-void RemoteImageBufferProxy::waitForDidFlushWithTimeout()
-{
-    if (!m_remoteRenderingBackendProxy)
-        return;
-
-    // Wait for our DisplayList to be flushed but do not hang.
-    static constexpr unsigned maximumNumberOfTimeouts = 3;
-    unsigned numberOfTimeouts = 0;
-#if !LOG_DISABLED
-    auto startTime = MonotonicTime::now();
-#endif
-    LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " waitForDidFlushWithTimeout: waiting for flush {" << m_sentFlushIdentifier);
-    while (numberOfTimeouts < maximumNumberOfTimeouts && hasPendingFlush()) {
-        if (!m_remoteRenderingBackendProxy->waitForDidFlush())
-            ++numberOfTimeouts;
-    }
-
-    LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " waitForDidFlushWithTimeout: done waiting " << (MonotonicTime::now() - startTime).milliseconds() << "ms; " << numberOfTimeouts << " timeout(s)");
-
-    if (UNLIKELY(numberOfTimeouts >= maximumNumberOfTimeouts))
-        RELEASE_LOG_FAULT(SharedDisplayLists, "Exceeded timeout while waiting for flush in remote rendering backend: %" PRIu64 ".", m_remoteRenderingBackendProxy->renderingBackendIdentifier().toUInt64());
 }
 
 ImageBufferBackend* RemoteImageBufferProxy::ensureBackendCreated() const
@@ -252,8 +258,7 @@ RefPtr<PixelBuffer> RemoteImageBufferProxy::getPixelBuffer(const PixelBufferForm
 void RemoteImageBufferProxy::clearBackend()
 {
     m_needsFlush = false;
-    m_sentFlushIdentifier = { };
-    m_flushState->cancel();
+    m_pendingFlush = nullptr;
     prepareForBackingStoreChange();
     m_backend = nullptr;
 }
@@ -266,11 +271,10 @@ GraphicsContext& RemoteImageBufferProxy::context() const
 void RemoteImageBufferProxy::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
 {
     if (canMapBackingStore()) {
+        // Simulate a write so that pending reads migrate the data off of the mapped buffer.
+        context().fillRect({ });
         const_cast<RemoteImageBufferProxy&>(*this).flushDrawingContext();
         ImageBuffer::putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
-        // Simulate a write so that read caches are cleared.
-        // FIXME: This should not be done via the context draw, as that induces a flush.
-        context().fillRect({ });
         return;
     }
 
@@ -297,13 +301,18 @@ void RemoteImageBufferProxy::flushDrawingContext()
 {
     if (UNLIKELY(!m_remoteRenderingBackendProxy))
         return;
-
-    TraceScope tracingScope(FlushRemoteImageBufferStart, FlushRemoteImageBufferEnd);
-
-    bool shouldWait = flushDrawingContextAsync();
-    LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " flushDrawingContext: shouldWait " << shouldWait);
-    if (shouldWait)
-        waitForDidFlushWithTimeout();
+    if (m_needsFlush) {
+        TraceScope tracingScope(FlushRemoteImageBufferStart, FlushRemoteImageBufferEnd);
+        m_remoteDisplayList.flushContextSync();
+        m_pendingFlush = nullptr;
+        m_needsFlush = false;
+        return;
+    }
+    if (m_pendingFlush) {
+        bool success = m_pendingFlush->waitFor(RemoteDisplayListRecorderProxy::defaultSendTimeout);
+        ASSERT_UNUSED(success, success); // Currently there is nothing to be done on a timeout.
+        m_pendingFlush = nullptr;
+    }
 }
 
 bool RemoteImageBufferProxy::flushDrawingContextAsync()
@@ -312,12 +321,12 @@ bool RemoteImageBufferProxy::flushDrawingContextAsync()
         return false;
 
     if (!m_needsFlush)
-        return hasPendingFlush();
+        return m_pendingFlush;
 
-    m_sentFlushIdentifier = DisplayListRecorderFlushIdentifier::generate();
-    LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " flushDrawingContextAsync - flush " << m_sentFlushIdentifier);
-    m_remoteDisplayList.flushContext(m_sentFlushIdentifier);
-    m_remoteRenderingBackendProxy->addPendingFlush(m_flushState, m_sentFlushIdentifier);
+    LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " flushDrawingContextAsync");
+    IPC::Semaphore flushSemaphore;
+    m_remoteDisplayList.flushContext(flushSemaphore);
+    m_pendingFlush = RemoteImageBufferProxyFlushFence::create(WTFMove(flushSemaphore));
     m_needsFlush = false;
     return true;
 }
@@ -326,49 +335,20 @@ std::unique_ptr<ThreadSafeImageBufferFlusher> RemoteImageBufferProxy::createFlus
 {
     if (UNLIKELY(!m_remoteRenderingBackendProxy))
         return nullptr;
-    return makeUnique<RemoteImageBufferProxyFlusher>(m_flushState, lastSentFlushIdentifier());
+    if (!flushDrawingContextAsync())
+        return nullptr;
+    return makeUnique<RemoteImageBufferProxyFlusher>(Ref<RemoteImageBufferProxyFlushFence> { *m_pendingFlush });
 }
 
 void RemoteImageBufferProxy::prepareForBackingStoreChange()
 {
-    ASSERT(!hasPendingFlush());
+    ASSERT(!m_pendingFlush);
     // If the backing store is mapped in the process and the changes happen in the other
     // process, we need to prepare for the backing store change before we let the change happen.
     if (!canMapBackingStore())
         return;
     if (auto* backend = ensureBackendCreated())
         backend->ensureNativeImagesHaveCopiedBackingStore();
-}
-
-void RemoteImageBufferProxyFlushState::waitForDidFlushOnSecondaryThread(DisplayListRecorderFlushIdentifier targetFlushIdentifier)
-{
-    Locker locker { m_lock };
-    if (m_identifier >= targetFlushIdentifier)
-        return;
-    m_condition.wait(m_lock, [&] {
-        assertIsHeld(m_lock);
-        return m_identifier >= targetFlushIdentifier;
-    });
-}
-
-void RemoteImageBufferProxyFlushState::markCompletedFlush(DisplayListRecorderFlushIdentifier flushIdentifier)
-{
-    Locker locker { m_lock };
-    if (m_identifier >= flushIdentifier && flushIdentifier)
-        return;
-    m_identifier = flushIdentifier;
-    m_condition.notifyAll();
-}
-
-DisplayListRecorderFlushIdentifier RemoteImageBufferProxyFlushState::identifierForCompletedFlush() const
-{
-    Locker locker { m_lock };
-    return m_identifier;
-}
-
-void RemoteImageBufferProxyFlushState::cancel()
-{
-    markCompletedFlush({ });
 }
 
 std::unique_ptr<SerializedImageBuffer> RemoteImageBufferProxy::sinkIntoSerializedImageBuffer()

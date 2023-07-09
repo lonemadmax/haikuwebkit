@@ -1384,10 +1384,10 @@ void WebProcess::remotePostMessage(WebCore::FrameIdentifier identifier, std::opt
     if (!webFrame)
         return;
 
-    if (!webFrame->coreFrame())
+    if (!webFrame->coreLocalFrame())
         return;
 
-    auto* domWindow = webFrame->coreFrame()->window();
+    auto* domWindow = webFrame->coreLocalFrame()->window();
     if (!domWindow)
         return;
 
@@ -1545,6 +1545,16 @@ void WebProcess::pageActivityStateDidChange(PageIdentifier, OptionSet<WebCore::A
         RealTimeThreads::singleton().setEnabled(hasVisibleWebPage());
 #endif
     }
+}
+
+void WebProcess::releaseMemory(CompletionHandler<void()>&& completionHandler)
+{
+    WEBPROCESS_RELEASE_LOG(ProcessSuspension, "releaseMemory: BEGIN");
+    MemoryPressureHandler::singleton().releaseMemory(Critical::Yes, Synchronous::Yes);
+    for (auto& page : m_pageMap.values())
+        page->releaseMemory(Critical::Yes);
+    WEBPROCESS_RELEASE_LOG(ProcessSuspension, "releaseMemory: END");
+    completionHandler();
 }
 
 void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime, CompletionHandler<void()>&& completionHandler)

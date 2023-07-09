@@ -1829,7 +1829,14 @@
       "nicks" : [
          "djg"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
+   },
+   {
+      "emails" : [
+         "dtr_bugzilla@apple.com"
+      ],
+      "github" : "drobson1005",
+      "name" : "Dan Robson"
    },
    {
       "emails" : [
@@ -3363,6 +3370,13 @@
    },
    {
       "emails" : [
+         "iagho@apple.com"
+      ],
+      "github" : "asiagho",
+      "name" : "Isi Agho"
+   },
+   {
+      "emails" : [
          "ike@apple.com"
       ],
       "name" : "Ivan Ivan Krsti\u0107"
@@ -4863,6 +4877,13 @@
       "nicks" : [
          "macpherson"
       ]
+   },
+   {
+      "emails" : [
+         "luke@warlow.dev"
+      ],
+      "github" : "lukewarlow",
+      "name" : "Luke Warlow"
    },
    {
       "emails" : [

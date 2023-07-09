@@ -2298,12 +2298,14 @@ bool AccessibilityObject::isModalDescendant(Node* modalNode) const
     if (!modalNode || !node)
         return false;
     
-    if (node == modalNode)
-        return true;
-    
     // ARIA 1.1 aria-modal, indicates whether an element is modal when displayed.
     // For the decendants of the modal object, they should also be considered as aria-modal=true.
-    return node->isDescendantOrShadowDescendantOf(*modalNode);
+    // Determine descendancy by iterating the composed tree which inherently accounts for shadow roots and slots.
+    for (auto* ancestor = this->node(); ancestor; ancestor = ancestor->parentInComposedTree()) {
+        if (ancestor == modalNode)
+            return true;
+    }
+    return false;
 }
 
 bool AccessibilityObject::isModalNode() const
@@ -2768,7 +2770,11 @@ bool AccessibilityObject::supportsPressAction() const
     if (nodeHasPresentationRole(actionElement.get()))
         return false;
 
-    auto* axObject = actionElement != element() ? axObjectCache()->getOrCreate(actionElement.get()) : nullptr;
+    auto* cache = axObjectCache();
+    if (!cache)
+        return true;
+
+    auto* axObject = actionElement != element() ? cache->getOrCreate(actionElement.get()) : nullptr;
     if (!axObject)
         return true;
 
@@ -3056,6 +3062,22 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityObject::selectedCells()
     return selectedCells;
 }
 
+void AccessibilityObject::setSelectedRows(AccessibilityChildrenVector&& selectedRows)
+{
+    // Setting selected only makes sense in trees and tables (and tree-tables).
+    AccessibilityRole role = roleValue();
+    if (role != AccessibilityRole::Tree && role != AccessibilityRole::TreeGrid && role != AccessibilityRole::Table && role != AccessibilityRole::Grid)
+        return;
+
+    bool isMulti = isMultiSelectable();
+    for (const auto& selectedRow : selectedRows) {
+        // FIXME: At the time of writing, setSelected is only implemented for AccessibilityListBoxOption and AccessibilityMenuListOption which are unlikely to be "rows", so this function probably isn't doing anything useful.
+        selectedRow->setSelected(true);
+        if (isMulti)
+            break;
+    }
+}
+
 void AccessibilityObject::setFocused(bool focus)
 {
     if (focus) {
@@ -3230,6 +3252,15 @@ Vector<String> AccessibilityObject::classList() const
     for (unsigned k = 0; k < length; k++)
         classList.append(domClassList.item(k).string());
     return classList;
+}
+
+String AccessibilityObject::extendedDescription() const
+{
+    auto describedBy = ariaDescribedByAttribute();
+    if (!describedBy.isEmpty())
+        return describedBy;
+
+    return getAttribute(HTMLNames::aria_descriptionAttr);
 }
 
 bool AccessibilityObject::supportsPressed() const
@@ -3512,7 +3543,7 @@ void AccessibilityObject::scrollToMakeVisible(const ScrollRectToVisibleOptions& 
         LocalFrameView::scrollRectToVisible(boundingBoxRect(), *renderer, false, options);
 }
 
-void AccessibilityObject::scrollToMakeVisibleWithSubFocus(const IntRect& subfocus) const
+void AccessibilityObject::scrollToMakeVisibleWithSubFocus(IntRect&& subfocus) const
 {
     // Search up the parent chain until we find the first one that's scrollable.
     AccessibilityObject* scrollParent = parentObject();
@@ -3547,15 +3578,14 @@ void AccessibilityObject::scrollToMakeVisibleWithSubFocus(const IntRect& subfocu
     scrollParent->scrollTo(IntPoint(desiredX, desiredY));
 
     // Convert the subfocus into the coordinates of the scroll parent.
-    IntRect newSubfocus = subfocus;
     IntRect newElementRect = snappedIntRect(elementRect());
     IntRect scrollParentRect = snappedIntRect(scrollParent->elementRect());
-    newSubfocus.move(newElementRect.x(), newElementRect.y());
-    newSubfocus.move(-scrollParentRect.x(), -scrollParentRect.y());
-    
+    subfocus.move(newElementRect.x(), newElementRect.y());
+    subfocus.move(-scrollParentRect.x(), -scrollParentRect.y());
+
     // Recursively make sure the scroll parent itself is visible.
     if (scrollParent->parentObject())
-        scrollParent->scrollToMakeVisibleWithSubFocus(newSubfocus);
+        scrollParent->scrollToMakeVisibleWithSubFocus(WTFMove(subfocus));
 }
 
 FloatRect AccessibilityObject::unobscuredContentRect() const
@@ -3566,7 +3596,7 @@ FloatRect AccessibilityObject::unobscuredContentRect() const
     return FloatRect(snappedIntRect(document->view()->unobscuredContentRect()));
 }
 
-void AccessibilityObject::scrollToGlobalPoint(const IntPoint& globalPoint) const
+void AccessibilityObject::scrollToGlobalPoint(IntPoint&& point) const
 {
     // Search up the parent chain and create a vector of all scrollable parent objects
     // and ending with this object itself.
@@ -3583,7 +3613,6 @@ void AccessibilityObject::scrollToGlobalPoint(const IntPoint& globalPoint) const
     // Start with the outermost scrollable (the main window) and try to scroll the
     // next innermost object to the given point.
     int offsetX = 0, offsetY = 0;
-    IntPoint point = globalPoint;
     size_t levels = objects.size() - 1;
     for (size_t i = 0; i < levels; i++) {
         const AccessibilityObject* outer = objects[i];
@@ -4229,11 +4258,6 @@ void AccessibilityObject::setIsIgnoredFromParentDataForChild(AccessibilityObject
 {
     if (!child)
         return;
-
-    if (child->parentObject() != this) {
-        child->clearIsIgnoredFromParentData();
-        return;
-    }
 
     AccessibilityIsIgnoredFromParentData result = AccessibilityIsIgnoredFromParentData(this);
     if (!m_isIgnoredFromParentData.isNull()) {

@@ -122,7 +122,6 @@
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/RotateTransformOperation.h>
 #include <WebCore/SVGFilter.h>
-#include <WebCore/SVGFilterExpressionReference.h>
 #include <WebCore/ScaleTransformOperation.h>
 #include <WebCore/ScriptBuffer.h>
 #include <WebCore/ScriptExecutionContextIdentifier.h>
@@ -565,7 +564,7 @@ std::optional<Ref<FontCustomPlatformData>> ArgumentCoder<FontCustomPlatformData>
     if (!handle)
         return std::nullopt;
 
-    auto sharedMemoryBuffer = WebKit::SharedMemory::map(*handle, WebKit::SharedMemory::Protection::ReadOnly);
+    auto sharedMemoryBuffer = WebKit::SharedMemory::map(WTFMove(*handle), WebKit::SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer)
         return std::nullopt;
 
@@ -1345,7 +1344,7 @@ void ArgumentCoder<WebCore::FragmentedSharedBuffer>::encode(Encoder& encoder, co
         // over the IPC. ConnectionUnix.cpp already uses shared memory to send any IPC message that is
         // too large. See https://bugs.webkit.org/show_bug.cgi?id=208571.
         for (const auto& element : buffer)
-            encoder.encodeSpan(makeSpan(element.segment->data(), element.segment->size()));
+            encoder.encodeSpan(std::span(element.segment->data(), element.segment->size()));
     } else {
         SharedMemory::Handle handle;
         {
@@ -1377,7 +1376,7 @@ std::optional<Ref<WebCore::FragmentedSharedBuffer>> ArgumentCoder<WebCore::Fragm
     if (!decoder.decode(handle))
         return std::nullopt;
 
-    auto sharedMemoryBuffer = SharedMemory::map(handle, SharedMemory::Protection::ReadOnly);
+    auto sharedMemoryBuffer = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer)
         return std::nullopt;
 
@@ -1425,7 +1424,7 @@ static std::optional<WebCore::ScriptBuffer> decodeScriptBufferAsShareableResourc
     ShareableResource::Handle handle;
     if (!decoder.decode(handle) || handle.isNull())
         return std::nullopt;
-    auto buffer = handle.tryWrapInSharedBuffer();
+    auto buffer = WTFMove(handle).tryWrapInSharedBuffer();
     if (!buffer)
         return std::nullopt;
     return WebCore::ScriptBuffer { WTFMove(buffer) };
@@ -2138,32 +2137,13 @@ std::optional<Ref<CSSFilter>> ArgumentCoder<CSSFilter>::decode(Decoder& decoder)
 template<typename Encoder>
 void ArgumentCoder<SVGFilter>::encode(Encoder& encoder, const SVGFilter& filter)
 {
-    HashMap<Ref<FilterEffect>, unsigned> indicies;
-    Vector<Ref<FilterEffect>> effects;
-
-    // Get the individual FilterEffects in filter.expression().
-    for (auto& term : filter.expression()) {
-        if (indicies.contains(term.effect))
-            continue;
-        indicies.add(term.effect, effects.size());
-        effects.append(term.effect);
-    }
-
-    // Replace the Ref<FilterEffect> in SVGExpressionTerm with its index in indicies.
-    auto expressionReference = WTF::map(filter.expression(), [&indicies] (auto&& term) -> SVGFilterExpressionNode {
-        ASSERT(indicies.contains(term.effect));
-        unsigned index = indicies.get(term.effect);
-        return { index, term.geometry, term.level };
-    });
-
     encoder << filter.targetBoundingBox();
     encoder << filter.primitiveUnits();
-    
-    encoder << effects.size();
-    for (auto& effect : effects)
-        encoder << effect;
 
-    encoder << expressionReference;
+    encoder << filter.expression();
+    encoder << filter.effects();
+
+    encoder << filter.renderingResourceIdentifierIfExists();
 }
 
 template
@@ -2183,38 +2163,22 @@ std::optional<Ref<SVGFilter>> ArgumentCoder<SVGFilter>::decode(Decoder& decoder)
     if (!primitiveUnits)
         return std::nullopt;
 
-    std::optional<size_t> effectsSize;
-    decoder >> effectsSize;
-    if (!effectsSize || !*effectsSize)
+    std::optional<SVGFilterExpression> expression;
+    decoder >> expression;
+    if (!expression || expression->isEmpty())
         return std::nullopt;
 
-    Vector<Ref<FilterEffect>> effects;
-    effects.reserveInitialCapacity(*effectsSize);
-
-    for (size_t i = 0; i < *effectsSize; ++i) {
-        std::optional<Ref<FilterEffect>> effect;
-        decoder >> effect;
-        if (!effect)
-            return std::nullopt;
-        effects.uncheckedAppend(WTFMove(*effect));
-    }
-
-    std::optional<SVGFilterExpressionReference> expressionReference;
-    decoder >> expressionReference;
-    if (!expressionReference || expressionReference->isEmpty())
+    std::optional<Vector<Ref<FilterEffect>>> effects;
+    decoder >> effects;
+    if (!effects || effects->isEmpty())
         return std::nullopt;
 
-    SVGFilterExpression expression;
-    expression.reserveInitialCapacity(expressionReference->size());
+    std::optional<std::optional<RenderingResourceIdentifier>> renderingResourceIdentifier;
+    decoder >> renderingResourceIdentifier;
+    if (!renderingResourceIdentifier)
+        return std::nullopt;
 
-    // Replace the index in ExpressionReferenceTerm with its Ref<FilterEffect> in effects.
-    for (auto& term : *expressionReference) {
-        if (term.index >= effects.size())
-            return std::nullopt;
-        expression.uncheckedAppend({ effects[term.index], term.geometry, term.level });
-    }
-
-    auto filter = WebCore::SVGFilter::create(*targetBoundingBox, *primitiveUnits, WTFMove(expression));
+    auto filter = WebCore::SVGFilter::create(*targetBoundingBox, *primitiveUnits, WTFMove(*expression), WTFMove(*effects), *renderingResourceIdentifier);
     if (!filter)
         return std::nullopt;
 

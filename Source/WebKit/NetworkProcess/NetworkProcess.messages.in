@@ -40,7 +40,7 @@ messages -> NetworkProcess LegacyReceiver {
 #endif
 
     AddWebsiteDataStore(struct WebKit::WebsiteDataStoreParameters websiteDataStoreParameters) AllowedWhenWaitingForSyncReply
-    DestroySession(PAL::SessionID sessionID)
+    DestroySession(PAL::SessionID sessionID) -> ()
 
     FetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, OptionSet<WebKit::WebsiteDataFetchOption> fetchOptions) -> (struct WebKit::WebsiteData websiteData)
     DeleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, WallTime modifiedSince) -> ()
@@ -217,7 +217,7 @@ messages -> NetworkProcess LegacyReceiver {
     NotifyPreferencesChanged(String domain, String key, std::optional<String> encodedValue)
 #endif
 
-    TerminateRemoteWorkerContextConnectionWhenPossible(enum:bool WebKit::RemoteWorkerType workerType, PAL::SessionID sessionID,  WebCore::RegistrableDomain registrableDomain, WebCore::ProcessIdentifier processIdentifier);
+    TerminateRemoteWorkerContextConnectionWhenPossible(enum:uint8_t WebKit::RemoteWorkerType workerType, PAL::SessionID sessionID,  WebCore::RegistrableDomain registrableDomain, WebCore::ProcessIdentifier processIdentifier);
 
 #if ENABLE(SERVICE_WORKER)
     GetPendingPushMessages(PAL::SessionID sessionID) -> (Vector<WebKit::WebPushMessage> messages)
@@ -242,7 +242,7 @@ messages -> NetworkProcess LegacyReceiver {
 
 #if HAVE(NW_PROXY_CONFIG)
     ClearProxyConfigData(PAL::SessionID sessionID)
-    SetProxyConfigData(PAL::SessionID sessionID, IPC::DataReference proxyConfigData, IPC::DataReference proxyIdentifierData)
+    SetProxyConfigData(PAL::SessionID sessionID, Vector<std::pair<Vector<uint8_t>, UUID>> proxyConfigurations)
 #endif
 
 }

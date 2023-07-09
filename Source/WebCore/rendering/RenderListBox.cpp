@@ -48,6 +48,9 @@
 #include "NodeRenderStyle.h"
 #include "Page.h"
 #include "PaintInfo.h"
+#include "RenderBoxInlines.h"
+#include "RenderBoxModelObjectInlines.h"
+#include "RenderElementInlines.h"
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderLayoutState.h"
@@ -62,6 +65,7 @@
 #include "SpatialNavigation.h"
 #include "StyleResolver.h"
 #include "StyleTreeResolver.h"
+#include "UnicodeBidi.h"
 #include "WheelEventTestMonitor.h"
 #include <math.h>
 #include <wtf/IsoMallocInlines.h>
@@ -1045,4 +1049,9 @@ float RenderListBox::deviceScaleFactor() const
     return page().deviceScaleFactor();
 }
     
+bool RenderListBox::isVisibleToHitTesting() const
+{
+    return visibleToHitTesting();
+}
+
 } // namespace WebCore

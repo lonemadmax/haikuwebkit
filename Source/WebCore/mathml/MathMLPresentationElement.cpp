@@ -38,7 +38,7 @@
 #include "HTTPParsers.h"
 #include "MathMLMathElement.h"
 #include "MathMLNames.h"
-#include "RenderMathMLBlock.h"
+#include "RenderMathMLBlockInlines.h"
 #include "RenderTableCell.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGSVGElement.h"
@@ -182,7 +182,6 @@ bool MathMLPresentationElement::isFlowContent(const Node& node)
         || htmlElement.hasTagName(HTMLNames::pTag)
         || htmlElement.hasTagName(HTMLNames::preTag)
         || htmlElement.hasTagName(HTMLNames::sectionTag)
-        || (htmlElement.hasTagName(HTMLNames::styleTag) && htmlElement.hasAttribute(HTMLNames::scopedAttr))
         || htmlElement.hasTagName(HTMLNames::tableTag)
         || htmlElement.hasTagName(HTMLNames::ulTag);
 }

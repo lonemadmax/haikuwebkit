@@ -34,7 +34,6 @@ namespace WebCore {
 
 class Scrollbar;
 class ScrollableArea;
-class ScrollingCoordinator;
 enum class ScrollbarOrientation : uint8_t;
 
 class ScrollbarsController {
@@ -93,6 +92,8 @@ public:
     WEBCORE_EXPORT virtual String verticalScrollbarStateForTesting() const { return emptyString(); }
     
     WEBCORE_EXPORT virtual void setScrollbarVisibilityState(ScrollbarOrientation, bool) { }
+
+    WEBCORE_EXPORT virtual bool shouldDrawIntoScrollbarLayer(Scrollbar&) const { return true; }
 
 private:
     ScrollableArea& m_scrollableArea;
