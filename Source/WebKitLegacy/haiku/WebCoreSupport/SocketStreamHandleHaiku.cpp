@@ -33,10 +33,10 @@
 #include "config.h"
 #include "SocketStreamHandleImpl.h"
 
-#include "Logging.h"
-#include "SocketStreamError.h"
 #include "SocketStreamHandleClient.h"
-#include "StorageSessionProvider.h"
+
+#include "WebCore/SocketStreamError.h"
+#include "WebCore/StorageSessionProvider.h"
 
 #include <wtf/MainThread.h>
 #include <wtf/URL.h>

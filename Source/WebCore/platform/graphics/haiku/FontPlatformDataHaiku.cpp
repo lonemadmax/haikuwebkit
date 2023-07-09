@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "FontDescription.h"
+#include "FontCustomPlatformData.h"
 #include "FontPlatformData.h"
 #include "SharedBuffer.h"
 #include "NotImplemented.h"
@@ -107,8 +108,9 @@ FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const
 
     m_font->SetFamilyAndStyle(fontFamily, fontStyle);
 
-	m_size = m_font->Size();
+    m_size = m_font->Size();
 }
+
 
 FontPlatformData::FontPlatformData(const BFont& font, const FontDescription& fontDescription)
 {
@@ -127,40 +129,6 @@ FontPlatformData::FontPlatformData(const BFont& font, const FontDescription& fon
     m_size = m_font->Size();
 }
 
-FontPlatformData::FontPlatformData(const FontPlatformData& other)
-    : m_size(other.m_size)
-    , m_orientation(other.m_orientation)
-    , m_widthVariant(other.m_widthVariant)
-    , m_textRenderingMode(other.m_textRenderingMode)
-    , m_syntheticBold(other.m_syntheticBold)
-    , m_syntheticOblique(other.m_syntheticOblique)
-    , m_isColorBitmapFont(other.m_isColorBitmapFont)
-    , m_isHashTableDeletedValue(other.m_isHashTableDeletedValue)
-{
-    if (other.m_font != nullptr) {
-        m_font = std::make_unique<BFont>(other.m_font.get());
-    }
-}
-
-WebCore::FontPlatformData&
-FontPlatformData::operator=(const FontPlatformData& other)
-{
-    m_isHashTableDeletedValue = other.m_isHashTableDeletedValue;
-    m_size = other.m_size;
-    m_syntheticBold = other.m_syntheticBold;
-    m_syntheticOblique = other.m_syntheticOblique;
-    m_isColorBitmapFont = other.m_isColorBitmapFont;
-    m_orientation = other.m_orientation;
-    m_widthVariant = other.m_widthVariant;
-    m_textRenderingMode = other.m_textRenderingMode;
-
-	if (other.m_font != nullptr) {
-		m_font = std::make_unique<BFont>(other.m_font.get());
-	} else
-		m_font = nullptr;
-
-	return *this;
-}
 
 void FontPlatformData::updateSize(float size)
 {

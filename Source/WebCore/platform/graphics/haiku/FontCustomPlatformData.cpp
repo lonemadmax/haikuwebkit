@@ -24,6 +24,8 @@
 #include "FontPlatformData.h"
 #include "SharedBuffer.h"
 
+#include "wtf/RefPtr.h"
+
 namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData()
@@ -37,7 +39,7 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     return FontPlatformData(m_font, description);
 }
 
-std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String& description)
+RefPtr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String& description)
 {
 	void* sharedData;
 	area_id area = create_area("web font", &sharedData, B_ANY_ADDRESS, buffer.size(), B_NO_LOCK, B_WRITE_AREA | B_READ_AREA | B_CLONEABLE_AREA);
@@ -50,10 +52,10 @@ std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffe
 
 	if (result != B_OK) { // B_NOT_SUPPORTED returned for r1beta4 fallback path
 		delete_area(area);
-		return std::unique_ptr<FontCustomPlatformData>(nullptr);
+		return nullptr;
 	}
 
-	return std::make_unique<FontCustomPlatformData>(area, font);
+	return adoptRef(new FontCustomPlatformData(area, font));
 }
 
 bool FontCustomPlatformData::supportsFormat(const String& format)

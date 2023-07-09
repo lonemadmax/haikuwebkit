@@ -118,11 +118,6 @@ public:
 
     FontPlatformData(WTF::HashTableDeletedValueType);
     FontPlatformData();
-#if PLATFORM(HAIKU)
-    FontPlatformData(const FontPlatformData&);
-#else
-    FontPlatformData(FontPlatformData&&) = default;
-#endif
 
     FontPlatformData(float size, bool syntheticBold, bool syntheticOblique, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering, const FontCustomPlatformData* = nullptr);
 
@@ -242,12 +237,6 @@ public:
 
     unsigned hash() const;
 
-#if USE(HAIKU)
-    FontPlatformData& operator=(const FontPlatformData&);
-#else
-    FontPlatformData& operator=(const FontPlatformData&) = default;
-#endif
-
     bool operator==(const FontPlatformData& other) const
     {
         return platformIsEqual(other)
@@ -313,8 +302,7 @@ private:
     void buildScaledFont(cairo_font_face_t*);
 #endif
 #if PLATFORM(HAIKU)
-    static void findMatchingFontFamily(const AtomString& familyName,
-		font_family& fontFamily);
+    static void findMatchingFontFamily(const AtomString& familyName, font_family& fontFamily);
 #endif
 
 #if PLATFORM(WIN)
@@ -324,7 +312,7 @@ private:
     RetainPtr<CTFontRef> m_font;
     mutable RetainPtr<CTFontRef> m_ctFont;
 #elif PLATFORM(HAIKU)
-    std::unique_ptr<BFont> m_font;
+    std::shared_ptr<BFont> m_font;
 #endif
 
 #if USE(CG) && PLATFORM(WIN)

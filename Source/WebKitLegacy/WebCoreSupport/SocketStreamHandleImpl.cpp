@@ -23,9 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "SocketStreamHandleImpl.h"
-
 #if PLATFORM(COCOA)
+#include "SocketStreamHandleImpl.h"
+#else
+#include "../haiku/WebCoreSupport/SocketStreamHandleImpl.h"
+#endif
+
 
 #include "SocketStreamHandleClient.h"
 #include <WebCore/CookieRequestHeaderFieldProxy.h>
@@ -187,4 +190,3 @@ size_t SocketStreamHandleImpl::bufferedAmount()
 
 } // namespace WebCore
 
-#endif // PLATFORM(COCOA)

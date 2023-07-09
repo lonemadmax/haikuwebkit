@@ -1,8 +1,8 @@
 add_custom_command(
-	OUTPUT ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebKitVersion.h
-	MAIN_DEPENDENCY ${WEBKITLEGACY_DIR}/scripts/generate-webkitversion.pl
-	DEPENDS ${WEBKITLEGACY_DIR}/../../Configurations/Version.xcconfig
-	COMMAND ${PERL_EXECUTABLE} ${WEBKITLEGACY_DIR}/scripts/generate-webkitversion.pl --config ${WEBKITLEGACY_DIR}/../../Configurations/Version.xcconfig --outputDir ${WebKitLegacy_DERIVED_SOURCES_DIR}
+    OUTPUT ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebKitVersion.h
+    MAIN_DEPENDENCY ${WEBKITLEGACY_DIR}/scripts/generate-webkitversion.pl
+    DEPENDS ${WEBKITLEGACY_DIR}/../../Configurations/Version.xcconfig
+    COMMAND ${PERL_EXECUTABLE} ${WEBKITLEGACY_DIR}/scripts/generate-webkitversion.pl --config ${WEBKITLEGACY_DIR}/../../Configurations/Version.xcconfig --outputDir ${WebKitLegacy_DERIVED_SOURCES_DIR}
     VERBATIM)
 list(APPEND WebKitLegacy_SOURCES ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebKitVersion.h)
 
@@ -58,6 +58,7 @@ LIST(APPEND WebKitLegacy_SOURCES
     haiku/WebCoreSupport/NotificationClientHaiku.cpp
     haiku/WebCoreSupport/PlatformStrategiesHaiku.cpp
     haiku/WebCoreSupport/ProgressTrackerHaiku.cpp
+    haiku/WebCoreSupport/SocketStreamHandleHaiku.cpp
     haiku/WebCoreSupport/WebApplicationCache.cpp
     haiku/WebCoreSupport/WebDatabaseProvider.cpp
     haiku/WebCoreSupport/WebDiagnosticLoggingClient.cpp
@@ -85,6 +86,7 @@ LIST(APPEND WebKitLegacy_SOURCES
 
     WebCoreSupport/LegacySocketProvider.cpp
     WebCoreSupport/SocketStreamHandle.cpp
+    WebCoreSupport/SocketStreamHandleImpl.cpp
     WebCoreSupport/WebSocketChannel.cpp
 )
 
@@ -112,8 +114,8 @@ INSTALL(FILES
 )
 
 set(WebKitLegacy_WEB_PREFERENCES_TEMPLATES
-	${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb
-	${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebSettingsPrivateGenerated.cpp.erb
+    ${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb
+    ${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebSettingsPrivateGenerated.cpp.erb
 )
 
 set(WebKitLegacy_WEB_PREFERENCES
@@ -129,7 +131,7 @@ add_custom_command(
     VERBATIM)
 
 list(APPEND WebKitLegacy_SOURCES
-	${WebKitLegacy_DERIVED_SOURCES_DIR}/WebSettingsPrivateGenerated.cpp
+    ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebSettingsPrivateGenerated.cpp
 )
 
 list(APPEND WebKitLegacy_SOURCES ${WebKitLegacy_INCLUDES} ${WebKitLegacy_SOURCES_Classes} ${WebKitLegacy_SOURCES_WebCoreSupport})

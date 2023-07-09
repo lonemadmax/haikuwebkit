@@ -45,8 +45,8 @@
 
 namespace WebCore {
 
-class SocketStreamHandleClient;
 class StorageSessionProvider;
+class SocketStreamHandleClient;
 
 class SocketStreamHandleImpl : public SocketStreamHandle {
 public:

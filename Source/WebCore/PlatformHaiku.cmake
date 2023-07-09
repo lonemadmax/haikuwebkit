@@ -23,7 +23,6 @@ else()
     platform/network/haiku/ResourceRequestHaiku.cpp
 
     platform/network/haiku/CredentialStorageHaiku.cpp
-    platform/network/haiku/SocketStreamHandleHaiku.cpp
     platform/network/haiku/NetworkStorageSessionHaiku.cpp
   )
 
@@ -35,7 +34,6 @@ else()
     platform/network/haiku/ResourceError.h
     platform/network/haiku/ResourceRequest.h
     platform/network/haiku/ResourceResponse.h
-    platform/network/haiku/SocketStreamHandleImpl.h
   )
 
 endif()
@@ -351,8 +349,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/haiku/ImageBufferDataHaiku.h
     platform/graphics/Image.h
-
-    platform/network/haiku/SocketStreamHandleImpl.h
 
     inspector/LegacyWebSocketInspectorInstrumentation.h
 )
