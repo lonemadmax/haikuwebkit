@@ -307,11 +307,11 @@ MediaPlayer::ReadyState MediaPlayerPrivate::readyState() const
     return m_readyState;
 }
 
-std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivate::buffered() const
+PlatformTimeRanges& MediaPlayerPrivate::buffered() const
 {
     notImplemented();
-    auto timeRanges = std::make_unique<PlatformTimeRanges>();
-    return timeRanges;
+    static PlatformTimeRanges ranges;
+    return ranges;
 }
 
 bool MediaPlayerPrivate::didLoadingProgress() const

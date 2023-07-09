@@ -39,7 +39,7 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     return FontPlatformData(m_font, description);
 }
 
-RefPtr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String& description)
+RefPtr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String& itemInCollection)
 {
 	void* sharedData;
 	area_id area = create_area("web font", &sharedData, B_ANY_ADDRESS, buffer.size(), B_NO_LOCK, B_WRITE_AREA | B_READ_AREA | B_CLONEABLE_AREA);
@@ -55,7 +55,8 @@ RefPtr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer
 		return nullptr;
 	}
 
-	return adoptRef(new FontCustomPlatformData(area, font));
+    FontPlatformData::CreationData creationData = { buffer, itemInCollection };
+	return adoptRef(new FontCustomPlatformData(area, font, WTFMove(creationData)));
 }
 
 bool FontCustomPlatformData::supportsFormat(const String& format)

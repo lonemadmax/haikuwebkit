@@ -83,7 +83,7 @@ class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
 
         float maxTimeSeekable() const override { return currentTime(); }
 
-        std::unique_ptr<PlatformTimeRanges> buffered() const override;
+        PlatformTimeRanges& buffered() const override;
         bool didLoadingProgress() const override;
 
         void paint(GraphicsContext&, const FloatRect&) override;

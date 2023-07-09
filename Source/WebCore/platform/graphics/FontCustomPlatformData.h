@@ -70,9 +70,11 @@ public:
     {
     }
 #elif USE(HAIKU)
-    FontCustomPlatformData(area_id area, BFont font)
+    FontCustomPlatformData(area_id area, BFont font, FontPlatformData::CreationData&& creationData)
         : m_font(font)
         , m_area(area)
+        , creationData(WTFMove(creationData))
+        , m_renderingResourceIdentifier(RenderingResourceIdentifier::generate())
     {
     }
 #else

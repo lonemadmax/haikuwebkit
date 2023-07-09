@@ -42,5 +42,6 @@ bool defaultUseLegacyBackgroundSizeShorthandBehavior();
 bool defaultAllowDisplayOfInsecureContent();
 bool defaultAllowRunningOfInsecureContent();
 bool defaultShouldConvertInvalidURLsToBlank();
+bool defaultPopoverAttributeEnabled();
 
 } // namespace WebKit

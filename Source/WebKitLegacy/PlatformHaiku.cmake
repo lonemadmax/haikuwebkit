@@ -63,6 +63,7 @@ LIST(APPEND WebKitLegacy_SOURCES
     haiku/WebCoreSupport/WebDatabaseProvider.cpp
     haiku/WebCoreSupport/WebDiagnosticLoggingClient.cpp
     haiku/WebCoreSupport/WebKitLogging.cpp
+    haiku/WebCoreSupport/WebPreferencesDefaultValues.cpp
     haiku/WebCoreSupport/WebVisitedLinkStore.cpp
 
     haiku/API/WebDownload.cpp
