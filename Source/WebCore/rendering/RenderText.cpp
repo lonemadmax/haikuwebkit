@@ -1,7 +1,7 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
  * (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2015 Google Inc. All rights reserved.
  * Copyright (C) 2006 Andrew Wellington (proton@wiretapped.net)
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
@@ -231,6 +231,17 @@ static LayoutRect selectionRectForTextBox(const InlineIterator::TextBox& textBox
         textBox.fontCascade().adjustSelectionRectForText(textRun, selectionRect, clampedStart, clampedEnd);
 
     return snappedSelectionRect(selectionRect, textBox.logicalRightIgnoringInlineDirection(), lineSelectionRect.y(), lineSelectionRect.height(), textBox.isHorizontal());
+}
+
+static unsigned offsetForPositionInRun(const InlineIterator::TextBox& textBox, float x)
+{
+    if (textBox.isLineBreak())
+        return 0;
+    if (x - textBox.logicalLeftIgnoringInlineDirection() > textBox.logicalWidth())
+        return textBox.isLeftToRightDirection() ? textBox.length() : 0;
+    if (x - textBox.logicalLeftIgnoringInlineDirection() < 0)
+        return textBox.isLeftToRightDirection() ? 0 : textBox.length();
+    return textBox.fontCascade().offsetForPosition(textBox.textRun(InlineIterator::TextRunMode::Editing), x - textBox.logicalLeftIgnoringInlineDirection(), true);
 }
 
 inline RenderText::RenderText(Node& node, const String& text)
@@ -792,11 +803,11 @@ VisiblePosition RenderText::positionForPoint(const LayoutPoint& point, const Ren
                 if (pointLineDirection != run->logicalLeftIgnoringInlineDirection() && point.x() < run->visualRectIgnoringBlockDirection().x() + run->logicalWidth()) {
                     int half = run->visualRectIgnoringBlockDirection().x() + run->logicalWidth() / 2;
                     auto affinity = point.x() < half ? Affinity::Downstream : Affinity::Upstream;
-                    return createVisiblePosition(run->offsetForPosition(pointLineDirection) + run->start(), affinity);
+                    return createVisiblePosition(offsetForPositionInRun(*run, pointLineDirection) + run->start(), affinity);
                 }
 #endif
                 if (lineDirectionPointFitsInBox(pointLineDirection, run, shouldAffinityBeDownstream))
-                    return createVisiblePositionAfterAdjustingOffsetForBiDi(run, run->offsetForPosition(pointLineDirection), shouldAffinityBeDownstream);
+                    return createVisiblePositionAfterAdjustingOffsetForBiDi(run, offsetForPositionInRun(*run, pointLineDirection), shouldAffinityBeDownstream);
             }
         }
         lastRun = run;
@@ -805,7 +816,7 @@ VisiblePosition RenderText::positionForPoint(const LayoutPoint& point, const Ren
     if (lastRun) {
         ShouldAffinityBeDownstream shouldAffinityBeDownstream;
         lineDirectionPointFitsInBox(pointLineDirection, lastRun, shouldAffinityBeDownstream);
-        return createVisiblePositionAfterAdjustingOffsetForBiDi(lastRun, lastRun->offsetForPosition(pointLineDirection) + lastRun->start(), shouldAffinityBeDownstream);
+        return createVisiblePositionAfterAdjustingOffsetForBiDi(lastRun, offsetForPositionInRun(*lastRun, pointLineDirection) + lastRun->start(), shouldAffinityBeDownstream);
     }
     return createVisiblePosition(0, Affinity::Downstream);
 }
@@ -1930,13 +1941,13 @@ int RenderText::previousOffset(int current) const
     if (m_isAllASCII || text().is8Bit())
         return current - 1;
 
-    CachedTextBreakIterator iterator(text(), TextBreakIterator::Mode::Caret, nullAtom());
+    CachedTextBreakIterator iterator(text(), TextBreakIterator::CaretMode { }, nullAtom());
     return iterator.preceding(current).value_or(current - 1);
 }
 
 int RenderText::previousOffsetForBackwardDeletion(int current) const
 {
-    CachedTextBreakIterator iterator(text(), TextBreakIterator::Mode::Delete, nullAtom());
+    CachedTextBreakIterator iterator(text(), TextBreakIterator::DeleteMode { }, nullAtom());
     return iterator.preceding(current).value_or(0);
 }
 
@@ -1945,7 +1956,7 @@ int RenderText::nextOffset(int current) const
     if (m_isAllASCII || text().is8Bit())
         return current + 1;
 
-    CachedTextBreakIterator iterator(text(), TextBreakIterator::Mode::Caret, nullAtom());
+    CachedTextBreakIterator iterator(text(), TextBreakIterator::CaretMode { }, nullAtom());
     return iterator.following(current).value_or(current + 1);
 }
 

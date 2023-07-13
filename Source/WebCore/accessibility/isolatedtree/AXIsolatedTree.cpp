@@ -225,6 +225,8 @@ void AXIsolatedTree::generateSubtree(AccessibilityObject& axObject)
     if (axObject.isDetached())
         return;
 
+    // We're about to a lot of read-only work, so start the attribute cache.
+    AXAttributeCacheEnabler enableCache(axObject.axObjectCache());
     collectNodeChangesForSubtree(axObject);
     queueRemovalsAndUnresolvedChanges({ });
 }
@@ -617,6 +619,9 @@ void AXIsolatedTree::updateChildren(AccessibilityObject& axObject, ResolveNodeCh
     if (!axObject.document() || !axObject.document()->hasLivingRenderTree())
         return;
 
+    // We're about to a lot of read-only work, so start the attribute cache.
+    AXAttributeCacheEnabler enableCache(axObject.axObjectCache());
+
     // updateChildren may be called as the result of a children changed
     // notification for an axObject that has no associated isolated object.
     // An example of this is when an empty element such as a <canvas> or <div>
@@ -935,10 +940,6 @@ void AXIsolatedTree::applyPendingChanges()
         // The reference count of the just added IsolatedObject must be 2
         // because it is referenced by m_readerThreadNodeMap and m_pendingAppends.
         // When m_pendingAppends is cleared, the object will be held only by m_readerThreadNodeMap. The exception is the root node whose reference count is 3.
-        ASSERT_WITH_MESSAGE(
-            addResult.iterator->value->refCount() == 2 || (addResult.iterator->value.ptr() == m_rootNode.get() && m_rootNode->refCount() == 3),
-            "unexpected ref count after adding object to m_readerThreadNodeMap: %d", addResult.iterator->value->refCount()
-        );
     }
     m_pendingAppends.clear();
 

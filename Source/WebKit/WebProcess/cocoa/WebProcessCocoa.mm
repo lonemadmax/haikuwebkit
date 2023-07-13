@@ -287,9 +287,10 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
         // Dispatch this work on a thread to avoid blocking the main thread. We will wait for this to complete at the end of this method.
         codeCheckSemaphore = adoptOSObject(dispatch_semaphore_create(0));
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), [codeCheckSemaphore = codeCheckSemaphore] {
-            auto bundleURL = adoptCF(CFBundleCopyExecutableURL(CFBundleGetMainBundle()));
+            auto bundleURL = adoptCF(CFBundleCopyBundleURL(CFBundleGetMainBundle()));
             SecStaticCodeRef code = nullptr;
-            SecStaticCodeCreateWithPath(bundleURL.get(), kSecCSDefaultFlags, &code);
+            if (bundleURL)
+                SecStaticCodeCreateWithPath(bundleURL.get(), kSecCSDefaultFlags, &code);
             if (code) {
                 SecStaticCodeCheckValidity(code, kSecCSDoNotValidateResources | kSecCSDoNotValidateExecutable, nullptr);
                 CFRelease(code);
@@ -674,6 +675,10 @@ static void registerLogHook()
 
     os_log_set_hook(OS_LOG_TYPE_DEFAULT, ^(os_log_type_t type, os_log_message_t msg) {
         if (msg->buffer_sz > 1024)
+            return;
+
+        // Skip faults and debug logs in non-internal builds.
+        if (type == OS_LOG_TYPE_FAULT || type == OS_LOG_TYPE_DEBUG)
             return;
 
         CString logFormat(msg->format);

@@ -104,6 +104,7 @@
 #include "WebFullScreenManagerMessages.h"
 #include "WebGamepadProvider.h"
 #include "WebGeolocationClient.h"
+#include "WebHitTestResultData.h"
 #include "WebImage.h"
 #include "WebInspector.h"
 #include "WebInspectorClient.h"
@@ -2289,7 +2290,7 @@ static void dumpHistoryItem(HistoryItem& item, size_t indent, bool isCurrentItem
     }
 
     auto url = item.url();
-    if (url.protocolIs("file"_s)) {
+    if (url.protocolIsFile()) {
         size_t start = url.string().find(directoryName);
         if (start == WTF::notFound)
             start = 0;
@@ -3393,6 +3394,26 @@ void WebPage::mouseEvent(const WebMouseEvent& mouseEvent, std::optional<Vector<S
     send(Messages::WebPageProxy::DidReceiveEvent(mouseEvent.type(), handled));
 
     revokeSandboxExtensions(mouseEventSandboxExtensions);
+}
+
+void WebPage::performHitTestForMouseEvent(const WebMouseEvent& event, CompletionHandler<void(WebHitTestResultData&&, OptionSet<WebEventModifier>, UserData&&)>&& completionHandler)
+{
+    RefPtr localMainFrame = dynamicDowncast<WebCore::LocalFrame>(corePage()->mainFrame());
+    if (!localMainFrame || !localMainFrame->view())
+        return;
+
+    auto hitTestResult = localMainFrame->eventHandler().getHitTestResultForMouseEvent(platform(event));
+
+    String toolTip;
+    TextDirection toolTipDirection;
+    corePage()->chrome().getToolTip(hitTestResult, toolTip, toolTipDirection);
+
+    RefPtr<API::Object> userData;
+    WebHitTestResultData hitTestResultData { hitTestResult, toolTip };
+    auto modifiers = event.modifiers();
+    injectedBundleUIClient().mouseDidMoveOverElement(this, hitTestResult, modifiers, userData);
+
+    completionHandler(WTFMove(hitTestResultData), modifiers, UserData(WebProcess::singleton().transformObjectsToHandles(WTFMove(userData).get()).get()));
 }
 
 void WebPage::handleWheelEvent(const WebWheelEvent& event, const OptionSet<WheelEventProcessingSteps>& processingSteps, std::optional<bool> willStartSwipe, CompletionHandler<void(WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>, bool)>&& completionHandler)
@@ -5810,7 +5831,7 @@ bool WebPage::SandboxExtensionTracker::shouldReuseCommittedSandboxExtension(WebF
     if (!documentLoader || !provisionalDocumentLoader)
         return false;
 
-    if (documentLoader->url().isLocalFile() && provisionalDocumentLoader->url().isLocalFile())
+    if (documentLoader->url().protocolIsFile() && provisionalDocumentLoader->url().protocolIsFile())
         return true;
 
     return false;
@@ -8853,10 +8874,10 @@ bool WebPage::shouldSkipDecidePolicyForResponse(const WebCore::ResourceResponse&
     if (!equalIgnoringASCIICase(response.mimeType(), "text/html"_s))
         return false;
 
-    if (response.url().isLocalFile())
+    if (response.url().protocolIsFile())
         return false;
 
-    if (auto components = response.httpHeaderField(HTTPHeaderName::ContentDisposition).split(';'); !components.isEmpty() && equalIgnoringASCIICase(stripLeadingAndTrailingHTTPSpaces(components[0]), "attachment"_s))
+    if (auto components = response.httpHeaderField(HTTPHeaderName::ContentDisposition).split(';'); !components.isEmpty() && equalIgnoringASCIICase(components[0].trim(isHTTPSpace), "attachment"_s))
         return false;
 
     return true;

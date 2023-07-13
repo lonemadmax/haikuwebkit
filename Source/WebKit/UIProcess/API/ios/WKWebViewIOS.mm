@@ -2914,6 +2914,8 @@ static WebCore::IntDegrees activeOrientation(WKWebView *webView)
     [_passwordView setUserDidEnterPassword:passwordHandler];
     [_passwordView showInScrollView:_scrollView.get()];
     self._currentContentView.hidden = YES;
+
+    [self _didRequestPasswordForDocument];
 }
 
 - (void)_hidePasswordView
@@ -2924,6 +2926,18 @@ static WebCore::IntDegrees activeOrientation(WKWebView *webView)
     self._currentContentView.hidden = NO;
     [_passwordView hide];
     _passwordView = nil;
+
+    [self _didStopRequestingPasswordForDocument];
+}
+
+- (void)_didRequestPasswordForDocument
+{
+    _navigationState->didRequestPasswordForQuickLookDocument();
+}
+
+- (void)_didStopRequestingPasswordForDocument
+{
+    _navigationState->didStopRequestingPasswordForQuickLookDocument();
 }
 
 - (WKPasswordView *)_passwordView

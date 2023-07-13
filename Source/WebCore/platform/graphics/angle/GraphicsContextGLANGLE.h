@@ -44,8 +44,9 @@ public:
     GCGLDisplay platformDisplay() const;
     GCGLConfig platformConfig() const;
     GCGLenum drawingBufferTextureTarget();
-    static GCGLenum drawingBufferTextureTargetQueryForDrawingTarget(GCGLenum drawingTarget);
+    std::tuple<GCGLenum, GCGLenum> drawingBufferTextureBindingPoint();
     static GCGLint EGLDrawingBufferTextureTargetForDrawingTarget(GCGLenum drawingTarget);
+
     enum class ReleaseThreadResourceBehavior {
         // Releases current context after GraphicsContextGLANGLE calls done in the thread.
         ReleaseCurrentContext,
@@ -143,8 +144,8 @@ public:
     void linkProgram(PlatformGLObject) final;
     void pixelStorei(GCGLenum pname, GCGLint param) final;
     void polygonOffset(GCGLfloat factor, GCGLfloat units) final;
-    void readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, std::span<uint8_t> data) final;
-    void readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLintptr offset) final;
+    void readPixels(IntRect, GCGLenum format, GCGLenum type, std::span<uint8_t> data) final;
+    void readPixelsBufferObject(IntRect, GCGLenum format, GCGLenum type, GCGLintptr offset) final;
     void renderbufferStorage(GCGLenum target, GCGLenum internalformat, GCGLsizei width, GCGLsizei height) final;
     void sampleCoverage(GCGLclampf value, GCGLboolean invert) final;
     void scissor(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height) final;
@@ -289,6 +290,9 @@ public:
     String getActiveUniformBlockName(PlatformGLObject program, GCGLuint uniformBlockIndex) final;
     void uniformBlockBinding(PlatformGLObject program, GCGLuint uniformBlockIndex, GCGLuint uniformBlockBinding) final;
     void getActiveUniformBlockiv(GCGLuint program, GCGLuint uniformBlockIndex, GCGLenum pname, std::span<GCGLint> params) final;
+    GCEGLSync createEGLSync(ExternalEGLSyncEvent) override;
+    bool destroyEGLSync(GCEGLSync) final;
+    void clientWaitEGLSyncWithFlush(GCEGLSync, uint64_t) final;
     void multiDrawArraysANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei> firstsAndCounts) final;
     void multiDrawArraysInstancedANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei, const GCGLsizei> firstsCountsAndInstanceCounts) final;
     void multiDrawElementsANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLsizei, const GCGLsizei> countsAndOffsets, GCGLenum type) final;
@@ -345,7 +349,7 @@ public:
     virtual void withDisplayBufferAsNativeImage(Function<void(NativeImage&)>);
 
     // Returns true on success.
-    bool readnPixelsWithStatus(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, std::span<uint8_t> data);
+    bool readPixelsWithStatus(IntRect, GCGLenum format, GCGLenum type, std::span<uint8_t> data);
 
     void addError(GCGLErrorCode);
 protected:
@@ -372,7 +376,7 @@ protected:
     void validateDepthStencil(ASCIILiteral packedDepthStencilExtension);
     void validateAttributes();
 
-    bool readnPixelsImpl(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLsizei bufSize, GCGLsizei* length, GCGLsizei* columns, GCGLsizei* rows, uint8_t* data, bool readingToPixelBufferObject);
+    bool readPixelsImpl(IntRect, GCGLenum format, GCGLenum type, GCGLsizei bufSize, uint8_t* data, bool readingToPixelBufferObject);
 
     // Did the most recent drawing operation leave the GPU in an acceptable state?
     void checkGPUStatus();

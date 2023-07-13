@@ -138,7 +138,7 @@ void SourceBufferPrivateGStreamer::flush(const AtomString& trackId)
 
     // This is only for on-the-fly reenqueues after appends. When seeking, the seek will do its own flush.
 
-    if (!m_playerPrivate.hasAllTracks()) {
+    if (!m_mediaSource->hasAllTracks()) {
         GST_DEBUG_OBJECT(m_playerPrivate.pipeline(), "Source element has not emitted tracks yet, so we only need to clear the queue. trackId = '%s'", trackId.string().utf8().data());
         MediaSourceTrackGStreamer* track = m_tracks.get(trackId);
         track->clearQueue();
@@ -306,8 +306,8 @@ size_t SourceBufferPrivateGStreamer::platformMaximumBufferSize() const
                 Vector<String> keyvalue = entry.split(':');
                 if (keyvalue.size() != 2)
                     continue;
-                String key = keyvalue[0].stripWhiteSpace().convertToLowercaseWithoutLocale();
-                String value = keyvalue[1].stripWhiteSpace().convertToLowercaseWithoutLocale();
+                auto key = keyvalue[0].trim(deprecatedIsSpaceOrNewline).convertToLowercaseWithoutLocale();
+                auto value = keyvalue[1].trim(deprecatedIsSpaceOrNewline).convertToLowercaseWithoutLocale();
                 size_t units = 1;
                 if (value.endsWith('k'))
                     units = 1024;

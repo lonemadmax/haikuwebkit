@@ -1352,6 +1352,9 @@ http/tests/inspector/network/fetch-response-body-304.html [ Skip ]
 # Async image decoding is WK2 only
 fast/images/async-image-background-change.html
 fast/images/async-image-src-change.html
+fast/images/async-image-composited-show.html
+fast/images/decode-decoding-change-image-src.html
+http/tests/images/render-partial-image-load.html
 http/tests/multipart/multipart-async-image.html
 
 css3/masking/mask-repeat-space-padding.html [ ImageOnlyFailure ]
@@ -2523,3 +2526,8 @@ webkit.org/b/255498 css3/scroll-snap/scroll-snap-discrete-wheel-event-in-mainfra
 
 # test failing only on mac-wk1 after importing wpt css/css-tables
 imported/w3c/web-platform-tests/css/css-tables/collapsed-border-positioned-tr-td.html [ ImageOnlyFailure ]
+
+
+#rdar://105804155 ([ WK1 ] 2 http/tests/resourceLoadStatistics/* (layout-tests) are constant failures)
+http/tests/resourceLoadStatistics/website-data-removal-for-site-without-user-interaction-js-cookie-checking.html [ Skip ]
+http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-link-decoration-js-cookie-checking.html [ Skip ]

@@ -512,7 +512,9 @@ void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy
 #endif
 
     parameters.isLockdownModeEnabled = webProcessProxy.lockdownMode() == WebProcessProxy::LockdownMode::Enabled;
-    
+    parameters.isWebGPUEnabled = WTF::anyOf(webProcessProxy.pages(), [](const auto& page) {
+        return page && page->preferences().webGPUEnabled();
+    });
     parameters.allowTestOnlyIPC = webProcessProxy.allowTestOnlyIPC();
     
     ensureGPUProcess().createGPUProcessConnection(webProcessProxy, WTFMove(connectionIdentifier), WTFMove(parameters));
@@ -1858,8 +1860,9 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
     if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
         RegistrableDomain navigationDomain(navigation.currentRequest().url());
         if (!navigationDomain.isEmpty() && navigationDomain != mainFrameDomain) {
-            auto subFramePageProxy = makeUniqueRef<SubframePageProxy>(page, process);
-            page.addSubframePageProxyForFrameID(frame.frameID(), navigationDomain, WTFMove(subFramePageProxy));
+            auto subframePageProxy = SubframePageProxy::create(page, process);
+            frame.setSubframePageProxy(subframePageProxy.get());
+            page.addSubframePageProxy(navigationDomain, WTFMove(subframePageProxy));
         }
     }
 

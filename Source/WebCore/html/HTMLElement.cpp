@@ -270,11 +270,9 @@ void HTMLElement::collectPresentationalHintsForAttribute(const QualifiedName& na
         addPropertyToPresentationalHintStyle(style, CSSPropertyDisplay, CSSValueNone);
         break;
     case AttributeNames::draggableAttr:
-        if (equalLettersIgnoringASCIICase(value, "true"_s)) {
+        if (equalLettersIgnoringASCIICase(value, "true"_s))
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueElement);
-            if (!isDraggableIgnoringAttributes())
-                addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserSelect, CSSValueNone);
-        } else if (equalLettersIgnoringASCIICase(value, "false"_s))
+        else if (equalLettersIgnoringASCIICase(value, "false"_s))
             addPropertyToPresentationalHintStyle(style, CSSPropertyWebkitUserDrag, CSSValueNone);
         break;
     case AttributeNames::dirAttr:
@@ -1039,7 +1037,7 @@ std::optional<SRGBA<uint8_t>> HTMLElement::parseLegacyColorValue(StringView stri
     if (string.isEmpty())
         return std::nullopt;
 
-    string = string.stripLeadingAndTrailingMatchedCharacters(isASCIIWhitespace<UChar>);
+    string = string.trim(isASCIIWhitespace<UChar>);
     if (string.isEmpty())
         return Color::black;
 
@@ -1364,6 +1362,9 @@ ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker
 
     ASSERT(!isInTopLayer());
 
+    PopoverData::ScopedStartShowingOrHiding showOrHidingPopoverScope(*this);
+    auto fireEvents = showOrHidingPopoverScope.wasShowingOrHiding() ? FireEvents::No : FireEvents::Yes;
+
     Ref document = this->document();
     auto event = ToggleEvent::create(eventNames().beforetoggleEvent, { EventInit { }, "closed"_s, "open"_s }, Event::IsCancelable::Yes);
     dispatchEvent(event);
@@ -1378,10 +1379,12 @@ ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker
 
     ASSERT(popoverData());
 
+    bool shouldRestoreFocus = false;
+
     if (popoverState() == PopoverState::Auto) {
         auto originalState = popoverState();
         RefPtr ancestor = topmostPopoverAncestor(*this);
-        document->hideAllPopoversUntil(ancestor.get(), FocusPreviousElement::No, FireEvents::Yes);
+        document->hideAllPopoversUntil(ancestor.get(), FocusPreviousElement::No, fireEvents);
 
         if (popoverState() != originalState)
             return Exception { InvalidStateError, "The value of the popover attribute was changed while hiding the popover."_s };
@@ -1391,9 +1394,10 @@ ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker
             return check.releaseException();
         if (!check.returnValue())
             return { };
+
+        shouldRestoreFocus = !document->topmostAutoPopover();
     }
 
-    bool shouldRestoreFocus = !document->topmostAutoPopover();
     RefPtr previouslyFocusedElement = document->focusedElement();
 
     addToTopLayer();
@@ -1405,8 +1409,10 @@ ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker
 
     runPopoverFocusingSteps(*this);
 
-    if (shouldRestoreFocus && popoverState() == PopoverState::Auto)
+    if (shouldRestoreFocus) {
+        ASSERT(popoverState() == PopoverState::Auto);
         popoverData()->setPreviouslyFocusedElement(previouslyFocusedElement.get());
+    }
 
     queuePopoverToggleEventTask(PopoverVisibilityState::Hidden, PopoverVisibilityState::Showing);
 
@@ -1421,8 +1427,11 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
     if (!check.returnValue())
         return { };
 
-
     ASSERT(popoverData());
+
+    PopoverData::ScopedStartShowingOrHiding showOrHidingPopoverScope(*this);
+    if (showOrHidingPopoverScope.wasShowingOrHiding())
+        fireEvents = FireEvents::No;
 
     if (popoverState() == PopoverState::Auto) {
         document().hideAllPopoversUntil(this, focusPreviousElement, fireEvents);

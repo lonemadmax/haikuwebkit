@@ -57,6 +57,7 @@
 #include "RenderBox.h"
 #include "RenderStyleSetters.h"
 #include "SVGRenderStyle.h"
+#include "ScrollbarGutter.h"
 #include "Settings.h"
 #include "StyleCachedImage.h"
 #include "StyleCrossfadeImage.h"
@@ -3603,7 +3604,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<const GridPosition&>(CSSPropertyGridColumnStart, &RenderStyle::gridItemColumnStart, &RenderStyle::setGridItemColumnStart),
         new DiscretePropertyWrapper<const GridPosition&>(CSSPropertyGridRowEnd, &RenderStyle::gridItemRowEnd, &RenderStyle::setGridItemRowEnd),
         new DiscretePropertyWrapper<const GridPosition&>(CSSPropertyGridRowStart, &RenderStyle::gridItemRowStart, &RenderStyle::setGridItemRowStart),
-        new DiscretePropertyWrapper<Hyphens>(CSSPropertyWebkitHyphens, &RenderStyle::hyphens, &RenderStyle::setHyphens),
+        new DiscretePropertyWrapper<Hyphens>(CSSPropertyHyphens, &RenderStyle::hyphens, &RenderStyle::setHyphens),
         new DiscretePropertyWrapper<ImageOrientation>(CSSPropertyImageOrientation, &RenderStyle::imageOrientation, &RenderStyle::setImageOrientation),
         new DiscretePropertyWrapper<const IntSize&>(CSSPropertyWebkitInitialLetter, &RenderStyle::initialLetter, &RenderStyle::setInitialLetter),
         new DiscretePropertyWrapper<const StyleContentAlignmentData&>(CSSPropertyJustifyContent, &RenderStyle::justifyContent, &RenderStyle::setJustifyContent),
@@ -3638,6 +3639,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<TextOverflow>(CSSPropertyTextOverflow, &RenderStyle::textOverflow, &RenderStyle::setTextOverflow),
         new DiscretePropertyWrapper<OptionSet<TouchAction>>(CSSPropertyTouchAction, &RenderStyle::touchActions, &RenderStyle::setTouchActions),
         new DiscretePropertyWrapper<OptionSet<TextTransform>>(CSSPropertyTextTransform, &RenderStyle::textTransform, &RenderStyle::setTextTransform),
+        new DiscretePropertyWrapper<WhiteSpaceCollapse>(CSSPropertyWhiteSpaceCollapse, &RenderStyle::whiteSpaceCollapse, &RenderStyle::setWhiteSpaceCollapse),
         new DiscretePropertyWrapper<TextWrap>(CSSPropertyTextWrap, &RenderStyle::textWrap, &RenderStyle::setTextWrap),
         new DiscretePropertyWrapper<TransformBox>(CSSPropertyTransformBox, &RenderStyle::transformBox, &RenderStyle::setTransformBox),
         new DiscretePropertyWrapper<TransformStyle3D>(CSSPropertyTransformStyle, &RenderStyle::transformStyle3D, &RenderStyle::setTransformStyle3D),
@@ -3699,6 +3701,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerEnd, &SVGRenderStyle::markerEndResource, &SVGRenderStyle::setMarkerEndResource),
         new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerMid, &SVGRenderStyle::markerMidResource, &SVGRenderStyle::setMarkerMidResource),
         new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerStart, &SVGRenderStyle::markerStartResource, &SVGRenderStyle::setMarkerStartResource),
+        new DiscretePropertyWrapper<const ScrollbarGutter>(CSSPropertyScrollbarGutter, &RenderStyle::scrollbarGutter, &RenderStyle::setScrollbarGutter),
         new DiscretePropertyWrapper<ScrollbarWidth>(CSSPropertyScrollbarWidth, &RenderStyle::scrollbarWidth, &RenderStyle::setScrollbarWidth)
     };
     const unsigned animatableLonghandPropertiesCount = std::size(animatableLonghandPropertyWrappers);
@@ -3940,7 +3943,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyWebkitCursorVisibility:
 #endif
         case CSSPropertyWebkitFontSizeDelta:
-        case CSSPropertyWebkitHyphenateCharacter:
+        case CSSPropertyHyphenateCharacter:
         case CSSPropertyWebkitHyphenateLimitAfter:
         case CSSPropertyWebkitHyphenateLimitBefore:
         case CSSPropertyWebkitHyphenateLimitLines:

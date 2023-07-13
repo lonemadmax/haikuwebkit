@@ -167,6 +167,11 @@ Type* OverloadResolver::materialize(const AbstractType& abstractType) const
                 return m_types.matrixType(element, columns, rows);
             }
             return nullptr;
+        },
+        [&](const AbstractTexture& texture) -> Type* {
+            if (auto* element = materialize(texture.element))
+                return m_types.textureType(element, texture.kind);
+            return nullptr;
         });
 }
 
@@ -177,7 +182,12 @@ Type* OverloadResolver::materialize(const AbstractScalarType& abstractScalarType
             return type;
         },
         [&](TypeVariable variable) -> Type* {
-            return resolve(variable);
+            Type* type = resolve(variable);
+            if (!type)
+                return nullptr;
+            type = satisfyOrPromote(type, variable.constraints, m_types);
+            RELEASE_ASSERT(type);
+            return type;
         });
 }
 
@@ -273,6 +283,11 @@ ConversionRank OverloadResolver::calculateRank(const AbstractType& parameter, Ty
         return conversionRank(argumentType, resolvedType);
     }
 
+    if (auto* reference = std::get_if<Types::Reference>(argumentType)) {
+        ASSERT(reference->accessMode != AccessMode::Write);
+        return calculateRank(parameter, reference->element);
+    }
+
     if (auto* vectorParameter = std::get_if<AbstractVector>(&parameter)) {
         auto& vectorArgument = std::get<Types::Vector>(*argumentType);
         return calculateRank(vectorParameter->element, vectorArgument.element);
@@ -281,6 +296,11 @@ ConversionRank OverloadResolver::calculateRank(const AbstractType& parameter, Ty
     if (auto* matrixParameter = std::get_if<AbstractMatrix>(&parameter)) {
         auto& matrixArgument = std::get<Types::Matrix>(*argumentType);
         return calculateRank(matrixParameter->element, matrixArgument.element);
+    }
+
+    if (auto* textureParameter = std::get_if<AbstractTexture>(&parameter)) {
+        auto& textureArgument = std::get<Types::Texture>(*argumentType);
+        return calculateRank(textureParameter->element, textureArgument.element);
     }
 
     auto* parameterType = std::get<Type*>(parameter);
@@ -348,6 +368,12 @@ bool OverloadResolver::unify(const AbstractType& parameter, Type* argumentType)
     if (auto* variable = std::get_if<TypeVariable>(&parameter))
         return unify(variable, argumentType);
 
+    if (auto* reference = std::get_if<Types::Reference>(argumentType)) {
+        if (reference->accessMode == AccessMode::Write)
+            return false;
+        return unify(parameter, reference->element);
+    }
+
     if (auto* vectorParameter = std::get_if<AbstractVector>(&parameter)) {
         auto* vectorArgument = std::get_if<Types::Vector>(argumentType);
         if (!vectorArgument)
@@ -366,6 +392,15 @@ bool OverloadResolver::unify(const AbstractType& parameter, Type* argumentType)
         if (!unify(matrixParameter->columns, matrixArgument->columns))
             return false;
         return unify(matrixParameter->rows, matrixArgument->rows);
+    }
+
+    if (auto* textureParameter = std::get_if<AbstractTexture>(&parameter)) {
+        auto* textureArgument = std::get_if<Types::Texture>(argumentType);
+        if (!textureArgument)
+            return false;
+        if (textureParameter->kind != textureArgument->kind)
+            return false;
+        return unify(textureParameter->element, textureArgument->element);
     }
 
     auto* parameterType = std::get<Type*>(parameter);
@@ -492,6 +527,12 @@ void printInternal(PrintStream& out, const WGSL::AbstractType& type)
             out.print(", ");
             printInternal(out, matrix.rows);
             out.print(">");
+        },
+        [&](const WGSL::AbstractTexture& texture) {
+            printInternal(out, texture.kind);
+            out.print("<");
+            printInternal(out, texture.element);
+            out.print(">");
         });
 }
 
@@ -536,5 +577,45 @@ void printInternal(PrintStream& out, const WGSL::OverloadCandidate& candidate)
     out.print(") -> ");
     printInternal(out, candidate.result);
 }
+
+void printInternal(PrintStream& out, WGSL::Types::Texture::Kind textureKind)
+{
+    switch (textureKind) {
+    case WGSL::Types::Texture::Kind::Texture1d:
+        out.print("texture_1d");
+        return;
+    case WGSL::Types::Texture::Kind::Texture2d:
+        out.print("texture_2d");
+        return;
+    case WGSL::Types::Texture::Kind::Texture2dArray:
+        out.print("texture_2d_array");
+        return;
+    case WGSL::Types::Texture::Kind::Texture3d:
+        out.print("texture_3d");
+        return;
+    case WGSL::Types::Texture::Kind::TextureCube:
+        out.print("texture_cube");
+        return;
+    case WGSL::Types::Texture::Kind::TextureCubeArray:
+        out.print("texture_cube_array");
+        return;
+    case WGSL::Types::Texture::Kind::TextureMultisampled2d:
+        out.print("texture_multisampled_2d");
+        return;
+    case WGSL::Types::Texture::Kind::TextureStorage1d:
+        out.print("texture_storage_1d");
+        return;
+    case WGSL::Types::Texture::Kind::TextureStorage2d:
+        out.print("texture_storage_2d");
+        return;
+    case WGSL::Types::Texture::Kind::TextureStorage2dArray:
+        out.print("texture_storage_2d_array");
+        return;
+    case WGSL::Types::Texture::Kind::TextureStorage3d:
+        out.print("texture_storage_3d");
+        return;
+    }
+}
+
 
 } // namespace WTF

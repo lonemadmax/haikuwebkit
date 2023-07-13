@@ -89,6 +89,7 @@
 #import "WKWebViewMac.h"
 #import "WKWebpagePreferencesInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
+#import "WebBackForwardCache.h"
 #import "WebBackForwardList.h"
 #import "WebFrameProxy.h"
 #import "WebFullScreenManagerProxy.h"
@@ -1823,9 +1824,9 @@ static NSDictionary *dictionaryRepresentationForEditorState(const WebKit::Editor
     auto& postLayoutData = *state.postLayoutData;
     return @{
         @"post-layout-data" : @YES,
-        @"bold": postLayoutData.typingAttributes & WebKit::AttributeBold ? @YES : @NO,
-        @"italic": postLayoutData.typingAttributes & WebKit::AttributeItalics ? @YES : @NO,
-        @"underline": postLayoutData.typingAttributes & WebKit::AttributeUnderline ? @YES : @NO,
+        @"bold": postLayoutData.typingAttributes.contains(WebKit::TypingAttribute::Bold) ? @YES : @NO,
+        @"italic": postLayoutData.typingAttributes.contains(WebKit::TypingAttribute::Italics) ? @YES : @NO,
+        @"underline": postLayoutData.typingAttributes.contains(WebKit::TypingAttribute::Underline) ? @YES : @NO,
         @"text-alignment": @(nsTextAlignment(static_cast<WebKit::TextAlignment>(postLayoutData.textAlignment))),
         @"text-color": (NSString *)serializationForCSS(postLayoutData.textColor)
     };
@@ -1834,15 +1835,15 @@ static NSDictionary *dictionaryRepresentationForEditorState(const WebKit::Editor
 static NSTextAlignment nsTextAlignment(WebKit::TextAlignment alignment)
 {
     switch (alignment) {
-    case WebKit::NoAlignment:
+    case WebKit::TextAlignment::Natural:
         return NSTextAlignmentNatural;
-    case WebKit::LeftAlignment:
+    case WebKit::TextAlignment::Left:
         return NSTextAlignmentLeft;
-    case WebKit::RightAlignment:
+    case WebKit::TextAlignment::Right:
         return NSTextAlignmentRight;
-    case WebKit::CenterAlignment:
+    case WebKit::TextAlignment::Center:
         return NSTextAlignmentCenter;
-    case WebKit::JustifiedAlignment:
+    case WebKit::TextAlignment::Justified:
         return NSTextAlignmentJustified;
     }
     ASSERT_NOT_REACHED();
@@ -3083,6 +3084,12 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
 {
     THROW_IF_SUSPENDED;
     _page->launchInitialProcessIfNecessary();
+}
+
+- (void)_clearBackForwardCache
+{
+    THROW_IF_SUSPENDED;
+    _page->process().processPool().backForwardCache().removeEntriesForPage(*_page);
 }
 
 + (BOOL)_handlesSafeBrowsing

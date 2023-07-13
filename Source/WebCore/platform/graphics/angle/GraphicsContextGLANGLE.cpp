@@ -114,34 +114,14 @@ bool GraphicsContextGLANGLE::platformInitialize()
 
 GCGLenum GraphicsContextGLANGLE::drawingBufferTextureTarget()
 {
-#if !PLATFORM(COCOA)
-    m_drawingBufferTextureTarget = EGL_TEXTURE_2D;
-#else
-    if (m_drawingBufferTextureTarget == -1)
-        EGL_GetConfigAttrib(platformDisplay(), platformConfig(), EGL_BIND_TO_TEXTURE_TARGET_ANGLE, &m_drawingBufferTextureTarget);
-#endif
-
-    switch (m_drawingBufferTextureTarget) {
-    case EGL_TEXTURE_2D:
-        return TEXTURE_2D;
-    case EGL_TEXTURE_RECTANGLE_ANGLE:
-        return TEXTURE_RECTANGLE_ARB;
-
-    }
-    ASSERT_WITH_MESSAGE(false, "Invalid enum returned from EGL_GetConfigAttrib");
-    return 0;
+    auto [textureTarget, _] = externalImageTextureBindingPoint();
+    UNUSED_VARIABLE(_);
+    return textureTarget;
 }
 
-GCGLenum GraphicsContextGLANGLE::drawingBufferTextureTargetQueryForDrawingTarget(GCGLenum drawingTarget)
+std::tuple<GCGLenum, GCGLenum> GraphicsContextGLANGLE::drawingBufferTextureBindingPoint()
 {
-    switch (drawingTarget) {
-    case TEXTURE_2D:
-        return TEXTURE_BINDING_2D;
-    case TEXTURE_RECTANGLE_ARB:
-        return TEXTURE_BINDING_RECTANGLE_ARB;
-    }
-    ASSERT_WITH_MESSAGE(false, "Invalid drawing target");
-    return -1;
+    return externalImageTextureBindingPoint();
 }
 
 GCGLint GraphicsContextGLANGLE::EGLDrawingBufferTextureTargetForDrawingTarget(GCGLenum drawingTarget)
@@ -479,22 +459,22 @@ void GraphicsContextGLANGLE::clearDepth(GCGLclampf depth)
     GL_ClearDepthf(static_cast<float>(depth));
 }
 
-void GraphicsContextGLANGLE::readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, std::span<uint8_t> data)
+void GraphicsContextGLANGLE::readPixels(IntRect rect, GCGLenum format, GCGLenum type, std::span<uint8_t> data)
 {
-    readnPixelsImpl(x, y, width, height, format, type, data.size(), nullptr, nullptr, nullptr, data.data(), false);
+    readPixelsImpl(rect, format, type, data.size(), data.data(), false);
 }
 
-bool GraphicsContextGLANGLE::readnPixelsWithStatus(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, std::span<uint8_t> data)
+bool GraphicsContextGLANGLE::readPixelsWithStatus(IntRect rect, GCGLenum format, GCGLenum type,  std::span<uint8_t> data)
 {
-    return readnPixelsImpl(x, y, width, height, format, type, data.size(), nullptr, nullptr, nullptr, data.data(), false);
+    return readPixelsImpl(rect, format, type, data.size(), data.data(), false);
 }
 
-void GraphicsContextGLANGLE::readnPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLintptr offset)
+void GraphicsContextGLANGLE::readPixelsBufferObject(IntRect rect, GCGLenum format, GCGLenum type, GCGLintptr offset)
 {
-    readnPixelsImpl(x, y, width, height, format, type, 0, nullptr, nullptr, nullptr, reinterpret_cast<uint8_t*>(offset), true);
+    readPixelsImpl(rect, format, type, 0, reinterpret_cast<uint8_t*>(offset), true);
 }
 
-bool GraphicsContextGLANGLE::readnPixelsImpl(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, GCGLsizei bufSize, GCGLsizei* length, GCGLsizei* columns, GCGLsizei* rows, uint8_t* data, bool readingToPixelBufferObject)
+bool GraphicsContextGLANGLE::readPixelsImpl(IntRect rect, GCGLenum format, GCGLenum type, GCGLsizei bufSize, uint8_t* data, bool readingToPixelBufferObject)
 {
     if (!makeContextCurrent())
         return false;
@@ -505,12 +485,12 @@ bool GraphicsContextGLANGLE::readnPixelsImpl(GCGLint x, GCGLint y, GCGLsizei wid
     auto attrs = contextAttributes();
     GCGLenum framebufferTarget = m_isForWebGL2 ? GraphicsContextGL::READ_FRAMEBUFFER : GraphicsContextGL::FRAMEBUFFER;
     if (attrs.antialias && m_state.boundReadFBO == m_multisampleFBO) {
-        resolveMultisamplingIfNecessary(IntRect(x, y, width, height));
+        resolveMultisamplingIfNecessary(rect);
         GL_BindFramebuffer(framebufferTarget, m_fbo);
         GL_Flush();
     }
     updateErrors();
-    GL_ReadnPixelsRobustANGLE(x, y, width, height, format, type, bufSize, length, columns, rows, data);
+    GL_ReadnPixelsRobustANGLE(rect.x(), rect.y(), rect.width(), rect.height(), format, type, bufSize, nullptr, nullptr, nullptr, data);
     if (attrs.antialias && m_state.boundReadFBO == m_multisampleFBO)
         GL_BindFramebuffer(framebufferTarget, m_multisampleFBO);
 
@@ -522,7 +502,7 @@ bool GraphicsContextGLANGLE::readnPixelsImpl(GCGLint x, GCGLint y, GCGLsizei wid
 
 #if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
     if (!readingToPixelBufferObject && !attrs.alpha && (format == GraphicsContextGL::RGBA || format == GraphicsContextGL::BGRA) && (type == GraphicsContextGL::UNSIGNED_BYTE) && (m_state.boundReadFBO == m_fbo || (attrs.antialias && m_state.boundReadFBO == m_multisampleFBO)))
-        wipeAlphaChannelFromPixels(width, height, static_cast<unsigned char*>(data));
+        wipeAlphaChannelFromPixels(rect.width(), rect.height(), static_cast<unsigned char*>(data));
 #else
     UNUSED_PARAM(readingToPixelBufferObject);
 #endif
@@ -2831,6 +2811,23 @@ void GraphicsContextGLANGLE::getActiveUniformBlockiv(GCGLuint program, GCGLuint 
     if (!makeContextCurrent())
         return;
     GL_GetActiveUniformBlockivRobustANGLE(program, uniformBlockIndex, pname, params.size(), nullptr, params.data());
+}
+
+GCEGLSync GraphicsContextGLANGLE::createEGLSync(ExternalEGLSyncEvent)
+{
+    notImplemented();
+    return nullptr;
+}
+
+bool GraphicsContextGLANGLE::destroyEGLSync(GCEGLSync sync)
+{
+    return !!EGL_DestroySync(platformDisplay(), sync);
+}
+
+void GraphicsContextGLANGLE::clientWaitEGLSyncWithFlush(GCEGLSync sync, uint64_t timeout)
+{
+    auto ret = EGL_ClientWaitSync(platformDisplay(), sync, EGL_SYNC_FLUSH_COMMANDS_BIT, timeout);
+    ASSERT_UNUSED(ret, ret == EGL_CONDITION_SATISFIED);
 }
 
 void GraphicsContextGLANGLE::multiDrawArraysANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei> firstsAndCounts)

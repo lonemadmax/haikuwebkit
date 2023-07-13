@@ -195,11 +195,12 @@ void RemoteMediaPlayerProxy::cancelLoad()
     m_player->cancelLoad();
 }
 
-void RemoteMediaPlayerProxy::prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode preferredDynamicRangeMode)
+void RemoteMediaPlayerProxy::prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode preferredDynamicRangeMode)
 {
     m_player->setPrivateBrowsingMode(privateMode);
     m_player->setPreload(preload);
     m_player->setPreservesPitch(preservesPitch);
+    m_player->setPitchCorrectionAlgorithm(pitchCorrectionAlgorithm);
     m_player->setPreferredDynamicRangeMode(preferredDynamicRangeMode);
     m_player->setPresentationSize(presentationSize);
     if (prepareForRendering)
@@ -979,7 +980,7 @@ void RemoteMediaPlayerProxy::sendCachedState()
 {
     updateCachedState();
     m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::UpdateCachedState(m_cachedState), m_id);
-    m_cachedState.bufferedRanges.clear();
+    m_cachedState.bufferedRanges = std::nullopt;
 }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)

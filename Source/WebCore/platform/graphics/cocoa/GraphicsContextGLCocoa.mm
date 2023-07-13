@@ -247,6 +247,21 @@ IOSurface* GraphicsContextGLCocoa::displayBufferSurface()
     return displayBuffer().surface.get();
 }
 
+std::tuple<GCGLenum, GCGLenum> GraphicsContextGLCocoa::externalImageTextureBindingPoint()
+{
+    if (m_drawingBufferTextureTarget == -1)
+        EGL_GetConfigAttrib(platformDisplay(), platformConfig(), EGL_BIND_TO_TEXTURE_TARGET_ANGLE, &m_drawingBufferTextureTarget);
+
+    switch (m_drawingBufferTextureTarget) {
+    case EGL_TEXTURE_2D:
+        return std::make_tuple(TEXTURE_2D, TEXTURE_BINDING_2D);
+    case EGL_TEXTURE_RECTANGLE_ANGLE:
+        return std::make_tuple(TEXTURE_RECTANGLE_ARB, TEXTURE_BINDING_RECTANGLE_ARB);
+    }
+    ASSERT_WITH_MESSAGE(false, "Invalid enum returned from EGL_GetConfigAttrib");
+    return std::make_tuple(0, 0);
+}
+
 bool GraphicsContextGLCocoa::platformInitializeContext()
 {
     GraphicsContextGLAttributes attributes = contextAttributes();
@@ -612,8 +627,8 @@ bool GraphicsContextGLCocoa::bindNextDrawingBuffer()
         buffer = { WTFMove(surface), pbuffer };
     }
 
-    GCGLenum textureTarget = drawingBufferTextureTarget();
-    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(textureTarget), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
+    auto [textureTarget, textureBinding] = drawingBufferTextureBindingPoint();
+    ScopedRestoreTextureBinding restoreBinding(textureBinding, textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
     GL_BindTexture(textureTarget, m_texture);
     if (!EGL_BindTexImage(m_displayObj, buffer.pbuffer, EGL_BACK_BUFFER)) {
         EGL_DestroySurface(m_displayObj, buffer.pbuffer);
@@ -720,7 +735,19 @@ RetainPtr<id> GraphicsContextGLCocoa::newSharedEventWithMachPort(mach_port_t sha
     return WebCore::newSharedEventWithMachPort(m_displayObj, sharedEventSendRight);
 }
 
-void* GraphicsContextGLCocoa::createSyncWithSharedEvent(id sharedEvent, uint64_t signalValue)
+GCEGLSync GraphicsContextGLCocoa::createEGLSync(ExternalEGLSyncEvent syncEvent)
+{
+    auto [syncEventHandle, signalValue] = syncEvent;
+    auto sharedEvent = newSharedEventWithMachPort(syncEventHandle.sendRight());
+    if (!sharedEvent) {
+        LOG(WebGL, "Unable to create a MTLSharedEvent from the syncEvent in createEGLSync.");
+        return nullptr;
+    }
+
+    return createEGLSync(sharedEvent.get(), signalValue);
+}
+
+GCEGLSync GraphicsContextGLCocoa::createEGLSync(id sharedEvent, uint64_t signalValue)
 {
     COMPILE_ASSERT(sizeof(EGLAttrib) == sizeof(void*), "EGLAttrib not pointer-sized!");
     auto signalValueLo = static_cast<EGLAttrib>(signalValue);
@@ -735,19 +762,6 @@ void* GraphicsContextGLCocoa::createSyncWithSharedEvent(id sharedEvent, uint64_t
         EGL_NONE
     };
     return EGL_CreateSync(display, EGL_SYNC_METAL_SHARED_EVENT_ANGLE, syncAttributes);
-}
-
-bool GraphicsContextGLCocoa::destroySync(void* sync)
-{
-    auto display = platformDisplay();
-    return !!EGL_DestroySync(display, sync);
-}
-
-void GraphicsContextGLCocoa::clientWaitSyncWithFlush(void* sync, uint64_t timeout)
-{
-    auto display = platformDisplay();
-    auto ret = EGL_ClientWaitSync(display, sync, EGL_SYNC_FLUSH_COMMANDS_BIT, timeout);
-    ASSERT_UNUSED(ret, ret == EGL_CONDITION_SATISFIED);
 }
 
 void GraphicsContextGLCocoa::waitUntilWorkScheduled()
@@ -811,8 +825,8 @@ RefPtr<PixelBuffer> GraphicsContextGLCocoa::readCompositedResults()
     // out of an IOSurface in such a way that drawing the NativeImage would be guaranteed leave
     // the IOSurface be unrefenced after the draw call finishes.
     ScopedTexture texture;
-    GCGLenum textureTarget = drawingBufferTextureTarget();
-    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(drawingBufferTextureTarget()), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
+    auto [textureTarget, textureBinding] = drawingBufferTextureBindingPoint();
+    ScopedRestoreTextureBinding restoreBinding(textureBinding, textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
     GL_BindTexture(textureTarget, texture);
     if (!EGL_BindTexImage(m_displayObj, buffer.pbuffer, EGL_BACK_BUFFER))
         return nullptr;
@@ -978,13 +992,13 @@ void GraphicsContextGLCocoa::insertFinishedSignalOrInvoke(Function<void()> signa
     [event notifyListener:m_finishedMetalSharedEventListener.get() atValue:signalValue block:^(id<MTLSharedEvent>, uint64_t) {
         blockSignal();
     }];
-    auto* sync = createSyncWithSharedEvent(event, signalValue);
+    auto* sync = createEGLSync(event, signalValue);
     if (UNLIKELY(!sync)) {
         event.signaledValue = signalValue;
         ASSERT_NOT_REACHED();
         return;
     }
-    destroySync(sync);
+    destroyEGLSync(sync);
 }
 
 }

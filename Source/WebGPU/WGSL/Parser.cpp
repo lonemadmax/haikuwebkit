@@ -694,12 +694,25 @@ Result<AST::VariableQualifier::Ref> Parser<Lexer>::parseVariableQualifier()
     CONSUME_TYPE(Lt);
     PARSE(storageClass, StorageClass);
 
-    // FIXME: verify that Read is the correct default in all cases.
-    AST::AccessMode accessMode = AST::AccessMode::Read;
+    AST::AccessMode accessMode;
     if (current().type == TokenType::Comma) {
         consume();
         PARSE(actualAccessMode, AccessMode);
         accessMode = actualAccessMode;
+    } else {
+        // Default access mode based on address space
+        // https://www.w3.org/TR/WGSL/#address-space
+        switch (storageClass) {
+        case AST::StorageClass::Function:
+        case AST::StorageClass::Private:
+        case AST::StorageClass::Workgroup:
+            accessMode = AST::AccessMode::ReadWrite;
+            break;
+        case AST::StorageClass::Uniform:
+        case AST::StorageClass::Storage:
+            accessMode = AST::AccessMode::Read;
+            break;
+        }
     }
 
     CONSUME_TYPE(Gt);
@@ -835,20 +848,9 @@ Result<AST::Statement::Ref> Parser<Lexer>::parseStatement()
     }
     case TokenType::Identifier: {
         // FIXME: there will be other cases here eventually for function calls
-        PARSE(lhs, LHSExpression);
-        std::optional<AST::BinaryOperation> maybeOp;
-        if (canContinueCompoundAssignmentStatement(current())) {
-            maybeOp = toBinaryOperation(current());
-            consume();
-        } else
-            CONSUME_TYPE(Equal);
-        PARSE(rhs, Expression);
+        PARSE(variableUpdatingStatement, VariableUpdatingStatement);
         CONSUME_TYPE(Semicolon);
-
-        if (maybeOp)
-            RETURN_ARENA_NODE(CompoundAssignmentStatement, WTFMove(lhs), WTFMove(rhs), *maybeOp);
-
-        RETURN_ARENA_NODE(AssignmentStatement, WTFMove(lhs), WTFMove(rhs));
+        return { variableUpdatingStatement };
     }
     case TokenType::KeywordFor: {
         // FIXME: Handle attributes attached to statement.
@@ -932,9 +934,23 @@ Result<AST::Statement::Ref> Parser<Lexer>::parseForStatement()
     CONSUME_TYPE(ParenLeft);
 
     if (current().type != TokenType::Semicolon) {
-        // FIXME: this should be for_init
-        PARSE(variable, Variable);
-        maybeInitializer = &MAKE_ARENA_NODE(VariableStatement, WTFMove(variable));
+        switch (current().type) {
+        case TokenType::KeywordConst:
+        case TokenType::KeywordLet:
+        case TokenType::KeywordVar: {
+            PARSE(variable, Variable);
+            maybeInitializer = &MAKE_ARENA_NODE(VariableStatement, WTFMove(variable));
+            break;
+        }
+        case TokenType::Identifier: {
+            // FIXME: this should be should also include function calls
+            PARSE(variableUpdatingStatement, VariableUpdatingStatement);
+            maybeInitializer = &variableUpdatingStatement.get();
+            break;
+        }
+        default:
+            FAIL("Invalid for-loop initialization clause"_s);
+        }
     }
     CONSUME_TYPE(Semicolon);
 
@@ -945,8 +961,12 @@ Result<AST::Statement::Ref> Parser<Lexer>::parseForStatement()
     CONSUME_TYPE(Semicolon);
 
     if (current().type != TokenType::ParenRight) {
-        // FIXME: this should be for_update
-        RELEASE_ASSERT_NOT_REACHED();
+        // FIXME: this should be should also include function calls
+        if (current().type != TokenType::Identifier)
+            FAIL("Invalid for-loop update clause"_s);
+
+        PARSE(variableUpdatingStatement, VariableUpdatingStatement);
+        maybeUpdate = &variableUpdatingStatement.get();
     }
     CONSUME_TYPE(ParenRight);
 
@@ -969,6 +989,41 @@ Result<AST::Statement::Ref> Parser<Lexer>::parseReturnStatement()
     PARSE(expr, Expression);
     RETURN_ARENA_NODE(ReturnStatement, &expr.get());
 }
+
+template<typename Lexer>
+Result<AST::Statement::Ref> Parser<Lexer>::parseVariableUpdatingStatement()
+{
+    // https://www.w3.org/TR/WGSL/#recursive-descent-syntax-variable_updating_statement
+    START_PARSE();
+    PARSE(lhs, LHSExpression);
+
+    std::optional<AST::DecrementIncrementStatement::Operation> operation;
+    if (current().type == TokenType::PlusPlus)
+        operation = AST::DecrementIncrementStatement::Operation::Increment;
+    else if (current().type == TokenType::MinusMinus)
+        operation = AST::DecrementIncrementStatement::Operation::Decrement;
+    if (operation) {
+        consume();
+        RETURN_ARENA_NODE(DecrementIncrementStatement, WTFMove(lhs), *operation);
+    }
+
+    std::optional<AST::BinaryOperation> maybeOp;
+    if (canContinueCompoundAssignmentStatement(current())) {
+        maybeOp = toBinaryOperation(current());
+        consume();
+    } else if (current().type == TokenType::Equal)
+        consume();
+    else
+        FAIL("Expected one of `=`, `++`, or `--`"_s);
+
+    PARSE(rhs, Expression);
+
+    if (maybeOp)
+        RETURN_ARENA_NODE(CompoundAssignmentStatement, WTFMove(lhs), WTFMove(rhs), *maybeOp);
+
+    RETURN_ARENA_NODE(AssignmentStatement, WTFMove(lhs), WTFMove(rhs));
+}
+
 
 template<typename Lexer>
 Result<AST::Expression::Ref> Parser<Lexer>::parseShortCircuitExpression(AST::Expression::Ref&& lhs, TokenType continuingToken, AST::BinaryOperation op)

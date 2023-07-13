@@ -596,6 +596,15 @@ enum class WhiteSpace : uint8_t {
     BreakSpaces
 };
 
+enum class WhiteSpaceCollapse : uint8_t {
+    Collapse,
+    Discard,
+    Preserve,
+    PreserveBreaks,
+    PreserveSpaces,
+    BreakSpaces
+};
+
 enum class ReflectionDirection : uint8_t {
     Below,
     Above,
@@ -1092,12 +1101,6 @@ enum class ScrollSnapStop : bool {
     Always,
 };
 
-enum class ScrollbarWidth : uint8_t {
-    Auto,
-    Thin,
-    None
-};
-
 // These are all minimized combinations of paint-order.
 enum class PaintOrder : uint8_t {
     Normal,
@@ -1249,7 +1252,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapAxis);
 WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapAxisAlignType);
 WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapStop);
 WTF::TextStream& operator<<(WTF::TextStream&, ScrollSnapStrictness);
-WTF::TextStream& operator<<(WTF::TextStream&, ScrollbarWidth);
 WTF::TextStream& operator<<(WTF::TextStream&, SpeakAs);
 WTF::TextStream& operator<<(WTF::TextStream&, StyleDifference);
 WTF::TextStream& operator<<(WTF::TextStream&, TableLayoutType);
@@ -1281,6 +1283,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, UserSelect);
 WTF::TextStream& operator<<(WTF::TextStream&, VerticalAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, Visibility);
 WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpace);
+WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpaceCollapse);
 WTF::TextStream& operator<<(WTF::TextStream&, WordBreak);
 WTF::TextStream& operator<<(WTF::TextStream&, MathStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, ContainIntrinsicSizeType);

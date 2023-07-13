@@ -214,8 +214,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     WindowKind windowKind { WindowKind::Unparented };
     PageAllowedToRunInTheBackgroundCounter::Token pageAllowedToRunInTheBackgroundToken;
 
-    HashMap<WebCore::RegistrableDomain, UniqueRef<SubframePageProxy>> domainToSubframePageProxyMap;
-    HashMap<WebCore::FrameIdentifier, WebCore::RegistrableDomain> frameIdentifierToDomainMap;
+    HashMap<WebCore::RegistrableDomain, WeakPtr<SubframePageProxy>> domainToSubframePageProxyMap;
 
 #if ENABLE(APPLE_PAY)
     std::unique_ptr<WebPaymentCoordinatorProxy> paymentCoordinator;

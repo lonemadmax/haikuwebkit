@@ -77,8 +77,10 @@ public:
     void navigationGestureDidEnd(bool willNavigate, WebBackForwardListItem&);
     void willRecordNavigationSnapshot(WebBackForwardListItem&);
     void navigationGestureSnapshotWasRemoved();
-#if USE(QUICK_LOOK)
+
+#if PLATFORM(IOS_FAMILY)
     void didRequestPasswordForQuickLookDocument();
+    void didStopRequestingPasswordForQuickLookDocument();
 #endif
 
     void didFirstPaint();
@@ -254,8 +256,9 @@ private:
 #if USE(QUICK_LOOK)
         bool webViewDidStartLoadForQuickLookDocumentInMainFrame : 1;
         bool webViewDidFinishLoadForQuickLookDocumentInMainFrame : 1;
-        bool webViewDidRequestPasswordForQuickLookDocument : 1;
 #endif
+        bool webViewDidRequestPasswordForQuickLookDocument : 1;
+        bool webViewDidStopRequestingPasswordForQuickLookDocument : 1;
 
 #if PLATFORM(MAC)
         bool webViewBackForwardListItemAddedRemoved : 1;

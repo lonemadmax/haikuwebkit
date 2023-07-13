@@ -411,6 +411,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediasession/Navigator+MediaSession.idl
 
     Modules/mediasource/AudioTrack+MediaSource.idl
+    Modules/mediasource/BufferedChangeEvent.idl
     Modules/mediasource/DOMURL+MediaSource.idl
     Modules/mediasource/ManagedMediaSource.idl
     Modules/mediasource/ManagedSourceBuffer.idl
@@ -2584,7 +2585,6 @@ set(WebCore_BUILTINS_SOURCES
     ${WEBCORE_DIR}/Modules/streams/ReadableStreamInternals.js
     ${WEBCORE_DIR}/Modules/streams/ReadableStreamDefaultReader.js
     ${WEBCORE_DIR}/Modules/streams/StreamInternals.js
-    ${WEBCORE_DIR}/Modules/streams/TransformStream.js
     ${WEBCORE_DIR}/Modules/streams/TransformStreamDefaultController.js
     ${WEBCORE_DIR}/Modules/streams/TransformStreamInternals.js
     ${WEBCORE_DIR}/Modules/streams/WritableStreamDefaultController.js

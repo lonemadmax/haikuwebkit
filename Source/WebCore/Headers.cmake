@@ -1718,7 +1718,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GraphicsLayerContentsDisplayDelegate.h
     platform/graphics/GraphicsLayerFactory.h
     platform/graphics/GraphicsLayerTransform.h
-    platform/graphics/GraphicsLayerUpdater.h
     platform/graphics/GraphicsStyle.h
     platform/graphics/GraphicsTypes.h
     platform/graphics/GraphicsTypesGL.h
@@ -2144,7 +2143,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/RenderTheme.h
     rendering/RenderThemeCocoa.h
     rendering/RenderThemeIOS.h
-    rendering/RenderThemeWin.h
     rendering/RenderTreeAsText.h
     rendering/RenderVideo.h
     rendering/RenderView.h
@@ -2177,6 +2175,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/RenderStyleConstants.h
     rendering/style/RenderStyleInlines.h
     rendering/style/RenderStyleSetters.h
+    rendering/style/ScrollbarGutter.h
     rendering/style/SVGRenderStyle.h
     rendering/style/SVGRenderStyleDefs.h
     rendering/style/ShadowData.h

@@ -166,6 +166,7 @@ enum class MediaProducerMutedState : uint8_t;
 enum class ModalContainerControlType : uint8_t;
 enum class ModalContainerDecision : uint8_t;
 enum class MouseEventPolicy : uint8_t;
+enum class NetworkConnectionIntegrity : uint16_t;
 enum class PermissionState : uint8_t;
 enum class PolicyAction : uint8_t;
 enum class ReasonForDismissingAlternativeText : uint8_t;
@@ -528,6 +529,8 @@ public:
 
     bool isLockdownModeExplicitlySet() const { return m_isLockdownModeExplicitlySet; }
     bool shouldEnableLockdownMode() const;
+
+    void processIsNoLongerAssociatedWithPage(WebProcessProxy&);
 
 #if ENABLE(DATA_DETECTION)
     NSArray *dataDetectionResults() { return m_dataDetectionResults.get(); }
@@ -1094,6 +1097,7 @@ public:
     bool isProcessingMouseEvents() const;
     void processNextQueuedMouseEvent();
     void handleMouseEvent(const NativeWebMouseEvent&);
+    void dispatchMouseDidMoveOverElementAsynchronously(const NativeWebMouseEvent&);
 
     void doAfterProcessingAllPendingMouseEvents(Function<void()>&&);
     void didFinishProcessingAllPendingMouseEvents();
@@ -1900,6 +1904,7 @@ public:
     void backForwardAddItemShared(Ref<WebProcessProxy>&&, BackForwardListItemState&&);
     void backForwardGoToItemShared(Ref<WebProcessProxy>&&, const WebCore::BackForwardItemIdentifier&, CompletionHandler<void(const WebBackForwardListCounts&)>&&);
     void decidePolicyForNavigationActionSyncShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, WebCore::FrameIdentifier, bool isMainFrame, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(PolicyDecision&&)>&&);
+    void didDestroyNavigationShared(Ref<WebProcessProxy>&&, uint64_t navigationID);
 #if USE(QUICK_LOOK)
     void requestPasswordForQuickLookDocumentInMainFrameShared(const String& fileName, CompletionHandler<void(const String&)>&&);
 #endif
@@ -2155,7 +2160,9 @@ public:
 #endif
 
     SubframePageProxy* subpageFrameProxyForRegistrableDomain(WebCore::RegistrableDomain) const;
-    SubframePageProxy* subframePageProxyForFrameID(WebCore::FrameIdentifier) const;
+    void addSubframePageProxy(const WebCore::RegistrableDomain&, Ref<SubframePageProxy>&&);
+    void removeSubpageFrameProxyIfUnused(const WebCore::RegistrableDomain&);
+
     void createRemoteSubframesInOtherProcesses(WebFrameProxy&);
 
     void requestImageBitmap(const WebCore::ElementContext&, CompletionHandler<void(ShareableBitmapHandle&&, const String& sourceMIMEType)>&&);
@@ -2245,7 +2252,10 @@ public:
 #endif
 
     WebPopupMenuProxyClient& popupMenuClient();
-    void addSubframePageProxyForFrameID(WebCore::FrameIdentifier, WebCore::RegistrableDomain, UniqueRef<SubframePageProxy>&&);
+
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    OptionSet<WebCore::NetworkConnectionIntegrity> networkConnectionIntegrityPolicies() const { return m_networkConnectionIntegrityPolicies; }
+#endif
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2361,7 +2371,7 @@ private:
     void runJavaScriptConfirm(WebCore::FrameIdentifier, FrameInfoData&&, const String&, CompletionHandler<void(bool)>&&);
     void runJavaScriptPrompt(WebCore::FrameIdentifier, FrameInfoData&&, const String&, const String&, CompletionHandler<void(const String&)>&&);
     void setStatusText(const String&);
-    void mouseDidMoveOverElement(WebHitTestResultData&&, uint32_t modifiers, UserData&&);
+    void mouseDidMoveOverElement(WebHitTestResultData&&, OptionSet<WebEventModifier>, UserData&&);
 
     void setToolbarsAreVisible(bool toolbarsAreVisible);
     void getToolbarsAreVisible(CompletionHandler<void(bool)>&&);
@@ -3276,6 +3286,7 @@ private:
     RefPtr<LookalikeCharactersObserver> m_lookalikeCharacterUpdateObserver;
     bool m_needsInitialLookalikeCharacterStrings { true };
     bool m_shouldUpdateAllowedLookalikeCharacterStrings { false };
+    OptionSet<WebCore::NetworkConnectionIntegrity> m_networkConnectionIntegrityPolicies;
 #endif
 
 #if ENABLE(APP_HIGHLIGHTS)

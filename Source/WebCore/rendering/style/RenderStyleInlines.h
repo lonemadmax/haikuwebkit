@@ -488,6 +488,7 @@ constexpr UserSelect RenderStyle::initialUserSelect() { return UserSelect::Text;
 constexpr VerticalAlign RenderStyle::initialVerticalAlign() { return VerticalAlign::Baseline; }
 constexpr Visibility RenderStyle::initialVisibility() { return Visibility::Visible; }
 constexpr WhiteSpace RenderStyle::initialWhiteSpace() { return WhiteSpace::Normal; }
+constexpr WhiteSpaceCollapse RenderStyle::initialWhiteSpaceCollapse() { return WhiteSpaceCollapse::Collapse; }
 constexpr WordBreak RenderStyle::initialWordBreak() { return WordBreak::Normal; }
 inline Length RenderStyle::initialWordSpacing() { return zeroLength(); }
 constexpr WritingMode RenderStyle::initialWritingMode() { return WritingMode::TopToBottom; }
@@ -671,7 +672,6 @@ inline float RenderStyle::textStrokeWidth() const { return m_rareInheritedData->
 inline OptionSet<TextTransform> RenderStyle::textTransform() const { return OptionSet<TextTransform>::fromRaw(m_inheritedFlags.textTransform); }
 inline TextUnderlineOffset RenderStyle::textUnderlineOffset() const { return m_rareInheritedData->textUnderlineOffset; }
 inline TextUnderlinePosition RenderStyle::textUnderlinePosition() const { return static_cast<TextUnderlinePosition>(m_rareInheritedData->textUnderlinePosition); }
-inline TextWrap RenderStyle::textWrap() const { return static_cast<TextWrap>(m_rareInheritedData->textWrap); }
 inline TextZoom RenderStyle::textZoom() const { return static_cast<TextZoom>(m_rareInheritedData->textZoom); }
 inline const Length& RenderStyle::top() const { return m_nonInheritedData->surroundData->offset.top(); }
 inline OptionSet<TouchAction> RenderStyle::touchActions() const { return m_nonInheritedData->rareData->touchActions; }
@@ -790,6 +790,8 @@ inline bool RenderStyle::InheritedFlags::operator==(const InheritedFlags& other)
 #endif
         && direction == other.direction
         && whiteSpace == other.whiteSpace
+        && whiteSpaceCollapse == other.whiteSpaceCollapse
+        && textWrap == other.textWrap
         && borderCollapse == other.borderCollapse
         && boxDirection == other.boxDirection
         && rtlOrdering == other.rtlOrdering

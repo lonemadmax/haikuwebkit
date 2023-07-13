@@ -787,6 +787,12 @@ webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/con
 webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/control-chars-09E.html [ ImageOnlyFailure ]
 webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/control-chars-09F.html [ ImageOnlyFailure ]
 
+webkit.org/b/257149 imported/w3c/web-platform-tests/css/css-text/white-space/eol-spaces-bidi-002.html [ Failure ]
+webkit.org/b/257149 imported/w3c/web-platform-tests/css/css-text/white-space/seg-break-transformation-001.tentative.html [ Failure ]
+webkit.org/b/257149 imported/w3c/web-platform-tests/css/css-text/white-space/seg-break-transformation-004.tentative.html [ Failure ]
+webkit.org/b/257149 imported/w3c/web-platform-tests/css/css-text/white-space/seg-break-transformation-016.tentative.html [ Failure ]
+webkit.org/b/257149 imported/w3c/web-platform-tests/css/css-text/white-space/seg-break-transformation-017.tentative.html [ Failure ]
+
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-13.html [ ImageOnlyFailure ]
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-16.html [ ImageOnlyFailure ]
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-17.html [ ImageOnlyFailure ]
@@ -904,6 +910,9 @@ webkit.org/b/218931 fast/events/wheel/wheel-events-become-non-cancelable.html [ 
 # We draw the focus ring of focused links on keydown event.
 imported/blink/fast/events/click-focus-keydown-no-ring.html [ ImageOnlyFailure ]
 
+# WTR doesn't implement yet UIScriptController::sendEventStream(), skip.
+webkit.org/b/233092 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-pointerevent.html?touch [ Skip ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Events-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -989,6 +998,8 @@ webkit.org/b/246952 imported/w3c/web-platform-tests/css/css-fonts/font-variant-a
 webkit.org/b/246952 imported/w3c/web-platform-tests/css/css-fonts/font-variant-alternates-16.html [ ImageOnlyFailure ]
 webkit.org/b/246952 imported/w3c/web-platform-tests/css/css-fonts/font-variant-alternates-17.html [ ImageOnlyFailure ]
 webkit.org/b/246952 imported/w3c/web-platform-tests/css/css-fonts/font-variant-alternates-18.html [ ImageOnlyFailure ]
+webkit.org/b/246952 imported/w3c/web-platform-tests/css/css-fonts/font-variant-alternates-19.html [ ImageOnlyFailure ]
+webkit.org/b/246952 imported/w3c/web-platform-tests/css/css-fonts/font-variant-alternates-layers.html [ ImageOnlyFailure ]
 
 # Likely related to the bug above
 webkit.org/b/206881 imported/w3c/web-platform-tests/css/css-fonts/font-variant-01.html [ ImageOnlyFailure ]
@@ -2157,7 +2168,6 @@ webkit.org/b/189343 imported/w3c/web-platform-tests/xhr/sync-no-timeout.any.html
 webkit.org/b/189345 http/tests/media/clearkey/collect-webkit-media-session.html [ Skip ]
 
 media/encrypted-media [ Pass ]
-media/encrypted-media/encrypted-media-append-encrypted-unencrypted.html [ Pass ]
 
 webkit.org/b/205857 media/encrypted-media/mock-navigator-requestMediaKeySystemAccess.html [ Skip ]
 webkit.org/b/205860 media/encrypted-media/mock-MediaKeySession-remove.html [ Skip ]
@@ -2924,6 +2934,7 @@ webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/font-family-na
 webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/font-kerning-04.html [ Pass ]
 webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/font-kerning-05.html [ Pass ]
 webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/generic-family-keywords-001.html [ Failure ]
+webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/generic-family-keywords-003.html [ Failure ]
 webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/quoted-generic-ignored.html [ ImageOnlyFailure ]
 webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/standard-font-family-11.html [ ImageOnlyFailure ]
 webkit.org/b/206885 imported/w3c/web-platform-tests/css/css-fonts/standard-font-family-12.html [ ImageOnlyFailure ]
@@ -3261,7 +3272,6 @@ webkit.org/b/237108 http/tests/websocket/tests/hybi/imported/blink/permessage-de
 webkit.org/b/237108 http/tests/websocket/tests/hybi/simple-wss.html [ Failure ]
 
 webkit.org/b/236298 fast/text/combining-character-sequence-vertical.html [ ImageOnlyFailure ]
-webkit.org/b/236298 fast/text/fallback-font-and-zero-width-glyph.html [ ImageOnlyFailure ]
 webkit.org/b/236298 fast/text/simple-line-layout-with-justified-punctuation.html [ ImageOnlyFailure ]
 webkit.org/b/236298 fast/text/simple-lines-text-transform.html [ ImageOnlyFailure ]
 webkit.org/b/236298 fast/text/strikethrough-int.html [ ImageOnlyFailure ]

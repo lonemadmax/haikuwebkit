@@ -541,11 +541,11 @@ void MediaPlayerPrivateAVFoundationObjC::cancelLoad()
     m_pendingStatusChanges = 0;
     m_cachedItemStatus = MediaPlayerAVPlayerItemStatusDoesNotExist;
     m_cachedSeekableRanges = nullptr;
-    m_cachedLoadedRanges = nullptr;
     m_cachedHasEnabledAudio = false;
     m_cachedHasEnabledVideo = false;
     m_cachedPresentationSize = FloatSize();
     m_cachedDuration = MediaTime::zeroTime();
+    m_buffered.clear();
 
     for (AVPlayerItemTrack *track in m_cachedTracks.get())
         [track removeObserver:m_objcObserver.get() forKeyPath:@"enabled"];
@@ -1159,20 +1159,6 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
     setDelayCallbacks(false);
 }
 
-static NSString* audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool preservesPitch, double rate)
-{
-    if (!preservesPitch || !rate || rate == 1.)
-        return AVAudioTimePitchAlgorithmVarispeed;
-
-    switch (pitchCorrectionAlgorithm) {
-    case MediaPlayer::PitchCorrectionAlgorithm::BestAllAround:
-    case MediaPlayer::PitchCorrectionAlgorithm::BestForMusic:
-        return AVAudioTimePitchAlgorithmSpectral;
-    case MediaPlayer::PitchCorrectionAlgorithm::BestForSpeech:
-        return AVAudioTimePitchAlgorithmTimeDomain;
-    }
-}
-
 void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
 {
     if (m_avPlayerItem)
@@ -1195,7 +1181,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
         [m_avPlayerItem addObserver:m_objcObserver.get() forKeyPath:keyName options:options context:(void *)MediaPlayerAVFoundationObservationContextPlayerItem];
     }
 
-    [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
+    [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
 
 #if HAVE(AVFOUNDATION_INTERSTITIAL_EVENTS)
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
@@ -1655,7 +1641,7 @@ void MediaPlayerPrivateAVFoundationObjC::setPlayerRate(double rate, std::optiona
 {
     setDelayCallbacks(true);
 
-    [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
+    [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
 
     setShouldObserveTimeControlStatus(false);
 
@@ -1723,28 +1709,20 @@ double MediaPlayerPrivateAVFoundationObjC::liveUpdateInterval() const
 void MediaPlayerPrivateAVFoundationObjC::setPreservesPitch(bool preservesPitch)
 {
     if (m_avPlayerItem)
-        [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), preservesPitch, m_requestedRate)];
+        [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), preservesPitch, m_requestedRate)];
 }
 
 void MediaPlayerPrivateAVFoundationObjC::setPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm pitchCorrectionAlgorithm)
 {
     if (m_avPlayerItem)
-        [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(pitchCorrectionAlgorithm, player()->preservesPitch(), m_requestedRate)];
+        [m_avPlayerItem setAudioTimePitchAlgorithm:MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(pitchCorrectionAlgorithm, player()->preservesPitch(), m_requestedRate)];
 }
 
 const PlatformTimeRanges& MediaPlayerPrivateAVFoundationObjC::platformBufferedTimeRanges() const
 {
-    using namespace PAL; // For CMTIMERANGE_IS_EMPTY.
-
     if (!m_avPlayerItem)
         return PlatformTimeRanges::emptyRanges();
 
-    m_buffered.clear();
-    for (NSValue *thisRangeValue in m_cachedLoadedRanges.get()) {
-        CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
-        if (CMTIMERANGE_IS_VALID(timeRange) && !CMTIMERANGE_IS_EMPTY(timeRange))
-            m_buffered.add(PAL::toMediaTime(timeRange.start), PAL::toMediaTime(PAL::CMTimeRangeGetEnd(timeRange)));
-    }
     return m_buffered;
 }
 
@@ -1795,23 +1773,9 @@ MediaTime MediaPlayerPrivateAVFoundationObjC::platformMaxTimeSeekable() const
 
 MediaTime MediaPlayerPrivateAVFoundationObjC::platformMaxTimeLoaded() const
 {
-    using namespace PAL; // For CMTIMERANGE_IS_EMPTY.
-
-    if (!m_cachedLoadedRanges)
+    if (!m_buffered.length())
         return MediaTime::zeroTime();
-
-    MediaTime maxTimeLoaded;
-    for (NSValue *thisRangeValue in m_cachedLoadedRanges.get()) {
-        CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
-        if (!CMTIMERANGE_IS_VALID(timeRange) || CMTIMERANGE_IS_EMPTY(timeRange))
-            continue;
-
-        MediaTime endOfRange = PAL::toMediaTime(PAL::CMTimeRangeGetEnd(timeRange));
-        if (maxTimeLoaded < endOfRange)
-            maxTimeLoaded = endOfRange;
-    }
-
-    return maxTimeLoaded;
+    return m_buffered.maximumBufferedTime();
 }
 
 unsigned long long MediaPlayerPrivateAVFoundationObjC::totalBytes() const
@@ -3495,7 +3459,14 @@ void MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesDidChange(RetainPtr<N
 
 void MediaPlayerPrivateAVFoundationObjC::loadedTimeRangesDidChange(RetainPtr<NSArray>&& loadedRanges)
 {
-    m_cachedLoadedRanges = WTFMove(loadedRanges);
+    using namespace PAL; // For CMTIMERANGE_IS_EMPTY.
+
+    m_buffered.clear();
+    for (NSValue *thisRangeValue in loadedRanges.get()) {
+        CMTimeRange timeRange = [thisRangeValue CMTimeRangeValue];
+        if (CMTIMERANGE_IS_VALID(timeRange) && !CMTIMERANGE_IS_EMPTY(timeRange))
+            m_buffered.add(PAL::toMediaTime(timeRange.start), PAL::toMediaTime(PAL::CMTimeRangeGetEnd(timeRange)));
+    }
 
     loadedTimeRangesChanged();
     updateStates();

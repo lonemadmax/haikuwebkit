@@ -121,6 +121,7 @@
 		1C9C7F512891238500C4649E /* ImmediateFont.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 1C9C7F4F2891234500C4649E /* ImmediateFont.html */; };
 		1C9DD9232697655B00274DB2 /* SVGImageCasts.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1C9DD9222697655B00274DB2 /* SVGImageCasts.cpp */; };
 		1C9EB8411E380DA1005C6442 /* ComplexTextController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1C9EB8401E380DA1005C6442 /* ComplexTextController.cpp */; };
+		1CA6FBAD2A1D818D001D4402 /* ContextualizedNSString.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1CA6FBAC2A1D818C001D4402 /* ContextualizedNSString.mm */; };
 		1CACADA1230620AE0007D54C /* WKWebViewOpaque.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1CACADA0230620AD0007D54C /* WKWebViewOpaque.mm */; };
 		1CB2F27C24F88379000A5BC1 /* OrthogonalFlowAvailableSize.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1CB2F27B24F88379000A5BC1 /* OrthogonalFlowAvailableSize.mm */; };
 		1CB2F27E24F88A52000A5BC1 /* orthogonal-flow-available-size.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 1CB2F27D24F883BE000A5BC1 /* orthogonal-flow-available-size.html */; };
@@ -199,7 +200,6 @@
 		31B76E4523299BDC007FED2C /* system-preview-trigger.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 31B76E4423299BA3007FED2C /* system-preview-trigger.html */; };
 		31E9BDA1247F4C62002E51A2 /* WebGLPrepareDisplayOnWebThread.mm in Sources */ = {isa = PBXBuildFile; fileRef = 31E9BDA0247F4C62002E51A2 /* WebGLPrepareDisplayOnWebThread.mm */; };
 		31E9BDA3247F5729002E51A2 /* webgl.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 31E9BDA2247F4DD0002E51A2 /* webgl.html */; };
-		3302A64E2A11B5350093FA2A /* DragAndDropSimulator.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3302A64D2A11B4410093FA2A /* DragAndDropSimulator.mm */; };
 		33976D8324DC479B00812304 /* IndexSparseSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33976D8224DC479B00812304 /* IndexSparseSet.cpp */; };
 		33BE5AF9137B5AAE00705813 /* MouseMoveAfterCrash_Bundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BE5AF8137B5AAE00705813 /* MouseMoveAfterCrash_Bundle.cpp */; };
 		33C2C9C12651F5B900E407F6 /* SmallSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33C2C9C02651F5B900E407F6 /* SmallSet.cpp */; };
@@ -2062,6 +2062,7 @@
 		1C9C7F4F2891234500C4649E /* ImmediateFont.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = ImmediateFont.html; sourceTree = "<group>"; };
 		1C9DD9222697655B00274DB2 /* SVGImageCasts.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SVGImageCasts.cpp; sourceTree = "<group>"; };
 		1C9EB8401E380DA1005C6442 /* ComplexTextController.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ComplexTextController.cpp; sourceTree = "<group>"; };
+		1CA6FBAC2A1D818C001D4402 /* ContextualizedNSString.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ContextualizedNSString.mm; sourceTree = "<group>"; };
 		1CAB9B7128F5E08900E6C77E /* WKWebExtensionController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WKWebExtensionController.mm; sourceTree = "<group>"; };
 		1CACADA0230620AD0007D54C /* WKWebViewOpaque.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WKWebViewOpaque.mm; sourceTree = "<group>"; };
 		1CB2F27B24F88379000A5BC1 /* OrthogonalFlowAvailableSize.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = OrthogonalFlowAvailableSize.mm; sourceTree = "<group>"; };
@@ -5692,6 +5693,7 @@
 		E3C21A7821B25C82003B31A3 /* cocoa */ = {
 			isa = PBXGroup;
 			children = (
+				1CA6FBAC2A1D818C001D4402 /* ContextualizedNSString.mm */,
 				1C4616A626BB172F00F8C9F6 /* TextStreamCocoa.cpp */,
 				1C46169E26BA510700F8C9F6 /* TextStreamCocoa.mm */,
 				44CDE4D326EE6E41009F6ACB /* TypeCastsCocoa.mm */,
@@ -6109,6 +6111,7 @@
 				7BB8BDE428F0781A00129836 /* CompletionHandlerTests.cpp in Sources */,
 				0F30CB5C1FCE1796004B5323 /* ConcurrentPtrHashSet.cpp in Sources */,
 				7C83DEC31D0A590C00FEBCF3 /* Condition.cpp in Sources */,
+				1CA6FBAD2A1D818D001D4402 /* ContextualizedNSString.mm in Sources */,
 				7C83DEA61D0A590C00FEBCF3 /* Counters.cpp in Sources */,
 				5C2C01A82734883600F89D37 /* CrossThreadCopierTests.cpp in Sources */,
 				7C83DEA91D0A590C00FEBCF3 /* CString.cpp in Sources */,
@@ -6327,7 +6330,6 @@
 				7CCE7EED1A411AE600447C4C /* DOMWindowExtensionNoCache.cpp in Sources */,
 				7CCE7EEE1A411AE600447C4C /* DownloadDecideDestinationCrash.cpp in Sources */,
 				5CF540E92257E67C00E6BC0E /* DownloadThread.mm in Sources */,
-				3302A64E2A11B5350093FA2A /* DragAndDropSimulator.mm in Sources */,
 				F4D4F3B61E4E2BCB00BB2767 /* DragAndDropSimulatorIOS.mm in Sources */,
 				F46128B7211C8ED500D9FADB /* DragAndDropSimulatorMac.mm in Sources */,
 				F4D4F3B91E4E36E400BB2767 /* DragAndDropTestsIOS.mm in Sources */,

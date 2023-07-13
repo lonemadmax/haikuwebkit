@@ -933,11 +933,11 @@ void Document::invalidateAccessKeyCacheSlowCase()
 ExceptionOr<SelectorQuery&> Document::selectorQueryForString(const String& selectorString)
 {
     if (selectorString.isEmpty())
-        return Exception { SyntaxError };
+        return Exception { SyntaxError, makeString("'", selectorString, "' is not a valid selector.") };
 
     auto* query = SelectorQueryCache::singleton().add(selectorString, *this);
     if (!query)
-        return Exception { SyntaxError };
+        return Exception { SyntaxError, makeString("'", selectorString, "' is not a valid selector.") };
 
     return *query;
 }
@@ -5575,7 +5575,7 @@ bool Document::isCookieAverse() const
 
     // This is not part of the specification but we have historically allowed cookies over file protocol
     // and some developers rely on this for testing.
-    if (cookieURL.isLocalFile())
+    if (cookieURL.protocolIsFile())
         return false;
 
     // A Document whose URL's scheme is not a network scheme is cookie-averse (https://fetch.spec.whatwg.org/#network-scheme).
@@ -5887,17 +5887,21 @@ bool Document::shouldMaskURLForBindingsInternal(const URL& urlToMask) const
     return maskedURLSchemes.contains<StringViewHashTranslator>(urlToMask.protocol());
 }
 
+static StaticStringImpl maskedURLString { "webkit-masked-url://hidden/" };
+StaticStringImpl& Document::maskedURLStringForBindings()
+{
+    return maskedURLString;
+}
+
 const URL& Document::maskedURLForBindings()
 {
     // This function can be called from GC heap thread, thus we need to use StaticStringImpl as a source of URL.
-    // StaticStringImpl is never converted to AtomString, and it is safe to be used in any thread.
-    static LazyNeverDestroyed<StringImpl*> maskedURLStringForBindings;
+    // StaticStringImpl is never converted to AtomString, and it is safe to be used in any threads.
     static LazyNeverDestroyed<URL> url;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [&] {
-        maskedURLStringForBindings.construct(&StringImpl::createStaticStringImplWithoutCopying("webkit-masked-url://hidden/", "webkit-masked-url://hidden/"_s.length()).leakRef());
-        url.construct(maskedURLStringForBindings.get());
-        ASSERT(url->string().impl() == static_cast<StringImpl*>(maskedURLStringForBindings.get()));
+        url.construct(maskedURLStringForBindings());
+        ASSERT(url->string().impl() == &static_cast<StringImpl&>(maskedURLStringForBindings()));
     });
     return url;
 }
@@ -7092,11 +7096,6 @@ void Document::serviceRequestVideoFrameCallbacks()
 
 void Document::windowScreenDidChange(PlatformDisplayID displayID)
 {
-    if (RenderView* view = renderView()) {
-        if (view->usesCompositing())
-            view->compositor().windowScreenDidChange(displayID);
-    }
-
     for (auto& observer : copyToVector(m_displayChangedObservers)) {
         if (observer)
             (*observer)(displayID);
@@ -9010,8 +9009,14 @@ HTMLDialogElement* Document::activeModalDialog() const
 HTMLElement* Document::topmostAutoPopover() const
 {
     for (auto& element : makeReversedRange(m_topLayerElements)) {
-        if (auto* candidate = dynamicDowncast<HTMLElement>(element.get()); candidate && candidate->popoverState() == PopoverState::Auto)
-            return candidate;
+#if ENABLE(FULLSCREEN_API)
+        if (element->hasFullscreenFlag())
+            continue;
+#endif
+        if (auto* candidate = dynamicDowncast<HTMLElement>(element.get()); candidate && candidate->popoverState() == PopoverState::Auto) {
+            if (!is<HTMLDialogElement>(candidate) || !downcast<HTMLDialogElement>(candidate)->isOpen())
+                return candidate;
+        }
     }
 
     return nullptr;
@@ -9020,20 +9025,45 @@ HTMLElement* Document::topmostAutoPopover() const
 // https://html.spec.whatwg.org/#hide-all-popovers-until
 void Document::hideAllPopoversUntil(Element* endpoint, FocusPreviousElement focusPreviousElement, FireEvents fireEvents)
 {
-    Vector<Ref<HTMLElement>> popoversToHide;
-    for (auto& item : makeReversedRange(m_topLayerElements)) {
-        if (!is<HTMLElement>(item))
-            continue;
-        auto& element = downcast<HTMLElement>(item.get());
-        if (element.popoverState() == PopoverState::Auto) {
-            if (&element == endpoint)
-                break;
-            popoversToHide.append(element);
+    auto closeAllOpenPopovers = [&]() {
+        while (RefPtr popover = topmostAutoPopover())
+            popover->hidePopoverInternal(focusPreviousElement, fireEvents);
+    };
+    if (!endpoint)
+        return closeAllOpenPopovers();
+    auto autoPopoverList = [&]()  {
+        Vector<Ref<HTMLElement>> popovers;
+        for (auto& item : m_topLayerElements) {
+            if (auto* candidate = dynamicDowncast<HTMLElement>(item.get()); candidate && candidate->popoverState() == PopoverState::Auto)
+                popovers.append(*candidate);
         }
-    }
+        return popovers;
+    };
 
-    for (auto& popover : popoversToHide)
-        popover->hidePopoverInternal(focusPreviousElement, fireEvents);
+    bool repeatingHide = false;
+    do {
+        RefPtr<Element> lastToHide;
+        bool foundEndPoint = false;
+        for (auto& popover : autoPopoverList()) {
+            if (popover.ptr() == endpoint)
+                foundEndPoint = true;
+            else if (foundEndPoint) {
+                lastToHide = popover.ptr();
+                break;
+            }
+        }
+        if (!foundEndPoint)
+            return closeAllOpenPopovers();
+        while (lastToHide && lastToHide->popoverData() && lastToHide->popoverData()->visibilityState() == PopoverVisibilityState::Showing) {
+            auto* topmostAutoPopover = this->topmostAutoPopover();
+            if (!topmostAutoPopover)
+                break;
+            topmostAutoPopover->hidePopoverInternal(focusPreviousElement, fireEvents);
+        }
+        repeatingHide = m_topLayerElements.contains(*endpoint) && topmostAutoPopover() != endpoint;
+        if (repeatingHide)
+            fireEvents = FireEvents::No;
+    } while (repeatingHide);
 }
 
 // https://html.spec.whatwg.org/#popover-light-dismiss
@@ -9309,16 +9339,23 @@ bool Document::hitTest(const HitTestRequest& request, HitTestResult& result)
 bool Document::hitTest(const HitTestRequest& request, const HitTestLocation& location, HitTestResult& result)
 {
     Ref<Document> protectedThis(*this);
-    updateLayout();
+
     if (!renderView())
         return false;
+
+    auto& frameView = renderView()->frameView();
+    Ref<FrameView> protector(frameView);
+
+    // If hit testing can descend into child frames, then we should make sure those frames have an updated layout
+    // before proceeding
+    if (request.allowsAnyFrameContent())
+        frameView.updateLayoutAndStyleIfNeededRecursive();
+    else
+        updateLayout();
 
 #if ASSERT_ENABLED
     SetForScope hitTestRestorer { m_inHitTesting, true };
 #endif
-
-    auto& frameView = renderView()->frameView();
-    Ref<LocalFrameView> protector(frameView);
 
     bool resultLayer = renderView()->layer()->hitTest(request, location, result);
 

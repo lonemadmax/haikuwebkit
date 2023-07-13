@@ -132,13 +132,6 @@
 #include <gst/allocators/gstdmabuf.h>
 #endif // USE(TEXTURE_MAPPER_DMABUF)
 
-#if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
-#include "PlatformDisplayLibWPE.h"
-#include <gst/gl/egl/gsteglimage.h>
-#include <gst/gl/egl/gstglmemoryegl.h>
-#include <wpe/extensions/video-plane-display-dmabuf.h>
-#endif
-
 GST_DEBUG_CATEGORY(webkit_media_player_debug);
 #define GST_CAT_DEFAULT webkit_media_player_debug
 
@@ -200,12 +193,6 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     ensureGStreamerInitialized();
     m_audioSink = createAudioSink();
     ensureSeekFlags();
-
-#if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
-    auto& sharedDisplay = PlatformDisplay::sharedDisplay();
-    if (is<PlatformDisplayLibWPE>(sharedDisplay))
-        m_wpeVideoPlaneDisplayDmaBuf.reset(wpe_video_plane_display_dmabuf_source_create(downcast<PlatformDisplayLibWPE>(sharedDisplay).backend()));
-#endif
 }
 
 MediaPlayerPrivateGStreamer::~MediaPlayerPrivateGStreamer()
@@ -465,7 +452,7 @@ bool MediaPlayerPrivateGStreamer::doSeek(const MediaTime& position, float rate)
     if (rate < 0) {
         startTime = MediaTime::zeroTime();
         // If we are at beginning of media, start from the end to avoid immediate EOS.
-        endTime = position < MediaTime::zeroTime() ? durationMediaTime() : position;
+        endTime = position <= MediaTime::zeroTime() ? durationMediaTime() : position;
     }
 
     if (!rate)
@@ -898,7 +885,7 @@ void MediaPlayerPrivateGStreamer::sourceSetup(GstElement* sourceElement)
     m_source = sourceElement;
 
     if (WEBKIT_IS_WEB_SRC(m_source.get())) {
-        webKitWebSrcSetMediaPlayer(WEBKIT_WEB_SRC_CAST(m_source.get()), m_player, m_referrer);
+        webKitWebSrcSetMediaPlayer(WEBKIT_WEB_SRC_CAST(m_source.get()), m_player.get(), m_referrer);
 #if ENABLE(MEDIA_STREAM)
     } else if (WEBKIT_IS_MEDIA_STREAM_SRC(sourceElement)) {
         auto stream = m_streamPrivate.get();
@@ -949,7 +936,7 @@ void MediaPlayerPrivateGStreamer::setPlaybinURL(const URL& url)
 {
     // Clean out everything after file:// url path.
     String cleanURLString(url.string());
-    if (url.isLocalFile())
+    if (url.protocolIsFile())
         cleanURLString = cleanURLString.left(url.pathEnd());
 
     m_url = URL { cleanURLString };
@@ -1296,6 +1283,7 @@ GstClockTime MediaPlayerPrivateGStreamer::gstreamerPositionFromSinks() const
 {
     gint64 gstreamerPosition = GST_CLOCK_TIME_NONE;
     // Asking directly to the sinks and choosing the highest value is faster than asking to the pipeline.
+    GST_TRACE_OBJECT(pipeline(), "Querying position to audio sink (if any).");
     GRefPtr<GstQuery> query = adoptGRef(gst_query_new_position(GST_FORMAT_TIME));
     if (m_audioSink && gst_element_query(m_audioSink.get(), query.get())) {
         gint64 audioPosition = GST_CLOCK_TIME_NONE;
@@ -1305,6 +1293,7 @@ GstClockTime MediaPlayerPrivateGStreamer::gstreamerPositionFromSinks() const
         GST_TRACE_OBJECT(pipeline(), "Audio position %" GST_TIME_FORMAT, GST_TIME_ARGS(audioPosition));
         query = adoptGRef(gst_query_new_position(GST_FORMAT_TIME));
     }
+    GST_TRACE_OBJECT(pipeline(), "Querying position to video sink (if any).");
     if (m_player->isVideoPlayer() && m_videoSink && gst_element_query(m_videoSink.get(), query.get())) {
         gint64 videoPosition = GST_CLOCK_TIME_NONE;
         gst_query_parse_position(query.get(), 0, &videoPosition);
@@ -1571,7 +1560,7 @@ bool MediaPlayerPrivateGStreamer::handleNeedContextMessage(GstMessage* message)
         GstStructure* contextStructure = gst_context_writable_structure(context.get());
 
         ASSERT(m_player);
-        gst_structure_set(contextStructure, "player", G_TYPE_POINTER, m_player, nullptr);
+        gst_structure_set(contextStructure, "player", G_TYPE_POINTER, m_player.get(), nullptr);
         gst_element_set_context(GST_ELEMENT(GST_MESSAGE_SRC(message)), context.get());
         return true;
     }
@@ -1958,13 +1947,13 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
 
             GUniqueOutPtr<GstStructure> responseHeaders;
             if (gst_structure_get(structure, "response-headers", GST_TYPE_STRUCTURE, &responseHeaders.outPtr(), nullptr)) {
-                CString contentLengthHeaderName = httpHeaderNameString(HTTPHeaderName::ContentLength).utf8();
+                auto contentLengthHeaderName = httpHeaderNameString(HTTPHeaderName::ContentLength);
                 uint64_t contentLength = 0;
-                if (!gst_structure_get_uint64(responseHeaders.get(), contentLengthHeaderName.data(), &contentLength)) {
+                if (!gst_structure_get_uint64(responseHeaders.get(), contentLengthHeaderName.characters(), &contentLength)) {
                     // souphttpsrc sets a string for Content-Length, so
                     // handle it here, until we remove the webkit+ protocol
                     // prefix from webkitwebsrc.
-                    if (const char* contentLengthAsString = gst_structure_get_string(responseHeaders.get(), contentLengthHeaderName.data())) {
+                    if (const char* contentLengthAsString = gst_structure_get_string(responseHeaders.get(), contentLengthHeaderName.characters())) {
                         contentLength = g_ascii_strtoull(contentLengthAsString, nullptr, 10);
                         if (contentLength == G_MAXUINT64)
                             contentLength = 0;
@@ -2727,10 +2716,6 @@ void MediaPlayerPrivateGStreamer::didEnd()
         changePipelineState(GST_STATE_READY);
         m_didDownloadFinish = false;
         configureMediaStreamAudioTracks();
-
-#if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
-        wpe_video_plane_display_dmabuf_source_end_of_stream(m_wpeVideoPlaneDisplayDmaBuf.get());
-#endif
     }
 
     timeChanged();
@@ -2786,7 +2771,9 @@ bool isMediaDiskCacheDisabled()
     std::call_once(once, []() {
         auto s = String::fromLatin1(std::getenv("WPE_SHELL_DISABLE_MEDIA_DISK_CACHE"));
         if (!s.isEmpty()) {
-            String value = s.stripWhiteSpace().convertToLowercaseWithoutLocale();
+            // FIXME: should this use StringView and equalLettersIgnoringASCIICase? Or even strcmp?
+            // https://github.com/WebKit/WebKit/pull/14233#discussion_r1202410966
+            auto value = s.trim(deprecatedIsSpaceOrNewline).convertToLowercaseWithoutLocale();
             result = (value == "1"_s || value == "t"_s || value == "true"_s);
         }
     });
@@ -3102,7 +3089,7 @@ bool MediaPlayerPrivateGStreamer::canSaveMediaData() const
     if (m_isLiveStream.value_or(false))
         return false;
 
-    if (m_url.isLocalFile())
+    if (m_url.protocolIsFile())
         return true;
 
     if (m_url.protocolIsInHTTPFamily())
@@ -3184,23 +3171,6 @@ void MediaPlayerPrivateGStreamer::swapBuffersIfNeeded()
 }
 #endif
 
-#if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
-class GStreamerDMABufHolePunchClient : public TextureMapperPlatformLayerBuffer::HolePunchClient {
-public:
-    GStreamerDMABufHolePunchClient(std::unique_ptr<GstVideoFrameHolder>&& frameHolder, struct wpe_video_plane_display_dmabuf_source* videoPlaneDisplayDmaBufSource)
-        : m_frameHolder(WTFMove(frameHolder))
-        , m_wpeVideoPlaneDisplayDmaBuf(videoPlaneDisplayDmaBufSource) { };
-    void setVideoRectangle(const IntRect& rect) final
-    {
-        if (m_wpeVideoPlaneDisplayDmaBuf)
-            m_frameHolder->handoffVideoDmaBuf(m_wpeVideoPlaneDisplayDmaBuf, rect);
-    }
-private:
-    std::unique_ptr<GstVideoFrameHolder> m_frameHolder;
-    struct wpe_video_plane_display_dmabuf_source* m_wpeVideoPlaneDisplayDmaBuf;
-};
-#endif // USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
-
 void MediaPlayerPrivateGStreamer::pushTextureToCompositor()
 {
     Locker sampleLocker { m_sampleMutex };
@@ -3229,25 +3199,6 @@ void MediaPlayerPrivateGStreamer::pushTextureToCompositor()
         proxy.pushNextBuffer(WTFMove(layerBuffer));
     };
 
-#if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
-    auto proxyOperation =
-        [this, internalCompositingOperation](TextureMapperPlatformLayerProxyGL& proxy)
-        {
-            Locker locker { proxy.lock() };
-
-            if (!proxy.isActive())
-                return;
-
-            auto frameHolder = makeUnique<GstVideoFrameHolder>(m_sample.get(), m_videoDecoderPlatform, m_textureMapperFlags, !m_isUsingFallbackVideoSink);
-            if (frameHolder->hasDMABuf()) {
-                auto layerBuffer = makeUnique<TextureMapperPlatformLayerBuffer>(0, m_size, TextureMapperGL::ShouldNotBlend, GL_DONT_CARE);
-                auto holePunchClient = makeUnique<GStreamerDMABufHolePunchClient>(WTFMove(frameHolder), m_wpeVideoPlaneDisplayDmaBuf.get());
-                layerBuffer->setHolePunchClient(WTFMove(holePunchClient));
-                proxy.pushNextBuffer(WTFMove(layerBuffer));
-            } else
-                internalCompositingOperation(proxy, WTFMove(frameHolder));
-        };
-#else
     auto proxyOperation =
         [this, internalCompositingOperation](TextureMapperPlatformLayerProxyGL& proxy)
         {
@@ -3259,7 +3210,6 @@ void MediaPlayerPrivateGStreamer::pushTextureToCompositor()
             auto frameHolder = makeUnique<GstVideoFrameHolder>(m_sample.get(), m_videoDecoderPlatform, m_textureMapperFlags, !m_isUsingFallbackVideoSink);
             internalCompositingOperation(proxy, WTFMove(frameHolder));
         };
-#endif // USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
 
 #if USE(NICOSIA)
     auto& proxy = downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).proxy();
@@ -4465,6 +4415,9 @@ void MediaPlayerPrivateGStreamer::checkPlayingConsistency()
 
 String MediaPlayerPrivateGStreamer::codecForStreamId(const String& streamId)
 {
+    if (UNLIKELY(!m_codecs.contains(streamId)))
+        return emptyString();
+
     return m_codecs.get(streamId);
 }
 

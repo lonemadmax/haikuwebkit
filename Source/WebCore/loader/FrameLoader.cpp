@@ -751,7 +751,7 @@ static AtomString extractContentLanguageFromHeader(const String& header)
     auto commaIndex = header.find(',');
     if (commaIndex == notFound)
         return AtomString { stripLeadingAndTrailingHTMLSpaces(header) };
-    return StringView(header).left(commaIndex).stripLeadingAndTrailingMatchedCharacters(isASCIIWhitespace<UChar>).toAtomString();
+    return StringView(header).left(commaIndex).trim(isASCIIWhitespace<UChar>).toAtomString();
 }
 
 void FrameLoader::didBeginDocument(bool dispatch)
@@ -3140,7 +3140,7 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
     if (shouldUpdate == ShouldUpdateAppInitiatedValue::Yes && localFrame->loader().documentLoader())
         request.setIsAppInitiated(localFrame->loader().documentLoader()->lastNavigationWasAppInitiated());
 
-    if (page)
+    if (page && isMainResource)
         request.setURL(page->chrome().client().sanitizeLookalikeCharacters(request.url(), LookalikeCharacterSanitizationTrigger::Navigation));
 }
 

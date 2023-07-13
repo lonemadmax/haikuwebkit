@@ -1104,6 +1104,9 @@ ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEvent
     if (selfOrPrecedingNodesAffectDirAuto())
         updateEffectiveDirectionalityOfDirAuto();
 
+    if (valueChanged && eventBehavior == DispatchNoEvent)
+        setTextAsOfLastFormControlChangeEvent(sanitizedValue);
+
     bool wasModifiedProgrammatically = eventBehavior == DispatchNoEvent;
     if (wasModifiedProgrammatically) {
         resignStrongPasswordAppearance();
@@ -1372,7 +1375,7 @@ static Vector<String> parseAcceptAttribute(StringView acceptString, bool (*predi
         return types;
 
     for (auto splitType : acceptString.split(',')) {
-        auto trimmedType = splitType.stripLeadingAndTrailingMatchedCharacters(isASCIIWhitespace<UChar>);
+        auto trimmedType = splitType.trim(isASCIIWhitespace<UChar>);
         if (trimmedType.isEmpty())
             continue;
         if (!predicate(trimmedType))
@@ -2226,8 +2229,13 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
             textBlockStyle.setUsedZIndex(0);
     }
 
-    // Do not allow line-height to be smaller than our default.
-    if (textBlockStyle.metricsOfPrimaryFont().lineSpacing() > style.computedLineHeight())
+    auto shouldUseInitialLineHeight = [&] {
+        // Do not allow line-height to be smaller than our default.
+        if (textBlockStyle.metricsOfPrimaryFont().lineSpacing() > style.computedLineHeight())
+            return true;
+        return isText() && !style.logicalHeight().isAuto();
+    };
+    if (shouldUseInitialLineHeight())
         textBlockStyle.setLineHeight(RenderStyle::initialLineHeight());
 
     return textBlockStyle;

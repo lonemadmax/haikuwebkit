@@ -1,6 +1,6 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -78,6 +78,9 @@ public:
 
     String(Ref<AtomStringImpl>&&);
     String(RefPtr<AtomStringImpl>&&);
+
+    String(StaticStringImpl&);
+    String(StaticStringImpl*);
 
     // Construct a string from a constant string literal.
     String(ASCIILiteral);
@@ -199,11 +202,9 @@ public:
     WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN convertToLowercaseWithLocale(const AtomString& localeIdentifier) const;
     WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN convertToUppercaseWithLocale(const AtomString& localeIdentifier) const;
 
-    WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN stripWhiteSpace() const;
-    WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN simplifyWhiteSpace() const;
     WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN simplifyWhiteSpace(CodeUnitMatchFunction) const;
 
-    WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN stripLeadingAndTrailingCharacters(CodeUnitMatchFunction) const;
+    WTF_EXPORT_PRIVATE String WARN_UNUSED_RETURN trim(CodeUnitMatchFunction) const;
     template<typename Predicate> String WARN_UNUSED_RETURN removeCharacters(const Predicate&) const;
 
     // Returns the string with case folded for case insensitive comparison.
@@ -245,7 +246,7 @@ public:
     WTF_EXPORT_PRIVATE RetainPtr<CFStringRef> createCFString() const;
 #endif
 
-#ifdef __OBJC__
+#if USE(FOUNDATION) && defined(__OBJC__)
 #if HAVE(SAFARI_FOR_WEBKIT_DEVELOPMENT_REQUIRING_EXTRA_SYMBOLS)
     WTF_EXPORT_PRIVATE String(NSString *);
 #else
@@ -324,9 +325,6 @@ private:
     WTF_EXPORT_PRIVATE explicit String(const char* characters);
 
     RefPtr<StringImpl> m_impl;
-
-public:
-    static void initializeStrings();
 };
 
 static_assert(sizeof(String) == sizeof(void*), "String should effectively be a pointer to a StringImpl, and efficient to pass by value");
@@ -361,8 +359,20 @@ WTF_EXPORT_PRIVATE int codePointCompare(const String&, const String&);
 bool codePointCompareLessThan(const String&, const String&);
 
 // Shared global empty and null string.
-WTF_EXPORT_PRIVATE const String& nullString();
-WTF_EXPORT_PRIVATE const String& emptyString();
+struct StaticString {
+    constexpr StaticString(StringImpl::StaticStringImpl* pointer)
+        : m_pointer(pointer)
+    {
+    }
+
+    StringImpl::StaticStringImpl* m_pointer;
+};
+static_assert(sizeof(String) == sizeof(StaticString), "String and StaticString must be the same size!");
+extern WTF_EXPORT_PRIVATE const StaticString nullStringData;
+extern WTF_EXPORT_PRIVATE const StaticString emptyStringData;
+
+inline const String& nullString() { return *reinterpret_cast<const String*>(&nullStringData); }
+inline const String& emptyString() { return *reinterpret_cast<const String*>(&emptyStringData); }
 
 template<typename> struct DefaultHash;
 template<> struct DefaultHash<String>;
@@ -416,6 +426,16 @@ inline String::String(Ref<AtomStringImpl>&& string)
 
 inline String::String(RefPtr<AtomStringImpl>&& string)
     : m_impl(WTFMove(string))
+{
+}
+
+inline String::String(StaticStringImpl& string)
+    : m_impl(reinterpret_cast<StringImpl*>(&string))
+{
+}
+
+inline String::String(StaticStringImpl* string)
+    : m_impl(reinterpret_cast<StringImpl*>(string))
 {
 }
 
@@ -493,7 +513,7 @@ inline Expected<std::invoke_result_t<Func, std::span<const char>>, UTF8Conversio
     return m_impl->tryGetUTF8(function, mode);
 }
 
-#ifdef __OBJC__
+#if USE(FOUNDATION) && defined(__OBJC__)
 
 inline String::operator NSString *() const
 {
@@ -549,24 +569,6 @@ inline bool startsWithLettersIgnoringASCIICase(const String& string, ASCIILitera
     return startsWithLettersIgnoringASCIICase(string.impl(), literal);
 }
 
-struct HashTranslatorASCIILiteral {
-    static unsigned hash(ASCIILiteral literal)
-    {
-        return StringHasher::computeHashAndMaskTop8Bits(literal.characters(), literal.length());
-    }
-
-    static bool equal(const String& a, ASCIILiteral b)
-    {
-        return a == b;
-    }
-
-    static void translate(String& location, ASCIILiteral literal, unsigned hash)
-    {
-        location = literal;
-        location.impl()->setHash(hash);
-    }
-};
-
 inline namespace StringLiterals {
 
 inline String operator"" _str(const char* characters, size_t)
@@ -574,11 +576,15 @@ inline String operator"" _str(const char* characters, size_t)
     return ASCIILiteral::fromLiteralUnsafe(characters);
 }
 
+inline String operator"" _str(const UChar* characters, size_t length)
+{
+    return String(characters, length);
+}
+
 } // inline StringLiterals
 
 } // namespace WTF
 
-using WTF::HashTranslatorASCIILiteral;
 using WTF::KeepTrailingZeros;
 using WTF::String;
 using WTF::charactersToDouble;

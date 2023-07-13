@@ -2562,7 +2562,7 @@ std::optional<LayoutUnit> RenderBlock::firstLineBaseline() const
     if (shouldApplyLayoutContainment())
         return std::nullopt;
 
-    if (isWritingModeRoot() && !isRubyRun())
+    if (isWritingModeRoot() && !isRubyRun() && !isFlexItem())
         return std::optional<LayoutUnit>();
 
     for (RenderBox* child = firstInFlowChildBox(); child; child = child->nextInFlowSiblingBox()) {
@@ -3245,7 +3245,7 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
         // Don't allow this to affect the block' size() member variable, since this
         // can get called while the block is still laying out its kids.
         LogicalExtentComputedValues computedValues = computeLogicalHeight(logicalHeight(), 0_lu);
-        availableHeight = computedValues.m_extent - borderAndPaddingLogicalHeight() - scrollbarLogicalHeight();
+        availableHeight = std::max(0_lu, computedValues.m_extent - borderAndPaddingLogicalHeight() - scrollbarLogicalHeight());
     } else if (styleToUse.logicalHeight().isPercentOrCalculated()) {
         std::optional<LayoutUnit> heightWithScrollbar = computePercentageLogicalHeight(styleToUse.logicalHeight());
         if (heightWithScrollbar) {

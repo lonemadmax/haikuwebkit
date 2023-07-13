@@ -199,7 +199,10 @@ void NavigationState::setNavigationDelegate(id <WKNavigationDelegate> delegate)
 #if USE(QUICK_LOOK)
     m_navigationDelegateMethods.webViewDidStartLoadForQuickLookDocumentInMainFrame = [delegate respondsToSelector:@selector(_webView:didStartLoadForQuickLookDocumentInMainFrameWithFileName:uti:)];
     m_navigationDelegateMethods.webViewDidFinishLoadForQuickLookDocumentInMainFrame = [delegate respondsToSelector:@selector(_webView:didFinishLoadForQuickLookDocumentInMainFrame:)];
+#endif
+#if PLATFORM(IOS_FAMILY)
     m_navigationDelegateMethods.webViewDidRequestPasswordForQuickLookDocument = [delegate respondsToSelector:@selector(_webViewDidRequestPasswordForQuickLookDocument:)];
+    m_navigationDelegateMethods.webViewDidStopRequestingPasswordForQuickLookDocument = [delegate respondsToSelector:@selector(_webViewDidStopRequestingPasswordForQuickLookDocument:)];
 #endif
 #if PLATFORM(MAC)
     m_navigationDelegateMethods.webViewBackForwardListItemAddedRemoved = [delegate respondsToSelector:@selector(_webView:backForwardListItemAdded:removed:)];
@@ -285,7 +288,7 @@ void NavigationState::navigationGestureSnapshotWasRemoved()
     [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate) _webViewDidRemoveNavigationGestureSnapshot:m_webView];
 }
 
-#if USE(QUICK_LOOK)
+#if PLATFORM(IOS_FAMILY)
 void NavigationState::didRequestPasswordForQuickLookDocument()
 {
     if (!m_navigationDelegateMethods.webViewDidRequestPasswordForQuickLookDocument)
@@ -296,6 +299,18 @@ void NavigationState::didRequestPasswordForQuickLookDocument()
         return;
 
     [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate) _webViewDidRequestPasswordForQuickLookDocument:m_webView];
+}
+
+void NavigationState::didStopRequestingPasswordForQuickLookDocument()
+{
+    if (!m_navigationDelegateMethods.webViewDidStopRequestingPasswordForQuickLookDocument)
+        return;
+
+    auto navigationDelegate = m_navigationDelegate.get();
+    if (!navigationDelegate)
+        return;
+
+    [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate) _webViewDidStopRequestingPasswordForQuickLookDocument:m_webView];
 }
 #endif
 
@@ -378,6 +393,8 @@ static void tryInterceptNavigation(Ref<API::NavigationAction>&& navigationAction
 #if HAVE(APP_LINKS)
     if (navigationAction->shouldOpenAppLinks()) {
         auto url = navigationAction->request().url();
+        auto referrer = navigationAction->request().httpReferrer();
+
         auto* localCompletionHandler = new WTF::Function<void (bool)>([navigationAction = WTFMove(navigationAction), weakPage = WeakPtr { page }, completionHandler = WTFMove(completionHandler)] (bool success) mutable {
             ASSERT(RunLoop::isMain());
             if (!success && weakPage) {
@@ -390,7 +407,12 @@ static void tryInterceptNavigation(Ref<API::NavigationAction>&& navigationAction
 #endif
             completionHandler(success);
         });
-        [LSAppLink openWithURL:url completionHandler:[localCompletionHandler](BOOL success, NSError *) {
+
+        RetainPtr<_LSOpenConfiguration> configuration = adoptNS([[_LSOpenConfiguration alloc] init]);
+        if (!referrer.isEmpty())
+            configuration.get().referrerURL = (NSURL *)URL(referrer);
+
+        [LSAppLink openWithURL:url configuration:configuration.get() completionHandler:[localCompletionHandler](BOOL success, NSError *) {
             RunLoop::main().dispatch([localCompletionHandler, success] {
                 (*localCompletionHandler)(success);
                 delete localCompletionHandler;

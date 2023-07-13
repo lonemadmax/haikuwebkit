@@ -359,8 +359,14 @@ GraphicsContextGL::GraphicsContextGL(GraphicsContextGLAttributes attrs)
 
 GraphicsContextGL::~GraphicsContextGL() = default;
 
-bool GraphicsContextGL::computeFormatAndTypeParameters(GCGLenum format, GCGLenum type, unsigned* componentsPerPixel, unsigned* bytesPerComponent)
+std::tuple<GCGLenum, GCGLenum> GraphicsContextGL::externalImageTextureBindingPoint()
 {
+    return std::make_tuple(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_BINDING_2D);
+}
+
+unsigned GraphicsContextGL::computeBytesPerGroup(GCGLenum format, GCGLenum type)
+{
+    unsigned componentsPerGroup = 0;
     switch (format) {
     case GraphicsContextGL::ALPHA:
     case GraphicsContextGL::LUMINANCE:
@@ -368,77 +374,58 @@ bool GraphicsContextGL::computeFormatAndTypeParameters(GCGLenum format, GCGLenum
     case GraphicsContextGL::RED_INTEGER:
     case GraphicsContextGL::DEPTH_COMPONENT:
     case GraphicsContextGL::DEPTH_STENCIL: // Treat it as one component.
-        *componentsPerPixel = 1;
+        componentsPerGroup = 1;
         break;
     case GraphicsContextGL::LUMINANCE_ALPHA:
     case GraphicsContextGL::RG:
     case GraphicsContextGL::RG_INTEGER:
-        *componentsPerPixel = 2;
+        componentsPerGroup = 2;
         break;
     case GraphicsContextGL::RGB:
     case GraphicsContextGL::RGB_INTEGER:
     case GraphicsContextGL::SRGB_EXT:
-        *componentsPerPixel = 3;
+        componentsPerGroup = 3;
         break;
     case GraphicsContextGL::RGBA:
     case GraphicsContextGL::RGBA_INTEGER:
     case GraphicsContextGL::BGRA_EXT: // GL_EXT_texture_format_BGRA8888
     case GraphicsContextGL::SRGB_ALPHA_EXT:
-        *componentsPerPixel = 4;
+        componentsPerGroup = 4;
         break;
     default:
-        return false;
+        return 0;
     }
 
     switch (type) {
-    case GraphicsContextGL::BYTE:
-        *bytesPerComponent = sizeof(GCGLbyte);
-        break;
-    case GraphicsContextGL::UNSIGNED_BYTE:
-        *bytesPerComponent = sizeof(GCGLubyte);
-        break;
-    case GraphicsContextGL::SHORT:
-        *bytesPerComponent = sizeof(GCGLshort);
-        break;
-    case GraphicsContextGL::UNSIGNED_SHORT:
-        *bytesPerComponent = sizeof(GCGLushort);
-        break;
     case GraphicsContextGL::UNSIGNED_SHORT_5_6_5:
     case GraphicsContextGL::UNSIGNED_SHORT_4_4_4_4:
     case GraphicsContextGL::UNSIGNED_SHORT_5_5_5_1:
-        *componentsPerPixel = 1;
-        *bytesPerComponent = sizeof(GCGLushort);
-        break;
-    case GraphicsContextGL::INT:
-        *bytesPerComponent = sizeof(GCGLint);
-        break;
-    case GraphicsContextGL::UNSIGNED_INT:
-        *bytesPerComponent = sizeof(GCGLuint);
-        break;
+        return 2;
     case GraphicsContextGL::UNSIGNED_INT_24_8:
     case GraphicsContextGL::UNSIGNED_INT_10F_11F_11F_REV:
     case GraphicsContextGL::UNSIGNED_INT_5_9_9_9_REV:
     case GraphicsContextGL::UNSIGNED_INT_2_10_10_10_REV:
-        *componentsPerPixel = 1;
-        *bytesPerComponent = sizeof(GCGLuint);
-        break;
-    case GraphicsContextGL::FLOAT: // OES_texture_float
-        *bytesPerComponent = sizeof(GCGLfloat);
-        break;
+        return 4;
+    case GraphicsContextGL::BYTE:
+    case GraphicsContextGL::UNSIGNED_BYTE:
+        return componentsPerGroup;
+    case GraphicsContextGL::SHORT:
+    case GraphicsContextGL::UNSIGNED_SHORT:
     case GraphicsContextGL::HALF_FLOAT:
     case GraphicsContextGL::HALF_FLOAT_OES: // OES_texture_half_float
-        *bytesPerComponent = sizeof(GCGLhalffloat);
-        break;
+        return componentsPerGroup * 2;
+    case GraphicsContextGL::INT:
+    case GraphicsContextGL::UNSIGNED_INT:
+    case GraphicsContextGL::FLOAT: // OES_texture_float
+        return componentsPerGroup * 4;
     case GraphicsContextGL::FLOAT_32_UNSIGNED_INT_24_8_REV:
-        *bytesPerComponent = sizeof(GCGLfloat) + sizeof(GCGLuint);
-        break;
+        return componentsPerGroup * 8;
     default:
-        return false;
+        return 0;
     }
-    return true;
 }
 
-GCGLenum GraphicsContextGL::computeImageSizeInBytes(GCGLenum format, GCGLenum type, GCGLsizei width, GCGLsizei height, GCGLsizei depth, const PixelStoreParams& params, unsigned* imageSizeInBytes, unsigned* paddingInBytes, unsigned* skipSizeInBytes)
+GCGLenum GraphicsContextGL::computeImageSizeInBytes(GCGLenum format, GCGLenum type, GCGLsizei width, GCGLsizei height, GCGLsizei depth, const PixelStoreParameters& params, unsigned* imageSizeInBytes, unsigned* paddingInBytes, unsigned* skipSizeInBytes)
 {
     ASSERT(imageSizeInBytes);
     ASSERT(params.alignment == 1 || params.alignment == 2 || params.alignment == 4 || params.alignment == 8);
@@ -461,10 +448,9 @@ GCGLenum GraphicsContextGL::computeImageSizeInBytes(GCGLenum format, GCGLenum ty
     int rowLength = params.rowLength > 0 ? params.rowLength : width;
     int imageHeight = params.imageHeight > 0 ? params.imageHeight : height;
 
-    unsigned bytesPerComponent, componentsPerPixel;
-    if (!computeFormatAndTypeParameters(format, type, &componentsPerPixel, &bytesPerComponent))
+    unsigned bytesPerGroup = computeBytesPerGroup(format, type);
+    if (!bytesPerGroup)
         return GraphicsContextGL::INVALID_ENUM;
-    unsigned bytesPerGroup = bytesPerComponent * componentsPerPixel;
     CheckedUint32 checkedValue = static_cast<uint32_t>(rowLength);
     checkedValue *= bytesPerGroup;
     if (checkedValue.hasOverflowed())
@@ -546,7 +532,7 @@ bool GraphicsContextGL::packImageData(Image* image, const void* pixels, GCGLenum
 
     unsigned packedSize;
     // Output data is tightly packed (alignment == 1).
-    PixelStoreParams params;
+    PixelStoreParameters params;
     params.alignment = 1;
     if (computeImageSizeInBytes(format, type, sourceImageSubRectangle.width(), sourceImageSubRectangle.height(), depth, params, &packedSize, nullptr, nullptr) != GraphicsContextGL::NO_ERROR)
         return false;
@@ -566,7 +552,7 @@ bool GraphicsContextGL::extractPixelBuffer(const PixelBuffer& pixelBuffer, DataF
 
     unsigned packedSize;
     // Output data is tightly packed (alignment == 1).
-    PixelStoreParams params;
+    PixelStoreParameters params;
     params.alignment = 1;
     if (computeImageSizeInBytes(format, type, sourceImageSubRectangle.width(), sourceImageSubRectangle.height(), depth, params, &packedSize, nullptr, nullptr) != GraphicsContextGL::NO_ERROR)
         return false;
@@ -578,17 +564,15 @@ bool GraphicsContextGL::extractPixelBuffer(const PixelBuffer& pixelBuffer, DataF
     return true;
 }
 
-bool GraphicsContextGL::extractTextureData(unsigned width, unsigned height, GCGLenum format, GCGLenum type, const PixelStoreParams& unpackParams, bool flipY, bool premultiplyAlpha, std::span<const uint8_t> pixels, Vector<uint8_t>& data)
+bool GraphicsContextGL::extractTextureData(unsigned width, unsigned height, GCGLenum format, GCGLenum type, const PixelStoreParameters& unpackParams, bool flipY, bool premultiplyAlpha, std::span<const uint8_t> pixels, Vector<uint8_t>& data)
 {
     // Assumes format, type, etc. have already been validated.
     DataFormat sourceDataFormat = getDataFormat(format, type);
     if (sourceDataFormat == GraphicsContextGL::DataFormat::Invalid)
         return false;
-    // Resize the output buffer.
-    unsigned componentsPerPixel, bytesPerComponent;
-    if (!computeFormatAndTypeParameters(format, type, &componentsPerPixel, &bytesPerComponent))
+    unsigned bytesPerPixel = computeBytesPerGroup(format, type);
+    if (!bytesPerPixel)
         return false;
-    unsigned bytesPerPixel = componentsPerPixel * bytesPerComponent;
     data.resize(width * height * bytesPerPixel);
 
     unsigned imageSizeInBytes, skipSizeInBytes;

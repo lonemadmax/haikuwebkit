@@ -30,6 +30,7 @@
 
 #include "GPUConnectionToWebProcess.h"
 #include "QualifiedRenderingResourceIdentifier.h"
+#include "RemoteGraphicsContextGLInitializationState.h"
 #include "RemoteGraphicsContextGLMessages.h"
 #include "RemoteGraphicsContextGLProxyMessages.h"
 #include "StreamConnectionWorkQueue.h"
@@ -79,7 +80,7 @@ Ref<RemoteGraphicsContextGL> RemoteGraphicsContextGL::create(GPUConnectionToWebP
 RemoteGraphicsContextGL::RemoteGraphicsContextGL(GPUConnectionToWebProcess& gpuConnectionToWebProcess, GraphicsContextGLIdentifier graphicsContextGLIdentifier, RemoteRenderingBackend& renderingBackend, IPC::StreamServerConnection::Handle&& connectionHandle)
     : m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_workQueue(remoteGraphicsContextGLStreamWorkQueue())
-    , m_streamConnection(IPC::StreamServerConnection::create(WTFMove(connectionHandle), workQueue()))
+    , m_streamConnection(IPC::StreamServerConnection::create(WTFMove(connectionHandle)))
     , m_graphicsContextGLIdentifier(graphicsContextGLIdentifier)
     , m_renderingBackend(renderingBackend)
 #if ENABLE(VIDEO)
@@ -132,26 +133,29 @@ void RemoteGraphicsContextGL::workQueueInitialize(WebCore::GraphicsContextGLAttr
 {
     assertIsCurrent(workQueue());
     platformWorkQueueInitialize(WTFMove(attributes));
-    m_streamConnection->open();
+    m_streamConnection->open(workQueue());
     if (m_context) {
         m_context->setClient(this);
         String extensions = m_context->getString(GraphicsContextGL::EXTENSIONS);
         String requestableExtensions = m_context->getString(GraphicsContextGL::REQUESTABLE_EXTENSIONS_ANGLE);
-        send(Messages::RemoteGraphicsContextGLProxy::WasCreated(true, workQueue().wakeUpSemaphore(), m_streamConnection->clientWaitSemaphore(), extensions, requestableExtensions));
+        auto [externalImageTarget, externalImageBindingQuery] = m_context->externalImageTextureBindingPoint();
+        RemoteGraphicsContextGLInitializationState initializationState { extensions, requestableExtensions, externalImageTarget, externalImageBindingQuery };
+
+        send(Messages::RemoteGraphicsContextGLProxy::WasCreated(workQueue().wakeUpSemaphore(), m_streamConnection->clientWaitSemaphore(), { initializationState }));
         m_streamConnection->startReceivingMessages(*this, Messages::RemoteGraphicsContextGL::messageReceiverName(), m_graphicsContextGLIdentifier.toUInt64());
     } else
-        send(Messages::RemoteGraphicsContextGLProxy::WasCreated(false, { }, { }, emptyString(), emptyString()));
+        send(Messages::RemoteGraphicsContextGLProxy::WasCreated({ }, { }, std::nullopt));
 }
 
 void RemoteGraphicsContextGL::workQueueUninitialize()
 {
     assertIsCurrent(workQueue());
-    m_streamConnection->invalidate();
     if (m_context) {
         m_context->setClient(nullptr);
         m_context = nullptr;
         m_streamConnection->stopReceivingMessages(Messages::RemoteGraphicsContextGL::messageReceiverName(), m_graphicsContextGLIdentifier.toUInt64());
     }
+    m_streamConnection->invalidate();
     m_streamConnection = nullptr;
     m_renderingResourcesRequest = { };
 }
@@ -302,28 +306,22 @@ void RemoteGraphicsContextGL::simulateEventForTesting(WebCore::GraphicsContextGL
     m_context->simulateEventForTesting(event);
 }
 
-void RemoteGraphicsContextGL::readnPixels0(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, IPC::ArrayReference<uint8_t>&& data, CompletionHandler<void(IPC::ArrayReference<uint8_t>)>&& completionHandler)
+void RemoteGraphicsContextGL::readPixelsInline(WebCore::IntRect rect, uint32_t format, uint32_t type, IPC::ArrayReference<uint8_t>&& data, CompletionHandler<void(IPC::ArrayReference<uint8_t>)>&& completionHandler)
 {
     assertIsCurrent(workQueue());
     Vector<uint8_t, 4> pixels(data);
-    m_context->readnPixels(x, y, width, height, format, type, pixels);
+    m_context->readPixels(rect, format, type, pixels);
     completionHandler(IPC::ArrayReference<uint8_t>(reinterpret_cast<uint8_t*>(pixels.data()), pixels.size()));
 }
 
-void RemoteGraphicsContextGL::readnPixels1(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, uint64_t offset)
-{
-    assertIsCurrent(workQueue());
-    m_context->readnPixels(x, y, width, height, format, type, static_cast<GCGLintptr>(offset));
-}
-
-void RemoteGraphicsContextGL::readnPixels2(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, SharedMemory::Handle handle, CompletionHandler<void(bool)>&& completionHandler)
+void RemoteGraphicsContextGL::readPixelsSharedMemory(WebCore::IntRect rect, uint32_t format, uint32_t type, SharedMemory::Handle handle, CompletionHandler<void(bool)>&& completionHandler)
 {
     assertIsCurrent(workQueue());
     bool success = false;
     if (!handle.isNull()) {
         handle.setOwnershipOfMemory(m_resourceOwner, WebKit::MemoryLedger::Default);
         if (auto buffer = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadWrite))
-            success = m_context->readnPixelsWithStatus(x, y, width, height, format, type, std::span(static_cast<uint8_t*>(buffer->data()), buffer->size()));
+            success = m_context->readPixelsWithStatus(rect, format, type, std::span(static_cast<uint8_t*>(buffer->data()), buffer->size()));
         else
             m_context->addError(GCGLErrorCode::InvalidOperation);
     } else

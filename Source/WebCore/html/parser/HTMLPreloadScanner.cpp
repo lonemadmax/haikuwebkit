@@ -30,7 +30,6 @@
 
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLSrcsetParser.h"
 #include "HTMLTokenizer.h"
 #include "InputTypeNames.h"
@@ -185,7 +184,7 @@ private:
         if (match(attributeName, srcAttr))
             setURLToLoad(attributeValue);
         else if (match(attributeName, crossoriginAttr))
-            m_crossOriginMode = attributeValue.stripLeadingAndTrailingMatchedCharacters(isASCIIWhitespace<UChar>).toString();
+            m_crossOriginMode = attributeValue.trim(isASCIIWhitespace<UChar>).toString();
         else if (match(attributeName, charsetAttr))
             m_charset = attributeValue.toString();
     }
@@ -280,7 +279,7 @@ private:
             else if (match(attributeName, charsetAttr))
                 m_charset = attributeValue.toString();
             else if (match(attributeName, crossoriginAttr))
-                m_crossOriginMode = attributeValue.stripLeadingAndTrailingMatchedCharacters(isASCIIWhitespace<UChar>).toString();
+                m_crossOriginMode = attributeValue.trim(isASCIIWhitespace<UChar>).toString();
             else if (match(attributeName, nonceAttr))
                 m_nonceAttribute = attributeValue.toString();
             else if (match(attributeName, asAttr))
@@ -331,10 +330,10 @@ private:
 
     void setURLToLoadAllowingReplacement(StringView value)
     {
-        auto strippedURL = value.stripLeadingAndTrailingMatchedCharacters(isASCIIWhitespace<UChar>);
-        if (strippedURL.isEmpty())
+        auto trimmedURL = value.trim(isASCIIWhitespace<UChar>);
+        if (trimmedURL.isEmpty())
             return;
-        m_urlToLoad = strippedURL.toString();
+        m_urlToLoad = trimmedURL.toString();
     }
 
     const String& charset() const
@@ -493,7 +492,7 @@ void TokenPreloadScanner::updatePredictedBaseURL(const HTMLToken& token, bool sh
     auto* hrefAttribute = findAttribute(token.attributes(), hrefAsUChar);
     if (!hrefAttribute)
         return;
-    URL temp { m_documentURL, stripLeadingAndTrailingHTMLSpaces(StringImpl::create8BitIfPossible(hrefAttribute->value)) };
+    URL temp { m_documentURL, StringImpl::create8BitIfPossible(hrefAttribute->value) };
     if (!shouldRestrictBaseURLSchemes || SecurityPolicy::isBaseURLSchemeAllowed(temp))
         m_predictedBaseElementURL = WTFMove(temp).isolatedCopy();
 }

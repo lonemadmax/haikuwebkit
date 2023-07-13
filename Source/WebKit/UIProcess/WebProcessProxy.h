@@ -97,6 +97,7 @@ class ObjCObjectGraph;
 class PageClient;
 class ProvisionalFrameProxy;
 class ProvisionalPageProxy;
+class SuspendedPageProxy;
 class UserMediaCaptureManagerProxy;
 class VisitedLinkStore;
 class WebBackForwardListItem;
@@ -164,9 +165,9 @@ public:
 
     WebConnection* webConnection() const { return m_webConnection.get(); }
 
-    unsigned suspendedPageCount() const { return m_suspendedPageCount; }
-    void incrementSuspendedPageCount();
-    void decrementSuspendedPageCount();
+    unsigned suspendedPageCount() const { return m_suspendedPages.computeSize(); }
+    void addSuspendedPageProxy(SuspendedPageProxy&);
+    void removeSuspendedPageProxy(SuspendedPageProxy&);
 
     WebProcessPool* processPoolIfExists() const;
     WebProcessPool& processPool() const;
@@ -489,6 +490,8 @@ public:
     static void permissionChanged(WebCore::PermissionName, const WebCore::SecurityOriginData&);
     void sendPermissionChanged(WebCore::PermissionName, const WebCore::SecurityOriginData&);
 
+    Logger& logger();
+
 protected:
     WebProcessProxy(WebProcessPool&, WebsiteDataStore*, IsPrewarmed, WebCore::CrossOriginMode, LockdownMode);
 
@@ -525,6 +528,9 @@ private:
     static WebPageProxyMap& globalPageMap();
     static Vector<RefPtr<WebPageProxy>> globalPages();
 
+    void reportProcessDisassociatedWithPageIfNecessary(WebPageProxyIdentifier);
+    bool isAssociatedWithPage(WebPageProxyIdentifier) const;
+
     void platformInitialize();
     void platformDestroy();
 
@@ -553,6 +559,8 @@ private:
     void updateBackgroundResponsivenessTimer();
 
     void updateBlobRegistryPartitioningState() const;
+
+    void updateWebGPUEnabledStateInGPUProcess();
 
     void processDidTerminateOrFailedToLaunch(ProcessTerminationReason);
 
@@ -649,6 +657,7 @@ private:
     WebFrameProxyMap m_frameMap;
     WeakHashSet<ProvisionalPageProxy> m_provisionalPages;
     WeakHashSet<ProvisionalFrameProxy> m_provisionalFrames;
+    WeakHashSet<SuspendedPageProxy> m_suspendedPages;
     UserInitiatedActionMap m_userInitiatedActionMap;
     UserInitiatedActionByAuthorizationTokenMap m_userInitiatedActionByAuthorizationTokenMap;
 
@@ -664,10 +673,6 @@ private:
 
 #if HAVE(CVDISPLAYLINK)
     DisplayLinkProcessProxyClient m_displayLinkClient;
-#endif
-
-#if ENABLE(ROUTING_ARBITRATION)
-    UniqueRef<AudioSessionRoutingArbitratorProxy> m_routingArbitrator;
 #endif
 
 #if PLATFORM(COCOA)
@@ -693,8 +698,6 @@ private:
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     std::unique_ptr<UserMediaCaptureManagerProxy> m_userMediaCaptureManagerProxy;
 #endif
-
-    unsigned m_suspendedPageCount { 0 };
 
     bool m_hasCommittedAnyProvisionalLoads { false };
     bool m_isPrewarmed;
@@ -754,6 +757,9 @@ private:
 #endif
     std::unique_ptr<WebLockRegistryProxy> m_webLockRegistry;
     std::unique_ptr<WebPermissionControllerProxy> m_webPermissionController;
+#if ENABLE(ROUTING_ARBITRATION)
+    UniqueRef<AudioSessionRoutingArbitratorProxy> m_routingArbitrator;
+#endif
     bool m_isConnectedToHardwareConsole { true };
 #if PLATFORM(MAC)
     bool m_platformSuspendDidReleaseNearSuspendedAssertion { false };

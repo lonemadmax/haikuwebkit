@@ -118,7 +118,7 @@ void CurlRequest::start()
         break;
     }
 
-    if (m_request.url().isLocalFile())
+    if (m_request.url().protocolIsFile())
         invokeDidReceiveResponseForFile(m_request.url());
     else
         startWithJobManager();
@@ -531,8 +531,8 @@ int CurlRequest::didReceiveDebugInfo(curl_infotype type, char* data, size_t size
         for (auto& header : headerFields) {
             auto pos = header.find(':');
             if (pos != notFound) {
-                auto key = header.left(pos).stripWhiteSpace();
-                auto value = header.substring(pos + 1).stripWhiteSpace();
+                auto key = header.left(pos).trim(deprecatedIsSpaceOrNewline);
+                auto value = header.substring(pos + 1).trim(deprecatedIsSpaceOrNewline);
                 m_requestHeaders.add(key, value);
             }
         }
@@ -599,7 +599,7 @@ void CurlRequest::invokeDidReceiveResponseForFile(const URL& url)
     // Run the code here for local files to resolve the issue.
 
     ASSERT(isMainThread());
-    ASSERT(url.isLocalFile());
+    ASSERT(url.protocolIsFile());
 
     // Determine the MIME type based on the path.
     auto mimeType = MIMETypeRegistry::mimeTypeForPath(url.path().toString());

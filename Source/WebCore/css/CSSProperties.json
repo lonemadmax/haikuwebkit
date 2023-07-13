@@ -470,7 +470,6 @@
                 }
             ],
             "codegen-properties": {
-                "custom": "Inherit|Value",
                 "high-priority": true,
                 "parser-function": "consumeDisplay",
                 "parser-grammar-unused": "[ <display-outside> || <display-inside> ] | <display-listitem> | <display-internal> | <display-box> | <display-legacy> | <-webkit-display>",
@@ -6300,6 +6299,25 @@
                 "url": "https://www.w3.org/TR/CSS22/text.html#propdef-white-space"
             }
         },
+        "white-space-collapse": {
+            "inherited": true,
+            "values": [
+                "collapse",
+                "discard",
+                "preserve",
+                "preserve-breaks",
+                "preserve-spaces",
+                "break-spaces"
+            ],
+            "codegen-properties": {
+                "settings-flag": "cssWhiteSpaceCollapseEnabled",
+                "parser-grammar": "<<values>>"
+            },
+            "specification": {
+                "category": "css-text",
+                "url": "https://www.w3.org/TR/css-text-4/#white-space-collapsing"
+            }
+        },
         "widows": {
             "inherited": true,
             "codegen-properties": {
@@ -7791,19 +7809,19 @@
                 "url": "https://www.w3.org/TR/css-grid-1/#propdef-grid-auto-flow"
             }
         },
-        "-webkit-hyphenate-character": {
+        "hyphenate-character": {
             "inherited": true,
             "codegen-properties": {
+                "aliases": [
+                    "-webkit-hyphenate-character"
+                ],
                 "name-for-methods": "HyphenationString",
                 "converter": "StringOrAutoAtom",
                 "parser-grammar": "auto | <string>"
             },
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text",
-                "url": "https://www.w3.org/TR/css-text-4/#hyphenate-character"
+                "url": "https://drafts.csswg.org/css-text-4/#propdef-hyphenate-character"
             }
         },
         "-webkit-hyphenate-limit-after": {
@@ -7839,7 +7857,7 @@
                 "url": "https://www.w3.org/TR/css-text-4/#propdef-hyphenate-limit-lines"
             }
         },
-        "-webkit-hyphens": {
+        "hyphens": {
             "inherited": true,
             "values": [
                 "none",
@@ -7848,16 +7866,14 @@
             ],
             "codegen-properties": {
                 "aliases": [
-                    "-epub-hyphens"
+                    "-epub-hyphens",
+                    "-webkit-hyphens"
                 ],
                 "parser-grammar": "<<values>>"
             },
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text",
-                "url": "https://www.w3.org/TR/css-text-3/#hyphens-property"
+                "url": "https://drafts.csswg.org/css-text-3/"
             }
         },
         "-webkit-initial-letter": {
@@ -9285,6 +9301,19 @@
             "specification": {
                 "category": "css-scroll-snap",
                 "url": "https://drafts.csswg.org/css-scroll-snap-1/#propdef-scroll-snap-stop"
+            }
+        },
+        "scrollbar-gutter": {
+            "codegen-properties": {
+                "converter": "ScrollbarGutter",
+                "parser-function": "consumeScrollbarGutter",
+                "parser-grammar-unused": "auto | [ stable && both-edges? ]",
+                "parser-grammar-unused-reason": "Needs support for '&&' groups and optionals.",
+                "settings-flag": "cssScrollbarGutterEnabled"
+            },
+            "specification": {
+                "category": "css-overflow",
+                "url": "https://drafts.csswg.org/css-overflow/#scrollbar-gutter-property"
             }
         },
         "scrollbar-width": {

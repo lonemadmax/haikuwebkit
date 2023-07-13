@@ -1241,6 +1241,20 @@ CSSScrollAnchoringEnabled:
     WebCore:
       default: false
 
+CSSScrollbarGutterEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS scrollbar-gutter property"
+  humanReadableDescription: "Enable scrollbar-gutter CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSScrollbarWidthEnabled:
   type: bool
   status: testable
@@ -1395,6 +1409,20 @@ CSSTypedOMEnabled:
       default: true
     WebCore:
       default: true
+
+CSSWhiteSpaceCollapseEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS white-space-collapse property"
+  humanReadableDescription: "Enable white-space-collapse CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 # FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
 CacheAPIEnabled:
@@ -3902,7 +3930,7 @@ ManagedMediaSourceEnabled:
   category: media
   humanReadableName: "Managed Media Source API"
   humanReadableDescription: "Managed Media Source API"
-  condition: ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE)
+  condition: ENABLE(MANAGED_MEDIA_SOURCE)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -3937,7 +3965,7 @@ ManagedMediaSourceNeedsAirPlay:
   category: media
   humanReadableName: "Managed Media Source Requires AirPlay source"
   humanReadableDescription: "Managed Media Source Requires AirPlay source"
-  condition: ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(MEDIA_SOURCE) && ENABLE(WIRELESS_PLAYBACK_TARGET)
+  condition: ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(WIRELESS_PLAYBACK_TARGET)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -5222,6 +5250,18 @@ RequestVideoFrameCallbackEnabled:
       "PLATFORM(COCOA) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)" : true
       "USE(GSTREAMER)": true
       default: false
+
+RequireUAGetDisplayMediaPrompt:
+  type: bool
+  status: internal
+  humanReadableName: "Require User Agent getDisplayMedia prompt"
+  humanReadableDescription: "Require and use User Agent getDisplayMedia prompt"
+  condition: HAVE(SC_CONTENT_SHARING_PICKER)
+  defaultValue:
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 RequiresPageVisibilityToPlayAudio:
   type: bool

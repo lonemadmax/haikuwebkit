@@ -1547,7 +1547,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
 
     URL url = initialURL;
 #if PLATFORM(COCOA)
-    if (url.isLocalFile() && !frame->loader().willLoadMediaElementURL(url, *this)) {
+    if (url.protocolIsFile() && !frame->loader().willLoadMediaElementURL(url, *this)) {
         mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
         return;
     }
@@ -7360,6 +7360,9 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
         setIsPlayingToWirelessTarget(false);
 #endif
 
+    if (auto player = std::exchange(m_player, { }))
+        player->invalidate();
+
     m_player = MediaPlayer::create(*this);
     m_player->setBufferingPolicy(m_bufferingPolicy);
     m_player->setPreferredDynamicRangeMode(m_overrideDynamicRangeMode.value_or(preferredDynamicRangeMode(document().view())));
@@ -8334,11 +8337,11 @@ String HTMLMediaElement::mediaSessionTitle() const
     if (!document().page() || document().page()->usesEphemeralSession())
         return emptyString();
 
-    auto title = String(attributeWithoutSynchronization(titleAttr)).stripWhiteSpace().simplifyWhiteSpace();
+    auto title = String(attributeWithoutSynchronization(titleAttr)).trim(deprecatedIsSpaceOrNewline).simplifyWhiteSpace(deprecatedIsSpaceOrNewline);
     if (!title.isEmpty())
         return title;
 
-    title = document().title().stripWhiteSpace().simplifyWhiteSpace();
+    title = document().title().trim(deprecatedIsSpaceOrNewline).simplifyWhiteSpace(deprecatedIsSpaceOrNewline);
     if (!title.isEmpty())
         return title;
 
@@ -8701,7 +8704,7 @@ void HTMLMediaElement::setBufferingPolicy(BufferingPolicy policy)
     m_bufferingPolicy = policy;
     if (m_player)
         m_player->setBufferingPolicy(policy);
-#if ENABLE(MEDIA_SOURCE)
+#if ENABLE(MANAGED_MEDIA_SOURCE)
     if (m_mediaSource && policy == BufferingPolicy::PurgeResources)
         m_mediaSource->memoryPressure();
 #endif
@@ -8712,7 +8715,7 @@ void HTMLMediaElement::purgeBufferedDataIfPossible()
     ALWAYS_LOG(LOGIDENTIFIER);
 
     bool isPausedOrMSE = [&] {
-#if ENABLE(MEDIA_SOURCE)
+#if ENABLE(MANAGED_MEDIA_SOURCE)
         if (m_mediaSource)
             return true;
 #endif

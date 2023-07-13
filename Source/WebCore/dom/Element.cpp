@@ -2310,7 +2310,7 @@ URL Element::absoluteLinkURL() const
     if (linkAttribute.isEmpty())
         return URL();
 
-    return document().completeURL(stripLeadingAndTrailingHTMLSpaces(linkAttribute));
+    return document().completeURL(linkAttribute);
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -2961,6 +2961,11 @@ ShadowRoot& Element::createUserAgentShadowRoot()
 
 inline void Node::setCustomElementState(CustomElementState state)
 {
+    RELEASE_ASSERT(is<Element>(this));
+    Style::PseudoClassChangeInvalidation styleInvalidation(downcast<Element>(*this),
+        CSSSelector::PseudoClassDefined,
+        state == CustomElementState::Custom || state == CustomElementState::Uncustomized
+    );
     auto bitfields = rareDataBitfields();
     bitfields.customElementState = static_cast<uint16_t>(state);
     setRareDataBitfields(bitfields);
@@ -2972,7 +2977,6 @@ void Element::setIsDefinedCustomElement(JSCustomElementInterface& elementInterfa
     auto& data = ensureElementRareData();
     if (!data.customElementReactionQueue())
         data.setCustomElementReactionQueue(makeUnique<CustomElementReactionQueue>(elementInterface));
-    invalidateStyleForSubtree();
     InspectorInstrumentation::didChangeCustomElementState(*this);
 }
 
@@ -5044,7 +5048,7 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
     if (resolveURLs == ResolveURLs::No)
         return urlString;
 
-    const auto& maskedURLStringForBindings = document().maskedURLForBindings().string();
+    static MainThreadNeverDestroyed<const AtomString> maskedURLStringForBindings(document().maskedURLStringForBindings());
     URL completeURL = base.isNull() ? document().completeURL(urlString) : URL(base, urlString);
 
     switch (resolveURLs) {
@@ -5053,15 +5057,15 @@ String Element::resolveURLStringIfNeeded(const String& urlString, ResolveURLs re
 
     case ResolveURLs::YesExcludingURLsForPrivacy: {
         if (document().shouldMaskURLForBindings(completeURL))
-            return maskedURLStringForBindings;
-        if (!document().url().isLocalFile())
+            return maskedURLStringForBindings.get();
+        if (!document().url().protocolIsFile())
             return completeURL.string();
         break;
     }
 
     case ResolveURLs::NoExcludingURLsForPrivacy:
         if (document().shouldMaskURLForBindings(completeURL))
-            return maskedURLStringForBindings;
+            return maskedURLStringForBindings.get();
         break;
 
     case ResolveURLs::No:

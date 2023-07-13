@@ -254,7 +254,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (WebCore::AccessibilityObject *)axBackingObject
 {
-    return m_axObject;
+    return m_axObject.get();
 }
 
 - (void)detach
@@ -1113,7 +1113,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
         // https://bugs.webkit.org/show_bug.cgi?id=223492
         return self.axBackingObject->isKeyboardFocusable()
             && [self accessibilityElementCount] == 0
-            && self.axBackingObject->descriptionAttributeValue().find(isNotSpaceOrNewline) != notFound;
+            && self.axBackingObject->descriptionAttributeValue().find(deprecatedIsNotSpaceOrNewline) != notFound;
     case AccessibilityRole::Ignored:
     case AccessibilityRole::Presentational:
     case AccessibilityRole::Unknown:
@@ -2377,18 +2377,18 @@ static RenderObject* rendererForView(WAKView* view)
     if (![self _prepareAccessibilityCall] || !self.axBackingObject->isTextControl())
         return NSMakeRange(NSNotFound, 0);
 
-    PlainTextRange textRange = self.axBackingObject->selectedTextRange();
-    if (textRange.isNull())
+    auto textRange = self.axBackingObject->selectedTextRange();
+    if (!textRange.location && !textRange.length)
         return NSMakeRange(NSNotFound, 0);
-    return NSMakeRange(textRange.start, textRange.length);
+    return textRange;
 }
 
 - (void)_accessibilitySetSelectedTextRange:(NSRange)range
 {
     if (![self _prepareAccessibilityCall])
         return;
-    
-    self.axBackingObject->setSelectedTextRange(PlainTextRange(range.location, range.length));
+
+    self.axBackingObject->setSelectedTextRange(range);
 }
 
 - (BOOL)accessibilityReplaceRange:(NSRange)range withText:(NSString *)string
@@ -2396,7 +2396,7 @@ static RenderObject* rendererForView(WAKView* view)
     if (![self _prepareAccessibilityCall])
         return NO;
 
-    return self.axBackingObject->replaceTextInRange(string, PlainTextRange(range));
+    return self.axBackingObject->replaceTextInRange(string, range);
 }
 
 - (BOOL)accessibilityInsertText:(NSString *)text

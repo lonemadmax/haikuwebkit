@@ -152,14 +152,15 @@ void MediaPlayerPrivateRemote::prepareForPlayback(bool privateMode, MediaPlayer:
     auto scale = player->playerContentsScale();
     auto preferredDynamicRangeMode = m_player->preferredDynamicRangeMode();
     auto presentationSize = player->presentationSize();
+    auto pitchCorrectionAlgorithm = player->pitchCorrectionAlgorithm();
 
-    connection().send(Messages::RemoteMediaPlayerProxy::PrepareForPlayback(privateMode, preload, preservesPitch, prepare, presentationSize, scale, preferredDynamicRangeMode), m_id);
+    connection().send(Messages::RemoteMediaPlayerProxy::PrepareForPlayback(privateMode, preload, preservesPitch, pitchCorrectionAlgorithm, prepare, presentationSize, scale, preferredDynamicRangeMode), m_id);
 }
 
 void MediaPlayerPrivateRemote::load(const URL& url, const ContentType& contentType, const String& keySystem)
 {
     std::optional<SandboxExtension::Handle> sandboxExtensionHandle;
-    if (url.isLocalFile()) {
+    if (url.protocolIsFile()) {
         SandboxExtension::Handle handle;
         auto fileSystemPath = url.fileSystemPath();
 
@@ -540,7 +541,8 @@ void MediaPlayerPrivateRemote::updateCachedState(RemoteMediaPlayerState&& state)
     m_cachedState.didPassCORSAccessCheck = state.didPassCORSAccessCheck;
     m_cachedState.documentIsCrossOrigin = state.documentIsCrossOrigin;
 
-    m_cachedBufferedTimeRanges = state.bufferedRanges;
+    if (state.bufferedRanges)
+        m_cachedBufferedTimeRanges = *state.bufferedRanges;
 }
 
 bool MediaPlayerPrivateRemote::shouldIgnoreIntrinsicSize()

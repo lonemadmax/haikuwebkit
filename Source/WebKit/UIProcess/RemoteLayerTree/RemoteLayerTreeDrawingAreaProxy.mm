@@ -147,6 +147,15 @@ void RemoteLayerTreeDrawingAreaProxy::sendUpdateGeometry()
     }, m_identifier);
 }
 
+void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeNotTriggered()
+{
+    m_commitLayerTreeMessageState = Idle;
+    pauseDisplayRefreshCallbacks();
+#if ENABLE(ASYNC_SCROLLING)
+    m_webPageProxy.scrollingCoordinatorProxy()->applyScrollingTreeLayerPositionsAfterCommit();
+#endif
+}
+
 void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(TransactionID transactionID)
 {
     m_pendingLayerTreeTransactionID = transactionID;
@@ -154,8 +163,10 @@ void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(TransactionID transact
 
 void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connection, const Vector<std::pair<RemoteLayerTreeTransaction, RemoteScrollingCoordinatorTransaction>>& transactions)
 {
+    [CATransaction begin];
     for (auto& transaction : transactions)
         commitLayerTreeTransaction(connection, transaction.first, transaction.second);
+    [CATransaction commit];
 }
 
 void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection& connection, const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction)
@@ -230,7 +241,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
 
     if (!layerTreeTransaction.isMainFrameProcessTransaction())
         connection.send(Messages::DrawingArea::DisplayDidRefresh(), m_identifier);
-    else if (std::exchange(m_didUpdateMessageState, NeedsDidUpdate) == MissedCommit)
+    else if (std::exchange(m_commitLayerTreeMessageState, NeedsDisplayDidRefresh) == MissedCommit)
         didRefreshDisplay();
 
     scheduleDisplayRefreshCallbacks();
@@ -387,13 +398,14 @@ void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay()
     if (!m_webPageProxy.hasRunningProcess())
         return;
 
-    if (m_didUpdateMessageState != NeedsDidUpdate) {
-        m_didUpdateMessageState = MissedCommit;
+    if (m_commitLayerTreeMessageState != NeedsDisplayDidRefresh) {
+        if (m_commitLayerTreeMessageState == CommitLayerTreePending)
+            m_commitLayerTreeMessageState = MissedCommit;
         pauseDisplayRefreshCallbacks();
         return;
     }
     
-    m_didUpdateMessageState = DoesNotNeedDidUpdate;
+    m_commitLayerTreeMessageState = CommitLayerTreePending;
 
     m_webPageProxy.scrollingCoordinatorProxy()->sendScrollingTreeNodeDidScroll();
 
@@ -415,7 +427,7 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStat
 
     // We must send the didUpdate message before blocking on the next commit, otherwise
     // we can be guaranteed that the next commit won't come until after the waitForAndDispatchImmediately times out.
-    if (m_didUpdateMessageState != DoesNotNeedDidUpdate)
+    if (m_commitLayerTreeMessageState == NeedsDisplayDidRefresh)
         didRefreshDisplay();
 
     static Seconds activityStateUpdateTimeout = [] {

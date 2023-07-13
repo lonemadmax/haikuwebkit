@@ -1243,7 +1243,7 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
         return nullptr;
     }
 
-    auto navigation = m_navigationState->createReloadNavigation(m_backForwardList->currentItem());
+    auto navigation = m_navigationState->createReloadNavigation(process().coreProcessIdentifier(), m_backForwardList->currentItem());
 
     String url = currentURL();
     if (!url.isEmpty()) {
@@ -1259,6 +1259,9 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
     // We allow stale content when reloading a WebProcess that's been killed or crashed.
     send(Messages::WebPage::GoToBackForwardItem(navigation->navigationID(), m_backForwardList->currentItem()->itemID(), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, std::nullopt, topPrivatelyControlledDomain));
     m_process->startResponsivenessTimer();
+
+    if (shouldForceForegroundPriorityForClientNavigation())
+        navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client reload"_s));
 
     return navigation;
 }
@@ -1438,7 +1441,7 @@ void WebPageProxy::tryCloseTimedOut()
 
 void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& process, const URL& url, const URL& resourceDirectoryURL, SandboxExtension::Handle& sandboxExtensionHandle, bool checkAssumedReadAccessToResourceURL)
 {
-    if (!url.isLocalFile())
+    if (!url.protocolIsFile())
         return;
 
 #if HAVE(AUDIT_TOKEN)
@@ -1567,7 +1570,7 @@ RefPtr<API::Navigation> WebPageProxy::loadRequest(ResourceRequest&& request, Sho
     if (!hasRunningProcess())
         launchProcess(RegistrableDomain { request.url() }, ProcessLaunchReason::InitialProcess);
 
-    auto navigation = m_navigationState->createLoadRequestNavigation(ResourceRequest(request), m_backForwardList->currentItem());
+    auto navigation = m_navigationState->createLoadRequestNavigation(process().coreProcessIdentifier(), ResourceRequest(request), m_backForwardList->currentItem());
 
     if (shouldForceForegroundPriorityForClientNavigation())
         navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client navigation"_s));
@@ -1627,7 +1630,7 @@ void WebPageProxy::loadRequestWithNavigationShared(Ref<WebProcessProxy>&& proces
 
     process->markProcessAsRecentlyUsed();
 
-    if (!process->isLaunching() || !url.isLocalFile())
+    if (!process->isLaunching() || !url.protocolIsFile())
         process->send(Messages::WebPage::LoadRequest(loadParameters), webPageID);
     else
         process->send(Messages::WebPage::LoadRequestWaitingForProcessLaunch(loadParameters, internals().pageLoadState.resourceDirectoryURL(), internals().identifier, true), webPageID);
@@ -1654,7 +1657,7 @@ RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, cons
         launchProcess({ }, ProcessLaunchReason::InitialProcess);
 
     URL fileURL { fileURLString };
-    if (!fileURL.isLocalFile()) {
+    if (!fileURL.protocolIsFile()) {
         WEBPAGEPROXY_RELEASE_LOG(Loading, "loadFile: file is not local");
         return nullptr;
     }
@@ -1664,13 +1667,13 @@ RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, cons
         resourceDirectoryURL = URL({ }, "file:///"_s);
     else {
         resourceDirectoryURL = URL { resourceDirectoryURLString };
-        if (!resourceDirectoryURL.isLocalFile()) {
+        if (!resourceDirectoryURL.protocolIsFile()) {
             WEBPAGEPROXY_RELEASE_LOG(Loading, "loadFile: resource URL is not local");
             return nullptr;
         }
     }
 
-    auto navigation = m_navigationState->createLoadRequestNavigation(ResourceRequest(fileURL), m_backForwardList->currentItem());
+    auto navigation = m_navigationState->createLoadRequestNavigation(process().coreProcessIdentifier(), ResourceRequest(fileURL), m_backForwardList->currentItem());
 
     if (shouldForceForegroundPriorityForClientNavigation())
         navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client navigation"_s));
@@ -1722,7 +1725,7 @@ RefPtr<API::Navigation> WebPageProxy::loadData(const IPC::DataReference& data, c
     if (!hasRunningProcess())
         launchProcess({ }, ProcessLaunchReason::InitialProcess);
 
-    auto navigation = m_navigationState->createLoadDataNavigation(makeUnique<API::SubstituteData>(Vector(data), MIMEType, encoding, baseURL, userData));
+    auto navigation = m_navigationState->createLoadDataNavigation(process().coreProcessIdentifier(), makeUnique<API::SubstituteData>(Vector(data), MIMEType, encoding, baseURL, userData));
 
     if (shouldForceForegroundPriorityForClientNavigation())
         navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client navigation"_s));
@@ -1788,7 +1791,7 @@ RefPtr<API::Navigation> WebPageProxy::loadSimulatedRequest(WebCore::ResourceRequ
     if (!hasRunningProcess())
         launchProcess(RegistrableDomain { simulatedRequest.url() }, ProcessLaunchReason::InitialProcess);
 
-    auto navigation = m_navigationState->createSimulatedLoadWithDataNavigation(ResourceRequest(simulatedRequest), makeUnique<API::SubstituteData>(Vector(data), ResourceResponse(simulatedResponse), WebCore::SubstituteData::SessionHistoryVisibility::Visible), m_backForwardList->currentItem());
+    auto navigation = m_navigationState->createSimulatedLoadWithDataNavigation(process().coreProcessIdentifier(), ResourceRequest(simulatedRequest), makeUnique<API::SubstituteData>(Vector(data), ResourceResponse(simulatedResponse), WebCore::SubstituteData::SessionHistoryVisibility::Visible), m_backForwardList->currentItem());
 
     if (shouldForceForegroundPriorityForClientNavigation())
         navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client navigation"_s));
@@ -1869,9 +1872,9 @@ void WebPageProxy::loadAlternateHTML(Ref<WebCore::DataSegment>&& htmlData, const
         process->markProcessAsRecentlyUsed();
         process->assumeReadAccessToBaseURL(*this, baseURL.string());
         process->assumeReadAccessToBaseURL(*this, unreachableURL.string());
-        if (baseURL.isLocalFile())
+        if (baseURL.protocolIsFile())
             process->addPreviouslyApprovedFileURL(baseURL);
-        if (unreachableURL.isLocalFile())
+        if (unreachableURL.protocolIsFile())
             process->addPreviouslyApprovedFileURL(unreachableURL);
         send(Messages::WebPage::LoadAlternateHTML(loadParameters));
         process->startResponsivenessTimer();
@@ -1937,7 +1940,7 @@ RefPtr<API::Navigation> WebPageProxy::reload(OptionSet<WebCore::ReloadOption> op
     if (!hasRunningProcess())
         return launchProcessForReload();
     
-    auto navigation = m_navigationState->createReloadNavigation(m_backForwardList->currentItem());
+    auto navigation = m_navigationState->createReloadNavigation(process().coreProcessIdentifier(), m_backForwardList->currentItem());
 
     if (!url.isEmpty()) {
         auto transaction = internals().pageLoadState.transaction();
@@ -1952,6 +1955,9 @@ RefPtr<API::Navigation> WebPageProxy::reload(OptionSet<WebCore::ReloadOption> op
     m_process->markProcessAsRecentlyUsed();
     send(Messages::WebPage::Reload(navigation->navigationID(), options, sandboxExtensionHandle));
     m_process->startResponsivenessTimer();
+
+    if (shouldForceForegroundPriorityForClientNavigation())
+        navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client reload"_s));
 
 #if ENABLE(SPEECH_SYNTHESIS)
     resetSpeechSynthesizer();
@@ -2025,7 +2031,7 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListItem
 
     RefPtr<API::Navigation> navigation;
     if (!m_backForwardList->currentItem()->itemIsInSameDocument(item))
-        navigation = m_navigationState->createBackForwardNavigation(item, m_backForwardList->currentItem(), frameLoadType);
+        navigation = m_navigationState->createBackForwardNavigation(process().coreProcessIdentifier(), item, m_backForwardList->currentItem(), frameLoadType);
 
     auto transaction = internals().pageLoadState.transaction();
     internals().pageLoadState.setPendingAPIRequest(transaction, { navigation ? navigation->navigationID() : 0, item.url() });
@@ -3180,6 +3186,13 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
         processNextQueuedMouseEvent();
 }
 
+void WebPageProxy::dispatchMouseDidMoveOverElementAsynchronously(const NativeWebMouseEvent& event)
+{
+    sendWithAsyncReply(Messages::WebPage::PerformHitTestForMouseEvent { event }, [this, protectedThis = Ref { *this }](WebHitTestResultData&& hitTestResult, OptionSet<WebEventModifier> modifiers, UserData&& userData) {
+        this->mouseDidMoveOverElement(WTFMove(hitTestResult), modifiers, WTFMove(userData));
+    });
+}
+
 void WebPageProxy::processNextQueuedMouseEvent()
 {
     if (!hasRunningProcess())
@@ -3792,7 +3805,7 @@ static bool shouldTreatURLProtocolAsAppBound(const URL& requestURL, bool isRunni
             || requestURL.protocolIsAbout()
             || requestURL.protocolIsData()
             || requestURL.protocolIsBlob()
-            || requestURL.isLocalFile()
+            || requestURL.protocolIsFile()
             || requestURL.protocolIsJavaScript());
 }
 
@@ -3961,7 +3974,7 @@ void WebPageProxy::receivedNavigationPolicyDecision(WebProcessProxy& sourceProce
         std::optional<SandboxExtension::Handle> optionalHandle;
         if (policyAction == PolicyAction::Use && item) {
             URL fullURL { item->url() };
-            if (fullURL.protocolIs("file"_s)) {
+            if (fullURL.protocolIsFile()) {
                 SandboxExtension::Handle sandboxExtensionHandle;
                 maybeInitializeSandboxExtensionHandle(processForNavigation.get(), fullURL, item->resourceDirectoryURL(), sandboxExtensionHandle);
                 optionalHandle = WTFMove(sandboxExtensionHandle);
@@ -4066,8 +4079,9 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
     LOG(Loading, "Continuing navigation %" PRIu64 " '%s' in a new web process", navigation.navigationID(), navigation.loggingString());
     RELEASE_ASSERT(!newProcess->isInProcessCache());
     ASSERT(shouldTreatAsContinuingLoad != ShouldTreatAsContinuingLoad::No);
+    navigation.setProcessID(newProcess->coreProcessIdentifier());
 
-    if (navigation.currentRequest().url().isLocalFile())
+    if (navigation.currentRequest().url().protocolIsFile())
         newProcess->addPreviouslyApprovedFileURL(navigation.currentRequest().url());
 
     if (m_provisionalPage) {
@@ -4098,7 +4112,7 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         return;
     }
 
-    m_provisionalPage = makeUnique<ProvisionalPageProxy>(*this, WTFMove(newProcess), WTFMove(suspendedPage), navigation.navigationID(), isServerSideRedirect, navigation.currentRequest(), processSwapRequestedByClient, isProcessSwappingOnNavigationResponse, websitePolicies.get());
+    m_provisionalPage = makeUnique<ProvisionalPageProxy>(*this, WTFMove(newProcess), WTFMove(suspendedPage), navigation, isServerSideRedirect, navigation.currentRequest(), processSwapRequestedByClient, isProcessSwappingOnNavigationResponse, websitePolicies.get());
 
     auto continuation = [this, protectedThis = Ref { *this }, navigation = Ref { navigation }, shouldTreatAsContinuingLoad, websitePolicies = WTFMove(websitePolicies), existingNetworkResourceLoadIdentifierToResume]() mutable {
         if (auto* item = navigation->targetItem()) {
@@ -5254,7 +5268,12 @@ void WebPageProxy::updateRemoteFrameSize(WebCore::FrameIdentifier frameID, WebCo
 {
     if (!drawingArea())
         return;
-    auto* subframePageProxy = subframePageProxyForFrameID(frameID);
+    auto* frame = WebFrameProxy::webFrame(frameID);
+    if (!frame) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+    auto subframePageProxy = internals().domainToSubframePageProxyMap.get(RegistrableDomain(frame->url()));
     if (!subframePageProxy)
         return;
     subframePageProxy->send(Messages::WebPage::UpdateFrameSize(frameID, size));
@@ -5287,15 +5306,16 @@ void WebPageProxy::setCanUseCredentialStorage(bool canUseCredentialStorage)
 
 void WebPageProxy::didDestroyNavigation(uint64_t navigationID)
 {
-    MESSAGE_CHECK(m_process, WebNavigationState::NavigationMap::isValidKey(navigationID));
+    didDestroyNavigationShared(m_process.copyRef(), navigationID);
+}
+
+void WebPageProxy::didDestroyNavigationShared(Ref<WebProcessProxy>&& process, uint64_t navigationID)
+{
+    MESSAGE_CHECK(process, WebNavigationState::NavigationMap::isValidKey(navigationID));
 
     PageClientProtector protector(pageClient());
 
-    // On process-swap, the previous process tries to destroy the navigation but the provisional process is actually taking over the navigation.
-    if (m_provisionalPage && m_provisionalPage->navigationID() == navigationID)
-        return;
-
-    m_navigationState->didDestroyNavigation(navigationID);
+    m_navigationState->didDestroyNavigation(process->coreProcessIdentifier(), navigationID);
 }
 
 void WebPageProxy::didStartProvisionalLoadForFrame(FrameIdentifier frameID, FrameInfoData&& frameInfo, ResourceRequest&& request, uint64_t navigationID, URL&& url, URL&& unreachableURL, const UserData& userData)
@@ -5703,6 +5723,8 @@ void WebPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameInfoData&
 #endif
 #if ENABLE(NETWORK_CONNECTION_INTEGRITY)
         updateAllowedLookalikeCharacterStringsIfNeeded();
+        if (navigation && navigation->websitePolicies())
+            m_networkConnectionIntegrityPolicies = navigation->websitePolicies()->networkConnectionIntegrityPolicy();
 #endif
     }
 
@@ -5742,15 +5764,6 @@ void WebPageProxy::didFinishDocumentLoadForFrame(FrameIdentifier frameID, uint64
         internals().didFinishDocumentLoadForMainFrameTimestamp = MonotonicTime::now();
 #endif
     }
-}
-
-SubframePageProxy* WebPageProxy::subframePageProxyForFrameID(WebCore::FrameIdentifier identifier) const
-{
-    auto& internals = this->internals();
-    auto domainIterator = internals.frameIdentifierToDomainMap.find(identifier);
-    if (domainIterator == internals.frameIdentifierToDomainMap.end())
-        return nullptr;
-    return internals.domainToSubframePageProxyMap.get(domainIterator->value);
 }
 
 void WebPageProxy::createRemoteSubframesInOtherProcesses(WebFrameProxy& newFrame)
@@ -5808,7 +5821,8 @@ void WebPageProxy::didFinishLoadForFrame(FrameIdentifier frameID, FrameInfoData&
 
         frame->didFinishLoad();
 
-        auto* subframePageProxy = subframePageProxyForFrameID(frameID);
+        auto subframePageProxy = internals().domainToSubframePageProxyMap.get(RegistrableDomain(frame->url()));
+
         if (subframePageProxy && frame->parentFrame())
             frame->parentFrame()->process().send(Messages::WebPage::DidFinishLoadInAnotherProcess(frameID), webPageID());
 
@@ -5940,7 +5954,7 @@ void WebPageProxy::didSameDocumentNavigationForFrameViaJSHistoryAPI(WebCore::Fra
     // FIXME: We should message check that navigationID is not zero here, but it's currently zero for some navigations through the back/forward cache.
     RefPtr<API::Navigation> navigation;
     if (frame->isMainFrame()) {
-        navigation = navigationState().createLoadRequestNavigation(ResourceRequest(url), m_backForwardList->currentItem());
+        navigation = navigationState().createLoadRequestNavigation(process().coreProcessIdentifier(), ResourceRequest(url), m_backForwardList->currentItem());
         navigation->setLastNavigationAction(WTFMove(navigationActionData));
     }
 
@@ -5967,7 +5981,7 @@ void WebPageProxy::didSameDocumentNavigationForFrameViaJSHistoryAPI(WebCore::Fra
         pageClient().didSameDocumentNavigationForMainFrame(navigationType);
 
     if (navigation)
-        navigationState().didDestroyNavigation(navigation->navigationID());
+        navigationState().didDestroyNavigation(navigation->processID(), navigation->navigationID());
 }
 
 void WebPageProxy::didChangeMainDocument(FrameIdentifier frameID)
@@ -6001,6 +6015,11 @@ void WebPageProxy::viewIsBecomingVisible()
     if (m_userMediaPermissionRequestManager)
         m_userMediaPermissionRequestManager->viewIsBecomingVisible();
 #endif
+}
+
+void WebPageProxy::processIsNoLongerAssociatedWithPage(WebProcessProxy& process)
+{
+    m_navigationState->clearNavigationsFromProcess(process.coreProcessIdentifier());
 }
 
 void WebPageProxy::didReceiveTitleForFrame(FrameIdentifier frameID, const String& title, const UserData& userData)
@@ -6121,7 +6140,7 @@ void WebPageProxy::decidePolicyForNavigationActionAsyncShared(Ref<WebProcessProx
     MESSAGE_CHECK(process, frame);
 
     auto sender = PolicyDecisionSender::create(identifier, [webPageID, frameID, listenerID, process, url = request.url()] (const auto& policyDecision) {
-        if (policyDecision.policyAction == PolicyAction::Use && url.isLocalFile())
+        if (policyDecision.policyAction == PolicyAction::Use && url.protocolIsFile())
             process->addPreviouslyApprovedFileURL(url);
 
         process->send(Messages::WebPage::DidReceivePolicyDecision(frameID, listenerID, policyDecision
@@ -6191,18 +6210,18 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
                 auto* fromItem = navigationActionData.sourceBackForwardItemIdentifier ? m_backForwardList->itemForID(*navigationActionData.sourceBackForwardItemIdentifier) : nullptr;
                 if (!fromItem)
                     fromItem = m_backForwardList->currentItem();
-                navigation = m_navigationState->createBackForwardNavigation(*item, fromItem, FrameLoadType::IndexedBackForward);
+                navigation = m_navigationState->createBackForwardNavigation(process->coreProcessIdentifier(), *item, fromItem, FrameLoadType::IndexedBackForward);
             }
         }
         if (!navigation)
-            navigation = m_navigationState->createLoadRequestNavigation(ResourceRequest(request), m_backForwardList->currentItem());
+            navigation = m_navigationState->createLoadRequestNavigation(process->coreProcessIdentifier(), ResourceRequest(request), m_backForwardList->currentItem());
     }
 
     navigationID = navigation->navigationID();
 
     // Make sure the provisional page always has the latest navigationID.
     if (m_provisionalPage && &m_provisionalPage->process() == process.ptr())
-        m_provisionalPage->setNavigationID(navigationID);
+        m_provisionalPage->setNavigation(*navigation);
 
     navigation->setCurrentRequest(ResourceRequest(request), process->coreProcessIdentifier());
     navigation->setLastNavigationAction(navigationActionData);
@@ -6925,10 +6944,9 @@ void WebPageProxy::setStatusText(const String& text)
     m_uiClient->setStatusText(this, text);
 }
 
-void WebPageProxy::mouseDidMoveOverElement(WebHitTestResultData&& hitTestResultData, uint32_t opaqueModifiers, UserData&& userData)
+void WebPageProxy::mouseDidMoveOverElement(WebHitTestResultData&& hitTestResultData, OptionSet<WebEventModifier> modifiers, UserData&& userData)
 {
     m_lastMouseMoveHitTestResult = API::HitTestResult::create(hitTestResultData);
-    auto modifiers = OptionSet<WebEventModifier>::fromRaw(opaqueModifiers);
     m_uiClient->mouseDidMoveOverElement(*this, hitTestResultData, modifiers, m_process->transformHandlesToObjects(userData.object()).get());
     setToolTip(hitTestResultData.toolTipText);
 }
@@ -7563,8 +7581,8 @@ void WebPageProxy::backForwardAddItemShared(Ref<WebProcessProxy>&& process, Back
 #if PLATFORM(COCOA)
     if (linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::PushStateFilePathRestriction)) {
 #endif
-        ASSERT(!itemURL.isLocalFile() || process->wasPreviouslyApprovedFileURL(itemURL));
-        MESSAGE_CHECK(process, !itemURL.isLocalFile() || process->wasPreviouslyApprovedFileURL(itemURL));
+        ASSERT(!itemURL.protocolIsFile() || process->wasPreviouslyApprovedFileURL(itemURL));
+        MESSAGE_CHECK(process, !itemURL.protocolIsFile() || process->wasPreviouslyApprovedFileURL(itemURL));
 #if PLATFORM(COCOA)
     }
 #endif
@@ -8991,6 +9009,10 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
     internals().lastSentScrollingAccelerationCurve = std::nullopt;
 #endif
+
+#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
+    m_networkConnectionIntegrityPolicies = { };
+#endif
 }
 
 void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason terminationReason)
@@ -9663,6 +9685,8 @@ void WebPageProxy::setMockCaptureDevicesEnabledOverride(std::optional<bool> enab
 
 void WebPageProxy::willStartCapture(const UserMediaPermissionRequestProxy& request, CompletionHandler<void()>&& callback)
 {
+    activateMediaStreamCaptureInPage();
+
 #if ENABLE(GPU_PROCESS)
     if (!preferences().captureVideoInGPUProcessEnabled() && !preferences().captureAudioInGPUProcessEnabled())
         return callback();
@@ -11655,7 +11679,7 @@ bool WebPageProxy::checkURLReceivedFromCurrentOrPreviousWebProcess(WebProcessPro
 
 bool WebPageProxy::checkURLReceivedFromCurrentOrPreviousWebProcess(WebProcessProxy& process, const URL& url)
 {
-    if (!url.isLocalFile())
+    if (!url.protocolIsFile())
         return true;
 
     if (m_mayHaveUniversalFileReadSandboxExtension)
@@ -12525,17 +12549,22 @@ void WebPageProxy::generateTestReport(const String& message, const String& group
     send(Messages::WebPage::GenerateTestReport(message, group));
 }
 
-void WebPageProxy::addSubframePageProxyForFrameID(WebCore::FrameIdentifier frameID, WebCore::RegistrableDomain domain, UniqueRef<SubframePageProxy>&& subframePageProxy)
+void WebPageProxy::addSubframePageProxy(const WebCore::RegistrableDomain& domain, Ref<SubframePageProxy>&& subframePageProxy)
 {
-    // FIXME: Add a corresponding remove call.
-    auto& internals = this->internals();
-    internals.domainToSubframePageProxyMap.add(domain, WTFMove(subframePageProxy));
-    internals.frameIdentifierToDomainMap.add(frameID, domain);
+    internals().domainToSubframePageProxyMap.add(domain, WTFMove(subframePageProxy));
+}
+
+void WebPageProxy::removeSubpageFrameProxyIfUnused(const WebCore::RegistrableDomain& domain)
+{
+    auto& map = internals().domainToSubframePageProxyMap;
+    auto it = map.find(domain);
+    if (it != map.end() && !it->value)
+        map.remove(it);
 }
 
 SubframePageProxy* WebPageProxy::subpageFrameProxyForRegistrableDomain(WebCore::RegistrableDomain domain) const
 {
-    return internals().domainToSubframePageProxyMap.get(domain);
+    return internals().domainToSubframePageProxyMap.get(domain).get();
 }
 
 #if ENABLE(NETWORK_CONNECTION_INTEGRITY)

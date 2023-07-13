@@ -766,6 +766,7 @@ public:
 
     inline bool shouldMaskURLForBindings(const URL&) const;
     inline const URL& maskedURLForBindingsIfNeeded(const URL&) const;
+    static StaticStringImpl& maskedURLStringForBindings();
     static const URL& maskedURLForBindings();
 
     WEBCORE_EXPORT String userAgent(const URL&) const final;
@@ -1770,6 +1771,8 @@ public:
     void setAudioSessionType(DOMAudioSessionType type) { m_audioSessionType = type; }
     DOMAudioSessionType audioSessionType() const { return m_audioSessionType; }
 #endif
+
+    virtual void didChangeViewSize() { }
 
 protected:
     enum class ConstructionFlag : uint8_t {

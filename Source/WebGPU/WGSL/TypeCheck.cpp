@@ -55,6 +55,7 @@ public:
     // Statements
     void visit(AST::AssignmentStatement&) override;
     void visit(AST::CompoundAssignmentStatement&) override;
+    void visit(AST::DecrementIncrementStatement&) override;
     void visit(AST::IfStatement&) override;
     void visit(AST::PhonyAssignmentStatement&) override;
     void visit(AST::ReturnStatement&) override;
@@ -86,9 +87,15 @@ public:
     void visit(AST::ReferenceTypeName&) override;
 
 private:
+    enum class VariableKind : uint8_t {
+        Local,
+        Global,
+    };
+
     void visitFunctionBody(AST::Function&);
     void visitStructMembers(AST::Structure&);
-    void vectorFieldAccess(const Types::Vector&, AST::FieldAccessExpression&);
+    void visitVariable(AST::Variable&, VariableKind);
+    Type* vectorFieldAccess(const Types::Vector&, AST::FieldAccessExpression&);
 
     template<typename... Arguments>
     void typeError(const SourceSpan&, Arguments&&...);
@@ -101,7 +108,7 @@ private:
     Type* resolve(AST::TypeName&);
     void inferred(Type*);
     bool unify(Type*, Type*) WARN_UNUSED_RETURN;
-    bool isBottom(Type*) const;
+    bool isBottom(const Type*) const;
 
     template<typename CallArguments>
     Type* chooseOverload(const char*, const SourceSpan&, const String&, CallArguments&& valueArguments, const Vector<Type*>& typeArguments);
@@ -142,7 +149,7 @@ std::optional<FailedCheck> TypeChecker::check()
         visitStructMembers(structure);
 
     for (auto& variable : m_shaderModule.variables())
-        visit(variable);
+        visitVariable(variable, VariableKind::Global);
 
     for (auto& function : m_shaderModule.functions())
         visit(function);
@@ -187,6 +194,11 @@ void TypeChecker::visitStructMembers(AST::Structure& structure)
 
 void TypeChecker::visit(AST::Variable& variable)
 {
+    visitVariable(variable, VariableKind::Local);
+}
+
+void TypeChecker::visitVariable(AST::Variable& variable, VariableKind variableKind)
+{
     Type* result = nullptr;
     if (variable.maybeTypeName())
         result = resolve(*variable.maybeTypeName());
@@ -199,15 +211,44 @@ void TypeChecker::visit(AST::Variable& variable)
         else
             typeError(InferBottom::No, variable.span(), "cannot initialize var of type '", *result, "' with value of type '", *initializerType, "'");
     }
+    if (variable.flavor() == AST::VariableFlavor::Var) {
+        AddressSpace addressSpace;
+        AccessMode accessMode;
+        if (auto* maybeQualifier = variable.maybeQualifier()) {
+            addressSpace = static_cast<AddressSpace>(maybeQualifier->storageClass());
+            accessMode = static_cast<AccessMode>(maybeQualifier->accessMode());
+        } else if (variableKind == VariableKind::Local) {
+            addressSpace = AddressSpace::Function;
+            accessMode = AccessMode::ReadWrite;
+        } else {
+            addressSpace = AddressSpace::Handle;
+            accessMode = AccessMode::Read;
+        }
+        result = m_types.referenceType(addressSpace, result, accessMode);
+        if (auto* maybeTypeName = variable.maybeTypeName()) {
+            auto& referenceType = m_shaderModule.astBuilder().construct<AST::ReferenceTypeName>(
+                maybeTypeName->span(),
+                *maybeTypeName
+            );
+            referenceType.m_resolvedType = result;
+            variable.m_referenceType = &referenceType;
+        }
+    }
     introduceVariable(variable.name(), result);
 }
 
 void TypeChecker::visit(AST::Function& function)
 {
-    // FIXME: allocate and build function type fromp parameters and return type
+    Vector<Type*> parameters;
+    Type* result;
+    parameters.reserveInitialCapacity(function.parameters().size());
+    for (auto& parameter : function.parameters())
+        parameters.append(resolve(parameter.typeName()));
     if (function.maybeReturnType())
-        resolve(*function.maybeReturnType());
-    Type* functionType = nullptr;
+        result = resolve(*function.maybeReturnType());
+    else
+        result = m_types.voidType();
+    Type* functionType = m_types.functionType(WTFMove(parameters), result);
     introduceVariable(function.name(), functionType);
 }
 
@@ -228,8 +269,21 @@ void TypeChecker::visit(AST::AssignmentStatement& statement)
 {
     auto* lhs = infer(statement.lhs());
     auto* rhs = infer(statement.rhs());
-    if (!unify(lhs, rhs))
-        typeError(InferBottom::No, statement.span(), "cannot assign value of type '", *rhs, "' to '", *lhs, "'");
+
+    if (isBottom(lhs))
+        return;
+
+    auto* reference = std::get_if<Types::Reference>(lhs);
+    if (!reference) {
+        typeError(InferBottom::No, statement.span(), "cannot assign to a value of type '", *lhs, "'");
+        return;
+    }
+    if (reference->accessMode == AccessMode::Read) {
+        typeError(InferBottom::No, statement.span(), "cannot store into a read-only type '", *lhs, "'");
+        return;
+    }
+    if (!unify(reference->element, rhs))
+        typeError(InferBottom::No, statement.span(), "cannot assign value of type '", *rhs, "' to '", *reference->element, "'");
 }
 
 void TypeChecker::visit(AST::CompoundAssignmentStatement& statement)
@@ -238,6 +292,35 @@ void TypeChecker::visit(AST::CompoundAssignmentStatement& statement)
     // TypeChecker::visit(AST::Expression&)
     infer(statement.leftExpression());
     infer(statement.rightExpression());
+}
+
+void TypeChecker::visit(AST::DecrementIncrementStatement& statement)
+{
+    auto* expression = infer(statement.expression());
+    if (isBottom(expression))
+        return;
+
+    auto* reference = std::get_if<Types::Reference>(expression);
+    if (!reference) {
+        typeError(InferBottom::No, statement.span(), "cannot modify a value of type '", *expression, "'");
+        return;
+    }
+    if (reference->accessMode == AccessMode::Read) {
+        typeError(InferBottom::No, statement.span(), "cannot modify read-only type '", *expression, "'");
+        return;
+    }
+    if (!unify(m_types.i32Type(), reference->element) && !unify(m_types.u32Type(), reference->element)) {
+        const char* operation;
+        switch (statement.operation()) {
+        case AST::DecrementIncrementStatement::Operation::Increment:
+            operation = "increment";
+            break;
+        case AST::DecrementIncrementStatement::Operation::Decrement:
+            operation = "decrement";
+            break;
+        }
+        typeError(InferBottom::No, statement.span(), operation, " can only be applied to integers, found ", *reference->element);
+    }
 }
 
 void TypeChecker::visit(AST::IfStatement& statement)
@@ -282,7 +365,7 @@ void TypeChecker::visit(AST::ForStatement& statement)
     if (auto* test = statement.maybeTest()) {
         auto* testType = infer(*test);
         if (!unify(m_types.boolType(), testType))
-            typeError(test->span(), "for-loop condition must be bool, got ", *testType);
+            typeError(InferBottom::No, test->span(), "for-loop condition must be bool, got ", *testType);
     }
 
     if (auto* update = statement.maybeUpdate())
@@ -301,63 +384,83 @@ void TypeChecker::visit(AST::Expression&)
 
 void TypeChecker::visit(AST::FieldAccessExpression& access)
 {
-    auto* baseType = infer(access.base());
-    if (isBottom(baseType)) {
-        inferred(m_types.bottomType());
-        return;
-    }
+    const auto& accessImpl = [&](const Type* baseType) -> Type* {
+        if (isBottom(baseType))
+            return const_cast<Type*>(m_types.bottomType());
 
-    if (std::holds_alternative<Types::Struct>(*baseType)) {
-        auto& structType = std::get<Types::Struct>(*baseType);
-        auto it = structType.fields.find(access.fieldName().id());
-        if (it == structType.fields.end()) {
-            typeError(access.span(), "struct '", *baseType, "' does not have a member called '", access.fieldName(), "'");
-            return;
+        if (std::holds_alternative<Types::Struct>(*baseType)) {
+            auto& structType = std::get<Types::Struct>(*baseType);
+            auto it = structType.fields.find(access.fieldName().id());
+            if (it == structType.fields.end()) {
+                typeError(access.span(), "struct '", *baseType, "' does not have a member called '", access.fieldName(), "'");
+                return nullptr;
+            }
+            return it->value;
         }
-        inferred(it->value);
+
+        if (std::holds_alternative<Types::Vector>(*baseType)) {
+            auto& vector = std::get<Types::Vector>(*baseType);
+            return vectorFieldAccess(vector, access);
+        }
+
+        typeError(access.span(), "invalid member access expression. Expected vector or struct, got '", *baseType, "'");
+        return nullptr;
+    };
+
+    auto* baseType = infer(access.base());
+    if (const auto* reference = std::get_if<Types::Reference>(baseType)) {
+        if (Type* result = accessImpl(reference->element)) {
+            result = m_types.referenceType(reference->addressSpace, result, reference->accessMode);
+            inferred(result);
+        }
         return;
     }
 
-    if (std::holds_alternative<Types::Vector>(*baseType)) {
-        auto& vector = std::get<Types::Vector>(*baseType);
-        vectorFieldAccess(vector, access);
-        return;
-    }
-
-    typeError(access.span(), "invalid member access expression. Expected vector or struct, got '", *baseType, "'");
+    if (Type* result = accessImpl(baseType))
+        inferred(result);
 }
 
 void TypeChecker::visit(AST::IndexAccessExpression& access)
 {
+    const auto& accessImpl = [&](Type* base) -> Type* {
+        if (isBottom(base))
+            return const_cast<Type*>(m_types.bottomType());
+
+        if (std::holds_alternative<Types::Array>(*base)) {
+            // FIXME: check bounds if index is constant
+            auto& array = std::get<Types::Array>(*base);
+            return array.element;
+        }
+
+        if (std::holds_alternative<Types::Vector>(*base)) {
+            // FIXME: check bounds if index is constant
+            auto& vector = std::get<Types::Vector>(*base);
+            return vector.element;
+        }
+
+        // FIXME: Implement matrix accesses
+        typeError(access.span(), "cannot index type '", *base, "'");
+        return nullptr;
+    };
+
     auto* base = infer(access.base());
     auto* index = infer(access.index());
-
-    if (isBottom(base)) {
-        inferred(m_types.bottomType());
-        return;
-    }
 
     if (!unify(m_types.i32Type(), index) && !unify(m_types.u32Type(), index) && !unify(m_types.abstractIntType(), index)) {
         typeError(access.span(), "index must be of type 'i32' or 'u32', found: '", *index, "'");
         return;
     }
 
-    if (std::holds_alternative<Types::Array>(*base)) {
-        // FIXME: check bounds if index is constant
-        auto& array = std::get<Types::Array>(*base);
-        inferred(array.element);
+    if (const auto* reference = std::get_if<Types::Reference>(base)) {
+        if (Type* result = accessImpl(reference->element)) {
+            result = m_types.referenceType(reference->addressSpace, result, reference->accessMode);
+            inferred(result);
+        }
         return;
     }
 
-    if (std::holds_alternative<Types::Vector>(*base)) {
-        // FIXME: check bounds if index is constant
-        auto& vector = std::get<Types::Vector>(*base);
-        inferred(vector.element);
-        return;
-    }
-
-    // FIXME: Implement reference and matrix accesses
-    typeError(access.span(), "cannot index type '", *base, "'");
+    if (Type* result = accessImpl(base))
+        inferred(result);
 }
 
 void TypeChecker::visit(AST::BinaryExpression& binary)
@@ -582,16 +685,42 @@ void TypeChecker::visit(AST::ReferenceTypeName&)
 }
 
 // Private helpers
-void TypeChecker::vectorFieldAccess(const Types::Vector& vector, AST::FieldAccessExpression& access)
+Type* TypeChecker::vectorFieldAccess(const Types::Vector& vector, AST::FieldAccessExpression& access)
 {
     const auto& fieldName = access.fieldName().id();
     auto length = fieldName.length();
+    auto vectorSize = vector.size;
 
+    bool isValid = true;
     const auto& isXYZW = [&](char c) {
-        return c == 'x' || c == 'y' || c == 'z' || c == 'w';
+        switch (c) {
+        case 'x':
+        case 'y':
+            return true;
+        case 'z':
+            isValid &= vectorSize >= 3;
+            return true;
+        case 'w':
+            isValid &= vectorSize == 4;
+            return true;
+        default:
+            return false;
+        }
     };
     const auto& isRGBA = [&](char c) {
-        return c == 'r' || c == 'g' || c == 'b' || c == 'a';
+        switch (c) {
+        case 'r':
+        case 'g':
+            return true;
+        case 'b':
+            isValid &= vectorSize >= 3;
+            return true;
+        case 'a':
+            isValid &= vectorSize == 4;
+            return true;
+        default:
+            return false;
+        }
     };
 
     bool hasXYZW = false;
@@ -604,20 +733,19 @@ void TypeChecker::vectorFieldAccess(const Types::Vector& vector, AST::FieldAcces
             hasRGBA = true;
         else {
             typeError(access.span(), "invalid vector swizzle character");
-            return;
+            return nullptr;
         }
     }
 
-    if (hasXYZW && hasRGBA) {
+    if (!isValid || (hasRGBA && hasXYZW)) {
         typeError(access.span(), "invalid vector swizzle member");
-        return;
+        return nullptr;
     }
 
     AST::ParameterizedTypeName::Base base;
     switch (length) {
     case 1:
-        inferred(vector.element);
-        return;
+        return vector.element;
     case 2:
         base = AST::ParameterizedTypeName::Base::Vec2;
         break;
@@ -629,10 +757,10 @@ void TypeChecker::vectorFieldAccess(const Types::Vector& vector, AST::FieldAcces
         break;
     default:
         typeError(access.span(), "invalid vector swizzle size");
-        return;
+        return nullptr;
     }
 
-    inferred(m_types.constructType(base, vector.element));
+    return m_types.constructType(base, vector.element);
 }
 
 template<typename CallArguments>
@@ -749,7 +877,7 @@ bool TypeChecker::unify(Type* lhs, Type* rhs)
     return !!conversionRank(rhs, lhs);
 }
 
-bool TypeChecker::isBottom(Type* type) const
+bool TypeChecker::isBottom(const Type* type) const
 {
     return type == m_types.bottomType();
 }

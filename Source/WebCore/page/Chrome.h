@@ -51,6 +51,7 @@ struct FaceDetectorOptions;
 class TextDetector;
 }
 
+enum class PlatformEventModifier : uint8_t;
 enum class TextDirection : bool;
 
 class ChromeClient;
@@ -176,7 +177,7 @@ public:
     bool runJavaScriptPrompt(LocalFrame&, const String& message, const String& defaultValue, String& result);
     WEBCORE_EXPORT void setStatusbarText(LocalFrame&, const String&);
 
-    void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
+    void mouseDidMoveOverElement(const HitTestResult&, OptionSet<PlatformEventModifier>);
 
     WEBCORE_EXPORT bool print(LocalFrame&);
 
@@ -230,10 +231,10 @@ public:
     void registerPopupOpeningObserver(PopupOpeningObserver&);
     void unregisterPopupOpeningObserver(PopupOpeningObserver&);
 
+    WEBCORE_EXPORT void getToolTip(const HitTestResult&, String&, TextDirection&);
+
 private:
     void notifyPopupOpeningObservers() const;
-
-    void getToolTip(const HitTestResult&, String&, TextDirection&);
 
     Page& m_page;
     UniqueRef<ChromeClient> m_client;
