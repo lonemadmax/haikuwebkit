@@ -445,35 +445,35 @@ bool EditorClientHaiku::handleEditingKeyboardEvent(KeyboardEvent* event,
         break;
     case VK_LEFT:
         frame.selection().modify(platformEvent->shiftKey()
-                ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                ? FrameSelection::Alteration::Extend : FrameSelection::Alteration::Move,
             SelectionDirection::Left,
             platformEvent->controlKey() ? TextGranularity::WordGranularity
                 : TextGranularity::CharacterGranularity,
-            UserTriggered);
+            UserTriggered::Yes);
         break;
     case VK_RIGHT:
-        frame.selection().modify(platformEvent->shiftKey() ? FrameSelection::AlterationExtend
-                : FrameSelection::AlterationMove,
+        frame.selection().modify(platformEvent->shiftKey() ? FrameSelection::Alteration::Extend
+                : FrameSelection::Alteration::Move,
             SelectionDirection::Right,
             platformEvent->controlKey() ? TextGranularity::WordGranularity
                 : TextGranularity::CharacterGranularity,
-            UserTriggered);
+            UserTriggered::Yes);
         break;
     case VK_UP:
-        frame.selection().modify(platformEvent->shiftKey() ? FrameSelection::AlterationExtend
-                : FrameSelection::AlterationMove,
+        frame.selection().modify(platformEvent->shiftKey() ? FrameSelection::Alteration::Extend
+                : FrameSelection::Alteration::Move,
             SelectionDirection::Backward,
             platformEvent->controlKey() ? TextGranularity::ParagraphGranularity
                 : TextGranularity::LineGranularity,
-            UserTriggered);
+            UserTriggered::Yes);
         break;
     case VK_DOWN:
-        frame.selection().modify(platformEvent->shiftKey() ? FrameSelection::AlterationExtend
-                : FrameSelection::AlterationMove,
+        frame.selection().modify(platformEvent->shiftKey() ? FrameSelection::Alteration::Extend
+                : FrameSelection::Alteration::Move,
             SelectionDirection::Forward,
             platformEvent->controlKey() ? TextGranularity::ParagraphGranularity
                 : TextGranularity::LineGranularity,
-            UserTriggered);
+            UserTriggered::Yes);
         break;
     case VK_HOME:
         if (platformEvent->shiftKey() && platformEvent->controlKey())

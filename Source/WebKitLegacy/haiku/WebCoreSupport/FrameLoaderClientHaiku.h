@@ -32,7 +32,7 @@
 #define FrameLoaderClientHaiku_h
 
 #include <WebCore/FrameLoader.h>
-#include <WebCore/FrameLoaderClient.h>
+#include <WebCore/LocalFrameLoaderClient.h>
 #include <WebCore/ResourceError.h>
 
 #include "wtf/URL.h"
@@ -57,7 +57,7 @@ class ResourceResponse;
 
 struct LoadErrorResetToken;
 
-class FrameLoaderClientHaiku : public FrameLoaderClient {
+class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
  public:
     explicit FrameLoaderClientHaiku(BWebPage*);
     ~FrameLoaderClientHaiku();
@@ -66,8 +66,6 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
     BWebFrame* webFrame() { return m_webFrame; }
     void setDispatchTarget(const BMessenger& messenger);
     BWebPage* page() const;
-
-    std::optional<PageIdentifier> pageID() const final;
 
     bool hasWebView() const override;
 

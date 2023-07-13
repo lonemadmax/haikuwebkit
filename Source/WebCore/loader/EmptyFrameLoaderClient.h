@@ -147,10 +147,6 @@ private:
     void didFinishLoad() final;
     void prepareForDataSourceReplacement() final;
 
-#if PLATFORM(HAIKU)
-    bool dispatchDidReceiveInvalidCertificate(DocumentLoader*, const CertificateInfo&, const char* message) final {};
-#endif
-
     void updateCachedDocumentLoader(DocumentLoader&) final;
     void setTitle(const StringWithDirection&, const URL&) final;
 

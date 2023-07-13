@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,27 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
 
-#include "CertificateInfo.h"
-#include "FrameLoaderTypes.h"
+#include "WebPreferencesDefaultValues.h"
 
-namespace WebCore {
 
-class FormState;
-class NavigationAction;
-class ResourceRequest;
-class ResourceResponse;
+namespace WebKit {
 
-enum class PolicyDecisionMode;
+bool defaultPopoverAttributeEnabled()
+{
+    return true;
+}
 
-using FramePolicyFunction = Function<void(PolicyAction, PolicyCheckIdentifier)>;
-
-class FrameLoaderClient {
-public:
-    virtual void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse& redirectResponse, FormState*, PolicyDecisionMode, PolicyCheckIdentifier, FramePolicyFunction&&) = 0;
-    virtual bool dispatchDidReceiveInvalidCertificate(DocumentLoader*, const CertificateInfo&, const char*) { return false; }
-    virtual ~FrameLoaderClient() = default;
 };
 
-}

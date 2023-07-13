@@ -126,6 +126,7 @@
 
 #include <wtf/text/AtomString.h>
 #include <wtf/Assertions.h>
+#include <wtf/Span.h>
 #include <wtf/Threading.h>
 
 #if USE(GCRYPT)
@@ -251,16 +252,6 @@ class MediaRecorderProviderHaiku: public MediaRecorderProvider
 };
 
 
-static Ref<WebCore::LocalWebLockRegistry> getOrCreateWebLockRegistry()
-{
-    static NeverDestroyed<WeakPtr<WebCore::LocalWebLockRegistry>> existingRegistry;
-    if (existingRegistry.get())
-        return *existingRegistry.get();
-    auto registry = WebCore::LocalWebLockRegistry::create();
-    existingRegistry.get() = registry;
-    return registry;
-}
-
 BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
     : BHandler("BWebPage")
     , fWebView(webView)
@@ -291,6 +282,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
     auto storageProvider = PageStorageSessionProvider::create();
 
     PageConfiguration pageClients(
+        std::nullopt,
         PAL::SessionID::defaultSessionID(),
         makeUniqueRef<EditorClientHaiku>(this),
         LegacySocketProvider::create(),
@@ -304,7 +296,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         BackForwardList::create(),
         CookieJar::create(storageProvider.copyRef()),
         makeUniqueRef<ProgressTrackerClientHaiku>(this),
-        UniqueRef<FrameLoaderClient>(makeUniqueRef<FrameLoaderClientHaiku>(this)),
+        UniqueRef<LocalFrameLoaderClient>(makeUniqueRef<FrameLoaderClientHaiku>(this)),
         WebCore::FrameIdentifier::generate(),
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProviderHaiku>(),

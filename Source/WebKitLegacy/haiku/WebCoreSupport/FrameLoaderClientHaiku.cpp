@@ -123,11 +123,6 @@ BWebPage* FrameLoaderClientHaiku::page() const
     return m_webPage;
 }
 
-std::optional<WebCore::PageIdentifier> FrameLoaderClientHaiku::pageID() const
-{
-    return {};
-}
-
 bool FrameLoaderClientHaiku::hasWebView() const
 {
     return m_webPage->WebView();

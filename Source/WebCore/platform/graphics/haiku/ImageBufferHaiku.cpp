@@ -146,11 +146,10 @@ GraphicsContext& ImageBufferHaikuSurfaceBackend::context()
 }
 
 
-RefPtr<PixelBuffer> ImageBufferHaikuSurfaceBackend::getPixelBuffer(
-    const PixelBufferFormat& outputFormat, const IntRect& srcRect,
-    const ImageBufferAllocator& allocator)
+void ImageBufferHaikuSurfaceBackend::getPixelBuffer(
+    const IntRect& srcRect, PixelBuffer& destination)
 {
-    return ImageBufferBackend::getPixelBuffer(outputFormat, srcRect, m_data.m_image->Bits(), allocator);
+    return ImageBufferBackend::getPixelBuffer(srcRect, m_data.m_image->Bits(), destination);
 }
 
 void ImageBufferHaikuSurfaceBackend::putPixelBuffer(const PixelBuffer& imageData, const IntRect& sourceRect, const IntPoint& destPoint, AlphaPremultiplication premultiplication)
