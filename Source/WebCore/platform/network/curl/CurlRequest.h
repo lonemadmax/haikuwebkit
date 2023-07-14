@@ -32,6 +32,8 @@
 #include "CurlResponse.h"
 #include "ProtectionSpace.h"
 #include "ResourceRequest.h"
+#include <wtf/FileSystem.h>
+#include <wtf/MessageQueue.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
 
@@ -83,6 +85,10 @@ public:
     // Processing for DidReceiveResponse
     WEBCORE_EXPORT void completeDidReceiveResponse();
 
+    // Download
+    void enableDownloadToFile();
+    const String& getDownloadedFilePath();
+
 private:
     WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, EnableMultipart, CaptureNetworkLoadMetrics);
 
@@ -124,6 +130,11 @@ private:
 
     NetworkLoadMetrics networkLoadMetrics();
 
+    // Download
+    void writeDataToDownloadFileIfEnabled(const FragmentedSharedBuffer&);
+    void closeDownloadFile();
+    void cleanupDownloadFile();
+
     // Callback functions for curl
     static size_t willSendDataCallback(char*, size_t, size_t, void*);
     static size_t didReceiveHeaderCallback(char*, size_t, size_t, void*);
@@ -154,6 +165,11 @@ private:
     bool m_didReturnFromNotify { false };
     bool m_mustInvokeCancelTransfer { false };
     Function<void()> m_responseCompletionHandler;
+
+    Lock m_downloadMutex;
+    bool m_isEnabledDownloadToFile { false };
+    String m_downloadFilePath;
+    FileSystem::PlatformFileHandle m_downloadFileHandle { FileSystem::invalidPlatformFileHandle };
 
     bool m_captureExtraMetrics;
     HTTPHeaderMap m_requestHeaders;
