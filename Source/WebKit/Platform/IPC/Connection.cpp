@@ -560,8 +560,10 @@ Error Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption
 
     size_t outgoingMessagesCount;
     bool shouldNotifyOfQueueGrowingLarge;
+    bool shouldDispatchMessageSend;
     {
         Locker locker { m_outgoingMessagesLock };
+        shouldDispatchMessageSend = m_outgoingMessages.isEmpty();
         m_outgoingMessages.append(WTFMove(encoder));
         outgoingMessagesCount = m_outgoingMessages.size();
         shouldNotifyOfQueueGrowingLarge = m_outgoingMessageQueueIsGrowingLargeCallback && outgoingMessagesCount > largeOutgoingMessageQueueCountThreshold && (MonotonicTime::now() - m_lastOutgoingMessageQueueIsGrowingLargeCallbackCallTime) >= largeOutgoingMessageQueueTimeThreshold;
@@ -578,15 +580,17 @@ Error Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption
         m_outgoingMessageQueueIsGrowingLargeCallback();
     }
 
-    // FIXME: We should add a boolean flag so we don't call this when work has already been scheduled.
-    auto sendOutgoingMessages = [protectedThis = Ref { *this }]() mutable {
-        protectedThis->sendOutgoingMessages();
-    };
+    // It's not clear if calling dispatchWithQOS() will do anything if Connection::sendOutgoingMessages() is already running.
+    if (shouldDispatchMessageSend || qos) {
+        auto sendOutgoingMessages = [protectedThis = Ref { *this }]() mutable {
+            protectedThis->sendOutgoingMessages();
+        };
 
-    if (qos)
-        m_connectionQueue->dispatchWithQOS(WTFMove(sendOutgoingMessages), *qos);
-    else
-        m_connectionQueue->dispatch(WTFMove(sendOutgoingMessages));
+        if (qos)
+            m_connectionQueue->dispatchWithQOS(WTFMove(sendOutgoingMessages), *qos);
+        else
+            m_connectionQueue->dispatch(WTFMove(sendOutgoingMessages));
+    }
 
     return Error::NoError;
 }
@@ -669,13 +673,8 @@ auto Connection::waitForMessage(MessageName messageName, uint64_t destinationID,
         }
 
         // Don't even start waiting if we have InterruptWaitingIfSyncMessageArrives and there's a sync message already in the queue.
-        if (hasIncomingSynchronousMessage && waitForOptions.contains(WaitForOption::InterruptWaitingIfSyncMessageArrives)) {
-#if ASSERT_ENABLED
-            // We don't support having multiple clients waiting for messages.
-            ASSERT(!m_waitingForMessage);
-#endif
-            return { Error::MultipleWaitingClients };
-        }
+        if (hasIncomingSynchronousMessage && waitForOptions.contains(WaitForOption::InterruptWaitingIfSyncMessageArrives))
+            return { Error::SyncMessageInterruptedWait };
 
         m_waitingForMessage = &waitingForMessage;
     }
@@ -707,13 +706,19 @@ auto Connection::waitForMessage(MessageName messageName, uint64_t destinationID,
             return { WTFMove(decoder) };
         }
 
-        // Now we wait.
-        bool didTimeout = !m_waitForMessageCondition.waitUntil(m_waitForMessageLock, timeout.deadline());
-        // We timed out, lost our connection, or a sync message came in with InterruptWaitingIfSyncMessageArrives, so stop waiting.
-        if (didTimeout || m_waitingForMessage->messageWaitingInterrupted) {
+        if (!isValid()) {
             m_waitingForMessage = nullptr;
+            return Error::InvalidConnection;
+        }
 
-            return didTimeout ? Error::AttemptingToWaitInsideSyncMessageHandling : Error::SyncMessageInterrupedWait;
+        bool didTimeout = !m_waitForMessageCondition.waitUntil(m_waitForMessageLock, timeout.deadline());
+        if (didTimeout) {
+            m_waitingForMessage = nullptr;
+            return Error::Timeout;
+        }
+        if (m_waitingForMessage->messageWaitingInterrupted) {
+            m_waitingForMessage = nullptr;
+            return Error::SyncMessageInterruptedWait;
         }
     }
 
@@ -775,7 +780,7 @@ auto Connection::sendSyncMessage(SyncRequestID syncRequestID, UniqueRef<Encoder>
     popPendingSyncRequestID(syncRequestID);
 
     if (!replyOrError.decoder)
-        didFailToSendSyncMessage(replyOrError.error);
+        didFailToSendSyncMessage(replyOrError.error != Error::NoError ? replyOrError.error : Error::Unspecified);
 
     return replyOrError;
 }
@@ -800,10 +805,16 @@ auto Connection::waitForSyncReply(SyncRequestID syncRequestID, MessageName messa
             auto& pendingSyncReply = m_pendingSyncReplies.last();
             ASSERT_UNUSED(syncRequestID, pendingSyncReply.syncRequestID == syncRequestID);
 
-            // We found the sync reply, or the connection was closed.
-            if (pendingSyncReply.didReceiveReply || !m_shouldWaitForSyncReplies) {
+            // We found the sync reply.
+            if (pendingSyncReply.didReceiveReply) {
                 didReceiveSyncReply(sendSyncOptions);
                 return { WTFMove(pendingSyncReply.replyDecoder) };
+            }
+
+            // The connection was closed.
+            if (!m_shouldWaitForSyncReplies) {
+                didReceiveSyncReply(sendSyncOptions);
+                return Error::InvalidConnection;
             }
         }
 
@@ -1481,7 +1492,7 @@ const char* errorAsString(Error error)
     case Error::AttemptingToWaitOnClosedConnection: return "AttemptingToWaitOnClosedConnection";
     case Error::WaitingOnAlreadyDispatchedMessage: return "WaitingOnAlreadyDispatchedMessage";
     case Error::AttemptingToWaitInsideSyncMessageHandling: return "AttemptingToWaitInsideSyncMessageHandling";
-    case Error::SyncMessageInterrupedWait: return "SyncMessageInterrupedWait";
+    case Error::SyncMessageInterruptedWait: return "SyncMessageInterruptedWait";
     case Error::CantWaitForSyncReplies: return "CantWaitForSyncReplies";
     case Error::FailedToEncodeMessageArguments: return "FailedToEncodeMessageArguments";
     case Error::FailedToDecodeReplyArguments: return "FailedToDecodeReplyArguments";

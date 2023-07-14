@@ -3183,6 +3183,8 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
     GPRReg baseReg = base.gpr();
     GPRReg propertyReg = property.gpr();
 
+    JumpList doneCases;
+
     JSValueRegs resultRegs;
     DataFormat format;
     std::tie(resultRegs, format, std::ignore) = prefix(node->arrayMode().isOutOfBounds() ? DataFormatJS : DataFormatCell);
@@ -3193,8 +3195,10 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
     Jump outOfBounds = branch32(
         AboveOrEqual, propertyReg,
         Address(scratchReg, StringImpl::lengthMemoryOffset()));
-    if (node->arrayMode().isInBounds())
-        speculationCheck(OutOfBounds, JSValueRegs(), nullptr, outOfBounds);
+    if (node->op() != StringCharAt) {
+        if (node->arrayMode().isInBounds())
+            speculationCheck(OutOfBounds, JSValueRegs(), nullptr, outOfBounds);
+    }
 
     // Load the character into scratchReg
     Jump is16Bit = branchTest32(Zero, Address(scratchReg, StringImpl::flagsOffset()), TrustedImm32(StringImpl::flagIs8Bit()));
@@ -3202,6 +3206,16 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
     loadPtr(Address(scratchReg, StringImpl::dataOffset()), scratchReg);
     load8(BaseIndex(scratchReg, propertyReg, TimesOne, 0), scratchReg);
     Jump cont8Bit = jump();
+
+    if (node->op() == StringCharAt) {
+        outOfBounds.link(this);
+#if USE(JSVALUE32_64)
+        if (format == DataFormatJS)
+            move(TrustedImm32(JSValue::CellTag), resultRegs.tagGPR());
+#endif
+        loadLinkableConstant(LinkableConstant(*this, jsEmptyString(vm())), resultRegs.payloadGPR());
+        doneCases.append(jump());
+    }
 
     is16Bit.link(this);
 
@@ -3223,7 +3237,7 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
         slowPathCall(
             bigCharacter, this, operationSingleCharacterString, scratchReg, TrustedImmPtr(&vm), scratchReg));
 
-    if (node->arrayMode().isOutOfBounds()) {
+    if (node->op() != StringCharAt && node->arrayMode().isOutOfBounds()) {
         ASSERT(format == DataFormatJS);
 #if USE(JSVALUE32_64)
         move(TrustedImm32(JSValue::CellTag), resultRegs.tagGPR());
@@ -3244,15 +3258,17 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
                     outOfBounds, this, operationGetByValStringInt,
                     resultRegs, LinkableConstant::globalObject(*this, node), baseReg, propertyReg));
         }
-        
+
         jsValueResult(resultRegs, m_currentNode);
-    } else {
-        if (format == DataFormatJS)
-            jsValueResult(resultRegs, m_currentNode);
-        else {
-            ASSERT(format == DataFormatCell);
-            cellResult(resultRegs.payloadGPR(), m_currentNode);
-        }
+        return;
+    }
+
+    doneCases.link(this);
+    if (format == DataFormatJS)
+        jsValueResult(resultRegs, m_currentNode);
+    else {
+        ASSERT(format == DataFormatCell);
+        cellResult(resultRegs.payloadGPR(), m_currentNode);
     }
 }
 
@@ -11717,6 +11733,37 @@ void SpeculativeJIT::compileNumberToStringWithValidRadixConstant(Node* node, int
 
     switch (node->child1().useKind()) {
     case Int32Use: {
+        if (radix == 10) {
+            SpeculateStrictInt32Operand value(this, node->child1());
+            GPRTemporary result(this);
+
+            GPRReg valueGPR = value.gpr();
+            GPRReg resultGPR = result.gpr();
+
+            flushRegisters();
+
+            JumpList slowCases;
+            JumpList doneCases;
+
+            slowCases.append(branch32(AboveOrEqual, valueGPR, TrustedImm32(NumericStrings::cacheSize)));
+
+            move(valueGPR, resultGPR);
+            static_assert(hasOneBitSet(sizeof(NumericStrings::StringWithJSString)), "size should be a power of two.");
+            lshiftPtr(TrustedImm32(WTF::fastLog2(static_cast<unsigned>(sizeof(NumericStrings::StringWithJSString)))), resultGPR);
+            addPtr(TrustedImmPtr(vm().numericStrings.smallIntCache()), resultGPR);
+            loadPtr(Address(resultGPR, NumericStrings::StringWithJSString::offsetOfJSString()), resultGPR);
+            doneCases.append(branchTestPtr(NonZero, resultGPR));
+            // Fall-through.
+
+            slowCases.link(this);
+            callOperation(operationInt32ToStringWithValidRadix, resultGPR, LinkableConstant::globalObject(*this, node), valueGPR, TrustedImm32(10));
+            exceptionCheck();
+
+            doneCases.link(this);
+            cellResult(resultGPR, node);
+            break;
+        }
+
         SpeculateStrictInt32Operand value(this, node->child1());
         GPRFlushedCallResult result(this);
         callToString(operationInt32ToStringWithValidRadix, result.gpr(), value.gpr());
@@ -15087,20 +15134,26 @@ void SpeculativeJIT::compileToThis(Node* node)
 
     JumpList slowCases;
     slowCases.append(branchIfNotCell(thisValueRegs));
-    slowCases.append(
-        branchTest8(
-            NonZero,
-            Address(thisValueRegs.payloadGPR(), JSCell::typeInfoFlagsOffset()),
-            TrustedImm32(OverridesToThis)));
-    moveValueRegs(thisValueRegs, tempRegs);
+    slowCases.append(branchIfNotObject(thisValueRegs.payloadGPR()));
 
-    J_JITOperation_GJ function;
+    moveValueRegs(thisValueRegs, tempRegs);
+    auto notScope = branchIfNotType(thisValueRegs.payloadGPR(), JSC::JSTypeRange { JSType(FirstScopeType), JSType(LastScopeType) });
+    if (node->ecmaMode().isStrict())
+        moveTrustedValue(jsUndefined(), tempRegs);
+    else {
+        loadLinkableConstant(LinkableConstant::globalObject(*this, node), tempRegs.payloadGPR());
+        loadPtr(Address(tempRegs.payloadGPR(), JSGlobalObject::offsetOfGlobalThis()), tempRegs.payloadGPR());
+#if USE(JSVALUE32_64)
+        move(TrustedImm32(JSValue::CellTag), tempRegs.tagGPR());
+#endif
+    }
+
+    auto function = &operationToThis;
     if (node->ecmaMode().isStrict())
         function = operationToThisStrict;
-    else
-        function = operationToThis;
     addSlowPathGenerator(slowPathCall(slowCases, this, function, tempRegs, LinkableConstant::globalObject(*this, node), thisValueRegs));
 
+    notScope.link(this);
     jsValueResult(tempRegs, node);
 }
 

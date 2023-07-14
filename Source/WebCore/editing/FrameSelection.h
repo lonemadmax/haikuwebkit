@@ -58,7 +58,7 @@ class CaretBase {
     WTF_MAKE_NONCOPYABLE(CaretBase);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    WEBCORE_EXPORT static Color computeCaretColor(const RenderStyle& elementStyle, const Node*);
+    WEBCORE_EXPORT static Color computeCaretColor(const RenderStyle& elementStyle, const Node*, const std::optional<VisibleSelection>&);
 protected:
     enum class CaretVisibility : bool { Visible, Hidden };
     explicit CaretBase(CaretVisibility = CaretVisibility::Hidden);
@@ -320,6 +320,8 @@ private:
     void caretAnimationDidUpdate(CaretAnimator&) final;
 
     Document* document() final;
+
+    Node* caretNode() final;
 
     bool dispatchSelectStart();
 

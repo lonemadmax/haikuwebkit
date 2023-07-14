@@ -1571,6 +1571,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/UserAgent.h
     platform/UserInterfaceLayoutDirection.h
     platform/ValidationBubble.h
+    platform/VideoEncoderScalabilityMode.h
     platform/VideoFrame.h
     platform/VideoFrameMetadata.h
     platform/VideoFrameTimeMetadata.h
@@ -1742,7 +1743,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/InbandGenericCueIdentifier.h
     platform/graphics/InbandTextTrackPrivate.h
     platform/graphics/InbandTextTrackPrivateClient.h
-    platform/graphics/InlinePathData.h
     platform/graphics/IntDegrees.h
     platform/graphics/IntPoint.h
     platform/graphics/IntPointHash.h
@@ -1770,6 +1770,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/NativeImage.h
     platform/graphics/NullGraphicsContext.h
     platform/graphics/Path.h
+    platform/graphics/PathElement.h
+    platform/graphics/PathImpl.h
+    platform/graphics/PathSegment.h
+    platform/graphics/PathSegmentData.h
+    platform/graphics/PathStream.h
     platform/graphics/PathUtilities.h
     platform/graphics/Pattern.h
     platform/graphics/PixelBuffer.h
@@ -1786,6 +1791,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformLayer.h
     platform/graphics/PlatformLayerIdentifier.h
     platform/graphics/PlatformMediaResourceLoader.h
+    platform/graphics/PlatformPath.h
     platform/graphics/PlatformTextTrack.h
     platform/graphics/PlatformTimeRanges.h
     platform/graphics/PlatformTrackConfiguration.h
@@ -1799,6 +1805,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/RenderingResource.h
     platform/graphics/RenderingResourceIdentifier.h
     platform/graphics/RenderingMode.h
+    platform/graphics/RotationDirection.h
     platform/graphics/RoundedRect.h
     platform/graphics/ScreenDataOverrides.h
     platform/graphics/ShouldLocalizeAxisNames.h

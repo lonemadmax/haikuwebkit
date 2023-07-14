@@ -3188,11 +3188,6 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
     }
 #endif
 
-#if ENABLE(ASYNC_SCROLLING) && PLATFORM(COCOA)
-    if (m_scrollingCoordinatorProxy)
-        m_scrollingCoordinatorProxy->handleMouseEvent(platform(event));
-#endif
-
     // If we receive multiple mousemove or mouseforcechanged events and the most recent mousemove or mouseforcechanged event
     // (respectively) has not yet been sent to WebProcess for processing, remove the pending mouse event and insert the new
     // event in the queue.
@@ -3209,7 +3204,8 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
 void WebPageProxy::dispatchMouseDidMoveOverElementAsynchronously(const NativeWebMouseEvent& event)
 {
     sendWithAsyncReply(Messages::WebPage::PerformHitTestForMouseEvent { event }, [this, protectedThis = Ref { *this }](WebHitTestResultData&& hitTestResult, OptionSet<WebEventModifier> modifiers, UserData&& userData) {
-        this->mouseDidMoveOverElement(WTFMove(hitTestResult), modifiers, WTFMove(userData));
+        if (!isClosed())
+            mouseDidMoveOverElement(WTFMove(hitTestResult), modifiers, WTFMove(userData));
     });
 }
 
@@ -3565,17 +3561,17 @@ TrackingType WebPageProxy::touchEventTrackingType(const WebTouchEvent& touchStar
     globalTrackingType = mergeTrackingTypes(globalTrackingType, tracking.touchForceChangedTracking);
     for (auto& touchPoint : touchStartEvent.touchPoints()) {
         switch (touchPoint.state()) {
-        case WebPlatformTouchPoint::TouchReleased:
+        case WebPlatformTouchPoint::State::Released:
             globalTrackingType = mergeTrackingTypes(globalTrackingType, tracking.touchEndTracking);
             break;
-        case WebPlatformTouchPoint::TouchPressed:
+        case WebPlatformTouchPoint::State::Pressed:
             globalTrackingType = mergeTrackingTypes(globalTrackingType, tracking.touchStartTracking);
             break;
-        case WebPlatformTouchPoint::TouchMoved:
-        case WebPlatformTouchPoint::TouchStationary:
+        case WebPlatformTouchPoint::State::Moved:
+        case WebPlatformTouchPoint::State::Stationary:
             globalTrackingType = mergeTrackingTypes(globalTrackingType, tracking.touchMoveTracking);
             break;
-        case WebPlatformTouchPoint::TouchCancelled:
+        case WebPlatformTouchPoint::State::Cancelled:
             globalTrackingType = mergeTrackingTypes(globalTrackingType, TrackingType::Asynchronous);
             break;
         }
@@ -12114,7 +12110,7 @@ void WebPageProxy::loadServiceWorker(const URL& url, bool usingModules, Completi
 #endif
 }
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(COCOA)
 bool WebPageProxy::shouldForceForegroundPriorityForClientNavigation() const
 {
     return false;

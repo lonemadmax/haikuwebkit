@@ -269,7 +269,9 @@ bool canUseWebAssemblyFastMemory();
     v(Int32, priorityDeltaOfWasmCompilerThreads, computePriorityDeltaOfWorkerThreads(-1, 0), Normal, nullptr) \
     \
     v(Bool, useProfiler, false, Normal, nullptr) \
+    v(Bool, dumpProfilerDataAtExit, false, Normal, nullptr) \
     v(Bool, disassembleBaselineForProfiler, true, Normal, nullptr) \
+    v(Unsigned, abbreviateSourceCodeForProfiler, 0, Normal, nullptr) \
     \
     v(Bool, useArchitectureSpecificOptimizations, true, Normal, nullptr) \
     \
@@ -297,7 +299,7 @@ bool canUseWebAssemblyFastMemory();
     v(Unsigned, maximumBinaryStringSwitchTotalLength, 2000, Normal, nullptr) \
     v(Unsigned, maximumRegExpTestInlineCodesize, 500, Normal, "Maximum code size in bytes for inlined RegExp.test JIT code.") \
     \
-    v(Unsigned, maximumWasmDepthForInlining, 2, Normal, "Maximum inlining depth to consider inlining a wasm function.") \
+    v(Unsigned, maximumWasmDepthForInlining, isIOS() ? 2 : 8, Normal, "Maximum inlining depth to consider inlining a wasm function.") \
     v(Unsigned, maximumWasmCalleeSizeForInlining, 200, Normal, "Maximum wasm size in bytes to consider inlining a wasm function.") \
     v(Unsigned, maximumWasmCallerSizeForInlining, 10000, Normal, "Maximum wasm size in bytes for the caller of an inlined function.") \
     \
@@ -452,6 +454,7 @@ bool canUseWebAssemblyFastMemory();
     v(Unsigned, maxB3TailDupBlockSuccessors, 3, Normal, nullptr) \
     v(Bool, useB3HoistLoopInvariantValues, false, Normal, nullptr) \
     v(Bool, useB3CanonicalizePrePostIncrements, false, Normal, nullptr) \
+    v(Bool, useAirOptimizePairedLoadStore, true, Normal, nullptr) \
     \
     v(Bool, useDollarVM, false, Restricted, "installs the $vm debugging tool in global objects") \
     v(OptionString, functionOverrides, nullptr, Restricted, "file with debugging overrides for function bodies") \

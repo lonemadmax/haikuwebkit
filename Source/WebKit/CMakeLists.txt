@@ -275,6 +275,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/GPU/GPUProcessConnection
 
     WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy
+    WebProcess/GPU/graphics/RemoteImageBufferProxy
     WebProcess/GPU/graphics/RemoteRenderingBackendProxy
 
     WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy
@@ -344,7 +345,7 @@ set(WebKit_MESSAGES_IN_FILES
 set(WebKit_SERIALIZATION_IN_FILES
     GPUProcess/GPUProcessSessionParameters.serialization.in
 
-    GPUProcess/graphics/InlinePathData.serialization.in
+    GPUProcess/graphics/PathSegment.serialization.in
     GPUProcess/graphics/RemoteRenderingBackendCreationParameters.serialization.in
 
     GPUProcess/graphics/WebGPU/RemoteGPURequestAdapterResponse.serialization.in

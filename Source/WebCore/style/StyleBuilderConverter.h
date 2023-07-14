@@ -714,7 +714,12 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(BuilderState
             auto cssURLValue = primitiveValue.stringValue();
             auto fragment = SVGURIReference::fragmentIdentifierFromIRIString(cssURLValue, builderState.document());
             // FIXME: It doesn't work with external SVG references (see https://bugs.webkit.org/show_bug.cgi?id=126133)
-            auto target = SVGURIReference::targetElementFromIRIString(cssURLValue, builderState.document());
+            const TreeScope* treeScope = nullptr;
+            if (builderState.element())
+                treeScope = &builderState.element()->treeScopeForSVGReferences();
+            else
+                treeScope = &builderState.document();
+            auto target = SVGURIReference::targetElementFromIRIString(cssURLValue, *treeScope);
             return ReferencePathOperation::create(cssURLValue, fragment, dynamicDowncast<SVGElement>(target.element.get()));
         }
         ASSERT(primitiveValue.valueID() == CSSValueNone);
@@ -1526,7 +1531,7 @@ inline FontSelectionValue BuilderConverter::convertFontStretchFromValue(const CS
 
 inline FontSelectionValue BuilderConverter::convertFontStyleAngle(const CSSValue& value)
 {
-    return FontSelectionValue { std::clamp(downcast<CSSPrimitiveValue>(value).value<float>(CSSUnitType::CSS_DEG), -90.0f, 90.0f) };
+    return normalizedFontItalicValue(downcast<CSSPrimitiveValue>(value).value<float>(CSSUnitType::CSS_DEG));
 }
 
 // The input value needs to parsed and valid, this function returns std::nullopt if the input was "normal".

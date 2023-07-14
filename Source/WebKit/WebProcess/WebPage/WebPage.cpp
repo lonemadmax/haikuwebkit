@@ -960,6 +960,10 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         auto& rtcProvider = static_cast<LibWebRTCProvider&>(m_page->webRTCProvider());
         rtcProvider.enableEnumeratingAllNetworkInterfaces();
     }
+    if (parameters.store.getBoolValueForKey(WebPreferencesKey::enumeratingVisibleNetworkInterfacesEnabledKey())) {
+        auto& rtcProvider = static_cast<LibWebRTCProvider&>(m_page->webRTCProvider());
+        rtcProvider.enableEnumeratingVisibleNetworkInterfaces();
+    }
 #endif
 #endif
 
@@ -3406,9 +3410,12 @@ void WebPage::mouseEvent(const WebMouseEvent& mouseEvent, std::optional<Vector<S
 
 void WebPage::performHitTestForMouseEvent(const WebMouseEvent& event, CompletionHandler<void(WebHitTestResultData&&, OptionSet<WebEventModifier>, UserData&&)>&& completionHandler)
 {
+    auto modifiers = event.modifiers();
     RefPtr localMainFrame = dynamicDowncast<WebCore::LocalFrame>(corePage()->mainFrame());
-    if (!localMainFrame || !localMainFrame->view())
+    if (!localMainFrame || !localMainFrame->view()) {
+        completionHandler({ }, modifiers, { });
         return;
+    }
 
     auto hitTestResult = localMainFrame->eventHandler().getHitTestResultForMouseEvent(platform(event));
 
@@ -3418,7 +3425,6 @@ void WebPage::performHitTestForMouseEvent(const WebMouseEvent& event, Completion
 
     RefPtr<API::Object> userData;
     WebHitTestResultData hitTestResultData { hitTestResult, toolTip };
-    auto modifiers = event.modifiers();
     injectedBundleUIClient().mouseDidMoveOverElement(this, hitTestResult, modifiers, userData);
 
     completionHandler(WTFMove(hitTestResultData), modifiers, UserData(WebProcess::singleton().transformObjectsToHandles(WTFMove(userData).get()).get()));
@@ -4670,8 +4676,6 @@ void WebPage::willCommitLayerTree(RemoteLayerTreeTransaction& layerTransaction, 
     if (!frameView)
         return;
 
-    corePage()->setIsAwaitingLayerTreeTransactionFlush(true);
-
     layerTransaction.setContentsSize(frameView->contentsSize());
     layerTransaction.setScrollOrigin(frameView->scrollOrigin());
     layerTransaction.setPageScaleFactor(corePage()->pageScaleFactor());
@@ -4730,7 +4734,6 @@ void WebPage::didFlushLayerTreeAtTime(MonotonicTime timestamp)
 #else
     UNUSED_PARAM(timestamp);
 #endif
-    corePage()->setIsAwaitingLayerTreeTransactionFlush(false);
 }
 #endif
 
@@ -7518,7 +7521,7 @@ void WebPage::getBytecodeProfile(CompletionHandler<void(const String&)>&& callba
     if (LIKELY(!commonVM().m_perBytecodeProfiler))
         return callback({ });
 
-    String result = commonVM().m_perBytecodeProfiler->toJSON();
+    String result = commonVM().m_perBytecodeProfiler->toJSON()->toJSONString();
     ASSERT(result.length());
     callback(result);
 }

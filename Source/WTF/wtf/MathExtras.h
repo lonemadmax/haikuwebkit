@@ -479,7 +479,7 @@ constexpr unsigned maskForSize(unsigned size)
     return roundUpToPowerOfTwo(size) - 1;
 }
 
-inline unsigned fastLog2(unsigned i)
+inline constexpr unsigned fastLog2(unsigned i)
 {
     unsigned log2 = 0;
     if (i & (i - 1))
@@ -505,7 +505,7 @@ inline unsigned fastLog2(unsigned i)
     return log2;
 }
 
-inline unsigned fastLog2(uint64_t value)
+inline constexpr unsigned fastLog2(uint64_t value)
 {
     unsigned high = static_cast<unsigned>(value >> 32);
     if (high)

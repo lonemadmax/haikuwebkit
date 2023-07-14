@@ -468,7 +468,6 @@ webkit.org/b/73766 css3/unicode-bidi-isolate-aharon-failing.html [ ImageOnlyFail
 # Failing ref tests
 webkit.org/b/85404 fast/loader/javascript-url-in-embed.html [ Failure Pass ]
 
-webkit.org/b/85408 svg/batik/text/longTextOnPath.svg [ Failure Pass ]
 webkit.org/b/85408 svg/batik/paints/gradientLimit.svg [ Failure Pass ]
 webkit.org/b/85408 svg/batik/text/textOnPath.svg [ Failure Pass ]
 webkit.org/b/85408 svg/batik/text/verticalTextOnPath.svg [ Failure Pass ]
@@ -2727,4 +2726,6 @@ webkit.org/b/256108 media/video-audio-session-mode.html [ Failure ]
 
 webkit.org/b/258181 [ Monterey+ Debug ] inspector/debugger/async-stack-trace-truncate.html [ Timeout ]
 
-webkit.org/b/258328 [ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworklet-denormals.https.window.html [ Failure ]
+# webkit.org/b/258328 Umbrella Bug: Batch mark expectations slowing down EWS
+[ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworklet-denormals.https.window.html [ Failure ]
+[ Debug ] media/modern-media-controls/pip-support/pip-support-enabled.html [ Pass Crash ]

@@ -192,7 +192,6 @@ Shared/ios/NativeWebKeyboardEventIOS.mm
 Shared/ios/NativeWebMouseEventIOS.mm
 Shared/ios/NativeWebTouchEventIOS.mm
 Shared/ios/WebIOSEventFactory.mm
-Shared/ios/WebPlatformTouchPointIOS.cpp
 Shared/ios/WebPreferencesDefaultValuesIOS.mm
 
 Shared/mac/AuxiliaryProcessMac.mm
@@ -736,6 +735,7 @@ RemoteMediaSessionHelperMessageReceiver.cpp
 RemoteMediaSessionHelperProxyMessageReceiver.cpp
 RemoteMediaSessionCoordinatorMessageReceiver.cpp
 RemoteMediaSessionCoordinatorProxyMessageReceiver.cpp
+RemoteImageBufferProxyMessageReceiver.cpp
 RemoteRenderingBackendMessageReceiver.cpp
 RemoteRenderingBackendProxyMessageReceiver.cpp
 RemoteSampleBufferDisplayLayerManagerMessageReceiver.cpp

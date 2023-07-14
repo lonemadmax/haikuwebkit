@@ -31,6 +31,7 @@
 #include "CharacterData.h"
 #include "ColorBlending.h"
 #include "DeleteSelectionCommand.h"
+#include "DictationCaretAnimator.h"
 #include "DocumentInlines.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -59,6 +60,7 @@
 #include "LocalFrameView.h"
 #include "Logging.h"
 #include "MutableStyleProperties.h"
+#include "OpacityCaretAnimator.h"
 #include "Page.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "Range.h"
@@ -160,15 +162,26 @@ static inline bool isPageActive(Document* document)
     return document && document->page() && document->page()->focusController().isActive();
 }
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/FrameSelectionAdditions.cpp>
-#else
-
-static UniqueRef<CaretAnimator> createCaretAnimator(FrameSelection* frameSelection, CaretAnimatorType = CaretAnimatorType::Default)
+static UniqueRef<CaretAnimator> createCaretAnimator(FrameSelection* frameSelection, std::optional<CaretAnimatorType> optionalCaretType = std::nullopt)
 {
+#if PLATFORM(MAC) && HAVE(REDESIGNED_TEXT_CURSOR)
+    if (redesignedTextCursorEnabled()) {
+        std::optional<LayoutRect> existingExpansionRect = std::nullopt;
+        if (optionalCaretType)
+            existingExpansionRect = frameSelection->caretAnimator().caretRepaintRectForLocalRect(LayoutRect());
+
+        switch (optionalCaretType.value_or(CaretAnimatorType::Default)) {
+        case CaretAnimatorType::Default:
+            return makeUniqueRef<OpacityCaretAnimator>(*frameSelection, existingExpansionRect);
+        case CaretAnimatorType::Dictation:
+            return makeUniqueRef<DictationCaretAnimator>(*frameSelection);
+        }
+    }
+#else
+    UNUSED_PARAM(optionalCaretType);
+#endif
     return makeUniqueRef<SimpleCaretAnimator>(*frameSelection);
 }
-#endif // USE(APPLE_INTERNAL_SDK)
 
 FrameSelection::FrameSelection(Document* document)
     : m_document(document)
@@ -1885,15 +1898,41 @@ void FrameSelection::paintCaret(GraphicsContext& context, const LayoutPoint& pai
         CaretBase::paintCaret(*m_selection.start().deprecatedNode(), context, paintOffset, m_caretAnimator.ptr(), this->selection());
 }
 
-Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* node)
+Color CaretBase::computeCaretColor(const RenderStyle& elementStyle, const Node* node, const std::optional<VisibleSelection>& selection)
 {
     // On iOS, we want to fall back to the tintColor, and only override if CSS has explicitly specified a custom color.
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     UNUSED_PARAM(node);
+    UNUSED_PARAM(selection);
     if (elementStyle.hasAutoCaretColor())
         return { };
     return elementStyle.colorResolvingCurrentColor(elementStyle.caretColor());
+#elif HAVE(REDESIGNED_TEXT_CURSOR)
+    const RenderStyle* elementStyleToUse = [&] {
+        if (!selection)
+            return &elementStyle;
+
+        RefPtr editableRoot = selection->rootEditableElement();
+        if (!editableRoot || !editableRoot->renderer())
+            return &elementStyle;
+
+        return &editableRoot->renderer()->style();
+    }();
+
+    if (elementStyleToUse->hasAutoCaretColor()) {
+#if PLATFORM(MAC)
+        auto cssColorValue = CSSValueAppleSystemControlAccent;
 #else
+        auto cssColorValue = CSSValueAppleSystemBlue;
+#endif
+        auto styleColorOptions = node->document().styleColorOptions(elementStyleToUse);
+        auto systemAccentColor = RenderTheme::singleton().systemColor(cssColorValue, styleColorOptions | StyleColorOptions::UseSystemAppearance);
+        return elementStyleToUse->colorByApplyingColorFilter(systemAccentColor);
+    }
+
+    return elementStyleToUse->colorByApplyingColorFilter(elementStyleToUse->colorResolvingCurrentColor(elementStyleToUse->caretColor()));
+#else
+    UNUSED_PARAM(selection);
     RefPtr parentElement = node ? node->parentElement() : nullptr;
     auto* parentStyle = parentElement && parentElement->renderer() ? &parentElement->renderer()->style() : nullptr;
     // CSS value "auto" is treated as an invalid color.
@@ -1925,11 +1964,11 @@ void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const Lay
     Color caretColor = Color::black;
     auto* element = is<Element>(node) ? downcast<Element>(&node) : node.parentElement();
     if (element && element->renderer())
-        caretColor = CaretBase::computeCaretColor(element->renderer()->style(), &node);
+        caretColor = CaretBase::computeCaretColor(element->renderer()->style(), &node, selection);
 
     auto pixelSnappedCaretRect = snapRectToDevicePixels(caret, node.document().deviceScaleFactor());
     if (caretAnimator)
-        caretAnimator->paint(node, context, pixelSnappedCaretRect, caretColor, paintOffset, selection);
+        caretAnimator->paint(context, pixelSnappedCaretRect, caretColor, paintOffset);
     else
         context.fillRect(pixelSnappedCaretRect, caretColor);
 #else
@@ -1968,6 +2007,11 @@ void FrameSelection::caretAnimatorInvalidated(CaretAnimatorType caretType)
 Document* FrameSelection::document()
 {
     return m_document.get();
+}
+
+Node* FrameSelection::caretNode()
+{
+    return selection().visibleStart().deepEquivalent().deprecatedNode();
 }
 
 bool FrameSelection::contains(const LayoutPoint& point) const
@@ -2249,7 +2293,7 @@ void FrameSelection::updateAppearance()
     // already blinking in the right location.
     if (shouldBlink && !caretAnimator().isActive()) {
         if (m_document && m_document->domWindow())
-            caretAnimator().start(m_document->domWindow()->nowTimestamp());
+            caretAnimator().start();
 
         caretAnimator().setVisible(true);
     }

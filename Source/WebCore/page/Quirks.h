@@ -55,6 +55,7 @@ public:
     Quirks(Document&);
     ~Quirks();
 
+    bool shouldSilenceResizeObservers() const;
     bool shouldSilenceWindowResizeEvents() const;
     bool shouldSilenceMediaQueryListChangeEvents() const;
     bool shouldIgnoreInvalidSignal() const;
@@ -165,6 +166,9 @@ public:
 
     bool shouldDisablePopoverAttributeQuirk() const;
 
+    void setNeedsConfigurableIndexedPropertiesQuirk() { m_needsConfigurableIndexedPropertiesQuirk = true; }
+    bool needsConfigurableIndexedPropertiesQuirk() const;
+
 private:
     bool needsQuirks() const;
 
@@ -226,6 +230,7 @@ private:
 #if PLATFORM(COCOA)
     mutable std::optional<bool> m_shouldAdvertiseSupportForHLSSubtitleTypes;
 #endif
+    bool m_needsConfigurableIndexedPropertiesQuirk { false };
 };
 
 } // namespace WebCore

@@ -229,7 +229,7 @@ CSSSelectorList CSSParserImpl::parsePageSelector(CSSParserTokenRange range, Styl
         selector = makeUnique<CSSParserSelector>();
         if (!pseudo.isNull()) {
             selector = std::unique_ptr<CSSParserSelector>(CSSParserSelector::parsePagePseudoSelector(pseudo));
-            if (!selector || selector->match() != CSSSelector::PagePseudoClass)
+            if (!selector || selector->match() != CSSSelector::Match::PagePseudoClass)
                 return CSSSelectorList();
         }
         if (!typeSelector.isNull())
@@ -569,8 +569,7 @@ void CSSParserImpl::runInNewNestingContext(auto&& run)
 Ref<StyleRuleBase> CSSParserImpl::createNestingParentRule()
 {
     CSSSelector nestingParentSelector;
-    nestingParentSelector.setMatch(CSSSelector::Match::PseudoClass);
-    nestingParentSelector.setPseudoClassType(CSSSelector::PseudoClassType::PseudoClassNestingParent);
+    nestingParentSelector.setMatch(CSSSelector::Match::NestingParent);
     auto parserSelector = makeUnique<CSSParserSelector>(nestingParentSelector);
     Vector<std::unique_ptr<CSSParserSelector>> selectorList;
     selectorList.append(WTFMove(parserSelector));

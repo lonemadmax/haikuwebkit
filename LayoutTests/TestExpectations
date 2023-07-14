@@ -47,6 +47,7 @@ fast/images/text-recognition [ Skip ]
 fast/images/mac [ Skip ]
 fast/sandbox/ios [ Skip ]
 fast/sandbox/mac [ Skip ]
+fast/text/data-detectors/ios [ Skip ]
 fast/viewport/watchos [ Skip ]
 fast/visual-viewport/watchos [ Skip ]
 fast/visual-viewport/tiled-drawing [ Skip ]
@@ -516,6 +517,7 @@ imported/w3c/web-platform-tests/x-frame-options/get-decode-split.html [ DumpJSCo
 imported/w3c/web-platform-tests/x-frame-options/invalid.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/x-frame-options/multiple.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/x-frame-options/sameorigin.sub.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/cookie-store/cookieStore_event_basic.https.window.html [ DumpJSConsoleLogInStdErr ]
 
 # Timing out tests.
 imported/w3c/web-platform-tests/background-fetch/fetch-uploads.https.window.html [ Skip ]
@@ -4639,6 +4641,7 @@ webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-menuli
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/outline-025.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/outline-026.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/text-overflow-ruby.html [ ImageOnlyFailure ]
+webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/text-overflow-021.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-menulist-button-002.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/resize-child-will-change-transform.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/resize-generated-content.html [ ImageOnlyFailure ]
@@ -4958,6 +4961,7 @@ imported/w3c/web-platform-tests/css/css-contain/quote-scoping-invalidation-004.h
 # Container queries
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/custom-layout-container-001.https.html [ ImageOnlyFailure ]
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/inline-size-bfc-floats.html [ ImageOnlyFailure ]
+webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/container-for-cue.html [ Skip ]
 webkit.org/b/241778 [ Debug ] imported/w3c/web-platform-tests/css/css-contain/container-queries/svg-foreignobject-no-size-container.html [ Skip ]
 
 # Flaky css-contain test
@@ -6415,7 +6419,6 @@ imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across
 webkit.org/b/242658 http/tests/media/user-gesture-preserved-across-xmlhttprequest.html [ Slow Pass Failure ]
 
 # These tests are crashing in debug since its import.
-webkit.org/b/256847 [ Debug ] imported/w3c/web-platform-tests/dom/events/preventDefault-during-activation-behavior.html [ Skip ]
 webkit.org/b/256976 [ Debug ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/cross-document-traversal-same-document-nav.html [ Skip ]
 webkit.org/b/256976 [ Debug ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/same-document-nav-cross-document-traversal.html [ Skip ]
 

@@ -192,6 +192,7 @@ MESSAGE_RECEIVERS = \
 	WebProcess/Extensions/WebExtensionContextProxy \
 	WebProcess/Extensions/WebExtensionControllerProxy \
 	WebProcess/GPU/GPUProcessConnection \
+	WebProcess/GPU/graphics/RemoteImageBufferProxy \
 	WebProcess/GPU/graphics/RemoteRenderingBackendProxy \
 	WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy \
 	WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy \
@@ -458,7 +459,7 @@ $(WEB_PREFERENCES_PATTERNS) : $(WTF_BUILD_SCRIPTS_DIR)/GeneratePreferences.rb $(
 
 SERIALIZATION_DESCRIPTION_FILES = \
 	GPUProcess/GPUProcessSessionParameters.serialization.in \
-	GPUProcess/graphics/InlinePathData.serialization.in \
+	GPUProcess/graphics/PathSegment.serialization.in \
 	GPUProcess/graphics/RemoteRenderingBackendCreationParameters.serialization.in \
 	GPUProcess/graphics/WebGPU/RemoteGPURequestAdapterResponse.serialization.in \
 	GPUProcess/media/AudioTrackPrivateRemoteConfiguration.serialization.in \

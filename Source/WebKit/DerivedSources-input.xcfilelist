@@ -37,7 +37,7 @@ $(PROJECT_DIR)/GPUProcess/GPUProcessSessionParameters.serialization.in
 $(PROJECT_DIR)/GPUProcess/ShapeDetection/RemoteBarcodeDetector.messages.in
 $(PROJECT_DIR)/GPUProcess/ShapeDetection/RemoteFaceDetector.messages.in
 $(PROJECT_DIR)/GPUProcess/ShapeDetection/RemoteTextDetector.messages.in
-$(PROJECT_DIR)/GPUProcess/graphics/InlinePathData.serialization.in
+$(PROJECT_DIR)/GPUProcess/graphics/PathSegment.serialization.in
 $(PROJECT_DIR)/GPUProcess/graphics/RemoteDisplayListRecorder.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/RemoteGraphicsContext.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/RemoteGraphicsContextGL.messages.in
@@ -379,6 +379,7 @@ $(PROJECT_DIR)/WebProcess/GPU/GPUProcessConnection.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/BufferIdentifierSet.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.messages.in
+$(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteImageBufferProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteRenderingBackendProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/MediaPlayerPrivateRemote.messages.in

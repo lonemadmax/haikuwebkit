@@ -1835,7 +1835,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
 
     for (const auto& touchPoint : touchEvent.touchPoints()) {
         auto phase = touchPoint.phase();
-        if (phase == WebKit::WebPlatformTouchPoint::TouchPressed) {
+        if (phase == WebKit::WebPlatformTouchPoint::State::Pressed) {
             auto touchActions = WebKit::touchActionsForPoint(self, touchPoint.location());
             LOG_WITH_STREAM(UIHitTesting, stream << "touchActionsForPoint " << touchPoint.location() << " found " << touchActions);
             if (!touchActions || touchActions.contains(WebCore::TouchAction::Auto))
@@ -1844,7 +1844,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
             scrollingCoordinator->setTouchActionsForTouchIdentifier(touchActions, touchPoint.identifier());
             _preventsPanningInXAxis = !touchActions.containsAny({ WebCore::TouchAction::PanX, WebCore::TouchAction::Manipulation });
             _preventsPanningInYAxis = !touchActions.containsAny({ WebCore::TouchAction::PanY, WebCore::TouchAction::Manipulation });
-        } else if (phase == WebKit::WebPlatformTouchPoint::TouchReleased || phase == WebKit::WebPlatformTouchPoint::TouchCancelled) {
+        } else if (phase == WebKit::WebPlatformTouchPoint::State::Released || phase == WebKit::WebPlatformTouchPoint::State::Cancelled) {
             [_touchActionGestureRecognizer clearTouchActionsForTouchIdentifier:touchPoint.identifier()];
             scrollingCoordinator->clearTouchActionsForTouchIdentifier(touchPoint.identifier());
         }
@@ -2553,15 +2553,6 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     return (a == x && b == y) || (b == x && a == y);
 }
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKContentViewInteractionAdditions_SimultaneousRecognitionExtras.mm>)
-#import <WebKitAdditions/WKContentViewInteractionAdditions_SimultaneousRecognitionExtras.mm>
-#else
-- (BOOL)_shouldAdditionallyRecognizeGestureRecognizer:(UIGestureRecognizer *)gestureRecognizer simultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
-{
-    return NO;
-}
-#endif
-
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer*)otherGestureRecognizer
 {
     for (WKDeferringGestureRecognizer *gesture in self.deferringGestures) {
@@ -2644,8 +2635,11 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
         return YES;
 #endif
 
-    if ([self _shouldAdditionallyRecognizeGestureRecognizer:gestureRecognizer simultaneouslyWithGestureRecognizer:otherGestureRecognizer])
+#if PLATFORM(VISION)
+    Class graspGesture = NSClassFromString(@"MRUIGraspGestureRecognizer");
+    if (([gestureRecognizer isKindOfClass:graspGesture] && otherGestureRecognizer == _singleTapGestureRecognizer.get()) || (gestureRecognizer == _singleTapGestureRecognizer.get() && [otherGestureRecognizer isKindOfClass:graspGesture]))
         return YES;
+#endif
 
     return NO;
 }
@@ -5175,6 +5169,11 @@ static void logTextInteractionAssistantSelectionChange(const char* methodName, U
     [self applyAutocorrection:correction toString:input isCandidate:NO withCompletionHandler:completionHandler];
 }
 
+- (void)applyAutocorrection:(NSString *)correction toString:(NSString *)input shouldUnderline:(BOOL)shouldUnderline withCompletionHandler:(void (^)(UIWKAutocorrectionRects *rectsForCorrection))completionHandler
+{
+    [self applyAutocorrection:correction toString:input isCandidate:shouldUnderline withCompletionHandler:completionHandler];
+}
+
 - (void)_invokePendingAutocorrectionContextHandler:(WKAutocorrectionContext *)context
 {
     if (auto handler = WTFMove(_pendingAutocorrectionContextHandler))
@@ -6927,9 +6926,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (self.isFirstResponder && !_suppressSelectionAssistantReasons)
         [_textInteractionAssistant activateSelection];
 
-#if !PLATFORM(WATCHOS)
     [self reloadInputViews];
-#endif
 }
 
 - (void)_hideKeyboard
@@ -7225,14 +7222,13 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     if (!_isChangingFocus)
         [self presentViewControllerForCurrentFocusedElement];
 #else
-    [self reloadInputViews];
-#endif
-
     if (requiresKeyboard) {
         [self _showKeyboard];
         if (!self.window.keyWindow)
             [self.window makeKeyWindow];
-    }
+    } else
+        [self reloadInputViews];
+#endif
 
     if (!UIKeyboard.activeKeyboard) {
         // The lack of keyboard here suggests that we're not running in a context where the keyboard can become visible
@@ -9959,13 +9955,13 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
     _dragDropInteractionState.dropSessionDidEnterOrUpdate(session, dragData);
 
-    [[WebItemProviderPasteboard sharedInstance] setItemProviders:extractItemProvidersFromDropSession(session)];
+    [[WebItemProviderPasteboard sharedInstance] setItemProviders:extractItemProvidersFromDropSession(session) dropSession:session];
     _page->dragEntered(dragData, WebCore::Pasteboard::nameOfDragPasteboard());
 }
 
 - (UIDropProposal *)dropInteraction:(UIDropInteraction *)interaction sessionDidUpdate:(id <UIDropSession>)session
 {
-    [[WebItemProviderPasteboard sharedInstance] setItemProviders:extractItemProvidersFromDropSession(session)];
+    [[WebItemProviderPasteboard sharedInstance] setItemProviders:extractItemProvidersFromDropSession(session) dropSession:session];
 
     auto dragData = [self dragDataForDropSession:session dragDestinationAction:[self _dragDestinationActionForDropSession:session]];
     _page->dragUpdated(dragData, WebCore::Pasteboard::nameOfDragPasteboard());
@@ -9997,7 +9993,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 - (void)dropInteraction:(UIDropInteraction *)interaction sessionDidExit:(id <UIDropSession>)session
 {
     RELEASE_LOG(DragAndDrop, "Drop session exited: %p with %tu items", session, session.items.count);
-    [[WebItemProviderPasteboard sharedInstance] setItemProviders:extractItemProvidersFromDropSession(session)];
+    [[WebItemProviderPasteboard sharedInstance] setItemProviders:extractItemProvidersFromDropSession(session) dropSession:session];
 
     auto dragData = [self dragDataForDropSession:session dragDestinationAction:WKDragDestinationActionAny];
     _page->dragExited(dragData, WebCore::Pasteboard::nameOfDragPasteboard());
@@ -10023,7 +10019,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
     _dragDropInteractionState.dropSessionWillPerformDrop();
 
-    [[WebItemProviderPasteboard sharedInstance] setItemProviders:itemProviders];
+    [[WebItemProviderPasteboard sharedInstance] setItemProviders:itemProviders dropSession:session];
     [[WebItemProviderPasteboard sharedInstance] incrementPendingOperationCount];
     auto dragData = [self dragDataForDropSession:session dragDestinationAction:WKDragDestinationActionAny];
     BOOL shouldSnapshotView = ![self _handleDropByInsertingImagePlaceholders:itemProviders session:session];

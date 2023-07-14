@@ -255,7 +255,7 @@ LayoutRect AccessibilityNodeObject::boundingBoxRect() const
     // the width of that ancestor, and about the height of a line of text, so it's clear this object is
     // a descendant of that ancestor.
     for (RefPtr<AccessibilityObject> ancestor = parentObject(); ancestor; ancestor = ancestor->parentObject()) {
-        if (!is<AccessibilityRenderObject>(ancestor))
+        if (!ancestor->renderer())
             continue;
         auto ancestorRect = ancestor->elementRect();
         if (ancestorRect.isEmpty())
@@ -823,16 +823,15 @@ bool AccessibilityNodeObject::isMultiSelectable() const
 
 bool AccessibilityNodeObject::isRequired() const
 {
-    // Explicit aria-required values should trump native required attributes.
+    auto* formControlElement = dynamicDowncast<HTMLFormControlElement>(node());
+    if (formControlElement && formControlElement->isRequired())
+        return true;
+
     const AtomString& requiredValue = getAttribute(aria_requiredAttr);
     if (equalLettersIgnoringASCIICase(requiredValue, "true"_s))
         return true;
     if (equalLettersIgnoringASCIICase(requiredValue, "false"_s))
         return false;
-
-    Node* n = this->node();
-    if (is<HTMLFormControlElement>(n))
-        return downcast<HTMLFormControlElement>(*n).isRequired();
 
     return false;
 }

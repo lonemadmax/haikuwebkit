@@ -201,13 +201,19 @@ static String plainTextForDisplay(const std::optional<SimpleRange>& range)
     return range ? plainTextForDisplay(*range) : emptyString();
 }
 
-#if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/WebPageIOSAdditions.mm>
-#else
-static void adjustCandidateAutocorrectionInFrame(LocalFrame&)
+static void adjustCandidateAutocorrectionInFrame(LocalFrame& frame)
 {
-}
+#if HAVE(AUTOCORRECTION_ENHANCEMENTS)
+    FrameSelection selection;
+    selection.setSelection(frame.selection().selection());
+    selection.modify(FrameSelection::Alteration::Extend, SelectionDirection::Backward, TextGranularity::WordGranularity);
+
+    if (auto correctedRange = selection.selection().toNormalizedRange())
+        addMarker(*correctedRange, WebCore::DocumentMarker::CorrectionIndicator);
+#else
+    UNUSED_PARAM(frame);
 #endif
+}
 
 // WebCore stores the page scale factor as float instead of double. When we get a scale from WebCore,
 // we need to ignore differences that are within a small rounding error, with enough leeway
@@ -382,7 +388,7 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
             // rather than the focused element. This causes caret colors in editable children to be
             // ignored in favor of the editing host's caret color. See: <https://webkit.org/b/229809>.
             if (RefPtr editableRoot = selection.rootEditableElement(); editableRoot && editableRoot->renderer())
-                postLayoutData.caretColor = CaretBase::computeCaretColor(editableRoot->renderer()->style(), editableRoot.get());
+                postLayoutData.caretColor = CaretBase::computeCaretColor(editableRoot->renderer()->style(), editableRoot.get(), std::nullopt);
         }
 
         computeEditableRootHasContentAndPlainText(selection, postLayoutData);
