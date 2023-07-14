@@ -647,7 +647,7 @@ void Editor::pasteAsPlainText(const String& pastingText, bool smartReplace)
         return;
     auto sanitizedText = pastingText;
     if (auto* page = m_document.page())
-        sanitizedText = page->sanitizeLookalikeCharacters(sanitizedText, LookalikeCharacterSanitizationTrigger::Paste);
+        sanitizedText = page->applyLinkDecorationFiltering(sanitizedText, LinkDecorationFilteringTrigger::Paste);
     target->dispatchEvent(TextEvent::createForPlainTextPaste(document().windowProxy(), WTFMove(sanitizedText), smartReplace));
 }
 
@@ -1314,6 +1314,7 @@ void Editor::clear()
     }
     m_customCompositionUnderlines.clear();
     m_customCompositionHighlights.clear();
+    m_customCompositionAnnotations.clear();
     m_shouldStyleWithCSS = false;
     m_defaultParagraphSeparator = EditorParagraphSeparator::div;
     m_mark = { };
@@ -1685,7 +1686,7 @@ void Editor::copyURL(const URL& url, const String& title, Pasteboard& pasteboard
 {
     auto sanitizedURL = url;
     if (auto* page = m_document.page())
-        sanitizedURL = page->sanitizeLookalikeCharacters(url, LookalikeCharacterSanitizationTrigger::Copy);
+        sanitizedURL = page->applyLinkDecorationFiltering(url, LinkDecorationFilteringTrigger::Copy);
 
     PasteboardURL pasteboardURL;
     pasteboardURL.url = sanitizedURL;
@@ -2145,9 +2146,14 @@ void Editor::setComposition(const String& text, SetCompositionMode mode)
     else
         selectComposition();
 
+    auto* previousCompositionNode = compositionNode();
     m_compositionNode = nullptr;
     m_customCompositionUnderlines.clear();
     m_customCompositionHighlights.clear();
+    m_customCompositionAnnotations.clear();
+
+    if (auto* cache = m_document.existingAXObjectCache(); cache && previousCompositionNode)
+        cache->onTextCompositionChange(*previousCompositionNode);
 
     if (m_document.selection().isNone())
         return;
@@ -2169,7 +2175,7 @@ void Editor::setComposition(const String& text, SetCompositionMode mode)
     }
 }
 
-void Editor::setComposition(const String& text, const Vector<CompositionUnderline>& underlines, const Vector<CompositionHighlight>& highlights, unsigned selectionStart, unsigned selectionEnd)
+void Editor::setComposition(const String& text, const Vector<CompositionUnderline>& underlines, const Vector<CompositionHighlight>& highlights, const HashMap<String, Vector<CharacterRange>>& annotations, unsigned selectionStart, unsigned selectionEnd)
 {
     SetCompositionScope setCompositionScope(m_document);
 
@@ -2239,9 +2245,11 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
             target->dispatchEvent(CompositionEvent::create(eventNames().compositionendEvent, document().windowProxy(), text));
     }
 
+    auto* previousCompositionNode = compositionNode();
     m_compositionNode = nullptr;
     m_customCompositionUnderlines.clear();
     m_customCompositionHighlights.clear();
+    m_customCompositionAnnotations.clear();
 
     if (!text.isEmpty()) {
         TypingCommand::insertText(document(), text, OptionSet { TypingCommand::Option::SelectInsertedText, TypingCommand::Option::PreventSpellChecking }, TypingCommand::TextCompositionType::Pending);
@@ -2268,6 +2276,11 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
                 highlight.startOffset += baseOffset;
                 highlight.endOffset += baseOffset;
             }
+            m_customCompositionAnnotations = annotations;
+            for (auto it = m_customCompositionAnnotations.begin(); it != m_customCompositionAnnotations.end(); ++it) {
+                for (auto& range : it->value)
+                    range.location += baseOffset;
+            }
 
             if (auto renderer = baseNode->renderer())
                 renderer->repaint();
@@ -2277,6 +2290,14 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
             auto range = SimpleRange { { *baseNode, start }, { *baseNode, end } };
             m_document.selection().setSelectedRange(range, Affinity::Downstream, FrameSelection::ShouldCloseTyping::No);
         }
+    }
+
+    if (auto* cache = m_document.existingAXObjectCache()) {
+        auto* currentCompositionNode = compositionNode();
+        if (previousCompositionNode && previousCompositionNode != currentCompositionNode)
+            cache->onTextCompositionChange(*previousCompositionNode);
+        if (currentCompositionNode)
+            cache->onTextCompositionChange(*currentCompositionNode);
     }
 
 #if PLATFORM(IOS_FAMILY)        

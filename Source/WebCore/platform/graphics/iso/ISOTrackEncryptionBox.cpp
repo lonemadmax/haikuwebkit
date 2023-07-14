@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,9 @@
 using JSC::DataView;
 
 namespace WebCore {
+
+ISOTrackEncryptionBox::ISOTrackEncryptionBox() = default;
+ISOTrackEncryptionBox::~ISOTrackEncryptionBox() = default;
 
 bool ISOTrackEncryptionBox::parseWithoutTypeAndSize(DataView& view)
 {
@@ -87,7 +90,7 @@ bool ISOTrackEncryptionBox::parsePayload(DataView& view, unsigned& offset)
 
     if (m_defaultIsProtected == 1 && !m_defaultPerSampleIVSize) {
         int8_t defaultConstantIVSize = 0;
-        if (!checkedRead<int8_t>(defaultConstantIVSize, view, offset, BigEndian))
+        if (!checkedRead<int8_t>(defaultConstantIVSize, view, offset, BigEndian) || defaultConstantIVSize < 0)
             return false;
 
         Vector<uint8_t> defaultConstantIV;

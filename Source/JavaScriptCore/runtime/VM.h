@@ -51,6 +51,7 @@
 #include "NumericStrings.h"
 #include "SlotVisitorMacros.h"
 #include "SmallStrings.h"
+#include "StringReplaceCache.h"
 #include "StringSplitCache.h"
 #include "Strong.h"
 #include "SubspaceAccess.h"
@@ -411,6 +412,8 @@ public:
         m_entryScopeServices.add(service);
     }
 
+    JS_EXPORT_PRIVATE void performOpportunisticallyScheduledTasks(MonotonicTime deadline);
+
 private:
     VMIdentifier m_identifier;
     RefPtr<JSLock> m_apiLock;
@@ -571,6 +574,7 @@ public:
     KeyAtomStringCache keyAtomStringCache;
     StringSplitCache stringSplitCache;
     Vector<unsigned> stringSplitIndice;
+    StringReplaceCache stringReplaceCache;
 
     AtomStringTable* atomStringTable() const { return m_atomStringTable; }
     WTF::SymbolRegistry& symbolRegistry() { return m_symbolRegistry; }

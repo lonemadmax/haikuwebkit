@@ -99,7 +99,7 @@ namespace TestWebKitAPI {
 
 
 // FIXME: Re-enable this test once webkit.org/b/208451 is resolved.
-#if !PLATFORM(IOS)
+#if !(PLATFORM(IOS) || PLATFORM(VISION))
 TEST(WKWebsiteDataStore, RemoveAndFetchData)
 {
     readyToContinue = false;
@@ -115,7 +115,7 @@ TEST(WKWebsiteDataStore, RemoveAndFetchData)
     }];
     TestWebKitAPI::Util::run(&readyToContinue);
 }
-#endif // !PLATFORM(IOS)
+#endif // !(PLATFORM(IOS) || PLATFORM(VISION))
 
 TEST(WKWebsiteDataStore, RemoveEphemeralData)
 {
@@ -639,12 +639,7 @@ TEST(WKWebsiteDataStore, ListIdentifiers)
     TestWebKitAPI::Util::run(&done);
 }
 
-// FIXME when rdar://109725221 is resolved
-#if PLATFORM(IOS)
-TEST(WKWebsiteDataStorePrivate, DISABLED_FetchWithSize)
-#else
 TEST(WKWebsiteDataStorePrivate, FetchWithSize)
-#endif
 {
     readyToContinue = false;
     [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^{

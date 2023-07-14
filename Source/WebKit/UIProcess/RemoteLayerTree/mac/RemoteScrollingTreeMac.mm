@@ -54,7 +54,7 @@ RemoteScrollingTreeMac::RemoteScrollingTreeMac(RemoteScrollingCoordinatorProxy& 
 {
     ASSERT(isMainRunLoop());
     ScrollingThread::dispatch([protectedThis = Ref { *this }]() {
-        if ([CATransaction instancesRespondToSelector:@selector(setDisableImplicitTransactionMainThreadAssert:)])
+        if ([CATransaction respondsToSelector:@selector(setDisableImplicitTransactionMainThreadAssert:)])
             [CATransaction setDisableImplicitTransactionMainThreadAssert:YES];
     });
 }
@@ -129,7 +129,7 @@ void RemoteScrollingTreeMac::didCommitTree()
 {
     ASSERT(isMainRunLoop());
 
-    if (m_nodesWithPendingScrollAnimations.isEmpty())
+    if (m_nodesWithPendingScrollAnimations.isEmpty() && m_nodesWithPendingKeyboardScrollAnimations.isEmpty())
         return;
 
     ScrollingThread::dispatch([protectedThis = Ref { *this }]() {

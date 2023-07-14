@@ -36,6 +36,7 @@
 #include "SurrogatePairAwareTextIterator.h"
 #include "TextRun.h"
 #include "WidthIterator.h"
+#include "WordBoundaryDetection.h"
 #include <unicode/ubidi.h>
 #include <wtf/text/TextBreakIterator.h>
 
@@ -323,7 +324,7 @@ unsigned TextUtil::findNextBreakablePosition(CachedLineBreakIteratorFactory& lin
         return nextBreakablePositionKeepingAllWordsIgnoringNBSP(lineBreakIteratorFactory, startPosition);
     }
 
-    if (lineBreakIteratorFactory.mode() == LineBreakIteratorMode::Default) {
+    if (lineBreakIteratorFactory.mode() == TextBreakIterator::LineMode::Behavior::Default) {
         if (breakNBSP)
             return WebCore::nextBreakablePosition(lineBreakIteratorFactory, startPosition);
         return nextBreakablePositionIgnoringNBSP(lineBreakIteratorFactory, startPosition);
@@ -336,40 +337,52 @@ unsigned TextUtil::findNextBreakablePosition(CachedLineBreakIteratorFactory& lin
 
 bool TextUtil::shouldPreserveSpacesAndTabs(const Box& layoutBox)
 {
-    // https://www.w3.org/TR/css-text-3/#white-space-property
-    auto whitespace = layoutBox.style().whiteSpace();
-    return whitespace == WhiteSpace::Pre || whitespace == WhiteSpace::PreWrap || whitespace == WhiteSpace::BreakSpaces;
+    // https://www.w3.org/TR/css-text-4/#white-space-collapsing
+    auto whitespaceCollapse = layoutBox.style().whiteSpaceCollapse();
+    return whitespaceCollapse == WhiteSpaceCollapse::Preserve || whitespaceCollapse == WhiteSpaceCollapse::BreakSpaces;
 }
 
 bool TextUtil::shouldPreserveNewline(const Box& layoutBox)
 {
-    auto whitespace = layoutBox.style().whiteSpace();
-    // https://www.w3.org/TR/css-text-3/#white-space-property
-    return whitespace == WhiteSpace::Pre || whitespace == WhiteSpace::PreWrap || whitespace == WhiteSpace::BreakSpaces || whitespace == WhiteSpace::PreLine; 
+    // https://www.w3.org/TR/css-text-4/#white-space-collapsing
+    auto whitespaceCollapse = layoutBox.style().whiteSpaceCollapse();
+    return whitespaceCollapse == WhiteSpaceCollapse::Preserve || whitespaceCollapse == WhiteSpaceCollapse::PreserveBreaks || whitespaceCollapse == WhiteSpaceCollapse::BreakSpaces;
 }
 
 bool TextUtil::isWrappingAllowed(const RenderStyle& style)
 {
-    // Do not try to wrap overflown 'pre' and 'no-wrap' content to next line.
-    return style.whiteSpace() != WhiteSpace::Pre && style.whiteSpace() != WhiteSpace::NoWrap;
+    // https://www.w3.org/TR/css-text-4/#text-wrap
+    return style.textWrap() != TextWrap::NoWrap;
 }
 
-LineBreakIteratorMode TextUtil::lineBreakIteratorMode(LineBreak lineBreak)
+TextBreakIterator::LineMode::Behavior TextUtil::lineBreakIteratorMode(LineBreak lineBreak)
 {
     switch (lineBreak) {
     case LineBreak::Auto:
     case LineBreak::AfterWhiteSpace:
     case LineBreak::Anywhere:
-        return LineBreakIteratorMode::Default;
+        return TextBreakIterator::LineMode::Behavior::Default;
     case LineBreak::Loose:
-        return LineBreakIteratorMode::Loose;
+        return TextBreakIterator::LineMode::Behavior::Loose;
     case LineBreak::Normal:
-        return LineBreakIteratorMode::Normal;
+        return TextBreakIterator::LineMode::Behavior::Normal;
     case LineBreak::Strict:
-        return LineBreakIteratorMode::Strict;
+        return TextBreakIterator::LineMode::Behavior::Strict;
     }
     ASSERT_NOT_REACHED();
-    return LineBreakIteratorMode::Default;
+    return TextBreakIterator::LineMode::Behavior::Default;
+}
+
+TextBreakIterator::ContentAnalysis TextUtil::contentAnalysis(const WordBoundaryDetection& wordBoundaryDetection)
+{
+    // FIXME: Explicit static_cast to work around issue on libstdc++-10. Undo when upgrading GCC from 10 to 11.
+    return WTF::switchOn(static_cast<WordBoundaryDetectionType>(wordBoundaryDetection), [](WordBoundaryDetectionNormal) {
+        return TextBreakIterator::ContentAnalysis::Mechanical;
+    }, [](WordBoundaryDetectionManual) {
+        return TextBreakIterator::ContentAnalysis::Mechanical;
+    }, [](const WordBoundaryDetectionAuto&) {
+        return TextBreakIterator::ContentAnalysis::Linguistic;
+    });
 }
 
 bool TextUtil::containsStrongDirectionalityText(StringView text)

@@ -49,6 +49,7 @@
 #endif
 
 #if USE(GSTREAMER)
+#include "MockDisplayCaptureSourceGStreamer.h"
 #include "MockRealtimeVideoSourceGStreamer.h"
 #endif
 
@@ -476,7 +477,7 @@ Vector<CaptureDevice>& MockRealtimeMediaSourceCenter::displayDevices()
         Vector<CaptureDevice> displayDevices;
         for (const auto& device : devices()) {
             if (device.isDisplay())
-                displayDevices.append(device.captureDevice());
+                displayDevices.append(toCaptureDevice(device));
         }
         return displayDevices;
     }();

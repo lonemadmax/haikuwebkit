@@ -71,7 +71,7 @@ public:
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName) final { }
 
     // WebCore::GraphicsContextGL overrides.
-    std::optional<WebCore::GraphicsContextGL::ExternalImageAttachResult> createAndBindExternalImage(GCGLenum, WebCore::GraphicsContextGL::ExternalImageSource) override;
+    std::optional<WebCore::GraphicsContextGL::EGLImageAttachResult> createAndBindEGLImage(GCGLenum, WebCore::GraphicsContextGL::EGLImageSource) override;
     GCEGLSync createEGLSync(ExternalEGLSyncEvent) override;
     std::tuple<GCGLenum, GCGLenum> externalImageTextureBindingPoint() final;
     void reshape(int width, int height) final;
@@ -384,7 +384,7 @@ protected:
 
     static inline Seconds defaultSendTimeout = 30_s;
     template<typename T>
-    WARN_UNUSED_RETURN bool send(T&& message)
+    WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
         return m_streamConnection->send(WTFMove(message), m_graphicsContextGLIdentifier, defaultSendTimeout);
     }

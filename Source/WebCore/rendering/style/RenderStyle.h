@@ -91,6 +91,7 @@ class TransformOperations;
 class TransformationMatrix;
 class TranslateTransformOperation;
 class WillChangeData;
+class WordBoundaryDetection;
 
 enum CSSPropertyID : uint16_t;
 enum GridAutoFlow : uint8_t;
@@ -244,6 +245,7 @@ struct OrderedNamedGridLinesMap;
 struct ScrollSnapAlign;
 struct ScrollSnapType;
 struct ScrollbarGutter;
+struct ScrollbarColor;
 
 struct TabSize;
 struct TextAutospace;
@@ -564,7 +566,7 @@ public:
     WEBCORE_EXPORT int computedLineHeight() const;
     int computeLineHeight(const Length&) const;
 
-    WhiteSpace whiteSpace() const { return static_cast<WhiteSpace>(m_inheritedFlags.whiteSpace); }
+    WhiteSpace whiteSpace() const;
     static constexpr bool autoWrap(WhiteSpace);
     inline bool autoWrap() const;
     static constexpr bool preserveNewline(WhiteSpace);
@@ -614,7 +616,6 @@ public:
     StyleImage* listStyleImage() const;
     ListStylePosition listStylePosition() const { return static_cast<ListStylePosition>(m_inheritedFlags.listStylePosition); }
     inline bool isFixedTableLayout() const;
-
     inline const Length& marginTop() const;
     inline const Length& marginBottom() const;
     inline const Length& marginLeft() const;
@@ -824,6 +825,7 @@ public:
     inline unsigned short columnRuleWidth() const;
     inline bool columnRuleIsTransparent() const;
     inline ColumnSpan columnSpan() const;
+    inline const WordBoundaryDetection& wordBoundaryDetection() const;
 
     inline const TransformOperations& transform() const;
     inline bool hasTransform() const;
@@ -967,7 +969,10 @@ public:
     const ScrollSnapAlign& scrollSnapAlign() const;
     ScrollSnapStop scrollSnapStop() const;
 
-    const ScrollbarGutter scrollbarGutter() const;
+    inline std::optional<ScrollbarColor> scrollbarColor() const;
+    inline const StyleColor& scrollbarThumbColor() const;
+    inline const StyleColor& scrollbarTrackColor() const;
+    WEBCORE_EXPORT const ScrollbarGutter scrollbarGutter() const;
     WEBCORE_EXPORT ScrollbarWidth scrollbarWidth() const;
 
 #if ENABLE(TOUCH_EVENTS)
@@ -1003,12 +1008,6 @@ public:
     inline ImageOrientation imageOrientation() const;
     inline ImageRendering imageRendering() const;
 
-#if ENABLE(CSS_IMAGE_RESOLUTION)
-    inline ImageResolutionSource imageResolutionSource() const;
-    inline ImageResolutionSnap imageResolutionSnap() const;
-    inline float imageResolution() const;
-#endif
-    
     inline OptionSet<SpeakAs> speakAs() const;
 
     inline FilterOperations& mutableFilter();
@@ -1042,6 +1041,8 @@ public:
     inline bool hasIsolation() const;
 
     bool shouldPlaceVerticalScrollbarOnLeft() const;
+
+    inline bool hasCustomScrollbarStyle() const;
 
 #if ENABLE(APPLE_PAY)
     inline ApplePayButtonStyle applePayButtonStyle() const;
@@ -1217,13 +1218,6 @@ public:
     inline void setImageOrientation(ImageOrientation);
     inline void setImageRendering(ImageRendering);
 
-#if ENABLE(CSS_IMAGE_RESOLUTION)
-    inline void setImageResolutionSource(ImageResolutionSource);
-    inline void setImageResolutionSnap(ImageResolutionSnap);
-    inline void setImageResolution(float);
-#endif
-
-    void setWhiteSpace(WhiteSpace v) { m_inheritedFlags.whiteSpace = static_cast<unsigned>(v); }
     void setWhiteSpaceCollapse(WhiteSpaceCollapse v) { m_inheritedFlags.whiteSpaceCollapse = static_cast<unsigned>(v); }
     void setTextWrap(TextWrap v) { m_inheritedFlags.textWrap = static_cast<unsigned>(v); }
 
@@ -1422,6 +1416,7 @@ public:
     inline void setColumnRuleWidth(unsigned short);
     inline void resetColumnRule();
     inline void setColumnSpan(ColumnSpan);
+    inline void setWordBoundaryDetection(const WordBoundaryDetection&);
     inline void inheritColumnPropertiesFrom(const RenderStyle& parent);
 
     inline void setTransform(const TransformOperations&);
@@ -1515,6 +1510,9 @@ public:
     void setScrollSnapAlign(const ScrollSnapAlign&);
     void setScrollSnapStop(ScrollSnapStop);
 
+    inline void setScrollbarColor(const std::optional<ScrollbarColor>&);
+    inline void setScrollbarThumbColor(const StyleColor&);
+    inline void setScrollbarTrackColor(const StyleColor&);
     void setScrollbarGutter(ScrollbarGutter);
     void setScrollbarWidth(ScrollbarWidth);
 
@@ -1875,6 +1873,7 @@ public:
     static Vector<AtomString> initialContainerNames();
     static double initialAspectRatioWidth() { return 1.0; }
     static double initialAspectRatioHeight() { return 1.0; }
+    static WordBoundaryDetection initialWordBoundaryDetection();
 
     static constexpr ContainIntrinsicSizeType initialContainIntrinsicWidthType();
     static constexpr ContainIntrinsicSizeType initialContainIntrinsicHeightType();
@@ -1949,6 +1948,7 @@ public:
     static ScrollSnapAlign initialScrollSnapAlign();
     static ScrollSnapStop initialScrollSnapStop();
 
+    static inline std::optional<ScrollbarColor> initialScrollbarColor();
     static ScrollbarGutter initialScrollbarGutter();
     static ScrollbarWidth initialScrollbarWidth();
 
@@ -2176,10 +2176,9 @@ private:
         unsigned cursorVisibility : 1; // CursorVisibility
 #endif
         unsigned direction : 1; // TextDirection
-        unsigned whiteSpace : 3; // WhiteSpace
         unsigned whiteSpaceCollapse : 3; // WhiteSpaceCollapse
         unsigned textWrap : 3; // TextWrap
-        // 36 bits
+        // 33 bits
         unsigned borderCollapse : 1; // BorderCollapse
         unsigned boxDirection : 1; // BoxDirection
 
@@ -2189,16 +2188,16 @@ private:
         unsigned pointerEvents : 4; // PointerEvents
         unsigned insideLink : 2; // InsideLink
         unsigned insideDefaultButton : 1;
-        // 47 bits
+        // 44 bits
 
         // CSS Text Layout Module Level 3: Vertical writing support
         unsigned writingMode : 2; // WritingMode
-        // 49 bits
+        // 46 bits
 
 #if ENABLE(TEXT_AUTOSIZING)
         unsigned autosizeStatus : 5;
 #endif
-        // 54 bits
+        // 51 bits
     };
 
     // This constructor is used to implement the replace operation.

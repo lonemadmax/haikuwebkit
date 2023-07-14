@@ -51,9 +51,9 @@ list(APPEND WebCore_SOURCES
 
     platform/graphics/PlatformDisplay.cpp
 
-    platform/graphics/egl/GLContext.cpp
+    platform/graphics/angle/PlatformDisplayANGLE.cpp
 
-    platform/graphics/opengl/TemporaryOpenGLSetting.cpp
+    platform/graphics/egl/GLContext.cpp
 
     platform/graphics/opentype/OpenTypeUtilities.cpp
 
@@ -87,7 +87,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/TransformationMatrixWin.cpp
 
     platform/network/win/CurlSSLHandleWin.cpp
-    platform/network/win/DownloadBundleWin.cpp
     platform/network/win/NetworkStateNotifierWin.cpp
 
     platform/text/Hyphenation.cpp

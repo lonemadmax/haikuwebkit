@@ -598,7 +598,9 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     pageConfiguration->preferences()->setVideoFullscreenRequiresElementFullscreen(WebKit::defaultVideoFullscreenRequiresElementFullscreen());
 #endif
 
-    pageConfiguration->preferences()->setMarkedTextInputEnabled(!![_configuration _markedTextInputEnabled]);
+#if HAVE(INLINE_PREDICTIONS)
+    pageConfiguration->preferences()->setInlinePredictionsEnabled(!![_configuration allowsInlinePredictions]);
+#endif
 }
 
 - (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration
@@ -628,7 +630,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     self.magnification = [coder decodeDoubleForKey:@"magnification"];
 #endif
 
-#if PLATFORM(IOS) || PLATFORM(MACCATALYST)
+#if PLATFORM(IOS) || PLATFORM(MACCATALYST) || PLATFORM(VISION)
     self.findInteractionEnabled = [coder decodeBoolForKey:@"findInteractionEnabled"];
 #endif
 
@@ -650,7 +652,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     [coder encodeDouble:self.magnification forKey:@"magnification"];
 #endif
 
-#if PLATFORM(IOS) || PLATFORM(MACCATALYST)
+#if PLATFORM(IOS) || PLATFORM(MACCATALYST) || PLATFORM(VISION)
     [coder encodeBool:self.isFindInteractionEnabled forKey:@"findInteractionEnabled"];
 #endif
 }
@@ -2890,7 +2892,7 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
     if (![self _isValid])
         return 0;
 
-    return _page->processIdentifier();
+    return _page->processID();
 }
 
 - (pid_t)_provisionalWebProcessIdentifier
@@ -2902,7 +2904,7 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
     if (!provisionalPage)
         return 0;
 
-    return provisionalPage->process().processIdentifier();
+    return provisionalPage->process().processID();
 }
 
 - (pid_t)_gpuProcessIdentifier
@@ -2910,7 +2912,7 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
     if (![self _isValid])
         return 0;
 
-    return _page->gpuProcessIdentifier();
+    return _page->gpuProcessID();
 }
 
 - (BOOL)_webProcessIsResponsive

@@ -884,7 +884,12 @@ bool RenderLayer::canRender3DTransforms() const
 
 bool RenderLayer::paintsWithFilters() const
 {
-    if (!renderer().hasFilter())
+    if (!hasFilter())
+        return false;
+
+    // The SVG rendering codepath should've already applied the filter to the SVG root,
+    // so do not apply the filter again.
+    if (renderer().isSVGRootOrLegacySVGRoot())
         return false;
 
     if (RenderLayerFilters::isIdentity(renderer()))
@@ -1654,6 +1659,9 @@ bool RenderLayer::computeHasVisibleContent() const
     if (renderer().document().settings().layerBasedSVGEngineEnabled() && lineageOfType<RenderSVGHiddenContainer>(renderer()).first())
         return false;
 #endif
+    if (m_isHiddenByOverflowTruncation)
+        return false;
+
     if (renderer().style().visibility() == Visibility::Visible)
         return true;
 
@@ -5258,6 +5266,13 @@ void RenderLayer::updateSelfPaintingLayer()
     else {
         parent()->dirtyAncestorChainHasSelfPaintingLayerDescendantStatus();
         clearRepaintRects();
+        auto updateFloatBoxShouldPaintIfApplicable = [&] {
+            auto* renderBox = this->renderBox();
+            if (!renderBox || !renderBox->isFloating())
+                return;
+            renderBox->updateFloatPainterAfterSelfPaintingLayerChange();
+        };
+        updateFloatBoxShouldPaintIfApplicable();
     }
 }
 
@@ -5560,14 +5575,13 @@ void RenderLayer::clearLayerScrollableArea()
 
 void RenderLayer::updateFiltersAfterStyleChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    if (!hasFilter()) {
+    if (!paintsWithFilters()) {
         clearLayerFilters();
         return;
     }
 
-    // Add the filter as a client to this renderer, unless we are a RenderLayer accommodating
-    // an SVG. In that case it takes care of its own resource management for filters.
-    if (renderer().style().filter().hasReferenceFilter() && !renderer().isSVGRootOrLegacySVGRoot()) {
+    // Add the filter as a client to this renderer.
+    if (renderer().style().filter().hasReferenceFilter()) {
         ensureLayerFilters();
         m_filters->updateReferenceFilterClients(renderer().style().filter());
     } else if (m_filters)
@@ -5613,7 +5627,7 @@ void RenderLayer::updateFilterPaintingStrategy()
         if (!renderer().style().filter().hasReferenceFilter())
             return;
     }
-    
+
     ensureLayerFilters();
     m_filters->setPreferredFilterRenderingModes(renderer().page().preferredFilterRenderingModes());
     m_filters->setFilterScale({ page().deviceScaleFactor(), page().deviceScaleFactor() });

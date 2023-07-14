@@ -24,21 +24,12 @@
 #include "PlatformDisplay.h"
 #include <wtf/Noncopyable.h>
 
-#if !PLATFORM(GTK)
-// FIXME: For now default to the GBM EGL platform, but this should really be
-// somehow deducible from the build configuration. This is needed with libepoxy
-// as it could have been configured with X11 support enabled, resulting in
-// transitive inclusions of headers with definitions that clash with WebCore.
-#define __GBM__ 1
-#if USE(LIBEPOXY)
-#include <epoxy/egl.h>
-#else // !USE(LIBEPOXY)
+#if !PLATFORM(GTK) && !PLATFORM(WPE)
 #include <EGL/eglplatform.h>
-#endif // USE(LIBEPOXY)
 typedef EGLNativeWindowType GLNativeWindowType;
-#else // !USE(EGL) || PLATFORM(GTK)
+#else
 typedef uint64_t GLNativeWindowType;
-#endif // !PLATFORM(GTK)
+#endif
 
 #if PLATFORM(X11)
 #include "XUniqueResource.h"
@@ -128,6 +119,7 @@ public:
     EGLConfig config() const { return m_config; }
 
     WEBCORE_EXPORT bool makeContextCurrent();
+    bool unmakeContextCurrent();
     WEBCORE_EXPORT void swapBuffers();
     GCGLContext platformContext() const;
 
@@ -144,6 +136,22 @@ public:
             EGLSurface drawSurface { nullptr };
         } m_previous;
         std::unique_ptr<GLContext> m_context;
+    };
+
+    class ScopedGLContextCurrent {
+        WTF_MAKE_NONCOPYABLE(ScopedGLContextCurrent);
+    public:
+        explicit ScopedGLContextCurrent(GLContext&);
+        ~ScopedGLContextCurrent();
+    private:
+        struct {
+            GLContext* glContext { nullptr };
+            EGLDisplay display { nullptr };
+            EGLContext context { nullptr };
+            EGLSurface readSurface { nullptr };
+            EGLSurface drawSurface { nullptr };
+        } m_previous;
+        GLContext& m_context;
     };
 
 private:

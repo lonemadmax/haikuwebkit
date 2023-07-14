@@ -30,6 +30,8 @@
 
 #include "AddEventListenerOptions.h"
 #include "AttachmentElementClient.h"
+#include "CSSPropertyNames.h"
+#include "CSSUnits.h"
 #include "DOMRectReadOnly.h"
 #include "DOMURL.h"
 #include "Document.h"
@@ -265,11 +267,6 @@ class AttachmentSaveEventListener final : public EventListener {
 public:
     static Ref<AttachmentSaveEventListener> create(HTMLAttachmentElement& attachment) { return adoptRef(*new AttachmentSaveEventListener(attachment)); }
 
-    bool operator==(const EventListener& other) const final
-    {
-        return this == &other;
-    }
-
     void handleEvent(ScriptExecutionContext&, Event& event) final
     {
         if (event.type() == eventNames().clickEvent) {
@@ -356,11 +353,8 @@ DOMRectReadOnly* HTMLAttachmentElement::saveButtonClientRect() const
     return m_saveButtonClientRect.get();
 }
 
-RenderPtr<RenderElement> HTMLAttachmentElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition& position)
+RenderPtr<RenderElement> HTMLAttachmentElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    if (m_implementation == Implementation::Modern)
-        return HTMLElement::createElementRenderer(WTFMove(style), position);
-
     return createRenderer<RenderAttachment>(*this, WTFMove(style));
 }
 
@@ -434,6 +428,12 @@ void HTMLAttachmentElement::setFile(RefPtr<File>&& file, UpdateDisplayAttributes
 Node::InsertedIntoAncestorResult HTMLAttachmentElement::insertedIntoAncestor(InsertionType type, ContainerNode& ancestor)
 {
     auto result = HTMLElement::insertedIntoAncestor(type, ancestor);
+    if (isWideLayout()) {
+        setInlineStyleProperty(CSSPropertyMarginLeft, 1, CSSUnitType::CSS_PX);
+        setInlineStyleProperty(CSSPropertyMarginRight, 1, CSSUnitType::CSS_PX);
+        setInlineStyleProperty(CSSPropertyMarginTop, 1, CSSUnitType::CSS_PX);
+        setInlineStyleProperty(CSSPropertyMarginBottom, 1, CSSUnitType::CSS_PX);
+    }
     if (type.connectedToDocument)
         document().didInsertAttachmentElement(*this);
     return result;

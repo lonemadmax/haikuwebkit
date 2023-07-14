@@ -433,7 +433,7 @@ Node::InsertedIntoAncestorResult HTMLElement::insertedIntoAncestor(InsertionType
     auto result = StyledElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
     hideNonce();
 
-    if (RefPtr parent = parentOrShadowHostElement(); parent && parent != document().documentElement() && UNLIKELY(parent->usesEffectiveTextDirection())) {
+    if (RefPtr parent = parentOrShadowHostElement(); parent && UNLIKELY(parent->usesEffectiveTextDirection())) {
         if (!elementAffectsDirectionality(*this) && !(is<HTMLInputElement>(*this) && downcast<HTMLInputElement>(*this).isTelephoneField())) {
             setUsesEffectiveTextDirection(true);
             setEffectiveTextDirection(parent->effectiveTextDirection());
@@ -778,11 +778,7 @@ void HTMLElement::setTranslate(bool enable)
 
 bool HTMLElement::rendererIsEverNeeded()
 {
-    if (hasTagName(noscriptTag)) {
-        RefPtr frame { document().frame() };
-        if (frame && frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
-            return false;
-    } else if (hasTagName(noembedTag)) {
+    if (hasTagName(noembedTag)) {
         RefPtr frame { document().frame() };
         if (frame && frame->arePluginsEnabled())
             return false;
@@ -1478,15 +1474,18 @@ ExceptionOr<void> HTMLElement::hidePopover()
     return hidePopoverInternal(FocusPreviousElement::Yes, FireEvents::Yes);
 }
 
-ExceptionOr<void> HTMLElement::togglePopover(std::optional<bool> force)
+ExceptionOr<bool> HTMLElement::togglePopover(std::optional<bool> force)
 {
-    if (isPopoverShowing() && !force.value_or(false))
-        return hidePopover();
-
-    if ((!popoverData() || popoverData()->visibilityState() == PopoverVisibilityState::Hidden) && force.value_or(true))
-        return showPopover();
-
-    return { };
+    if (isPopoverShowing() && !force.value_or(false)) {
+        auto returnValue = hidePopover();
+        if (returnValue.hasException())
+            return returnValue.releaseException();
+    } else if (!isPopoverShowing() && force.value_or(true)) {
+        auto returnValue = showPopover();
+        if (returnValue.hasException())
+            return returnValue.releaseException();
+    }
+    return isPopoverShowing();
 }
 
 void HTMLElement::popoverAttributeChanged(const AtomString& value)

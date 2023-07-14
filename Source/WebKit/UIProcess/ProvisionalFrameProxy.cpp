@@ -35,7 +35,8 @@
 #include "LocalFrameCreationParameters.h"
 #include "MessageSenderInlines.h"
 #include "NetworkProcessMessages.h"
-#include "SubframePageProxy.h"
+#include "RemotePageProxy.h"
+#include "VisitedLinkStore.h"
 #include "WebFrameProxy.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
@@ -73,8 +74,11 @@ ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, Ref<WebProces
 
     // FIXME: This gives too much cookie access. This should be removed after putting the entire frame tree in all web processes.
     auto giveAllCookieAccess = LoadedWebArchive::Yes;
-    frame.page()->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(m_process->coreProcessIdentifier(), WebCore::RegistrableDomain(request.url()), giveAllCookieAccess), [process = m_process, loadParameters = WTFMove(loadParameters), localFrameCreationParameters = WTFMove(localFrameCreationParameters), pageID = m_pageID] () mutable {
-        process->send(Messages::WebPage::TransitionFrameToLocalAndLoadRequest(localFrameCreationParameters, loadParameters), pageID);
+    WebCore::RegistrableDomain domain { request.url() };
+    m_process->addAllowedFirstPartyForCookies(domain);
+    frame.page()->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(m_process->coreProcessIdentifier(), domain, giveAllCookieAccess), [process = m_process, loadParameters = WTFMove(loadParameters), localFrameCreationParameters = WTFMove(localFrameCreationParameters), pageID = m_pageID] () mutable {
+        process->send(Messages::WebPage::TransitionFrameToLocal(localFrameCreationParameters, *loadParameters.frameIdentifier), pageID);
+        process->send(Messages::WebPage::LoadRequest(loadParameters), pageID);
     });
 }
 

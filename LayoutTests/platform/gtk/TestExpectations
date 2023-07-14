@@ -141,7 +141,6 @@ webkit.org/b/235941 accessibility/gtk/caret-offsets.html [ Timeout ]
 # canvas
 webkit.org/b/215462 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.commit.html [ Failure ]
 webkit.org/b/238208 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-and-stroke-styles/2d.fillStyle.CSSHSL.html [ Failure ]
-fast/canvas/offscreen-clipped.html [ Failure ]
 
 # CSS
 webkit.org/b/216161 imported/w3c/web-platform-tests/css/css-pseudo/text-selection.html [ Failure Pass ]
@@ -187,9 +186,6 @@ webkit.org/b/218367 inspector/page/setScreenSizeOverride.html [ Failure Pass ]
 webkit.org/b/254733 inspector/canvas/recording-offscreen-canvas-2d-frameCount.html [ Failure ]
 webkit.org/b/254733 inspector/canvas/recording-offscreen-canvas-2d-full.html [ Failure ]
 webkit.org/b/254733 inspector/canvas/recording-offscreen-canvas-2d-memoryLimit.html [ Failure ]
-
-# Websocket.
-webkit.org/b/254220 http/tests/websocket/tests/hybi/websocket-blocked-sending-cookie-as-third-party.html [ Skip ]
 
 # WebXR is not yet supported in GTK
 webkit.org/b/208988 http/wpt/webxr [ Skip ]
@@ -707,7 +703,6 @@ webkit.org/b/251107 webgl/2.0.y/conformance/textures/misc/exif-orientation.html 
 # No colorspaces in non-Cocoa WebGL.
 fast/canvas/webgl/colorspaces-test.html [ Failure ]
 fast/canvas/webgl/context-lost-restored-p3.html [ Failure ]
-fast/canvas/webgl/match-page-color-space-p3.html [ ImageOnlyFailure ]
 
 # These tests reference specific fonts on Mac port.
 Bug(GTK) fast/text/font-weights.html [ WontFix ]
@@ -879,9 +874,6 @@ webkit.org/b/169531 fast/text/font-selection-font-face-parse.html [ Skip ]
 
 # CSS image-orientation is not yet enabled.
 webkit.org/b/89052 fast/css/image-orientation [ Skip ]
-
-# CSS image-resolution is not yet enabled.
-webkit.org/b/85262 fast/css/image-resolution [ Skip ]
 
 # Requires CACHE_PARTITIONING or an alternative implementation
 webkit.org/b/168366 http/tests/security/credentials-iframes.html
@@ -2235,6 +2227,10 @@ webkit.org/b/234726 imported/w3c/web-platform-tests/css/css-color/color-mix-non-
 
 webkit.org/b/234782 imported/w3c/web-platform-tests/css/css-writing-modes/text-shadow-orientation-upright-001.html [ ImageOnlyFailure ]
 
+# Failing for css-highlight
+imported/w3c/web-platform-tests/css/css-highlight-api/painting/custom-highlight-painting-iframe-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-highlight-api/painting/custom-highlight-painting-iframe-004.html [ ImageOnlyFailure ]
+
 # WPT css/css-pseudo import (webkit.org/b/235197)
 imported/w3c/web-platform-tests/css/css-pseudo/selection-background-painting-order.html [ ImageOnlyFailure ]
 
@@ -2285,6 +2281,7 @@ imported/w3c/web-platform-tests/xhr/send-authentication-basic-setrequestheader-e
 
 webkit.org/b/252953 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-height-constrained-by-max-width.html [ ImageOnlyFailure ]
 webkit.org/b/252953 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-width-constrained-by-max-height.html [ ImageOnlyFailure ]
+webkit.org/b/257752 imported/w3c/web-platform-tests/html/rendering/the-details-element/summary-text-decoration.html [ ImageOnlyFailure ]
 # Ftp code is disabled in gtk port
 http/tests/misc/ftp-eplf-directory.py [ Skip ]
 
@@ -2331,6 +2328,8 @@ webkit.org/b/246766 imported/w3c/web-platform-tests/reporting/generateTestReport
 
 # vertical form controls
 imported/w3c/web-platform-tests/css/css-writing-modes/forms/progress-appearance-native-computed-style.optional.html [ Failure ]
+
+webkit.org/b/256768 fast/mediastream/captureStream/canvas3d.html [ Failure ]
 
 webkit.org/b/249477 media/audioSession/audioSessionType.html [ Skip ]
 webkit.org/b/253832 media/media-source/media-source-webm-configuration-change.html [ Failure ]

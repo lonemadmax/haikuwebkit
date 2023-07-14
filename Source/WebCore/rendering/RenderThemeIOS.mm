@@ -1616,13 +1616,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         else
             UTI = UTIFromMIMEType(attachmentType);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
         [documentInteractionController setUTI:static_cast<NSString *>(UTI)];
 #endif
     }
 
     RetainPtr<UIImage> result;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     NSArray *icons = [documentInteractionController icons];
     if (!icons.count)
         return IconAndSize { nil, FloatSize() };
@@ -1709,6 +1709,9 @@ bool RenderThemeIOS::paintAttachment(const RenderObject& renderer, const PaintIn
         return false;
 
     const RenderAttachment& attachment = downcast<RenderAttachment>(renderer);
+
+    if (attachment.paintWideLayoutAttachmentOnly(paintInfo, paintRect.location()))
+        return true;
 
     AttachmentLayout info(attachment);
 

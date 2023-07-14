@@ -330,7 +330,7 @@ static inline bool addDisplayCaptureSandboxExtension(std::optional<audit_token_t
 }
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
 static inline bool addTCCDSandboxExtension(Vector<SandboxExtension::Handle>& extensions)
 {
     auto handle = SandboxExtension::createHandleForMachLookup("com.apple.tccd"_s, std::nullopt);
@@ -362,10 +362,10 @@ void GPUProcessProxy::updateSandboxAccess(bool allowAudioCapture, bool allowVide
         m_hasSentDisplayCaptureSandboxExtension = true;
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     if ((allowAudioCapture || allowVideoCapture) && !m_hasSentTCCDSandboxExtension && addTCCDSandboxExtension(extensions))
         m_hasSentTCCDSandboxExtension = true;
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS) || PLATFORM(VISION)
 
     if (!extensions.isEmpty())
         send(Messages::GPUProcess::UpdateSandboxAccess { extensions }, 0);
@@ -497,7 +497,7 @@ void GPUProcessProxy::gpuProcessExited(ProcessTerminationReason reason)
         singleton() = nullptr;
 
     for (auto& processPool : WebProcessPool::allProcessPools())
-        processPool->gpuProcessExited(processIdentifier(), reason);
+        processPool->gpuProcessExited(processID(), reason);
 }
 
 void GPUProcessProxy::processIsReadyToExit()
@@ -559,7 +559,7 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
     beginResponsivenessChecks();
 
     for (auto& processPool : WebProcessPool::allProcessPools())
-        processPool->gpuProcessDidFinishLaunching(processIdentifier());
+        processPool->gpuProcessDidFinishLaunching(processID());
 
 #if HAVE(POWERLOG_TASK_MODE_QUERY)
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), makeBlockPtr([weakThis = WeakPtr { *this }] () mutable {
@@ -732,7 +732,7 @@ void GPUProcessProxy::updateScreenPropertiesIfNeeded()
 
 void GPUProcessProxy::didBecomeUnresponsive()
 {
-    RELEASE_LOG_ERROR(Process, "GPUProcessProxy::didBecomeUnresponsive: GPUProcess with PID %d became unresponsive, terminating it", processIdentifier());
+    RELEASE_LOG_ERROR(Process, "GPUProcessProxy::didBecomeUnresponsive: GPUProcess with PID %d became unresponsive, terminating it", processID());
     terminate();
     gpuProcessExited(ProcessTerminationReason::Unresponsive);
 }

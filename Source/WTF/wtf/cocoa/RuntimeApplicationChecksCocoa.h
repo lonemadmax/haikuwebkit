@@ -108,6 +108,8 @@ enum class SDKAlignedBehavior {
     ScreenOrientationAPIEnabled,
     PopoverAttributeEnabled,
     LiveRangeSelectionEnabledForAllApps,
+    DoesNotOverrideUAFromNSUserDefault,
+    EvaluateJavaScriptWithoutTransientActivation,
 
     NumberOfBehaviors
 };

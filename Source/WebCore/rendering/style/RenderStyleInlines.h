@@ -31,6 +31,7 @@
 #include "ImageOrientation.h"
 #include "RenderStyle.h"
 #include "ScrollTypes.h"
+#include "ScrollbarColor.h"
 #include "StyleAppearance.h"
 #include "StyleBackgroundData.h"
 #include "StyleBoxData.h"
@@ -49,6 +50,7 @@
 #include "StyleTransformData.h"
 #include "StyleVisitedLinkColorData.h"
 #include "UnicodeBidi.h"
+#include "WordBoundaryDetection.h"
 
 #if ENABLE(APPLE_PAY)
 #include "ApplePayButtonPart.h"
@@ -435,6 +437,7 @@ inline GapLength RenderStyle::initialRowGap() { return { }; }
 constexpr RubyPosition RenderStyle::initialRubyPosition() { return RubyPosition::Before; }
 inline Length RenderStyle::initialScrollMargin() { return zeroLength(); }
 inline Length RenderStyle::initialScrollPadding() { return { }; }
+inline std::optional<ScrollbarColor> RenderStyle::initialScrollbarColor() { return std::nullopt; }
 constexpr StyleSelfAlignmentData RenderStyle::initialSelfAlignment() { return { ItemPosition::Auto, OverflowAlignment::Default }; }
 inline Length RenderStyle::initialShapeMargin() { return zeroLength(); }
 inline Length RenderStyle::initialSize() { return LengthType::Auto; }
@@ -489,6 +492,7 @@ constexpr VerticalAlign RenderStyle::initialVerticalAlign() { return VerticalAli
 constexpr Visibility RenderStyle::initialVisibility() { return Visibility::Visible; }
 constexpr WhiteSpace RenderStyle::initialWhiteSpace() { return WhiteSpace::Normal; }
 constexpr WhiteSpaceCollapse RenderStyle::initialWhiteSpaceCollapse() { return WhiteSpaceCollapse::Collapse; }
+inline WordBoundaryDetection RenderStyle::initialWordBoundaryDetection() { return WordBoundaryDetectionNormal { }; }
 constexpr WordBreak RenderStyle::initialWordBreak() { return WordBreak::Normal; }
 inline Length RenderStyle::initialWordSpacing() { return zeroLength(); }
 constexpr WritingMode RenderStyle::initialWritingMode() { return WritingMode::TopToBottom; }
@@ -632,6 +636,9 @@ inline RotateTransformOperation* RenderStyle::rotate() const { return m_nonInher
 inline const GapLength& RenderStyle::rowGap() const { return m_nonInheritedData->rareData->rowGap; }
 inline RubyPosition RenderStyle::rubyPosition() const { return static_cast<RubyPosition>(m_rareInheritedData->rubyPosition); }
 inline ScaleTransformOperation* RenderStyle::scale() const { return m_nonInheritedData->rareData->scale.get(); }
+inline std::optional<ScrollbarColor> RenderStyle::scrollbarColor() const { return m_rareInheritedData->scrollbarColor.asOptional(); }
+inline const StyleColor& RenderStyle::scrollbarThumbColor() const { return m_rareInheritedData->scrollbarColor->thumbColor; }
+inline const StyleColor& RenderStyle::scrollbarTrackColor() const { return m_rareInheritedData->scrollbarColor->trackColor; }
 inline float RenderStyle::shapeImageThreshold() const { return m_nonInheritedData->rareData->shapeImageThreshold; }
 inline const Length& RenderStyle::shapeMargin() const { return m_nonInheritedData->rareData->shapeMargin; }
 inline ShapeValue* RenderStyle::shapeOutside() const { return m_nonInheritedData->rareData->shapeOutside.get(); }
@@ -710,9 +717,13 @@ inline unsigned short RenderStyle::widows() const { return m_rareInheritedData->
 inline const Length& RenderStyle::width() const { return m_nonInheritedData->boxData->width(); }
 inline WillChangeData* RenderStyle::willChange() const { return m_nonInheritedData->rareData->willChange.get(); }
 inline bool RenderStyle::willChangeCreatesStackingContext() const { return willChange() && willChange()->canCreateStackingContext(); }
+inline const WordBoundaryDetection& RenderStyle::wordBoundaryDetection() const { return m_rareInheritedData->wordBoundaryDetection; }
 inline WordBreak RenderStyle::wordBreak() const { return static_cast<WordBreak>(m_rareInheritedData->wordBreak); }
 constexpr LengthType RenderStyle::zeroLength() { return LengthType::Fixed; }
 inline float RenderStyle::zoom() const { return m_nonInheritedData->rareData->zoom; }
+
+// ignore non-standard ::-webkit-scrollbar when standard properties are in use
+inline bool RenderStyle::hasCustomScrollbarStyle() const { return hasPseudoStyle(PseudoId::Scrollbar) && scrollbarWidth() == ScrollbarWidth::Auto; }
 
 #if ENABLE(APPLE_PAY)
 inline ApplePayButtonStyle RenderStyle::applePayButtonStyle() const { return static_cast<ApplePayButtonStyle>(m_nonInheritedData->rareData->applePayButtonStyle); }
@@ -734,12 +745,6 @@ inline Isolation RenderStyle::isolation() const { return static_cast<Isolation>(
 #else
 inline BlendMode RenderStyle::blendMode() const { return BlendMode::Normal; }
 inline Isolation RenderStyle::isolation() const { return Isolation::Auto; }
-#endif
-
-#if ENABLE(CSS_IMAGE_RESOLUTION)
-inline float RenderStyle::imageResolution() const { return m_rareInheritedData->imageResolution; }
-inline ImageResolutionSnap RenderStyle::imageResolutionSnap() const { return static_cast<ImageResolutionSnap>(m_rareInheritedData->imageResolutionSnap); }
-inline ImageResolutionSource RenderStyle::imageResolutionSource() const { return static_cast<ImageResolutionSource>(m_rareInheritedData->imageResolutionSource); }
 #endif
 
 #if ENABLE(CURSOR_VISIBILITY)
@@ -789,7 +794,6 @@ inline bool RenderStyle::InheritedFlags::operator==(const InheritedFlags& other)
         && cursorVisibility == other.cursorVisibility
 #endif
         && direction == other.direction
-        && whiteSpace == other.whiteSpace
         && whiteSpaceCollapse == other.whiteSpaceCollapse
         && textWrap == other.textWrap
         && borderCollapse == other.borderCollapse

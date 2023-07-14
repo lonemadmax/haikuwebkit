@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,9 +88,9 @@
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process().connection())
 
-#define WEBPAGEPROXY_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageProxyID=%llu, webPageID=%llu, PID=%i] WebPageProxy::" fmt, this, identifier().toUInt64(), webPageID().toUInt64(), m_process->processIdentifier(), ##__VA_ARGS__)
+#define WEBPAGEPROXY_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageProxyID=%llu, webPageID=%llu, PID=%i] WebPageProxy::" fmt, this, identifier().toUInt64(), webPageID().toUInt64(), m_process->processID(), ##__VA_ARGS__)
 
-#if HAVE(UIKIT_WEBKIT_INTERNALS)
+#if PLATFORM(VISION)
 static constexpr CGFloat kTargetFullscreenAspectRatio = 1.7778;
 #endif
 
@@ -612,8 +612,10 @@ void WebPageProxy::applicationDidEnterBackground()
 #if !PLATFORM(WATCHOS)
     // We normally delay process suspension when the app is backgrounded until the current page load completes. However,
     // we do not want to do so when the screen is locked for power reasons.
-    if (isSuspendedUnderLock)
-        NavigationState::fromWebPage(*this).releaseNetworkActivity(NavigationState::NetworkActivityReleaseReason::ScreenLocked);
+    if (isSuspendedUnderLock) {
+        if (auto* navigationState = NavigationState::fromWebPage(*this))
+            navigationState->releaseNetworkActivity(NavigationState::NetworkActivityReleaseReason::ScreenLocked);
+    }
 #endif
     m_process->send(Messages::WebPage::ApplicationDidEnterBackground(isSuspendedUnderLock), webPageID());
 }
@@ -844,7 +846,7 @@ FloatSize WebPageProxy::screenSize()
     return WebCore::screenSize();
 }
 
-#if HAVE(UIKIT_WEBKIT_INTERNALS)
+#if PLATFORM(VISION)
 static FloatSize fullscreenPreferencesScreenSize(CGFloat preferredWidth)
 {
     CGFloat preferredHeight = preferredWidth / kTargetFullscreenAspectRatio;
@@ -854,7 +856,7 @@ static FloatSize fullscreenPreferencesScreenSize(CGFloat preferredWidth)
 
 FloatSize WebPageProxy::availableScreenSize()
 {
-#if HAVE(UIKIT_WEBKIT_INTERNALS)
+#if PLATFORM(VISION)
     return fullscreenPreferencesScreenSize(m_preferences->mediaPreferredFullscreenWidth());
 #else
     return WebCore::availableScreenSize();
@@ -863,7 +865,7 @@ FloatSize WebPageProxy::availableScreenSize()
 
 FloatSize WebPageProxy::overrideScreenSize()
 {
-#if HAVE(UIKIT_WEBKIT_INTERNALS)
+#if PLATFORM(VISION)
     return fullscreenPreferencesScreenSize(m_preferences->mediaPreferredFullscreenWidth());
 #else
     return WebCore::overrideScreenSize();
@@ -1643,7 +1645,7 @@ Color WebPageProxy::platformUnderPageBackgroundColor() const
 
 void WebPageProxy::statusBarWasTapped()
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
     RELEASE_LOG_INFO(WebRTC, "WebPageProxy::statusBarWasTapped");
 
 #if USE(APPLE_INTERNAL_SDK)

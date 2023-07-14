@@ -1597,13 +1597,15 @@ private:
     }
     
     // Create an Inst to do the comparison specified by the given value.
-    template<typename CompareFunctor, typename TestFunctor, typename CompareDoubleFunctor, typename CompareFloatFunctor>
+    template<typename CompareFunctor, typename TestFunctor, typename CompareDoubleFunctor, typename CompareFloatFunctor, typename CompareDoubleWithZeroFunctor, typename CompareFloatWithZeroFunctor>
     Inst createGenericCompare(
         Value* value,
         const CompareFunctor& compare, // Signature: (Width, Arg relCond, Arg, Arg) -> Inst
         const TestFunctor& test, // Signature: (Width, Arg resCond, Arg, Arg) -> Inst
         const CompareDoubleFunctor& compareDouble, // Signature: (Arg doubleCond, Arg, Arg) -> Inst
         const CompareFloatFunctor& compareFloat, // Signature: (Arg doubleCond, Arg, Arg) -> Inst
+        const CompareDoubleWithZeroFunctor& compareDoubleWithZero, // Signature: (Arg doubleCond, Arg) -> Inst
+        const CompareFloatWithZeroFunctor& compareFloatWithZero, // Signature: (Arg doubleCond, Arg) -> Inst
         bool inverted = false)
     {
         // NOTE: This is totally happy to match comparisons that have already been computed elsewhere
@@ -1843,8 +1845,28 @@ private:
                 return compare(width, relCond, leftPromise, rightPromise);
             }
 
-            // Floating point comparisons can't really do anything smart.
             ArgPromise leftPromise = tmpPromise(left);
+            if (value->child(0)->type() == Double) {
+                if (right->hasDouble() && bitwise_cast<uint64_t>(right->asDouble()) == bitwise_cast<uint64_t>(0.0)) {
+                    if (Inst result = compareDoubleWithZero(doubleCond, leftPromise)) {
+                        if (canBeInternal(right))
+                            commitInternal(right);
+                        return result;
+                    }
+                }
+            }
+
+            if (value->child(0)->type() == Float) {
+                if (right->hasFloat() && bitwise_cast<uint32_t>(right->asFloat()) == bitwise_cast<uint32_t>(0.0f)) {
+                    if (Inst result = compareFloatWithZero(doubleCond, leftPromise)) {
+                        if (canBeInternal(right))
+                            commitInternal(right);
+                        return result;
+                    }
+                }
+            }
+
+            // Floating point comparisons can't really do anything smart at this point.
             ArgPromise rightPromise = tmpPromise(right);
             if (value->child(0)->type() == Float)
                 return compareFloat(doubleCond, leftPromise, rightPromise);
@@ -2129,19 +2151,23 @@ private:
                 ASSERT_NOT_REACHED();
             },
             [this] (Arg doubleCond, ArgPromise& left, ArgPromise& right) -> Inst {
-                if (isValidForm(BranchDouble, Arg::DoubleCond, left.kind(), right.kind())) {
-                    return left.inst(right.inst(
-                        BranchDouble, m_value, doubleCond,
-                        left.consume(*this), right.consume(*this)));
-                }
+                if (isValidForm(BranchDouble, Arg::DoubleCond, left.kind(), right.kind()))
+                    return left.inst(right.inst(BranchDouble, m_value, doubleCond, left.consume(*this), right.consume(*this)));
                 return Inst();
             },
             [this] (Arg doubleCond, ArgPromise& left, ArgPromise& right) -> Inst {
-                if (isValidForm(BranchFloat, Arg::DoubleCond, left.kind(), right.kind())) {
-                    return left.inst(right.inst(
-                        BranchFloat, m_value, doubleCond,
-                        left.consume(*this), right.consume(*this)));
-                }
+                if (isValidForm(BranchFloat, Arg::DoubleCond, left.kind(), right.kind()))
+                    return left.inst(right.inst(BranchFloat, m_value, doubleCond, left.consume(*this), right.consume(*this)));
+                return Inst();
+            },
+            [this] (Arg doubleCond, ArgPromise& left) -> Inst {
+                if (isValidForm(BranchDoubleWithZero, Arg::DoubleCond, left.kind()))
+                    return left.inst(BranchDoubleWithZero, m_value, doubleCond, left.consume(*this));
+                return Inst();
+            },
+            [this] (Arg doubleCond, ArgPromise& left) -> Inst {
+                if (isValidForm(BranchFloatWithZero, Arg::DoubleCond, left.kind()))
+                    return left.inst(BranchFloatWithZero, m_value, doubleCond, left.consume(*this));
                 return Inst();
             },
             inverted);
@@ -2224,6 +2250,16 @@ private:
                 }
                 return Inst();
             },
+            [this] (const Arg& doubleCond, ArgPromise& left) -> Inst {
+                if (isValidForm(CompareDoubleWithZero, Arg::DoubleCond, left.kind(), Arg::Tmp))
+                    return left.inst(CompareDoubleWithZero, m_value, doubleCond, left.consume(*this), tmp(m_value));
+                return Inst();
+            },
+            [this] (const Arg& doubleCond, ArgPromise& left) -> Inst {
+                if (isValidForm(CompareFloatWithZero, Arg::DoubleCond, left.kind(), Arg::Tmp))
+                    return left.inst(CompareFloatWithZero, m_value, doubleCond, left.consume(*this), tmp(m_value));
+                return Inst();
+            },
             inverted);
     }
 
@@ -2234,6 +2270,8 @@ private:
         Air::Opcode moveConditionallyTest64;
         Air::Opcode moveConditionallyDouble;
         Air::Opcode moveConditionallyFloat;
+        Air::Opcode moveConditionallyDoubleWithZero;
+        Air::Opcode moveConditionallyFloatWithZero;
     };
     Inst createSelect(const MoveConditionallyConfig& config)
     {
@@ -2301,6 +2339,38 @@ private:
             },
             [&] (Arg doubleCond, ArgPromise& left, ArgPromise& right) -> Inst {
                 return createSelectInstruction(config.moveConditionallyFloat, doubleCond, left, right);
+            },
+            [&] (Arg doubleCond, ArgPromise& left) -> Inst {
+                Air::Opcode opcode = config.moveConditionallyDoubleWithZero;
+                if (isValidForm(opcode, doubleCond.kind(), left.kind(), Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
+                    Tmp result = tmp(m_value);
+                    Tmp thenCase = tmp(m_value->child(1));
+                    Tmp elseCase = tmp(m_value->child(2));
+                    return left.inst(opcode, m_value, doubleCond, left.consume(*this), thenCase, elseCase, result);
+                }
+                if (isValidForm(opcode, doubleCond.kind(), left.kind(), Arg::Tmp, Arg::Tmp)) {
+                    Tmp result = tmp(m_value);
+                    Tmp source = tmp(m_value->child(1));
+                    append(relaxedMoveForType(m_value->type()), tmp(m_value->child(2)), result);
+                    return left.inst(opcode, m_value, doubleCond, left.consume(*this), source, result);
+                }
+                return Inst();
+            },
+            [&] (Arg doubleCond, ArgPromise& left) -> Inst {
+                Air::Opcode opcode = config.moveConditionallyFloatWithZero;
+                if (isValidForm(opcode, doubleCond.kind(), left.kind(), Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
+                    Tmp result = tmp(m_value);
+                    Tmp thenCase = tmp(m_value->child(1));
+                    Tmp elseCase = tmp(m_value->child(2));
+                    return left.inst(opcode, m_value, doubleCond, left.consume(*this), thenCase, elseCase, result);
+                }
+                if (isValidForm(opcode, doubleCond.kind(), left.kind(), Arg::Tmp, Arg::Tmp)) {
+                    Tmp result = tmp(m_value);
+                    Tmp source = tmp(m_value->child(1));
+                    append(relaxedMoveForType(m_value->type()), tmp(m_value->child(2)), result);
+                    return left.inst(opcode, m_value, doubleCond, left.consume(*this), source, result);
+                }
+                return Inst();
             },
             false);
     }
@@ -4182,6 +4252,7 @@ private:
             emitSIMDUnaryOp(Air::VectorTrunc);
             return;
         case B3::VectorTruncSat:
+        case B3::VectorRelaxedTruncSat:
             if (isX86()) {
                 SIMDValue* value = m_value->as<SIMDValue>();
                 Tmp v = tmp(value->child(0));
@@ -4300,6 +4371,22 @@ private:
                 append(Air::VectorSwizzle2, a, b, tmp(m_value->child(2)), tmp(m_value));
             }
             return;
+
+        case B3::VectorRelaxedSwizzle:
+            emitSIMDMonomorphicBinaryOp(Air::VectorSwizzle);
+            return;
+
+        case B3::VectorRelaxedMAdd: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            append(Air::VectorFusedMulAdd, Arg::simdInfo(value->simdInfo()), tmp(m_value->child(0)), tmp(m_value->child(1)), tmp(m_value->child(2)), tmp(m_value), m_code.newTmp(FP));
+            return;
+        }
+
+        case B3::VectorRelaxedNMAdd: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            append(Air::VectorFusedNegMulAdd, Arg::simdInfo(value->simdInfo()), tmp(m_value->child(0)), tmp(m_value->child(1)), tmp(m_value->child(2)), tmp(m_value), m_code.newTmp(FP));
+            return;
+        }
 
         case Fence: {
             FenceValue* fence = m_value->as<FenceValue>();
@@ -4469,6 +4556,26 @@ private:
         }
 
         case Select: {
+            if (m_value->type().isVector()) {
+                // Conditional moves aren't available for vectors on currently
+                // supported architectures, so we lower vector Select to a
+                // branching construct.
+
+                auto ifTrueBlock = newBlock();
+                Air::BasicBlock* beginBlock;
+                Air::BasicBlock* doneBlock;
+                splitBlock(beginBlock, doneBlock);
+
+                append(Air::MoveVector, tmp(m_value->child(2)), tmp(m_value));
+                append(createBranch(m_value->child(0)));
+                beginBlock->setSuccessors(ifTrueBlock, doneBlock);
+
+                ifTrueBlock->append(Air::MoveVector, m_value, tmp(m_value->child(1)), tmp(m_value));
+                ifTrueBlock->append(Air::Jump, m_value);
+                ifTrueBlock->setSuccessors(doneBlock);
+                return;
+            }
+
             MoveConditionallyConfig config;
             if (m_value->type().isInt()) {
                 config.moveConditionally32 = MoveConditionally32;
@@ -4477,6 +4584,8 @@ private:
                 config.moveConditionallyTest64 = MoveConditionallyTest64;
                 config.moveConditionallyDouble = MoveConditionallyDouble;
                 config.moveConditionallyFloat = MoveConditionallyFloat;
+                config.moveConditionallyDoubleWithZero = MoveConditionallyDoubleWithZero;
+                config.moveConditionallyFloatWithZero = MoveConditionallyFloatWithZero;
             } else {
                 // FIXME: it's not obvious that these are particularly efficient.
                 // https://bugs.webkit.org/show_bug.cgi?id=169251
@@ -4486,6 +4595,8 @@ private:
                 config.moveConditionallyTest64 = MoveDoubleConditionallyTest64;
                 config.moveConditionallyDouble = MoveDoubleConditionallyDouble;
                 config.moveConditionallyFloat = MoveDoubleConditionallyFloat;
+                config.moveConditionallyDoubleWithZero = MoveDoubleConditionallyDoubleWithZero;
+                config.moveConditionallyFloatWithZero = MoveDoubleConditionallyFloatWithZero;
             }
             
             m_insts.last().append(createSelect(config));
@@ -4669,10 +4780,9 @@ private:
                     sources.append(tmp(right));
                     append(Move, tmp(left), result);
                 }
-            } else if (isValidForm(opcode, Arg::ResCond, Arg::Tmp, Arg::Tmp, Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
+            } else if (isValidForm(opcode, Arg::ResCond, Arg::Tmp, Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
                 sources.append(tmp(left));
                 sources.append(tmp(right));
-                sources.append(m_code.newTmp(m_value->resultBank()));
                 sources.append(m_code.newTmp(m_value->resultBank()));
             }
 

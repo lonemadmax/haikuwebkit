@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -27,6 +27,7 @@
 #include "Length.h"
 #include "ListStyleType.h"
 #include "RenderStyleConstants.h"
+#include "ScrollbarColor.h"
 #include "StyleColor.h"
 #include "StyleCustomPropertyData.h"
 #include "StyleTextBoxEdge.h"
@@ -34,6 +35,7 @@
 #include "TextSpacing.h"
 #include "TextUnderlineOffset.h"
 #include "TouchAction.h"
+#include "WordBoundaryDetection.h"
 #include <wtf/DataRef.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
@@ -134,10 +136,6 @@ public:
 #if ENABLE(OVERFLOW_SCROLLING_TOUCH)
     unsigned useTouchOverflowScrolling: 1;
 #endif
-#if ENABLE(CSS_IMAGE_RESOLUTION)
-    unsigned imageResolutionSource : 1; // ImageResolutionSource
-    unsigned imageResolutionSnap : 1; // ImageResolutionSnap
-#endif
     unsigned textAlignLast : 3; // TextAlignLast
     unsigned textJustify : 2; // TextJustify
     unsigned textDecorationSkipInk : 2; // TextDecorationSkipInk
@@ -197,10 +195,6 @@ public:
     TextSizeAdjustment textSizeAdjust;
 #endif
 
-#if ENABLE(CSS_IMAGE_RESOLUTION)
-    float imageResolution;
-#endif
-
 #if ENABLE(TOUCH_EVENTS)
     StyleColor tapHighlightColor;
 #endif
@@ -208,6 +202,10 @@ public:
     TextAutospace textAutospace;
 
     ListStyleType listStyleType;
+
+    WordBoundaryDetection wordBoundaryDetection;
+
+    Markable<ScrollbarColor> scrollbarColor;
 
 private:
     StyleRareInheritedData();

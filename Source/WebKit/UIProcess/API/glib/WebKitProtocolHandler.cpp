@@ -45,6 +45,8 @@
 #endif
 
 #if PLATFORM(GTK)
+#include "AcceleratedBackingStoreDMABuf.h"
+#include <WebCore/PlatformDisplaySurfaceless.h>
 #include <gtk/gtk.h>
 
 #if PLATFORM(WAYLAND)
@@ -57,9 +59,7 @@
 #endif
 
 #if USE(GBM)
-#include "AcceleratedBackingStoreDMABuf.h"
 #include <WebCore/PlatformDisplayGBM.h>
-#include <WebCore/PlatformDisplaySurfaceless.h>
 #endif
 #endif
 
@@ -198,19 +198,23 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
         addTableRow(jsonObject, "GL_VERSION"_s, String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
         addTableRow(jsonObject, "GL_SHADING_LANGUAGE_VERSION"_s, String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
 
-#if USE(OPENGL_ES)
-        addTableRow(jsonObject, "GL_EXTENSIONS"_s, String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS))));
-#else
-        StringBuilder extensionsBuilder;
-        GLint numExtensions = 0;
-        glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-        for (GLint i = 0; i < numExtensions; ++i) {
-            if (i)
-                extensionsBuilder.append(' ');
-            extensionsBuilder.append(reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i)));
+        switch (eglQueryAPI()) {
+        case EGL_OPENGL_ES_API:
+            addTableRow(jsonObject, "GL_EXTENSIONS"_s, String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS))));
+            break;
+        case EGL_OPENGL_API: {
+            StringBuilder extensionsBuilder;
+            GLint numExtensions = 0;
+            glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+            for (GLint i = 0; i < numExtensions; ++i) {
+                if (i)
+                    extensionsBuilder.append(' ');
+                extensionsBuilder.append(reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i)));
+            }
+            addTableRow(jsonObject, "GL_EXTENSIONS"_s, extensionsBuilder.toString());
+            break;
         }
-        addTableRow(jsonObject, "GL_EXTENSIONS"_s, extensionsBuilder.toString());
-#endif
+        }
 
         auto eglDisplay = eglGetCurrentDisplay();
         addTableRow(jsonObject, "EGL_VERSION"_s, String::fromUTF8(eglQueryString(eglDisplay, EGL_VERSION)));
@@ -246,11 +250,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
 #if PLATFORM(GTK)
     addTableRow(versionObject, "GTK version"_s, makeString(GTK_MAJOR_VERSION, '.', GTK_MINOR_VERSION, '.', GTK_MICRO_VERSION, " (build) "_s, gtk_get_major_version(), '.', gtk_get_minor_version(), '.', gtk_get_micro_version(), " (runtime)"_s));
 
-#if USE(GBM)
     bool usingDMABufRenderer = AcceleratedBackingStoreDMABuf::checkRequirements();
-#else
-    bool usingDMABufRenderer = false;
-#endif
 
 #if PLATFORM(WAYLAND)
     if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland && !usingDMABufRenderer) {
@@ -333,10 +333,8 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
         addTableRow(hardwareAccelerationObject, "Native interface"_s, uiProcessContextIsEGL() ? "EGL"_s : "None"_s);
 
 #if USE(EGL)
-        if (uiProcessContextIsEGL()) {
-            GLContext::ScopedGLContext glContext(GLContext::createOffscreen(PlatformDisplay::sharedDisplay()));
+        if (uiProcessContextIsEGL() && eglGetCurrentContext() != EGL_NO_CONTEXT)
             addEGLInfo(hardwareAccelerationObject);
-        }
 #endif // USE(EGL)
     }
 
@@ -346,21 +344,24 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
 #if USE(EGL) && PLATFORM(GTK)
     if (strcmp(policy, "never")) {
         std::unique_ptr<PlatformDisplay> platformDisplay;
-#if USE(GBM)
         if (usingDMABufRenderer) {
-            if (auto* device = PlatformDisplay::sharedDisplay().gbmDevice())
-                platformDisplay = PlatformDisplayGBM::create(device);
-            else
+#if USE(GBM)
+            const char* disableGBM = getenv("WEBKIT_DMABUF_RENDERER_DISABLE_GBM");
+            if (!disableGBM || !strcmp(disableGBM, "0")) {
+                if (auto* device = PlatformDisplay::sharedDisplay().gbmDevice())
+                    platformDisplay = PlatformDisplayGBM::create(device);
+            }
+#endif
+            if (!platformDisplay)
                 platformDisplay = PlatformDisplaySurfaceless::create();
         }
-#endif
 
         if (platformDisplay || !uiProcessContextIsEGL()) {
             auto hardwareAccelerationObject = JSON::Object::create();
             startTable("Hardware Acceleration Information (Render Process)"_s);
 
             if (platformDisplay)
-                addTableRow(hardwareAccelerationObject, "Platform"_s, String::fromUTF8(platformDisplay->type() == PlatformDisplay::Type::GBM ? "GBM"_s : "Surfaceless"_s));
+                addTableRow(hardwareAccelerationObject, "Platform"_s, String::fromUTF8(platformDisplay->type() == PlatformDisplay::Type::Surfaceless ? "Surfaceless"_s : "GBM"_s));
 
             if (uiProcessContextIsEGL()) {
                 GLContext::ScopedGLContext glContext(GLContext::createOffscreen(platformDisplay ? *platformDisplay : PlatformDisplay::sharedDisplay()));

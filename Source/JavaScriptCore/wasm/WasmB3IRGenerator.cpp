@@ -419,6 +419,7 @@ public:
         B3_OP_CASE(ExtendHigh)
         B3_OP_CASE(ExtendLow)
         B3_OP_CASE(TruncSat)
+        B3_OP_CASE(RelaxedTruncSat)
         B3_OP_CASE(Not)
         B3_OP_CASE(Neg)
 
@@ -535,6 +536,7 @@ public:
         B3_OP_CASE(Pmin)
         B3_OP_CASE(Or)
         B3_OP_CASE(Swizzle)
+        B3_OP_CASE(RelaxedSwizzle)
         B3_OP_CASE(Xor)
         B3_OP_CASE(Narrow)
         B3_OP_CASE(AddSat)
@@ -549,6 +551,17 @@ public:
 
         result = push(m_currentBlock->appendNew<SIMDValue>(m_proc, origin(), b3Op, B3::V128, info,
             get(a), get(b)));
+        return { };
+    }
+
+    auto addSIMDRelaxedFMA(SIMDLaneOperation op, SIMDInfo info, ExpressionType m1, ExpressionType m2, ExpressionType add, ExpressionType& result) -> PartialResult
+    {
+        B3_OP_CASES()
+        B3_OP_CASE(RelaxedMAdd)
+        B3_OP_CASE(RelaxedNMAdd)
+
+        result = push(m_currentBlock->appendNew<SIMDValue>(m_proc, origin(), b3Op, B3::V128, info,
+            get(m1), get(m2), get(add)));
         return { };
     }
 
@@ -5201,9 +5214,16 @@ auto B3IRGenerator::addI32Popcnt(ExpressionType argVar, ExpressionType& result) 
     if (MacroAssembler::supportsCountPopulation()) {
         PatchpointValue* patchpoint = m_currentBlock->appendNew<PatchpointValue>(m_proc, Int32, origin());
         patchpoint->append(arg, ValueRep::SomeRegister);
+#if CPU(X86_64)
         patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
             jit.countPopulation32(params[1].gpr(), params[0].gpr());
         });
+#else
+        patchpoint->numFPScratchRegisters = 1;
+        patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
+            jit.countPopulation32(params[1].gpr(), params[0].gpr(), params.fpScratch(0));
+        });
+#endif
         patchpoint->effects = Effects::none();
         result = push(patchpoint);
         return { };
@@ -5221,9 +5241,16 @@ auto B3IRGenerator::addI64Popcnt(ExpressionType argVar, ExpressionType& result) 
     if (MacroAssembler::supportsCountPopulation()) {
         PatchpointValue* patchpoint = m_currentBlock->appendNew<PatchpointValue>(m_proc, Int64, origin());
         patchpoint->append(arg, ValueRep::SomeRegister);
+#if CPU(X86_64)
         patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
             jit.countPopulation64(params[1].gpr(), params[0].gpr());
         });
+#else
+        patchpoint->numFPScratchRegisters = 1;
+        patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
+            jit.countPopulation64(params[1].gpr(), params[0].gpr(), params.fpScratch(0));
+        });
+#endif
         patchpoint->effects = Effects::none();
         result = push(patchpoint);
         return { };

@@ -3016,7 +3016,7 @@ static void imagePositionInformation(WebPage& page, Element& element, const Inte
 
     auto& [renderImage, image] = *rendererAndImage;
     info.isImage = true;
-    info.imageURL = page.sanitizeLookalikeCharacters(element.document().completeURL(renderImage.cachedImage()->url().string()), LookalikeCharacterSanitizationTrigger::Unspecified);
+    info.imageURL = page.applyLinkDecorationFiltering(element.document().completeURL(renderImage.cachedImage()->url().string()), LinkDecorationFilteringTrigger::Unspecified);
     info.imageMIMEType = image.mimeType();
     info.isAnimatedImage = image.isAnimated();
     info.isAnimating = image.isAnimating();
@@ -3061,7 +3061,7 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
 
     if (linkElement && !info.isImageOverlayText) {
         info.isLink = true;
-        info.url = page.sanitizeLookalikeCharacters(linkElement->document().completeURL(linkElement->getAttribute(HTMLNames::hrefAttr)), LookalikeCharacterSanitizationTrigger::Unspecified);
+        info.url = page.applyLinkDecorationFiltering(linkElement->document().completeURL(linkElement->getAttribute(HTMLNames::hrefAttr)), LinkDecorationFilteringTrigger::Unspecified);
 
         linkIndicatorPositionInformation(page, *linkElement, request, info);
 #if ENABLE(DATA_DETECTION)
@@ -3084,7 +3084,7 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
             if (request.includeImageData) {
                 if (auto rendererAndImage = imageRendererAndImage(element)) {
                     auto& [renderImage, image] = *rendererAndImage;
-                    info.imageURL = page.sanitizeLookalikeCharacters(element.document().completeURL(renderImage.cachedImage()->url().string()), LookalikeCharacterSanitizationTrigger::Unspecified);
+                    info.imageURL = page.applyLinkDecorationFiltering(element.document().completeURL(renderImage.cachedImage()->url().string()), LinkDecorationFilteringTrigger::Unspecified);
                     info.imageMIMEType = image.mimeType();
                     info.image = createShareableBitmap(renderImage, { screenSize() * page.corePage()->deviceScaleFactor(), AllowAnimatedImages::Yes, UseSnapshotForTransparentImages::Yes });
                 }
@@ -4951,8 +4951,12 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest reques
     auto characterRectsForRange = [](const SimpleRange& range, unsigned startOffset) {
         Vector<DocumentEditingContext::TextRectAndRange> rects;
         unsigned offsetSoFar = startOffset;
+        std::optional<SimpleRange> lastTextRange;
         for (TextIterator iterator { range }; !iterator.atEnd(); iterator.advance()) {
             if (iterator.text().isEmpty())
+                continue;
+
+            if (lastTextRange == iterator.range())
                 continue;
 
             Vector<IntRect> absoluteRects;
@@ -4963,17 +4967,27 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest reques
                     RenderObject::BoundingRectBehavior::IgnoreEmptyTextSelections,
                     RenderObject::BoundingRectBehavior::ComputeIndividualCharacterRects,
                 });
+                if (absoluteRects.isEmpty())
+                    absoluteRects.append({ });
             }
 
             for (auto& absoluteRect : absoluteRects)
                 rects.append({ iterator.range().start.document().view()->contentsToRootView(absoluteRect), { offsetSoFar++, 1 } });
+
+            lastTextRange = iterator.range();
         }
         return rects;
     };
 
     if (wantsRects) {
-        if (auto contextRange = makeSimpleRange(contextBeforeStart, contextAfterEnd))
+        if (auto contextRange = makeSimpleRange(contextBeforeStart, contextAfterEnd)) {
+            // FIXME (257828): We should ideally ASSERT() here that context.textRects.size() is equal to
+            // the combined length of the context and selection strings; however, there are some corner
+            // cases in which this isn't true. In particular, such an assertion would be hit when running
+            // the layout test editing/selection/ios/update-selection-after-overflow-scroll.html.
+            // See also: <https://bugs.webkit.org/show_bug.cgi?id=257828>.
             context.textRects = characterRectsForRange(*contextRange, 0);
+        }
     } else if (wantsMarkedTextRects && compositionRange) {
         unsigned compositionStartOffset = 0;
         if (auto range = makeSimpleRange(contextBeforeStart, compositionRange->start))
@@ -5115,7 +5129,7 @@ void WebPage::didFinishLoadForQuickLookDocumentInMainFrame(const FragmentedShare
     if (!handle)
         return;
 
-    send(Messages::WebPageProxy::DidFinishLoadForQuickLookDocumentInMainFrame(*handle));
+    send(Messages::WebPageProxy::DidFinishLoadForQuickLookDocumentInMainFrame(WTFMove(*handle)));
 }
 
 void WebPage::requestPasswordForQuickLookDocumentInMainFrame(const String& fileName, CompletionHandler<void(const String&)>&& completionHandler)
@@ -5153,7 +5167,7 @@ void WebPage::animationDidFinishForElement(const WebCore::Element& animatedEleme
         scheduleEditorStateUpdateForStartOrEndContainerNodeIfNeeded(endContainer.get());
 }
 
-FloatSize WebPage::screenSizeForHeadlessMode(const LocalFrame&, FloatSize defaultSize) const
+FloatSize WebPage::screenSizeForFingerprintingProtections(const LocalFrame&, FloatSize defaultSize) const
 {
     if (!currentUserInterfaceIdiomIsSmallScreen())
         return m_viewportConfiguration.minimumLayoutSize();

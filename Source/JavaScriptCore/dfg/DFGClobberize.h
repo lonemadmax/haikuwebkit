@@ -523,6 +523,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
          
     case MovHint:
+    case ZombieHint:
     case ExitOK:
     case Upsilon:
     case Phi:
@@ -1668,6 +1669,12 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case NewArrayWithSize:
         read(HeapObjectCount);
         write(HeapObjectCount);
+        return;
+
+    case NewArrayWithConstantSize:
+        read(HeapObjectCount);
+        write(HeapObjectCount);
+        def(HeapLocation(ArrayLengthLoc, Butterfly_publicLength, node), LazyNode(graph.freeze(jsNumber(node->newArraySize()))));
         return;
 
     case NewTypedArray:

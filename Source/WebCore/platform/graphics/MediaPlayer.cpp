@@ -1279,6 +1279,11 @@ void MediaPlayer::setShouldMaintainAspectRatio(bool maintainAspectRatio)
     m_private->setShouldMaintainAspectRatio(maintainAspectRatio);
 }
 
+void MediaPlayer::requestHostingContextID(LayerHostingContextIDCallback&& callback)
+{
+    return m_private->requestHostingContextID(WTFMove(callback));
+}
+
 LayerHostingContextID MediaPlayer::hostingContextID() const
 {
     return m_private->hostingContextID();

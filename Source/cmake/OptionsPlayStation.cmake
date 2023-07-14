@@ -195,6 +195,7 @@ endif ()
 #
 # Features that require additional implementation pieces
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_AVIF PRIVATE OFF)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_JPEGXL PRIVATE OFF)
 
 # Features that are temporarily turned off because an implementation is not
 # present at this time
@@ -272,7 +273,6 @@ if (ENABLE_WEBCORE)
 
     # Rendering options
     SET_AND_EXPOSE_TO_BUILD(USE_EGL ON)
-    SET_AND_EXPOSE_TO_BUILD(USE_OPENGL_ES ON)
     SET_AND_EXPOSE_TO_BUILD(USE_TEXTURE_MAPPER ON)
     SET_AND_EXPOSE_TO_BUILD(USE_TEXTURE_MAPPER_GL ON)
     SET_AND_EXPOSE_TO_BUILD(USE_WPE_RENDERER ${USE_WPE_BACKEND_PLAYSTATION})

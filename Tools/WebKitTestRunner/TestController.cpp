@@ -393,7 +393,7 @@ void TestController::handleQueryPermission(WKStringRef string, WKSecurityOriginR
     WKQueryPermissionResultCallbackCompleteWithPrompt(callback);
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
 static void lockScreenOrientationCallback(WKPageRef, WKScreenOrientationType orientation)
 {
     TestController::singleton().lockScreenOrientation(orientation);
@@ -647,11 +647,8 @@ WKRetainPtr<WKContextConfigurationRef> TestController::generateContextConfigurat
         WKArrayAppendItem(overrideLanguages.get(), toWK(language).get());
     WKContextConfigurationSetOverrideLanguages(configuration.get(), overrideLanguages.get());
 
-    if (options.shouldEnableProcessSwapOnNavigation()) {
+    if (options.shouldEnableProcessSwapOnNavigation())
         WKContextConfigurationSetProcessSwapsOnNavigation(configuration.get(), true);
-        if (options.enableProcessSwapOnWindowOpen())
-            WKContextConfigurationSetProcessSwapsOnWindowOpenWithOpener(configuration.get(), true);
-    }
 
     WKContextConfigurationSetShouldConfigureJSCForTesting(configuration.get(), true);
 
@@ -973,7 +970,7 @@ void TestController::createWebViewWithOptions(const TestOptions& options)
         decidePolicyForMediaKeySystemPermissionRequest,
         nullptr, // requestWebAuthenticationNoGesture
         queryPermission,
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
         lockScreenOrientationCallback,
         unlockScreenOrientationCallback
 #else

@@ -133,9 +133,19 @@ def surround_in_condition(string, condition):
 
 
 def types_that_must_be_moved():
-    return frozenset([
+    return [
+        'IPC::Connection::Handle',
         'IPC::StreamServerConnection::Handle',
-    ])
+        'Vector<WebKit::SharedMemory::Handle>',
+        'WebKit::ConsumerSharedCARingBuffer::Handle',
+        'WebKit::ImageBufferBackendHandle',
+        'WebKit::ShareableBitmap::Handle',
+        'WebKit::ShareableResource::Handle',
+        'WebKit::SharedMemory::Handle',
+        'WebKit::UpdateInfo',
+        'Win32Handle',
+        'std::optional<Win32Handle>'
+    ]
 
 
 def function_parameter_type(type, kind):
@@ -357,7 +367,7 @@ def types_that_cannot_be_forward_declared():
         'WebCore::DictationContext',
         'WebCore::DragApplicationFlags',
         'WebCore::FrameIdentifier',
-        'WebCore::GraphicsContextGL::ExternalImageSource',
+        'WebCore::GraphicsContextGL::EGLImageSource',
         'WebCore::GraphicsContextGLAttributes',
         'WebCore::IntDegrees',
         'WebCore::ModalContainerControlType',
@@ -390,8 +400,6 @@ def types_that_cannot_be_forward_declared():
         'WebKit::RemoteSourceBufferIdentifier',
         'WebKit::RemoteVideoFrameWriteReference',
         'WebKit::RemoteVideoFrameReadReference',
-        'WebKit::RemoteSerializedImageBufferWriteReference',
-        'WebKit::RemoteSerializedImageBufferReadReference',
         'WebKit::RenderingUpdateID',
         'WebKit::TextCheckerRequestID',
         'WebKit::TransactionID',
@@ -399,7 +407,7 @@ def types_that_cannot_be_forward_declared():
         'WebKit::WCContentBufferIdentifier',
         'WebKit::WebExtensionEventListenerType',
         'WebKit::XRDeviceIdentifier',
-    ] + serialized_identifiers())
+    ] + serialized_identifiers() + types_that_must_be_moved())
 
 
 def conditions_for_header(header):
@@ -743,7 +751,7 @@ def headers_for_type(type):
         'WebCore::FrameLoadType': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::GenericCueData': ['<WebCore/InbandGenericCue.h>'],
         'WebCore::GrammarDetail': ['<WebCore/TextCheckerClient.h>'],
-        'WebCore::GraphicsContextGL::ExternalImageSource': ['<WebCore/GraphicsContextGL.h>'],
+        'WebCore::GraphicsContextGL::EGLImageSource': ['<WebCore/GraphicsContextGL.h>'],
         'WebCore::GraphicsContextGLActiveInfo': ['<WebCore/GraphicsContextGL.h>'],
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::HighlightRequestOriginatedInApp': ['<WebCore/AppHighlight.h>'],
@@ -791,6 +799,7 @@ def headers_for_type(type):
         'WebCore::ReasonForDismissingAlternativeText': ['<WebCore/AlternativeTextClient.h>'],
         'WebCore::RecentSearch': ['<WebCore/SearchPopupMenu.h>'],
         'WebCore::ReloadOption': ['<WebCore/FrameLoaderTypes.h>'],
+        'WebCore::RenderAsTextFlag': ['<WebCore/RenderTreeAsText.h>'],
         'WebCore::RenderingPurpose': ['<WebCore/RenderingMode.h>'],
         'WebCore::RequestStorageAccessResult': ['<WebCore/DocumentStorageAccess.h>'],
         'WebCore::RouteSharingPolicy': ['<WebCore/AudioSession.h>'],
@@ -862,8 +871,6 @@ def headers_for_type(type):
         'WebKit::PaymentSetupFeatures': ['"ApplePayPaymentSetupFeaturesWebKit.h"'],
         'WebKit::PrepareBackingStoreBuffersInputData': ['"PrepareBackingStoreBuffersData.h"'],
         'WebKit::PrepareBackingStoreBuffersOutputData': ['"PrepareBackingStoreBuffersData.h"'],
-        'WebKit::RemoteSerializedImageBufferReadReference': ['"RemoteSerializedImageBufferIdentifier.h"'],
-        'WebKit::RemoteSerializedImageBufferWriteReference': ['"RemoteSerializedImageBufferIdentifier.h"'],
         'WebKit::RemoteVideoFrameReadReference': ['"RemoteVideoFrameIdentifier.h"'],
         'WebKit::RemoteVideoFrameWriteReference': ['"RemoteVideoFrameIdentifier.h"'],
         'WebKit::RespectSelectionAnchor': ['"GestureTypes.h"'],

@@ -80,6 +80,7 @@
 #include "CSSValuePool.h"
 #include "CSSVariableData.h"
 #include "CSSVariableParser.h"
+#include "CSSWordBoundaryDetectionValue.h"
 #include "CalculationCategory.h"
 #include "ColorConversion.h"
 #include "ColorInterpolation.h"
@@ -94,6 +95,7 @@
 #include "StyleColor.h"
 #include "TimingFunction.h"
 #include "WebKitFontFamilyNames.h"
+#include "WordBoundaryDetection.h"
 #include <wtf/SortedArrayMap.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/TextStream.h>
@@ -6669,6 +6671,19 @@ RefPtr<CSSValue> consumeScrollSnapType(CSSParserTokenRange& range)
     return CSSValueList::createSpaceSeparated(firstValue.releaseNonNull());
 }
 
+RefPtr<CSSValue> consumeScrollbarColor(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    if (auto ident = consumeIdent<CSSValueAuto>(range))
+        return ident;
+
+    if (auto thumbColor = consumeColor(range, context)) {
+        if (auto trackColor = consumeColor(range, context))
+            return CSSValuePair::createNoncoalescing(thumbColor.releaseNonNull(), trackColor.releaseNonNull());
+    }
+
+    return nullptr;
+}
+
 RefPtr<CSSValue> consumeScrollbarGutter(CSSParserTokenRange& range)
 {
     if (auto ident = consumeIdent<CSSValueAuto>(range))
@@ -6928,8 +6943,9 @@ static RefPtr<CSSValue> consumeBasicShapeOrBox(CSSParserTokenRange& range, const
     return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 
-// Parses the ray() definition as defined in https://drafts.fxtf.org/motion-1/#funcdef-offset-path-ray
-// ray( [ <angle> && <size> && contain? ] )
+// Parses the ray() definition as defined in https://drafts.fxtf.org/motion-1/#ray-function
+// ray( <angle> && <ray-size>? && contain? && [at <position>]? )
+// FIXME: Implement `at <position>`.
 static RefPtr<CSSRayValue> consumeRayShape(CSSParserTokenRange& range, const CSSParserContext& context)
 {
     if (range.peek().type() != FunctionToken || range.peek().functionId() != CSSValueRay)
@@ -6938,23 +6954,23 @@ static RefPtr<CSSRayValue> consumeRayShape(CSSParserTokenRange& range, const CSS
     CSSParserTokenRange args = consumeFunction(range);
 
     RefPtr<CSSPrimitiveValue> angle;
-    RefPtr<CSSPrimitiveValue> size;
+    std::optional<CSSValueID> size;
     bool isContaining = false;
     while (!args.atEnd()) {
         if (!angle && (angle = consumeAngle(args, context.mode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Forbid)))
             continue;
-        if (!size && (size = consumeIdent<CSSValueClosestSide, CSSValueClosestCorner, CSSValueFarthestSide, CSSValueFarthestCorner, CSSValueSides>(args)))
+        if (!size && (size = consumeIdentRaw<CSSValueClosestSide, CSSValueClosestCorner, CSSValueFarthestSide, CSSValueFarthestCorner, CSSValueSides>(args)))
             continue;
-        if (!isContaining && (isContaining = consumeIdent<CSSValueContain>(args)))
+        if (!isContaining && (isContaining = consumeIdentRaw<CSSValueContain>(args).has_value()))
             continue;
         return nullptr;
     }
 
-    // <angle> and <size> must be present.
-    if (!angle || !size)
+    // <angle> must be present.
+    if (!angle)
         return nullptr;
 
-    return CSSRayValue::create(angle.releaseNonNull(), size.releaseNonNull(), isContaining);
+    return CSSRayValue::create(angle.releaseNonNull(), size.value_or(CSSValueClosestSide), isContaining);
 }
 
 // Consumes shapes accepted by clip-path and offset-path.
@@ -8497,6 +8513,34 @@ RefPtr<CSSValue> consumeTextAutospace(CSSParserTokenRange& range)
         return value;
     }
     return nullptr;
+}
+
+RefPtr<CSSPrimitiveValue> consumeLang(CSSParserTokenRange& range)
+{
+    // https://drafts.csswg.org/css-text-4/#typedef-word-boundary-detection-lang
+    if (auto ident = consumeCustomIdent(range))
+        return ident;
+    return consumeString(range);
+}
+
+RefPtr<CSSWordBoundaryDetectionValue> consumeWordBoundaryDetection(CSSParserTokenRange& range)
+{
+    // https://drafts.csswg.org/css-text-4/#propdef-word-boundary-detection
+    // normal | auto(<lang>)
+    if (auto value = consumeIdent<CSSValueNormal>(range))
+        return CSSWordBoundaryDetectionValue::create(WordBoundaryDetectionNormal { });
+
+    if (range.peek().functionId() != CSSValueAuto)
+        return nullptr;
+
+    auto args = consumeFunction(range);
+
+    auto lang = consumeLang(args);
+    if (!lang || !args.atEnd())
+        return nullptr;
+
+    ASSERT(lang->isString() || lang->isCustomIdent());
+    return CSSWordBoundaryDetectionValue::create(WordBoundaryDetectionAuto { lang->stringValue() });
 }
 
 } // namespace CSSPropertyParserHelpers

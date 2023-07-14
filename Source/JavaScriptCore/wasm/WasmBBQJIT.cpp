@@ -6047,7 +6047,7 @@ public:
             BLOCK(Value::fromI32(__builtin_popcount(operand.asI32()))),
             BLOCK(
                 if (m_jit.supportsCountPopulation())
-                    m_jit.countPopulation32(operandLocation.asGPR(), resultLocation.asGPR());
+                    m_jit.countPopulation32(operandLocation.asGPR(), resultLocation.asGPR(), wasmScratchFPR);
                 else {
                     // The EMIT_UNARY(...) macro will already assign result to the top value on the stack and give it a register,
                     // so it should be able to be passed in. However, this creates a somewhat nasty tacit dependency - emitCCall
@@ -6071,7 +6071,7 @@ public:
             BLOCK(Value::fromI64(__builtin_popcountll(operand.asI64()))),
             BLOCK(
                 if (m_jit.supportsCountPopulation())
-                    m_jit.countPopulation64(operandLocation.asGPR(), resultLocation.asGPR());
+                    m_jit.countPopulation64(operandLocation.asGPR(), resultLocation.asGPR(), wasmScratchFPR);
                 else {
                     // The EMIT_UNARY(...) macro will already assign result to the top value on the stack and give it a register,
                     // so it should be able to be passed in. However, this creates a somewhat nasty tacit dependency - emitCCall
@@ -7030,13 +7030,10 @@ public:
     PartialResult WARN_UNUSED_RETURN addIf(Value condition, BlockSignature signature, Stack& enclosingStack, ControlData& result, Stack& newStack)
     {
         // Here, we cannot use wasmScratchGPR since it is used for shuffling in flushAndSingleExit.
-        // We cannot use ScratchScope here too since the allocated scratch register can be used for argument locations.
-        // We intentionally exclude GPRInfo::nonPreservedNonArgumentGPR1 for argument locations. This ensures that GPRInfo::nonPreservedNonArgumentGPR1
-        // will not be overridden over flushAndSingleExit.
         static_assert(wasmScratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
-        clobber(GPRInfo::nonPreservedNonArgumentGPR1);
-        ScratchScope<0, 0> scratches(*this, Location::fromGPR(GPRInfo::nonPreservedNonArgumentGPR1));
-        Location conditionLocation = Location::fromGPR(GPRInfo::nonPreservedNonArgumentGPR1);
+        ScratchScope<1, 0> scratches(*this, RegisterSetBuilder::argumentGPRS());
+        scratches.unbindPreserved();
+        Location conditionLocation = Location::fromGPR(scratches.gpr(0));
         if (!condition.isConst())
             emitMove(condition, conditionLocation);
         consume(condition);
@@ -7647,6 +7644,21 @@ public:
         }
     }
 
+    void restoreWebAssemblyGlobalStateAfterWasmCall()
+    {
+        if (!!m_info.memory && (m_mode == MemoryMode::Signaling || m_info.memory.isShared())) {
+            // If memory is signaling or shared, then memoryBase and memorySize will not change. This means that only thing we should check here is GPRInfo::wasmContextInstancePointer is the same or not.
+            // Let's consider the case, this was calling a JS function. So it can grow / modify memory whatever. But memoryBase and memorySize are kept the same in this case.
+            m_jit.loadPtr(Address(GPRInfo::callFrameRegister, CallFrameSlot::codeBlock * sizeof(Register)), wasmScratchGPR);
+            Jump isSameInstanceAfter = m_jit.branchPtr(RelationalCondition::Equal, wasmScratchGPR, GPRInfo::wasmContextInstancePointer);
+            m_jit.move(wasmScratchGPR, GPRInfo::wasmContextInstancePointer);
+            m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
+            m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, wasmScratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+            isSameInstanceAfter.link(&m_jit);
+        } else
+            restoreWebAssemblyGlobalState();
+    }
+
     void flushRegistersForException()
     {
         // Flush all locals.
@@ -7872,9 +7884,9 @@ public:
         saveValuesAcrossCallAndPassArguments(arguments, callInfo);
 
         if (m_info.isImportedFunctionFromFunctionIndexSpace(functionIndex)) {
-            m_jit.move(TrustedImmPtr(Instance::offsetOfImportFunctionStub(functionIndex)), wasmScratchGPR);
-            m_jit.addPtr(GPRInfo::wasmContextInstancePointer, wasmScratchGPR);
-            m_jit.loadPtr(Address(wasmScratchGPR), wasmScratchGPR);
+            static_assert(sizeof(Instance::ImportFunctionInfo) * maxImports < std::numeric_limits<int32_t>::max());
+            RELEASE_ASSERT(Instance::offsetOfImportFunctionStub(functionIndex) < std::numeric_limits<int32_t>::max());
+            m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfImportFunctionStub(functionIndex)), wasmScratchGPR);
 
             m_jit.call(wasmScratchGPR, WasmEntryPtrTag);
         } else {
@@ -7890,7 +7902,7 @@ public:
         returnValuesFromCall(results, functionType, callInfo);
 
         if (m_info.callCanClobberInstance(functionIndex) || m_info.isImportedFunctionFromFunctionIndexSpace(functionIndex))
-            restoreWebAssemblyGlobalState();
+            restoreWebAssemblyGlobalStateAfterWasmCall();
 
         LOG_INSTRUCTION("Call", functionIndex, arguments, "=> ", results);
 
@@ -7902,7 +7914,7 @@ public:
         // TODO: Support tail calls
         UNUSED_PARAM(jsCalleeAnchor);
         RELEASE_ASSERT(callType == CallType::Call);
-        ASSERT(calleeCode == GPRInfo::nonPreservedNonArgumentGPR1);
+        ASSERT(!RegisterSetBuilder::argumentGPRS().contains(calleeCode, IgnoreVectors));
 
         const auto& callingConvention = wasmCallingConvention();
         CallInformation wasmCalleeInfo = callingConvention.callInformationFor(signature, CallRole::Caller);
@@ -7910,11 +7922,11 @@ public:
         m_maxCalleeStackSize = std::max<int>(calleeStackSize, m_maxCalleeStackSize);
 
         // Do a context switch if needed.
-        Jump isSameInstance = m_jit.branchPtr(RelationalCondition::Equal, calleeInstance, GPRInfo::wasmContextInstancePointer);
+        Jump isSameInstanceBefore = m_jit.branchPtr(RelationalCondition::Equal, calleeInstance, GPRInfo::wasmContextInstancePointer);
         m_jit.move(calleeInstance, GPRInfo::wasmContextInstancePointer);
         m_jit.loadPairPtr(GPRInfo::wasmContextInstancePointer, TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
         m_jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, wasmScratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
-        isSameInstance.link(&m_jit);
+        isSameInstanceBefore.link(&m_jit);
 
         // Since this can switch instance, we need to keep JSWebAssemblyInstance anchored in the stack.
         m_jit.storePtr(jsCalleeAnchor, Location::fromArgumentLocation(wasmCalleeInfo.thisArgument).asAddress());
@@ -7928,8 +7940,7 @@ public:
         m_jit.call(calleeCode, WasmEntryPtrTag);
         returnValuesFromCall(results, *signature.as<FunctionSignature>(), wasmCalleeInfo);
 
-        // The call could have been to another WebAssembly instance, and / or could have modified our Memory.
-        restoreWebAssemblyGlobalState();
+        restoreWebAssemblyGlobalStateAfterWasmCall();
 
         LOG_INSTRUCTION(opcode, calleeIndex, arguments, "=> ", results);
     }
@@ -7948,10 +7959,9 @@ public:
         GPRReg jsCalleeAnchor;
 
         {
-            clobber(GPRInfo::nonPreservedNonArgumentGPR1);
-            ScratchScope<0, 0> calleeCodeScratch(*this, Location::fromGPR(GPRInfo::nonPreservedNonArgumentGPR1));
-            calleeCode = GPRInfo::nonPreservedNonArgumentGPR1;
-            ASSERT(calleeCode == GPRInfo::nonPreservedNonArgumentGPR1);
+            ScratchScope<1, 0> calleeCodeScratch(*this, RegisterSetBuilder::argumentGPRS());
+            calleeCode = calleeCodeScratch.gpr(0);
+            calleeCodeScratch.unbindPreserved();
 
             {
                 ScratchScope<2, 0> scratches(*this);
@@ -7980,7 +7990,6 @@ public:
                     m_jit.load32(Address(callableFunctionBufferLength, FuncRefTable::offsetOfLength()), callableFunctionBufferLength);
                 }
                 ASSERT(calleeIndexLocation.isGPR());
-                m_jit.zeroExtend32ToWord(calleeIndexLocation.asGPR(), calleeIndexLocation.asGPR());
 
                 consume(calleeIndex);
 
@@ -7996,18 +8005,33 @@ public:
                 GPRReg calleeSignatureIndex = wasmScratchGPR;
 
                 // Compute the offset in the table index space we are looking for.
-                m_jit.move(TrustedImmPtr(sizeof(FuncRefTable::Function)), calleeSignatureIndex);
-                m_jit.mul64(calleeIndexLocation.asGPR(), calleeSignatureIndex);
-                m_jit.addPtr(callableFunctionBuffer, calleeSignatureIndex);
+                if (hasOneBitSet(sizeof(FuncRefTable::Function))) {
+                    m_jit.zeroExtend32ToWord(calleeIndexLocation.asGPR(), calleeIndexLocation.asGPR());
+#if CPU(ARM64)
+                    m_jit.addLeftShift64(callableFunctionBuffer, calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), calleeSignatureIndex);
+#else
+                    m_jit.lshift64(calleeIndexLocation.asGPR(), TrustedImm32(getLSBSet(sizeof(FuncRefTable::Function))), calleeSignatureIndex);
+                    m_jit.addPtr(callableFunctionBuffer, calleeSignatureIndex);
+#endif
+                } else {
+                    m_jit.move(TrustedImmPtr(sizeof(FuncRefTable::Function)), calleeSignatureIndex);
+#if CPU(ARM64)
+                    m_jit.multiplyAddZeroExtend32(calleeIndexLocation.asGPR(), calleeSignatureIndex, callableFunctionBuffer, calleeSignatureIndex);
+#else
+                    m_jit.zeroExtend32ToWord(calleeIndexLocation.asGPR(), calleeIndexLocation.asGPR());
+                    m_jit.mul64(calleeIndexLocation.asGPR(), calleeSignatureIndex);
+                    m_jit.addPtr(callableFunctionBuffer, calleeSignatureIndex);
+#endif
+                }
 
                 // FIXME: This seems wasteful to do two checks just for a nicer error message.
                 // We should move just to use a single branch and then figure out what
                 // error to use in the exception handler.
 
-                m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation()), calleeCode); // Pointer to callee code.
-                m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfInstance()), calleeInstance);
-                m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfValue()), jsCalleeAnchor);
-                m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfSignatureIndex()), calleeSignatureIndex);
+                ASSERT(static_cast<ptrdiff_t>(FuncRefTable::Function::offsetOfInstance() + sizeof(void*)) == FuncRefTable::Function::offsetOfValue());
+                m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfInstance()), calleeInstance, jsCalleeAnchor);
+                ASSERT(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfSignatureIndex() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation());
+                m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfSignatureIndex()), calleeSignatureIndex, calleeCode);
 
                 throwExceptionIf(ExceptionType::NullTableEntry, m_jit.branchTestPtr(ResultCondition::Zero, calleeSignatureIndex, calleeSignatureIndex));
                 throwExceptionIf(ExceptionType::BadSignature, m_jit.branchPtr(RelationalCondition::NotEqual, calleeSignatureIndex, TrustedImmPtr(TypeInformation::get(originalSignature))));
@@ -8031,10 +8055,9 @@ public:
         GPRReg calleeCode;
         GPRReg jsCalleeAnchor;
         {
-            clobber(GPRInfo::nonPreservedNonArgumentGPR1);
-            ScratchScope<0, 0> calleeCodeScratch(*this, Location::fromGPR(GPRInfo::nonPreservedNonArgumentGPR1));
-            calleeCode = GPRInfo::nonPreservedNonArgumentGPR1;
-            ASSERT(calleeCode == GPRInfo::nonPreservedNonArgumentGPR1);
+            ScratchScope<1, 0> calleeCodeScratch(*this, RegisterSetBuilder::argumentGPRS());
+            calleeCode = calleeCodeScratch.gpr(0);
+            calleeCodeScratch.unbindPreserved();
 
             ScratchScope<2, 0> otherScratches(*this);
 
@@ -8875,6 +8898,7 @@ public:
             m_jit.vectorExtendLow(info, valueLocation.asFPR(), resultLocation.asFPR());
             return { };
         case JSC::SIMDLaneOperation::TruncSat:
+        case JSC::SIMDLaneOperation::RelaxedTruncSat:
 #if CPU(X86_64)
             switch (info.lane) {
             case SIMDLane::f64x2:
@@ -9148,6 +9172,9 @@ public:
                 return fixupOutOfBoundsIndicesForSwizzle(leftLocation, rightLocation, resultLocation);
             m_jit.vectorSwizzle(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
             return { };
+        case SIMDLaneOperation::RelaxedSwizzle:
+            m_jit.vectorSwizzle(leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
+            return { };
         case SIMDLaneOperation::Xor:
             m_jit.vectorXor(info, leftLocation.asFPR(), rightLocation.asFPR(), resultLocation.asFPR());
             return { };
@@ -9223,6 +9250,39 @@ public:
             RELEASE_ASSERT_NOT_REACHED();
             return { };
         }
+    }
+
+    PartialResult WARN_UNUSED_RETURN addSIMDRelaxedFMA(SIMDLaneOperation op, SIMDInfo info, ExpressionType mul1, ExpressionType mul2, ExpressionType addend, ExpressionType& result)
+    {
+        Location mul1Location = loadIfNecessary(mul1);
+        Location mul2Location = loadIfNecessary(mul2);
+        Location addendLocation = loadIfNecessary(addend);
+        consume(mul1);
+        consume(mul2);
+        consume(addend);
+
+        result = topValue(TypeKind::V128);
+        Location resultLocation = allocate(result);
+
+        LOG_INSTRUCTION("VectorRelaxedMAdd", mul1, mul1Location, mul2, mul2Location, addend, addendLocation, RESULT(result));
+
+        if (op == SIMDLaneOperation::RelaxedMAdd) {
+#if CPU(X86_64)
+            m_jit.vectorMul(info, mul1Location.asFPR(), mul2Location.asFPR(), wasmScratchFPR);
+            m_jit.vectorAdd(info, wasmScratchFPR, addendLocation.asFPR(), resultLocation.asFPR());
+#else
+            m_jit.vectorFusedMulAdd(info, mul1Location.asFPR(), mul2Location.asFPR(), addendLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
+#endif
+        } else if (op == SIMDLaneOperation::RelaxedNMAdd) {
+#if CPU(X86_64)
+            m_jit.vectorMul(info, mul1Location.asFPR(), mul2Location.asFPR(), wasmScratchFPR);
+            m_jit.vectorSub(info, addendLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
+#else
+            m_jit.vectorFusedNegMulAdd(info, mul1Location.asFPR(), mul2Location.asFPR(), addendLocation.asFPR(), resultLocation.asFPR(), wasmScratchFPR);
+#endif
+        } else
+            RELEASE_ASSERT_NOT_REACHED();
+        return { };
     }
 
     void dump(const ControlStack&, const Stack*) { }
@@ -9956,7 +10016,6 @@ private:
         template<typename... Args>
         ScratchScope(BBQJIT& generator, Args... locationsToPreserve)
             : m_generator(generator)
-            , m_endedEarly(false)
         {
             initializedPreservedSet(locationsToPreserve...);
             for (JSC::Reg reg : m_preserved) {
@@ -9973,27 +10032,52 @@ private:
 
         ~ScratchScope()
         {
-            if (!m_endedEarly)
-                unbind();
+            unbindEarly();
         }
 
         void unbindEarly()
         {
-            m_endedEarly = true;
-            unbind();
+            unbindScratches();
+            unbindPreserved();
+        }
+
+        void unbindScratches()
+        {
+            if (m_unboundScratches)
+                return;
+
+            m_unboundScratches = true;
+            for (int i = 0; i < GPRs; i ++)
+                unbindGPRFromScratch(m_tempGPRs[i]);
+            for (int i = 0; i < FPRs; i ++)
+                unbindFPRFromScratch(m_tempFPRs[i]);
+        }
+
+        void unbindPreserved()
+        {
+            if (m_unboundPreserved)
+                return;
+
+            m_unboundPreserved = true;
+            for (JSC::Reg reg : m_preserved) {
+                if (reg.isGPR())
+                    unbindGPRFromScratch(reg.gpr());
+                else
+                    unbindFPRFromScratch(reg.fpr());
+            }
         }
 
         inline GPRReg gpr(unsigned i) const
         {
             ASSERT(i < GPRs);
-            ASSERT(!m_endedEarly);
+            ASSERT(!m_unboundScratches);
             return m_tempGPRs[i];
         }
 
         inline FPRReg fpr(unsigned i) const
         {
             ASSERT(i < FPRs);
-            ASSERT(!m_endedEarly);
+            ASSERT(!m_unboundScratches);
             return m_tempFPRs[i];
         }
 
@@ -10003,6 +10087,7 @@ private:
             if (!m_generator.m_validGPRs.contains(reg, IgnoreVectors))
                 return reg;
             RegisterBinding& binding = m_generator.m_gprBindings[reg];
+            m_generator.m_gprLRU.lock(reg);
             if (m_preserved.contains(reg, IgnoreVectors) && !binding.isNone()) {
                 if (UNLIKELY(Options::verboseBBQJITAllocation()))
                     dataLogLn("BBQ\tPreserving GPR ", MacroAssembler::gprName(reg), " currently bound to ", binding);
@@ -10011,7 +10096,6 @@ private:
             ASSERT(binding.isNone());
             binding = RegisterBinding::scratch();
             m_generator.m_gprSet.remove(reg);
-            m_generator.m_gprLRU.lock(reg);
             if (UNLIKELY(Options::verboseBBQJITAllocation()))
                 dataLogLn("BBQ\tReserving scratch GPR ", MacroAssembler::gprName(reg));
             return reg;
@@ -10022,6 +10106,7 @@ private:
             if (!m_generator.m_validFPRs.contains(reg, Width::Width128))
                 return reg;
             RegisterBinding& binding = m_generator.m_fprBindings[reg];
+            m_generator.m_fprLRU.lock(reg);
             if (m_preserved.contains(reg, Width::Width128) && !binding.isNone()) {
                 if (UNLIKELY(Options::verboseBBQJITAllocation()))
                     dataLogLn("BBQ\tPreserving FPR ", MacroAssembler::fprName(reg), " currently bound to ", binding);
@@ -10030,7 +10115,6 @@ private:
             ASSERT(binding.isNone());
             binding = RegisterBinding::scratch();
             m_generator.m_fprSet.remove(reg);
-            m_generator.m_fprLRU.lock(reg);
             if (UNLIKELY(Options::verboseBBQJITAllocation()))
                 dataLogLn("BBQ\tReserving scratch FPR ", MacroAssembler::fprName(reg));
             return reg;
@@ -10041,6 +10125,7 @@ private:
             if (!m_generator.m_validGPRs.contains(reg, IgnoreVectors))
                 return;
             RegisterBinding& binding = m_generator.m_gprBindings[reg];
+            m_generator.m_gprLRU.unlock(reg);
             if (UNLIKELY(Options::verboseBBQJITAllocation()))
                 dataLogLn("BBQ\tReleasing GPR ", MacroAssembler::gprName(reg));
             if (m_preserved.contains(reg, IgnoreVectors) && !binding.isScratch())
@@ -10048,7 +10133,6 @@ private:
             ASSERT(binding.isScratch());
             binding = RegisterBinding::none();
             m_generator.m_gprSet.add(reg, IgnoreVectors);
-            m_generator.m_gprLRU.unlock(reg);
         }
 
         void unbindFPRFromScratch(FPRReg reg)
@@ -10056,6 +10140,7 @@ private:
             if (!m_generator.m_validFPRs.contains(reg, Width::Width128))
                 return;
             RegisterBinding& binding = m_generator.m_fprBindings[reg];
+            m_generator.m_fprLRU.unlock(reg);
             if (UNLIKELY(Options::verboseBBQJITAllocation()))
                 dataLogLn("BBQ\tReleasing FPR ", MacroAssembler::fprName(reg));
             if (m_preserved.contains(reg, Width::Width128) && !binding.isScratch())
@@ -10063,7 +10148,6 @@ private:
             ASSERT(binding.isScratch());
             binding = RegisterBinding::none();
             m_generator.m_fprSet.add(reg, Width::Width128);
-            m_generator.m_fprLRU.unlock(reg);
         }
 
         template<typename... Args>
@@ -10091,26 +10175,12 @@ private:
         inline void initializedPreservedSet()
         { }
 
-        void unbind()
-        {
-            for (int i = 0; i < GPRs; i ++)
-                unbindGPRFromScratch(m_tempGPRs[i]);
-            for (int i = 0; i < FPRs; i ++)
-                unbindFPRFromScratch(m_tempFPRs[i]);
-
-            for (JSC::Reg reg : m_preserved) {
-                if (reg.isGPR())
-                    unbindGPRFromScratch(reg.gpr());
-                else
-                    unbindFPRFromScratch(reg.fpr());
-            }
-        }
-
         BBQJIT& m_generator;
         GPRReg m_tempGPRs[GPRs];
         FPRReg m_tempFPRs[FPRs];
         RegisterSet m_preserved;
-        bool m_endedEarly;
+        bool m_unboundScratches { false };
+        bool m_unboundPreserved { false };
     };
 
     Location canonicalSlot(Value value)

@@ -306,10 +306,14 @@ void NetworkRTCProvider::createResolver(LibWebRTCResolverIdentifier identifier, 
         });
         return;
     }
-    WebCore::DNSCompletionHandler completionHandler = [this, identifier](auto&& result) {
+    WebCore::DNSCompletionHandler completionHandler = [connection = m_connection, identifier](auto&& result) {
+        ASSERT(isMainRunLoop());
+        if (!connection)
+            return;
+
         if (!result.has_value()) {
             if (result.error() != WebCore::DNSError::Cancelled)
-                m_connection->connection().send(Messages::WebRTCResolver::ResolvedAddressError(1), identifier);
+                connection->connection().send(Messages::WebRTCResolver::ResolvedAddressError(1), identifier);
             return;
         }
 
@@ -322,7 +326,7 @@ void NetworkRTCProvider::createResolver(LibWebRTCResolverIdentifier identifier, 
                 ipAddresses.uncheckedAppend(rtc::IPAddress { address.ipv6Address() });
         }
 
-        m_connection->connection().send(Messages::WebRTCResolver::SetResolvedAddress(ipAddresses), identifier);
+        connection->connection().send(Messages::WebRTCResolver::SetResolvedAddress(ipAddresses), identifier);
     };
 
     WebCore::resolveDNS(address, identifier.toUInt64(), WTFMove(completionHandler));
@@ -341,26 +345,9 @@ void NetworkRTCProvider::stopResolver(LibWebRTCResolverIdentifier identifier)
     WebCore::stopResolveDNS(identifier.toUInt64());
 }
 
-struct NetworkMessageData : public rtc::MessageData {
-    NetworkMessageData(Ref<NetworkRTCProvider>&& rtcProvider, Function<void()>&& callback)
-        : rtcProvider(WTFMove(rtcProvider))
-        , callback(WTFMove(callback))
-    { }
-    Ref<NetworkRTCProvider> rtcProvider;
-    Function<void()> callback;
-};
-
-void NetworkRTCProvider::OnMessage(rtc::Message* message)
-{
-    ASSERT(message->message_id == 1);
-    auto* data = static_cast<NetworkMessageData*>(message->pdata);
-    data->callback();
-    delete data;
-}
-
 void NetworkRTCProvider::callOnRTCNetworkThread(Function<void()>&& callback)
 {
-    m_rtcNetworkThread.Post(RTC_FROM_HERE, this, 1, new NetworkMessageData(*this, WTFMove(callback)));
+    m_rtcNetworkThread.PostTask(WTFMove(callback));
 }
 
 void NetworkRTCProvider::signalSocketIsClosed(LibWebRTCSocketIdentifier identifier)

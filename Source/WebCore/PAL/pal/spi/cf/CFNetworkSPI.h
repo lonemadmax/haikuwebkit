@@ -203,6 +203,10 @@ typedef enum {
 #if ENABLE(TRACKER_DISPOSITION)
 @property (setter=_setNeedsNetworkTrackingPrevention:) BOOL _needsNetworkTrackingPrevention;
 #endif
+#if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
+@property (setter=_setUseEnhancedPrivacyMode:) BOOL _useEnhancedPrivacyMode;
+@property (setter=_setBlockTrackers:) BOOL _blockTrackers;
+#endif
 @end
 
 @interface NSURLProtocol ()
@@ -331,17 +335,20 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
 @property (assign, readonly) nw_connection_privacy_stance_t _privacyStance;
 #endif
-@end
-
-@interface NSURLSessionTaskTransactionMetrics ()
 @property (assign) SSLProtocol _negotiatedTLSProtocol;
 @property (assign) SSLCipherSuite _negotiatedTLSCipher;
+#if ENABLE(NETWORK_ISSUE_REPORTING)
+@property (nonatomic, readonly) BOOL _isUnlistedTracker;
+#endif
 @end
 
 @interface NSURLSession (SPI)
 + (void)_strictTrustEvaluate:(NSURLAuthenticationChallenge *)challenge queue:(dispatch_queue_t)queue completionHandler:(void (^)(NSURLAuthenticationChallenge *challenge, OSStatus trustResult))cb;
 #if HAVE(APP_SSO)
 + (void)_disableAppSSO;
+#endif
+#if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
+@property (readonly) nw_context_t _networkContext;
 #endif
 @end
 

@@ -2772,7 +2772,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _isWaitingOnPositionInformation = YES;
     if (![self _hasValidOutstandingPositionInformationRequest:request])
         [self requestAsynchronousPositionInformationUpdate:request];
-    bool receivedResponse = connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidReceivePositionInformation>(_page->webPageID(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    bool receivedResponse = connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidReceivePositionInformation>(_page->webPageID(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives) == IPC::Error::NoError;
     _hasValidPositionInformation = receivedResponse && _positionInformation.canBeValid;
     return _hasValidPositionInformation;
 }
@@ -4027,7 +4027,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if ([pasteboard containsPasteboardTypes:types inItemSet:indices])
             return YES;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(VISION)
         if (editorState.isContentRichlyEditable && self.webView.configuration._attachmentElementEnabled) {
             for (NSItemProvider *itemProvider in pasteboard.itemProviders) {
                 auto preferredPresentationStyle = itemProvider.preferredPresentationStyle;
@@ -4041,7 +4041,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
                     return YES;
             }
         }
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS) || PLATFORM(VISION)
     }
 
     if (action == @selector(copy:)) {
@@ -5240,7 +5240,7 @@ static void logTextInteractionAssistantSelectionChange(const char* methodName, U
     if (!useSyncRequest)
         return;
 
-    if (!_page->process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::HandleAutocorrectionContext>(_page->webPageID(), 1_s, IPC::WaitForOption::DispatchIncomingSyncMessagesWhileWaiting))
+    if (_page->process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::HandleAutocorrectionContext>(_page->webPageID(), 1_s, IPC::WaitForOption::DispatchIncomingSyncMessagesWhileWaiting) != IPC::Error::NoError)
         RELEASE_LOG(TextInput, "Timed out while waiting for autocorrection context.");
 
     if (_autocorrectionContextNeedsUpdate)
@@ -5689,6 +5689,66 @@ static NSArray<WKTextSelectionRect *> *textSelectionRects(const Vector<WebCore::
 {
 }
 
+#if HAVE(REDESIGNED_TEXT_CURSOR)
+static BOOL shouldUseHighlightsForMarkedText(NSAttributedString *string)
+{
+    __block BOOL result = NO;
+
+    [string enumerateAttributesInRange:NSMakeRange(0, string.length) options:0 usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attributes, NSRange, BOOL *stop) {
+        BOOL hasUnderlineStyle = !![attributes objectForKey:NSUnderlineStyleAttributeName];
+        BOOL hasUnderlineColor = !![attributes objectForKey:NSUnderlineColorAttributeName];
+
+        BOOL hasBackgroundColor = !![attributes objectForKey:NSBackgroundColorAttributeName];
+        BOOL hasForegroundColor = !![attributes objectForKey:NSForegroundColorAttributeName];
+
+        // Marked text may be represented either as an underline or a highlight; this mode is dictated
+        // by the attributes it has, and therefore having both types of attributes is not allowed.
+        ASSERT(!((hasUnderlineStyle || hasUnderlineColor) && (hasBackgroundColor || hasForegroundColor)));
+
+        if (hasUnderlineStyle || hasUnderlineColor) {
+            result = NO;
+            *stop = YES;
+        } else if (hasBackgroundColor || hasForegroundColor) {
+            result = YES;
+            *stop = YES;
+        }
+    }];
+
+    return result;
+}
+
+static Vector<WebCore::CompositionUnderline> extractUnderlines(NSAttributedString *string)
+{
+    if (!string.length)
+        return { };
+
+    Vector<WebCore::CompositionUnderline> underlines;
+    [string enumerateAttributesInRange:NSMakeRange(0, string.length) options:0 usingBlock:[&underlines](NSDictionary<NSAttributedStringKey, id> *attributes, NSRange range, BOOL *) {
+        bool thick = attributes[NSBackgroundColorAttributeName];
+        underlines.append({ static_cast<unsigned>(range.location), static_cast<unsigned>(NSMaxRange(range)), WebCore::CompositionUnderlineColor::GivenColor, WebCore::Color::black, thick });
+    }];
+
+    std::sort(underlines.begin(), underlines.end(), [](auto& a, auto& b) {
+        if (a.startOffset < b.startOffset)
+            return true;
+        if (a.startOffset > b.startOffset)
+            return false;
+        return a.endOffset < b.endOffset;
+    });
+
+    Vector<WebCore::CompositionUnderline> mergedUnderlines;
+    if (!underlines.isEmpty())
+        mergedUnderlines.append({ underlines.first().startOffset, underlines.last().endOffset, WebCore::CompositionUnderlineColor::GivenColor, WebCore::Color::black, false });
+
+    for (auto& underline : underlines) {
+        if (underline.thick)
+            mergedUnderlines.append(underline);
+    }
+
+    return mergedUnderlines;
+}
+#endif
+
 static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedString *string)
 {
     if (!string.length)
@@ -5727,26 +5787,38 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
     return mergedHighlights;
 }
 
-#if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/WKContentViewInteractionAdditions.mm>
-#else
 - (void)setAttributedMarkedText:(NSAttributedString *)markedText selectedRange:(NSRange)selectedRange
 {
-    [self _setMarkedText:markedText.string underlines:Vector<WebCore::CompositionUnderline> { } highlights:compositionHighlights(markedText) selectedRange:selectedRange];
+    Vector<WebCore::CompositionUnderline> underlines;
+    Vector<WebCore::CompositionHighlight> highlights;
+
+#if HAVE(REDESIGNED_TEXT_CURSOR)
+    if (!shouldUseHighlightsForMarkedText(markedText))
+        underlines = extractUnderlines(markedText);
+    else
+#endif
+        highlights = compositionHighlights(markedText);
+
+    [self _setMarkedText:markedText.string underlines:underlines highlights:highlights selectedRange:selectedRange];
 }
 
 - (void)setMarkedText:(NSString *)markedText selectedRange:(NSRange)selectedRange
 {
-    [self _setMarkedText:markedText underlines:Vector<WebCore::CompositionUnderline> { } highlights:Vector<WebCore::CompositionHighlight> { } selectedRange:selectedRange];
-}
+    Vector<WebCore::CompositionUnderline> underlines;
+
+#if HAVE(REDESIGNED_TEXT_CURSOR)
+    underlines.append(WebCore::CompositionUnderline(0, [_markedText length], WebCore::CompositionUnderlineColor::GivenColor, WebCore::Color::black, false));
 #endif
+
+    [self _setMarkedText:markedText underlines:underlines highlights:Vector<WebCore::CompositionHighlight> { } selectedRange:selectedRange];
+}
 
 - (void)_setMarkedText:(NSString *)markedText underlines:(const Vector<WebCore::CompositionUnderline>&)underlines highlights:(const Vector<WebCore::CompositionHighlight>&)highlights selectedRange:(NSRange)selectedRange
 {
     _autocorrectionContextNeedsUpdate = YES;
     _candidateViewNeedsUpdate = !self.hasMarkedText;
     _markedText = markedText;
-    _page->setCompositionAsync(markedText, underlines, highlights, selectedRange, { });
+    _page->setCompositionAsync(markedText, underlines, highlights, { }, selectedRange, { });
 }
 
 - (void)unmarkText
@@ -6102,12 +6174,6 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
     return _traits.get();
 }
 
-#if !USE(APPLE_INTERNAL_SDK)
-- (void)_updateAdditionalTextInputTraits:(id<UITextInputTraits_Private>)privateTraits
-{
-}
-#endif
-
 - (void)_updateTextInputTraits:(id<UITextInputTraits>)traits
 {
     traits.secureTextEntry = _focusedElementInformation.elementType == WebKit::InputType::Password || [_formInputSession forceSecureTextEntry];
@@ -6255,7 +6321,9 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
     if ([privateTraits respondsToSelector:@selector(setShortcutConversionType:)])
         privateTraits.shortcutConversionType = _focusedElementInformation.elementType == WebKit::InputType::Password ? UITextShortcutConversionTypeNo : UITextShortcutConversionTypeDefault;
 
-    [self _updateAdditionalTextInputTraits:privateTraits];
+#if HAVE(INLINE_PREDICTIONS)
+    traits.inlinePredictionType = self.webView.configuration.allowsInlinePredictions ? UITextInlinePredictionTypeDefault : UITextInlinePredictionTypeNo;
+#endif
 
     if ([traits isKindOfClass:UITextInputTraits.class])
         [self _updateInteractionTintColor:(UITextInputTraits *)traits];
@@ -11209,6 +11277,9 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         WebCore::ElementContext elementContext = *information.hostImageOrVideoElementContext;
 
         auto requestForTextSelection = [strongSelf createImageAnalyzerRequest:VKAnalysisTypeText image:cgImage.get()];
+        if (information.isPausedVideo)
+            [requestForTextSelection setImageSource:VKImageAnalyzerRequestImageSourceVideoFrame];
+
         if (information.elementContainsImageOverlay) {
             [strongSelf _completeImageAnalysisRequestForContextMenu:cgImage.get() requestIdentifier:requestIdentifier hasTextResults:YES];
             return;
@@ -11321,6 +11392,9 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
     });
 
     auto request = [self createImageAnalyzerRequest:VKAnalysisTypeVisualSearch | VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip image:image];
+    if (_positionInformation.isPausedVideo)
+        [request setImageSource:VKImageAnalyzerRequestImageSourceVideoFrame];
+
     auto visualSearchAnalysisStartTime = MonotonicTime::now();
     [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef(), data] (CocoaImageAnalysis *result, NSError *error) mutable {
         auto strongSelf = weakSelf.get();
@@ -11408,6 +11482,9 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 
         auto visualSearchAnalysisStartTime = MonotonicTime::now();
         auto requestForContextMenu = [strongSelf createImageAnalyzerRequest:VKAnalysisTypeVisualSearch | VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip image:cgImage.get()];
+        if (info.isPausedVideo)
+            [requestForContextMenu setImageSource:VKImageAnalyzerRequestImageSourceVideoFrame];
+
         [[strongSelf imageAnalyzer] processRequest:requestForContextMenu.get() progressHandler:nil completionHandler:[weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef(), data] (CocoaImageAnalysis *result, NSError *error) {
             auto strongSelf = weakSelf.get();
             if (!strongSelf)
@@ -11498,6 +11575,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
         return;
 
     auto request = [self createImageAnalyzerRequest:WebKit::analysisTypesForFullscreenVideo() image:cgImage.get()];
+    [request setImageSource:VKImageAnalyzerRequestImageSourceVideoFrame];
     _fullscreenVideoImageAnalysisRequestIdentifier = [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:makeBlockPtr([weakSelf = WeakObjCPtr<WKContentView>(self), controller = RetainPtr { controller }] (CocoaImageAnalysis *result, NSError *) mutable {
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
@@ -11543,6 +11621,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
         return;
 
     auto request = WebKit::createImageAnalyzerRequest(image.get(), WebKit::analysisTypesForElementFullscreenVideo());
+    [request setImageSource:VKImageAnalyzerRequestImageSourceVideoFrame];
     _fullscreenVideoImageAnalysisRequestIdentifier = [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:[weakSelf = WeakObjCPtr<WKContentView>(self), bounds](CocoaImageAnalysis *result, NSError *error) {
         auto strongSelf = weakSelf.get();
         if (!strongSelf || !strongSelf->_fullscreenVideoImageAnalysisRequestIdentifier)
@@ -12338,8 +12417,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if ([(NSURL *)linkURL iTunesStoreURL]) {
         _useCompactMenuForContextMenuInteraction = !_page->websiteDataStore().isPersistent();
 
-#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
-        if (_page->networkConnectionIntegrityPolicies().contains(WebCore::NetworkConnectionIntegrity::Enabled))
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+        if (_page->advancedPrivacyProtectionsPolicies().contains(WebCore::AdvancedPrivacyProtections::BaselineProtections))
             _useCompactMenuForContextMenuInteraction = YES;
 #endif
 

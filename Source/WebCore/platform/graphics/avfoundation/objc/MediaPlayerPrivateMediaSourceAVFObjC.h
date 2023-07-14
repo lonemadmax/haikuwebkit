@@ -239,6 +239,7 @@ private:
     void notifyActiveSourceBuffersChanged() override;
 
     void setPresentationSize(const IntSize&) final;
+    void setVideoInlineSizeFenced(const FloatSize&, const WTF::MachSendRight&) final;
 
     void updateDisplayLayerAndDecompressionSession();
 
@@ -314,7 +315,7 @@ private:
     };
     std::unique_ptr<PendingSeek> m_pendingSeek;
 
-    WeakPtr<MediaPlayer> m_player;
+    ThreadSafeWeakPtr<MediaPlayer> m_player;
     WeakPtrFactory<MediaPlayerPrivateMediaSourceAVFObjC> m_sizeChangeObserverWeakPtrFactory;
     RefPtr<MediaSourcePrivateAVFObjC> m_mediaSourcePrivate;
     RetainPtr<AVAsset> m_asset;

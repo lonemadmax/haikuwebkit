@@ -124,7 +124,6 @@ fast/events/inactive-window-no-mouse-event.html [ Pass ]
 fast/animation/request-animation-frame-in-two-pages.html [ Pass ]
 
 fast/forms/file/entries-api/image-transcode-open-panel.html [ Pass ]
-fast/forms/file/entries-api/image-no-transcode-open-panel.html [ Pass ]
 fast/forms/file/entries-api/pages-jpeg-open-panel.html [ Pass ]
 fast/forms/file/entries-api/pdf-jpeg-open-panel.html [ Pass ]
 
@@ -1665,13 +1664,8 @@ webkit.org/b/245007 imported/w3c/web-platform-tests/html/cross-origin-opener-pol
 
 webkit.org/b/245010 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/replace-before-load/location-setter.html [ Pass Failure ]
 
-webkit.org/b/245140 http/wpt/webrtc/video-script-transform-keyframe-only.html [ Pass Failure ]
-
 # Will pass once accelerated drawing is enabled on macOS tests.
 webkit.org/b/246285 compositing/canvas/accelerated-canvas-compositing-size-limit.html [ Failure ]
-
-# Mac does not support screen orientation locking, making this test flaky.
-imported/w3c/web-platform-tests/screen-orientation/orientation-reading.html [ Failure Pass ]
 
 webkit.org/b/245727 [ Monterey ] imported/w3c/web-platform-tests/notifications/idlharness.https.any.sharedworker.html [ Failure ]
 
@@ -1793,3 +1787,11 @@ webkit.org/b/256189 [ Debug ] ipc/wait-for-video-output-will-change.html [ Pass 
 webkit.org/b/256217 [ Debug ] imported/w3c/web-platform-tests/background-fetch/port-blocking.https.window.html [ Pass Crash ]
 
 webkit.org/b/238749 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close.html [ Pass Failure ]
+
+webkit.org/b/258325 [ Debug ] media/modern-media-controls/pip-support/pip-support-click.html [ Crash ]
+
+# webkit.org/b/258328 Umbrella Bug: Batch mark expectations slowing down EWS (258328) 
+[ Debug ] imported/w3c/web-platform-tests/webcodecs/videoFrame-construction.crossOriginSource.sub.html [ Pass Failure Crash ]
+imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-035.html [ Pass ImageOnlyFailure ] 
+fast/forms/file/entries-api/image-no-transcode-open-panel.html [ Pass Crash ] 
+[ Debug Ventura arm64 ] http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html [ Pass Crash ]

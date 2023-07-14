@@ -54,6 +54,7 @@
 #include "MediaList.h"
 #include "MediaQueryParser.h"
 #include "MediaQueryParserContext.h"
+#include "NestingLevelIncrementer.h"
 #include "StylePropertiesInlines.h"
 #include "StyleRule.h"
 #include "StyleRuleImport.h"
@@ -190,12 +191,12 @@ RefPtr<StyleRuleBase> CSSParserImpl::parseRule(const String& string, const CSSPa
 void CSSParserImpl::parseStyleSheet(const String& string, const CSSParserContext& context, StyleSheetContents& styleSheet)
 {
     CSSParserImpl parser(context, string, &styleSheet, nullptr);
-    bool firstRuleValid = parser.consumeRuleList(parser.tokenizer()->tokenRange(), TopLevelRuleList, [&](RefPtr<StyleRuleBase> rule) {
+    bool firstRuleValid = parser.consumeRuleList(parser.tokenizer()->tokenRange(), TopLevelRuleList, [&](Ref<StyleRuleBase> rule) {
         if (rule->isCharsetRule())
             return;
         if (context.shouldIgnoreImportRules && rule->isImportRule())
             return;
-        styleSheet.parserAppendRule(rule.releaseNonNull());
+        styleSheet.parserAppendRule(WTFMove(rule));
     });
     styleSheet.setHasSyntacticallyValidCSSHeader(firstRuleValid);
     styleSheet.shrinkToFit();
@@ -266,10 +267,10 @@ void CSSParserImpl::parseStyleSheetForInspector(const String& string, const CSSP
 {
     CSSParserObserverWrapper wrapper(observer);
     CSSParserImpl parser(context, string, styleSheet, &wrapper);
-    bool firstRuleValid = parser.consumeRuleList(parser.tokenizer()->tokenRange(), TopLevelRuleList, [&styleSheet](RefPtr<StyleRuleBase> rule) {
+    bool firstRuleValid = parser.consumeRuleList(parser.tokenizer()->tokenRange(), TopLevelRuleList, [&styleSheet](Ref<StyleRuleBase> rule) {
         if (rule->isCharsetRule())
             return;
-        styleSheet->parserAppendRule(rule.releaseNonNull());
+        styleSheet->parserAppendRule(WTFMove(rule));
     });
     styleSheet->setHasSyntacticallyValidCSSHeader(firstRuleValid);
 }
@@ -340,7 +341,7 @@ bool CSSParserImpl::consumeRuleList(CSSParserTokenRange range, RuleListType rule
         }
         if (rule) {
             allowedRules = computeNewAllowedRules(allowedRules, rule.get());
-            callback(rule);
+            callback(Ref { *rule });
         }
     }
 
@@ -565,7 +566,7 @@ void CSSParserImpl::runInNewNestingContext(auto&& run)
     m_nestingContextStack.removeLast();
 }
 
-RefPtr<StyleRuleBase> CSSParserImpl::createNestingParentRule()
+Ref<StyleRuleBase> CSSParserImpl::createNestingParentRule()
 {
     CSSSelector nestingParentSelector;
     nestingParentSelector.setMatch(CSSSelector::Match::PseudoClass);
@@ -577,12 +578,19 @@ RefPtr<StyleRuleBase> CSSParserImpl::createNestingParentRule()
     return StyleRuleWithNesting::create(WTFMove(properties), m_context.hasDocumentSecurityOrigin, CSSSelectorList { WTFMove(selectorList) }, { });
 }
 
-Vector<RefPtr<StyleRuleBase>> CSSParserImpl::consumeRegularRuleList(CSSParserTokenRange block)
+Vector<Ref<StyleRuleBase>> CSSParserImpl::consumeRegularRuleList(CSSParserTokenRange block)
 {
-    Vector<RefPtr<StyleRuleBase>> rules;
+    NestingLevelIncrementer incrementer { m_ruleListNestingLevel };
+
+    static constexpr auto maximumRuleListNestingLevel = 128;
+    if (m_ruleListNestingLevel > maximumRuleListNestingLevel)
+        return { };
+
+    Vector<Ref<StyleRuleBase>> rules;
     if (isNestedContext()) {
         runInNewNestingContext([&] {
             consumeStyleBlock(block, StyleRuleType::Style, ParsingStyleDeclarationsInRuleList::Yes);
+
             if (!topContext().m_parsedProperties.isEmpty()) {
                 // This at-rule contains orphan declarations, we attach them to an implicit parent nesting rule. Web
                 // Inspector expects this rule to occur first in the children rules, and to contain all orphaned
@@ -595,11 +603,10 @@ Vector<RefPtr<StyleRuleBase>> CSSParserImpl::consumeRegularRuleList(CSSParserTok
                     m_observerWrapper->observer().markRuleBodyContainsImplicitlyNestedProperties();
             }
             for (auto& rule : topContext().m_parsedRules)
-                rules.append(rule.ptr());
+                rules.append(rule);
         });
-
     } else {
-        consumeRuleList(block, RegularRuleList, [&rules](RefPtr<StyleRuleBase> rule) {
+        consumeRuleList(block, RegularRuleList, [&rules](Ref<StyleRuleBase> rule) {
             rules.append(rule);
         });
     }
@@ -766,8 +773,8 @@ RefPtr<StyleRuleFontFeatureValues> CSSParserImpl::consumeFontFeatureValuesRule(C
         m_observerWrapper->observer().startRuleBody(m_observerWrapper->previousTokenStartOffset(block));
     }
 
-    Vector<RefPtr<StyleRuleBase>> rules;
-    consumeRuleList(block, FontFeatureValuesRuleList, [&rules](RefPtr<StyleRuleBase> rule) {
+    Vector<Ref<StyleRuleBase>> rules;
+    consumeRuleList(block, FontFeatureValuesRuleList, [&rules](auto rule) {
         rules.append(rule);
     });
     rules.shrinkToFit();
@@ -779,11 +786,9 @@ RefPtr<StyleRuleFontFeatureValues> CSSParserImpl::consumeFontFeatureValuesRule(C
     auto fontFeatureValues = FontFeatureValues::create();
 
     for (auto block : rules) {
-        if (!block)
-            continue;
         if (!block->isFontFeatureValuesBlockRule())
             continue;
-        const auto& fontFeatureValuesBlockRule = downcast<StyleRuleFontFeatureValuesBlock>(*block);
+        const auto& fontFeatureValuesBlockRule = downcast<StyleRuleFontFeatureValuesBlock>(block);
         fontFeatureValues->updateOrInsertForType(fontFeatureValuesBlockRule.fontFeatureValuesType(), fontFeatureValuesBlockRule.tags());
     }
 
@@ -861,9 +866,9 @@ RefPtr<StyleRuleKeyframes> CSSParserImpl::consumeKeyframesRule(CSSParserTokenRan
         m_observerWrapper->observer().endRuleBody(m_observerWrapper->endOffset(block));
     }
 
-    RefPtr<StyleRuleKeyframes> keyframeRule = StyleRuleKeyframes::create(name);
-    consumeRuleList(block, KeyframesRuleList, [keyframeRule](const RefPtr<StyleRuleBase>& keyframe) {
-        keyframeRule->parserAppendKeyframe(downcast<const StyleRuleKeyframe>(keyframe.get()));
+    auto keyframeRule = StyleRuleKeyframes::create(name);
+    consumeRuleList(block, KeyframesRuleList, [keyframeRule](Ref<StyleRuleBase> keyframe) {
+        keyframeRule->parserAppendKeyframe(downcast<const StyleRuleKeyframe>(keyframe.ptr()));
     });
 
     // FIXME-NEWPARSER: Find out why this is done. Behavior difference when prefixed?
@@ -1087,9 +1092,10 @@ RefPtr<StyleRuleBase> CSSParserImpl::consumeStyleRule(CSSParserTokenRange prelud
     RefPtr<StyleRuleBase> styleRule;
 
     runInNewNestingContext([&]() {
-        m_styleRuleNestingDepth += 1;
-        consumeStyleBlock(block, StyleRuleType::Style);  
-        m_styleRuleNestingDepth -= 1;
+        {
+            NestingLevelIncrementer incrementer { m_styleRuleNestingLevel };
+            consumeStyleBlock(block, StyleRuleType::Style);
+        }
 
         auto nestedRules = WTFMove(topContext().m_parsedRules);
         auto properties = createStyleProperties(topContext().m_parsedProperties, m_context.mode);
@@ -1166,7 +1172,7 @@ void CSSParserImpl::consumeDeclarationListOrStyleBlockHelper(CSSParserTokenRange
                 auto rule = consumeQualifiedRule(range, AllowedRulesType::RegularRules);
                 if (!rule)
                     break;
-                if (!rule->isStyleRuleWithNesting())
+                if (!rule->isStyleRule())
                     break;
                 topContext().m_parsedRules.append(*rule);
                 break;

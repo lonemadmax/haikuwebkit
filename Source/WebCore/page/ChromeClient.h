@@ -394,6 +394,7 @@ public:
     virtual void triggerRenderingUpdate() = 0;
     // Schedule a rendering update that coordinates with display refresh. Returns true if scheduled. (This is only used by SVGImageChromeClient.)
     virtual bool scheduleRenderingUpdate() { return false; }
+    virtual void renderingUpdateFramesPerSecondChanged() { }
 
     virtual unsigned remoteImagesCountForTesting() const { return 0; }
 
@@ -554,8 +555,8 @@ public:
     virtual void handlePDFServiceClick(const IntPoint&, HTMLAttachmentElement&) { }
 #endif
 
-    virtual URL sanitizeLookalikeCharacters(const URL& url, LookalikeCharacterSanitizationTrigger) const { return url; }
-    virtual URL allowedLookalikeCharacters(const URL& url) const { return url; }
+    virtual URL applyLinkDecorationFiltering(const URL& url, LinkDecorationFilteringTrigger) const { return url; }
+    virtual URL allowedQueryParametersForAdvancedPrivacyProtections(const URL& url) const { return url; }
 
     virtual bool shouldDispatchFakeMouseMoveEvents() const { return true; }
 
@@ -647,7 +648,7 @@ public:
     
     virtual bool isInStableState() const { return true; }
 
-    virtual FloatSize screenSizeForHeadlessMode(const LocalFrame&, FloatSize defaultSize) const { return defaultSize; }
+    virtual FloatSize screenSizeForFingerprintingProtections(const LocalFrame&, FloatSize defaultSize) const { return defaultSize; }
 
     WEBCORE_EXPORT virtual ~ChromeClient();
 

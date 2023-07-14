@@ -1243,6 +1243,11 @@ active
 // scroll
 paged
 
+// (scripting:) media feature.
+enabled
+initial-only
+// none
+
 // blend modes
 // normal
 multiply
@@ -1450,8 +1455,6 @@ infinity
 NaN
 
 from-image
-
-snap enable-if=ENABLE_CSS_IMAGE_RESOLUTION
 
 // overflow
 -webkit-paged-x

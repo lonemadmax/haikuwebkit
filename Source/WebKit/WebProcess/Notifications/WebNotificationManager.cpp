@@ -80,7 +80,7 @@ static bool sendMessage(WebPage* page, const Function<bool(IPC::Connection&, uin
 template<typename U> static bool sendNotificationMessage(U&& message, WebPage* page)
 {
     return sendMessage(page, [&] (auto& connection, auto destinationIdentifier) {
-        return connection.send(WTFMove(message), destinationIdentifier);
+        return connection.send(WTFMove(message), destinationIdentifier) == IPC::Error::NoError;
     });
 }
 
@@ -98,10 +98,9 @@ const char* WebNotificationManager::supplementName()
 }
 
 WebNotificationManager::WebNotificationManager(WebProcess& process)
-    : m_process(process)
 {
 #if ENABLE(NOTIFICATIONS)
-    m_process.addMessageReceiver(Messages::WebNotificationManager::messageReceiverName(), *this);
+    process.addMessageReceiver(Messages::WebNotificationManager::messageReceiverName(), *this);
 #endif
 }
 

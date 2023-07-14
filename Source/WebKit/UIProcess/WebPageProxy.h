@@ -132,6 +132,7 @@ enum ScrollDirection : uint8_t;
 enum ScrollbarOverlayStyle : uint8_t;
 
 enum class ActivityState : uint16_t;
+enum class AdvancedPrivacyProtections : uint16_t;
 enum class AlternativeTextType : uint8_t;
 enum class AutocorrectionResponse : uint8_t;
 enum class AutoplayEvent : uint8_t;
@@ -166,7 +167,6 @@ enum class MediaProducerMutedState : uint8_t;
 enum class ModalContainerControlType : uint8_t;
 enum class ModalContainerDecision : uint8_t;
 enum class MouseEventPolicy : uint8_t;
-enum class NetworkConnectionIntegrity : uint16_t;
 enum class PermissionState : uint8_t;
 enum class PolicyAction : uint8_t;
 enum class ReasonForDismissingAlternativeText : uint8_t;
@@ -197,6 +197,7 @@ struct AttributedString;
 struct BackForwardItemIdentifierType;
 struct CaptureDeviceWithCapabilities;
 struct CaptureSourceOrError;
+struct CharacterRange;
 struct ClientOrigin;
 struct CompositionHighlight;
 struct CompositionUnderline;
@@ -221,7 +222,7 @@ struct HTMLModelElementCamera;
 struct ImageBufferBackendParameters;
 struct InspectorOverlayHighlight;
 struct LinkIcon;
-struct LookalikeCharactersSanitizationData;
+struct LinkDecorationFilteringData;
 struct MediaControlsContextMenuItem;
 struct MediaDeviceHashSalts;
 struct MediaKeySystemRequestIdentifierType;
@@ -318,7 +319,7 @@ class DrawingAreaProxy;
 class GamepadData;
 class GeolocationPermissionRequestManagerProxy;
 class LayerTreeContext;
-class LookalikeCharactersObserver;
+class LinkDecorationFilteringDataObserver;
 class MediaKeySystemPermissionRequestManagerProxy;
 class MediaSessionCoordinatorProxyPrivate;
 class MediaUsageManager;
@@ -342,6 +343,7 @@ class RemoteLayerTreeNode;
 class RemoteLayerTreeScrollingPerformanceData;
 class RemoteLayerTreeTransaction;
 class RemoteMediaSessionCoordinatorProxy;
+class RemotePageProxy;
 class RemoteScrollingCoordinatorProxy;
 class RevealItem;
 class SandboxExtensionHandle;
@@ -352,7 +354,6 @@ class ShareableResourceHandle;
 class SharedMemory;
 class SharedMemoryHandle;
 class SpeechRecognitionPermissionManager;
-class SubframePageProxy;
 class SuspendedPageProxy;
 class SystemPreviewController;
 class TouchBarMenuData;
@@ -516,6 +517,7 @@ public:
     PAL::SessionID sessionID() const;
 
     WebFrameProxy* mainFrame() const { return m_mainFrame.get(); }
+    WebFrameProxy* openerFrame() const { return m_openerFrame.get(); }
     WebFrameProxy* focusedFrame() const { return m_focusedFrame.get(); }
 
     DrawingAreaProxy* drawingArea() const { return m_drawingArea.get(); }
@@ -1043,7 +1045,7 @@ public:
     void getSelectedRangeAsync(CompletionHandler<void(const EditingRange&)>&&);
     void characterIndexForPointAsync(const WebCore::IntPoint&, CompletionHandler<void(uint64_t)>&&);
     void firstRectForCharacterRangeAsync(const EditingRange&, CompletionHandler<void(const WebCore::IntRect&, const EditingRange&)>&&);
-    void setCompositionAsync(const String& text, const Vector<WebCore::CompositionUnderline>&, const Vector<WebCore::CompositionHighlight>&, const EditingRange& selectionRange, const EditingRange& replacementRange);
+    void setCompositionAsync(const String& text, const Vector<WebCore::CompositionUnderline>&, const Vector<WebCore::CompositionHighlight>&, const HashMap<String, Vector<WebCore::CharacterRange>>&, const EditingRange& selectionRange, const EditingRange& replacementRange);
     void confirmCompositionAsync();
 
     void setScrollPerformanceDataCollectionEnabled(bool);
@@ -1434,9 +1436,9 @@ public:
 
     WebProcessProxy& ensureRunningProcess();
     WebProcessProxy& process() const { return m_process; }
-    ProcessID processIdentifier() const;
+    ProcessID processID() const;
 
-    ProcessID gpuProcessIdentifier() const;
+    ProcessID gpuProcessID() const;
 
     WebBackForwardCache& backForwardCache() const;
 
@@ -1606,8 +1608,8 @@ public:
     void negotiatedLegacyTLS();
     void didNegotiateModernTLS(const URL&);
 
-    void didFailLoadDueToNetworkConnectionIntegrity(const URL&);
-    void didChangeLookalikeCharacters(const URL&, const URL&);
+    void didBlockLoadToKnownTracker(const URL&);
+    void didApplyLinkDecorationFiltering(const URL&, const URL&);
 
     SpellDocumentTag spellDocumentTag();
 
@@ -2159,9 +2161,12 @@ public:
     WKQuickLookPreviewController *quickLookPreviewController() const { return m_quickLookPreviewController.get(); }
 #endif
 
-    SubframePageProxy* subpageFrameProxyForRegistrableDomain(WebCore::RegistrableDomain) const;
-    void addSubframePageProxy(const WebCore::RegistrableDomain&, WeakPtr<SubframePageProxy>&&);
-    void removeSubpageFrameProxy(const WebCore::RegistrableDomain&);
+    RemotePageProxy* remotePageProxyForRegistrableDomain(WebCore::RegistrableDomain) const;
+    void addRemotePageProxy(const WebCore::RegistrableDomain&, WeakPtr<RemotePageProxy>&&);
+    void removeRemotePageProxy(const WebCore::RegistrableDomain&);
+
+    void setRemotePageProxyInOpenerProcess(Ref<RemotePageProxy>&&);
+    void addOpenedRemotePageProxy(Ref<RemotePageProxy>&&);
 
     void createRemoteSubframesInOtherProcesses(WebFrameProxy&);
 
@@ -2227,10 +2232,6 @@ public:
     void didCreateSleepDisabler(WebCore::SleepDisablerIdentifier, const String& reason, bool display);
     void didDestroySleepDisabler(WebCore::SleepDisablerIdentifier);
 
-#if PLATFORM(MAC)
-    void setCaretDecorationVisibility(bool);
-#endif
-
 #if ENABLE(NETWORK_ISSUE_REPORTING)
     void reportNetworkIssue(const URL&);
 #endif
@@ -2253,8 +2254,8 @@ public:
 
     WebPopupMenuProxyClient& popupMenuClient();
 
-#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
-    OptionSet<WebCore::NetworkConnectionIntegrity> networkConnectionIntegrityPolicies() const { return m_networkConnectionIntegrityPolicies; }
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtectionsPolicies() const { return m_advancedPrivacyProtectionsPolicies; }
 #endif
 
 private:
@@ -2408,6 +2409,8 @@ private:
     void didReceiveResponseForResource(WebCore::ResourceLoaderIdentifier, WebCore::FrameIdentifier, WebCore::ResourceResponse&&);
     void didFinishLoadForResource(WebCore::ResourceLoaderIdentifier, WebCore::FrameIdentifier, WebCore::ResourceError&&);
 #endif
+
+    bool shouldClosePreviousPage();
 
 #if ENABLE(MEDIA_STREAM)
     UserMediaPermissionRequestManagerProxy& userMediaPermissionRequestManager();
@@ -2767,11 +2770,11 @@ private:
     static bool isInHardwareKeyboardMode();
 #endif
 
-    void waitForInitialLookalikeCharacterStrings(WebFramePolicyListenerProxy&);
-    void sendCachedLookalikeCharacterStrings();
-#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
-    static Vector<WebCore::LookalikeCharactersSanitizationData>& cachedAllowedLookalikeStrings();
-    void updateAllowedLookalikeCharacterStringsIfNeeded();
+    void waitForInitialLinkDecorationFilteringData(WebFramePolicyListenerProxy&);
+    void sendCachedLinkDecorationFilteringData();
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    static Vector<WebCore::LinkDecorationFilteringData>& cachedAllowedQueryParametersForAdvancedPrivacyProtections();
+    void updateAllowedQueryParametersForAdvancedPrivacyProtectionsIfNeeded();
 #endif
 
     void clearAudibleActivity();
@@ -2896,6 +2899,8 @@ private:
     Ref<WebsiteDataStore> m_websiteDataStore;
 
     RefPtr<WebFrameProxy> m_mainFrame;
+
+    RefPtr<WebFrameProxy> m_openerFrame;
 
     RefPtr<WebFrameProxy> m_focusedFrame;
 
@@ -3282,11 +3287,11 @@ private:
     bool m_isSuspended { false };
     bool m_isLockdownModeExplicitlySet { false };
 
-#if ENABLE(NETWORK_CONNECTION_INTEGRITY)
-    RefPtr<LookalikeCharactersObserver> m_lookalikeCharacterUpdateObserver;
-    bool m_needsInitialLookalikeCharacterStrings { true };
-    bool m_shouldUpdateAllowedLookalikeCharacterStrings { false };
-    OptionSet<WebCore::NetworkConnectionIntegrity> m_networkConnectionIntegrityPolicies;
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    RefPtr<LinkDecorationFilteringDataObserver> m_linkDecorationFilteringDataUpdateObserver;
+    bool m_needsInitialLinkDecorationFilteringData { true };
+    bool m_shouldUpdateAllowedQueryParametersForAdvancedPrivacyProtections { false };
+    OptionSet<WebCore::AdvancedPrivacyProtections> m_advancedPrivacyProtectionsPolicies;
 #endif
 
 #if ENABLE(APP_HIGHLIGHTS)

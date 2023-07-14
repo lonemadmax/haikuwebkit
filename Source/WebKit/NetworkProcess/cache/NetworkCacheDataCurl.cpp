@@ -113,11 +113,11 @@ RefPtr<SharedMemory> Data::tryCreateSharedMemory() const
     if (isNull() || !isMap())
         return nullptr;
 
-    auto newHandle = std::get<FileSystem::MappedFileData>(*m_buffer).fileMapping();
+    auto newHandle = Win32Handle { std::get<FileSystem::MappedFileData>(*m_buffer).fileMapping() };
     if (!newHandle)
         return nullptr;
 
-    return SharedMemory::adopt(newHandle.leak(), m_size, SharedMemory::Protection::ReadOnly);
+    return SharedMemory::map({ WTFMove(newHandle), m_size }, SharedMemory::Protection::ReadOnly);
 }
 #endif
 

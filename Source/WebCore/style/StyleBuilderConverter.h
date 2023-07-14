@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2023 ChangSeok Oh <changseok@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,7 @@
 #include "CSSReflectValue.h"
 #include "CSSSubgridValue.h"
 #include "CSSValuePair.h"
+#include "CSSWordBoundaryDetectionValue.h"
 #include "CalcExpressionLength.h"
 #include "CalcExpressionOperation.h"
 #include "CalculationValue.h"
@@ -63,6 +64,7 @@
 #include "SVGPathElement.h"
 #include "SVGRenderStyle.h"
 #include "SVGURIReference.h"
+#include "ScrollbarColor.h"
 #include "ScrollbarGutter.h"
 #include "Settings.h"
 #include "StyleBuilderState.h"
@@ -74,6 +76,7 @@
 #include "TextSpacing.h"
 #include "TouchAction.h"
 #include "TransformFunctions.h"
+#include "WordBoundaryDetection.h"
 
 namespace WebCore {
 namespace Style {
@@ -133,6 +136,7 @@ public:
     static ScrollSnapType convertScrollSnapType(BuilderState&, const CSSValue&);
     static ScrollSnapAlign convertScrollSnapAlign(BuilderState&, const CSSValue&);
     static ScrollSnapStop convertScrollSnapStop(BuilderState&, const CSSValue&);
+    static std::optional<ScrollbarColor> convertScrollbarColor(BuilderState&, const CSSValue&);
     static ScrollbarGutter convertScrollbarGutter(BuilderState&, const CSSValue&);
     static GridTrackSize convertGridTrackSize(BuilderState&, const CSSValue&);
     static Vector<GridTrackSize> convertGridTrackSizeList(BuilderState&, const CSSValue&);
@@ -202,6 +206,8 @@ public:
     static TextAutospace convertTextAutospace(BuilderState&, const CSSValue&);
 
     static std::optional<Length> convertBlockStepSize(BuilderState&, const CSSValue&);
+
+    static WordBoundaryDetection convertWordBoundaryDetection(BuilderState&, const CSSValue&);
     
 private:
     friend class BuilderCustom;
@@ -719,7 +725,7 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(BuilderState
         auto& rayValue = downcast<CSSRayValue>(value);
 
         RayPathOperation::Size size = RayPathOperation::Size::ClosestCorner;
-        switch (rayValue.size()->valueID()) {
+        switch (rayValue.size()) {
         case CSSValueClosestCorner:
             size = RayPathOperation::Size::ClosestCorner;
             break;
@@ -1002,9 +1008,9 @@ inline RefPtr<ShapeValue> BuilderConverter::convertShapeValue(BuilderState& buil
     if (is<CSSValueList>(value)) {
         for (auto& currentValue : downcast<CSSValueList>(value))
             processSingleValue(currentValue);
-    } else {
+    } else
         processSingleValue(value);
-    }
+
     
     if (shape)
         return ShapeValue::create(shape.releaseNonNull(), referenceBox);
@@ -1048,6 +1054,21 @@ inline ScrollSnapAlign BuilderConverter::convertScrollSnapAlign(BuilderState&, c
 inline ScrollSnapStop BuilderConverter::convertScrollSnapStop(BuilderState&, const CSSValue& value)
 {
     return fromCSSValue<ScrollSnapStop>(value);
+}
+
+inline std::optional<ScrollbarColor> BuilderConverter::convertScrollbarColor(BuilderState& builderState, const CSSValue& value)
+{
+    if (is<CSSPrimitiveValue>(value)) {
+        ASSERT(value.valueID() == CSSValueAuto);
+        return std::nullopt;
+    }
+
+    auto& pair = downcast<CSSValuePair>(value);
+
+    return ScrollbarColor {
+        builderState.colorFromPrimitiveValue(downcast<CSSPrimitiveValue>(pair.first())),
+        builderState.colorFromPrimitiveValue(downcast<CSSPrimitiveValue>(pair.second()))
+    };
 }
 
 inline ScrollbarGutter BuilderConverter::convertScrollbarGutter(BuilderState&, const CSSValue& value)
@@ -1939,6 +1960,11 @@ inline std::optional<Length> BuilderConverter::convertBlockStepSize(BuilderState
     if (downcast<CSSPrimitiveValue>(value).valueID() == CSSValueNone)
         return { };
     return convertLength(builderState, value);
+}
+
+inline WordBoundaryDetection BuilderConverter::convertWordBoundaryDetection(BuilderState&, const CSSValue& value)
+{
+    return downcast<CSSWordBoundaryDetectionValue>(value).value();
 }
 
 } // namespace Style

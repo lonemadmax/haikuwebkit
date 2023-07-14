@@ -40,6 +40,7 @@
 #include "HTMLFormElement.h"
 #include "HTMLImageLoader.h"
 #include "HTMLMapElement.h"
+#include "HTMLParserIdioms.h"
 #include "HTMLPictureElement.h"
 #include "HTMLSourceElement.h"
 #include "HTMLSrcsetParser.h"
@@ -1079,11 +1080,11 @@ bool HTMLImageElement::originClean(const SecurityOrigin& origin) const
     if (!image)
         return true;
 
-    if (image->sourceURL().protocolIsData())
-        return true;
-
     if (image->renderingTaintsOrigin())
         return false;
+
+    if (image->sourceURL().protocolIsData())
+        return true;
 
     if (cachedImage->isCORSCrossOrigin())
         return false;

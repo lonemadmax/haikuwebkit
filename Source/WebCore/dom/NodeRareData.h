@@ -311,7 +311,7 @@ private:
     std::unique_ptr<NodeListsNodeData> m_nodeLists;
     std::unique_ptr<NodeMutationObserverData> m_mutationObserverData;
     WeakPtr<HTMLSlotElement, WeakPtrImplWithEventTargetData> m_manuallyAssignedSlot;
-    bool m_isElementRareData; // Keep last for better bit packing with ElementRareData.
+    bool m_isElementRareData;
     bool m_hasEverPaintedImages { false }; // Keep last for better bit packing with ElementRareData.
 };
 

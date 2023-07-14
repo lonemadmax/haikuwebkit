@@ -324,7 +324,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
         { }, /* clientRedirectSourceForHistory */
         0, /* effectiveSandboxFlags */
         navigationAction.privateClickMeasurement(),
-        { }, /* networkConnectionIntegrityPolicy */
+        { }, /* advancedPrivacyProtections */
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
         std::nullopt, /* webHitTestResultData */
 #endif
@@ -333,7 +333,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
     WebFrame* webFrame = WebFrame::fromCoreFrame(frame);
 
     auto sendResult = webProcess.parentProcessConnection()->sendSync(Messages::WebPageProxy::CreateNewPage(webFrame->info(), webFrame->page()->webPageProxyIdentifier(), navigationAction.resourceRequest(), windowFeatures, navigationActionData), m_page.identifier(), IPC::Timeout::infinity(), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages, IPC::SendSyncOption::InformPlatformProcessWillSuspend });
-    if (!sendResult)
+    if (!sendResult.succeeded())
         return nullptr;
 
     auto [newPageID, parameters] = sendResult.takeReply();
@@ -547,7 +547,7 @@ bool WebChromeClient::runJavaScriptPrompt(LocalFrame& frame, const String& messa
     IPC::UnboundedSynchronousIPCScope unboundedSynchronousIPCScope;
 
     auto sendResult = m_page.sendSyncWithDelayedReply(Messages::WebPageProxy::RunJavaScriptPrompt(webFrame->frameID(), webFrame->info(), message, defaultValue), IPC::SendSyncOption::MaintainOrderingWithAsyncMessages);
-    if (!sendResult)
+    if (!sendResult.succeeded())
         return false;
 
     std::tie(result) = sendResult.takeReply();
@@ -1063,6 +1063,19 @@ void WebChromeClient::triggerRenderingUpdate()
         m_page.drawingArea()->triggerRenderingUpdate();
 }
 
+bool WebChromeClient::scheduleRenderingUpdate()
+{
+    if (m_page.drawingArea())
+        return m_page.drawingArea()->scheduleRenderingUpdate();
+    return false;
+}
+
+void WebChromeClient::renderingUpdateFramesPerSecondChanged()
+{
+    if (m_page.drawingArea())
+        m_page.drawingArea()->renderingUpdateFramesPerSecondChanged();
+}
+
 unsigned WebChromeClient::remoteImagesCountForTesting() const
 {
     return m_page.remoteImagesCountForTesting();
@@ -1245,9 +1258,9 @@ FloatSize WebChromeClient::overrideScreenSize() const
 
 #endif
 
-FloatSize WebChromeClient::screenSizeForHeadlessMode(const LocalFrame& frame, FloatSize defaultSize) const
+FloatSize WebChromeClient::screenSizeForFingerprintingProtections(const LocalFrame& frame, FloatSize defaultSize) const
 {
-    return m_page.screenSizeForHeadlessMode(frame, defaultSize);
+    return m_page.screenSizeForFingerprintingProtections(frame, defaultSize);
 }
 
 void WebChromeClient::dispatchDisabledAdaptationsDidChange(const OptionSet<DisabledAdaptations>& disabledAdaptations) const
@@ -1384,7 +1397,7 @@ void WebChromeClient::handleAutoplayEvent(AutoplayEvent event, OptionSet<Autopla
 bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey) const
 {
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::WrapCryptoKey(key), m_page.identifier());
-    if (!sendResult)
+    if (!sendResult.succeeded())
         return false;
 
     bool succeeded;
@@ -1395,7 +1408,7 @@ bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>&
 bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key) const
 {
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::UnwrapCryptoKey(wrappedKey), m_page.identifier());
-    if (!sendResult)
+    if (!sendResult.succeeded())
         return false;
 
     bool succeeded;
@@ -1621,14 +1634,14 @@ void WebChromeClient::requestTextRecognition(Element& element, TextRecognitionOp
 
 #endif
 
-URL WebChromeClient::sanitizeLookalikeCharacters(const URL& url, LookalikeCharacterSanitizationTrigger trigger) const
+URL WebChromeClient::applyLinkDecorationFiltering(const URL& url, LinkDecorationFilteringTrigger trigger) const
 {
-    return m_page.sanitizeLookalikeCharacters(url, trigger);
+    return m_page.applyLinkDecorationFiltering(url, trigger);
 }
 
-URL WebChromeClient::allowedLookalikeCharacters(const URL& url) const
+URL WebChromeClient::allowedQueryParametersForAdvancedPrivacyProtections(const URL& url) const
 {
-    return m_page.allowedLookalikeCharacters(url);
+    return m_page.allowedQueryParametersForAdvancedPrivacyProtections(url);
 }
 
 #if ENABLE(TEXT_AUTOSIZING)

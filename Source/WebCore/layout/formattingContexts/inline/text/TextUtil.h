@@ -35,6 +35,7 @@ namespace WebCore {
 
 class RenderStyle;
 class TextRun;
+class WordBoundaryDetection;
 
 namespace Layout {
 
@@ -69,7 +70,8 @@ public:
     static WordBreakLeft breakWord(const InlineTextItem&, const FontCascade&, InlineLayoutUnit textWidth, InlineLayoutUnit availableWidth, InlineLayoutUnit contentLogicalLeft);
 
     static unsigned findNextBreakablePosition(CachedLineBreakIteratorFactory&, unsigned startPosition, const RenderStyle&);
-    static LineBreakIteratorMode lineBreakIteratorMode(LineBreak);
+    static TextBreakIterator::LineMode::Behavior lineBreakIteratorMode(LineBreak);
+    static TextBreakIterator::ContentAnalysis contentAnalysis(const WordBoundaryDetection&);
 
     static bool shouldPreserveSpacesAndTabs(const Box&);
     static bool shouldPreserveNewline(const Box&);

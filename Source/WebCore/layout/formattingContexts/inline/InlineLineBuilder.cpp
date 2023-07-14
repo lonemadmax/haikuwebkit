@@ -32,7 +32,6 @@
 #include "InlineFormattingQuirks.h"
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
-#include "LayoutState.h"
 #include "RenderStyleInlines.h"
 #include "Shape.h"
 #include "TextUtil.h"
@@ -115,7 +114,7 @@ static inline bool endsWithSoftWrapOpportunity(const InlineTextItem& currentText
         // The bidi boundary may or may not be the reason for splitting the inline text box content.
         // FIXME: We could add a "reason flag" to InlineTextItem to tell why the split happened.
         auto& style = currentTextItem.style();
-        auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { currentTextItem.inlineTextBox().content(), style.computedLocale(), TextUtil::lineBreakIteratorMode(style.lineBreak()) };
+        auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { currentTextItem.inlineTextBox().content(), style.computedLocale(), TextUtil::lineBreakIteratorMode(style.lineBreak()), TextUtil::contentAnalysis(style.wordBoundaryDetection()) };
         auto softWrapOpportunityCandidate = nextInlineTextItem.start();
         return TextUtil::findNextBreakablePosition(lineBreakIteratorFactory, softWrapOpportunityCandidate, style) == softWrapOpportunityCandidate;
     }
@@ -130,7 +129,7 @@ static inline bool endsWithSoftWrapOpportunity(const InlineTextItem& currentText
         currentContent.convertTo16Bit();
     }
     auto& style = nextInlineTextItem.style();
-    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { currentContent, style.computedLocale(), TextUtil::lineBreakIteratorMode(style.lineBreak()) };
+    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { currentContent, style.computedLocale(), TextUtil::lineBreakIteratorMode(style.lineBreak()), TextUtil::contentAnalysis(style.wordBoundaryDetection()) };
     auto previousContentLength = previousContent.length();
     // FIXME: We should look into the entire uncommitted content for more text context.
     UChar lastCharacter = previousContentLength ? previousContent[previousContentLength - 1] : 0;
@@ -173,7 +172,7 @@ static inline bool isAtSoftWrapOpportunity(const InlineItem& current, const Inli
             // "<span>text</span> "
             // 'white-space: break-spaces' and '-webkit-line-break: after-white-space': line breaking opportunity exists after every preserved white space character, but not before.
             auto& style = nextInlineTextItem.style();
-            return TextUtil::isWrappingAllowed(style) && style.whiteSpace() != WhiteSpace::BreakSpaces && style.lineBreak() != LineBreak::AfterWhiteSpace;
+            return TextUtil::isWrappingAllowed(style) && style.whiteSpaceCollapse() != WhiteSpaceCollapse::BreakSpaces && style.lineBreak() != LineBreak::AfterWhiteSpace;
         }
         if (current.style().lineBreak() == LineBreak::Anywhere || next.style().lineBreak() == LineBreak::Anywhere) {
             // There is a soft wrap opportunity around every typographic character unit, including around any punctuation character
@@ -197,13 +196,10 @@ static inline bool isAtSoftWrapOpportunity(const InlineItem& current, const Inli
 }
 
 struct LineCandidate {
-    LineCandidate(bool ignoreTrailingLetterSpacing);
 
     void reset();
 
     struct InlineContent {
-        InlineContent(bool ignoreTrailingLetterSpacing);
-
         const InlineContentBreaker::ContinuousContent& continuousContent() const { return m_continuousContent; }
         const InlineItem* trailingLineBreak() const { return m_trailingLineBreak; }
         const InlineItem* trailingWordBreakOpportunity() const { return m_trailingWordBreakOpportunity; }
@@ -220,7 +216,8 @@ struct LineCandidate {
         void setHangingContentWidth(InlineLayoutUnit logicalWidth) { m_continuousContent.setHangingContentWidth(logicalWidth); }
 
     private:
-        bool m_ignoreTrailingLetterSpacing { false };
+        // FIXME: Enable this when we stop feature-matching legacy line layout.
+        bool m_ignoreTrailingLetterSpacing { true };
 
         InlineContentBreaker::ContinuousContent m_continuousContent;
         const InlineItem* m_trailingLineBreak { nullptr };
@@ -232,16 +229,6 @@ struct LineCandidate {
     InlineContent inlineContent;
     const InlineItem* floatItem { nullptr };
 };
-
-LineCandidate::LineCandidate(bool ignoreTrailingLetterSpacing)
-    : inlineContent(ignoreTrailingLetterSpacing)
-{
-}
-
-LineCandidate::InlineContent::InlineContent(bool ignoreTrailingLetterSpacing)
-    : m_ignoreTrailingLetterSpacing(ignoreTrailingLetterSpacing)
-{
-}
 
 inline void LineCandidate::InlineContent::appendInlineItem(const InlineItem& inlineItem, const RenderStyle& style, InlineLayoutUnit logicalWidth)
 {
@@ -336,10 +323,11 @@ InlineLayoutUnit LineBuilder::inlineItemWidth(const InlineItem& inlineItem, Inli
     return boxGeometry.marginBoxWidth();
 }
 
-LineBuilder::LineBuilder(const InlineFormattingContext& inlineFormattingContext, InlineLayoutState& inlineLayoutState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
+LineBuilder::LineBuilder(const InlineFormattingContext& inlineFormattingContext, const InlineLayoutState& inlineLayoutState, FloatingState& floatingState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
     : m_intrinsicWidthMode(intrinsicWidthMode)
     , m_inlineFormattingContext(inlineFormattingContext)
     , m_inlineLayoutState(inlineLayoutState)
+    , m_floatingState(floatingState)
     , m_rootHorizontalConstraints(rootHorizontalConstraints)
     , m_line(inlineFormattingContext)
     , m_inlineItems(inlineItems)
@@ -357,7 +345,7 @@ LineBuilder::LayoutResult LineBuilder::layoutInlineContent(const LineInput& line
             , m_line.runs()
             , { WTFMove(m_placedFloats), WTFMove(m_suspendedFloats), { } }
             , { { }, m_line.contentLogicalWidth(), { }, lineContent.overflowLogicalWidth }
-            , { m_lineLogicalRect.topLeft(), { }, { } }
+            , { m_lineLogicalRect.topLeft(), { }, { }, { } }
         };
     }
 
@@ -369,7 +357,7 @@ LineBuilder::LayoutResult LineBuilder::layoutInlineContent(const LineInput& line
         , m_line.runs()
         , { WTFMove(m_placedFloats), WTFMove(m_suspendedFloats), m_lineIsConstrainedByFloat }
         , { contentLogicalLeft, m_line.contentLogicalWidth(), contentLogicalLeft + m_line.contentLogicalRight(), lineContent.overflowLogicalWidth }
-        , { m_lineLogicalRect.topLeft(), m_lineLogicalRect.width(), m_lineInitialLogicalRect.left() + m_initialIntrusiveFloatsWidth }
+        , { m_lineLogicalRect.topLeft(), m_lineLogicalRect.width(), m_lineInitialLogicalRect.left() + m_initialIntrusiveFloatsWidth, m_initialLetterClearGap }
         , { !m_line.isHangingTrailingContentWhitespace(), m_line.hangingTrailingContentWidth() }
         , { computedVisualOrder(m_line), inlineBaseDirection }
         , { isFirstFormattedLine() ? LayoutResult::IsFirstLast::FirstFormattedLine::WithinIFC : LayoutResult::IsFirstLast::FirstFormattedLine::No, isLastLine }
@@ -388,6 +376,7 @@ void LineBuilder::initialize(const InlineRect& initialLineLogicalRect, const Use
     m_wrapOpportunityList.clear();
     m_overflowingLogicalWidth = { };
     m_partialLeadingTextItem = { };
+    m_initialLetterClearGap = { };
 
     auto createLineSpanningInlineBoxes = [&] {
         auto isRootLayoutBox = [&](auto& elementBox) {
@@ -477,7 +466,7 @@ LineContent LineBuilder::placeInlineAndFloatContent(const InlineItemRange& needs
     size_t placedInlineItemCount = 0;
 
     auto layoutInlineAndFloatContent = [&] {
-        auto lineCandidate = LineCandidate { layoutState().shouldIgnoreTrailingLetterSpacing() };
+        auto lineCandidate = LineCandidate { };
         auto inlineContentBreaker = InlineContentBreaker { intrinsicWidthMode() };
 
         auto currentItemIndex = needsLayoutRange.startIndex();
@@ -992,19 +981,16 @@ std::optional<LineBuilder::InitialLetterOffsets> LineBuilder::adjustLineRectForI
 {
     auto drop = floatBox.style().initialLetterDrop();
     auto isInitialLetter = floatBox.isFloatingPositioned() && floatBox.style().styleType() == PseudoId::FirstLetter && drop;
-    if (!isInitialLetter) {
-        inlineLayoutState().setClearGapBeforeFirstLine({ });
+    if (!isInitialLetter)
         return { };
-    }
+
     // Here we try to set the vertical start position for the float in flush with the adjoining text content's cap height.
     // It's a super premature as at this point we don't normally deal with vertical geometry -other than the incoming vertical constraint.
     auto initialLetterCapHeightOffset = formattingContext().formattingQuirks().initialLetterAlignmentOffset(floatBox, rootStyle());
     // While initial-letter based floats do not set their clear property, intrusive floats from sibling IFCs are supposed to be cleared.
     auto intrusiveBottom = blockLayoutState().intrusiveInitialLetterLogicalBottom();
-    if (!initialLetterCapHeightOffset && !intrusiveBottom) {
-        inlineLayoutState().setClearGapBeforeFirstLine({ });
+    if (!initialLetterCapHeightOffset && !intrusiveBottom)
         return { };
-    }
 
     auto clearGapBeforeFirstLine = InlineLayoutUnit { };
     if (intrusiveBottom) {
@@ -1033,7 +1019,9 @@ std::optional<LineBuilder::InitialLetterOffsets> LineBuilder::adjustLineRectForI
     }
 
     m_lineLogicalRect.moveVertically(clearGapBeforeFirstLine);
-    inlineLayoutState().setClearGapBeforeFirstLine(clearGapBeforeFirstLine);
+    // There should never be multiple initial letters.
+    ASSERT(!m_initialLetterClearGap);
+    m_initialLetterClearGap = clearGapBeforeFirstLine;
     return InitialLetterOffsets { initialLetterCapHeightOffset.value_or(0_lu), sunkenBelowFirstLineOffset };
 }
 
@@ -1122,6 +1110,7 @@ bool LineBuilder::tryPlacingFloatBox(const Box& floatBox, MayOverConstrainLine m
 
     auto placeFloatBox = [&] {
         auto floatItem = floatingContext.toFloatItem(floatBox, boxGeometry);
+        // FIXME: Maybe FloatingContext should be able to preserve FloatItems and the caller should mutate the FloatingState instead.
         floatingState().append(floatItem);
         m_placedFloats.append(floatItem);
     };
@@ -1418,11 +1407,6 @@ InlineLayoutUnit LineBuilder::horizontalAlignmentOffset(bool isLastLine) const
 const ElementBox& LineBuilder::root() const
 {
     return formattingContext().root();
-}
-
-const LayoutState& LineBuilder::layoutState() const
-{
-    return formattingContext().layoutState();
 }
 
 const RenderStyle& LineBuilder::rootStyle() const
