@@ -365,7 +365,7 @@ void ChromeClientHaiku::scrollContainingScrollViewsToRevealRect(const IntRect&) 
     // NOTE: Used for example to make the view scroll with the mouse when selecting.
 }
 
-void ChromeClientHaiku::mouseDidMoveOverElement(const WebCore::HitTestResult& result, unsigned int, const WTF::String& tip, WebCore::TextDirection)
+void ChromeClientHaiku::mouseDidMoveOverElement(const WebCore::HitTestResult& result, OptionSet<PlatformEventModifier>, const WTF::String& tip, WebCore::TextDirection)
 {
     TextDirection dir;
     if (result.absoluteLinkURL() != lastHoverURL

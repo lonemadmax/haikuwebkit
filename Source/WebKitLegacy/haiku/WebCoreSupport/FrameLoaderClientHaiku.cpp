@@ -508,7 +508,7 @@ void FrameLoaderClientHaiku::dispatchDecidePolicyForResponse(
     // we need to call directly here
     if (!response.isAttachment() && canShowMIMEType(response.mimeType())) {
         function(PolicyAction::Use, identifier);
-    } else if (!request.url().isLocalFile() && response.mimeType() != ASCIILiteral::fromLiteralUnsafe("application/x-shockwave-flash")) {
+    } else if (!request.url().protocolIsFile() && response.mimeType() != ASCIILiteral::fromLiteralUnsafe("application/x-shockwave-flash")) {
         function(PolicyAction::Download, identifier);
     } else {
         function(PolicyAction::Ignore, identifier);
